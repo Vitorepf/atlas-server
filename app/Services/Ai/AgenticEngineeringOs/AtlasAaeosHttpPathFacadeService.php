@@ -67,8 +67,9 @@ final class AtlasAaeosHttpPathFacadeService
         private readonly ?MissionDetectionService $missionDetection,
         private readonly CacheRepository $cache,
         private readonly ?AaeosDeferredPhaseDispatcherService $deferredDispatcher = null,
+        ?AaeosHttpPathEnvelopeFactory $envelopeFactory = null,
     ) {
-        $this->envelopeFactory = new AaeosHttpPathEnvelopeFactory($handoff);
+        $this->envelopeFactory = $envelopeFactory ?? new AaeosHttpPathEnvelopeFactory($handoff);
     }
 
     /**
@@ -165,7 +166,7 @@ final class AtlasAaeosHttpPathFacadeService
             $policyEnv = $factory->policyGate($intentId, $intentHash, $data);
             $envelopes[] = $policyEnv;
 
-            $advance = AaeosHttpPathEnvelopeFactory::phaseAdvanceVerdict($policyEnv);
+            $advance = $factory->phaseAdvanceVerdict($policyEnv);
             if (in_array($advance['verdict'] ?? '', ['halt', 'block'], true)) {
                 $this->incrementCounter(self::TELEMETRY_KEY_BLOCKED);
 

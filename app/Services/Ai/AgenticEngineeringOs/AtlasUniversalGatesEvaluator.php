@@ -205,7 +205,7 @@ final class AtlasUniversalGatesEvaluator
         ?DeliveryPackCompletenessScorer $scorer = null,
         float $minRatio = 0.95,
     ): bool {
-        return ($scorer ?? new DeliveryPackCompletenessScorer)->passesMin($composition, $minRatio);
+        return ($scorer ?? $this->deliveryPackCompleteness)->passesMin($composition, $minRatio);
     }
 
     /**

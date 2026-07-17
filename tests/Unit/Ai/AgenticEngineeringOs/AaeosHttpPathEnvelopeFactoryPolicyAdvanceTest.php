@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\AgenticEngineeringOs;
 
 use App\Services\Ai\AgenticEngineeringOs\AaeosHttpPathEnvelopeFactory;
+use App\Services\Ai\AgenticEngineeringOs\AaeosPhaseHandoffService;
 use Tests\TestCase;
 
 /**
@@ -13,6 +14,14 @@ use Tests\TestCase;
  */
 final class AaeosHttpPathEnvelopeFactoryPolicyAdvanceTest extends TestCase
 {
+    private AaeosHttpPathEnvelopeFactory $factory;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->factory = new AaeosHttpPathEnvelopeFactory(new AaeosPhaseHandoffService);
+    }
+
     public function test_policy_gate_blocked_when_classifier_halts(): void
     {
         $envelope = [
@@ -25,8 +34,8 @@ final class AaeosHttpPathEnvelopeFactoryPolicyAdvanceTest extends TestCase
             'blockers' => [],
         ];
 
-        self::assertTrue(AaeosHttpPathEnvelopeFactory::policyGateBlocked($envelope));
-        self::assertSame('halt', AaeosHttpPathEnvelopeFactory::phaseAdvanceVerdict($envelope)['verdict']);
+        self::assertTrue($this->factory->policyGateBlocked($envelope));
+        self::assertSame('halt', $this->factory->phaseAdvanceVerdict($envelope)['verdict']);
     }
 
     public function test_policy_gate_blocked_when_high_severity_blocker(): void
@@ -43,8 +52,8 @@ final class AaeosHttpPathEnvelopeFactoryPolicyAdvanceTest extends TestCase
             ],
         ];
 
-        self::assertTrue(AaeosHttpPathEnvelopeFactory::policyGateBlocked($envelope));
-        self::assertSame('block', AaeosHttpPathEnvelopeFactory::phaseAdvanceVerdict($envelope)['verdict']);
+        self::assertTrue($this->factory->policyGateBlocked($envelope));
+        self::assertSame('block', $this->factory->phaseAdvanceVerdict($envelope)['verdict']);
     }
 
     public function test_policy_gate_not_blocked_when_decision_token_passed(): void
@@ -59,7 +68,7 @@ final class AaeosHttpPathEnvelopeFactoryPolicyAdvanceTest extends TestCase
             'blockers' => [],
         ];
 
-        self::assertFalse(AaeosHttpPathEnvelopeFactory::policyGateBlocked($envelope));
-        self::assertSame('advance', AaeosHttpPathEnvelopeFactory::phaseAdvanceVerdict($envelope)['verdict']);
+        self::assertFalse($this->factory->policyGateBlocked($envelope));
+        self::assertSame('advance', $this->factory->phaseAdvanceVerdict($envelope)['verdict']);
     }
 }

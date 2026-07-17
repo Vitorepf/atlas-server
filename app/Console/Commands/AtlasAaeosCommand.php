@@ -252,11 +252,9 @@ final class AtlasAaeosCommand extends Command
 
     private function emit(mixed $payload, bool $json): void
     {
-        if ($json) {
-            $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-
-            return;
-        }
+        // --json is currently the same pretty provider-safe encoding; flag kept
+        // for callers/docs that already pass it.
+        unset($json);
         $this->line((string) json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 

@@ -17,7 +17,10 @@ final class AaeosHttpPathEnvelopeFactory
 
     public const RISK_BAND_R3_PLUS = 'r3_plus';
 
-    public function __construct(private readonly AaeosPhaseHandoffService $handoff) {}
+    public function __construct(
+        private readonly AaeosPhaseHandoffService $handoff,
+        private readonly PhaseAdvanceVerdictClassifier $phaseAdvance = new PhaseAdvanceVerdictClassifier,
+    ) {}
 
     /**
      * @return array<string,mixed>
@@ -301,9 +304,9 @@ final class AaeosHttpPathEnvelopeFactory
      *
      * @param  array<string,mixed>  $policyEnvelope
      */
-    public static function policyGateBlocked(array $policyEnvelope): bool
+    public function policyGateBlocked(array $policyEnvelope): bool
     {
-        $verdict = (new PhaseAdvanceVerdictClassifier())->classify($policyEnvelope)['verdict'] ?? '';
+        $verdict = $this->phaseAdvance->classify($policyEnvelope)['verdict'] ?? '';
 
         return in_array($verdict, ['halt', 'block'], true);
     }
@@ -319,9 +322,9 @@ final class AaeosHttpPathEnvelopeFactory
      *     high_blocker_ids: list<string>
      * }
      */
-    public static function phaseAdvanceVerdict(array $phaseEnvelope): array
+    public function phaseAdvanceVerdict(array $phaseEnvelope): array
     {
-        return (new PhaseAdvanceVerdictClassifier())->classify($phaseEnvelope);
+        return $this->phaseAdvance->classify($phaseEnvelope);
     }
 
     /**
