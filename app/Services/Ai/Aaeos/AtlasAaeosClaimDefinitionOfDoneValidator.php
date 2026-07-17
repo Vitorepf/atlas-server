@@ -174,11 +174,9 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
 
     private function normalize(mixed $value): string
     {
-        if (! is_string($value)) {
-            return '';
-        }
+        $normalized = AiValueNormalizer::trimmedStringOrNull($value);
 
-        return AiValueNormalizer::lowerTrimmedString($value);
+        return $normalized === null ? '' : AiValueNormalizer::lowerTrimmedString($normalized);
     }
 
     /**
@@ -186,9 +184,7 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
      */
     private function echoSubject(array $claim): string
     {
-        $subject = $claim['subject'] ?? null;
-
-        return is_string($subject) ? $subject : '';
+        return AiValueNormalizer::trimmedStringOrNull($claim['subject'] ?? null) ?? '';
     }
 
     /**

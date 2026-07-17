@@ -2220,6 +2220,27 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only memory feedback decay contract thresholds.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function memoryFeedbackDecayContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => MemoryFeedbackDecayScorer::SCHEMA_VERSION,
+            'hard_stale_age_days' => 180,
+            'soft_stale_age_days' => 45,
+            'default_base_priority' => 50,
+            'archive_stale_feedback_threshold' => 2,
+            'inactivate_negative_threshold' => 3,
+            'inactivate_health_ceiling' => 40,
+            'degrade_health_ceiling' => 60,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

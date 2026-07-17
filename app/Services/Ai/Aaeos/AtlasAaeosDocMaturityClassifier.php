@@ -134,12 +134,12 @@ final class AtlasAaeosDocMaturityClassifier
     private function strength(array $sections, string $key): string
     {
         $raw = $sections[$key] ?? self::STRENGTH_NONE;
-
-        if (! is_string($raw)) {
+        $value = AiValueNormalizer::trimmedStringOrNull($raw);
+        if ($value === null) {
             return self::STRENGTH_NONE;
         }
 
-        $value = AiValueNormalizer::lowerTrimmedString($raw);
+        $value = AiValueNormalizer::lowerTrimmedString($value);
 
         if ($value === self::STRENGTH_STRONG) {
             return self::STRENGTH_STRONG;

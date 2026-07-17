@@ -1627,4 +1627,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(3, $payload['kill_gate_consecutive_failures']);
         $this->assertTrue($payload['supports_lifecycle_reset']);
     }
+
+    public function test_memory_feedback_decay_contract_observe_reports_thresholds(): void
+    {
+        $payload = $this->svc->memoryFeedbackDecayContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.memory_feedback_decay.v1', $payload['schema_version']);
+        $this->assertSame(180, $payload['hard_stale_age_days']);
+        $this->assertSame(45, $payload['soft_stale_age_days']);
+        $this->assertSame(60, $payload['degrade_health_ceiling']);
+    }
 }

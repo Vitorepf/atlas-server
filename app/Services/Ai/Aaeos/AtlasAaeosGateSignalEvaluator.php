@@ -307,10 +307,6 @@ final class AtlasAaeosGateSignalEvaluator
 
     private function stringOrNull(mixed $value): ?string
     {
-        if (! is_string($value)) {
-            return null;
-        }
-
         return AiValueNormalizer::trimmedStringOrNull($value);
     }
 

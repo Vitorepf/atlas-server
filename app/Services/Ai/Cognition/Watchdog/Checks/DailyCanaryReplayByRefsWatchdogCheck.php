@@ -157,11 +157,8 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
 
         foreach ($entries as $entry) {
             foreach (AiValueNormalizer::arrayOrEmpty($entry['delivered_refs'] ?? null) as $ref) {
-                if (! is_string($ref)) {
-                    continue;
-                }
-                $ref = trim($ref);
-                if ($ref === '') {
+                $ref = AiValueNormalizer::trimmedStringOrNull($ref);
+                if ($ref === null) {
                     continue;
                 }
                 $total++;
