@@ -9,6 +9,14 @@ use App\Services\Ai\Support\AiValueNormalizer;
 final class AtlasAaeosDepartmentQualityBarLevelClassifier
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.quality_bar_level.v1';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_DEPARTMENT_ID = 'department_id';
+    public const FIELD_ACHIEVED_LEVEL = 'achieved_level';
+    public const FIELD_ACHIEVED_BAND_INDEX = 'achieved_band_index';
+    public const FIELD_HIGHEST_EVALUABLE_LEVEL = 'highest_evaluable_level';
+    public const FIELD_ALL_BANDS_SATISFIED = 'all_bands_satisfied';
+    public const FIELD_NEXT_LEVEL = 'next_level';
+    public const FIELD_PROMOTION_BLOCKED = 'promotion_blocked';
 
     /**
      * Deterministically classify a department against a caller-supplied, lowest-first
@@ -47,14 +55,14 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
 
         if ($bands === []) {
             return $this->sortByKey([
-                'schema_version' => self::SCHEMA_VERSION,
-                'department_id' => $departmentId,
-                'achieved_level' => null,
-                'achieved_band_index' => -1,
-                'highest_evaluable_level' => null,
-                'all_bands_satisfied' => false,
-                'next_level' => null,
-                'promotion_blocked' => false,
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+                self::FIELD_DEPARTMENT_ID => $departmentId,
+                self::FIELD_ACHIEVED_LEVEL => null,
+                self::FIELD_ACHIEVED_BAND_INDEX => -1,
+                self::FIELD_HIGHEST_EVALUABLE_LEVEL => null,
+                self::FIELD_ALL_BANDS_SATISFIED => false,
+                self::FIELD_NEXT_LEVEL => null,
+                self::FIELD_PROMOTION_BLOCKED => false,
                 'binding_breaches' => [],
                 'evaluated_bands' => 0,
                 'evaluated_metrics' => $evaluatedMetrics,
@@ -89,14 +97,14 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
         }
 
         return $this->sortByKey([
-            'schema_version' => self::SCHEMA_VERSION,
-            'department_id' => $departmentId,
-            'achieved_level' => $achievedLevel,
-            'achieved_band_index' => $achievedBandIndex,
-            'highest_evaluable_level' => $bands[count($bands) - 1]['level'],
-            'all_bands_satisfied' => $allBandsSatisfied,
-            'next_level' => $nextLevel,
-            'promotion_blocked' => $bindingBreaches !== [],
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_DEPARTMENT_ID => $departmentId,
+            self::FIELD_ACHIEVED_LEVEL => $achievedLevel,
+            self::FIELD_ACHIEVED_BAND_INDEX => $achievedBandIndex,
+            self::FIELD_HIGHEST_EVALUABLE_LEVEL => $bands[count($bands) - 1]['level'],
+            self::FIELD_ALL_BANDS_SATISFIED => $allBandsSatisfied,
+            self::FIELD_NEXT_LEVEL => $nextLevel,
+            self::FIELD_PROMOTION_BLOCKED => $bindingBreaches !== [],
             'binding_breaches' => $bindingBreaches,
             // CONTRATO CONGELADO (teste de 01/06): evaluated_bands = total de
             // bandas do CONTRATO avaliado (consistente com highest_evaluable_

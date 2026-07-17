@@ -4457,4 +4457,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['embedding_coverage_thesis_floor_count']);
     }
 
+    public function test_dept_level_evidence_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->deptLevelEvidenceFloorsContractObserve([]);
+
+        $this->assertSame('schema_version', $payload['dept_level_field_schema_version']);
+        $this->assertSame('department_id', $payload['dept_level_field_department_id']);
+        $this->assertSame('earned_level', $payload['dept_level_field_earned_level']);
+        $this->assertSame('earned_level_index', $payload['dept_level_field_earned_level_index']);
+        $this->assertSame('highest_band_offered', $payload['dept_level_field_highest_band_offered']);
+        $this->assertSame('all_bands_satisfied', $payload['dept_level_field_all_bands_satisfied']);
+        $this->assertSame('achieved_level', $payload['quality_level_field_achieved_level']);
+        $this->assertSame('achieved_band_index', $payload['quality_level_field_achieved_band_index']);
+        $this->assertSame('highest_evaluable_level', $payload['quality_level_field_highest_evaluable_level']);
+        $this->assertSame('next_level', $payload['quality_level_field_next_level']);
+        $this->assertSame('promotion_blocked', $payload['quality_level_field_promotion_blocked']);
+        $this->assertSame('symbol', $payload['evidence_field_symbol']);
+        $this->assertSame('test', $payload['evidence_field_test']);
+        $this->assertSame('class', $payload['evidence_field_class']);
+        $this->assertSame('method', $payload['evidence_field_method']);
+        $this->assertSame('names', $payload['evidence_field_names']);
+        $this->assertSame('paths', $payload['evidence_field_paths']);
+        $this->assertSame(17, $payload['dept_level_evidence_floor_count']);
+    }
+
 }

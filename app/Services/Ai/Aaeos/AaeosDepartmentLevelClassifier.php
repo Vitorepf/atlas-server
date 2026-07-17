@@ -9,6 +9,14 @@ use App\Services\Ai\Support\AiValueNormalizer;
 final class AaeosDepartmentLevelClassifier
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.department_level_classification.v1';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_DEPARTMENT_ID = 'department_id';
+    public const FIELD_EARNED_LEVEL = 'earned_level';
+    public const FIELD_EARNED_LEVEL_INDEX = 'earned_level_index';
+    public const FIELD_HIGHEST_BAND_OFFERED = 'highest_band_offered';
+    public const FIELD_ALL_BANDS_SATISFIED = 'all_bands_satisfied';
+    public const FIELD_CAPPING_METRIC = 'capping_metric';
+    public const FIELD_MISSING_METRICS = 'missing_metrics';
 
     /**
      * Deterministically walk a caller-supplied (bottom-up ordered) band ladder and
@@ -37,14 +45,14 @@ final class AaeosDepartmentLevelClassifier
 
         if ($bands === []) {
             return $this->sortByKey([
-                'schema_version' => self::SCHEMA_VERSION,
-                'department_id' => $departmentId,
-                'earned_level' => null,
-                'earned_level_index' => -1,
-                'highest_band_offered' => '',
-                'all_bands_satisfied' => false,
-                'capping_metric' => null,
-                'missing_metrics' => [],
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+                self::FIELD_DEPARTMENT_ID => $departmentId,
+                self::FIELD_EARNED_LEVEL => null,
+                self::FIELD_EARNED_LEVEL_INDEX => -1,
+                self::FIELD_HIGHEST_BAND_OFFERED => '',
+                self::FIELD_ALL_BANDS_SATISFIED => false,
+                self::FIELD_CAPPING_METRIC => null,
+                self::FIELD_MISSING_METRICS => [],
                 'evaluated_bands' => [],
             ]);
         }
@@ -106,14 +114,14 @@ final class AaeosDepartmentLevelClassifier
         $allBandsSatisfied = $earnedLevelIndex === count($bands) - 1;
 
         return $this->sortByKey([
-            'schema_version' => self::SCHEMA_VERSION,
-            'department_id' => $departmentId,
-            'earned_level' => $earnedLevel,
-            'earned_level_index' => $earnedLevelIndex,
-            'highest_band_offered' => $highestBandOffered,
-            'all_bands_satisfied' => $allBandsSatisfied,
-            'capping_metric' => $cappingMetric,
-            'missing_metrics' => AtlasAaeosStringListNormalizer::uniqueSortedStrings($missingMetrics),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_DEPARTMENT_ID => $departmentId,
+            self::FIELD_EARNED_LEVEL => $earnedLevel,
+            self::FIELD_EARNED_LEVEL_INDEX => $earnedLevelIndex,
+            self::FIELD_HIGHEST_BAND_OFFERED => $highestBandOffered,
+            self::FIELD_ALL_BANDS_SATISFIED => $allBandsSatisfied,
+            self::FIELD_CAPPING_METRIC => $cappingMetric,
+            self::FIELD_MISSING_METRICS => AtlasAaeosStringListNormalizer::uniqueSortedStrings($missingMetrics),
             'evaluated_bands' => $evaluatedBands,
         ]);
     }

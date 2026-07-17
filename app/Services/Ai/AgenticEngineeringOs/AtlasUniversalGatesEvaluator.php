@@ -6069,6 +6069,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function deptLevelEvidenceFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'dept_level_field_schema_version' => AaeosDepartmentLevelClassifier::FIELD_SCHEMA_VERSION,
+            'dept_level_field_department_id' => AaeosDepartmentLevelClassifier::FIELD_DEPARTMENT_ID,
+            'dept_level_field_earned_level' => AaeosDepartmentLevelClassifier::FIELD_EARNED_LEVEL,
+            'dept_level_field_earned_level_index' => AaeosDepartmentLevelClassifier::FIELD_EARNED_LEVEL_INDEX,
+            'dept_level_field_highest_band_offered' => AaeosDepartmentLevelClassifier::FIELD_HIGHEST_BAND_OFFERED,
+            'dept_level_field_all_bands_satisfied' => AaeosDepartmentLevelClassifier::FIELD_ALL_BANDS_SATISFIED,
+            'quality_level_field_achieved_level' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_ACHIEVED_LEVEL,
+            'quality_level_field_achieved_band_index' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_ACHIEVED_BAND_INDEX,
+            'quality_level_field_highest_evaluable_level' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_HIGHEST_EVALUABLE_LEVEL,
+            'quality_level_field_next_level' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_NEXT_LEVEL,
+            'quality_level_field_promotion_blocked' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_PROMOTION_BLOCKED,
+            'evidence_field_symbol' => AtlasAaeosImplementationEvidenceResolver::FIELD_SYMBOL,
+            'evidence_field_test' => AtlasAaeosImplementationEvidenceResolver::FIELD_TEST,
+            'evidence_field_class' => AtlasAaeosImplementationEvidenceResolver::FIELD_CLASS,
+            'evidence_field_method' => AtlasAaeosImplementationEvidenceResolver::FIELD_METHOD,
+            'evidence_field_names' => AtlasAaeosImplementationEvidenceResolver::FIELD_NAMES,
+            'evidence_field_paths' => AtlasAaeosImplementationEvidenceResolver::FIELD_PATHS,
+            'dept_level_evidence_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

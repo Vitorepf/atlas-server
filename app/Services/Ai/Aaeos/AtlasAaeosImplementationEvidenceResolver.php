@@ -44,6 +44,14 @@ class AtlasAaeosImplementationEvidenceResolver
     public const SIGNATURE_MATCH_TYPES = ['route', 'cli_command', 'migration_table'];
 
     public const STATUS_ACTIVE = 'active';
+    public const FIELD_SYMBOL = 'symbol';
+    public const FIELD_TEST = 'test';
+    public const FIELD_CLASS = 'class';
+    public const FIELD_METHOD = 'method';
+    public const FIELD_NAMES = 'names';
+    public const FIELD_PATHS = 'paths';
+    public const FIELD_TYPES = 'types';
+    public const FIELD_SIG = 'sig';
 
     /**
      * The active Code Intelligence index, loaded ONCE per request and matched in PHP. Stored
@@ -244,12 +252,12 @@ class AtlasAaeosImplementationEvidenceResolver
         }
 
         return [
-            'names' => $names,
-            'paths' => $paths,
-            'types' => $types,
-            'sig' => $sig,
-            'symbol' => $symbol,
-            'test' => $test,
+            self::FIELD_NAMES => $names,
+            self::FIELD_PATHS => $paths,
+            self::FIELD_TYPES => $types,
+            self::FIELD_SIG => $sig,
+            self::FIELD_SYMBOL => $symbol,
+            self::FIELD_TEST => $test,
             'byType' => $byType,
         ];
     }
@@ -263,10 +271,10 @@ class AtlasAaeosImplementationEvidenceResolver
         $ref = $this->evidenceRefNormalizer->ref($ref);
 
         $matched = $ref === '' ? null : match ($kind) {
-            'symbol' => $this->matchSymbol($ref),
+            self::FIELD_SYMBOL => $this->matchSymbol($ref),
             'route' => $this->matchTyped('route', $ref),
             'command' => $this->matchTyped('cli_command', $ref),
-            'test' => $this->matchTest($ref),
+            self::FIELD_TEST => $this->matchTest($ref),
             'receipt' => $this->matchReceipt($ref),
             'migration' => $this->matchTyped('migration_table', $ref),
             default => null,
@@ -289,8 +297,8 @@ class AtlasAaeosImplementationEvidenceResolver
     private function matchSymbol(string $ref): ?string
     {
         $index = $this->index();
-        $names = $index['names'];
-        foreach ($index['symbol'] as $offset) {
+        $names = $index[self::FIELD_NAMES];
+        foreach ($index[self::FIELD_SYMBOL] as $offset) {
             if ($this->symbolNameMatchesRef($names[$offset], $ref)) {
                 return $names[$offset];
             }
@@ -334,10 +342,10 @@ class AtlasAaeosImplementationEvidenceResolver
         }
 
         $index = $this->index();
-        $names = $index['names'];
-        $pathCol = $index['paths'];
+        $names = $index[self::FIELD_NAMES];
+        $pathCol = $index[self::FIELD_PATHS];
         $paths = [];
-        foreach ($index['symbol'] as $offset) {
+        foreach ($index[self::FIELD_SYMBOL] as $offset) {
             if ($names[$offset] !== $matched) {
                 continue;
             }
@@ -378,12 +386,12 @@ class AtlasAaeosImplementationEvidenceResolver
         // matching `test_method` row. First match within a group preserves value()'s
         // take-the-first-row semantics over the load-once index.
         $index = $this->index();
-        $names = $index['names'];
-        $pathCol = $index['paths'];
-        $typeCol = $index['types'];
+        $names = $index[self::FIELD_NAMES];
+        $pathCol = $index[self::FIELD_PATHS];
+        $typeCol = $index[self::FIELD_TYPES];
         $classPath = null;
         $methodPath = null;
-        foreach ($index['test'] as $offset) {
+        foreach ($index[self::FIELD_TEST] as $offset) {
             if ($pathCol[$offset] === '') {
                 continue; // mirrors whereNotNull('file_path')
             }
@@ -405,7 +413,7 @@ class AtlasAaeosImplementationEvidenceResolver
      * fully-qualified name so the PHPUnit --filter can be anchored to the DECLARED
      * class and never match a same-named method in a different class.
      *
-     * Returns the resolved ['class' => FQN, 'method' => ?string]:
+     * Returns the resolved [self::FIELD_CLASS => FQN, self::FIELD_METHOD => ?string]:
      *   - 'Class::method' -> the indexed FQ class + that method (most specific).
      *   - 'Class'         -> the indexed FQ class, method null (run the class).
      * Returns null when the ref does NOT resolve to a real indexed Class/Class::method
@@ -444,7 +452,7 @@ class AtlasAaeosImplementationEvidenceResolver
             return null;
         }
 
-        return ['class' => $fqn, 'method' => $method];
+        return [self::FIELD_CLASS => $fqn, self::FIELD_METHOD => $method];
     }
 
     /**
@@ -476,8 +484,8 @@ class AtlasAaeosImplementationEvidenceResolver
         // before over the class rows; the prior `LIKE '%classRef'` was a prefilter that the
         // boundary check already implies.
         $index = $this->index();
-        $names = $index['names'];
-        foreach ($index['byType']['class'] ?? [] as $offset) {
+        $names = $index[self::FIELD_NAMES];
+        foreach ($index['byType'][self::FIELD_CLASS] ?? [] as $offset) {
             $name = $names[$offset];
             if ($name === $classRef || str_ends_with($name, '\\'.$classRef)) {
                 return $name;
@@ -508,7 +516,7 @@ class AtlasAaeosImplementationEvidenceResolver
         // sequence — order does not affect the answer.
         $shortClass = str_contains($classFqn, '\\') ? substr($classFqn, (int) strrpos($classFqn, '\\') + 1) : $classFqn;
         $index = $this->index();
-        $names = $index['names'];
+        $names = $index[self::FIELD_NAMES];
         foreach (['test_method', 'method'] as $type) {
             foreach ($index['byType'][$type] ?? [] as $offset) {
                 $name = $names[$offset];
@@ -532,8 +540,8 @@ class AtlasAaeosImplementationEvidenceResolver
     private function matchTyped(string $symbolType, string $ref): ?string
     {
         $index = $this->index();
-        $names = $index['names'];
-        $sig = $index['sig'];
+        $names = $index[self::FIELD_NAMES];
+        $sig = $index[self::FIELD_SIG];
         foreach ($index['byType'][$symbolType] ?? [] as $offset) {
             if (str_contains($names[$offset], $ref) || str_contains($sig[$offset] ?? '', $ref)) {
                 return $names[$offset];
@@ -555,8 +563,8 @@ class AtlasAaeosImplementationEvidenceResolver
     private function matchTest(string $ref): ?string
     {
         $index = $this->index();
-        $names = $index['names'];
-        foreach ($index['test'] as $offset) {
+        $names = $index[self::FIELD_NAMES];
+        foreach ($index[self::FIELD_TEST] as $offset) {
             if (str_contains($names[$offset], $ref) && str_contains($names[$offset], 'Test')) {
                 return $names[$offset];
             }
