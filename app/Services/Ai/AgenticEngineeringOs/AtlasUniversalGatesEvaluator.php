@@ -4665,6 +4665,40 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: remaining published but previously unwired status/basis/handoff floors —
+     * no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function unobservedStatusBasisHandoffFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'attempt_reason_task_or_attempt_unresolvable' => AttemptLifecycleLedger::REASON_TASK_OR_ATTEMPT_UNRESOLVABLE,
+            'attempt_reason_attempt_missing' => AttemptLifecycleLedger::REASON_ATTEMPT_MISSING,
+            'attempt_reason_invalid_terminal_state' => AttemptLifecycleLedger::REASON_INVALID_TERMINAL_STATE,
+            'composed_task_status_failed' => ComposedObraArcLifecycle::TASK_STATUS_FAILED,
+            'composed_task_status_landed' => ComposedObraArcLifecycle::TASK_STATUS_LANDED,
+            'composed_reason_arc_not_found' => ComposedObraArcLifecycle::REASON_ARC_NOT_FOUND,
+            'esp09_trigger_decision_kind' => Esp09IndependentChallengerService::TRIGGER_DECISION_KIND,
+            'esp09_trigger_high_operator_alignment' => Esp09IndependentChallengerService::TRIGGER_HIGH_OPERATOR_ALIGNMENT,
+            'esp09_reason_challenger_not_required' => Esp09IndependentChallengerService::REASON_CHALLENGER_NOT_REQUIRED,
+            'bets_basis_evidence_turned_positive' => ExploratoryBetsPortfolio::BASIS_EVIDENCE_TURNED_POSITIVE,
+            'bets_basis_proven_negative_effect' => ExploratoryBetsPortfolio::BASIS_PROVEN_NEGATIVE_EFFECT,
+            'bets_decision_kind_continuation_gate' => ExploratoryBetsPortfolio::DECISION_KIND_CONTINUATION_GATE,
+            'obra_lesson_status_pending_review' => AcosMaxObraRetroService::LESSON_STATUS_PENDING_REVIEW,
+            'obra_slice_state_refutado' => AcosMaxObraRetroService::SLICE_STATE_REFUTADO,
+            'evidence_thesis_reason_not_active' => EvidenceVisionThesisLifecycle::REASON_THESIS_NOT_ACTIVE,
+            'evidence_thesis_death_ttl_expired' => EvidenceVisionThesisLifecycle::DEATH_REASON_TTL_EXPIRED,
+            'choreography_handoff_kind_delegation' => AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_DELEGATION,
+            'choreography_handoff_kind_escalation' => AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_ESCALATION,
+            'immune_trust_band_unclassified' => CognitiveImmunePromotionGateEvaluator::TRUST_BAND_UNCLASSIFIED,
+            'numeric_relation_touching' => NumericRangeOverlapContradictionDetector::RELATION_TOUCHING,
+            'unobserved_status_basis_handoff_floor_count' => 20,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

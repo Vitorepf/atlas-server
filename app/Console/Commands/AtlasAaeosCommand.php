@@ -236,6 +236,7 @@ final class AtlasAaeosCommand extends Command
         {--golden-pareto-scorer-maxa04-floors-contract= : JSON file (any object) to observe golden/pareto/scorer/maxa04 floors}
         {--parallel-procedural-watchdog-residual-floors-contract= : JSON file (any object) to observe parallel/procedural/watchdog residual floors}
         {--lote2-decomposer-redaction-unobserved-floors-contract= : JSON file (any object) to observe lote2/decomposer/redaction + previously unobserved floors}
+        {--unobserved-status-basis-handoff-floors-contract= : JSON file (any object) to observe remaining published but unwired status/basis/handoff floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -628,6 +629,7 @@ final class AtlasAaeosCommand extends Command
             ['golden-pareto-scorer-maxa04-floors-contract', 'golden_pareto_scorer_maxa04_floors_contract', fn (array $p) => $gates->goldenParetoScorerMaxa04FloorsContractObserve($p)],
             ['parallel-procedural-watchdog-residual-floors-contract', 'parallel_procedural_watchdog_residual_floors_contract', fn (array $p) => $gates->parallelProceduralWatchdogResidualFloorsContractObserve($p)],
             ['lote2-decomposer-redaction-unobserved-floors-contract', 'lote2_decomposer_redaction_unobserved_floors_contract', fn (array $p) => $gates->lote2DecomposerRedactionUnobservedFloorsContractObserve($p)],
+            ['unobserved-status-basis-handoff-floors-contract', 'unobserved_status_basis_handoff_floors_contract', fn (array $p) => $gates->unobservedStatusBasisHandoffFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

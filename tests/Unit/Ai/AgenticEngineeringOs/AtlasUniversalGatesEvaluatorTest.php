@@ -3149,4 +3149,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(20, $payload['lote2_decomposer_redaction_unobserved_floor_count']);
     }
 
+    public function test_unobserved_status_basis_handoff_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->unobservedStatusBasisHandoffFloorsContractObserve([]);
+
+        $this->assertSame('attempt_missing', $payload['attempt_reason_attempt_missing']);
+        $this->assertSame('failed', $payload['composed_task_status_failed']);
+        $this->assertSame('landed', $payload['composed_task_status_landed']);
+        $this->assertSame('decision_kind', $payload['esp09_trigger_decision_kind']);
+        $this->assertSame('evidence_turned_positive', $payload['bets_basis_evidence_turned_positive']);
+        $this->assertSame('exploratory_bet_continuation_gate', $payload['bets_decision_kind_continuation_gate']);
+        $this->assertSame('pending_review', $payload['obra_lesson_status_pending_review']);
+        $this->assertSame('ttl_expired', $payload['evidence_thesis_death_ttl_expired']);
+        $this->assertSame('delegation', $payload['choreography_handoff_kind_delegation']);
+        $this->assertSame('unclassified', $payload['immune_trust_band_unclassified']);
+        $this->assertSame('touching', $payload['numeric_relation_touching']);
+        $this->assertSame(20, $payload['unobserved_status_basis_handoff_floor_count']);
+    }
+
 }
