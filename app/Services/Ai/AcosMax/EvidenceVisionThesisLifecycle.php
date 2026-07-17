@@ -13,6 +13,8 @@ final class EvidenceVisionThesisLifecycle
 {
     public const SCHEMA_VERSION = 'atlas.originator.evidence_vision_thesis_lifecycle.v1';
 
+    public const DEFAULT_CONSECUTIVE_WINDOWS = 2;
+
     /** @var array<string,array<string,mixed>> */
     private static array $active = [];
 
@@ -160,7 +162,7 @@ final class EvidenceVisionThesisLifecycle
     private static function seriesRecoveryMet(array $thesis, array $seriesWindows, array $criterion): bool
     {
         $threshold = AiValueNormalizer::finiteFloatOrNull($criterion['threshold'] ?? null) ?? 0.0;
-        $need = max(2, (int) (AiValueNormalizer::finiteFloatOrNull($criterion['consecutive_windows'] ?? null) ?? 2));
+        $need = max(self::DEFAULT_CONSECUTIVE_WINDOWS, (int) (AiValueNormalizer::finiteFloatOrNull($criterion['consecutive_windows'] ?? null) ?? self::DEFAULT_CONSECUTIVE_WINDOWS));
         $refs = AiValueNormalizer::arrayOrEmpty($thesis['evidence'] ?? null);
         $series = '';
         $stage = 'default';

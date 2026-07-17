@@ -533,8 +533,8 @@ final class AtlasUniversalGatesEvaluator
         }
 
         $events = AiValueNormalizer::arrayOrEmpty($input['events'] ?? null);
-        $minWindows = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['min_windows'] ?? null) ?? 2));
-        $minPerWindow = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['min_per_window'] ?? null) ?? 2));
+        $minWindows = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['min_windows'] ?? null) ?? Esp09IndependentChallengerService::DEFAULT_MIN_WINDOWS));
+        $minPerWindow = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['min_per_window'] ?? null) ?? Esp09IndependentChallengerService::DEFAULT_MIN_PER_WINDOW));
 
         /** @var list<array<string,mixed>> $events */
         return Esp09IndependentChallengerService::refutationSeries($events, $minWindows, $minPerWindow);
@@ -3890,6 +3890,30 @@ final class AtlasUniversalGatesEvaluator
             'esp09_default_min_windows' => Esp09IndependentChallengerService::DEFAULT_MIN_WINDOWS,
             'esp09_default_min_per_window' => Esp09IndependentChallengerService::DEFAULT_MIN_PER_WINDOW,
             'long_horizon_gate_floor_count' => 11,
+        ];
+    }
+
+    /**
+     * Observe-only ledger-rotation + predicted-impact + vision consecutive floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function ledgerRotationImpactFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ledger_rotation_default_max_size_mb' => AcosMaxLedgerRotationRegistry::DEFAULT_MAX_SIZE_MB,
+            'ledger_rotation_default_max_age_days' => AcosMaxLedgerRotationRegistry::DEFAULT_MAX_AGE_DAYS,
+            'predicted_impact_schema' => PredictedImpactBand::SCHEMA_VERSION,
+            'predicted_impact_default_rank_fallback' => PredictedImpactBand::DEFAULT_RANK_FALLBACK,
+            'predicted_impact_rank_top_cutoff' => PredictedImpactBand::RANK_TOP_CUTOFF,
+            'predicted_impact_yield_sweet_floor' => PredictedImpactBand::YIELD_SWEET_FLOOR,
+            'predicted_impact_high_score_floor' => PredictedImpactBand::HIGH_SCORE_FLOOR,
+            'predicted_impact_sweet_score_floor' => PredictedImpactBand::SWEET_SCORE_FLOOR,
+            'evidence_vision_lifecycle_schema' => EvidenceVisionThesisLifecycle::SCHEMA_VERSION,
+            'evidence_vision_consecutive_windows' => EvidenceVisionThesisLifecycle::DEFAULT_CONSECUTIVE_WINDOWS,
+            'ledger_rotation_impact_floor_count' => 10,
         ];
     }
 

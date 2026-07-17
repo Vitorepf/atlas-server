@@ -2669,4 +2669,21 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(2, $payload['esp09_default_min_per_window']);
         $this->assertSame(11, $payload['long_horizon_gate_floor_count']);
     }
+
+    public function test_ledger_rotation_impact_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->ledgerRotationImpactFloorsContractObserve([]);
+
+        $this->assertSame(32, $payload['ledger_rotation_default_max_size_mb']);
+        $this->assertSame(30, $payload['ledger_rotation_default_max_age_days']);
+        $this->assertSame('atlas.originator.predicted_impact_band.v1', $payload['predicted_impact_schema']);
+        $this->assertSame(99, $payload['predicted_impact_default_rank_fallback']);
+        $this->assertSame(3, $payload['predicted_impact_rank_top_cutoff']);
+        $this->assertSame(0.5, $payload['predicted_impact_yield_sweet_floor']);
+        $this->assertSame(4, $payload['predicted_impact_high_score_floor']);
+        $this->assertSame(2, $payload['predicted_impact_sweet_score_floor']);
+        $this->assertSame('atlas.originator.evidence_vision_thesis_lifecycle.v1', $payload['evidence_vision_lifecycle_schema']);
+        $this->assertSame(2, $payload['evidence_vision_consecutive_windows']);
+        $this->assertSame(10, $payload['ledger_rotation_impact_floor_count']);
+    }
 }

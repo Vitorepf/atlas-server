@@ -25,6 +25,10 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AcosMaxLedgerRotationRegistry
 {
+    public const DEFAULT_MAX_SIZE_MB = 32;
+
+    public const DEFAULT_MAX_AGE_DAYS = 30;
+
     /** @var array<string,array{max_size_mb:int,max_age_days:int,mode:string,rationale:string}> */
     private array $policies;
 
@@ -363,8 +367,8 @@ final class AcosMaxLedgerRotationRegistry
                 $mode = 'rotate_hybrid';
             }
             $normalized[$seriesKey] = [
-                'max_size_mb' => max(1, (int) (AiValueNormalizer::finiteFloatOrNull($policy['max_size_mb'] ?? null) ?? 32)),
-                'max_age_days' => max(1, (int) (AiValueNormalizer::finiteFloatOrNull($policy['max_age_days'] ?? null) ?? 30)),
+            'max_size_mb' => max(1, (int) (AiValueNormalizer::finiteFloatOrNull($policy['max_size_mb'] ?? null) ?? self::DEFAULT_MAX_SIZE_MB)),
+            'max_age_days' => max(1, (int) (AiValueNormalizer::finiteFloatOrNull($policy['max_age_days'] ?? null) ?? self::DEFAULT_MAX_AGE_DAYS)),
                 'mode' => $mode,
                 'rationale' => AiValueNormalizer::trimmedStringOrNull($policy['rationale'] ?? null) ?? '',
             ];

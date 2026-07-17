@@ -213,6 +213,7 @@ final class AtlasAaeosCommand extends Command
         {--resource-budget-host-floors-contract= : JSON file (any object) to observe resource-budget host/engine floor defaults}
         {--verified-share-procedural-floors-contract= : JSON file (any object) to observe verified-share + procedural + n-capture floor defaults}
         {--long-horizon-gate-floors-contract= : JSON file (any object) to observe long-horizon gate + ESP-09 refutation floor defaults}
+        {--ledger-rotation-impact-floors-contract= : JSON file (any object) to observe ledger-rotation + predicted-impact + vision consecutive floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -582,6 +583,7 @@ final class AtlasAaeosCommand extends Command
             ['resource-budget-host-floors-contract', 'resource_budget_host_floors_contract', fn (array $p) => $gates->resourceBudgetHostFloorsContractObserve($p)],
             ['verified-share-procedural-floors-contract', 'verified_share_procedural_floors_contract', fn (array $p) => $gates->verifiedShareProceduralFloorsContractObserve($p)],
             ['long-horizon-gate-floors-contract', 'long_horizon_gate_floors_contract', fn (array $p) => $gates->longHorizonGateFloorsContractObserve($p)],
+            ['ledger-rotation-impact-floors-contract', 'ledger_rotation_impact_floors_contract', fn (array $p) => $gates->ledgerRotationImpactFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

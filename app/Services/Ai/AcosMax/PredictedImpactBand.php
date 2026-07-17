@@ -16,6 +16,16 @@ final class PredictedImpactBand
     /** @var list<string> */
     public const BANDS = ['low', 'sweet', 'high'];
 
+    public const DEFAULT_RANK_FALLBACK = 99;
+
+    public const RANK_TOP_CUTOFF = 3;
+
+    public const YIELD_SWEET_FLOOR = 0.5;
+
+    public const HIGH_SCORE_FLOOR = 4;
+
+    public const SWEET_SCORE_FLOOR = 2;
+
     /**
      * @param  array<string,mixed>  $candidate
      * @return array<string,mixed>
@@ -23,12 +33,12 @@ final class PredictedImpactBand
     public static function classify(array $candidate): array
     {
         $rung = AiValueNormalizer::lowerTrimmedString($candidate['rung'] ?? 'task');
-        $rank = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($candidate['rank'] ?? null) ?? 99));
+        $rank = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($candidate['rank'] ?? null) ?? self::DEFAULT_RANK_FALLBACK));
         $yield = AiValueNormalizer::clampUnit(AiValueNormalizer::finiteFloatOrNull($candidate['path_yield'] ?? null) ?? 0.0);
-        $score = (self::RUNG_WEIGHT[$rung] ?? 0) + ($rank <= 3 ? 1 : 0) + ($yield >= 0.5 ? 1 : 0);
+        $score = (self::RUNG_WEIGHT[$rung] ?? 0) + ($rank <= self::RANK_TOP_CUTOFF ? 1 : 0) + ($yield >= self::YIELD_SWEET_FLOOR ? 1 : 0);
         $band = match (true) {
-            $score >= 4 => 'high',
-            $score >= 2 => 'sweet',
+            $score >= self::HIGH_SCORE_FLOOR => 'high',
+            $score >= self::SWEET_SCORE_FLOOR => 'sweet',
             default => 'low',
         };
 
