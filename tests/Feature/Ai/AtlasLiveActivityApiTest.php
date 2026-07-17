@@ -2,10 +2,11 @@
 
 namespace Tests\Feature\Ai;
 
+use App\Models\AiStreamEvent;
+use App\Models\AiThread;
 use App\Models\AiTrace;
 use App\Models\AtlasLiveActivityPushToken;
 use App\Models\AtlasLiveActivityStartToken;
-use App\Models\AiStreamEvent;
 use App\Services\Ai\Mobile\AtlasLiveActivityPushService;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Http\Client\Request as HttpRequest;
@@ -28,6 +29,7 @@ class AtlasLiveActivityApiTest extends TestCase
         Schema::dropIfExists('atlas_live_activity_push_tokens');
         Schema::dropIfExists('atlas_live_activity_start_tokens');
         Schema::dropIfExists('ai_traces');
+        Schema::dropIfExists('ai_threads');
 
         parent::tearDown();
     }
@@ -217,8 +219,113 @@ class AtlasLiveActivityApiTest extends TestCase
         });
     }
 
+    public function test_it_lists_live_sessions_for_an_installation_using_provider_safe_presence_shape(): void
+    {
+        $thread = AiThread::query()->create([
+            'title' => 'Sessão ativa',
+            'status' => 'active',
+        ]);
+        $trace = AiTrace::query()->create([
+            'trace_key' => 'mobile:live-session',
+            'thread_id' => $thread->id,
+            'source_type' => 'terminal',
+            'status' => 'running',
+            'operator_input' => 'segredo prompt',
+            'intent' => 'test',
+            'agent_slug' => 'atlas',
+            'metadata' => [
+                'presentation_state' => [
+                    'phase_title' => 'Executando ferramenta',
+                    'timer' => [
+                        'timing' => 'running',
+                        'elapsed_active_ms' => 7000,
+                        'running_since' => '2026-07-17T04:00:00+00:00',
+                    ],
+                ],
+            ],
+        ]);
+        AtlasLiveActivityPushToken::query()->create([
+            'trace_id' => $trace->id,
+            'activity_id' => 'activity-live',
+            'installation_id' => 'install-1234567890',
+            'push_token' => 'live-token',
+            'push_token_hash' => hash('sha256', 'live-token'),
+            'environment' => 'sandbox',
+            'status' => 'active',
+            'started_at' => '2026-07-17T04:00:00Z',
+            'frequent_updates_enabled' => true,
+        ]);
+
+        $terminalTrace = AiTrace::query()->create([
+            'trace_key' => 'mobile:done-session',
+            'status' => 'completed',
+            'operator_input' => 'terminal secret',
+            'intent' => 'test',
+            'agent_slug' => 'atlas',
+        ]);
+        AtlasLiveActivityPushToken::query()->create([
+            'trace_id' => $terminalTrace->id,
+            'activity_id' => 'activity-terminal-active-token',
+            'installation_id' => 'install-1234567890',
+            'push_token' => 'terminal-token',
+            'push_token_hash' => hash('sha256', 'terminal-token'),
+            'environment' => 'sandbox',
+            'status' => 'active',
+            'started_at' => '2026-07-17T03:00:00Z',
+            'frequent_updates_enabled' => true,
+        ]);
+        AtlasLiveActivityPushToken::query()->create([
+            'trace_id' => $trace->id,
+            'activity_id' => 'activity-ended',
+            'installation_id' => 'install-1234567890',
+            'push_token' => 'ended-token',
+            'push_token_hash' => hash('sha256', 'ended-token'),
+            'environment' => 'sandbox',
+            'status' => 'ended',
+            'started_at' => '2026-07-17T03:30:00Z',
+            'frequent_updates_enabled' => true,
+        ]);
+        AtlasLiveActivityPushToken::query()->create([
+            'trace_id' => $trace->id,
+            'activity_id' => 'activity-other-install',
+            'installation_id' => 'install-other-123456',
+            'push_token' => 'other-token',
+            'push_token_hash' => hash('sha256', 'other-token'),
+            'environment' => 'sandbox',
+            'status' => 'active',
+            'started_at' => '2026-07-17T04:00:00Z',
+            'frequent_updates_enabled' => true,
+        ]);
+
+        $response = $this
+            ->withHeader('X-Atlas-Token', 'testing-atlas-token-with-enough-length')
+            ->getJson('/ai/sessions/live?installation=install-1234567890')
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.ai.sessions.live.v1')
+            ->assertJsonPath('count', 1)
+            ->assertJsonPath('sessions.0.thread_id', $thread->id)
+            ->assertJsonPath('sessions.0.title', 'Sessão ativa')
+            ->assertJsonPath('sessions.0.phase_title', 'Executando ferramenta')
+            ->assertJsonPath('sessions.0.timing', 'running')
+            ->assertJsonPath('sessions.0.elapsed_active_ms', 7000)
+            ->assertJsonPath('sessions.0.running_since', '2026-07-17T04:00:00+00:00')
+            ->assertJsonMissing(['push_token'])
+            ->assertJsonMissing(['trace_id' => $trace->id]);
+
+        $this->assertStringNotContainsString('segredo prompt', $response->getContent());
+        $this->assertStringNotContainsString('terminal secret', $response->getContent());
+    }
+
     private function createTables(): void
     {
+        Schema::create('ai_threads', function (Blueprint $table): void {
+            $table->uuid('id')->primary();
+            $table->string('title')->nullable();
+            $table->string('status')->default('active');
+            $table->json('metadata')->nullable();
+            $table->timestamps();
+        });
+
         Schema::create('ai_traces', function (Blueprint $table): void {
             $table->uuid('id')->primary();
             $table->string('trace_key')->nullable();

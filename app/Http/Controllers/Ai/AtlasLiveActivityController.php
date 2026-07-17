@@ -18,6 +18,35 @@ use Illuminate\Http\Request;
  */
 class AtlasLiveActivityController extends Controller
 {
+    private const LIVE_SESSIONS_SCHEMA = 'atlas.ai.sessions.live.v1';
+
+    /** Active, provider-safe presentation sessions known for one installation. */
+    public function liveSessions(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'installation' => ['required', 'string', 'min:16', 'max:128'],
+        ]);
+
+        $sessions = AtlasLiveActivityPushToken::query()
+            ->with(['trace.thread'])
+            ->where('installation_id', $data['installation'])
+            ->where('status', 'active')
+            ->orderByDesc('started_at')
+            ->limit(20)
+            ->get()
+            ->map(fn (AtlasLiveActivityPushToken $registration): ?array => $this->liveSessionReceipt($registration))
+            ->filter()
+            ->values()
+            ->all();
+
+        return response()->json([
+            'schema_version' => self::LIVE_SESSIONS_SCHEMA,
+            'count' => count($sessions),
+            'sessions' => $sessions,
+            'generated_at' => now()->toJSON(),
+        ]);
+    }
+
     public function storeStartToken(Request $request): JsonResponse
     {
         $data = $request->validate([
@@ -123,5 +152,60 @@ class AtlasLiveActivityController extends Controller
             'activity_id' => $registration->activity_id,
             'status' => $registration->status,
         ];
+    }
+
+    /** @return array{thread_id:?string,title:?string,phase_title:?string,timing:?string,elapsed_active_ms:?int,running_since:?string}|null */
+    private function liveSessionReceipt(AtlasLiveActivityPushToken $registration): ?array
+    {
+        $trace = $registration->trace;
+        if (! $trace || in_array($trace->status, ['succeeded', 'completed', 'failed', 'cancelled'], true)) {
+            return null;
+        }
+
+        $metadata = is_array($trace->metadata) ? $trace->metadata : [];
+        $presentation = data_get($metadata, 'presentation_state');
+        $presentation = is_array($presentation) ? $presentation : [];
+        $timer = data_get($presentation, 'timer');
+        $timer = is_array($timer) ? $timer : [];
+
+        return [
+            'thread_id' => $trace->thread_id,
+            'title' => $this->shortString($trace->thread?->title ?? data_get($metadata, 'thread_title')),
+            'phase_title' => $this->shortString(
+                data_get($presentation, 'phase_title')
+                ?? data_get($presentation, 'phaseTitle')
+                ?? data_get($presentation, 'title')
+            ),
+            'timing' => $this->timerTiming(data_get($timer, 'timing')),
+            'elapsed_active_ms' => $this->nonNegativeInt(data_get($timer, 'elapsed_active_ms')),
+            'running_since' => $this->shortString(data_get($timer, 'running_since'), 80),
+        ];
+    }
+
+    private function shortString(mixed $value, int $limit = 160): ?string
+    {
+        if (! is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+
+        return $value === '' ? null : mb_substr($value, 0, $limit);
+    }
+
+    private function timerTiming(mixed $value): ?string
+    {
+        return is_string($value) && in_array($value, ['running', 'paused', 'finished'], true)
+            ? $value
+            : null;
+    }
+
+    private function nonNegativeInt(mixed $value): ?int
+    {
+        if (! is_int($value) && ! is_float($value) && ! is_numeric($value)) {
+            return null;
+        }
+
+        return max(0, (int) $value);
     }
 }

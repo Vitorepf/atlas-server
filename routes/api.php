@@ -477,6 +477,7 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/atlas/celestial/positions', [AtlasConstelacaoController::class, 'positions']);
 
     Route::get('/ai/interactions', [AiInteractionController::class, 'index']);
+    Route::get('/ai/sessions/live', [\App\Http\Controllers\Ai\AtlasLiveActivityController::class, 'liveSessions']);
     Route::post('/ai/live-activities', [\App\Http\Controllers\Ai\AtlasLiveActivityController::class, 'store']);
     Route::post('/ai/live-activities/start-tokens', [\App\Http\Controllers\Ai\AtlasLiveActivityController::class, 'storeStartToken']);
     Route::post('/ai/live-activities/{activityId}/invalidate', [\App\Http\Controllers\Ai\AtlasLiveActivityController::class, 'invalidate']);
