@@ -8,7 +8,7 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AtlasDebugRootCauseService
 {
-    private const SERVICE_VERSION = 'atlas.aaeos.debug.root_cause.v1';
+    public const SERVICE_VERSION = 'atlas.aaeos.debug.root_cause.v1';
 
     public function getVersion(): string
     {
@@ -31,6 +31,6 @@ final class AtlasDebugRootCauseService
             return 'no_data';
         }
 
-        return AiValueNormalizer::trimmedString($context['suspected_cause'] ?? 'unknown') ?: 'unknown';
+        return AiValueNormalizer::trimmedStringOrNull($context['suspected_cause'] ?? null) ?? 'unknown';
     }
 }

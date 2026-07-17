@@ -2005,4 +2005,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.aaeos.department_maturity.v1', $payload['department_maturity_schema']);
         $this->assertSame('atlas-ai', $payload['department_maturity_owner']);
     }
+
+    public function test_watchdog_health_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->watchdogHealthFloorsContractObserve([]);
+
+        $this->assertSame('atlas.memory.quality_check.v1', $payload['memory_quality_schema']);
+        $this->assertSame(5, $payload['memory_score_regression_tolerance']);
+        $this->assertSame(48, $payload['memory_snapshot_max_age_hours']);
+        $this->assertSame(0.35, $payload['memory_concentration_floor']);
+        $this->assertSame(0.5, $payload['rag_coverage_floor']);
+        $this->assertSame(0.85, $payload['rag_recall_at_5_floor']);
+        $this->assertSame(168, $payload['feedback_window_hours']);
+        $this->assertSame(10, $payload['feedback_total_event_floor']);
+        $this->assertSame(50, $payload['compaction_min_receipts']);
+        $this->assertSame(0.95, $payload['compaction_min_retention_score']);
+        $this->assertSame(7, $payload['eng_window_days']);
+        $this->assertSame(20, $payload['eng_min_forge_promoted_cycles']);
+        $this->assertContains('ok', $payload['watchdog_statuses']);
+        $this->assertSame(5, $payload['watchdog_status_count']);
+        $this->assertSame('atlas.aaeos.debug.root_cause.v1', $payload['debug_root_cause_version']);
+        $this->assertSame('atlas.aaeos.quality_bar_level.v1', $payload['quality_bar_level_schema']);
+        $this->assertSame('atlas.acos_max.obra_retro.v1', $payload['obra_retro_schema']);
+        $this->assertStringContainsString('scoreboard', $payload['obra_retro_scoreboard_path']);
+    }
 }

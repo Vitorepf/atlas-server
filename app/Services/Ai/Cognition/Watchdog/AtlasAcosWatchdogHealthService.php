@@ -37,51 +37,51 @@ final class AtlasAcosWatchdogHealthService
 
     public const ENGINEERING_READINESS_SCHEMA = 'atlas.engineering.enforce_readiness.v1';
 
-    private const MEMORY_SCORE_REGRESSION_TOLERANCE = 5;
+    public const MEMORY_SCORE_REGRESSION_TOLERANCE = 5;
 
-    private const MEMORY_SNAPSHOT_MAX_AGE_HOURS = 48;
+    public const MEMORY_SNAPSHOT_MAX_AGE_HOURS = 48;
 
-    private const MEMORY_CONCENTRATION_FLOOR = 0.35;
+    public const MEMORY_CONCENTRATION_FLOOR = 0.35;
 
-    private const LEARNING_NEGATIVE_MAX_AGE_HOURS = 168;
+    public const LEARNING_NEGATIVE_MAX_AGE_HOURS = 168;
 
-    private const LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS = 48;
+    public const LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS = 48;
 
-    private const LEARNING_AI_RUN_OUTCOME_MAX_AGE_HOURS = 72;
+    public const LEARNING_AI_RUN_OUTCOME_MAX_AGE_HOURS = 72;
 
-    private const RAG_COVERAGE_FLOOR = 0.5;
+    public const RAG_COVERAGE_FLOOR = 0.5;
 
-    private const RAG_RETRIEVAL_EVAL_FLOOR = 95;
+    public const RAG_RETRIEVAL_EVAL_FLOOR = 95;
 
-    private const RAG_RECALL_AT_5_FLOOR = 0.85;
+    public const RAG_RECALL_AT_5_FLOOR = 0.85;
 
-    private const RAG_PRE_FILTER_CONCENTRATION_MASK_FLOOR = 0.5;
+    public const RAG_PRE_FILTER_CONCENTRATION_MASK_FLOOR = 0.5;
 
-    private const FEEDBACK_WINDOW_HOURS = 168;
+    public const FEEDBACK_WINDOW_HOURS = 168;
 
-    private const FEEDBACK_TOTAL_EVENT_FLOOR = 10;
+    public const FEEDBACK_TOTAL_EVENT_FLOOR = 10;
 
-    private const FEEDBACK_MEASURED_COUNT_FLOOR = 3;
+    public const FEEDBACK_MEASURED_COUNT_FLOOR = 3;
 
-    private const FEEDBACK_SYNTHETIC_SHARE_MAX = 0.10;
+    public const FEEDBACK_SYNTHETIC_SHARE_MAX = 0.10;
 
-    private const COMPACTION_WINDOW_DAYS = 14;
+    public const COMPACTION_WINDOW_DAYS = 14;
 
-    private const COMPACTION_MIN_RECEIPTS = 50;
+    public const COMPACTION_MIN_RECEIPTS = 50;
 
-    private const COMPACTION_MIN_RETENTION_SCORE = 0.95;
+    public const COMPACTION_MIN_RETENTION_SCORE = 0.95;
 
-    private const LIFT_STALLED_DAYS = 7;
+    public const LIFT_STALLED_DAYS = 7;
 
-    private const PIPELINE_PARTIAL_STALE_DAYS = 7;
+    public const PIPELINE_PARTIAL_STALE_DAYS = 7;
 
-    private const ENG_WINDOW_DAYS = 7;
+    public const ENG_WINDOW_DAYS = 7;
 
-    private const ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR = 1;
+    public const ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR = 1;
 
-    private const ENG_MIN_FORGE_PROMOTED_CYCLES = 20;
+    public const ENG_MIN_FORGE_PROMOTED_CYCLES = 20;
 
-    private const ENG_MIN_ADML_PROVEN_ROUTES = 3;
+    public const ENG_MIN_ADML_PROVEN_ROUTES = 3;
 
     /**
      * @param  array<string,mixed>  $filters

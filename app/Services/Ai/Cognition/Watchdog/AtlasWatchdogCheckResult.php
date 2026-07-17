@@ -19,7 +19,7 @@ final readonly class AtlasWatchdogCheckResult
     public const STATUS_ERROR = 'error';
 
     /** @var list<string> */
-    private const STATUSES = [
+    public const STATUSES = [
         self::STATUS_OK,
         self::STATUS_WARNING,
         self::STATUS_ALERT,

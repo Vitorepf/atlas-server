@@ -41,6 +41,9 @@ use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use App\Services\Ai\Cognition\AtlasOperationalVolumeCheckService;
 use App\Services\Ai\Cognition\CaptureHmacLineageService;
 use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
+use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
+use App\Services\Ai\AcosMax\AcosMaxObraRetroService;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
 use App\Services\Ai\Cognition\AtlasAcosRollbackTriggerCheckService;
 use App\Services\Ai\Cognition\AtlasAcosLongHorizonGateService;
@@ -2819,6 +2822,40 @@ final class AtlasUniversalGatesEvaluator
             'scorecard_status_points' => AtlasCognitionScoreCardService::STATUS_POINTS,
             'department_maturity_schema' => AtlasAaeosDepartmentMaturityService::SCHEMA_VERSION,
             'department_maturity_owner' => AtlasAaeosDepartmentMaturityService::OWNER,
+        ];
+    }
+
+    /**
+     * Observe-only ACOS watchdog health floors + check statuses.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function watchdogHealthFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'memory_quality_schema' => AtlasAcosWatchdogHealthService::MEMORY_QUALITY_SCHEMA,
+            'context_feedback_schema' => AtlasAcosWatchdogHealthService::CONTEXT_FEEDBACK_SCHEMA,
+            'compaction_soak_schema' => AtlasAcosWatchdogHealthService::COMPACTION_SOAK_SCHEMA,
+            'engineering_readiness_schema' => AtlasAcosWatchdogHealthService::ENGINEERING_READINESS_SCHEMA,
+            'memory_score_regression_tolerance' => AtlasAcosWatchdogHealthService::MEMORY_SCORE_REGRESSION_TOLERANCE,
+            'memory_snapshot_max_age_hours' => AtlasAcosWatchdogHealthService::MEMORY_SNAPSHOT_MAX_AGE_HOURS,
+            'memory_concentration_floor' => AtlasAcosWatchdogHealthService::MEMORY_CONCENTRATION_FLOOR,
+            'rag_coverage_floor' => AtlasAcosWatchdogHealthService::RAG_COVERAGE_FLOOR,
+            'rag_recall_at_5_floor' => AtlasAcosWatchdogHealthService::RAG_RECALL_AT_5_FLOOR,
+            'feedback_window_hours' => AtlasAcosWatchdogHealthService::FEEDBACK_WINDOW_HOURS,
+            'feedback_total_event_floor' => AtlasAcosWatchdogHealthService::FEEDBACK_TOTAL_EVENT_FLOOR,
+            'compaction_min_receipts' => AtlasAcosWatchdogHealthService::COMPACTION_MIN_RECEIPTS,
+            'compaction_min_retention_score' => AtlasAcosWatchdogHealthService::COMPACTION_MIN_RETENTION_SCORE,
+            'eng_window_days' => AtlasAcosWatchdogHealthService::ENG_WINDOW_DAYS,
+            'eng_min_forge_promoted_cycles' => AtlasAcosWatchdogHealthService::ENG_MIN_FORGE_PROMOTED_CYCLES,
+            'watchdog_statuses' => AtlasWatchdogCheckResult::STATUSES,
+            'watchdog_status_count' => count(AtlasWatchdogCheckResult::STATUSES),
+            'debug_root_cause_version' => AtlasDebugRootCauseService::SERVICE_VERSION,
+            'quality_bar_level_schema' => AtlasAaeosDepartmentQualityBarLevelClassifier::SCHEMA_VERSION,
+            'obra_retro_schema' => AcosMaxObraRetroService::SCHEMA_VERSION,
+            'obra_retro_scoreboard_path' => AcosMaxObraRetroService::SCOREBOARD_RELATIVE_PATH,
         ];
     }
 

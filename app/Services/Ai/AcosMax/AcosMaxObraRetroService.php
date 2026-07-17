@@ -14,7 +14,7 @@ final class AcosMaxObraRetroService
 
     public const SERIES_TAG = 'obra:acos-max';
 
-    private const SCOREBOARD_RELATIVE_PATH = 'docs/engineering-knowledge-base/atlas-acos-max-execution-scoreboard-v1.md';
+    public const SCOREBOARD_RELATIVE_PATH = 'docs/engineering-knowledge-base/atlas-acos-max-execution-scoreboard-v1.md';
 
     public function __construct(
         private readonly AtlasEngineeringOutcomeRecorder $outcomes,

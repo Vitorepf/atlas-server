@@ -8,7 +8,7 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AtlasAaeosDepartmentQualityBarLevelClassifier
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.quality_bar_level.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.quality_bar_level.v1';
 
     /**
      * Deterministically classify a department against a caller-supplied, lowest-first
