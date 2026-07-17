@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * AP-810 / LHL-11 — Cycle Quality Score.
@@ -395,15 +396,8 @@ final class CycleQualityScoreService
         if (is_bool($value)) {
             return $value ? 1.0 : 0.0;
         }
-        $f = (float) $value;
-        if ($f < 0.0) {
-            return 0.0;
-        }
-        if ($f > 1.0) {
-            return 1.0;
-        }
 
-        return $f;
+        return AiValueNormalizer::clampUnit((float) $value);
     }
 
     /** Round to 4 decimals so the weighted sum is deterministic across platforms. */

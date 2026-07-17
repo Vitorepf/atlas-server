@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Pure, deterministic budget allocator for brain-originator batches.
  *
@@ -285,6 +287,6 @@ final class AtlasExternalBrainStructuralLeverageBudgetAllocator
 
     private function clamp(mixed $v): float
     {
-        return max(0.0, min(1.0, (float) $v));
+        return AiValueNormalizer::clampUnit((float) $v);
     }
 }

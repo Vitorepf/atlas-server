@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AtomicBacklog;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; ver triagem 2026-07-06)
  */
@@ -232,6 +234,6 @@ final class LearningLiftAttributionScorer
 
     private function clampZeroToOne(float $value): float
     {
-        return max(0.0, min(1.0, $value));
+        return AiValueNormalizer::clampUnit($value);
     }
 }

@@ -134,6 +134,7 @@ final class AtlasAaeosCommand extends Command
         {--phase-signature-l4= : JSON file (any object) to observe phases requiring L4 signature}
         {--blocker-severity-levels= : JSON file (any object) to observe AAEOS blocker severity levels}
         {--scope-high-risks= : JSON file (any object) to observe SelfConstruction high-risk classes}
+        {--architect-spec-catalogue= : JSON file (any object) to observe architect spec-pack catalogue}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -424,6 +425,7 @@ final class AtlasAaeosCommand extends Command
             ['phase-signature-l4', 'phase_signature_l4', fn (array $p) => $gates->phaseSignatureL4Observe($p)],
             ['blocker-severity-levels', 'blocker_severity_levels', fn (array $p) => $gates->blockerSeverityLevelsObserve($p)],
             ['scope-high-risks', 'scope_high_risks', fn (array $p) => $gates->scopeHighRisksObserve($p)],
+            ['architect-spec-catalogue', 'architect_spec_catalogue', fn (array $p) => $gates->architectSpecCatalogueObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

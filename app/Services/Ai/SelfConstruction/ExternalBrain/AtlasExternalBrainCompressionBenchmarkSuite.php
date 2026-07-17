@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Proof-backed benchmark gate: scores a compression candidate across five measurable quality
  * floors — line reduction, behavior preservation, test strength, rollback readiness, and
@@ -70,6 +72,6 @@ final class AtlasExternalBrainCompressionBenchmarkSuite
 
     private function clamp(float $score): float
     {
-        return max(0.0, min(1.0, $score));
+        return AiValueNormalizer::clampUnit($score);
     }
 }

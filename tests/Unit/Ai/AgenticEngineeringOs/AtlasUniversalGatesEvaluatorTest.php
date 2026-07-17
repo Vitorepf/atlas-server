@@ -1429,4 +1429,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(count($payload['high_risks']), $payload['count']);
         $this->assertSame(0.3, $payload['max_failure_rate']);
     }
+
+    public function test_architect_spec_catalogue_observe_reports_catalogue(): void
+    {
+        $payload = $this->svc->architectSpecCatalogueObserve([]);
+
+        $this->assertSame('atlas.aaeos.architect_agent_spec_pack_gate.v1', $payload['schema_version']);
+        $this->assertContains('acceptance_criteria', $payload['required_spec_pack_artifacts']);
+        $this->assertContains('adr_published', $payload['gates']);
+        $this->assertSame(count($payload['required_spec_pack_artifacts']), $payload['artifact_count']);
+        $this->assertSame('R4', $payload['min_autonomous_risk_scope']);
+    }
 }

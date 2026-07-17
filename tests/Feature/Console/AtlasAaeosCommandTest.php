@@ -2078,6 +2078,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_architect_spec_catalogue(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-asc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-asc',
+                '--architect-spec-catalogue' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"architect_spec_catalogue"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * High-leverage miner: turns raw entropy, hotspot, duplicate, reachability, and proof-debt facts
  * into a ranked list of compression candidates instead of a hand-invented refactor wishlist.
@@ -106,6 +108,6 @@ final class AtlasExternalBrainCompressionOpportunityMiner
 
     private function clamp(float $score): float
     {
-        return max(0.0, min(1.0, $score));
+        return AiValueNormalizer::clampUnit($score);
     }
 }

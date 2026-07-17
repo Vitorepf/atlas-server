@@ -1828,6 +1828,26 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only architect-agent spec-pack artefact/gate catalogue.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function architectSpecCatalogueObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => ArchitectAgentSpecPackGateContract::SCHEMA,
+            'required_spec_pack_artifacts' => ArchitectAgentSpecPackGateContract::REQUIRED_SPEC_PACK_ARTIFACTS,
+            'gates' => ArchitectAgentSpecPackGateContract::GATES,
+            'artifact_count' => count(ArchitectAgentSpecPackGateContract::REQUIRED_SPEC_PACK_ARTIFACTS),
+            'gate_count' => count(ArchitectAgentSpecPackGateContract::GATES),
+            'min_autonomous_risk_scope' => ArchitectAgentSpecPackGateContract::MIN_AUTONOMOUS_RISK_SCOPE,
+            'operator_signature_required_from' => ArchitectAgentSpecPackGateContract::OPERATOR_SIGNATURE_REQUIRED_FROM,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>
