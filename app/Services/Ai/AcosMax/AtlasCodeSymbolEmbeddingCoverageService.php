@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
 
@@ -158,8 +159,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             'formula_version' => self::FORMULA_VERSION,
             'generated_at' => now('UTC')->toIso8601String(),
             'freeze' => $freeze,
-            'status' => $status,
-            'reason' => $reason,
+            'status' => AiValueNormalizer::trimmedString($status),
+            'reason' => AiValueNormalizer::trimmedString($reason),
             'denominator_min' => (int) $freeze['denominator_min'],
             'aggregate' => $this->emptyAggregate(),
         ];

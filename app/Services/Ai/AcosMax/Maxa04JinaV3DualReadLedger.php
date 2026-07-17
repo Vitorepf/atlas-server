@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AcosMax;
 
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Throwable;
 
 final class Maxa04JinaV3DualReadLedger
@@ -35,7 +36,11 @@ final class Maxa04JinaV3DualReadLedger
 
     private function resolvedPath(): string
     {
-        return $this->path
-            ?? (string) config('atlas.semantic_memory.jina_v3_dual_read_ledger_path', storage_path(self::RELATIVE_PATH));
+        $configured = AiValueNormalizer::trimmedString(
+            $this->path
+                ?? config('atlas.semantic_memory.jina_v3_dual_read_ledger_path', storage_path(self::RELATIVE_PATH)),
+        );
+
+        return $configured !== '' ? $configured : storage_path(self::RELATIVE_PATH);
     }
 }

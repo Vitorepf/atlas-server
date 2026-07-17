@@ -30,6 +30,7 @@ use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
 use App\Services\Ai\AcosMax\EvidenceVisionThesisComposer;
 use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
+use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -905,6 +906,18 @@ final class AtlasUniversalGatesEvaluator
             'band_count' => count($normalized),
             'ladder' => $normalized,
         ];
+    }
+
+    /**
+     * Observe-only KB embedding coverage ruler (MAXA-06 fase 1).
+     * Accepts optional empty object; runs the read-only report. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function kbEmbeddingCoverageObserve(array $input = []): array
+    {
+        return (new AtlasKnowledgeItemEmbeddingCoverageService)->report();
     }
 
     /**

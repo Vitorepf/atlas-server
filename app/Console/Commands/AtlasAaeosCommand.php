@@ -83,6 +83,7 @@ final class AtlasAaeosCommand extends Command
         {--gate-signal-task-pack= : JSON file with tasks (observe-only task-pack atomicity)}
         {--gate-signal-phase= : JSON file with phaseOutputs (observe-only phase gate rollup)}
         {--threshold-ladder= : JSON file with level band ladder (observe-only normalize)}
+        {--kb-embedding-coverage= : JSON file (any object) to observe KB embedding coverage ruler}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -322,6 +323,7 @@ final class AtlasAaeosCommand extends Command
             ['gate-signal-task-pack', 'gate_signal_task_pack', fn (array $p) => $gates->gateSignalTaskPackObserve($p)],
             ['gate-signal-phase', 'gate_signal_phase', fn (array $p) => $gates->gateSignalPhaseObserve($p)],
             ['threshold-ladder', 'threshold_ladder', fn (array $p) => $gates->thresholdLadderObserve($p)],
+            ['kb-embedding-coverage', 'kb_embedding_coverage', fn (array $p) => $gates->kbEmbeddingCoverageObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

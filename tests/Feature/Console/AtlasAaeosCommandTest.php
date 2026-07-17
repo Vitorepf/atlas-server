@@ -969,6 +969,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_kb_embedding_coverage(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-kb-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-kb',
+                '--kb-embedding-coverage' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"kb_embedding_coverage"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

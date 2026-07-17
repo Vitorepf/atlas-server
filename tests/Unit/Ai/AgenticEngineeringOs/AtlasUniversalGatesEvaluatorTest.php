@@ -30,6 +30,7 @@ use App\Services\Ai\AcosMax\CitationGroundingMeter;
 use App\Services\Ai\AcosMax\ProvenanceWeightCalculator;
 use App\Services\Ai\AcosMax\RecallGapAggregator;
 use App\Services\Ai\AcosMax\BeliefCascadeReverificationPlanner;
+use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -756,5 +757,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(1, $payload['band_count']);
         $this->assertSame('green', $payload['ladder'][0]['level']);
         $this->assertSame('coverage', $payload['ladder'][0]['thresholds'][0]['metric']);
+    }
+
+    public function test_kb_embedding_coverage_observe_returns_ruler_schema(): void
+    {
+        $payload = $this->svc->kbEmbeddingCoverageObserve([]);
+
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::MEASURE_ID, $payload['measure_id']);
+        $this->assertArrayHasKey('status', $payload);
+        $this->assertArrayHasKey('aggregate', $payload);
     }
 }
