@@ -4385,4 +4385,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['ncapture_immune_coverage_floor_count']);
     }
 
+    public function test_cockpit_canary_adversarial_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->cockpitCanaryAdversarialFloorsContractObserve([]);
+
+        $this->assertSame('loops', $payload['cockpit_field_loops']);
+        $this->assertSame('funnel', $payload['cockpit_field_funnel']);
+        $this->assertSame('rollback_triggers', $payload['cockpit_field_rollback_triggers']);
+        $this->assertSame('operational_volume', $payload['cockpit_field_operational_volume']);
+        $this->assertSame('heading', $payload['cockpit_field_heading']);
+        $this->assertSame('sections', $payload['cockpit_field_sections']);
+        $this->assertSame('version', $payload['canary_field_version']);
+        $this->assertSame('metric', $payload['canary_field_metric']);
+        $this->assertSame('value', $payload['canary_field_value']);
+        $this->assertSame('floor', $payload['canary_field_floor']);
+        $this->assertSame('refs_total', $payload['canary_field_refs_total']);
+        $this->assertSame('flows_checked', $payload['canary_field_flows_checked']);
+        $this->assertSame('probe', $payload['adversarial_field_probe']);
+        $this->assertSame('violations', $payload['adversarial_field_violations']);
+        $this->assertSame('operator', $payload['adversarial_field_operator']);
+        $this->assertSame('reversal_rate', $payload['adversarial_field_reversal_rate']);
+        $this->assertSame('metrics', $payload['adversarial_field_metrics']);
+        $this->assertSame(17, $payload['cockpit_canary_adversarial_floor_count']);
+    }
+
 }

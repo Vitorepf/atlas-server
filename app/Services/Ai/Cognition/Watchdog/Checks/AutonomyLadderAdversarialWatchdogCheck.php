@@ -72,6 +72,10 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_PRIVACY_CLASS = 'privacy_class';
     public const FIELD_CEILING = 'ceiling';
     public const FIELD_REQUESTED_AUTONOMY = 'requested_autonomy';
+    public const FIELD_PROBE = 'probe';
+    public const FIELD_VIOLATIONS = 'violations';
+    public const FIELD_OPERATOR = 'operator';
+    public const FIELD_REVERSAL_RATE = 'reversal_rate';
 
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
@@ -100,13 +104,13 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             $probes[] = $this->probeShrinkNeverExceedsCeiling();
             $probes[] = $this->probeMinerIsReportOnly();
         } catch (Throwable $e) {
-            $errors[] = ['probe' => 'orchestration', self::FIELD_MESSAGE => $e->getMessage()];
+            $errors[] = [self::FIELD_PROBE => 'orchestration', self::FIELD_MESSAGE => $e->getMessage()];
         }
 
         foreach ($probes as $probe) {
             if (($probe[self::FIELD_REFUSED] ?? false) !== true) {
                 $violations[] = [
-                    'probe' => AiValueNormalizer::trimmedStringOrNull($probe[self::FIELD_ID] ?? null) ?? self::PROBE_ID_UNKNOWN,
+                    self::FIELD_PROBE => AiValueNormalizer::trimmedStringOrNull($probe[self::FIELD_ID] ?? null) ?? self::PROBE_ID_UNKNOWN,
                     self::FIELD_REASON => AiValueNormalizer::trimmedStringOrNull($probe[self::FIELD_OBSERVED] ?? null) ?? 'forgery_passed',
                 ];
             }
@@ -117,7 +121,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             'probes' => $probes,
             'probe_count' => count($probes),
             'refused_count' => count(array_filter($probes, static fn (array $p): bool => ($p[self::FIELD_REFUSED] ?? false) === true)),
-            'violations' => $violations,
+            self::FIELD_VIOLATIONS => $violations,
             'errors' => $errors,
             self::FIELD_SOURCE => [
                 'read_only' => true,
@@ -137,7 +141,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             return AtlasWatchdogCheckResult::alert($evidence, [
                 'code' => 'maxk09_adversarial_probe_passed',
                 self::FIELD_MESSAGE => 'A MAXK ladder/envelope forgery was NOT refused — regression opens the boolean-forgeable gate.',
-                'violations' => $violations,
+                self::FIELD_VIOLATIONS => $violations,
             ]);
         }
 
@@ -258,7 +262,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     {
         $path = $this->tempFile('maxk09-auth-missing-');
         $authority = new SealedLedgerAutonomyMetricsAuthority($path);
-        $verdict = $this->ladder->evaluatePromotionAuthoritative('L0', $authority, ['operator' => true]);
+        $verdict = $this->ladder->evaluatePromotionAuthoritative('L0', $authority, [self::FIELD_OPERATOR => true]);
         $this->cleanup($path);
 
         $provenance = AiValueNormalizer::arrayOrEmpty($verdict['metrics_authority'] ?? null);
@@ -317,7 +321,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $verdict = $this->ladder->evaluatePromotionAuthoritative(
             'L0',
             new SealedLedgerAutonomyMetricsAuthority($path),
-            ['operator' => true],
+            [self::FIELD_OPERATOR => true],
         );
         $this->cleanup($path);
 
@@ -376,7 +380,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     {
         $derived = RequestedAutonomyDerivation::derive([
             self::FIELD_PRIVACY_CLASS => 'normal',
-            'reversal_rate' => 0.42,
+            self::FIELD_REVERSAL_RATE => 0.42,
             'n' => 20,
             self::FIELD_CEILING => PolicyCanon::AUTONOMY_AUTONOMOUS,
         ]);
@@ -402,7 +406,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     {
         $derived = RequestedAutonomyDerivation::derive([
             self::FIELD_PRIVACY_CLASS => 'normal',
-            'reversal_rate' => 0.0,
+            self::FIELD_REVERSAL_RATE => 0.0,
             'n' => 100,
             self::FIELD_CEILING => PolicyCanon::AUTONOMY_DRAFT,
         ]);

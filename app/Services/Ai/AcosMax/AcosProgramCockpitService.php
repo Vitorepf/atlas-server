@@ -33,6 +33,11 @@ final class AcosProgramCockpitService
     public const FIELD_OK = 'ok';
     public const FIELD_REASON = 'reason';
     public const FIELD_SECTIONS = 'sections';
+    public const FIELD_LOOPS = 'loops';
+    public const FIELD_FUNNEL = 'funnel';
+    public const FIELD_ROLLBACK_TRIGGERS = 'rollback_triggers';
+    public const FIELD_OPERATIONAL_VOLUME = 'operational_volume';
+    public const FIELD_HEADING = 'heading';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -109,12 +114,12 @@ final class AcosProgramCockpitService
         return [
             self::FIELD_STATUS => self::STATUS_OK,
             self::FIELD_SOURCE => [
-                'loops' => 'atlas:flywheel:loops --json',
-                'funnel' => 'MULTX-02 future source',
+                self::FIELD_LOOPS => 'atlas:flywheel:loops --json',
+                self::FIELD_FUNNEL => 'MULTX-02 future source',
             ],
             self::FIELD_PAYLOAD => [
-                'loops' => $this->commandSection('atlas:flywheel:loops --json', 'atlas:flywheel:loops', ['--json' => true]),
-                'funnel' => [
+                self::FIELD_LOOPS => $this->commandSection('atlas:flywheel:loops --json', 'atlas:flywheel:loops', ['--json' => true]),
+                self::FIELD_FUNNEL => [
                     self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
                     self::FIELD_SOURCE => 'MULTX-02',
                     self::FIELD_REASON => self::REASON_SOURCE_NOT_LANDED_YET,
@@ -129,12 +134,12 @@ final class AcosProgramCockpitService
         return [
             self::FIELD_STATUS => self::STATUS_OK,
             self::FIELD_SOURCE => [
-                'rollback_triggers' => 'atlas:acos:rollback-triggers --json',
-                'operational_volume' => 'atlas:acos:operational-volume --json',
+                self::FIELD_ROLLBACK_TRIGGERS => 'atlas:acos:rollback-triggers --json',
+                self::FIELD_OPERATIONAL_VOLUME => 'atlas:acos:operational-volume --json',
             ],
             self::FIELD_PAYLOAD => [
-                'rollback_triggers' => $this->commandSection('atlas:acos:rollback-triggers --json', 'atlas:acos:rollback-triggers', ['--json' => true]),
-                'operational_volume' => $this->commandSection('atlas:acos:operational-volume --json', 'atlas:acos:operational-volume', ['--json' => true]),
+                self::FIELD_ROLLBACK_TRIGGERS => $this->commandSection('atlas:acos:rollback-triggers --json', 'atlas:acos:rollback-triggers', ['--json' => true]),
+                self::FIELD_OPERATIONAL_VOLUME => $this->commandSection('atlas:acos:operational-volume --json', 'atlas:acos:operational-volume', ['--json' => true]),
             ],
         ];
     }
@@ -155,7 +160,7 @@ final class AcosProgramCockpitService
                 if (is_array($current)) {
                     $blocks[] = $current;
                 }
-                $current = ['heading' => $line, self::FIELD_LINES => []];
+                $current = [self::FIELD_HEADING => $line, self::FIELD_LINES => []];
 
                 continue;
             }
@@ -192,7 +197,7 @@ final class AcosProgramCockpitService
             self::FIELD_STATUS => self::STATUS_OK,
             self::FIELD_SOURCE => $path,
             self::FIELD_PAYLOAD => [
-                'heading' => AiValueNormalizer::trimmedStringOrNull($selected['heading'] ?? null) ?? '',
+                self::FIELD_HEADING => AiValueNormalizer::trimmedStringOrNull($selected[self::FIELD_HEADING] ?? null) ?? '',
                 self::FIELD_LINES => array_values(AiValueNormalizer::arrayOrEmpty($selected[self::FIELD_LINES] ?? null)),
             ],
         ];

@@ -5997,6 +5997,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function cockpitCanaryAdversarialFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'cockpit_field_loops' => AcosProgramCockpitService::FIELD_LOOPS,
+            'cockpit_field_funnel' => AcosProgramCockpitService::FIELD_FUNNEL,
+            'cockpit_field_rollback_triggers' => AcosProgramCockpitService::FIELD_ROLLBACK_TRIGGERS,
+            'cockpit_field_operational_volume' => AcosProgramCockpitService::FIELD_OPERATIONAL_VOLUME,
+            'cockpit_field_heading' => AcosProgramCockpitService::FIELD_HEADING,
+            'cockpit_field_sections' => AcosProgramCockpitService::FIELD_SECTIONS,
+            'canary_field_version' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_VERSION,
+            'canary_field_metric' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_METRIC,
+            'canary_field_value' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_VALUE,
+            'canary_field_floor' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_FLOOR,
+            'canary_field_refs_total' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_REFS_TOTAL,
+            'canary_field_flows_checked' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_FLOWS_CHECKED,
+            'adversarial_field_probe' => AutonomyLadderAdversarialWatchdogCheck::FIELD_PROBE,
+            'adversarial_field_violations' => AutonomyLadderAdversarialWatchdogCheck::FIELD_VIOLATIONS,
+            'adversarial_field_operator' => AutonomyLadderAdversarialWatchdogCheck::FIELD_OPERATOR,
+            'adversarial_field_reversal_rate' => AutonomyLadderAdversarialWatchdogCheck::FIELD_REVERSAL_RATE,
+            'adversarial_field_metrics' => AutonomyLadderAdversarialWatchdogCheck::FIELD_METRICS,
+            'cockpit_canary_adversarial_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [
