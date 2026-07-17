@@ -283,8 +283,8 @@ final class AcosMaxObraRetroService
         $first = AiValueNormalizer::lowerTrimmedString(explode('·', $statusText, 2)[0] ?? $statusText);
 
         return match (true) {
-            str_starts_with($first, 'landed') => 'landed',
-            str_starts_with($first, 'refutado') => 'refutado',
+            str_starts_with($first, self::SLICE_STATE_LANDED) => self::SLICE_STATE_LANDED,
+            str_starts_with($first, self::SLICE_STATE_REFUTADO) => self::SLICE_STATE_REFUTADO,
             str_starts_with($first, 'suspended') => 'suspended',
             default => null,
         };

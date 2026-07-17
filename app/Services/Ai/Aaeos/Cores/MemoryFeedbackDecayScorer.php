@@ -150,7 +150,7 @@ final class MemoryFeedbackDecayScorer
             return self::DECISION_INACTIVATE;
         }
 
-        if ($staleness === 'stale_inactive_candidate') {
+        if ($staleness === self::DECISION_STALE_INACTIVE_CANDIDATE) {
             $reasons[] = 'inactivated_by_stale_age';
 
             return self::DECISION_INACTIVATE;
@@ -168,13 +168,13 @@ final class MemoryFeedbackDecayScorer
             return self::DECISION_DEGRADE;
         }
 
-        if ($staleness === 'stale_review_recommended') {
+        if ($staleness === self::DECISION_STALE_REVIEW_RECOMMENDED) {
             $reasons[] = 'degraded_by_stale_age';
 
             return self::DECISION_DEGRADE;
         }
 
-        if ($staleness === 'fresh' && $hitRate === 0.0) {
+        if ($staleness === self::DECISION_FRESH && $hitRate === 0.0) {
             $reasons[] = 'degraded_by_low_recall_hit_rate';
 
             return self::DECISION_DEGRADE;

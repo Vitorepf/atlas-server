@@ -238,6 +238,7 @@ final class AtlasAaeosCommand extends Command
         {--lote2-decomposer-redaction-unobserved-floors-contract= : JSON file (any object) to observe lote2/decomposer/redaction + previously unobserved floors}
         {--unobserved-status-basis-handoff-floors-contract= : JSON file (any object) to observe remaining published but unwired status/basis/handoff floors}
         {--choreography-repair-review-measure-freeze-floors-contract= : JSON file (any object) to observe choreography repair/review + measure-freeze/autonomy-ladder export floors}
+        {--residual-error-basis-status-floors-contract= : JSON file (any object) to observe residual error/basis/status floors + newly published ready/calibrated/rotate-age}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -632,6 +633,7 @@ final class AtlasAaeosCommand extends Command
             ['lote2-decomposer-redaction-unobserved-floors-contract', 'lote2_decomposer_redaction_unobserved_floors_contract', fn (array $p) => $gates->lote2DecomposerRedactionUnobservedFloorsContractObserve($p)],
             ['unobserved-status-basis-handoff-floors-contract', 'unobserved_status_basis_handoff_floors_contract', fn (array $p) => $gates->unobservedStatusBasisHandoffFloorsContractObserve($p)],
             ['choreography-repair-review-measure-freeze-floors-contract', 'choreography_repair_review_measure_freeze_floors_contract', fn (array $p) => $gates->choreographyRepairReviewMeasureFreezeFloorsContractObserve($p)],
+            ['residual-error-basis-status-floors-contract', 'residual_error_basis_status_floors_contract', fn (array $p) => $gates->residualErrorBasisStatusFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

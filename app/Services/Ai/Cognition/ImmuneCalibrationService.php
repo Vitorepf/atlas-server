@@ -30,6 +30,10 @@ final class ImmuneCalibrationService
 
     public const STATUS_INSUFFICIENT_SAMPLE = 'insufficient_sample';
 
+    public const STATUS_CALIBRATED = 'calibrated';
+
+    public const STATUS_OK = 'ok';
+
     public const REASON_KNOWN_MISS_DENOMINATOR_ZERO = 'known_miss_denominator_zero';
 
     private readonly ImmuneVerdictLedger $ledger;
@@ -57,7 +61,7 @@ final class ImmuneCalibrationService
         $groups = $this->groups($samples);
         $okGroups = count(array_filter(
             $groups,
-            static fn (array $group): bool => ($group['calibration_status'] ?? null) === 'calibrated',
+            static fn (array $group): bool => ($group['calibration_status'] ?? null) === self::STATUS_CALIBRATED,
         ));
 
         return [
@@ -66,7 +70,7 @@ final class ImmuneCalibrationService
             'mode' => self::MODE_READ_ONLY,
             'measure_id' => self::MEASURE_ID,
             'formula_version' => self::FORMULA_VERSION,
-            'status' => $okGroups > 0 ? 'ok' : 'insufficient_sample',
+            'status' => $okGroups > 0 ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SAMPLE,
             'denominator_min' => self::DENOMINATOR_MIN,
             'freeze' => self::freezePayload(),
             'samples' => [
@@ -131,17 +135,17 @@ final class ImmuneCalibrationService
         }
 
         $classified = $this->bandClassifier->classify($rate);
-        $status = $denominator >= $minimum ? 'calibrated' : 'insufficient_sample';
+        $status = $denominator >= $minimum ? self::STATUS_CALIBRATED : self::STATUS_INSUFFICIENT_SAMPLE;
 
         return [
             'metric' => $metric,
             'value' => $rate,
             'denominator' => $denominator,
-            'band' => $status === 'calibrated' ? $classified['band'] : 'insufficient_sample',
+            'band' => $status === self::STATUS_CALIBRATED ? $classified['band'] : self::BAND_INSUFFICIENT_SAMPLE,
             'classifier_band' => $classified['band'],
             'classifier_schema_version' => $classified['schema_version'],
             'status' => $status,
-            'reason' => $status === 'calibrated' ? 'denominator_met' : 'denominator_below_min',
+            'reason' => $status === self::STATUS_CALIBRATED ? 'denominator_met' : 'denominator_below_min',
         ];
     }
 
@@ -241,10 +245,10 @@ final class ImmuneCalibrationService
             'missed_poison_rate',
         );
         $group['missed_poison_rate']['bound'] = 'lower_bound_known_miss';
-        $group['calibration_status'] = $group['false_block_rate']['status'] === 'calibrated'
-            && $group['missed_poison_rate']['status'] === 'calibrated'
-                ? 'calibrated'
-                : 'insufficient_sample';
+        $group['calibration_status'] = $group['false_block_rate']['status'] === self::STATUS_CALIBRATED
+            && $group['missed_poison_rate']['status'] === self::STATUS_CALIBRATED
+                ? self::STATUS_CALIBRATED
+                : self::STATUS_INSUFFICIENT_SAMPLE;
 
         return $group;
     }

@@ -35,7 +35,7 @@ final class AmbitionRungPolicy
         if (($context['enabled'] ?? false) === true) {
             $basis = 'not_saturated';
             if (($context['reactive_saturated'] ?? false) === true) {
-                $current = AiValueNormalizer::trimmedStringOrNull($context['current_rung'] ?? null) ?? 'task';
+                $current = AiValueNormalizer::trimmedStringOrNull($context['current_rung'] ?? null) ?? self::RUNG_TASK;
                 $target = self::nextRung($current);
                 $currentBest = self::bestLeverage($candidates);
                 foreach ($candidates as $candidate) {
@@ -68,7 +68,7 @@ final class AmbitionRungPolicy
     {
         $index = array_search($rung, self::RUNGS, true);
         if ($index === false) {
-            return 'slice';
+            return self::RUNG_SLICE;
         }
 
         return self::RUNGS[min(count(self::RUNGS) - 1, $index + 1)];

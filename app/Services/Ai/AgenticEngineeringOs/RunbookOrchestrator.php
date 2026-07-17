@@ -215,7 +215,7 @@ final class RunbookOrchestrator
      */
     private function flowFor(string $intentClass, bool $needsResearch, bool $needsDebug): array
     {
-        if ($intentClass === 'trivial') {
+        if ($intentClass === self::AMBITION_TRIVIAL) {
             return [
                 DepartmentContractRuntime::DEPARTMENT_EXECUTIVE_INTAKE,
                 DepartmentContractRuntime::DEPARTMENT_MEMORY,
@@ -239,7 +239,7 @@ final class RunbookOrchestrator
             }
         }
 
-        if ($intentClass === 'obra') {
+        if ($intentClass === self::AMBITION_OBRA) {
             // Replace dev with forge for obra-class intents.
             $devIdx = array_search(DepartmentContractRuntime::DEPARTMENT_DEV, $flow, true);
             if ($devIdx !== false) {

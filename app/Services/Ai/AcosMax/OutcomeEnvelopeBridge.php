@@ -100,7 +100,7 @@ final class OutcomeEnvelopeBridge
             'formula' => 'Outcome envelope = MULTX-03 atlas.engineering_outcome.v2 contract projected through one thin adapter per native organ (dev_procedural, aemor, compounding). Divergent native fields remain in native_divergent.fields labeled by origin — never coerced or fused.',
             'thresholds' => [
                 'adapter_origins' => OutcomeEnvelope::ADAPTER_ORIGINS,
-                'flag' => 'atlas.esp_06.outcome_envelope_adapters_enabled',
+                'flag' => self::ADAPTERS_ENABLED_CONFIG_KEY,
                 'flag_default' => false,
             ],
             'denominator_min' => 1,

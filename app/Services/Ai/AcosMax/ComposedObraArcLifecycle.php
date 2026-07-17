@@ -154,7 +154,7 @@ final class ComposedObraArcLifecycle
 
         foreach ($tasks as $task) {
             $status = AiValueNormalizer::trimmedStringOrNull($task['status'] ?? null) ?? '';
-            if (in_array($status, ['pending'], true)) {
+            if (in_array($status, [self::STATUS_PENDING], true)) {
                 return $task;
             }
         }

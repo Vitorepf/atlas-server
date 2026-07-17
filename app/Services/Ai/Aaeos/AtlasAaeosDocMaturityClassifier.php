@@ -240,6 +240,6 @@ final class AtlasAaeosDocMaturityClassifier
      */
     private function joinList(array $items): string
     {
-        return $items === [] ? 'none' : implode('/', $items);
+        return $items === [] ? self::STRENGTH_NONE : implode('/', $items);
     }
 }

@@ -35,6 +35,8 @@ final class AcosMaxLedgerRotationRegistry
 
     public const MODE_ROTATE_SIZE = 'rotate_size';
 
+    public const MODE_ROTATE_AGE = 'rotate_age';
+
 
     /** @var array<string,array{max_size_mb:int,max_age_days:int,mode:string,rationale:string}> */
     private array $policies;
@@ -369,9 +371,9 @@ final class AcosMaxLedgerRotationRegistry
                 continue;
             }
             $policy = AiValueNormalizer::arrayOrEmpty($policy);
-            $mode = AiValueNormalizer::trimmedStringOrNull($policy['mode'] ?? null) ?? 'rotate_hybrid';
-            if (! in_array($mode, ['append_forever', 'rotate_size', 'rotate_age', 'rotate_hybrid'], true)) {
-                $mode = 'rotate_hybrid';
+            $mode = AiValueNormalizer::trimmedStringOrNull($policy['mode'] ?? null) ?? self::MODE_ROTATE_HYBRID;
+            if (! in_array($mode, [self::MODE_APPEND_FOREVER, self::MODE_ROTATE_SIZE, self::MODE_ROTATE_AGE, self::MODE_ROTATE_HYBRID], true)) {
+                $mode = self::MODE_ROTATE_HYBRID;
             }
             $normalized[$seriesKey] = [
             'max_size_mb' => max(1, (int) (AiValueNormalizer::finiteFloatOrNull($policy['max_size_mb'] ?? null) ?? self::DEFAULT_MAX_SIZE_MB)),

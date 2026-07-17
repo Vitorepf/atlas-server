@@ -192,7 +192,7 @@ class AtlasAaeosImplementationTruthService
 
                 $state = $this->normalizeState((AiValueNormalizer::trimmedStringOrNull($fm['implementation_state'] ?? null) ?? ''));
                 $status = AiValueNormalizer::lowerTrimmedString($fm['status'] ?? '');
-                $claims = in_array($state, ['partial', 'verified'], true)
+                $claims = in_array($state, [self::LEVEL_PARTIAL, self::LEVEL_VERIFIED], true)
                     || in_array($status, ['active', 'building'], true);
                 $hasEvidence = $this->normalizeEvidenceRefs($fm['evidence_refs'] ?? null) !== [];
 
@@ -324,7 +324,7 @@ class AtlasAaeosImplementationTruthService
             $docs[] = [
                 'id' => AiValueNormalizer::trimmedStringOrNull($fm['id'] ?? $fm['graph_id'] ?? $relativePath) ?? $relativePath,
                 'path' => $relativePath,
-                'implementation_state' => (AiValueNormalizer::trimmedStringOrNull($fm['implementation_state'] ?? null) ?? 'spec'),
+                'implementation_state' => (AiValueNormalizer::trimmedStringOrNull($fm['implementation_state'] ?? null) ?? self::LEVEL_SPEC),
                 'evidence_refs' => $evidenceRefs,
             ];
         }
@@ -622,8 +622,8 @@ class AtlasAaeosImplementationTruthService
         $hasGreenTest = $hasTest && ($greenTestRun === true);
 
         $computed = ($hasSymbol && $hasWiring && $hasGreenTest && $hasReceipt)
-            ? 'verified'
-            : (($hasSymbol && $hasWiring) ? 'partial' : 'spec');
+            ? self::LEVEL_VERIFIED
+            : (($hasSymbol && $hasWiring) ? self::LEVEL_PARTIAL : self::LEVEL_SPEC);
 
         // Per-row test-resolution honesty stamp.
         $testResolution = match (true) {

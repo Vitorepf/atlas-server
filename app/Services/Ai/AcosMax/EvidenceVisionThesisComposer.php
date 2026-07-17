@@ -472,7 +472,7 @@ final class EvidenceVisionThesisComposer
     {
         $keys = [];
         foreach ($activeTheses as $thesis) {
-            if (! is_array($thesis) || ($thesis['status'] ?? '') !== 'active') {
+            if (! is_array($thesis) || ($thesis['status'] ?? '') !== self::STATUS_ACTIVE) {
                 continue;
             }
             foreach (AiValueNormalizer::arrayOrEmpty($thesis['alignment_keys'] ?? null) as $key) {

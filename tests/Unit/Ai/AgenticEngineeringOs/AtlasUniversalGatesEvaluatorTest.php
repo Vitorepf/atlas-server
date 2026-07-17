@@ -3182,4 +3182,25 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(8, $payload['choreography_repair_review_measure_freeze_floor_count']);
     }
 
+    public function test_residual_error_basis_status_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->residualErrorBasisStatusFloorsContractObserve([]);
+
+        $this->assertSame('review_delivery_veto_redirects_to_dev_forge_for_repair', $payload['veto_reason_review_delivery_repair']);
+        $this->assertSame('stale_review_recommended', $payload['decay_decision_stale_review_recommended']);
+        $this->assertSame('never_served_archived', $payload['composed_task_status_never_served_archived']);
+        $this->assertSame('engine_ids_required', $payload['esp09_error_engine_ids_required']);
+        $this->assertSame('challenger_engine_must_differ', $payload['esp09_error_challenger_engine_must_differ']);
+        $this->assertSame('positive_causal_effect', $payload['bets_basis_positive_causal_effect']);
+        $this->assertSame('unproven_effect', $payload['bets_basis_unproven_effect']);
+        $this->assertSame('empty', $payload['ragx_status_empty']);
+        $this->assertSame('ok', $payload['ragx_status_ok']);
+        $this->assertSame('b_contains_a', $payload['numeric_relation_b_contains_a']);
+        $this->assertSame('empty_paths', $payload['remint_reason_empty_paths']);
+        $this->assertSame('rotate_age', $payload['ledger_mode_rotate_age']);
+        $this->assertSame('calibrated', $payload['immune_status_calibrated']);
+        $this->assertSame('ready', $payload['hmac_status_ready']);
+        $this->assertSame(19, $payload['residual_error_basis_status_floor_count']);
+    }
+
 }

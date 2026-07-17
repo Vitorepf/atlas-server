@@ -4721,6 +4721,39 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: residual published error/basis/status floors plus newly
+     * published ready/calibrated/rotate-age floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function residualErrorBasisStatusFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'veto_reason_review_delivery_repair' => AtlasAaeosVetoPropagationResolver::REASON_REVIEW_DELIVERY_VETO_REPAIR,
+            'decay_decision_stale_review_recommended' => MemoryFeedbackDecayScorer::DECISION_STALE_REVIEW_RECOMMENDED,
+            'composed_task_status_never_served_archived' => ComposedObraArcLifecycle::TASK_STATUS_NEVER_SERVED_ARCHIVED,
+            'esp09_error_engine_ids_required' => Esp09IndependentChallengerService::ERROR_ENGINE_IDS_REQUIRED,
+            'esp09_error_challenger_engine_must_differ' => Esp09IndependentChallengerService::ERROR_CHALLENGER_ENGINE_MUST_DIFFER,
+            'bets_basis_positive_causal_effect' => ExploratoryBetsPortfolio::BASIS_POSITIVE_CAUSAL_EFFECT,
+            'bets_basis_unproven_effect' => ExploratoryBetsPortfolio::BASIS_UNPROVEN_EFFECT,
+            'obra_lesson_path_normal_capture' => AcosMaxObraRetroService::LESSON_PATH_NORMAL_CAPTURE,
+            'obra_source_acos_max_obra_retro' => AcosMaxObraRetroService::SOURCE_ACOS_MAX_OBRA_RETRO,
+            'ragx_status_empty' => RagxChainMechanismService::STATUS_EMPTY,
+            'ragx_status_ok' => RagxChainMechanismService::STATUS_OK,
+            'ragx_status_unknown' => RagxChainMechanismService::STATUS_UNKNOWN,
+            'numeric_relation_b_contains_a' => NumericRangeOverlapContradictionDetector::RELATION_B_CONTAINS_A,
+            'remint_reason_empty_paths' => AtlasCognitionRemintTouchedQueue::REASON_EMPTY_PATHS,
+            'remint_reason_queue_path_empty' => AtlasCognitionRemintTouchedQueue::REASON_QUEUE_PATH_EMPTY,
+            'ledger_mode_rotate_age' => AcosMaxLedgerRotationRegistry::MODE_ROTATE_AGE,
+            'immune_status_calibrated' => ImmuneCalibrationService::STATUS_CALIBRATED,
+            'immune_status_ok' => ImmuneCalibrationService::STATUS_OK,
+            'hmac_status_ready' => CaptureHmacLineageService::STATUS_READY,
+            'residual_error_basis_status_floor_count' => 19,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

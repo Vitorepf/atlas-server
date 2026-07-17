@@ -748,7 +748,7 @@ final class AcosMaxLote2MeasureService
         ));
         usort($memoryTypes, static fn (array $a, array $b): int => $a['memory_type'] <=> $b['memory_type']);
 
-        $measured = array_values(array_filter($memoryTypes, static fn (array $group): bool => $group['status'] === 'measured'));
+        $measured = array_values(array_filter($memoryTypes, static fn (array $group): bool => $group['status'] === self::STATUS_MEASURED));
         $measuredPairs = array_sum(array_column($measured, 'n_pairs'));
         $measuredDeltaSum = array_sum(array_map(
             static fn (array $group): float => (AiValueNormalizer::finiteFloatOrNull($group['paired_delta'] ?? null) ?? 0.0) * (int) $group['n_pairs'],

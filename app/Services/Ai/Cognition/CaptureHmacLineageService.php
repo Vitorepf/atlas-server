@@ -48,6 +48,8 @@ final class CaptureHmacLineageService
 
     public const STATUS_PENDING_WINDOW = 'pending_window';
 
+    public const STATUS_READY = 'ready';
+
     public const STATUS_NOT_FOUND = 'not_found';
 
     public const KIND_CAPTURE = 'capture';
@@ -180,7 +182,7 @@ final class CaptureHmacLineageService
         $fullCoverage = $denominator >= $minCaptures && $chainedCount === $denominator;
 
         return [
-            'status' => $fullCoverage ? 'ready' : 'pending_window',
+            'status' => $fullCoverage ? self::STATUS_READY : self::STATUS_PENDING_WINDOW,
             'chained_captures' => $chainedCount,
             'min_captures' => $minCaptures,
             'coverage_rate' => $denominator > 0 ? round($chainedCount / $denominator, 4) : null,
@@ -216,7 +218,7 @@ final class CaptureHmacLineageService
         $verify = $this->verify($chain);
 
         return [
-            'ok' => $verify['status'] === 'verified',
+            'ok' => $verify['status'] === self::STATUS_VERIFIED,
             'status' => $verify['status'],
             'ref' => $ref,
             'chain' => $this->providerSafeChain($chain),
