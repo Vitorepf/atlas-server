@@ -318,7 +318,7 @@ final class AtlasMissionControlCockpitService
         if ($currentPhase === null) {
             return false;
         }
-        $level = (int) ltrim($autonomyLevel, 'Ll');
+        $level = AaeosPhaseHandoffService::autonomyLevelInt($autonomyLevel);
         if ($level < 4) {
             return false;
         }

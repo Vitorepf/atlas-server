@@ -331,6 +331,28 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only ESP-09 challenger refutation series death-review projection.
+     * Accepts a list of events or `{events:[...], min_windows?:int, min_per_window?:int}`.
+     *
+     * @param  array<mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function esp09RefutationSeriesObserve(array $input): array
+    {
+        if (array_is_list($input)) {
+            /** @var list<array<string,mixed>> $input */
+            return Esp09IndependentChallengerService::refutationSeries($input);
+        }
+
+        $events = AiValueNormalizer::arrayOrEmpty($input['events'] ?? null);
+        $minWindows = max(1, (int) ($input['min_windows'] ?? 2));
+        $minPerWindow = max(1, (int) ($input['min_per_window'] ?? 2));
+
+        /** @var list<array<string,mixed>> $events */
+        return Esp09IndependentChallengerService::refutationSeries($events, $minWindows, $minPerWindow);
+    }
+
+    /**
      * Observe-only MULTN17-08 dogfooding friction lead mine.
      * Accepts a list of events or `{events:[...]}`. Catalogue stays 15.
      *

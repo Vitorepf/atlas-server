@@ -33,6 +33,12 @@ final class AaeosPhaseHandoffService
         }
     }
 
+    /** Parse L0..L7 (or bare digits) into an int autonomy rung. */
+    public static function autonomyLevelInt(string $autonomyLevel): int
+    {
+        return (int) ltrim($autonomyLevel, 'Ll');
+    }
+
     public const PHASE_INTENT_CAPTURE = 'intent_capture';
 
     public const PHASE_DISAMBIGUATION = 'disambiguation';
@@ -324,7 +330,7 @@ final class AaeosPhaseHandoffService
 
     private function assertSignatureRequired(string $phase, string $autonomyLevel, ?string $signature): void
     {
-        $level = (int) ltrim($autonomyLevel, 'Ll');
+        $level = self::autonomyLevelInt($autonomyLevel);
         if ($level < 4) {
             return;
         }

@@ -274,6 +274,29 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_esp09_refutation_series(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-esp09rs-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'events' => [
+                ['outcome' => 'accepted', 'window' => 'w1'],
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-esp09rs',
+                '--esp09-refutation-series' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"esp09_refutation_series"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_universal_gates_observe_dogfooding_leads(): void
     {
         $path = sys_get_temp_dir().'/atlas-aaeos-dog-'.uniqid('', true).'.json';
