@@ -64,6 +64,14 @@ class AtlasAaeosImplementationTruthService
     public const TEST_RESOLUTION_GREEN = 'green';
 
     public const TEST_RESOLUTION_MIXED = 'mixed';
+    public const FIELD_RESOLVED = 'resolved';
+    public const FIELD_EVIDENCE_REFS = 'evidence_refs';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_REF = 'ref';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_IMPLEMENTATION_STATE = 'implementation_state';
+    public const FIELD_EVIDENCE = 'evidence';
+    public const FIELD_DRIFT = 'drift';
 
     public const TEST_RESOLUTION_EXISTENCE_ONLY_UNRUN = 'existence_only_unrun';
 
@@ -105,38 +113,38 @@ class AtlasAaeosImplementationTruthService
         $greenRows = 0;
 
         foreach ($docs as $doc) {
-            $result = $this->compute($doc['implementation_state'], $doc['evidence_refs'], $doc['id']);
+            $result = $this->compute($doc[self::FIELD_IMPLEMENTATION_STATE], $doc[self::FIELD_EVIDENCE_REFS], $doc['id']);
             $byComputed[$result['computed_state']]++;
-            if ($result['drift'] === true) {
+            if ($result[self::FIELD_DRIFT] === true) {
                 $driftCount++;
             }
-            if (($result['resolved']['test'] ?? false) === true) {
+            if (($result[self::FIELD_RESOLVED]['test'] ?? false) === true) {
                 $testBearingRows++;
-                if (($result['resolved']['test_green'] ?? false) === true) {
+                if (($result[self::FIELD_RESOLVED]['test_green'] ?? false) === true) {
                     $greenRows++;
                 }
             }
             $rows[] = [
-                'schema_version' => self::LEDGER_SCHEMA,
+                self::FIELD_SCHEMA_VERSION => self::LEDGER_SCHEMA,
                 'capability_id' => $doc['id'],
                 'owner_doc' => $doc['path'],
                 'claimed_state' => $result['claimed_state'],
                 'claimed_state_raw' => $result['claimed_state_raw'],
                 'computed_state' => $result['computed_state'],
-                'drift' => $result['drift'],
+                self::FIELD_DRIFT => $result[self::FIELD_DRIFT],
                 'under_claim' => $result['under_claim'],
-                'resolved' => $result['resolved'],
+                self::FIELD_RESOLVED => $result[self::FIELD_RESOLVED],
                 'unmet_evidence' => $result['unmet_evidence'],
                 'proof_refs_resolved' => array_values(array_filter(
-                    $result['evidence'],
-                    fn (array $e): bool => ($e['resolved'] ?? false) === true,
+                    $result[self::FIELD_EVIDENCE],
+                    fn (array $e): bool => ($e[self::FIELD_RESOLVED] ?? false) === true,
                 )),
-                'evidence' => $result['evidence'],
+                self::FIELD_EVIDENCE => $result[self::FIELD_EVIDENCE],
             ];
         }
 
         return [
-            'schema_version' => self::LEDGER_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::LEDGER_SCHEMA,
             'summary' => [
                 'evaluated' => count($rows),
                 'drift_count' => $driftCount,
@@ -200,11 +208,11 @@ class AtlasAaeosImplementationTruthService
                 }
                 $total++;
 
-                $state = $this->normalizeState((AiValueNormalizer::trimmedStringOrNull($fm['implementation_state'] ?? null) ?? ''));
+                $state = $this->normalizeState((AiValueNormalizer::trimmedStringOrNull($fm[self::FIELD_IMPLEMENTATION_STATE] ?? null) ?? ''));
                 $status = AiValueNormalizer::lowerTrimmedString($fm['status'] ?? '');
                 $claims = in_array($state, [self::LEVEL_PARTIAL, self::LEVEL_VERIFIED], true)
                     || in_array($status, [self::STATUS_ACTIVE, self::STATUS_BUILDING], true);
-                $hasEvidence = $this->normalizeEvidenceRefs($fm['evidence_refs'] ?? null) !== [];
+                $hasEvidence = $this->normalizeEvidenceRefs($fm[self::FIELD_EVIDENCE_REFS] ?? null) !== [];
 
                 if ($claims) {
                     $claimsRuntime++;
@@ -226,7 +234,7 @@ class AtlasAaeosImplementationTruthService
             : 100;
 
         return [
-            'schema_version' => self::DOC_RUNTIME_COVERAGE_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::DOC_RUNTIME_COVERAGE_SCHEMA,
             'total_canonical_docs' => $total,
             'claims_runtime' => $claimsRuntime,
             'with_evidence_refs' => $withEvidence,
@@ -263,18 +271,18 @@ class AtlasAaeosImplementationTruthService
         $out = [];
         foreach ($docs as $doc) {
             $testRefs = [];
-            foreach ($doc['evidence_refs'] as $ref) {
-                if ($this->evidenceRefNormalizer->kind($ref['kind'] ?? '') !== 'test') {
+            foreach ($doc[self::FIELD_EVIDENCE_REFS] as $ref) {
+                if ($this->evidenceRefNormalizer->kind($ref[self::FIELD_KIND] ?? '') !== 'test') {
                     continue;
                 }
-                $value = $this->evidenceRefNormalizer->ref($ref['ref'] ?? '');
+                $value = $this->evidenceRefNormalizer->ref($ref[self::FIELD_REF] ?? '');
                 if ($value === '') {
                     continue;
                 }
                 $resolution = $this->resolver->resolve('test', $value);
                 $testRefs[] = [
-                    'ref' => $value,
-                    'index_resolved' => ($resolution['resolved'] ?? false) === true,
+                    self::FIELD_REF => $value,
+                    'index_resolved' => ($resolution[self::FIELD_RESOLVED] ?? false) === true,
                     'matched' => $resolution['matched'] ?? null,
                 ];
             }
@@ -284,7 +292,7 @@ class AtlasAaeosImplementationTruthService
             $out[] = [
                 'capability_id' => $doc['id'],
                 'owner_doc' => $doc['path'],
-                'evidence_refs' => $doc['evidence_refs'],
+                self::FIELD_EVIDENCE_REFS => $doc[self::FIELD_EVIDENCE_REFS],
                 'test_refs' => $testRefs,
             ];
         }
@@ -326,7 +334,7 @@ class AtlasAaeosImplementationTruthService
             }
             $parsed = $this->frontmatter->parse(File::get($file->getPathname()));
             $fm = AiValueNormalizer::arrayOrEmpty($parsed['frontmatter'] ?? null);
-            $evidenceRefs = $this->normalizeEvidenceRefs($fm['evidence_refs'] ?? null);
+            $evidenceRefs = $this->normalizeEvidenceRefs($fm[self::FIELD_EVIDENCE_REFS] ?? null);
             if ($evidenceRefs === []) {
                 continue;
             }
@@ -334,8 +342,8 @@ class AtlasAaeosImplementationTruthService
             $docs[] = [
                 'id' => AiValueNormalizer::trimmedStringOrNull($fm['id'] ?? $fm['graph_id'] ?? $relativePath) ?? $relativePath,
                 'path' => $relativePath,
-                'implementation_state' => (AiValueNormalizer::trimmedStringOrNull($fm['implementation_state'] ?? null) ?? self::LEVEL_SPEC),
-                'evidence_refs' => $evidenceRefs,
+                self::FIELD_IMPLEMENTATION_STATE => (AiValueNormalizer::trimmedStringOrNull($fm[self::FIELD_IMPLEMENTATION_STATE] ?? null) ?? self::LEVEL_SPEC),
+                self::FIELD_EVIDENCE_REFS => $evidenceRefs,
             ];
         }
 
@@ -372,14 +380,14 @@ class AtlasAaeosImplementationTruthService
         $resolutions = [];
         $resolvedTestRefs = [];
         foreach ($evidenceRefs as $ref) {
-            $kind = $this->evidenceRefNormalizer->kind($ref['kind'] ?? '');
-            $value = $this->evidenceRefNormalizer->ref($ref['ref'] ?? '');
+            $kind = $this->evidenceRefNormalizer->kind($ref[self::FIELD_KIND] ?? '');
+            $value = $this->evidenceRefNormalizer->ref($ref[self::FIELD_REF] ?? '');
             if ($kind === '' || $value === '') {
                 continue;
             }
             $resolution = $this->resolver->resolve($kind, $value);
             $resolutions[] = $resolution;
-            if ($kind === 'test' && ($resolution['resolved'] ?? false) === true) {
+            if ($kind === 'test' && ($resolution[self::FIELD_RESOLVED] ?? false) === true) {
                 $resolvedTestRefs[] = $value;
             }
         }
@@ -485,10 +493,10 @@ class AtlasAaeosImplementationTruthService
     {
         $paths = [];
         foreach ($evidenceRefs as $ref) {
-            if ($this->evidenceRefNormalizer->kind($ref['kind'] ?? '') !== 'symbol') {
+            if ($this->evidenceRefNormalizer->kind($ref[self::FIELD_KIND] ?? '') !== 'symbol') {
                 continue;
             }
-            $value = $this->evidenceRefNormalizer->ref($ref['ref'] ?? '');
+            $value = $this->evidenceRefNormalizer->ref($ref[self::FIELD_REF] ?? '');
             if ($value === '') {
                 continue;
             }
@@ -617,8 +625,8 @@ class AtlasAaeosImplementationTruthService
     {
         $resolvedKinds = [];
         foreach ($resolutions as $resolution) {
-            if (($resolution['resolved'] ?? false) === true) {
-                $resolvedKinds[(AiValueNormalizer::trimmedStringOrNull($resolution['kind'] ?? null) ?? '')] = true;
+            if (($resolution[self::FIELD_RESOLVED] ?? false) === true) {
+                $resolvedKinds[(AiValueNormalizer::trimmedStringOrNull($resolution[self::FIELD_KIND] ?? null) ?? '')] = true;
             }
         }
 
@@ -668,7 +676,7 @@ class AtlasAaeosImplementationTruthService
         $rankComputed = self::RANK[$computed];
 
         return [
-            'schema_version' => self::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             'claimed_state' => $claimed,
             'claimed_state_raw' => AiValueNormalizer::trimmedStringOrNull($claimedState) ?? '',
             'computed_state' => $computed,
@@ -676,9 +684,9 @@ class AtlasAaeosImplementationTruthService
             'rank_computed' => $rankComputed,
             // Over-claim: the doc claims MORE than the index can prove. This is the
             // blocking condition. Under-claim (computed > claimed) is fine (a warning).
-            'drift' => $rankClaimed > $rankComputed,
+            self::FIELD_DRIFT => $rankClaimed > $rankComputed,
             'under_claim' => $rankComputed > $rankClaimed,
-            'resolved' => [
+            self::FIELD_RESOLVED => [
                 'symbol' => $hasSymbol,
                 'wiring' => $hasWiring,
                 'test' => $hasTest,
@@ -688,7 +696,7 @@ class AtlasAaeosImplementationTruthService
                 'receipt' => $hasReceipt,
             ],
             'unmet_evidence' => $unmet,
-            'evidence' => array_values($resolutions),
+            self::FIELD_EVIDENCE => array_values($resolutions),
             'test_resolution' => $testResolution,
         ];
     }

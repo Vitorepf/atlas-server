@@ -3833,4 +3833,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['longhorizon_window_aemor_floor_count']);
     }
 
+    public function test_test_immune_truth_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->testImmuneTruthFloorsContractObserve([]);
+
+        $this->assertSame('runner', $payload['test_field_runner']);
+        $this->assertSame('exit_code', $payload['test_field_exit_code']);
+        $this->assertSame('tests_run', $payload['test_field_tests_run']);
+        $this->assertSame('output_tail', $payload['test_field_output_tail']);
+        $this->assertSame('reason', $payload['test_field_reason']);
+        $this->assertSame('test_file_hash', $payload['test_field_test_file_hash']);
+        $this->assertSame('atlas.aaeos.test_run_receipt.v1', $payload['test_schema']);
+        $this->assertSame('sample_label', $payload['immune_field_sample_label']);
+        $this->assertSame('promotion_status', $payload['immune_field_promotion_status']);
+        $this->assertSame('pending_gate_ids', $payload['immune_field_pending_gate_ids']);
+        $this->assertSame('gate_statuses', $payload['immune_field_gate_statuses']);
+        $this->assertSame('blocking_gate_ids', $payload['immune_field_blocking_gate_ids']);
+        $this->assertSame('atlas.cognition.immune_verdict_ledger.v1', $payload['immune_schema_version']);
+        $this->assertSame('resolved', $payload['truth_field_resolved']);
+        $this->assertSame('evidence_refs', $payload['truth_field_evidence_refs']);
+        $this->assertSame('implementation_state', $payload['truth_field_implementation_state']);
+        $this->assertSame('drift', $payload['truth_field_drift']);
+        $this->assertSame(17, $payload['test_immune_truth_floor_count']);
+    }
+
 }

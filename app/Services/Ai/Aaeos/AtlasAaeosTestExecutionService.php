@@ -33,6 +33,14 @@ use Throwable;
 class AtlasAaeosTestExecutionService
 {
     public const SCHEMA = 'atlas.aaeos.test_run_receipt.v1';
+    public const FIELD_RUNNER = 'runner';
+    public const FIELD_EXIT_CODE = 'exit_code';
+    public const FIELD_TESTS_RUN = 'tests_run';
+    public const FIELD_OUTPUT_TAIL = 'output_tail';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_TEST_FILE_HASH = 'test_file_hash';
+    public const FIELD_IMPL_FILES_HASH = 'impl_files_hash';
+    public const FIELD_STATUS = 'status';
 
     /**
      * How many trailing chars of the runner output to keep in the receipt (audit, not the whole log).
@@ -196,7 +204,7 @@ class AtlasAaeosTestExecutionService
             $fqn = $this->resolver->resolveTestFqn($testRef);
             if ($fqn === null) {
                 $run = $this->ambiguousRun($testRef);
-                $filter = $run['runner'];
+                $filter = $run[self::FIELD_RUNNER];
             } else {
                 $filter = $this->anchoredFilter($fqn);
                 $scopedPath = $this->absoluteTestPath($this->resolver->resolveTestFilePath($testRef));
@@ -210,15 +218,15 @@ class AtlasAaeosTestExecutionService
             'test_ref' => $testRef,
             'filter' => $filter,
             self::FIELD_PASSED => $run[self::FIELD_PASSED],
-            'tests_run' => $run['tests_run'],
-            'exit_code' => $run['exit_code'],
+            self::FIELD_TESTS_RUN => $run[self::FIELD_TESTS_RUN],
+            self::FIELD_EXIT_CODE => $run[self::FIELD_EXIT_CODE],
             'commit_stamp' => $this->commitStamp(),
-            'test_file_hash' => $testFileHash,
-            'impl_files_hash' => $implFilesHash,
-            'output_tail' => $run['output_tail'],
-            'runner' => $run['runner'],
+            self::FIELD_TEST_FILE_HASH => $testFileHash,
+            self::FIELD_IMPL_FILES_HASH => $implFilesHash,
+            self::FIELD_OUTPUT_TAIL => $run[self::FIELD_OUTPUT_TAIL],
+            self::FIELD_RUNNER => $run[self::FIELD_RUNNER],
             self::FIELD_RAN => $run[self::FIELD_RAN],
-            'reason' => $run['reason'] ?? null,
+            self::FIELD_REASON => $run[self::FIELD_REASON] ?? null,
             'ran_at' => now()->toJSON(),
         ];
 
@@ -231,7 +239,7 @@ class AtlasAaeosTestExecutionService
         // PIP-03 — ambiguous refs never ran PHPUnit; persisting them would pollute
         // atlas_aaeos_test_run_receipts with tests_run=0 / exit=-1 noise. Red runs where
         // the test EXISTS and actually failed still persist — honest signal that stays.
-        if (($run['reason'] ?? null) !== 'ambiguous_test_ref') {
+        if (($run[self::FIELD_REASON] ?? null) !== 'ambiguous_test_ref') {
             $this->persist($payload);
         }
 
@@ -263,8 +271,8 @@ class AtlasAaeosTestExecutionService
         $sealed = $this->hasGreenReceipt(
             $capabilityId,
             $testRef,
-            $freshHashes['test_file_hash'] ?? null,
-            $freshHashes['impl_files_hash'] ?? null,
+            $freshHashes[self::FIELD_TEST_FILE_HASH] ?? null,
+            $freshHashes[self::FIELD_IMPL_FILES_HASH] ?? null,
         );
 
         return [
@@ -412,10 +420,10 @@ class AtlasAaeosTestExecutionService
         return [
             self::FIELD_RAN => true,
             self::FIELD_PASSED => $passed,
-            'tests_run' => $testsRun,
-            'exit_code' => $exitCode,
-            'output_tail' => $this->tail($output),
-            'runner' => $binary.' --filter '.$filter,
+            self::FIELD_TESTS_RUN => $testsRun,
+            self::FIELD_EXIT_CODE => $exitCode,
+            self::FIELD_OUTPUT_TAIL => $this->tail($output),
+            self::FIELD_RUNNER => $binary.' --filter '.$filter,
         ];
     }
 
@@ -512,11 +520,11 @@ class AtlasAaeosTestExecutionService
         return [
             self::FIELD_RAN => false,
             self::FIELD_PASSED => false,
-            'tests_run' => 0,
-            'exit_code' => -1,
-            'output_tail' => 'blocked:'.$reason,
-            'runner' => $reason,
-            'reason' => $reason,
+            self::FIELD_TESTS_RUN => 0,
+            self::FIELD_EXIT_CODE => -1,
+            self::FIELD_OUTPUT_TAIL => 'blocked:'.$reason,
+            self::FIELD_RUNNER => $reason,
+            self::FIELD_REASON => $reason,
         ];
     }
 
@@ -533,11 +541,11 @@ class AtlasAaeosTestExecutionService
         return [
             self::FIELD_RAN => false,
             self::FIELD_PASSED => false,
-            'tests_run' => 0,
-            'exit_code' => -1,
-            'output_tail' => 'ambiguous_test_ref: "'.$testRef.'" does not resolve to an indexed Class or Class::method — refusing to run a broad filter',
-            'runner' => 'ambiguous_test_ref',
-            'reason' => 'ambiguous_test_ref',
+            self::FIELD_TESTS_RUN => 0,
+            self::FIELD_EXIT_CODE => -1,
+            self::FIELD_OUTPUT_TAIL => 'ambiguous_test_ref: "'.$testRef.'" does not resolve to an indexed Class or Class::method — refusing to run a broad filter',
+            self::FIELD_RUNNER => 'ambiguous_test_ref',
+            self::FIELD_REASON => 'ambiguous_test_ref',
         ];
     }
 
@@ -569,17 +577,17 @@ class AtlasAaeosTestExecutionService
                 [
                     'filter' => AiValueNormalizer::trimmedScalarStringOrNull($payload['filter'] ?? null) ?? '',
                     self::FIELD_PASSED => (AiValueNormalizer::boolOrNull($payload[self::FIELD_PASSED] ?? null) ?? false),
-                    'tests_run' => (int) (AiValueNormalizer::finiteFloatOrNull($payload['tests_run'] ?? null) ?? 0),
-                    'exit_code' => $payload['exit_code'] !== null ? (int) (AiValueNormalizer::finiteFloatOrNull($payload['exit_code'] ?? null) ?? 0) : null,
+                    self::FIELD_TESTS_RUN => (int) (AiValueNormalizer::finiteFloatOrNull($payload[self::FIELD_TESTS_RUN] ?? null) ?? 0),
+                    self::FIELD_EXIT_CODE => $payload[self::FIELD_EXIT_CODE] !== null ? (int) (AiValueNormalizer::finiteFloatOrNull($payload[self::FIELD_EXIT_CODE] ?? null) ?? 0) : null,
                     'commit_stamp' => $payload['commit_stamp'],
                     // B3 freshness: bind the receipt to the code+test content it proved.
-                    'test_file_hash' => $payload['test_file_hash'] ?? null,
-                    'impl_files_hash' => $payload['impl_files_hash'] ?? null,
-                    'output_tail' => $payload['output_tail'],
+                    self::FIELD_TEST_FILE_HASH => $payload[self::FIELD_TEST_FILE_HASH] ?? null,
+                    self::FIELD_IMPL_FILES_HASH => $payload[self::FIELD_IMPL_FILES_HASH] ?? null,
+                    self::FIELD_OUTPUT_TAIL => $payload[self::FIELD_OUTPUT_TAIL],
                     // `runner` is a short audit breadcrumb in a varchar(120) column; an
                     // FQN-anchored --filter regex can exceed that, so cap it (never let an
                     // audit label fail the write that records the green run itself).
-                    'runner' => mb_substr(AiValueNormalizer::trimmedScalarStringOrNull($payload['runner'] ?? null) ?? '', 0, 120),
+                    self::FIELD_RUNNER => mb_substr(AiValueNormalizer::trimmedScalarStringOrNull($payload[self::FIELD_RUNNER] ?? null) ?? '', 0, 120),
                     'ran_at' => now(),
                 ],
             );
