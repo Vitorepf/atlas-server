@@ -5541,6 +5541,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function obraLote2HealthFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'obra_field_status' => AcosMaxObraRetroService::FIELD_STATUS,
+            'obra_field_state' => AcosMaxObraRetroService::FIELD_STATE,
+            'obra_field_kind' => AcosMaxObraRetroService::FIELD_KIND,
+            'obra_field_evidence_refs' => AcosMaxObraRetroService::FIELD_EVIDENCE_REFS,
+            'obra_field_series_tag' => AcosMaxObraRetroService::FIELD_SERIES_TAG,
+            'obra_schema_version' => AcosMaxObraRetroService::SCHEMA_VERSION,
+            'lote2_field_never_delivered' => AcosMaxLote2MeasureService::FIELD_NEVER_DELIVERED,
+            'lote2_field_never_cited' => AcosMaxLote2MeasureService::FIELD_NEVER_CITED,
+            'lote2_field_rows' => AcosMaxLote2MeasureService::FIELD_ROWS,
+            'lote2_field_freeze' => AcosMaxLote2MeasureService::FIELD_FREEZE,
+            'lote2_field_delivered' => AcosMaxLote2MeasureService::FIELD_DELIVERED,
+            'lote2_report_schema' => AcosMaxLote2MeasureService::REPORT_SCHEMA,
+            'health_field_report_method' => HealthReportWatchdogCheck::FIELD_REPORT_METHOD,
+            'health_field_alert_code' => HealthReportWatchdogCheck::FIELD_ALERT_CODE,
+            'health_field_message' => HealthReportWatchdogCheck::FIELD_MESSAGE,
+            'health_field_id' => HealthReportWatchdogCheck::FIELD_ID,
+            'health_catalog_count' => count(HealthReportWatchdogCheck::CATALOG),
+            'obra_lote2_health_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

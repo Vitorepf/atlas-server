@@ -23,6 +23,14 @@ final class AcosMaxObraRetroService
     public const STATUS_UNKNOWN = 'unknown';
 
     public const FIELD_QUEUED = 'queued';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_STATE = 'state';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_EVIDENCE_REFS = 'evidence_refs';
+    public const FIELD_SERIES_TAG = 'series_tag';
+    public const FIELD_LOTE = 'lote';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_LESSONS = 'lessons';
 
     public const REASON_NO_TERMINAL_SLICES_FOR_LOTE = 'no_terminal_slices_for_lote';
 
@@ -60,10 +68,10 @@ final class AcosMaxObraRetroService
         if ($slices === []) {
             return [
                 'schema_version' => self::SCHEMA_VERSION,
-                'status' => self::STATUS_BLOCKED,
-                'reason' => self::REASON_NO_TERMINAL_SLICES_FOR_LOTE,
-                'lote' => $lote,
-                'series_tag' => self::SERIES_TAG,
+                self::FIELD_STATUS => self::STATUS_BLOCKED,
+                self::FIELD_REASON => self::REASON_NO_TERMINAL_SLICES_FOR_LOTE,
+                self::FIELD_LOTE => $lote,
+                self::FIELD_SERIES_TAG => self::SERIES_TAG,
                 'outcomes' => [self::STATUS_RECORDED => 0, 'items' => []],
                 'lesson_candidates' => [
                     'path' => self::LESSON_PATH_NORMAL_CAPTURE,
@@ -85,9 +93,9 @@ final class AcosMaxObraRetroService
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => self::STATUS_RECORDED,
-            'lote' => $lote,
-            'series_tag' => self::SERIES_TAG,
+            self::FIELD_STATUS => self::STATUS_RECORDED,
+            self::FIELD_LOTE => $lote,
+            self::FIELD_SERIES_TAG => self::SERIES_TAG,
             'scoreboard_path' => self::SCOREBOARD_RELATIVE_PATH,
             'slices' => [
                 'terminal' => count($slices),
@@ -96,7 +104,7 @@ final class AcosMaxObraRetroService
             'outcomes' => [
                 self::STATUS_RECORDED => count(array_filter(
                     $outcomeItems,
-                    static fn (array $item): bool => ($item['status'] ?? null) === self::STATUS_RECORDED
+                    static fn (array $item): bool => ($item[self::FIELD_STATUS] ?? null) === self::STATUS_RECORDED
                 )),
                 'items' => $outcomeItems,
             ],
@@ -104,7 +112,7 @@ final class AcosMaxObraRetroService
                 'path' => self::LESSON_PATH_NORMAL_CAPTURE,
                 self::FIELD_QUEUED => count(array_filter(
                     $lessonItems,
-                    static fn (array $item): bool => ($item['status'] ?? null) === self::LESSON_STATUS_PENDING_REVIEW
+                    static fn (array $item): bool => ($item[self::FIELD_STATUS] ?? null) === self::LESSON_STATUS_PENDING_REVIEW
                 )),
                 'items' => $lessonItems,
             ],
@@ -121,7 +129,7 @@ final class AcosMaxObraRetroService
     public function proposeLessonCandidate(array $candidate): array
     {
         $payload = array_merge([
-            'kind' => self::KIND_FAILURE_PATTERN,
+            self::FIELD_KIND => self::KIND_FAILURE_PATTERN,
             'scope' => self::SERIES_TAG,
             'flow_id' => self::SERIES_TAG,
             'workspace' => base_path(),
@@ -129,17 +137,17 @@ final class AcosMaxObraRetroService
         ], $candidate, [
             'payload' => array_merge(AiValueNormalizer::arrayOrEmpty($candidate['payload'] ?? null), [
                 'source' => self::SOURCE_ACOS_MAX_OBRA_RETRO,
-                'series_tag' => self::SERIES_TAG,
+                self::FIELD_SERIES_TAG => self::SERIES_TAG,
             ]),
         ]);
 
         $result = $this->writeBack->proposeLearning($payload);
 
         return [
-            'status' => (AiValueNormalizer::trimmedStringOrNull($result['status'] ?? null) ?? self::STATUS_UNKNOWN),
-            'reason' => (AiValueNormalizer::trimmedStringOrNull($result['reason'] ?? null) ?? ''),
+            self::FIELD_STATUS => (AiValueNormalizer::trimmedStringOrNull($result[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
+            self::FIELD_REASON => (AiValueNormalizer::trimmedStringOrNull($result[self::FIELD_REASON] ?? null) ?? ''),
             'proposal_id' => $result['proposal_id'] ?? null,
-            'kind' => AiValueNormalizer::trimmedStringOrNull($result['kind'] ?? $payload['kind'] ?? null) ?? '',
+            self::FIELD_KIND => AiValueNormalizer::trimmedStringOrNull($result[self::FIELD_KIND] ?? $payload[self::FIELD_KIND] ?? null) ?? '',
             'quality' => AiValueNormalizer::arrayOrEmpty($result['quality'] ?? null),
             'memory_admission' => AiValueNormalizer::arrayOrEmpty($result['memory_admission'] ?? null),
             'auto_promoted' => (AiValueNormalizer::boolOrNull($result['auto_promoted'] ?? null) ?? false),
@@ -153,7 +161,7 @@ final class AcosMaxObraRetroService
      */
     private function recordSliceOutcome(int $lote, array $slice): array
     {
-        $status = match ($slice['state']) {
+        $status = match ($slice[self::FIELD_STATE]) {
             self::SLICE_STATE_LANDED => self::OUTCOME_STATUS_SUCCEEDED,
             self::SLICE_STATE_REFUTADO => self::OUTCOME_STATUS_FAILED,
             default => self::STATUS_BLOCKED,
@@ -161,22 +169,22 @@ final class AcosMaxObraRetroService
 
         $recorded = $this->outcomes->record([
             'executor' => 'forge',
-            'objective' => sprintf('ACOS Max lote %d slice %s reached %s', $lote, $slice['id'], $slice['state']),
+            'objective' => sprintf('ACOS Max lote %d slice %s reached %s', $lote, $slice['id'], $slice[self::FIELD_STATE]),
             'summary' => AiValueNormalizer::trimmedScalarStringOrNull($slice['line'] ?? null) ?? '',
-            'status' => $status,
+            self::FIELD_STATUS => $status,
             'workspace' => base_path(),
             'surface_id' => self::SERIES_TAG,
             'scope_type' => 'obra_lote',
             'scope_id' => sprintf('acos-max:lote-%d', $lote),
-            'run_id' => sprintf('acos-max:lote-%d:%s:%s', $lote, $slice['id'], $slice['state']),
+            'run_id' => sprintf('acos-max:lote-%d:%s:%s', $lote, $slice['id'], $slice[self::FIELD_STATE]),
             'provider' => 'local',
             'verified' => true,
             'actor_tag' => self::SERIES_TAG,
             'outcome_flow_id' => self::SERIES_TAG,
-            'lote' => $lote,
+            self::FIELD_LOTE => $lote,
             'slice_id' => $slice['id'],
-            'slice_state' => $slice['state'],
-            'evidence_refs' => AiValueNormalizer::arrayOrEmpty($slice['evidence_refs'] ?? null),
+            'slice_state' => $slice[self::FIELD_STATE],
+            self::FIELD_EVIDENCE_REFS => AiValueNormalizer::arrayOrEmpty($slice[self::FIELD_EVIDENCE_REFS] ?? null),
             'metrics' => [
                 'tests_passed' => $status === self::OUTCOME_STATUS_SUCCEEDED,
                 'obra_retro_lote' => $lote,
@@ -185,11 +193,11 @@ final class AcosMaxObraRetroService
 
         return [
             'slice_id' => AiValueNormalizer::trimmedScalarStringOrNull($slice['id'] ?? null) ?? '',
-            'slice_state' => AiValueNormalizer::trimmedScalarStringOrNull($slice['state'] ?? null) ?? '',
-            'status' => (AiValueNormalizer::trimmedStringOrNull($recorded['status'] ?? null) ?? self::STATUS_UNKNOWN),
+            'slice_state' => AiValueNormalizer::trimmedScalarStringOrNull($slice[self::FIELD_STATE] ?? null) ?? '',
+            self::FIELD_STATUS => (AiValueNormalizer::trimmedStringOrNull($recorded[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
             'outcome_id' => data_get($recorded, 'outcome.outcome_id'),
             'ai_run_outcome_id' => data_get($recorded, 'spine.ai_run_outcome.id'),
-            'series_tag' => self::SERIES_TAG,
+            self::FIELD_SERIES_TAG => self::SERIES_TAG,
         ];
     }
 
@@ -202,22 +210,22 @@ final class AcosMaxObraRetroService
         $ids = array_map(static fn (array $slice): string => AiValueNormalizer::trimmedScalarStringOrNull($slice['id'] ?? null) ?? '', $slices);
 
         return [[
-            'kind' => self::KIND_FAILURE_PATTERN,
+            self::FIELD_KIND => self::KIND_FAILURE_PATTERN,
             'summary' => sprintf(
                 'ACOS Max lote %d close showed %d terminal slices (%s) need durable scoreboard refs and the obra:acos-max series tag so future lote retros can separate construction outcomes from product outcomes.',
                 $lote,
                 count($slices),
                 implode(', ', array_slice($ids, 0, 6)),
             ),
-            'evidence_refs' => array_values(array_unique(array_merge(
+            self::FIELD_EVIDENCE_REFS => array_values(array_unique(array_merge(
                 [sprintf('scoreboard:lote-%d', $lote)],
                 array_slice(array_merge(...array_map(
-                    static fn (array $slice): array => AiValueNormalizer::arrayOrEmpty($slice['evidence_refs'] ?? null),
+                    static fn (array $slice): array => AiValueNormalizer::arrayOrEmpty($slice[self::FIELD_EVIDENCE_REFS] ?? null),
                     $slices,
                 )), 0, 12),
             ))),
             'current_state' => [
-                'lote' => $lote,
+                self::FIELD_LOTE => $lote,
                 'terminal_slice_count' => count($slices),
             ],
             'proposed_state' => [
@@ -272,9 +280,9 @@ final class AcosMaxObraRetroService
             $sliceId = AiValueNormalizer::trimmedStringOrNull($match[1]) ?? '';
             $slices[] = [
                 'id' => $sliceId,
-                'state' => $state,
+                self::FIELD_STATE => $state,
                 'line' => $line,
-                'evidence_refs' => [
+                self::FIELD_EVIDENCE_REFS => [
                     sprintf('scoreboard:lote-%d:%s', $lote, $sliceId),
                     self::SCOREBOARD_RELATIVE_PATH.':'.($index + 1),
                 ],

@@ -28,6 +28,14 @@ final class ExploratoryBetsPortfolio
     public const STATUS_FLAG_DISABLED = 'flag_disabled';
 
     public const FIELD_ENABLED = 'enabled';
+    public const FIELD_PATH = 'path';
+    public const FIELD_BASIS = 'basis';
+    public const FIELD_STATE = 'state';
+    public const FIELD_ACTION = 'action';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_BETS = 'bets';
+    public const FIELD_K = 'k';
+    public const FIELD_WINDOW_DAYS = 'window_days';
 
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
 
@@ -66,7 +74,7 @@ final class ExploratoryBetsPortfolio
         if (($context[self::FIELD_ENABLED] ?? false) !== true) {
             return [
                 'schema_version' => self::SCHEMA_VERSION,
-                'status' => self::STATUS_FLAG_DISABLED,
+                self::FIELD_STATUS => self::STATUS_FLAG_DISABLED,
                 'originated_candidates' => $originatedCandidates,
                 'evaluated_bets' => [],
                 'decisions' => [],
@@ -76,9 +84,9 @@ final class ExploratoryBetsPortfolio
             ];
         }
 
-        $k = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($context['k'] ?? null) ?? self::DEFAULT_K));
+        $k = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($context[self::FIELD_K] ?? null) ?? self::DEFAULT_K));
         $windowId = AiValueNormalizer::trimmedStringOrNull($context['window_id']  ?? null) ?? 'current_window';
-        $windowDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($context['window_days'] ?? null) ?? self::DEFAULT_WINDOW_DAYS));
+        $windowDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($context[self::FIELD_WINDOW_DAYS] ?? null) ?? self::DEFAULT_WINDOW_DAYS));
         $objectiveClass = AiValueNormalizer::trimmedStringOrNull($context['objective_class'] ?? null) ?? '';
         /** @var array<string,string> $suspendedPaths */
         $suspendedPaths = array_filter(
@@ -92,7 +100,7 @@ final class ExploratoryBetsPortfolio
         $suspensionUpdates = [];
 
         foreach ($bets as $bet) {
-            $path = AiValueNormalizer::trimmedStringOrNull($bet['path'] ?? null) ?? '';
+            $path = AiValueNormalizer::trimmedStringOrNull($bet[self::FIELD_PATH] ?? null) ?? '';
             $effect = $objectiveClass !== ''
                 ? $gate->effect($path, $objectiveClass)
                 : $gate->effect($path);
@@ -108,7 +116,7 @@ final class ExploratoryBetsPortfolio
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $bets === [] ? self::STATUS_NO_ELIGIBLE_BETS : self::STATUS_OK,
+            self::FIELD_STATUS => $bets === [] ? self::STATUS_NO_ELIGIBLE_BETS : self::STATUS_OK,
             'originated_candidates' => $originatedCandidates,
             'evaluated_bets' => $bets,
             'decisions' => $decisions,
@@ -129,7 +137,7 @@ final class ExploratoryBetsPortfolio
             if (! is_array($candidate)) {
                 continue;
             }
-            $path = AiValueNormalizer::trimmedStringOrNull($candidate['path'] ?? $candidate['path_id'] ?? null) ?? '';
+            $path = AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_PATH] ?? $candidate['path_id'] ?? null) ?? '';
             if ($path === '') {
                 continue;
             }
@@ -140,7 +148,7 @@ final class ExploratoryBetsPortfolio
                 continue;
             }
 
-            $bets[] = array_merge($candidate, ['path' => $path]);
+            $bets[] = array_merge($candidate, [self::FIELD_PATH => $path]);
         }
 
         return $bets;
@@ -153,9 +161,9 @@ final class ExploratoryBetsPortfolio
      */
     private static function decisionFor(array $bet, array $effect, ?string $suspendedState): array
     {
-        $path = AiValueNormalizer::trimmedStringOrNull($bet['path'] ?? null) ?? '';
+        $path = AiValueNormalizer::trimmedStringOrNull($bet[self::FIELD_PATH] ?? null) ?? '';
         $base = [
-            'path' => $path,
+            self::FIELD_PATH => $path,
             'candidate_id' => AiValueNormalizer::trimmedStringOrNull($bet['id'] ?? null) ?? $path,
             'causal_effect' => $effect,
             'path_weight_multiplier' => 1.0,
@@ -166,17 +174,17 @@ final class ExploratoryBetsPortfolio
                 ? self::ACTION_RESUME_AND_DOUBLE_DOWN
                 : self::ACTION_DOUBLE_DOWN;
             $decision = array_merge($base, [
-                'action' => $action,
-                'state' => self::STATE_ACTIVE,
+                self::FIELD_ACTION => $action,
+                self::FIELD_STATE => self::STATE_ACTIVE,
                 'path_weight_multiplier' => self::DOUBLE_DOWN_MULTIPLIER,
-                'basis' => $action === self::ACTION_RESUME_AND_DOUBLE_DOWN ? self::BASIS_EVIDENCE_TURNED_POSITIVE : self::BASIS_POSITIVE_CAUSAL_EFFECT,
+                self::FIELD_BASIS => $action === self::ACTION_RESUME_AND_DOUBLE_DOWN ? self::BASIS_EVIDENCE_TURNED_POSITIVE : self::BASIS_POSITIVE_CAUSAL_EFFECT,
             ]);
             if ($action === self::ACTION_RESUME_AND_DOUBLE_DOWN) {
                 $decision['suspension_update'] = [
-                    'path' => $path,
+                    self::FIELD_PATH => $path,
                     'from_state' => PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE,
                     'to_state' => self::STATE_ACTIVE,
-                    'basis' => self::BASIS_EVIDENCE_TURNED_POSITIVE,
+                    self::FIELD_BASIS => self::BASIS_EVIDENCE_TURNED_POSITIVE,
                 ];
             }
 
@@ -185,24 +193,24 @@ final class ExploratoryBetsPortfolio
 
         if (self::isProvenNegative($effect)) {
             return array_merge($base, [
-                'action' => self::ACTION_SUSPEND,
-                'state' => PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE,
-                'basis' => self::BASIS_PROVEN_NEGATIVE_EFFECT,
+                self::FIELD_ACTION => self::ACTION_SUSPEND,
+                self::FIELD_STATE => PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE,
+                self::FIELD_BASIS => self::BASIS_PROVEN_NEGATIVE_EFFECT,
                 'suspension_update' => [
-                    'path' => $path,
+                    self::FIELD_PATH => $path,
                     'from_state' => $suspendedState ?? self::STATE_EXPLORING,
                     'to_state' => PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE,
-                    'basis' => self::BASIS_PROVEN_NEGATIVE_EFFECT,
+                    self::FIELD_BASIS => self::BASIS_PROVEN_NEGATIVE_EFFECT,
                 ],
             ]);
         }
 
         return array_merge($base, [
-            'action' => self::ACTION_CONTINUE_EXPLORING,
-            'state' => $suspendedState === PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE
+            self::FIELD_ACTION => self::ACTION_CONTINUE_EXPLORING,
+            self::FIELD_STATE => $suspendedState === PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE
                 ? PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE
                 : self::STATE_EXPLORING,
-            'basis' => AiValueNormalizer::trimmedStringOrNull($effect['reason'] ?? null) ?? self::BASIS_UNPROVEN_EFFECT,
+            self::FIELD_BASIS => AiValueNormalizer::trimmedStringOrNull($effect['reason'] ?? null) ?? self::BASIS_UNPROVEN_EFFECT,
         ]);
     }
 
@@ -224,14 +232,14 @@ final class ExploratoryBetsPortfolio
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'decision_kind' => self::DECISION_KIND_CONTINUATION_GATE,
-            'path' => AiValueNormalizer::trimmedStringOrNull($decision['path'] ?? null) ?? '',
-            'action' => AiValueNormalizer::trimmedStringOrNull($decision['action'] ?? null) ?? '',
-            'state' => AiValueNormalizer::trimmedStringOrNull($decision['state'] ?? null) ?? '',
-            'basis' => AiValueNormalizer::trimmedStringOrNull($decision['basis'] ?? null) ?? '',
+            self::FIELD_PATH => AiValueNormalizer::trimmedStringOrNull($decision[self::FIELD_PATH] ?? null) ?? '',
+            self::FIELD_ACTION => AiValueNormalizer::trimmedStringOrNull($decision[self::FIELD_ACTION] ?? null) ?? '',
+            self::FIELD_STATE => AiValueNormalizer::trimmedStringOrNull($decision[self::FIELD_STATE] ?? null) ?? '',
+            self::FIELD_BASIS => AiValueNormalizer::trimmedStringOrNull($decision[self::FIELD_BASIS] ?? null) ?? '',
             'path_weight_multiplier' => AiValueNormalizer::finiteFloatOrNull($decision['path_weight_multiplier'] ?? null) ?? 0.0,
             'window_id' => $windowId,
-            'window_days' => $windowDays,
-            'k' => $k,
+            self::FIELD_WINDOW_DAYS => $windowDays,
+            self::FIELD_K => $k,
             'min_n' => self::MIN_N,
             'causal_effect' => $effect,
         ];

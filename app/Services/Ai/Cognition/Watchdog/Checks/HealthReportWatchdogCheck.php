@@ -23,66 +23,71 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
      *
      * @var list<array{id:string, report_method:string, alert_code:string, message:string}>
      */
+    public const FIELD_ID = 'id';
+    public const FIELD_REPORT_METHOD = 'report_method';
+    public const FIELD_ALERT_CODE = 'alert_code';
+    public const FIELD_MESSAGE = 'message';
+
     public const CATALOG = [
         [
-            'id' => 'mem-09.memory_quality',
-            'report_method' => 'memoryQualityCheck',
-            'alert_code' => 'memory_quality_check_failed',
-            'message' => 'MEM-09 memory quality watchdog is not green.',
+            self::FIELD_ID => 'mem-09.memory_quality',
+            self::FIELD_REPORT_METHOD => 'memoryQualityCheck',
+            self::FIELD_ALERT_CODE => 'memory_quality_check_failed',
+            self::FIELD_MESSAGE => 'MEM-09 memory quality watchdog is not green.',
         ],
         [
-            'id' => 'fee-13.learning_cadence',
-            'report_method' => 'learningCadenceReport',
-            'alert_code' => 'learning_cadence_stalled',
-            'message' => 'FEE-13 learning cadence is stalled or under-evidenced.',
+            self::FIELD_ID => 'fee-13.learning_cadence',
+            self::FIELD_REPORT_METHOD => 'learningCadenceReport',
+            self::FIELD_ALERT_CODE => 'learning_cadence_stalled',
+            self::FIELD_MESSAGE => 'FEE-13 learning cadence is stalled or under-evidenced.',
         ],
         [
-            'id' => 'rag-10.aurg_coverage',
-            'report_method' => 'aurgCoverageReport',
-            'alert_code' => 'aurg_coverage_gate_failed',
-            'message' => 'RAG-10 AURG cross-layer coverage is below floor.',
+            self::FIELD_ID => 'rag-10.aurg_coverage',
+            self::FIELD_REPORT_METHOD => 'aurgCoverageReport',
+            self::FIELD_ALERT_CODE => 'aurg_coverage_gate_failed',
+            self::FIELD_MESSAGE => 'RAG-10 AURG cross-layer coverage is below floor.',
         ],
         [
-            'id' => 'rag-12.rag_dimension',
-            'report_method' => 'ragDimensionReport',
-            'alert_code' => 'rag_dimension_watchdog_failed',
-            'message' => 'RAG-12 retrieval dimension watchdog found a regression or masking issue.',
+            self::FIELD_ID => 'rag-12.rag_dimension',
+            self::FIELD_REPORT_METHOD => 'ragDimensionReport',
+            self::FIELD_ALERT_CODE => 'rag_dimension_watchdog_failed',
+            self::FIELD_MESSAGE => 'RAG-12 retrieval dimension watchdog found a regression or masking issue.',
         ],
         [
-            'id' => 'com-10.context_feedback_health',
-            'report_method' => 'contextFeedbackHealthReport',
-            'alert_code' => 'context_feedback_health_failed',
-            'message' => 'COM-10 context feedback health is below the pinned floor.',
+            self::FIELD_ID => 'com-10.context_feedback_health',
+            self::FIELD_REPORT_METHOD => 'contextFeedbackHealthReport',
+            self::FIELD_ALERT_CODE => 'context_feedback_health_failed',
+            self::FIELD_MESSAGE => 'COM-10 context feedback health is below the pinned floor.',
         ],
         [
-            'id' => 'cpt-09.compaction_soak',
-            'report_method' => 'compactionSoakWatchReport',
-            'alert_code' => 'compaction_soak_not_ready',
-            'message' => 'CPT-09 compaction soak is not ready for enforce.',
+            self::FIELD_ID => 'cpt-09.compaction_soak',
+            self::FIELD_REPORT_METHOD => 'compactionSoakWatchReport',
+            self::FIELD_ALERT_CODE => 'compaction_soak_not_ready',
+            self::FIELD_MESSAGE => 'CPT-09 compaction soak is not ready for enforce.',
         ],
         [
-            'id' => 'pip-08.scorecard_stability',
-            'report_method' => 'pipelineStabilityReport',
-            'alert_code' => 'scorecard_stability_failed',
-            'message' => 'PIP-08 scorecard stability has not reached a green pipeline series.',
+            self::FIELD_ID => 'pip-08.scorecard_stability',
+            self::FIELD_REPORT_METHOD => 'pipelineStabilityReport',
+            self::FIELD_ALERT_CODE => 'scorecard_stability_failed',
+            self::FIELD_MESSAGE => 'PIP-08 scorecard stability has not reached a green pipeline series.',
         ],
         [
-            'id' => 'ope-08.lift_cycle_closure',
-            'report_method' => 'liftCycleClosureReport',
-            'alert_code' => 'lift_cycle_closure_stalled',
-            'message' => 'OPE-08 lift cycle blockers are not closing.',
+            self::FIELD_ID => 'ope-08.lift_cycle_closure',
+            self::FIELD_REPORT_METHOD => 'liftCycleClosureReport',
+            self::FIELD_ALERT_CODE => 'lift_cycle_closure_stalled',
+            self::FIELD_MESSAGE => 'OPE-08 lift cycle blockers are not closing.',
         ],
         [
-            'id' => 'ope-10.scorecard_receipts_diagnosis',
-            'report_method' => 'scorecardReceiptsDiagnosisReport',
-            'alert_code' => 'scorecard_receipts_diagnosis_failed',
-            'message' => 'OPE-10 found persistent partial scorecard receipts.',
+            self::FIELD_ID => 'ope-10.scorecard_receipts_diagnosis',
+            self::FIELD_REPORT_METHOD => 'scorecardReceiptsDiagnosisReport',
+            self::FIELD_ALERT_CODE => 'scorecard_receipts_diagnosis_failed',
+            self::FIELD_MESSAGE => 'OPE-10 found persistent partial scorecard receipts.',
         ],
         [
-            'id' => 'eng-11.enforce_readiness',
-            'report_method' => 'engineeringEnforceReadinessReport',
-            'alert_code' => 'engineering_enforce_readiness_not_ready',
-            'message' => 'ENG-11 enforcement flips are not ready for promotion.',
+            self::FIELD_ID => 'eng-11.enforce_readiness',
+            self::FIELD_REPORT_METHOD => 'engineeringEnforceReadinessReport',
+            self::FIELD_ALERT_CODE => 'engineering_enforce_readiness_not_ready',
+            self::FIELD_MESSAGE => 'ENG-11 enforcement flips are not ready for promotion.',
         ],
     ];
 
@@ -139,10 +144,10 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
         foreach (self::catalog() as $row) {
             $checks[] = new self(
                 $health,
-                $row['id'],
-                $row['report_method'],
-                $row['alert_code'],
-                $row['message'],
+                $row[self::FIELD_ID],
+                $row[self::FIELD_REPORT_METHOD],
+                $row[self::FIELD_ALERT_CODE],
+                $row[self::FIELD_MESSAGE],
             );
         }
 

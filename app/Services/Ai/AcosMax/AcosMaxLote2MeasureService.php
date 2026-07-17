@@ -33,6 +33,14 @@ final class AcosMaxLote2MeasureService
     public const TETO02_MEASURE_ID = 'mission_e2e.v1';
 
     public const REPORT_SCHEMA = 'atlas.acos.lote2.measure_report.v1';
+    public const FIELD_NEVER_DELIVERED = 'never_delivered';
+    public const FIELD_NEVER_CITED = 'never_cited';
+    public const FIELD_ROWS = 'rows';
+    public const FIELD_FREEZE = 'freeze';
+    public const FIELD_DELIVERED = 'delivered';
+    public const FIELD_CITED = 'cited';
+    public const FIELD_BLOCKED_BY = 'blocked_by';
+    public const FIELD_SCORE = 'score';
 
     public const STATUS_OK = 'ok';
 
@@ -181,7 +189,7 @@ final class AcosMaxLote2MeasureService
                 ],
                 'marco_esp_v1' => [
                     'satisfied' => false,
-                    'blocked_by' => [self::REASON_LOOP_SOURCE_TABLES_MISSING],
+                    self::FIELD_BLOCKED_BY => [self::REASON_LOOP_SOURCE_TABLES_MISSING],
                 ],
                 'valid_loop_definition' => $this->multx01ValidLoopDefinition(),
             ]);
@@ -227,7 +235,7 @@ final class AcosMaxLote2MeasureService
                 $durations[] = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($assembled, 'loop.time_to_recall_seconds')) ?? 0);
             } else {
                 $partial[] = $assembled[self::FIELD_PARTIAL];
-                if (in_array('fixture_chain', AiValueNormalizer::arrayOrEmpty($assembled[self::FIELD_PARTIAL]['blocked_by'] ?? null), true)) {
+                if (in_array('fixture_chain', AiValueNormalizer::arrayOrEmpty($assembled[self::FIELD_PARTIAL][self::FIELD_BLOCKED_BY] ?? null), true)) {
                     $fixtureRejected++;
                 }
             }
@@ -244,7 +252,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_REASON => $marcoSatisfied ? null : 'no_complete_proven_real_loop_window',
             self::FIELD_FORMULA_VERSION => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload('MULTX-01'), self::FIELD_FORMULA_VERSION)) ?? '',
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
-            'freeze' => self::freezePayload('MULTX-01'),
+            self::FIELD_FREEZE => self::freezePayload('MULTX-01'),
             self::FIELD_MEASURE_ID => self::MULTX01_MEASURE_ID,
             self::FIELD_DENOMINATOR_MIN => 1,
             'loops_complete' => $loopsComplete,
@@ -259,7 +267,7 @@ final class AcosMaxLote2MeasureService
             ],
             'marco_esp_v1' => [
                 'satisfied' => $marcoSatisfied,
-                'blocked_by' => $marcoSatisfied ? [] : ['no_complete_proven_real_loop_window'],
+                self::FIELD_BLOCKED_BY => $marcoSatisfied ? [] : ['no_complete_proven_real_loop_window'],
                 'requires_loops_complete_min' => 1,
                 'requires_proven_real' => true,
                 'requires_chained_ids' => true,
@@ -284,7 +292,7 @@ final class AcosMaxLote2MeasureService
     {
         $counts = [];
         foreach ($partial as $row) {
-            foreach (AiValueNormalizer::arrayOrEmpty($row['blocked_by'] ?? null) as $reason) {
+            foreach (AiValueNormalizer::arrayOrEmpty($row[self::FIELD_BLOCKED_BY] ?? null) as $reason) {
                 $key = AiValueNormalizer::trimmedStringOrNull($reason) ?? '';
                 if ($key === '') {
                     continue;
@@ -384,7 +392,7 @@ final class AcosMaxLote2MeasureService
                     'chain' => $chain,
                     self::FIELD_PROVEN_REAL => $provenReal,
                     'fixture_free' => ! $fixture,
-                    'blocked_by' => array_values(array_unique($blockedBy)),
+                    self::FIELD_BLOCKED_BY => array_values(array_unique($blockedBy)),
                 ],
             ];
         }
@@ -499,8 +507,8 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_DENOMINATOR_MIN => $denominatorMin,
                 'n' => 0,
                 'by_lesson_class' => [],
-                'never_delivered' => 0,
-                'never_cited' => 0,
+                self::FIELD_NEVER_DELIVERED => 0,
+                self::FIELD_NEVER_CITED => 0,
                 'latency_seconds' => [
                     'delivery_p50' => null,
                     'delivery_p95' => null,
@@ -567,24 +575,24 @@ final class AcosMaxLote2MeasureService
             $byClass[$lessonClass] ??= [
                 'lesson_class' => $lessonClass,
                 'n' => 0,
-                'delivered' => 0,
-                'cited' => 0,
-                'never_delivered' => 0,
-                'never_cited' => 0,
+                self::FIELD_DELIVERED => 0,
+                self::FIELD_CITED => 0,
+                self::FIELD_NEVER_DELIVERED => 0,
+                self::FIELD_NEVER_CITED => 0,
                 'delivery_latencies' => [],
                 'citation_latencies' => [],
             ];
             $byClass[$lessonClass]['n']++;
             if ($deliverySeconds === null) {
-                $byClass[$lessonClass]['never_delivered']++;
+                $byClass[$lessonClass][self::FIELD_NEVER_DELIVERED]++;
             } else {
-                $byClass[$lessonClass]['delivered']++;
+                $byClass[$lessonClass][self::FIELD_DELIVERED]++;
                 $byClass[$lessonClass]['delivery_latencies'][] = $deliverySeconds;
             }
             if ($citationSeconds === null) {
-                $byClass[$lessonClass]['never_cited']++;
+                $byClass[$lessonClass][self::FIELD_NEVER_CITED]++;
             } else {
-                $byClass[$lessonClass]['cited']++;
+                $byClass[$lessonClass][self::FIELD_CITED]++;
                 $byClass[$lessonClass]['citation_latencies'][] = $citationSeconds;
             }
 
@@ -592,8 +600,8 @@ final class AcosMaxLote2MeasureService
                 'candidate_id' => $candidateId,
                 'outcome_id' => AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? '',
                 'lesson_class' => $lessonClass,
-                'delivered' => $deliverySeconds !== null,
-                'cited' => $citationSeconds !== null,
+                self::FIELD_DELIVERED => $deliverySeconds !== null,
+                self::FIELD_CITED => $citationSeconds !== null,
                 'delivery_latency_seconds' => $deliverySeconds,
                 'citation_latency_seconds' => $citationSeconds,
             ];
@@ -609,20 +617,20 @@ final class AcosMaxLote2MeasureService
             self::FIELD_REASON => $status === self::STATUS_OK ? null : 'promoted_lesson_denominator_below_min',
             self::FIELD_FORMULA_VERSION => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload('MULTX-06'), self::FIELD_FORMULA_VERSION)) ?? '',
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
-            'freeze' => self::freezePayload('MULTX-06'),
+            self::FIELD_FREEZE => self::freezePayload('MULTX-06'),
             self::FIELD_MEASURE_ID => self::MULTX06_MEASURE_ID,
             self::FIELD_DENOMINATOR_MIN => $denominatorMin,
             'n' => $n,
             'by_lesson_class' => $this->learningLatencyByClass($byClass),
-            'never_delivered' => $neverDelivered,
-            'never_cited' => $neverCited,
+            self::FIELD_NEVER_DELIVERED => $neverDelivered,
+            self::FIELD_NEVER_CITED => $neverCited,
             'latency_seconds' => [
                 'delivery_p50' => $this->percentileInt($deliveryLatencies, 0.50),
                 'delivery_p95' => $this->percentileInt($deliveryLatencies, 0.95),
                 'citation_p50' => $this->percentileInt($citationLatencies, 0.50),
                 'citation_p95' => $this->percentileInt($citationLatencies, 0.95),
             ],
-            'rows' => $rows,
+            self::FIELD_ROWS => $rows,
             'claim_policy' => [
                 'read_only' => true,
                 'provider_calls_made' => false,
@@ -650,10 +658,10 @@ final class AcosMaxLote2MeasureService
             return [
                 'lesson_class' => AiValueNormalizer::trimmedScalarStringOrNull($row['lesson_class'] ?? null) ?? '',
                 'n' => (int) (AiValueNormalizer::finiteFloatOrNull($row['n'] ?? null) ?? 0),
-                'delivered' => (int) (AiValueNormalizer::finiteFloatOrNull($row['delivered'] ?? null) ?? 0),
-                'cited' => (int) (AiValueNormalizer::finiteFloatOrNull($row['cited'] ?? null) ?? 0),
-                'never_delivered' => (int) (AiValueNormalizer::finiteFloatOrNull($row['never_delivered'] ?? null) ?? 0),
-                'never_cited' => (int) (AiValueNormalizer::finiteFloatOrNull($row['never_cited'] ?? null) ?? 0),
+                self::FIELD_DELIVERED => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_DELIVERED] ?? null) ?? 0),
+                self::FIELD_CITED => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_CITED] ?? null) ?? 0),
+                self::FIELD_NEVER_DELIVERED => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_NEVER_DELIVERED] ?? null) ?? 0),
+                self::FIELD_NEVER_CITED => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_NEVER_CITED] ?? null) ?? 0),
                 'latency_seconds' => [
                     'delivery_p50' => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row['delivery_latencies'] ?? null), 0.50),
                     'delivery_p95' => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row['delivery_latencies'] ?? null), 0.95),
@@ -732,18 +740,18 @@ final class AcosMaxLote2MeasureService
 
             $pairs[$pairId] ??= [
                 self::FIELD_MEMORY_TYPE => $this->memoryTypeFromCounterfactualMeta($meta),
-                'rows' => [],
+                self::FIELD_ROWS => [],
                 'policy_violation_rows' => 0,
             ];
             $pairs[$pairId][self::FIELD_MEMORY_TYPE] = $pairs[$pairId][self::FIELD_MEMORY_TYPE] !== self::MEMORY_TYPE_UNKNOWN
                 ? $pairs[$pairId][self::FIELD_MEMORY_TYPE]
                 : $this->memoryTypeFromCounterfactualMeta($meta);
-            $pairs[$pairId]['rows'][$arm] = [
-                'score' => $this->counterfactualScore($row, $meta),
+            $pairs[$pairId][self::FIELD_ROWS][$arm] = [
+                self::FIELD_SCORE => $this->counterfactualScore($row, $meta),
                 'policy_valid' => AiValueNormalizer::lowerTrimmedString($meta['mode'] ?? 'peek') === 'peek'
                     && ($meta['record_usage'] ?? false) === false,
             ];
-            if (! $pairs[$pairId]['rows'][$arm]['policy_valid']) {
+            if (! $pairs[$pairId][self::FIELD_ROWS][$arm]['policy_valid']) {
                 $pairs[$pairId]['policy_violation_rows']++;
             }
         }
@@ -756,7 +764,7 @@ final class AcosMaxLote2MeasureService
         $positiveLiftFabricated = 0;
 
         foreach ($pairs as $pair) {
-            $rows = $pair['rows'];
+            $rows = $pair[self::FIELD_ROWS];
             if (($pair['policy_violation_rows'] ?? 0) > 0) {
                 $invalidPolicyPairs++;
                 $invalidPolicyRows += count($rows);
@@ -768,8 +776,8 @@ final class AcosMaxLote2MeasureService
             }
 
             $memoryType = (AiValueNormalizer::trimmedStringOrNull($pair[self::FIELD_MEMORY_TYPE] ?? null) ?? self::MEMORY_TYPE_UNKNOWN);
-            $control = AiValueNormalizer::finiteFloatOrNull($rows['control']['score'] ?? null) ?? 0.0;
-            $treatment = AiValueNormalizer::finiteFloatOrNull($rows['treatment']['score'] ?? null) ?? 0.0;
+            $control = AiValueNormalizer::finiteFloatOrNull($rows['control'][self::FIELD_SCORE] ?? null) ?? 0.0;
+            $treatment = AiValueNormalizer::finiteFloatOrNull($rows['treatment'][self::FIELD_SCORE] ?? null) ?? 0.0;
             $delta = round($treatment - $control, 4);
             $groups[$memoryType] ??= [
                 self::FIELD_MEMORY_TYPE => $memoryType,
@@ -809,7 +817,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_REASON => $measuredPairs > 0 ? null : 'paired_peek_floor_below_minimum',
             self::FIELD_FORMULA_VERSION => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload('MULTJ-03'), self::FIELD_FORMULA_VERSION)) ?? '',
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
-            'freeze' => self::freezePayload('MULTJ-03'),
+            self::FIELD_FREEZE => self::freezePayload('MULTJ-03'),
             self::FIELD_MEASURE_ID => self::MULTJ03_MEASURE_ID,
             self::FIELD_DENOMINATOR_MIN => $denominatorMin,
             'sample_rate' => $sampleRate,
@@ -914,7 +922,7 @@ final class AcosMaxLote2MeasureService
      */
     private function counterfactualScore(object $row, array $meta): float
     {
-        $score = $meta['score'] ?? $row->post_execution_utility ?? $row->context_sufficiency ?? 0;
+        $score = $meta[self::FIELD_SCORE] ?? $row->post_execution_utility ?? $row->context_sufficiency ?? 0;
 
         return AiValueNormalizer::finiteFloatOrNull($score) ?? 0.0;
     }
@@ -952,7 +960,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_MEASURE_ID => self::TETO02_MEASURE_ID,
             self::FIELD_FORMULA_VERSION => 'mission_e2e_rate.v1',
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
-            'freeze' => self::freezePayload('TETO-02'),
+            self::FIELD_FREEZE => self::freezePayload('TETO-02'),
             self::FIELD_DENOMINATOR_MIN => 20,
             'window_days' => $days,
             'metrics' => [
@@ -1012,7 +1020,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_REASON => $reason,
             self::FIELD_FORMULA_VERSION => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload($slice), self::FIELD_FORMULA_VERSION)) ?? '',
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
-            'freeze' => self::freezePayload($slice),
+            self::FIELD_FREEZE => self::freezePayload($slice),
         ], $extra);
     }
 
