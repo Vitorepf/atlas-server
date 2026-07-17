@@ -225,7 +225,7 @@ class AtlasDocsAuthorityGraphService
         $docs = [];
         foreach (File::allFiles($root) as $file) {
             /** @var SplFileInfo $file */
-            if (strtolower($file->getExtension()) !== 'md') {
+            if (AiValueNormalizer::lowerTrimmedString($file->getExtension()) !== 'md') {
                 continue;
             }
             $parsed = $this->frontmatter->parse(File::get($file->getPathname()));

@@ -17,7 +17,7 @@ final class AtlasAaeosValueNormalizer
     {
         $string = self::stringOrNull($value);
 
-        return $string === null ? null : strtolower($string);
+        return $string === null ? null : AiValueNormalizer::lowerTrimmedString($string);
     }
 
     public static function trimmedString(mixed $value): string
@@ -27,7 +27,7 @@ final class AtlasAaeosValueNormalizer
 
     public static function lowerString(mixed $value): string
     {
-        return strtolower(self::trimmedString($value));
+        return AiValueNormalizer::lowerTrimmedString(self::trimmedString($value));
     }
 
     public static function isNonBlankString(mixed $value): bool

@@ -466,7 +466,7 @@ class AtlasAaeosImplementationEvidenceResolver
     private function matchTestClassFqn(string $classRef): ?string
     {
         $classRef = AiValueNormalizer::trimmedString($classRef);
-        if ($classRef === '' || ! str_contains(strtolower($classRef), 'test')) {
+        if ($classRef === '' || ! str_contains(AiValueNormalizer::lowerTrimmedString($classRef), 'test')) {
             return null;
         }
 

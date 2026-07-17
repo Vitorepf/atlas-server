@@ -31,6 +31,7 @@ use App\Services\Ai\AcosMax\EvidenceVisionThesisComposer;
 use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
+use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -918,6 +919,18 @@ final class AtlasUniversalGatesEvaluator
     public function kbEmbeddingCoverageObserve(array $input = []): array
     {
         return (new AtlasKnowledgeItemEmbeddingCoverageService)->report();
+    }
+
+    /**
+     * Observe-only code-symbol embedding coverage ruler (MAXA-06 fase 2).
+     * Accepts optional empty object; runs the read-only report. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function codeSymbolEmbeddingCoverageObserve(array $input = []): array
+    {
+        return (new AtlasCodeSymbolEmbeddingCoverageService)->report();
     }
 
     /**

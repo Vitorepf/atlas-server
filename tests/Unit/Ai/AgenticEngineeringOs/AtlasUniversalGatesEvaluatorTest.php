@@ -31,6 +31,7 @@ use App\Services\Ai\AcosMax\ProvenanceWeightCalculator;
 use App\Services\Ai\AcosMax\RecallGapAggregator;
 use App\Services\Ai\AcosMax\BeliefCascadeReverificationPlanner;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
+use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -765,6 +766,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
 
         $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::MEASURE_ID, $payload['measure_id']);
+        $this->assertArrayHasKey('status', $payload);
+        $this->assertArrayHasKey('aggregate', $payload);
+    }
+
+    public function test_code_symbol_embedding_coverage_observe_returns_ruler_schema(): void
+    {
+        $payload = $this->svc->codeSymbolEmbeddingCoverageObserve([]);
+
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::MEASURE_ID, $payload['measure_id']);
         $this->assertArrayHasKey('status', $payload);
         $this->assertArrayHasKey('aggregate', $payload);
     }
