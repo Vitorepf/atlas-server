@@ -187,7 +187,7 @@ final class AcosMaxVerifiedShareService
                     continue;
                 }
                 if (is_array($row)
-                    && ($row['kind'] ?? null) === 'measure_freeze'
+                    && ($row['kind'] ?? null) === self::KIND_MEASURE_FREEZE
                     && ($row['measure_id'] ?? null) === self::MEASURE_ID
                     && $this->judgeAuthorDistinct($row)) {
                     $latest = $row;

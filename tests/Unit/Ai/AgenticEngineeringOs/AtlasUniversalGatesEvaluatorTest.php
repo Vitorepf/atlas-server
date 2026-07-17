@@ -3167,4 +3167,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(20, $payload['unobserved_status_basis_handoff_floor_count']);
     }
 
+    public function test_choreography_repair_review_measure_freeze_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->choreographyRepairReviewMeasureFreezeFloorsContractObserve([]);
+
+        $this->assertSame('repair', $payload['choreography_handoff_kind_repair']);
+        $this->assertSame('review_request', $payload['choreography_handoff_kind_review_request']);
+        $this->assertSame('measure_freeze', $payload['kb_embedding_kind_measure_freeze']);
+        $this->assertSame('measure_freeze', $payload['code_symbol_embedding_kind_measure_freeze']);
+        $this->assertSame('measure_freeze', $payload['outcome_envelope_kind_measure_freeze']);
+        $this->assertSame('true', $payload['autonomy_ladder_export_bool_true']);
+        $this->assertSame('false', $payload['autonomy_ladder_export_bool_false']);
+        $this->assertSame('unset', $payload['autonomy_ladder_export_bool_unset']);
+        $this->assertSame(8, $payload['choreography_repair_review_measure_freeze_floor_count']);
+    }
+
 }

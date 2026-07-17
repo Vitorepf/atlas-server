@@ -44,6 +44,12 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
 
     public const CHECK_ID = 'maxk-09.autonomy_ladder_adversarial';
 
+    public const EXPORT_BOOL_TRUE = 'true';
+
+    public const EXPORT_BOOL_FALSE = 'false';
+
+    public const EXPORT_BOOL_UNSET = 'unset';
+
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
         private readonly DecisionReceiptFailurePatternMiner $miner,
@@ -445,12 +451,12 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     private function exportBool(mixed $value): string
     {
         if ($value === true) {
-            return 'true';
+            return self::EXPORT_BOOL_TRUE;
         }
         if ($value === false) {
-            return 'false';
+            return self::EXPORT_BOOL_FALSE;
         }
 
-        return 'unset';
+        return self::EXPORT_BOOL_UNSET;
     }
 }

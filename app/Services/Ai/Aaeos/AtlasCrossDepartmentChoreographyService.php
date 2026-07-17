@@ -75,7 +75,7 @@ class AtlasCrossDepartmentChoreographyService
         if ($rule === null) {
             return [
                 'schema_version' => self::HANDOFF_SCHEMA,
-                'kind' => 'veto',
+                'kind' => self::HANDOFF_KIND_VETO,
                 'recognized' => false,
                 'vetoing_department' => $dept,
                 'action' => self::ACTION_NOOP,
@@ -85,7 +85,7 @@ class AtlasCrossDepartmentChoreographyService
 
         return [
             'schema_version' => self::HANDOFF_SCHEMA,
-            'kind' => 'veto',
+            'kind' => self::HANDOFF_KIND_VETO,
             'recognized' => true,
             'vetoing_department' => $dept,
             'action' => $rule['action'],
@@ -111,10 +111,10 @@ class AtlasCrossDepartmentChoreographyService
 
         return [
             'schema_version' => self::HANDOFF_SCHEMA,
-            'kind' => $escalate ? 'escalation' : 'repair',
+            'kind' => $escalate ? self::HANDOFF_KIND_ESCALATION : self::HANDOFF_KIND_REPAIR,
             'iteration' => $iteration,
             'max_iterations' => $maxIterations,
-            'decision' => $escalate ? 'escalate' : 'repair',
+            'decision' => $escalate ? 'escalate' : self::HANDOFF_KIND_REPAIR,
             'escalate' => $escalate,
             'escalate_to' => $escalate ? ['architect', 'operator'] : [],
             'remaining_repairs' => $escalate ? 0 : max(0, $maxIterations - $iteration),

@@ -41,11 +41,13 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
 
     public const FORMULA_VERSION = 'kb_embedding_coverage.v1';
 
+    public const KIND_MEASURE_FREEZE = 'measure_freeze';
+
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
         return [
-            'kind' => 'measure_freeze',
+            'kind' => self::KIND_MEASURE_FREEZE,
             'measure_id' => self::MEASURE_ID,
             'formula' => 'MAXA-06 fase 1: coverage_ratio = active items whose MAXA-03 provenance (embedding_model + embedded_content_hash) matches current content_hash, over active items. Stale = provenance stamped but hash drifted. Missing = no provenance.',
             'formula_version' => self::FORMULA_VERSION,

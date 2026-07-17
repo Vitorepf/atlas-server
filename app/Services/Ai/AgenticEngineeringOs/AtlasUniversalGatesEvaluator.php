@@ -4699,6 +4699,28 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: remaining choreography repair/review handoff floors plus
+     * measure-freeze / autonomy-ladder export floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function choreographyRepairReviewMeasureFreezeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'choreography_handoff_kind_repair' => AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_REPAIR,
+            'choreography_handoff_kind_review_request' => AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_REVIEW_REQUEST,
+            'kb_embedding_kind_measure_freeze' => AtlasKnowledgeItemEmbeddingCoverageService::KIND_MEASURE_FREEZE,
+            'code_symbol_embedding_kind_measure_freeze' => AtlasCodeSymbolEmbeddingCoverageService::KIND_MEASURE_FREEZE,
+            'outcome_envelope_kind_measure_freeze' => OutcomeEnvelopeBridge::KIND_MEASURE_FREEZE,
+            'autonomy_ladder_export_bool_true' => AutonomyLadderAdversarialWatchdogCheck::EXPORT_BOOL_TRUE,
+            'autonomy_ladder_export_bool_false' => AutonomyLadderAdversarialWatchdogCheck::EXPORT_BOOL_FALSE,
+            'autonomy_ladder_export_bool_unset' => AutonomyLadderAdversarialWatchdogCheck::EXPORT_BOOL_UNSET,
+            'choreography_repair_review_measure_freeze_floor_count' => 8,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

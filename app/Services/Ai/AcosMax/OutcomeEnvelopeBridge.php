@@ -23,6 +23,8 @@ final class OutcomeEnvelopeBridge
 
     public const DEFAULT_ADAPTERS_ENABLED = false;
 
+    public const KIND_MEASURE_FREEZE = 'measure_freeze';
+
     /** @var array<string, OutcomeEnvelopeAdapter> */
     private array $adapters;
 
@@ -92,7 +94,7 @@ final class OutcomeEnvelopeBridge
     public static function freezePayload(): array
     {
         return [
-            'kind' => 'measure_freeze',
+            'kind' => self::KIND_MEASURE_FREEZE,
             'measure_id' => self::MEASURE_ID,
             'formula_version' => OutcomeEnvelope::FORMULA_VERSION,
             'formula' => 'Outcome envelope = MULTX-03 atlas.engineering_outcome.v2 contract projected through one thin adapter per native organ (dev_procedural, aemor, compounding). Divergent native fields remain in native_divergent.fields labeled by origin — never coerced or fused.',

@@ -39,11 +39,13 @@ final class AtlasCodeSymbolEmbeddingCoverageService
 
     public const FORMULA_VERSION = 'code_symbol_embedding_coverage.v1';
 
+    public const KIND_MEASURE_FREEZE = 'measure_freeze';
+
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
         return [
-            'kind' => 'measure_freeze',
+            'kind' => self::KIND_MEASURE_FREEZE,
             'measure_id' => self::MEASURE_ID,
             'formula' => 'MAXA-06 fase 2: coverage_ratio = active code symbols whose provenance in atlas_code_symbol_embeddings (embedding_model + embedded_content_hash) matches current source_hash, over active code symbols. Stale = provenance stamped but source_hash drifted (incremental re-embed target). Missing = no embedding row for the symbol.',
             'formula_version' => self::FORMULA_VERSION,
