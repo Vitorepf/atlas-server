@@ -104,7 +104,7 @@ final class AtlasAaeosThresholdLadderNormalizer
             $normalized[] = [
                 'metric' => AiValueNormalizer::trimmedString($threshold['metric']),
                 'comparator' => AiValueNormalizer::trimmedString($threshold['comparator']),
-                'value' => (float) $threshold['value'],
+                'value' => AiValueNormalizer::finiteFloatOrNull($threshold['value']) ?? 0.0,
             ];
         }
 
@@ -120,6 +120,6 @@ final class AtlasAaeosThresholdLadderNormalizer
             && is_string($threshold['comparator'])
             && AiValueNormalizer::trimmedString($threshold['comparator']) !== ''
             && in_array(get_debug_type($threshold['value']), ['int', 'float'], true)
-            && is_finite((float) $threshold['value']);
+            && is_finite(AiValueNormalizer::finiteFloatOrNull($threshold['value']) ?? NAN);
     }
 }

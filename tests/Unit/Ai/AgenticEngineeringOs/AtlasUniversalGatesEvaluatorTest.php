@@ -1195,4 +1195,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertArrayHasKey('n_pairs', $payload);
         $this->assertSame(AcosMaxLote2MeasureService::MULTJ03_MEASURE_ID, $payload['measure_id'] ?? null);
     }
+
+    public function test_string_list_normalize_observe_trims_values(): void
+    {
+        $payload = $this->svc->stringListNormalizeObserve([
+            'values' => ['  alpha  ', 'beta', 'alpha', '', 7],
+        ]);
+
+        $this->assertSame('atlas.aaeos.string_list_normalize.v1', $payload['schema_version']);
+        $this->assertContains('alpha', $payload['trimmed_strings']);
+        $this->assertContains('7', $payload['trimmed_string_or_int_values']);
+    }
 }

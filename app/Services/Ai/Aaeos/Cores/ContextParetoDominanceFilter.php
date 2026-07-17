@@ -223,14 +223,14 @@ final class ContextParetoDominanceFilter
 
         if (array_key_exists('min', $rule)) {
             $numeric = AiValueNormalizer::finiteFloatOrNull($value);
-            if ($numeric === null || $numeric < (float) $rule['min']) {
+            if ($numeric === null || $numeric < (AiValueNormalizer::finiteFloatOrNull($rule['min'] ?? null) ?? 0.0)) {
                 return false;
             }
         }
 
         if (array_key_exists('max', $rule)) {
             $numeric = AiValueNormalizer::finiteFloatOrNull($value);
-            if ($numeric === null || $numeric > (float) $rule['max']) {
+            if ($numeric === null || $numeric > (AiValueNormalizer::finiteFloatOrNull($rule['max'] ?? null) ?? 0.0)) {
                 return false;
             }
         }

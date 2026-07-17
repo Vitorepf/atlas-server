@@ -45,6 +45,7 @@ use App\Services\Ai\AcosMax\ComposedObraArcComposer;
 use App\Services\Ai\AcosMax\ExploratoryBetsPortfolio;
 use App\Services\Ai\AcosMax\AtlasNCaptureDrillService;
 use App\Services\Ai\AcosMax\AcosMaxLote2MeasureService;
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
@@ -1443,6 +1444,26 @@ final class AtlasUniversalGatesEvaluator
     public function lote2CounterfactualLiftObserve(array $input = []): array
     {
         return app(AcosMaxLote2MeasureService::class)->multj03CounterfactualLift();
+    }
+
+    /**
+     * Observe-only AAEOS string-list normalization helpers.
+     * Accepts `{values}` (list). Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function stringListNormalizeObserve(array $input = []): array
+    {
+        $values = $input['values'] ?? [];
+
+        return [
+            'schema_version' => 'atlas.aaeos.string_list_normalize.v1',
+            'trimmed_strings' => AtlasAaeosStringListNormalizer::trimmedStrings($values),
+            'unique_trimmed_strings' => AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($values),
+            'non_empty_strings' => AtlasAaeosStringListNormalizer::nonEmptyStrings($values),
+            'trimmed_string_or_int_values' => AtlasAaeosStringListNormalizer::trimmedStringOrIntValues($values),
+        ];
     }
 
     /**
