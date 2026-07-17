@@ -82,12 +82,12 @@ final class AtlasMissionControlCockpitService
             // WIRE-OBSERVE (Obra #7): severity reduction over the raw blocker
             // list — tells the operator whether the intent is blocked/warning/
             // clear. Observe-only: never changes blockers or phase statuses.
-            'blocker_signal' => (new AaeosBlockerSeverityGate)->assess($blockers),
+            'blocker_signal' => $this->blockerSeverity->assess($blockers),
             // Observe-only advance verdict over the latest phase envelope
             // (same classifier the HTTP policy gate now uses live).
             'phase_advance' => $this->latestPhaseAdvance($phaseEnvelopes),
             // Observe-only causality ranking when the journey is not clear green.
-            'outcome_causality' => $this->outcomeCausality($blockers, $gateReport),
+            'outcome_causality' => $this->outcomeCausalityFor($blockers, $gateReport),
             'operator_signature_required' => $signatureRequired,
             'provider_safe' => true,
             'generated_at' => gmdate('c'),
@@ -175,7 +175,7 @@ final class AtlasMissionControlCockpitService
                 continue;
             }
 
-            return (new PhaseAdvanceVerdictClassifier)->classify($env);
+            return $this->phaseAdvance->classify($env);
         }
 
         return null;
@@ -188,7 +188,7 @@ final class AtlasMissionControlCockpitService
      * @param  array<string,mixed>  $gateReport
      * @return array<string,mixed>|null
      */
-    private function outcomeCausality(array $blockers, array $gateReport): ?array
+    private function outcomeCausalityFor(array $blockers, array $gateReport): ?array
     {
         $outcome = (string) ($gateReport['outcome'] ?? '');
         if ($blockers === [] && $outcome === 'green') {
@@ -211,7 +211,7 @@ final class AtlasMissionControlCockpitService
             default => 'blocked',
         };
 
-        return (new OutcomeCausalityRanker)->rank(
+        return $this->outcomeCausality->rank(
             hasEvidenceRefs: $hasEvidenceRefs,
             status: $status,
             missingRequiredSources: $missingRequiredSources,
