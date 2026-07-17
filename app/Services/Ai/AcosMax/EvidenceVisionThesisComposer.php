@@ -28,6 +28,18 @@ final class EvidenceVisionThesisComposer
     /** @var list<string> */
     public const ALLOWED_EVIDENCE_SOURCES = ['series', 'ledger', 'outcome'];
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_ACTIVE = 'active';
+
+    public const KIND_SERIES_RECOVERY = 'series_recovery';
+
+    public const KIND_CALIBRATION_RESOLVED = 'calibration_resolved';
+
+    public const KIND_LEAD_CLUSTER_CLEARED = 'lead_cluster_cleared';
+
+    public const KIND_OUTCOME_PROVEN = 'outcome_proven';
+
     /**
      * @param  array<string,mixed>  $context
      * @return array<string,mixed>
@@ -88,7 +100,7 @@ final class EvidenceVisionThesisComposer
             'composed' => true,
             'thesis_count' => count($theses),
             'theses' => $theses,
-            'status' => 'ok',
+            'status' => self::STATUS_OK,
             'source' => [
                 'max_theses' => self::MAX_THESES,
                 'human_authored_claims' => false,
@@ -228,7 +240,7 @@ final class EvidenceVisionThesisComposer
 
             $theses[] = [
                 'thesis_id' => $thesisId,
-                'status' => 'active',
+                'status' => self::STATUS_ACTIVE,
                 'claim' => 'series:'.$series.' stage '.$stage.' yield regressed across windows '
                     .((int) (AiValueNormalizer::finiteFloatOrNull($tail[0]['window'] ?? null) ?? 0)).'-'.((int) (AiValueNormalizer::finiteFloatOrNull($tail[count($tail) - 1]['window'] ?? null) ?? 0))
                     .' ('.round($first, 3).'→'.round($last, 3).')',
@@ -242,7 +254,7 @@ final class EvidenceVisionThesisComposer
                     $tail,
                 ),
                 'death_criterion' => [
-                    'kind' => 'series_recovery',
+                    'kind' => self::KIND_SERIES_RECOVERY,
                     'threshold' => $recoveryFloor,
                     'consecutive_windows' => 2,
                     'described_at_birth' => 'archive when series:'.$series.' stage '.$stage.' yield >= '.$recoveryFloor.' for 2 consecutive windows',
@@ -283,7 +295,7 @@ final class EvidenceVisionThesisComposer
 
         return [[
             'thesis_id' => $thesisId,
-            'status' => 'active',
+            'status' => self::STATUS_ACTIVE,
             'claim' => 'outcome:predicted_impact_calibration high_band realized_rate '.round($highRate, 3)
                 .' trails sweet_band '.round($sweetRate, 3),
             'evidence' => [
@@ -301,7 +313,7 @@ final class EvidenceVisionThesisComposer
                 ],
             ],
             'death_criterion' => [
-                'kind' => 'calibration_resolved',
+                'kind' => self::KIND_CALIBRATION_RESOLVED,
                 'threshold' => $sweetRate - 0.15,
                 'described_at_birth' => 'archive when high_band realized_rate >= sweet_band - 0.15',
             ],
@@ -352,11 +364,11 @@ final class EvidenceVisionThesisComposer
 
             $theses[] = [
                 'thesis_id' => $thesisId,
-                'status' => 'active',
+                'status' => self::STATUS_ACTIVE,
                 'claim' => 'ledger cluster at '.$target.' with '.count($rows).' independent evidence rows',
                 'evidence' => $refs,
                 'death_criterion' => [
-                    'kind' => 'lead_cluster_cleared',
+                    'kind' => self::KIND_LEAD_CLUSTER_CLEARED,
                     'remaining_rows_max' => 0,
                     'described_at_birth' => 'archive when open evidence rows for '.$target.' drop below 2',
                 ],
@@ -398,7 +410,7 @@ final class EvidenceVisionThesisComposer
             $thesisId = hash('sha256', 'outcome-stall|'.$path.'|'.count($failures));
             $theses[] = [
                 'thesis_id' => $thesisId,
-                'status' => 'active',
+                'status' => self::STATUS_ACTIVE,
                 'claim' => 'outcome:path='.$path.' has '.count($failures).' consecutive non-proven_real results',
                 'evidence' => array_map(
                     static fn (array $row, int $index): array => [
@@ -411,7 +423,7 @@ final class EvidenceVisionThesisComposer
                     array_keys(array_slice($failures, 0, 3)),
                 ),
                 'death_criterion' => [
-                    'kind' => 'outcome_proven',
+                    'kind' => self::KIND_OUTCOME_PROVEN,
                     'described_at_birth' => 'archive when path '.$path.' records proven_real=true',
                 ],
                 'alignment_keys' => [$path],

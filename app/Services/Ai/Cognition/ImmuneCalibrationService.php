@@ -22,6 +22,16 @@ final class ImmuneCalibrationService
     /** @var list<string> */
     public const GATE_IDS = ['G0', 'G1', 'G2', 'G3', 'G4', 'G5', 'G6', 'G7', 'G8'];
 
+    public const MODE_READ_ONLY = 'read_only';
+
+    public const KIND_MEASURE_FREEZE = 'measure_freeze';
+
+    public const BAND_INSUFFICIENT_SAMPLE = 'insufficient_sample';
+
+    public const STATUS_INSUFFICIENT_SAMPLE = 'insufficient_sample';
+
+    public const REASON_KNOWN_MISS_DENOMINATOR_ZERO = 'known_miss_denominator_zero';
+
     private readonly ImmuneVerdictLedger $ledger;
 
     private readonly CognitiveImmunePromotionGateEvaluator $evaluator;
@@ -53,7 +63,7 @@ final class ImmuneCalibrationService
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'generated_at' => now()->toIso8601String(),
-            'mode' => 'read_only',
+            'mode' => self::MODE_READ_ONLY,
             'measure_id' => self::MEASURE_ID,
             'formula_version' => self::FORMULA_VERSION,
             'status' => $okGroups > 0 ? 'ok' : 'insufficient_sample',
@@ -76,7 +86,7 @@ final class ImmuneCalibrationService
     public static function freezePayload(): array
     {
         $payload = [
-            'kind' => 'measure_freeze',
+            'kind' => self::KIND_MEASURE_FREEZE,
             'measure_id' => self::MEASURE_ID,
             'formula_version' => self::FORMULA_VERSION,
             'formula' => 'Per gate+writer: false_block_rate=false_block/blocks; missed_poison_rate=missed_poison/known_should_catch_denominator (lower_bound_known_miss); band is pure CalibrationBandClassifier over the rate, but status is insufficient_sample until denominator_min is met.',
@@ -114,9 +124,9 @@ final class ImmuneCalibrationService
                 'metric' => $metric,
                 'value' => $rate,
                 'denominator' => 0,
-                'band' => 'insufficient_sample',
-                'status' => 'insufficient_sample',
-                'reason' => 'known_miss_denominator_zero',
+                'band' => self::BAND_INSUFFICIENT_SAMPLE,
+                'status' => self::STATUS_INSUFFICIENT_SAMPLE,
+                'reason' => self::REASON_KNOWN_MISS_DENOMINATOR_ZERO,
             ];
         }
 

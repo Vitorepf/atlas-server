@@ -34,6 +34,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
 use App\Services\Ai\AgenticEngineeringOs\AaeosDeferredPhaseDispatcherService;
 use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 use App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector;
+use App\Services\Ai\Cognition\TemporalSupersessionClassifier;
 use App\Services\Ai\Cognition\AtlasFrontierWaveLadder;
 use App\Services\Ai\Cognition\AtlasImmuneClassifierHybridFreeze;
 use App\Services\Ai\Cognition\AtlasImmuneSignatureFreeze;
@@ -4456,6 +4457,40 @@ final class AtlasUniversalGatesEvaluator
             'choreography_action_override' => AtlasCrossDepartmentChoreographyService::ACTION_OVERRIDE,
             'choreography_handoff_kind_veto' => AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_VETO,
             'decay_veto_numeric_choreography_floor_count' => 20,
+        ];
+    }
+
+    /**
+     * Observe-only: evidence-vision thesis kinds + temporal supersession + HMAC lineage + immune calibration floors —
+     * no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function evidenceTemporalHmacCalibrationFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'evidence_thesis_status_ok' => EvidenceVisionThesisComposer::STATUS_OK,
+            'evidence_thesis_status_active' => EvidenceVisionThesisComposer::STATUS_ACTIVE,
+            'evidence_thesis_kind_series_recovery' => EvidenceVisionThesisComposer::KIND_SERIES_RECOVERY,
+            'evidence_thesis_kind_calibration_resolved' => EvidenceVisionThesisComposer::KIND_CALIBRATION_RESOLVED,
+            'evidence_thesis_kind_lead_cluster_cleared' => EvidenceVisionThesisComposer::KIND_LEAD_CLUSTER_CLEARED,
+            'evidence_thesis_kind_outcome_proven' => EvidenceVisionThesisComposer::KIND_OUTCOME_PROVEN,
+            'temporal_relation_coexist' => TemporalSupersessionClassifier::RELATION_COEXIST,
+            'temporal_relation_a_supersedes_b' => TemporalSupersessionClassifier::RELATION_A_SUPERSEDES_B,
+            'temporal_relation_b_supersedes_a' => TemporalSupersessionClassifier::RELATION_B_SUPERSEDES_A,
+            'temporal_relation_tie_same_timestamp' => TemporalSupersessionClassifier::RELATION_TIE_SAME_TIMESTAMP,
+            'hmac_status_unverifiable_legacy' => CaptureHmacLineageService::STATUS_UNVERIFIABLE_LEGACY,
+            'hmac_status_verified' => CaptureHmacLineageService::STATUS_VERIFIED,
+            'hmac_status_pending_window' => CaptureHmacLineageService::STATUS_PENDING_WINDOW,
+            'hmac_status_not_found' => CaptureHmacLineageService::STATUS_NOT_FOUND,
+            'hmac_kind_capture' => CaptureHmacLineageService::KIND_CAPTURE,
+            'immune_calibration_mode_read_only' => ImmuneCalibrationService::MODE_READ_ONLY,
+            'immune_calibration_kind_measure_freeze' => ImmuneCalibrationService::KIND_MEASURE_FREEZE,
+            'immune_calibration_band_insufficient_sample' => ImmuneCalibrationService::BAND_INSUFFICIENT_SAMPLE,
+            'immune_calibration_status_insufficient_sample' => ImmuneCalibrationService::STATUS_INSUFFICIENT_SAMPLE,
+            'immune_calibration_reason_known_miss_denominator_zero' => ImmuneCalibrationService::REASON_KNOWN_MISS_DENOMINATOR_ZERO,
+            'evidence_temporal_hmac_calibration_floor_count' => 20,
         ];
     }
 

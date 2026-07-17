@@ -17,6 +17,14 @@ namespace App\Services\Ai\Cognition;
  */
 final class TemporalSupersessionClassifier
 {
+    public const RELATION_COEXIST = 'coexist';
+
+    public const RELATION_A_SUPERSEDES_B = 'a_supersedes_b';
+
+    public const RELATION_B_SUPERSEDES_A = 'b_supersedes_a';
+
+    public const RELATION_TIE_SAME_TIMESTAMP = 'tie_same_timestamp';
+
     /**
      * @param  int  $tsA  epoch seconds for assertion A
      * @param  int  $tsB  epoch seconds for assertion B
@@ -25,17 +33,17 @@ final class TemporalSupersessionClassifier
     public function classify(int $tsA, int $tsB, bool $sameKey): string
     {
         if ($sameKey === false) {
-            return 'coexist';
+            return self::RELATION_COEXIST;
         }
 
         if ($tsA > $tsB) {
-            return 'a_supersedes_b';
+            return self::RELATION_A_SUPERSEDES_B;
         }
 
         if ($tsB > $tsA) {
-            return 'b_supersedes_a';
+            return self::RELATION_B_SUPERSEDES_A;
         }
 
-        return 'tie_same_timestamp';
+        return self::RELATION_TIE_SAME_TIMESTAMP;
     }
 }

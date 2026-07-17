@@ -3031,4 +3031,23 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(20, $payload['decay_veto_numeric_choreography_floor_count']);
     }
 
+    public function test_evidence_temporal_hmac_calibration_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->evidenceTemporalHmacCalibrationFloorsContractObserve([]);
+
+        $this->assertSame('ok', $payload['evidence_thesis_status_ok']);
+        $this->assertSame('series_recovery', $payload['evidence_thesis_kind_series_recovery']);
+        $this->assertSame('outcome_proven', $payload['evidence_thesis_kind_outcome_proven']);
+        $this->assertSame('coexist', $payload['temporal_relation_coexist']);
+        $this->assertSame('a_supersedes_b', $payload['temporal_relation_a_supersedes_b']);
+        $this->assertSame('tie_same_timestamp', $payload['temporal_relation_tie_same_timestamp']);
+        $this->assertSame('verified', $payload['hmac_status_verified']);
+        $this->assertSame('not_found', $payload['hmac_status_not_found']);
+        $this->assertSame('capture', $payload['hmac_kind_capture']);
+        $this->assertSame('read_only', $payload['immune_calibration_mode_read_only']);
+        $this->assertSame('insufficient_sample', $payload['immune_calibration_band_insufficient_sample']);
+        $this->assertSame('known_miss_denominator_zero', $payload['immune_calibration_reason_known_miss_denominator_zero']);
+        $this->assertSame(20, $payload['evidence_temporal_hmac_calibration_floor_count']);
+    }
+
 }

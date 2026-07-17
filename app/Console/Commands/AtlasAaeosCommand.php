@@ -230,6 +230,7 @@ final class AtlasAaeosCommand extends Command
         {--ncapture-promotion-lifecycle-status-floors-contract= : JSON file (any object) to observe NCapture/promotion/lifecycle status-reason floors}
         {--asef-remint-immune-ragx-status-floors-contract= : JSON file (any object) to observe ASEF/remint/immune/RAGX status-reason floors}
         {--decay-veto-numeric-choreography-floors-contract= : JSON file (any object) to observe decay/veto/numeric-range/choreography floors}
+        {--evidence-temporal-hmac-calibration-floors-contract= : JSON file (any object) to observe evidence/temporal/hmac/calibration floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -616,6 +617,7 @@ final class AtlasAaeosCommand extends Command
             ['ncapture-promotion-lifecycle-status-floors-contract', 'ncapture_promotion_lifecycle_status_floors_contract', fn (array $p) => $gates->ncapturePromotionLifecycleStatusFloorsContractObserve($p)],
             ['asef-remint-immune-ragx-status-floors-contract', 'asef_remint_immune_ragx_status_floors_contract', fn (array $p) => $gates->asefRemintImmuneRagxStatusFloorsContractObserve($p)],
             ['decay-veto-numeric-choreography-floors-contract', 'decay_veto_numeric_choreography_floors_contract', fn (array $p) => $gates->decayVetoNumericChoreographyFloorsContractObserve($p)],
+            ['evidence-temporal-hmac-calibration-floors-contract', 'evidence_temporal_hmac_calibration_floors_contract', fn (array $p) => $gates->evidenceTemporalHmacCalibrationFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -42,6 +42,16 @@ final class CaptureHmacLineageService
 
     public const KEY_MATERIAL_FALLBACK = 'atlas.capture.hmac_lineage.fallback.v1';
 
+    public const STATUS_UNVERIFIABLE_LEGACY = 'unverifiable_legacy';
+
+    public const STATUS_VERIFIED = 'verified';
+
+    public const STATUS_PENDING_WINDOW = 'pending_window';
+
+    public const STATUS_NOT_FOUND = 'not_found';
+
+    public const KIND_CAPTURE = 'capture';
+
     /**
      * @param  array<string,mixed>  $existingChain
      * @param  array<string,mixed>  $stagePayload
@@ -72,7 +82,7 @@ final class CaptureHmacLineageService
     {
         if (($chain['schema_version'] ?? null) !== self::SCHEMA_VERSION) {
             return [
-                'status' => 'unverifiable_legacy',
+                'status' => self::STATUS_UNVERIFIABLE_LEGACY,
                 'broken_at' => null,
                 'stage_count' => 0,
                 'head_receipt_hash' => null,
@@ -82,7 +92,7 @@ final class CaptureHmacLineageService
         $stages = array_values(AiValueNormalizer::arrayOrEmpty($chain['stages'] ?? null));
         if ($stages === []) {
             return [
-                'status' => 'unverifiable_legacy',
+                'status' => self::STATUS_UNVERIFIABLE_LEGACY,
                 'broken_at' => null,
                 'stage_count' => 0,
                 'head_receipt_hash' => null,
@@ -130,7 +140,7 @@ final class CaptureHmacLineageService
         }
 
         return [
-            'status' => 'verified',
+            'status' => self::STATUS_VERIFIED,
             'broken_at' => null,
             'stage_count' => count($stages),
             'head_receipt_hash' => $prev,
@@ -144,7 +154,7 @@ final class CaptureHmacLineageService
     {
         if (! DatabaseTableAvailability::has('captures')) {
             return [
-                'status' => 'pending_window',
+                'status' => self::STATUS_PENDING_WINDOW,
                 'chained_captures' => 0,
                 'min_captures' => $minCaptures,
                 'coverage_rate' => null,
@@ -191,11 +201,11 @@ final class CaptureHmacLineageService
         if ($chain === null) {
             return [
                 'ok' => false,
-                'status' => 'not_found',
+                'status' => self::STATUS_NOT_FOUND,
                 'ref' => $ref,
                 'chain' => null,
                 'verify' => [
-                    'status' => 'not_found',
+                    'status' => self::STATUS_NOT_FOUND,
                     'broken_at' => null,
                     'stage_count' => 0,
                     'head_receipt_hash' => null,
@@ -292,7 +302,7 @@ final class CaptureHmacLineageService
             return ['kind' => AiValueNormalizer::lowerTrimmedString($kind), 'id' => $id];
         }
 
-        return ['kind' => 'capture', 'id' => $trimmed];
+        return ['kind' => self::KIND_CAPTURE, 'id' => $trimmed];
     }
 
     /**
