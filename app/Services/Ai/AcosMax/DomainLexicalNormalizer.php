@@ -16,7 +16,7 @@ final class DomainLexicalNormalizer
     public const MAX_EXPANDED_TOKENS = 32;
 
     /** @var array<string,list<string>> */
-    private const EQUIVALENCES = [
+    public const EQUIVALENCES = [
         'memoria' => ['memory'],
         'memória' => ['memory'],
         'cerebro' => ['brain'],

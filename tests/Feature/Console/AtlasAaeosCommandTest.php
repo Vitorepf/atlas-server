@@ -2762,6 +2762,44 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_delivery_pack_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-dpc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-dpc',
+                '--delivery-pack-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"delivery_pack_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function test_universal_gates_observe_domain_lexical_fact_schema_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-dlfsc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-dlfsc',
+                '--domain-lexical-fact-schema-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"domain_lexical_fact_schema_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

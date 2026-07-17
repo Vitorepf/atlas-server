@@ -17,17 +17,18 @@ final class DeliveryPackCompletenessScorer
 {
     public const SCHEMA = 'atlas.aaeos.delivery_pack_completeness.v1';
 
-    private const STATUS_PASSED = 'passed';
+    public const STATUS_PASSED = 'passed';
 
-    private const STATUS_NEEDS_REVIEW = 'needs_review';
+    public const STATUS_NEEDS_REVIEW = 'needs_review';
 
-    private const STATUS_FAILED = 'failed';
+    public const STATUS_FAILED = 'failed';
 
-    private const BLOCKER_MISSING_HASH = 'missing_signed_delivery_hash';
+    public const BLOCKER_MISSING_HASH = 'missing_signed_delivery_hash';
 
-    private const BLOCKER_EVIDENCE_REQUIRED = 'evidence_hashes_required_for_changes';
+    public const BLOCKER_EVIDENCE_REQUIRED = 'evidence_hashes_required_for_changes';
 
-    private const REQUIRED_KEYS = [
+    /** @var list<string> */
+    public const REQUIRED_KEYS = [
         'changed_files',
         'test_evidence',
         'no_test_reason',
@@ -35,6 +36,13 @@ final class DeliveryPackCompletenessScorer
         'risk_register_present',
         'receipt_present',
         'delivery_hash',
+    ];
+
+    /** @var list<string> */
+    public const STATUSES = [
+        self::STATUS_PASSED,
+        self::STATUS_NEEDS_REVIEW,
+        self::STATUS_FAILED,
     ];
 
     /**

@@ -1835,4 +1835,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(3, $payload['dogfooding_min_occurrences']);
         $this->assertFalse($payload['provider_calls_made']);
     }
+
+    public function test_delivery_pack_contract_observe_reports_keys(): void
+    {
+        $payload = $this->svc->deliveryPackContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.delivery_pack_completeness.v1', $payload['schema_version']);
+        $this->assertContains('delivery_hash', $payload['required_keys']);
+        $this->assertSame(7, $payload['required_key_count']);
+        $this->assertContains('passed', $payload['statuses']);
+        $this->assertSame('missing_signed_delivery_hash', $payload['blocker_missing_hash']);
+    }
+
+    public function test_domain_lexical_fact_schema_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->domainLexicalFactSchemaContractObserve([]);
+
+        $this->assertSame('atlas.memory.domain_lexical_normalizer.v1', $payload['domain_lexical_schema']);
+        $this->assertSame(32, $payload['max_expanded_tokens']);
+        $this->assertSame(15, $payload['equivalence_entry_count']);
+        $this->assertSame('atlas.memory.structured_facts.v1', $payload['structured_fact_schema']);
+        $this->assertContains('decision', $payload['structured_fact_memory_types']);
+        $this->assertSame(3, $payload['structured_fact_type_count']);
+        $this->assertTrue($payload['deterministic']);
+    }
 }

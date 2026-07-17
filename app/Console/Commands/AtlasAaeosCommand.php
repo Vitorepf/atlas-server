@@ -170,6 +170,8 @@ final class AtlasAaeosCommand extends Command
         {--attempt-lifecycle-contract= : JSON file (any object) to observe ESP-01 attempt lifecycle contract}
         {--esp09-challenger-contract= : JSON file (any object) to observe ESP-09 challenger advisory contract}
         {--memory-weight-floors-contract= : JSON file (any object) to observe provenance/recall-gap/citation floors}
+        {--delivery-pack-contract= : JSON file (any object) to observe delivery-pack completeness contract}
+        {--domain-lexical-fact-schema-contract= : JSON file (any object) to observe domain-lexical + structured-fact floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -496,6 +498,8 @@ final class AtlasAaeosCommand extends Command
             ['attempt-lifecycle-contract', 'attempt_lifecycle_contract', fn (array $p) => $gates->attemptLifecycleContractObserve($p)],
             ['esp09-challenger-contract', 'esp09_challenger_contract', fn (array $p) => $gates->esp09ChallengerContractObserve($p)],
             ['memory-weight-floors-contract', 'memory_weight_floors_contract', fn (array $p) => $gates->memoryWeightFloorsContractObserve($p)],
+            ['delivery-pack-contract', 'delivery_pack_contract', fn (array $p) => $gates->deliveryPackContractObserve($p)],
+            ['domain-lexical-fact-schema-contract', 'domain_lexical_fact_schema_contract', fn (array $p) => $gates->domainLexicalFactSchemaContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

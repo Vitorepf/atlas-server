@@ -2549,6 +2549,47 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only delivery-pack completeness contract keys/statuses.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function deliveryPackContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => DeliveryPackCompletenessScorer::SCHEMA,
+            'required_keys' => DeliveryPackCompletenessScorer::REQUIRED_KEYS,
+            'required_key_count' => count(DeliveryPackCompletenessScorer::REQUIRED_KEYS),
+            'statuses' => DeliveryPackCompletenessScorer::STATUSES,
+            'blocker_missing_hash' => DeliveryPackCompletenessScorer::BLOCKER_MISSING_HASH,
+            'blocker_evidence_required' => DeliveryPackCompletenessScorer::BLOCKER_EVIDENCE_REQUIRED,
+        ];
+    }
+
+    /**
+     * Observe-only domain lexical + structured-fact schema floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function domainLexicalFactSchemaContractObserve(array $input = []): array
+    {
+        return [
+            'domain_lexical_schema' => DomainLexicalNormalizer::SCHEMA_VERSION,
+            'domain_lexical_formula' => DomainLexicalNormalizer::FORMULA_VERSION,
+            'max_expanded_tokens' => DomainLexicalNormalizer::MAX_EXPANDED_TOKENS,
+            'equivalence_entry_count' => count(DomainLexicalNormalizer::EQUIVALENCES),
+            'structured_fact_schema' => StructuredFactSchemaMap::SCHEMA_VERSION,
+            'structured_fact_memory_types' => array_keys(StructuredFactSchemaMap::REQUIRED),
+            'structured_fact_type_count' => count(StructuredFactSchemaMap::REQUIRED),
+            'provider_calls_made' => false,
+            'deterministic' => true,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>
