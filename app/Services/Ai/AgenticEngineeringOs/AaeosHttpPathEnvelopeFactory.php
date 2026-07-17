@@ -219,25 +219,88 @@ final class AaeosHttpPathEnvelopeFactory
     }
 
     /**
+     * Deferred/fast-path phase specs (topology→receipt). One map instead of five
+     * near-identical deferredOrFastPath call sites.
+     *
+     * @var array<string, array{
+     *   phase_in: string,
+     *   phase_out: string,
+     *   actor_id: string,
+     *   skip_receipt_id: string,
+     *   skip_reason: string,
+     *   outputs: array<string,string>,
+     *   required_gate: string
+     * }>
+     */
+    private const DEFERRED_PHASE_SPECS = [
+        'topology' => [
+            'phase_in' => AaeosPhaseHandoffService::PHASE_POLICY_GATE,
+            'phase_out' => AaeosPhaseHandoffService::PHASE_TOPOLOGY,
+            'actor_id' => 'aaeos.topology',
+            'skip_receipt_id' => 'rcpt:aaeos.phase3.topology.r1_r2_fast_path',
+            'skip_reason' => 'r1_r2_fast_path_preserved',
+            'outputs' => [
+                'topology_required' => 'yes',
+                'aawr_invocation' => 'deferred',
+            ],
+            'required_gate' => 'topology_plan_providers_min_1_available',
+        ],
+        'routing' => [
+            'phase_in' => AaeosPhaseHandoffService::PHASE_TOPOLOGY,
+            'phase_out' => AaeosPhaseHandoffService::PHASE_ROUTING,
+            'actor_id' => 'aaeos.routing',
+            'skip_receipt_id' => 'rcpt:aaeos.phase3.routing.r1_r2_fast_path',
+            'skip_reason' => 'r1_r2_fast_path_preserved',
+            'outputs' => [
+                'department_route' => 'engineering_or_forge_pending_aawr',
+                'company_runtime_invocation' => 'deferred',
+            ],
+            'required_gate' => 'department_route_owner_confirmed',
+        ],
+        'spec' => [
+            'phase_in' => AaeosPhaseHandoffService::PHASE_ROUTING,
+            'phase_out' => AaeosPhaseHandoffService::PHASE_SPEC,
+            'actor_id' => 'aaeos.spec',
+            'skip_receipt_id' => 'rcpt:aaeos.phase4.spec.r1_r2_fast_path',
+            'skip_reason' => 'r1_r2_fast_path_preserved',
+            'outputs' => [
+                'spec_invocation' => 'deferred',
+                'spec_required' => 'yes',
+            ],
+            'required_gate' => 'spec_pack_acceptance_criteria_min_3',
+        ],
+        'tasks' => [
+            'phase_in' => AaeosPhaseHandoffService::PHASE_SPEC,
+            'phase_out' => AaeosPhaseHandoffService::PHASE_TASKS,
+            'actor_id' => 'aaeos.tasks',
+            'skip_receipt_id' => 'rcpt:aaeos.phase4.tasks.r1_r2_fast_path',
+            'skip_reason' => 'r1_r2_fast_path_preserved',
+            'outputs' => [
+                'task_pack_invocation' => 'deferred',
+                'task_pack_required' => 'yes',
+            ],
+            'required_gate' => 'task_pack_atomic_true_for_each',
+        ],
+        'receipt' => [
+            'phase_in' => AaeosPhaseHandoffService::PHASE_TASKS,
+            'phase_out' => AaeosPhaseHandoffService::PHASE_RECEIPT,
+            'actor_id' => 'aaeos.receipt',
+            'skip_receipt_id' => 'rcpt:aaeos.phase4.receipt.r1_r2_fast_path',
+            'skip_reason' => 'r1_r2_fast_path_preserved_legacy_trace_audit',
+            'outputs' => [
+                'decision_receipt_v2_invocation' => 'deferred',
+                'receipt_required' => 'yes',
+            ],
+            'required_gate' => 'decision_receipt_v2_signed',
+        ],
+    ];
+
+    /**
      * @return array<string,mixed>
      */
     public function topology(string $intentId, string $intentHash, string $riskBand): array
     {
-        return $this->deferredOrFastPath(
-            intentId: $intentId,
-            intentHash: $intentHash,
-            riskBand: $riskBand,
-            phaseIn: AaeosPhaseHandoffService::PHASE_POLICY_GATE,
-            phaseOut: AaeosPhaseHandoffService::PHASE_TOPOLOGY,
-            actorId: 'aaeos.topology',
-            skipReceiptId: 'rcpt:aaeos.phase3.topology.r1_r2_fast_path',
-            skipReason: 'r1_r2_fast_path_preserved',
-            outputs: [
-                'topology_required' => 'yes',
-                'aawr_invocation' => 'deferred',
-            ],
-            requiredGate: 'topology_plan_providers_min_1_available',
-        );
+        return $this->deferredPhase('topology', $intentId, $intentHash, $riskBand);
     }
 
     /**
@@ -245,21 +308,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     public function routing(string $intentId, string $intentHash, string $riskBand): array
     {
-        return $this->deferredOrFastPath(
-            intentId: $intentId,
-            intentHash: $intentHash,
-            riskBand: $riskBand,
-            phaseIn: AaeosPhaseHandoffService::PHASE_TOPOLOGY,
-            phaseOut: AaeosPhaseHandoffService::PHASE_ROUTING,
-            actorId: 'aaeos.routing',
-            skipReceiptId: 'rcpt:aaeos.phase3.routing.r1_r2_fast_path',
-            skipReason: 'r1_r2_fast_path_preserved',
-            outputs: [
-                'department_route' => 'engineering_or_forge_pending_aawr',
-                'company_runtime_invocation' => 'deferred',
-            ],
-            requiredGate: 'department_route_owner_confirmed',
-        );
+        return $this->deferredPhase('routing', $intentId, $intentHash, $riskBand);
     }
 
     /**
@@ -267,21 +316,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     public function spec(string $intentId, string $intentHash, string $riskBand): array
     {
-        return $this->deferredOrFastPath(
-            intentId: $intentId,
-            intentHash: $intentHash,
-            riskBand: $riskBand,
-            phaseIn: AaeosPhaseHandoffService::PHASE_ROUTING,
-            phaseOut: AaeosPhaseHandoffService::PHASE_SPEC,
-            actorId: 'aaeos.spec',
-            skipReceiptId: 'rcpt:aaeos.phase4.spec.r1_r2_fast_path',
-            skipReason: 'r1_r2_fast_path_preserved',
-            outputs: [
-                'spec_invocation' => 'deferred',
-                'spec_required' => 'yes',
-            ],
-            requiredGate: 'spec_pack_acceptance_criteria_min_3',
-        );
+        return $this->deferredPhase('spec', $intentId, $intentHash, $riskBand);
     }
 
     /**
@@ -289,21 +324,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     public function tasks(string $intentId, string $intentHash, string $riskBand): array
     {
-        return $this->deferredOrFastPath(
-            intentId: $intentId,
-            intentHash: $intentHash,
-            riskBand: $riskBand,
-            phaseIn: AaeosPhaseHandoffService::PHASE_SPEC,
-            phaseOut: AaeosPhaseHandoffService::PHASE_TASKS,
-            actorId: 'aaeos.tasks',
-            skipReceiptId: 'rcpt:aaeos.phase4.tasks.r1_r2_fast_path',
-            skipReason: 'r1_r2_fast_path_preserved',
-            outputs: [
-                'task_pack_invocation' => 'deferred',
-                'task_pack_required' => 'yes',
-            ],
-            requiredGate: 'task_pack_atomic_true_for_each',
-        );
+        return $this->deferredPhase('tasks', $intentId, $intentHash, $riskBand);
     }
 
     /**
@@ -311,21 +332,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     public function receipt(string $intentId, string $intentHash, string $riskBand): array
     {
-        return $this->deferredOrFastPath(
-            intentId: $intentId,
-            intentHash: $intentHash,
-            riskBand: $riskBand,
-            phaseIn: AaeosPhaseHandoffService::PHASE_TASKS,
-            phaseOut: AaeosPhaseHandoffService::PHASE_RECEIPT,
-            actorId: 'aaeos.receipt',
-            skipReceiptId: 'rcpt:aaeos.phase4.receipt.r1_r2_fast_path',
-            skipReason: 'r1_r2_fast_path_preserved_legacy_trace_audit',
-            outputs: [
-                'decision_receipt_v2_invocation' => 'deferred',
-                'receipt_required' => 'yes',
-            ],
-            requiredGate: 'decision_receipt_v2_signed',
-        );
+        return $this->deferredPhase('receipt', $intentId, $intentHash, $riskBand);
     }
 
     /**
@@ -353,6 +360,30 @@ final class AaeosHttpPathEnvelopeFactory
             'severity' => 'high',
             'owner' => 'atlas-ai',
         ], array_filter($blockedWhen, 'is_string')));
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function deferredPhase(string $key, string $intentId, string $intentHash, string $riskBand): array
+    {
+        $spec = self::DEFERRED_PHASE_SPECS[$key] ?? null;
+        if ($spec === null) {
+            throw new \InvalidArgumentException("Unknown deferred HTTP-path phase: {$key}");
+        }
+
+        return $this->deferredOrFastPath(
+            intentId: $intentId,
+            intentHash: $intentHash,
+            riskBand: $riskBand,
+            phaseIn: $spec['phase_in'],
+            phaseOut: $spec['phase_out'],
+            actorId: $spec['actor_id'],
+            skipReceiptId: $spec['skip_receipt_id'],
+            skipReason: $spec['skip_reason'],
+            outputs: $spec['outputs'],
+            requiredGate: $spec['required_gate'],
+        );
     }
 
     /**
