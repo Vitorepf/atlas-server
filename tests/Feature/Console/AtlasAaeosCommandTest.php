@@ -1549,6 +1549,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_golden_counterfactual_replay(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-gcr-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-gcr',
+                '--golden-counterfactual-replay' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"golden_counterfactual_replay"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

@@ -32,7 +32,7 @@ final class AmbitionRungPolicy
                 $currentBest = self::bestLeverage($candidates);
                 foreach ($candidates as $candidate) {
                     $rung = AiValueNormalizer::trimmedString($candidate['rung'] ?? '');
-                    if ($rung === $target && (float) ($candidate['leverage'] ?? 0.0) >= $currentBest) {
+                    if ($rung === $target && (AiValueNormalizer::finiteFloatOrNull($candidate['leverage'] ?? null) ?? 0.0) >= $currentBest) {
                         $selected = $candidate;
                         $basis = 'rung_up_after_saturation';
                         break;
@@ -73,7 +73,7 @@ final class AmbitionRungPolicy
     {
         $best = 0.0;
         foreach ($candidates as $candidate) {
-            $best = max($best, (float) ($candidate['leverage'] ?? 0.0));
+            $best = max($best, AiValueNormalizer::finiteFloatOrNull($candidate['leverage'] ?? null) ?? 0.0);
         }
 
         return $best;

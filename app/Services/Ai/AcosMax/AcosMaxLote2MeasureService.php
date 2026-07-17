@@ -838,7 +838,7 @@ final class AcosMaxLote2MeasureService
     {
         $score = $meta['score'] ?? $row->post_execution_utility ?? $row->context_sufficiency ?? 0;
 
-        return is_numeric($score) ? (float) $score : 0.0;
+        return AiValueNormalizer::finiteFloatOrNull($score) ?? 0.0;
     }
 
     /** @return array<string,mixed> */

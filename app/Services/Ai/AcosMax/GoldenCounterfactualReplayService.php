@@ -106,7 +106,7 @@ final class GoldenCounterfactualReplayService
             if ($decisionId !== null && $decisionId !== '' && (string) ($run['decision_id'] ?? '') !== $decisionId) {
                 continue;
             }
-            if (! is_numeric($run['recall_at_5'] ?? null)) {
+            if (AiValueNormalizer::finiteFloatOrNull($run['recall_at_5'] ?? null) === null) {
                 continue;
             }
             $commit = AiValueNormalizer::trimmedString($run['commit'] ?? '');
@@ -120,7 +120,9 @@ final class GoldenCounterfactualReplayService
                 'decision_id' => (string) ($run['decision_id'] ?? ''),
                 'run_id' => $runId,
                 'commit' => $commit,
-                'recall_at_5' => round(AiValueNormalizer::clampUnit((float) $run['recall_at_5']), 6),
+                'recall_at_5' => round(AiValueNormalizer::clampUnit(
+                    AiValueNormalizer::finiteFloatOrNull($run['recall_at_5']) ?? 0.0
+                ), 6),
                 'executed_at' => (string) ($run['executed_at'] ?? ''),
             ];
         }

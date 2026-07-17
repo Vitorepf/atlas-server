@@ -40,6 +40,7 @@ use App\Services\Ai\AcosMax\AcosMeasureSeriesFreshnessReader;
 use App\Services\Ai\AcosMax\AcosMaxVerifiedShareService;
 use App\Services\Ai\AcosMax\RagxChainMechanismService;
 use App\Services\Ai\AcosMax\AcosMaxProceduralSkillPromoterService;
+use App\Services\Ai\AcosMax\GoldenCounterfactualReplayService;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
@@ -1364,6 +1365,21 @@ final class AtlasUniversalGatesEvaluator
                 AiValueNormalizer::trimmedString($input['autonomy_level'] ?? 'L0'),
             ),
         ];
+    }
+
+    /**
+     * Observe-only golden counterfactual replay report (fail-open without runs file).
+     * Accepts `{runs_path?, decision_id?}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function goldenCounterfactualReplayObserve(array $input = []): array
+    {
+        return (new GoldenCounterfactualReplayService)->report(
+            AiValueNormalizer::trimmedStringOrNull($input['runs_path'] ?? null),
+            AiValueNormalizer::trimmedStringOrNull($input['decision_id'] ?? null),
+        );
     }
 
     /**

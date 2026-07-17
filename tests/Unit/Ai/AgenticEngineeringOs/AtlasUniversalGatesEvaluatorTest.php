@@ -39,6 +39,7 @@ use App\Services\Ai\AcosMax\AcosMeasureSeriesFreshnessReader;
 use App\Services\Ai\AcosMax\AcosMaxVerifiedShareService;
 use App\Services\Ai\AcosMax\RagxChainMechanismService;
 use App\Services\Ai\AcosMax\AcosMaxProceduralSkillPromoterService;
+use App\Services\Ai\AcosMax\GoldenCounterfactualReplayService;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AaeosGeneratedContractGate;
 use InvalidArgumentException;
@@ -1141,5 +1142,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['phase_count']);
         $this->assertCount(17, $payload['phases']);
         $this->assertSame(4, $payload['autonomy_level_int']);
+    }
+
+    public function test_golden_counterfactual_replay_observe_fail_open(): void
+    {
+        $payload = $this->svc->goldenCounterfactualReplayObserve([]);
+
+        $this->assertSame(GoldenCounterfactualReplayService::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('skipped', $payload['status']);
+        $this->assertSame('paired_golden_runs_unavailable', $payload['reason']);
     }
 }
