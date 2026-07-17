@@ -96,7 +96,7 @@ final class AtlasAcosWatchdogHealthService
         $concentration = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'ratios.recall_concentration_ratio', 0.0)) ?? 0.0;
         $recallUsageTotal = (int) data_get($scorecard, 'counts.retrieval_eval.recall_usage_total', 0);
         $demotionEnabled = (bool) config('atlas.semantic_memory.recall_concentration_demotion_enabled', true);
-        $trendStatus = (string) data_get($scorecard, 'trend.status', 'unknown');
+        $trendStatus = AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'trend.status')) ?? 'unknown';
         $currentDelta = data_get($scorecard, 'trend.current_delta_from_latest');
         $latestDelta = data_get($scorecard, 'trend.latest_delta_from_previous');
         $scoreRegressed = in_array($trendStatus, ['regressed', 'watch_regressed'], true)

@@ -112,14 +112,14 @@ final class AtlasNCaptureDrillService
             'drill_id' => (string) ($drill['drill_id'] ?? (string) Str::uuid()),
             'engine_id' => (string) $drill['engine_id'],
             'capability_spec' => [
-                'function' => (string) data_get($drill, 'capability_spec.function', 'engine'),
+                'function' => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'capability_spec.function')) ?? 'engine',
                 'verified' => (bool) data_get($drill, 'capability_spec.verified'),
                 'violations' => array_values(AiValueNormalizer::arrayOrEmpty(data_get($drill, 'capability_spec.violations', []))),
             ],
             'yardstick' => [
                 'golden_v2_passed' => (bool) data_get($drill, 'yardstick.golden_v2_passed'),
                 'golden_v2_score' => data_get($drill, 'yardstick.golden_v2_score'),
-                'regret_measure_id' => (string) data_get($drill, 'yardstick.regret_measure_id', 'atlas.decide.route_regret.v2'),
+                'regret_measure_id' => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'yardstick.regret_measure_id')) ?? 'atlas.decide.route_regret.v2',
                 'peek_mode' => true,
             ],
             'times' => [

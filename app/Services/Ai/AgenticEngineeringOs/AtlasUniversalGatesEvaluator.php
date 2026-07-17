@@ -3364,6 +3364,46 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only outcome/immune/scorecard/delivery/blocker/fabric id floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function outcomeImmuneScorecardIdsContractObserve(array $input = []): array
+    {
+        return [
+            'outcome_success' => OutcomeCausalityRanker::OUTCOME_SUCCESS,
+            'outcome_give_back' => OutcomeCausalityRanker::OUTCOME_GIVE_BACK,
+            'outcome_poison' => OutcomeCausalityRanker::OUTCOME_POISON,
+            'outcome_quarantine' => OutcomeCausalityRanker::OUTCOME_QUARANTINE,
+            'outcome_count' => count(OutcomeCausalityRanker::OUTCOMES),
+            'immune_verdict_table' => ImmuneVerdictLedger::TABLE,
+            'immune_label_true_block' => ImmuneVerdictLedger::LABEL_TRUE_BLOCK,
+            'immune_label_false_block' => ImmuneVerdictLedger::LABEL_FALSE_BLOCK,
+            'immune_label_missed_poison' => ImmuneVerdictLedger::LABEL_MISSED_POISON,
+            'immune_label_count' => count(ImmuneVerdictLedger::LABELS),
+            'scorecard_status_ready' => AtlasCognitionScoreCardService::STATUS_READY,
+            'scorecard_status_partial' => AtlasCognitionScoreCardService::STATUS_PARTIAL,
+            'scorecard_status_building' => AtlasCognitionScoreCardService::STATUS_BUILDING,
+            'scorecard_status_blocked' => AtlasCognitionScoreCardService::STATUS_BLOCKED,
+            'scorecard_status_point_ready' => AtlasCognitionScoreCardService::STATUS_POINTS[AtlasCognitionScoreCardService::STATUS_READY],
+            'delivery_status_passed' => DeliveryPackCompletenessScorer::STATUS_PASSED,
+            'delivery_status_needs_review' => DeliveryPackCompletenessScorer::STATUS_NEEDS_REVIEW,
+            'delivery_status_failed' => DeliveryPackCompletenessScorer::STATUS_FAILED,
+            'delivery_status_count' => count(DeliveryPackCompletenessScorer::STATUSES),
+            'blocker_signal_blocked' => AaeosBlockerSeverityGate::SIGNAL_BLOCKED,
+            'blocker_signal_warning' => AaeosBlockerSeverityGate::SIGNAL_WARNING,
+            'blocker_signal_clear' => AaeosBlockerSeverityGate::SIGNAL_CLEAR,
+            'blocker_signal_count' => count(AaeosBlockerSeverityGate::SIGNALS),
+            'memory_fabric_trigger_operator' => AtlasCognitiveMemoryFabricSchemaEvolutionService::TRIGGER_OPERATOR,
+            'memory_fabric_trigger_frontmatter_drift' => AtlasCognitiveMemoryFabricSchemaEvolutionService::TRIGGER_FRONTMATTER_DRIFT,
+            'memory_fabric_trigger_extension_pressure' => AtlasCognitiveMemoryFabricSchemaEvolutionService::TRIGGER_EXTENSION_PRESSURE,
+            'memory_fabric_trigger_count' => count(AtlasCognitiveMemoryFabricSchemaEvolutionService::VALID_TRIGGERS),
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -263,7 +263,7 @@ final class AtlasAcosLongHorizonGateService
     {
         $overall = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'score.overall_out_of_10', 0.0)) ?? 0.0;
         $pipeline = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'score.dimensions.pipeline.score_out_of_10', 0.0)) ?? 0.0;
-        $scorecardHash = (string) data_get($scorecard, 'scorecard_hash', '');
+        $scorecardHash = AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'scorecard_hash')) ?? '';
 
         $window = $this->seriesWindowIntegrity($series, $minDays, $today);
         $latestDate = $window['latest_date'];
@@ -534,7 +534,7 @@ final class AtlasAcosLongHorizonGateService
         $count = 0;
         foreach ($series as $row) {
             $provenance = (string) ($row['provenance'] ?? '');
-            $source = (string) data_get($row, 'sources.scorecard', '');
+            $source = AiValueNormalizer::trimmedStringOrNull(data_get($row, 'sources.scorecard')) ?? '';
             if ($provenance === 'resolved-evidence' || str_contains($source, 'resolved-evidence')) {
                 $count++;
             }
@@ -742,7 +742,7 @@ final class AtlasAcosLongHorizonGateService
     {
         $count = 0;
         foreach ($series as $row) {
-            $source = (string) data_get($row, 'sources.scorecard_overall', '');
+            $source = AiValueNormalizer::trimmedStringOrNull(data_get($row, 'sources.scorecard_overall')) ?? '';
             if (str_contains($source, 'resolved-evidence')) {
                 $count++;
             }
@@ -831,8 +831,8 @@ final class AtlasAcosLongHorizonGateService
             'warnings' => array_values(AiValueNormalizer::arrayOrEmpty($assessment['warnings'] ?? null)),
             'config' => $config,
             'evidence' => [
-                'scorecard_schema' => (string) data_get($scorecard, 'schema_version', ''),
-                'scorecard_hash' => (string) data_get($scorecard, 'scorecard_hash', ''),
+                'scorecard_schema' => AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'schema_version')) ?? '',
+                'scorecard_hash' => AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'scorecard_hash')) ?? '',
                 'series_rows_sampled' => count($series),
             ],
             'claim_policy' => [

@@ -2328,4 +2328,37 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('proof', $payload['claim_field_proof']);
         $this->assertSame('caveat', $payload['claim_field_caveat']);
     }
+
+    public function test_outcome_immune_scorecard_ids_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->outcomeImmuneScorecardIdsContractObserve([]);
+
+        $this->assertSame('success', $payload['outcome_success']);
+        $this->assertSame('give_back', $payload['outcome_give_back']);
+        $this->assertSame('poison', $payload['outcome_poison']);
+        $this->assertSame('quarantine', $payload['outcome_quarantine']);
+        $this->assertSame(4, $payload['outcome_count']);
+        $this->assertSame('immune_verdict_ledger', $payload['immune_verdict_table']);
+        $this->assertSame('true_block', $payload['immune_label_true_block']);
+        $this->assertSame('false_block', $payload['immune_label_false_block']);
+        $this->assertSame('missed_poison', $payload['immune_label_missed_poison']);
+        $this->assertSame(3, $payload['immune_label_count']);
+        $this->assertSame('ready', $payload['scorecard_status_ready']);
+        $this->assertSame('partial', $payload['scorecard_status_partial']);
+        $this->assertSame('building', $payload['scorecard_status_building']);
+        $this->assertSame('blocked', $payload['scorecard_status_blocked']);
+        $this->assertSame(10, $payload['scorecard_status_point_ready']);
+        $this->assertSame('passed', $payload['delivery_status_passed']);
+        $this->assertSame('needs_review', $payload['delivery_status_needs_review']);
+        $this->assertSame('failed', $payload['delivery_status_failed']);
+        $this->assertSame(3, $payload['delivery_status_count']);
+        $this->assertSame('blocked', $payload['blocker_signal_blocked']);
+        $this->assertSame('warning', $payload['blocker_signal_warning']);
+        $this->assertSame('clear', $payload['blocker_signal_clear']);
+        $this->assertSame(3, $payload['blocker_signal_count']);
+        $this->assertSame('operator_request', $payload['memory_fabric_trigger_operator']);
+        $this->assertSame('frontmatter_drift', $payload['memory_fabric_trigger_frontmatter_drift']);
+        $this->assertSame('extension_pressure', $payload['memory_fabric_trigger_extension_pressure']);
+        $this->assertSame(3, $payload['memory_fabric_trigger_count']);
+    }
 }
