@@ -321,10 +321,10 @@ final class AtlasAcosWatchdogHealthService
             $byWriter[$writer] ??= ['total' => 0, 'measured' => 0, 'delivered_refs' => 0];
             $byWriter[$writer]['total']++;
             $isMeasured = (int) $event->post_execution_utility > 0 || (int) $event->context_sufficiency > 0 || (int) $event->used_sources > 0;
-            $hasDelivered = (int) $event->included_sources > 0 || trim((string) $event->retrieval_receipt_id) !== '';
+            $hasDelivered = (int) $event->included_sources > 0 || AiValueNormalizer::trimmedString($event->retrieval_receipt_id) !== '';
             $payload = is_array($event->payload) ? $event->payload : [];
-            $isSynthetic = ($payload['synthetic'] ?? false) === true || str_contains(strtolower((string) ($payload['source'] ?? '')), 'synthetic');
-            $isTranscript = str_contains(strtolower((string) ($payload['source'] ?? $payload['origin'] ?? '')), 'transcript_inferred');
+            $isSynthetic = ($payload['synthetic'] ?? false) === true || str_contains(AiValueNormalizer::lowerTrimmedString($payload['source'] ?? ''), 'synthetic');
+            $isTranscript = str_contains(AiValueNormalizer::lowerTrimmedString($payload['source'] ?? $payload['origin'] ?? ''), 'transcript_inferred');
             $measured += $isMeasured ? 1 : 0;
             $delivered += $hasDelivered ? 1 : 0;
             $synthetic += $isSynthetic ? 1 : 0;
@@ -402,7 +402,7 @@ final class AtlasAcosWatchdogHealthService
                 if (! is_array($loss)) {
                     continue;
                 }
-                $kind = strtolower((string) ($loss['kind'] ?? $loss['severity'] ?? $loss['keep_kind'] ?? ''));
+                $kind = AiValueNormalizer::lowerTrimmedString($loss['kind'] ?? $loss['severity'] ?? $loss['keep_kind'] ?? '');
                 if (str_contains($kind, 'critical')) {
                     $criticalCuts++;
                 }
@@ -847,7 +847,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $counts = ['dev' => 0, 'forge' => 0, 'autonomos' => 0];
         foreach ($rows as $row) {
-            $actor = strtolower((string) data_get($row, 'context.executor', data_get($row, 'context.actor', data_get($row, 'surface', ''))));
+            $actor = AiValueNormalizer::lowerTrimmedString(data_get($row, 'context.executor', data_get($row, 'context.actor', data_get($row, 'surface', ''))));
             foreach (array_keys($counts) as $executor) {
                 if (str_contains($actor, $executor)) {
                     $counts[$executor]++;

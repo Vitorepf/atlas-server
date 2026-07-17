@@ -35,6 +35,8 @@ use App\Services\Ai\Cognition\CognitiveImmuneCheckContract;
 use App\Services\Ai\Cognition\ImmuneSignatureDeriver;
 use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardV4Grouper;
+use App\Services\Ai\Cognition\CaptureHmacLineageService;
+use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
@@ -1933,6 +1935,34 @@ final class AtlasUniversalGatesEvaluator
             'scorecard_v4_schema' => AtlasCognitionScoreCardV4Grouper::SCHEMA_VERSION,
             'consumer_groups' => AtlasCognitionScoreCardV4Grouper::CONSUMER_GROUPS,
             'consumer_group_count' => count(AtlasCognitionScoreCardV4Grouper::CONSUMER_GROUPS),
+        ];
+    }
+
+    /**
+     * Observe-only capture HMAC lineage stages + health-report watchdog catalog.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function captureHmacLineageObserve(array $input = []): array
+    {
+        $healthCatalog = HealthReportWatchdogCheck::catalog();
+
+        return [
+            'schema_version' => CaptureHmacLineageService::SCHEMA_VERSION,
+            'genesis_receipt' => CaptureHmacLineageService::GENESIS_RECEIPT,
+            'stages' => [
+                CaptureHmacLineageService::STAGE_SOURCE,
+                CaptureHmacLineageService::STAGE_CAPTURE,
+                CaptureHmacLineageService::STAGE_MEMORY,
+            ],
+            'threat_model' => CaptureHmacLineageService::THREAT_MODEL,
+            'health_report_check_ids' => array_values(array_map(
+                static fn (array $row): string => (string) ($row['id'] ?? ''),
+                $healthCatalog,
+            )),
+            'health_report_check_count' => count($healthCatalog),
         ];
     }
 

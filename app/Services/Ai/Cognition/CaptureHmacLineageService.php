@@ -7,6 +7,7 @@ namespace App\Services\Ai\Cognition;
 use App\Models\AtlasKnowledgeSourcePacket;
 use App\Models\AtlasMemoryEntry;
 use App\Models\Capture;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Facades\DB;
 
@@ -276,11 +277,11 @@ final class CaptureHmacLineageService
      */
     private function parseRef(string $ref): array
     {
-        $trimmed = trim($ref);
+        $trimmed = AiValueNormalizer::trimmedString($ref);
         if (str_contains($trimmed, ':')) {
             [$kind, $id] = explode(':', $trimmed, 2);
 
-            return ['kind' => strtolower($kind), 'id' => $id];
+            return ['kind' => AiValueNormalizer::lowerTrimmedString($kind), 'id' => $id];
         }
 
         return ['kind' => 'capture', 'id' => $trimmed];
@@ -333,7 +334,7 @@ final class CaptureHmacLineageService
 
         $packet = AtlasKnowledgeSourcePacket::query()
             ->where('id', $id)
-            ->orWhere('source_hash', strtolower($id))
+            ->orWhere('source_hash', AiValueNormalizer::lowerTrimmedString($id))
             ->first();
 
         if ($packet === null) {
@@ -368,8 +369,9 @@ final class CaptureHmacLineageService
     private function keyMaterial(): string
     {
         $configured = config('atlas.capture.hmac_lineage_secret');
-        if (is_string($configured) && trim($configured) !== '') {
-            return hash_hmac('sha256', 'atlas.capture.hmac_lineage.v1', trim($configured), true);
+        $configuredSecret = AiValueNormalizer::trimmedStringOrNull($configured);
+        if ($configuredSecret !== null) {
+            return hash_hmac('sha256', 'atlas.capture.hmac_lineage.v1', $configuredSecret, true);
         }
 
         $appKey = (string) config('app.key', '');

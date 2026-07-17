@@ -139,6 +139,7 @@ final class AtlasAaeosCommand extends Command
         {--immune-calibration-contract= : JSON file (any object) to observe immune-calibration contract}
         {--cognitive-immune-check-contract= : JSON file (any object) to observe cognitive-immune check contract}
         {--cognition-evidence-statuses= : JSON file (any object) to observe cognition evidence statuses}
+        {--capture-hmac-lineage= : JSON file (any object) to observe capture HMAC lineage stages}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -434,6 +435,7 @@ final class AtlasAaeosCommand extends Command
             ['immune-calibration-contract', 'immune_calibration_contract', fn (array $p) => $gates->immuneCalibrationContractObserve($p)],
             ['cognitive-immune-check-contract', 'cognitive_immune_check_contract', fn (array $p) => $gates->cognitiveImmuneCheckContractObserve($p)],
             ['cognition-evidence-statuses', 'cognition_evidence_statuses', fn (array $p) => $gates->cognitionEvidenceStatusesObserve($p)],
+            ['capture-hmac-lineage', 'capture_hmac_lineage', fn (array $p) => $gates->captureHmacLineageObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -1486,4 +1486,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('self_construction', $payload['consumer_groups']);
         $this->assertSame(5, $payload['consumer_group_count']);
     }
+
+    public function test_capture_hmac_lineage_observe_reports_stages(): void
+    {
+        $payload = $this->svc->captureHmacLineageObserve([]);
+
+        $this->assertSame('atlas.capture.hmac_lineage.v1', $payload['schema_version']);
+        $this->assertContains('source', $payload['stages']);
+        $this->assertContains('memory', $payload['stages']);
+        $this->assertContains('mem-09.memory_quality', $payload['health_report_check_ids']);
+        $this->assertSame(10, $payload['health_report_check_count']);
+    }
 }
