@@ -60,6 +60,7 @@ use App\Services\Ai\AcosMax\GoldenCounterfactualReplayService;
 use App\Services\Ai\AcosMax\ComposedObraArcComposer;
 use App\Services\Ai\AcosMax\ComposedObraArcLifecycle;
 use App\Services\Ai\AcosMax\ExploratoryBetsPortfolio;
+use App\Services\Ai\AcosMax\OutcomeEnvelope;
 use App\Services\Ai\AcosMax\AtlasNCaptureDrillService;
 use App\Services\Ai\AcosMax\AcosMaxLote2MeasureService;
 use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
@@ -2289,6 +2290,25 @@ final class AtlasUniversalGatesEvaluator
             'context_pareto_schema' => ContextParetoDominanceFilter::SCHEMA_VERSION,
             'delivery_pack_schema' => DeliveryPackCompletenessScorer::SCHEMA,
             'memory_injection_default_floor_chars' => 80,
+        ];
+    }
+
+    /**
+     * Observe-only ESP-06 OutcomeEnvelope contract (schema/statuses/origins).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function outcomeEnvelopeContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => OutcomeEnvelope::SCHEMA_VERSION,
+            'formula_version' => OutcomeEnvelope::FORMULA_VERSION,
+            'adapter_origins' => OutcomeEnvelope::ADAPTER_ORIGINS,
+            'statuses' => OutcomeEnvelope::STATUSES,
+            'origin_count' => count(OutcomeEnvelope::ADAPTER_ORIGINS),
+            'status_count' => count(OutcomeEnvelope::STATUSES),
         ];
     }
 

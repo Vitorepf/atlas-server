@@ -1667,4 +1667,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.aaeos.delivery_pack_completeness.v1', $payload['delivery_pack_schema']);
         $this->assertSame(80, $payload['memory_injection_default_floor_chars']);
     }
+
+    public function test_outcome_envelope_contract_observe_reports_statuses(): void
+    {
+        $payload = $this->svc->outcomeEnvelopeContractObserve([]);
+
+        $this->assertSame('atlas.engineering_outcome.v2', $payload['schema_version']);
+        $this->assertSame('esp06.outcome_envelope.v1', $payload['formula_version']);
+        $this->assertContains('dev_procedural', $payload['adapter_origins']);
+        $this->assertContains('succeeded', $payload['statuses']);
+        $this->assertSame(3, $payload['origin_count']);
+        $this->assertSame(3, $payload['status_count']);
+    }
 }

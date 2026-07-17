@@ -21,12 +21,12 @@ final class AtlasAaeosThresholdLadderNormalizer
         $bands = [];
 
         foreach ($bandLadder as $band) {
-            if (! is_array($band) || ! isset($band['level']) || ! is_string($band['level'])) {
+            if (! is_array($band)) {
                 return [];
             }
 
-            $level = AiValueNormalizer::trimmedString($band['level']);
-            if ($level === '') {
+            $level = AiValueNormalizer::trimmedStringOrNull($band['level'] ?? null);
+            if ($level === null) {
                 return [];
             }
 
@@ -57,16 +57,12 @@ final class AtlasAaeosThresholdLadderNormalizer
         $bands = [];
 
         foreach ($bandLadder as $band) {
-            if (! is_array($band)
-                || ! isset($band['band'], $band['rank'])
-                || ! is_string($band['band'])
-                || ! is_int($band['rank'])
-            ) {
+            if (! is_array($band) || ! isset($band['rank']) || ! is_int($band['rank'])) {
                 return [];
             }
 
-            $bandName = AiValueNormalizer::trimmedString($band['band']);
-            if ($bandName === '') {
+            $bandName = AiValueNormalizer::trimmedStringOrNull($band['band'] ?? null);
+            if ($bandName === null) {
                 return [];
             }
 
@@ -115,10 +111,8 @@ final class AtlasAaeosThresholdLadderNormalizer
     {
         return is_array($threshold)
             && isset($threshold['metric'], $threshold['comparator'], $threshold['value'])
-            && is_string($threshold['metric'])
-            && AiValueNormalizer::trimmedString($threshold['metric']) !== ''
-            && is_string($threshold['comparator'])
-            && AiValueNormalizer::trimmedString($threshold['comparator']) !== ''
+            && AiValueNormalizer::trimmedStringOrNull($threshold['metric']) !== null
+            && AiValueNormalizer::trimmedStringOrNull($threshold['comparator']) !== null
             && in_array(get_debug_type($threshold['value']), ['int', 'float'], true)
             && is_finite(AiValueNormalizer::finiteFloatOrNull($threshold['value']) ?? NAN);
     }

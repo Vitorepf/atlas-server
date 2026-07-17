@@ -33,12 +33,8 @@ final class AtlasAaeosStringListNormalizer
      */
     public static function trimmedStringOrIntValues(mixed $values): array
     {
-        if (! is_array($values)) {
-            return [];
-        }
-
         $strings = [];
-        foreach ($values as $value) {
+        foreach (AiValueNormalizer::arrayOrEmpty($values) as $value) {
             if (! is_string($value) && ! is_int($value)) {
                 continue;
             }
@@ -58,12 +54,8 @@ final class AtlasAaeosStringListNormalizer
      */
     public static function nonBlankStringOrIntValues(mixed $values): array
     {
-        if (! is_array($values)) {
-            return [];
-        }
-
         $strings = [];
-        foreach ($values as $value) {
+        foreach (AiValueNormalizer::arrayOrEmpty($values) as $value) {
             if (AiValueNormalizer::trimmedStringOrNull($value) !== null) {
                 $strings[] = $value;
             } elseif (is_int($value)) {
@@ -89,11 +81,7 @@ final class AtlasAaeosStringListNormalizer
      */
     public static function nonEmptyArrayStrings(mixed $values): array
     {
-        if (! is_array($values)) {
-            return [];
-        }
-
-        return AiStringListNormalizer::nonEmptyStrings($values);
+        return AiStringListNormalizer::nonEmptyStrings(AiValueNormalizer::arrayOrEmpty($values));
     }
 
     /**
@@ -161,17 +149,10 @@ final class AtlasAaeosStringListNormalizer
      */
     public static function stringsFromArtifactRefs(mixed $values): array
     {
-        if (! is_array($values)) {
-            return [];
-        }
-
         $strings = [];
-        foreach ($values as $value) {
-            if (is_string($value)) {
-                $value = AiValueNormalizer::trimmedString($value);
-                if ($value !== '') {
-                    $strings[] = $value;
-                }
+        foreach (AiValueNormalizer::arrayOrEmpty($values) as $value) {
+            if (($ref = AiValueNormalizer::trimmedStringOrNull($value)) !== null) {
+                $strings[] = $ref;
 
                 continue;
             }

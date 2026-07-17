@@ -68,13 +68,14 @@ final class CognitiveImmuneCheckContract
     {
         $gateStatuses = array_fill_keys(self::GATE_IDS, self::DEFAULT_GATE_STATUS);
         foreach (AiValueNormalizer::arrayOrEmpty($input['gate_statuses'] ?? null) as $gateId => $status) {
-            if (! is_string($gateId) || ! in_array($gateId, self::GATE_IDS, true)) {
+            $gateKey = AiValueNormalizer::trimmedStringOrNull($gateId);
+            if ($gateKey === null || ! in_array($gateKey, self::GATE_IDS, true)) {
                 continue;
             }
 
             $normalized = AiValueNormalizer::lowerTrimmedString($status);
             if (in_array($normalized, self::ALLOWED_GATE_STATUSES, true)) {
-                $gateStatuses[$gateId] = $normalized;
+                $gateStatuses[$gateKey] = $normalized;
             }
         }
 

@@ -98,7 +98,8 @@ final class CaptureHmacLineageService
             $storedReceipt = (string) ($link['receipt_hash'] ?? '');
 
             $expectedPrev = $prev ?? self::GENESIS_RECEIPT;
-            if (! is_string($storedPrev) || $storedPrev !== $expectedPrev) {
+            $storedPrevHash = AiValueNormalizer::trimmedStringOrNull($storedPrev);
+            if ($storedPrevHash === null || $storedPrevHash !== $expectedPrev) {
                 return [
                     'status' => 'broken_at:'.$stage,
                     'broken_at' => $stage,

@@ -157,6 +157,7 @@ final class AtlasAaeosCommand extends Command
         {--spec-completeness-contract= : JSON file (any object) to observe SpecCompleteness contract}
         {--context-retention-schemas= : JSON file (any object) to observe summary-fidelity/segment-importance schemas}
         {--context-budget-schemas= : JSON file (any object) to observe memory-injection/Pareto/delivery-pack schemas}
+        {--outcome-envelope-contract= : JSON file (any object) to observe ESP-06 OutcomeEnvelope contract}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -470,6 +471,7 @@ final class AtlasAaeosCommand extends Command
             ['spec-completeness-contract', 'spec_completeness_contract', fn (array $p) => $gates->specCompletenessContractObserve($p)],
             ['context-retention-schemas', 'context_retention_schemas', fn (array $p) => $gates->contextRetentionSchemasObserve($p)],
             ['context-budget-schemas', 'context_budget_schemas', fn (array $p) => $gates->contextBudgetSchemasObserve($p)],
+            ['outcome-envelope-contract', 'outcome_envelope_contract', fn (array $p) => $gates->outcomeEnvelopeContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
