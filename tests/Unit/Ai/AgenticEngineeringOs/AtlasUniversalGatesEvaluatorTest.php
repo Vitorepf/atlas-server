@@ -2651,4 +2651,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(180, $payload['n_capture_days_between_drills_max']);
         $this->assertSame(10, $payload['verified_share_procedural_floor_count']);
     }
+
+    public function test_long_horizon_gate_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->longHorizonGateFloorsContractObserve([]);
+
+        $this->assertSame('atlas.cognition.acos_long_horizon_gate.v1', $payload['long_horizon_gate_schema']);
+        $this->assertSame('atlas.cognition.acos_long_horizon_gate.area_v2', $payload['long_horizon_area_v2_schema']);
+        $this->assertSame(30, $payload['long_horizon_min_days']);
+        $this->assertSame(9.5, $payload['long_horizon_min_overall']);
+        $this->assertSame(9.5, $payload['long_horizon_min_pipeline']);
+        $this->assertSame(0.15, $payload['long_horizon_warning_margin']);
+        $this->assertSame(2, $payload['long_horizon_max_latest_stale_days']);
+        $this->assertSame(1, $payload['long_horizon_max_gap_days']);
+        $this->assertSame(0.80, $payload['esp09_high_alignment_band']);
+        $this->assertSame(2, $payload['esp09_default_min_windows']);
+        $this->assertSame(2, $payload['esp09_default_min_per_window']);
+        $this->assertSame(11, $payload['long_horizon_gate_floor_count']);
+    }
 }

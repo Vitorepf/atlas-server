@@ -22,6 +22,18 @@ final class AtlasAcosLongHorizonGateService
 
     public const AREA_V2_SCHEMA = 'atlas.cognition.acos_long_horizon_gate.area_v2';
 
+    public const DEFAULT_MIN_DAYS = 30;
+
+    public const DEFAULT_MIN_OVERALL = 9.5;
+
+    public const DEFAULT_MIN_PIPELINE = 9.5;
+
+    public const DEFAULT_WARNING_MARGIN = 0.15;
+
+    public const DEFAULT_MAX_LATEST_STALE_DAYS = 2;
+
+    public const DEFAULT_MAX_GAP_DAYS = 1;
+
     /**
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
@@ -40,12 +52,12 @@ final class AtlasAcosLongHorizonGateService
             return $this->payload('disabled', false, $fixture, [], [], [], ['acos_long_horizon_gate_disabled'], []);
         }
 
-        $minDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($options['min_days'] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($cfg['min_days'] ?? null) ?? 30));
-        $minOverall = $this->clampOutOfTen($options['min_overall'] ?? $cfg['min_overall'] ?? 9.5, 9.5);
-        $minPipeline = $this->clampOutOfTen($options['min_pipeline'] ?? $cfg['min_pipeline'] ?? 9.5, 9.5);
-        $warningMargin = $this->clampOutOfTen($options['warning_margin'] ?? $cfg['warning_margin'] ?? 0.15, 0.15);
-        $maxLatestStaleDays = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($options['max_latest_stale_days'] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($cfg['max_latest_stale_days'] ?? null) ?? 2));
-        $maxGapDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($options['max_gap_days'] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($cfg['max_gap_days'] ?? null) ?? 1));
+        $minDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($options['min_days'] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($cfg['min_days'] ?? null) ?? self::DEFAULT_MIN_DAYS));
+        $minOverall = $this->clampOutOfTen($options['min_overall'] ?? $cfg['min_overall'] ?? self::DEFAULT_MIN_OVERALL, self::DEFAULT_MIN_OVERALL);
+        $minPipeline = $this->clampOutOfTen($options['min_pipeline'] ?? $cfg['min_pipeline'] ?? self::DEFAULT_MIN_PIPELINE, self::DEFAULT_MIN_PIPELINE);
+        $warningMargin = $this->clampOutOfTen($options['warning_margin'] ?? $cfg['warning_margin'] ?? self::DEFAULT_WARNING_MARGIN, self::DEFAULT_WARNING_MARGIN);
+        $maxLatestStaleDays = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($options['max_latest_stale_days'] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($cfg['max_latest_stale_days'] ?? null) ?? self::DEFAULT_MAX_LATEST_STALE_DAYS));
+        $maxGapDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($options['max_gap_days'] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($cfg['max_gap_days'] ?? null) ?? self::DEFAULT_MAX_GAP_DAYS));
         $seriesPath = AiValueNormalizer::trimmedStringOrNull($options['series_path'] ?? $cfg['series_path'] ?? null) ?? storage_path('app/atlas/evidence/acos-delta-series.jsonl');
         $seriesV2Path = AiValueNormalizer::trimmedStringOrNull($options['series_v2_path'] ?? $cfg['series_v2_path'] ?? null) ?? storage_path('app/atlas/evidence/acos-delta-series.v2.jsonl');
         $minAreaOverall = $this->clampOutOfTen($options['min_area_overall'] ?? $cfg['min_area_overall'] ?? $minOverall, $minOverall);

@@ -1533,7 +1533,7 @@ final class AtlasUniversalGatesEvaluator
     {
         $days = AiValueNormalizer::finiteFloatOrNull($input['days'] ?? null);
 
-        return (new AtlasNCaptureDrillService)->report($days === null ? null : max(1, (int) $days));
+        return (new AtlasNCaptureDrillService)->report($days === null ? null : max(1, (int) (AiValueNormalizer::finiteFloatOrNull($days) ?? 0)));
     }
 
     /**
@@ -3865,6 +3865,31 @@ final class AtlasUniversalGatesEvaluator
             'n_capture_measure_id' => AtlasNCaptureDrillService::MEASURE_ID,
             'n_capture_days_between_drills_max' => AtlasNCaptureDrillService::DEFAULT_DAYS_BETWEEN_DRILLS_MAX,
             'verified_share_procedural_floor_count' => 10,
+        ];
+    }
+
+    /**
+     * Observe-only long-horizon gate + ESP-09 refutation published floor defaults.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function longHorizonGateFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'long_horizon_gate_schema' => AtlasAcosLongHorizonGateService::SCHEMA_VERSION,
+            'long_horizon_area_v2_schema' => AtlasAcosLongHorizonGateService::AREA_V2_SCHEMA,
+            'long_horizon_min_days' => AtlasAcosLongHorizonGateService::DEFAULT_MIN_DAYS,
+            'long_horizon_min_overall' => AtlasAcosLongHorizonGateService::DEFAULT_MIN_OVERALL,
+            'long_horizon_min_pipeline' => AtlasAcosLongHorizonGateService::DEFAULT_MIN_PIPELINE,
+            'long_horizon_warning_margin' => AtlasAcosLongHorizonGateService::DEFAULT_WARNING_MARGIN,
+            'long_horizon_max_latest_stale_days' => AtlasAcosLongHorizonGateService::DEFAULT_MAX_LATEST_STALE_DAYS,
+            'long_horizon_max_gap_days' => AtlasAcosLongHorizonGateService::DEFAULT_MAX_GAP_DAYS,
+            'esp09_high_alignment_band' => Esp09IndependentChallengerService::HIGH_ALIGNMENT_BAND,
+            'esp09_default_min_windows' => Esp09IndependentChallengerService::DEFAULT_MIN_WINDOWS,
+            'esp09_default_min_per_window' => Esp09IndependentChallengerService::DEFAULT_MIN_PER_WINDOW,
+            'long_horizon_gate_floor_count' => 11,
         ];
     }
 

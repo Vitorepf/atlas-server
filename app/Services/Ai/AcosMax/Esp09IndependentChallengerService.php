@@ -28,6 +28,10 @@ final class Esp09IndependentChallengerService
     /** @var list<string> */
     public const TRIGGER_KINDS = ['recursive_improvement', 'composed_obra'];
 
+    public const DEFAULT_MIN_WINDOWS = 2;
+
+    public const DEFAULT_MIN_PER_WINDOW = 2;
+
     /**
      * @param  array<string,mixed>  $context
      * @return array<string,mixed>
@@ -129,7 +133,7 @@ final class Esp09IndependentChallengerService
      * @param  list<array<string,mixed>>  $events
      * @return array<string,mixed>
      */
-    public static function refutationSeries(array $events, int $minWindows = 2, int $minPerWindow = 2): array
+    public static function refutationSeries(array $events, int $minWindows = self::DEFAULT_MIN_WINDOWS, int $minPerWindow = self::DEFAULT_MIN_PER_WINDOW): array
     {
         $accepted = 0;
         $ignored = 0;
