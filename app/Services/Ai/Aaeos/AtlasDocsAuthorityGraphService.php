@@ -229,7 +229,7 @@ class AtlasDocsAuthorityGraphService
                 continue;
             }
             $parsed = $this->frontmatter->parse(File::get($file->getPathname()));
-            $frontmatter = is_array($parsed['frontmatter'] ?? null) ? $parsed['frontmatter'] : [];
+            $frontmatter = AiValueNormalizer::arrayOrEmpty($parsed['frontmatter'] ?? null);
             if (str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'archive'.DIRECTORY_SEPARATOR)) {
                 continue;
             }

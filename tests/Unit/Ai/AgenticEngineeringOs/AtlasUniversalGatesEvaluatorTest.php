@@ -1507,4 +1507,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('audit', $payload['functions']);
         $this->assertSame(6, $payload['function_count']);
     }
+
+    public function test_gate_signal_contract_observe_reports_weights(): void
+    {
+        $payload = $this->svc->gateSignalContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.gate_signal.v1', $payload['schema_version']);
+        $this->assertContains('intent_clarity_score_min_0_8', $payload['gates']);
+        $this->assertSame(0.8, $payload['intent_clarity_threshold']);
+        $this->assertSame(0.4, $payload['weights']['resolved']);
+        $this->assertArrayHasKey('high', $payload['teto10_band_rank']);
+    }
 }

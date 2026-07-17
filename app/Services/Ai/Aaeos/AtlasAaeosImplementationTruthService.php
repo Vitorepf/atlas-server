@@ -170,7 +170,7 @@ class AtlasAaeosImplementationTruthService
                     continue;
                 }
                 $parsed = $this->frontmatter->parse(File::get($file->getPathname()));
-                $fm = is_array($parsed['frontmatter'] ?? null) ? $parsed['frontmatter'] : [];
+                $fm = AiValueNormalizer::arrayOrEmpty($parsed['frontmatter'] ?? null);
                 if (($fm['doc_schema'] ?? null) === null) {
                     continue; // only canonical module docs participate
                 }
@@ -301,7 +301,7 @@ class AtlasAaeosImplementationTruthService
                 continue;
             }
             $parsed = $this->frontmatter->parse(File::get($file->getPathname()));
-            $fm = is_array($parsed['frontmatter'] ?? null) ? $parsed['frontmatter'] : [];
+            $fm = AiValueNormalizer::arrayOrEmpty($parsed['frontmatter'] ?? null);
             $evidenceRefs = $this->normalizeEvidenceRefs($fm['evidence_refs'] ?? null);
             if ($evidenceRefs === []) {
                 continue;

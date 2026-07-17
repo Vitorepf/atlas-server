@@ -15,7 +15,7 @@ final class Teto10PredictedRevertReviewDigest
 {
     public const SCHEMA_VERSION = 'atlas.acos.teto10.predicted_revert_review_digest.v1';
 
-    private const BAND_RANK = [
+    public const BAND_RANK = [
         'high' => 0,
         'sweet' => 1,
         'low' => 2,
@@ -83,7 +83,7 @@ final class Teto10PredictedRevertReviewDigest
         ];
 
         $currentBand = null;
-        foreach ((array) ($digest['groups'] ?? []) as $group) {
+        foreach (AiValueNormalizer::arrayOrEmpty($digest['groups'] ?? null) as $group) {
             if (! is_array($group)) {
                 continue;
             }
@@ -102,13 +102,13 @@ final class Teto10PredictedRevertReviewDigest
                     .' family='.($family !== '' ? self::plain($family) : 'unknown');
             }
 
-            foreach ((array) ($group['items'] ?? []) as $item) {
+            foreach (AiValueNormalizer::arrayOrEmpty($group['items'] ?? null) as $item) {
                 if (! is_array($item)) {
                     continue;
                 }
                 $lines[] = '- '.self::plain(self::string($item['id'] ?? 'item') ?: 'item').': '.self::plain(self::string($item['title'] ?? 'untitled') ?: 'untitled');
                 $lines[] = '  - band: '.self::plain(self::band($item['predicted_revert_band'] ?? 'unknown'));
-                $lines[] = '  - evidence: '.self::plain(implode(', ', array_map(self::string(...), (array) ($item['evidence_refs'] ?? []))));
+                $lines[] = '  - evidence: '.self::plain(implode(', ', array_map(self::string(...), AiValueNormalizer::arrayOrEmpty($item['evidence_refs'] ?? null))));
                 $lines[] = '  - diff-ref: '.self::plain(self::string($item['diff_ref'] ?? 'manual_review') ?: 'manual_review');
                 $lines[] = '  - reverse: '.self::inline(self::string($item['reverse_command'] ?? 'manual_review') ?: 'manual_review');
                 $lines[] = '  - review-mode: '.self::plain(self::string($item['review_mode'] ?? 'manual_review') ?: 'manual_review');
@@ -116,8 +116,8 @@ final class Teto10PredictedRevertReviewDigest
             $lines[] = '';
         }
 
-        $lines = array_merge($lines, self::renderFlaggedSection('Pending flips', (array) ($digest['pending_flips'] ?? [])));
-        $lines = array_merge($lines, self::renderFlaggedSection('Batched asks', (array) ($digest['batched_asks'] ?? [])));
+        $lines = array_merge($lines, self::renderFlaggedSection('Pending flips', AiValueNormalizer::arrayOrEmpty($digest['pending_flips'] ?? null)));
+        $lines = array_merge($lines, self::renderFlaggedSection('Batched asks', AiValueNormalizer::arrayOrEmpty($digest['batched_asks'] ?? null)));
 
         return rtrim(implode(PHP_EOL, $lines)).PHP_EOL;
     }
@@ -231,7 +231,7 @@ final class Teto10PredictedRevertReviewDigest
     private static function renderFlaggedSection(string $title, array $section): array
     {
         $lines = ['## '.$title];
-        $items = (array) ($section['items'] ?? []);
+        $items = AiValueNormalizer::arrayOrEmpty($section['items'] ?? null);
         if ($items === []) {
             $lines[] = '- none';
             $lines[] = '';

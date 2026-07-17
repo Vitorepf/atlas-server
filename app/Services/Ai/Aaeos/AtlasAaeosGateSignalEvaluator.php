@@ -18,47 +18,49 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasAaeosGateSignalEvaluator
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.gate_signal.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.gate_signal.v1';
 
-    private const GATE_INTENT_CLARITY = 'intent_clarity_score_min_0_8';
+    public const GATE_INTENT_CLARITY = 'intent_clarity_score_min_0_8';
 
-    private const GATE_SPEC_PACK = 'spec_pack_acceptance_criteria_min_3';
+    public const GATE_SPEC_PACK = 'spec_pack_acceptance_criteria_min_3';
 
-    private const GATE_TASK_PACK = 'task_pack_atomic_true_for_each';
+    public const GATE_TASK_PACK = 'task_pack_atomic_true_for_each';
 
-    private const INTENT_CLARITY_THRESHOLD = 0.8;
+    public const INTENT_CLARITY_THRESHOLD = 0.8;
 
-    private const SPEC_PACK_MIN_CRITERIA = 3;
+    public const SPEC_PACK_MIN_CRITERIA = 3;
 
     /**
      * Weights for the four clarity sub-signals. They sum to 1.0 so that a
      * fully resolved, bounded, unambiguous, fully-answered intent computes a
      * clamped score of exactly 1.0.
      */
-    private const WEIGHT_RESOLVED = 0.4;
+    public const WEIGHT_RESOLVED = 0.4;
 
-    private const WEIGHT_BOUNDED = 0.3;
+    public const WEIGHT_BOUNDED = 0.3;
 
-    private const WEIGHT_NO_AMBIGUITY = 0.2;
+    public const WEIGHT_NO_AMBIGUITY = 0.2;
 
-    private const WEIGHT_NO_MISSING = 0.1;
+    public const WEIGHT_NO_MISSING = 0.1;
 
     /**
      * Ambiguity reaches a zero sub-score at this many tokens; below it the
      * penalty scales linearly.
      */
-    private const AMBIGUITY_SATURATION = 2;
+    public const AMBIGUITY_SATURATION = 2;
 
     /**
      * Missing answers reach a zero sub-score at this many; a single missing
      * answer fully zeroes that sub-signal.
      */
-    private const MISSING_SATURATION = 1;
+    public const MISSING_SATURATION = 1;
 
     /**
      * Connectors that mark a task scope as compound (non-atomic).
+     *
+     * @var list<string>
      */
-    private const COMPOUND_CONNECTORS = [' and ', ' & ', ' then ', ' plus ', '; '];
+    public const COMPOUND_CONNECTORS = [' and ', ' & ', ' then ', ' plus ', '; '];
 
     /**
      * P1 disambiguation gate: weighted + clamped 0..1 intent-clarity score.
@@ -336,6 +338,6 @@ final class AtlasAaeosGateSignalEvaluator
      */
     private function asArray(mixed $value): array
     {
-        return is_array($value) ? $value : [];
+        return AiValueNormalizer::arrayOrEmpty($value);
     }
 }

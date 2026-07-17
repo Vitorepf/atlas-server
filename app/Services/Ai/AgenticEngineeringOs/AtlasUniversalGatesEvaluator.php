@@ -38,6 +38,7 @@ use App\Services\Ai\Cognition\AtlasCognitionScoreCardV4Grouper;
 use App\Services\Ai\Cognition\CaptureHmacLineageService;
 use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
+use App\Services\Ai\AcosMax\Teto10PredictedRevertReviewDigest;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
@@ -1980,6 +1981,36 @@ final class AtlasUniversalGatesEvaluator
             'schema_version' => AtlasCognitiveFunctionDecomposerService::SCHEMA,
             'functions' => AtlasCognitiveFunctionDecomposerService::FUNCTIONS,
             'function_count' => count(AtlasCognitiveFunctionDecomposerService::FUNCTIONS),
+        ];
+    }
+
+    /**
+     * Observe-only AAEOS gate-signal weights/thresholds + TETO-10 band rank.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function gateSignalContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AtlasAaeosGateSignalEvaluator::SCHEMA_VERSION,
+            'gates' => [
+                AtlasAaeosGateSignalEvaluator::GATE_INTENT_CLARITY,
+                AtlasAaeosGateSignalEvaluator::GATE_SPEC_PACK,
+                AtlasAaeosGateSignalEvaluator::GATE_TASK_PACK,
+            ],
+            'intent_clarity_threshold' => AtlasAaeosGateSignalEvaluator::INTENT_CLARITY_THRESHOLD,
+            'spec_pack_min_criteria' => AtlasAaeosGateSignalEvaluator::SPEC_PACK_MIN_CRITERIA,
+            'weights' => [
+                'resolved' => AtlasAaeosGateSignalEvaluator::WEIGHT_RESOLVED,
+                'bounded' => AtlasAaeosGateSignalEvaluator::WEIGHT_BOUNDED,
+                'no_ambiguity' => AtlasAaeosGateSignalEvaluator::WEIGHT_NO_AMBIGUITY,
+                'no_missing' => AtlasAaeosGateSignalEvaluator::WEIGHT_NO_MISSING,
+            ],
+            'compound_connectors' => AtlasAaeosGateSignalEvaluator::COMPOUND_CONNECTORS,
+            'teto10_schema' => Teto10PredictedRevertReviewDigest::SCHEMA_VERSION,
+            'teto10_band_rank' => Teto10PredictedRevertReviewDigest::BAND_RANK,
         ];
     }
 
