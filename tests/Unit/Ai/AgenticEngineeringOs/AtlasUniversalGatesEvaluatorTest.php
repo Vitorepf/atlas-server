@@ -4577,4 +4577,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['disk_deadseries_latency_floor_count']);
     }
 
+    public function test_memory_spec_dogfood_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->memorySpecDogfoodFloorsContractObserve([]);
+
+        $this->assertSame('ref', $payload['memory_field_ref']);
+        $this->assertSame('priority', $payload['memory_field_priority']);
+        $this->assertSame('requested_chars', $payload['memory_field_requested_chars']);
+        $this->assertSame('allocated_chars', $payload['memory_field_allocated_chars']);
+        $this->assertSame('capped', $payload['memory_field_capped']);
+        $this->assertSame('rank', $payload['memory_field_rank']);
+        $this->assertSame('weight', $payload['spec_field_weight']);
+        $this->assertSame('reason', $payload['spec_field_reason']);
+        $this->assertSame('raw_request', $payload['spec_field_raw_request']);
+        $this->assertSame('interpreted_goal', $payload['spec_field_interpreted_goal']);
+        $this->assertSame('non_goals', $payload['spec_field_non_goals']);
+        $this->assertSame('requirements', $payload['spec_field_requirements']);
+        $this->assertSame('schema_version', $payload['dogfood_field_schema_version']);
+        $this->assertSame('class', $payload['dogfood_field_class']);
+        $this->assertSame('signature', $payload['dogfood_field_signature']);
+        $this->assertSame('occurrences', $payload['dogfood_field_occurrences']);
+        $this->assertSame('target', $payload['dogfood_field_target']);
+        $this->assertSame(17, $payload['memory_spec_dogfood_floor_count']);
+    }
+
 }

@@ -6189,6 +6189,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function memorySpecDogfoodFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'memory_field_ref' => MemoryInjectionBudgetAllocator::FIELD_REF,
+            'memory_field_priority' => MemoryInjectionBudgetAllocator::FIELD_PRIORITY,
+            'memory_field_requested_chars' => MemoryInjectionBudgetAllocator::FIELD_REQUESTED_CHARS,
+            'memory_field_allocated_chars' => MemoryInjectionBudgetAllocator::FIELD_ALLOCATED_CHARS,
+            'memory_field_capped' => MemoryInjectionBudgetAllocator::FIELD_CAPPED,
+            'memory_field_rank' => MemoryInjectionBudgetAllocator::FIELD_RANK,
+            'spec_field_weight' => SpecCompletenessScorer::FIELD_WEIGHT,
+            'spec_field_reason' => SpecCompletenessScorer::FIELD_REASON,
+            'spec_field_raw_request' => SpecCompletenessScorer::FIELD_RAW_REQUEST,
+            'spec_field_interpreted_goal' => SpecCompletenessScorer::FIELD_INTERPRETED_GOAL,
+            'spec_field_non_goals' => SpecCompletenessScorer::FIELD_NON_GOALS,
+            'spec_field_requirements' => SpecCompletenessScorer::FIELD_REQUIREMENTS,
+            'dogfood_field_schema_version' => DogfoodingFrictionLeadMiner::FIELD_SCHEMA_VERSION,
+            'dogfood_field_class' => DogfoodingFrictionLeadMiner::FIELD_CLASS,
+            'dogfood_field_signature' => DogfoodingFrictionLeadMiner::FIELD_SIGNATURE,
+            'dogfood_field_occurrences' => DogfoodingFrictionLeadMiner::FIELD_OCCURRENCES,
+            'dogfood_field_target' => DogfoodingFrictionLeadMiner::FIELD_TARGET,
+            'memory_spec_dogfood_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

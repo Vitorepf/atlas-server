@@ -25,19 +25,27 @@ final class SpecCompletenessScorer
     public const VERDICT_INSUFFICIENT = 'insufficient';
 
     public const REASON_OK = 'ok';
+    public const FIELD_WEIGHT = 'weight';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_RAW_REQUEST = 'raw_request';
+    public const FIELD_INTERPRETED_GOAL = 'interpreted_goal';
+    public const FIELD_NON_GOALS = 'non_goals';
+    public const FIELD_PRODUCT_AREA = 'product_area';
+    public const FIELD_REQUIREMENTS = 'requirements';
+    public const FIELD_ACCEPTANCE_CRITERIA = 'acceptance_criteria';
 
 
     /**
      * Weighted importance of each canonical spec field. Sums to exactly 100.
      */
     public const WEIGHTS = [
-        'raw_request' => 8,
-        'interpreted_goal' => 12,
-        'non_goals' => 5,
-        'product_area' => 7,
+        self::FIELD_RAW_REQUEST => 8,
+        self::FIELD_INTERPRETED_GOAL => 12,
+        self::FIELD_NON_GOALS => 5,
+        self::FIELD_PRODUCT_AREA => 7,
         'business_actor_object_action' => 10,
-        'requirements' => 12,
-        'acceptance_criteria' => 14,
+        self::FIELD_REQUIREMENTS => 12,
+        self::FIELD_ACCEPTANCE_CRITERIA => 14,
         'design_system_constraints' => 6,
         'security_constraints' => 8,
         'assumptions' => 9,
@@ -90,17 +98,17 @@ final class SpecCompletenessScorer
             $fields[$field] = [
                 'present' => $present,
                 'satisfied' => $satisfied,
-                'weight' => $weight,
+                self::FIELD_WEIGHT => $weight,
                 'earned' => $earned,
-                'reason' => $reason,
+                self::FIELD_REASON => $reason,
             ];
 
             if (! $satisfied) {
                 $missing[] = [
                     'field' => $field,
-                    'weight' => $weight,
+                    self::FIELD_WEIGHT => $weight,
                     'weight_loss' => (AiValueNormalizer::finiteFloatOrNull($weight) ?? 0.0) - $earned,
-                    'reason' => $reason,
+                    self::FIELD_REASON => $reason,
                 ];
             }
         }

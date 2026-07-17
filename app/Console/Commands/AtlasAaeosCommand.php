@@ -299,6 +299,7 @@ final class AtlasAaeosCommand extends Command
         {--evidence-flywheel-budget-floors-contract= : JSON file (any object) to observe evidence/flywheel/budget residual floors}
         {--portfolio-impact-corpus-floors-contract= : JSON file (any object) to observe portfolio/impact/corpus residual floors}
         {--disk-deadseries-latency-floors-contract= : JSON file (any object) to observe disk/dead-series/latency residual floors}
+        {--memory-spec-dogfood-floors-contract= : JSON file (any object) to observe memory/spec/dogfood residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -754,6 +755,7 @@ final class AtlasAaeosCommand extends Command
             ['evidence-flywheel-budget-floors-contract', 'evidence_flywheel_budget_floors_contract', fn (array $p) => $gates->evidenceFlywheelBudgetFloorsContractObserve($p)],
             ['portfolio-impact-corpus-floors-contract', 'portfolio_impact_corpus_floors_contract', fn (array $p) => $gates->portfolioImpactCorpusFloorsContractObserve($p)],
             ['disk-deadseries-latency-floors-contract', 'disk_deadseries_latency_floors_contract', fn (array $p) => $gates->diskDeadseriesLatencyFloorsContractObserve($p)],
+            ['memory-spec-dogfood-floors-contract', 'memory_spec_dogfood_floors_contract', fn (array $p) => $gates->memorySpecDogfoodFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -23,6 +23,14 @@ final class MemoryInjectionBudgetAllocator
     public const REASON_BELOW_MIN_EXCERPT = 'below_min_excerpt';
 
     public const REASON_ZERO_ESTIMATED_CHARS = 'zero_estimated_chars';
+    public const FIELD_REF = 'ref';
+    public const FIELD_PRIORITY = 'priority';
+    public const FIELD_REQUESTED_CHARS = 'requested_chars';
+    public const FIELD_ALLOCATED_CHARS = 'allocated_chars';
+    public const FIELD_CAPPED = 'capped';
+    public const FIELD_RANK = 'rank';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_TOTAL_BUDGET_CHARS = 'total_budget_chars';
 
     /**
      * Pure char-budget packer. Sorts a copy of the ranked items by
@@ -94,12 +102,12 @@ final class MemoryInjectionBudgetAllocator
             $remaining -= $allocatable;
 
             $admitted[] = [
-                'ref' => $ref,
-                'priority' => $priority,
-                'requested_chars' => $estimated,
-                'allocated_chars' => $allocatable,
-                'capped' => $allocatable < $estimated,
-                'rank' => $rank,
+                self::FIELD_REF => $ref,
+                self::FIELD_PRIORITY => $priority,
+                self::FIELD_REQUESTED_CHARS => $estimated,
+                self::FIELD_ALLOCATED_CHARS => $allocatable,
+                self::FIELD_CAPPED => $allocatable < $estimated,
+                self::FIELD_RANK => $rank,
             ];
         }
 
@@ -107,8 +115,8 @@ final class MemoryInjectionBudgetAllocator
         $droppedCount = count($dropped);
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'total_budget_chars' => $totalBudget,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_TOTAL_BUDGET_CHARS => $totalBudget,
             'per_item_cap_chars' => $perItemCap,
             'min_excerpt_chars' => $minExcerpt,
             'admitted' => $admitted,
@@ -181,9 +189,9 @@ final class MemoryInjectionBudgetAllocator
     private function dropped(string $ref, float $priority, int $estimated, string $reason): array
     {
         return [
-            'ref' => $ref,
-            'priority' => $priority,
-            'requested_chars' => $estimated,
+            self::FIELD_REF => $ref,
+            self::FIELD_PRIORITY => $priority,
+            self::FIELD_REQUESTED_CHARS => $estimated,
             'reason' => $reason,
         ];
     }
@@ -193,7 +201,7 @@ final class MemoryInjectionBudgetAllocator
      */
     private function priorityField(array $item): float
     {
-        return AiValueNormalizer::finiteFloatOrNull($item['priority'] ?? 0) ?? 0.0;
+        return AiValueNormalizer::finiteFloatOrNull($item[self::FIELD_PRIORITY] ?? 0) ?? 0.0;
     }
 
     /**

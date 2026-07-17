@@ -15,6 +15,14 @@ final class DogfoodingFrictionLeadMiner
     public const STATUS_OK = 'ok';
 
     public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_CLASS = 'class';
+    public const FIELD_SIGNATURE = 'signature';
+    public const FIELD_OCCURRENCES = 'occurrences';
+    public const FIELD_TARGET = 'target';
+    public const FIELD_OBJECTIVE = 'objective';
+    public const FIELD_EVIDENCE_REFS = 'evidence_refs';
+    public const FIELD_SOURCE = 'source';
 
     /**
      * @param  list<array<string,mixed>>  $events
@@ -24,7 +32,7 @@ final class DogfoodingFrictionLeadMiner
     {
         $groups = [];
         foreach ($events as $event) {
-            $signature = AiValueNormalizer::trimmedStringOrNull($event['signature'] ?? null);
+            $signature = AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_SIGNATURE] ?? null);
             if ($signature === null) {
                 continue;
             }
@@ -38,21 +46,21 @@ final class DogfoodingFrictionLeadMiner
             }
             $target = self::target($group);
             $leads[] = [
-                'schema_version' => self::SCHEMA_VERSION,
-                'class' => 'dogfooding',
-                'signature' => $signature,
-                'occurrences' => count($group),
-                'target' => $target,
-                'objective' => 'Improve recurring Atlas operator friction around '.$target,
-                'evidence_refs' => array_values(array_map(
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+                self::FIELD_CLASS => 'dogfooding',
+                self::FIELD_SIGNATURE => $signature,
+                self::FIELD_OCCURRENCES => count($group),
+                self::FIELD_TARGET => $target,
+                self::FIELD_OBJECTIVE => 'Improve recurring Atlas operator friction around '.$target,
+                self::FIELD_EVIDENCE_REFS => array_values(array_map(
                     static fn (array $event): string => 'friction:'.sha1(json_encode([
-                        $event['signature'] ?? '',
+                        $event[self::FIELD_SIGNATURE] ?? '',
                         $event['kind'] ?? '',
-                        $event['target'] ?? '',
+                        $event[self::FIELD_TARGET] ?? '',
                     ], JSON_UNESCAPED_SLASHES)),
                     $group,
                 )),
-                'source' => [
+                self::FIELD_SOURCE => [
                     'operator_text_in_objective' => false,
                     'lead_only_not_seed' => true,
                     'provider_calls_made' => false,
@@ -61,7 +69,7 @@ final class DogfoodingFrictionLeadMiner
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'status' => $leads === [] ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK,
             'leads' => $leads,
         ];
@@ -73,7 +81,7 @@ final class DogfoodingFrictionLeadMiner
     private static function target(array $group): string
     {
         foreach ($group as $event) {
-            $target = AiValueNormalizer::trimmedStringOrNull($event['target'] ?? null);
+            $target = AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_TARGET] ?? null);
             if ($target !== null) {
                 return $target;
             }
