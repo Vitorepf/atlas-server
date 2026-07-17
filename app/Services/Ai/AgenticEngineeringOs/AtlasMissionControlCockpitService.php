@@ -79,6 +79,9 @@ final class AtlasMissionControlCockpitService
             // list — tells the operator whether the intent is blocked/warning/
             // clear. Observe-only: never changes blockers or phase statuses.
             'blocker_signal' => (new AaeosBlockerSeverityGate)->assess($blockers),
+            // Observe-only advance verdict over the latest phase envelope
+            // (same classifier the HTTP policy gate now uses live).
+            'phase_advance' => $this->latestPhaseAdvance($phaseEnvelopes),
             'operator_signature_required' => $signatureRequired,
             'provider_safe' => true,
             'generated_at' => gmdate('c'),
@@ -145,6 +148,31 @@ final class AtlasMissionControlCockpitService
             'implementable_supply' => $servableNow,
             'recommended_operator_action' => $recommendedAction,
         ];
+    }
+
+    /**
+     * @param  list<array<string,mixed>>  $envelopes
+     * @return array{
+     *     schema_version: string,
+     *     verdict: string,
+     *     reason: string,
+     *     missing_gates: list<string>,
+     *     blocked_gates: list<string>,
+     *     high_blocker_ids: list<string>
+     * }|null
+     */
+    private function latestPhaseAdvance(array $envelopes): ?array
+    {
+        for ($i = count($envelopes) - 1; $i >= 0; $i--) {
+            $env = $envelopes[$i];
+            if (! is_array($env) || ! isset($env['phase_out'])) {
+                continue;
+            }
+
+            return (new PhaseAdvanceVerdictClassifier)->classify($env);
+        }
+
+        return null;
     }
 
     /**

@@ -71,6 +71,14 @@ final class AtlasMissionControlCockpitServiceTest extends TestCase
         $r = $this->svc->snapshot('i-1', [$env]);
         $this->assertCount(1, $r['blockers']);
         $this->assertSame('b1', $r['blockers'][0]['id']);
+        $this->assertSame('block', $r['phase_advance']['verdict']);
+        $this->assertSame(['b1'], $r['phase_advance']['high_blocker_ids']);
+    }
+
+    public function test_empty_journey_phase_advance_is_null(): void
+    {
+        $r = $this->svc->snapshot('i-1', []);
+        $this->assertNull($r['phase_advance']);
     }
 
     public function test_signature_required_at_l4_human_review(): void
