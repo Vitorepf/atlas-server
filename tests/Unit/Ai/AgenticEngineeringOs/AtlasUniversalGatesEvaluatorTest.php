@@ -1758,4 +1758,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertFalse($payload['writes_memory_directly']);
         $this->assertFalse($payload['count_is_acceptance']);
     }
+
+    public function test_claim_definition_of_done_contract_observe_reports_fields(): void
+    {
+        $payload = $this->svc->claimDefinitionOfDoneContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.claim_definition_of_done.v1', $payload['schema_version']);
+        $this->assertContains('owner_doc', $payload['canonical_fields']);
+        $this->assertContains('proof', $payload['unconditional_fields']);
+        $this->assertSame(6, $payload['canonical_field_count']);
+        $this->assertSame(4, $payload['unconditional_field_count']);
+        $this->assertStringContainsString('implementation-reality.md', $payload['evaluated_against']);
+    }
 }

@@ -8,7 +8,7 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AaeosRequiredGateCoverageChecker
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.phase.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.phase.v1';
 
     /**
      * Pure set arithmetic over gates.{required,passed} of schema atlas.aaeos.phase.v1.

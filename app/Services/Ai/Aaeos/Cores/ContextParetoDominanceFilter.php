@@ -268,6 +268,6 @@ final class ContextParetoDominanceFilter
      */
     private function variantId(array $variant): string
     {
-        return AiValueNormalizer::trimmedString($variant['id'] ?? '');
+        return AiValueNormalizer::trimmedStringOrNull($variant['id'] ?? null) ?? '';
     }
 }

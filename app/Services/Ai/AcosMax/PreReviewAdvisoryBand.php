@@ -109,7 +109,7 @@ final class PreReviewAdvisoryBand
 
         $classification = ($classifier ?? new CalibrationBandClassifier)->classify($probability);
 
-        $result['predicted_revert_band'] = AiValueNormalizer::trimmedString($classification['band'] ?? '');
+        $result['predicted_revert_band'] = AiValueNormalizer::trimmedStringOrNull($classification['band'] ?? null) ?? '';
         $result['probability'] = $probability;
         $result['basis'] = 'measured';
 
