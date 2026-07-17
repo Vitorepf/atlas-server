@@ -34,7 +34,7 @@ final class EvidenceVisionThesisLifecycle
             if (! is_array($thesis)) {
                 continue;
             }
-            $thesisId = AiValueNormalizer::trimmedString($thesis['thesis_id'] ?? '');
+            $thesisId = AiValueNormalizer::trimmedStringOrNull($thesis['thesis_id'] ?? null) ?? '';
             if ($thesisId === '' || isset(self::$active[$thesisId])) {
                 continue;
             }
@@ -65,7 +65,7 @@ final class EvidenceVisionThesisLifecycle
         foreach (self::$active as $thesisId => $thesis) {
             $reason = self::deathReason($thesis, $seriesWindows, $outcomes, $calibration, $leads, $nowTs);
             if ($reason !== null) {
-                $archived[] = self::archive(AiValueNormalizer::trimmedString($thesisId), $reason);
+                $archived[] = self::archive(AiValueNormalizer::trimmedStringOrNull($thesisId) ?? '', $reason);
             }
         }
 
@@ -102,7 +102,7 @@ final class EvidenceVisionThesisLifecycle
             'schema_version' => self::SCHEMA_VERSION,
             'thesis_id' => $thesisId,
             'archived_at_basis' => $reason,
-            'claim' => AiValueNormalizer::trimmedString($thesis['claim'] ?? ''),
+            'claim' => AiValueNormalizer::trimmedStringOrNull($thesis['claim'] ?? null) ?? '',
             'death_criterion' => AiValueNormalizer::arrayOrEmpty($thesis['death_criterion'] ?? null),
             'receipt_hash' => hash('sha256', json_encode([$thesisId, $reason, $thesis['claim'] ?? ''], JSON_UNESCAPED_SLASHES)),
         ];
@@ -135,13 +135,13 @@ final class EvidenceVisionThesisLifecycle
         array $leads,
         int $nowTs,
     ): ?string {
-        $expiresAt = strtotime(AiValueNormalizer::trimmedString($thesis['expires_at'] ?? ''));
+        $expiresAt = strtotime(AiValueNormalizer::trimmedStringOrNull($thesis['expires_at'] ?? null) ?? '');
         if ($expiresAt !== false && $nowTs >= $expiresAt) {
             return 'ttl_expired';
         }
 
         $criterion = AiValueNormalizer::arrayOrEmpty($thesis['death_criterion'] ?? null);
-        $kind = AiValueNormalizer::trimmedString($criterion['kind'] ?? '');
+        $kind = AiValueNormalizer::trimmedStringOrNull($criterion['kind'] ?? null) ?? '';
 
         return match ($kind) {
             'series_recovery' => self::seriesRecoveryMet($thesis, $seriesWindows, $criterion) ? 'series_recovery' : null,
@@ -168,9 +168,9 @@ final class EvidenceVisionThesisLifecycle
             if (! is_array($ref) || ($ref['source'] ?? '') !== 'series') {
                 continue;
             }
-            if (preg_match('/series:([^:]+):stage=([^:]+):window=/', AiValueNormalizer::trimmedString($ref['ref'] ?? ''), $matches) === 1) {
-                $series = AiValueNormalizer::trimmedString($matches[1]);
-                $stage = AiValueNormalizer::trimmedString($matches[2]);
+            if (preg_match('/series:([^:]+):stage=([^:]+):window=/', AiValueNormalizer::trimmedStringOrNull($ref['ref'] ?? null) ?? '', $matches) === 1) {
+                $series = AiValueNormalizer::trimmedStringOrNull($matches[1]) ?? '';
+                $stage = AiValueNormalizer::trimmedStringOrNull($matches[2]) ?? '';
                 break;
             }
         }
@@ -179,8 +179,8 @@ final class EvidenceVisionThesisLifecycle
         }
 
         $matching = array_values(array_filter($seriesWindows, static function (array $window) use ($series, $stage): bool {
-            return AiValueNormalizer::trimmedString($window['series'] ?? '') === $series
-                && (AiValueNormalizer::trimmedString($window['stage'] ?? 'default') ?: 'default') === $stage;
+            return (AiValueNormalizer::trimmedStringOrNull($window['series'] ?? null) ?? '') === $series
+                && (AiValueNormalizer::trimmedStringOrNull($window['stage'] ?? null) ?? 'default') === $stage;
         }));
         usort($matching, static fn (array $a, array $b): int => ((int) ($a['window'] ?? 0)) <=> ((int) ($b['window'] ?? 0)));
         $tail = array_slice($matching, -$need);
@@ -223,7 +223,7 @@ final class EvidenceVisionThesisLifecycle
     {
         $target = '';
         foreach (AiValueNormalizer::arrayOrEmpty($thesis['alignment_keys'] ?? null) as $key) {
-            $key = AiValueNormalizer::trimmedString($key);
+            $key = AiValueNormalizer::trimmedStringOrNull($key) ?? '';
             if (str_contains($key, '/')) {
                 $target = ltrim($key, '/');
                 break;
@@ -238,7 +238,7 @@ final class EvidenceVisionThesisLifecycle
             if (! is_array($lead)) {
                 continue;
             }
-            if (ltrim(AiValueNormalizer::trimmedString($lead['target_path'] ?? ''), '/') === $target) {
+            if (ltrim(AiValueNormalizer::trimmedStringOrNull($lead['target_path'] ?? null) ?? '', '/') === $target) {
                 $remaining++;
             }
         }
@@ -254,7 +254,7 @@ final class EvidenceVisionThesisLifecycle
     {
         $path = '';
         foreach (AiValueNormalizer::arrayOrEmpty($thesis['alignment_keys'] ?? null) as $key) {
-            $key = AiValueNormalizer::trimmedString($key);
+            $key = AiValueNormalizer::trimmedStringOrNull($key) ?? '';
             if (! str_contains($key, '/')) {
                 $path = $key;
                 break;
@@ -268,7 +268,7 @@ final class EvidenceVisionThesisLifecycle
             if (! is_array($row)) {
                 continue;
             }
-            if (AiValueNormalizer::trimmedString($row['path'] ?? '') === $path && ($row['proven_real'] ?? null) === true) {
+            if ((AiValueNormalizer::trimmedStringOrNull($row['path'] ?? null) ?? '') === $path && ($row['proven_real'] ?? null) === true) {
                 return true;
             }
         }

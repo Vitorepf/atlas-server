@@ -53,7 +53,7 @@ final class AtlasCognitionRemintTouchedQueue
 
         try {
             $disk = (string) config('atlas.cognition.remint_touched_queue_disk', 'local');
-            $path = AiValueNormalizer::trimmedString(config('atlas.cognition.remint_touched_queue_path', 'atlas/cognition/remint-touched-queue.jsonl'));
+            $path = AiValueNormalizer::trimmedStringOrNull(config('atlas.cognition.remint_touched_queue_path', 'atlas/cognition/remint-touched-queue.jsonl')) ?? '';
             if ($path === '') {
                 return [
                     'queued' => false,
@@ -91,7 +91,7 @@ final class AtlasCognitionRemintTouchedQueue
     {
         $out = [];
         foreach ($paths as $path) {
-            $p = ltrim(str_replace('\\', '/', AiValueNormalizer::trimmedString($path)), '/');
+            $p = ltrim(str_replace('\\', '/', AiValueNormalizer::trimmedStringOrNull($path) ?? ''), '/');
             if ($p !== '' && ! str_contains($p, '..')) {
                 $out[$p] = true;
             }

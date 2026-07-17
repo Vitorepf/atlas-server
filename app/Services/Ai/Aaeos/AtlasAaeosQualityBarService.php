@@ -31,7 +31,7 @@ final class AtlasAaeosQualityBarService
             $threshold = AiValueNormalizer::finiteFloatOrNull($data['threshold']) ?? 0.0;
             $current = AiValueNormalizer::finiteFloatOrNull($data['current']) ?? 0.0;
             $departments[] = [
-                'department' => AiValueNormalizer::trimmedString($data['department']),
+                'department' => AiValueNormalizer::trimmedStringOrNull($data['department']) ?? '',
                 'threshold' => $threshold,
                 'current' => $current,
                 'breached' => $current < $threshold,
@@ -67,7 +67,7 @@ final class AtlasAaeosQualityBarService
             $current = AiValueNormalizer::finiteFloatOrNull($data['current']) ?? 0.0;
             if ($current < $threshold) {
                 $breaches[] = [
-                    'department' => AiValueNormalizer::trimmedString($data['department']),
+                    'department' => AiValueNormalizer::trimmedStringOrNull($data['department']) ?? '',
                     'threshold' => $threshold,
                     'current' => $current,
                     'breached' => true,

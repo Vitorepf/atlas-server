@@ -92,7 +92,7 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
         $departments = [];
 
         foreach ($departmentBandLadders as $departmentId => $ladder) {
-            $id = AiValueNormalizer::trimmedString((string) $departmentId);
+            $id = AiValueNormalizer::trimmedStringOrNull((string) $departmentId) ?? '';
             $snapshot = $departmentSnapshots[$departmentId] ?? $departmentSnapshots[$id] ?? [];
 
             $departments[$id] = $this->classify(

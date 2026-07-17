@@ -1616,6 +1616,9 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.originator.evidence_vision_thesis_lifecycle.v1', $payload['schema_version']);
         $this->assertSame('activeTheses', $payload['active_accessor']);
         $this->assertTrue($payload['supports_reset']);
+        $this->assertSame(3, $payload['max_theses']);
+        $this->assertContains('ledger', $payload['allowed_evidence_sources']);
+        $this->assertSame('atlas.cognition.remint_touched.queue_item.v1', $payload['remint_touched_schema']);
     }
 
     public function test_exploratory_bets_portfolio_contract_observe_reports_defaults(): void
@@ -2028,5 +2031,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.aaeos.quality_bar_level.v1', $payload['quality_bar_level_schema']);
         $this->assertSame('atlas.acos_max.obra_retro.v1', $payload['obra_retro_schema']);
         $this->assertStringContainsString('scoreboard', $payload['obra_retro_scoreboard_path']);
+    }
+
+    public function test_evidence_vision_composer_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->evidenceVisionComposerContractObserve([]);
+
+        $this->assertSame('atlas.originator.evidence_vision_thesis.v1', $payload['composer_schema']);
+        $this->assertSame('atlas.originator.evidence_vision_thesis_lifecycle.v1', $payload['lifecycle_schema']);
+        $this->assertSame(3, $payload['max_theses']);
+        $this->assertSame(4, $payload['min_regression_windows']);
+        $this->assertSame(30, $payload['default_ttl_days']);
+        $this->assertContains('series', $payload['allowed_evidence_sources']);
+        $this->assertSame(3, $payload['allowed_evidence_source_count']);
+        $this->assertSame('atlas.cognition.remint_touched.queue_item.v1', $payload['remint_touched_schema']);
     }
 }

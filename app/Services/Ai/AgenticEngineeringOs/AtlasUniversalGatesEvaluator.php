@@ -39,6 +39,7 @@ use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardV4Grouper;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use App\Services\Ai\Cognition\AtlasOperationalVolumeCheckService;
+use App\Services\Ai\Cognition\AtlasCognitionRemintTouchedQueue;
 use App\Services\Ai\Cognition\CaptureHmacLineageService;
 use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
@@ -2199,8 +2200,15 @@ final class AtlasUniversalGatesEvaluator
     {
         return [
             'schema_version' => EvidenceVisionThesisLifecycle::SCHEMA_VERSION,
+            'composer_schema' => EvidenceVisionThesisComposer::SCHEMA_VERSION,
+            'max_theses' => EvidenceVisionThesisComposer::MAX_THESES,
+            'min_regression_windows' => EvidenceVisionThesisComposer::MIN_REGRESSION_WINDOWS,
+            'default_ttl_days' => EvidenceVisionThesisComposer::DEFAULT_TTL_DAYS,
+            'allowed_evidence_sources' => EvidenceVisionThesisComposer::ALLOWED_EVIDENCE_SOURCES,
+            'allowed_evidence_source_count' => count(EvidenceVisionThesisComposer::ALLOWED_EVIDENCE_SOURCES),
             'active_accessor' => 'activeTheses',
             'supports_reset' => true,
+            'remint_touched_schema' => AtlasCognitionRemintTouchedQueue::SCHEMA_VERSION,
         ];
     }
 
@@ -2856,6 +2864,28 @@ final class AtlasUniversalGatesEvaluator
             'quality_bar_level_schema' => AtlasAaeosDepartmentQualityBarLevelClassifier::SCHEMA_VERSION,
             'obra_retro_schema' => AcosMaxObraRetroService::SCHEMA_VERSION,
             'obra_retro_scoreboard_path' => AcosMaxObraRetroService::SCOREBOARD_RELATIVE_PATH,
+        ];
+    }
+
+    /**
+     * Observe-only evidence-vision composer floors (deepen of lifecycle observe).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function evidenceVisionComposerContractObserve(array $input = []): array
+    {
+        return [
+            'composer_schema' => EvidenceVisionThesisComposer::SCHEMA_VERSION,
+            'lifecycle_schema' => EvidenceVisionThesisLifecycle::SCHEMA_VERSION,
+            'max_theses' => EvidenceVisionThesisComposer::MAX_THESES,
+            'min_regression_windows' => EvidenceVisionThesisComposer::MIN_REGRESSION_WINDOWS,
+            'default_ttl_days' => EvidenceVisionThesisComposer::DEFAULT_TTL_DAYS,
+            'default_author_engine_id' => EvidenceVisionThesisComposer::DEFAULT_AUTHOR_ENGINE_ID,
+            'allowed_evidence_sources' => EvidenceVisionThesisComposer::ALLOWED_EVIDENCE_SOURCES,
+            'allowed_evidence_source_count' => count(EvidenceVisionThesisComposer::ALLOWED_EVIDENCE_SOURCES),
+            'remint_touched_schema' => AtlasCognitionRemintTouchedQueue::SCHEMA_VERSION,
         ];
     }
 
