@@ -41,17 +41,17 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $outcomeStatus = AiValueNormalizer::lowerTrimmedString($native['outcome_status'] ?? $native['status'] ?? 'passed');
         $status = OutcomeEnvelope::normalizeStatus($outcomeStatus);
 
-        $verifiedSourcePresent = array_key_exists('verified', $native)
+        $verifiedSourcePresent = array_key_exists(self::FIELD_VERIFIED, $native)
             || is_array($native['payload']['outcome_contract_v2'] ?? null);
         $contract = AiValueNormalizer::arrayOrEmpty($native['payload']['outcome_contract_v2'] ?? null);
         $verifiedBasis = AiValueNormalizer::lowerTrimmedString(
             $contract['verified_basis']
             ?? $native['verified_basis']
-            ?? ($verifiedSourcePresent && ($native['verified'] ?? false) === true
+            ?? ($verifiedSourcePresent && ($native[self::FIELD_VERIFIED] ?? false) === true
                 ? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_GATES_PASSED
                 : AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT)
         );
-        $verified = (AiValueNormalizer::boolOrNull($contract['verified'] ?? $native['verified'] ?? null) ?? false);
+        $verified = (AiValueNormalizer::boolOrNull($contract[self::FIELD_VERIFIED] ?? $native[self::FIELD_VERIFIED] ?? null) ?? false);
         $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native['evidence_refs'] ?? null);
         $runId = AiValueNormalizer::trimmedStringOrNull($native['run_id'] ?? null) ?? '';
 
@@ -60,7 +60,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'task_category' => AiValueNormalizer::trimmedStringOrNull($contract['task_category'] ?? $executor) ?? '',
             'provider' => AiValueNormalizer::trimmedStringOrNull($contract['provider'] ?? $native['provider'] ?? null) ?? 'absent',
             'status' => $status,
-            'verified' => $verified,
+            self::FIELD_VERIFIED => $verified,
             'verified_basis' => $verifiedBasis,
             'verified_source_present' => $verifiedSourcePresent,
             'certified_receipt_id' => $contract['certified_receipt_id'] ?? null,
@@ -95,7 +95,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'learning_required' => (AiValueNormalizer::boolOrNull($fields['learning_required'] ?? null) ?? false),
             'missed_signals' => AiValueNormalizer::arrayOrEmpty($fields['missed_signals'] ?? null),
             'human_override' => (AiValueNormalizer::boolOrNull($fields['human_override'] ?? null) ?? false),
-            'verified' => (AiValueNormalizer::boolOrNull($data['verified'] ?? null) ?? false),
+            self::FIELD_VERIFIED => (AiValueNormalizer::boolOrNull($data[self::FIELD_VERIFIED] ?? null) ?? false),
             'verified_basis' => AiValueNormalizer::trimmedStringOrNull($data['verified_basis'] ?? null) ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT,
         ];
     }

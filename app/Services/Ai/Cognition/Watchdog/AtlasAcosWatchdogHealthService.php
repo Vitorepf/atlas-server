@@ -63,6 +63,10 @@ final class AtlasAcosWatchdogHealthService
 
     public const FIELD_PASS = 'pass';
 
+    public const FIELD_MEASURED = 'measured';
+
+    public const FIELD_CERTIFIED = 'certified';
+
     public const STATUS_UNKNOWN = 'unknown';
 
     public const MEMORY_SCORE_REGRESSION_TOLERANCE = 5;
@@ -359,7 +363,7 @@ final class AtlasAcosWatchdogHealthService
         $byWriter = [];
         foreach ($events as $event) {
             $writer = AiValueNormalizer::trimmedScalarStringOrNull($event->flow_id ?: null) ?? self::STATUS_UNKNOWN;
-            $byWriter[$writer] ??= ['total' => 0, 'measured' => 0, 'delivered_refs' => 0];
+            $byWriter[$writer] ??= ['total' => 0, self::FIELD_MEASURED => 0, 'delivered_refs' => 0];
             $byWriter[$writer]['total']++;
             $isMeasured = (int) $event->post_execution_utility > 0 || (int) $event->context_sufficiency > 0 || (int) $event->used_sources > 0;
             $hasDelivered = (int) $event->included_sources > 0 || (AiValueNormalizer::trimmedStringOrNull($event->retrieval_receipt_id) ?? '') !== '';
@@ -370,11 +374,11 @@ final class AtlasAcosWatchdogHealthService
             $delivered += $hasDelivered ? 1 : 0;
             $synthetic += $isSynthetic ? 1 : 0;
             $transcript += $isTranscript ? 1 : 0;
-            $byWriter[$writer]['measured'] += $isMeasured ? 1 : 0;
+            $byWriter[$writer][self::FIELD_MEASURED] += $isMeasured ? 1 : 0;
             $byWriter[$writer]['delivered_refs'] += $hasDelivered ? 1 : 0;
         }
         foreach ($byWriter as $writer => $row) {
-            $byWriter[$writer]['measured_share'] = $row['total'] > 0 ? round($row['measured'] / $row['total'], 4) : 0.0;
+            $byWriter[$writer]['measured_share'] = $row['total'] > 0 ? round($row[self::FIELD_MEASURED] / $row['total'], 4) : 0.0;
             $byWriter[$writer]['delivered_refs_share'] = $row['total'] > 0 ? round($row['delivered_refs'] / $row['total'], 4) : 0.0;
         }
         $syntheticShare = $total > 0 ? round($synthetic / $total, 4) : 0.0;
@@ -461,7 +465,7 @@ final class AtlasAcosWatchdogHealthService
         if ($minRetention === null || $minRetention < self::COMPACTION_MIN_RETENTION_SCORE) {
             $blocking[] = 'context_retention_score_below_floor';
         }
-        if (($crossWeek['certified'] ?? false) !== true) {
+        if (($crossWeek[self::FIELD_CERTIFIED] ?? false) !== true) {
             $blocking[] = 'cross_week_recall_lift_not_certified';
         }
 
@@ -479,7 +483,7 @@ final class AtlasAcosWatchdogHealthService
             ],
             'cross_week_recall_lift_gate' => [
                 'status' => $crossWeek['status'] ?? self::STATUS_UNKNOWN,
-                'certified' => (AiValueNormalizer::boolOrNull($crossWeek['certified'] ?? null) ?? false),
+                self::FIELD_CERTIFIED => (AiValueNormalizer::boolOrNull($crossWeek[self::FIELD_CERTIFIED] ?? null) ?? false),
                 'blockers' => AiValueNormalizer::arrayOrEmpty($crossWeek['blockers'] ?? null),
             ],
             'rollback_trigger' => [

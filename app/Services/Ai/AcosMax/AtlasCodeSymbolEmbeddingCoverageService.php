@@ -49,6 +49,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
 
     public const STATUS_PARTIAL_COVERAGE = 'partial_coverage';
 
+    public const STATUS_TABLE_MISSING = 'table_missing';
+
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
@@ -84,11 +86,11 @@ final class AtlasCodeSymbolEmbeddingCoverageService
         $freeze = self::freezePayload();
 
         if (! DatabaseTableAvailability::has('atlas_engineering_code_symbols')) {
-            return $this->emptyReport('table_missing', 'atlas_engineering_code_symbols_missing', $freeze);
+            return $this->emptyReport(self::STATUS_TABLE_MISSING, 'atlas_engineering_code_symbols_missing', $freeze);
         }
 
         if (! DatabaseTableAvailability::has('atlas_code_symbol_embeddings')) {
-            return $this->emptyReport('table_missing', 'atlas_code_symbol_embeddings_missing', $freeze);
+            return $this->emptyReport(self::STATUS_TABLE_MISSING, 'atlas_code_symbol_embeddings_missing', $freeze);
         }
 
         $active = DB::table('atlas_engineering_code_symbols')

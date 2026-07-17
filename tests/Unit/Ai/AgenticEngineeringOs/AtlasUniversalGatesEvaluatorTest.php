@@ -3491,4 +3491,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['obra_verified_long_horizon_enabled_floor_count']);
     }
 
+    public function test_embedding_table_fixture_measured_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->embeddingTableFixtureMeasuredFloorsContractObserve([]);
+
+        $this->assertSame('table_missing', $payload['code_symbol_status_table_missing']);
+        $this->assertSame('table_missing', $payload['kb_embedding_status_table_missing']);
+        $this->assertSame('live', $payload['long_horizon_fixture_live']);
+        $this->assertSame('mature', $payload['long_horizon_fixture_mature']);
+        $this->assertSame('short-window', $payload['long_horizon_fixture_short_window']);
+        $this->assertSame('verified', $payload['ragx_status_verified']);
+        $this->assertSame('ok', $payload['ragx_status_ok']);
+        $this->assertSame('verified', $payload['compounding_field_verified']);
+        $this->assertSame('verified', $payload['aemor_field_verified']);
+        $this->assertSame('valid', $payload['department_registry_field_valid']);
+        $this->assertSame('measured', $payload['execution_context_field_measured']);
+        $this->assertSame('measured', $payload['watchdog_health_field_measured']);
+        $this->assertSame('certified', $payload['watchdog_health_field_certified']);
+        $this->assertSame('missing_fields', $payload['claim_dod_field_missing_fields']);
+        $this->assertSame('missing', $payload['maturity_band_field_missing']);
+        $this->assertSame('missing', $payload['department_runtime_field_missing']);
+        $this->assertSame('enabled', $payload['immune_hybrid_field_enabled']);
+        $this->assertSame(17, $payload['embedding_table_fixture_measured_floor_count']);
+    }
+
 }

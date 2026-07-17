@@ -37,6 +37,8 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
 
     public const FIELD_CAVEAT = 'caveat';
 
+    public const FIELD_MISSING_FIELDS = 'missing_fields';
+
     public const STATUS_PRESENT = 'present';
 
     public const STATUS_MISSING = 'missing';
@@ -130,7 +132,7 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
             'passes' => $passes,
             'subject' => $this->echoSubject($claim),
             'present_fields' => $presentFields,
-            'missing_fields' => $missingFields,
+            self::FIELD_MISSING_FIELDS => $missingFields,
             'field_status' => $fieldStatus,
             'partial_claim' => $partialClaim,
             'reason' => $this->buildReason($verdict, $partialClaim, $missingFields),

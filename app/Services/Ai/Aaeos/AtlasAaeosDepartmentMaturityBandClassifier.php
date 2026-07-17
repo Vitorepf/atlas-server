@@ -20,6 +20,8 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.department_maturity_band.v1';
 
+    public const FIELD_MISSING = 'missing';
+
     /**
      * @param  list<array{band: string, rank: int, thresholds: list<array{metric: string, comparator: string, value: float}>}>  $bandLadder  ordered lowest-first
      * @param  array<string, float>  $metricsSnapshot
@@ -127,7 +129,7 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
                     'comparator' => $threshold['comparator'],
                     'threshold' => $threshold['value'],
                     'observed' => $observed,
-                    'missing' => $missing || $observed === null,
+                    self::FIELD_MISSING => $missing || $observed === null,
                 ];
             }
         }

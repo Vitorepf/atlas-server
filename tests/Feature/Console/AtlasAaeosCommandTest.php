@@ -4366,6 +4366,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_embedding_table_fixture_measured_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-etfm-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-etfm',
+                '--embedding-table-fixture-measured-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"embedding_table_fixture_measured_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

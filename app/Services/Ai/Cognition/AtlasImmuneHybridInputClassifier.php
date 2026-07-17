@@ -203,7 +203,7 @@ final class AtlasImmuneHybridInputClassifier
     {
         return [
             'schema_version' => AtlasImmuneClassifierHybridFreeze::MEASURE_ID,
-            'enabled' => false,
+            self::FIELD_ENABLED => false,
             'source' => 'off',
             'tau' => $this->tau,
             'max_similarity' => null,

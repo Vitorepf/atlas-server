@@ -5190,6 +5190,37 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+
+    /**
+     * Observe-only: embedding/table/fixture/measured residual floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function embeddingTableFixtureMeasuredFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'code_symbol_status_table_missing' => AtlasCodeSymbolEmbeddingCoverageService::STATUS_TABLE_MISSING,
+            'kb_embedding_status_table_missing' => AtlasKnowledgeItemEmbeddingCoverageService::STATUS_TABLE_MISSING,
+            'long_horizon_fixture_live' => AtlasAcosLongHorizonGateService::FIXTURE_LIVE,
+            'long_horizon_fixture_mature' => AtlasAcosLongHorizonGateService::FIXTURE_MATURE,
+            'long_horizon_fixture_short_window' => AtlasAcosLongHorizonGateService::FIXTURE_SHORT_WINDOW,
+            'ragx_status_verified' => RagxChainMechanismService::STATUS_VERIFIED,
+            'ragx_status_ok' => RagxChainMechanismService::STATUS_OK,
+            'compounding_field_verified' => CompoundingOutcomeEnvelopeAdapter::FIELD_VERIFIED,
+            'aemor_field_verified' => AemorOutcomeEnvelopeAdapter::FIELD_VERIFIED,
+            'department_registry_field_valid' => AtlasAaeosDepartmentRegistryService::FIELD_VALID,
+            'execution_context_field_measured' => ExecutionContextCooccurrenceService::FIELD_MEASURED,
+            'watchdog_health_field_measured' => AtlasAcosWatchdogHealthService::FIELD_MEASURED,
+            'watchdog_health_field_certified' => AtlasAcosWatchdogHealthService::FIELD_CERTIFIED,
+            'claim_dod_field_missing_fields' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_MISSING_FIELDS,
+            'maturity_band_field_missing' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_MISSING,
+            'department_runtime_field_missing' => DepartmentContractRuntime::FIELD_MISSING,
+            'immune_hybrid_field_enabled' => AtlasImmuneHybridInputClassifier::FIELD_ENABLED,
+            'embedding_table_fixture_measured_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

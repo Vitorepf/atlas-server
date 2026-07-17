@@ -18,6 +18,8 @@ final class ExecutionContextCooccurrenceService
 
     public const STATUS_OK = 'ok';
 
+    public const FIELD_MEASURED = 'measured';
+
     public const REASON_MEASURED_SHARE_ZERO = 'measured_share_zero';
 
     public const REASON_RUN_ARTIFACT_UNAVAILABLE = 'run_artifact_unavailable';
@@ -62,7 +64,7 @@ final class ExecutionContextCooccurrenceService
         $runs = array_values(AiValueNormalizer::arrayOrEmpty($this->readJson($runsPath)['runs'] ?? null));
         $measured = [];
         foreach ($runs as $run) {
-            if (! is_array($run) || ($run['measured'] ?? false) !== true) {
+            if (! is_array($run) || ($run[self::FIELD_MEASURED] ?? false) !== true) {
                 continue;
             }
             $measured[] = $run;

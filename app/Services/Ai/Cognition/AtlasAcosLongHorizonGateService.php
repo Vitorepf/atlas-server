@@ -50,6 +50,12 @@ final class AtlasAcosLongHorizonGateService
 
     public const FIELD_CERTIFIED = 'certified';
 
+    public const FIXTURE_LIVE = 'live';
+
+    public const FIXTURE_MATURE = 'mature';
+
+    public const FIXTURE_SHORT_WINDOW = 'short-window';
+
     /**
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
@@ -57,10 +63,10 @@ final class AtlasAcosLongHorizonGateService
     public function evaluate(array $options = []): array
     {
         $cfg = AiValueNormalizer::arrayOrEmpty(config(self::CONFIG_KEY, []));
-        $enabled = AiValueNormalizer::boolOrNull($options['enabled'] ?? null) ?? AiValueNormalizer::boolOrNull($cfg['enabled'] ?? null) ?? self::DEFAULT_ENABLED;
-        $fixture = AiValueNormalizer::trimmedStringOrNull($options['fixture'] ?? null) ?? 'live';
+        $enabled = AiValueNormalizer::boolOrNull($options[self::FIELD_ENABLED] ?? null) ?? AiValueNormalizer::boolOrNull($cfg[self::FIELD_ENABLED] ?? null) ?? self::DEFAULT_ENABLED;
+        $fixture = AiValueNormalizer::trimmedStringOrNull($options['fixture'] ?? null) ?? self::FIXTURE_LIVE;
 
-        if (! in_array($fixture, ['live', 'mature', 'short-window'], true)) {
+        if (! in_array($fixture, [self::FIXTURE_LIVE, self::FIXTURE_MATURE, self::FIXTURE_SHORT_WINDOW], true)) {
             return $this->payload(self::STATUS_BLOCKED, false, $fixture, [], [], [], ['unsupported_fixture'], []);
         }
 
@@ -852,7 +858,7 @@ final class AtlasAcosLongHorizonGateService
         $payload = [
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $status,
-            'certified' => $certified,
+            self::FIELD_CERTIFIED => $certified,
             'completion_claim_allowed' => $certified,
             'fixture' => $fixture,
             'generated_at' => Carbon::now()->toIso8601String(),
@@ -888,7 +894,7 @@ final class AtlasAcosLongHorizonGateService
         $receiptPayload = [
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $status,
-            'certified' => $certified,
+            self::FIELD_CERTIFIED => $certified,
             'fixture' => $fixture,
             'assessment' => $assessment,
             'blockers' => $blockers,

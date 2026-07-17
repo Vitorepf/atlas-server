@@ -82,7 +82,7 @@ class AtlasAaeosDepartmentRegistryService
         return [
             'schema_version' => self::SCHEMA,
             'id' => $id,
-            'valid' => $blockers === [],
+            self::FIELD_VALID => $blockers === [],
             'blockers' => $blockers,
         ];
     }
@@ -115,11 +115,11 @@ class AtlasAaeosDepartmentRegistryService
 
         $cycles = $this->detectEscalationCycles($escalationMap);
         $allValid = $duplicateIds === [] && $cycles === []
-            && collect($results)->every(fn (array $r): bool => $r['valid'] === true);
+            && collect($results)->every(fn (array $r): bool => $r[self::FIELD_VALID] === true);
 
         return [
             'schema_version' => self::SCHEMA,
-            'valid' => $allValid,
+            self::FIELD_VALID => $allValid,
             'department_count' => count($departments),
             'duplicate_ids' => $duplicateIds,
             'escalation_cycles' => $cycles,

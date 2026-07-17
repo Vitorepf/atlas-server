@@ -20,6 +20,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class DepartmentContractRuntime
 {
+    public const FIELD_MISSING = 'missing';
+
     public const SCHEMA_VERSION = 'atlas.aaeos.department.v1';
 
     public const SCHEMA_ACCEPTANCE_CRITERIA = 'atlas.acceptance_criteria.v1';
@@ -563,7 +565,7 @@ final class DepartmentContractRuntime
                 }
             }
             if ($missing !== []) {
-                $out[] = ['department' => $id, 'missing' => $missing];
+                $out[] = ['department' => $id, self::FIELD_MISSING => $missing];
             }
         }
 

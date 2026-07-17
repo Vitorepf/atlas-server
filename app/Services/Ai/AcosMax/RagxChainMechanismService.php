@@ -340,7 +340,7 @@ final class RagxChainMechanismService
 
         $verified = array_values(array_filter($verifiedSummaries, static function (array $summary): bool {
             return (AiValueNormalizer::trimmedStringOrNull($summary['summary'] ?? null) ?? '') !== ''
-                && in_array(AiValueNormalizer::trimmedStringOrNull($summary['status'] ?? null) ?? 'verified', ['verified', 'ok'], true);
+                && in_array(AiValueNormalizer::trimmedStringOrNull($summary['status'] ?? null) ?? self::STATUS_VERIFIED, [self::STATUS_VERIFIED, self::STATUS_OK], true);
         }));
 
         if ($verified === []) {

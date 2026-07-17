@@ -51,6 +51,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
 
     public const STATUS_PARTIAL_COVERAGE = 'partial_coverage';
 
+    public const STATUS_TABLE_MISSING = 'table_missing';
+
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
@@ -85,7 +87,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
         $freeze = self::freezePayload();
 
         if (! DatabaseTableAvailability::has('atlas_engineering_knowledge_items')) {
-            return $this->emptyReport('table_missing', 'atlas_engineering_knowledge_items_missing', $freeze);
+            return $this->emptyReport(self::STATUS_TABLE_MISSING, 'atlas_engineering_knowledge_items_missing', $freeze);
         }
 
         $columnsReady = DatabaseTableAvailability::hasColumn('atlas_engineering_knowledge_items', 'embedding_model')
