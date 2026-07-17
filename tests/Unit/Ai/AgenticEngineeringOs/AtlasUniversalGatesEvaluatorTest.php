@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\AgenticEngineeringOs\ArchitectAgentSpecPackGateContract;
 use App\Services\Ai\AgenticEngineeringOs\AtlasUniversalGatesEvaluator;
 use App\Services\Ai\AgenticEngineeringOs\DeliveryPackCompletenessScorer;
 use App\Services\Ai\AgenticEngineeringOs\QualityBarTelemetryContract;
@@ -157,5 +158,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('dev', $payload['inputs']['department_id']);
         $this->assertSame(2, $payload['inputs']['breach_count']);
         $this->assertSame(QualityBarTelemetryContract::IMMUNE_GATE_ID, $payload['immune_gate_id']);
+    }
+
+    public function test_architect_spec_pack_observe_projects_m1_contract(): void
+    {
+        $payload = $this->svc->architectSpecPackObserve([
+            'risk_scope' => 'R4',
+            'spec_pack_hash' => 'sha256:sp',
+            'acceptance_criteria_present' => true,
+        ]);
+
+        $this->assertSame(ArchitectAgentSpecPackGateContract::SCHEMA, $payload['schema_version']);
+        $this->assertSame('R4', $payload['inputs']['risk_scope']);
+        $this->assertSame('sha256:sp', $payload['inputs']['spec_pack_hash']);
+        $this->assertTrue($payload['inputs']['acceptance_criteria_present']);
     }
 }

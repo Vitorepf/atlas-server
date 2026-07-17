@@ -235,6 +235,18 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only projection of an architect-agent spec-pack gate payload
+     * into the M1 contract shape. Does not add a universal-gate id.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function architectSpecPackObserve(array $input): array
+    {
+        return ArchitectAgentSpecPackGateContract::fromArray($input)->toArray();
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

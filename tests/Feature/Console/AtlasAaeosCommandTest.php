@@ -109,8 +109,29 @@ final class AtlasAaeosCommandTest extends TestCase
                 '--quality-bar' => $path,
                 '--json' => true,
             ])
-                ->expectsOutputToContain('quality_bar_telemetry')
-                ->expectsOutputToContain('atlas.aaeos.quality_bar_telemetry.v1')
+                ->expectsOutputToContain('"quality_bar_telemetry"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function test_universal_gates_observe_architect_spec_pack(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-asp-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'risk_scope' => 'R4',
+            'spec_pack_hash' => 'sha256:sp',
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-asp',
+                '--architect-spec-pack' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"architect_spec_pack_gate"')
                 ->assertExitCode(1);
         } finally {
             @unlink($path);

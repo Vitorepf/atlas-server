@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class AttemptLifecycleLedger
 {
     public const SCHEMA_VERSION = 'atlas.execution.attempt_lifecycle.v1';
@@ -19,7 +21,7 @@ final class AttemptLifecycleLedger
      */
     public function start(string $attemptId, string $taskId, ?int $startedAt = null): array
     {
-        if (trim($attemptId) === '' || trim($taskId) === '') {
+        if (AiValueNormalizer::trimmedString($attemptId) === '' || AiValueNormalizer::trimmedString($taskId) === '') {
             return ['accepted' => false, 'reason' => 'task_or_attempt_unresolvable'];
         }
         if (isset($this->attempts[$attemptId])) {

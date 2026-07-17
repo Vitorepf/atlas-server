@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * M1 · minimal data contract for the Architect-agent spec pack gate before
  * R4 autonomous work. Step-1 shape only — no runtime wiring.
@@ -81,8 +83,8 @@ final class ArchitectAgentSpecPackGateContract
     public static function fromArray(array $input): self
     {
         return new self(
-            riskScope: trim((string) ($input['risk_scope'] ?? self::MIN_AUTONOMOUS_RISK_SCOPE)),
-            specPackHash: trim((string) ($input['spec_pack_hash'] ?? '')),
+            riskScope: AiValueNormalizer::trimmedString($input['risk_scope'] ?? self::MIN_AUTONOMOUS_RISK_SCOPE),
+            specPackHash: AiValueNormalizer::trimmedString($input['spec_pack_hash'] ?? ''),
             acceptanceCriteriaPresent: (bool) ($input['acceptance_criteria_present'] ?? false),
             rollbackPlanPresent: (bool) ($input['rollback_plan_present'] ?? false),
             breakingChangeMatrixPresent: (bool) ($input['breaking_change_matrix_present'] ?? false),
