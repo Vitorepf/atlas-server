@@ -36,6 +36,23 @@ final class ImmuneCalibrationService
 
     public const REASON_KNOWN_MISS_DENOMINATOR_ZERO = 'known_miss_denominator_zero';
 
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_MODE = 'mode';
+    public const FIELD_MEASURE_ID = 'measure_id';
+    public const FIELD_FORMULA_VERSION = 'formula_version';
+    public const FIELD_BAND = 'band';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_METRIC = 'metric';
+    public const FIELD_DENOMINATOR = 'denominator';
+    public const FIELD_VALUE = 'value';
+    public const FIELD_MISSED_POISON_RATE = 'missed_poison_rate';
+    public const FIELD_FALSE_BLOCK_RATE = 'false_block_rate';
+    public const FIELD_CALIBRATION_STATUS = 'calibration_status';
+    public const FIELD_BLOCKS = 'blocks';
+    public const FIELD_GROUPS = 'groups';
+    public const FIELD_DENOMINATOR_MIN = 'denominator_min';
+
     private readonly ImmuneVerdictLedger $ledger;
 
     private readonly CognitiveImmunePromotionGateEvaluator $evaluator;
@@ -61,17 +78,17 @@ final class ImmuneCalibrationService
         $groups = $this->groups($samples);
         $okGroups = count(array_filter(
             $groups,
-            static fn (array $group): bool => ($group['calibration_status'] ?? null) === self::STATUS_CALIBRATED,
+            static fn (array $group): bool => ($group[self::FIELD_CALIBRATION_STATUS] ?? null) === self::STATUS_CALIBRATED,
         ));
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'generated_at' => now()->toIso8601String(),
-            'mode' => self::MODE_READ_ONLY,
-            'measure_id' => self::MEASURE_ID,
-            'formula_version' => self::FORMULA_VERSION,
-            'status' => $okGroups > 0 ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SAMPLE,
-            'denominator_min' => self::DENOMINATOR_MIN,
+            self::FIELD_MODE => self::MODE_READ_ONLY,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+            self::FIELD_STATUS => $okGroups > 0 ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SAMPLE,
+            self::FIELD_DENOMINATOR_MIN => self::DENOMINATOR_MIN,
             'freeze' => self::freezePayload(),
             'samples' => [
                 'ledger' => count($ledgerRows),
@@ -79,10 +96,10 @@ final class ImmuneCalibrationService
                 'total' => count($samples),
             ],
             'caveats' => [
-                'missed_poison_rate' => 'lower_bound_known_miss: denominator is seeded known-should-catch plus labelled real known-miss samples only; never treated as calibrated when denominator is zero.',
+                self::FIELD_MISSED_POISON_RATE => 'lower_bound_known_miss: denominator is seeded known-should-catch plus labelled real known-miss samples only; never treated as calibrated when denominator is zero.',
                 'control' => 'informational_only_never_auto_adjusts_gate',
             ],
-            'groups' => $groups,
+            self::FIELD_GROUPS => $groups,
         ];
     }
 
@@ -91,15 +108,15 @@ final class ImmuneCalibrationService
     {
         $payload = [
             'kind' => self::KIND_MEASURE_FREEZE,
-            'measure_id' => self::MEASURE_ID,
-            'formula_version' => self::FORMULA_VERSION,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             'formula' => 'Per gate+writer: false_block_rate=false_block/blocks; missed_poison_rate=missed_poison/known_should_catch_denominator (lower_bound_known_miss); band is pure CalibrationBandClassifier over the rate, but status is insufficient_sample until denominator_min is met.',
             'thresholds' => [
                 'denominator_min_samples' => self::DENOMINATOR_MIN,
                 'known_miss_denominator_must_be_non_zero' => true,
                 'missed_poison_rate_bound' => 'lower_bound_known_miss',
             ],
-            'denominator_min' => self::DENOMINATOR_MIN,
+            self::FIELD_DENOMINATOR_MIN => self::DENOMINATOR_MIN,
             'ttl_days' => self::TTL_DAYS,
             'author_engine_id' => 'cursor-acos-max-maxi-03',
             'judge_engine_id' => 'codex-independent-immune-calibration-judge',
@@ -125,12 +142,12 @@ final class ImmuneCalibrationService
 
         if ($metric === 'missed_poison_rate' && $denominator === 0) {
             return [
-                'metric' => $metric,
-                'value' => $rate,
-                'denominator' => 0,
-                'band' => self::BAND_INSUFFICIENT_SAMPLE,
-                'status' => self::STATUS_INSUFFICIENT_SAMPLE,
-                'reason' => self::REASON_KNOWN_MISS_DENOMINATOR_ZERO,
+                self::FIELD_METRIC => $metric,
+                self::FIELD_VALUE => $rate,
+                self::FIELD_DENOMINATOR => 0,
+                self::FIELD_BAND => self::BAND_INSUFFICIENT_SAMPLE,
+                self::FIELD_STATUS => self::STATUS_INSUFFICIENT_SAMPLE,
+                self::FIELD_REASON => self::REASON_KNOWN_MISS_DENOMINATOR_ZERO,
             ];
         }
 
@@ -138,14 +155,14 @@ final class ImmuneCalibrationService
         $status = $denominator >= $minimum ? self::STATUS_CALIBRATED : self::STATUS_INSUFFICIENT_SAMPLE;
 
         return [
-            'metric' => $metric,
-            'value' => $rate,
-            'denominator' => $denominator,
-            'band' => $status === self::STATUS_CALIBRATED ? $classified['band'] : self::BAND_INSUFFICIENT_SAMPLE,
-            'classifier_band' => $classified['band'],
-            'classifier_schema_version' => $classified['schema_version'],
-            'status' => $status,
-            'reason' => $status === self::STATUS_CALIBRATED ? 'denominator_met' : 'denominator_below_min',
+            self::FIELD_METRIC => $metric,
+            self::FIELD_VALUE => $rate,
+            self::FIELD_DENOMINATOR => $denominator,
+            self::FIELD_BAND => $status === self::STATUS_CALIBRATED ? $classified[self::FIELD_BAND] : self::BAND_INSUFFICIENT_SAMPLE,
+            'classifier_band' => $classified[self::FIELD_BAND],
+            'classifier_schema_version' => $classified[self::FIELD_SCHEMA_VERSION],
+            self::FIELD_STATUS => $status,
+            self::FIELD_REASON => $status === self::STATUS_CALIBRATED ? 'denominator_met' : 'denominator_below_min',
         ];
     }
 
@@ -168,7 +185,7 @@ final class ImmuneCalibrationService
 
                 $groups[$key]['n']++;
                 if ($status === ImmuneVerdictLedger::GATE_STATUS_BLOCK) {
-                    $groups[$key]['blocks']++;
+                    $groups[$key][self::FIELD_BLOCKS]++;
                 }
                 if ($label === ImmuneVerdictLedger::LABEL_FALSE_BLOCK && $status === ImmuneVerdictLedger::GATE_STATUS_BLOCK) {
                     $groups[$key]['false_blocks']++;
@@ -213,7 +230,7 @@ final class ImmuneCalibrationService
             'gate' => $gateId,
             'writer' => $writer,
             'n' => 0,
-            'blocks' => 0,
+            self::FIELD_BLOCKS => 0,
             'true_blocks' => 0,
             'false_blocks' => 0,
             'missed_poison' => 0,
@@ -224,29 +241,29 @@ final class ImmuneCalibrationService
     /** @param array<string,mixed> $group @return array<string,mixed> */
     private function finalizeGroup(array $group): array
     {
-        $blocks = (int) (AiValueNormalizer::finiteFloatOrNull($group['blocks'] ?? null) ?? 0);
+        $blocks = (int) (AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_BLOCKS] ?? null) ?? 0);
         $knownMissDenominator = (int) (AiValueNormalizer::finiteFloatOrNull($group['known_miss_denominator'] ?? null) ?? 0);
         $falseBlockRate = $blocks > 0 ? (int) (AiValueNormalizer::finiteFloatOrNull($group['false_blocks'] ?? null) ?? 0) / $blocks : 0.0;
         $missedPoisonRate = $knownMissDenominator > 0
             ? (int) (AiValueNormalizer::finiteFloatOrNull($group['missed_poison'] ?? null) ?? 0) / $knownMissDenominator
             : 0.0;
 
-        $group['false_block_rate'] = $this->bandForRate(
+        $group[self::FIELD_FALSE_BLOCK_RATE] = $this->bandForRate(
             $falseBlockRate,
             (int) (AiValueNormalizer::finiteFloatOrNull($group['n'] ?? null) ?? 0),
             self::DENOMINATOR_MIN,
             'false_block_rate',
         );
-        $group['false_block_rate']['blocks_denominator'] = $blocks;
-        $group['missed_poison_rate'] = $this->bandForRate(
+        $group[self::FIELD_FALSE_BLOCK_RATE]['blocks_denominator'] = $blocks;
+        $group[self::FIELD_MISSED_POISON_RATE] = $this->bandForRate(
             $missedPoisonRate,
             $knownMissDenominator,
             self::DENOMINATOR_MIN,
             'missed_poison_rate',
         );
-        $group['missed_poison_rate']['bound'] = 'lower_bound_known_miss';
-        $group['calibration_status'] = $group['false_block_rate']['status'] === self::STATUS_CALIBRATED
-            && $group['missed_poison_rate']['status'] === self::STATUS_CALIBRATED
+        $group[self::FIELD_MISSED_POISON_RATE]['bound'] = 'lower_bound_known_miss';
+        $group[self::FIELD_CALIBRATION_STATUS] = $group[self::FIELD_FALSE_BLOCK_RATE][self::FIELD_STATUS] === self::STATUS_CALIBRATED
+            && $group[self::FIELD_MISSED_POISON_RATE][self::FIELD_STATUS] === self::STATUS_CALIBRATED
                 ? self::STATUS_CALIBRATED
                 : self::STATUS_INSUFFICIENT_SAMPLE;
 

@@ -5637,6 +5637,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function asefCalibrationJinaFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'asef_field_reason' => AsefChunkIndexService::FIELD_REASON,
+            'asef_field_title' => AsefChunkIndexService::FIELD_TITLE,
+            'asef_field_section' => AsefChunkIndexService::FIELD_SECTION,
+            'asef_field_status' => AsefChunkIndexService::FIELD_STATUS,
+            'asef_field_documents' => AsefChunkIndexService::FIELD_DOCUMENTS,
+            'asef_status_ok' => AsefChunkIndexService::STATUS_OK,
+            'asef_schema_version' => AsefChunkIndexService::SCHEMA_VERSION,
+            'calibration_field_status' => ImmuneCalibrationService::FIELD_STATUS,
+            'calibration_field_band' => ImmuneCalibrationService::FIELD_BAND,
+            'calibration_field_missed_poison_rate' => ImmuneCalibrationService::FIELD_MISSED_POISON_RATE,
+            'calibration_field_calibration_status' => ImmuneCalibrationService::FIELD_CALIBRATION_STATUS,
+            'calibration_status_calibrated' => ImmuneCalibrationService::STATUS_CALIBRATED,
+            'calibration_schema_version' => ImmuneCalibrationService::SCHEMA_VERSION,
+            'jina_field_status' => Maxa04JinaV3DualReadService::FIELD_STATUS,
+            'jina_field_cases' => Maxa04JinaV3DualReadService::FIELD_CASES,
+            'jina_field_slice' => Maxa04JinaV3DualReadService::FIELD_SLICE,
+            'jina_status_pending_window' => Maxa04JinaV3DualReadService::STATUS_PENDING_WINDOW,
+            'asef_calibration_jina_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

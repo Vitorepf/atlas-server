@@ -4025,4 +4025,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['department_integrity_capture_floor_count']);
     }
 
+    public function test_asef_calibration_jina_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->asefCalibrationJinaFloorsContractObserve([]);
+
+        $this->assertSame('reason', $payload['asef_field_reason']);
+        $this->assertSame('title', $payload['asef_field_title']);
+        $this->assertSame('section', $payload['asef_field_section']);
+        $this->assertSame('status', $payload['asef_field_status']);
+        $this->assertSame('documents', $payload['asef_field_documents']);
+        $this->assertSame('ok', $payload['asef_status_ok']);
+        $this->assertSame('atlas.asef_chunks.index.v1', $payload['asef_schema_version']);
+        $this->assertSame('status', $payload['calibration_field_status']);
+        $this->assertSame('band', $payload['calibration_field_band']);
+        $this->assertSame('missed_poison_rate', $payload['calibration_field_missed_poison_rate']);
+        $this->assertSame('calibration_status', $payload['calibration_field_calibration_status']);
+        $this->assertSame('calibrated', $payload['calibration_status_calibrated']);
+        $this->assertSame('atlas.cognition.immune_calibration.v1', $payload['calibration_schema_version']);
+        $this->assertSame('status', $payload['jina_field_status']);
+        $this->assertSame('cases', $payload['jina_field_cases']);
+        $this->assertSame('slice', $payload['jina_field_slice']);
+        $this->assertSame('pending_window', $payload['jina_status_pending_window']);
+        $this->assertSame(17, $payload['asef_calibration_jina_floor_count']);
+    }
+
 }

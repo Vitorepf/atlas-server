@@ -276,6 +276,7 @@ final class AtlasAaeosCommand extends Command
         {--volume-cockpit-rollback-floors-contract= : JSON file (any object) to observe volume/cockpit/rollback residual floors}
         {--arc-segment-window-floors-contract= : JSON file (any object) to observe arc/segment/window residual floors}
         {--department-integrity-capture-floors-contract= : JSON file (any object) to observe department/integrity/capture residual floors}
+        {--asef-calibration-jina-floors-contract= : JSON file (any object) to observe ASEF/immune-calibration/jina residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -708,6 +709,7 @@ final class AtlasAaeosCommand extends Command
             ['volume-cockpit-rollback-floors-contract', 'volume_cockpit_rollback_floors_contract', fn (array $p) => $gates->volumeCockpitRollbackFloorsContractObserve($p)],
             ['arc-segment-window-floors-contract', 'arc_segment_window_floors_contract', fn (array $p) => $gates->arcSegmentWindowFloorsContractObserve($p)],
             ['department-integrity-capture-floors-contract', 'department_integrity_capture_floors_contract', fn (array $p) => $gates->departmentIntegrityCaptureFloorsContractObserve($p)],
+            ['asef-calibration-jina-floors-contract', 'asef_calibration_jina_floors_contract', fn (array $p) => $gates->asefCalibrationJinaFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

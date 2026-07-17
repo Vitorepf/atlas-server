@@ -68,6 +68,20 @@ final class AsefChunkIndexService
     public const FIELD_CHUNKS = 'chunks';
 
     public const FIELD_QUERY = 'query';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_TITLE = 'title';
+    public const FIELD_SECTION = 'section';
+    public const FIELD_TEXT = 'text';
+    public const FIELD_PRIVACY_CLASS = 'privacy_class';
+    public const FIELD_PROVIDER_SAFE = 'provider_safe';
+    public const FIELD_DELETE_CASCADE_KEY = 'delete_cascade_key';
+    public const FIELD_CHUNK_TEXT = 'chunk_text';
+    public const FIELD_EMBEDDED_TEXT = 'embedded_text';
+    public const FIELD_EMBEDDING_STATUS = 'embedding_status';
+    public const FIELD_DOCUMENTS = 'documents';
+    public const FIELD_EMBEDDING_MODEL = 'embedding_model';
+    public const FIELD_ERRORS = 'errors';
+    public const FIELD_EMBEDDED_AT = 'embedded_at';
 
     public function __construct(
         private readonly AtlasSemanticEmbeddingFoundationService $asef,
@@ -93,22 +107,22 @@ final class AsefChunkIndexService
             return [
                 self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
                 self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
-                'reason' => self::REASON_ASEF_CHUNKS_TABLE_MISSING,
+                self::FIELD_REASON => self::REASON_ASEF_CHUNKS_TABLE_MISSING,
                 self::FIELD_CHUNKS_WRITTEN => 0,
                 self::FIELD_CHUNKS_SKIPPED => 0,
             ];
         }
 
         $sourceRef = AiValueNormalizer::trimmedStringOrNull($source[self::FIELD_SOURCE_REF] ?? null) ?? '';
-        $text = AiValueNormalizer::trimmedStringOrNull($source['text'] ?? null) ?? '';
-        $title = AiValueNormalizer::trimmedStringOrNull($source['title'] ?? null) ?? '';
-        $section = AiValueNormalizer::trimmedStringOrNull($source['section'] ?? null) ?? '';
+        $text = AiValueNormalizer::trimmedStringOrNull($source[self::FIELD_TEXT] ?? null) ?? '';
+        $title = AiValueNormalizer::trimmedStringOrNull($source[self::FIELD_TITLE] ?? null) ?? '';
+        $section = AiValueNormalizer::trimmedStringOrNull($source[self::FIELD_SECTION] ?? null) ?? '';
 
         if ($sourceRef === '' || $text === '') {
             return [
                 self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
                 self::FIELD_STATUS => self::STATUS_BLOCKED,
-                'reason' => self::REASON_EMPTY_SOURCE_REF_OR_TEXT,
+                self::FIELD_REASON => self::REASON_EMPTY_SOURCE_REF_OR_TEXT,
                 self::FIELD_CHUNKS_WRITTEN => 0,
                 self::FIELD_CHUNKS_SKIPPED => 0,
             ];
@@ -145,14 +159,14 @@ final class AsefChunkIndexService
                 'source_hash' => AiValueNormalizer::trimmedStringOrNull($chunk['source_hash'] ?? null) ?? MissionCanonicalHash::sha256($sourceRef),
                 'chunk_index' => (int) (AiValueNormalizer::finiteFloatOrNull($chunk['chunk_index'] ?? null) ?? 0),
                 self::FIELD_CHUNK_HASH => $chunkHash,
-                'title' => $title,
-                'section' => $section,
-                'chunk_text' => $chunkText,
-                'embedded_text' => $embeddedText,
-                'privacy_class' => (AiValueNormalizer::trimmedStringOrNull($chunk['privacy_class'] ?? null) ?? 'normal'),
-                'provider_safe' => (AiValueNormalizer::boolOrNull($chunk['provider_safe'] ?? null) ?? true),
-                'delete_cascade_key' => (AiValueNormalizer::trimmedStringOrNull($chunk['delete_cascade_key'] ?? null) ?? ''),
-                'embedding_status' => self::EMBEDDING_STATUS_PENDING,
+                self::FIELD_TITLE => $title,
+                self::FIELD_SECTION => $section,
+                self::FIELD_CHUNK_TEXT => $chunkText,
+                self::FIELD_EMBEDDED_TEXT => $embeddedText,
+                self::FIELD_PRIVACY_CLASS => (AiValueNormalizer::trimmedStringOrNull($chunk[self::FIELD_PRIVACY_CLASS] ?? null) ?? 'normal'),
+                self::FIELD_PROVIDER_SAFE => (AiValueNormalizer::boolOrNull($chunk[self::FIELD_PROVIDER_SAFE] ?? null) ?? true),
+                self::FIELD_DELETE_CASCADE_KEY => (AiValueNormalizer::trimmedStringOrNull($chunk[self::FIELD_DELETE_CASCADE_KEY] ?? null) ?? ''),
+                self::FIELD_EMBEDDING_STATUS => self::EMBEDDING_STATUS_PENDING,
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),
             ];
@@ -164,7 +178,7 @@ final class AsefChunkIndexService
                 $skipped++;
                 $errors[] = [
                     self::FIELD_CHUNK_HASH => $chunkHash,
-                    'reason' => $e->getMessage(),
+                    self::FIELD_REASON => $e->getMessage(),
                 ];
             }
         }
@@ -175,7 +189,7 @@ final class AsefChunkIndexService
             self::FIELD_SOURCE_REF => $sourceRef,
             self::FIELD_CHUNKS_WRITTEN => $written,
             self::FIELD_CHUNKS_SKIPPED => $skipped,
-            'errors' => $errors,
+            self::FIELD_ERRORS => $errors,
             'manifest_status' => $manifest[self::FIELD_STATUS] ?? null,
         ];
     }
@@ -248,8 +262,8 @@ final class AsefChunkIndexService
             return [
                 self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
                 self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
-                'reason' => self::REASON_ASEF_CHUNKS_TABLE_MISSING,
-                'documents' => [],
+                self::FIELD_REASON => self::REASON_ASEF_CHUNKS_TABLE_MISSING,
+                self::FIELD_DOCUMENTS => [],
             ];
         }
 
@@ -257,8 +271,8 @@ final class AsefChunkIndexService
             return [
                 self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
                 self::FIELD_STATUS => self::STATUS_DEGRADED,
-                'reason' => self::REASON_EMBEDDING_COLUMN_ABSENT,
-                'documents' => [],
+                self::FIELD_REASON => self::REASON_EMBEDDING_COLUMN_ABSENT,
+                self::FIELD_DOCUMENTS => [],
             ];
         }
 
@@ -290,9 +304,9 @@ final class AsefChunkIndexService
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_STATUS => self::STATUS_OK,
-            'embedding_model' => $modelId,
+            self::FIELD_EMBEDDING_MODEL => $modelId,
             'chunk_hits' => count($rows),
-            'documents' => $documents,
+            self::FIELD_DOCUMENTS => $documents,
         ];
     }
 
@@ -305,10 +319,10 @@ final class AsefChunkIndexService
         $modelId = EmbeddingProvenance::modelId($this->embeddings->lastInfo());
         $contentHash = EmbeddingProvenance::contentHash($embeddedText);
 
-        $row['embedding_model'] = $modelId;
+        $row[self::FIELD_EMBEDDING_MODEL] = $modelId;
         $row['embedded_content_hash'] = $contentHash;
-        $row['embedded_at'] = Carbon::now();
-        $row['embedding_status'] = self::EMBEDDING_STATUS_PERSISTED;
+        $row[self::FIELD_EMBEDDED_AT] = Carbon::now();
+        $row[self::FIELD_EMBEDDING_STATUS] = self::EMBEDDING_STATUS_PERSISTED;
 
         $existing = DB::table('asef_chunks')
             ->where('source_ref', $row[self::FIELD_SOURCE_REF])
@@ -317,17 +331,17 @@ final class AsefChunkIndexService
 
         if ($existing !== null) {
             $update = [
-                'title' => $row['title'],
-                'section' => $row['section'],
-                'chunk_text' => $row['chunk_text'],
-                'embedded_text' => $row['embedded_text'],
-                'privacy_class' => $row['privacy_class'],
-                'provider_safe' => $row['provider_safe'],
-                'delete_cascade_key' => $row['delete_cascade_key'],
-                'embedding_model' => $modelId,
+                self::FIELD_TITLE => $row[self::FIELD_TITLE],
+                self::FIELD_SECTION => $row[self::FIELD_SECTION],
+                self::FIELD_CHUNK_TEXT => $row[self::FIELD_CHUNK_TEXT],
+                self::FIELD_EMBEDDED_TEXT => $row[self::FIELD_EMBEDDED_TEXT],
+                self::FIELD_PRIVACY_CLASS => $row[self::FIELD_PRIVACY_CLASS],
+                self::FIELD_PROVIDER_SAFE => $row[self::FIELD_PROVIDER_SAFE],
+                self::FIELD_DELETE_CASCADE_KEY => $row[self::FIELD_DELETE_CASCADE_KEY],
+                self::FIELD_EMBEDDING_MODEL => $modelId,
                 'embedded_content_hash' => $contentHash,
-                'embedded_at' => $row['embedded_at'],
-                'embedding_status' => self::EMBEDDING_STATUS_PERSISTED,
+                self::FIELD_EMBEDDED_AT => $row[self::FIELD_EMBEDDED_AT],
+                self::FIELD_EMBEDDING_STATUS => self::EMBEDDING_STATUS_PERSISTED,
                 'updated_at' => Carbon::now(),
             ];
             DB::table('asef_chunks')->where('id', $existing->id)->update($update);
