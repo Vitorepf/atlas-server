@@ -9,6 +9,7 @@ use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
 use App\Services\Ai\Context\AtlasCanonicalContextRef;
 use App\Services\Ai\Context\AtlasDeliveredPackLedger;
 use App\Services\Ai\Context\LocalRagBenchmarkService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Carbon\CarbonImmutable;
 use Throwable;
 
@@ -237,10 +238,13 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
         $recall = $chosen['recall_at_5'] ?? $chosen['r5'] ?? null;
         $discards = $chosen['improper_floor_discards'] ?? $chosen['fd'] ?? null;
 
+        $recallNumeric = AiValueNormalizer::finiteFloatOrNull($recall);
+        $discardsNumeric = AiValueNormalizer::finiteFloatOrNull($discards);
+
         return [
             'version' => $chosenKey,
-            'recall_at_5' => is_numeric($recall) ? round((float) $recall, 4) : null,
-            'improper_floor_discards' => is_numeric($discards) ? (int) $discards : null,
+            'recall_at_5' => $recallNumeric === null ? null : round($recallNumeric, 4),
+            'improper_floor_discards' => $discardsNumeric === null ? null : (int) $discardsNumeric,
             'status' => (string) ($chosen['status'] ?? 'unknown'),
         ];
     }

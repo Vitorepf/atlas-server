@@ -116,6 +116,7 @@ final class AtlasAaeosCommand extends Command
         {--string-list-normalize= : JSON file with values list (observe-only string normalize)}
         {--threshold-comparator= : JSON file with comparator+observed+threshold (observe-only)}
         {--evidence-ref-normalize= : JSON file with evidence_refs list (observe-only)}
+        {--doc-maturity-classify= : JSON file with sections map (observe-only DOC L0..L4)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -388,6 +389,7 @@ final class AtlasAaeosCommand extends Command
             ['string-list-normalize', 'string_list_normalize', fn (array $p) => $gates->stringListNormalizeObserve($p)],
             ['threshold-comparator', 'threshold_comparator', fn (array $p) => $gates->thresholdComparatorObserve($p)],
             ['evidence-ref-normalize', 'evidence_ref_normalize', fn (array $p) => $gates->evidenceRefNormalizeObserve($p)],
+            ['doc-maturity-classify', 'doc_maturity_classify', fn (array $p) => $gates->docMaturityClassifyObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

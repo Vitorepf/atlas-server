@@ -48,6 +48,7 @@ use App\Services\Ai\AcosMax\AcosMaxLote2MeasureService;
 use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdComparator;
 use App\Services\Ai\Aaeos\AtlasAaeosEvidenceRefNormalizer;
+use App\Services\Ai\Aaeos\AtlasAaeosDocMaturityClassifier;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
@@ -1508,6 +1509,20 @@ final class AtlasUniversalGatesEvaluator
             'count' => count($refs),
             'evidence_refs' => $refs,
         ];
+    }
+
+    /**
+     * Observe-only AAEOS DOC L0..L4 maturity classifier.
+     * Accepts `{sections}` map (or the sections object itself). Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function docMaturityClassifyObserve(array $input = []): array
+    {
+        $sections = AiValueNormalizer::arrayOrEmpty($input['sections'] ?? $input);
+
+        return (new AtlasAaeosDocMaturityClassifier)->classify($sections);
     }
 
     /**

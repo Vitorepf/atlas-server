@@ -10,6 +10,7 @@ use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Throwable;
 
 final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
@@ -68,11 +69,11 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
 
         $alerts = [];
         foreach ([
-            AtlasAobgLatencyLedger::OP_PACK => (float) ($thresholds['pack_p95_ms_alert'] ?? 18000),
-            AtlasAobgLatencyLedger::OP_RECALL => (float) ($thresholds['recall_p95_ms_alert'] ?? 15000),
-            AtlasAobgLatencyLedger::OP_HOOK => (float) ($thresholds['hook_p95_ms_alert'] ?? 20000),
+            AtlasAobgLatencyLedger::OP_PACK => AiValueNormalizer::finiteFloatOrNull($thresholds['pack_p95_ms_alert'] ?? null) ?? 18000.0,
+            AtlasAobgLatencyLedger::OP_RECALL => AiValueNormalizer::finiteFloatOrNull($thresholds['recall_p95_ms_alert'] ?? null) ?? 15000.0,
+            AtlasAobgLatencyLedger::OP_HOOK => AiValueNormalizer::finiteFloatOrNull($thresholds['hook_p95_ms_alert'] ?? null) ?? 20000.0,
         ] as $op => $floor) {
-            $p95 = (float) data_get($ops, $op.'.p95_ms', 0.0);
+            $p95 = AiValueNormalizer::finiteFloatOrNull(data_get($ops, $op.'.p95_ms', 0.0)) ?? 0.0;
             if ($p95 > $floor) {
                 $alerts[] = ['op' => $op, 'p95_ms' => $p95, 'floor_ms' => $floor];
             }

@@ -1231,4 +1231,23 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('ledger', $payload['evidence_refs'][0]['kind']);
         $this->assertSame('file', $payload['evidence_refs'][1]['kind']);
     }
+
+    public function test_doc_maturity_classify_observe_reports_level(): void
+    {
+        $payload = $this->svc->docMaturityClassifyObserve([
+            'sections' => [
+                'mother_doc' => true,
+                'contracts' => true,
+                'runbook' => 'strong',
+                'matrix' => 'strong',
+                'quality_bar' => 'strong',
+                'evidence' => 'strong',
+                'gates' => 'strong',
+            ],
+        ]);
+
+        $this->assertSame('atlas.aaeos.doc_maturity.v1', $payload['schema_version']);
+        $this->assertSame('DOC L4', $payload['level']);
+        $this->assertFalse($payload['runtime_ready']);
+    }
 }
