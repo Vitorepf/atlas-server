@@ -566,6 +566,37 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_memory_recall_rank(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-mrr-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'rows' => [
+                [
+                    'title' => 'A',
+                    'type' => 'memory',
+                    'scope_type' => 'global',
+                    'priority' => 50,
+                    'importance' => 3,
+                    'confidence' => 0.7,
+                    'hybrid_score' => 0,
+                ],
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-mrr',
+                '--memory-recall-rank' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"memory_recall_rank"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

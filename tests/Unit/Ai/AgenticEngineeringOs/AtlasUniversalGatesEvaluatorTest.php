@@ -20,6 +20,7 @@ use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
 use App\Services\Ai\Aaeos\Cores\MemoryFeedbackDecayScorer;
 use App\Services\Ai\Aaeos\Cores\SegmentImportanceRanker;
 use App\Services\Ai\Aaeos\Cores\ContextParetoDominanceFilter;
+use App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -475,5 +476,36 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
 
         $this->assertSame(ContextParetoDominanceFilter::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertContains('a', $payload['frontier']);
+    }
+
+    public function test_memory_recall_rank_observe_orders_candidates(): void
+    {
+        $payload = $this->svc->memoryRecallRankObserve([
+            'rows' => [
+                [
+                    'title' => 'WeakPreference',
+                    'type' => 'preference',
+                    'scope_type' => 'user',
+                    'priority' => 40,
+                    'importance' => 2,
+                    'confidence' => 0.5,
+                    'hybrid_score' => 0,
+                ],
+                [
+                    'title' => 'StrongDecision',
+                    'type' => 'decision',
+                    'scope_type' => 'task',
+                    'priority' => 80,
+                    'importance' => 5,
+                    'confidence' => 0.9,
+                    'hybrid_score' => 0.5,
+                ],
+            ],
+        ]);
+
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame(2, $payload['count']);
+        $this->assertSame('StrongDecision', $payload['ranked'][0]['title']);
+        $this->assertSame(1, $payload['ranked'][0]['rank']);
     }
 }

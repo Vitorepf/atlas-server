@@ -10,6 +10,7 @@ use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
 use App\Services\Ai\Aaeos\Cores\MemoryFeedbackDecayScorer;
 use App\Services\Ai\Aaeos\Cores\SegmentImportanceRanker;
 use App\Services\Ai\Aaeos\Cores\ContextParetoDominanceFilter;
+use App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer;
 use App\Services\Ai\Aaeos\Cores\OutcomeCausalityRanker;
 use App\Services\Ai\AcosMax\PredictedImpactBand;
 use App\Services\Ai\AcosMax\PreReviewAdvisoryBand;
@@ -50,6 +51,7 @@ final class AtlasUniversalGatesEvaluator
         private readonly MemoryFeedbackDecayScorer $memoryFeedbackDecay = new MemoryFeedbackDecayScorer,
         private readonly SegmentImportanceRanker $segmentImportance = new SegmentImportanceRanker,
         private readonly ContextParetoDominanceFilter $contextPareto = new ContextParetoDominanceFilter,
+        private readonly AtlasMemoryRecallRelevanceScorer $memoryRecallRelevance = new AtlasMemoryRecallRelevanceScorer,
     ) {}
 
     /**
@@ -582,6 +584,30 @@ final class AtlasUniversalGatesEvaluator
         /** @var array<string,string> $direction */
         /** @var array<string,array<string,mixed>> $constraints */
         return $this->contextPareto->filter($variants, $direction, $constraints);
+    }
+
+    /**
+     * Observe-only memory recall relevance ranking.
+     * Accepts a list of candidate rows or `{rows|candidates:[...]}`.
+     * Does not add a universal-gate id (catalogue stays 15).
+     *
+     * @param  array<mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function memoryRecallRankObserve(array $input): array
+    {
+        $rows = array_is_list($input)
+            ? $input
+            : AiValueNormalizer::arrayOrEmpty($input['rows'] ?? $input['candidates'] ?? null);
+
+        /** @var array<int,array<string,mixed>> $rows */
+        $ranked = $this->memoryRecallRelevance->rank($rows);
+
+        return [
+            'schema_version' => AtlasMemoryRecallRelevanceScorer::SCHEMA_VERSION,
+            'ranked' => $ranked,
+            'count' => count($ranked),
+        ];
     }
 
     /**

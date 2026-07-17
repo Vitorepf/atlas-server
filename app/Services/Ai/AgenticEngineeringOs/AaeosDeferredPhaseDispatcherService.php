@@ -60,8 +60,8 @@ final class AaeosDeferredPhaseDispatcherService
             $record = [
                 'schema' => self::SCHEMA_VERSION,
                 'dispatch_id' => 'disp-'.Str::ulid()->toBase32(),
-                'phase' => (string) ($env['phase_out'] ?? ''),
-                'intent_id' => (string) ($env['intent_id'] ?? ''),
+                'phase' => AiValueNormalizer::trimmedString($env['phase_out'] ?? ''),
+                'intent_id' => AiValueNormalizer::trimmedString($env['intent_id'] ?? ''),
                 'envelope' => $env,
                 // Observe-only: same advance classifier as HTTP path / cockpit.
                 'phase_advance' => $this->phaseAdvance->classify($env),
@@ -115,11 +115,11 @@ final class AaeosDeferredPhaseDispatcherService
         $claimed = [];
         $remaining = [];
         foreach ($lines as $line) {
-            if ($line === '') {
+            if (AiValueNormalizer::trimmedStringOrNull($line) === null) {
                 continue;
             }
             if (count($claimed) < $max) {
-                $decoded = json_decode($line, true);
+                $decoded = json_decode(AiValueNormalizer::trimmedString($line), true);
                 if (is_array($decoded)) {
                     $claimed[] = $decoded;
                     continue;

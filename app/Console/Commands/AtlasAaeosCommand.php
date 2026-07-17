@@ -66,6 +66,7 @@ final class AtlasAaeosCommand extends Command
         {--memory-feedback-decay= : JSON file with memory feedback signals (observe-only decay score)}
         {--segment-importance= : JSON file with segments + token_budget (observe-only ranking)}
         {--context-pareto= : JSON file with variants + objective_direction (observe-only Pareto)}
+        {--memory-recall-rank= : JSON file with memory candidate rows (observe-only recall rank)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -288,6 +289,7 @@ final class AtlasAaeosCommand extends Command
             ['memory-feedback-decay', 'memory_feedback_decay', fn (array $p) => $gates->memoryFeedbackDecayObserve($p)],
             ['segment-importance', 'segment_importance', fn (array $p) => $gates->segmentImportanceObserve($p)],
             ['context-pareto', 'context_pareto_dominance', fn (array $p) => $gates->contextParetoDominanceObserve($p)],
+            ['memory-recall-rank', 'memory_recall_rank', fn (array $p) => $gates->memoryRecallRankObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

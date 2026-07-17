@@ -133,7 +133,7 @@ final class ComposedObraArcLifecycle
         usort($tasks, static fn (array $a, array $b): int => ((int) ($a['order'] ?? 0)) <=> ((int) ($b['order'] ?? 0)));
 
         foreach ($tasks as $task) {
-            $status = (string) ($task['status'] ?? '');
+            $status = AiValueNormalizer::trimmedString($task['status'] ?? '');
             if (in_array($status, ['pending'], true)) {
                 return $task;
             }
@@ -155,7 +155,7 @@ final class ComposedObraArcLifecycle
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'arc_id' => $arcId,
-            'status' => (string) ($state['status'] ?? 'unknown'),
+            'status' => AiValueNormalizer::trimmedString($state['status'] ?? 'unknown') ?: 'unknown',
             'consecutive_failures' => (int) ($state['consecutive_failures'] ?? 0),
             'kill_gate_k' => (int) ($state['kill_gate_k'] ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES),
             'archive_receipt' => $state['archive_receipt'] ?? null,
@@ -176,7 +176,7 @@ final class ComposedObraArcLifecycle
         $receipt = [
             'schema_version' => self::SCHEMA_VERSION,
             'arc_id' => $arcId,
-            'obra_id' => (string) ($state['obra_id'] ?? ''),
+            'obra_id' => AiValueNormalizer::trimmedString($state['obra_id'] ?? ''),
             'archived_at_basis' => $reason,
             'consecutive_failures' => (int) ($state['consecutive_failures'] ?? 0),
             'kill_gate_k' => (int) ($state['kill_gate_k'] ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES),
