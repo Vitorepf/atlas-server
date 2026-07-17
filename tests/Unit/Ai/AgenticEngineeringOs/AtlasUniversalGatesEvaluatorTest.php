@@ -2265,4 +2265,34 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('error', $payload['watchdog_status_error']);
         $this->assertSame(5, $payload['watchdog_status_count']);
     }
+
+    public function test_http_path_facade_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->httpPathFacadeContractObserve([]);
+
+        $this->assertSame('ok', $payload['result_ok']);
+        $this->assertSame('blocked', $payload['result_blocked']);
+        $this->assertSame('placement_gate_blocked', $payload['block_placement_gate_blocked']);
+        $this->assertSame('policy_gate_blocked', $payload['block_policy_gate_blocked']);
+        $this->assertSame('atlas.aaeos.http_path.requests', $payload['telemetry_key_requests']);
+        $this->assertSame('atlas.aaeos.http_path.canonical_calls', $payload['telemetry_key_canonical']);
+        $this->assertSame('atlas.aaeos.http_path.legacy_fallback', $payload['telemetry_key_legacy_fallback']);
+        $this->assertSame('atlas.aaeos.http_path.blocked', $payload['telemetry_key_blocked']);
+        $this->assertSame('atlas.aaeos.http_path.latency_ms', $payload['telemetry_key_latency']);
+        $this->assertSame('r1_r2_fast_path', $payload['risk_band_fast_path']);
+        $this->assertSame('r3_plus', $payload['risk_band_r3_plus']);
+        $this->assertSame('atlas.aaeos.phase_router.v1', $payload['phase_router_schema']);
+        $this->assertSame('legacy', $payload['phase_legacy']);
+        $this->assertSame('1', $payload['phase_1']);
+        $this->assertSame('4', $payload['phase_4']);
+        $this->assertSame(5, $payload['valid_phase_count']);
+        $this->assertSame('atlas.aaeos.department.v1', $payload['department_runtime_schema']);
+        $this->assertContains('architecture', $payload['departments']);
+        $this->assertContains('memory', $payload['departments']);
+        $this->assertSame(12, $payload['department_count']);
+        $this->assertSame('architecture', $payload['architect_department_id']);
+        $this->assertSame('atlas.spec_pack.v1', $payload['architect_spec_pack_schema']);
+        $this->assertContains('spec_pack_hash', $payload['architect_evidence_required']);
+        $this->assertSame(2, $payload['architect_evidence_required_count']);
+    }
 }

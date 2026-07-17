@@ -3246,6 +3246,57 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only HTTP path facade + phase-router + department-id floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function httpPathFacadeContractObserve(array $input = []): array
+    {
+        return [
+            'result_ok' => AtlasAaeosHttpPathFacadeService::RESULT_OK,
+            'result_blocked' => AtlasAaeosHttpPathFacadeService::RESULT_BLOCKED,
+            'block_placement_gate_blocked' => AtlasAaeosHttpPathFacadeService::BLOCK_PLACEMENT_GATE_BLOCKED,
+            'block_policy_gate_blocked' => AtlasAaeosHttpPathFacadeService::BLOCK_POLICY_GATE_BLOCKED,
+            'telemetry_key_requests' => AtlasAaeosHttpPathFacadeService::TELEMETRY_KEY_REQUESTS,
+            'telemetry_key_canonical' => AtlasAaeosHttpPathFacadeService::TELEMETRY_KEY_CANONICAL,
+            'telemetry_key_legacy_fallback' => AtlasAaeosHttpPathFacadeService::TELEMETRY_KEY_LEGACY_FALLBACK,
+            'telemetry_key_blocked' => AtlasAaeosHttpPathFacadeService::TELEMETRY_KEY_BLOCKED,
+            'telemetry_key_latency' => AtlasAaeosHttpPathFacadeService::TELEMETRY_KEY_LATENCY,
+            'risk_band_fast_path' => AaeosHttpPathEnvelopeFactory::RISK_BAND_FAST_PATH,
+            'risk_band_r3_plus' => AaeosHttpPathEnvelopeFactory::RISK_BAND_R3_PLUS,
+            'phase_router_schema' => AtlasAaeosPhaseRouterService::SCHEMA_VERSION,
+            'phase_legacy' => AtlasAaeosPhaseRouterService::PHASE_LEGACY,
+            'phase_1' => AtlasAaeosPhaseRouterService::PHASE_1,
+            'phase_2' => AtlasAaeosPhaseRouterService::PHASE_2,
+            'phase_3' => AtlasAaeosPhaseRouterService::PHASE_3,
+            'phase_4' => AtlasAaeosPhaseRouterService::PHASE_4,
+            'valid_phase_count' => count(AtlasAaeosPhaseRouterService::VALID_PHASES),
+            'department_runtime_schema' => DepartmentContractRuntime::SCHEMA_VERSION,
+            'departments' => [
+                DepartmentContractRuntime::DEPARTMENT_EXECUTIVE_INTAKE,
+                DepartmentContractRuntime::DEPARTMENT_PRODUCT,
+                DepartmentContractRuntime::DEPARTMENT_ARCHITECTURE,
+                DepartmentContractRuntime::DEPARTMENT_RESEARCH,
+                DepartmentContractRuntime::DEPARTMENT_DEV,
+                DepartmentContractRuntime::DEPARTMENT_DEBUG,
+                DepartmentContractRuntime::DEPARTMENT_REVIEW,
+                DepartmentContractRuntime::DEPARTMENT_QA,
+                DepartmentContractRuntime::DEPARTMENT_SECURITY,
+                DepartmentContractRuntime::DEPARTMENT_FORGE,
+                DepartmentContractRuntime::DEPARTMENT_DELIVERY,
+                DepartmentContractRuntime::DEPARTMENT_MEMORY,
+            ],
+            'department_count' => 12,
+            'architect_department_id' => ArchitectAgentSpecPackGateContract::DEPARTMENT_ID,
+            'architect_spec_pack_schema' => ArchitectAgentSpecPackGateContract::SPEC_PACK_SCHEMA,
+            'architect_evidence_required' => ArchitectAgentSpecPackGateContract::EVIDENCE_REQUIRED,
+            'architect_evidence_required_count' => count(ArchitectAgentSpecPackGateContract::EVIDENCE_REQUIRED),
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>
