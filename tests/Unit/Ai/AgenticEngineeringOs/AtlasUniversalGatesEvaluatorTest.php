@@ -3611,4 +3611,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['immune_class_chunks_hmac_floor_count']);
     }
 
+    public function test_rotation_measure_series_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->rotationMeasureSeriesFloorsContractObserve([]);
+
+        $this->assertSame('max_size_mb', $payload['rotation_field_max_size_mb']);
+        $this->assertSame('max_age_days', $payload['rotation_field_max_age_days']);
+        $this->assertSame('mode', $payload['rotation_field_mode']);
+        $this->assertSame('rationale', $payload['rotation_field_rationale']);
+        $this->assertSame('append_forever', $payload['rotation_mode_append_forever']);
+        $this->assertSame('rotate_hybrid', $payload['rotation_mode_rotate_hybrid']);
+        $this->assertSame('series', $payload['measure_field_series']);
+        $this->assertSame('ttl_days', $payload['measure_field_ttl_days']);
+        $this->assertSame('source_type', $payload['measure_field_source_type']);
+        $this->assertSame('timestamp_field', $payload['measure_field_timestamp_field']);
+        $this->assertSame('ttl_source', $payload['measure_field_ttl_source']);
+        $this->assertSame('jsonl', $payload['measure_source_type_jsonl']);
+        $this->assertSame('table', $payload['measure_source_type_table']);
+        $this->assertSame('command', $payload['measure_source_type_command']);
+        $this->assertSame('jsonl_dir', $payload['measure_source_type_jsonl_dir']);
+        $this->assertSame('computed_reader_field', $payload['measure_source_type_computed_reader_field']);
+        $this->assertSame('slice', $payload['measure_field_slice']);
+        $this->assertSame(17, $payload['rotation_measure_series_floor_count']);
+    }
+
 }

@@ -28,6 +28,7 @@ use App\Services\Ai\AcosMax\ProvenanceWeightCalculator;
 use App\Services\Ai\AcosMax\RecallGapAggregator;
 use App\Services\Ai\AcosMax\BeliefCascadeReverificationPlanner;
 use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
+use App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry;
 use App\Services\Ai\AcosMax\EvidenceVisionThesisComposer;
 use App\Services\Ai\AcosMax\ExecutionContextCooccurrenceService;
 use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
@@ -5338,6 +5339,36 @@ final class AtlasUniversalGatesEvaluator
             'immune_class_untrusted_content' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_UNTRUSTED_CONTENT,
             'immune_embedding_forbidden_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::EMBEDDING_FORBIDDEN_CLASSES),
             'immune_class_chunks_hmac_floor_count' => 17,
+        ];
+    }
+
+    /**
+     * Observe-only residual floors for ledger rotation + measure-series field/source-type contracts.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function rotationMeasureSeriesFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'rotation_field_max_size_mb' => AcosMaxLedgerRotationRegistry::FIELD_MAX_SIZE_MB,
+            'rotation_field_max_age_days' => AcosMaxLedgerRotationRegistry::FIELD_MAX_AGE_DAYS,
+            'rotation_field_mode' => AcosMaxLedgerRotationRegistry::FIELD_MODE,
+            'rotation_field_rationale' => AcosMaxLedgerRotationRegistry::FIELD_RATIONALE,
+            'rotation_mode_append_forever' => AcosMaxLedgerRotationRegistry::MODE_APPEND_FOREVER,
+            'rotation_mode_rotate_hybrid' => AcosMaxLedgerRotationRegistry::MODE_ROTATE_HYBRID,
+            'measure_field_series' => AcosMaxMeasureSeriesRegistry::FIELD_SERIES,
+            'measure_field_ttl_days' => AcosMaxMeasureSeriesRegistry::FIELD_TTL_DAYS,
+            'measure_field_source_type' => AcosMaxMeasureSeriesRegistry::FIELD_SOURCE_TYPE,
+            'measure_field_timestamp_field' => AcosMaxMeasureSeriesRegistry::FIELD_TIMESTAMP_FIELD,
+            'measure_field_ttl_source' => AcosMaxMeasureSeriesRegistry::FIELD_TTL_SOURCE,
+            'measure_source_type_jsonl' => AcosMaxMeasureSeriesRegistry::SOURCE_TYPE_JSONL,
+            'measure_source_type_table' => AcosMaxMeasureSeriesRegistry::SOURCE_TYPE_TABLE,
+            'measure_source_type_command' => AcosMaxMeasureSeriesRegistry::SOURCE_TYPE_COMMAND,
+            'measure_source_type_jsonl_dir' => AcosMaxMeasureSeriesRegistry::SOURCE_TYPE_JSONL_DIR,
+            'measure_source_type_computed_reader_field' => AcosMaxMeasureSeriesRegistry::SOURCE_TYPE_COMPUTED_READER_FIELD,
+            'measure_field_slice' => AcosMaxMeasureSeriesRegistry::FIELD_SLICE,
+            'rotation_measure_series_floor_count' => 17,
         ];
     }
 
