@@ -116,7 +116,7 @@ final class AtlasLocalModelIntegrityService
         }
 
         $computed = @hash_file('sha256', $resolved);
-        if (! is_string($computed) || $computed === '') {
+        if (AiValueNormalizer::trimmedStringOrNull($computed) === null) {
             $row['status'] = 'missing';
             $row['reason'] = 'hash_failed';
 

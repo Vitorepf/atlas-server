@@ -44,6 +44,7 @@ use App\Services\Ai\Cognition\ImmuneSignatureStore;
 use App\Services\Ai\Cognition\ImmuneVerdictLedger;
 use App\Services\Ai\AcosMax\PromotionProtocol;
 use App\Services\Ai\AcosMax\AtlasFlywheelFunnelService;
+use App\Services\Ai\AcosMax\EvidenceVisionThesisLifecycle;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
@@ -2162,6 +2163,22 @@ final class AtlasUniversalGatesEvaluator
             'schema_version' => AtlasMissionControlCockpitService::SCHEMA_VERSION,
             'phase_count' => count(AaeosPhaseHandoffService::PHASES),
             'phases' => AaeosPhaseHandoffService::PHASES,
+        ];
+    }
+
+    /**
+     * Observe-only evidence-vision thesis lifecycle schema.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function evidenceVisionThesisLifecycleObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => EvidenceVisionThesisLifecycle::SCHEMA_VERSION,
+            'active_accessor' => 'activeTheses',
+            'supports_reset' => true,
         ];
     }
 

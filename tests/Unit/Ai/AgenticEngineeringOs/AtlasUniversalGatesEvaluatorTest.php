@@ -1597,4 +1597,13 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['phase_count']);
         $this->assertContains('intent_capture', $payload['phases']);
     }
+
+    public function test_evidence_vision_thesis_lifecycle_observe_reports_schema(): void
+    {
+        $payload = $this->svc->evidenceVisionThesisLifecycleObserve([]);
+
+        $this->assertSame('atlas.originator.evidence_vision_thesis_lifecycle.v1', $payload['schema_version']);
+        $this->assertSame('activeTheses', $payload['active_accessor']);
+        $this->assertTrue($payload['supports_reset']);
+    }
 }

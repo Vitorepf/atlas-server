@@ -173,7 +173,7 @@ final class PreReviewAdvisoryBand
 
     private static function normalizeClass(mixed $value): string
     {
-        if (! is_string($value) || $value === '') {
+        if (AiValueNormalizer::trimmedStringOrNull($value) === null) {
             return 'unknown';
         }
         $trim = AiValueNormalizer::lowerTrimmedString($value);
@@ -196,7 +196,7 @@ final class PreReviewAdvisoryBand
      */
     private static function normalizeAllowlistedBand(mixed $value, array $allowed): ?string
     {
-        if (! is_string($value)) {
+        if (AiValueNormalizer::trimmedStringOrNull($value) === null) {
             return null;
         }
         $lower = AiValueNormalizer::lowerTrimmedString($value);
