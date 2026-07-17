@@ -121,7 +121,7 @@ class AtlasCognitionScoreCardService
     public const STATUS_BLOCKED = 'blocked';
 
     /** Score points per status. */
-    private const STATUS_POINTS = [
+    public const STATUS_POINTS = [
         self::STATUS_READY => 10,
         self::STATUS_PARTIAL => 6,
         self::STATUS_BUILDING => 3,

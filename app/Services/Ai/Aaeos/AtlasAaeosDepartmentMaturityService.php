@@ -8,13 +8,13 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AtlasAaeosDepartmentMaturityService
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.department_maturity.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.department_maturity.v1';
 
-    private const LAST_EVALUATION = '2026-05-26T00:00:00+00:00';
+    public const LAST_EVALUATION = '2026-05-26T00:00:00+00:00';
 
-    private const NEXT_EVALUATION_DUE = '2026-06-26T00:00:00+00:00';
+    public const NEXT_EVALUATION_DUE = '2026-06-26T00:00:00+00:00';
 
-    private const OWNER = 'atlas-ai';
+    public const OWNER = 'atlas-ai';
 
     private const DEPARTMENTS = [
         [

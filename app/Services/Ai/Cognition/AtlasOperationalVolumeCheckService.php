@@ -37,10 +37,10 @@ final class AtlasOperationalVolumeCheckService
     public const PREREQUISITE_GAP_HERMES_01 = 'GAP-HERMES-01';
 
     /** @var list<string> */
-    private const DEV_FLOW_IDS = ['atlas_dev', 'atlas.dev', 'engineering.dev'];
+    public const DEV_FLOW_IDS = ['atlas_dev', 'atlas.dev', 'engineering.dev'];
 
     /** @var list<string> */
-    private const FORGE_FLOW_IDS = ['atlas_forge', 'engineering.forge'];
+    public const FORGE_FLOW_IDS = ['atlas_forge', 'engineering.forge'];
 
     /**
      * @return array<string,mixed>

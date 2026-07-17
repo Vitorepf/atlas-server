@@ -25,7 +25,7 @@ final class ImmuneVerdictLedger
     public const LABEL_MISSED_POISON = 'missed_poison';
 
     /** @var list<string> */
-    private const LABELS = [
+    public const LABELS = [
         self::LABEL_TRUE_BLOCK,
         self::LABEL_FALSE_BLOCK,
         self::LABEL_MISSED_POISON,

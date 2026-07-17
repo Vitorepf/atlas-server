@@ -24,7 +24,7 @@ class AtlasAaeosImplementationEvidenceResolver
      *
      * @var array<int,string>
      */
-    private const SYMBOL_TYPES = ['class', 'method', 'trait', 'interface', 'enum'];
+    public const SYMBOL_TYPES = ['class', 'method', 'trait', 'interface', 'enum'];
 
     /**
      * Container key under which the loaded index array is cached scoped-to-the-request, so
@@ -41,7 +41,7 @@ class AtlasAaeosImplementationEvidenceResolver
      *
      * @var array<int,string>
      */
-    private const SIGNATURE_MATCH_TYPES = ['route', 'cli_command', 'migration_table'];
+    public const SIGNATURE_MATCH_TYPES = ['route', 'cli_command', 'migration_table'];
 
     /**
      * The active Code Intelligence index, loaded ONCE per request and matched in PHP. Stored

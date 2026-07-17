@@ -37,6 +37,8 @@ use App\Services\Ai\Cognition\AtlasConsolidationRerankGuard;
 use App\Services\Ai\Cognition\ImmuneSignatureDeriver;
 use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardV4Grouper;
+use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
+use App\Services\Ai\Cognition\AtlasOperationalVolumeCheckService;
 use App\Services\Ai\Cognition\CaptureHmacLineageService;
 use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
@@ -97,6 +99,8 @@ use App\Services\Ai\Aaeos\AaeosDepartmentLevelClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentQualityBarLevelClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
 use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
+use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
+use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
@@ -2142,12 +2146,8 @@ final class AtlasUniversalGatesEvaluator
     {
         return [
             'schema_version' => ImmuneVerdictLedger::SCHEMA_VERSION,
-            'labels' => [
-                ImmuneVerdictLedger::LABEL_TRUE_BLOCK,
-                ImmuneVerdictLedger::LABEL_FALSE_BLOCK,
-                ImmuneVerdictLedger::LABEL_MISSED_POISON,
-            ],
-            'label_count' => 3,
+            'labels' => ImmuneVerdictLedger::LABELS,
+            'label_count' => count(ImmuneVerdictLedger::LABELS),
         ];
     }
 
@@ -2790,6 +2790,35 @@ final class AtlasUniversalGatesEvaluator
             'quality_bar_schema' => AtlasAaeosQualityBarService::SCHEMA_VERSION,
             'department_level_schema' => AaeosDepartmentLevelClassifier::SCHEMA_VERSION,
             'department_maturity_band_schema' => AtlasAaeosDepartmentMaturityBandClassifier::SCHEMA_VERSION,
+        ];
+    }
+
+    /**
+     * Observe-only evidence-resolver / volume / deferred-phase / scorecard floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function evidenceVolumeDeferredContractObserve(array $input = []): array
+    {
+        return [
+            'evidence_symbol_types' => AtlasAaeosImplementationEvidenceResolver::SYMBOL_TYPES,
+            'evidence_symbol_type_count' => count(AtlasAaeosImplementationEvidenceResolver::SYMBOL_TYPES),
+            'evidence_signature_match_types' => AtlasAaeosImplementationEvidenceResolver::SIGNATURE_MATCH_TYPES,
+            'test_execution_schema' => AtlasAaeosTestExecutionService::SCHEMA,
+            'test_output_tail_chars' => AtlasAaeosTestExecutionService::OUTPUT_TAIL_CHARS,
+            'operational_volume_schema' => AtlasOperationalVolumeCheckService::SCHEMA_VERSION,
+            'dev_flow_ids' => AtlasOperationalVolumeCheckService::DEV_FLOW_IDS,
+            'forge_flow_ids' => AtlasOperationalVolumeCheckService::FORGE_FLOW_IDS,
+            'dev_runs_per_business_day_min' => AtlasOperationalVolumeCheckService::DEV_RUNS_PER_BUSINESS_DAY_MIN,
+            'forge_cycles_per_week_min' => AtlasOperationalVolumeCheckService::FORGE_CYCLES_PER_WEEK_MIN,
+            'deferred_phase_keys' => array_keys(AaeosHttpPathEnvelopeFactory::DEFERRED_PHASE_SPECS),
+            'deferred_phase_count' => count(AaeosHttpPathEnvelopeFactory::DEFERRED_PHASE_SPECS),
+            'scorecard_schema' => AtlasCognitionScoreCardService::SCHEMA_VERSION,
+            'scorecard_status_points' => AtlasCognitionScoreCardService::STATUS_POINTS,
+            'department_maturity_schema' => AtlasAaeosDepartmentMaturityService::SCHEMA_VERSION,
+            'department_maturity_owner' => AtlasAaeosDepartmentMaturityService::OWNER,
         ];
     }
 

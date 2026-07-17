@@ -191,7 +191,7 @@ final class AaeosHttpPathEnvelopeFactory
      *   required_gate: string
      * }>
      */
-    private const DEFERRED_PHASE_SPECS = [
+    public const DEFERRED_PHASE_SPECS = [
         'topology' => [
             'phase_in' => AaeosPhaseHandoffService::PHASE_POLICY_GATE,
             'phase_out' => AaeosPhaseHandoffService::PHASE_TOPOLOGY,

@@ -37,7 +37,7 @@ class AtlasAaeosTestExecutionService
     /**
      * How many trailing chars of the runner output to keep in the receipt (audit, not the whole log).
      */
-    private const OUTPUT_TAIL_CHARS = 1600;
+    public const OUTPUT_TAIL_CHARS = 1600;
 
     public function __construct(
         private readonly float $timeout = 180.0,

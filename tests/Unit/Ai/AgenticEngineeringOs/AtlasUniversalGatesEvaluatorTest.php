@@ -1983,4 +1983,26 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.aaeos.department_level_classification.v1', $payload['department_level_schema']);
         $this->assertSame('atlas.aaeos.department_maturity_band.v1', $payload['department_maturity_band_schema']);
     }
+
+    public function test_evidence_volume_deferred_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->evidenceVolumeDeferredContractObserve([]);
+
+        $this->assertContains('class', $payload['evidence_symbol_types']);
+        $this->assertSame(5, $payload['evidence_symbol_type_count']);
+        $this->assertContains('route', $payload['evidence_signature_match_types']);
+        $this->assertSame('atlas.aaeos.test_run_receipt.v1', $payload['test_execution_schema']);
+        $this->assertSame(1600, $payload['test_output_tail_chars']);
+        $this->assertSame('atlas.acos.operational_volume.v1', $payload['operational_volume_schema']);
+        $this->assertContains('atlas_dev', $payload['dev_flow_ids']);
+        $this->assertContains('atlas_forge', $payload['forge_flow_ids']);
+        $this->assertSame(3, $payload['dev_runs_per_business_day_min']);
+        $this->assertSame(5, $payload['forge_cycles_per_week_min']);
+        $this->assertContains('topology', $payload['deferred_phase_keys']);
+        $this->assertSame(5, $payload['deferred_phase_count']);
+        $this->assertSame('atlas.cognition.scorecard.v3', $payload['scorecard_schema']);
+        $this->assertSame(10, $payload['scorecard_status_points']['ready']);
+        $this->assertSame('atlas.aaeos.department_maturity.v1', $payload['department_maturity_schema']);
+        $this->assertSame('atlas-ai', $payload['department_maturity_owner']);
+    }
 }
