@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AcosMax;
 
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 final class PromotionProtocol
 {
@@ -116,12 +117,12 @@ final class PromotionProtocol
             );
         }
 
-        $windowId = trim((string) ($context['observation_window_id'] ?? ''));
+        $windowId = AiValueNormalizer::trimmedString($context['observation_window_id'] ?? '');
         if ($windowId === '') {
             return $this->blocked('missing_observation_window_id', $flagId, $toState);
         }
 
-        $receipt = trim((string) ($context['receipt'] ?? ''));
+        $receipt = AiValueNormalizer::trimmedString($context['receipt'] ?? '');
         if ($receipt === '') {
             return $this->blocked('missing_flip_receipt', $flagId, $toState);
         }
@@ -153,13 +154,19 @@ final class PromotionProtocol
             'from_state' => $fromState,
             'to_state' => $toState,
             'observation_window_id' => $windowId,
-            'actor' => trim((string) ($context['actor'] ?? 'atlas')),
-            'reason' => trim((string) ($context['reason'] ?? '')),
+            'actor' => AiValueNormalizer::trimmedString($context['actor'] ?? 'atlas'),
+            'reason' => AiValueNormalizer::trimmedString($context['reason'] ?? ''),
             'receipt' => $receipt,
             'rollback_trigger' => (string) $entry['rollback_trigger'],
             'judge_engine_id' => (string) $entry['judge_engine_id'],
             'protocol_receipt' => (string) $entry['receipt'],
         ];
+
+        $challenger = $this->observeChallenger($context);
+        if ($challenger !== null) {
+            // Observe-only ESP-09 advisory — never vetoes the flip decision.
+            $event['challenger_advisory'] = $challenger;
+        }
 
         $this->ledger->append($event, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
@@ -347,15 +354,15 @@ final class PromotionProtocol
      */
     private function normalizeManagedEntry(array $entry): array
     {
-        $state = trim((string) ($entry['state'] ?? self::STATE_OFF));
+        $state = AiValueNormalizer::trimmedString($entry['state'] ?? self::STATE_OFF);
         if (! in_array($state, self::STATES, true)) {
             $state = self::STATE_OFF;
         }
 
         return array_merge($entry, [
-            'id' => trim((string) ($entry['id'] ?? '')),
-            'family' => strtoupper(trim((string) ($entry['family'] ?? ''))),
-            'slice' => trim((string) ($entry['slice'] ?? '')),
+            'id' => AiValueNormalizer::trimmedString($entry['id'] ?? ''),
+            'family' => strtoupper(AiValueNormalizer::trimmedString($entry['family'] ?? '')),
+            'slice' => AiValueNormalizer::trimmedString($entry['slice'] ?? ''),
             'state' => $state,
             'status' => 'managed',
         ]);
@@ -369,8 +376,8 @@ final class PromotionProtocol
         $payload = is_array($entry) ? $entry : ['id' => $entry];
 
         return array_merge($payload, [
-            'id' => trim((string) ($payload['id'] ?? '')),
-            'family' => strtoupper(trim((string) ($payload['family'] ?? 'LEGACY'))),
+            'id' => AiValueNormalizer::trimmedString($payload['id'] ?? ''),
+            'family' => strtoupper(AiValueNormalizer::trimmedString($payload['family'] ?? 'LEGACY')),
             'status' => 'legacy_unmanaged',
         ]);
     }
@@ -382,12 +389,32 @@ final class PromotionProtocol
     {
         $missing = [];
         foreach (self::REQUIRED_FIELDS as $field) {
-            if (trim((string) ($entry[$field] ?? '')) === '') {
+            if (AiValueNormalizer::trimmedString($entry[$field] ?? '') === '') {
                 $missing[] = $field;
             }
         }
 
         return ['ok' => $missing === [], 'missing' => $missing];
+    }
+
+    /**
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>|null
+     */
+    private function observeChallenger(array $context): ?array
+    {
+        $author = AiValueNormalizer::trimmedString($context['author_engine_id'] ?? '');
+        $challenger = AiValueNormalizer::trimmedString($context['challenger_engine_id'] ?? '');
+        if ($author === '' || $challenger === '') {
+            return null;
+        }
+
+        return Esp09IndependentChallengerService::evaluate([
+            'author_engine_id' => $author,
+            'challenger_engine_id' => $challenger,
+            'operator_alignment' => $context['operator_alignment'] ?? null,
+            'decision_kind' => $context['decision_kind'] ?? 'ordinary_route',
+        ]);
     }
 
     private function stateForFlag(string $flagId): string

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * AAEOS Runbook Orchestrator — PHP implementation of
  * `atlas-agentic-engineering-os-runbook.md`.
@@ -120,13 +122,13 @@ final class RunbookOrchestrator
      */
     public function proposeStructuralRedesign(array $request): array
     {
-        $title = trim((string) ($request['title'] ?? ''));
-        $limitation = trim((string) ($request['limitation'] ?? ''));
+        $title = AiValueNormalizer::trimmedString($request['title'] ?? '');
+        $limitation = AiValueNormalizer::trimmedString($request['limitation'] ?? '');
         if ($title === '' || $limitation === '') {
             throw new \InvalidArgumentException('title and limitation are required for structural redesign proposals.');
         }
 
-        $rawChanges = (array) ($request['structural_changes'] ?? []);
+        $rawChanges = AiValueNormalizer::arrayOrEmpty($request['structural_changes'] ?? null);
         $structuralChanges = [];
         foreach ($rawChanges as $change) {
             if (! is_array($change)) {
@@ -136,8 +138,8 @@ final class RunbookOrchestrator
             if (! in_array($target, ['department', 'phase', 'gate'], true)) {
                 continue;
             }
-            $current = trim((string) ($change['current'] ?? ''));
-            $proposed = trim((string) ($change['proposed'] ?? ''));
+            $current = AiValueNormalizer::trimmedString($change['current'] ?? '');
+            $proposed = AiValueNormalizer::trimmedString($change['proposed'] ?? '');
             if ($current === '' || $proposed === '') {
                 continue;
             }
@@ -240,7 +242,7 @@ final class RunbookOrchestrator
 
     private function classify(string $intent): string
     {
-        $lower = mb_strtolower(trim($intent));
+        $lower = AiValueNormalizer::lowerTrimmedString($intent);
         if ($lower === '' || mb_strlen($lower) < 12) {
             return 'trivial';
         }
