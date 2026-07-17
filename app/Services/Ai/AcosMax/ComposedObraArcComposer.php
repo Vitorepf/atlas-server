@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AcosMax;
 
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainOrganDependencyGraph;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * MULTN17-02 — composed obra arc origination.
@@ -37,8 +38,8 @@ final class ComposedObraArcComposer
             return self::emptyResult('flag_disabled');
         }
 
-        $author = trim((string) ($context['author_engine_id'] ?? self::DEFAULT_AUTHOR_ENGINE_ID));
-        $judge = trim((string) ($context['judge_engine_id'] ?? self::DEFAULT_JUDGE_ENGINE_ID));
+        $author = AiValueNormalizer::trimmedString($context['author_engine_id'] ?? self::DEFAULT_AUTHOR_ENGINE_ID);
+        $judge = AiValueNormalizer::trimmedString($context['judge_engine_id'] ?? self::DEFAULT_JUDGE_ENGINE_ID);
         if ($author === '' || $judge === '' || $author === $judge) {
             return self::emptyResult('author_judge_invariant_violation');
         }
@@ -86,8 +87,8 @@ final class ComposedObraArcComposer
             if (! is_array($candidate)) {
                 continue;
             }
-            $target = ltrim(trim((string) ($candidate['target_path'] ?? '')), '/');
-            $summary = trim((string) ($candidate['summary'] ?? ''));
+            $target = ltrim(AiValueNormalizer::trimmedString($candidate['target_path'] ?? ''), '/');
+            $summary = AiValueNormalizer::trimmedString($candidate['summary'] ?? '');
             if ($target === '' || $summary === '') {
                 continue;
             }
@@ -264,7 +265,7 @@ final class ComposedObraArcComposer
             }
             $block = is_array($lead['obra_cluster_candidate'] ?? null) ? $lead['obra_cluster_candidate'] : $lead;
             foreach ((array) ($block['allowed_files'] ?? $block['member_paths'] ?? []) as $path) {
-                $normalized = ltrim(str_replace('\\', '/', trim((string) $path)), '/');
+                $normalized = ltrim(str_replace('\\', '/', AiValueNormalizer::trimmedString($path)), '/');
                 if ($normalized !== '') {
                     $paths[] = $normalized;
                 }
@@ -327,7 +328,7 @@ final class ComposedObraArcComposer
      */
     private static function organClass(array $candidate, string $targetPath): string
     {
-        $fqcn = trim((string) ($candidate['target_fqcn'] ?? $candidate['fqcn'] ?? ''));
+        $fqcn = AiValueNormalizer::trimmedString($candidate['target_fqcn'] ?? $candidate['fqcn'] ?? '');
         if ($fqcn !== '') {
             return ltrim($fqcn, '\\');
         }
