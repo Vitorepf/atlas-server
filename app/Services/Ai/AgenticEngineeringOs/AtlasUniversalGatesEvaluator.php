@@ -217,6 +217,18 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only full delivery-pack completeness score projection.
+     * Does not add a universal-gate id (catalogue stays 15).
+     *
+     * @param  array<string,mixed>  $composition
+     * @return array<string,mixed>
+     */
+    public function deliveryPackCompletenessScoreObserve(array $composition): array
+    {
+        return $this->deliveryPackCompleteness->score($composition);
+    }
+
+    /**
      * Derive a boolean signal from a compiled-spec shape via
      * {@see SpecCompletenessScorer}. Observe helper for callers that already
      * hold a spec map — does not add a new universal gate id.

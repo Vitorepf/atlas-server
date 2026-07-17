@@ -236,8 +236,14 @@ final class AtlasAaeosCommand extends Command
                 return $this->failWith('universal-gates --delivery-pack must be a readable JSON object');
             }
             $signals['delivery_pack_completeness_min_0_95'] = $gates->deliveryPackCompletenessSignal($composition);
+            $report = $gates->evaluate($intent, $signals);
+            $report['observe'] = array_merge(
+                AiValueNormalizer::arrayOrEmpty($report['observe'] ?? null),
+                ['delivery_pack_completeness' => $gates->deliveryPackCompletenessScoreObserve($composition)],
+            );
+        } else {
+            $report = $gates->evaluate($intent, $signals);
         }
-        $report = $gates->evaluate($intent, $signals);
 
         // Observe-only projectors: do not add universal-gate ids (catalogue stays 15).
         foreach ([

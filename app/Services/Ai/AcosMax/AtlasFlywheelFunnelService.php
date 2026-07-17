@@ -154,7 +154,7 @@ final class AtlasFlywheelFunnelService
         }
 
         $raw = @file_get_contents($path);
-        if (! is_string($raw) || trim($raw) === '') {
+        if (AiValueNormalizer::trimmedStringOrNull($raw) === null) {
             return [];
         }
 

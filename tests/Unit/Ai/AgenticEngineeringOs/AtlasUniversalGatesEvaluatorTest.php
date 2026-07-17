@@ -137,6 +137,23 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertFalse($this->svc->deliveryPackCompletenessSignal($unsigned));
     }
 
+    public function test_delivery_pack_completeness_score_observe_projects_factors(): void
+    {
+        $score = $this->svc->deliveryPackCompletenessScoreObserve([
+            'changed_files' => 1,
+            'test_evidence' => ['t'],
+            'no_test_reason' => '',
+            'evidence_hashes' => ['h'],
+            'risk_register_present' => true,
+            'receipt_present' => true,
+            'delivery_hash' => 'sha256:signed',
+        ]);
+
+        $this->assertSame(DeliveryPackCompletenessScorer::SCHEMA, $score['schema']);
+        $this->assertTrue($score['factors']['tests_present']);
+        $this->assertSame([], $score['blockers']);
+    }
+
     public function test_spec_completeness_signal_uses_live_scorer(): void
     {
         $full = [];

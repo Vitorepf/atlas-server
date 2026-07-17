@@ -511,7 +511,7 @@ final class RagxChainMechanismService
     /** @return list<string> */
     private function tokens(string $query): array
     {
-        preg_match_all('/[\pL\pN]{3,}/u', strtolower($query), $matches);
+        preg_match_all('/[\pL\pN]{3,}/u', AiValueNormalizer::lowerTrimmedString($query), $matches);
 
         return array_values(array_unique($matches[0] ?? []));
     }
