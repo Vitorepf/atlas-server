@@ -67,6 +67,12 @@ final class ComposedObraArcComposer
             'basis' => 'organ_dependency_neighbors',
             'arcs' => [$arc],
             'arc_count' => 1,
+            // Observe-only ESP-09 advisory (composed_obra trigger); never vetoes compose.
+            'challenger_advisory' => Esp09IndependentChallengerService::evaluate([
+                'author_engine_id' => $author,
+                'challenger_engine_id' => $judge,
+                'decision_kind' => 'composed_obra',
+            ]),
             'source' => [
                 'arc_buys_gate_wholesale' => false,
                 'auto_merge' => false,

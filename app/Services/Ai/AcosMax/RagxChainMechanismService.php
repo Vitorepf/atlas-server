@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\File;
 use Throwable;
@@ -130,10 +131,10 @@ final class RagxChainMechanismService
             'schema_version' => self::AB_SCHEMA,
             'status' => 'registered',
             'recorded_at' => Carbon::now()->toISOString(),
-            'experiment_id' => trim((string) ($experiment['experiment_id'] ?? hash('sha256', json_encode($experiment, JSON_THROW_ON_ERROR)))),
-            'slice' => trim((string) ($experiment['slice'] ?? 'RAGX')),
-            'baseline' => trim((string) ($experiment['baseline'] ?? 'unknown')),
-            'candidate' => trim((string) ($experiment['candidate'] ?? 'unknown')),
+            'experiment_id' => AiValueNormalizer::trimmedString($experiment['experiment_id'] ?? hash('sha256', json_encode($experiment, JSON_THROW_ON_ERROR))),
+            'slice' => AiValueNormalizer::trimmedString($experiment['slice'] ?? 'RAGX'),
+            'baseline' => AiValueNormalizer::trimmedString($experiment['baseline'] ?? 'unknown'),
+            'candidate' => AiValueNormalizer::trimmedString($experiment['candidate'] ?? 'unknown'),
             'result' => null,
             'ab_green_claimed' => false,
             'pending_window' => ['golden_v2_or_live_window_not_run'],

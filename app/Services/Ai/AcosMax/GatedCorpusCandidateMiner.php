@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class GatedCorpusCandidateMiner
 {
     public const SCHEMA_VERSION = 'atlas.corpus.gated_candidate_miner.v1';
@@ -20,13 +22,13 @@ final class GatedCorpusCandidateMiner
         $candidates = [];
         $omitted = [];
         foreach ($sources as $source) {
-            $privacy = strtolower((string) ($source['privacy_class'] ?? 'normal'));
+            $privacy = AiValueNormalizer::lowerTrimmedString($source['privacy_class'] ?? 'normal');
             if (in_array($privacy, self::PROTECTED, true)) {
                 $omitted[] = 'protected_class_omitted';
                 continue;
             }
-            $text = trim((string) ($source['text'] ?? ''));
-            $ref = trim((string) ($source['ref'] ?? ''));
+            $text = AiValueNormalizer::trimmedString($source['text'] ?? '');
+            $ref = AiValueNormalizer::trimmedString($source['ref'] ?? '');
             if ($text === '' || $ref === '') {
                 continue;
             }
