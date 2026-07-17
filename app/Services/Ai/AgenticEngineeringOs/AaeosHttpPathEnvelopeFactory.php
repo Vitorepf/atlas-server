@@ -473,13 +473,18 @@ final class AaeosHttpPathEnvelopeFactory
             intentId: $intentId,
             phaseIn: $phaseIn,
             phaseOut: $phaseOut,
-            actor: ['kind' => 'system', 'id' => $actorId, 'provider' => null],
+            actor: self::systemActor($actorId),
             inputs: ['intent_hash' => $intentHash],
             outputs: ['risk_band' => $riskBand] + $outputs,
-            gates: [
-                'required' => [$requiredGate],
-                'passed' => [$requiredGate],
-            ],
+            gates: self::binaryGate($requiredGate, true),
         );
+    }
+
+    /**
+     * @return array{kind: string, id: string, provider: null}
+     */
+    private static function systemActor(string $id): array
+    {
+        return ['kind' => 'system', 'id' => $id, 'provider' => null];
     }
 }
