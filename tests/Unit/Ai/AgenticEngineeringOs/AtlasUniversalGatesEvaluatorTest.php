@@ -3709,4 +3709,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['quality_veto_evolution_floor_count']);
     }
 
+
+    public function test_watchdog_immune_ragx_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->watchdogImmuneRagxFloorsContractObserve([]);
+
+        $this->assertSame('status', $payload['watchdog_field_status']);
+        $this->assertSame('blocking', $payload['watchdog_field_blocking']);
+        $this->assertSame('schema_version', $payload['watchdog_field_schema_version']);
+        $this->assertSame('generated_at', $payload['watchdog_field_generated_at']);
+        $this->assertSame('thresholds', $payload['watchdog_field_thresholds']);
+        $this->assertSame('ok', $payload['watchdog_status_ok']);
+        $this->assertSame('status', $payload['immune_field_status']);
+        $this->assertSame('signature', $payload['immune_field_signature']);
+        $this->assertSame('hostile_class', $payload['immune_field_hostile_class']);
+        $this->assertSame('hit_count', $payload['immune_field_hit_count']);
+        $this->assertSame('active', $payload['immune_status_active']);
+        $this->assertSame('atlas.cognition.immune_signature_store.v1', $payload['immune_schema_version']);
+        $this->assertSame('status', $payload['ragx_field_status']);
+        $this->assertSame('slice', $payload['ragx_field_slice']);
+        $this->assertSame('ab_green_claimed', $payload['ragx_field_ab_green_claimed']);
+        $this->assertSame('schema_version', $payload['ragx_field_schema_version']);
+        $this->assertSame('atlas.acos_max.ragx_chain_mechanisms.v1', $payload['ragx_schema']);
+        $this->assertSame(17, $payload['watchdog_immune_ragx_floor_count']);
+    }
+
 }

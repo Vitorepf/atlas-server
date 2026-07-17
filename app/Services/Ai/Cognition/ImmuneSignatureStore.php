@@ -35,6 +35,31 @@ final class ImmuneSignatureStore
 
     public const STATUS_PENDING_WINDOW = 'pending_window';
 
+
+    public const FIELD_STATUS = 'status';
+
+    public const FIELD_SIGNATURE = 'signature';
+
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+
+    public const FIELD_HOSTILE_CLASS = 'hostile_class';
+
+    public const FIELD_ORIGIN_REF = 'origin_ref';
+
+    public const FIELD_HIT_COUNT = 'hit_count';
+
+    public const FIELD_CONTENT_HASH = 'content_hash';
+
+    public const FIELD_LAST_HIT_AT = 'last_hit_at';
+
+    public const FIELD_MODE = 'mode';
+
+    public const FIELD_DECAY_DAYS = 'decay_days';
+
+    public const FIELD_CREATED_AT = 'created_at';
+
+    public const FIELD_UPDATED_AT = 'updated_at';
+
     public const ORIGIN_VERDICT = 'immune_verdict';
 
     public const ORIGIN_MEMORY_REVERT = 'memory_revert';
@@ -84,7 +109,7 @@ final class ImmuneSignatureStore
         }
 
         $derived = $this->deriver->derive($contentHash, $hostileClass, $matchedSignals);
-        $existing = $this->findBySignature($derived['signature']);
+        $existing = $this->findBySignature($derived[self::FIELD_SIGNATURE]);
         if ($existing !== null) {
             return $existing;
         }
@@ -92,18 +117,18 @@ final class ImmuneSignatureStore
         $now = CarbonImmutable::now('UTC');
         $row = [
             'id' => (string) Str::uuid(),
-            'schema_version' => self::SCHEMA_VERSION,
-            'signature' => $derived['signature'],
-            'content_hash' => $derived['family']['content_hash'],
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_SIGNATURE => $derived[self::FIELD_SIGNATURE],
+            self::FIELD_CONTENT_HASH => $derived['family'][self::FIELD_CONTENT_HASH],
             'signature_family' => $derived['family'],
-            'origin_ref' => $originRef,
+            self::FIELD_ORIGIN_REF => $originRef,
             'origin_kind' => $originKind,
-            'hostile_class' => $derived['family']['hostile_class'],
-            'hit_count' => 0,
+            self::FIELD_HOSTILE_CLASS => $derived['family'][self::FIELD_HOSTILE_CLASS],
+            self::FIELD_HIT_COUNT => 0,
             'first_seen' => $now->toIso8601String(),
-            'last_hit_at' => null,
-            'status' => self::STATUS_ACTIVE,
-            'reverse_handle' => 'atlas:immune:signature-revoke --ref='.$derived['signature'],
+            self::FIELD_LAST_HIT_AT => null,
+            self::FIELD_STATUS => self::STATUS_ACTIVE,
+            'reverse_handle' => 'atlas:immune:signature-revoke --ref='.$derived[self::FIELD_SIGNATURE],
             'metadata' => $metadata,
         ];
 
@@ -138,11 +163,11 @@ final class ImmuneSignatureStore
 
         return [
             'ref' => AiValueNormalizer::trimmedScalarStringOrNull($cell['id'] ?? null) ?? '',
-            'signature' => AiValueNormalizer::trimmedScalarStringOrNull($cell['signature'] ?? null) ?? '',
-            'hostile_class' => AiValueNormalizer::trimmedScalarStringOrNull($cell['hostile_class'] ?? null) ?? '',
-            'origin_ref' => AiValueNormalizer::trimmedScalarStringOrNull($cell['origin_ref'] ?? null) ?? '',
-            'hit_count_after' => ((int) (AiValueNormalizer::finiteFloatOrNull($cell['hit_count'] ?? null) ?? 0)) + 1,
-            'mode' => $this->mode(),
+            self::FIELD_SIGNATURE => AiValueNormalizer::trimmedScalarStringOrNull($cell[self::FIELD_SIGNATURE] ?? null) ?? '',
+            self::FIELD_HOSTILE_CLASS => AiValueNormalizer::trimmedScalarStringOrNull($cell[self::FIELD_HOSTILE_CLASS] ?? null) ?? '',
+            self::FIELD_ORIGIN_REF => AiValueNormalizer::trimmedScalarStringOrNull($cell[self::FIELD_ORIGIN_REF] ?? null) ?? '',
+            'hit_count_after' => ((int) (AiValueNormalizer::finiteFloatOrNull($cell[self::FIELD_HIT_COUNT] ?? null) ?? 0)) + 1,
+            self::FIELD_MODE => $this->mode(),
         ];
     }
 
@@ -156,7 +181,7 @@ final class ImmuneSignatureStore
         }
 
         $row = $this->findBySignature($signatureOrId) ?? $this->findById($signatureOrId);
-        if ($row === null || ($row['status'] ?? '') !== self::STATUS_ACTIVE) {
+        if ($row === null || ($row[self::FIELD_STATUS] ?? '') !== self::STATUS_ACTIVE) {
             return null;
         }
 
@@ -164,14 +189,14 @@ final class ImmuneSignatureStore
             DB::table(self::TABLE)
                 ->where('id', $row['id'])
                 ->update([
-                    'status' => self::STATUS_REVOKED,
-                    'updated_at' => now(),
+                    self::FIELD_STATUS => self::STATUS_REVOKED,
+                    self::FIELD_UPDATED_AT => now(),
                 ]);
         } catch (Throwable) {
             return null;
         }
 
-        $row['status'] = self::STATUS_REVOKED;
+        $row[self::FIELD_STATUS] = self::STATUS_REVOKED;
 
         return $row;
     }
@@ -191,8 +216,8 @@ final class ImmuneSignatureStore
                 ->where('hit_count', 0)
                 ->where('first_seen', '<', $cutoff)
                 ->update([
-                    'status' => self::STATUS_DECAYED,
-                    'updated_at' => now(),
+                    self::FIELD_STATUS => self::STATUS_DECAYED,
+                    self::FIELD_UPDATED_AT => now(),
                 ]);
         } catch (Throwable) {
             return 0;
@@ -204,9 +229,9 @@ final class ImmuneSignatureStore
     {
         if (! DatabaseTableAvailability::has(self::TABLE)) {
             return [
-                'schema_version' => self::SCHEMA_VERSION,
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
                 'measure_id' => self::MEASURE_ID,
-                'status' => self::STATUS_UNAVAILABLE,
+                self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
                 'active_cells' => 0,
                 'cells_with_hit_count_gte_2' => 0,
             ];
@@ -220,20 +245,20 @@ final class ImmuneSignatureStore
                 ->count();
         } catch (Throwable) {
             return [
-                'schema_version' => self::SCHEMA_VERSION,
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
                 'measure_id' => self::MEASURE_ID,
-                'status' => self::STATUS_UNAVAILABLE,
+                self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
                 'active_cells' => 0,
                 'cells_with_hit_count_gte_2' => 0,
             ];
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'measure_id' => self::MEASURE_ID,
             'generated_at' => now()->toIso8601String(),
-            'mode' => $this->mode(),
-            'status' => $soaked >= 3 ? self::STATUS_OK : self::STATUS_PENDING_WINDOW,
+            self::FIELD_MODE => $this->mode(),
+            self::FIELD_STATUS => $soaked >= 3 ? self::STATUS_OK : self::STATUS_PENDING_WINDOW,
             'pending_reason' => $soaked >= 3 ? null : 'immune_signature_real_hits_soak',
             'active_cells' => $active,
             'cells_with_hit_count_gte_2' => $soaked,
@@ -280,9 +305,9 @@ final class ImmuneSignatureStore
                 ->where('id', $id)
                 ->where('status', self::STATUS_ACTIVE)
                 ->update([
-                    'hit_count' => DB::raw('hit_count + 1'),
-                    'last_hit_at' => now(),
-                    'updated_at' => now(),
+                    self::FIELD_HIT_COUNT => DB::raw('hit_count + 1'),
+                    self::FIELD_LAST_HIT_AT => now(),
+                    self::FIELD_UPDATED_AT => now(),
                 ]);
         } catch (Throwable) {
             // fail-open
@@ -337,21 +362,21 @@ final class ImmuneSignatureStore
     {
         return [
             'id' => $row['id'],
-            'schema_version' => $row['schema_version'],
-            'signature' => $row['signature'],
-            'content_hash' => $row['content_hash'],
+            self::FIELD_SCHEMA_VERSION => $row[self::FIELD_SCHEMA_VERSION],
+            self::FIELD_SIGNATURE => $row[self::FIELD_SIGNATURE],
+            self::FIELD_CONTENT_HASH => $row[self::FIELD_CONTENT_HASH],
             'signature_family' => json_encode($row['signature_family'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
-            'origin_ref' => $row['origin_ref'],
+            self::FIELD_ORIGIN_REF => $row[self::FIELD_ORIGIN_REF],
             'origin_kind' => $row['origin_kind'],
-            'hostile_class' => $row['hostile_class'],
-            'hit_count' => $row['hit_count'],
+            self::FIELD_HOSTILE_CLASS => $row[self::FIELD_HOSTILE_CLASS],
+            self::FIELD_HIT_COUNT => $row[self::FIELD_HIT_COUNT],
             'first_seen' => $this->parseDate($row['first_seen'] ?? null) ?? $now,
-            'last_hit_at' => $this->parseDate($row['last_hit_at'] ?? null),
-            'status' => $row['status'],
+            self::FIELD_LAST_HIT_AT => $this->parseDate($row[self::FIELD_LAST_HIT_AT] ?? null),
+            self::FIELD_STATUS => $row[self::FIELD_STATUS],
             'reverse_handle' => $row['reverse_handle'],
             'metadata' => json_encode($row['metadata'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
-            'created_at' => $now,
-            'updated_at' => $now,
+            self::FIELD_CREATED_AT => $now,
+            self::FIELD_UPDATED_AT => $now,
         ];
     }
 
@@ -360,17 +385,17 @@ final class ImmuneSignatureStore
     {
         return [
             'id' => AiValueNormalizer::trimmedScalarStringOrNull($row->id ?? null) ?? '',
-            'schema_version' => AiValueNormalizer::trimmedScalarStringOrNull($row->schema_version ?? null) ?? '',
-            'signature' => AiValueNormalizer::trimmedScalarStringOrNull($row->signature ?? null) ?? '',
-            'content_hash' => AiValueNormalizer::trimmedScalarStringOrNull($row->content_hash ?? null) ?? '',
+            self::FIELD_SCHEMA_VERSION => AiValueNormalizer::trimmedScalarStringOrNull($row->schema_version ?? null) ?? '',
+            self::FIELD_SIGNATURE => AiValueNormalizer::trimmedScalarStringOrNull($row->signature ?? null) ?? '',
+            self::FIELD_CONTENT_HASH => AiValueNormalizer::trimmedScalarStringOrNull($row->content_hash ?? null) ?? '',
             'signature_family' => $this->jsonArray($row->signature_family ?? []),
-            'origin_ref' => AiValueNormalizer::trimmedScalarStringOrNull($row->origin_ref ?? null) ?? '',
+            self::FIELD_ORIGIN_REF => AiValueNormalizer::trimmedScalarStringOrNull($row->origin_ref ?? null) ?? '',
             'origin_kind' => AiValueNormalizer::trimmedScalarStringOrNull($row->origin_kind ?? null) ?? '',
-            'hostile_class' => AiValueNormalizer::trimmedScalarStringOrNull($row->hostile_class ?? null) ?? '',
-            'hit_count' => (int) $row->hit_count,
+            self::FIELD_HOSTILE_CLASS => AiValueNormalizer::trimmedScalarStringOrNull($row->hostile_class ?? null) ?? '',
+            self::FIELD_HIT_COUNT => (int) $row->hit_count,
             'first_seen' => AiValueNormalizer::trimmedString($row->first_seen ?? ''),
-            'last_hit_at' => AiValueNormalizer::trimmedStringOrNull($row->last_hit_at ?? null),
-            'status' => AiValueNormalizer::trimmedScalarStringOrNull($row->status ?? null) ?? '',
+            self::FIELD_LAST_HIT_AT => AiValueNormalizer::trimmedStringOrNull($row->last_hit_at ?? null),
+            self::FIELD_STATUS => AiValueNormalizer::trimmedScalarStringOrNull($row->status ?? null) ?? '',
             'reverse_handle' => AiValueNormalizer::trimmedStringOrNull($row->reverse_handle ?? null),
             'metadata' => $this->jsonArray($row->metadata ?? []),
         ];

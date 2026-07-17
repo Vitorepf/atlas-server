@@ -37,6 +37,31 @@ final class AtlasAcosWatchdogHealthService
 
     public const ENGINEERING_READINESS_SCHEMA = 'atlas.engineering.enforce_readiness.v1';
 
+
+    public const FIELD_STATUS = 'status';
+
+    public const FIELD_BLOCKING = 'blocking';
+
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+
+    public const FIELD_GENERATED_AT = 'generated_at';
+
+    public const FIELD_THRESHOLDS = 'thresholds';
+
+    public const FIELD_CODE = 'code';
+
+    public const FIELD_TOTAL = 'total';
+
+    public const FIELD_READY_TO_ENFORCE = 'ready_to_enforce';
+
+    public const FIELD_CHECKS = 'checks';
+
+    public const FIELD_GREEN = 'green';
+
+    public const FIELD_RED = 'red';
+
+    public const FIELD_YELLOW = 'yellow';
+
     public const AURG_COVERAGE_SCHEMA = 'atlas.aurg.coverage_gate.v1';
 
     public const RAG_DIMENSION_SCHEMA = 'atlas.rag.dimension_watchdog.v1';
@@ -169,13 +194,13 @@ final class AtlasAcosWatchdogHealthService
         $failed = array_values(array_filter($checks, static fn (array $check): bool => ! (AiValueNormalizer::boolOrNull($check[self::FIELD_PASS] ?? null) ?? false)));
 
         return [
-            'schema_version' => self::MEMORY_QUALITY_SCHEMA,
-            'status' => $failed === [] ? self::STATUS_OK : self::STATUS_ALERT,
+            self::FIELD_SCHEMA_VERSION => self::MEMORY_QUALITY_SCHEMA,
+            self::FIELD_STATUS => $failed === [] ? self::STATUS_OK : self::STATUS_ALERT,
             self::STATUS_ALERT => $failed !== [],
-            'checks' => $checks,
+            self::FIELD_CHECKS => $checks,
             'raw' => [
                 'score' => (int) (AiValueNormalizer::finiteFloatOrNull($scorecard['score'] ?? null) ?? 0),
-                'status' => (AiValueNormalizer::trimmedStringOrNull($scorecard['status'] ?? null) ?? self::STATUS_UNKNOWN),
+                self::FIELD_STATUS => (AiValueNormalizer::trimmedStringOrNull($scorecard[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
                 'freshness' => $freshness,
                 'windowed_concentration_ratio' => $concentration,
                 'snapshot_age_hours' => $snapshotAgeHours,
@@ -183,10 +208,10 @@ final class AtlasAcosWatchdogHealthService
             ],
             'alert_detail' => $failed === [] ? null : [
                 'check_id' => AiValueNormalizer::trimmedScalarStringOrNull($failed[0]['id'] ?? null) ?? '',
-                'code' => AiValueNormalizer::trimmedScalarStringOrNull($failed[0]['code'] ?? null) ?? '',
+                self::FIELD_CODE => AiValueNormalizer::trimmedScalarStringOrNull($failed[0][self::FIELD_CODE] ?? null) ?? '',
                 'message' => 'Memory quality check failed.',
             ],
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
     }
 
@@ -221,12 +246,12 @@ final class AtlasAcosWatchdogHealthService
             ], 'learning_lift_cases_missing');
 
         return $this->reportFromChecks('atlas.learning.cadence_watchdog.v1', $checks, [
-            'thresholds' => [
+            self::FIELD_THRESHOLDS => [
                 'negative_feedback_max_age_hours' => self::LEARNING_NEGATIVE_MAX_AGE_HOURS,
                 'aemor_source_max_age_hours' => self::LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS,
                 'ai_run_outcome_max_age_hours' => self::LEARNING_AI_RUN_OUTCOME_MAX_AGE_HOURS,
             ],
-            'lift_status' => (AiValueNormalizer::trimmedStringOrNull($lift['status'] ?? null) ?? self::STATUS_UNKNOWN),
+            'lift_status' => (AiValueNormalizer::trimmedStringOrNull($lift[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
         ], 'learning_cadence_stalled');
     }
 
@@ -252,17 +277,17 @@ final class AtlasAcosWatchdogHealthService
         }
 
         return [
-            'schema_version' => self::AURG_COVERAGE_SCHEMA,
-            'status' => $blocking === [] ? self::STATUS_OK : self::STATUS_ALERT,
+            self::FIELD_SCHEMA_VERSION => self::AURG_COVERAGE_SCHEMA,
+            self::FIELD_STATUS => $blocking === [] ? self::STATUS_OK : self::STATUS_ALERT,
             self::STATUS_ALERT => $blocking !== [],
             'coverage' => $coverage,
             'store' => [
                 'edges_by_source' => $edgesBySource,
                 'last_ingest_at' => $store['last_ingest_at'] ?? null,
             ],
-            'thresholds' => ['memory_cross_layer_coverage_ratio' => self::RAG_COVERAGE_FLOOR],
-            'blocking' => array_values(array_unique($blocking)),
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_THRESHOLDS => ['memory_cross_layer_coverage_ratio' => self::RAG_COVERAGE_FLOOR],
+            self::FIELD_BLOCKING => array_values(array_unique($blocking)),
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
     }
 
@@ -315,8 +340,8 @@ final class AtlasAcosWatchdogHealthService
         }
 
         return [
-            'schema_version' => self::RAG_DIMENSION_SCHEMA,
-            'status' => $issues === [] ? self::STATUS_OK : self::STATUS_ALERT,
+            self::FIELD_SCHEMA_VERSION => self::RAG_DIMENSION_SCHEMA,
+            self::FIELD_STATUS => $issues === [] ? self::STATUS_OK : self::STATUS_ALERT,
             self::STATUS_ALERT => $issues !== [],
             'issues' => array_values(array_unique($issues)),
             'raw' => [
@@ -326,13 +351,13 @@ final class AtlasAcosWatchdogHealthService
                 'aurg_cross_layer_coverage_ratio' => $coverageRatio,
                 'pre_filter_concentration_ratio' => $preFilterConcentration,
             ],
-            'thresholds' => [
+            self::FIELD_THRESHOLDS => [
                 'retrieval_eval' => self::RAG_RETRIEVAL_EVAL_FLOOR,
                 'recall_at_5' => self::RAG_RECALL_AT_5_FLOOR,
                 'aurg_cross_layer_coverage_ratio' => self::RAG_COVERAGE_FLOOR,
                 'pre_filter_concentration_mask_floor' => self::RAG_PRE_FILTER_CONCENTRATION_MASK_FLOOR,
             ],
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
     }
 
@@ -342,15 +367,15 @@ final class AtlasAcosWatchdogHealthService
         $since = CarbonImmutable::now('UTC')->subHours(self::FEEDBACK_WINDOW_HOURS);
         if (! DatabaseTableAvailability::has('ai_rag_feedback_events')) {
             return [
-                'schema_version' => self::CONTEXT_FEEDBACK_SCHEMA,
-                'status' => self::STATUS_UNAVAILABLE,
+                self::FIELD_SCHEMA_VERSION => self::CONTEXT_FEEDBACK_SCHEMA,
+                self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
                 self::STATUS_ALERT => true,
-                'blocking' => ['ai_rag_feedback_events_table_missing'],
+                self::FIELD_BLOCKING => ['ai_rag_feedback_events_table_missing'],
                 'total_event_count' => 0,
                 'measured_share' => 0.0,
                 'writer_shares' => [],
                 'window' => ['hours' => self::FEEDBACK_WINDOW_HOURS, 'total_event_count' => 0],
-                'generated_at' => now()->toIso8601String(),
+                self::FIELD_GENERATED_AT => now()->toIso8601String(),
             ];
         }
 
@@ -363,8 +388,8 @@ final class AtlasAcosWatchdogHealthService
         $byWriter = [];
         foreach ($events as $event) {
             $writer = AiValueNormalizer::trimmedScalarStringOrNull($event->flow_id ?: null) ?? self::STATUS_UNKNOWN;
-            $byWriter[$writer] ??= ['total' => 0, self::FIELD_MEASURED => 0, 'delivered_refs' => 0];
-            $byWriter[$writer]['total']++;
+            $byWriter[$writer] ??= [self::FIELD_TOTAL => 0, self::FIELD_MEASURED => 0, 'delivered_refs' => 0];
+            $byWriter[$writer][self::FIELD_TOTAL]++;
             $isMeasured = (int) $event->post_execution_utility > 0 || (int) $event->context_sufficiency > 0 || (int) $event->used_sources > 0;
             $hasDelivered = (int) $event->included_sources > 0 || (AiValueNormalizer::trimmedStringOrNull($event->retrieval_receipt_id) ?? '') !== '';
             $payload = AiValueNormalizer::arrayOrEmpty($event->payload);
@@ -378,8 +403,8 @@ final class AtlasAcosWatchdogHealthService
             $byWriter[$writer]['delivered_refs'] += $hasDelivered ? 1 : 0;
         }
         foreach ($byWriter as $writer => $row) {
-            $byWriter[$writer]['measured_share'] = $row['total'] > 0 ? round($row[self::FIELD_MEASURED] / $row['total'], 4) : 0.0;
-            $byWriter[$writer]['delivered_refs_share'] = $row['total'] > 0 ? round($row['delivered_refs'] / $row['total'], 4) : 0.0;
+            $byWriter[$writer]['measured_share'] = $row[self::FIELD_TOTAL] > 0 ? round($row[self::FIELD_MEASURED] / $row[self::FIELD_TOTAL], 4) : 0.0;
+            $byWriter[$writer]['delivered_refs_share'] = $row[self::FIELD_TOTAL] > 0 ? round($row['delivered_refs'] / $row[self::FIELD_TOTAL], 4) : 0.0;
         }
         $syntheticShare = $total > 0 ? round($synthetic / $total, 4) : 0.0;
         $blocking = [];
@@ -394,10 +419,10 @@ final class AtlasAcosWatchdogHealthService
         }
 
         return [
-            'schema_version' => self::CONTEXT_FEEDBACK_SCHEMA,
-            'status' => $blocking === [] ? self::STATUS_HEALTHY : self::STATUS_ALERT,
+            self::FIELD_SCHEMA_VERSION => self::CONTEXT_FEEDBACK_SCHEMA,
+            self::FIELD_STATUS => $blocking === [] ? self::STATUS_HEALTHY : self::STATUS_ALERT,
             self::STATUS_ALERT => $blocking !== [],
-            'blocking' => $blocking,
+            self::FIELD_BLOCKING => $blocking,
             'window' => [
                 'hours' => self::FEEDBACK_WINDOW_HOURS,
                 'total_event_count' => $total,
@@ -412,12 +437,12 @@ final class AtlasAcosWatchdogHealthService
             'measured_share' => $total > 0 ? round($measured / $total, 4) : 0.0,
             'writer_shares' => $byWriter,
             'by_writer' => $byWriter,
-            'thresholds' => [
+            self::FIELD_THRESHOLDS => [
                 'total_event_count_floor' => self::FEEDBACK_TOTAL_EVENT_FLOOR,
                 'measured_count_floor' => self::FEEDBACK_MEASURED_COUNT_FLOOR,
                 'synthetic_share_max' => self::FEEDBACK_SYNTHETIC_SHARE_MAX,
             ],
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
     }
 
@@ -427,12 +452,12 @@ final class AtlasAcosWatchdogHealthService
         $since = CarbonImmutable::now('UTC')->subDays(self::COMPACTION_WINDOW_DAYS);
         if (! DatabaseTableAvailability::has('atlas_long_horizon_compaction_receipts')) {
             return [
-                'schema_version' => self::COMPACTION_SOAK_SCHEMA,
-                'status' => self::STATUS_UNAVAILABLE,
-                'ready_to_enforce' => false,
-                'blocking' => ['compaction_receipts_table_missing'],
+                self::FIELD_SCHEMA_VERSION => self::COMPACTION_SOAK_SCHEMA,
+                self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
+                self::FIELD_READY_TO_ENFORCE => false,
+                self::FIELD_BLOCKING => ['compaction_receipts_table_missing'],
                 'window' => ['days' => self::COMPACTION_WINDOW_DAYS, 'compaction_count' => 0],
-                'generated_at' => now()->toIso8601String(),
+                self::FIELD_GENERATED_AT => now()->toIso8601String(),
             ];
         }
         $receipts = AtlasLongHorizonCompactionReceipt::query()->where('created_at', '>=', $since)->get();
@@ -470,10 +495,10 @@ final class AtlasAcosWatchdogHealthService
         }
 
         return [
-            'schema_version' => self::COMPACTION_SOAK_SCHEMA,
-            'status' => $blocking === [] ? self::STATUS_READY : self::STATUS_NOT_READY,
-            'ready_to_enforce' => $blocking === [],
-            'blocking' => array_values(array_unique($blocking)),
+            self::FIELD_SCHEMA_VERSION => self::COMPACTION_SOAK_SCHEMA,
+            self::FIELD_STATUS => $blocking === [] ? self::STATUS_READY : self::STATUS_NOT_READY,
+            self::FIELD_READY_TO_ENFORCE => $blocking === [],
+            self::FIELD_BLOCKING => array_values(array_unique($blocking)),
             'window' => [
                 'days' => self::COMPACTION_WINDOW_DAYS,
                 'compaction_count' => $receipts->count(),
@@ -482,7 +507,7 @@ final class AtlasAcosWatchdogHealthService
                 'context_retention_score_count' => count($retentionScores),
             ],
             'cross_week_recall_lift_gate' => [
-                'status' => $crossWeek['status'] ?? self::STATUS_UNKNOWN,
+                self::FIELD_STATUS => $crossWeek[self::FIELD_STATUS] ?? self::STATUS_UNKNOWN,
                 self::FIELD_CERTIFIED => (AiValueNormalizer::boolOrNull($crossWeek[self::FIELD_CERTIFIED] ?? null) ?? false),
                 'blockers' => AiValueNormalizer::arrayOrEmpty($crossWeek['blockers'] ?? null),
             ],
@@ -491,13 +516,13 @@ final class AtlasAcosWatchdogHealthService
                 'condition' => '>=1 critical must_keep cut after enforcement flip',
                 'rollback_env' => 'ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE=observe',
             ],
-            'thresholds' => [
+            self::FIELD_THRESHOLDS => [
                 'window_days' => self::COMPACTION_WINDOW_DAYS,
                 'min_compactions' => self::COMPACTION_MIN_RECEIPTS,
                 'critical_must_keep_cuts' => 0,
                 'min_context_retention_score' => self::COMPACTION_MIN_RETENTION_SCORE,
             ],
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
     }
 
@@ -515,14 +540,14 @@ final class AtlasAcosWatchdogHealthService
             $blocking[] = 'pipeline_partials_present';
         }
         $payload = [
-            'schema_version' => self::PIPELINE_SCORECARD_STABILITY_SCHEMA,
-            'status' => $blocking === [] ? self::STATUS_OK : self::STATUS_ALERT,
-            'blocking' => $blocking,
+            self::FIELD_SCHEMA_VERSION => self::PIPELINE_SCORECARD_STABILITY_SCHEMA,
+            self::FIELD_STATUS => $blocking === [] ? self::STATUS_OK : self::STATUS_ALERT,
+            self::FIELD_BLOCKING => $blocking,
             'scorecard_hash' => $scorecard['scorecard_hash'] ?? null,
             'pipeline_score_out_of_10' => $pipeline,
             'partial_count' => count($partials),
             'partial_acronyms' => array_values(array_map(static fn (array $row): string => (AiValueNormalizer::trimmedStringOrNull($row['acronym'] ?? null) ?? ''), array_slice($partials, 0, 10))),
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
         $this->recordLedger($blocking === [] ? LedgerEventType::OperationCompleted : LedgerEventType::OperationBlocked, $payload, 'pip-08.scorecard_stability');
 
@@ -534,7 +559,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $report = app(AtlasLearningRecallUseLiftService::class)->report();
         $blockers = array_values(AiValueNormalizer::arrayOrEmpty(data_get($report, 'measurement.blockers', [])));
-        $status = (AiValueNormalizer::trimmedStringOrNull($report['status'] ?? null) ?? self::STATUS_UNKNOWN);
+        $status = (AiValueNormalizer::trimmedStringOrNull($report[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN);
         $series = $this->blockerSeries('ope-08.lift_cycle_closure', $blockers);
         $stalled = array_values(array_filter($series, static fn (array $row): bool => (int) (AiValueNormalizer::finiteFloatOrNull($row['days_in_block'] ?? null) ?? 0) > self::LIFT_STALLED_DAYS));
         $blocking = $blockers;
@@ -542,20 +567,20 @@ final class AtlasAcosWatchdogHealthService
             $blocking[] = 'lift_blocker_stalled';
         }
         $payload = [
-            'schema_version' => self::OPE_LIFT_CYCLE_CLOSURE_SCHEMA,
-            'status' => $blocking === [] && (AiValueNormalizer::boolOrNull(data_get($report, 'measurement.measurement_ready', false)) ?? false) ? self::STATUS_OK : self::STATUS_ALERT,
+            self::FIELD_SCHEMA_VERSION => self::OPE_LIFT_CYCLE_CLOSURE_SCHEMA,
+            self::FIELD_STATUS => $blocking === [] && (AiValueNormalizer::boolOrNull(data_get($report, 'measurement.measurement_ready', false)) ?? false) ? self::STATUS_OK : self::STATUS_ALERT,
             'lift_status' => $status,
-            'blocking' => array_values(array_unique($blocking)),
+            self::FIELD_BLOCKING => array_values(array_unique($blocking)),
             'case_counts' => [
                 'with_recalled_memory' => (int) (AiValueNormalizer::finiteFloatOrNull(data_get($report, 'measurement.with_recalled_memory.case_count', 0)) ?? 0),
                 'without_recalled_memory' => (int) (AiValueNormalizer::finiteFloatOrNull(data_get($report, 'measurement.without_recalled_memory.case_count', 0)) ?? 0),
             ],
             'blocker_series' => $series,
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
         $this->recordLedger($blocking === [] ? LedgerEventType::OperationCompleted : LedgerEventType::OperationBlocked, [
             'blockers' => $blockers,
-            'status' => $status,
+            self::FIELD_STATUS => $status,
             'case_counts' => $payload['case_counts'],
             'blocker_series' => $series,
         ], 'ope-08.lift_cycle_closure');
@@ -594,14 +619,14 @@ final class AtlasAcosWatchdogHealthService
         }
 
         return [
-            'schema_version' => self::OPE_SCORECARD_RECEIPTS_DIAGNOSIS_SCHEMA,
-            'status' => $blocking === [] ? self::STATUS_OK : self::STATUS_ALERT,
-            'blocking' => $blocking,
+            self::FIELD_SCHEMA_VERSION => self::OPE_SCORECARD_RECEIPTS_DIAGNOSIS_SCHEMA,
+            self::FIELD_STATUS => $blocking === [] ? self::STATUS_OK : self::STATUS_ALERT,
+            self::FIELD_BLOCKING => $blocking,
             'partial_count' => count($partials),
             'stale_partial_count' => count($stale),
             'diagnoses' => $partials,
-            'thresholds' => ['partial_stale_days' => self::PIPELINE_PARTIAL_STALE_DAYS],
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_THRESHOLDS => ['partial_stale_days' => self::PIPELINE_PARTIAL_STALE_DAYS],
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
     }
 
@@ -623,7 +648,7 @@ final class AtlasAcosWatchdogHealthService
                 self::STATUS_READY => count(array_filter($governanceByExecutor, static fn (int $count): bool => $count >= self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR)) >= 3
                     && $bypassRate === 0.0
                     && (int) (AiValueNormalizer::finiteFloatOrNull($summary['false_positive_total'] ?? null) ?? 0) === 0,
-                'blocking' => array_values(array_filter([
+                self::FIELD_BLOCKING => array_values(array_filter([
                     count(array_filter($governanceByExecutor, static fn (int $count): bool => $count >= self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR)) >= 3 ? null : 'governance_soak_volume_below_floor',
                     $bypassRate === 0.0 ? null : 'governance_bypass_rate_nonzero',
                     (int) (AiValueNormalizer::finiteFloatOrNull($summary['false_positive_total'] ?? null) ?? 0) === 0 ? null : 'governance_false_positive_nonzero',
@@ -638,48 +663,48 @@ final class AtlasAcosWatchdogHealthService
             ],
             'forge_gate_enforce' => [
                 self::STATUS_READY => $forgePromoted >= self::ENG_MIN_FORGE_PROMOTED_CYCLES,
-                'blocking' => $forgePromoted >= self::ENG_MIN_FORGE_PROMOTED_CYCLES ? [] : ['forge_promoted_cycle_volume_below_floor'],
+                self::FIELD_BLOCKING => $forgePromoted >= self::ENG_MIN_FORGE_PROMOTED_CYCLES ? [] : ['forge_promoted_cycle_volume_below_floor'],
                 'raw' => ['promoted_harness_captured_cycles' => $forgePromoted],
             ],
             'adml_cost_outcome' => [
                 self::STATUS_READY => count($admlRoutes) >= self::ENG_MIN_ADML_PROVEN_ROUTES,
-                'blocking' => count($admlRoutes) >= self::ENG_MIN_ADML_PROVEN_ROUTES ? [] : ['adml_proven_route_volume_below_floor'],
+                self::FIELD_BLOCKING => count($admlRoutes) >= self::ENG_MIN_ADML_PROVEN_ROUTES ? [] : ['adml_proven_route_volume_below_floor'],
                 'raw' => ['ready_routes' => count($admlRoutes), 'routes' => $admlRoutes],
             ],
         ];
         $blocking = [];
         foreach ($flips as $flip) {
-            $blocking = array_merge($blocking, AiValueNormalizer::arrayOrEmpty($flip['blocking'] ?? null));
+            $blocking = array_merge($blocking, AiValueNormalizer::arrayOrEmpty($flip[self::FIELD_BLOCKING] ?? null));
         }
 
         return [
-            'schema_version' => self::ENGINEERING_READINESS_SCHEMA,
-            'status' => $blocking === [] ? self::STATUS_READY : self::STATUS_NOT_READY,
-            'ready_to_enforce' => $blocking === [],
-            'blocking' => array_values(array_unique($blocking)),
+            self::FIELD_SCHEMA_VERSION => self::ENGINEERING_READINESS_SCHEMA,
+            self::FIELD_STATUS => $blocking === [] ? self::STATUS_READY : self::STATUS_NOT_READY,
+            self::FIELD_READY_TO_ENFORCE => $blocking === [],
+            self::FIELD_BLOCKING => array_values(array_unique($blocking)),
             'flips' => $flips,
             'sources' => [
                 'provider_governance_coverage_ledger' => $this->relativePath($coverage->logPath()),
                 'live_outcomes_jsonl' => $this->relativePath($live->logPath()),
                 'forge_sovereign_verdict_jsonl' => $this->relativePath($this->forgeSovereignVerdictPath()),
             ],
-            'thresholds' => [
+            self::FIELD_THRESHOLDS => [
                 'window_days' => self::ENG_WINDOW_DAYS,
                 'real_executions_per_executor' => self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR,
                 'forge_promoted_cycles' => self::ENG_MIN_FORGE_PROMOTED_CYCLES,
                 'adml_proven_routes' => self::ENG_MIN_ADML_PROVEN_ROUTES,
             ],
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
     }
 
     /** @param array<string,mixed> $report */
     public function toCheckResult(array $report, string $alertCode, string $message): AtlasWatchdogCheckResult
     {
-        $status = (AiValueNormalizer::trimmedStringOrNull($report['status'] ?? null) ?? '');
+        $status = (AiValueNormalizer::trimmedStringOrNull($report[self::FIELD_STATUS] ?? null) ?? '');
         $alert = (AiValueNormalizer::boolOrNull($report[self::STATUS_ALERT] ?? null) ?? false)
             || in_array($status, [self::STATUS_ALERT, self::STATUS_NOT_READY, self::STATUS_UNAVAILABLE], true)
-            || (isset($report['ready_to_enforce']) && $report['ready_to_enforce'] === false);
+            || (isset($report[self::FIELD_READY_TO_ENFORCE]) && $report[self::FIELD_READY_TO_ENFORCE] === false);
 
         if (! $alert) {
             return AtlasWatchdogCheckResult::ok($report);
@@ -688,7 +713,7 @@ final class AtlasAcosWatchdogHealthService
         return AtlasWatchdogCheckResult::alert(
             evidence: $report,
             alert: [
-                'code' => $alertCode,
+                self::FIELD_CODE => $alertCode,
                 'message' => $message,
             ],
         );
@@ -704,17 +729,17 @@ final class AtlasAcosWatchdogHealthService
         $failed = array_values(array_filter($checks, static fn (array $check): bool => ! (AiValueNormalizer::boolOrNull($check[self::FIELD_PASS] ?? null) ?? false)));
 
         return [
-            'schema_version' => $schema,
-            'status' => $failed === [] ? self::STATUS_OK : self::STATUS_ALERT,
+            self::FIELD_SCHEMA_VERSION => $schema,
+            self::FIELD_STATUS => $failed === [] ? self::STATUS_OK : self::STATUS_ALERT,
             self::STATUS_ALERT => $failed !== [],
-            'checks' => $checks,
-            'blocking' => array_values(array_map(static fn (array $check): string => AiValueNormalizer::trimmedScalarStringOrNull($check['code'] ?? null) ?? '', $failed)),
+            self::FIELD_CHECKS => $checks,
+            self::FIELD_BLOCKING => array_values(array_map(static fn (array $check): string => AiValueNormalizer::trimmedScalarStringOrNull($check[self::FIELD_CODE] ?? null) ?? '', $failed)),
             'alert_detail' => $failed === [] ? null : [
-                'code' => $alertCode,
+                self::FIELD_CODE => $alertCode,
                 'check_id' => AiValueNormalizer::trimmedScalarStringOrNull($failed[0]['id'] ?? null) ?? '',
             ],
             ...$extra,
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
     }
 
@@ -724,7 +749,7 @@ final class AtlasAcosWatchdogHealthService
         return [
             'id' => $id,
             self::FIELD_PASS => $pass,
-            'code' => $code !== '' ? $code : ($pass ? self::STATUS_OK : $id.'_failed'),
+            self::FIELD_CODE => $code !== '' ? $code : ($pass ? self::STATUS_OK : $id.'_failed'),
             'raw' => $raw,
         ];
     }

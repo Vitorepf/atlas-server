@@ -5369,6 +5369,37 @@ final class AtlasUniversalGatesEvaluator
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
+
+    /**
+     * Observe-only residual floors for watchdog health / immune signature / RAGX field contracts.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function watchdogImmuneRagxFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'watchdog_field_status' => AtlasAcosWatchdogHealthService::FIELD_STATUS,
+            'watchdog_field_blocking' => AtlasAcosWatchdogHealthService::FIELD_BLOCKING,
+            'watchdog_field_schema_version' => AtlasAcosWatchdogHealthService::FIELD_SCHEMA_VERSION,
+            'watchdog_field_generated_at' => AtlasAcosWatchdogHealthService::FIELD_GENERATED_AT,
+            'watchdog_field_thresholds' => AtlasAcosWatchdogHealthService::FIELD_THRESHOLDS,
+            'watchdog_status_ok' => AtlasAcosWatchdogHealthService::STATUS_OK,
+            'immune_field_status' => ImmuneSignatureStore::FIELD_STATUS,
+            'immune_field_signature' => ImmuneSignatureStore::FIELD_SIGNATURE,
+            'immune_field_hostile_class' => ImmuneSignatureStore::FIELD_HOSTILE_CLASS,
+            'immune_field_hit_count' => ImmuneSignatureStore::FIELD_HIT_COUNT,
+            'immune_status_active' => ImmuneSignatureStore::STATUS_ACTIVE,
+            'immune_schema_version' => ImmuneSignatureStore::SCHEMA_VERSION,
+            'ragx_field_status' => RagxChainMechanismService::FIELD_STATUS,
+            'ragx_field_slice' => RagxChainMechanismService::FIELD_SLICE,
+            'ragx_field_ab_green_claimed' => RagxChainMechanismService::FIELD_AB_GREEN_CLAIMED,
+            'ragx_field_schema_version' => RagxChainMechanismService::FIELD_SCHEMA_VERSION,
+            'ragx_schema' => RagxChainMechanismService::SCHEMA,
+            'watchdog_immune_ragx_floor_count' => 17,
+        ];
+    }
+
     public function qualityVetoEvolutionFloorsContractObserve(array $input = []): array
     {
         return [

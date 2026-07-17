@@ -19,6 +19,23 @@ final class RagxChainMechanismService
 {
     public const SCHEMA = 'atlas.acos_max.ragx_chain_mechanisms.v1';
 
+
+    public const FIELD_STATUS = 'status';
+
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+
+    public const FIELD_SLICE = 'slice';
+
+    public const FIELD_AB_GREEN_CLAIMED = 'ab_green_claimed';
+
+    public const FIELD_DOCUMENTS = 'documents';
+
+    public const FIELD_MECHANISMS = 'mechanisms';
+
+    public const FIELD_FLAGS = 'flags';
+
+    public const FIELD_REGISTERED = 'registered';
+
     public const AB_SCHEMA = 'atlas.acos_max.ragx_ab_registration.v1';
 
     public const RAPTOR_SCHEMA = 'atlas.acos_max.ragx10_raptor_lite.v1';
@@ -182,9 +199,9 @@ final class RagxChainMechanismService
         $anyEnabled = collect($stages)->contains(static fn (array $stage): bool => (AiValueNormalizer::boolOrNull($stage[self::FIELD_ENABLED] ?? null) ?? false));
 
         return [
-            'schema_version' => self::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             'mode' => $anyEnabled ? self::MODE_SHADOW : self::MODE_DEFAULT_OFF,
-            'ab_green_claimed' => false,
+            self::FIELD_AB_GREEN_CLAIMED => false,
             'stages' => $stages,
         ];
     }
@@ -195,19 +212,19 @@ final class RagxChainMechanismService
     public function lateChunkIndexShadow(string $query, int $limit = 5, bool $allowExternalProvider = false): array
     {
         if (! $this->flag(self::FLAG_LATE_CHUNK_INDEX)) {
-            return $this->disabled(self::STAGE_RAGX_01, self::FLAG_LATE_CHUNK_INDEX) + ['documents' => []];
+            return $this->disabled(self::STAGE_RAGX_01, self::FLAG_LATE_CHUNK_INDEX) + [self::FIELD_DOCUMENTS => []];
         }
 
         if (! $this->flag(self::FLAG_LATE_CHUNK_MAXA04_PROMOTED)) {
             return [
-                'schema_version' => self::SCHEMA,
-                'slice' => self::STAGE_RAGX_01,
-                'status' => self::STATUS_BLOCKED,
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA,
+                self::FIELD_SLICE => self::STAGE_RAGX_01,
+                self::FIELD_STATUS => self::STATUS_BLOCKED,
                 'mode' => self::MODE_SHADOW,
                 'blocked_by' => [self::BLOCKER_MAXA04],
                 self::FIELD_PENDING_WINDOW => [self::PENDING_JINA_V3_DUAL_READ],
-                'documents' => [],
-                'ab_green_claimed' => false,
+                self::FIELD_DOCUMENTS => [],
+                self::FIELD_AB_GREEN_CLAIMED => false,
             ];
         }
 
@@ -216,24 +233,24 @@ final class RagxChainMechanismService
             $result = $index->search($query, $limit, $allowExternalProvider);
         } catch (Throwable $e) {
             return [
-                'schema_version' => self::SCHEMA,
-                'slice' => self::STAGE_RAGX_01,
-                'status' => self::STATUS_DEGRADED,
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA,
+                self::FIELD_SLICE => self::STAGE_RAGX_01,
+                self::FIELD_STATUS => self::STATUS_DEGRADED,
                 'reason' => self::REASON_LATE_CHUNK_INDEX_ERROR,
                 'error_class' => $e::class,
-                'documents' => [],
-                'ab_green_claimed' => false,
+                self::FIELD_DOCUMENTS => [],
+                self::FIELD_AB_GREEN_CLAIMED => false,
             ];
         }
 
         return [
-            'schema_version' => self::SCHEMA,
-            'slice' => self::STAGE_RAGX_01,
-            'status' => AiValueNormalizer::trimmedStringOrNull($result['status'] ?? null) ?? self::STATUS_UNKNOWN,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
+            self::FIELD_SLICE => self::STAGE_RAGX_01,
+            self::FIELD_STATUS => AiValueNormalizer::trimmedStringOrNull($result[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN,
             'mode' => self::MODE_SHADOW,
             'result' => $result,
-            'documents' => array_values(AiValueNormalizer::arrayOrEmpty($result['documents'] ?? null)),
-            'ab_green_claimed' => false,
+            self::FIELD_DOCUMENTS => array_values(AiValueNormalizer::arrayOrEmpty($result[self::FIELD_DOCUMENTS] ?? null)),
+            self::FIELD_AB_GREEN_CLAIMED => false,
         ];
     }
 
@@ -244,15 +261,15 @@ final class RagxChainMechanismService
     public function registerAb(array $experiment): array
     {
         $record = [
-            'schema_version' => self::AB_SCHEMA,
-            'status' => self::STATUS_REGISTERED,
+            self::FIELD_SCHEMA_VERSION => self::AB_SCHEMA,
+            self::FIELD_STATUS => self::STATUS_REGISTERED,
             'recorded_at' => Carbon::now()->toISOString(),
             'experiment_id' => AiValueNormalizer::trimmedStringOrNull($experiment['experiment_id'] ?? null) ?? hash('sha256', json_encode($experiment, JSON_THROW_ON_ERROR)),
-            'slice' => AiValueNormalizer::trimmedStringOrNull($experiment['slice']  ?? null) ?? 'RAGX',
+            self::FIELD_SLICE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_SLICE]  ?? null) ?? 'RAGX',
             'baseline' => AiValueNormalizer::trimmedStringOrNull($experiment['baseline']  ?? null) ?? self::STATUS_UNKNOWN,
             'candidate' => AiValueNormalizer::trimmedStringOrNull($experiment['candidate']  ?? null) ?? self::STATUS_UNKNOWN,
             'result' => null,
-            'ab_green_claimed' => false,
+            self::FIELD_AB_GREEN_CLAIMED => false,
             self::FIELD_PENDING_WINDOW => [self::PENDING_GOLDEN_V2_OR_LIVE],
         ];
 
@@ -278,9 +295,9 @@ final class RagxChainMechanismService
 
         if (! $this->flag(self::FLAG_MAXA06_FASE2_BACKFILLED)) {
             return [
-                'schema_version' => self::LOUVAIN_SCHEMA,
-                'slice' => self::STAGE_MAXD_05,
-                'status' => self::STATUS_BLOCKED,
+                self::FIELD_SCHEMA_VERSION => self::LOUVAIN_SCHEMA,
+                self::FIELD_SLICE => self::STAGE_MAXD_05,
+                self::FIELD_STATUS => self::STATUS_BLOCKED,
                 'blocked_by' => [self::BLOCKER_MAXA06_FASE2],
                 self::FIELD_PENDING_WINDOW => [self::PENDING_MAXA06_FASE2_BACKFILL],
                 'communities' => [],
@@ -290,9 +307,9 @@ final class RagxChainMechanismService
         $nodes = $this->chunkIds($chunks);
         if ($nodes === []) {
             return [
-                'schema_version' => self::LOUVAIN_SCHEMA,
-                'slice' => self::STAGE_MAXD_05,
-                'status' => self::STATUS_EMPTY,
+                self::FIELD_SCHEMA_VERSION => self::LOUVAIN_SCHEMA,
+                self::FIELD_SLICE => self::STAGE_MAXD_05,
+                self::FIELD_STATUS => self::STATUS_EMPTY,
                 'algorithm' => 'louvain_deterministic_local',
                 'communities' => [],
             ];
@@ -302,14 +319,14 @@ final class RagxChainMechanismService
         $communities = $this->greedyLouvainCommunities($nodes, $adjacency);
 
         return [
-            'schema_version' => self::LOUVAIN_SCHEMA,
-            'slice' => self::STAGE_MAXD_05,
-            'status' => self::STATUS_OK,
+            self::FIELD_SCHEMA_VERSION => self::LOUVAIN_SCHEMA,
+            self::FIELD_SLICE => self::STAGE_MAXD_05,
+            self::FIELD_STATUS => self::STATUS_OK,
             'algorithm' => 'louvain_deterministic_local',
             'node_count' => count($nodes),
             'edge_count' => count($edges),
             'communities' => $communities,
-            'ab_green_claimed' => false,
+            self::FIELD_AB_GREEN_CLAIMED => false,
         ];
     }
 
@@ -328,9 +345,9 @@ final class RagxChainMechanismService
         $blockers = $this->raptorBlockers($deps);
         if ($blockers !== []) {
             return [
-                'schema_version' => self::RAPTOR_SCHEMA,
-                'slice' => self::STAGE_RAGX_10,
-                'status' => self::STATUS_BLOCKED,
+                self::FIELD_SCHEMA_VERSION => self::RAPTOR_SCHEMA,
+                self::FIELD_SLICE => self::STAGE_RAGX_10,
+                self::FIELD_STATUS => self::STATUS_BLOCKED,
                 'blocked_by' => $blockers,
                 self::FIELD_PENDING_WINDOW => [self::PENDING_RAPTOR_LITE_SUMMARY],
                 'nodes' => [],
@@ -340,19 +357,19 @@ final class RagxChainMechanismService
 
         $verified = array_values(array_filter($verifiedSummaries, static function (array $summary): bool {
             return (AiValueNormalizer::trimmedStringOrNull($summary['summary'] ?? null) ?? '') !== ''
-                && in_array(AiValueNormalizer::trimmedStringOrNull($summary['status'] ?? null) ?? self::STATUS_VERIFIED, [self::STATUS_VERIFIED, self::STATUS_OK], true);
+                && in_array(AiValueNormalizer::trimmedStringOrNull($summary[self::FIELD_STATUS] ?? null) ?? self::STATUS_VERIFIED, [self::STATUS_VERIFIED, self::STATUS_OK], true);
         }));
 
         if ($verified === []) {
             return [
-                'schema_version' => self::RAPTOR_SCHEMA,
-                'slice' => self::STAGE_RAGX_10,
-                'status' => self::STATUS_INSUFFICIENT_SIGNAL,
+                self::FIELD_SCHEMA_VERSION => self::RAPTOR_SCHEMA,
+                self::FIELD_SLICE => self::STAGE_RAGX_10,
+                self::FIELD_STATUS => self::STATUS_INSUFFICIENT_SIGNAL,
                 'reason' => self::REASON_NO_VERIFIED_MAXF09_L2_SUMMARIES,
                 'communities_seen' => count($communities),
                 'nodes' => [],
                 'generated_summary' => false,
-                'ab_green_claimed' => false,
+                self::FIELD_AB_GREEN_CLAIMED => false,
             ];
         }
 
@@ -367,12 +384,12 @@ final class RagxChainMechanismService
         }
 
         return [
-            'schema_version' => self::RAPTOR_SCHEMA,
-            'slice' => self::STAGE_RAGX_10,
-            'status' => self::STATUS_OK,
+            self::FIELD_SCHEMA_VERSION => self::RAPTOR_SCHEMA,
+            self::FIELD_SLICE => self::STAGE_RAGX_10,
+            self::FIELD_STATUS => self::STATUS_OK,
             'nodes' => $nodes,
             'generated_summary' => false,
-            'ab_green_claimed' => false,
+            self::FIELD_AB_GREEN_CLAIMED => false,
         ];
     }
 
@@ -405,11 +422,11 @@ final class RagxChainMechanismService
         usort($matches, static fn (array $a, array $b): int => $b['score'] <=> $a['score'] ?: strcmp($a['id'], $b['id']));
 
         return [
-            'schema_version' => self::SCHEMA,
-            'slice' => self::STAGE_RAGX_05,
-            'status' => self::STATUS_SHADOW,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
+            self::FIELD_SLICE => self::STAGE_RAGX_05,
+            self::FIELD_STATUS => self::STATUS_SHADOW,
             'matches' => array_slice($matches, 0, max(1, $limit)),
-            'ab_green_claimed' => false,
+            self::FIELD_AB_GREEN_CLAIMED => false,
         ];
     }
 
@@ -434,12 +451,12 @@ final class RagxChainMechanismService
         }
 
         return [
-            'schema_version' => self::SCHEMA,
-            'slice' => self::STAGE_RAGX_11,
-            'status' => self::STATUS_SHADOW,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
+            self::FIELD_SLICE => self::STAGE_RAGX_11,
+            self::FIELD_STATUS => self::STATUS_SHADOW,
             'k' => $k,
             'score_count' => count($scores),
-            'ab_green_claimed' => false,
+            self::FIELD_AB_GREEN_CLAIMED => false,
         ];
     }
 
@@ -456,10 +473,10 @@ final class RagxChainMechanismService
             'mechanism' => $mechanism,
             'flag' => $flag,
             self::FIELD_ENABLED => $enabled,
-            'status' => ! $enabled ? self::STATUS_DISABLED : ($blockedBy === [] ? self::STATUS_SHADOW : self::STATUS_BLOCKED),
+            self::FIELD_STATUS => ! $enabled ? self::STATUS_DISABLED : ($blockedBy === [] ? self::STATUS_SHADOW : self::STATUS_BLOCKED),
             'blocked_by' => $blockedBy,
             self::FIELD_PENDING_WINDOW => $pendingWindow,
-            'ab_green_claimed' => false,
+            self::FIELD_AB_GREEN_CLAIMED => false,
         ];
     }
 
@@ -467,11 +484,11 @@ final class RagxChainMechanismService
     private function disabled(string $slice, string $flag): array
     {
         return [
-            'schema_version' => self::SCHEMA,
-            'slice' => $slice,
-            'status' => self::STATUS_DISABLED,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
+            self::FIELD_SLICE => $slice,
+            self::FIELD_STATUS => self::STATUS_DISABLED,
             'flag' => $flag,
-            'ab_green_claimed' => false,
+            self::FIELD_AB_GREEN_CLAIMED => false,
         ];
     }
 
