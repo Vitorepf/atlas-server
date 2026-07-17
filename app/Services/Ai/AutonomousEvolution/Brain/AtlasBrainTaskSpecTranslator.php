@@ -6,6 +6,8 @@ namespace App\Services\Ai\AutonomousEvolution\Brain;
 
 use App\Console\Commands\AtlasTaskSeedGovLanesCommand;
 use App\Services\Ai\AutonomousEvolution\AtlasLoopOriginationPipeline;
+use App\Services\Ai\Governance\Recursion\HypothesisV1;
+use App\Services\Ai\SelfConstruction\Governance\AtlasAaeosAcosLaneScope;
 
 /**
  * Translates the output of {@see AtlasLoopOriginationPipeline::produce()}
@@ -72,11 +74,13 @@ final class AtlasBrainTaskSpecTranslator
         $allowedFilesList = array_values(array_unique(array_keys($allowedFiles)));
         sort($allowedFilesList, SORT_STRING);
         $modifiesExisting = $this->hasExistingAllowedFile($allowedFilesList);
+        $laneScope = AtlasAaeosAcosLaneScope::inferFromAllowedFiles($allowedFilesList);
+        $structural = $this->looksStructural($objective, $allowedFilesList);
 
         // Deterministic task_packet_id = sha1(objective . '|' . snapshotId).
         $taskPacketId = 'brain:'.sha1($objective.'|'.$snapshotId);
 
-        return [
+        $spec = [
             'task_packet_id' => $taskPacketId,
             'objective' => $objective,
             'allowed_files' => $allowedFilesList,
@@ -96,6 +100,60 @@ final class AtlasBrainTaskSpecTranslator
             'existing_file_delta' => $modifiesExisting
                 ? 'Existing target receives the concrete behavior delta described by the objective and test gate.'
                 : '',
+        ];
+
+        // AAEOS+ACOS elite lane: structural seeds must carry ELEV-31 alternatives at seed time.
+        if ($laneScope === AtlasAaeosAcosLaneScope::SLUG && $structural) {
+            $spec['brain_scope'] = AtlasAaeosAcosLaneScope::SLUG;
+            $spec['objective_kind'] = 'structural';
+            $spec['alternatives_compared'] = $this->elev31Alternatives($objective, $targetPath);
+        }
+
+        return $spec;
+    }
+
+    /**
+     * @param  list<string>  $allowedFiles
+     */
+    private function looksStructural(string $objective, array $allowedFiles): bool
+    {
+        $production = 0;
+        foreach ($allowedFiles as $path) {
+            $path = str_replace('\\', '/', trim($path));
+            if ($path === '' || str_starts_with($path, 'tests/') || str_contains($path, '/tests/') || str_ends_with($path, 'Test.php')) {
+                continue;
+            }
+            $production++;
+        }
+        if ($production >= 3) {
+            return true;
+        }
+
+        $hay = strtolower($objective);
+        foreach ([
+            'collapse', 'duplicate', 'remove a layer', 'remove layer', 'consolidate',
+            'simplify', 'defator', 'facade', 'dead layer', 'peel',
+        ] as $needle) {
+            if (str_contains($hay, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return array<string,string>
+     */
+    private function elev31Alternatives(string $objective, string $targetPath): array
+    {
+        $target = $targetPath !== '' ? $targetPath : 'the AAEOS/ACOS target';
+        $snippet = mb_substr(trim($objective), 0, 120);
+
+        return [
+            HypothesisV1::REQUIRED_ALTERNATIVES[0] => 'Do nothing leaves '.$target.' with the same structural drag; gap stays open ('.$snippet.').',
+            HypothesisV1::REQUIRED_ALTERNATIVES[1] => 'Simplify existing at '.$target.' with a measured shrink before inventing a new layer.',
+            HypothesisV1::REQUIRED_ALTERNATIVES[2] => 'Remove one dead/duplicate layer touching '.$target.' only when SafeDeletionPlanner + consumers clear.',
         ];
     }
 

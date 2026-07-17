@@ -401,6 +401,8 @@ final class AtlasBrainNextCommand extends Command
      */
     private function inspectorShape(array $spec): array
     {
+        $scope = trim((string) ($spec['brain_scope'] ?? $spec['lane_scope'] ?? $spec['scope'] ?? $this->argument('scope') ?? ''));
+
         return [
             'objective' => (string) ($spec['objective'] ?? ''),
             'allowed_files' => array_values((array) ($spec['allowed_files'] ?? [])),
@@ -415,6 +417,9 @@ final class AtlasBrainNextCommand extends Command
             'anti_proxy' => (string) ($spec['anti_proxy'] ?? ''),
             'modifies_existing_files' => (bool) ($spec['modifies_existing_files'] ?? false),
             'existing_file_delta' => (string) ($spec['existing_file_delta'] ?? ''),
+            'brain_scope' => $scope,
+            'objective_kind' => (string) ($spec['objective_kind'] ?? ''),
+            'alternatives_compared' => (array) ($spec['alternatives_compared'] ?? []),
         ];
     }
 

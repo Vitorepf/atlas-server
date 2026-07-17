@@ -88,7 +88,7 @@ Não é o Loop/ACDE morto. Não declara soberania zero-operador.
 1. Impacto real em órgão AAEOS ou área ACOS (anti-Goodhart).
 2. Shrink provado (`AtlasRefactorDeltaProver`) — move-only / wrapper-only recusados em enforce.
 3. Consumers intactos (`ConsumerImpactAnalyzer` / SafeDeletionPlanner).
-4. ELEV-31: comparar `{não fazer nada, simplificar, remover uma camada}`.
+4. ELEV-31: comparar `{não fazer nada, simplificar, remover uma camada}` — **seed bloqueia** evolução estrutural em `aaeos_acos` sem `alternatives_compared` (`AtlasBrainSeedQualityGate`).
 5. Confiabilidade sobe ou fica (testes pareados).
 
 **KPIs proibidos:** LOC bruto, task volume, queue depth cosmética, green self-report.

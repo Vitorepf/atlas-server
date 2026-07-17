@@ -199,6 +199,59 @@ final class AtlasBrainSeedQualityGateTest extends TestCase
         self::assertTrue($result['credit']['credited']);
     }
 
+    public function test_aaeos_acos_structural_seed_requires_elev31_alternatives(): void
+    {
+        $packet = $this->cleanPacket();
+        $packet['brain_scope'] = 'aaeos_acos';
+        $packet['objective_kind'] = 'structural';
+        $packet['objective'] = 'Collapse duplicate facade layers in App\\Services\\Ai\\Aaeos\\FooRuntime into one proven organ.';
+        $packet['allowed_files'] = [
+            'app/Services/Ai/Aaeos/FooRuntime.php',
+            'app/Services/Ai/Aaeos/FooFacade.php',
+            'app/Services/Ai/Aaeos/FooDuplicate.php',
+            'tests/Unit/Ai/Aaeos/FooRuntimeTest.php',
+        ];
+        $packet['scope_in'] = $packet['allowed_files'];
+        $packet['modifies_existing_files'] = true;
+        $packet['existing_file_delta'] = 'Collapses duplicate facades with measured shrink and intact consumers.';
+        $packet['problem'] = 'AAEOS FooRuntime carries duplicate facade layers that raise maintenance cost.';
+        $packet['expected_delta'] = 'One facade remains; duplicate layer removed with SafeDeletionPlanner proof.';
+        $packet['value'] = 'Elite simplify proof for AAEOS reliability without proxy faxina.';
+        $packet['duplicate_key'] = 'aaeos-foo|duplicate-facade|elev31-structural';
+        $packet['freshness_check'] = 'Re-check FooDuplicate still exists and has live consumers before delete.';
+        $packet['anti_proxy'] = 'No class_exists-only, wrapper-only, formatting-only, or snapshot-empty solution counts.';
+        unset($packet['alternatives_compared']);
+
+        $blocked = (new AtlasBrainSeedQualityGate)->evaluate($packet);
+        self::assertFalse($blocked['admit']);
+        self::assertContains('missing_elev31_alternatives_compared', $blocked['blocking']);
+
+        $packet['alternatives_compared'] = [
+            'do_nothing' => 'Leaving duplicate facades keeps the same drag on FooRuntime.',
+            'simplify_existing' => 'Simplify FooRuntime in place before inventing another wrapper.',
+            'remove_a_layer' => 'Remove FooDuplicate only when SafeDeletionPlanner and consumers clear.',
+        ];
+
+        $admitted = (new AtlasBrainSeedQualityGate)->evaluate($packet);
+        self::assertTrue($admitted['admit'], implode(',', $admitted['blocking']));
+        self::assertSame([], $admitted['blocking']);
+    }
+
+    public function test_non_lane_structural_packet_does_not_require_elev31(): void
+    {
+        $packet = $this->cleanPacket();
+        $packet['objective'] = 'Collapse duplicate helper methods in App\\Services\\Ai\\Foo\\FooHelper.';
+        $packet['allowed_files'] = ['app/Services/Ai/Foo/FooHelper.php'];
+        $packet['scope_in'] = $packet['allowed_files'];
+        $packet['modifies_existing_files'] = true;
+        $packet['existing_file_delta'] = 'Collapses duplicate helpers with a behavior-preserving proof.';
+
+        $result = (new AtlasBrainSeedQualityGate)->evaluate($packet);
+
+        self::assertTrue($result['admit']);
+        self::assertNotContains('missing_elev31_alternatives_compared', $result['blocking']);
+    }
+
     public function test_fatal_advisory_constant_is_the_three_promoted_flags(): void
     {
         self::assertSame(

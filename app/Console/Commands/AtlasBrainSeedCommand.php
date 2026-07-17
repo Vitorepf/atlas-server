@@ -362,6 +362,8 @@ final class AtlasBrainSeedCommand extends Command
      */
     private function inspectorShape(array $spec): array
     {
+        $scope = trim((string) ($spec['brain_scope'] ?? $spec['lane_scope'] ?? $spec['scope'] ?? $this->option('scope') ?? ''));
+
         return [
             'objective' => (string) ($spec['objective'] ?? ''),
             'allowed_files' => array_values(array_map('strval', (array) ($spec['allowed_files'] ?? []))),
@@ -377,6 +379,9 @@ final class AtlasBrainSeedCommand extends Command
             'test_only_contract' => (array) ($spec['test_only_contract'] ?? data_get($spec, 'credit.test_only_contract', [])),
             'modifies_existing_files' => (bool) ($spec['modifies_existing_files'] ?? false),
             'existing_file_delta' => (string) ($spec['existing_file_delta'] ?? ''),
+            'brain_scope' => $scope,
+            'objective_kind' => (string) ($spec['objective_kind'] ?? data_get($spec, 'credit.objective_kind', '')),
+            'alternatives_compared' => (array) ($spec['alternatives_compared'] ?? data_get($spec, 'credit.alternatives_compared', [])),
         ];
     }
 

@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AutonomousEvolution\Brain;
 
+use App\Services\Ai\Governance\Recursion\HypothesisV1;
 use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
+use App\Services\Ai\SelfConstruction\Governance\AtlasAaeosAcosLaneScope;
 
 /**
  * SEED-boundary quality gate for the external brain.
@@ -15,6 +17,9 @@ use App\Services\Ai\SelfConstruction\AtlasTaskPacketQualityInspector;
  * auto-replenisher. Here, at the brain's SEED boundary (where a cold worker actually receives an originated
  * packet), they are FATAL. This gate composes inspect() and intersects its deficiencies against those three —
  * it does NOT edit the universal inspector and does NOT enqueue.
+ *
+ * AAEOS+ACOS elite lane: structural seeds also require ELEV-31 `alternatives_compared`
+ * (`do_nothing` / `simplify_existing` / `remove_a_layer`) — scoped only to that lane.
  *
  * ponytail: the proxy detector this leans on is a substring proxy-term list (objectiveIsBlindOrphanWiringProxy)
  * — a paraphrase ("attach this dormant class to the flow") escapes it. That ceiling is fine: the real
@@ -115,6 +120,10 @@ final class AtlasBrainSeedQualityGate
             $blocking[] = 'dormant_cli_arm_proxy';
         }
 
+        if ($this->requiresElev31Alternatives($packet, $allowed)) {
+            $blocking = array_merge($blocking, $this->elev31Blocking($packet));
+        }
+
         $duplicateKey = trim((string) ($packet['duplicate_key'] ?? data_get($packet, 'credit.duplicate_key', '')));
 
         return [
@@ -124,6 +133,121 @@ final class AtlasBrainSeedQualityGate
             'duplicate_key' => $duplicateKey,
             'credit_bucket' => $this->creditBucket($allowed),
         ];
+    }
+
+    /**
+     * ELEV-31 applies only to AAEOS+ACOS elite-lane structural evolution seeds.
+     *
+     * @param  array<string,mixed>  $packet
+     * @param  list<string>  $allowed
+     */
+    private function requiresElev31Alternatives(array $packet, array $allowed): bool
+    {
+        if (! $this->isAaeosAcosLanePacket($packet, $allowed)) {
+            return false;
+        }
+
+        return $this->isStructuralEvolution($packet, $allowed);
+    }
+
+    /**
+     * @param  array<string,mixed>  $packet
+     * @param  list<string>  $allowed
+     */
+    private function isAaeosAcosLanePacket(array $packet, array $allowed): bool
+    {
+        foreach (['brain_scope', 'lane_scope', 'scope'] as $key) {
+            if (trim((string) ($packet[$key] ?? '')) === AtlasAaeosAcosLaneScope::SLUG) {
+                return true;
+            }
+        }
+
+        return AtlasAaeosAcosLaneScope::inferFromAllowedFiles($allowed) === AtlasAaeosAcosLaneScope::SLUG;
+    }
+
+    /**
+     * Structural = explicit objective_kind, multi-file production touch, or elite simplify lexicon.
+     *
+     * @param  array<string,mixed>  $packet
+     * @param  list<string>  $allowed
+     */
+    private function isStructuralEvolution(array $packet, array $allowed): bool
+    {
+        $kind = strtolower(trim((string) ($packet['objective_kind'] ?? data_get($packet, 'credit.objective_kind', ''))));
+        if (in_array($kind, ['refactor', 'structural', 'simplify', 'collapse', 'remove_layer', 'defator'], true)) {
+            return true;
+        }
+
+        $production = [];
+        foreach ($allowed as $path) {
+            $path = str_replace('\\', '/', trim($path));
+            if ($path === '' || str_starts_with($path, 'tests/') || str_contains($path, '/tests/') || str_ends_with($path, 'Test.php')) {
+                continue;
+            }
+            $production[] = $path;
+        }
+        if (count($production) >= 3) {
+            return true;
+        }
+
+        $hay = strtolower(implode(' ', [
+            (string) ($packet['objective'] ?? ''),
+            (string) ($packet['problem'] ?? data_get($packet, 'credit.problem', '')),
+            (string) ($packet['expected_delta'] ?? data_get($packet, 'credit.expected_delta', '')),
+        ]));
+
+        foreach ([
+            'collapse',
+            'duplicate',
+            'remove a layer',
+            'remove_a_layer',
+            'remove layer',
+            'consolidate',
+            'simplify',
+            'defator',
+            'facade',
+            'dead layer',
+            'dead_layer',
+            'peel',
+        ] as $needle) {
+            if (str_contains($hay, $needle)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $packet
+     * @return list<string>
+     */
+    private function elev31Blocking(array $packet): array
+    {
+        $alternatives = $packet['alternatives_compared']
+            ?? data_get($packet, 'credit.alternatives_compared')
+            ?? data_get($packet, 'elev31.alternatives_compared');
+
+        if (! is_array($alternatives)) {
+            return ['missing_elev31_alternatives_compared'];
+        }
+
+        $blocking = [];
+        foreach (HypothesisV1::REQUIRED_ALTERNATIVES as $key) {
+            if (! array_key_exists($key, $alternatives)) {
+                $blocking[] = 'missing_elev31_'.$key;
+
+                continue;
+            }
+            $value = $alternatives[$key];
+            $ok = (is_string($value) && mb_strlen(trim($value)) >= 8)
+                || (is_array($value) && $value !== []);
+            if (! $ok) {
+                $blocking[] = 'empty_elev31_'.$key;
+            }
+        }
+
+        return $blocking;
     }
 
     /** @param list<mixed> $acceptance */

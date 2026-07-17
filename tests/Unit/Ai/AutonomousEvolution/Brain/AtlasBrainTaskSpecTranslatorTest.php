@@ -235,4 +235,34 @@ final class AtlasBrainTaskSpecTranslatorTest extends TestCase
 
         self::assertContains('mutation_testing obligation on App\\Bar::execute is satisfied', $spec['acceptance_criteria']);
     }
+
+    public function test_translate_aaeos_structural_emits_elev31_alternatives(): void
+    {
+        $spec = (new AtlasBrainTaskSpecTranslator)->translate([
+            'objective' => 'Collapse duplicate facade layers in Aaeos FooRuntime with measured shrink',
+            'target_path' => 'app/Services/Ai/Aaeos/FooRuntime.php',
+            'obligations' => [
+                ['kind' => 'unit_test', 'file_path' => 'app/Services/Ai/Aaeos/FooFacade.php'],
+                ['kind' => 'unit_test', 'file_path' => 'app/Services/Ai/Aaeos/FooDuplicate.php'],
+            ],
+            'snapshot_id' => 'snap_aaeos_elev31',
+        ]);
+
+        self::assertSame('aaeos_acos', $spec['brain_scope']);
+        self::assertSame('structural', $spec['objective_kind']);
+        self::assertArrayHasKey('do_nothing', $spec['alternatives_compared']);
+        self::assertArrayHasKey('simplify_existing', $spec['alternatives_compared']);
+        self::assertArrayHasKey('remove_a_layer', $spec['alternatives_compared']);
+        self::assertGreaterThanOrEqual(8, mb_strlen($spec['alternatives_compared']['do_nothing']));
+
+        $gate = (new \App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainSeedQualityGate)->evaluate([
+            ...$spec,
+            'required_evidence' => $spec['evidence_requirements'],
+            'modifies_existing_files' => true,
+            'existing_file_delta' => 'Collapses duplicate facades with SafeDeletionPlanner proof.',
+        ]);
+        // May still block on other credit/inspect reasons if files exist without delta — elev31 itself must clear.
+        self::assertNotContains('missing_elev31_alternatives_compared', $gate['blocking']);
+        self::assertNotContains('missing_elev31_do_nothing', $gate['blocking']);
+    }
 }
