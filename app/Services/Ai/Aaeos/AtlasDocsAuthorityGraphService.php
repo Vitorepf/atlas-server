@@ -198,22 +198,22 @@ class AtlasDocsAuthorityGraphService
         }
 
         $best = $matches->first();
-        $basis = $fallback ? 'keyword_fallback' : (string) $best->owner_basis;
+        $basis = $fallback ? 'keyword_fallback' : (AiValueNormalizer::trimmedScalarStringOrNull($best->owner_basis ?? null) ?? '');
         $confidence = $fallback ? self::CONFIDENCE['keyword_fallback'] : (int) $best->confidence;
 
         return [
             'schema_version' => self::LOCATE_SCHEMA,
             'needle' => $needle,
             'resolved' => true,
-            'owner_doc_path' => (string) $best->owner_doc_path,
+            'owner_doc_path' => AiValueNormalizer::trimmedScalarStringOrNull($best->owner_doc_path ?? null) ?? '',
             'owner_doc_id' => $best->owner_doc_id,
             'owner_basis' => $basis,
             'confidence' => $confidence,
             'owner_implementation_state' => $best->owner_implementation_state,
             'candidates' => $matches->map(fn (AtlasDocsAuthorityGraph $row): array => [
-                'owner_doc_path' => (string) $row->owner_doc_path,
-                'needle' => (string) $row->needle,
-                'basis' => $fallback ? 'keyword_fallback' : (string) $row->owner_basis,
+                'owner_doc_path' => AiValueNormalizer::trimmedScalarStringOrNull($row->owner_doc_path ?? null) ?? '',
+                'needle' => AiValueNormalizer::trimmedScalarStringOrNull($row->needle ?? null) ?? '',
+                'basis' => $fallback ? 'keyword_fallback' : (AiValueNormalizer::trimmedScalarStringOrNull($row->owner_basis ?? null) ?? ''),
                 'confidence' => $fallback ? self::CONFIDENCE['keyword_fallback'] : (int) $row->confidence,
             ])->all(),
         ];

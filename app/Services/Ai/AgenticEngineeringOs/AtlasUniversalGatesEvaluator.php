@@ -3744,6 +3744,30 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only docs-authority confidence key floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function docsAuthorityConfidenceKeysContractObserve(array $input = []): array
+    {
+        $confidence = AtlasDocsAuthorityGraphService::CONFIDENCE;
+
+        return [
+            'docs_authority_schema' => AtlasDocsAuthorityGraphService::SCHEMA_VERSION,
+            'docs_locate_schema' => AtlasDocsAuthorityGraphService::LOCATE_SCHEMA,
+            'confidence_governs_frontmatter' => $confidence['governs_frontmatter'],
+            'confidence_doc_id' => $confidence['doc_id'],
+            'confidence_capability_frontmatter' => $confidence['capability_frontmatter'],
+            'confidence_keyword_fallback' => $confidence['keyword_fallback'],
+            'confidence_basis_count' => count($confidence),
+            'confidence_max' => max($confidence),
+            'confidence_min' => min($confidence),
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -92,7 +92,7 @@ final class ImmuneSignatureIngestor
             $hostileClass,
             $signals,
             [
-                'memory_id' => (string) $entry->id,
+                'memory_id' => AiValueNormalizer::trimmedScalarStringOrNull($entry->id ?? null) ?? '',
                 'decision_id' => $decisionId,
                 'memory_type' => $memoryType,
             ],

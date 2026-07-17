@@ -66,7 +66,7 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
         return [
             'schema_version' => self::NATIVE_SCHEMA_VERSION,
             'run_id' => (AiValueNormalizer::trimmedStringOrNull($data['run_id'] ?? null) ?? 'unknown'),
-            'outcome_status' => (string) ($fields['outcome_status'] ?? OutcomeEnvelope::toNativeStatus((AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? 'blocked'), $this->origin())),
+            'outcome_status' => AiValueNormalizer::trimmedStringOrNull($fields['outcome_status'] ?? null) ?? OutcomeEnvelope::toNativeStatus((AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? 'blocked'), $this->origin()),
             'proven_real' => (bool) ($fields['proven_real'] ?? false),
             'fake_green' => (bool) ($fields['fake_green'] ?? false),
             'proof_reason' => (AiValueNormalizer::trimmedStringOrNull($fields['proof_reason'] ?? null) ?? ''),

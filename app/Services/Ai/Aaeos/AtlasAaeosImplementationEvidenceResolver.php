@@ -215,12 +215,12 @@ class AtlasAaeosImplementationEvidenceResolver
 
         $offset = 0;
         foreach ($rows as $row) {
-            $type = (string) $row->symbol_type;
+            $type = AiValueNormalizer::trimmedScalarStringOrNull($row->symbol_type ?? null) ?? '';
             $type = $typePool[$type] ??= $type;
             $path = AiValueNormalizer::trimmedStringOrNull($row->file_path ?? null) ?? '';
             $path = $pathPool[$path] ??= $path;
 
-            $name = (string) $row->symbol_name;
+            $name = AiValueNormalizer::trimmedScalarStringOrNull($row->symbol_name ?? null) ?? '';
             $names[$offset] = $namePool[$name] ??= $name;
             $paths[$offset] = $path;
             $types[$offset] = $type;

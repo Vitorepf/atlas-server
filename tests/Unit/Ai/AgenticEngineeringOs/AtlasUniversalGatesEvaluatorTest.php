@@ -2563,4 +2563,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(15, $payload['catalogue_gate_count']);
         $this->assertSame(13, $payload['observe_helper_schema_count']);
     }
+
+    public function test_docs_authority_confidence_keys_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->docsAuthorityConfidenceKeysContractObserve([]);
+
+        $this->assertSame('atlas.docs.authority_graph.v1', $payload['docs_authority_schema']);
+        $this->assertSame('atlas.docs.locate.v1', $payload['docs_locate_schema']);
+        $this->assertSame(100, $payload['confidence_governs_frontmatter']);
+        $this->assertSame(95, $payload['confidence_doc_id']);
+        $this->assertSame(80, $payload['confidence_capability_frontmatter']);
+        $this->assertSame(40, $payload['confidence_keyword_fallback']);
+        $this->assertSame(4, $payload['confidence_basis_count']);
+        $this->assertSame(100, $payload['confidence_max']);
+        $this->assertSame(40, $payload['confidence_min']);
+    }
 }

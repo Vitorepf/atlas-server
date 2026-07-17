@@ -309,7 +309,7 @@ class AtlasAcosEvolutionScoreService
                             continue;
                         }
                         if (AiValueNormalizer::trimmedStringOrNull($meta['provider'] ?? null) !== null
-                            && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', (string) $node->source_id) === 1) {
+                            && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', AiValueNormalizer::trimmedScalarStringOrNull($node->source_id ?? null) ?? '') === 1) {
                             $count++;
                         }
                     }
@@ -366,7 +366,7 @@ class AtlasAcosEvolutionScoreService
                 ->contains(function (AiRagFeedbackEvent $event) use ($activeKeys): bool {
                     $utility = AiValueNormalizer::arrayOrEmpty($event->source_utility);
                     foreach ($utility as $key => $status) {
-                        if (! isset($activeKeys[(string) $key])) {
+                        if (! isset($activeKeys[AiValueNormalizer::trimmedScalarStringOrNull($key) ?? ''])) {
                             continue;
                         }
                         $normalized = AiValueNormalizer::trimmedScalarStringOrNull($status) !== null

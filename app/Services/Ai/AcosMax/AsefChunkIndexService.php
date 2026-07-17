@@ -235,9 +235,9 @@ final class AsefChunkIndexService
             ->limit($limit * 8)
             ->get()
             ->map(static fn ($row): array => [
-                'source_ref' => (string) $row->source_ref,
-                'chunk_hash' => (string) $row->chunk_hash,
-                'chunk_id' => (string) $row->chunk_id,
+                'source_ref' => AiValueNormalizer::trimmedScalarStringOrNull($row->source_ref ?? null) ?? '',
+                'chunk_hash' => AiValueNormalizer::trimmedScalarStringOrNull($row->chunk_hash ?? null) ?? '',
+                'chunk_id' => AiValueNormalizer::trimmedScalarStringOrNull($row->chunk_id ?? null) ?? '',
                 'similarity' => AiValueNormalizer::finiteFloatOrNull($row->similarity ?? null) ?? 0.0,
             ])
             ->all();
@@ -288,7 +288,7 @@ final class AsefChunkIndexService
                 'updated_at' => Carbon::now(),
             ];
             DB::table('asef_chunks')->where('id', $existing->id)->update($update);
-            $this->writeVector((string) $existing->id, $vector);
+            $this->writeVector(AiValueNormalizer::trimmedScalarStringOrNull($existing->id ?? null) ?? '', $vector);
 
             return;
         }

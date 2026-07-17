@@ -339,18 +339,18 @@ final class ImmuneSignatureStore
     private function rowFromDatabase(object $row): array
     {
         return [
-            'id' => (string) $row->id,
-            'schema_version' => (string) $row->schema_version,
-            'signature' => (string) $row->signature,
-            'content_hash' => (string) $row->content_hash,
+            'id' => AiValueNormalizer::trimmedScalarStringOrNull($row->id ?? null) ?? '',
+            'schema_version' => AiValueNormalizer::trimmedScalarStringOrNull($row->schema_version ?? null) ?? '',
+            'signature' => AiValueNormalizer::trimmedScalarStringOrNull($row->signature ?? null) ?? '',
+            'content_hash' => AiValueNormalizer::trimmedScalarStringOrNull($row->content_hash ?? null) ?? '',
             'signature_family' => $this->jsonArray($row->signature_family ?? []),
-            'origin_ref' => (string) $row->origin_ref,
-            'origin_kind' => (string) $row->origin_kind,
-            'hostile_class' => (string) $row->hostile_class,
+            'origin_ref' => AiValueNormalizer::trimmedScalarStringOrNull($row->origin_ref ?? null) ?? '',
+            'origin_kind' => AiValueNormalizer::trimmedScalarStringOrNull($row->origin_kind ?? null) ?? '',
+            'hostile_class' => AiValueNormalizer::trimmedScalarStringOrNull($row->hostile_class ?? null) ?? '',
             'hit_count' => (int) $row->hit_count,
-            'first_seen' => (string) $row->first_seen,
+            'first_seen' => AiValueNormalizer::trimmedString($row->first_seen ?? ''),
             'last_hit_at' => AiValueNormalizer::trimmedStringOrNull($row->last_hit_at ?? null),
-            'status' => (string) $row->status,
+            'status' => AiValueNormalizer::trimmedScalarStringOrNull($row->status ?? null) ?? '',
             'reverse_handle' => AiValueNormalizer::trimmedStringOrNull($row->reverse_handle ?? null),
             'metadata' => $this->jsonArray($row->metadata ?? []),
         ];

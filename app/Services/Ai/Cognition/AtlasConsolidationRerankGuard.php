@@ -125,7 +125,7 @@ final class AtlasConsolidationRerankGuard
             }
             $pAtK = AiValueNormalizer::arrayOrEmpty(data_get($report, 'metrics.precision_at_k', []));
             $primary = data_get($report, 'metrics.primary_k', array_key_first($pAtK));
-            $value = $pAtK[(string) $primary] ?? null;
+            $value = $pAtK[AiValueNormalizer::trimmedScalarStringOrNull($primary) ?? ''] ?? null;
 
             return AiValueNormalizer::finiteFloatOrNull($value);
         } catch (Throwable) {

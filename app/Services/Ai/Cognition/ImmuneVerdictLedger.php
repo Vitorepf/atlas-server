@@ -165,18 +165,18 @@ final class ImmuneVerdictLedger
     private function rowFromDatabase(object $row): array
     {
         return [
-            'id' => (string) $row->id,
-            'schema_version' => (string) $row->schema_version,
-            'candidate_hash' => (string) $row->candidate_hash,
-            'writer' => (string) $row->writer,
+            'id' => AiValueNormalizer::trimmedScalarStringOrNull($row->id ?? null) ?? '',
+            'schema_version' => AiValueNormalizer::trimmedScalarStringOrNull($row->schema_version ?? null) ?? '',
+            'candidate_hash' => AiValueNormalizer::trimmedScalarStringOrNull($row->candidate_hash ?? null) ?? '',
+            'writer' => AiValueNormalizer::trimmedScalarStringOrNull($row->writer ?? null) ?? '',
             'gate_statuses' => $this->jsonArray($row->gate_statuses ?? []),
-            'promotion_status' => (string) $row->promotion_status,
+            'promotion_status' => AiValueNormalizer::trimmedScalarStringOrNull($row->promotion_status ?? null) ?? '',
             'blocking_gate_ids' => $this->jsonList($row->blocking_gate_ids ?? []),
             'pending_gate_ids' => $this->jsonList($row->pending_gate_ids ?? []),
             'expected_block_gate_ids' => $this->jsonList($row->expected_block_gate_ids ?? []),
             'sample_label' => AiValueNormalizer::trimmedStringOrNull($row->sample_label ?? null),
             'metadata' => $this->jsonArray($row->metadata ?? []),
-            'decided_at' => (string) $row->decided_at,
+            'decided_at' => AiValueNormalizer::trimmedString($row->decided_at ?? ''),
         ];
     }
 

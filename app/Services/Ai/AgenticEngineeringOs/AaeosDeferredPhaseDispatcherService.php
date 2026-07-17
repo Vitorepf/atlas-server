@@ -170,7 +170,7 @@ final class AaeosDeferredPhaseDispatcherService
             if ($value === null) {
                 continue;
             }
-            if (str_ends_with((string) $key, '_invocation') && $value === 'deferred') {
+            if (str_ends_with(AiValueNormalizer::trimmedScalarStringOrNull($key) ?? '', '_invocation') && $value === 'deferred') {
                 return true;
             }
         }

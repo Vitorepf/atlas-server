@@ -170,6 +170,6 @@ final class AtlasAcosRollbackTriggerCheckService
             return filter_var($actual, FILTER_VALIDATE_BOOLEAN) === $expected;
         }
 
-        return (string) $actual === (string) $expected;
+        return (AiValueNormalizer::trimmedScalarStringOrNull($actual) ?? '') === (AiValueNormalizer::trimmedScalarStringOrNull($expected) ?? '');
     }
 }
