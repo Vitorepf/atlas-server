@@ -1563,19 +1563,14 @@ class AppServiceProvider extends ServiceProvider
     private function registerAcosWatchdogChecks(): void
     {
         $registry = app(\App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry::class);
+        $health = app(\App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService::class);
+
+        foreach (\App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck::makeAll($health) as $check) {
+            $registry->register($check);
+        }
 
         foreach ([
-            \App\Services\Ai\Cognition\Watchdog\Checks\MemoryQualityWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\LearningCadenceWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\AurgCoverageWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\RagDimensionWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\ContextFeedbackHealthWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\CompactionSoakWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\CompactionRecoverySampleWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\ScorecardStabilityWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\LiftCycleClosureWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\ScorecardReceiptsDiagnosisWatchdogCheck::class,
-            \App\Services\Ai\Cognition\Watchdog\Checks\EnforceReadinessWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\AobgLatencyWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\SubstrateRestoreDrillWatchdogCheck::class,
             \App\Services\Ai\Cognition\Watchdog\Checks\OperatorLearningCaptureSchemaWatchdogCheck::class,
