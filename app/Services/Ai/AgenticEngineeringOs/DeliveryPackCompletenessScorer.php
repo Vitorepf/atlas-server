@@ -121,7 +121,7 @@ final class DeliveryPackCompletenessScorer
         $report = $this->score($composition);
 
         return ($report['status'] ?? '') === 'passed'
-            && (float) ($report['ratio'] ?? 0.0) >= $minRatio;
+            && (AiValueNormalizer::finiteFloatOrNull($report['ratio'] ?? null) ?? 0.0) >= $minRatio;
     }
 
     /**

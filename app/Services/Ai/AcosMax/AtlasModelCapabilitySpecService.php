@@ -209,10 +209,11 @@ final class AtlasModelCapabilitySpecService
         if (! array_key_exists('latency_per_pair_ms_p95', $spec)) {
             return [];
         }
-        $ceiling = (float) $spec['latency_per_pair_ms_p95'];
-        $actual = array_key_exists('latency_per_pair_ms_p95', $model)
-            ? (float) $model['latency_per_pair_ms_p95']
-            : null;
+        $ceiling = AiValueNormalizer::finiteFloatOrNull($spec['latency_per_pair_ms_p95'] ?? null);
+        if ($ceiling === null) {
+            return [];
+        }
+        $actual = AiValueNormalizer::finiteFloatOrNull($model['latency_per_pair_ms_p95'] ?? null);
         if ($actual === null) {
             return [];
         }

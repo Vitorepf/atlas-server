@@ -43,6 +43,7 @@ use App\Services\Ai\AcosMax\AcosMaxProceduralSkillPromoterService;
 use App\Services\Ai\AcosMax\GoldenCounterfactualReplayService;
 use App\Services\Ai\AcosMax\ComposedObraArcComposer;
 use App\Services\Ai\AcosMax\ExploratoryBetsPortfolio;
+use App\Services\Ai\AcosMax\AtlasNCaptureDrillService;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
@@ -1415,6 +1416,20 @@ final class AtlasUniversalGatesEvaluator
             app(AtlasBrainCausalEffectGate::class),
             AiValueNormalizer::arrayOrEmpty($input['context'] ?? null),
         );
+    }
+
+    /**
+     * Observe-only N-capture drill report (read-only ledger slice).
+     * Accepts `{days?}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function nCaptureDrillObserve(array $input = []): array
+    {
+        $days = AiValueNormalizer::finiteFloatOrNull($input['days'] ?? null);
+
+        return (new AtlasNCaptureDrillService)->report($days === null ? null : max(1, (int) $days));
     }
 
     /**

@@ -69,7 +69,7 @@ final class SpecCompletenessScorer
         foreach (self::WEIGHTS as $field => $weight) {
             [$present, $satisfied, $reason] = $this->evaluateField($field, $spec[$field] ?? null);
 
-            $earned = $satisfied ? (float) $weight : 0.0;
+            $earned = $satisfied ? (AiValueNormalizer::finiteFloatOrNull($weight) ?? 0.0) : 0.0;
             $earnedTotal += $earned;
 
             if ($present) {
@@ -88,7 +88,7 @@ final class SpecCompletenessScorer
                 $missing[] = [
                     'field' => $field,
                     'weight' => $weight,
-                    'weight_loss' => (float) $weight - $earned,
+                    'weight_loss' => (AiValueNormalizer::finiteFloatOrNull($weight) ?? 0.0) - $earned,
                     'reason' => $reason,
                 ];
             }

@@ -28,12 +28,14 @@ final class AtlasAaeosQualityBarService
     {
         $departments = [];
         foreach (self::DEPARTMENT_DATA as $data) {
+            $threshold = AiValueNormalizer::finiteFloatOrNull($data['threshold']) ?? 0.0;
+            $current = AiValueNormalizer::finiteFloatOrNull($data['current']) ?? 0.0;
             $departments[] = [
                 'department' => AiValueNormalizer::trimmedString($data['department']),
-                'threshold' => (float) $data['threshold'],
-                'current' => (float) $data['current'],
-                'breached' => $data['current'] < $data['threshold'],
-                'deficit' => $data['current'] < $data['threshold'] ? round($data['threshold'] - $data['current'], 4) : 0.0,
+                'threshold' => $threshold,
+                'current' => $current,
+                'breached' => $current < $threshold,
+                'deficit' => $current < $threshold ? round($threshold - $current, 4) : 0.0,
             ];
         }
 
@@ -61,13 +63,15 @@ final class AtlasAaeosQualityBarService
     {
         $breaches = [];
         foreach (self::DEPARTMENT_DATA as $data) {
-            if ($data['current'] < $data['threshold']) {
+            $threshold = AiValueNormalizer::finiteFloatOrNull($data['threshold']) ?? 0.0;
+            $current = AiValueNormalizer::finiteFloatOrNull($data['current']) ?? 0.0;
+            if ($current < $threshold) {
                 $breaches[] = [
                     'department' => AiValueNormalizer::trimmedString($data['department']),
-                    'threshold' => (float) $data['threshold'],
-                    'current' => (float) $data['current'],
+                    'threshold' => $threshold,
+                    'current' => $current,
                     'breached' => true,
-                    'deficit' => round($data['threshold'] - $data['current'], 4),
+                    'deficit' => round($threshold - $current, 4),
                 ];
             }
         }

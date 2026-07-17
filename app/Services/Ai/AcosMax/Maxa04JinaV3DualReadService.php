@@ -170,12 +170,17 @@ final class Maxa04JinaV3DualReadService
             return 'no_dual_read_cases';
         }
 
-        $recallOk = $summary['candidate_recall_at_5_mean'] !== null
-            && $summary['current_recall_at_5_mean'] !== null
-            && (float) $summary['candidate_recall_at_5_mean'] >= (float) $summary['current_recall_at_5_mean'];
-        $precisionOk = $summary['candidate_precision_at_5_mean'] !== null
-            && $summary['current_precision_at_5_mean'] !== null
-            && (float) $summary['candidate_precision_at_5_mean'] >= (float) $summary['current_precision_at_5_mean'];
+        $candidateRecall = AiValueNormalizer::finiteFloatOrNull($summary['candidate_recall_at_5_mean'] ?? null);
+        $currentRecall = AiValueNormalizer::finiteFloatOrNull($summary['current_recall_at_5_mean'] ?? null);
+        $candidatePrecision = AiValueNormalizer::finiteFloatOrNull($summary['candidate_precision_at_5_mean'] ?? null);
+        $currentPrecision = AiValueNormalizer::finiteFloatOrNull($summary['current_precision_at_5_mean'] ?? null);
+
+        $recallOk = $candidateRecall !== null
+            && $currentRecall !== null
+            && $candidateRecall >= $currentRecall;
+        $precisionOk = $candidatePrecision !== null
+            && $currentPrecision !== null
+            && $candidatePrecision >= $currentPrecision;
 
         return $recallOk && $precisionOk
             ? 'candidate_non_regression_observed'

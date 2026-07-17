@@ -42,6 +42,7 @@ use App\Services\Ai\AcosMax\AcosMaxProceduralSkillPromoterService;
 use App\Services\Ai\AcosMax\GoldenCounterfactualReplayService;
 use App\Services\Ai\AcosMax\ComposedObraArcComposer;
 use App\Services\Ai\AcosMax\ExploratoryBetsPortfolio;
+use App\Services\Ai\AcosMax\AtlasNCaptureDrillService;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AaeosGeneratedContractGate;
 use InvalidArgumentException;
@@ -1175,5 +1176,13 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
 
         $this->assertSame(ExploratoryBetsPortfolio::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('flag_disabled', $payload['status']);
+    }
+
+    public function test_n_capture_drill_observe_reports_schema(): void
+    {
+        $payload = $this->svc->nCaptureDrillObserve(['days' => 7]);
+
+        $this->assertSame(AtlasNCaptureDrillService::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertArrayHasKey('drills', $payload);
     }
 }
