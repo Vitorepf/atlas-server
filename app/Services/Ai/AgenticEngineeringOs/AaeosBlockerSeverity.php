@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Shared severity normalization for AAEOS phase blockers.
  *
@@ -29,12 +31,12 @@ final class AaeosBlockerSeverity
             return '';
         }
 
-        $severity = $blocker['severity'] ?? null;
-        if (! is_string($severity)) {
+        $severity = AiValueNormalizer::trimmedStringOrNull($blocker['severity'] ?? null);
+        if ($severity === null) {
             return '';
         }
 
-        return strtolower(trim($severity));
+        return strtolower($severity);
     }
 
     public static function isDecisive(string $severity): bool
@@ -51,8 +53,8 @@ final class AaeosBlockerSeverity
             return false;
         }
 
-        $owner = $blocker['owner'] ?? null;
+        $owner = AiValueNormalizer::trimmedStringOrNull($blocker['owner'] ?? null);
 
-        return is_string($owner) && trim($owner) !== '';
+        return $owner !== null;
     }
 }

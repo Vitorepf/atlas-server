@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Autonomous Work Execution OS — PHP implementation of
  * `atlas-autonomous-work-execution-os.md`.
@@ -60,7 +62,7 @@ final class AutonomousWorkExecutionOs
         }
 
         $goal = (string) ($request['goal'] ?? '');
-        if (trim($goal) === '') {
+        if (AiValueNormalizer::trimmedString($goal) === '') {
             $blocking[] = 'goal text required';
         }
 

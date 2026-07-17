@@ -176,7 +176,7 @@ final class PreReviewAdvisoryBand
         if (! is_string($value) || $value === '') {
             return 'unknown';
         }
-        $trim = strtolower(trim($value));
+        $trim = AiValueNormalizer::lowerTrimmedString($value);
 
         return mb_substr($trim, 0, 64);
     }

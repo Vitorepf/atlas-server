@@ -109,8 +109,8 @@ final class GoldenCounterfactualReplayService
             if (! is_numeric($run['recall_at_5'] ?? null)) {
                 continue;
             }
-            $commit = trim((string) ($run['commit'] ?? ''));
-            $runId = trim((string) ($run['run_id'] ?? ''));
+            $commit = AiValueNormalizer::trimmedString($run['commit'] ?? '');
+            $runId = AiValueNormalizer::trimmedString($run['run_id'] ?? '');
             if ($commit === '' || $runId === '') {
                 continue;
             }
