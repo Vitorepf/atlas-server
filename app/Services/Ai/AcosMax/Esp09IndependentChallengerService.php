@@ -25,12 +25,55 @@ final class Esp09IndependentChallengerService
 
     public const HIGH_ALIGNMENT_BAND = 0.80;
 
+    public const TRIGGER_KIND_RECURSIVE_IMPROVEMENT = 'recursive_improvement';
+
+    public const TRIGGER_KIND_COMPOSED_OBRA = 'composed_obra';
+
     /** @var list<string> */
-    public const TRIGGER_KINDS = ['recursive_improvement', 'composed_obra'];
+    public const TRIGGER_KINDS = [
+        self::TRIGGER_KIND_RECURSIVE_IMPROVEMENT,
+        self::TRIGGER_KIND_COMPOSED_OBRA,
+    ];
 
     public const DEFAULT_MIN_WINDOWS = 2;
 
     public const DEFAULT_MIN_PER_WINDOW = 2;
+
+    public const DECISION_KIND_ORDINARY_ROUTE = 'ordinary_route';
+
+    public const STATUS_INVALID = 'invalid';
+
+    public const STATUS_SKIPPED = 'skipped';
+
+    public const STATUS_ADVISORY = 'advisory';
+
+    public const STATUS_DELAYED = 'delayed';
+
+    public const STATUS_CLEAR = 'clear';
+
+    public const ERROR_ENGINE_IDS_REQUIRED = 'engine_ids_required';
+
+    public const ERROR_CHALLENGER_ENGINE_MUST_DIFFER = 'challenger_engine_must_differ';
+
+    public const SKIP_REASON_LOW_AFFINITY = 'low_affinity';
+
+    public const TRIGGER_DECISION_KIND = 'decision_kind';
+
+    public const TRIGGER_HIGH_OPERATOR_ALIGNMENT = 'high_operator_alignment';
+
+    public const REASON_AWAITING_CHALLENGER_BLOCK = 'awaiting_challenger_block';
+
+    public const REASON_CHALLENGER_BLOCK_PRESENT = 'challenger_block_present';
+
+    public const REASON_CHALLENGER_NOT_REQUIRED = 'challenger_not_required';
+
+    public const OUTCOME_ACCEPTED = 'accepted';
+
+    public const OUTCOME_IGNORED = 'ignored';
+
+    public const DEATH_REVIEW_REASON_NEAR_ZERO_ACCEPTED = 'near_zero_accepted_rate_across_windows';
+
+    public const PROMOTION_WITHOUT_BLOCK = 'delayed_not_vetoed';
 
     /**
      * @param  array<string,mixed>  $context
@@ -42,7 +85,7 @@ final class Esp09IndependentChallengerService
         $challengerEngine = AiValueNormalizer::trimmedStringOrNull($context['challenger_engine_id'] ?? null) ?? '';
         $alignmentRaw = AiValueNormalizer::finiteFloatOrNull($context['operator_alignment'] ?? null);
         $alignment = $alignmentRaw === null ? null : AiValueNormalizer::clampUnit($alignmentRaw);
-        $kind = AiValueNormalizer::trimmedStringOrNull($context['decision_kind'] ?? null) ?? 'ordinary_route';
+        $kind = AiValueNormalizer::trimmedStringOrNull($context['decision_kind'] ?? null) ?? self::DECISION_KIND_ORDINARY_ROUTE;
 
         $base = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -57,15 +100,15 @@ final class Esp09IndependentChallengerService
 
         if ($author === '' || $challengerEngine === '') {
             return array_merge($base, [
-                'status' => 'invalid',
-                'error' => 'engine_ids_required',
+                'status' => self::STATUS_INVALID,
+                'error' => self::ERROR_ENGINE_IDS_REQUIRED,
             ]);
         }
 
         if ($author === $challengerEngine) {
             return array_merge($base, [
-                'status' => 'invalid',
-                'error' => 'challenger_engine_must_differ',
+                'status' => self::STATUS_INVALID,
+                'error' => self::ERROR_CHALLENGER_ENGINE_MUST_DIFFER,
             ]);
         }
 
@@ -74,17 +117,17 @@ final class Esp09IndependentChallengerService
 
         if (! $kindTriggered && ! $highAlignment) {
             return array_merge($base, [
-                'status' => 'skipped',
-                'skip_reason' => 'low_affinity',
+                'status' => self::STATUS_SKIPPED,
+                'skip_reason' => self::SKIP_REASON_LOW_AFFINITY,
                 'operator_alignment' => $alignment,
                 'decision_kind' => $kind,
             ]);
         }
 
-        $trigger = $kindTriggered ? 'decision_kind' : 'high_operator_alignment';
+        $trigger = $kindTriggered ? self::TRIGGER_DECISION_KIND : self::TRIGGER_HIGH_OPERATOR_ALIGNMENT;
 
         return array_merge($base, [
-            'status' => 'advisory',
+            'status' => self::STATUS_ADVISORY,
             'triggered' => true,
             'trigger' => $trigger,
             'operator_alignment' => $alignment,
@@ -113,19 +156,19 @@ final class Esp09IndependentChallengerService
         if ($requires && ! $present) {
             return [
                 'schema_version' => self::SCHEMA_VERSION,
-                'status' => 'delayed',
+                'status' => self::STATUS_DELAYED,
                 'vetoed' => false,
                 'promotion_delayed' => true,
-                'reason' => 'awaiting_challenger_block',
+                'reason' => self::REASON_AWAITING_CHALLENGER_BLOCK,
             ];
         }
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => 'clear',
+            'status' => self::STATUS_CLEAR,
             'vetoed' => false,
             'promotion_delayed' => false,
-            'reason' => $requires ? 'challenger_block_present' : 'challenger_not_required',
+            'reason' => $requires ? self::REASON_CHALLENGER_BLOCK_PRESENT : self::REASON_CHALLENGER_NOT_REQUIRED,
         ];
     }
 
@@ -144,10 +187,10 @@ final class Esp09IndependentChallengerService
             $window = AiValueNormalizer::trimmedStringOrNull($event['window'] ?? null) ?? 'default';
             $byWindow[$window] ??= ['accepted' => 0, 'ignored' => 0];
 
-            if ($outcome === 'accepted') {
+            if ($outcome === self::OUTCOME_ACCEPTED) {
                 $accepted++;
                 $byWindow[$window]['accepted']++;
-            } elseif ($outcome === 'ignored') {
+            } elseif ($outcome === self::OUTCOME_IGNORED) {
                 $ignored++;
                 $byWindow[$window]['ignored']++;
             }
@@ -183,7 +226,7 @@ final class Esp09IndependentChallengerService
             'windows' => $byWindow,
             'death_review_candidate' => $deathReview,
             'death_review_reason' => $deathReview
-                ? 'near_zero_accepted_rate_across_windows'
+                ? self::DEATH_REVIEW_REASON_NEAR_ZERO_ACCEPTED
                 : null,
         ];
     }
@@ -201,7 +244,7 @@ final class Esp09IndependentChallengerService
             'trigger_kinds' => self::TRIGGER_KINDS,
             'ttl_days' => 30,
             'gates_override' => false,
-            'promotion_without_block' => 'delayed_not_vetoed',
+            'promotion_without_block' => self::PROMOTION_WITHOUT_BLOCK,
         ];
     }
 

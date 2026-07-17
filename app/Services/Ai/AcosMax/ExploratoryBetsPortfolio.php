@@ -25,6 +25,34 @@ final class ExploratoryBetsPortfolio
 
     public const DOUBLE_DOWN_MULTIPLIER = 2.0;
 
+    public const STATUS_FLAG_DISABLED = 'flag_disabled';
+
+    public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
+
+    public const STATUS_OK = 'ok';
+
+    public const ACTION_RESUME_AND_DOUBLE_DOWN = 'resume_and_double_down';
+
+    public const ACTION_DOUBLE_DOWN = 'double_down';
+
+    public const ACTION_SUSPEND = 'suspend';
+
+    public const ACTION_CONTINUE_EXPLORING = 'continue_exploring';
+
+    public const STATE_ACTIVE = 'active';
+
+    public const STATE_EXPLORING = 'exploring';
+
+    public const BASIS_EVIDENCE_TURNED_POSITIVE = 'evidence_turned_positive';
+
+    public const BASIS_POSITIVE_CAUSAL_EFFECT = 'positive_causal_effect';
+
+    public const BASIS_PROVEN_NEGATIVE_EFFECT = 'proven_negative_effect';
+
+    public const BASIS_UNPROVEN_EFFECT = 'unproven_effect';
+
+    public const DECISION_KIND_CONTINUATION_GATE = 'exploratory_bet_continuation_gate';
+
     /**
      * @param  list<array<string,mixed>>  $originatedCandidates
      * @param  array<string,mixed>  $context
@@ -36,7 +64,7 @@ final class ExploratoryBetsPortfolio
         if (($context['enabled'] ?? false) !== true) {
             return [
                 'schema_version' => self::SCHEMA_VERSION,
-                'status' => 'flag_disabled',
+                'status' => self::STATUS_FLAG_DISABLED,
                 'originated_candidates' => $originatedCandidates,
                 'evaluated_bets' => [],
                 'decisions' => [],
@@ -78,7 +106,7 @@ final class ExploratoryBetsPortfolio
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $bets === [] ? 'no_eligible_bets' : 'ok',
+            'status' => $bets === [] ? self::STATUS_NO_ELIGIBLE_BETS : self::STATUS_OK,
             'originated_candidates' => $originatedCandidates,
             'evaluated_bets' => $bets,
             'decisions' => $decisions,
@@ -103,7 +131,7 @@ final class ExploratoryBetsPortfolio
             if ($path === '') {
                 continue;
             }
-            if ((AiValueNormalizer::trimmedStringOrNull($candidate['rung'] ?? null) ?? '') !== 'task') {
+            if ((AiValueNormalizer::trimmedStringOrNull($candidate['rung'] ?? null) ?? '') !== AmbitionRungPolicy::RUNG_TASK) {
                 continue;
             }
             if (array_key_exists('path_yield', $candidate) && $candidate['path_yield'] !== null) {
@@ -133,20 +161,20 @@ final class ExploratoryBetsPortfolio
 
         if (($effect['admit_compounding'] ?? false) === true) {
             $action = $suspendedState === PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE
-                ? 'resume_and_double_down'
-                : 'double_down';
+                ? self::ACTION_RESUME_AND_DOUBLE_DOWN
+                : self::ACTION_DOUBLE_DOWN;
             $decision = array_merge($base, [
                 'action' => $action,
-                'state' => 'active',
+                'state' => self::STATE_ACTIVE,
                 'path_weight_multiplier' => self::DOUBLE_DOWN_MULTIPLIER,
-                'basis' => $action === 'resume_and_double_down' ? 'evidence_turned_positive' : 'positive_causal_effect',
+                'basis' => $action === self::ACTION_RESUME_AND_DOUBLE_DOWN ? self::BASIS_EVIDENCE_TURNED_POSITIVE : self::BASIS_POSITIVE_CAUSAL_EFFECT,
             ]);
-            if ($action === 'resume_and_double_down') {
+            if ($action === self::ACTION_RESUME_AND_DOUBLE_DOWN) {
                 $decision['suspension_update'] = [
                     'path' => $path,
                     'from_state' => PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE,
-                    'to_state' => 'active',
-                    'basis' => 'evidence_turned_positive',
+                    'to_state' => self::STATE_ACTIVE,
+                    'basis' => self::BASIS_EVIDENCE_TURNED_POSITIVE,
                 ];
             }
 
@@ -155,24 +183,24 @@ final class ExploratoryBetsPortfolio
 
         if (self::isProvenNegative($effect)) {
             return array_merge($base, [
-                'action' => 'suspend',
+                'action' => self::ACTION_SUSPEND,
                 'state' => PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE,
-                'basis' => 'proven_negative_effect',
+                'basis' => self::BASIS_PROVEN_NEGATIVE_EFFECT,
                 'suspension_update' => [
                     'path' => $path,
-                    'from_state' => $suspendedState ?? 'exploring',
+                    'from_state' => $suspendedState ?? self::STATE_EXPLORING,
                     'to_state' => PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE,
-                    'basis' => 'proven_negative_effect',
+                    'basis' => self::BASIS_PROVEN_NEGATIVE_EFFECT,
                 ],
             ]);
         }
 
         return array_merge($base, [
-            'action' => 'continue_exploring',
+            'action' => self::ACTION_CONTINUE_EXPLORING,
             'state' => $suspendedState === PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE
                 ? PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE
-                : 'exploring',
-            'basis' => AiValueNormalizer::trimmedStringOrNull($effect['reason'] ?? null) ?? 'unproven_effect',
+                : self::STATE_EXPLORING,
+            'basis' => AiValueNormalizer::trimmedStringOrNull($effect['reason'] ?? null) ?? self::BASIS_UNPROVEN_EFFECT,
         ]);
     }
 
@@ -193,7 +221,7 @@ final class ExploratoryBetsPortfolio
     {
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'decision_kind' => 'exploratory_bet_continuation_gate',
+            'decision_kind' => self::DECISION_KIND_CONTINUATION_GATE,
             'path' => AiValueNormalizer::trimmedStringOrNull($decision['path'] ?? null) ?? '',
             'action' => AiValueNormalizer::trimmedStringOrNull($decision['action'] ?? null) ?? '',
             'state' => AiValueNormalizer::trimmedStringOrNull($decision['state'] ?? null) ?? '',

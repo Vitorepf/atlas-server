@@ -16,6 +16,28 @@ final class AcosMaxObraRetroService
 
     public const SCOREBOARD_RELATIVE_PATH = 'docs/engineering-knowledge-base/atlas-acos-max-execution-scoreboard-v1.md';
 
+    public const STATUS_BLOCKED = 'blocked';
+
+    public const STATUS_RECORDED = 'recorded';
+
+    public const REASON_NO_TERMINAL_SLICES_FOR_LOTE = 'no_terminal_slices_for_lote';
+
+    public const KIND_FAILURE_PATTERN = 'failure_pattern';
+
+    public const LESSON_PATH_NORMAL_CAPTURE = 'normal_capture_quality_gate_and_asi_02';
+
+    public const SOURCE_ACOS_MAX_OBRA_RETRO = 'acos_max_obra_retro';
+
+    public const LESSON_STATUS_PENDING_REVIEW = 'pending_review';
+
+    public const OUTCOME_STATUS_SUCCEEDED = 'succeeded';
+
+    public const OUTCOME_STATUS_FAILED = 'failed';
+
+    public const SLICE_STATE_LANDED = 'landed';
+
+    public const SLICE_STATE_REFUTADO = 'refutado';
+
     public function __construct(
         private readonly AtlasEngineeringOutcomeRecorder $outcomes,
         private readonly AtlasOpenBrainWriteBackService $writeBack,
@@ -32,13 +54,13 @@ final class AcosMaxObraRetroService
         if ($slices === []) {
             return [
                 'schema_version' => self::SCHEMA_VERSION,
-                'status' => 'blocked',
-                'reason' => 'no_terminal_slices_for_lote',
+                'status' => self::STATUS_BLOCKED,
+                'reason' => self::REASON_NO_TERMINAL_SLICES_FOR_LOTE,
                 'lote' => $lote,
                 'series_tag' => self::SERIES_TAG,
                 'outcomes' => ['recorded' => 0, 'items' => []],
                 'lesson_candidates' => [
-                    'path' => 'normal_capture_quality_gate_and_asi_02',
+                    'path' => self::LESSON_PATH_NORMAL_CAPTURE,
                     'queued' => 0,
                     'items' => [],
                 ],
@@ -57,7 +79,7 @@ final class AcosMaxObraRetroService
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => 'recorded',
+            'status' => self::STATUS_RECORDED,
             'lote' => $lote,
             'series_tag' => self::SERIES_TAG,
             'scoreboard_path' => self::SCOREBOARD_RELATIVE_PATH,
@@ -68,15 +90,15 @@ final class AcosMaxObraRetroService
             'outcomes' => [
                 'recorded' => count(array_filter(
                     $outcomeItems,
-                    static fn (array $item): bool => ($item['status'] ?? null) === 'recorded'
+                    static fn (array $item): bool => ($item['status'] ?? null) === self::STATUS_RECORDED
                 )),
                 'items' => $outcomeItems,
             ],
             'lesson_candidates' => [
-                'path' => 'normal_capture_quality_gate_and_asi_02',
+                'path' => self::LESSON_PATH_NORMAL_CAPTURE,
                 'queued' => count(array_filter(
                     $lessonItems,
-                    static fn (array $item): bool => ($item['status'] ?? null) === 'pending_review'
+                    static fn (array $item): bool => ($item['status'] ?? null) === self::LESSON_STATUS_PENDING_REVIEW
                 )),
                 'items' => $lessonItems,
             ],
@@ -93,14 +115,14 @@ final class AcosMaxObraRetroService
     public function proposeLessonCandidate(array $candidate): array
     {
         $payload = array_merge([
-            'kind' => 'failure_pattern',
+            'kind' => self::KIND_FAILURE_PATTERN,
             'scope' => self::SERIES_TAG,
             'flow_id' => self::SERIES_TAG,
             'workspace' => base_path(),
             'privacy_class' => 'normal',
         ], $candidate, [
             'payload' => array_merge(AiValueNormalizer::arrayOrEmpty($candidate['payload'] ?? null), [
-                'source' => 'acos_max_obra_retro',
+                'source' => self::SOURCE_ACOS_MAX_OBRA_RETRO,
                 'series_tag' => self::SERIES_TAG,
             ]),
         ]);
@@ -126,9 +148,9 @@ final class AcosMaxObraRetroService
     private function recordSliceOutcome(int $lote, array $slice): array
     {
         $status = match ($slice['state']) {
-            'landed' => 'succeeded',
-            'refutado' => 'failed',
-            default => 'blocked',
+            self::SLICE_STATE_LANDED => self::OUTCOME_STATUS_SUCCEEDED,
+            self::SLICE_STATE_REFUTADO => self::OUTCOME_STATUS_FAILED,
+            default => self::STATUS_BLOCKED,
         };
 
         $recorded = $this->outcomes->record([
@@ -150,7 +172,7 @@ final class AcosMaxObraRetroService
             'slice_state' => $slice['state'],
             'evidence_refs' => AiValueNormalizer::arrayOrEmpty($slice['evidence_refs'] ?? null),
             'metrics' => [
-                'tests_passed' => $status === 'succeeded',
+                'tests_passed' => $status === self::OUTCOME_STATUS_SUCCEEDED,
                 'obra_retro_lote' => $lote,
             ],
         ]);
@@ -174,7 +196,7 @@ final class AcosMaxObraRetroService
         $ids = array_map(static fn (array $slice): string => AiValueNormalizer::trimmedScalarStringOrNull($slice['id'] ?? null) ?? '', $slices);
 
         return [[
-            'kind' => 'failure_pattern',
+            'kind' => self::KIND_FAILURE_PATTERN,
             'summary' => sprintf(
                 'ACOS Max lote %d close showed %d terminal slices (%s) need durable scoreboard refs and the obra:acos-max series tag so future lote retros can separate construction outcomes from product outcomes.',
                 $lote,

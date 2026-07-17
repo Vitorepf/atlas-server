@@ -226,6 +226,7 @@ final class AtlasAaeosCommand extends Command
         {--runtime-status-mode-floors-contract= : JSON file (any object) to observe RAGX/window/parallel runtime status-mode floors}
         {--outcome-maxa04-lote2-status-floors-contract= : JSON file (any object) to observe OutcomeEnvelope/Maxa04/Lote2 status floors}
         {--lote2-reason-ambition-portfolio-floors-contract= : JSON file (any object) to observe Lote2 reason + ambition/portfolio class floors}
+        {--esp09-bets-obra-status-floors-contract= : JSON file (any object) to observe Esp09/bets/obra status-reason floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -608,6 +609,7 @@ final class AtlasAaeosCommand extends Command
             ['runtime-status-mode-floors-contract', 'runtime_status_mode_floors_contract', fn (array $p) => $gates->runtimeStatusModeFloorsContractObserve($p)],
             ['outcome-maxa04-lote2-status-floors-contract', 'outcome_maxa04_lote2_status_floors_contract', fn (array $p) => $gates->outcomeMaxa04Lote2StatusFloorsContractObserve($p)],
             ['lote2-reason-ambition-portfolio-floors-contract', 'lote2_reason_ambition_portfolio_floors_contract', fn (array $p) => $gates->lote2ReasonAmbitionPortfolioFloorsContractObserve($p)],
+            ['esp09-bets-obra-status-floors-contract', 'esp09_bets_obra_status_floors_contract', fn (array $p) => $gates->esp09BetsObraStatusFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

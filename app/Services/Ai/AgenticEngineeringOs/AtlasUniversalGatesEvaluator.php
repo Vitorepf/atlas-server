@@ -4323,6 +4323,40 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: Esp09 challenger + exploratory bets + obra-retro status/reason floors —
+     * no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function esp09BetsObraStatusFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'esp09_trigger_kind_recursive_improvement' => Esp09IndependentChallengerService::TRIGGER_KIND_RECURSIVE_IMPROVEMENT,
+            'esp09_trigger_kind_composed_obra' => Esp09IndependentChallengerService::TRIGGER_KIND_COMPOSED_OBRA,
+            'esp09_status_invalid' => Esp09IndependentChallengerService::STATUS_INVALID,
+            'esp09_status_skipped' => Esp09IndependentChallengerService::STATUS_SKIPPED,
+            'esp09_status_advisory' => Esp09IndependentChallengerService::STATUS_ADVISORY,
+            'esp09_status_delayed' => Esp09IndependentChallengerService::STATUS_DELAYED,
+            'esp09_status_clear' => Esp09IndependentChallengerService::STATUS_CLEAR,
+            'esp09_reason_awaiting_challenger_block' => Esp09IndependentChallengerService::REASON_AWAITING_CHALLENGER_BLOCK,
+            'esp09_promotion_without_block' => Esp09IndependentChallengerService::PROMOTION_WITHOUT_BLOCK,
+            'bets_status_flag_disabled' => ExploratoryBetsPortfolio::STATUS_FLAG_DISABLED,
+            'bets_status_no_eligible' => ExploratoryBetsPortfolio::STATUS_NO_ELIGIBLE_BETS,
+            'bets_status_ok' => ExploratoryBetsPortfolio::STATUS_OK,
+            'bets_action_resume_and_double_down' => ExploratoryBetsPortfolio::ACTION_RESUME_AND_DOUBLE_DOWN,
+            'bets_action_double_down' => ExploratoryBetsPortfolio::ACTION_DOUBLE_DOWN,
+            'bets_action_suspend' => ExploratoryBetsPortfolio::ACTION_SUSPEND,
+            'bets_action_continue_exploring' => ExploratoryBetsPortfolio::ACTION_CONTINUE_EXPLORING,
+            'obra_retro_status_blocked' => AcosMaxObraRetroService::STATUS_BLOCKED,
+            'obra_retro_status_recorded' => AcosMaxObraRetroService::STATUS_RECORDED,
+            'obra_retro_reason_no_terminal_slices' => AcosMaxObraRetroService::REASON_NO_TERMINAL_SLICES_FOR_LOTE,
+            'obra_retro_kind_failure_pattern' => AcosMaxObraRetroService::KIND_FAILURE_PATTERN,
+            'esp09_bets_obra_status_floor_count' => 20,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

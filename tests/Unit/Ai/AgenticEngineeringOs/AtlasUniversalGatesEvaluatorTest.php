@@ -2956,4 +2956,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(20, $payload['lote2_reason_ambition_portfolio_floor_count']);
     }
 
+    public function test_esp09_bets_obra_status_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->esp09BetsObraStatusFloorsContractObserve([]);
+
+        $this->assertSame('recursive_improvement', $payload['esp09_trigger_kind_recursive_improvement']);
+        $this->assertSame('composed_obra', $payload['esp09_trigger_kind_composed_obra']);
+        $this->assertSame('advisory', $payload['esp09_status_advisory']);
+        $this->assertSame('awaiting_challenger_block', $payload['esp09_reason_awaiting_challenger_block']);
+        $this->assertSame('delayed_not_vetoed', $payload['esp09_promotion_without_block']);
+        $this->assertSame('flag_disabled', $payload['bets_status_flag_disabled']);
+        $this->assertSame('resume_and_double_down', $payload['bets_action_resume_and_double_down']);
+        $this->assertSame('continue_exploring', $payload['bets_action_continue_exploring']);
+        $this->assertSame('blocked', $payload['obra_retro_status_blocked']);
+        $this->assertSame('no_terminal_slices_for_lote', $payload['obra_retro_reason_no_terminal_slices']);
+        $this->assertSame('failure_pattern', $payload['obra_retro_kind_failure_pattern']);
+        $this->assertSame(20, $payload['esp09_bets_obra_status_floor_count']);
+    }
+
 }
