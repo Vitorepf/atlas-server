@@ -23,10 +23,6 @@ final class PhaseAdvanceVerdictClassifier
 
     private const POLICY_GATE_TOKEN = 'policy_decision_allowed_true';
 
-    private const SEVERITY_HIGH = 'high';
-
-    private const SEVERITY_CRITICAL = 'critical';
-
     private const VERDICT_ADVANCE = 'advance';
 
     private const VERDICT_REPAIR = 'repair';
@@ -198,8 +194,8 @@ final class PhaseAdvanceVerdictClassifier
                 continue;
             }
 
-            $severity = $this->severityOf($blocker);
-            if ($severity !== self::SEVERITY_HIGH && $severity !== self::SEVERITY_CRITICAL) {
+            $severity = AaeosBlockerSeverity::of($blocker);
+            if (! AaeosBlockerSeverity::isDecisive($severity)) {
                 continue;
             }
 
@@ -231,14 +227,6 @@ final class PhaseAdvanceVerdictClassifier
         }
 
         return false;
-    }
-
-    /**
-     * @param  array<string, mixed>  $blocker
-     */
-    private function severityOf(array $blocker): string
-    {
-        return strtolower(AiValueNormalizer::trimmedStringOrNull($blocker['severity'] ?? null) ?? '');
     }
 
     /**

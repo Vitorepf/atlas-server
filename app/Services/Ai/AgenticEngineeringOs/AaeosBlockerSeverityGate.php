@@ -6,14 +6,6 @@ namespace App\Services\Ai\AgenticEngineeringOs;
 
 final class AaeosBlockerSeverityGate
 {
-    private const SEVERITY_CRITICAL = 'critical';
-
-    private const SEVERITY_HIGH = 'high';
-
-    private const SEVERITY_MEDIUM = 'medium';
-
-    private const SEVERITY_LOW = 'low';
-
     private const SIGNAL_BLOCKED = 'blocked';
 
     private const SIGNAL_WARNING = 'warning';
@@ -41,17 +33,17 @@ final class AaeosBlockerSeverityGate
         $ownerlessBlockers = [];
 
         foreach ($blockers as $blocker) {
-            $severity = $this->normalizeSeverity($blocker);
+            $severity = AaeosBlockerSeverity::of($blocker);
 
             match ($severity) {
-                self::SEVERITY_CRITICAL => $criticalCount++,
-                self::SEVERITY_HIGH => $highCount++,
-                self::SEVERITY_MEDIUM => $mediumCount++,
-                self::SEVERITY_LOW => $lowCount++,
+                AaeosBlockerSeverity::CRITICAL => $criticalCount++,
+                AaeosBlockerSeverity::HIGH => $highCount++,
+                AaeosBlockerSeverity::MEDIUM => $mediumCount++,
+                AaeosBlockerSeverity::LOW => $lowCount++,
                 default => $unknownCount++,
             };
 
-            if (in_array($severity, [self::SEVERITY_CRITICAL, self::SEVERITY_HIGH], true)
+            if (AaeosBlockerSeverity::isDecisive($severity)
                 && ! $this->hasOwner($blocker)) {
                 $ownerlessBlockers[] = $blocker;
             }
@@ -80,24 +72,6 @@ final class AaeosBlockerSeverityGate
         $owner = $blocker['owner'] ?? null;
 
         return is_string($owner) && trim($owner) !== '';
-    }
-
-    /**
-     * @param  mixed  $blocker
-     */
-    private function normalizeSeverity($blocker): string
-    {
-        if (! is_array($blocker)) {
-            return '';
-        }
-
-        $severity = $blocker['severity'] ?? null;
-
-        if (! is_string($severity)) {
-            return '';
-        }
-
-        return strtolower(trim($severity));
     }
 
     private function resolveSignal(int $criticalCount, int $highCount, int $mediumCount): string
