@@ -65,6 +65,14 @@ final class PortfolioBudgetAllocator
     public const BASIS_MEASURED = 'measured';
 
     public const BASIS_INSUFFICIENT_N = 'insufficient_n';
+    public const FIELD_MEAN_PROVEN_YIELD = 'mean_proven_yield';
+    public const FIELD_MIN = 'min';
+    public const FIELD_MAX = 'max';
+    public const FIELD_BASIS = 'basis';
+    public const FIELD_ALLOCATED_SHARE = 'allocated_share';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_FORMULA_VERSION = 'formula_version';
+    public const FIELD_STATUS = 'status';
 
     /**
      * @param  array<string,mixed>  $input keys:
@@ -103,20 +111,20 @@ final class PortfolioBudgetAllocator
 
         $yieldReport = [];
         foreach (self::CLASSES as $class) {
-            $y = $yields[$class] ?? ['n' => 0, 'mean_proven_yield' => 0.0];
+            $y = $yields[$class] ?? ['n' => 0, self::FIELD_MEAN_PROVEN_YIELD => 0.0];
             $yieldReport[$class] = [
                 'n' => $y['n'],
-                'mean_proven_yield' => $y['n'] >= self::MIN_N_PER_CLASS ? $y['mean_proven_yield'] : null,
-                'basis' => $y['n'] >= self::MIN_N_PER_CLASS ? self::BASIS_MEASURED : self::BASIS_INSUFFICIENT_N,
-                'allocated_share' => $usedWeights[$class],
+                self::FIELD_MEAN_PROVEN_YIELD => $y['n'] >= self::MIN_N_PER_CLASS ? $y[self::FIELD_MEAN_PROVEN_YIELD] : null,
+                self::FIELD_BASIS => $y['n'] >= self::MIN_N_PER_CLASS ? self::BASIS_MEASURED : self::BASIS_INSUFFICIENT_N,
+                self::FIELD_ALLOCATED_SHARE => $usedWeights[$class],
             ];
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'formula_version' => self::FORMULA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             'decision_kind' => 'portfolio_allocation',
-            'status' => $status,
+            self::FIELD_STATUS => $status,
             'allocation' => $usedWeights,
             'default_mix' => $default,
             'yield_by_class' => $yieldReport,
@@ -178,11 +186,11 @@ final class PortfolioBudgetAllocator
         $out = [];
         foreach (self::CLASSES as $class) {
             $band = AiValueNormalizer::arrayOrEmpty($raw[$class] ?? null);
-            $minRaw = AiValueNormalizer::finiteFloatOrNull($band['min'] ?? null);
-            $maxRaw = AiValueNormalizer::finiteFloatOrNull($band['max'] ?? null);
+            $minRaw = AiValueNormalizer::finiteFloatOrNull($band[self::FIELD_MIN] ?? null);
+            $maxRaw = AiValueNormalizer::finiteFloatOrNull($band[self::FIELD_MAX] ?? null);
             $min = $minRaw === null ? 0.0 : AiValueNormalizer::clampUnit($minRaw);
             $max = $maxRaw === null ? 1.0 : max($min, AiValueNormalizer::clampUnit($maxRaw));
-            $out[$class] = ['min' => $min, 'max' => $max];
+            $out[$class] = [self::FIELD_MIN => $min, self::FIELD_MAX => $max];
         }
 
         return $out;
@@ -198,8 +206,8 @@ final class PortfolioBudgetAllocator
         foreach (self::CLASSES as $class) {
             $entry = AiValueNormalizer::arrayOrEmpty($raw[$class] ?? null);
             $n = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($entry['n'] ?? null) ?? 0));
-            $y = AiValueNormalizer::finiteFloatOrNull($entry['mean_proven_yield'] ?? null) ?? 0.0;
-            $out[$class] = ['n' => $n, 'mean_proven_yield' => $y];
+            $y = AiValueNormalizer::finiteFloatOrNull($entry[self::FIELD_MEAN_PROVEN_YIELD] ?? null) ?? 0.0;
+            $out[$class] = ['n' => $n, self::FIELD_MEAN_PROVEN_YIELD => $y];
         }
 
         return $out;
@@ -224,9 +232,9 @@ final class PortfolioBudgetAllocator
         $floors = [];
         $caps = [];
         foreach (self::CLASSES as $class) {
-            $band = $ceilings[$class] ?? ['min' => 0.0, 'max' => 1.0];
-            $floors[$class] = max(self::HARD_FLOOR_SHARE, $band['min']);
-            $cap = min(self::HARD_CEILING_SHARE, $band['max']);
+            $band = $ceilings[$class] ?? [self::FIELD_MIN => 0.0, self::FIELD_MAX => 1.0];
+            $floors[$class] = max(self::HARD_FLOOR_SHARE, $band[self::FIELD_MIN]);
+            $cap = min(self::HARD_CEILING_SHARE, $band[self::FIELD_MAX]);
             $caps[$class] = max($cap, $floors[$class]);
         }
         $out = [];

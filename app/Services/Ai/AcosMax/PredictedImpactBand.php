@@ -11,7 +11,7 @@ final class PredictedImpactBand
     public const SCHEMA_VERSION = 'atlas.originator.predicted_impact_band.v1';
 
     /** @var array<string,int> */
-    public const RUNG_WEIGHT = ['task' => 0, 'slice' => 1, 'obra' => 2, 'salto' => 3];
+    public const RUNG_WEIGHT = [self::FIELD_TASK => 0, self::FIELD_SLICE => 1, self::FIELD_OBRA => 2, self::FIELD_SALTO => 3];
 
     /** @var list<string> */
     public const BANDS = ['low', 'sweet', 'high'];
@@ -25,6 +25,14 @@ final class PredictedImpactBand
     public const HIGH_SCORE_FLOOR = 4;
 
     public const SWEET_SCORE_FLOOR = 2;
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_TASK = 'task';
+    public const FIELD_SLICE = 'slice';
+    public const FIELD_OBRA = 'obra';
+    public const FIELD_SALTO = 'salto';
+    public const FIELD_BAND = 'band';
+    public const FIELD_COMPONENTS = 'components';
 
     /**
      * @param  array<string,mixed>  $candidate
@@ -43,10 +51,10 @@ final class PredictedImpactBand
         };
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'band' => $band,
-            'components' => ['rung' => $rung, 'rank' => $rank, 'path_yield' => $yield],
-            'source' => [
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_BAND => $band,
+            self::FIELD_COMPONENTS => ['rung' => $rung, 'rank' => $rank, 'path_yield' => $yield],
+            self::FIELD_SOURCE => [
                 'caller_declared_band_ignored' => true,
                 'influences_pick' => false,
                 'single_scalar_score_emitted' => false,
@@ -66,7 +74,7 @@ final class PredictedImpactBand
         }
 
         foreach ($rows as $row) {
-            $band = AiValueNormalizer::trimmedStringOrNull($row['band'] ?? null) ?? 'low';
+            $band = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_BAND] ?? null) ?? 'low';
             if (! isset($bands[$band])) {
                 continue;
             }
@@ -81,9 +89,9 @@ final class PredictedImpactBand
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'bands' => $bands,
-            'source' => [
+            self::FIELD_SOURCE => [
                 'unresolved_counts_as_success' => false,
                 'report_only' => true,
             ],

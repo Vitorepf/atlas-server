@@ -4529,4 +4529,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['evidence_flywheel_budget_floor_count']);
     }
 
+    public function test_portfolio_impact_corpus_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->portfolioImpactCorpusFloorsContractObserve([]);
+
+        $this->assertSame('mean_proven_yield', $payload['portfolio_field_mean_proven_yield']);
+        $this->assertSame('min', $payload['portfolio_field_min']);
+        $this->assertSame('max', $payload['portfolio_field_max']);
+        $this->assertSame('basis', $payload['portfolio_field_basis']);
+        $this->assertSame('allocated_share', $payload['portfolio_field_allocated_share']);
+        $this->assertSame('status', $payload['portfolio_field_status']);
+        $this->assertSame('schema_version', $payload['impact_field_schema_version']);
+        $this->assertSame('source', $payload['impact_field_source']);
+        $this->assertSame('task', $payload['impact_field_task']);
+        $this->assertSame('slice', $payload['impact_field_slice']);
+        $this->assertSame('obra', $payload['impact_field_obra']);
+        $this->assertSame('band', $payload['impact_field_band']);
+        $this->assertSame('schema_version', $payload['corpus_field_schema_version']);
+        $this->assertSame('source', $payload['corpus_field_source']);
+        $this->assertSame('candidate_hash', $payload['corpus_field_candidate_hash']);
+        $this->assertSame('status', $payload['corpus_field_status']);
+        $this->assertSame('candidates', $payload['corpus_field_candidates']);
+        $this->assertSame(17, $payload['portfolio_impact_corpus_floor_count']);
+    }
+
 }

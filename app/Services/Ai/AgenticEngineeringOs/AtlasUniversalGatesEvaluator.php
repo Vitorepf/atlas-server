@@ -6141,6 +6141,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function portfolioImpactCorpusFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'portfolio_field_mean_proven_yield' => PortfolioBudgetAllocator::FIELD_MEAN_PROVEN_YIELD,
+            'portfolio_field_min' => PortfolioBudgetAllocator::FIELD_MIN,
+            'portfolio_field_max' => PortfolioBudgetAllocator::FIELD_MAX,
+            'portfolio_field_basis' => PortfolioBudgetAllocator::FIELD_BASIS,
+            'portfolio_field_allocated_share' => PortfolioBudgetAllocator::FIELD_ALLOCATED_SHARE,
+            'portfolio_field_status' => PortfolioBudgetAllocator::FIELD_STATUS,
+            'impact_field_schema_version' => PredictedImpactBand::FIELD_SCHEMA_VERSION,
+            'impact_field_source' => PredictedImpactBand::FIELD_SOURCE,
+            'impact_field_task' => PredictedImpactBand::FIELD_TASK,
+            'impact_field_slice' => PredictedImpactBand::FIELD_SLICE,
+            'impact_field_obra' => PredictedImpactBand::FIELD_OBRA,
+            'impact_field_band' => PredictedImpactBand::FIELD_BAND,
+            'corpus_field_schema_version' => GatedCorpusCandidateMiner::FIELD_SCHEMA_VERSION,
+            'corpus_field_source' => GatedCorpusCandidateMiner::FIELD_SOURCE,
+            'corpus_field_candidate_hash' => GatedCorpusCandidateMiner::FIELD_CANDIDATE_HASH,
+            'corpus_field_status' => GatedCorpusCandidateMiner::FIELD_STATUS,
+            'corpus_field_candidates' => GatedCorpusCandidateMiner::FIELD_CANDIDATES,
+            'portfolio_impact_corpus_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

@@ -18,6 +18,14 @@ final class GatedCorpusCandidateMiner
     public const STATUS_OK = 'ok';
 
     public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_ORIGIN_REF = 'origin_ref';
+    public const FIELD_CANDIDATE_HASH = 'candidate_hash';
+    public const FIELD_ADMISSION = 'admission';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_CANDIDATES = 'candidates';
+    public const FIELD_DIRECT_WRITE = 'direct_write';
 
     /**
      * @param  list<array<string,mixed>>  $sources
@@ -39,24 +47,24 @@ final class GatedCorpusCandidateMiner
                 continue;
             }
             $candidates[] = [
-                'schema_version' => self::SCHEMA_VERSION,
-                'origin_ref' => $ref,
-                'source' => AiValueNormalizer::trimmedStringOrNull($source['source'] ?? null) ?? self::SOURCE_UNKNOWN,
-                'candidate_hash' => sha1($ref."\n".$text),
-                'admission' => [
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+                self::FIELD_ORIGIN_REF => $ref,
+                self::FIELD_SOURCE => AiValueNormalizer::trimmedStringOrNull($source[self::FIELD_SOURCE] ?? null) ?? self::SOURCE_UNKNOWN,
+                self::FIELD_CANDIDATE_HASH => sha1($ref."\n".$text),
+                self::FIELD_ADMISSION => [
                     'via_asi_02' => true,
                     'immune_gates_apply' => true,
-                    'direct_write' => false,
+                    self::FIELD_DIRECT_WRITE => false,
                 ],
             ];
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => $candidates === [] ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK,
-            'candidates' => $candidates,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_STATUS => $candidates === [] ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK,
+            self::FIELD_CANDIDATES => $candidates,
             'omitted' => array_values(array_unique($omitted)),
-            'source' => [
+            self::FIELD_SOURCE => [
                 'candidate_only' => true,
                 'writes_memory_directly' => false,
                 'count_is_acceptance' => false,
