@@ -11,9 +11,15 @@ use Carbon\CarbonImmutable;
 
 final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
 {
+    public const SCHEMA_VERSION = 'atlas.memory.substrate_restore_drill.watchdog.v1';
+
+    public const CHECK_ID = 'wdg-01.substrate_restore_drill';
+
+    public const DEFAULT_MAX_SUCCESS_AGE_DAYS = 45;
+
     public function id(): string
     {
-        return 'wdg-01.substrate_restore_drill';
+        return self::CHECK_ID;
     }
 
     public function run(): AtlasWatchdogCheckResult
@@ -22,12 +28,12 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
             'atlas.cognition.substrate_restore_drill.receipt_path',
             storage_path('app/atlas/evidence/substrate-restore-drills.jsonl'),
         );
-        $maxAgeDays = max(1, (int) config('atlas.cognition.substrate_restore_drill.max_success_age_days', 45));
+        $maxAgeDays = max(1, (int) config('atlas.cognition.substrate_restore_drill.max_success_age_days', self::DEFAULT_MAX_SUCCESS_AGE_DAYS));
         $latest = $this->latestSuccessfulReceipt($receiptPath);
 
         if ($latest === null) {
             return AtlasWatchdogCheckResult::alert([
-                'schema_version' => 'atlas.memory.substrate_restore_drill.watchdog.v1',
+                'schema_version' => self::SCHEMA_VERSION,
                 'receipt_path' => $receiptPath,
                 'max_success_age_days' => $maxAgeDays,
                 'reason' => 'no_successful_drill',
@@ -40,7 +46,7 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
         $checkedAt = CarbonImmutable::parse((string) ($latest['checked_at'] ?? 'now'), 'UTC');
         $ageDays = (int) $checkedAt->diffInDays(CarbonImmutable::now('UTC'));
         $evidence = [
-            'schema_version' => 'atlas.memory.substrate_restore_drill.watchdog.v1',
+            'schema_version' => self::SCHEMA_VERSION,
             'receipt_path' => $receiptPath,
             'max_success_age_days' => $maxAgeDays,
             'last_successful_drill_at' => $checkedAt->toISOString(),

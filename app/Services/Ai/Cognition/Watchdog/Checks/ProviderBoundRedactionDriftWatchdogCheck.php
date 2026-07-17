@@ -13,18 +13,24 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWatchdogCheck
 {
+    public const SCHEMA_VERSION = 'atlas.provider_bound_redaction_drift.v1';
+
+    public const CHECK_ID = 'maxm06.provider_bound_redaction_drift';
+
+    public const SAMPLE_LIMIT = 200;
+
     public function __construct(private AtlasMemoryPrivacyService $privacy) {}
 
     public function id(): string
     {
-        return 'maxm06.provider_bound_redaction_drift';
+        return self::CHECK_ID;
     }
 
     public function run(): AtlasWatchdogCheckResult
     {
         if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             return AtlasWatchdogCheckResult::skipped([
-                'schema' => 'atlas.provider_bound_redaction_drift.v1',
+                'schema' => self::SCHEMA_VERSION,
                 'reason' => 'atlas_memory_entries_missing',
             ]);
         }
@@ -32,7 +38,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
         $drift = [];
         AtlasMemoryEntry::query()
             ->where('redaction_status', 'redacted')
-            ->limit(200)
+            ->limit(self::SAMPLE_LIMIT)
             ->get()
             ->each(function (AtlasMemoryEntry $entry) use (&$drift): void {
                 $signals = $this->driftSignals($entry);
@@ -50,8 +56,8 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
             });
 
         $evidence = [
-            'schema' => 'atlas.provider_bound_redaction_drift.v1',
-            'checked' => min(200, AtlasMemoryEntry::query()->where('redaction_status', 'redacted')->count()),
+            'schema' => self::SCHEMA_VERSION,
+            'checked' => min(self::SAMPLE_LIMIT, AtlasMemoryEntry::query()->where('redaction_status', 'redacted')->count()),
             'drift_count' => count($drift),
             'drift' => $drift,
         ];

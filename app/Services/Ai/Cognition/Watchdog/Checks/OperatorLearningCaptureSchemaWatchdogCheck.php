@@ -10,11 +10,13 @@ use App\Services\Ai\OperatorIntelligence\OperatorLearningRuntimeCaptureService;
 
 final readonly class OperatorLearningCaptureSchemaWatchdogCheck implements AtlasWatchdogCheck
 {
+    public const CHECK_ID = 'maxn-01.operator_learning_capture_schema';
+
     public function __construct(private OperatorLearningRuntimeCaptureService $capture) {}
 
     public function id(): string
     {
-        return 'maxn-01.operator_learning_capture_schema';
+        return self::CHECK_ID;
     }
 
     public function run(): AtlasWatchdogCheckResult

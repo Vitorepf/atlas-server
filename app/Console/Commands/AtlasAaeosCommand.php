@@ -198,6 +198,7 @@ final class AtlasAaeosCommand extends Command
         {--outcome-immune-scorecard-ids-contract= : JSON file (any object) to observe outcome/immune/scorecard/delivery/blocker/fabric id floors}
         {--gate-evolution-skill-freeze-contract= : JSON file (any object) to observe gate-signal/evolution/skill/immune-freeze floors}
         {--residual-schema-ledger-contract= : JSON file (any object) to observe residual schema/ledger/weights floors}
+        {--unwired-watchdog-checks-contract= : JSON file (any object) to observe published unwired watchdog check floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -552,6 +553,7 @@ final class AtlasAaeosCommand extends Command
             ['outcome-immune-scorecard-ids-contract', 'outcome_immune_scorecard_ids_contract', fn (array $p) => $gates->outcomeImmuneScorecardIdsContractObserve($p)],
             ['gate-evolution-skill-freeze-contract', 'gate_evolution_skill_freeze_contract', fn (array $p) => $gates->gateEvolutionSkillFreezeContractObserve($p)],
             ['residual-schema-ledger-contract', 'residual_schema_ledger_contract', fn (array $p) => $gates->residualSchemaLedgerContractObserve($p)],
+            ['unwired-watchdog-checks-contract', 'unwired_watchdog_checks_contract', fn (array $p) => $gates->unwiredWatchdogChecksContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

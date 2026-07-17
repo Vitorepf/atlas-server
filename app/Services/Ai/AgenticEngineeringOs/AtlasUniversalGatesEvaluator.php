@@ -40,8 +40,19 @@ use App\Services\Ai\Cognition\AtlasCognitiveFunctionAtlasService;
 use App\Services\Ai\Cognition\AtlasCognitiveMemoryFabricSchemaEvolutionService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogRunner;
 use App\Services\Ai\Cognition\Watchdog\Checks\AutonomyLadderAdversarialWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\AcosDeadSeriesWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\AobgLatencyWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\CompactionRecoverySampleWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\Checks\DailyCanaryReplayByRefsWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\DiskFreeWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\Checks\EvidenceLedgerIntegrityWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\JointResourceBudgetWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\LocalModelIntegrityWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\OperatorLearningCaptureSchemaWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\OperatorReviewDebtWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\ProviderBoundRedactionDriftWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\SubstrateRestoreDrillWatchdogCheck;
 use App\Services\Ai\Cognition\ImmuneCalibrationService;
 use App\Services\Ai\Cognition\CognitiveImmuneCheckContract;
 use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
@@ -53,7 +64,6 @@ use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
 use App\Services\Ai\Cognition\AtlasOperationalVolumeCheckService;
 use App\Services\Ai\Cognition\AtlasCognitionRemintTouchedQueue;
 use App\Services\Ai\Cognition\CaptureHmacLineageService;
-use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
 use App\Services\Ai\AcosMax\AcosMaxObraRetroService;
@@ -3451,6 +3461,50 @@ final class AtlasUniversalGatesEvaluator
             'operational_volume_prerequisite_gap' => AtlasOperationalVolumeCheckService::PREREQUISITE_GAP_HERMES_01,
             'obra_retro_series_tag' => AcosMaxObraRetroService::SERIES_TAG,
             'required_gate_coverage_schema' => AaeosRequiredGateCoverageChecker::SCHEMA_VERSION,
+        ];
+    }
+
+    /**
+     * Observe-only newly published floors for previously unwired watchdog checks.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function unwiredWatchdogChecksContractObserve(array $input = []): array
+    {
+        return [
+            'dead_series_schema' => AcosDeadSeriesWatchdogCheck::SCHEMA_VERSION,
+            'dead_series_check_id' => AcosDeadSeriesWatchdogCheck::CHECK_ID,
+            'aobg_latency_schema' => AobgLatencyWatchdogCheck::SCHEMA_VERSION,
+            'aobg_latency_check_id' => AobgLatencyWatchdogCheck::CHECK_ID,
+            'aobg_latency_default_measure_id' => AobgLatencyWatchdogCheck::DEFAULT_MEASURE_ID,
+            'aobg_latency_default_denominator_min' => AobgLatencyWatchdogCheck::DEFAULT_DENOMINATOR_MIN,
+            'aobg_latency_pack_p95_ms_alert' => AobgLatencyWatchdogCheck::DEFAULT_PACK_P95_MS_ALERT,
+            'aobg_latency_recall_p95_ms_alert' => AobgLatencyWatchdogCheck::DEFAULT_RECALL_P95_MS_ALERT,
+            'aobg_latency_hook_p95_ms_alert' => AobgLatencyWatchdogCheck::DEFAULT_HOOK_P95_MS_ALERT,
+            'disk_free_schema' => DiskFreeWatchdogCheck::SCHEMA_VERSION,
+            'disk_free_check_id' => DiskFreeWatchdogCheck::CHECK_ID,
+            'disk_free_default_floor_gb' => DiskFreeWatchdogCheck::DEFAULT_FLOOR_GB,
+            'joint_resource_budget_schema' => JointResourceBudgetWatchdogCheck::SCHEMA_VERSION,
+            'joint_resource_budget_check_id' => JointResourceBudgetWatchdogCheck::CHECK_ID,
+            'local_model_integrity_schema' => LocalModelIntegrityWatchdogCheck::SCHEMA_VERSION,
+            'local_model_integrity_check_id' => LocalModelIntegrityWatchdogCheck::CHECK_ID,
+            'operator_review_debt_schema' => OperatorReviewDebtWatchdogCheck::SCHEMA_VERSION,
+            'operator_review_debt_check_id' => OperatorReviewDebtWatchdogCheck::CHECK_ID,
+            'provider_bound_redaction_schema' => ProviderBoundRedactionDriftWatchdogCheck::SCHEMA_VERSION,
+            'provider_bound_redaction_check_id' => ProviderBoundRedactionDriftWatchdogCheck::CHECK_ID,
+            'provider_bound_redaction_sample_limit' => ProviderBoundRedactionDriftWatchdogCheck::SAMPLE_LIMIT,
+            'substrate_restore_schema' => SubstrateRestoreDrillWatchdogCheck::SCHEMA_VERSION,
+            'substrate_restore_check_id' => SubstrateRestoreDrillWatchdogCheck::CHECK_ID,
+            'substrate_restore_default_max_success_age_days' => SubstrateRestoreDrillWatchdogCheck::DEFAULT_MAX_SUCCESS_AGE_DAYS,
+            'compaction_recovery_check_id' => CompactionRecoverySampleWatchdogCheck::CHECK_ID,
+            'compaction_recovery_default_limit' => CompactionRecoverySampleWatchdogCheck::DEFAULT_LIMIT,
+            'compaction_recovery_default_days' => CompactionRecoverySampleWatchdogCheck::DEFAULT_DAYS,
+            'compaction_recovery_default_min_receipts' => CompactionRecoverySampleWatchdogCheck::DEFAULT_MIN_RECEIPTS,
+            'operator_learning_capture_check_id' => OperatorLearningCaptureSchemaWatchdogCheck::CHECK_ID,
+            'health_report_catalog' => HealthReportWatchdogCheck::CATALOG,
+            'health_report_catalog_count' => count(HealthReportWatchdogCheck::CATALOG),
         ];
     }
 

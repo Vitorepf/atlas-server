@@ -16,6 +16,10 @@ use Carbon\CarbonImmutable;
  */
 final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCheck
 {
+    public const SCHEMA_VERSION = 'atlas.acos.joint_resource_budget_watchdog.v1';
+
+    public const CHECK_ID = 'elev-27.joint_resource_budget';
+
     public function __construct(
         private AtlasResourceBudgetService $service,
         private ?CarbonImmutable $now = null,
@@ -23,7 +27,7 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
 
     public function id(): string
     {
-        return 'elev-27.joint_resource_budget';
+        return self::CHECK_ID;
     }
 
     public function run(): AtlasWatchdogCheckResult
@@ -32,7 +36,7 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
         $report = $this->service->report();
 
         $evidence = [
-            'schema_version' => 'atlas.acos.joint_resource_budget_watchdog.v1',
+            'schema_version' => self::SCHEMA_VERSION,
             'generated_at' => $now->toIso8601String(),
             'host_ram_gib' => $report['host_ram_gib'],
             'engine_floor_gib' => $report['engine_floor_gib'],

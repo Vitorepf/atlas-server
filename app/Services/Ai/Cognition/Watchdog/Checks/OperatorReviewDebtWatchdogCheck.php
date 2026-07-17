@@ -12,13 +12,17 @@ use Throwable;
 
 final readonly class OperatorReviewDebtWatchdogCheck implements AtlasWatchdogCheck
 {
+    public const SCHEMA_VERSION = 'atlas.acos.operator_review_debt_watchdog.v1';
+
+    public const CHECK_ID = 'elev-25.operator_review_debt';
+
     public function __construct(
         private AtlasWeeklyMemoryDigestService $digest,
     ) {}
 
     public function id(): string
     {
-        return 'elev-25.operator_review_debt';
+        return self::CHECK_ID;
     }
 
     public function run(): AtlasWatchdogCheckResult
@@ -27,7 +31,7 @@ final readonly class OperatorReviewDebtWatchdogCheck implements AtlasWatchdogChe
             $evidence = AiValueNormalizer::arrayOrEmpty(($this->digest->digest(7))['operator_review_debt'] ?? null);
         } catch (Throwable $e) {
             return AtlasWatchdogCheckResult::error([
-                'schema_version' => 'atlas.acos.operator_review_debt_watchdog.v1',
+                'schema_version' => self::SCHEMA_VERSION,
             ], [
                 'code' => 'elev_25_review_debt_unavailable',
                 'message' => $e->getMessage(),

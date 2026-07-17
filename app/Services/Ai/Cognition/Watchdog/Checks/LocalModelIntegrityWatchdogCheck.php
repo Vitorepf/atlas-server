@@ -16,6 +16,10 @@ use Carbon\CarbonImmutable;
  */
 final readonly class LocalModelIntegrityWatchdogCheck implements AtlasWatchdogCheck
 {
+    public const SCHEMA_VERSION = 'atlas.acos.local_model_integrity_watchdog.v1';
+
+    public const CHECK_ID = 'elev-19.local_model_integrity';
+
     public function __construct(
         private AtlasLocalModelIntegrityService $service,
         private ?CarbonImmutable $now = null,
@@ -23,7 +27,7 @@ final readonly class LocalModelIntegrityWatchdogCheck implements AtlasWatchdogCh
 
     public function id(): string
     {
-        return 'elev-19.local_model_integrity';
+        return self::CHECK_ID;
     }
 
     public function run(): AtlasWatchdogCheckResult
@@ -32,7 +36,7 @@ final readonly class LocalModelIntegrityWatchdogCheck implements AtlasWatchdogCh
         $report = $this->service->verifyAll();
 
         $evidence = [
-            'schema_version' => 'atlas.acos.local_model_integrity_watchdog.v1',
+            'schema_version' => self::SCHEMA_VERSION,
             'generated_at' => $now->toIso8601String(),
             'total' => $report['total'],
             'verified' => $report['verified'],

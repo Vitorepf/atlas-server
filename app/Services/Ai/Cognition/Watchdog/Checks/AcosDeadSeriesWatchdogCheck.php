@@ -12,6 +12,10 @@ use Carbon\CarbonImmutable;
 
 final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
 {
+    public const SCHEMA_VERSION = 'atlas.acos.dead_series_watchdog.v1';
+
+    public const CHECK_ID = 'elev-20s.dead_series_registry';
+
     public function __construct(
         private AcosMaxMeasureSeriesRegistry $registry,
         private AcosMeasureSeriesFreshnessReader $freshness = new AcosMeasureSeriesFreshnessReader,
@@ -20,7 +24,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
 
     public function id(): string
     {
-        return 'elev-20s.dead_series_registry';
+        return self::CHECK_ID;
     }
 
     public function run(): AtlasWatchdogCheckResult
@@ -33,7 +37,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
         ));
 
         $evidence = [
-            'schema_version' => 'atlas.acos.dead_series_watchdog.v1',
+            'schema_version' => self::SCHEMA_VERSION,
             'generated_at' => $now->toIso8601String(),
             'registry_count' => count($series),
             'dead_count' => count($dead),

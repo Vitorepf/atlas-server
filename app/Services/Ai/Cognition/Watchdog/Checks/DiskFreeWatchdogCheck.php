@@ -21,6 +21,12 @@ use Carbon\CarbonImmutable;
  */
 final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
 {
+    public const SCHEMA_VERSION = 'atlas.acos.disk_free_watchdog.v1';
+
+    public const CHECK_ID = 'elev-24.disk_free';
+
+    public const DEFAULT_FLOOR_GB = 5;
+
     /** @var callable():array{path:string,free_bytes:int,total_bytes:int} */
     private $probe;
 
@@ -51,12 +57,12 @@ final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
             ];
         };
         $this->now = $now ?? CarbonImmutable::now('UTC');
-        $this->floorGb = $floorGb ?? (int) config('atlas_resource_budget.disk_free_floor_gb', 5);
+        $this->floorGb = $floorGb ?? (int) config('atlas_resource_budget.disk_free_floor_gb', self::DEFAULT_FLOOR_GB);
     }
 
     public function id(): string
     {
-        return 'elev-24.disk_free';
+        return self::CHECK_ID;
     }
 
     public function isBelowFloor(): bool
@@ -76,7 +82,7 @@ final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
         $totalGb = (int) floor($totalBytes / (1024 ** 3));
 
         $evidence = [
-            'schema_version' => 'atlas.acos.disk_free_watchdog.v1',
+            'schema_version' => self::SCHEMA_VERSION,
             'generated_at' => $this->now->toIso8601String(),
             'path' => (string) ($probed['path'] ?? ''),
             'free_gb' => $freeGb,

@@ -15,6 +15,20 @@ use Throwable;
 
 final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
 {
+    public const SCHEMA_VERSION = 'atlas.acos.watchdog.aobg_latency.v1';
+
+    public const CHECK_ID = 'wdg-01.aobg_latency';
+
+    public const DEFAULT_MEASURE_ID = 'aobg.latency_ledger.v1';
+
+    public const DEFAULT_DENOMINATOR_MIN = 5;
+
+    public const DEFAULT_PACK_P95_MS_ALERT = 18000.0;
+
+    public const DEFAULT_RECALL_P95_MS_ALERT = 15000.0;
+
+    public const DEFAULT_HOOK_P95_MS_ALERT = 20000.0;
+
     /**
      * @param  array<string,mixed>|null  $freezePayloadOverride
      */
@@ -26,14 +40,14 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
 
     public function id(): string
     {
-        return 'wdg-01.aobg_latency';
+        return self::CHECK_ID;
     }
 
     public function run(): AtlasWatchdogCheckResult
     {
         $freeze = $this->freezePayloadOverride ?? $this->latestFreezePayload() ?? AtlasAcosFreezeCommand::defaultFreezePayload();
         $thresholds = AiValueNormalizer::arrayOrEmpty($freeze['thresholds'] ?? null);
-        $denominatorMin = max(1, (int) ($freeze['denominator_min'] ?? $thresholds['denominator_min_samples'] ?? 5));
+        $denominatorMin = max(1, (int) ($freeze['denominator_min'] ?? $thresholds['denominator_min_samples'] ?? self::DEFAULT_DENOMINATOR_MIN));
         $day = gmdate('Y-m-d');
         $report = $this->ledger->report(day: $day);
         $ops = AiValueNormalizer::arrayOrEmpty(data_get($report, 'days.'.$day.'.ops', []));
@@ -51,8 +65,8 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
         }
 
         $evidence = [
-            'schema_version' => 'atlas.acos.watchdog.aobg_latency.v1',
-            'measure_id' => (string) ($freeze['measure_id'] ?? 'aobg.latency_ledger.v1'),
+            'schema_version' => self::SCHEMA_VERSION,
+            'measure_id' => AiValueNormalizer::trimmedStringOrNull($freeze['measure_id'] ?? null) ?? self::DEFAULT_MEASURE_ID,
             'day' => $day,
             'thresholds' => $thresholds,
             'denominator_min' => $denominatorMin,
@@ -69,9 +83,9 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
 
         $alerts = [];
         foreach ([
-            AtlasAobgLatencyLedger::OP_PACK => AiValueNormalizer::finiteFloatOrNull($thresholds['pack_p95_ms_alert'] ?? null) ?? 18000.0,
-            AtlasAobgLatencyLedger::OP_RECALL => AiValueNormalizer::finiteFloatOrNull($thresholds['recall_p95_ms_alert'] ?? null) ?? 15000.0,
-            AtlasAobgLatencyLedger::OP_HOOK => AiValueNormalizer::finiteFloatOrNull($thresholds['hook_p95_ms_alert'] ?? null) ?? 20000.0,
+            AtlasAobgLatencyLedger::OP_PACK => AiValueNormalizer::finiteFloatOrNull($thresholds['pack_p95_ms_alert'] ?? null) ?? self::DEFAULT_PACK_P95_MS_ALERT,
+            AtlasAobgLatencyLedger::OP_RECALL => AiValueNormalizer::finiteFloatOrNull($thresholds['recall_p95_ms_alert'] ?? null) ?? self::DEFAULT_RECALL_P95_MS_ALERT,
+            AtlasAobgLatencyLedger::OP_HOOK => AiValueNormalizer::finiteFloatOrNull($thresholds['hook_p95_ms_alert'] ?? null) ?? self::DEFAULT_HOOK_P95_MS_ALERT,
         ] as $op => $floor) {
             $p95 = AiValueNormalizer::finiteFloatOrNull(data_get($ops, $op.'.p95_ms', 0.0)) ?? 0.0;
             if ($p95 > $floor) {

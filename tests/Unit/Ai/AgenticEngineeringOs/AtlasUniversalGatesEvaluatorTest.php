@@ -2397,4 +2397,34 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('obra:acos-max', $payload['obra_retro_series_tag']);
         $this->assertSame('atlas.aaeos.phase.v1', $payload['required_gate_coverage_schema']);
     }
+
+    public function test_unwired_watchdog_checks_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->unwiredWatchdogChecksContractObserve([]);
+
+        $this->assertSame('atlas.acos.dead_series_watchdog.v1', $payload['dead_series_schema']);
+        $this->assertSame('elev-20s.dead_series_registry', $payload['dead_series_check_id']);
+        $this->assertSame('atlas.acos.watchdog.aobg_latency.v1', $payload['aobg_latency_schema']);
+        $this->assertSame('aobg.latency_ledger.v1', $payload['aobg_latency_default_measure_id']);
+        $this->assertSame(5, $payload['aobg_latency_default_denominator_min']);
+        $this->assertSame(18000.0, $payload['aobg_latency_pack_p95_ms_alert']);
+        $this->assertSame(15000.0, $payload['aobg_latency_recall_p95_ms_alert']);
+        $this->assertSame(20000.0, $payload['aobg_latency_hook_p95_ms_alert']);
+        $this->assertSame('atlas.acos.disk_free_watchdog.v1', $payload['disk_free_schema']);
+        $this->assertSame(5, $payload['disk_free_default_floor_gb']);
+        $this->assertSame('atlas.acos.joint_resource_budget_watchdog.v1', $payload['joint_resource_budget_schema']);
+        $this->assertSame('atlas.acos.local_model_integrity_watchdog.v1', $payload['local_model_integrity_schema']);
+        $this->assertSame('atlas.acos.operator_review_debt_watchdog.v1', $payload['operator_review_debt_schema']);
+        $this->assertSame('atlas.provider_bound_redaction_drift.v1', $payload['provider_bound_redaction_schema']);
+        $this->assertSame(200, $payload['provider_bound_redaction_sample_limit']);
+        $this->assertSame('atlas.memory.substrate_restore_drill.watchdog.v1', $payload['substrate_restore_schema']);
+        $this->assertSame(45, $payload['substrate_restore_default_max_success_age_days']);
+        $this->assertSame('maxf-02.compaction_recovery_sample', $payload['compaction_recovery_check_id']);
+        $this->assertSame(50, $payload['compaction_recovery_default_limit']);
+        $this->assertSame(14, $payload['compaction_recovery_default_days']);
+        $this->assertSame(20, $payload['compaction_recovery_default_min_receipts']);
+        $this->assertSame('maxn-01.operator_learning_capture_schema', $payload['operator_learning_capture_check_id']);
+        $this->assertSame(10, $payload['health_report_catalog_count']);
+        $this->assertSame('mem-09.memory_quality', $payload['health_report_catalog'][0]['id']);
+    }
 }
