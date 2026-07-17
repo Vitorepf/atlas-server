@@ -4803,6 +4803,27 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: mission-control phase statuses, reality-compiler pending,
+     * and claim DoD partial-state floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function missionControlPendingPartialFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'mission_control_status_pending' => AtlasMissionControlCockpitService::STATUS_PENDING,
+            'mission_control_status_skipped' => AtlasMissionControlCockpitService::STATUS_SKIPPED,
+            'mission_control_status_blocked' => AtlasMissionControlCockpitService::STATUS_BLOCKED,
+            'mission_control_status_complete' => AtlasMissionControlCockpitService::STATUS_COMPLETE,
+            'mission_control_status_in_progress' => AtlasMissionControlCockpitService::STATUS_IN_PROGRESS,
+            'reality_compiler_status_pending' => RealityCompilerSlice::STATUS_PENDING,
+            'claim_dod_state_partial' => AtlasAaeosClaimDefinitionOfDoneValidator::STATE_PARTIAL,
+            'mission_control_pending_partial_floor_count' => 7,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

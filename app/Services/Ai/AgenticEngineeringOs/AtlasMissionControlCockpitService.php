@@ -25,6 +25,16 @@ final class AtlasMissionControlCockpitService
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.mission_control_cockpit.v1';
 
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_SKIPPED = 'skipped';
+
+    public const STATUS_BLOCKED = 'blocked';
+
+    public const STATUS_COMPLETE = 'complete';
+
+    public const STATUS_IN_PROGRESS = 'in_progress';
+
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
         private readonly AtlasUniversalGatesEvaluator $gates,
@@ -243,7 +253,7 @@ final class AtlasMissionControlCockpitService
                 $out[] = [
                     'phase' => $phase,
                     'index' => $idx,
-                    'status' => 'pending',
+                    'status' => self::STATUS_PENDING,
                     'gates_passed' => 0,
                     'gates_blocked' => 0,
                     'gate_coverage' => null,
@@ -258,7 +268,7 @@ final class AtlasMissionControlCockpitService
             $required = AiValueNormalizer::arrayOrEmpty($gates['required'] ?? null);
             $actor = AiValueNormalizer::arrayOrEmpty($env['actor'] ?? null);
             $skipped = ! empty($env['skip_reason']);
-            $status = $skipped ? 'skipped' : (count($blocked) > 0 ? 'blocked' : ($env['ended_at'] ?? null ? 'complete' : 'in_progress'));
+            $status = $skipped ? self::STATUS_SKIPPED : (count($blocked) > 0 ? self::STATUS_BLOCKED : ($env['ended_at'] ?? null ? self::STATUS_COMPLETE : self::STATUS_IN_PROGRESS));
             $out[] = [
                 'phase' => $phase,
                 'index' => $idx,
@@ -279,11 +289,11 @@ final class AtlasMissionControlCockpitService
     {
         $last = null;
         foreach ($journey as $row) {
-            if (in_array($row['status'] ?? null, ['complete', 'skipped'], true)) {
+            if (in_array($row['status'] ?? null, [self::STATUS_COMPLETE, self::STATUS_SKIPPED], true)) {
                 $last = $row['phase'];
                 continue;
             }
-            if (in_array($row['status'] ?? null, ['in_progress', 'blocked'], true)) {
+            if (in_array($row['status'] ?? null, [self::STATUS_IN_PROGRESS, self::STATUS_BLOCKED], true)) {
                 return $row['phase'];
             }
         }

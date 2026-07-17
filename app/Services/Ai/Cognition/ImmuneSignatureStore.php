@@ -116,7 +116,7 @@ final class ImmuneSignatureStore
      */
     public function consult(string $text, array $metadata = []): ?array
     {
-        if ($this->mode() === 'off' || ! DatabaseTableAvailability::has(self::TABLE)) {
+        if ($this->mode() === self::MODE_OFF || ! DatabaseTableAvailability::has(self::TABLE)) {
             return null;
         }
 

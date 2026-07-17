@@ -23,6 +23,8 @@ final readonly class RealityCompilerSlice
 {
     public const SCHEMA_VERSION = 'atlas.reality_compiler.slice.v1';
 
+    public const STATUS_PENDING = 'pending';
+
     /** @var list<string> */
     public const EXECUTION_PHASES = [
         'spec',
@@ -44,7 +46,7 @@ final readonly class RealityCompilerSlice
     public static function defaultShape(): self
     {
         $phases = array_map(
-            static fn (string $phase): array => ['phase' => $phase, 'status' => 'pending'],
+            static fn (string $phase): array => ['phase' => $phase, 'status' => self::STATUS_PENDING],
             self::EXECUTION_PHASES,
         );
 

@@ -185,14 +185,14 @@ final class Esp09IndependentChallengerService
         foreach ($events as $event) {
             $outcome = AiValueNormalizer::lowerTrimmedString($event['outcome'] ?? '');
             $window = AiValueNormalizer::trimmedStringOrNull($event['window'] ?? null) ?? 'default';
-            $byWindow[$window] ??= ['accepted' => 0, 'ignored' => 0];
+            $byWindow[$window] ??= [self::OUTCOME_ACCEPTED => 0, self::OUTCOME_IGNORED => 0];
 
             if ($outcome === self::OUTCOME_ACCEPTED) {
                 $accepted++;
-                $byWindow[$window]['accepted']++;
+                $byWindow[$window][self::OUTCOME_ACCEPTED]++;
             } elseif ($outcome === self::OUTCOME_IGNORED) {
                 $ignored++;
-                $byWindow[$window]['ignored']++;
+                $byWindow[$window][self::OUTCOME_IGNORED]++;
             }
         }
 
@@ -202,12 +202,12 @@ final class Esp09IndependentChallengerService
         $qualifyingWindows = 0;
         $zeroAcceptedWindows = 0;
         foreach ($byWindow as $stats) {
-            $n = (int) (AiValueNormalizer::finiteFloatOrNull($stats['accepted'] ?? null) ?? 0) + (int) (AiValueNormalizer::finiteFloatOrNull($stats['ignored'] ?? null) ?? 0);
+            $n = (int) (AiValueNormalizer::finiteFloatOrNull($stats[self::OUTCOME_ACCEPTED] ?? null) ?? 0) + (int) (AiValueNormalizer::finiteFloatOrNull($stats[self::OUTCOME_IGNORED] ?? null) ?? 0);
             if ($n < $minPerWindow) {
                 continue;
             }
             $qualifyingWindows++;
-            if ((int) (AiValueNormalizer::finiteFloatOrNull($stats['accepted'] ?? null) ?? 0) === 0) {
+            if ((int) (AiValueNormalizer::finiteFloatOrNull($stats[self::OUTCOME_ACCEPTED] ?? null) ?? 0) === 0) {
                 $zeroAcceptedWindows++;
             }
         }

@@ -241,6 +241,7 @@ final class AtlasAaeosCommand extends Command
         {--residual-error-basis-status-floors-contract= : JSON file (any object) to observe residual error/basis/status floors + newly published ready/calibrated/rotate-age}
         {--signature-mode-suspended-unknown-floors-contract= : JSON file (any object) to observe signature modes + suspended/unknown/operator floors}
         {--architect-verdict-freeze-ready-floors-contract= : JSON file (any object) to observe architect/verdict/freeze/ready/rollback floors}
+        {--mission-control-pending-partial-floors-contract= : JSON file (any object) to observe mission-control/reality-compiler/claim partial floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -638,6 +639,7 @@ final class AtlasAaeosCommand extends Command
             ['residual-error-basis-status-floors-contract', 'residual_error_basis_status_floors_contract', fn (array $p) => $gates->residualErrorBasisStatusFloorsContractObserve($p)],
             ['signature-mode-suspended-unknown-floors-contract', 'signature_mode_suspended_unknown_floors_contract', fn (array $p) => $gates->signatureModeSuspendedUnknownFloorsContractObserve($p)],
             ['architect-verdict-freeze-ready-floors-contract', 'architect_verdict_freeze_ready_floors_contract', fn (array $p) => $gates->architectVerdictFreezeReadyFloorsContractObserve($p)],
+            ['mission-control-pending-partial-floors-contract', 'mission_control_pending_partial_floors_contract', fn (array $p) => $gates->missionControlPendingPartialFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

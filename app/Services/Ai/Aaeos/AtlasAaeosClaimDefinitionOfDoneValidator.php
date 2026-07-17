@@ -23,6 +23,8 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
 
     public const EVALUATED_AGAINST = 'atlas-agentic-engineering-os-implementation-reality.md:244';
 
+    public const STATE_PARTIAL = 'partial';
+
     public const FIELD_OWNER_DOC = 'owner_doc';
 
     public const FIELD_DOCUMENTAL_STATE = 'documental_state';
@@ -169,7 +171,7 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
      */
     private function isPartial(array $claim, string $field): bool
     {
-        return $this->normalize($claim[$field] ?? null) === 'partial';
+        return $this->normalize($claim[$field] ?? null) === self::STATE_PARTIAL;
     }
 
     private function normalize(mixed $value): string

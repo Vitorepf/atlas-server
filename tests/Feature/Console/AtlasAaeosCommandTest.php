@@ -4119,6 +4119,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_mission_control_pending_partial_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-mcppfc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-mcppfc',
+                '--mission-control-pending-partial-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"mission_control_pending_partial_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

@@ -3233,4 +3233,18 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(14, $payload['architect_verdict_freeze_ready_floor_count']);
     }
 
+    public function test_mission_control_pending_partial_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->missionControlPendingPartialFloorsContractObserve([]);
+
+        $this->assertSame('pending', $payload['mission_control_status_pending']);
+        $this->assertSame('skipped', $payload['mission_control_status_skipped']);
+        $this->assertSame('blocked', $payload['mission_control_status_blocked']);
+        $this->assertSame('complete', $payload['mission_control_status_complete']);
+        $this->assertSame('in_progress', $payload['mission_control_status_in_progress']);
+        $this->assertSame('pending', $payload['reality_compiler_status_pending']);
+        $this->assertSame('partial', $payload['claim_dod_state_partial']);
+        $this->assertSame(7, $payload['mission_control_pending_partial_floor_count']);
+    }
+
 }
