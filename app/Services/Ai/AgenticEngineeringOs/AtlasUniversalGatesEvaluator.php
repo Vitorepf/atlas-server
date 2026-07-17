@@ -57,6 +57,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
 use App\Services\Ai\Telemetry\AiOutcomeAttributionService;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionScopeRiskBudgetGate;
+use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOrganMeshOrchestrator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
@@ -1730,6 +1731,22 @@ final class AtlasUniversalGatesEvaluator
             'risk_classes' => AtlasSelfConstructionScopeRiskBudgetGate::RISKS,
             'count' => count(AtlasSelfConstructionScopeRiskBudgetGate::RISKS),
             'risk_floor_default' => AtlasSelfConstructionScopeRiskBudgetGate::RISK_FLOOR_DEFAULT,
+        ];
+    }
+
+    /**
+     * Observe-only ExternalBrain organ-mesh phase catalogue.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function organMeshPhasesObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AtlasExternalBrainOrganMeshOrchestrator::SCHEMA,
+            'phases' => AtlasExternalBrainOrganMeshOrchestrator::PHASES,
+            'count' => count(AtlasExternalBrainOrganMeshOrchestrator::PHASES),
         ];
     }
 

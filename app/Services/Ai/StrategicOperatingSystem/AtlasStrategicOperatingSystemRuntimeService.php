@@ -10,10 +10,11 @@ use App\Models\AiStrategyRun;
 use App\Models\AiVentureBlueprint;
 use App\Models\AtlasProductDeliveryOutcomeMemory;
 use App\Models\AtlasProductDeliveryRuntimeReceipt;
+use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Product\AtlasProductDeliveryProviderMemoryFeedService;
 use App\Services\Ai\Support\AiStringListNormalizer;
-use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\VerifiedExecution\AtlasVerifiedExecutionRuntimeService;
 
 final class AtlasStrategicOperatingSystemRuntimeService
@@ -868,7 +869,7 @@ final class AtlasStrategicOperatingSystemRuntimeService
 
     private function number(mixed $value): ?float
     {
-        return is_numeric($value) ? (float) $value : null;
+        return AiValueNormalizer::finiteFloatOrNull($value);
     }
 
     private function string(mixed $value): ?string

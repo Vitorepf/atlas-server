@@ -40,6 +40,7 @@ use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryCano
 use App\Services\Ai\ProgrammingRuntime\Telemetry\ProgrammingRuntimeTelemetryRecorder;
 use App\Services\Ai\Router\AtlasSemanticFlowArbiterService;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\Telemetry\AiTraceMetricAggregator;
@@ -618,8 +619,8 @@ class AiWorker
                     'model' => $attempt->model ?? null,
                     'result' => $resultKind,
                     'latency_ms' => is_int($result->durationMs) ? $result->durationMs : null,
-                    'quality_score' => is_numeric($qualityScore) ? (float) $qualityScore : null,
-                    'cost_usd' => is_numeric($costUsd) ? (float) $costUsd : null,
+                    'quality_score' => AiValueNormalizer::finiteFloatOrNull($qualityScore),
+                    'cost_usd' => AiValueNormalizer::finiteFloatOrNull($costUsd),
                     'tokens_used' => is_numeric($tokensUsed) ? (int) $tokensUsed : null,
                     'input_tokens' => is_numeric($inputTokens) ? (int) $inputTokens : null,
                     'output_tokens' => is_numeric($outputTokens) ? (int) $outputTokens : null,

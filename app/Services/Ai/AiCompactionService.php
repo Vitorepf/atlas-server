@@ -16,6 +16,7 @@ use App\Services\Ai\Aaeos\Cores\SummaryFidelityCoverageScorer;
 use App\Services\Ai\Compaction\CompactionMustKeepExtractor;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
@@ -541,7 +542,7 @@ class AiCompactionService
                     'token_estimate' => max(20, (int) ceil(mb_strlen($text) / 4) + 8),
                     'has_evidence_ref' => isset($entry['evidence_ref']) || isset($entry['evidence_refs']),
                     'links_decision_or_blocker' => in_array($kind, ['decision', 'blocker'], true),
-                    'importance' => is_numeric($entry['importance'] ?? null) ? (float) $entry['importance'] : 0.0,
+                    'importance' => AiValueNormalizer::finiteFloatOrNull($entry['importance'] ?? null) ?? 0.0,
                 ];
             }
         };

@@ -1380,4 +1380,13 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(count($payload['risk_classes']), $payload['count']);
         $this->assertSame('low', $payload['risk_floor_default']);
     }
+
+    public function test_organ_mesh_phases_observe_reports_catalogue(): void
+    {
+        $payload = $this->svc->organMeshPhasesObserve([]);
+
+        $this->assertSame('atlas.external_brain.organ_mesh_orchestrator.v1', $payload['schema_version']);
+        $this->assertContains('queue_decision', $payload['phases']);
+        $this->assertSame(count($payload['phases']), $payload['count']);
+    }
 }
