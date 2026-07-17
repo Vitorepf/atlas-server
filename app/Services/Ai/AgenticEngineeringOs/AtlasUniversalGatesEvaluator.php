@@ -17,6 +17,7 @@ use App\Services\Ai\AcosMax\PreReviewAdvisoryBand;
 use App\Services\Ai\AcosMax\Esp09IndependentChallengerService;
 use App\Services\Ai\AcosMax\DogfoodingFrictionLeadMiner;
 use App\Services\Ai\AcosMax\ReactiveSaturationSignal;
+use App\Services\Ai\AcosMax\PortfolioBudgetAllocator;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -608,6 +609,19 @@ final class AtlasUniversalGatesEvaluator
             'ranked' => $ranked,
             'count' => count($ranked),
         ];
+    }
+
+    /**
+     * Observe-only MULTK-06 portfolio budget allocation.
+     * Accepts the PortfolioBudgetAllocator::derive input map.
+     * Does not add a universal-gate id (catalogue stays 15).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function portfolioBudgetObserve(array $input): array
+    {
+        return PortfolioBudgetAllocator::derive($input);
     }
 
     /**

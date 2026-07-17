@@ -597,6 +597,28 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_portfolio_budget(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-pb-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'default_mix' => ['reactive' => 0.5, 'originated' => 0.3, 'maintenance' => 0.2],
+            'operator_weights' => ['reactive' => 0.5, 'originated' => 0.3, 'maintenance' => 0.2],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-pb',
+                '--portfolio-budget' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"portfolio_budget"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

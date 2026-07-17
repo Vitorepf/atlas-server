@@ -69,8 +69,8 @@ final class RunbookOrchestrator
      */
     public function plan(array $request): array
     {
-        $intent = (string) ($request['intent'] ?? '');
-        $intentClass = (string) ($request['intent_class'] ?? $this->classify($intent));
+        $intent = AiValueNormalizer::trimmedString($request['intent'] ?? '');
+        $intentClass = AiValueNormalizer::trimmedString($request['intent_class'] ?? $this->classify($intent));
         $needsResearch = (bool) ($request['needs_research'] ?? false);
         $needsDebug = (bool) ($request['needs_debug'] ?? false);
 
@@ -134,7 +134,7 @@ final class RunbookOrchestrator
             if (! is_array($change)) {
                 continue;
             }
-            $target = (string) ($change['target'] ?? '');
+            $target = AiValueNormalizer::trimmedString($change['target'] ?? '');
             if (! in_array($target, ['department', 'phase', 'gate'], true)) {
                 continue;
             }
@@ -147,7 +147,8 @@ final class RunbookOrchestrator
                 'target' => $target,
                 'current' => $current,
                 'proposed' => $proposed,
-                'target_doc' => (string) ($change['target_doc'] ?? 'atlas-agentic-engineering-os-runbook'),
+                'target_doc' => AiValueNormalizer::trimmedString($change['target_doc'] ?? 'atlas-agentic-engineering-os-runbook')
+                    ?: 'atlas-agentic-engineering-os-runbook',
                 'current_state_snapshot_hash' => hash('sha256', $current),
             ];
         }

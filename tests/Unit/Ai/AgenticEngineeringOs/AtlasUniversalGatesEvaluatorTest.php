@@ -21,6 +21,7 @@ use App\Services\Ai\Aaeos\Cores\MemoryFeedbackDecayScorer;
 use App\Services\Ai\Aaeos\Cores\SegmentImportanceRanker;
 use App\Services\Ai\Aaeos\Cores\ContextParetoDominanceFilter;
 use App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer;
+use App\Services\Ai\AcosMax\PortfolioBudgetAllocator;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -507,5 +508,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(2, $payload['count']);
         $this->assertSame('StrongDecision', $payload['ranked'][0]['title']);
         $this->assertSame(1, $payload['ranked'][0]['rank']);
+    }
+
+    public function test_portfolio_budget_observe_derives_allocation(): void
+    {
+        $payload = $this->svc->portfolioBudgetObserve([
+            'default_mix' => ['reactive' => 0.5, 'originated' => 0.3, 'maintenance' => 0.2],
+            'operator_weights' => ['reactive' => 0.5, 'originated' => 0.3, 'maintenance' => 0.2],
+            'yield_by_class' => [
+                'reactive' => ['n' => 10, 'mean_proven_yield' => 0.4],
+                'originated' => ['n' => 10, 'mean_proven_yield' => 0.5],
+                'maintenance' => ['n' => 10, 'mean_proven_yield' => 0.3],
+            ],
+        ]);
+
+        $this->assertSame(PortfolioBudgetAllocator::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertArrayHasKey('allocated_shares', $payload);
+        $this->assertSame('ok', $payload['status']);
     }
 }

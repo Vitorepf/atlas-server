@@ -56,13 +56,13 @@ final class AutonomousWorkExecutionOs
     {
         $blocking = [];
 
-        $level = (string) ($request['autonomy_level'] ?? '');
+        $level = AiValueNormalizer::upperTrimmedString($request['autonomy_level'] ?? '');
         if (! in_array($level, self::AUTONOMY_LEVELS, true)) {
             $blocking[] = "invalid autonomy_level '{$level}' (must be L0..L7)";
         }
 
-        $goal = (string) ($request['goal'] ?? '');
-        if (AiValueNormalizer::trimmedString($goal) === '') {
+        $goal = AiValueNormalizer::trimmedString($request['goal'] ?? '');
+        if ($goal === '') {
             $blocking[] = 'goal text required';
         }
 
@@ -148,7 +148,8 @@ final class AutonomousWorkExecutionOs
     {
         $statusByStage = [];
         foreach ((array) ($cycle['stages'] ?? []) as $entry) {
-            $statusByStage[(string) ($entry['stage'] ?? '')] = (string) ($entry['status'] ?? 'pending');
+            $statusByStage[AiValueNormalizer::trimmedString($entry['stage'] ?? '')]
+                = AiValueNormalizer::trimmedString($entry['status'] ?? 'pending') ?: 'pending';
         }
 
         foreach (self::CYCLE_STAGES as $stage) {
