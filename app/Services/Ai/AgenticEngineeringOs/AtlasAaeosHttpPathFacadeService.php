@@ -7,6 +7,7 @@ namespace App\Services\Ai\AgenticEngineeringOs;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Kernel\Architecture\AtlasFeaturePlacementService;
 use App\Services\Ai\Mission\MissionDetectionService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\Str;
 
@@ -460,6 +461,6 @@ final class AtlasAaeosHttpPathFacadeService
      */
     private static function requestPayload(array $data): array
     {
-        return is_array($data['payload'] ?? null) ? $data['payload'] : [];
+        return AiValueNormalizer::arrayOrEmpty($data['payload'] ?? null);
     }
 }

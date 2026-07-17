@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AgenticEngineeringOs;
 
 use App\Services\Ai\Aaeos\Cores\OutcomeCausalityRanker;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * Atlas Mission Control Cockpit Service — Phase 14 surface.
@@ -252,10 +253,10 @@ final class AtlasMissionControlCockpitService
                 ];
                 continue;
             }
-            $gates = is_array($env['gates'] ?? null) ? $env['gates'] : [];
-            $blocked = is_array($gates['blocked'] ?? null) ? $gates['blocked'] : [];
-            $passed = is_array($gates['passed'] ?? null) ? $gates['passed'] : [];
-            $required = is_array($gates['required'] ?? null) ? $gates['required'] : [];
+            $gates = AiValueNormalizer::arrayOrEmpty($env['gates'] ?? null);
+            $blocked = AiValueNormalizer::arrayOrEmpty($gates['blocked'] ?? null);
+            $passed = AiValueNormalizer::arrayOrEmpty($gates['passed'] ?? null);
+            $required = AiValueNormalizer::arrayOrEmpty($gates['required'] ?? null);
             $skipped = ! empty($env['skip_reason']);
             $status = $skipped ? 'skipped' : (count($blocked) > 0 ? 'blocked' : ($env['ended_at'] ?? null ? 'complete' : 'in_progress'));
             $out[] = [

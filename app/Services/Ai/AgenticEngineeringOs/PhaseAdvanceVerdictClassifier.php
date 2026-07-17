@@ -70,12 +70,12 @@ final class PhaseAdvanceVerdictClassifier
     {
         $phaseOut = AiValueNormalizer::trimmedStringOrNull($envelope['phase_out'] ?? null) ?? '';
 
-        $gates = is_array($envelope['gates'] ?? null) ? $envelope['gates'] : [];
+        $gates = AiValueNormalizer::arrayOrEmpty($envelope['gates'] ?? null);
         $required = AiStringListNormalizer::trimmedStrings($gates['required'] ?? []);
         $passed = AiStringListNormalizer::trimmedStrings($gates['passed'] ?? []);
         $blockedGates = AiStringListNormalizer::trimmedStrings($gates['blocked'] ?? []);
 
-        $blockers = is_array($envelope['blockers'] ?? null) ? $envelope['blockers'] : [];
+        $blockers = AiValueNormalizer::arrayOrEmpty($envelope['blockers'] ?? null);
         $hasOpenBlockers = $this->hasOpenBlockers($blockers);
         $highBlockerIds = $this->highBlockerIds($blockers);
 

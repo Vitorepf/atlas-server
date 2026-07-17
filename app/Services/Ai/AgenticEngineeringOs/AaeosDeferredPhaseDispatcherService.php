@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\Aaeos\Cores\OutcomeCausalityRanker;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Contracts\Cache\Repository as CacheRepository;
 use Illuminate\Support\Str;
 
@@ -37,6 +39,7 @@ final class AaeosDeferredPhaseDispatcherService
     public function __construct(
         private readonly CacheRepository $cache,
         private readonly PhaseAdvanceVerdictClassifier $phaseAdvance = new PhaseAdvanceVerdictClassifier,
+        private readonly OutcomeCausalityRanker $outcomeCausality = new OutcomeCausalityRanker,
     ) {}
 
     /**
@@ -61,6 +64,9 @@ final class AaeosDeferredPhaseDispatcherService
                 'envelope' => $env,
                 // Observe-only: same advance classifier as HTTP path / cockpit.
                 'phase_advance' => $this->phaseAdvance->classify($env),
+                // Observe-only causality when the deferred envelope already
+                // carries open blockers / blocked gates (never blocks enqueue).
+                'outcome_causality' => $this->observeCausality($env),
                 'enqueued_at' => gmdate('c'),
             ];
             $line = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -155,7 +161,7 @@ final class AaeosDeferredPhaseDispatcherService
      */
     private function isDeferred(array $envelope): bool
     {
-        $outputs = is_array($envelope['outputs'] ?? null) ? $envelope['outputs'] : [];
+        $outputs = AiValueNormalizer::arrayOrEmpty($envelope['outputs'] ?? null);
         foreach ($outputs as $key => $value) {
             if (! is_string($value)) {
                 continue;
@@ -166,6 +172,27 @@ final class AaeosDeferredPhaseDispatcherService
         }
 
         return false;
+    }
+
+    /**
+     * @param  array<string,mixed>  $envelope
+     * @return array<string,mixed>|null
+     */
+    private function observeCausality(array $envelope): ?array
+    {
+        $gates = AiValueNormalizer::arrayOrEmpty($envelope['gates'] ?? null);
+        $blockedGates = AiValueNormalizer::arrayOrEmpty($gates['blocked'] ?? null);
+        $blockers = AiValueNormalizer::arrayOrEmpty($envelope['blockers'] ?? null);
+        if ($blockedGates === [] && $blockers === []) {
+            return null;
+        }
+
+        return $this->outcomeCausality->rank(
+            hasEvidenceRefs: true,
+            status: 'blocked',
+            missingRequiredSources: $blockedGates !== [],
+            testsPassed: null,
+        );
     }
 
     private function resolveQueuePath(string $queuePath): string
