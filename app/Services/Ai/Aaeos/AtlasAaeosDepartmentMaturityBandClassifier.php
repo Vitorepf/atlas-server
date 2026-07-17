@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Deterministically classify one department against a caller-supplied,
  * lowest-first maturity band ladder and compute the highest qualifying band,
@@ -90,11 +92,12 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
         $departments = [];
 
         foreach ($departmentBandLadders as $departmentId => $ladder) {
-            $snapshot = $departmentSnapshots[$departmentId] ?? [];
+            $id = AiValueNormalizer::trimmedString((string) $departmentId);
+            $snapshot = $departmentSnapshots[$departmentId] ?? $departmentSnapshots[$id] ?? [];
 
-            $departments[$departmentId] = $this->classify(
-                is_array($ladder) ? $ladder : [],
-                is_array($snapshot) ? $snapshot : [],
+            $departments[$id] = $this->classify(
+                AiValueNormalizer::arrayOrEmpty(is_array($ladder) ? $ladder : null),
+                AiValueNormalizer::arrayOrEmpty(is_array($snapshot) ? $snapshot : null),
             );
         }
 

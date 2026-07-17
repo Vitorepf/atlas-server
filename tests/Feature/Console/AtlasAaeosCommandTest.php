@@ -1320,6 +1320,70 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_maturity_band_classifier(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-mbc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'band_ladder' => [
+                [
+                    'band' => 'L1',
+                    'rank' => 1,
+                    'thresholds' => [
+                        ['metric' => 'obra_completion_rate', 'comparator' => '>=', 'value' => 0.5],
+                    ],
+                ],
+            ],
+            'metrics_snapshot' => ['obra_completion_rate' => 0.9],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-mbc',
+                '--maturity-band-classifier' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"maturity_band_classifier"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function test_universal_gates_observe_promotion_eligibility(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-pe-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'department' => [
+                'current_tier' => 2,
+                'blockers_to_next' => [['id' => 'sec-audit', 'resolved' => true]],
+                'last_evaluation' => '2026-05-25T00:00:00+00:00',
+            ],
+            'metrics' => [
+                'current_score' => 85.0,
+                'tier_thresholds' => [1 => 50.0, 2 => 65.0, 3 => 80.0],
+            ],
+            'options' => [
+                'as_of' => '2026-05-30T00:00:00+00:00',
+                'max_evidence_age_days' => 30,
+                'max_tier' => 5,
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-pe',
+                '--promotion-eligibility' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"promotion_eligibility"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

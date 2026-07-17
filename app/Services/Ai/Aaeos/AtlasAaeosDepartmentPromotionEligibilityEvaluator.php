@@ -186,8 +186,8 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     private function evaluateFreshness(array $department, array $options): array
     {
         $maxAgeDays = $this->intValue($options['max_evidence_age_days'] ?? self::DEFAULT_MAX_EVIDENCE_AGE_DAYS, self::DEFAULT_MAX_EVIDENCE_AGE_DAYS);
-        $lastEvaluation = is_string($department['last_evaluation'] ?? null) ? $department['last_evaluation'] : '';
-        $asOf = is_string($options['as_of'] ?? null) ? $options['as_of'] : date(DATE_ATOM);
+        $lastEvaluation = AiValueNormalizer::trimmedStringOrNull($department['last_evaluation'] ?? null) ?? '';
+        $asOf = AiValueNormalizer::trimmedStringOrNull($options['as_of'] ?? null) ?? date(DATE_ATOM);
 
         $lastEvaluationTimestamp = $this->timestampFromIso($lastEvaluation);
         $ageDays = $this->ageInDays($lastEvaluation, $asOf);

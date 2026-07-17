@@ -47,6 +47,8 @@ use App\Services\Ai\Aaeos\AtlasVetoPropagationWatchdog;
 use App\Services\Ai\Aaeos\AtlasCrossDepartmentChoreographyService;
 use App\Services\Ai\Aaeos\AtlasRepairLoopGuard;
 use App\Services\Ai\Aaeos\AaeosGeneratedContractGate;
+use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
+use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
 use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
 
@@ -1192,6 +1194,44 @@ final class AtlasUniversalGatesEvaluator
     public function generatedContractGateObserve(array $input = []): array
     {
         return (new AaeosGeneratedContractGate)->status();
+    }
+
+    /**
+     * Observe-only AAEOS maturity-band classification.
+     * Accepts `{department_band_ladders, department_snapshots}` or
+     * `{band_ladder, metrics_snapshot}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function maturityBandClassifierObserve(array $input = []): array
+    {
+        $ladders = AiValueNormalizer::arrayOrEmpty($input['department_band_ladders'] ?? null);
+        $snapshots = AiValueNormalizer::arrayOrEmpty($input['department_snapshots'] ?? null);
+        if ($ladders !== []) {
+            return (new AtlasAaeosDepartmentMaturityBandClassifier)->classifyDepartments($ladders, $snapshots);
+        }
+
+        return (new AtlasAaeosDepartmentMaturityBandClassifier)->classify(
+            AiValueNormalizer::arrayOrEmpty($input['band_ladder'] ?? null),
+            AiValueNormalizer::arrayOrEmpty($input['metrics_snapshot'] ?? null),
+        );
+    }
+
+    /**
+     * Observe-only AAEOS department promotion-eligibility verdict.
+     * Accepts `{department, metrics, options?}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function promotionEligibilityObserve(array $input = []): array
+    {
+        return (new AtlasAaeosDepartmentPromotionEligibilityEvaluator)->evaluate(
+            AiValueNormalizer::arrayOrEmpty($input['department'] ?? null),
+            AiValueNormalizer::arrayOrEmpty($input['metrics'] ?? null),
+            AiValueNormalizer::arrayOrEmpty($input['options'] ?? null),
+        );
     }
 
     /**

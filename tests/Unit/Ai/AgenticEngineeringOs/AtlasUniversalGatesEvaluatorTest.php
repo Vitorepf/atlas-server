@@ -993,4 +993,52 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertArrayHasKey('hot_path_enabled', $payload);
         $this->assertArrayHasKey('generated_file_count', $payload);
     }
+
+    public function test_maturity_band_classifier_observe_classifies_ladder(): void
+    {
+        $payload = $this->svc->maturityBandClassifierObserve([
+            'band_ladder' => [
+                [
+                    'band' => 'L1',
+                    'rank' => 1,
+                    'thresholds' => [
+                        ['metric' => 'obra_completion_rate', 'comparator' => '>=', 'value' => 0.5],
+                    ],
+                ],
+            ],
+            'metrics_snapshot' => [
+                'obra_completion_rate' => 0.9,
+            ],
+        ]);
+
+        $this->assertSame('atlas.aaeos.department_maturity_band.v1', $payload['schema_version']);
+        $this->assertSame('L1', $payload['qualified_band']);
+        $this->assertFalse($payload['promotion_blocked']);
+    }
+
+    public function test_promotion_eligibility_observe_reports_verdict(): void
+    {
+        $payload = $this->svc->promotionEligibilityObserve([
+            'department' => [
+                'current_tier' => 2,
+                'blockers_to_next' => [
+                    ['id' => 'sec-audit', 'resolved' => true],
+                ],
+                'last_evaluation' => '2026-05-25T00:00:00+00:00',
+            ],
+            'metrics' => [
+                'current_score' => 85.0,
+                'tier_thresholds' => [1 => 50.0, 2 => 65.0, 3 => 80.0],
+            ],
+            'options' => [
+                'as_of' => '2026-05-30T00:00:00+00:00',
+                'max_evidence_age_days' => 30,
+                'max_tier' => 5,
+            ],
+        ]);
+
+        $this->assertSame('atlas.aaeos.department_promotion_eligibility.v1', $payload['schema_version']);
+        $this->assertSame('eligible', $payload['verdict']);
+        $this->assertFalse($payload['promotion_allowed']);
+    }
 }

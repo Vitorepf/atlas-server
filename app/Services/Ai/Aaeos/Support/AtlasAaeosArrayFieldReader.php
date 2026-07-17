@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Support;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class AtlasAaeosArrayFieldReader
 {
     /**
@@ -18,7 +20,7 @@ final class AtlasAaeosArrayFieldReader
         }
 
         if (is_int($value) || is_float($value)) {
-            return (string) $value;
+            return AiValueNormalizer::trimmedString($value);
         }
 
         return '';
