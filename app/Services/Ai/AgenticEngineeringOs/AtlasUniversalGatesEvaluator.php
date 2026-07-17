@@ -18,6 +18,7 @@ use App\Services\Ai\AcosMax\Esp09IndependentChallengerService;
 use App\Services\Ai\AcosMax\DogfoodingFrictionLeadMiner;
 use App\Services\Ai\AcosMax\ReactiveSaturationSignal;
 use App\Services\Ai\AcosMax\PortfolioBudgetAllocator;
+use App\Services\Ai\AcosMax\AmbitionRungPolicy;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -622,6 +623,28 @@ final class AtlasUniversalGatesEvaluator
     public function portfolioBudgetObserve(array $input): array
     {
         return PortfolioBudgetAllocator::derive($input);
+    }
+
+    /**
+     * Observe-only MULTN17-01 ambition rung selection.
+     * Accepts `{candidates:[...], context?:{...}}` or a bare candidates list.
+     * Does not add a universal-gate id (catalogue stays 15).
+     *
+     * @param  array<mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function ambitionRungObserve(array $input): array
+    {
+        if (array_is_list($input)) {
+            /** @var list<array<string,mixed>> $input */
+            return AmbitionRungPolicy::select($input, []);
+        }
+
+        $candidates = AiValueNormalizer::arrayOrEmpty($input['candidates'] ?? null);
+        $context = AiValueNormalizer::arrayOrEmpty($input['context'] ?? null);
+
+        /** @var list<array<string,mixed>> $candidates */
+        return AmbitionRungPolicy::select($candidates, $context);
     }
 
     /**

@@ -68,6 +68,7 @@ final class AtlasAaeosCommand extends Command
         {--context-pareto= : JSON file with variants + objective_direction (observe-only Pareto)}
         {--memory-recall-rank= : JSON file with memory candidate rows (observe-only recall rank)}
         {--portfolio-budget= : JSON file with portfolio allocation input (observe-only MULTK-06)}
+        {--ambition-rung= : JSON file with ambition rung candidates + context (observe-only)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -292,6 +293,7 @@ final class AtlasAaeosCommand extends Command
             ['context-pareto', 'context_pareto_dominance', fn (array $p) => $gates->contextParetoDominanceObserve($p)],
             ['memory-recall-rank', 'memory_recall_rank', fn (array $p) => $gates->memoryRecallRankObserve($p)],
             ['portfolio-budget', 'portfolio_budget', fn (array $p) => $gates->portfolioBudgetObserve($p)],
+            ['ambition-rung', 'ambition_rung', fn (array $p) => $gates->ambitionRungObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

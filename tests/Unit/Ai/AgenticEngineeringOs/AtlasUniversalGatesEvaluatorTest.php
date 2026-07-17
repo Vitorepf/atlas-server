@@ -22,6 +22,7 @@ use App\Services\Ai\Aaeos\Cores\SegmentImportanceRanker;
 use App\Services\Ai\Aaeos\Cores\ContextParetoDominanceFilter;
 use App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer;
 use App\Services\Ai\AcosMax\PortfolioBudgetAllocator;
+use App\Services\Ai\AcosMax\AmbitionRungPolicy;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -525,5 +526,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(PortfolioBudgetAllocator::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertArrayHasKey('allocation', $payload);
         $this->assertSame('ok', $payload['status']);
+    }
+
+    public function test_ambition_rung_observe_selects_candidate(): void
+    {
+        $payload = $this->svc->ambitionRungObserve([
+            'candidates' => [
+                ['id' => 't1', 'rung' => 'task', 'leverage' => 1.0],
+                ['id' => 's1', 'rung' => 'slice', 'leverage' => 2.0],
+            ],
+            'context' => [
+                'enabled' => true,
+                'reactive_saturated' => true,
+                'current_rung' => 'task',
+            ],
+        ]);
+
+        $this->assertSame(AmbitionRungPolicy::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('s1', $payload['selected_id']);
+        $this->assertSame('rung_up_after_saturation', $payload['basis']);
     }
 }

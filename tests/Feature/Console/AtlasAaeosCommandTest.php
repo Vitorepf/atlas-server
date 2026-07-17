@@ -619,6 +619,30 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_ambition_rung(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-ar-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'candidates' => [
+                ['id' => 't1', 'rung' => 'task', 'leverage' => 1.0],
+            ],
+            'context' => ['enabled' => false],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-ar',
+                '--ambition-rung' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"ambition_rung"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

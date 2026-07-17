@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos\Generated;
 
 use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * Atlas Memory Cognitive Immune And Learning Kernel decider.
@@ -506,6 +507,6 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
 
     private function normalize(string $value): string
     {
-        return strtolower(trim($value));
+        return AiValueNormalizer::lowerTrimmedString($value);
     }
 }

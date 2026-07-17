@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos\Generated;
 
 use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * Atlas Learning Proposals — pure decision runtime.
@@ -391,24 +392,11 @@ final class AtlasLearningProposalsService
 
     private function string(mixed $value): ?string
     {
-        if (! is_scalar($value)) {
-            return null;
-        }
-
-        $value = trim((string) $value);
-
-        return $value === '' ? null : $value;
+        return AiValueNormalizer::trimmedScalarStringOrNull($value);
     }
 
     private function clamp01(float $value): float
     {
-        if ($value < 0.0) {
-            return 0.0;
-        }
-        if ($value > 1.0) {
-            return 1.0;
-        }
-
-        return $value;
+        return AiValueNormalizer::clampUnit($value);
     }
 }
