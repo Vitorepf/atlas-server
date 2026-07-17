@@ -9,6 +9,7 @@ use App\Jobs\SoftwareCompanyLoopRunJob;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Mobile\AtlasInboxService;
 use App\Services\Ai\NightShift\AtlasNightShiftAreaFocusContractRegistry;
+use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusCycleRevertService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOperatorDecisionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
 use App\Services\Ai\SoftwareCompanyStewardship\ProductMode\ProductModeCockpitSurfaceService;
@@ -58,6 +59,7 @@ final class AreaFocusLoopCommandController extends Controller
         private readonly AreaFocusOperatorDecisionService $operatorDecision,
         private readonly AtlasInboxService $inbox,
         private readonly AtlasNightShiftAreaFocusContractRegistry $areaRegistry,
+        private readonly ?AreaFocusCycleRevertService $cycleReverts = null,
     ) {}
 
     public const LIVE_SCHEMA = 'atlas.software_company_stewardship.loop_command_live.v1';
@@ -404,6 +406,21 @@ final class AreaFocusLoopCommandController extends Controller
         ]);
 
         return $this->respond($request, $body);
+    }
+
+    /**
+     * POST M08 cycle revert — enqueue a governed git-revert request for a delivered cycle.
+     *
+     * The endpoint is intentionally honest: it appends a `revert_status=enqueued`
+     * ledger receipt pointing at the original cycle/merge_hash, dispatches a queued
+     * marker job, and never claims the git revert has already happened.
+     */
+    public function revertCycle(Request $request, string $area, string $cycle): JsonResponse
+    {
+        [$status, $body] = ($this->cycleReverts ?? app(AreaFocusCycleRevertService::class))
+            ->enqueue($area, $cycle, $this->body($request));
+
+        return response()->json($body, $status);
     }
 
     /**

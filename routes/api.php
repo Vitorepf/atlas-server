@@ -982,6 +982,7 @@ Route::prefix('ai/software-company-stewardship')->middleware('atlas.token')->gro
     Route::get('/loop/{area}/backlog', [AreaFocusLoopCommandController::class, 'backlog']);
     Route::get('/loop/{area}/done', [AreaFocusLoopCommandController::class, 'done']);
     Route::get('/loop/{area}/transfer/{handoffId}', [AreaFocusLoopCommandController::class, 'transferStatus']);
+    Route::post('/autonomos/{area}/cycles/{cycle}/revert', [AreaFocusLoopCommandController::class, 'revertCycle']);
     Route::post('/loop/{area}/start-run', [AreaFocusLoopCommandController::class, 'startRun']);
     Route::post('/loop/{area}/transfer', [AreaFocusLoopCommandController::class, 'transfer']);
     Route::post('/loop/{area}/operator-decision', [AreaFocusLoopCommandController::class, 'operatorDecision']);

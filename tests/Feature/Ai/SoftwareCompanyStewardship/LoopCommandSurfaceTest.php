@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Feature\Ai\SoftwareCompanyStewardship;
 
+use App\Jobs\SoftwareCompanyLoopCycleRevertJob;
+use App\Jobs\SoftwareCompanyLoopRunJob;
 use App\Models\AiInboxItem;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AreaFocusOperatorDecisionService;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\Reliable24hLoopRunnerService;
@@ -41,6 +43,8 @@ final class LoopCommandSurfaceTest extends TestCase
     private const ATLAS_NATIVE_AREA = 'atlas-native';
 
     private const BASE = '/ai/software-company-stewardship/loop/agentic_engineering_os';
+
+    private const REVERT_BASE = '/ai/software-company-stewardship/autonomos/agentic_engineering_os/cycles';
 
     private const TOKEN = 'test-token-with-enough-length-123';
 
@@ -124,6 +128,22 @@ final class LoopCommandSurfaceTest extends TestCase
         File::append($path, json_encode($record, JSON_UNESCAPED_SLASHES).PHP_EOL);
     }
 
+    /**
+     * @return list<array<string,mixed>>
+     */
+    private function ledgerRows(): array
+    {
+        $path = $this->runner()->ledgerPath(self::AREA, 'dev_forge');
+        if (! is_file($path)) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            static fn (string $line): array => (array) json_decode($line, true),
+            file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [],
+        )));
+    }
+
     // ----------------------------------------------------------------- auth gate
 
     public function test_every_route_requires_the_atlas_token(): void
@@ -141,6 +161,109 @@ final class LoopCommandSurfaceTest extends TestCase
         $this->postJson(self::BASE.'/run-control', [])->assertStatus(401);
         $this->postJson(self::BASE.'/transfer', [])->assertStatus(401);
         $this->postJson(self::BASE.'/directive', [])->assertStatus(401);
+        $this->postJson(self::REVERT_BASE.'/1/revert', [])->assertStatus(401);
+    }
+
+    // ----------------------------------------------------------------- M08 cycle revert
+    public function test_cycle_revert_enqueues_governed_git_revert_and_appends_receipt_over_http(): void
+    {
+        Bus::fake();
+        $this->appendCycleRecord([
+            'cycle_index' => 7,
+            'cycle_id' => 'aesc_test_7',
+            'outcome' => 'merged',
+            'cycle_final_status' => 'merged',
+            'merge_performed' => true,
+            'merge_hash' => 'abc123def456',
+        ]);
+
+        $this->postJson(self::REVERT_BASE.'/7/revert', [
+            'operator_actor' => 'vitor',
+            'reason' => 'rollback requested after operator inspection',
+        ], $this->headers)
+            ->assertStatus(202)
+            ->assertJsonPath('schema_version', 'atlas.software_company_stewardship.loop_cycle_revert.v1')
+            ->assertJsonPath('status', 'enqueued')
+            ->assertJsonPath('area_id', self::AREA)
+            ->assertJsonPath('cycle_index', 7)
+            ->assertJsonPath('merge_hash', 'abc123def456')
+            ->assertJsonPath('revert_of.cycle_index', 7)
+            ->assertJsonPath('revert_of.merge_hash', 'abc123def456')
+            ->assertJsonPath('operator_actor', 'vitor')
+            ->assertJsonPath('git_revert_performed', false)
+            ->assertJsonPath('worker_implemented', false);
+
+        Bus::assertDispatched(SoftwareCompanyLoopCycleRevertJob::class, function (SoftwareCompanyLoopCycleRevertJob $job): bool {
+            return $job->areaId === self::AREA
+                && $job->focus === 'dev_forge'
+                && $job->cycleIndex === 7
+                && $job->mergeHash === 'abc123def456'
+                && $job->operatorActor === 'vitor';
+        });
+
+        $rows = $this->ledgerRows();
+        $this->assertCount(2, $rows);
+        $this->assertSame('merged', $rows[0]['outcome']);
+        $this->assertSame('abc123def456', $rows[0]['merge_hash']);
+        $this->assertSame('revert_enqueued', $rows[1]['outcome']);
+        $this->assertSame('enqueued', $rows[1]['revert_status']);
+        $this->assertSame([
+            'cycle_index' => 7,
+            'cycle_id' => 'aesc_test_7',
+            'merge_hash' => 'abc123def456',
+        ], $rows[1]['revert_of']);
+        $this->assertSame('rollback requested after operator inspection', $rows[1]['operator_reason']);
+    }
+
+    public function test_cycle_revert_requires_actor_and_reason_over_http(): void
+    {
+        Bus::fake();
+        $this->appendCycleRecord([
+            'cycle_index' => 7,
+            'outcome' => 'merged',
+            'merge_performed' => true,
+            'merge_hash' => 'abc123def456',
+        ]);
+
+        $this->postJson(self::REVERT_BASE.'/7/revert', ['reason' => 'operator-approved rollback'], $this->headers)
+            ->assertStatus(422)
+            ->assertJsonPath('reason', 'operator_actor_required');
+
+        $this->postJson(self::REVERT_BASE.'/7/revert', ['operator_actor' => 'vitor'], $this->headers)
+            ->assertStatus(422)
+            ->assertJsonPath('reason', 'operator_reason_required');
+
+        Bus::assertNotDispatched(SoftwareCompanyLoopCycleRevertJob::class);
+        $this->assertCount(1, $this->ledgerRows());
+    }
+
+    public function test_cycle_revert_blocks_unknown_cycle_and_cycle_without_merge_hash_over_http(): void
+    {
+        Bus::fake();
+
+        $this->postJson(self::REVERT_BASE.'/404/revert', [
+            'operator_actor' => 'vitor',
+            'reason' => 'operator-approved rollback',
+        ], $this->headers)
+            ->assertStatus(404)
+            ->assertJsonPath('reason', 'unknown_cycle');
+
+        $this->appendCycleRecord([
+            'cycle_index' => 8,
+            'outcome' => 'merged',
+            'merge_performed' => true,
+            'merge_hash' => '',
+        ]);
+
+        $this->postJson(self::REVERT_BASE.'/8/revert', [
+            'operator_actor' => 'vitor',
+            'reason' => 'operator-approved rollback',
+        ], $this->headers)
+            ->assertStatus(422)
+            ->assertJsonPath('reason', 'cycle_without_merge_hash');
+
+        Bus::assertNotDispatched(SoftwareCompanyLoopCycleRevertJob::class);
+        $this->assertCount(1, $this->ledgerRows());
     }
 
     // ----------------------------------------------------------------- (new) areas
@@ -183,7 +306,7 @@ final class LoopCommandSurfaceTest extends TestCase
             ->assertJsonPath('provider_invoked', false)
             ->assertJsonPath('requires_worker', true);
 
-        Bus::assertDispatched(\App\Jobs\SoftwareCompanyLoopRunJob::class);
+        Bus::assertDispatched(SoftwareCompanyLoopRunJob::class);
     }
 
     public function test_start_run_missing_actor_is_blocked_422_and_enqueues_nothing_over_http(): void
@@ -194,7 +317,7 @@ final class LoopCommandSurfaceTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('reason', 'operator_actor_required');
 
-        Bus::assertNotDispatched(\App\Jobs\SoftwareCompanyLoopRunJob::class);
+        Bus::assertNotDispatched(SoftwareCompanyLoopRunJob::class);
     }
 
     public function test_execute_start_run_requires_and_records_an_auditable_reason_over_http(): void
@@ -208,7 +331,7 @@ final class LoopCommandSurfaceTest extends TestCase
             ->assertStatus(422)
             ->assertJsonPath('reason', 'operator_reason_required');
 
-        Bus::assertNotDispatched(\App\Jobs\SoftwareCompanyLoopRunJob::class);
+        Bus::assertNotDispatched(SoftwareCompanyLoopRunJob::class);
 
         $this->postJson(self::BASE.'/start-run', [
             'operator_actor' => 'vitor',
@@ -220,7 +343,7 @@ final class LoopCommandSurfaceTest extends TestCase
             ->assertJsonPath('operator_reason_recorded', true)
             ->assertJsonPath('started', false);
 
-        Bus::assertDispatched(\App\Jobs\SoftwareCompanyLoopRunJob::class, function (\App\Jobs\SoftwareCompanyLoopRunJob $job): bool {
+        Bus::assertDispatched(SoftwareCompanyLoopRunJob::class, function (SoftwareCompanyLoopRunJob $job): bool {
             return $job->input['operator_reason'] === 'janela noturna aprovada';
         });
     }
@@ -250,7 +373,7 @@ final class LoopCommandSurfaceTest extends TestCase
             ->assertJsonPath('holder.run_id', 'ap790run_live');
 
         // No double-launch while a run is live.
-        Bus::assertNotDispatched(\App\Jobs\SoftwareCompanyLoopRunJob::class);
+        Bus::assertNotDispatched(SoftwareCompanyLoopRunJob::class);
     }
 
     public function test_transfer_records_a_durable_request_for_the_actual_lock_holder_over_http(): void
