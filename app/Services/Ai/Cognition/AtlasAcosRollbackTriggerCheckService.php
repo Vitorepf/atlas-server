@@ -42,6 +42,10 @@ final class AtlasAcosRollbackTriggerCheckService
     public const FIELD_OK = 'ok';
     public const FIELD_TRIGGERS = 'triggers';
     public const FIELD_FIRED = 'fired';
+    public const FIELD_TRIGGER_ID = 'trigger_id';
+    public const FIELD_CONDITION_KIND = 'condition_kind';
+    public const FIELD_CHECKED_AT = 'checked_at';
+    public const FIELD_ARMED = 'armed';
 
     public const REASON_SIMULATED_CONDITION = 'simulated_condition';
 
@@ -76,11 +80,11 @@ final class AtlasAcosRollbackTriggerCheckService
             $evaluations[] = $evaluation;
             if (($evaluation[self::FIELD_FIRED] ?? false) === true) {
                 $alerts[] = [
-                    'trigger_id' => $id,
+                    self::FIELD_TRIGGER_ID => $id,
                     self::FIELD_SLICES => $flip[self::FIELD_SLICES] ?? [],
                     self::FIELD_ROLLBACK_ACTION => $flip[self::FIELD_ROLLBACK_ACTION] ?? [],
                     self::FIELD_EXECUTOR => $flip[self::FIELD_EXECUTOR] ?? 'watchdog_alert_operator_reverts',
-                    'condition_kind' => data_get($flip, 'condition.kind'),
+                    self::FIELD_CONDITION_KIND => data_get($flip, 'condition.kind'),
                     'simulated' => $simulated,
                 ];
             }
@@ -96,7 +100,7 @@ final class AtlasAcosRollbackTriggerCheckService
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'checked_at' => $asOf->toIso8601String(),
+            self::FIELD_CHECKED_AT => $asOf->toIso8601String(),
             self::FIELD_STATUS => $status,
             self::STATUS_ALERT => $alert,
             'alert_code' => $alert ? 'rollback_trigger_fired' : null,
@@ -114,16 +118,16 @@ final class AtlasAcosRollbackTriggerCheckService
     private function simulatedEvaluation(array $flip, CarbonImmutable $asOf): array
     {
         return [
-            'trigger_id' => (AiValueNormalizer::trimmedStringOrNull($flip['id'] ?? null) ?? ''),
+            self::FIELD_TRIGGER_ID => (AiValueNormalizer::trimmedStringOrNull($flip['id'] ?? null) ?? ''),
             self::FIELD_SLICES => $flip[self::FIELD_SLICES] ?? [],
-            'armed' => true,
+            self::FIELD_ARMED => true,
             self::FIELD_FIRED => true,
             self::FIELD_STATUS => self::STATUS_SIMULATED_FIRE,
             self::FIELD_REASON => self::REASON_SIMULATED_CONDITION,
-            'condition_kind' => data_get($flip, 'condition.kind'),
+            self::FIELD_CONDITION_KIND => data_get($flip, 'condition.kind'),
             self::FIELD_ROLLBACK_ACTION => $flip[self::FIELD_ROLLBACK_ACTION] ?? [],
             self::FIELD_EXECUTOR => $flip[self::FIELD_EXECUTOR] ?? 'watchdog_alert_operator_reverts',
-            'checked_at' => $asOf->toIso8601String(),
+            self::FIELD_CHECKED_AT => $asOf->toIso8601String(),
         ];
     }
 
@@ -138,16 +142,16 @@ final class AtlasAcosRollbackTriggerCheckService
         $armed = $this->flipIsArmed($condition);
 
         return [
-            'trigger_id' => $id,
+            self::FIELD_TRIGGER_ID => $id,
             self::FIELD_SLICES => $flip[self::FIELD_SLICES] ?? [],
-            'armed' => $armed,
+            self::FIELD_ARMED => $armed,
             self::FIELD_FIRED => false,
             self::FIELD_STATUS => $armed ? 'monitoring' : 'pre_flip',
             self::FIELD_REASON => $armed ? 'condition_not_met' : 'flip_not_armed',
-            'condition_kind' => $condition['kind'] ?? null,
+            self::FIELD_CONDITION_KIND => $condition['kind'] ?? null,
             self::FIELD_ROLLBACK_ACTION => $flip[self::FIELD_ROLLBACK_ACTION] ?? [],
             self::FIELD_EXECUTOR => $flip[self::FIELD_EXECUTOR] ?? 'watchdog_alert_operator_reverts',
-            'checked_at' => $asOf->toIso8601String(),
+            self::FIELD_CHECKED_AT => $asOf->toIso8601String(),
         ];
     }
 

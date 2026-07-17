@@ -288,6 +288,7 @@ final class AtlasAaeosCommand extends Command
         {--parallel-truth-autonomy-floors-contract= : JSON file (any object) to observe parallel/truth/autonomy residual floors}
         {--obra-thesis-skill-floors-contract= : JSON file (any object) to observe obra-retro/thesis/skill residual floors}
         {--mission-promotion-outcome-floors-contract= : JSON file (any object) to observe mission/promotion/outcome residual floors}
+        {--immune-rollback-remint-floors-contract= : JSON file (any object) to observe immune/rollback/remint residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -732,6 +733,7 @@ final class AtlasAaeosCommand extends Command
             ['parallel-truth-autonomy-floors-contract', 'parallel_truth_autonomy_floors_contract', fn (array $p) => $gates->parallelTruthAutonomyFloorsContractObserve($p)],
             ['obra-thesis-skill-floors-contract', 'obra_thesis_skill_floors_contract', fn (array $p) => $gates->obraThesisSkillFloorsContractObserve($p)],
             ['mission-promotion-outcome-floors-contract', 'mission_promotion_outcome_floors_contract', fn (array $p) => $gates->missionPromotionOutcomeFloorsContractObserve($p)],
+            ['immune-rollback-remint-floors-contract', 'immune_rollback_remint_floors_contract', fn (array $p) => $gates->immuneRollbackRemintFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

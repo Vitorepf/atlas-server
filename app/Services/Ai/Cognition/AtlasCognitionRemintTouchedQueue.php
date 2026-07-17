@@ -42,6 +42,9 @@ final class AtlasCognitionRemintTouchedQueue
     public const FIELD_QUEUED = 'queued';
 
     public const FIELD_ERROR = 'error';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_MODE = 'mode';
+    public const FIELD_PATHS = 'paths';
 
     /**
      * @param  list<string>  $paths
@@ -53,8 +56,8 @@ final class AtlasCognitionRemintTouchedQueue
         if (! (AiValueNormalizer::boolOrNull(config(self::ENABLED_CONFIG_KEY, self::DEFAULT_ENABLED)) ?? self::DEFAULT_ENABLED)) {
             return [
                 self::FIELD_QUEUED => false,
-                'reason' => self::REASON_DISABLED,
-                'mode' => self::MODE_OFF,
+                self::FIELD_REASON => self::REASON_DISABLED,
+                self::FIELD_MODE => self::MODE_OFF,
             ];
         }
 
@@ -62,8 +65,8 @@ final class AtlasCognitionRemintTouchedQueue
         if ($paths === []) {
             return [
                 self::FIELD_QUEUED => false,
-                'reason' => self::REASON_EMPTY_PATHS,
-                'mode' => self::MODE_DEFERRED_DISK_QUEUE,
+                self::FIELD_REASON => self::REASON_EMPTY_PATHS,
+                self::FIELD_MODE => self::MODE_DEFERRED_DISK_QUEUE,
             ];
         }
 
@@ -72,10 +75,10 @@ final class AtlasCognitionRemintTouchedQueue
             'schema_version' => self::SCHEMA_VERSION,
             'queued_at' => Carbon::now()->toIso8601String(),
             'task_packet_id' => $taskPacketId,
-            'paths' => $paths,
+            self::FIELD_PATHS => $paths,
             'command' => $command,
             'command_args' => [
-                'paths' => $paths,
+                self::FIELD_PATHS => $paths,
                 'json' => true,
             ],
             'metadata' => $metadata,
@@ -87,8 +90,8 @@ final class AtlasCognitionRemintTouchedQueue
             if ($path === '') {
                 return [
                     self::FIELD_QUEUED => false,
-                    'reason' => self::REASON_QUEUE_PATH_EMPTY,
-                    'mode' => self::MODE_DEFERRED_DISK_QUEUE,
+                    self::FIELD_REASON => self::REASON_QUEUE_PATH_EMPTY,
+                    self::FIELD_MODE => self::MODE_DEFERRED_DISK_QUEUE,
                 ];
             }
             Storage::disk($disk)->append(
@@ -98,16 +101,16 @@ final class AtlasCognitionRemintTouchedQueue
         } catch (Throwable $e) {
             return [
                 self::FIELD_QUEUED => false,
-                'reason' => self::REASON_QUEUE_WRITE_FAILED,
-                'mode' => self::MODE_DEFERRED_DISK_QUEUE,
+                self::FIELD_REASON => self::REASON_QUEUE_WRITE_FAILED,
+                self::FIELD_MODE => self::MODE_DEFERRED_DISK_QUEUE,
                 self::FIELD_ERROR => mb_substr($e->getMessage(), 0, 200),
             ];
         }
 
         return [
             self::FIELD_QUEUED => true,
-            'reason' => self::REASON_QUEUED,
-            'mode' => self::MODE_DEFERRED_DISK_QUEUE,
+            self::FIELD_REASON => self::REASON_QUEUED,
+            self::FIELD_MODE => self::MODE_DEFERRED_DISK_QUEUE,
             'path_count' => count($paths),
             'queue_path' => AiValueNormalizer::trimmedStringOrNull(config(self::QUEUE_PATH_CONFIG_KEY, self::DEFAULT_QUEUE_PATH)) ?? self::DEFAULT_QUEUE_PATH,
         ];

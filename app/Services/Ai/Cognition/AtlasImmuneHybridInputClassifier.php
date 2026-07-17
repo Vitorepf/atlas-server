@@ -55,6 +55,12 @@ final class AtlasImmuneHybridInputClassifier
     public const FIELD_HYBRID_ARM = 'hybrid_arm';
     public const FIELD_HOSTILE_CLASS_CANDIDATE = 'hostile_class_candidate';
     public const FIELD_STATUS = 'status';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_TAU = 'tau';
+    public const FIELD_MAX_SIMILARITY = 'max_similarity';
+    public const FIELD_LEXICAL_HOSTILE_CLASS = 'lexical_hostile_class';
+    public const FIELD_OVERRIDE_APPLIED = 'override_applied';
 
     private readonly AtlasAaeosCognitiveImmuneInputClassifier $base;
 
@@ -87,7 +93,7 @@ final class AtlasImmuneHybridInputClassifier
         $this->signatureStore = $signatureStore ?? new ImmuneSignatureStore;
         $this->anchors = $anchors;
         $freeze = AtlasImmuneClassifierHybridFreeze::freezePayload();
-        $this->tau = $tau ?? (AiValueNormalizer::finiteFloatOrNull($freeze['thresholds']['tau'] ?? null) ?? 0.62);
+        $this->tau = $tau ?? (AiValueNormalizer::finiteFloatOrNull($freeze['thresholds'][self::FIELD_TAU] ?? null) ?? 0.62);
         $this->enabled = $enabled ?? (AiValueNormalizer::boolOrNull(config(self::SEMANTIC_ARM_ENABLED_CONFIG_KEY, self::DEFAULT_SEMANTIC_ARM_ENABLED)) ?? self::DEFAULT_SEMANTIC_ARM_ENABLED);
     }
 
@@ -98,7 +104,7 @@ final class AtlasImmuneHybridInputClassifier
     public function classifyHybrid(string $text, array $metadata = []): array
     {
         $signatureBlock = [
-            'schema_version' => AtlasImmuneSignatureFreeze::MEASURE_ID,
+            self::FIELD_SCHEMA_VERSION => AtlasImmuneSignatureFreeze::MEASURE_ID,
             'mode' => $this->signatureStore->mode(),
             'matched' => false,
             self::FIELD_REF => null,
@@ -136,17 +142,17 @@ final class AtlasImmuneHybridInputClassifier
         $baseResult = $this->base->classify($text, $metadata);
 
         $armBlock = [
-            'schema_version' => AtlasImmuneClassifierHybridFreeze::MEASURE_ID,
+            self::FIELD_SCHEMA_VERSION => AtlasImmuneClassifierHybridFreeze::MEASURE_ID,
             self::FIELD_ENABLED => $this->enabled,
-            'source' => 'off',
-            'tau' => $this->tau,
-            'max_similarity' => null,
+            self::FIELD_SOURCE => 'off',
+            self::FIELD_TAU => $this->tau,
+            self::FIELD_MAX_SIMILARITY => null,
             self::FIELD_HOSTILE_CLASS_CANDIDATE => null,
-            'lexical_hostile_class' => in_array($baseResult[self::FIELD_INPUT_CLASS], self::HOSTILE_SEVERITY, true)
+            self::FIELD_LEXICAL_HOSTILE_CLASS => in_array($baseResult[self::FIELD_INPUT_CLASS], self::HOSTILE_SEVERITY, true)
                 ? (AiValueNormalizer::trimmedScalarStringOrNull($baseResult[self::FIELD_INPUT_CLASS] ?? null) ?? '')
                 : null,
             self::FIELD_WINNER_SOURCE => 'lexical',
-            'override_applied' => false,
+            self::FIELD_OVERRIDE_APPLIED => false,
         ];
 
         if (! $this->enabled) {
@@ -157,7 +163,7 @@ final class AtlasImmuneHybridInputClassifier
         }
 
         $scores = $this->computeSemanticScores($text);
-        $armBlock['source'] = $scores === null ? self::SOURCE_UNAVAILABLE : self::SOURCE_JACCARD_BASELINE;
+        $armBlock[self::FIELD_SOURCE] = $scores === null ? self::SOURCE_UNAVAILABLE : self::SOURCE_JACCARD_BASELINE;
         if ($scores === null) {
             $baseResult[self::FIELD_HYBRID_ARM] = $armBlock;
             $baseResult[self::FIELD_IMMUNE_SIGNATURE] = $signatureBlock;
@@ -173,20 +179,20 @@ final class AtlasImmuneHybridInputClassifier
                 $bestClass = $class;
             }
         }
-        $armBlock['max_similarity'] = round($bestScore, 6);
+        $armBlock[self::FIELD_MAX_SIMILARITY] = round($bestScore, 6);
         $armBlock['scores_by_class'] = array_map(static fn (float $v): float => round($v, 6), $scores);
 
         if ($bestClass !== null && $bestScore >= $this->tau) {
             $armBlock[self::FIELD_HOSTILE_CLASS_CANDIDATE] = $bestClass;
         }
 
-        $lexicalHostile = $armBlock['lexical_hostile_class'];
+        $lexicalHostile = $armBlock[self::FIELD_LEXICAL_HOSTILE_CLASS];
         $semanticHostile = $armBlock[self::FIELD_HOSTILE_CLASS_CANDIDATE];
 
         $winner = $this->maxSeverity($lexicalHostile, $semanticHostile);
         if ($winner !== null && $winner !== $lexicalHostile) {
             $armBlock[self::FIELD_WINNER_SOURCE] = 'semantic';
-            $armBlock['override_applied'] = true;
+            $armBlock[self::FIELD_OVERRIDE_APPLIED] = true;
             $baseResult[self::FIELD_INPUT_CLASS] = $winner;
             $baseResult['reason'] = 'semantic_arm_similarity_'.number_format($bestScore, 3);
             $baseResult[self::FIELD_MATCHED_SIGNALS] = $this->augmentSignals($baseResult[self::FIELD_MATCHED_SIGNALS], 'semantic_arm_hit');
@@ -210,17 +216,17 @@ final class AtlasImmuneHybridInputClassifier
     private function offHybridArm(array $baseResult): array
     {
         return [
-            'schema_version' => AtlasImmuneClassifierHybridFreeze::MEASURE_ID,
+            self::FIELD_SCHEMA_VERSION => AtlasImmuneClassifierHybridFreeze::MEASURE_ID,
             self::FIELD_ENABLED => false,
-            'source' => 'off',
-            'tau' => $this->tau,
-            'max_similarity' => null,
+            self::FIELD_SOURCE => 'off',
+            self::FIELD_TAU => $this->tau,
+            self::FIELD_MAX_SIMILARITY => null,
             self::FIELD_HOSTILE_CLASS_CANDIDATE => null,
-            'lexical_hostile_class' => in_array($baseResult[self::FIELD_INPUT_CLASS], self::HOSTILE_SEVERITY, true)
+            self::FIELD_LEXICAL_HOSTILE_CLASS => in_array($baseResult[self::FIELD_INPUT_CLASS], self::HOSTILE_SEVERITY, true)
                 ? (AiValueNormalizer::trimmedScalarStringOrNull($baseResult[self::FIELD_INPUT_CLASS] ?? null) ?? '')
                 : null,
             self::FIELD_WINNER_SOURCE => 'immune_signature',
-            'override_applied' => true,
+            self::FIELD_OVERRIDE_APPLIED => true,
         ];
     }
 

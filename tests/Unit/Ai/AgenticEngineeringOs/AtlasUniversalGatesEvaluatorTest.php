@@ -4313,4 +4313,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['mission_promotion_outcome_floor_count']);
     }
 
+    public function test_immune_rollback_remint_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->immuneRollbackRemintFloorsContractObserve([]);
+
+        $this->assertSame('schema_version', $payload['immune_field_schema_version']);
+        $this->assertSame('source', $payload['immune_field_source']);
+        $this->assertSame('tau', $payload['immune_field_tau']);
+        $this->assertSame('max_similarity', $payload['immune_field_max_similarity']);
+        $this->assertSame('lexical_hostile_class', $payload['immune_field_lexical_hostile_class']);
+        $this->assertSame('override_applied', $payload['immune_field_override_applied']);
+        $this->assertSame('trigger_id', $payload['rollback_field_trigger_id']);
+        $this->assertSame('condition_kind', $payload['rollback_field_condition_kind']);
+        $this->assertSame('checked_at', $payload['rollback_field_checked_at']);
+        $this->assertSame('armed', $payload['rollback_field_armed']);
+        $this->assertSame('triggers', $payload['rollback_field_triggers']);
+        $this->assertSame('fired', $payload['rollback_field_fired']);
+        $this->assertSame('reason', $payload['remint_field_reason']);
+        $this->assertSame('mode', $payload['remint_field_mode']);
+        $this->assertSame('paths', $payload['remint_field_paths']);
+        $this->assertSame('queued', $payload['remint_field_queued']);
+        $this->assertSame('error', $payload['remint_field_error']);
+        $this->assertSame(17, $payload['immune_rollback_remint_floor_count']);
+    }
+
 }

@@ -5925,6 +5925,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function immuneRollbackRemintFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'immune_field_schema_version' => AtlasImmuneHybridInputClassifier::FIELD_SCHEMA_VERSION,
+            'immune_field_source' => AtlasImmuneHybridInputClassifier::FIELD_SOURCE,
+            'immune_field_tau' => AtlasImmuneHybridInputClassifier::FIELD_TAU,
+            'immune_field_max_similarity' => AtlasImmuneHybridInputClassifier::FIELD_MAX_SIMILARITY,
+            'immune_field_lexical_hostile_class' => AtlasImmuneHybridInputClassifier::FIELD_LEXICAL_HOSTILE_CLASS,
+            'immune_field_override_applied' => AtlasImmuneHybridInputClassifier::FIELD_OVERRIDE_APPLIED,
+            'rollback_field_trigger_id' => AtlasAcosRollbackTriggerCheckService::FIELD_TRIGGER_ID,
+            'rollback_field_condition_kind' => AtlasAcosRollbackTriggerCheckService::FIELD_CONDITION_KIND,
+            'rollback_field_checked_at' => AtlasAcosRollbackTriggerCheckService::FIELD_CHECKED_AT,
+            'rollback_field_armed' => AtlasAcosRollbackTriggerCheckService::FIELD_ARMED,
+            'rollback_field_triggers' => AtlasAcosRollbackTriggerCheckService::FIELD_TRIGGERS,
+            'rollback_field_fired' => AtlasAcosRollbackTriggerCheckService::FIELD_FIRED,
+            'remint_field_reason' => AtlasCognitionRemintTouchedQueue::FIELD_REASON,
+            'remint_field_mode' => AtlasCognitionRemintTouchedQueue::FIELD_MODE,
+            'remint_field_paths' => AtlasCognitionRemintTouchedQueue::FIELD_PATHS,
+            'remint_field_queued' => AtlasCognitionRemintTouchedQueue::FIELD_QUEUED,
+            'remint_field_error' => AtlasCognitionRemintTouchedQueue::FIELD_ERROR,
+            'immune_rollback_remint_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [
