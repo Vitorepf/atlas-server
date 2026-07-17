@@ -35,6 +35,8 @@ use App\Services\Ai\AgenticEngineeringOs\AaeosDeferredPhaseDispatcherService;
 use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 use App\Services\Ai\Cognition\AtlasFrontierWaveLadder;
 use App\Services\Ai\Cognition\AtlasImmuneClassifierHybridFreeze;
+use App\Services\Ai\Cognition\AtlasCognitiveFunctionAtlasService;
+use App\Services\Ai\Cognition\AtlasCognitiveMemoryFabricSchemaEvolutionService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogRunner;
 use App\Services\Ai\Cognition\Watchdog\Checks\AutonomyLadderAdversarialWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\Checks\DailyCanaryReplayByRefsWatchdogCheck;
@@ -3138,6 +3140,33 @@ final class AtlasUniversalGatesEvaluator
             'immune_hybrid_freeze_anchor_fixture' => AtlasImmuneClassifierHybridFreeze::ANCHOR_FIXTURE_RELATIVE,
             'immune_hybrid_freeze_corpus_fixture' => AtlasImmuneClassifierHybridFreeze::CORPUS_FIXTURE_RELATIVE,
             'outcome_envelope_bridge_measure_id' => OutcomeEnvelopeBridge::MEASURE_ID,
+        ];
+    }
+
+    /**
+     * Observe-only runbook/department/atlas/memory-fabric floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function runbookDepartmentAtlasContractObserve(array $input = []): array
+    {
+        return [
+            'runbook_schema' => RunbookOrchestrator::SCHEMA_VERSION,
+            'architecture_redesign_proposal_schema' => RunbookOrchestrator::ARCHITECTURE_REDESIGN_PROPOSAL_SCHEMA,
+            'runbook_replay_obras_count_min' => RunbookOrchestrator::REPLAY_OBRAS_COUNT_MIN,
+            'runbook_default_flow_count' => count(RunbookOrchestrator::DEFAULT_FLOW),
+            'department_runtime_schema' => DepartmentContractRuntime::SCHEMA_VERSION,
+            'department_catalogue_count' => count(DepartmentContractRuntime::CATALOGUE),
+            'department_canonical_field_count' => count(DepartmentContractRuntime::CANONICAL_FIELDS),
+            'cognitive_function_atlas_self_model_schema' => AtlasCognitiveFunctionAtlasService::SELF_MODEL_SCHEMA,
+            'cognitive_function_atlas_group_summary_schema' => AtlasCognitiveFunctionAtlasService::GROUP_SUMMARY_SCHEMA,
+            'cognitive_function_atlas_overload_threshold' => AtlasCognitiveFunctionAtlasService::OVERLOAD_DEFAULT_THRESHOLD,
+            'memory_fabric_proposal_schema' => AtlasCognitiveMemoryFabricSchemaEvolutionService::PROPOSAL_SCHEMA,
+            'memory_fabric_ticket_schema' => AtlasCognitiveMemoryFabricSchemaEvolutionService::TICKET_SCHEMA,
+            'memory_fabric_valid_triggers' => AtlasCognitiveMemoryFabricSchemaEvolutionService::VALID_TRIGGERS,
+            'memory_fabric_extension_pressure_threshold' => AtlasCognitiveMemoryFabricSchemaEvolutionService::EXTENSION_PRESSURE_THRESHOLD,
         ];
     }
 

@@ -2200,4 +2200,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertStringContainsString('anchors.v1.json', $payload['immune_hybrid_freeze_anchor_fixture']);
         $this->assertSame('atlas.esp_06.outcome_envelope.v1', $payload['outcome_envelope_bridge_measure_id']);
     }
+
+    public function test_runbook_department_atlas_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->runbookDepartmentAtlasContractObserve([]);
+
+        $this->assertSame('atlas.agentic_engineering_os.runbook.v1', $payload['runbook_schema']);
+        $this->assertSame('atlas.architecture.redesign_proposal.v1', $payload['architecture_redesign_proposal_schema']);
+        $this->assertSame(100, $payload['runbook_replay_obras_count_min']);
+        $this->assertGreaterThan(0, $payload['runbook_default_flow_count']);
+        $this->assertSame('atlas.aaeos.department.v1', $payload['department_runtime_schema']);
+        $this->assertGreaterThan(0, $payload['department_catalogue_count']);
+        $this->assertGreaterThan(0, $payload['department_canonical_field_count']);
+        $this->assertSame('atlas.cognitive_function_atlas.self_model.v1', $payload['cognitive_function_atlas_self_model_schema']);
+        $this->assertSame('atlas.cognitive_function_atlas.group_summary.v1', $payload['cognitive_function_atlas_group_summary_schema']);
+        $this->assertSame(8, $payload['cognitive_function_atlas_overload_threshold']);
+        $this->assertSame('atlas.acmf.schema_proposal.v1', $payload['memory_fabric_proposal_schema']);
+        $this->assertSame('atlas.acmf.schema_evolution_ticket.v1', $payload['memory_fabric_ticket_schema']);
+        $this->assertContains('operator_request', $payload['memory_fabric_valid_triggers']);
+        $this->assertSame(4, $payload['memory_fabric_extension_pressure_threshold']);
+    }
 }
