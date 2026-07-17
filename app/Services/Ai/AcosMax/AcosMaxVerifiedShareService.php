@@ -91,6 +91,8 @@ final class AcosMaxVerifiedShareService
         $aggregate = $this->countPayload(array_sum($verified), array_sum($totals));
         $denominatorMin = max(1, (int) ($freeze['denominator_min'] ?? data_get($freeze, 'thresholds.denominator_min_executions', 50)));
         $shareMin = (float) data_get($freeze, 'thresholds.verified_share_min', 0.80);
+        $authorEngineId = AiValueNormalizer::trimmedString($freeze['author_engine_id'] ?? '');
+        $judgeEngineId = AiValueNormalizer::trimmedString($freeze['judge_engine_id'] ?? '');
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
@@ -99,15 +101,14 @@ final class AcosMaxVerifiedShareService
             'status' => $this->status($aggregate, $denominatorMin, $shareMin),
             'window_days' => $windowDays,
             'freeze' => [
-                'measure_id' => (string) ($freeze['measure_id'] ?? self::MEASURE_ID),
-                'content_hash' => (string) ($freeze['content_hash'] ?? ''),
+                'measure_id' => AiValueNormalizer::trimmedString($freeze['measure_id'] ?? self::MEASURE_ID) ?: self::MEASURE_ID,
+                'content_hash' => AiValueNormalizer::trimmedString($freeze['content_hash'] ?? ''),
                 'denominator_min' => $denominatorMin,
-                'thresholds' => (array) ($freeze['thresholds'] ?? []),
-                'author_engine_id' => (string) ($freeze['author_engine_id'] ?? ''),
-                'judge_engine_id' => (string) ($freeze['judge_engine_id'] ?? ''),
-                'judge_author_distinct' => (string) ($freeze['author_engine_id'] ?? '') !== ''
-                    && (string) ($freeze['author_engine_id'] ?? '') !== (string) ($freeze['judge_engine_id'] ?? ''),
-                'series_registry' => (array) ($freeze['series_registry'] ?? []),
+                'thresholds' => AiValueNormalizer::arrayOrEmpty($freeze['thresholds'] ?? null),
+                'author_engine_id' => $authorEngineId,
+                'judge_engine_id' => $judgeEngineId,
+                'judge_author_distinct' => $authorEngineId !== '' && $authorEngineId !== $judgeEngineId,
+                'series_registry' => AiValueNormalizer::arrayOrEmpty($freeze['series_registry'] ?? null),
             ],
             'aggregate' => $aggregate,
             'executors' => $executors,
@@ -251,14 +252,14 @@ final class AcosMaxVerifiedShareService
             return $this->normalizeExecutor(substr($actor, strlen('engineering_outcome_spine:')));
         }
 
-        return $this->normalizeExecutor((string) ($row['task_category'] ?? $row['role'] ?? ''));
+        return $this->normalizeExecutor(AiValueNormalizer::trimmedString($row['task_category'] ?? $row['role'] ?? ''));
     }
 
     /** @param array<string,mixed> $row */
     private function executorFromCoverage(array $row): ?string
     {
-        $surface = (string) ($row['surface'] ?? '');
-        $owner = (string) (EngineeringExecutionSurfaceRegistry::surface($surface)['owner'] ?? '');
+        $surface = AiValueNormalizer::trimmedString($row['surface'] ?? '');
+        $owner = AiValueNormalizer::trimmedString(EngineeringExecutionSurfaceRegistry::surface($surface)['owner'] ?? '');
 
         return $this->normalizeExecutor($owner);
     }

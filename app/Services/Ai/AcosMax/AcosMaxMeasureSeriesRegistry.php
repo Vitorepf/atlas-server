@@ -53,8 +53,8 @@ final class AcosMaxMeasureSeriesRegistry
     public function entries(): array
     {
         return array_values(array_map(function (array $entry): array {
-            $entry['slice'] = (string) ($entry['slice'] ?? '');
-            $entry['series'] = (string) ($entry['series'] ?? '');
+            $entry['slice'] = AiValueNormalizer::trimmedString($entry['slice'] ?? '');
+            $entry['series'] = AiValueNormalizer::trimmedString($entry['series'] ?? '');
             $entry['ttl_days'] = max(1, (int) ($entry['ttl_days'] ?? 1));
 
             return $entry;

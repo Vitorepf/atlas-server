@@ -36,6 +36,7 @@ use App\Services\Ai\AcosMax\Teto10PredictedRevertReviewDigest;
 use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadLedger;
 use App\Services\Ai\AcosMax\AtlasResourceBudgetService;
 use App\Services\Ai\AcosMax\AtlasModelCapabilitySpecService;
+use App\Services\Ai\AcosMax\AcosMeasureSeriesFreshnessReader;
 use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
 
@@ -1027,6 +1028,33 @@ final class AtlasUniversalGatesEvaluator
                 ]],
             ];
         }
+    }
+
+    /**
+     * Observe-only ELEV-31 measure-series freshness probe.
+     * Accepts `{entry?:object}` or a bare registry entry. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function measureSeriesFreshnessObserve(array $input = []): array
+    {
+        $entry = AiValueNormalizer::arrayOrEmpty($input['entry'] ?? null);
+        if ($entry === []) {
+            $entry = $input;
+        }
+
+        $latest = (new AcosMeasureSeriesFreshnessReader)->lastAppendAt($entry);
+
+        return [
+            'schema_version' => AcosMeasureSeriesFreshnessReader::SCHEMA,
+            'series' => AiValueNormalizer::trimmedString($entry['series'] ?? ''),
+            'source_type' => AiValueNormalizer::trimmedString($entry['source_type'] ?? ''),
+            'path' => AiValueNormalizer::trimmedString($entry['path'] ?? ''),
+            'table' => AiValueNormalizer::trimmedString($entry['table'] ?? ''),
+            'last_append_at' => $latest?->toIso8601String(),
+            'fresh' => $latest !== null,
+        ];
     }
 
     /**

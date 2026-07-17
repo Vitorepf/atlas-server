@@ -34,6 +34,7 @@ use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\Teto10PredictedRevertReviewDigest;
 use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadLedger;
+use App\Services\Ai\AcosMax\AcosMeasureSeriesFreshnessReader;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -873,5 +874,27 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('unknown_function', $payload['status']);
         $this->assertSame('not_a_real_fn', $payload['function']);
         $this->assertSame('unknown_model_function', $payload['violations'][0]['reason']);
+    }
+
+    public function test_measure_series_freshness_observe_reads_jsonl(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-msf-'.uniqid('', true).'.jsonl';
+        file_put_contents($path, json_encode(['recorded_at' => '2026-01-02T03:04:05Z'])."\n");
+
+        try {
+            $payload = $this->svc->measureSeriesFreshnessObserve([
+                'series' => 'acos.test.freshness',
+                'source_type' => 'jsonl',
+                'path' => $path,
+                'timestamp_field' => 'recorded_at',
+            ]);
+
+            $this->assertSame(AcosMeasureSeriesFreshnessReader::SCHEMA, $payload['schema_version']);
+            $this->assertTrue($payload['fresh']);
+            $this->assertSame('acos.test.freshness', $payload['series']);
+            $this->assertNotNull($payload['last_append_at']);
+        } finally {
+            @unlink($path);
+        }
     }
 }

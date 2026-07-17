@@ -89,6 +89,7 @@ final class AtlasAaeosCommand extends Command
         {--jina-dual-read-ledger= : JSON file with optional path (observe-only MAXA-04 ledger)}
         {--resource-budget= : JSON file with optional budget override (observe-only ELEV-27)}
         {--model-capability-spec= : JSON file with function+model (observe-only ELEV-29s)}
+        {--measure-series-freshness= : JSON file with registry entry (observe-only ELEV-31)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -334,6 +335,7 @@ final class AtlasAaeosCommand extends Command
             ['jina-dual-read-ledger', 'jina_dual_read_ledger', fn (array $p) => $gates->jinaDualReadLedgerObserve($p)],
             ['resource-budget', 'resource_budget', fn (array $p) => $gates->resourceBudgetObserve($p)],
             ['model-capability-spec', 'model_capability_spec', fn (array $p) => $gates->modelCapabilitySpecObserve($p)],
+            ['measure-series-freshness', 'measure_series_freshness', fn (array $p) => $gates->measureSeriesFreshnessObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

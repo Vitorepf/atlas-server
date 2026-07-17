@@ -1119,6 +1119,32 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_measure_series_freshness(): void
+    {
+        $jsonl = sys_get_temp_dir().'/atlas-aaeos-msf-'.uniqid('', true).'.jsonl';
+        file_put_contents($jsonl, json_encode(['recorded_at' => '2026-03-01T00:00:00Z'])."\n");
+        $path = sys_get_temp_dir().'/atlas-aaeos-msf-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'series' => 'acos.cli.freshness',
+            'source_type' => 'jsonl',
+            'path' => $jsonl,
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-msf',
+                '--measure-series-freshness' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"measure_series_freshness"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+            @unlink($jsonl);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])
