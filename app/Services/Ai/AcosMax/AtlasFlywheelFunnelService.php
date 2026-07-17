@@ -29,6 +29,14 @@ final class AtlasFlywheelFunnelService
     public const FIELD_LESSONS_WITHOUT_PROMOTION = 'lessons_without_promotion';
     public const FIELD_PROMOTED_WITHOUT_RECALL = 'promoted_without_recall';
     public const FIELD_RECALLS_WITHOUT_CITATION = 'recalls_without_citation';
+    public const FIELD_CITATIONS_WITHOUT_BETTER_OUTCOME = 'citations_without_better_outcome';
+    public const FIELD_NUM = 'num';
+    public const FIELD_DEN = 'den';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_MEASURE_ID = 'measure_id';
+    public const FIELD_FORMULA_VERSION = 'formula_version';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_SOURCE = 'source';
 
     /** @var list<string> */
     public const STAGES = [
@@ -109,7 +117,7 @@ final class AtlasFlywheelFunnelService
                 count($recalled),
                 $denominatorMin,
             ),
-            'citations_without_better_outcome' => $this->stage(
+            self::FIELD_CITATIONS_WITHOUT_BETTER_OUTCOME => $this->stage(
                 count(array_filter($cited, static fn (array $row): bool => ($row['subsequent_outcome_improved'] ?? false) !== true)),
                 count($cited),
                 $denominatorMin,
@@ -123,8 +131,8 @@ final class AtlasFlywheelFunnelService
     private function stage(int $num, int $den, int $denominatorMin): array
     {
         return [
-            'num' => $num,
-            'den' => $den,
+            self::FIELD_NUM => $num,
+            self::FIELD_DEN => $den,
             self::FIELD_STATUS => $den >= $denominatorMin ? self::STATUS_OK : self::STATUS_INSUFFICIENT,
         ];
     }
@@ -194,12 +202,12 @@ final class AtlasFlywheelFunnelService
     private function payload(string $status, string $path, int $denominatorMin, array $byExecutor, int $rowCount): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'measure_id' => self::MEASURE_ID,
-            'formula_version' => self::FORMULA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_STATUS => $status,
-            'generated_at' => Carbon::now()->toIso8601String(),
-            'source' => [
+            self::FIELD_GENERATED_AT => Carbon::now()->toIso8601String(),
+            self::FIELD_SOURCE => [
                 'outcomes_path' => $path,
                 'outcome_rows' => $rowCount,
             ],

@@ -4699,4 +4699,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     }
 
 
+
+    public function test_window_canary_flywheel_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->windowCanaryFlywheelFloorsContractObserve([]);
+
+        $this->assertSame('blocking', $payload['window_field_blocking']);
+        $this->assertSame('reason', $payload['window_field_reason']);
+        $this->assertSame('nodes', $payload['window_field_nodes']);
+        $this->assertSame('schema_version', $payload['window_field_schema_version']);
+        $this->assertSame('generated_at', $payload['window_field_generated_at']);
+        $this->assertSame('source', $payload['window_field_source']);
+        $this->assertSame('code', $payload['canary_field_code']);
+        $this->assertSame('schema_version', $payload['canary_field_schema_version']);
+        $this->assertSame('as_of', $payload['canary_field_as_of']);
+        $this->assertSame('window_hours', $payload['canary_field_window_hours']);
+        $this->assertSame('top_n_flows', $payload['canary_field_top_n_flows']);
+        $this->assertSame('flows_available_in_window', $payload['canary_field_flows_available_in_window']);
+        $this->assertSame('citations_without_better_outcome', $payload['flywheel_field_citations_without_better_outcome']);
+        $this->assertSame('num', $payload['flywheel_field_num']);
+        $this->assertSame('den', $payload['flywheel_field_den']);
+        $this->assertSame('schema_version', $payload['flywheel_field_schema_version']);
+        $this->assertSame('measure_id', $payload['flywheel_field_measure_id']);
+        $this->assertSame(17, $payload['window_canary_flywheel_floor_count']);
+    }
+
+
 }

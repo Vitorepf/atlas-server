@@ -6477,6 +6477,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function windowCanaryFlywheelFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'window_field_blocking' => AcosMaxWindowOrchestratorService::FIELD_BLOCKING,
+            'window_field_reason' => AcosMaxWindowOrchestratorService::FIELD_REASON,
+            'window_field_nodes' => AcosMaxWindowOrchestratorService::FIELD_NODES,
+            'window_field_schema_version' => AcosMaxWindowOrchestratorService::FIELD_SCHEMA_VERSION,
+            'window_field_generated_at' => AcosMaxWindowOrchestratorService::FIELD_GENERATED_AT,
+            'window_field_source' => AcosMaxWindowOrchestratorService::FIELD_SOURCE,
+            'canary_field_code' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_CODE,
+            'canary_field_schema_version' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_SCHEMA_VERSION,
+            'canary_field_as_of' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_AS_OF,
+            'canary_field_window_hours' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_WINDOW_HOURS,
+            'canary_field_top_n_flows' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_TOP_N_FLOWS,
+            'canary_field_flows_available_in_window' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_FLOWS_AVAILABLE_IN_WINDOW,
+            'flywheel_field_citations_without_better_outcome' => AtlasFlywheelFunnelService::FIELD_CITATIONS_WITHOUT_BETTER_OUTCOME,
+            'flywheel_field_num' => AtlasFlywheelFunnelService::FIELD_NUM,
+            'flywheel_field_den' => AtlasFlywheelFunnelService::FIELD_DEN,
+            'flywheel_field_schema_version' => AtlasFlywheelFunnelService::FIELD_SCHEMA_VERSION,
+            'flywheel_field_measure_id' => AtlasFlywheelFunnelService::FIELD_MEASURE_ID,
+            'window_canary_flywheel_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

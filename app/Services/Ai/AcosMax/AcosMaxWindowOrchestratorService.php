@@ -34,6 +34,14 @@ final class AcosMaxWindowOrchestratorService
     public const FIELD_SERIES = 'series';
     public const FIELD_FAMILY = 'family';
     public const FIELD_STATE = 'state';
+    public const FIELD_BLOCKING = 'blocking';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_NODES = 'nodes';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_READ_ONLY = 'read_only';
+    public const FIELD_PROMOTION_PROTOCOL_SCHEMA = 'promotion_protocol_schema';
 
 
     public function __construct(
@@ -71,12 +79,12 @@ final class AcosMaxWindowOrchestratorService
         $critical = $this->criticalPath($active);
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_STATUS => self::STATUS_OK,
-            'generated_at' => $now->format(DateTimeInterface::ATOM),
-            'source' => [
-                'promotion_protocol_schema' => PromotionProtocol::SCHEMA,
-                'read_only' => true,
+            self::FIELD_GENERATED_AT => $now->format(DateTimeInterface::ATOM),
+            self::FIELD_SOURCE => [
+                self::FIELD_PROMOTION_PROTOCOL_SCHEMA => PromotionProtocol::SCHEMA,
+                self::FIELD_READ_ONLY => true,
                 'starts_windows' => false,
                 'scheduler' => false,
             ],
@@ -157,7 +165,7 @@ final class AcosMaxWindowOrchestratorService
             return array_merge($base, [
                 self::FIELD_STATE => self::STATE_NOT_STARTED,
                 self::FIELD_DAYS_REMAINING => null,
-                'blocking' => [self::BLOCKING_WINDOW_NOT_STARTED],
+                self::FIELD_BLOCKING => [self::BLOCKING_WINDOW_NOT_STARTED],
             ]);
         }
 
@@ -175,7 +183,7 @@ final class AcosMaxWindowOrchestratorService
             'started_at' => $startedAt?->format(DateTimeInterface::ATOM),
             'days_elapsed' => $elapsed,
             self::FIELD_DAYS_REMAINING => $remaining,
-            'blocking' => $remaining === 0 ? [] : ['minimum_window_running'],
+            self::FIELD_BLOCKING => $remaining === 0 ? [] : ['minimum_window_running'],
         ]);
 
         $alert = $this->deadWindowAlert($window, $series, $now, $deadAfterDays);
@@ -240,7 +248,7 @@ final class AcosMaxWindowOrchestratorService
             self::FIELD_SERIES => $series[self::FIELD_SERIES] ?? null,
             'silent_days' => $silentDays,
             'last_data_at' => $lastDataAt?->format(DateTimeInterface::ATOM),
-            'reason' => $lastDataAt === null ? 'no_series_data_since_window_start' : 'series_stale_during_window',
+            self::FIELD_REASON => $lastDataAt === null ? 'no_series_data_since_window_start' : 'series_stale_during_window',
         ];
     }
 
@@ -268,7 +276,7 @@ final class AcosMaxWindowOrchestratorService
             static fn (array $window): bool => ($window[self::FIELD_DAYS_REMAINING] ?? null) !== null
         ));
         if ($withRemaining === []) {
-            return [self::FIELD_STATUS => self::STATUS_UNAVAILABLE, 'reason' => self::REASON_NO_STARTED_WINDOW_WITH_NUMERIC_DURATION, self::FIELD_DAYS_REMAINING => null, 'nodes' => []];
+            return [self::FIELD_STATUS => self::STATUS_UNAVAILABLE, self::FIELD_REASON => self::REASON_NO_STARTED_WINDOW_WITH_NUMERIC_DURATION, self::FIELD_DAYS_REMAINING => null, self::FIELD_NODES => []];
         }
         usort($withRemaining, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($b[self::FIELD_DAYS_REMAINING] ?? null) ?? 0)) <=> ((int) (AiValueNormalizer::finiteFloatOrNull($a[self::FIELD_DAYS_REMAINING] ?? null) ?? 0)));
         $top = $withRemaining[0];
@@ -276,7 +284,7 @@ final class AcosMaxWindowOrchestratorService
         return [
             self::FIELD_STATUS => self::STATUS_OK,
             self::FIELD_DAYS_REMAINING => (int) (AiValueNormalizer::finiteFloatOrNull($top[self::FIELD_DAYS_REMAINING] ?? null) ?? 0),
-            'nodes' => [[
+            self::FIELD_NODES => [[
                 self::FIELD_FLAG_ID => $top[self::FIELD_FLAG_ID],
                 self::FIELD_FAMILY => $top[self::FIELD_FAMILY],
                 self::FIELD_SLICE => $top[self::FIELD_SLICE],

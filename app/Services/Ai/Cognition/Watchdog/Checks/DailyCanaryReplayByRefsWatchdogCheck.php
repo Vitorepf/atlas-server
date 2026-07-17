@@ -74,6 +74,14 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_METRIC = 'metric';
     public const FIELD_VALUE = 'value';
     public const FIELD_FLOOR = 'floor';
+    public const FIELD_CODE = 'code';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_AS_OF = 'as_of';
+    public const FIELD_WINDOW_HOURS = 'window_hours';
+    public const FIELD_TOP_N_FLOWS = 'top_n_flows';
+    public const FIELD_FLOWS_AVAILABLE_IN_WINDOW = 'flows_available_in_window';
+    public const FIELD_REFS_BY_KIND = 'refs_by_kind';
+    public const FIELD_REF_STABILITY = 'ref_stability';
 
 
     public function __construct(
@@ -106,16 +114,16 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
         $golden = $this->goldenSnapshot();
 
         $evidence = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'as_of' => $now->toIso8601String(),
-            'window_hours' => max(1, $this->windowHours),
-            'top_n_flows' => max(1, $this->topNFlows),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_AS_OF => $now->toIso8601String(),
+            self::FIELD_WINDOW_HOURS => max(1, $this->windowHours),
+            self::FIELD_TOP_N_FLOWS => max(1, $this->topNFlows),
             self::FIELD_FLOWS_CHECKED => $window[self::FIELD_FLOWS_CHECKED],
-            'flows_available_in_window' => $window['flows_available'],
+            self::FIELD_FLOWS_AVAILABLE_IN_WINDOW => $window['flows_available'],
             self::FIELD_REFS_TOTAL => $refCounts[self::FIELD_REFS_TOTAL],
             self::FIELD_REFS_CANONICAL => $refCounts[self::FIELD_REFS_CANONICAL],
-            'refs_by_kind' => $refCounts['by_kind'],
-            'ref_stability' => $refStability,
+            self::FIELD_REFS_BY_KIND => $refCounts['by_kind'],
+            self::FIELD_REF_STABILITY => $refStability,
             'ref_stability_floor' => self::REF_STABILITY_ALERT_FLOOR,
             'golden_version' => $golden[self::FIELD_VERSION],
             'golden_recall_at_5' => $golden[self::FIELD_RECALL_AT_5],
@@ -136,7 +144,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
             return AtlasWatchdogCheckResult::alert(
                 $evidence + [self::FIELD_REASON => self::REASON_CANARY_DRIFT],
                 [
-                    'code' => 'daily_canary_drift',
+                    self::FIELD_CODE => 'daily_canary_drift',
                     'message' => 'MAXG-06 daily canary detected drift above frozen thresholds.',
                     'violations' => $violations,
                 ],
@@ -176,7 +184,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     {
         $total = 0;
         $canonical = 0;
-        $byKind = ['code' => 0, 'memory' => 0, 'graph' => 0, 'non_canonical' => 0];
+        $byKind = [self::FIELD_CODE => 0, 'memory' => 0, 'graph' => 0, 'non_canonical' => 0];
 
         foreach ($entries as $entry) {
             foreach (AiValueNormalizer::arrayOrEmpty($entry['delivered_refs'] ?? null) as $ref) {
