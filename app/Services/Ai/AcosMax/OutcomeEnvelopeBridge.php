@@ -104,7 +104,7 @@ final class OutcomeEnvelopeBridge
     private function adapter(string $origin): OutcomeEnvelopeAdapter
     {
         $key = strtolower(trim($origin));
-        if (! isset($this->adapters[$key])) {
+        if (! in_array($key, OutcomeEnvelope::ADAPTER_ORIGINS, true) || ! isset($this->adapters[$key])) {
             throw new \InvalidArgumentException('outcome_envelope_adapter_unknown:'.$key);
         }
 

@@ -183,21 +183,24 @@ final class PreReviewAdvisoryBand
 
     private static function normalizeRiskBand(mixed $value): ?string
     {
-        if (! is_string($value)) {
-            return null;
-        }
-        $lower = strtolower(trim($value));
-
-        return in_array($lower, ['low', 'medium', 'high', 'critical'], true) ? $lower : null;
+        return self::normalizeAllowlistedBand($value, ['low', 'medium', 'high', 'critical']);
     }
 
     private static function normalizeConfBand(mixed $value): ?string
+    {
+        return self::normalizeAllowlistedBand($value, ['low', 'sweet', 'high']);
+    }
+
+    /**
+     * @param  list<string>  $allowed
+     */
+    private static function normalizeAllowlistedBand(mixed $value, array $allowed): ?string
     {
         if (! is_string($value)) {
             return null;
         }
         $lower = strtolower(trim($value));
 
-        return in_array($lower, ['low', 'sweet', 'high'], true) ? $lower : null;
+        return in_array($lower, $allowed, true) ? $lower : null;
     }
 }
