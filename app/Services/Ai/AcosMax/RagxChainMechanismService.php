@@ -390,7 +390,7 @@ final class RagxChainMechanismService
     {
         $ids = [];
         foreach ($chunks as $chunk) {
-            $id = trim((string) ($chunk['id'] ?? $chunk['chunk_id'] ?? ''));
+            $id = AiValueNormalizer::trimmedString($chunk['id'] ?? $chunk['chunk_id'] ?? '');
             if ($id !== '') {
                 $ids[$id] = true;
             }
