@@ -97,9 +97,9 @@ final class AsefChunkIndexService
             $embeddedText = self::contextualizedText($title, $section, $chunkText);
             $row = [
                 'id' => (string) Str::uuid(),
-                'chunk_id' => (string) ($chunk['chunk_id'] ?? ('asef_'.substr($chunkHash, 0, 24))),
+                'chunk_id' => AiValueNormalizer::trimmedStringOrNull($chunk['chunk_id'] ?? null) ?? ('asef_'.substr($chunkHash, 0, 24)),
                 'source_ref' => $sourceRef,
-                'source_hash' => (string) ($chunk['source_hash'] ?? MissionCanonicalHash::sha256($sourceRef)),
+                'source_hash' => AiValueNormalizer::trimmedStringOrNull($chunk['source_hash'] ?? null) ?? MissionCanonicalHash::sha256($sourceRef),
                 'chunk_index' => (int) ($chunk['chunk_index'] ?? 0),
                 'chunk_hash' => $chunkHash,
                 'title' => $title,

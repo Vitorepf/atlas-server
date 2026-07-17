@@ -242,7 +242,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             'id' => 'maxk06.metrics_authority_missing',
             'refused' => $refused,
             'expected' => 'blocked+metrics_authority_missing',
-            'observed' => (string) ($verdict['refusal_reason'] ?? $verdict['decision'] ?? 'unknown'),
+            'observed' => (AiValueNormalizer::trimmedStringOrNull($verdict['refusal_reason'] ?? $verdict['decision'] ?? null) ?? 'unknown'),
         ];
     }
 
@@ -309,7 +309,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
                 && ($verdict['refusal_reason'] ?? '') === 'metrics_authority_tampered'
                 && ($provenance['source'] ?? '') === AtlasAutonomyMetricsAuthorityPort::SOURCE_TAMPERED,
             'expected' => 'blocked+metrics_authority_tampered',
-            'observed' => (string) ($verdict['refusal_reason'] ?? $verdict['decision'] ?? 'unknown'),
+            'observed' => (AiValueNormalizer::trimmedStringOrNull($verdict['refusal_reason'] ?? $verdict['decision'] ?? null) ?? 'unknown'),
         ];
     }
 

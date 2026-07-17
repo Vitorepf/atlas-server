@@ -49,7 +49,7 @@ final class ImmuneSignatureIngestor
         $signals = array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($classification['matched_signals'] ?? null)));
 
         return $this->store->recordFromIncident(
-            (string) ($verdictRow['id'] ?? $contentHash),
+            (AiValueNormalizer::trimmedStringOrNull($verdictRow['id'] ?? null) ?? $contentHash),
             ImmuneSignatureStore::ORIGIN_VERDICT,
             $contentHash,
             $hostileClass,

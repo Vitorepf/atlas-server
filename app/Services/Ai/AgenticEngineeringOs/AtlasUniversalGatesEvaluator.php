@@ -3607,6 +3607,48 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only department IO/evidence schema floors published on DepartmentContractRuntime.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function departmentIoSchemasContractObserve(array $input = []): array
+    {
+        $ioSchemas = [];
+        foreach ((new \ReflectionClass(DepartmentContractRuntime::class))->getConstants() as $name => $value) {
+            if (! is_string($name) || ! is_string($value)) {
+                continue;
+            }
+            if (! str_starts_with($name, 'SCHEMA_') || $name === 'SCHEMA_VERSION') {
+                continue;
+            }
+            $ioSchemas[$name] = $value;
+        }
+        ksort($ioSchemas);
+
+        return [
+            'department_runtime_schema' => DepartmentContractRuntime::SCHEMA_VERSION,
+            'department_io_schema_count' => count($ioSchemas),
+            'schema_intent_raw' => DepartmentContractRuntime::SCHEMA_INTENT_RAW,
+            'schema_ai_mission' => DepartmentContractRuntime::SCHEMA_AI_MISSION,
+            'schema_engineering_goal' => DepartmentContractRuntime::SCHEMA_ENGINEERING_GOAL,
+            'schema_spec_pack' => DepartmentContractRuntime::SCHEMA_SPEC_PACK,
+            'schema_task_pack' => DepartmentContractRuntime::SCHEMA_TASK_PACK,
+            'schema_patch_pack' => DepartmentContractRuntime::SCHEMA_PATCH_PACK,
+            'schema_test_pack' => DepartmentContractRuntime::SCHEMA_TEST_PACK,
+            'schema_review_report' => DepartmentContractRuntime::SCHEMA_REVIEW_REPORT,
+            'schema_security_finding' => DepartmentContractRuntime::SCHEMA_SECURITY_FINDING,
+            'schema_delivery_pack' => DepartmentContractRuntime::SCHEMA_DELIVERY_PACK,
+            'schema_memory_record' => DepartmentContractRuntime::SCHEMA_MEMORY_RECORD,
+            'schema_learning_capsule' => DepartmentContractRuntime::SCHEMA_LEARNING_CAPSULE,
+            'evidence_schema_executive_intake' => DepartmentContractRuntime::CATALOGUE[DepartmentContractRuntime::DEPARTMENT_EXECUTIVE_INTAKE]['evidence_schema'],
+            'evidence_schema_dev' => DepartmentContractRuntime::CATALOGUE[DepartmentContractRuntime::DEPARTMENT_DEV]['evidence_schema'],
+            'evidence_schema_memory' => DepartmentContractRuntime::CATALOGUE[DepartmentContractRuntime::DEPARTMENT_MEMORY]['evidence_schema'],
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -44,8 +44,8 @@ final class AtlasAcosLongHorizonGateService
         $warningMargin = $this->clampOutOfTen($options['warning_margin'] ?? $cfg['warning_margin'] ?? 0.15, 0.15);
         $maxLatestStaleDays = max(0, (int) ($options['max_latest_stale_days'] ?? $cfg['max_latest_stale_days'] ?? 2));
         $maxGapDays = max(1, (int) ($options['max_gap_days'] ?? $cfg['max_gap_days'] ?? 1));
-        $seriesPath = (string) ($options['series_path'] ?? $cfg['series_path'] ?? storage_path('app/atlas/evidence/acos-delta-series.jsonl'));
-        $seriesV2Path = (string) ($options['series_v2_path'] ?? $cfg['series_v2_path'] ?? storage_path('app/atlas/evidence/acos-delta-series.v2.jsonl'));
+        $seriesPath = AiValueNormalizer::trimmedStringOrNull($options['series_path'] ?? $cfg['series_path'] ?? null) ?? storage_path('app/atlas/evidence/acos-delta-series.jsonl');
+        $seriesV2Path = AiValueNormalizer::trimmedStringOrNull($options['series_v2_path'] ?? $cfg['series_v2_path'] ?? null) ?? storage_path('app/atlas/evidence/acos-delta-series.v2.jsonl');
         $minAreaOverall = $this->clampOutOfTen($options['min_area_overall'] ?? $cfg['min_area_overall'] ?? $minOverall, $minOverall);
         $minAreaCode = $this->clampOutOfTen($options['min_area_code'] ?? $cfg['min_area_code'] ?? $minAreaOverall, $minAreaOverall);
         $minAreaDoc = $this->clampOutOfTen($options['min_area_doc'] ?? $cfg['min_area_doc'] ?? $minAreaOverall, $minAreaOverall);

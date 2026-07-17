@@ -2493,4 +2493,27 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.model_integrity_manifest.v1', $payload['model_integrity_manifest_schema']);
         $this->assertSame(7, $payload['secondary_report_schema_count']);
     }
+
+    public function test_department_io_schemas_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->departmentIoSchemasContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.department.v1', $payload['department_runtime_schema']);
+        $this->assertSame(36, $payload['department_io_schema_count']);
+        $this->assertSame('atlas.intent.raw.v1', $payload['schema_intent_raw']);
+        $this->assertSame('atlas.ai.mission.v1', $payload['schema_ai_mission']);
+        $this->assertSame('atlas.engineering_goal.v1', $payload['schema_engineering_goal']);
+        $this->assertSame('atlas.spec_pack.v1', $payload['schema_spec_pack']);
+        $this->assertSame('atlas.task_pack.v1', $payload['schema_task_pack']);
+        $this->assertSame('atlas.patch_pack.v1', $payload['schema_patch_pack']);
+        $this->assertSame('atlas.test_pack.v1', $payload['schema_test_pack']);
+        $this->assertSame('atlas.review_report.v1', $payload['schema_review_report']);
+        $this->assertSame('atlas.security.finding.v1', $payload['schema_security_finding']);
+        $this->assertSame('atlas.delivery_pack.v1', $payload['schema_delivery_pack']);
+        $this->assertSame('atlas.memory_record.v1', $payload['schema_memory_record']);
+        $this->assertSame('atlas.learning_capsule.v1', $payload['schema_learning_capsule']);
+        $this->assertSame('atlas.ai.mission.v1', $payload['evidence_schema_executive_intake']);
+        $this->assertSame('atlas.dev.plan_visible.v1', $payload['evidence_schema_dev']);
+        $this->assertSame('atlas.learning.compounding_signal.v1', $payload['evidence_schema_memory']);
+    }
 }

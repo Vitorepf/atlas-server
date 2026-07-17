@@ -310,7 +310,7 @@ class AtlasAaeosImplementationTruthService
             }
             $relativePath = str_replace(base_path().DIRECTORY_SEPARATOR, '', $file->getPathname());
             $docs[] = [
-                'id' => (string) ($fm['id'] ?? $fm['graph_id'] ?? $relativePath),
+                'id' => AiValueNormalizer::trimmedStringOrNull($fm['id'] ?? $fm['graph_id'] ?? $relativePath) ?? $relativePath,
                 'path' => $relativePath,
                 'implementation_state' => (AiValueNormalizer::trimmedStringOrNull($fm['implementation_state'] ?? null) ?? 'spec'),
                 'evidence_refs' => $evidenceRefs,
