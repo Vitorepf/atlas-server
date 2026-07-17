@@ -277,7 +277,7 @@ final class AcosMaxVerifiedShareService
 
     private function parseDate(mixed $value): ?CarbonImmutable
     {
-        if (! is_string($value) || trim($value) === '') {
+        if (AiValueNormalizer::trimmedStringOrNull($value) === null) {
             return null;
         }
 

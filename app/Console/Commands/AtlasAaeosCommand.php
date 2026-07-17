@@ -53,6 +53,7 @@ final class AtlasAaeosCommand extends Command
         {--pre-review= : JSON file with pre-review advisory features (observe-only MULTN15-08)}
         {--reality-compiler-slice= : JSON file with Reality Compiler slice map (observe-only contract)}
         {--esp09-challenger= : JSON file with ESP-09 challenger context (observe-only advisory)}
+        {--esp09-promotion-gate= : JSON file with ESP-09 promotion-gate context (observe-only delay)}
         {--dogfooding-leads= : JSON file with dogfooding friction events (observe-only mine)}
         {--reactive-saturation= : JSON file with reactive saturation windows (observe-only classify)}
         {--blocker-severity= : JSON file with phase blockers (observe-only severity gate)}
@@ -245,6 +246,7 @@ final class AtlasAaeosCommand extends Command
             ['pre-review', 'pre_review_advisory', fn (array $p) => $gates->preReviewAdvisoryObserve($p)],
             ['reality-compiler-slice', 'reality_compiler_slice', fn (array $p) => $gates->realityCompilerSliceObserve($p)],
             ['esp09-challenger', 'esp09_challenger', fn (array $p) => $gates->esp09ChallengerObserve($p)],
+            ['esp09-promotion-gate', 'esp09_promotion_gate', fn (array $p) => $gates->esp09PromotionGateObserve($p)],
             ['dogfooding-leads', 'dogfooding_friction_leads', fn (array $p) => $gates->dogfoodingFrictionLeadsObserve($p)],
             ['reactive-saturation', 'reactive_saturation', fn (array $p) => $gates->reactiveSaturationObserve($p)],
             ['blocker-severity', 'blocker_severity', fn (array $p) => $gates->blockerSeverityObserve($p)],

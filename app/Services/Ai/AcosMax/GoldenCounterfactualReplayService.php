@@ -34,7 +34,7 @@ final class GoldenCounterfactualReplayService
             ],
         ];
 
-        if ($runsPath === null || trim($runsPath) === '' || ! is_file($runsPath)) {
+        if ($runsPath === null || AiValueNormalizer::trimmedString($runsPath) === '' || ! is_file($runsPath)) {
             return array_replace($base, [
                 'status' => 'skipped',
                 'reason' => 'paired_golden_runs_unavailable',

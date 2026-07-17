@@ -36,7 +36,7 @@ final class ExecutionContextCooccurrenceService
             ],
         ];
 
-        if ($runsPath === null || trim($runsPath) === '' || ! is_file($runsPath)) {
+        if ($runsPath === null || AiValueNormalizer::trimmedString($runsPath) === '' || ! is_file($runsPath)) {
             return array_replace($base, [
                 'status' => 'unmeasurable',
                 'reason' => 'run_artifact_unavailable',

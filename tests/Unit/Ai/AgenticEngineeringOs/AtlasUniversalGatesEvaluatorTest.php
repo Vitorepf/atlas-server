@@ -253,6 +253,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertTrue($payload['triggered']);
     }
 
+    public function test_esp09_promotion_gate_observe_delays_when_missing(): void
+    {
+        $payload = $this->svc->esp09PromotionGateObserve([
+            'requires_challenger' => true,
+            'challenger_block_present' => false,
+        ]);
+
+        $this->assertSame(Esp09IndependentChallengerService::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('delayed', $payload['status']);
+        $this->assertTrue($payload['promotion_delayed']);
+        $this->assertFalse($payload['vetoed']);
+    }
+
     public function test_dogfooding_friction_leads_observe_mines_events(): void
     {
         $payload = $this->svc->dogfoodingFrictionLeadsObserve([

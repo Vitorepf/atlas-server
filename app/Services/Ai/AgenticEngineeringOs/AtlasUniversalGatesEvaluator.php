@@ -319,6 +319,18 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only ESP-09 promotion-gate delay signal.
+     * Does not add a universal-gate id (catalogue stays 15).
+     *
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>
+     */
+    public function esp09PromotionGateObserve(array $context): array
+    {
+        return Esp09IndependentChallengerService::promotionGate($context);
+    }
+
+    /**
      * Observe-only MULTN17-08 dogfooding friction lead mine.
      * Accepts a list of events or `{events:[...]}`. Catalogue stays 15.
      *

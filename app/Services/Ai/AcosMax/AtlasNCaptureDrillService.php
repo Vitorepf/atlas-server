@@ -305,7 +305,7 @@ final class AtlasNCaptureDrillService
         $rows = [];
         try {
             while (($line = fgets($handle)) !== false) {
-                $line = trim($line);
+                $line = AiValueNormalizer::trimmedString($line);
                 if ($line === '') {
                     continue;
                 }
