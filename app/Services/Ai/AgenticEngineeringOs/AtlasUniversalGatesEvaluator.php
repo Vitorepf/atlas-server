@@ -5781,6 +5781,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function longhorizonWatchdogPromotionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'longhorizon_field_min_pipeline' => AtlasAcosLongHorizonGateService::FIELD_MIN_PIPELINE,
+            'longhorizon_field_max_latest_stale_days' => AtlasAcosLongHorizonGateService::FIELD_MAX_LATEST_STALE_DAYS,
+            'longhorizon_field_max_gap_days' => AtlasAcosLongHorizonGateService::FIELD_MAX_GAP_DAYS,
+            'longhorizon_field_series_path' => AtlasAcosLongHorizonGateService::FIELD_SERIES_PATH,
+            'longhorizon_field_calendar_span_days' => AtlasAcosLongHorizonGateService::FIELD_CALENDAR_SPAN_DAYS,
+            'longhorizon_field_details' => AtlasAcosLongHorizonGateService::FIELD_DETAILS,
+            'watchdog_field_raw' => AtlasAcosWatchdogHealthService::FIELD_RAW,
+            'watchdog_field_id' => AtlasAcosWatchdogHealthService::FIELD_ID,
+            'watchdog_field_total_event_count' => AtlasAcosWatchdogHealthService::FIELD_TOTAL_EVENT_COUNT,
+            'watchdog_field_window' => AtlasAcosWatchdogHealthService::FIELD_WINDOW,
+            'watchdog_field_false_positive_total' => AtlasAcosWatchdogHealthService::FIELD_FALSE_POSITIVE_TOTAL,
+            'watchdog_field_false_positive_rate' => AtlasAcosWatchdogHealthService::FIELD_FALSE_POSITIVE_RATE,
+            'watchdog_field_false_positive_rate_threshold' => AtlasAcosWatchdogHealthService::FIELD_FALSE_POSITIVE_RATE_THRESHOLD,
+            'watchdog_field_max_events' => AtlasAcosWatchdogHealthService::FIELD_MAX_EVENTS,
+            'promotion_field_id' => PromotionProtocol::FIELD_ID,
+            'promotion_field_schema_version' => PromotionProtocol::FIELD_SCHEMA_VERSION,
+            'promotion_field_reason' => PromotionProtocol::FIELD_REASON,
+            'longhorizon_watchdog_promotion_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

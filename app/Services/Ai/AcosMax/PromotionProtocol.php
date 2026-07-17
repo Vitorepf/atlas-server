@@ -73,6 +73,9 @@ final class PromotionProtocol
     public const FIELD_SOURCE = 'source';
 
     public const FIELD_OPERATOR_ONLY = 'operator_only';
+    public const FIELD_ID = 'id';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_REASON = 'reason';
 
     public const DEFAULT_LEDGER_RELATIVE_PATH = 'app/atlas/evidence/acos-max-promotion-flips.jsonl';
 
@@ -189,7 +192,7 @@ final class PromotionProtocol
 
         $fromState = $this->stateForFlag($flagId);
         $event = [
-            'schema_version' => self::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             'event_id' => hash('sha256', implode('|', [
                 $flagId,
                 $fromState,
@@ -206,7 +209,7 @@ final class PromotionProtocol
             self::FIELD_TO_STATE => $toState,
             self::FIELD_OBSERVATION_WINDOW_ID => $windowId,
             'actor' => AiValueNormalizer::trimmedStringOrNull($context['actor'] ?? null) ?? 'atlas',
-            'reason' => AiValueNormalizer::trimmedStringOrNull($context['reason'] ?? null) ?? '',
+            self::FIELD_REASON => AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_REASON] ?? null) ?? '',
             self::FIELD_RECEIPT => $receipt,
             self::FIELD_ROLLBACK_TRIGGER => AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_ROLLBACK_TRIGGER] ?? null) ?? '',
             self::FIELD_JUDGE_ENGINE_ID => AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_JUDGE_ENGINE_ID] ?? null) ?? '',
@@ -224,7 +227,7 @@ final class PromotionProtocol
         return [
             self::FIELD_OK => true,
             self::FIELD_STATUS => self::STATUS_RECORDED,
-            'schema_version' => self::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             'event' => $event,
         ];
     }
@@ -240,16 +243,16 @@ final class PromotionProtocol
             $this->entries,
         );
         $managedIds = array_fill_keys(array_map(
-            fn (array $entry): string => AiValueNormalizer::trimmedScalarStringOrNull($entry['id'] ?? null) ?? '',
+            fn (array $entry): string => AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_ID] ?? null) ?? '',
             $managed,
         ), true);
         $legacy = array_values(array_filter(
             array_map(fn (array $entry): array => $this->legacyReportEntry($entry), $this->legacyFlags),
-            fn (array $entry): bool => ! isset($managedIds[AiValueNormalizer::trimmedScalarStringOrNull($entry['id'] ?? null) ?? '']),
+            fn (array $entry): bool => ! isset($managedIds[AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_ID] ?? null) ?? '']),
         ));
 
         return [
-            'schema_version' => self::REPORT_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::REPORT_SCHEMA,
             self::FIELD_STATUS => self::STATUS_OK,
             'protocol_schema_version' => self::SCHEMA,
             'states' => self::STATES,
@@ -270,7 +273,7 @@ final class PromotionProtocol
     {
         return [
             [
-                'id' => 'ATLAS_AUTONOMOS_MASTER_ENABLED',
+                self::FIELD_ID => 'ATLAS_AUTONOMOS_MASTER_ENABLED',
                 self::FIELD_FAMILY => 'ASI',
                 self::FIELD_SLICE => 'ASI-06',
                 self::FIELD_STATE => self::STATE_OFF,
@@ -283,7 +286,7 @@ final class PromotionProtocol
                 self::FIELD_OPERATOR_ONLY => true,
             ],
             [
-                'id' => 'ATLAS_AUTONOMOUS_AUTO_APPLY',
+                self::FIELD_ID => 'ATLAS_AUTONOMOUS_AUTO_APPLY',
                 self::FIELD_FAMILY => 'ASI',
                 self::FIELD_SLICE => 'ASI-07',
                 self::FIELD_STATE => self::STATE_OFF,
@@ -297,7 +300,7 @@ final class PromotionProtocol
                 self::FIELD_OPERATOR_ONLY => true,
             ],
             [
-                'id' => 'ATLAS_BRAIN_REFLECTION_ENABLED',
+                self::FIELD_ID => 'ATLAS_BRAIN_REFLECTION_ENABLED',
                 self::FIELD_FAMILY => 'ASI',
                 self::FIELD_SLICE => 'ASI-08',
                 self::FIELD_STATE => self::STATE_OFF,
@@ -310,7 +313,7 @@ final class PromotionProtocol
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:1311',
             ],
             [
-                'id' => 'atlas.memory.fusion_v2_enabled',
+                self::FIELD_ID => 'atlas.memory.fusion_v2_enabled',
                 self::FIELD_FAMILY => 'MAXB',
                 self::FIELD_SLICE => 'MAXB-03',
                 self::FIELD_STATE => self::STATE_OFF,
@@ -322,7 +325,7 @@ final class PromotionProtocol
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:330',
             ],
             [
-                'id' => 'acos.land.autonomous_verification_required',
+                self::FIELD_ID => 'acos.land.autonomous_verification_required',
                 self::FIELD_FAMILY => 'ASI',
                 self::FIELD_SLICE => 'ASI-10',
                 self::FIELD_STATE => self::STATE_OFF,
@@ -333,7 +336,7 @@ final class PromotionProtocol
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:2681',
             ],
             [
-                'id' => 'acos.mutation_score.enforce_by_executor',
+                self::FIELD_ID => 'acos.mutation_score.enforce_by_executor',
                 self::FIELD_FAMILY => 'MULTV',
                 self::FIELD_SLICE => 'MULTV-03',
                 self::FIELD_STATE => self::STATE_OFF,
@@ -344,7 +347,7 @@ final class PromotionProtocol
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:2639',
             ],
             [
-                'id' => 'atlas.memory.contextual_blurb_enabled',
+                self::FIELD_ID => 'atlas.memory.contextual_blurb_enabled',
                 self::FIELD_FAMILY => 'RAGX',
                 self::FIELD_SLICE => 'RAGX-02',
                 self::FIELD_STATE => self::STATE_OFF,
@@ -365,20 +368,20 @@ final class PromotionProtocol
     {
         return [
             [
-                'id' => 'atlas.memory.feedback_ranking_enabled',
+                self::FIELD_ID => 'atlas.memory.feedback_ranking_enabled',
                 self::FIELD_FAMILY => 'FEE',
                 self::FIELD_CONFIG_KEY => 'atlas.memory.feedback_ranking_enabled',
                 self::FIELD_ENV_KEY => 'ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED',
                 self::FIELD_SOURCE => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:225',
             ],
             [
-                'id' => 'atlas.aobg.semantic_retrieval',
+                self::FIELD_ID => 'atlas.aobg.semantic_retrieval',
                 self::FIELD_FAMILY => 'AOBG',
                 self::FIELD_CONFIG_KEY => 'atlas.aobg.semantic_retrieval',
                 self::FIELD_SOURCE => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:252',
             ],
             [
-                'id' => 'ATLAS_AOBG_FUSION_ENABLED',
+                self::FIELD_ID => 'ATLAS_AOBG_FUSION_ENABLED',
                 self::FIELD_FAMILY => 'AOBG',
                 self::FIELD_ENV_KEY => 'ATLAS_AOBG_FUSION_ENABLED',
                 self::FIELD_SOURCE => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:743',
@@ -392,7 +395,7 @@ final class PromotionProtocol
     private function entryById(string $flagId): ?array
     {
         foreach ($this->entries as $entry) {
-            if ((AiValueNormalizer::trimmedScalarStringOrNull($entry['id'] ?? null) ?? '') === $flagId) {
+            if ((AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_ID] ?? null) ?? '') === $flagId) {
                 return $entry;
             }
         }
@@ -411,7 +414,7 @@ final class PromotionProtocol
         }
 
         return array_merge($entry, [
-            'id' => AiValueNormalizer::trimmedStringOrNull($entry['id'] ?? null) ?? '',
+            self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_ID] ?? null) ?? '',
             self::FIELD_FAMILY => strtoupper(AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_FAMILY] ?? null) ?? ''),
             self::FIELD_SLICE => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SLICE] ?? null) ?? '',
             self::FIELD_STATE => $state,
@@ -424,10 +427,10 @@ final class PromotionProtocol
      */
     private function normalizeLegacyEntry(array|string $entry): array
     {
-        $payload = is_array($entry) ? $entry : ['id' => $entry];
+        $payload = is_array($entry) ? $entry : [self::FIELD_ID => $entry];
 
         return array_merge($payload, [
-            'id' => AiValueNormalizer::trimmedStringOrNull($payload['id'] ?? null) ?? '',
+            self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($payload[self::FIELD_ID] ?? null) ?? '',
             self::FIELD_FAMILY => strtoupper(AiValueNormalizer::trimmedStringOrNull($payload[self::FIELD_FAMILY] ?? null) ?? 'LEGACY'),
             self::FIELD_STATUS => self::STATUS_LEGACY_UNMANAGED,
         ]);
@@ -520,8 +523,8 @@ final class PromotionProtocol
         return array_merge([
             self::FIELD_OK => false,
             self::FIELD_STATUS => self::STATUS_BLOCKED,
-            'schema_version' => self::SCHEMA,
-            'reason' => $reason,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
+            self::FIELD_REASON => $reason,
             self::FIELD_FLAG_ID => $flagId,
             self::FIELD_TO_STATE => $toState,
         ], $extra);
@@ -533,7 +536,7 @@ final class PromotionProtocol
      */
     private function managedReportEntry(array $entry, array $events): array
     {
-        $id = AiValueNormalizer::trimmedStringOrNull($entry['id'] ?? null) ?? '';
+        $id = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_ID] ?? null) ?? '';
         $last = null;
         foreach ($events as $event) {
             if ((AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_FLAG_ID] ?? null) ?? '') === $id) {
@@ -542,7 +545,7 @@ final class PromotionProtocol
         }
 
         return [
-            'id' => $id,
+            self::FIELD_ID => $id,
             self::FIELD_STATUS => self::STATUS_MANAGED,
             self::FIELD_FAMILY => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_FAMILY] ?? null) ?? '',
             self::FIELD_SLICE => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SLICE] ?? null) ?? '',
@@ -568,7 +571,7 @@ final class PromotionProtocol
     private function legacyReportEntry(array $entry): array
     {
         return [
-            'id' => AiValueNormalizer::trimmedStringOrNull($entry['id'] ?? null) ?? '',
+            self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_ID] ?? null) ?? '',
             self::FIELD_STATUS => self::STATUS_LEGACY_UNMANAGED,
             self::FIELD_FAMILY => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_FAMILY] ?? null) ?? 'LEGACY',
             self::FIELD_STATE => self::STATE_LEGACY_UNMANAGED,

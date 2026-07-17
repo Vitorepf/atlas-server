@@ -4169,4 +4169,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['http_thesis_lote2_floor_count']);
     }
 
+    public function test_longhorizon_watchdog_promotion_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->longhorizonWatchdogPromotionFloorsContractObserve([]);
+
+        $this->assertSame('min_pipeline', $payload['longhorizon_field_min_pipeline']);
+        $this->assertSame('max_latest_stale_days', $payload['longhorizon_field_max_latest_stale_days']);
+        $this->assertSame('max_gap_days', $payload['longhorizon_field_max_gap_days']);
+        $this->assertSame('series_path', $payload['longhorizon_field_series_path']);
+        $this->assertSame('calendar_span_days', $payload['longhorizon_field_calendar_span_days']);
+        $this->assertSame('details', $payload['longhorizon_field_details']);
+        $this->assertSame('raw', $payload['watchdog_field_raw']);
+        $this->assertSame('id', $payload['watchdog_field_id']);
+        $this->assertSame('total_event_count', $payload['watchdog_field_total_event_count']);
+        $this->assertSame('window', $payload['watchdog_field_window']);
+        $this->assertSame('false_positive_total', $payload['watchdog_field_false_positive_total']);
+        $this->assertSame('false_positive_rate', $payload['watchdog_field_false_positive_rate']);
+        $this->assertSame('false_positive_rate_threshold', $payload['watchdog_field_false_positive_rate_threshold']);
+        $this->assertSame('max_events', $payload['watchdog_field_max_events']);
+        $this->assertSame('id', $payload['promotion_field_id']);
+        $this->assertSame('schema_version', $payload['promotion_field_schema_version']);
+        $this->assertSame('reason', $payload['promotion_field_reason']);
+        $this->assertSame(17, $payload['longhorizon_watchdog_promotion_floor_count']);
+    }
+
 }
