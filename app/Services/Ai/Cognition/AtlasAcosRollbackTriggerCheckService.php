@@ -27,6 +27,12 @@ final class AtlasAcosRollbackTriggerCheckService
 
     public const STATUS_SIMULATED_FIRE = 'simulated_fire';
 
+    public const STATUS_HEALTHY = 'healthy';
+
+    public const STATUS_DISABLED = 'disabled';
+
+    public const STATUS_ALERT = 'alert';
+
     public const REASON_SIMULATED_CONDITION = 'simulated_condition';
 
 
@@ -71,11 +77,11 @@ final class AtlasAcosRollbackTriggerCheckService
         }
 
         $alert = $alerts !== [];
-        $status = 'healthy';
+        $status = self::STATUS_HEALTHY;
         if (! $enabled) {
-            $status = 'disabled';
+            $status = self::STATUS_DISABLED;
         } elseif ($alert) {
-            $status = 'alert';
+            $status = self::STATUS_ALERT;
         }
 
         return [

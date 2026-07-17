@@ -14,6 +14,10 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
 
     public const DEFAULT_MAX_TIER = 5;
 
+    public const VERDICT_ELIGIBLE = 'eligible';
+
+    public const VERDICT_BLOCKED = 'blocked';
+
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department
      * @param array{current_score?: int|float|string, tier_thresholds?: array<int|string, int|float|string>, target_threshold?: int|float|string} $metrics
@@ -82,7 +86,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'verdict' => $eligible ? 'eligible' : 'blocked',
+            'verdict' => $eligible ? self::VERDICT_ELIGIBLE : self::VERDICT_BLOCKED,
             'current_tier' => $currentTier,
             'target_tier' => $targetTier,
             'preconditions' => $preconditions,
@@ -245,7 +249,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
             'schema_version' => self::SCHEMA_VERSION,
             'current_tier' => $currentTier,
             'target_tier' => $targetTier,
-            'verdict' => $eligible ? 'eligible' : 'blocked',
+            'verdict' => $eligible ? self::VERDICT_ELIGIBLE : self::VERDICT_BLOCKED,
             'preconditions' => $preconditions,
             'failed_preconditions' => $failedPreconditions,
             'blocking_reasons' => $blockingReasons,

@@ -3217,4 +3217,20 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(7, $payload['signature_mode_suspended_unknown_floor_count']);
     }
 
+    public function test_architect_verdict_freeze_ready_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->architectVerdictFreezeReadyFloorsContractObserve([]);
+
+        $this->assertSame('architect', $payload['department_architect']);
+        $this->assertSame('architect', $payload['choreography_target_architect']);
+        $this->assertSame('operator', $payload['choreography_target_operator']);
+        $this->assertSame('eligible', $payload['promotion_verdict_eligible']);
+        $this->assertSame('blocked', $payload['promotion_verdict_blocked']);
+        $this->assertSame('measure_freeze', $payload['immune_signature_freeze_kind_measure_freeze']);
+        $this->assertSame('ready', $payload['cognitive_atlas_status_ready']);
+        $this->assertSame('healthy', $payload['rollback_status_healthy']);
+        $this->assertSame('alert', $payload['rollback_status_alert']);
+        $this->assertSame(14, $payload['architect_verdict_freeze_ready_floor_count']);
+    }
+
 }

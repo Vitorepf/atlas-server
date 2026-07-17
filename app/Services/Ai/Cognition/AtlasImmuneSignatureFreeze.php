@@ -13,18 +13,20 @@ final class AtlasImmuneSignatureFreeze
 
     public const TTL_DAYS = 90;
 
+    public const KIND_MEASURE_FREEZE = 'measure_freeze';
+
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
         return [
-            'kind' => 'measure_freeze',
+            'kind' => self::KIND_MEASURE_FREEZE,
             'measure_id' => self::MEASURE_ID,
             'schema_version' => ImmuneSignatureStore::SCHEMA_VERSION,
             'family_schema_version' => ImmuneSignatureDeriver::SCHEMA_VERSION,
             'author' => 'cursor-acos-max-maxi-05',
             'judge' => 'codex-immune-signature-judge',
-            'mode_config_key' => 'atlas.aaeos.immune_signature.mode',
-            'default_mode' => 'observe',
+            'mode_config_key' => ImmuneSignatureStore::MODE_CONFIG_KEY,
+            'default_mode' => ImmuneSignatureStore::DEFAULT_MODE,
             'decay_days' => 90,
             'acceptance' => [
                 'cells_with_hit_count_gte_2' => 3,

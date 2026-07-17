@@ -34,13 +34,15 @@ final class AtlasImmuneClassifierHybridFreeze
 
     public const CORPUS_FIXTURE_RELATIVE = 'resources/atlas/immune/red_team.v1.json';
 
+    public const KIND_MEASURE_FREEZE = 'measure_freeze';
+
     /**
      * @return array<string,mixed>
      */
     public static function freezePayload(): array
     {
         $payload = [
-            'kind' => 'measure_freeze',
+            'kind' => self::KIND_MEASURE_FREEZE,
             'measure_id' => self::MEASURE_ID,
             'formula_version' => self::FORMULA_VERSION,
             'formula' => 'Per candidate: hostile_class wins by max(lexical_score, semantic_score(tau)). '

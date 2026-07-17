@@ -50,6 +50,12 @@ class AtlasCrossDepartmentChoreographyService
 
     public const ACTION_OVERRIDE = 'override';
 
+    public const TARGET_ARCHITECT = 'architect';
+
+    public const TARGET_OPERATOR = 'operator';
+
+    public const TARGET_PRODUCT = 'product';
+
     /**
      * Veto propagation rules keyed by the vetoing department.
      *
@@ -57,9 +63,9 @@ class AtlasCrossDepartmentChoreographyService
      */
     public const VETO_RULES = [
         'security' => ['propagates_to' => ['dev', 'forge', 'delivery'], 'action' => self::ACTION_PAUSE_DOWNSTREAM, 'return_to' => null, 'final' => false],
-        'architect' => ['propagates_to' => ['product'], 'action' => self::ACTION_RETURN_UPSTREAM, 'return_to' => 'product', 'final' => false],
+        self::TARGET_ARCHITECT => ['propagates_to' => [self::TARGET_PRODUCT], 'action' => self::ACTION_RETURN_UPSTREAM, 'return_to' => self::TARGET_PRODUCT, 'final' => false],
         'review' => ['propagates_to' => ['dev', 'forge'], 'action' => self::ACTION_RETURN_UPSTREAM, 'return_to' => 'dev_or_forge', 'final' => false],
-        'operator' => ['propagates_to' => ['*'], 'action' => self::ACTION_OVERRIDE, 'return_to' => null, 'final' => true],
+        self::TARGET_OPERATOR => ['propagates_to' => ['*'], 'action' => self::ACTION_OVERRIDE, 'return_to' => null, 'final' => true],
     ];
 
     /**
@@ -93,7 +99,7 @@ class AtlasCrossDepartmentChoreographyService
             'return_to' => $rule['return_to'],
             'final_override' => $rule['final'],
             'pause_sla_seconds' => self::VETO_SLA_SECONDS,
-            'requires_operator_receipt' => $dept === 'operator',
+            'requires_operator_receipt' => $dept === self::TARGET_OPERATOR,
         ];
     }
 
@@ -116,7 +122,7 @@ class AtlasCrossDepartmentChoreographyService
             'max_iterations' => $maxIterations,
             'decision' => $escalate ? 'escalate' : self::HANDOFF_KIND_REPAIR,
             'escalate' => $escalate,
-            'escalate_to' => $escalate ? ['architect', 'operator'] : [],
+            'escalate_to' => $escalate ? [self::TARGET_ARCHITECT, self::TARGET_OPERATOR] : [],
             'remaining_repairs' => $escalate ? 0 : max(0, $maxIterations - $iteration),
         ];
     }

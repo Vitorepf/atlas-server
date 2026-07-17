@@ -4775,6 +4775,34 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: architect targets, promotion verdicts, freeze kinds,
+     * cognitive ready, and rollback status floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function architectVerdictFreezeReadyFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'department_architect' => DepartmentContractRuntime::DEPARTMENT_ARCHITECT,
+            'choreography_target_architect' => AtlasCrossDepartmentChoreographyService::TARGET_ARCHITECT,
+            'choreography_target_operator' => AtlasCrossDepartmentChoreographyService::TARGET_OPERATOR,
+            'choreography_target_product' => AtlasCrossDepartmentChoreographyService::TARGET_PRODUCT,
+            'promotion_verdict_eligible' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::VERDICT_ELIGIBLE,
+            'promotion_verdict_blocked' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::VERDICT_BLOCKED,
+            'immune_signature_freeze_kind_measure_freeze' => AtlasImmuneSignatureFreeze::KIND_MEASURE_FREEZE,
+            'immune_hybrid_freeze_kind_measure_freeze' => AtlasImmuneClassifierHybridFreeze::KIND_MEASURE_FREEZE,
+            'cognitive_atlas_status_ready' => AtlasCognitiveFunctionAtlasService::STATUS_READY,
+            'cognitive_atlas_status_partial' => AtlasCognitiveFunctionAtlasService::STATUS_PARTIAL,
+            'cognitive_atlas_status_unknown' => AtlasCognitiveFunctionAtlasService::STATUS_UNKNOWN,
+            'rollback_status_healthy' => AtlasAcosRollbackTriggerCheckService::STATUS_HEALTHY,
+            'rollback_status_disabled' => AtlasAcosRollbackTriggerCheckService::STATUS_DISABLED,
+            'rollback_status_alert' => AtlasAcosRollbackTriggerCheckService::STATUS_ALERT,
+            'architect_verdict_freeze_ready_floor_count' => 14,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -103,6 +103,8 @@ final class DepartmentContractRuntime
     /** Canon id is `architect`; legacy alias `architecture` preserved for back-compat. */
     public const DEPARTMENT_ARCHITECTURE = 'architecture';
 
+    public const DEPARTMENT_ARCHITECT = 'architect';
+
     public const DEPARTMENT_RESEARCH = 'research';
 
     public const DEPARTMENT_DEV = 'dev';

@@ -38,6 +38,12 @@ class AtlasCognitiveFunctionAtlasService
 
     public const OVERLOAD_DEFAULT_THRESHOLD = 8;
 
+    public const STATUS_READY = 'ready';
+
+    public const STATUS_PARTIAL = 'partial';
+
+    public const STATUS_UNKNOWN = 'unknown';
+
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scoreCard,
         private readonly AtlasConstitutionalKernelService $kernel,
@@ -103,12 +109,12 @@ class AtlasCognitiveFunctionAtlasService
         $subs = AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()['subsystems'] ?? null);
         $tally = [];
         foreach ($subs as $s) {
-            $g = (AiValueNormalizer::trimmedStringOrNull($s['group'] ?? null) ?? 'unknown');
-            $pipeline = (AiValueNormalizer::trimmedStringOrNull($s['pipeline_status'] ?? null) ?? 'unknown');
+            $g = (AiValueNormalizer::trimmedStringOrNull($s['group'] ?? null) ?? self::STATUS_UNKNOWN);
+            $pipeline = (AiValueNormalizer::trimmedStringOrNull($s['pipeline_status'] ?? null) ?? self::STATUS_UNKNOWN);
             if (! isset($tally[$g])) {
                 $tally[$g] = 0;
             }
-            if ($pipeline !== 'ready') {
+            if ($pipeline !== self::STATUS_READY) {
                 $tally[$g]++;
             }
         }
@@ -192,7 +198,7 @@ class AtlasCognitiveFunctionAtlasService
                 continue;
             }
             $byGroup[$g] = $byGroup[$g] ?? ['declared_ready' => 0, 'evidence_files_seen' => 0, 'evidence_files_empty' => 0];
-            if (($s['pipeline_status'] ?? '') === 'ready') {
+            if (($s['pipeline_status'] ?? '') === self::STATUS_READY) {
                 $byGroup[$g]['declared_ready']++;
             }
         }
@@ -276,17 +282,17 @@ class AtlasCognitiveFunctionAtlasService
                     continue;
                 }
                 $total++;
-                if (($s['code_status'] ?? '') === 'ready') {
+                if (($s['code_status'] ?? '') === self::STATUS_READY) {
                     $codeReady++;
                     $servicePresent++;
                 }
-                if (($s['doc_status'] ?? '') === 'ready') {
+                if (($s['doc_status'] ?? '') === self::STATUS_READY) {
                     $docReady++;
                 }
                 $pipeline = (AiValueNormalizer::trimmedStringOrNull($s['pipeline_status'] ?? null) ?? '');
-                if ($pipeline === 'ready') {
+                if ($pipeline === self::STATUS_READY) {
                     $pipelineReady++;
-                } elseif ($pipeline === 'partial') {
+                } elseif ($pipeline === self::STATUS_PARTIAL) {
                     $pipelinePartial++;
                 } else {
                     $pipelineBuilding++;
