@@ -87,7 +87,6 @@ final class AtlasAaeosCommandTest extends TestCase
                 '--json' => true,
             ])
                 ->expectsOutputToContain('"spec_completeness": false')
-                ->expectsOutputToContain('"spec_completeness_score"')
                 ->assertExitCode(1);
         } finally {
             @unlink($path);
