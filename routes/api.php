@@ -124,6 +124,7 @@ use App\Http\Controllers\Ai\AtlasObraReplayController;
 use App\Http\Controllers\Ai\Programming\AtlasDevPlanVisibleController;
 use App\Http\Controllers\Ai\SoftwareCompanyStewardship\AreaFocusController;
 use App\Http\Controllers\Ai\SoftwareCompanyStewardship\AreaFocusLoopCommandController;
+use App\Http\Controllers\Ai\SoftwareCompanyStewardship\AutonomosDigestController;
 use App\Http\Controllers\Ai\SoftwareCompanyStewardship\ExecutiveDecisionInboxController;
 use App\Http\Controllers\Ai\SoftwareCompanyStewardship\ProductModeCockpitController;
 use App\Http\Controllers\Ai\SoftwareCompanyStewardship\ProductModeOperationalInboxController;
@@ -982,6 +983,7 @@ Route::prefix('ai/software-company-stewardship')->middleware('atlas.token')->gro
     Route::get('/loop/{area}/backlog', [AreaFocusLoopCommandController::class, 'backlog']);
     Route::get('/loop/{area}/done', [AreaFocusLoopCommandController::class, 'done']);
     Route::get('/loop/{area}/transfer/{handoffId}', [AreaFocusLoopCommandController::class, 'transferStatus']);
+    Route::get('/autonomos/digest', AutonomosDigestController::class);
     Route::post('/autonomos/{area}/cycles/{cycle}/revert', [AreaFocusLoopCommandController::class, 'revertCycle']);
     Route::post('/loop/{area}/start-run', [AreaFocusLoopCommandController::class, 'startRun']);
     Route::post('/loop/{area}/transfer', [AreaFocusLoopCommandController::class, 'transfer']);
