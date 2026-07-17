@@ -41,6 +41,12 @@ final class RagxChainMechanismService
 
     public const FLAG_RAPTOR_LITE = 'atlas.aobg.ragx_raptor_lite';
 
+    public const FLAG_FACET_RETRIEVAL = 'atlas.aobg.facet_retrieval';
+
+    public const FLAG_FUSION_ENABLED = 'atlas.aobg.fusion_enabled';
+
+    public const FLAG_CROSS_ENCODER_RERANK = 'atlas.aobg.cross_encoder_rerank';
+
     public function __construct(
         private readonly ?AsefChunkIndexService $asefChunks = null,
         private readonly ?string $abLedgerPath = null,
@@ -59,9 +65,9 @@ final class RagxChainMechanismService
                 blockedBy: $this->flag(self::FLAG_LATE_CHUNK_INDEX) && ! $this->flag(self::FLAG_LATE_CHUNK_MAXA04_PROMOTED) ? ['MAXA-04'] : [],
                 pendingWindow: ['jina_v3_dual_read_benchmark_window'],
             ),
-            'RAGX-02' => $this->stage('atlas.aobg.facet_retrieval', 'query_time_facets_existing_packfor_seam', pendingWindow: ['facet_retrieval_ab_soak']),
-            'RAGX-06' => $this->stage('atlas.aobg.fusion_enabled', 'reciprocal_rank_fusion_existing_aobg_seam', pendingWindow: ['fusion_shadow_ab_window']),
-            'RAGX-03' => $this->stage('atlas.aobg.cross_encoder_rerank', 'cross_encoder_rerank_existing_semantic_rag_seam', pendingWindow: ['rerank_precision3_latency_window']),
+            'RAGX-02' => $this->stage(self::FLAG_FACET_RETRIEVAL, 'query_time_facets_existing_packfor_seam', pendingWindow: ['facet_retrieval_ab_soak']),
+            'RAGX-06' => $this->stage(self::FLAG_FUSION_ENABLED, 'reciprocal_rank_fusion_existing_aobg_seam', pendingWindow: ['fusion_shadow_ab_window']),
+            'RAGX-03' => $this->stage(self::FLAG_CROSS_ENCODER_RERANK, 'cross_encoder_rerank_existing_semantic_rag_seam', pendingWindow: ['rerank_precision3_latency_window']),
             'RAGX-11' => $this->stage(self::FLAG_ADAPTIVE_K, 'score_distribution_adaptive_k_shadow', pendingWindow: ['late_chunk_score_distribution_window']),
             'RAGX-05' => $this->stage(self::FLAG_SPARSE_FALLBACK, 'deterministic_sparse_shadow_fallback', pendingWindow: ['dense_vs_sparse_shadow_window']),
             'RAGX-07' => $this->stage(self::FLAG_AB_REGISTRAR, 'records_only_ab_registrar', pendingWindow: ['golden_v2_or_live_window_not_run']),

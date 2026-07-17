@@ -36,13 +36,15 @@ final class AtlasAcosLongHorizonGateService
 
     public const DEFAULT_ENABLED = true;
 
+    public const CONFIG_KEY = 'atlas.cognition.acos_long_horizon_gate';
+
     /**
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
      */
     public function evaluate(array $options = []): array
     {
-        $cfg = AiValueNormalizer::arrayOrEmpty(config('atlas.cognition.acos_long_horizon_gate', []));
+        $cfg = AiValueNormalizer::arrayOrEmpty(config(self::CONFIG_KEY, []));
         $enabled = AiValueNormalizer::boolOrNull($options['enabled'] ?? null) ?? AiValueNormalizer::boolOrNull($cfg['enabled'] ?? null) ?? self::DEFAULT_ENABLED;
         $fixture = AiValueNormalizer::trimmedStringOrNull($options['fixture'] ?? null) ?? 'live';
 

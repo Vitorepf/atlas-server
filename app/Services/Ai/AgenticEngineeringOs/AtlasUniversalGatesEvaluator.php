@@ -4098,6 +4098,38 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: residual RAGX seam flags + phase/disk/hmac/long-horizon/
+     * model-budget config floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function residualOpsConfigFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ragx_flag_facet_retrieval' => RagxChainMechanismService::FLAG_FACET_RETRIEVAL,
+            'ragx_flag_fusion_enabled' => RagxChainMechanismService::FLAG_FUSION_ENABLED,
+            'ragx_flag_cross_encoder_rerank' => RagxChainMechanismService::FLAG_CROSS_ENCODER_RERANK,
+            'http_path_phase_config_key' => AtlasAaeosPhaseRouterService::HTTP_PATH_PHASE_CONFIG_KEY,
+            'http_path_phase_legacy' => AtlasAaeosPhaseRouterService::PHASE_LEGACY,
+            'disk_free_floor_gb_config_key' => DiskFreeWatchdogCheck::FLOOR_GB_CONFIG_KEY,
+            'disk_free_default_floor_gb' => DiskFreeWatchdogCheck::DEFAULT_FLOOR_GB,
+            'long_horizon_gate_config_key' => AtlasAcosLongHorizonGateService::CONFIG_KEY,
+            'long_horizon_gate_default_enabled' => AtlasAcosLongHorizonGateService::DEFAULT_ENABLED,
+            'capture_hmac_secret_config_key' => CaptureHmacLineageService::SECRET_CONFIG_KEY,
+            'capture_hmac_app_key_config_key' => CaptureHmacLineageService::APP_KEY_CONFIG_KEY,
+            'capture_hmac_key_material_label' => CaptureHmacLineageService::KEY_MATERIAL_LABEL,
+            'capture_hmac_key_material_fallback' => CaptureHmacLineageService::KEY_MATERIAL_FALLBACK,
+            'maxa04_ledger_path_config_key' => Maxa04JinaV3DualReadLedger::LEDGER_PATH_CONFIG_KEY,
+            'maxa04_ledger_relative_path' => Maxa04JinaV3DualReadLedger::RELATIVE_PATH,
+            'model_capability_spec_config_key' => AtlasModelCapabilitySpecService::SPEC_CONFIG_KEY,
+            'resource_budget_config_key' => AtlasResourceBudgetService::BUDGET_CONFIG_KEY,
+            'local_model_manifest_config_key' => AtlasLocalModelIntegrityService::MANIFEST_CONFIG_KEY,
+            'residual_ops_config_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

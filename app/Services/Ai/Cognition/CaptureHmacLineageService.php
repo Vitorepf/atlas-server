@@ -34,6 +34,14 @@ final class CaptureHmacLineageService
 
     public const THREAT_MODEL = 'tamper_between_capture_stages_not_db_adversary';
 
+    public const SECRET_CONFIG_KEY = 'atlas.capture.hmac_lineage_secret';
+
+    public const APP_KEY_CONFIG_KEY = 'app.key';
+
+    public const KEY_MATERIAL_LABEL = 'atlas.capture.hmac_lineage.v1';
+
+    public const KEY_MATERIAL_FALLBACK = 'atlas.capture.hmac_lineage.fallback.v1';
+
     /**
      * @param  array<string,mixed>  $existingChain
      * @param  array<string,mixed>  $stagePayload
@@ -368,18 +376,18 @@ final class CaptureHmacLineageService
 
     private function keyMaterial(): string
     {
-        $configured = config('atlas.capture.hmac_lineage_secret');
+        $configured = config(self::SECRET_CONFIG_KEY);
         $configuredSecret = AiValueNormalizer::trimmedStringOrNull($configured);
         if ($configuredSecret !== null) {
-            return hash_hmac('sha256', 'atlas.capture.hmac_lineage.v1', $configuredSecret, true);
+            return hash_hmac('sha256', self::KEY_MATERIAL_LABEL, $configuredSecret, true);
         }
 
-        $appKey = (string) config('app.key', '');
+        $appKey = AiValueNormalizer::trimmedStringOrNull(config(self::APP_KEY_CONFIG_KEY, '')) ?? '';
 
         return hash_hmac(
             'sha256',
-            'atlas.capture.hmac_lineage.v1',
-            $appKey !== '' ? $appKey : 'atlas.capture.hmac_lineage.fallback.v1',
+            self::KEY_MATERIAL_LABEL,
+            $appKey !== '' ? $appKey : self::KEY_MATERIAL_FALLBACK,
             true,
         );
     }

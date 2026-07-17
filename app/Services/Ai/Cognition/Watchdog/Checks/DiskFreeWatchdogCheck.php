@@ -28,6 +28,8 @@ final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
 
     public const DEFAULT_FLOOR_GB = 5;
 
+    public const FLOOR_GB_CONFIG_KEY = 'atlas_resource_budget.disk_free_floor_gb';
+
     /** @var callable():array{path:string,free_bytes:int,total_bytes:int} */
     private $probe;
 
@@ -58,7 +60,7 @@ final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
             ];
         };
         $this->now = $now ?? CarbonImmutable::now('UTC');
-        $this->floorGb = $floorGb ?? (int) config('atlas_resource_budget.disk_free_floor_gb', self::DEFAULT_FLOOR_GB);
+        $this->floorGb = $floorGb ?? (int) (AiValueNormalizer::finiteFloatOrNull(config(self::FLOOR_GB_CONFIG_KEY, self::DEFAULT_FLOOR_GB)) ?? self::DEFAULT_FLOOR_GB);
     }
 
     public function id(): string

@@ -3714,6 +3714,26 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+
+    public function test_universal_gates_observe_residual_ops_config_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-rocfc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-rocfc',
+                '--residual-ops-config-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"residual_ops_config_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

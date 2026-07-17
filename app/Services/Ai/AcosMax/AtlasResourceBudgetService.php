@@ -20,6 +20,8 @@ final class AtlasResourceBudgetService
 {
     public const SCHEMA = 'atlas.resource_budget.v1';
 
+    public const BUDGET_CONFIG_KEY = 'atlas_resource_budget';
+
     public const DEFAULT_HOST_RAM_GIB = 48;
 
     public const DEFAULT_ENGINE_FLOOR_GIB = 12;
@@ -36,7 +38,7 @@ final class AtlasResourceBudgetService
      */
     public function __construct(?array $budget = null, ?callable $probe = null)
     {
-        $this->budget = $budget ?? AiValueNormalizer::arrayOrEmpty(config('atlas_resource_budget', []));
+        $this->budget = $budget ?? AiValueNormalizer::arrayOrEmpty(config(self::BUDGET_CONFIG_KEY, []));
         $this->probe = $probe;
     }
 

@@ -20,12 +20,14 @@ use RuntimeException;
  */
 final class AtlasModelCapabilitySpecService
 {
+
+    public const SPEC_CONFIG_KEY = 'atlas_model_capability_spec';
     /** @var array<string, array<string, mixed>> */
     private array $functions;
 
     public function __construct(?array $spec = null)
     {
-        $spec = $spec ?? AiValueNormalizer::arrayOrEmpty(config('atlas_model_capability_spec', []));
+        $spec = $spec ?? AiValueNormalizer::arrayOrEmpty(config(self::SPEC_CONFIG_KEY, []));
         $functions = AiValueNormalizer::arrayOrEmpty($spec['functions'] ?? null);
         $this->functions = array_change_key_case($functions, CASE_LOWER);
     }

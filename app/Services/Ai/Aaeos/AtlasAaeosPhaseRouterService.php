@@ -20,6 +20,8 @@ final class AtlasAaeosPhaseRouterService
 
     public const PHASE_4 = '4';
 
+    public const HTTP_PATH_PHASE_CONFIG_KEY = 'atlas.aaeos.http_path_phase';
+
     public const VALID_PHASES = [
         self::PHASE_LEGACY,
         self::PHASE_1,
@@ -49,7 +51,7 @@ final class AtlasAaeosPhaseRouterService
     {
         $resolved = $configuredPhase !== null
             ? (AiValueNormalizer::trimmedStringOrNull($configuredPhase) ?? '')
-            : (AiValueNormalizer::trimmedStringOrNull(config('atlas.aaeos.http_path_phase', self::PHASE_LEGACY)) ?? '');
+            : (AiValueNormalizer::trimmedStringOrNull(config(self::HTTP_PATH_PHASE_CONFIG_KEY, self::PHASE_LEGACY)) ?? '');
         $this->configuredPhase = $resolved !== '' ? $resolved : self::PHASE_LEGACY;
     }
 

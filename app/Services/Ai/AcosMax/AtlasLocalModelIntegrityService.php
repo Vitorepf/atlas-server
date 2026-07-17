@@ -21,13 +21,15 @@ final class AtlasLocalModelIntegrityService
 {
     public const MANIFEST_SCHEMA = 'atlas.model_integrity_manifest.v1';
 
+    public const MANIFEST_CONFIG_KEY = 'atlas_model_manifest';
+
     /** @var array<string, mixed> */
     private array $manifest;
 
     /** @param array<string,mixed>|null $manifest */
     public function __construct(?array $manifest = null)
     {
-        $this->manifest = $manifest ?? AiValueNormalizer::arrayOrEmpty(config('atlas_model_manifest', []));
+        $this->manifest = $manifest ?? AiValueNormalizer::arrayOrEmpty(config(self::MANIFEST_CONFIG_KEY, []));
     }
 
     /**

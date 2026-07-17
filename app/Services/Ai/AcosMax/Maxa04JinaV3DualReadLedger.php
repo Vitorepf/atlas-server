@@ -14,6 +14,8 @@ final class Maxa04JinaV3DualReadLedger
 
     public const RELATIVE_PATH = 'app/atlas/evidence/maxa04-jina-v3-dual-read.jsonl';
 
+    public const LEDGER_PATH_CONFIG_KEY = 'atlas.semantic_memory.jina_v3_dual_read_ledger_path';
+
     public function __construct(private readonly ?string $path = null) {}
 
     /** @param array<string,mixed> $receipt */
@@ -38,7 +40,7 @@ final class Maxa04JinaV3DualReadLedger
     {
         $configured = AiValueNormalizer::trimmedStringOrNull(
             $this->path
-                ?? config('atlas.semantic_memory.jina_v3_dual_read_ledger_path', storage_path(self::RELATIVE_PATH)),
+                ?? (AiValueNormalizer::trimmedStringOrNull(config(self::LEDGER_PATH_CONFIG_KEY)) ?? storage_path(self::RELATIVE_PATH)),
         ) ?? '';
 
         return $configured !== '' ? $configured : storage_path(self::RELATIVE_PATH);

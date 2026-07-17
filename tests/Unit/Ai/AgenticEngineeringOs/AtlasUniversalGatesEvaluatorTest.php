@@ -2824,4 +2824,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(27, $payload['ragx_immune_substrate_config_floor_count']);
     }
 
+
+    public function test_residual_ops_config_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->residualOpsConfigFloorsContractObserve([]);
+
+        $this->assertSame('atlas.aobg.facet_retrieval', $payload['ragx_flag_facet_retrieval']);
+        $this->assertSame('atlas.aobg.fusion_enabled', $payload['ragx_flag_fusion_enabled']);
+        $this->assertSame('atlas.aobg.cross_encoder_rerank', $payload['ragx_flag_cross_encoder_rerank']);
+        $this->assertSame('atlas.aaeos.http_path_phase', $payload['http_path_phase_config_key']);
+        $this->assertSame('legacy', $payload['http_path_phase_legacy']);
+        $this->assertSame('atlas_resource_budget.disk_free_floor_gb', $payload['disk_free_floor_gb_config_key']);
+        $this->assertSame(5, $payload['disk_free_default_floor_gb']);
+        $this->assertSame('atlas.cognition.acos_long_horizon_gate', $payload['long_horizon_gate_config_key']);
+        $this->assertTrue($payload['long_horizon_gate_default_enabled']);
+        $this->assertSame('atlas.capture.hmac_lineage_secret', $payload['capture_hmac_secret_config_key']);
+        $this->assertSame('app.key', $payload['capture_hmac_app_key_config_key']);
+        $this->assertSame('atlas.capture.hmac_lineage.v1', $payload['capture_hmac_key_material_label']);
+        $this->assertSame('atlas.capture.hmac_lineage.fallback.v1', $payload['capture_hmac_key_material_fallback']);
+        $this->assertSame('atlas.semantic_memory.jina_v3_dual_read_ledger_path', $payload['maxa04_ledger_path_config_key']);
+        $this->assertSame('app/atlas/evidence/maxa04-jina-v3-dual-read.jsonl', $payload['maxa04_ledger_relative_path']);
+        $this->assertSame('atlas_model_capability_spec', $payload['model_capability_spec_config_key']);
+        $this->assertSame('atlas_resource_budget', $payload['resource_budget_config_key']);
+        $this->assertSame('atlas_model_manifest', $payload['local_model_manifest_config_key']);
+        $this->assertSame(18, $payload['residual_ops_config_floor_count']);
+    }
+
 }
