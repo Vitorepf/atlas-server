@@ -1670,6 +1670,9 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.aaeos.context_pareto_dominance.v1', $payload['context_pareto_schema']);
         $this->assertSame('atlas.aaeos.delivery_pack_completeness.v1', $payload['delivery_pack_schema']);
         $this->assertSame(80, $payload['memory_injection_default_floor_chars']);
+        $this->assertContains('budget_exhausted', $payload['memory_injection_drop_reasons']);
+        $this->assertContains('maximize', $payload['pareto_directions']);
+        $this->assertContains('minimize', $payload['pareto_directions']);
     }
 
     public function test_outcome_envelope_contract_observe_reports_statuses(): void
