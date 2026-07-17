@@ -347,7 +347,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     private static function requestPayload(array $data): array
     {
-        return is_array($data['payload'] ?? null) ? $data['payload'] : [];
+        return self::arrayAt($data, 'payload');
     }
 
     /**
@@ -356,9 +356,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     private static function routerFromData(array $data): array
     {
-        $payload = self::requestPayload($data);
-
-        return is_array($payload['atlas_ai_router'] ?? null) ? $payload['atlas_ai_router'] : [];
+        return self::arrayAt(self::requestPayload($data), 'atlas_ai_router');
     }
 
     /**
@@ -367,11 +365,16 @@ final class AaeosHttpPathEnvelopeFactory
      */
     private static function assistedExecutionQuality(array $data): array
     {
-        $payload = self::requestPayload($data);
+        return self::arrayAt(self::requestPayload($data), 'atlas_ai_assisted_execution_quality');
+    }
 
-        return is_array($payload['atlas_ai_assisted_execution_quality'] ?? null)
-            ? $payload['atlas_ai_assisted_execution_quality']
-            : [];
+    /**
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private static function arrayAt(array $data, string $key): array
+    {
+        return is_array($data[$key] ?? null) ? $data[$key] : [];
     }
 
     /**

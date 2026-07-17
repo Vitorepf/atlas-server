@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Cognitive\PredictiveFailure;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 class CalibrationBandClassifier
 {
     public const SWEET_MIN = 0.70;
@@ -13,7 +15,7 @@ class CalibrationBandClassifier
      */
     public function classify(float $probability): array
     {
-        $probability = round(max(0.0, min(1.0, $probability)), 3);
+        $probability = round(AiValueNormalizer::clampUnit($probability), 3);
 
         $band = match (true) {
             $probability < self::SWEET_MIN => 'low',

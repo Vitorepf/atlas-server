@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class GoldenCounterfactualReplayService
 {
     public const SCHEMA_VERSION = 'atlas.context.golden_counterfactual.v1';
@@ -118,7 +120,7 @@ final class GoldenCounterfactualReplayService
                 'decision_id' => (string) ($run['decision_id'] ?? ''),
                 'run_id' => $runId,
                 'commit' => $commit,
-                'recall_at_5' => round(max(0.0, min(1.0, (float) $run['recall_at_5'])), 6),
+                'recall_at_5' => round(AiValueNormalizer::clampUnit((float) $run['recall_at_5']), 6),
                 'executed_at' => (string) ($run['executed_at'] ?? ''),
             ];
         }

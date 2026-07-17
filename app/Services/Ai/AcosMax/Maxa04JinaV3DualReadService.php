@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Semantic\EmbeddingProvenance;
 use Throwable;
 
@@ -199,7 +200,7 @@ final class Maxa04JinaV3DualReadService
             return null;
         }
 
-        return round(max(0.0, min(1.0, (float) $value)), 6);
+        return round(AiValueNormalizer::clampUnit((float) $value), 6);
     }
 
     /** @param list<array<string,mixed>> $cases */

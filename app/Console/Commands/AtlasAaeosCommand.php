@@ -44,6 +44,7 @@ final class AtlasAaeosCommand extends Command
         {--reason= : human-readable reason for phase-skip}
         {--signals= : JSON file with universal-gate signals}
         {--delivery-pack= : JSON file with delivery-pack composition (derives delivery_pack_completeness_min_0_95)}
+        {--spec= : JSON file with compiled-spec shape (observe-only specCompletenessSignal)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -222,6 +223,18 @@ final class AtlasAaeosCommand extends Command
             $signals['delivery_pack_completeness_min_0_95'] = $gates->deliveryPackCompletenessSignal($composition);
         }
         $report = $gates->evaluate($intent, $signals);
+        $specPath = (string) ($this->option('spec') ?? '');
+        if ($specPath !== '') {
+            $spec = $this->loadJsonFile($specPath);
+            if ($spec === null) {
+                return $this->failWith('universal-gates --spec must be a readable JSON object');
+            }
+            // Observe-only: does not add a universal-gate id (catalogue stays 15).
+            $report['observe'] = array_merge(
+                is_array($report['observe'] ?? null) ? $report['observe'] : [],
+                ['spec_completeness' => $gates->specCompletenessSignal($spec)],
+            );
+        }
         $this->emit($report, $json);
 
         return $report['outcome'] === 'green' || $report['outcome'] === 'exception' ? self::SUCCESS : self::FAILURE;

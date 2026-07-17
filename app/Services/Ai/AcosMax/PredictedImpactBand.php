@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class PredictedImpactBand
 {
     public const SCHEMA_VERSION = 'atlas.originator.predicted_impact_band.v1';
@@ -19,7 +21,7 @@ final class PredictedImpactBand
     {
         $rung = strtolower((string) ($candidate['rung'] ?? 'task'));
         $rank = max(1, (int) ($candidate['rank'] ?? 99));
-        $yield = max(0.0, min(1.0, (float) ($candidate['path_yield'] ?? 0.0)));
+        $yield = AiValueNormalizer::clampUnit((float) ($candidate['path_yield'] ?? 0.0));
         $score = (self::RUNG_WEIGHT[$rung] ?? 0) + ($rank <= 3 ? 1 : 0) + ($yield >= 0.5 ? 1 : 0);
         $band = match (true) {
             $score >= 4 => 'high',

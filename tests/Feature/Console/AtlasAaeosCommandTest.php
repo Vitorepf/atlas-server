@@ -74,6 +74,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_spec_completeness_signal(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-spec-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-spec',
+                '--spec' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"spec_completeness": false')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])
