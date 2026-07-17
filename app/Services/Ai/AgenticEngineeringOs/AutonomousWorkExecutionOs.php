@@ -34,6 +34,14 @@ final class AutonomousWorkExecutionOs
         'learning_extracted',
     ];
 
+    public const STAGE_STATUSES = [
+        'pending',
+        'in_progress',
+        'succeeded',
+        'failed',
+        'skipped',
+    ];
+
     /**
      * @param  array{
      *   goal: string,
@@ -61,7 +69,7 @@ final class AutonomousWorkExecutionOs
             $blocking[] = "invalid autonomy_level '{$level}' (must be L0..L7)";
         }
 
-        $goal = AiValueNormalizer::trimmedString($request['goal'] ?? '');
+        $goal = AiValueNormalizer::trimmedStringOrNull($request['goal'] ?? null) ?? '';
         if ($goal === '') {
             $blocking[] = 'goal text required';
         }
@@ -110,8 +118,7 @@ final class AutonomousWorkExecutionOs
         if (! in_array($stage, self::CYCLE_STAGES, true)) {
             throw new \InvalidArgumentException("unknown stage '{$stage}'");
         }
-        $allowedStatuses = ['pending', 'in_progress', 'succeeded', 'failed', 'skipped'];
-        if (! in_array($status, $allowedStatuses, true)) {
+        if (! in_array($status, self::STAGE_STATUSES, true)) {
             throw new \InvalidArgumentException("unknown status '{$status}'");
         }
 
@@ -148,8 +155,9 @@ final class AutonomousWorkExecutionOs
     {
         $statusByStage = [];
         foreach (AiValueNormalizer::arrayOrEmpty($cycle['stages'] ?? null) as $entry) {
-            $statusByStage[AiValueNormalizer::trimmedString($entry['stage'] ?? '')]
-                = AiValueNormalizer::trimmedString($entry['status'] ?? 'pending') ?: 'pending';
+            $stageKey = AiValueNormalizer::trimmedStringOrNull($entry['stage'] ?? null) ?? '';
+            $statusByStage[$stageKey]
+                = AiValueNormalizer::trimmedStringOrNull($entry['status'] ?? null) ?? 'pending';
         }
 
         foreach (self::CYCLE_STAGES as $stage) {

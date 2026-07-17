@@ -2112,6 +2112,8 @@ final class AtlasUniversalGatesEvaluator
             'autonomy_levels' => AutonomousWorkExecutionOs::AUTONOMY_LEVELS,
             'cycle_stages' => AutonomousWorkExecutionOs::CYCLE_STAGES,
             'stage_count' => count(AutonomousWorkExecutionOs::CYCLE_STAGES),
+            'stage_statuses' => AutonomousWorkExecutionOs::STAGE_STATUSES,
+            'stage_status_count' => count(AutonomousWorkExecutionOs::STAGE_STATUSES),
         ];
     }
 
@@ -2232,13 +2234,13 @@ final class AtlasUniversalGatesEvaluator
     {
         return [
             'schema_version' => MemoryFeedbackDecayScorer::SCHEMA_VERSION,
-            'hard_stale_age_days' => 180,
-            'soft_stale_age_days' => 45,
-            'default_base_priority' => 50,
-            'archive_stale_feedback_threshold' => 2,
-            'inactivate_negative_threshold' => 3,
-            'inactivate_health_ceiling' => 40,
-            'degrade_health_ceiling' => 60,
+            'hard_stale_age_days' => MemoryFeedbackDecayScorer::HARD_STALE_AGE_DAYS,
+            'soft_stale_age_days' => MemoryFeedbackDecayScorer::SOFT_STALE_AGE_DAYS,
+            'default_base_priority' => MemoryFeedbackDecayScorer::DEFAULT_BASE_PRIORITY,
+            'archive_stale_feedback_threshold' => MemoryFeedbackDecayScorer::ARCHIVE_STALE_FEEDBACK_THRESHOLD,
+            'inactivate_negative_threshold' => MemoryFeedbackDecayScorer::INACTIVATE_NEGATIVE_THRESHOLD,
+            'inactivate_health_ceiling' => MemoryFeedbackDecayScorer::INACTIVATE_HEALTH_CEILING,
+            'degrade_health_ceiling' => MemoryFeedbackDecayScorer::DEGRADE_HEALTH_CEILING,
         ];
     }
 
@@ -2630,6 +2632,31 @@ final class AtlasUniversalGatesEvaluator
             'outcomes' => OutcomeCausalityRanker::OUTCOMES,
             'threshold_epsilon' => AtlasAaeosThresholdComparator::EPSILON,
             'memory_recall_schema' => AtlasMemoryRecallRelevanceScorer::SCHEMA_VERSION,
+        ];
+    }
+
+    /**
+     * Observe-only segment-importance kind weights + bonuses.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function segmentImportanceContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => SegmentImportanceRanker::SCHEMA_VERSION,
+            'kind_weights' => SegmentImportanceRanker::KIND_WEIGHT,
+            'kind_weight_count' => count(SegmentImportanceRanker::KIND_WEIGHT),
+            'kind_weight_unknown' => SegmentImportanceRanker::KIND_WEIGHT_UNKNOWN,
+            'evidence_ref_bonus' => SegmentImportanceRanker::EVIDENCE_REF_BONUS,
+            'decision_or_blocker_link_bonus' => SegmentImportanceRanker::DECISION_OR_BLOCKER_LINK_BONUS,
+            'dedup_step_penalty' => SegmentImportanceRanker::DEDUP_STEP_PENALTY,
+            'dedup_penalty_cap' => SegmentImportanceRanker::DEDUP_PENALTY_CAP,
+            'drop_reasons' => [
+                SegmentImportanceRanker::DROP_REASON_BUDGET_EXCEEDED,
+                SegmentImportanceRanker::DROP_REASON_OVERSIZED_SEGMENT,
+            ],
         ];
     }
 

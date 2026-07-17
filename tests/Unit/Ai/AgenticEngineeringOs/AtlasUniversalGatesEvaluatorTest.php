@@ -1567,6 +1567,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('L0', $payload['autonomy_levels']);
         $this->assertContains('goal_recorded', $payload['cycle_stages']);
         $this->assertSame(6, $payload['stage_count']);
+        $this->assertContains('pending', $payload['stage_statuses']);
+        $this->assertSame(5, $payload['stage_status_count']);
     }
 
     public function test_immune_verdict_ledger_labels_observe_reports_labels(): void
@@ -1883,5 +1885,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('success', $payload['outcomes']);
         $this->assertSame(1e-9, $payload['threshold_epsilon']);
         $this->assertSame('atlas.aaeos.memory_recall_ranking.v1', $payload['memory_recall_schema']);
+    }
+
+    public function test_segment_importance_contract_observe_reports_weights(): void
+    {
+        $payload = $this->svc->segmentImportanceContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.segment_importance_ranking.v1', $payload['schema_version']);
+        $this->assertSame(1.0, $payload['kind_weights']['decision']);
+        $this->assertSame(10, $payload['kind_weight_count']);
+        $this->assertSame(0.3, $payload['kind_weight_unknown']);
+        $this->assertSame(0.20, $payload['evidence_ref_bonus']);
+        $this->assertSame(0.30, $payload['decision_or_blocker_link_bonus']);
+        $this->assertContains('budget_exceeded', $payload['drop_reasons']);
+        $this->assertContains('oversized_segment', $payload['drop_reasons']);
     }
 }

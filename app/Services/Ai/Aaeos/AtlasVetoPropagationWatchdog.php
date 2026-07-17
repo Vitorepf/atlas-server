@@ -35,7 +35,7 @@ class AtlasVetoPropagationWatchdog
             if (! is_array($event)) {
                 continue;
             }
-            $dept = AiValueNormalizer::trimmedString($event['department'] ?? '');
+            $dept = AiValueNormalizer::trimmedStringOrNull($event['department'] ?? null) ?? '';
             $veto = $this->choreography->evaluateVeto($dept);
             if (($veto['recognized'] ?? false) !== true) {
                 continue;
@@ -43,14 +43,22 @@ class AtlasVetoPropagationWatchdog
 
             if (($event['lift'] ?? false) === true) {
                 foreach (AiValueNormalizer::arrayOrEmpty($veto['paused_departments'] ?? null) as $p) {
-                    unset($paused[AiValueNormalizer::trimmedString($p)]);
+                    $pausedKey = AiValueNormalizer::trimmedStringOrNull($p);
+                    if ($pausedKey === null) {
+                        continue;
+                    }
+                    unset($paused[$pausedKey]);
                 }
             } else {
                 if (($veto['final_override'] ?? false) === true) {
                     $finalOverride = true;
                 }
                 foreach (AiValueNormalizer::arrayOrEmpty($veto['paused_departments'] ?? null) as $p) {
-                    $paused[AiValueNormalizer::trimmedString($p)] = true;
+                    $pausedKey = AiValueNormalizer::trimmedStringOrNull($p);
+                    if ($pausedKey === null) {
+                        continue;
+                    }
+                    $paused[$pausedKey] = true;
                 }
             }
             $receipts[] = $veto;

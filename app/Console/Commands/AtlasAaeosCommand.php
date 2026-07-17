@@ -174,6 +174,7 @@ final class AtlasAaeosCommand extends Command
         {--domain-lexical-fact-schema-contract= : JSON file (any object) to observe domain-lexical + structured-fact floors}
         {--phase-advance-blocker-contract= : JSON file (any object) to observe phase-advance + blocker severity contract}
         {--outcome-causality-comparator-contract= : JSON file (any object) to observe outcome-causality + threshold floors}
+        {--segment-importance-contract= : JSON file (any object) to observe segment-importance kind weights + bonuses}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -504,6 +505,7 @@ final class AtlasAaeosCommand extends Command
             ['domain-lexical-fact-schema-contract', 'domain_lexical_fact_schema_contract', fn (array $p) => $gates->domainLexicalFactSchemaContractObserve($p)],
             ['phase-advance-blocker-contract', 'phase_advance_blocker_contract', fn (array $p) => $gates->phaseAdvanceBlockerContractObserve($p)],
             ['outcome-causality-comparator-contract', 'outcome_causality_comparator_contract', fn (array $p) => $gates->outcomeCausalityComparatorContractObserve($p)],
+            ['segment-importance-contract', 'segment_importance_contract', fn (array $p) => $gates->segmentImportanceContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -13,8 +13,10 @@ final class SegmentImportanceRanker
 
     /**
      * Semantic weight per segment kind (composite base term).
+     *
+     * @var array<string, float>
      */
-    private const KIND_WEIGHT = [
+    public const KIND_WEIGHT = [
         'decision' => 1.0,
         'blocker' => 1.0,
         'dod' => 1.0,
@@ -27,19 +29,19 @@ final class SegmentImportanceRanker
         'duplicate' => 0.1,
     ];
 
-    private const KIND_WEIGHT_UNKNOWN = 0.3;
+    public const KIND_WEIGHT_UNKNOWN = 0.3;
 
-    private const EVIDENCE_REF_BONUS = 0.20;
+    public const EVIDENCE_REF_BONUS = 0.20;
 
-    private const DECISION_OR_BLOCKER_LINK_BONUS = 0.30;
+    public const DECISION_OR_BLOCKER_LINK_BONUS = 0.30;
 
-    private const DEDUP_STEP_PENALTY = 0.5;
+    public const DEDUP_STEP_PENALTY = 0.5;
 
-    private const DEDUP_PENALTY_CAP = 1.0;
+    public const DEDUP_PENALTY_CAP = 1.0;
 
-    private const DROP_REASON_BUDGET_EXCEEDED = 'budget_exceeded';
+    public const DROP_REASON_BUDGET_EXCEEDED = 'budget_exceeded';
 
-    private const DROP_REASON_OVERSIZED_SEGMENT = 'oversized_segment';
+    public const DROP_REASON_OVERSIZED_SEGMENT = 'oversized_segment';
 
     /**
      * Rank may-discard segments by composite signal and greedily fill a token budget.
@@ -267,21 +269,7 @@ final class SegmentImportanceRanker
      */
     private function nullableStringField(array $row, string $key): ?string
     {
-        $value = $row[$key] ?? null;
-
-        if ($value === null) {
-            return null;
-        }
-
-        if (is_string($value)) {
-            return $value;
-        }
-
-        if (is_int($value) || is_float($value)) {
-            return (string) $value;
-        }
-
-        return null;
+        return AiValueNormalizer::trimmedScalarStringOrNull($row[$key] ?? null);
     }
 
     /**

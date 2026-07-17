@@ -10,19 +10,19 @@ final class MemoryFeedbackDecayScorer
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.memory_feedback_decay.v1';
 
-    private const HARD_STALE_AGE_DAYS = 180;
+    public const HARD_STALE_AGE_DAYS = 180;
 
-    private const SOFT_STALE_AGE_DAYS = 45;
+    public const SOFT_STALE_AGE_DAYS = 45;
 
-    private const DEFAULT_BASE_PRIORITY = 50;
+    public const DEFAULT_BASE_PRIORITY = 50;
 
-    private const ARCHIVE_STALE_FEEDBACK_THRESHOLD = 2;
+    public const ARCHIVE_STALE_FEEDBACK_THRESHOLD = 2;
 
-    private const INACTIVATE_NEGATIVE_THRESHOLD = 3;
+    public const INACTIVATE_NEGATIVE_THRESHOLD = 3;
 
-    private const INACTIVATE_HEALTH_CEILING = 40;
+    public const INACTIVATE_HEALTH_CEILING = 40;
 
-    private const DEGRADE_HEALTH_CEILING = 60;
+    public const DEGRADE_HEALTH_CEILING = 60;
 
     /**
      * @param  array<string, mixed>  $signals
