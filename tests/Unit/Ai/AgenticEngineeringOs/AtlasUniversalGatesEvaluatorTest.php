@@ -711,4 +711,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertTrue($payload['passed']);
         $this->assertGreaterThanOrEqual(0.8, $payload['computed_value']);
     }
+
+    public function test_gate_signal_task_pack_observe_checks_atomicity(): void
+    {
+        $payload = $this->svc->gateSignalTaskPackObserve([
+            'tasks' => [['scope' => 'build login', 'acceptance' => 'renders']],
+        ]);
+
+        $this->assertSame('atlas.aaeos.gate_signal.v1', $payload['schema_version']);
+        $this->assertSame('task_pack_atomic_true_for_each', $payload['gate']);
+        $this->assertTrue($payload['passed']);
+    }
 }

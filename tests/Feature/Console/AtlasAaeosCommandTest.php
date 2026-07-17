@@ -896,6 +896,27 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_gate_signal_task_pack(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-gstp-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'tasks' => [['scope' => 'build login', 'acceptance' => 'renders']],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-gstp',
+                '--gate-signal-task-pack' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"gate_signal_task_pack"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])
