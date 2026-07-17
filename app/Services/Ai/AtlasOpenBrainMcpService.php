@@ -42,6 +42,7 @@ use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\SelfConstruction\AtlasTaskServingService;
 use App\Services\Ai\SelfImprovement\AtlasSelfImprovementScheduleService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Engineering\CodeGraph\CodeGraphAdjacencyIndex;
 use App\Services\Engineering\CodeGraph\CodeGraphWorkspaceIdentity;
@@ -3609,7 +3610,7 @@ class AtlasOpenBrainMcpService
             'target_memory_entry_id' => $targetId,
             'relation_type' => $type,
             'status' => 'open',
-            'confidence' => isset($arguments['confidence']) ? (float) $arguments['confidence'] : 0.8,
+            'confidence' => AiValueNormalizer::finiteFloatOrNull($arguments['confidence'] ?? null) ?? 0.8,
             'reason' => $this->string($arguments['reason'] ?? null),
             'metadata' => ['source' => 'mcp_tool'],
         ]);
@@ -4597,8 +4598,8 @@ class AtlasOpenBrainMcpService
                     'full_chars' => (int) ($prompt['full_chars'] ?? 0),
                     'saved_chars' => (int) ($prompt['saved_chars'] ?? 0),
                     'estimated_tokens_saved' => (int) ($prompt['estimated_tokens_saved'] ?? 0),
-                    'savings_ratio' => (float) ($prompt['savings_ratio'] ?? 0),
-                    'compact_to_full_ratio' => (float) ($prompt['compact_to_full_ratio'] ?? 0),
+                    'savings_ratio' => AiValueNormalizer::finiteFloatOrNull($prompt['savings_ratio'] ?? null) ?? 0.0,
+                    'compact_to_full_ratio' => AiValueNormalizer::finiteFloatOrNull($prompt['compact_to_full_ratio'] ?? null) ?? 0.0,
                     'raw_prompt_persisted' => (bool) ($prompt['raw_prompt_persisted'] ?? false)
                         || (bool) data_get($summary, 'safety.prompt_raw_prompt_persisted', false)
                         || array_key_exists('prompt_section', $summary),
@@ -4634,7 +4635,7 @@ class AtlasOpenBrainMcpService
             ->filter(fn (array $row): bool => (bool) ($row['raw_prompt_persisted'] ?? false))
             ->values();
         $lowSavingsRows = $compactRows
-            ->filter(fn (array $row): bool => (float) ($row['savings_ratio'] ?? 0) < 0.25)
+            ->filter(fn (array $row): bool => (AiValueNormalizer::finiteFloatOrNull($row['savings_ratio'] ?? null) ?? 0.0) < 0.25)
             ->values();
 
         $observedCount = $promptRows->count();
@@ -4842,10 +4843,10 @@ class AtlasOpenBrainMcpService
                     'measured' => $measured,
                     'has_roi_signal' => $hasRoiSignal,
                     'actionable_feedback' => $actionableFeedback,
-                    'roi_score' => array_key_exists('roi_score', $roi) ? (float) $roi['roi_score'] : null,
+                    'roi_score' => array_key_exists('roi_score', $roi) ? AiValueNormalizer::finiteFloatOrNull($roi['roi_score']) : null,
                     'quality_band' => (string) ($roi['quality_band'] ?? 'unknown'),
-                    'use_ratio' => array_key_exists('use_ratio', $attribution) ? (float) $attribution['use_ratio'] : null,
-                    'waste_ratio' => array_key_exists('waste_ratio', $attribution) ? (float) $attribution['waste_ratio'] : null,
+                    'use_ratio' => array_key_exists('use_ratio', $attribution) ? AiValueNormalizer::finiteFloatOrNull($attribution['use_ratio']) : null,
+                    'waste_ratio' => array_key_exists('waste_ratio', $attribution) ? AiValueNormalizer::finiteFloatOrNull($attribution['waste_ratio']) : null,
                     'policy_actions' => array_values(array_filter((array) ($policy['actions'] ?? []), 'is_string')),
                     'created_at' => $event->created_at?->toJSON(),
                 ];
@@ -4909,8 +4910,8 @@ class AtlasOpenBrainMcpService
         $strongRows = $rows->where('quality_band', 'strong')->values();
         $roiSignalRows = $rows->filter(fn (array $row): bool => (bool) $row['has_roi_signal'])->values();
         $actionableRows = $rows->filter(fn (array $row): bool => (bool) $row['actionable_feedback'])->values();
-        $lowRoiRows = $roiSignalRows->filter(fn (array $row): bool => $row['roi_score'] !== null && (float) $row['roi_score'] < 0.50)->values();
-        $wasteRows = $rows->filter(fn (array $row): bool => $row['waste_ratio'] !== null && (float) $row['waste_ratio'] >= 0.40)->values();
+        $lowRoiRows = $roiSignalRows->filter(fn (array $row): bool => $row['roi_score'] !== null && (AiValueNormalizer::finiteFloatOrNull($row['roi_score']) ?? 0.0) < 0.50)->values();
+        $wasteRows = $rows->filter(fn (array $row): bool => $row['waste_ratio'] !== null && (AiValueNormalizer::finiteFloatOrNull($row['waste_ratio']) ?? 0.0) >= 0.40)->values();
         $noiseRows = $rows->filter(fn (array $row): bool => (int) $row['noise_sources'] > 0)->values();
         $missedRows = $rows->filter(fn (array $row): bool => (int) $row['missed_required_source_count'] > 0)->values();
         $nonPassingRows = $rows
@@ -5036,7 +5037,7 @@ class AtlasOpenBrainMcpService
             return 0.0;
         }
 
-        return round((float) $rows->avg($key), $precision);
+        return round(AiValueNormalizer::finiteFloatOrNull($rows->avg($key)) ?? 0.0, $precision);
     }
 
     /**

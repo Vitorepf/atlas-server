@@ -1277,4 +1277,17 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.aaeos.array_field_reader.v1', $payload['schema_version']);
         $this->assertSame('42', $payload['string_field']);
     }
+
+    public function test_veto_propagation_resolve_observe_reports_schema(): void
+    {
+        $payload = $this->svc->vetoPropagationResolveObserve([
+            'origin_department' => 'review',
+            'veto_kind' => 'delivery',
+            'repair_iteration' => 0,
+        ]);
+
+        $this->assertSame('atlas.aaeos.veto_propagation.v1', $payload['schema_version']);
+        $this->assertArrayHasKey('resolution', $payload);
+        $this->assertArrayHasKey('pause_set', $payload);
+    }
 }

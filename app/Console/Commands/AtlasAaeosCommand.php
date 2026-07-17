@@ -119,6 +119,7 @@ final class AtlasAaeosCommand extends Command
         {--doc-maturity-classify= : JSON file with sections map (observe-only DOC L0..L4)}
         {--claim-definition-of-done= : JSON file with claim map (observe-only DoD verdict)}
         {--array-field-reader= : JSON file with row+key (observe-only stringField)}
+        {--veto-propagation-resolve= : JSON file with origin+veto_kind(+repair_iteration) (observe-only)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -394,6 +395,7 @@ final class AtlasAaeosCommand extends Command
             ['doc-maturity-classify', 'doc_maturity_classify', fn (array $p) => $gates->docMaturityClassifyObserve($p)],
             ['claim-definition-of-done', 'claim_definition_of_done', fn (array $p) => $gates->claimDefinitionOfDoneObserve($p)],
             ['array-field-reader', 'array_field_reader', fn (array $p) => $gates->arrayFieldReaderObserve($p)],
+            ['veto-propagation-resolve', 'veto_propagation_resolve', fn (array $p) => $gates->vetoPropagationResolveObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

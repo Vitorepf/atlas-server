@@ -51,6 +51,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosEvidenceRefNormalizer;
 use App\Services\Ai\Aaeos\AtlasAaeosDocMaturityClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosClaimDefinitionOfDoneValidator;
 use App\Services\Ai\Aaeos\Support\AtlasAaeosArrayFieldReader;
+use App\Services\Ai\Aaeos\AtlasAaeosVetoPropagationResolver;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
@@ -1558,6 +1559,22 @@ final class AtlasUniversalGatesEvaluator
             'key' => $key,
             'string_field' => AtlasAaeosArrayFieldReader::stringField($row, $key),
         ];
+    }
+
+    /**
+     * Observe-only AAEOS veto propagation resolver.
+     * Accepts `{origin_department|origin, veto_kind|kind, repair_iteration}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function vetoPropagationResolveObserve(array $input = []): array
+    {
+        $origin = AiValueNormalizer::trimmedString($input['origin_department'] ?? $input['origin'] ?? '');
+        $kind = AiValueNormalizer::trimmedString($input['veto_kind'] ?? $input['kind'] ?? '');
+        $iteration = max(0, (int) ($input['repair_iteration'] ?? 0));
+
+        return (new AtlasAaeosVetoPropagationResolver)->resolve($origin, $kind, $iteration);
     }
 
     /**
