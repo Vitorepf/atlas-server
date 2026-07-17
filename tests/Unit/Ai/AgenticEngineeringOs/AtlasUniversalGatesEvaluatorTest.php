@@ -1716,4 +1716,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertFalse($payload['disables_reactive_lane']);
         $this->assertFalse($payload['provider_calls_made']);
     }
+
+    public function test_portfolio_budget_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->portfolioBudgetContractObserve([]);
+
+        $this->assertSame('atlas.decide.portfolio_allocation.v1', $payload['schema_version']);
+        $this->assertSame('atlas.multk_06.portfolio_allocation.v1', $payload['formula_version']);
+        $this->assertContains('reactive', $payload['classes']);
+        $this->assertContains('maintenance', $payload['classes']);
+        $this->assertSame(3, $payload['class_count']);
+        $this->assertSame(0.05, $payload['hard_floor_share']);
+        $this->assertSame(0.80, $payload['hard_ceiling_share']);
+        $this->assertSame(8, $payload['min_n_per_class']);
+        $this->assertFalse($payload['allocator_writes_own_weights']);
+    }
 }

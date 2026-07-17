@@ -11,7 +11,7 @@ final class StructuredFactSchemaMap
     public const SCHEMA_VERSION = 'atlas.memory.structured_facts.v1';
 
     /** @var array<string,list<string>> */
-    private const REQUIRED = [
+    public const REQUIRED = [
         'decision' => ['contexto', 'alternativas', 'porque', 'expiry'],
         'harness_learning' => ['sintoma', 'causa', 'fix', 'versao'],
         'gotcha' => ['sintoma', 'causa', 'fix', 'versao'],
@@ -54,11 +54,7 @@ final class StructuredFactSchemaMap
 
     private static function isMissingFact(mixed $value): bool
     {
-        if ($value === null) {
-            return true;
-        }
-
-        if (is_string($value)) {
+        if ($value === null || is_string($value)) {
             return AiValueNormalizer::trimmedStringOrNull($value) === null;
         }
 

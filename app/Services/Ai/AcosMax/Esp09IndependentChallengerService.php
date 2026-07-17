@@ -34,11 +34,11 @@ final class Esp09IndependentChallengerService
      */
     public static function evaluate(array $context): array
     {
-        $author = AiValueNormalizer::trimmedString($context['author_engine_id'] ?? '');
-        $challengerEngine = AiValueNormalizer::trimmedString($context['challenger_engine_id'] ?? '');
+        $author = AiValueNormalizer::trimmedStringOrNull($context['author_engine_id'] ?? null) ?? '';
+        $challengerEngine = AiValueNormalizer::trimmedStringOrNull($context['challenger_engine_id'] ?? null) ?? '';
         $alignmentRaw = AiValueNormalizer::finiteFloatOrNull($context['operator_alignment'] ?? null);
         $alignment = $alignmentRaw === null ? null : AiValueNormalizer::clampUnit($alignmentRaw);
-        $kind = AiValueNormalizer::trimmedString($context['decision_kind'] ?? 'ordinary_route');
+        $kind = AiValueNormalizer::trimmedStringOrNull($context['decision_kind'] ?? null) ?? 'ordinary_route';
 
         $base = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -137,7 +137,7 @@ final class Esp09IndependentChallengerService
 
         foreach ($events as $event) {
             $outcome = AiValueNormalizer::lowerTrimmedString($event['outcome'] ?? '');
-            $window = AiValueNormalizer::trimmedString($event['window'] ?? 'default') ?: 'default';
+            $window = AiValueNormalizer::trimmedStringOrNull($event['window'] ?? null) ?? 'default';
             $byWindow[$window] ??= ['accepted' => 0, 'ignored' => 0];
 
             if ($outcome === 'accepted') {

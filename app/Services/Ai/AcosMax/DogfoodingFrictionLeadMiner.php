@@ -20,8 +20,8 @@ final class DogfoodingFrictionLeadMiner
     {
         $groups = [];
         foreach ($events as $event) {
-            $signature = AiValueNormalizer::trimmedString($event['signature'] ?? '');
-            if ($signature === '') {
+            $signature = AiValueNormalizer::trimmedStringOrNull($event['signature'] ?? null);
+            if ($signature === null) {
                 continue;
             }
             $groups[$signature][] = $event;
@@ -69,8 +69,8 @@ final class DogfoodingFrictionLeadMiner
     private static function target(array $group): string
     {
         foreach ($group as $event) {
-            $target = AiValueNormalizer::trimmedString($event['target'] ?? '');
-            if ($target !== '') {
+            $target = AiValueNormalizer::trimmedStringOrNull($event['target'] ?? null);
+            if ($target !== null) {
                 return $target;
             }
         }

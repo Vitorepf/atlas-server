@@ -2370,6 +2370,27 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only MULTK-06 portfolio budget allocator floors/ceilings.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function portfolioBudgetContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => PortfolioBudgetAllocator::SCHEMA_VERSION,
+            'formula_version' => PortfolioBudgetAllocator::FORMULA_VERSION,
+            'classes' => PortfolioBudgetAllocator::CLASSES,
+            'class_count' => count(PortfolioBudgetAllocator::CLASSES),
+            'hard_floor_share' => PortfolioBudgetAllocator::HARD_FLOOR_SHARE,
+            'hard_ceiling_share' => PortfolioBudgetAllocator::HARD_CEILING_SHARE,
+            'min_n_per_class' => PortfolioBudgetAllocator::MIN_N_PER_CLASS,
+            'allocator_writes_own_weights' => false,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>
