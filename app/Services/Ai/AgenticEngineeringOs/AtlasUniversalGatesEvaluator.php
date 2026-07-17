@@ -6405,6 +6405,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function runnerPhaseSaturationFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'runner_field_message' => AtlasWatchdogRunner::FIELD_MESSAGE,
+            'runner_field_exception_class' => AtlasWatchdogRunner::FIELD_EXCEPTION_CLASS,
+            'runner_field_code' => AtlasWatchdogRunner::FIELD_CODE,
+            'runner_field_schema_version' => AtlasWatchdogRunner::FIELD_SCHEMA_VERSION,
+            'runner_field_run_id' => AtlasWatchdogRunner::FIELD_RUN_ID,
+            'runner_field_checked_at' => AtlasWatchdogRunner::FIELD_CHECKED_AT,
+            'runner_field_status' => AtlasWatchdogRunner::FIELD_STATUS,
+            'runner_field_counts' => AtlasWatchdogRunner::FIELD_COUNTS,
+            'phase_field_schema_version' => AtlasAaeosPhaseRouterService::FIELD_SCHEMA_VERSION,
+            'phase_field_configured_phase' => AtlasAaeosPhaseRouterService::FIELD_CONFIGURED_PHASE,
+            'phase_field_is_valid' => AtlasAaeosPhaseRouterService::FIELD_IS_VALID,
+            'phase_field_is_active' => AtlasAaeosPhaseRouterService::FIELD_IS_ACTIVE,
+            'phase_field_is_legacy' => AtlasAaeosPhaseRouterService::FIELD_IS_LEGACY,
+            'phase_field_description' => AtlasAaeosPhaseRouterService::FIELD_DESCRIPTION,
+            'saturation_field_schema_version' => ReactiveSaturationSignal::FIELD_SCHEMA_VERSION,
+            'saturation_field_reactive_saturated' => ReactiveSaturationSignal::FIELD_REACTIVE_SATURATED,
+            'saturation_field_basis' => ReactiveSaturationSignal::FIELD_BASIS,
+            'runner_phase_saturation_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

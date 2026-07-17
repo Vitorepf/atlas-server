@@ -4625,4 +4625,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['restore_redaction_recall_floor_count']);
     }
 
+    public function test_runner_phase_saturation_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->runnerPhaseSaturationFloorsContractObserve([]);
+
+        $this->assertSame('message', $payload['runner_field_message']);
+        $this->assertSame('exception_class', $payload['runner_field_exception_class']);
+        $this->assertSame('code', $payload['runner_field_code']);
+        $this->assertSame('schema_version', $payload['runner_field_schema_version']);
+        $this->assertSame('run_id', $payload['runner_field_run_id']);
+        $this->assertSame('checked_at', $payload['runner_field_checked_at']);
+        $this->assertSame('status', $payload['runner_field_status']);
+        $this->assertSame('counts', $payload['runner_field_counts']);
+        $this->assertSame('schema_version', $payload['phase_field_schema_version']);
+        $this->assertSame('configured_phase', $payload['phase_field_configured_phase']);
+        $this->assertSame('is_valid', $payload['phase_field_is_valid']);
+        $this->assertSame('is_active', $payload['phase_field_is_active']);
+        $this->assertSame('is_legacy', $payload['phase_field_is_legacy']);
+        $this->assertSame('description', $payload['phase_field_description']);
+        $this->assertSame('schema_version', $payload['saturation_field_schema_version']);
+        $this->assertSame('reactive_saturated', $payload['saturation_field_reactive_saturated']);
+        $this->assertSame('basis', $payload['saturation_field_basis']);
+        $this->assertSame(17, $payload['runner_phase_saturation_floor_count']);
+    }
+
 }

@@ -13,6 +13,14 @@ final class ReactiveSaturationSignal
     public const MIN_N_PER_WINDOW = 8;
 
     public const MIN_WINDOWS = 3;
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_REACTIVE_SATURATED = 'reactive_saturated';
+    public const FIELD_BASIS = 'basis';
+    public const FIELD_PICK_HINT = 'pick_hint';
+    public const FIELD_QUEUE_DEPTH = 'queue_depth';
+    public const FIELD_TAIL = 'tail';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_REPORT_ONLY = 'report_only';
 
     /**
      * @param  list<array<string,mixed>>  $windows
@@ -52,14 +60,14 @@ final class ReactiveSaturationSignal
     private static function result(bool $saturated, string $basis, string $pickHint, array $tail, array $context): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'reactive_saturated' => $saturated,
-            'basis' => $basis,
-            'pick_hint' => $pickHint,
-            'queue_depth' => max(0, (int) (AiValueNormalizer::finiteFloatOrNull($context['queue_depth'] ?? null) ?? 0)),
-            'tail' => $tail,
-            'source' => [
-                'report_only' => true,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_REACTIVE_SATURATED => $saturated,
+            self::FIELD_BASIS => $basis,
+            self::FIELD_PICK_HINT => $pickHint,
+            self::FIELD_QUEUE_DEPTH => max(0, (int) (AiValueNormalizer::finiteFloatOrNull($context[self::FIELD_QUEUE_DEPTH] ?? null) ?? 0)),
+            self::FIELD_TAIL => $tail,
+            self::FIELD_SOURCE => [
+                self::FIELD_REPORT_ONLY => true,
                 'disables_reactive_lane' => false,
                 'uses_queue_empty_as_sole_signal' => false,
                 'provider_calls_made' => false,

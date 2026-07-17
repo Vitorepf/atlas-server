@@ -301,6 +301,7 @@ final class AtlasAaeosCommand extends Command
         {--disk-deadseries-latency-floors-contract= : JSON file (any object) to observe disk/dead-series/latency residual floors}
         {--memory-spec-dogfood-floors-contract= : JSON file (any object) to observe memory/spec/dogfood residual floors}
         {--restore-redaction-recall-floors-contract= : JSON file (any object) to observe restore/redaction/recall residual floors}
+        {--runner-phase-saturation-floors-contract= : JSON file (any object) to observe watchdog-runner/phase-router/saturation residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -758,6 +759,7 @@ final class AtlasAaeosCommand extends Command
             ['disk-deadseries-latency-floors-contract', 'disk_deadseries_latency_floors_contract', fn (array $p) => $gates->diskDeadseriesLatencyFloorsContractObserve($p)],
             ['memory-spec-dogfood-floors-contract', 'memory_spec_dogfood_floors_contract', fn (array $p) => $gates->memorySpecDogfoodFloorsContractObserve($p)],
             ['restore-redaction-recall-floors-contract', 'restore_redaction_recall_floors_contract', fn (array $p) => $gates->restoreRedactionRecallFloorsContractObserve($p)],
+            ['runner-phase-saturation-floors-contract', 'runner_phase_saturation_floors_contract', fn (array $p) => $gates->runnerPhaseSaturationFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

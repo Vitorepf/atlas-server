@@ -21,6 +21,14 @@ final class AtlasAaeosPhaseRouterService
     public const PHASE_4 = '4';
 
     public const HTTP_PATH_PHASE_CONFIG_KEY = 'atlas.aaeos.http_path_phase';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_CONFIGURED_PHASE = 'configured_phase';
+    public const FIELD_IS_VALID = 'is_valid';
+    public const FIELD_IS_ACTIVE = 'is_active';
+    public const FIELD_IS_LEGACY = 'is_legacy';
+    public const FIELD_DESCRIPTION = 'description';
+    public const FIELD_VALID_PHASES = 'valid_phases';
+    public const FIELD_PHASE_CAPABILITIES = 'phase_capabilities';
 
     public const VALID_PHASES = [
         self::PHASE_LEGACY,
@@ -131,14 +139,14 @@ final class AtlasAaeosPhaseRouterService
     public function statusSnapshot(): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'configured_phase' => $this->configuredPhase,
-            'is_valid' => $this->isValid(),
-            'is_active' => $this->isActive(),
-            'is_legacy' => $this->isLegacy(),
-            'description' => $this->describePhase(),
-            'valid_phases' => self::VALID_PHASES,
-            'phase_capabilities' => [
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_CONFIGURED_PHASE => $this->configuredPhase,
+            self::FIELD_IS_VALID => $this->isValid(),
+            self::FIELD_IS_ACTIVE => $this->isActive(),
+            self::FIELD_IS_LEGACY => $this->isLegacy(),
+            self::FIELD_DESCRIPTION => $this->describePhase(),
+            self::FIELD_VALID_PHASES => self::VALID_PHASES,
+            self::FIELD_PHASE_CAPABILITIES => [
                 'intent_capture' => $this->isActive(),
                 'disambiguation' => $this->isActive(),
                 'placement' => $this->atLeastPhase1(),
