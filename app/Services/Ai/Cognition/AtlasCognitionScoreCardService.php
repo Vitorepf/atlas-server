@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 use App\Services\Ai\Aemor\AtlasAemorCertificationService;
 use App\Services\Ai\Aemor\AtlasAemorJudgmentService;
 use App\Services\Ai\Aemor\AtlasAemorRuntimeService;
@@ -320,7 +322,7 @@ class AtlasCognitionScoreCardService
         ];
         $envelope['scorecard_hash'] = $this->hash($rows, $score);
 
-        if ((bool) config('atlas_elite_compaction.scorecard.dual_emit_v3', true)) {
+        if ((AiValueNormalizer::boolOrNull(config('atlas_elite_compaction.scorecard.dual_emit_v3', true)) ?? false)) {
             $grouper = new AtlasCognitionScoreCardV4Grouper;
             $supplemental = $this->v4SupplementalRows();
             $modules = $grouper->group(array_merge($rows, $supplemental));

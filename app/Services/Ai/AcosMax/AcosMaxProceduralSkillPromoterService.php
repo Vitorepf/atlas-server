@@ -20,6 +20,10 @@ final class AcosMaxProceduralSkillPromoterService
 
     public const DEFAULT_CASE_COUNT_FLOOR = 8;
 
+    public const ENQUEUE_ENABLED_CONFIG_KEY = 'atlas.ai.procedural_skill_promoter.enqueue_enabled';
+
+    public const DEFAULT_ENQUEUE_ENABLED = false;
+
     public function __construct(
         private readonly ?AtlasProceduralPlaybookLedger $ledger = null,
     ) {}
@@ -212,7 +216,7 @@ final class AcosMaxProceduralSkillPromoterService
 
     private function enqueueEnabled(): bool
     {
-        return (bool) config('atlas.ai.procedural_skill_promoter.enqueue_enabled', false);
+        return (AiValueNormalizer::boolOrNull(config(self::ENQUEUE_ENABLED_CONFIG_KEY, self::DEFAULT_ENQUEUE_ENABLED)) ?? self::DEFAULT_ENQUEUE_ENABLED);
     }
 
     private function skillName(string $taskCategory): string

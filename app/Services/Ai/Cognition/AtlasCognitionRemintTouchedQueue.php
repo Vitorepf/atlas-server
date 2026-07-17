@@ -20,7 +20,7 @@ final class AtlasCognitionRemintTouchedQueue
      */
     public function enqueue(array $paths, string $taskPacketId, array $metadata = []): array
     {
-        if (! (bool) config('atlas.cognition.remint_touched_enabled', false)) {
+        if (! (AiValueNormalizer::boolOrNull(config('atlas.cognition.remint_touched_enabled', false)) ?? false)) {
             return [
                 'queued' => false,
                 'reason' => 'disabled',

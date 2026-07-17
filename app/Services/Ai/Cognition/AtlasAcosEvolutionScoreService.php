@@ -150,7 +150,7 @@ class AtlasAcosEvolutionScoreService
         ];
 
         $feedback7d = $this->tableCount('ai_rag_feedback_events', fn ($q) => $q->where('created_at', '>=', now()->subDays(7)));
-        $hintsOn = (bool) config('atlas.ai.context_feedback.global_hints_enabled', true);
+        $hintsOn = (AiValueNormalizer::boolOrNull(config('atlas.ai.context_feedback.global_hints_enabled', true)) ?? false);
         $oldFeedbackPoints = round(($feedback7d > 0 ? 1.25 : 0.0) + ($hintsOn ? 1.25 : 0.0), 2);
 
         $lift = $this->lift->report(minCases: self::LIFT_CASES_PER_ARM_REQUIRED, minPassingUse: 1);

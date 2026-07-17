@@ -361,7 +361,7 @@ final class RagxChainMechanismService
 
     private function flag(string $key): bool
     {
-        return (bool) config($key, false);
+        return (AiValueNormalizer::boolOrNull(config($key, false)) ?? false);
     }
 
     /** @param  array<string,bool>  $deps */

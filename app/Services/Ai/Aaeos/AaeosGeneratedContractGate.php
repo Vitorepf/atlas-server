@@ -15,7 +15,7 @@ final class AaeosGeneratedContractGate
 
     public function assertHotPathAllowed(string $class): void
     {
-        if ((bool) config('atlas_elite_compaction.generated.hot_path_enabled', false)) {
+        if ((AiValueNormalizer::boolOrNull(config('atlas_elite_compaction.generated.hot_path_enabled', false)) ?? false)) {
             return;
         }
         $class = AiValueNormalizer::trimmedStringOrNull($class) ?? '';
@@ -38,7 +38,7 @@ final class AaeosGeneratedContractGate
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'hot_path_enabled' => (bool) config('atlas_elite_compaction.generated.hot_path_enabled', false),
+            'hot_path_enabled' => (AiValueNormalizer::boolOrNull(config('atlas_elite_compaction.generated.hot_path_enabled', false)) ?? false),
             'generated_file_count' => $count,
             'quarantine_namespace' => AiValueNormalizer::trimmedStringOrNull(
                 config('atlas_elite_compaction.generated.quarantine_namespace') ?? null

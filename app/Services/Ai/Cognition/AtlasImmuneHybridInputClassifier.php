@@ -70,7 +70,7 @@ final class AtlasImmuneHybridInputClassifier
         $this->anchors = $anchors;
         $freeze = AtlasImmuneClassifierHybridFreeze::freezePayload();
         $this->tau = $tau ?? (AiValueNormalizer::finiteFloatOrNull($freeze['thresholds']['tau'] ?? null) ?? 0.62);
-        $this->enabled = $enabled ?? (bool) config('atlas.aaeos.immune_classifier.semantic_arm_enabled', false);
+        $this->enabled = $enabled ?? (AiValueNormalizer::boolOrNull(config('atlas.aaeos.immune_classifier.semantic_arm_enabled', false)) ?? false);
     }
 
     /**

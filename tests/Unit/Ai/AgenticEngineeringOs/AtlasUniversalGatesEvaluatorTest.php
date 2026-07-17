@@ -2735,4 +2735,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertTrue($payload['long_horizon_default_enabled']);
         $this->assertSame(9, $payload['quality_bar_cognitive_floor_count']);
     }
+
+    public function test_parallel_substrate_bridge_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->parallelSubstrateBridgeFloorsContractObserve([]);
+
+        $this->assertSame('acos_max.parallel_execution.v1', $payload['parallel_execution_schema']);
+        $this->assertSame('task', $payload['parallel_execution_claim_kind']);
+        $this->assertSame(3600, $payload['parallel_execution_default_ttl_seconds']);
+        $this->assertSame('atlas.memory.substrate_restore_drill.watchdog.v1', $payload['substrate_restore_schema']);
+        $this->assertSame(45, $payload['substrate_restore_default_max_success_age_days']);
+        $this->assertSame('atlas.esp_06.outcome_envelope_bridge.v1', $payload['outcome_envelope_bridge_schema']);
+        $this->assertSame('atlas.esp_06.outcome_envelope.v1', $payload['outcome_envelope_bridge_measure_id']);
+        $this->assertSame('atlas.esp_06.outcome_envelope_adapters_enabled', $payload['outcome_envelope_adapters_enabled_config_key']);
+        $this->assertFalse($payload['outcome_envelope_adapters_default_enabled']);
+        $this->assertSame('atlas.ai.procedural_skill_promoter.enqueue_enabled', $payload['procedural_enqueue_enabled_config_key']);
+        $this->assertFalse($payload['procedural_enqueue_default_enabled']);
+        $this->assertSame(11, $payload['parallel_substrate_bridge_floor_count']);
+    }
 }

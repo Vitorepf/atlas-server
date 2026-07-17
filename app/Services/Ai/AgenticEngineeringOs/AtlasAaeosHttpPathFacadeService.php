@@ -129,7 +129,7 @@ final class AtlasAaeosHttpPathFacadeService
         $envelopes[] = $factory->intentCapture($intentId, $intentHash);
 
         // ---- P1 disambiguation (optional at Phase 1) ----------------------
-        $missionOptional = (bool) config('atlas.aaeos.mission_foundation_optional_at_phase_1', true);
+        $missionOptional = (AiValueNormalizer::boolOrNull(config('atlas.aaeos.mission_foundation_optional_at_phase_1', true)) ?? false);
         if (! $missionOptional && $this->missionDetection !== null && $intentText !== '') {
             $signal = $this->missionDetection->detect($intentText);
             $envelopes[] = $factory->disambiguationSignal(
@@ -434,7 +434,7 @@ final class AtlasAaeosHttpPathFacadeService
 
     private function incrementCounter(string $key): void
     {
-        if (! (bool) config('atlas.aaeos.telemetry_enabled', true)) {
+        if (! (AiValueNormalizer::boolOrNull(config('atlas.aaeos.telemetry_enabled', true)) ?? false)) {
             return;
         }
         $current = (int) $this->cache->get($key, 0);
@@ -443,7 +443,7 @@ final class AtlasAaeosHttpPathFacadeService
 
     private function recordLatency(int $ms): void
     {
-        if (! (bool) config('atlas.aaeos.telemetry_enabled', true)) {
+        if (! (AiValueNormalizer::boolOrNull(config('atlas.aaeos.telemetry_enabled', true)) ?? false)) {
             return;
         }
         $countKey = self::TELEMETRY_KEY_LATENCY.'.count';

@@ -19,6 +19,10 @@ final class OutcomeEnvelopeBridge
 
     public const BRIDGE_SCHEMA = 'atlas.esp_06.outcome_envelope_bridge.v1';
 
+    public const ADAPTERS_ENABLED_CONFIG_KEY = 'atlas.esp_06.outcome_envelope_adapters_enabled';
+
+    public const DEFAULT_ADAPTERS_ENABLED = false;
+
     /** @var array<string, OutcomeEnvelopeAdapter> */
     private array $adapters;
 
@@ -36,7 +40,7 @@ final class OutcomeEnvelopeBridge
 
     public static function enabled(): bool
     {
-        return (bool) config('atlas.esp_06.outcome_envelope_adapters_enabled', false);
+        return (AiValueNormalizer::boolOrNull(config(self::ADAPTERS_ENABLED_CONFIG_KEY, self::DEFAULT_ADAPTERS_ENABLED)) ?? self::DEFAULT_ADAPTERS_ENABLED);
     }
 
     /**

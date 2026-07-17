@@ -3990,6 +3990,31 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only parallel/substrate/envelope-bridge + procedural enqueue floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function parallelSubstrateBridgeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'parallel_execution_schema' => AcosMaxParallelExecutionProtocol::SCHEMA,
+            'parallel_execution_claim_kind' => AcosMaxParallelExecutionProtocol::CLAIM_KIND,
+            'parallel_execution_default_ttl_seconds' => AcosMaxParallelExecutionProtocol::DEFAULT_TTL_SECONDS,
+            'substrate_restore_schema' => SubstrateRestoreDrillWatchdogCheck::SCHEMA_VERSION,
+            'substrate_restore_default_max_success_age_days' => SubstrateRestoreDrillWatchdogCheck::DEFAULT_MAX_SUCCESS_AGE_DAYS,
+            'outcome_envelope_bridge_schema' => OutcomeEnvelopeBridge::BRIDGE_SCHEMA,
+            'outcome_envelope_bridge_measure_id' => OutcomeEnvelopeBridge::MEASURE_ID,
+            'outcome_envelope_adapters_enabled_config_key' => OutcomeEnvelopeBridge::ADAPTERS_ENABLED_CONFIG_KEY,
+            'outcome_envelope_adapters_default_enabled' => OutcomeEnvelopeBridge::DEFAULT_ADAPTERS_ENABLED,
+            'procedural_enqueue_enabled_config_key' => AcosMaxProceduralSkillPromoterService::ENQUEUE_ENABLED_CONFIG_KEY,
+            'procedural_enqueue_default_enabled' => AcosMaxProceduralSkillPromoterService::DEFAULT_ENQUEUE_ENABLED,
+            'parallel_substrate_bridge_floor_count' => 11,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

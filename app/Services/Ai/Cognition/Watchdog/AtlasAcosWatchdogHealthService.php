@@ -107,7 +107,7 @@ final class AtlasAcosWatchdogHealthService
         $freshness = (int) data_get($scorecard, 'components.freshness', 0);
         $concentration = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'ratios.recall_concentration_ratio', 0.0)) ?? 0.0;
         $recallUsageTotal = (int) data_get($scorecard, 'counts.retrieval_eval.recall_usage_total', 0);
-        $demotionEnabled = (bool) config('atlas.semantic_memory.recall_concentration_demotion_enabled', true);
+        $demotionEnabled = (AiValueNormalizer::boolOrNull(config('atlas.semantic_memory.recall_concentration_demotion_enabled', true)) ?? false);
         $trendStatus = AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'trend.status')) ?? 'unknown';
         $currentDelta = data_get($scorecard, 'trend.current_delta_from_latest');
         $latestDelta = data_get($scorecard, 'trend.latest_delta_from_previous');
@@ -889,7 +889,7 @@ final class AtlasAcosWatchdogHealthService
     private function admlReadyRoutes(array $rows): array
     {
         $minEvidence = (int) app(GovernanceFloorRegistry::class)->atlasDecideCostOutcomeConfig(
-            (bool) config('atlas.patamar4.adml_cost_outcome.enabled', false),
+            (AiValueNormalizer::boolOrNull(config('atlas.patamar4.adml_cost_outcome.enabled', false)) ?? false),
         )['min_evidence'];
         $routes = [];
         foreach ($rows as $row) {

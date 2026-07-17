@@ -559,7 +559,7 @@ final class AcosMaxLote2MeasureService
     private function isPromotedLearningCandidate(object $candidate): bool
     {
         return (AiValueNormalizer::trimmedScalarStringOrNull($candidate->status ?? null) ?? '') === 'promoted'
-            || (bool) ($candidate->promotion_allowed ?? false) === true;
+            || (AiValueNormalizer::boolOrNull($candidate->promotion_allowed ?? null) ?? false) === true;
     }
 
     /**

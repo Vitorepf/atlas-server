@@ -25,7 +25,7 @@ final class AtlasAcosRollbackTriggerCheckService
     public function check(?CarbonImmutable $asOf = null, ?string $simulateTriggerId = null): array
     {
         $asOf = ($asOf ?? CarbonImmutable::now())->utc();
-        $enabled = (bool) config('atlas.acos.rollback_triggers.enabled', true);
+        $enabled = (AiValueNormalizer::boolOrNull(config('atlas.acos.rollback_triggers.enabled', true)) ?? false);
         /** @var list<array<string,mixed>> $flips */
         $flips = AiValueNormalizer::arrayOrEmpty(config('atlas.acos.rollback_triggers.flips', []));
 
