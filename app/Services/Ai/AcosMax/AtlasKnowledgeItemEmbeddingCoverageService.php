@@ -43,6 +43,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
 
     public const KIND_MEASURE_FREEZE = 'measure_freeze';
 
+    public const STATUS_ACTIVE = 'active';
+
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
@@ -88,7 +90,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
         }
 
         $baseQuery = AtlasEngineeringKnowledgeItem::query()
-            ->where('status', 'active')
+            ->where('status', self::STATUS_ACTIVE)
             ->whereNull('archived_at');
 
         $active = (clone $baseQuery)->count();

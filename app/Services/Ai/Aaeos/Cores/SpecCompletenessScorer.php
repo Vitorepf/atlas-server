@@ -24,6 +24,8 @@ final class SpecCompletenessScorer
 
     public const VERDICT_INSUFFICIENT = 'insufficient';
 
+    public const REASON_OK = 'ok';
+
 
     /**
      * Weighted importance of each canonical spec field. Sums to exactly 100.
@@ -137,7 +139,7 @@ final class SpecCompletenessScorer
     private function evaluateField(string $field, mixed $value): array
     {
         if ($field === 'blocking_questions' && $value === []) {
-            return [true, true, 'ok'];
+            return [true, true, self::REASON_OK];
         }
 
         if (in_array($field, self::LIST_FIELDS, true)) {
@@ -161,7 +163,7 @@ final class SpecCompletenessScorer
             return [true, false, 'too_short'];
         }
 
-        return [true, true, 'ok'];
+        return [true, true, self::REASON_OK];
     }
 
     /**
@@ -177,7 +179,7 @@ final class SpecCompletenessScorer
             return [true, false, 'too_short'];
         }
 
-        return [true, true, 'ok'];
+        return [true, true, self::REASON_OK];
     }
 
     /**

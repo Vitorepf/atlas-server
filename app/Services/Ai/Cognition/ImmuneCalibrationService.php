@@ -162,20 +162,20 @@ final class ImmuneCalibrationService
             foreach ($this->sampleGateIds($sample) as $gateId) {
                 $key = $writer.'::'.$gateId;
                 $groups[$key] ??= $this->emptyGroup($writer, $gateId);
-                $status = (AiValueNormalizer::trimmedStringOrNull($gateStatuses[$gateId] ?? null) ?? 'pending');
+                $status = (AiValueNormalizer::trimmedStringOrNull($gateStatuses[$gateId] ?? null) ?? ImmuneVerdictLedger::GATE_STATUS_PENDING);
                 $label = (AiValueNormalizer::trimmedStringOrNull($sample['sample_label'] ?? null) ?? '');
                 $expectedGateIds = array_fill_keys(AiValueNormalizer::arrayOrEmpty($sample['expected_block_gate_ids'] ?? null), true);
 
                 $groups[$key]['n']++;
-                if ($status === 'block') {
+                if ($status === ImmuneVerdictLedger::GATE_STATUS_BLOCK) {
                     $groups[$key]['blocks']++;
                 }
-                if ($label === ImmuneVerdictLedger::LABEL_FALSE_BLOCK && $status === 'block') {
+                if ($label === ImmuneVerdictLedger::LABEL_FALSE_BLOCK && $status === ImmuneVerdictLedger::GATE_STATUS_BLOCK) {
                     $groups[$key]['false_blocks']++;
                 }
                 if (isset($expectedGateIds[$gateId])) {
                     $groups[$key]['known_miss_denominator']++;
-                    if ($status !== 'block') {
+                    if ($status !== ImmuneVerdictLedger::GATE_STATUS_BLOCK) {
                         $groups[$key]['missed_poison']++;
                     } else {
                         $groups[$key]['true_blocks']++;

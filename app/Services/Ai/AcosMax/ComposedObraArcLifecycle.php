@@ -24,6 +24,8 @@ final class ComposedObraArcLifecycle
 
     public const STATUS_REFUSED = 'refused';
 
+    public const STATUS_UNKNOWN = 'unknown';
+
     public const TASK_STATUS_FAILED = 'failed';
 
     public const TASK_STATUS_LANDED = 'landed';
@@ -175,7 +177,7 @@ final class ComposedObraArcLifecycle
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'arc_id' => $arcId,
-            'status' => AiValueNormalizer::trimmedStringOrNull($state['status'] ?? null) ?? 'unknown',
+            'status' => AiValueNormalizer::trimmedStringOrNull($state['status'] ?? null) ?? self::STATUS_UNKNOWN,
             'consecutive_failures' => (int) (AiValueNormalizer::finiteFloatOrNull($state['consecutive_failures'] ?? null) ?? 0),
             'kill_gate_k' => (int) ($state['kill_gate_k'] ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES),
             'archive_receipt' => $state['archive_receipt'] ?? null,

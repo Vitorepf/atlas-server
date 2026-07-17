@@ -41,6 +41,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
 
     public const KIND_MEASURE_FREEZE = 'measure_freeze';
 
+    public const STATUS_ACTIVE = 'active';
+
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
@@ -84,7 +86,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
         }
 
         $active = DB::table('atlas_engineering_code_symbols')
-            ->where('status', 'active')
+            ->where('status', self::STATUS_ACTIVE)
             ->whereNull('archived_at')
             ->count();
 

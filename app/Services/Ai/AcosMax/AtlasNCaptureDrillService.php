@@ -57,6 +57,8 @@ final class AtlasNCaptureDrillService
 
     public const REASON_YARDSTICK_FAILED_BUT_ADMITTED = 'yardstick_failed_but_admitted';
 
+    public const TRIGGER_UNKNOWN = 'unknown';
+
     private readonly string $ledgerPath;
 
     public function __construct(?string $ledgerPath = null)
@@ -153,7 +155,7 @@ final class AtlasNCaptureDrillService
                 'bypass' => (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.bypass')) ?? false),
                 'reason' => data_get($drill, 'admission.reason'),
             ],
-            'trigger' => (AiValueNormalizer::trimmedStringOrNull($drill['trigger'] ?? null) ?? 'unknown'),
+            'trigger' => (AiValueNormalizer::trimmedStringOrNull($drill['trigger'] ?? null) ?? self::TRIGGER_UNKNOWN),
             'recorded_at' => now('UTC')->toIso8601String(),
         ];
 

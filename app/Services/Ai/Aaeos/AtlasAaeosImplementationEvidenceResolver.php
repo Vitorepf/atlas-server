@@ -43,6 +43,8 @@ class AtlasAaeosImplementationEvidenceResolver
      */
     public const SIGNATURE_MATCH_TYPES = ['route', 'cli_command', 'migration_table'];
 
+    public const STATUS_ACTIVE = 'active';
+
     /**
      * The active Code Intelligence index, loaded ONCE per request and matched in PHP. Stored
      * COLUMNAR — parallel arrays keyed by a single integer row offset — NOT as one small array
@@ -208,7 +210,7 @@ class AtlasAaeosImplementationEvidenceResolver
 
         $rows = AtlasEngineeringCodeSymbol::query()
             ->toBase()
-            ->where('status', 'active')
+            ->where('status', self::STATUS_ACTIVE)
             ->select(['symbol_name', 'file_path', 'signature', 'symbol_type'])
             ->distinct()
             ->cursor();

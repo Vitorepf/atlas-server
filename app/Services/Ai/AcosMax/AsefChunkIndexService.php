@@ -38,6 +38,10 @@ final class AsefChunkIndexService
 
     public const STATUS_EMPTY = 'empty';
 
+    public const EMBEDDING_STATUS_PENDING = 'pending';
+
+    public const EMBEDDING_STATUS_PERSISTED = 'persisted';
+
     public const REASON_ASEF_CHUNKS_TABLE_MISSING = 'asef_chunks_table_missing';
 
     public const REASON_EMPTY_SOURCE_REF_OR_TEXT = 'empty_source_ref_or_text';
@@ -127,7 +131,7 @@ final class AsefChunkIndexService
                 'privacy_class' => (AiValueNormalizer::trimmedStringOrNull($chunk['privacy_class'] ?? null) ?? 'normal'),
                 'provider_safe' => (AiValueNormalizer::boolOrNull($chunk['provider_safe'] ?? null) ?? true),
                 'delete_cascade_key' => (AiValueNormalizer::trimmedStringOrNull($chunk['delete_cascade_key'] ?? null) ?? ''),
-                'embedding_status' => 'pending',
+                'embedding_status' => self::EMBEDDING_STATUS_PENDING,
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),
             ];
@@ -283,7 +287,7 @@ final class AsefChunkIndexService
         $row['embedding_model'] = $modelId;
         $row['embedded_content_hash'] = $contentHash;
         $row['embedded_at'] = Carbon::now();
-        $row['embedding_status'] = 'persisted';
+        $row['embedding_status'] = self::EMBEDDING_STATUS_PERSISTED;
 
         $existing = DB::table('asef_chunks')
             ->where('source_ref', $row['source_ref'])
@@ -302,7 +306,7 @@ final class AsefChunkIndexService
                 'embedding_model' => $modelId,
                 'embedded_content_hash' => $contentHash,
                 'embedded_at' => $row['embedded_at'],
-                'embedding_status' => 'persisted',
+                'embedding_status' => self::EMBEDDING_STATUS_PERSISTED,
                 'updated_at' => Carbon::now(),
             ];
             DB::table('asef_chunks')->where('id', $existing->id)->update($update);

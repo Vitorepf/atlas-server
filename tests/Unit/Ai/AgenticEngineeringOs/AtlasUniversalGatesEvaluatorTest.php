@@ -3287,4 +3287,25 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['watchdog_health_active_disabled_floor_count']);
     }
 
+    public function test_embedding_pending_mission_outcome_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->embeddingPendingMissionOutcomeFloorsContractObserve([]);
+
+        $this->assertSame('active', $payload['evidence_resolver_status_active']);
+        $this->assertSame('active', $payload['kb_embedding_status_active']);
+        $this->assertSame('active', $payload['code_symbol_embedding_status_active']);
+        $this->assertSame('pending', $payload['asef_embedding_status_pending']);
+        $this->assertSame('persisted', $payload['asef_embedding_status_persisted']);
+        $this->assertSame('unknown', $payload['composed_arc_status_unknown']);
+        $this->assertSame('ok', $payload['spec_completeness_reason_ok']);
+        $this->assertSame('succeeded', $payload['mission_control_status_succeeded']);
+        $this->assertSame('failed', $payload['mission_control_status_failed']);
+        $this->assertSame('green', $payload['mission_control_outcome_green']);
+        $this->assertSame('red', $payload['mission_control_outcome_red']);
+        $this->assertSame('exception', $payload['mission_control_outcome_exception']);
+        $this->assertSame('unknown', $payload['n_capture_trigger_unknown']);
+        $this->assertSame('unknown', $payload['watchdog_runner_check_id_unknown']);
+        $this->assertSame(14, $payload['embedding_pending_mission_outcome_floor_count']);
+    }
+
 }

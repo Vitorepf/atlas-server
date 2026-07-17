@@ -4882,6 +4882,33 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: embedding active/pending + mission outcome + arc/spec/drill unknown floors.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function embeddingPendingMissionOutcomeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'evidence_resolver_status_active' => AtlasAaeosImplementationEvidenceResolver::STATUS_ACTIVE,
+            'kb_embedding_status_active' => AtlasKnowledgeItemEmbeddingCoverageService::STATUS_ACTIVE,
+            'code_symbol_embedding_status_active' => AtlasCodeSymbolEmbeddingCoverageService::STATUS_ACTIVE,
+            'asef_embedding_status_pending' => AsefChunkIndexService::EMBEDDING_STATUS_PENDING,
+            'asef_embedding_status_persisted' => AsefChunkIndexService::EMBEDDING_STATUS_PERSISTED,
+            'composed_arc_status_unknown' => ComposedObraArcLifecycle::STATUS_UNKNOWN,
+            'spec_completeness_reason_ok' => SpecCompletenessScorer::REASON_OK,
+            'mission_control_status_succeeded' => AtlasMissionControlCockpitService::STATUS_SUCCEEDED,
+            'mission_control_status_failed' => AtlasMissionControlCockpitService::STATUS_FAILED,
+            'mission_control_outcome_green' => AtlasMissionControlCockpitService::OUTCOME_GREEN,
+            'mission_control_outcome_red' => AtlasMissionControlCockpitService::OUTCOME_RED,
+            'mission_control_outcome_exception' => AtlasMissionControlCockpitService::OUTCOME_EXCEPTION,
+            'n_capture_trigger_unknown' => AtlasNCaptureDrillService::TRIGGER_UNKNOWN,
+            'watchdog_runner_check_id_unknown' => AtlasWatchdogRunner::CHECK_ID_UNKNOWN,
+            'embedding_pending_mission_outcome_floor_count' => 14,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

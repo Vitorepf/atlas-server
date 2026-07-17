@@ -35,6 +35,16 @@ final class AtlasMissionControlCockpitService
 
     public const STATUS_IN_PROGRESS = 'in_progress';
 
+    public const STATUS_SUCCEEDED = 'succeeded';
+
+    public const STATUS_FAILED = 'failed';
+
+    public const OUTCOME_GREEN = 'green';
+
+    public const OUTCOME_RED = 'red';
+
+    public const OUTCOME_EXCEPTION = 'exception';
+
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
         private readonly AtlasUniversalGatesEvaluator $gates,
@@ -200,7 +210,7 @@ final class AtlasMissionControlCockpitService
     private function outcomeCausalityFor(array $blockers, array $gateReport): ?array
     {
         $outcome = AiValueNormalizer::trimmedStringOrNull($gateReport['outcome'] ?? null) ?? '';
-        if ($blockers === [] && $outcome === 'green') {
+        if ($blockers === [] && $outcome === self::OUTCOME_GREEN) {
             return null;
         }
 
@@ -215,9 +225,9 @@ final class AtlasMissionControlCockpitService
         $missingRequiredSources = in_array('decision_receipt_v2_signed', $blocked, true)
             || in_array('review_packet_signed', $blocked, true);
         $status = match ($outcome) {
-            'green', 'exception' => 'succeeded',
-            'red' => 'failed',
-            default => 'blocked',
+            self::OUTCOME_GREEN, self::OUTCOME_EXCEPTION => self::STATUS_SUCCEEDED,
+            self::OUTCOME_RED => self::STATUS_FAILED,
+            default => self::STATUS_BLOCKED,
         };
 
         return $this->outcomeCausality->rank(

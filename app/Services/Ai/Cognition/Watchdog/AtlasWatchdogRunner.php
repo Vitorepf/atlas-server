@@ -22,6 +22,8 @@ final readonly class AtlasWatchdogRunner
 
     public const AGGREGATE_STATUS_HEALTHY = 'healthy';
 
+    public const CHECK_ID_UNKNOWN = 'unknown';
+
     public function __construct(
         private AtlasWatchdogCheckRegistry $registry,
         private AtlasEvidenceLedger $ledger,
@@ -63,7 +65,7 @@ final readonly class AtlasWatchdogRunner
             'run_id' => $runId,
             'checked_at' => $checkedAt,
             'status' => $this->aggregateStatus($checks),
-            'alert' => $this->hasAlert($checks),
+            AtlasWatchdogCheckResult::STATUS_ALERT => $this->hasAlert($checks),
             'counts' => $this->counts($checks),
             'checks' => $checks,
             'alerts' => $this->alerts($checks),
@@ -111,11 +113,11 @@ final readonly class AtlasWatchdogRunner
     {
         $counts = [
             'total' => count($checks),
-            'ok' => 0,
-            'warning' => 0,
-            'alert' => 0,
-            'skipped' => 0,
-            'error' => 0,
+            AtlasWatchdogCheckResult::STATUS_OK => 0,
+            AtlasWatchdogCheckResult::STATUS_WARNING => 0,
+            AtlasWatchdogCheckResult::STATUS_ALERT => 0,
+            AtlasWatchdogCheckResult::STATUS_SKIPPED => 0,
+            AtlasWatchdogCheckResult::STATUS_ERROR => 0,
         ];
 
         foreach ($checks as $check) {
@@ -140,7 +142,7 @@ final readonly class AtlasWatchdogRunner
                 continue;
             }
 
-            $alerts[] = ['check_id' => AiValueNormalizer::trimmedStringOrNull($check['id'] ?? null) ?? 'unknown'] + $check['alert'];
+            $alerts[] = ['check_id' => AiValueNormalizer::trimmedStringOrNull($check['id'] ?? null) ?? self::CHECK_ID_UNKNOWN] + $check['alert'];
         }
 
         return $alerts;
