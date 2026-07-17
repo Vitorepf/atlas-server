@@ -44,6 +44,25 @@ final class AaeosDeferredPhaseDispatcherServiceTest extends TestCase
         self::assertSame(2, $svc->pendingCount($this->queuePath));
         self::assertSame('atlas.aaeos.phase_advance_verdict.v1', $result['enqueued'][0]['phase_advance']['schema_version']);
         self::assertArrayHasKey('verdict', $result['enqueued'][0]['phase_advance']);
+        self::assertNull($result['enqueued'][0]['outcome_causality']);
+    }
+
+    public function test_enqueued_observe_causality_when_blockers_present(): void
+    {
+        $svc = $this->makeService();
+
+        $result = $svc->enqueueFromFacadeResult(
+            envelopes: [[
+                'phase_out' => 'topology',
+                'outputs' => ['aawr_invocation' => 'deferred'],
+                'gates' => ['required' => ['g'], 'passed' => [], 'blocked' => ['g']],
+                'blockers' => [['id' => 'x', 'severity' => 'high', 'owner' => 'atlas-ai']],
+            ]],
+            queuePath: $this->queuePath,
+        );
+
+        self::assertSame(1, $result['enqueued_count']);
+        self::assertSame('atlas.aaeos.outcome_causality_ranking.v1', $result['enqueued'][0]['outcome_causality']['schema_version']);
     }
 
     public function test_claim_returns_at_most_max_records_and_removes_them(): void
