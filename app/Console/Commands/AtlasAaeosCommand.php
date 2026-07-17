@@ -246,9 +246,23 @@ final class AtlasAaeosCommand extends Command
             $report = $gates->evaluate($intent, $signals);
         }
 
+        $specPath = (string) ($this->option('spec') ?? '');
+        if ($specPath !== '') {
+            $spec = $this->loadJsonFile($specPath);
+            if ($spec === null) {
+                return $this->failWith('universal-gates --spec must be a readable JSON object');
+            }
+            $report['observe'] = array_merge(
+                AiValueNormalizer::arrayOrEmpty($report['observe'] ?? null),
+                [
+                    'spec_completeness' => $gates->specCompletenessSignal($spec),
+                    'spec_completeness_score' => $gates->specCompletenessScoreObserve($spec),
+                ],
+            );
+        }
+
         // Observe-only projectors: do not add universal-gate ids (catalogue stays 15).
         foreach ([
-            ['spec', 'spec_completeness', fn (array $p) => $gates->specCompletenessSignal($p)],
             ['quality-bar', 'quality_bar_telemetry', fn (array $p) => $gates->qualityBarTelemetryObserve($p)],
             ['architect-spec-pack', 'architect_spec_pack_gate', fn (array $p) => $gates->architectSpecPackObserve($p)],
             ['predicted-impact', 'predicted_impact_band', fn (array $p) => $gates->predictedImpactBandObserve($p)],

@@ -166,6 +166,9 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
 
         $this->assertTrue($this->svc->specCompletenessSignal($full));
         $this->assertFalse($this->svc->specCompletenessSignal([]));
+
+        $score = $this->svc->specCompletenessScoreObserve([]);
+        $this->assertSame(SpecCompletenessScorer::SCHEMA_VERSION, $score['schema_version']);
     }
 
     public function test_quality_bar_telemetry_observe_projects_m5_contract(): void

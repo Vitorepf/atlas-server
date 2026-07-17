@@ -790,7 +790,7 @@ final class AcosMaxLote2MeasureService
         if (is_array($value)) {
             return $value;
         }
-        if (! is_string($value) || trim($value) === '') {
+        if (AiValueNormalizer::trimmedStringOrNull($value) === null) {
             return [];
         }
 

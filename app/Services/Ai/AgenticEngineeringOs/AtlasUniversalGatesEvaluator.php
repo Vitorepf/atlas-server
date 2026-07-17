@@ -246,6 +246,18 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only full SpecCompletenessScorer projection.
+     * Does not add a universal-gate id.
+     *
+     * @param  array<string,mixed>  $spec
+     * @return array<string,mixed>
+     */
+    public function specCompletenessScoreObserve(array $spec): array
+    {
+        return $this->specCompleteness->score($spec);
+    }
+
+    /**
      * Observe-only projection of a quality-bar telemetry payload into the
      * M5 contract shape. Does not add a universal-gate id (catalogue stays 15).
      *

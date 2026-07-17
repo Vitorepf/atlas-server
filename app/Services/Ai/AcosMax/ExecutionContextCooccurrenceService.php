@@ -115,7 +115,7 @@ final class ExecutionContextCooccurrenceService
     private function readJson(string $path): array
     {
         $raw = file_get_contents($path);
-        if (! is_string($raw) || trim($raw) === '') {
+        if (AiValueNormalizer::trimmedStringOrNull($raw) === null) {
             return [];
         }
         $decoded = json_decode($raw, true);

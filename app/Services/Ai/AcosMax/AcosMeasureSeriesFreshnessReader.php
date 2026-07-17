@@ -60,7 +60,7 @@ final class AcosMeasureSeriesFreshnessReader
 
         try {
             Artisan::call($command);
-            $decoded = json_decode(trim(Artisan::output()), true);
+            $decoded = json_decode(AiValueNormalizer::trimmedString(Artisan::output()), true);
             if (! is_array($decoded)) {
                 return null;
             }
@@ -122,7 +122,7 @@ final class AcosMeasureSeriesFreshnessReader
         if ($handle !== false) {
             try {
                 while (($line = fgets($handle)) !== false) {
-                    $decoded = json_decode(trim($line), true);
+                    $decoded = json_decode(AiValueNormalizer::trimmedString($line), true);
                     if (! is_array($decoded)) {
                         continue;
                     }

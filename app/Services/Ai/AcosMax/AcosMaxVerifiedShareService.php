@@ -161,7 +161,7 @@ final class AcosMaxVerifiedShareService
         try {
             while (($line = fgets($handle)) !== false) {
                 try {
-                    $row = json_decode(trim($line), true, flags: JSON_THROW_ON_ERROR);
+                    $row = json_decode(AiValueNormalizer::trimmedString($line), true, flags: JSON_THROW_ON_ERROR);
                 } catch (Throwable) {
                     continue;
                 }
@@ -205,7 +205,7 @@ final class AcosMaxVerifiedShareService
         try {
             while (($line = fgets($handle)) !== false) {
                 try {
-                    $row = json_decode(trim($line), true, flags: JSON_THROW_ON_ERROR);
+                    $row = json_decode(AiValueNormalizer::trimmedString($line), true, flags: JSON_THROW_ON_ERROR);
                 } catch (Throwable) {
                     continue;
                 }
