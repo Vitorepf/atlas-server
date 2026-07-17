@@ -81,9 +81,9 @@ final readonly class RealityCompilerSlice
             if (! is_array($row)) {
                 continue;
             }
-            $phase = AiValueNormalizer::trimmedString($row['phase'] ?? '');
-            $status = AiValueNormalizer::trimmedString($row['status'] ?? '');
-            if ($phase === '' || $status === '') {
+            $phase = AiValueNormalizer::trimmedStringOrNull($row['phase'] ?? null);
+            $status = AiValueNormalizer::trimmedStringOrNull($row['status'] ?? null);
+            if ($phase === null || $status === null) {
                 continue;
             }
             $phases[] = ['phase' => $phase, 'status' => $status];

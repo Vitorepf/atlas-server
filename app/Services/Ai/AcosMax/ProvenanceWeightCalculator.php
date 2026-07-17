@@ -21,8 +21,7 @@ final class ProvenanceWeightCalculator
     {
         $verified = [];
         foreach ($verifiedRefs as $ref) {
-            $trimmed = AiValueNormalizer::trimmedString($ref);
-            if ($trimmed !== '') {
+            if (($trimmed = AiValueNormalizer::trimmedStringOrNull($ref)) !== null) {
                 $verified[$trimmed] = true;
             }
         }
@@ -30,8 +29,8 @@ final class ProvenanceWeightCalculator
         $dead = [];
         $seen = [];
         foreach ($evidenceRefs as $ref) {
-            $trimmed = AiValueNormalizer::trimmedString($ref);
-            if ($trimmed === '' || isset($seen[$trimmed])) {
+            $trimmed = AiValueNormalizer::trimmedStringOrNull($ref);
+            if ($trimmed === null || isset($seen[$trimmed])) {
                 continue;
             }
             $seen[$trimmed] = true;

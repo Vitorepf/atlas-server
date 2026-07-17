@@ -11,7 +11,7 @@ final class AmbitionRungPolicy
     public const SCHEMA_VERSION = 'atlas.originator.ambition_rung_policy.v1';
 
     /** @var list<string> */
-    private const RUNGS = ['task', 'slice', 'obra', 'salto'];
+    public const RUNGS = ['task', 'slice', 'obra', 'salto'];
 
     /**
      * @param  list<array<string,mixed>>  $candidates
@@ -87,8 +87,8 @@ final class AmbitionRungPolicy
     {
         $counts = [];
         foreach ($candidates as $candidate) {
-            $rung = AiValueNormalizer::trimmedString($candidate['rung'] ?? '');
-            if ($rung !== '') {
+            $rung = AiValueNormalizer::trimmedStringOrNull($candidate['rung'] ?? null);
+            if ($rung !== null) {
                 $counts[$rung] = ($counts[$rung] ?? 0) + 1;
             }
         }

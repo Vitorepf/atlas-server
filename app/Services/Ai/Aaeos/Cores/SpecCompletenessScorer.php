@@ -177,8 +177,8 @@ final class SpecCompletenessScorer
     private function hasMeaningfulItem(array $items): bool
     {
         foreach ($items as $item) {
-            if (is_string($item)) {
-                if (mb_strlen(AiValueNormalizer::trimmedString($item)) >= self::TEXT_MIN_LENGTH) {
+            if (($text = AiValueNormalizer::trimmedStringOrNull($item)) !== null) {
+                if (mb_strlen($text) >= self::TEXT_MIN_LENGTH) {
                     return true;
                 }
 

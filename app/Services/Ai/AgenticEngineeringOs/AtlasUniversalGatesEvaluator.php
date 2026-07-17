@@ -2313,6 +2313,26 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only MULTN15-08 pre-review advisory band contract floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function preReviewAdvisoryContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => PreReviewAdvisoryBand::SCHEMA_VERSION,
+            'formula_version' => PreReviewAdvisoryBand::FORMULA_VERSION,
+            'min_n_for_band' => PreReviewAdvisoryBand::MIN_N_FOR_BAND,
+            'death_min_n' => PreReviewAdvisoryBand::DEATH_MIN_N,
+            'death_min_lift' => PreReviewAdvisoryBand::DEATH_MIN_LIFT,
+            'blocks_auto_apply' => false,
+            'delays_auto_apply' => false,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

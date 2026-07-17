@@ -1679,4 +1679,17 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(3, $payload['origin_count']);
         $this->assertSame(3, $payload['status_count']);
     }
+
+    public function test_pre_review_advisory_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->preReviewAdvisoryContractObserve([]);
+
+        $this->assertSame('atlas.operator.pre_review_advisory_band.v1', $payload['schema_version']);
+        $this->assertSame('atlas.multn15_08.pre_review_band.v1', $payload['formula_version']);
+        $this->assertSame(10, $payload['min_n_for_band']);
+        $this->assertSame(30, $payload['death_min_n']);
+        $this->assertSame(0.15, $payload['death_min_lift']);
+        $this->assertFalse($payload['blocks_auto_apply']);
+        $this->assertFalse($payload['delays_auto_apply']);
+    }
 }

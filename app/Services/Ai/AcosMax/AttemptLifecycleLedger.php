@@ -21,7 +21,7 @@ final class AttemptLifecycleLedger
      */
     public function start(string $attemptId, string $taskId, ?int $startedAt = null): array
     {
-        if (AiValueNormalizer::trimmedString($attemptId) === '' || AiValueNormalizer::trimmedString($taskId) === '') {
+        if (AiValueNormalizer::trimmedStringOrNull($attemptId) === null || AiValueNormalizer::trimmedStringOrNull($taskId) === null) {
             return ['accepted' => false, 'reason' => 'task_or_attempt_unresolvable'];
         }
         if (isset($this->attempts[$attemptId])) {
