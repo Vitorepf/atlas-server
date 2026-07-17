@@ -2974,4 +2974,23 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(20, $payload['esp09_bets_obra_status_floor_count']);
     }
 
+    public function test_ncapture_promotion_lifecycle_status_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->ncapturePromotionLifecycleStatusFloorsContractObserve([]);
+
+        $this->assertSame('measure_freeze', $payload['ncapture_kind_measure_freeze']);
+        $this->assertSame('maxk02', $payload['ncapture_cold_start_channel_maxk02']);
+        $this->assertSame('admission_via_bypass_forbidden', $payload['ncapture_reason_admission_via_bypass_forbidden']);
+        $this->assertSame('yardstick_failed_but_admitted', $payload['ncapture_reason_yardstick_failed_but_admitted']);
+        $this->assertSame('recorded', $payload['promotion_status_recorded']);
+        $this->assertSame('legacy_unmanaged', $payload['promotion_status_legacy_unmanaged']);
+        $this->assertSame('blocked', $payload['promotion_status_blocked']);
+        $this->assertSame('active', $payload['evidence_thesis_status_active']);
+        $this->assertSame('archived', $payload['evidence_thesis_status_archived']);
+        $this->assertSame('pending', $payload['composed_arc_status_pending']);
+        $this->assertSame('started', $payload['attempt_state_started']);
+        $this->assertSame('duplicate_attempt', $payload['attempt_reason_duplicate']);
+        $this->assertSame(20, $payload['ncapture_promotion_lifecycle_status_floor_count']);
+    }
+
 }

@@ -4357,6 +4357,40 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: NCapture drill reasons + promotion/lifecycle/attempt status floors —
+     * no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function ncapturePromotionLifecycleStatusFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ncapture_kind_measure_freeze' => AtlasNCaptureDrillService::KIND_MEASURE_FREEZE,
+            'ncapture_cold_start_channel_maxk02' => AtlasNCaptureDrillService::COLD_START_CHANNEL_MAXK02,
+            'ncapture_reason_drill_receipt_incomplete' => AtlasNCaptureDrillService::REASON_DRILL_RECEIPT_INCOMPLETE,
+            'ncapture_reason_admission_via_bypass_forbidden' => AtlasNCaptureDrillService::REASON_ADMISSION_VIA_BYPASS_FORBIDDEN,
+            'ncapture_reason_cold_start_channel_invalid' => AtlasNCaptureDrillService::REASON_COLD_START_CHANNEL_INVALID,
+            'ncapture_reason_capability_spec_violation' => AtlasNCaptureDrillService::REASON_CAPABILITY_SPEC_VIOLATION,
+            'ncapture_reason_yardstick_failed_but_admitted' => AtlasNCaptureDrillService::REASON_YARDSTICK_FAILED_BUT_ADMITTED,
+            'promotion_status_recorded' => PromotionProtocol::STATUS_RECORDED,
+            'promotion_status_managed' => PromotionProtocol::STATUS_MANAGED,
+            'promotion_status_legacy_unmanaged' => PromotionProtocol::STATUS_LEGACY_UNMANAGED,
+            'promotion_status_blocked' => PromotionProtocol::STATUS_BLOCKED,
+            'promotion_state_legacy_unmanaged' => PromotionProtocol::STATE_LEGACY_UNMANAGED,
+            'evidence_thesis_status_active' => EvidenceVisionThesisLifecycle::STATUS_ACTIVE,
+            'evidence_thesis_status_archived' => EvidenceVisionThesisLifecycle::STATUS_ARCHIVED,
+            'evidence_thesis_status_refused' => EvidenceVisionThesisLifecycle::STATUS_REFUSED,
+            'composed_arc_status_pending' => ComposedObraArcLifecycle::STATUS_PENDING,
+            'composed_arc_status_active' => ComposedObraArcLifecycle::STATUS_ACTIVE,
+            'composed_arc_status_archived' => ComposedObraArcLifecycle::STATUS_ARCHIVED,
+            'attempt_state_started' => AttemptLifecycleLedger::STATE_STARTED,
+            'attempt_reason_duplicate' => AttemptLifecycleLedger::REASON_DUPLICATE_ATTEMPT,
+            'ncapture_promotion_lifecycle_status_floor_count' => 20,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -15,6 +15,16 @@ final class EvidenceVisionThesisLifecycle
 
     public const DEFAULT_CONSECUTIVE_WINDOWS = 2;
 
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_ARCHIVED = 'archived';
+
+    public const STATUS_REFUSED = 'refused';
+
+    public const REASON_THESIS_NOT_ACTIVE = 'thesis_not_active';
+
+    public const DEATH_REASON_TTL_EXPIRED = 'ttl_expired';
+
     /** @var array<string,array<string,mixed>> */
     private static array $active = [];
 
@@ -43,7 +53,7 @@ final class EvidenceVisionThesisLifecycle
             if (count(self::$active) >= EvidenceVisionThesisComposer::MAX_THESES) {
                 break;
             }
-            self::$active[$thesisId] = array_merge($thesis, ['status' => 'active', 'archive_receipt' => null]);
+            self::$active[$thesisId] = array_merge($thesis, ['status' => self::STATUS_ACTIVE, 'archive_receipt' => null]);
         }
     }
 
@@ -81,7 +91,7 @@ final class EvidenceVisionThesisLifecycle
     {
         return array_values(array_filter(
             self::$active,
-            static fn (array $thesis): bool => ($thesis['status'] ?? '') === 'active',
+            static fn (array $thesis): bool => ($thesis['status'] ?? '') === self::STATUS_ACTIVE,
         ));
     }
 
@@ -95,8 +105,8 @@ final class EvidenceVisionThesisLifecycle
             return [
                 'schema_version' => self::SCHEMA_VERSION,
                 'thesis_id' => $thesisId,
-                'status' => 'refused',
-                'reason' => 'thesis_not_active',
+                'status' => self::STATUS_REFUSED,
+                'reason' => self::REASON_THESIS_NOT_ACTIVE,
             ];
         }
 
@@ -109,7 +119,7 @@ final class EvidenceVisionThesisLifecycle
             'receipt_hash' => hash('sha256', json_encode([$thesisId, $reason, $thesis['claim'] ?? ''], JSON_UNESCAPED_SLASHES)),
         ];
 
-        $thesis['status'] = 'archived';
+        $thesis['status'] = self::STATUS_ARCHIVED;
         $thesis['archive_receipt'] = $receipt;
         unset(self::$active[$thesisId]);
         self::$archived[] = $thesis;
@@ -117,7 +127,7 @@ final class EvidenceVisionThesisLifecycle
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'thesis_id' => $thesisId,
-            'status' => 'archived',
+            'status' => self::STATUS_ARCHIVED,
             'archive_receipt' => $receipt,
         ];
     }
@@ -139,7 +149,7 @@ final class EvidenceVisionThesisLifecycle
     ): ?string {
         $expiresAt = strtotime(AiValueNormalizer::trimmedStringOrNull($thesis['expires_at'] ?? null) ?? '');
         if ($expiresAt !== false && $nowTs >= $expiresAt) {
-            return 'ttl_expired';
+            return self::DEATH_REASON_TTL_EXPIRED;
         }
 
         $criterion = AiValueNormalizer::arrayOrEmpty($thesis['death_criterion'] ?? null);

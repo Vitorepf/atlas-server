@@ -23,6 +23,18 @@ final class PromotionProtocol
 
     public const STATE_SUSPENDED_PENDING_EVIDENCE = 'suspended_pending_evidence';
 
+    public const STATE_LEGACY_UNMANAGED = 'legacy_unmanaged';
+
+    public const STATUS_RECORDED = 'recorded';
+
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_MANAGED = 'managed';
+
+    public const STATUS_LEGACY_UNMANAGED = 'legacy_unmanaged';
+
+    public const STATUS_BLOCKED = 'blocked';
+
     public const DEFAULT_LEDGER_RELATIVE_PATH = 'app/atlas/evidence/acos-max-promotion-flips.jsonl';
 
     /** @var list<string> */
@@ -172,7 +184,7 @@ final class PromotionProtocol
 
         return [
             'ok' => true,
-            'status' => 'recorded',
+            'status' => self::STATUS_RECORDED,
             'schema_version' => self::SCHEMA,
             'event' => $event,
         ];
@@ -199,7 +211,7 @@ final class PromotionProtocol
 
         return [
             'schema_version' => self::REPORT_SCHEMA,
-            'status' => 'ok',
+            'status' => self::STATUS_OK,
             'protocol_schema_version' => self::SCHEMA,
             'states' => self::STATES,
             'ledger_path' => $this->ledger->path(),
@@ -364,7 +376,7 @@ final class PromotionProtocol
             'family' => strtoupper(AiValueNormalizer::trimmedStringOrNull($entry['family'] ?? null) ?? ''),
             'slice' => AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? '',
             'state' => $state,
-            'status' => 'managed',
+            'status' => self::STATUS_MANAGED,
         ]);
     }
 
@@ -378,7 +390,7 @@ final class PromotionProtocol
         return array_merge($payload, [
             'id' => AiValueNormalizer::trimmedStringOrNull($payload['id'] ?? null) ?? '',
             'family' => strtoupper(AiValueNormalizer::trimmedStringOrNull($payload['family'] ?? null) ?? 'LEGACY'),
-            'status' => 'legacy_unmanaged',
+            'status' => self::STATUS_LEGACY_UNMANAGED,
         ]);
     }
 
@@ -468,7 +480,7 @@ final class PromotionProtocol
     {
         return array_merge([
             'ok' => false,
-            'status' => 'blocked',
+            'status' => self::STATUS_BLOCKED,
             'schema_version' => self::SCHEMA,
             'reason' => $reason,
             'flag_id' => $flagId,
@@ -492,7 +504,7 @@ final class PromotionProtocol
 
         return [
             'id' => $id,
-            'status' => 'managed',
+            'status' => self::STATUS_MANAGED,
             'family' => AiValueNormalizer::trimmedStringOrNull($entry['family'] ?? null) ?? '',
             'slice' => AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? '',
             'state' => $last !== null
@@ -518,9 +530,9 @@ final class PromotionProtocol
     {
         return [
             'id' => AiValueNormalizer::trimmedStringOrNull($entry['id'] ?? null) ?? '',
-            'status' => 'legacy_unmanaged',
+            'status' => self::STATUS_LEGACY_UNMANAGED,
             'family' => AiValueNormalizer::trimmedStringOrNull($entry['family'] ?? null) ?? 'LEGACY',
-            'state' => 'legacy_unmanaged',
+            'state' => self::STATE_LEGACY_UNMANAGED,
             'config_key' => $entry['config_key'] ?? null,
             'env_key' => $entry['env_key'] ?? null,
             'source' => $entry['source'] ?? null,

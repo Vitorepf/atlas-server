@@ -10,8 +10,31 @@ final class AttemptLifecycleLedger
 {
     public const SCHEMA_VERSION = 'atlas.execution.attempt_lifecycle.v1';
 
+    public const STATE_STARTED = 'started';
+
+    public const STATE_COMPLETED = 'completed';
+
+    public const STATE_CRASHED = 'crashed';
+
+    public const STATE_TIMED_OUT = 'timed_out';
+
+    public const STATE_ABANDONED = 'abandoned';
+
     /** @var list<string> */
-    public const TERMINAL_STATES = ['completed', 'crashed', 'timed_out', 'abandoned'];
+    public const TERMINAL_STATES = [
+        self::STATE_COMPLETED,
+        self::STATE_CRASHED,
+        self::STATE_TIMED_OUT,
+        self::STATE_ABANDONED,
+    ];
+
+    public const REASON_TASK_OR_ATTEMPT_UNRESOLVABLE = 'task_or_attempt_unresolvable';
+
+    public const REASON_DUPLICATE_ATTEMPT = 'duplicate_attempt';
+
+    public const REASON_ATTEMPT_MISSING = 'attempt_missing';
+
+    public const REASON_INVALID_TERMINAL_STATE = 'invalid_terminal_state';
 
     /** @var array<string,array<string,mixed>> */
     private array $attempts = [];
@@ -22,16 +45,16 @@ final class AttemptLifecycleLedger
     public function start(string $attemptId, string $taskId, ?int $startedAt = null): array
     {
         if (AiValueNormalizer::trimmedStringOrNull($attemptId) === null || AiValueNormalizer::trimmedStringOrNull($taskId) === null) {
-            return ['accepted' => false, 'reason' => 'task_or_attempt_unresolvable'];
+            return ['accepted' => false, 'reason' => self::REASON_TASK_OR_ATTEMPT_UNRESOLVABLE];
         }
         if (isset($this->attempts[$attemptId])) {
-            return ['accepted' => false, 'reason' => 'duplicate_attempt'];
+            return ['accepted' => false, 'reason' => self::REASON_DUPLICATE_ATTEMPT];
         }
 
         $this->attempts[$attemptId] = [
             'attempt_id' => $attemptId,
             'task_id' => $taskId,
-            'state' => 'started',
+            'state' => self::STATE_STARTED,
             'started_at' => $startedAt ?? time(),
         ];
 
@@ -44,10 +67,10 @@ final class AttemptLifecycleLedger
     public function terminal(string $attemptId, string $state): array
     {
         if (! isset($this->attempts[$attemptId])) {
-            return ['accepted' => false, 'reason' => 'attempt_missing'];
+            return ['accepted' => false, 'reason' => self::REASON_ATTEMPT_MISSING];
         }
         if (! in_array($state, self::TERMINAL_STATES, true)) {
-            return ['accepted' => false, 'reason' => 'invalid_terminal_state'];
+            return ['accepted' => false, 'reason' => self::REASON_INVALID_TERMINAL_STATE];
         }
 
         $this->attempts[$attemptId]['state'] = $state;
@@ -61,8 +84,8 @@ final class AttemptLifecycleLedger
     public function census(int $now, int $ttlSeconds): array
     {
         foreach ($this->attempts as $id => $attempt) {
-            if ($attempt['state'] === 'started' && ($now - (int) (AiValueNormalizer::finiteFloatOrNull($attempt['started_at'] ?? null) ?? 0)) > $ttlSeconds) {
-                $this->attempts[$id]['state'] = 'abandoned';
+            if ($attempt['state'] === self::STATE_STARTED && ($now - (int) (AiValueNormalizer::finiteFloatOrNull($attempt['started_at'] ?? null) ?? 0)) > $ttlSeconds) {
+                $this->attempts[$id]['state'] = self::STATE_ABANDONED;
             }
         }
 
@@ -71,7 +94,7 @@ final class AttemptLifecycleLedger
             'attempts' => $this->attempts,
             'unterminated_count' => count(array_filter(
                 $this->attempts,
-                static fn (array $attempt): bool => $attempt['state'] === 'started',
+                static fn (array $attempt): bool => $attempt['state'] === self::STATE_STARTED,
             )),
             'source' => [
                 'outcome_without_attempt_allowed' => false,

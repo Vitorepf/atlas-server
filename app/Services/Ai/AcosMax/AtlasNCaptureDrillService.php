@@ -43,6 +43,20 @@ final class AtlasNCaptureDrillService
 
     public const DEFAULT_DAYS_BETWEEN_DRILLS_MAX = 180;
 
+    public const KIND_MEASURE_FREEZE = 'measure_freeze';
+
+    public const COLD_START_CHANNEL_MAXK02 = 'maxk02';
+
+    public const REASON_DRILL_RECEIPT_INCOMPLETE = 'drill_receipt_incomplete';
+
+    public const REASON_ADMISSION_VIA_BYPASS_FORBIDDEN = 'admission_via_bypass_forbidden';
+
+    public const REASON_COLD_START_CHANNEL_INVALID = 'cold_start_channel_invalid';
+
+    public const REASON_CAPABILITY_SPEC_VIOLATION = 'capability_spec_violation';
+
+    public const REASON_YARDSTICK_FAILED_BUT_ADMITTED = 'yardstick_failed_but_admitted';
+
     private readonly string $ledgerPath;
 
     public function __construct(?string $ledgerPath = null)
@@ -54,13 +68,13 @@ final class AtlasNCaptureDrillService
     public static function freezePayload(): array
     {
         return [
-            'kind' => 'measure_freeze',
+            'kind' => self::KIND_MEASURE_FREEZE,
             'measure_id' => self::MEASURE_ID,
             'formula' => 'N-Capture Drill: for each installed-but-not-routed engine, publish {time_to_first_routed_task_seconds, time_to_first_proven_real_seconds, hours_of_integration} with denominators; admission only via MAXK-02 cold-start; capability spec ELEV-29s must verify; yardstick = golden v2 + MAXK-01 regret in peek mode.',
             'formula_version' => self::FORMULA_VERSION,
             'thresholds' => [
                 'days_between_drills_max' => self::DEFAULT_DAYS_BETWEEN_DRILLS_MAX,
-                'cold_start_channels_allowed' => ['maxk02'],
+                'cold_start_channels_allowed' => [self::COLD_START_CHANNEL_MAXK02],
                 'bypass_forbidden' => true,
                 'yardstick_required_series' => [
                     'golden_v2',
@@ -236,7 +250,7 @@ final class AtlasNCaptureDrillService
 
         $engineId = AiValueNormalizer::trimmedStringOrNull($drill['engine_id'] ?? null) ?? '';
         if ($engineId === '') {
-            $violations[] = ['field' => 'engine_id', 'reason' => 'drill_receipt_incomplete'];
+            $violations[] = ['field' => 'engine_id', 'reason' => self::REASON_DRILL_RECEIPT_INCOMPLETE];
         }
 
         foreach ([
@@ -250,7 +264,7 @@ final class AtlasNCaptureDrillService
             'admission.bypass',
         ] as $requiredField) {
             if (data_get($drill, $requiredField, '__missing__') === '__missing__') {
-                $violations[] = ['field' => $requiredField, 'reason' => 'drill_receipt_incomplete'];
+                $violations[] = ['field' => $requiredField, 'reason' => self::REASON_DRILL_RECEIPT_INCOMPLETE];
             }
         }
 
@@ -265,16 +279,16 @@ final class AtlasNCaptureDrillService
         $yardstickPassed = (AiValueNormalizer::boolOrNull(data_get($drill, 'yardstick.golden_v2_passed')) ?? false);
 
         if ($admitted && $bypass) {
-            $violations[] = ['field' => 'admission.bypass', 'reason' => 'admission_via_bypass_forbidden'];
+            $violations[] = ['field' => 'admission.bypass', 'reason' => self::REASON_ADMISSION_VIA_BYPASS_FORBIDDEN];
         }
-        if ($admitted && $coldStartVia !== 'maxk02') {
-            $violations[] = ['field' => 'admission.cold_start_via', 'reason' => 'cold_start_channel_invalid'];
+        if ($admitted && $coldStartVia !== self::COLD_START_CHANNEL_MAXK02) {
+            $violations[] = ['field' => 'admission.cold_start_via', 'reason' => self::REASON_COLD_START_CHANNEL_INVALID];
         }
         if ($admitted && ! $capabilityVerified) {
-            $violations[] = ['field' => 'capability_spec.verified', 'reason' => 'capability_spec_violation'];
+            $violations[] = ['field' => 'capability_spec.verified', 'reason' => self::REASON_CAPABILITY_SPEC_VIOLATION];
         }
         if ($admitted && ! $yardstickPassed) {
-            $violations[] = ['field' => 'yardstick.golden_v2_passed', 'reason' => 'yardstick_failed_but_admitted'];
+            $violations[] = ['field' => 'yardstick.golden_v2_passed', 'reason' => self::REASON_YARDSTICK_FAILED_BUT_ADMITTED];
         }
 
         return $violations;

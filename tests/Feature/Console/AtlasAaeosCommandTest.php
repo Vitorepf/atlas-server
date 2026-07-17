@@ -3853,6 +3853,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_ncapture_promotion_lifecycle_status_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-nplsfc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-nplsfc',
+                '--ncapture-promotion-lifecycle-status-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"ncapture_promotion_lifecycle_status_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])
