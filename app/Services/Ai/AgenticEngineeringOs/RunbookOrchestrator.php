@@ -69,8 +69,8 @@ final class RunbookOrchestrator
      */
     public function plan(array $request): array
     {
-        $intent = AiValueNormalizer::trimmedString($request['intent'] ?? '');
-        $intentClass = AiValueNormalizer::trimmedString($request['intent_class'] ?? $this->classify($intent));
+        $intent = AiValueNormalizer::trimmedStringOrNull($request['intent'] ?? null) ?? '';
+        $intentClass = AiValueNormalizer::trimmedStringOrNull($request['intent_class'] ?? null) ?? $this->classify($intent);
         $needsResearch = (bool) ($request['needs_research'] ?? false);
         $needsDebug = (bool) ($request['needs_debug'] ?? false);
 
@@ -122,8 +122,8 @@ final class RunbookOrchestrator
      */
     public function proposeStructuralRedesign(array $request): array
     {
-        $title = AiValueNormalizer::trimmedString($request['title'] ?? '');
-        $limitation = AiValueNormalizer::trimmedString($request['limitation'] ?? '');
+        $title = AiValueNormalizer::trimmedStringOrNull($request['title'] ?? null) ?? '';
+        $limitation = AiValueNormalizer::trimmedStringOrNull($request['limitation'] ?? null) ?? '';
         if ($title === '' || $limitation === '') {
             throw new \InvalidArgumentException('title and limitation are required for structural redesign proposals.');
         }
@@ -134,12 +134,12 @@ final class RunbookOrchestrator
             if (! is_array($change)) {
                 continue;
             }
-            $target = AiValueNormalizer::trimmedString($change['target'] ?? '');
+            $target = AiValueNormalizer::trimmedStringOrNull($change['target'] ?? null) ?? '';
             if (! in_array($target, ['department', 'phase', 'gate'], true)) {
                 continue;
             }
-            $current = AiValueNormalizer::trimmedString($change['current'] ?? '');
-            $proposed = AiValueNormalizer::trimmedString($change['proposed'] ?? '');
+            $current = AiValueNormalizer::trimmedStringOrNull($change['current'] ?? null) ?? '';
+            $proposed = AiValueNormalizer::trimmedStringOrNull($change['proposed'] ?? null) ?? '';
             if ($current === '' || $proposed === '') {
                 continue;
             }
@@ -147,8 +147,7 @@ final class RunbookOrchestrator
                 'target' => $target,
                 'current' => $current,
                 'proposed' => $proposed,
-                'target_doc' => AiValueNormalizer::trimmedString($change['target_doc'] ?? 'atlas-agentic-engineering-os-runbook')
-                    ?: 'atlas-agentic-engineering-os-runbook',
+                'target_doc' => AiValueNormalizer::trimmedStringOrNull($change['target_doc'] ?? null) ?? 'atlas-agentic-engineering-os-runbook',
                 'current_state_snapshot_hash' => hash('sha256', $current),
             ];
         }

@@ -30,6 +30,7 @@ use App\Services\Ai\AcosMax\BeliefCascadeReverificationPlanner;
 use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
 use App\Services\Ai\AcosMax\EvidenceVisionThesisComposer;
 use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
+use App\Services\Ai\AgenticEngineeringOs\AaeosDeferredPhaseDispatcherService;
 use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 use App\Services\Ai\Cognition\ImmuneCalibrationService;
 use App\Services\Ai\Cognition\CognitiveImmuneCheckContract;
@@ -2750,6 +2751,12 @@ final class AtlasUniversalGatesEvaluator
             'destination_classes' => array_keys(AtlasAaeosCognitiveImmuneInputClassifier::DESTINATIONS),
             'destination_class_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::DESTINATIONS),
             'embedding_forbidden_classes' => AtlasAaeosCognitiveImmuneInputClassifier::EMBEDDING_FORBIDDEN_CLASSES,
+            'injection_marker_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::INJECTION_MARKERS),
+            'strategic_marker_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::STRATEGIC_MARKERS),
+            'technical_marker_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::TECHNICAL_MARKERS),
+            'personal_marker_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::PERSONAL_MARKERS),
+            'project_evidence_marker_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::PROJECT_EVIDENCE_MARKERS),
+            'conversation_marker_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::CONVERSATION_MARKERS),
             'veto_propagation_schema' => AtlasAaeosVetoPropagationResolver::SCHEMA_VERSION,
             'repair_loop_auto_escalation_threshold' => AtlasAaeosVetoPropagationResolver::REPAIR_LOOP_AUTO_ESCALATION_THRESHOLD,
             'promotion_eligibility_schema' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::SCHEMA_VERSION,
@@ -2975,6 +2982,33 @@ final class AtlasUniversalGatesEvaluator
             'outcome_envelope_schema' => OutcomeEnvelope::SCHEMA_VERSION,
             'composed_obra_author_engine' => ComposedObraArcComposer::DEFAULT_AUTHOR_ENGINE_ID,
             'composed_obra_judge_engine' => ComposedObraArcComposer::DEFAULT_JUDGE_ENGINE_ID,
+        ];
+    }
+
+    /**
+     * Observe-only AAEOS evidence/maturity/test-execution/deferred floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function aaeosEvidenceMaturityContractObserve(array $input = []): array
+    {
+        return [
+            'test_execution_schema' => AtlasAaeosTestExecutionService::SCHEMA,
+            'test_execution_output_tail_chars' => AtlasAaeosTestExecutionService::OUTPUT_TAIL_CHARS,
+            'evidence_symbol_types' => AtlasAaeosImplementationEvidenceResolver::SYMBOL_TYPES,
+            'evidence_shared_index_key' => AtlasAaeosImplementationEvidenceResolver::SHARED_INDEX_KEY,
+            'evidence_signature_match_types' => AtlasAaeosImplementationEvidenceResolver::SIGNATURE_MATCH_TYPES,
+            'department_maturity_schema' => AtlasAaeosDepartmentMaturityService::SCHEMA_VERSION,
+            'department_maturity_owner' => AtlasAaeosDepartmentMaturityService::OWNER,
+            'department_maturity_department_count' => count(AtlasAaeosDepartmentMaturityService::DEPARTMENTS),
+            'department_maturity_last_evaluation' => AtlasAaeosDepartmentMaturityService::LAST_EVALUATION,
+            'department_maturity_next_due' => AtlasAaeosDepartmentMaturityService::NEXT_EVALUATION_DUE,
+            'deferred_phase_schema' => AaeosDeferredPhaseDispatcherService::SCHEMA_VERSION,
+            'immune_injection_marker_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::INJECTION_MARKERS),
+            'immune_strategic_marker_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::STRATEGIC_MARKERS),
+            'immune_technical_marker_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::TECHNICAL_MARKERS),
         ];
     }
 

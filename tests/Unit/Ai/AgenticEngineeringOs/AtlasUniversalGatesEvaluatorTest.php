@@ -2107,4 +2107,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('cursor-acos-max-multn1702', $payload['composed_obra_author_engine']);
         $this->assertSame('codex-independent-multn1702-judge', $payload['composed_obra_judge_engine']);
     }
+
+    public function test_aaeos_evidence_maturity_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->aaeosEvidenceMaturityContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.test_run_receipt.v1', $payload['test_execution_schema']);
+        $this->assertSame(1600, $payload['test_execution_output_tail_chars']);
+        $this->assertContains('class', $payload['evidence_symbol_types']);
+        $this->assertSame('atlas.aaeos.evidence_resolver.symbol_index', $payload['evidence_shared_index_key']);
+        $this->assertContains('route', $payload['evidence_signature_match_types']);
+        $this->assertSame('atlas.aaeos.department_maturity.v1', $payload['department_maturity_schema']);
+        $this->assertSame('atlas-ai', $payload['department_maturity_owner']);
+        $this->assertGreaterThan(0, $payload['department_maturity_department_count']);
+        $this->assertSame('atlas.aaeos.deferred_phase_dispatch.v1', $payload['deferred_phase_schema']);
+        $this->assertGreaterThan(0, $payload['immune_injection_marker_count']);
+        $this->assertGreaterThan(0, $payload['immune_strategic_marker_count']);
+        $this->assertGreaterThan(0, $payload['immune_technical_marker_count']);
+    }
 }

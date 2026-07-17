@@ -30,7 +30,7 @@ class AtlasAaeosImplementationEvidenceResolver
      * Container key under which the loaded index array is cached scoped-to-the-request, so
      * the many resolver instances one create builds share a single load. Resolver-private.
      */
-    private const SHARED_INDEX_KEY = 'atlas.aaeos.evidence_resolver.symbol_index';
+    public const SHARED_INDEX_KEY = 'atlas.aaeos.evidence_resolver.symbol_index';
 
     /**
      * The symbol_type values for which matchTyped() consults the signature column (routes,
@@ -143,7 +143,7 @@ class AtlasAaeosImplementationEvidenceResolver
     /** Current `memory_limit` in bytes; -1 means unlimited. */
     private function memoryLimitBytes(): int
     {
-        $raw = AiValueNormalizer::trimmedString(ini_get('memory_limit'));
+        $raw = AiValueNormalizer::trimmedStringOrNull(ini_get('memory_limit')) ?? '';
         if ($raw === '' || $raw === '-1') {
             return -1;
         }
@@ -217,7 +217,7 @@ class AtlasAaeosImplementationEvidenceResolver
         foreach ($rows as $row) {
             $type = (string) $row->symbol_type;
             $type = $typePool[$type] ??= $type;
-            $path = AiValueNormalizer::trimmedString($row->file_path ?? '');
+            $path = AiValueNormalizer::trimmedStringOrNull($row->file_path ?? null) ?? '';
             $path = $pathPool[$path] ??= $path;
 
             $name = (string) $row->symbol_name;
@@ -321,7 +321,7 @@ class AtlasAaeosImplementationEvidenceResolver
      */
     public function resolveSymbolFilePaths(string $ref): array
     {
-        $ref = AiValueNormalizer::trimmedString($ref);
+        $ref = AiValueNormalizer::trimmedStringOrNull($ref) ?? '';
         if ($ref === '') {
             return [];
         }
@@ -360,7 +360,7 @@ class AtlasAaeosImplementationEvidenceResolver
      */
     public function resolveTestFilePath(string $ref): ?string
     {
-        $ref = AiValueNormalizer::trimmedString($ref);
+        $ref = AiValueNormalizer::trimmedStringOrNull($ref) ?? '';
         if ($ref === '') {
             return null;
         }
@@ -413,7 +413,7 @@ class AtlasAaeosImplementationEvidenceResolver
      */
     public function resolveTestFqn(string $ref): ?array
     {
-        $ref = AiValueNormalizer::trimmedString($ref);
+        $ref = AiValueNormalizer::trimmedStringOrNull($ref) ?? '';
         if ($ref === '') {
             return null;
         }
@@ -422,8 +422,8 @@ class AtlasAaeosImplementationEvidenceResolver
         $classRef = $ref;
         if (str_contains($ref, '::')) {
             $pos = (int) strrpos($ref, '::');
-            $classRef = AiValueNormalizer::trimmedString(substr($ref, 0, $pos));
-            $method = AiValueNormalizer::trimmedString(substr($ref, $pos + 2));
+            $classRef = AiValueNormalizer::trimmedStringOrNull(substr($ref, 0, $pos)) ?? '';
+            $method = AiValueNormalizer::trimmedStringOrNull(substr($ref, $pos + 2)) ?? '';
             if ($method === '' || $classRef === '') {
                 return null;
             }
@@ -453,7 +453,7 @@ class AtlasAaeosImplementationEvidenceResolver
         if (! str_contains($ref, '::')) {
             return null;
         }
-        $class = AiValueNormalizer::trimmedString(substr($ref, 0, (int) strrpos($ref, '::')));
+        $class = AiValueNormalizer::trimmedStringOrNull(substr($ref, 0, (int) strrpos($ref, '::'))) ?? '';
 
         return $class !== '' ? $class : null;
     }
@@ -465,7 +465,7 @@ class AtlasAaeosImplementationEvidenceResolver
      */
     private function matchTestClassFqn(string $classRef): ?string
     {
-        $classRef = AiValueNormalizer::trimmedString($classRef);
+        $classRef = AiValueNormalizer::trimmedStringOrNull($classRef) ?? '';
         if ($classRef === '' || ! str_contains(AiValueNormalizer::lowerTrimmedString($classRef), 'test')) {
             return null;
         }

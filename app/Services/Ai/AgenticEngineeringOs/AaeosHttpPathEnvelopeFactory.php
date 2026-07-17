@@ -89,10 +89,10 @@ final class AaeosHttpPathEnvelopeFactory
             actor: self::systemActor('aaeos.placement'),
             inputs: ['intent_hash' => $intentHash],
             outputs: [
-                'placement_layer' => AiValueNormalizer::trimmedString($placementResult['placement']['layer'] ?? 'unknown') ?: 'unknown',
-                'placement_domain' => AiValueNormalizer::trimmedString($placementResult['placement']['domain'] ?? 'unknown') ?: 'unknown',
-                'placement_flow' => AiValueNormalizer::trimmedString($placementResult['placement']['flow'] ?? 'unknown') ?: 'unknown',
-                'gate_status' => AiValueNormalizer::trimmedString($placementResult['gate_status'] ?? 'unknown') ?: 'unknown',
+                'placement_layer' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['layer'] ?? null) ?? 'unknown',
+                'placement_domain' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['domain'] ?? null) ?? 'unknown',
+                'placement_flow' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['flow'] ?? null) ?? 'unknown',
+                'gate_status' => AiValueNormalizer::trimmedStringOrNull($placementResult['gate_status'] ?? null) ?? 'unknown',
             ],
             gates: self::binaryGate('placement_decision_feature_path_valid', $placementOk),
             blockers: $placementOk ? [] : self::blockedWhenAsBlockers($placementResult),
@@ -135,9 +135,9 @@ final class AaeosHttpPathEnvelopeFactory
     public function policyGate(string $intentId, string $intentHash, array $data): array
     {
         $assisted = self::assistedExecutionQuality($data);
-        $target = AiValueNormalizer::trimmedString(data_get($assisted, 'route.target', ''));
+        $target = AiValueNormalizer::trimmedStringOrNull(data_get($assisted, 'route.target', null)) ?? '';
         $isDevTarget = $target === 'atlas_dev';
-        $status = AiValueNormalizer::trimmedString($assisted['status'] ?? '');
+        $status = AiValueNormalizer::trimmedStringOrNull($assisted['status'] ?? null) ?? '';
         $allowed = $isDevTarget ? ($status === 'ready_for_assisted_execution') : true;
 
         return $this->handoff->emit(
@@ -163,9 +163,9 @@ final class AaeosHttpPathEnvelopeFactory
     public function riskBand(array $data): string
     {
         $payload = self::requestPayload($data);
-        $intent = AiValueNormalizer::trimmedString(data_get($payload, 'atlas_ai_router.command_intent') ?? '');
-        $routingTask = AiValueNormalizer::trimmedString($payload['routing_task'] ?? '');
-        $flowId = AiValueNormalizer::trimmedString(data_get($payload, 'atlas_ai_router.flow_id') ?? '');
+        $intent = AiValueNormalizer::trimmedStringOrNull(data_get($payload, 'atlas_ai_router.command_intent')) ?? '';
+        $routingTask = AiValueNormalizer::trimmedStringOrNull($payload['routing_task'] ?? null) ?? '';
+        $flowId = AiValueNormalizer::trimmedStringOrNull(data_get($payload, 'atlas_ai_router.flow_id')) ?? '';
 
         if (in_array($intent, ['plan', 'forge', 'obra'], true) || in_array($routingTask, ['plan', 'forge', 'obra'], true)) {
             return self::RISK_BAND_R3_PLUS;
@@ -392,8 +392,8 @@ final class AaeosHttpPathEnvelopeFactory
                 if ($id === null) {
                     continue;
                 }
-                $severity = AiValueNormalizer::trimmedString($blocker['severity'] ?? 'high');
-                $owner = AiValueNormalizer::trimmedString($blocker['owner'] ?? 'atlas-ai');
+                $severity = AiValueNormalizer::trimmedStringOrNull($blocker['severity'] ?? null) ?? 'high';
+                $owner = AiValueNormalizer::trimmedStringOrNull($blocker['owner'] ?? null) ?? 'atlas-ai';
                 $blockers[] = [
                     'id' => $id,
                     'severity' => $severity !== '' ? $severity : 'high',

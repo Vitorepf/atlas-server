@@ -76,7 +76,7 @@ class AtlasAaeosTestExecutionService
         ?string $currentTestFileHash = null,
         ?string $currentImplFilesHash = null,
     ): bool {
-        $capabilityId = AiValueNormalizer::trimmedString($capabilityId);
+        $capabilityId = AiValueNormalizer::trimmedStringOrNull($capabilityId) ?? '';
         if ($capabilityId === '') {
             return false;
         }
@@ -90,8 +90,8 @@ class AtlasAaeosTestExecutionService
                 ->green()
                 ->where('capability_id', $capabilityId);
 
-            if ($testRef !== null && AiValueNormalizer::trimmedString($testRef) !== '') {
-                $query->where('test_ref', AiValueNormalizer::trimmedString($testRef));
+            if ($testRef !== null && (AiValueNormalizer::trimmedStringOrNull($testRef) ?? '') !== '') {
+                $query->where('test_ref', AiValueNormalizer::trimmedStringOrNull($testRef) ?? '');
             }
 
             // No freshness context at all -> the green scope alone decides.
@@ -168,8 +168,8 @@ class AtlasAaeosTestExecutionService
         ?string $testFileHash = null,
         ?string $implFilesHash = null,
     ): array {
-        $capabilityId = AiValueNormalizer::trimmedString($capabilityId);
-        $testRef = AiValueNormalizer::trimmedString($testRef);
+        $capabilityId = AiValueNormalizer::trimmedStringOrNull($capabilityId) ?? '';
+        $testRef = AiValueNormalizer::trimmedStringOrNull($testRef) ?? '';
 
         // FIX 2 — FQN-bound filter. Anchor the run to the resolver's RESOLVED
         // Namespace\Class(::method); a bare fragment that does not resolve to a real
@@ -185,7 +185,7 @@ class AtlasAaeosTestExecutionService
         // every capability. Path-scoped collection keeps mint honest and greenable
         // without restoring the dead loop. Explicit fixture paths still use the
         // plain short-name filter (controlled proof runs outside the index).
-        if ($explicitPath !== null && AiValueNormalizer::trimmedString($explicitPath) !== '' && is_file($explicitPath)) {
+        if ($explicitPath !== null && (AiValueNormalizer::trimmedStringOrNull($explicitPath) ?? '') !== '' && is_file($explicitPath)) {
             $filter = $this->plainFilterForTestRef($testRef);
             $run = $this->runFilter($filter, $explicitPath);
         } else {
@@ -285,7 +285,7 @@ class AtlasAaeosTestExecutionService
             $process = new Process(['git', '-C', base_path(), 'status', '--porcelain']);
             $process->setTimeout(10.0);
             $process->run();
-            $out = AiValueNormalizer::trimmedString($process->getOutput());
+            $out = AiValueNormalizer::trimmedStringOrNull($process->getOutput()) ?? '';
 
             return $out !== '' ? $out : null;
         } catch (Throwable) {
@@ -301,14 +301,14 @@ class AtlasAaeosTestExecutionService
      */
     public function plainFilterForTestRef(string $testRef): string
     {
-        $ref = AiValueNormalizer::trimmedString($testRef);
+        $ref = AiValueNormalizer::trimmedStringOrNull($testRef) ?? '';
         if ($ref === '') {
             return '';
         }
 
         // Class::method -> prefer the method (most specific, cheapest run).
         if (str_contains($ref, '::')) {
-            $method = AiValueNormalizer::trimmedString(substr($ref, (int) strrpos($ref, '::') + 2));
+            $method = AiValueNormalizer::trimmedStringOrNull(substr($ref, (int) strrpos($ref, '::') + 2)) ?? '';
             if ($method !== '') {
                 return $method;
             }
@@ -342,7 +342,7 @@ class AtlasAaeosTestExecutionService
      */
     private function anchoredFilter(array $fqn): string
     {
-        $class = ltrim(AiValueNormalizer::trimmedString($fqn['class']), '\\');
+        $class = ltrim(AiValueNormalizer::trimmedStringOrNull($fqn['class']) ?? '', '\\');
         $classPattern = preg_quote($class, '/');
 
         if (($fqn['method'] ?? null) !== null && $fqn['method'] !== '') {
@@ -377,7 +377,7 @@ class AtlasAaeosTestExecutionService
         $command = [$binary];
         // Positional path arg (when given) lets --filter collect a file outside the
         // configured testsuites — only for explicit fixture-backed proof runs.
-        if ($explicitPath !== null && AiValueNormalizer::trimmedString($explicitPath) !== '' && is_file($explicitPath)) {
+        if ($explicitPath !== null && (AiValueNormalizer::trimmedStringOrNull($explicitPath) ?? '') !== '' && is_file($explicitPath)) {
             $command[] = $explicitPath;
         }
         array_push($command, '--filter', $filter, '--no-coverage');
@@ -453,7 +453,7 @@ class AtlasAaeosTestExecutionService
      */
     private function absoluteTestPath(?string $relativeOrAbsolute): ?string
     {
-        $path = AiValueNormalizer::trimmedString($relativeOrAbsolute);
+        $path = AiValueNormalizer::trimmedStringOrNull($relativeOrAbsolute) ?? '';
         if ($path === '') {
             return null;
         }
@@ -492,7 +492,7 @@ class AtlasAaeosTestExecutionService
             $process = new Process(['git', '-C', base_path(), 'rev-parse', '--short=12', 'HEAD']);
             $process->setTimeout(10.0);
             $process->run();
-            $stamp = AiValueNormalizer::trimmedString($process->getOutput());
+            $stamp = AiValueNormalizer::trimmedStringOrNull($process->getOutput()) ?? '';
 
             return $stamp !== '' ? $stamp : null;
         } catch (Throwable) {
@@ -539,7 +539,7 @@ class AtlasAaeosTestExecutionService
 
     private function tail(string $output): string
     {
-        $output = AiValueNormalizer::trimmedString($output);
+        $output = AiValueNormalizer::trimmedStringOrNull($output) ?? '';
         if (mb_strlen($output) <= self::OUTPUT_TAIL_CHARS) {
             return $output;
         }

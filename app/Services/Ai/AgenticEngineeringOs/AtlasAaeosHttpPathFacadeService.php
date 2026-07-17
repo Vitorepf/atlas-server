@@ -172,11 +172,11 @@ final class AtlasAaeosHttpPathFacadeService
                 $this->incrementCounter(self::TELEMETRY_KEY_BLOCKED);
 
                 $blockedWhen = array_values(array_map(
-                    static fn (array $b): string => AiValueNormalizer::trimmedString($b['id'] ?? ''),
+                    static fn (array $b): string => AiValueNormalizer::trimmedStringOrNull($b['id'] ?? null) ?? '',
                     AiValueNormalizer::arrayOrEmpty($policyEnv['blockers'] ?? null),
                 ));
                 if ($blockedWhen === [] && ($advance['reason'] ?? '') !== '') {
-                    $blockedWhen = [AiValueNormalizer::trimmedString($advance['reason'] ?? '')];
+                    $blockedWhen = [AiValueNormalizer::trimmedStringOrNull($advance['reason'] ?? null) ?? ''];
                 }
 
                 return $this->blockedResult(
@@ -283,7 +283,7 @@ final class AtlasAaeosHttpPathFacadeService
     {
         $text = $data['input_text'] ?? data_get($data, 'payload.prompt') ?? '';
 
-        return is_string($text) ? AiValueNormalizer::trimmedString($text) : '';
+        return is_string($text) ? AiValueNormalizer::trimmedStringOrNull($text) ?? '' : '';
     }
 
     private function hashIntent(string $intentText): string
@@ -350,15 +350,15 @@ final class AtlasAaeosHttpPathFacadeService
             'schema' => 'atlas.aaeos.http_path_request.v1',
             'intent_id' => $intentId,
             'phases_executed' => array_values(array_map(
-                static fn (array $env): string => AiValueNormalizer::trimmedString($env['phase_out'] ?? 'unknown') ?: 'unknown',
+                static fn (array $env): string => AiValueNormalizer::trimmedStringOrNull($env['phase_out'] ?? null) ?? 'unknown',
                 $envelopes,
             )),
             'phases_executed_count' => count($envelopes),
             'placement_decision' => [
-                'gate_status' => AiValueNormalizer::trimmedString($placementResult['gate_status'] ?? 'unknown') ?: 'unknown',
-                'layer' => AiValueNormalizer::trimmedString($placementResult['placement']['layer'] ?? 'unknown') ?: 'unknown',
-                'domain' => AiValueNormalizer::trimmedString($placementResult['placement']['domain'] ?? 'unknown') ?: 'unknown',
-                'flow' => AiValueNormalizer::trimmedString($placementResult['placement']['flow'] ?? 'unknown') ?: 'unknown',
+                'gate_status' => AiValueNormalizer::trimmedStringOrNull($placementResult['gate_status'] ?? null) ?? 'unknown',
+                'layer' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['layer'] ?? null) ?? 'unknown',
+                'domain' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['domain'] ?? null) ?? 'unknown',
+                'flow' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['flow'] ?? null) ?? 'unknown',
                 'requires_ap' => (bool) ($placementResult['placement']['requires_ap'] ?? false),
             ],
             'envelopes' => $envelopes,

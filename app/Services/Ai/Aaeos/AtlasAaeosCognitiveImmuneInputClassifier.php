@@ -61,7 +61,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     /**
      * Text markers that signal an instruction-override / injection attempt.
      */
-    private const INJECTION_MARKERS = [
+    public const INJECTION_MARKERS = [
         'ignore previous',
         'ignore all previous',
         'ignore the previous',
@@ -82,7 +82,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     /**
      * Strong markers for a strategic insight candidate.
      */
-    private const STRATEGIC_MARKERS = [
+    public const STRATEGIC_MARKERS = [
         'estrategia',
         'estrategica',
         'analogia',
@@ -100,7 +100,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     /**
      * Strong markers for a technical learning candidate.
      */
-    private const TECHNICAL_MARKERS = [
+    public const TECHNICAL_MARKERS = [
         'bug',
         'patch',
         'regression',
@@ -117,7 +117,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     /**
      * Strong markers for a personal fact candidate.
      */
-    private const PERSONAL_MARKERS = [
+    public const PERSONAL_MARKERS = [
         'eu prefiro',
         'eu moro',
         'meu aniversario',
@@ -132,7 +132,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     /**
      * Strong markers for project evidence (e.g. "pausar esta funcionando").
      */
-    private const PROJECT_EVIDENCE_MARKERS = [
+    public const PROJECT_EVIDENCE_MARKERS = [
         'esta funcionando',
         ' esta ok',
         'deploy ok',
@@ -147,7 +147,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     /**
      * Markers for a low-value conversational trace.
      */
-    private const CONVERSATION_MARKERS = [
+    public const CONVERSATION_MARKERS = [
         'obrigado',
         'valeu',
         'beleza',
