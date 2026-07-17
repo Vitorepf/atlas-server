@@ -100,8 +100,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     public function classification(string $intentId, string $intentHash, array $data): array
     {
-        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
-        $router = is_array($payload['atlas_ai_router'] ?? null) ? $payload['atlas_ai_router'] : [];
+        $router = self::routerFromData($data);
         $flowId = is_string($router['flow_id'] ?? null) && $router['flow_id'] !== ''
             ? (string) $router['flow_id']
             : 'unknown';
@@ -134,37 +133,11 @@ final class AaeosHttpPathEnvelopeFactory
      */
     public function policyGate(string $intentId, string $intentHash, array $data): array
     {
-        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
-        $assisted = is_array($payload['atlas_ai_assisted_execution_quality'] ?? null)
-            ? $payload['atlas_ai_assisted_execution_quality']
-            : null;
-
-        $target = is_array($assisted) ? ((string) data_get($assisted, 'route.target')) : '';
+        $assisted = self::assistedExecutionQuality($data);
+        $target = (string) data_get($assisted, 'route.target', '');
         $isDevTarget = $target === 'atlas_dev';
-        $status = is_array($assisted) ? (string) ($assisted['status'] ?? '') : '';
+        $status = (string) ($assisted['status'] ?? '');
         $allowed = $isDevTarget ? ($status === 'ready_for_assisted_execution') : true;
-
-        $blockers = [];
-        if ($isDevTarget && ! $allowed) {
-            foreach ((array) ($assisted['blockers'] ?? []) as $blocker) {
-                if (is_array($blocker) && isset($blocker['id'])) {
-                    $blockers[] = [
-                        'id' => (string) $blocker['id'],
-                        'severity' => (string) ($blocker['severity'] ?? 'high'),
-                        'owner' => (string) ($blocker['owner'] ?? 'atlas-ai'),
-                    ];
-                } elseif (is_string($blocker) && $blocker !== '') {
-                    $blockers[] = ['id' => $blocker, 'severity' => 'high', 'owner' => 'atlas-ai'];
-                }
-            }
-            if ($blockers === []) {
-                $blockers[] = [
-                    'id' => 'assisted_execution_needs_context',
-                    'severity' => 'high',
-                    'owner' => 'atlas-ai',
-                ];
-            }
-        }
 
         return $this->handoff->emit(
             intentId: $intentId,
@@ -178,7 +151,7 @@ final class AaeosHttpPathEnvelopeFactory
                 'policy_allowed' => $allowed ? 'yes' : 'no',
             ],
             gates: self::binaryGate('policy_decision_allowed_true', $allowed),
-            blockers: $blockers,
+            blockers: self::assistedExecutionBlockers($assisted, $isDevTarget, $allowed),
         );
     }
 
@@ -188,7 +161,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     public function riskBand(array $data): string
     {
-        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
+        $payload = self::requestPayload($data);
         $intent = (string) (data_get($payload, 'atlas_ai_router.command_intent') ?? '');
         $routingTask = (string) ($payload['routing_task'] ?? '');
         $flowId = (string) (data_get($payload, 'atlas_ai_router.flow_id') ?? '');
@@ -363,6 +336,73 @@ final class AaeosHttpPathEnvelopeFactory
             'passed' => $ok ? [$gate] : [],
             'blocked' => $ok ? [] : [$gate],
         ];
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private static function requestPayload(array $data): array
+    {
+        return is_array($data['payload'] ?? null) ? $data['payload'] : [];
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private static function routerFromData(array $data): array
+    {
+        $payload = self::requestPayload($data);
+
+        return is_array($payload['atlas_ai_router'] ?? null) ? $payload['atlas_ai_router'] : [];
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private static function assistedExecutionQuality(array $data): array
+    {
+        $payload = self::requestPayload($data);
+
+        return is_array($payload['atlas_ai_assisted_execution_quality'] ?? null)
+            ? $payload['atlas_ai_assisted_execution_quality']
+            : [];
+    }
+
+    /**
+     * @param  array<string,mixed>  $assisted
+     * @return list<array{id:string,severity:string,owner:string}>
+     */
+    private static function assistedExecutionBlockers(array $assisted, bool $isDevTarget, bool $allowed): array
+    {
+        if (! $isDevTarget || $allowed) {
+            return [];
+        }
+
+        $blockers = [];
+        foreach ((array) ($assisted['blockers'] ?? []) as $blocker) {
+            if (is_array($blocker) && isset($blocker['id'])) {
+                $blockers[] = [
+                    'id' => (string) $blocker['id'],
+                    'severity' => (string) ($blocker['severity'] ?? 'high'),
+                    'owner' => (string) ($blocker['owner'] ?? 'atlas-ai'),
+                ];
+            } elseif (is_string($blocker) && $blocker !== '') {
+                $blockers[] = ['id' => $blocker, 'severity' => 'high', 'owner' => 'atlas-ai'];
+            }
+        }
+
+        if ($blockers === []) {
+            $blockers[] = [
+                'id' => 'assisted_execution_needs_context',
+                'severity' => 'high',
+                'owner' => 'atlas-ai',
+            ];
+        }
+
+        return $blockers;
     }
 
     /**
