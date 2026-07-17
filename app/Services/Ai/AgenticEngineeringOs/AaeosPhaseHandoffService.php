@@ -38,6 +38,19 @@ final class AaeosPhaseHandoffService
     public const FIELD_ID = 'id';
     public const FIELD_STATUS = 'status';
     public const FIELD_REASON = 'reason';
+    public const FIELD_INTENT_ID = 'intent_id';
+    public const FIELD_PHASE_IN = 'phase_in';
+    public const FIELD_PHASE_OUT = 'phase_out';
+    public const FIELD_INPUTS = 'inputs';
+    public const FIELD_OUTPUTS = 'outputs';
+    public const FIELD_EVIDENCE_HASHES = 'evidence_hashes';
+    public const FIELD_BLOCKERS = 'blockers';
+    public const FIELD_OPERATOR_SIGNATURE = 'operator_signature';
+    public const FIELD_STARTED_AT = 'started_at';
+    public const FIELD_ENDED_AT = 'ended_at';
+    public const FIELD_NEXT_PHASE = 'next_phase';
+    public const FIELD_SKIP_REASON = 'skip_reason';
+    public const FIELD_AUTONOMY_LEVEL = 'autonomy_level';
 
     public static function requireIntentId(string $intentId): void
     {
@@ -189,25 +202,25 @@ final class AaeosPhaseHandoffService
 
         return [
             self::FIELD_SCHEMA => self::SCHEMA_VERSION,
-            'intent_id' => $intentId,
-            'phase_in' => $phaseIn,
-            'phase_out' => $phaseOut,
+            self::FIELD_INTENT_ID => $intentId,
+            self::FIELD_PHASE_IN => $phaseIn,
+            self::FIELD_PHASE_OUT => $phaseOut,
             self::FIELD_ACTOR => $actor,
-            'inputs' => $inputs,
-            'outputs' => $outputs,
-            'evidence_hashes' => array_values($evidenceHashes),
+            self::FIELD_INPUTS => $inputs,
+            self::FIELD_OUTPUTS => $outputs,
+            self::FIELD_EVIDENCE_HASHES => array_values($evidenceHashes),
             self::FIELD_GATES => [
                 self::FIELD_REQUIRED => array_values(AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_REQUIRED] ?? self::PHASE_GATES_MAP[$phaseOut] ?? null)),
                 self::FIELD_PASSED => array_values(AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_PASSED] ?? null)),
                 self::FIELD_BLOCKED => array_values(AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_BLOCKED] ?? null)),
             ],
-            'blockers' => array_values(AiValueNormalizer::arrayOrEmpty($blockers)),
-            'operator_signature' => $operatorSignature,
-            'started_at' => $startedAt,
-            'ended_at' => $endedAt,
-            'next_phase' => $nextPhase,
-            'skip_reason' => $skipReason,
-            'autonomy_level' => $autonomyLevel,
+            self::FIELD_BLOCKERS => array_values(AiValueNormalizer::arrayOrEmpty($blockers)),
+            self::FIELD_OPERATOR_SIGNATURE => $operatorSignature,
+            self::FIELD_STARTED_AT => $startedAt,
+            self::FIELD_ENDED_AT => $endedAt,
+            self::FIELD_NEXT_PHASE => $nextPhase,
+            self::FIELD_SKIP_REASON => $skipReason,
+            self::FIELD_AUTONOMY_LEVEL => $autonomyLevel,
         ];
     }
 
@@ -275,21 +288,21 @@ final class AaeosPhaseHandoffService
 
         return [
             self::FIELD_SCHEMA => self::SCHEMA_VERSION,
-            'intent_id' => $intentId,
-            'phase_in' => $phase,
-            'phase_out' => $phase,
+            self::FIELD_INTENT_ID => $intentId,
+            self::FIELD_PHASE_IN => $phase,
+            self::FIELD_PHASE_OUT => $phase,
             self::FIELD_ACTOR => [self::FIELD_KIND => 'system', self::FIELD_ID => 'aaeos.phase_skip', 'provider' => null],
-            'inputs' => [],
-            'outputs' => [],
-            'evidence_hashes' => [],
+            self::FIELD_INPUTS => [],
+            self::FIELD_OUTPUTS => [],
+            self::FIELD_EVIDENCE_HASHES => [],
             self::FIELD_GATES => [self::FIELD_REQUIRED => [], self::FIELD_PASSED => [], self::FIELD_BLOCKED => []],
-            'blockers' => [],
-            'operator_signature' => null,
-            'started_at' => gmdate('c'),
-            'ended_at' => gmdate('c'),
-            'next_phase' => $this->canonicalNextPhase($phase),
-            'skip_reason' => $receiptId.': '.$reason,
-            'autonomy_level' => $autonomyLevel,
+            self::FIELD_BLOCKERS => [],
+            self::FIELD_OPERATOR_SIGNATURE => null,
+            self::FIELD_STARTED_AT => gmdate('c'),
+            self::FIELD_ENDED_AT => gmdate('c'),
+            self::FIELD_NEXT_PHASE => $this->canonicalNextPhase($phase),
+            self::FIELD_SKIP_REASON => $receiptId.': '.$reason,
+            self::FIELD_AUTONOMY_LEVEL => $autonomyLevel,
         ];
     }
 

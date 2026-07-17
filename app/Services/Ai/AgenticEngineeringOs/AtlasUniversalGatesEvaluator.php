@@ -5829,6 +5829,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function phaseObraBetsFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'phase_field_intent_id' => AaeosPhaseHandoffService::FIELD_INTENT_ID,
+            'phase_field_phase_in' => AaeosPhaseHandoffService::FIELD_PHASE_IN,
+            'phase_field_phase_out' => AaeosPhaseHandoffService::FIELD_PHASE_OUT,
+            'phase_field_evidence_hashes' => AaeosPhaseHandoffService::FIELD_EVIDENCE_HASHES,
+            'phase_field_operator_signature' => AaeosPhaseHandoffService::FIELD_OPERATOR_SIGNATURE,
+            'phase_field_next_phase' => AaeosPhaseHandoffService::FIELD_NEXT_PHASE,
+            'obra_field_schema_version' => ComposedObraArcComposer::FIELD_SCHEMA_VERSION,
+            'obra_field_composed' => ComposedObraArcComposer::FIELD_COMPOSED,
+            'obra_field_arcs' => ComposedObraArcComposer::FIELD_ARCS,
+            'obra_field_arc_count' => ComposedObraArcComposer::FIELD_ARC_COUNT,
+            'obra_field_author_engine_id' => ComposedObraArcComposer::FIELD_AUTHOR_ENGINE_ID,
+            'bets_field_schema_version' => ExploratoryBetsPortfolio::FIELD_SCHEMA_VERSION,
+            'bets_field_path_weight_multiplier' => ExploratoryBetsPortfolio::FIELD_PATH_WEIGHT_MULTIPLIER,
+            'bets_field_originated_candidates' => ExploratoryBetsPortfolio::FIELD_ORIGINATED_CANDIDATES,
+            'bets_field_evaluated_bets' => ExploratoryBetsPortfolio::FIELD_EVALUATED_BETS,
+            'bets_field_decisions' => ExploratoryBetsPortfolio::FIELD_DECISIONS,
+            'bets_field_causal_effect' => ExploratoryBetsPortfolio::FIELD_CAUSAL_EFFECT,
+            'phase_obra_bets_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

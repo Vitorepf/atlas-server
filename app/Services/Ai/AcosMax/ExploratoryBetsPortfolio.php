@@ -36,6 +36,18 @@ final class ExploratoryBetsPortfolio
     public const FIELD_BETS = 'bets';
     public const FIELD_K = 'k';
     public const FIELD_WINDOW_DAYS = 'window_days';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_PATH_WEIGHT_MULTIPLIER = 'path_weight_multiplier';
+    public const FIELD_ORIGINATED_CANDIDATES = 'originated_candidates';
+    public const FIELD_EVALUATED_BETS = 'evaluated_bets';
+    public const FIELD_DECISIONS = 'decisions';
+    public const FIELD_RECEIPTS = 'receipts';
+    public const FIELD_SUSPENSION_UPDATES = 'suspension_updates';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_CAUSAL_EFFECT = 'causal_effect';
+    public const FIELD_FROM_STATE = 'from_state';
+    public const FIELD_TO_STATE = 'to_state';
+    public const FIELD_CANDIDATE_ID = 'candidate_id';
 
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
 
@@ -73,14 +85,14 @@ final class ExploratoryBetsPortfolio
         $source = self::source();
         if (($context[self::FIELD_ENABLED] ?? false) !== true) {
             return [
-                'schema_version' => self::SCHEMA_VERSION,
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
                 self::FIELD_STATUS => self::STATUS_FLAG_DISABLED,
-                'originated_candidates' => $originatedCandidates,
-                'evaluated_bets' => [],
-                'decisions' => [],
-                'receipts' => [],
-                'suspension_updates' => [],
-                'source' => $source,
+                self::FIELD_ORIGINATED_CANDIDATES => $originatedCandidates,
+                self::FIELD_EVALUATED_BETS => [],
+                self::FIELD_DECISIONS => [],
+                self::FIELD_RECEIPTS => [],
+                self::FIELD_SUSPENSION_UPDATES => [],
+                self::FIELD_SOURCE => $source,
             ];
         }
 
@@ -115,14 +127,14 @@ final class ExploratoryBetsPortfolio
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_STATUS => $bets === [] ? self::STATUS_NO_ELIGIBLE_BETS : self::STATUS_OK,
-            'originated_candidates' => $originatedCandidates,
-            'evaluated_bets' => $bets,
-            'decisions' => $decisions,
-            'receipts' => $receipts,
-            'suspension_updates' => $suspensionUpdates,
-            'source' => $source,
+            self::FIELD_ORIGINATED_CANDIDATES => $originatedCandidates,
+            self::FIELD_EVALUATED_BETS => $bets,
+            self::FIELD_DECISIONS => $decisions,
+            self::FIELD_RECEIPTS => $receipts,
+            self::FIELD_SUSPENSION_UPDATES => $suspensionUpdates,
+            self::FIELD_SOURCE => $source,
         ];
     }
 
@@ -164,9 +176,9 @@ final class ExploratoryBetsPortfolio
         $path = AiValueNormalizer::trimmedStringOrNull($bet[self::FIELD_PATH] ?? null) ?? '';
         $base = [
             self::FIELD_PATH => $path,
-            'candidate_id' => AiValueNormalizer::trimmedStringOrNull($bet['id'] ?? null) ?? $path,
-            'causal_effect' => $effect,
-            'path_weight_multiplier' => 1.0,
+            self::FIELD_CANDIDATE_ID => AiValueNormalizer::trimmedStringOrNull($bet['id'] ?? null) ?? $path,
+            self::FIELD_CAUSAL_EFFECT => $effect,
+            self::FIELD_PATH_WEIGHT_MULTIPLIER => 1.0,
         ];
 
         if (($effect['admit_compounding'] ?? false) === true) {
@@ -176,14 +188,14 @@ final class ExploratoryBetsPortfolio
             $decision = array_merge($base, [
                 self::FIELD_ACTION => $action,
                 self::FIELD_STATE => self::STATE_ACTIVE,
-                'path_weight_multiplier' => self::DOUBLE_DOWN_MULTIPLIER,
+                self::FIELD_PATH_WEIGHT_MULTIPLIER => self::DOUBLE_DOWN_MULTIPLIER,
                 self::FIELD_BASIS => $action === self::ACTION_RESUME_AND_DOUBLE_DOWN ? self::BASIS_EVIDENCE_TURNED_POSITIVE : self::BASIS_POSITIVE_CAUSAL_EFFECT,
             ]);
             if ($action === self::ACTION_RESUME_AND_DOUBLE_DOWN) {
                 $decision['suspension_update'] = [
                     self::FIELD_PATH => $path,
-                    'from_state' => PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE,
-                    'to_state' => self::STATE_ACTIVE,
+                    self::FIELD_FROM_STATE => PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE,
+                    self::FIELD_TO_STATE => self::STATE_ACTIVE,
                     self::FIELD_BASIS => self::BASIS_EVIDENCE_TURNED_POSITIVE,
                 ];
             }
@@ -198,8 +210,8 @@ final class ExploratoryBetsPortfolio
                 self::FIELD_BASIS => self::BASIS_PROVEN_NEGATIVE_EFFECT,
                 'suspension_update' => [
                     self::FIELD_PATH => $path,
-                    'from_state' => $suspendedState ?? self::STATE_EXPLORING,
-                    'to_state' => PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE,
+                    self::FIELD_FROM_STATE => $suspendedState ?? self::STATE_EXPLORING,
+                    self::FIELD_TO_STATE => PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE,
                     self::FIELD_BASIS => self::BASIS_PROVEN_NEGATIVE_EFFECT,
                 ],
             ]);
@@ -230,18 +242,18 @@ final class ExploratoryBetsPortfolio
     private static function receipt(array $decision, array $effect, int $k, string $windowId, int $windowDays): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'decision_kind' => self::DECISION_KIND_CONTINUATION_GATE,
             self::FIELD_PATH => AiValueNormalizer::trimmedStringOrNull($decision[self::FIELD_PATH] ?? null) ?? '',
             self::FIELD_ACTION => AiValueNormalizer::trimmedStringOrNull($decision[self::FIELD_ACTION] ?? null) ?? '',
             self::FIELD_STATE => AiValueNormalizer::trimmedStringOrNull($decision[self::FIELD_STATE] ?? null) ?? '',
             self::FIELD_BASIS => AiValueNormalizer::trimmedStringOrNull($decision[self::FIELD_BASIS] ?? null) ?? '',
-            'path_weight_multiplier' => AiValueNormalizer::finiteFloatOrNull($decision['path_weight_multiplier'] ?? null) ?? 0.0,
+            self::FIELD_PATH_WEIGHT_MULTIPLIER => AiValueNormalizer::finiteFloatOrNull($decision[self::FIELD_PATH_WEIGHT_MULTIPLIER] ?? null) ?? 0.0,
             'window_id' => $windowId,
             self::FIELD_WINDOW_DAYS => $windowDays,
             self::FIELD_K => $k,
             'min_n' => self::MIN_N,
-            'causal_effect' => $effect,
+            self::FIELD_CAUSAL_EFFECT => $effect,
         ];
     }
 

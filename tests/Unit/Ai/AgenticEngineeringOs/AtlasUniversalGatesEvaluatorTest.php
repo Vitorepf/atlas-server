@@ -4217,4 +4217,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['esp09_lote2_hmac_floor_count']);
     }
 
+    public function test_phase_obra_bets_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->phaseObraBetsFloorsContractObserve([]);
+
+        $this->assertSame('intent_id', $payload['phase_field_intent_id']);
+        $this->assertSame('phase_in', $payload['phase_field_phase_in']);
+        $this->assertSame('phase_out', $payload['phase_field_phase_out']);
+        $this->assertSame('evidence_hashes', $payload['phase_field_evidence_hashes']);
+        $this->assertSame('operator_signature', $payload['phase_field_operator_signature']);
+        $this->assertSame('next_phase', $payload['phase_field_next_phase']);
+        $this->assertSame('schema_version', $payload['obra_field_schema_version']);
+        $this->assertSame('composed', $payload['obra_field_composed']);
+        $this->assertSame('arcs', $payload['obra_field_arcs']);
+        $this->assertSame('arc_count', $payload['obra_field_arc_count']);
+        $this->assertSame('author_engine_id', $payload['obra_field_author_engine_id']);
+        $this->assertSame('schema_version', $payload['bets_field_schema_version']);
+        $this->assertSame('path_weight_multiplier', $payload['bets_field_path_weight_multiplier']);
+        $this->assertSame('originated_candidates', $payload['bets_field_originated_candidates']);
+        $this->assertSame('evaluated_bets', $payload['bets_field_evaluated_bets']);
+        $this->assertSame('decisions', $payload['bets_field_decisions']);
+        $this->assertSame('causal_effect', $payload['bets_field_causal_effect']);
+        $this->assertSame(17, $payload['phase_obra_bets_floor_count']);
+    }
+
 }
