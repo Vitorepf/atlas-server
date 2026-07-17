@@ -18,6 +18,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasResourceBudgetService
 {
+    public const SCHEMA = 'atlas.resource_budget.v1';
+
     /** @var array<string,mixed> */
     private array $budget;
 
@@ -63,7 +65,7 @@ final class AtlasResourceBudgetService
             if (! is_array($component)) {
                 continue;
             }
-            $name = AiValueNormalizer::trimmedString($component['name'] ?? '');
+            $name = AiValueNormalizer::trimmedStringOrNull($component['name'] ?? null) ?? '';
             if ($name === '') {
                 continue;
             }
@@ -87,14 +89,14 @@ final class AtlasResourceBudgetService
 
             $rows[] = [
                 'name' => $name,
-                'purpose' => AiValueNormalizer::trimmedString($component['purpose'] ?? ''),
+                'purpose' => AiValueNormalizer::trimmedStringOrNull($component['purpose'] ?? null) ?? '',
                 'ram_cap_mb' => $ramCap,
                 'ram_actual_mb' => $ramActual,
                 'disk_cap_mb' => $diskCap,
                 'disk_actual_mb' => $diskActual,
-                'cpu_share' => AiValueNormalizer::trimmedString($component['cpu_share'] ?? 'shared') ?: 'shared',
+                'cpu_share' => AiValueNormalizer::trimmedStringOrNull($component['cpu_share'] ?? null) ?? 'shared',
                 'status' => $componentStatus,
-                'probe_hint' => AiValueNormalizer::trimmedString($component['probe_hint'] ?? ''),
+                'probe_hint' => AiValueNormalizer::trimmedStringOrNull($component['probe_hint'] ?? null) ?? '',
             ];
         }
 
@@ -113,7 +115,7 @@ final class AtlasResourceBudgetService
         }
 
         return [
-            'schema_version' => (string) ($this->budget['schema_version'] ?? 'atlas.resource_budget.v1'),
+            'schema_version' => (string) ($this->budget['schema_version'] ?? self::SCHEMA),
             'host_ram_gib' => $hostGib,
             'engine_floor_gib' => $engineFloorGib,
             'total_ram_cap_mb' => $totalRamCap,

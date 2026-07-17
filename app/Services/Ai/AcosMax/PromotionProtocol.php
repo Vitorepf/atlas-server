@@ -389,7 +389,7 @@ final class PromotionProtocol
     {
         $missing = [];
         foreach (self::REQUIRED_FIELDS as $field) {
-            if (AiValueNormalizer::trimmedString($entry[$field] ?? '') === '') {
+            if ((AiValueNormalizer::trimmedStringOrNull($entry[$field] ?? null) ?? '') === '') {
                 $missing[] = $field;
             }
         }
@@ -403,8 +403,8 @@ final class PromotionProtocol
      */
     private function observeChallenger(array $context): ?array
     {
-        $author = AiValueNormalizer::trimmedString($context['author_engine_id'] ?? '');
-        $challenger = AiValueNormalizer::trimmedString($context['challenger_engine_id'] ?? '');
+        $author = AiValueNormalizer::trimmedStringOrNull($context['author_engine_id'] ?? null) ?? '';
+        $challenger = AiValueNormalizer::trimmedStringOrNull($context['challenger_engine_id'] ?? null) ?? '';
         if ($author === '' || $challenger === '') {
             return null;
         }

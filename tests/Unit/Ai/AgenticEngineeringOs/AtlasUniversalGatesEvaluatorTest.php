@@ -2063,4 +2063,27 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertIsArray($payload['teto10_band_rank']);
         $this->assertNotEmpty($payload['teto10_band_rank']);
     }
+
+    public function test_ragx_choreography_budget_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->ragxChoreographyBudgetContractObserve([]);
+
+        $this->assertSame('atlas.acos_max.ragx_chain_mechanisms.v1', $payload['ragx_schema']);
+        $this->assertSame('atlas.acos_max.ragx_ab_registration.v1', $payload['ragx_ab_schema']);
+        $this->assertSame('atlas.acos_max.ragx10_raptor_lite.v1', $payload['ragx_raptor_schema']);
+        $this->assertSame('atlas.acos_max.maxd05_louvain_chunks.v1', $payload['ragx_louvain_schema']);
+        $this->assertSame('atlas.aaeos.cross_dept.handoff.v1', $payload['choreography_handoff_schema']);
+        $this->assertSame(10, $payload['choreography_veto_sla_seconds']);
+        $this->assertSame(3, $payload['choreography_repair_max_iterations']);
+        $this->assertContains('veto', $payload['choreography_handoff_kinds']);
+        $this->assertArrayHasKey('security', $payload['choreography_veto_rules']);
+        $this->assertSame(4, $payload['choreography_veto_rule_count']);
+        $this->assertSame('atlas.resource_budget.v1', $payload['resource_budget_schema']);
+        $this->assertSame('atlas.originator.exploratory_bets_portfolio.v1', $payload['exploratory_bets_schema']);
+        $this->assertSame(3, $payload['exploratory_bets_default_k']);
+        $this->assertSame(5, $payload['exploratory_bets_min_n']);
+        $this->assertSame('atlas.acos.promotion_protocol.v1', $payload['promotion_protocol_schema']);
+        $this->assertContains('shadow', $payload['promotion_protocol_states']);
+        $this->assertSame('atlas.cognition.cognitive_immune_check.v1', $payload['cognitive_immune_check_schema']);
+    }
 }

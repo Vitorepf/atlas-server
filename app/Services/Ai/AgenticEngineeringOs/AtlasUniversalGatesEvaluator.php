@@ -2918,6 +2918,36 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only RAGX + cross-dept choreography + resource-budget floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function ragxChoreographyBudgetContractObserve(array $input = []): array
+    {
+        return [
+            'ragx_schema' => RagxChainMechanismService::SCHEMA,
+            'ragx_ab_schema' => RagxChainMechanismService::AB_SCHEMA,
+            'ragx_raptor_schema' => RagxChainMechanismService::RAPTOR_SCHEMA,
+            'ragx_louvain_schema' => RagxChainMechanismService::LOUVAIN_SCHEMA,
+            'choreography_handoff_schema' => AtlasCrossDepartmentChoreographyService::HANDOFF_SCHEMA,
+            'choreography_veto_sla_seconds' => AtlasCrossDepartmentChoreographyService::VETO_SLA_SECONDS,
+            'choreography_repair_max_iterations' => AtlasCrossDepartmentChoreographyService::REPAIR_MAX_ITERATIONS,
+            'choreography_handoff_kinds' => AtlasCrossDepartmentChoreographyService::HANDOFF_KINDS,
+            'choreography_veto_rules' => AtlasCrossDepartmentChoreographyService::VETO_RULES,
+            'choreography_veto_rule_count' => count(AtlasCrossDepartmentChoreographyService::VETO_RULES),
+            'resource_budget_schema' => AtlasResourceBudgetService::SCHEMA,
+            'exploratory_bets_schema' => ExploratoryBetsPortfolio::SCHEMA_VERSION,
+            'exploratory_bets_default_k' => ExploratoryBetsPortfolio::DEFAULT_K,
+            'exploratory_bets_min_n' => ExploratoryBetsPortfolio::MIN_N,
+            'promotion_protocol_schema' => PromotionProtocol::SCHEMA,
+            'promotion_protocol_states' => PromotionProtocol::STATES,
+            'cognitive_immune_check_schema' => CognitiveImmuneCheckContract::SCHEMA,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

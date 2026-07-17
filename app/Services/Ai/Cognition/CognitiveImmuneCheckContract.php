@@ -80,18 +80,18 @@ final class CognitiveImmuneCheckContract
         }
 
         $targetPaths = array_values(array_filter(
-            array_map(static fn ($path): string => AiValueNormalizer::trimmedString($path), AiValueNormalizer::arrayOrEmpty($input['target_paths'] ?? null)),
+            array_map(static fn ($path): string => AiValueNormalizer::trimmedStringOrNull($path) ?? '', AiValueNormalizer::arrayOrEmpty($input['target_paths'] ?? null)),
             static fn (string $path): bool => $path !== '',
         ));
 
         $blockers = array_values(array_filter(
-            array_map(static fn ($blocker): string => AiValueNormalizer::trimmedString($blocker), AiValueNormalizer::arrayOrEmpty($input['blockers'] ?? null)),
+            array_map(static fn ($blocker): string => AiValueNormalizer::trimmedStringOrNull($blocker) ?? '', AiValueNormalizer::arrayOrEmpty($input['blockers'] ?? null)),
             static fn (string $blocker): bool => $blocker !== '',
         ));
 
         return new self(
-            findingId: AiValueNormalizer::trimmedString($input['finding_id'] ?? ''),
-            decisionSurface: AiValueNormalizer::trimmedString($input['decision_surface'] ?? 'autonomous_engineering'),
+            findingId: AiValueNormalizer::trimmedStringOrNull($input['finding_id'] ?? null) ?? '',
+            decisionSurface: AiValueNormalizer::trimmedStringOrNull($input['decision_surface'] ?? null) ?? 'autonomous_engineering',
             targetPaths: $targetPaths,
             gateStatuses: $gateStatuses,
             checkCategories: self::CHECK_CATEGORIES,

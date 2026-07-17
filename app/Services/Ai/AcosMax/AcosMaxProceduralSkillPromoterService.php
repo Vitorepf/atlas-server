@@ -33,7 +33,7 @@ final class AcosMaxProceduralSkillPromoterService
 
         $candidates = [];
         foreach ($cadence as $row) {
-            $playbook = $ledger->retrieve(AiValueNormalizer::trimmedString($row['task_category'] ?? ''));
+            $playbook = $ledger->retrieve(AiValueNormalizer::trimmedStringOrNull($row['task_category'] ?? null) ?? '');
             if ($playbook === null) {
                 continue;
             }
@@ -157,11 +157,11 @@ final class AcosMaxProceduralSkillPromoterService
     /** @param  array<string,mixed>  $candidate */
     private function enqueueCandidate(array $candidate): array
     {
-        $candidateHash = AiValueNormalizer::trimmedString($candidate['candidate_hash'] ?? '');
-        $taskCategory = AiValueNormalizer::trimmedString($candidate['task_category'] ?? '');
+        $candidateHash = AiValueNormalizer::trimmedStringOrNull($candidate['candidate_hash'] ?? null) ?? '';
+        $taskCategory = AiValueNormalizer::trimmedStringOrNull($candidate['task_category'] ?? null) ?? '';
         $evidenceRefs = [
             'procedural_playbook:'.hash('sha256', $taskCategory),
-            'multj04:case_count:'.AiValueNormalizer::trimmedString($candidate['case_count'] ?? 0),
+            'multj04:case_count:'.(AiValueNormalizer::trimmedStringOrNull($candidate['case_count'] ?? null) ?? (string) ($candidate['case_count'] ?? 0)),
         ];
 
         $row = AiLearningCandidate::query()->firstOrCreate(
@@ -200,9 +200,9 @@ final class AcosMaxProceduralSkillPromoterService
         );
 
         return [
-            'candidate_id' => AiValueNormalizer::trimmedString($row->id),
+            'candidate_id' => AiValueNormalizer::trimmedStringOrNull($row->id) ?? '',
             'candidate_hash' => $candidateHash,
-            'skill_name' => AiValueNormalizer::trimmedString($candidate['skill_name'] ?? ''),
+            'skill_name' => AiValueNormalizer::trimmedStringOrNull($candidate['skill_name'] ?? null) ?? '',
             'promotion_allowed' => false,
             'created' => $row->wasRecentlyCreated,
         ];
@@ -215,7 +215,7 @@ final class AcosMaxProceduralSkillPromoterService
 
     private function skillName(string $taskCategory): string
     {
-        $slug = trim(AiValueNormalizer::lowerTrimmedString(preg_replace('/[^a-zA-Z0-9]+/', '-', AiValueNormalizer::trimmedString($taskCategory)) ?? ''), '-');
+        $slug = trim(AiValueNormalizer::lowerTrimmedString(preg_replace('/[^a-zA-Z0-9]+/', '-', AiValueNormalizer::trimmedStringOrNull($taskCategory) ?? '') ?? ''), '-');
         if ($slug === '') {
             $slug = substr(hash('sha256', $taskCategory), 0, 12);
         }

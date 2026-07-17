@@ -28,7 +28,7 @@ final class AtlasAcosLongHorizonGateService
     {
         $cfg = AiValueNormalizer::arrayOrEmpty(config('atlas.cognition.acos_long_horizon_gate', []));
         $enabled = (bool) ($options['enabled'] ?? $cfg['enabled'] ?? true);
-        $fixture = AiValueNormalizer::trimmedString($options['fixture'] ?? 'live') ?: 'live';
+        $fixture = AiValueNormalizer::trimmedStringOrNull($options['fixture'] ?? null) ?? 'live';
 
         if (! in_array($fixture, ['live', 'mature', 'short-window'], true)) {
             return $this->payload('blocked', false, $fixture, [], [], [], ['unsupported_fixture'], []);
@@ -360,7 +360,7 @@ final class AtlasAcosLongHorizonGateService
 
         $rows = [];
         foreach (preg_split('/\r?\n/', $raw) ?: [] as $line) {
-            $line = AiValueNormalizer::trimmedString($line);
+            $line = AiValueNormalizer::trimmedStringOrNull($line) ?? '';
             if ($line === '') {
                 continue;
             }

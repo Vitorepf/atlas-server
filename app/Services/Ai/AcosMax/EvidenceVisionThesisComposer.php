@@ -38,7 +38,7 @@ final class EvidenceVisionThesisComposer
             return self::emptyResult('flag_disabled');
         }
 
-        $bornAt = AiValueNormalizer::trimmedString($context['born_at'] ?? gmdate('c')) ?: gmdate('c');
+        $bornAt = AiValueNormalizer::trimmedStringOrNull($context['born_at'] ?? null) ?? gmdate('c');
         $ttlDays = max(1, (int) ($context['ttl_days'] ?? self::DEFAULT_TTL_DAYS));
         $forbidden = self::forbiddenStrings($context);
         $theses = [];
@@ -136,11 +136,11 @@ final class EvidenceVisionThesisComposer
             if (! is_array($row)) {
                 return false;
             }
-            $source = AiValueNormalizer::trimmedString($row['source'] ?? '');
+            $source = AiValueNormalizer::trimmedStringOrNull($row['source'] ?? null) ?? '';
             if (! in_array($source, self::ALLOWED_EVIDENCE_SOURCES, true)) {
                 return false;
             }
-            if (AiValueNormalizer::trimmedString($row['ref'] ?? '') === '') {
+            if ((AiValueNormalizer::trimmedStringOrNull($row['ref'] ?? null) ?? '') === '') {
                 return false;
             }
         }
@@ -190,8 +190,8 @@ final class EvidenceVisionThesisComposer
             if (! is_array($window)) {
                 continue;
             }
-            $series = AiValueNormalizer::trimmedString($window['series'] ?? '');
-            $stage = AiValueNormalizer::trimmedString($window['stage'] ?? 'default');
+            $series = AiValueNormalizer::trimmedStringOrNull($window['series'] ?? null) ?? '';
+            $stage = AiValueNormalizer::trimmedStringOrNull($window['stage'] ?? null) ?? 'default';
             if ($series === '') {
                 continue;
             }
@@ -235,7 +235,7 @@ final class EvidenceVisionThesisComposer
                 'evidence' => array_map(
                     static fn (array $row): array => [
                         'source' => 'series',
-                        'ref' => 'series:'.AiValueNormalizer::trimmedString($row['series'] ?? '').':stage='.AiValueNormalizer::trimmedString($row['stage'] ?? '').':window='.(int) ($row['window'] ?? 0),
+                        'ref' => 'series:'.(AiValueNormalizer::trimmedStringOrNull($row['series'] ?? null) ?? '').':stage='.(AiValueNormalizer::trimmedStringOrNull($row['stage'] ?? null) ?? '').':window='.(int) ($row['window'] ?? 0),
                         'field' => 'yield',
                         'value' => AiValueNormalizer::finiteFloatOrNull($row['yield'] ?? null) ?? 0.0,
                     ],
@@ -324,14 +324,14 @@ final class EvidenceVisionThesisComposer
             if (! is_array($lead)) {
                 continue;
             }
-            $target = ltrim(AiValueNormalizer::trimmedString($lead['target_path'] ?? ''), '/');
+            $target = ltrim(AiValueNormalizer::trimmedStringOrNull($lead['target_path'] ?? null) ?? '', '/');
             $evidence = AiValueNormalizer::arrayOrEmpty($lead['evidence'] ?? null);
-            $file = AiValueNormalizer::trimmedString($evidence['file'] ?? '');
+            $file = AiValueNormalizer::trimmedStringOrNull($evidence['file'] ?? null) ?? '';
             $line = (int) ($evidence['line'] ?? 0);
             if ($target === '' || $file === '' || $line <= 0) {
                 continue;
             }
-            $byTarget[$target][] = ['file' => $file, 'line' => $line, 'source' => AiValueNormalizer::trimmedString($evidence['source'] ?? 'ledger') ?: 'ledger'];
+            $byTarget[$target][] = ['file' => $file, 'line' => $line, 'source' => AiValueNormalizer::trimmedStringOrNull($evidence['source'] ?? null) ?? 'ledger'];
         }
 
         $theses = [];
@@ -382,7 +382,7 @@ final class EvidenceVisionThesisComposer
             if (! is_array($row)) {
                 continue;
             }
-            $path = AiValueNormalizer::trimmedString($row['path'] ?? '');
+            $path = AiValueNormalizer::trimmedStringOrNull($row['path'] ?? null) ?? '';
             if ($path === '') {
                 continue;
             }
@@ -403,7 +403,7 @@ final class EvidenceVisionThesisComposer
                 'evidence' => array_map(
                     static fn (array $row, int $index): array => [
                         'source' => 'outcome',
-                        'ref' => 'outcome:'.(AiValueNormalizer::trimmedString($row['outcome_id'] ?? '') ?: ('stall-'.$index)),
+                        'ref' => 'outcome:'.((AiValueNormalizer::trimmedStringOrNull($row['outcome_id'] ?? null) ?? '') ?: ('stall-'.$index)),
                         'field' => 'proven_real',
                         'value' => false,
                     ],
@@ -431,7 +431,7 @@ final class EvidenceVisionThesisComposer
      */
     private static function candidateAligns(array $pair, array $keys): bool
     {
-        $rel = AiValueNormalizer::lowerTrimmedString(ltrim(AiValueNormalizer::trimmedString($pair[1] ?? ''), '/'));
+        $rel = AiValueNormalizer::lowerTrimmedString(ltrim(AiValueNormalizer::trimmedStringOrNull($pair[1] ?? null) ?? '', '/'));
         $yieldPath = AiValueNormalizer::lowerTrimmedString($pair[2] ?? '');
         $objective = AiValueNormalizer::lowerTrimmedString($pair[0] ?? '');
 
@@ -464,7 +464,7 @@ final class EvidenceVisionThesisComposer
                 continue;
             }
             foreach (AiValueNormalizer::arrayOrEmpty($thesis['alignment_keys'] ?? null) as $key) {
-                $key = AiValueNormalizer::trimmedString($key);
+                $key = AiValueNormalizer::trimmedStringOrNull($key) ?? '';
                 if ($key !== '') {
                     $keys[] = $key;
                 }
@@ -483,7 +483,7 @@ final class EvidenceVisionThesisComposer
         $raw = $context['forbidden_strings'] ?? $context['operator_forbidden_strings'] ?? [];
 
         return array_values(array_filter(array_map(
-            static fn ($value): string => AiValueNormalizer::trimmedString($value),
+            static fn ($value): string => AiValueNormalizer::trimmedStringOrNull($value) ?? '',
             AiValueNormalizer::arrayOrEmpty($raw),
         )));
     }

@@ -113,7 +113,7 @@ final class RagxChainMechanismService
         return [
             'schema_version' => self::SCHEMA,
             'slice' => 'RAGX-01',
-            'status' => AiValueNormalizer::trimmedString($result['status'] ?? 'unknown') ?: 'unknown',
+            'status' => AiValueNormalizer::trimmedStringOrNull($result['status'] ?? null) ?? 'unknown',
             'mode' => 'shadow',
             'result' => $result,
             'documents' => array_values(AiValueNormalizer::arrayOrEmpty($result['documents'] ?? null)),
@@ -131,10 +131,10 @@ final class RagxChainMechanismService
             'schema_version' => self::AB_SCHEMA,
             'status' => 'registered',
             'recorded_at' => Carbon::now()->toISOString(),
-            'experiment_id' => AiValueNormalizer::trimmedString($experiment['experiment_id'] ?? hash('sha256', json_encode($experiment, JSON_THROW_ON_ERROR))),
-            'slice' => AiValueNormalizer::trimmedString($experiment['slice'] ?? 'RAGX'),
-            'baseline' => AiValueNormalizer::trimmedString($experiment['baseline'] ?? 'unknown'),
-            'candidate' => AiValueNormalizer::trimmedString($experiment['candidate'] ?? 'unknown'),
+            'experiment_id' => AiValueNormalizer::trimmedStringOrNull($experiment['experiment_id'] ?? null) ?? hash('sha256', json_encode($experiment, JSON_THROW_ON_ERROR)),
+            'slice' => AiValueNormalizer::trimmedStringOrNull($experiment['slice']  ?? null) ?? 'RAGX',
+            'baseline' => AiValueNormalizer::trimmedStringOrNull($experiment['baseline']  ?? null) ?? 'unknown',
+            'candidate' => AiValueNormalizer::trimmedStringOrNull($experiment['candidate']  ?? null) ?? 'unknown',
             'result' => null,
             'ab_green_claimed' => false,
             'pending_window' => ['golden_v2_or_live_window_not_run'],
@@ -223,8 +223,8 @@ final class RagxChainMechanismService
         }
 
         $verified = array_values(array_filter($verifiedSummaries, static function (array $summary): bool {
-            return AiValueNormalizer::trimmedString($summary['summary'] ?? '') !== ''
-                && in_array(AiValueNormalizer::trimmedString($summary['status'] ?? 'verified') ?: 'verified', ['verified', 'ok'], true);
+            return (AiValueNormalizer::trimmedStringOrNull($summary['summary'] ?? null) ?? '') !== ''
+                && in_array(AiValueNormalizer::trimmedStringOrNull($summary['status'] ?? null) ?? 'verified', ['verified', 'ok'], true);
         }));
 
         if ($verified === []) {
@@ -243,9 +243,9 @@ final class RagxChainMechanismService
         $nodes = [];
         foreach ($verified as $index => $summary) {
             $nodes[] = [
-                'id' => AiValueNormalizer::trimmedString($summary['id'] ?? ('raptor_lite_'.($index + 1))) ?: ('raptor_lite_'.($index + 1)),
+                'id' => AiValueNormalizer::trimmedStringOrNull($summary['id'] ?? null) ?? ('raptor_lite_'.($index + 1)),
                 'community' => array_values(AiValueNormalizer::arrayOrEmpty($summary['community'] ?? ($communities[$index] ?? null))),
-                'summary_ref' => AiValueNormalizer::trimmedString($summary['l2_summary_id'] ?? $summary['id'] ?? ''),
+                'summary_ref' => AiValueNormalizer::trimmedStringOrNull($summary['l2_summary_id'] ?? $summary['id'] ?? null) ?? '',
                 'source' => 'maxf09_verified_l2_summary',
             ];
         }
@@ -281,7 +281,7 @@ final class RagxChainMechanismService
                 }
             }
             $matches[] = [
-                'id' => AiValueNormalizer::trimmedString($document['id'] ?? ('doc_'.$index)) ?: ('doc_'.$index),
+                'id' => AiValueNormalizer::trimmedStringOrNull($document['id'] ?? null) ?? ('doc_'.$index),
                 'score' => $tokens === [] ? 0.0 : round($hits / count($tokens), 4),
                 'score_origin' => 'lexical_sparse_shadow',
             ];
@@ -390,7 +390,7 @@ final class RagxChainMechanismService
     {
         $ids = [];
         foreach ($chunks as $chunk) {
-            $id = AiValueNormalizer::trimmedString($chunk['id'] ?? $chunk['chunk_id'] ?? '');
+            $id = AiValueNormalizer::trimmedStringOrNull($chunk['id'] ?? $chunk['chunk_id'] ?? null) ?? '';
             if ($id !== '') {
                 $ids[$id] = true;
             }
@@ -414,8 +414,8 @@ final class RagxChainMechanismService
             $adjacency[$node] = [];
         }
         foreach ($edges as $edge) {
-            $source = AiValueNormalizer::trimmedString($edge['source'] ?? '');
-            $target = AiValueNormalizer::trimmedString($edge['target'] ?? '');
+            $source = AiValueNormalizer::trimmedStringOrNull($edge['source'] ?? null) ?? '';
+            $target = AiValueNormalizer::trimmedStringOrNull($edge['target'] ?? null) ?? '';
             $weight = max(0.0, AiValueNormalizer::finiteFloatOrNull($edge['weight'] ?? null) ?? 1.0);
             if ($source === '' || $target === '' || $source === $target || $weight <= 0.0 || ! isset($known[$source], $known[$target])) {
                 continue;

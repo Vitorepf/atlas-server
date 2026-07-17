@@ -31,7 +31,7 @@ class AtlasCrossDepartmentChoreographyService
      *
      * @var array<string,array{propagates_to:array<int,string>, action:string, return_to:?string, final:bool}>
      */
-    private const VETO_RULES = [
+    public const VETO_RULES = [
         'security' => ['propagates_to' => ['dev', 'forge', 'delivery'], 'action' => 'pause_downstream', 'return_to' => null, 'final' => false],
         'architect' => ['propagates_to' => ['product'], 'action' => 'return_upstream', 'return_to' => 'product', 'final' => false],
         'review' => ['propagates_to' => ['dev', 'forge'], 'action' => 'return_upstream', 'return_to' => 'dev_or_forge', 'final' => false],

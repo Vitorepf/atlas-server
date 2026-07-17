@@ -47,9 +47,9 @@ final class ExploratoryBetsPortfolio
         }
 
         $k = max(0, (int) ($context['k'] ?? self::DEFAULT_K));
-        $windowId = AiValueNormalizer::trimmedString($context['window_id'] ?? 'current_window');
+        $windowId = AiValueNormalizer::trimmedStringOrNull($context['window_id']  ?? null) ?? 'current_window';
         $windowDays = max(1, (int) ($context['window_days'] ?? self::DEFAULT_WINDOW_DAYS));
-        $objectiveClass = AiValueNormalizer::trimmedString($context['objective_class'] ?? '');
+        $objectiveClass = AiValueNormalizer::trimmedStringOrNull($context['objective_class'] ?? null) ?? '';
         /** @var array<string,string> $suspendedPaths */
         $suspendedPaths = array_filter(
             AiValueNormalizer::arrayOrEmpty($context['suspended_paths'] ?? null),
@@ -62,7 +62,7 @@ final class ExploratoryBetsPortfolio
         $suspensionUpdates = [];
 
         foreach ($bets as $bet) {
-            $path = AiValueNormalizer::trimmedString($bet['path'] ?? '');
+            $path = AiValueNormalizer::trimmedStringOrNull($bet['path'] ?? null) ?? '';
             $effect = $objectiveClass !== ''
                 ? $gate->effect($path, $objectiveClass)
                 : $gate->effect($path);
@@ -99,11 +99,11 @@ final class ExploratoryBetsPortfolio
             if (! is_array($candidate)) {
                 continue;
             }
-            $path = AiValueNormalizer::trimmedString($candidate['path'] ?? $candidate['path_id'] ?? '');
+            $path = AiValueNormalizer::trimmedStringOrNull($candidate['path'] ?? $candidate['path_id'] ?? null) ?? '';
             if ($path === '') {
                 continue;
             }
-            if (AiValueNormalizer::trimmedString($candidate['rung'] ?? '') !== 'task') {
+            if ((AiValueNormalizer::trimmedStringOrNull($candidate['rung'] ?? null) ?? '') !== 'task') {
                 continue;
             }
             if (array_key_exists('path_yield', $candidate) && $candidate['path_yield'] !== null) {
@@ -123,10 +123,10 @@ final class ExploratoryBetsPortfolio
      */
     private static function decisionFor(array $bet, array $effect, ?string $suspendedState): array
     {
-        $path = AiValueNormalizer::trimmedString($bet['path'] ?? '');
+        $path = AiValueNormalizer::trimmedStringOrNull($bet['path'] ?? null) ?? '';
         $base = [
             'path' => $path,
-            'candidate_id' => AiValueNormalizer::trimmedString($bet['id'] ?? $path),
+            'candidate_id' => AiValueNormalizer::trimmedStringOrNull($bet['id'] ?? null) ?? $path,
             'causal_effect' => $effect,
             'path_weight_multiplier' => 1.0,
         ];
@@ -172,7 +172,7 @@ final class ExploratoryBetsPortfolio
             'state' => $suspendedState === PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE
                 ? PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE
                 : 'exploring',
-            'basis' => AiValueNormalizer::trimmedString($effect['reason'] ?? 'unproven_effect') ?: 'unproven_effect',
+            'basis' => AiValueNormalizer::trimmedStringOrNull($effect['reason'] ?? null) ?? 'unproven_effect',
         ]);
     }
 
@@ -194,10 +194,10 @@ final class ExploratoryBetsPortfolio
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'decision_kind' => 'exploratory_bet_continuation_gate',
-            'path' => AiValueNormalizer::trimmedString($decision['path'] ?? ''),
-            'action' => AiValueNormalizer::trimmedString($decision['action'] ?? ''),
-            'state' => AiValueNormalizer::trimmedString($decision['state'] ?? ''),
-            'basis' => AiValueNormalizer::trimmedString($decision['basis'] ?? ''),
+            'path' => AiValueNormalizer::trimmedStringOrNull($decision['path'] ?? null) ?? '',
+            'action' => AiValueNormalizer::trimmedStringOrNull($decision['action'] ?? null) ?? '',
+            'state' => AiValueNormalizer::trimmedStringOrNull($decision['state'] ?? null) ?? '',
+            'basis' => AiValueNormalizer::trimmedStringOrNull($decision['basis'] ?? null) ?? '',
             'path_weight_multiplier' => AiValueNormalizer::finiteFloatOrNull($decision['path_weight_multiplier'] ?? null) ?? 0.0,
             'window_id' => $windowId,
             'window_days' => $windowDays,
