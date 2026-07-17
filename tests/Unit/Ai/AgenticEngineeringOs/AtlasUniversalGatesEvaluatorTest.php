@@ -3092,4 +3092,25 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(20, $payload['canary_integrity_window_rotation_floor_count']);
     }
 
+    public function test_golden_pareto_scorer_maxa04_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->goldenParetoScorerMaxa04FloorsContractObserve([]);
+
+        $this->assertSame('skipped', $payload['golden_status_skipped']);
+        $this->assertSame('paired_arms_missing', $payload['golden_reason_paired_arms_missing']);
+        $this->assertSame('unmeasurable', $payload['cooccurrence_status_unmeasurable']);
+        $this->assertSame('measured_share_zero', $payload['cooccurrence_reason_measured_share_zero']);
+        $this->assertSame('frontier', $payload['pareto_status_frontier']);
+        $this->assertSame('dominated', $payload['pareto_status_dominated']);
+        $this->assertSame('passed', $payload['fidelity_verdict_passed']);
+        $this->assertSame('failed', $payload['fidelity_verdict_failed']);
+        $this->assertSame('complete', $payload['spec_verdict_complete']);
+        $this->assertSame('insufficient', $payload['spec_verdict_insufficient']);
+        $this->assertSame('shadow_only', $payload['maxa04_mode_shadow_only']);
+        $this->assertSame('mechanism_ready', $payload['maxa04_status_mechanism_ready']);
+        $this->assertSame('no_dual_read_cases', $payload['maxa04_status_no_dual_read_cases']);
+        $this->assertSame('arc_not_active', $payload['composed_arc_reason_not_active']);
+        $this->assertSame(20, $payload['golden_pareto_scorer_maxa04_floor_count']);
+    }
+
 }

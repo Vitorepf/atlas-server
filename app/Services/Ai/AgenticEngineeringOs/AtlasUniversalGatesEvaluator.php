@@ -4563,6 +4563,40 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: golden-counterfactual + cooccurrence + pareto + fidelity/spec scorers + maxa04 floors —
+     * no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function goldenParetoScorerMaxa04FloorsContractObserve(array $input = []): array
+    {
+        return [
+            'golden_status_skipped' => GoldenCounterfactualReplayService::STATUS_SKIPPED,
+            'golden_reason_paired_arms_missing' => GoldenCounterfactualReplayService::REASON_PAIRED_ARMS_MISSING,
+            'golden_reason_paired_golden_runs_unavailable' => GoldenCounterfactualReplayService::REASON_PAIRED_GOLDEN_RUNS_UNAVAILABLE,
+            'cooccurrence_status_unmeasurable' => ExecutionContextCooccurrenceService::STATUS_UNMEASURABLE,
+            'cooccurrence_reason_measured_share_zero' => ExecutionContextCooccurrenceService::REASON_MEASURED_SHARE_ZERO,
+            'cooccurrence_reason_run_artifact_unavailable' => ExecutionContextCooccurrenceService::REASON_RUN_ARTIFACT_UNAVAILABLE,
+            'pareto_status_blocked' => ContextParetoDominanceFilter::STATUS_BLOCKED,
+            'pareto_status_dominated' => ContextParetoDominanceFilter::STATUS_DOMINATED,
+            'pareto_status_frontier' => ContextParetoDominanceFilter::STATUS_FRONTIER,
+            'fidelity_verdict_passed' => SummaryFidelityCoverageScorer::VERDICT_PASSED,
+            'fidelity_verdict_degraded' => SummaryFidelityCoverageScorer::VERDICT_DEGRADED,
+            'fidelity_verdict_failed' => SummaryFidelityCoverageScorer::VERDICT_FAILED,
+            'spec_verdict_complete' => SpecCompletenessScorer::VERDICT_COMPLETE,
+            'spec_verdict_partial' => SpecCompletenessScorer::VERDICT_PARTIAL,
+            'spec_verdict_insufficient' => SpecCompletenessScorer::VERDICT_INSUFFICIENT,
+            'maxa04_mode_shadow_only' => Maxa04JinaV3DualReadService::MODE_SHADOW_ONLY,
+            'maxa04_status_mechanism_ready' => Maxa04JinaV3DualReadService::STATUS_MECHANISM_READY,
+            'maxa04_status_no_dual_read_cases' => Maxa04JinaV3DualReadService::STATUS_NO_DUAL_READ_CASES,
+            'composed_arc_reason_not_active' => ComposedObraArcLifecycle::REASON_ARC_NOT_ACTIVE,
+            'composed_arc_reason_kill_gate' => ComposedObraArcLifecycle::REASON_KILL_GATE_CONSECUTIVE_FAILURES,
+            'golden_pareto_scorer_maxa04_floor_count' => 20,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -14,6 +14,13 @@ final class ExecutionContextCooccurrenceService
 
     public const FORMULA_VERSION = 'atlas_context_execution_cooccurrence_v1';
 
+    public const STATUS_UNMEASURABLE = 'unmeasurable';
+
+    public const REASON_MEASURED_SHARE_ZERO = 'measured_share_zero';
+
+    public const REASON_RUN_ARTIFACT_UNAVAILABLE = 'run_artifact_unavailable';
+
+
     /**
      * @return array<string,mixed>
      */
@@ -38,8 +45,8 @@ final class ExecutionContextCooccurrenceService
 
         if ($runsPath === null || (AiValueNormalizer::trimmedStringOrNull($runsPath) ?? '') === '' || ! is_file($runsPath)) {
             return array_replace($base, [
-                'status' => 'unmeasurable',
-                'reason' => 'run_artifact_unavailable',
+                'status' => self::STATUS_UNMEASURABLE,
+                'reason' => self::REASON_RUN_ARTIFACT_UNAVAILABLE,
                 'runs_path' => $runsPath,
                 'denominator' => [
                     'runs' => 0,
@@ -64,8 +71,8 @@ final class ExecutionContextCooccurrenceService
         $measuredShare = $runCount > 0 ? round($measuredCount / $runCount, 6) : 0.0;
         if ($measuredCount === 0) {
             return array_replace($base, [
-                'status' => 'unmeasurable',
-                'reason' => 'measured_share_zero',
+                'status' => self::STATUS_UNMEASURABLE,
+                'reason' => self::REASON_MEASURED_SHARE_ZERO,
                 'runs_path' => $runsPath,
                 'denominator' => [
                     'runs' => $runCount,

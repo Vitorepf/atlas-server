@@ -25,6 +25,13 @@ final class ContextParetoDominanceFilter
 
     public const DIRECTION_MINIMIZE = 'minimize';
 
+    public const STATUS_BLOCKED = 'blocked';
+
+    public const STATUS_DOMINATED = 'dominated';
+
+    public const STATUS_FRONTIER = 'frontier';
+
+
     /**
      * @param  list<array<string,mixed>>  $variants
      * @param  array<string,string>  $objectiveDirection
@@ -65,7 +72,7 @@ final class ContextParetoDominanceFilter
             if (array_key_exists($id, $blockedById)) {
                 $evaluated[] = [
                     'id' => $id,
-                    'status' => 'blocked',
+                    'status' => self::STATUS_BLOCKED,
                     'dominated_by' => [],
                 ];
 
@@ -78,7 +85,7 @@ final class ContextParetoDominanceFilter
                 $frontier[] = $id;
                 $evaluated[] = [
                     'id' => $id,
-                    'status' => 'frontier',
+                    'status' => self::STATUS_FRONTIER,
                     'dominated_by' => [],
                 ];
 
@@ -87,7 +94,7 @@ final class ContextParetoDominanceFilter
 
             $evaluated[] = [
                 'id' => $id,
-                'status' => 'dominated',
+                'status' => self::STATUS_DOMINATED,
                 'dominated_by' => $dominatedBy,
             ];
         }

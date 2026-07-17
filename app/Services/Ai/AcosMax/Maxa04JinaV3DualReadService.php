@@ -22,6 +22,13 @@ final class Maxa04JinaV3DualReadService
 
     public const CURRENT_MODEL_FALLBACK = 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2';
 
+    public const MODE_SHADOW_ONLY = 'shadow_only';
+
+    public const STATUS_MECHANISM_READY = 'mechanism_ready';
+
+    public const STATUS_NO_DUAL_READ_CASES = 'no_dual_read_cases';
+
+
     /** @return array<string,mixed> */
     public function plan(): array
     {
@@ -33,7 +40,7 @@ final class Maxa04JinaV3DualReadService
         return [
             'schema_version' => Maxa04JinaV3DualReadLedger::SCHEMA,
             'slice' => 'MAXA-04',
-            'status' => 'mechanism_ready',
+            'status' => self::STATUS_MECHANISM_READY,
             'series' => Maxa04JinaV3DualReadLedger::SCHEMA,
             'current_model' => [
                 'provider' => 'semantic_rag',
@@ -64,7 +71,7 @@ final class Maxa04JinaV3DualReadService
                 'ab_green_claim_allowed' => false,
             ],
             'reembed_path' => [
-                'mode' => 'shadow_only',
+                'mode' => self::MODE_SHADOW_ONLY,
                 'command' => 'ATLAS_SEMANTIC_RAG_MODEL=jinaai/jina-embeddings-v3 php artisan atlas:memory:embed-backfill --stale --json',
                 'writes_live_default_model' => false,
                 'requires_dual_read_ledger' => true,
@@ -173,7 +180,7 @@ final class Maxa04JinaV3DualReadService
     private function windowBasis(array $summary): string
     {
         if ((int) (AiValueNormalizer::finiteFloatOrNull($summary['cases'] ?? null) ?? 0) <= 0) {
-            return 'no_dual_read_cases';
+            return self::STATUS_NO_DUAL_READ_CASES;
         }
 
         $candidateRecall = AiValueNormalizer::finiteFloatOrNull($summary['candidate_recall_at_5_mean'] ?? null);

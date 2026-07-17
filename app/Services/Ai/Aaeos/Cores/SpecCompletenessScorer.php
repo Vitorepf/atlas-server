@@ -18,6 +18,13 @@ final class SpecCompletenessScorer
 
     public const PARTIAL_THRESHOLD = 50;
 
+    public const VERDICT_COMPLETE = 'complete';
+
+    public const VERDICT_PARTIAL = 'partial';
+
+    public const VERDICT_INSUFFICIENT = 'insufficient';
+
+
     /**
      * Weighted importance of each canonical spec field. Sums to exactly 100.
      */
@@ -230,13 +237,13 @@ final class SpecCompletenessScorer
     private function verdict(int $totalScore): string
     {
         if ($totalScore >= self::COMPLETE_THRESHOLD) {
-            return 'complete';
+            return self::VERDICT_COMPLETE;
         }
 
         if ($totalScore >= self::PARTIAL_THRESHOLD) {
-            return 'partial';
+            return self::VERDICT_PARTIAL;
         }
 
-        return 'insufficient';
+        return self::VERDICT_INSUFFICIENT;
     }
 }

@@ -22,6 +22,13 @@ final class SummaryFidelityCoverageScorer
 
     public const RETENTION_FAIL_FLOOR = 0.6;
 
+    public const VERDICT_PASSED = 'passed';
+
+    public const VERDICT_DEGRADED = 'degraded';
+
+    public const VERDICT_FAILED = 'failed';
+
+
     /**
      * @param  list<array{id?: mixed, kind?: mixed, digest?: mixed}>  $requiredItems
      * @return array{
@@ -152,14 +159,14 @@ final class SummaryFidelityCoverageScorer
         bool $hasMissedDecision,
     ): string {
         if ($hasMissedDecision || $contextRetentionScore < self::RETENTION_FAIL_FLOOR) {
-            return 'failed';
+            return self::VERDICT_FAILED;
         }
 
         if ($contextRetentionScore >= 1.0 && $missedDecisionRate <= 0.0) {
-            return 'passed';
+            return self::VERDICT_PASSED;
         }
 
-        return 'degraded';
+        return self::VERDICT_DEGRADED;
     }
 
     private function signalPresent(string $idToken, ?string $digest, string $normalizedSummary): bool

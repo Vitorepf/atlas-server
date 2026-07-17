@@ -233,6 +233,7 @@ final class AtlasAaeosCommand extends Command
         {--evidence-temporal-hmac-calibration-floors-contract= : JSON file (any object) to observe evidence/temporal/hmac/calibration floors}
         {--verified-share-capability-truth-ambition-floors-contract= : JSON file (any object) to observe verified-share/capability/truth/ambition floors}
         {--canary-integrity-window-rotation-floors-contract= : JSON file (any object) to observe canary/integrity/window/rotation floors}
+        {--golden-pareto-scorer-maxa04-floors-contract= : JSON file (any object) to observe golden/pareto/scorer/maxa04 floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -622,6 +623,7 @@ final class AtlasAaeosCommand extends Command
             ['evidence-temporal-hmac-calibration-floors-contract', 'evidence_temporal_hmac_calibration_floors_contract', fn (array $p) => $gates->evidenceTemporalHmacCalibrationFloorsContractObserve($p)],
             ['verified-share-capability-truth-ambition-floors-contract', 'verified_share_capability_truth_ambition_floors_contract', fn (array $p) => $gates->verifiedShareCapabilityTruthAmbitionFloorsContractObserve($p)],
             ['canary-integrity-window-rotation-floors-contract', 'canary_integrity_window_rotation_floors_contract', fn (array $p) => $gates->canaryIntegrityWindowRotationFloorsContractObserve($p)],
+            ['golden-pareto-scorer-maxa04-floors-contract', 'golden_pareto_scorer_maxa04_floors_contract', fn (array $p) => $gates->goldenParetoScorerMaxa04FloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

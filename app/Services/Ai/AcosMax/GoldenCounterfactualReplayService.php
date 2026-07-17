@@ -14,6 +14,13 @@ final class GoldenCounterfactualReplayService
 
     public const FORMULA_VERSION = 'atlas_context_golden_counterfactual_v1';
 
+    public const STATUS_SKIPPED = 'skipped';
+
+    public const REASON_PAIRED_ARMS_MISSING = 'paired_arms_missing';
+
+    public const REASON_PAIRED_GOLDEN_RUNS_UNAVAILABLE = 'paired_golden_runs_unavailable';
+
+
     /**
      * @return array<string,mixed>
      */
@@ -36,8 +43,8 @@ final class GoldenCounterfactualReplayService
 
         if ($runsPath === null || (AiValueNormalizer::trimmedStringOrNull($runsPath) ?? '') === '' || ! is_file($runsPath)) {
             return array_replace($base, [
-                'status' => 'skipped',
-                'reason' => 'paired_golden_runs_unavailable',
+                'status' => self::STATUS_SKIPPED,
+                'reason' => self::REASON_PAIRED_GOLDEN_RUNS_UNAVAILABLE,
                 'runs_path' => $runsPath,
                 'counterfactual' => [
                     'without' => null,
@@ -53,8 +60,8 @@ final class GoldenCounterfactualReplayService
 
         if ($without === null || $with === null) {
             return array_replace($base, [
-                'status' => 'skipped',
-                'reason' => 'paired_arms_missing',
+                'status' => self::STATUS_SKIPPED,
+                'reason' => self::REASON_PAIRED_ARMS_MISSING,
                 'runs_path' => $runsPath,
                 'counterfactual' => [
                     'without' => $without,
