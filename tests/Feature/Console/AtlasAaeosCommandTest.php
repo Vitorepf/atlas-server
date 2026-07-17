@@ -47,6 +47,34 @@ final class AtlasAaeosCommandTest extends TestCase
             ->assertExitCode(1);
     }
 
+    public function test_universal_gates_derives_delivery_pack_completeness_signal(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-delivery-pack-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'changed_files' => 1,
+            'test_evidence' => ['t'],
+            'no_test_reason' => '',
+            'evidence_hashes' => ['h'],
+            'risk_register_present' => true,
+            'receipt_present' => true,
+            'delivery_hash' => 'sha256:signed',
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-delivery',
+                '--delivery-pack' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"delivery_pack_completeness_min_0_95"')
+                ->expectsOutputToContain('"passed"')
+                ->assertExitCode(1); // other gates still missing → pending/non-green
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])
