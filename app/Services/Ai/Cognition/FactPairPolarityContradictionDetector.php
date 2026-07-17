@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Pure polarity-contradiction detector for a pair of atomic facts.
  *
@@ -55,7 +57,7 @@ final class FactPairPolarityContradictionDetector
      */
     private function normalizeKey(array $fact, string $key): string
     {
-        return strtolower(trim((string) ($fact[$key] ?? '')));
+        return AiValueNormalizer::lowerTrimmedString($fact[$key] ?? '');
     }
 
     /**

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Minimal PSR-4 data contract for cognitive immune checks on autonomous
  * engineering decisions. Step-1 shape only; gate evaluation wiring lands later.
@@ -70,25 +72,25 @@ final class CognitiveImmuneCheckContract
                 continue;
             }
 
-            $normalized = strtolower(trim((string) $status));
+            $normalized = AiValueNormalizer::lowerTrimmedString($status);
             if (in_array($normalized, self::ALLOWED_GATE_STATUSES, true)) {
                 $gateStatuses[$gateId] = $normalized;
             }
         }
 
         $targetPaths = array_values(array_filter(
-            array_map(static fn ($path): string => trim((string) $path), (array) ($input['target_paths'] ?? [])),
+            array_map(static fn ($path): string => AiValueNormalizer::trimmedString($path), (array) ($input['target_paths'] ?? [])),
             static fn (string $path): bool => $path !== '',
         ));
 
         $blockers = array_values(array_filter(
-            array_map(static fn ($blocker): string => trim((string) $blocker), (array) ($input['blockers'] ?? [])),
+            array_map(static fn ($blocker): string => AiValueNormalizer::trimmedString($blocker), (array) ($input['blockers'] ?? [])),
             static fn (string $blocker): bool => $blocker !== '',
         ));
 
         return new self(
-            findingId: trim((string) ($input['finding_id'] ?? '')),
-            decisionSurface: trim((string) ($input['decision_surface'] ?? 'autonomous_engineering')),
+            findingId: AiValueNormalizer::trimmedString($input['finding_id'] ?? ''),
+            decisionSurface: AiValueNormalizer::trimmedString($input['decision_surface'] ?? 'autonomous_engineering'),
             targetPaths: $targetPaths,
             gateStatuses: $gateStatuses,
             checkCategories: self::CHECK_CATEGORIES,

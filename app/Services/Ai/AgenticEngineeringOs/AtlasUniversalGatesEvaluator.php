@@ -31,6 +31,8 @@ use App\Services\Ai\AcosMax\EvidenceVisionThesisComposer;
 use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
 use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 use App\Services\Ai\Cognition\ImmuneCalibrationService;
+use App\Services\Ai\Cognition\CognitiveImmuneCheckContract;
+use App\Services\Ai\Cognition\ImmuneSignatureDeriver;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
@@ -1885,6 +1887,27 @@ final class AtlasUniversalGatesEvaluator
             'ttl_days' => ImmuneCalibrationService::TTL_DAYS,
             'gate_ids' => ImmuneCalibrationService::GATE_IDS,
             'gate_count' => count(ImmuneCalibrationService::GATE_IDS),
+        ];
+    }
+
+    /**
+     * Observe-only cognitive-immune check contract + signature hostile classes.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function cognitiveImmuneCheckContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => CognitiveImmuneCheckContract::SCHEMA,
+            'gate_ids' => CognitiveImmuneCheckContract::GATE_IDS,
+            'gate_count' => count(CognitiveImmuneCheckContract::GATE_IDS),
+            'check_categories' => CognitiveImmuneCheckContract::CHECK_CATEGORIES,
+            'allowed_gate_statuses' => CognitiveImmuneCheckContract::ALLOWED_GATE_STATUSES,
+            'default_gate_status' => CognitiveImmuneCheckContract::DEFAULT_GATE_STATUS,
+            'hostile_classes' => ImmuneSignatureDeriver::HOSTILE_CLASSES,
+            'signature_family_schema' => ImmuneSignatureDeriver::SCHEMA_VERSION,
         ];
     }
 

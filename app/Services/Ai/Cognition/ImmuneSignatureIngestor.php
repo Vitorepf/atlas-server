@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Cognition;
 
 use App\Models\AtlasMemoryEntry;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * MAXI-05 — ingest confirmed/reverted poison incidents into the signature store.
@@ -106,7 +107,7 @@ final class ImmuneSignatureIngestor
     private function isConfirmedPoisonVerdict(array $verdictRow): bool
     {
         $label = is_scalar($verdictRow['sample_label'] ?? null) ? (string) $verdictRow['sample_label'] : '';
-        $status = strtolower(trim((string) ($verdictRow['promotion_status'] ?? '')));
+        $status = AiValueNormalizer::lowerTrimmedString($verdictRow['promotion_status'] ?? '');
         $blocking = array_values(array_filter((array) ($verdictRow['blocking_gate_ids'] ?? []), 'is_string'));
 
         return $label === ImmuneVerdictLedger::LABEL_TRUE_BLOCK
@@ -119,7 +120,7 @@ final class ImmuneSignatureIngestor
      */
     private function hostileClassFromClassification(array $classification): ?string
     {
-        $inputClass = strtolower(trim((string) ($classification['input_class'] ?? '')));
+        $inputClass = AiValueNormalizer::lowerTrimmedString($classification['input_class'] ?? '');
 
         return in_array($inputClass, ['prompt_injection', 'private_sensitive', 'untrusted_content'], true)
             ? $inputClass

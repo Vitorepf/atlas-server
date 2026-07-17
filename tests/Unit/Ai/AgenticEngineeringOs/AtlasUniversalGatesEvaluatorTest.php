@@ -1463,4 +1463,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(9, $payload['gate_count']);
         $this->assertSame(10, $payload['denominator_min']);
     }
+
+    public function test_cognitive_immune_check_contract_observe_reports_catalogue(): void
+    {
+        $payload = $this->svc->cognitiveImmuneCheckContractObserve([]);
+
+        $this->assertSame('atlas.cognition.cognitive_immune_check.v1', $payload['schema_version']);
+        $this->assertContains('G0', $payload['gate_ids']);
+        $this->assertContains('drift', $payload['check_categories']);
+        $this->assertContains('prompt_injection', $payload['hostile_classes']);
+        $this->assertSame(9, $payload['gate_count']);
+        $this->assertSame('pending', $payload['default_gate_status']);
+    }
 }

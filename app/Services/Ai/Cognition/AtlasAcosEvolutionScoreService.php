@@ -308,7 +308,7 @@ class AtlasAcosEvolutionScoreService
                         if (($meta['origin'] ?? '') === AtlasOpenBrainWriteBackService::MISSION_ORIGIN_SESSION_CAPTURE) {
                             continue;
                         }
-                        if (trim((string) ($meta['provider'] ?? '')) !== ''
+                        if (AiValueNormalizer::trimmedStringOrNull($meta['provider'] ?? null) !== null
                             && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', (string) $node->source_id) === 1) {
                             $count++;
                         }
@@ -369,7 +369,9 @@ class AtlasAcosEvolutionScoreService
                         if (! isset($activeKeys[(string) $key])) {
                             continue;
                         }
-                        $normalized = is_scalar($status) ? strtolower(trim((string) $status)) : '';
+                        $normalized = AiValueNormalizer::trimmedScalarStringOrNull($status) !== null
+                            ? AiValueNormalizer::lowerTrimmedString($status)
+                            : '';
                         if (in_array($normalized, ['included', 'used', 'useful'], true)) {
                             return true;
                         }

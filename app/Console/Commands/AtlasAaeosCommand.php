@@ -137,6 +137,7 @@ final class AtlasAaeosCommand extends Command
         {--architect-spec-catalogue= : JSON file (any object) to observe architect spec-pack catalogue}
         {--surprise-gate-bands= : JSON file (any object) to observe surprise-gate band defaults}
         {--immune-calibration-contract= : JSON file (any object) to observe immune-calibration contract}
+        {--cognitive-immune-check-contract= : JSON file (any object) to observe cognitive-immune check contract}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -430,6 +431,7 @@ final class AtlasAaeosCommand extends Command
             ['architect-spec-catalogue', 'architect_spec_catalogue', fn (array $p) => $gates->architectSpecCatalogueObserve($p)],
             ['surprise-gate-bands', 'surprise_gate_bands', fn (array $p) => $gates->surpriseGateBandsObserve($p)],
             ['immune-calibration-contract', 'immune_calibration_contract', fn (array $p) => $gates->immuneCalibrationContractObserve($p)],
+            ['cognitive-immune-check-contract', 'cognitive_immune_check_contract', fn (array $p) => $gates->cognitiveImmuneCheckContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Cognition;
 
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Carbon\CarbonImmutable;
 use DateTimeInterface;
 use Illuminate\Support\Facades\DB;
@@ -120,7 +121,7 @@ final class ImmuneVerdictLedger
      */
     private function sampleLabel(string $declared, array $gateStatuses, array $expectedBlockGateIds, array $blockingGateIds): ?string
     {
-        $declared = strtolower(trim($declared));
+        $declared = AiValueNormalizer::lowerTrimmedString($declared);
         if (in_array($declared, self::LABELS, true)) {
             return $declared;
         }
@@ -186,8 +187,8 @@ final class ImmuneVerdictLedger
     {
         $out = [];
         foreach ($statuses as $gateId => $status) {
-            $gateId = strtoupper(trim((string) $gateId));
-            $status = strtolower(trim((string) $status));
+            $gateId = AiValueNormalizer::upperTrimmedString($gateId);
+            $status = AiValueNormalizer::lowerTrimmedString($status);
             if (preg_match('/^G[0-8]$/', $gateId) === 1 && in_array($status, ['pass', 'block', 'pending'], true)) {
                 $out[$gateId] = $status;
             }
@@ -214,7 +215,7 @@ final class ImmuneVerdictLedger
 
     private function candidateHash(string $candidateHash): string
     {
-        $candidateHash = strtolower(trim($candidateHash));
+        $candidateHash = AiValueNormalizer::lowerTrimmedString($candidateHash);
 
         return preg_match('/^[a-f0-9]{64}$/', $candidateHash) === 1
             ? $candidateHash

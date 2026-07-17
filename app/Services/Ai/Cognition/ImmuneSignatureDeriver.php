@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * MAXI-05 — pure derivation of immune signature families from incident facts.
  *
@@ -15,7 +17,7 @@ final class ImmuneSignatureDeriver
     public const SCHEMA_VERSION = 'atlas.cognition.immune_signature_family.v1';
 
     /** @var list<string> */
-    private const HOSTILE_CLASSES = [
+    public const HOSTILE_CLASSES = [
         'prompt_injection',
         'private_sensitive',
         'untrusted_content',
@@ -63,7 +65,7 @@ final class ImmuneSignatureDeriver
     {
         $out = [];
         foreach ($matchedSignals as $signal) {
-            $signal = strtolower(trim((string) $signal));
+            $signal = AiValueNormalizer::lowerTrimmedString($signal);
             if ($signal !== '' && preg_match('/^[a-z0-9_]+$/', $signal) === 1) {
                 $out[$signal] = true;
             }
@@ -77,7 +79,7 @@ final class ImmuneSignatureDeriver
 
     public function normalizeHash(string $contentHash): string
     {
-        $contentHash = strtolower(trim($contentHash));
+        $contentHash = AiValueNormalizer::lowerTrimmedString($contentHash);
 
         return preg_match('/^[a-f0-9]{64}$/', $contentHash) === 1
             ? $contentHash
@@ -86,7 +88,7 @@ final class ImmuneSignatureDeriver
 
     public function normalizeClass(string $hostileClass): string
     {
-        $hostileClass = strtolower(trim($hostileClass));
+        $hostileClass = AiValueNormalizer::lowerTrimmedString($hostileClass);
 
         return in_array($hostileClass, self::HOSTILE_CLASSES, true)
             ? $hostileClass
