@@ -45,6 +45,18 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
 
     public const REASON_VERIFIER_THREW = 'verifier_threw';
 
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_DATE = 'date';
+    public const FIELD_CODE = 'code';
+    public const FIELD_MESSAGE = 'message';
+    public const FIELD_CHAIN_KEY = 'chain_key';
+    public const FIELD_CHAIN_LENGTH = 'chain_length';
+    public const FIELD_GAP_COUNT = 'gap_count';
+    public const FIELD_TAMPERED_EVENT_IDS = 'tampered_event_ids';
+    public const FIELD_CHAINS = 'chains';
+
 
     public function __construct(
         private readonly EvidenceLedgerHashChainIntegrityVerifier $verifier,
@@ -71,12 +83,12 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
             $chains = ($this->verifyDay)($day);
         } catch (Throwable $e) {
             return AtlasWatchdogCheckResult::error([
-                'schema_version' => self::SCHEMA_VERSION,
-                'date' => $date,
-                'reason' => self::REASON_VERIFIER_THREW,
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+                self::FIELD_DATE => $date,
+                self::FIELD_REASON => self::REASON_VERIFIER_THREW,
             ], [
-                'code' => 'evidence_ledger_verifier_error',
-                'message' => 'Evidence ledger integrity verifier threw: '.$e->getMessage(),
+                self::FIELD_CODE => 'evidence_ledger_verifier_error',
+                self::FIELD_MESSAGE => 'Evidence ledger integrity verifier threw: '.$e->getMessage(),
             ]);
         }
 
@@ -84,30 +96,30 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
         $tamperedTotal = 0;
         $gapTotal = 0;
         foreach ($chains as $chain) {
-            $chainKey = (AiValueNormalizer::trimmedStringOrNull($chain['chain_key'] ?? null) ?? '');
-            $status = (AiValueNormalizer::trimmedStringOrNull($chain['status'] ?? null) ?? self::STATUS_OK);
-            $length = (int) (AiValueNormalizer::finiteFloatOrNull($chain['chain_length'] ?? null) ?? 0);
-            $tampered = array_values(AiValueNormalizer::arrayOrEmpty($chain['tampered_event_ids'] ?? null));
-            $gap = (int) (AiValueNormalizer::finiteFloatOrNull($chain['gap_count'] ?? null) ?? 0);
+            $chainKey = (AiValueNormalizer::trimmedStringOrNull($chain[self::FIELD_CHAIN_KEY] ?? null) ?? '');
+            $status = (AiValueNormalizer::trimmedStringOrNull($chain[self::FIELD_STATUS] ?? null) ?? self::STATUS_OK);
+            $length = (int) (AiValueNormalizer::finiteFloatOrNull($chain[self::FIELD_CHAIN_LENGTH] ?? null) ?? 0);
+            $tampered = array_values(AiValueNormalizer::arrayOrEmpty($chain[self::FIELD_TAMPERED_EVENT_IDS] ?? null));
+            $gap = (int) (AiValueNormalizer::finiteFloatOrNull($chain[self::FIELD_GAP_COUNT] ?? null) ?? 0);
             $legacy = (int) (AiValueNormalizer::finiteFloatOrNull($chain['legacy_unchained_count'] ?? null) ?? 0);
             $tamperedTotal += count($tampered);
             $gapTotal += $gap;
 
             $safeChains[] = [
-                'chain_key' => $chainKey,
-                'chain_length' => $length,
-                'status' => $status,
-                'gap_count' => $gap,
+                self::FIELD_CHAIN_KEY => $chainKey,
+                self::FIELD_CHAIN_LENGTH => $length,
+                self::FIELD_STATUS => $status,
+                self::FIELD_GAP_COUNT => $gap,
                 'tampered_count' => count($tampered),
-                'tampered_event_ids' => $tampered,
+                self::FIELD_TAMPERED_EVENT_IDS => $tampered,
                 'legacy_unchained_count' => $legacy,
             ];
         }
 
         $line = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'date' => $date,
-            'chains' => count($safeChains),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_DATE => $date,
+            self::FIELD_CHAINS => count($safeChains),
             'chain_details' => $safeChains,
             'tampered_total' => $tamperedTotal,
             'gap_total' => $gapTotal,
@@ -121,40 +133,40 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
         }
 
         $evidence = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'date' => $date,
-            'chains' => count($safeChains),
-            'chain_length' => array_sum(array_column($safeChains, 'chain_length')),
-            'tampered_event_ids' => array_values(array_merge(
-                ...array_map(static fn (array $c): array => $c['tampered_event_ids'], $safeChains),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_DATE => $date,
+            self::FIELD_CHAINS => count($safeChains),
+            self::FIELD_CHAIN_LENGTH => array_sum(array_column($safeChains, 'chain_length')),
+            self::FIELD_TAMPERED_EVENT_IDS => array_values(array_merge(
+                ...array_map(static fn (array $c): array => $c[self::FIELD_TAMPERED_EVENT_IDS], $safeChains),
             )),
-            'gap_count' => $gapTotal,
+            self::FIELD_GAP_COUNT => $gapTotal,
             'artifact' => $this->path(),
         ];
 
         if ($tamperedTotal > 0) {
             return AtlasWatchdogCheckResult::alert(
-                $evidence + ['reason' => self::REASON_TAMPERED],
+                $evidence + [self::FIELD_REASON => self::REASON_TAMPERED],
                 [
-                    'code' => 'evidence_ledger_tampered',
-                    'message' => 'Evidence ledger chain integrity verifier detected tampered events.',
-                    'tampered_event_ids' => $evidence['tampered_event_ids'],
+                    self::FIELD_CODE => 'evidence_ledger_tampered',
+                    self::FIELD_MESSAGE => 'Evidence ledger chain integrity verifier detected tampered events.',
+                    self::FIELD_TAMPERED_EVENT_IDS => $evidence[self::FIELD_TAMPERED_EVENT_IDS],
                 ],
             );
         }
 
         if ($gapTotal > 0) {
             return AtlasWatchdogCheckResult::alert(
-                $evidence + ['reason' => self::REASON_GAP],
+                $evidence + [self::FIELD_REASON => self::REASON_GAP],
                 [
-                    'code' => 'evidence_ledger_gap',
-                    'message' => 'Evidence ledger chain integrity verifier detected chain gaps.',
-                    'gap_count' => $gapTotal,
+                    self::FIELD_CODE => 'evidence_ledger_gap',
+                    self::FIELD_MESSAGE => 'Evidence ledger chain integrity verifier detected chain gaps.',
+                    self::FIELD_GAP_COUNT => $gapTotal,
                 ],
             );
         }
 
-        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => self::REASON_CHAINS_INTACT]);
+        return AtlasWatchdogCheckResult::ok($evidence + [self::FIELD_REASON => self::REASON_CHAINS_INTACT]);
     }
 
     public function path(): string

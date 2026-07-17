@@ -5661,6 +5661,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function ledgerCounterfactualAdvisoryFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ledger_field_status' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_STATUS,
+            'ledger_field_reason' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_REASON,
+            'ledger_field_gap_count' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_GAP_COUNT,
+            'ledger_field_tampered_event_ids' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_TAMPERED_EVENT_IDS,
+            'ledger_status_ok' => EvidenceLedgerIntegrityWatchdogCheck::STATUS_OK,
+            'ledger_schema_version' => EvidenceLedgerIntegrityWatchdogCheck::SCHEMA_VERSION,
+            'golden_field_status' => GoldenCounterfactualReplayService::FIELD_STATUS,
+            'golden_field_reason' => GoldenCounterfactualReplayService::FIELD_REASON,
+            'golden_field_decision_id' => GoldenCounterfactualReplayService::FIELD_DECISION_ID,
+            'golden_field_counterfactual' => GoldenCounterfactualReplayService::FIELD_COUNTERFACTUAL,
+            'golden_field_recall_at_5' => GoldenCounterfactualReplayService::FIELD_RECALL_AT_5,
+            'golden_status_ok' => GoldenCounterfactualReplayService::STATUS_OK,
+            'golden_schema_version' => GoldenCounterfactualReplayService::SCHEMA_VERSION,
+            'advisory_field_predicted_revert_band' => PreReviewAdvisoryBand::FIELD_PREDICTED_REVERT_BAND,
+            'advisory_field_basis' => PreReviewAdvisoryBand::FIELD_BASIS,
+            'advisory_field_realized_revert_rate' => PreReviewAdvisoryBand::FIELD_REALIZED_REVERT_RATE,
+            'advisory_basis_measured' => PreReviewAdvisoryBand::BASIS_MEASURED,
+            'ledger_counterfactual_advisory_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

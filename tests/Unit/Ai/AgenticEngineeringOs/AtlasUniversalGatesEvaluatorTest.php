@@ -4049,4 +4049,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['asef_calibration_jina_floor_count']);
     }
 
+    public function test_ledger_counterfactual_advisory_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->ledgerCounterfactualAdvisoryFloorsContractObserve([]);
+
+        $this->assertSame('status', $payload['ledger_field_status']);
+        $this->assertSame('reason', $payload['ledger_field_reason']);
+        $this->assertSame('gap_count', $payload['ledger_field_gap_count']);
+        $this->assertSame('tampered_event_ids', $payload['ledger_field_tampered_event_ids']);
+        $this->assertSame('ok', $payload['ledger_status_ok']);
+        $this->assertSame('atlas.acos.watchdog.evidence_ledger_integrity.v1', $payload['ledger_schema_version']);
+        $this->assertSame('status', $payload['golden_field_status']);
+        $this->assertSame('reason', $payload['golden_field_reason']);
+        $this->assertSame('decision_id', $payload['golden_field_decision_id']);
+        $this->assertSame('counterfactual', $payload['golden_field_counterfactual']);
+        $this->assertSame('recall_at_5', $payload['golden_field_recall_at_5']);
+        $this->assertSame('ok', $payload['golden_status_ok']);
+        $this->assertSame('atlas.context.golden_counterfactual.v1', $payload['golden_schema_version']);
+        $this->assertSame('predicted_revert_band', $payload['advisory_field_predicted_revert_band']);
+        $this->assertSame('basis', $payload['advisory_field_basis']);
+        $this->assertSame('realized_revert_rate', $payload['advisory_field_realized_revert_rate']);
+        $this->assertSame('measured', $payload['advisory_basis_measured']);
+        $this->assertSame(17, $payload['ledger_counterfactual_advisory_floor_count']);
+    }
+
 }
