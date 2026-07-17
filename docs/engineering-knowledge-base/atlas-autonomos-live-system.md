@@ -66,9 +66,11 @@ depends_on:
 flows_to:
   - atlas-open-gaps-regressions-ledger
   - atlas-terminal-first-focus
+  - atlas-aaeos-acos-elite-simplify-lane
 unlocks:
   - external-brain-task-origination
   - scoped-commit-on-main
+  - aaeos-acos-elite-simplify-lane
 governs:
   - autonomos-live-runtime
   - atlasloop-live-keeplist
@@ -76,6 +78,7 @@ evidence:
   - app/Services/Ai/SelfConstruction/AtlasTaskScopedCommitter.php
   - app/Console/Commands/AtlasBrainNextCommand.php
   - app/Console/Commands/AtlasTaskCommand.php
+  - app/Console/Commands/AtlasAaeosAcosSimplifyCycleCommand.php
 required_tests:
   - php artisan atlas:engineering:knowledge docs-health --json
 requires_evidence: true
@@ -83,6 +86,7 @@ risk_level: critical
 next_actions:
   - Manter keep-list sincronizado com consumidores vivos.
   - Preferir atlas:brain:* / atlas:task:* em qualquer trabalho de autonomia.
+  - Lane AAEOS+ACOS elite: ver atlas-aaeos-acos-elite-simplify-lane.md.
 ---
 
 # Atlas Autônomos — o sistema VIVO (cérebro + músculo)
@@ -128,7 +132,14 @@ Nao inclui: religar ACDE/`atlas:loop:*`, mass-delete por prefixo, auto-merge.
 php artisan atlas:brain:next --json
 php artisan atlas:brain:seed --json
 php artisan atlas:task next --json
+php artisan atlas:aaeos-acos:simplify-cycle plan --json
+php artisan atlas:brain:next aaeos_acos --json
 ```
+
+## Lane AAEOS+ACOS (defatoração elite)
+
+Scope `aaeos_acos` + `atlas:aaeos-acos:simplify-cycle` — mutação só em AAEOS/ACOS com Contrato Elite
+(shrink + consumers + anti-proxy). Doc: `atlas-aaeos-acos-elite-simplify-lane.md`. Schedule default OFF.
 
 ## Proximas Acoes
 

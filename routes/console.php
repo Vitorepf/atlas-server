@@ -497,6 +497,20 @@ Schedule::command('atlas:task:servable-heartbeat --json')
     ->when(static fn (): bool => \App\Services\Ai\SelfConstruction\AtlasTaskServingSwitch::enabled()
         || \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled());
 
+// AAEOS+ACOS elite simplify lane — bounded plan tick (default OFF).
+// Arms with ATLAS_AAEOS_ACOS_SIMPLIFY_CYCLE_SCHEDULE_ENABLED=true. Plan-only:
+// emits brain→seed→prompt sequence; does not claim zero-operator sovereignty.
+Schedule::command('atlas:aaeos-acos:simplify-cycle plan --dry-run=1 --json')
+    ->cron(sprintf('*/%d * * * *', max(5, (int) config('atlas.brain.aaeos_acos_simplify_cycle.schedule_cadence_minutes', 30))))
+    ->withoutOverlapping()
+    ->appendOutputTo(storage_path('logs/aaeos-acos-simplify-cycle.log'))
+    ->when(static fn (): bool => (bool) config('atlas.brain.aaeos_acos_simplify_cycle.schedule_enabled', false)
+        && (
+            \App\Services\Ai\SelfConstruction\AtlasTaskServingSwitch::enabled()
+            || \App\Services\Ai\AutonomousEvolution\AtlasLoopMasterSwitch::enabled()
+            || \App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainMasterSwitch::enabled()
+        ));
+
 // govA-cortex-cadence — daily Cortex scope-comprehension snapshot rebuild.
 // REMOVED atlas:loop schedule (elite hard-delete)
 

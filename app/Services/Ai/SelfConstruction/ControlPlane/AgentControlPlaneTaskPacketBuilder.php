@@ -3,6 +3,8 @@
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
 use App\Services\Ai\SelfConstruction\Concerns\RecursivelyKsortsArrays;
+use App\Services\Ai\SelfConstruction\Governance\AtlasAaeosAcosLaneScope;
+use App\Services\Ai\SelfConstruction\Governance\AtlasTaskGovernancePolicyPlane;
 use App\Services\Ai\SelfConstruction\Maestro\PacketEvolution\AtlasMaestroPacketSchemaDeprecationGate;
 use App\Services\Ai\SelfConstruction\Maestro\PacketEvolution\AtlasMaestroPacketSchemaVersioning;
 use App\Services\Ai\SelfConstruction\Support\HashesKsortedPayloadCanonically;
@@ -303,8 +305,8 @@ final class AgentControlPlaneTaskPacketBuilder
         $isHeavyRefactor = count($allowed) >= 3
             && AtlasRefactorProofGate::appliesTo($objective);
         if ($isHeavyRefactor && $refactorDesignSpec === null) {
-            $required = function_exists('config')
-                && (bool) config('atlas_task_governance.refactor_design_spec_required', false);
+            $laneScopeSlug = AtlasAaeosAcosLaneScope::inferFromAllowedFiles($allowed);
+            $required = (new AtlasTaskGovernancePolicyPlane)->refactorDesignSpecRequired($laneScopeSlug);
             if ($required) {
                 $blockingReasons[] = 'heavy_refactor_requires_design_spec';
             } else {

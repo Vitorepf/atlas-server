@@ -71,6 +71,16 @@ return [
     // False (default) records the same fact as a packet warning — visible, not blocking.
     'refactor_design_spec_required' => false,
 
+    // Per brain/task lane scope overrides. Global defaults stay observe/false; the
+    // AAEOS+ACOS elite simplify lane enforces shrink proof + design spec without
+    // flipping Autônomos-wide governance.
+    'scope_overrides' => [
+        'aaeos_acos' => [
+            'refactor_proof_mode' => 'enforce',
+            'refactor_design_spec_required' => true,
+        ],
+    ],
+
     // Semantic ARCHITECTURE JUDGE over refactor deliveries (advisory|off). Local hermes
     // one-shot (S53 arbiter pattern — worker-side, zero cloud spend) reads the seam diff
     // + design spec and judges clarity/coupling/safety — what shrink metrics cannot see.

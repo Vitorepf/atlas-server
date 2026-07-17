@@ -186,6 +186,36 @@ final class AtlasTaskGovernancePolicyPlaneTest extends TestCase
         $this->assertSame('custom_topology', $plane->isolationContract());
     }
 
+    public function test_aaeos_acos_scope_override_enforces_refactor_proof(): void
+    {
+        $plane = new AtlasTaskGovernancePolicyPlane([
+            'refactor_proof_mode' => 'observe',
+            'refactor_design_spec_required' => false,
+            'scope_overrides' => [
+                'aaeos_acos' => [
+                    'refactor_proof_mode' => 'enforce',
+                    'refactor_design_spec_required' => true,
+                ],
+            ],
+        ]);
+
+        $this->assertSame('observe', $plane->refactorProofMode(null));
+        $this->assertSame('observe', $plane->refactorProofMode('autonomous'));
+        $this->assertSame('enforce', $plane->refactorProofMode('aaeos_acos'));
+        $this->assertFalse($plane->refactorDesignSpecRequired(null));
+        $this->assertTrue($plane->refactorDesignSpecRequired('aaeos_acos'));
+    }
+
+    public function test_real_config_file_aaeos_acos_override_is_enforce(): void
+    {
+        $config = require __DIR__.'/../../../../../config/atlas_task_governance.php';
+        $plane = new AtlasTaskGovernancePolicyPlane($config);
+
+        $this->assertSame('observe', $plane->refactorProofMode());
+        $this->assertSame('enforce', $plane->refactorProofMode('aaeos_acos'));
+        $this->assertTrue($plane->refactorDesignSpecRequired('aaeos_acos'));
+    }
+
     // ── real production config file loads and matches today's behavior ──────
 
     public function test_real_config_file_reproduces_current_defaults(): void

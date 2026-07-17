@@ -20,6 +20,7 @@ use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsulePr
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevFailureCapsuleRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevTaskPacketRuntimeService;
 use App\Services\Ai\Programming\AtlasDev\Support\WorkspaceOriginIdentity;
+use App\Services\Ai\SelfConstruction\Governance\AtlasAaeosAcosLaneScope;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskCommitGovernanceChain;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskGovernancePolicyPlane;
 use App\Services\Ai\SelfConstruction\Governance\AtlasTaskPostLandCanarySentinel;
@@ -475,7 +476,10 @@ final class AtlasTaskServingService
             // non-improving or anti-fake delivery (move_only / wrapper_only), keeping the lease
             // so the worker improves it and re-reports. Fail-open: an uncomputable proof (infra,
             // non-PHP scope) never blocks.
-            $refactorProofMode = $this->policyPlane->refactorProofMode();
+            // AAEOS+ACOS elite lane: infer scope from allowed_files → enforce shrink proof
+            // without flipping the global Autônomos default (observe).
+            $laneScopeSlug = AtlasAaeosAcosLaneScope::inferFromAllowedFiles(array_values(array_map('strval', (array) $scope['allowed_files'])));
+            $refactorProofMode = $this->policyPlane->refactorProofMode($laneScopeSlug);
             $refactorProof = null;
             // A stage whose OWN scope is entirely tests AUTHORS proof — it is judged by
             // the verifier + test contract, never by shrink axes (its callers already

@@ -155,12 +155,53 @@ final class AtlasTaskGovernancePolicyPlane
      * proof entirely, observe records the before/after delta verdict without blocking,
      * enforce refuses the commit when the delta shows no measurable improvement or an
      * anti-fake flag (move_only / wrapper_only). Invalid config falls back to observe.
+     *
+     * Optional $scopeSlug applies config scope_overrides.<slug>.refactor_proof_mode when set
+     * (AAEOS+ACOS elite lane uses enforce without flipping the global default).
      */
-    public function refactorProofMode(): string
+    public function refactorProofMode(?string $scopeSlug = null): string
     {
+        $override = $this->scopeOverride($scopeSlug);
+        if (isset($override['refactor_proof_mode'])) {
+            $raw = strtolower(trim((string) $override['refactor_proof_mode']));
+            if (in_array($raw, self::VALID_MODES, true)) {
+                return $raw;
+            }
+        }
+
         $raw = strtolower(trim((string) ($this->config()['refactor_proof_mode'] ?? '')));
 
         return in_array($raw, self::VALID_MODES, true) ? $raw : self::DEFAULT_EVIDENCE_CONTRACT_MODE;
+    }
+
+    /**
+     * Whether heavy refactors (refactor-shaped objective over 3+ files) require a complete
+     * refactor_design_spec before the packet is admitted. Global default false; AAEOS+ACOS
+     * scope override sets true.
+     */
+    public function refactorDesignSpecRequired(?string $scopeSlug = null): bool
+    {
+        $override = $this->scopeOverride($scopeSlug);
+        if (array_key_exists('refactor_design_spec_required', $override)) {
+            return (bool) $override['refactor_design_spec_required'];
+        }
+
+        return (bool) ($this->config()['refactor_design_spec_required'] ?? false);
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    private function scopeOverride(?string $scopeSlug): array
+    {
+        $slug = trim((string) $scopeSlug);
+        if ($slug === '') {
+            return [];
+        }
+
+        $overrides = (array) ($this->config()['scope_overrides'] ?? []);
+
+        return is_array($overrides[$slug] ?? null) ? $overrides[$slug] : [];
     }
 
     public function isolationContract(): string

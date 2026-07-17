@@ -58,4 +58,17 @@ final class AtlasBrainScopeRegistryTest extends TestCase
 
         self::assertSame('cortex', (new AtlasBrainScopeRegistry)->defaultScope());
     }
+
+    public function test_resolves_aaeos_acos_elite_lane_roots_with_meta_off(): void
+    {
+        $def = (new AtlasBrainScopeRegistry)->resolve('aaeos_acos');
+
+        self::assertSame('aaeos_acos', $def['slug']);
+        self::assertContains('app/Services/Ai/Aaeos', $def['roots']);
+        self::assertContains('app/Services/Ai/AgenticEngineeringOs', $def['roots']);
+        self::assertContains('app/Services/Ai/AcosMax', $def['roots']);
+        self::assertContains('app/Services/Ai/Cognition', $def['roots']);
+        self::assertFalse($def['meta_harness'], 'elite lane must not auto-arm meta_harness');
+        self::assertNotContains('app/Services/Ai/SelfConstruction', $def['roots']);
+    }
 }

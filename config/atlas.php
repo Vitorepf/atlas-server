@@ -102,6 +102,37 @@ return [
                 // stop-probe/classifier/dedup/perception, nor config/atlas.php (all in FORBIDDEN_SELF_TARGETS).
                 'meta_harness' => (bool) env('ATLAS_BRAIN_AUTONOMOUS_META_HARNESS', true),
             ],
+            // Lane 24/7 AAEOS+ACOS — defatoração elite / confiabilidade. Mutation targets ONLY these
+            // roots; Autônomos harness stays out of the objective. meta_harness OFF (fail-closed).
+            'aaeos_acos' => [
+                'label' => 'AAEOS+ACOS elite simplification/reliability lane (defatoração with proof).',
+                'roots' => [
+                    'app/Services/Ai/Aaeos',
+                    'app/Services/Ai/AgenticEngineeringOs',
+                    'app/Services/Ai/AcosMax',
+                    'app/Services/Ai/Cognition',
+                ],
+                'docs_roots' => [
+                    'docs/engineering-knowledge-base/atlas-agentic-engineering-os.md',
+                    'docs/engineering-knowledge-base/atlas-cognition-operating-system.md',
+                    'docs/engineering-knowledge-base/atlas-acos-areas-map.md',
+                    'docs/engineering-knowledge-base/atlas-aaeos-acos-elite-simplify-lane.md',
+                ],
+                'meta_harness' => false,
+                'lane' => 'elite_simplify',
+                'bias' => [
+                    'collapse_duplicates',
+                    'remove_dead_layer_with_proof',
+                    'consolidate_facades',
+                    'close_reliability_gaps',
+                ],
+            ],
+        ],
+
+        // AAEOS+ACOS simplify-cycle tick (scheduler). Default OFF — operator arms explicitly.
+        'aaeos_acos_simplify_cycle' => [
+            'schedule_enabled' => (bool) env('ATLAS_AAEOS_ACOS_SIMPLIFY_CYCLE_SCHEDULE_ENABLED', false),
+            'schedule_cadence_minutes' => max(5, (int) env('ATLAS_AAEOS_ACOS_SIMPLIFY_CYCLE_CADENCE_MINUTES', 30)),
         ],
 
         // KEYSTONE FLAGS — external brain perception is default ON; opt out with env only when debugging.

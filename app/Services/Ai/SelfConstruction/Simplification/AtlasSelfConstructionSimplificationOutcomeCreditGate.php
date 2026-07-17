@@ -76,4 +76,73 @@ final class AtlasSelfConstructionSimplificationOutcomeCreditGate
             'reasons' => ['no_meaningful_simplification_preserving_capability'],
         ];
     }
+
+    /**
+     * Elite lane credit: LOC/lines alone never credit. Requires capability_preserved
+     * plus a real shrink axis (files deleted, cyclomatic, or decision-point reduction).
+     * Cosmetic reshuffle and proxy faxina are zero-credit.
+     *
+     * @param  array<string, mixed>  $outcome
+     * @return array<string, mixed>
+     */
+    public function evaluateElite(array $outcome): array
+    {
+        $base = $this->evaluate($outcome);
+
+        $linesRemoved = (int) ($outcome['lines_removed'] ?? 0);
+        $filesDeleted = (int) ($outcome['files_deleted'] ?? 0);
+        $cyclomaticReduction = (int) ($outcome['cyclomatic_reduction'] ?? 0);
+        $decisionPointsReduction = (int) ($outcome['decision_points_reduction'] ?? 0);
+        $capabilityPreserved = (bool) ($outcome['capability_preserved'] ?? false);
+        $isProxyFaxina = (bool) ($outcome['proxy_faxina'] ?? false);
+
+        if ($isProxyFaxina) {
+            return [
+                'schema_version' => self::SCHEMA,
+                'verdict' => self::VERDICT_ZERO_CREDIT,
+                'credit' => 0,
+                'elite' => true,
+                'reasons' => ['proxy_faxina_forbidden_on_elite_lane'],
+            ];
+        }
+
+        // LOC-only theater: lines removed without capability + structural shrink.
+        if ($linesRemoved > 0
+            && $filesDeleted === 0
+            && $cyclomaticReduction === 0
+            && $decisionPointsReduction === 0
+        ) {
+            return [
+                'schema_version' => self::SCHEMA,
+                'verdict' => self::VERDICT_ZERO_CREDIT,
+                'credit' => 0,
+                'elite' => true,
+                'reasons' => ['loc_only_credit_forbidden'],
+            ];
+        }
+
+        if (! $capabilityPreserved) {
+            return [
+                'schema_version' => self::SCHEMA,
+                'verdict' => self::VERDICT_ZERO_CREDIT,
+                'credit' => 0,
+                'elite' => true,
+                'reasons' => ['capability_not_preserved'],
+            ];
+        }
+
+        if ($decisionPointsReduction > 0 && $base['verdict'] === self::VERDICT_ZERO_CREDIT) {
+            return [
+                'schema_version' => self::SCHEMA,
+                'verdict' => self::VERDICT_CREDITED,
+                'credit' => $decisionPointsReduction,
+                'elite' => true,
+                'reasons' => ['decision_points_reduction_with_capability_preserved:reduction='.$decisionPointsReduction],
+            ];
+        }
+
+        $base['elite'] = true;
+
+        return $base;
+    }
 }
