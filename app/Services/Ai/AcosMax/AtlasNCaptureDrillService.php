@@ -69,6 +69,10 @@ final class AtlasNCaptureDrillService
     public const FIELD_DRILL = 'drill';
     public const FIELD_EXPECTED = 'expected';
     public const FIELD_ACTUAL = 'actual';
+    public const FIELD_MEASURE_ID = 'measure_id';
+    public const FIELD_FORMULA_VERSION = 'formula_version';
+    public const FIELD_DENOMINATOR_MIN = 'denominator_min';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     private readonly string $ledgerPath;
 
@@ -82,9 +86,9 @@ final class AtlasNCaptureDrillService
     {
         return [
             'kind' => self::KIND_MEASURE_FREEZE,
-            'measure_id' => self::MEASURE_ID,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
             'formula' => 'N-Capture Drill: for each installed-but-not-routed engine, publish {time_to_first_routed_task_seconds, time_to_first_proven_real_seconds, hours_of_integration} with denominators; admission only via MAXK-02 cold-start; capability spec ELEV-29s must verify; yardstick = golden v2 + MAXK-01 regret in peek mode.',
-            'formula_version' => self::FORMULA_VERSION,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             'thresholds' => [
                 'days_between_drills_max' => self::DEFAULT_DAYS_BETWEEN_DRILLS_MAX,
                 'cold_start_channels_allowed' => [self::COLD_START_CHANNEL_MAXK02],
@@ -106,7 +110,7 @@ final class AtlasNCaptureDrillService
                     'admission.bypass',
                 ],
             ],
-            'denominator_min' => 1,
+            self::FIELD_DENOMINATOR_MIN => 1,
             'ttl_days' => 365,
             'author_engine_id' => 'cursor-acos-max-teto01',
             'judge_engine_id' => 'codex-independent-teto01-judge',
@@ -135,9 +139,9 @@ final class AtlasNCaptureDrillService
         }
 
         $receipt = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'measure_id' => self::MEASURE_ID,
-            'formula_version' => self::FORMULA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             'drill_id' => AiValueNormalizer::trimmedStringOrNull($drill['drill_id'] ?? null) ?? (string) Str::uuid(),
             'engine_id' => AiValueNormalizer::trimmedScalarStringOrNull($drill['engine_id'] ?? null) ?? '',
             'capability_spec' => [
@@ -226,15 +230,15 @@ final class AtlasNCaptureDrillService
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'measure_id' => self::MEASURE_ID,
-            'formula_version' => self::FORMULA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             'generated_at' => now('UTC')->toIso8601String(),
             'freeze' => $freeze,
             'window_days' => $windowDays,
             self::FIELD_STATUS => $status,
             self::FIELD_REASON => $reason,
-            'denominator_min' => (int) (AiValueNormalizer::finiteFloatOrNull($freeze['denominator_min'] ?? null) ?? 0),
+            self::FIELD_DENOMINATOR_MIN => (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? 0),
             'aggregate' => [
                 'drills_in_window' => count($inWindow),
                 'admitted_count' => count($admitted),

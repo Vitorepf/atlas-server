@@ -4361,4 +4361,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['scorecard_gate_test_floor_count']);
     }
 
+    public function test_ncapture_immune_coverage_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->ncaptureImmuneCoverageFloorsContractObserve([]);
+
+        $this->assertSame('measure_id', $payload['ncapture_field_measure_id']);
+        $this->assertSame('formula_version', $payload['ncapture_field_formula_version']);
+        $this->assertSame('denominator_min', $payload['ncapture_field_denominator_min']);
+        $this->assertSame('schema_version', $payload['ncapture_field_schema_version']);
+        $this->assertSame('drill', $payload['ncapture_field_drill']);
+        $this->assertSame('expected', $payload['ncapture_field_expected']);
+        $this->assertSame('schema_version', $payload['immune_ledger_field_schema_version']);
+        $this->assertSame('candidate_hash', $payload['immune_ledger_field_candidate_hash']);
+        $this->assertSame('writer', $payload['immune_ledger_field_writer']);
+        $this->assertSame('decided_at', $payload['immune_ledger_field_decided_at']);
+        $this->assertSame('blocking_gate_ids', $payload['immune_ledger_field_blocking_gate_ids']);
+        $this->assertSame('promotion_status', $payload['immune_ledger_field_promotion_status']);
+        $this->assertSame('coverage', $payload['coverage_field_coverage']);
+        $this->assertSame('satisfied', $payload['coverage_field_satisfied']);
+        $this->assertSame('extra_passed_gates', $payload['coverage_field_extra_passed_gates']);
+        $this->assertSame('missing', $payload['coverage_field_missing']);
+        $this->assertSame('actual', $payload['ncapture_field_actual']);
+        $this->assertSame(17, $payload['ncapture_immune_coverage_floor_count']);
+    }
+
 }

@@ -46,6 +46,9 @@ final class ImmuneVerdictLedger
     public const FIELD_EXPECTED_BLOCK_GATE_IDS = 'expected_block_gate_ids';
     public const FIELD_DECIDED_AT = 'decided_at';
     public const FIELD_BLOCKING_GATE_IDS = 'blocking_gate_ids';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_CANDIDATE_HASH = 'candidate_hash';
+    public const FIELD_WRITER = 'writer';
 
     /** @var list<string> */
     public const LABELS = [
@@ -96,9 +99,9 @@ final class ImmuneVerdictLedger
 
         return [
             'id' => (string) Str::uuid(),
-            'schema_version' => self::SCHEMA_VERSION,
-            'candidate_hash' => $this->candidateHash($candidateHash),
-            'writer' => trim($writer) !== '' ? trim($writer) : self::WRITER_UNKNOWN,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_CANDIDATE_HASH => $this->candidateHash($candidateHash),
+            self::FIELD_WRITER => trim($writer) !== '' ? trim($writer) : self::WRITER_UNKNOWN,
             self::FIELD_GATE_STATUSES => $gateStatuses,
             self::FIELD_PROMOTION_STATUS => AiValueNormalizer::trimmedScalarStringOrNull($verdict[self::FIELD_PROMOTION_STATUS] ?? null) ?? 'unclassified',
             self::FIELD_BLOCKING_GATE_IDS => $blockingGateIds,
@@ -168,9 +171,9 @@ final class ImmuneVerdictLedger
     {
         return [
             'id' => $row['id'],
-            'schema_version' => $row['schema_version'],
-            'candidate_hash' => $row['candidate_hash'],
-            'writer' => $row['writer'],
+            self::FIELD_SCHEMA_VERSION => $row[self::FIELD_SCHEMA_VERSION],
+            self::FIELD_CANDIDATE_HASH => $row[self::FIELD_CANDIDATE_HASH],
+            self::FIELD_WRITER => $row[self::FIELD_WRITER],
             self::FIELD_GATE_STATUSES => json_encode($row[self::FIELD_GATE_STATUSES], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
             self::FIELD_PROMOTION_STATUS => $row[self::FIELD_PROMOTION_STATUS],
             self::FIELD_BLOCKING_GATE_IDS => json_encode($row[self::FIELD_BLOCKING_GATE_IDS], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
@@ -189,9 +192,9 @@ final class ImmuneVerdictLedger
     {
         return [
             'id' => AiValueNormalizer::trimmedScalarStringOrNull($row->id ?? null) ?? '',
-            'schema_version' => AiValueNormalizer::trimmedScalarStringOrNull($row->schema_version ?? null) ?? '',
-            'candidate_hash' => AiValueNormalizer::trimmedScalarStringOrNull($row->candidate_hash ?? null) ?? '',
-            'writer' => AiValueNormalizer::trimmedScalarStringOrNull($row->writer ?? null) ?? '',
+            self::FIELD_SCHEMA_VERSION => AiValueNormalizer::trimmedScalarStringOrNull($row->schema_version ?? null) ?? '',
+            self::FIELD_CANDIDATE_HASH => AiValueNormalizer::trimmedScalarStringOrNull($row->candidate_hash ?? null) ?? '',
+            self::FIELD_WRITER => AiValueNormalizer::trimmedScalarStringOrNull($row->writer ?? null) ?? '',
             self::FIELD_GATE_STATUSES => $this->jsonArray($row->gate_statuses ?? []),
             self::FIELD_PROMOTION_STATUS => AiValueNormalizer::trimmedScalarStringOrNull($row->promotion_status ?? null) ?? '',
             self::FIELD_BLOCKING_GATE_IDS => $this->jsonList($row->blocking_gate_ids ?? []),

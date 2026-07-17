@@ -5973,6 +5973,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function ncaptureImmuneCoverageFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ncapture_field_measure_id' => AtlasNCaptureDrillService::FIELD_MEASURE_ID,
+            'ncapture_field_formula_version' => AtlasNCaptureDrillService::FIELD_FORMULA_VERSION,
+            'ncapture_field_denominator_min' => AtlasNCaptureDrillService::FIELD_DENOMINATOR_MIN,
+            'ncapture_field_schema_version' => AtlasNCaptureDrillService::FIELD_SCHEMA_VERSION,
+            'ncapture_field_drill' => AtlasNCaptureDrillService::FIELD_DRILL,
+            'ncapture_field_expected' => AtlasNCaptureDrillService::FIELD_EXPECTED,
+            'immune_ledger_field_schema_version' => ImmuneVerdictLedger::FIELD_SCHEMA_VERSION,
+            'immune_ledger_field_candidate_hash' => ImmuneVerdictLedger::FIELD_CANDIDATE_HASH,
+            'immune_ledger_field_writer' => ImmuneVerdictLedger::FIELD_WRITER,
+            'immune_ledger_field_decided_at' => ImmuneVerdictLedger::FIELD_DECIDED_AT,
+            'immune_ledger_field_blocking_gate_ids' => ImmuneVerdictLedger::FIELD_BLOCKING_GATE_IDS,
+            'immune_ledger_field_promotion_status' => ImmuneVerdictLedger::FIELD_PROMOTION_STATUS,
+            'coverage_field_coverage' => AaeosRequiredGateCoverageChecker::FIELD_COVERAGE,
+            'coverage_field_satisfied' => AaeosRequiredGateCoverageChecker::FIELD_SATISFIED,
+            'coverage_field_extra_passed_gates' => AaeosRequiredGateCoverageChecker::FIELD_EXTRA_PASSED_GATES,
+            'coverage_field_missing' => AaeosRequiredGateCoverageChecker::FIELD_MISSING,
+            'ncapture_field_actual' => AtlasNCaptureDrillService::FIELD_ACTUAL,
+            'ncapture_immune_coverage_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [
