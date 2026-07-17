@@ -428,9 +428,9 @@ final class EvidenceVisionThesisComposer
      */
     private static function candidateAligns(array $pair, array $keys): bool
     {
-        $rel = mb_strtolower(ltrim((string) ($pair[1] ?? ''), '/'));
-        $yieldPath = mb_strtolower((string) ($pair[2] ?? ''));
-        $objective = mb_strtolower((string) ($pair[0] ?? ''));
+        $rel = mb_strtolower(ltrim(AiValueNormalizer::trimmedString($pair[1] ?? ''), '/'));
+        $yieldPath = mb_strtolower(AiValueNormalizer::trimmedString($pair[2] ?? ''));
+        $objective = mb_strtolower(AiValueNormalizer::trimmedString($pair[0] ?? ''));
 
         foreach ($keys as $key) {
             $key = mb_strtolower(AiValueNormalizer::trimmedString($key));

@@ -252,6 +252,29 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_reactive_saturation(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-rs-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'windows' => [
+                ['n' => 1, 'yield' => 0.5],
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-rs',
+                '--reactive-saturation' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"reactive_saturation"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

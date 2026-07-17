@@ -36,7 +36,7 @@ final class AaeosBlockerSeverity
             return '';
         }
 
-        return strtolower($severity);
+        return AiValueNormalizer::lowerTrimmedString($severity);
     }
 
     public static function isDecisive(string $severity): bool

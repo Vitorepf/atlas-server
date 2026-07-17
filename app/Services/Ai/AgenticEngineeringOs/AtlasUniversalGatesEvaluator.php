@@ -9,6 +9,7 @@ use App\Services\Ai\AcosMax\PredictedImpactBand;
 use App\Services\Ai\AcosMax\PreReviewAdvisoryBand;
 use App\Services\Ai\AcosMax\Esp09IndependentChallengerService;
 use App\Services\Ai\AcosMax\DogfoodingFrictionLeadMiner;
+use App\Services\Ai\AcosMax\ReactiveSaturationSignal;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -314,6 +315,28 @@ final class AtlasUniversalGatesEvaluator
 
         /** @var list<array<string,mixed>> $events */
         return DogfoodingFrictionLeadMiner::mine($events);
+    }
+
+    /**
+     * Observe-only MULTN reactive saturation classification.
+     * Accepts `{windows:[...], context?:{...}}` or a bare windows list.
+     * Does not add a universal-gate id.
+     *
+     * @param  array<mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function reactiveSaturationObserve(array $input): array
+    {
+        if (array_is_list($input)) {
+            /** @var list<array<string,mixed>> $input */
+            return ReactiveSaturationSignal::classify($input);
+        }
+
+        $windows = AiValueNormalizer::arrayOrEmpty($input['windows'] ?? null);
+        $context = AiValueNormalizer::arrayOrEmpty($input['context'] ?? null);
+
+        /** @var list<array<string,mixed>> $windows */
+        return ReactiveSaturationSignal::classify($windows, $context);
     }
 
     /**

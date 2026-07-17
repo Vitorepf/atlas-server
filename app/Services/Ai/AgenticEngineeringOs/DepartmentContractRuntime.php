@@ -562,7 +562,7 @@ final class DepartmentContractRuntime
     private function riskScopeIndex(string $scope): int
     {
         static $levels = ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'];
-        $index = array_search(strtoupper(AiValueNormalizer::trimmedString($scope)), $levels, true);
+        $index = array_search(AiValueNormalizer::upperTrimmedString($scope), $levels, true);
 
         return $index === false ? -1 : (int) $index;
     }

@@ -13,6 +13,7 @@ use App\Services\Ai\AcosMax\PredictedImpactBand;
 use App\Services\Ai\AcosMax\PreReviewAdvisoryBand;
 use App\Services\Ai\AcosMax\Esp09IndependentChallengerService;
 use App\Services\Ai\AcosMax\DogfoodingFrictionLeadMiner;
+use App\Services\Ai\AcosMax\ReactiveSaturationSignal;
 use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
 use InvalidArgumentException;
 use Tests\TestCase;
@@ -247,5 +248,21 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
 
         $this->assertSame(DogfoodingFrictionLeadMiner::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('insufficient_signal', $payload['status']);
+    }
+
+    public function test_reactive_saturation_observe_classifies_windows(): void
+    {
+        $payload = $this->svc->reactiveSaturationObserve([
+            'windows' => [
+                ['n' => 10, 'yield' => 0.9],
+                ['n' => 10, 'yield' => 0.7],
+            ],
+            'context' => ['queue_depth' => 2],
+        ]);
+
+        $this->assertSame(ReactiveSaturationSignal::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertFalse($payload['reactive_saturated']);
+        $this->assertSame('insufficient_windows', $payload['basis']);
+        $this->assertSame(2, $payload['queue_depth']);
     }
 }

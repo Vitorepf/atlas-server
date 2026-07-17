@@ -52,6 +52,7 @@ final class AtlasAaeosCommand extends Command
         {--reality-compiler-slice= : JSON file with Reality Compiler slice map (observe-only contract)}
         {--esp09-challenger= : JSON file with ESP-09 challenger context (observe-only advisory)}
         {--dogfooding-leads= : JSON file with dogfooding friction events (observe-only mine)}
+        {--reactive-saturation= : JSON file with reactive saturation windows (observe-only classify)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -317,6 +318,17 @@ final class AtlasAaeosCommand extends Command
             $report['observe'] = array_merge(
                 is_array($report['observe'] ?? null) ? $report['observe'] : [],
                 ['dogfooding_friction_leads' => $gates->dogfoodingFrictionLeadsObserve($events)],
+            );
+        }
+        $reactivePath = (string) ($this->option('reactive-saturation') ?? '');
+        if ($reactivePath !== '') {
+            $payload = $this->loadJsonFile($reactivePath);
+            if ($payload === null) {
+                return $this->failWith('universal-gates --reactive-saturation must be a readable JSON object');
+            }
+            $report['observe'] = array_merge(
+                is_array($report['observe'] ?? null) ? $report['observe'] : [],
+                ['reactive_saturation' => $gates->reactiveSaturationObserve($payload)],
             );
         }
         $this->emit($report, $json);

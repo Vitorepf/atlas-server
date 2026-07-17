@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class AaeosRequiredGateCoverageChecker
 {
     private const SCHEMA_VERSION = 'atlas.aaeos.phase.v1';
@@ -79,7 +81,7 @@ final class AaeosRequiredGateCoverageChecker
                 continue;
             }
 
-            $trimmed = trim($gate);
+            $trimmed = AiValueNormalizer::trimmedString($gate);
             if ($trimmed === '') {
                 continue;
             }

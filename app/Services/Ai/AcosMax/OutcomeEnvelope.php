@@ -159,12 +159,12 @@ final class OutcomeEnvelope
         }
 
         $certifiedReceiptId = $data['certified_receipt_id'] ?? null;
-        if ($certifiedReceiptId !== null && (! is_string($certifiedReceiptId) || trim($certifiedReceiptId) === '')) {
+        if ($certifiedReceiptId !== null && AiValueNormalizer::trimmedStringOrNull($certifiedReceiptId) === null) {
             throw new InvalidArgumentException('outcome_envelope_certified_receipt_id_invalid');
         }
 
         $episodeId = $data['episode_id'] ?? null;
-        if ($episodeId !== null && (! is_string($episodeId) || trim($episodeId) === '')) {
+        if ($episodeId !== null && AiValueNormalizer::trimmedStringOrNull($episodeId) === null) {
             throw new InvalidArgumentException('outcome_envelope_episode_id_invalid');
         }
 
