@@ -128,6 +128,7 @@ use App\Http\Controllers\Ai\SoftwareCompanyStewardship\AutonomosDigestController
 use App\Http\Controllers\Ai\SoftwareCompanyStewardship\ExecutiveDecisionInboxController;
 use App\Http\Controllers\Ai\SoftwareCompanyStewardship\ProductModeCockpitController;
 use App\Http\Controllers\Ai\SoftwareCompanyStewardship\ProductModeOperationalInboxController;
+use App\Http\Controllers\ArenaRunController;
 use App\Http\Controllers\AtlasProgrammingGovernanceController;
 use App\Http\Controllers\AtlasProjectBlockerController;
 use App\Http\Controllers\AtlasProjectController;
@@ -260,6 +261,12 @@ Route::prefix('v1/mobile')->group(function () use ($registerAtlasVoiceRoutes): v
 
 Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRoutes): void {
     Route::apiResource('domains', AtlasDomainController::class)->only(['index', 'store', 'update', 'destroy']);
+
+    Route::get('/arena/composite', [ArenaRunController::class, 'composite']);
+    Route::get('/arena/scoreboard', [ArenaRunController::class, 'scoreboard']);
+    Route::get('/arena/capabilities', [ArenaRunController::class, 'capabilities']);
+    Route::get('/arena/runs/live', [ArenaRunController::class, 'live']);
+    Route::post('/arena/runs', [ArenaRunController::class, 'store']);
 
     // Atlas Código C22 · local-first, read-only Git topology for the native app.
     Route::get('/code/graph', AtlasCodeGraphController::class);

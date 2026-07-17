@@ -65,6 +65,72 @@ final class ArenaCompositeService
         ];
     }
 
+    /** @return array<string, mixed> */
+    public function scoreboard(): array
+    {
+        $measurements = $this->store->measurements();
+        $bySuite = [];
+        foreach ($measurements as $row) {
+            $bySuite[$row['suite']][] = $row;
+        }
+
+        $suites = [];
+        $adapterRepos = (array) config('atlas_rivals.benchmarks.repos', []);
+        foreach ($this->store->suites() as $suite) {
+            $rows = $bySuite[$suite] ?? [];
+            $latestByEngine = [];
+            foreach ($rows as $row) {
+                $latestByEngine[$row['engine']][] = $row;
+            }
+            $engines = [];
+            foreach ($latestByEngine as $engine => $engineRows) {
+                $latest = $this->latestBySuiteArm($engineRows);
+                $arms = $latest[$suite] ?? [];
+                $baseline = $arms['baseline'] ?? null;
+                $withAtlas = $arms['with_atlas'] ?? null;
+                $score = is_array($baseline) ? (float) $baseline['score'] : null;
+                $previous = $this->previousScore($engineRows, $suite, 'baseline');
+                $casesPassed = (int) max((int) ($baseline['cases_passed'] ?? 0), (int) ($withAtlas['cases_passed'] ?? 0));
+                $casesFailed = (int) max((int) ($baseline['cases_failed'] ?? 0), (int) ($withAtlas['cases_failed'] ?? 0));
+                $casesTotal = (int) max((int) ($baseline['cases_total'] ?? 0), (int) ($withAtlas['cases_total'] ?? 0));
+                $durations = array_values(array_filter([
+                    $baseline['duration_avg_ms'] ?? null,
+                    $withAtlas['duration_avg_ms'] ?? null,
+                ], 'is_numeric'));
+                $engines[] = [
+                    'engine' => (string) $engine,
+                    'score' => $score,
+                    'previous_score' => $previous,
+                    'delta' => $score !== null && $previous !== null ? round($score - $previous, 4) : null,
+                    'with_atlas_score' => is_array($withAtlas) ? (float) $withAtlas['score'] : null,
+                    'without_atlas_score' => $score,
+                    'atlas_multiplier' => $this->pairedMultiplier([$suite => $arms], [$suite => 1.0]),
+                    'cases_passed' => $casesPassed,
+                    'cases_failed' => $casesFailed,
+                    'cases_total' => $casesTotal,
+                    'duration_avg_ms' => $durations === [] ? null : (int) round(array_sum($durations) / count($durations)),
+                    'regressed' => $score !== null && $previous !== null && $score < $previous,
+                    'history' => $this->history($engineRows),
+                ];
+            }
+            usort($engines, static fn (array $a, array $b): int => strcmp($a['engine'], $b['engine']));
+            $lastRunAt = $rows === [] ? null : max(array_column($rows, 'round_at'));
+            $suites[] = [
+                'suite' => $suite,
+                'runs_total' => count(array_unique(array_column($rows, 'run_id_public'))),
+                'last_run_at' => $lastRunAt,
+                'adapter_installed' => isset($adapterRepos[$suite]),
+                'engines' => $engines,
+            ];
+        }
+
+        return [
+            'schema_version' => 'atlas.arena.scoreboard.v1',
+            'generated_at' => now()->toIso8601String(),
+            'suites' => $suites,
+        ];
+    }
+
     /**
      * @param  list<array<string, mixed>>  $rows
      * @return array<string, array<string, array<string, mixed>>>
@@ -105,6 +171,21 @@ final class ArenaCompositeService
             'score' => $denominator > 0.0 ? round($sum / $denominator, 4) : null,
             'denominator' => round($denominator, 6),
         ];
+    }
+
+    /** @param list<array<string, mixed>> $rows */
+    private function previousScore(array $rows, string $suite, string $arm): ?float
+    {
+        $matching = array_values(array_filter(
+            $rows,
+            fn (array $row): bool => $row['suite'] === $suite && $row['arm'] === $arm
+        ));
+        usort($matching, static fn (array $a, array $b): int => strcmp((string) $a['round_at'], (string) $b['round_at']));
+        if (count($matching) < 2) {
+            return null;
+        }
+
+        return round((float) $matching[count($matching) - 2]['score'], 4);
     }
 
     /**
