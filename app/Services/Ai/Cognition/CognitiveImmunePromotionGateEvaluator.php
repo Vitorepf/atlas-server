@@ -47,6 +47,16 @@ final class CognitiveImmunePromotionGateEvaluator
     /** ASI-12 guard: a single loud actor cannot graduate probation alone. */
     public const PROBATION_MIN_RECALL_ACTORS = 2;
 
+    public const TRUST_BAND_BLOCKED = 'blocked';
+
+    public const TRUST_BAND_TRUSTED = 'trusted';
+
+    public const TRUST_BAND_UNCLASSIFIED = 'unclassified';
+
+    public const TRUST_BAND_WATCH = 'watch';
+
+    public const TRUST_BAND_CANDIDATE = 'candidate';
+
     /**
      * @param  array<string,mixed>  $signals
      * @return array{
@@ -333,24 +343,24 @@ final class CognitiveImmunePromotionGateEvaluator
         array $pendingGateIds,
     ): string {
         if ($blockingGateIds !== []) {
-            return 'blocked';
+            return self::TRUST_BAND_BLOCKED;
         }
 
         if ($pendingGateIds === []) {
-            return 'trusted';
+            return self::TRUST_BAND_TRUSTED;
         }
 
         // No blocks and no captured atomic claim yet -> nothing to classify.
         if ($gateStatuses['G0'] !== self::STATUS_PASS || $gateStatuses['G1'] !== self::STATUS_PASS) {
-            return 'unclassified';
+            return self::TRUST_BAND_UNCLASSIFIED;
         }
 
         // Clean candidate held back solely by an open probation gate -> watch.
         if ($pendingGateIds === ['G8']) {
-            return 'watch';
+            return self::TRUST_BAND_WATCH;
         }
 
-        return 'candidate';
+        return self::TRUST_BAND_CANDIDATE;
     }
 
     /**

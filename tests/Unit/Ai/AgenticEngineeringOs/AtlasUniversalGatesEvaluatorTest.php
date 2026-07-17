@@ -2993,4 +2993,23 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(20, $payload['ncapture_promotion_lifecycle_status_floor_count']);
     }
 
+    public function test_asef_remint_immune_ragx_status_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->asefRemintImmuneRagxStatusFloorsContractObserve([]);
+
+        $this->assertSame('unavailable', $payload['asef_status_unavailable']);
+        $this->assertSame('asef_chunks_table_missing', $payload['asef_reason_table_missing']);
+        $this->assertSame('embedding_column_absent', $payload['asef_reason_embedding_column_absent']);
+        $this->assertSame('off', $payload['remint_mode_off']);
+        $this->assertSame('deferred_disk_queue', $payload['remint_mode_deferred_disk_queue']);
+        $this->assertSame('queued', $payload['remint_reason_queued']);
+        $this->assertSame('blocked', $payload['immune_trust_band_blocked']);
+        $this->assertSame('trusted', $payload['immune_trust_band_trusted']);
+        $this->assertSame('candidate', $payload['immune_trust_band_candidate']);
+        $this->assertSame('degraded', $payload['ragx_status_degraded']);
+        $this->assertSame('registered', $payload['ragx_status_registered']);
+        $this->assertSame('late_chunk_index_error', $payload['ragx_reason_late_chunk_index_error']);
+        $this->assertSame(20, $payload['asef_remint_immune_ragx_status_floor_count']);
+    }
+
 }

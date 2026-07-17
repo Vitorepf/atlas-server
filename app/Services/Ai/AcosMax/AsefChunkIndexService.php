@@ -26,6 +26,24 @@ final class AsefChunkIndexService
 {
     public const SCHEMA_VERSION = 'atlas.asef_chunks.index.v1';
 
+    public const STATUS_UNAVAILABLE = 'unavailable';
+
+    public const STATUS_BLOCKED = 'blocked';
+
+    public const STATUS_DEGRADED = 'degraded';
+
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_FAILED = 'failed';
+
+    public const STATUS_EMPTY = 'empty';
+
+    public const REASON_ASEF_CHUNKS_TABLE_MISSING = 'asef_chunks_table_missing';
+
+    public const REASON_EMPTY_SOURCE_REF_OR_TEXT = 'empty_source_ref_or_text';
+
+    public const REASON_EMBEDDING_COLUMN_ABSENT = 'embedding_column_absent';
+
     public function __construct(
         private readonly AtlasSemanticEmbeddingFoundationService $asef,
         private readonly EmbeddingService $embeddings,
@@ -49,8 +67,8 @@ final class AsefChunkIndexService
         if (! DatabaseTableAvailability::has('asef_chunks')) {
             return [
                 'schema_version' => self::SCHEMA_VERSION,
-                'status' => 'unavailable',
-                'reason' => 'asef_chunks_table_missing',
+                'status' => self::STATUS_UNAVAILABLE,
+                'reason' => self::REASON_ASEF_CHUNKS_TABLE_MISSING,
                 'chunks_written' => 0,
                 'chunks_skipped' => 0,
             ];
@@ -64,8 +82,8 @@ final class AsefChunkIndexService
         if ($sourceRef === '' || $text === '') {
             return [
                 'schema_version' => self::SCHEMA_VERSION,
-                'status' => 'blocked',
-                'reason' => 'empty_source_ref_or_text',
+                'status' => self::STATUS_BLOCKED,
+                'reason' => self::REASON_EMPTY_SOURCE_REF_OR_TEXT,
                 'chunks_written' => 0,
                 'chunks_skipped' => 0,
             ];
@@ -128,7 +146,7 @@ final class AsefChunkIndexService
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $written > 0 ? 'ok' : ($errors !== [] ? 'failed' : 'empty'),
+            'status' => $written > 0 ? self::STATUS_OK : ($errors !== [] ? self::STATUS_FAILED : self::STATUS_EMPTY),
             'source_ref' => $sourceRef,
             'chunks_written' => $written,
             'chunks_skipped' => $skipped,
@@ -204,8 +222,8 @@ final class AsefChunkIndexService
         if (! DatabaseTableAvailability::has('asef_chunks')) {
             return [
                 'schema_version' => self::SCHEMA_VERSION,
-                'status' => 'unavailable',
-                'reason' => 'asef_chunks_table_missing',
+                'status' => self::STATUS_UNAVAILABLE,
+                'reason' => self::REASON_ASEF_CHUNKS_TABLE_MISSING,
                 'documents' => [],
             ];
         }
@@ -213,8 +231,8 @@ final class AsefChunkIndexService
         if (! DatabaseTableAvailability::hasColumn('asef_chunks', 'embedding')) {
             return [
                 'schema_version' => self::SCHEMA_VERSION,
-                'status' => 'degraded',
-                'reason' => 'embedding_column_absent',
+                'status' => self::STATUS_DEGRADED,
+                'reason' => self::REASON_EMBEDDING_COLUMN_ABSENT,
                 'documents' => [],
             ];
         }
@@ -246,7 +264,7 @@ final class AsefChunkIndexService
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => 'ok',
+            'status' => self::STATUS_OK,
             'embedding_model' => $modelId,
             'chunk_hits' => count($rows),
             'documents' => $documents,

@@ -4391,6 +4391,40 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: ASEF chunk index + remint queue + immune trust bands + residual RAGX status floors —
+     * no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function asefRemintImmuneRagxStatusFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'asef_status_unavailable' => AsefChunkIndexService::STATUS_UNAVAILABLE,
+            'asef_status_blocked' => AsefChunkIndexService::STATUS_BLOCKED,
+            'asef_status_degraded' => AsefChunkIndexService::STATUS_DEGRADED,
+            'asef_status_ok' => AsefChunkIndexService::STATUS_OK,
+            'asef_reason_table_missing' => AsefChunkIndexService::REASON_ASEF_CHUNKS_TABLE_MISSING,
+            'asef_reason_empty_source' => AsefChunkIndexService::REASON_EMPTY_SOURCE_REF_OR_TEXT,
+            'asef_reason_embedding_column_absent' => AsefChunkIndexService::REASON_EMBEDDING_COLUMN_ABSENT,
+            'remint_mode_off' => AtlasCognitionRemintTouchedQueue::MODE_OFF,
+            'remint_mode_deferred_disk_queue' => AtlasCognitionRemintTouchedQueue::MODE_DEFERRED_DISK_QUEUE,
+            'remint_reason_disabled' => AtlasCognitionRemintTouchedQueue::REASON_DISABLED,
+            'remint_reason_queued' => AtlasCognitionRemintTouchedQueue::REASON_QUEUED,
+            'remint_reason_queue_write_failed' => AtlasCognitionRemintTouchedQueue::REASON_QUEUE_WRITE_FAILED,
+            'immune_trust_band_blocked' => CognitiveImmunePromotionGateEvaluator::TRUST_BAND_BLOCKED,
+            'immune_trust_band_trusted' => CognitiveImmunePromotionGateEvaluator::TRUST_BAND_TRUSTED,
+            'immune_trust_band_watch' => CognitiveImmunePromotionGateEvaluator::TRUST_BAND_WATCH,
+            'immune_trust_band_candidate' => CognitiveImmunePromotionGateEvaluator::TRUST_BAND_CANDIDATE,
+            'ragx_status_degraded' => RagxChainMechanismService::STATUS_DEGRADED,
+            'ragx_status_registered' => RagxChainMechanismService::STATUS_REGISTERED,
+            'ragx_status_insufficient_signal' => RagxChainMechanismService::STATUS_INSUFFICIENT_SIGNAL,
+            'ragx_reason_late_chunk_index_error' => RagxChainMechanismService::REASON_LATE_CHUNK_INDEX_ERROR,
+            'asef_remint_immune_ragx_status_floor_count' => 20,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

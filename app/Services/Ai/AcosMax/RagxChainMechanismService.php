@@ -119,6 +119,22 @@ final class RagxChainMechanismService
 
     public const STATUS_DISABLED = 'disabled';
 
+    public const STATUS_DEGRADED = 'degraded';
+
+    public const STATUS_EMPTY = 'empty';
+
+    public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+
+    public const STATUS_REGISTERED = 'registered';
+
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_UNKNOWN = 'unknown';
+
+    public const REASON_LATE_CHUNK_INDEX_ERROR = 'late_chunk_index_error';
+
+    public const REASON_NO_VERIFIED_MAXF09_L2_SUMMARIES = 'no_verified_maxf09_l2_summaries';
+
     public function __construct(
         private readonly ?AsefChunkIndexService $asefChunks = null,
         private readonly ?string $abLedgerPath = null,
@@ -196,8 +212,8 @@ final class RagxChainMechanismService
             return [
                 'schema_version' => self::SCHEMA,
                 'slice' => self::STAGE_RAGX_01,
-                'status' => 'degraded',
-                'reason' => 'late_chunk_index_error',
+                'status' => self::STATUS_DEGRADED,
+                'reason' => self::REASON_LATE_CHUNK_INDEX_ERROR,
                 'error_class' => $e::class,
                 'documents' => [],
                 'ab_green_claimed' => false,
@@ -207,7 +223,7 @@ final class RagxChainMechanismService
         return [
             'schema_version' => self::SCHEMA,
             'slice' => self::STAGE_RAGX_01,
-            'status' => AiValueNormalizer::trimmedStringOrNull($result['status'] ?? null) ?? 'unknown',
+            'status' => AiValueNormalizer::trimmedStringOrNull($result['status'] ?? null) ?? self::STATUS_UNKNOWN,
             'mode' => self::MODE_SHADOW,
             'result' => $result,
             'documents' => array_values(AiValueNormalizer::arrayOrEmpty($result['documents'] ?? null)),
@@ -223,7 +239,7 @@ final class RagxChainMechanismService
     {
         $record = [
             'schema_version' => self::AB_SCHEMA,
-            'status' => 'registered',
+            'status' => self::STATUS_REGISTERED,
             'recorded_at' => Carbon::now()->toISOString(),
             'experiment_id' => AiValueNormalizer::trimmedStringOrNull($experiment['experiment_id'] ?? null) ?? hash('sha256', json_encode($experiment, JSON_THROW_ON_ERROR)),
             'slice' => AiValueNormalizer::trimmedStringOrNull($experiment['slice']  ?? null) ?? 'RAGX',
@@ -270,7 +286,7 @@ final class RagxChainMechanismService
             return [
                 'schema_version' => self::LOUVAIN_SCHEMA,
                 'slice' => self::STAGE_MAXD_05,
-                'status' => 'empty',
+                'status' => self::STATUS_EMPTY,
                 'algorithm' => 'louvain_deterministic_local',
                 'communities' => [],
             ];
@@ -282,7 +298,7 @@ final class RagxChainMechanismService
         return [
             'schema_version' => self::LOUVAIN_SCHEMA,
             'slice' => self::STAGE_MAXD_05,
-            'status' => 'ok',
+            'status' => self::STATUS_OK,
             'algorithm' => 'louvain_deterministic_local',
             'node_count' => count($nodes),
             'edge_count' => count($edges),
@@ -325,8 +341,8 @@ final class RagxChainMechanismService
             return [
                 'schema_version' => self::RAPTOR_SCHEMA,
                 'slice' => self::STAGE_RAGX_10,
-                'status' => 'insufficient_signal',
-                'reason' => 'no_verified_maxf09_l2_summaries',
+                'status' => self::STATUS_INSUFFICIENT_SIGNAL,
+                'reason' => self::REASON_NO_VERIFIED_MAXF09_L2_SUMMARIES,
                 'communities_seen' => count($communities),
                 'nodes' => [],
                 'generated_summary' => false,
@@ -347,7 +363,7 @@ final class RagxChainMechanismService
         return [
             'schema_version' => self::RAPTOR_SCHEMA,
             'slice' => self::STAGE_RAGX_10,
-            'status' => 'ok',
+            'status' => self::STATUS_OK,
             'nodes' => $nodes,
             'generated_summary' => false,
             'ab_green_claimed' => false,
