@@ -482,10 +482,10 @@ final class PromotionProtocol
      */
     private function managedReportEntry(array $entry, array $events): array
     {
-        $id = (string) $entry['id'];
+        $id = AiValueNormalizer::trimmedStringOrNull($entry['id'] ?? null) ?? '';
         $last = null;
         foreach ($events as $event) {
-            if ((string) ($event['flag_id'] ?? '') === $id) {
+            if ((AiValueNormalizer::trimmedStringOrNull($event['flag_id'] ?? null) ?? '') === $id) {
                 $last = $event;
             }
         }
@@ -493,18 +493,20 @@ final class PromotionProtocol
         return [
             'id' => $id,
             'status' => 'managed',
-            'family' => (string) $entry['family'],
-            'slice' => (string) ($entry['slice'] ?? ''),
-            'state' => $last !== null ? (string) ($last['to_state'] ?? $entry['state']) : (string) $entry['state'],
+            'family' => AiValueNormalizer::trimmedStringOrNull($entry['family'] ?? null) ?? '',
+            'slice' => AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? '',
+            'state' => $last !== null
+                ? (AiValueNormalizer::trimmedStringOrNull($last['to_state'] ?? null) ?? (AiValueNormalizer::trimmedStringOrNull($entry['state'] ?? null) ?? ''))
+                : (AiValueNormalizer::trimmedStringOrNull($entry['state'] ?? null) ?? ''),
             'config_key' => $entry['config_key'] ?? null,
             'env_key' => $entry['env_key'] ?? null,
             'operator_only' => (bool) ($entry['operator_only'] ?? false),
             'required_fields' => $this->requiredFields($entry),
-            'shadow_minimum_window' => (string) ($entry['shadow_minimum_window'] ?? ''),
-            'flip_criterion' => (string) ($entry['flip_criterion'] ?? ''),
-            'rollback_trigger' => (string) ($entry['rollback_trigger'] ?? ''),
-            'judge_engine_id' => (string) ($entry['judge_engine_id'] ?? ''),
-            'receipt' => (string) ($entry['receipt'] ?? ''),
+            'shadow_minimum_window' => AiValueNormalizer::trimmedStringOrNull($entry['shadow_minimum_window'] ?? null) ?? '',
+            'flip_criterion' => AiValueNormalizer::trimmedStringOrNull($entry['flip_criterion'] ?? null) ?? '',
+            'rollback_trigger' => AiValueNormalizer::trimmedStringOrNull($entry['rollback_trigger'] ?? null) ?? '',
+            'judge_engine_id' => AiValueNormalizer::trimmedStringOrNull($entry['judge_engine_id'] ?? null) ?? '',
+            'receipt' => AiValueNormalizer::trimmedStringOrNull($entry['receipt'] ?? null) ?? '',
             'last_flip' => $last,
         ];
     }
@@ -515,9 +517,9 @@ final class PromotionProtocol
     private function legacyReportEntry(array $entry): array
     {
         return [
-            'id' => (string) $entry['id'],
+            'id' => AiValueNormalizer::trimmedStringOrNull($entry['id'] ?? null) ?? '',
             'status' => 'legacy_unmanaged',
-            'family' => (string) ($entry['family'] ?? 'LEGACY'),
+            'family' => AiValueNormalizer::trimmedStringOrNull($entry['family'] ?? null) ?? 'LEGACY',
             'state' => 'legacy_unmanaged',
             'config_key' => $entry['config_key'] ?? null,
             'env_key' => $entry['env_key'] ?? null,

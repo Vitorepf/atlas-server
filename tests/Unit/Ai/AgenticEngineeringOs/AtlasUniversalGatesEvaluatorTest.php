@@ -2427,4 +2427,20 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(10, $payload['health_report_catalog_count']);
         $this->assertSame('mem-09.memory_quality', $payload['health_report_catalog'][0]['id']);
     }
+
+    public function test_watchdog_runner_autonomy_ladder_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->watchdogRunnerAutonomyLadderContractObserve([]);
+
+        $this->assertSame('atlas.acos.watchdog_run.v1', $payload['watchdog_runner_schema']);
+        $this->assertSame('alert', $payload['aggregate_status_alert']);
+        $this->assertSame('warning', $payload['aggregate_status_warning']);
+        $this->assertSame('healthy', $payload['aggregate_status_healthy']);
+        $this->assertSame('atlas.acos.watchdog.autonomy_ladder_adversarial.v1', $payload['autonomy_ladder_schema']);
+        $this->assertSame('maxk-09.autonomy_ladder_adversarial', $payload['autonomy_ladder_check_id']);
+        $this->assertSame('atlas.acos.promotion_protocol.v1', $payload['promotion_protocol_schema']);
+        $this->assertSame('atlas.acos.promotion_protocol.report.v1', $payload['promotion_protocol_report_schema']);
+        $this->assertSame(5, $payload['promotion_protocol_state_count']);
+        $this->assertSame(5, $payload['promotion_protocol_required_field_count']);
+    }
 }

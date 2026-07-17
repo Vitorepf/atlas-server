@@ -42,6 +42,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
 {
     public const SCHEMA = 'atlas.acos.watchdog.autonomy_ladder_adversarial.v1';
 
+    public const CHECK_ID = 'maxk-09.autonomy_ladder_adversarial';
+
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
         private readonly DecisionReceiptFailurePatternMiner $miner,
@@ -49,7 +51,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
 
     public function id(): string
     {
-        return 'maxk-09.autonomy_ladder_adversarial';
+        return self::CHECK_ID;
     }
 
     public function run(): AtlasWatchdogCheckResult
@@ -75,8 +77,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         foreach ($probes as $probe) {
             if (($probe['refused'] ?? false) !== true) {
                 $violations[] = [
-                    'probe' => (string) ($probe['id'] ?? 'unknown'),
-                    'reason' => (string) ($probe['observed'] ?? 'forgery_passed'),
+                    'probe' => AiValueNormalizer::trimmedStringOrNull($probe['id'] ?? null) ?? 'unknown',
+                    'reason' => AiValueNormalizer::trimmedStringOrNull($probe['observed'] ?? null) ?? 'forgery_passed',
                 ];
             }
         }

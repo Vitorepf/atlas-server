@@ -3509,6 +3509,29 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only watchdog-runner aggregate statuses + autonomy-ladder check floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function watchdogRunnerAutonomyLadderContractObserve(array $input = []): array
+    {
+        return [
+            'watchdog_runner_schema' => AtlasWatchdogRunner::SCHEMA_VERSION,
+            'aggregate_status_alert' => AtlasWatchdogRunner::AGGREGATE_STATUS_ALERT,
+            'aggregate_status_warning' => AtlasWatchdogRunner::AGGREGATE_STATUS_WARNING,
+            'aggregate_status_healthy' => AtlasWatchdogRunner::AGGREGATE_STATUS_HEALTHY,
+            'autonomy_ladder_schema' => AutonomyLadderAdversarialWatchdogCheck::SCHEMA,
+            'autonomy_ladder_check_id' => AutonomyLadderAdversarialWatchdogCheck::CHECK_ID,
+            'promotion_protocol_schema' => PromotionProtocol::SCHEMA,
+            'promotion_protocol_report_schema' => PromotionProtocol::REPORT_SCHEMA,
+            'promotion_protocol_state_count' => count(PromotionProtocol::STATES),
+            'promotion_protocol_required_field_count' => count(PromotionProtocol::REQUIRED_FIELDS),
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

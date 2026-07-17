@@ -7,6 +7,7 @@ namespace App\Services\Ai\Cognition\Watchdog;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Kernel\Evidence\AtlasEvidenceLedger;
 use App\Services\Ai\Kernel\Evidence\LedgerEventType;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
 use Throwable;
@@ -14,6 +15,12 @@ use Throwable;
 final readonly class AtlasWatchdogRunner
 {
     public const SCHEMA_VERSION = 'atlas.acos.watchdog_run.v1';
+
+    public const AGGREGATE_STATUS_ALERT = 'alert';
+
+    public const AGGREGATE_STATUS_WARNING = 'warning';
+
+    public const AGGREGATE_STATUS_HEALTHY = 'healthy';
 
     public function __construct(
         private AtlasWatchdogCheckRegistry $registry,
@@ -26,7 +33,7 @@ final readonly class AtlasWatchdogRunner
      */
     public function run(array $context = []): array
     {
-        $runId = (string) ($context['run_id'] ?? (string) Str::ulid());
+        $runId = AiValueNormalizer::trimmedStringOrNull($context['run_id'] ?? null) ?? (string) Str::ulid();
         $checkedAt = CarbonImmutable::now('UTC')->toISOString();
         $checks = [];
 
@@ -73,18 +80,21 @@ final readonly class AtlasWatchdogRunner
      */
     private function aggregateStatus(array $checks): string
     {
-        $statuses = array_map(static fn (array $check): string => (string) ($check['status'] ?? ''), $checks);
+        $statuses = array_map(
+            static fn (array $check): string => AiValueNormalizer::trimmedStringOrNull($check['status'] ?? null) ?? '',
+            $checks,
+        );
 
         if (in_array(AtlasWatchdogCheckResult::STATUS_ALERT, $statuses, true)
             || in_array(AtlasWatchdogCheckResult::STATUS_ERROR, $statuses, true)) {
-            return 'alert';
+            return self::AGGREGATE_STATUS_ALERT;
         }
 
         if (in_array(AtlasWatchdogCheckResult::STATUS_WARNING, $statuses, true)) {
-            return 'warning';
+            return self::AGGREGATE_STATUS_WARNING;
         }
 
-        return 'healthy';
+        return self::AGGREGATE_STATUS_HEALTHY;
     }
 
     /** @param list<array<string,mixed>> $checks */
@@ -109,7 +119,7 @@ final readonly class AtlasWatchdogRunner
         ];
 
         foreach ($checks as $check) {
-            $status = (string) ($check['status'] ?? '');
+            $status = AiValueNormalizer::trimmedStringOrNull($check['status'] ?? null) ?? '';
             if (array_key_exists($status, $counts)) {
                 $counts[$status]++;
             }
@@ -130,7 +140,7 @@ final readonly class AtlasWatchdogRunner
                 continue;
             }
 
-            $alerts[] = ['check_id' => (string) ($check['id'] ?? 'unknown')] + $check['alert'];
+            $alerts[] = ['check_id' => AiValueNormalizer::trimmedStringOrNull($check['id'] ?? null) ?? 'unknown'] + $check['alert'];
         }
 
         return $alerts;
