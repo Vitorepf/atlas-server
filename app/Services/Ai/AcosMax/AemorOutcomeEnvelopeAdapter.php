@@ -37,6 +37,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native['evidence_refs'] ?? null);
 
         $episodeId = AiValueNormalizer::trimmedString($context['episode_id'] ?? $native['episode_id'] ?? '');
+        $runId = AiValueNormalizer::trimmedString($native['run_id'] ?? $native['scope_id'] ?? '');
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => in_array($executor, ['dev', 'forge', 'autonomos'], true) ? $executor : 'engineering',
@@ -49,7 +50,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'certified_receipt_id' => $contract['certified_receipt_id'] ?? $native['certified_receipt_id'] ?? null,
             'evidence_ref_count' => (int) ($contract['evidence_ref_count'] ?? count($evidenceRefs)),
             'episode_id' => $episodeId !== '' ? $episodeId : null,
-            'run_id' => ($runId = AiValueNormalizer::trimmedString($native['run_id'] ?? $native['scope_id'] ?? '')) !== '' ? $runId : null,
+            'run_id' => $runId !== '' ? $runId : null,
         ], [
             'outcome_type' => (string) ($native['outcome_type'] ?? 'engineering_delivery'),
             'summary' => (string) ($native['summary'] ?? $native['objective'] ?? ''),

@@ -179,10 +179,10 @@ final class OutcomeEnvelope
             'verified' => (bool) $data['verified'],
             'verified_basis' => $basis,
             'verified_source_present' => (bool) $data['verified_source_present'],
-            'certified_receipt_id' => $certifiedReceiptId !== null ? trim((string) $certifiedReceiptId) : null,
+            'certified_receipt_id' => $certifiedReceiptId !== null ? AiValueNormalizer::trimmedString($certifiedReceiptId) : null,
             'evidence_ref_count' => $evidenceRefCount,
-            'episode_id' => $episodeId !== null ? trim((string) $episodeId) : null,
-            'run_id' => isset($data['run_id']) ? trim((string) $data['run_id']) : null,
+            'episode_id' => $episodeId !== null ? AiValueNormalizer::trimmedString($episodeId) : null,
+            'run_id' => isset($data['run_id']) ? AiValueNormalizer::trimmedString($data['run_id']) : null,
             'native_divergent' => [
                 'origin' => $divergentOrigin,
                 'fields' => $divergent['fields'],

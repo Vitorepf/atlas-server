@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * ESP-06 — producer/consumer bridge for the shared outcome envelope.
  *

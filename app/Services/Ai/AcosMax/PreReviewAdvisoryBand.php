@@ -199,7 +199,7 @@ final class PreReviewAdvisoryBand
         if (! is_string($value)) {
             return null;
         }
-        $lower = strtolower(trim($value));
+        $lower = AiValueNormalizer::lowerTrimmedString($value);
 
         return in_array($lower, $allowed, true) ? $lower : null;
     }

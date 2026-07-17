@@ -46,6 +46,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         );
         $verified = (bool) ($contract['verified'] ?? $native['verified'] ?? false);
         $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native['evidence_refs'] ?? null);
+        $runId = AiValueNormalizer::trimmedString($native['run_id'] ?? '');
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => $executor,
@@ -58,7 +59,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'certified_receipt_id' => $contract['certified_receipt_id'] ?? null,
             'evidence_ref_count' => count($evidenceRefs),
             'episode_id' => null,
-            'run_id' => ($runId = AiValueNormalizer::trimmedString($native['run_id'] ?? '')) !== '' ? $runId : null,
+            'run_id' => $runId !== '' ? $runId : null,
         ], [
             'flow_id' => $flowId,
             'flow_quality' => $native['flow_quality'] ?? null,

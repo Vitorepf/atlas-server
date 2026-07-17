@@ -135,7 +135,7 @@ final class Esp09IndependentChallengerService
         $byWindow = [];
 
         foreach ($events as $event) {
-            $outcome = strtolower(trim((string) ($event['outcome'] ?? '')));
+            $outcome = AiValueNormalizer::lowerTrimmedString($event['outcome'] ?? '');
             $window = (string) ($event['window'] ?? 'default');
             $byWindow[$window] ??= ['accepted' => 0, 'ignored' => 0];
 
