@@ -44,7 +44,7 @@ final class AaeosBlockerSeverityGate
             };
 
             if (AaeosBlockerSeverity::isDecisive($severity)
-                && ! $this->hasOwner($blocker)) {
+                && ! AaeosBlockerSeverity::hasOwner($blocker)) {
                 $ownerlessBlockers[] = $blocker;
             }
         }
@@ -58,20 +58,6 @@ final class AaeosBlockerSeverityGate
             'unknown_count' => $unknownCount,
             'ownerless_blockers' => $ownerlessBlockers,
         ];
-    }
-
-    /**
-     * @param  mixed  $blocker
-     */
-    private function hasOwner($blocker): bool
-    {
-        if (! is_array($blocker)) {
-            return false;
-        }
-
-        $owner = $blocker['owner'] ?? null;
-
-        return is_string($owner) && trim($owner) !== '';
     }
 
     private function resolveSignal(int $criticalCount, int $highCount, int $mediumCount): string

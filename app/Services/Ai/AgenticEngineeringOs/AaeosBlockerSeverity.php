@@ -41,4 +41,18 @@ final class AaeosBlockerSeverity
     {
         return $severity === self::HIGH || $severity === self::CRITICAL;
     }
+
+    /**
+     * @param  mixed  $blocker
+     */
+    public static function hasOwner(mixed $blocker): bool
+    {
+        if (! is_array($blocker)) {
+            return false;
+        }
+
+        $owner = $blocker['owner'] ?? null;
+
+        return is_string($owner) && trim($owner) !== '';
+    }
 }

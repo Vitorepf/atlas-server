@@ -23,4 +23,11 @@ final class AaeosBlockerSeverityTest extends TestCase
         self::assertFalse(AaeosBlockerSeverity::isDecisive(AaeosBlockerSeverity::MEDIUM));
         self::assertFalse(AaeosBlockerSeverity::isDecisive(''));
     }
+
+    public function test_has_owner_requires_non_blank_string(): void
+    {
+        self::assertTrue(AaeosBlockerSeverity::hasOwner(['owner' => 'security']));
+        self::assertFalse(AaeosBlockerSeverity::hasOwner(['owner' => '  ']));
+        self::assertFalse(AaeosBlockerSeverity::hasOwner([]));
+    }
 }
