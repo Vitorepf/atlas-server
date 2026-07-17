@@ -700,7 +700,7 @@ final class AtlasAcosWatchdogHealthService
         if ($value instanceof \DateTimeInterface) {
             return CarbonImmutable::instance($value);
         }
-        if (! is_string($value) || trim($value) === '') {
+        if (AiValueNormalizer::trimmedStringOrNull($value) === null) {
             return null;
         }
         try {

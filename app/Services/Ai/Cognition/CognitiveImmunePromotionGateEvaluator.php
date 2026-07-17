@@ -450,7 +450,8 @@ final class CognitiveImmunePromotionGateEvaluator
     private function timestampValue(array $signals, string $key): ?int
     {
         $value = $signals[$key] ?? null;
-        if (! is_string($value) || trim($value) === '') {
+        $value = AiValueNormalizer::trimmedStringOrNull($value);
+        if ($value === null) {
             return null;
         }
 

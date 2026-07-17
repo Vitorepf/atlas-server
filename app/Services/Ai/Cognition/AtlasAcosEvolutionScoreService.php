@@ -347,10 +347,10 @@ class AtlasAcosEvolutionScoreService
             $activeKeys = [];
             foreach (AiCompoundingMemory::query()->active()->get(['id', 'memory_hash']) as $memory) {
                 foreach ([$memory->id, $memory->memory_hash] as $value) {
-                    if (! is_string($value) || trim($value) === '') {
+                    $value = AiValueNormalizer::trimmedStringOrNull($value);
+                    if ($value === null) {
                         continue;
                     }
-                    $value = trim($value);
                     $activeKeys['compounding_memory:'.$value] = true;
                     $activeKeys[$value] = true;
                 }

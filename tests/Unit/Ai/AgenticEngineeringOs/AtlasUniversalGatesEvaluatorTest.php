@@ -1588,4 +1588,13 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertIsArray($payload['stages']);
         $this->assertGreaterThan(0, $payload['stage_count']);
     }
+
+    public function test_mission_control_cockpit_schema_observe_reports_phases(): void
+    {
+        $payload = $this->svc->missionControlCockpitSchemaObserve([]);
+
+        $this->assertSame('atlas.aaeos.mission_control_cockpit.v1', $payload['schema_version']);
+        $this->assertSame(17, $payload['phase_count']);
+        $this->assertContains('intent_capture', $payload['phases']);
+    }
 }

@@ -600,7 +600,7 @@ final class AtlasAcosLongHorizonGateService
 
     private function recordedAtCalendarDate(mixed $recordedAt): ?string
     {
-        if (! is_string($recordedAt) || trim($recordedAt) === '') {
+        if (AiValueNormalizer::trimmedStringOrNull($recordedAt) === null) {
             return null;
         }
 

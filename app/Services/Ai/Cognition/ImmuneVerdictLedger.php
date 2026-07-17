@@ -249,7 +249,7 @@ final class ImmuneVerdictLedger
         if ($value instanceof DateTimeInterface) {
             return CarbonImmutable::instance($value)->utc();
         }
-        if (! is_string($value) || trim($value) === '') {
+        if (AiValueNormalizer::trimmedStringOrNull($value) === null) {
             return null;
         }
 

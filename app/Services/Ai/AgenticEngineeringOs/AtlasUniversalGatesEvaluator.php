@@ -2150,6 +2150,22 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only mission-control cockpit schema.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function missionControlCockpitSchemaObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AtlasMissionControlCockpitService::SCHEMA_VERSION,
+            'phase_count' => count(AaeosPhaseHandoffService::PHASES),
+            'phases' => AaeosPhaseHandoffService::PHASES,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>
