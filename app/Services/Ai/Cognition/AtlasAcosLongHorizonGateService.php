@@ -165,6 +165,64 @@ final class AtlasAcosLongHorizonGateService
     }
 
     /**
+     * Shared window-integrity blocker projection for v1 assess and v2 area assess.
+     * Caller supplies the stable blocker code labels (v1 vs series_v2_*).
+     *
+     * @param  array<string,mixed>  $window
+     * @param  array{
+     *     day_count: string,
+     *     calendar_span: string,
+     *     resolved_evidence: string,
+     *     future_dated: string,
+     *     window_stale: string,
+     *     gap: string,
+     *     backfilled: string
+     * }  $codes
+     * @return list<string>
+     */
+    private function windowIntegrityBlockers(
+        array $window,
+        int $resolvedEvidenceRows,
+        int $minDays,
+        int $maxLatestStaleDays,
+        int $maxGapDays,
+        array $codes,
+    ): array {
+        $blockers = [];
+        $seriesDayCount = (int) ($window['series_day_count'] ?? 0);
+        $calendarSpanDays = (int) ($window['calendar_span_days'] ?? 0);
+        $futureDatedRows = (int) ($window['future_dated_rows'] ?? 0);
+        $latestDate = $window['latest_date'] ?? null;
+        $latestStalenessDays = (int) ($window['latest_staleness_days'] ?? 0);
+        $maxConsecutiveGapDays = (int) ($window['max_consecutive_gap_days'] ?? 0);
+        $backfilledSamples = (int) ($window['backfilled_samples'] ?? 0);
+
+        if ($seriesDayCount < $minDays) {
+            $blockers[] = $codes['day_count'];
+        }
+        if ($calendarSpanDays < $minDays) {
+            $blockers[] = $codes['calendar_span'];
+        }
+        if ($resolvedEvidenceRows < $seriesDayCount) {
+            $blockers[] = $codes['resolved_evidence'];
+        }
+        if ($futureDatedRows > 0) {
+            $blockers[] = $codes['future_dated'];
+        }
+        if ($latestDate === null || $latestStalenessDays > $maxLatestStaleDays) {
+            $blockers[] = $codes['window_stale'];
+        }
+        if ($maxConsecutiveGapDays > $maxGapDays) {
+            $blockers[] = $codes['gap'];
+        }
+        if ($backfilledSamples > 0) {
+            $blockers[] = $codes['backfilled'];
+        }
+
+        return $blockers;
+    }
+
+    /**
      * @param  array<string,mixed>  $scorecard
      * @param  list<array<string,mixed>>  $series
      * @return array<string,mixed>
@@ -205,29 +263,24 @@ final class AtlasAcosLongHorizonGateService
         if ($scorecardHash === '' || ! str_starts_with($scorecardHash, 'sha256:')) {
             $blockers[] = 'scorecard_hash_missing';
         }
-        if ($seriesDayCount < $minDays) {
-            $blockers[] = 'series_day_count_below_floor';
-        }
-        if ($calendarSpanDays < $minDays) {
-            $blockers[] = 'calendar_span_below_floor';
-        }
+        array_push($blockers, ...$this->windowIntegrityBlockers(
+            $window,
+            $resolvedEvidenceRows,
+            $minDays,
+            $maxLatestStaleDays,
+            $maxGapDays,
+            [
+                'day_count' => 'series_day_count_below_floor',
+                'calendar_span' => 'calendar_span_below_floor',
+                'resolved_evidence' => 'delta_series_resolved_evidence_source_missing',
+                'future_dated' => 'delta_series_future_dated_rows',
+                'window_stale' => 'delta_series_window_stale',
+                'gap' => 'series_gap_exceeds_floor',
+                'backfilled' => 'backfilled_sample_detected',
+            ],
+        ));
         if ($certificationWindowDaysBelowFloor > 0) {
             $blockers[] = 'series_day_below_floor';
-        }
-        if ($resolvedEvidenceRows < $seriesDayCount) {
-            $blockers[] = 'delta_series_resolved_evidence_source_missing';
-        }
-        if ($futureDatedRows > 0) {
-            $blockers[] = 'delta_series_future_dated_rows';
-        }
-        if ($latestDate === null || $latestStalenessDays > $maxLatestStaleDays) {
-            $blockers[] = 'delta_series_window_stale';
-        }
-        if ($maxConsecutiveGapDays > $maxGapDays) {
-            $blockers[] = 'series_gap_exceeds_floor';
-        }
-        if ($backfilledSamples > 0) {
-            $blockers[] = 'backfilled_sample_detected';
         }
 
         $warnings = [];
@@ -445,28 +498,22 @@ final class AtlasAcosLongHorizonGateService
         $resolvedEvidenceRows = $this->resolvedEvidenceRowsV2($series);
         $areaScan = $this->certificationWindowAreaScan($series, $certificationWindowDates, $floors);
 
-        $blockers = [];
-        if ($seriesDayCount < $minDays) {
-            $blockers[] = 'series_v2_day_count_below_floor';
-        }
-        if ($calendarSpanDays < $minDays) {
-            $blockers[] = 'series_v2_calendar_span_below_floor';
-        }
-        if ($resolvedEvidenceRows < $seriesDayCount) {
-            $blockers[] = 'series_v2_resolved_evidence_source_missing';
-        }
-        if ($futureDatedRows > 0) {
-            $blockers[] = 'series_v2_future_dated_rows';
-        }
-        if ($latestDate === null || $latestStalenessDays > $maxLatestStaleDays) {
-            $blockers[] = 'series_v2_window_stale';
-        }
-        if ($maxConsecutiveGapDays > $maxGapDays) {
-            $blockers[] = 'series_v2_gap_exceeds_floor';
-        }
-        if ($backfilledSamples > 0) {
-            $blockers[] = 'series_v2_backfilled_sample_detected';
-        }
+        $blockers = $this->windowIntegrityBlockers(
+            $window,
+            $resolvedEvidenceRows,
+            $minDays,
+            $maxLatestStaleDays,
+            $maxGapDays,
+            [
+                'day_count' => 'series_v2_day_count_below_floor',
+                'calendar_span' => 'series_v2_calendar_span_below_floor',
+                'resolved_evidence' => 'series_v2_resolved_evidence_source_missing',
+                'future_dated' => 'series_v2_future_dated_rows',
+                'window_stale' => 'series_v2_window_stale',
+                'gap' => 'series_v2_gap_exceeds_floor',
+                'backfilled' => 'series_v2_backfilled_sample_detected',
+            ],
+        );
 
         foreach ($areaScan['areas_below_floor'] as $area) {
             $blockers[] = 'area_below_floor:'.$area;
