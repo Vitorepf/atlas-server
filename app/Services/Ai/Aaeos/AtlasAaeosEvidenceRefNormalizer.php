@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Canonical shape/trim rules for AAEOS evidence_refs.
  *
@@ -47,11 +49,11 @@ final class AtlasAaeosEvidenceRefNormalizer
 
     public function kind(mixed $kind): string
     {
-        return strtolower($this->ref($kind));
+        return AiValueNormalizer::lowerTrimmedString($kind);
     }
 
     public function ref(mixed $ref): string
     {
-        return trim((string) $ref);
+        return AiValueNormalizer::trimmedString($ref);
     }
 }

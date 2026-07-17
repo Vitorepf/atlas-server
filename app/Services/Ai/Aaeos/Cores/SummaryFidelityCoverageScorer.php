@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Cores;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Summary fidelity / context-retention coverage over required summary items.
  *
@@ -12,7 +14,7 @@ namespace App\Services\Ai\Aaeos\Cores;
  */
 final class SummaryFidelityCoverageScorer
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.summary_fidelity_coverage.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.summary_fidelity_coverage.v1';
 
     private const DECISION_KIND = 'decision';
 
@@ -60,7 +62,7 @@ final class SummaryFidelityCoverageScorer
             $requiredTotal++;
 
             $id = $this->stringValue($item, 'id');
-            $idToken = trim($id);
+            $idToken = AiValueNormalizer::trimmedString($id);
             $kind = $this->normalize($this->stringValue($item, 'kind'));
             $isDecision = $kind === self::DECISION_KIND;
 
@@ -184,11 +186,7 @@ final class SummaryFidelityCoverageScorer
 
         $digest = $item['digest'];
 
-        if (! is_string($digest)) {
-            return null;
-        }
-
-        return trim($digest) === '' ? null : $digest;
+        return AiValueNormalizer::trimmedStringOrNull($digest);
     }
 
     /**
@@ -208,6 +206,6 @@ final class SummaryFidelityCoverageScorer
 
     private function normalize(string $value): string
     {
-        return mb_strtolower(trim($value));
+        return AiValueNormalizer::lowerTrimmedString($value);
     }
 }

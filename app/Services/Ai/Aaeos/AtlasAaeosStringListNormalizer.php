@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos;
 
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AtlasAaeosStringListNormalizer
 {
@@ -42,7 +43,7 @@ final class AtlasAaeosStringListNormalizer
                 continue;
             }
 
-            $value = trim((string) $value);
+            $value = AiValueNormalizer::trimmedString($value);
             if ($value !== '') {
                 $strings[] = $value;
             }
@@ -63,7 +64,7 @@ final class AtlasAaeosStringListNormalizer
 
         $strings = [];
         foreach ($values as $value) {
-            if (is_string($value) && trim($value) !== '') {
+            if (AiValueNormalizer::trimmedStringOrNull($value) !== null) {
                 $strings[] = $value;
             } elseif (is_int($value)) {
                 $strings[] = (string) $value;
@@ -167,7 +168,7 @@ final class AtlasAaeosStringListNormalizer
         $strings = [];
         foreach ($values as $value) {
             if (is_string($value)) {
-                $value = trim($value);
+                $value = AiValueNormalizer::trimmedString($value);
                 if ($value !== '') {
                     $strings[] = $value;
                 }
@@ -180,8 +181,8 @@ final class AtlasAaeosStringListNormalizer
             }
 
             $ref = $value['kind'] ?? ($value['type'] ?? ($value['id'] ?? ($value['name'] ?? null)));
-            if (is_string($ref) && trim($ref) !== '') {
-                $strings[] = trim($ref);
+            if (($ref = AiValueNormalizer::trimmedStringOrNull($ref)) !== null) {
+                $strings[] = $ref;
             }
         }
 

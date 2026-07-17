@@ -434,6 +434,30 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_summary_fidelity(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-sf-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'required_items' => [
+                ['id' => 'dec-1', 'kind' => 'decision', 'digest' => 'catalogue stays 15'],
+            ],
+            'summary_text' => 'The catalogue stays 15.',
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-sf',
+                '--summary-fidelity' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"summary_fidelity_coverage"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

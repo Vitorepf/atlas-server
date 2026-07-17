@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class AmbitionRungPolicy
 {
     public const SCHEMA_VERSION = 'atlas.originator.ambition_rung_policy.v1';
@@ -25,11 +27,12 @@ final class AmbitionRungPolicy
         if (($context['enabled'] ?? false) === true) {
             $basis = 'not_saturated';
             if (($context['reactive_saturated'] ?? false) === true) {
-                $current = (string) ($context['current_rung'] ?? 'task');
+                $current = AiValueNormalizer::trimmedString($context['current_rung'] ?? 'task') ?: 'task';
                 $target = self::nextRung($current);
                 $currentBest = self::bestLeverage($candidates);
                 foreach ($candidates as $candidate) {
-                    if (($candidate['rung'] ?? '') === $target && (float) ($candidate['leverage'] ?? 0.0) >= $currentBest) {
+                    $rung = AiValueNormalizer::trimmedString($candidate['rung'] ?? '');
+                    if ($rung === $target && (float) ($candidate['leverage'] ?? 0.0) >= $currentBest) {
                         $selected = $candidate;
                         $basis = 'rung_up_after_saturation';
                         break;
@@ -40,8 +43,8 @@ final class AmbitionRungPolicy
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'selected_id' => (string) ($selected['id'] ?? ''),
-            'selected_rung' => (string) ($selected['rung'] ?? ''),
+            'selected_id' => AiValueNormalizer::trimmedString($selected['id'] ?? ''),
+            'selected_rung' => AiValueNormalizer::trimmedString($selected['rung'] ?? ''),
             'basis' => $basis,
             'rung_distribution' => $distribution,
             'source' => [
@@ -84,7 +87,7 @@ final class AmbitionRungPolicy
     {
         $counts = [];
         foreach ($candidates as $candidate) {
-            $rung = (string) ($candidate['rung'] ?? '');
+            $rung = AiValueNormalizer::trimmedString($candidate['rung'] ?? '');
             if ($rung !== '') {
                 $counts[$rung] = ($counts[$rung] ?? 0) + 1;
             }

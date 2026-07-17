@@ -15,6 +15,7 @@ use App\Services\Ai\AcosMax\Esp09IndependentChallengerService;
 use App\Services\Ai\AcosMax\DogfoodingFrictionLeadMiner;
 use App\Services\Ai\AcosMax\ReactiveSaturationSignal;
 use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
+use App\Services\Ai\Aaeos\Cores\SummaryFidelityCoverageScorer;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -382,5 +383,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.aaeos.outcome_causality_ranking.v1', $payload['schema_version']);
         $this->assertNotSame('', $payload['primary_cause']);
         $this->assertIsArray($payload['candidates']);
+    }
+
+    public function test_summary_fidelity_coverage_observe_scores_items(): void
+    {
+        $payload = $this->svc->summaryFidelityCoverageObserve([
+            'required_items' => [
+                ['id' => 'dec-1', 'kind' => 'decision', 'digest' => 'keep the gate catalogue at 15'],
+            ],
+            'summary_text' => 'We keep the gate catalogue at 15 universal gates.',
+        ]);
+
+        $this->assertSame(SummaryFidelityCoverageScorer::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertGreaterThan(0.0, $payload['context_retention_score']);
+        $this->assertSame(1, $payload['present_total']);
     }
 }

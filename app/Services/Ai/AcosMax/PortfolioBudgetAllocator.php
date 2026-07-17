@@ -68,9 +68,7 @@ final class PortfolioBudgetAllocator
         $weights = self::normalizeShares($input['operator_weights'] ?? [], $default);
         $ceilings = self::normalizeCeilings($input['ceiling_bands'] ?? []);
         $yields = self::normalizeYields($input['yield_by_class'] ?? []);
-        $amendmentId = is_string($input['amendment_receipt_id'] ?? null) && $input['amendment_receipt_id'] !== ''
-            ? $input['amendment_receipt_id']
-            : null;
+        $amendmentId = AiValueNormalizer::trimmedStringOrNull($input['amendment_receipt_id'] ?? null);
 
         $reasons = [];
         $status = 'ok';

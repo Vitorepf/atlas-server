@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Aaeos;
 
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * Runtime for the AAEOS Department Contract — the registry the canonical doc
@@ -179,11 +180,11 @@ class AtlasAaeosDepartmentRegistryService
 
     private function departmentId(mixed $value): string
     {
-        return strtolower(trim((string) $value));
+        return AiValueNormalizer::lowerTrimmedString($value);
     }
 
     private function maturityLevel(mixed $value): string
     {
-        return strtoupper(trim((string) $value));
+        return AiValueNormalizer::upperTrimmedString($value);
     }
 }

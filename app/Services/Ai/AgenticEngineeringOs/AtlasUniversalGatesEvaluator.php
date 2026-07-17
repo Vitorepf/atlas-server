@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AgenticEngineeringOs;
 
 use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
+use App\Services\Ai\Aaeos\Cores\SummaryFidelityCoverageScorer;
 use App\Services\Ai\Aaeos\Cores\OutcomeCausalityRanker;
 use App\Services\Ai\AcosMax\PredictedImpactBand;
 use App\Services\Ai\AcosMax\PreReviewAdvisoryBand;
@@ -40,6 +41,7 @@ final class AtlasUniversalGatesEvaluator
         private readonly PhaseAdvanceVerdictClassifier $phaseAdvance = new PhaseAdvanceVerdictClassifier,
         private readonly AaeosRequiredGateCoverageChecker $requiredGateCoverage = new AaeosRequiredGateCoverageChecker,
         private readonly OutcomeCausalityRanker $outcomeCausality = new OutcomeCausalityRanker,
+        private readonly SummaryFidelityCoverageScorer $summaryFidelity = new SummaryFidelityCoverageScorer,
     ) {}
 
     /**
@@ -472,6 +474,27 @@ final class AtlasUniversalGatesEvaluator
     public function outcomeCausalityObserve(array $envelope): array
     {
         return $this->outcomeCausality->rankOutcomeEnvelope($envelope);
+    }
+
+    /**
+     * Observe-only summary fidelity / context-retention coverage.
+     * Accepts `{required_items|required:[...], summary_text|summary:string}`.
+     * Does not add a universal-gate id (catalogue stays 15).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function summaryFidelityCoverageObserve(array $input): array
+    {
+        $required = AiValueNormalizer::arrayOrEmpty(
+            $input['required_items'] ?? $input['required'] ?? null,
+        );
+        $summary = AiValueNormalizer::trimmedString(
+            $input['summary_text'] ?? $input['summary'] ?? '',
+        );
+
+        /** @var list<array{id?: mixed, kind?: mixed, digest?: mixed}> $required */
+        return $this->summaryFidelity->score($required, $summary);
     }
 
     /**
