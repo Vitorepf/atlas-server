@@ -2578,4 +2578,23 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(100, $payload['confidence_max']);
         $this->assertSame(40, $payload['confidence_min']);
     }
+
+    public function test_maxa04_promotion_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->maxa04PromotionFloorsContractObserve([]);
+
+        $this->assertSame('jinaai/jina-embeddings-v3', $payload['maxa04_candidate_model']);
+        $this->assertSame(1024, $payload['maxa04_candidate_dimensions']);
+        $this->assertSame('jina_v3_dual_read_benchmark_window', $payload['maxa04_pending_window']);
+        $this->assertSame('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2', $payload['maxa04_current_model_fallback']);
+        $this->assertSame('atlas.semantic.jina_v3_dual_read.v1', $payload['maxa04_ledger_schema']);
+        $this->assertSame('app/atlas/evidence/maxa04-jina-v3-dual-read.jsonl', $payload['maxa04_ledger_relative_path']);
+        $this->assertSame('atlas.aaeos.department_promotion_eligibility.v1', $payload['promotion_eligibility_schema']);
+        $this->assertSame(30, $payload['promotion_max_evidence_age_days']);
+        $this->assertSame(5, $payload['promotion_max_tier']);
+        $this->assertSame('atlas.acmf.schema_proposal.v1', $payload['memory_fabric_proposal_schema']);
+        $this->assertSame('atlas.acmf.schema_evolution_ticket.v1', $payload['memory_fabric_ticket_schema']);
+        $this->assertSame(4, $payload['memory_fabric_extension_pressure_threshold']);
+        $this->assertSame(12, $payload['maxa04_promotion_floor_count']);
+    }
 }
