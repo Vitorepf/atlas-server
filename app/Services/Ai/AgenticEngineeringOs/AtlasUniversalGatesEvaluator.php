@@ -3430,6 +3430,31 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual schema/ledger/weights floors across allowlisted cores.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function residualSchemaLedgerContractObserve(array $input = []): array
+    {
+        return [
+            'spec_completeness_weights' => SpecCompletenessScorer::WEIGHTS,
+            'spec_completeness_weight_count' => count(SpecCompletenessScorer::WEIGHTS),
+            'spec_completeness_weight_sum' => array_sum(SpecCompletenessScorer::WEIGHTS),
+            'quality_bar_canonical_source' => QualityBarTelemetryContract::CANONICAL_SOURCE,
+            'immune_signature_table' => ImmuneSignatureStore::TABLE,
+            'evidence_ledger_integrity_schema' => EvidenceLedgerIntegrityWatchdogCheck::SCHEMA_VERSION,
+            'evidence_ledger_integrity_default_path' => EvidenceLedgerIntegrityWatchdogCheck::DEFAULT_LEDGER_RELATIVE_PATH,
+            'dogfooding_friction_schema' => DogfoodingFrictionLeadMiner::SCHEMA_VERSION,
+            'belief_cascade_schema' => BeliefCascadeReverificationPlanner::SCHEMA_VERSION,
+            'operational_volume_prerequisite_gap' => AtlasOperationalVolumeCheckService::PREREQUISITE_GAP_HERMES_01,
+            'obra_retro_series_tag' => AcosMaxObraRetroService::SERIES_TAG,
+            'required_gate_coverage_schema' => AaeosRequiredGateCoverageChecker::SCHEMA_VERSION,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

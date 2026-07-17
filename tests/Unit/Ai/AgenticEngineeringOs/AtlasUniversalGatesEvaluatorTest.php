@@ -2379,4 +2379,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.cognition.immune_signature_store.v1', $payload['immune_signature_store_schema']);
         $this->assertSame('atlas.cognition.immune_signature_family.v1', $payload['immune_signature_deriver_schema']);
     }
+
+    public function test_residual_schema_ledger_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->residualSchemaLedgerContractObserve([]);
+
+        $this->assertSame(12, $payload['spec_completeness_weight_count']);
+        $this->assertSame(100, $payload['spec_completeness_weight_sum']);
+        $this->assertSame(14, $payload['spec_completeness_weights']['acceptance_criteria']);
+        $this->assertSame('atlas.aaeos.quality_bar', $payload['quality_bar_canonical_source']);
+        $this->assertSame('immune_signature_store', $payload['immune_signature_table']);
+        $this->assertSame('atlas.acos.watchdog.evidence_ledger_integrity.v1', $payload['evidence_ledger_integrity_schema']);
+        $this->assertStringContainsString('integrity.jsonl', $payload['evidence_ledger_integrity_default_path']);
+        $this->assertSame('atlas.originator.dogfooding_friction_leads.v1', $payload['dogfooding_friction_schema']);
+        $this->assertSame('atlas.memory.belief_cascade_reverification.v1', $payload['belief_cascade_schema']);
+        $this->assertSame('GAP-HERMES-01', $payload['operational_volume_prerequisite_gap']);
+        $this->assertSame('obra:acos-max', $payload['obra_retro_series_tag']);
+        $this->assertSame('atlas.aaeos.phase.v1', $payload['required_gate_coverage_schema']);
+    }
 }
