@@ -58,6 +58,7 @@ use App\Services\Ai\Telemetry\AiOutcomeAttributionService;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\SelfConstruction\ControlPlane\AtlasSelfConstructionScopeRiskBudgetGate;
 use App\Services\Ai\SelfConstruction\ExternalBrain\AtlasExternalBrainOrganMeshOrchestrator;
+use App\Services\Ai\Telemetry\AiTelemetryCollector;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
@@ -1747,6 +1748,24 @@ final class AtlasUniversalGatesEvaluator
             'schema_version' => AtlasExternalBrainOrganMeshOrchestrator::SCHEMA,
             'phases' => AtlasExternalBrainOrganMeshOrchestrator::PHASES,
             'count' => count(AtlasExternalBrainOrganMeshOrchestrator::PHASES),
+        ];
+    }
+
+    /**
+     * Observe-only telemetry surface/runtime catalogues.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function telemetrySurfacesObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => 'atlas.telemetry.collector.surfaces.v1',
+            'surfaces' => AiTelemetryCollector::SURFACES,
+            'runtimes' => AiTelemetryCollector::RUNTIMES,
+            'surface_count' => count(AiTelemetryCollector::SURFACES),
+            'runtime_count' => count(AiTelemetryCollector::RUNTIMES),
         ];
     }
 

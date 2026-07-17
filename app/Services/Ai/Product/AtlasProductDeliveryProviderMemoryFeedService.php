@@ -5,6 +5,7 @@ namespace App\Services\Ai\Product;
 use App\Models\AtlasProductDeliveryOutcomeMemory;
 use App\Models\AtlasProductDeliveryRuntimeReceipt;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 
 class AtlasProductDeliveryProviderMemoryFeedService
@@ -263,7 +264,7 @@ class AtlasProductDeliveryProviderMemoryFeedService
 
     private function money(mixed $value): ?float
     {
-        return is_numeric($value) ? (float) $value : null;
+        return AiValueNormalizer::finiteFloatOrNull($value);
     }
 
     private function string(mixed $value): ?string

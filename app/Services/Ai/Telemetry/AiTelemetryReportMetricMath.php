@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Telemetry;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Collection;
 
 /**
@@ -110,7 +111,7 @@ class AiTelemetryReportMetricMath
      */
     public function deltaValue(array $comparison, string $field): float
     {
-        return is_numeric(data_get($comparison, "{$field}.delta_abs")) ? (float) data_get($comparison, "{$field}.delta_abs") : 0.0;
+        return AiValueNormalizer::finiteFloatOrNull(data_get($comparison, "{$field}.delta_abs")) ?? 0.0;
     }
 
     /**
@@ -118,12 +119,14 @@ class AiTelemetryReportMetricMath
      */
     public function deltaPct(array $comparison, string $field): float
     {
-        return is_numeric(data_get($comparison, "{$field}.delta_pct")) ? (float) data_get($comparison, "{$field}.delta_pct") : 0.0;
+        return AiValueNormalizer::finiteFloatOrNull(data_get($comparison, "{$field}.delta_pct")) ?? 0.0;
     }
 
     public function number(mixed $value): ?float
     {
-        return is_numeric($value) ? round((float) $value, 4) : null;
+        $float = AiValueNormalizer::finiteFloatOrNull($value);
+
+        return $float === null ? null : round($float, 4);
     }
 
     /**

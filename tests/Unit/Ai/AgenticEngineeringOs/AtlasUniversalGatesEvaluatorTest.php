@@ -1389,4 +1389,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('queue_decision', $payload['phases']);
         $this->assertSame(count($payload['phases']), $payload['count']);
     }
+
+    public function test_telemetry_surfaces_observe_reports_catalogue(): void
+    {
+        $payload = $this->svc->telemetrySurfacesObserve([]);
+
+        $this->assertSame('atlas.telemetry.collector.surfaces.v1', $payload['schema_version']);
+        $this->assertContains('cli', $payload['surfaces']);
+        $this->assertContains('laravel', $payload['runtimes']);
+        $this->assertSame(count($payload['surfaces']), $payload['surface_count']);
+        $this->assertSame(count($payload['runtimes']), $payload['runtime_count']);
+    }
 }

@@ -6,6 +6,7 @@ namespace App\Services\Ai\Rsi;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousLoopReceiptIntegrityService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use DateTimeImmutable;
 use DateTimeInterface;
@@ -135,7 +136,7 @@ final class RsiOutcomeMaterializerService
         ]);
 
         $operatorAccepted = (bool) ($signal['operator_accepted'] ?? false);
-        $postValue = is_numeric($signal['value'] ?? null) ? (float) $signal['value'] : null;
+        $postValue = AiValueNormalizer::finiteFloatOrNull($signal['value'] ?? null);
         $required = $baseline + $targetDelta;
 
         // Consolidate ONLY when the human accepted AND reality raised the

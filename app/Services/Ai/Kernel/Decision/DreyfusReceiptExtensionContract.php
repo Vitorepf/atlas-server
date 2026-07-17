@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Kernel\Decision;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 class DreyfusReceiptExtensionContract
 {
     public const SCHEMA_VERSION = 'atlas.decide.extension.dreyfus.v1';
@@ -18,7 +20,7 @@ class DreyfusReceiptExtensionContract
             'pedagogy_mode_resolved' => $this->mode($resolution['pedagogy_mode_resolved'] ?? null),
             'selection_explanation' => is_array($resolution['selection_explanation'] ?? null) ? $resolution['selection_explanation'] : [],
             'knowledge_node_id' => trim((string) ($resolution['knowledge_node_id'] ?? '')),
-            'confidence' => is_numeric($resolution['confidence'] ?? null) ? round((float) $resolution['confidence'], 2) : null,
+            'confidence' => (($c = AiValueNormalizer::finiteFloatOrNull($resolution['confidence'] ?? null)) === null) ? null : round($c, 2),
             'source' => trim((string) ($resolution['source'] ?? 'unknown')) ?: 'unknown',
         ];
     }
