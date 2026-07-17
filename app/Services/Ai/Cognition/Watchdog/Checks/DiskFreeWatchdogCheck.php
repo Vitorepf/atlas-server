@@ -29,6 +29,14 @@ final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
     public const DEFAULT_FLOOR_GB = 5;
 
     public const FLOOR_GB_CONFIG_KEY = 'atlas_resource_budget.disk_free_floor_gb';
+    public const FIELD_PATH = 'path';
+    public const FIELD_FREE_GB = 'free_gb';
+    public const FIELD_FLOOR_GB = 'floor_gb';
+    public const FIELD_FREE_BYTES = 'free_bytes';
+    public const FIELD_TOTAL_BYTES = 'total_bytes';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_CODE = 'code';
+    public const FIELD_TOTAL_GB = 'total_gb';
 
     /** @var callable():array{path:string,free_bytes:int,total_bytes:int} */
     private $probe;
@@ -54,9 +62,9 @@ final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
             $total = @disk_total_space($path);
 
             return [
-                'path' => $path,
-                'free_bytes' => is_numeric($free) ? (int) $free : 0,
-                'total_bytes' => is_numeric($total) ? (int) $total : 0,
+                self::FIELD_PATH => $path,
+                self::FIELD_FREE_BYTES => is_numeric($free) ? (int) $free : 0,
+                self::FIELD_TOTAL_BYTES => is_numeric($total) ? (int) $total : 0,
             ];
         };
         $this->now = $now ?? CarbonImmutable::now('UTC');
@@ -71,7 +79,7 @@ final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
     public function isBelowFloor(): bool
     {
         $probed = ($this->probe)();
-        $freeGb = (int) floor((int) (AiValueNormalizer::finiteFloatOrNull($probed['free_bytes'] ?? null) ?? 0) / (1024 ** 3));
+        $freeGb = (int) floor((int) (AiValueNormalizer::finiteFloatOrNull($probed[self::FIELD_FREE_BYTES] ?? null) ?? 0) / (1024 ** 3));
 
         return $freeGb < $this->floorGb;
     }
@@ -79,27 +87,27 @@ final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
     public function run(): AtlasWatchdogCheckResult
     {
         $probed = ($this->probe)();
-        $freeBytes = (int) (AiValueNormalizer::finiteFloatOrNull($probed['free_bytes'] ?? null) ?? 0);
-        $totalBytes = (int) (AiValueNormalizer::finiteFloatOrNull($probed['total_bytes'] ?? null) ?? 0);
+        $freeBytes = (int) (AiValueNormalizer::finiteFloatOrNull($probed[self::FIELD_FREE_BYTES] ?? null) ?? 0);
+        $totalBytes = (int) (AiValueNormalizer::finiteFloatOrNull($probed[self::FIELD_TOTAL_BYTES] ?? null) ?? 0);
         $freeGb = (int) floor($freeBytes / (1024 ** 3));
         $totalGb = (int) floor($totalBytes / (1024 ** 3));
 
         $evidence = [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'generated_at' => $this->now->toIso8601String(),
-            'path' => (AiValueNormalizer::trimmedStringOrNull($probed['path'] ?? null) ?? ''),
-            'free_gb' => $freeGb,
-            'total_gb' => $totalGb,
-            'floor_gb' => $this->floorGb,
+            self::FIELD_PATH => (AiValueNormalizer::trimmedStringOrNull($probed[self::FIELD_PATH] ?? null) ?? ''),
+            self::FIELD_FREE_GB => $freeGb,
+            self::FIELD_TOTAL_GB => $totalGb,
+            self::FIELD_FLOOR_GB => $this->floorGb,
             'background_should_pause' => $freeGb < $this->floorGb,
         ];
 
         if ($freeGb < $this->floorGb) {
             return AtlasWatchdogCheckResult::alert($evidence, [
-                'code' => 'disk_below_floor',
+                self::FIELD_CODE => 'disk_below_floor',
                 'message' => 'Free disk below declared floor; background producers should pause.',
-                'free_gb' => $freeGb,
-                'floor_gb' => $this->floorGb,
+                self::FIELD_FREE_GB => $freeGb,
+                self::FIELD_FLOOR_GB => $this->floorGb,
             ]);
         }
 

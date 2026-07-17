@@ -6165,6 +6165,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function diskDeadseriesLatencyFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'disk_field_path' => DiskFreeWatchdogCheck::FIELD_PATH,
+            'disk_field_free_gb' => DiskFreeWatchdogCheck::FIELD_FREE_GB,
+            'disk_field_floor_gb' => DiskFreeWatchdogCheck::FIELD_FLOOR_GB,
+            'disk_field_free_bytes' => DiskFreeWatchdogCheck::FIELD_FREE_BYTES,
+            'disk_field_total_bytes' => DiskFreeWatchdogCheck::FIELD_TOTAL_BYTES,
+            'disk_field_code' => DiskFreeWatchdogCheck::FIELD_CODE,
+            'deadseries_field_series' => AcosDeadSeriesWatchdogCheck::FIELD_SERIES,
+            'deadseries_field_schema_version' => AcosDeadSeriesWatchdogCheck::FIELD_SCHEMA_VERSION,
+            'deadseries_field_registry_count' => AcosDeadSeriesWatchdogCheck::FIELD_REGISTRY_COUNT,
+            'deadseries_field_dead_count' => AcosDeadSeriesWatchdogCheck::FIELD_DEAD_COUNT,
+            'deadseries_field_code' => AcosDeadSeriesWatchdogCheck::FIELD_CODE,
+            'deadseries_field_message' => AcosDeadSeriesWatchdogCheck::FIELD_MESSAGE,
+            'latency_field_reason' => AobgLatencyWatchdogCheck::FIELD_REASON,
+            'latency_field_samples' => AobgLatencyWatchdogCheck::FIELD_SAMPLES,
+            'latency_field_required' => AobgLatencyWatchdogCheck::FIELD_REQUIRED,
+            'latency_field_measure_id' => AobgLatencyWatchdogCheck::FIELD_MEASURE_ID,
+            'latency_field_thresholds' => AobgLatencyWatchdogCheck::FIELD_THRESHOLDS,
+            'disk_deadseries_latency_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

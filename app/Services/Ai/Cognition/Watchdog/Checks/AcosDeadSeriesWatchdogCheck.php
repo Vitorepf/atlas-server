@@ -22,6 +22,14 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
     public const STATUS_STALE = 'stale';
 
     public const STATUS_MISSING = 'missing';
+    public const FIELD_SERIES = 'series';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_REGISTRY_COUNT = 'registry_count';
+    public const FIELD_DEAD_COUNT = 'dead_count';
+    public const FIELD_CODE = 'code';
+    public const FIELD_MESSAGE = 'message';
+    public const FIELD_LEDGER = 'ledger';
 
     public function __construct(
         private AcosMaxMeasureSeriesRegistry $registry,
@@ -44,20 +52,20 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
         ));
 
         $evidence = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'generated_at' => $now->toIso8601String(),
-            'registry_count' => count($series),
-            'dead_count' => count($dead),
-            'series' => $series,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_GENERATED_AT => $now->toIso8601String(),
+            self::FIELD_REGISTRY_COUNT => count($series),
+            self::FIELD_DEAD_COUNT => count($dead),
+            self::FIELD_SERIES => $series,
             'freshness_reader' => AcosMeasureSeriesFreshnessReader::SCHEMA,
         ];
 
         if ($dead !== []) {
             return AtlasWatchdogCheckResult::alert($evidence, [
-                'code' => 'acos_dead_series_stale',
-                'message' => 'Registered ACOS measure series exceeded its frozen TTL or has no append.',
-                'series' => array_values(array_map(static fn (array $row): string => AiValueNormalizer::trimmedScalarStringOrNull($row['series'] ?? null) ?? '', $dead)),
-                'ledger' => 'atlas_ledger_events:watchdog_run_recorded',
+                self::FIELD_CODE => 'acos_dead_series_stale',
+                self::FIELD_MESSAGE => 'Registered ACOS measure series exceeded its frozen TTL or has no append.',
+                self::FIELD_SERIES => array_values(array_map(static fn (array $row): string => AiValueNormalizer::trimmedScalarStringOrNull($row[self::FIELD_SERIES] ?? null) ?? '', $dead)),
+                self::FIELD_LEDGER => 'atlas_ledger_events:watchdog_run_recorded',
             ]);
         }
 
@@ -79,7 +87,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
 
         return [
             'slice' => (AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? ''),
-            'series' => (AiValueNormalizer::trimmedStringOrNull($entry['series'] ?? null) ?? ''),
+            self::FIELD_SERIES => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SERIES] ?? null) ?? ''),
             'source_type' => AiValueNormalizer::trimmedStringOrNull($entry['source_type'] ?? null) ?? (isset($entry['table']) ? 'table' : 'jsonl'),
             'path' => isset($entry['path']) ? $this->relativePath(AiValueNormalizer::trimmedScalarStringOrNull($entry['path'] ?? null) ?? '') : null,
             'table' => AiValueNormalizer::trimmedScalarStringOrNull($entry['table'] ?? null),

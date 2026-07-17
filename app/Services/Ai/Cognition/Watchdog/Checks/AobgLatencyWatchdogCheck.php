@@ -34,6 +34,14 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
     public const REASON_LATENCY_FLOOR_EXCEEDED = 'latency_floor_exceeded';
 
     public const REASON_SUFFICIENT_SIGNAL_WITHIN_FLOORS = 'sufficient_signal_within_floors';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_SAMPLES = 'samples';
+    public const FIELD_REQUIRED = 'required';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_MEASURE_ID = 'measure_id';
+    public const FIELD_DAY = 'day';
+    public const FIELD_THRESHOLDS = 'thresholds';
+    public const FIELD_DENOMINATOR_MIN = 'denominator_min';
 
 
     /**
@@ -53,8 +61,8 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
     public function run(): AtlasWatchdogCheckResult
     {
         $freeze = $this->freezePayloadOverride ?? $this->latestFreezePayload() ?? AtlasAcosFreezeCommand::defaultFreezePayload();
-        $thresholds = AiValueNormalizer::arrayOrEmpty($freeze['thresholds'] ?? null);
-        $denominatorMin = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($freeze['denominator_min'] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($thresholds['denominator_min_samples'] ?? null) ?? self::DEFAULT_DENOMINATOR_MIN));
+        $thresholds = AiValueNormalizer::arrayOrEmpty($freeze[self::FIELD_THRESHOLDS] ?? null);
+        $denominatorMin = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($thresholds['denominator_min_samples'] ?? null) ?? self::DEFAULT_DENOMINATOR_MIN));
         $day = gmdate('Y-m-d');
         $report = $this->ledger->report(day: $day);
         $ops = AiValueNormalizer::arrayOrEmpty(data_get($report, 'days.'.$day.'.ops', []));
@@ -65,25 +73,25 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
             if ($samples < $denominatorMin || data_get($ops, $op.'.p95_ms') === null) {
                 $insufficient[] = [
                     'op' => $op,
-                    'samples' => $samples,
-                    'required' => $denominatorMin,
+                    self::FIELD_SAMPLES => $samples,
+                    self::FIELD_REQUIRED => $denominatorMin,
                 ];
             }
         }
 
         $evidence = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'measure_id' => AiValueNormalizer::trimmedStringOrNull($freeze['measure_id'] ?? null) ?? self::DEFAULT_MEASURE_ID,
-            'day' => $day,
-            'thresholds' => $thresholds,
-            'denominator_min' => $denominatorMin,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_MEASURE_ID => AiValueNormalizer::trimmedStringOrNull($freeze[self::FIELD_MEASURE_ID] ?? null) ?? self::DEFAULT_MEASURE_ID,
+            self::FIELD_DAY => $day,
+            self::FIELD_THRESHOLDS => $thresholds,
+            self::FIELD_DENOMINATOR_MIN => $denominatorMin,
             'report' => $report,
             'freeze_source' => $this->freezePayloadOverride !== null ? 'override' : ($this->latestFreezePayload() !== null ? 'evidence_ledger' : 'default_payload'),
         ];
 
         if ($insufficient !== []) {
             return AtlasWatchdogCheckResult::skipped($evidence + [
-                'reason' => self::REASON_INSUFFICIENT_SIGNAL,
+                self::FIELD_REASON => self::REASON_INSUFFICIENT_SIGNAL,
                 'insufficient_ops' => $insufficient,
             ]);
         }
@@ -101,14 +109,14 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
         }
 
         if ($alerts !== []) {
-            return AtlasWatchdogCheckResult::alert($evidence + ['reason' => self::REASON_LATENCY_FLOOR_EXCEEDED], [
+            return AtlasWatchdogCheckResult::alert($evidence + [self::FIELD_REASON => self::REASON_LATENCY_FLOOR_EXCEEDED], [
                 'code' => 'aobg_latency_p95_exceeded',
                 'message' => 'AOBG latency p95 exceeded frozen floors.',
                 'violations' => $alerts,
             ]);
         }
 
-        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => self::REASON_SUFFICIENT_SIGNAL_WITHIN_FLOORS]);
+        return AtlasWatchdogCheckResult::ok($evidence + [self::FIELD_REASON => self::REASON_SUFFICIENT_SIGNAL_WITHIN_FLOORS]);
     }
 
     /** @return array<string,mixed>|null */

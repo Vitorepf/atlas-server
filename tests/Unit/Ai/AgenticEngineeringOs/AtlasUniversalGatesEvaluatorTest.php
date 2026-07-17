@@ -4553,4 +4553,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['portfolio_impact_corpus_floor_count']);
     }
 
+    public function test_disk_deadseries_latency_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->diskDeadseriesLatencyFloorsContractObserve([]);
+
+        $this->assertSame('path', $payload['disk_field_path']);
+        $this->assertSame('free_gb', $payload['disk_field_free_gb']);
+        $this->assertSame('floor_gb', $payload['disk_field_floor_gb']);
+        $this->assertSame('free_bytes', $payload['disk_field_free_bytes']);
+        $this->assertSame('total_bytes', $payload['disk_field_total_bytes']);
+        $this->assertSame('code', $payload['disk_field_code']);
+        $this->assertSame('series', $payload['deadseries_field_series']);
+        $this->assertSame('schema_version', $payload['deadseries_field_schema_version']);
+        $this->assertSame('registry_count', $payload['deadseries_field_registry_count']);
+        $this->assertSame('dead_count', $payload['deadseries_field_dead_count']);
+        $this->assertSame('code', $payload['deadseries_field_code']);
+        $this->assertSame('message', $payload['deadseries_field_message']);
+        $this->assertSame('reason', $payload['latency_field_reason']);
+        $this->assertSame('samples', $payload['latency_field_samples']);
+        $this->assertSame('required', $payload['latency_field_required']);
+        $this->assertSame('measure_id', $payload['latency_field_measure_id']);
+        $this->assertSame('thresholds', $payload['latency_field_thresholds']);
+        $this->assertSame(17, $payload['disk_deadseries_latency_floor_count']);
+    }
+
 }
