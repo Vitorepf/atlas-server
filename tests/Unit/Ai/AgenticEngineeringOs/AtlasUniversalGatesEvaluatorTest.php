@@ -722,4 +722,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('task_pack_atomic_true_for_each', $payload['gate']);
         $this->assertTrue($payload['passed']);
     }
+
+    public function test_gate_signal_phase_observe_rolls_up_intent(): void
+    {
+        $payload = $this->svc->gateSignalPhaseObserve([
+            'intent' => [
+                'resolved_target' => 'app/Services/Ai/Aaeos/Foo.php',
+                'scope_bounded' => true,
+                'ambiguity_tokens' => [],
+                'missing_answers' => [],
+            ],
+        ]);
+
+        $this->assertSame('atlas.aaeos.gate_signal.v1', $payload['schema_version']);
+        $this->assertArrayHasKey('gates', $payload);
+    }
 }

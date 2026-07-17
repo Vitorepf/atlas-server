@@ -283,9 +283,9 @@ final class AtlasLearningProposalsService
             'kind' => 'routing',
             'summary' => sprintf(
                 'route %s default to %s over %s',
-                (string) ($comparison['task_class'] ?? 'task'),
-                (string) ($comparison['challenger'] ?? 'challenger'),
-                (string) ($comparison['incumbent'] ?? 'incumbent'),
+                AiValueNormalizer::trimmedString($comparison['task_class'] ?? 'task') ?: 'task',
+                AiValueNormalizer::trimmedString($comparison['challenger'] ?? 'challenger') ?: 'challenger',
+                AiValueNormalizer::trimmedString($comparison['incumbent'] ?? 'incumbent') ?: 'incumbent',
             ),
             'evidence_refs' => $comparison['evidence_refs'] ?? [],
             'sample_size' => $comparison['sample_size'] ?? 0,

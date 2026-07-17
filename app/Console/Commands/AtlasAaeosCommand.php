@@ -81,6 +81,7 @@ final class AtlasAaeosCommand extends Command
         {--gate-signal-spec-pack= : JSON file with acceptance_criteria (observe-only gate signal)}
         {--gate-signal-intent= : JSON file with intent disambiguation features (observe-only)}
         {--gate-signal-task-pack= : JSON file with tasks (observe-only task-pack atomicity)}
+        {--gate-signal-phase= : JSON file with phaseOutputs (observe-only phase gate rollup)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -318,6 +319,7 @@ final class AtlasAaeosCommand extends Command
             ['gate-signal-spec-pack', 'gate_signal_spec_pack', fn (array $p) => $gates->gateSignalSpecPackObserve($p)],
             ['gate-signal-intent', 'gate_signal_intent', fn (array $p) => $gates->gateSignalIntentObserve($p)],
             ['gate-signal-task-pack', 'gate_signal_task_pack', fn (array $p) => $gates->gateSignalTaskPackObserve($p)],
+            ['gate-signal-phase', 'gate_signal_phase', fn (array $p) => $gates->gateSignalPhaseObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

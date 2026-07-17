@@ -872,6 +872,18 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only AAEOS gate-signal phase-gates rollup.
+     * Accepts phaseOutputs with intent/spec/tasks slices. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function gateSignalPhaseObserve(array $input): array
+    {
+        return (new AtlasAaeosGateSignalEvaluator)->evaluatePhaseGates($input);
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

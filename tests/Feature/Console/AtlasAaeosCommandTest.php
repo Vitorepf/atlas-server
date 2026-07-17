@@ -917,6 +917,30 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_gate_signal_phase(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-gsp-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'intent' => [
+                'resolved_target' => 'app/Services/Ai/Aaeos/Foo.php',
+                'scope_bounded' => true,
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-gsp',
+                '--gate-signal-phase' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"gate_signal_phase"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])
