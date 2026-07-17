@@ -209,6 +209,7 @@ final class AtlasAaeosCommand extends Command
         {--gate-report-schema-contract= : JSON file (any object) to observe gate-report schema + catalogue floor counts}
         {--docs-authority-confidence-keys-contract= : JSON file (any object) to observe docs-authority confidence key floors}
         {--maxa04-promotion-floors-contract= : JSON file (any object) to observe MAXA-04 embedding + promotion/memory-fabric floors}
+        {--composed-obra-lifecycle-floors-contract= : JSON file (any object) to observe composed-obra + evidence-vision lifecycle floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -574,6 +575,7 @@ final class AtlasAaeosCommand extends Command
             ['gate-report-schema-contract', 'gate_report_schema_contract', fn (array $p) => $gates->gateReportSchemaContractObserve($p)],
             ['docs-authority-confidence-keys-contract', 'docs_authority_confidence_keys_contract', fn (array $p) => $gates->docsAuthorityConfidenceKeysContractObserve($p)],
             ['maxa04-promotion-floors-contract', 'maxa04_promotion_floors_contract', fn (array $p) => $gates->maxa04PromotionFloorsContractObserve($p)],
+            ['composed-obra-lifecycle-floors-contract', 'composed_obra_lifecycle_floors_contract', fn (array $p) => $gates->composedObraLifecycleFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

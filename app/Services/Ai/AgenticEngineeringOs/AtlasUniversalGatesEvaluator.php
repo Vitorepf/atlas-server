@@ -533,8 +533,8 @@ final class AtlasUniversalGatesEvaluator
         }
 
         $events = AiValueNormalizer::arrayOrEmpty($input['events'] ?? null);
-        $minWindows = max(1, (int) ($input['min_windows'] ?? 2));
-        $minPerWindow = max(1, (int) ($input['min_per_window'] ?? 2));
+        $minWindows = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['min_windows'] ?? null) ?? 2));
+        $minPerWindow = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['min_per_window'] ?? null) ?? 2));
 
         /** @var list<array<string,mixed>> $events */
         return Esp09IndependentChallengerService::refutationSeries($events, $minWindows, $minPerWindow);
@@ -905,7 +905,7 @@ final class AtlasUniversalGatesEvaluator
         }
 
         $events = AiValueNormalizer::arrayOrEmpty($input['events'] ?? null);
-        $minOccurrences = max(1, (int) ($input['min_occurrences'] ?? 3));
+        $minOccurrences = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['min_occurrences'] ?? null) ?? 3));
 
         /** @var list<array<string,mixed>> $events */
         return RecallGapAggregator::aggregate($events, $minOccurrences);
@@ -923,7 +923,7 @@ final class AtlasUniversalGatesEvaluator
     {
         $origin = AiValueNormalizer::trimmedStringOrNull($input['origin'] ?? null) ?? '';
         $graph = AiValueNormalizer::arrayOrEmpty($input['graph'] ?? null);
-        $depthCap = max(0, (int) ($input['depth_cap'] ?? 3));
+        $depthCap = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($input['depth_cap'] ?? null) ?? 3));
 
         /** @var array<string,list<string>> $graph */
         return BeliefCascadeReverificationPlanner::plan($origin, $graph, $depthCap);
@@ -1081,7 +1081,7 @@ final class AtlasUniversalGatesEvaluator
         }
 
         $items = AiValueNormalizer::arrayOrEmpty($input['items'] ?? null);
-        $limit = max(1, (int) ($input['limit'] ?? 50));
+        $limit = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['limit'] ?? null) ?? 50));
 
         /** @var list<array<string,mixed>> $items */
         return Teto10PredictedRevertReviewDigest::compose($items, $limit);
@@ -1294,7 +1294,7 @@ final class AtlasUniversalGatesEvaluator
      */
     public function repairLoopGuardObserve(array $input = []): array
     {
-        $currentIteration = max(0, (int) ($input['current_iteration'] ?? 0));
+        $currentIteration = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($input['current_iteration'] ?? null) ?? 0));
 
         return (new AtlasRepairLoopGuard(new AtlasCrossDepartmentChoreographyService))->guard($currentIteration);
     }
@@ -1375,7 +1375,7 @@ final class AtlasUniversalGatesEvaluator
 
         return match ($mode) {
             'repair' => $svc->evaluateRepairLoop(
-                max(0, (int) ($input['iteration'] ?? 0)),
+                max(0, (int) (AiValueNormalizer::finiteFloatOrNull($input['iteration'] ?? null) ?? 0)),
                 max(0, (int) ($input['max_iterations'] ?? AtlasCrossDepartmentChoreographyService::REPAIR_MAX_ITERATIONS)),
             ),
             'handoff' => $svc->handoffEnvelope(
@@ -1400,7 +1400,7 @@ final class AtlasUniversalGatesEvaluator
     public function docsAuthorityLocateObserve(array $input = []): array
     {
         $needle = AiValueNormalizer::trimmedStringOrNull($input['needle'] ?? null) ?? '';
-        $limit = max(1, (int) ($input['limit'] ?? 5));
+        $limit = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['limit'] ?? null) ?? 5));
 
         return (new AtlasDocsAuthorityGraphService(new CanonicalDocsFrontmatterParser))->locate($needle, $limit);
     }
@@ -1668,7 +1668,7 @@ final class AtlasUniversalGatesEvaluator
     {
         $origin = AiValueNormalizer::trimmedStringOrNull($input['origin_department'] ?? $input['origin'] ?? null) ?? '';
         $kind = AiValueNormalizer::trimmedStringOrNull($input['veto_kind'] ?? $input['kind'] ?? null) ?? '';
-        $iteration = max(0, (int) ($input['repair_iteration'] ?? 0));
+        $iteration = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($input['repair_iteration'] ?? null) ?? 0));
 
         return (new AtlasAaeosVetoPropagationResolver)->resolve($origin, $kind, $iteration);
     }
@@ -3790,6 +3790,33 @@ final class AtlasUniversalGatesEvaluator
             'memory_fabric_ticket_schema' => AtlasCognitiveMemoryFabricSchemaEvolutionService::TICKET_SCHEMA,
             'memory_fabric_extension_pressure_threshold' => AtlasCognitiveMemoryFabricSchemaEvolutionService::EXTENSION_PRESSURE_THRESHOLD,
             'maxa04_promotion_floor_count' => 12,
+        ];
+    }
+
+    /**
+     * Observe-only composed-obra + evidence-vision lifecycle floors (int-normalization peel surface).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function composedObraLifecycleFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'composer_schema' => ComposedObraArcComposer::SCHEMA_VERSION,
+            'lifecycle_schema' => ComposedObraArcLifecycle::SCHEMA_VERSION,
+            'min_neighbor_candidates' => ComposedObraArcComposer::MIN_NEIGHBOR_CANDIDATES,
+            'kill_gate_consecutive_failures' => ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES,
+            'default_author_engine_id' => ComposedObraArcComposer::DEFAULT_AUTHOR_ENGINE_ID,
+            'default_judge_engine_id' => ComposedObraArcComposer::DEFAULT_JUDGE_ENGINE_ID,
+            'evidence_vision_composer_schema' => EvidenceVisionThesisComposer::SCHEMA_VERSION,
+            'evidence_vision_lifecycle_schema' => EvidenceVisionThesisLifecycle::SCHEMA_VERSION,
+            'max_theses' => EvidenceVisionThesisComposer::MAX_THESES,
+            'min_regression_windows' => EvidenceVisionThesisComposer::MIN_REGRESSION_WINDOWS,
+            'default_ttl_days' => EvidenceVisionThesisComposer::DEFAULT_TTL_DAYS,
+            'allowed_evidence_sources' => EvidenceVisionThesisComposer::ALLOWED_EVIDENCE_SOURCES,
+            'window_orchestrator_schema' => AcosMaxWindowOrchestratorService::SCHEMA_VERSION,
+            'composed_obra_lifecycle_floor_count' => 13,
         ];
     }
 

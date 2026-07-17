@@ -130,7 +130,7 @@ final class AcosMaxParallelExecutionProtocol
         return [
             'schema' => self::SCHEMA,
             'ok' => true,
-            'released' => ((int) ($released['released_count'] ?? 0)) > 0,
+            'released' => ((int) (AiValueNormalizer::finiteFloatOrNull($released['released_count'] ?? null) ?? 0)) > 0,
             'target' => $target,
         ];
     }

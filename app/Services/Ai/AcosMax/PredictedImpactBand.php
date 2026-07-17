@@ -23,7 +23,7 @@ final class PredictedImpactBand
     public static function classify(array $candidate): array
     {
         $rung = AiValueNormalizer::lowerTrimmedString($candidate['rung'] ?? 'task');
-        $rank = max(1, (int) ($candidate['rank'] ?? 99));
+        $rank = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($candidate['rank'] ?? null) ?? 99));
         $yield = AiValueNormalizer::clampUnit(AiValueNormalizer::finiteFloatOrNull($candidate['path_yield'] ?? null) ?? 0.0);
         $score = (self::RUNG_WEIGHT[$rung] ?? 0) + ($rank <= 3 ? 1 : 0) + ($yield >= 0.5 ? 1 : 0);
         $band = match (true) {

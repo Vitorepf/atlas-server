@@ -183,7 +183,7 @@ final class PortfolioBudgetAllocator
         $out = [];
         foreach (self::CLASSES as $class) {
             $entry = AiValueNormalizer::arrayOrEmpty($raw[$class] ?? null);
-            $n = max(0, (int) ($entry['n'] ?? 0));
+            $n = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($entry['n'] ?? null) ?? 0));
             $y = AiValueNormalizer::finiteFloatOrNull($entry['mean_proven_yield'] ?? null) ?? 0.0;
             $out[$class] = ['n' => $n, 'mean_proven_yield' => $y];
         }

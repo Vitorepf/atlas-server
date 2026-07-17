@@ -2597,4 +2597,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(4, $payload['memory_fabric_extension_pressure_threshold']);
         $this->assertSame(12, $payload['maxa04_promotion_floor_count']);
     }
+
+    public function test_composed_obra_lifecycle_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->composedObraLifecycleFloorsContractObserve([]);
+
+        $this->assertSame('atlas.originator.composed_obra_arc.v1', $payload['composer_schema']);
+        $this->assertSame('atlas.originator.composed_obra_arc_lifecycle.v1', $payload['lifecycle_schema']);
+        $this->assertSame(3, $payload['min_neighbor_candidates']);
+        $this->assertSame(3, $payload['kill_gate_consecutive_failures']);
+        $this->assertSame('cursor-acos-max-multn1702', $payload['default_author_engine_id']);
+        $this->assertSame('codex-independent-multn1702-judge', $payload['default_judge_engine_id']);
+        $this->assertSame('atlas.originator.evidence_vision_thesis.v1', $payload['evidence_vision_composer_schema']);
+        $this->assertSame('atlas.originator.evidence_vision_thesis_lifecycle.v1', $payload['evidence_vision_lifecycle_schema']);
+        $this->assertSame(3, $payload['max_theses']);
+        $this->assertSame(4, $payload['min_regression_windows']);
+        $this->assertSame(30, $payload['default_ttl_days']);
+        $this->assertSame(['series', 'ledger', 'outcome'], $payload['allowed_evidence_sources']);
+        $this->assertSame('atlas.acos.windows.v1', $payload['window_orchestrator_schema']);
+        $this->assertSame(13, $payload['composed_obra_lifecycle_floor_count']);
+    }
 }

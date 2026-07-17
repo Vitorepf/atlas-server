@@ -69,8 +69,8 @@ final class AtlasResourceBudgetService
             if ($name === '') {
                 continue;
             }
-            $ramCap = max(0, (int) ($component['ram_cap_mb'] ?? 0));
-            $diskCap = max(0, (int) ($component['disk_cap_mb'] ?? 0));
+            $ramCap = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($component['ram_cap_mb'] ?? null) ?? 0));
+            $diskCap = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($component['disk_cap_mb'] ?? null) ?? 0));
             $totalRamCap += $ramCap;
 
             $measured = $this->probeComponent($name);

@@ -85,7 +85,7 @@ final class AtlasCognitionScoreCardV4Grouper
                 'pipeline_status' => $this->rollup($bucket['pipeline_status'] ?? []),
                 'members' => $bucket['members'] ?? [],
                 'service_classes' => array_values(array_unique($bucket['service_classes'] ?? [])),
-                'supplemental_count' => (int) ($bucket['supplemental_count'] ?? 0),
+                'supplemental_count' => (int) (AiValueNormalizer::finiteFloatOrNull($bucket['supplemental_count'] ?? null) ?? 0),
                 'boundary' => $consumers ? 'consumer' : 'acos',
             ];
         }

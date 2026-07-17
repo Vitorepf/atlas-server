@@ -459,7 +459,7 @@ class AtlasAcosEvolutionScoreService
         $diaryCount = 0;
         try {
             $chain = (new AtlasEvolutionDiary)->verifyChain();
-            $diaryCount = (int) ($chain['count'] ?? 0);
+            $diaryCount = (int) (AiValueNormalizer::finiteFloatOrNull($chain['count'] ?? null) ?? 0);
             $diaryOk = ($chain['ok'] ?? false) === true && $diaryCount > 0;
         } catch (Throwable) {
             $diaryOk = false;

@@ -316,7 +316,7 @@ class AtlasCognitiveFunctionAtlasService
     {
         $out = [];
         foreach ($shape as $row) {
-            $nonReady = (int) ($row['pipeline_partial'] ?? 0) + (int) ($row['pipeline_building'] ?? 0);
+            $nonReady = (int) (AiValueNormalizer::finiteFloatOrNull($row['pipeline_partial'] ?? null) ?? 0) + (int) (AiValueNormalizer::finiteFloatOrNull($row['pipeline_building'] ?? null) ?? 0);
             if ($nonReady > 0) {
                 $out[] = ['group' => AiValueNormalizer::trimmedScalarStringOrNull($row['group'] ?? null) ?? '', 'non_ready_pipeline' => $nonReady];
             }

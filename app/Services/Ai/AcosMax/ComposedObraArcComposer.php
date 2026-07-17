@@ -207,7 +207,7 @@ final class ComposedObraArcComposer
         foreach ($group as $task) {
             $tasks[] = [
                 'task_id' => 'task_'.substr(hash('sha256', $arcId.':'.($task['target_path'] ?? '')), 0, 12),
-                'order' => (int) ($task['order'] ?? 0),
+                'order' => (int) (AiValueNormalizer::finiteFloatOrNull($task['order'] ?? null) ?? 0),
                 'target_path' => AiValueNormalizer::trimmedScalarStringOrNull($task['target_path'] ?? null) ?? '',
                 'objective' => AiValueNormalizer::trimmedScalarStringOrNull($task['summary'] ?? null) ?? '',
                 'individual_gate_required' => true,

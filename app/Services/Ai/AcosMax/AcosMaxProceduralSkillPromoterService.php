@@ -111,7 +111,7 @@ final class AcosMaxProceduralSkillPromoterService
      */
     private function candidatePayload(ProceduralPlaybook $playbook, array $row, int $floor): array
     {
-        $caseCount = max(0, (int) ($row['attempts'] ?? 0));
+        $caseCount = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($row['attempts'] ?? null) ?? 0));
         $skillName = $this->skillName($playbook->taskCategory);
         $candidateHash = hash('sha256', self::SCHEMA_VERSION.'|'.$playbook->key().'|'.self::SKILL_SCHEMA_VERSION);
 
@@ -123,10 +123,10 @@ final class AcosMaxProceduralSkillPromoterService
             'case_count' => $caseCount,
             'case_count_floor' => $floor,
             'case_count_floor_met' => $caseCount >= $floor,
-            'successes' => (int) ($row['successes'] ?? 0),
+            'successes' => (int) (AiValueNormalizer::finiteFloatOrNull($row['successes'] ?? null) ?? 0),
             'success_rate' => AiValueNormalizer::finiteFloatOrNull($row['success_rate'] ?? null) ?? 0.0,
-            'fake_green_suppressed' => (int) ($row['fake_green_suppressed'] ?? 0),
-            'corrections' => (int) ($row['corrections'] ?? 0),
+            'fake_green_suppressed' => (int) (AiValueNormalizer::finiteFloatOrNull($row['fake_green_suppressed'] ?? null) ?? 0),
+            'corrections' => (int) (AiValueNormalizer::finiteFloatOrNull($row['corrections'] ?? null) ?? 0),
             'promotion_allowed' => false,
             'gate' => [
                 'admission_door' => 'ASI-02',

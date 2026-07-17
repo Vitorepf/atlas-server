@@ -64,7 +64,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
      */
     private function seriesRow(array $entry, CarbonImmutable $now): array
     {
-        $ttlDays = max(1, (int) ($entry['ttl_days'] ?? 1));
+        $ttlDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($entry['ttl_days'] ?? null) ?? 1));
         $lastAppendAt = $this->freshness->lastAppendAt($entry);
         $ageDays = $lastAppendAt instanceof CarbonImmutable
             ? (int) floor(max(0, $lastAppendAt->diffInSeconds($now)) / 86400)

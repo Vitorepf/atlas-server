@@ -179,8 +179,8 @@ final class ExploratoryBetsPortfolio
     /** @param array<string,mixed> $effect */
     private static function isProvenNegative(array $effect): bool
     {
-        return (int) ($effect['n_treat'] ?? 0) >= self::MIN_N
-            && (int) ($effect['n_base'] ?? 0) >= self::MIN_N
+        return (int) (AiValueNormalizer::finiteFloatOrNull($effect['n_treat'] ?? null) ?? 0) >= self::MIN_N
+            && (int) (AiValueNormalizer::finiteFloatOrNull($effect['n_base'] ?? null) ?? 0) >= self::MIN_N
             && (AiValueNormalizer::finiteFloatOrNull($effect['ci_high'] ?? null) ?? 0.0) < 0.0;
     }
 

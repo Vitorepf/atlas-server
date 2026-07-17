@@ -160,7 +160,7 @@ final class EvidenceVisionThesisLifecycle
     private static function seriesRecoveryMet(array $thesis, array $seriesWindows, array $criterion): bool
     {
         $threshold = AiValueNormalizer::finiteFloatOrNull($criterion['threshold'] ?? null) ?? 0.0;
-        $need = max(2, (int) ($criterion['consecutive_windows'] ?? 2));
+        $need = max(2, (int) (AiValueNormalizer::finiteFloatOrNull($criterion['consecutive_windows'] ?? null) ?? 2));
         $refs = AiValueNormalizer::arrayOrEmpty($thesis['evidence'] ?? null);
         $series = '';
         $stage = 'default';
@@ -182,7 +182,7 @@ final class EvidenceVisionThesisLifecycle
             return (AiValueNormalizer::trimmedStringOrNull($window['series'] ?? null) ?? '') === $series
                 && (AiValueNormalizer::trimmedStringOrNull($window['stage'] ?? null) ?? 'default') === $stage;
         }));
-        usort($matching, static fn (array $a, array $b): int => ((int) ($a['window'] ?? 0)) <=> ((int) ($b['window'] ?? 0)));
+        usort($matching, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($a['window'] ?? null) ?? 0)) <=> ((int) (AiValueNormalizer::finiteFloatOrNull($b['window'] ?? null) ?? 0)));
         $tail = array_slice($matching, -$need);
         if (count($tail) < $need) {
             return false;
@@ -205,11 +205,11 @@ final class EvidenceVisionThesisLifecycle
     {
         $bands = AiValueNormalizer::arrayOrEmpty($calibration['bands'] ?? null);
         $high = AiValueNormalizer::arrayOrEmpty($bands['high'] ?? null);
-        $highN = (int) ($high['n_realized'] ?? 0);
+        $highN = (int) (AiValueNormalizer::finiteFloatOrNull($high['n_realized'] ?? null) ?? 0);
         if ($highN <= 0) {
             return false;
         }
-        $highRate = ((int) ($high['realized_true'] ?? 0)) / $highN;
+        $highRate = ((int) (AiValueNormalizer::finiteFloatOrNull($high['realized_true'] ?? null) ?? 0)) / $highN;
 
         return $highRate >= (AiValueNormalizer::finiteFloatOrNull($criterion['threshold'] ?? null) ?? 0.0);
     }

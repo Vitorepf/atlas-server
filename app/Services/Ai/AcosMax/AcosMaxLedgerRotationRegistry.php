@@ -363,8 +363,8 @@ final class AcosMaxLedgerRotationRegistry
                 $mode = 'rotate_hybrid';
             }
             $normalized[$seriesKey] = [
-                'max_size_mb' => max(1, (int) ($policy['max_size_mb'] ?? 32)),
-                'max_age_days' => max(1, (int) ($policy['max_age_days'] ?? 30)),
+                'max_size_mb' => max(1, (int) (AiValueNormalizer::finiteFloatOrNull($policy['max_size_mb'] ?? null) ?? 32)),
+                'max_age_days' => max(1, (int) (AiValueNormalizer::finiteFloatOrNull($policy['max_age_days'] ?? null) ?? 30)),
                 'mode' => $mode,
                 'rationale' => AiValueNormalizer::trimmedStringOrNull($policy['rationale'] ?? null) ?? '',
             ];

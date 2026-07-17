@@ -77,8 +77,8 @@ final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
     public function run(): AtlasWatchdogCheckResult
     {
         $probed = ($this->probe)();
-        $freeBytes = (int) ($probed['free_bytes'] ?? 0);
-        $totalBytes = (int) ($probed['total_bytes'] ?? 0);
+        $freeBytes = (int) (AiValueNormalizer::finiteFloatOrNull($probed['free_bytes'] ?? null) ?? 0);
+        $totalBytes = (int) (AiValueNormalizer::finiteFloatOrNull($probed['total_bytes'] ?? null) ?? 0);
         $freeGb = (int) floor($freeBytes / (1024 ** 3));
         $totalGb = (int) floor($totalBytes / (1024 ** 3));
 

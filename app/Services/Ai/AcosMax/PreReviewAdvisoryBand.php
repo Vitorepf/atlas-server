@@ -62,7 +62,7 @@ final class PreReviewAdvisoryBand
         $confidenceBand = self::normalizeConfBand($features['confidence_band'] ?? null);
         $rate = AiValueNormalizer::finiteFloatOrNull($features['similar_revert_rate'] ?? null);
         $rate = $rate === null ? null : AiValueNormalizer::clampUnit($rate);
-        $nSimilar = max(0, (int) ($features['n_similar'] ?? 0));
+        $nSimilar = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($features['n_similar'] ?? null) ?? 0));
 
         $result = [
             'schema_version' => self::SCHEMA_VERSION,

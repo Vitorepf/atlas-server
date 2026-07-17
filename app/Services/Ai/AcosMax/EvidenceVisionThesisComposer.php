@@ -203,7 +203,7 @@ final class EvidenceVisionThesisComposer
             if (count($group) < self::MIN_REGRESSION_WINDOWS) {
                 continue;
             }
-            usort($group, static fn (array $a, array $b): int => ((int) ($a['window'] ?? 0)) <=> ((int) ($b['window'] ?? 0)));
+            usort($group, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($a['window'] ?? null) ?? 0)) <=> ((int) (AiValueNormalizer::finiteFloatOrNull($b['window'] ?? null) ?? 0)));
             $tail = array_slice($group, -self::MIN_REGRESSION_WINDOWS);
             $yields = array_map(
                 static fn (array $row): float => AiValueNormalizer::finiteFloatOrNull($row['yield'] ?? null) ?? 0.0,
@@ -230,12 +230,12 @@ final class EvidenceVisionThesisComposer
                 'thesis_id' => $thesisId,
                 'status' => 'active',
                 'claim' => 'series:'.$series.' stage '.$stage.' yield regressed across windows '
-                    .((int) ($tail[0]['window'] ?? 0)).'-'.((int) ($tail[count($tail) - 1]['window'] ?? 0))
+                    .((int) (AiValueNormalizer::finiteFloatOrNull($tail[0]['window'] ?? null) ?? 0)).'-'.((int) (AiValueNormalizer::finiteFloatOrNull($tail[count($tail) - 1]['window'] ?? null) ?? 0))
                     .' ('.round($first, 3).'→'.round($last, 3).')',
                 'evidence' => array_map(
                     static fn (array $row): array => [
                         'source' => 'series',
-                        'ref' => 'series:'.(AiValueNormalizer::trimmedStringOrNull($row['series'] ?? null) ?? '').':stage='.(AiValueNormalizer::trimmedStringOrNull($row['stage'] ?? null) ?? '').':window='.(int) ($row['window'] ?? 0),
+                        'ref' => 'series:'.(AiValueNormalizer::trimmedStringOrNull($row['series'] ?? null) ?? '').':stage='.(AiValueNormalizer::trimmedStringOrNull($row['stage'] ?? null) ?? '').':window='.(int) (AiValueNormalizer::finiteFloatOrNull($row['window'] ?? null) ?? 0),
                         'field' => 'yield',
                         'value' => AiValueNormalizer::finiteFloatOrNull($row['yield'] ?? null) ?? 0.0,
                     ],
@@ -267,14 +267,14 @@ final class EvidenceVisionThesisComposer
         $bands = AiValueNormalizer::arrayOrEmpty($calibration['bands'] ?? null);
         $high = AiValueNormalizer::arrayOrEmpty($bands['high'] ?? null);
         $sweet = AiValueNormalizer::arrayOrEmpty($bands['sweet'] ?? null);
-        $highN = (int) ($high['n_realized'] ?? 0);
-        $sweetN = (int) ($sweet['n_realized'] ?? 0);
+        $highN = (int) (AiValueNormalizer::finiteFloatOrNull($high['n_realized'] ?? null) ?? 0);
+        $sweetN = (int) (AiValueNormalizer::finiteFloatOrNull($sweet['n_realized'] ?? null) ?? 0);
         if ($highN < 3 || $sweetN < 3) {
             return [];
         }
 
-        $highRate = ((int) ($high['realized_true'] ?? 0)) / max(1, $highN);
-        $sweetRate = ((int) ($sweet['realized_true'] ?? 0)) / max(1, $sweetN);
+        $highRate = ((int) (AiValueNormalizer::finiteFloatOrNull($high['realized_true'] ?? null) ?? 0)) / max(1, $highN);
+        $sweetRate = ((int) (AiValueNormalizer::finiteFloatOrNull($sweet['realized_true'] ?? null) ?? 0)) / max(1, $sweetN);
         if ($highRate >= $sweetRate - 0.15) {
             return [];
         }
@@ -327,7 +327,7 @@ final class EvidenceVisionThesisComposer
             $target = ltrim(AiValueNormalizer::trimmedStringOrNull($lead['target_path'] ?? null) ?? '', '/');
             $evidence = AiValueNormalizer::arrayOrEmpty($lead['evidence'] ?? null);
             $file = AiValueNormalizer::trimmedStringOrNull($evidence['file'] ?? null) ?? '';
-            $line = (int) ($evidence['line'] ?? 0);
+            $line = (int) (AiValueNormalizer::finiteFloatOrNull($evidence['line'] ?? null) ?? 0);
             if ($target === '' || $file === '' || $line <= 0) {
                 continue;
             }

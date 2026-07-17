@@ -28,7 +28,7 @@ final class ReactiveSaturationSignal
         }
 
         foreach ($tail as $window) {
-            if ((int) ($window['n'] ?? 0) < self::MIN_N_PER_WINDOW) {
+            if ((int) (AiValueNormalizer::finiteFloatOrNull($window['n'] ?? null) ?? 0) < self::MIN_N_PER_WINDOW) {
                 return self::result(false, 'insufficient_n', 'byte_identical_pick', $tail, $context);
             }
         }
@@ -56,7 +56,7 @@ final class ReactiveSaturationSignal
             'reactive_saturated' => $saturated,
             'basis' => $basis,
             'pick_hint' => $pickHint,
-            'queue_depth' => max(0, (int) ($context['queue_depth'] ?? 0)),
+            'queue_depth' => max(0, (int) (AiValueNormalizer::finiteFloatOrNull($context['queue_depth'] ?? null) ?? 0)),
             'tail' => $tail,
             'source' => [
                 'report_only' => true,

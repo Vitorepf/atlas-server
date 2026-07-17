@@ -247,12 +247,12 @@ final class AcosMaxWindowOrchestratorService
         if ($withRemaining === []) {
             return ['status' => 'unavailable', 'reason' => 'no_started_window_with_numeric_duration', 'days_remaining' => null, 'nodes' => []];
         }
-        usort($withRemaining, static fn (array $a, array $b): int => ((int) ($b['days_remaining'] ?? 0)) <=> ((int) ($a['days_remaining'] ?? 0)));
+        usort($withRemaining, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($b['days_remaining'] ?? null) ?? 0)) <=> ((int) (AiValueNormalizer::finiteFloatOrNull($a['days_remaining'] ?? null) ?? 0)));
         $top = $withRemaining[0];
 
         return [
             'status' => 'ok',
-            'days_remaining' => (int) ($top['days_remaining'] ?? 0),
+            'days_remaining' => (int) (AiValueNormalizer::finiteFloatOrNull($top['days_remaining'] ?? null) ?? 0),
             'nodes' => [[
                 'flag_id' => $top['flag_id'],
                 'family' => $top['family'],

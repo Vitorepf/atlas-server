@@ -142,7 +142,7 @@ final class Maxa04JinaV3DualReadService
                 'candidate_recall_at_5' => $this->unitOrNull($case['candidate_recall_at_5'] ?? null),
                 'current_precision_at_5' => $this->unitOrNull($case['current_precision_at_5'] ?? null),
                 'candidate_precision_at_5' => $this->unitOrNull($case['candidate_precision_at_5'] ?? null),
-                'targets_available' => max(0, (int) ($case['targets_available'] ?? 0)),
+                'targets_available' => max(0, (int) (AiValueNormalizer::finiteFloatOrNull($case['targets_available'] ?? null) ?? 0)),
             ];
         }
 

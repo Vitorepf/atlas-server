@@ -189,13 +189,13 @@ final class AtlasAcosLongHorizonGateService
         array $codes,
     ): array {
         $blockers = [];
-        $seriesDayCount = (int) ($window['series_day_count'] ?? 0);
-        $calendarSpanDays = (int) ($window['calendar_span_days'] ?? 0);
-        $futureDatedRows = (int) ($window['future_dated_rows'] ?? 0);
+        $seriesDayCount = (int) (AiValueNormalizer::finiteFloatOrNull($window['series_day_count'] ?? null) ?? 0);
+        $calendarSpanDays = (int) (AiValueNormalizer::finiteFloatOrNull($window['calendar_span_days'] ?? null) ?? 0);
+        $futureDatedRows = (int) (AiValueNormalizer::finiteFloatOrNull($window['future_dated_rows'] ?? null) ?? 0);
         $latestDate = $window['latest_date'] ?? null;
-        $latestStalenessDays = (int) ($window['latest_staleness_days'] ?? 0);
-        $maxConsecutiveGapDays = (int) ($window['max_consecutive_gap_days'] ?? 0);
-        $backfilledSamples = (int) ($window['backfilled_samples'] ?? 0);
+        $latestStalenessDays = (int) (AiValueNormalizer::finiteFloatOrNull($window['latest_staleness_days'] ?? null) ?? 0);
+        $maxConsecutiveGapDays = (int) (AiValueNormalizer::finiteFloatOrNull($window['max_consecutive_gap_days'] ?? null) ?? 0);
+        $backfilledSamples = (int) (AiValueNormalizer::finiteFloatOrNull($window['backfilled_samples'] ?? null) ?? 0);
 
         if ($seriesDayCount < $minDays) {
             $blockers[] = $codes['day_count'];
@@ -240,18 +240,18 @@ final class AtlasAcosLongHorizonGateService
 
         return [
             'series_path' => $seriesPath,
-            'series_day_count' => (int) ($window['series_day_count'] ?? 0),
-            'calendar_span_days' => (int) ($window['calendar_span_days'] ?? 0),
+            'series_day_count' => (int) (AiValueNormalizer::finiteFloatOrNull($window['series_day_count'] ?? null) ?? 0),
+            'calendar_span_days' => (int) (AiValueNormalizer::finiteFloatOrNull($window['calendar_span_days'] ?? null) ?? 0),
             'first_date' => $window['first_date'] ?? null,
             'latest_date' => $latestDate,
             'today' => $window['today'] ?? null,
-            'future_dated_rows' => (int) ($window['future_dated_rows'] ?? 0),
-            'latest_staleness_days' => (int) ($window['latest_staleness_days'] ?? 0),
+            'future_dated_rows' => (int) (AiValueNormalizer::finiteFloatOrNull($window['future_dated_rows'] ?? null) ?? 0),
+            'latest_staleness_days' => (int) (AiValueNormalizer::finiteFloatOrNull($window['latest_staleness_days'] ?? null) ?? 0),
             'certification_window_start' => $certificationWindowDates[0] ?? null,
             'certification_window_end' => $latestDate,
             'certification_window_sample_count' => count($sampledDatesInWindow),
-            'max_consecutive_gap_days' => (int) ($window['max_consecutive_gap_days'] ?? 0),
-            'backfilled_samples' => (int) ($window['backfilled_samples'] ?? 0),
+            'max_consecutive_gap_days' => (int) (AiValueNormalizer::finiteFloatOrNull($window['max_consecutive_gap_days'] ?? null) ?? 0),
+            'backfilled_samples' => (int) (AiValueNormalizer::finiteFloatOrNull($window['backfilled_samples'] ?? null) ?? 0),
             'resolved_evidence_rows' => $resolvedEvidenceRows,
         ];
     }
@@ -852,7 +852,7 @@ final class AtlasAcosLongHorizonGateService
         ];
         if ($assessmentV2 !== null) {
             $payload['assessment_v2'] = $assessmentV2;
-            $payload['evidence']['series_v2_rows_sampled'] = (int) ($assessmentV2['series_day_count'] ?? 0);
+            $payload['evidence']['series_v2_rows_sampled'] = (int) (AiValueNormalizer::finiteFloatOrNull($assessmentV2['series_day_count'] ?? null) ?? 0);
             $payload['claim_policy']['longitudinal_area_floor_v2'] = true;
             $payload['claim_policy']['gate_v1_byte_identical_without_v2'] = true;
         }

@@ -146,7 +146,7 @@ final class AtlasAcosWatchdogHealthService
             'alert' => $failed !== [],
             'checks' => $checks,
             'raw' => [
-                'score' => (int) ($scorecard['score'] ?? 0),
+                'score' => (int) (AiValueNormalizer::finiteFloatOrNull($scorecard['score'] ?? null) ?? 0),
                 'status' => (AiValueNormalizer::trimmedStringOrNull($scorecard['status'] ?? null) ?? 'unknown'),
                 'freshness' => $freshness,
                 'windowed_concentration_ratio' => $concentration,
@@ -218,7 +218,7 @@ final class AtlasAcosWatchdogHealthService
             $blocking[] = 'memory_cross_layer_coverage_below_floor';
         }
         foreach (['linker_memory_code', 'linker_memory_domain', 'linker_evidence'] as $linker) {
-            if ((int) ($edgesBySource[$linker] ?? 0) === 0) {
+            if ((int) (AiValueNormalizer::finiteFloatOrNull($edgesBySource[$linker] ?? null) ?? 0) === 0) {
                 $blocking[] = 'cross_layer_linker_zero:'.$linker;
             }
         }
@@ -503,7 +503,7 @@ final class AtlasAcosWatchdogHealthService
         $blockers = array_values(AiValueNormalizer::arrayOrEmpty(data_get($report, 'measurement.blockers', [])));
         $status = (AiValueNormalizer::trimmedStringOrNull($report['status'] ?? null) ?? 'unknown');
         $series = $this->blockerSeries('ope-08.lift_cycle_closure', $blockers);
-        $stalled = array_values(array_filter($series, static fn (array $row): bool => (int) ($row['days_in_block'] ?? 0) > self::LIFT_STALLED_DAYS));
+        $stalled = array_values(array_filter($series, static fn (array $row): bool => (int) (AiValueNormalizer::finiteFloatOrNull($row['days_in_block'] ?? null) ?? 0) > self::LIFT_STALLED_DAYS));
         $blocking = $blockers;
         if ($stalled !== []) {
             $blocking[] = 'lift_blocker_stalled';
@@ -589,17 +589,17 @@ final class AtlasAcosWatchdogHealthService
             'governance_enforce' => [
                 'ready' => count(array_filter($governanceByExecutor, static fn (int $count): bool => $count >= self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR)) >= 3
                     && $bypassRate === 0.0
-                    && (int) ($summary['false_positive_total'] ?? 0) === 0,
+                    && (int) (AiValueNormalizer::finiteFloatOrNull($summary['false_positive_total'] ?? null) ?? 0) === 0,
                 'blocking' => array_values(array_filter([
                     count(array_filter($governanceByExecutor, static fn (int $count): bool => $count >= self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR)) >= 3 ? null : 'governance_soak_volume_below_floor',
                     $bypassRate === 0.0 ? null : 'governance_bypass_rate_nonzero',
-                    (int) ($summary['false_positive_total'] ?? 0) === 0 ? null : 'governance_false_positive_nonzero',
+                    (int) (AiValueNormalizer::finiteFloatOrNull($summary['false_positive_total'] ?? null) ?? 0) === 0 ? null : 'governance_false_positive_nonzero',
                 ])),
                 'raw' => [
                     'window_days' => self::ENG_WINDOW_DAYS,
                     'by_executor' => $governanceByExecutor,
                     'bypass_rate' => AiValueNormalizer::finiteFloatOrNull($summary['bypass_rate'] ?? null) ?? 0.0,
-                    'false_positive_total' => (int) ($summary['false_positive_total'] ?? 0),
+                    'false_positive_total' => (int) (AiValueNormalizer::finiteFloatOrNull($summary['false_positive_total'] ?? null) ?? 0),
                     'fp_definition' => (AiValueNormalizer::trimmedStringOrNull($summary['fp_definition'] ?? null) ?? ''),
                 ],
             ],
@@ -876,7 +876,7 @@ final class AtlasAcosWatchdogHealthService
         foreach (AppendOnlyJsonlStore::read($this->forgeSovereignVerdictPath()) as $row) {
             if (($row['promoted'] ?? false) === true
                 && ($row['evidence_provenance'] ?? null) === 'harness_captured'
-                && (int) ($row['tests_run'] ?? 0) > 0
+                && (int) (AiValueNormalizer::finiteFloatOrNull($row['tests_run'] ?? null) ?? 0) > 0
                 && count(AiValueNormalizer::arrayOrEmpty($row['commands'] ?? null)) > 0) {
                 $count++;
             }
