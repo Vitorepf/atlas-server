@@ -16,6 +16,12 @@ final class AtlasFlywheelFunnelService
 
     public const FORMULA_VERSION = 'atlas_m_funnel_v1';
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_NO_SIGNAL = 'no_signal';
+
+    public const STATUS_INSUFFICIENT = 'insufficient';
+
     /** @var list<string> */
     public const STAGES = [
         'outcomes_without_lesson',
@@ -39,7 +45,7 @@ final class AtlasFlywheelFunnelService
         $denominatorMin = max(1, $denominatorMin);
 
         if ($rows === []) {
-            return $this->payload('no_signal', $path, $denominatorMin, [], 0);
+            return $this->payload(self::STATUS_NO_SIGNAL, $path, $denominatorMin, [], 0);
         }
 
         $byExecutorRows = [];
@@ -60,7 +66,7 @@ final class AtlasFlywheelFunnelService
             ];
         }
 
-        return $this->payload($byExecutor === [] ? 'no_signal' : 'ok', $path, $denominatorMin, $byExecutor, count($rows));
+        return $this->payload($byExecutor === [] ? self::STATUS_NO_SIGNAL : self::STATUS_OK, $path, $denominatorMin, $byExecutor, count($rows));
     }
 
     /**
@@ -111,7 +117,7 @@ final class AtlasFlywheelFunnelService
         return [
             'num' => $num,
             'den' => $den,
-            'status' => $den >= $denominatorMin ? 'ok' : 'insufficient',
+            'status' => $den >= $denominatorMin ? self::STATUS_OK : self::STATUS_INSUFFICIENT,
         ];
     }
 

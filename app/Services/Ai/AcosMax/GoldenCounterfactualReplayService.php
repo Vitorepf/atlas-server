@@ -16,6 +16,8 @@ final class GoldenCounterfactualReplayService
 
     public const STATUS_SKIPPED = 'skipped';
 
+    public const STATUS_OK = 'ok';
+
     public const REASON_PAIRED_ARMS_MISSING = 'paired_arms_missing';
 
     public const REASON_PAIRED_GOLDEN_RUNS_UNAVAILABLE = 'paired_golden_runs_unavailable';
@@ -71,7 +73,7 @@ final class GoldenCounterfactualReplayService
         }
 
         return array_replace($base, [
-            'status' => 'ok',
+            'status' => self::STATUS_OK,
             'reason' => null,
             'runs_path' => $runsPath,
             'counterfactual' => [

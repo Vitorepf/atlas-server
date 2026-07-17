@@ -88,7 +88,7 @@ final class AtlasAcosRollbackTriggerCheckService
             'schema_version' => self::SCHEMA_VERSION,
             'checked_at' => $asOf->toIso8601String(),
             'status' => $status,
-            'alert' => $alert,
+            self::STATUS_ALERT => $alert,
             'alert_code' => $alert ? 'rollback_trigger_fired' : null,
             'enabled' => $enabled,
             'flip_count' => count($evaluations),

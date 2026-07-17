@@ -4945,6 +4945,33 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: pre-review/parallel/golden/flywheel/hybrid/frontier residual floors.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function prereviewParallelFlywheelFrontierFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'prereview_target_class_unknown' => PreReviewAdvisoryBand::TARGET_CLASS_UNKNOWN,
+            'parallel_engine_unknown' => AcosMaxParallelExecutionProtocol::ENGINE_UNKNOWN,
+            'golden_counterfactual_status_ok' => GoldenCounterfactualReplayService::STATUS_OK,
+            'n_capture_status_ok' => AtlasNCaptureDrillService::STATUS_OK,
+            'n_capture_status_insufficient_signal' => AtlasNCaptureDrillService::STATUS_INSUFFICIENT_SIGNAL,
+            'flywheel_status_ok' => AtlasFlywheelFunnelService::STATUS_OK,
+            'flywheel_status_no_signal' => AtlasFlywheelFunnelService::STATUS_NO_SIGNAL,
+            'flywheel_status_insufficient' => AtlasFlywheelFunnelService::STATUS_INSUFFICIENT,
+            'immune_hybrid_source_unavailable' => AtlasImmuneHybridInputClassifier::SOURCE_UNAVAILABLE,
+            'immune_hybrid_source_jaccard_baseline' => AtlasImmuneHybridInputClassifier::SOURCE_JACCARD_BASELINE,
+            'frontier_activation_active' => AtlasFrontierWaveLadder::ACTIVATION_ACTIVE,
+            'frontier_activation_aguardando_eventos' => AtlasFrontierWaveLadder::ACTIVATION_AGUARDANDO_EVENTOS,
+            'autonomy_field_complete' => AutonomousWorkExecutionOs::FIELD_COMPLETE,
+            'watchdog_health_field_pass' => AtlasAcosWatchdogHealthService::FIELD_PASS,
+            'prereview_parallel_flywheel_frontier_floor_count' => 14,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

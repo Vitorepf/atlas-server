@@ -34,6 +34,8 @@ final class AcosMaxParallelExecutionProtocol
 
     public const ACTION_SKIP = 'skip';
 
+    public const ENGINE_UNKNOWN = 'unknown';
+
 
     public function __construct(
         private readonly AtlasAobgBlackboardService $blackboard,
@@ -121,7 +123,7 @@ final class AcosMaxParallelExecutionProtocol
             'conflict' => is_array($result['conflict'] ?? null) ? $result['conflict'] : null,
             'skip_reason' => sprintf(
                 'family_claimed_by_other_engine:%s',
-                $conflictEngine !== '' ? $conflictEngine : 'unknown',
+                $conflictEngine !== '' ? $conflictEngine : self::ENGINE_UNKNOWN,
             ),
         ];
     }

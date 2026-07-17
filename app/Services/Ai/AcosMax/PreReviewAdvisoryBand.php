@@ -45,6 +45,8 @@ final class PreReviewAdvisoryBand
     /** Below this lift (high_revert_rate − low_revert_rate), the family dies. */
     public const DEATH_MIN_LIFT = 0.15;
 
+    public const TARGET_CLASS_UNKNOWN = 'unknown';
+
     /**
      * @param  array<string,mixed>  $features required keys:
      *   target_class: string (e.g. 'migrations', 'ops', 'debug', 'unknown')
@@ -176,7 +178,7 @@ final class PreReviewAdvisoryBand
     private static function normalizeClass(mixed $value): string
     {
         if (AiValueNormalizer::trimmedStringOrNull($value) === null) {
-            return 'unknown';
+            return self::TARGET_CLASS_UNKNOWN;
         }
         $trim = AiValueNormalizer::lowerTrimmedString($value);
 

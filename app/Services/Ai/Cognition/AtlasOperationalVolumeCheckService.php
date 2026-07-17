@@ -79,7 +79,7 @@ final class AtlasOperationalVolumeCheckService
             'schema_version' => self::SCHEMA_VERSION,
             'checked_at' => $asOf->toIso8601String(),
             'status' => $status,
-            'alert' => $alert,
+            self::STATUS_ALERT => $alert,
             'alert_code' => $alert ? 'janela_faminta' : null,
             'thresholds' => [
                 'dev_runs_per_business_day_min' => self::DEV_RUNS_PER_BUSINESS_DAY_MIN,
@@ -101,7 +101,7 @@ final class AtlasOperationalVolumeCheckService
                     'threshold' => self::DEV_RUNS_PER_BUSINESS_DAY_MIN,
                     'available' => $devCount['available'],
                     'sources' => $devCount['sources'],
-                    'alert' => $devAlert,
+                    self::STATUS_ALERT => $devAlert,
                 ],
                 'forge' => [
                     'label' => 'rolling_7d_ending_yesterday',
@@ -111,7 +111,7 @@ final class AtlasOperationalVolumeCheckService
                     'threshold' => self::FORGE_CYCLES_PER_WEEK_MIN,
                     'available' => $forgeCount['available'],
                     'sources' => $forgeCount['sources'],
-                    'alert' => $forgeAlert,
+                    self::STATUS_ALERT => $forgeAlert,
                 ],
             ],
         ];

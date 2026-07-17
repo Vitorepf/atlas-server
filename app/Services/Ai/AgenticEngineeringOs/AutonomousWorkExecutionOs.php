@@ -44,6 +44,8 @@ final class AutonomousWorkExecutionOs
 
     public const STATUS_SKIPPED = 'skipped';
 
+    public const FIELD_COMPLETE = 'complete';
+
     public const STAGE_STATUSES = [
         self::STATUS_PENDING,
         self::STATUS_IN_PROGRESS,
@@ -175,7 +177,7 @@ final class AutonomousWorkExecutionOs
                 return [
                     'next_stage' => null,
                     'blocked' => true,
-                    'complete' => false,
+                    self::FIELD_COMPLETE => false,
                     'certification_blocked' => true,
                     'learning_blocked' => true,
                     'failure_stage' => $stage,
@@ -188,7 +190,7 @@ final class AutonomousWorkExecutionOs
                 return [
                     'next_stage' => $stage,
                     'blocked' => false,
-                    'complete' => false,
+                    self::FIELD_COMPLETE => false,
                     'certification_blocked' => false,
                     'learning_blocked' => false,
                     'failure_stage' => null,
@@ -199,7 +201,7 @@ final class AutonomousWorkExecutionOs
         return [
             'next_stage' => null,
             'blocked' => false,
-            'complete' => true,
+            self::FIELD_COMPLETE => true,
             'certification_blocked' => false,
             'learning_blocked' => false,
             'failure_stage' => null,

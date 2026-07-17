@@ -30,6 +30,10 @@ final class AtlasFrontierWaveLadder
     /** ~5 external events on wave N before wave N+1 may activate (obra20 §15). */
     public const EVENT_THRESHOLD = 5;
 
+    public const ACTIVATION_ACTIVE = 'active';
+
+    public const ACTIVATION_AGUARDANDO_EVENTOS = 'aguardando_eventos';
+
     /** The three external-event kinds that count (obra20 §15). */
     public const EVENT_KINDS = [
         'pack_diff_merged',            // um pack que mudou um diff mergeado
@@ -101,7 +105,7 @@ final class AtlasFrontierWaveLadder
             } else {
                 $priorKey = self::WAVES[$i - 1]['key'];
                 $priorEvents = $counts[$priorKey] ?? 0;
-                $activation = $priorEvents >= self::EVENT_THRESHOLD ? 'active' : 'aguardando_eventos';
+                $activation = $priorEvents >= self::EVENT_THRESHOLD ? self::ACTIVATION_ACTIVE : self::ACTIVATION_AGUARDANDO_EVENTOS;
             }
             $waves[] = [
                 'wave' => $wave['key'],

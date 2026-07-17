@@ -42,6 +42,10 @@ final class AtlasImmuneHybridInputClassifier
 
     public const DEFAULT_SEMANTIC_ARM_ENABLED = false;
 
+    public const SOURCE_UNAVAILABLE = 'unavailable';
+
+    public const SOURCE_JACCARD_BASELINE = 'jaccard_baseline';
+
     private readonly AtlasAaeosCognitiveImmuneInputClassifier $base;
 
     private readonly ImmuneSemanticSimilarityPort $port;
@@ -143,7 +147,7 @@ final class AtlasImmuneHybridInputClassifier
         }
 
         $scores = $this->computeSemanticScores($text);
-        $armBlock['source'] = $scores === null ? 'unavailable' : 'jaccard_baseline';
+        $armBlock['source'] = $scores === null ? self::SOURCE_UNAVAILABLE : self::SOURCE_JACCARD_BASELINE;
         if ($scores === null) {
             $baseResult['hybrid_arm'] = $armBlock;
             $baseResult['immune_signature'] = $signatureBlock;

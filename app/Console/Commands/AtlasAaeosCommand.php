@@ -246,6 +246,7 @@ final class AtlasAaeosCommand extends Command
         {--watchdog-health-active-disabled-floors-contract= : JSON file (any object) to observe watchdog-health/long-horizon/immune-gate/truth/deferred floors}
         {--embedding-pending-mission-outcome-floors-contract= : JSON file (any object) to observe embedding active/pending + mission outcome floors}
         {--local-model-embedding-immune-unavailable-floors-contract= : JSON file (any object) to observe local-model/embedding/immune unavailable floors}
+        {--prereview-parallel-flywheel-frontier-floors-contract= : JSON file (any object) to observe prereview/parallel/flywheel/frontier residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -648,6 +649,7 @@ final class AtlasAaeosCommand extends Command
             ['watchdog-health-active-disabled-floors-contract', 'watchdog_health_active_disabled_floors_contract', fn (array $p) => $gates->watchdogHealthActiveDisabledFloorsContractObserve($p)],
             ['embedding-pending-mission-outcome-floors-contract', 'embedding_pending_mission_outcome_floors_contract', fn (array $p) => $gates->embeddingPendingMissionOutcomeFloorsContractObserve($p)],
             ['local-model-embedding-immune-unavailable-floors-contract', 'local_model_embedding_immune_unavailable_floors_contract', fn (array $p) => $gates->localModelEmbeddingImmuneUnavailableFloorsContractObserve($p)],
+            ['prereview-parallel-flywheel-frontier-floors-contract', 'prereview_parallel_flywheel_frontier_floors_contract', fn (array $p) => $gates->prereviewParallelFlywheelFrontierFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

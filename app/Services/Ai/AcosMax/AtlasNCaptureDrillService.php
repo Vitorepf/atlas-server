@@ -59,6 +59,10 @@ final class AtlasNCaptureDrillService
 
     public const TRIGGER_UNKNOWN = 'unknown';
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+
     private readonly string $ledgerPath;
 
     public function __construct(?string $ledgerPath = null)
@@ -202,7 +206,7 @@ final class AtlasNCaptureDrillService
             static fn (array $r): bool => (AiValueNormalizer::boolOrNull(data_get($r, 'admission.admitted')) ?? false) === false
         ));
 
-        $status = $inWindow === [] ? 'insufficient_signal' : 'ok';
+        $status = $inWindow === [] ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK;
         $reason = $inWindow === [] ? 'no_drill_in_window' : null;
 
         $engines = [];

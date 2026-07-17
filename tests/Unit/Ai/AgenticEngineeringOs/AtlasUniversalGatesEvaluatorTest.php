@@ -3330,4 +3330,25 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(23, $payload['local_model_embedding_immune_unavailable_floor_count']);
     }
 
+    public function test_prereview_parallel_flywheel_frontier_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->prereviewParallelFlywheelFrontierFloorsContractObserve([]);
+
+        $this->assertSame('unknown', $payload['prereview_target_class_unknown']);
+        $this->assertSame('unknown', $payload['parallel_engine_unknown']);
+        $this->assertSame('ok', $payload['golden_counterfactual_status_ok']);
+        $this->assertSame('ok', $payload['n_capture_status_ok']);
+        $this->assertSame('insufficient_signal', $payload['n_capture_status_insufficient_signal']);
+        $this->assertSame('ok', $payload['flywheel_status_ok']);
+        $this->assertSame('no_signal', $payload['flywheel_status_no_signal']);
+        $this->assertSame('insufficient', $payload['flywheel_status_insufficient']);
+        $this->assertSame('unavailable', $payload['immune_hybrid_source_unavailable']);
+        $this->assertSame('jaccard_baseline', $payload['immune_hybrid_source_jaccard_baseline']);
+        $this->assertSame('active', $payload['frontier_activation_active']);
+        $this->assertSame('aguardando_eventos', $payload['frontier_activation_aguardando_eventos']);
+        $this->assertSame('complete', $payload['autonomy_field_complete']);
+        $this->assertSame('pass', $payload['watchdog_health_field_pass']);
+        $this->assertSame(14, $payload['prereview_parallel_flywheel_frontier_floor_count']);
+    }
+
 }

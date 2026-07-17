@@ -61,6 +61,8 @@ final class AtlasAcosWatchdogHealthService
 
     public const STATUS_UNAVAILABLE = 'unavailable';
 
+    public const FIELD_PASS = 'pass';
+
     public const MEMORY_SCORE_REGRESSION_TOLERANCE = 5;
 
     public const MEMORY_SNAPSHOT_MAX_AGE_HOURS = 48;
@@ -158,7 +160,7 @@ final class AtlasAcosWatchdogHealthService
                 'latest_snapshot_at' => $latestSnapshotAt?->toIso8601String(),
             ], 'memory_quality_snapshot_stale'),
         ];
-        $failed = array_values(array_filter($checks, static fn (array $check): bool => ! (AiValueNormalizer::boolOrNull($check['pass'] ?? null) ?? false)));
+        $failed = array_values(array_filter($checks, static fn (array $check): bool => ! (AiValueNormalizer::boolOrNull($check[self::FIELD_PASS] ?? null) ?? false)));
 
         return [
             'schema_version' => self::MEMORY_QUALITY_SCHEMA,
@@ -693,7 +695,7 @@ final class AtlasAcosWatchdogHealthService
      */
     private function reportFromChecks(string $schema, array $checks, array $extra, string $alertCode): array
     {
-        $failed = array_values(array_filter($checks, static fn (array $check): bool => ! (AiValueNormalizer::boolOrNull($check['pass'] ?? null) ?? false)));
+        $failed = array_values(array_filter($checks, static fn (array $check): bool => ! (AiValueNormalizer::boolOrNull($check[self::FIELD_PASS] ?? null) ?? false)));
 
         return [
             'schema_version' => $schema,
@@ -715,7 +717,7 @@ final class AtlasAcosWatchdogHealthService
     {
         return [
             'id' => $id,
-            'pass' => $pass,
+            self::FIELD_PASS => $pass,
             'code' => $code !== '' ? $code : ($pass ? self::STATUS_OK : $id.'_failed'),
             'raw' => $raw,
         ];
