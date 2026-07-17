@@ -156,6 +156,7 @@ final class AtlasAaeosCommand extends Command
         {--memory-feedback-decay-contract= : JSON file (any object) to observe memory feedback decay contract}
         {--spec-completeness-contract= : JSON file (any object) to observe SpecCompleteness contract}
         {--context-retention-schemas= : JSON file (any object) to observe summary-fidelity/segment-importance schemas}
+        {--context-budget-schemas= : JSON file (any object) to observe memory-injection/Pareto/delivery-pack schemas}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -468,6 +469,7 @@ final class AtlasAaeosCommand extends Command
             ['memory-feedback-decay-contract', 'memory_feedback_decay_contract', fn (array $p) => $gates->memoryFeedbackDecayContractObserve($p)],
             ['spec-completeness-contract', 'spec_completeness_contract', fn (array $p) => $gates->specCompletenessContractObserve($p)],
             ['context-retention-schemas', 'context_retention_schemas', fn (array $p) => $gates->contextRetentionSchemasObserve($p)],
+            ['context-budget-schemas', 'context_budget_schemas', fn (array $p) => $gates->contextBudgetSchemasObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

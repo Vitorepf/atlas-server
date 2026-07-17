@@ -15,7 +15,7 @@ use InvalidArgumentException;
  */
 final class DeliveryPackCompletenessScorer
 {
-    private const SCHEMA = 'atlas.aaeos.delivery_pack_completeness.v1';
+    public const SCHEMA = 'atlas.aaeos.delivery_pack_completeness.v1';
 
     private const STATUS_PASSED = 'passed';
 

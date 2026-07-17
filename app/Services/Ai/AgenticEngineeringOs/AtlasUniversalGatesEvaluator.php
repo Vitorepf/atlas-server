@@ -2276,6 +2276,23 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only memory-injection / Pareto / delivery-pack schemas.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function contextBudgetSchemasObserve(array $input = []): array
+    {
+        return [
+            'memory_injection_schema' => MemoryInjectionBudgetAllocator::SCHEMA_VERSION,
+            'context_pareto_schema' => ContextParetoDominanceFilter::SCHEMA_VERSION,
+            'delivery_pack_schema' => DeliveryPackCompletenessScorer::SCHEMA,
+            'memory_injection_default_floor_chars' => 80,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>
