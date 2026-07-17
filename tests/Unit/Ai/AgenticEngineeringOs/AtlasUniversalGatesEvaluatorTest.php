@@ -2234,4 +2234,35 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(0.72, $payload['weights']['packet_quality_failure']);
         $this->assertSame(7, $payload['weight_count']);
     }
+
+    public function test_watchdog_canary_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->watchdogCanaryFloorsContractObserve([]);
+
+        $this->assertSame(168, $payload['learning_negative_max_age_hours']);
+        $this->assertSame(48, $payload['learning_aemor_source_max_age_hours']);
+        $this->assertSame(72, $payload['learning_ai_run_outcome_max_age_hours']);
+        $this->assertSame(95, $payload['rag_retrieval_eval_floor']);
+        $this->assertSame(0.5, $payload['rag_pre_filter_concentration_mask_floor']);
+        $this->assertSame(3, $payload['feedback_measured_count_floor']);
+        $this->assertSame(0.10, $payload['feedback_synthetic_share_max']);
+        $this->assertSame(14, $payload['compaction_window_days']);
+        $this->assertSame(7, $payload['lift_stalled_days']);
+        $this->assertSame(7, $payload['pipeline_partial_stale_days']);
+        $this->assertSame(1, $payload['eng_min_real_executions_per_executor']);
+        $this->assertSame(3, $payload['eng_min_adml_proven_routes']);
+        $this->assertSame('atlas.acos.watchdog.daily_canary_replay_by_refs.v1', $payload['daily_canary_schema']);
+        $this->assertSame(24, $payload['daily_canary_default_window_hours']);
+        $this->assertSame(25, $payload['daily_canary_default_top_n_flows']);
+        $this->assertSame(0.95, $payload['daily_canary_ref_stability_alert_floor']);
+        $this->assertSame(0.40, $payload['daily_canary_golden_recall_at_5_alert_floor']);
+        $this->assertSame(0, $payload['daily_canary_improper_floor_discard_alert_ceiling']);
+        $this->assertStringContainsString('query|prompt|context', $payload['daily_canary_forbidden_evidence_key_pattern']);
+        $this->assertSame('ok', $payload['watchdog_status_ok']);
+        $this->assertSame('warning', $payload['watchdog_status_warning']);
+        $this->assertSame('alert', $payload['watchdog_status_alert']);
+        $this->assertSame('skipped', $payload['watchdog_status_skipped']);
+        $this->assertSame('error', $payload['watchdog_status_error']);
+        $this->assertSame(5, $payload['watchdog_status_count']);
+    }
 }

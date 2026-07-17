@@ -3208,6 +3208,44 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only remaining ACOS watchdog health + daily-canary floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function watchdogCanaryFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'learning_negative_max_age_hours' => AtlasAcosWatchdogHealthService::LEARNING_NEGATIVE_MAX_AGE_HOURS,
+            'learning_aemor_source_max_age_hours' => AtlasAcosWatchdogHealthService::LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS,
+            'learning_ai_run_outcome_max_age_hours' => AtlasAcosWatchdogHealthService::LEARNING_AI_RUN_OUTCOME_MAX_AGE_HOURS,
+            'rag_retrieval_eval_floor' => AtlasAcosWatchdogHealthService::RAG_RETRIEVAL_EVAL_FLOOR,
+            'rag_pre_filter_concentration_mask_floor' => AtlasAcosWatchdogHealthService::RAG_PRE_FILTER_CONCENTRATION_MASK_FLOOR,
+            'feedback_measured_count_floor' => AtlasAcosWatchdogHealthService::FEEDBACK_MEASURED_COUNT_FLOOR,
+            'feedback_synthetic_share_max' => AtlasAcosWatchdogHealthService::FEEDBACK_SYNTHETIC_SHARE_MAX,
+            'compaction_window_days' => AtlasAcosWatchdogHealthService::COMPACTION_WINDOW_DAYS,
+            'lift_stalled_days' => AtlasAcosWatchdogHealthService::LIFT_STALLED_DAYS,
+            'pipeline_partial_stale_days' => AtlasAcosWatchdogHealthService::PIPELINE_PARTIAL_STALE_DAYS,
+            'eng_min_real_executions_per_executor' => AtlasAcosWatchdogHealthService::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR,
+            'eng_min_adml_proven_routes' => AtlasAcosWatchdogHealthService::ENG_MIN_ADML_PROVEN_ROUTES,
+            'daily_canary_schema' => DailyCanaryReplayByRefsWatchdogCheck::SCHEMA_VERSION,
+            'daily_canary_default_window_hours' => DailyCanaryReplayByRefsWatchdogCheck::DEFAULT_WINDOW_HOURS,
+            'daily_canary_default_top_n_flows' => DailyCanaryReplayByRefsWatchdogCheck::DEFAULT_TOP_N_FLOWS,
+            'daily_canary_ref_stability_alert_floor' => DailyCanaryReplayByRefsWatchdogCheck::REF_STABILITY_ALERT_FLOOR,
+            'daily_canary_golden_recall_at_5_alert_floor' => DailyCanaryReplayByRefsWatchdogCheck::GOLDEN_RECALL_AT_5_ALERT_FLOOR,
+            'daily_canary_improper_floor_discard_alert_ceiling' => DailyCanaryReplayByRefsWatchdogCheck::IMPROPER_FLOOR_DISCARD_ALERT_CEILING,
+            'daily_canary_forbidden_evidence_key_pattern' => DailyCanaryReplayByRefsWatchdogCheck::FORBIDDEN_EVIDENCE_KEY_PATTERN,
+            'watchdog_status_ok' => AtlasWatchdogCheckResult::STATUS_OK,
+            'watchdog_status_warning' => AtlasWatchdogCheckResult::STATUS_WARNING,
+            'watchdog_status_alert' => AtlasWatchdogCheckResult::STATUS_ALERT,
+            'watchdog_status_skipped' => AtlasWatchdogCheckResult::STATUS_SKIPPED,
+            'watchdog_status_error' => AtlasWatchdogCheckResult::STATUS_ERROR,
+            'watchdog_status_count' => count(AtlasWatchdogCheckResult::STATUSES),
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>
