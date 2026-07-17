@@ -36,6 +36,29 @@ final class OutcomeEnvelope
         };
     }
 
+    /**
+     * Project shared envelope status back to a native organ label.
+     * Unknown origins keep the envelope status (AEMOR uses the shared labels).
+     */
+    public static function toNativeStatus(string $envelopeStatus, string $origin): string
+    {
+        $status = strtolower(trim($envelopeStatus));
+
+        return match (strtolower(trim($origin))) {
+            'dev_procedural' => match ($status) {
+                'succeeded' => 'success',
+                'failed' => 'failed',
+                default => 'blocked',
+            },
+            'compounding' => match ($status) {
+                'succeeded' => 'passed',
+                'failed' => 'failed',
+                default => 'blocked',
+            },
+            default => in_array($status, self::STATUSES, true) ? $status : 'blocked',
+        };
+    }
+
     /** @param array<string,mixed> $data */
     private function __construct(private readonly array $data) {}
 

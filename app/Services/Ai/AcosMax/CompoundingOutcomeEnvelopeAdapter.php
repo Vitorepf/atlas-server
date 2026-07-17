@@ -80,11 +80,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         return [
             'flow_id' => (string) ($fields['flow_id'] ?? 'atlas_conversation'),
             'run_id' => (string) ($data['run_id'] ?? ''),
-            'outcome_status' => match ((string) ($data['status'] ?? 'blocked')) {
-                'succeeded' => 'passed',
-                'failed' => 'failed',
-                default => 'blocked',
-            },
+            'outcome_status' => OutcomeEnvelope::toNativeStatus((string) ($data['status'] ?? 'blocked'), $this->origin()),
             'flow_quality' => $fields['flow_quality'] ?? null,
             'retrieval_quality' => $fields['retrieval_quality'] ?? null,
             'execution_quality' => $fields['execution_quality'] ?? null,

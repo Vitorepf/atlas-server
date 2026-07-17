@@ -19,6 +19,14 @@ final class OutcomeEnvelopeNormalizeStatusTest extends TestCase
         $this->assertSame('blocked', OutcomeEnvelope::normalizeStatus(''));
     }
 
+    public function test_to_native_status_round_trips_origin_labels(): void
+    {
+        $this->assertSame('success', OutcomeEnvelope::toNativeStatus('succeeded', 'dev_procedural'));
+        $this->assertSame('passed', OutcomeEnvelope::toNativeStatus('succeeded', 'compounding'));
+        $this->assertSame('succeeded', OutcomeEnvelope::toNativeStatus('succeeded', 'aemor'));
+        $this->assertSame('blocked', OutcomeEnvelope::toNativeStatus('weird', 'dev_procedural'));
+    }
+
     public function test_from_adapter_stamps_schema_and_binds_native_origin(): void
     {
         $envelope = OutcomeEnvelope::fromAdapter('compounding', [

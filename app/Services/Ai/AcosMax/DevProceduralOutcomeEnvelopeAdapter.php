@@ -60,7 +60,7 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
         return [
             'schema_version' => 'atlas.dev.outcome_memory.v1',
             'run_id' => (string) ($data['run_id'] ?? 'unknown'),
-            'outcome_status' => (string) ($fields['outcome_status'] ?? $this->reverseStatus((string) ($data['status'] ?? 'blocked'))),
+            'outcome_status' => (string) ($fields['outcome_status'] ?? OutcomeEnvelope::toNativeStatus((string) ($data['status'] ?? 'blocked'), $this->origin())),
             'proven_real' => (bool) ($fields['proven_real'] ?? false),
             'fake_green' => (bool) ($fields['fake_green'] ?? false),
             'proof_reason' => (string) ($fields['proof_reason'] ?? ''),
@@ -70,15 +70,6 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
             'learning_candidates' => is_array($fields['learning_candidates'] ?? null) ? $fields['learning_candidates'] : [],
             'should_promote_to_aemor' => (bool) ($fields['should_promote_to_aemor'] ?? false),
         ];
-    }
-
-    private function reverseStatus(string $envelopeStatus): string
-    {
-        return match ($envelopeStatus) {
-            'succeeded' => 'success',
-            'failed' => 'failed',
-            default => 'blocked',
-        };
     }
 
     private function deriveVerifiedBasis(bool $provenReal, bool $fakeGreen, bool $sourcePresent): string
