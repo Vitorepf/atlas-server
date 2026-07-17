@@ -631,8 +631,20 @@ footer{margin-top:28px;padding-top:14px;border-top:1px solid var(--line);color:v
       const teto = r.gain_undemonstrable
         ? `<span class="sk-fatia">teto do teste: nem 100% provaria ganho com ${r.bare_n} tarefas — rode mais</span>`
         : '';
+      // POR QUE falta o braço Atlas — e a resposta muda com o TIPO da habilidade.
+      // As 5 famílias de código (aider, swe, terminal, bfcl, hal…) são medidas
+      // pelo Atlas Dev, que gera patches. As de CONHECIMENTO/Q&A (mmlu, gpqa, bbq,
+      // 95 de 104) o Atlas Dev NÃO responde — ele não faz pergunta-e-resposta.
+      // Medir o Atlas nelas exige um bridge Decide/RAG que este fluxo não tem.
+      // Sem dizer isto, o operador espera 104 pares que o Atlas Dev nunca produz.
+      const CODIGO = new Set(['aider_polyglot','swe_bench_live','senior_swe_bench','terminal_bench','bfcl','hal_harness','live_code_bench','swe_marathon','tau2_bench']);
+      const semAtlas = (r.verdict === 'atlas_nao_medido')
+        ? (CODIGO.has(r.instrument)
+            ? 'sem braço Atlas — falta rodar o Atlas Dev nesta suíte'
+            : 'o Atlas Dev não responde Q&A — medir o Atlas aqui exige o bridge de conhecimento (não feito)')
+        : (SEM[r.verdict] || r.verdict);
       const dcell = (r.delta === null || r.delta === undefined)
-        ? `<span class="hint">${SEM[r.verdict] || r.verdict}</span>`
+        ? `<span class="hint">${semAtlas}</span>`
         : `<b style="color:var(--${r.conclusive ? (r.delta>0?'melhor':'pior') : 'sem-sinal'})">${pp(r.delta)} pp</b>
            ${r.delta_ci_low !== null && r.delta_ci_low !== undefined
               ? `<span class="sk-ci">${pp(r.delta_ci_low)} a ${pp(r.delta_ci_high)}${r.conclusive ? '' : ' · inclui o zero'}</span>` : ''}`;
