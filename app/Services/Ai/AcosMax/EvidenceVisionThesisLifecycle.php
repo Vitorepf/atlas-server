@@ -254,8 +254,9 @@ final class EvidenceVisionThesisLifecycle
     {
         $path = '';
         foreach ((array) ($thesis['alignment_keys'] ?? []) as $key) {
-            if (! str_contains((string) $key, '/')) {
-                $path = (string) $key;
+            $key = AiValueNormalizer::trimmedString($key);
+            if (! str_contains($key, '/')) {
+                $path = $key;
                 break;
             }
         }
@@ -267,7 +268,7 @@ final class EvidenceVisionThesisLifecycle
             if (! is_array($row)) {
                 continue;
             }
-            if ((string) ($row['path'] ?? '') === $path && ($row['proven_real'] ?? null) === true) {
+            if (AiValueNormalizer::trimmedString($row['path'] ?? '') === $path && ($row['proven_real'] ?? null) === true) {
                 return true;
             }
         }

@@ -667,4 +667,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('append_forever', $payload['policy']['mode']);
         $this->assertGreaterThan(0, $payload['declared_series_count']);
     }
+
+    public function test_evidence_vision_observe_reports_fence_failure(): void
+    {
+        $payload = $this->svc->evidenceVisionObserve([
+            'thesis' => [
+                'claim' => 'ok claim with secret-token',
+                'death_criterion' => ['described_at_birth' => 'when recovered'],
+                'evidence' => [
+                    ['source' => 'series', 'ref' => 'series:atlas.m.funnel.v1'],
+                ],
+            ],
+            'forbidden' => ['secret-token'],
+        ]);
+
+        $this->assertSame('atlas.aaeos.evidence_vision_observe.v1', $payload['schema_version']);
+        $this->assertTrue($payload['field_sources_valid']);
+        $this->assertFalse($payload['operator_fence_pass']);
+    }
 }

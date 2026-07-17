@@ -825,6 +825,32 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_evidence_vision(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-ev-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'thesis' => [
+                'claim' => 'ok',
+                'death_criterion' => ['described_at_birth' => 'x'],
+                'evidence' => [['source' => 'series', 'ref' => 'series:a']],
+            ],
+            'forbidden' => [],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-ev',
+                '--evidence-vision' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"evidence_vision"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

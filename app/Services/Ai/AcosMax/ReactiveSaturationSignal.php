@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class ReactiveSaturationSignal
 {
     public const SCHEMA_VERSION = 'atlas.originator.reactive_saturation.v1';
@@ -19,6 +21,7 @@ final class ReactiveSaturationSignal
      */
     public static function classify(array $windows, array $context = []): array
     {
+        $context = AiValueNormalizer::arrayOrEmpty($context);
         $tail = array_slice($windows, -self::MIN_WINDOWS);
         if (count($tail) < self::MIN_WINDOWS) {
             return self::result(false, 'insufficient_windows', 'byte_identical_pick', $tail, $context);

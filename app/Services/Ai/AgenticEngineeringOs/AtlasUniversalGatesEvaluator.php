@@ -27,6 +27,7 @@ use App\Services\Ai\AcosMax\ProvenanceWeightCalculator;
 use App\Services\Ai\AcosMax\RecallGapAggregator;
 use App\Services\Ai\AcosMax\BeliefCascadeReverificationPlanner;
 use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
+use App\Services\Ai\AcosMax\EvidenceVisionThesisComposer;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -810,6 +811,26 @@ final class AtlasUniversalGatesEvaluator
             'found' => $policy !== null,
             'policy' => $policy,
             'declared_series_count' => count($registry->all()),
+        ];
+    }
+
+    /**
+     * Observe-only evidence-vision thesis fence / field-source check.
+     * Accepts `{thesis:{...}, forbidden?:[...]}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function evidenceVisionObserve(array $input): array
+    {
+        $thesis = AiValueNormalizer::arrayOrEmpty($input['thesis'] ?? null);
+        $forbidden = AiValueNormalizer::arrayOrEmpty($input['forbidden'] ?? null);
+        /** @var list<string> $forbidden */
+
+        return [
+            'schema_version' => 'atlas.aaeos.evidence_vision_observe.v1',
+            'field_sources_valid' => EvidenceVisionThesisComposer::thesisFieldSourcesValid($thesis),
+            'operator_fence_pass' => EvidenceVisionThesisComposer::thesisPassesOperatorFence($thesis, $forbidden),
         ];
     }
 
