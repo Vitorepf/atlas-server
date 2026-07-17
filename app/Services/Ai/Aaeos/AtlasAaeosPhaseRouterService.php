@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class AtlasAaeosPhaseRouterService
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.phase_router.v1';
@@ -45,7 +47,8 @@ final class AtlasAaeosPhaseRouterService
 
     public function __construct(?string $configuredPhase = null)
     {
-        $this->configuredPhase = $configuredPhase ?? (string) config('atlas.aaeos.http_path_phase', self::PHASE_LEGACY);
+        $this->configuredPhase = $configuredPhase
+            ?? (AiValueNormalizer::trimmedString(config('atlas.aaeos.http_path_phase', self::PHASE_LEGACY)) ?: self::PHASE_LEGACY);
     }
 
     public static function isValidPhase(string $phase): bool

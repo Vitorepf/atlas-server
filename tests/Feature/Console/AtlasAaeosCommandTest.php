@@ -1183,6 +1183,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_procedural_skill_promoter(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-psp-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(['floor' => 8]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-psp',
+                '--procedural-skill-promoter' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"procedural_skill_promoter"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

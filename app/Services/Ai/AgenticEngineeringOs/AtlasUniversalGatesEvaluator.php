@@ -39,6 +39,7 @@ use App\Services\Ai\AcosMax\AtlasModelCapabilitySpecService;
 use App\Services\Ai\AcosMax\AcosMeasureSeriesFreshnessReader;
 use App\Services\Ai\AcosMax\AcosMaxVerifiedShareService;
 use App\Services\Ai\AcosMax\RagxChainMechanismService;
+use App\Services\Ai\AcosMax\AcosMaxProceduralSkillPromoterService;
 use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
 
@@ -1088,6 +1089,21 @@ final class AtlasUniversalGatesEvaluator
         }
 
         return (new RagxChainMechanismService)->stageReport($deps);
+    }
+
+    /**
+     * Observe-only MULTJ-04 procedural skill promoter report.
+     * Accepts optional `{floor?:int, enqueue?:bool}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function proceduralSkillPromoterObserve(array $input = []): array
+    {
+        $floor = array_key_exists('floor', $input) ? max(1, (int) $input['floor']) : null;
+        $enqueue = (bool) ($input['enqueue'] ?? false);
+
+        return (new AcosMaxProceduralSkillPromoterService)->report($floor, $enqueue);
     }
 
     /**

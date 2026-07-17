@@ -33,7 +33,7 @@ final class AcosMaxProceduralSkillPromoterService
 
         $candidates = [];
         foreach ($cadence as $row) {
-            $playbook = $ledger->retrieve((string) ($row['task_category'] ?? ''));
+            $playbook = $ledger->retrieve(AiValueNormalizer::trimmedString($row['task_category'] ?? ''));
             if ($playbook === null) {
                 continue;
             }
@@ -157,10 +157,11 @@ final class AcosMaxProceduralSkillPromoterService
     /** @param  array<string,mixed>  $candidate */
     private function enqueueCandidate(array $candidate): array
     {
-        $candidateHash = (string) $candidate['candidate_hash'];
+        $candidateHash = AiValueNormalizer::trimmedString($candidate['candidate_hash'] ?? '');
+        $taskCategory = AiValueNormalizer::trimmedString($candidate['task_category'] ?? '');
         $evidenceRefs = [
-            'procedural_playbook:'.hash('sha256', (string) $candidate['task_category']),
-            'multj04:case_count:'.(string) $candidate['case_count'],
+            'procedural_playbook:'.hash('sha256', $taskCategory),
+            'multj04:case_count:'.AiValueNormalizer::trimmedString($candidate['case_count'] ?? 0),
         ];
 
         $row = AiLearningCandidate::query()->firstOrCreate(
@@ -174,7 +175,7 @@ final class AcosMaxProceduralSkillPromoterService
                 'scope' => 'global',
                 'claim' => sprintf(
                     'MULTJ-04 procedural-to-skill.v1 proposal for %s held under ASI-02 (case_count=%d).',
-                    (string) $candidate['task_category'],
+                    $taskCategory,
                     (int) $candidate['case_count'],
                 ),
                 'confidence' => 40,
@@ -199,9 +200,9 @@ final class AcosMaxProceduralSkillPromoterService
         );
 
         return [
-            'candidate_id' => (string) $row->id,
+            'candidate_id' => AiValueNormalizer::trimmedString($row->id),
             'candidate_hash' => $candidateHash,
-            'skill_name' => (string) $candidate['skill_name'],
+            'skill_name' => AiValueNormalizer::trimmedString($candidate['skill_name'] ?? ''),
             'promotion_allowed' => false,
             'created' => $row->wasRecentlyCreated,
         ];

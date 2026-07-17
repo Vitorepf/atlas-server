@@ -37,6 +37,7 @@ use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadLedger;
 use App\Services\Ai\AcosMax\AcosMeasureSeriesFreshnessReader;
 use App\Services\Ai\AcosMax\AcosMaxVerifiedShareService;
 use App\Services\Ai\AcosMax\RagxChainMechanismService;
+use App\Services\Ai\AcosMax\AcosMaxProceduralSkillPromoterService;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -916,5 +917,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(RagxChainMechanismService::SCHEMA, $payload['schema_version']);
         $this->assertArrayHasKey('stages', $payload);
         $this->assertFalse($payload['ab_green_claimed']);
+    }
+
+    public function test_procedural_skill_promoter_observe_reports_shape(): void
+    {
+        $payload = $this->svc->proceduralSkillPromoterObserve(['floor' => 8]);
+
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('MULTJ-04', $payload['slice']);
+        $this->assertArrayHasKey('status', $payload);
+        $this->assertFalse($payload['promotion_allowed']);
     }
 }
