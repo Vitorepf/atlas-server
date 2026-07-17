@@ -3929,4 +3929,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['compounding_scorecard_canary_floor_count']);
     }
 
+    public function test_obra_lote2_health_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->obraLote2HealthFloorsContractObserve([]);
+
+        $this->assertSame('status', $payload['obra_field_status']);
+        $this->assertSame('state', $payload['obra_field_state']);
+        $this->assertSame('kind', $payload['obra_field_kind']);
+        $this->assertSame('evidence_refs', $payload['obra_field_evidence_refs']);
+        $this->assertSame('series_tag', $payload['obra_field_series_tag']);
+        $this->assertSame('atlas.acos_max.obra_retro.v1', $payload['obra_schema_version']);
+        $this->assertSame('never_delivered', $payload['lote2_field_never_delivered']);
+        $this->assertSame('never_cited', $payload['lote2_field_never_cited']);
+        $this->assertSame('rows', $payload['lote2_field_rows']);
+        $this->assertSame('freeze', $payload['lote2_field_freeze']);
+        $this->assertSame('delivered', $payload['lote2_field_delivered']);
+        $this->assertSame('atlas.acos.lote2.measure_report.v1', $payload['lote2_report_schema']);
+        $this->assertSame('report_method', $payload['health_field_report_method']);
+        $this->assertSame('alert_code', $payload['health_field_alert_code']);
+        $this->assertSame('message', $payload['health_field_message']);
+        $this->assertSame('id', $payload['health_field_id']);
+        $this->assertSame(10, $payload['health_catalog_count']);
+        $this->assertSame(17, $payload['obra_lote2_health_floor_count']);
+    }
+
 }
