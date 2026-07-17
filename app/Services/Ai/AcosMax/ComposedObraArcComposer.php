@@ -336,7 +336,7 @@ final class ComposedObraArcComposer
     {
         $fqcn = AiValueNormalizer::trimmedString($candidate['target_fqcn'] ?? $candidate['fqcn'] ?? '');
         if ($fqcn !== '') {
-            return ltrim($fqcn, '\\');
+            return ltrim(AiValueNormalizer::trimmedString($fqcn), '\\');
         }
 
         $base = basename($targetPath, '.php');

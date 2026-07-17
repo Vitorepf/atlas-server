@@ -36,6 +36,8 @@ final class AtlasUniversalGatesEvaluator
         private readonly DeliveryPackCompletenessScorer $deliveryPackCompleteness = new DeliveryPackCompletenessScorer,
         private readonly SpecCompletenessScorer $specCompleteness = new SpecCompletenessScorer,
         private readonly AaeosBlockerSeverityGate $blockerSeverity = new AaeosBlockerSeverityGate,
+        private readonly PhaseAdvanceVerdictClassifier $phaseAdvance = new PhaseAdvanceVerdictClassifier,
+        private readonly AaeosRequiredGateCoverageChecker $requiredGateCoverage = new AaeosRequiredGateCoverageChecker,
     ) {}
 
     /**
@@ -405,6 +407,33 @@ final class AtlasUniversalGatesEvaluator
             : AiValueNormalizer::arrayOrEmpty($input['blockers'] ?? null);
 
         return $this->blockerSeverity->assess($blockers);
+    }
+
+    /**
+     * Observe-only phase-advance verdict over an atlas.aaeos.phase.v1 envelope.
+     * Does not add a universal-gate id.
+     *
+     * @param  array<string,mixed>  $envelope
+     * @return array<string,mixed>
+     */
+    public function phaseAdvanceVerdictObserve(array $envelope): array
+    {
+        return $this->phaseAdvance->classify($envelope);
+    }
+
+    /**
+     * Observe-only required-vs-passed gate coverage projection.
+     * Accepts `{required:[...], passed:[...]}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function requiredGateCoverageObserve(array $input): array
+    {
+        return $this->requiredGateCoverage->check(
+            AiValueNormalizer::arrayOrEmpty($input['required'] ?? null),
+            AiValueNormalizer::arrayOrEmpty($input['passed'] ?? null),
+        );
     }
 
     /**

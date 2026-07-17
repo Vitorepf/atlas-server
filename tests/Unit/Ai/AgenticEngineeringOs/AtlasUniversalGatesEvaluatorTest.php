@@ -323,4 +323,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(1, $payload['high_count']);
         $this->assertSame(1, $payload['medium_count']);
     }
+
+    public function test_phase_advance_verdict_observe_classifies_envelope(): void
+    {
+        $payload = $this->svc->phaseAdvanceVerdictObserve([
+            'phase_out' => 'spec',
+            'gates' => [
+                'required' => ['tests_green'],
+                'passed' => ['tests_green'],
+                'blocked' => [],
+            ],
+            'blockers' => [],
+        ]);
+
+        $this->assertSame('advance', $payload['verdict']);
+        $this->assertSame([], $payload['missing_gates']);
+    }
+
+    public function test_required_gate_coverage_observe_reports_missing(): void
+    {
+        $payload = $this->svc->requiredGateCoverageObserve([
+            'required' => ['lint_green', 'tests_green'],
+            'passed' => ['lint_green'],
+        ]);
+
+        $this->assertFalse($payload['satisfied']);
+        $this->assertSame(['tests_green'], $payload['missing']);
+    }
 }

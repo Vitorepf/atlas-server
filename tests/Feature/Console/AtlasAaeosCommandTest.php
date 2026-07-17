@@ -366,6 +366,51 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_phase_advance(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-pa-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'phase_out' => 'spec',
+            'gates' => ['required' => [], 'passed' => [], 'blocked' => []],
+            'blockers' => [],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-pa',
+                '--phase-advance' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"phase_advance_verdict"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function test_universal_gates_observe_required_gate_coverage(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-rgc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'required' => ['a'],
+            'passed' => ['a'],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-rgc',
+                '--required-gate-coverage' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"required_gate_coverage"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

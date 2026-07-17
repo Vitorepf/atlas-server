@@ -58,6 +58,8 @@ final class AtlasAaeosCommand extends Command
         {--dogfooding-leads= : JSON file with dogfooding friction events (observe-only mine)}
         {--reactive-saturation= : JSON file with reactive saturation windows (observe-only classify)}
         {--blocker-severity= : JSON file with phase blockers (observe-only severity gate)}
+        {--phase-advance= : JSON file with atlas.aaeos.phase.v1 envelope (observe-only verdict)}
+        {--required-gate-coverage= : JSON file with required/passed gate lists (observe-only)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -252,6 +254,8 @@ final class AtlasAaeosCommand extends Command
             ['dogfooding-leads', 'dogfooding_friction_leads', fn (array $p) => $gates->dogfoodingFrictionLeadsObserve($p)],
             ['reactive-saturation', 'reactive_saturation', fn (array $p) => $gates->reactiveSaturationObserve($p)],
             ['blocker-severity', 'blocker_severity', fn (array $p) => $gates->blockerSeverityObserve($p)],
+            ['phase-advance', 'phase_advance_verdict', fn (array $p) => $gates->phaseAdvanceVerdictObserve($p)],
+            ['required-gate-coverage', 'required_gate_coverage', fn (array $p) => $gates->requiredGateCoverageObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
