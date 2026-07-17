@@ -52,6 +52,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosDocMaturityClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosClaimDefinitionOfDoneValidator;
 use App\Services\Ai\Aaeos\Support\AtlasAaeosArrayFieldReader;
 use App\Services\Ai\Aaeos\AtlasAaeosVetoPropagationResolver;
+use App\Services\Ai\Aaeos\AtlasAaeosDepartmentRegistryService;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
@@ -1575,6 +1576,26 @@ final class AtlasUniversalGatesEvaluator
         $iteration = max(0, (int) ($input['repair_iteration'] ?? 0));
 
         return (new AtlasAaeosVetoPropagationResolver)->resolve($origin, $kind, $iteration);
+    }
+
+    /**
+     * Observe-only AAEOS department registry validation.
+     * Accepts `{department}` or `{departments}` list. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function departmentRegistryValidateObserve(array $input = []): array
+    {
+        $registry = new AtlasAaeosDepartmentRegistryService;
+
+        if (isset($input['departments']) && is_array($input['departments'])) {
+            return $registry->validateRegistry($input['departments']);
+        }
+
+        $department = AiValueNormalizer::arrayOrEmpty($input['department'] ?? $input);
+
+        return $registry->validateDepartment($department);
     }
 
     /**

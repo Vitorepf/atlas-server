@@ -15,6 +15,7 @@ use App\Services\Ai\Memory\AtlasMemoryVectorSearchService;
 use App\Services\Ai\Memory\MemoryRecallInput;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Semantic\SemanticSearchService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Str;
@@ -367,9 +368,9 @@ class AtlasHybridMemoryRetrievalService
                 $feedbackRanking = $this->feedbackRankingExplain($stats);
                 $temporalRanking = $this->temporalRankingExplain($entry, $entryIds);
                 $hybridScore = $baseHybridScore
-                    * (float) $feedbackRanking['factor']
+                    * (AiValueNormalizer::finiteFloatOrNull($feedbackRanking['factor'] ?? null) ?? 1.0)
                     * $this->concentrationDemotion->scoreMultiplier($entryId, $dominantIds)
-                    * (float) $temporalRanking['factor'];
+                    * (AiValueNormalizer::finiteFloatOrNull($temporalRanking['factor'] ?? null) ?? 1.0);
 
                 return [
                     'id' => $entry->id,
@@ -636,7 +637,7 @@ class AtlasHybridMemoryRetrievalService
             'title' => data_get($privacy, 'fields.title') ?? $note->title,
             'summary' => data_get($privacy, 'fields.summary') ?? $note->summary,
             'excerpt' => data_get($privacy, 'fields.body') ?? data_get($privacy, 'fields.summary'),
-            'score' => isset($note->score) ? (float) $note->score : 0.55,
+            'score' => AiValueNormalizer::finiteFloatOrNull($note->score ?? null) ?? 0.55,
             'privacy_class' => $privacy['privacy_class'],
             'external_ai_allowed' => $privacy['external_ai_allowed'],
             'redaction_status' => $privacy['redaction_status'],

@@ -1290,4 +1290,17 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertArrayHasKey('resolution', $payload);
         $this->assertArrayHasKey('pause_set', $payload);
     }
+
+    public function test_department_registry_validate_observe_reports_blockers(): void
+    {
+        $payload = $this->svc->departmentRegistryValidateObserve([
+            'department' => [
+                'id' => 'dev',
+                'human_name' => 'Dev',
+            ],
+        ]);
+
+        $this->assertFalse($payload['valid']);
+        $this->assertNotSame([], $payload['blockers']);
+    }
 }

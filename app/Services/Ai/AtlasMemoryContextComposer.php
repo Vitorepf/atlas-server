@@ -8,6 +8,7 @@ use App\Services\Ai\Aaeos\Cores\MemoryFeedbackDecayScorer;
 use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
 use App\Services\Ai\Memory\MemoryMmrTopKSelector;
 use App\Services\Ai\Memory\MemoryRecallInput;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Str;
 
 class AtlasMemoryContextComposer
@@ -87,7 +88,7 @@ class AtlasMemoryContextComposer
                 'title' => $candidate['title'],
                 'summary' => $candidate['summary'],
                 'excerpt' => $excerpt,
-                'score' => round((float) $candidate['score'], 3),
+                'score' => round(AiValueNormalizer::finiteFloatOrNull($candidate['score'] ?? null) ?? 0.0, 3),
                 'reason' => $candidate['reason'],
                 'estimated_chars' => Str::length($excerpt),
                 'lineage' => $candidate['lineage'],
@@ -396,7 +397,8 @@ class AtlasMemoryContextComposer
         }
 
         try {
-            $lambda = (float) config('atlas.semantic_memory.mmr_lambda', MemoryMmrTopKSelector::DEFAULT_LAMBDA);
+            $lambda = AiValueNormalizer::finiteFloatOrNull(config('atlas.semantic_memory.mmr_lambda', MemoryMmrTopKSelector::DEFAULT_LAMBDA))
+                ?? MemoryMmrTopKSelector::DEFAULT_LAMBDA;
         } catch (\Throwable) {
             $lambda = MemoryMmrTopKSelector::DEFAULT_LAMBDA;
         }
@@ -549,16 +551,16 @@ class AtlasMemoryContextComposer
         $variantsBySource = [];
 
         foreach ($candidates as $index => $candidate) {
-            $ageDays = $candidate['freshness']['age_days'] ?? null;
-            if (! is_numeric($ageDays)) {
+            $ageDays = AiValueNormalizer::finiteFloatOrNull($candidate['freshness']['age_days'] ?? null);
+            if ($ageDays === null) {
                 continue;
             }
 
             $source = (string) ($candidate['source'] ?? 'unknown');
             $variantsBySource[$source][] = [
                 'id' => (string) $index,
-                'score' => (float) $candidate['score'],
-                'age_days' => (float) $ageDays,
+                'score' => AiValueNormalizer::finiteFloatOrNull($candidate['score'] ?? null) ?? 0.0,
+                'age_days' => $ageDays,
             ];
         }
 

@@ -1188,7 +1188,7 @@ final class AtlasAgenticWorkcellRuntimeService
      */
     private function average(Collection $rows, string $field): ?float
     {
-        return $rows->isEmpty() ? null : round((float) $rows->avg($field), 2);
+        return $rows->isEmpty() ? null : round(AiValueNormalizer::finiteFloatOrNull($rows->avg($field)) ?? 0.0, 2);
     }
 
     /**
@@ -1242,6 +1242,6 @@ final class AtlasAgenticWorkcellRuntimeService
 
     private function numericOrNull(mixed $value): ?float
     {
-        return is_numeric($value) ? (float) $value : null;
+        return AiValueNormalizer::finiteFloatOrNull($value);
     }
 }
