@@ -46,6 +46,8 @@ final class EvidenceVisionThesisComposer
 
     public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
 
+    public const FIELD_PROVEN_REAL = 'proven_real';
+
     /**
      * @param  array<string,mixed>  $context
      * @return array<string,mixed>
@@ -409,7 +411,7 @@ final class EvidenceVisionThesisComposer
 
         $theses = [];
         foreach ($byPath as $path => $rows) {
-            $failures = array_values(array_filter($rows, static fn (array $row): bool => ($row['proven_real'] ?? null) === false));
+            $failures = array_values(array_filter($rows, static fn (array $row): bool => ($row[self::FIELD_PROVEN_REAL] ?? null) === false));
             if (count($failures) < 3) {
                 continue;
             }
@@ -422,7 +424,7 @@ final class EvidenceVisionThesisComposer
                     static fn (array $row, int $index): array => [
                         'source' => 'outcome',
                         'ref' => 'outcome:'.((AiValueNormalizer::trimmedStringOrNull($row['outcome_id'] ?? null) ?? '') ?: ('stall-'.$index)),
-                        'field' => 'proven_real',
+                        'field' => self::FIELD_PROVEN_REAL,
                         'value' => false,
                     ],
                     array_slice($failures, 0, 3),

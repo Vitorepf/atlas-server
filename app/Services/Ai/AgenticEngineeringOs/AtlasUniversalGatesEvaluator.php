@@ -5312,6 +5312,36 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: immune-class/chunks/hmac residual floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function immuneClassChunksHmacFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'immune_class_trivial_query' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_TRIVIAL_QUERY,
+            'immune_class_prompt_injection' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_PROMPT_INJECTION,
+            'immune_class_private_sensitive' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_PRIVATE_SENSITIVE,
+            'immune_class_project_evidence' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_PROJECT_EVIDENCE,
+            'immune_destination_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::DESTINATIONS),
+            'asef_field_chunks_written' => AsefChunkIndexService::FIELD_CHUNKS_WRITTEN,
+            'asef_field_chunks_skipped' => AsefChunkIndexService::FIELD_CHUNKS_SKIPPED,
+            'evidence_vision_field_proven_real' => EvidenceVisionThesisComposer::FIELD_PROVEN_REAL,
+            'hmac_field_receipt_hash' => CaptureHmacLineageService::FIELD_RECEIPT_HASH,
+            'hmac_field_broken_at' => CaptureHmacLineageService::FIELD_BROKEN_AT,
+            'procedural_field_promotion_allowed' => AcosMaxProceduralSkillPromoterService::FIELD_PROMOTION_ALLOWED,
+            'compounding_field_verified_basis' => CompoundingOutcomeEnvelopeAdapter::FIELD_VERIFIED_BASIS,
+            'aemor_field_verified_basis' => AemorOutcomeEnvelopeAdapter::FIELD_VERIFIED_BASIS,
+            'hmac_field_ok' => CaptureHmacLineageService::FIELD_OK,
+            'asef_status_ok' => AsefChunkIndexService::STATUS_OK,
+            'immune_class_untrusted_content' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_UNTRUSTED_CONTENT,
+            'immune_embedding_forbidden_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::EMBEDDING_FORBIDDEN_CLASSES),
+            'immune_class_chunks_hmac_floor_count' => 17,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

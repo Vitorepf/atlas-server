@@ -36,6 +36,10 @@ final class CaptureHmacLineageService
 
     public const FIELD_OK = 'ok';
 
+    public const FIELD_RECEIPT_HASH = 'receipt_hash';
+
+    public const FIELD_BROKEN_AT = 'broken_at';
+
     public const THREAT_MODEL = 'tamper_between_capture_stages_not_db_adversary';
 
     public const SECRET_CONFIG_KEY = 'atlas.capture.hmac_lineage_secret';
@@ -74,7 +78,7 @@ final class CaptureHmacLineageService
             'stage' => $stage,
             'stage_payload_hash' => $stagePayloadHash,
             'prev_receipt_hash' => $prevReceiptHash,
-            'receipt_hash' => $receiptHash,
+            self::FIELD_RECEIPT_HASH => $receiptHash,
         ];
 
         return $this->envelope($stages);
@@ -89,7 +93,7 @@ final class CaptureHmacLineageService
         if (($chain['schema_version'] ?? null) !== self::SCHEMA_VERSION) {
             return [
                 'status' => self::STATUS_UNVERIFIABLE_LEGACY,
-                'broken_at' => null,
+                self::FIELD_BROKEN_AT => null,
                 'stage_count' => 0,
                 'head_receipt_hash' => null,
             ];
@@ -99,7 +103,7 @@ final class CaptureHmacLineageService
         if ($stages === []) {
             return [
                 'status' => self::STATUS_UNVERIFIABLE_LEGACY,
-                'broken_at' => null,
+                self::FIELD_BROKEN_AT => null,
                 'stage_count' => 0,
                 'head_receipt_hash' => null,
             ];
@@ -110,7 +114,7 @@ final class CaptureHmacLineageService
             if (! is_array($link)) {
                 return [
                     'status' => 'broken_at:invalid_link',
-                    'broken_at' => 'invalid_link',
+                    self::FIELD_BROKEN_AT => 'invalid_link',
                     'stage_count' => count($stages),
                     'head_receipt_hash' => $this->headReceiptHash($chain),
                 ];
@@ -119,14 +123,14 @@ final class CaptureHmacLineageService
             $stage = (AiValueNormalizer::trimmedStringOrNull($link['stage'] ?? null) ?? self::STAGE_UNKNOWN);
             $stagePayloadHash = (AiValueNormalizer::trimmedStringOrNull($link['stage_payload_hash'] ?? null) ?? '');
             $storedPrev = $link['prev_receipt_hash'] ?? null;
-            $storedReceipt = (AiValueNormalizer::trimmedStringOrNull($link['receipt_hash'] ?? null) ?? '');
+            $storedReceipt = (AiValueNormalizer::trimmedStringOrNull($link[self::FIELD_RECEIPT_HASH] ?? null) ?? '');
 
             $expectedPrev = $prev ?? self::GENESIS_RECEIPT;
             $storedPrevHash = AiValueNormalizer::trimmedStringOrNull($storedPrev);
             if ($storedPrevHash === null || $storedPrevHash !== $expectedPrev) {
                 return [
                     'status' => 'broken_at:'.$stage,
-                    'broken_at' => $stage,
+                    self::FIELD_BROKEN_AT => $stage,
                     'stage_count' => count($stages),
                     'head_receipt_hash' => $this->headReceiptHash($chain),
                 ];
@@ -136,7 +140,7 @@ final class CaptureHmacLineageService
             if ($storedReceipt === '' || ! hash_equals($expectedReceipt, $storedReceipt)) {
                 return [
                     'status' => 'broken_at:'.$stage,
-                    'broken_at' => $stage,
+                    self::FIELD_BROKEN_AT => $stage,
                     'stage_count' => count($stages),
                     'head_receipt_hash' => $this->headReceiptHash($chain),
                 ];
@@ -147,7 +151,7 @@ final class CaptureHmacLineageService
 
         return [
             'status' => self::STATUS_VERIFIED,
-            'broken_at' => null,
+            self::FIELD_BROKEN_AT => null,
             'stage_count' => count($stages),
             'head_receipt_hash' => $prev,
         ];
@@ -212,7 +216,7 @@ final class CaptureHmacLineageService
                 'chain' => null,
                 'verify' => [
                     'status' => self::STATUS_NOT_FOUND,
-                    'broken_at' => null,
+                    self::FIELD_BROKEN_AT => null,
                     'stage_count' => 0,
                     'head_receipt_hash' => null,
                 ],
@@ -257,7 +261,7 @@ final class CaptureHmacLineageService
         }
         $last = $stages[count($stages) - 1];
 
-        return is_array($last) ? (AiValueNormalizer::trimmedStringOrNull($last['receipt_hash'] ?? null) ?? '') : null;
+        return is_array($last) ? (AiValueNormalizer::trimmedStringOrNull($last[self::FIELD_RECEIPT_HASH] ?? null) ?? '') : null;
     }
 
     /**

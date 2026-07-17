@@ -26,6 +26,18 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
      */
     public const RECURRENCE_MEMORY_THRESHOLD = 3;
 
+    public const CLASS_TRIVIAL_QUERY = 'trivial_query';
+    public const CLASS_OPERATIONAL_EPHEMERAL = 'operational_ephemeral';
+    public const CLASS_TASK_OR_REMINDER = 'task_or_reminder';
+    public const CLASS_PROJECT_EVIDENCE = 'project_evidence';
+    public const CLASS_CONVERSATION_TRACE = 'conversation_trace';
+    public const CLASS_PERSONAL_FACT_CANDIDATE = 'personal_fact_candidate';
+    public const CLASS_TECHNICAL_LEARNING_CANDIDATE = 'technical_learning_candidate';
+    public const CLASS_STRATEGIC_INSIGHT_CANDIDATE = 'strategic_insight_candidate';
+    public const CLASS_UNTRUSTED_CONTENT = 'untrusted_content';
+    public const CLASS_PROMPT_INJECTION = 'prompt_injection';
+    public const CLASS_PRIVATE_SENSITIVE = 'private_sensitive';
+
     /**
      * Canonical class => default destination. Mirrors the existing immune
      * learning kernel lexicon byte-for-byte, except trivial_query whose
@@ -34,17 +46,17 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
      * @var array<string, string>
      */
     public const DESTINATIONS = [
-        'trivial_query' => 'respond_and_expire',
-        'operational_ephemeral' => 'task_reminder_cold_file',
-        'task_or_reminder' => 'task_routine',
-        'project_evidence' => 'project_evidence',
-        'conversation_trace' => 'audit_session',
-        'personal_fact_candidate' => 'private_review',
-        'technical_learning_candidate' => 'learning_signal',
-        'strategic_insight_candidate' => 'memory_constellation_candidate',
-        'untrusted_content' => 'cited_data_not_instruction',
-        'prompt_injection' => 'blocked_ephemeral_evidence',
-        'private_sensitive' => 'redact_minimize',
+        self::CLASS_TRIVIAL_QUERY => 'respond_and_expire',
+        self::CLASS_OPERATIONAL_EPHEMERAL => 'task_reminder_cold_file',
+        self::CLASS_TASK_OR_REMINDER => 'task_routine',
+        self::CLASS_PROJECT_EVIDENCE => 'project_evidence',
+        self::CLASS_CONVERSATION_TRACE => 'audit_session',
+        self::CLASS_PERSONAL_FACT_CANDIDATE => 'private_review',
+        self::CLASS_TECHNICAL_LEARNING_CANDIDATE => 'learning_signal',
+        self::CLASS_STRATEGIC_INSIGHT_CANDIDATE => 'memory_constellation_candidate',
+        self::CLASS_UNTRUSTED_CONTENT => 'cited_data_not_instruction',
+        self::CLASS_PROMPT_INJECTION => 'blocked_ephemeral_evidence',
+        self::CLASS_PRIVATE_SENSITIVE => 'redact_minimize',
     ];
 
     /**
@@ -53,9 +65,9 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
      * @var list<string>
      */
     public const EMBEDDING_FORBIDDEN_CLASSES = [
-        'prompt_injection',
-        'private_sensitive',
-        'untrusted_content',
+        self::CLASS_PROMPT_INJECTION,
+        self::CLASS_PRIVATE_SENSITIVE,
+        self::CLASS_UNTRUSTED_CONTENT,
     ];
 
     /**
@@ -184,11 +196,11 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         $hasInjectionText = $this->containsAny($normalized, self::INJECTION_MARKERS);
 
         $candidateScores = [
-            'strategic_insight_candidate' => $this->countMatches($normalized, self::STRATEGIC_MARKERS),
-            'technical_learning_candidate' => $this->countMatches($normalized, self::TECHNICAL_MARKERS),
-            'personal_fact_candidate' => $this->countMatches($normalized, self::PERSONAL_MARKERS),
-            'project_evidence' => $this->countMatches($normalized, self::PROJECT_EVIDENCE_MARKERS),
-            'conversation_trace' => $this->countMatches($normalized, self::CONVERSATION_MARKERS),
+            self::CLASS_STRATEGIC_INSIGHT_CANDIDATE => $this->countMatches($normalized, self::STRATEGIC_MARKERS),
+            self::CLASS_TECHNICAL_LEARNING_CANDIDATE => $this->countMatches($normalized, self::TECHNICAL_MARKERS),
+            self::CLASS_PERSONAL_FACT_CANDIDATE => $this->countMatches($normalized, self::PERSONAL_MARKERS),
+            self::CLASS_PROJECT_EVIDENCE => $this->countMatches($normalized, self::PROJECT_EVIDENCE_MARKERS),
+            self::CLASS_CONVERSATION_TRACE => $this->countMatches($normalized, self::CONVERSATION_MARKERS),
         ];
 
         $matchedSignals = $this->collectSignals(
@@ -245,21 +257,21 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     ): array {
         // 1. High-risk markers: instruction-override / injection always wins.
         if ($hasInjectionText) {
-            return ['prompt_injection', 'injection_marker'];
+            return [self::CLASS_PROMPT_INJECTION, 'injection_marker'];
         }
 
         // 2. Privacy: secret markers / privacy hints redact to sensitive.
         if ($hasSecretMarker) {
-            return ['private_sensitive', 'secret_marker_privacy'];
+            return [self::CLASS_PRIVATE_SENSITIVE, 'secret_marker_privacy'];
         }
 
         if ($privacyHint) {
-            return ['private_sensitive', 'privacy_hint'];
+            return [self::CLASS_PRIVATE_SENSITIVE, 'privacy_hint'];
         }
 
         // 3. Untrusted: foreign / cited content is never a trusted candidate.
         if ($hasUrl) {
-            return ['untrusted_content', 'untrusted_url'];
+            return [self::CLASS_UNTRUSTED_CONTENT, 'untrusted_url'];
         }
 
         // 4. Candidate-signal strength: strongest lexicon hit wins when > 0.
@@ -270,33 +282,33 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
 
         // 5. Recurrence / action / question shaping.
         if ($imperativeVerb) {
-            return ['task_or_reminder', 'imperative_task'];
+            return [self::CLASS_TASK_OR_REMINDER, 'imperative_task'];
         }
 
         if ($isQuestion) {
-            return ['trivial_query', 'trivial_question'];
+            return [self::CLASS_TRIVIAL_QUERY, 'trivial_question'];
         }
 
         if ($recurrenceCount >= self::RECURRENCE_MEMORY_THRESHOLD) {
-            return ['operational_ephemeral', 'recurrent_ephemeral'];
+            return [self::CLASS_OPERATIONAL_EPHEMERAL, 'recurrent_ephemeral'];
         }
 
         // 6. Ephemeral default.
-        return ['operational_ephemeral', 'ephemeral_default'];
+        return [self::CLASS_OPERATIONAL_EPHEMERAL, 'ephemeral_default'];
     }
 
     private function deriveMemoryEligible(string $inputClass, int $recurrenceCount, bool $hasSecretMarker): bool
     {
         return match ($inputClass) {
-            'trivial_query', 'conversation_trace', 'prompt_injection' => false,
-            'private_sensitive' => false,
-            'untrusted_content' => false,
-            'task_or_reminder' => false,
-            'operational_ephemeral' => $recurrenceCount >= self::RECURRENCE_MEMORY_THRESHOLD,
-            'personal_fact_candidate',
-            'technical_learning_candidate',
-            'strategic_insight_candidate',
-            'project_evidence' => ! $hasSecretMarker,
+            self::CLASS_TRIVIAL_QUERY, self::CLASS_CONVERSATION_TRACE, self::CLASS_PROMPT_INJECTION => false,
+            self::CLASS_PRIVATE_SENSITIVE => false,
+            self::CLASS_UNTRUSTED_CONTENT => false,
+            self::CLASS_TASK_OR_REMINDER => false,
+            self::CLASS_OPERATIONAL_EPHEMERAL => $recurrenceCount >= self::RECURRENCE_MEMORY_THRESHOLD,
+            self::CLASS_PERSONAL_FACT_CANDIDATE,
+            self::CLASS_TECHNICAL_LEARNING_CANDIDATE,
+            self::CLASS_STRATEGIC_INSIGHT_CANDIDATE,
+            self::CLASS_PROJECT_EVIDENCE => ! $hasSecretMarker,
             default => false,
         };
     }
@@ -308,12 +320,12 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         }
 
         return match ($inputClass) {
-            'trivial_query', 'conversation_trace', 'task_or_reminder' => false,
-            'operational_ephemeral' => $memoryEligible,
-            'personal_fact_candidate',
-            'technical_learning_candidate',
-            'strategic_insight_candidate',
-            'project_evidence' => true,
+            self::CLASS_TRIVIAL_QUERY, self::CLASS_CONVERSATION_TRACE, self::CLASS_TASK_OR_REMINDER => false,
+            self::CLASS_OPERATIONAL_EPHEMERAL => $memoryEligible,
+            self::CLASS_PERSONAL_FACT_CANDIDATE,
+            self::CLASS_TECHNICAL_LEARNING_CANDIDATE,
+            self::CLASS_STRATEGIC_INSIGHT_CANDIDATE,
+            self::CLASS_PROJECT_EVIDENCE => true,
             default => false,
         };
     }
@@ -339,11 +351,11 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     private function candidateReason(string $candidateClass): string
     {
         return match ($candidateClass) {
-            'strategic_insight_candidate' => 'strategic_insight_signal',
-            'technical_learning_candidate' => 'technical_learning_signal',
-            'personal_fact_candidate' => 'personal_fact_signal',
-            'project_evidence' => 'project_evidence_signal',
-            'conversation_trace' => 'conversation_trace_signal',
+            self::CLASS_STRATEGIC_INSIGHT_CANDIDATE => 'strategic_insight_signal',
+            self::CLASS_TECHNICAL_LEARNING_CANDIDATE => 'technical_learning_signal',
+            self::CLASS_PERSONAL_FACT_CANDIDATE => 'personal_fact_signal',
+            self::CLASS_PROJECT_EVIDENCE => 'project_evidence_signal',
+            self::CLASS_CONVERSATION_TRACE => 'conversation_trace_signal',
             default => 'candidate_signal',
         };
     }

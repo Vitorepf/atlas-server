@@ -19,6 +19,8 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
 
     public const FIELD_VERIFIED = 'verified';
 
+    public const FIELD_VERIFIED_BASIS = 'verified_basis';
+
     public const STATUS_ABSENT = 'absent';
 
     public function origin(): string
@@ -41,7 +43,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
 
         $verifiedSourcePresent = array_key_exists(self::FIELD_VERIFIED, $native)
             || array_key_exists('verified_source_present', $contract);
-        $verifiedBasis = AiValueNormalizer::lowerTrimmedString($contract['verified_basis'] ?? $native['verified_basis'] ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT);
+        $verifiedBasis = AiValueNormalizer::lowerTrimmedString($contract[self::FIELD_VERIFIED_BASIS] ?? $native[self::FIELD_VERIFIED_BASIS] ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT);
         $verified = (AiValueNormalizer::boolOrNull($contract[self::FIELD_VERIFIED] ?? $native[self::FIELD_VERIFIED] ?? null) ?? false);
         $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native['evidence_refs'] ?? null);
 
@@ -54,7 +56,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'provider' => AiValueNormalizer::trimmedStringOrNull($contract['provider'] ?? $native['provider'] ?? null) ?? self::STATUS_ABSENT,
             'status' => $status,
             self::FIELD_VERIFIED => $verified,
-            'verified_basis' => $verifiedBasis,
+            self::FIELD_VERIFIED_BASIS => $verifiedBasis,
             'verified_source_present' => $verifiedSourcePresent,
             'certified_receipt_id' => $contract['certified_receipt_id'] ?? $native['certified_receipt_id'] ?? null,
             'evidence_ref_count' => (int) ($contract['evidence_ref_count'] ?? count($evidenceRefs)),
@@ -88,7 +90,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'patch_outcome' => AiValueNormalizer::arrayOrEmpty($fields['patch_outcome'] ?? null),
             'learning_claim' => (AiValueNormalizer::trimmedStringOrNull($fields['learning_claim'] ?? null) ?? ''),
             self::FIELD_VERIFIED => (AiValueNormalizer::boolOrNull($data[self::FIELD_VERIFIED] ?? null) ?? false),
-            'verified_basis' => AiValueNormalizer::trimmedStringOrNull($data['verified_basis'] ?? null) ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT,
+            self::FIELD_VERIFIED_BASIS => AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_VERIFIED_BASIS] ?? null) ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT,
         ];
     }
 }

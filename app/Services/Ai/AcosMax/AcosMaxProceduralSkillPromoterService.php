@@ -32,6 +32,8 @@ final class AcosMaxProceduralSkillPromoterService
 
     public const FIELD_PENDING_WINDOW = 'pending_window';
 
+    public const FIELD_PROMOTION_ALLOWED = 'promotion_allowed';
+
     public const STATUS_HOLD = 'hold';
 
     public const STATUS_HOLD_FOR_ASI02 = 'hold_for_asi02';
@@ -98,7 +100,7 @@ final class AcosMaxProceduralSkillPromoterService
             'measure_id' => self::measureId(),
             'skill_schema_version' => self::SKILL_SCHEMA_VERSION,
             'case_count_floor' => $effectiveFloor,
-            'promotion_allowed' => false,
+            self::FIELD_PROMOTION_ALLOWED => false,
             'scoreboard' => [
                 'landed' => [self::SCOREBOARD_LANDED_MECHANISM],
                 self::FIELD_PENDING_WINDOW => $status === self::STATUS_PENDING_WINDOW ? [self::REASON_PROCEDURAL_CASE_COUNT_SOAK] : [],
@@ -113,7 +115,7 @@ final class AcosMaxProceduralSkillPromoterService
             'enqueued' => $enqueued,
             'gate' => [
                 'admission_door' => self::ADMISSION_DOOR_ASI02,
-                'promotion_allowed' => false,
+                self::FIELD_PROMOTION_ALLOWED => false,
                 'status' => self::STATUS_HOLD,
                 'reason' => $status === self::STATUS_OK ? self::REASON_AWAITING_ASI02_ADMISSION : self::REASON_PROCEDURAL_CASE_COUNT_SOAK,
             ],
@@ -125,7 +127,7 @@ final class AcosMaxProceduralSkillPromoterService
                 'enqueue_effective' => $enqueueRequested,
                 'queue' => self::QUEUE_AI_LEARNING_CANDIDATES,
                 'admission_door' => self::ADMISSION_DOOR_ASI02,
-                'promotion_allowed' => false,
+                self::FIELD_PROMOTION_ALLOWED => false,
                 'auto_promotion_allowed' => false,
                 'skill_files_written' => false,
                 'provider_calls_made' => false,
@@ -160,10 +162,10 @@ final class AcosMaxProceduralSkillPromoterService
             'success_rate' => AiValueNormalizer::finiteFloatOrNull($row['success_rate'] ?? null) ?? 0.0,
             'fake_green_suppressed' => (int) (AiValueNormalizer::finiteFloatOrNull($row['fake_green_suppressed'] ?? null) ?? 0),
             'corrections' => (int) (AiValueNormalizer::finiteFloatOrNull($row['corrections'] ?? null) ?? 0),
-            'promotion_allowed' => false,
+            self::FIELD_PROMOTION_ALLOWED => false,
             'gate' => [
                 'admission_door' => self::ADMISSION_DOOR_ASI02,
-                'promotion_allowed' => false,
+                self::FIELD_PROMOTION_ALLOWED => false,
                 'status' => $caseCount >= $floor ? self::STATUS_HOLD_FOR_ASI02 : self::STATUS_PENDING_WINDOW,
                 'reason' => $caseCount >= $floor ? self::REASON_AWAITING_ASI02_ADMISSION : self::REASON_PROCEDURAL_CASE_COUNT_SOAK,
             ],
@@ -212,7 +214,7 @@ final class AcosMaxProceduralSkillPromoterService
                     (int) (AiValueNormalizer::finiteFloatOrNull($candidate['case_count'] ?? null) ?? 0),
                 ),
                 'confidence' => 40,
-                'promotion_allowed' => false,
+                self::FIELD_PROMOTION_ALLOWED => false,
                 'evidence_refs' => $evidenceRefs,
                 'payload' => [
                     'schema_version' => self::SCHEMA_VERSION,
@@ -224,7 +226,7 @@ final class AcosMaxProceduralSkillPromoterService
                     ],
                     'case_count_floor' => $candidate['case_count_floor'],
                     'case_count' => $candidate['case_count'],
-                    'promotion_allowed' => false,
+                    self::FIELD_PROMOTION_ALLOWED => false,
                     'skill_v1' => $candidate['skill_v1'],
                 ],
                 'receipt_hash' => hash('sha256', 'multj04-'.$candidateHash),
@@ -236,7 +238,7 @@ final class AcosMaxProceduralSkillPromoterService
             'candidate_id' => AiValueNormalizer::trimmedStringOrNull($row->id) ?? '',
             'candidate_hash' => $candidateHash,
             'skill_name' => AiValueNormalizer::trimmedStringOrNull($candidate['skill_name'] ?? null) ?? '',
-            'promotion_allowed' => false,
+            self::FIELD_PROMOTION_ALLOWED => false,
             'created' => $row->wasRecentlyCreated,
         ];
     }

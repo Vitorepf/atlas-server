@@ -3587,4 +3587,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['ran_accepted_keep_fixture_floor_count']);
     }
 
+    public function test_immune_class_chunks_hmac_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->immuneClassChunksHmacFloorsContractObserve([]);
+
+        $this->assertSame('trivial_query', $payload['immune_class_trivial_query']);
+        $this->assertSame('prompt_injection', $payload['immune_class_prompt_injection']);
+        $this->assertSame('private_sensitive', $payload['immune_class_private_sensitive']);
+        $this->assertSame('project_evidence', $payload['immune_class_project_evidence']);
+        $this->assertSame(11, $payload['immune_destination_count']);
+        $this->assertSame('chunks_written', $payload['asef_field_chunks_written']);
+        $this->assertSame('chunks_skipped', $payload['asef_field_chunks_skipped']);
+        $this->assertSame('proven_real', $payload['evidence_vision_field_proven_real']);
+        $this->assertSame('receipt_hash', $payload['hmac_field_receipt_hash']);
+        $this->assertSame('broken_at', $payload['hmac_field_broken_at']);
+        $this->assertSame('promotion_allowed', $payload['procedural_field_promotion_allowed']);
+        $this->assertSame('verified_basis', $payload['compounding_field_verified_basis']);
+        $this->assertSame('verified_basis', $payload['aemor_field_verified_basis']);
+        $this->assertSame('ok', $payload['hmac_field_ok']);
+        $this->assertSame('ok', $payload['asef_status_ok']);
+        $this->assertSame('untrusted_content', $payload['immune_class_untrusted_content']);
+        $this->assertSame(3, $payload['immune_embedding_forbidden_count']);
+        $this->assertSame(17, $payload['immune_class_chunks_hmac_floor_count']);
+    }
+
 }

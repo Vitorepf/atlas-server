@@ -48,6 +48,10 @@ final class AsefChunkIndexService
 
     public const REASON_EMBEDDING_COLUMN_ABSENT = 'embedding_column_absent';
 
+    public const FIELD_CHUNKS_WRITTEN = 'chunks_written';
+
+    public const FIELD_CHUNKS_SKIPPED = 'chunks_skipped';
+
     public function __construct(
         private readonly AtlasSemanticEmbeddingFoundationService $asef,
         private readonly EmbeddingService $embeddings,
@@ -73,8 +77,8 @@ final class AsefChunkIndexService
                 'schema_version' => self::SCHEMA_VERSION,
                 'status' => self::STATUS_UNAVAILABLE,
                 'reason' => self::REASON_ASEF_CHUNKS_TABLE_MISSING,
-                'chunks_written' => 0,
-                'chunks_skipped' => 0,
+                self::FIELD_CHUNKS_WRITTEN => 0,
+                self::FIELD_CHUNKS_SKIPPED => 0,
             ];
         }
 
@@ -88,8 +92,8 @@ final class AsefChunkIndexService
                 'schema_version' => self::SCHEMA_VERSION,
                 'status' => self::STATUS_BLOCKED,
                 'reason' => self::REASON_EMPTY_SOURCE_REF_OR_TEXT,
-                'chunks_written' => 0,
-                'chunks_skipped' => 0,
+                self::FIELD_CHUNKS_WRITTEN => 0,
+                self::FIELD_CHUNKS_SKIPPED => 0,
             ];
         }
 
@@ -152,8 +156,8 @@ final class AsefChunkIndexService
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $written > 0 ? self::STATUS_OK : ($errors !== [] ? self::STATUS_FAILED : self::STATUS_EMPTY),
             'source_ref' => $sourceRef,
-            'chunks_written' => $written,
-            'chunks_skipped' => $skipped,
+            self::FIELD_CHUNKS_WRITTEN => $written,
+            self::FIELD_CHUNKS_SKIPPED => $skipped,
             'errors' => $errors,
             'manifest_status' => $manifest['status'] ?? null,
         ];
