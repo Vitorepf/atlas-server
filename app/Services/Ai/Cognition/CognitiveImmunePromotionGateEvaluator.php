@@ -42,7 +42,7 @@ final class CognitiveImmunePromotionGateEvaluator
     public const ALLOWED_PROMOTION_MODES = ['auto', 'review', 'human_review', 'proposal'];
 
     /** Promotion modes that explicitly forbid promotion (G7). */
-    public const BLOCKED_PROMOTION_MODES = ['block', 'blocked'];
+    public const BLOCKED_PROMOTION_MODES = [self::STATUS_BLOCK, self::TRUST_BAND_BLOCKED];
 
     /** ASI-12 guard: a single loud actor cannot graduate probation alone. */
     public const PROBATION_MIN_RECALL_ACTORS = 2;

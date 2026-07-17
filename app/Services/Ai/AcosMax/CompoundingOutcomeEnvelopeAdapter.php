@@ -15,9 +15,13 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public const ADAPTER_KIND = 'compounding';
 
     /** @var list<string> */
-    public const BOOL_FIELDS = ['verified', 'learning_required', 'human_override'];
+    public const BOOL_FIELDS = [self::FIELD_VERIFIED, 'learning_required', 'human_override'];
 
     public const FIELD_VERIFIED = 'verified';
+
+    public const STATUS_PASSED = 'passed';
+
+    public const STATUS_ABSENT = 'absent';
 
     public function origin(): string
     {
@@ -38,7 +42,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             default => 'engineering',
         };
 
-        $outcomeStatus = AiValueNormalizer::lowerTrimmedString($native['outcome_status'] ?? $native['status'] ?? 'passed');
+        $outcomeStatus = AiValueNormalizer::lowerTrimmedString($native['outcome_status'] ?? $native['status'] ?? self::STATUS_PASSED);
         $status = OutcomeEnvelope::normalizeStatus($outcomeStatus);
 
         $verifiedSourcePresent = array_key_exists(self::FIELD_VERIFIED, $native)
@@ -58,7 +62,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => $executor,
             'task_category' => AiValueNormalizer::trimmedStringOrNull($contract['task_category'] ?? $executor) ?? '',
-            'provider' => AiValueNormalizer::trimmedStringOrNull($contract['provider'] ?? $native['provider'] ?? null) ?? 'absent',
+            'provider' => AiValueNormalizer::trimmedStringOrNull($contract['provider'] ?? $native['provider'] ?? null) ?? self::STATUS_ABSENT,
             'status' => $status,
             self::FIELD_VERIFIED => $verified,
             'verified_basis' => $verifiedBasis,

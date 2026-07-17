@@ -15,9 +15,11 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public const ADAPTER_KIND = 'aemor';
 
     /** @var list<string> */
-    public const BOOL_FIELDS = ['verified'];
+    public const BOOL_FIELDS = [self::FIELD_VERIFIED];
 
     public const FIELD_VERIFIED = 'verified';
+
+    public const STATUS_ABSENT = 'absent';
 
     public function origin(): string
     {
@@ -49,7 +51,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => in_array($executor, ['dev', 'forge', 'autonomos'], true) ? $executor : 'engineering',
             'task_category' => AiValueNormalizer::trimmedStringOrNull($contract['task_category'] ?? $native['task_category'] ?? $executor) ?? '',
-            'provider' => AiValueNormalizer::trimmedStringOrNull($contract['provider'] ?? $native['provider'] ?? null) ?? 'absent',
+            'provider' => AiValueNormalizer::trimmedStringOrNull($contract['provider'] ?? $native['provider'] ?? null) ?? self::STATUS_ABSENT,
             'status' => $status,
             self::FIELD_VERIFIED => $verified,
             'verified_basis' => $verifiedBasis,

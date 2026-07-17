@@ -33,6 +33,10 @@ final class ContextParetoDominanceFilter
 
     public const FIELD_BLOCKED = 'blocked';
 
+    public const FIELD_DOMINATED = 'dominated';
+
+    public const FIELD_FRONTIER = 'frontier';
+
 
     /**
      * @param  list<array<string,mixed>>  $variants
@@ -109,15 +113,15 @@ final class ContextParetoDominanceFilter
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'objective_direction' => $direction,
-            'frontier' => $frontier,
+            self::FIELD_FRONTIER => $frontier,
             self::FIELD_BLOCKED => $blocked,
             'evaluated' => $evaluated,
             'summary' => [
                 'total' => count($variants),
                 'admitted' => $admittedCount,
                 self::FIELD_BLOCKED => $blockedCount,
-                'frontier' => $frontierCount,
-                'dominated' => $dominatedCount,
+                self::FIELD_FRONTIER => $frontierCount,
+                self::FIELD_DOMINATED => $dominatedCount,
             ],
         ];
     }

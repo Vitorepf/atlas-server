@@ -93,8 +93,8 @@ final class AtlasAcosLongHorizonGateService
         $today = $this->today($options['now'] ?? null, $fixture);
 
         [$scorecard, $series] = match ($fixture) {
-            'mature' => [$this->fixtureScorecard(9.72, 9.68), $this->fixtureSeries(31, 9.72, $today)],
-            'short-window' => [$this->fixtureScorecard(8.05, 5.77), $this->fixtureSeries(2, 8.05, $today)],
+            self::FIXTURE_MATURE => [$this->fixtureScorecard(9.72, 9.68), $this->fixtureSeries(31, 9.72, $today)],
+            self::FIXTURE_SHORT_WINDOW => [$this->fixtureScorecard(8.05, 5.77), $this->fixtureSeries(2, 8.05, $today)],
             default => [
                 is_array($options['scorecard_report'] ?? null) ? $options['scorecard_report'] : $this->liveScorecard(),
                 is_array($options['series'] ?? null) ? $options['series'] : $this->readSeries($seriesPath),

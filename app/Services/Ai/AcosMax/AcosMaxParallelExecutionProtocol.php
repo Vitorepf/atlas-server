@@ -101,13 +101,13 @@ final class AcosMaxParallelExecutionProtocol
                 'claimed_by' => $engine,
                 'scoreboard_annotation' => 'claimed_by:'.$engine,
                 'claim' => is_array($result['claim'] ?? null) ? $result['claim'] : null,
-                'conflict' => null,
+                self::STATUS_CONFLICT => null,
                 'skip_reason' => null,
             ];
         }
 
-        $conflictEngine = is_array($result['conflict'] ?? null)
-            ? AiValueNormalizer::lowerTrimmedString($result['conflict']['engine'] ?? '')
+        $conflictEngine = is_array($result[self::STATUS_CONFLICT] ?? null)
+            ? AiValueNormalizer::lowerTrimmedString($result[self::STATUS_CONFLICT]['engine'] ?? '')
             : '';
 
         return [
@@ -122,7 +122,7 @@ final class AcosMaxParallelExecutionProtocol
             'claimed_by' => $conflictEngine !== '' ? $conflictEngine : null,
             'scoreboard_annotation' => $conflictEngine !== '' ? 'claimed_by:'.$conflictEngine : '',
             'claim' => null,
-            'conflict' => is_array($result['conflict'] ?? null) ? $result['conflict'] : null,
+            self::STATUS_CONFLICT => is_array($result[self::STATUS_CONFLICT] ?? null) ? $result[self::STATUS_CONFLICT] : null,
             'skip_reason' => sprintf(
                 'family_claimed_by_other_engine:%s',
                 $conflictEngine !== '' ? $conflictEngine : self::ENGINE_UNKNOWN,

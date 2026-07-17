@@ -3515,4 +3515,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['embedding_table_fixture_measured_floor_count']);
     }
 
+    public function test_conflict_frontier_fixture_pending_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->conflictFrontierFixturePendingFloorsContractObserve([]);
+
+        $this->assertSame('mature', $payload['long_horizon_fixture_mature']);
+        $this->assertSame('short-window', $payload['long_horizon_fixture_short_window']);
+        $this->assertSame('pending_window', $payload['maxa04_status_pending_window']);
+        $this->assertSame('conflict', $payload['parallel_status_conflict']);
+        $this->assertSame('ok', $payload['parallel_field_ok']);
+        $this->assertSame('frontier', $payload['pareto_status_frontier']);
+        $this->assertSame('dominated', $payload['pareto_status_dominated']);
+        $this->assertSame('frontier', $payload['pareto_field_frontier']);
+        $this->assertSame('dominated', $payload['pareto_field_dominated']);
+        $this->assertSame('recorded', $payload['obra_retro_status_recorded']);
+        $this->assertSame('block', $payload['immune_status_block']);
+        $this->assertSame('blocked', $payload['immune_trust_band_blocked']);
+        $this->assertSame('passed', $payload['compounding_status_passed']);
+        $this->assertSame('absent', $payload['compounding_status_absent']);
+        $this->assertSame('absent', $payload['aemor_status_absent']);
+        $this->assertSame('verified', $payload['compounding_field_verified']);
+        $this->assertSame('verified', $payload['aemor_field_verified']);
+        $this->assertSame(17, $payload['conflict_frontier_fixture_pending_floor_count']);
+    }
+
 }

@@ -4385,6 +4385,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_conflict_frontier_fixture_pending_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-cffp-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-cffp',
+                '--conflict-frontier-fixture-pending-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"conflict_frontier_fixture_pending_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

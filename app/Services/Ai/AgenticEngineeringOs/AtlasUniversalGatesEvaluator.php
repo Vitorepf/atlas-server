@@ -5222,6 +5222,36 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: conflict/frontier/fixture/pending residual floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function conflictFrontierFixturePendingFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'long_horizon_fixture_mature' => AtlasAcosLongHorizonGateService::FIXTURE_MATURE,
+            'long_horizon_fixture_short_window' => AtlasAcosLongHorizonGateService::FIXTURE_SHORT_WINDOW,
+            'maxa04_status_pending_window' => Maxa04JinaV3DualReadService::STATUS_PENDING_WINDOW,
+            'parallel_status_conflict' => AcosMaxParallelExecutionProtocol::STATUS_CONFLICT,
+            'parallel_field_ok' => AcosMaxParallelExecutionProtocol::FIELD_OK,
+            'pareto_status_frontier' => ContextParetoDominanceFilter::STATUS_FRONTIER,
+            'pareto_status_dominated' => ContextParetoDominanceFilter::STATUS_DOMINATED,
+            'pareto_field_frontier' => ContextParetoDominanceFilter::FIELD_FRONTIER,
+            'pareto_field_dominated' => ContextParetoDominanceFilter::FIELD_DOMINATED,
+            'obra_retro_status_recorded' => AcosMaxObraRetroService::STATUS_RECORDED,
+            'immune_status_block' => CognitiveImmunePromotionGateEvaluator::STATUS_BLOCK,
+            'immune_trust_band_blocked' => CognitiveImmunePromotionGateEvaluator::TRUST_BAND_BLOCKED,
+            'compounding_status_passed' => CompoundingOutcomeEnvelopeAdapter::STATUS_PASSED,
+            'compounding_status_absent' => CompoundingOutcomeEnvelopeAdapter::STATUS_ABSENT,
+            'aemor_status_absent' => AemorOutcomeEnvelopeAdapter::STATUS_ABSENT,
+            'compounding_field_verified' => CompoundingOutcomeEnvelopeAdapter::FIELD_VERIFIED,
+            'aemor_field_verified' => AemorOutcomeEnvelopeAdapter::FIELD_VERIFIED,
+            'conflict_frontier_fixture_pending_floor_count' => 17,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

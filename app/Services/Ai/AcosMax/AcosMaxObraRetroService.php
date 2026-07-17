@@ -62,7 +62,7 @@ final class AcosMaxObraRetroService
                 'reason' => self::REASON_NO_TERMINAL_SLICES_FOR_LOTE,
                 'lote' => $lote,
                 'series_tag' => self::SERIES_TAG,
-                'outcomes' => ['recorded' => 0, 'items' => []],
+                'outcomes' => [self::STATUS_RECORDED => 0, 'items' => []],
                 'lesson_candidates' => [
                     'path' => self::LESSON_PATH_NORMAL_CAPTURE,
                     'queued' => 0,
@@ -92,7 +92,7 @@ final class AcosMaxObraRetroService
                 'ids' => array_map(static fn (array $slice): string => AiValueNormalizer::trimmedScalarStringOrNull($slice['id'] ?? null) ?? '', $slices),
             ],
             'outcomes' => [
-                'recorded' => count(array_filter(
+                self::STATUS_RECORDED => count(array_filter(
                     $outcomeItems,
                     static fn (array $item): bool => ($item['status'] ?? null) === self::STATUS_RECORDED
                 )),

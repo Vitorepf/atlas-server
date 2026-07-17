@@ -83,7 +83,7 @@ final class Maxa04JinaV3DualReadService
             ],
             'default_promoted' => false,
             'applied_to_live' => false,
-            'pending_window' => self::PENDING_WINDOW,
+            self::STATUS_PENDING_WINDOW => self::PENDING_WINDOW,
         ];
     }
 

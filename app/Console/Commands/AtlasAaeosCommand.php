@@ -255,6 +255,7 @@ final class AtlasAaeosCommand extends Command
         {--window-gates-integrity-flag-disabled-floors-contract= : JSON file (any object) to observe window-gates/integrity/flag-disabled residual floors}
         {--obra-verified-long-horizon-enabled-floors-contract= : JSON file (any object) to observe obra/verified/long-horizon/enabled residual floors}
         {--embedding-table-fixture-measured-floors-contract= : JSON file (any object) to observe embedding/table/fixture/measured residual floors}
+        {--conflict-frontier-fixture-pending-floors-contract= : JSON file (any object) to observe conflict/frontier/fixture/pending residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -666,6 +667,7 @@ final class AtlasAaeosCommand extends Command
             ['window-gates-integrity-flag-disabled-floors-contract', 'window_gates_integrity_flag_disabled_floors_contract', fn (array $p) => $gates->windowGatesIntegrityFlagDisabledFloorsContractObserve($p)],
             ['obra-verified-long-horizon-enabled-floors-contract', 'obra_verified_long_horizon_enabled_floors_contract', fn (array $p) => $gates->obraVerifiedLongHorizonEnabledFloorsContractObserve($p)],
             ['embedding-table-fixture-measured-floors-contract', 'embedding_table_fixture_measured_floors_contract', fn (array $p) => $gates->embeddingTableFixtureMeasuredFloorsContractObserve($p)],
+            ['conflict-frontier-fixture-pending-floors-contract', 'conflict_frontier_fixture_pending_floors_contract', fn (array $p) => $gates->conflictFrontierFixturePendingFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
