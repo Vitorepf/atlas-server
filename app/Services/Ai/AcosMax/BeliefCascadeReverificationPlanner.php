@@ -16,7 +16,7 @@ final class BeliefCascadeReverificationPlanner
      */
     public static function plan(string $origin, array $graph, int $depthCap = 3): array
     {
-        $origin = AiValueNormalizer::trimmedString($origin);
+        $origin = AiValueNormalizer::trimmedStringOrNull($origin) ?? '';
         $normalizedGraph = self::normalizeGraph($graph);
 
         $queue = [[$origin, 0]];
@@ -62,15 +62,15 @@ final class BeliefCascadeReverificationPlanner
     {
         $normalized = [];
         foreach ($graph as $node => $children) {
-            $nodeKey = AiValueNormalizer::trimmedString($node);
-            if ($nodeKey === '') {
+            $nodeKey = AiValueNormalizer::trimmedStringOrNull($node);
+            if ($nodeKey === null) {
                 continue;
             }
             $seenChildren = [];
             $cleanChildren = [];
             foreach (AiValueNormalizer::arrayOrEmpty($children) as $child) {
-                $childId = AiValueNormalizer::trimmedString($child);
-                if ($childId === '' || isset($seenChildren[$childId])) {
+                $childId = AiValueNormalizer::trimmedStringOrNull($child);
+                if ($childId === null || isset($seenChildren[$childId])) {
                     continue;
                 }
                 $seenChildren[$childId] = true;

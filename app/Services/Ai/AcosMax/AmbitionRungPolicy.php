@@ -27,11 +27,11 @@ final class AmbitionRungPolicy
         if (($context['enabled'] ?? false) === true) {
             $basis = 'not_saturated';
             if (($context['reactive_saturated'] ?? false) === true) {
-                $current = AiValueNormalizer::trimmedString($context['current_rung'] ?? 'task') ?: 'task';
+                $current = AiValueNormalizer::trimmedStringOrNull($context['current_rung'] ?? null) ?? 'task';
                 $target = self::nextRung($current);
                 $currentBest = self::bestLeverage($candidates);
                 foreach ($candidates as $candidate) {
-                    $rung = AiValueNormalizer::trimmedString($candidate['rung'] ?? '');
+                    $rung = AiValueNormalizer::trimmedStringOrNull($candidate['rung'] ?? null) ?? '';
                     if ($rung === $target && (AiValueNormalizer::finiteFloatOrNull($candidate['leverage'] ?? null) ?? 0.0) >= $currentBest) {
                         $selected = $candidate;
                         $basis = 'rung_up_after_saturation';
@@ -43,8 +43,8 @@ final class AmbitionRungPolicy
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'selected_id' => AiValueNormalizer::trimmedString($selected['id'] ?? ''),
-            'selected_rung' => AiValueNormalizer::trimmedString($selected['rung'] ?? ''),
+            'selected_id' => AiValueNormalizer::trimmedStringOrNull($selected['id'] ?? null) ?? '',
+            'selected_rung' => AiValueNormalizer::trimmedStringOrNull($selected['rung'] ?? null) ?? '',
             'basis' => $basis,
             'rung_distribution' => $distribution,
             'source' => [

@@ -21,19 +21,15 @@ final class AtlasAaeosEvidenceRefNormalizer
      */
     public function listFromRaw(mixed $raw): array
     {
-        if (! is_array($raw)) {
-            return [];
-        }
-
         $refs = [];
-        foreach ($raw as $entry) {
+        foreach (AiValueNormalizer::arrayOrEmpty($raw) as $entry) {
             if (is_array($entry)) {
                 $kind = $this->ref($entry['kind'] ?? '');
                 $ref = $this->ref($entry['ref'] ?? '');
-            } elseif (is_string($entry) && str_contains($entry, ':')) {
+            } elseif (($entryString = AiValueNormalizer::trimmedStringOrNull($entry)) !== null && str_contains($entryString, ':')) {
                 [$kind, $ref] = array_map(
                     fn (string $value): string => $this->ref($value),
-                    explode(':', $entry, 2),
+                    explode(':', $entryString, 2),
                 );
             } else {
                 continue;

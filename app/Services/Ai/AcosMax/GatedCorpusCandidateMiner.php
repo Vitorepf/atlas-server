@@ -11,7 +11,7 @@ final class GatedCorpusCandidateMiner
     public const SCHEMA_VERSION = 'atlas.corpus.gated_candidate_miner.v1';
 
     /** @var list<string> */
-    private const PROTECTED = ['sensitive', 'secret', 'cyber'];
+    public const PROTECTED = ['sensitive', 'secret', 'cyber'];
 
     /**
      * @param  list<array<string,mixed>>  $sources
@@ -27,15 +27,15 @@ final class GatedCorpusCandidateMiner
                 $omitted[] = 'protected_class_omitted';
                 continue;
             }
-            $text = AiValueNormalizer::trimmedString($source['text'] ?? '');
-            $ref = AiValueNormalizer::trimmedString($source['ref'] ?? '');
-            if ($text === '' || $ref === '') {
+            $text = AiValueNormalizer::trimmedStringOrNull($source['text'] ?? null);
+            $ref = AiValueNormalizer::trimmedStringOrNull($source['ref'] ?? null);
+            if ($text === null || $ref === null) {
                 continue;
             }
             $candidates[] = [
                 'schema_version' => self::SCHEMA_VERSION,
                 'origin_ref' => $ref,
-                'source' => AiValueNormalizer::trimmedString($source['source'] ?? 'unknown') ?: 'unknown',
+                'source' => AiValueNormalizer::trimmedStringOrNull($source['source'] ?? null) ?? 'unknown',
                 'candidate_hash' => sha1($ref."\n".$text),
                 'admission' => [
                     'via_asi_02' => true,

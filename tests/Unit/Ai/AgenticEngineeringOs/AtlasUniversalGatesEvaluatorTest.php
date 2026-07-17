@@ -1692,4 +1692,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertFalse($payload['blocks_auto_apply']);
         $this->assertFalse($payload['delays_auto_apply']);
     }
+
+    public function test_ambition_rung_policy_contract_observe_reports_ladder(): void
+    {
+        $payload = $this->svc->ambitionRungPolicyContractObserve([]);
+
+        $this->assertSame('atlas.originator.ambition_rung_policy.v1', $payload['schema_version']);
+        $this->assertContains('task', $payload['rungs']);
+        $this->assertContains('salto', $payload['rungs']);
+        $this->assertSame(4, $payload['rung_count']);
+        $this->assertFalse($payload['scope_has_ceiling']);
+        $this->assertFalse($payload['provider_calls_made']);
+    }
 }

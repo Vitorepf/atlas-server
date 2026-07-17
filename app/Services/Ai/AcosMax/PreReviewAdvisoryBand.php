@@ -127,8 +127,8 @@ final class PreReviewAdvisoryBand
     {
         $buckets = ['low' => ['n' => 0, 'reverted' => 0], 'sweet' => ['n' => 0, 'reverted' => 0], 'high' => ['n' => 0, 'reverted' => 0]];
         foreach ($observations as $obs) {
-            $band = AiValueNormalizer::trimmedString($obs['predicted_revert_band'] ?? null);
-            if ($band === '' || ! isset($buckets[$band])) {
+            $band = AiValueNormalizer::trimmedStringOrNull($obs['predicted_revert_band'] ?? null);
+            if ($band === null || ! isset($buckets[$band])) {
                 continue;
             }
             $buckets[$band]['n']++;
