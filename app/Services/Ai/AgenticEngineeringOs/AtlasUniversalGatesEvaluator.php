@@ -2351,6 +2351,25 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only reactive saturation floors (originator lane).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function reactiveSaturationContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => ReactiveSaturationSignal::SCHEMA_VERSION,
+            'min_n_per_window' => ReactiveSaturationSignal::MIN_N_PER_WINDOW,
+            'min_windows' => ReactiveSaturationSignal::MIN_WINDOWS,
+            'report_only' => true,
+            'disables_reactive_lane' => false,
+            'provider_calls_made' => false,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -11,7 +11,10 @@ final class PredictedImpactBand
     public const SCHEMA_VERSION = 'atlas.originator.predicted_impact_band.v1';
 
     /** @var array<string,int> */
-    private const RUNG_WEIGHT = ['task' => 0, 'slice' => 1, 'obra' => 2, 'salto' => 3];
+    public const RUNG_WEIGHT = ['task' => 0, 'slice' => 1, 'obra' => 2, 'salto' => 3];
+
+    /** @var list<string> */
+    public const BANDS = ['low', 'sweet', 'high'];
 
     /**
      * @param  array<string,mixed>  $candidate
@@ -48,16 +51,16 @@ final class PredictedImpactBand
     public static function calibration(array $rows): array
     {
         $bands = [];
-        foreach (['low', 'sweet', 'high'] as $band) {
+        foreach (self::BANDS as $band) {
             $bands[$band] = ['n_realized' => 0, 'realized_true' => 0, 'unresolved' => 0];
         }
 
         foreach ($rows as $row) {
-            $band = (string) ($row['band'] ?? 'low');
+            $band = AiValueNormalizer::trimmedStringOrNull($row['band'] ?? null) ?? 'low';
             if (! isset($bands[$band])) {
                 continue;
             }
-            if (($row['status'] ?? '') === 'unresolved') {
+            if (AiValueNormalizer::trimmedStringOrNull($row['status'] ?? null) === 'unresolved') {
                 $bands[$band]['unresolved']++;
                 continue;
             }

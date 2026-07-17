@@ -1704,4 +1704,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertFalse($payload['scope_has_ceiling']);
         $this->assertFalse($payload['provider_calls_made']);
     }
+
+    public function test_reactive_saturation_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->reactiveSaturationContractObserve([]);
+
+        $this->assertSame('atlas.originator.reactive_saturation.v1', $payload['schema_version']);
+        $this->assertSame(8, $payload['min_n_per_window']);
+        $this->assertSame(3, $payload['min_windows']);
+        $this->assertTrue($payload['report_only']);
+        $this->assertFalse($payload['disables_reactive_lane']);
+        $this->assertFalse($payload['provider_calls_made']);
+    }
 }

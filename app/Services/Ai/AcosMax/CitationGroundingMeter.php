@@ -23,7 +23,7 @@ final class CitationGroundingMeter
 
         foreach ($responses as $response) {
             $delivered = array_fill_keys(array_map('strval', AiValueNormalizer::arrayOrEmpty($response['delivered_refs'] ?? null)), true);
-            $refs = self::refs(AiValueNormalizer::trimmedString($response['response'] ?? ''));
+            $refs = self::refs(AiValueNormalizer::trimmedStringOrNull($response['response'] ?? null) ?? '');
             if ($refs !== []) {
                 $withCitation++;
             }

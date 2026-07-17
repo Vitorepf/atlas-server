@@ -160,6 +160,7 @@ final class AtlasAaeosCommand extends Command
         {--outcome-envelope-contract= : JSON file (any object) to observe ESP-06 OutcomeEnvelope contract}
         {--pre-review-advisory-contract= : JSON file (any object) to observe MULTN15-08 pre-review advisory contract}
         {--ambition-rung-policy-contract= : JSON file (any object) to observe MULTN17-01 ambition rung policy}
+        {--reactive-saturation-contract= : JSON file (any object) to observe reactive saturation floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -476,6 +477,7 @@ final class AtlasAaeosCommand extends Command
             ['outcome-envelope-contract', 'outcome_envelope_contract', fn (array $p) => $gates->outcomeEnvelopeContractObserve($p)],
             ['pre-review-advisory-contract', 'pre_review_advisory_contract', fn (array $p) => $gates->preReviewAdvisoryContractObserve($p)],
             ['ambition-rung-policy-contract', 'ambition_rung_policy_contract', fn (array $p) => $gates->ambitionRungPolicyContractObserve($p)],
+            ['reactive-saturation-contract', 'reactive_saturation_contract', fn (array $p) => $gates->reactiveSaturationContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
