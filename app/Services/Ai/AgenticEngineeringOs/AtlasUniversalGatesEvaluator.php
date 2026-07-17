@@ -45,6 +45,8 @@ use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
 use App\Services\Ai\Aaeos\AtlasVetoPropagationWatchdog;
 use App\Services\Ai\Aaeos\AtlasCrossDepartmentChoreographyService;
+use App\Services\Ai\Aaeos\AtlasRepairLoopGuard;
+use App\Services\Ai\Aaeos\AaeosGeneratedContractGate;
 use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
 
@@ -1164,6 +1166,32 @@ final class AtlasUniversalGatesEvaluator
 
         /** @var list<array{department:string, lift?:bool}> $events */
         return (new AtlasVetoPropagationWatchdog(new AtlasCrossDepartmentChoreographyService))->watch($events);
+    }
+
+    /**
+     * Observe-only AAEOS repair-loop guard decision.
+     * Accepts `{current_iteration?:int}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function repairLoopGuardObserve(array $input = []): array
+    {
+        $currentIteration = max(0, (int) ($input['current_iteration'] ?? 0));
+
+        return (new AtlasRepairLoopGuard(new AtlasCrossDepartmentChoreographyService))->guard($currentIteration);
+    }
+
+    /**
+     * Observe-only Aaeos/Generated quarantine gate status.
+     * Accepts any JSON object (ignored). Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function generatedContractGateObserve(array $input = []): array
+    {
+        return (new AaeosGeneratedContractGate)->status();
     }
 
     /**

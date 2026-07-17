@@ -39,6 +39,7 @@ use App\Services\Ai\AcosMax\AcosMaxVerifiedShareService;
 use App\Services\Ai\AcosMax\RagxChainMechanismService;
 use App\Services\Ai\AcosMax\AcosMaxProceduralSkillPromoterService;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
+use App\Services\Ai\Aaeos\AaeosGeneratedContractGate;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -971,5 +972,25 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertArrayHasKey('paused_departments', $payload);
         $this->assertArrayHasKey('veto_receipts', $payload);
         $this->assertArrayHasKey('pause_sla_seconds', $payload);
+    }
+
+    public function test_repair_loop_guard_observe_admits_then_escalates(): void
+    {
+        $admitted = $this->svc->repairLoopGuardObserve(['current_iteration' => 0]);
+        $this->assertTrue($admitted['admitted']);
+        $this->assertFalse($admitted['escalated']);
+
+        $escalated = $this->svc->repairLoopGuardObserve(['current_iteration' => 3]);
+        $this->assertFalse($escalated['admitted']);
+        $this->assertTrue($escalated['escalated']);
+    }
+
+    public function test_generated_contract_gate_observe_reports_quarantine(): void
+    {
+        $payload = $this->svc->generatedContractGateObserve([]);
+
+        $this->assertSame(AaeosGeneratedContractGate::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertArrayHasKey('hot_path_enabled', $payload);
+        $this->assertArrayHasKey('generated_file_count', $payload);
     }
 }

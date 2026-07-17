@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class AtlasAaeosDepartmentQualityBarLevelClassifier
 {
     private const SCHEMA_VERSION = 'atlas.aaeos.quality_bar_level.v1';
@@ -39,6 +41,7 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
      */
     public function classify(string $departmentId, array $measuredMetrics, array $bandLadder): array
     {
+        $departmentId = AiValueNormalizer::trimmedString($departmentId);
         $bands = AtlasAaeosThresholdLadderNormalizer::levelLadder($bandLadder);
         $evaluatedMetrics = $this->countMeasuredMetrics($measuredMetrics);
 

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Quarantine gate for Aaeos/Generated contract deciders — never builds, off hot path.
  */
@@ -16,6 +18,7 @@ final class AaeosGeneratedContractGate
         if ((bool) config('atlas_elite_compaction.generated.hot_path_enabled', false)) {
             return;
         }
+        $class = AiValueNormalizer::trimmedString($class);
         if (! str_contains($class, 'Aaeos\\Generated\\') && ! str_contains($class, 'Aaeos/Generated/')) {
             return;
         }
@@ -37,7 +40,9 @@ final class AaeosGeneratedContractGate
             'schema_version' => self::SCHEMA_VERSION,
             'hot_path_enabled' => (bool) config('atlas_elite_compaction.generated.hot_path_enabled', false),
             'generated_file_count' => $count,
-            'quarantine_namespace' => config('atlas_elite_compaction.generated.quarantine_namespace'),
+            'quarantine_namespace' => AiValueNormalizer::trimmedString(
+                config('atlas_elite_compaction.generated.quarantine_namespace') ?? ''
+            ),
         ];
     }
 }

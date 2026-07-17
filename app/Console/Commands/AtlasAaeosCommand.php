@@ -97,6 +97,8 @@ final class AtlasAaeosCommand extends Command
         {--aaeos-quality-bar= : JSON file (any object) to observe AAEOS department quality bar}
         {--aaeos-department-maturity= : JSON file (any object) to observe AAEOS department maturity}
         {--veto-propagation-watchdog= : JSON file with veto events (observe-only choreography)}
+        {--repair-loop-guard= : JSON file with current_iteration (observe-only repair guard)}
+        {--generated-contract-gate= : JSON file (any object) to observe Generated quarantine gate}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -350,6 +352,8 @@ final class AtlasAaeosCommand extends Command
             ['aaeos-quality-bar', 'aaeos_quality_bar', fn (array $p) => $gates->aaeosQualityBarObserve($p)],
             ['aaeos-department-maturity', 'aaeos_department_maturity', fn (array $p) => $gates->aaeosDepartmentMaturityObserve($p)],
             ['veto-propagation-watchdog', 'veto_propagation_watchdog', fn (array $p) => $gates->vetoPropagationWatchdogObserve($p)],
+            ['repair-loop-guard', 'repair_loop_guard', fn (array $p) => $gates->repairLoopGuardObserve($p)],
+            ['generated-contract-gate', 'generated_contract_gate', fn (array $p) => $gates->generatedContractGateObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

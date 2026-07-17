@@ -1282,6 +1282,44 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_repair_loop_guard(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-rlg-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(['current_iteration' => 1]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-rlg',
+                '--repair-loop-guard' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"repair_loop_guard"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function test_universal_gates_observe_generated_contract_gate(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-gcg-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-gcg',
+                '--generated-contract-gate' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"generated_contract_gate"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])
