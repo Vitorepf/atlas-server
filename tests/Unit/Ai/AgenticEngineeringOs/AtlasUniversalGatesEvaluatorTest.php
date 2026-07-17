@@ -1041,4 +1041,26 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('eligible', $payload['verdict']);
         $this->assertFalse($payload['promotion_allowed']);
     }
+
+    public function test_debug_root_cause_observe_reports_analysis(): void
+    {
+        $payload = $this->svc->debugRootCauseObserve(['suspected_cause' => '  flaky_gate  ']);
+
+        $this->assertSame('atlas.aaeos.debug.root_cause.v1', $payload['version']);
+        $this->assertSame('analyzed', $payload['status']);
+        $this->assertSame('flaky_gate', $payload['root_cause']);
+    }
+
+    public function test_cross_department_choreography_observe_evaluates_veto(): void
+    {
+        $payload = $this->svc->crossDepartmentChoreographyObserve([
+            'mode' => 'veto',
+            'department' => '  Security  ',
+        ]);
+
+        $this->assertSame('atlas.aaeos.cross_dept.handoff.v1', $payload['schema_version']);
+        $this->assertTrue($payload['recognized']);
+        $this->assertSame('security', $payload['vetoing_department']);
+        $this->assertSame('pause_downstream', $payload['action']);
+    }
 }

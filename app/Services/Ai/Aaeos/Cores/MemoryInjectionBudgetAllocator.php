@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos\Cores;
 
 use App\Services\Ai\Aaeos\Support\AtlasAaeosArrayFieldReader;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 final class MemoryInjectionBudgetAllocator
 {
@@ -63,7 +64,7 @@ final class MemoryInjectionBudgetAllocator
         $rank = 0;
 
         foreach ($ordered as $item) {
-            $ref = AtlasAaeosArrayFieldReader::stringField($item, 'ref');
+            $ref = AiValueNormalizer::trimmedString(AtlasAaeosArrayFieldReader::stringField($item, 'ref'));
             $priority = $this->priorityField($item);
             $estimated = $this->estimatedChars($item);
 
@@ -167,7 +168,10 @@ final class MemoryInjectionBudgetAllocator
             return $estimatedA <=> $estimatedB;
         }
 
-        return strcmp(AtlasAaeosArrayFieldReader::stringField($a, 'ref'), AtlasAaeosArrayFieldReader::stringField($b, 'ref'));
+        return strcmp(
+            AiValueNormalizer::trimmedString(AtlasAaeosArrayFieldReader::stringField($a, 'ref')),
+            AiValueNormalizer::trimmedString(AtlasAaeosArrayFieldReader::stringField($b, 'ref')),
+        );
     }
 
     /**

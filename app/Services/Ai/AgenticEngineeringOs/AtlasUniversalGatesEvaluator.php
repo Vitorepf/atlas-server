@@ -49,6 +49,7 @@ use App\Services\Ai\Aaeos\AtlasRepairLoopGuard;
 use App\Services\Ai\Aaeos\AaeosGeneratedContractGate;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
+use App\Services\Ai\Aaeos\AtlasDebugRootCauseService;
 use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
 
@@ -1232,6 +1233,47 @@ final class AtlasUniversalGatesEvaluator
             AiValueNormalizer::arrayOrEmpty($input['metrics'] ?? null),
             AiValueNormalizer::arrayOrEmpty($input['options'] ?? null),
         );
+    }
+
+    /**
+     * Observe-only AAEOS debug root-cause analysis.
+     * Accepts any context object (e.g. `{suspected_cause}`). Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function debugRootCauseObserve(array $input = []): array
+    {
+        return (new AtlasDebugRootCauseService)->analyzeRootCause($input);
+    }
+
+    /**
+     * Observe-only cross-department choreography decision.
+     * Accepts `{mode:veto|repair|handoff,...}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function crossDepartmentChoreographyObserve(array $input = []): array
+    {
+        $svc = new AtlasCrossDepartmentChoreographyService;
+        $mode = AiValueNormalizer::lowerTrimmedString($input['mode'] ?? 'veto');
+
+        return match ($mode) {
+            'repair' => $svc->evaluateRepairLoop(
+                max(0, (int) ($input['iteration'] ?? 0)),
+                max(0, (int) ($input['max_iterations'] ?? AtlasCrossDepartmentChoreographyService::REPAIR_MAX_ITERATIONS)),
+            ),
+            'handoff' => $svc->handoffEnvelope(
+                AiValueNormalizer::trimmedString($input['from'] ?? ''),
+                AiValueNormalizer::trimmedString($input['to'] ?? ''),
+                AiValueNormalizer::trimmedString($input['kind'] ?? 'delegation'),
+                AiValueNormalizer::arrayOrEmpty($input['payload'] ?? null),
+            ),
+            default => $svc->evaluateVeto(
+                AiValueNormalizer::trimmedString($input['department'] ?? $input['vetoing_department'] ?? ''),
+            ),
+        };
     }
 
     /**

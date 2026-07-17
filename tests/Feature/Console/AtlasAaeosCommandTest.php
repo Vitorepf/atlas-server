@@ -1384,6 +1384,47 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_debug_root_cause(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-drc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(['suspected_cause' => 'flaky_gate']));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-drc',
+                '--debug-root-cause' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"debug_root_cause"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function test_universal_gates_observe_cross_department_choreography(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-cdc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'mode' => 'veto',
+            'department' => 'security',
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-cdc',
+                '--cross-department-choreography' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"cross_department_choreography"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

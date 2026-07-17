@@ -101,6 +101,8 @@ final class AtlasAaeosCommand extends Command
         {--generated-contract-gate= : JSON file (any object) to observe Generated quarantine gate}
         {--maturity-band-classifier= : JSON file with band ladder + metrics (observe-only)}
         {--promotion-eligibility= : JSON file with department+metrics(+options) (observe-only)}
+        {--debug-root-cause= : JSON file with debug context (observe-only root-cause)}
+        {--cross-department-choreography= : JSON file with mode+payload (observe-only choreography)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -358,6 +360,8 @@ final class AtlasAaeosCommand extends Command
             ['generated-contract-gate', 'generated_contract_gate', fn (array $p) => $gates->generatedContractGateObserve($p)],
             ['maturity-band-classifier', 'maturity_band_classifier', fn (array $p) => $gates->maturityBandClassifierObserve($p)],
             ['promotion-eligibility', 'promotion_eligibility', fn (array $p) => $gates->promotionEligibilityObserve($p)],
+            ['debug-root-cause', 'debug_root_cause', fn (array $p) => $gates->debugRootCauseObserve($p)],
+            ['cross-department-choreography', 'cross_department_choreography', fn (array $p) => $gates->crossDepartmentChoreographyObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

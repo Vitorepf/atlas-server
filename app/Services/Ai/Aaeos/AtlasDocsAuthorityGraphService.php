@@ -89,7 +89,7 @@ class AtlasDocsAuthorityGraphService
             $rows[] = [
                 'needle_kind' => mb_substr($kind, 0, 40),
                 'needle' => $needle,
-                'needle_normalized' => mb_substr(mb_strtolower($needle), 0, 300),
+                'needle_normalized' => mb_substr(AiValueNormalizer::lowerTrimmedString($needle), 0, 300),
                 'owner_doc_path' => mb_substr($path, 0, 500),
                 'owner_doc_id' => $ownerId !== '' ? mb_substr($ownerId, 0, 200) : null,
                 'owner_basis' => $basis,
