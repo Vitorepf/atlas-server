@@ -23,6 +23,8 @@ final class AcosMaxWindowOrchestratorService
 
     public const STATUS_UNAVAILABLE = 'unavailable';
 
+    public const STATUS_OK = 'ok';
+
     public const REASON_NO_STARTED_WINDOW_WITH_NUMERIC_DURATION = 'no_started_window_with_numeric_duration';
 
 
@@ -62,7 +64,7 @@ final class AcosMaxWindowOrchestratorService
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => 'ok',
+            'status' => self::STATUS_OK,
             'generated_at' => $now->format(DateTimeInterface::ATOM),
             'source' => [
                 'promotion_protocol_schema' => PromotionProtocol::SCHEMA,
@@ -264,7 +266,7 @@ final class AcosMaxWindowOrchestratorService
         $top = $withRemaining[0];
 
         return [
-            'status' => 'ok',
+            'status' => self::STATUS_OK,
             'days_remaining' => (int) (AiValueNormalizer::finiteFloatOrNull($top['days_remaining'] ?? null) ?? 0),
             'nodes' => [[
                 'flag_id' => $top['flag_id'],

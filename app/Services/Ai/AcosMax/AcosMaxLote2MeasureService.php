@@ -62,6 +62,10 @@ final class AcosMaxLote2MeasureService
 
     public const MODE_OBSERVE = 'observe';
 
+    public const BASIS_UNAVAILABLE = 'unavailable';
+
+    public const MEMORY_TYPE_UNKNOWN = 'unknown';
+
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -87,7 +91,7 @@ final class AcosMaxLote2MeasureService
     {
         return $this->emptyReport('MAXL-06', self::STATUS_PENDING_WINDOW, self::REASON_MISSING_LINEAGE_LEDGER, [
             'measure_id' => self::MAXL06_MEASURE_ID,
-            'basis' => 'unavailable',
+            'basis' => self::BASIS_UNAVAILABLE,
             'allowed_basis' => ['lineage_ledger', 'git_log'],
             'counterfactual_basis' => 'none',
             'correlation_label_required' => 'correlational_attribution',
@@ -495,7 +499,7 @@ final class AcosMaxLote2MeasureService
             }
 
             $candidateId = AiValueNormalizer::trimmedScalarStringOrNull($candidate->id ?? null) ?? '';
-            $lessonClass = AiValueNormalizer::trimmedStringOrNull($candidate->memory_type ?? null) ?? 'unknown';
+            $lessonClass = AiValueNormalizer::trimmedStringOrNull($candidate->memory_type ?? null) ?? self::MEMORY_TYPE_UNKNOWN;
             $outcome = $outcomes[AiValueNormalizer::trimmedScalarStringOrNull($candidate->run_outcome_id ?? null) ?? ''] ?? null;
             if ($outcome === null) {
                 continue;
@@ -688,7 +692,7 @@ final class AcosMaxLote2MeasureService
                 'rows' => [],
                 'policy_violation_rows' => 0,
             ];
-            $pairs[$pairId]['memory_type'] = $pairs[$pairId]['memory_type'] !== 'unknown'
+            $pairs[$pairId]['memory_type'] = $pairs[$pairId]['memory_type'] !== self::MEMORY_TYPE_UNKNOWN
                 ? $pairs[$pairId]['memory_type']
                 : $this->memoryTypeFromCounterfactualMeta($meta);
             $pairs[$pairId]['rows'][$arm] = [
@@ -720,7 +724,7 @@ final class AcosMaxLote2MeasureService
                 continue;
             }
 
-            $memoryType = (AiValueNormalizer::trimmedStringOrNull($pair['memory_type'] ?? null) ?? 'unknown');
+            $memoryType = (AiValueNormalizer::trimmedStringOrNull($pair['memory_type'] ?? null) ?? self::MEMORY_TYPE_UNKNOWN);
             $control = AiValueNormalizer::finiteFloatOrNull($rows['control']['score'] ?? null) ?? 0.0;
             $treatment = AiValueNormalizer::finiteFloatOrNull($rows['treatment']['score'] ?? null) ?? 0.0;
             $delta = round($treatment - $control, 4);
@@ -859,7 +863,7 @@ final class AcosMaxLote2MeasureService
     {
         $memoryType = AiValueNormalizer::trimmedStringOrNull($meta['memory_type'] ?? null) ?? '';
 
-        return $memoryType === '' ? 'unknown' : $memoryType;
+        return $memoryType === '' ? self::MEMORY_TYPE_UNKNOWN : $memoryType;
     }
 
     /**

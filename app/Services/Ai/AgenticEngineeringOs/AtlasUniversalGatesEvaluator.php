@@ -4909,6 +4909,42 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: local-model integrity + embedding coverage + immune/lote2 unavailable floors.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function localModelEmbeddingImmuneUnavailableFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'local_model_fallback_model_id' => AtlasLocalModelIntegrityService::FALLBACK_MODEL_ID,
+            'local_model_status_unknown' => AtlasLocalModelIntegrityService::STATUS_UNKNOWN,
+            'local_model_status_invalid' => AtlasLocalModelIntegrityService::STATUS_INVALID,
+            'local_model_status_unpinned' => AtlasLocalModelIntegrityService::STATUS_UNPINNED,
+            'local_model_status_missing' => AtlasLocalModelIntegrityService::STATUS_MISSING,
+            'local_model_status_verified' => AtlasLocalModelIntegrityService::STATUS_VERIFIED,
+            'local_model_status_mismatched' => AtlasLocalModelIntegrityService::STATUS_MISMATCHED,
+            'code_symbol_embedding_status_ok' => AtlasCodeSymbolEmbeddingCoverageService::STATUS_OK,
+            'code_symbol_embedding_status_insufficient_signal' => AtlasCodeSymbolEmbeddingCoverageService::STATUS_INSUFFICIENT_SIGNAL,
+            'code_symbol_embedding_status_partial_coverage' => AtlasCodeSymbolEmbeddingCoverageService::STATUS_PARTIAL_COVERAGE,
+            'kb_embedding_status_ok' => AtlasKnowledgeItemEmbeddingCoverageService::STATUS_OK,
+            'kb_embedding_status_insufficient_signal' => AtlasKnowledgeItemEmbeddingCoverageService::STATUS_INSUFFICIENT_SIGNAL,
+            'kb_embedding_status_partial_coverage' => AtlasKnowledgeItemEmbeddingCoverageService::STATUS_PARTIAL_COVERAGE,
+            'window_orchestrator_status_ok' => AcosMaxWindowOrchestratorService::STATUS_OK,
+            'recall_gap_status_ok' => RecallGapAggregator::STATUS_OK,
+            'recall_gap_status_insufficient_signal' => RecallGapAggregator::STATUS_INSUFFICIENT_SIGNAL,
+            'immune_signature_status_unavailable' => ImmuneSignatureStore::STATUS_UNAVAILABLE,
+            'lote2_basis_unavailable' => AcosMaxLote2MeasureService::BASIS_UNAVAILABLE,
+            'lote2_memory_type_unknown' => AcosMaxLote2MeasureService::MEMORY_TYPE_UNKNOWN,
+            'cognitive_immune_gate_status_pending' => CognitiveImmuneCheckContract::GATE_STATUS_PENDING,
+            'cognitive_immune_gate_status_pass' => CognitiveImmuneCheckContract::GATE_STATUS_PASS,
+            'cognitive_immune_gate_status_block' => CognitiveImmuneCheckContract::GATE_STATUS_BLOCK,
+            'cognitive_immune_gate_status_unknown' => CognitiveImmuneCheckContract::GATE_STATUS_UNKNOWN,
+            'local_model_embedding_immune_unavailable_floor_count' => 23,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

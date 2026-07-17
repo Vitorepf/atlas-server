@@ -26,9 +26,22 @@ final class CognitiveImmuneCheckContract
         'scope_creep',
     ];
 
-    public const DEFAULT_GATE_STATUS = 'pending';
+    public const GATE_STATUS_PENDING = 'pending';
 
-    public const ALLOWED_GATE_STATUSES = ['pending', 'pass', 'block', 'unknown'];
+    public const GATE_STATUS_PASS = 'pass';
+
+    public const GATE_STATUS_BLOCK = 'block';
+
+    public const GATE_STATUS_UNKNOWN = 'unknown';
+
+    public const DEFAULT_GATE_STATUS = self::GATE_STATUS_PENDING;
+
+    public const ALLOWED_GATE_STATUSES = [
+        self::GATE_STATUS_PENDING,
+        self::GATE_STATUS_PASS,
+        self::GATE_STATUS_BLOCK,
+        self::GATE_STATUS_UNKNOWN,
+    ];
 
     /**
      * @param  list<string>  $targetPaths

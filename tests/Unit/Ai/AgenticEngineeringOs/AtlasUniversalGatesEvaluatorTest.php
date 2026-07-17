@@ -3308,4 +3308,26 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(14, $payload['embedding_pending_mission_outcome_floor_count']);
     }
 
+    public function test_local_model_embedding_immune_unavailable_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->localModelEmbeddingImmuneUnavailableFloorsContractObserve([]);
+
+        $this->assertSame('unknown', $payload['local_model_fallback_model_id']);
+        $this->assertSame('verified', $payload['local_model_status_verified']);
+        $this->assertSame('mismatched', $payload['local_model_status_mismatched']);
+        $this->assertSame('ok', $payload['code_symbol_embedding_status_ok']);
+        $this->assertSame('partial_coverage', $payload['code_symbol_embedding_status_partial_coverage']);
+        $this->assertSame('insufficient_signal', $payload['kb_embedding_status_insufficient_signal']);
+        $this->assertSame('ok', $payload['window_orchestrator_status_ok']);
+        $this->assertSame('ok', $payload['recall_gap_status_ok']);
+        $this->assertSame('unavailable', $payload['immune_signature_status_unavailable']);
+        $this->assertSame('unavailable', $payload['lote2_basis_unavailable']);
+        $this->assertSame('unknown', $payload['lote2_memory_type_unknown']);
+        $this->assertSame('pending', $payload['cognitive_immune_gate_status_pending']);
+        $this->assertSame('pass', $payload['cognitive_immune_gate_status_pass']);
+        $this->assertSame('block', $payload['cognitive_immune_gate_status_block']);
+        $this->assertSame('unknown', $payload['cognitive_immune_gate_status_unknown']);
+        $this->assertSame(23, $payload['local_model_embedding_immune_unavailable_floor_count']);
+    }
+
 }

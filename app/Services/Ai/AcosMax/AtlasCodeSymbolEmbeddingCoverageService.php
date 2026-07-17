@@ -43,6 +43,12 @@ final class AtlasCodeSymbolEmbeddingCoverageService
 
     public const STATUS_ACTIVE = 'active';
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+
+    public const STATUS_PARTIAL_COVERAGE = 'partial_coverage';
+
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
@@ -99,14 +105,14 @@ final class AtlasCodeSymbolEmbeddingCoverageService
 
         $covered = DB::table('atlas_engineering_code_symbols as s')
             ->join('atlas_code_symbol_embeddings as e', 's.id', '=', 'e.symbol_id')
-            ->where('s.status', 'active')
+            ->where('s.status', self::STATUS_ACTIVE)
             ->whereNull('s.archived_at')
             ->whereColumn('e.embedded_content_hash', 's.source_hash')
             ->count();
 
         $stale = DB::table('atlas_engineering_code_symbols as s')
             ->join('atlas_code_symbol_embeddings as e', 's.id', '=', 'e.symbol_id')
-            ->where('s.status', 'active')
+            ->where('s.status', self::STATUS_ACTIVE)
             ->whereNull('s.archived_at')
             ->whereColumn('e.embedded_content_hash', '!=', 's.source_hash')
             ->count();
@@ -114,7 +120,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
         // Missing = active symbols without ANY embedding row.
         $withEmbedding = DB::table('atlas_engineering_code_symbols as s')
             ->join('atlas_code_symbol_embeddings as e', 's.id', '=', 'e.symbol_id')
-            ->where('s.status', 'active')
+            ->where('s.status', self::STATUS_ACTIVE)
             ->whereNull('s.archived_at')
             ->distinct()
             ->count('s.id');
@@ -123,12 +129,12 @@ final class AtlasCodeSymbolEmbeddingCoverageService
         $ratio = round($covered / max(1, $active), 4);
 
         $status = $covered === $active
-            ? 'ok'
-            : ($covered === 0 ? 'insufficient_signal' : 'partial_coverage');
+            ? self::STATUS_OK
+            : ($covered === 0 ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_PARTIAL_COVERAGE);
         $reason = match ($status) {
-            'ok' => null,
-            'insufficient_signal' => 'no_symbols_embedded_yet',
-            'partial_coverage' => 'symbols_awaiting_backfill_or_re_embed',
+            self::STATUS_OK => null,
+            self::STATUS_INSUFFICIENT_SIGNAL => 'no_symbols_embedded_yet',
+            self::STATUS_PARTIAL_COVERAGE => 'symbols_awaiting_backfill_or_re_embed',
             default => null,
         };
 

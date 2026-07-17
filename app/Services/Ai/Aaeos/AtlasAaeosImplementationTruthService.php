@@ -93,7 +93,7 @@ class AtlasAaeosImplementationTruthService
 
         $rows = [];
         $driftCount = 0;
-        $byComputed = ['spec' => 0, 'partial' => 0, 'verified' => 0];
+        $byComputed = [self::LEVEL_SPEC => 0, self::LEVEL_PARTIAL => 0, self::LEVEL_VERIFIED => 0];
         // Roll up per-row test resolution into a corpus stamp (see summaryTestResolution()).
         $testBearingRows = 0;
         $greenRows = 0;

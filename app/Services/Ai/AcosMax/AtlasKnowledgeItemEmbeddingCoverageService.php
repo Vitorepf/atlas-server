@@ -45,6 +45,12 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
 
     public const STATUS_ACTIVE = 'active';
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+
+    public const STATUS_PARTIAL_COVERAGE = 'partial_coverage';
+
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
@@ -96,7 +102,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
         $active = (clone $baseQuery)->count();
 
         if ($active === 0) {
-            return array_merge($this->emptyReport('insufficient_signal', 'no_active_knowledge_items', $freeze), [
+            return array_merge($this->emptyReport(self::STATUS_INSUFFICIENT_SIGNAL, 'no_active_knowledge_items', $freeze), [
                 'aggregate' => $this->emptyAggregate(),
             ]);
         }
@@ -123,12 +129,12 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
         $ratio = round($covered / max(1, $active), 4);
 
         $status = $covered === $active
-            ? 'ok'
-            : ($covered === 0 ? 'insufficient_signal' : 'partial_coverage');
+            ? self::STATUS_OK
+            : ($covered === 0 ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_PARTIAL_COVERAGE);
         $reason = match ($status) {
-            'ok' => null,
-            'insufficient_signal' => 'no_items_embedded_yet',
-            'partial_coverage' => 'items_awaiting_backfill_or_re_embed',
+            self::STATUS_OK => null,
+            self::STATUS_INSUFFICIENT_SIGNAL => 'no_items_embedded_yet',
+            self::STATUS_PARTIAL_COVERAGE => 'items_awaiting_backfill_or_re_embed',
             default => null,
         };
 

@@ -29,6 +29,8 @@ final class ImmuneSignatureStore
 
     public const STATUS_DECAYED = 'decayed';
 
+    public const STATUS_UNAVAILABLE = 'unavailable';
+
     public const ORIGIN_VERDICT = 'immune_verdict';
 
     public const ORIGIN_MEMORY_REVERT = 'memory_revert';
@@ -200,7 +202,7 @@ final class ImmuneSignatureStore
             return [
                 'schema_version' => self::SCHEMA_VERSION,
                 'measure_id' => self::MEASURE_ID,
-                'status' => 'unavailable',
+                'status' => self::STATUS_UNAVAILABLE,
                 'active_cells' => 0,
                 'cells_with_hit_count_gte_2' => 0,
             ];
@@ -216,7 +218,7 @@ final class ImmuneSignatureStore
             return [
                 'schema_version' => self::SCHEMA_VERSION,
                 'measure_id' => self::MEASURE_ID,
-                'status' => 'unavailable',
+                'status' => self::STATUS_UNAVAILABLE,
                 'active_cells' => 0,
                 'cells_with_hit_count_gte_2' => 0,
             ];

@@ -15,6 +15,10 @@ final class RecallGapAggregator
 
     public const DEFAULT_MIN_OCCURRENCES = 3;
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+
     /**
      * @param  list<array<string,mixed>>  $events
      * @return array<string,mixed>
@@ -49,7 +53,7 @@ final class RecallGapAggregator
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $candidates === [] ? 'insufficient_signal' : 'ok',
+            'status' => $candidates === [] ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK,
             'candidates' => $candidates,
         ];
     }
