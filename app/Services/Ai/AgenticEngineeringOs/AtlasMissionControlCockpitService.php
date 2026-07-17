@@ -47,6 +47,8 @@ final class AtlasMissionControlCockpitService
 
     public const FIELD_BLOCKED = 'blocked';
 
+    public const FIELD_MISSING = 'missing';
+
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
         private readonly AtlasUniversalGatesEvaluator $gates,
@@ -218,7 +220,7 @@ final class AtlasMissionControlCockpitService
 
         $blocked = array_merge(
             AiValueNormalizer::arrayOrEmpty($gateReport['blocked'] ?? null),
-            AiValueNormalizer::arrayOrEmpty($gateReport['missing'] ?? null),
+            AiValueNormalizer::arrayOrEmpty($gateReport[self::FIELD_MISSING] ?? null),
         );
         $hasEvidenceRefs = ! in_array('evidence_traceable', $blocked, true);
         $testsPassed = in_array('tests_green', AiValueNormalizer::arrayOrEmpty($gateReport['passed'] ?? null), true)

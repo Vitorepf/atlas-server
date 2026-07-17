@@ -3448,4 +3448,26 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(23, $payload['ragx_prereview_lote2_schema_floor_count']);
     }
 
+    public function test_window_gates_integrity_flag_disabled_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->windowGatesIntegrityFlagDisabledFloorsContractObserve([]);
+
+        $this->assertSame('sem_dados', $payload['window_gates_status_sem_dados']);
+        $this->assertSame('aguardando_janela', $payload['window_gates_status_aguardando_janela']);
+        $this->assertSame('certified', $payload['window_gates_status_certified']);
+        $this->assertSame('met', $payload['window_gates_status_met']);
+        $this->assertSame('valid', $payload['structured_fact_status_valid']);
+        $this->assertSame('missing_fields', $payload['structured_fact_status_missing_fields']);
+        $this->assertSame('flag_disabled', $payload['ambition_basis_flag_disabled']);
+        $this->assertSame('not_saturated', $payload['ambition_basis_not_saturated']);
+        $this->assertSame('verified', $payload['local_model_field_verified']);
+        $this->assertSame('mismatched', $payload['local_model_field_mismatched']);
+        $this->assertSame('error', $payload['esp09_field_error']);
+        $this->assertSame('enabled', $payload['outcome_bridge_field_enabled']);
+        $this->assertSame('flag_disabled', $payload['composed_obra_status_flag_disabled']);
+        $this->assertSame('flag_disabled', $payload['evidence_vision_status_flag_disabled']);
+        $this->assertSame('pending_window', $payload['procedural_field_pending_window']);
+        $this->assertSame(23, $payload['window_gates_integrity_flag_disabled_floor_count']);
+    }
+
 }

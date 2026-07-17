@@ -23,6 +23,12 @@ final class AmbitionRungPolicy
 
     public const FIELD_ENABLED = 'enabled';
 
+    public const BASIS_FLAG_DISABLED = 'flag_disabled';
+
+    public const BASIS_NOT_SATURATED = 'not_saturated';
+
+    public const BASIS_RUNG_UP_AFTER_SATURATION = 'rung_up_after_saturation';
+
     /**
      * @param  list<array<string,mixed>>  $candidates
      * @param  array<string,mixed>  $context
@@ -32,10 +38,10 @@ final class AmbitionRungPolicy
     {
         $distribution = self::distribution($candidates);
         $selected = $candidates[0] ?? [];
-        $basis = 'flag_disabled';
+        $basis = self::BASIS_FLAG_DISABLED;
 
         if (($context[self::FIELD_ENABLED] ?? false) === true) {
-            $basis = 'not_saturated';
+            $basis = self::BASIS_NOT_SATURATED;
             if (($context['reactive_saturated'] ?? false) === true) {
                 $current = AiValueNormalizer::trimmedStringOrNull($context['current_rung'] ?? null) ?? self::RUNG_TASK;
                 $target = self::nextRung($current);
@@ -44,7 +50,7 @@ final class AmbitionRungPolicy
                     $rung = AiValueNormalizer::trimmedStringOrNull($candidate['rung'] ?? null) ?? '';
                     if ($rung === $target && (AiValueNormalizer::finiteFloatOrNull($candidate['leverage'] ?? null) ?? 0.0) >= $currentBest) {
                         $selected = $candidate;
-                        $basis = 'rung_up_after_saturation';
+                        $basis = self::BASIS_RUNG_UP_AFTER_SATURATION;
                         break;
                     }
                 }

@@ -40,14 +40,18 @@ final class EvidenceVisionThesisComposer
 
     public const KIND_OUTCOME_PROVEN = 'outcome_proven';
 
+    public const FIELD_ENABLED = 'enabled';
+
+    public const STATUS_FLAG_DISABLED = 'flag_disabled';
+
     /**
      * @param  array<string,mixed>  $context
      * @return array<string,mixed>
      */
     public static function compose(array $context = []): array
     {
-        if (($context['enabled'] ?? false) !== true) {
-            return self::emptyResult('flag_disabled');
+        if (($context[self::FIELD_ENABLED] ?? false) !== true) {
+            return self::emptyResult(self::STATUS_FLAG_DISABLED);
         }
 
         $bornAt = AiValueNormalizer::trimmedStringOrNull($context['born_at'] ?? null) ?? gmdate('c');

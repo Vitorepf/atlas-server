@@ -37,6 +37,14 @@ final class AtlasLocalModelIntegrityService
 
     public const STATUS_MISMATCHED = 'mismatched';
 
+    public const FIELD_VERIFIED = 'verified';
+
+    public const FIELD_MISMATCHED = 'mismatched';
+
+    public const FIELD_MISSING = 'missing';
+
+    public const FIELD_UNPINNED = 'unpinned';
+
     /** @var array<string, mixed> */
     private array $manifest;
 
@@ -69,10 +77,10 @@ final class AtlasLocalModelIntegrityService
         return [
             'schema_version' => AiValueNormalizer::trimmedStringOrNull($this->manifest['schema_version'] ?? null) ?? self::MANIFEST_SCHEMA,
             'total' => count($rows),
-            'verified' => $status['verified'] ?? 0,
-            'mismatched' => $status['mismatched'] ?? 0,
-            'missing' => $status['missing'] ?? 0,
-            'unpinned' => $status['unpinned'] ?? 0,
+            self::FIELD_VERIFIED => $status[self::STATUS_VERIFIED] ?? 0,
+            self::FIELD_MISMATCHED => $status[self::STATUS_MISMATCHED] ?? 0,
+            self::FIELD_MISSING => $status[self::STATUS_MISSING] ?? 0,
+            self::FIELD_UNPINNED => $status[self::STATUS_UNPINNED] ?? 0,
             'artifacts' => $rows,
         ];
     }

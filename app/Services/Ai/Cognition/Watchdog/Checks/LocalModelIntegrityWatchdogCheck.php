@@ -41,14 +41,14 @@ final readonly class LocalModelIntegrityWatchdogCheck implements AtlasWatchdogCh
             'schema_version' => self::SCHEMA_VERSION,
             'generated_at' => $now->toIso8601String(),
             'total' => $report['total'],
-            'verified' => $report['verified'],
-            'mismatched' => $report['mismatched'],
-            'missing' => $report['missing'],
-            'unpinned' => $report['unpinned'],
+            AtlasLocalModelIntegrityService::FIELD_VERIFIED => $report[AtlasLocalModelIntegrityService::FIELD_VERIFIED],
+            AtlasLocalModelIntegrityService::FIELD_MISMATCHED => $report[AtlasLocalModelIntegrityService::FIELD_MISMATCHED],
+            AtlasLocalModelIntegrityService::FIELD_MISSING => $report[AtlasLocalModelIntegrityService::FIELD_MISSING],
+            AtlasLocalModelIntegrityService::FIELD_UNPINNED => $report[AtlasLocalModelIntegrityService::FIELD_UNPINNED],
             'artifacts' => $report['artifacts'],
         ];
 
-        if ($report['mismatched'] > 0 || $report['missing'] > 0) {
+        if ($report[AtlasLocalModelIntegrityService::FIELD_MISMATCHED] > 0 || $report[AtlasLocalModelIntegrityService::FIELD_MISSING] > 0) {
             $offenders = array_values(array_filter(
                 $report['artifacts'],
                 static fn (array $row): bool => in_array(
@@ -59,7 +59,7 @@ final readonly class LocalModelIntegrityWatchdogCheck implements AtlasWatchdogCh
             ));
 
             return AtlasWatchdogCheckResult::alert($evidence, [
-                'code' => $report['mismatched'] > 0 ? 'local_model_hash_mismatch' : 'local_model_missing',
+                'code' => $report[AtlasLocalModelIntegrityService::FIELD_MISMATCHED] > 0 ? 'local_model_hash_mismatch' : 'local_model_missing',
                 'message' => 'Local model artifact integrity broken vs manifest pin.',
                 'artifacts' => array_map(static fn (array $row): string => AiValueNormalizer::trimmedScalarStringOrNull($row['model_id'] ?? null) ?? '', $offenders),
             ]);

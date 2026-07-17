@@ -25,6 +25,8 @@ final class OutcomeEnvelopeBridge
 
     public const KIND_MEASURE_FREEZE = 'measure_freeze';
 
+    public const FIELD_ENABLED = 'enabled';
+
     /** @var array<string, OutcomeEnvelopeAdapter> */
     private array $adapters;
 
@@ -78,7 +80,7 @@ final class OutcomeEnvelopeBridge
         return [
             'schema_version' => self::BRIDGE_SCHEMA,
             'measure_id' => self::MEASURE_ID,
-            'enabled' => self::enabled(),
+            self::FIELD_ENABLED => self::enabled(),
             'producers' => array_keys($this->adapters),
             'consumers' => array_keys($this->adapters),
             'anti_unification_fence' => [

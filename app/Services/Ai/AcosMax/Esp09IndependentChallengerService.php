@@ -55,6 +55,8 @@ final class Esp09IndependentChallengerService
 
     public const ERROR_CHALLENGER_ENGINE_MUST_DIFFER = 'challenger_engine_must_differ';
 
+    public const FIELD_ERROR = 'error';
+
     public const SKIP_REASON_LOW_AFFINITY = 'low_affinity';
 
     public const TRIGGER_DECISION_KIND = 'decision_kind';
@@ -101,14 +103,14 @@ final class Esp09IndependentChallengerService
         if ($author === '' || $challengerEngine === '') {
             return array_merge($base, [
                 'status' => self::STATUS_INVALID,
-                'error' => self::ERROR_ENGINE_IDS_REQUIRED,
+                self::FIELD_ERROR => self::ERROR_ENGINE_IDS_REQUIRED,
             ]);
         }
 
         if ($author === $challengerEngine) {
             return array_merge($base, [
                 'status' => self::STATUS_INVALID,
-                'error' => self::ERROR_CHALLENGER_ENGINE_MUST_DIFFER,
+                self::FIELD_ERROR => self::ERROR_CHALLENGER_ENGINE_MUST_DIFFER,
             ]);
         }
 

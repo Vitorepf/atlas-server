@@ -30,6 +30,8 @@ final class AcosMaxProceduralSkillPromoterService
 
     public const STATUS_PENDING_WINDOW = 'pending_window';
 
+    public const FIELD_PENDING_WINDOW = 'pending_window';
+
     public const STATUS_HOLD = 'hold';
 
     public const STATUS_HOLD_FOR_ASI02 = 'hold_for_asi02';
@@ -99,7 +101,7 @@ final class AcosMaxProceduralSkillPromoterService
             'promotion_allowed' => false,
             'scoreboard' => [
                 'landed' => [self::SCOREBOARD_LANDED_MECHANISM],
-                'pending_window' => $status === self::STATUS_PENDING_WINDOW ? [self::REASON_PROCEDURAL_CASE_COUNT_SOAK] : [],
+                self::FIELD_PENDING_WINDOW => $status === self::STATUS_PENDING_WINDOW ? [self::REASON_PROCEDURAL_CASE_COUNT_SOAK] : [],
             ],
             'totals' => [
                 'procedural_playbooks' => count($candidates),

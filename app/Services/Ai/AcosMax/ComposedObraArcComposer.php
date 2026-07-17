@@ -28,6 +28,8 @@ final class ComposedObraArcComposer
 
     public const FIELD_ENABLED = 'enabled';
 
+    public const STATUS_FLAG_DISABLED = 'flag_disabled';
+
     /**
      * @param  list<array<string,mixed>>  $candidates  grounded origination candidates
      * @param  list<array<string,mixed>>  $clusterLeads  optional reactive obra-cluster leads
@@ -37,7 +39,7 @@ final class ComposedObraArcComposer
     public static function compose(array $candidates, array $clusterLeads = [], array $context = []): array
     {
         if (($context[self::FIELD_ENABLED] ?? false) !== true) {
-            return self::emptyResult('flag_disabled');
+            return self::emptyResult(self::STATUS_FLAG_DISABLED);
         }
 
         $author = AiValueNormalizer::trimmedStringOrNull($context['author_engine_id'] ?? null) ?? self::DEFAULT_AUTHOR_ENGINE_ID;

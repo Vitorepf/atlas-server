@@ -30,6 +30,16 @@ final class AtlasAcosWindowGatesService
 
     public const STATUS_UNKNOWN = 'unknown';
 
+    public const STATUS_SEM_DADOS = 'sem_dados';
+
+    public const STATUS_AGUARDANDO_JANELA = 'aguardando_janela';
+
+    public const STATUS_CERTIFIED = 'certified';
+
+    public const STATUS_MET = 'met';
+
+    public const FIELD_CERTIFIED = 'certified';
+
     /** Receipt freshness before a certified gate is treated as stale (7 days). */
     public const RECEIPT_FRESH_SECONDS = 604800;
 

@@ -5125,6 +5125,42 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: window-gates/integrity/flag-disabled residual floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function windowGatesIntegrityFlagDisabledFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'window_gates_status_sem_dados' => AtlasAcosWindowGatesService::STATUS_SEM_DADOS,
+            'window_gates_status_aguardando_janela' => AtlasAcosWindowGatesService::STATUS_AGUARDANDO_JANELA,
+            'window_gates_status_certified' => AtlasAcosWindowGatesService::STATUS_CERTIFIED,
+            'window_gates_status_met' => AtlasAcosWindowGatesService::STATUS_MET,
+            'window_gates_field_certified' => AtlasAcosWindowGatesService::FIELD_CERTIFIED,
+            'structured_fact_status_valid' => StructuredFactSchemaMap::STATUS_VALID,
+            'structured_fact_status_missing_fields' => StructuredFactSchemaMap::STATUS_MISSING_FIELDS,
+            'structured_fact_field_valid' => StructuredFactSchemaMap::FIELD_VALID,
+            'ambition_basis_flag_disabled' => AmbitionRungPolicy::BASIS_FLAG_DISABLED,
+            'ambition_basis_not_saturated' => AmbitionRungPolicy::BASIS_NOT_SATURATED,
+            'ambition_basis_rung_up_after_saturation' => AmbitionRungPolicy::BASIS_RUNG_UP_AFTER_SATURATION,
+            'local_model_field_verified' => AtlasLocalModelIntegrityService::FIELD_VERIFIED,
+            'local_model_field_mismatched' => AtlasLocalModelIntegrityService::FIELD_MISMATCHED,
+            'local_model_field_missing' => AtlasLocalModelIntegrityService::FIELD_MISSING,
+            'local_model_field_unpinned' => AtlasLocalModelIntegrityService::FIELD_UNPINNED,
+            'esp09_field_error' => Esp09IndependentChallengerService::FIELD_ERROR,
+            'outcome_bridge_field_enabled' => OutcomeEnvelopeBridge::FIELD_ENABLED,
+            'composed_obra_status_flag_disabled' => ComposedObraArcComposer::STATUS_FLAG_DISABLED,
+            'evidence_vision_field_enabled' => EvidenceVisionThesisComposer::FIELD_ENABLED,
+            'evidence_vision_status_flag_disabled' => EvidenceVisionThesisComposer::STATUS_FLAG_DISABLED,
+            'mission_control_field_missing' => AtlasMissionControlCockpitService::FIELD_MISSING,
+            'procedural_field_pending_window' => AcosMaxProceduralSkillPromoterService::FIELD_PENDING_WINDOW,
+            'ragx_field_pending_window' => RagxChainMechanismService::FIELD_PENDING_WINDOW,
+            'window_gates_integrity_flag_disabled_floor_count' => 23,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

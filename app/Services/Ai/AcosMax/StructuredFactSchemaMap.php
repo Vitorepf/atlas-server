@@ -12,7 +12,13 @@ final class StructuredFactSchemaMap
 
     public const STATUS_UNSCHEMATIZED = 'unschematized';
 
+    public const STATUS_VALID = 'valid';
+
+    public const STATUS_MISSING_FIELDS = 'missing_fields';
+
     public const FIELD_MISSING = 'missing';
+
+    public const FIELD_VALID = 'valid';
 
     /** @var array<string,list<string>> */
     public const REQUIRED = [
@@ -32,7 +38,7 @@ final class StructuredFactSchemaMap
             return [
                 'schema_version' => self::SCHEMA_VERSION,
                 'status' => self::STATUS_UNSCHEMATIZED,
-                'valid' => true,
+                self::FIELD_VALID => true,
                 self::FIELD_MISSING => [],
                 'fail_open_entry_allowed' => true,
             ];
@@ -45,8 +51,8 @@ final class StructuredFactSchemaMap
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $missing === [] ? 'valid' : 'missing_fields',
-            'valid' => $missing === [],
+            'status' => $missing === [] ? self::STATUS_VALID : self::STATUS_MISSING_FIELDS,
+            self::FIELD_VALID => $missing === [],
             self::FIELD_MISSING => $missing,
             'fail_open_entry_allowed' => true,
             'source' => [

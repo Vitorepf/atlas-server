@@ -205,7 +205,7 @@ final class RagxChainMechanismService
                 'status' => self::STATUS_BLOCKED,
                 'mode' => self::MODE_SHADOW,
                 'blocked_by' => [self::BLOCKER_MAXA04],
-                'pending_window' => [self::PENDING_JINA_V3_DUAL_READ],
+                self::FIELD_PENDING_WINDOW => [self::PENDING_JINA_V3_DUAL_READ],
                 'documents' => [],
                 'ab_green_claimed' => false,
             ];
@@ -253,7 +253,7 @@ final class RagxChainMechanismService
             'candidate' => AiValueNormalizer::trimmedStringOrNull($experiment['candidate']  ?? null) ?? self::STATUS_UNKNOWN,
             'result' => null,
             'ab_green_claimed' => false,
-            'pending_window' => [self::PENDING_GOLDEN_V2_OR_LIVE],
+            self::FIELD_PENDING_WINDOW => [self::PENDING_GOLDEN_V2_OR_LIVE],
         ];
 
         if ($this->abLedgerPath !== null && $this->abLedgerPath !== '') {
@@ -282,7 +282,7 @@ final class RagxChainMechanismService
                 'slice' => self::STAGE_MAXD_05,
                 'status' => self::STATUS_BLOCKED,
                 'blocked_by' => [self::BLOCKER_MAXA06_FASE2],
-                'pending_window' => [self::PENDING_MAXA06_FASE2_BACKFILL],
+                self::FIELD_PENDING_WINDOW => [self::PENDING_MAXA06_FASE2_BACKFILL],
                 'communities' => [],
             ];
         }
@@ -332,7 +332,7 @@ final class RagxChainMechanismService
                 'slice' => self::STAGE_RAGX_10,
                 'status' => self::STATUS_BLOCKED,
                 'blocked_by' => $blockers,
-                'pending_window' => [self::PENDING_RAPTOR_LITE_SUMMARY],
+                self::FIELD_PENDING_WINDOW => [self::PENDING_RAPTOR_LITE_SUMMARY],
                 'nodes' => [],
                 'generated_summary' => false,
             ];
@@ -455,10 +455,10 @@ final class RagxChainMechanismService
         return [
             'mechanism' => $mechanism,
             'flag' => $flag,
-            'enabled' => $enabled,
+            self::FIELD_ENABLED => $enabled,
             'status' => ! $enabled ? self::STATUS_DISABLED : ($blockedBy === [] ? self::STATUS_SHADOW : self::STATUS_BLOCKED),
             'blocked_by' => $blockedBy,
-            'pending_window' => $pendingWindow,
+            self::FIELD_PENDING_WINDOW => $pendingWindow,
             'ab_green_claimed' => false,
         ];
     }
