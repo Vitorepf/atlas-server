@@ -29,6 +29,7 @@ use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 use App\Services\Ai\Reality\AtlasRealityGraphQueryService;
 use App\Services\Ai\SelfConstruction\Lineage\AtlasDecisionLineageLedger;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use App\Services\AtlasCode\WorkspaceFolderIntelligenceService;
 use App\Services\Engineering\CodeGraph\CodeGraphContextRetriever;
@@ -715,8 +716,8 @@ class AtlasOpenBrainContextPackService
             'scope_type' => (string) $receipt->scope_type,
             'scope_id' => (string) $receipt->scope_id,
             'receipt_hash' => (string) $receipt->receipt_hash,
-            'must_keep_coverage' => is_numeric($receipt->must_keep_coverage) ? (float) $receipt->must_keep_coverage : null,
-            'context_retention_score' => is_numeric($receipt->context_retention_score) ? (float) $receipt->context_retention_score : null,
+            'must_keep_coverage' => AiValueNormalizer::finiteFloatOrNull($receipt->must_keep_coverage),
+            'context_retention_score' => AiValueNormalizer::finiteFloatOrNull($receipt->context_retention_score),
             'loss_risk' => (string) $receipt->loss_risk,
             'unresolved_loss_count' => count((array) $receipt->unresolved_loss),
             'recovery_queries' => array_slice($recoveryQueries, 0, 8),

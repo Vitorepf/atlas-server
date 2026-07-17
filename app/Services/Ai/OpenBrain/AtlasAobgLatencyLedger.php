@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\OpenBrain;
 
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
+use App\Services\Ai\Support\AiValueNormalizer;
 use DateTimeImmutable;
 use DateTimeZone;
 use Throwable;
@@ -56,9 +57,9 @@ final class AtlasAobgLatencyLedger
 
         $timings = is_array($pack['timings_ms'] ?? null) ? $pack['timings_ms'] : [];
         foreach ($this->sectionOps() as $section => $op) {
-            $sectionMs = $timings[$section] ?? null;
-            if (is_numeric($sectionMs)) {
-                $this->record($op, (float) $sectionMs, $refs, $budgetChars);
+            $sectionMs = AiValueNormalizer::finiteFloatOrNull($timings[$section] ?? null);
+            if ($sectionMs !== null) {
+                $this->record($op, $sectionMs, $refs, $budgetChars);
             }
         }
     }
@@ -162,10 +163,11 @@ final class AtlasAobgLatencyLedger
         $byOp = [];
         foreach ($rows as $row) {
             $op = (string) ($row['op'] ?? '');
-            if (! in_array($op, self::OPS, true) || ! is_numeric($row['ms'] ?? null)) {
+            $ms = AiValueNormalizer::finiteFloatOrNull($row['ms'] ?? null);
+            if (! in_array($op, self::OPS, true) || $ms === null) {
                 continue;
             }
-            $byOp[$op][] = (float) $row['ms'];
+            $byOp[$op][] = $ms;
         }
 
         $ops = [];
@@ -218,8 +220,8 @@ final class AtlasAobgLatencyLedger
         foreach ($pointsByOp as $op => $points) {
             $latest = $points[array_key_last($points)] ?? null;
             $previous = count($points) > 1 ? $points[count($points) - 2] : null;
-            $latestP95 = is_numeric($latest['p95_ms'] ?? null) ? (float) $latest['p95_ms'] : null;
-            $previousP95 = is_numeric($previous['p95_ms'] ?? null) ? (float) $previous['p95_ms'] : null;
+            $latestP95 = AiValueNormalizer::finiteFloatOrNull($latest['p95_ms'] ?? null);
+            $previousP95 = AiValueNormalizer::finiteFloatOrNull($previous['p95_ms'] ?? null);
             $delta = $latestP95 !== null && $previousP95 !== null
                 ? $this->roundOrNull($latestP95 - $previousP95)
                 : null;

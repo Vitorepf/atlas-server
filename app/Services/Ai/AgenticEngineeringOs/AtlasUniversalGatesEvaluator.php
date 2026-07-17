@@ -49,6 +49,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdComparator;
 use App\Services\Ai\Aaeos\AtlasAaeosEvidenceRefNormalizer;
 use App\Services\Ai\Aaeos\AtlasAaeosDocMaturityClassifier;
+use App\Services\Ai\Aaeos\AtlasAaeosClaimDefinitionOfDoneValidator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
@@ -1523,6 +1524,20 @@ final class AtlasUniversalGatesEvaluator
         $sections = AiValueNormalizer::arrayOrEmpty($input['sections'] ?? $input);
 
         return (new AtlasAaeosDocMaturityClassifier)->classify($sections);
+    }
+
+    /**
+     * Observe-only AAEOS claim Definition-of-Done validator.
+     * Accepts `{claim}` map (or the claim object itself). Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function claimDefinitionOfDoneObserve(array $input = []): array
+    {
+        $claim = AiValueNormalizer::arrayOrEmpty($input['claim'] ?? $input);
+
+        return (new AtlasAaeosClaimDefinitionOfDoneValidator)->validate($claim);
     }
 
     /**

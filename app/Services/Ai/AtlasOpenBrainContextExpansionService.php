@@ -6,6 +6,7 @@ namespace App\Services\Ai;
 
 use App\Services\Ai\Context\AtlasContextRankingSystemService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AtlasOpenBrainContextExpansionService
 {
@@ -229,7 +230,9 @@ final class AtlasOpenBrainContextExpansionService
         return array_filter([
             'source_type' => $this->normalizeSourceType((string) ($ref['source_type'] ?? 'unknown')),
             'source_ref_hash' => $this->scalarString($ref['source_ref_hash'] ?? null),
-            'score_total' => isset($ref['score_total']) ? round((float) $ref['score_total'], 4) : null,
+            'score_total' => ($score = AiValueNormalizer::finiteFloatOrNull($ref['score_total'] ?? null)) === null
+                ? null
+                : round($score, 4),
             'reasons' => $this->stringList($ref['reasons'] ?? []),
             'score_components' => is_array($ref['score_components'] ?? null)
                 ? array_intersect_key((array) $ref['score_components'], array_flip([

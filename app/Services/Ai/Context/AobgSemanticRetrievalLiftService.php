@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Context;
 
 use App\Services\Ai\RuntimeBoundary\SemanticRetrievalRuntime;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Carbon;
 
 /**
@@ -50,7 +51,7 @@ final class AobgSemanticRetrievalLiftService
         ));
         $positive = array_values(array_filter(
             $measured,
-            static fn (array $case): bool => (float) ($case['lift'] ?? 0.0) > 0.0,
+            static fn (array $case): bool => (AiValueNormalizer::finiteFloatOrNull($case['lift'] ?? null) ?? 0.0) > 0.0,
         ));
         $averageLift = $this->average(array_column($measured, 'lift'));
         $semanticRecall = $this->average(array_column($measured, 'semantic_recall_at_k'));
@@ -132,9 +133,9 @@ final class AobgSemanticRetrievalLiftService
             'query_hash' => hash('sha256', (string) $case['query']),
             'status' => 'measured',
             'mode' => (string) ($lift['mode'] ?? 'unknown'),
-            'semantic_recall_at_k' => (float) $lift['semantic_recall_at_k'],
-            'lexical_recall_at_k' => (float) $lift['lexical_recall_at_k'],
-            'lift' => (float) $lift['lift'],
+            'semantic_recall_at_k' => AiValueNormalizer::finiteFloatOrNull($lift['semantic_recall_at_k'] ?? null) ?? 0.0,
+            'lexical_recall_at_k' => AiValueNormalizer::finiteFloatOrNull($lift['lexical_recall_at_k'] ?? null) ?? 0.0,
+            'lift' => AiValueNormalizer::finiteFloatOrNull($lift['lift'] ?? null) ?? 0.0,
             'relevant_ids' => array_values((array) $case['relevant_ids']),
             'candidate_count' => count((array) $case['items']),
         ];

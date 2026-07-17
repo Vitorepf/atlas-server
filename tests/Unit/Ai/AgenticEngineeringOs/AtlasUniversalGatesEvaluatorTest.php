@@ -1250,4 +1250,20 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('DOC L4', $payload['level']);
         $this->assertFalse($payload['runtime_ready']);
     }
+
+    public function test_claim_definition_of_done_observe_reports_verdict(): void
+    {
+        $payload = $this->svc->claimDefinitionOfDoneObserve([
+            'claim' => [
+                'owner_doc' => 'docs/x.md',
+                'documental_state' => 'complete',
+                'runtime_state' => 'complete',
+                'proof' => 'tests green',
+                'code_command_applicable' => false,
+            ],
+        ]);
+
+        $this->assertSame('atlas.aaeos.claim_definition_of_done.v1', $payload['schema_version']);
+        $this->assertSame('evidence', $payload['verdict']);
+    }
 }

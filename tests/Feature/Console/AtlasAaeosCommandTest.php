@@ -1737,6 +1737,33 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_claim_definition_of_done(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-cdod-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'claim' => [
+                'owner_doc' => 'docs/x.md',
+                'documental_state' => 'complete',
+                'runtime_state' => 'complete',
+                'proof' => 'tests green',
+                'code_command_applicable' => false,
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-cdod',
+                '--claim-definition-of-done' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"claim_definition_of_done"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])
