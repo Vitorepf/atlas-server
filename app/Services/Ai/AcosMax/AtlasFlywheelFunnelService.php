@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AcosMax;
 
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Carbon;
 
 final class AtlasFlywheelFunnelService
@@ -128,12 +129,12 @@ final class AtlasFlywheelFunnelService
      */
     private function executor(array $row): string
     {
-        $role = strtolower(trim((string) ($row['role'] ?? '')));
+        $role = AiValueNormalizer::lowerTrimmedString($row['role'] ?? '');
         if (in_array($role, ['dev', 'forge', 'autonomos'], true)) {
             return $role;
         }
 
-        $actor = strtolower(trim((string) ($row['actor'] ?? '')));
+        $actor = AiValueNormalizer::lowerTrimmedString($row['actor'] ?? '');
         foreach (['dev', 'forge', 'autonomos'] as $executor) {
             if (str_contains($actor, $executor)) {
                 return $executor;

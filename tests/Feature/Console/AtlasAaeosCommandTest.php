@@ -161,6 +161,28 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_pre_review_advisory(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-pra-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'target_class' => 'ops',
+            'n_similar' => 2,
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-pra',
+                '--pre-review' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"pre_review_advisory"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

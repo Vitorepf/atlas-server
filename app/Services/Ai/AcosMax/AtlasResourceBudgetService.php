@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * ELEV-27 — Orçamento conjunto de recursos da máquina.
  *
@@ -61,7 +63,7 @@ final class AtlasResourceBudgetService
             if (! is_array($component)) {
                 continue;
             }
-            $name = trim((string) ($component['name'] ?? ''));
+            $name = AiValueNormalizer::trimmedString($component['name'] ?? '');
             if ($name === '') {
                 continue;
             }

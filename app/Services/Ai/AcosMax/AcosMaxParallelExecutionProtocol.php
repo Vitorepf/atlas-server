@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AcosMax;
 
 use App\Services\Ai\AtlasAobgBlackboardService;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * TETO-06 — multi-engine parallel execution protocol for ACOS Max.
@@ -28,7 +29,7 @@ final class AcosMaxParallelExecutionProtocol
     public static function familyClaimTarget(int $lote, string $family): string
     {
         $lote = max(0, $lote);
-        $family = strtoupper(trim($family));
+        $family = AiValueNormalizer::upperTrimmedString($family);
 
         return sprintf('acos-max:lote-%d:family:%s', $lote, $family);
     }
@@ -53,8 +54,8 @@ final class AcosMaxParallelExecutionProtocol
      */
     public function claimFamily(string $engine, int $lote, string $family, array $opts = []): array
     {
-        $engine = strtolower(trim($engine));
-        $family = strtoupper(trim($family));
+        $engine = AiValueNormalizer::lowerTrimmedString($engine);
+        $family = AiValueNormalizer::upperTrimmedString($family);
         $target = self::familyClaimTarget($lote, $family);
         $ttl = (int) ($opts['ttl'] ?? self::DEFAULT_TTL_SECONDS);
 
@@ -89,7 +90,7 @@ final class AcosMaxParallelExecutionProtocol
         }
 
         $conflictEngine = is_array($result['conflict'] ?? null)
-            ? strtolower(trim((string) ($result['conflict']['engine'] ?? '')))
+            ? AiValueNormalizer::lowerTrimmedString($result['conflict']['engine'] ?? '')
             : '';
 
         return [
@@ -120,7 +121,7 @@ final class AcosMaxParallelExecutionProtocol
     {
         $target = self::familyClaimTarget($lote, $family);
         $released = $this->blackboard->releaseActiveForTargets(
-            strtolower(trim($engine)),
+            AiValueNormalizer::lowerTrimmedString($engine),
             self::CLAIM_KIND,
             [$target],
             $opts,

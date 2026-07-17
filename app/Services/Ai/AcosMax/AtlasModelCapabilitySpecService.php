@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
 
 /**
@@ -38,7 +39,7 @@ final class AtlasModelCapabilitySpecService
     /** @return array<string, mixed> */
     public function specFor(string $function): array
     {
-        $key = strtolower(trim($function));
+        $key = AiValueNormalizer::lowerTrimmedString($function);
         if (! array_key_exists($key, $this->functions)) {
             throw new RuntimeException('unknown_model_function:'.$function);
         }
@@ -62,7 +63,7 @@ final class AtlasModelCapabilitySpecService
         $spec = $this->specFor($function);
         $violations = [];
 
-        $modelId = trim((string) ($model['model_id'] ?? ''));
+        $modelId = AiValueNormalizer::trimmedString($model['model_id'] ?? '');
         if ($modelId === '') {
             $violations[] = [
                 'field' => 'model_id',
@@ -110,7 +111,7 @@ final class AtlasModelCapabilitySpecService
 
         return [
             'status' => $violations === [] ? 'ok' : 'violates_spec',
-            'function' => strtolower(trim($function)),
+            'function' => AiValueNormalizer::lowerTrimmedString($function),
             'model_id' => $modelId !== '' ? $modelId : 'unknown',
             'violations' => $violations,
         ];
@@ -241,7 +242,7 @@ final class AtlasModelCapabilitySpecService
         if ($allowed === []) {
             return [];
         }
-        $license = strtolower(trim((string) ($model['license'] ?? '')));
+        $license = AiValueNormalizer::lowerTrimmedString($model['license'] ?? '');
         if ($license === '') {
             return [[
                 'field' => 'license',

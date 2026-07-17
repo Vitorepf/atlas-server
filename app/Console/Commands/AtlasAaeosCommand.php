@@ -48,6 +48,7 @@ final class AtlasAaeosCommand extends Command
         {--quality-bar= : JSON file with quality-bar telemetry (observe-only M5 contract)}
         {--architect-spec-pack= : JSON file with architect spec-pack gate payload (observe-only M1)}
         {--predicted-impact= : JSON file with predicted-impact candidate (observe-only band classify)}
+        {--pre-review= : JSON file with pre-review advisory features (observe-only MULTN15-08)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -269,6 +270,17 @@ final class AtlasAaeosCommand extends Command
             $report['observe'] = array_merge(
                 is_array($report['observe'] ?? null) ? $report['observe'] : [],
                 ['predicted_impact_band' => $gates->predictedImpactBandObserve($candidate)],
+            );
+        }
+        $preReviewPath = (string) ($this->option('pre-review') ?? '');
+        if ($preReviewPath !== '') {
+            $features = $this->loadJsonFile($preReviewPath);
+            if ($features === null) {
+                return $this->failWith('universal-gates --pre-review must be a readable JSON object');
+            }
+            $report['observe'] = array_merge(
+                is_array($report['observe'] ?? null) ? $report['observe'] : [],
+                ['pre_review_advisory' => $gates->preReviewAdvisoryObserve($features)],
             );
         }
         $this->emit($report, $json);

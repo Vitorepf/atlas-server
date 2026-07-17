@@ -6,6 +6,7 @@ namespace App\Services\Ai\AgenticEngineeringOs;
 
 use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
 use App\Services\Ai\AcosMax\PredictedImpactBand;
+use App\Services\Ai\AcosMax\PreReviewAdvisoryBand;
 
 /**
  * Atlas Universal Gates Evaluator — produces `atlas.aaeos.gate_report.v1`
@@ -257,6 +258,18 @@ final class AtlasUniversalGatesEvaluator
     public function predictedImpactBandObserve(array $candidate): array
     {
         return PredictedImpactBand::classify($candidate);
+    }
+
+    /**
+     * Observe-only projection of pre-review advisory features into the
+     * MULTN15-08 band shape. Does not add a universal-gate id.
+     *
+     * @param  array<string,mixed>  $features
+     * @return array<string,mixed>
+     */
+    public function preReviewAdvisoryObserve(array $features): array
+    {
+        return PreReviewAdvisoryBand::judge($features);
     }
 
     /**

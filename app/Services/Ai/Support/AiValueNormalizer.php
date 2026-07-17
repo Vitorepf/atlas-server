@@ -51,4 +51,9 @@ final class AiValueNormalizer
     {
         return strtolower(self::trimmedString($value));
     }
+
+    public static function upperTrimmedString(mixed $value): string
+    {
+        return strtoupper(self::trimmedString($value));
+    }
 }

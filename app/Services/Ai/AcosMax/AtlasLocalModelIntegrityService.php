@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * ELEV-19 — Manifest de integridade dos modelos locais.
  *
@@ -41,7 +43,7 @@ final class AtlasLocalModelIntegrityService
     {
         $artifacts = (array) ($this->manifest['artifacts'] ?? []);
         $rows = array_values(array_map(function ($entry): array {
-            return $this->verifyOne(is_array($entry) ? $entry : []);
+            return $this->verifyOne(AiValueNormalizer::arrayOrEmpty($entry));
         }, $artifacts));
 
         $status = array_count_values(array_map(static fn (array $row): string => (string) $row['status'], $rows));
@@ -63,9 +65,9 @@ final class AtlasLocalModelIntegrityService
      */
     public function verifyOne(array $entry): array
     {
-        $modelId = trim((string) ($entry['model_id'] ?? ''));
-        $path = trim((string) ($entry['path'] ?? ''));
-        $pin = strtolower(trim((string) ($entry['sha256_pin'] ?? '')));
+        $modelId = AiValueNormalizer::trimmedString($entry['model_id'] ?? '');
+        $path = AiValueNormalizer::trimmedString($entry['path'] ?? '');
+        $pin = AiValueNormalizer::lowerTrimmedString($entry['sha256_pin'] ?? '');
 
         $row = [
             'model_id' => $modelId !== '' ? $modelId : 'unknown',

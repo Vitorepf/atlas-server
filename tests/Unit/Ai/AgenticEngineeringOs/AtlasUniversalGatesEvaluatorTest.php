@@ -9,6 +9,7 @@ use App\Services\Ai\AgenticEngineeringOs\AtlasUniversalGatesEvaluator;
 use App\Services\Ai\AgenticEngineeringOs\DeliveryPackCompletenessScorer;
 use App\Services\Ai\AgenticEngineeringOs\QualityBarTelemetryContract;
 use App\Services\Ai\AcosMax\PredictedImpactBand;
+use App\Services\Ai\AcosMax\PreReviewAdvisoryBand;
 use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
 use InvalidArgumentException;
 use Tests\TestCase;
@@ -187,5 +188,20 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('high', $payload['band']);
         $this->assertSame('obra', $payload['components']['rung']);
         $this->assertFalse($payload['source']['influences_pick']);
+    }
+
+    public function test_pre_review_advisory_observe_judges_features(): void
+    {
+        $payload = $this->svc->preReviewAdvisoryObserve([
+            'target_class' => 'ops',
+            'risk_band' => 'high',
+            'confidence_band' => 'sweet',
+            'similar_revert_rate' => 0.4,
+            'n_similar' => 3,
+        ]);
+
+        $this->assertSame(PreReviewAdvisoryBand::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('insufficient_sample', $payload['basis']);
+        $this->assertFalse($payload['source']['blocks_auto_apply']);
     }
 }

@@ -8,6 +8,7 @@ use App\Console\Commands\AtlasAcosFreezeCommand;
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\EngineeringKernel\Coverage\EngineeringExecutionSurfaceRegistry;
 use App\Services\Ai\EngineeringKernel\KernelEvidenceAuthority;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Throwable;
@@ -181,8 +182,8 @@ final class AcosMaxVerifiedShareService
     /** @param array<string,mixed> $row */
     private function judgeAuthorDistinct(array $row): bool
     {
-        $author = trim((string) ($row['author_engine_id'] ?? ''));
-        $judge = trim((string) ($row['judge_engine_id'] ?? ''));
+        $author = AiValueNormalizer::trimmedString($row['author_engine_id'] ?? '');
+        $judge = AiValueNormalizer::trimmedString($row['judge_engine_id'] ?? '');
 
         return $author !== '' && $judge !== '' && $author !== $judge;
     }
