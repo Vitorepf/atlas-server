@@ -376,7 +376,7 @@ final class AtlasLearningProposalsService
         if ($kind === null) {
             return null;
         }
-        $kind = strtolower($kind);
+        $kind = AiValueNormalizer::lowerTrimmedString($kind);
 
         if (in_array($kind, self::CRITICAL_KINDS, true) || in_array($kind, self::NON_CRITICAL_KINDS, true)) {
             return $kind;

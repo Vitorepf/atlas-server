@@ -453,10 +453,10 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
         if (! in_array($k, $allowedKinds, true)) {
             $errors[] = 'unknown_forgetting_kind';
         }
-        if (trim($reason) === '') {
+        if (AiValueNormalizer::trimmedStringOrNull($reason) === null) {
             $errors[] = 'missing_reason';
         }
-        if (trim($evidenceRef) === '') {
+        if (AiValueNormalizer::trimmedStringOrNull($evidenceRef) === null) {
             $errors[] = 'missing_evidence';
         }
 

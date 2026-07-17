@@ -69,6 +69,7 @@ final class AtlasAaeosCommand extends Command
         {--memory-recall-rank= : JSON file with memory candidate rows (observe-only recall rank)}
         {--portfolio-budget= : JSON file with portfolio allocation input (observe-only MULTK-06)}
         {--ambition-rung= : JSON file with ambition rung candidates + context (observe-only)}
+        {--domain-lexical= : JSON file with query + fields (observe-only domain lexical score)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -294,6 +295,7 @@ final class AtlasAaeosCommand extends Command
             ['memory-recall-rank', 'memory_recall_rank', fn (array $p) => $gates->memoryRecallRankObserve($p)],
             ['portfolio-budget', 'portfolio_budget', fn (array $p) => $gates->portfolioBudgetObserve($p)],
             ['ambition-rung', 'ambition_rung', fn (array $p) => $gates->ambitionRungObserve($p)],
+            ['domain-lexical', 'domain_lexical', fn (array $p) => $gates->domainLexicalObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

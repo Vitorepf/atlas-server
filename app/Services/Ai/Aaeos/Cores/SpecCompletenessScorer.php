@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Cores;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class SpecCompletenessScorer
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.spec_completeness_score.v1';
@@ -145,7 +147,7 @@ final class SpecCompletenessScorer
             return [false, false, 'absent'];
         }
 
-        $trimmed = trim($value);
+        $trimmed = AiValueNormalizer::trimmedString($value);
 
         if ($trimmed === '') {
             return [false, false, 'absent'];
@@ -181,7 +183,7 @@ final class SpecCompletenessScorer
     {
         foreach ($items as $item) {
             if (is_string($item)) {
-                if (mb_strlen(trim($item)) >= self::TEXT_MIN_LENGTH) {
+                if (mb_strlen(AiValueNormalizer::trimmedString($item)) >= self::TEXT_MIN_LENGTH) {
                     return true;
                 }
 
@@ -205,7 +207,7 @@ final class SpecCompletenessScorer
 
         foreach ($items as $item) {
             if (is_string($item)) {
-                if (trim($item) !== '') {
+                if (AiValueNormalizer::trimmedStringOrNull($item) !== null) {
                     $count++;
                 }
 

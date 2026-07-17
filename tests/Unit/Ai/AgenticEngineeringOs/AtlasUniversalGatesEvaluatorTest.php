@@ -23,6 +23,7 @@ use App\Services\Ai\Aaeos\Cores\ContextParetoDominanceFilter;
 use App\Services\Ai\Aaeos\Cores\AtlasMemoryRecallRelevanceScorer;
 use App\Services\Ai\AcosMax\PortfolioBudgetAllocator;
 use App\Services\Ai\AcosMax\AmbitionRungPolicy;
+use App\Services\Ai\AcosMax\DomainLexicalNormalizer;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -545,5 +546,17 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AmbitionRungPolicy::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('s1', $payload['selected_id']);
         $this->assertSame('rung_up_after_saturation', $payload['basis']);
+    }
+
+    public function test_domain_lexical_observe_scores_query(): void
+    {
+        $payload = $this->svc->domainLexicalObserve([
+            'query' => 'memoria do cerebro',
+            'fields' => ['memory brain pipeline'],
+        ]);
+
+        $this->assertSame(DomainLexicalNormalizer::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertGreaterThan(0.0, $payload['score']);
+        $this->assertContains('memory', $payload['tokens']);
     }
 }

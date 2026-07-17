@@ -19,6 +19,7 @@ use App\Services\Ai\AcosMax\DogfoodingFrictionLeadMiner;
 use App\Services\Ai\AcosMax\ReactiveSaturationSignal;
 use App\Services\Ai\AcosMax\PortfolioBudgetAllocator;
 use App\Services\Ai\AcosMax\AmbitionRungPolicy;
+use App\Services\Ai\AcosMax\DomainLexicalNormalizer;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -645,6 +646,34 @@ final class AtlasUniversalGatesEvaluator
 
         /** @var list<array<string,mixed>> $candidates */
         return AmbitionRungPolicy::select($candidates, $context);
+    }
+
+    /**
+     * Observe-only MAXB10 domain lexical normalizer score/tokens.
+     * Accepts `{query:string, fields?:[...]}` (or `contract_only`/`mode=contract`).
+     * Does not add a universal-gate id (catalogue stays 15).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function domainLexicalObserve(array $input): array
+    {
+        if (($input['contract_only'] ?? false) === true
+            || AiValueNormalizer::lowerTrimmedString($input['mode'] ?? '') === 'contract') {
+            return DomainLexicalNormalizer::contract();
+        }
+
+        $query = AiValueNormalizer::trimmedString($input['query'] ?? '');
+        $fields = AiValueNormalizer::arrayOrEmpty($input['fields'] ?? null);
+
+        return [
+            'schema_version' => DomainLexicalNormalizer::SCHEMA_VERSION,
+            'formula_version' => DomainLexicalNormalizer::FORMULA_VERSION,
+            'query' => $query,
+            'score' => DomainLexicalNormalizer::score($query, $fields),
+            'tokens' => DomainLexicalNormalizer::tokens($query),
+            'contract' => DomainLexicalNormalizer::contract(),
+        ];
     }
 
     /**
