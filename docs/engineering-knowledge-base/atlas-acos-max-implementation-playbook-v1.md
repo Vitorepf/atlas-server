@@ -218,7 +218,18 @@ MAXA: `04→08` · MAXB: `03→04→05→06→07→10` · MAXC: `03/05→04` · 
 ### LOTE 12 — Fecho (o mesmo corte)
 Rodar TODOS os critérios: §vii 1-10 + §viii 11-17 + pétreos §xiii — verdes NO MESMO CORTE, hashes carimbados. `MAXG-08`+`MAXL-10` (Marco Zero v2 — gatilho: veredito ADV-01). Entregar ao operador o checklist do flip REC-04 (M>1, R>0, freios verdes) — **a chave é dele**.
 
-### 5.5 INVENTÁRIO COMPLETO — os 245 slices → lote (a prova de cobertura 100%)
+### 5.5 INVENTÁRIO COMPLETO — os 255 slices → lote (a prova de cobertura 100%)
+
+> **⚠️ ERRATA DE AGENDA v2 (12/07 — reconciliação forward-deps; ESTA ERRATA VENCE a célula do inventário abaixo quando divergirem):** a auditoria adversarial achou slices agendados ANTES de seus produtores. Correções autoritativas — não implementar o slice antes do lote corrigido:
+> - **MULTV-10** (o seam de enforce do land): a célula diz L4, mas suas deps MULTV-01 (L7) e MULTV-02 (L9) não existem antes. **CORRIGIDO: MULTV-10 → L9**; o flip de enforce ASI-10 que o consome também escorrega para **≥L9** (o flip só faz sentido com o seam pronto). Em L4, no máximo um stub fail-closed inerte.
+> - **MAXL-06** (evidência causal report-only): célula L2/onda M1, mas deps MAXL-04 (L7) + ASI-11 (L8). **CORRIGIDO: MAXL-06 → L7, onda M4** (a série v2 do MAXL-04 é insubstituível para o delta; sem degrade possível).
+> - **RAGX-01** (late-chunking): célula L5, mas a feature real exige o ctx 8k do jina-v3 (MAXA-04, L7). **CORRIGIDO: RAGX-01 → L7** (ou stub-OFF byte-idêntico em L5 + flip em L7; nunca contar a feature como viva em L5).
+> - **MULTJ-02** (dedup pré-promoção): a dep MAXA-04 foi REMOVIDA no plano (usa o `AtlasMemoryVectorSearchService` vivo). **MANTÉM L2** — válido sem MAXA-04.
+> - **ASI-13/15/12** (L8) são deps de consumidores em L6/L7 (MAXN-02, MAXI-08, MULTK-03/04, ESP-09, MULTN17-04). **Regra: essas deps são ADVISORY/degrade** — o consumidor LANDA seu mecanismo em L6/L7 (o bloco self_model/banda/série wira quando o ASI correspondente aterrissar); NÃO são arestas de build. Se preferir zero-degrade, antecipe ASI-13/15 para L7.
+> - **ESP-01/03/04/05**: a cadeia ESP tem forward-deps reais (ESP-01→MULTX-03 L7; ESP-03→MULTV-01 L7; ESP-05→ESP-04 L6; ESP-04→MULTV-01 L7). **Regra: onde a dep é "harmonizar com" (ESP-01 grava attempt_started e MULTX-03 harmoniza o shape depois) o slice landa cedo com degrade; onde é aresta dura (ESP-03 precisa do receipt MULTV-01 para a camada `suite`; ESP-04 idem) o slice escorrega para ≥L7.** Reconciliação por slice: ESP-01 fica em L1 (attempt_started é fundacional; MULTX-03 harmoniza em L7), ESP-03→L7, ESP-04→L7, ESP-05→L7.
+> - **MAXH-02/05**: NÃO há ciclo de build — MAXH-02 fecha em L5 com aceite determinístico próprio; a validação via recall do MAXH-05 é E2E posterior (L6). Já corrigido no corpo do plano.
+> - **TETO-08→MULTX-01, ESP-07→MAXJ-03**: forward-dep de +1 com degrade ("à medida que landam"); **OK landar cedo**, o campo fica `unavailable` até a fonte chegar.
+
 
 > Este inventário é a AUTORIDADE de atribuição slice→lote (as listas narrativas dos lotes acima derivam dele; divergência entre lista e inventário ⇒ inventário vence). **100% = toda célula desta tabela com estado terminal no scoreboard.** Slices com 2 lotes (freeze/série, scaffold/fecho, fase 1/2) contam terminal só quando as DUAS partes fecham.
 
@@ -231,24 +242,24 @@ Rodar TODOS os critérios: §vii 1-10 + §viii 11-17 + pétreos §xiii — verde
 | **MAXE** (8) | 01→L0 · 02→L0 · 03→L0 · 04→L3 · 05→L3 · 06→L7 · 07→L7 · 08→L7 |
 | **MAXF** (11) | 01→L0 · 02→L7 · 03→L7 · 04→L7 · 05→L7 · 06→L7 · 07→L7 · 08→L7 · 09→L10 · 10→L7 · 11→L10 (SÓ pós-enforce CPT-09) |
 | **MAXG** (10) | 01→L0(mín)+L2(completo) · 02→L2 · 03→L9 · 04→L2 · 05→L9 · 06→L9 · 07→L9 · 08→L12 · 09→L3 · 10→L3 |
-| **ASI** (18) | 01→L1 · 02→L1 · 03→L1 · 04→L1 · 05→L1 · 06→L4 · 07→L4 · 08→L4 · 09→L4 · 10→L4 (flip pós-MULTV-10, janela própria) · 11→L8 (movimento 1 = linhagem JÁ em L4 via ELEV-15) · 12→L8 · 13→L8 · 14→L8 · 15→L8 · 16→L11 · 17→L11 · 18→L11 |
+| **ASI** (18) | 01→L1 · 02→L1 · 03→L1 · 04→L1 · 05→L1 · 06→L4 · 07→L4 · 08→L4 · 09→L4 · 10→**L9** (flip de enforce pós-MULTV-10@L9 — ver ERRATA; janela própria) · 11→**L4(linhagem via ELEV-15)+L8(rollback composto)** · 12→L8 · 13→L8 · 14→L8 · 15→L8 · 16→L11 · 17→L11 · 18→L11 |
 | **MAXH** (10) | 01→L2 · 02→L5 · 03→L3 · 04→L6 · 05→L6 · 06→L7 · 07→L9 · 08→L9 · 09→L9 · 10→L9 |
 | **MAXI** (9) | 01→L1 · 02→L2 · 03→L2 · 04→L5 · 05→L7 · 06→L7 · 07→L7 · 08→L7 · 09→L9 |
 | **MAXJ** (8) | 01→L2 · 02→L6 · 03→L7 · 04→L7 · 05→L2 · 06→L7 · 07→L9 · 08→L9 |
 | **MAXK** (9) | 01→L2 · 02→L7 · 03→L7 · 04→L2 · 05→L3 · 06→L3 · 07→L1 · 08→L8 · 09→L9 |
-| **MAXL** (10) | 01→L1 · 02→L1 · 03→L7 · 04→L7 · 05→L7 · 06→L2 · 07→L7 · 08→L7 · 09→L9 · 10→L12 |
+| **MAXL** (10) | 01→L1 · 02→L1 · 03→L7 · 04→L7 · 05→L7 · 06→**L7** (corrigido de L2 — dep MAXL-04@L7+ASI-11@L8; ver ERRATA) · 07→L7 · 08→L7 · 09→L9 · 10→L12 |
 | **MAXM** (8) | 01→L5 · 02→L7 · 03→L7 · 04→L7 · 05→L3 · 06→L7 · 07→L7 · 08→L3 |
 | **MAXN** (6) | 01→L1 · 02→L7 · 03→L3(scaffold)+L7(fecho) · 04→L6 · 05→L7 · 06→L7 |
-| **RAGX** (11) | 01→L5 · 02→L10 · 03→L10 · 04→L10 (candidato-a-corte declarado) · 05→L10 · 06→L10 · 07→L10 · 08→L7 · 09→L10 · 10→L10 · 11→L10 |
+| **RAGX** (11) | 01→**L7** (corrigido de L5 — late-chunking exige ctx 8k do jina-v3@MAXA-04/L7; stub-OFF em L5 se quiser; ver ERRATA) · 02→L10 · 03→L10 · 04→L10 (candidato-a-corte declarado) · 05→L10 · 06→L10 · 07→L10 · 08→L7 · 09→L10 · 10→L10 · 11→L10 |
 | **ELEV novos** (12) | 02→L2 · 12→L2 · 17→L1 · 19→L3 · 20s→L2 · 21→L5 · 22→L0 · 24→L3 · 25→L2 · 26s→L3 · 27→L3 · 29s→L3 — (ELEV-16 não é slice: é o floor intermediário DENTRO do MAXG-10) |
 | **MULTJ** (9) | 01→L2 · 02→L2 · 03→L2 (réguas antecipadas pela lei de intercalação) · 04→L10 · 05→L10 · 06→L10 · 07→L10 · 08→L10 · 09→L10 (nasce `suspended` ELEV-28) |
 | **MULTK** (8) | 01→L2 · 02→L7 · 03→L7 · 04→L7 · 05→L9 · 06→L10 · 07→L9 · 08→L10 |
 | **MULTH** (8) | 01→L7 · 02→L7 · 03→L7 · 04→L9 · 05→L9 · 06→L9 · 07→L7 · 08→L10 |
 | **MULTN17** (8) | 01→L7 · 02→L9 · 03→L6 · 04→L2(freeze)+L7(curva) · 05→L10 · 06→L10 · 07→L7 · 08→L7 |
 | **MULTN15** (8) | 01→L2 · 02→L2 · 03→L7 · 04→L7 · 05→L9 · 06→L3 · 07→L7 · 08→L10 |
-| **MULTV** (10) | 01→L7 · 02→L9 · 03→L9 · 04→L10 · 05→L7 · 06→L10 · 07→L7 · 08→L10 · 09→L9 · 10→L4(seam; o flip é do ASI-10) |
+| **MULTV** (10) | 01→L7 · 02→L9 · 03→L9 · 04→L10 · 05→L7 · 06→L10 · 07→L7 · 08→L10 · 09→L9 · 10→**L9** (corrigido de L4 — deps MULTV-01@L7+MULTV-02@L9; o flip ASI-10 escorrega junto para L9; ver ERRATA) |
 | **MULTX** (9) | 01→L2(freeze)+L6(série cheia) · 02→L7 · 03→L7 · 04→L7 · 05→L9 · 06→L2(freeze)+L7(série) · 07→L10 · 08→L10 · 09→L3 |
-| **ESP** (13 + marco) | 00→L0 · 01→L1 · 02→L3 · 03→L3 · 04→L6 · 05→L3 · 06→L7 · 07→L6 · 08→L6 · 09→L6 · 10→L9 · 11→L9 · 12→L9 · **MARCO ESP-V1→L6 (gate F1→F2)** |
+| **ESP** (13 + marco) | 00→L0 · 01→L1 (attempt_started fundacional; MULTX-03 harmoniza o shape em L7 — degrade) · 02→L3 · 03→**L7** (corrigido de L3 — precisa do receipt MULTV-01@L7 p/ a camada `suite`; ver ERRATA) · 04→**L7** (corrigido de L6 — dep MULTV-01@L7) · 05→**L7** (corrigido de L3 — dep ESP-04@L7) · 06→L7 · 07→L6 · 08→L6 · 09→L6 · 10→L9 · 11→L9 · 12→L9 · **MARCO ESP-V1→L6 (gate F1→F2)** |
 | **REC** (6) | 01→L9 · 02→L9 · 03→L9 · 04→L10(shadow)+L12(flip = OPERADOR) · 05→L9 · 06→L10 |
 | **TETO** (10) | 01→L5 · 02→L2 · 03→L7 · 04→L10 (gated MARCO ESP-V1) · 05→L1 (cadência por fecho de lote) · 06→L0 · 07→L10 · 08→L3 · 09→L0 · 10→L9 |
 
@@ -287,7 +298,7 @@ Lote: <n> — <x/y slices terminais> | Gates verdes: <lista>
 ```
 A cada 3 slices: mini-resumo do lote + qualquer flip pendente do operador. Ao fechar um LOTE: checklist do gate, item a item, com evidência.
 
-**SCOREBOARD DURÁVEL (obrigatório — a memória entre sessões e entre IAs):** JÁ EXISTE em `docs/engineering-knowledge-base/atlas-acos-max-execution-scoreboard-v1.md` (245/245 em `pending`, organizado por lote com os gates), derivado do inventário 5.5, com estado por slice (`pending | in_progress | landed(<sha>) | suspended(ELEV-28) | refutado | blocked_by:<dep> | pending_window:<janela>`). TODA mudança de estado atualiza o scoreboard NO MESMO commit do slice. Uma IA nova retoma a execução lendo APENAS: plano + playbook + scoreboard — zero dependência de conversa anterior. O scoreboard nunca reordena lotes nem edita aceites: é estado, não spec.
+**SCOREBOARD DURÁVEL (obrigatório — a memória entre sessões e entre IAs):** JÁ EXISTE em `docs/engineering-knowledge-base/atlas-acos-max-execution-scoreboard-v1.md` (255/255, organizado por lote com os gates; começou 255/255 em `pending` e é atualizado ao vivo pelo executor), derivado do inventário 5.5, com estado por slice (`pending | in_progress | landed(<sha>) | suspended(ELEV-28) | refutado | blocked_by:<dep> | pending_window:<janela>`). TODA mudança de estado atualiza o scoreboard NO MESMO commit do slice. Uma IA nova retoma a execução lendo APENAS: plano + playbook + scoreboard — zero dependência de conversa anterior. O scoreboard nunca reordena lotes nem edita aceites: é estado, não spec.
 
 ## 10. Armadilhas conhecidas (gotchas — decorar antes do Lote 0)
 
@@ -316,13 +327,16 @@ A cada 3 slices: mini-resumo do lote + qualquer flip pendente do operador. Ao fe
 | ADV-01 | Re-prova adversarial externa dos certificadores | MAXG-08, MAXL-10, L12 |
 | WDG-01 | Registry único de checks (watchdog) — em voo na working tree | todos os plugins de check |
 | RAG-05 | Golden set v1 CONGELADO (mede 0.0 — NUNCA é régua de A/B, só regressão de floor) | ELEV-01 |
+| RAG-09 | Linker evidence→memória/módulo do AURG (onda 0) | MAXD-02 (estende com trace/receipt) |
+| RAG-* (geral) | qualquer RAG-NN não-listado: resolver por `rg "RAG-NN" docs/…/atlas-acos-excellence-10-10-plan-v1.md` (a §11 lista exemplos, não é exaustiva — regra do cabeçalho) |
 | COM-01..11 | Ledger de pack entregue, refs canônicos, utility explícita, políticas measured-only | MAXE, MULTX-01/04, ARFL |
-| MEM-02/03/05 | Curadoria, sensor de concentração 45d (congelado), re-hidratação de texto | MAXH, MAXA-04/05 |
+| MEM-02/03/04/05/06 | Curadoria (MEM-02/06), sensor de concentração 45d congelado (MEM-03), self-retrieval sanity (MEM-04), re-hidratação de texto (MEM-05) | MAXH, MAXA-04/05, MAXB-05, MAXG-04 |
 | CORP-01 | Crescimento de corpus por admissão gated | ELEV-21, golden v2 |
 | FEE-03/04/11/12/13 | Floors de feedback, flip do ranking, digest semanal, lift | MAXJ, MULTJ, ELEV-25 |
 | OUTC-01 | Espinha de outcomes dos 3 executores | MULTX, ESP, MAXJ, MAXK |
 | EVI-01/04/05/06/07/09 | Ledger de gaps, delta-series, anti-backfill, gate longitudinal | MAXL, MAXG-08 |
-| ENG-13/14/15 + PIP-07 + CPT-09/10 | Flips de verificação/certificação do v1 (onda 5) | ASI-10, MAXF-11, L4 |
+| ENG-08 + ENG-13/14/15 + PIP-07 + CPT-09/10 | Rotas proven_real (ENG-08/15) + flips de verificação/certificação do v1 (onda 5) | ASI-10, ASI-13, MAXF-11, L4 |
+| *(regra §11)* | esta tabela lista EXEMPLOS por família, não é censo; toda dep v1 não-listada resolve-se por `rg "<ID>"` no doc do v1 (`atlas-acos-excellence-10-10-plan-v1.md`) — NUNCA implementar dep v1, só CHECAR estado |
 | SUB-01 | Snapshots verificáveis pré-mudança destrutiva | MAXN-01, ELEV-17, MULTV-04 |
 | VOL-01 / OPE-05/07 | Volume/preflight do músculo; telemetria MCP | ASI-06, MAXM-07/08 |
 
@@ -339,6 +353,26 @@ A cada 3 slices: mini-resumo do lote + qualquer flip pendente do operador. Ao fe
 | AVCEL / ACQCG | Execução-verificada (shadow estrutural) / certificação de qualidade de contexto |
 | AEMOR / ADML | Outcomes de execução de engenharia / feedback vivo do Atlas Decide (`live_outcomes.jsonl`) |
 | AUCRI | Enforcement de contexto pré-provider (18 blocos) |
+| ARLCG | Governador de custo/latência de retrieval (`AtlasRetrievalCostLatencyGovernorService`) — hoje reporta latência SIMULADA; MAXG-02 o liga à medição real |
+| AREBA | Arena de avaliação de retrieval (`AtlasRetrievalEvaluationBenchmarkArenaService`) — roda ~800-2k×/dia dentro do enforce, cronicamente `blocked`; MAXG-09 tira do hot path |
+| ACOP | Plano de observabilidade de contexto (`AtlasContextObservabilityPlaneService`) — foto instantânea cara (~22s), não longitudinal |
+| ACMF | Cognitive Memory Fabric (`AtlasCognitiveMemoryFabricService` + working set) — simulador/working-memory de sessão, hoje sem writer real; MAXE-06 dá o primeiro |
+| ASEF | Semantic Embedding Foundation (`AtlasSemanticEmbeddingFoundationService`) — chunker determinístico, hoje manifest-only (não persiste em pgvector); MAXA-05 o vira índice real |
+| AARF | O "Agentic RAG Framework" nominal (`AtlasAgenticRagFrameworkService`) — auto-confessado `is_agentic=false`: é checker determinístico de cobertura de fontes, não agente |
+| ATER | Token-Economy Runtime (alocação de tokens por flow×risk) — o pack AOBG NÃO passa por ele hoje |
+| ACCR | Context Compiler Runtime (`AtlasContextCompilerRuntimeService`) — caminho AUCRI, não o hook |
+| AGRN / GRN | Graph Retrieval Network (`AtlasGraphRetrievalNetworkService`) — check de prontidão do AUCRI (verdict), NÃO retrieval; `max_depth=1` hardcoded |
+| ACIE | Compaction/Intelligence Engine — os 4 mecanismos de compactação da área 8 (seção MAX-F) |
+| APDR | Python Data Retrieval Runtime — a fundação de runtime Python governado; o daemon MAXA-01 herda sua governança de ASI-16/18/ELEV-19 |
+| RRF | Reciprocal Rank Fusion — fusão cross-source parameter-free (`Σ 1/(k+rank)`); resolve escalas incomparáveis sem pesos aprendidos |
+| FTS | Full-Text Search (Postgres `tsvector`+GIN) — braço lexical honesto (substitui substring-containment) |
+| SPLADE / BM42 | Embeddings ESPARSOS aprendidos (via `SparseTextEmbedding` do fastembed + `sparsevec` do pgvector) — termo-exato aprendido; RAGX-11 |
+| LTR | Learning-to-Rank — pesos de fusão aprendidos offline por replay (regressão logística), nunca online |
+| PPR | Personalized PageRank (`nx.pagerank(personalization=seeds)`) — retrieval estrutural no grafo além do raio-2 do BFS; MAXD-04 |
+| HyDE | Hypothetical Document Embedding — gera doc hipotético local p/ query vaga e funde por RRF; RAGX-04 (candidato a corte) |
+| CRAG | Corrective RAG — grade de relevância por item + refino de passagem; RAGX-03 (versão determinística "lite") |
+| RAPTOR | Nós de sumário de cluster indexados (recall temático entre chunk e corpus); RAGX-10, pós-corpus |
+| late-chunking | embeda o doc inteiro em 1 forward e mean-pool por span → cada chunk carrega o contexto do doc, provider-free; RAGX-01 |
 | OUTC-01 espinha | O recorder único de outcomes (`AtlasEngineeringOutcomeRecorder`) |
 | G0–G8 | Gates da imunidade cognitiva na admissão de memória |
 | R8 / golden set | Corpus de precisão independente / set congelado de recall com juiz |

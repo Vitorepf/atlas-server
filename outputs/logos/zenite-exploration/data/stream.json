@@ -1,0 +1,40 @@
+{
+  "meta": {
+    "title": "Creative Production Review",
+    "summary": "Review, select, and hand off generated Creative Production images.",
+    "source": "review_renderer",
+    "itemCount": 3
+  },
+  "items": [
+    {
+      "id": "circumflex-apex",
+      "title": "Circunflexo-Z",
+      "caption": "",
+      "tone": "",
+      "prompt": "",
+      "imageUrl": "/generated/mcp-thumbs/circumflex-apex.jpg",
+      "previewImageUrl": "/generated/mcp-thumbs/circumflex-apex.jpg",
+      "sourceImageUrl": "/generated/circumflex-apex.png"
+    },
+    {
+      "id": "celestial-point",
+      "title": "Ponto Celeste",
+      "caption": "",
+      "tone": "",
+      "prompt": "",
+      "imageUrl": "/generated/mcp-thumbs/celestial-point.jpg",
+      "previewImageUrl": "/generated/mcp-thumbs/celestial-point.jpg",
+      "sourceImageUrl": "/generated/celestial-point.png"
+    },
+    {
+      "id": "personal-orbit-v2",
+      "title": "\u00d3rbita Pessoal",
+      "caption": "",
+      "tone": "",
+      "prompt": "",
+      "imageUrl": "/generated/mcp-thumbs/personal-orbit-v2.jpg",
+      "previewImageUrl": "/generated/mcp-thumbs/personal-orbit-v2.jpg",
+      "sourceImageUrl": "/generated/personal-orbit-v2.png"
+    }
+  ]
+}

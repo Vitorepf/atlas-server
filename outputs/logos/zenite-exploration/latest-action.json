@@ -1,0 +1,14 @@
+{
+  "id": "review-renderer-materialized",
+  "action": "write_moodboard_widget_payload",
+  "label": "Materialized Creative Production image review",
+  "createdAt": "2026-07-15T13:44:54.495770Z",
+  "timestamp": "2026-07-15T13:44:54.495770Z",
+  "title": "Creative Production Review",
+  "summary": "Review, select, and hand off generated Creative Production images.",
+  "itemCount": 3,
+  "runDirectory": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration",
+  "streamPath": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/data/stream.json",
+  "runStatePath": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/run-state.json",
+  "latestActionPath": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/latest-action.json"
+}

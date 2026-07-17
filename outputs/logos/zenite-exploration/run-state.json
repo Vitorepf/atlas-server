@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "runDirectory": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration",
+  "streamPath": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/data/stream.json",
+  "runStatePath": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/run-state.json",
+  "latestActionPath": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/latest-action.json",
+  "paths": {
+    "streamPath": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/data/stream.json",
+    "runStatePath": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/run-state.json",
+    "latestActionPath": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/latest-action.json"
+  },
+  "itemCount": 3,
+  "items": [
+    {
+      "id": "circumflex-apex",
+      "title": "Circunflexo-Z",
+      "caption": "",
+      "tone": "",
+      "prompt": "",
+      "imageUrl": "/generated/mcp-thumbs/circumflex-apex.jpg",
+      "previewImageUrl": "/generated/mcp-thumbs/circumflex-apex.jpg",
+      "sourceImageUrl": "/generated/circumflex-apex.png"
+    },
+    {
+      "id": "celestial-point",
+      "title": "Ponto Celeste",
+      "caption": "",
+      "tone": "",
+      "prompt": "",
+      "imageUrl": "/generated/mcp-thumbs/celestial-point.jpg",
+      "previewImageUrl": "/generated/mcp-thumbs/celestial-point.jpg",
+      "sourceImageUrl": "/generated/celestial-point.png"
+    },
+    {
+      "id": "personal-orbit-v2",
+      "title": "\u00d3rbita Pessoal",
+      "caption": "",
+      "tone": "",
+      "prompt": "",
+      "imageUrl": "/generated/mcp-thumbs/personal-orbit-v2.jpg",
+      "previewImageUrl": "/generated/mcp-thumbs/personal-orbit-v2.jpg",
+      "sourceImageUrl": "/generated/personal-orbit-v2.png"
+    }
+  ],
+  "visibleItemIds": [
+    "circumflex-apex",
+    "celestial-point",
+    "personal-orbit-v2"
+  ],
+  "hiddenImageIds": [],
+  "selectedImageIds": [],
+  "currentImageId": "circumflex-apex",
+  "updatedAt": "2026-07-15T13:44:54.495770Z"
+}

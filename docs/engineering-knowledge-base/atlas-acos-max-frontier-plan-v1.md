@@ -1,8 +1,37 @@
 # Atlas ACOS Max — Plano de Fronteira (v1)
 
-> Obra sucessora do plano `atlas-acos-excellence-10-10-plan-v1.md` (o "v1", 98 slices, em execução). O v1 leva o ACOS ao teto dos medidores atuais; **este plano sobe o teto** e cobre as **18 áreas inteiras** do ACOS em profundidade de fronteira, local-first. **~255 slices** em 9 famílias: MAXA..MAXG (cadeia de contexto, seção v) + ASI-01..18 (Programa ASI-Substrato, seção viii — a ordem MESTRA F0–F3 da auditoria de 5 lentes) + MAXH..MAXN (60 slices das 11 áreas restantes, seção ix) + RAGX-01..11 (RAG no auge absoluto, seção x) + ELEV-01..31 (elevações da revisão adversarial externa DUPLA — Fable + Codex, seção xi: 12 slices novos + ~18 elevações in-place aplicadas nos slices existentes) + MULT (60 slices do núcleo multiplicador em 7 catálogos — áreas 9/10/1+16/17/12/15 + Integração, seção xii) + ESP-00..12 + MARCO Vertical-1 (as 3 Espinhas compostas, seção xiii) + REC-01..06 (teto: Recursive Intelligence governada, seção xiv) + TETO-01..10 (os últimos degraus ao teto máximo — N-Capture Drill, mission_e2e, Trajectory Vault, 2º domínio, obra-retro, execução paralela, seção xv) — Memória/Consolidação, Captura&Imunidade, Aprendizado, Decisão/Governança, Evidência/Execução-Verificada, Porta&Provider, Modelo-do-Operador/Originação; verificados por 21 lentes adversariais + crítico global). Achado unânime dos leitores das 11 áreas: em TODAS o padrão é *construído+correto+DESLIGADO ao lado de dado vazio* — o caminho para o auge é ativação+endurecimento+medição honesta, não construção do zero.
+> Obra sucessora do plano `atlas-acos-excellence-10-10-plan-v1.md` (o "v1", 98 slices, em execução). O v1 leva o ACOS ao teto dos medidores atuais; **este plano sobe o teto** e cobre as **18 áreas inteiras** do ACOS em profundidade de fronteira, local-first. **255 slices** em 9 famílias: MAXA..MAXG (cadeia de contexto, seção v) + ASI-01..18 (Programa ASI-Substrato, seção viii — a ordem MESTRA F0–F3 da auditoria de 5 lentes) + MAXH..MAXN (60 slices das 11 áreas restantes, seção ix) + RAGX-01..11 (RAG no auge absoluto, seção x) + ELEV-01..31 (elevações da revisão adversarial externa DUPLA — Fable + Codex, seção xi: 12 slices novos + ~18 elevações in-place aplicadas nos slices existentes) + MULT (60 slices do núcleo multiplicador em 7 catálogos — áreas 9/10/1+16/17/12/15 + Integração, seção xii) + ESP-00..12 + MARCO Vertical-1 (as 3 Espinhas compostas, seção xiii) + REC-01..06 (teto: Recursive Intelligence governada, seção xiv) + TETO-01..10 (os últimos degraus ao teto máximo — N-Capture Drill, mission_e2e, Trajectory Vault, 2º domínio, obra-retro, execução paralela, seção xv) — Memória/Consolidação, Captura&Imunidade, Aprendizado, Decisão/Governança, Evidência/Execução-Verificada, Porta&Provider, Modelo-do-Operador/Originação; verificados por 21 lentes adversariais + crítico global). Achado unânime dos leitores das 11 áreas: em TODAS o padrão é *construído+correto+DESLIGADO ao lado de dado vazio* — o caminho para o auge é ativação+endurecimento+medição honesta, não construção do zero.
 
 > **EXECUÇÃO:** o roteiro executável deste plano (bootstrap de sessão, leis, protocolo por slice, ORDEM MESTRA em 13 lotes com gates, MARCO Vertical-1, gatilhos do operador, gotchas) vive em **`atlas-acos-max-implementation-playbook-v1.md`** — projeção deste plano para qualquer IA implementar 100%. Em divergência, ESTE plano vence e a divergência vira gap no ledger.
+
+> **ECOSSISTEMA DE DOCS (5 arquivos):** `…-frontier-plan-v1.md` (a LEI — o quê) · `…-implementation-playbook-v1.md` (o COMO + errata de agenda) · `…-execution-scoreboard-v1.md` (o ESTADO vivo, 255 slices) · `…-implementation-prompt-v1.md` (o prompt do executor) · **`…-remaining-to-100-v1.md` (o QUE FALTA para 100% — manifesto de-duplicado das caixas abertas, gerado do scoreboard vivo).**
+
+---
+
+## ÍNDICE (navegação — `grep -n "## (<numeral>)"` salta para a seção)
+
+| Seção | Título | Famílias de slice definidas aqui |
+|---|---|---|
+| (i) | Corte e estado REAL medido (12/07/2026) | — (diagnóstico) |
+| (ii) | Relação com o v1 — regras de convivência INVIOLÁVEIS | — (contrato; a lei 6 traz ELEV-03/18/20/26/28/31) |
+| (iii) | A tese do Max — 5 leis que ordenam tudo | — |
+| (iv) | Ondas Max (M0–M6) | — (mapa de ondas = classes de trabalho; a AGENDA real é a dos 13 lotes no playbook §5; tradução onda↔lote em §0.8) |
+| (v) | Catálogo por área — busca/recuperação/contexto/compactação/medição | **MAXA-01..10, MAXB-01..10, MAXC-01..07, MAXD-01..09, MAXE-01..08, MAXF-01..11, MAXG-01..10** (65) |
+| (vi) | Colisões consolidadas com o v1 (mapa único) | — |
+| (vi-b) | **MAPA DE DONO ÚNICO** — dedup cross-área (slices gêmeos) | — (autoridade de propriedade) |
+| (vii) | Critério de conclusão do ACOS Max (itens 1–10) | — |
+| (viii) | Programa ASI-Substrato — ordem F0–F3 + critério (itens 11–17) | **ASI-01..18** |
+| (ix) | Cobertura das 18 áreas — 11 áreas restantes | **MAXH-01..10, MAXI-01..09, MAXJ-01..08, MAXK-01..09, MAXL-01..10, MAXM-01..08, MAXN-01..06** (60) |
+| (x) | RAG no auge absoluto | **RAGX-01..11** |
+| (xi) | ELEV — elevações da revisão adversarial dupla | **ELEV standalone: 02,12,17,19,20s,21,22,24,25,26s,27,29s** (12) + ELEV in-place: ver nota abaixo |
+| (xii) | MULT — Evolução do Núcleo Multiplicador | **MULTJ-01..09, MULTK-01..08, MULTH-01..08, MULTN17-01..08, MULTV-01..10, MULTN15-01..08, MULTX-01..09** (60) |
+| (xiii) | ESP — as 3 Espinhas Compostas + Vertical 1 | **ESP-00..12 + MARCO ESP-V1** (13) |
+| (xiv) | REC — Teto: Recursive Intelligence governada | **REC-01..06** |
+| (xv) | TETO — os últimos degraus ao teto máximo | **TETO-01..10** |
+
+**Total: 255 slices.** Contagem por família e atribuição slice→lote de execução: playbook `atlas-acos-max-implementation-playbook-v1.md` §5.5 (inventário) e scoreboard (estado vivo).
+
+> **⚠️ DUAS ESPÉCIES DE ID ELEV (ler antes de resolver qualquer `deps: [ELEV-NN]`):** (a) **ELEV standalone = SLICES a implementar** — têm sufixo `s` (ELEV-20s, ELEV-26s, ELEV-29s) OU são os números 02,12,17,19,21,22,24,25,27; cada um tem bloco próprio na seção (xi). (b) **ELEV in-place = LEIS/edições já aplicadas** — números 01,03,04,05,06,07,08,09,10,11,13,14,15,16,18,20,26,28,30,31; NÃO são slices a implementar, são regras/emendas já embutidas nos slices e no contrato (ii.6); resolvem-se lendo a seção (xi) "Índice das elevações in-place" e a lei correspondente em ii.6. Uma dep `[ELEV-15]` (linhagem como aceite dos flips) é uma LEI que o slice-dono já carrega, não um slice à parte.
 
 ## (i) Corte e estado REAL medido (12/07/2026 — pós-progresso do executor v1)
 
@@ -46,9 +75,9 @@ O executor do v1 avançou rápido: ondas 0–3 da dimensão composição já lan
 4. **Medição honesta antes de capacidade.** Latência real instrumentada nos seams (matar a fórmula-ficção do ARLCG), golden v2 ancorado em content_hash de memórias REAIS congelado por juiz externo, arena fora do hot path, suite de retrieval no caminho de land. Nenhuma melhoria conta sem régua v2 previamente congelada (MED-01).
 5. **Autonomia composta.** Tudo que aprende/aplica segue o charter: auto-aplicação reversível + Diário/digest + handle de remoção. Nenhum slice cria fila de aprovação humana.
 
-## (iv) Ondas Max (M0–M5)
+## (iv) Ondas Max (M0–M6)
 
-Ordem obrigatória entre ondas; dentro da onda, deps do catálogo. Slices não citados nominalmente entram na onda da sua classe (higiene→M0, medidor→M1, eficiência→M2, cobertura/corpus→M3, inteligência→M4, certificação→M5), respeitando as deps declaradas no catálogo.
+Ordem obrigatória entre ondas; dentro da onda, deps do catálogo. Slices não citados nominalmente entram na onda da sua classe (higiene→M0, medidor→M1, eficiência→M2, cobertura/corpus→M3, inteligência→M4, certificação→M5, fronteira-pós-Max→M6), respeitando as deps declaradas no catálogo. **A tradução ONDA→LOTE de execução está no playbook §0.8; a ordem operacional real é a dos 13 lotes (playbook §5), não a das ondas (que são classes de trabalho, não uma agenda linear).**
 
 - **M0 — Higiene quase-grátis (pode começar HOJE, zero colisão com v1):** dedupe dos hooks duplicados + timeout no atlas-ctx.sh (MAXE-02/03), refs citáveis no markdown do pack (MAXE-01 — destrava o loop ARFL/D4 inteiro por ~2-3% de budget), reparo da tabela de receipts long-horizon + guard fail-open (MAXF-01 — chip já aberto), decisão do órgão-órfão da ponte de grafo (MAXD-07 preparação).
 - **M1 — Medidores honestos v2:** provenance por vetor (`embedding_model` + `embedded_content_hash` — MAXA), golden set v2 ancorado em content_hash real congelado por juiz externo (MAXG-04, MAXB-02), instrumentação de latência real p50/p95 nos seams vivos (pack, recall, hooks, ledger — MAXG), ARLCG lendo medição real em vez de fórmula, fixação de fallback de embedding: **provider externo NUNCA grava vetor na espinha** (default-OFF, coluna separada se existir).
@@ -56,6 +85,7 @@ Ordem obrigatória entre ondas; dentro da onda, deps do catálogo. Slices não c
 - **M3 — Corpus e cobertura:** embeddings de código/KB incremental por source_hash (290k símbolos entram na busca semântica — MAXA), linkers mortos ligados por ids reais (evidence via receipt/trace — MAXD-02) + import dos 231.082 links doc→código auditados em vez de re-derivação por regex (MAXD-01), re-embed incremental, golden v2 com alvos 100% resolvíveis.
 - **M4 — Inteligência:** fusão RRF parameter-free → negative mining das rejeições do digest → LTR gated por diversidade (MAXB, nesta ordem), reranker local só com ganho provado no golden v2, PageRank ponderado + comunidades Louvain + drill-down federado grafo↔índice (MAXD-04/05/07), agentic REAL: decomposição determinística de query, bloco de suficiência com faltas nomeadas (nunca escalar — o "92" não volta pela porta dos fundos), hop-2 AURG budgetado com morte declarada por used-rate, priors por perfil de tarefa, plano de retrieval injetado no hook (MAXC-01..07), ACMF com primeiro writer real: seen-refs por sessão + demoção do já-visto (MAXE-06), compactação fronteira: dedup lexical por hash, importância por recovery-hits/citações, lookup `turn:{id}` no recovery, compaction-aware packs (MAXF).
 - **M5 — Certificação Max + re-prova externa:** floors de latência viram gate permanente (plugin WDG-01), golden v2 recall@5 ≥ 0,90 contra corpus VIVO, ARFL measured_share real ≥ 0,90 com refs citados de verdade, ROI de token medido com alvo, fidelity de compactação provada por recovery-test amostral, zero órgãos unwired na lista do item (i), Marco Zero v2 cunhado (nova série, sem tocar a v1), e **ADV-Max**: re-prova adversarial externa de cada certificador novo antes de qualquer "máximo" ser carimbado.
+- **M6 — Fronteira pós-Max (o ALÉM das réguas do Max):** RAGX (late-chunking, contextual retrieval, CRAG-lite, HyDE, cascata de rerank, cache semântico, RAPTOR, SPLADE — seção x), os slices MULT/ESP/REC/TETO de inteligência tardia, e o meta-otimizador REC-04 em shadow. **Cada slice M6 é GATED pela dep Max correspondente ter aterrissado** (ex.: RAGX-01 espera MAXA-04/05); nada de M6 fura F0→F1. Sub-fases a/b/c dentro de M6 = régua→atuador→transferência.
 
 ## (v) Catálogo por área (65 slices)
 
@@ -142,6 +172,7 @@ Total do espaço vetorial do Atlas hoje: **247 vetores**. Provenance suspeita: m
 - Goal: matar o custo de spawn+model-load por chamada mantendo o boundary receipt anti-fake intacto.
 - Mecanismo: processo Python longevo no mesmo venv `semantic_rag` (loop stdin/unix-socket, idle-timeout, lifecycle simples — sem framework novo), `SemanticRagRuntimeClient` fala com o daemon e cai para o spawn atual se ausente (fail-open byte-idêntico). Receipt boundary igual (`real_embeddings` etc.).
 - Aceite: `php artisan atlas:ai:local-rag-benchmark --json | jq '.latency'` → p95 do embed <100ms warm (baseline medido: 1.5-1.9s); teste que o fallback spawn continua funcionando com daemon morto.
+- **Governança do runtime residente (fundação APDR — decisão de escopo 12/07):** este daemon é o primeiro processo Python *always-on* da espinha, então herda a governança do runtime residente da área APDR. Cobertura: **supervisão/idle-reap/RSS-cap/idle-restart = ASI-16** (servidor de contexto residente, mesmo padrão de lifecycle); **load-shed sob carga = ASI-18** (fila cognitiva); **socket local-only + health como plugin WDG-01 + manifest de integridade do modelo = ELEV-19**. MAXA-01 entrega o loop mínimo (idle-timeout + socket unix local + fail-open ao spawn); a governança pesada NÃO é reimplementada aqui — é consumida de ASI-16/18/ELEV-19 quando aterrissarem (até lá, o daemon roda com idle-timeout curto + cap de processo do ASI-04). Isto FECHA o gap "APDR sem cobertura" como decisão declarada, não buraco silencioso.
 
 **MAXA-02 — Memo por request + cache persistente de query embedding** · E:S · deps: []
 - Goal: 1 embed por (query, modelo) por processo; 0 para query repetida entre packs.
@@ -862,6 +893,8 @@ Ordem sugerida (custo→ganho): MAXE-02 → MAXE-03 → MAXE-01 → MAXE-04 → 
 
 # MAX-F — Compactação (ACIE / 4 mecanismos) — ground-truth + fronteira v2
 
+> **⚠️ FORMATO (aviso ao executor):** ao contrário de todas as outras famílias — que definem cada slice como bloco `**ID — título** · E · deps …`— os slices **MAXF-01..11** estão na TABELA de "Slices candidatos" abaixo (`| MAXF-01 | Título | Goal | Mecanismo | Aceite | Effort | Deps |`). Para localizar um MAXF: `grep -n "| MAXF-0"` (não `grep "**MAXF"`). Cada LINHA da tabela é a definição INTEIRA do slice (Goal/Mecanismo/Aceite/Effort/Deps nas colunas). O conteúdo é equivalente; só o layout difere.
+
 Leitura real do código em 2026-07-11 (branch main). Estado do plano v1: **CPT-01..08 landados** (progress.md linhas 59, 86-88, 116-119 do working tree: CPT-03/04/07 em 3a3a81957, CPT-06 em f706e88ba); **CPT-09 (soak) e CPT-10 (certify) pendentes** (ondas 4/5).
 
 ## Estado atual
@@ -959,7 +992,7 @@ Leitura real do código em 2026-07-11 (branch main). Estado do plano v1: **CPT-0
 | MAXF-08 | Compaction-aware packs (liga o marker morto) | O pack sabe o que foi compactado e oferece re-hidratação | `AiContextPackBuilder` (+ pack Open Brain) lê último receipt + post-compaction-marker e expõe seção `compacted: {scope_type, receipt_hash, must_keep_coverage, unresolved_loss, recovery_queries}` | Thread compactada → pack mostra a seção com queries executáveis; thread sem compactação → pack byte-idêntico; nº de recovery_queries executadas pós-pack passa de 0 a >0 medido | S | MAXF-01, CPT-02 |
 | MAXF-09 | Sumário hierárquico L2 local assíncrono verificado (nunca canônico) | Compressão de leitura acima do teto determinístico, sem tocar o pétreo | Job assíncrono local-only reescreve o summary; aceito SÓ se scorer der coverage==1.0 E retention ≥ L1; armazenado versionado em canal separado; L1 permanece o que receipts/hashes/certificador leem; consumo de L2 atrás de flag default OFF | L2 rejeitada registrada (não some); com flag OFF zero mudança; com ON: par (ratio, retention) por versão em evidência, ratio médio <0.6 com retention==L1 | L | MAXF-01, CPT-10 (só após L1 certificado), ROL-01 |
 | MAXF-10 | Detector de compactação net-negativa (anti-inflação) | Parar de "compactar" thread pequena para o dobro do tamanho (5/6 casos reais hoje) | Em `compactLocked`: se `token_after ≥ token_before`, registrar compaction com metadata `net_negative=true` e NÃO sobrescrever thread.summary (mesma via do needs_review :185-187); receipt registra o skip | Fixture thread 3 turnos → summary não substituído; medidor (ELEV-04): % de **overwrites** net-negativos = 0 — as TENTATIVAS net-negativas continuam ocorrendo (o gatilho não muda) e viram série informativa; exigir que "compactions net-negativas caiam a 0" convidaria re-rotulagem do que conta como compaction; dual-read (MED-01) do ratio antigo vs novo | S | CPT-02 (⚠️ ver colisões) |
-| MAXF-11 | Compressão do payload MEDIDA (aposenta o % heurístico) | `savings_estimate` real em vez de 28%/18%/10%/5% fixos | Após enforce do CPT-09: `compression_receipt` passa a derivar savings do plano real do allocator (compression_target_tokens aplicados) com o heurístico mantido como campo `estimate_legacy` para comparação dual-read | Divergência estimativa×medida reportada; medidor trocado com justificativa registrada (procedimento MED-01 do v1) | M | CPT-09→enforce (NÃO antes) |
+| MAXF-11 | Compressão do payload MEDIDA (aposenta o % heurístico) | `savings_estimate` real em vez de 28%/18%/10%/5% fixos | Após enforce do CPT-09: `compression_receipt` passa a derivar savings do plano real do allocator (compression_target_tokens aplicados) com o heurístico mantido como campo `estimate_legacy` para comparação dual-read | **≥N receipts reais (N pinado no freeze, ex.≥20) → divergência estimativa×medida reportada com denominador cru; a troca do medidor SÓ vale se a divergência exceder margem carimbada (ELEV-03); 0 receipts ⇒ mantém `estimate_legacy`, NUNCA troca no vácuo (insatisfazível por inatividade)**; MED-01 dual-read | M | CPT-09→enforce (NÃO antes) |
 
 Ordem sugerida: MAXF-01 → 02 → 03 → 08 → 10 → 04 → 06 → 07 → 05 → 09 → 11.
 
@@ -1454,6 +1487,8 @@ O achado é **unânime nas 11 áreas** e é o mesmo do §viii: **mecanismo const
 
 ### Tabela de cobertura das 18 áreas
 
+> **Nota de leitura:** a coluna "Coberta por" abaixo lista as famílias MAX/ASI da FRONTEIRA INICIAL (esta seção ix). **A profundidade REAL de cada área soma também os catálogos MULT (seção xii), ELEV (xi), ESP (xiii), REC (xiv) e TETO (xv)** — ex.: a área 12 é MAXL+ASI-10 **+ MULTV (10 slices, §xii) + ESP-01..05 (§xiii)**; a área 1+16 é MAXH **+ MULTH (§xii)**; etc. Esta tabela é o mapa da fronteira inicial, NÃO o censo total dos 255 slices (esse é o inventário §5.5 do playbook). Nenhuma das 18 áreas está órfã.
+
 | # | Área | Coberta por | Profundidade |
 |---|---|---|---|
 | 1 | Memória | **MAXH** (H) · v1 MEM · ASI-02/12/14 | fronteira profunda (nova) |
@@ -1503,7 +1538,7 @@ O substrato (ASI F0–F3) permanece transversal a todas. Os 60 slices novos **en
 - Aceite: scan sobre os 62 actives emite a **DISTRIBUIÇÃO de verdicts** (contagens por verbo related/compatible/scoped/conflicts_with/supersedes/not_conflict) ao ledger, com set de candidatos não-trivial — **ELEV-06: "não-trivial" = ≥N pares avaliados (N congelado junto com o cosine threshold no freeze do MAXH-01) e distribuição com ≥2 verbos não-degenerados; nunca `≥1 par`**; observe grava **0 relation rows**; phpunit não toca o ledger vivo (ASI-05); geração determinística p/ embedding set congelado.
 - Risco: explosão de pares em escala CORP-01 — cap top-K + cosine floor ⇒ O(n·K); *ponytail: threshold+cap são o teto; clustering só >~2k entries*.
 
-**MAXH-02 — Produtor de `authority_level`/`stale_after`/`observed_at` por derivação com base** · E:S/M · onda M3 · deps: [MAXH-01, MAXH-05 (o aceite REAL), v1 MEM-05]
+**MAXH-02 — Produtor de `authority_level`/`stale_after`/`observed_at` por derivação com base** · E:S/M · onda M3 (lote L5) · deps: [MAXH-01, v1 MEM-05] — *NÃO há aresta de build para MAXH-05: MAXH-02 FECHA em L5 com aceite determinístico próprio (derivação pura das colunas; ver aceite). A validação "stale ranqueia abaixo de fresh no recall" (que precisa do MAXH-05, L6) é VALIDAÇÃO E2E POSTERIOR, marcada abaixo como o "aceite REAL" — fecha em L6, não bloqueia o landing de L5. Sem ciclo de build.*
 - Goal: as colunas 0/77 ganham dono por DERIVAÇÃO pura auditável no funil que todos já usam.
 - Mecanismo: em `AtlasMemoryRegistryService::normalize()` (`:607`, o mesmo funil que MEM-08 guarda), quando o caller não fornece: `authority_level` por mapa puro {tipo→nível}; `stale_after` por tabela TTL-por-tipo (config documentada com o porquê por tipo, jamais inline mágico); `observed_at`=recorded_at. Fail-open: derivação NULL ⇒ coluna NULL. Comando `atlas:memory:temporal-backfill --dry-run|--apply` estampa os 77 pelas MESMAS funções puras; reversível (revert = SET NULL). **Nota anti-Goodhart:** os valores derivados de type-map cego são DEFAULT — não contam para `temporal_provenance_coverage` (MAXH-01 já os exclui).
 - Arquivos: `AtlasMemoryRegistryService.php:607,670-690`, `config/atlas.php` (mapa authority + TTL, com porquê), comando backfill novo.
@@ -2276,7 +2311,7 @@ Dois trilhos correm em paralelo (ondas Max M0–M5 e programa ASI F0–F3); os 6
 - Aceite: `atlas:ai:lesson-half-life --json` com denominador exposto por bucket; bucket com n<8 ⇒ `insufficient` (floor pinado no freeze — ELEV-03); caso negativo: lição sintética com uso zero após semana 1 reporta half_life curta, nunca `null` silencioso; freeze grava `{judge_engine_id, author_engine_id}` (ELEV-18).
 - Risco: janela real curta demais → série fica `insufficient` por meses; mitigação: buckets largos (2 semanas) declarados no freeze.
 
-**MULTJ-02 — Dedup semântico pré-promoção (embedding local, gate advisory→enforce)** · E:S · onda M6-a · deps: [MAXJ-01, ASI-02, MAXA-04]
+**MULTJ-02 — Dedup semântico pré-promoção (embedding local, gate advisory→enforce)** · E:S · lote L2 (gate advisory de dedup — NÃO é medidor; landável em L2 porque deps MAXJ-01@L2 + ASI-02@L1 já estão prontas) · deps: [MAXJ-01, ASI-02] — *usa o embedding LOCAL JÁ EXISTENTE (`AtlasMemoryVectorSearchService`, MiniLM vivo) que o próprio mecanismo reusa; NÃO depende do upgrade de modelo MAXA-04 (se MAXA-04 landar depois, a dedup só melhora — nunca bloqueia). Correção de agenda 12/07: célula L2 é válida sem MAXA-04.*
 - Goal: candidate quase-duplicata de lição já ativa não vira segunda entrada — vira `case_count++` na existente.
 - Mecanismo: no caminho de promoção do distiller (`AtlasLearningDistiller.php:46-54`), consulta ao `AtlasMemoryVectorSearchService` (reuso — órgão vivo, ELEV: reuso antes de construção); cosine ≥ threshold pinado no freeze ⇒ `merged_into` + incremento de case_count na canônica, com receipt reversível. Escada observe (loga would-merge) → enforce. NÃO criar embedder novo; NÃO tocar CaptureQualityGate (a dedup roda DEPOIS do gate, sobre aprovados).
 - Aceite: fixture com 2 candidates parafraseados ⇒ 1 entry com case_count=2 + receipt; 2 candidates semanticamente distintos (cosine < threshold) ⇒ 2 entries (caso negativo); threshold + corpus de calibração carimbados no ledger antes do enforce (ELEV-03); modo observe grava 0 merges.
@@ -2321,7 +2356,7 @@ Dois trilhos correm em paralelo (ondas Max M0–M5 e programa ASI F0–F3); os 6
 **MULTJ-09 — Auto-síntese de playbook de skills co-ocorrentes** `[SUSPENSO — gate ELEV-28]` · E:M · onda M6-c · deps: [MULTJ-04 (≥5 skills vivas com invocação real), MAXJ-07]
 - Goal: N skills invocadas juntas em execuções passing viram playbook composto (sequência ordenada com pós-condição agregada).
 - Mecanismo: mesmo padrão do MAXJ-07 (co-ocorrência sobre receipts de invocação, floor de co-casos, frontier autora, gates deterministas julgam). SUSPENSO até MULTJ-04 provar ≥5 skills com tráfego real (ELEV-20/ELEV-28 — construir o compositor antes do produtor reproduziria o construído-mas-não-ligado).
-- Aceite (quando destravar): playbook composto citado em ≥2 execuções com pós-condição agregada rodando; floor de co-casos pinado.
+- Aceite (quando destravar): playbook composto citado em **≥N execuções (N≥8, nomeado no freeze, alinhado a MULTJ-04/06 — NUNCA n=2, contrato pétreo)** com pós-condição agregada rodando; floor de co-casos pinado no freeze (ELEV-03).
 - Risco: destravar cedo demais; o gate de família é o próprio mecanismo de mitigação.
 
 **Ordem sugerida (MULTJ):** M6-a mede antes de agir — MULTJ-01 → 02 → 03 (réguas/higienes, congeladas antes de qualquer atuador). M6-b: MULTJ-04 (o salto skills) em paralelo com MULTJ-06; MULTJ-05 e 07 depois de MULTJ-03 existir. M6-c: MULTJ-08 só com nível-3 provado; MULTJ-09 suspenso por gate.
@@ -3112,13 +3147,13 @@ Novo OS ou 4º executor · corpus canônico paralelo · ledger separado por exec
 - Risco: domínio sem volume ⇒ `blocked` honesto com registro — a escolha é pelo tráfego real, nunca pela vontade.
 
 **TETO-05 — Obra-Retro: a obra alimenta o flywheel que ela constrói** · E:S · onda F0 (L1; cadência a cada fecho de lote) · deps: [v1 OUTC-01; ASI-02 quando landar (antes: candidatos ficam `held`)]
-- Goal: ~245 slices executados são os outcomes mais ricos do período — o sistema de aprendizado-por-execução não pode ignorar a própria construção.
+- Goal: os 255 slices executados são os outcomes mais ricos do período — o sistema de aprendizado-por-execução não pode ignorar a própria construção.
 - Mecanismo: no fecho de CADA lote, o executor emite: (a) outcomes da obra pela espinha OUTC-01 (slice landed/refutado/suspenso, com evidência, actor tag `obra:acos-max` — padrão ASI-12, série separável); (b) candidatos de lição pela fila NORMAL (padrões de fricção: "aceites da área X travam em Y", drift de anchors, gargalos de janela) — CaptureQualityGate + porta, zero via especial. NÃO fazer: auto-promover lição da obra; misturar outcomes de obra nas séries de produto sem tag.
 - Aceite: fecho de lote gera ≥1 outcome taggeado + candidatos na fila; ≥1 lição promovida da obra é recallada em lote posterior (consumidor provado — ELEV-20); caso negativo: candidato boilerplate da obra rejeitado pelo gate (o filtro vale para a obra também).
 - Risco: eco de processo virando ruído — o gate é o mesmo de sempre; taxa de rejeição alta é resultado aceitável e registrado.
 
 **TETO-06 — Execução paralela da obra (protocolo multi-engine)** · E:S · onda M0 (L0 — ANTES do executor começar) · deps: [ELEV-22 (claims)]
-- Goal: 245+ slices seriais = trimestres de wall-clock; famílias independentes executam em paralelo sem colisão.
+- Goal: 255 slices seriais = trimestres de wall-clock; famílias independentes executam em paralelo sem colisão.
 - Mecanismo: extensão de PROTOCOLO (playbook/scoreboard, não código): claim por FAMÍLIA×lote no blackboard; scoreboard ganha anotação `claimed_by:<engine>` por item; arquivos-quentes (lista ELEV-22) serializados por claim; commits continuam atômicos por slice; gate de lote só fecha com TODAS as famílias terminais; "1 flip por família por janela" vale POR FAMÍLIA (paralelismo não fura atribuição). NÃO fazer: 2 engines no mesmo slice; paralelizar dentro de família com deps encadeadas.
 - Aceite: playbook+scoreboard atualizados com o protocolo; bancada: 2 engines em famílias distintas do mesmo lote sem tocar o mesmo arquivo (claims provados); caso negativo: claim ativo de outro engine ⇒ o segundo pula com registro.
 - Risco: race no scoreboard — atualização por-linha em commit atômico por slice; conflito = reler do disco e reaplicar (regra A11 já cobre).

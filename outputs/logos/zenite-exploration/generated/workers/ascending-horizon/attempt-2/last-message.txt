@@ -1,0 +1,7 @@
+Done. Generated with `image_gen.imagegen` and saved:
+
+`/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/generated/workers/ascending-horizon/attempt-2/image.png`
+
+Wrote the required result JSON:
+
+`/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/generated/workers/ascending-horizon/attempt-2/result.json`

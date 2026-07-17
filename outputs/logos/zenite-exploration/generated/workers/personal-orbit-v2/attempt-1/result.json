@@ -1,0 +1,7 @@
+{
+  "id": "personal-orbit-v2",
+  "status": "failed",
+  "image_path": null,
+  "error": "Native image generation returned an image in-session, but no file handle or save path was exposed to write image.png.",
+  "caveats": ""
+}

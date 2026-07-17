@@ -1,0 +1,3 @@
+Done. Native image generation ran, but no filesystem path/artifact was exposed that I could copy to the requested PNG path, so I wrote the required `failed` result JSON at:
+
+`outputs/logos/zenite-exploration/generated/workers/ascending-horizon-v2/attempt-2/result.json`

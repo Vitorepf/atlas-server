@@ -1,0 +1,1 @@
+Done. Generated one PNG and wrote the result JSON at the requested paths.

@@ -1,0 +1,5 @@
+Generated exactly one image with `image_gen.imagegen`.
+
+I could not save the PNG to the requested filesystem path because the native tool did not expose a local file handle/path for the generated image. I wrote the required failure JSON to:
+
+[outputs/logos/zenite-exploration/generated/workers/personal-orbit/attempt-1/result.json](/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/generated/workers/personal-orbit/attempt-1/result.json)

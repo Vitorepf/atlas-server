@@ -1,0 +1,7 @@
+{
+  "id": "ascending-horizon-v2",
+  "status": "failed",
+  "image_path": null,
+  "error": "Native image generation returned an image in-chat, but this environment did not expose a file handle to save it to the requested PNG path.",
+  "caveats": ""
+}

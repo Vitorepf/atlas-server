@@ -1,0 +1,7 @@
+{
+  "id": "cognitive-breath",
+  "status": "failed",
+  "image_path": null,
+  "error": "Native image generation returned an image but did not expose a saveable PNG file path/artifact.",
+  "caveats": ""
+}

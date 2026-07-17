@@ -1,0 +1,50 @@
+[
+  {
+    "id": "circumflex-apex",
+    "index": 1,
+    "title": "Circunflexo-Z",
+    "label": "Circunflexo-Z",
+    "family": "monogram",
+    "src": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/generated/circumflex-apex.png",
+    "href": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/generated/circumflex-apex.png",
+    "best_for": "Ícone do app, favicon e wordmark",
+    "watch_out": "Evitar leitura de raio ou marca esportiva",
+    "remixSuggestions": [
+      "Deixar o monograma mais orgânico e humano",
+      "Reduzir o peso do Z e aumentar o respiro",
+      "Testar somente o circunflexo como microícone"
+    ]
+  },
+  {
+    "id": "celestial-point",
+    "index": 2,
+    "title": "Ponto Celeste",
+    "label": "Ponto Celeste",
+    "family": "symbol",
+    "src": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/generated/celestial-point.png",
+    "href": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/generated/celestial-point.png",
+    "best_for": "Identidade simbólica e institucional",
+    "watch_out": "Simplificar para não parecer mira ou astronomia",
+    "remixSuggestions": [
+      "Remover a elipse inferior",
+      "Transformar o eixo em uma linha de direção mais sutil",
+      "Criar uma versão mais compacta para menu bar"
+    ]
+  },
+  {
+    "id": "personal-orbit-v2",
+    "index": 3,
+    "title": "Órbita Pessoal",
+    "label": "Órbita Pessoal",
+    "family": "adaptive",
+    "src": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/generated/personal-orbit-v2.png",
+    "href": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/generated/personal-orbit-v2.png",
+    "best_for": "Sistema de áreas e animações do aplicativo",
+    "watch_out": "A forma ainda precisa ser mais proprietária",
+    "remixSuggestions": [
+      "Criar um Z mais claro no espaço negativo",
+      "Reduzir para dois arcos e um ponto",
+      "Explorar movimento sem parecer órbita ou sinal de rádio"
+    ]
+  }
+]

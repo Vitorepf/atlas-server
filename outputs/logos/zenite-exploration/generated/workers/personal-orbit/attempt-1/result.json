@@ -1,0 +1,7 @@
+{
+  "id": "personal-orbit",
+  "status": "failed",
+  "image_path": null,
+  "error": "Native image generation returned an image in the conversation but did not expose a local file handle to save the PNG at the requested path.",
+  "caveats": ""
+}

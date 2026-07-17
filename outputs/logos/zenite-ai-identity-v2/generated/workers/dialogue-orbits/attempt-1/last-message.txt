@@ -1,0 +1,5 @@
+Generated exactly one image with `image_gen.imagegen`, but the tool did not expose a filesystem path or binary handle for saving it.
+
+Wrote the required failure result JSON to:
+
+`outputs/logos/zenite-ai-identity-v2/generated/workers/dialogue-orbits/attempt-1/result.json`

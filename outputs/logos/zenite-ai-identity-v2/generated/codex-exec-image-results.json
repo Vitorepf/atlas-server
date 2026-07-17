@@ -1,0 +1,16 @@
+{
+  "status": "complete",
+  "total": 1,
+  "complete": 1,
+  "failed": 0,
+  "pending": 0,
+  "results": [
+    {
+      "id": "cognitive-breath-retry",
+      "status": "complete",
+      "image_path": "outputs/logos/zenite-ai-identity-v2/generated/cognitive-breath.png",
+      "error": null,
+      "caveats": ""
+    }
+  ]
+}

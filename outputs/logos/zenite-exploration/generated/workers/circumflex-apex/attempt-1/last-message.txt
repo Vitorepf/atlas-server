@@ -1,0 +1,1 @@
+Done. Generated the PNG and wrote `result.json` with status `complete`.

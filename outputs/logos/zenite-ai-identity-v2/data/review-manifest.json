@@ -1,0 +1,82 @@
+[
+  {
+    "id": "cognitive-breath",
+    "index": 1,
+    "title": "Respiração Cognitiva",
+    "label": "Respiração Cognitiva",
+    "family": "calm-presence",
+    "src": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2/generated/cognitive-breath.png",
+    "href": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2/generated/cognitive-breath.png",
+    "best_for": "Estado ocioso, escuta silenciosa e presença calma",
+    "watch_out": "A amplitude inferior precisa ser controlada para não sugerir corpo humano",
+    "remixSuggestions": [
+      "Fazer os arcos expandirem dois por cento ao inspirar",
+      "Manter o ponto superior imóvel como referência",
+      "Reduzir discretamente o arco inferior na versão final"
+    ]
+  },
+  {
+    "id": "dialogue-orbits",
+    "index": 2,
+    "title": "Órbitas de Diálogo",
+    "label": "Órbitas de Diálogo",
+    "family": "conversation",
+    "src": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2/generated/dialogue-orbits.png",
+    "href": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2/generated/dialogue-orbits.png",
+    "best_for": "Alternância visual entre ouvir, compreender e responder",
+    "watch_out": "Os dois grandes gestos precisam continuar equilibrados em tamanhos pequenos",
+    "remixSuggestions": [
+      "Girar as órbitas externas em sentidos opostos",
+      "Usar uma pausa curta entre escuta e resposta",
+      "Aproximar levemente as órbitas do núcleo"
+    ]
+  },
+  {
+    "id": "living-core",
+    "index": 3,
+    "title": "Núcleo Vivo",
+    "label": "Núcleo Vivo",
+    "family": "cognitive-core",
+    "src": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2/generated/living-core.png",
+    "href": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2/generated/living-core.png",
+    "best_for": "Mostrar atividade cognitiva contínua e processamento interno",
+    "watch_out": "É a rota com maior risco de parecer uma figura humana abstrata",
+    "remixSuggestions": [
+      "Dar velocidades distintas aos anéis centrais",
+      "Pulsar somente o núcleo durante raciocínio",
+      "Quebrar a simetria vertical na arte vetorial final"
+    ]
+  },
+  {
+    "id": "inference-flow",
+    "index": 4,
+    "title": "Fluxo de Inferência",
+    "label": "Fluxo de Inferência",
+    "family": "reasoning-flow",
+    "src": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2/generated/inference-flow.png",
+    "href": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2/generated/inference-flow.png",
+    "best_for": "Raciocínio em etapas, execução de tarefas e progresso da IA",
+    "watch_out": "O percurso implícito deve continuar sutil para não virar seta ou gráfico",
+    "remixSuggestions": [
+      "Acender os níveis sequencialmente de baixo para cima",
+      "Rotacionar cada abertura alguns graus durante a inferência",
+      "Concluir o movimento com um pulso no ponto zenital"
+    ]
+  },
+  {
+    "id": "zenith-presence",
+    "index": 5,
+    "title": "Presença Zenital",
+    "label": "Presença Zenital",
+    "family": "master-mark",
+    "src": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2/generated/zenith-presence.png",
+    "href": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2/generated/zenith-presence.png",
+    "best_for": "Marca principal, ícone do app e base do sistema completo de movimento",
+    "watch_out": "Precisa de desenho vetorial proprietário para eliminar qualquer leitura genérica",
+    "remixSuggestions": [
+      "Usar esta como forma-base e emprestar movimentos das outras rotas",
+      "Refinar proporções pensando primeiro em 24 e 16 pixels",
+      "Criar estados quieto, ouvindo, pensando, agindo e concluído"
+    ]
+  }
+]

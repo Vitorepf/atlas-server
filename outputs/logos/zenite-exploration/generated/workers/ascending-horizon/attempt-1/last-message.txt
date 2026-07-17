@@ -1,0 +1,5 @@
+Native image generation ran, but the generated PNG was not exposed as a filesystem file I could copy to the requested path.
+
+I wrote the required failure result JSON here:
+
+`outputs/logos/zenite-exploration/generated/workers/ascending-horizon/attempt-1/result.json`

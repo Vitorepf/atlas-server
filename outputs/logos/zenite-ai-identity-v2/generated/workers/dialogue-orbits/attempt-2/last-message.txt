@@ -1,0 +1,7 @@
+Complete.
+
+Image saved to:
+`outputs/logos/zenite-ai-identity-v2/generated/workers/dialogue-orbits/attempt-2/image.png`
+
+Result JSON saved to:
+`outputs/logos/zenite-ai-identity-v2/generated/workers/dialogue-orbits/attempt-2/result.json`

@@ -1,0 +1,7 @@
+Complete.
+
+Wrote:
+`outputs/logos/zenite-ai-identity-v2/generated/workers/zenith-presence/attempt-1/image.png`
+
+And:
+`outputs/logos/zenite-ai-identity-v2/generated/workers/zenith-presence/attempt-1/result.json`

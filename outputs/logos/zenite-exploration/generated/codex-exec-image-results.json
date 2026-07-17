@@ -1,0 +1,23 @@
+{
+  "status": "partial",
+  "total": 2,
+  "complete": 1,
+  "failed": 1,
+  "pending": 0,
+  "results": [
+    {
+      "id": "personal-orbit-v2",
+      "status": "complete",
+      "image_path": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-exploration/generated/personal-orbit-v2.png",
+      "error": null,
+      "caveats": ""
+    },
+    {
+      "id": "ascending-horizon-v2",
+      "status": "failed",
+      "image_path": null,
+      "error": "Native image generation returned an image in-chat, but no filesystem artifact/path was exposed for saving to the requested PNG path.",
+      "caveats": ""
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+{
+  "id": "ascending-horizon",
+  "status": "failed",
+  "image_path": null,
+  "error": "Native image was generated but no filesystem handle was exposed to save image.png.",
+  "caveats": ""
+}

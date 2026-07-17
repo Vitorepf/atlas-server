@@ -1,0 +1,7 @@
+Complete. Generated one image and wrote:
+
+`outputs/logos/zenite-ai-identity-v2/generated/workers/cognitive-breath-retry/attempt-1/image.png`
+
+Result JSON written at:
+
+`outputs/logos/zenite-ai-identity-v2/generated/workers/cognitive-breath-retry/attempt-1/result.json`

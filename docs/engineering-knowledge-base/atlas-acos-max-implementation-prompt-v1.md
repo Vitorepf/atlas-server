@@ -15,8 +15,8 @@ Você vai implementar, slice a slice, o plano **ACOS Max** — 255 slices que le
 Todos em `docs/engineering-knowledge-base/`:
 
 1. **`atlas-acos-max-frontier-plan-v1.md`** (3.150+ linhas) — O QUÊ. Define cada slice (Goal/Mecanismo/Aceite/Risco/deps). NUNCA leia inteiro: use `grep -n "<SLICE-ID>"` + ~60 linhas. NUNCA edite um slice para caber na sua implementação.
-2. **`atlas-acos-max-implementation-playbook-v1.md`** (366 linhas) — O COMO. Leia as seções 0 a 4 INTEIRAS antes do primeiro slice (é curto). Contém: quick-start de 10 passos (§0.5), receita de freeze (§0.6), pré-requisitos de ambiente (§0.7), mapa onda↔lote (§0.8), desambiguação (§0.9), auto-auditoria (§0.10), as 13 leis (§3), o protocolo por slice (§4), a ordem mestra em 13 lotes com gates (§5 + inventário 5.5), deps externas do v1 (§11), glossário completo (§12/12.1).
-3. **`atlas-acos-max-execution-scoreboard-v1.md`** (~300 linhas) — O ONDE. 255 checkboxes por lote. Você atualiza o estado de cada slice NO MESMO COMMIT que o implementa. É a sua memória entre sessões.
+2. **`atlas-acos-max-implementation-playbook-v1.md`** (~415 linhas) — O COMO. Leia as seções 0 a 4 INTEIRAS antes do primeiro slice (é curto). Contém: quick-start de 10 passos (§0.5), receita de freeze (§0.6), pré-requisitos de ambiente (§0.7), mapa onda↔lote (§0.8), desambiguação (§0.9), auto-auditoria (§0.10), as 13 leis (§3), o protocolo por slice (§4), a ordem mestra em 13 lotes com gates (§5 + inventário 5.5), deps externas do v1 (§11), glossário completo (§12/12.1).
+3. **`atlas-acos-max-execution-scoreboard-v1.md`** (~320 linhas) — O ONDE. **255 slices** (alguns em 2 partes → ~266 caixas físicas + algumas caixas meta de gate). Você atualiza o estado de cada slice NO MESMO COMMIT que o implementa. É a sua memória entre sessões.
 
 **Em divergência: plano > playbook > scoreboard.** Divergência plano×código real ⇒ registre no ledger de gaps (`atlas-open-gaps-regressions-ledger.md`) com evidência file:linha e implemente preservando o ESPÍRITO do aceite (denominador mínimo, caso negativo, limiar pinado) — jamais afrouxe o aceite.
 

@@ -205,6 +205,20 @@ Provider swap ou troca de surface no meio da operacao deve ser explicito:
 - o ledger registra `provider_fallback`, `handoff` ou evento equivalente;
 - se a mudanca elevar permissao, exigir gate humano ou policy adequada.
 
+### Receipt De Surface
+
+Para abrir uma mesma operacao entre Atlas Mobile, Atlas Desktop e Atlas
+Terminal, `POST /api/ai/threads/{thread}/handoff-surface` cria o recibo
+`atlas.ai.surface_handoff.v1`. Ele preserva `thread_id` e `session_id` e expõe
+somente origem, destino, status e instante; nunca envia prompt, conteúdo,
+metadata ou brief de provider. Os destinos permitidos são `atlas_mobile`,
+`atlas_desktop` e `atlas_terminal`.
+
+O Terminal abre uma thread de outra superfície apenas quando o operador fornece
+`--thread=<id>` explicitamente. A descoberta implícita do CLI continua limitada
+às threads `atlas_cli` do workspace atual. O recibo não cria thread, sessão ou
+histórico novo; a superfície de destino deve reabrir a identidade recebida.
+
 ## Failure Modes
 
 | Falha | Tratamento |

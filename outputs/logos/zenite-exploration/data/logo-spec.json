@@ -1,0 +1,113 @@
+{
+  "meta": {
+    "title": "Exploração de logo para Zênite",
+    "stage": "Logo exploration",
+    "brand_name": "Zênite",
+    "anchor": "Inteligência pessoal contínua que organiza vida, trabalho, memória, saúde e empresas ao redor do usuário.",
+    "summary": "Comparar quatro símbolos compactos para um aplicativo de inteligência pessoal com presença 24/7, direção e perspectiva.",
+    "audience": "Pessoas que querem uma inteligência central para vida pessoal, programação e gestão empresarial.",
+    "usage_contexts": [
+      "ícone de aplicativo iOS e macOS",
+      "favicon",
+      "wordmark em interface",
+      "assinatura institucional"
+    ]
+  },
+  "constraints": {
+    "preserve": [
+      "grafia da marca: ZÊNITE no wordmark e Zênite em texto corrido",
+      "significado astronômico: ponto diretamente acima do observador",
+      "identidade centrada no usuário",
+      "clareza em tamanhos pequenos",
+      "paleta base Atlas Ink and Brass: tinta quase preta, latão quente e branco osso"
+    ],
+    "avoid": [
+      "montanha literal",
+      "cérebro genérico",
+      "robô ou rosto humanoide",
+      "estrela de cinco pontas genérica",
+      "globo terrestre semelhante ao Atlas antigo",
+      "gradientes neon azul-roxo de startup de IA",
+      "excesso de detalhes",
+      "selos, slogans ou símbolos de marca registrada"
+    ]
+  },
+  "routes": [
+    {
+      "id": "circumflex-apex",
+      "label": "Circunflexo-Z",
+      "family": "monogram",
+      "usage_contexts": [
+        "ícone de aplicativo",
+        "favicon",
+        "wordmark"
+      ],
+      "prompt": "Create a premium logo exploration tile for the brand ZÊNITE on a clean white inspection background. Show one primary app icon and one adjacent horizontal wordmark, not a contact sheet. The central idea is a highly distinctive geometric Z monogram whose upper stroke resolves into a circumflex-shaped apex, turning the accent in ZÊNITE into the symbol of zenith, direction, and upward perspective. The mark must remain recognizable at 24px, feel intelligent, calm, sovereign, and human-centered, not aggressive. Use a near-black ink square app icon with a warm muted brass mark, plus a precise custom uppercase wordmark reading exactly ZÊNITE in near-black. Restrained modern typography, generous spacing, flat vector-like appearance, crisp edges, no 3D, no gradients, no mountain, no brain, no robot, no generic star, no globe, no tagline, no mockup devices, no extra text.",
+      "rationale": "Transforma o próprio acento da palavra em assinatura proprietária e conecta som, escrita e significado.",
+      "best_for": "Uma marca reconhecível no ícone do app e ainda elegante no wordmark.",
+      "decision_advice": "Escolha se a prioridade é possuir um gesto visual simples diretamente ligado ao nome.",
+      "watch_out": "O Z precisa continuar legível sem parecer raio, marca esportiva ou fintech.",
+      "next_step": "Redesenhar o monograma em vetor e testar 16px, 32px e ícone iOS.",
+      "final_owner": "external-production-identity",
+      "next_prompt_hints": []
+    },
+    {
+      "id": "celestial-point",
+      "label": "Ponto Celeste",
+      "family": "symbol",
+      "usage_contexts": [
+        "ícone de aplicativo",
+        "menu bar",
+        "assinatura institucional"
+      ],
+      "prompt": "Create a premium logo exploration tile for the brand ZÊNITE on a clean white inspection background. Show one primary app icon and one adjacent horizontal wordmark, not a contact sheet. Build an original low-detail astronomical symbol from a small brass point positioned directly above a vertical observer axis, enclosed by a subtle open circle or horizon arc. It should communicate the zenith point relative to the observer, personal orientation, clarity, and calm 24/7 intelligence. Use a near-black ink square app icon, warm muted brass geometry, bone-white negative space, and an exact uppercase wordmark reading ZÊNITE. Elegant geometric construction, optically balanced, memorable at favicon size, flat vector-like appearance. No compass rose, no crosshair weapon feel, no mountain, no eye, no brain, no robot, no generic star, no globe, no 3D, no gradients, no tagline, no extra text.",
+      "rationale": "Representa literalmente o zênite como um ponto acima de cada observador, colocando o usuário no centro da narrativa.",
+      "best_for": "Uma identidade mais simbólica, silenciosa e institucional.",
+      "decision_advice": "Escolha se a marca deve transmitir precisão, perspectiva e confiança antes de energia.",
+      "watch_out": "Precisa evitar aparência de mira, localização ou aplicativo de astronomia.",
+      "next_step": "Simplificar o eixo e testar contraste em modo claro e escuro.",
+      "final_owner": "external-production-identity",
+      "next_prompt_hints": []
+    },
+    {
+      "id": "personal-orbit",
+      "label": "Órbita Pessoal",
+      "family": "adaptive",
+      "usage_contexts": [
+        "ícone de aplicativo",
+        "animação de inicialização",
+        "sistema de áreas"
+      ],
+      "prompt": "Create a premium logo exploration tile for the brand ZÊNITE on a clean white inspection background. Show one primary app icon and one adjacent horizontal wordmark, not a contact sheet. Design a compact abstract symbol where several life domains are implied by three minimal orbit fragments converging toward one elevated zenith point above a centered user core. Hide a subtle Z in the negative space without forcing it. The feeling is a unified personal intelligence coordinating calendar, notes, health, coding, and business continuously around one person. Use a near-black ink square icon, warm muted brass lines and point, bone-white negative space, with a precise uppercase wordmark reading exactly ZÊNITE. Calm, refined, low-detail, vector-like, recognizable at small size. No atom icon, no solar system cliché, no network nodes, no globe, no brain, no robot, no 3D, no gradients, no tagline, no extra text.",
+      "rationale": "Conta melhor a amplitude do produto: várias áreas coordenadas por uma inteligência central.",
+      "best_for": "Um sistema visual expansível para módulos e estados do aplicativo.",
+      "decision_advice": "Escolha se a marca precisa carregar a ideia de ecossistema e não apenas de direção.",
+      "watch_out": "Órbitas são comuns em tecnologia; a construção precisa ser própria e muito reduzida.",
+      "next_step": "Derivar uma família de ícones de áreas a partir dos mesmos arcos.",
+      "final_owner": "external-production-identity",
+      "next_prompt_hints": []
+    },
+    {
+      "id": "ascending-horizon",
+      "label": "Horizonte Ascendente",
+      "family": "geometric",
+      "usage_contexts": [
+        "ícone de aplicativo",
+        "tela de abertura",
+        "marca corporativa"
+      ],
+      "prompt": "Create a premium logo exploration tile for the brand ZÊNITE on a clean white inspection background. Show one primary app icon and one adjacent horizontal wordmark, not a contact sheet. Create an original geometric symbol from a quiet horizon line and one ascending diagonal path that culminates in a single zenith point, with the overall silhouette subtly suggesting the letter Z. It should express progress, organized direction, executive clarity, and reaching a higher point without using a literal mountain or arrow. Use a near-black ink square app icon, warm muted brass symbol, bone-white negative space, and an exact uppercase wordmark reading ZÊNITE. Restrained premium typography, strong silhouette, flat vector-like appearance, no 3D, no gradients, no mountain, no arrowhead, no chart, no brain, no robot, no star, no globe, no tagline, no extra text.",
+      "rationale": "Traduz evolução e direção em um gesto forte, mais energético e empresarial.",
+      "best_for": "Uma marca com presença executiva que também funciona em produto pessoal.",
+      "decision_advice": "Escolha se o nome deve comunicar avanço e realização de forma mais explícita.",
+      "watch_out": "Pode escorregar para estética de consultoria, investimento ou performance esportiva.",
+      "next_step": "Reduzir a forma até eliminar qualquer leitura de gráfico financeiro.",
+      "final_owner": "external-production-identity",
+      "next_prompt_hints": []
+    }
+  ],
+  "handoff": {
+    "default_owner": "external-production-identity",
+    "next_prompt_hints": []
+  }
+}

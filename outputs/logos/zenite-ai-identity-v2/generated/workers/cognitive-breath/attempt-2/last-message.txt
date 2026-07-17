@@ -1,0 +1,5 @@
+Generated exactly one image with `image_gen.imagegen`, but the tool did not expose a filesystem path or bytes I could copy to the requested `image.png`.
+
+I wrote the required failure result JSON at:
+
+[outputs/logos/zenite-ai-identity-v2/generated/workers/cognitive-breath/attempt-2/result.json](/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2/generated/workers/cognitive-breath/attempt-2/result.json)

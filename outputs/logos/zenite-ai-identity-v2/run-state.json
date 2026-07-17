@@ -1,0 +1,76 @@
+{
+  "version": 1,
+  "runDirectory": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2",
+  "streamPath": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2/data/stream.json",
+  "runStatePath": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2/run-state.json",
+  "latestActionPath": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2/latest-action.json",
+  "paths": {
+    "streamPath": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2/data/stream.json",
+    "runStatePath": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2/run-state.json",
+    "latestActionPath": "/Users/vitorepf/develop/Atlas/atlas-server/outputs/logos/zenite-ai-identity-v2/latest-action.json"
+  },
+  "itemCount": 5,
+  "items": [
+    {
+      "id": "cognitive-breath",
+      "title": "Respira\u00e7\u00e3o Cognitiva",
+      "caption": "",
+      "tone": "",
+      "prompt": "",
+      "imageUrl": "/generated/mcp-thumbs/cognitive-breath.jpg",
+      "previewImageUrl": "/generated/mcp-thumbs/cognitive-breath.jpg",
+      "sourceImageUrl": "/generated/cognitive-breath.png"
+    },
+    {
+      "id": "dialogue-orbits",
+      "title": "\u00d3rbitas de Di\u00e1logo",
+      "caption": "",
+      "tone": "",
+      "prompt": "",
+      "imageUrl": "/generated/mcp-thumbs/dialogue-orbits.jpg",
+      "previewImageUrl": "/generated/mcp-thumbs/dialogue-orbits.jpg",
+      "sourceImageUrl": "/generated/dialogue-orbits.png"
+    },
+    {
+      "id": "living-core",
+      "title": "N\u00facleo Vivo",
+      "caption": "",
+      "tone": "",
+      "prompt": "",
+      "imageUrl": "/generated/mcp-thumbs/living-core.jpg",
+      "previewImageUrl": "/generated/mcp-thumbs/living-core.jpg",
+      "sourceImageUrl": "/generated/living-core.png"
+    },
+    {
+      "id": "inference-flow",
+      "title": "Fluxo de Infer\u00eancia",
+      "caption": "",
+      "tone": "",
+      "prompt": "",
+      "imageUrl": "/generated/mcp-thumbs/inference-flow.jpg",
+      "previewImageUrl": "/generated/mcp-thumbs/inference-flow.jpg",
+      "sourceImageUrl": "/generated/inference-flow.png"
+    },
+    {
+      "id": "zenith-presence",
+      "title": "Presen\u00e7a Zenital",
+      "caption": "",
+      "tone": "",
+      "prompt": "",
+      "imageUrl": "/generated/mcp-thumbs/zenith-presence.jpg",
+      "previewImageUrl": "/generated/mcp-thumbs/zenith-presence.jpg",
+      "sourceImageUrl": "/generated/zenith-presence.png"
+    }
+  ],
+  "visibleItemIds": [
+    "cognitive-breath",
+    "dialogue-orbits",
+    "living-core",
+    "inference-flow",
+    "zenith-presence"
+  ],
+  "hiddenImageIds": [],
+  "selectedImageIds": [],
+  "currentImageId": "cognitive-breath",
+  "updatedAt": "2026-07-15T14:03:14.924644Z"
+}

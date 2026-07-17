@@ -50,6 +50,7 @@ decisions:
   - The Loop dossier is the ONLY human-to-loop surface; it is a Product Mode/command surface inside the Atlas Software Company Stewardship Stack, not a new OS.
   - The surface is a thin composition seam over EXISTING owner services and read models; it adds no selection, execution or merge logic and never invokes a provider.
   - Reads are honest live state - live composes the AP-739 Product Mode cockpit + the AP-790 reliable 24h runner read/path-only accessors; cycles tails the AP-790 append-only cycle ledger.
+  - The live lock projects a verified runtime placement only as safe labels (environment, workspace name, repository name, branch); filesystem paths and ledger paths are redacted before the HTTP response.
   - operator-decision wraps AreaFocusOperatorDecisionService::decide (AP-724); an accept unlocks the next owner stage under operator review and NEVER executes (executed=false, requires_owner_execution=true).
   - run-control is a SIGNAL only - it writes/deletes ONLY the runner's own pause/kill signal files, which the loop already checks with is_file() on each iteration boundary; it never starts/stops a process, merges or invokes a provider.
   - directive is HONEST - the 24h loop has no durable free-text directive intake, so a directive is persisted into the real operational inbox (AtlasInboxService) as an operator-review item with a machine-readable recipe; loop_autonomously_consumable_now is always false.
@@ -283,7 +284,7 @@ last word, not a footnote.
 
 ## 4. Backend endpoints
 
-All five live behind the `atlas.token` middleware (operator token, `X-Atlas-Token`)
+All routes below live behind the `atlas.token` middleware (operator token, `X-Atlas-Token`)
 inside the existing `ai/software-company-stewardship` route group, served by
 `App\Http\Controllers\Ai\SoftwareCompanyStewardship\AreaFocusLoopCommandController`.
 The controller is a **thin composition seam** — every read composes an existing read
@@ -292,11 +293,13 @@ signal files atomically.
 
 | Verb | Path (`/ai/software-company-stewardship/...`) | Method | Composes | Honesty contract |
 |---|---|---|---|---|
-| GET | `loop/{area}/live` | `live` | AP-739 `ProductModeCockpitSurfaceService::project` + AP-790 `Reliable24hLoopRunnerService` read/path-only accessors (lock / kill / pause / stewardship recovery / scheduler backlog) | Unknown area mirrors the AP-721 stable 404. Deterministic `surface_hash` ETag over the body minus volatile timestamps; `Cache-Control: private, max-age=5`. |
+| GET | `loop/{area}/live` | `live` | AP-739 `ProductModeCockpitSurfaceService::project` + AP-790 `Reliable24hLoopRunnerService` read/path-only accessors (lock / kill / pause / stewardship recovery / scheduler backlog) | Unknown area mirrors the AP-721 stable 404. A held lock may expose only verified `holder.runtime.environment`, `workspace`, `repository`, and `branch` labels; `path` and `ledger_path` never cross HTTP. Deterministic `surface_hash` ETag over the body minus volatile timestamps; `Cache-Control: private, max-age=5`. |
 | GET | `loop/{area}/cycles` | `cycles` | AP-790 append-only cycle ledger (`readLedgerRecords`), `?tail=N` (default 20, hard cap 200) and `?hours=H` (applied **before** tail) | Read-only tail of real cycle receipts (`ap790_reliable_24h_loop_cycle.v1`); reports `ledger_record_count_total` honestly. |
 | POST | `loop/{area}/operator-decision` | `operatorDecision` | AP-724 `AreaFocusOperatorDecisionService::decide` | Receipt returned verbatim. An accept unlocks the next owner stage under operator review; **`executed=false`, `requires_owner_execution=true`**. The controller dispatches **no** owner runtime. 422 with a stable machine reason on invalid input. |
 | POST | `loop/{area}/run-control` | `runControl` | The AP-790 runner's **own** `pausePath()` / `killSwitchPath()` | Signal only (`pause` / `resume` / `kill` / `clear-kill`). Writes are atomic (temp-then-rename). The response re-reads **true** kill/pause state from disk. Requires `operator_actor`; never executes/merges/invokes a provider. |
 | POST | `loop/{area}/directive` | `directive` | The **real** operational inbox (`AtlasInboxService::create`) | Persists a natural-language directive as an operator-review item with a machine-readable `to_make_loop_consumable` recipe. **`loop_autonomously_consumable_now=false`**, `executed=false`, `provider_invoked=false`, `mutates_target_repo=false`, `auto_consumed=false`. |
+| POST | `loop/{area}/transfer` | `transfer` | AP-790 lock + durable handoff receipt | Requires a live lock holder as the source. It records `transfer_requested` only; no target host is selected and `started=false` until a successor has actually acquired the same mission lock. |
+| GET | `loop/{area}/transfer/{handoffId}` | `transferStatus` | Durable AP-790 handoff receipt | Read-only polling of `transfer_requested` → `source_released` → `successor_enqueued` → `target_claimed`. The target host/run id remain null until the successor's lock claim. |
 
 **Defaults** mirror the read-model + runner: focus `dev_forge`, portfolio
 `atlas_software_company`. The mobile client defaults `area` to
@@ -307,6 +310,7 @@ signal files atomically.
 - `atlas.software_company_stewardship.loop_command_cycles.v1`
 - `atlas.software_company_stewardship.loop_command_run_control.v1`
 - `atlas.software_company_stewardship.loop_command_directive.v1`
+- `atlas.software_company_stewardship.loop_command_transfer.v1`
 - operator-decision returns AP-724 `area_focus_operator_decision_receipt.v1` (and `.error.v1` on 422).
 
 **Why these exact wraps and not new logic.** No existing service writes the
@@ -425,6 +429,7 @@ surface.
 `tests/Feature/Ai/SoftwareCompanyStewardship/AreaFocusLoopCommandOperatorDecisionTest.php`,
 `tests/Feature/Ai/SoftwareCompanyStewardship/AreaFocusLoopCommandRunControlTest.php`,
 `tests/Feature/Ai/SoftwareCompanyStewardship/AreaFocusLoopCommandAreasStartRunTest.php`,
+`tests/Unit/Jobs/SoftwareCompanyLoopRunJobTest.php`,
 `tests/Feature/Ai/SoftwareCompanyStewardship/LoopCommandSurfaceTest.php`.
 (Nota 2026-07-05: os paths antes listados aqui —
 `tests/Feature/AreaFocusLoopCommandControllerTest.php`,
