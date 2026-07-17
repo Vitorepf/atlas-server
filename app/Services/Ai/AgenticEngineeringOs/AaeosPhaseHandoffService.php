@@ -29,6 +29,8 @@ final class AaeosPhaseHandoffService
 
     public const FIELD_BLOCKED = 'blocked';
 
+    public const FIELD_PASSED = 'passed';
+
     public static function requireIntentId(string $intentId): void
     {
         if ($intentId === '') {
@@ -188,7 +190,7 @@ final class AaeosPhaseHandoffService
             'evidence_hashes' => array_values($evidenceHashes),
             'gates' => [
                 'required' => array_values(AiValueNormalizer::arrayOrEmpty($gates['required'] ?? self::PHASE_GATES_MAP[$phaseOut] ?? null)),
-                'passed' => array_values(AiValueNormalizer::arrayOrEmpty($gates['passed'] ?? null)),
+                self::FIELD_PASSED => array_values(AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_PASSED] ?? null)),
                 self::FIELD_BLOCKED => array_values(AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_BLOCKED] ?? null)),
             ],
             'blockers' => array_values(AiValueNormalizer::arrayOrEmpty($blockers)),
@@ -272,7 +274,7 @@ final class AaeosPhaseHandoffService
             'inputs' => [],
             'outputs' => [],
             'evidence_hashes' => [],
-            'gates' => ['required' => [], 'passed' => [], self::FIELD_BLOCKED => []],
+            'gates' => ['required' => [], self::FIELD_PASSED => [], self::FIELD_BLOCKED => []],
             'blockers' => [],
             'operator_signature' => null,
             'started_at' => gmdate('c'),

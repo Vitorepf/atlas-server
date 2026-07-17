@@ -20,8 +20,18 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
 
     public const NATIVE_NEEDS_REVIEW = 'needs_review';
 
+    public const STATUS_ABSENT = 'absent';
+
+    public const FIELD_VERIFIED = 'verified';
+
+    public const FIELD_PROVEN_REAL = 'proven_real';
+
+    public const FIELD_FAKE_GREEN = 'fake_green';
+
+    public const FIELD_SHOULD_PROMOTE_TO_AEMOR = 'should_promote_to_aemor';
+
     /** @var list<string> */
-    public const BOOL_FIELDS = ['proven_real', 'fake_green', 'should_promote_to_aemor'];
+    public const BOOL_FIELDS = [self::FIELD_PROVEN_REAL, self::FIELD_FAKE_GREEN, self::FIELD_SHOULD_PROMOTE_TO_AEMOR];
 
     public function origin(): string
     {
@@ -32,9 +42,9 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
     public function toEnvelope(array $native, array $context = []): OutcomeEnvelope
     {
         $status = OutcomeEnvelope::normalizeStatus((AiValueNormalizer::trimmedStringOrNull($native['outcome_status'] ?? null) ?? self::NATIVE_NEEDS_REVIEW));
-        $provenReal = (AiValueNormalizer::boolOrNull($native['proven_real'] ?? null) ?? false);
-        $fakeGreen = (AiValueNormalizer::boolOrNull($native['fake_green'] ?? null) ?? false);
-        $verifiedSourcePresent = array_key_exists('proven_real', $native);
+        $provenReal = (AiValueNormalizer::boolOrNull($native[self::FIELD_PROVEN_REAL] ?? null) ?? false);
+        $fakeGreen = (AiValueNormalizer::boolOrNull($native[self::FIELD_FAKE_GREEN] ?? null) ?? false);
+        $verifiedSourcePresent = array_key_exists(self::FIELD_PROVEN_REAL, $native);
         $verifiedBasis = $this->deriveVerifiedBasis($provenReal, $fakeGreen, $verifiedSourcePresent);
         $verified = $provenReal && ! $fakeGreen && in_array($verifiedBasis, AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASES_WEIGHTED, true);
         $evidenceKinds = AiValueNormalizer::arrayOrEmpty($native['evidence_kinds'] ?? null);
@@ -43,9 +53,9 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => 'dev',
             'task_category' => (AiValueNormalizer::trimmedStringOrNull($context['task_category'] ?? null) ?? 'dev'),
-            'provider' => AiValueNormalizer::lowerTrimmedString($context['provider'] ?? 'absent') ?: 'absent',
+            'provider' => AiValueNormalizer::lowerTrimmedString($context['provider'] ?? self::STATUS_ABSENT) ?: self::STATUS_ABSENT,
             'status' => $status,
-            'verified' => $verified,
+            self::FIELD_VERIFIED => $verified,
             'verified_basis' => $verifiedBasis,
             'verified_source_present' => $verifiedSourcePresent,
             'certified_receipt_id' => $context['certified_receipt_id'] ?? null,
@@ -54,14 +64,14 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
             'run_id' => $runId !== '' ? $runId : null,
         ], [
             'outcome_status' => (AiValueNormalizer::trimmedStringOrNull($native['outcome_status'] ?? null) ?? ''),
-            'proven_real' => $provenReal,
-            'fake_green' => $fakeGreen,
+            self::FIELD_PROVEN_REAL => $provenReal,
+            self::FIELD_FAKE_GREEN => $fakeGreen,
             'proof_reason' => (AiValueNormalizer::trimmedStringOrNull($native['proof_reason'] ?? null) ?? ''),
             'evidence_kinds' => $evidenceKinds,
             'selected_tests' => AiValueNormalizer::arrayOrEmpty($native['selected_tests'] ?? null),
             'changed_files' => AiValueNormalizer::arrayOrEmpty($native['changed_files'] ?? null),
             'learning_candidates' => AiValueNormalizer::arrayOrEmpty($native['learning_candidates'] ?? null),
-            'should_promote_to_aemor' => (AiValueNormalizer::boolOrNull($native['should_promote_to_aemor'] ?? null) ?? false),
+            self::FIELD_SHOULD_PROMOTE_TO_AEMOR => (AiValueNormalizer::boolOrNull($native[self::FIELD_SHOULD_PROMOTE_TO_AEMOR] ?? null) ?? false),
         ]);
     }
 
@@ -74,14 +84,14 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
             'schema_version' => self::NATIVE_SCHEMA_VERSION,
             'run_id' => (AiValueNormalizer::trimmedStringOrNull($data['run_id'] ?? null) ?? self::FALLBACK_RUN_ID),
             'outcome_status' => AiValueNormalizer::trimmedStringOrNull($fields['outcome_status'] ?? null) ?? OutcomeEnvelope::toNativeStatus((AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? OutcomeEnvelope::STATUS_BLOCKED), $this->origin()),
-            'proven_real' => (AiValueNormalizer::boolOrNull($fields['proven_real'] ?? null) ?? false),
-            'fake_green' => (AiValueNormalizer::boolOrNull($fields['fake_green'] ?? null) ?? false),
+            self::FIELD_PROVEN_REAL => (AiValueNormalizer::boolOrNull($fields[self::FIELD_PROVEN_REAL] ?? null) ?? false),
+            self::FIELD_FAKE_GREEN => (AiValueNormalizer::boolOrNull($fields[self::FIELD_FAKE_GREEN] ?? null) ?? false),
             'proof_reason' => (AiValueNormalizer::trimmedStringOrNull($fields['proof_reason'] ?? null) ?? ''),
             'evidence_kinds' => AiValueNormalizer::arrayOrEmpty($fields['evidence_kinds'] ?? null),
             'selected_tests' => AiValueNormalizer::arrayOrEmpty($fields['selected_tests'] ?? null),
             'changed_files' => AiValueNormalizer::arrayOrEmpty($fields['changed_files'] ?? null),
             'learning_candidates' => AiValueNormalizer::arrayOrEmpty($fields['learning_candidates'] ?? null),
-            'should_promote_to_aemor' => (AiValueNormalizer::boolOrNull($fields['should_promote_to_aemor'] ?? null) ?? false),
+            self::FIELD_SHOULD_PROMOTE_TO_AEMOR => (AiValueNormalizer::boolOrNull($fields[self::FIELD_SHOULD_PROMOTE_TO_AEMOR] ?? null) ?? false),
         ];
     }
 

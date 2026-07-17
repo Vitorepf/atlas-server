@@ -21,7 +21,7 @@ final class Esp09IndependentChallengerService
 
     public const MEASURE_ID = 'atlas.esp_09.challenger_advisory.v1';
 
-    public const MODE = 'advisory';
+    public const MODE = self::STATUS_ADVISORY;
 
     public const HIGH_ALIGNMENT_BAND = 0.80;
 
@@ -222,8 +222,8 @@ final class Esp09IndependentChallengerService
             'schema_version' => self::SCHEMA_VERSION,
             'series' => self::MEASURE_ID,
             'denominator' => $denominator,
-            'accepted' => $accepted,
-            'ignored' => $ignored,
+            self::OUTCOME_ACCEPTED => $accepted,
+            self::OUTCOME_IGNORED => $ignored,
             'accepted_rate' => $acceptedRate,
             'windows' => $byWindow,
             'death_review_candidate' => $deathReview,

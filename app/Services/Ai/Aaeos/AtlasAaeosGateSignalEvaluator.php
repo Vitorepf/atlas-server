@@ -62,6 +62,8 @@ final class AtlasAaeosGateSignalEvaluator
      */
     public const COMPOUND_CONNECTORS = [' and ', ' & ', ' then ', ' plus ', '; '];
 
+    public const FIELD_PASSED = 'passed';
+
     /**
      * P1 disambiguation gate: weighted + clamped 0..1 intent-clarity score.
      *
@@ -215,7 +217,7 @@ final class AtlasAaeosGateSignalEvaluator
 
         $allPassed = true;
         foreach ($gates as $gate) {
-            if ($gate['passed'] !== true) {
+            if ($gate[self::FIELD_PASSED] !== true) {
                 $allPassed = false;
             }
         }
@@ -238,7 +240,7 @@ final class AtlasAaeosGateSignalEvaluator
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'gate' => $gate,
-            'passed' => $passed,
+            self::FIELD_PASSED => $passed,
             'computed_value' => $computedValue,
             'reasons' => array_values($reasons),
         ];

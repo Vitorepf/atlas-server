@@ -39,6 +39,8 @@ class AtlasAaeosTestExecutionService
      */
     public const OUTPUT_TAIL_CHARS = 1600;
 
+    public const FIELD_PASSED = 'passed';
+
     public function __construct(
         private readonly float $timeout = 180.0,
         private readonly AtlasAaeosImplementationEvidenceResolver $resolver = new AtlasAaeosImplementationEvidenceResolver,
@@ -205,7 +207,7 @@ class AtlasAaeosTestExecutionService
             'capability_id' => $capabilityId,
             'test_ref' => $testRef,
             'filter' => $filter,
-            'passed' => $run['passed'],
+            self::FIELD_PASSED => $run[self::FIELD_PASSED],
             'tests_run' => $run['tests_run'],
             'exit_code' => $run['exit_code'],
             'commit_stamp' => $this->commitStamp(),
@@ -220,7 +222,7 @@ class AtlasAaeosTestExecutionService
 
         // A red run is a delivery-stage veto: resolve where it must propagate via the
         // canonical department transition graph, same as any other cross-department veto.
-        if (! $run['passed']) {
+        if (! $run[self::FIELD_PASSED]) {
             $payload['veto_propagation'] = $this->vetoResolver->resolve('review', 'delivery');
         }
 
@@ -407,7 +409,7 @@ class AtlasAaeosTestExecutionService
 
         return [
             'ran' => true,
-            'passed' => $passed,
+            self::FIELD_PASSED => $passed,
             'tests_run' => $testsRun,
             'exit_code' => $exitCode,
             'output_tail' => $this->tail($output),
@@ -507,7 +509,7 @@ class AtlasAaeosTestExecutionService
     {
         return [
             'ran' => false,
-            'passed' => false,
+            self::FIELD_PASSED => false,
             'tests_run' => 0,
             'exit_code' => -1,
             'output_tail' => 'blocked:'.$reason,
@@ -528,7 +530,7 @@ class AtlasAaeosTestExecutionService
     {
         return [
             'ran' => false,
-            'passed' => false,
+            self::FIELD_PASSED => false,
             'tests_run' => 0,
             'exit_code' => -1,
             'output_tail' => 'ambiguous_test_ref: "'.$testRef.'" does not resolve to an indexed Class or Class::method — refusing to run a broad filter',
@@ -564,7 +566,7 @@ class AtlasAaeosTestExecutionService
                 ],
                 [
                     'filter' => AiValueNormalizer::trimmedScalarStringOrNull($payload['filter'] ?? null) ?? '',
-                    'passed' => (AiValueNormalizer::boolOrNull($payload['passed'] ?? null) ?? false),
+                    self::FIELD_PASSED => (AiValueNormalizer::boolOrNull($payload[self::FIELD_PASSED] ?? null) ?? false),
                     'tests_run' => (int) (AiValueNormalizer::finiteFloatOrNull($payload['tests_run'] ?? null) ?? 0),
                     'exit_code' => $payload['exit_code'] !== null ? (int) (AiValueNormalizer::finiteFloatOrNull($payload['exit_code'] ?? null) ?? 0) : null,
                     'commit_stamp' => $payload['commit_stamp'],

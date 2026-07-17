@@ -39,6 +39,8 @@ final class AtlasCognitionRemintTouchedQueue
 
     public const REASON_QUEUED = 'queued';
 
+    public const FIELD_QUEUED = 'queued';
+
     public const FIELD_ERROR = 'error';
 
     /**
@@ -50,7 +52,7 @@ final class AtlasCognitionRemintTouchedQueue
     {
         if (! (AiValueNormalizer::boolOrNull(config(self::ENABLED_CONFIG_KEY, self::DEFAULT_ENABLED)) ?? self::DEFAULT_ENABLED)) {
             return [
-                'queued' => false,
+                self::FIELD_QUEUED => false,
                 'reason' => self::REASON_DISABLED,
                 'mode' => self::MODE_OFF,
             ];
@@ -59,7 +61,7 @@ final class AtlasCognitionRemintTouchedQueue
         $paths = $this->normalizePaths($paths);
         if ($paths === []) {
             return [
-                'queued' => false,
+                self::FIELD_QUEUED => false,
                 'reason' => self::REASON_EMPTY_PATHS,
                 'mode' => self::MODE_DEFERRED_DISK_QUEUE,
             ];
@@ -84,7 +86,7 @@ final class AtlasCognitionRemintTouchedQueue
             $path = AiValueNormalizer::trimmedStringOrNull(config(self::QUEUE_PATH_CONFIG_KEY, self::DEFAULT_QUEUE_PATH)) ?? '';
             if ($path === '') {
                 return [
-                    'queued' => false,
+                    self::FIELD_QUEUED => false,
                     'reason' => self::REASON_QUEUE_PATH_EMPTY,
                     'mode' => self::MODE_DEFERRED_DISK_QUEUE,
                 ];
@@ -95,7 +97,7 @@ final class AtlasCognitionRemintTouchedQueue
             );
         } catch (Throwable $e) {
             return [
-                'queued' => false,
+                self::FIELD_QUEUED => false,
                 'reason' => self::REASON_QUEUE_WRITE_FAILED,
                 'mode' => self::MODE_DEFERRED_DISK_QUEUE,
                 self::FIELD_ERROR => mb_substr($e->getMessage(), 0, 200),
@@ -103,7 +105,7 @@ final class AtlasCognitionRemintTouchedQueue
         }
 
         return [
-            'queued' => true,
+            self::FIELD_QUEUED => true,
             'reason' => self::REASON_QUEUED,
             'mode' => self::MODE_DEFERRED_DISK_QUEUE,
             'path_count' => count($paths),

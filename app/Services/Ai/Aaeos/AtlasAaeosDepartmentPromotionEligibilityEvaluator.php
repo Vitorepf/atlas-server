@@ -18,6 +18,8 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
 
     public const VERDICT_BLOCKED = 'blocked';
 
+    public const FIELD_PASSED = 'passed';
+
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department
      * @param array{current_score?: int|float|string, tier_thresholds?: array<int|string, int|float|string>, target_threshold?: int|float|string} $metrics
@@ -55,19 +57,19 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
         $failedPreconditions = [];
         $blockingReasons = [];
 
-        if (! $blockerPrecondition['passed']) {
+        if (! $blockerPrecondition[self::FIELD_PASSED]) {
             $failedPreconditions[] = 'blockers';
             foreach ($blockerPrecondition['unresolved'] as $unresolvedId) {
                 $blockingReasons[] = 'blocked_by_unresolved_blockers:' . $unresolvedId;
             }
         }
 
-        if (! $qualityPrecondition['passed']) {
+        if (! $qualityPrecondition[self::FIELD_PASSED]) {
             $failedPreconditions[] = 'quality_bar';
             $blockingReasons[] = 'quality_bar_not_met';
         }
 
-        if (! $freshnessPrecondition['passed']) {
+        if (! $freshnessPrecondition[self::FIELD_PASSED]) {
             $failedPreconditions[] = 'freshness';
             $blockingReasons[] = 'evidence_stale';
         }
@@ -138,7 +140,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
         $unresolved = $this->uniqueSortedStrings($unresolved);
 
         return [
-            'passed' => $unresolved === [],
+            self::FIELD_PASSED => $unresolved === [],
             'total' => count($blockers),
             'unresolved' => $unresolved,
         ];
@@ -156,7 +158,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
         $deficit = max(0.0, round($requiredThreshold - $currentScore, 4));
 
         return [
-            'passed' => $currentScore >= $requiredThreshold,
+            self::FIELD_PASSED => $currentScore >= $requiredThreshold,
             'current_score' => $currentScore,
             'required_threshold' => $requiredThreshold,
             'deficit' => $deficit,
@@ -197,7 +199,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
         $ageDays = $this->ageInDays($lastEvaluation, $asOf);
 
         return [
-            'passed' => $lastEvaluationTimestamp !== null && $ageDays <= $maxAgeDays,
+            self::FIELD_PASSED => $lastEvaluationTimestamp !== null && $ageDays <= $maxAgeDays,
             'age_days' => $ageDays,
             'max_age_days' => $maxAgeDays,
         ];

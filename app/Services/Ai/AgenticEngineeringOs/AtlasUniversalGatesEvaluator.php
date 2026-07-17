@@ -5252,6 +5252,36 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: queued/passed/advisory/absent residual floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function queuedPassedAdvisoryAbsentFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'remint_field_queued' => AtlasCognitionRemintTouchedQueue::FIELD_QUEUED,
+            'remint_reason_queued' => AtlasCognitionRemintTouchedQueue::REASON_QUEUED,
+            'esp09_outcome_accepted' => Esp09IndependentChallengerService::OUTCOME_ACCEPTED,
+            'esp09_outcome_ignored' => Esp09IndependentChallengerService::OUTCOME_IGNORED,
+            'esp09_mode' => Esp09IndependentChallengerService::MODE,
+            'esp09_status_advisory' => Esp09IndependentChallengerService::STATUS_ADVISORY,
+            'phase_handoff_field_passed' => AaeosPhaseHandoffService::FIELD_PASSED,
+            'gate_signal_field_passed' => AtlasAaeosGateSignalEvaluator::FIELD_PASSED,
+            'promotion_eligibility_field_passed' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_PASSED,
+            'test_execution_field_passed' => AtlasAaeosTestExecutionService::FIELD_PASSED,
+            'delivery_pack_status_passed' => DeliveryPackCompletenessScorer::STATUS_PASSED,
+            'dev_procedural_status_absent' => DevProceduralOutcomeEnvelopeAdapter::STATUS_ABSENT,
+            'dev_procedural_field_verified' => DevProceduralOutcomeEnvelopeAdapter::FIELD_VERIFIED,
+            'dev_procedural_field_proven_real' => DevProceduralOutcomeEnvelopeAdapter::FIELD_PROVEN_REAL,
+            'compounding_field_learning_required' => CompoundingOutcomeEnvelopeAdapter::FIELD_LEARNING_REQUIRED,
+            'compounding_field_human_override' => CompoundingOutcomeEnvelopeAdapter::FIELD_HUMAN_OVERRIDE,
+            'compounding_status_passed' => CompoundingOutcomeEnvelopeAdapter::STATUS_PASSED,
+            'queued_passed_advisory_absent_floor_count' => 17,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

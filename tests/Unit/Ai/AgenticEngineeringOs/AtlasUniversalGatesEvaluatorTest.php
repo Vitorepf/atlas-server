@@ -3539,4 +3539,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['conflict_frontier_fixture_pending_floor_count']);
     }
 
+    public function test_queued_passed_advisory_absent_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->queuedPassedAdvisoryAbsentFloorsContractObserve([]);
+
+        $this->assertSame('queued', $payload['remint_field_queued']);
+        $this->assertSame('queued', $payload['remint_reason_queued']);
+        $this->assertSame('accepted', $payload['esp09_outcome_accepted']);
+        $this->assertSame('ignored', $payload['esp09_outcome_ignored']);
+        $this->assertSame('advisory', $payload['esp09_mode']);
+        $this->assertSame('advisory', $payload['esp09_status_advisory']);
+        $this->assertSame('passed', $payload['phase_handoff_field_passed']);
+        $this->assertSame('passed', $payload['gate_signal_field_passed']);
+        $this->assertSame('passed', $payload['promotion_eligibility_field_passed']);
+        $this->assertSame('passed', $payload['test_execution_field_passed']);
+        $this->assertSame('passed', $payload['delivery_pack_status_passed']);
+        $this->assertSame('absent', $payload['dev_procedural_status_absent']);
+        $this->assertSame('verified', $payload['dev_procedural_field_verified']);
+        $this->assertSame('proven_real', $payload['dev_procedural_field_proven_real']);
+        $this->assertSame('learning_required', $payload['compounding_field_learning_required']);
+        $this->assertSame('human_override', $payload['compounding_field_human_override']);
+        $this->assertSame('passed', $payload['compounding_status_passed']);
+        $this->assertSame(17, $payload['queued_passed_advisory_absent_floor_count']);
+    }
+
 }
