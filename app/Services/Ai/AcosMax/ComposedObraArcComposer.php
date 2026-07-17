@@ -27,6 +27,14 @@ final class ComposedObraArcComposer
     public const DEFAULT_JUDGE_ENGINE_ID = 'codex-independent-multn1702-judge';
 
     public const FIELD_ENABLED = 'enabled';
+    public const FIELD_TARGET_PATH = 'target_path';
+    public const FIELD_ORGAN_CLASS = 'organ_class';
+    public const FIELD_LEVERAGE = 'leverage';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_ARC_ID = 'arc_id';
+    public const FIELD_OK = 'ok';
+    public const FIELD_CANDIDATES = 'candidates';
 
     public const STATUS_FLAG_DISABLED = 'flag_disabled';
 
@@ -105,7 +113,7 @@ final class ComposedObraArcComposer
             if (! is_array($candidate)) {
                 continue;
             }
-            $target = ltrim(AiValueNormalizer::trimmedStringOrNull($candidate['target_path'] ?? null) ?? '', '/');
+            $target = ltrim(AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_TARGET_PATH] ?? null) ?? '', '/');
             $summary = AiValueNormalizer::trimmedStringOrNull($candidate['summary'] ?? null) ?? '';
             if ($target === '' || $summary === '') {
                 continue;
@@ -116,10 +124,10 @@ final class ComposedObraArcComposer
             }
             $out[] = [
                 'id' => AiValueNormalizer::trimmedStringOrNull($candidate['id'] ?? null) ?? 'cand-'.$index,
-                'target_path' => $target,
+                self::FIELD_TARGET_PATH => $target,
                 'summary' => $summary,
-                'organ_class' => $organ,
-                'leverage' => AiValueNormalizer::finiteFloatOrNull($candidate['leverage'] ?? null) ?? 0.0,
+                self::FIELD_ORGAN_CLASS => $organ,
+                self::FIELD_LEVERAGE => AiValueNormalizer::finiteFloatOrNull($candidate[self::FIELD_LEVERAGE] ?? null) ?? 0.0,
             ];
         }
 
@@ -136,19 +144,19 @@ final class ComposedObraArcComposer
         $seedPaths = self::clusterSeedPaths($clusterLeads);
         $byOrgan = [];
         foreach ($grounded as $candidate) {
-            $byOrgan[$candidate['organ_class']][] = $candidate;
+            $byOrgan[$candidate[self::FIELD_ORGAN_CLASS]][] = $candidate;
         }
 
         $best = null;
         $bestScore = -1.0;
         foreach ($grounded as $anchor) {
-            $neighbors = self::neighborSet($anchor['organ_class'], $graph);
+            $neighbors = self::neighborSet($anchor[self::FIELD_ORGAN_CLASS], $graph);
             $group = [$anchor];
             foreach ($grounded as $other) {
                 if ($other['id'] === $anchor['id']) {
                     continue;
                 }
-                if (in_array($other['organ_class'], $neighbors, true) || $other['organ_class'] === $anchor['organ_class']) {
+                if (in_array($other[self::FIELD_ORGAN_CLASS], $neighbors, true) || $other[self::FIELD_ORGAN_CLASS] === $anchor[self::FIELD_ORGAN_CLASS]) {
                     $group[] = $other;
                 }
             }
@@ -176,7 +184,7 @@ final class ComposedObraArcComposer
 
         $seedGroup = [];
         foreach ($grounded as $candidate) {
-            if (in_array($candidate['target_path'], $seedPaths, true)) {
+            if (in_array($candidate[self::FIELD_TARGET_PATH], $seedPaths, true)) {
                 $seedGroup[] = $candidate;
             }
         }
@@ -192,9 +200,9 @@ final class ComposedObraArcComposer
     private static function orderTasks(array $group): array
     {
         usort($group, static function (array $a, array $b): int {
-            $byLeverage = ($b['leverage'] ?? 0.0) <=> ($a['leverage'] ?? 0.0);
+            $byLeverage = ($b[self::FIELD_LEVERAGE] ?? 0.0) <=> ($a[self::FIELD_LEVERAGE] ?? 0.0);
 
-            return $byLeverage !== 0 ? $byLeverage : strcmp(AiValueNormalizer::trimmedScalarStringOrNull($a['target_path'] ?? null) ?? '', AiValueNormalizer::trimmedScalarStringOrNull($b['target_path'] ?? null) ?? '');
+            return $byLeverage !== 0 ? $byLeverage : strcmp(AiValueNormalizer::trimmedScalarStringOrNull($a[self::FIELD_TARGET_PATH] ?? null) ?? '', AiValueNormalizer::trimmedScalarStringOrNull($b[self::FIELD_TARGET_PATH] ?? null) ?? '');
         });
         $ordered = [];
         foreach (array_values($group) as $index => $task) {
@@ -209,7 +217,7 @@ final class ComposedObraArcComposer
      */
     private static function serializeArc(array $group, string $author, string $judge): array
     {
-        $targets = array_map(static fn (array $task): string => AiValueNormalizer::trimmedScalarStringOrNull($task['target_path'] ?? null) ?? '', $group);
+        $targets = array_map(static fn (array $task): string => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_TARGET_PATH] ?? null) ?? '', $group);
         sort($targets);
         $arcSeed = implode('|', $targets);
         $arcId = 'arc_'.substr(hash('sha256', $arcSeed), 0, 16);
@@ -218,9 +226,9 @@ final class ComposedObraArcComposer
         $tasks = [];
         foreach ($group as $task) {
             $tasks[] = [
-                'task_id' => 'task_'.substr(hash('sha256', $arcId.':'.($task['target_path'] ?? '')), 0, 12),
+                'task_id' => 'task_'.substr(hash('sha256', $arcId.':'.($task[self::FIELD_TARGET_PATH] ?? '')), 0, 12),
                 'order' => (int) (AiValueNormalizer::finiteFloatOrNull($task['order'] ?? null) ?? 0),
-                'target_path' => AiValueNormalizer::trimmedScalarStringOrNull($task['target_path'] ?? null) ?? '',
+                self::FIELD_TARGET_PATH => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_TARGET_PATH] ?? null) ?? '',
                 'objective' => AiValueNormalizer::trimmedScalarStringOrNull($task['summary'] ?? null) ?? '',
                 'individual_gate_required' => true,
                 'architect_phase_gate' => true,
@@ -230,10 +238,10 @@ final class ComposedObraArcComposer
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'arc_id' => $arcId,
+            self::FIELD_ARC_ID => $arcId,
             'obra_id' => $obraId,
             'thesis' => [
-                'claim' => 'Wiring the neighbor organs '.implode(', ', array_map(static fn (array $t): string => basename(AiValueNormalizer::trimmedScalarStringOrNull($t['target_path'] ?? null) ?? '', '.php'), $tasks)).' materially increases end-to-end leverage.',
+                'claim' => 'Wiring the neighbor organs '.implode(', ', array_map(static fn (array $t): string => basename(AiValueNormalizer::trimmedScalarStringOrNull($t[self::FIELD_TARGET_PATH] ?? null) ?? '', '.php'), $tasks)).' materially increases end-to-end leverage.',
                 'falsified_when' => 'No task in the arc reaches proven_real landing within the arc TTL.',
                 'author_engine_id' => $author,
             ],
@@ -300,7 +308,7 @@ final class ComposedObraArcComposer
     private static function groupTouchesSeed(array $group, array $seedPaths): bool
     {
         foreach ($group as $candidate) {
-            if (in_array((AiValueNormalizer::trimmedStringOrNull($candidate['target_path'] ?? null) ?? ''), $seedPaths, true)) {
+            if (in_array((AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_TARGET_PATH] ?? null) ?? ''), $seedPaths, true)) {
                 return true;
             }
         }
@@ -315,7 +323,7 @@ final class ComposedObraArcComposer
     {
         $score = 0.0;
         foreach ($group as $candidate) {
-            $score += AiValueNormalizer::finiteFloatOrNull($candidate['leverage'] ?? null) ?? 0.0;
+            $score += AiValueNormalizer::finiteFloatOrNull($candidate[self::FIELD_LEVERAGE] ?? null) ?? 0.0;
         }
 
         return $score;

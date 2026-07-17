@@ -3977,4 +3977,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['volume_cockpit_rollback_floor_count']);
     }
 
+    public function test_arc_segment_window_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->arcSegmentWindowFloorsContractObserve([]);
+
+        $this->assertSame('target_path', $payload['arc_field_target_path']);
+        $this->assertSame('organ_class', $payload['arc_field_organ_class']);
+        $this->assertSame('leverage', $payload['arc_field_leverage']);
+        $this->assertSame('status', $payload['arc_field_status']);
+        $this->assertSame('arc_id', $payload['arc_field_arc_id']);
+        $this->assertSame('atlas.originator.composed_obra_arc.v1', $payload['arc_schema_version']);
+        $this->assertSame('score', $payload['segment_field_score']);
+        $this->assertSame('recency_rank', $payload['segment_field_recency_rank']);
+        $this->assertSame('kind_weight', $payload['segment_field_kind_weight']);
+        $this->assertSame('decision', $payload['segment_field_decision']);
+        $this->assertSame('keep', $payload['segment_decision_keep']);
+        $this->assertSame('atlas.aaeos.segment_importance_ranking.v1', $payload['segment_schema_version']);
+        $this->assertSame('status', $payload['window_field_status']);
+        $this->assertSame('gate', $payload['window_field_gate']);
+        $this->assertSame('certified', $payload['window_field_certified']);
+        $this->assertSame('met', $payload['window_status_met']);
+        $this->assertSame('atlas.cognition.window_gates.v1', $payload['window_schema_version']);
+        $this->assertSame(17, $payload['arc_segment_window_floor_count']);
+    }
+
 }

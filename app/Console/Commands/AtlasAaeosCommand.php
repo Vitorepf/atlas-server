@@ -274,6 +274,7 @@ final class AtlasAaeosCommand extends Command
         {--compounding-scorecard-canary-floors-contract= : JSON file (any object) to observe compounding/scorecard/canary residual floors}
         {--obra-lote2-health-floors-contract= : JSON file (any object) to observe obra/lote2/health residual floors}
         {--volume-cockpit-rollback-floors-contract= : JSON file (any object) to observe volume/cockpit/rollback residual floors}
+        {--arc-segment-window-floors-contract= : JSON file (any object) to observe arc/segment/window residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -704,6 +705,7 @@ final class AtlasAaeosCommand extends Command
             ['compounding-scorecard-canary-floors-contract', 'compounding_scorecard_canary_floors_contract', fn (array $p) => $gates->compoundingScorecardCanaryFloorsContractObserve($p)],
             ['obra-lote2-health-floors-contract', 'obra_lote2_health_floors_contract', fn (array $p) => $gates->obraLote2HealthFloorsContractObserve($p)],
             ['volume-cockpit-rollback-floors-contract', 'volume_cockpit_rollback_floors_contract', fn (array $p) => $gates->volumeCockpitRollbackFloorsContractObserve($p)],
+            ['arc-segment-window-floors-contract', 'arc_segment_window_floors_contract', fn (array $p) => $gates->arcSegmentWindowFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

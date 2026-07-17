@@ -5589,6 +5589,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function arcSegmentWindowFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'arc_field_target_path' => ComposedObraArcComposer::FIELD_TARGET_PATH,
+            'arc_field_organ_class' => ComposedObraArcComposer::FIELD_ORGAN_CLASS,
+            'arc_field_leverage' => ComposedObraArcComposer::FIELD_LEVERAGE,
+            'arc_field_status' => ComposedObraArcComposer::FIELD_STATUS,
+            'arc_field_arc_id' => ComposedObraArcComposer::FIELD_ARC_ID,
+            'arc_schema_version' => ComposedObraArcComposer::SCHEMA_VERSION,
+            'segment_field_score' => SegmentImportanceRanker::FIELD_SCORE,
+            'segment_field_recency_rank' => SegmentImportanceRanker::FIELD_RECENCY_RANK,
+            'segment_field_kind_weight' => SegmentImportanceRanker::FIELD_KIND_WEIGHT,
+            'segment_field_decision' => SegmentImportanceRanker::FIELD_DECISION,
+            'segment_decision_keep' => SegmentImportanceRanker::DECISION_KEEP,
+            'segment_schema_version' => SegmentImportanceRanker::SCHEMA_VERSION,
+            'window_field_status' => AtlasAcosWindowGatesService::FIELD_STATUS,
+            'window_field_gate' => AtlasAcosWindowGatesService::FIELD_GATE,
+            'window_field_certified' => AtlasAcosWindowGatesService::FIELD_CERTIFIED,
+            'window_status_met' => AtlasAcosWindowGatesService::STATUS_MET,
+            'window_schema_version' => AtlasAcosWindowGatesService::SCHEMA_VERSION,
+            'arc_segment_window_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

@@ -17,7 +17,7 @@ final class SegmentImportanceRanker
      * @var array<string, float>
      */
     public const KIND_WEIGHT = [
-        'decision' => 1.0,
+        self::FIELD_DECISION => 1.0,
         'blocker' => 1.0,
         'dod' => 1.0,
         'risk_critical' => 1.0,
@@ -46,6 +46,14 @@ final class SegmentImportanceRanker
     public const DECISION_KEEP = 'keep';
 
     public const DECISION_DROP = 'drop';
+    public const FIELD_SCORE = 'score';
+    public const FIELD_RECENCY_RANK = 'recency_rank';
+    public const FIELD_KIND_WEIGHT = 'kind_weight';
+    public const FIELD_DECISION = 'decision';
+    public const FIELD_DROP_REASON = 'drop_reason';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_SEGMENTS = 'segments';
 
     /**
      * Rank may-discard segments by composite signal and greedily fill a token budget.
@@ -129,13 +137,13 @@ final class SegmentImportanceRanker
 
             $ranked[] = [
                 'id' => $segment['id'],
-                'kind' => $segment['kind'],
-                'score' => $segment['score'],
-                'recency_rank' => $segment['recency_rank'],
+                self::FIELD_KIND => $segment[self::FIELD_KIND],
+                self::FIELD_SCORE => $segment[self::FIELD_SCORE],
+                self::FIELD_RECENCY_RANK => $segment[self::FIELD_RECENCY_RANK],
                 'token_estimate' => $tokenEstimate,
                 'dedup_penalty' => $segment['dedup_penalty'],
-                'decision' => $decision,
-                'drop_reason' => $dropReason,
+                self::FIELD_DECISION => $decision,
+                self::FIELD_DROP_REASON => $dropReason,
             ];
         }
 
@@ -209,15 +217,15 @@ final class SegmentImportanceRanker
 
             $scored[] = [
                 'id' => AtlasAaeosArrayFieldReader::stringField($row, 'id'),
-                'kind' => $kind,
-                'recency_rank' => $recencyRank,
+                self::FIELD_KIND => $kind,
+                self::FIELD_RECENCY_RANK => $recencyRank,
                 'token_estimate' => max($this->intField($row, 'token_estimate'), 0),
                 'has_evidence_ref' => $hasEvidenceRef,
                 'links_decision_or_blocker' => $linksDecisionOrBlocker,
                 'dup_group' => $dupGroup,
-                'kind_weight' => $kindWeight,
+                self::FIELD_KIND_WEIGHT => $kindWeight,
                 'dedup_penalty' => $dedupPenalty,
-                'score' => $score,
+                self::FIELD_SCORE => $score,
             ];
         }
 
@@ -253,16 +261,16 @@ final class SegmentImportanceRanker
      */
     private function compare(array $a, array $b): int
     {
-        if ($a['score'] !== $b['score']) {
-            return $b['score'] <=> $a['score'];
+        if ($a[self::FIELD_SCORE] !== $b[self::FIELD_SCORE]) {
+            return $b[self::FIELD_SCORE] <=> $a[self::FIELD_SCORE];
         }
 
-        if ($a['recency_rank'] !== $b['recency_rank']) {
-            return $a['recency_rank'] <=> $b['recency_rank'];
+        if ($a[self::FIELD_RECENCY_RANK] !== $b[self::FIELD_RECENCY_RANK]) {
+            return $a[self::FIELD_RECENCY_RANK] <=> $b[self::FIELD_RECENCY_RANK];
         }
 
-        if ($a['kind_weight'] !== $b['kind_weight']) {
-            return $b['kind_weight'] <=> $a['kind_weight'];
+        if ($a[self::FIELD_KIND_WEIGHT] !== $b[self::FIELD_KIND_WEIGHT]) {
+            return $b[self::FIELD_KIND_WEIGHT] <=> $a[self::FIELD_KIND_WEIGHT];
         }
 
         return strcmp($a['id'], $b['id']);
