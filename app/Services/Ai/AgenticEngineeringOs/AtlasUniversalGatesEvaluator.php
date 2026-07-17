@@ -2259,6 +2259,23 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only summary-fidelity + segment-importance schemas.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function contextRetentionSchemasObserve(array $input = []): array
+    {
+        return [
+            'summary_fidelity_schema' => SummaryFidelityCoverageScorer::SCHEMA_VERSION,
+            'segment_importance_schema' => SegmentImportanceRanker::SCHEMA_VERSION,
+            'summary_retention_fail_floor' => 0.6,
+            'summary_score_precision' => 4,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

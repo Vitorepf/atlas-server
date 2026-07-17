@@ -105,10 +105,10 @@ final class AtlasLocalModelIntegrityService
             return $row;
         }
 
-        $resolved = $this->resolvePath($path);
+        $resolved = AiValueNormalizer::trimmedStringOrNull($this->resolvePath($path));
         $row['path_resolved'] = $resolved;
 
-        if (! is_string($resolved) || ! is_file($resolved) || ! is_readable($resolved)) {
+        if ($resolved === null || ! is_file($resolved) || ! is_readable($resolved)) {
             $row['status'] = 'missing';
             $row['reason'] = 'artifact_unreadable';
 

@@ -166,10 +166,11 @@ final class AaeosDeferredPhaseDispatcherService
     {
         $outputs = AiValueNormalizer::arrayOrEmpty($envelope['outputs'] ?? null);
         foreach ($outputs as $key => $value) {
-            if (! is_string($value)) {
+            $value = AiValueNormalizer::trimmedStringOrNull($value);
+            if ($value === null) {
                 continue;
             }
-            if (str_ends_with($key, '_invocation') && $value === 'deferred') {
+            if (str_ends_with((string) $key, '_invocation') && $value === 'deferred') {
                 return true;
             }
         }

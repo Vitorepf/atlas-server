@@ -1648,4 +1648,13 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(80, $payload['complete_threshold']);
         $this->assertSame(50, $payload['partial_threshold']);
     }
+
+    public function test_context_retention_schemas_observe_reports_schemas(): void
+    {
+        $payload = $this->svc->contextRetentionSchemasObserve([]);
+
+        $this->assertSame('atlas.aaeos.summary_fidelity_coverage.v1', $payload['summary_fidelity_schema']);
+        $this->assertSame('atlas.aaeos.segment_importance_ranking.v1', $payload['segment_importance_schema']);
+        $this->assertSame(0.6, $payload['summary_retention_fail_floor']);
+    }
 }
