@@ -50,6 +50,10 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
 
     public const EXPORT_BOOL_UNSET = 'unset';
 
+    public const PROBE_ID_UNKNOWN = 'unknown';
+
+    public const FIELD_OK = 'ok';
+
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
         private readonly DecisionReceiptFailurePatternMiner $miner,
@@ -83,7 +87,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         foreach ($probes as $probe) {
             if (($probe['refused'] ?? false) !== true) {
                 $violations[] = [
-                    'probe' => AiValueNormalizer::trimmedStringOrNull($probe['id'] ?? null) ?? 'unknown',
+                    'probe' => AiValueNormalizer::trimmedStringOrNull($probe['id'] ?? null) ?? self::PROBE_ID_UNKNOWN,
                     'reason' => AiValueNormalizer::trimmedStringOrNull($probe['observed'] ?? null) ?? 'forgery_passed',
                 ];
             }
@@ -145,13 +149,13 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         // is absent — which is the outcome for a bare boolean receipt after
         // the applier layer converts `true` into a missing-field verdict at
         // its own boundary. Either refusal reason satisfies the invariant.
-        $refused = $verdict['ok'] === false;
+        $refused = $verdict[self::FIELD_OK] === false;
 
         return [
             'id' => 'maxk05.signature_forged_boolean',
             'refused' => $refused,
             'expected' => 'ok=false',
-            'observed' => (AiValueNormalizer::trimmedStringOrNull($verdict['reason'] ?? null) ?? 'unknown'),
+            'observed' => (AiValueNormalizer::trimmedStringOrNull($verdict['reason'] ?? null) ?? self::PROBE_ID_UNKNOWN),
         ];
     }
 
@@ -175,9 +179,9 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
 
         return [
             'id' => 'maxk05.signature_receipt_missing',
-            'refused' => $verdict['ok'] === false && $verdict['reason'] === 'signature_receipt_missing',
+            'refused' => $verdict[self::FIELD_OK] === false && $verdict['reason'] === 'signature_receipt_missing',
             'expected' => 'signature_receipt_missing',
-            'observed' => (AiValueNormalizer::trimmedStringOrNull($verdict['reason'] ?? null) ?? 'unknown'),
+            'observed' => (AiValueNormalizer::trimmedStringOrNull($verdict['reason'] ?? null) ?? self::PROBE_ID_UNKNOWN),
         ];
     }
 
@@ -219,9 +223,9 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
 
         return [
             'id' => 'maxk05.signature_nonce_reused',
-            'refused' => $first['ok'] === true && $second['ok'] === false && $second['reason'] === 'signature_nonce_reused',
+            'refused' => $first[self::FIELD_OK] === true && $second[self::FIELD_OK] === false && $second['reason'] === 'signature_nonce_reused',
             'expected' => 'signature_nonce_reused after first spend',
-            'observed' => (AiValueNormalizer::trimmedStringOrNull($second['reason'] ?? null) ?? 'unknown'),
+            'observed' => (AiValueNormalizer::trimmedStringOrNull($second['reason'] ?? null) ?? self::PROBE_ID_UNKNOWN),
         ];
     }
 
@@ -248,7 +252,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             'id' => 'maxk06.metrics_authority_missing',
             'refused' => $refused,
             'expected' => 'blocked+metrics_authority_missing',
-            'observed' => (AiValueNormalizer::trimmedStringOrNull($verdict['refusal_reason'] ?? $verdict['decision'] ?? null) ?? 'unknown'),
+            'observed' => (AiValueNormalizer::trimmedStringOrNull($verdict['refusal_reason'] ?? $verdict['decision'] ?? null) ?? self::PROBE_ID_UNKNOWN),
         ];
     }
 
@@ -315,7 +319,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
                 && ($verdict['refusal_reason'] ?? '') === 'metrics_authority_tampered'
                 && ($provenance['source'] ?? '') === AtlasAutonomyMetricsAuthorityPort::SOURCE_TAMPERED,
             'expected' => 'blocked+metrics_authority_tampered',
-            'observed' => (AiValueNormalizer::trimmedStringOrNull($verdict['refusal_reason'] ?? $verdict['decision'] ?? null) ?? 'unknown'),
+            'observed' => (AiValueNormalizer::trimmedStringOrNull($verdict['refusal_reason'] ?? $verdict['decision'] ?? null) ?? self::PROBE_ID_UNKNOWN),
         ];
     }
 

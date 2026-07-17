@@ -46,6 +46,8 @@ final class AutonomousWorkExecutionOs
 
     public const FIELD_COMPLETE = 'complete';
 
+    public const FIELD_BLOCKED = 'blocked';
+
     public const STAGE_STATUSES = [
         self::STATUS_PENDING,
         self::STATUS_IN_PROGRESS,
@@ -176,7 +178,7 @@ final class AutonomousWorkExecutionOs
             if (($statusByStage[$stage] ?? self::STATUS_PENDING) === self::STATUS_FAILED) {
                 return [
                     'next_stage' => null,
-                    'blocked' => true,
+                    self::FIELD_BLOCKED => true,
                     self::FIELD_COMPLETE => false,
                     'certification_blocked' => true,
                     'learning_blocked' => true,
@@ -189,7 +191,7 @@ final class AutonomousWorkExecutionOs
             if (($statusByStage[$stage] ?? self::STATUS_PENDING) === self::STATUS_PENDING) {
                 return [
                     'next_stage' => $stage,
-                    'blocked' => false,
+                    self::FIELD_BLOCKED => false,
                     self::FIELD_COMPLETE => false,
                     'certification_blocked' => false,
                     'learning_blocked' => false,
@@ -200,7 +202,7 @@ final class AutonomousWorkExecutionOs
 
         return [
             'next_stage' => null,
-            'blocked' => false,
+            self::FIELD_BLOCKED => false,
             self::FIELD_COMPLETE => true,
             'certification_blocked' => false,
             'learning_blocked' => false,

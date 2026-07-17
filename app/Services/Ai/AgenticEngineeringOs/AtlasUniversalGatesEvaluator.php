@@ -5016,6 +5016,38 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: teto10 bands + cockpit/ladder/promotion/hmac residual floors.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function teto10CockpitLadderPromotionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'teto10_band_high' => Teto10PredictedRevertReviewDigest::BAND_HIGH,
+            'teto10_band_sweet' => Teto10PredictedRevertReviewDigest::BAND_SWEET,
+            'teto10_band_low' => Teto10PredictedRevertReviewDigest::BAND_LOW,
+            'teto10_band_unknown' => Teto10PredictedRevertReviewDigest::BAND_UNKNOWN,
+            'program_cockpit_status_ok' => AcosProgramCockpitService::STATUS_OK,
+            'autonomy_ladder_probe_id_unknown' => AutonomyLadderAdversarialWatchdogCheck::PROBE_ID_UNKNOWN,
+            'autonomy_ladder_field_ok' => AutonomyLadderAdversarialWatchdogCheck::FIELD_OK,
+            'watchdog_health_status_unknown' => AtlasAcosWatchdogHealthService::STATUS_UNKNOWN,
+            'consolidation_field_ok' => AtlasConsolidationRerankGuard::FIELD_OK,
+            'consolidation_status_ok' => AtlasConsolidationRerankGuard::STATUS_OK,
+            'consolidation_status_healthy' => AtlasConsolidationRerankGuard::STATUS_HEALTHY,
+            'promotion_field_ok' => PromotionProtocol::FIELD_OK,
+            'model_capability_status_ok' => AtlasModelCapabilitySpecService::STATUS_OK,
+            'model_capability_status_violates_spec' => AtlasModelCapabilitySpecService::STATUS_VIOLATES_SPEC,
+            'model_capability_fallback_model_id' => AtlasModelCapabilitySpecService::FALLBACK_MODEL_ID,
+            'hmac_stage_unknown' => CaptureHmacLineageService::STAGE_UNKNOWN,
+            'hmac_field_ok' => CaptureHmacLineageService::FIELD_OK,
+            'autonomy_field_blocked' => AutonomousWorkExecutionOs::FIELD_BLOCKED,
+            'phase_handoff_field_blocked' => AaeosPhaseHandoffService::FIELD_BLOCKED,
+            'teto10_cockpit_ladder_promotion_floor_count' => 19,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

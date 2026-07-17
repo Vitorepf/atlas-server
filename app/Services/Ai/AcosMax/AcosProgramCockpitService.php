@@ -19,6 +19,8 @@ final class AcosProgramCockpitService
 
     public const STATUS_UNAVAILABLE = 'unavailable';
 
+    public const STATUS_OK = 'ok';
+
     public const REASON_SOURCE_NOT_LANDED_YET = 'source_not_landed_yet';
 
 
@@ -63,7 +65,7 @@ final class AcosProgramCockpitService
             }
 
             return [
-                'status' => 'ok',
+                'status' => self::STATUS_OK,
                 'source' => $source,
                 'source_exit_code' => $exitCode,
                 'payload' => $decoded,
@@ -81,7 +83,7 @@ final class AcosProgramCockpitService
     {
         try {
             return [
-                'status' => 'ok',
+                'status' => self::STATUS_OK,
                 'source' => $source,
                 'payload' => $callback(),
             ];
@@ -94,7 +96,7 @@ final class AcosProgramCockpitService
     private function loopsFunnelSection(): array
     {
         return [
-            'status' => 'ok',
+            'status' => self::STATUS_OK,
             'source' => [
                 'loops' => 'atlas:flywheel:loops --json',
                 'funnel' => 'MULTX-02 future source',
@@ -114,7 +116,7 @@ final class AcosProgramCockpitService
     private function brakesSection(): array
     {
         return [
-            'status' => 'ok',
+            'status' => self::STATUS_OK,
             'source' => [
                 'rollback_triggers' => 'atlas:acos:rollback-triggers --json',
                 'operational_volume' => 'atlas:acos:operational-volume --json',
@@ -176,7 +178,7 @@ final class AcosProgramCockpitService
         }
 
         return [
-            'status' => 'ok',
+            'status' => self::STATUS_OK,
             'source' => $path,
             'payload' => [
                 'heading' => AiValueNormalizer::trimmedStringOrNull($selected['heading'] ?? null) ?? '',

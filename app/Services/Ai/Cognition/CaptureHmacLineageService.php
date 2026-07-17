@@ -32,6 +32,10 @@ final class CaptureHmacLineageService
 
     public const STAGE_MEMORY = 'memory';
 
+    public const STAGE_UNKNOWN = 'unknown';
+
+    public const FIELD_OK = 'ok';
+
     public const THREAT_MODEL = 'tamper_between_capture_stages_not_db_adversary';
 
     public const SECRET_CONFIG_KEY = 'atlas.capture.hmac_lineage_secret';
@@ -112,7 +116,7 @@ final class CaptureHmacLineageService
                 ];
             }
 
-            $stage = (AiValueNormalizer::trimmedStringOrNull($link['stage'] ?? null) ?? 'unknown');
+            $stage = (AiValueNormalizer::trimmedStringOrNull($link['stage'] ?? null) ?? self::STAGE_UNKNOWN);
             $stagePayloadHash = (AiValueNormalizer::trimmedStringOrNull($link['stage_payload_hash'] ?? null) ?? '');
             $storedPrev = $link['prev_receipt_hash'] ?? null;
             $storedReceipt = (AiValueNormalizer::trimmedStringOrNull($link['receipt_hash'] ?? null) ?? '');
@@ -202,7 +206,7 @@ final class CaptureHmacLineageService
 
         if ($chain === null) {
             return [
-                'ok' => false,
+                self::FIELD_OK => false,
                 'status' => self::STATUS_NOT_FOUND,
                 'ref' => $ref,
                 'chain' => null,
@@ -218,7 +222,7 @@ final class CaptureHmacLineageService
         $verify = $this->verify($chain);
 
         return [
-            'ok' => $verify['status'] === self::STATUS_VERIFIED,
+            self::FIELD_OK => $verify['status'] === self::STATUS_VERIFIED,
             'status' => $verify['status'],
             'ref' => $ref,
             'chain' => $this->providerSafeChain($chain),

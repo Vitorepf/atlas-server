@@ -3383,4 +3383,26 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(8, $payload['corpus_parallel_truth_blocked_floor_count']);
     }
 
+    public function test_teto10_cockpit_ladder_promotion_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->teto10CockpitLadderPromotionFloorsContractObserve([]);
+
+        $this->assertSame('high', $payload['teto10_band_high']);
+        $this->assertSame('unknown', $payload['teto10_band_unknown']);
+        $this->assertSame('ok', $payload['program_cockpit_status_ok']);
+        $this->assertSame('unknown', $payload['autonomy_ladder_probe_id_unknown']);
+        $this->assertSame('ok', $payload['autonomy_ladder_field_ok']);
+        $this->assertSame('unknown', $payload['watchdog_health_status_unknown']);
+        $this->assertSame('ok', $payload['consolidation_status_ok']);
+        $this->assertSame('healthy', $payload['consolidation_status_healthy']);
+        $this->assertSame('ok', $payload['promotion_field_ok']);
+        $this->assertSame('ok', $payload['model_capability_status_ok']);
+        $this->assertSame('violates_spec', $payload['model_capability_status_violates_spec']);
+        $this->assertSame('unknown', $payload['model_capability_fallback_model_id']);
+        $this->assertSame('unknown', $payload['hmac_stage_unknown']);
+        $this->assertSame('blocked', $payload['autonomy_field_blocked']);
+        $this->assertSame('blocked', $payload['phase_handoff_field_blocked']);
+        $this->assertSame(19, $payload['teto10_cockpit_ladder_promotion_floor_count']);
+    }
+
 }

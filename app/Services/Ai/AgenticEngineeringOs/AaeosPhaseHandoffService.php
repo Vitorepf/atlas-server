@@ -27,6 +27,8 @@ final class AaeosPhaseHandoffService
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.phase.v1';
 
+    public const FIELD_BLOCKED = 'blocked';
+
     public static function requireIntentId(string $intentId): void
     {
         if ($intentId === '') {
@@ -187,7 +189,7 @@ final class AaeosPhaseHandoffService
             'gates' => [
                 'required' => array_values(AiValueNormalizer::arrayOrEmpty($gates['required'] ?? self::PHASE_GATES_MAP[$phaseOut] ?? null)),
                 'passed' => array_values(AiValueNormalizer::arrayOrEmpty($gates['passed'] ?? null)),
-                'blocked' => array_values(AiValueNormalizer::arrayOrEmpty($gates['blocked'] ?? null)),
+                self::FIELD_BLOCKED => array_values(AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_BLOCKED] ?? null)),
             ],
             'blockers' => array_values(AiValueNormalizer::arrayOrEmpty($blockers)),
             'operator_signature' => $operatorSignature,
@@ -270,7 +272,7 @@ final class AaeosPhaseHandoffService
             'inputs' => [],
             'outputs' => [],
             'evidence_hashes' => [],
-            'gates' => ['required' => [], 'passed' => [], 'blocked' => []],
+            'gates' => ['required' => [], 'passed' => [], self::FIELD_BLOCKED => []],
             'blockers' => [],
             'operator_signature' => null,
             'started_at' => gmdate('c'),

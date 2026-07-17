@@ -63,6 +63,8 @@ final class AtlasAcosWatchdogHealthService
 
     public const FIELD_PASS = 'pass';
 
+    public const STATUS_UNKNOWN = 'unknown';
+
     public const MEMORY_SCORE_REGRESSION_TOLERANCE = 5;
 
     public const MEMORY_SNAPSHOT_MAX_AGE_HOURS = 48;
@@ -130,7 +132,7 @@ final class AtlasAcosWatchdogHealthService
         $concentration = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'ratios.recall_concentration_ratio', 0.0)) ?? 0.0;
         $recallUsageTotal = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'counts.retrieval_eval.recall_usage_total', 0)) ?? 0);
         $demotionEnabled = (AiValueNormalizer::boolOrNull(config(self::RECALL_CONCENTRATION_DEMOTION_ENABLED_CONFIG_KEY, self::DEFAULT_RECALL_CONCENTRATION_DEMOTION_ENABLED)) ?? self::DEFAULT_RECALL_CONCENTRATION_DEMOTION_ENABLED);
-        $trendStatus = AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'trend.status')) ?? 'unknown';
+        $trendStatus = AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'trend.status')) ?? self::STATUS_UNKNOWN;
         $currentDelta = data_get($scorecard, 'trend.current_delta_from_latest');
         $latestDelta = data_get($scorecard, 'trend.latest_delta_from_previous');
         $scoreRegressed = in_array($trendStatus, ['regressed', 'watch_regressed'], true)
@@ -169,7 +171,7 @@ final class AtlasAcosWatchdogHealthService
             'checks' => $checks,
             'raw' => [
                 'score' => (int) (AiValueNormalizer::finiteFloatOrNull($scorecard['score'] ?? null) ?? 0),
-                'status' => (AiValueNormalizer::trimmedStringOrNull($scorecard['status'] ?? null) ?? 'unknown'),
+                'status' => (AiValueNormalizer::trimmedStringOrNull($scorecard['status'] ?? null) ?? self::STATUS_UNKNOWN),
                 'freshness' => $freshness,
                 'windowed_concentration_ratio' => $concentration,
                 'snapshot_age_hours' => $snapshotAgeHours,
@@ -220,7 +222,7 @@ final class AtlasAcosWatchdogHealthService
                 'aemor_source_max_age_hours' => self::LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS,
                 'ai_run_outcome_max_age_hours' => self::LEARNING_AI_RUN_OUTCOME_MAX_AGE_HOURS,
             ],
-            'lift_status' => (AiValueNormalizer::trimmedStringOrNull($lift['status'] ?? null) ?? 'unknown'),
+            'lift_status' => (AiValueNormalizer::trimmedStringOrNull($lift['status'] ?? null) ?? self::STATUS_UNKNOWN),
         ], 'learning_cadence_stalled');
     }
 
@@ -356,7 +358,7 @@ final class AtlasAcosWatchdogHealthService
         $transcript = 0;
         $byWriter = [];
         foreach ($events as $event) {
-            $writer = AiValueNormalizer::trimmedScalarStringOrNull($event->flow_id ?: null) ?? 'unknown';
+            $writer = AiValueNormalizer::trimmedScalarStringOrNull($event->flow_id ?: null) ?? self::STATUS_UNKNOWN;
             $byWriter[$writer] ??= ['total' => 0, 'measured' => 0, 'delivered_refs' => 0];
             $byWriter[$writer]['total']++;
             $isMeasured = (int) $event->post_execution_utility > 0 || (int) $event->context_sufficiency > 0 || (int) $event->used_sources > 0;
@@ -476,7 +478,7 @@ final class AtlasAcosWatchdogHealthService
                 'context_retention_score_count' => count($retentionScores),
             ],
             'cross_week_recall_lift_gate' => [
-                'status' => $crossWeek['status'] ?? 'unknown',
+                'status' => $crossWeek['status'] ?? self::STATUS_UNKNOWN,
                 'certified' => (AiValueNormalizer::boolOrNull($crossWeek['certified'] ?? null) ?? false),
                 'blockers' => AiValueNormalizer::arrayOrEmpty($crossWeek['blockers'] ?? null),
             ],
@@ -528,7 +530,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $report = app(AtlasLearningRecallUseLiftService::class)->report();
         $blockers = array_values(AiValueNormalizer::arrayOrEmpty(data_get($report, 'measurement.blockers', [])));
-        $status = (AiValueNormalizer::trimmedStringOrNull($report['status'] ?? null) ?? 'unknown');
+        $status = (AiValueNormalizer::trimmedStringOrNull($report['status'] ?? null) ?? self::STATUS_UNKNOWN);
         $series = $this->blockerSeries('ope-08.lift_cycle_closure', $blockers);
         $stalled = array_values(array_filter($series, static fn (array $row): bool => (int) (AiValueNormalizer::finiteFloatOrNull($row['days_in_block'] ?? null) ?? 0) > self::LIFT_STALLED_DAYS));
         $blocking = $blockers;

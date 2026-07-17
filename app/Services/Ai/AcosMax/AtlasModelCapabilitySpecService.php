@@ -30,6 +30,12 @@ final class AtlasModelCapabilitySpecService
     public const REASON_LICENSE_MISSING = 'license_missing';
 
     public const REASON_LICENSE_NOT_ALLOWED = 'license_not_allowed';
+
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_VIOLATES_SPEC = 'violates_spec';
+
+    public const FALLBACK_MODEL_ID = 'unknown';
     /** @var array<string, array<string, mixed>> */
     private array $functions;
 
@@ -120,9 +126,9 @@ final class AtlasModelCapabilitySpecService
         $violations = array_merge($violations, $this->checkLicense($spec, $model));
 
         return [
-            'status' => $violations === [] ? 'ok' : 'violates_spec',
+            'status' => $violations === [] ? self::STATUS_OK : self::STATUS_VIOLATES_SPEC,
             'function' => AiValueNormalizer::lowerTrimmedString($function),
-            'model_id' => $modelId !== '' ? $modelId : 'unknown',
+            'model_id' => $modelId !== '' ? $modelId : self::FALLBACK_MODEL_ID,
             'violations' => $violations,
         ];
     }

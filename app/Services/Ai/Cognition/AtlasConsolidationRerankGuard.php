@@ -34,6 +34,12 @@ final class AtlasConsolidationRerankGuard
 
     public const STATUS_UNMEASURED = 'unmeasured';
 
+    public const FIELD_OK = 'ok';
+
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_HEALTHY = 'healthy';
+
 
     private string $baselinePath;
 
@@ -55,7 +61,7 @@ final class AtlasConsolidationRerankGuard
     {
         $precision = $precisionOverride ?? $this->currentPrecision();
         if ($precision === null) {
-            return ['ok' => false, 'reason' => 'unmeasured (semantic engine/venv ausente) — nada a congelar'];
+            return [self::FIELD_OK => false, 'reason' => 'unmeasured (semantic engine/venv ausente) — nada a congelar'];
         }
 
         $baseline = [
@@ -72,10 +78,10 @@ final class AtlasConsolidationRerankGuard
             }
             file_put_contents($this->baselinePath, json_encode($baseline, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         } catch (Throwable) {
-            return ['ok' => false, 'reason' => 'falha ao gravar baseline'];
+            return [self::FIELD_OK => false, 'reason' => 'falha ao gravar baseline'];
         }
 
-        return ['ok' => true] + $baseline;
+        return [self::FIELD_OK => true] + $baseline;
     }
 
     /**
@@ -125,7 +131,7 @@ final class AtlasConsolidationRerankGuard
             $report = $this->corpus->report();
             $status = (AiValueNormalizer::trimmedStringOrNull($report['status'] ?? null) ?? '');
             // The corpus degrades to a non-`ok` status when the engine is absent.
-            if ($status !== '' && $status !== 'ok' && $status !== 'healthy') {
+            if ($status !== '' && $status !== self::STATUS_OK && $status !== self::STATUS_HEALTHY) {
                 return null;
             }
             $pAtK = AiValueNormalizer::arrayOrEmpty(data_get($report, 'metrics.precision_at_k', []));

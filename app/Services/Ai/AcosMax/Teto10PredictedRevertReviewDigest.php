@@ -15,11 +15,19 @@ final class Teto10PredictedRevertReviewDigest
 {
     public const SCHEMA_VERSION = 'atlas.acos.teto10.predicted_revert_review_digest.v1';
 
+    public const BAND_HIGH = 'high';
+
+    public const BAND_SWEET = 'sweet';
+
+    public const BAND_LOW = 'low';
+
+    public const BAND_UNKNOWN = 'unknown';
+
     public const BAND_RANK = [
-        'high' => 0,
-        'sweet' => 1,
-        'low' => 2,
-        'unknown' => 3,
+        self::BAND_HIGH => 0,
+        self::BAND_SWEET => 1,
+        self::BAND_LOW => 2,
+        self::BAND_UNKNOWN => 3,
     ];
 
     public const DEFAULT_LIMIT = 50;
@@ -42,7 +50,7 @@ final class Teto10PredictedRevertReviewDigest
         $shown = array_slice($normalised, 0, $limit);
 
         $groups = self::groups($shown);
-        $bandCounts = ['high' => 0, 'sweet' => 0, 'low' => 0, 'unknown' => 0];
+        $bandCounts = [self::BAND_HIGH => 0, self::BAND_SWEET => 0, self::BAND_LOW => 0, self::BAND_UNKNOWN => 0];
         foreach ($normalised as $item) {
             $bandCounts[self::band($item['predicted_revert_band'])]++;
         }
@@ -54,7 +62,7 @@ final class Teto10PredictedRevertReviewDigest
             'shown_item_count' => count($shown),
             'group_count' => count($groups),
             'cap' => $limit,
-            'band_order' => ['high', 'sweet', 'low', 'unknown'],
+            'band_order' => [self::BAND_HIGH, self::BAND_SWEET, self::BAND_LOW, self::BAND_UNKNOWN],
             'band_counts' => $bandCounts,
             'groups' => $groups,
             'pending_flips' => self::flaggedSection($shown, 'pending_flip', 'flip_ref'),
@@ -79,7 +87,7 @@ final class Teto10PredictedRevertReviewDigest
             '# ACOS TETO-10 predicted-revert review digest',
             '',
             '- schema: '.self::inline(self::string($digest['schema_version'] ?? self::SCHEMA_VERSION) ?: self::SCHEMA_VERSION),
-            '- status: '.self::plain(self::string($digest['status'] ?? 'unknown') ?: 'unknown'),
+            '- status: '.self::plain(self::string($digest['status'] ?? self::BAND_UNKNOWN) ?: self::BAND_UNKNOWN),
             '- items: '.self::string($digest['shown_item_count'] ?? 0).'/'.self::string($digest['item_count'] ?? 0),
             '- order: high -> sweet -> low -> unknown',
             '- surface: markdown/CLI only',
@@ -91,7 +99,7 @@ final class Teto10PredictedRevertReviewDigest
             if (! is_array($group)) {
                 continue;
             }
-            $band = self::band($group['highest_predicted_revert_band'] ?? 'unknown');
+            $band = self::band($group['highest_predicted_revert_band'] ?? self::BAND_UNKNOWN);
             if ($band !== $currentBand) {
                 $lines[] = '## Predicted revert: '.$band;
                 $lines[] = '';
@@ -103,7 +111,7 @@ final class Teto10PredictedRevertReviewDigest
             $family = self::string($group['family'] ?? '');
             if ($decisionId !== '' || $family !== '') {
                 $lines[] = '- lineage: decision_id='.($decisionId !== '' ? self::plain($decisionId) : 'none')
-                    .' family='.($family !== '' ? self::plain($family) : 'unknown');
+                    .' family='.($family !== '' ? self::plain($family) : self::BAND_UNKNOWN);
             }
 
             foreach (AiValueNormalizer::arrayOrEmpty($group['items'] ?? null) as $item) {
@@ -111,7 +119,7 @@ final class Teto10PredictedRevertReviewDigest
                     continue;
                 }
                 $lines[] = '- '.self::plain(self::string($item['id'] ?? 'item') ?: 'item').': '.self::plain(self::string($item['title'] ?? 'untitled') ?: 'untitled');
-                $lines[] = '  - band: '.self::plain(self::band($item['predicted_revert_band'] ?? 'unknown'));
+                $lines[] = '  - band: '.self::plain(self::band($item['predicted_revert_band'] ?? self::BAND_UNKNOWN));
                 $lines[] = '  - evidence: '.self::plain(implode(', ', array_map(self::string(...), AiValueNormalizer::arrayOrEmpty($item['evidence_refs'] ?? null))));
                 $lines[] = '  - diff-ref: '.self::plain(self::string($item['diff_ref'] ?? 'manual_review') ?: 'manual_review');
                 $lines[] = '  - reverse: '.self::inline(self::string($item['reverse_command'] ?? 'manual_review') ?: 'manual_review');
@@ -142,8 +150,8 @@ final class Teto10PredictedRevertReviewDigest
             'id' => $id !== '' ? $id : 'item-'.($index + 1),
             'title' => self::firstString($item, ['title', 'summary', 'description'], 'Untitled review item'),
             'decision_id' => $decisionId !== '' ? $decisionId : null,
-            'family' => $family !== '' ? $family : 'unknown',
-            'group_key' => $decisionId !== '' ? 'decision:'.$decisionId : 'family:'.($family !== '' ? $family : 'unknown'),
+            'family' => $family !== '' ? $family : self::BAND_UNKNOWN,
+            'group_key' => $decisionId !== '' ? 'decision:'.$decisionId : 'family:'.($family !== '' ? $family : self::BAND_UNKNOWN),
             'predicted_revert_band' => $band,
             'band_rank' => self::BAND_RANK[$band],
             'evidence_refs' => self::evidenceRefs($item),
@@ -260,7 +268,7 @@ final class Teto10PredictedRevertReviewDigest
     {
         $band = AiValueNormalizer::lowerTrimmedString($value);
 
-        return array_key_exists($band, self::BAND_RANK) ? $band : 'unknown';
+        return array_key_exists($band, self::BAND_RANK) ? $band : self::BAND_UNKNOWN;
     }
 
     /**

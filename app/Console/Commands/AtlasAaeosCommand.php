@@ -249,6 +249,7 @@ final class AtlasAaeosCommand extends Command
         {--prereview-parallel-flywheel-frontier-floors-contract= : JSON file (any object) to observe prereview/parallel/flywheel/frontier residual floors}
         {--obra-portfolio-pareto-blocked-floors-contract= : JSON file (any object) to observe obra/portfolio/pareto/http blocked residual floors}
         {--corpus-parallel-truth-blocked-floors-contract= : JSON file (any object) to observe corpus/parallel/truth/phase blocked residual floors}
+        {--teto10-cockpit-ladder-promotion-floors-contract= : JSON file (any object) to observe teto10/cockpit/ladder/promotion residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -654,6 +655,7 @@ final class AtlasAaeosCommand extends Command
             ['prereview-parallel-flywheel-frontier-floors-contract', 'prereview_parallel_flywheel_frontier_floors_contract', fn (array $p) => $gates->prereviewParallelFlywheelFrontierFloorsContractObserve($p)],
             ['obra-portfolio-pareto-blocked-floors-contract', 'obra_portfolio_pareto_blocked_floors_contract', fn (array $p) => $gates->obraPortfolioParetoBlockedFloorsContractObserve($p)],
             ['corpus-parallel-truth-blocked-floors-contract', 'corpus_parallel_truth_blocked_floors_contract', fn (array $p) => $gates->corpusParallelTruthBlockedFloorsContractObserve($p)],
+            ['teto10-cockpit-ladder-promotion-floors-contract', 'teto10_cockpit_ladder_promotion_floors_contract', fn (array $p) => $gates->teto10CockpitLadderPromotionFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

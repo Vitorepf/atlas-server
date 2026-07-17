@@ -35,6 +35,8 @@ final class PromotionProtocol
 
     public const STATUS_BLOCKED = 'blocked';
 
+    public const FIELD_OK = 'ok';
+
     public const DEFAULT_LEDGER_RELATIVE_PATH = 'app/atlas/evidence/acos-max-promotion-flips.jsonl';
 
     /** @var list<string> */
@@ -116,7 +118,7 @@ final class PromotionProtocol
         }
 
         $required = $this->requiredFields($entry);
-        if ($required['ok'] !== true) {
+        if ($required[self::FIELD_OK] !== true) {
             $missing = AiValueNormalizer::arrayOrEmpty($required['missing'] ?? null);
 
             return $this->blocked(
@@ -183,7 +185,7 @@ final class PromotionProtocol
         $this->ledger->append($event, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
 
         return [
-            'ok' => true,
+            self::FIELD_OK => true,
             'status' => self::STATUS_RECORDED,
             'schema_version' => self::SCHEMA,
             'event' => $event,
@@ -406,7 +408,7 @@ final class PromotionProtocol
             }
         }
 
-        return ['ok' => $missing === [], 'missing' => $missing];
+        return [self::FIELD_OK => $missing === [], 'missing' => $missing];
     }
 
     /**
@@ -479,7 +481,7 @@ final class PromotionProtocol
     private function blocked(string $reason, string $flagId, string $toState, array $extra = []): array
     {
         return array_merge([
-            'ok' => false,
+            self::FIELD_OK => false,
             'status' => self::STATUS_BLOCKED,
             'schema_version' => self::SCHEMA,
             'reason' => $reason,
