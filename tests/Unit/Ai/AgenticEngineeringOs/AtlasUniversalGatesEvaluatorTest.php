@@ -2179,4 +2179,25 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.aaeos.quality_bar_level.v1', $payload['quality_bar_level_schema']);
         $this->assertSame('atlas.aaeos.department_maturity_band.v1', $payload['maturity_band_schema']);
     }
+
+    public function test_frontier_watchdog_cockpit_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->frontierWatchdogCockpitContractObserve([]);
+
+        $this->assertSame('atlas.cognition.frontier_ladder.v1', $payload['frontier_ladder_schema']);
+        $this->assertSame(5, $payload['frontier_event_threshold']);
+        $this->assertContains('pack_diff_merged', $payload['frontier_event_kinds']);
+        $this->assertSame(3, $payload['frontier_event_kind_count']);
+        $this->assertSame(5, $payload['frontier_wave_count']);
+        $this->assertSame('atlas.acos.watchdog_run.v1', $payload['watchdog_runner_schema']);
+        $this->assertSame('atlas.acos.watchdog.daily_canary_replay_by_refs.v1', $payload['daily_canary_schema']);
+        $this->assertSame('atlas.acos.watchdog.autonomy_ladder_adversarial.v1', $payload['autonomy_ladder_adversarial_schema']);
+        $this->assertSame('atlas.acos.watchdog.evidence_ledger_integrity.v1', $payload['evidence_ledger_integrity_schema']);
+        $this->assertSame('atlas.acos.cockpit.v1', $payload['cockpit_schema']);
+        $this->assertSame('atlas.acos.windows.v1', $payload['window_orchestrator_schema']);
+        $this->assertSame('atlas.immune.classifier_hybrid.v1', $payload['immune_hybrid_freeze_measure_id']);
+        $this->assertSame(60, $payload['immune_hybrid_freeze_ttl_days']);
+        $this->assertStringContainsString('anchors.v1.json', $payload['immune_hybrid_freeze_anchor_fixture']);
+        $this->assertSame('atlas.esp_06.outcome_envelope.v1', $payload['outcome_envelope_bridge_measure_id']);
+    }
 }

@@ -189,6 +189,7 @@ final class AtlasAaeosCommand extends Command
         {--lote2-quality-bar-contract= : JSON file (any object) to observe lote-2 measure ids + quality-bar floors}
         {--embedding-coverage-truth-contract= : JSON file (any object) to observe embedding coverage + N-capture + truth floors}
         {--phase-gates-flywheel-contract= : JSON file (any object) to observe phase-gates map + flywheel + parallel/surprise floors}
+        {--frontier-watchdog-cockpit-contract= : JSON file (any object) to observe frontier/watchdog/cockpit/window floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -534,6 +535,7 @@ final class AtlasAaeosCommand extends Command
             ['lote2-quality-bar-contract', 'lote2_quality_bar_contract', fn (array $p) => $gates->lote2QualityBarContractObserve($p)],
             ['embedding-coverage-truth-contract', 'embedding_coverage_truth_contract', fn (array $p) => $gates->embeddingCoverageTruthContractObserve($p)],
             ['phase-gates-flywheel-contract', 'phase_gates_flywheel_contract', fn (array $p) => $gates->phaseGatesFlywheelContractObserve($p)],
+            ['frontier-watchdog-cockpit-contract', 'frontier_watchdog_cockpit_contract', fn (array $p) => $gates->frontierWatchdogCockpitContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

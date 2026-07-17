@@ -33,6 +33,12 @@ use App\Services\Ai\AcosMax\ExecutionContextCooccurrenceService;
 use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
 use App\Services\Ai\AgenticEngineeringOs\AaeosDeferredPhaseDispatcherService;
 use App\Services\Ai\Cognition\AtlasSurpriseGateService;
+use App\Services\Ai\Cognition\AtlasFrontierWaveLadder;
+use App\Services\Ai\Cognition\AtlasImmuneClassifierHybridFreeze;
+use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogRunner;
+use App\Services\Ai\Cognition\Watchdog\Checks\AutonomyLadderAdversarialWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\DailyCanaryReplayByRefsWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\EvidenceLedgerIntegrityWatchdogCheck;
 use App\Services\Ai\Cognition\ImmuneCalibrationService;
 use App\Services\Ai\Cognition\CognitiveImmuneCheckContract;
 use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
@@ -49,6 +55,9 @@ use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
 use App\Services\Ai\AcosMax\AcosMaxObraRetroService;
 use App\Services\Ai\AcosMax\AcosMaxParallelExecutionProtocol;
+use App\Services\Ai\AcosMax\AcosMaxWindowOrchestratorService;
+use App\Services\Ai\AcosMax\AcosProgramCockpitService;
+use App\Services\Ai\AcosMax\OutcomeEnvelopeBridge;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
 use App\Services\Ai\Cognition\AtlasAcosRollbackTriggerCheckService;
 use App\Services\Ai\Cognition\AtlasAcosLongHorizonGateService;
@@ -3099,6 +3108,36 @@ final class AtlasUniversalGatesEvaluator
             'surprise_gate_min_prediction_tokens' => AtlasSurpriseGateService::DEFAULT_MIN_PREDICTION_TOKENS,
             'quality_bar_level_schema' => AtlasAaeosDepartmentQualityBarLevelClassifier::SCHEMA_VERSION,
             'maturity_band_schema' => AtlasAaeosDepartmentMaturityBandClassifier::SCHEMA_VERSION,
+        ];
+    }
+
+    /**
+     * Observe-only frontier/watchdog/cockpit/window/immune-freeze floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function frontierWatchdogCockpitContractObserve(array $input = []): array
+    {
+        return [
+            'frontier_ladder_schema' => AtlasFrontierWaveLadder::SCHEMA_VERSION,
+            'frontier_event_threshold' => AtlasFrontierWaveLadder::EVENT_THRESHOLD,
+            'frontier_event_kinds' => AtlasFrontierWaveLadder::EVENT_KINDS,
+            'frontier_event_kind_count' => count(AtlasFrontierWaveLadder::EVENT_KINDS),
+            'frontier_wave_count' => count(AtlasFrontierWaveLadder::WAVES),
+            'watchdog_runner_schema' => AtlasWatchdogRunner::SCHEMA_VERSION,
+            'daily_canary_schema' => DailyCanaryReplayByRefsWatchdogCheck::SCHEMA_VERSION,
+            'autonomy_ladder_adversarial_schema' => AutonomyLadderAdversarialWatchdogCheck::SCHEMA,
+            'evidence_ledger_integrity_schema' => EvidenceLedgerIntegrityWatchdogCheck::SCHEMA_VERSION,
+            'cockpit_schema' => AcosProgramCockpitService::SCHEMA_VERSION,
+            'window_orchestrator_schema' => AcosMaxWindowOrchestratorService::SCHEMA_VERSION,
+            'immune_hybrid_freeze_measure_id' => AtlasImmuneClassifierHybridFreeze::MEASURE_ID,
+            'immune_hybrid_freeze_formula' => AtlasImmuneClassifierHybridFreeze::FORMULA_VERSION,
+            'immune_hybrid_freeze_ttl_days' => AtlasImmuneClassifierHybridFreeze::TTL_DAYS,
+            'immune_hybrid_freeze_anchor_fixture' => AtlasImmuneClassifierHybridFreeze::ANCHOR_FIXTURE_RELATIVE,
+            'immune_hybrid_freeze_corpus_fixture' => AtlasImmuneClassifierHybridFreeze::CORPUS_FIXTURE_RELATIVE,
+            'outcome_envelope_bridge_measure_id' => OutcomeEnvelopeBridge::MEASURE_ID,
         ];
     }
 
