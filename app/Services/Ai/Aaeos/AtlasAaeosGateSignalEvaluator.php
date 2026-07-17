@@ -117,7 +117,7 @@ final class AtlasAaeosGateSignalEvaluator
         $distinct = [];
         $blankCount = 0;
         foreach ($raw as $criterion) {
-            $trimmed = trim($criterion);
+            $trimmed = AiValueNormalizer::trimmedString($criterion);
             if ($trimmed === '') {
                 $blankCount++;
 
@@ -281,12 +281,12 @@ final class AtlasAaeosGateSignalEvaluator
         $acceptance = $task['acceptance'] ?? null;
 
         if (is_string($acceptance)) {
-            return trim($acceptance) !== '';
+            return AiValueNormalizer::trimmedString($acceptance) !== '';
         }
 
         if (is_array($acceptance)) {
             foreach ($acceptance as $entry) {
-                if (is_string($entry) && trim($entry) !== '') {
+                if (is_string($entry) && AiValueNormalizer::trimmedString($entry) !== '') {
                     return true;
                 }
             }
@@ -316,7 +316,7 @@ final class AtlasAaeosGateSignalEvaluator
             return null;
         }
 
-        return trim($value) === '' ? null : $value;
+        return AiValueNormalizer::trimmedStringOrNull($value);
     }
 
     /**

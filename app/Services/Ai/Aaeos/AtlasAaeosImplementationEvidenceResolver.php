@@ -321,7 +321,7 @@ class AtlasAaeosImplementationEvidenceResolver
      */
     public function resolveSymbolFilePaths(string $ref): array
     {
-        $ref = trim($ref);
+        $ref = AiValueNormalizer::trimmedString($ref);
         if ($ref === '') {
             return [];
         }
@@ -360,7 +360,7 @@ class AtlasAaeosImplementationEvidenceResolver
      */
     public function resolveTestFilePath(string $ref): ?string
     {
-        $ref = trim($ref);
+        $ref = AiValueNormalizer::trimmedString($ref);
         if ($ref === '') {
             return null;
         }
@@ -413,7 +413,7 @@ class AtlasAaeosImplementationEvidenceResolver
      */
     public function resolveTestFqn(string $ref): ?array
     {
-        $ref = trim($ref);
+        $ref = AiValueNormalizer::trimmedString($ref);
         if ($ref === '') {
             return null;
         }
@@ -422,8 +422,8 @@ class AtlasAaeosImplementationEvidenceResolver
         $classRef = $ref;
         if (str_contains($ref, '::')) {
             $pos = (int) strrpos($ref, '::');
-            $classRef = trim(substr($ref, 0, $pos));
-            $method = trim(substr($ref, $pos + 2));
+            $classRef = AiValueNormalizer::trimmedString(substr($ref, 0, $pos));
+            $method = AiValueNormalizer::trimmedString(substr($ref, $pos + 2));
             if ($method === '' || $classRef === '') {
                 return null;
             }
@@ -453,7 +453,7 @@ class AtlasAaeosImplementationEvidenceResolver
         if (! str_contains($ref, '::')) {
             return null;
         }
-        $class = trim(substr($ref, 0, (int) strrpos($ref, '::')));
+        $class = AiValueNormalizer::trimmedString(substr($ref, 0, (int) strrpos($ref, '::')));
 
         return $class !== '' ? $class : null;
     }
@@ -465,7 +465,7 @@ class AtlasAaeosImplementationEvidenceResolver
      */
     private function matchTestClassFqn(string $classRef): ?string
     {
-        $classRef = trim($classRef);
+        $classRef = AiValueNormalizer::trimmedString($classRef);
         if ($classRef === '' || ! str_contains(strtolower($classRef), 'test')) {
             return null;
         }

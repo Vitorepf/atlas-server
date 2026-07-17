@@ -30,7 +30,6 @@ use App\Services\Ai\AcosMax\CitationGroundingMeter;
 use App\Services\Ai\AcosMax\ProvenanceWeightCalculator;
 use App\Services\Ai\AcosMax\RecallGapAggregator;
 use App\Services\Ai\AcosMax\BeliefCascadeReverificationPlanner;
-use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -684,5 +683,17 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.aaeos.evidence_vision_observe.v1', $payload['schema_version']);
         $this->assertTrue($payload['field_sources_valid']);
         $this->assertFalse($payload['operator_fence_pass']);
+    }
+
+    public function test_gate_signal_spec_pack_observe_counts_criteria(): void
+    {
+        $payload = $this->svc->gateSignalSpecPackObserve([
+            'acceptance_criteria' => ['a', 'b', 'c'],
+        ]);
+
+        $this->assertSame('atlas.aaeos.gate_signal.v1', $payload['schema_version']);
+        $this->assertSame('spec_pack_acceptance_criteria_min_3', $payload['gate']);
+        $this->assertTrue($payload['passed']);
+        $this->assertSame(3, $payload['computed_value']);
     }
 }

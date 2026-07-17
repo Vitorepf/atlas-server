@@ -28,6 +28,7 @@ use App\Services\Ai\AcosMax\RecallGapAggregator;
 use App\Services\Ai\AcosMax\BeliefCascadeReverificationPlanner;
 use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
 use App\Services\Ai\AcosMax\EvidenceVisionThesisComposer;
+use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -832,6 +833,18 @@ final class AtlasUniversalGatesEvaluator
             'field_sources_valid' => EvidenceVisionThesisComposer::thesisFieldSourcesValid($thesis),
             'operator_fence_pass' => EvidenceVisionThesisComposer::thesisPassesOperatorFence($thesis, $forbidden),
         ];
+    }
+
+    /**
+     * Observe-only AAEOS gate-signal spec-pack acceptance criteria.
+     * Accepts a spec-pack object with `acceptance_criteria`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function gateSignalSpecPackObserve(array $input): array
+    {
+        return (new AtlasAaeosGateSignalEvaluator)->evaluateSpecPackAcceptanceCriteria($input);
     }
 
     /**
