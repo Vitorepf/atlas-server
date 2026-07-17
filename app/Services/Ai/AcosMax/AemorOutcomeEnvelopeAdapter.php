@@ -29,7 +29,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public function toEnvelope(array $native, array $context = []): OutcomeEnvelope
     {
         $executor = AiValueNormalizer::lowerTrimmedString($native['executor'] ?? $context['executor'] ?? 'engineering');
-        $status = OutcomeEnvelope::normalizeStatus((AiValueNormalizer::trimmedStringOrNull($native['status'] ?? null) ?? 'blocked'));
+        $status = OutcomeEnvelope::normalizeStatus((AiValueNormalizer::trimmedStringOrNull($native['status'] ?? null) ?? OutcomeEnvelope::STATUS_BLOCKED));
 
         $contract = is_array($context['outcome_contract_v2'] ?? null)
             ? $context['outcome_contract_v2']
@@ -74,7 +74,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
 
         return [
             'executor' => (AiValueNormalizer::trimmedStringOrNull($data['executor'] ?? null) ?? 'engineering'),
-            'status' => (AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? 'blocked'),
+            'status' => (AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? OutcomeEnvelope::STATUS_BLOCKED),
             'objective' => (AiValueNormalizer::trimmedStringOrNull($fields['summary'] ?? null) ?? ''),
             'summary' => (AiValueNormalizer::trimmedStringOrNull($fields['summary'] ?? null) ?? ''),
             'outcome_type' => (AiValueNormalizer::trimmedStringOrNull($fields['outcome_type'] ?? null) ?? 'engineering_delivery'),

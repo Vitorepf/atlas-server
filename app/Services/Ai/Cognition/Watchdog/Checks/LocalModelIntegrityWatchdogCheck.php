@@ -51,7 +51,11 @@ final readonly class LocalModelIntegrityWatchdogCheck implements AtlasWatchdogCh
         if ($report['mismatched'] > 0 || $report['missing'] > 0) {
             $offenders = array_values(array_filter(
                 $report['artifacts'],
-                static fn (array $row): bool => in_array(AiValueNormalizer::trimmedScalarStringOrNull($row['status'] ?? null) ?? '', ['mismatched', 'missing'], true),
+                static fn (array $row): bool => in_array(
+                    AiValueNormalizer::trimmedScalarStringOrNull($row['status'] ?? null) ?? '',
+                    [AtlasLocalModelIntegrityService::STATUS_MISMATCHED, AtlasLocalModelIntegrityService::STATUS_MISSING],
+                    true,
+                ),
             ));
 
             return AtlasWatchdogCheckResult::alert($evidence, [

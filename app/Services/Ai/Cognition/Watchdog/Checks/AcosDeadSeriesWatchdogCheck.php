@@ -17,6 +17,12 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
 
     public const CHECK_ID = 'elev-20s.dead_series_registry';
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_STALE = 'stale';
+
+    public const STATUS_MISSING = 'missing';
+
     public function __construct(
         private AcosMaxMeasureSeriesRegistry $registry,
         private AcosMeasureSeriesFreshnessReader $freshness = new AcosMeasureSeriesFreshnessReader,
@@ -34,7 +40,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
         $series = array_map(fn (array $entry): array => $this->seriesRow($entry, $now), $this->registry->entries());
         $dead = array_values(array_filter(
             $series,
-            static fn (array $row): bool => in_array(AiValueNormalizer::trimmedScalarStringOrNull($row['status'] ?? null) ?? '', ['stale', 'missing'], true),
+            static fn (array $row): bool => in_array(AiValueNormalizer::trimmedScalarStringOrNull($row['status'] ?? null) ?? '', [self::STATUS_STALE, self::STATUS_MISSING], true),
         ));
 
         $evidence = [
@@ -69,7 +75,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
         $ageDays = $lastAppendAt instanceof CarbonImmutable
             ? (int) floor(max(0, $lastAppendAt->diffInSeconds($now)) / 86400)
             : null;
-        $status = $ageDays === null ? 'missing' : ($ageDays > $ttlDays ? 'stale' : 'ok');
+        $status = $ageDays === null ? self::STATUS_MISSING : ($ageDays > $ttlDays ? self::STATUS_STALE : self::STATUS_OK);
 
         return [
             'slice' => (AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? ''),

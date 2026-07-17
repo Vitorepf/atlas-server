@@ -38,6 +38,8 @@ final class AaeosDeferredPhaseDispatcherService
 
     public const PHASE_UNKNOWN = 'unknown';
 
+    public const STATUS_BLOCKED = 'blocked';
+
     public function __construct(
         private readonly CacheRepository $cache,
         private readonly PhaseAdvanceVerdictClassifier $phaseAdvance = new PhaseAdvanceVerdictClassifier,
@@ -195,7 +197,7 @@ final class AaeosDeferredPhaseDispatcherService
 
         return $this->outcomeCausality->rank(
             hasEvidenceRefs: true,
-            status: 'blocked',
+            status: self::STATUS_BLOCKED,
             missingRequiredSources: $blockedGates !== [],
             testsPassed: null,
         );

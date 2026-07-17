@@ -40,6 +40,8 @@ use Throwable;
  */
 class AtlasAcosEvolutionScoreService
 {
+    public const STATUS_UNKNOWN = 'unknown';
+
     public const SCHEMA_VERSION = 'atlas.cognition.evolution_score.v1';
 
     /** Janela de frescor do heartbeat do scheduler (motor vivo). */
@@ -180,7 +182,7 @@ class AtlasAcosEvolutionScoreService
                 'dual_read old_feedback=%.2f new_feedback=%.2f lift_status=%s with_cases=%d without_cases=%d measurement_ready=%s',
                 $oldFeedbackPoints,
                 $newFeedbackPoints,
-                (AiValueNormalizer::trimmedStringOrNull($lift['status'] ?? null) ?? 'unknown'),
+                (AiValueNormalizer::trimmedStringOrNull($lift['status'] ?? null) ?? self::STATUS_UNKNOWN),
                 $withCount,
                 $withoutCount,
                 $measurementReady ? 'true' : 'false',

@@ -15,6 +15,10 @@ final class GatedCorpusCandidateMiner
 
     public const SOURCE_UNKNOWN = 'unknown';
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+
     /**
      * @param  list<array<string,mixed>>  $sources
      * @return array<string,mixed>
@@ -49,7 +53,7 @@ final class GatedCorpusCandidateMiner
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $candidates === [] ? 'insufficient_signal' : 'ok',
+            'status' => $candidates === [] ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK,
             'candidates' => $candidates,
             'omitted' => array_values(array_unique($omitted)),
             'source' => [

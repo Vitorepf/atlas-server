@@ -25,6 +25,12 @@ final readonly class CompactionRecoverySampleWatchdogCheck implements AtlasWatch
 
     public const MIN_RECEIPTS_CONFIG_KEY = 'atlas.compaction.recovery_sample_min_receipts';
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_UNKNOWN = 'unknown';
+
+    public const STATUS_INSUFFICIENT_SAMPLE = 'insufficient_sample';
+
     public function __construct(private CompactionRecoverySampler $sampler) {}
 
     public function id(): string
@@ -41,12 +47,12 @@ final readonly class CompactionRecoverySampleWatchdogCheck implements AtlasWatch
             recordEvidence: false,
         );
 
-        $status = AiValueNormalizer::trimmedStringOrNull($payload['status'] ?? null) ?? 'unknown';
-        if ($status === 'ok') {
+        $status = AiValueNormalizer::trimmedStringOrNull($payload['status'] ?? null) ?? self::STATUS_UNKNOWN;
+        if ($status === self::STATUS_OK) {
             return AtlasWatchdogCheckResult::ok($payload);
         }
 
-        if ($status === 'insufficient_sample') {
+        if ($status === self::STATUS_INSUFFICIENT_SAMPLE) {
             return AtlasWatchdogCheckResult::skipped($payload);
         }
 

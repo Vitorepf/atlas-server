@@ -4290,6 +4290,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_dead_series_miner_signature_adapter_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-dsmsa-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-dsmsa',
+                '--dead-series-miner-signature-adapter-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"dead_series_miner_signature_adapter_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

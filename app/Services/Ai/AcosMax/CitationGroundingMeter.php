@@ -10,6 +10,10 @@ final class CitationGroundingMeter
 {
     public const SCHEMA_VERSION = 'atlas.context.citation_grounding.v1';
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+
     /**
      * @param  list<array<string,mixed>>  $responses
      * @return array<string,mixed>
@@ -39,7 +43,7 @@ final class CitationGroundingMeter
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $cited === 0 ? 'insufficient_signal' : 'ok',
+            'status' => $cited === 0 ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK,
             'grounding_rate' => $cited === 0 ? null : round($grounded / $cited, 4),
             'citation_coverage' => count($responses) === 0 ? 0.0 : round($withCitation / count($responses), 4),
             'unsupported_citation_count' => $unsupported,

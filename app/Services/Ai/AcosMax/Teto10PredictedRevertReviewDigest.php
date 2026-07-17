@@ -23,6 +23,10 @@ final class Teto10PredictedRevertReviewDigest
 
     public const BAND_UNKNOWN = 'unknown';
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_EMPTY = 'empty';
+
     public const BAND_RANK = [
         self::BAND_HIGH => 0,
         self::BAND_SWEET => 1,
@@ -57,7 +61,7 @@ final class Teto10PredictedRevertReviewDigest
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $normalised === [] ? 'empty' : 'ok',
+            'status' => $normalised === [] ? self::STATUS_EMPTY : self::STATUS_OK,
             'item_count' => count($normalised),
             'shown_item_count' => count($shown),
             'group_count' => count($groups),

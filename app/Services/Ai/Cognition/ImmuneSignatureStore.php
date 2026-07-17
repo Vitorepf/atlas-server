@@ -31,6 +31,10 @@ final class ImmuneSignatureStore
 
     public const STATUS_UNAVAILABLE = 'unavailable';
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_PENDING_WINDOW = 'pending_window';
+
     public const ORIGIN_VERDICT = 'immune_verdict';
 
     public const ORIGIN_MEMORY_REVERT = 'memory_revert';
@@ -229,7 +233,7 @@ final class ImmuneSignatureStore
             'measure_id' => self::MEASURE_ID,
             'generated_at' => now()->toIso8601String(),
             'mode' => $this->mode(),
-            'status' => $soaked >= 3 ? 'ok' : 'pending_window',
+            'status' => $soaked >= 3 ? self::STATUS_OK : self::STATUS_PENDING_WINDOW,
             'pending_reason' => $soaked >= 3 ? null : 'immune_signature_real_hits_soak',
             'active_cells' => $active,
             'cells_with_hit_count_gte_2' => $soaked,

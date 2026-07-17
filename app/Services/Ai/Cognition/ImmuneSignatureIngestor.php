@@ -12,6 +12,10 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class ImmuneSignatureIngestor
 {
+    public const STATUS_BLOCKED = 'blocked';
+
+    public const WRITER_UNKNOWN = 'unknown';
+
     private readonly ImmuneSignatureStore $store;
 
     private readonly ImmuneSignatureDeriver $deriver;
@@ -55,7 +59,7 @@ final class ImmuneSignatureIngestor
             $hostileClass,
             $signals,
             [
-                'writer' => (AiValueNormalizer::trimmedStringOrNull($verdictRow['writer'] ?? null) ?? 'unknown'),
+                'writer' => (AiValueNormalizer::trimmedStringOrNull($verdictRow['writer'] ?? null) ?? self::WRITER_UNKNOWN),
                 'sample_label' => $verdictRow['sample_label'] ?? null,
                 'promotion_status' => $verdictRow['promotion_status'] ?? null,
             ],
@@ -109,7 +113,7 @@ final class ImmuneSignatureIngestor
         $blocking = array_values(array_filter(AiValueNormalizer::arrayOrEmpty($verdictRow['blocking_gate_ids'] ?? null), 'is_string'));
 
         return $label === ImmuneVerdictLedger::LABEL_TRUE_BLOCK
-            && $status === 'blocked'
+            && $status === self::STATUS_BLOCKED
             && $blocking !== [];
     }
 

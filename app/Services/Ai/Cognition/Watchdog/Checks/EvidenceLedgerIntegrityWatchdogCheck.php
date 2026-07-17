@@ -37,6 +37,8 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
      */
     public const REASON_CHAINS_INTACT = 'chains_intact';
 
+    public const STATUS_OK = 'ok';
+
     public const REASON_GAP = 'gap';
 
     public const REASON_TAMPERED = 'tampered';
@@ -83,7 +85,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
         $gapTotal = 0;
         foreach ($chains as $chain) {
             $chainKey = (AiValueNormalizer::trimmedStringOrNull($chain['chain_key'] ?? null) ?? '');
-            $status = (AiValueNormalizer::trimmedStringOrNull($chain['status'] ?? null) ?? 'ok');
+            $status = (AiValueNormalizer::trimmedStringOrNull($chain['status'] ?? null) ?? self::STATUS_OK);
             $length = (int) (AiValueNormalizer::finiteFloatOrNull($chain['chain_length'] ?? null) ?? 0);
             $tampered = array_values(AiValueNormalizer::arrayOrEmpty($chain['tampered_event_ids'] ?? null));
             $gap = (int) (AiValueNormalizer::finiteFloatOrNull($chain['gap_count'] ?? null) ?? 0);

@@ -157,7 +157,7 @@ final class ImmuneCalibrationService
     {
         $groups = [];
         foreach ($samples as $sample) {
-            $writer = AiValueNormalizer::trimmedStringOrNull($sample['writer'] ?? null) ?? 'unknown';
+            $writer = AiValueNormalizer::trimmedStringOrNull($sample['writer'] ?? null) ?? ImmuneVerdictLedger::WRITER_UNKNOWN;
             $gateStatuses = AiValueNormalizer::arrayOrEmpty($sample['gate_statuses'] ?? null);
             foreach ($this->sampleGateIds($sample) as $gateId) {
                 $key = $writer.'::'.$gateId;

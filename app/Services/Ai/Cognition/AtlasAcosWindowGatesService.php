@@ -28,6 +28,8 @@ final class AtlasAcosWindowGatesService
 {
     public const SCHEMA_VERSION = 'atlas.cognition.window_gates.v1';
 
+    public const STATUS_UNKNOWN = 'unknown';
+
     /** Receipt freshness before a certified gate is treated as stale (7 days). */
     public const RECEIPT_FRESH_SECONDS = 604800;
 
@@ -154,7 +156,7 @@ final class AtlasAcosWindowGatesService
             'status' => $certified && $fresh ? 'certified' : 'aguardando_janela',
             'certified' => $certified,
             'fresh' => $fresh,
-            'receipt_status' => (AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? 'unknown'),
+            'receipt_status' => (AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? self::STATUS_UNKNOWN),
             'generated_at' => (AiValueNormalizer::trimmedStringOrNull($data['generated_at'] ?? null) ?? ''),
         ];
     }

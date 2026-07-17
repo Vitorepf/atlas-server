@@ -12,6 +12,10 @@ final class DogfoodingFrictionLeadMiner
 
     public const MIN_OCCURRENCES = 3;
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+
     /**
      * @param  list<array<string,mixed>>  $events
      * @return array<string,mixed>
@@ -58,7 +62,7 @@ final class DogfoodingFrictionLeadMiner
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'status' => $leads === [] ? 'insufficient_signal' : 'ok',
+            'status' => $leads === [] ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK,
             'leads' => $leads,
         ];
     }

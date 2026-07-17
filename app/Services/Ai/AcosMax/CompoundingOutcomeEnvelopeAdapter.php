@@ -85,7 +85,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         return [
             'flow_id' => (AiValueNormalizer::trimmedStringOrNull($fields['flow_id'] ?? null) ?? 'atlas_conversation'),
             'run_id' => (AiValueNormalizer::trimmedStringOrNull($data['run_id'] ?? null) ?? ''),
-            'outcome_status' => OutcomeEnvelope::toNativeStatus((AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? 'blocked'), $this->origin()),
+            'outcome_status' => OutcomeEnvelope::toNativeStatus((AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? OutcomeEnvelope::STATUS_BLOCKED), $this->origin()),
             'flow_quality' => $fields['flow_quality'] ?? null,
             'retrieval_quality' => $fields['retrieval_quality'] ?? null,
             'execution_quality' => $fields['execution_quality'] ?? null,

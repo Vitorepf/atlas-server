@@ -55,6 +55,8 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
      */
     public const STATUS_UNAVAILABLE = 'unavailable';
 
+    public const STATUS_UNKNOWN = 'unknown';
+
     public const REASON_CANARY_DRIFT = 'canary_drift';
 
     public const REASON_CANARY_WITHIN_FLOORS = 'canary_within_floors';
@@ -251,7 +253,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
             'version' => $chosenKey,
             'recall_at_5' => $recallNumeric === null ? null : round($recallNumeric, 4),
             'improper_floor_discards' => $discardsNumeric === null ? null : (int) $discardsNumeric,
-            'status' => (AiValueNormalizer::trimmedStringOrNull($chosen['status'] ?? null) ?? 'unknown'),
+            'status' => (AiValueNormalizer::trimmedStringOrNull($chosen['status'] ?? null) ?? self::STATUS_UNKNOWN),
         ];
     }
 

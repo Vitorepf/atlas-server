@@ -13,6 +13,10 @@ final class AtlasCognitionScoreCardV4Grouper
 {
     public const SCHEMA_VERSION = 'atlas.cognition.scorecard.v4';
 
+    public const STATUS_UNKNOWN = 'unknown';
+
+    public const STATUS_BLOCKED = 'blocked';
+
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
         'self_improvement',
@@ -51,7 +55,7 @@ final class AtlasCognitionScoreCardV4Grouper
     {
         $buckets = [];
         foreach ($subsystems as $row) {
-            $group = (AiValueNormalizer::trimmedStringOrNull($row['group'] ?? null) ?? 'unknown');
+            $group = (AiValueNormalizer::trimmedStringOrNull($row['group'] ?? null) ?? self::STATUS_UNKNOWN);
             $isConsumer = in_array($group, self::CONSUMER_GROUPS, true);
             if ($isConsumer !== $consumers) {
                 continue;
@@ -62,7 +66,7 @@ final class AtlasCognitionScoreCardV4Grouper
             $buckets[$module]['name'] ??= $this->moduleName($module);
             $buckets[$module]['subsystem_count'] = ($buckets[$module]['subsystem_count'] ?? 0) + 1;
             foreach (['code_status', 'doc_status', 'pipeline_status'] as $dim) {
-                $buckets[$module][$dim][] = (AiValueNormalizer::trimmedStringOrNull($row[$dim] ?? null) ?? 'blocked');
+                $buckets[$module][$dim][] = (AiValueNormalizer::trimmedStringOrNull($row[$dim] ?? null) ?? self::STATUS_BLOCKED);
             }
             $buckets[$module]['members'][] = (AiValueNormalizer::trimmedStringOrNull($row['acronym'] ?? null) ?? '');
             $serviceClass = AiValueNormalizer::trimmedStringOrNull($row['service_class'] ?? null) ?? '';

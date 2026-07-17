@@ -3405,4 +3405,26 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(19, $payload['teto10_cockpit_ladder_promotion_floor_count']);
     }
 
+    public function test_dead_series_miner_signature_adapter_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->deadSeriesMinerSignatureAdapterFloorsContractObserve([]);
+
+        $this->assertSame('ok', $payload['dead_series_status_ok']);
+        $this->assertSame('stale', $payload['dead_series_status_stale']);
+        $this->assertSame('missing', $payload['dead_series_status_missing']);
+        $this->assertSame('mismatched', $payload['local_model_status_mismatched']);
+        $this->assertSame('ok', $payload['compaction_status_ok']);
+        $this->assertSame('unknown', $payload['compaction_status_unknown']);
+        $this->assertSame('blocked', $payload['scorecard_grouper_status_blocked']);
+        $this->assertSame('insufficient_signal', $payload['dogfooding_status_insufficient_signal']);
+        $this->assertSame('empty', $payload['teto10_status_empty']);
+        $this->assertSame('pending_window', $payload['immune_signature_status_pending_window']);
+        $this->assertSame('blocked', $payload['deferred_status_blocked']);
+        $this->assertSame('unknown', $payload['evolution_status_unknown']);
+        $this->assertSame('blocked', $payload['immune_ingestor_status_blocked']);
+        $this->assertSame('blocked', $payload['outcome_status_blocked']);
+        $this->assertSame('ok', $payload['evidence_ledger_status_ok']);
+        $this->assertSame(27, $payload['dead_series_miner_signature_adapter_floor_count']);
+    }
+
 }

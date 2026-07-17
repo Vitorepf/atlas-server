@@ -80,6 +80,7 @@ use App\Services\Ai\Cognition\AtlasAcosWindowGatesService;
 use App\Services\Ai\Cognition\AtlasAcosEvolutionScoreService;
 use App\Services\Ai\Cognition\AtlasImmuneHybridInputClassifier;
 use App\Services\Ai\Cognition\ImmuneSignatureStore;
+use App\Services\Ai\Cognition\ImmuneSignatureIngestor;
 use App\Services\Ai\Cognition\ImmuneVerdictLedger;
 use App\Services\Ai\AcosMax\PromotionProtocol;
 use App\Services\Ai\AcosMax\AtlasFlywheelFunnelService;
@@ -5044,6 +5045,46 @@ final class AtlasUniversalGatesEvaluator
             'autonomy_field_blocked' => AutonomousWorkExecutionOs::FIELD_BLOCKED,
             'phase_handoff_field_blocked' => AaeosPhaseHandoffService::FIELD_BLOCKED,
             'teto10_cockpit_ladder_promotion_floor_count' => 19,
+        ];
+    }
+
+    /**
+     * Observe-only: dead-series/miner/signature/adapter residual floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function deadSeriesMinerSignatureAdapterFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'dead_series_status_ok' => AcosDeadSeriesWatchdogCheck::STATUS_OK,
+            'dead_series_status_stale' => AcosDeadSeriesWatchdogCheck::STATUS_STALE,
+            'dead_series_status_missing' => AcosDeadSeriesWatchdogCheck::STATUS_MISSING,
+            'local_model_status_mismatched' => AtlasLocalModelIntegrityService::STATUS_MISMATCHED,
+            'local_model_status_missing' => AtlasLocalModelIntegrityService::STATUS_MISSING,
+            'compaction_status_ok' => CompactionRecoverySampleWatchdogCheck::STATUS_OK,
+            'compaction_status_unknown' => CompactionRecoverySampleWatchdogCheck::STATUS_UNKNOWN,
+            'compaction_status_insufficient_sample' => CompactionRecoverySampleWatchdogCheck::STATUS_INSUFFICIENT_SAMPLE,
+            'scorecard_grouper_status_unknown' => AtlasCognitionScoreCardV4Grouper::STATUS_UNKNOWN,
+            'scorecard_grouper_status_blocked' => AtlasCognitionScoreCardV4Grouper::STATUS_BLOCKED,
+            'dogfooding_status_ok' => DogfoodingFrictionLeadMiner::STATUS_OK,
+            'dogfooding_status_insufficient_signal' => DogfoodingFrictionLeadMiner::STATUS_INSUFFICIENT_SIGNAL,
+            'corpus_miner_status_ok' => GatedCorpusCandidateMiner::STATUS_OK,
+            'citation_status_ok' => CitationGroundingMeter::STATUS_OK,
+            'teto10_status_ok' => Teto10PredictedRevertReviewDigest::STATUS_OK,
+            'teto10_status_empty' => Teto10PredictedRevertReviewDigest::STATUS_EMPTY,
+            'immune_signature_status_ok' => ImmuneSignatureStore::STATUS_OK,
+            'immune_signature_status_pending_window' => ImmuneSignatureStore::STATUS_PENDING_WINDOW,
+            'deferred_status_blocked' => AaeosDeferredPhaseDispatcherService::STATUS_BLOCKED,
+            'evolution_status_unknown' => AtlasAcosEvolutionScoreService::STATUS_UNKNOWN,
+            'window_gates_status_unknown' => AtlasAcosWindowGatesService::STATUS_UNKNOWN,
+            'immune_writer_unknown' => ImmuneVerdictLedger::WRITER_UNKNOWN,
+            'immune_ingestor_status_blocked' => ImmuneSignatureIngestor::STATUS_BLOCKED,
+            'immune_ingestor_writer_unknown' => ImmuneSignatureIngestor::WRITER_UNKNOWN,
+            'outcome_status_blocked' => OutcomeEnvelope::STATUS_BLOCKED,
+            'canary_status_unknown' => DailyCanaryReplayByRefsWatchdogCheck::STATUS_UNKNOWN,
+            'evidence_ledger_status_ok' => EvidenceLedgerIntegrityWatchdogCheck::STATUS_OK,
+            'dead_series_miner_signature_adapter_floor_count' => 27,
         ];
     }
 
