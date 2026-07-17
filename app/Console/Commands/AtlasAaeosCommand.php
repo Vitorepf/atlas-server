@@ -222,6 +222,7 @@ final class AtlasAaeosCommand extends Command
         {--ragx-immune-substrate-config-floors-contract= : JSON file (any object) to observe RAGX flags + substrate/immune/surprise/compaction config floors}
         {--residual-ops-config-floors-contract= : JSON file (any object) to observe residual RAGX seam flags + phase/disk/hmac/model-budget config floors}
         {--ragx-stage-mechanism-floors-contract= : JSON file (any object) to observe RAGX stage/mechanism/pending-window + evolution evidence path floors}
+        {--department-extended-io-procedural-floors-contract= : JSON file (any object) to observe department extended IO schemas + procedural promoter floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -600,6 +601,7 @@ final class AtlasAaeosCommand extends Command
             ['ragx-immune-substrate-config-floors-contract', 'ragx_immune_substrate_config_floors_contract', fn (array $p) => $gates->ragxImmuneSubstrateConfigFloorsContractObserve($p)],
             ['residual-ops-config-floors-contract', 'residual_ops_config_floors_contract', fn (array $p) => $gates->residualOpsConfigFloorsContractObserve($p)],
             ['ragx-stage-mechanism-floors-contract', 'ragx_stage_mechanism_floors_contract', fn (array $p) => $gates->ragxStageMechanismFloorsContractObserve($p)],
+            ['department-extended-io-procedural-floors-contract', 'department_extended_io_procedural_floors_contract', fn (array $p) => $gates->departmentExtendedIoProceduralFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

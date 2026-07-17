@@ -2872,4 +2872,27 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(34, $payload['ragx_stage_mechanism_floor_count']);
     }
 
+
+    public function test_department_extended_io_procedural_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->departmentExtendedIoProceduralFloorsContractObserve([]);
+
+        $this->assertSame('atlas.acceptance_criteria.v1', $payload['schema_acceptance_criteria']);
+        $this->assertSame('atlas.context_pack.v1', $payload['schema_context_pack']);
+        $this->assertSame('atlas.topology_plan.v1', $payload['schema_topology_plan']);
+        $this->assertSame('atlas.obra_pack.v1', $payload['schema_obra_pack']);
+        $this->assertSame('MULTJ-04', $payload['procedural_slice_multj04']);
+        $this->assertSame('ok', $payload['procedural_status_ok']);
+        $this->assertSame('pending_window', $payload['procedural_status_pending_window']);
+        $this->assertSame('hold', $payload['procedural_status_hold']);
+        $this->assertSame('hold_for_asi02', $payload['procedural_status_hold_for_asi02']);
+        $this->assertSame('procedural_case_count_soak', $payload['procedural_reason_case_count_soak']);
+        $this->assertSame('awaiting_asi02_admission', $payload['procedural_reason_awaiting_asi02_admission']);
+        $this->assertSame('ASI-02', $payload['procedural_admission_door_asi02']);
+        $this->assertSame('ai_learning_candidates', $payload['procedural_queue_ai_learning_candidates']);
+        $this->assertSame('mechanism', $payload['procedural_scoreboard_landed_mechanism']);
+        $this->assertSame(8, $payload['procedural_default_case_count_floor']);
+        $this->assertSame(35, $payload['department_extended_io_procedural_floor_count']);
+    }
+
 }

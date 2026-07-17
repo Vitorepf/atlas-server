@@ -24,6 +24,26 @@ final class AcosMaxProceduralSkillPromoterService
 
     public const DEFAULT_ENQUEUE_ENABLED = false;
 
+    public const SLICE_MULTJ04 = 'MULTJ-04';
+
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_PENDING_WINDOW = 'pending_window';
+
+    public const STATUS_HOLD = 'hold';
+
+    public const STATUS_HOLD_FOR_ASI02 = 'hold_for_asi02';
+
+    public const REASON_PROCEDURAL_CASE_COUNT_SOAK = 'procedural_case_count_soak';
+
+    public const REASON_AWAITING_ASI02_ADMISSION = 'awaiting_asi02_admission';
+
+    public const ADMISSION_DOOR_ASI02 = 'ASI-02';
+
+    public const QUEUE_AI_LEARNING_CANDIDATES = 'ai_learning_candidates';
+
+    public const SCOREBOARD_LANDED_MECHANISM = 'mechanism';
+
     public function __construct(
         private readonly ?AtlasProceduralPlaybookLedger $ledger = null,
     ) {}
@@ -31,7 +51,7 @@ final class AcosMaxProceduralSkillPromoterService
     /** @return array<string,mixed> */
     public function report(?int $floor = null, bool $enqueue = false): array
     {
-        $freeze = AcosMaxLote2MeasureService::freezePayload('MULTJ-04');
+        $freeze = AcosMaxLote2MeasureService::freezePayload(self::SLICE_MULTJ04);
         $effectiveFloor = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($floor) ?? data_get($freeze, 'thresholds.procedural_case_count_floor', self::DEFAULT_CASE_COUNT_FLOOR)));
         $ledger = $this->ledger ?? new AtlasProceduralPlaybookLedger;
         $cadence = $ledger->cadence();
@@ -53,19 +73,19 @@ final class AcosMaxProceduralSkillPromoterService
         ));
 
         $enqueued = [];
-        if ($enqueueRequested && DatabaseTableAvailability::has('ai_learning_candidates')) {
+        if ($enqueueRequested && DatabaseTableAvailability::has(self::QUEUE_AI_LEARNING_CANDIDATES)) {
             foreach ($eligible as $candidate) {
                 $enqueued[] = $this->enqueueCandidate($candidate);
             }
         }
 
-        $status = $eligible === [] ? 'pending_window' : 'ok';
+        $status = $eligible === [] ? self::STATUS_PENDING_WINDOW : self::STATUS_OK;
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'slice' => 'MULTJ-04',
+            'slice' => self::SLICE_MULTJ04,
             'status' => $status,
-            'reason' => $status === 'ok' ? null : 'procedural_case_count_soak',
+            'reason' => $status === self::STATUS_OK ? null : self::REASON_PROCEDURAL_CASE_COUNT_SOAK,
             'generated_at' => Carbon::now()->toIso8601String(),
             'freeze' => $freeze,
             'measure_id' => self::measureId(),
@@ -73,8 +93,8 @@ final class AcosMaxProceduralSkillPromoterService
             'case_count_floor' => $effectiveFloor,
             'promotion_allowed' => false,
             'scoreboard' => [
-                'landed' => ['mechanism'],
-                'pending_window' => $status === 'pending_window' ? ['procedural_case_count_soak'] : [],
+                'landed' => [self::SCOREBOARD_LANDED_MECHANISM],
+                'pending_window' => $status === self::STATUS_PENDING_WINDOW ? [self::REASON_PROCEDURAL_CASE_COUNT_SOAK] : [],
             ],
             'totals' => [
                 'procedural_playbooks' => count($candidates),
@@ -85,10 +105,10 @@ final class AcosMaxProceduralSkillPromoterService
             'candidates' => $candidates,
             'enqueued' => $enqueued,
             'gate' => [
-                'admission_door' => 'ASI-02',
+                'admission_door' => self::ADMISSION_DOOR_ASI02,
                 'promotion_allowed' => false,
-                'status' => 'hold',
-                'reason' => $status === 'ok' ? 'awaiting_asi02_admission' : 'procedural_case_count_soak',
+                'status' => self::STATUS_HOLD,
+                'reason' => $status === self::STATUS_OK ? self::REASON_AWAITING_ASI02_ADMISSION : self::REASON_PROCEDURAL_CASE_COUNT_SOAK,
             ],
             'claim_policy' => [
                 'default_off' => true,
@@ -96,8 +116,8 @@ final class AcosMaxProceduralSkillPromoterService
                 'enqueue_enabled' => $this->enqueueEnabled(),
                 'enqueue_requested' => $enqueue,
                 'enqueue_effective' => $enqueueRequested,
-                'queue' => 'ai_learning_candidates',
-                'admission_door' => 'ASI-02',
+                'queue' => self::QUEUE_AI_LEARNING_CANDIDATES,
+                'admission_door' => self::ADMISSION_DOOR_ASI02,
                 'promotion_allowed' => false,
                 'auto_promotion_allowed' => false,
                 'skill_files_written' => false,
@@ -108,7 +128,7 @@ final class AcosMaxProceduralSkillPromoterService
 
     public static function measureId(): string
     {
-        return 'atlas.ai.procedural_skill_promoter.v1';
+        return self::SCHEMA_VERSION;
     }
 
     /**
@@ -135,10 +155,10 @@ final class AcosMaxProceduralSkillPromoterService
             'corrections' => (int) (AiValueNormalizer::finiteFloatOrNull($row['corrections'] ?? null) ?? 0),
             'promotion_allowed' => false,
             'gate' => [
-                'admission_door' => 'ASI-02',
+                'admission_door' => self::ADMISSION_DOOR_ASI02,
                 'promotion_allowed' => false,
-                'status' => $caseCount >= $floor ? 'hold_for_asi02' : 'pending_window',
-                'reason' => $caseCount >= $floor ? 'awaiting_asi02_admission' : 'procedural_case_count_soak',
+                'status' => $caseCount >= $floor ? self::STATUS_HOLD_FOR_ASI02 : self::STATUS_PENDING_WINDOW,
+                'reason' => $caseCount >= $floor ? self::REASON_AWAITING_ASI02_ADMISSION : self::REASON_PROCEDURAL_CASE_COUNT_SOAK,
             ],
             'skill_v1' => [
                 'schema_version' => self::SKILL_SCHEMA_VERSION,
@@ -176,7 +196,7 @@ final class AcosMaxProceduralSkillPromoterService
                 'schema_version' => AtlasLearningDistiller::SCHEMA_VERSION,
                 'run_outcome_id' => null,
                 'status' => 'held_for_evidence',
-                'decision' => 'hold',
+                'decision' => self::STATUS_HOLD,
                 'memory_type' => self::SKILL_SCHEMA_VERSION,
                 'scope' => 'global',
                 'claim' => sprintf(
@@ -190,10 +210,10 @@ final class AcosMaxProceduralSkillPromoterService
                 'payload' => [
                     'schema_version' => self::SCHEMA_VERSION,
                     'source' => [
-                        'slice' => 'MULTJ-04',
+                        'slice' => self::SLICE_MULTJ04,
                         'author_engine' => 'procedural_skill_promoter',
                         'frontier_promotes' => false,
-                        'admission_door' => 'ASI-02',
+                        'admission_door' => self::ADMISSION_DOOR_ASI02,
                     ],
                     'case_count_floor' => $candidate['case_count_floor'],
                     'case_count' => $candidate['case_count'],

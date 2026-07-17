@@ -4178,6 +4178,55 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: department extended IO schemas + procedural promoter
+     * status/reason/admission floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function departmentExtendedIoProceduralFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'schema_acceptance_criteria' => DepartmentContractRuntime::SCHEMA_ACCEPTANCE_CRITERIA,
+            'schema_context_pack' => DepartmentContractRuntime::SCHEMA_CONTEXT_PACK,
+            'schema_dev_debug_receipt' => DepartmentContractRuntime::SCHEMA_DEV_DEBUG_RECEIPT,
+            'schema_dev_mini_programming_spec' => DepartmentContractRuntime::SCHEMA_DEV_MINI_PROGRAMMING_SPEC,
+            'schema_dev_plan_visible' => DepartmentContractRuntime::SCHEMA_DEV_PLAN_VISIBLE,
+            'schema_dev_review_receipt' => DepartmentContractRuntime::SCHEMA_DEV_REVIEW_RECEIPT,
+            'schema_dev_test_selection_receipt' => DepartmentContractRuntime::SCHEMA_DEV_TEST_SELECTION_RECEIPT,
+            'schema_engineering_architecture_decision' => DepartmentContractRuntime::SCHEMA_ENGINEERING_ARCHITECTURE_DECISION,
+            'schema_engineering_release_decision' => DepartmentContractRuntime::SCHEMA_ENGINEERING_RELEASE_DECISION,
+            'schema_engineering_goal_disambiguated' => DepartmentContractRuntime::SCHEMA_ENGINEERING_GOAL_DISAMBIGUATED,
+            'schema_evidence_pack' => DepartmentContractRuntime::SCHEMA_EVIDENCE_PACK,
+            'schema_execution_log' => DepartmentContractRuntime::SCHEMA_EXECUTION_LOG,
+            'schema_failure_report' => DepartmentContractRuntime::SCHEMA_FAILURE_REPORT,
+            'schema_learning_compounding_signal' => DepartmentContractRuntime::SCHEMA_LEARNING_COMPOUNDING_SIGNAL,
+            'schema_migration_plan' => DepartmentContractRuntime::SCHEMA_MIGRATION_PLAN,
+            'schema_obra_pack' => DepartmentContractRuntime::SCHEMA_OBRA_PACK,
+            'schema_policy_decision' => DepartmentContractRuntime::SCHEMA_POLICY_DECISION,
+            'schema_policy_request' => DepartmentContractRuntime::SCHEMA_POLICY_REQUEST,
+            'schema_programming_durable_execution_handoff' => DepartmentContractRuntime::SCHEMA_PROGRAMMING_DURABLE_EXECUTION_HANDOFF,
+            'schema_research_findings' => DepartmentContractRuntime::SCHEMA_RESEARCH_FINDINGS,
+            'schema_research_pack' => DepartmentContractRuntime::SCHEMA_RESEARCH_PACK,
+            'schema_research_question' => DepartmentContractRuntime::SCHEMA_RESEARCH_QUESTION,
+            'schema_root_cause_pack' => DepartmentContractRuntime::SCHEMA_ROOT_CAUSE_PACK,
+            'schema_topology_plan' => DepartmentContractRuntime::SCHEMA_TOPOLOGY_PLAN,
+            'procedural_slice_multj04' => AcosMaxProceduralSkillPromoterService::SLICE_MULTJ04,
+            'procedural_status_ok' => AcosMaxProceduralSkillPromoterService::STATUS_OK,
+            'procedural_status_pending_window' => AcosMaxProceduralSkillPromoterService::STATUS_PENDING_WINDOW,
+            'procedural_status_hold' => AcosMaxProceduralSkillPromoterService::STATUS_HOLD,
+            'procedural_status_hold_for_asi02' => AcosMaxProceduralSkillPromoterService::STATUS_HOLD_FOR_ASI02,
+            'procedural_reason_case_count_soak' => AcosMaxProceduralSkillPromoterService::REASON_PROCEDURAL_CASE_COUNT_SOAK,
+            'procedural_reason_awaiting_asi02_admission' => AcosMaxProceduralSkillPromoterService::REASON_AWAITING_ASI02_ADMISSION,
+            'procedural_admission_door_asi02' => AcosMaxProceduralSkillPromoterService::ADMISSION_DOOR_ASI02,
+            'procedural_queue_ai_learning_candidates' => AcosMaxProceduralSkillPromoterService::QUEUE_AI_LEARNING_CANDIDATES,
+            'procedural_scoreboard_landed_mechanism' => AcosMaxProceduralSkillPromoterService::SCOREBOARD_LANDED_MECHANISM,
+            'procedural_default_case_count_floor' => AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR,
+            'department_extended_io_procedural_floor_count' => 35,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>
