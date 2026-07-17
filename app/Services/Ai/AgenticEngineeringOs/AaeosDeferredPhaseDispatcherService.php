@@ -46,7 +46,7 @@ final class AaeosDeferredPhaseDispatcherService
      */
     public function enqueueFromFacadeResult(array $envelopes, string $queuePath = ''): array
     {
-        $path = $queuePath !== '' ? $queuePath : $this->defaultQueuePath();
+        $path = $this->resolveQueuePath($queuePath);
         $enqueued = [];
         foreach ($envelopes as $env) {
             if (! $this->isDeferred($env)) {
@@ -58,6 +58,8 @@ final class AaeosDeferredPhaseDispatcherService
                 'phase' => (string) ($env['phase_out'] ?? ''),
                 'intent_id' => (string) ($env['intent_id'] ?? ''),
                 'envelope' => $env,
+                // Observe-only: same advance classifier as HTTP path / cockpit.
+                'phase_advance' => (new PhaseAdvanceVerdictClassifier)->classify($env),
                 'enqueued_at' => gmdate('c'),
             ];
             $line = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -84,7 +86,7 @@ final class AaeosDeferredPhaseDispatcherService
      */
     public function claim(int $max = 16, string $queuePath = ''): array
     {
-        $path = $queuePath !== '' ? $queuePath : $this->defaultQueuePath();
+        $path = $this->resolveQueuePath($queuePath);
         if ($max <= 0 || ! is_file($path)) {
             return [];
         }
@@ -138,7 +140,7 @@ final class AaeosDeferredPhaseDispatcherService
      */
     public function pendingCount(string $queuePath = ''): int
     {
-        $path = $queuePath !== '' ? $queuePath : $this->defaultQueuePath();
+        $path = $this->resolveQueuePath($queuePath);
         if (! is_file($path)) {
             return 0;
         }
@@ -163,6 +165,11 @@ final class AaeosDeferredPhaseDispatcherService
         }
 
         return false;
+    }
+
+    private function resolveQueuePath(string $queuePath): string
+    {
+        return $queuePath !== '' ? $queuePath : $this->defaultQueuePath();
     }
 
     private function defaultQueuePath(): string
