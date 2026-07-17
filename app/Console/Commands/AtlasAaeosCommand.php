@@ -47,6 +47,7 @@ final class AtlasAaeosCommand extends Command
         {--spec= : JSON file with compiled-spec shape (observe-only specCompletenessSignal)}
         {--quality-bar= : JSON file with quality-bar telemetry (observe-only M5 contract)}
         {--architect-spec-pack= : JSON file with architect spec-pack gate payload (observe-only M1)}
+        {--predicted-impact= : JSON file with predicted-impact candidate (observe-only band classify)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -257,6 +258,17 @@ final class AtlasAaeosCommand extends Command
             $report['observe'] = array_merge(
                 is_array($report['observe'] ?? null) ? $report['observe'] : [],
                 ['architect_spec_pack_gate' => $gates->architectSpecPackObserve($architect)],
+            );
+        }
+        $predictedImpactPath = (string) ($this->option('predicted-impact') ?? '');
+        if ($predictedImpactPath !== '') {
+            $candidate = $this->loadJsonFile($predictedImpactPath);
+            if ($candidate === null) {
+                return $this->failWith('universal-gates --predicted-impact must be a readable JSON object');
+            }
+            $report['observe'] = array_merge(
+                is_array($report['observe'] ?? null) ? $report['observe'] : [],
+                ['predicted_impact_band' => $gates->predictedImpactBandObserve($candidate)],
             );
         }
         $this->emit($report, $json);

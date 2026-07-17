@@ -414,8 +414,8 @@ final class RagxChainMechanismService
             $adjacency[$node] = [];
         }
         foreach ($edges as $edge) {
-            $source = trim((string) ($edge['source'] ?? ''));
-            $target = trim((string) ($edge['target'] ?? ''));
+            $source = AiValueNormalizer::trimmedString($edge['source'] ?? '');
+            $target = AiValueNormalizer::trimmedString($edge['target'] ?? '');
             $weight = max(0.0, (float) ($edge['weight'] ?? 1.0));
             if ($source === '' || $target === '' || $source === $target || $weight <= 0.0 || ! isset($known[$source], $known[$target])) {
                 continue;

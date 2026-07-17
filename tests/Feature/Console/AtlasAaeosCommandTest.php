@@ -138,6 +138,29 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_predicted_impact_band(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-pib-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'rung' => 'slice',
+            'rank' => 2,
+            'path_yield' => 0.4,
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-pib',
+                '--predicted-impact' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"predicted_impact_band"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

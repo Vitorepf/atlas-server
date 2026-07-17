@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class DogfoodingFrictionLeadMiner
 {
     public const SCHEMA_VERSION = 'atlas.originator.dogfooding_friction_leads.v1';
@@ -18,7 +20,7 @@ final class DogfoodingFrictionLeadMiner
     {
         $groups = [];
         foreach ($events as $event) {
-            $signature = trim((string) ($event['signature'] ?? ''));
+            $signature = AiValueNormalizer::trimmedString($event['signature'] ?? '');
             if ($signature === '') {
                 continue;
             }
@@ -67,7 +69,7 @@ final class DogfoodingFrictionLeadMiner
     private static function target(array $group): string
     {
         foreach ($group as $event) {
-            $target = trim((string) ($event['target'] ?? ''));
+            $target = AiValueNormalizer::trimmedString($event['target'] ?? '');
             if ($target !== '') {
                 return $target;
             }

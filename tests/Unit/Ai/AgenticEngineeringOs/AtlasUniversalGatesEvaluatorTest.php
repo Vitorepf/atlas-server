@@ -8,6 +8,7 @@ use App\Services\Ai\AgenticEngineeringOs\ArchitectAgentSpecPackGateContract;
 use App\Services\Ai\AgenticEngineeringOs\AtlasUniversalGatesEvaluator;
 use App\Services\Ai\AgenticEngineeringOs\DeliveryPackCompletenessScorer;
 use App\Services\Ai\AgenticEngineeringOs\QualityBarTelemetryContract;
+use App\Services\Ai\AcosMax\PredictedImpactBand;
 use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
 use InvalidArgumentException;
 use Tests\TestCase;
@@ -172,5 +173,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('R4', $payload['inputs']['risk_scope']);
         $this->assertSame('sha256:sp', $payload['inputs']['spec_pack_hash']);
         $this->assertTrue($payload['inputs']['acceptance_criteria_present']);
+    }
+
+    public function test_predicted_impact_band_observe_classifies_candidate(): void
+    {
+        $payload = $this->svc->predictedImpactBandObserve([
+            'rung' => 'obra',
+            'rank' => 1,
+            'path_yield' => 0.8,
+        ]);
+
+        $this->assertSame(PredictedImpactBand::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('high', $payload['band']);
+        $this->assertSame('obra', $payload['components']['rung']);
+        $this->assertFalse($payload['source']['influences_pick']);
     }
 }

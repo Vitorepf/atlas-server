@@ -6,6 +6,7 @@ namespace App\Services\Ai\AcosMax;
 
 use App\Services\Ai\Context\AtlasSemanticEmbeddingFoundationService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Semantic\EmbeddingProvenance;
 use App\Services\Semantic\EmbeddingService;
@@ -32,9 +33,9 @@ final class AsefChunkIndexService
 
     public static function contextualizedText(string $title, string $section, string $chunk): string
     {
-        $title = trim($title);
-        $section = trim($section);
-        $chunk = trim($chunk);
+        $title = AiValueNormalizer::trimmedString($title);
+        $section = AiValueNormalizer::trimmedString($section);
+        $chunk = AiValueNormalizer::trimmedString($chunk);
 
         return $title.' > '.$section."\n\n".$chunk;
     }
@@ -55,10 +56,10 @@ final class AsefChunkIndexService
             ];
         }
 
-        $sourceRef = trim((string) ($source['source_ref'] ?? ''));
-        $text = trim((string) ($source['text'] ?? ''));
-        $title = trim((string) ($source['title'] ?? ''));
-        $section = trim((string) ($source['section'] ?? ''));
+        $sourceRef = AiValueNormalizer::trimmedString($source['source_ref'] ?? '');
+        $text = AiValueNormalizer::trimmedString($source['text'] ?? '');
+        $title = AiValueNormalizer::trimmedString($source['title'] ?? '');
+        $section = AiValueNormalizer::trimmedString($source['section'] ?? '');
 
         if ($sourceRef === '' || $text === '') {
             return [
@@ -168,7 +169,7 @@ final class AsefChunkIndexService
         $counts = [];
 
         foreach ($chunkHits as $hit) {
-            $ref = trim((string) ($hit['source_ref'] ?? ''));
+            $ref = AiValueNormalizer::trimmedString($hit['source_ref'] ?? '');
             if ($ref === '') {
                 continue;
             }

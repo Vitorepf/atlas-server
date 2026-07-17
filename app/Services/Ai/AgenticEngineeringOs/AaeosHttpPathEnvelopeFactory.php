@@ -106,12 +106,8 @@ final class AaeosHttpPathEnvelopeFactory
     public function classification(string $intentId, string $intentHash, array $data): array
     {
         $router = self::routerFromData($data);
-        $flowId = is_string($router['flow_id'] ?? null) && $router['flow_id'] !== ''
-            ? (string) $router['flow_id']
-            : 'unknown';
-        $commandIntent = is_string($router['command_intent'] ?? null) && $router['command_intent'] !== ''
-            ? (string) $router['command_intent']
-            : 'unknown';
+        $flowId = AiValueNormalizer::trimmedStringOrNull($router['flow_id'] ?? null) ?? 'unknown';
+        $commandIntent = AiValueNormalizer::trimmedStringOrNull($router['command_intent'] ?? null) ?? 'unknown';
         $declared = $flowId !== 'unknown';
 
         return $this->handoff->emit(

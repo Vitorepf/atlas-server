@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AgenticEngineeringOs;
 
 use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
+use App\Services\Ai\AcosMax\PredictedImpactBand;
 
 /**
  * Atlas Universal Gates Evaluator — produces `atlas.aaeos.gate_report.v1`
@@ -244,6 +245,18 @@ final class AtlasUniversalGatesEvaluator
     public function architectSpecPackObserve(array $input): array
     {
         return ArchitectAgentSpecPackGateContract::fromArray($input)->toArray();
+    }
+
+    /**
+     * Observe-only projection of a predicted-impact candidate into the
+     * MULTN predicted-impact band shape. Does not add a universal-gate id.
+     *
+     * @param  array<string,mixed>  $candidate
+     * @return array<string,mixed>
+     */
+    public function predictedImpactBandObserve(array $candidate): array
+    {
+        return PredictedImpactBand::classify($candidate);
     }
 
     /**

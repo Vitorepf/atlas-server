@@ -268,8 +268,8 @@ final class AtlasAaeosHttpPathFacadeService
      */
     private function newIntentId(array $data): string
     {
-        $existing = data_get($data, 'payload.intent_id');
-        if (is_string($existing) && $existing !== '') {
+        $existing = AiValueNormalizer::trimmedStringOrNull(data_get($data, 'payload.intent_id'));
+        if ($existing !== null) {
             return $existing;
         }
 
@@ -283,7 +283,7 @@ final class AtlasAaeosHttpPathFacadeService
     {
         $text = $data['input_text'] ?? data_get($data, 'payload.prompt') ?? '';
 
-        return is_string($text) ? trim($text) : '';
+        return is_string($text) ? AiValueNormalizer::trimmedString($text) : '';
     }
 
     private function hashIntent(string $intentText): string
@@ -328,8 +328,8 @@ final class AtlasAaeosHttpPathFacadeService
         $payload = self::requestPayload($data);
         $hints = [];
         foreach (['atlas_mode', 'current_mode', 'flow_id', 'domain_id', 'surface_id', 'app_surface', 'routing_task'] as $key) {
-            $value = $payload[$key] ?? null;
-            if (is_string($value) && $value !== '') {
+            $value = AiValueNormalizer::trimmedStringOrNull($payload[$key] ?? null);
+            if ($value !== null) {
                 $hints[] = $key.'='.$value;
             }
         }

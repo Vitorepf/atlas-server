@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AcosMax;
 
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * MULTN17-05 — exploratory bets inside the originated slice.
@@ -46,13 +47,13 @@ final class ExploratoryBetsPortfolio
         }
 
         $k = max(0, (int) ($context['k'] ?? self::DEFAULT_K));
-        $windowId = trim((string) ($context['window_id'] ?? 'current_window'));
+        $windowId = AiValueNormalizer::trimmedString($context['window_id'] ?? 'current_window');
         $windowDays = max(1, (int) ($context['window_days'] ?? self::DEFAULT_WINDOW_DAYS));
-        $objectiveClass = trim((string) ($context['objective_class'] ?? ''));
+        $objectiveClass = AiValueNormalizer::trimmedString($context['objective_class'] ?? '');
         /** @var array<string,string> $suspendedPaths */
         $suspendedPaths = array_filter(
             (array) ($context['suspended_paths'] ?? []),
-            static fn ($state): bool => is_string($state) && trim($state) !== '',
+            static fn ($state): bool => AiValueNormalizer::trimmedStringOrNull($state) !== null,
         );
 
         $bets = array_slice(self::eligibleBets($originatedCandidates), 0, $k);
@@ -98,7 +99,7 @@ final class ExploratoryBetsPortfolio
             if (! is_array($candidate)) {
                 continue;
             }
-            $path = trim((string) ($candidate['path'] ?? $candidate['path_id'] ?? ''));
+            $path = AiValueNormalizer::trimmedString($candidate['path'] ?? $candidate['path_id'] ?? '');
             if ($path === '') {
                 continue;
             }
