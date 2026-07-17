@@ -8,11 +8,11 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.department_promotion_eligibility.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.department_promotion_eligibility.v1';
 
-    private const DEFAULT_MAX_EVIDENCE_AGE_DAYS = 30;
+    public const DEFAULT_MAX_EVIDENCE_AGE_DAYS = 30;
 
-    private const DEFAULT_MAX_TIER = 5;
+    public const DEFAULT_MAX_TIER = 5;
 
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department

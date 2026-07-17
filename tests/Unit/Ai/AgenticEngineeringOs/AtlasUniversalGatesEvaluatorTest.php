@@ -1649,6 +1649,8 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(12, $payload['total_fields']);
         $this->assertSame(80, $payload['complete_threshold']);
         $this->assertSame(50, $payload['partial_threshold']);
+        $this->assertContains('requirements', $payload['list_fields']);
+        $this->assertSame(5, $payload['list_field_count']);
     }
 
     public function test_context_retention_schemas_observe_reports_schemas(): void
@@ -1776,6 +1778,9 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(6, $payload['canonical_field_count']);
         $this->assertSame(4, $payload['unconditional_field_count']);
         $this->assertStringContainsString('implementation-reality.md', $payload['evaluated_against']);
+        $this->assertContains('present', $payload['field_statuses']);
+        $this->assertContains('evidence', $payload['verdicts']);
+        $this->assertContains('narrative', $payload['verdicts']);
     }
 
     public function test_quality_bar_telemetry_contract_observe_reports_floors(): void
@@ -1919,5 +1924,21 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('auto', $payload['allowed_promotion_modes']);
         $this->assertContains('blocked', $payload['blocked_promotion_modes']);
         $this->assertSame(2, $payload['probation_min_recall_actors']);
+    }
+
+    public function test_cognitive_immune_input_classifier_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->cognitiveImmuneInputClassifierContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.cognitive_immune_input_classifier.v1', $payload['schema_version']);
+        $this->assertSame(3, $payload['recurrence_memory_threshold']);
+        $this->assertContains('prompt_injection', $payload['destination_classes']);
+        $this->assertSame(11, $payload['destination_class_count']);
+        $this->assertContains('private_sensitive', $payload['embedding_forbidden_classes']);
+        $this->assertSame('atlas.aaeos.veto_propagation.v1', $payload['veto_propagation_schema']);
+        $this->assertSame(3, $payload['repair_loop_auto_escalation_threshold']);
+        $this->assertSame(30, $payload['promotion_max_evidence_age_days']);
+        $this->assertSame(5, $payload['promotion_max_tier']);
+        $this->assertSame(0.0005, $payload['consolidation_rerank_epsilon']);
     }
 }

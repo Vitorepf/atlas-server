@@ -23,13 +23,13 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasAaeosVetoPropagationResolver
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.veto_propagation.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.veto_propagation.v1';
 
     /**
      * repair_iteration value at which (and above) the 4th-iteration
      * auto-escalation to Architect + Operator engages.
      */
-    private const REPAIR_LOOP_AUTO_ESCALATION_THRESHOLD = 3;
+    public const REPAIR_LOOP_AUTO_ESCALATION_THRESHOLD = 3;
 
     /**
      * Encoded canonical department adjacency (mermaid stateDiagram transitions).

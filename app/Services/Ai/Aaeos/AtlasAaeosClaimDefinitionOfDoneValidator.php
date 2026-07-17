@@ -23,27 +23,27 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
 
     public const EVALUATED_AGAINST = 'atlas-agentic-engineering-os-implementation-reality.md:244';
 
-    private const FIELD_OWNER_DOC = 'owner_doc';
+    public const FIELD_OWNER_DOC = 'owner_doc';
 
-    private const FIELD_DOCUMENTAL_STATE = 'documental_state';
+    public const FIELD_DOCUMENTAL_STATE = 'documental_state';
 
-    private const FIELD_RUNTIME_STATE = 'runtime_state';
+    public const FIELD_RUNTIME_STATE = 'runtime_state';
 
-    private const FIELD_CODE_COMMAND_PATH = 'code_command_path';
+    public const FIELD_CODE_COMMAND_PATH = 'code_command_path';
 
-    private const FIELD_PROOF = 'proof';
+    public const FIELD_PROOF = 'proof';
 
-    private const FIELD_CAVEAT = 'caveat';
+    public const FIELD_CAVEAT = 'caveat';
 
-    private const STATUS_PRESENT = 'present';
+    public const STATUS_PRESENT = 'present';
 
-    private const STATUS_MISSING = 'missing';
+    public const STATUS_MISSING = 'missing';
 
-    private const STATUS_NOT_APPLICABLE = 'not_applicable';
+    public const STATUS_NOT_APPLICABLE = 'not_applicable';
 
-    private const VERDICT_EVIDENCE = 'evidence';
+    public const VERDICT_EVIDENCE = 'evidence';
 
-    private const VERDICT_NARRATIVE = 'narrative';
+    public const VERDICT_NARRATIVE = 'narrative';
 
     /**
      * Canonical, ordered list of the six Definition-of-Done field keys.

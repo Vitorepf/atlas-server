@@ -18,20 +18,22 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasAaeosCognitiveImmuneInputClassifier
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.cognitive_immune_input_classifier.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.cognitive_immune_input_classifier.v1';
 
     /**
      * Recurrence floor at which a recurring operational ephemeral capture
      * earns memory eligibility ("nao, salvo padrao recorrente").
      */
-    private const RECURRENCE_MEMORY_THRESHOLD = 3;
+    public const RECURRENCE_MEMORY_THRESHOLD = 3;
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
      * learning kernel lexicon byte-for-byte, except trivial_query whose
      * destination is pinned to 'respond_and_expire' by the slice contract.
+     *
+     * @var array<string, string>
      */
-    private const DESTINATIONS = [
+    public const DESTINATIONS = [
         'trivial_query' => 'respond_and_expire',
         'operational_ephemeral' => 'task_reminder_cold_file',
         'task_or_reminder' => 'task_routine',
@@ -47,8 +49,10 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
 
     /**
      * Classes for which embedding is never allowed regardless of strength.
+     *
+     * @var list<string>
      */
-    private const EMBEDDING_FORBIDDEN_CLASSES = [
+    public const EMBEDDING_FORBIDDEN_CLASSES = [
         'prompt_injection',
         'private_sensitive',
         'untrusted_content',

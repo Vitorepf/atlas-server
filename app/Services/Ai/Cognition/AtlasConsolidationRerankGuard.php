@@ -28,7 +28,7 @@ final class AtlasConsolidationRerankGuard
     public const SCHEMA_VERSION = 'atlas.cognition.rerank_guard.v1';
 
     /** Float tolerance so equal precision counts as non-regression. */
-    private const EPSILON = 0.0005;
+    public const EPSILON = 0.0005;
 
     private string $baselinePath;
 

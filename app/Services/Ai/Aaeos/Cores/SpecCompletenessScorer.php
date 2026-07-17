@@ -38,8 +38,10 @@ final class SpecCompletenessScorer
 
     /**
      * Fields whose value is a list; every other canonical field is free text.
+     *
+     * @var list<string>
      */
-    private const LIST_FIELDS = [
+    public const LIST_FIELDS = [
         'non_goals',
         'requirements',
         'acceptance_criteria',

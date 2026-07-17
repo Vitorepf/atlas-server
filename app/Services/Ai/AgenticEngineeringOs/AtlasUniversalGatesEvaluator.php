@@ -33,6 +33,7 @@ use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 use App\Services\Ai\Cognition\ImmuneCalibrationService;
 use App\Services\Ai\Cognition\CognitiveImmuneCheckContract;
 use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
+use App\Services\Ai\Cognition\AtlasConsolidationRerankGuard;
 use App\Services\Ai\Cognition\ImmuneSignatureDeriver;
 use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardV4Grouper;
@@ -2260,6 +2261,8 @@ final class AtlasUniversalGatesEvaluator
             'total_fields' => SpecCompletenessScorer::TOTAL_FIELDS,
             'complete_threshold' => SpecCompletenessScorer::COMPLETE_THRESHOLD,
             'partial_threshold' => SpecCompletenessScorer::PARTIAL_THRESHOLD,
+            'list_fields' => SpecCompletenessScorer::LIST_FIELDS,
+            'list_field_count' => count(SpecCompletenessScorer::LIST_FIELDS),
         ];
     }
 
@@ -2458,6 +2461,15 @@ final class AtlasUniversalGatesEvaluator
             'unconditional_fields' => AtlasAaeosClaimDefinitionOfDoneValidator::UNCONDITIONAL_FIELDS,
             'canonical_field_count' => count(AtlasAaeosClaimDefinitionOfDoneValidator::CANONICAL_FIELDS),
             'unconditional_field_count' => count(AtlasAaeosClaimDefinitionOfDoneValidator::UNCONDITIONAL_FIELDS),
+            'field_statuses' => [
+                AtlasAaeosClaimDefinitionOfDoneValidator::STATUS_PRESENT,
+                AtlasAaeosClaimDefinitionOfDoneValidator::STATUS_MISSING,
+                AtlasAaeosClaimDefinitionOfDoneValidator::STATUS_NOT_APPLICABLE,
+            ],
+            'verdicts' => [
+                AtlasAaeosClaimDefinitionOfDoneValidator::VERDICT_EVIDENCE,
+                AtlasAaeosClaimDefinitionOfDoneValidator::VERDICT_NARRATIVE,
+            ],
         ];
     }
 
@@ -2693,6 +2705,31 @@ final class AtlasUniversalGatesEvaluator
             'allowed_promotion_modes' => CognitiveImmunePromotionGateEvaluator::ALLOWED_PROMOTION_MODES,
             'blocked_promotion_modes' => CognitiveImmunePromotionGateEvaluator::BLOCKED_PROMOTION_MODES,
             'probation_min_recall_actors' => CognitiveImmunePromotionGateEvaluator::PROBATION_MIN_RECALL_ACTORS,
+        ];
+    }
+
+    /**
+     * Observe-only AAEOS cognitive-immune input classifier contract.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function cognitiveImmuneInputClassifierContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AtlasAaeosCognitiveImmuneInputClassifier::SCHEMA_VERSION,
+            'recurrence_memory_threshold' => AtlasAaeosCognitiveImmuneInputClassifier::RECURRENCE_MEMORY_THRESHOLD,
+            'destination_classes' => array_keys(AtlasAaeosCognitiveImmuneInputClassifier::DESTINATIONS),
+            'destination_class_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::DESTINATIONS),
+            'embedding_forbidden_classes' => AtlasAaeosCognitiveImmuneInputClassifier::EMBEDDING_FORBIDDEN_CLASSES,
+            'veto_propagation_schema' => AtlasAaeosVetoPropagationResolver::SCHEMA_VERSION,
+            'repair_loop_auto_escalation_threshold' => AtlasAaeosVetoPropagationResolver::REPAIR_LOOP_AUTO_ESCALATION_THRESHOLD,
+            'promotion_eligibility_schema' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::SCHEMA_VERSION,
+            'promotion_max_evidence_age_days' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_EVIDENCE_AGE_DAYS,
+            'promotion_max_tier' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_TIER,
+            'consolidation_rerank_schema' => AtlasConsolidationRerankGuard::SCHEMA_VERSION,
+            'consolidation_rerank_epsilon' => AtlasConsolidationRerankGuard::EPSILON,
         ];
     }
 
