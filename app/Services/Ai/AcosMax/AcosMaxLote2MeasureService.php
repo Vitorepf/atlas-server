@@ -34,6 +34,14 @@ final class AcosMaxLote2MeasureService
 
     public const REPORT_SCHEMA = 'atlas.acos.lote2.measure_report.v1';
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_PENDING_WINDOW = 'pending_window';
+
+    public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+
+    public const STATUS_MEASURED = 'measured';
+
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
     {
@@ -56,7 +64,7 @@ final class AcosMaxLote2MeasureService
     /** @return array<string,mixed> */
     public function maxl06DeltaAttribution(): array
     {
-        return $this->emptyReport('MAXL-06', 'pending_window', 'missing_lineage_ledger_dependencies', [
+        return $this->emptyReport('MAXL-06', self::STATUS_PENDING_WINDOW, 'missing_lineage_ledger_dependencies', [
             'measure_id' => self::MAXL06_MEASURE_ID,
             'basis' => 'unavailable',
             'allowed_basis' => ['lineage_ledger', 'git_log'],
@@ -72,7 +80,7 @@ final class AcosMaxLote2MeasureService
     {
         $originations = $this->countTableIfPresent('atlas_loop_origination_outcomes');
 
-        return $this->emptyReport('MULTN17-04', 'insufficient_signal', 'pending_real_originator_outcome_window', [
+        return $this->emptyReport('MULTN17-04', self::STATUS_INSUFFICIENT_SIGNAL, 'pending_real_originator_outcome_window', [
             'measure_id' => self::MULTN1704_MEASURE_ID,
             'denominator_min' => 20,
             'denominator' => [
@@ -90,7 +98,7 @@ final class AcosMaxLote2MeasureService
         $requiredTables = ['ai_run_outcomes', 'ai_rag_feedback_events', 'ai_learning_candidates'];
         $missingTables = array_values(array_filter($requiredTables, static fn (string $table): bool => ! Schema::hasTable($table)));
         if ($missingTables !== []) {
-            return $this->emptyReport('MULTX-01', 'insufficient_signal', 'loop_source_tables_missing', [
+            return $this->emptyReport('MULTX-01', self::STATUS_INSUFFICIENT_SIGNAL, 'loop_source_tables_missing', [
                 'measure_id' => self::MULTX01_MEASURE_ID,
                 'denominator_min' => 1,
                 'loops_complete' => 0,
@@ -164,7 +172,7 @@ final class AcosMaxLote2MeasureService
         return [
             'schema_version' => self::REPORT_SCHEMA,
             'slice' => 'MULTX-01',
-            'status' => $marcoSatisfied ? 'ok' : 'insufficient_signal',
+            'status' => $marcoSatisfied ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SIGNAL,
             'reason' => $marcoSatisfied ? null : 'no_complete_proven_real_loop_window',
             'formula_version' => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload('MULTX-01'), 'formula_version')) ?? '',
             'generated_at' => now()->toIso8601String(),
@@ -418,7 +426,7 @@ final class AcosMaxLote2MeasureService
         $denominatorMin = (int) data_get(self::freezePayload('MULTX-06'), 'thresholds.denominator_min_promoted_lessons', 8);
 
         if ($missingTables !== []) {
-            return $this->emptyReport('MULTX-06', 'insufficient_signal', 'learning_latency_source_tables_missing', [
+            return $this->emptyReport('MULTX-06', self::STATUS_INSUFFICIENT_SIGNAL, 'learning_latency_source_tables_missing', [
                 'measure_id' => self::MULTX06_MEASURE_ID,
                 'denominator_min' => $denominatorMin,
                 'n' => 0,
@@ -524,7 +532,7 @@ final class AcosMaxLote2MeasureService
         }
 
         $n = count($rows);
-        $status = $n >= $denominatorMin ? 'ok' : 'insufficient_signal';
+        $status = $n >= $denominatorMin ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SIGNAL;
 
         return [
             'schema_version' => self::REPORT_SCHEMA,
@@ -591,7 +599,7 @@ final class AcosMaxLote2MeasureService
     /** @return array<string,mixed> */
     public function multj01LessonHalfLife(): array
     {
-        return $this->emptyReport('MULTJ-01', 'insufficient_signal', 'no_measured_lesson_usage_buckets', [
+        return $this->emptyReport('MULTJ-01', self::STATUS_INSUFFICIENT_SIGNAL, 'no_measured_lesson_usage_buckets', [
             'measure_id' => self::MULTJ01_MEASURE_ID,
             'denominator_min' => 8,
             'bucket_width_weeks' => 2,
@@ -603,7 +611,7 @@ final class AcosMaxLote2MeasureService
     /** @return array<string,mixed> */
     public function multj02DedupCalibration(): array
     {
-        return $this->emptyReport('MULTJ-02', 'pending_window', 'calibration_freeze_only_before_enforce', [
+        return $this->emptyReport('MULTJ-02', self::STATUS_PENDING_WINDOW, 'calibration_freeze_only_before_enforce', [
             'measure_id' => self::MULTJ02_MEASURE_ID,
             'mode' => 'observe',
             'would_merge_count' => 0,
@@ -620,7 +628,7 @@ final class AcosMaxLote2MeasureService
         $sampleRate = AiValueNormalizer::finiteFloatOrNull(data_get(self::freezePayload('MULTJ-03'), 'thresholds.sample_rate', 0.05)) ?? 0.05;
 
         if (! Schema::hasTable('ai_rag_feedback_events')) {
-            return $this->emptyReport('MULTJ-03', 'insufficient_signal', 'paired_feedback_table_missing', [
+            return $this->emptyReport('MULTJ-03', self::STATUS_INSUFFICIENT_SIGNAL, 'paired_feedback_table_missing', [
                 'measure_id' => self::MULTJ03_MEASURE_ID,
                 'denominator_min' => $denominatorMin,
                 'sample_rate' => $sampleRate,
@@ -729,7 +737,7 @@ final class AcosMaxLote2MeasureService
         return [
             'schema_version' => self::REPORT_SCHEMA,
             'slice' => 'MULTJ-03',
-            'status' => $measuredPairs > 0 ? 'ok' : 'insufficient_signal',
+            'status' => $measuredPairs > 0 ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SIGNAL,
             'reason' => $measuredPairs > 0 ? null : 'paired_peek_floor_below_minimum',
             'formula_version' => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload('MULTJ-03'), 'formula_version')) ?? '',
             'generated_at' => now()->toIso8601String(),
@@ -778,7 +786,7 @@ final class AcosMaxLote2MeasureService
 
         return [
             'memory_type' => AiValueNormalizer::trimmedScalarStringOrNull($group['memory_type'] ?? null) ?? '',
-            'status' => $n >= $denominatorMin ? 'measured' : 'insufficient_signal',
+            'status' => $n >= $denominatorMin ? self::STATUS_MEASURED : self::STATUS_INSUFFICIENT_SIGNAL,
             'n_pairs' => $n,
             'control_score_mean' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group['control_score_sum'] ?? null) ?? 0.0) / $n, 4) : null,
             'treatment_score_mean' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group['treatment_score_sum'] ?? null) ?? 0.0) / $n, 4) : null,
@@ -847,7 +855,7 @@ final class AcosMaxLote2MeasureService
     public function teto02MissionE2e(?int $days = null): array
     {
         if (! Schema::hasTable('atlas_mission_deliveries')) {
-            return $this->emptyReport('TETO-02', 'insufficient_signal', 'mission_delivery_table_missing', [
+            return $this->emptyReport('TETO-02', self::STATUS_INSUFFICIENT_SIGNAL, 'mission_delivery_table_missing', [
                 'measure_id' => self::TETO02_MEASURE_ID,
                 'denominator_min' => 20,
                 'window_days' => $days,
@@ -871,7 +879,7 @@ final class AcosMaxLote2MeasureService
         return [
             'schema_version' => self::REPORT_SCHEMA,
             'slice' => 'TETO-02',
-            'status' => $total >= 20 ? 'ok' : 'insufficient_signal',
+            'status' => $total >= 20 ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SIGNAL,
             'reason' => $total >= 20 ? null : 'operator_request_window_below_floor',
             'measure_id' => self::TETO02_MEASURE_ID,
             'formula_version' => 'mission_e2e_rate.v1',

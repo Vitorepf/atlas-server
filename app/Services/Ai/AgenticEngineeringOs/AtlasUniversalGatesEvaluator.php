@@ -4253,6 +4253,40 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+
+    /**
+     * Observe-only: OutcomeEnvelope/Maxa04/Lote2 status floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function outcomeMaxa04Lote2StatusFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'outcome_status_succeeded' => OutcomeEnvelope::STATUS_SUCCEEDED,
+            'outcome_status_failed' => OutcomeEnvelope::STATUS_FAILED,
+            'outcome_status_blocked' => OutcomeEnvelope::STATUS_BLOCKED,
+            'outcome_native_success' => OutcomeEnvelope::NATIVE_SUCCESS,
+            'outcome_native_passed' => OutcomeEnvelope::NATIVE_PASSED,
+            'outcome_native_failure' => OutcomeEnvelope::NATIVE_FAILURE,
+            'outcome_origin_dev_procedural' => OutcomeEnvelope::ORIGIN_DEV_PROCEDURAL,
+            'outcome_origin_aemor' => OutcomeEnvelope::ORIGIN_AEMOR,
+            'outcome_origin_compounding' => OutcomeEnvelope::ORIGIN_COMPOUNDING,
+            'outcome_adapter_origin_count' => count(OutcomeEnvelope::ADAPTER_ORIGINS),
+            'maxa04_candidate_model' => Maxa04JinaV3DualReadService::CANDIDATE_MODEL,
+            'maxa04_candidate_dimensions' => Maxa04JinaV3DualReadService::CANDIDATE_DIMENSIONS,
+            'maxa04_pending_window' => Maxa04JinaV3DualReadService::PENDING_WINDOW,
+            'maxa04_status_pending_window' => Maxa04JinaV3DualReadService::STATUS_PENDING_WINDOW,
+            'maxa04_status_insufficient_signal' => Maxa04JinaV3DualReadService::STATUS_INSUFFICIENT_SIGNAL,
+            'maxa04_current_model_fallback' => Maxa04JinaV3DualReadService::CURRENT_MODEL_FALLBACK,
+            'lote2_status_ok' => AcosMaxLote2MeasureService::STATUS_OK,
+            'lote2_status_pending_window' => AcosMaxLote2MeasureService::STATUS_PENDING_WINDOW,
+            'lote2_status_insufficient_signal' => AcosMaxLote2MeasureService::STATUS_INSUFFICIENT_SIGNAL,
+            'lote2_status_measured' => AcosMaxLote2MeasureService::STATUS_MEASURED,
+            'outcome_maxa04_lote2_status_floor_count' => 20,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

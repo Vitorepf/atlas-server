@@ -2915,4 +2915,26 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(12, $payload['runtime_status_mode_floor_count']);
     }
 
+
+    public function test_outcome_maxa04_lote2_status_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->outcomeMaxa04Lote2StatusFloorsContractObserve([]);
+
+        $this->assertSame('succeeded', $payload['outcome_status_succeeded']);
+        $this->assertSame('failed', $payload['outcome_status_failed']);
+        $this->assertSame('blocked', $payload['outcome_status_blocked']);
+        $this->assertSame('success', $payload['outcome_native_success']);
+        $this->assertSame('passed', $payload['outcome_native_passed']);
+        $this->assertSame('failure', $payload['outcome_native_failure']);
+        $this->assertSame('dev_procedural', $payload['outcome_origin_dev_procedural']);
+        $this->assertSame(3, $payload['outcome_adapter_origin_count']);
+        $this->assertSame('jinaai/jina-embeddings-v3', $payload['maxa04_candidate_model']);
+        $this->assertSame(1024, $payload['maxa04_candidate_dimensions']);
+        $this->assertSame('pending_window', $payload['maxa04_status_pending_window']);
+        $this->assertSame('insufficient_signal', $payload['maxa04_status_insufficient_signal']);
+        $this->assertSame('ok', $payload['lote2_status_ok']);
+        $this->assertSame('measured', $payload['lote2_status_measured']);
+        $this->assertSame(20, $payload['outcome_maxa04_lote2_status_floor_count']);
+    }
+
 }

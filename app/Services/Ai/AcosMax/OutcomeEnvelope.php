@@ -20,9 +20,27 @@ final class OutcomeEnvelope
 
     public const FORMULA_VERSION = 'esp06.outcome_envelope.v1';
 
-    public const ADAPTER_ORIGINS = ['dev_procedural', 'aemor', 'compounding'];
+    public const STATUS_SUCCEEDED = 'succeeded';
 
-    public const STATUSES = ['succeeded', 'failed', 'blocked'];
+    public const STATUS_FAILED = 'failed';
+
+    public const STATUS_BLOCKED = 'blocked';
+
+    public const STATUSES = [self::STATUS_SUCCEEDED, self::STATUS_FAILED, self::STATUS_BLOCKED];
+
+    public const NATIVE_SUCCESS = 'success';
+
+    public const NATIVE_PASSED = 'passed';
+
+    public const NATIVE_FAILURE = 'failure';
+
+    public const ORIGIN_DEV_PROCEDURAL = 'dev_procedural';
+
+    public const ORIGIN_AEMOR = 'aemor';
+
+    public const ORIGIN_COMPOUNDING = 'compounding';
+
+    public const ADAPTER_ORIGINS = [self::ORIGIN_DEV_PROCEDURAL, self::ORIGIN_AEMOR, self::ORIGIN_COMPOUNDING];
 
     /**
      * Map divergent native status labels onto the shared envelope statuses.
@@ -31,9 +49,9 @@ final class OutcomeEnvelope
     public static function normalizeStatus(string $nativeStatus): string
     {
         return match (AiValueNormalizer::lowerTrimmedString($nativeStatus)) {
-            'succeeded', 'success', 'passed' => 'succeeded',
-            'failed', 'failure' => 'failed',
-            default => 'blocked',
+            self::STATUS_SUCCEEDED, self::NATIVE_SUCCESS, self::NATIVE_PASSED => self::STATUS_SUCCEEDED,
+            self::STATUS_FAILED, self::NATIVE_FAILURE => self::STATUS_FAILED,
+            default => self::STATUS_BLOCKED,
         };
     }
 
@@ -46,17 +64,17 @@ final class OutcomeEnvelope
         $status = AiValueNormalizer::lowerTrimmedString($envelopeStatus);
 
         return match (AiValueNormalizer::lowerTrimmedString($origin)) {
-            'dev_procedural' => match ($status) {
-                'succeeded' => 'success',
-                'failed' => 'failed',
-                default => 'blocked',
+            self::ORIGIN_DEV_PROCEDURAL => match ($status) {
+                self::STATUS_SUCCEEDED => self::NATIVE_SUCCESS,
+                self::STATUS_FAILED => self::STATUS_FAILED,
+                default => self::STATUS_BLOCKED,
             },
-            'compounding' => match ($status) {
-                'succeeded' => 'passed',
-                'failed' => 'failed',
-                default => 'blocked',
+            self::ORIGIN_COMPOUNDING => match ($status) {
+                self::STATUS_SUCCEEDED => self::NATIVE_PASSED,
+                self::STATUS_FAILED => self::STATUS_FAILED,
+                default => self::STATUS_BLOCKED,
             },
-            default => in_array($status, self::STATUSES, true) ? $status : 'blocked',
+            default => in_array($status, self::STATUSES, true) ? $status : self::STATUS_BLOCKED,
         };
     }
 

@@ -3794,6 +3794,26 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+
+    public function test_universal_gates_observe_outcome_maxa04_lote2_status_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-oml2sfc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-oml2sfc',
+                '--outcome-maxa04-lote2-status-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"outcome_maxa04_lote2_status_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

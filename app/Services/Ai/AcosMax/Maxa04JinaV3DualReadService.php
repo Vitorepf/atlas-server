@@ -16,6 +16,10 @@ final class Maxa04JinaV3DualReadService
 
     public const PENDING_WINDOW = 'jina_v3_dual_read_benchmark_window';
 
+    public const STATUS_PENDING_WINDOW = 'pending_window';
+
+    public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+
     public const CURRENT_MODEL_FALLBACK = 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2';
 
     /** @return array<string,mixed> */
@@ -85,7 +89,7 @@ final class Maxa04JinaV3DualReadService
         $normalized = $this->normalizeCases($cases);
         $summary = $this->summary($normalized);
         $windowBasis = $this->windowBasis($summary);
-        $status = $normalized === [] ? 'insufficient_signal' : 'pending_window';
+        $status = $normalized === [] ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_PENDING_WINDOW;
 
         return [
             'schema_version' => Maxa04JinaV3DualReadLedger::SCHEMA,
@@ -194,7 +198,7 @@ final class Maxa04JinaV3DualReadService
     {
         return [
             'allowed' => false,
-            'basis' => 'pending_window',
+            'basis' => self::STATUS_PENDING_WINDOW,
             'default_promoted' => false,
             'live_flip_performed' => false,
             'reason' => 'MAXA-04 only lands the dual-read/re-embed mechanism; promotion requires a later operator-reviewed benchmark window.',
