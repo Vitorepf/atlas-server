@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Cognitive Context Nudge Applier — extracted collaborator of
  * {@see AtlasCognitiveFunctionDecomposerService}.
@@ -28,12 +30,11 @@ final class CognitiveContextNudgeApplier
     public function applyNudges(array $hits, array $context): array
     {
         // Framework nudges.
-        $framework = (string) ($context['framework'] ?? '');
-        $framework = strtolower($framework);
+        $framework = AiValueNormalizer::lowerTrimmedString($context['framework'] ?? '');
         $hits = $this->applyFrameworkNudge($hits, $framework);
 
         // Role nudges.
-        $role = strtolower((string) ($context['role'] ?? ''));
+        $role = AiValueNormalizer::lowerTrimmedString($context['role'] ?? '');
         $hits = $this->applyRoleNudge($hits, $role);
 
         return $hits;

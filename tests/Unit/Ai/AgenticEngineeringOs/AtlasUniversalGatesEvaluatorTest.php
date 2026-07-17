@@ -1497,4 +1497,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('mem-09.memory_quality', $payload['health_report_check_ids']);
         $this->assertSame(10, $payload['health_report_check_count']);
     }
+
+    public function test_cognitive_function_axes_observe_reports_catalogue(): void
+    {
+        $payload = $this->svc->cognitiveFunctionAxesObserve([]);
+
+        $this->assertSame('atlas.cognitive_function.decomposition.v1', $payload['schema_version']);
+        $this->assertContains('reasoning', $payload['functions']);
+        $this->assertContains('audit', $payload['functions']);
+        $this->assertSame(6, $payload['function_count']);
+    }
 }

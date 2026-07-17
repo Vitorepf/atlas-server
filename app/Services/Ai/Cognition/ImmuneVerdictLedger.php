@@ -85,7 +85,7 @@ final class ImmuneVerdictLedger
             'expected_block_gate_ids' => $expectedBlockGateIds,
             'sample_label' => $sampleLabel,
             'decided_at' => $decidedAt->toIso8601String(),
-            'metadata' => is_array($context['metadata'] ?? null) ? $context['metadata'] : [],
+            'metadata' => AiValueNormalizer::arrayOrEmpty($context['metadata'] ?? null),
         ];
     }
 
@@ -228,10 +228,11 @@ final class ImmuneVerdictLedger
         if (is_array($value)) {
             return $value;
         }
-        if (is_string($value) && trim($value) !== '') {
-            $decoded = json_decode($value, true);
+        $raw = AiValueNormalizer::trimmedStringOrNull($value);
+        if ($raw !== null) {
+            $decoded = json_decode($raw, true);
 
-            return is_array($decoded) ? $decoded : [];
+            return AiValueNormalizer::arrayOrEmpty($decoded);
         }
 
         return [];

@@ -37,6 +37,7 @@ use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardV4Grouper;
 use App\Services\Ai\Cognition\CaptureHmacLineageService;
 use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
+use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
@@ -1963,6 +1964,22 @@ final class AtlasUniversalGatesEvaluator
                 $healthCatalog,
             )),
             'health_report_check_count' => count($healthCatalog),
+        ];
+    }
+
+    /**
+     * Observe-only cognitive-function decomposition axes.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function cognitiveFunctionAxesObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AtlasCognitiveFunctionDecomposerService::SCHEMA,
+            'functions' => AtlasCognitiveFunctionDecomposerService::FUNCTIONS,
+            'function_count' => count(AtlasCognitiveFunctionDecomposerService::FUNCTIONS),
         ];
     }
 

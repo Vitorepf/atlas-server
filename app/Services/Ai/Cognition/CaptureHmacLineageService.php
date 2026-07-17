@@ -45,7 +45,7 @@ final class CaptureHmacLineageService
         $prevReceiptHash = $this->headReceiptHash($existingChain) ?? self::GENESIS_RECEIPT;
         $receiptHash = $this->chainLink($prevReceiptHash, $stagePayloadHash);
 
-        $stages = array_values((array) ($existingChain['stages'] ?? []));
+        $stages = array_values(AiValueNormalizer::arrayOrEmpty($existingChain['stages'] ?? null));
         $stages[] = [
             'stage' => $stage,
             'stage_payload_hash' => $stagePayloadHash,
@@ -71,7 +71,7 @@ final class CaptureHmacLineageService
             ];
         }
 
-        $stages = array_values((array) ($chain['stages'] ?? []));
+        $stages = array_values(AiValueNormalizer::arrayOrEmpty($chain['stages'] ?? null));
         if ($stages === []) {
             return [
                 'status' => 'unverifiable_legacy',
@@ -227,7 +227,7 @@ final class CaptureHmacLineageService
      */
     public function headReceiptHash(array $chain): ?string
     {
-        $stages = array_values((array) ($chain['stages'] ?? []));
+        $stages = array_values(AiValueNormalizer::arrayOrEmpty($chain['stages'] ?? null));
         if ($stages === []) {
             return null;
         }
@@ -266,7 +266,7 @@ final class CaptureHmacLineageService
             'slice' => $chain['slice'] ?? 'MAXI-07',
             'key_version' => $chain['key_version'] ?? 1,
             'threat_model' => $chain['threat_model'] ?? self::THREAT_MODEL,
-            'stages' => array_values((array) ($chain['stages'] ?? [])),
+            'stages' => array_values(AiValueNormalizer::arrayOrEmpty($chain['stages'] ?? null)),
             'head_receipt_hash' => $chain['head_receipt_hash'] ?? $this->headReceiptHash($chain),
             'stamped_at' => $chain['stamped_at'] ?? null,
         ];
@@ -341,7 +341,7 @@ final class CaptureHmacLineageService
             return null;
         }
 
-        $lineage = is_array($packet->lineage) ? $packet->lineage : [];
+        $lineage = AiValueNormalizer::arrayOrEmpty($packet->lineage);
         $chain = $lineage['hmac_lineage'] ?? null;
 
         return is_array($chain) ? $chain : null;
