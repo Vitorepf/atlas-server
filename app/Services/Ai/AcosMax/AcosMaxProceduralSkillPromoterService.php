@@ -44,6 +44,11 @@ final class AcosMaxProceduralSkillPromoterService
 
     public const SCOREBOARD_LANDED_MECHANISM = 'mechanism';
 
+    public const KIND_PROCEDURAL_PLAYBOOK = 'procedural_playbook';
+
+    public const STATUS_HELD_FOR_EVIDENCE = 'held_for_evidence';
+
+
     public function __construct(
         private readonly ?AtlasProceduralPlaybookLedger $ledger = null,
     ) {}
@@ -165,7 +170,7 @@ final class AcosMaxProceduralSkillPromoterService
                 'name' => $skillName,
                 'description' => $playbook->objective,
                 'source' => [
-                    'kind' => 'procedural_playbook',
+                    'kind' => self::KIND_PROCEDURAL_PLAYBOOK,
                     'task_category' => $playbook->taskCategory,
                     'case_count' => $caseCount,
                 ],
@@ -195,7 +200,7 @@ final class AcosMaxProceduralSkillPromoterService
             [
                 'schema_version' => AtlasLearningDistiller::SCHEMA_VERSION,
                 'run_outcome_id' => null,
-                'status' => 'held_for_evidence',
+                'status' => self::STATUS_HELD_FOR_EVIDENCE,
                 'decision' => self::STATUS_HOLD,
                 'memory_type' => self::SKILL_SCHEMA_VERSION,
                 'scope' => 'global',

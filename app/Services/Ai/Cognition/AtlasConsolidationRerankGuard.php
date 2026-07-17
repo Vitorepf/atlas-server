@@ -30,6 +30,11 @@ final class AtlasConsolidationRerankGuard
     /** Float tolerance so equal precision counts as non-regression. */
     public const EPSILON = 0.0005;
 
+    public const STATUS_NO_BASELINE = 'no_baseline';
+
+    public const STATUS_UNMEASURED = 'unmeasured';
+
+
     private string $baselinePath;
 
     public function __construct(
@@ -102,10 +107,10 @@ final class AtlasConsolidationRerankGuard
     public function evaluate(?float $current, ?float $baseline): string
     {
         if ($baseline === null) {
-            return 'no_baseline';
+            return self::STATUS_NO_BASELINE;
         }
         if ($current === null) {
-            return 'unmeasured';
+            return self::STATUS_UNMEASURED;
         }
 
         return $current + self::EPSILON >= $baseline ? 'promote_allowed' : 'blocked_regression';

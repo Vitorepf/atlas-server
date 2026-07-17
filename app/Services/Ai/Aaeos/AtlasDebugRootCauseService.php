@@ -10,6 +10,11 @@ final class AtlasDebugRootCauseService
 {
     public const SERVICE_VERSION = 'atlas.aaeos.debug.root_cause.v1';
 
+    public const STATUS_ANALYZED = 'analyzed';
+
+    public const STATUS_NO_DATA = 'no_data';
+
+
     public function getVersion(): string
     {
         return self::SERVICE_VERSION;
@@ -19,7 +24,7 @@ final class AtlasDebugRootCauseService
     {
         return [
             'version' => self::SERVICE_VERSION,
-            'status' => 'analyzed',
+            'status' => self::STATUS_ANALYZED,
             'context' => $context,
             'root_cause' => $this->determineRootCause($context),
         ];
@@ -28,7 +33,7 @@ final class AtlasDebugRootCauseService
     private function determineRootCause(array $context): string
     {
         if ($context === []) {
-            return 'no_data';
+            return self::STATUS_NO_DATA;
         }
 
         return AiValueNormalizer::trimmedStringOrNull($context['suspected_cause'] ?? null) ?? 'unknown';

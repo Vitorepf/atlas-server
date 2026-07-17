@@ -25,6 +25,11 @@ final class AtlasAcosRollbackTriggerCheckService
 
     public const FLIPS_CONFIG_KEY = 'atlas.acos.rollback_triggers.flips';
 
+    public const STATUS_SIMULATED_FIRE = 'simulated_fire';
+
+    public const REASON_SIMULATED_CONDITION = 'simulated_condition';
+
+
     /**
      * @return array<string,mixed>
      */
@@ -97,8 +102,8 @@ final class AtlasAcosRollbackTriggerCheckService
             'slices' => $flip['slices'] ?? [],
             'armed' => true,
             'fired' => true,
-            'status' => 'simulated_fire',
-            'reason' => 'simulated_condition',
+            'status' => self::STATUS_SIMULATED_FIRE,
+            'reason' => self::REASON_SIMULATED_CONDITION,
             'condition_kind' => data_get($flip, 'condition.kind'),
             'rollback_action' => $flip['rollback_action'] ?? [],
             'executor' => $flip['executor'] ?? 'watchdog_alert_operator_reverts',

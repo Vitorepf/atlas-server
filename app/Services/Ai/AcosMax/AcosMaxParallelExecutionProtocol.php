@@ -30,6 +30,11 @@ final class AcosMaxParallelExecutionProtocol
 
     public const STATUS_ERROR = 'error';
 
+    public const ACTION_PROCEED = 'proceed';
+
+    public const ACTION_SKIP = 'skip';
+
+
     public function __construct(
         private readonly AtlasAobgBlackboardService $blackboard,
     ) {}
@@ -84,7 +89,7 @@ final class AcosMaxParallelExecutionProtocol
                 'schema' => self::SCHEMA,
                 'ok' => true,
                 'status' => $status,
-                'action' => 'proceed',
+                'action' => self::ACTION_PROCEED,
                 'engine' => $engine,
                 'lote' => $lote,
                 'family' => $family,
@@ -105,7 +110,7 @@ final class AcosMaxParallelExecutionProtocol
             'schema' => self::SCHEMA,
             'ok' => true,
             'status' => $status === self::STATUS_CONFLICT ? self::STATUS_CONFLICT : $status,
-            'action' => 'skip',
+            'action' => self::ACTION_SKIP,
             'engine' => $engine,
             'lote' => $lote,
             'family' => $family,

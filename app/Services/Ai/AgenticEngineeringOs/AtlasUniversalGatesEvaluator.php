@@ -4597,6 +4597,38 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: parallel-execution + procedural-promoter + cockpit/debug/rerank/rollback + latency/substrate residual floors —
+     * no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function parallelProceduralWatchdogResidualFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'parallel_action_proceed' => AcosMaxParallelExecutionProtocol::ACTION_PROCEED,
+            'parallel_action_skip' => AcosMaxParallelExecutionProtocol::ACTION_SKIP,
+            'procedural_kind_playbook' => AcosMaxProceduralSkillPromoterService::KIND_PROCEDURAL_PLAYBOOK,
+            'procedural_status_held_for_evidence' => AcosMaxProceduralSkillPromoterService::STATUS_HELD_FOR_EVIDENCE,
+            'cockpit_status_unavailable' => AcosProgramCockpitService::STATUS_UNAVAILABLE,
+            'cockpit_reason_source_not_landed_yet' => AcosProgramCockpitService::REASON_SOURCE_NOT_LANDED_YET,
+            'debug_status_analyzed' => AtlasDebugRootCauseService::STATUS_ANALYZED,
+            'debug_status_no_data' => AtlasDebugRootCauseService::STATUS_NO_DATA,
+            'rerank_status_no_baseline' => AtlasConsolidationRerankGuard::STATUS_NO_BASELINE,
+            'rerank_status_unmeasured' => AtlasConsolidationRerankGuard::STATUS_UNMEASURED,
+            'rollback_status_simulated_fire' => AtlasAcosRollbackTriggerCheckService::STATUS_SIMULATED_FIRE,
+            'rollback_reason_simulated_condition' => AtlasAcosRollbackTriggerCheckService::REASON_SIMULATED_CONDITION,
+            'aobg_latency_reason_insufficient_signal' => AobgLatencyWatchdogCheck::REASON_INSUFFICIENT_SIGNAL,
+            'aobg_latency_reason_floor_exceeded' => AobgLatencyWatchdogCheck::REASON_LATENCY_FLOOR_EXCEEDED,
+            'aobg_latency_reason_within_floors' => AobgLatencyWatchdogCheck::REASON_SUFFICIENT_SIGNAL_WITHIN_FLOORS,
+            'substrate_reason_no_successful_drill' => SubstrateRestoreDrillWatchdogCheck::REASON_NO_SUCCESSFUL_DRILL,
+            'substrate_reason_drill_fresh' => SubstrateRestoreDrillWatchdogCheck::REASON_SUCCESSFUL_DRILL_FRESH,
+            'substrate_reason_drill_stale' => SubstrateRestoreDrillWatchdogCheck::REASON_SUCCESSFUL_DRILL_STALE,
+            'parallel_procedural_watchdog_residual_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

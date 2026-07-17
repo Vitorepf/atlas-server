@@ -24,6 +24,13 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
 
     public const MAX_SUCCESS_AGE_DAYS_CONFIG_KEY = 'atlas.cognition.substrate_restore_drill.max_success_age_days';
 
+    public const REASON_NO_SUCCESSFUL_DRILL = 'no_successful_drill';
+
+    public const REASON_SUCCESSFUL_DRILL_FRESH = 'successful_drill_fresh';
+
+    public const REASON_SUCCESSFUL_DRILL_STALE = 'successful_drill_stale';
+
+
     public function id(): string
     {
         return self::CHECK_ID;
@@ -41,7 +48,7 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
                 'schema_version' => self::SCHEMA_VERSION,
                 'receipt_path' => $receiptPath,
                 'max_success_age_days' => $maxAgeDays,
-                'reason' => 'no_successful_drill',
+                'reason' => self::REASON_NO_SUCCESSFUL_DRILL,
             ], [
                 'code' => 'substrate_restore_drill_missing',
                 'message' => 'No successful SUB-01 restore drill receipt found.',
@@ -60,13 +67,13 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
         ];
 
         if ($ageDays > $maxAgeDays) {
-            return AtlasWatchdogCheckResult::alert($evidence + ['reason' => 'successful_drill_stale'], [
+            return AtlasWatchdogCheckResult::alert($evidence + ['reason' => self::REASON_SUCCESSFUL_DRILL_STALE], [
                 'code' => 'substrate_restore_drill_stale',
                 'message' => 'Last successful SUB-01 restore drill is older than the allowed window.',
             ]);
         }
 
-        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => 'successful_drill_fresh']);
+        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => self::REASON_SUCCESSFUL_DRILL_FRESH]);
     }
 
     /**

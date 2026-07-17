@@ -17,6 +17,11 @@ final class AcosProgramCockpitService
 {
     public const SCHEMA_VERSION = 'atlas.acos.cockpit.v1';
 
+    public const STATUS_UNAVAILABLE = 'unavailable';
+
+    public const REASON_SOURCE_NOT_LANDED_YET = 'source_not_landed_yet';
+
+
     public function report(?string $scoreboardPath = null): array
     {
         $scoreboardPath ??= base_path('docs/engineering-knowledge-base/atlas-acos-max-execution-scoreboard-v1.md');
@@ -97,9 +102,9 @@ final class AcosProgramCockpitService
             'payload' => [
                 'loops' => $this->commandSection('atlas:flywheel:loops --json', 'atlas:flywheel:loops', ['--json' => true]),
                 'funnel' => [
-                    'status' => 'unavailable',
+                    'status' => self::STATUS_UNAVAILABLE,
                     'source' => 'MULTX-02',
-                    'reason' => 'source_not_landed_yet',
+                    'reason' => self::REASON_SOURCE_NOT_LANDED_YET,
                 ],
             ],
         ];
@@ -187,7 +192,7 @@ final class AcosProgramCockpitService
     private function unavailable(string $source, string $reason, array $extra = []): array
     {
         return [
-            'status' => 'unavailable',
+            'status' => self::STATUS_UNAVAILABLE,
             'source' => $source,
             'reason' => $reason,
             ...$extra,

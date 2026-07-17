@@ -29,6 +29,13 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
 
     public const DEFAULT_HOOK_P95_MS_ALERT = 20000.0;
 
+    public const REASON_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+
+    public const REASON_LATENCY_FLOOR_EXCEEDED = 'latency_floor_exceeded';
+
+    public const REASON_SUFFICIENT_SIGNAL_WITHIN_FLOORS = 'sufficient_signal_within_floors';
+
+
     /**
      * @param  array<string,mixed>|null  $freezePayloadOverride
      */
@@ -76,7 +83,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
 
         if ($insufficient !== []) {
             return AtlasWatchdogCheckResult::skipped($evidence + [
-                'reason' => 'insufficient_signal',
+                'reason' => self::REASON_INSUFFICIENT_SIGNAL,
                 'insufficient_ops' => $insufficient,
             ]);
         }
@@ -94,14 +101,14 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
         }
 
         if ($alerts !== []) {
-            return AtlasWatchdogCheckResult::alert($evidence + ['reason' => 'latency_floor_exceeded'], [
+            return AtlasWatchdogCheckResult::alert($evidence + ['reason' => self::REASON_LATENCY_FLOOR_EXCEEDED], [
                 'code' => 'aobg_latency_p95_exceeded',
                 'message' => 'AOBG latency p95 exceeded frozen floors.',
                 'violations' => $alerts,
             ]);
         }
 
-        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => 'sufficient_signal_within_floors']);
+        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => self::REASON_SUFFICIENT_SIGNAL_WITHIN_FLOORS]);
     }
 
     /** @return array<string,mixed>|null */
