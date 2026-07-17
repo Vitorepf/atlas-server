@@ -3734,4 +3734,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['watchdog_immune_ragx_floor_count']);
     }
 
+
+    public function test_obra_evidence_http_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->obraEvidenceHttpFloorsContractObserve([]);
+
+        $this->assertSame('status', $payload['obra_field_status']);
+        $this->assertSame('consecutive_failures', $payload['obra_field_consecutive_failures']);
+        $this->assertSame('kill_gate_k', $payload['obra_field_kill_gate_k']);
+        $this->assertSame('arc_id', $payload['obra_field_arc_id']);
+        $this->assertSame('active', $payload['obra_status_active']);
+        $this->assertSame('source', $payload['evidence_field_source']);
+        $this->assertSame('claim', $payload['evidence_field_claim']);
+        $this->assertSame('death_criterion', $payload['evidence_field_death_criterion']);
+        $this->assertSame('proven_real', $payload['evidence_field_proven_real']);
+        $this->assertSame('atlas.originator.evidence_vision_thesis.v1', $payload['evidence_schema_version']);
+        $this->assertSame('intent_hash', $payload['http_field_intent_hash']);
+        $this->assertSame('severity', $payload['http_field_severity']);
+        $this->assertSame('owner', $payload['http_field_owner']);
+        $this->assertSame('phase_in', $payload['http_field_phase_in']);
+        $this->assertSame('skip_reason', $payload['http_field_skip_reason']);
+        $this->assertSame('blocked', $payload['http_field_blocked']);
+        $this->assertSame('r1_r2_fast_path', $payload['http_risk_band_fast_path']);
+        $this->assertSame(17, $payload['obra_evidence_http_floor_count']);
+    }
+
 }

@@ -26,6 +26,27 @@ final class ComposedObraArcLifecycle
 
     public const STATUS_UNKNOWN = 'unknown';
 
+
+    public const FIELD_STATUS = 'status';
+
+    public const FIELD_CONSECUTIVE_FAILURES = 'consecutive_failures';
+
+    public const FIELD_KILL_GATE_K = 'kill_gate_k';
+
+    public const FIELD_TASKS = 'tasks';
+
+    public const FIELD_ARC_ID = 'arc_id';
+
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+
+    public const FIELD_ARCHIVE_RECEIPT = 'archive_receipt';
+
+    public const FIELD_OPENED_AT = 'opened_at';
+
+    public const FIELD_CLOSED_AT = 'closed_at';
+
+    public const FIELD_REASON = 'reason';
+
     public const TASK_STATUS_FAILED = 'failed';
 
     public const TASK_STATUS_LANDED = 'landed';
@@ -51,13 +72,13 @@ final class ComposedObraArcLifecycle
      */
     public static function register(array $arc): void
     {
-        $arcId = AiValueNormalizer::trimmedStringOrNull($arc['arc_id'] ?? null) ?? '';
+        $arcId = AiValueNormalizer::trimmedStringOrNull($arc[self::FIELD_ARC_ID] ?? null) ?? '';
         if ($arcId === '') {
             return;
         }
 
         $tasks = [];
-        foreach (AiValueNormalizer::arrayOrEmpty($arc['tasks'] ?? null) as $task) {
+        foreach (AiValueNormalizer::arrayOrEmpty($arc[self::FIELD_TASKS] ?? null) as $task) {
             if (! is_array($task)) {
                 continue;
             }
@@ -69,19 +90,19 @@ final class ComposedObraArcLifecycle
                 'task_id' => $taskId,
                 'order' => (int) (AiValueNormalizer::finiteFloatOrNull($task['order'] ?? null) ?? 0),
                 'target_path' => AiValueNormalizer::trimmedStringOrNull($task['target_path'] ?? null) ?? '',
-                'status' => self::STATUS_PENDING,
+                self::FIELD_STATUS => self::STATUS_PENDING,
             ];
         }
 
         self::$state[$arcId] = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'arc_id' => $arcId,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_ARC_ID => $arcId,
             'obra_id' => AiValueNormalizer::trimmedStringOrNull($arc['obra_id'] ?? null) ?? '',
-            'status' => self::STATUS_ACTIVE,
-            'consecutive_failures' => 0,
-            'kill_gate_k' => max(1, (int) (AiValueNormalizer::finiteFloatOrNull(data_get($arc, 'kill_gate.consecutive_failures_k')) ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES)),
-            'tasks' => $tasks,
-            'archive_receipt' => null,
+            self::FIELD_STATUS => self::STATUS_ACTIVE,
+            self::FIELD_CONSECUTIVE_FAILURES => 0,
+            self::FIELD_KILL_GATE_K => max(1, (int) (AiValueNormalizer::finiteFloatOrNull(data_get($arc, 'kill_gate.consecutive_failures_k')) ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES)),
+            self::FIELD_TASKS => $tasks,
+            self::FIELD_ARCHIVE_RECEIPT => null,
         ];
     }
 
@@ -97,10 +118,10 @@ final class ComposedObraArcLifecycle
 
         self::markTask($arcId, $taskId, self::TASK_STATUS_FAILED);
         $state = self::$state[$arcId];
-        $state['consecutive_failures'] = (int) (AiValueNormalizer::finiteFloatOrNull($state['consecutive_failures'] ?? null) ?? 0) + 1;
+        $state[self::FIELD_CONSECUTIVE_FAILURES] = (int) (AiValueNormalizer::finiteFloatOrNull($state[self::FIELD_CONSECUTIVE_FAILURES] ?? null) ?? 0) + 1;
         self::$state[$arcId] = $state;
 
-        if ($state['consecutive_failures'] >= (int) (AiValueNormalizer::finiteFloatOrNull($state['kill_gate_k'] ?? null) ?? 0)) {
+        if ($state[self::FIELD_CONSECUTIVE_FAILURES] >= (int) (AiValueNormalizer::finiteFloatOrNull($state[self::FIELD_KILL_GATE_K] ?? null) ?? 0)) {
             return self::archive($arcId, self::REASON_KILL_GATE_CONSECUTIVE_FAILURES);
         }
 
@@ -118,7 +139,7 @@ final class ComposedObraArcLifecycle
         }
 
         self::markTask($arcId, $taskId, self::TASK_STATUS_LANDED);
-        self::$state[$arcId]['consecutive_failures'] = 0;
+        self::$state[$arcId][self::FIELD_CONSECUTIVE_FAILURES] = 0;
 
         return self::status($arcId);
     }
@@ -147,15 +168,15 @@ final class ComposedObraArcLifecycle
     public static function nextServableTask(string $arcId): ?array
     {
         $state = self::$state[$arcId] ?? null;
-        if (! is_array($state) || ($state['status'] ?? '') !== self::STATUS_ACTIVE) {
+        if (! is_array($state) || ($state[self::FIELD_STATUS] ?? '') !== self::STATUS_ACTIVE) {
             return null;
         }
 
-        $tasks = array_values(AiValueNormalizer::arrayOrEmpty($state['tasks'] ?? null));
+        $tasks = array_values(AiValueNormalizer::arrayOrEmpty($state[self::FIELD_TASKS] ?? null));
         usort($tasks, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($a['order'] ?? null) ?? 0)) <=> ((int) (AiValueNormalizer::finiteFloatOrNull($b['order'] ?? null) ?? 0)));
 
         foreach ($tasks as $task) {
-            $status = AiValueNormalizer::trimmedStringOrNull($task['status'] ?? null) ?? '';
+            $status = AiValueNormalizer::trimmedStringOrNull($task[self::FIELD_STATUS] ?? null) ?? '';
             if (in_array($status, [self::STATUS_PENDING], true)) {
                 return $task;
             }
@@ -175,12 +196,12 @@ final class ComposedObraArcLifecycle
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'arc_id' => $arcId,
-            'status' => AiValueNormalizer::trimmedStringOrNull($state['status'] ?? null) ?? self::STATUS_UNKNOWN,
-            'consecutive_failures' => (int) (AiValueNormalizer::finiteFloatOrNull($state['consecutive_failures'] ?? null) ?? 0),
-            'kill_gate_k' => (int) ($state['kill_gate_k'] ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES),
-            'archive_receipt' => $state['archive_receipt'] ?? null,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_ARC_ID => $arcId,
+            self::FIELD_STATUS => AiValueNormalizer::trimmedStringOrNull($state[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN,
+            self::FIELD_CONSECUTIVE_FAILURES => (int) (AiValueNormalizer::finiteFloatOrNull($state[self::FIELD_CONSECUTIVE_FAILURES] ?? null) ?? 0),
+            self::FIELD_KILL_GATE_K => (int) ($state[self::FIELD_KILL_GATE_K] ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES),
+            self::FIELD_ARCHIVE_RECEIPT => $state[self::FIELD_ARCHIVE_RECEIPT] ?? null,
             'remaining_servable' => self::nextServableTask($arcId) !== null,
         ];
     }
@@ -196,35 +217,35 @@ final class ComposedObraArcLifecycle
         }
 
         $receipt = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'arc_id' => $arcId,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_ARC_ID => $arcId,
             'obra_id' => AiValueNormalizer::trimmedStringOrNull($state['obra_id'] ?? null) ?? '',
             'archived_at_basis' => $reason,
-            'consecutive_failures' => (int) (AiValueNormalizer::finiteFloatOrNull($state['consecutive_failures'] ?? null) ?? 0),
-            'kill_gate_k' => (int) ($state['kill_gate_k'] ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES),
-            'receipt_hash' => hash('sha256', json_encode([$arcId, $reason, $state['consecutive_failures'] ?? 0], JSON_UNESCAPED_SLASHES)),
+            self::FIELD_CONSECUTIVE_FAILURES => (int) (AiValueNormalizer::finiteFloatOrNull($state[self::FIELD_CONSECUTIVE_FAILURES] ?? null) ?? 0),
+            self::FIELD_KILL_GATE_K => (int) ($state[self::FIELD_KILL_GATE_K] ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES),
+            'receipt_hash' => hash('sha256', json_encode([$arcId, $reason, $state[self::FIELD_CONSECUTIVE_FAILURES] ?? 0], JSON_UNESCAPED_SLASHES)),
         ];
 
-        foreach (AiValueNormalizer::arrayOrEmpty($state['tasks'] ?? null) as $taskId => $task) {
+        foreach (AiValueNormalizer::arrayOrEmpty($state[self::FIELD_TASKS] ?? null) as $taskId => $task) {
             if (! is_array($task)) {
                 continue;
             }
-            if (($task['status'] ?? '') === self::STATUS_PENDING) {
-                $state['tasks'][$taskId]['status'] = self::TASK_STATUS_NEVER_SERVED_ARCHIVED;
+            if (($task[self::FIELD_STATUS] ?? '') === self::STATUS_PENDING) {
+                $state[self::FIELD_TASKS][$taskId][self::FIELD_STATUS] = self::TASK_STATUS_NEVER_SERVED_ARCHIVED;
             }
         }
 
-        $state['status'] = self::STATUS_ARCHIVED;
-        $state['archive_receipt'] = $receipt;
+        $state[self::FIELD_STATUS] = self::STATUS_ARCHIVED;
+        $state[self::FIELD_ARCHIVE_RECEIPT] = $receipt;
         self::$state[$arcId] = $state;
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'arc_id' => $arcId,
-            'status' => self::STATUS_ARCHIVED,
-            'consecutive_failures' => (int) (AiValueNormalizer::finiteFloatOrNull($state['consecutive_failures'] ?? null) ?? 0),
-            'kill_gate_k' => (int) ($state['kill_gate_k'] ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES),
-            'archive_receipt' => $receipt,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_ARC_ID => $arcId,
+            self::FIELD_STATUS => self::STATUS_ARCHIVED,
+            self::FIELD_CONSECUTIVE_FAILURES => (int) (AiValueNormalizer::finiteFloatOrNull($state[self::FIELD_CONSECUTIVE_FAILURES] ?? null) ?? 0),
+            self::FIELD_KILL_GATE_K => (int) ($state[self::FIELD_KILL_GATE_K] ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES),
+            self::FIELD_ARCHIVE_RECEIPT => $receipt,
             'remaining_servable' => false,
         ];
     }
@@ -235,7 +256,7 @@ final class ComposedObraArcLifecycle
     private static function requireActive(string $arcId): ?array
     {
         $state = self::$state[$arcId] ?? null;
-        if (! is_array($state) || ($state['status'] ?? '') !== self::STATUS_ACTIVE) {
+        if (! is_array($state) || ($state[self::FIELD_STATUS] ?? '') !== self::STATUS_ACTIVE) {
             return null;
         }
 
@@ -244,10 +265,10 @@ final class ComposedObraArcLifecycle
 
     private static function markTask(string $arcId, string $taskId, string $status): void
     {
-        if (! isset(self::$state[$arcId]['tasks'][$taskId])) {
+        if (! isset(self::$state[$arcId][self::FIELD_TASKS][$taskId])) {
             return;
         }
-        self::$state[$arcId]['tasks'][$taskId]['status'] = $status;
+        self::$state[$arcId][self::FIELD_TASKS][$taskId][self::FIELD_STATUS] = $status;
     }
 
     /**
@@ -256,10 +277,10 @@ final class ComposedObraArcLifecycle
     private static function refusal(string $reason, string $arcId): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'arc_id' => $arcId,
-            'status' => self::STATUS_REFUSED,
-            'reason' => $reason,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_ARC_ID => $arcId,
+            self::FIELD_STATUS => self::STATUS_REFUSED,
+            self::FIELD_REASON => $reason,
             'remaining_servable' => false,
         ];
     }

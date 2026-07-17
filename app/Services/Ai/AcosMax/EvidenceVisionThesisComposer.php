@@ -25,6 +25,31 @@ final class EvidenceVisionThesisComposer
 
     public const DEFAULT_AUTHOR_ENGINE_ID = 'cursor-acos-max-multn1706';
 
+
+    public const FIELD_SOURCE = 'source';
+
+    public const FIELD_STATUS = 'status';
+
+    public const FIELD_EVIDENCE = 'evidence';
+
+    public const FIELD_CLAIM = 'claim';
+
+    public const FIELD_DEATH_CRITERION = 'death_criterion';
+
+    public const FIELD_BORN_AT = 'born_at';
+
+    public const FIELD_TTL_DAYS = 'ttl_days';
+
+    public const FIELD_DESCRIBED_AT_BIRTH = 'described_at_birth';
+
+    public const FIELD_WINDOW = 'window';
+
+    public const FIELD_FIELD = 'field';
+
+    public const FIELD_VALUE = 'value';
+
+    public const FIELD_ALIGNMENT_KEYS = 'alignment_keys';
+
     /** @var list<string> */
     public const ALLOWED_EVIDENCE_SOURCES = ['series', 'ledger', 'outcome'];
 
@@ -58,8 +83,8 @@ final class EvidenceVisionThesisComposer
             return self::emptyResult(self::STATUS_FLAG_DISABLED);
         }
 
-        $bornAt = AiValueNormalizer::trimmedStringOrNull($context['born_at'] ?? null) ?? gmdate('c');
-        $ttlDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($context['ttl_days'] ?? null) ?? self::DEFAULT_TTL_DAYS));
+        $bornAt = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_BORN_AT] ?? null) ?? gmdate('c');
+        $ttlDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($context[self::FIELD_TTL_DAYS] ?? null) ?? self::DEFAULT_TTL_DAYS));
         $forbidden = self::forbiddenStrings($context);
         $theses = [];
 
@@ -108,8 +133,8 @@ final class EvidenceVisionThesisComposer
             'composed' => true,
             'thesis_count' => count($theses),
             'theses' => $theses,
-            'status' => self::STATUS_OK,
-            'source' => [
+            self::FIELD_STATUS => self::STATUS_OK,
+            self::FIELD_SOURCE => [
                 'max_theses' => self::MAX_THESES,
                 'human_authored_claims' => false,
                 'influences_pick' => true,
@@ -132,9 +157,9 @@ final class EvidenceVisionThesisComposer
         }
 
         $haystack = AiValueNormalizer::lowerTrimmedString(json_encode([
-            $thesis['claim'] ?? '',
-            $thesis['death_criterion']['described_at_birth'] ?? '',
-            $thesis['evidence'] ?? [],
+            $thesis[self::FIELD_CLAIM] ?? '',
+            $thesis[self::FIELD_DEATH_CRITERION][self::FIELD_DESCRIBED_AT_BIRTH] ?? '',
+            $thesis[self::FIELD_EVIDENCE] ?? [],
         ], JSON_UNESCAPED_SLASHES) ?: '');
 
         foreach ($forbidden as $needle) {
@@ -152,11 +177,11 @@ final class EvidenceVisionThesisComposer
      */
     public static function thesisFieldSourcesValid(array $thesis): bool
     {
-        foreach (AiValueNormalizer::arrayOrEmpty($thesis['evidence'] ?? null) as $row) {
+        foreach (AiValueNormalizer::arrayOrEmpty($thesis[self::FIELD_EVIDENCE] ?? null) as $row) {
             if (! is_array($row)) {
                 return false;
             }
-            $source = AiValueNormalizer::trimmedStringOrNull($row['source'] ?? null) ?? '';
+            $source = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_SOURCE] ?? null) ?? '';
             if (! in_array($source, self::ALLOWED_EVIDENCE_SOURCES, true)) {
                 return false;
             }
@@ -165,7 +190,7 @@ final class EvidenceVisionThesisComposer
             }
         }
 
-        return ($thesis['claim'] ?? '') !== '' && is_array($thesis['death_criterion'] ?? null);
+        return ($thesis[self::FIELD_CLAIM] ?? '') !== '' && is_array($thesis[self::FIELD_DEATH_CRITERION] ?? null);
     }
 
     /**
@@ -223,7 +248,7 @@ final class EvidenceVisionThesisComposer
             if (count($group) < self::MIN_REGRESSION_WINDOWS) {
                 continue;
             }
-            usort($group, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($a['window'] ?? null) ?? 0)) <=> ((int) (AiValueNormalizer::finiteFloatOrNull($b['window'] ?? null) ?? 0)));
+            usort($group, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($a[self::FIELD_WINDOW] ?? null) ?? 0)) <=> ((int) (AiValueNormalizer::finiteFloatOrNull($b[self::FIELD_WINDOW] ?? null) ?? 0)));
             $tail = array_slice($group, -self::MIN_REGRESSION_WINDOWS);
             $yields = array_map(
                 static fn (array $row): float => AiValueNormalizer::finiteFloatOrNull($row['yield'] ?? null) ?? 0.0,
@@ -248,28 +273,28 @@ final class EvidenceVisionThesisComposer
 
             $theses[] = [
                 'thesis_id' => $thesisId,
-                'status' => self::STATUS_ACTIVE,
-                'claim' => 'series:'.$series.' stage '.$stage.' yield regressed across windows '
-                    .((int) (AiValueNormalizer::finiteFloatOrNull($tail[0]['window'] ?? null) ?? 0)).'-'.((int) (AiValueNormalizer::finiteFloatOrNull($tail[count($tail) - 1]['window'] ?? null) ?? 0))
+                self::FIELD_STATUS => self::STATUS_ACTIVE,
+                self::FIELD_CLAIM => 'series:'.$series.' stage '.$stage.' yield regressed across windows '
+                    .((int) (AiValueNormalizer::finiteFloatOrNull($tail[0][self::FIELD_WINDOW] ?? null) ?? 0)).'-'.((int) (AiValueNormalizer::finiteFloatOrNull($tail[count($tail) - 1][self::FIELD_WINDOW] ?? null) ?? 0))
                     .' ('.round($first, 3).'→'.round($last, 3).')',
-                'evidence' => array_map(
+                self::FIELD_EVIDENCE => array_map(
                     static fn (array $row): array => [
-                        'source' => 'series',
-                        'ref' => 'series:'.(AiValueNormalizer::trimmedStringOrNull($row['series'] ?? null) ?? '').':stage='.(AiValueNormalizer::trimmedStringOrNull($row['stage'] ?? null) ?? '').':window='.(int) (AiValueNormalizer::finiteFloatOrNull($row['window'] ?? null) ?? 0),
-                        'field' => 'yield',
-                        'value' => AiValueNormalizer::finiteFloatOrNull($row['yield'] ?? null) ?? 0.0,
+                        self::FIELD_SOURCE => 'series',
+                        'ref' => 'series:'.(AiValueNormalizer::trimmedStringOrNull($row['series'] ?? null) ?? '').':stage='.(AiValueNormalizer::trimmedStringOrNull($row['stage'] ?? null) ?? '').':window='.(int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_WINDOW] ?? null) ?? 0),
+                        self::FIELD_FIELD => 'yield',
+                        self::FIELD_VALUE => AiValueNormalizer::finiteFloatOrNull($row['yield'] ?? null) ?? 0.0,
                     ],
                     $tail,
                 ),
-                'death_criterion' => [
+                self::FIELD_DEATH_CRITERION => [
                     'kind' => self::KIND_SERIES_RECOVERY,
                     'threshold' => $recoveryFloor,
                     'consecutive_windows' => 2,
-                    'described_at_birth' => 'archive when series:'.$series.' stage '.$stage.' yield >= '.$recoveryFloor.' for 2 consecutive windows',
+                    self::FIELD_DESCRIBED_AT_BIRTH => 'archive when series:'.$series.' stage '.$stage.' yield >= '.$recoveryFloor.' for 2 consecutive windows',
                 ],
-                'alignment_keys' => [$series, $stage, 'pattern-design', 'frontier-harvest'],
-                'born_at' => $bornAt,
-                'ttl_days' => $ttlDays,
+                self::FIELD_ALIGNMENT_KEYS => [$series, $stage, 'pattern-design', 'frontier-harvest'],
+                self::FIELD_BORN_AT => $bornAt,
+                self::FIELD_TTL_DAYS => $ttlDays,
                 'expires_at' => self::expiresAt($bornAt, $ttlDays),
                 'author_engine_id' => self::DEFAULT_AUTHOR_ENGINE_ID,
             ];
@@ -303,31 +328,31 @@ final class EvidenceVisionThesisComposer
 
         return [[
             'thesis_id' => $thesisId,
-            'status' => self::STATUS_ACTIVE,
-            'claim' => 'outcome:predicted_impact_calibration high_band realized_rate '.round($highRate, 3)
+            self::FIELD_STATUS => self::STATUS_ACTIVE,
+            self::FIELD_CLAIM => 'outcome:predicted_impact_calibration high_band realized_rate '.round($highRate, 3)
                 .' trails sweet_band '.round($sweetRate, 3),
-            'evidence' => [
+            self::FIELD_EVIDENCE => [
                 [
-                    'source' => 'outcome',
+                    self::FIELD_SOURCE => 'outcome',
                     'ref' => 'outcome:predicted_impact_calibration:band=high:n_realized='.$highN,
-                    'field' => 'realized_rate',
-                    'value' => $highRate,
+                    self::FIELD_FIELD => 'realized_rate',
+                    self::FIELD_VALUE => $highRate,
                 ],
                 [
-                    'source' => 'outcome',
+                    self::FIELD_SOURCE => 'outcome',
                     'ref' => 'outcome:predicted_impact_calibration:band=sweet:n_realized='.$sweetN,
-                    'field' => 'realized_rate',
-                    'value' => $sweetRate,
+                    self::FIELD_FIELD => 'realized_rate',
+                    self::FIELD_VALUE => $sweetRate,
                 ],
             ],
-            'death_criterion' => [
+            self::FIELD_DEATH_CRITERION => [
                 'kind' => self::KIND_CALIBRATION_RESOLVED,
                 'threshold' => $sweetRate - 0.15,
-                'described_at_birth' => 'archive when high_band realized_rate >= sweet_band - 0.15',
+                self::FIELD_DESCRIBED_AT_BIRTH => 'archive when high_band realized_rate >= sweet_band - 0.15',
             ],
-            'alignment_keys' => ['predicted-impact', 'pattern-design', 'comprehension-deepening'],
-            'born_at' => $bornAt,
-            'ttl_days' => $ttlDays,
+            self::FIELD_ALIGNMENT_KEYS => ['predicted-impact', 'pattern-design', 'comprehension-deepening'],
+            self::FIELD_BORN_AT => $bornAt,
+            self::FIELD_TTL_DAYS => $ttlDays,
             'expires_at' => self::expiresAt($bornAt, $ttlDays),
             'author_engine_id' => self::DEFAULT_AUTHOR_ENGINE_ID,
         ]];
@@ -345,13 +370,13 @@ final class EvidenceVisionThesisComposer
                 continue;
             }
             $target = ltrim(AiValueNormalizer::trimmedStringOrNull($lead['target_path'] ?? null) ?? '', '/');
-            $evidence = AiValueNormalizer::arrayOrEmpty($lead['evidence'] ?? null);
+            $evidence = AiValueNormalizer::arrayOrEmpty($lead[self::FIELD_EVIDENCE] ?? null);
             $file = AiValueNormalizer::trimmedStringOrNull($evidence['file'] ?? null) ?? '';
             $line = (int) (AiValueNormalizer::finiteFloatOrNull($evidence['line'] ?? null) ?? 0);
             if ($target === '' || $file === '' || $line <= 0) {
                 continue;
             }
-            $byTarget[$target][] = ['file' => $file, 'line' => $line, 'source' => AiValueNormalizer::trimmedStringOrNull($evidence['source'] ?? null) ?? 'ledger'];
+            $byTarget[$target][] = ['file' => $file, 'line' => $line, self::FIELD_SOURCE => AiValueNormalizer::trimmedStringOrNull($evidence[self::FIELD_SOURCE] ?? null) ?? 'ledger'];
         }
 
         $theses = [];
@@ -362,27 +387,27 @@ final class EvidenceVisionThesisComposer
             $thesisId = hash('sha256', 'lead-cluster|'.$target.'|'.count($rows));
             $refs = array_map(
                 static fn (array $row): array => [
-                    'source' => 'ledger',
+                    self::FIELD_SOURCE => 'ledger',
                     'ref' => 'ledger:'.$row['file'].':'.$row['line'],
-                    'field' => 'open_evidence',
-                    'value' => $row['source'],
+                    self::FIELD_FIELD => 'open_evidence',
+                    self::FIELD_VALUE => $row[self::FIELD_SOURCE],
                 ],
                 $rows,
             );
 
             $theses[] = [
                 'thesis_id' => $thesisId,
-                'status' => self::STATUS_ACTIVE,
-                'claim' => 'ledger cluster at '.$target.' with '.count($rows).' independent evidence rows',
-                'evidence' => $refs,
-                'death_criterion' => [
+                self::FIELD_STATUS => self::STATUS_ACTIVE,
+                self::FIELD_CLAIM => 'ledger cluster at '.$target.' with '.count($rows).' independent evidence rows',
+                self::FIELD_EVIDENCE => $refs,
+                self::FIELD_DEATH_CRITERION => [
                     'kind' => self::KIND_LEAD_CLUSTER_CLEARED,
                     'remaining_rows_max' => 0,
-                    'described_at_birth' => 'archive when open evidence rows for '.$target.' drop below 2',
+                    self::FIELD_DESCRIBED_AT_BIRTH => 'archive when open evidence rows for '.$target.' drop below 2',
                 ],
-                'alignment_keys' => [$target, dirname($target)],
-                'born_at' => $bornAt,
-                'ttl_days' => $ttlDays,
+                self::FIELD_ALIGNMENT_KEYS => [$target, dirname($target)],
+                self::FIELD_BORN_AT => $bornAt,
+                self::FIELD_TTL_DAYS => $ttlDays,
                 'expires_at' => self::expiresAt($bornAt, $ttlDays),
                 'author_engine_id' => self::DEFAULT_AUTHOR_ENGINE_ID,
             ];
@@ -418,25 +443,25 @@ final class EvidenceVisionThesisComposer
             $thesisId = hash('sha256', 'outcome-stall|'.$path.'|'.count($failures));
             $theses[] = [
                 'thesis_id' => $thesisId,
-                'status' => self::STATUS_ACTIVE,
-                'claim' => 'outcome:path='.$path.' has '.count($failures).' consecutive non-proven_real results',
-                'evidence' => array_map(
+                self::FIELD_STATUS => self::STATUS_ACTIVE,
+                self::FIELD_CLAIM => 'outcome:path='.$path.' has '.count($failures).' consecutive non-proven_real results',
+                self::FIELD_EVIDENCE => array_map(
                     static fn (array $row, int $index): array => [
-                        'source' => 'outcome',
+                        self::FIELD_SOURCE => 'outcome',
                         'ref' => 'outcome:'.((AiValueNormalizer::trimmedStringOrNull($row['outcome_id'] ?? null) ?? '') ?: ('stall-'.$index)),
-                        'field' => self::FIELD_PROVEN_REAL,
-                        'value' => false,
+                        self::FIELD_FIELD => self::FIELD_PROVEN_REAL,
+                        self::FIELD_VALUE => false,
                     ],
                     array_slice($failures, 0, 3),
                     array_keys(array_slice($failures, 0, 3)),
                 ),
-                'death_criterion' => [
+                self::FIELD_DEATH_CRITERION => [
                     'kind' => self::KIND_OUTCOME_PROVEN,
-                    'described_at_birth' => 'archive when path '.$path.' records proven_real=true',
+                    self::FIELD_DESCRIBED_AT_BIRTH => 'archive when path '.$path.' records proven_real=true',
                 ],
-                'alignment_keys' => [$path],
-                'born_at' => $bornAt,
-                'ttl_days' => $ttlDays,
+                self::FIELD_ALIGNMENT_KEYS => [$path],
+                self::FIELD_BORN_AT => $bornAt,
+                self::FIELD_TTL_DAYS => $ttlDays,
                 'expires_at' => self::expiresAt($bornAt, $ttlDays),
                 'author_engine_id' => self::DEFAULT_AUTHOR_ENGINE_ID,
             ];
@@ -480,10 +505,10 @@ final class EvidenceVisionThesisComposer
     {
         $keys = [];
         foreach ($activeTheses as $thesis) {
-            if (! is_array($thesis) || ($thesis['status'] ?? '') !== self::STATUS_ACTIVE) {
+            if (! is_array($thesis) || ($thesis[self::FIELD_STATUS] ?? '') !== self::STATUS_ACTIVE) {
                 continue;
             }
-            foreach (AiValueNormalizer::arrayOrEmpty($thesis['alignment_keys'] ?? null) as $key) {
+            foreach (AiValueNormalizer::arrayOrEmpty($thesis[self::FIELD_ALIGNMENT_KEYS] ?? null) as $key) {
                 $key = AiValueNormalizer::trimmedStringOrNull($key) ?? '';
                 if ($key !== '') {
                     $keys[] = $key;
@@ -525,8 +550,8 @@ final class EvidenceVisionThesisComposer
             'composed' => false,
             'thesis_count' => 0,
             'theses' => [],
-            'status' => $reason,
-            'source' => [
+            self::FIELD_STATUS => $reason,
+            self::FIELD_SOURCE => [
                 'max_theses' => self::MAX_THESES,
                 'human_authored_claims' => false,
                 'influences_pick' => false,

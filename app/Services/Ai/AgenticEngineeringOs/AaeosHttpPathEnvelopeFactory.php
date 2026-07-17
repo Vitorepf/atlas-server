@@ -23,6 +23,31 @@ final class AaeosHttpPathEnvelopeFactory
 
     public const FIELD_BLOCKED = 'blocked';
 
+
+    public const FIELD_INTENT_HASH = 'intent_hash';
+
+    public const FIELD_SEVERITY = 'severity';
+
+    public const FIELD_OWNER = 'owner';
+
+    public const FIELD_PHASE_IN = 'phase_in';
+
+    public const FIELD_PHASE_OUT = 'phase_out';
+
+    public const FIELD_ACTOR_ID = 'actor_id';
+
+    public const FIELD_SKIP_RECEIPT_ID = 'skip_receipt_id';
+
+    public const FIELD_SKIP_REASON = 'skip_reason';
+
+    public const FIELD_OUTPUTS = 'outputs';
+
+    public const FIELD_REQUIRED_GATE = 'required_gate';
+
+    public const FIELD_RISK_BAND = 'risk_band';
+
+    public const FIELD_STATUS = 'status';
+
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
         private readonly PhaseAdvanceVerdictClassifier $phaseAdvance = new PhaseAdvanceVerdictClassifier,
@@ -38,8 +63,8 @@ final class AaeosHttpPathEnvelopeFactory
             phaseIn: AaeosPhaseHandoffService::PHASE_INTENT_CAPTURE,
             phaseOut: AaeosPhaseHandoffService::PHASE_INTENT_CAPTURE,
             actor: self::systemActor('aaeos.http_path_facade'),
-            inputs: ['intent_hash' => $intentHash],
-            outputs: ['intent_hash' => $intentHash, 'intent_id' => $intentId],
+            inputs: [self::FIELD_INTENT_HASH => $intentHash],
+            outputs: [self::FIELD_INTENT_HASH => $intentHash, 'intent_id' => $intentId],
             gates: self::binaryGate('surface_captured_intent', true),
         );
     }
@@ -58,7 +83,7 @@ final class AaeosHttpPathEnvelopeFactory
             phaseIn: AaeosPhaseHandoffService::PHASE_INTENT_CAPTURE,
             phaseOut: AaeosPhaseHandoffService::PHASE_DISAMBIGUATION,
             actor: self::systemActor('aaeos.mission_detection'),
-            inputs: ['intent_hash' => $intentHash],
+            inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
                 'mission_signal_kind' => $suggestedMissionType,
                 'mission_should_activate' => $shouldActivateMissionMode ? 'yes' : 'no',
@@ -91,7 +116,7 @@ final class AaeosHttpPathEnvelopeFactory
             phaseIn: AaeosPhaseHandoffService::PHASE_DISAMBIGUATION,
             phaseOut: AaeosPhaseHandoffService::PHASE_PLACEMENT,
             actor: self::systemActor('aaeos.placement'),
-            inputs: ['intent_hash' => $intentHash],
+            inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
                 'placement_layer' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['layer'] ?? null) ?? self::STATUS_UNKNOWN,
                 'placement_domain' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['domain'] ?? null) ?? self::STATUS_UNKNOWN,
@@ -119,7 +144,7 @@ final class AaeosHttpPathEnvelopeFactory
             phaseIn: AaeosPhaseHandoffService::PHASE_PLACEMENT,
             phaseOut: AaeosPhaseHandoffService::PHASE_CLASSIFICATION,
             actor: self::systemActor('aaeos.classification'),
-            inputs: ['intent_hash' => $intentHash],
+            inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
                 'flow_id' => $flowId,
                 'command_intent' => $commandIntent,
@@ -128,7 +153,7 @@ final class AaeosHttpPathEnvelopeFactory
             gates: self::binaryGate('intent_classification_target_department_declared', $declared),
             blockers: $declared
                 ? []
-                : [['id' => 'classification_target_department_missing', 'severity' => 'medium', 'owner' => 'atlas-ai']],
+                : [['id' => 'classification_target_department_missing', self::FIELD_SEVERITY => 'medium', self::FIELD_OWNER => 'atlas-ai']],
         );
     }
 
@@ -141,7 +166,7 @@ final class AaeosHttpPathEnvelopeFactory
         $assisted = self::assistedExecutionQuality($data);
         $target = AiValueNormalizer::trimmedStringOrNull(data_get($assisted, 'route.target', null)) ?? '';
         $isDevTarget = $target === 'atlas_dev';
-        $status = AiValueNormalizer::trimmedStringOrNull($assisted['status'] ?? null) ?? '';
+        $status = AiValueNormalizer::trimmedStringOrNull($assisted[self::FIELD_STATUS] ?? null) ?? '';
         $allowed = $isDevTarget ? ($status === 'ready_for_assisted_execution') : true;
 
         return $this->handoff->emit(
@@ -149,7 +174,7 @@ final class AaeosHttpPathEnvelopeFactory
             phaseIn: AaeosPhaseHandoffService::PHASE_CLASSIFICATION,
             phaseOut: AaeosPhaseHandoffService::PHASE_POLICY_GATE,
             actor: self::systemActor('aaeos.policy_gate'),
-            inputs: ['intent_hash' => $intentHash],
+            inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
                 'policy_target' => $target !== '' ? $target : 'none',
                 'policy_status' => $status !== '' ? $status : 'not_required',
@@ -197,64 +222,64 @@ final class AaeosHttpPathEnvelopeFactory
      */
     public const DEFERRED_PHASE_SPECS = [
         'topology' => [
-            'phase_in' => AaeosPhaseHandoffService::PHASE_POLICY_GATE,
-            'phase_out' => AaeosPhaseHandoffService::PHASE_TOPOLOGY,
-            'actor_id' => 'aaeos.topology',
-            'skip_receipt_id' => 'rcpt:aaeos.phase3.topology.r1_r2_fast_path',
-            'skip_reason' => 'r1_r2_fast_path_preserved',
-            'outputs' => [
+            self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_POLICY_GATE,
+            self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_TOPOLOGY,
+            self::FIELD_ACTOR_ID => 'aaeos.topology',
+            self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase3.topology.r1_r2_fast_path',
+            self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
+            self::FIELD_OUTPUTS => [
                 'topology_required' => 'yes',
                 'aawr_invocation' => 'deferred',
             ],
-            'required_gate' => 'topology_plan_providers_min_1_available',
+            self::FIELD_REQUIRED_GATE => 'topology_plan_providers_min_1_available',
         ],
         'routing' => [
-            'phase_in' => AaeosPhaseHandoffService::PHASE_TOPOLOGY,
-            'phase_out' => AaeosPhaseHandoffService::PHASE_ROUTING,
-            'actor_id' => 'aaeos.routing',
-            'skip_receipt_id' => 'rcpt:aaeos.phase3.routing.r1_r2_fast_path',
-            'skip_reason' => 'r1_r2_fast_path_preserved',
-            'outputs' => [
+            self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_TOPOLOGY,
+            self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_ROUTING,
+            self::FIELD_ACTOR_ID => 'aaeos.routing',
+            self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase3.routing.r1_r2_fast_path',
+            self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
+            self::FIELD_OUTPUTS => [
                 'department_route' => 'engineering_or_forge_pending_aawr',
                 'company_runtime_invocation' => 'deferred',
             ],
-            'required_gate' => 'department_route_owner_confirmed',
+            self::FIELD_REQUIRED_GATE => 'department_route_owner_confirmed',
         ],
         'spec' => [
-            'phase_in' => AaeosPhaseHandoffService::PHASE_ROUTING,
-            'phase_out' => AaeosPhaseHandoffService::PHASE_SPEC,
-            'actor_id' => 'aaeos.spec',
-            'skip_receipt_id' => 'rcpt:aaeos.phase4.spec.r1_r2_fast_path',
-            'skip_reason' => 'r1_r2_fast_path_preserved',
-            'outputs' => [
+            self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_ROUTING,
+            self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_SPEC,
+            self::FIELD_ACTOR_ID => 'aaeos.spec',
+            self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase4.spec.r1_r2_fast_path',
+            self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
+            self::FIELD_OUTPUTS => [
                 'spec_invocation' => 'deferred',
                 'spec_required' => 'yes',
             ],
-            'required_gate' => 'spec_pack_acceptance_criteria_min_3',
+            self::FIELD_REQUIRED_GATE => 'spec_pack_acceptance_criteria_min_3',
         ],
         'tasks' => [
-            'phase_in' => AaeosPhaseHandoffService::PHASE_SPEC,
-            'phase_out' => AaeosPhaseHandoffService::PHASE_TASKS,
-            'actor_id' => 'aaeos.tasks',
-            'skip_receipt_id' => 'rcpt:aaeos.phase4.tasks.r1_r2_fast_path',
-            'skip_reason' => 'r1_r2_fast_path_preserved',
-            'outputs' => [
+            self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_SPEC,
+            self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_TASKS,
+            self::FIELD_ACTOR_ID => 'aaeos.tasks',
+            self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase4.tasks.r1_r2_fast_path',
+            self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
+            self::FIELD_OUTPUTS => [
                 'task_pack_invocation' => 'deferred',
                 'task_pack_required' => 'yes',
             ],
-            'required_gate' => 'task_pack_atomic_true_for_each',
+            self::FIELD_REQUIRED_GATE => 'task_pack_atomic_true_for_each',
         ],
         'receipt' => [
-            'phase_in' => AaeosPhaseHandoffService::PHASE_TASKS,
-            'phase_out' => AaeosPhaseHandoffService::PHASE_RECEIPT,
-            'actor_id' => 'aaeos.receipt',
-            'skip_receipt_id' => 'rcpt:aaeos.phase4.receipt.r1_r2_fast_path',
-            'skip_reason' => 'r1_r2_fast_path_preserved_legacy_trace_audit',
-            'outputs' => [
+            self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_TASKS,
+            self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_RECEIPT,
+            self::FIELD_ACTOR_ID => 'aaeos.receipt',
+            self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase4.receipt.r1_r2_fast_path',
+            self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved_legacy_trace_audit',
+            self::FIELD_OUTPUTS => [
                 'decision_receipt_v2_invocation' => 'deferred',
                 'receipt_required' => 'yes',
             ],
-            'required_gate' => 'decision_receipt_v2_signed',
+            self::FIELD_REQUIRED_GATE => 'decision_receipt_v2_signed',
         ],
     ];
 
@@ -396,23 +421,23 @@ final class AaeosHttpPathEnvelopeFactory
                 if ($id === null) {
                     continue;
                 }
-                $severity = AiValueNormalizer::trimmedStringOrNull($blocker['severity'] ?? null) ?? 'high';
-                $owner = AiValueNormalizer::trimmedStringOrNull($blocker['owner'] ?? null) ?? 'atlas-ai';
+                $severity = AiValueNormalizer::trimmedStringOrNull($blocker[self::FIELD_SEVERITY] ?? null) ?? 'high';
+                $owner = AiValueNormalizer::trimmedStringOrNull($blocker[self::FIELD_OWNER] ?? null) ?? 'atlas-ai';
                 $blockers[] = [
                     'id' => $id,
-                    'severity' => $severity !== '' ? $severity : 'high',
-                    'owner' => $owner !== '' ? $owner : 'atlas-ai',
+                    self::FIELD_SEVERITY => $severity !== '' ? $severity : 'high',
+                    self::FIELD_OWNER => $owner !== '' ? $owner : 'atlas-ai',
                 ];
             } elseif (($id = AiValueNormalizer::trimmedStringOrNull($blocker)) !== null) {
-                $blockers[] = ['id' => $id, 'severity' => 'high', 'owner' => 'atlas-ai'];
+                $blockers[] = ['id' => $id, self::FIELD_SEVERITY => 'high', self::FIELD_OWNER => 'atlas-ai'];
             }
         }
 
         if ($blockers === []) {
             $blockers[] = [
                 'id' => 'assisted_execution_needs_context',
-                'severity' => 'high',
-                'owner' => 'atlas-ai',
+                self::FIELD_SEVERITY => 'high',
+                self::FIELD_OWNER => 'atlas-ai',
             ];
         }
 
@@ -429,8 +454,8 @@ final class AaeosHttpPathEnvelopeFactory
 
         return array_values(array_map(static fn (string $reason): array => [
             'id' => $reason,
-            'severity' => 'high',
-            'owner' => 'atlas-ai',
+            self::FIELD_SEVERITY => 'high',
+            self::FIELD_OWNER => 'atlas-ai',
         ], array_filter($blockedWhen, 'is_string')));
     }
 
@@ -448,13 +473,13 @@ final class AaeosHttpPathEnvelopeFactory
             intentId: $intentId,
             intentHash: $intentHash,
             riskBand: $riskBand,
-            phaseIn: $spec['phase_in'],
-            phaseOut: $spec['phase_out'],
-            actorId: $spec['actor_id'],
-            skipReceiptId: $spec['skip_receipt_id'],
-            skipReason: $spec['skip_reason'],
-            outputs: $spec['outputs'],
-            requiredGate: $spec['required_gate'],
+            phaseIn: $spec[self::FIELD_PHASE_IN],
+            phaseOut: $spec[self::FIELD_PHASE_OUT],
+            actorId: $spec[self::FIELD_ACTOR_ID],
+            skipReceiptId: $spec[self::FIELD_SKIP_RECEIPT_ID],
+            skipReason: $spec[self::FIELD_SKIP_REASON],
+            outputs: $spec[self::FIELD_OUTPUTS],
+            requiredGate: $spec[self::FIELD_REQUIRED_GATE],
         );
     }
 
@@ -488,8 +513,8 @@ final class AaeosHttpPathEnvelopeFactory
             phaseIn: $phaseIn,
             phaseOut: $phaseOut,
             actor: self::systemActor($actorId),
-            inputs: ['intent_hash' => $intentHash],
-            outputs: ['risk_band' => $riskBand] + $outputs,
+            inputs: [self::FIELD_INTENT_HASH => $intentHash],
+            outputs: [self::FIELD_RISK_BAND => $riskBand] + $outputs,
             gates: self::binaryGate($requiredGate, true),
         );
     }

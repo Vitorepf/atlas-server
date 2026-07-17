@@ -5376,6 +5376,37 @@ final class AtlasUniversalGatesEvaluator
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
+
+    /**
+     * Observe-only residual floors for composed-obra / evidence-vision / HTTP envelope field contracts.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function obraEvidenceHttpFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'obra_field_status' => ComposedObraArcLifecycle::FIELD_STATUS,
+            'obra_field_consecutive_failures' => ComposedObraArcLifecycle::FIELD_CONSECUTIVE_FAILURES,
+            'obra_field_kill_gate_k' => ComposedObraArcLifecycle::FIELD_KILL_GATE_K,
+            'obra_field_arc_id' => ComposedObraArcLifecycle::FIELD_ARC_ID,
+            'obra_status_active' => ComposedObraArcLifecycle::STATUS_ACTIVE,
+            'evidence_field_source' => EvidenceVisionThesisComposer::FIELD_SOURCE,
+            'evidence_field_claim' => EvidenceVisionThesisComposer::FIELD_CLAIM,
+            'evidence_field_death_criterion' => EvidenceVisionThesisComposer::FIELD_DEATH_CRITERION,
+            'evidence_field_proven_real' => EvidenceVisionThesisComposer::FIELD_PROVEN_REAL,
+            'evidence_schema_version' => EvidenceVisionThesisComposer::SCHEMA_VERSION,
+            'http_field_intent_hash' => AaeosHttpPathEnvelopeFactory::FIELD_INTENT_HASH,
+            'http_field_severity' => AaeosHttpPathEnvelopeFactory::FIELD_SEVERITY,
+            'http_field_owner' => AaeosHttpPathEnvelopeFactory::FIELD_OWNER,
+            'http_field_phase_in' => AaeosHttpPathEnvelopeFactory::FIELD_PHASE_IN,
+            'http_field_skip_reason' => AaeosHttpPathEnvelopeFactory::FIELD_SKIP_REASON,
+            'http_field_blocked' => AaeosHttpPathEnvelopeFactory::FIELD_BLOCKED,
+            'http_risk_band_fast_path' => AaeosHttpPathEnvelopeFactory::RISK_BAND_FAST_PATH,
+            'obra_evidence_http_floor_count' => 17,
+        ];
+    }
+
     public function watchdogImmuneRagxFloorsContractObserve(array $input = []): array
     {
         return [
