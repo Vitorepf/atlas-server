@@ -42,6 +42,8 @@ final class AaeosDeferredPhaseDispatcherServiceTest extends TestCase
 
         self::assertSame(2, $result['enqueued_count']);
         self::assertSame(2, $svc->pendingCount($this->queuePath));
+        self::assertSame('atlas.aaeos.phase_advance_verdict.v1', $result['enqueued'][0]['phase_advance']['schema_version']);
+        self::assertArrayHasKey('verdict', $result['enqueued'][0]['phase_advance']);
     }
 
     public function test_claim_returns_at_most_max_records_and_removes_them(): void
