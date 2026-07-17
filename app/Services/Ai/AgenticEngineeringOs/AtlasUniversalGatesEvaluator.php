@@ -46,6 +46,7 @@ use App\Services\Ai\AcosMax\ExploratoryBetsPortfolio;
 use App\Services\Ai\AcosMax\AtlasNCaptureDrillService;
 use App\Services\Ai\AcosMax\AcosMaxLote2MeasureService;
 use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\Aaeos\AtlasAaeosThresholdComparator;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
@@ -1463,6 +1464,29 @@ final class AtlasUniversalGatesEvaluator
             'unique_trimmed_strings' => AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($values),
             'non_empty_strings' => AtlasAaeosStringListNormalizer::nonEmptyStrings($values),
             'trimmed_string_or_int_values' => AtlasAaeosStringListNormalizer::trimmedStringOrIntValues($values),
+        ];
+    }
+
+    /**
+     * Observe-only AAEOS threshold comparator (binary + full).
+     * Accepts `{comparator, observed, threshold}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function thresholdComparatorObserve(array $input = []): array
+    {
+        $comparator = AiValueNormalizer::trimmedString($input['comparator'] ?? '>=');
+        $observed = AiValueNormalizer::finiteFloatOrNull($input['observed'] ?? null) ?? 0.0;
+        $threshold = AiValueNormalizer::finiteFloatOrNull($input['threshold'] ?? null) ?? 0.0;
+
+        return [
+            'schema_version' => 'atlas.aaeos.threshold_comparator.v1',
+            'comparator' => $comparator,
+            'observed' => $observed,
+            'threshold' => $threshold,
+            'binary_satisfied' => AtlasAaeosThresholdComparator::binarySatisfied($comparator, $observed, $threshold),
+            'satisfied' => AtlasAaeosThresholdComparator::satisfied($comparator, $observed, $threshold),
         ];
     }
 

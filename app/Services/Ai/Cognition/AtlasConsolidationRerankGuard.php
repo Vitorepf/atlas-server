@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Cognition;
 
 use App\Services\Ai\Context\LocalRagPrecisionCorpusService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Throwable;
 
 /**
@@ -126,7 +127,7 @@ final class AtlasConsolidationRerankGuard
             $primary = data_get($report, 'metrics.primary_k', array_key_first($pAtK));
             $value = $pAtK[(string) $primary] ?? null;
 
-            return $value === null ? null : (float) $value;
+            return AiValueNormalizer::finiteFloatOrNull($value);
         } catch (Throwable) {
             return null;
         }
@@ -140,7 +141,7 @@ final class AtlasConsolidationRerankGuard
             }
             $decoded = json_decode((string) file_get_contents($this->baselinePath), true, 512, JSON_THROW_ON_ERROR);
 
-            return isset($decoded['precision_at_k']) ? (float) $decoded['precision_at_k'] : null;
+            return AiValueNormalizer::finiteFloatOrNull($decoded['precision_at_k'] ?? null);
         } catch (Throwable) {
             return null;
         }

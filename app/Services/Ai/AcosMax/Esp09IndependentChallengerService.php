@@ -36,7 +36,8 @@ final class Esp09IndependentChallengerService
     {
         $author = AiValueNormalizer::trimmedString($context['author_engine_id'] ?? '');
         $challengerEngine = AiValueNormalizer::trimmedString($context['challenger_engine_id'] ?? '');
-        $alignment = self::floatOrNull($context['operator_alignment'] ?? null);
+        $alignmentRaw = AiValueNormalizer::finiteFloatOrNull($context['operator_alignment'] ?? null);
+        $alignment = $alignmentRaw === null ? null : AiValueNormalizer::clampUnit($alignmentRaw);
         $kind = AiValueNormalizer::trimmedString($context['decision_kind'] ?? 'ordinary_route');
 
         $base = [
@@ -200,10 +201,4 @@ final class Esp09IndependentChallengerService
         ];
     }
 
-    private static function floatOrNull(mixed $value): ?float
-    {
-        $float = AiValueNormalizer::finiteFloatOrNull($value);
-
-        return $float === null ? null : AiValueNormalizer::clampUnit($float);
-    }
 }

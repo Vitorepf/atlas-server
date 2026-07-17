@@ -1669,6 +1669,29 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_threshold_comparator(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-tc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'comparator' => '>=',
+            'observed' => 1.0,
+            'threshold' => 0.5,
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-tc',
+                '--threshold-comparator' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"threshold_comparator"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Cognition;
 
 use App\Services\Ai\AtlasMemoryQualityService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Throwable;
 
 /**
@@ -96,8 +97,9 @@ final class AtlasAcosWindowGatesService
         $value = $dims[$key];
 
         $out = ['gate' => $gate, 'target' => $target, 'value' => $value];
-        if ($assert && $threshold !== null && is_numeric($value)) {
-            $out['status'] = (float) $value >= $threshold ? 'met' : 'aguardando_janela';
+        $numeric = AiValueNormalizer::finiteFloatOrNull($value);
+        if ($assert && $threshold !== null && $numeric !== null) {
+            $out['status'] = $numeric >= $threshold ? 'met' : 'aguardando_janela';
         } else {
             $out['status'] = 'reported';
         }

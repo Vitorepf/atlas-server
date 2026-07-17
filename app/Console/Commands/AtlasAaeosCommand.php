@@ -114,6 +114,7 @@ final class AtlasAaeosCommand extends Command
         {--n-capture-drill= : JSON file with optional days (observe-only N-capture report)}
         {--lote2-counterfactual-lift= : JSON file (any object) to observe MULTJ-03 lift}
         {--string-list-normalize= : JSON file with values list (observe-only string normalize)}
+        {--threshold-comparator= : JSON file with comparator+observed+threshold (observe-only)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -384,6 +385,7 @@ final class AtlasAaeosCommand extends Command
             ['n-capture-drill', 'n_capture_drill', fn (array $p) => $gates->nCaptureDrillObserve($p)],
             ['lote2-counterfactual-lift', 'lote2_counterfactual_lift', fn (array $p) => $gates->lote2CounterfactualLiftObserve($p)],
             ['string-list-normalize', 'string_list_normalize', fn (array $p) => $gates->stringListNormalizeObserve($p)],
+            ['threshold-comparator', 'threshold_comparator', fn (array $p) => $gates->thresholdComparatorObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -184,7 +184,7 @@ final class SegmentImportanceRanker
             $hasEvidenceRef = $this->boolField($row, 'has_evidence_ref');
             $linksDecisionOrBlocker = $this->boolField($row, 'links_decision_or_blocker');
             $dupGroup = $this->nullableStringField($row, 'dup_group');
-            $importance = AiValueNormalizer::clampUnit((float) $this->numericField($row, 'importance') / 100.0);
+            $importance = AiValueNormalizer::clampUnit($this->numericField($row, 'importance') / 100.0);
 
             $kindWeight = $this->kindWeight($kind);
             $dedupPenalty = $this->dedupPenalty($dupGroup, $dupGroupSeen);

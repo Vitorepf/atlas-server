@@ -1206,4 +1206,17 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('alpha', $payload['trimmed_strings']);
         $this->assertContains('7', $payload['trimmed_string_or_int_values']);
     }
+
+    public function test_threshold_comparator_observe_reports_satisfaction(): void
+    {
+        $payload = $this->svc->thresholdComparatorObserve([
+            'comparator' => '>=',
+            'observed' => 0.95,
+            'threshold' => 0.9,
+        ]);
+
+        $this->assertSame('atlas.aaeos.threshold_comparator.v1', $payload['schema_version']);
+        $this->assertTrue($payload['binary_satisfied']);
+        $this->assertTrue($payload['satisfied']);
+    }
 }
