@@ -12,6 +12,10 @@ final class AcosMaxWindowOrchestratorService
 {
     public const SCHEMA_VERSION = 'atlas.acos.windows.v1';
 
+    public function __construct(
+        private readonly AcosMeasureSeriesFreshnessReader $freshness = new AcosMeasureSeriesFreshnessReader,
+    ) {}
+
     /**
      * @param  list<array<string,mixed>>|null  $protocolEntries
      * @param  list<array<string,mixed>>|null  $registryEntries
@@ -221,25 +225,12 @@ final class AcosMaxWindowOrchestratorService
      */
     private function latestSeriesTimestamp(array $series): ?DateTimeImmutable
     {
-        $path = (string) ($series['path'] ?? '');
-        if ($path === '' || ! is_file($path)) {
+        $carbon = $this->freshness->lastAppendAt($series);
+        if ($carbon === null) {
             return null;
         }
-        $field = (string) ($series['timestamp_field'] ?? 'recorded_at');
-        $latest = null;
 
-        foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
-            $row = json_decode((string) $line, true);
-            if (! is_array($row)) {
-                continue;
-            }
-            $candidate = $this->dateOrNull($row[$field] ?? null);
-            if ($candidate instanceof DateTimeImmutable && ($latest === null || $candidate > $latest)) {
-                $latest = $candidate;
-            }
-        }
-
-        return $latest;
+        return DateTimeImmutable::createFromInterface($carbon);
     }
 
     /**
