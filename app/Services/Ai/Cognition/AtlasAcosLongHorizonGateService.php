@@ -111,6 +111,60 @@ final class AtlasAcosLongHorizonGateService
     }
 
     /**
+     * Shared series window integrity facts used by v1 assess() and v2 area assess.
+     *
+     * @param  list<array<string,mixed>>  $series
+     * @return array{
+     *   dates: list<string>,
+     *   first_date: ?string,
+     *   latest_date: ?string,
+     *   today: string,
+     *   series_day_count: int,
+     *   calendar_span_days: int,
+     *   future_dated_rows: int,
+     *   latest_staleness_days: int,
+     *   certification_window_dates: list<string>,
+     *   sampled_dates_in_window: list<string>,
+     *   max_consecutive_gap_days: int,
+     *   backfilled_samples: int,
+     * }
+     */
+    private function seriesWindowIntegrity(array $series, int $minDays, DateTimeImmutable $today): array
+    {
+        $dates = array_values(array_filter(array_map(
+            static fn (array $row): string => (string) ($row['date'] ?? ''),
+            $series,
+        ), static fn (string $date): bool => preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1));
+        sort($dates);
+
+        $firstDate = $dates[0] ?? null;
+        $latestDate = $dates[count($dates) - 1] ?? null;
+        $todayKey = $today->format('Y-m-d');
+        $uniqueDates = array_values(array_unique($dates));
+        $futureDatedRows = count(array_filter(
+            $uniqueDates,
+            static fn (string $date): bool => $date > $todayKey,
+        ));
+        $certificationWindowDates = $this->certificationWindowDates($latestDate, $minDays);
+        $sampledDatesInWindow = $this->sampledDatesInWindow($series, $certificationWindowDates);
+
+        return [
+            'dates' => $dates,
+            'first_date' => $firstDate,
+            'latest_date' => $latestDate,
+            'today' => $todayKey,
+            'series_day_count' => count($uniqueDates),
+            'calendar_span_days' => $this->calendarSpanDays($firstDate, $latestDate),
+            'future_dated_rows' => $futureDatedRows,
+            'latest_staleness_days' => $this->latestStalenessDays($latestDate, $today),
+            'certification_window_dates' => $certificationWindowDates,
+            'sampled_dates_in_window' => $sampledDatesInWindow,
+            'max_consecutive_gap_days' => $this->maxConsecutiveGapDays($sampledDatesInWindow),
+            'backfilled_samples' => $this->backfilledSamplesInWindow($series, $certificationWindowDates),
+        ];
+    }
+
+    /**
      * @param  array<string,mixed>  $scorecard
      * @param  list<array<string,mixed>>  $series
      * @return array<string,mixed>
@@ -121,41 +175,25 @@ final class AtlasAcosLongHorizonGateService
         $pipeline = (float) data_get($scorecard, 'score.dimensions.pipeline.score_out_of_10', 0.0);
         $scorecardHash = (string) data_get($scorecard, 'scorecard_hash', '');
 
-        $dates = array_values(array_filter(array_map(
-            static fn (array $row): string => (string) ($row['date'] ?? ''),
-            $series,
-        ), static fn (string $date): bool => preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1));
-        sort($dates);
-
-        $firstDate = $dates[0] ?? null;
-        $latestDate = $dates[count($dates) - 1] ?? null;
-        $calendarSpanDays = $this->calendarSpanDays($firstDate, $latestDate);
-        $seriesDayCount = count(array_unique($dates));
+        $window = $this->seriesWindowIntegrity($series, $minDays, $today);
+        $latestDate = $window['latest_date'];
+        $firstDate = $window['first_date'];
+        $calendarSpanDays = $window['calendar_span_days'];
+        $seriesDayCount = $window['series_day_count'];
         $latestSeriesOverall = $this->latestSeriesOverall($series, $latestDate);
         $resolvedEvidenceRows = $this->resolvedEvidenceRows($series);
-
-        // Time-integrity: a row dated after "today" cannot be lived evidence.
-        // This is the mechanical enforcement of `does_not_backfill_time` — a
-        // forged/backdated/future-dated window must not satisfy the window floor.
-        $todayKey = $today->format('Y-m-d');
-        $futureDatedRows = count(array_filter(
-            array_unique($dates),
-            static fn (string $date): bool => $date > $todayKey,
-        ));
-        // The window must be RECENT live operation, not a stale 30-day block that
-        // stopped updating long ago. The latest date must be within the freshness
-        // bound of today (default 2 calendar days to tolerate scheduler skew).
-        $latestStalenessDays = $this->latestStalenessDays($latestDate, $today);
-
-        $certificationWindowDates = $this->certificationWindowDates($latestDate, $minDays);
+        $futureDatedRows = $window['future_dated_rows'];
+        $latestStalenessDays = $window['latest_staleness_days'];
+        $certificationWindowDates = $window['certification_window_dates'];
         $windowOverallScan = $this->certificationWindowOverallScan($series, $certificationWindowDates, $minOverall);
         $minCertificationWindowOverall = $windowOverallScan['min_overall'];
         $certificationWindowDaysBelowFloor = $windowOverallScan['days_below_floor'];
         $certificationWindowStart = $certificationWindowDates[0] ?? null;
         $certificationWindowEnd = $latestDate;
-        $sampledDatesInWindow = $this->sampledDatesInWindow($series, $certificationWindowDates);
-        $maxConsecutiveGapDays = $this->maxConsecutiveGapDays($sampledDatesInWindow);
-        $backfilledSamples = $this->backfilledSamplesInWindow($series, $certificationWindowDates);
+        $sampledDatesInWindow = $window['sampled_dates_in_window'];
+        $maxConsecutiveGapDays = $window['max_consecutive_gap_days'];
+        $backfilledSamples = $window['backfilled_samples'];
+        $todayKey = $window['today'];
 
         $blockers = [];
         if ($overall < $minOverall) {
@@ -392,26 +430,18 @@ final class AtlasAcosLongHorizonGateService
         DateTimeImmutable $today,
         string $seriesPath,
     ): array {
-        $dates = array_values(array_filter(array_map(
-            static fn (array $row): string => (string) ($row['date'] ?? ''),
-            $series,
-        ), static fn (string $date): bool => preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1));
-        sort($dates);
-
-        $firstDate = $dates[0] ?? null;
-        $latestDate = $dates[count($dates) - 1] ?? null;
-        $todayKey = $today->format('Y-m-d');
-        $seriesDayCount = count(array_unique($dates));
-        $calendarSpanDays = $this->calendarSpanDays($firstDate, $latestDate);
-        $futureDatedRows = count(array_filter(
-            array_unique($dates),
-            static fn (string $date): bool => $date > $todayKey,
-        ));
-        $latestStalenessDays = $this->latestStalenessDays($latestDate, $today);
-        $certificationWindowDates = $this->certificationWindowDates($latestDate, $minDays);
-        $sampledDatesInWindow = $this->sampledDatesInWindow($series, $certificationWindowDates);
-        $maxConsecutiveGapDays = $this->maxConsecutiveGapDays($sampledDatesInWindow);
-        $backfilledSamples = $this->backfilledSamplesInWindow($series, $certificationWindowDates);
+        $window = $this->seriesWindowIntegrity($series, $minDays, $today);
+        $firstDate = $window['first_date'];
+        $latestDate = $window['latest_date'];
+        $todayKey = $window['today'];
+        $seriesDayCount = $window['series_day_count'];
+        $calendarSpanDays = $window['calendar_span_days'];
+        $futureDatedRows = $window['future_dated_rows'];
+        $latestStalenessDays = $window['latest_staleness_days'];
+        $certificationWindowDates = $window['certification_window_dates'];
+        $sampledDatesInWindow = $window['sampled_dates_in_window'];
+        $maxConsecutiveGapDays = $window['max_consecutive_gap_days'];
+        $backfilledSamples = $window['backfilled_samples'];
         $resolvedEvidenceRows = $this->resolvedEvidenceRowsV2($series);
         $areaScan = $this->certificationWindowAreaScan($series, $certificationWindowDates, $floors);
 
