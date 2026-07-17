@@ -109,7 +109,7 @@ final class PreReviewAdvisoryBand
 
         $classification = ($classifier ?? new CalibrationBandClassifier)->classify($probability);
 
-        $result['predicted_revert_band'] = (string) $classification['band'];
+        $result['predicted_revert_band'] = AiValueNormalizer::trimmedString($classification['band'] ?? '');
         $result['probability'] = $probability;
         $result['basis'] = 'measured';
 
@@ -127,8 +127,8 @@ final class PreReviewAdvisoryBand
     {
         $buckets = ['low' => ['n' => 0, 'reverted' => 0], 'sweet' => ['n' => 0, 'reverted' => 0], 'high' => ['n' => 0, 'reverted' => 0]];
         foreach ($observations as $obs) {
-            $band = $obs['predicted_revert_band'] ?? null;
-            if (! is_string($band) || ! isset($buckets[$band])) {
+            $band = AiValueNormalizer::trimmedString($obs['predicted_revert_band'] ?? null);
+            if ($band === '' || ! isset($buckets[$band])) {
                 continue;
             }
             $buckets[$band]['n']++;

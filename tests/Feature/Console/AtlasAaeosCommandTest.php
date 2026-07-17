@@ -1034,6 +1034,27 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_jina_dual_read_ledger(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-jina-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'path' => sys_get_temp_dir().'/atlas-jina-observe.jsonl',
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-jina',
+                '--jina-dual-read-ledger' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"jina_dual_read_ledger"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

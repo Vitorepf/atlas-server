@@ -33,6 +33,7 @@ use App\Services\Ai\AcosMax\BeliefCascadeReverificationPlanner;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\Teto10PredictedRevertReviewDigest;
+use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadLedger;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -800,5 +801,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('ok', $payload['status']);
         $this->assertSame(1, $payload['item_count']);
         $this->assertSame(1, $payload['band_counts']['high']);
+    }
+
+    public function test_jina_dual_read_ledger_observe_resolves_path(): void
+    {
+        $custom = sys_get_temp_dir().'/atlas-jina-dual-'.uniqid('', true).'.jsonl';
+        $payload = $this->svc->jinaDualReadLedgerObserve(['path' => '  '.$custom.'  ']);
+
+        $this->assertSame(Maxa04JinaV3DualReadLedger::SCHEMA, $payload['schema_version']);
+        $this->assertSame($custom, $payload['path']);
+        $this->assertTrue($payload['custom_path']);
+        $this->assertSame(Maxa04JinaV3DualReadLedger::RELATIVE_PATH, $payload['relative_path']);
     }
 }

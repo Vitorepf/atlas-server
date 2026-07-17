@@ -33,6 +33,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\Teto10PredictedRevertReviewDigest;
+use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadLedger;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -953,6 +954,26 @@ final class AtlasUniversalGatesEvaluator
 
         /** @var list<array<string,mixed>> $items */
         return Teto10PredictedRevertReviewDigest::compose($items, $limit);
+    }
+
+    /**
+     * Observe-only MAXA-04 Jina v3 dual-read ledger path resolution.
+     * Accepts optional `{path?:string}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function jinaDualReadLedgerObserve(array $input = []): array
+    {
+        $path = AiValueNormalizer::trimmedStringOrNull($input['path'] ?? null);
+        $ledger = new Maxa04JinaV3DualReadLedger($path);
+
+        return [
+            'schema_version' => Maxa04JinaV3DualReadLedger::SCHEMA,
+            'path' => $ledger->path(),
+            'relative_path' => Maxa04JinaV3DualReadLedger::RELATIVE_PATH,
+            'custom_path' => $path !== null,
+        ];
     }
 
     /**
