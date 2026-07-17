@@ -22,13 +22,17 @@ final class Teto10PredictedRevertReviewDigest
         'unknown' => 3,
     ];
 
+    public const DEFAULT_LIMIT = 50;
+
+    public const HARD_LIMIT_CAP = 200;
+
     /**
      * @param  list<array<string,mixed>>  $items
      * @return array<string,mixed>
      */
-    public static function compose(array $items, int $limit = 50): array
+    public static function compose(array $items, int $limit = self::DEFAULT_LIMIT): array
     {
-        $limit = max(1, min(200, $limit));
+        $limit = max(1, min(self::HARD_LIMIT_CAP, $limit));
         $normalised = [];
         foreach ($items as $index => $item) {
             $normalised[] = self::normaliseItem($item, $index);

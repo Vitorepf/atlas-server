@@ -905,7 +905,7 @@ final class AtlasUniversalGatesEvaluator
         }
 
         $events = AiValueNormalizer::arrayOrEmpty($input['events'] ?? null);
-        $minOccurrences = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['min_occurrences'] ?? null) ?? 3));
+        $minOccurrences = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['min_occurrences'] ?? null) ?? RecallGapAggregator::DEFAULT_MIN_OCCURRENCES));
 
         /** @var list<array<string,mixed>> $events */
         return RecallGapAggregator::aggregate($events, $minOccurrences);
@@ -923,7 +923,7 @@ final class AtlasUniversalGatesEvaluator
     {
         $origin = AiValueNormalizer::trimmedStringOrNull($input['origin'] ?? null) ?? '';
         $graph = AiValueNormalizer::arrayOrEmpty($input['graph'] ?? null);
-        $depthCap = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($input['depth_cap'] ?? null) ?? 3));
+        $depthCap = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($input['depth_cap'] ?? null) ?? BeliefCascadeReverificationPlanner::DEFAULT_DEPTH_CAP));
 
         /** @var array<string,list<string>> $graph */
         return BeliefCascadeReverificationPlanner::plan($origin, $graph, $depthCap);
@@ -1081,7 +1081,7 @@ final class AtlasUniversalGatesEvaluator
         }
 
         $items = AiValueNormalizer::arrayOrEmpty($input['items'] ?? null);
-        $limit = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['limit'] ?? null) ?? 50));
+        $limit = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['limit'] ?? null) ?? Teto10PredictedRevertReviewDigest::DEFAULT_LIMIT));
 
         /** @var list<array<string,mixed>> $items */
         return Teto10PredictedRevertReviewDigest::compose($items, $limit);
@@ -1400,7 +1400,7 @@ final class AtlasUniversalGatesEvaluator
     public function docsAuthorityLocateObserve(array $input = []): array
     {
         $needle = AiValueNormalizer::trimmedStringOrNull($input['needle'] ?? null) ?? '';
-        $limit = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['limit'] ?? null) ?? 5));
+        $limit = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['limit'] ?? null) ?? AtlasDocsAuthorityGraphService::DEFAULT_LOCATE_LIMIT));
 
         return (new AtlasDocsAuthorityGraphService(new CanonicalDocsFrontmatterParser))->locate($needle, $limit);
     }
@@ -3914,6 +3914,30 @@ final class AtlasUniversalGatesEvaluator
             'evidence_vision_lifecycle_schema' => EvidenceVisionThesisLifecycle::SCHEMA_VERSION,
             'evidence_vision_consecutive_windows' => EvidenceVisionThesisLifecycle::DEFAULT_CONSECUTIVE_WINDOWS,
             'ledger_rotation_impact_floor_count' => 10,
+        ];
+    }
+
+    /**
+     * Observe-only helper limit floors (recall-gap / belief-cascade / teto10 / docs-locate).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function observeHelperLimitFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'recall_gap_schema' => RecallGapAggregator::SCHEMA_VERSION,
+            'recall_gap_weak_score_floor' => RecallGapAggregator::WEAK_SCORE_FLOOR,
+            'recall_gap_default_min_occurrences' => RecallGapAggregator::DEFAULT_MIN_OCCURRENCES,
+            'belief_cascade_schema' => BeliefCascadeReverificationPlanner::SCHEMA_VERSION,
+            'belief_cascade_default_depth_cap' => BeliefCascadeReverificationPlanner::DEFAULT_DEPTH_CAP,
+            'teto10_schema' => Teto10PredictedRevertReviewDigest::SCHEMA_VERSION,
+            'teto10_default_limit' => Teto10PredictedRevertReviewDigest::DEFAULT_LIMIT,
+            'teto10_hard_limit_cap' => Teto10PredictedRevertReviewDigest::HARD_LIMIT_CAP,
+            'docs_locate_schema' => AtlasDocsAuthorityGraphService::LOCATE_SCHEMA,
+            'docs_locate_default_limit' => AtlasDocsAuthorityGraphService::DEFAULT_LOCATE_LIMIT,
+            'observe_helper_limit_floor_count' => 10,
         ];
     }
 

@@ -36,6 +36,8 @@ class AtlasDocsAuthorityGraphService
         'keyword_fallback' => 40,
     ];
 
+    public const DEFAULT_LOCATE_LIMIT = 5;
+
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
     ) {}
@@ -125,7 +127,7 @@ class AtlasDocsAuthorityGraphService
      *
      * @return array<string,mixed>
      */
-    public function locate(string $needle, int $limit = 5): array
+    public function locate(string $needle, int $limit = self::DEFAULT_LOCATE_LIMIT): array
     {
         $normalized = AiValueNormalizer::lowerTrimmedString($needle);
 

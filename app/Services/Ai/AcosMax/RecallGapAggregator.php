@@ -13,11 +13,13 @@ final class RecallGapAggregator
 
     public const WEAK_SCORE_FLOOR = 0.35;
 
+    public const DEFAULT_MIN_OCCURRENCES = 3;
+
     /**
      * @param  list<array<string,mixed>>  $events
      * @return array<string,mixed>
      */
-    public static function aggregate(array $events, int $minOccurrences = 3): array
+    public static function aggregate(array $events, int $minOccurrences = self::DEFAULT_MIN_OCCURRENCES): array
     {
         $groups = [];
         foreach ($events as $event) {

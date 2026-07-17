@@ -2686,4 +2686,21 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(2, $payload['evidence_vision_consecutive_windows']);
         $this->assertSame(10, $payload['ledger_rotation_impact_floor_count']);
     }
+
+    public function test_observe_helper_limit_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->observeHelperLimitFloorsContractObserve([]);
+
+        $this->assertSame('atlas.memory.recall_gap_aggregator.v1', $payload['recall_gap_schema']);
+        $this->assertSame(0.35, $payload['recall_gap_weak_score_floor']);
+        $this->assertSame(3, $payload['recall_gap_default_min_occurrences']);
+        $this->assertSame('atlas.memory.belief_cascade_reverification.v1', $payload['belief_cascade_schema']);
+        $this->assertSame(3, $payload['belief_cascade_default_depth_cap']);
+        $this->assertSame('atlas.acos.teto10.predicted_revert_review_digest.v1', $payload['teto10_schema']);
+        $this->assertSame(50, $payload['teto10_default_limit']);
+        $this->assertSame(200, $payload['teto10_hard_limit_cap']);
+        $this->assertSame('atlas.docs.locate.v1', $payload['docs_locate_schema']);
+        $this->assertSame(5, $payload['docs_locate_default_limit']);
+        $this->assertSame(10, $payload['observe_helper_limit_floor_count']);
+    }
 }

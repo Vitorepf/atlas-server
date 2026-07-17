@@ -10,11 +10,13 @@ final class BeliefCascadeReverificationPlanner
 {
     public const SCHEMA_VERSION = 'atlas.memory.belief_cascade_reverification.v1';
 
+    public const DEFAULT_DEPTH_CAP = 3;
+
     /**
      * @param  array<string,list<string>>  $graph
      * @return array<string,mixed>
      */
-    public static function plan(string $origin, array $graph, int $depthCap = 3): array
+    public static function plan(string $origin, array $graph, int $depthCap = self::DEFAULT_DEPTH_CAP): array
     {
         $origin = AiValueNormalizer::trimmedStringOrNull($origin) ?? '';
         $normalizedGraph = self::normalizeGraph($graph);
