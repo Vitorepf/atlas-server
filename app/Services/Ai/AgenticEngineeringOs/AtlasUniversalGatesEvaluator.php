@@ -26,6 +26,10 @@ final class AtlasUniversalGatesEvaluator
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.gate_report.v1';
 
+    public function __construct(
+        private readonly DeliveryPackCompletenessScorer $deliveryPackCompleteness = new DeliveryPackCompletenessScorer,
+    ) {}
+
     /**
      * The 15 canonical universal gates of AAEOS Phase 11.
      *
