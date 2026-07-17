@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class ProvenanceWeightCalculator
 {
     public const SCHEMA_VERSION = 'atlas.memory.provenance_weight.v1';
@@ -17,14 +19,26 @@ final class ProvenanceWeightCalculator
      */
     public static function calculate(array $evidenceRefs, array $verifiedRefs): array
     {
-        $verified = array_fill_keys($verifiedRefs, true);
+        $verified = [];
+        foreach ($verifiedRefs as $ref) {
+            $trimmed = AiValueNormalizer::trimmedString($ref);
+            if ($trimmed !== '') {
+                $verified[$trimmed] = true;
+            }
+        }
         $resolved = [];
         $dead = [];
-        foreach (array_values(array_unique($evidenceRefs)) as $ref) {
-            if (isset($verified[$ref])) {
-                $resolved[] = $ref;
+        $seen = [];
+        foreach ($evidenceRefs as $ref) {
+            $trimmed = AiValueNormalizer::trimmedString($ref);
+            if ($trimmed === '' || isset($seen[$trimmed])) {
+                continue;
+            }
+            $seen[$trimmed] = true;
+            if (isset($verified[$trimmed])) {
+                $resolved[] = $trimmed;
             } else {
-                $dead[] = $ref;
+                $dead[] = $trimmed;
             }
         }
 

@@ -28,4 +28,17 @@ final class Multh02ProvenanceWeightTest extends TestCase
         $this->assertSame(0, $out['resolved_count']);
         $this->assertSame(0.5, $out['multiplier']);
     }
+
+    #[Test]
+    public function trims_and_dedupes_evidence_and_verified_refs(): void
+    {
+        $out = ProvenanceWeightCalculator::calculate(
+            ['  ev:1  ', 'ev:1', '', 'ev:2'],
+            ['ev:1', '  ev:2  ', ''],
+        );
+
+        $this->assertSame(2, $out['resolved_count']);
+        $this->assertSame([], $out['dead_refs']);
+        $this->assertSame(0.7, $out['multiplier']);
+    }
 }

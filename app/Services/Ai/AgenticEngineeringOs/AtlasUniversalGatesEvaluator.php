@@ -23,6 +23,7 @@ use App\Services\Ai\AcosMax\DomainLexicalNormalizer;
 use App\Services\Ai\AcosMax\GatedCorpusCandidateMiner;
 use App\Services\Ai\AcosMax\StructuredFactSchemaMap;
 use App\Services\Ai\AcosMax\CitationGroundingMeter;
+use App\Services\Ai\AcosMax\ProvenanceWeightCalculator;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -728,6 +729,23 @@ final class AtlasUniversalGatesEvaluator
 
         /** @var list<array<string,mixed>> $responses */
         return CitationGroundingMeter::measure($responses);
+    }
+
+    /**
+     * Observe-only provenance weight over evidence/verified refs.
+     * Accepts `{evidence_refs:[...], verified_refs:[...]}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function provenanceWeightObserve(array $input): array
+    {
+        $evidenceRefs = AiValueNormalizer::arrayOrEmpty($input['evidence_refs'] ?? null);
+        $verifiedRefs = AiValueNormalizer::arrayOrEmpty($input['verified_refs'] ?? null);
+
+        /** @var list<string> $evidenceRefs */
+        /** @var list<string> $verifiedRefs */
+        return ProvenanceWeightCalculator::calculate($evidenceRefs, $verifiedRefs);
     }
 
     /**

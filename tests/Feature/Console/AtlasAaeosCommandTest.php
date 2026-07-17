@@ -733,6 +733,28 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_provenance_weight(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-pw-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'evidence_refs' => ['ev:1', 'missing'],
+            'verified_refs' => ['ev:1'],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-pw',
+                '--provenance-weight' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"provenance_weight"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

@@ -27,6 +27,7 @@ use App\Services\Ai\AcosMax\DomainLexicalNormalizer;
 use App\Services\Ai\AcosMax\GatedCorpusCandidateMiner;
 use App\Services\Ai\AcosMax\StructuredFactSchemaMap;
 use App\Services\Ai\AcosMax\CitationGroundingMeter;
+use App\Services\Ai\AcosMax\ProvenanceWeightCalculator;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -609,5 +610,18 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('ok', $payload['status']);
         $this->assertSame(1, $payload['unsupported_citation_count']);
         $this->assertSame(0.5, $payload['grounding_rate']);
+    }
+
+    public function test_provenance_weight_observe_resolves_verified_refs(): void
+    {
+        $payload = $this->svc->provenanceWeightObserve([
+            'evidence_refs' => ['ev:1', 'missing'],
+            'verified_refs' => ['ev:1'],
+        ]);
+
+        $this->assertSame(ProvenanceWeightCalculator::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame(1, $payload['resolved_count']);
+        $this->assertSame(['missing'], $payload['dead_refs']);
+        $this->assertSame(0.6, $payload['multiplier']);
     }
 }
