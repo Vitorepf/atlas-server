@@ -22,6 +22,14 @@ final class AtlasModelCapabilitySpecService
 {
 
     public const SPEC_CONFIG_KEY = 'atlas_model_capability_spec';
+
+    public const REASON_MISSING_MODEL_ID = 'missing_model_id';
+
+    public const REASON_LATENCY_ABOVE_SPEC_CEILING = 'latency_above_spec_ceiling';
+
+    public const REASON_LICENSE_MISSING = 'license_missing';
+
+    public const REASON_LICENSE_NOT_ALLOWED = 'license_not_allowed';
     /** @var array<string, array<string, mixed>> */
     private array $functions;
 
@@ -69,7 +77,7 @@ final class AtlasModelCapabilitySpecService
         if ($modelId === '') {
             $violations[] = [
                 'field' => 'model_id',
-                'reason' => 'missing_model_id',
+                'reason' => self::REASON_MISSING_MODEL_ID,
                 'expected' => 'non_empty_string',
                 'actual' => null,
             ];
@@ -222,7 +230,7 @@ final class AtlasModelCapabilitySpecService
         if ($actual > $ceiling) {
             return [[
                 'field' => 'latency_per_pair_ms_p95',
-                'reason' => 'latency_above_spec_ceiling',
+                'reason' => self::REASON_LATENCY_ABOVE_SPEC_CEILING,
                 'expected' => '<='.$ceiling,
                 'actual' => $actual,
             ]];
@@ -252,7 +260,7 @@ final class AtlasModelCapabilitySpecService
         if ($license === '') {
             return [[
                 'field' => 'license',
-                'reason' => 'license_missing',
+                'reason' => self::REASON_LICENSE_MISSING,
                 'expected' => $allowed,
                 'actual' => null,
             ]];
@@ -260,7 +268,7 @@ final class AtlasModelCapabilitySpecService
         if (! in_array($license, $allowed, true)) {
             return [[
                 'field' => 'license',
-                'reason' => 'license_not_allowed',
+                'reason' => self::REASON_LICENSE_NOT_ALLOWED,
                 'expected' => $allowed,
                 'actual' => $license,
             ]];

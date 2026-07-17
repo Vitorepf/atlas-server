@@ -4495,6 +4495,40 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: verified-share + model-capability + implementation-truth + runbook ambition floors —
+     * no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function verifiedShareCapabilityTruthAmbitionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'verified_share_kind_measure_freeze' => AcosMaxVerifiedShareService::KIND_MEASURE_FREEZE,
+            'verified_share_status_missing_freeze' => AcosMaxVerifiedShareService::STATUS_MISSING_FREEZE,
+            'verified_share_status_insufficient_signal' => AcosMaxVerifiedShareService::STATUS_INSUFFICIENT_SIGNAL,
+            'verified_share_reason_measure_freeze_not_recorded' => AcosMaxVerifiedShareService::REASON_MEASURE_FREEZE_NOT_RECORDED,
+            'capability_reason_missing_model_id' => AtlasModelCapabilitySpecService::REASON_MISSING_MODEL_ID,
+            'capability_reason_latency_above_spec_ceiling' => AtlasModelCapabilitySpecService::REASON_LATENCY_ABOVE_SPEC_CEILING,
+            'capability_reason_license_missing' => AtlasModelCapabilitySpecService::REASON_LICENSE_MISSING,
+            'capability_reason_license_not_allowed' => AtlasModelCapabilitySpecService::REASON_LICENSE_NOT_ALLOWED,
+            'truth_level_spec' => AtlasAaeosImplementationTruthService::LEVEL_SPEC,
+            'truth_level_partial' => AtlasAaeosImplementationTruthService::LEVEL_PARTIAL,
+            'truth_level_verified' => AtlasAaeosImplementationTruthService::LEVEL_VERIFIED,
+            'truth_level_existence_only' => AtlasAaeosImplementationTruthService::LEVEL_EXISTENCE_ONLY,
+            'truth_rank_spec' => AtlasAaeosImplementationTruthService::RANK[AtlasAaeosImplementationTruthService::LEVEL_SPEC],
+            'truth_rank_partial' => AtlasAaeosImplementationTruthService::RANK[AtlasAaeosImplementationTruthService::LEVEL_PARTIAL],
+            'truth_rank_verified' => AtlasAaeosImplementationTruthService::RANK[AtlasAaeosImplementationTruthService::LEVEL_VERIFIED],
+            'runbook_ambition_trivial' => RunbookOrchestrator::AMBITION_TRIVIAL,
+            'runbook_ambition_task' => RunbookOrchestrator::AMBITION_TASK,
+            'runbook_ambition_mission' => RunbookOrchestrator::AMBITION_MISSION,
+            'runbook_ambition_obra' => RunbookOrchestrator::AMBITION_OBRA,
+            'runbook_actor_kind_agent' => RunbookOrchestrator::ACTOR_KIND_AGENT,
+            'verified_share_capability_truth_ambition_floor_count' => 20,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

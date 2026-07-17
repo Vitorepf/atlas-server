@@ -3050,4 +3050,25 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(20, $payload['evidence_temporal_hmac_calibration_floor_count']);
     }
 
+    public function test_verified_share_capability_truth_ambition_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->verifiedShareCapabilityTruthAmbitionFloorsContractObserve([]);
+
+        $this->assertSame('measure_freeze', $payload['verified_share_kind_measure_freeze']);
+        $this->assertSame('missing_freeze', $payload['verified_share_status_missing_freeze']);
+        $this->assertSame('insufficient_signal', $payload['verified_share_status_insufficient_signal']);
+        $this->assertSame('missing_model_id', $payload['capability_reason_missing_model_id']);
+        $this->assertSame('license_not_allowed', $payload['capability_reason_license_not_allowed']);
+        $this->assertSame('spec', $payload['truth_level_spec']);
+        $this->assertSame('verified', $payload['truth_level_verified']);
+        $this->assertSame('existence_only', $payload['truth_level_existence_only']);
+        $this->assertSame(0, $payload['truth_rank_spec']);
+        $this->assertSame(1, $payload['truth_rank_partial']);
+        $this->assertSame(2, $payload['truth_rank_verified']);
+        $this->assertSame('trivial', $payload['runbook_ambition_trivial']);
+        $this->assertSame('obra', $payload['runbook_ambition_obra']);
+        $this->assertSame('agent', $payload['runbook_actor_kind_agent']);
+        $this->assertSame(20, $payload['verified_share_capability_truth_ambition_floor_count']);
+    }
+
 }

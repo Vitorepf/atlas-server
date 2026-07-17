@@ -32,11 +32,19 @@ final class AcosMaxVerifiedShareService
 
     public const DEFAULT_TTL_DAYS = 30;
 
+    public const KIND_MEASURE_FREEZE = 'measure_freeze';
+
+    public const STATUS_MISSING_FREEZE = 'missing_freeze';
+
+    public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+
+    public const REASON_MEASURE_FREEZE_NOT_RECORDED = 'measure_freeze_not_recorded';
+
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
         return [
-            'kind' => 'measure_freeze',
+            'kind' => self::KIND_MEASURE_FREEZE,
             'measure_id' => self::MEASURE_ID,
             'formula' => 'verified_share = enforce-mode verification receipts ÷ OUTC-01 outcome receipts, grouped by executor',
             'formula_version' => self::FORMULA_VERSION,
@@ -66,8 +74,8 @@ final class AcosMaxVerifiedShareService
                 'schema_version' => self::SCHEMA_VERSION,
                 'measure_id' => self::MEASURE_ID,
                 'formula_version' => self::FORMULA_VERSION,
-                'status' => 'missing_freeze',
-                'reason' => 'measure_freeze_not_recorded',
+                'status' => self::STATUS_MISSING_FREEZE,
+                'reason' => self::REASON_MEASURE_FREEZE_NOT_RECORDED,
                 'freeze_required' => self::freezePayload(),
             ];
         }
@@ -131,7 +139,7 @@ final class AcosMaxVerifiedShareService
     private function status(array $aggregate, int $denominatorMin, float $shareMin): string
     {
         if ($aggregate['total_count'] < $denominatorMin) {
-            return 'insufficient_signal';
+            return self::STATUS_INSUFFICIENT_SIGNAL;
         }
 
         return (AiValueNormalizer::finiteFloatOrNull($aggregate['verified_share'] ?? null) ?? 0.0) >= $shareMin ? 'ok' : 'below_threshold';

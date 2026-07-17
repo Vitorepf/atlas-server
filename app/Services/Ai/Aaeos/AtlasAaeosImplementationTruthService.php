@@ -49,7 +49,19 @@ class AtlasAaeosImplementationTruthService
     /**
      * @var array<string,int>
      */
-    public const RANK = ['spec' => 0, 'partial' => 1, 'verified' => 2];
+    public const LEVEL_SPEC = 'spec';
+
+    public const LEVEL_PARTIAL = 'partial';
+
+    public const LEVEL_VERIFIED = 'verified';
+
+    public const LEVEL_EXISTENCE_ONLY = 'existence_only';
+
+    public const RANK = [
+        self::LEVEL_SPEC => 0,
+        self::LEVEL_PARTIAL => 1,
+        self::LEVEL_VERIFIED => 2,
+    ];
 
     public function __construct(
         private readonly AtlasAaeosImplementationEvidenceResolver $resolver,
@@ -140,7 +152,7 @@ class AtlasAaeosImplementationTruthService
     private function summaryTestResolution(int $testBearingRows, int $greenRows): string
     {
         if ($testBearingRows === 0 || $greenRows === 0) {
-            return 'existence_only';
+            return self::LEVEL_EXISTENCE_ONLY;
         }
 
         return $greenRows === $testBearingRows ? 'green' : 'mixed';
@@ -622,14 +634,14 @@ class AtlasAaeosImplementationTruthService
         };
 
         $unmet = [];
-        if ($computed === 'spec') {
+        if ($computed === self::LEVEL_SPEC) {
             if (! $hasSymbol) {
                 $unmet[] = 'needs >=1 resolved symbol (class/method) for partial';
             }
             if (! $hasWiring) {
                 $unmet[] = 'needs >=1 resolved route or command for partial';
             }
-        } elseif ($computed === 'partial') {
+        } elseif ($computed === self::LEVEL_PARTIAL) {
             if (! $hasTest) {
                 $unmet[] = 'needs >=1 resolved test for verified';
             } elseif (! $hasGreenTest) {
@@ -681,15 +693,15 @@ class AtlasAaeosImplementationTruthService
         $normalized = AiValueNormalizer::lowerTrimmedString($state);
 
         if (in_array($normalized, ['verified', 'runtime_verified', 'solid_runtime'], true)) {
-            return 'verified';
+            return self::LEVEL_VERIFIED;
         }
 
         if (in_array($normalized, ['partial', 'implemented_partial', 'partial_runtime'], true)) {
-            return 'partial';
+            return self::LEVEL_PARTIAL;
         }
 
         // spec_only, north_star, roadmap_only_no_runtime, backlog_only_no_runtime,
         // spec_runtime_gap, drift_risk, '', unknown -> spec.
-        return 'spec';
+        return self::LEVEL_SPEC;
     }
 }

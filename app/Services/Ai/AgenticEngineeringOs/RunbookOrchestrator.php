@@ -20,6 +20,16 @@ final class RunbookOrchestrator
 {
     public const SCHEMA_VERSION = 'atlas.agentic_engineering_os.runbook.v1';
 
+    public const AMBITION_TRIVIAL = 'trivial';
+
+    public const AMBITION_TASK = 'task';
+
+    public const AMBITION_MISSION = 'mission';
+
+    public const AMBITION_OBRA = 'obra';
+
+    public const ACTOR_KIND_AGENT = 'agent';
+
     public const ARCHITECTURE_REDESIGN_PROPOSAL_SCHEMA = 'atlas.architecture.redesign_proposal.v1';
 
     /** Minimum replay count before a structural redesign may be promoted. */
@@ -186,7 +196,7 @@ final class RunbookOrchestrator
             'requires_replay_before_promotion' => true,
             'review_status' => 'pending_replay',
             'proposed_by_actor' => AiValueNormalizer::arrayOrEmpty($request['proposed_by_actor'] ?? [
-                'kind' => 'agent',
+                'kind' => self::ACTOR_KIND_AGENT,
                 'id' => 'aaeos-runbook-orchestrator',
                 'autonomy_level' => 'L13',
             ]),
@@ -244,15 +254,15 @@ final class RunbookOrchestrator
     {
         $lower = AiValueNormalizer::lowerTrimmedString($intent);
         if ($lower === '' || mb_strlen($lower) < 12) {
-            return 'trivial';
+            return self::AMBITION_TRIVIAL;
         }
         if (preg_match('/\b(refactor|rewrite|migrate|consolida|nova area|nova surface|enterprise)\b/u', $lower)) {
-            return 'obra';
+            return self::AMBITION_OBRA;
         }
         if (preg_match('/\b(implementa|cria|adiciona|conserta|fix|debug|melhora)\b/u', $lower)) {
-            return 'task';
+            return self::AMBITION_TASK;
         }
 
-        return 'mission';
+        return self::AMBITION_MISSION;
     }
 }
