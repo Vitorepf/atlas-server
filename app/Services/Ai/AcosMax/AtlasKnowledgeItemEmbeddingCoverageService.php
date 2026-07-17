@@ -136,7 +136,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
             'freeze' => $freeze,
             'status' => $status,
             'reason' => $reason,
-            'denominator_min' => (int) $freeze['denominator_min'],
+            'denominator_min' => (int) (AiValueNormalizer::finiteFloatOrNull($freeze['denominator_min'] ?? null) ?? 0),
             'aggregate' => [
                 'active_items' => $active,
                 'covered_count' => $covered,
@@ -158,7 +158,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
             'freeze' => $freeze,
             'status' => AiValueNormalizer::trimmedStringOrNull($status) ?? '',
             'reason' => AiValueNormalizer::trimmedStringOrNull($reason) ?? '',
-            'denominator_min' => (int) $freeze['denominator_min'],
+            'denominator_min' => (int) (AiValueNormalizer::finiteFloatOrNull($freeze['denominator_min'] ?? null) ?? 0),
             'aggregate' => $this->emptyAggregate(),
         ];
     }

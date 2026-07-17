@@ -153,7 +153,7 @@ final class Maxa04JinaV3DualReadService
     private function summary(array $cases): array
     {
         $count = count($cases);
-        $targets = array_sum(array_map(static fn (array $case): int => (int) $case['targets_available'], $cases));
+        $targets = array_sum(array_map(static fn (array $case): int => (int) (AiValueNormalizer::finiteFloatOrNull($case['targets_available'] ?? null) ?? 0), $cases));
 
         return [
             'cases' => $count,
@@ -168,7 +168,7 @@ final class Maxa04JinaV3DualReadService
     /** @param array<string,mixed> $summary */
     private function windowBasis(array $summary): string
     {
-        if ((int) $summary['cases'] <= 0) {
+        if ((int) (AiValueNormalizer::finiteFloatOrNull($summary['cases'] ?? null) ?? 0) <= 0) {
             return 'no_dual_read_cases';
         }
 

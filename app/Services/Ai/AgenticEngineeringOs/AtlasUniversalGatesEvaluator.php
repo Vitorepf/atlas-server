@@ -675,8 +675,8 @@ final class AtlasUniversalGatesEvaluator
             (int) ($input['total_budget_chars'] ?? $input['total_budget'] ?? 0),
             (int) ($input['per_item_cap_chars'] ?? $input['per_item_cap'] ?? 0),
             array_key_exists('min_excerpt_chars', $input)
-                ? (int) $input['min_excerpt_chars']
-                : (array_key_exists('min_excerpt', $input) ? (int) $input['min_excerpt'] : null),
+                ? (int) (AiValueNormalizer::finiteFloatOrNull($input['min_excerpt_chars'] ?? null) ?? 0)
+                : (array_key_exists('min_excerpt', $input) ? (int) (AiValueNormalizer::finiteFloatOrNull($input['min_excerpt'] ?? null) ?? 0) : null),
         );
     }
 
@@ -1193,7 +1193,7 @@ final class AtlasUniversalGatesEvaluator
      */
     public function verifiedShareObserve(array $input = []): array
     {
-        $days = array_key_exists('days', $input) ? max(1, (int) $input['days']) : null;
+        $days = array_key_exists('days', $input) ? max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['days'] ?? null) ?? 0)) : null;
 
         return (new AcosMaxVerifiedShareService)->report($days);
     }
@@ -1224,7 +1224,7 @@ final class AtlasUniversalGatesEvaluator
      */
     public function proceduralSkillPromoterObserve(array $input = []): array
     {
-        $floor = array_key_exists('floor', $input) ? max(1, (int) $input['floor']) : null;
+        $floor = array_key_exists('floor', $input) ? max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['floor'] ?? null) ?? 0)) : null;
         $enqueue = (bool) ($input['enqueue'] ?? false);
 
         return (new AcosMaxProceduralSkillPromoterService)->report($floor, $enqueue);
@@ -1376,7 +1376,7 @@ final class AtlasUniversalGatesEvaluator
         return match ($mode) {
             'repair' => $svc->evaluateRepairLoop(
                 max(0, (int) (AiValueNormalizer::finiteFloatOrNull($input['iteration'] ?? null) ?? 0)),
-                max(0, (int) ($input['max_iterations'] ?? AtlasCrossDepartmentChoreographyService::REPAIR_MAX_ITERATIONS)),
+                max(0, (int) (AiValueNormalizer::finiteFloatOrNull($input['max_iterations'] ?? null) ?? AtlasCrossDepartmentChoreographyService::REPAIR_MAX_ITERATIONS)),
             ),
             'handoff' => $svc->handoffEnvelope(
                 AiValueNormalizer::trimmedStringOrNull($input['from'] ?? null) ?? '',
@@ -3817,6 +3817,30 @@ final class AtlasUniversalGatesEvaluator
             'allowed_evidence_sources' => EvidenceVisionThesisComposer::ALLOWED_EVIDENCE_SOURCES,
             'window_orchestrator_schema' => AcosMaxWindowOrchestratorService::SCHEMA_VERSION,
             'composed_obra_lifecycle_floor_count' => 13,
+        ];
+    }
+
+    /**
+     * Observe-only resource-budget host/engine floor defaults (ELEV-27 paper budget).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function resourceBudgetHostFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'resource_budget_schema' => AtlasResourceBudgetService::SCHEMA,
+            'default_host_ram_gib' => AtlasResourceBudgetService::DEFAULT_HOST_RAM_GIB,
+            'default_engine_floor_gib' => AtlasResourceBudgetService::DEFAULT_ENGINE_FLOOR_GIB,
+            'aobg_latency_default_denominator_min' => AobgLatencyWatchdogCheck::DEFAULT_DENOMINATOR_MIN,
+            'aobg_latency_pack_p95_ms_alert' => AobgLatencyWatchdogCheck::DEFAULT_PACK_P95_MS_ALERT,
+            'aobg_latency_recall_p95_ms_alert' => AobgLatencyWatchdogCheck::DEFAULT_RECALL_P95_MS_ALERT,
+            'aobg_latency_hook_p95_ms_alert' => AobgLatencyWatchdogCheck::DEFAULT_HOOK_P95_MS_ALERT,
+            'verified_share_schema' => AcosMaxVerifiedShareService::SCHEMA_VERSION,
+            'verified_share_measure_id' => AcosMaxVerifiedShareService::MEASURE_ID,
+            'verified_share_formula' => AcosMaxVerifiedShareService::FORMULA_VERSION,
+            'resource_budget_host_floor_count' => 10,
         ];
     }
 

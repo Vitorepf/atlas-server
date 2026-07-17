@@ -573,11 +573,11 @@ final class AcosMaxLote2MeasureService
         return array_values(array_map(function (array $row): array {
             return [
                 'lesson_class' => AiValueNormalizer::trimmedScalarStringOrNull($row['lesson_class'] ?? null) ?? '',
-                'n' => (int) $row['n'],
-                'delivered' => (int) $row['delivered'],
-                'cited' => (int) $row['cited'],
-                'never_delivered' => (int) $row['never_delivered'],
-                'never_cited' => (int) $row['never_cited'],
+                'n' => (int) (AiValueNormalizer::finiteFloatOrNull($row['n'] ?? null) ?? 0),
+                'delivered' => (int) (AiValueNormalizer::finiteFloatOrNull($row['delivered'] ?? null) ?? 0),
+                'cited' => (int) (AiValueNormalizer::finiteFloatOrNull($row['cited'] ?? null) ?? 0),
+                'never_delivered' => (int) (AiValueNormalizer::finiteFloatOrNull($row['never_delivered'] ?? null) ?? 0),
+                'never_cited' => (int) (AiValueNormalizer::finiteFloatOrNull($row['never_cited'] ?? null) ?? 0),
                 'latency_seconds' => [
                     'delivery_p50' => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row['delivery_latencies'] ?? null), 0.50),
                     'delivery_p95' => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row['delivery_latencies'] ?? null), 0.95),
@@ -774,7 +774,7 @@ final class AcosMaxLote2MeasureService
      */
     private function finalizeCounterfactualLiftGroup(array $group, int $denominatorMin): array
     {
-        $n = (int) $group['n_pairs'];
+        $n = (int) (AiValueNormalizer::finiteFloatOrNull($group['n_pairs'] ?? null) ?? 0);
 
         return [
             'memory_type' => AiValueNormalizer::trimmedScalarStringOrNull($group['memory_type'] ?? null) ?? '',

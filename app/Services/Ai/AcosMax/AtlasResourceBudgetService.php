@@ -20,6 +20,10 @@ final class AtlasResourceBudgetService
 {
     public const SCHEMA = 'atlas.resource_budget.v1';
 
+    public const DEFAULT_HOST_RAM_GIB = 48;
+
+    public const DEFAULT_ENGINE_FLOOR_GIB = 12;
+
     /** @var array<string,mixed> */
     private array $budget;
 
@@ -100,8 +104,8 @@ final class AtlasResourceBudgetService
             ];
         }
 
-        $hostGib = max(1, (int) ($this->budget['host_ram_gib'] ?? 48));
-        $engineFloorGib = max(0, (int) ($this->budget['engine_floor_gib'] ?? 12));
+        $hostGib = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($this->budget['host_ram_gib'] ?? null) ?? self::DEFAULT_HOST_RAM_GIB));
+        $engineFloorGib = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($this->budget['engine_floor_gib'] ?? null) ?? self::DEFAULT_ENGINE_FLOOR_GIB));
         $hostMb = $hostGib * 1024;
         $engineFloorMb = $engineFloorGib * 1024;
 

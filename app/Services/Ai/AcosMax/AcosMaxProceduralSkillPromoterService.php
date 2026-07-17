@@ -176,7 +176,7 @@ final class AcosMaxProceduralSkillPromoterService
                 'claim' => sprintf(
                     'MULTJ-04 procedural-to-skill.v1 proposal for %s held under ASI-02 (case_count=%d).',
                     $taskCategory,
-                    (int) $candidate['case_count'],
+                    (int) (AiValueNormalizer::finiteFloatOrNull($candidate['case_count'] ?? null) ?? 0),
                 ),
                 'confidence' => 40,
                 'promotion_allowed' => false,

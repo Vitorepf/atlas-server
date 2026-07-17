@@ -205,7 +205,7 @@ final class AtlasNCaptureDrillService
             'window_days' => $windowDays,
             'status' => $status,
             'reason' => $reason,
-            'denominator_min' => (int) $freeze['denominator_min'],
+            'denominator_min' => (int) (AiValueNormalizer::finiteFloatOrNull($freeze['denominator_min'] ?? null) ?? 0),
             'aggregate' => [
                 'drills_in_window' => count($inWindow),
                 'admitted_count' => count($admitted),

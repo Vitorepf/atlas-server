@@ -69,7 +69,7 @@ final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
     public function isBelowFloor(): bool
     {
         $probed = ($this->probe)();
-        $freeGb = (int) floor((int) $probed['free_bytes'] / (1024 ** 3));
+        $freeGb = (int) floor((int) (AiValueNormalizer::finiteFloatOrNull($probed['free_bytes'] ?? null) ?? 0) / (1024 ** 3));
 
         return $freeGb < $this->floorGb;
     }

@@ -61,7 +61,7 @@ final class AttemptLifecycleLedger
     public function census(int $now, int $ttlSeconds): array
     {
         foreach ($this->attempts as $id => $attempt) {
-            if ($attempt['state'] === 'started' && ($now - (int) $attempt['started_at']) > $ttlSeconds) {
+            if ($attempt['state'] === 'started' && ($now - (int) (AiValueNormalizer::finiteFloatOrNull($attempt['started_at'] ?? null) ?? 0)) > $ttlSeconds) {
                 $this->attempts[$id]['state'] = 'abandoned';
             }
         }

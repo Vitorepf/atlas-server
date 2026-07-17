@@ -155,12 +155,12 @@ final class Esp09IndependentChallengerService
         $qualifyingWindows = 0;
         $zeroAcceptedWindows = 0;
         foreach ($byWindow as $stats) {
-            $n = (int) $stats['accepted'] + (int) $stats['ignored'];
+            $n = (int) (AiValueNormalizer::finiteFloatOrNull($stats['accepted'] ?? null) ?? 0) + (int) (AiValueNormalizer::finiteFloatOrNull($stats['ignored'] ?? null) ?? 0);
             if ($n < $minPerWindow) {
                 continue;
             }
             $qualifyingWindows++;
-            if ((int) $stats['accepted'] === 0) {
+            if ((int) (AiValueNormalizer::finiteFloatOrNull($stats['accepted'] ?? null) ?? 0) === 0) {
                 $zeroAcceptedWindows++;
             }
         }

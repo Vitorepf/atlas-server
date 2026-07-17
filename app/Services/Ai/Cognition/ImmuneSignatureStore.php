@@ -121,7 +121,7 @@ final class ImmuneSignatureStore
             'signature' => AiValueNormalizer::trimmedScalarStringOrNull($cell['signature'] ?? null) ?? '',
             'hostile_class' => AiValueNormalizer::trimmedScalarStringOrNull($cell['hostile_class'] ?? null) ?? '',
             'origin_ref' => AiValueNormalizer::trimmedScalarStringOrNull($cell['origin_ref'] ?? null) ?? '',
-            'hit_count_after' => ((int) $cell['hit_count']) + 1,
+            'hit_count_after' => ((int) (AiValueNormalizer::finiteFloatOrNull($cell['hit_count'] ?? null) ?? 0)) + 1,
             'mode' => $this->mode(),
         ];
     }

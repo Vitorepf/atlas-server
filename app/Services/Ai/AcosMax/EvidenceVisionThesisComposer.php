@@ -39,7 +39,7 @@ final class EvidenceVisionThesisComposer
         }
 
         $bornAt = AiValueNormalizer::trimmedStringOrNull($context['born_at'] ?? null) ?? gmdate('c');
-        $ttlDays = max(1, (int) ($context['ttl_days'] ?? self::DEFAULT_TTL_DAYS));
+        $ttlDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($context['ttl_days'] ?? null) ?? self::DEFAULT_TTL_DAYS));
         $forbidden = self::forbiddenStrings($context);
         $theses = [];
 

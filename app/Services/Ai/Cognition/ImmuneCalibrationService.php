@@ -210,16 +210,16 @@ final class ImmuneCalibrationService
     /** @param array<string,mixed> $group @return array<string,mixed> */
     private function finalizeGroup(array $group): array
     {
-        $blocks = (int) $group['blocks'];
-        $knownMissDenominator = (int) $group['known_miss_denominator'];
-        $falseBlockRate = $blocks > 0 ? (int) $group['false_blocks'] / $blocks : 0.0;
+        $blocks = (int) (AiValueNormalizer::finiteFloatOrNull($group['blocks'] ?? null) ?? 0);
+        $knownMissDenominator = (int) (AiValueNormalizer::finiteFloatOrNull($group['known_miss_denominator'] ?? null) ?? 0);
+        $falseBlockRate = $blocks > 0 ? (int) (AiValueNormalizer::finiteFloatOrNull($group['false_blocks'] ?? null) ?? 0) / $blocks : 0.0;
         $missedPoisonRate = $knownMissDenominator > 0
-            ? (int) $group['missed_poison'] / $knownMissDenominator
+            ? (int) (AiValueNormalizer::finiteFloatOrNull($group['missed_poison'] ?? null) ?? 0) / $knownMissDenominator
             : 0.0;
 
         $group['false_block_rate'] = $this->bandForRate(
             $falseBlockRate,
-            (int) $group['n'],
+            (int) (AiValueNormalizer::finiteFloatOrNull($group['n'] ?? null) ?? 0),
             self::DENOMINATOR_MIN,
             'false_block_rate',
         );

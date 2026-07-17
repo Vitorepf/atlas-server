@@ -78,7 +78,7 @@ final class ComposedObraArcLifecycle
         $state['consecutive_failures'] = (int) (AiValueNormalizer::finiteFloatOrNull($state['consecutive_failures'] ?? null) ?? 0) + 1;
         self::$state[$arcId] = $state;
 
-        if ($state['consecutive_failures'] >= (int) $state['kill_gate_k']) {
+        if ($state['consecutive_failures'] >= (int) (AiValueNormalizer::finiteFloatOrNull($state['kill_gate_k'] ?? null) ?? 0)) {
             return self::archive($arcId, 'kill_gate_consecutive_failures');
         }
 

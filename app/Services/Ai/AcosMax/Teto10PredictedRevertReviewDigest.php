@@ -159,7 +159,7 @@ final class Teto10PredictedRevertReviewDigest
      */
     private static function itemSorter(array $a, array $b): int
     {
-        return ((int) $a['band_rank'] <=> (int) $b['band_rank'])
+        return ((int) (AiValueNormalizer::finiteFloatOrNull($a['band_rank'] ?? null) ?? 0) <=> (int) (AiValueNormalizer::finiteFloatOrNull($b['band_rank'] ?? null) ?? 0))
             ?: ((AiValueNormalizer::trimmedScalarStringOrNull($a['group_key'] ?? null) ?? '') <=> (AiValueNormalizer::trimmedScalarStringOrNull($b['group_key'] ?? null) ?? ''))
             ?: ((AiValueNormalizer::trimmedScalarStringOrNull($a['id'] ?? null) ?? '') <=> (AiValueNormalizer::trimmedScalarStringOrNull($b['id'] ?? null) ?? ''));
     }
@@ -184,13 +184,13 @@ final class Teto10PredictedRevertReviewDigest
             ];
             $groups[$key]['item_count']++;
             $groups[$key]['items'][] = $item;
-            if ((int) $item['band_rank'] < (int) $groups[$key]['highest_band_rank']) {
+            if ((int) (AiValueNormalizer::finiteFloatOrNull($item['band_rank'] ?? null) ?? 0) < (int) $groups[$key]['highest_band_rank']) {
                 $groups[$key]['highest_band_rank'] = $item['band_rank'];
                 $groups[$key]['highest_predicted_revert_band'] = $item['predicted_revert_band'];
             }
         }
 
-        uasort($groups, static fn (array $a, array $b): int => ((int) $a['highest_band_rank'] <=> (int) $b['highest_band_rank'])
+        uasort($groups, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($a['highest_band_rank'] ?? null) ?? 0) <=> (int) (AiValueNormalizer::finiteFloatOrNull($b['highest_band_rank'] ?? null) ?? 0))
             ?: ((AiValueNormalizer::trimmedScalarStringOrNull($a['group_key'] ?? null) ?? '') <=> (AiValueNormalizer::trimmedScalarStringOrNull($b['group_key'] ?? null) ?? '')));
 
         return array_values(array_map(static function (array $group): array {

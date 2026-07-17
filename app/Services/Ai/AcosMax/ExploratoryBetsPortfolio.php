@@ -46,9 +46,9 @@ final class ExploratoryBetsPortfolio
             ];
         }
 
-        $k = max(0, (int) ($context['k'] ?? self::DEFAULT_K));
+        $k = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($context['k'] ?? null) ?? self::DEFAULT_K));
         $windowId = AiValueNormalizer::trimmedStringOrNull($context['window_id']  ?? null) ?? 'current_window';
-        $windowDays = max(1, (int) ($context['window_days'] ?? self::DEFAULT_WINDOW_DAYS));
+        $windowDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($context['window_days'] ?? null) ?? self::DEFAULT_WINDOW_DAYS));
         $objectiveClass = AiValueNormalizer::trimmedStringOrNull($context['objective_class'] ?? null) ?? '';
         /** @var array<string,string> $suspendedPaths */
         $suspendedPaths = array_filter(

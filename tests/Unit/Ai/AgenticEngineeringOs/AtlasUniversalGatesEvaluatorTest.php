@@ -2617,4 +2617,21 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.acos.windows.v1', $payload['window_orchestrator_schema']);
         $this->assertSame(13, $payload['composed_obra_lifecycle_floor_count']);
     }
+
+    public function test_resource_budget_host_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->resourceBudgetHostFloorsContractObserve([]);
+
+        $this->assertSame('atlas.resource_budget.v1', $payload['resource_budget_schema']);
+        $this->assertSame(48, $payload['default_host_ram_gib']);
+        $this->assertSame(12, $payload['default_engine_floor_gib']);
+        $this->assertSame(5, $payload['aobg_latency_default_denominator_min']);
+        $this->assertSame(18000.0, $payload['aobg_latency_pack_p95_ms_alert']);
+        $this->assertSame(15000.0, $payload['aobg_latency_recall_p95_ms_alert']);
+        $this->assertSame(20000.0, $payload['aobg_latency_hook_p95_ms_alert']);
+        $this->assertSame('atlas.acos_max.verified_share.v1', $payload['verified_share_schema']);
+        $this->assertSame('acos.verified_share.v1', $payload['verified_share_measure_id']);
+        $this->assertSame('verified_share.v1', $payload['verified_share_formula']);
+        $this->assertSame(10, $payload['resource_budget_host_floor_count']);
+    }
 }
