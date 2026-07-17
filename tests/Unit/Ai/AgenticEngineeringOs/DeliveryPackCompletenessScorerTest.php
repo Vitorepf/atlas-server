@@ -241,4 +241,15 @@ final class DeliveryPackCompletenessScorerTest extends TestCase
         self::assertSame(1.0, $result['ratio']);
         self::assertSame('passed', $result['status']);
     }
+
+    public function testPassesMinRequiresPassedStatusAndRatioFloor(): void
+    {
+        self::assertTrue($this->scorer->passesMin($this->composition()));
+        self::assertFalse($this->scorer->passesMin($this->composition([
+            'delivery_hash' => '',
+        ])));
+        self::assertFalse($this->scorer->passesMin($this->composition([
+            'test_evidence' => [],
+        ])));
+    }
 }

@@ -323,7 +323,7 @@ final class AtlasAaeosHttpPathFacadeService
      */
     private function placementHintsForRequest(array $data): array
     {
-        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
+        $payload = self::requestPayload($data);
         $hints = [];
         foreach (['atlas_mode', 'current_mode', 'flow_id', 'domain_id', 'surface_id', 'app_surface', 'routing_task'] as $key) {
             $value = $payload[$key] ?? null;
@@ -343,7 +343,7 @@ final class AtlasAaeosHttpPathFacadeService
      */
     private function mergeFacadeMetadata(array $data, string $intentId, array $envelopes, array $placementResult): array
     {
-        $payload = is_array($data['payload'] ?? null) ? $data['payload'] : [];
+        $payload = self::requestPayload($data);
         $payload['aaeos_http_path'] = [
             'schema' => 'atlas.aaeos.http_path_request.v1',
             'intent_id' => $intentId,
@@ -451,5 +451,14 @@ final class AtlasAaeosHttpPathFacadeService
         if ($ms > $max) {
             $this->cache->forever($maxKey, $ms);
         }
+    }
+
+    /**
+     * @param  array<string,mixed>  $data
+     * @return array<string,mixed>
+     */
+    private static function requestPayload(array $data): array
+    {
+        return is_array($data['payload'] ?? null) ? $data['payload'] : [];
     }
 }

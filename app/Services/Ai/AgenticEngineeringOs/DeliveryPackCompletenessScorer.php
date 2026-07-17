@@ -111,6 +111,19 @@ final class DeliveryPackCompletenessScorer
     }
 
     /**
+     * Universal-gate floor: status passed AND ratio >= $minRatio.
+     *
+     * @param  array<string, mixed>  $composition
+     */
+    public function passesMin(array $composition, float $minRatio = 0.95): bool
+    {
+        $report = $this->score($composition);
+
+        return ($report['status'] ?? '') === 'passed'
+            && (float) ($report['ratio'] ?? 0.0) >= $minRatio;
+    }
+
+    /**
      * @param  array<string, bool>  $factors
      */
     private function computeRatio(array $factors): float
