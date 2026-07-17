@@ -62,6 +62,13 @@ final class AtlasNCaptureDrillService
     public const STATUS_OK = 'ok';
 
     public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_FIELD = 'field';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_OK = 'ok';
+    public const FIELD_DRILL = 'drill';
+    public const FIELD_EXPECTED = 'expected';
+    public const FIELD_ACTUAL = 'actual';
 
     private readonly string $ledgerPath;
 
@@ -124,7 +131,7 @@ final class AtlasNCaptureDrillService
     {
         $violations = $this->validate($drill);
         if ($violations !== []) {
-            throw new RuntimeException('teto01_drill_refused:'.$violations[0]['reason']);
+            throw new RuntimeException('teto01_drill_refused:'.$violations[0][self::FIELD_REASON]);
         }
 
         $receipt = [
@@ -157,7 +164,7 @@ final class AtlasNCaptureDrillService
                 'admitted' => (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.admitted')) ?? false),
                 'cold_start_via' => data_get($drill, 'admission.cold_start_via'),
                 'bypass' => (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.bypass')) ?? false),
-                'reason' => data_get($drill, 'admission.reason'),
+                self::FIELD_REASON => data_get($drill, 'admission.reason'),
             ],
             'trigger' => (AiValueNormalizer::trimmedStringOrNull($drill['trigger'] ?? null) ?? self::TRIGGER_UNKNOWN),
             'recorded_at' => now('UTC')->toIso8601String(),
@@ -225,8 +232,8 @@ final class AtlasNCaptureDrillService
             'generated_at' => now('UTC')->toIso8601String(),
             'freeze' => $freeze,
             'window_days' => $windowDays,
-            'status' => $status,
-            'reason' => $reason,
+            self::FIELD_STATUS => $status,
+            self::FIELD_REASON => $reason,
             'denominator_min' => (int) (AiValueNormalizer::finiteFloatOrNull($freeze['denominator_min'] ?? null) ?? 0),
             'aggregate' => [
                 'drills_in_window' => count($inWindow),
@@ -256,7 +263,7 @@ final class AtlasNCaptureDrillService
 
         $engineId = AiValueNormalizer::trimmedStringOrNull($drill['engine_id'] ?? null) ?? '';
         if ($engineId === '') {
-            $violations[] = ['field' => 'engine_id', 'reason' => self::REASON_DRILL_RECEIPT_INCOMPLETE];
+            $violations[] = [self::FIELD_FIELD => 'engine_id', self::FIELD_REASON => self::REASON_DRILL_RECEIPT_INCOMPLETE];
         }
 
         foreach ([
@@ -270,7 +277,7 @@ final class AtlasNCaptureDrillService
             'admission.bypass',
         ] as $requiredField) {
             if (data_get($drill, $requiredField, '__missing__') === '__missing__') {
-                $violations[] = ['field' => $requiredField, 'reason' => self::REASON_DRILL_RECEIPT_INCOMPLETE];
+                $violations[] = [self::FIELD_FIELD => $requiredField, self::FIELD_REASON => self::REASON_DRILL_RECEIPT_INCOMPLETE];
             }
         }
 
@@ -285,16 +292,16 @@ final class AtlasNCaptureDrillService
         $yardstickPassed = (AiValueNormalizer::boolOrNull(data_get($drill, 'yardstick.golden_v2_passed')) ?? false);
 
         if ($admitted && $bypass) {
-            $violations[] = ['field' => 'admission.bypass', 'reason' => self::REASON_ADMISSION_VIA_BYPASS_FORBIDDEN];
+            $violations[] = [self::FIELD_FIELD => 'admission.bypass', self::FIELD_REASON => self::REASON_ADMISSION_VIA_BYPASS_FORBIDDEN];
         }
         if ($admitted && $coldStartVia !== self::COLD_START_CHANNEL_MAXK02) {
-            $violations[] = ['field' => 'admission.cold_start_via', 'reason' => self::REASON_COLD_START_CHANNEL_INVALID];
+            $violations[] = [self::FIELD_FIELD => 'admission.cold_start_via', self::FIELD_REASON => self::REASON_COLD_START_CHANNEL_INVALID];
         }
         if ($admitted && ! $capabilityVerified) {
-            $violations[] = ['field' => 'capability_spec.verified', 'reason' => self::REASON_CAPABILITY_SPEC_VIOLATION];
+            $violations[] = [self::FIELD_FIELD => 'capability_spec.verified', self::FIELD_REASON => self::REASON_CAPABILITY_SPEC_VIOLATION];
         }
         if ($admitted && ! $yardstickPassed) {
-            $violations[] = ['field' => 'yardstick.golden_v2_passed', 'reason' => self::REASON_YARDSTICK_FAILED_BUT_ADMITTED];
+            $violations[] = [self::FIELD_FIELD => 'yardstick.golden_v2_passed', self::FIELD_REASON => self::REASON_YARDSTICK_FAILED_BUT_ADMITTED];
         }
 
         return $violations;

@@ -39,6 +39,11 @@ final class DepartmentContractRuntime
     public const FIELD_INPUTS = 'inputs';
 
     public const FIELD_OUTPUTS = 'outputs';
+    public const FIELD_ACCEPTS_HANDOFF_FROM = 'accepts_handoff_from';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_OK = 'ok';
+    public const FIELD_CONTRACT = 'contract';
 
     public const FIELD_ALLOWED_ACTIONS = 'allowed_actions';
 
@@ -221,7 +226,7 @@ final class DepartmentContractRuntime
             self::FIELD_OBSERVABILITY_SIGNALS => ['intake_clarity_loop_count', 'intake_classification_latency_p95'],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_AI_MISSION,
-            'accepts_handoff_from' => [],
+            self::FIELD_ACCEPTS_HANDOFF_FROM => [],
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_PRODUCT, self::DEPARTMENT_ARCHITECTURE],
         ],
         self::DEPARTMENT_PRODUCT => [
@@ -245,7 +250,7 @@ final class DepartmentContractRuntime
             self::FIELD_OBSERVABILITY_SIGNALS => ['product_clarity_score_avg', 'product_loop_count_avg'],
             self::FIELD_MATURITY_LEVEL => 'L3',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_MINI_PROGRAMMING_SPEC,
-            'accepts_handoff_from' => [self::DEPARTMENT_EXECUTIVE_INTAKE],
+            self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_EXECUTIVE_INTAKE],
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_ARCHITECTURE],
         ],
         self::DEPARTMENT_ARCHITECTURE => [
@@ -269,7 +274,7 @@ final class DepartmentContractRuntime
             self::FIELD_OBSERVABILITY_SIGNALS => ['architect_spec_completeness_score', 'architect_veto_count'],
             self::FIELD_MATURITY_LEVEL => 'L3',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_ENGINEERING_ARCHITECTURE_DECISION,
-            'accepts_handoff_from' => [self::DEPARTMENT_PRODUCT],
+            self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_PRODUCT],
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
         ],
         self::DEPARTMENT_RESEARCH => [
@@ -292,7 +297,7 @@ final class DepartmentContractRuntime
             self::FIELD_OBSERVABILITY_SIGNALS => ['research_source_freshness_avg', 'research_hallucination_count'],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_RESEARCH_FINDINGS,
-            'accepts_handoff_from' => [self::DEPARTMENT_ARCHITECTURE, self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
+            self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_ARCHITECTURE, self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_ARCHITECTURE, self::DEPARTMENT_PRODUCT],
         ],
         self::DEPARTMENT_DEV => [
@@ -317,7 +322,7 @@ final class DepartmentContractRuntime
             self::FIELD_OBSERVABILITY_SIGNALS => ['dev_run_duration_p95', 'dev_repair_loop_count', 'dev_scope_violation_count'],
             self::FIELD_MATURITY_LEVEL => 'L1',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_PLAN_VISIBLE,
-            'accepts_handoff_from' => [self::DEPARTMENT_ARCHITECTURE],
+            self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_ARCHITECTURE],
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_REVIEW, 'qa', self::DEPARTMENT_FORGE],
         ],
         self::DEPARTMENT_DEBUG => [
@@ -340,7 +345,7 @@ final class DepartmentContractRuntime
             self::FIELD_OBSERVABILITY_SIGNALS => ['debug_mttr_p95', 'debug_repro_success_rate'],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_DEBUG_RECEIPT,
-            'accepts_handoff_from' => [self::DEPARTMENT_DEV, 'qa', self::DEPARTMENT_FORGE],
+            self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_DEV, 'qa', self::DEPARTMENT_FORGE],
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
         ],
         self::DEPARTMENT_REVIEW => [
@@ -363,7 +368,7 @@ final class DepartmentContractRuntime
             self::FIELD_OBSERVABILITY_SIGNALS => ['review_findings_severity_avg', 'review_veto_count'],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_REVIEW_RECEIPT,
-            'accepts_handoff_from' => [self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
+            self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
             self::FIELD_EMITS_HANDOFF_TO => ['qa', self::DEPARTMENT_DELIVERY],
         ],
         self::DEPARTMENT_QA => [
@@ -387,7 +392,7 @@ final class DepartmentContractRuntime
             self::FIELD_OBSERVABILITY_SIGNALS => ['qa_coverage_p50', 'qa_regression_catch_rate'],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_TEST_SELECTION_RECEIPT,
-            'accepts_handoff_from' => [self::DEPARTMENT_DEV, self::DEPARTMENT_REVIEW],
+            self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_DEV, self::DEPARTMENT_REVIEW],
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_DELIVERY],
         ],
         self::DEPARTMENT_SECURITY => [
@@ -410,7 +415,7 @@ final class DepartmentContractRuntime
             self::FIELD_OBSERVABILITY_SIGNALS => ['security_deny_count', 'security_secret_finding_count'],
             self::FIELD_MATURITY_LEVEL => 'L3',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_SECURITY_FINDING,
-            'accepts_handoff_from' => [self::DEPARTMENT_DEV, self::DEPARTMENT_REVIEW, self::DEPARTMENT_FORGE],
+            self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_DEV, self::DEPARTMENT_REVIEW, self::DEPARTMENT_FORGE],
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_DELIVERY],
         ],
         self::DEPARTMENT_FORGE => [
@@ -435,7 +440,7 @@ final class DepartmentContractRuntime
             self::FIELD_OBSERVABILITY_SIGNALS => ['forge_obra_duration_p95', 'forge_parallel_agent_count', 'forge_collision_count'],
             self::FIELD_MATURITY_LEVEL => 'L4',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_PROGRAMMING_DURABLE_EXECUTION_HANDOFF,
-            'accepts_handoff_from' => [self::DEPARTMENT_ARCHITECTURE, self::DEPARTMENT_DEV],
+            self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_ARCHITECTURE, self::DEPARTMENT_DEV],
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_REVIEW, 'qa', self::DEPARTMENT_DELIVERY],
         ],
         self::DEPARTMENT_DELIVERY => [
@@ -458,7 +463,7 @@ final class DepartmentContractRuntime
             self::FIELD_OBSERVABILITY_SIGNALS => ['delivery_completeness_avg', 'delivery_review_loop_count'],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_ENGINEERING_RELEASE_DECISION,
-            'accepts_handoff_from' => [self::DEPARTMENT_REVIEW, 'qa', self::DEPARTMENT_SECURITY],
+            self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_REVIEW, 'qa', self::DEPARTMENT_SECURITY],
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_MEMORY],
         ],
         self::DEPARTMENT_MEMORY => [
@@ -482,7 +487,7 @@ final class DepartmentContractRuntime
             self::FIELD_OBSERVABILITY_SIGNALS => ['memory_promotion_rate', 'memory_quarantine_count'],
             self::FIELD_MATURITY_LEVEL => 'L3',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_LEARNING_COMPOUNDING_SIGNAL,
-            'accepts_handoff_from' => [self::DEPARTMENT_DELIVERY, self::DEPARTMENT_REVIEW, 'qa', self::DEPARTMENT_FORGE],
+            self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_DELIVERY, self::DEPARTMENT_REVIEW, 'qa', self::DEPARTMENT_FORGE],
             self::FIELD_EMITS_HANDOFF_TO => [],
         ],
     ];
@@ -531,10 +536,10 @@ final class DepartmentContractRuntime
     public function validateHandoff(string $from, string $to): array
     {
         if (! isset(self::CATALOGUE[$from])) {
-            return ['from' => $from, 'to' => $to, self::FIELD_ACCEPTED => false, 'reason' => "unknown department '{$from}'"];
+            return ['from' => $from, 'to' => $to, self::FIELD_ACCEPTED => false, self::FIELD_REASON => "unknown department '{$from}'"];
         }
         if (! isset(self::CATALOGUE[$to])) {
-            return ['from' => $from, 'to' => $to, self::FIELD_ACCEPTED => false, 'reason' => "unknown department '{$to}'"];
+            return ['from' => $from, 'to' => $to, self::FIELD_ACCEPTED => false, self::FIELD_REASON => "unknown department '{$to}'"];
         }
         $allowedDownstream = AiValueNormalizer::arrayOrEmpty(self::CATALOGUE[$from][self::FIELD_EMITS_HANDOFF_TO] ?? null);
         if (! in_array($to, $allowedDownstream, true)) {
@@ -542,12 +547,12 @@ final class DepartmentContractRuntime
                 'from' => $from,
                 'to' => $to,
                 self::FIELD_ACCEPTED => false,
-                'reason' => sprintf('department "%s" does not emit handoff to "%s" (allowed: %s)',
+                self::FIELD_REASON => sprintf('department "%s" does not emit handoff to "%s" (allowed: %s)',
                     $from, $to, implode(',', $allowedDownstream) ?: 'none'),
             ];
         }
 
-        return ['from' => $from, 'to' => $to, self::FIELD_ACCEPTED => true, 'reason' => null];
+        return ['from' => $from, 'to' => $to, self::FIELD_ACCEPTED => true, self::FIELD_REASON => null];
     }
 
     /** @return list<string> */
@@ -677,7 +682,7 @@ final class DepartmentContractRuntime
             'rule_id' => 'risk_scope_below_min_autonomous',
             'gate_required' => false,
             'passed' => true,
-            'reason' => null,
+            self::FIELD_REASON => null,
         ];
     }
 

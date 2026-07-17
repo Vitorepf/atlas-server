@@ -4001,4 +4001,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['arc_segment_window_floor_count']);
     }
 
+    public function test_department_integrity_capture_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->departmentIntegrityCaptureFloorsContractObserve([]);
+
+        $this->assertSame('accepts_handoff_from', $payload['department_field_accepts_handoff_from']);
+        $this->assertSame('reason', $payload['department_field_reason']);
+        $this->assertSame('status', $payload['department_field_status']);
+        $this->assertSame('name', $payload['department_field_name']);
+        $this->assertSame('schema', $payload['department_field_schema']);
+        $this->assertSame('emits_handoff_to', $payload['department_field_emits_handoff_to']);
+        $this->assertSame('status', $payload['integrity_field_status']);
+        $this->assertSame('reason', $payload['integrity_field_reason']);
+        $this->assertSame('model_id', $payload['integrity_field_model_id']);
+        $this->assertSame('verified', $payload['integrity_status_verified']);
+        $this->assertSame('atlas.model_integrity_manifest.v1', $payload['integrity_manifest_schema']);
+        $this->assertSame('reason', $payload['capture_field_reason']);
+        $this->assertSame('field', $payload['capture_field_field']);
+        $this->assertSame('status', $payload['capture_field_status']);
+        $this->assertSame('expected', $payload['capture_field_expected']);
+        $this->assertSame('actual', $payload['capture_field_actual']);
+        $this->assertSame('atlas.acos_max.n_capture_drill.v1', $payload['capture_schema_version']);
+        $this->assertSame(17, $payload['department_integrity_capture_floor_count']);
+    }
+
 }

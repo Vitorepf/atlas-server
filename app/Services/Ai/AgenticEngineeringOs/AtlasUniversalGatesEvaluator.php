@@ -5613,6 +5613,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function departmentIntegrityCaptureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'department_field_accepts_handoff_from' => DepartmentContractRuntime::FIELD_ACCEPTS_HANDOFF_FROM,
+            'department_field_reason' => DepartmentContractRuntime::FIELD_REASON,
+            'department_field_status' => DepartmentContractRuntime::FIELD_STATUS,
+            'department_field_name' => DepartmentContractRuntime::FIELD_NAME,
+            'department_field_schema' => DepartmentContractRuntime::FIELD_SCHEMA,
+            'department_field_emits_handoff_to' => DepartmentContractRuntime::FIELD_EMITS_HANDOFF_TO,
+            'integrity_field_status' => AtlasLocalModelIntegrityService::FIELD_STATUS,
+            'integrity_field_reason' => AtlasLocalModelIntegrityService::FIELD_REASON,
+            'integrity_field_model_id' => AtlasLocalModelIntegrityService::FIELD_MODEL_ID,
+            'integrity_status_verified' => AtlasLocalModelIntegrityService::STATUS_VERIFIED,
+            'integrity_manifest_schema' => AtlasLocalModelIntegrityService::MANIFEST_SCHEMA,
+            'capture_field_reason' => AtlasNCaptureDrillService::FIELD_REASON,
+            'capture_field_field' => AtlasNCaptureDrillService::FIELD_FIELD,
+            'capture_field_status' => AtlasNCaptureDrillService::FIELD_STATUS,
+            'capture_field_expected' => AtlasNCaptureDrillService::FIELD_EXPECTED,
+            'capture_field_actual' => AtlasNCaptureDrillService::FIELD_ACTUAL,
+            'capture_schema_version' => AtlasNCaptureDrillService::SCHEMA_VERSION,
+            'department_integrity_capture_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [
