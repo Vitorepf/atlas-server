@@ -87,14 +87,14 @@ final class AtlasResourceBudgetService
 
             $rows[] = [
                 'name' => $name,
-                'purpose' => (string) ($component['purpose'] ?? ''),
+                'purpose' => AiValueNormalizer::trimmedString($component['purpose'] ?? ''),
                 'ram_cap_mb' => $ramCap,
                 'ram_actual_mb' => $ramActual,
                 'disk_cap_mb' => $diskCap,
                 'disk_actual_mb' => $diskActual,
-                'cpu_share' => (string) ($component['cpu_share'] ?? 'shared'),
+                'cpu_share' => AiValueNormalizer::trimmedString($component['cpu_share'] ?? 'shared') ?: 'shared',
                 'status' => $componentStatus,
-                'probe_hint' => (string) ($component['probe_hint'] ?? ''),
+                'probe_hint' => AiValueNormalizer::trimmedString($component['probe_hint'] ?? ''),
             ];
         }
 

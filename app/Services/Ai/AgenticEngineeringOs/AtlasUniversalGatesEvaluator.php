@@ -34,6 +34,7 @@ use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\Teto10PredictedRevertReviewDigest;
 use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadLedger;
+use App\Services\Ai\AcosMax\AtlasResourceBudgetService;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -974,6 +975,23 @@ final class AtlasUniversalGatesEvaluator
             'relative_path' => Maxa04JinaV3DualReadLedger::RELATIVE_PATH,
             'custom_path' => $path !== null,
         ];
+    }
+
+    /**
+     * Observe-only ELEV-27 joint resource budget report.
+     * Accepts optional budget override object. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function resourceBudgetObserve(array $input = []): array
+    {
+        $budget = AiValueNormalizer::arrayOrEmpty($input['budget'] ?? null);
+        $service = $budget === []
+            ? new AtlasResourceBudgetService
+            : new AtlasResourceBudgetService($budget);
+
+        return $service->report();
     }
 
     /**

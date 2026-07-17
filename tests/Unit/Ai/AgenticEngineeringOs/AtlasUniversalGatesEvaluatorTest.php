@@ -813,4 +813,33 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertTrue($payload['custom_path']);
         $this->assertSame(Maxa04JinaV3DualReadLedger::RELATIVE_PATH, $payload['relative_path']);
     }
+
+    public function test_resource_budget_observe_trims_component_fields(): void
+    {
+        $payload = $this->svc->resourceBudgetObserve([
+            'budget' => [
+                'schema_version' => 'atlas.resource_budget.v1',
+                'host_ram_gib' => 4,
+                'engine_floor_gib' => 1,
+                'components' => [
+                    [
+                        'name' => '  peel_worker  ',
+                        'purpose' => '  peel purpose  ',
+                        'ram_cap_mb' => 256,
+                        'disk_cap_mb' => 64,
+                        'cpu_share' => '  shared  ',
+                        'probe_hint' => '  rss  ',
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('atlas.resource_budget.v1', $payload['schema_version']);
+        $this->assertSame('paper_fits', $payload['declared_paper_status']);
+        $this->assertCount(1, $payload['components']);
+        $this->assertSame('peel_worker', $payload['components'][0]['name']);
+        $this->assertSame('peel purpose', $payload['components'][0]['purpose']);
+        $this->assertSame('shared', $payload['components'][0]['cpu_share']);
+        $this->assertSame('rss', $payload['components'][0]['probe_hint']);
+    }
 }

@@ -1055,6 +1055,40 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_resource_budget(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-rb-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'budget' => [
+                'schema_version' => 'atlas.resource_budget.v1',
+                'host_ram_gib' => 4,
+                'engine_floor_gib' => 1,
+                'components' => [
+                    [
+                        'name' => 'cli_worker',
+                        'purpose' => 'observe',
+                        'ram_cap_mb' => 128,
+                        'disk_cap_mb' => 32,
+                        'cpu_share' => 'shared',
+                    ],
+                ],
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-rb',
+                '--resource-budget' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"resource_budget"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

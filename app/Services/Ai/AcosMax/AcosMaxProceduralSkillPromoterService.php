@@ -214,7 +214,7 @@ final class AcosMaxProceduralSkillPromoterService
 
     private function skillName(string $taskCategory): string
     {
-        $slug = trim(AiValueNormalizer::lowerTrimmedString(preg_replace('/[^a-zA-Z0-9]+/', '-', $taskCategory) ?? ''), '-');
+        $slug = trim(AiValueNormalizer::lowerTrimmedString(preg_replace('/[^a-zA-Z0-9]+/', '-', AiValueNormalizer::trimmedString($taskCategory)) ?? ''), '-');
         if ($slug === '') {
             $slug = substr(hash('sha256', $taskCategory), 0, 12);
         }

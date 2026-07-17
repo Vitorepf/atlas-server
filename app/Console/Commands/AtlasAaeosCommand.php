@@ -87,6 +87,7 @@ final class AtlasAaeosCommand extends Command
         {--code-symbol-embedding-coverage= : JSON file (any object) to observe code-symbol coverage}
         {--predicted-revert-digest= : JSON file with review-debt items (observe-only TETO-10 digest)}
         {--jina-dual-read-ledger= : JSON file with optional path (observe-only MAXA-04 ledger)}
+        {--resource-budget= : JSON file with optional budget override (observe-only ELEV-27)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -330,6 +331,7 @@ final class AtlasAaeosCommand extends Command
             ['code-symbol-embedding-coverage', 'code_symbol_embedding_coverage', fn (array $p) => $gates->codeSymbolEmbeddingCoverageObserve($p)],
             ['predicted-revert-digest', 'predicted_revert_digest', fn (array $p) => $gates->predictedRevertDigestObserve($p)],
             ['jina-dual-read-ledger', 'jina_dual_read_ledger', fn (array $p) => $gates->jinaDualReadLedgerObserve($p)],
+            ['resource-budget', 'resource_budget', fn (array $p) => $gates->resourceBudgetObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
