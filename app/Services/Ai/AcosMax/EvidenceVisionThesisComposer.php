@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * MULTN17-06 — persistent vision theses derived from evidence (originate against the thesis).
  *
@@ -138,7 +140,7 @@ final class EvidenceVisionThesisComposer
             if (! in_array($source, self::ALLOWED_EVIDENCE_SOURCES, true)) {
                 return false;
             }
-            if (trim((string) ($row['ref'] ?? '')) === '') {
+            if (AiValueNormalizer::trimmedString($row['ref'] ?? '') === '') {
                 return false;
             }
         }
@@ -188,8 +190,8 @@ final class EvidenceVisionThesisComposer
             if (! is_array($window)) {
                 continue;
             }
-            $series = trim((string) ($window['series'] ?? ''));
-            $stage = trim((string) ($window['stage'] ?? 'default'));
+            $series = AiValueNormalizer::trimmedString($window['series'] ?? '');
+            $stage = AiValueNormalizer::trimmedString($window['stage'] ?? 'default');
             if ($series === '') {
                 continue;
             }
@@ -319,9 +321,9 @@ final class EvidenceVisionThesisComposer
             if (! is_array($lead)) {
                 continue;
             }
-            $target = ltrim(trim((string) ($lead['target_path'] ?? '')), '/');
-            $evidence = (array) ($lead['evidence'] ?? []);
-            $file = trim((string) ($evidence['file'] ?? ''));
+            $target = ltrim(AiValueNormalizer::trimmedString($lead['target_path'] ?? ''), '/');
+            $evidence = AiValueNormalizer::arrayOrEmpty($lead['evidence'] ?? null);
+            $file = AiValueNormalizer::trimmedString($evidence['file'] ?? '');
             $line = (int) ($evidence['line'] ?? 0);
             if ($target === '' || $file === '' || $line <= 0) {
                 continue;
@@ -377,7 +379,7 @@ final class EvidenceVisionThesisComposer
             if (! is_array($row)) {
                 continue;
             }
-            $path = trim((string) ($row['path'] ?? ''));
+            $path = AiValueNormalizer::trimmedString($row['path'] ?? '');
             if ($path === '') {
                 continue;
             }
@@ -431,7 +433,7 @@ final class EvidenceVisionThesisComposer
         $objective = mb_strtolower((string) ($pair[0] ?? ''));
 
         foreach ($keys as $key) {
-            $key = mb_strtolower(trim($key));
+            $key = mb_strtolower(AiValueNormalizer::trimmedString($key));
             if ($key === '') {
                 continue;
             }
@@ -459,7 +461,7 @@ final class EvidenceVisionThesisComposer
                 continue;
             }
             foreach ((array) ($thesis['alignment_keys'] ?? []) as $key) {
-                $key = trim((string) $key);
+                $key = AiValueNormalizer::trimmedString($key);
                 if ($key !== '') {
                     $keys[] = $key;
                 }
@@ -478,8 +480,8 @@ final class EvidenceVisionThesisComposer
         $raw = $context['forbidden_strings'] ?? $context['operator_forbidden_strings'] ?? [];
 
         return array_values(array_filter(array_map(
-            static fn ($value): string => trim((string) $value),
-            is_array($raw) ? $raw : [],
+            static fn ($value): string => AiValueNormalizer::trimmedString($value),
+            AiValueNormalizer::arrayOrEmpty($raw),
         )));
     }
 

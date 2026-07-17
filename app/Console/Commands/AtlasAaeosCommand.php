@@ -50,6 +50,7 @@ final class AtlasAaeosCommand extends Command
         {--predicted-impact= : JSON file with predicted-impact candidate (observe-only band classify)}
         {--pre-review= : JSON file with pre-review advisory features (observe-only MULTN15-08)}
         {--reality-compiler-slice= : JSON file with Reality Compiler slice map (observe-only contract)}
+        {--esp09-challenger= : JSON file with ESP-09 challenger context (observe-only advisory)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -293,6 +294,17 @@ final class AtlasAaeosCommand extends Command
             $report['observe'] = array_merge(
                 is_array($report['observe'] ?? null) ? $report['observe'] : [],
                 ['reality_compiler_slice' => $gates->realityCompilerSliceObserve($slice)],
+            );
+        }
+        $esp09Path = (string) ($this->option('esp09-challenger') ?? '');
+        if ($esp09Path !== '') {
+            $context = $this->loadJsonFile($esp09Path);
+            if ($context === null) {
+                return $this->failWith('universal-gates --esp09-challenger must be a readable JSON object');
+            }
+            $report['observe'] = array_merge(
+                is_array($report['observe'] ?? null) ? $report['observe'] : [],
+                ['esp09_challenger' => $gates->esp09ChallengerObserve($context)],
             );
         }
         $this->emit($report, $json);

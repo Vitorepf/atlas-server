@@ -205,6 +205,30 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_esp09_challenger(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-esp09-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'author_engine_id' => 'a',
+            'challenger_engine_id' => 'b',
+            'decision_kind' => 'ordinary_route',
+            'operator_alignment' => 0.1,
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-esp09',
+                '--esp09-challenger' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"esp09_challenger"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

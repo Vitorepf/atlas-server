@@ -8,6 +8,7 @@ use App\Models\AiLearningCandidate;
 use App\Services\Ai\Compounding\AtlasLearningDistiller;
 use App\Services\Ai\Kernel\Procedural\AtlasProceduralPlaybookLedger;
 use App\Services\Ai\Kernel\Procedural\ProceduralPlaybook;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Illuminate\Support\Carbon;
 
@@ -213,7 +214,7 @@ final class AcosMaxProceduralSkillPromoterService
 
     private function skillName(string $taskCategory): string
     {
-        $slug = strtolower(trim(preg_replace('/[^a-zA-Z0-9]+/', '-', $taskCategory) ?? '', '-'));
+        $slug = trim(AiValueNormalizer::lowerTrimmedString(preg_replace('/[^a-zA-Z0-9]+/', '-', $taskCategory) ?? ''), '-');
         if ($slug === '') {
             $slug = substr(hash('sha256', $taskCategory), 0, 12);
         }

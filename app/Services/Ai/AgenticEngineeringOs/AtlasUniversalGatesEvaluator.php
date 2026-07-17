@@ -7,6 +7,7 @@ namespace App\Services\Ai\AgenticEngineeringOs;
 use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
 use App\Services\Ai\AcosMax\PredictedImpactBand;
 use App\Services\Ai\AcosMax\PreReviewAdvisoryBand;
+use App\Services\Ai\AcosMax\Esp09IndependentChallengerService;
 
 /**
  * Atlas Universal Gates Evaluator — produces `atlas.aaeos.gate_report.v1`
@@ -282,6 +283,18 @@ final class AtlasUniversalGatesEvaluator
     public function realityCompilerSliceObserve(array $input): array
     {
         return RealityCompilerSlice::fromArray($input)->toArray();
+    }
+
+    /**
+     * Observe-only ESP-09 independent challenger advisory projection.
+     * Does not add a universal-gate id (catalogue stays 15).
+     *
+     * @param  array<string,mixed>  $context
+     * @return array<string,mixed>
+     */
+    public function esp09ChallengerObserve(array $context): array
+    {
+        return Esp09IndependentChallengerService::evaluate($context);
     }
 
     /**

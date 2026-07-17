@@ -11,6 +11,7 @@ use App\Services\Ai\AgenticEngineeringOs\QualityBarTelemetryContract;
 use App\Services\Ai\AgenticEngineeringOs\RealityCompilerSlice;
 use App\Services\Ai\AcosMax\PredictedImpactBand;
 use App\Services\Ai\AcosMax\PreReviewAdvisoryBand;
+use App\Services\Ai\AcosMax\Esp09IndependentChallengerService;
 use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
 use InvalidArgumentException;
 use Tests\TestCase;
@@ -218,5 +219,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('L2', $payload['autonomy_level']);
         $this->assertCount(5, $payload['output_phases']);
         $this->assertSame('pending', $payload['output_phases'][0]['status']);
+    }
+
+    public function test_esp09_challenger_observe_projects_advisory(): void
+    {
+        $payload = $this->svc->esp09ChallengerObserve([
+            'author_engine_id' => 'author-a',
+            'challenger_engine_id' => 'challenger-b',
+            'decision_kind' => 'composed_obra',
+            'operator_alignment' => 0.9,
+        ]);
+
+        $this->assertSame(Esp09IndependentChallengerService::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertTrue($payload['advisory_only']);
+        $this->assertTrue($payload['triggered']);
     }
 }

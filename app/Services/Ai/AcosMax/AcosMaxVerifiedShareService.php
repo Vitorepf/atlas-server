@@ -246,7 +246,7 @@ final class AcosMaxVerifiedShareService
     /** @param array<string,mixed> $row */
     private function executorFromOutcome(array $row): ?string
     {
-        $actor = strtolower((string) ($row['actor'] ?? ''));
+        $actor = AiValueNormalizer::lowerTrimmedString($row['actor'] ?? '');
         if (str_starts_with($actor, 'engineering_outcome_spine:')) {
             return $this->normalizeExecutor(substr($actor, strlen('engineering_outcome_spine:')));
         }
@@ -265,7 +265,7 @@ final class AcosMaxVerifiedShareService
 
     private function normalizeExecutor(string $value): ?string
     {
-        $value = strtolower(trim($value));
+        $value = AiValueNormalizer::lowerTrimmedString($value);
 
         return match (true) {
             in_array($value, ['dev', 'atlas_dev', 'atlas-dev'], true) => 'dev',
