@@ -193,9 +193,7 @@ final class MemoryInjectionBudgetAllocator
      */
     private function priorityField(array $item): float
     {
-        $value = $item['priority'] ?? 0;
-
-        return is_numeric($value) ? (float) $value : 0.0;
+        return AiValueNormalizer::finiteFloatOrNull($item['priority'] ?? 0) ?? 0.0;
     }
 
     /**
@@ -203,13 +201,9 @@ final class MemoryInjectionBudgetAllocator
      */
     private function estimatedChars(array $item): int
     {
-        $value = $item['estimated_chars'] ?? 0;
+        $value = AiValueNormalizer::finiteFloatOrNull($item['estimated_chars'] ?? 0);
 
-        if (! is_numeric($value)) {
-            return 0;
-        }
-
-        return max(0, (int) $value);
+        return $value === null ? 0 : max(0, (int) $value);
     }
 
 }

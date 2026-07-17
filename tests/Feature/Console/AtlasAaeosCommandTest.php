@@ -1474,6 +1474,36 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_quality_bar_level_classifier(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-qblc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'department_id' => 'forge',
+            'measured_metrics' => ['obra_completion_rate' => 0.95],
+            'band_ladder' => [
+                [
+                    'level' => 'L1',
+                    'thresholds' => [
+                        ['metric' => 'obra_completion_rate', 'comparator' => '>=', 'value' => 0.5],
+                    ],
+                ],
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-qblc',
+                '--quality-bar-level-classifier' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"quality_bar_level_classifier"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

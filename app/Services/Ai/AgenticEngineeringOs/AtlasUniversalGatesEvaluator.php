@@ -51,6 +51,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
 use App\Services\Ai\Aaeos\AtlasDebugRootCauseService;
 use App\Services\Ai\Aaeos\AaeosDepartmentLevelClassifier;
+use App\Services\Ai\Aaeos\AtlasAaeosDepartmentQualityBarLevelClassifier;
 use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use App\Services\Ai\Support\AiValueNormalizer;
@@ -1306,6 +1307,22 @@ final class AtlasUniversalGatesEvaluator
         return (new AaeosDepartmentLevelClassifier)->classify(
             AiValueNormalizer::trimmedString($input['department_id'] ?? ''),
             AiValueNormalizer::arrayOrEmpty($input['metrics_snapshot'] ?? null),
+            AiValueNormalizer::arrayOrEmpty($input['band_ladder'] ?? null),
+        );
+    }
+
+    /**
+     * Observe-only AAEOS quality-bar level classification.
+     * Accepts `{department_id, measured_metrics, band_ladder}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function qualityBarLevelClassifierObserve(array $input = []): array
+    {
+        return (new AtlasAaeosDepartmentQualityBarLevelClassifier)->classify(
+            AiValueNormalizer::trimmedString($input['department_id'] ?? ''),
+            AiValueNormalizer::arrayOrEmpty($input['measured_metrics'] ?? $input['metrics_snapshot'] ?? null),
             AiValueNormalizer::arrayOrEmpty($input['band_ladder'] ?? null),
         );
     }

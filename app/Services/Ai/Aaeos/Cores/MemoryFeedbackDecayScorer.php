@@ -203,15 +203,12 @@ final class MemoryFeedbackDecayScorer
      */
     private function nonNegativeInt(array $signals, string $key): int
     {
-        $value = $signals[$key] ?? 0;
-
-        if (! is_int($value) && ! (is_float($value) && is_finite($value)) && ! (is_string($value) && is_numeric($value))) {
+        $value = AiValueNormalizer::finiteFloatOrNull($signals[$key] ?? 0);
+        if ($value === null) {
             return 0;
         }
 
-        $int = (int) $value;
-
-        return $int < 0 ? 0 : $int;
+        return max(0, (int) $value);
     }
 
     /**
@@ -219,21 +216,9 @@ final class MemoryFeedbackDecayScorer
      */
     private function intOrDefault(array $signals, string $key, int $default): int
     {
-        $value = $signals[$key] ?? $default;
+        $value = AiValueNormalizer::finiteFloatOrNull($signals[$key] ?? null);
 
-        if (is_int($value)) {
-            return $value;
-        }
-
-        if (is_float($value) && is_finite($value)) {
-            return (int) $value;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            return (int) $value;
-        }
-
-        return $default;
+        return $value === null ? $default : (int) $value;
     }
 
     /**
@@ -248,23 +233,15 @@ final class MemoryFeedbackDecayScorer
         }
 
         if (is_int($value)) {
-            return $value < 0 ? 0 : $value;
+            return max(0, $value);
         }
 
-        if (is_float($value) && is_finite($value)) {
-            $int = (int) ceil($value);
-
-            return $int < 0 ? 0 : $int;
+        $float = AiValueNormalizer::finiteFloatOrNull($value);
+        if ($float === null) {
+            return null;
         }
 
-        if (is_string($value) && is_numeric($value)) {
-            $float = (float) $value;
-            $int = is_finite($float) ? (int) ceil($float) : (int) $value;
-
-            return $int < 0 ? 0 : $int;
-        }
-
-        return null;
+        return max(0, (int) ceil($float));
     }
 
     /**
@@ -272,17 +249,9 @@ final class MemoryFeedbackDecayScorer
      */
     private function hitRateOrNull(array $signals): ?float
     {
-        $value = $signals['recall_eval_hit_rate'] ?? null;
+        $value = AiValueNormalizer::finiteFloatOrNull($signals['recall_eval_hit_rate'] ?? null);
 
-        if ($value === null) {
-            return null;
-        }
-
-        if (is_int($value) || (is_float($value) && is_finite($value)) || (is_string($value) && is_numeric($value))) {
-            return AiValueNormalizer::clampUnit((float) $value);
-        }
-
-        return null;
+        return $value === null ? null : AiValueNormalizer::clampUnit($value);
     }
 
     private function clamp(int $min, int $max, int $value): int

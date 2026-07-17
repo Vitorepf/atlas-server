@@ -256,32 +256,14 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
 
     private function intValue(mixed $value, int $default = 0): int
     {
-        if (is_int($value)) {
-            return $value;
-        }
+        $float = AiValueNormalizer::finiteFloatOrNull($value);
 
-        if (is_float($value)) {
-            return (int) $value;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            return (int) $value;
-        }
-
-        return $default;
+        return $float === null ? $default : (int) $float;
     }
 
     private function floatValue(mixed $value, float $default = 0.0): float
     {
-        if (is_int($value) || is_float($value)) {
-            return (float) $value;
-        }
-
-        if (is_string($value) && is_numeric($value)) {
-            return (float) $value;
-        }
-
-        return $default;
+        return AiValueNormalizer::finiteFloatOrNull($value) ?? $default;
     }
 
     /**

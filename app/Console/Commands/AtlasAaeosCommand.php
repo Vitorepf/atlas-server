@@ -105,6 +105,7 @@ final class AtlasAaeosCommand extends Command
         {--cross-department-choreography= : JSON file with mode+payload (observe-only choreography)}
         {--docs-authority-locate= : JSON file with needle(+limit) (observe-only docs locate)}
         {--department-level-classifier= : JSON file with department+metrics+ladder (observe-only)}
+        {--quality-bar-level-classifier= : JSON file with department+metrics+ladder (observe-only)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -366,6 +367,7 @@ final class AtlasAaeosCommand extends Command
             ['cross-department-choreography', 'cross_department_choreography', fn (array $p) => $gates->crossDepartmentChoreographyObserve($p)],
             ['docs-authority-locate', 'docs_authority_locate', fn (array $p) => $gates->docsAuthorityLocateObserve($p)],
             ['department-level-classifier', 'department_level_classifier', fn (array $p) => $gates->departmentLevelClassifierObserve($p)],
+            ['quality-bar-level-classifier', 'quality_bar_level_classifier', fn (array $p) => $gates->qualityBarLevelClassifierObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

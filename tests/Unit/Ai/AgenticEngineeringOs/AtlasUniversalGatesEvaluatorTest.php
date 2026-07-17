@@ -1094,4 +1094,26 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('forge', $payload['department_id']);
         $this->assertSame('L1', $payload['earned_level']);
     }
+
+    public function test_quality_bar_level_classifier_observe_classifies_ladder(): void
+    {
+        $payload = $this->svc->qualityBarLevelClassifierObserve([
+            'department_id' => ' forge ',
+            'measured_metrics' => [
+                'obra_completion_rate' => '0.95',
+            ],
+            'band_ladder' => [
+                [
+                    'level' => 'L1',
+                    'thresholds' => [
+                        ['metric' => 'obra_completion_rate', 'comparator' => '>=', 'value' => 0.5],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('atlas.aaeos.quality_bar_level.v1', $payload['schema_version']);
+        $this->assertSame('forge', $payload['department_id']);
+        $this->assertSame('L1', $payload['achieved_level']);
+    }
 }

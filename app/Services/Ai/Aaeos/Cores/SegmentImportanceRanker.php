@@ -289,17 +289,9 @@ final class SegmentImportanceRanker
      */
     private function intField(array $row, string $key): int
     {
-        $value = $row[$key] ?? 0;
+        $value = AiValueNormalizer::finiteFloatOrNull($row[$key] ?? 0);
 
-        if (is_int($value)) {
-            return $value;
-        }
-
-        if (is_float($value) || (is_string($value) && is_numeric($value))) {
-            return (int) $value;
-        }
-
-        return 0;
+        return $value === null ? 0 : (int) $value;
     }
 
     /**
@@ -307,9 +299,7 @@ final class SegmentImportanceRanker
      */
     private function numericField(array $row, string $key): float
     {
-        $value = $row[$key] ?? 0.0;
-
-        return is_numeric($value) ? (float) $value : 0.0;
+        return AiValueNormalizer::finiteFloatOrNull($row[$key] ?? 0.0) ?? 0.0;
     }
 
     /**

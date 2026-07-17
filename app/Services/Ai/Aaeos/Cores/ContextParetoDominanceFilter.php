@@ -258,9 +258,7 @@ final class ContextParetoDominanceFilter
      */
     private function objectiveValue(array $variant, string $key): float
     {
-        $value = $variant[$key] ?? 0;
-
-        return is_numeric($value) ? (float) $value : 0.0;
+        return AiValueNormalizer::finiteFloatOrNull($variant[$key] ?? null) ?? 0.0;
     }
 
     /**
