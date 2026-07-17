@@ -194,6 +194,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertFalse($payload['source']['influences_pick']);
     }
 
+    public function test_predicted_impact_calibration_observe_projects_rows(): void
+    {
+        $payload = $this->svc->predictedImpactCalibrationObserve([
+            'rows' => [
+                ['band' => 'high', 'status' => 'resolved', 'realized' => true],
+                ['band' => 'low', 'status' => 'unresolved'],
+            ],
+        ]);
+
+        $this->assertSame(PredictedImpactBand::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame(1, $payload['bands']['high']['n_realized']);
+        $this->assertSame(1, $payload['bands']['high']['realized_true']);
+        $this->assertSame(1, $payload['bands']['low']['unresolved']);
+        $this->assertTrue($payload['source']['report_only']);
+    }
+
     public function test_pre_review_advisory_observe_judges_features(): void
     {
         $payload = $this->svc->preReviewAdvisoryObserve([

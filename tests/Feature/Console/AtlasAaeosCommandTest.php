@@ -161,6 +161,29 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_predicted_impact_calibration(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-pic-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'rows' => [
+                ['band' => 'sweet', 'status' => 'resolved', 'realized' => false],
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-pic',
+                '--predicted-impact-calibration' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"predicted_impact_calibration"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_universal_gates_observe_pre_review_advisory(): void
     {
         $path = sys_get_temp_dir().'/atlas-aaeos-pra-'.uniqid('', true).'.json';

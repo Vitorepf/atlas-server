@@ -10,6 +10,7 @@ use App\Services\Ai\AgenticEngineeringOs\AtlasMissionControlCockpitService;
 use App\Services\Ai\AgenticEngineeringOs\AtlasUniversalGatesEvaluator;
 use App\Services\Ai\AgenticEngineeringOs\DepartmentContractRuntime;
 use App\Services\Ai\AgenticEngineeringOs\RunbookOrchestrator;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Console\Command;
 
 /**
@@ -48,6 +49,7 @@ final class AtlasAaeosCommand extends Command
         {--quality-bar= : JSON file with quality-bar telemetry (observe-only M5 contract)}
         {--architect-spec-pack= : JSON file with architect spec-pack gate payload (observe-only M1)}
         {--predicted-impact= : JSON file with predicted-impact candidate (observe-only band classify)}
+        {--predicted-impact-calibration= : JSON file with predicted-impact calibration rows (observe-only)}
         {--pre-review= : JSON file with pre-review advisory features (observe-only MULTN15-08)}
         {--reality-compiler-slice= : JSON file with Reality Compiler slice map (observe-only contract)}
         {--esp09-challenger= : JSON file with ESP-09 challenger context (observe-only advisory)}
@@ -231,109 +233,51 @@ final class AtlasAaeosCommand extends Command
             $signals['delivery_pack_completeness_min_0_95'] = $gates->deliveryPackCompletenessSignal($composition);
         }
         $report = $gates->evaluate($intent, $signals);
-        $specPath = (string) ($this->option('spec') ?? '');
-        if ($specPath !== '') {
-            $spec = $this->loadJsonFile($specPath);
-            if ($spec === null) {
-                return $this->failWith('universal-gates --spec must be a readable JSON object');
+
+        // Observe-only projectors: do not add universal-gate ids (catalogue stays 15).
+        foreach ([
+            ['spec', 'spec_completeness', fn (array $p) => $gates->specCompletenessSignal($p)],
+            ['quality-bar', 'quality_bar_telemetry', fn (array $p) => $gates->qualityBarTelemetryObserve($p)],
+            ['architect-spec-pack', 'architect_spec_pack_gate', fn (array $p) => $gates->architectSpecPackObserve($p)],
+            ['predicted-impact', 'predicted_impact_band', fn (array $p) => $gates->predictedImpactBandObserve($p)],
+            ['predicted-impact-calibration', 'predicted_impact_calibration', fn (array $p) => $gates->predictedImpactCalibrationObserve($p)],
+            ['pre-review', 'pre_review_advisory', fn (array $p) => $gates->preReviewAdvisoryObserve($p)],
+            ['reality-compiler-slice', 'reality_compiler_slice', fn (array $p) => $gates->realityCompilerSliceObserve($p)],
+            ['esp09-challenger', 'esp09_challenger', fn (array $p) => $gates->esp09ChallengerObserve($p)],
+            ['dogfooding-leads', 'dogfooding_friction_leads', fn (array $p) => $gates->dogfoodingFrictionLeadsObserve($p)],
+            ['reactive-saturation', 'reactive_saturation', fn (array $p) => $gates->reactiveSaturationObserve($p)],
+        ] as [$option, $observeKey, $projector]) {
+            $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
+            if ($failed !== null) {
+                return $failed;
             }
-            // Observe-only: does not add a universal-gate id (catalogue stays 15).
-            $report['observe'] = array_merge(
-                is_array($report['observe'] ?? null) ? $report['observe'] : [],
-                ['spec_completeness' => $gates->specCompletenessSignal($spec)],
-            );
         }
-        $qualityBarPath = (string) ($this->option('quality-bar') ?? '');
-        if ($qualityBarPath !== '') {
-            $qualityBar = $this->loadJsonFile($qualityBarPath);
-            if ($qualityBar === null) {
-                return $this->failWith('universal-gates --quality-bar must be a readable JSON object');
-            }
-            $report['observe'] = array_merge(
-                is_array($report['observe'] ?? null) ? $report['observe'] : [],
-                ['quality_bar_telemetry' => $gates->qualityBarTelemetryObserve($qualityBar)],
-            );
-        }
-        $architectPath = (string) ($this->option('architect-spec-pack') ?? '');
-        if ($architectPath !== '') {
-            $architect = $this->loadJsonFile($architectPath);
-            if ($architect === null) {
-                return $this->failWith('universal-gates --architect-spec-pack must be a readable JSON object');
-            }
-            $report['observe'] = array_merge(
-                is_array($report['observe'] ?? null) ? $report['observe'] : [],
-                ['architect_spec_pack_gate' => $gates->architectSpecPackObserve($architect)],
-            );
-        }
-        $predictedImpactPath = (string) ($this->option('predicted-impact') ?? '');
-        if ($predictedImpactPath !== '') {
-            $candidate = $this->loadJsonFile($predictedImpactPath);
-            if ($candidate === null) {
-                return $this->failWith('universal-gates --predicted-impact must be a readable JSON object');
-            }
-            $report['observe'] = array_merge(
-                is_array($report['observe'] ?? null) ? $report['observe'] : [],
-                ['predicted_impact_band' => $gates->predictedImpactBandObserve($candidate)],
-            );
-        }
-        $preReviewPath = (string) ($this->option('pre-review') ?? '');
-        if ($preReviewPath !== '') {
-            $features = $this->loadJsonFile($preReviewPath);
-            if ($features === null) {
-                return $this->failWith('universal-gates --pre-review must be a readable JSON object');
-            }
-            $report['observe'] = array_merge(
-                is_array($report['observe'] ?? null) ? $report['observe'] : [],
-                ['pre_review_advisory' => $gates->preReviewAdvisoryObserve($features)],
-            );
-        }
-        $realitySlicePath = (string) ($this->option('reality-compiler-slice') ?? '');
-        if ($realitySlicePath !== '') {
-            $slice = $this->loadJsonFile($realitySlicePath);
-            if ($slice === null) {
-                return $this->failWith('universal-gates --reality-compiler-slice must be a readable JSON object');
-            }
-            $report['observe'] = array_merge(
-                is_array($report['observe'] ?? null) ? $report['observe'] : [],
-                ['reality_compiler_slice' => $gates->realityCompilerSliceObserve($slice)],
-            );
-        }
-        $esp09Path = (string) ($this->option('esp09-challenger') ?? '');
-        if ($esp09Path !== '') {
-            $context = $this->loadJsonFile($esp09Path);
-            if ($context === null) {
-                return $this->failWith('universal-gates --esp09-challenger must be a readable JSON object');
-            }
-            $report['observe'] = array_merge(
-                is_array($report['observe'] ?? null) ? $report['observe'] : [],
-                ['esp09_challenger' => $gates->esp09ChallengerObserve($context)],
-            );
-        }
-        $dogfoodingPath = (string) ($this->option('dogfooding-leads') ?? '');
-        if ($dogfoodingPath !== '') {
-            $events = $this->loadJsonFile($dogfoodingPath);
-            if ($events === null) {
-                return $this->failWith('universal-gates --dogfooding-leads must be a readable JSON object');
-            }
-            $report['observe'] = array_merge(
-                is_array($report['observe'] ?? null) ? $report['observe'] : [],
-                ['dogfooding_friction_leads' => $gates->dogfoodingFrictionLeadsObserve($events)],
-            );
-        }
-        $reactivePath = (string) ($this->option('reactive-saturation') ?? '');
-        if ($reactivePath !== '') {
-            $payload = $this->loadJsonFile($reactivePath);
-            if ($payload === null) {
-                return $this->failWith('universal-gates --reactive-saturation must be a readable JSON object');
-            }
-            $report['observe'] = array_merge(
-                is_array($report['observe'] ?? null) ? $report['observe'] : [],
-                ['reactive_saturation' => $gates->reactiveSaturationObserve($payload)],
-            );
-        }
+
         $this->emit($report, $json);
 
         return $report['outcome'] === 'green' || $report['outcome'] === 'exception' ? self::SUCCESS : self::FAILURE;
+    }
+
+    /**
+     * @param  array<string,mixed>  $report
+     * @param  callable(array<string,mixed>):mixed  $projector
+     */
+    private function appendOptionalJsonObserve(array &$report, string $option, string $observeKey, callable $projector): ?int
+    {
+        $path = (string) ($this->option($option) ?? '');
+        if ($path === '') {
+            return null;
+        }
+        $payload = $this->loadJsonFile($path);
+        if ($payload === null) {
+            return $this->failWith('universal-gates --'.$option.' must be a readable JSON object');
+        }
+        $report['observe'] = array_merge(
+            AiValueNormalizer::arrayOrEmpty($report['observe'] ?? null),
+            [$observeKey => $projector($payload)],
+        );
+
+        return null;
     }
 
     /** @return array<string,bool|string|null> */
@@ -345,7 +289,7 @@ final class AtlasAaeosCommand extends Command
         }
         $decoded = $this->loadJsonFile($path);
 
-        return is_array($decoded) ? $decoded : [];
+        return AiValueNormalizer::arrayOrEmpty($decoded);
     }
 
     /** @return array<string,mixed>|null */

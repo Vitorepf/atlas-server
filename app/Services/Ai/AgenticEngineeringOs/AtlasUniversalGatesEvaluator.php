@@ -265,6 +265,23 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only MULTN predicted-impact band calibration projection.
+     * Accepts a list of rows or `{rows:[...]}`. Catalogue stays 15.
+     *
+     * @param  array<mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function predictedImpactCalibrationObserve(array $input): array
+    {
+        $rows = array_is_list($input)
+            ? $input
+            : AiValueNormalizer::arrayOrEmpty($input['rows'] ?? null);
+
+        /** @var list<array<string,mixed>> $rows */
+        return PredictedImpactBand::calibration($rows);
+    }
+
+    /**
      * Observe-only projection of pre-review advisory features into the
      * MULTN15-08 band shape. Does not add a universal-gate id.
      *
