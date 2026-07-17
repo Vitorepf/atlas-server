@@ -390,9 +390,7 @@ final class CognitiveImmunePromotionGateEvaluator
      */
     private function intValue(array $signals, string $key): int
     {
-        $value = $signals[$key] ?? 0;
-
-        return is_int($value) ? $value : (int) $value;
+        return (int) (AiValueNormalizer::finiteFloatOrNull($signals[$key] ?? null) ?? 0);
     }
 
     /**

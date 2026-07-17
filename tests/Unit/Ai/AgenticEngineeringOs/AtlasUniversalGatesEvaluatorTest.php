@@ -1558,4 +1558,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('live', $payload['states']);
         $this->assertSame(5, $payload['state_count']);
     }
+
+    public function test_autonomous_work_cycle_stages_observe_reports_ladder(): void
+    {
+        $payload = $this->svc->autonomousWorkCycleStagesObserve([]);
+
+        $this->assertSame('atlas.autonomous_work_execution_os.cycle.v1', $payload['schema_version']);
+        $this->assertContains('L0', $payload['autonomy_levels']);
+        $this->assertContains('goal_recorded', $payload['cycle_stages']);
+        $this->assertSame(6, $payload['stage_count']);
+    }
 }

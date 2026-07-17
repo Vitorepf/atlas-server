@@ -146,6 +146,7 @@ final class AtlasAaeosCommand extends Command
         {--long-horizon-gate-contract= : JSON file (any object) to observe ACOS long-horizon gate contract}
         {--immune-signature-store-contract= : JSON file (any object) to observe immune signature store contract}
         {--promotion-protocol-states= : JSON file (any object) to observe ACOS promotion-protocol states}
+        {--autonomous-work-cycle-stages= : JSON file (any object) to observe autonomous work cycle stages}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -448,6 +449,7 @@ final class AtlasAaeosCommand extends Command
             ['long-horizon-gate-contract', 'long_horizon_gate_contract', fn (array $p) => $gates->longHorizonGateContractObserve($p)],
             ['immune-signature-store-contract', 'immune_signature_store_contract', fn (array $p) => $gates->immuneSignatureStoreContractObserve($p)],
             ['promotion-protocol-states', 'promotion_protocol_states', fn (array $p) => $gates->promotionProtocolStatesObserve($p)],
+            ['autonomous-work-cycle-stages', 'autonomous_work_cycle_stages', fn (array $p) => $gates->autonomousWorkCycleStagesObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

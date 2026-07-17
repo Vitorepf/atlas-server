@@ -194,9 +194,7 @@ final class SummaryFidelityCoverageScorer
      */
     private function stringValue(array $item, string $key): string
     {
-        $value = $item[$key] ?? '';
-
-        return is_string($value) ? $value : '';
+        return AiValueNormalizer::trimmedStringOrNull($item[$key] ?? null) ?? '';
     }
 
     private function ratio(int $numerator, int $denominator): float

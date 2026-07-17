@@ -187,7 +187,7 @@ final class DeliveryPackCompletenessScorer
      */
     private function intValue($value): int
     {
-        return is_int($value) ? $value : (int) $value;
+        return (int) (AiValueNormalizer::finiteFloatOrNull($value) ?? 0);
     }
 
     /**
