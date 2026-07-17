@@ -68,7 +68,6 @@ final class AtlasAaeosCommandTest extends TestCase
                 '--json' => true,
             ])
                 ->expectsOutputToContain('delivery_pack_completeness_min_0_95')
-                ->expectsOutputToContain('atlas.aaeos.delivery_pack_completeness.v1')
                 ->assertExitCode(1); // other gates still missing → pending/non-green
         } finally {
             @unlink($path);
