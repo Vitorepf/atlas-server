@@ -24,6 +24,46 @@ final class DepartmentContractRuntime
 
     public const FIELD_ACCEPTED = 'accepted';
 
+    public const FIELD_NAME = 'name';
+
+    public const FIELD_SCHEMA = 'schema';
+
+    public const FIELD_HUMAN_NAME = 'human_name';
+
+    public const FIELD_DESCRIPTION = 'description';
+
+    public const FIELD_SCOPE = 'scope';
+
+    public const FIELD_TRIGGERS = 'triggers';
+
+    public const FIELD_INPUTS = 'inputs';
+
+    public const FIELD_OUTPUTS = 'outputs';
+
+    public const FIELD_ALLOWED_ACTIONS = 'allowed_actions';
+
+    public const FIELD_FORBIDDEN_ACTIONS = 'forbidden_actions';
+
+    public const FIELD_ESCALATION_TO = 'escalation_to';
+
+    public const FIELD_EVIDENCE_REQUIRED = 'evidence_required';
+
+    public const FIELD_PERSISTENCE = 'persistence';
+
+    public const FIELD_PRIMARY_TABLE = 'primary_table';
+
+    public const FIELD_LEDGER = 'ledger';
+
+    public const FIELD_OBSERVABILITY_SIGNALS = 'observability_signals';
+
+    public const FIELD_MATURITY_LEVEL = 'maturity_level';
+
+    public const FIELD_GATES = 'gates';
+
+    public const FIELD_EVIDENCE_SCHEMA = 'evidence_schema';
+
+    public const FIELD_EMITS_HANDOFF_TO = 'emits_handoff_to';
+
     public const SCHEMA_VERSION = 'atlas.aaeos.department.v1';
 
     public const SCHEMA_ACCEPTANCE_CRITERIA = 'atlas.acceptance_criteria.v1';
@@ -162,288 +202,288 @@ final class DepartmentContractRuntime
      */
     public const CATALOGUE = [
         self::DEPARTMENT_EXECUTIVE_INTAKE => [
-            'human_name' => 'Executive Intake',
-            'description' => 'Receives ambiguous human intent; emits canonical mission envelope.',
-            'scope' => 'recebe pedido humano ambíguo e produz mission envelope canônica antes de product',
-            'triggers' => ['operator_intent_raw_received=true'],
-            'inputs' => [
-                ['name' => 'intent_raw', 'schema' => self::SCHEMA_INTENT_RAW],
+            self::FIELD_HUMAN_NAME => 'Executive Intake',
+            self::FIELD_DESCRIPTION => 'Receives ambiguous human intent; emits canonical mission envelope.',
+            self::FIELD_SCOPE => 'recebe pedido humano ambíguo e produz mission envelope canônica antes de product',
+            self::FIELD_TRIGGERS => ['operator_intent_raw_received=true'],
+            self::FIELD_INPUTS => [
+                [self::FIELD_NAME => 'intent_raw', self::FIELD_SCHEMA => self::SCHEMA_INTENT_RAW],
             ],
-            'outputs' => [
-                ['name' => 'mission_envelope', 'schema' => self::SCHEMA_AI_MISSION],
+            self::FIELD_OUTPUTS => [
+                [self::FIELD_NAME => 'mission_envelope', self::FIELD_SCHEMA => self::SCHEMA_AI_MISSION],
             ],
-            'gates' => ['intent_clarified', 'mission_authority_declared'],
-            'allowed_actions' => ['ask_clarifying_question', 'classify_intent', 'route_to_department'],
-            'forbidden_actions' => ['write_code', 'approve_release', 'modify_security_policy'],
-            'escalation_to' => [self::DEPARTMENT_OPERATOR],
-            'evidence_required' => ['intent_clarification_log', 'mission_envelope_hash'],
-            'persistence' => ['primary_table' => 'aaeos_executive_intake', 'ledger' => 'aaeos_intake_ledger'],
-            'observability_signals' => ['intake_clarity_loop_count', 'intake_classification_latency_p95'],
-            'maturity_level' => 'L2',
-            'evidence_schema' => self::SCHEMA_AI_MISSION,
+            self::FIELD_GATES => ['intent_clarified', 'mission_authority_declared'],
+            self::FIELD_ALLOWED_ACTIONS => ['ask_clarifying_question', 'classify_intent', 'route_to_department'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['write_code', 'approve_release', 'modify_security_policy'],
+            self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
+            self::FIELD_EVIDENCE_REQUIRED => ['intent_clarification_log', 'mission_envelope_hash'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_executive_intake', self::FIELD_LEDGER => 'aaeos_intake_ledger'],
+            self::FIELD_OBSERVABILITY_SIGNALS => ['intake_clarity_loop_count', 'intake_classification_latency_p95'],
+            self::FIELD_MATURITY_LEVEL => 'L2',
+            self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_AI_MISSION,
             'accepts_handoff_from' => [],
-            'emits_handoff_to' => [self::DEPARTMENT_PRODUCT, self::DEPARTMENT_ARCHITECTURE],
+            self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_PRODUCT, self::DEPARTMENT_ARCHITECTURE],
         ],
         self::DEPARTMENT_PRODUCT => [
-            'human_name' => 'Product Department',
-            'description' => 'Turns intent into product spec + acceptance criteria.',
-            'scope' => 'traduz intenção humana ambígua em engineering_goal disambiguado com critérios de aceitação mensuráveis',
-            'triggers' => ['intent_classification.target_department=product'],
-            'inputs' => [
-                ['name' => 'engineering_goal_raw', 'schema' => self::SCHEMA_ENGINEERING_GOAL],
+            self::FIELD_HUMAN_NAME => 'Product Department',
+            self::FIELD_DESCRIPTION => 'Turns intent into product spec + acceptance criteria.',
+            self::FIELD_SCOPE => 'traduz intenção humana ambígua em engineering_goal disambiguado com critérios de aceitação mensuráveis',
+            self::FIELD_TRIGGERS => ['intent_classification.target_department=product'],
+            self::FIELD_INPUTS => [
+                [self::FIELD_NAME => 'engineering_goal_raw', self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL],
             ],
-            'outputs' => [
-                ['name' => 'engineering_goal_disambiguated', 'schema' => self::SCHEMA_ENGINEERING_GOAL_DISAMBIGUATED],
-                ['name' => 'acceptance_criteria', 'schema' => self::SCHEMA_ACCEPTANCE_CRITERIA],
+            self::FIELD_OUTPUTS => [
+                [self::FIELD_NAME => 'engineering_goal_disambiguated', self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL_DISAMBIGUATED],
+                [self::FIELD_NAME => 'acceptance_criteria', self::FIELD_SCHEMA => self::SCHEMA_ACCEPTANCE_CRITERIA],
             ],
-            'gates' => ['intent_clarity_score_min', 'acceptance_criteria_min_3'],
-            'allowed_actions' => ['ask_clarifying_question', 'propose_acceptance_criteria', 'split_intent'],
-            'forbidden_actions' => ['write_code', 'approve_release', 'modify_security_policy'],
-            'escalation_to' => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
-            'evidence_required' => ['clarification_log', 'acceptance_criteria_pack'],
-            'persistence' => ['primary_table' => 'aaeos_engineering_goals', 'ledger' => 'aaeos_clarification_ledger'],
-            'observability_signals' => ['product_clarity_score_avg', 'product_loop_count_avg'],
-            'maturity_level' => 'L3',
-            'evidence_schema' => self::SCHEMA_DEV_MINI_PROGRAMMING_SPEC,
+            self::FIELD_GATES => ['intent_clarity_score_min', 'acceptance_criteria_min_3'],
+            self::FIELD_ALLOWED_ACTIONS => ['ask_clarifying_question', 'propose_acceptance_criteria', 'split_intent'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['write_code', 'approve_release', 'modify_security_policy'],
+            self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
+            self::FIELD_EVIDENCE_REQUIRED => ['clarification_log', 'acceptance_criteria_pack'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_engineering_goals', self::FIELD_LEDGER => 'aaeos_clarification_ledger'],
+            self::FIELD_OBSERVABILITY_SIGNALS => ['product_clarity_score_avg', 'product_loop_count_avg'],
+            self::FIELD_MATURITY_LEVEL => 'L3',
+            self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_MINI_PROGRAMMING_SPEC,
             'accepts_handoff_from' => [self::DEPARTMENT_EXECUTIVE_INTAKE],
-            'emits_handoff_to' => [self::DEPARTMENT_ARCHITECTURE],
+            self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_ARCHITECTURE],
         ],
         self::DEPARTMENT_ARCHITECTURE => [
-            'human_name' => 'Architect Department',
-            'description' => 'Decides system design, ADRs, technical boundaries.',
-            'scope' => 'define spec_pack canônico, breaking_change_matrix e migration_plan antes de qualquer execução',
-            'triggers' => ['intent_classification.scope>=R3', 'breaking_change_detected=true'],
-            'inputs' => [
-                ['name' => 'engineering_goal_disambiguated', 'schema' => self::SCHEMA_ENGINEERING_GOAL_DISAMBIGUATED],
+            self::FIELD_HUMAN_NAME => 'Architect Department',
+            self::FIELD_DESCRIPTION => 'Decides system design, ADRs, technical boundaries.',
+            self::FIELD_SCOPE => 'define spec_pack canônico, breaking_change_matrix e migration_plan antes de qualquer execução',
+            self::FIELD_TRIGGERS => ['intent_classification.scope>=R3', 'breaking_change_detected=true'],
+            self::FIELD_INPUTS => [
+                [self::FIELD_NAME => 'engineering_goal_disambiguated', self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL_DISAMBIGUATED],
             ],
-            'outputs' => [
-                ['name' => 'spec_pack', 'schema' => self::SCHEMA_SPEC_PACK],
-                ['name' => 'migration_plan', 'schema' => self::SCHEMA_MIGRATION_PLAN],
+            self::FIELD_OUTPUTS => [
+                [self::FIELD_NAME => 'spec_pack', self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
+                [self::FIELD_NAME => 'migration_plan', self::FIELD_SCHEMA => self::SCHEMA_MIGRATION_PLAN],
             ],
-            'gates' => ['adr_published', 'boundary_validated', 'spec_acceptance_criteria_complete', 'breaking_change_documented', 'rollback_per_slice'],
-            'allowed_actions' => ['draft_spec', 'propose_migration_plan', 'request_security_review', 'veto_execution'],
-            'forbidden_actions' => ['write_code', 'execute_migration', 'approve_release'],
-            'escalation_to' => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
-            'evidence_required' => ['spec_pack_hash', 'architect_decision_receipt'],
-            'persistence' => ['primary_table' => 'aaeos_spec_packs', 'ledger' => 'aaeos_architect_decision_ledger'],
-            'observability_signals' => ['architect_spec_completeness_score', 'architect_veto_count'],
-            'maturity_level' => 'L3',
-            'evidence_schema' => self::SCHEMA_ENGINEERING_ARCHITECTURE_DECISION,
+            self::FIELD_GATES => ['adr_published', 'boundary_validated', 'spec_acceptance_criteria_complete', 'breaking_change_documented', 'rollback_per_slice'],
+            self::FIELD_ALLOWED_ACTIONS => ['draft_spec', 'propose_migration_plan', 'request_security_review', 'veto_execution'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['write_code', 'execute_migration', 'approve_release'],
+            self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
+            self::FIELD_EVIDENCE_REQUIRED => ['spec_pack_hash', 'architect_decision_receipt'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_spec_packs', self::FIELD_LEDGER => 'aaeos_architect_decision_ledger'],
+            self::FIELD_OBSERVABILITY_SIGNALS => ['architect_spec_completeness_score', 'architect_veto_count'],
+            self::FIELD_MATURITY_LEVEL => 'L3',
+            self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_ENGINEERING_ARCHITECTURE_DECISION,
             'accepts_handoff_from' => [self::DEPARTMENT_PRODUCT],
-            'emits_handoff_to' => [self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
+            self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
         ],
         self::DEPARTMENT_RESEARCH => [
-            'human_name' => 'Research Department',
-            'description' => 'Investigates unknowns before commit; never modifies runtime.',
-            'scope' => 'produz state-of-the-art source-backed para suportar Architect e Self-Construction',
-            'triggers' => ['self_construction.gap_detected=true', 'architect.research_needed=true'],
-            'inputs' => [
-                ['name' => 'research_question', 'schema' => self::SCHEMA_RESEARCH_QUESTION],
+            self::FIELD_HUMAN_NAME => 'Research Department',
+            self::FIELD_DESCRIPTION => 'Investigates unknowns before commit; never modifies runtime.',
+            self::FIELD_SCOPE => 'produz state-of-the-art source-backed para suportar Architect e Self-Construction',
+            self::FIELD_TRIGGERS => ['self_construction.gap_detected=true', 'architect.research_needed=true'],
+            self::FIELD_INPUTS => [
+                [self::FIELD_NAME => 'research_question', self::FIELD_SCHEMA => self::SCHEMA_RESEARCH_QUESTION],
             ],
-            'outputs' => [
-                ['name' => 'research_pack', 'schema' => self::SCHEMA_RESEARCH_PACK],
+            self::FIELD_OUTPUTS => [
+                [self::FIELD_NAME => 'research_pack', self::FIELD_SCHEMA => self::SCHEMA_RESEARCH_PACK],
             ],
-            'gates' => ['research_findings_published', 'review_only_acknowledged', 'sources_min_3', 'source_dates_recent', 'no_hallucinated_links'],
-            'allowed_actions' => ['fetch_sources', 'synthesize_findings', 'propose_doc_promotion'],
-            'forbidden_actions' => ['write_code', 'approve_release', 'modify_security_policy'],
-            'escalation_to' => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
-            'evidence_required' => ['sources_list_hash', 'research_pack_hash'],
-            'persistence' => ['primary_table' => 'aaeos_research_packs', 'ledger' => 'aaeos_source_ledger'],
-            'observability_signals' => ['research_source_freshness_avg', 'research_hallucination_count'],
-            'maturity_level' => 'L2',
-            'evidence_schema' => self::SCHEMA_RESEARCH_FINDINGS,
+            self::FIELD_GATES => ['research_findings_published', 'review_only_acknowledged', 'sources_min_3', 'source_dates_recent', 'no_hallucinated_links'],
+            self::FIELD_ALLOWED_ACTIONS => ['fetch_sources', 'synthesize_findings', 'propose_doc_promotion'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['write_code', 'approve_release', 'modify_security_policy'],
+            self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
+            self::FIELD_EVIDENCE_REQUIRED => ['sources_list_hash', 'research_pack_hash'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_research_packs', self::FIELD_LEDGER => 'aaeos_source_ledger'],
+            self::FIELD_OBSERVABILITY_SIGNALS => ['research_source_freshness_avg', 'research_hallucination_count'],
+            self::FIELD_MATURITY_LEVEL => 'L2',
+            self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_RESEARCH_FINDINGS,
             'accepts_handoff_from' => [self::DEPARTMENT_ARCHITECTURE, self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
-            'emits_handoff_to' => [self::DEPARTMENT_ARCHITECTURE, self::DEPARTMENT_PRODUCT],
+            self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_ARCHITECTURE, self::DEPARTMENT_PRODUCT],
         ],
         self::DEPARTMENT_DEV => [
-            'human_name' => 'Dev Department',
-            'description' => 'Atlas Dev fast-lane; small/medium changes with plan + gates.',
-            'scope' => 'executa fast-path para intents R1-R3 (1-5 arquivos, baixo-médio risco) com governance leve',
-            'triggers' => ['intent_classification.target_department=dev', 'scope<=R3'],
-            'inputs' => [
-                ['name' => 'spec_pack', 'schema' => self::SCHEMA_SPEC_PACK],
-                ['name' => 'task_pack', 'schema' => self::SCHEMA_TASK_PACK],
+            self::FIELD_HUMAN_NAME => 'Dev Department',
+            self::FIELD_DESCRIPTION => 'Atlas Dev fast-lane; small/medium changes with plan + gates.',
+            self::FIELD_SCOPE => 'executa fast-path para intents R1-R3 (1-5 arquivos, baixo-médio risco) com governance leve',
+            self::FIELD_TRIGGERS => ['intent_classification.target_department=dev', 'scope<=R3'],
+            self::FIELD_INPUTS => [
+                [self::FIELD_NAME => 'spec_pack', self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
+                [self::FIELD_NAME => 'task_pack', self::FIELD_SCHEMA => self::SCHEMA_TASK_PACK],
             ],
-            'outputs' => [
-                ['name' => 'execution_log', 'schema' => self::SCHEMA_EXECUTION_LOG],
-                ['name' => 'patch_pack', 'schema' => self::SCHEMA_PATCH_PACK],
+            self::FIELD_OUTPUTS => [
+                [self::FIELD_NAME => 'execution_log', self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
+                [self::FIELD_NAME => 'patch_pack', self::FIELD_SCHEMA => self::SCHEMA_PATCH_PACK],
             ],
-            'gates' => ['plan_approved', 'tests_focused', 'review_gate', 'lint_green', 'typecheck_green', 'tests_green', 'scope_guard_ok'],
-            'allowed_actions' => ['edit_allowed_files', 'run_tests', 'request_provider_call'],
-            'forbidden_actions' => ['edit_security_policy', 'modify_migrations_without_architect', 'approve_release'],
-            'escalation_to' => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_FORGE],
-            'evidence_required' => ['patch_hash', 'test_output_hash', 'scope_guard_report'],
-            'persistence' => ['primary_table' => 'aaeos_dev_runs', 'ledger' => 'aaeos_dev_evidence_ledger'],
-            'observability_signals' => ['dev_run_duration_p95', 'dev_repair_loop_count', 'dev_scope_violation_count'],
-            'maturity_level' => 'L1',
-            'evidence_schema' => self::SCHEMA_DEV_PLAN_VISIBLE,
+            self::FIELD_GATES => ['plan_approved', 'tests_focused', 'review_gate', 'lint_green', 'typecheck_green', 'tests_green', 'scope_guard_ok'],
+            self::FIELD_ALLOWED_ACTIONS => ['edit_allowed_files', 'run_tests', 'request_provider_call'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['edit_security_policy', 'modify_migrations_without_architect', 'approve_release'],
+            self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_FORGE],
+            self::FIELD_EVIDENCE_REQUIRED => ['patch_hash', 'test_output_hash', 'scope_guard_report'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_dev_runs', self::FIELD_LEDGER => 'aaeos_dev_evidence_ledger'],
+            self::FIELD_OBSERVABILITY_SIGNALS => ['dev_run_duration_p95', 'dev_repair_loop_count', 'dev_scope_violation_count'],
+            self::FIELD_MATURITY_LEVEL => 'L1',
+            self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_PLAN_VISIBLE,
             'accepts_handoff_from' => [self::DEPARTMENT_ARCHITECTURE],
-            'emits_handoff_to' => [self::DEPARTMENT_REVIEW, 'qa', self::DEPARTMENT_FORGE],
+            self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_REVIEW, 'qa', self::DEPARTMENT_FORGE],
         ],
         self::DEPARTMENT_DEBUG => [
-            'human_name' => 'Debug Department',
-            'description' => 'Failure investigation, repair orchestration, escalation triggers.',
-            'scope' => 'investiga falhas runtime, gera hipóteses, reproduz, isola e propõe fix',
-            'triggers' => ['incident_detected=true', 'test_red_after_green=true', 'production_alert=true'],
-            'inputs' => [
-                ['name' => 'failure_report', 'schema' => self::SCHEMA_FAILURE_REPORT],
+            self::FIELD_HUMAN_NAME => 'Debug Department',
+            self::FIELD_DESCRIPTION => 'Failure investigation, repair orchestration, escalation triggers.',
+            self::FIELD_SCOPE => 'investiga falhas runtime, gera hipóteses, reproduz, isola e propõe fix',
+            self::FIELD_TRIGGERS => ['incident_detected=true', 'test_red_after_green=true', 'production_alert=true'],
+            self::FIELD_INPUTS => [
+                [self::FIELD_NAME => 'failure_report', self::FIELD_SCHEMA => self::SCHEMA_FAILURE_REPORT],
             ],
-            'outputs' => [
-                ['name' => 'root_cause_pack', 'schema' => self::SCHEMA_ROOT_CAUSE_PACK],
+            self::FIELD_OUTPUTS => [
+                [self::FIELD_NAME => 'root_cause_pack', self::FIELD_SCHEMA => self::SCHEMA_ROOT_CAUSE_PACK],
             ],
-            'gates' => ['failure_capsule_emitted', 'repair_budget_respected', 'reproduction_confirmed', 'root_cause_evidence_present'],
-            'allowed_actions' => ['read_logs', 'run_repro', 'request_observability_query'],
-            'forbidden_actions' => ['modify_production_data', 'deploy_fix_without_review'],
-            'escalation_to' => [self::DEPARTMENT_DEV, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY],
-            'evidence_required' => ['repro_steps_hash', 'logs_hash', 'root_cause_pack_hash'],
-            'persistence' => ['primary_table' => 'aaeos_debug_investigations', 'ledger' => 'aaeos_debug_ledger'],
-            'observability_signals' => ['debug_mttr_p95', 'debug_repro_success_rate'],
-            'maturity_level' => 'L2',
-            'evidence_schema' => self::SCHEMA_DEV_DEBUG_RECEIPT,
+            self::FIELD_GATES => ['failure_capsule_emitted', 'repair_budget_respected', 'reproduction_confirmed', 'root_cause_evidence_present'],
+            self::FIELD_ALLOWED_ACTIONS => ['read_logs', 'run_repro', 'request_observability_query'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['modify_production_data', 'deploy_fix_without_review'],
+            self::FIELD_ESCALATION_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY],
+            self::FIELD_EVIDENCE_REQUIRED => ['repro_steps_hash', 'logs_hash', 'root_cause_pack_hash'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_debug_investigations', self::FIELD_LEDGER => 'aaeos_debug_ledger'],
+            self::FIELD_OBSERVABILITY_SIGNALS => ['debug_mttr_p95', 'debug_repro_success_rate'],
+            self::FIELD_MATURITY_LEVEL => 'L2',
+            self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_DEBUG_RECEIPT,
             'accepts_handoff_from' => [self::DEPARTMENT_DEV, 'qa', self::DEPARTMENT_FORGE],
-            'emits_handoff_to' => [self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
+            self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
         ],
         self::DEPARTMENT_REVIEW => [
-            'human_name' => 'Review Department',
-            'description' => 'Code/spec review; bottleneck against weak claims.',
-            'scope' => 'revisa patches/specs/migrations/release_packs com checklist canônico antes de cert',
-            'triggers' => ['delivery_pack_assembled=true', 'spec_pack_drafted=true'],
-            'inputs' => [
-                ['name' => 'delivery_pack', 'schema' => self::SCHEMA_DELIVERY_PACK],
+            self::FIELD_HUMAN_NAME => 'Review Department',
+            self::FIELD_DESCRIPTION => 'Code/spec review; bottleneck against weak claims.',
+            self::FIELD_SCOPE => 'revisa patches/specs/migrations/release_packs com checklist canônico antes de cert',
+            self::FIELD_TRIGGERS => ['delivery_pack_assembled=true', 'spec_pack_drafted=true'],
+            self::FIELD_INPUTS => [
+                [self::FIELD_NAME => 'delivery_pack', self::FIELD_SCHEMA => self::SCHEMA_DELIVERY_PACK],
             ],
-            'outputs' => [
-                ['name' => 'review_report', 'schema' => self::SCHEMA_REVIEW_REPORT],
+            self::FIELD_OUTPUTS => [
+                [self::FIELD_NAME => 'review_report', self::FIELD_SCHEMA => self::SCHEMA_REVIEW_REPORT],
             ],
-            'gates' => ['review_packet_signed', 'risk_acknowledged', 'review_checklist_complete', 'blockers_addressed', 'evidence_traceable'],
-            'allowed_actions' => ['request_changes', 'approve_for_cert', 'veto_release'],
-            'forbidden_actions' => ['edit_code', 'deploy_release', 'modify_security_policy'],
-            'escalation_to' => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
-            'evidence_required' => ['review_report_hash', 'checklist_completion_hash'],
-            'persistence' => ['primary_table' => 'aaeos_review_reports', 'ledger' => 'aaeos_review_ledger'],
-            'observability_signals' => ['review_findings_severity_avg', 'review_veto_count'],
-            'maturity_level' => 'L2',
-            'evidence_schema' => self::SCHEMA_DEV_REVIEW_RECEIPT,
+            self::FIELD_GATES => ['review_packet_signed', 'risk_acknowledged', 'review_checklist_complete', 'blockers_addressed', 'evidence_traceable'],
+            self::FIELD_ALLOWED_ACTIONS => ['request_changes', 'approve_for_cert', 'veto_release'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['edit_code', 'deploy_release', 'modify_security_policy'],
+            self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
+            self::FIELD_EVIDENCE_REQUIRED => ['review_report_hash', 'checklist_completion_hash'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_review_reports', self::FIELD_LEDGER => 'aaeos_review_ledger'],
+            self::FIELD_OBSERVABILITY_SIGNALS => ['review_findings_severity_avg', 'review_veto_count'],
+            self::FIELD_MATURITY_LEVEL => 'L2',
+            self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_REVIEW_RECEIPT,
             'accepts_handoff_from' => [self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
-            'emits_handoff_to' => ['qa', self::DEPARTMENT_DELIVERY],
+            self::FIELD_EMITS_HANDOFF_TO => ['qa', self::DEPARTMENT_DELIVERY],
         ],
         self::DEPARTMENT_QA => [
-            'human_name' => 'QA Department',
-            'description' => 'Test selection, regression, verification.',
-            'scope' => 'garante testabilidade, cobertura, regressão, contract tests e fixtures',
-            'triggers' => ['task_pack_decomposed=true', 'delivery_pack_assembled=true'],
-            'inputs' => [
-                ['name' => 'spec_pack', 'schema' => self::SCHEMA_SPEC_PACK],
-                ['name' => 'patch_pack', 'schema' => self::SCHEMA_PATCH_PACK],
+            self::FIELD_HUMAN_NAME => 'QA Department',
+            self::FIELD_DESCRIPTION => 'Test selection, regression, verification.',
+            self::FIELD_SCOPE => 'garante testabilidade, cobertura, regressão, contract tests e fixtures',
+            self::FIELD_TRIGGERS => ['task_pack_decomposed=true', 'delivery_pack_assembled=true'],
+            self::FIELD_INPUTS => [
+                [self::FIELD_NAME => 'spec_pack', self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
+                [self::FIELD_NAME => 'patch_pack', self::FIELD_SCHEMA => self::SCHEMA_PATCH_PACK],
             ],
-            'outputs' => [
-                ['name' => 'test_pack', 'schema' => self::SCHEMA_TEST_PACK],
+            self::FIELD_OUTPUTS => [
+                [self::FIELD_NAME => 'test_pack', self::FIELD_SCHEMA => self::SCHEMA_TEST_PACK],
             ],
-            'gates' => ['regression_green', 'verification_complete', 'coverage_min_threshold', 'regression_tests_added', 'fixtures_versioned'],
-            'allowed_actions' => ['write_tests', 'request_test_data', 'block_on_coverage_drop'],
-            'forbidden_actions' => ['modify_production_code_outside_tests', 'approve_release'],
-            'escalation_to' => [self::DEPARTMENT_DEV, self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW],
-            'evidence_required' => ['test_pack_hash', 'coverage_report_hash'],
-            'persistence' => ['primary_table' => 'aaeos_test_packs', 'ledger' => 'aaeos_qa_ledger'],
-            'observability_signals' => ['qa_coverage_p50', 'qa_regression_catch_rate'],
-            'maturity_level' => 'L2',
-            'evidence_schema' => self::SCHEMA_DEV_TEST_SELECTION_RECEIPT,
+            self::FIELD_GATES => ['regression_green', 'verification_complete', 'coverage_min_threshold', 'regression_tests_added', 'fixtures_versioned'],
+            self::FIELD_ALLOWED_ACTIONS => ['write_tests', 'request_test_data', 'block_on_coverage_drop'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['modify_production_code_outside_tests', 'approve_release'],
+            self::FIELD_ESCALATION_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW],
+            self::FIELD_EVIDENCE_REQUIRED => ['test_pack_hash', 'coverage_report_hash'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_test_packs', self::FIELD_LEDGER => 'aaeos_qa_ledger'],
+            self::FIELD_OBSERVABILITY_SIGNALS => ['qa_coverage_p50', 'qa_regression_catch_rate'],
+            self::FIELD_MATURITY_LEVEL => 'L2',
+            self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_TEST_SELECTION_RECEIPT,
             'accepts_handoff_from' => [self::DEPARTMENT_DEV, self::DEPARTMENT_REVIEW],
-            'emits_handoff_to' => [self::DEPARTMENT_DELIVERY],
+            self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_DELIVERY],
         ],
         self::DEPARTMENT_SECURITY => [
-            'human_name' => 'Security Department',
-            'description' => 'Security review; OWASP, secrets, dependency CVEs.',
-            'scope' => 'enforce de policy, threat-modeling, secret scanning, dependency audit, sovereignty boundary',
-            'triggers' => ['security_path_touched=true', 'intent_class_in=[sensitive,secret,cyber]', 'release_pack_drafted=true'],
-            'inputs' => [
-                ['name' => 'policy_request', 'schema' => self::SCHEMA_POLICY_REQUEST],
+            self::FIELD_HUMAN_NAME => 'Security Department',
+            self::FIELD_DESCRIPTION => 'Security review; OWASP, secrets, dependency CVEs.',
+            self::FIELD_SCOPE => 'enforce de policy, threat-modeling, secret scanning, dependency audit, sovereignty boundary',
+            self::FIELD_TRIGGERS => ['security_path_touched=true', 'intent_class_in=[sensitive,secret,cyber]', 'release_pack_drafted=true'],
+            self::FIELD_INPUTS => [
+                [self::FIELD_NAME => 'policy_request', self::FIELD_SCHEMA => self::SCHEMA_POLICY_REQUEST],
             ],
-            'outputs' => [
-                ['name' => 'policy_decision', 'schema' => self::SCHEMA_POLICY_DECISION],
+            self::FIELD_OUTPUTS => [
+                [self::FIELD_NAME => 'policy_decision', self::FIELD_SCHEMA => self::SCHEMA_POLICY_DECISION],
             ],
-            'gates' => ['security_scan_clean', 'cve_acknowledged', 'secret_scan_clean', 'dependency_audit_clean', 'threat_model_present', 'sovereignty_boundary_respected'],
-            'allowed_actions' => ['allow', 'deny', 'request_mitigation', 'escalate_to_operator'],
-            'forbidden_actions' => ['bypass_sovereignty', 'approve_unaudited_dep', 'ship_without_evidence'],
-            'escalation_to' => [self::DEPARTMENT_OPERATOR],
-            'evidence_required' => ['policy_decision_hash', 'secret_scan_report_hash', 'dependency_audit_hash'],
-            'persistence' => ['primary_table' => 'aaeos_policy_decisions', 'ledger' => 'aaeos_security_ledger'],
-            'observability_signals' => ['security_deny_count', 'security_secret_finding_count'],
-            'maturity_level' => 'L3',
-            'evidence_schema' => self::SCHEMA_SECURITY_FINDING,
+            self::FIELD_GATES => ['security_scan_clean', 'cve_acknowledged', 'secret_scan_clean', 'dependency_audit_clean', 'threat_model_present', 'sovereignty_boundary_respected'],
+            self::FIELD_ALLOWED_ACTIONS => ['allow', 'deny', 'request_mitigation', 'escalate_to_operator'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['bypass_sovereignty', 'approve_unaudited_dep', 'ship_without_evidence'],
+            self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
+            self::FIELD_EVIDENCE_REQUIRED => ['policy_decision_hash', 'secret_scan_report_hash', 'dependency_audit_hash'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_policy_decisions', self::FIELD_LEDGER => 'aaeos_security_ledger'],
+            self::FIELD_OBSERVABILITY_SIGNALS => ['security_deny_count', 'security_secret_finding_count'],
+            self::FIELD_MATURITY_LEVEL => 'L3',
+            self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_SECURITY_FINDING,
             'accepts_handoff_from' => [self::DEPARTMENT_DEV, self::DEPARTMENT_REVIEW, self::DEPARTMENT_FORGE],
-            'emits_handoff_to' => [self::DEPARTMENT_DELIVERY],
+            self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_DELIVERY],
         ],
         self::DEPARTMENT_FORGE => [
-            'human_name' => 'Forge Department',
-            'description' => 'Heavy Obras with provider topology + multi-agent scheduler.',
-            'scope' => 'executa Obras pesadas multi-módulo R3-R5 com paralelismo, durable reservation, multi-provider',
-            'triggers' => ['intent_classification.target_department=forge', 'scope>=R3', 'multi_module_detected=true'],
-            'inputs' => [
-                ['name' => 'spec_pack', 'schema' => self::SCHEMA_SPEC_PACK],
-                ['name' => 'topology_plan', 'schema' => self::SCHEMA_TOPOLOGY_PLAN],
+            self::FIELD_HUMAN_NAME => 'Forge Department',
+            self::FIELD_DESCRIPTION => 'Heavy Obras with provider topology + multi-agent scheduler.',
+            self::FIELD_SCOPE => 'executa Obras pesadas multi-módulo R3-R5 com paralelismo, durable reservation, multi-provider',
+            self::FIELD_TRIGGERS => ['intent_classification.target_department=forge', 'scope>=R3', 'multi_module_detected=true'],
+            self::FIELD_INPUTS => [
+                [self::FIELD_NAME => 'spec_pack', self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
+                [self::FIELD_NAME => 'topology_plan', self::FIELD_SCHEMA => self::SCHEMA_TOPOLOGY_PLAN],
             ],
-            'outputs' => [
-                ['name' => 'obra_pack', 'schema' => self::SCHEMA_OBRA_PACK],
-                ['name' => 'execution_log', 'schema' => self::SCHEMA_EXECUTION_LOG],
+            self::FIELD_OUTPUTS => [
+                [self::FIELD_NAME => 'obra_pack', self::FIELD_SCHEMA => self::SCHEMA_OBRA_PACK],
+                [self::FIELD_NAME => 'execution_log', self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
             ],
-            'gates' => ['obra_intake_validated', 'provider_topology_green', 'all-15-universal-gates', 'long_horizon_state_persisted', 'reservation_ledger_consistent', 'merge_review_promotion_passed'],
-            'allowed_actions' => ['spawn_agents', 'claim_reservations', 'request_provider_topology', 'merge_after_review'],
-            'forbidden_actions' => ['bypass_review', 'modify_security_policy', 'ship_without_cert'],
-            'escalation_to' => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
-            'evidence_required' => ['obra_pack_hash', 'execution_log_hash', 'merge_review_evidence_hash'],
-            'persistence' => ['primary_table' => 'aaeos_obra_runs', 'ledger' => 'aaeos_forge_evidence_ledger'],
-            'observability_signals' => ['forge_obra_duration_p95', 'forge_parallel_agent_count', 'forge_collision_count'],
-            'maturity_level' => 'L4',
-            'evidence_schema' => self::SCHEMA_PROGRAMMING_DURABLE_EXECUTION_HANDOFF,
+            self::FIELD_GATES => ['obra_intake_validated', 'provider_topology_green', 'all-15-universal-gates', 'long_horizon_state_persisted', 'reservation_ledger_consistent', 'merge_review_promotion_passed'],
+            self::FIELD_ALLOWED_ACTIONS => ['spawn_agents', 'claim_reservations', 'request_provider_topology', 'merge_after_review'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['bypass_review', 'modify_security_policy', 'ship_without_cert'],
+            self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
+            self::FIELD_EVIDENCE_REQUIRED => ['obra_pack_hash', 'execution_log_hash', 'merge_review_evidence_hash'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_obra_runs', self::FIELD_LEDGER => 'aaeos_forge_evidence_ledger'],
+            self::FIELD_OBSERVABILITY_SIGNALS => ['forge_obra_duration_p95', 'forge_parallel_agent_count', 'forge_collision_count'],
+            self::FIELD_MATURITY_LEVEL => 'L4',
+            self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_PROGRAMMING_DURABLE_EXECUTION_HANDOFF,
             'accepts_handoff_from' => [self::DEPARTMENT_ARCHITECTURE, self::DEPARTMENT_DEV],
-            'emits_handoff_to' => [self::DEPARTMENT_REVIEW, 'qa', self::DEPARTMENT_DELIVERY],
+            self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_REVIEW, 'qa', self::DEPARTMENT_DELIVERY],
         ],
         self::DEPARTMENT_DELIVERY => [
-            'human_name' => 'Delivery Department',
-            'description' => 'Release, rollback decision, deployment evidence.',
-            'scope' => 'monta delivery_pack canônico, valida completeness, encaminha para human review e cert',
-            'triggers' => ['execution_complete=true', 'evidence_pack_ready=true'],
-            'inputs' => [
-                ['name' => 'evidence_pack', 'schema' => self::SCHEMA_EVIDENCE_PACK],
+            self::FIELD_HUMAN_NAME => 'Delivery Department',
+            self::FIELD_DESCRIPTION => 'Release, rollback decision, deployment evidence.',
+            self::FIELD_SCOPE => 'monta delivery_pack canônico, valida completeness, encaminha para human review e cert',
+            self::FIELD_TRIGGERS => ['execution_complete=true', 'evidence_pack_ready=true'],
+            self::FIELD_INPUTS => [
+                [self::FIELD_NAME => 'evidence_pack', self::FIELD_SCHEMA => self::SCHEMA_EVIDENCE_PACK],
             ],
-            'outputs' => [
-                ['name' => 'delivery_pack', 'schema' => self::SCHEMA_DELIVERY_PACK],
+            self::FIELD_OUTPUTS => [
+                [self::FIELD_NAME => 'delivery_pack', self::FIELD_SCHEMA => self::SCHEMA_DELIVERY_PACK],
             ],
-            'gates' => ['release_authority_declared', 'rollback_plan_present', 'delivery_pack_completeness_min_0_95', 'evidence_traceable'],
-            'allowed_actions' => ['assemble_delivery_pack', 'sign_delivery_hash', 'request_human_review'],
-            'forbidden_actions' => ['edit_code', 'approve_release_without_review', 'modify_security_policy'],
-            'escalation_to' => [self::DEPARTMENT_REVIEW, self::DEPARTMENT_OPERATOR],
-            'evidence_required' => ['delivery_pack_hash', 'completeness_report_hash'],
-            'persistence' => ['primary_table' => 'aaeos_delivery_packs', 'ledger' => 'aaeos_delivery_ledger'],
-            'observability_signals' => ['delivery_completeness_avg', 'delivery_review_loop_count'],
-            'maturity_level' => 'L2',
-            'evidence_schema' => self::SCHEMA_ENGINEERING_RELEASE_DECISION,
+            self::FIELD_GATES => ['release_authority_declared', 'rollback_plan_present', 'delivery_pack_completeness_min_0_95', 'evidence_traceable'],
+            self::FIELD_ALLOWED_ACTIONS => ['assemble_delivery_pack', 'sign_delivery_hash', 'request_human_review'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['edit_code', 'approve_release_without_review', 'modify_security_policy'],
+            self::FIELD_ESCALATION_TO => [self::DEPARTMENT_REVIEW, self::DEPARTMENT_OPERATOR],
+            self::FIELD_EVIDENCE_REQUIRED => ['delivery_pack_hash', 'completeness_report_hash'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_delivery_packs', self::FIELD_LEDGER => 'aaeos_delivery_ledger'],
+            self::FIELD_OBSERVABILITY_SIGNALS => ['delivery_completeness_avg', 'delivery_review_loop_count'],
+            self::FIELD_MATURITY_LEVEL => 'L2',
+            self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_ENGINEERING_RELEASE_DECISION,
             'accepts_handoff_from' => [self::DEPARTMENT_REVIEW, 'qa', self::DEPARTMENT_SECURITY],
-            'emits_handoff_to' => [self::DEPARTMENT_MEMORY],
+            self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_MEMORY],
         ],
         self::DEPARTMENT_MEMORY => [
-            'human_name' => 'Memory Department',
-            'description' => 'Evidence ledger, learning, compounding signal extraction.',
-            'scope' => 'persistência governada de learnings, context packs, decisões, falhas, cross-session continuity',
-            'triggers' => ['learning_capsule_emitted=true', 'session_handoff_requested=true', 'context_pack_request=true'],
-            'inputs' => [
-                ['name' => 'learning_capsule', 'schema' => self::SCHEMA_LEARNING_CAPSULE],
+            self::FIELD_HUMAN_NAME => 'Memory Department',
+            self::FIELD_DESCRIPTION => 'Evidence ledger, learning, compounding signal extraction.',
+            self::FIELD_SCOPE => 'persistência governada de learnings, context packs, decisões, falhas, cross-session continuity',
+            self::FIELD_TRIGGERS => ['learning_capsule_emitted=true', 'session_handoff_requested=true', 'context_pack_request=true'],
+            self::FIELD_INPUTS => [
+                [self::FIELD_NAME => 'learning_capsule', self::FIELD_SCHEMA => self::SCHEMA_LEARNING_CAPSULE],
             ],
-            'outputs' => [
-                ['name' => 'memory_record', 'schema' => self::SCHEMA_MEMORY_RECORD],
-                ['name' => 'context_pack', 'schema' => self::SCHEMA_CONTEXT_PACK],
+            self::FIELD_OUTPUTS => [
+                [self::FIELD_NAME => 'memory_record', self::FIELD_SCHEMA => self::SCHEMA_MEMORY_RECORD],
+                [self::FIELD_NAME => 'context_pack', self::FIELD_SCHEMA => self::SCHEMA_CONTEXT_PACK],
             ],
-            'gates' => ['evidence_persisted', 'learning_signal_extracted', 'promotion_gate_passed', 'noise_immunity_check_ok', 'schema_versioned'],
-            'allowed_actions' => ['promote_to_memory', 'quarantine_capsule', 'emit_context_pack'],
-            'forbidden_actions' => ['bypass_promotion_gate', 'modify_evidence_ledger', 'expose_secrets'],
-            'escalation_to' => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
-            'evidence_required' => ['promotion_evidence_hash', 'memory_record_hash'],
-            'persistence' => ['primary_table' => 'aaeos_memory_records', 'ledger' => 'aaeos_memory_ledger'],
-            'observability_signals' => ['memory_promotion_rate', 'memory_quarantine_count'],
-            'maturity_level' => 'L3',
-            'evidence_schema' => self::SCHEMA_LEARNING_COMPOUNDING_SIGNAL,
+            self::FIELD_GATES => ['evidence_persisted', 'learning_signal_extracted', 'promotion_gate_passed', 'noise_immunity_check_ok', 'schema_versioned'],
+            self::FIELD_ALLOWED_ACTIONS => ['promote_to_memory', 'quarantine_capsule', 'emit_context_pack'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['bypass_promotion_gate', 'modify_evidence_ledger', 'expose_secrets'],
+            self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
+            self::FIELD_EVIDENCE_REQUIRED => ['promotion_evidence_hash', 'memory_record_hash'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_memory_records', self::FIELD_LEDGER => 'aaeos_memory_ledger'],
+            self::FIELD_OBSERVABILITY_SIGNALS => ['memory_promotion_rate', 'memory_quarantine_count'],
+            self::FIELD_MATURITY_LEVEL => 'L3',
+            self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_LEARNING_COMPOUNDING_SIGNAL,
             'accepts_handoff_from' => [self::DEPARTMENT_DELIVERY, self::DEPARTMENT_REVIEW, 'qa', self::DEPARTMENT_FORGE],
-            'emits_handoff_to' => [],
+            self::FIELD_EMITS_HANDOFF_TO => [],
         ],
     ];
 
@@ -496,7 +536,7 @@ final class DepartmentContractRuntime
         if (! isset(self::CATALOGUE[$to])) {
             return ['from' => $from, 'to' => $to, self::FIELD_ACCEPTED => false, 'reason' => "unknown department '{$to}'"];
         }
-        $allowedDownstream = AiValueNormalizer::arrayOrEmpty(self::CATALOGUE[$from]['emits_handoff_to'] ?? null);
+        $allowedDownstream = AiValueNormalizer::arrayOrEmpty(self::CATALOGUE[$from][self::FIELD_EMITS_HANDOFF_TO] ?? null);
         if (! in_array($to, $allowedDownstream, true)) {
             return [
                 'from' => $from,
@@ -513,12 +553,12 @@ final class DepartmentContractRuntime
     /** @return list<string> */
     public function gatesFor(string $department): array
     {
-        return AiValueNormalizer::arrayOrEmpty(self::CATALOGUE[$department]['gates'] ?? null);
+        return AiValueNormalizer::arrayOrEmpty(self::CATALOGUE[$department][self::FIELD_GATES] ?? null);
     }
 
     public function evidenceSchemaFor(string $department): ?string
     {
-        return self::CATALOGUE[$department]['evidence_schema'] ?? null;
+        return self::CATALOGUE[$department][self::FIELD_EVIDENCE_SCHEMA] ?? null;
     }
 
     /**

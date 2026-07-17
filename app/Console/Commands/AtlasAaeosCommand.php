@@ -261,6 +261,7 @@ final class AtlasAaeosCommand extends Command
         {--immune-class-chunks-hmac-floors-contract= : JSON file (any object) to observe immune-class/chunks/hmac residual floors}
         {--rotation-measure-series-floors-contract= : JSON file (any object) to observe rotation/measure-series residual floors}
         {--promotion-lote2-measure-floors-contract= : JSON file (any object) to observe promotion/LOTE2 measure residual floors}
+        {--department-contract-maturity-floors-contract= : JSON file (any object) to observe department-contract/maturity residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -678,6 +679,7 @@ final class AtlasAaeosCommand extends Command
             ['immune-class-chunks-hmac-floors-contract', 'immune_class_chunks_hmac_floors_contract', fn (array $p) => $gates->immuneClassChunksHmacFloorsContractObserve($p)],
             ['rotation-measure-series-floors-contract', 'rotation_measure_series_floors_contract', fn (array $p) => $gates->rotationMeasureSeriesFloorsContractObserve($p)],
             ['promotion-lote2-measure-floors-contract', 'promotion_lote2_measure_floors_contract', fn (array $p) => $gates->promotionLote2MeasureFloorsContractObserve($p)],
+            ['department-contract-maturity-floors-contract', 'department_contract_maturity_floors_contract', fn (array $p) => $gates->departmentContractMaturityFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

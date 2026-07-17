@@ -3659,4 +3659,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['promotion_lote2_measure_floor_count']);
     }
 
+
+    public function test_department_contract_maturity_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->departmentContractMaturityFloorsContractObserve([]);
+
+        $this->assertSame('name', $payload['department_field_name']);
+        $this->assertSame('schema', $payload['department_field_schema']);
+        $this->assertSame('scope', $payload['department_field_scope']);
+        $this->assertSame('gates', $payload['department_field_gates']);
+        $this->assertSame('inputs', $payload['department_field_inputs']);
+        $this->assertSame('outputs', $payload['department_field_outputs']);
+        $this->assertSame('maturity_level', $payload['department_field_maturity_level']);
+        $this->assertSame('emits_handoff_to', $payload['department_field_emits_handoff_to']);
+        $this->assertSame('atlas.aaeos.department.v1', $payload['department_schema_version']);
+        $this->assertSame('department_id', $payload['maturity_field_department_id']);
+        $this->assertSame('current_level', $payload['maturity_field_current_level']);
+        $this->assertSame('evidence', $payload['maturity_field_evidence']);
+        $this->assertSame('blocker_id', $payload['maturity_field_blocker_id']);
+        $this->assertSame('blocker_summary', $payload['maturity_field_blocker_summary']);
+        $this->assertSame('blocker_severity', $payload['maturity_field_blocker_severity']);
+        $this->assertSame('atlas.aaeos.department_maturity.v1', $payload['maturity_schema_version']);
+        $this->assertSame('atlas-ai', $payload['maturity_owner']);
+        $this->assertSame(17, $payload['department_contract_maturity_floor_count']);
+    }
+
 }

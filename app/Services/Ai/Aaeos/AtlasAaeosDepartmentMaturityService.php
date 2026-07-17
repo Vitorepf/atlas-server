@@ -16,94 +16,106 @@ final class AtlasAaeosDepartmentMaturityService
 
     public const OWNER = 'atlas-ai';
 
+    public const FIELD_DEPARTMENT_ID = 'department_id';
+
+    public const FIELD_CURRENT_LEVEL = 'current_level';
+
+    public const FIELD_EVIDENCE = 'evidence';
+
+    public const FIELD_BLOCKER_ID = 'blocker_id';
+
+    public const FIELD_BLOCKER_SUMMARY = 'blocker_summary';
+
+    public const FIELD_BLOCKER_SEVERITY = 'blocker_severity';
+
     public const DEPARTMENTS = [
         [
-            'department_id' => 'product',
-            'current_level' => 'L3',
-            'evidence' => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#product'],
-            'blocker_id' => 'product_mobile_surface_l4',
-            'blocker_summary' => 'falta surface mobile completa para L4',
-            'blocker_severity' => 'medium',
+            self::FIELD_DEPARTMENT_ID => 'product',
+            self::FIELD_CURRENT_LEVEL => 'L3',
+            self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#product'],
+            self::FIELD_BLOCKER_ID => 'product_mobile_surface_l4',
+            self::FIELD_BLOCKER_SUMMARY => 'falta surface mobile completa para L4',
+            self::FIELD_BLOCKER_SEVERITY => 'medium',
         ],
         [
-            'department_id' => 'architect',
-            'current_level' => 'L3',
-            'evidence' => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#architect'],
-            'blocker_id' => 'architect_autonomous_agent_l4',
-            'blocker_summary' => 'precisa Architect agent autonomo para L4',
-            'blocker_severity' => 'medium',
+            self::FIELD_DEPARTMENT_ID => 'architect',
+            self::FIELD_CURRENT_LEVEL => 'L3',
+            self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#architect'],
+            self::FIELD_BLOCKER_ID => 'architect_autonomous_agent_l4',
+            self::FIELD_BLOCKER_SUMMARY => 'precisa Architect agent autonomo para L4',
+            self::FIELD_BLOCKER_SEVERITY => 'medium',
         ],
         [
-            'department_id' => 'research',
-            'current_level' => 'L2',
-            'evidence' => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#research'],
-            'blocker_id' => 'research_source_backed_score_l3',
-            'blocker_summary' => 'source-backed score baixo para L3',
-            'blocker_severity' => 'medium',
+            self::FIELD_DEPARTMENT_ID => 'research',
+            self::FIELD_CURRENT_LEVEL => 'L2',
+            self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#research'],
+            self::FIELD_BLOCKER_ID => 'research_source_backed_score_l3',
+            self::FIELD_BLOCKER_SUMMARY => 'source-backed score baixo para L3',
+            self::FIELD_BLOCKER_SEVERITY => 'medium',
         ],
         [
-            'department_id' => 'dev',
-            'current_level' => 'L1',
-            'evidence' => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#dev'],
-            'blocker_id' => 'dev_plan_visible_l2',
-            'blocker_summary' => 'A2 Plan-Visible incompleto, HTTP path legado',
-            'blocker_severity' => 'high',
+            self::FIELD_DEPARTMENT_ID => 'dev',
+            self::FIELD_CURRENT_LEVEL => 'L1',
+            self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#dev'],
+            self::FIELD_BLOCKER_ID => 'dev_plan_visible_l2',
+            self::FIELD_BLOCKER_SUMMARY => 'A2 Plan-Visible incompleto, HTTP path legado',
+            self::FIELD_BLOCKER_SEVERITY => 'high',
         ],
         [
-            'department_id' => 'debug',
-            'current_level' => 'L2',
-            'evidence' => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#debug'],
-            'blocker_id' => 'debug_automated_root_cause_l3',
-            'blocker_summary' => 'falta automated root-cause para L3',
-            'blocker_severity' => 'medium',
+            self::FIELD_DEPARTMENT_ID => 'debug',
+            self::FIELD_CURRENT_LEVEL => 'L2',
+            self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#debug'],
+            self::FIELD_BLOCKER_ID => 'debug_automated_root_cause_l3',
+            self::FIELD_BLOCKER_SUMMARY => 'falta automated root-cause para L3',
+            self::FIELD_BLOCKER_SEVERITY => 'medium',
         ],
         [
-            'department_id' => 'review',
-            'current_level' => 'L2',
-            'evidence' => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#review'],
-            'blocker_id' => 'review_cross_review_r4',
-            'blocker_summary' => 'falta cross-review automatico R4+',
-            'blocker_severity' => 'medium',
+            self::FIELD_DEPARTMENT_ID => 'review',
+            self::FIELD_CURRENT_LEVEL => 'L2',
+            self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#review'],
+            self::FIELD_BLOCKER_ID => 'review_cross_review_r4',
+            self::FIELD_BLOCKER_SUMMARY => 'falta cross-review automatico R4+',
+            self::FIELD_BLOCKER_SEVERITY => 'medium',
         ],
         [
-            'department_id' => 'qa',
-            'current_level' => 'L2',
-            'evidence' => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#qa'],
-            'blocker_id' => 'qa_contract_testing_e2e_l4',
-            'blocker_summary' => 'falta contract testing E2E',
-            'blocker_severity' => 'medium',
+            self::FIELD_DEPARTMENT_ID => 'qa',
+            self::FIELD_CURRENT_LEVEL => 'L2',
+            self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#qa'],
+            self::FIELD_BLOCKER_ID => 'qa_contract_testing_e2e_l4',
+            self::FIELD_BLOCKER_SUMMARY => 'falta contract testing E2E',
+            self::FIELD_BLOCKER_SEVERITY => 'medium',
         ],
         [
-            'department_id' => 'security',
-            'current_level' => 'L3',
-            'evidence' => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#security'],
-            'blocker_id' => 'security_threat_modeling_l4',
-            'blocker_summary' => 'falta threat modeling automatico',
-            'blocker_severity' => 'medium',
+            self::FIELD_DEPARTMENT_ID => 'security',
+            self::FIELD_CURRENT_LEVEL => 'L3',
+            self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#security'],
+            self::FIELD_BLOCKER_ID => 'security_threat_modeling_l4',
+            self::FIELD_BLOCKER_SUMMARY => 'falta threat modeling automatico',
+            self::FIELD_BLOCKER_SEVERITY => 'medium',
         ],
         [
-            'department_id' => 'forge',
-            'current_level' => 'L4',
-            'evidence' => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#forge'],
-            'blocker_id' => 'forge_merge_review_promotion_r5',
-            'blocker_summary' => 'falta merge review promotion R5 governado',
-            'blocker_severity' => 'medium',
+            self::FIELD_DEPARTMENT_ID => 'forge',
+            self::FIELD_CURRENT_LEVEL => 'L4',
+            self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#forge'],
+            self::FIELD_BLOCKER_ID => 'forge_merge_review_promotion_r5',
+            self::FIELD_BLOCKER_SUMMARY => 'falta merge review promotion R5 governado',
+            self::FIELD_BLOCKER_SEVERITY => 'medium',
         ],
         [
-            'department_id' => 'delivery',
-            'current_level' => 'L2',
-            'evidence' => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#delivery'],
-            'blocker_id' => 'delivery_zero_downtime_l3',
-            'blocker_summary' => 'falta zero-downtime gate L3',
-            'blocker_severity' => 'high',
+            self::FIELD_DEPARTMENT_ID => 'delivery',
+            self::FIELD_CURRENT_LEVEL => 'L2',
+            self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#delivery'],
+            self::FIELD_BLOCKER_ID => 'delivery_zero_downtime_l3',
+            self::FIELD_BLOCKER_SUMMARY => 'falta zero-downtime gate L3',
+            self::FIELD_BLOCKER_SEVERITY => 'high',
         ],
         [
-            'department_id' => 'memory',
-            'current_level' => 'L3',
-            'evidence' => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#memory'],
-            'blocker_id' => 'memory_cross_session_handoff_l4',
-            'blocker_summary' => 'falta cross-session handoff pack L4',
-            'blocker_severity' => 'medium',
+            self::FIELD_DEPARTMENT_ID => 'memory',
+            self::FIELD_CURRENT_LEVEL => 'L3',
+            self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#memory'],
+            self::FIELD_BLOCKER_ID => 'memory_cross_session_handoff_l4',
+            self::FIELD_BLOCKER_SUMMARY => 'falta cross-session handoff pack L4',
+            self::FIELD_BLOCKER_SEVERITY => 'medium',
         ],
     ];
 
@@ -119,17 +131,17 @@ final class AtlasAaeosDepartmentMaturityService
     {
         return array_map(
             fn (array $department): array => [
-                'department' => AiValueNormalizer::trimmedStringOrNull($department['department_id']) ?? '',
-                'maturity_tier' => $this->parseLevel($department['current_level']),
+                'department' => AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_DEPARTMENT_ID]) ?? '',
+                'maturity_tier' => $this->parseLevel($department[self::FIELD_CURRENT_LEVEL]),
                 'signals' => $this->buildSignals($department),
                 'schema' => self::SCHEMA_VERSION,
-                'evidence' => $department['evidence'],
+                self::FIELD_EVIDENCE => $department[self::FIELD_EVIDENCE],
                 'blockers_to_next' => [
                     [
-                        'id' => AiValueNormalizer::trimmedStringOrNull($department['blocker_id']) ?? '',
-                        'severity' => AiValueNormalizer::lowerTrimmedString($department['blocker_severity']),
+                        'id' => AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_BLOCKER_ID]) ?? '',
+                        'severity' => AiValueNormalizer::lowerTrimmedString($department[self::FIELD_BLOCKER_SEVERITY]),
                         'owner' => self::OWNER,
-                        'summary' => AiValueNormalizer::trimmedStringOrNull($department['blocker_summary']) ?? '',
+                        'summary' => AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_BLOCKER_SUMMARY]) ?? '',
                     ],
                 ],
                 'last_evaluation' => self::LAST_EVALUATION,
@@ -148,11 +160,11 @@ final class AtlasAaeosDepartmentMaturityService
     private function buildSignals(array $department): array
     {
         return [
-            'current_level' => AiValueNormalizer::trimmedStringOrNull($department['current_level'] ?? null) ?? '',
-            'evidence' => AiValueNormalizer::arrayOrEmpty($department['evidence'] ?? null),
-            'primary_blocker' => AiValueNormalizer::trimmedStringOrNull($department['blocker_id'] ?? null) ?? '',
-            'blocker_summary' => AiValueNormalizer::trimmedStringOrNull($department['blocker_summary'] ?? null) ?? '',
-            'blocker_severity' => AiValueNormalizer::lowerTrimmedString($department['blocker_severity'] ?? ''),
+            self::FIELD_CURRENT_LEVEL => AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_CURRENT_LEVEL] ?? null) ?? '',
+            self::FIELD_EVIDENCE => AiValueNormalizer::arrayOrEmpty($department[self::FIELD_EVIDENCE] ?? null),
+            'primary_blocker' => AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_BLOCKER_ID] ?? null) ?? '',
+            self::FIELD_BLOCKER_SUMMARY => AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_BLOCKER_SUMMARY] ?? null) ?? '',
+            self::FIELD_BLOCKER_SEVERITY => AiValueNormalizer::lowerTrimmedString($department[self::FIELD_BLOCKER_SEVERITY] ?? ''),
         ];
     }
 }

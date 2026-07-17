@@ -5355,6 +5355,37 @@ final class AtlasUniversalGatesEvaluator
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
+
+    /**
+     * Observe-only residual floors for department contract + maturity field contracts.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function departmentContractMaturityFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'department_field_name' => DepartmentContractRuntime::FIELD_NAME,
+            'department_field_schema' => DepartmentContractRuntime::FIELD_SCHEMA,
+            'department_field_scope' => DepartmentContractRuntime::FIELD_SCOPE,
+            'department_field_gates' => DepartmentContractRuntime::FIELD_GATES,
+            'department_field_inputs' => DepartmentContractRuntime::FIELD_INPUTS,
+            'department_field_outputs' => DepartmentContractRuntime::FIELD_OUTPUTS,
+            'department_field_maturity_level' => DepartmentContractRuntime::FIELD_MATURITY_LEVEL,
+            'department_field_emits_handoff_to' => DepartmentContractRuntime::FIELD_EMITS_HANDOFF_TO,
+            'department_schema_version' => DepartmentContractRuntime::SCHEMA_VERSION,
+            'maturity_field_department_id' => AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENT_ID,
+            'maturity_field_current_level' => AtlasAaeosDepartmentMaturityService::FIELD_CURRENT_LEVEL,
+            'maturity_field_evidence' => AtlasAaeosDepartmentMaturityService::FIELD_EVIDENCE,
+            'maturity_field_blocker_id' => AtlasAaeosDepartmentMaturityService::FIELD_BLOCKER_ID,
+            'maturity_field_blocker_summary' => AtlasAaeosDepartmentMaturityService::FIELD_BLOCKER_SUMMARY,
+            'maturity_field_blocker_severity' => AtlasAaeosDepartmentMaturityService::FIELD_BLOCKER_SEVERITY,
+            'maturity_schema_version' => AtlasAaeosDepartmentMaturityService::SCHEMA_VERSION,
+            'maturity_owner' => AtlasAaeosDepartmentMaturityService::OWNER,
+            'department_contract_maturity_floor_count' => 17,
+        ];
+    }
+
     public function promotionLote2MeasureFloorsContractObserve(array $input = []): array
     {
         return [
