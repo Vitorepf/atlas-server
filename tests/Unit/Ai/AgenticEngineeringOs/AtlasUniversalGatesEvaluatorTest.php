@@ -4145,4 +4145,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['immune_ragx_scorecard_floor_count']);
     }
 
+    public function test_http_thesis_lote2_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->httpThesisLote2FloorsContractObserve([]);
+
+        $this->assertSame('intent_id', $payload['http_field_intent_id']);
+        $this->assertSame('reason', $payload['http_field_reason']);
+        $this->assertSame('envelopes', $payload['http_field_envelopes']);
+        $this->assertSame('placement', $payload['http_field_placement']);
+        $this->assertSame('status', $payload['http_field_status']);
+        $this->assertSame('blocked', $payload['http_field_blocked']);
+        $this->assertSame('ref', $payload['thesis_field_ref']);
+        $this->assertSame('thesis_id', $payload['thesis_field_thesis_id']);
+        $this->assertSame('kind', $payload['thesis_field_kind']);
+        $this->assertSame('author_engine_id', $payload['thesis_field_author_engine_id']);
+        $this->assertSame('claim', $payload['thesis_field_claim']);
+        $this->assertSame('atlas.originator.evidence_vision_thesis.v1', $payload['thesis_schema_version']);
+        $this->assertSame('read_only', $payload['lote2_field_read_only']);
+        $this->assertSame('delivery_p50', $payload['lote2_field_delivery_p50']);
+        $this->assertSame('citation_p95', $payload['lote2_field_citation_p95']);
+        $this->assertSame('memory_written', $payload['lote2_field_memory_written']);
+        $this->assertSame('status', $payload['lote2_field_status']);
+        $this->assertSame(17, $payload['http_thesis_lote2_floor_count']);
+    }
+
 }

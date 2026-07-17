@@ -117,6 +117,18 @@ final class AcosMaxLote2MeasureService
     public const FIELD_GENERATED_AT = 'generated_at';
 
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_READ_ONLY = 'read_only';
+    public const FIELD_LESSON_CLASS = 'lesson_class';
+    public const FIELD_CITATION_LATENCIES = 'citation_latencies';
+    public const FIELD_RECORD_USAGE_FOR_PEEK = 'record_usage_for_peek';
+    public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
+    public const FIELD_MEMORY_WRITTEN = 'memory_written';
+    public const FIELD_DELIVERY_P50 = 'delivery_p50';
+    public const FIELD_DELIVERY_P95 = 'delivery_p95';
+    public const FIELD_CITATION_P50 = 'citation_p50';
+    public const FIELD_CITATION_P95 = 'citation_p95';
+    public const FIELD_DELIVERY_LATENCIES = 'delivery_latencies';
+    public const FIELD_MEMORY_TYPES = 'memory_types';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -275,9 +287,9 @@ final class AcosMaxLote2MeasureService
             ],
             'valid_loop_definition' => $this->multx01ValidLoopDefinition(),
             'claim_policy' => [
-                'read_only' => true,
-                'provider_calls_made' => false,
-                'memory_written' => false,
+                self::FIELD_READ_ONLY => true,
+                self::FIELD_PROVIDER_CALLS_MADE => false,
+                self::FIELD_MEMORY_WRITTEN => false,
                 'synthetic_fixture_claim_allowed' => false,
                 'completion_claim_allowed_without_proven_real' => false,
             ],
@@ -510,10 +522,10 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_NEVER_DELIVERED => 0,
                 self::FIELD_NEVER_CITED => 0,
                 'latency_seconds' => [
-                    'delivery_p50' => null,
-                    'delivery_p95' => null,
-                    'citation_p50' => null,
-                    'citation_p95' => null,
+                    self::FIELD_DELIVERY_P50 => null,
+                    self::FIELD_DELIVERY_P95 => null,
+                    self::FIELD_CITATION_P50 => null,
+                    self::FIELD_CITATION_P95 => null,
                 ],
                 'missing_tables' => $missingTables,
             ]);
@@ -573,33 +585,33 @@ final class AcosMaxLote2MeasureService
             }
 
             $byClass[$lessonClass] ??= [
-                'lesson_class' => $lessonClass,
+                self::FIELD_LESSON_CLASS => $lessonClass,
                 'n' => 0,
                 self::FIELD_DELIVERED => 0,
                 self::FIELD_CITED => 0,
                 self::FIELD_NEVER_DELIVERED => 0,
                 self::FIELD_NEVER_CITED => 0,
-                'delivery_latencies' => [],
-                'citation_latencies' => [],
+                self::FIELD_DELIVERY_LATENCIES => [],
+                self::FIELD_CITATION_LATENCIES => [],
             ];
             $byClass[$lessonClass]['n']++;
             if ($deliverySeconds === null) {
                 $byClass[$lessonClass][self::FIELD_NEVER_DELIVERED]++;
             } else {
                 $byClass[$lessonClass][self::FIELD_DELIVERED]++;
-                $byClass[$lessonClass]['delivery_latencies'][] = $deliverySeconds;
+                $byClass[$lessonClass][self::FIELD_DELIVERY_LATENCIES][] = $deliverySeconds;
             }
             if ($citationSeconds === null) {
                 $byClass[$lessonClass][self::FIELD_NEVER_CITED]++;
             } else {
                 $byClass[$lessonClass][self::FIELD_CITED]++;
-                $byClass[$lessonClass]['citation_latencies'][] = $citationSeconds;
+                $byClass[$lessonClass][self::FIELD_CITATION_LATENCIES][] = $citationSeconds;
             }
 
             $rows[] = [
                 'candidate_id' => $candidateId,
                 'outcome_id' => AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? '',
-                'lesson_class' => $lessonClass,
+                self::FIELD_LESSON_CLASS => $lessonClass,
                 self::FIELD_DELIVERED => $deliverySeconds !== null,
                 self::FIELD_CITED => $citationSeconds !== null,
                 'delivery_latency_seconds' => $deliverySeconds,
@@ -625,16 +637,16 @@ final class AcosMaxLote2MeasureService
             self::FIELD_NEVER_DELIVERED => $neverDelivered,
             self::FIELD_NEVER_CITED => $neverCited,
             'latency_seconds' => [
-                'delivery_p50' => $this->percentileInt($deliveryLatencies, 0.50),
-                'delivery_p95' => $this->percentileInt($deliveryLatencies, 0.95),
-                'citation_p50' => $this->percentileInt($citationLatencies, 0.50),
-                'citation_p95' => $this->percentileInt($citationLatencies, 0.95),
+                self::FIELD_DELIVERY_P50 => $this->percentileInt($deliveryLatencies, 0.50),
+                self::FIELD_DELIVERY_P95 => $this->percentileInt($deliveryLatencies, 0.95),
+                self::FIELD_CITATION_P50 => $this->percentileInt($citationLatencies, 0.50),
+                self::FIELD_CITATION_P95 => $this->percentileInt($citationLatencies, 0.95),
             ],
             self::FIELD_ROWS => $rows,
             'claim_policy' => [
-                'read_only' => true,
-                'provider_calls_made' => false,
-                'memory_written' => false,
+                self::FIELD_READ_ONLY => true,
+                self::FIELD_PROVIDER_CALLS_MADE => false,
+                self::FIELD_MEMORY_WRITTEN => false,
                 'never_delivered_in_denominator' => true,
             ],
         ];
@@ -656,17 +668,17 @@ final class AcosMaxLote2MeasureService
 
         return array_values(array_map(function (array $row): array {
             return [
-                'lesson_class' => AiValueNormalizer::trimmedScalarStringOrNull($row['lesson_class'] ?? null) ?? '',
+                self::FIELD_LESSON_CLASS => AiValueNormalizer::trimmedScalarStringOrNull($row[self::FIELD_LESSON_CLASS] ?? null) ?? '',
                 'n' => (int) (AiValueNormalizer::finiteFloatOrNull($row['n'] ?? null) ?? 0),
                 self::FIELD_DELIVERED => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_DELIVERED] ?? null) ?? 0),
                 self::FIELD_CITED => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_CITED] ?? null) ?? 0),
                 self::FIELD_NEVER_DELIVERED => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_NEVER_DELIVERED] ?? null) ?? 0),
                 self::FIELD_NEVER_CITED => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_NEVER_CITED] ?? null) ?? 0),
                 'latency_seconds' => [
-                    'delivery_p50' => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row['delivery_latencies'] ?? null), 0.50),
-                    'delivery_p95' => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row['delivery_latencies'] ?? null), 0.95),
-                    'citation_p50' => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row['citation_latencies'] ?? null), 0.50),
-                    'citation_p95' => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row['citation_latencies'] ?? null), 0.95),
+                    self::FIELD_DELIVERY_P50 => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row[self::FIELD_DELIVERY_LATENCIES] ?? null), 0.50),
+                    self::FIELD_DELIVERY_P95 => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row[self::FIELD_DELIVERY_LATENCIES] ?? null), 0.95),
+                    self::FIELD_CITATION_P50 => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row[self::FIELD_CITATION_LATENCIES] ?? null), 0.50),
+                    self::FIELD_CITATION_P95 => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row[self::FIELD_CITATION_LATENCIES] ?? null), 0.95),
                 ],
             ];
         }, $byClass));
@@ -679,7 +691,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_MEASURE_ID => self::MULTJ01_MEASURE_ID,
             self::FIELD_DENOMINATOR_MIN => 8,
             'bucket_width_weeks' => 2,
-            'memory_types' => [],
+            self::FIELD_MEMORY_TYPES => [],
             'buckets' => [],
         ]);
     }
@@ -711,9 +723,9 @@ final class AcosMaxLote2MeasureService
                 'rate' => $sampleRate,
                 self::FIELD_N_PAIRS => 0,
                 'paired_delta' => null,
-                'memory_types' => [],
+                self::FIELD_MEMORY_TYPES => [],
                 'peek_policy' => [
-                    'record_usage_for_peek' => false,
+                    self::FIELD_RECORD_USAGE_FOR_PEEK => false,
                     'usage_rows_recorded' => 0,
                 ],
                 'invalid_pairs' => [
@@ -824,9 +836,9 @@ final class AcosMaxLote2MeasureService
             'rate' => $sampleRate,
             self::FIELD_N_PAIRS => count($validDeltas),
             'paired_delta' => $measuredPairs > 0 ? round($measuredDeltaSum / $measuredPairs, 4) : null,
-            'memory_types' => $memoryTypes,
+            self::FIELD_MEMORY_TYPES => $memoryTypes,
             'peek_policy' => [
-                'record_usage_for_peek' => false,
+                self::FIELD_RECORD_USAGE_FOR_PEEK => false,
                 'usage_rows_recorded' => $invalidPolicyRows,
             ],
             'invalid_pairs' => [
@@ -835,11 +847,11 @@ final class AcosMaxLote2MeasureService
                 'positive_lift_fabricated' => $positiveLiftFabricated,
             ],
             'claim_policy' => [
-                'read_only' => true,
-                'provider_calls_made' => false,
-                'memory_written' => false,
+                self::FIELD_READ_ONLY => true,
+                self::FIELD_PROVIDER_CALLS_MADE => false,
+                self::FIELD_MEMORY_WRITTEN => false,
                 'retrieval_policy_changed' => false,
-                'record_usage_for_peek' => false,
+                self::FIELD_RECORD_USAGE_FOR_PEEK => false,
                 'synthetic_fixture_claim_allowed' => false,
                 'completion_claim_allowed' => false,
             ],
@@ -983,10 +995,10 @@ final class AcosMaxLote2MeasureService
             'MULTN17-04' => self::payload(self::MULTN1704_MEASURE_ID, 'multn17.predicted_impact_calibration.v1', 'Derived predicted_impact band versus realized proven_real outcome curve for origination; report-only until at least 20 real originations resolve.', 20, 30, 'cursor-acos-max-multn17-04', 'codex-independent-multn17-04-judge', ['denominator_min_originations' => 20, 'max_abs_declared_realized_deviation' => 1]),
             'MULTX-01' => self::payload(self::MULTX01_MEASURE_ID, 'multx.flywheel_loop_definition.v1', 'A valid loop chains task, decision receipt, delivered context, execution outcome, lesson, and subsequent measured recall; proven_real outcome is mandatory.', 1, 30, 'cursor-acos-max-multx01', 'codex-independent-multx01-judge', ['requires_proven_real_outcome' => true]),
             'MULTX-06' => self::payload(self::MULTX06_MEASURE_ID, 'multx.learning_latency.v1', 'Measure p50/p95 latency from outcome-created lesson to first delivered context and first measured citation; never_delivered remains in denominator.', 8, 30, 'cursor-acos-max-multx06', 'codex-independent-multx06-judge', ['denominator_min_promoted_lessons' => 8]),
-            'MULTX-09' => self::payload(self::MULTX09_MEASURE_ID, 'multx.windows_orchestrator.v1', 'Read-only PromotionProtocol window DAG: started windows publish days_remaining and critical path; not-started windows never receive fabricated ETA; associated series silence beyond the watchdog floor emits dead_window.', 1, 30, 'cursor-acos-max-multx09', 'codex-independent-multx09-judge', ['dead_window_silent_days' => 3, 'not_started_eta_allowed' => false, 'read_only' => true]),
+            'MULTX-09' => self::payload(self::MULTX09_MEASURE_ID, 'multx.windows_orchestrator.v1', 'Read-only PromotionProtocol window DAG: started windows publish days_remaining and critical path; not-started windows never receive fabricated ETA; associated series silence beyond the watchdog floor emits dead_window.', 1, 30, 'cursor-acos-max-multx09', 'codex-independent-multx09-judge', ['dead_window_silent_days' => 3, 'not_started_eta_allowed' => false, self::FIELD_READ_ONLY => true]),
             'MULTJ-01' => self::payload(self::MULTJ01_MEASURE_ID, 'multj.lesson_half_life.v2', 'Bucket lesson lift by age since promotion using two-week buckets; buckets below n=8 publish insufficient instead of null.', 8, 30, 'cursor-acos-max-multj01', 'codex-independent-multj01-judge', ['bucket_width_weeks' => 2, 'denominator_min_per_bucket' => 8]),
             'MULTJ-02' => self::payload(self::MULTJ02_MEASURE_ID, 'multj.semantic_dedup_freeze.v1', 'Semantic lesson dedup threshold freeze for observe-mode would-merge receipts; enforcement requires later calibrated promotion.', 1, 30, 'cursor-acos-max-multj02', 'codex-independent-multj02-judge', ['cosine_merge_threshold' => 0.88, 'observe_mode_actual_merges' => 0]),
-            'MULTJ-03' => self::payload(self::MULTJ03_MEASURE_ID, 'multj.counterfactual_lift.v2', 'Paired peek evaluation of the same task with and without injected lesson; n_pairs below 8 publishes insufficient_signal and peek must not record usage.', 8, 30, 'cursor-acos-max-multj03', 'codex-independent-multj03-judge', ['sample_rate' => 0.05, 'denominator_min_pairs' => 8, 'record_usage_for_peek' => false]),
+            'MULTJ-03' => self::payload(self::MULTJ03_MEASURE_ID, 'multj.counterfactual_lift.v2', 'Paired peek evaluation of the same task with and without injected lesson; n_pairs below 8 publishes insufficient_signal and peek must not record usage.', 8, 30, 'cursor-acos-max-multj03', 'codex-independent-multj03-judge', ['sample_rate' => 0.05, 'denominator_min_pairs' => 8, self::FIELD_RECORD_USAGE_FOR_PEEK => false]),
             'MULTJ-04' => self::payload(self::MULTJ04_MEASURE_ID, 'multj.procedural_skill_promoter.v1', 'Procedural playbooks can propose skill.v1 candidates only after the real procedural case_count floor; output is default-OFF and ASI-02 holds promotion_allowed=false until gates pass.', AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR, 30, 'cursor-acos-max-multj04', 'codex-independent-multj04-judge', ['procedural_case_count_floor' => AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR, 'default_off' => true, 'admission_door' => 'ASI-02']),
             'MULTJ-06' => self::payload(self::MULTJ06_MEASURE_ID, 'multj.abstraction_ladder.v1', 'Distinct-signature patterns sharing primary_cause aggregate to level-3 principles when distinct_signature_k is met; derived_from refs must resolve or gate rejects.', 3, 30, 'cursor-acos-max-multj06', 'codex-independent-multj06-judge', ['distinct_signature_k' => 3, 'pattern_floor' => 1]),
             'TETO-02' => self::payload(self::TETO02_MEASURE_ID, 'mission_e2e_rate.v1', 'Operator natural-language request to completed result rate, asks per request, and request-to-delivery latency; abandoned missions stay in the denominator.', 20, 30, 'cursor-acos-max-teto02', 'codex-independent-teto02-judge', ['target_mission_e2e_rate' => 0.70, 'denominator_min_operator_requests' => 20]),

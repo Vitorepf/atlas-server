@@ -53,6 +53,15 @@ final class AtlasAaeosHttpPathFacadeService
     public const RESULT_UNKNOWN = 'unknown';
 
     public const FIELD_BLOCKED = 'blocked';
+    public const FIELD_INTENT_ID = 'intent_id';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_ENVELOPES = 'envelopes';
+    public const FIELD_PLACEMENT = 'placement';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_DATA = 'data';
+    public const FIELD_BLOCKER = 'blocker';
+    public const FIELD_TELEMETRY = 'telemetry';
+    public const FIELD_GATE_STATUS = 'gate_status';
 
     public const BLOCK_PLACEMENT_GATE_BLOCKED = 'placement_gate_blocked';
 
@@ -126,12 +135,12 @@ final class AtlasAaeosHttpPathFacadeService
             $this->incrementCounter(self::TELEMETRY_KEY_LEGACY_FALLBACK);
 
             return [
-                'status' => self::RESULT_OK,
-                'intent_id' => $this->newIntentId($data),
-                'data' => $data,
-                'envelopes' => [],
-                'blocker' => null,
-                'telemetry' => $this->telemetry('legacy', $this->elapsedMs($startedAtNs), false),
+                self::FIELD_STATUS => self::RESULT_OK,
+                self::FIELD_INTENT_ID => $this->newIntentId($data),
+                self::FIELD_DATA => $data,
+                self::FIELD_ENVELOPES => [],
+                self::FIELD_BLOCKER => null,
+                self::FIELD_TELEMETRY => $this->telemetry('legacy', $this->elapsedMs($startedAtNs), false),
             ];
         }
 
@@ -160,7 +169,7 @@ final class AtlasAaeosHttpPathFacadeService
 
         // ---- P2 placement (MANDATORY at Phase 1) --------------------------
         [$placementResult, $cacheHit] = $this->placeOrCache($intentText, $intentHash, $data);
-        $placementOk = ($placementResult['gate_status'] ?? self::RESULT_UNKNOWN) !== self::RESULT_BLOCKED;
+        $placementOk = ($placementResult[self::FIELD_GATE_STATUS] ?? self::RESULT_UNKNOWN) !== self::RESULT_BLOCKED;
 
         $envelopes[] = $factory->placement($intentId, $intentHash, $placementResult, $placementOk);
 
@@ -195,8 +204,8 @@ final class AtlasAaeosHttpPathFacadeService
                     static fn (array $b): string => AiValueNormalizer::trimmedStringOrNull($b['id'] ?? null) ?? '',
                     AiValueNormalizer::arrayOrEmpty($policyEnv['blockers'] ?? null),
                 ));
-                if ($blockedWhen === [] && ($advance['reason'] ?? '') !== '') {
-                    $blockedWhen = [AiValueNormalizer::trimmedStringOrNull($advance['reason'] ?? null) ?? ''];
+                if ($blockedWhen === [] && ($advance[self::FIELD_REASON] ?? '') !== '') {
+                    $blockedWhen = [AiValueNormalizer::trimmedStringOrNull($advance[self::FIELD_REASON] ?? null) ?? ''];
                 }
 
                 return $this->blockedResult(
@@ -206,7 +215,7 @@ final class AtlasAaeosHttpPathFacadeService
                     placementResult: $placementResult,
                     blockerCode: self::BLOCK_POLICY_GATE_BLOCKED,
                     reason: 'Atlas policy gate blocked this intent before provider execution'
-                        .(($advance['reason'] ?? '') !== '' ? ' ('.$advance['reason'].').' : '.'),
+                        .(($advance[self::FIELD_REASON] ?? '') !== '' ? ' ('.$advance[self::FIELD_REASON].').' : '.'),
                     blockedWhen: $blockedWhen,
                     configuredPhase: $configuredPhase,
                     startedAtNs: $startedAtNs,
@@ -237,7 +246,7 @@ final class AtlasAaeosHttpPathFacadeService
         if ($this->deferredDispatcher !== null) {
             $this->deferredDispatcher->enqueueFromFacadeResult(
                 envelopes: array_map(
-                    static fn (array $e) => array_merge($e, ['intent_id' => $envelopes[0]['intent_id'] ?? '']),
+                    static fn (array $e) => array_merge($e, [self::FIELD_INTENT_ID => $envelopes[0][self::FIELD_INTENT_ID] ?? '']),
                     $envelopes,
                 ),
             );
@@ -248,12 +257,12 @@ final class AtlasAaeosHttpPathFacadeService
         $this->recordLatency($elapsed);
 
         return [
-            'status' => self::RESULT_OK,
-            'intent_id' => $intentId,
-            'data' => $this->mergeFacadeMetadata($data, $intentId, $envelopes, $placementResult),
-            'envelopes' => $envelopes,
-            'blocker' => null,
-            'telemetry' => $this->telemetry($configuredPhase, $elapsed, $cacheHit),
+            self::FIELD_STATUS => self::RESULT_OK,
+            self::FIELD_INTENT_ID => $intentId,
+            self::FIELD_DATA => $this->mergeFacadeMetadata($data, $intentId, $envelopes, $placementResult),
+            self::FIELD_ENVELOPES => $envelopes,
+            self::FIELD_BLOCKER => null,
+            self::FIELD_TELEMETRY => $this->telemetry($configuredPhase, $elapsed, $cacheHit),
         ];
     }
 
@@ -368,20 +377,20 @@ final class AtlasAaeosHttpPathFacadeService
         $payload = self::requestPayload($data);
         $payload['aaeos_http_path'] = [
             'schema' => self::REQUEST_SCHEMA,
-            'intent_id' => $intentId,
+            self::FIELD_INTENT_ID => $intentId,
             'phases_executed' => array_values(array_map(
                 static fn (array $env): string => AiValueNormalizer::trimmedStringOrNull($env['phase_out'] ?? null) ?? self::RESULT_UNKNOWN,
                 $envelopes,
             )),
             'phases_executed_count' => count($envelopes),
             'placement_decision' => [
-                'gate_status' => AiValueNormalizer::trimmedStringOrNull($placementResult['gate_status'] ?? null) ?? self::RESULT_UNKNOWN,
-                'layer' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['layer'] ?? null) ?? self::RESULT_UNKNOWN,
-                'domain' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['domain'] ?? null) ?? self::RESULT_UNKNOWN,
-                'flow' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['flow'] ?? null) ?? self::RESULT_UNKNOWN,
-                'requires_ap' => (AiValueNormalizer::boolOrNull($placementResult['placement']['requires_ap'] ?? null) ?? false),
+                self::FIELD_GATE_STATUS => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_GATE_STATUS] ?? null) ?? self::RESULT_UNKNOWN,
+                'layer' => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT]['layer'] ?? null) ?? self::RESULT_UNKNOWN,
+                'domain' => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT]['domain'] ?? null) ?? self::RESULT_UNKNOWN,
+                'flow' => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT]['flow'] ?? null) ?? self::RESULT_UNKNOWN,
+                'requires_ap' => (AiValueNormalizer::boolOrNull($placementResult[self::FIELD_PLACEMENT]['requires_ap'] ?? null) ?? false),
             ],
-            'envelopes' => $envelopes,
+            self::FIELD_ENVELOPES => $envelopes,
         ];
         $data['payload'] = $payload;
 
@@ -408,17 +417,17 @@ final class AtlasAaeosHttpPathFacadeService
         bool $placementCacheHit,
     ): array {
         return [
-            'status' => self::RESULT_BLOCKED,
-            'intent_id' => $intentId,
-            'data' => $this->mergeFacadeMetadata($data, $intentId, $envelopes, $placementResult),
-            'envelopes' => $envelopes,
-            'blocker' => [
+            self::FIELD_STATUS => self::RESULT_BLOCKED,
+            self::FIELD_INTENT_ID => $intentId,
+            self::FIELD_DATA => $this->mergeFacadeMetadata($data, $intentId, $envelopes, $placementResult),
+            self::FIELD_ENVELOPES => $envelopes,
+            self::FIELD_BLOCKER => [
                 'code' => $blockerCode,
-                'reason' => $reason,
+                self::FIELD_REASON => $reason,
                 'blocked_when' => array_values($blockedWhen),
                 'http_status' => 422,
             ],
-            'telemetry' => $this->telemetry($configuredPhase, $this->elapsedMs($startedAtNs), $placementCacheHit),
+            self::FIELD_TELEMETRY => $this->telemetry($configuredPhase, $this->elapsedMs($startedAtNs), $placementCacheHit),
         ];
     }
 
