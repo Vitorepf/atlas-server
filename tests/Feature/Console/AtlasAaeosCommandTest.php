@@ -1202,6 +1202,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_aaeos_phase_router(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-apr-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(['phase' => '3']));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-apr',
+                '--aaeos-phase-router' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"aaeos_phase_router"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

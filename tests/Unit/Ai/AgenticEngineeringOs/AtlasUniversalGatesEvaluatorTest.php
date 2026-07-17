@@ -38,6 +38,7 @@ use App\Services\Ai\AcosMax\AcosMeasureSeriesFreshnessReader;
 use App\Services\Ai\AcosMax\AcosMaxVerifiedShareService;
 use App\Services\Ai\AcosMax\RagxChainMechanismService;
 use App\Services\Ai\AcosMax\AcosMaxProceduralSkillPromoterService;
+use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -927,5 +928,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('MULTJ-04', $payload['slice']);
         $this->assertArrayHasKey('status', $payload);
         $this->assertFalse($payload['promotion_allowed']);
+    }
+
+    public function test_aaeos_phase_router_observe_reports_snapshot(): void
+    {
+        $payload = $this->svc->aaeosPhaseRouterObserve(['phase' => ' 2 ']);
+
+        $this->assertSame(AtlasAaeosPhaseRouterService::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('2', $payload['configured_phase']);
+        $this->assertTrue($payload['is_valid']);
+        $this->assertTrue($payload['is_active']);
+        $this->assertTrue($payload['phase_capabilities']['classification']);
     }
 }

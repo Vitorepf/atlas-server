@@ -93,6 +93,7 @@ final class AtlasAaeosCommand extends Command
         {--verified-share= : JSON file with optional days (observe-only ELEV-12)}
         {--ragx-chain= : JSON file with optional deps (observe-only RAGX stages)}
         {--procedural-skill-promoter= : JSON file with optional floor/enqueue (observe-only MULTJ-04)}
+        {--aaeos-phase-router= : JSON file with optional phase override (observe-only HTTP path phase)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -342,6 +343,7 @@ final class AtlasAaeosCommand extends Command
             ['verified-share', 'verified_share', fn (array $p) => $gates->verifiedShareObserve($p)],
             ['ragx-chain', 'ragx_chain', fn (array $p) => $gates->ragxChainObserve($p)],
             ['procedural-skill-promoter', 'procedural_skill_promoter', fn (array $p) => $gates->proceduralSkillPromoterObserve($p)],
+            ['aaeos-phase-router', 'aaeos_phase_router', fn (array $p) => $gates->aaeosPhaseRouterObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

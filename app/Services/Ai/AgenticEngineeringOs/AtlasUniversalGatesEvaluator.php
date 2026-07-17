@@ -40,6 +40,7 @@ use App\Services\Ai\AcosMax\AcosMeasureSeriesFreshnessReader;
 use App\Services\Ai\AcosMax\AcosMaxVerifiedShareService;
 use App\Services\Ai\AcosMax\RagxChainMechanismService;
 use App\Services\Ai\AcosMax\AcosMaxProceduralSkillPromoterService;
+use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
 
@@ -1104,6 +1105,20 @@ final class AtlasUniversalGatesEvaluator
         $enqueue = (bool) ($input['enqueue'] ?? false);
 
         return (new AcosMaxProceduralSkillPromoterService)->report($floor, $enqueue);
+    }
+
+    /**
+     * Observe-only AAEOS HTTP path phase-router snapshot.
+     * Accepts optional `{phase?:string}` override. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function aaeosPhaseRouterObserve(array $input = []): array
+    {
+        $phase = AiValueNormalizer::trimmedStringOrNull($input['phase'] ?? null);
+
+        return (new AtlasAaeosPhaseRouterService($phase))->statusSnapshot();
     }
 
     /**

@@ -47,24 +47,26 @@ final class AtlasAaeosPhaseRouterService
 
     public function __construct(?string $configuredPhase = null)
     {
-        $this->configuredPhase = $configuredPhase
-            ?? (AiValueNormalizer::trimmedString(config('atlas.aaeos.http_path_phase', self::PHASE_LEGACY)) ?: self::PHASE_LEGACY);
+        $resolved = $configuredPhase !== null
+            ? AiValueNormalizer::trimmedString($configuredPhase)
+            : AiValueNormalizer::trimmedString(config('atlas.aaeos.http_path_phase', self::PHASE_LEGACY));
+        $this->configuredPhase = $resolved !== '' ? $resolved : self::PHASE_LEGACY;
     }
 
     public static function isValidPhase(string $phase): bool
     {
-        return in_array($phase, self::VALID_PHASES, true);
+        return in_array(AiValueNormalizer::trimmedString($phase), self::VALID_PHASES, true);
     }
 
     public static function isActivePhase(string $phase): bool
     {
-        return array_key_exists($phase, self::ACTIVE_PHASE_RANKS);
+        return array_key_exists(AiValueNormalizer::trimmedString($phase), self::ACTIVE_PHASE_RANKS);
     }
 
     public static function phaseAtLeast(string $configuredPhase, string $threshold): bool
     {
-        $configuredRank = self::ACTIVE_PHASE_RANKS[$configuredPhase] ?? null;
-        $thresholdRank = self::ACTIVE_PHASE_RANKS[$threshold] ?? null;
+        $configuredRank = self::ACTIVE_PHASE_RANKS[AiValueNormalizer::trimmedString($configuredPhase)] ?? null;
+        $thresholdRank = self::ACTIVE_PHASE_RANKS[AiValueNormalizer::trimmedString($threshold)] ?? null;
 
         return $configuredRank !== null
             && $thresholdRank !== null
