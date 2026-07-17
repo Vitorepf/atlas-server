@@ -32,6 +32,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
+use App\Services\Ai\AcosMax\Teto10PredictedRevertReviewDigest;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -931,6 +932,27 @@ final class AtlasUniversalGatesEvaluator
     public function codeSymbolEmbeddingCoverageObserve(array $input = []): array
     {
         return (new AtlasCodeSymbolEmbeddingCoverageService)->report();
+    }
+
+    /**
+     * Observe-only TETO-10 predicted-revert review digest.
+     * Accepts an items list or `{items:[...], limit?:int}`. Catalogue stays 15.
+     *
+     * @param  array<mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function predictedRevertDigestObserve(array $input): array
+    {
+        if (array_is_list($input)) {
+            /** @var list<array<string,mixed>> $input */
+            return Teto10PredictedRevertReviewDigest::compose($input);
+        }
+
+        $items = AiValueNormalizer::arrayOrEmpty($input['items'] ?? null);
+        $limit = max(1, (int) ($input['limit'] ?? 50));
+
+        /** @var list<array<string,mixed>> $items */
+        return Teto10PredictedRevertReviewDigest::compose($items, $limit);
     }
 
     /**

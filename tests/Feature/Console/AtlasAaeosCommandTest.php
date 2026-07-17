@@ -1007,6 +1007,33 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_predicted_revert_digest(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-prd-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'items' => [
+                [
+                    'id' => 'r1',
+                    'title' => 'Review me',
+                    'predicted_revert_band' => 'high',
+                ],
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-prd',
+                '--predicted-revert-digest' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"predicted_revert_digest"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

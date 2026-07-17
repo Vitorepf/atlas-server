@@ -32,6 +32,7 @@ use App\Services\Ai\AcosMax\RecallGapAggregator;
 use App\Services\Ai\AcosMax\BeliefCascadeReverificationPlanner;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
+use App\Services\Ai\AcosMax\Teto10PredictedRevertReviewDigest;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -778,5 +779,26 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::MEASURE_ID, $payload['measure_id']);
         $this->assertArrayHasKey('status', $payload);
         $this->assertArrayHasKey('aggregate', $payload);
+    }
+
+    public function test_predicted_revert_digest_observe_composes_items(): void
+    {
+        $payload = $this->svc->predictedRevertDigestObserve([
+            'items' => [
+                [
+                    'id' => 'r1',
+                    'title' => 'Review me',
+                    'predicted_revert_band' => 'high',
+                    'decision_id' => 'd1',
+                    'family' => 'acos',
+                ],
+            ],
+            'limit' => 10,
+        ]);
+
+        $this->assertSame(Teto10PredictedRevertReviewDigest::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame(1, $payload['item_count']);
+        $this->assertSame(1, $payload['band_counts']['high']);
     }
 }

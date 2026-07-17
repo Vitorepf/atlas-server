@@ -40,7 +40,7 @@ final class Teto10PredictedRevertReviewDigest
         $groups = self::groups($shown);
         $bandCounts = ['high' => 0, 'sweet' => 0, 'low' => 0, 'unknown' => 0];
         foreach ($normalised as $item) {
-            $bandCounts[(string) $item['predicted_revert_band']]++;
+            $bandCounts[self::band($item['predicted_revert_band'])]++;
         }
 
         return [
@@ -74,9 +74,9 @@ final class Teto10PredictedRevertReviewDigest
         $lines = [
             '# ACOS TETO-10 predicted-revert review digest',
             '',
-            '- schema: '.self::inline((string) ($digest['schema_version'] ?? self::SCHEMA_VERSION)),
-            '- status: '.self::plain((string) ($digest['status'] ?? 'unknown')),
-            '- items: '.(string) ($digest['shown_item_count'] ?? 0).'/'.(string) ($digest['item_count'] ?? 0),
+            '- schema: '.self::inline(self::string($digest['schema_version'] ?? self::SCHEMA_VERSION) ?: self::SCHEMA_VERSION),
+            '- status: '.self::plain(self::string($digest['status'] ?? 'unknown') ?: 'unknown'),
+            '- items: '.self::string($digest['shown_item_count'] ?? 0).'/'.self::string($digest['item_count'] ?? 0),
             '- order: high -> sweet -> low -> unknown',
             '- surface: markdown/CLI only',
             '',
@@ -87,16 +87,16 @@ final class Teto10PredictedRevertReviewDigest
             if (! is_array($group)) {
                 continue;
             }
-            $band = (string) ($group['highest_predicted_revert_band'] ?? 'unknown');
+            $band = self::band($group['highest_predicted_revert_band'] ?? 'unknown');
             if ($band !== $currentBand) {
                 $lines[] = '## Predicted revert: '.$band;
                 $lines[] = '';
                 $currentBand = $band;
             }
 
-            $lines[] = '### '.self::plain((string) ($group['group_key'] ?? 'family:unknown'));
-            $decisionId = (string) ($group['decision_id'] ?? '');
-            $family = (string) ($group['family'] ?? '');
+            $lines[] = '### '.self::plain(self::string($group['group_key'] ?? 'family:unknown') ?: 'family:unknown');
+            $decisionId = self::string($group['decision_id'] ?? '');
+            $family = self::string($group['family'] ?? '');
             if ($decisionId !== '' || $family !== '') {
                 $lines[] = '- lineage: decision_id='.($decisionId !== '' ? self::plain($decisionId) : 'none')
                     .' family='.($family !== '' ? self::plain($family) : 'unknown');
@@ -106,12 +106,12 @@ final class Teto10PredictedRevertReviewDigest
                 if (! is_array($item)) {
                     continue;
                 }
-                $lines[] = '- '.self::plain((string) ($item['id'] ?? 'item')).': '.self::plain((string) ($item['title'] ?? 'untitled'));
-                $lines[] = '  - band: '.self::plain((string) ($item['predicted_revert_band'] ?? 'unknown'));
-                $lines[] = '  - evidence: '.self::plain(implode(', ', array_map('strval', (array) ($item['evidence_refs'] ?? []))));
-                $lines[] = '  - diff-ref: '.self::plain((string) ($item['diff_ref'] ?? 'manual_review'));
-                $lines[] = '  - reverse: '.self::inline((string) ($item['reverse_command'] ?? 'manual_review'));
-                $lines[] = '  - review-mode: '.self::plain((string) ($item['review_mode'] ?? 'manual_review'));
+                $lines[] = '- '.self::plain(self::string($item['id'] ?? 'item') ?: 'item').': '.self::plain(self::string($item['title'] ?? 'untitled') ?: 'untitled');
+                $lines[] = '  - band: '.self::plain(self::band($item['predicted_revert_band'] ?? 'unknown'));
+                $lines[] = '  - evidence: '.self::plain(implode(', ', array_map(self::string(...), (array) ($item['evidence_refs'] ?? []))));
+                $lines[] = '  - diff-ref: '.self::plain(self::string($item['diff_ref'] ?? 'manual_review') ?: 'manual_review');
+                $lines[] = '  - reverse: '.self::inline(self::string($item['reverse_command'] ?? 'manual_review') ?: 'manual_review');
+                $lines[] = '  - review-mode: '.self::plain(self::string($item['review_mode'] ?? 'manual_review') ?: 'manual_review');
             }
             $lines[] = '';
         }
@@ -243,9 +243,9 @@ final class Teto10PredictedRevertReviewDigest
             if (! is_array($item)) {
                 continue;
             }
-            $ref = (string) ($item['flip_ref'] ?? $item['ask_ref'] ?? 'unlabelled');
-            $lines[] = '- '.self::plain((string) ($item['id'] ?? 'item')).' '.self::inline($ref)
-                .' reverse: '.self::inline((string) ($item['reverse_command'] ?? 'manual_review'));
+            $ref = self::string($item['flip_ref'] ?? $item['ask_ref'] ?? 'unlabelled') ?: 'unlabelled';
+            $lines[] = '- '.self::plain(self::string($item['id'] ?? 'item') ?: 'item').' '.self::inline($ref)
+                .' reverse: '.self::inline(self::string($item['reverse_command'] ?? 'manual_review') ?: 'manual_review');
         }
         $lines[] = '';
 

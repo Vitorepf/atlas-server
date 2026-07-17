@@ -85,6 +85,7 @@ final class AtlasAaeosCommand extends Command
         {--threshold-ladder= : JSON file with level band ladder (observe-only normalize)}
         {--kb-embedding-coverage= : JSON file (any object) to observe KB embedding coverage ruler}
         {--code-symbol-embedding-coverage= : JSON file (any object) to observe code-symbol coverage}
+        {--predicted-revert-digest= : JSON file with review-debt items (observe-only TETO-10 digest)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -326,6 +327,7 @@ final class AtlasAaeosCommand extends Command
             ['threshold-ladder', 'threshold_ladder', fn (array $p) => $gates->thresholdLadderObserve($p)],
             ['kb-embedding-coverage', 'kb_embedding_coverage', fn (array $p) => $gates->kbEmbeddingCoverageObserve($p)],
             ['code-symbol-embedding-coverage', 'code_symbol_embedding_coverage', fn (array $p) => $gates->codeSymbolEmbeddingCoverageObserve($p)],
+            ['predicted-revert-digest', 'predicted_revert_digest', fn (array $p) => $gates->predictedRevertDigestObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
