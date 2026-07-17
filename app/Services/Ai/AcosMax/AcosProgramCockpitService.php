@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AcosMax;
 
 use App\Services\Ai\Autonomy\AtlasOperatorReviewDebtMeter;
+use App\Services\Ai\Support\AiValueNormalizer;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -51,7 +52,7 @@ final class AcosProgramCockpitService
         try {
             $buffer = new BufferedOutput;
             $exitCode = Artisan::call($command, $arguments, $buffer);
-            $decoded = json_decode(trim($buffer->fetch()), true);
+            $decoded = json_decode(AiValueNormalizer::trimmedString($buffer->fetch()), true);
             if (! is_array($decoded)) {
                 return $this->unavailable($source, 'source_did_not_emit_json', ['exit_code' => $exitCode]);
             }
@@ -147,7 +148,7 @@ final class AcosProgramCockpitService
 
                     continue;
                 }
-                if (trim($line) !== '') {
+                if (AiValueNormalizer::trimmedString($line) !== '') {
                     $current['lines'][] = $line;
                 }
             }

@@ -367,4 +367,17 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertFalse($payload['satisfied']);
         $this->assertSame(['tests_green'], $payload['missing']);
     }
+
+    public function test_outcome_causality_observe_ranks_envelope(): void
+    {
+        $payload = $this->svc->outcomeCausalityObserve([
+            'outcome' => 'failed',
+            'has_evidence_refs' => false,
+            'tests_passed' => false,
+        ]);
+
+        $this->assertSame('atlas.aaeos.outcome_causality_ranking.v1', $payload['schema_version']);
+        $this->assertNotSame('', $payload['primary_cause']);
+        $this->assertIsArray($payload['candidates']);
+    }
 }

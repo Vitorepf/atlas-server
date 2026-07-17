@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AgenticEngineeringOs;
 
 use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
+use App\Services\Ai\Aaeos\Cores\OutcomeCausalityRanker;
 use App\Services\Ai\AcosMax\PredictedImpactBand;
 use App\Services\Ai\AcosMax\PreReviewAdvisoryBand;
 use App\Services\Ai\AcosMax\Esp09IndependentChallengerService;
@@ -38,6 +39,7 @@ final class AtlasUniversalGatesEvaluator
         private readonly AaeosBlockerSeverityGate $blockerSeverity = new AaeosBlockerSeverityGate,
         private readonly PhaseAdvanceVerdictClassifier $phaseAdvance = new PhaseAdvanceVerdictClassifier,
         private readonly AaeosRequiredGateCoverageChecker $requiredGateCoverage = new AaeosRequiredGateCoverageChecker,
+        private readonly OutcomeCausalityRanker $outcomeCausality = new OutcomeCausalityRanker,
     ) {}
 
     /**
@@ -446,6 +448,18 @@ final class AtlasUniversalGatesEvaluator
             AiValueNormalizer::arrayOrEmpty($input['required'] ?? null),
             AiValueNormalizer::arrayOrEmpty($input['passed'] ?? null),
         );
+    }
+
+    /**
+     * Observe-only outcome causality ranking over an OutcomeEnvelope map.
+     * Does not add a universal-gate id.
+     *
+     * @param  array<string,mixed>  $envelope
+     * @return array<string,mixed>
+     */
+    public function outcomeCausalityObserve(array $envelope): array
+    {
+        return $this->outcomeCausality->rankOutcomeEnvelope($envelope);
     }
 
     /**

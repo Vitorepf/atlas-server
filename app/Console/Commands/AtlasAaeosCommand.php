@@ -60,6 +60,7 @@ final class AtlasAaeosCommand extends Command
         {--blocker-severity= : JSON file with phase blockers (observe-only severity gate)}
         {--phase-advance= : JSON file with atlas.aaeos.phase.v1 envelope (observe-only verdict)}
         {--required-gate-coverage= : JSON file with required/passed gate lists (observe-only)}
+        {--outcome-causality= : JSON file with OutcomeEnvelope map (observe-only causality rank)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -262,6 +263,7 @@ final class AtlasAaeosCommand extends Command
             ['blocker-severity', 'blocker_severity', fn (array $p) => $gates->blockerSeverityObserve($p)],
             ['phase-advance', 'phase_advance_verdict', fn (array $p) => $gates->phaseAdvanceVerdictObserve($p)],
             ['required-gate-coverage', 'required_gate_coverage', fn (array $p) => $gates->requiredGateCoverageObserve($p)],
+            ['outcome-causality', 'outcome_causality', fn (array $p) => $gates->outcomeCausalityObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

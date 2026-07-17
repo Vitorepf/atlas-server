@@ -411,6 +411,29 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_outcome_causality(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-oc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'outcome' => 'failed',
+            'has_evidence_refs' => true,
+            'tests_passed' => false,
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-oc',
+                '--outcome-causality' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"outcome_causality"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])
