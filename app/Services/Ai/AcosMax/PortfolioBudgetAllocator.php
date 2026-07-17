@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * MULTK-06 — pure portfolio-budget allocator over {reactive, originated, maintenance}.
  *
@@ -132,7 +134,7 @@ final class PortfolioBudgetAllocator
         $out = [];
         foreach (self::CLASSES as $class) {
             $val = $raw[$class] ?? null;
-            $out[$class] = is_numeric($val) ? self::clampUnit((float) $val) : $fallback[$class];
+            $out[$class] = is_numeric($val) ? AiValueNormalizer::clampUnit((float) $val) : $fallback[$class];
         }
         // If everything zeroed to 0, use fallback wholesale to avoid degeneracy.
         if (array_sum($out) <= 0.0) {
@@ -163,17 +165,12 @@ final class PortfolioBudgetAllocator
         $out = [];
         foreach (self::CLASSES as $class) {
             $band = is_array($raw[$class] ?? null) ? $raw[$class] : [];
-            $min = is_numeric($band['min'] ?? null) ? self::clampUnit((float) $band['min']) : 0.0;
-            $max = is_numeric($band['max'] ?? null) ? max($min, self::clampUnit((float) $band['max'])) : 1.0;
+            $min = is_numeric($band['min'] ?? null) ? AiValueNormalizer::clampUnit((float) $band['min']) : 0.0;
+            $max = is_numeric($band['max'] ?? null) ? max($min, AiValueNormalizer::clampUnit((float) $band['max'])) : 1.0;
             $out[$class] = ['min' => $min, 'max' => $max];
         }
 
         return $out;
-    }
-
-    private static function clampUnit(float $value): float
-    {
-        return max(0.0, min(1.0, $value));
     }
 
     /**

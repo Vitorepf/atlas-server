@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AcosMax;
 
 use App\Services\Ai\Cognitive\PredictiveFailure\CalibrationBandClassifier;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * MULTN15-08 — pre-review advisory band: "would the operator revert this?"
@@ -52,13 +53,13 @@ final class PreReviewAdvisoryBand
      *
      * @return array<string,mixed>
      */
-    public static function judge(array $features): array
+    public static function judge(array $features, ?CalibrationBandClassifier $classifier = null): array
     {
         $targetClass = self::normalizeClass($features['target_class'] ?? null);
         $riskBand = self::normalizeRiskBand($features['risk_band'] ?? null);
         $confidenceBand = self::normalizeConfBand($features['confidence_band'] ?? null);
         $rawRate = $features['similar_revert_rate'] ?? null;
-        $rate = is_numeric($rawRate) ? max(0.0, min(1.0, (float) $rawRate)) : null;
+        $rate = is_numeric($rawRate) ? AiValueNormalizer::clampUnit((float) $rawRate) : null;
         $nSimilar = max(0, (int) ($features['n_similar'] ?? 0));
 
         $result = [
@@ -104,10 +105,9 @@ final class PreReviewAdvisoryBand
             'high' => -0.05,
             default => 0.0,
         };
-        $probability = max(0.0, min(1.0, $probability));
+        $probability = AiValueNormalizer::clampUnit($probability);
 
-        $classifier = new CalibrationBandClassifier;
-        $classification = $classifier->classify($probability);
+        $classification = ($classifier ?? new CalibrationBandClassifier)->classify($probability);
 
         $result['predicted_revert_band'] = (string) $classification['band'];
         $result['probability'] = $probability;

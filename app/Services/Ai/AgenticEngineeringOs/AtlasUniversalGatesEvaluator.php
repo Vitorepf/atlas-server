@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
 use InvalidArgumentException;
 
 /**
@@ -28,6 +29,7 @@ final class AtlasUniversalGatesEvaluator
 
     public function __construct(
         private readonly DeliveryPackCompletenessScorer $deliveryPackCompleteness = new DeliveryPackCompletenessScorer,
+        private readonly SpecCompletenessScorer $specCompleteness = new SpecCompletenessScorer,
     ) {}
 
     /**
@@ -206,6 +208,21 @@ final class AtlasUniversalGatesEvaluator
         float $minRatio = 0.95,
     ): bool {
         return ($scorer ?? $this->deliveryPackCompleteness)->passesMin($composition, $minRatio);
+    }
+
+    /**
+     * Derive a boolean signal from a compiled-spec shape via
+     * {@see SpecCompletenessScorer}. Observe helper for callers that already
+     * hold a spec map — does not add a new universal gate id.
+     *
+     * @param  array<string,mixed>  $spec
+     */
+    public function specCompletenessSignal(
+        array $spec,
+        ?SpecCompletenessScorer $scorer = null,
+        int $minScore = SpecCompletenessScorer::COMPLETE_THRESHOLD,
+    ): bool {
+        return ($scorer ?? $this->specCompleteness)->passesMin($spec, $minScore);
     }
 
     /**

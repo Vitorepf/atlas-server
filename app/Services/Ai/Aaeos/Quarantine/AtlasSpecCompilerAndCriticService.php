@@ -111,6 +111,10 @@ final class AtlasSpecCompilerAndCriticService
      */
     public const CLARIFICATION_CONFIDENCE_THRESHOLD = 0.7;
 
+    public function __construct(
+        private readonly SpecCompletenessScorer $specCompleteness = new SpecCompletenessScorer,
+    ) {}
+
     /**
      * "Spec Compiler Output" — validate that a compiled spec carries the twelve
      * minimum fields with non-empty content. Missing fields are reported; the
@@ -155,7 +159,7 @@ final class AtlasSpecCompilerAndCriticService
             'present_fields' => $present,
             'missing_fields' => $missing,
             'required_field_count' => count(self::COMPILER_FIELDS),
-            'completeness_score' => (new SpecCompletenessScorer)->score($scorerSpec),
+            'completeness_score' => $this->specCompleteness->score($scorerSpec),
             'auditable' => true,
         ];
     }

@@ -111,6 +111,16 @@ final class SpecCompletenessScorer
     }
 
     /**
+     * True when the weighted completeness score meets the complete threshold.
+     *
+     * @param  array<string,mixed>  $spec
+     */
+    public function passesMin(array $spec, int $minScore = self::COMPLETE_THRESHOLD): bool
+    {
+        return ($this->score($spec)['total_score'] ?? 0) >= $minScore;
+    }
+
+    /**
      * @return array{0: bool, 1: bool, 2: string}
      */
     private function evaluateField(string $field, mixed $value): array

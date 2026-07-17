@@ -27,4 +27,11 @@ final class AiValueNormalizerTest extends TestCase
         $this->assertNull(AiValueNormalizer::trimmedScalarStringOrNull('   '));
         $this->assertNull(AiValueNormalizer::trimmedScalarStringOrNull([]));
     }
+
+    public function test_clamp_unit_bounds_to_closed_unit_interval(): void
+    {
+        $this->assertSame(0.0, AiValueNormalizer::clampUnit(-0.2));
+        $this->assertSame(0.42, AiValueNormalizer::clampUnit(0.42));
+        $this->assertSame(1.0, AiValueNormalizer::clampUnit(1.7));
+    }
 }

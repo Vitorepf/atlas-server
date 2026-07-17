@@ -7,6 +7,7 @@ namespace Tests\Unit\Ai\AgenticEngineeringOs;
 use App\Services\Ai\AgenticEngineeringOs\AtlasUniversalGatesEvaluator;
 use App\Services\Ai\AgenticEngineeringOs\DeliveryPackCompletenessScorer;
 use App\Services\Ai\AgenticEngineeringOs\QualityBarTelemetryContract;
+use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -127,5 +128,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $unsigned = $complete;
         $unsigned['delivery_hash'] = '';
         $this->assertFalse($this->svc->deliveryPackCompletenessSignal($unsigned));
+    }
+
+    public function test_spec_completeness_signal_uses_live_scorer(): void
+    {
+        $full = [];
+        foreach (array_keys(SpecCompletenessScorer::WEIGHTS) as $field) {
+            $full[$field] = in_array($field, ['non_goals', 'requirements', 'acceptance_criteria', 'assumptions', 'blocking_questions'], true)
+                ? ['enough detail here']
+                : 'enough detail here';
+        }
+        $full['blocking_questions'] = [];
+
+        $this->assertTrue($this->svc->specCompletenessSignal($full));
+        $this->assertFalse($this->svc->specCompletenessSignal([]));
     }
 }
