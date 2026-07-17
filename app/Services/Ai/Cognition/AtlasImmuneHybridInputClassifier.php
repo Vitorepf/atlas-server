@@ -97,10 +97,10 @@ final class AtlasImmuneHybridInputClassifier
         }
 
         if ($knownSignature !== null && $this->signatureStore->enforceEnabled()) {
-            $hostileClass = (string) $knownSignature['hostile_class'];
+            $hostileClass = AiValueNormalizer::trimmedScalarStringOrNull($knownSignature['hostile_class'] ?? null) ?? '';
             $baseResult = $this->base->classify($text, $metadata);
             $baseResult['input_class'] = $hostileClass;
-            $baseResult['reason'] = 'known_poison_signature:'.(string) $knownSignature['ref'];
+            $baseResult['reason'] = 'known_poison_signature:'.(AiValueNormalizer::trimmedScalarStringOrNull($knownSignature['ref'] ?? null) ?? '');
             $baseResult['matched_signals'] = $this->augmentSignals(
                 $baseResult['matched_signals'],
                 'known_poison_signature',

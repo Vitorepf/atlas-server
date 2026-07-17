@@ -20,6 +20,8 @@ final class AtlasAcosLongHorizonGateService
 {
     public const SCHEMA_VERSION = 'atlas.cognition.acos_long_horizon_gate.v1';
 
+    public const AREA_V2_SCHEMA = 'atlas.cognition.acos_long_horizon_gate.area_v2';
+
     /**
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
@@ -517,7 +519,7 @@ final class AtlasAcosLongHorizonGateService
         }
 
         return array_merge($this->windowIntegrityProjection($window, $seriesPath, $resolvedEvidenceRows), [
-            'schema_version' => 'atlas.cognition.acos_long_horizon_gate.area_v2',
+            'schema_version' => self::AREA_V2_SCHEMA,
             'floors' => $floors,
             'min_area_scores' => $areaScan['min_area_scores'],
             'area_days_below_floor' => $areaScan['area_days_below_floor'],

@@ -205,6 +205,7 @@ final class AtlasAaeosCommand extends Command
         {--secondary-report-schemas-contract= : JSON file (any object) to observe secondary report schema floors (locate/bridge/lote2/calibration)}
         {--department-io-schemas-contract= : JSON file (any object) to observe department catalogue IO/evidence schema floors}
         {--http-path-watchdog-observe-schemas-contract= : JSON file (any object) to observe HTTP-path + watchdog + evaluator observe schemas}
+        {--evaluator-observe-helpers-contract= : JSON file (any object) to observe remaining evaluator observe-helper + long-horizon area schemas}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -566,6 +567,7 @@ final class AtlasAaeosCommand extends Command
             ['secondary-report-schemas-contract', 'secondary_report_schemas_contract', fn (array $p) => $gates->secondaryReportSchemasContractObserve($p)],
             ['department-io-schemas-contract', 'department_io_schemas_contract', fn (array $p) => $gates->departmentIoSchemasContractObserve($p)],
             ['http-path-watchdog-observe-schemas-contract', 'http_path_watchdog_observe_schemas_contract', fn (array $p) => $gates->httpPathWatchdogObserveSchemasContractObserve($p)],
+            ['evaluator-observe-helpers-contract', 'evaluator_observe_helpers_contract', fn (array $p) => $gates->evaluatorObserveHelpersContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

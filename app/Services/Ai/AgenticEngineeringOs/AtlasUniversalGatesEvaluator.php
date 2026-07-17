@@ -3702,6 +3702,31 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only remaining evaluator observe-helper schemas + long-horizon area_v2.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function evaluatorObserveHelpersContractObserve(array $input = []): array
+    {
+        return [
+            'observe_evidence_vision_schema' => self::OBSERVE_EVIDENCE_VISION_SCHEMA,
+            'observe_threshold_ladder_schema' => self::OBSERVE_THRESHOLD_LADDER_SCHEMA,
+            'observe_string_list_normalize_schema' => self::OBSERVE_STRING_LIST_NORMALIZE_SCHEMA,
+            'observe_threshold_comparator_schema' => self::OBSERVE_THRESHOLD_COMPARATOR_SCHEMA,
+            'observe_evidence_ref_normalize_schema' => self::OBSERVE_EVIDENCE_REF_NORMALIZE_SCHEMA,
+            'observe_array_field_reader_schema' => self::OBSERVE_ARRAY_FIELD_READER_SCHEMA,
+            'observe_outcome_attribution_types_schema' => self::OBSERVE_OUTCOME_ATTRIBUTION_TYPES_SCHEMA,
+            'observe_telemetry_collector_surfaces_schema' => self::OBSERVE_TELEMETRY_COLLECTOR_SURFACES_SCHEMA,
+            'observe_blocker_severity_schema' => self::OBSERVE_BLOCKER_SEVERITY_SCHEMA,
+            'long_horizon_gate_schema' => AtlasAcosLongHorizonGateService::SCHEMA_VERSION,
+            'long_horizon_area_v2_schema' => AtlasAcosLongHorizonGateService::AREA_V2_SCHEMA,
+            'evaluator_observe_helper_count' => 11,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

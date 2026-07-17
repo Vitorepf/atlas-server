@@ -74,7 +74,7 @@ final class ImmuneSignatureIngestor
         $metadata = AiValueNormalizer::arrayOrEmpty($entry->metadata);
         $classification = AiValueNormalizer::arrayOrEmpty($metadata['immune_classification'] ?? null);
 
-        $memoryType = (string) ($entry->memory_type ?? '');
+        $memoryType = AiValueNormalizer::trimmedScalarStringOrNull($entry->memory_type ?? null) ?? '';
         $hostileClass = $this->hostileClassFromClassification($classification)
             ?? $this->hostileClassFromMemoryType($memoryType);
 

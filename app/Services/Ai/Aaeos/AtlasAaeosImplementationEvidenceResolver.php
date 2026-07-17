@@ -235,7 +235,7 @@ class AtlasAaeosImplementationEvidenceResolver
             // Only SIGNATURE_MATCH_TYPES rows are ever matched on their signature, so only they
             // carry one — the other ~105k rows leave 'sig' unset (read back as '').
             if (in_array($type, self::SIGNATURE_MATCH_TYPES, true)) {
-                $sig[$offset] = (string) ($row->signature ?? '');
+                $sig[$offset] = AiValueNormalizer::trimmedScalarStringOrNull($row->signature ?? null) ?? '';
             }
 
             $offset++;

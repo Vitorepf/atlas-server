@@ -126,7 +126,7 @@ final class AtlasAcosWindowGatesService
         foreach (glob($dir.DIRECTORY_SEPARATOR.'*-gate.json') ?: [] as $file) {
             $out[] = $this->receiptStatus($file);
         }
-        usort($out, static fn ($a, $b) => strcmp((string) $a['gate'], (string) $b['gate']));
+        usort($out, static fn ($a, $b) => strcmp(AiValueNormalizer::trimmedScalarStringOrNull($a['gate'] ?? null) ?? '', AiValueNormalizer::trimmedScalarStringOrNull($b['gate'] ?? null) ?? ''));
 
         return $out;
     }

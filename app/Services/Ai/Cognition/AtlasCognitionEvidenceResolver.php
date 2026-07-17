@@ -488,8 +488,8 @@ class AtlasCognitionEvidenceResolver
                 // a coarse bucket, never the ownership decision.
                 $short = $this->classBasename($symbolRef);
                 $index[$short][] = [
-                    'capability_id' => (string) $doc['id'],
-                    'owner_doc' => (string) $doc['path'],
+                    'capability_id' => AiValueNormalizer::trimmedScalarStringOrNull($doc['id'] ?? null) ?? '',
+                    'owner_doc' => AiValueNormalizer::trimmedScalarStringOrNull($doc['path'] ?? null) ?? '',
                     'symbol_ref' => $symbolRef,
                     'evidence_refs' => $evidenceRefs,
                     'test_refs' => $testRefs,

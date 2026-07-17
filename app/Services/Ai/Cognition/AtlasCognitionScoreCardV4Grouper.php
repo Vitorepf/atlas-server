@@ -90,7 +90,7 @@ final class AtlasCognitionScoreCardV4Grouper
             ];
         }
 
-        usort($modules, fn (array $a, array $b): int => strcmp((string) $a['acronym'], (string) $b['acronym']));
+        usort($modules, fn (array $a, array $b): int => strcmp(AiValueNormalizer::trimmedScalarStringOrNull($a['acronym'] ?? null) ?? '', AiValueNormalizer::trimmedScalarStringOrNull($b['acronym'] ?? null) ?? ''));
 
         return $modules;
     }

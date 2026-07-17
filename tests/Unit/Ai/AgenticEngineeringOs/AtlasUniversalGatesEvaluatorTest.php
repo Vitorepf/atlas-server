@@ -2535,4 +2535,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.cognition.surprise_gate.bands.v1', $payload['observe_surprise_gate_bands_schema']);
         $this->assertSame(13, $payload['observe_schema_count']);
     }
+
+    public function test_evaluator_observe_helpers_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->evaluatorObserveHelpersContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.evidence_vision_observe.v1', $payload['observe_evidence_vision_schema']);
+        $this->assertSame('atlas.aaeos.threshold_ladder_observe.v1', $payload['observe_threshold_ladder_schema']);
+        $this->assertSame('atlas.aaeos.string_list_normalize.v1', $payload['observe_string_list_normalize_schema']);
+        $this->assertSame('atlas.aaeos.threshold_comparator.v1', $payload['observe_threshold_comparator_schema']);
+        $this->assertSame('atlas.aaeos.evidence_ref_normalize.v1', $payload['observe_evidence_ref_normalize_schema']);
+        $this->assertSame('atlas.aaeos.array_field_reader.v1', $payload['observe_array_field_reader_schema']);
+        $this->assertSame('atlas.aaeos.outcome_attribution_types.v1', $payload['observe_outcome_attribution_types_schema']);
+        $this->assertSame('atlas.telemetry.collector.surfaces.v1', $payload['observe_telemetry_collector_surfaces_schema']);
+        $this->assertSame('atlas.aaeos.blocker_severity.v1', $payload['observe_blocker_severity_schema']);
+        $this->assertSame('atlas.cognition.acos_long_horizon_gate.v1', $payload['long_horizon_gate_schema']);
+        $this->assertSame('atlas.cognition.acos_long_horizon_gate.area_v2', $payload['long_horizon_area_v2_schema']);
+        $this->assertSame(11, $payload['evaluator_observe_helper_count']);
+    }
 }

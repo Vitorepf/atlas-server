@@ -293,11 +293,11 @@ final class AcosMaxLote2MeasureService
 
         $chain = [
             'task_id' => $taskId,
-            'outcome_id' => (string) ($outcome->id ?? ''),
+            'outcome_id' => AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? '',
             'decision_id' => $decisionId,
-            'retrieval_receipt_id' => $delivery === null ? null : (string) ($delivery->retrieval_receipt_id ?? ''),
-            'learning_candidate_id' => $candidate === null ? null : (string) ($candidate->id ?? ''),
-            'subsequent_recall_feedback_id' => $recall === null ? null : (string) ($recall->id ?? ''),
+            'retrieval_receipt_id' => $delivery === null ? null : (AiValueNormalizer::trimmedScalarStringOrNull($delivery->retrieval_receipt_id ?? null) ?? ''),
+            'learning_candidate_id' => $candidate === null ? null : (AiValueNormalizer::trimmedScalarStringOrNull($candidate->id ?? null) ?? ''),
+            'subsequent_recall_feedback_id' => $recall === null ? null : (AiValueNormalizer::trimmedScalarStringOrNull($recall->id ?? null) ?? ''),
         ];
 
         if ($blockedBy !== []) {
@@ -437,7 +437,7 @@ final class AcosMaxLote2MeasureService
 
         $outcomes = [];
         foreach (DB::table('ai_run_outcomes')->get() as $outcome) {
-            $outcomes[(string) ($outcome->id ?? '')] = $outcome;
+            $outcomes[AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? ''] = $outcome;
         }
 
         $deliveriesByOutcome = [];
@@ -465,9 +465,9 @@ final class AcosMaxLote2MeasureService
                 continue;
             }
 
-            $candidateId = (string) ($candidate->id ?? '');
+            $candidateId = AiValueNormalizer::trimmedScalarStringOrNull($candidate->id ?? null) ?? '';
             $lessonClass = AiValueNormalizer::trimmedStringOrNull($candidate->memory_type ?? null) ?? 'unknown';
-            $outcome = $outcomes[(string) ($candidate->run_outcome_id ?? '')] ?? null;
+            $outcome = $outcomes[AiValueNormalizer::trimmedScalarStringOrNull($candidate->run_outcome_id ?? null) ?? ''] ?? null;
             if ($outcome === null) {
                 continue;
             }
@@ -514,7 +514,7 @@ final class AcosMaxLote2MeasureService
 
             $rows[] = [
                 'candidate_id' => $candidateId,
-                'outcome_id' => (string) ($outcome->id ?? ''),
+                'outcome_id' => AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? '',
                 'lesson_class' => $lessonClass,
                 'delivered' => $deliverySeconds !== null,
                 'cited' => $citationSeconds !== null,
@@ -558,7 +558,7 @@ final class AcosMaxLote2MeasureService
 
     private function isPromotedLearningCandidate(object $candidate): bool
     {
-        return (string) ($candidate->status ?? '') === 'promoted'
+        return (AiValueNormalizer::trimmedScalarStringOrNull($candidate->status ?? null) ?? '') === 'promoted'
             || (bool) ($candidate->promotion_allowed ?? false) === true;
     }
 

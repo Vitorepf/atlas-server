@@ -124,8 +124,8 @@ class AtlasAaeosTestExecutionService
         ?string $currentTestFileHash,
         ?string $currentImplFilesHash,
     ): bool {
-        return $this->hashFresh((string) ($receipt->test_file_hash ?? ''), $currentTestFileHash)
-            && $this->hashFresh((string) ($receipt->impl_files_hash ?? ''), $currentImplFilesHash);
+        return $this->hashFresh(AiValueNormalizer::trimmedScalarStringOrNull($receipt->test_file_hash ?? null) ?? '', $currentTestFileHash)
+            && $this->hashFresh(AiValueNormalizer::trimmedScalarStringOrNull($receipt->impl_files_hash ?? null) ?? '', $currentImplFilesHash);
     }
 
     /**
@@ -559,11 +559,11 @@ class AtlasAaeosTestExecutionService
         try {
             AtlasAaeosTestRunReceipt::query()->updateOrCreate(
                 [
-                    'capability_id' => (string) $payload['capability_id'],
-                    'test_ref' => (string) $payload['test_ref'],
+                    'capability_id' => AiValueNormalizer::trimmedScalarStringOrNull($payload['capability_id'] ?? null) ?? '',
+                    'test_ref' => AiValueNormalizer::trimmedScalarStringOrNull($payload['test_ref'] ?? null) ?? '',
                 ],
                 [
-                    'filter' => (string) $payload['filter'],
+                    'filter' => AiValueNormalizer::trimmedScalarStringOrNull($payload['filter'] ?? null) ?? '',
                     'passed' => (bool) $payload['passed'],
                     'tests_run' => (int) $payload['tests_run'],
                     'exit_code' => $payload['exit_code'] !== null ? (int) $payload['exit_code'] : null,
@@ -575,7 +575,7 @@ class AtlasAaeosTestExecutionService
                     // `runner` is a short audit breadcrumb in a varchar(120) column; an
                     // FQN-anchored --filter regex can exceed that, so cap it (never let an
                     // audit label fail the write that records the green run itself).
-                    'runner' => mb_substr((string) $payload['runner'], 0, 120),
+                    'runner' => mb_substr(AiValueNormalizer::trimmedScalarStringOrNull($payload['runner'] ?? null) ?? '', 0, 120),
                     'ran_at' => now(),
                 ],
             );

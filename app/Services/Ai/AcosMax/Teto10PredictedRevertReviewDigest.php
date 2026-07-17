@@ -160,8 +160,8 @@ final class Teto10PredictedRevertReviewDigest
     private static function itemSorter(array $a, array $b): int
     {
         return ((int) $a['band_rank'] <=> (int) $b['band_rank'])
-            ?: ((string) $a['group_key'] <=> (string) $b['group_key'])
-            ?: ((string) $a['id'] <=> (string) $b['id']);
+            ?: ((AiValueNormalizer::trimmedScalarStringOrNull($a['group_key'] ?? null) ?? '') <=> (AiValueNormalizer::trimmedScalarStringOrNull($b['group_key'] ?? null) ?? ''))
+            ?: ((AiValueNormalizer::trimmedScalarStringOrNull($a['id'] ?? null) ?? '') <=> (AiValueNormalizer::trimmedScalarStringOrNull($b['id'] ?? null) ?? ''));
     }
 
     /**
@@ -172,7 +172,7 @@ final class Teto10PredictedRevertReviewDigest
     {
         $groups = [];
         foreach ($items as $item) {
-            $key = (string) $item['group_key'];
+            $key = AiValueNormalizer::trimmedScalarStringOrNull($item['group_key'] ?? null) ?? '';
             $groups[$key] ??= [
                 'group_key' => $key,
                 'decision_id' => $item['decision_id'],
@@ -191,7 +191,7 @@ final class Teto10PredictedRevertReviewDigest
         }
 
         uasort($groups, static fn (array $a, array $b): int => ((int) $a['highest_band_rank'] <=> (int) $b['highest_band_rank'])
-            ?: ((string) $a['group_key'] <=> (string) $b['group_key']));
+            ?: ((AiValueNormalizer::trimmedScalarStringOrNull($a['group_key'] ?? null) ?? '') <=> (AiValueNormalizer::trimmedScalarStringOrNull($b['group_key'] ?? null) ?? '')));
 
         return array_values(array_map(static function (array $group): array {
             unset($group['highest_band_rank']);

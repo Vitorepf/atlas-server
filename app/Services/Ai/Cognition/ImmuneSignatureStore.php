@@ -114,13 +114,13 @@ final class ImmuneSignatureStore
             return null;
         }
 
-        $this->recordHit((string) $cell['id']);
+        $this->recordHit(AiValueNormalizer::trimmedScalarStringOrNull($cell['id'] ?? null) ?? '');
 
         return [
-            'ref' => (string) $cell['id'],
-            'signature' => (string) $cell['signature'],
-            'hostile_class' => (string) $cell['hostile_class'],
-            'origin_ref' => (string) $cell['origin_ref'],
+            'ref' => AiValueNormalizer::trimmedScalarStringOrNull($cell['id'] ?? null) ?? '',
+            'signature' => AiValueNormalizer::trimmedScalarStringOrNull($cell['signature'] ?? null) ?? '',
+            'hostile_class' => AiValueNormalizer::trimmedScalarStringOrNull($cell['hostile_class'] ?? null) ?? '',
+            'origin_ref' => AiValueNormalizer::trimmedScalarStringOrNull($cell['origin_ref'] ?? null) ?? '',
             'hit_count_after' => ((int) $cell['hit_count']) + 1,
             'mode' => $this->mode(),
         ];

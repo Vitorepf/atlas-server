@@ -179,8 +179,8 @@ final class AsefChunkIndexService
                 $best[$ref] = [
                     'source_ref' => $ref,
                     'similarity' => $sim,
-                    'chunk_hash' => isset($hit['chunk_hash']) ? (string) $hit['chunk_hash'] : null,
-                    'chunk_id' => isset($hit['chunk_id']) ? (string) $hit['chunk_id'] : null,
+                    'chunk_hash' => AiValueNormalizer::trimmedScalarStringOrNull($hit['chunk_hash'] ?? null),
+                    'chunk_id' => AiValueNormalizer::trimmedScalarStringOrNull($hit['chunk_id'] ?? null),
                 ];
             }
         }
@@ -294,7 +294,7 @@ final class AsefChunkIndexService
         }
 
         DB::table('asef_chunks')->insert($row);
-        $this->writeVector((string) $row['id'], $vector);
+        $this->writeVector(AiValueNormalizer::trimmedScalarStringOrNull($row['id'] ?? null) ?? '', $vector);
     }
 
     /**

@@ -77,9 +77,7 @@ final class ImmuneVerdictLedger
             'candidate_hash' => $this->candidateHash($candidateHash),
             'writer' => trim($writer) !== '' ? trim($writer) : 'unknown',
             'gate_statuses' => $gateStatuses,
-            'promotion_status' => is_scalar($verdict['promotion_status'] ?? null)
-                ? (string) $verdict['promotion_status']
-                : 'unclassified',
+            'promotion_status' => AiValueNormalizer::trimmedScalarStringOrNull($verdict['promotion_status'] ?? null) ?? 'unclassified',
             'blocking_gate_ids' => $blockingGateIds,
             'pending_gate_ids' => $this->normalizeGateIds(AiValueNormalizer::arrayOrEmpty($verdict['pending_gate_ids'] ?? null)),
             'expected_block_gate_ids' => $expectedBlockGateIds,
