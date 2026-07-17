@@ -32,6 +32,7 @@ final class AtlasMissionControlCockpitService
         private readonly AaeosBlockerSeverityGate $blockerSeverity = new AaeosBlockerSeverityGate,
         private readonly PhaseAdvanceVerdictClassifier $phaseAdvance = new PhaseAdvanceVerdictClassifier,
         private readonly OutcomeCausalityRanker $outcomeCausality = new OutcomeCausalityRanker,
+        private readonly AaeosRequiredGateCoverageChecker $gateCoverage = new AaeosRequiredGateCoverageChecker,
     ) {}
 
     /**
@@ -235,8 +236,6 @@ final class AtlasMissionControlCockpitService
         // row — the journey previously only COUNTED gates_passed/gates_blocked
         // and never checked required coverage. Observe-only: never changes the
         // phase status. Pending phases (no envelope) carry an explicit null.
-        $coverageChecker = new AaeosRequiredGateCoverageChecker;
-
         $out = [];
         foreach (AaeosPhaseHandoffService::PHASES as $idx => $phase) {
             $env = $byPhase[$phase] ?? null;
@@ -257,6 +256,7 @@ final class AtlasMissionControlCockpitService
             $blocked = AiValueNormalizer::arrayOrEmpty($gates['blocked'] ?? null);
             $passed = AiValueNormalizer::arrayOrEmpty($gates['passed'] ?? null);
             $required = AiValueNormalizer::arrayOrEmpty($gates['required'] ?? null);
+            $actor = AiValueNormalizer::arrayOrEmpty($env['actor'] ?? null);
             $skipped = ! empty($env['skip_reason']);
             $status = $skipped ? 'skipped' : (count($blocked) > 0 ? 'blocked' : ($env['ended_at'] ?? null ? 'complete' : 'in_progress'));
             $out[] = [
@@ -265,8 +265,8 @@ final class AtlasMissionControlCockpitService
                 'status' => $status,
                 'gates_passed' => count($passed),
                 'gates_blocked' => count($blocked),
-                'gate_coverage' => $coverageChecker->check($required, $passed),
-                'actor_kind' => is_array($env['actor'] ?? null) ? ($env['actor']['kind'] ?? null) : null,
+                'gate_coverage' => $this->gateCoverage->check($required, $passed),
+                'actor_kind' => $actor['kind'] ?? null,
                 'operator_signature' => $env['operator_signature'] ?? null,
             ];
         }

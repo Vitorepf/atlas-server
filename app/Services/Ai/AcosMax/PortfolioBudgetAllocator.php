@@ -164,7 +164,7 @@ final class PortfolioBudgetAllocator
     {
         $out = [];
         foreach (self::CLASSES as $class) {
-            $band = is_array($raw[$class] ?? null) ? $raw[$class] : [];
+            $band = AiValueNormalizer::arrayOrEmpty($raw[$class] ?? null);
             $min = is_numeric($band['min'] ?? null) ? AiValueNormalizer::clampUnit((float) $band['min']) : 0.0;
             $max = is_numeric($band['max'] ?? null) ? max($min, AiValueNormalizer::clampUnit((float) $band['max'])) : 1.0;
             $out[$class] = ['min' => $min, 'max' => $max];
@@ -181,7 +181,7 @@ final class PortfolioBudgetAllocator
     {
         $out = [];
         foreach (self::CLASSES as $class) {
-            $entry = is_array($raw[$class] ?? null) ? $raw[$class] : [];
+            $entry = AiValueNormalizer::arrayOrEmpty($raw[$class] ?? null);
             $n = max(0, (int) ($entry['n'] ?? 0));
             $y = is_numeric($entry['mean_proven_yield'] ?? null) ? (float) $entry['mean_proven_yield'] : 0.0;
             $out[$class] = ['n' => $n, 'mean_proven_yield' => $y];

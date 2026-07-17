@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * ESP-09 — Independent challenger advisory (anti-blind-alignment).
  *
@@ -204,6 +206,6 @@ final class Esp09IndependentChallengerService
             return null;
         }
 
-        return (float) $value;
+        return AiValueNormalizer::clampUnit((float) $value);
     }
 }
