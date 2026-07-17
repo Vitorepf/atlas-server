@@ -59,16 +59,24 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_FREEZE = 'freeze';
     public const FIELD_STATUS = 'status';
     public const FIELD_REASON = 'reason';
+    public const FIELD_ACTIVE_SYMBOLS = 'active_symbols';
+    public const FIELD_COVERED_COUNT = 'covered_count';
+    public const FIELD_STALE_COUNT = 'stale_count';
+    public const FIELD_MISSING_COUNT = 'missing_count';
+    public const FIELD_COVERAGE_RATIO = 'coverage_ratio';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_FORMULA = 'formula';
+    public const FIELD_THRESHOLDS = 'thresholds';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
         return [
-            'kind' => self::KIND_MEASURE_FREEZE,
+            self::FIELD_KIND => self::KIND_MEASURE_FREEZE,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
-            'formula' => 'MAXA-06 fase 2: coverage_ratio = active code symbols whose provenance in atlas_code_symbol_embeddings (embedding_model + embedded_content_hash) matches current source_hash, over active code symbols. Stale = provenance stamped but source_hash drifted (incremental re-embed target). Missing = no embedding row for the symbol.',
+            self::FIELD_FORMULA => 'MAXA-06 fase 2: coverage_ratio = active code symbols whose provenance in atlas_code_symbol_embeddings (embedding_model + embedded_content_hash) matches current source_hash, over active code symbols. Stale = provenance stamped but source_hash drifted (incremental re-embed target). Missing = no embedding row for the symbol.',
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
-            'thresholds' => [
+            self::FIELD_THRESHOLDS => [
                 'target_coverage_ratio' => 1.0,
                 'denominator_min_active_symbols' => 1,
                 'stale_definition' => 'atlas_code_symbol_embeddings.embedded_content_hash != atlas_engineering_code_symbols.source_hash',
@@ -159,11 +167,11 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             self::FIELD_REASON => $reason,
             self::FIELD_DENOMINATOR_MIN => (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? 0),
             self::FIELD_AGGREGATE => [
-                'active_symbols' => $active,
-                'covered_count' => $covered,
-                'stale_count' => $stale,
-                'missing_count' => $missing,
-                'coverage_ratio' => $ratio,
+                self::FIELD_ACTIVE_SYMBOLS => $active,
+                self::FIELD_COVERED_COUNT => $covered,
+                self::FIELD_STALE_COUNT => $stale,
+                self::FIELD_MISSING_COUNT => $missing,
+                self::FIELD_COVERAGE_RATIO => $ratio,
             ],
         ];
     }
@@ -191,11 +199,11 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     private function emptyAggregate(): array
     {
         return [
-            'active_symbols' => 0,
-            'covered_count' => 0,
-            'stale_count' => 0,
-            'missing_count' => 0,
-            'coverage_ratio' => null,
+            self::FIELD_ACTIVE_SYMBOLS => 0,
+            self::FIELD_COVERED_COUNT => 0,
+            self::FIELD_STALE_COUNT => 0,
+            self::FIELD_MISSING_COUNT => 0,
+            self::FIELD_COVERAGE_RATIO => null,
         ];
     }
 }

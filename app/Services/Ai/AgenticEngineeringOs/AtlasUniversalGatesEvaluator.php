@@ -6501,6 +6501,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function verifiedCoverageChoreographyFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'verified_field_formula' => AcosMaxVerifiedShareService::FIELD_FORMULA,
+            'verified_field_verified_share_min' => AcosMaxVerifiedShareService::FIELD_VERIFIED_SHARE_MIN,
+            'verified_field_window_days_min' => AcosMaxVerifiedShareService::FIELD_WINDOW_DAYS_MIN,
+            'verified_field_denominator_min_executions' => AcosMaxVerifiedShareService::FIELD_DENOMINATOR_MIN_EXECUTIONS,
+            'verified_field_ttl_days' => AcosMaxVerifiedShareService::FIELD_TTL_DAYS,
+            'verified_field_series' => AcosMaxVerifiedShareService::FIELD_SERIES,
+            'coverage_field_active_symbols' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_ACTIVE_SYMBOLS,
+            'coverage_field_covered_count' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_COVERED_COUNT,
+            'coverage_field_stale_count' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_STALE_COUNT,
+            'coverage_field_missing_count' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_MISSING_COUNT,
+            'coverage_field_coverage_ratio' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_COVERAGE_RATIO,
+            'coverage_field_kind' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_KIND,
+            'choreography_field_recognized' => AtlasCrossDepartmentChoreographyService::FIELD_RECOGNIZED,
+            'choreography_field_vetoing_department' => AtlasCrossDepartmentChoreographyService::FIELD_VETOING_DEPARTMENT,
+            'choreography_field_reason' => AtlasCrossDepartmentChoreographyService::FIELD_REASON,
+            'choreography_field_paused_departments' => AtlasCrossDepartmentChoreographyService::FIELD_PAUSED_DEPARTMENTS,
+            'choreography_field_pause_sla_seconds' => AtlasCrossDepartmentChoreographyService::FIELD_PAUSE_SLA_SECONDS,
+            'verified_coverage_choreography_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

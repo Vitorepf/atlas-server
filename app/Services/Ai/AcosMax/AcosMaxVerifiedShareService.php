@@ -55,6 +55,14 @@ final class AcosMaxVerifiedShareService
     public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
     public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
     public const FIELD_SERIES_REGISTRY = 'series_registry';
+    public const FIELD_FORMULA = 'formula';
+    public const FIELD_VERIFIED_SHARE_MIN = 'verified_share_min';
+    public const FIELD_WINDOW_DAYS_MIN = 'window_days_min';
+    public const FIELD_DENOMINATOR_MIN_EXECUTIONS = 'denominator_min_executions';
+    public const FIELD_TTL_DAYS = 'ttl_days';
+    public const FIELD_SERIES = 'series';
+    public const FIELD_PATH = 'path';
+    public const FIELD_WATCHDOG_PLUGIN = 'watchdog_plugin';
 
 
     /** @return array<string,mixed> */
@@ -63,21 +71,21 @@ final class AcosMaxVerifiedShareService
         return [
             self::FIELD_KIND => self::KIND_MEASURE_FREEZE,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
-            'formula' => 'verified_share = enforce-mode verification receipts ÷ OUTC-01 outcome receipts, grouped by executor',
+            self::FIELD_FORMULA => 'verified_share = enforce-mode verification receipts ÷ OUTC-01 outcome receipts, grouped by executor',
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_THRESHOLDS => [
-                'verified_share_min' => self::DEFAULT_VERIFIED_SHARE_MIN,
-                'window_days_min' => self::DEFAULT_WINDOW_DAYS_MIN,
-                'denominator_min_executions' => self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS,
+                self::FIELD_VERIFIED_SHARE_MIN => self::DEFAULT_VERIFIED_SHARE_MIN,
+                self::FIELD_WINDOW_DAYS_MIN => self::DEFAULT_WINDOW_DAYS_MIN,
+                self::FIELD_DENOMINATOR_MIN_EXECUTIONS => self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS,
             ],
             self::FIELD_DENOMINATOR_MIN => self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS,
-            'ttl_days' => self::DEFAULT_TTL_DAYS,
+            self::FIELD_TTL_DAYS => self::DEFAULT_TTL_DAYS,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-elev12',
             self::FIELD_JUDGE_ENGINE_ID => 'codex-elev12-judge',
             self::FIELD_SERIES_REGISTRY => [
-                'series' => self::MEASURE_ID,
-                'path' => 'atlas:acos:verified-share --json',
-                'watchdog_plugin' => 'wdg-01.acos_verified_share',
+                self::FIELD_SERIES => self::MEASURE_ID,
+                self::FIELD_PATH => 'atlas:acos:verified-share --json',
+                self::FIELD_WATCHDOG_PLUGIN => 'wdg-01.acos_verified_share',
             ],
         ];
     }

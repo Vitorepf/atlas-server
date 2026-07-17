@@ -4725,4 +4725,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     }
 
 
+
+    public function test_verified_coverage_choreography_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->verifiedCoverageChoreographyFloorsContractObserve([]);
+
+        $this->assertSame('formula', $payload['verified_field_formula']);
+        $this->assertSame('verified_share_min', $payload['verified_field_verified_share_min']);
+        $this->assertSame('window_days_min', $payload['verified_field_window_days_min']);
+        $this->assertSame('denominator_min_executions', $payload['verified_field_denominator_min_executions']);
+        $this->assertSame('ttl_days', $payload['verified_field_ttl_days']);
+        $this->assertSame('series', $payload['verified_field_series']);
+        $this->assertSame('active_symbols', $payload['coverage_field_active_symbols']);
+        $this->assertSame('covered_count', $payload['coverage_field_covered_count']);
+        $this->assertSame('stale_count', $payload['coverage_field_stale_count']);
+        $this->assertSame('missing_count', $payload['coverage_field_missing_count']);
+        $this->assertSame('coverage_ratio', $payload['coverage_field_coverage_ratio']);
+        $this->assertSame('kind', $payload['coverage_field_kind']);
+        $this->assertSame('recognized', $payload['choreography_field_recognized']);
+        $this->assertSame('vetoing_department', $payload['choreography_field_vetoing_department']);
+        $this->assertSame('reason', $payload['choreography_field_reason']);
+        $this->assertSame('paused_departments', $payload['choreography_field_paused_departments']);
+        $this->assertSame('pause_sla_seconds', $payload['choreography_field_pause_sla_seconds']);
+        $this->assertSame(17, $payload['verified_coverage_choreography_floor_count']);
+    }
+
+
 }

@@ -63,6 +63,14 @@ class AtlasCrossDepartmentChoreographyService
     public const FIELD_KIND = 'kind';
     public const FIELD_FROM = 'from';
     public const FIELD_TO = 'to';
+    public const FIELD_RECOGNIZED = 'recognized';
+    public const FIELD_VETOING_DEPARTMENT = 'vetoing_department';
+    public const FIELD_SECURITY = 'security';
+    public const FIELD_REVIEW = 'review';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_PAUSED_DEPARTMENTS = 'paused_departments';
+    public const FIELD_FINAL_OVERRIDE = 'final_override';
+    public const FIELD_PAUSE_SLA_SECONDS = 'pause_sla_seconds';
 
     /**
      * Veto propagation rules keyed by the vetoing department.
@@ -70,9 +78,9 @@ class AtlasCrossDepartmentChoreographyService
      * @var array<string,array{propagates_to:array<int,string>, action:string, return_to:?string, final:bool}>
      */
     public const VETO_RULES = [
-        'security' => [self::FIELD_PROPAGATES_TO => ['dev', 'forge', 'delivery'], self::FIELD_ACTION => self::ACTION_PAUSE_DOWNSTREAM, self::FIELD_RETURN_TO => null, self::FIELD_FINAL => false],
+        self::FIELD_SECURITY => [self::FIELD_PROPAGATES_TO => ['dev', 'forge', 'delivery'], self::FIELD_ACTION => self::ACTION_PAUSE_DOWNSTREAM, self::FIELD_RETURN_TO => null, self::FIELD_FINAL => false],
         self::TARGET_ARCHITECT => [self::FIELD_PROPAGATES_TO => [self::TARGET_PRODUCT], self::FIELD_ACTION => self::ACTION_RETURN_UPSTREAM, self::FIELD_RETURN_TO => self::TARGET_PRODUCT, self::FIELD_FINAL => false],
-        'review' => [self::FIELD_PROPAGATES_TO => ['dev', 'forge'], self::FIELD_ACTION => self::ACTION_RETURN_UPSTREAM, self::FIELD_RETURN_TO => 'dev_or_forge', self::FIELD_FINAL => false],
+        self::FIELD_REVIEW => [self::FIELD_PROPAGATES_TO => ['dev', 'forge'], self::FIELD_ACTION => self::ACTION_RETURN_UPSTREAM, self::FIELD_RETURN_TO => 'dev_or_forge', self::FIELD_FINAL => false],
         self::TARGET_OPERATOR => [self::FIELD_PROPAGATES_TO => ['*'], self::FIELD_ACTION => self::ACTION_OVERRIDE, self::FIELD_RETURN_TO => null, self::FIELD_FINAL => true],
     ];
 
@@ -90,23 +98,23 @@ class AtlasCrossDepartmentChoreographyService
             return [
                 self::FIELD_SCHEMA_VERSION => self::HANDOFF_SCHEMA,
                 self::FIELD_KIND => self::HANDOFF_KIND_VETO,
-                'recognized' => false,
-                'vetoing_department' => $dept,
+                self::FIELD_RECOGNIZED => false,
+                self::FIELD_VETOING_DEPARTMENT => $dept,
                 self::FIELD_ACTION => self::ACTION_NOOP,
-                'reason' => 'unknown vetoing department; only security/architect/review/operator can veto',
+                self::FIELD_REASON => 'unknown vetoing department; only security/architect/review/operator can veto',
             ];
         }
 
         return [
             self::FIELD_SCHEMA_VERSION => self::HANDOFF_SCHEMA,
             self::FIELD_KIND => self::HANDOFF_KIND_VETO,
-            'recognized' => true,
-            'vetoing_department' => $dept,
+            self::FIELD_RECOGNIZED => true,
+            self::FIELD_VETOING_DEPARTMENT => $dept,
             self::FIELD_ACTION => $rule[self::FIELD_ACTION],
-            'paused_departments' => $rule[self::FIELD_PROPAGATES_TO],
+            self::FIELD_PAUSED_DEPARTMENTS => $rule[self::FIELD_PROPAGATES_TO],
             self::FIELD_RETURN_TO => $rule[self::FIELD_RETURN_TO],
-            'final_override' => $rule[self::FIELD_FINAL],
-            'pause_sla_seconds' => self::VETO_SLA_SECONDS,
+            self::FIELD_FINAL_OVERRIDE => $rule[self::FIELD_FINAL],
+            self::FIELD_PAUSE_SLA_SECONDS => self::VETO_SLA_SECONDS,
             'requires_operator_receipt' => $dept === self::TARGET_OPERATOR,
         ];
     }
