@@ -292,6 +292,7 @@ final class AtlasAaeosCommand extends Command
         {--scorecard-gate-test-floors-contract= : JSON file (any object) to observe scorecard/gate-signal/test residual floors}
         {--ncapture-immune-coverage-floors-contract= : JSON file (any object) to observe n-capture/immune-ledger/coverage residual floors}
         {--cockpit-canary-adversarial-floors-contract= : JSON file (any object) to observe cockpit/canary/adversarial residual floors}
+        {--maturity-envelope-lifecycle-floors-contract= : JSON file (any object) to observe maturity/envelope/lifecycle residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -740,6 +741,7 @@ final class AtlasAaeosCommand extends Command
             ['scorecard-gate-test-floors-contract', 'scorecard_gate_test_floors_contract', fn (array $p) => $gates->scorecardGateTestFloorsContractObserve($p)],
             ['ncapture-immune-coverage-floors-contract', 'ncapture_immune_coverage_floors_contract', fn (array $p) => $gates->ncaptureImmuneCoverageFloorsContractObserve($p)],
             ['cockpit-canary-adversarial-floors-contract', 'cockpit_canary_adversarial_floors_contract', fn (array $p) => $gates->cockpitCanaryAdversarialFloorsContractObserve($p)],
+            ['maturity-envelope-lifecycle-floors-contract', 'maturity_envelope_lifecycle_floors_contract', fn (array $p) => $gates->maturityEnvelopeLifecycleFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

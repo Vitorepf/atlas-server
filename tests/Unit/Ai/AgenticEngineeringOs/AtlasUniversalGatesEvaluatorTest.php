@@ -4409,4 +4409,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['cockpit_canary_adversarial_floor_count']);
     }
 
+    public function test_maturity_envelope_lifecycle_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->maturityEnvelopeLifecycleFloorsContractObserve([]);
+
+        $this->assertSame('band', $payload['maturity_field_band']);
+        $this->assertSame('rank', $payload['maturity_field_rank']);
+        $this->assertSame('schema_version', $payload['maturity_field_schema_version']);
+        $this->assertSame('qualifies', $payload['maturity_field_qualifies']);
+        $this->assertSame('breaches', $payload['maturity_field_breaches']);
+        $this->assertSame('qualified_band', $payload['maturity_field_qualified_band']);
+        $this->assertSame('promotion_blocked', $payload['maturity_field_promotion_blocked']);
+        $this->assertSame('dev_procedural', $payload['envelope_field_dev_procedural']);
+        $this->assertSame('aemor', $payload['envelope_field_aemor']);
+        $this->assertSame('compounding', $payload['envelope_field_compounding']);
+        $this->assertSame('measure_id', $payload['envelope_field_measure_id']);
+        $this->assertSame('producers', $payload['envelope_field_producers']);
+        $this->assertSame('consumers', $payload['envelope_field_consumers']);
+        $this->assertSame('reason', $payload['lifecycle_field_reason']);
+        $this->assertSame('attempt', $payload['lifecycle_field_attempt']);
+        $this->assertSame('attempt_id', $payload['lifecycle_field_attempt_id']);
+        $this->assertSame('state', $payload['lifecycle_field_state']);
+        $this->assertSame(17, $payload['maturity_envelope_lifecycle_floor_count']);
+    }
+
 }

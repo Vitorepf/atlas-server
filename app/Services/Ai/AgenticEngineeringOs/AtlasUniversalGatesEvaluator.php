@@ -6021,6 +6021,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function maturityEnvelopeLifecycleFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'maturity_field_band' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_BAND,
+            'maturity_field_rank' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_RANK,
+            'maturity_field_schema_version' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_SCHEMA_VERSION,
+            'maturity_field_qualifies' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_QUALIFIES,
+            'maturity_field_breaches' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_BREACHES,
+            'maturity_field_qualified_band' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_QUALIFIED_BAND,
+            'maturity_field_promotion_blocked' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_PROMOTION_BLOCKED,
+            'envelope_field_dev_procedural' => OutcomeEnvelopeBridge::FIELD_DEV_PROCEDURAL,
+            'envelope_field_aemor' => OutcomeEnvelopeBridge::FIELD_AEMOR,
+            'envelope_field_compounding' => OutcomeEnvelopeBridge::FIELD_COMPOUNDING,
+            'envelope_field_measure_id' => OutcomeEnvelopeBridge::FIELD_MEASURE_ID,
+            'envelope_field_producers' => OutcomeEnvelopeBridge::FIELD_PRODUCERS,
+            'envelope_field_consumers' => OutcomeEnvelopeBridge::FIELD_CONSUMERS,
+            'lifecycle_field_reason' => AttemptLifecycleLedger::FIELD_REASON,
+            'lifecycle_field_attempt' => AttemptLifecycleLedger::FIELD_ATTEMPT,
+            'lifecycle_field_attempt_id' => AttemptLifecycleLedger::FIELD_ATTEMPT_ID,
+            'lifecycle_field_state' => AttemptLifecycleLedger::FIELD_STATE,
+            'maturity_envelope_lifecycle_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

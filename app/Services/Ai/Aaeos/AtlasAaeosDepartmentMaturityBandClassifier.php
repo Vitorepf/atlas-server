@@ -21,6 +21,14 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
     public const SCHEMA_VERSION = 'atlas.aaeos.department_maturity_band.v1';
 
     public const FIELD_MISSING = 'missing';
+    public const FIELD_BAND = 'band';
+    public const FIELD_RANK = 'rank';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_QUALIFIES = 'qualifies';
+    public const FIELD_BREACHES = 'breaches';
+    public const FIELD_QUALIFIED_BAND = 'qualified_band';
+    public const FIELD_QUALIFIED_RANK = 'qualified_rank';
+    public const FIELD_PROMOTION_BLOCKED = 'promotion_blocked';
 
     /**
      * @param  list<array{band: string, rank: int, thresholds: list<array{metric: string, comparator: string, value: float}>}>  $bandLadder  ordered lowest-first
@@ -50,16 +58,16 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
             $qualifies = $breaches === [];
 
             $perBand[] = [
-                'band' => $band['band'],
-                'rank' => $band['rank'],
-                'qualifies' => $qualifies,
-                'breaches' => $breaches,
+                self::FIELD_BAND => $band[self::FIELD_BAND],
+                self::FIELD_RANK => $band[self::FIELD_RANK],
+                self::FIELD_QUALIFIES => $qualifies,
+                self::FIELD_BREACHES => $breaches,
             ];
 
-            if ($qualifies && (! $hasQualified || $band['rank'] > $qualifiedRank)) {
+            if ($qualifies && (! $hasQualified || $band[self::FIELD_RANK] > $qualifiedRank)) {
                 $hasQualified = true;
-                $qualifiedBand = $band['band'];
-                $qualifiedRank = $band['rank'];
+                $qualifiedBand = $band[self::FIELD_BAND];
+                $qualifiedRank = $band[self::FIELD_RANK];
             }
         }
 
@@ -73,14 +81,14 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
         [$nextBand, $nextBandBreaches] = $this->resolveNextBand($perBand, $qualifiedRank);
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'qualified_band' => $qualifiedBand,
-            'qualified_rank' => $qualifiedRank,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_QUALIFIED_BAND => $qualifiedBand,
+            self::FIELD_QUALIFIED_RANK => $qualifiedRank,
             'all_bands_breached' => $allBandsBreached,
             'per_band' => $perBand,
             'next_band' => $nextBand,
             'next_band_breaches' => $nextBandBreaches,
-            'promotion_blocked' => $nextBand !== null,
+            self::FIELD_PROMOTION_BLOCKED => $nextBand !== null,
         ];
     }
 
@@ -104,7 +112,7 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'departments' => $departments,
         ];
     }
@@ -150,11 +158,11 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
         $nextRow = null;
 
         foreach ($perBand as $row) {
-            if ($row['rank'] <= $qualifiedRank) {
+            if ($row[self::FIELD_RANK] <= $qualifiedRank) {
                 continue;
             }
 
-            if ($nextRow === null || $row['rank'] < $nextRow['rank']) {
+            if ($nextRow === null || $row[self::FIELD_RANK] < $nextRow[self::FIELD_RANK]) {
                 $nextRow = $row;
             }
         }
@@ -164,8 +172,8 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
         }
 
         return [
-            ['band' => $nextRow['band'], 'rank' => $nextRow['rank']],
-            $nextRow['breaches'],
+            [self::FIELD_BAND => $nextRow[self::FIELD_BAND], self::FIELD_RANK => $nextRow[self::FIELD_RANK]],
+            $nextRow[self::FIELD_BREACHES],
         ];
     }
 

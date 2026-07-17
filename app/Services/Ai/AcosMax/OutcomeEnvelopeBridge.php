@@ -26,6 +26,14 @@ final class OutcomeEnvelopeBridge
     public const KIND_MEASURE_FREEZE = 'measure_freeze';
 
     public const FIELD_ENABLED = 'enabled';
+    public const FIELD_DEV_PROCEDURAL = 'dev_procedural';
+    public const FIELD_AEMOR = 'aemor';
+    public const FIELD_COMPOUNDING = 'compounding';
+    public const FIELD_MEASURE_ID = 'measure_id';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_PRODUCERS = 'producers';
+    public const FIELD_CONSUMERS = 'consumers';
+    public const FIELD_FREEZE = 'freeze';
 
     /** @var array<string, OutcomeEnvelopeAdapter> */
     private array $adapters;
@@ -36,9 +44,9 @@ final class OutcomeEnvelopeBridge
         ?CompoundingOutcomeEnvelopeAdapter $compounding = null,
     ) {
         $this->adapters = [
-            'dev_procedural' => $dev ?? new DevProceduralOutcomeEnvelopeAdapter,
-            'aemor' => $aemor ?? new AemorOutcomeEnvelopeAdapter,
-            'compounding' => $compounding ?? new CompoundingOutcomeEnvelopeAdapter,
+            self::FIELD_DEV_PROCEDURAL => $dev ?? new DevProceduralOutcomeEnvelopeAdapter,
+            self::FIELD_AEMOR => $aemor ?? new AemorOutcomeEnvelopeAdapter,
+            self::FIELD_COMPOUNDING => $compounding ?? new CompoundingOutcomeEnvelopeAdapter,
         ];
     }
 
@@ -78,17 +86,17 @@ final class OutcomeEnvelopeBridge
     public function producerConsumerMeta(): array
     {
         return [
-            'schema_version' => self::BRIDGE_SCHEMA,
-            'measure_id' => self::MEASURE_ID,
+            self::FIELD_SCHEMA_VERSION => self::BRIDGE_SCHEMA,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_ENABLED => self::enabled(),
-            'producers' => array_keys($this->adapters),
-            'consumers' => array_keys($this->adapters),
+            self::FIELD_PRODUCERS => array_keys($this->adapters),
+            self::FIELD_CONSUMERS => array_keys($this->adapters),
             'anti_unification_fence' => [
-                'dev_procedural' => \App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevOutcomeMemoryService::class,
-                'aemor' => \App\Services\Ai\Aemor\AtlasAemorRuntimeService::class,
-                'compounding' => \App\Services\Ai\Compounding\AtlasCompoundingOutcomeEvaluator::class,
+                self::FIELD_DEV_PROCEDURAL => \App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevOutcomeMemoryService::class,
+                self::FIELD_AEMOR => \App\Services\Ai\Aemor\AtlasAemorRuntimeService::class,
+                self::FIELD_COMPOUNDING => \App\Services\Ai\Compounding\AtlasCompoundingOutcomeEvaluator::class,
             ],
-            'freeze' => self::freezePayload(),
+            self::FIELD_FREEZE => self::freezePayload(),
         ];
     }
 
@@ -97,7 +105,7 @@ final class OutcomeEnvelopeBridge
     {
         return [
             'kind' => self::KIND_MEASURE_FREEZE,
-            'measure_id' => self::MEASURE_ID,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
             'formula_version' => OutcomeEnvelope::FORMULA_VERSION,
             'formula' => 'Outcome envelope = MULTX-03 atlas.engineering_outcome.v2 contract projected through one thin adapter per native organ (dev_procedural, aemor, compounding). Divergent native fields remain in native_divergent.fields labeled by origin — never coerced or fused.',
             'thresholds' => [
