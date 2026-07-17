@@ -159,7 +159,7 @@ final class AcosProgramCockpitService
 
         $selected = null;
         foreach ($blocks as $block) {
-            $text = implode("\n", (array) ($block['lines'] ?? []));
+            $text = implode("\n", AiValueNormalizer::arrayOrEmpty($block['lines'] ?? null));
             if (str_contains($text, '[ ]')) {
                 $selected = $block;
                 break;
@@ -174,8 +174,8 @@ final class AcosProgramCockpitService
             'status' => 'ok',
             'source' => $path,
             'payload' => [
-                'heading' => (string) ($selected['heading'] ?? ''),
-                'lines' => array_values((array) ($selected['lines'] ?? [])),
+                'heading' => AiValueNormalizer::trimmedString($selected['heading'] ?? ''),
+                'lines' => array_values(AiValueNormalizer::arrayOrEmpty($selected['lines'] ?? null)),
             ],
         ];
     }

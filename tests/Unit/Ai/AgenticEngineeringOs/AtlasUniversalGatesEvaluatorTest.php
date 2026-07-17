@@ -36,6 +36,7 @@ use App\Services\Ai\AcosMax\Teto10PredictedRevertReviewDigest;
 use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadLedger;
 use App\Services\Ai\AcosMax\AcosMeasureSeriesFreshnessReader;
 use App\Services\Ai\AcosMax\AcosMaxVerifiedShareService;
+use App\Services\Ai\AcosMax\RagxChainMechanismService;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -906,5 +907,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AcosMaxVerifiedShareService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame(AcosMaxVerifiedShareService::MEASURE_ID, $payload['measure_id']);
         $this->assertArrayHasKey('status', $payload);
+    }
+
+    public function test_ragx_chain_observe_reports_stage_map(): void
+    {
+        $payload = $this->svc->ragxChainObserve(['deps' => ['louvain_ready' => true]]);
+
+        $this->assertSame(RagxChainMechanismService::SCHEMA, $payload['schema_version']);
+        $this->assertArrayHasKey('stages', $payload);
+        $this->assertFalse($payload['ab_green_claimed']);
     }
 }

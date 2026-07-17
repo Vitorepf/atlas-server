@@ -38,6 +38,7 @@ use App\Services\Ai\AcosMax\AtlasResourceBudgetService;
 use App\Services\Ai\AcosMax\AtlasModelCapabilitySpecService;
 use App\Services\Ai\AcosMax\AcosMeasureSeriesFreshnessReader;
 use App\Services\Ai\AcosMax\AcosMaxVerifiedShareService;
+use App\Services\Ai\AcosMax\RagxChainMechanismService;
 use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
 
@@ -1070,6 +1071,23 @@ final class AtlasUniversalGatesEvaluator
         $days = array_key_exists('days', $input) ? max(1, (int) $input['days']) : null;
 
         return (new AcosMaxVerifiedShareService)->report($days);
+    }
+
+    /**
+     * Observe-only RAGX chain mechanisms stage report.
+     * Accepts optional `{deps?:object}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function ragxChainObserve(array $input = []): array
+    {
+        $deps = [];
+        foreach (AiValueNormalizer::arrayOrEmpty($input['deps'] ?? null) as $key => $value) {
+            $deps[AiValueNormalizer::trimmedString($key)] = (bool) $value;
+        }
+
+        return (new RagxChainMechanismService)->stageReport($deps);
     }
 
     /**

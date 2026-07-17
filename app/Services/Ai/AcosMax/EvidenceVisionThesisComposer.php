@@ -38,12 +38,12 @@ final class EvidenceVisionThesisComposer
             return self::emptyResult('flag_disabled');
         }
 
-        $bornAt = (string) ($context['born_at'] ?? gmdate('c'));
+        $bornAt = AiValueNormalizer::trimmedString($context['born_at'] ?? gmdate('c')) ?: gmdate('c');
         $ttlDays = max(1, (int) ($context['ttl_days'] ?? self::DEFAULT_TTL_DAYS));
         $forbidden = self::forbiddenStrings($context);
         $theses = [];
 
-        foreach (self::seriesRegressionTheses((array) ($context['series_windows'] ?? []), $bornAt, $ttlDays) as $thesis) {
+        foreach (self::seriesRegressionTheses(AiValueNormalizer::arrayOrEmpty($context['series_windows'] ?? null), $bornAt, $ttlDays) as $thesis) {
             if (count($theses) >= self::MAX_THESES) {
                 break;
             }
@@ -52,7 +52,7 @@ final class EvidenceVisionThesisComposer
             }
         }
 
-        foreach (self::calibrationDriftTheses((array) ($context['calibration'] ?? []), $bornAt, $ttlDays) as $thesis) {
+        foreach (self::calibrationDriftTheses(AiValueNormalizer::arrayOrEmpty($context['calibration'] ?? null), $bornAt, $ttlDays) as $thesis) {
             if (count($theses) >= self::MAX_THESES) {
                 break;
             }
@@ -61,7 +61,7 @@ final class EvidenceVisionThesisComposer
             }
         }
 
-        foreach (self::leadClusterTheses((array) ($context['leads'] ?? []), $bornAt, $ttlDays) as $thesis) {
+        foreach (self::leadClusterTheses(AiValueNormalizer::arrayOrEmpty($context['leads'] ?? null), $bornAt, $ttlDays) as $thesis) {
             if (count($theses) >= self::MAX_THESES) {
                 break;
             }
@@ -70,7 +70,7 @@ final class EvidenceVisionThesisComposer
             }
         }
 
-        foreach (self::outcomeStallTheses((array) ($context['outcomes'] ?? []), $bornAt, $ttlDays) as $thesis) {
+        foreach (self::outcomeStallTheses(AiValueNormalizer::arrayOrEmpty($context['outcomes'] ?? null), $bornAt, $ttlDays) as $thesis) {
             if (count($theses) >= self::MAX_THESES) {
                 break;
             }
@@ -132,7 +132,7 @@ final class EvidenceVisionThesisComposer
      */
     public static function thesisFieldSourcesValid(array $thesis): bool
     {
-        foreach ((array) ($thesis['evidence'] ?? []) as $row) {
+        foreach (AiValueNormalizer::arrayOrEmpty($thesis['evidence'] ?? null) as $row) {
             if (! is_array($row)) {
                 return false;
             }
@@ -232,7 +232,7 @@ final class EvidenceVisionThesisComposer
                 'evidence' => array_map(
                     static fn (array $row): array => [
                         'source' => 'series',
-                        'ref' => 'series:'.(string) ($row['series'] ?? '').':stage='.(string) ($row['stage'] ?? '').':window='.(int) ($row['window'] ?? 0),
+                        'ref' => 'series:'.AiValueNormalizer::trimmedString($row['series'] ?? '').':stage='.AiValueNormalizer::trimmedString($row['stage'] ?? '').':window='.(int) ($row['window'] ?? 0),
                         'field' => 'yield',
                         'value' => (float) ($row['yield'] ?? 0.0),
                     ],
@@ -261,9 +261,9 @@ final class EvidenceVisionThesisComposer
      */
     private static function calibrationDriftTheses(array $calibration, string $bornAt, int $ttlDays): array
     {
-        $bands = (array) ($calibration['bands'] ?? []);
-        $high = (array) ($bands['high'] ?? []);
-        $sweet = (array) ($bands['sweet'] ?? []);
+        $bands = AiValueNormalizer::arrayOrEmpty($calibration['bands'] ?? null);
+        $high = AiValueNormalizer::arrayOrEmpty($bands['high'] ?? null);
+        $sweet = AiValueNormalizer::arrayOrEmpty($bands['sweet'] ?? null);
         $highN = (int) ($high['n_realized'] ?? 0);
         $sweetN = (int) ($sweet['n_realized'] ?? 0);
         if ($highN < 3 || $sweetN < 3) {
@@ -328,7 +328,7 @@ final class EvidenceVisionThesisComposer
             if ($target === '' || $file === '' || $line <= 0) {
                 continue;
             }
-            $byTarget[$target][] = ['file' => $file, 'line' => $line, 'source' => (string) ($evidence['source'] ?? 'ledger')];
+            $byTarget[$target][] = ['file' => $file, 'line' => $line, 'source' => AiValueNormalizer::trimmedString($evidence['source'] ?? 'ledger') ?: 'ledger'];
         }
 
         $theses = [];
@@ -400,7 +400,7 @@ final class EvidenceVisionThesisComposer
                 'evidence' => array_map(
                     static fn (array $row, int $index): array => [
                         'source' => 'outcome',
-                        'ref' => 'outcome:'.(string) ($row['outcome_id'] ?? ('stall-'.$index)),
+                        'ref' => 'outcome:'.(AiValueNormalizer::trimmedString($row['outcome_id'] ?? '') ?: ('stall-'.$index)),
                         'field' => 'proven_real',
                         'value' => false,
                     ],
@@ -460,7 +460,7 @@ final class EvidenceVisionThesisComposer
             if (! is_array($thesis) || ($thesis['status'] ?? '') !== 'active') {
                 continue;
             }
-            foreach ((array) ($thesis['alignment_keys'] ?? []) as $key) {
+            foreach (AiValueNormalizer::arrayOrEmpty($thesis['alignment_keys'] ?? null) as $key) {
                 $key = AiValueNormalizer::trimmedString($key);
                 if ($key !== '') {
                     $keys[] = $key;
