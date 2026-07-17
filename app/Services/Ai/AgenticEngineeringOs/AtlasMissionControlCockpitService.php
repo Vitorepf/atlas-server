@@ -29,6 +29,9 @@ final class AtlasMissionControlCockpitService
         private readonly AaeosPhaseHandoffService $phases,
         private readonly AtlasUniversalGatesEvaluator $gates,
         private readonly DepartmentContractRuntime $departments,
+        private readonly AaeosBlockerSeverityGate $blockerSeverity = new AaeosBlockerSeverityGate,
+        private readonly PhaseAdvanceVerdictClassifier $phaseAdvance = new PhaseAdvanceVerdictClassifier,
+        private readonly OutcomeCausalityRanker $outcomeCausality = new OutcomeCausalityRanker,
     ) {}
 
     /**
