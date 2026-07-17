@@ -129,6 +129,22 @@ final class AcosMaxLote2MeasureService
     public const FIELD_CITATION_P95 = 'citation_p95';
     public const FIELD_DELIVERY_LATENCIES = 'delivery_latencies';
     public const FIELD_MEMORY_TYPES = 'memory_types';
+    public const FIELD_CLAIM_POLICY = 'claim_policy';
+    public const FIELD_LATENCY_SECONDS = 'latency_seconds';
+    public const FIELD_SAMPLE_RATE = 'sample_rate';
+    public const FIELD_PAIRED_DELTA = 'paired_delta';
+    public const FIELD_THRESHOLDS = 'thresholds';
+    public const FIELD_TTL_DAYS = 'ttl_days';
+    public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
+    public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
+    public const FIELD_ALLOWED_BASIS = 'allowed_basis';
+    public const FIELD_COUNTERFACTUAL_BASIS = 'counterfactual_basis';
+    public const FIELD_DENOMINATOR = 'denominator';
+    public const FIELD_LOOPS_COMPLETE = 'loops_complete';
+    public const FIELD_LOOPS = 'loops';
+    public const FIELD_LOOPS_PARTIAL = 'loops_partial';
+    public const FIELD_N_TOTAL = 'n_total';
+    public const FIELD_FIXTURE_REJECTED = 'fixture_rejected';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -141,11 +157,11 @@ final class AcosMaxLote2MeasureService
             self::FIELD_MEASURE_ID => AiValueNormalizer::lowerTrimmedString($slice).'.unknown',
             self::FIELD_FORMULA_VERSION => AiValueNormalizer::lowerTrimmedString($slice).'.unknown',
             self::FIELD_FORMULA => 'Unknown LOTE 2 measure freeze.',
-            'thresholds' => [],
+            self::FIELD_THRESHOLDS => [],
             self::FIELD_DENOMINATOR_MIN => 1,
-            'ttl_days' => 30,
-            'author_engine_id' => 'cursor-acos-max-lote2',
-            'judge_engine_id' => 'codex-independent-lote2-judge',
+            self::FIELD_TTL_DAYS => 30,
+            self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-lote2',
+            self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-lote2-judge',
         ];
     }
 
@@ -155,8 +171,8 @@ final class AcosMaxLote2MeasureService
         return $this->emptyReport('MAXL-06', self::STATUS_PENDING_WINDOW, self::REASON_MISSING_LINEAGE_LEDGER, [
             self::FIELD_MEASURE_ID => self::MAXL06_MEASURE_ID,
             'basis' => self::BASIS_UNAVAILABLE,
-            'allowed_basis' => ['lineage_ledger', 'git_log'],
-            'counterfactual_basis' => 'none',
+            self::FIELD_ALLOWED_BASIS => ['lineage_ledger', 'git_log'],
+            self::FIELD_COUNTERFACTUAL_BASIS => 'none',
             'correlation_label_required' => 'correlational_attribution',
             'attributed_delta' => [],
             'dependencies' => ['ASI-11', 'MAXL-04'],
@@ -171,7 +187,7 @@ final class AcosMaxLote2MeasureService
         return $this->emptyReport('MULTN17-04', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_PENDING_REAL_ORIGINATOR_OUTCOME, [
             self::FIELD_MEASURE_ID => self::MULTN1704_MEASURE_ID,
             self::FIELD_DENOMINATOR_MIN => 20,
-            'denominator' => [
+            self::FIELD_DENOMINATOR => [
                 'originations' => $originations,
                 'resolved_outcomes' => 0,
             ],
@@ -189,11 +205,11 @@ final class AcosMaxLote2MeasureService
             return $this->emptyReport('MULTX-01', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_LOOP_SOURCE_TABLES_MISSING, [
                 self::FIELD_MEASURE_ID => self::MULTX01_MEASURE_ID,
                 self::FIELD_DENOMINATOR_MIN => 1,
-                'loops_complete' => 0,
-                'loops' => [],
-                'loops_partial' => [],
-                'n_total' => 0,
-                'fixture_rejected' => 0,
+                self::FIELD_LOOPS_COMPLETE => 0,
+                self::FIELD_LOOPS => [],
+                self::FIELD_LOOPS_PARTIAL => [],
+                self::FIELD_N_TOTAL => 0,
+                self::FIELD_FIXTURE_REJECTED => 0,
                 'missing_tables' => $missingTables,
                 'time_per_loop' => [
                     'p50_seconds' => null,
@@ -267,12 +283,12 @@ final class AcosMaxLote2MeasureService
             self::FIELD_FREEZE => self::freezePayload('MULTX-01'),
             self::FIELD_MEASURE_ID => self::MULTX01_MEASURE_ID,
             self::FIELD_DENOMINATOR_MIN => 1,
-            'loops_complete' => $loopsComplete,
-            'loops' => $loops,
-            'loops_partial' => $partial,
+            self::FIELD_LOOPS_COMPLETE => $loopsComplete,
+            self::FIELD_LOOPS => $loops,
+            self::FIELD_LOOPS_PARTIAL => $partial,
             'blocked_by_top' => $blockedByTop,
-            'n_total' => $loopsComplete + count($partial),
-            'fixture_rejected' => $fixtureRejected,
+            self::FIELD_N_TOTAL => $loopsComplete + count($partial),
+            self::FIELD_FIXTURE_REJECTED => $fixtureRejected,
             'time_per_loop' => [
                 'p50_seconds' => $this->percentileInt($durations, 0.50),
                 'p95_seconds' => $this->percentileInt($durations, 0.95),
@@ -286,7 +302,7 @@ final class AcosMaxLote2MeasureService
                 'requires_zero_fixture' => true,
             ],
             'valid_loop_definition' => $this->multx01ValidLoopDefinition(),
-            'claim_policy' => [
+            self::FIELD_CLAIM_POLICY => [
                 self::FIELD_READ_ONLY => true,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
                 self::FIELD_MEMORY_WRITTEN => false,
@@ -521,7 +537,7 @@ final class AcosMaxLote2MeasureService
                 'by_lesson_class' => [],
                 self::FIELD_NEVER_DELIVERED => 0,
                 self::FIELD_NEVER_CITED => 0,
-                'latency_seconds' => [
+                self::FIELD_LATENCY_SECONDS => [
                     self::FIELD_DELIVERY_P50 => null,
                     self::FIELD_DELIVERY_P95 => null,
                     self::FIELD_CITATION_P50 => null,
@@ -636,14 +652,14 @@ final class AcosMaxLote2MeasureService
             'by_lesson_class' => $this->learningLatencyByClass($byClass),
             self::FIELD_NEVER_DELIVERED => $neverDelivered,
             self::FIELD_NEVER_CITED => $neverCited,
-            'latency_seconds' => [
+            self::FIELD_LATENCY_SECONDS => [
                 self::FIELD_DELIVERY_P50 => $this->percentileInt($deliveryLatencies, 0.50),
                 self::FIELD_DELIVERY_P95 => $this->percentileInt($deliveryLatencies, 0.95),
                 self::FIELD_CITATION_P50 => $this->percentileInt($citationLatencies, 0.50),
                 self::FIELD_CITATION_P95 => $this->percentileInt($citationLatencies, 0.95),
             ],
             self::FIELD_ROWS => $rows,
-            'claim_policy' => [
+            self::FIELD_CLAIM_POLICY => [
                 self::FIELD_READ_ONLY => true,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
                 self::FIELD_MEMORY_WRITTEN => false,
@@ -674,7 +690,7 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_CITED => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_CITED] ?? null) ?? 0),
                 self::FIELD_NEVER_DELIVERED => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_NEVER_DELIVERED] ?? null) ?? 0),
                 self::FIELD_NEVER_CITED => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_NEVER_CITED] ?? null) ?? 0),
-                'latency_seconds' => [
+                self::FIELD_LATENCY_SECONDS => [
                     self::FIELD_DELIVERY_P50 => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row[self::FIELD_DELIVERY_LATENCIES] ?? null), 0.50),
                     self::FIELD_DELIVERY_P95 => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row[self::FIELD_DELIVERY_LATENCIES] ?? null), 0.95),
                     self::FIELD_CITATION_P50 => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row[self::FIELD_CITATION_LATENCIES] ?? null), 0.50),
@@ -719,10 +735,10 @@ final class AcosMaxLote2MeasureService
             return $this->emptyReport('MULTJ-03', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_PAIRED_FEEDBACK_TABLE_MISSING, [
                 self::FIELD_MEASURE_ID => self::MULTJ03_MEASURE_ID,
                 self::FIELD_DENOMINATOR_MIN => $denominatorMin,
-                'sample_rate' => $sampleRate,
+                self::FIELD_SAMPLE_RATE => $sampleRate,
                 'rate' => $sampleRate,
                 self::FIELD_N_PAIRS => 0,
-                'paired_delta' => null,
+                self::FIELD_PAIRED_DELTA => null,
                 self::FIELD_MEMORY_TYPES => [],
                 'peek_policy' => [
                     self::FIELD_RECORD_USAGE_FOR_PEEK => false,
@@ -818,7 +834,7 @@ final class AcosMaxLote2MeasureService
         $measured = array_values(array_filter($memoryTypes, static fn (array $group): bool => $group[self::FIELD_STATUS] === self::STATUS_MEASURED));
         $measuredPairs = array_sum(array_column($measured, 'n_pairs'));
         $measuredDeltaSum = array_sum(array_map(
-            static fn (array $group): float => (AiValueNormalizer::finiteFloatOrNull($group['paired_delta'] ?? null) ?? 0.0) * (int) $group[self::FIELD_N_PAIRS],
+            static fn (array $group): float => (AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_PAIRED_DELTA] ?? null) ?? 0.0) * (int) $group[self::FIELD_N_PAIRS],
             $measured,
         ));
 
@@ -832,10 +848,10 @@ final class AcosMaxLote2MeasureService
             self::FIELD_FREEZE => self::freezePayload('MULTJ-03'),
             self::FIELD_MEASURE_ID => self::MULTJ03_MEASURE_ID,
             self::FIELD_DENOMINATOR_MIN => $denominatorMin,
-            'sample_rate' => $sampleRate,
+            self::FIELD_SAMPLE_RATE => $sampleRate,
             'rate' => $sampleRate,
             self::FIELD_N_PAIRS => count($validDeltas),
-            'paired_delta' => $measuredPairs > 0 ? round($measuredDeltaSum / $measuredPairs, 4) : null,
+            self::FIELD_PAIRED_DELTA => $measuredPairs > 0 ? round($measuredDeltaSum / $measuredPairs, 4) : null,
             self::FIELD_MEMORY_TYPES => $memoryTypes,
             'peek_policy' => [
                 self::FIELD_RECORD_USAGE_FOR_PEEK => false,
@@ -846,7 +862,7 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_INCOMPLETE => $incompletePairs,
                 'positive_lift_fabricated' => $positiveLiftFabricated,
             ],
-            'claim_policy' => [
+            self::FIELD_CLAIM_POLICY => [
                 self::FIELD_READ_ONLY => true,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
                 self::FIELD_MEMORY_WRITTEN => false,
@@ -878,7 +894,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_N_PAIRS => $n,
             'control_score_mean' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group['control_score_sum'] ?? null) ?? 0.0) / $n, 4) : null,
             'treatment_score_mean' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group['treatment_score_sum'] ?? null) ?? 0.0) / $n, 4) : null,
-            'paired_delta' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group['delta_sum'] ?? null) ?? 0.0) / $n, 4) : null,
+            self::FIELD_PAIRED_DELTA => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group['delta_sum'] ?? null) ?? 0.0) / $n, 4) : null,
         ];
     }
 
@@ -947,7 +963,7 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_MEASURE_ID => self::TETO02_MEASURE_ID,
                 self::FIELD_DENOMINATOR_MIN => 20,
                 'window_days' => $days,
-                'denominator' => ['operator_requests' => 0],
+                self::FIELD_DENOMINATOR => ['operator_requests' => 0],
             ]);
         }
 
@@ -991,14 +1007,14 @@ final class AcosMaxLote2MeasureService
     public static function freezePayloads(): array
     {
         return [
-            'MAXL-06' => self::payload(self::MAXL06_MEASURE_ID, 'maxl06.delta_attribution.v1', 'Report-only attribution joins daily measure deltas to lineage decision_ids/commits; when lineage is absent, basis must be labeled and causal language must use correlational_attribution.', 1, 30, 'cursor-acos-max-maxl06', 'codex-independent-maxl06-judge', ['allowed_basis' => ['lineage_ledger', 'git_log'], 'counterfactual_basis' => 'none']),
+            'MAXL-06' => self::payload(self::MAXL06_MEASURE_ID, 'maxl06.delta_attribution.v1', 'Report-only attribution joins daily measure deltas to lineage decision_ids/commits; when lineage is absent, basis must be labeled and causal language must use correlational_attribution.', 1, 30, 'cursor-acos-max-maxl06', 'codex-independent-maxl06-judge', [self::FIELD_ALLOWED_BASIS => ['lineage_ledger', 'git_log'], self::FIELD_COUNTERFACTUAL_BASIS => 'none']),
             'MULTN17-04' => self::payload(self::MULTN1704_MEASURE_ID, 'multn17.predicted_impact_calibration.v1', 'Derived predicted_impact band versus realized proven_real outcome curve for origination; report-only until at least 20 real originations resolve.', 20, 30, 'cursor-acos-max-multn17-04', 'codex-independent-multn17-04-judge', ['denominator_min_originations' => 20, 'max_abs_declared_realized_deviation' => 1]),
             'MULTX-01' => self::payload(self::MULTX01_MEASURE_ID, 'multx.flywheel_loop_definition.v1', 'A valid loop chains task, decision receipt, delivered context, execution outcome, lesson, and subsequent measured recall; proven_real outcome is mandatory.', 1, 30, 'cursor-acos-max-multx01', 'codex-independent-multx01-judge', ['requires_proven_real_outcome' => true]),
             'MULTX-06' => self::payload(self::MULTX06_MEASURE_ID, 'multx.learning_latency.v1', 'Measure p50/p95 latency from outcome-created lesson to first delivered context and first measured citation; never_delivered remains in denominator.', 8, 30, 'cursor-acos-max-multx06', 'codex-independent-multx06-judge', ['denominator_min_promoted_lessons' => 8]),
             'MULTX-09' => self::payload(self::MULTX09_MEASURE_ID, 'multx.windows_orchestrator.v1', 'Read-only PromotionProtocol window DAG: started windows publish days_remaining and critical path; not-started windows never receive fabricated ETA; associated series silence beyond the watchdog floor emits dead_window.', 1, 30, 'cursor-acos-max-multx09', 'codex-independent-multx09-judge', ['dead_window_silent_days' => 3, 'not_started_eta_allowed' => false, self::FIELD_READ_ONLY => true]),
             'MULTJ-01' => self::payload(self::MULTJ01_MEASURE_ID, 'multj.lesson_half_life.v2', 'Bucket lesson lift by age since promotion using two-week buckets; buckets below n=8 publish insufficient instead of null.', 8, 30, 'cursor-acos-max-multj01', 'codex-independent-multj01-judge', ['bucket_width_weeks' => 2, 'denominator_min_per_bucket' => 8]),
             'MULTJ-02' => self::payload(self::MULTJ02_MEASURE_ID, 'multj.semantic_dedup_freeze.v1', 'Semantic lesson dedup threshold freeze for observe-mode would-merge receipts; enforcement requires later calibrated promotion.', 1, 30, 'cursor-acos-max-multj02', 'codex-independent-multj02-judge', ['cosine_merge_threshold' => 0.88, 'observe_mode_actual_merges' => 0]),
-            'MULTJ-03' => self::payload(self::MULTJ03_MEASURE_ID, 'multj.counterfactual_lift.v2', 'Paired peek evaluation of the same task with and without injected lesson; n_pairs below 8 publishes insufficient_signal and peek must not record usage.', 8, 30, 'cursor-acos-max-multj03', 'codex-independent-multj03-judge', ['sample_rate' => 0.05, 'denominator_min_pairs' => 8, self::FIELD_RECORD_USAGE_FOR_PEEK => false]),
+            'MULTJ-03' => self::payload(self::MULTJ03_MEASURE_ID, 'multj.counterfactual_lift.v2', 'Paired peek evaluation of the same task with and without injected lesson; n_pairs below 8 publishes insufficient_signal and peek must not record usage.', 8, 30, 'cursor-acos-max-multj03', 'codex-independent-multj03-judge', [self::FIELD_SAMPLE_RATE => 0.05, 'denominator_min_pairs' => 8, self::FIELD_RECORD_USAGE_FOR_PEEK => false]),
             'MULTJ-04' => self::payload(self::MULTJ04_MEASURE_ID, 'multj.procedural_skill_promoter.v1', 'Procedural playbooks can propose skill.v1 candidates only after the real procedural case_count floor; output is default-OFF and ASI-02 holds promotion_allowed=false until gates pass.', AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR, 30, 'cursor-acos-max-multj04', 'codex-independent-multj04-judge', ['procedural_case_count_floor' => AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR, 'default_off' => true, 'admission_door' => 'ASI-02']),
             'MULTJ-06' => self::payload(self::MULTJ06_MEASURE_ID, 'multj.abstraction_ladder.v1', 'Distinct-signature patterns sharing primary_cause aggregate to level-3 principles when distinct_signature_k is met; derived_from refs must resolve or gate rejects.', 3, 30, 'cursor-acos-max-multj06', 'codex-independent-multj06-judge', ['distinct_signature_k' => 3, 'pattern_floor' => 1]),
             'TETO-02' => self::payload(self::TETO02_MEASURE_ID, 'mission_e2e_rate.v1', 'Operator natural-language request to completed result rate, asks per request, and request-to-delivery latency; abandoned missions stay in the denominator.', 20, 30, 'cursor-acos-max-teto02', 'codex-independent-teto02-judge', ['target_mission_e2e_rate' => 0.70, 'denominator_min_operator_requests' => 20]),
@@ -1013,11 +1029,11 @@ final class AcosMaxLote2MeasureService
             self::FIELD_MEASURE_ID => $measureId,
             self::FIELD_FORMULA_VERSION => $formulaVersion,
             self::FIELD_FORMULA => $formula,
-            'thresholds' => $thresholds,
+            self::FIELD_THRESHOLDS => $thresholds,
             self::FIELD_DENOMINATOR_MIN => $denominatorMin,
-            'ttl_days' => $ttlDays,
-            'author_engine_id' => $author,
-            'judge_engine_id' => $judge,
+            self::FIELD_TTL_DAYS => $ttlDays,
+            self::FIELD_AUTHOR_ENGINE_ID => $author,
+            self::FIELD_JUDGE_ENGINE_ID => $judge,
             'dual_read_required' => false,
         ];
     }

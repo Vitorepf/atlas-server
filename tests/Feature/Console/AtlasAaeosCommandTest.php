@@ -4917,6 +4917,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_esp09_lote2_hmac_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-elh-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-elh',
+                '--esp09-lote2-hmac-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"esp09_lote2_hmac_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

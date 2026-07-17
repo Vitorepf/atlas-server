@@ -5805,6 +5805,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function esp09Lote2HmacFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'esp09_field_status' => Esp09IndependentChallengerService::FIELD_STATUS,
+            'esp09_field_schema_version' => Esp09IndependentChallengerService::FIELD_SCHEMA_VERSION,
+            'esp09_field_promotion_delayed' => Esp09IndependentChallengerService::FIELD_PROMOTION_DELAYED,
+            'esp09_field_decision_kind' => Esp09IndependentChallengerService::FIELD_DECISION_KIND,
+            'esp09_field_challenger' => Esp09IndependentChallengerService::FIELD_CHALLENGER,
+            'esp09_field_operator_alignment' => Esp09IndependentChallengerService::FIELD_OPERATOR_ALIGNMENT,
+            'esp09_field_vetoed' => Esp09IndependentChallengerService::FIELD_VETOED,
+            'lote2_field_claim_policy' => AcosMaxLote2MeasureService::FIELD_CLAIM_POLICY,
+            'lote2_field_latency_seconds' => AcosMaxLote2MeasureService::FIELD_LATENCY_SECONDS,
+            'lote2_field_sample_rate' => AcosMaxLote2MeasureService::FIELD_SAMPLE_RATE,
+            'lote2_field_paired_delta' => AcosMaxLote2MeasureService::FIELD_PAIRED_DELTA,
+            'lote2_field_thresholds' => AcosMaxLote2MeasureService::FIELD_THRESHOLDS,
+            'hmac_field_stage' => CaptureHmacLineageService::FIELD_STAGE,
+            'hmac_field_chained_captures' => CaptureHmacLineageService::FIELD_CHAINED_CAPTURES,
+            'hmac_field_coverage_rate' => CaptureHmacLineageService::FIELD_COVERAGE_RATE,
+            'hmac_field_key_version' => CaptureHmacLineageService::FIELD_KEY_VERSION,
+            'hmac_field_threat_model' => CaptureHmacLineageService::FIELD_THREAT_MODEL,
+            'esp09_lote2_hmac_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

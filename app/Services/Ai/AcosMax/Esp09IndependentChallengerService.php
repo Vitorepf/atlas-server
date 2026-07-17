@@ -56,6 +56,22 @@ final class Esp09IndependentChallengerService
     public const ERROR_CHALLENGER_ENGINE_MUST_DIFFER = 'challenger_engine_must_differ';
 
     public const FIELD_ERROR = 'error';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_PROMOTION_DELAYED = 'promotion_delayed';
+    public const FIELD_DECISION_KIND = 'decision_kind';
+    public const FIELD_MEASURE_ID = 'measure_id';
+    public const FIELD_MODE = 'mode';
+    public const FIELD_GATES_OVERRIDE = 'gates_override';
+    public const FIELD_TRIGGERED = 'triggered';
+    public const FIELD_CHALLENGER = 'challenger';
+    public const FIELD_OPERATOR_ALIGNMENT = 'operator_alignment';
+    public const FIELD_VETOED = 'vetoed';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_ADVISORY_ONLY = 'advisory_only';
+    public const FIELD_SKIP_REASON = 'skip_reason';
+    public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
+    public const FIELD_CHALLENGER_ENGINE_ID = 'challenger_engine_id';
 
     public const SKIP_REASON_LOW_AFFINITY = 'low_affinity';
 
@@ -83,33 +99,33 @@ final class Esp09IndependentChallengerService
      */
     public static function evaluate(array $context): array
     {
-        $author = AiValueNormalizer::trimmedStringOrNull($context['author_engine_id'] ?? null) ?? '';
-        $challengerEngine = AiValueNormalizer::trimmedStringOrNull($context['challenger_engine_id'] ?? null) ?? '';
-        $alignmentRaw = AiValueNormalizer::finiteFloatOrNull($context['operator_alignment'] ?? null);
+        $author = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_AUTHOR_ENGINE_ID] ?? null) ?? '';
+        $challengerEngine = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_CHALLENGER_ENGINE_ID] ?? null) ?? '';
+        $alignmentRaw = AiValueNormalizer::finiteFloatOrNull($context[self::FIELD_OPERATOR_ALIGNMENT] ?? null);
         $alignment = $alignmentRaw === null ? null : AiValueNormalizer::clampUnit($alignmentRaw);
-        $kind = AiValueNormalizer::trimmedStringOrNull($context['decision_kind'] ?? null) ?? self::DECISION_KIND_ORDINARY_ROUTE;
+        $kind = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_DECISION_KIND] ?? null) ?? self::DECISION_KIND_ORDINARY_ROUTE;
 
         $base = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'measure_id' => self::MEASURE_ID,
-            'mode' => self::MODE,
-            'advisory_only' => true,
-            'gates_override' => false,
-            'triggered' => false,
-            'promotion_delayed' => false,
-            'challenger' => null,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_MODE => self::MODE,
+            self::FIELD_ADVISORY_ONLY => true,
+            self::FIELD_GATES_OVERRIDE => false,
+            self::FIELD_TRIGGERED => false,
+            self::FIELD_PROMOTION_DELAYED => false,
+            self::FIELD_CHALLENGER => null,
         ];
 
         if ($author === '' || $challengerEngine === '') {
             return array_merge($base, [
-                'status' => self::STATUS_INVALID,
+                self::FIELD_STATUS => self::STATUS_INVALID,
                 self::FIELD_ERROR => self::ERROR_ENGINE_IDS_REQUIRED,
             ]);
         }
 
         if ($author === $challengerEngine) {
             return array_merge($base, [
-                'status' => self::STATUS_INVALID,
+                self::FIELD_STATUS => self::STATUS_INVALID,
                 self::FIELD_ERROR => self::ERROR_CHALLENGER_ENGINE_MUST_DIFFER,
             ]);
         }
@@ -119,25 +135,25 @@ final class Esp09IndependentChallengerService
 
         if (! $kindTriggered && ! $highAlignment) {
             return array_merge($base, [
-                'status' => self::STATUS_SKIPPED,
-                'skip_reason' => self::SKIP_REASON_LOW_AFFINITY,
-                'operator_alignment' => $alignment,
-                'decision_kind' => $kind,
+                self::FIELD_STATUS => self::STATUS_SKIPPED,
+                self::FIELD_SKIP_REASON => self::SKIP_REASON_LOW_AFFINITY,
+                self::FIELD_OPERATOR_ALIGNMENT => $alignment,
+                self::FIELD_DECISION_KIND => $kind,
             ]);
         }
 
         $trigger = $kindTriggered ? self::TRIGGER_DECISION_KIND : self::TRIGGER_HIGH_OPERATOR_ALIGNMENT;
 
         return array_merge($base, [
-            'status' => self::STATUS_ADVISORY,
-            'triggered' => true,
+            self::FIELD_STATUS => self::STATUS_ADVISORY,
+            self::FIELD_TRIGGERED => true,
             'trigger' => $trigger,
-            'operator_alignment' => $alignment,
-            'decision_kind' => $kind,
-            'challenger' => [
-                'author_engine_id' => $author,
-                'challenger_engine_id' => $challengerEngine,
-                'decision_kind' => $kind,
+            self::FIELD_OPERATOR_ALIGNMENT => $alignment,
+            self::FIELD_DECISION_KIND => $kind,
+            self::FIELD_CHALLENGER => [
+                self::FIELD_AUTHOR_ENGINE_ID => $author,
+                self::FIELD_CHALLENGER_ENGINE_ID => $challengerEngine,
+                self::FIELD_DECISION_KIND => $kind,
                 'proposed_choice' => (AiValueNormalizer::trimmedStringOrNull($context['proposed_choice'] ?? null) ?? ''),
                 'alternative' => (AiValueNormalizer::trimmedStringOrNull($context['alternative'] ?? null) ?? ''),
                 'refutation' => (AiValueNormalizer::trimmedStringOrNull($context['refutation'] ?? null) ?? ''),
@@ -157,20 +173,20 @@ final class Esp09IndependentChallengerService
 
         if ($requires && ! $present) {
             return [
-                'schema_version' => self::SCHEMA_VERSION,
-                'status' => self::STATUS_DELAYED,
-                'vetoed' => false,
-                'promotion_delayed' => true,
-                'reason' => self::REASON_AWAITING_CHALLENGER_BLOCK,
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+                self::FIELD_STATUS => self::STATUS_DELAYED,
+                self::FIELD_VETOED => false,
+                self::FIELD_PROMOTION_DELAYED => true,
+                self::FIELD_REASON => self::REASON_AWAITING_CHALLENGER_BLOCK,
             ];
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => self::STATUS_CLEAR,
-            'vetoed' => false,
-            'promotion_delayed' => false,
-            'reason' => $requires ? self::REASON_CHALLENGER_BLOCK_PRESENT : self::REASON_CHALLENGER_NOT_REQUIRED,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_STATUS => self::STATUS_CLEAR,
+            self::FIELD_VETOED => false,
+            self::FIELD_PROMOTION_DELAYED => false,
+            self::FIELD_REASON => $requires ? self::REASON_CHALLENGER_BLOCK_PRESENT : self::REASON_CHALLENGER_NOT_REQUIRED,
         ];
     }
 
@@ -219,7 +235,7 @@ final class Esp09IndependentChallengerService
             && $acceptedRate <= 0.0;
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'series' => self::MEASURE_ID,
             'denominator' => $denominator,
             self::OUTCOME_ACCEPTED => $accepted,
@@ -239,13 +255,13 @@ final class Esp09IndependentChallengerService
     public static function freezePayload(): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'measure_id' => self::MEASURE_ID,
-            'mode' => self::MODE,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_MODE => self::MODE,
             'high_alignment_band' => self::HIGH_ALIGNMENT_BAND,
             'trigger_kinds' => self::TRIGGER_KINDS,
             'ttl_days' => 30,
-            'gates_override' => false,
+            self::FIELD_GATES_OVERRIDE => false,
             'promotion_without_block' => self::PROMOTION_WITHOUT_BLOCK,
         ];
     }

@@ -4193,4 +4193,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['longhorizon_watchdog_promotion_floor_count']);
     }
 
+    public function test_esp09_lote2_hmac_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->esp09Lote2HmacFloorsContractObserve([]);
+
+        $this->assertSame('status', $payload['esp09_field_status']);
+        $this->assertSame('schema_version', $payload['esp09_field_schema_version']);
+        $this->assertSame('promotion_delayed', $payload['esp09_field_promotion_delayed']);
+        $this->assertSame('decision_kind', $payload['esp09_field_decision_kind']);
+        $this->assertSame('challenger', $payload['esp09_field_challenger']);
+        $this->assertSame('operator_alignment', $payload['esp09_field_operator_alignment']);
+        $this->assertSame('vetoed', $payload['esp09_field_vetoed']);
+        $this->assertSame('claim_policy', $payload['lote2_field_claim_policy']);
+        $this->assertSame('latency_seconds', $payload['lote2_field_latency_seconds']);
+        $this->assertSame('sample_rate', $payload['lote2_field_sample_rate']);
+        $this->assertSame('paired_delta', $payload['lote2_field_paired_delta']);
+        $this->assertSame('thresholds', $payload['lote2_field_thresholds']);
+        $this->assertSame('stage', $payload['hmac_field_stage']);
+        $this->assertSame('chained_captures', $payload['hmac_field_chained_captures']);
+        $this->assertSame('coverage_rate', $payload['hmac_field_coverage_rate']);
+        $this->assertSame('key_version', $payload['hmac_field_key_version']);
+        $this->assertSame('threat_model', $payload['hmac_field_threat_model']);
+        $this->assertSame(17, $payload['esp09_lote2_hmac_floor_count']);
+    }
+
 }

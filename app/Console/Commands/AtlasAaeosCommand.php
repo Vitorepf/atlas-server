@@ -283,6 +283,7 @@ final class AtlasAaeosCommand extends Command
         {--immune-ragx-scorecard-floors-contract= : JSON file (any object) to observe immune/RAGX/scorecard residual floors}
         {--http-thesis-lote2-floors-contract= : JSON file (any object) to observe HTTP-path/thesis/LOTE2 residual floors}
         {--longhorizon-watchdog-promotion-floors-contract= : JSON file (any object) to observe long-horizon/watchdog/promotion residual floors}
+        {--esp09-lote2-hmac-floors-contract= : JSON file (any object) to observe ESP-09/LOTE2/HMAC residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -722,6 +723,7 @@ final class AtlasAaeosCommand extends Command
             ['immune-ragx-scorecard-floors-contract', 'immune_ragx_scorecard_floors_contract', fn (array $p) => $gates->immuneRagxScorecardFloorsContractObserve($p)],
             ['http-thesis-lote2-floors-contract', 'http_thesis_lote2_floors_contract', fn (array $p) => $gates->httpThesisLote2FloorsContractObserve($p)],
             ['longhorizon-watchdog-promotion-floors-contract', 'longhorizon_watchdog_promotion_floors_contract', fn (array $p) => $gates->longhorizonWatchdogPromotionFloorsContractObserve($p)],
+            ['esp09-lote2-hmac-floors-contract', 'esp09_lote2_hmac_floors_contract', fn (array $p) => $gates->esp09Lote2HmacFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
