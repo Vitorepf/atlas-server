@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Str;
 
 final class DomainLexicalNormalizer
@@ -65,7 +66,7 @@ final class DomainLexicalNormalizer
         }
 
         $haystack = implode(' ', array_filter(array_map(
-            static fn (mixed $field): string => is_scalar($field) ? (string) $field : '',
+            static fn (mixed $field): string => AiValueNormalizer::trimmedScalarStringOrNull($field) ?? '',
             $fields,
         )));
         $haystackTokens = self::tokens($haystack);

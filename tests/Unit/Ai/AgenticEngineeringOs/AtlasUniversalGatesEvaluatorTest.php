@@ -19,6 +19,7 @@ use App\Services\Ai\Aaeos\Cores\SummaryFidelityCoverageScorer;
 use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
 use App\Services\Ai\Aaeos\Cores\MemoryFeedbackDecayScorer;
 use App\Services\Ai\Aaeos\Cores\SegmentImportanceRanker;
+use App\Services\Ai\Aaeos\Cores\ContextParetoDominanceFilter;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -457,5 +458,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(SegmentImportanceRanker::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame(['keep-me'], $payload['kept_ids']);
         $this->assertSame(1, $payload['kept_count']);
+    }
+
+    public function test_context_pareto_dominance_observe_filters_variants(): void
+    {
+        $payload = $this->svc->contextParetoDominanceObserve([
+            'variants' => [
+                ['id' => 'a', 'quality' => 0.9, 'cost' => 0.2],
+                ['id' => 'b', 'quality' => 0.5, 'cost' => 0.8],
+            ],
+            'objective_direction' => [
+                'quality' => 'maximize',
+                'cost' => 'minimize',
+            ],
+        ]);
+
+        $this->assertSame(ContextParetoDominanceFilter::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertContains('a', $payload['frontier']);
     }
 }

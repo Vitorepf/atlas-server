@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Cores;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Pure generic multi-objective non-dominated frontier core.
  *
@@ -17,7 +19,7 @@ namespace App\Services\Ai\Aaeos\Cores;
  */
 final class ContextParetoDominanceFilter
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.context_pareto_dominance.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.context_pareto_dominance.v1';
 
     private const DIRECTION_MAXIMIZE = 'maximize';
 
@@ -266,8 +268,6 @@ final class ContextParetoDominanceFilter
      */
     private function variantId(array $variant): string
     {
-        $id = $variant['id'] ?? '';
-
-        return is_string($id) ? $id : (string) $id;
+        return AiValueNormalizer::trimmedString($variant['id'] ?? '');
     }
 }

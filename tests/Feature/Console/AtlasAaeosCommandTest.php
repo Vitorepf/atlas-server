@@ -539,6 +539,33 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_context_pareto(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-cp-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'variants' => [
+                ['id' => 'a', 'quality' => 1.0, 'cost' => 0.1],
+            ],
+            'objective_direction' => [
+                'quality' => 'maximize',
+                'cost' => 'minimize',
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-cp',
+                '--context-pareto' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"context_pareto_dominance"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

@@ -9,6 +9,7 @@ use App\Services\Ai\Aaeos\Cores\SummaryFidelityCoverageScorer;
 use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
 use App\Services\Ai\Aaeos\Cores\MemoryFeedbackDecayScorer;
 use App\Services\Ai\Aaeos\Cores\SegmentImportanceRanker;
+use App\Services\Ai\Aaeos\Cores\ContextParetoDominanceFilter;
 use App\Services\Ai\Aaeos\Cores\OutcomeCausalityRanker;
 use App\Services\Ai\AcosMax\PredictedImpactBand;
 use App\Services\Ai\AcosMax\PreReviewAdvisoryBand;
@@ -48,6 +49,7 @@ final class AtlasUniversalGatesEvaluator
         private readonly MemoryInjectionBudgetAllocator $memoryInjectionBudget = new MemoryInjectionBudgetAllocator,
         private readonly MemoryFeedbackDecayScorer $memoryFeedbackDecay = new MemoryFeedbackDecayScorer,
         private readonly SegmentImportanceRanker $segmentImportance = new SegmentImportanceRanker,
+        private readonly ContextParetoDominanceFilter $contextPareto = new ContextParetoDominanceFilter,
     ) {}
 
     /**
@@ -558,6 +560,28 @@ final class AtlasUniversalGatesEvaluator
 
         /** @var list<array<string,mixed>> $segments */
         return $this->segmentImportance->select($segments, $budget);
+    }
+
+    /**
+     * Observe-only multi-objective Pareto dominance frontier.
+     * Accepts `{variants:[...], objective_direction|objectives:{...}, hard_constraints?:{...}}`.
+     * Does not add a universal-gate id (catalogue stays 15).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function contextParetoDominanceObserve(array $input): array
+    {
+        $variants = AiValueNormalizer::arrayOrEmpty($input['variants'] ?? null);
+        $direction = AiValueNormalizer::arrayOrEmpty(
+            $input['objective_direction'] ?? $input['objectives'] ?? null,
+        );
+        $constraints = AiValueNormalizer::arrayOrEmpty($input['hard_constraints'] ?? null);
+
+        /** @var list<array<string,mixed>> $variants */
+        /** @var array<string,string> $direction */
+        /** @var array<string,array<string,mixed>> $constraints */
+        return $this->contextPareto->filter($variants, $direction, $constraints);
     }
 
     /**

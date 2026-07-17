@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Cores;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Pure, zero-dependency recall relevance scorer for normalized memory candidate rows.
  *
@@ -147,9 +149,9 @@ final class AtlasMemoryRecallRelevanceScorer
      */
     private function sourceOf(array $row): string
     {
-        $source = $row['source'] ?? '';
+        $source = AiValueNormalizer::trimmedStringOrNull($row['source'] ?? null) ?? '';
 
-        return match (is_string($source) ? $source : '') {
+        return match ($source) {
             'semantic', 'verbatim' => $source,
             default => 'registry',
         };
@@ -160,9 +162,7 @@ final class AtlasMemoryRecallRelevanceScorer
      */
     private function scopeOf(array $row): string
     {
-        $scope = $row['scope_type'] ?? $row['scope'] ?? 'global';
-
-        return is_string($scope) ? $scope : 'global';
+        return AiValueNormalizer::trimmedStringOrNull($row['scope_type'] ?? $row['scope'] ?? null) ?? 'global';
     }
 
     /**
@@ -170,9 +170,7 @@ final class AtlasMemoryRecallRelevanceScorer
      */
     private function typeOf(array $row, string $default): string
     {
-        $type = $row['memory_type'] ?? $row['type'] ?? $default;
-
-        return is_string($type) ? $type : $default;
+        return AiValueNormalizer::trimmedStringOrNull($row['memory_type'] ?? $row['type'] ?? null) ?? $default;
     }
 
     /**
@@ -180,9 +178,7 @@ final class AtlasMemoryRecallRelevanceScorer
      */
     private function titleOf(array $row): string
     {
-        $title = $row['title'] ?? '';
-
-        return is_string($title) ? $title : '';
+        return AiValueNormalizer::trimmedStringOrNull($row['title'] ?? null) ?? '';
     }
 
     /**

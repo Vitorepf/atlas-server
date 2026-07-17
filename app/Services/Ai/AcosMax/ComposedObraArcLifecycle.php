@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * MULTN17-02 — arc lifecycle: kill-gate, archival receipts, per-task independence.
  *
@@ -27,7 +29,7 @@ final class ComposedObraArcLifecycle
      */
     public static function register(array $arc): void
     {
-        $arcId = (string) ($arc['arc_id'] ?? '');
+        $arcId = AiValueNormalizer::trimmedString($arc['arc_id'] ?? '');
         if ($arcId === '') {
             return;
         }
@@ -37,14 +39,14 @@ final class ComposedObraArcLifecycle
             if (! is_array($task)) {
                 continue;
             }
-            $taskId = (string) ($task['task_id'] ?? '');
+            $taskId = AiValueNormalizer::trimmedString($task['task_id'] ?? '');
             if ($taskId === '') {
                 continue;
             }
             $tasks[$taskId] = [
                 'task_id' => $taskId,
                 'order' => (int) ($task['order'] ?? 0),
-                'target_path' => (string) ($task['target_path'] ?? ''),
+                'target_path' => AiValueNormalizer::trimmedString($task['target_path'] ?? ''),
                 'status' => 'pending',
             ];
         }
@@ -52,7 +54,7 @@ final class ComposedObraArcLifecycle
         self::$state[$arcId] = [
             'schema_version' => self::SCHEMA_VERSION,
             'arc_id' => $arcId,
-            'obra_id' => (string) ($arc['obra_id'] ?? ''),
+            'obra_id' => AiValueNormalizer::trimmedString($arc['obra_id'] ?? ''),
             'status' => 'active',
             'consecutive_failures' => 0,
             'kill_gate_k' => max(1, (int) data_get($arc, 'kill_gate.consecutive_failures_k', ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES)),
