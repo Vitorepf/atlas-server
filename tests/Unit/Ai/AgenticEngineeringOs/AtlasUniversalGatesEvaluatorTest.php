@@ -2753,4 +2753,40 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertFalse($payload['procedural_enqueue_default_enabled']);
         $this->assertSame(11, $payload['parallel_substrate_bridge_floor_count']);
     }
+
+    public function test_ops_config_toggle_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->opsConfigToggleFloorsContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.mission_foundation_optional_at_phase_1', $payload['http_path_mission_foundation_optional_config_key']);
+        $this->assertTrue($payload['http_path_mission_foundation_optional_default']);
+        $this->assertSame('atlas.aaeos.placement_cache_ttl_seconds', $payload['http_path_placement_cache_ttl_config_key']);
+        $this->assertSame(300, $payload['http_path_placement_cache_ttl_default_seconds']);
+        $this->assertSame('atlas.aaeos.telemetry_enabled', $payload['http_path_telemetry_enabled_config_key']);
+        $this->assertTrue($payload['http_path_telemetry_enabled_default']);
+        $this->assertSame('atlas.cognition.remint_touched_enabled', $payload['remint_enabled_config_key']);
+        $this->assertFalse($payload['remint_enabled_default']);
+        $this->assertSame('atlas.cognition.remint_touched_queue_disk', $payload['remint_queue_disk_config_key']);
+        $this->assertSame('local', $payload['remint_queue_disk_default']);
+        $this->assertSame('atlas.cognition.remint_touched_queue_path', $payload['remint_queue_path_config_key']);
+        $this->assertSame('atlas/cognition/remint-touched-queue.jsonl', $payload['remint_queue_path_default']);
+        $this->assertSame('atlas.semantic_memory.recall_concentration_demotion_enabled', $payload['watchdog_recall_concentration_demotion_enabled_config_key']);
+        $this->assertTrue($payload['watchdog_recall_concentration_demotion_enabled_default']);
+        $this->assertSame('atlas.patamar4.adml_cost_outcome.enabled', $payload['watchdog_adml_cost_outcome_enabled_config_key']);
+        $this->assertFalse($payload['watchdog_adml_cost_outcome_enabled_default']);
+        $this->assertSame('atlas.acos.rollback_triggers.enabled', $payload['rollback_triggers_enabled_config_key']);
+        $this->assertTrue($payload['rollback_triggers_enabled_default']);
+        $this->assertSame('atlas.acos.rollback_triggers.flips', $payload['rollback_triggers_flips_config_key']);
+        $this->assertSame('atlas_elite_compaction.scorecard.dual_emit_v3', $payload['scorecard_dual_emit_v3_config_key']);
+        $this->assertTrue($payload['scorecard_dual_emit_v3_default']);
+        $this->assertSame('atlas_elite_compaction.generated.hot_path_enabled', $payload['generated_hot_path_enabled_config_key']);
+        $this->assertFalse($payload['generated_hot_path_enabled_default']);
+        $this->assertSame('atlas_elite_compaction.generated.quarantine_namespace', $payload['generated_quarantine_namespace_config_key']);
+        $this->assertSame('atlas.ai.context_feedback.global_hints_enabled', $payload['evolution_global_hints_enabled_config_key']);
+        $this->assertTrue($payload['evolution_global_hints_enabled_default']);
+        $this->assertSame('atlas.aaeos.immune_classifier.semantic_arm_enabled', $payload['immune_semantic_arm_enabled_config_key']);
+        $this->assertFalse($payload['immune_semantic_arm_enabled_default']);
+        $this->assertSame(28, $payload['ops_config_toggle_floor_count']);
+    }
+
 }

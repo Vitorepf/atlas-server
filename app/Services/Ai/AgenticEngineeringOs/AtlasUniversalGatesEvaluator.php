@@ -4015,6 +4015,48 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: ops config-toggle floors (http-path / remint / watchdog /
+     * rollback / scorecard / generated / evolution / immune) — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function opsConfigToggleFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'http_path_mission_foundation_optional_config_key' => AtlasAaeosHttpPathFacadeService::MISSION_FOUNDATION_OPTIONAL_CONFIG_KEY,
+            'http_path_mission_foundation_optional_default' => AtlasAaeosHttpPathFacadeService::DEFAULT_MISSION_FOUNDATION_OPTIONAL,
+            'http_path_placement_cache_ttl_config_key' => AtlasAaeosHttpPathFacadeService::PLACEMENT_CACHE_TTL_CONFIG_KEY,
+            'http_path_placement_cache_ttl_default_seconds' => AtlasAaeosHttpPathFacadeService::DEFAULT_PLACEMENT_CACHE_TTL_SECONDS,
+            'http_path_telemetry_enabled_config_key' => AtlasAaeosHttpPathFacadeService::TELEMETRY_ENABLED_CONFIG_KEY,
+            'http_path_telemetry_enabled_default' => AtlasAaeosHttpPathFacadeService::DEFAULT_TELEMETRY_ENABLED,
+            'remint_enabled_config_key' => AtlasCognitionRemintTouchedQueue::ENABLED_CONFIG_KEY,
+            'remint_enabled_default' => AtlasCognitionRemintTouchedQueue::DEFAULT_ENABLED,
+            'remint_queue_disk_config_key' => AtlasCognitionRemintTouchedQueue::QUEUE_DISK_CONFIG_KEY,
+            'remint_queue_disk_default' => AtlasCognitionRemintTouchedQueue::DEFAULT_QUEUE_DISK,
+            'remint_queue_path_config_key' => AtlasCognitionRemintTouchedQueue::QUEUE_PATH_CONFIG_KEY,
+            'remint_queue_path_default' => AtlasCognitionRemintTouchedQueue::DEFAULT_QUEUE_PATH,
+            'watchdog_recall_concentration_demotion_enabled_config_key' => AtlasAcosWatchdogHealthService::RECALL_CONCENTRATION_DEMOTION_ENABLED_CONFIG_KEY,
+            'watchdog_recall_concentration_demotion_enabled_default' => AtlasAcosWatchdogHealthService::DEFAULT_RECALL_CONCENTRATION_DEMOTION_ENABLED,
+            'watchdog_adml_cost_outcome_enabled_config_key' => AtlasAcosWatchdogHealthService::ADML_COST_OUTCOME_ENABLED_CONFIG_KEY,
+            'watchdog_adml_cost_outcome_enabled_default' => AtlasAcosWatchdogHealthService::DEFAULT_ADML_COST_OUTCOME_ENABLED,
+            'rollback_triggers_enabled_config_key' => AtlasAcosRollbackTriggerCheckService::ENABLED_CONFIG_KEY,
+            'rollback_triggers_enabled_default' => AtlasAcosRollbackTriggerCheckService::DEFAULT_ENABLED,
+            'rollback_triggers_flips_config_key' => AtlasAcosRollbackTriggerCheckService::FLIPS_CONFIG_KEY,
+            'scorecard_dual_emit_v3_config_key' => AtlasCognitionScoreCardService::DUAL_EMIT_V3_CONFIG_KEY,
+            'scorecard_dual_emit_v3_default' => AtlasCognitionScoreCardService::DEFAULT_DUAL_EMIT_V3,
+            'generated_hot_path_enabled_config_key' => AaeosGeneratedContractGate::HOT_PATH_ENABLED_CONFIG_KEY,
+            'generated_hot_path_enabled_default' => AaeosGeneratedContractGate::DEFAULT_HOT_PATH_ENABLED,
+            'generated_quarantine_namespace_config_key' => AaeosGeneratedContractGate::QUARANTINE_NAMESPACE_CONFIG_KEY,
+            'evolution_global_hints_enabled_config_key' => AtlasAcosEvolutionScoreService::GLOBAL_HINTS_ENABLED_CONFIG_KEY,
+            'evolution_global_hints_enabled_default' => AtlasAcosEvolutionScoreService::DEFAULT_GLOBAL_HINTS_ENABLED,
+            'immune_semantic_arm_enabled_config_key' => AtlasImmuneHybridInputClassifier::SEMANTIC_ARM_ENABLED_CONFIG_KEY,
+            'immune_semantic_arm_enabled_default' => AtlasImmuneHybridInputClassifier::DEFAULT_SEMANTIC_ARM_ENABLED,
+            'ops_config_toggle_floor_count' => 28,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

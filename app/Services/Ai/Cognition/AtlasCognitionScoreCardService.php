@@ -114,6 +114,10 @@ class AtlasCognitionScoreCardService
 {
     public const SCHEMA_VERSION = 'atlas.cognition.scorecard.v3';
 
+    public const DUAL_EMIT_V3_CONFIG_KEY = 'atlas_elite_compaction.scorecard.dual_emit_v3';
+
+    public const DEFAULT_DUAL_EMIT_V3 = true;
+
     public const STATUS_READY = 'ready';
 
     public const STATUS_PARTIAL = 'partial';
@@ -322,7 +326,7 @@ class AtlasCognitionScoreCardService
         ];
         $envelope['scorecard_hash'] = $this->hash($rows, $score);
 
-        if ((AiValueNormalizer::boolOrNull(config('atlas_elite_compaction.scorecard.dual_emit_v3', true)) ?? false)) {
+        if ((AiValueNormalizer::boolOrNull(config(self::DUAL_EMIT_V3_CONFIG_KEY, self::DEFAULT_DUAL_EMIT_V3)) ?? self::DEFAULT_DUAL_EMIT_V3)) {
             $grouper = new AtlasCognitionScoreCardV4Grouper;
             $supplemental = $this->v4SupplementalRows();
             $modules = $grouper->group(array_merge($rows, $supplemental));

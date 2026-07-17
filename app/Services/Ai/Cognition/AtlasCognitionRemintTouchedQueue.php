@@ -13,6 +13,18 @@ final class AtlasCognitionRemintTouchedQueue
 {
     public const SCHEMA_VERSION = 'atlas.cognition.remint_touched.queue_item.v1';
 
+    public const ENABLED_CONFIG_KEY = 'atlas.cognition.remint_touched_enabled';
+
+    public const DEFAULT_ENABLED = false;
+
+    public const QUEUE_DISK_CONFIG_KEY = 'atlas.cognition.remint_touched_queue_disk';
+
+    public const DEFAULT_QUEUE_DISK = 'local';
+
+    public const QUEUE_PATH_CONFIG_KEY = 'atlas.cognition.remint_touched_queue_path';
+
+    public const DEFAULT_QUEUE_PATH = 'atlas/cognition/remint-touched-queue.jsonl';
+
     /**
      * @param  list<string>  $paths
      * @param  array<string,mixed>  $metadata
@@ -20,7 +32,7 @@ final class AtlasCognitionRemintTouchedQueue
      */
     public function enqueue(array $paths, string $taskPacketId, array $metadata = []): array
     {
-        if (! (AiValueNormalizer::boolOrNull(config('atlas.cognition.remint_touched_enabled', false)) ?? false)) {
+        if (! (AiValueNormalizer::boolOrNull(config(self::ENABLED_CONFIG_KEY, self::DEFAULT_ENABLED)) ?? self::DEFAULT_ENABLED)) {
             return [
                 'queued' => false,
                 'reason' => 'disabled',
@@ -52,8 +64,8 @@ final class AtlasCognitionRemintTouchedQueue
         ];
 
         try {
-            $disk = (string) config('atlas.cognition.remint_touched_queue_disk', 'local');
-            $path = AiValueNormalizer::trimmedStringOrNull(config('atlas.cognition.remint_touched_queue_path', 'atlas/cognition/remint-touched-queue.jsonl')) ?? '';
+            $disk = AiValueNormalizer::trimmedStringOrNull(config(self::QUEUE_DISK_CONFIG_KEY, self::DEFAULT_QUEUE_DISK)) ?? self::DEFAULT_QUEUE_DISK;
+            $path = AiValueNormalizer::trimmedStringOrNull(config(self::QUEUE_PATH_CONFIG_KEY, self::DEFAULT_QUEUE_PATH)) ?? '';
             if ($path === '') {
                 return [
                     'queued' => false,
@@ -79,7 +91,7 @@ final class AtlasCognitionRemintTouchedQueue
             'reason' => 'queued',
             'mode' => 'deferred_disk_queue',
             'path_count' => count($paths),
-            'queue_path' => (string) config('atlas.cognition.remint_touched_queue_path', 'atlas/cognition/remint-touched-queue.jsonl'),
+            'queue_path' => AiValueNormalizer::trimmedStringOrNull(config(self::QUEUE_PATH_CONFIG_KEY, self::DEFAULT_QUEUE_PATH)) ?? self::DEFAULT_QUEUE_PATH,
         ];
     }
 

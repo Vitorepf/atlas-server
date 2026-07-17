@@ -13,9 +13,15 @@ final class AaeosGeneratedContractGate
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.generated_contract_gate.v1';
 
+    public const HOT_PATH_ENABLED_CONFIG_KEY = 'atlas_elite_compaction.generated.hot_path_enabled';
+
+    public const DEFAULT_HOT_PATH_ENABLED = false;
+
+    public const QUARANTINE_NAMESPACE_CONFIG_KEY = 'atlas_elite_compaction.generated.quarantine_namespace';
+
     public function assertHotPathAllowed(string $class): void
     {
-        if ((AiValueNormalizer::boolOrNull(config('atlas_elite_compaction.generated.hot_path_enabled', false)) ?? false)) {
+        if ((AiValueNormalizer::boolOrNull(config(self::HOT_PATH_ENABLED_CONFIG_KEY, self::DEFAULT_HOT_PATH_ENABLED)) ?? self::DEFAULT_HOT_PATH_ENABLED)) {
             return;
         }
         $class = AiValueNormalizer::trimmedStringOrNull($class) ?? '';
@@ -38,10 +44,10 @@ final class AaeosGeneratedContractGate
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'hot_path_enabled' => (AiValueNormalizer::boolOrNull(config('atlas_elite_compaction.generated.hot_path_enabled', false)) ?? false),
+            'hot_path_enabled' => (AiValueNormalizer::boolOrNull(config(self::HOT_PATH_ENABLED_CONFIG_KEY, self::DEFAULT_HOT_PATH_ENABLED)) ?? self::DEFAULT_HOT_PATH_ENABLED),
             'generated_file_count' => $count,
             'quarantine_namespace' => AiValueNormalizer::trimmedStringOrNull(
-                config('atlas_elite_compaction.generated.quarantine_namespace') ?? null
+                config(self::QUARANTINE_NAMESPACE_CONFIG_KEY) ?? null
             ) ?? '',
         ];
     }

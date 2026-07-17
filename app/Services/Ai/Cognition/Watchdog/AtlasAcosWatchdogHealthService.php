@@ -95,6 +95,14 @@ final class AtlasAcosWatchdogHealthService
 
     public const ENG_MIN_ADML_PROVEN_ROUTES = 3;
 
+    public const RECALL_CONCENTRATION_DEMOTION_ENABLED_CONFIG_KEY = 'atlas.semantic_memory.recall_concentration_demotion_enabled';
+
+    public const DEFAULT_RECALL_CONCENTRATION_DEMOTION_ENABLED = true;
+
+    public const ADML_COST_OUTCOME_ENABLED_CONFIG_KEY = 'atlas.patamar4.adml_cost_outcome.enabled';
+
+    public const DEFAULT_ADML_COST_OUTCOME_ENABLED = false;
+
     /**
      * @param  array<string,mixed>  $filters
      * @return array<string,mixed>
@@ -104,10 +112,10 @@ final class AtlasAcosWatchdogHealthService
         $scorecard = app(AtlasMemoryQualityService::class)->scorecard($filters);
         $latestSnapshotAt = $this->parseDate(data_get($scorecard, 'latest_snapshot.snapshot_at'));
         $snapshotAgeHours = $latestSnapshotAt ? round($latestSnapshotAt->diffInMinutes(CarbonImmutable::now('UTC')) / 60, 2) : null;
-        $freshness = (int) data_get($scorecard, 'components.freshness', 0);
+        $freshness = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'components.freshness', 0)) ?? 0);
         $concentration = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'ratios.recall_concentration_ratio', 0.0)) ?? 0.0;
-        $recallUsageTotal = (int) data_get($scorecard, 'counts.retrieval_eval.recall_usage_total', 0);
-        $demotionEnabled = (AiValueNormalizer::boolOrNull(config('atlas.semantic_memory.recall_concentration_demotion_enabled', true)) ?? false);
+        $recallUsageTotal = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'counts.retrieval_eval.recall_usage_total', 0)) ?? 0);
+        $demotionEnabled = (AiValueNormalizer::boolOrNull(config(self::RECALL_CONCENTRATION_DEMOTION_ENABLED_CONFIG_KEY, self::DEFAULT_RECALL_CONCENTRATION_DEMOTION_ENABLED)) ?? self::DEFAULT_RECALL_CONCENTRATION_DEMOTION_ENABLED);
         $trendStatus = AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'trend.status')) ?? 'unknown';
         $currentDelta = data_get($scorecard, 'trend.current_delta_from_latest');
         $latestDelta = data_get($scorecard, 'trend.latest_delta_from_previous');
@@ -185,8 +193,8 @@ final class AtlasAcosWatchdogHealthService
         foreach ($aemor as $source => $at) {
             $checks[] = $this->ageCheck('last_aemor_episode_'.$source, $at, self::LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS, $now);
         }
-        $checks[] = $this->checkRow('lift_case_count', (int) data_get($lift, 'measurement.with_recalled_memory.case_count', 0) > 0
-            && (int) data_get($lift, 'measurement.without_recalled_memory.case_count', 0) > 0, [
+        $checks[] = $this->checkRow('lift_case_count', (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.with_recalled_memory.case_count', 0)) ?? 0) > 0
+            && (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.without_recalled_memory.case_count', 0)) ?? 0) > 0, [
                 'with_recalled_memory' => data_get($lift, 'measurement.with_recalled_memory.case_count', 0),
                 'without_recalled_memory' => data_get($lift, 'measurement.without_recalled_memory.case_count', 0),
                 'measurement_ready' => data_get($lift, 'measurement.measurement_ready', false),
@@ -243,7 +251,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $quality = app(AtlasMemoryQualityService::class)->scorecard([]);
         $aurg = $this->aurgCoverageReport();
-        $retrievalEval = (int) data_get($quality, 'components.retrieval_eval', 0);
+        $retrievalEval = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($quality, 'components.retrieval_eval', 0)) ?? 0);
         // Prefer the RAG-05 frozen golden surface; fall back to the older corpus metrics path.
         $recallAt5 = AiValueNormalizer::finiteFloatOrNull(
             data_get($quality, 'latest_snapshot.metadata.memory_recall_golden.recall_at_5')
@@ -514,8 +522,8 @@ final class AtlasAcosWatchdogHealthService
             'lift_status' => $status,
             'blocking' => array_values(array_unique($blocking)),
             'case_counts' => [
-                'with_recalled_memory' => (int) data_get($report, 'measurement.with_recalled_memory.case_count', 0),
-                'without_recalled_memory' => (int) data_get($report, 'measurement.without_recalled_memory.case_count', 0),
+                'with_recalled_memory' => (int) (AiValueNormalizer::finiteFloatOrNull(data_get($report, 'measurement.with_recalled_memory.case_count', 0)) ?? 0),
+                'without_recalled_memory' => (int) (AiValueNormalizer::finiteFloatOrNull(data_get($report, 'measurement.without_recalled_memory.case_count', 0)) ?? 0),
             ],
             'blocker_series' => $series,
             'generated_at' => now()->toIso8601String(),
@@ -889,7 +897,7 @@ final class AtlasAcosWatchdogHealthService
     private function admlReadyRoutes(array $rows): array
     {
         $minEvidence = (int) app(GovernanceFloorRegistry::class)->atlasDecideCostOutcomeConfig(
-            (AiValueNormalizer::boolOrNull(config('atlas.patamar4.adml_cost_outcome.enabled', false)) ?? false),
+            (AiValueNormalizer::boolOrNull(config(self::ADML_COST_OUTCOME_ENABLED_CONFIG_KEY, self::DEFAULT_ADML_COST_OUTCOME_ENABLED)) ?? self::DEFAULT_ADML_COST_OUTCOME_ENABLED),
         )['min_evidence'];
         $routes = [];
         foreach ($rows as $row) {

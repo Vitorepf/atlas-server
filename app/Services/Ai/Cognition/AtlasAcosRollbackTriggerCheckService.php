@@ -19,15 +19,21 @@ final class AtlasAcosRollbackTriggerCheckService
 {
     public const SCHEMA_VERSION = 'atlas.acos.rollback_triggers.v1';
 
+    public const ENABLED_CONFIG_KEY = 'atlas.acos.rollback_triggers.enabled';
+
+    public const DEFAULT_ENABLED = true;
+
+    public const FLIPS_CONFIG_KEY = 'atlas.acos.rollback_triggers.flips';
+
     /**
      * @return array<string,mixed>
      */
     public function check(?CarbonImmutable $asOf = null, ?string $simulateTriggerId = null): array
     {
         $asOf = ($asOf ?? CarbonImmutable::now())->utc();
-        $enabled = (AiValueNormalizer::boolOrNull(config('atlas.acos.rollback_triggers.enabled', true)) ?? false);
+        $enabled = (AiValueNormalizer::boolOrNull(config(self::ENABLED_CONFIG_KEY, self::DEFAULT_ENABLED)) ?? self::DEFAULT_ENABLED);
         /** @var list<array<string,mixed>> $flips */
-        $flips = AiValueNormalizer::arrayOrEmpty(config('atlas.acos.rollback_triggers.flips', []));
+        $flips = AiValueNormalizer::arrayOrEmpty(config(self::FLIPS_CONFIG_KEY, []));
 
         $evaluations = [];
         $alerts = [];

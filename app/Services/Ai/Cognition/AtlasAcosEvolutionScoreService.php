@@ -65,6 +65,10 @@ class AtlasAcosEvolutionScoreService
     /** Minimum live A/B cases per arm before feedback_loop_vivo can score fully. */
     public const LIFT_CASES_PER_ARM_REQUIRED = 10;
 
+    public const GLOBAL_HINTS_ENABLED_CONFIG_KEY = 'atlas.ai.context_feedback.global_hints_enabled';
+
+    public const DEFAULT_GLOBAL_HINTS_ENABLED = true;
+
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
         private readonly AtlasLearningRecallUseLiftService $lift = new AtlasLearningRecallUseLiftService,
@@ -150,12 +154,12 @@ class AtlasAcosEvolutionScoreService
         ];
 
         $feedback7d = $this->tableCount('ai_rag_feedback_events', fn ($q) => $q->where('created_at', '>=', now()->subDays(7)));
-        $hintsOn = (AiValueNormalizer::boolOrNull(config('atlas.ai.context_feedback.global_hints_enabled', true)) ?? false);
+        $hintsOn = (AiValueNormalizer::boolOrNull(config(self::GLOBAL_HINTS_ENABLED_CONFIG_KEY, self::DEFAULT_GLOBAL_HINTS_ENABLED)) ?? self::DEFAULT_GLOBAL_HINTS_ENABLED);
         $oldFeedbackPoints = round(($feedback7d > 0 ? 1.25 : 0.0) + ($hintsOn ? 1.25 : 0.0), 2);
 
         $lift = $this->lift->report(minCases: self::LIFT_CASES_PER_ARM_REQUIRED, minPassingUse: 1);
-        $withCount = (int) data_get($lift, 'measurement.with_recalled_memory.case_count', 0);
-        $withoutCount = (int) data_get($lift, 'measurement.without_recalled_memory.case_count', 0);
+        $withCount = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.with_recalled_memory.case_count', 0)) ?? 0);
+        $withoutCount = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.without_recalled_memory.case_count', 0)) ?? 0);
         $measurementReady = (AiValueNormalizer::boolOrNull(data_get($lift, 'measurement.measurement_ready', false)) ?? false);
         $armProgress = min($withCount, $withoutCount) / self::LIFT_CASES_PER_ARM_REQUIRED;
         $newFeedbackPoints = ($measurementReady && $withCount >= self::LIFT_CASES_PER_ARM_REQUIRED && $withoutCount >= self::LIFT_CASES_PER_ARM_REQUIRED)

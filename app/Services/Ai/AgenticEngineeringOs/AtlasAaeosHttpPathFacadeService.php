@@ -64,6 +64,18 @@ final class AtlasAaeosHttpPathFacadeService
 
     public const TELEMETRY_KEY_LATENCY = 'atlas.aaeos.http_path.latency_ms';
 
+    public const MISSION_FOUNDATION_OPTIONAL_CONFIG_KEY = 'atlas.aaeos.mission_foundation_optional_at_phase_1';
+
+    public const DEFAULT_MISSION_FOUNDATION_OPTIONAL = true;
+
+    public const PLACEMENT_CACHE_TTL_CONFIG_KEY = 'atlas.aaeos.placement_cache_ttl_seconds';
+
+    public const DEFAULT_PLACEMENT_CACHE_TTL_SECONDS = 300;
+
+    public const TELEMETRY_ENABLED_CONFIG_KEY = 'atlas.aaeos.telemetry_enabled';
+
+    public const DEFAULT_TELEMETRY_ENABLED = true;
+
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
 
     public function __construct(
@@ -129,7 +141,7 @@ final class AtlasAaeosHttpPathFacadeService
         $envelopes[] = $factory->intentCapture($intentId, $intentHash);
 
         // ---- P1 disambiguation (optional at Phase 1) ----------------------
-        $missionOptional = (AiValueNormalizer::boolOrNull(config('atlas.aaeos.mission_foundation_optional_at_phase_1', true)) ?? false);
+        $missionOptional = (AiValueNormalizer::boolOrNull(config(self::MISSION_FOUNDATION_OPTIONAL_CONFIG_KEY, self::DEFAULT_MISSION_FOUNDATION_OPTIONAL)) ?? self::DEFAULT_MISSION_FOUNDATION_OPTIONAL);
         if (! $missionOptional && $this->missionDetection !== null && $intentText !== '') {
             $signal = $this->missionDetection->detect($intentText);
             $envelopes[] = $factory->disambiguationSignal(
@@ -305,7 +317,7 @@ final class AtlasAaeosHttpPathFacadeService
      */
     private function placeOrCache(string $intentText, string $intentHash, array $data): array
     {
-        $ttl = (int) config('atlas.aaeos.placement_cache_ttl_seconds', 300);
+        $ttl = (int) (AiValueNormalizer::finiteFloatOrNull(config(self::PLACEMENT_CACHE_TTL_CONFIG_KEY, self::DEFAULT_PLACEMENT_CACHE_TTL_SECONDS)) ?? self::DEFAULT_PLACEMENT_CACHE_TTL_SECONDS);
         $cacheKey = 'atlas.aaeos.placement.'.hash('sha256', $intentHash.'|'.($data['source_type'] ?? ''));
         $cached = $ttl > 0 ? $this->cache->get($cacheKey) : null;
         if (is_array($cached)) {
@@ -434,7 +446,7 @@ final class AtlasAaeosHttpPathFacadeService
 
     private function incrementCounter(string $key): void
     {
-        if (! (AiValueNormalizer::boolOrNull(config('atlas.aaeos.telemetry_enabled', true)) ?? false)) {
+        if (! (AiValueNormalizer::boolOrNull(config(self::TELEMETRY_ENABLED_CONFIG_KEY, self::DEFAULT_TELEMETRY_ENABLED)) ?? self::DEFAULT_TELEMETRY_ENABLED)) {
             return;
         }
         $current = (int) $this->cache->get($key, 0);
@@ -443,7 +455,7 @@ final class AtlasAaeosHttpPathFacadeService
 
     private function recordLatency(int $ms): void
     {
-        if (! (AiValueNormalizer::boolOrNull(config('atlas.aaeos.telemetry_enabled', true)) ?? false)) {
+        if (! (AiValueNormalizer::boolOrNull(config(self::TELEMETRY_ENABLED_CONFIG_KEY, self::DEFAULT_TELEMETRY_ENABLED)) ?? self::DEFAULT_TELEMETRY_ENABLED)) {
             return;
         }
         $countKey = self::TELEMETRY_KEY_LATENCY.'.count';

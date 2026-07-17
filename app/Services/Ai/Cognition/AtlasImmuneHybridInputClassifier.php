@@ -38,6 +38,10 @@ final class AtlasImmuneHybridInputClassifier
     /** @var list<string> Severity order (highest first). */
     public const HOSTILE_SEVERITY = ['prompt_injection', 'private_sensitive', 'untrusted_content'];
 
+    public const SEMANTIC_ARM_ENABLED_CONFIG_KEY = 'atlas.aaeos.immune_classifier.semantic_arm_enabled';
+
+    public const DEFAULT_SEMANTIC_ARM_ENABLED = false;
+
     private readonly AtlasAaeosCognitiveImmuneInputClassifier $base;
 
     private readonly ImmuneSemanticSimilarityPort $port;
@@ -70,7 +74,7 @@ final class AtlasImmuneHybridInputClassifier
         $this->anchors = $anchors;
         $freeze = AtlasImmuneClassifierHybridFreeze::freezePayload();
         $this->tau = $tau ?? (AiValueNormalizer::finiteFloatOrNull($freeze['thresholds']['tau'] ?? null) ?? 0.62);
-        $this->enabled = $enabled ?? (AiValueNormalizer::boolOrNull(config('atlas.aaeos.immune_classifier.semantic_arm_enabled', false)) ?? false);
+        $this->enabled = $enabled ?? (AiValueNormalizer::boolOrNull(config(self::SEMANTIC_ARM_ENABLED_CONFIG_KEY, self::DEFAULT_SEMANTIC_ARM_ENABLED)) ?? self::DEFAULT_SEMANTIC_ARM_ENABLED);
     }
 
     /**
