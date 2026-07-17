@@ -1578,4 +1578,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('missed_poison', $payload['labels']);
         $this->assertSame(3, $payload['label_count']);
     }
+
+    public function test_flywheel_funnel_stages_observe_reports_stages(): void
+    {
+        $payload = $this->svc->flywheelFunnelStagesObserve([]);
+
+        $this->assertSame('atlas.m.funnel.v1', $payload['schema_version']);
+        $this->assertSame('atlas.m.funnel.v1', $payload['measure_id']);
+        $this->assertIsArray($payload['stages']);
+        $this->assertGreaterThan(0, $payload['stage_count']);
+    }
 }

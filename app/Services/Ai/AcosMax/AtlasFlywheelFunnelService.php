@@ -164,8 +164,8 @@ final class AtlasFlywheelFunnelService
             if ($line === '') {
                 continue;
             }
-            $decoded = json_decode($line, true);
-            if (is_array($decoded)) {
+            $decoded = AiValueNormalizer::arrayOrEmpty(json_decode($line, true));
+            if ($decoded !== []) {
                 $rows[] = $decoded;
             }
         }

@@ -354,13 +354,13 @@ final class AtlasAcosLongHorizonGateService
         }
 
         $raw = @file_get_contents($path);
-        if (! is_string($raw) || trim($raw) === '') {
+        if (AiValueNormalizer::trimmedStringOrNull($raw) === null) {
             return [];
         }
 
         $rows = [];
         foreach (preg_split('/\r?\n/', $raw) ?: [] as $line) {
-            $line = trim($line);
+            $line = AiValueNormalizer::trimmedString($line);
             if ($line === '') {
                 continue;
             }

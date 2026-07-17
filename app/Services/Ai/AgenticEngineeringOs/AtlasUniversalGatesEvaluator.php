@@ -43,6 +43,7 @@ use App\Services\Ai\Cognition\AtlasAcosLongHorizonGateService;
 use App\Services\Ai\Cognition\ImmuneSignatureStore;
 use App\Services\Ai\Cognition\ImmuneVerdictLedger;
 use App\Services\Ai\AcosMax\PromotionProtocol;
+use App\Services\Ai\AcosMax\AtlasFlywheelFunnelService;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
@@ -2127,6 +2128,24 @@ final class AtlasUniversalGatesEvaluator
                 ImmuneVerdictLedger::LABEL_MISSED_POISON,
             ],
             'label_count' => 3,
+        ];
+    }
+
+    /**
+     * Observe-only Atlas M flywheel funnel stages.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function flywheelFunnelStagesObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AtlasFlywheelFunnelService::SCHEMA_VERSION,
+            'measure_id' => AtlasFlywheelFunnelService::MEASURE_ID,
+            'formula_version' => AtlasFlywheelFunnelService::FORMULA_VERSION,
+            'stages' => AtlasFlywheelFunnelService::STAGES,
+            'stage_count' => count(AtlasFlywheelFunnelService::STAGES),
         ];
     }
 

@@ -119,8 +119,8 @@ final class AaeosDeferredPhaseDispatcherService
                 continue;
             }
             if (count($claimed) < $max) {
-                $decoded = json_decode(AiValueNormalizer::trimmedString($line), true);
-                if (is_array($decoded)) {
+                $decoded = AiValueNormalizer::arrayOrEmpty(json_decode(AiValueNormalizer::trimmedString($line), true));
+                if ($decoded !== []) {
                     $claimed[] = $decoded;
                     continue;
                 }
