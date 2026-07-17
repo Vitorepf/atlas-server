@@ -22,6 +22,14 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
     public const REASON_ATLAS_MEMORY_ENTRIES_MISSING = 'atlas_memory_entries_missing';
 
     public const REASON_NO_PROVIDER_BOUND_REDACTION_DRIFT = 'no_provider_bound_redaction_drift';
+    public const FIELD_SCHEMA = 'schema';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_MEMORY_REF = 'memory_ref';
+    public const FIELD_SIGNALS = 'signals';
+    public const FIELD_VERIFIED_BY = 'verified_by';
+    public const FIELD_CHECKED = 'checked';
+    public const FIELD_DRIFT_COUNT = 'drift_count';
+    public const FIELD_DRIFT = 'drift';
 
 
     public function __construct(private AtlasMemoryPrivacyService $privacy) {}
@@ -35,8 +43,8 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
     {
         if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             return AtlasWatchdogCheckResult::skipped([
-                'schema' => self::SCHEMA_VERSION,
-                'reason' => self::REASON_ATLAS_MEMORY_ENTRIES_MISSING,
+                self::FIELD_SCHEMA => self::SCHEMA_VERSION,
+                self::FIELD_REASON => self::REASON_ATLAS_MEMORY_ENTRIES_MISSING,
             ]);
         }
 
@@ -49,9 +57,9 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
                 $signals = $this->driftSignals($entry);
                 if ($signals !== []) {
                     $drift[] = [
-                        'memory_ref' => $this->memoryRef($entry),
-                        'signals' => $signals,
-                        'verified_by' => data_get($entry->metadata, 'privacy.provider_body_verified') === true
+                        self::FIELD_MEMORY_REF => $this->memoryRef($entry),
+                        self::FIELD_SIGNALS => $signals,
+                        self::FIELD_VERIFIED_BY => data_get($entry->metadata, 'privacy.provider_body_verified') === true
                             ? 'privacy.provider_body_verified'
                             : (data_get($entry->metadata, 'provider_projection.provider_body_verified') === true
                                 ? 'provider_projection.provider_body_verified'
@@ -61,10 +69,10 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
             });
 
         $evidence = [
-            'schema' => self::SCHEMA_VERSION,
-            'checked' => min(self::SAMPLE_LIMIT, AtlasMemoryEntry::query()->where('redaction_status', 'redacted')->count()),
-            'drift_count' => count($drift),
-            'drift' => $drift,
+            self::FIELD_SCHEMA => self::SCHEMA_VERSION,
+            self::FIELD_CHECKED => min(self::SAMPLE_LIMIT, AtlasMemoryEntry::query()->where('redaction_status', 'redacted')->count()),
+            self::FIELD_DRIFT_COUNT => count($drift),
+            self::FIELD_DRIFT => $drift,
         ];
 
         if ($drift !== []) {
@@ -74,7 +82,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
             ]);
         }
 
-        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => self::REASON_NO_PROVIDER_BOUND_REDACTION_DRIFT]);
+        return AtlasWatchdogCheckResult::ok($evidence + [self::FIELD_REASON => self::REASON_NO_PROVIDER_BOUND_REDACTION_DRIFT]);
     }
 
     /**

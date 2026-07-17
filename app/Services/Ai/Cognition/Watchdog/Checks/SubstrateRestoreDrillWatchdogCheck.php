@@ -29,6 +29,14 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
     public const REASON_SUCCESSFUL_DRILL_FRESH = 'successful_drill_fresh';
 
     public const REASON_SUCCESSFUL_DRILL_STALE = 'successful_drill_stale';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_RECEIPT_PATH = 'receipt_path';
+    public const FIELD_MAX_SUCCESS_AGE_DAYS = 'max_success_age_days';
+    public const FIELD_CODE = 'code';
+    public const FIELD_MESSAGE = 'message';
+    public const FIELD_LAST_SUCCESSFUL_DRILL_AT = 'last_successful_drill_at';
+    public const FIELD_AGE_DAYS = 'age_days';
 
 
     public function id(): string
@@ -45,35 +53,35 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
 
         if ($latest === null) {
             return AtlasWatchdogCheckResult::alert([
-                'schema_version' => self::SCHEMA_VERSION,
-                'receipt_path' => $receiptPath,
-                'max_success_age_days' => $maxAgeDays,
-                'reason' => self::REASON_NO_SUCCESSFUL_DRILL,
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+                self::FIELD_RECEIPT_PATH => $receiptPath,
+                self::FIELD_MAX_SUCCESS_AGE_DAYS => $maxAgeDays,
+                self::FIELD_REASON => self::REASON_NO_SUCCESSFUL_DRILL,
             ], [
-                'code' => 'substrate_restore_drill_missing',
-                'message' => 'No successful SUB-01 restore drill receipt found.',
+                self::FIELD_CODE => 'substrate_restore_drill_missing',
+                self::FIELD_MESSAGE => 'No successful SUB-01 restore drill receipt found.',
             ]);
         }
 
         $checkedAt = CarbonImmutable::parse((AiValueNormalizer::trimmedStringOrNull($latest['checked_at'] ?? null) ?? 'now'), 'UTC');
         $ageDays = (int) $checkedAt->diffInDays(CarbonImmutable::now('UTC'));
         $evidence = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'receipt_path' => $receiptPath,
-            'max_success_age_days' => $maxAgeDays,
-            'last_successful_drill_at' => $checkedAt->toISOString(),
-            'age_days' => $ageDays,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_RECEIPT_PATH => $receiptPath,
+            self::FIELD_MAX_SUCCESS_AGE_DAYS => $maxAgeDays,
+            self::FIELD_LAST_SUCCESSFUL_DRILL_AT => $checkedAt->toISOString(),
+            self::FIELD_AGE_DAYS => $ageDays,
             'snapshot_path' => $latest['snapshot_path'] ?? null,
         ];
 
         if ($ageDays > $maxAgeDays) {
-            return AtlasWatchdogCheckResult::alert($evidence + ['reason' => self::REASON_SUCCESSFUL_DRILL_STALE], [
-                'code' => 'substrate_restore_drill_stale',
-                'message' => 'Last successful SUB-01 restore drill is older than the allowed window.',
+            return AtlasWatchdogCheckResult::alert($evidence + [self::FIELD_REASON => self::REASON_SUCCESSFUL_DRILL_STALE], [
+                self::FIELD_CODE => 'substrate_restore_drill_stale',
+                self::FIELD_MESSAGE => 'Last successful SUB-01 restore drill is older than the allowed window.',
             ]);
         }
 
-        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => self::REASON_SUCCESSFUL_DRILL_FRESH]);
+        return AtlasWatchdogCheckResult::ok($evidence + [self::FIELD_REASON => self::REASON_SUCCESSFUL_DRILL_FRESH]);
     }
 
     /**

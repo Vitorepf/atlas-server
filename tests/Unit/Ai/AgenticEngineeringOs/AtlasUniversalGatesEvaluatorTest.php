@@ -4601,4 +4601,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['memory_spec_dogfood_floor_count']);
     }
 
+    public function test_restore_redaction_recall_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->restoreRedactionRecallFloorsContractObserve([]);
+
+        $this->assertSame('reason', $payload['restore_field_reason']);
+        $this->assertSame('schema_version', $payload['restore_field_schema_version']);
+        $this->assertSame('receipt_path', $payload['restore_field_receipt_path']);
+        $this->assertSame('max_success_age_days', $payload['restore_field_max_success_age_days']);
+        $this->assertSame('code', $payload['restore_field_code']);
+        $this->assertSame('message', $payload['restore_field_message']);
+        $this->assertSame('schema', $payload['redaction_field_schema']);
+        $this->assertSame('reason', $payload['redaction_field_reason']);
+        $this->assertSame('memory_ref', $payload['redaction_field_memory_ref']);
+        $this->assertSame('signals', $payload['redaction_field_signals']);
+        $this->assertSame('drift_count', $payload['redaction_field_drift_count']);
+        $this->assertSame('drift', $payload['redaction_field_drift']);
+        $this->assertSame('schema_version', $payload['recall_gap_field_schema_version']);
+        $this->assertSame('candidate_type', $payload['recall_gap_field_candidate_type']);
+        $this->assertSame('query_hash', $payload['recall_gap_field_query_hash']);
+        $this->assertSame('occurrences', $payload['recall_gap_field_occurrences']);
+        $this->assertSame('status', $payload['recall_gap_field_status']);
+        $this->assertSame(17, $payload['restore_redaction_recall_floor_count']);
+    }
+
 }

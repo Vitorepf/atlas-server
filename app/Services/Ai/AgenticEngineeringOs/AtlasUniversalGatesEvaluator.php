@@ -6213,6 +6213,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function restoreRedactionRecallFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'restore_field_reason' => SubstrateRestoreDrillWatchdogCheck::FIELD_REASON,
+            'restore_field_schema_version' => SubstrateRestoreDrillWatchdogCheck::FIELD_SCHEMA_VERSION,
+            'restore_field_receipt_path' => SubstrateRestoreDrillWatchdogCheck::FIELD_RECEIPT_PATH,
+            'restore_field_max_success_age_days' => SubstrateRestoreDrillWatchdogCheck::FIELD_MAX_SUCCESS_AGE_DAYS,
+            'restore_field_code' => SubstrateRestoreDrillWatchdogCheck::FIELD_CODE,
+            'restore_field_message' => SubstrateRestoreDrillWatchdogCheck::FIELD_MESSAGE,
+            'redaction_field_schema' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_SCHEMA,
+            'redaction_field_reason' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_REASON,
+            'redaction_field_memory_ref' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_MEMORY_REF,
+            'redaction_field_signals' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_SIGNALS,
+            'redaction_field_drift_count' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_DRIFT_COUNT,
+            'redaction_field_drift' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_DRIFT,
+            'recall_gap_field_schema_version' => RecallGapAggregator::FIELD_SCHEMA_VERSION,
+            'recall_gap_field_candidate_type' => RecallGapAggregator::FIELD_CANDIDATE_TYPE,
+            'recall_gap_field_query_hash' => RecallGapAggregator::FIELD_QUERY_HASH,
+            'recall_gap_field_occurrences' => RecallGapAggregator::FIELD_OCCURRENCES,
+            'recall_gap_field_status' => RecallGapAggregator::FIELD_STATUS,
+            'restore_redaction_recall_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [
