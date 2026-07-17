@@ -2508,6 +2508,47 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only ESP-09 independent challenger advisory floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function esp09ChallengerContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => Esp09IndependentChallengerService::SCHEMA_VERSION,
+            'measure_id' => Esp09IndependentChallengerService::MEASURE_ID,
+            'mode' => Esp09IndependentChallengerService::MODE,
+            'high_alignment_band' => Esp09IndependentChallengerService::HIGH_ALIGNMENT_BAND,
+            'trigger_kinds' => Esp09IndependentChallengerService::TRIGGER_KINDS,
+            'trigger_kind_count' => count(Esp09IndependentChallengerService::TRIGGER_KINDS),
+            'advisory_only' => true,
+            'gates_override' => false,
+        ];
+    }
+
+    /**
+     * Observe-only provenance weight floor + recall-gap weak score floor.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function memoryWeightFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'provenance_weight_schema' => ProvenanceWeightCalculator::SCHEMA_VERSION,
+            'provenance_weight_floor' => ProvenanceWeightCalculator::FLOOR,
+            'recall_gap_schema' => RecallGapAggregator::SCHEMA_VERSION,
+            'recall_gap_weak_score_floor' => RecallGapAggregator::WEAK_SCORE_FLOOR,
+            'citation_grounding_schema' => CitationGroundingMeter::SCHEMA_VERSION,
+            'dogfooding_min_occurrences' => DogfoodingFrictionLeadMiner::MIN_OCCURRENCES,
+            'provider_calls_made' => false,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

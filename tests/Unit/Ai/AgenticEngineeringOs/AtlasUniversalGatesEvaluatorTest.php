@@ -1809,4 +1809,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertFalse($payload['outcome_without_attempt_allowed']);
         $this->assertTrue($payload['attempt_id_deduped']);
     }
+
+    public function test_esp09_challenger_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->esp09ChallengerContractObserve([]);
+
+        $this->assertSame('atlas.esp_09.challenger_advisory.v1', $payload['schema_version']);
+        $this->assertSame('advisory', $payload['mode']);
+        $this->assertSame(0.80, $payload['high_alignment_band']);
+        $this->assertContains('composed_obra', $payload['trigger_kinds']);
+        $this->assertSame(2, $payload['trigger_kind_count']);
+        $this->assertTrue($payload['advisory_only']);
+        $this->assertFalse($payload['gates_override']);
+    }
+
+    public function test_memory_weight_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->memoryWeightFloorsContractObserve([]);
+
+        $this->assertSame('atlas.memory.provenance_weight.v1', $payload['provenance_weight_schema']);
+        $this->assertSame(0.5, $payload['provenance_weight_floor']);
+        $this->assertSame('atlas.memory.recall_gap_aggregator.v1', $payload['recall_gap_schema']);
+        $this->assertSame(0.35, $payload['recall_gap_weak_score_floor']);
+        $this->assertSame('atlas.context.citation_grounding.v1', $payload['citation_grounding_schema']);
+        $this->assertSame(3, $payload['dogfooding_min_occurrences']);
+        $this->assertFalse($payload['provider_calls_made']);
+    }
 }

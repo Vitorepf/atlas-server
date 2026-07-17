@@ -54,6 +54,6 @@ final class RecallGapAggregator
 
     private static function normalize(string $query): string
     {
-        return AiValueNormalizer::trimmedString(preg_replace('/\s+/', ' ', Str::lower($query)) ?? '');
+        return AiValueNormalizer::trimmedStringOrNull(preg_replace('/\s+/', ' ', Str::lower($query)) ?? '') ?? '';
     }
 }

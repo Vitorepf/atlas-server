@@ -168,6 +168,8 @@ final class AtlasAaeosCommand extends Command
         {--quality-bar-telemetry-contract= : JSON file (any object) to observe M5 quality-bar telemetry contract}
         {--doc-maturity-contract= : JSON file (any object) to observe DOC L0..L4 maturity contract}
         {--attempt-lifecycle-contract= : JSON file (any object) to observe ESP-01 attempt lifecycle contract}
+        {--esp09-challenger-contract= : JSON file (any object) to observe ESP-09 challenger advisory contract}
+        {--memory-weight-floors-contract= : JSON file (any object) to observe provenance/recall-gap/citation floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -492,6 +494,8 @@ final class AtlasAaeosCommand extends Command
             ['quality-bar-telemetry-contract', 'quality_bar_telemetry_contract', fn (array $p) => $gates->qualityBarTelemetryContractObserve($p)],
             ['doc-maturity-contract', 'doc_maturity_contract', fn (array $p) => $gates->docMaturityContractObserve($p)],
             ['attempt-lifecycle-contract', 'attempt_lifecycle_contract', fn (array $p) => $gates->attemptLifecycleContractObserve($p)],
+            ['esp09-challenger-contract', 'esp09_challenger_contract', fn (array $p) => $gates->esp09ChallengerContractObserve($p)],
+            ['memory-weight-floors-contract', 'memory_weight_floors_contract', fn (array $p) => $gates->memoryWeightFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
