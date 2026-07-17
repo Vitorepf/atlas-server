@@ -81,7 +81,7 @@ final class AtlasAcosLongHorizonGateService
 
         $blockers = array_values(array_merge(
             $assessment['blockers'],
-            AiValueNormalizer::arrayOrEmpty(is_array($assessmentV2) ? ($assessmentV2['blockers'] ?? null) : null),
+            AiValueNormalizer::arrayOrEmpty(AiValueNormalizer::arrayOrEmpty($assessmentV2)['blockers'] ?? null),
         ));
         $certified = $blockers === [];
         $status = $certified ? 'acos_long_horizon_ready' : 'insufficient_long_horizon_evidence';

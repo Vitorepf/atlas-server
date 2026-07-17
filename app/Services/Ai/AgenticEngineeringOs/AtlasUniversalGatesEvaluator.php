@@ -48,6 +48,7 @@ use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
 use App\Services\Ai\AcosMax\AcosMaxObraRetroService;
+use App\Services\Ai\AcosMax\AcosMaxParallelExecutionProtocol;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
 use App\Services\Ai\Cognition\AtlasAcosRollbackTriggerCheckService;
 use App\Services\Ai\Cognition\AtlasAcosLongHorizonGateService;
@@ -3068,6 +3069,36 @@ final class AtlasUniversalGatesEvaluator
             'execution_cooccurrence_schema' => ExecutionContextCooccurrenceService::SCHEMA_VERSION,
             'execution_cooccurrence_measure_id' => ExecutionContextCooccurrenceService::MEASURE_ID,
             'execution_cooccurrence_formula' => ExecutionContextCooccurrenceService::FORMULA_VERSION,
+        ];
+    }
+
+    /**
+     * Observe-only phase-gates map + flywheel + parallel-execution + surprise floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function phaseGatesFlywheelContractObserve(array $input = []): array
+    {
+        return [
+            'phase_handoff_schema' => AaeosPhaseHandoffService::SCHEMA_VERSION,
+            'phase_count' => count(AaeosPhaseHandoffService::PHASES),
+            'phase_gates_map' => AaeosPhaseHandoffService::PHASE_GATES_MAP,
+            'phase_gates_map_count' => count(AaeosPhaseHandoffService::PHASE_GATES_MAP),
+            'phases_requiring_signature_at_l4' => AaeosPhaseHandoffService::PHASES_REQUIRING_SIGNATURE_AT_L4,
+            'flywheel_schema' => AtlasFlywheelFunnelService::SCHEMA_VERSION,
+            'flywheel_measure_id' => AtlasFlywheelFunnelService::MEASURE_ID,
+            'flywheel_stages' => AtlasFlywheelFunnelService::STAGES,
+            'flywheel_stage_count' => count(AtlasFlywheelFunnelService::STAGES),
+            'parallel_execution_schema' => AcosMaxParallelExecutionProtocol::SCHEMA,
+            'parallel_execution_claim_kind' => AcosMaxParallelExecutionProtocol::CLAIM_KIND,
+            'parallel_execution_default_ttl_seconds' => AcosMaxParallelExecutionProtocol::DEFAULT_TTL_SECONDS,
+            'surprise_gate_default_threshold' => AtlasSurpriseGateService::DEFAULT_THRESHOLD,
+            'surprise_gate_default_high_band' => AtlasSurpriseGateService::DEFAULT_HIGH_BAND,
+            'surprise_gate_min_prediction_tokens' => AtlasSurpriseGateService::DEFAULT_MIN_PREDICTION_TOKENS,
+            'quality_bar_level_schema' => AtlasAaeosDepartmentQualityBarLevelClassifier::SCHEMA_VERSION,
+            'maturity_band_schema' => AtlasAaeosDepartmentMaturityBandClassifier::SCHEMA_VERSION,
         ];
     }
 

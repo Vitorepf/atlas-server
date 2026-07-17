@@ -96,8 +96,8 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
             $snapshot = $departmentSnapshots[$departmentId] ?? $departmentSnapshots[$id] ?? [];
 
             $departments[$id] = $this->classify(
-                AiValueNormalizer::arrayOrEmpty(is_array($ladder) ? $ladder : null),
-                AiValueNormalizer::arrayOrEmpty(is_array($snapshot) ? $snapshot : null),
+                AiValueNormalizer::arrayOrEmpty($ladder),
+                AiValueNormalizer::arrayOrEmpty($snapshot),
             );
         }
 

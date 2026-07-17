@@ -2158,4 +2158,25 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.context.execution_cooccurrence.v1', $payload['execution_cooccurrence_schema']);
         $this->assertSame('atlas.context.execution_cooccurrence.v1', $payload['execution_cooccurrence_measure_id']);
     }
+
+    public function test_phase_gates_flywheel_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->phaseGatesFlywheelContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.phase.v1', $payload['phase_handoff_schema']);
+        $this->assertSame(17, $payload['phase_count']);
+        $this->assertArrayHasKey('intent_capture', $payload['phase_gates_map']);
+        $this->assertSame(17, $payload['phase_gates_map_count']);
+        $this->assertContains('receipt', $payload['phases_requiring_signature_at_l4']);
+        $this->assertSame('atlas.m.funnel.v1', $payload['flywheel_schema']);
+        $this->assertGreaterThan(0, $payload['flywheel_stage_count']);
+        $this->assertSame('acos_max.parallel_execution.v1', $payload['parallel_execution_schema']);
+        $this->assertSame('task', $payload['parallel_execution_claim_kind']);
+        $this->assertSame(3600, $payload['parallel_execution_default_ttl_seconds']);
+        $this->assertSame(0.5, $payload['surprise_gate_default_threshold']);
+        $this->assertSame(0.75, $payload['surprise_gate_default_high_band']);
+        $this->assertSame(8, $payload['surprise_gate_min_prediction_tokens']);
+        $this->assertSame('atlas.aaeos.quality_bar_level.v1', $payload['quality_bar_level_schema']);
+        $this->assertSame('atlas.aaeos.department_maturity_band.v1', $payload['maturity_band_schema']);
+    }
 }
