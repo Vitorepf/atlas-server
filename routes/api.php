@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Ai\AiInteractionSteerController;
 use App\Http\Controllers\Ai\YoutubePrewarmController;
 use App\Http\Controllers\AiAttachmentSearchController;
 use App\Http\Controllers\AiChunkedUploadController;
@@ -592,6 +593,7 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/ai/interactions/{trace}/artifacts', [\App\Http\Controllers\Ai\AiTraceArtifactsController::class, 'show']);
     Route::get('/ai/interactions/{trace}/artifacts/{artifactId}/content', [\App\Http\Controllers\Ai\AiTraceArtifactsController::class, 'content']);
     Route::get('/ai/interactions/{trace}/flow-status', [AiInteractionController::class, 'flowStatus']);
+    Route::post('/ai/interactions/{trace}/steer', AiInteractionSteerController::class);
     Route::get('/ai/interactions/{trace}', [AiInteractionController::class, 'show']);
     Route::get('/ai/interactions/{trace}/attachments/{attachment}/content', [AiInteractionController::class, 'attachmentContent']);
     Route::get('/ai/interactions/{trace}/attachments/{attachment}/pages/{page}', [AiInteractionController::class, 'attachmentPage']);
