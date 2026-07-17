@@ -143,13 +143,8 @@ final class SpecCompletenessScorer
      */
     private function evaluateTextField(mixed $value): array
     {
-        if (! is_string($value)) {
-            return [false, false, 'absent'];
-        }
-
-        $trimmed = AiValueNormalizer::trimmedString($value);
-
-        if ($trimmed === '') {
+        $trimmed = AiValueNormalizer::trimmedStringOrNull($value);
+        if ($trimmed === null) {
             return [false, false, 'absent'];
         }
 

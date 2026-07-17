@@ -77,12 +77,8 @@ final class AaeosRequiredGateCoverageChecker
         $normalized = [];
 
         foreach ($gates as $gate) {
-            if (! is_string($gate)) {
-                continue;
-            }
-
-            $trimmed = AiValueNormalizer::trimmedString($gate);
-            if ($trimmed === '') {
+            $trimmed = AiValueNormalizer::trimmedStringOrNull($gate);
+            if ($trimmed === null) {
                 continue;
             }
 

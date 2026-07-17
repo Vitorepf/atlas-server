@@ -1617,4 +1617,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(5, $payload['min_n']);
         $this->assertSame(2.0, $payload['double_down_multiplier']);
     }
+
+    public function test_composed_obra_arc_contract_observe_reports_kill_gate(): void
+    {
+        $payload = $this->svc->composedObraArcContractObserve([]);
+
+        $this->assertSame('atlas.originator.composed_obra_arc.v1', $payload['composer_schema']);
+        $this->assertSame('atlas.originator.composed_obra_arc_lifecycle.v1', $payload['lifecycle_schema']);
+        $this->assertSame(3, $payload['kill_gate_consecutive_failures']);
+        $this->assertTrue($payload['supports_lifecycle_reset']);
+    }
 }

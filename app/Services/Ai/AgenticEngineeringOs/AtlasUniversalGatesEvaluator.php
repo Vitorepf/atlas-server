@@ -58,6 +58,7 @@ use App\Services\Ai\AcosMax\RagxChainMechanismService;
 use App\Services\Ai\AcosMax\AcosMaxProceduralSkillPromoterService;
 use App\Services\Ai\AcosMax\GoldenCounterfactualReplayService;
 use App\Services\Ai\AcosMax\ComposedObraArcComposer;
+use App\Services\Ai\AcosMax\ComposedObraArcLifecycle;
 use App\Services\Ai\AcosMax\ExploratoryBetsPortfolio;
 use App\Services\Ai\AcosMax\AtlasNCaptureDrillService;
 use App\Services\Ai\AcosMax\AcosMaxLote2MeasureService;
@@ -2197,6 +2198,24 @@ final class AtlasUniversalGatesEvaluator
             'default_window_days' => ExploratoryBetsPortfolio::DEFAULT_WINDOW_DAYS,
             'min_n' => ExploratoryBetsPortfolio::MIN_N,
             'double_down_multiplier' => ExploratoryBetsPortfolio::DOUBLE_DOWN_MULTIPLIER,
+        ];
+    }
+
+    /**
+     * Observe-only composed obra-arc contract (composer + lifecycle).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function composedObraArcContractObserve(array $input = []): array
+    {
+        return [
+            'composer_schema' => ComposedObraArcComposer::SCHEMA_VERSION,
+            'lifecycle_schema' => ComposedObraArcLifecycle::SCHEMA_VERSION,
+            'min_neighbor_candidates' => ComposedObraArcComposer::MIN_NEIGHBOR_CANDIDATES,
+            'kill_gate_consecutive_failures' => ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES,
+            'supports_lifecycle_reset' => true,
         ];
     }
 
