@@ -33,7 +33,10 @@ final class ReactiveSaturationSignal
             }
         }
 
-        $yields = array_map(static fn (array $window): float => (float) ($window['yield'] ?? 0.0), $tail);
+        $yields = array_map(
+            static fn (array $window): float => AiValueNormalizer::finiteFloatOrNull($window['yield'] ?? null) ?? 0.0,
+            $tail,
+        );
         $falling = $yields[0] > $yields[1] && $yields[1] > $yields[2];
 
         return $falling

@@ -124,7 +124,7 @@ final class AcosMaxProceduralSkillPromoterService
             'case_count_floor' => $floor,
             'case_count_floor_met' => $caseCount >= $floor,
             'successes' => (int) ($row['successes'] ?? 0),
-            'success_rate' => (float) ($row['success_rate'] ?? 0.0),
+            'success_rate' => AiValueNormalizer::finiteFloatOrNull($row['success_rate'] ?? null) ?? 0.0,
             'fake_green_suppressed' => (int) ($row['fake_green_suppressed'] ?? 0),
             'corrections' => (int) ($row['corrections'] ?? 0),
             'promotion_allowed' => false,

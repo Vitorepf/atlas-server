@@ -107,7 +107,7 @@ final class ComposedObraArcComposer
                 'target_path' => $target,
                 'summary' => $summary,
                 'organ_class' => $organ,
-                'leverage' => (float) ($candidate['leverage'] ?? 0.0),
+                'leverage' => AiValueNormalizer::finiteFloatOrNull($candidate['leverage'] ?? null) ?? 0.0,
             ];
         }
 
@@ -303,7 +303,7 @@ final class ComposedObraArcComposer
     {
         $score = 0.0;
         foreach ($group as $candidate) {
-            $score += (float) ($candidate['leverage'] ?? 0.0);
+            $score += AiValueNormalizer::finiteFloatOrNull($candidate['leverage'] ?? null) ?? 0.0;
         }
 
         return $score;

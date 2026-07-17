@@ -40,6 +40,7 @@ use App\Services\Ai\AcosMax\AcosMaxVerifiedShareService;
 use App\Services\Ai\AcosMax\RagxChainMechanismService;
 use App\Services\Ai\AcosMax\AcosMaxProceduralSkillPromoterService;
 use App\Services\Ai\AcosMax\GoldenCounterfactualReplayService;
+use App\Services\Ai\AcosMax\ComposedObraArcComposer;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AaeosGeneratedContractGate;
 use InvalidArgumentException;
@@ -1151,5 +1152,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(GoldenCounterfactualReplayService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('skipped', $payload['status']);
         $this->assertSame('paired_golden_runs_unavailable', $payload['reason']);
+    }
+
+    public function test_composed_obra_arc_observe_reports_flag_disabled(): void
+    {
+        $payload = $this->svc->composedObraArcObserve([
+            'candidates' => [],
+            'context' => ['enabled' => false],
+        ]);
+
+        $this->assertSame(ComposedObraArcComposer::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('flag_disabled', $payload['basis'] ?? $payload['reason'] ?? null);
     }
 }

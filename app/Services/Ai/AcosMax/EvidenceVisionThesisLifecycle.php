@@ -159,7 +159,7 @@ final class EvidenceVisionThesisLifecycle
      */
     private static function seriesRecoveryMet(array $thesis, array $seriesWindows, array $criterion): bool
     {
-        $threshold = (float) ($criterion['threshold'] ?? 0.0);
+        $threshold = AiValueNormalizer::finiteFloatOrNull($criterion['threshold'] ?? null) ?? 0.0;
         $need = max(2, (int) ($criterion['consecutive_windows'] ?? 2));
         $refs = (array) ($thesis['evidence'] ?? []);
         $series = '';
@@ -189,7 +189,7 @@ final class EvidenceVisionThesisLifecycle
         }
 
         foreach ($tail as $window) {
-            if ((float) ($window['yield'] ?? 0.0) < $threshold) {
+            if ((AiValueNormalizer::finiteFloatOrNull($window['yield'] ?? null) ?? 0.0) < $threshold) {
                 return false;
             }
         }
@@ -211,7 +211,7 @@ final class EvidenceVisionThesisLifecycle
         }
         $highRate = ((int) ($high['realized_true'] ?? 0)) / $highN;
 
-        return $highRate >= (float) ($criterion['threshold'] ?? 0.0);
+        return $highRate >= (AiValueNormalizer::finiteFloatOrNull($criterion['threshold'] ?? null) ?? 0.0);
     }
 
     /**

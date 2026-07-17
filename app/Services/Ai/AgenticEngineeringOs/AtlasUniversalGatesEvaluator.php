@@ -41,6 +41,7 @@ use App\Services\Ai\AcosMax\AcosMaxVerifiedShareService;
 use App\Services\Ai\AcosMax\RagxChainMechanismService;
 use App\Services\Ai\AcosMax\AcosMaxProceduralSkillPromoterService;
 use App\Services\Ai\AcosMax\GoldenCounterfactualReplayService;
+use App\Services\Ai\AcosMax\ComposedObraArcComposer;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
@@ -1379,6 +1380,22 @@ final class AtlasUniversalGatesEvaluator
         return (new GoldenCounterfactualReplayService)->report(
             AiValueNormalizer::trimmedStringOrNull($input['runs_path'] ?? null),
             AiValueNormalizer::trimmedStringOrNull($input['decision_id'] ?? null),
+        );
+    }
+
+    /**
+     * Observe-only composed obra-arc origination (flag-gated).
+     * Accepts `{candidates, cluster_leads?, context?}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function composedObraArcObserve(array $input = []): array
+    {
+        return ComposedObraArcComposer::compose(
+            AiValueNormalizer::arrayOrEmpty($input['candidates'] ?? null),
+            AiValueNormalizer::arrayOrEmpty($input['cluster_leads'] ?? null),
+            AiValueNormalizer::arrayOrEmpty($input['context'] ?? null),
         );
     }
 

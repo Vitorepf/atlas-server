@@ -205,7 +205,10 @@ final class EvidenceVisionThesisComposer
             }
             usort($group, static fn (array $a, array $b): int => ((int) ($a['window'] ?? 0)) <=> ((int) ($b['window'] ?? 0)));
             $tail = array_slice($group, -self::MIN_REGRESSION_WINDOWS);
-            $yields = array_map(static fn (array $row): float => (float) ($row['yield'] ?? 0.0), $tail);
+            $yields = array_map(
+                static fn (array $row): float => AiValueNormalizer::finiteFloatOrNull($row['yield'] ?? null) ?? 0.0,
+                $tail,
+            );
             $regressing = true;
             for ($i = 1; $i < count($yields); $i++) {
                 if ($yields[$i] >= $yields[$i - 1]) {
@@ -234,7 +237,7 @@ final class EvidenceVisionThesisComposer
                         'source' => 'series',
                         'ref' => 'series:'.AiValueNormalizer::trimmedString($row['series'] ?? '').':stage='.AiValueNormalizer::trimmedString($row['stage'] ?? '').':window='.(int) ($row['window'] ?? 0),
                         'field' => 'yield',
-                        'value' => (float) ($row['yield'] ?? 0.0),
+                        'value' => AiValueNormalizer::finiteFloatOrNull($row['yield'] ?? null) ?? 0.0,
                     ],
                     $tail,
                 ),

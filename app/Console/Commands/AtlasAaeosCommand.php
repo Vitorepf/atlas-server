@@ -109,6 +109,7 @@ final class AtlasAaeosCommand extends Command
         {--implementation-truth-evaluate= : JSON file with claimed_state+resolutions (observe-only)}
         {--phase-handoff-catalogue= : JSON file with optional autonomy_level (observe-only phases)}
         {--golden-counterfactual-replay= : JSON file with optional runs_path (observe-only)}
+        {--composed-obra-arc= : JSON file with candidates(+context) (observe-only MULTN17-02)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -374,6 +375,7 @@ final class AtlasAaeosCommand extends Command
             ['implementation-truth-evaluate', 'implementation_truth_evaluate', fn (array $p) => $gates->implementationTruthEvaluateObserve($p)],
             ['phase-handoff-catalogue', 'phase_handoff_catalogue', fn (array $p) => $gates->phaseHandoffCatalogueObserve($p)],
             ['golden-counterfactual-replay', 'golden_counterfactual_replay', fn (array $p) => $gates->goldenCounterfactualReplayObserve($p)],
+            ['composed-obra-arc', 'composed_obra_arc', fn (array $p) => $gates->composedObraArcObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
