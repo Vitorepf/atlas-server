@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -36,7 +37,7 @@ final class AaeosPhaseHandoffService
     /** Parse L0..L7 (or bare digits) into an int autonomy rung. */
     public static function autonomyLevelInt(string $autonomyLevel): int
     {
-        return (int) ltrim($autonomyLevel, 'Ll');
+        return (int) ltrim(AiValueNormalizer::trimmedString($autonomyLevel), 'Ll');
     }
 
     public const PHASE_INTENT_CAPTURE = 'intent_capture';

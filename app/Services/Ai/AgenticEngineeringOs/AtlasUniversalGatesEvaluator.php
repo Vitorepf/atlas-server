@@ -41,6 +41,7 @@ use App\Services\Ai\AcosMax\AcosMaxVerifiedShareService;
 use App\Services\Ai\AcosMax\RagxChainMechanismService;
 use App\Services\Ai\AcosMax\AcosMaxProceduralSkillPromoterService;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
+use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
 
@@ -1119,6 +1120,18 @@ final class AtlasUniversalGatesEvaluator
         $phase = AiValueNormalizer::trimmedStringOrNull($input['phase'] ?? null);
 
         return (new AtlasAaeosPhaseRouterService($phase))->statusSnapshot();
+    }
+
+    /**
+     * Observe-only AAEOS department quality-bar snapshot.
+     * Accepts any JSON object (ignored). Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function aaeosQualityBarObserve(array $input = []): array
+    {
+        return (new AtlasAaeosQualityBarService)->qualityBar();
     }
 
     /**

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class AtlasAaeosQualityBarService
 {
     private const SCHEMA_VERSION = 'atlas.aaeos.quality_bar.v1';
@@ -27,7 +29,7 @@ final class AtlasAaeosQualityBarService
         $departments = [];
         foreach (self::DEPARTMENT_DATA as $data) {
             $departments[] = [
-                'department' => $data['department'],
+                'department' => AiValueNormalizer::trimmedString($data['department']),
                 'threshold' => (float) $data['threshold'],
                 'current' => (float) $data['current'],
                 'breached' => $data['current'] < $data['threshold'],
@@ -61,7 +63,7 @@ final class AtlasAaeosQualityBarService
         foreach (self::DEPARTMENT_DATA as $data) {
             if ($data['current'] < $data['threshold']) {
                 $breaches[] = [
-                    'department' => $data['department'],
+                    'department' => AiValueNormalizer::trimmedString($data['department']),
                     'threshold' => (float) $data['threshold'],
                     'current' => (float) $data['current'],
                     'breached' => true,

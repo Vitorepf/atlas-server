@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class AaeosDepartmentLevelClassifier
 {
     private const SCHEMA_VERSION = 'atlas.aaeos.department_level_classification.v1';
@@ -30,6 +32,7 @@ final class AaeosDepartmentLevelClassifier
      */
     public function classify(string $departmentId, array $metricsSnapshot, array $bandLadder): array
     {
+        $departmentId = AiValueNormalizer::trimmedString($departmentId);
         $bands = AtlasAaeosThresholdLadderNormalizer::levelLadder($bandLadder);
 
         if ($bands === []) {

@@ -1221,6 +1221,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_aaeos_quality_bar(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-aqb-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-aqb',
+                '--aaeos-quality-bar' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"aaeos_quality_bar"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

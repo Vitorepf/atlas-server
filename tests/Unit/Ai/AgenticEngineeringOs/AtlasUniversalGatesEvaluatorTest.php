@@ -940,4 +940,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertTrue($payload['is_active']);
         $this->assertTrue($payload['phase_capabilities']['classification']);
     }
+
+    public function test_aaeos_quality_bar_observe_reports_departments(): void
+    {
+        $payload = $this->svc->aaeosQualityBarObserve([]);
+
+        $this->assertSame('atlas.aaeos.quality_bar.v1', $payload['schema_version']);
+        $this->assertNotEmpty($payload['departments']);
+        $this->assertArrayHasKey('breach_count', $payload['signal']);
+        $this->assertGreaterThan(0, $payload['signal']['breach_count']);
+    }
 }
