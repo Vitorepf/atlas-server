@@ -238,7 +238,7 @@ final class AsefChunkIndexService
                 'source_ref' => (string) $row->source_ref,
                 'chunk_hash' => (string) $row->chunk_hash,
                 'chunk_id' => (string) $row->chunk_id,
-                'similarity' => (float) $row->similarity,
+                'similarity' => AiValueNormalizer::finiteFloatOrNull($row->similarity ?? null) ?? 0.0,
             ])
             ->all();
 

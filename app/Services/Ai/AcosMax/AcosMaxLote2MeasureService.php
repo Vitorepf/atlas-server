@@ -615,7 +615,7 @@ final class AcosMaxLote2MeasureService
     public function multj03CounterfactualLift(): array
     {
         $denominatorMin = (int) data_get(self::freezePayload('MULTJ-03'), 'thresholds.denominator_min_pairs', 8);
-        $sampleRate = (float) data_get(self::freezePayload('MULTJ-03'), 'thresholds.sample_rate', 0.05);
+        $sampleRate = AiValueNormalizer::finiteFloatOrNull(data_get(self::freezePayload('MULTJ-03'), 'thresholds.sample_rate', 0.05)) ?? 0.05;
 
         if (! Schema::hasTable('ai_rag_feedback_events')) {
             return $this->emptyReport('MULTJ-03', 'insufficient_signal', 'paired_feedback_table_missing', [
@@ -690,8 +690,8 @@ final class AcosMaxLote2MeasureService
             }
 
             $memoryType = (string) ($pair['memory_type'] ?? 'unknown');
-            $control = (float) $rows['control']['score'];
-            $treatment = (float) $rows['treatment']['score'];
+            $control = AiValueNormalizer::finiteFloatOrNull($rows['control']['score'] ?? null) ?? 0.0;
+            $treatment = AiValueNormalizer::finiteFloatOrNull($rows['treatment']['score'] ?? null) ?? 0.0;
             $delta = round($treatment - $control, 4);
             $groups[$memoryType] ??= [
                 'memory_type' => $memoryType,
@@ -720,7 +720,7 @@ final class AcosMaxLote2MeasureService
         $measured = array_values(array_filter($memoryTypes, static fn (array $group): bool => $group['status'] === 'measured'));
         $measuredPairs = array_sum(array_column($measured, 'n_pairs'));
         $measuredDeltaSum = array_sum(array_map(
-            static fn (array $group): float => (float) $group['paired_delta'] * (int) $group['n_pairs'],
+            static fn (array $group): float => (AiValueNormalizer::finiteFloatOrNull($group['paired_delta'] ?? null) ?? 0.0) * (int) $group['n_pairs'],
             $measured,
         ));
 
@@ -778,9 +778,9 @@ final class AcosMaxLote2MeasureService
             'memory_type' => (string) $group['memory_type'],
             'status' => $n >= $denominatorMin ? 'measured' : 'insufficient_signal',
             'n_pairs' => $n,
-            'control_score_mean' => $n > 0 ? round((float) $group['control_score_sum'] / $n, 4) : null,
-            'treatment_score_mean' => $n > 0 ? round((float) $group['treatment_score_sum'] / $n, 4) : null,
-            'paired_delta' => $n > 0 ? round((float) $group['delta_sum'] / $n, 4) : null,
+            'control_score_mean' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group['control_score_sum'] ?? null) ?? 0.0) / $n, 4) : null,
+            'treatment_score_mean' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group['treatment_score_sum'] ?? null) ?? 0.0) / $n, 4) : null,
+            'paired_delta' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group['delta_sum'] ?? null) ?? 0.0) / $n, 4) : null,
         ];
     }
 

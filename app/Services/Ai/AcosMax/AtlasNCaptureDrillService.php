@@ -125,7 +125,7 @@ final class AtlasNCaptureDrillService
             'times' => [
                 'time_to_first_routed_task_seconds' => (int) data_get($drill, 'times.time_to_first_routed_task_seconds'),
                 'time_to_first_proven_real_seconds' => (int) data_get($drill, 'times.time_to_first_proven_real_seconds'),
-                'hours_of_integration' => (float) data_get($drill, 'times.hours_of_integration'),
+                'hours_of_integration' => AiValueNormalizer::finiteFloatOrNull(data_get($drill, 'times.hours_of_integration')) ?? 0.0,
             ],
             'denominators' => [
                 'routed_tasks_observed' => (int) data_get($drill, 'denominators.routed_tasks_observed', 0),

@@ -90,7 +90,7 @@ final class AcosMaxVerifiedShareService
 
         $aggregate = $this->countPayload(array_sum($verified), array_sum($totals));
         $denominatorMin = max(1, (int) ($freeze['denominator_min'] ?? data_get($freeze, 'thresholds.denominator_min_executions', 50)));
-        $shareMin = (float) data_get($freeze, 'thresholds.verified_share_min', 0.80);
+        $shareMin = AiValueNormalizer::finiteFloatOrNull(data_get($freeze, 'thresholds.verified_share_min', 0.80)) ?? 0.80;
         $authorEngineId = AiValueNormalizer::trimmedString($freeze['author_engine_id'] ?? '');
         $judgeEngineId = AiValueNormalizer::trimmedString($freeze['judge_engine_id'] ?? '');
 

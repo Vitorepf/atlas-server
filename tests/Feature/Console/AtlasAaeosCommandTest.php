@@ -1631,6 +1631,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_lote2_counterfactual_lift(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-l2c-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-l2c',
+                '--lote2-counterfactual-lift' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"lote2_counterfactual_lift"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

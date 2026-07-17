@@ -73,7 +73,11 @@ final class GoldenCounterfactualReplayService
                 'metric' => 'recall_at_5',
                 'recall_at_5_without' => $without['recall_at_5'],
                 'recall_at_5_with' => $with['recall_at_5'],
-                'delta' => round((float) $with['recall_at_5'] - (float) $without['recall_at_5'], 6),
+                'delta' => round(
+                    (AiValueNormalizer::finiteFloatOrNull($with['recall_at_5'] ?? null) ?? 0.0)
+                    - (AiValueNormalizer::finiteFloatOrNull($without['recall_at_5'] ?? null) ?? 0.0),
+                    6
+                ),
             ],
         ]);
     }

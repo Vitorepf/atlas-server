@@ -44,6 +44,7 @@ use App\Services\Ai\AcosMax\GoldenCounterfactualReplayService;
 use App\Services\Ai\AcosMax\ComposedObraArcComposer;
 use App\Services\Ai\AcosMax\ExploratoryBetsPortfolio;
 use App\Services\Ai\AcosMax\AtlasNCaptureDrillService;
+use App\Services\Ai\AcosMax\AcosMaxLote2MeasureService;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
@@ -1430,6 +1431,18 @@ final class AtlasUniversalGatesEvaluator
         $days = AiValueNormalizer::finiteFloatOrNull($input['days'] ?? null);
 
         return (new AtlasNCaptureDrillService)->report($days === null ? null : max(1, (int) $days));
+    }
+
+    /**
+     * Observe-only MULTJ-03 counterfactual lift measure (fail-open without table).
+     * Accepts any JSON object (ignored). Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function lote2CounterfactualLiftObserve(array $input = []): array
+    {
+        return app(AcosMaxLote2MeasureService::class)->multj03CounterfactualLift();
     }
 
     /**

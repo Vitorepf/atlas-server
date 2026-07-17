@@ -198,7 +198,7 @@ final class ExploratoryBetsPortfolio
             'action' => AiValueNormalizer::trimmedString($decision['action'] ?? ''),
             'state' => AiValueNormalizer::trimmedString($decision['state'] ?? ''),
             'basis' => AiValueNormalizer::trimmedString($decision['basis'] ?? ''),
-            'path_weight_multiplier' => (float) $decision['path_weight_multiplier'],
+            'path_weight_multiplier' => AiValueNormalizer::finiteFloatOrNull($decision['path_weight_multiplier'] ?? null) ?? 0.0,
             'window_id' => $windowId,
             'window_days' => $windowDays,
             'k' => $k,

@@ -43,6 +43,7 @@ use App\Services\Ai\AcosMax\GoldenCounterfactualReplayService;
 use App\Services\Ai\AcosMax\ComposedObraArcComposer;
 use App\Services\Ai\AcosMax\ExploratoryBetsPortfolio;
 use App\Services\Ai\AcosMax\AtlasNCaptureDrillService;
+use App\Services\Ai\AcosMax\AcosMaxLote2MeasureService;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AaeosGeneratedContractGate;
 use InvalidArgumentException;
@@ -1184,5 +1185,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
 
         $this->assertSame(AtlasNCaptureDrillService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertArrayHasKey('drills', $payload);
+    }
+
+    public function test_lote2_counterfactual_lift_observe_fail_open(): void
+    {
+        $payload = $this->svc->lote2CounterfactualLiftObserve([]);
+
+        $this->assertArrayHasKey('status', $payload);
+        $this->assertArrayHasKey('n_pairs', $payload);
+        $this->assertSame(AcosMaxLote2MeasureService::MULTJ03_MEASURE_ID, $payload['measure_id'] ?? null);
     }
 }
