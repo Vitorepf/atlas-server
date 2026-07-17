@@ -1266,4 +1266,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.aaeos.claim_definition_of_done.v1', $payload['schema_version']);
         $this->assertSame('evidence', $payload['verdict']);
     }
+
+    public function test_array_field_reader_observe_reads_string_field(): void
+    {
+        $payload = $this->svc->arrayFieldReaderObserve([
+            'row' => ['id' => 42],
+            'key' => 'id',
+        ]);
+
+        $this->assertSame('atlas.aaeos.array_field_reader.v1', $payload['schema_version']);
+        $this->assertSame('42', $payload['string_field']);
+    }
 }

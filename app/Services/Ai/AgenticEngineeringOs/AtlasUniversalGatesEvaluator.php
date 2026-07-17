@@ -50,6 +50,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosThresholdComparator;
 use App\Services\Ai\Aaeos\AtlasAaeosEvidenceRefNormalizer;
 use App\Services\Ai\Aaeos\AtlasAaeosDocMaturityClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosClaimDefinitionOfDoneValidator;
+use App\Services\Ai\Aaeos\Support\AtlasAaeosArrayFieldReader;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
@@ -1538,6 +1539,25 @@ final class AtlasUniversalGatesEvaluator
         $claim = AiValueNormalizer::arrayOrEmpty($input['claim'] ?? $input);
 
         return (new AtlasAaeosClaimDefinitionOfDoneValidator)->validate($claim);
+    }
+
+    /**
+     * Observe-only AAEOS array field reader (stringField).
+     * Accepts `{row, key}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function arrayFieldReaderObserve(array $input = []): array
+    {
+        $row = AiValueNormalizer::arrayOrEmpty($input['row'] ?? []);
+        $key = AiValueNormalizer::trimmedString($input['key'] ?? 'id');
+
+        return [
+            'schema_version' => 'atlas.aaeos.array_field_reader.v1',
+            'key' => $key,
+            'string_field' => AtlasAaeosArrayFieldReader::stringField($row, $key),
+        ];
     }
 
     /**

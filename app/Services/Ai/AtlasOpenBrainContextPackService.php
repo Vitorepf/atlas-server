@@ -238,7 +238,7 @@ class AtlasOpenBrainContextPackService
                 'state_path' => AtlasCognitiveWorkingSetMemoryService::sharedPath(),
             ];
         }
-        $budgetMultiplier = (float) ($contextDeliveryPolicy['initial_context_budget_multiplier'] ?? 1.0);
+        $budgetMultiplier = AiValueNormalizer::finiteFloatOrNull($contextDeliveryPolicy['initial_context_budget_multiplier'] ?? null) ?? 1.0;
         if ((bool) ($contextDeliveryPolicy['applied_to_initial_budget'] ?? false) && $budgetMultiplier > 0 && $budgetMultiplier < 1.0) {
             $totalBudget = $this->scaledBudget($totalBudget, $budgetMultiplier);
             $codeBudget = $this->scaledBudget($codeBudget, $budgetMultiplier);
@@ -1274,12 +1274,12 @@ class AtlasOpenBrainContextPackService
      */
     private function floatMapValue(array $values, string $key, float $default): float
     {
-        $value = $values[$key] ?? null;
-        if (! is_numeric($value)) {
+        $value = AiValueNormalizer::finiteFloatOrNull($values[$key] ?? null);
+        if ($value === null) {
             return $default;
         }
 
-        return max(0.1, min(1.0, (float) $value));
+        return max(0.1, min(1.0, $value));
     }
 
     /**
@@ -1764,7 +1764,7 @@ class AtlasOpenBrainContextPackService
             $unused = max(0, (int) ($row['unused'] ?? 0));
             $noise = max(0, (int) ($row['noise'] ?? 0));
             $utilityCount = max(0, (int) ($row['utility_count'] ?? 0));
-            $utilitySum = max(0.0, (float) ($row['utility_sum'] ?? 0.0));
+            $utilitySum = max(0.0, AiValueNormalizer::finiteFloatOrNull($row['utility_sum'] ?? null) ?? 0.0);
             $useRatio = $delivered > 0 ? round($used / $delivered, 4) : 0.0;
             $wasteRatio = $delivered > 0 ? round(($unused + $noise) / $delivered, 4) : 0.0;
             $avgUtility = $utilityCount > 0 ? round($utilitySum / $utilityCount, 4) : null;
@@ -1869,7 +1869,7 @@ class AtlasOpenBrainContextPackService
                 continue;
             }
             $stats[$type] ??= ['delivered' => 0, 'used' => 0, 'unused' => 0, 'noise' => 0];
-            $stats[$type]['utility_sum'] = (float) ($stats[$type]['utility_sum'] ?? 0.0) + $utility;
+            $stats[$type]['utility_sum'] = (AiValueNormalizer::finiteFloatOrNull($stats[$type]['utility_sum'] ?? null) ?? 0.0) + $utility;
             $stats[$type]['utility_count'] = (int) ($stats[$type]['utility_count'] ?? 0) + 1;
         }
 
@@ -2014,11 +2014,7 @@ class AtlasOpenBrainContextPackService
 
     private function nullableFloat(mixed $value): ?float
     {
-        if (! is_numeric($value)) {
-            return null;
-        }
-
-        return (float) $value;
+        return AiValueNormalizer::finiteFloatOrNull($value);
     }
 
     /**
@@ -3012,7 +3008,7 @@ class AtlasOpenBrainContextPackService
             $candidates[] = [
                 // Interno ao floor (removido antes de servir): score do ranker híbrido —
                 // é o que autoriza o rank-escape do floor lexical (P0 do pack).
-                '_recall_score' => (float) ($row['score'] ?? 0),
+                '_recall_score' => AiValueNormalizer::finiteFloatOrNull($row['score'] ?? null) ?? 0.0,
                 // RAG-03: stable concept guard input, never rendered into the pack.
                 '_incident_scope' => (string) data_get($row, 'metadata.incident_scope', ''),
                 // T4-S5: the recalled entry id (provider-safe provenance) so the dialectic
@@ -3256,7 +3252,7 @@ class AtlasOpenBrainContextPackService
         // híbrido (lexical+semântico+recência): item que o ranker PONTUOU é entregue
         // (demotion por feedback e o wiper-guard acima continuam valendo); o floor
         // lexical >=2 fica como rede só pra itens que chegaram SEM pontuação.
-        if ((float) ($item['_recall_score'] ?? 0) > 0) {
+        if ((AiValueNormalizer::finiteFloatOrNull($item['_recall_score'] ?? null) ?? 0.0) > 0) {
             return true;
         }
 
@@ -3697,7 +3693,7 @@ class AtlasOpenBrainContextPackService
             (string) ($policy['delivery_mode'] ?? 'standard_minimal_top_k'),
             (string) ($policy['status'] ?? 'inactive'),
             implode(',', $this->stringList($policy['actions'] ?? [])) ?: 'keep_current_pack',
-            (float) ($policy['initial_context_budget_multiplier'] ?? 1.0),
+            AiValueNormalizer::finiteFloatOrNull($policy['initial_context_budget_multiplier'] ?? null) ?? 1.0,
             (bool) ($policy['applied_to_initial_budget'] ?? false) ? 'yes' : 'no',
         );
         $handles = $this->stringList($policy['on_demand_handles'] ?? []);
@@ -3726,9 +3722,9 @@ class AtlasOpenBrainContextPackService
             $multipliers = (array) ($sourceSelection['budget_multipliers'] ?? []);
             $lines[] = sprintf(
                 '- source_mix: code=%.2f graph=%.2f memory=%.2f',
-                (float) ($multipliers['code'] ?? 1.0),
-                (float) ($multipliers['graph'] ?? 1.0),
-                (float) ($multipliers['memory'] ?? 1.0),
+                AiValueNormalizer::finiteFloatOrNull($multipliers['code'] ?? null) ?? 1.0,
+                AiValueNormalizer::finiteFloatOrNull($multipliers['graph'] ?? null) ?? 1.0,
+                AiValueNormalizer::finiteFloatOrNull($multipliers['memory'] ?? null) ?? 1.0,
             );
         }
         $initialCodePolicy = (array) ($policy['initial_code_graph_delivery_policy'] ?? []);
@@ -3760,7 +3756,7 @@ class AtlasOpenBrainContextPackService
                     (string) ($candidate['source'] ?? 'unknown'),
                     mb_substr((string) ($candidate['label'] ?? $candidate['ref'] ?? ''), 0, 160),
                     (int) ($candidate['source_rank'] ?? 0),
-                    (float) ($candidate['fused_score'] ?? 0.0),
+                    AiValueNormalizer::finiteFloatOrNull($candidate['fused_score'] ?? null) ?? 0.0,
                 );
             }
             $lines[] = '';
@@ -4091,7 +4087,7 @@ class AtlasOpenBrainContextPackService
                 'from' => (string) ($hop['from'] ?? ''),
                 'to' => (string) ($hop['to'] ?? ''),
                 'edge_kind' => (string) ($hop['edge_kind'] ?? ''),
-                'confidence' => round((float) ($hop['confidence'] ?? 0.0), 4),
+                'confidence' => round(AiValueNormalizer::finiteFloatOrNull($hop['confidence'] ?? null) ?? 0.0, 4),
                 'direction' => (string) ($hop['direction'] ?? ''),
             ];
         }
