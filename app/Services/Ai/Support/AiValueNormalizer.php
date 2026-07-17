@@ -33,4 +33,12 @@ final class AiValueNormalizer
     {
         return max(0.0, min(1.0, $value));
     }
+
+    /**
+     * @return array<mixed>
+     */
+    public static function arrayOrEmpty(mixed $value): array
+    {
+        return is_array($value) ? $value : [];
+    }
 }

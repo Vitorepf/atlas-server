@@ -26,6 +26,13 @@ final class AaeosPhaseHandoffService
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.phase.v1';
 
+    public static function requireIntentId(string $intentId): void
+    {
+        if ($intentId === '') {
+            throw new InvalidArgumentException('intent_id required');
+        }
+    }
+
     public const PHASE_INTENT_CAPTURE = 'intent_capture';
 
     public const PHASE_DISAMBIGUATION = 'disambiguation';

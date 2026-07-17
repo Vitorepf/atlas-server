@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Builds provider-safe AAEOS HTTP-path phase envelopes.
  *
@@ -374,7 +376,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     private static function arrayAt(array $data, string $key): array
     {
-        return is_array($data[$key] ?? null) ? $data[$key] : [];
+        return AiValueNormalizer::arrayOrEmpty($data[$key] ?? null);
     }
 
     /**

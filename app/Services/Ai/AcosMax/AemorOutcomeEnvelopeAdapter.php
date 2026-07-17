@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AcosMax;
 
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * ESP-06 — AEMOR runtime / engineering outcome recorder adapter.
@@ -27,13 +28,13 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
 
         $contract = is_array($context['outcome_contract_v2'] ?? null)
             ? $context['outcome_contract_v2']
-            : (is_array($native['outcome_contract_v2'] ?? null) ? $native['outcome_contract_v2'] : []);
+            : AiValueNormalizer::arrayOrEmpty($native['outcome_contract_v2'] ?? null);
 
         $verifiedSourcePresent = array_key_exists('verified', $native)
             || array_key_exists('verified_source_present', $contract);
         $verifiedBasis = strtolower(trim((string) ($contract['verified_basis'] ?? $native['verified_basis'] ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT)));
         $verified = (bool) ($contract['verified'] ?? $native['verified'] ?? false);
-        $evidenceRefs = is_array($native['evidence_refs'] ?? null) ? $native['evidence_refs'] : [];
+        $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native['evidence_refs'] ?? null);
 
         $episodeId = trim((string) ($context['episode_id'] ?? $native['episode_id'] ?? ''));
 
@@ -52,10 +53,10 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         ], [
             'outcome_type' => (string) ($native['outcome_type'] ?? 'engineering_delivery'),
             'summary' => (string) ($native['summary'] ?? $native['objective'] ?? ''),
-            'metrics' => is_array($native['metrics'] ?? null) ? $native['metrics'] : [],
-            'blockers' => is_array($native['blockers'] ?? null) ? $native['blockers'] : [],
-            'context_utility' => is_array($native['context_utility'] ?? null) ? $native['context_utility'] : [],
-            'patch_outcome' => is_array($native['patch_outcome'] ?? null) ? $native['patch_outcome'] : [],
+            'metrics' => AiValueNormalizer::arrayOrEmpty($native['metrics'] ?? null),
+            'blockers' => AiValueNormalizer::arrayOrEmpty($native['blockers'] ?? null),
+            'context_utility' => AiValueNormalizer::arrayOrEmpty($native['context_utility'] ?? null),
+            'patch_outcome' => AiValueNormalizer::arrayOrEmpty($native['patch_outcome'] ?? null),
             'learning_claim' => (string) ($native['learning_claim'] ?? ''),
         ]);
     }
@@ -63,7 +64,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public function fromEnvelope(OutcomeEnvelope $envelope): array
     {
         $data = $envelope->toArray();
-        $fields = (array) ($data['native_divergent']['fields'] ?? []);
+        $fields = AiValueNormalizer::arrayOrEmpty($data['native_divergent']['fields'] ?? null);
 
         return [
             'executor' => (string) ($data['executor'] ?? 'engineering'),
@@ -71,10 +72,10 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'objective' => (string) ($fields['summary'] ?? ''),
             'summary' => (string) ($fields['summary'] ?? ''),
             'outcome_type' => (string) ($fields['outcome_type'] ?? 'engineering_delivery'),
-            'metrics' => is_array($fields['metrics'] ?? null) ? $fields['metrics'] : [],
-            'blockers' => is_array($fields['blockers'] ?? null) ? $fields['blockers'] : [],
-            'context_utility' => is_array($fields['context_utility'] ?? null) ? $fields['context_utility'] : [],
-            'patch_outcome' => is_array($fields['patch_outcome'] ?? null) ? $fields['patch_outcome'] : [],
+            'metrics' => AiValueNormalizer::arrayOrEmpty($fields['metrics'] ?? null),
+            'blockers' => AiValueNormalizer::arrayOrEmpty($fields['blockers'] ?? null),
+            'context_utility' => AiValueNormalizer::arrayOrEmpty($fields['context_utility'] ?? null),
+            'patch_outcome' => AiValueNormalizer::arrayOrEmpty($fields['patch_outcome'] ?? null),
             'learning_claim' => (string) ($fields['learning_claim'] ?? ''),
             'verified' => (bool) ($data['verified'] ?? false),
             'verified_basis' => (string) ($data['verified_basis'] ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT),

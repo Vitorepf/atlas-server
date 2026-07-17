@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\AgenticEngineeringOs;
 
 use App\Services\Ai\Aaeos\Cores\OutcomeCausalityRanker;
-use InvalidArgumentException;
 
 /**
  * Atlas Mission Control Cockpit Service — Phase 14 surface.
@@ -56,9 +55,7 @@ final class AtlasMissionControlCockpitService
         string $autonomyLevel = 'L1',
         array $queueSignals = [],
     ): array {
-        if ($intentId === '') {
-            throw new InvalidArgumentException('intent_id required');
-        }
+        AaeosPhaseHandoffService::requireIntentId($intentId);
 
         $journey = $this->buildJourney($phaseEnvelopes);
         $gateReport = $this->gates->evaluate($intentId, $gateSignals, $exceptionReceipts);

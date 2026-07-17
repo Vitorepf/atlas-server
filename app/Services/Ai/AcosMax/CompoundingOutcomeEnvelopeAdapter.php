@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AcosMax;
 
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * ESP-06 — Compounding evaluator ({@see AtlasCompoundingOutcomeEvaluator}) adapter.
@@ -35,9 +36,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
 
         $verifiedSourcePresent = array_key_exists('verified', $native)
             || is_array($native['payload']['outcome_contract_v2'] ?? null);
-        $contract = is_array($native['payload']['outcome_contract_v2'] ?? null)
-            ? $native['payload']['outcome_contract_v2']
-            : [];
+        $contract = AiValueNormalizer::arrayOrEmpty($native['payload']['outcome_contract_v2'] ?? null);
         $verifiedBasis = strtolower(trim((string) (
             $contract['verified_basis']
             ?? $native['verified_basis']
@@ -46,7 +45,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
                 : AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT)
         )));
         $verified = (bool) ($contract['verified'] ?? $native['verified'] ?? false);
-        $evidenceRefs = is_array($native['evidence_refs'] ?? null) ? $native['evidence_refs'] : [];
+        $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native['evidence_refs'] ?? null);
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => $executor,
@@ -67,7 +66,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'execution_quality' => $native['execution_quality'] ?? null,
             'evidence_quality' => $native['evidence_quality'] ?? null,
             'learning_required' => (bool) ($native['learning_required'] ?? false),
-            'missed_signals' => is_array($native['missed_signals'] ?? null) ? $native['missed_signals'] : [],
+            'missed_signals' => AiValueNormalizer::arrayOrEmpty($native['missed_signals'] ?? null),
             'human_override' => (bool) ($native['human_override'] ?? false),
         ]);
     }
@@ -75,7 +74,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public function fromEnvelope(OutcomeEnvelope $envelope): array
     {
         $data = $envelope->toArray();
-        $fields = (array) ($data['native_divergent']['fields'] ?? []);
+        $fields = AiValueNormalizer::arrayOrEmpty($data['native_divergent']['fields'] ?? null);
 
         return [
             'flow_id' => (string) ($fields['flow_id'] ?? 'atlas_conversation'),
@@ -86,7 +85,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'execution_quality' => $fields['execution_quality'] ?? null,
             'evidence_quality' => $fields['evidence_quality'] ?? null,
             'learning_required' => (bool) ($fields['learning_required'] ?? false),
-            'missed_signals' => is_array($fields['missed_signals'] ?? null) ? $fields['missed_signals'] : [],
+            'missed_signals' => AiValueNormalizer::arrayOrEmpty($fields['missed_signals'] ?? null),
             'human_override' => (bool) ($fields['human_override'] ?? false),
             'verified' => (bool) ($data['verified'] ?? false),
             'verified_basis' => (string) ($data['verified_basis'] ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT),

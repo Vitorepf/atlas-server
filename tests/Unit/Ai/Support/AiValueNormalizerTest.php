@@ -34,4 +34,11 @@ final class AiValueNormalizerTest extends TestCase
         $this->assertSame(0.42, AiValueNormalizer::clampUnit(0.42));
         $this->assertSame(1.0, AiValueNormalizer::clampUnit(1.7));
     }
+
+    public function test_array_or_empty_rejects_non_arrays(): void
+    {
+        $this->assertSame(['a' => 1], AiValueNormalizer::arrayOrEmpty(['a' => 1]));
+        $this->assertSame([], AiValueNormalizer::arrayOrEmpty(null));
+        $this->assertSame([], AiValueNormalizer::arrayOrEmpty('x'));
+    }
 }

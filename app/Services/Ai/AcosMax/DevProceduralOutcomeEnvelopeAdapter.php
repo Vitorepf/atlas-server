@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AcosMax;
 
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * ESP-06 — Dev procedural memory ({@see DevOutcomeMemoryService}) adapter.
@@ -25,7 +26,7 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
         $verifiedSourcePresent = array_key_exists('proven_real', $native);
         $verifiedBasis = $this->deriveVerifiedBasis($provenReal, $fakeGreen, $verifiedSourcePresent);
         $verified = $provenReal && ! $fakeGreen && in_array($verifiedBasis, AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASES_WEIGHTED, true);
-        $evidenceKinds = is_array($native['evidence_kinds'] ?? null) ? $native['evidence_kinds'] : [];
+        $evidenceKinds = AiValueNormalizer::arrayOrEmpty($native['evidence_kinds'] ?? null);
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => 'dev',
@@ -45,9 +46,9 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
             'fake_green' => $fakeGreen,
             'proof_reason' => (string) ($native['proof_reason'] ?? ''),
             'evidence_kinds' => $evidenceKinds,
-            'selected_tests' => is_array($native['selected_tests'] ?? null) ? $native['selected_tests'] : [],
-            'changed_files' => is_array($native['changed_files'] ?? null) ? $native['changed_files'] : [],
-            'learning_candidates' => is_array($native['learning_candidates'] ?? null) ? $native['learning_candidates'] : [],
+            'selected_tests' => AiValueNormalizer::arrayOrEmpty($native['selected_tests'] ?? null),
+            'changed_files' => AiValueNormalizer::arrayOrEmpty($native['changed_files'] ?? null),
+            'learning_candidates' => AiValueNormalizer::arrayOrEmpty($native['learning_candidates'] ?? null),
             'should_promote_to_aemor' => (bool) ($native['should_promote_to_aemor'] ?? false),
         ]);
     }
@@ -55,7 +56,7 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
     public function fromEnvelope(OutcomeEnvelope $envelope): array
     {
         $data = $envelope->toArray();
-        $fields = (array) ($data['native_divergent']['fields'] ?? []);
+        $fields = AiValueNormalizer::arrayOrEmpty($data['native_divergent']['fields'] ?? null);
 
         return [
             'schema_version' => 'atlas.dev.outcome_memory.v1',
@@ -64,10 +65,10 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
             'proven_real' => (bool) ($fields['proven_real'] ?? false),
             'fake_green' => (bool) ($fields['fake_green'] ?? false),
             'proof_reason' => (string) ($fields['proof_reason'] ?? ''),
-            'evidence_kinds' => is_array($fields['evidence_kinds'] ?? null) ? $fields['evidence_kinds'] : [],
-            'selected_tests' => is_array($fields['selected_tests'] ?? null) ? $fields['selected_tests'] : [],
-            'changed_files' => is_array($fields['changed_files'] ?? null) ? $fields['changed_files'] : [],
-            'learning_candidates' => is_array($fields['learning_candidates'] ?? null) ? $fields['learning_candidates'] : [],
+            'evidence_kinds' => AiValueNormalizer::arrayOrEmpty($fields['evidence_kinds'] ?? null),
+            'selected_tests' => AiValueNormalizer::arrayOrEmpty($fields['selected_tests'] ?? null),
+            'changed_files' => AiValueNormalizer::arrayOrEmpty($fields['changed_files'] ?? null),
+            'learning_candidates' => AiValueNormalizer::arrayOrEmpty($fields['learning_candidates'] ?? null),
             'should_promote_to_aemor' => (bool) ($fields['should_promote_to_aemor'] ?? false),
         ];
     }

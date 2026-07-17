@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Services\Ai\AgenticEngineeringOs;
 
 use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
-use InvalidArgumentException;
 
 /**
  * Atlas Universal Gates Evaluator — produces `atlas.aaeos.gate_report.v1`
@@ -113,9 +112,7 @@ final class AtlasUniversalGatesEvaluator
      */
     public function evaluate(string $intentId, array $signals, array $exceptionReceipts = []): array
     {
-        if ($intentId === '') {
-            throw new InvalidArgumentException('intent_id required');
-        }
+        AaeosPhaseHandoffService::requireIntentId($intentId);
 
         $required = array_keys(self::UNIVERSAL_GATES);
         $passed = [];

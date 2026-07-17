@@ -196,7 +196,7 @@ final class DeliveryPackCompletenessScorer
      */
     private function arrayValue($value): array
     {
-        return is_array($value) ? $value : [];
+        return AiValueNormalizer::arrayOrEmpty($value);
     }
 
     /**
