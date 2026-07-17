@@ -83,6 +83,14 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_IMPL_FILES_HASH = 'impl_files_hash';
 
     public const TEST_RESOLUTION_EXISTENCE_ONLY_UNRUN = 'existence_only_unrun';
+    public const FIELD_PROOF_REFS_RESOLVED = 'proof_refs_resolved';
+    public const FIELD_SUMMARY = 'summary';
+    public const FIELD_EVALUATED = 'evaluated';
+    public const FIELD_DRIFT_COUNT = 'drift_count';
+    public const FIELD_BY_COMPUTED_STATE = 'by_computed_state';
+    public const FIELD_TEST_BEARING_ROWS = 'test_bearing_rows';
+    public const FIELD_GREEN_RUN_ROWS = 'green_run_rows';
+    public const FIELD_CAPABILITIES = 'capabilities';
 
     public const RANK = [
         self::LEVEL_SPEC => 0,
@@ -144,7 +152,7 @@ class AtlasAaeosImplementationTruthService
                 self::FIELD_UNDER_CLAIM => $result[self::FIELD_UNDER_CLAIM],
                 self::FIELD_RESOLVED => $result[self::FIELD_RESOLVED],
                 self::FIELD_UNMET_EVIDENCE => $result[self::FIELD_UNMET_EVIDENCE],
-                'proof_refs_resolved' => array_values(array_filter(
+                self::FIELD_PROOF_REFS_RESOLVED => array_values(array_filter(
                     $result[self::FIELD_EVIDENCE],
                     fn (array $e): bool => ($e[self::FIELD_RESOLVED] ?? false) === true,
                 )),
@@ -154,20 +162,20 @@ class AtlasAaeosImplementationTruthService
 
         return [
             self::FIELD_SCHEMA_VERSION => self::LEDGER_SCHEMA,
-            'summary' => [
-                'evaluated' => count($rows),
-                'drift_count' => $driftCount,
-                'by_computed_state' => $byComputed,
+            self::FIELD_SUMMARY => [
+                self::FIELD_EVALUATED => count($rows),
+                self::FIELD_DRIFT_COUNT => $driftCount,
+                self::FIELD_BY_COMPUTED_STATE => $byComputed,
                 // Corpus-wide test-resolution stamp. 'green' ONLY when every test-bearing
                 // row is backed by a green run; 'existence_only' when none are; 'mixed'
                 // otherwise. Downstream that relaxes uncertainty on an exact 'green' match
                 // (AtlasDocumentationRealityBidirectionalReconciliationService) therefore
                 // stays fail-safe unless the whole corpus is green-proven.
                 self::FIELD_TEST_RESOLUTION => $this->summaryTestResolution($testBearingRows, $greenRows),
-                'test_bearing_rows' => $testBearingRows,
-                'green_run_rows' => $greenRows,
+                self::FIELD_TEST_BEARING_ROWS => $testBearingRows,
+                self::FIELD_GREEN_RUN_ROWS => $greenRows,
             ],
-            'capabilities' => $rows,
+            self::FIELD_CAPABILITIES => $rows,
         ];
     }
 

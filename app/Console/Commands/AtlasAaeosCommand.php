@@ -307,6 +307,7 @@ final class AtlasAaeosCommand extends Command
         {--window-canary-flywheel-floors-contract= : JSON file (any object) to observe window/canary/flywheel residual floors}
         {--verified-coverage-choreography-floors-contract= : JSON file (any object) to observe verified/coverage/choreography residual floors}
         {--knowledge-decomposer-promoter-floors-contract= : JSON file (any object) to observe knowledge/decomposer/promoter residual floors}
+        {--ncapture-obra-truth-floors-contract= : JSON file (any object) to observe ncapture/obra/truth residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -770,6 +771,7 @@ final class AtlasAaeosCommand extends Command
             ['window-canary-flywheel-floors-contract', 'window_canary_flywheel_floors_contract', fn (array $p) => $gates->windowCanaryFlywheelFloorsContractObserve($p)],
             ['verified-coverage-choreography-floors-contract', 'verified_coverage_choreography_floors_contract', fn (array $p) => $gates->verifiedCoverageChoreographyFloorsContractObserve($p)],
             ['knowledge-decomposer-promoter-floors-contract', 'knowledge_decomposer_promoter_floors_contract', fn (array $p) => $gates->knowledgeDecomposerPromoterFloorsContractObserve($p)],
+            ['ncapture-obra-truth-floors-contract', 'ncapture_obra_truth_floors_contract', fn (array $p) => $gates->ncaptureObraTruthFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

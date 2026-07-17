@@ -6549,6 +6549,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function ncaptureObraTruthFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ncapture_field_kind' => AtlasNCaptureDrillService::FIELD_KIND,
+            'ncapture_field_formula' => AtlasNCaptureDrillService::FIELD_FORMULA,
+            'ncapture_field_thresholds' => AtlasNCaptureDrillService::FIELD_THRESHOLDS,
+            'ncapture_field_days_between_drills_max' => AtlasNCaptureDrillService::FIELD_DAYS_BETWEEN_DRILLS_MAX,
+            'ncapture_field_bypass_forbidden' => AtlasNCaptureDrillService::FIELD_BYPASS_FORBIDDEN,
+            'ncapture_field_peek_only' => AtlasNCaptureDrillService::FIELD_PEEK_ONLY,
+            'obra_field_items' => AcosMaxObraRetroService::FIELD_ITEMS,
+            'obra_field_scoreboard_path' => AcosMaxObraRetroService::FIELD_SCOREBOARD_PATH,
+            'obra_field_slices' => AcosMaxObraRetroService::FIELD_SLICES,
+            'obra_field_terminal' => AcosMaxObraRetroService::FIELD_TERMINAL,
+            'obra_field_scope' => AcosMaxObraRetroService::FIELD_SCOPE,
+            'obra_field_flow_id' => AcosMaxObraRetroService::FIELD_FLOW_ID,
+            'truth_field_proof_refs_resolved' => AtlasAaeosImplementationTruthService::FIELD_PROOF_REFS_RESOLVED,
+            'truth_field_summary' => AtlasAaeosImplementationTruthService::FIELD_SUMMARY,
+            'truth_field_evaluated' => AtlasAaeosImplementationTruthService::FIELD_EVALUATED,
+            'truth_field_drift_count' => AtlasAaeosImplementationTruthService::FIELD_DRIFT_COUNT,
+            'truth_field_capabilities' => AtlasAaeosImplementationTruthService::FIELD_CAPABILITIES,
+            'ncapture_obra_truth_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

@@ -4777,4 +4777,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     }
 
 
+
+    public function test_ncapture_obra_truth_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->ncaptureObraTruthFloorsContractObserve([]);
+
+        $this->assertSame('kind', $payload['ncapture_field_kind']);
+        $this->assertSame('formula', $payload['ncapture_field_formula']);
+        $this->assertSame('thresholds', $payload['ncapture_field_thresholds']);
+        $this->assertSame('days_between_drills_max', $payload['ncapture_field_days_between_drills_max']);
+        $this->assertSame('bypass_forbidden', $payload['ncapture_field_bypass_forbidden']);
+        $this->assertSame('peek_only', $payload['ncapture_field_peek_only']);
+        $this->assertSame('items', $payload['obra_field_items']);
+        $this->assertSame('scoreboard_path', $payload['obra_field_scoreboard_path']);
+        $this->assertSame('slices', $payload['obra_field_slices']);
+        $this->assertSame('terminal', $payload['obra_field_terminal']);
+        $this->assertSame('scope', $payload['obra_field_scope']);
+        $this->assertSame('flow_id', $payload['obra_field_flow_id']);
+        $this->assertSame('proof_refs_resolved', $payload['truth_field_proof_refs_resolved']);
+        $this->assertSame('summary', $payload['truth_field_summary']);
+        $this->assertSame('evaluated', $payload['truth_field_evaluated']);
+        $this->assertSame('drift_count', $payload['truth_field_drift_count']);
+        $this->assertSame('capabilities', $payload['truth_field_capabilities']);
+        $this->assertSame(17, $payload['ncapture_obra_truth_floor_count']);
+    }
+
+
 }

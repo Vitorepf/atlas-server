@@ -59,6 +59,14 @@ final class AcosMaxObraRetroService
     public const SLICE_STATE_REFUTADO = 'refutado';
 
     public const SLICE_STATE_SUSPENDED = 'suspended';
+    public const FIELD_ITEMS = 'items';
+    public const FIELD_SCOREBOARD_PATH = 'scoreboard_path';
+    public const FIELD_SLICES = 'slices';
+    public const FIELD_TERMINAL = 'terminal';
+    public const FIELD_IDS = 'ids';
+    public const FIELD_SCOPE = 'scope';
+    public const FIELD_FLOW_ID = 'flow_id';
+    public const FIELD_PRIVACY_CLASS = 'privacy_class';
 
     public function __construct(
         private readonly AtlasEngineeringOutcomeRecorder $outcomes,
@@ -80,11 +88,11 @@ final class AcosMaxObraRetroService
                 self::FIELD_REASON => self::REASON_NO_TERMINAL_SLICES_FOR_LOTE,
                 self::FIELD_LOTE => $lote,
                 self::FIELD_SERIES_TAG => self::SERIES_TAG,
-                self::FIELD_OUTCOMES => [self::STATUS_RECORDED => 0, 'items' => []],
+                self::FIELD_OUTCOMES => [self::STATUS_RECORDED => 0, self::FIELD_ITEMS => []],
                 self::FIELD_LESSON_CANDIDATES => [
                     self::FIELD_PATH => self::LESSON_PATH_NORMAL_CAPTURE,
                     self::FIELD_QUEUED => 0,
-                    'items' => [],
+                    self::FIELD_ITEMS => [],
                 ],
             ];
         }
@@ -104,17 +112,17 @@ final class AcosMaxObraRetroService
             self::FIELD_STATUS => self::STATUS_RECORDED,
             self::FIELD_LOTE => $lote,
             self::FIELD_SERIES_TAG => self::SERIES_TAG,
-            'scoreboard_path' => self::SCOREBOARD_RELATIVE_PATH,
-            'slices' => [
-                'terminal' => count($slices),
-                'ids' => array_map(static fn (array $slice): string => AiValueNormalizer::trimmedScalarStringOrNull($slice['id'] ?? null) ?? '', $slices),
+            self::FIELD_SCOREBOARD_PATH => self::SCOREBOARD_RELATIVE_PATH,
+            self::FIELD_SLICES => [
+                self::FIELD_TERMINAL => count($slices),
+                self::FIELD_IDS => array_map(static fn (array $slice): string => AiValueNormalizer::trimmedScalarStringOrNull($slice['id'] ?? null) ?? '', $slices),
             ],
             self::FIELD_OUTCOMES => [
                 self::STATUS_RECORDED => count(array_filter(
                     $outcomeItems,
                     static fn (array $item): bool => ($item[self::FIELD_STATUS] ?? null) === self::STATUS_RECORDED
                 )),
-                'items' => $outcomeItems,
+                self::FIELD_ITEMS => $outcomeItems,
             ],
             self::FIELD_LESSON_CANDIDATES => [
                 self::FIELD_PATH => self::LESSON_PATH_NORMAL_CAPTURE,
@@ -122,7 +130,7 @@ final class AcosMaxObraRetroService
                     $lessonItems,
                     static fn (array $item): bool => ($item[self::FIELD_STATUS] ?? null) === self::LESSON_STATUS_PENDING_REVIEW
                 )),
-                'items' => $lessonItems,
+                self::FIELD_ITEMS => $lessonItems,
             ],
         ];
     }
@@ -138,10 +146,10 @@ final class AcosMaxObraRetroService
     {
         $payload = array_merge([
             self::FIELD_KIND => self::KIND_FAILURE_PATTERN,
-            'scope' => self::SERIES_TAG,
-            'flow_id' => self::SERIES_TAG,
+            self::FIELD_SCOPE => self::SERIES_TAG,
+            self::FIELD_FLOW_ID => self::SERIES_TAG,
             self::FIELD_WORKSPACE => base_path(),
-            'privacy_class' => 'normal',
+            self::FIELD_PRIVACY_CLASS => 'normal',
         ], $candidate, [
             'payload' => array_merge(AiValueNormalizer::arrayOrEmpty($candidate['payload'] ?? null), [
                 'source' => self::SOURCE_ACOS_MAX_OBRA_RETRO,

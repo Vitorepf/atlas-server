@@ -73,6 +73,14 @@ final class AtlasNCaptureDrillService
     public const FIELD_FORMULA_VERSION = 'formula_version';
     public const FIELD_DENOMINATOR_MIN = 'denominator_min';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_FORMULA = 'formula';
+    public const FIELD_THRESHOLDS = 'thresholds';
+    public const FIELD_DAYS_BETWEEN_DRILLS_MAX = 'days_between_drills_max';
+    public const FIELD_COLD_START_CHANNELS_ALLOWED = 'cold_start_channels_allowed';
+    public const FIELD_BYPASS_FORBIDDEN = 'bypass_forbidden';
+    public const FIELD_YARDSTICK_REQUIRED_SERIES = 'yardstick_required_series';
+    public const FIELD_PEEK_ONLY = 'peek_only';
 
     private readonly string $ledgerPath;
 
@@ -85,19 +93,19 @@ final class AtlasNCaptureDrillService
     public static function freezePayload(): array
     {
         return [
-            'kind' => self::KIND_MEASURE_FREEZE,
+            self::FIELD_KIND => self::KIND_MEASURE_FREEZE,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
-            'formula' => 'N-Capture Drill: for each installed-but-not-routed engine, publish {time_to_first_routed_task_seconds, time_to_first_proven_real_seconds, hours_of_integration} with denominators; admission only via MAXK-02 cold-start; capability spec ELEV-29s must verify; yardstick = golden v2 + MAXK-01 regret in peek mode.',
+            self::FIELD_FORMULA => 'N-Capture Drill: for each installed-but-not-routed engine, publish {time_to_first_routed_task_seconds, time_to_first_proven_real_seconds, hours_of_integration} with denominators; admission only via MAXK-02 cold-start; capability spec ELEV-29s must verify; yardstick = golden v2 + MAXK-01 regret in peek mode.',
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
-            'thresholds' => [
-                'days_between_drills_max' => self::DEFAULT_DAYS_BETWEEN_DRILLS_MAX,
-                'cold_start_channels_allowed' => [self::COLD_START_CHANNEL_MAXK02],
-                'bypass_forbidden' => true,
-                'yardstick_required_series' => [
+            self::FIELD_THRESHOLDS => [
+                self::FIELD_DAYS_BETWEEN_DRILLS_MAX => self::DEFAULT_DAYS_BETWEEN_DRILLS_MAX,
+                self::FIELD_COLD_START_CHANNELS_ALLOWED => [self::COLD_START_CHANNEL_MAXK02],
+                self::FIELD_BYPASS_FORBIDDEN => true,
+                self::FIELD_YARDSTICK_REQUIRED_SERIES => [
                     'golden_v2',
                     'atlas.decide.route_regret.v2',
                 ],
-                'peek_only' => true,
+                self::FIELD_PEEK_ONLY => true,
                 'required_fields' => [
                     'engine_id',
                     'capability_spec.verified',
