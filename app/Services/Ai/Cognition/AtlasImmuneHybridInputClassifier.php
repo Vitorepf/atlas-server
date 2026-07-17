@@ -47,6 +47,14 @@ final class AtlasImmuneHybridInputClassifier
     public const SOURCE_JACCARD_BASELINE = 'jaccard_baseline';
 
     public const FIELD_ENABLED = 'enabled';
+    public const FIELD_INPUT_CLASS = 'input_class';
+    public const FIELD_WINNER_SOURCE = 'winner_source';
+    public const FIELD_REF = 'ref';
+    public const FIELD_MATCHED_SIGNALS = 'matched_signals';
+    public const FIELD_IMMUNE_SIGNATURE = 'immune_signature';
+    public const FIELD_HYBRID_ARM = 'hybrid_arm';
+    public const FIELD_HOSTILE_CLASS_CANDIDATE = 'hostile_class_candidate';
+    public const FIELD_STATUS = 'status';
 
     private readonly AtlasAaeosCognitiveImmuneInputClassifier $base;
 
@@ -93,14 +101,14 @@ final class AtlasImmuneHybridInputClassifier
             'schema_version' => AtlasImmuneSignatureFreeze::MEASURE_ID,
             'mode' => $this->signatureStore->mode(),
             'matched' => false,
-            'ref' => null,
+            self::FIELD_REF => null,
             'enforce_applied' => false,
         ];
 
         $knownSignature = $this->signatureStore->consult($text, $metadata);
         if ($knownSignature !== null) {
             $signatureBlock['matched'] = true;
-            $signatureBlock['ref'] = $knownSignature['ref'];
+            $signatureBlock[self::FIELD_REF] = $knownSignature[self::FIELD_REF];
             $signatureBlock['signature'] = $knownSignature['signature'];
             $signatureBlock['origin_ref'] = $knownSignature['origin_ref'];
             $signatureBlock['hit_count_after'] = $knownSignature['hit_count_after'];
@@ -109,18 +117,18 @@ final class AtlasImmuneHybridInputClassifier
         if ($knownSignature !== null && $this->signatureStore->enforceEnabled()) {
             $hostileClass = AiValueNormalizer::trimmedScalarStringOrNull($knownSignature['hostile_class'] ?? null) ?? '';
             $baseResult = $this->base->classify($text, $metadata);
-            $baseResult['input_class'] = $hostileClass;
-            $baseResult['reason'] = 'known_poison_signature:'.(AiValueNormalizer::trimmedScalarStringOrNull($knownSignature['ref'] ?? null) ?? '');
-            $baseResult['matched_signals'] = $this->augmentSignals(
-                $baseResult['matched_signals'],
+            $baseResult[self::FIELD_INPUT_CLASS] = $hostileClass;
+            $baseResult['reason'] = 'known_poison_signature:'.(AiValueNormalizer::trimmedScalarStringOrNull($knownSignature[self::FIELD_REF] ?? null) ?? '');
+            $baseResult[self::FIELD_MATCHED_SIGNALS] = $this->augmentSignals(
+                $baseResult[self::FIELD_MATCHED_SIGNALS],
                 'known_poison_signature',
             );
             $baseResult['memory_eligible'] = false;
             $baseResult['embedding_allowed'] = false;
             $baseResult['default_destination'] = self::hostileDestination($hostileClass);
             $signatureBlock['enforce_applied'] = true;
-            $baseResult['immune_signature'] = $signatureBlock;
-            $baseResult['hybrid_arm'] = $this->offHybridArm($baseResult);
+            $baseResult[self::FIELD_IMMUNE_SIGNATURE] = $signatureBlock;
+            $baseResult[self::FIELD_HYBRID_ARM] = $this->offHybridArm($baseResult);
 
             return $baseResult;
         }
@@ -133,17 +141,17 @@ final class AtlasImmuneHybridInputClassifier
             'source' => 'off',
             'tau' => $this->tau,
             'max_similarity' => null,
-            'hostile_class_candidate' => null,
-            'lexical_hostile_class' => in_array($baseResult['input_class'], self::HOSTILE_SEVERITY, true)
-                ? (AiValueNormalizer::trimmedScalarStringOrNull($baseResult['input_class'] ?? null) ?? '')
+            self::FIELD_HOSTILE_CLASS_CANDIDATE => null,
+            'lexical_hostile_class' => in_array($baseResult[self::FIELD_INPUT_CLASS], self::HOSTILE_SEVERITY, true)
+                ? (AiValueNormalizer::trimmedScalarStringOrNull($baseResult[self::FIELD_INPUT_CLASS] ?? null) ?? '')
                 : null,
-            'winner_source' => 'lexical',
+            self::FIELD_WINNER_SOURCE => 'lexical',
             'override_applied' => false,
         ];
 
         if (! $this->enabled) {
-            $baseResult['hybrid_arm'] = $armBlock;
-            $baseResult['immune_signature'] = $signatureBlock;
+            $baseResult[self::FIELD_HYBRID_ARM] = $armBlock;
+            $baseResult[self::FIELD_IMMUNE_SIGNATURE] = $signatureBlock;
 
             return $baseResult;
         }
@@ -151,8 +159,8 @@ final class AtlasImmuneHybridInputClassifier
         $scores = $this->computeSemanticScores($text);
         $armBlock['source'] = $scores === null ? self::SOURCE_UNAVAILABLE : self::SOURCE_JACCARD_BASELINE;
         if ($scores === null) {
-            $baseResult['hybrid_arm'] = $armBlock;
-            $baseResult['immune_signature'] = $signatureBlock;
+            $baseResult[self::FIELD_HYBRID_ARM] = $armBlock;
+            $baseResult[self::FIELD_IMMUNE_SIGNATURE] = $signatureBlock;
 
             return $baseResult;
         }
@@ -169,28 +177,28 @@ final class AtlasImmuneHybridInputClassifier
         $armBlock['scores_by_class'] = array_map(static fn (float $v): float => round($v, 6), $scores);
 
         if ($bestClass !== null && $bestScore >= $this->tau) {
-            $armBlock['hostile_class_candidate'] = $bestClass;
+            $armBlock[self::FIELD_HOSTILE_CLASS_CANDIDATE] = $bestClass;
         }
 
         $lexicalHostile = $armBlock['lexical_hostile_class'];
-        $semanticHostile = $armBlock['hostile_class_candidate'];
+        $semanticHostile = $armBlock[self::FIELD_HOSTILE_CLASS_CANDIDATE];
 
         $winner = $this->maxSeverity($lexicalHostile, $semanticHostile);
         if ($winner !== null && $winner !== $lexicalHostile) {
-            $armBlock['winner_source'] = 'semantic';
+            $armBlock[self::FIELD_WINNER_SOURCE] = 'semantic';
             $armBlock['override_applied'] = true;
-            $baseResult['input_class'] = $winner;
+            $baseResult[self::FIELD_INPUT_CLASS] = $winner;
             $baseResult['reason'] = 'semantic_arm_similarity_'.number_format($bestScore, 3);
-            $baseResult['matched_signals'] = $this->augmentSignals($baseResult['matched_signals'], 'semantic_arm_hit');
+            $baseResult[self::FIELD_MATCHED_SIGNALS] = $this->augmentSignals($baseResult[self::FIELD_MATCHED_SIGNALS], 'semantic_arm_hit');
             $baseResult['memory_eligible'] = false;
             $baseResult['embedding_allowed'] = false;
             $baseResult['default_destination'] = self::hostileDestination($winner);
         } elseif ($winner !== null && $winner === $lexicalHostile) {
-            $armBlock['winner_source'] = $semanticHostile === $lexicalHostile ? 'agreement' : 'lexical';
+            $armBlock[self::FIELD_WINNER_SOURCE] = $semanticHostile === $lexicalHostile ? 'agreement' : 'lexical';
         }
 
-        $baseResult['hybrid_arm'] = $armBlock;
-        $baseResult['immune_signature'] = $signatureBlock;
+        $baseResult[self::FIELD_HYBRID_ARM] = $armBlock;
+        $baseResult[self::FIELD_IMMUNE_SIGNATURE] = $signatureBlock;
 
         return $baseResult;
     }
@@ -207,11 +215,11 @@ final class AtlasImmuneHybridInputClassifier
             'source' => 'off',
             'tau' => $this->tau,
             'max_similarity' => null,
-            'hostile_class_candidate' => null,
-            'lexical_hostile_class' => in_array($baseResult['input_class'], self::HOSTILE_SEVERITY, true)
-                ? (AiValueNormalizer::trimmedScalarStringOrNull($baseResult['input_class'] ?? null) ?? '')
+            self::FIELD_HOSTILE_CLASS_CANDIDATE => null,
+            'lexical_hostile_class' => in_array($baseResult[self::FIELD_INPUT_CLASS], self::HOSTILE_SEVERITY, true)
+                ? (AiValueNormalizer::trimmedScalarStringOrNull($baseResult[self::FIELD_INPUT_CLASS] ?? null) ?? '')
                 : null,
-            'winner_source' => 'immune_signature',
+            self::FIELD_WINNER_SOURCE => 'immune_signature',
             'override_applied' => true,
         ];
     }

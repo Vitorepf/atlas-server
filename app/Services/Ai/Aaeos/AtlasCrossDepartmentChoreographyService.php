@@ -55,6 +55,14 @@ class AtlasCrossDepartmentChoreographyService
     public const TARGET_OPERATOR = 'operator';
 
     public const TARGET_PRODUCT = 'product';
+    public const FIELD_ACTION = 'action';
+    public const FIELD_RETURN_TO = 'return_to';
+    public const FIELD_PROPAGATES_TO = 'propagates_to';
+    public const FIELD_FINAL = 'final';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_FROM = 'from';
+    public const FIELD_TO = 'to';
 
     /**
      * Veto propagation rules keyed by the vetoing department.
@@ -62,10 +70,10 @@ class AtlasCrossDepartmentChoreographyService
      * @var array<string,array{propagates_to:array<int,string>, action:string, return_to:?string, final:bool}>
      */
     public const VETO_RULES = [
-        'security' => ['propagates_to' => ['dev', 'forge', 'delivery'], 'action' => self::ACTION_PAUSE_DOWNSTREAM, 'return_to' => null, 'final' => false],
-        self::TARGET_ARCHITECT => ['propagates_to' => [self::TARGET_PRODUCT], 'action' => self::ACTION_RETURN_UPSTREAM, 'return_to' => self::TARGET_PRODUCT, 'final' => false],
-        'review' => ['propagates_to' => ['dev', 'forge'], 'action' => self::ACTION_RETURN_UPSTREAM, 'return_to' => 'dev_or_forge', 'final' => false],
-        self::TARGET_OPERATOR => ['propagates_to' => ['*'], 'action' => self::ACTION_OVERRIDE, 'return_to' => null, 'final' => true],
+        'security' => [self::FIELD_PROPAGATES_TO => ['dev', 'forge', 'delivery'], self::FIELD_ACTION => self::ACTION_PAUSE_DOWNSTREAM, self::FIELD_RETURN_TO => null, self::FIELD_FINAL => false],
+        self::TARGET_ARCHITECT => [self::FIELD_PROPAGATES_TO => [self::TARGET_PRODUCT], self::FIELD_ACTION => self::ACTION_RETURN_UPSTREAM, self::FIELD_RETURN_TO => self::TARGET_PRODUCT, self::FIELD_FINAL => false],
+        'review' => [self::FIELD_PROPAGATES_TO => ['dev', 'forge'], self::FIELD_ACTION => self::ACTION_RETURN_UPSTREAM, self::FIELD_RETURN_TO => 'dev_or_forge', self::FIELD_FINAL => false],
+        self::TARGET_OPERATOR => [self::FIELD_PROPAGATES_TO => ['*'], self::FIELD_ACTION => self::ACTION_OVERRIDE, self::FIELD_RETURN_TO => null, self::FIELD_FINAL => true],
     ];
 
     /**
@@ -80,24 +88,24 @@ class AtlasCrossDepartmentChoreographyService
         $rule = self::VETO_RULES[$dept] ?? null;
         if ($rule === null) {
             return [
-                'schema_version' => self::HANDOFF_SCHEMA,
-                'kind' => self::HANDOFF_KIND_VETO,
+                self::FIELD_SCHEMA_VERSION => self::HANDOFF_SCHEMA,
+                self::FIELD_KIND => self::HANDOFF_KIND_VETO,
                 'recognized' => false,
                 'vetoing_department' => $dept,
-                'action' => self::ACTION_NOOP,
+                self::FIELD_ACTION => self::ACTION_NOOP,
                 'reason' => 'unknown vetoing department; only security/architect/review/operator can veto',
             ];
         }
 
         return [
-            'schema_version' => self::HANDOFF_SCHEMA,
-            'kind' => self::HANDOFF_KIND_VETO,
+            self::FIELD_SCHEMA_VERSION => self::HANDOFF_SCHEMA,
+            self::FIELD_KIND => self::HANDOFF_KIND_VETO,
             'recognized' => true,
             'vetoing_department' => $dept,
-            'action' => $rule['action'],
-            'paused_departments' => $rule['propagates_to'],
-            'return_to' => $rule['return_to'],
-            'final_override' => $rule['final'],
+            self::FIELD_ACTION => $rule[self::FIELD_ACTION],
+            'paused_departments' => $rule[self::FIELD_PROPAGATES_TO],
+            self::FIELD_RETURN_TO => $rule[self::FIELD_RETURN_TO],
+            'final_override' => $rule[self::FIELD_FINAL],
             'pause_sla_seconds' => self::VETO_SLA_SECONDS,
             'requires_operator_receipt' => $dept === self::TARGET_OPERATOR,
         ];
@@ -116,8 +124,8 @@ class AtlasCrossDepartmentChoreographyService
         $escalate = $iteration > $maxIterations;
 
         return [
-            'schema_version' => self::HANDOFF_SCHEMA,
-            'kind' => $escalate ? self::HANDOFF_KIND_ESCALATION : self::HANDOFF_KIND_REPAIR,
+            self::FIELD_SCHEMA_VERSION => self::HANDOFF_SCHEMA,
+            self::FIELD_KIND => $escalate ? self::HANDOFF_KIND_ESCALATION : self::HANDOFF_KIND_REPAIR,
             'iteration' => $iteration,
             'max_iterations' => $maxIterations,
             'decision' => $escalate ? 'escalate' : self::HANDOFF_KIND_REPAIR,
@@ -136,8 +144,8 @@ class AtlasCrossDepartmentChoreographyService
     public function handoffEnvelope(string $from, string $to, string $kind, array $payload = []): array
     {
         return [
-            'schema_version' => self::HANDOFF_SCHEMA,
-            'kind' => in_array($kind, self::HANDOFF_KINDS, true) ? $kind : self::HANDOFF_KIND_DELEGATION,
+            self::FIELD_SCHEMA_VERSION => self::HANDOFF_SCHEMA,
+            self::FIELD_KIND => in_array($kind, self::HANDOFF_KINDS, true) ? $kind : self::HANDOFF_KIND_DELEGATION,
             'from_department' => $this->departmentId($from),
             'to_department' => $this->departmentId($to),
             'valid_kind' => in_array($kind, self::HANDOFF_KINDS, true),

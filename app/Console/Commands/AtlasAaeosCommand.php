@@ -270,6 +270,7 @@ final class AtlasAaeosCommand extends Command
         {--longhorizon-window-aemor-floors-contract= : JSON file (any object) to observe long-horizon/window/AEMOR residual floors}
         {--test-immune-truth-floors-contract= : JSON file (any object) to observe test-execution/immune/truth residual floors}
         {--model-causality-skill-floors-contract= : JSON file (any object) to observe model-spec/causality/skill residual floors}
+        {--choreography-hybrid-dev-floors-contract= : JSON file (any object) to observe choreography/hybrid/dev-procedural residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -696,6 +697,7 @@ final class AtlasAaeosCommand extends Command
             ['longhorizon-window-aemor-floors-contract', 'longhorizon_window_aemor_floors_contract', fn (array $p) => $gates->longhorizonWindowAemorFloorsContractObserve($p)],
             ['test-immune-truth-floors-contract', 'test_immune_truth_floors_contract', fn (array $p) => $gates->testImmuneTruthFloorsContractObserve($p)],
             ['model-causality-skill-floors-contract', 'model_causality_skill_floors_contract', fn (array $p) => $gates->modelCausalitySkillFloorsContractObserve($p)],
+            ['choreography-hybrid-dev-floors-contract', 'choreography_hybrid_dev_floors_contract', fn (array $p) => $gates->choreographyHybridDevFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -3881,4 +3881,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['model_causality_skill_floor_count']);
     }
 
+    public function test_choreography_hybrid_dev_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->choreographyHybridDevFloorsContractObserve([]);
+
+        $this->assertSame('action', $payload['choreography_field_action']);
+        $this->assertSame('return_to', $payload['choreography_field_return_to']);
+        $this->assertSame('propagates_to', $payload['choreography_field_propagates_to']);
+        $this->assertSame('final', $payload['choreography_field_final']);
+        $this->assertSame('kind', $payload['choreography_field_kind']);
+        $this->assertSame('atlas.aaeos.cross_dept.handoff.v1', $payload['choreography_handoff_schema']);
+        $this->assertSame('input_class', $payload['hybrid_field_input_class']);
+        $this->assertSame('winner_source', $payload['hybrid_field_winner_source']);
+        $this->assertSame('matched_signals', $payload['hybrid_field_matched_signals']);
+        $this->assertSame('immune_signature', $payload['hybrid_field_immune_signature']);
+        $this->assertSame('hybrid_arm', $payload['hybrid_field_hybrid_arm']);
+        $this->assertSame('jaccard_baseline', $payload['hybrid_source_jaccard']);
+        $this->assertSame('outcome_status', $payload['dev_field_outcome_status']);
+        $this->assertSame('selected_tests', $payload['dev_field_selected_tests']);
+        $this->assertSame('run_id', $payload['dev_field_run_id']);
+        $this->assertSame('proof_reason', $payload['dev_field_proof_reason']);
+        $this->assertSame('dev_procedural', $payload['dev_adapter_kind']);
+        $this->assertSame(17, $payload['choreography_hybrid_dev_floor_count']);
+    }
+
 }

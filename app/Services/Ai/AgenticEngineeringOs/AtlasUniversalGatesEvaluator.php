@@ -5493,6 +5493,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function choreographyHybridDevFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'choreography_field_action' => AtlasCrossDepartmentChoreographyService::FIELD_ACTION,
+            'choreography_field_return_to' => AtlasCrossDepartmentChoreographyService::FIELD_RETURN_TO,
+            'choreography_field_propagates_to' => AtlasCrossDepartmentChoreographyService::FIELD_PROPAGATES_TO,
+            'choreography_field_final' => AtlasCrossDepartmentChoreographyService::FIELD_FINAL,
+            'choreography_field_kind' => AtlasCrossDepartmentChoreographyService::FIELD_KIND,
+            'choreography_handoff_schema' => AtlasCrossDepartmentChoreographyService::HANDOFF_SCHEMA,
+            'hybrid_field_input_class' => AtlasImmuneHybridInputClassifier::FIELD_INPUT_CLASS,
+            'hybrid_field_winner_source' => AtlasImmuneHybridInputClassifier::FIELD_WINNER_SOURCE,
+            'hybrid_field_matched_signals' => AtlasImmuneHybridInputClassifier::FIELD_MATCHED_SIGNALS,
+            'hybrid_field_immune_signature' => AtlasImmuneHybridInputClassifier::FIELD_IMMUNE_SIGNATURE,
+            'hybrid_field_hybrid_arm' => AtlasImmuneHybridInputClassifier::FIELD_HYBRID_ARM,
+            'hybrid_source_jaccard' => AtlasImmuneHybridInputClassifier::SOURCE_JACCARD_BASELINE,
+            'dev_field_outcome_status' => DevProceduralOutcomeEnvelopeAdapter::FIELD_OUTCOME_STATUS,
+            'dev_field_selected_tests' => DevProceduralOutcomeEnvelopeAdapter::FIELD_SELECTED_TESTS,
+            'dev_field_run_id' => DevProceduralOutcomeEnvelopeAdapter::FIELD_RUN_ID,
+            'dev_field_proof_reason' => DevProceduralOutcomeEnvelopeAdapter::FIELD_PROOF_REASON,
+            'dev_adapter_kind' => DevProceduralOutcomeEnvelopeAdapter::ADAPTER_KIND,
+            'choreography_hybrid_dev_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [
