@@ -696,4 +696,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertTrue($payload['passed']);
         $this->assertSame(3, $payload['computed_value']);
     }
+
+    public function test_gate_signal_intent_observe_scores_clarity(): void
+    {
+        $payload = $this->svc->gateSignalIntentObserve([
+            'resolved_target' => 'app/Services/Ai/Aaeos/Foo.php',
+            'scope_bounded' => true,
+            'ambiguity_tokens' => [],
+            'missing_answers' => [],
+        ]);
+
+        $this->assertSame('atlas.aaeos.gate_signal.v1', $payload['schema_version']);
+        $this->assertSame('intent_clarity_score_min_0_8', $payload['gate']);
+        $this->assertTrue($payload['passed']);
+        $this->assertGreaterThanOrEqual(0.8, $payload['computed_value']);
+    }
 }

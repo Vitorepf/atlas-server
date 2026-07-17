@@ -79,6 +79,7 @@ final class AtlasAaeosCommand extends Command
         {--ledger-rotation= : JSON file with series id (observe-only ledger rotation policy)}
         {--evidence-vision= : JSON file with thesis + optional forbidden (observe-only fence)}
         {--gate-signal-spec-pack= : JSON file with acceptance_criteria (observe-only gate signal)}
+        {--gate-signal-intent= : JSON file with intent disambiguation features (observe-only)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -314,6 +315,7 @@ final class AtlasAaeosCommand extends Command
             ['ledger-rotation', 'ledger_rotation', fn (array $p) => $gates->ledgerRotationObserve($p)],
             ['evidence-vision', 'evidence_vision', fn (array $p) => $gates->evidenceVisionObserve($p)],
             ['gate-signal-spec-pack', 'gate_signal_spec_pack', fn (array $p) => $gates->gateSignalSpecPackObserve($p)],
+            ['gate-signal-intent', 'gate_signal_intent', fn (array $p) => $gates->gateSignalIntentObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

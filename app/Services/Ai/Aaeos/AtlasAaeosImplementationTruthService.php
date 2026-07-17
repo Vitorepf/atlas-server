@@ -66,7 +66,7 @@ class AtlasAaeosImplementationTruthService
     public function ledger(?string $capability = null): array
     {
         $docs = $this->scanDocsWithEvidence();
-        if ($capability !== null && trim($capability) !== '') {
+        if ($capability !== null && AiValueNormalizer::trimmedString($capability) !== '') {
             $docs = array_values(array_filter(
                 $docs,
                 fn (array $doc): bool => $doc['id'] === $capability || str_contains($doc['path'], $capability),
@@ -165,7 +165,7 @@ class AtlasAaeosImplementationTruthService
         if (File::isDirectory($root)) {
             foreach (File::allFiles($root) as $file) {
                 /** @var SplFileInfo $file */
-                if (strtolower($file->getExtension()) !== 'md'
+                if (AiValueNormalizer::lowerTrimmedString($file->getExtension()) !== 'md'
                     || str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'archive'.DIRECTORY_SEPARATOR)) {
                     continue;
                 }
@@ -177,7 +177,7 @@ class AtlasAaeosImplementationTruthService
                 $total++;
 
                 $state = $this->normalizeState((string) ($fm['implementation_state'] ?? ''));
-                $status = strtolower((string) ($fm['status'] ?? ''));
+                $status = AiValueNormalizer::lowerTrimmedString($fm['status'] ?? '');
                 $claims = in_array($state, ['partial', 'verified'], true)
                     || in_array($status, ['active', 'building'], true);
                 $hasEvidence = $this->normalizeEvidenceRefs($fm['evidence_refs'] ?? null) !== [];
@@ -229,7 +229,7 @@ class AtlasAaeosImplementationTruthService
     public function capabilityTestRefs(?string $capability = null): array
     {
         $docs = $this->scanDocsWithEvidence();
-        if ($capability !== null && trim($capability) !== '') {
+        if ($capability !== null && AiValueNormalizer::trimmedString($capability) !== '') {
             $docs = array_values(array_filter(
                 $docs,
                 fn (array $doc): bool => $doc['id'] === $capability || str_contains($doc['path'], $capability),
@@ -297,7 +297,7 @@ class AtlasAaeosImplementationTruthService
         $docs = [];
         foreach (File::allFiles($root) as $file) {
             /** @var SplFileInfo $file */
-            if (strtolower($file->getExtension()) !== 'md') {
+            if (AiValueNormalizer::lowerTrimmedString($file->getExtension()) !== 'md') {
                 continue;
             }
             $parsed = $this->frontmatter->parse(File::get($file->getPathname()));
@@ -367,7 +367,7 @@ class AtlasAaeosImplementationTruthService
         // a stale green (code or test edited since the run) stops granting verified.
         // Unknown (no capability id) => null => evaluate() degrades safely to not-green.
         $greenTestRun = null;
-        if ($capabilityId !== null && trim($capabilityId) !== '' && $resolvedTestRefs !== []) {
+        if ($capabilityId !== null && AiValueNormalizer::trimmedString($capabilityId) !== '' && $resolvedTestRefs !== []) {
             $implFilesHash = $this->currentImplFilesHash($evidenceRefs);
             $greenTestRun = false;
             foreach ($resolvedTestRefs as $testRef) {
@@ -646,7 +646,7 @@ class AtlasAaeosImplementationTruthService
         return [
             'schema_version' => self::SCHEMA,
             'claimed_state' => $claimed,
-            'claimed_state_raw' => trim($claimedState),
+            'claimed_state_raw' => AiValueNormalizer::trimmedString($claimedState),
             'computed_state' => $computed,
             'rank_claimed' => $rankClaimed,
             'rank_computed' => $rankComputed,
