@@ -135,7 +135,7 @@ final class AtlasAcosWatchdogHealthService
             'checks' => $checks,
             'raw' => [
                 'score' => (int) ($scorecard['score'] ?? 0),
-                'status' => (string) ($scorecard['status'] ?? 'unknown'),
+                'status' => (AiValueNormalizer::trimmedStringOrNull($scorecard['status'] ?? null) ?? 'unknown'),
                 'freshness' => $freshness,
                 'windowed_concentration_ratio' => $concentration,
                 'snapshot_age_hours' => $snapshotAgeHours,
@@ -186,7 +186,7 @@ final class AtlasAcosWatchdogHealthService
                 'aemor_source_max_age_hours' => self::LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS,
                 'ai_run_outcome_max_age_hours' => self::LEARNING_AI_RUN_OUTCOME_MAX_AGE_HOURS,
             ],
-            'lift_status' => (string) ($lift['status'] ?? 'unknown'),
+            'lift_status' => (AiValueNormalizer::trimmedStringOrNull($lift['status'] ?? null) ?? 'unknown'),
         ], 'learning_cadence_stalled');
     }
 
@@ -200,7 +200,7 @@ final class AtlasAcosWatchdogHealthService
         $ratio = AiValueNormalizer::finiteFloatOrNull($coverage['memory_cross_layer_coverage_ratio'] ?? null) ?? 0.0;
         $blocking = [];
         if (! (bool) ($coverage['available'] ?? false)) {
-            $blocking[] = (string) ($coverage['reason'] ?? 'aurg_store_unavailable');
+            $blocking[] = (AiValueNormalizer::trimmedStringOrNull($coverage['reason'] ?? null) ?? 'aurg_store_unavailable');
         }
         if ($ratio < self::RAG_COVERAGE_FLOOR) {
             $blocking[] = 'memory_cross_layer_coverage_below_floor';
@@ -476,7 +476,7 @@ final class AtlasAcosWatchdogHealthService
             'scorecard_hash' => $scorecard['scorecard_hash'] ?? null,
             'pipeline_score_out_of_10' => $pipeline,
             'partial_count' => count($partials),
-            'partial_acronyms' => array_values(array_map(static fn (array $row): string => (string) ($row['acronym'] ?? ''), array_slice($partials, 0, 10))),
+            'partial_acronyms' => array_values(array_map(static fn (array $row): string => (AiValueNormalizer::trimmedStringOrNull($row['acronym'] ?? null) ?? ''), array_slice($partials, 0, 10))),
             'generated_at' => now()->toIso8601String(),
         ];
         $this->recordLedger($blocking === [] ? LedgerEventType::OperationCompleted : LedgerEventType::OperationBlocked, $payload, 'pip-08.scorecard_stability');
@@ -489,7 +489,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $report = app(AtlasLearningRecallUseLiftService::class)->report();
         $blockers = array_values(AiValueNormalizer::arrayOrEmpty(data_get($report, 'measurement.blockers', [])));
-        $status = (string) ($report['status'] ?? 'unknown');
+        $status = (AiValueNormalizer::trimmedStringOrNull($report['status'] ?? null) ?? 'unknown');
         $series = $this->blockerSeries('ope-08.lift_cycle_closure', $blockers);
         $stalled = array_values(array_filter($series, static fn (array $row): bool => (int) ($row['days_in_block'] ?? 0) > self::LIFT_STALLED_DAYS));
         $blocking = $blockers;
@@ -528,10 +528,10 @@ final class AtlasAcosWatchdogHealthService
             if (($row['pipeline_status'] ?? null) !== AtlasCognitionScoreCardService::STATUS_PARTIAL) {
                 continue;
             }
-            $diagnosis = $resolver->resolvePipelineDiagnosis((string) ($row['service_class'] ?? ''));
+            $diagnosis = $resolver->resolvePipelineDiagnosis((AiValueNormalizer::trimmedStringOrNull($row['service_class'] ?? null) ?? ''));
             $partials[] = [
-                'acronym' => (string) ($row['acronym'] ?? ''),
-                'service_class' => (string) ($row['service_class'] ?? ''),
+                'acronym' => (AiValueNormalizer::trimmedStringOrNull($row['acronym'] ?? null) ?? ''),
+                'service_class' => (AiValueNormalizer::trimmedStringOrNull($row['service_class'] ?? null) ?? ''),
                 'diagnosis' => $diagnosis,
             ];
         }
@@ -588,7 +588,7 @@ final class AtlasAcosWatchdogHealthService
                     'by_executor' => $governanceByExecutor,
                     'bypass_rate' => AiValueNormalizer::finiteFloatOrNull($summary['bypass_rate'] ?? null) ?? 0.0,
                     'false_positive_total' => (int) ($summary['false_positive_total'] ?? 0),
-                    'fp_definition' => (string) ($summary['fp_definition'] ?? ''),
+                    'fp_definition' => (AiValueNormalizer::trimmedStringOrNull($summary['fp_definition'] ?? null) ?? ''),
                 ],
             ],
             'forge_gate_enforce' => [
@@ -631,7 +631,7 @@ final class AtlasAcosWatchdogHealthService
     /** @param array<string,mixed> $report */
     public function toCheckResult(array $report, string $alertCode, string $message): AtlasWatchdogCheckResult
     {
-        $status = (string) ($report['status'] ?? '');
+        $status = (AiValueNormalizer::trimmedStringOrNull($report['status'] ?? null) ?? '');
         $alert = (bool) ($report['alert'] ?? false)
             || in_array($status, ['alert', 'not_ready', 'unavailable'], true)
             || (isset($report['ready_to_enforce']) && $report['ready_to_enforce'] === false);
@@ -884,7 +884,7 @@ final class AtlasAcosWatchdogHealthService
             if (($row['proven_real'] ?? false) !== true) {
                 continue;
             }
-            $route = (string) ($row['task_category'] ?? '').'|'.(string) ($row['role'] ?? '');
+            $route = (AiValueNormalizer::trimmedStringOrNull($row['task_category'] ?? null) ?? '').'|'.(AiValueNormalizer::trimmedStringOrNull($row['role'] ?? null) ?? '');
             if ($route !== '|') {
                 $routes[$route] = ($routes[$route] ?? 0) + 1;
             }

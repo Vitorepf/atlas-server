@@ -130,7 +130,7 @@ final class AtlasAcosLongHorizonGateService
     private function seriesWindowIntegrity(array $series, int $minDays, DateTimeImmutable $today): array
     {
         $dates = array_values(array_filter(array_map(
-            static fn (array $row): string => (string) ($row['date'] ?? ''),
+            static fn (array $row): string => (AiValueNormalizer::trimmedStringOrNull($row['date'] ?? null) ?? ''),
             $series,
         ), static fn (string $date): bool => preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) === 1));
         sort($dates);
@@ -409,7 +409,7 @@ final class AtlasAcosLongHorizonGateService
         $window = array_fill_keys($certificationWindowDates, true);
         $sampled = [];
         foreach ($series as $row) {
-            $date = (string) ($row['date'] ?? '');
+            $date = (AiValueNormalizer::trimmedStringOrNull($row['date'] ?? null) ?? '');
             if ($date !== '' && isset($window[$date])) {
                 $sampled[$date] = true;
             }
@@ -458,7 +458,7 @@ final class AtlasAcosLongHorizonGateService
         $window = array_fill_keys($certificationWindowDates, true);
         $count = 0;
         foreach ($series as $row) {
-            $date = (string) ($row['date'] ?? '');
+            $date = (AiValueNormalizer::trimmedStringOrNull($row['date'] ?? null) ?? '');
             if ($date === '' || ! isset($window[$date])) {
                 continue;
             }
@@ -533,7 +533,7 @@ final class AtlasAcosLongHorizonGateService
     {
         $count = 0;
         foreach ($series as $row) {
-            $provenance = (string) ($row['provenance'] ?? '');
+            $provenance = (AiValueNormalizer::trimmedStringOrNull($row['provenance'] ?? null) ?? '');
             $source = AiValueNormalizer::trimmedStringOrNull(data_get($row, 'sources.scorecard')) ?? '';
             if ($provenance === 'resolved-evidence' || str_contains($source, 'resolved-evidence')) {
                 $count++;
@@ -556,7 +556,7 @@ final class AtlasAcosLongHorizonGateService
         $areaDaysBelowFloor = [];
 
         foreach ($series as $row) {
-            $date = (string) ($row['date'] ?? '');
+            $date = (AiValueNormalizer::trimmedStringOrNull($row['date'] ?? null) ?? '');
             if ($date === '' || ! isset($window[$date]) || ! is_array($row['by_area'] ?? null)) {
                 continue;
             }
@@ -691,7 +691,7 @@ final class AtlasAcosLongHorizonGateService
         $window = array_fill_keys($certificationWindowDates, true);
         $scoresByDate = [];
         foreach ($series as $row) {
-            $date = (string) ($row['date'] ?? '');
+            $date = (AiValueNormalizer::trimmedStringOrNull($row['date'] ?? null) ?? '');
             if ($date !== '' && isset($window[$date])) {
                 $scoresByDate[$date] = AiValueNormalizer::finiteFloatOrNull(data_get($row, 'metrics.scorecard_overall', 0.0)) ?? 0.0;
             }
@@ -727,7 +727,7 @@ final class AtlasAcosLongHorizonGateService
         }
 
         foreach (array_reverse($series) as $row) {
-            if ((string) ($row['date'] ?? '') === $latestDate) {
+            if ((AiValueNormalizer::trimmedStringOrNull($row['date'] ?? null) ?? '') === $latestDate) {
                 return AiValueNormalizer::finiteFloatOrNull(data_get($row, 'metrics.scorecard_overall', 0.0)) ?? 0.0;
             }
         }

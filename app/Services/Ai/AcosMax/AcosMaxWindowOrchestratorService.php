@@ -36,8 +36,8 @@ final class AcosMaxWindowOrchestratorService
         $windows = [];
 
         foreach ($entries as $entry) {
-            $last = $this->lastEventFor((string) ($entry['id'] ?? ''), $events);
-            $windows[] = $this->windowForEntry($entry, $last, $registry[(string) ($entry['slice'] ?? '')] ?? null, $now, $deadAfterDays);
+            $last = $this->lastEventFor((AiValueNormalizer::trimmedStringOrNull($entry['id'] ?? null) ?? ''), $events);
+            $windows[] = $this->windowForEntry($entry, $last, $registry[(AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? '')] ?? null, $now, $deadAfterDays);
         }
 
         $active = array_values(array_filter(
@@ -81,7 +81,7 @@ final class AcosMaxWindowOrchestratorService
     {
         $bySlice = [];
         foreach ($registryEntries as $entry) {
-            $slice = (string) ($entry['slice'] ?? '');
+            $slice = (AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? '');
             if ($slice !== '') {
                 $bySlice[$slice] = $entry;
             }
@@ -98,7 +98,7 @@ final class AcosMaxWindowOrchestratorService
     {
         $last = null;
         foreach ($events as $event) {
-            if ((string) ($event['flag_id'] ?? '') === $flagId) {
+            if ((AiValueNormalizer::trimmedStringOrNull($event['flag_id'] ?? null) ?? '') === $flagId) {
                 $last = $event;
             }
         }
@@ -119,12 +119,12 @@ final class AcosMaxWindowOrchestratorService
         DateTimeImmutable $now,
         int $deadAfterDays,
     ): array {
-        $durationDays = $this->durationDays((string) ($entry['shadow_minimum_window'] ?? ''));
+        $durationDays = $this->durationDays((AiValueNormalizer::trimmedStringOrNull($entry['shadow_minimum_window'] ?? null) ?? ''));
         $base = [
-            'flag_id' => (string) ($entry['id'] ?? ''),
-            'family' => (string) ($entry['family'] ?? ''),
-            'slice' => (string) ($entry['slice'] ?? ''),
-            'minimum_window' => (string) ($entry['shadow_minimum_window'] ?? ''),
+            'flag_id' => (AiValueNormalizer::trimmedStringOrNull($entry['id'] ?? null) ?? ''),
+            'family' => (AiValueNormalizer::trimmedStringOrNull($entry['family'] ?? null) ?? ''),
+            'slice' => (AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? ''),
+            'minimum_window' => (AiValueNormalizer::trimmedStringOrNull($entry['shadow_minimum_window'] ?? null) ?? ''),
             'duration_days' => $durationDays,
             'depends_on' => array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($entry['depends_on'] ?? null))),
             'series' => $series['series'] ?? null,
@@ -147,8 +147,8 @@ final class AcosMaxWindowOrchestratorService
             : null;
 
         $window = array_merge($base, [
-            'state' => (string) ($lastEvent['to_state'] ?? 'unknown'),
-            'observation_window_id' => (string) ($lastEvent['observation_window_id'] ?? ''),
+            'state' => (AiValueNormalizer::trimmedStringOrNull($lastEvent['to_state'] ?? null) ?? 'unknown'),
+            'observation_window_id' => (AiValueNormalizer::trimmedStringOrNull($lastEvent['observation_window_id'] ?? null) ?? ''),
             'started_at' => $startedAt?->format(DateTimeInterface::ATOM),
             'days_elapsed' => $elapsed,
             'days_remaining' => $remaining,

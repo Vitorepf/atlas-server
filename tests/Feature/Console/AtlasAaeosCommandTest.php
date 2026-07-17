@@ -3332,6 +3332,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_outcome_envelope_adapters_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-oeac-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-oeac',
+                '--outcome-envelope-adapters-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"outcome_envelope_adapters_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

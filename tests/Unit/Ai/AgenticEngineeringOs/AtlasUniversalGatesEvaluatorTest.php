@@ -2443,4 +2443,17 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(5, $payload['promotion_protocol_state_count']);
         $this->assertSame(5, $payload['promotion_protocol_required_field_count']);
     }
+
+    public function test_outcome_envelope_adapters_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->outcomeEnvelopeAdaptersContractObserve([]);
+
+        $this->assertSame('aemor', $payload['aemor_adapter_kind']);
+        $this->assertSame('dev_procedural', $payload['dev_procedural_adapter_kind']);
+        $this->assertSame('atlas.dev.outcome_memory.v1', $payload['dev_procedural_native_schema']);
+        $this->assertSame('compounding', $payload['compounding_adapter_kind']);
+        $this->assertSame('atlas.acos.windows.v1', $payload['window_orchestrator_schema']);
+        $this->assertSame('atlas.cognition.acos_long_horizon_gate.v1', $payload['long_horizon_gate_schema']);
+        $this->assertSame(3, $payload['adapter_kind_count']);
+    }
 }

@@ -12,9 +12,11 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
 {
+    public const ADAPTER_KIND = 'compounding';
+
     public function origin(): string
     {
-        return 'compounding';
+        return self::ADAPTER_KIND;
     }
 
     /**
@@ -78,9 +80,9 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $fields = AiValueNormalizer::arrayOrEmpty($data['native_divergent']['fields'] ?? null);
 
         return [
-            'flow_id' => (string) ($fields['flow_id'] ?? 'atlas_conversation'),
-            'run_id' => (string) ($data['run_id'] ?? ''),
-            'outcome_status' => OutcomeEnvelope::toNativeStatus((string) ($data['status'] ?? 'blocked'), $this->origin()),
+            'flow_id' => (AiValueNormalizer::trimmedStringOrNull($fields['flow_id'] ?? null) ?? 'atlas_conversation'),
+            'run_id' => (AiValueNormalizer::trimmedStringOrNull($data['run_id'] ?? null) ?? ''),
+            'outcome_status' => OutcomeEnvelope::toNativeStatus((AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? 'blocked'), $this->origin()),
             'flow_quality' => $fields['flow_quality'] ?? null,
             'retrieval_quality' => $fields['retrieval_quality'] ?? null,
             'execution_quality' => $fields['execution_quality'] ?? null,

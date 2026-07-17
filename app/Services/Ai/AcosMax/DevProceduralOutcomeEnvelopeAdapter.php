@@ -12,15 +12,19 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
 {
+    public const ADAPTER_KIND = 'dev_procedural';
+
+    public const NATIVE_SCHEMA_VERSION = 'atlas.dev.outcome_memory.v1';
+
     public function origin(): string
     {
-        return 'dev_procedural';
+        return self::ADAPTER_KIND;
     }
 
     /** @param array<string,mixed> $native @param array<string,mixed> $context */
     public function toEnvelope(array $native, array $context = []): OutcomeEnvelope
     {
-        $status = OutcomeEnvelope::normalizeStatus((string) ($native['outcome_status'] ?? 'needs_review'));
+        $status = OutcomeEnvelope::normalizeStatus((AiValueNormalizer::trimmedStringOrNull($native['outcome_status'] ?? null) ?? 'needs_review'));
         $provenReal = (bool) ($native['proven_real'] ?? false);
         $fakeGreen = (bool) ($native['fake_green'] ?? false);
         $verifiedSourcePresent = array_key_exists('proven_real', $native);
@@ -31,7 +35,7 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => 'dev',
-            'task_category' => (string) ($context['task_category'] ?? 'dev'),
+            'task_category' => (AiValueNormalizer::trimmedStringOrNull($context['task_category'] ?? null) ?? 'dev'),
             'provider' => AiValueNormalizer::lowerTrimmedString($context['provider'] ?? 'absent') ?: 'absent',
             'status' => $status,
             'verified' => $verified,
@@ -42,10 +46,10 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
             'episode_id' => null,
             'run_id' => $runId !== '' ? $runId : null,
         ], [
-            'outcome_status' => (string) ($native['outcome_status'] ?? ''),
+            'outcome_status' => (AiValueNormalizer::trimmedStringOrNull($native['outcome_status'] ?? null) ?? ''),
             'proven_real' => $provenReal,
             'fake_green' => $fakeGreen,
-            'proof_reason' => (string) ($native['proof_reason'] ?? ''),
+            'proof_reason' => (AiValueNormalizer::trimmedStringOrNull($native['proof_reason'] ?? null) ?? ''),
             'evidence_kinds' => $evidenceKinds,
             'selected_tests' => AiValueNormalizer::arrayOrEmpty($native['selected_tests'] ?? null),
             'changed_files' => AiValueNormalizer::arrayOrEmpty($native['changed_files'] ?? null),
@@ -60,12 +64,12 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
         $fields = AiValueNormalizer::arrayOrEmpty($data['native_divergent']['fields'] ?? null);
 
         return [
-            'schema_version' => 'atlas.dev.outcome_memory.v1',
-            'run_id' => (string) ($data['run_id'] ?? 'unknown'),
-            'outcome_status' => (string) ($fields['outcome_status'] ?? OutcomeEnvelope::toNativeStatus((string) ($data['status'] ?? 'blocked'), $this->origin())),
+            'schema_version' => self::NATIVE_SCHEMA_VERSION,
+            'run_id' => (AiValueNormalizer::trimmedStringOrNull($data['run_id'] ?? null) ?? 'unknown'),
+            'outcome_status' => (string) ($fields['outcome_status'] ?? OutcomeEnvelope::toNativeStatus((AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? 'blocked'), $this->origin())),
             'proven_real' => (bool) ($fields['proven_real'] ?? false),
             'fake_green' => (bool) ($fields['fake_green'] ?? false),
-            'proof_reason' => (string) ($fields['proof_reason'] ?? ''),
+            'proof_reason' => (AiValueNormalizer::trimmedStringOrNull($fields['proof_reason'] ?? null) ?? ''),
             'evidence_kinds' => AiValueNormalizer::arrayOrEmpty($fields['evidence_kinds'] ?? null),
             'selected_tests' => AiValueNormalizer::arrayOrEmpty($fields['selected_tests'] ?? null),
             'changed_files' => AiValueNormalizer::arrayOrEmpty($fields['changed_files'] ?? null),

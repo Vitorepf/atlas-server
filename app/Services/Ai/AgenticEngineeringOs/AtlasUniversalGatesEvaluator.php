@@ -102,6 +102,9 @@ use App\Services\Ai\AcosMax\OutcomeEnvelope;
 use App\Services\Ai\AcosMax\AttemptLifecycleLedger;
 use App\Services\Ai\AcosMax\AtlasNCaptureDrillService;
 use App\Services\Ai\AcosMax\AcosMaxLote2MeasureService;
+use App\Services\Ai\AcosMax\AemorOutcomeEnvelopeAdapter;
+use App\Services\Ai\AcosMax\CompoundingOutcomeEnvelopeAdapter;
+use App\Services\Ai\AcosMax\DevProceduralOutcomeEnvelopeAdapter;
 use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdComparator;
 use App\Services\Ai\Aaeos\AtlasAaeosEvidenceRefNormalizer;
@@ -3528,6 +3531,26 @@ final class AtlasUniversalGatesEvaluator
             'promotion_protocol_report_schema' => PromotionProtocol::REPORT_SCHEMA,
             'promotion_protocol_state_count' => count(PromotionProtocol::STATES),
             'promotion_protocol_required_field_count' => count(PromotionProtocol::REQUIRED_FIELDS),
+        ];
+    }
+
+    /**
+     * Observe-only ESP-06 outcome envelope adapter kinds.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function outcomeEnvelopeAdaptersContractObserve(array $input = []): array
+    {
+        return [
+            'aemor_adapter_kind' => AemorOutcomeEnvelopeAdapter::ADAPTER_KIND,
+            'dev_procedural_adapter_kind' => DevProceduralOutcomeEnvelopeAdapter::ADAPTER_KIND,
+            'dev_procedural_native_schema' => DevProceduralOutcomeEnvelopeAdapter::NATIVE_SCHEMA_VERSION,
+            'compounding_adapter_kind' => CompoundingOutcomeEnvelopeAdapter::ADAPTER_KIND,
+            'window_orchestrator_schema' => AcosMaxWindowOrchestratorService::SCHEMA_VERSION,
+            'long_horizon_gate_schema' => AtlasAcosLongHorizonGateService::SCHEMA_VERSION,
+            'adapter_kind_count' => 3,
         ];
     }
 
