@@ -4097,4 +4097,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['verified_frontier_cooccurrence_floor_count']);
     }
 
+    public function test_docs_handoff_adversarial_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->docsHandoffAdversarialFloorsContractObserve([]);
+
+        $this->assertSame('needle', $payload['docs_field_needle']);
+        $this->assertSame('owner_doc_path', $payload['docs_field_owner_doc_path']);
+        $this->assertSame('confidence', $payload['docs_field_confidence']);
+        $this->assertSame('owner_basis', $payload['docs_field_owner_basis']);
+        $this->assertSame('candidates', $payload['docs_field_candidates']);
+        $this->assertSame('atlas.docs.authority_graph.v1', $payload['docs_schema_version']);
+        $this->assertSame('actor', $payload['handoff_field_actor']);
+        $this->assertSame('kind', $payload['handoff_field_kind']);
+        $this->assertSame('gates', $payload['handoff_field_gates']);
+        $this->assertSame('blocked', $payload['handoff_field_blocked']);
+        $this->assertSame('passed', $payload['handoff_field_passed']);
+        $this->assertSame('atlas.aaeos.phase.v1', $payload['handoff_schema_version']);
+        $this->assertSame('status', $payload['adversarial_field_status']);
+        $this->assertSame('reason', $payload['adversarial_field_reason']);
+        $this->assertSame('refusal_reason', $payload['adversarial_field_refusal_reason']);
+        $this->assertSame('requested_autonomy', $payload['adversarial_field_requested_autonomy']);
+        $this->assertSame('passed', $payload['adversarial_field_passed']);
+        $this->assertSame(17, $payload['docs_handoff_adversarial_floor_count']);
+    }
+
 }

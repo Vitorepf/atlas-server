@@ -33,10 +33,21 @@ class AtlasDocsAuthorityGraphService
         'governs_frontmatter' => 100,
         'doc_id' => 95,
         'capability_frontmatter' => 80,
-        'keyword_fallback' => 40,
+        self::FIELD_KEYWORD_FALLBACK => 40,
     ];
 
     public const DEFAULT_LOCATE_LIMIT = 5;
+
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_NEEDLE = 'needle';
+    public const FIELD_OWNER_DOC_PATH = 'owner_doc_path';
+    public const FIELD_CONFIDENCE = 'confidence';
+    public const FIELD_KEYWORD_FALLBACK = 'keyword_fallback';
+    public const FIELD_FRONTMATTER = 'frontmatter';
+    public const FIELD_OWNER_BASIS = 'owner_basis';
+    public const FIELD_PATH = 'path';
+    public const FIELD_RESOLVED = 'resolved';
+    public const FIELD_CANDIDATES = 'candidates';
 
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
@@ -54,7 +65,7 @@ class AtlasDocsAuthorityGraphService
         $docs = $this->scanDocs();
         $rows = [];
         foreach ($docs as $doc) {
-            foreach ($this->rowsForDoc($doc['frontmatter'], $doc['path']) as $row) {
+            foreach ($this->rowsForDoc($doc[self::FIELD_FRONTMATTER], $doc[self::FIELD_PATH]) as $row) {
                 $rows[] = $row + ['created_at' => now(), 'updated_at' => now()];
             }
         }
@@ -67,7 +78,7 @@ class AtlasDocsAuthorityGraphService
         });
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'rows' => count($rows),
             'docs' => count($docs),
         ];
@@ -97,12 +108,12 @@ class AtlasDocsAuthorityGraphService
             $needle = mb_substr($needle, 0, 300);
             $rows[] = [
                 'needle_kind' => mb_substr($kind, 0, 40),
-                'needle' => $needle,
+                self::FIELD_NEEDLE => $needle,
                 'needle_normalized' => mb_substr(AiValueNormalizer::lowerTrimmedString($needle), 0, 300),
-                'owner_doc_path' => mb_substr($path, 0, 500),
+                self::FIELD_OWNER_DOC_PATH => mb_substr($path, 0, 500),
                 'owner_doc_id' => $ownerId !== '' ? mb_substr($ownerId, 0, 200) : null,
-                'owner_basis' => $basis,
-                'confidence' => self::CONFIDENCE[$basis] ?? 0,
+                self::FIELD_OWNER_BASIS => $basis,
+                self::FIELD_CONFIDENCE => self::CONFIDENCE[$basis] ?? 0,
                 'owner_implementation_state' => $state !== '' ? mb_substr($state, 0, 60) : null,
             ];
         };
@@ -189,34 +200,34 @@ class AtlasDocsAuthorityGraphService
     {
         if ($matches->isEmpty()) {
             return [
-                'schema_version' => self::LOCATE_SCHEMA,
-                'needle' => $needle,
-                'resolved' => false,
-                'owner_doc_path' => null,
-                'owner_basis' => 'keyword_fallback',
-                'confidence' => 0,
-                'candidates' => [],
+                self::FIELD_SCHEMA_VERSION => self::LOCATE_SCHEMA,
+                self::FIELD_NEEDLE => $needle,
+                self::FIELD_RESOLVED => false,
+                self::FIELD_OWNER_DOC_PATH => null,
+                self::FIELD_OWNER_BASIS => 'keyword_fallback',
+                self::FIELD_CONFIDENCE => 0,
+                self::FIELD_CANDIDATES => [],
             ];
         }
 
         $best = $matches->first();
         $basis = $fallback ? 'keyword_fallback' : (AiValueNormalizer::trimmedScalarStringOrNull($best->owner_basis ?? null) ?? '');
-        $confidence = $fallback ? self::CONFIDENCE['keyword_fallback'] : (int) $best->confidence;
+        $confidence = $fallback ? self::CONFIDENCE[self::FIELD_KEYWORD_FALLBACK] : (int) $best->confidence;
 
         return [
-            'schema_version' => self::LOCATE_SCHEMA,
-            'needle' => $needle,
-            'resolved' => true,
-            'owner_doc_path' => AiValueNormalizer::trimmedScalarStringOrNull($best->owner_doc_path ?? null) ?? '',
+            self::FIELD_SCHEMA_VERSION => self::LOCATE_SCHEMA,
+            self::FIELD_NEEDLE => $needle,
+            self::FIELD_RESOLVED => true,
+            self::FIELD_OWNER_DOC_PATH => AiValueNormalizer::trimmedScalarStringOrNull($best->owner_doc_path ?? null) ?? '',
             'owner_doc_id' => $best->owner_doc_id,
-            'owner_basis' => $basis,
-            'confidence' => $confidence,
+            self::FIELD_OWNER_BASIS => $basis,
+            self::FIELD_CONFIDENCE => $confidence,
             'owner_implementation_state' => $best->owner_implementation_state,
-            'candidates' => $matches->map(fn (AtlasDocsAuthorityGraph $row): array => [
-                'owner_doc_path' => AiValueNormalizer::trimmedScalarStringOrNull($row->owner_doc_path ?? null) ?? '',
-                'needle' => AiValueNormalizer::trimmedScalarStringOrNull($row->needle ?? null) ?? '',
+            self::FIELD_CANDIDATES => $matches->map(fn (AtlasDocsAuthorityGraph $row): array => [
+                self::FIELD_OWNER_DOC_PATH => AiValueNormalizer::trimmedScalarStringOrNull($row->owner_doc_path ?? null) ?? '',
+                self::FIELD_NEEDLE => AiValueNormalizer::trimmedScalarStringOrNull($row->needle ?? null) ?? '',
                 'basis' => $fallback ? 'keyword_fallback' : (AiValueNormalizer::trimmedScalarStringOrNull($row->owner_basis ?? null) ?? ''),
-                'confidence' => $fallback ? self::CONFIDENCE['keyword_fallback'] : (int) $row->confidence,
+                self::FIELD_CONFIDENCE => $fallback ? self::CONFIDENCE[self::FIELD_KEYWORD_FALLBACK] : (int) $row->confidence,
             ])->all(),
         ];
     }
@@ -238,13 +249,13 @@ class AtlasDocsAuthorityGraphService
                 continue;
             }
             $parsed = $this->frontmatter->parse(File::get($file->getPathname()));
-            $frontmatter = AiValueNormalizer::arrayOrEmpty($parsed['frontmatter'] ?? null);
+            $frontmatter = AiValueNormalizer::arrayOrEmpty($parsed[self::FIELD_FRONTMATTER] ?? null);
             if (str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'archive'.DIRECTORY_SEPARATOR)) {
                 continue;
             }
             $docs[] = [
-                'path' => str_replace(base_path().DIRECTORY_SEPARATOR, '', $file->getPathname()),
-                'frontmatter' => $frontmatter,
+                self::FIELD_PATH => str_replace(base_path().DIRECTORY_SEPARATOR, '', $file->getPathname()),
+                self::FIELD_FRONTMATTER => $frontmatter,
             ];
         }
 

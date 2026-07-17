@@ -30,6 +30,14 @@ final class AaeosPhaseHandoffService
     public const FIELD_BLOCKED = 'blocked';
 
     public const FIELD_PASSED = 'passed';
+    public const FIELD_ACTOR = 'actor';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_GATES = 'gates';
+    public const FIELD_SCHEMA = 'schema';
+    public const FIELD_REQUIRED = 'required';
+    public const FIELD_ID = 'id';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_REASON = 'reason';
 
     public static function requireIntentId(string $intentId): void
     {
@@ -180,16 +188,16 @@ final class AaeosPhaseHandoffService
         }
 
         return [
-            'schema' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA => self::SCHEMA_VERSION,
             'intent_id' => $intentId,
             'phase_in' => $phaseIn,
             'phase_out' => $phaseOut,
-            'actor' => $actor,
+            self::FIELD_ACTOR => $actor,
             'inputs' => $inputs,
             'outputs' => $outputs,
             'evidence_hashes' => array_values($evidenceHashes),
-            'gates' => [
-                'required' => array_values(AiValueNormalizer::arrayOrEmpty($gates['required'] ?? self::PHASE_GATES_MAP[$phaseOut] ?? null)),
+            self::FIELD_GATES => [
+                self::FIELD_REQUIRED => array_values(AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_REQUIRED] ?? self::PHASE_GATES_MAP[$phaseOut] ?? null)),
                 self::FIELD_PASSED => array_values(AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_PASSED] ?? null)),
                 self::FIELD_BLOCKED => array_values(AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_BLOCKED] ?? null)),
             ],
@@ -212,7 +220,7 @@ final class AaeosPhaseHandoffService
     public function validate(array $envelope): array
     {
         $reasons = [];
-        if (($envelope['schema'] ?? null) !== self::SCHEMA_VERSION) {
+        if (($envelope[self::FIELD_SCHEMA] ?? null) !== self::SCHEMA_VERSION) {
             $reasons[] = 'schema must be '.self::SCHEMA_VERSION;
         }
         foreach (['intent_id', 'phase_in', 'phase_out'] as $req) {
@@ -225,12 +233,12 @@ final class AaeosPhaseHandoffService
                 $reasons[] = "{$f} '{$envelope[$f]}' is not canonical";
             }
         }
-        if (! isset($envelope['actor']) || ! is_array($envelope['actor']) || ! isset($envelope['actor']['kind'])) {
+        if (! isset($envelope[self::FIELD_ACTOR]) || ! is_array($envelope[self::FIELD_ACTOR]) || ! isset($envelope[self::FIELD_ACTOR][self::FIELD_KIND])) {
             $reasons[] = 'actor.kind required';
-        } elseif (! in_array($envelope['actor']['kind'], ['agent', 'operator', 'system'], true)) {
+        } elseif (! in_array($envelope[self::FIELD_ACTOR][self::FIELD_KIND], ['agent', 'operator', 'system'], true)) {
             $reasons[] = 'actor.kind must be agent|operator|system';
         }
-        if (! isset($envelope['gates']) || ! is_array($envelope['gates'])) {
+        if (! isset($envelope[self::FIELD_GATES]) || ! is_array($envelope[self::FIELD_GATES])) {
             $reasons[] = 'gates required';
         }
 
@@ -266,15 +274,15 @@ final class AaeosPhaseHandoffService
         }
 
         return [
-            'schema' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA => self::SCHEMA_VERSION,
             'intent_id' => $intentId,
             'phase_in' => $phase,
             'phase_out' => $phase,
-            'actor' => ['kind' => 'system', 'id' => 'aaeos.phase_skip', 'provider' => null],
+            self::FIELD_ACTOR => [self::FIELD_KIND => 'system', self::FIELD_ID => 'aaeos.phase_skip', 'provider' => null],
             'inputs' => [],
             'outputs' => [],
             'evidence_hashes' => [],
-            'gates' => ['required' => [], self::FIELD_PASSED => [], self::FIELD_BLOCKED => []],
+            self::FIELD_GATES => [self::FIELD_REQUIRED => [], self::FIELD_PASSED => [], self::FIELD_BLOCKED => []],
             'blockers' => [],
             'operator_signature' => null,
             'started_at' => gmdate('c'),
@@ -306,10 +314,10 @@ final class AaeosPhaseHandoffService
     /** @param array<string,mixed> $actor */
     private function assertActor(array $actor): void
     {
-        if (! isset($actor['kind']) || ! in_array($actor['kind'], ['agent', 'operator', 'system'], true)) {
+        if (! isset($actor[self::FIELD_KIND]) || ! in_array($actor[self::FIELD_KIND], ['agent', 'operator', 'system'], true)) {
             throw new InvalidArgumentException('actor.kind must be agent|operator|system');
         }
-        if (! isset($actor['id']) || $actor['id'] === '') {
+        if (! isset($actor[self::FIELD_ID]) || $actor[self::FIELD_ID] === '') {
             throw new InvalidArgumentException('actor.id required');
         }
     }

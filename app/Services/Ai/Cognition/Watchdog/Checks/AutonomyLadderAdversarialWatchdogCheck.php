@@ -61,6 +61,17 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const PROBE_ID_UNKNOWN = 'unknown';
 
     public const FIELD_OK = 'ok';
+    public const FIELD_ID = 'id';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_REFUSAL_REASON = 'refusal_reason';
+    public const FIELD_MESSAGE = 'message';
+    public const FIELD_PROMOTES_SELECTION = 'promotes_selection';
+    public const FIELD_BLOCKER = 'blocker';
+    public const FIELD_DECISION = 'decision';
+    public const FIELD_METRICS = 'metrics';
+    public const FIELD_PRIVACY_CLASS = 'privacy_class';
+    public const FIELD_CEILING = 'ceiling';
+    public const FIELD_REQUESTED_AUTONOMY = 'requested_autonomy';
 
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
@@ -89,13 +100,13 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             $probes[] = $this->probeShrinkNeverExceedsCeiling();
             $probes[] = $this->probeMinerIsReportOnly();
         } catch (Throwable $e) {
-            $errors[] = ['probe' => 'orchestration', 'message' => $e->getMessage()];
+            $errors[] = ['probe' => 'orchestration', self::FIELD_MESSAGE => $e->getMessage()];
         }
 
         foreach ($probes as $probe) {
             if (($probe[self::FIELD_REFUSED] ?? false) !== true) {
                 $violations[] = [
-                    'probe' => AiValueNormalizer::trimmedStringOrNull($probe['id'] ?? null) ?? self::PROBE_ID_UNKNOWN,
+                    'probe' => AiValueNormalizer::trimmedStringOrNull($probe[self::FIELD_ID] ?? null) ?? self::PROBE_ID_UNKNOWN,
                     self::FIELD_REASON => AiValueNormalizer::trimmedStringOrNull($probe[self::FIELD_OBSERVED] ?? null) ?? 'forgery_passed',
                 ];
             }
@@ -108,10 +119,10 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             'refused_count' => count(array_filter($probes, static fn (array $p): bool => ($p[self::FIELD_REFUSED] ?? false) === true)),
             'violations' => $violations,
             'errors' => $errors,
-            'source' => [
+            self::FIELD_SOURCE => [
                 'read_only' => true,
-                'promotes_selection' => false,
-                'blocker' => true,
+                self::FIELD_PROMOTES_SELECTION => false,
+                self::FIELD_BLOCKER => true,
                 'gates_mutation' => 'AtlasAutonomousLearningApplier::decideCandidate:pass',
             ],
         ];
@@ -119,13 +130,13 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         if ($errors !== []) {
             return AtlasWatchdogCheckResult::error($evidence, [
                 'code' => 'maxk09_probe_orchestration_error',
-                'message' => 'Adversarial probe orchestration failed.',
+                self::FIELD_MESSAGE => 'Adversarial probe orchestration failed.',
             ]);
         }
         if ($violations !== []) {
             return AtlasWatchdogCheckResult::alert($evidence, [
                 'code' => 'maxk09_adversarial_probe_passed',
-                'message' => 'A MAXK ladder/envelope forgery was NOT refused — regression opens the boolean-forgeable gate.',
+                self::FIELD_MESSAGE => 'A MAXK ladder/envelope forgery was NOT refused — regression opens the boolean-forgeable gate.',
                 'violations' => $violations,
             ]);
         }
@@ -160,7 +171,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $refused = $verdict[self::FIELD_OK] === false;
 
         return [
-            'id' => 'maxk05.signature_forged_boolean',
+            self::FIELD_ID => 'maxk05.signature_forged_boolean',
             self::FIELD_REFUSED => $refused,
             self::FIELD_EXPECTED => 'ok=false',
             self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($verdict[self::FIELD_REASON] ?? null) ?? self::PROBE_ID_UNKNOWN),
@@ -186,7 +197,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $this->cleanup($path);
 
         return [
-            'id' => 'maxk05.signature_receipt_missing',
+            self::FIELD_ID => 'maxk05.signature_receipt_missing',
             self::FIELD_REFUSED => $verdict[self::FIELD_OK] === false && $verdict[self::FIELD_REASON] === 'signature_receipt_missing',
             self::FIELD_EXPECTED => 'signature_receipt_missing',
             self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($verdict[self::FIELD_REASON] ?? null) ?? self::PROBE_ID_UNKNOWN),
@@ -230,7 +241,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $this->cleanup($path);
 
         return [
-            'id' => 'maxk05.signature_nonce_reused',
+            self::FIELD_ID => 'maxk05.signature_nonce_reused',
             self::FIELD_REFUSED => $first[self::FIELD_OK] === true && $second[self::FIELD_OK] === false && $second[self::FIELD_REASON] === 'signature_nonce_reused',
             self::FIELD_EXPECTED => 'signature_nonce_reused after first spend',
             self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($second[self::FIELD_REASON] ?? null) ?? self::PROBE_ID_UNKNOWN),
@@ -252,15 +263,15 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
 
         $provenance = AiValueNormalizer::arrayOrEmpty($verdict['metrics_authority'] ?? null);
         $refused = ($verdict['eligible'] ?? true) === false
-            && ($verdict['decision'] ?? '') === 'blocked'
-            && ($verdict['refusal_reason'] ?? '') === 'metrics_authority_missing'
-            && ($provenance['source'] ?? '') === AtlasAutonomyMetricsAuthorityPort::SOURCE_MISSING;
+            && ($verdict[self::FIELD_DECISION] ?? '') === 'blocked'
+            && ($verdict[self::FIELD_REFUSAL_REASON] ?? '') === 'metrics_authority_missing'
+            && ($provenance[self::FIELD_SOURCE] ?? '') === AtlasAutonomyMetricsAuthorityPort::SOURCE_MISSING;
 
         return [
-            'id' => 'maxk06.metrics_authority_missing',
+            self::FIELD_ID => 'maxk06.metrics_authority_missing',
             self::FIELD_REFUSED => $refused,
             self::FIELD_EXPECTED => 'blocked+metrics_authority_missing',
-            self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($verdict['refusal_reason'] ?? $verdict['decision'] ?? null) ?? self::PROBE_ID_UNKNOWN),
+            self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($verdict[self::FIELD_REFUSAL_REASON] ?? $verdict[self::FIELD_DECISION] ?? null) ?? self::PROBE_ID_UNKNOWN),
         ];
     }
 
@@ -292,9 +303,9 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
                 $entry = json_decode($lines[0], true);
                 if (is_array($entry)) {
                     // Adversary overwrites metrics but leaves entry_hash alone.
-                    $entry['metrics']['assist_sessions'] = 999;
-                    $entry['metrics']['acceptance_rate'] = 1.0;
-                    $entry['metrics']['severe_hallucination_count'] = 0;
+                    $entry[self::FIELD_METRICS]['assist_sessions'] = 999;
+                    $entry[self::FIELD_METRICS]['acceptance_rate'] = 1.0;
+                    $entry[self::FIELD_METRICS]['severe_hallucination_count'] = 0;
                     file_put_contents($path, json_encode($entry)."\n");
                     $tamperOk = true;
                 }
@@ -312,7 +323,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
 
         if (! $tamperOk) {
             return [
-                'id' => 'maxk06.metrics_authority_tampered',
+                self::FIELD_ID => 'maxk06.metrics_authority_tampered',
                 self::FIELD_REFUSED => false,
                 self::FIELD_EXPECTED => 'blocked+metrics_authority_tampered',
                 self::FIELD_OBSERVED => 'probe_setup_failed',
@@ -322,12 +333,12 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $provenance = AiValueNormalizer::arrayOrEmpty($verdict['metrics_authority'] ?? null);
 
         return [
-            'id' => 'maxk06.metrics_authority_tampered',
+            self::FIELD_ID => 'maxk06.metrics_authority_tampered',
             self::FIELD_REFUSED => ($verdict['eligible'] ?? true) === false
-                && ($verdict['refusal_reason'] ?? '') === 'metrics_authority_tampered'
-                && ($provenance['source'] ?? '') === AtlasAutonomyMetricsAuthorityPort::SOURCE_TAMPERED,
+                && ($verdict[self::FIELD_REFUSAL_REASON] ?? '') === 'metrics_authority_tampered'
+                && ($provenance[self::FIELD_SOURCE] ?? '') === AtlasAutonomyMetricsAuthorityPort::SOURCE_TAMPERED,
             self::FIELD_EXPECTED => 'blocked+metrics_authority_tampered',
-            self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($verdict['refusal_reason'] ?? $verdict['decision'] ?? null) ?? self::PROBE_ID_UNKNOWN),
+            self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($verdict[self::FIELD_REFUSAL_REASON] ?? $verdict[self::FIELD_DECISION] ?? null) ?? self::PROBE_ID_UNKNOWN),
         ];
     }
 
@@ -340,16 +351,16 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     private function probeShrinkPrivacySensitive(): array
     {
         $derived = RequestedAutonomyDerivation::derive([
-            'privacy_class' => 'sensitive',
-            'ceiling' => PolicyCanon::AUTONOMY_AUTONOMOUS,
+            self::FIELD_PRIVACY_CLASS => 'sensitive',
+            self::FIELD_CEILING => PolicyCanon::AUTONOMY_AUTONOMOUS,
         ]);
-        $level = AiValueNormalizer::trimmedScalarStringOrNull($derived['requested_autonomy'] ?? null) ?? '';
+        $level = AiValueNormalizer::trimmedScalarStringOrNull($derived[self::FIELD_REQUESTED_AUTONOMY] ?? null) ?? '';
         $refused = $level === PolicyCanon::AUTONOMY_EXECUTE_WITH_APPROVAL
             || $level === PolicyCanon::AUTONOMY_DRAFT
             || $level === PolicyCanon::AUTONOMY_SUGGEST;
 
         return [
-            'id' => 'maxk07.privacy_sensitive_shrinks',
+            self::FIELD_ID => 'maxk07.privacy_sensitive_shrinks',
             self::FIELD_REFUSED => $refused,
             self::FIELD_EXPECTED => '≤ execute_with_approval',
             self::FIELD_OBSERVED => $level,
@@ -364,17 +375,17 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     private function probeShrinkReversalRateHigh(): array
     {
         $derived = RequestedAutonomyDerivation::derive([
-            'privacy_class' => 'normal',
+            self::FIELD_PRIVACY_CLASS => 'normal',
             'reversal_rate' => 0.42,
             'n' => 20,
-            'ceiling' => PolicyCanon::AUTONOMY_AUTONOMOUS,
+            self::FIELD_CEILING => PolicyCanon::AUTONOMY_AUTONOMOUS,
         ]);
-        $level = AiValueNormalizer::trimmedScalarStringOrNull($derived['requested_autonomy'] ?? null) ?? '';
+        $level = AiValueNormalizer::trimmedScalarStringOrNull($derived[self::FIELD_REQUESTED_AUTONOMY] ?? null) ?? '';
         $refused = $level === PolicyCanon::AUTONOMY_DRAFT
             || $level === PolicyCanon::AUTONOMY_SUGGEST;
 
         return [
-            'id' => 'maxk07.reversal_rate_high_shrinks_to_draft',
+            self::FIELD_ID => 'maxk07.reversal_rate_high_shrinks_to_draft',
             self::FIELD_REFUSED => $refused,
             self::FIELD_EXPECTED => '≤ draft',
             self::FIELD_OBSERVED => $level,
@@ -390,16 +401,16 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     private function probeShrinkNeverExceedsCeiling(): array
     {
         $derived = RequestedAutonomyDerivation::derive([
-            'privacy_class' => 'normal',
+            self::FIELD_PRIVACY_CLASS => 'normal',
             'reversal_rate' => 0.0,
             'n' => 100,
-            'ceiling' => PolicyCanon::AUTONOMY_DRAFT,
+            self::FIELD_CEILING => PolicyCanon::AUTONOMY_DRAFT,
         ]);
-        $level = AiValueNormalizer::trimmedScalarStringOrNull($derived['requested_autonomy'] ?? null) ?? '';
+        $level = AiValueNormalizer::trimmedScalarStringOrNull($derived[self::FIELD_REQUESTED_AUTONOMY] ?? null) ?? '';
         $refused = RequestedAutonomyDerivation::isMonotonicallyDownward($level, PolicyCanon::AUTONOMY_DRAFT);
 
         return [
-            'id' => 'maxk07.never_exceeds_ceiling',
+            self::FIELD_ID => 'maxk07.never_exceeds_ceiling',
             self::FIELD_REFUSED => $refused,
             self::FIELD_EXPECTED => 'derived ≤ ceiling=draft',
             self::FIELD_OBSERVED => $level,
@@ -416,16 +427,16 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     private function probeMinerIsReportOnly(): array
     {
         $report = $this->miner->mine([], []);
-        $source = AiValueNormalizer::arrayOrEmpty($report['source'] ?? null);
-        $refused = ($source['promotes_selection'] ?? true) === false
-            && ($source['blocker'] ?? true) === false;
+        $source = AiValueNormalizer::arrayOrEmpty($report[self::FIELD_SOURCE] ?? null);
+        $refused = ($source[self::FIELD_PROMOTES_SELECTION] ?? true) === false
+            && ($source[self::FIELD_BLOCKER] ?? true) === false;
 
         return [
-            'id' => 'maxk08.miner_report_only',
+            self::FIELD_ID => 'maxk08.miner_report_only',
             self::FIELD_REFUSED => $refused,
             self::FIELD_EXPECTED => 'promotes_selection=false AND blocker=false',
-            self::FIELD_OBSERVED => 'promotes_selection='.$this->exportBool($source['promotes_selection'] ?? null)
-                .' blocker='.$this->exportBool($source['blocker'] ?? null),
+            self::FIELD_OBSERVED => 'promotes_selection='.$this->exportBool($source[self::FIELD_PROMOTES_SELECTION] ?? null)
+                .' blocker='.$this->exportBool($source[self::FIELD_BLOCKER] ?? null),
         ];
     }
 

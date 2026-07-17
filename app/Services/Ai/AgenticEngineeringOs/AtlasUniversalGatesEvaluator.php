@@ -5709,6 +5709,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function docsHandoffAdversarialFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'docs_field_needle' => AtlasDocsAuthorityGraphService::FIELD_NEEDLE,
+            'docs_field_owner_doc_path' => AtlasDocsAuthorityGraphService::FIELD_OWNER_DOC_PATH,
+            'docs_field_confidence' => AtlasDocsAuthorityGraphService::FIELD_CONFIDENCE,
+            'docs_field_owner_basis' => AtlasDocsAuthorityGraphService::FIELD_OWNER_BASIS,
+            'docs_field_candidates' => AtlasDocsAuthorityGraphService::FIELD_CANDIDATES,
+            'docs_schema_version' => AtlasDocsAuthorityGraphService::SCHEMA_VERSION,
+            'handoff_field_actor' => AaeosPhaseHandoffService::FIELD_ACTOR,
+            'handoff_field_kind' => AaeosPhaseHandoffService::FIELD_KIND,
+            'handoff_field_gates' => AaeosPhaseHandoffService::FIELD_GATES,
+            'handoff_field_blocked' => AaeosPhaseHandoffService::FIELD_BLOCKED,
+            'handoff_field_passed' => AaeosPhaseHandoffService::FIELD_PASSED,
+            'handoff_schema_version' => AaeosPhaseHandoffService::SCHEMA_VERSION,
+            'adversarial_field_status' => AutonomyLadderAdversarialWatchdogCheck::FIELD_STATUS,
+            'adversarial_field_reason' => AutonomyLadderAdversarialWatchdogCheck::FIELD_REASON,
+            'adversarial_field_refusal_reason' => AutonomyLadderAdversarialWatchdogCheck::FIELD_REFUSAL_REASON,
+            'adversarial_field_requested_autonomy' => AutonomyLadderAdversarialWatchdogCheck::FIELD_REQUESTED_AUTONOMY,
+            'adversarial_field_passed' => AutonomyLadderAdversarialWatchdogCheck::FIELD_PASSED,
+            'docs_handoff_adversarial_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [
