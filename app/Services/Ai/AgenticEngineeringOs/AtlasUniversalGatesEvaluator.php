@@ -6045,6 +6045,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function embeddingCoverageThesisFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'code_embed_field_measure_id' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_MEASURE_ID,
+            'code_embed_field_formula_version' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_FORMULA_VERSION,
+            'code_embed_field_denominator_min' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_DENOMINATOR_MIN,
+            'code_embed_field_aggregate' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_AGGREGATE,
+            'code_embed_field_status' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_STATUS,
+            'code_embed_field_reason' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_REASON,
+            'kb_embed_field_measure_id' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_MEASURE_ID,
+            'kb_embed_field_formula_version' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_FORMULA_VERSION,
+            'kb_embed_field_aggregate' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_AGGREGATE,
+            'kb_embed_field_status' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_STATUS,
+            'kb_embed_field_reason' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_REASON,
+            'thesis_field_status' => EvidenceVisionThesisLifecycle::FIELD_STATUS,
+            'thesis_field_schema_version' => EvidenceVisionThesisLifecycle::FIELD_SCHEMA_VERSION,
+            'thesis_field_thesis_id' => EvidenceVisionThesisLifecycle::FIELD_THESIS_ID,
+            'thesis_field_archive_receipt' => EvidenceVisionThesisLifecycle::FIELD_ARCHIVE_RECEIPT,
+            'thesis_field_reason' => EvidenceVisionThesisLifecycle::FIELD_REASON,
+            'thesis_field_claim' => EvidenceVisionThesisLifecycle::FIELD_CLAIM,
+            'embedding_coverage_thesis_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

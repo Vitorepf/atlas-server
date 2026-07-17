@@ -52,15 +52,24 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const STATUS_PARTIAL_COVERAGE = 'partial_coverage';
 
     public const STATUS_TABLE_MISSING = 'table_missing';
+    public const FIELD_MEASURE_ID = 'measure_id';
+    public const FIELD_FORMULA_VERSION = 'formula_version';
+    public const FIELD_DENOMINATOR_MIN = 'denominator_min';
+    public const FIELD_AGGREGATE = 'aggregate';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_FREEZE = 'freeze';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_REASON = 'reason';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
         return [
             'kind' => self::KIND_MEASURE_FREEZE,
-            'measure_id' => self::MEASURE_ID,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
             'formula' => 'MAXA-06 fase 1: coverage_ratio = active items whose MAXA-03 provenance (embedding_model + embedded_content_hash) matches current content_hash, over active items. Stale = provenance stamped but hash drifted. Missing = no provenance.',
-            'formula_version' => self::FORMULA_VERSION,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             'thresholds' => [
                 'target_coverage_ratio' => 1.0,
                 'denominator_min_active_items' => 1,
@@ -68,7 +77,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
                 'missing_definition' => 'embedding_model IS NULL OR embedded_content_hash IS NULL',
                 'scope' => 'active_items_only',
             ],
-            'denominator_min' => 1,
+            self::FIELD_DENOMINATOR_MIN => 1,
             'ttl_days' => 60,
             'author_engine_id' => 'cursor-acos-max-maxa06-fase1',
             'judge_engine_id' => 'codex-independent-maxa06-fase1-judge',
@@ -105,7 +114,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
 
         if ($active === 0) {
             return array_merge($this->emptyReport(self::STATUS_INSUFFICIENT_SIGNAL, 'no_active_knowledge_items', $freeze), [
-                'aggregate' => $this->emptyAggregate(),
+                self::FIELD_AGGREGATE => $this->emptyAggregate(),
             ]);
         }
 
@@ -141,15 +150,15 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
         };
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'measure_id' => self::MEASURE_ID,
-            'formula_version' => self::FORMULA_VERSION,
-            'generated_at' => now('UTC')->toIso8601String(),
-            'freeze' => $freeze,
-            'status' => $status,
-            'reason' => $reason,
-            'denominator_min' => (int) (AiValueNormalizer::finiteFloatOrNull($freeze['denominator_min'] ?? null) ?? 0),
-            'aggregate' => [
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+            self::FIELD_GENERATED_AT => now('UTC')->toIso8601String(),
+            self::FIELD_FREEZE => $freeze,
+            self::FIELD_STATUS => $status,
+            self::FIELD_REASON => $reason,
+            self::FIELD_DENOMINATOR_MIN => (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? 0),
+            self::FIELD_AGGREGATE => [
                 'active_items' => $active,
                 'covered_count' => $covered,
                 'stale_count' => $stale,
@@ -163,15 +172,15 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     private function emptyReport(string $status, string $reason, array $freeze): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'measure_id' => self::MEASURE_ID,
-            'formula_version' => self::FORMULA_VERSION,
-            'generated_at' => now('UTC')->toIso8601String(),
-            'freeze' => $freeze,
-            'status' => AiValueNormalizer::trimmedStringOrNull($status) ?? '',
-            'reason' => AiValueNormalizer::trimmedStringOrNull($reason) ?? '',
-            'denominator_min' => (int) (AiValueNormalizer::finiteFloatOrNull($freeze['denominator_min'] ?? null) ?? 0),
-            'aggregate' => $this->emptyAggregate(),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+            self::FIELD_GENERATED_AT => now('UTC')->toIso8601String(),
+            self::FIELD_FREEZE => $freeze,
+            self::FIELD_STATUS => AiValueNormalizer::trimmedStringOrNull($status) ?? '',
+            self::FIELD_REASON => AiValueNormalizer::trimmedStringOrNull($reason) ?? '',
+            self::FIELD_DENOMINATOR_MIN => (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? 0),
+            self::FIELD_AGGREGATE => $this->emptyAggregate(),
         ];
     }
 

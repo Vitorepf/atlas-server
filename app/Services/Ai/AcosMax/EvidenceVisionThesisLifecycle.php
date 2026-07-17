@@ -24,6 +24,14 @@ final class EvidenceVisionThesisLifecycle
     public const REASON_THESIS_NOT_ACTIVE = 'thesis_not_active';
 
     public const DEATH_REASON_TTL_EXPIRED = 'ttl_expired';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_THESIS_ID = 'thesis_id';
+    public const FIELD_ARCHIVE_RECEIPT = 'archive_receipt';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_CLAIM = 'claim';
+    public const FIELD_DEATH_CRITERION = 'death_criterion';
+    public const FIELD_RECEIPT_HASH = 'receipt_hash';
 
     /** @var array<string,array<string,mixed>> */
     private static array $active = [];
@@ -46,14 +54,14 @@ final class EvidenceVisionThesisLifecycle
             if (! is_array($thesis)) {
                 continue;
             }
-            $thesisId = AiValueNormalizer::trimmedStringOrNull($thesis['thesis_id'] ?? null) ?? '';
+            $thesisId = AiValueNormalizer::trimmedStringOrNull($thesis[self::FIELD_THESIS_ID] ?? null) ?? '';
             if ($thesisId === '' || isset(self::$active[$thesisId])) {
                 continue;
             }
             if (count(self::$active) >= EvidenceVisionThesisComposer::MAX_THESES) {
                 break;
             }
-            self::$active[$thesisId] = array_merge($thesis, ['status' => self::STATUS_ACTIVE, 'archive_receipt' => null]);
+            self::$active[$thesisId] = array_merge($thesis, [self::FIELD_STATUS => self::STATUS_ACTIVE, self::FIELD_ARCHIVE_RECEIPT => null]);
         }
     }
 
@@ -91,7 +99,7 @@ final class EvidenceVisionThesisLifecycle
     {
         return array_values(array_filter(
             self::$active,
-            static fn (array $thesis): bool => ($thesis['status'] ?? '') === self::STATUS_ACTIVE,
+            static fn (array $thesis): bool => ($thesis[self::FIELD_STATUS] ?? '') === self::STATUS_ACTIVE,
         ));
     }
 
@@ -103,32 +111,32 @@ final class EvidenceVisionThesisLifecycle
         $thesis = self::$active[$thesisId] ?? null;
         if (! is_array($thesis)) {
             return [
-                'schema_version' => self::SCHEMA_VERSION,
-                'thesis_id' => $thesisId,
-                'status' => self::STATUS_REFUSED,
-                'reason' => self::REASON_THESIS_NOT_ACTIVE,
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+                self::FIELD_THESIS_ID => $thesisId,
+                self::FIELD_STATUS => self::STATUS_REFUSED,
+                self::FIELD_REASON => self::REASON_THESIS_NOT_ACTIVE,
             ];
         }
 
         $receipt = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'thesis_id' => $thesisId,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_THESIS_ID => $thesisId,
             'archived_at_basis' => $reason,
-            'claim' => AiValueNormalizer::trimmedStringOrNull($thesis['claim'] ?? null) ?? '',
-            'death_criterion' => AiValueNormalizer::arrayOrEmpty($thesis['death_criterion'] ?? null),
-            'receipt_hash' => hash('sha256', json_encode([$thesisId, $reason, $thesis['claim'] ?? ''], JSON_UNESCAPED_SLASHES)),
+            self::FIELD_CLAIM => AiValueNormalizer::trimmedStringOrNull($thesis[self::FIELD_CLAIM] ?? null) ?? '',
+            self::FIELD_DEATH_CRITERION => AiValueNormalizer::arrayOrEmpty($thesis[self::FIELD_DEATH_CRITERION] ?? null),
+            self::FIELD_RECEIPT_HASH => hash('sha256', json_encode([$thesisId, $reason, $thesis[self::FIELD_CLAIM] ?? ''], JSON_UNESCAPED_SLASHES)),
         ];
 
-        $thesis['status'] = self::STATUS_ARCHIVED;
-        $thesis['archive_receipt'] = $receipt;
+        $thesis[self::FIELD_STATUS] = self::STATUS_ARCHIVED;
+        $thesis[self::FIELD_ARCHIVE_RECEIPT] = $receipt;
         unset(self::$active[$thesisId]);
         self::$archived[] = $thesis;
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'thesis_id' => $thesisId,
-            'status' => self::STATUS_ARCHIVED,
-            'archive_receipt' => $receipt,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_THESIS_ID => $thesisId,
+            self::FIELD_STATUS => self::STATUS_ARCHIVED,
+            self::FIELD_ARCHIVE_RECEIPT => $receipt,
         ];
     }
 
@@ -152,7 +160,7 @@ final class EvidenceVisionThesisLifecycle
             return self::DEATH_REASON_TTL_EXPIRED;
         }
 
-        $criterion = AiValueNormalizer::arrayOrEmpty($thesis['death_criterion'] ?? null);
+        $criterion = AiValueNormalizer::arrayOrEmpty($thesis[self::FIELD_DEATH_CRITERION] ?? null);
         $kind = AiValueNormalizer::trimmedStringOrNull($criterion['kind'] ?? null) ?? '';
 
         return match ($kind) {

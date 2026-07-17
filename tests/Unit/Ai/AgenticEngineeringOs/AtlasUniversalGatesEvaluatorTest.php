@@ -4433,4 +4433,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['maturity_envelope_lifecycle_floor_count']);
     }
 
+    public function test_embedding_coverage_thesis_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->embeddingCoverageThesisFloorsContractObserve([]);
+
+        $this->assertSame('measure_id', $payload['code_embed_field_measure_id']);
+        $this->assertSame('formula_version', $payload['code_embed_field_formula_version']);
+        $this->assertSame('denominator_min', $payload['code_embed_field_denominator_min']);
+        $this->assertSame('aggregate', $payload['code_embed_field_aggregate']);
+        $this->assertSame('status', $payload['code_embed_field_status']);
+        $this->assertSame('reason', $payload['code_embed_field_reason']);
+        $this->assertSame('measure_id', $payload['kb_embed_field_measure_id']);
+        $this->assertSame('formula_version', $payload['kb_embed_field_formula_version']);
+        $this->assertSame('aggregate', $payload['kb_embed_field_aggregate']);
+        $this->assertSame('status', $payload['kb_embed_field_status']);
+        $this->assertSame('reason', $payload['kb_embed_field_reason']);
+        $this->assertSame('status', $payload['thesis_field_status']);
+        $this->assertSame('schema_version', $payload['thesis_field_schema_version']);
+        $this->assertSame('thesis_id', $payload['thesis_field_thesis_id']);
+        $this->assertSame('archive_receipt', $payload['thesis_field_archive_receipt']);
+        $this->assertSame('reason', $payload['thesis_field_reason']);
+        $this->assertSame('claim', $payload['thesis_field_claim']);
+        $this->assertSame(17, $payload['embedding_coverage_thesis_floor_count']);
+    }
+
 }
