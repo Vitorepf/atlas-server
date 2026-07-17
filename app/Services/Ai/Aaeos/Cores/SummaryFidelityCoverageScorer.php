@@ -62,7 +62,7 @@ final class SummaryFidelityCoverageScorer
             $requiredTotal++;
 
             $id = $this->stringValue($item, 'id');
-            $idToken = AiValueNormalizer::trimmedString($id);
+            $idToken = AiValueNormalizer::trimmedStringOrNull($id) ?? '';
             $kind = $this->normalize($this->stringValue($item, 'kind'));
             $isDecision = $kind === self::DECISION_KIND;
 
@@ -194,7 +194,17 @@ final class SummaryFidelityCoverageScorer
      */
     private function stringValue(array $item, string $key): string
     {
-        return AiValueNormalizer::trimmedStringOrNull($item[$key] ?? null) ?? '';
+        $value = $item[$key] ?? null;
+
+        if (is_string($value)) {
+            return $value;
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+
+        return '';
     }
 
     private function ratio(int $numerator, int $denominator): float

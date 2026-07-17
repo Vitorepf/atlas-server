@@ -1745,4 +1745,17 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertFalse($payload['influences_pick']);
         $this->assertFalse($payload['single_scalar_score_emitted']);
     }
+
+    public function test_gated_corpus_contract_observe_reports_protected_classes(): void
+    {
+        $payload = $this->svc->gatedCorpusContractObserve([]);
+
+        $this->assertSame('atlas.corpus.gated_candidate_miner.v1', $payload['schema_version']);
+        $this->assertContains('sensitive', $payload['protected_classes']);
+        $this->assertContains('cyber', $payload['protected_classes']);
+        $this->assertSame(3, $payload['protected_class_count']);
+        $this->assertTrue($payload['candidate_only']);
+        $this->assertFalse($payload['writes_memory_directly']);
+        $this->assertFalse($payload['count_is_acceptance']);
+    }
 }

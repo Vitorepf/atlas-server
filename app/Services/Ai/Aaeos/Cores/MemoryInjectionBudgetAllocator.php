@@ -64,7 +64,7 @@ final class MemoryInjectionBudgetAllocator
         $rank = 0;
 
         foreach ($ordered as $item) {
-            $ref = AiValueNormalizer::trimmedString(AtlasAaeosArrayFieldReader::stringField($item, 'ref'));
+            $ref = AiValueNormalizer::trimmedStringOrNull(AtlasAaeosArrayFieldReader::stringField($item, 'ref')) ?? '';
             $priority = $this->priorityField($item);
             $estimated = $this->estimatedChars($item);
 
@@ -169,8 +169,8 @@ final class MemoryInjectionBudgetAllocator
         }
 
         return strcmp(
-            AiValueNormalizer::trimmedString(AtlasAaeosArrayFieldReader::stringField($a, 'ref')),
-            AiValueNormalizer::trimmedString(AtlasAaeosArrayFieldReader::stringField($b, 'ref')),
+            AiValueNormalizer::trimmedStringOrNull(AtlasAaeosArrayFieldReader::stringField($a, 'ref')) ?? '',
+            AiValueNormalizer::trimmedStringOrNull(AtlasAaeosArrayFieldReader::stringField($b, 'ref')) ?? '',
         );
     }
 

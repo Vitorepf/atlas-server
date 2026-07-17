@@ -2410,6 +2410,25 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only gated corpus miner contract (protected privacy classes).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function gatedCorpusContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => GatedCorpusCandidateMiner::SCHEMA_VERSION,
+            'protected_classes' => GatedCorpusCandidateMiner::PROTECTED,
+            'protected_class_count' => count(GatedCorpusCandidateMiner::PROTECTED),
+            'candidate_only' => true,
+            'writes_memory_directly' => false,
+            'count_is_acceptance' => false,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

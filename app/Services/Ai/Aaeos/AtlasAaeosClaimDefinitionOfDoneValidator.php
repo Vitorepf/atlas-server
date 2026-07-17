@@ -19,9 +19,9 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasAaeosClaimDefinitionOfDoneValidator
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.claim_definition_of_done.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.claim_definition_of_done.v1';
 
-    private const EVALUATED_AGAINST = 'atlas-agentic-engineering-os-implementation-reality.md:244';
+    public const EVALUATED_AGAINST = 'atlas-agentic-engineering-os-implementation-reality.md:244';
 
     private const FIELD_OWNER_DOC = 'owner_doc';
 
@@ -48,9 +48,9 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
     /**
      * Canonical, ordered list of the six Definition-of-Done field keys.
      *
-     * @return list<string>
+     * @var list<string>
      */
-    private const CANONICAL_FIELDS = [
+    public const CANONICAL_FIELDS = [
         self::FIELD_OWNER_DOC,
         self::FIELD_DOCUMENTAL_STATE,
         self::FIELD_RUNTIME_STATE,
@@ -62,9 +62,9 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
     /**
      * Fields that are mandatory regardless of claim context, in canonical order.
      *
-     * @return list<string>
+     * @var list<string>
      */
-    private const UNCONDITIONAL_FIELDS = [
+    public const UNCONDITIONAL_FIELDS = [
         self::FIELD_OWNER_DOC,
         self::FIELD_DOCUMENTAL_STATE,
         self::FIELD_RUNTIME_STATE,
