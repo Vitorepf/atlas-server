@@ -16,6 +16,14 @@ final class AtlasCognitionScoreCardV4Grouper
     public const STATUS_UNKNOWN = 'unknown';
 
     public const STATUS_BLOCKED = 'blocked';
+    public const FIELD_ACRONYM = 'acronym';
+    public const FIELD_NAME = 'name';
+    public const FIELD_SUBSYSTEM_COUNT = 'subsystem_count';
+    public const FIELD_CODE_STATUS = 'code_status';
+    public const FIELD_DOC_STATUS = 'doc_status';
+    public const FIELD_PIPELINE_STATUS = 'pipeline_status';
+    public const FIELD_MEMBERS = 'members';
+    public const FIELD_SERVICE_CLASSES = 'service_classes';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -62,16 +70,16 @@ final class AtlasCognitionScoreCardV4Grouper
             }
 
             $module = $this->moduleKey($group);
-            $buckets[$module]['acronym'] ??= $module;
-            $buckets[$module]['name'] ??= $this->moduleName($module);
-            $buckets[$module]['subsystem_count'] = ($buckets[$module]['subsystem_count'] ?? 0) + 1;
+            $buckets[$module][self::FIELD_ACRONYM] ??= $module;
+            $buckets[$module][self::FIELD_NAME] ??= $this->moduleName($module);
+            $buckets[$module][self::FIELD_SUBSYSTEM_COUNT] = ($buckets[$module][self::FIELD_SUBSYSTEM_COUNT] ?? 0) + 1;
             foreach (['code_status', 'doc_status', 'pipeline_status'] as $dim) {
                 $buckets[$module][$dim][] = (AiValueNormalizer::trimmedStringOrNull($row[$dim] ?? null) ?? self::STATUS_BLOCKED);
             }
-            $buckets[$module]['members'][] = (AiValueNormalizer::trimmedStringOrNull($row['acronym'] ?? null) ?? '');
+            $buckets[$module][self::FIELD_MEMBERS][] = (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_ACRONYM] ?? null) ?? '');
             $serviceClass = AiValueNormalizer::trimmedStringOrNull($row['service_class'] ?? null) ?? '';
             if ($serviceClass !== '') {
-                $buckets[$module]['service_classes'][] = $serviceClass;
+                $buckets[$module][self::FIELD_SERVICE_CLASSES][] = $serviceClass;
             }
             if (($row['supplemental'] ?? false) === true) {
                 $buckets[$module]['supplemental_count'] = ($buckets[$module]['supplemental_count'] ?? 0) + 1;
@@ -81,20 +89,20 @@ final class AtlasCognitionScoreCardV4Grouper
         $modules = [];
         foreach ($buckets as $key => $bucket) {
             $modules[] = [
-                'acronym' => $key,
-                'name' => $bucket['name'],
-                'subsystem_count' => $bucket['subsystem_count'],
-                'code_status' => $this->rollup($bucket['code_status'] ?? []),
-                'doc_status' => $this->rollup($bucket['doc_status'] ?? []),
-                'pipeline_status' => $this->rollup($bucket['pipeline_status'] ?? []),
-                'members' => $bucket['members'] ?? [],
-                'service_classes' => array_values(array_unique($bucket['service_classes'] ?? [])),
+                self::FIELD_ACRONYM => $key,
+                self::FIELD_NAME => $bucket[self::FIELD_NAME],
+                self::FIELD_SUBSYSTEM_COUNT => $bucket[self::FIELD_SUBSYSTEM_COUNT],
+                self::FIELD_CODE_STATUS => $this->rollup($bucket[self::FIELD_CODE_STATUS] ?? []),
+                self::FIELD_DOC_STATUS => $this->rollup($bucket[self::FIELD_DOC_STATUS] ?? []),
+                self::FIELD_PIPELINE_STATUS => $this->rollup($bucket[self::FIELD_PIPELINE_STATUS] ?? []),
+                self::FIELD_MEMBERS => $bucket[self::FIELD_MEMBERS] ?? [],
+                self::FIELD_SERVICE_CLASSES => array_values(array_unique($bucket[self::FIELD_SERVICE_CLASSES] ?? [])),
                 'supplemental_count' => (int) (AiValueNormalizer::finiteFloatOrNull($bucket['supplemental_count'] ?? null) ?? 0),
                 'boundary' => $consumers ? 'consumer' : 'acos',
             ];
         }
 
-        usort($modules, fn (array $a, array $b): int => strcmp(AiValueNormalizer::trimmedScalarStringOrNull($a['acronym'] ?? null) ?? '', AiValueNormalizer::trimmedScalarStringOrNull($b['acronym'] ?? null) ?? ''));
+        usort($modules, fn (array $a, array $b): int => strcmp(AiValueNormalizer::trimmedScalarStringOrNull($a[self::FIELD_ACRONYM] ?? null) ?? '', AiValueNormalizer::trimmedScalarStringOrNull($b[self::FIELD_ACRONYM] ?? null) ?? ''));
 
         return $modules;
     }

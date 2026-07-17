@@ -18,12 +18,12 @@ final class SegmentImportanceRanker
      */
     public const KIND_WEIGHT = [
         self::FIELD_DECISION => 1.0,
-        'blocker' => 1.0,
-        'dod' => 1.0,
-        'risk_critical' => 1.0,
-        'evidence' => 0.6,
-        'decision_note' => 0.6,
-        'fact' => 0.4,
+        self::FIELD_BLOCKER => 1.0,
+        self::FIELD_DOD => 1.0,
+        self::FIELD_RISK_CRITICAL => 1.0,
+        self::FIELD_EVIDENCE => 0.6,
+        self::FIELD_DECISION_NOTE => 0.6,
+        self::FIELD_FACT => 0.4,
         'stale_query' => 0.1,
         'low_score_ref' => 0.1,
         'duplicate' => 0.1,
@@ -54,6 +54,14 @@ final class SegmentImportanceRanker
     public const FIELD_KIND = 'kind';
     public const FIELD_STATUS = 'status';
     public const FIELD_SEGMENTS = 'segments';
+    public const FIELD_TOKEN_ESTIMATE = 'token_estimate';
+    public const FIELD_DEDUP_PENALTY = 'dedup_penalty';
+    public const FIELD_BLOCKER = 'blocker';
+    public const FIELD_DOD = 'dod';
+    public const FIELD_RISK_CRITICAL = 'risk_critical';
+    public const FIELD_EVIDENCE = 'evidence';
+    public const FIELD_DECISION_NOTE = 'decision_note';
+    public const FIELD_FACT = 'fact';
 
     /**
      * Rank may-discard segments by composite signal and greedily fill a token budget.
@@ -110,7 +118,7 @@ final class SegmentImportanceRanker
         $boundaryIndex = null;
 
         foreach ($scored as $index => $segment) {
-            $tokenEstimate = $segment['token_estimate'];
+            $tokenEstimate = $segment[self::FIELD_TOKEN_ESTIMATE];
 
             if ($tokenEstimate > $budget) {
                 $decision = self::DECISION_DROP;
@@ -140,8 +148,8 @@ final class SegmentImportanceRanker
                 self::FIELD_KIND => $segment[self::FIELD_KIND],
                 self::FIELD_SCORE => $segment[self::FIELD_SCORE],
                 self::FIELD_RECENCY_RANK => $segment[self::FIELD_RECENCY_RANK],
-                'token_estimate' => $tokenEstimate,
-                'dedup_penalty' => $segment['dedup_penalty'],
+                self::FIELD_TOKEN_ESTIMATE => $tokenEstimate,
+                self::FIELD_DEDUP_PENALTY => $segment[self::FIELD_DEDUP_PENALTY],
                 self::FIELD_DECISION => $decision,
                 self::FIELD_DROP_REASON => $dropReason,
             ];
@@ -219,12 +227,12 @@ final class SegmentImportanceRanker
                 'id' => AtlasAaeosArrayFieldReader::stringField($row, 'id'),
                 self::FIELD_KIND => $kind,
                 self::FIELD_RECENCY_RANK => $recencyRank,
-                'token_estimate' => max($this->intField($row, 'token_estimate'), 0),
+                self::FIELD_TOKEN_ESTIMATE => max($this->intField($row, 'token_estimate'), 0),
                 'has_evidence_ref' => $hasEvidenceRef,
                 'links_decision_or_blocker' => $linksDecisionOrBlocker,
                 'dup_group' => $dupGroup,
                 self::FIELD_KIND_WEIGHT => $kindWeight,
-                'dedup_penalty' => $dedupPenalty,
+                self::FIELD_DEDUP_PENALTY => $dedupPenalty,
                 self::FIELD_SCORE => $score,
             ];
         }

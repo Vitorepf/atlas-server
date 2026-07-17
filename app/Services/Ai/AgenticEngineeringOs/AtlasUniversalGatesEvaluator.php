@@ -6429,6 +6429,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function immuneScorecardSegmentFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'immune_field_kind' => AtlasImmuneClassifierHybridFreeze::FIELD_KIND,
+            'immune_field_measure_id' => AtlasImmuneClassifierHybridFreeze::FIELD_MEASURE_ID,
+            'immune_field_formula_version' => AtlasImmuneClassifierHybridFreeze::FIELD_FORMULA_VERSION,
+            'immune_field_formula' => AtlasImmuneClassifierHybridFreeze::FIELD_FORMULA,
+            'immune_field_thresholds' => AtlasImmuneClassifierHybridFreeze::FIELD_THRESHOLDS,
+            'immune_field_tau' => AtlasImmuneClassifierHybridFreeze::FIELD_TAU,
+            'scorecard_field_acronym' => AtlasCognitionScoreCardV4Grouper::FIELD_ACRONYM,
+            'scorecard_field_name' => AtlasCognitionScoreCardV4Grouper::FIELD_NAME,
+            'scorecard_field_subsystem_count' => AtlasCognitionScoreCardV4Grouper::FIELD_SUBSYSTEM_COUNT,
+            'scorecard_field_code_status' => AtlasCognitionScoreCardV4Grouper::FIELD_CODE_STATUS,
+            'scorecard_field_doc_status' => AtlasCognitionScoreCardV4Grouper::FIELD_DOC_STATUS,
+            'scorecard_field_pipeline_status' => AtlasCognitionScoreCardV4Grouper::FIELD_PIPELINE_STATUS,
+            'segment_field_token_estimate' => SegmentImportanceRanker::FIELD_TOKEN_ESTIMATE,
+            'segment_field_dedup_penalty' => SegmentImportanceRanker::FIELD_DEDUP_PENALTY,
+            'segment_field_blocker' => SegmentImportanceRanker::FIELD_BLOCKER,
+            'segment_field_dod' => SegmentImportanceRanker::FIELD_DOD,
+            'segment_field_risk_critical' => SegmentImportanceRanker::FIELD_RISK_CRITICAL,
+            'immune_scorecard_segment_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

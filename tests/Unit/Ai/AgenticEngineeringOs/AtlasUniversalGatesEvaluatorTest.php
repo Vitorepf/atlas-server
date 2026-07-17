@@ -4649,4 +4649,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['runner_phase_saturation_floor_count']);
     }
 
+    public function test_immune_scorecard_segment_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->immuneScorecardSegmentFloorsContractObserve([]);
+
+        $this->assertSame('kind', $payload['immune_field_kind']);
+        $this->assertSame('measure_id', $payload['immune_field_measure_id']);
+        $this->assertSame('formula_version', $payload['immune_field_formula_version']);
+        $this->assertSame('formula', $payload['immune_field_formula']);
+        $this->assertSame('thresholds', $payload['immune_field_thresholds']);
+        $this->assertSame('tau', $payload['immune_field_tau']);
+        $this->assertSame('acronym', $payload['scorecard_field_acronym']);
+        $this->assertSame('name', $payload['scorecard_field_name']);
+        $this->assertSame('subsystem_count', $payload['scorecard_field_subsystem_count']);
+        $this->assertSame('code_status', $payload['scorecard_field_code_status']);
+        $this->assertSame('doc_status', $payload['scorecard_field_doc_status']);
+        $this->assertSame('pipeline_status', $payload['scorecard_field_pipeline_status']);
+        $this->assertSame('token_estimate', $payload['segment_field_token_estimate']);
+        $this->assertSame('dedup_penalty', $payload['segment_field_dedup_penalty']);
+        $this->assertSame('blocker', $payload['segment_field_blocker']);
+        $this->assertSame('dod', $payload['segment_field_dod']);
+        $this->assertSame('risk_critical', $payload['segment_field_risk_critical']);
+        $this->assertSame(17, $payload['immune_scorecard_segment_floor_count']);
+    }
+
 }
