@@ -45,6 +45,7 @@ final class AaeosDeferredPhaseDispatcherServiceTest extends TestCase
         self::assertSame('atlas.aaeos.phase_advance_verdict.v1', $result['enqueued'][0]['phase_advance']['schema_version']);
         self::assertArrayHasKey('verdict', $result['enqueued'][0]['phase_advance']);
         self::assertNull($result['enqueued'][0]['outcome_causality']);
+        self::assertNull($result['enqueued'][0]['blocker_signal']);
     }
 
     public function test_enqueued_observe_causality_when_blockers_present(): void
@@ -63,6 +64,7 @@ final class AaeosDeferredPhaseDispatcherServiceTest extends TestCase
 
         self::assertSame(1, $result['enqueued_count']);
         self::assertSame('atlas.aaeos.outcome_causality_ranking.v1', $result['enqueued'][0]['outcome_causality']['schema_version']);
+        self::assertSame('blocked', $result['enqueued'][0]['blocker_signal']['signal']);
     }
 
     public function test_claim_returns_at_most_max_records_and_removes_them(): void

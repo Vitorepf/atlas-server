@@ -40,6 +40,7 @@ final class AaeosDeferredPhaseDispatcherService
         private readonly CacheRepository $cache,
         private readonly PhaseAdvanceVerdictClassifier $phaseAdvance = new PhaseAdvanceVerdictClassifier,
         private readonly OutcomeCausalityRanker $outcomeCausality = new OutcomeCausalityRanker,
+        private readonly AaeosBlockerSeverityGate $blockerSeverity = new AaeosBlockerSeverityGate,
     ) {}
 
     /**
@@ -67,6 +68,8 @@ final class AaeosDeferredPhaseDispatcherService
                 // Observe-only causality when the deferred envelope already
                 // carries open blockers / blocked gates (never blocks enqueue).
                 'outcome_causality' => $this->observeCausality($env),
+                // Observe-only severity reduction (same gate as cockpit).
+                'blocker_signal' => $this->observeBlockerSignal($env),
                 'enqueued_at' => gmdate('c'),
             ];
             $line = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -193,6 +196,20 @@ final class AaeosDeferredPhaseDispatcherService
             missingRequiredSources: $blockedGates !== [],
             testsPassed: null,
         );
+    }
+
+    /**
+     * @param  array<string,mixed>  $envelope
+     * @return array<string,mixed>|null
+     */
+    private function observeBlockerSignal(array $envelope): ?array
+    {
+        $blockers = AiValueNormalizer::arrayOrEmpty($envelope['blockers'] ?? null);
+        if ($blockers === []) {
+            return null;
+        }
+
+        return $this->blockerSeverity->assess($blockers);
     }
 
     private function resolveQueuePath(string $queuePath): string

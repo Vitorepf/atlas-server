@@ -199,17 +199,12 @@ final class PhaseAdvanceVerdictClassifier
                 continue;
             }
 
-            $id = $blocker['id'] ?? null;
-            if (! is_string($id)) {
+            $id = AiValueNormalizer::trimmedStringOrNull($blocker['id'] ?? null);
+            if ($id === null) {
                 continue;
             }
 
-            $trimmed = trim($id);
-            if ($trimmed === '') {
-                continue;
-            }
-
-            $ids[] = $trimmed;
+            $ids[] = $id;
         }
 
         return $ids;
