@@ -123,7 +123,7 @@ final class AtlasConsolidationRerankGuard
             if ($status !== '' && $status !== 'ok' && $status !== 'healthy') {
                 return null;
             }
-            $pAtK = (array) data_get($report, 'metrics.precision_at_k', []);
+            $pAtK = AiValueNormalizer::arrayOrEmpty(data_get($report, 'metrics.precision_at_k', []));
             $primary = data_get($report, 'metrics.primary_k', array_key_first($pAtK));
             $value = $pAtK[(string) $primary] ?? null;
 

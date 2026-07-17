@@ -1538,4 +1538,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('mature', $payload['fixtures']);
         $this->assertSame('acos_long_horizon_ready', $payload['ready_status']);
     }
+
+    public function test_immune_signature_store_contract_observe_reports_statuses(): void
+    {
+        $payload = $this->svc->immuneSignatureStoreContractObserve([]);
+
+        $this->assertSame('atlas.cognition.immune_signature_store.v1', $payload['schema_version']);
+        $this->assertSame('atlas.immune.signature_store.v1', $payload['measure_id']);
+        $this->assertContains('active', $payload['statuses']);
+        $this->assertContains('immune_verdict', $payload['origins']);
+    }
 }

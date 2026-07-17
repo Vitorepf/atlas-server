@@ -82,7 +82,7 @@ final class RunbookOrchestrator
                 'department' => $dept,
                 'gates' => $this->departments->gatesFor($dept),
                 'evidence_schema' => $this->departments->evidenceSchemaFor($dept),
-                'handoff_to' => (array) (DepartmentContractRuntime::CATALOGUE[$dept]['emits_handoff_to'] ?? []),
+                'handoff_to' => AiValueNormalizer::arrayOrEmpty(DepartmentContractRuntime::CATALOGUE[$dept]['emits_handoff_to'] ?? null),
             ];
         }
 

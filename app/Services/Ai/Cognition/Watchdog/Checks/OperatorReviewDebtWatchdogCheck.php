@@ -7,6 +7,7 @@ namespace App\Services\Ai\Cognition\Watchdog\Checks;
 use App\Services\Ai\Autonomy\AtlasWeeklyMemoryDigestService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Throwable;
 
 final readonly class OperatorReviewDebtWatchdogCheck implements AtlasWatchdogCheck
@@ -23,7 +24,7 @@ final readonly class OperatorReviewDebtWatchdogCheck implements AtlasWatchdogChe
     public function run(): AtlasWatchdogCheckResult
     {
         try {
-            $evidence = (array) (($this->digest->digest(7))['operator_review_debt'] ?? []);
+            $evidence = AiValueNormalizer::arrayOrEmpty(($this->digest->digest(7))['operator_review_debt'] ?? null);
         } catch (Throwable $e) {
             return AtlasWatchdogCheckResult::error([
                 'schema_version' => 'atlas.acos.operator_review_debt_watchdog.v1',

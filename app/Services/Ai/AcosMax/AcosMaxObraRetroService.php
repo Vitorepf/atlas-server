@@ -148,7 +148,7 @@ final class AcosMaxObraRetroService
             'lote' => $lote,
             'slice_id' => $slice['id'],
             'slice_state' => $slice['state'],
-            'evidence_refs' => (array) $slice['evidence_refs'],
+            'evidence_refs' => AiValueNormalizer::arrayOrEmpty($slice['evidence_refs'] ?? null),
             'metrics' => [
                 'tests_passed' => $status === 'succeeded',
                 'obra_retro_lote' => $lote,
@@ -184,7 +184,7 @@ final class AcosMaxObraRetroService
             'evidence_refs' => array_values(array_unique(array_merge(
                 [sprintf('scoreboard:lote-%d', $lote)],
                 array_slice(array_merge(...array_map(
-                    static fn (array $slice): array => (array) $slice['evidence_refs'],
+                    static fn (array $slice): array => AiValueNormalizer::arrayOrEmpty($slice['evidence_refs'] ?? null),
                     $slices,
                 )), 0, 12),
             ))),

@@ -36,7 +36,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
         $denominatorMin = max(1, (int) ($freeze['denominator_min'] ?? $thresholds['denominator_min_samples'] ?? 5));
         $day = gmdate('Y-m-d');
         $report = $this->ledger->report(day: $day);
-        $ops = (array) data_get($report, 'days.'.$day.'.ops', []);
+        $ops = AiValueNormalizer::arrayOrEmpty(data_get($report, 'days.'.$day.'.ops', []));
 
         $insufficient = [];
         foreach (AtlasAobgLatencyLedger::OPS as $op) {

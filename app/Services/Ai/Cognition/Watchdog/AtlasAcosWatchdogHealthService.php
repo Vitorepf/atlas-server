@@ -488,7 +488,7 @@ final class AtlasAcosWatchdogHealthService
     public function liftCycleClosureReport(): array
     {
         $report = app(AtlasLearningRecallUseLiftService::class)->report();
-        $blockers = array_values((array) data_get($report, 'measurement.blockers', []));
+        $blockers = array_values(AiValueNormalizer::arrayOrEmpty(data_get($report, 'measurement.blockers', [])));
         $status = (string) ($report['status'] ?? 'unknown');
         $series = $this->blockerSeries('ope-08.lift_cycle_closure', $blockers);
         $stalled = array_values(array_filter($series, static fn (array $row): bool => (int) ($row['days_in_block'] ?? 0) > self::LIFT_STALLED_DAYS));

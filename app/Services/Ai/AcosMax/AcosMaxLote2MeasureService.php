@@ -149,7 +149,7 @@ final class AcosMaxLote2MeasureService
                 $durations[] = (int) $assembled['loop']['time_to_recall_seconds'];
             } else {
                 $partial[] = $assembled['partial'];
-                if (in_array('fixture_chain', (array) $assembled['partial']['blocked_by'], true)) {
+                if (in_array('fixture_chain', AiValueNormalizer::arrayOrEmpty($assembled['partial']['blocked_by'] ?? null), true)) {
                     $fixtureRejected++;
                 }
             }
@@ -577,10 +577,10 @@ final class AcosMaxLote2MeasureService
                 'never_delivered' => (int) $row['never_delivered'],
                 'never_cited' => (int) $row['never_cited'],
                 'latency_seconds' => [
-                    'delivery_p50' => $this->percentileInt((array) $row['delivery_latencies'], 0.50),
-                    'delivery_p95' => $this->percentileInt((array) $row['delivery_latencies'], 0.95),
-                    'citation_p50' => $this->percentileInt((array) $row['citation_latencies'], 0.50),
-                    'citation_p95' => $this->percentileInt((array) $row['citation_latencies'], 0.95),
+                    'delivery_p50' => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row['delivery_latencies'] ?? null), 0.50),
+                    'delivery_p95' => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row['delivery_latencies'] ?? null), 0.95),
+                    'citation_p50' => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row['citation_latencies'] ?? null), 0.50),
+                    'citation_p95' => $this->percentileInt(AiValueNormalizer::arrayOrEmpty($row['citation_latencies'] ?? null), 0.95),
                 ],
             ];
         }, $byClass));

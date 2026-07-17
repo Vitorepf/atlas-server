@@ -400,7 +400,7 @@ class AtlasAcosEvolutionScoreService
         }
 
         try {
-            $readiness = (array) app(self::TIER_CHAIN_CLASS)->readiness();
+            $readiness = AiValueNormalizer::arrayOrEmpty(app(self::TIER_CHAIN_CLASS)->readiness());
 
             return [
                 'implemented' => (bool) ($readiness['implemented'] ?? false),

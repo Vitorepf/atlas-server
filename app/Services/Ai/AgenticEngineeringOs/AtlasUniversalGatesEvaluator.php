@@ -40,6 +40,7 @@ use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
 use App\Services\Ai\Cognition\AtlasAcosRollbackTriggerCheckService;
 use App\Services\Ai\Cognition\AtlasAcosLongHorizonGateService;
+use App\Services\Ai\Cognition\ImmuneSignatureStore;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
@@ -2046,6 +2047,30 @@ final class AtlasUniversalGatesEvaluator
             'fixtures' => ['live', 'mature', 'short-window'],
             'ready_status' => 'acos_long_horizon_ready',
             'blocked_status' => 'insufficient_long_horizon_evidence',
+        ];
+    }
+
+    /**
+     * Observe-only immune signature store contract (MAXI-05).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function immuneSignatureStoreContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => ImmuneSignatureStore::SCHEMA_VERSION,
+            'measure_id' => ImmuneSignatureStore::MEASURE_ID,
+            'statuses' => [
+                ImmuneSignatureStore::STATUS_ACTIVE,
+                ImmuneSignatureStore::STATUS_REVOKED,
+                ImmuneSignatureStore::STATUS_DECAYED,
+            ],
+            'origins' => [
+                ImmuneSignatureStore::ORIGIN_VERDICT,
+                ImmuneSignatureStore::ORIGIN_MEMORY_REVERT,
+            ],
         ];
     }
 

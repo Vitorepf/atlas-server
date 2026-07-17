@@ -83,7 +83,7 @@ final class ImmuneSignatureIngestor
         }
 
         /** @var list<string> $signals */
-        $signals = array_values(array_map('strval', (array) ($classification['matched_signals'] ?? ['memory_revert'])));
+        $signals = array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($classification['matched_signals'] ?? ['memory_revert'])));
 
         return $this->store->recordFromIncident(
             'decision:'.$decisionId.':memory:'.$entry->id,
