@@ -8,6 +8,7 @@ use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
 use App\Services\Ai\Aaeos\Cores\SummaryFidelityCoverageScorer;
 use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
 use App\Services\Ai\Aaeos\Cores\MemoryFeedbackDecayScorer;
+use App\Services\Ai\Aaeos\Cores\SegmentImportanceRanker;
 use App\Services\Ai\Aaeos\Cores\OutcomeCausalityRanker;
 use App\Services\Ai\AcosMax\PredictedImpactBand;
 use App\Services\Ai\AcosMax\PreReviewAdvisoryBand;
@@ -46,6 +47,7 @@ final class AtlasUniversalGatesEvaluator
         private readonly SummaryFidelityCoverageScorer $summaryFidelity = new SummaryFidelityCoverageScorer,
         private readonly MemoryInjectionBudgetAllocator $memoryInjectionBudget = new MemoryInjectionBudgetAllocator,
         private readonly MemoryFeedbackDecayScorer $memoryFeedbackDecay = new MemoryFeedbackDecayScorer,
+        private readonly SegmentImportanceRanker $segmentImportance = new SegmentImportanceRanker,
     ) {}
 
     /**
@@ -537,6 +539,25 @@ final class AtlasUniversalGatesEvaluator
     public function memoryFeedbackDecayObserve(array $signals): array
     {
         return $this->memoryFeedbackDecay->score($signals);
+    }
+
+    /**
+     * Observe-only segment importance ranking / token-budget selection.
+     * Accepts `{segments|maybe_discard:[...], token_budget|budget:int}`.
+     * Does not add a universal-gate id (catalogue stays 15).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function segmentImportanceObserve(array $input): array
+    {
+        $segments = AiValueNormalizer::arrayOrEmpty(
+            $input['segments'] ?? $input['maybe_discard'] ?? null,
+        );
+        $budget = (int) ($input['token_budget'] ?? $input['budget'] ?? 0);
+
+        /** @var list<array<string,mixed>> $segments */
+        return $this->segmentImportance->select($segments, $budget);
     }
 
     /**

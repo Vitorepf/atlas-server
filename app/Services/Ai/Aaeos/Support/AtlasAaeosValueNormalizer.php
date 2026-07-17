@@ -4,17 +4,13 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos\Support;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class AtlasAaeosValueNormalizer
 {
     public static function stringOrNull(mixed $value): ?string
     {
-        if (! is_string($value)) {
-            return null;
-        }
-
-        $trimmed = trim($value);
-
-        return $trimmed === '' ? null : $trimmed;
+        return AiValueNormalizer::trimmedStringOrNull($value);
     }
 
     public static function lowerStringOrNull(mixed $value): ?string
@@ -26,7 +22,7 @@ final class AtlasAaeosValueNormalizer
 
     public static function trimmedString(mixed $value): string
     {
-        return is_string($value) ? trim($value) : '';
+        return AiValueNormalizer::trimmedStringOrNull($value) ?? '';
     }
 
     public static function lowerString(mixed $value): string
@@ -50,8 +46,8 @@ final class AtlasAaeosValueNormalizer
 
         $out = [];
         foreach ($value as $item) {
-            if (is_string($item) && trim($item) !== '') {
-                $out[] = trim($item);
+            if (($trimmed = AiValueNormalizer::trimmedStringOrNull($item)) !== null) {
+                $out[] = $trimmed;
             }
         }
 
@@ -80,7 +76,7 @@ final class AtlasAaeosValueNormalizer
 
     public static function riskCodeR0ToR5(mixed $value, string $fallback): string
     {
-        $risk = strtoupper(is_string($value) ? trim($value) : '');
+        $risk = is_string($value) ? AiValueNormalizer::upperTrimmedString($value) : '';
 
         return in_array($risk, ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'], true) ? $risk : $fallback;
     }
@@ -95,7 +91,7 @@ final class AtlasAaeosValueNormalizer
      */
     public static function lowercaseAllowed(mixed $value, array $allowed, string $fallback): string
     {
-        $normalized = is_string($value) ? strtolower(trim($value)) : '';
+        $normalized = is_string($value) ? AiValueNormalizer::lowerTrimmedString($value) : '';
 
         return in_array($normalized, $allowed, true) ? $normalized : $fallback;
     }
@@ -105,7 +101,7 @@ final class AtlasAaeosValueNormalizer
      */
     public static function trimmedAllowed(mixed $value, array $allowed, string $fallback): string
     {
-        $normalized = is_string($value) ? trim($value) : '';
+        $normalized = AiValueNormalizer::trimmedStringOrNull($value) ?? '';
 
         return in_array($normalized, $allowed, true) ? $normalized : $fallback;
     }

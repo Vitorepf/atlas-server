@@ -508,6 +508,37 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_segment_importance(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-si-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'segments' => [
+                [
+                    'id' => 's1',
+                    'kind' => 'fact',
+                    'recency_rank' => 0,
+                    'token_estimate' => 5,
+                    'has_evidence_ref' => false,
+                    'links_decision_or_blocker' => false,
+                ],
+            ],
+            'token_budget' => 20,
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-si',
+                '--segment-importance' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"segment_importance"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

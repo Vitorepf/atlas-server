@@ -18,6 +18,7 @@ use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
 use App\Services\Ai\Aaeos\Cores\SummaryFidelityCoverageScorer;
 use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
 use App\Services\Ai\Aaeos\Cores\MemoryFeedbackDecayScorer;
+use App\Services\Ai\Aaeos\Cores\SegmentImportanceRanker;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -434,5 +435,27 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(MemoryFeedbackDecayScorer::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertGreaterThan(50, $payload['health_score']);
         $this->assertIsString($payload['lifecycle_action']);
+    }
+
+    public function test_segment_importance_observe_ranks_segments(): void
+    {
+        $payload = $this->svc->segmentImportanceObserve([
+            'segments' => [
+                [
+                    'id' => 'keep-me',
+                    'kind' => 'decision',
+                    'recency_rank' => 0,
+                    'token_estimate' => 10,
+                    'has_evidence_ref' => true,
+                    'links_decision_or_blocker' => false,
+                    'dup_group' => null,
+                ],
+            ],
+            'token_budget' => 50,
+        ]);
+
+        $this->assertSame(SegmentImportanceRanker::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame(['keep-me'], $payload['kept_ids']);
+        $this->assertSame(1, $payload['kept_count']);
     }
 }

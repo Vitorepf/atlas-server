@@ -64,6 +64,7 @@ final class AtlasAaeosCommand extends Command
         {--summary-fidelity= : JSON file with required_items + summary_text (observe-only fidelity coverage)}
         {--memory-injection-budget= : JSON file with ranked_items + budget caps (observe-only allocation)}
         {--memory-feedback-decay= : JSON file with memory feedback signals (observe-only decay score)}
+        {--segment-importance= : JSON file with segments + token_budget (observe-only ranking)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -284,6 +285,7 @@ final class AtlasAaeosCommand extends Command
             ['summary-fidelity', 'summary_fidelity_coverage', fn (array $p) => $gates->summaryFidelityCoverageObserve($p)],
             ['memory-injection-budget', 'memory_injection_budget', fn (array $p) => $gates->memoryInjectionBudgetObserve($p)],
             ['memory-feedback-decay', 'memory_feedback_decay', fn (array $p) => $gates->memoryFeedbackDecayObserve($p)],
+            ['segment-importance', 'segment_importance', fn (array $p) => $gates->segmentImportanceObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
