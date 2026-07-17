@@ -1332,4 +1332,13 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(15, $payload['count']);
         $this->assertArrayHasKey('tests_green', $payload['gates']);
     }
+
+    public function test_outcome_attribution_types_observe_reports_catalogue(): void
+    {
+        $payload = $this->svc->outcomeAttributionTypesObserve([]);
+
+        $this->assertSame('atlas.aaeos.outcome_attribution_types.v1', $payload['schema_version']);
+        $this->assertContains('task_completed', $payload['outcome_types']);
+        $this->assertSame(count($payload['outcome_types']), $payload['count']);
+    }
 }

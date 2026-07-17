@@ -6,6 +6,7 @@ namespace App\Services\Ai\SoftwareCompanyStewardship\AgentExecution;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\StewardshipStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Support\AtlasSecurity;
 
 /**
@@ -477,7 +478,7 @@ final class AgentExecutionProviderPortService
 
     private function floatOrNull(mixed $value): ?float
     {
-        return is_numeric($value) ? (float) $value : null;
+        return AiValueNormalizer::finiteFloatOrNull($value);
     }
 
     /**

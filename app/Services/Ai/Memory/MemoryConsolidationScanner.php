@@ -13,6 +13,7 @@ use App\Services\Ai\Cognition\TemporalSupersessionClassifier;
 use App\Services\Ai\Compounding\AtlasCaptureQualityGate;
 use App\Services\Ai\LongHorizon\AtlasLongHorizonCanon;
 use App\Services\Ai\LongHorizon\StrategicForgettingService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -425,8 +426,8 @@ final class MemoryConsolidationScanner
         $max = $range['max'] ?? null;
 
         return [
-            is_numeric($min) ? (float) $min : null,
-            is_numeric($max) ? (float) $max : null,
+            AiValueNormalizer::finiteFloatOrNull($min),
+            AiValueNormalizer::finiteFloatOrNull($max),
         ];
     }
 

@@ -4,6 +4,7 @@ namespace App\Services\Ai\Telemetry;
 
 use App\Models\AiOutcomeLink;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -103,11 +104,12 @@ class AiOutcomeAttributionService
 
     private function confidence(mixed $value): ?float
     {
-        if (! is_numeric($value)) {
+        $numeric = AiValueNormalizer::finiteFloatOrNull($value);
+        if ($numeric === null) {
             return null;
         }
 
-        return max(0.0, min(1.0, (float) $value));
+        return AiValueNormalizer::clampUnit($numeric);
     }
 
     private function limitedString(mixed $value, int $limit): ?string

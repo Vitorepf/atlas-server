@@ -881,7 +881,7 @@ final class AtlasAutonomousWorkExecutionService
      */
     private function numericOrNull($value): ?float
     {
-        return is_numeric($value) ? (float) $value : null;
+        return AiValueNormalizer::finiteFloatOrNull($value);
     }
 
     /**

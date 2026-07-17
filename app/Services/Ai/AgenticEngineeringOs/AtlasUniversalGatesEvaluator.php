@@ -54,6 +54,7 @@ use App\Services\Ai\Aaeos\Support\AtlasAaeosArrayFieldReader;
 use App\Services\Ai\Aaeos\AtlasAaeosVetoPropagationResolver;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentRegistryService;
 use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
+use App\Services\Ai\Telemetry\AiOutcomeAttributionService;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
@@ -1645,6 +1646,22 @@ final class AtlasUniversalGatesEvaluator
             'schema_version' => 'atlas.aaeos.universal_gates_catalogue.v1',
             'count' => count($gates),
             'gates' => $gates,
+        ];
+    }
+
+    /**
+     * Observe-only outcome-attribution type catalogue.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function outcomeAttributionTypesObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => 'atlas.aaeos.outcome_attribution_types.v1',
+            'outcome_types' => AiOutcomeAttributionService::OUTCOME_TYPES,
+            'count' => count(AiOutcomeAttributionService::OUTCOME_TYPES),
         ];
     }
 
