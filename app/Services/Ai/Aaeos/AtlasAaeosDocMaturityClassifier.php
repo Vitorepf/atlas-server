@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 /**
  * Pure DOC L0..L4 maturity classifier for the AAEOS Implementation Reality
  * contract (atlas-agentic-engineering-os-implementation-reality.md:147-155).
@@ -138,7 +139,7 @@ final class AtlasAaeosDocMaturityClassifier
             return self::STRENGTH_NONE;
         }
 
-        $value = strtolower(trim($raw));
+        $value = AiValueNormalizer::lowerTrimmedString($raw);
 
         if ($value === self::STRENGTH_STRONG) {
             return self::STRENGTH_STRONG;

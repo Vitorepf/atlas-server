@@ -8,7 +8,7 @@ use App\Services\Ai\Aaeos\Support\AtlasAaeosArrayFieldReader;
 
 final class MemoryInjectionBudgetAllocator
 {
-    private const SCHEMA_VERSION = 'atlas.aaeos.memory_injection_budget_allocation.v1';
+    public const SCHEMA_VERSION = 'atlas.aaeos.memory_injection_budget_allocation.v1';
 
     /**
      * Internal minimum-excerpt floor used when no explicit floor is provided.

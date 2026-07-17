@@ -16,6 +16,7 @@ use App\Services\Ai\AcosMax\DogfoodingFrictionLeadMiner;
 use App\Services\Ai\AcosMax\ReactiveSaturationSignal;
 use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
 use App\Services\Ai\Aaeos\Cores\SummaryFidelityCoverageScorer;
+use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -397,5 +398,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(SummaryFidelityCoverageScorer::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertGreaterThan(0.0, $payload['context_retention_score']);
         $this->assertSame(1, $payload['present_total']);
+    }
+
+    public function test_memory_injection_budget_observe_allocates_items(): void
+    {
+        $payload = $this->svc->memoryInjectionBudgetObserve([
+            'ranked_items' => [
+                ['ref' => 'a', 'priority' => 90, 'estimated_chars' => 300],
+                ['ref' => 'b', 'priority' => 10, 'estimated_chars' => 300],
+            ],
+            'total_budget_chars' => 400,
+            'per_item_cap_chars' => 300,
+            'min_excerpt_chars' => 40,
+        ]);
+
+        $this->assertSame(MemoryInjectionBudgetAllocator::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame(2, $payload['admitted_count']);
+        $this->assertSame('a', $payload['admitted'][0]['ref']);
+        $this->assertSame(100, $payload['admitted'][1]['allocated_chars']);
+        $this->assertTrue($payload['admitted'][1]['capped']);
     }
 }

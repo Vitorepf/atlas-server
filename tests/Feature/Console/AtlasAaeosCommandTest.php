@@ -458,6 +458,32 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_memory_injection_budget(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-mib-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'ranked_items' => [
+                ['ref' => 'a', 'priority' => 90, 'estimated_chars' => 100],
+            ],
+            'total_budget_chars' => 200,
+            'per_item_cap_chars' => 100,
+            'min_excerpt_chars' => 20,
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-mib',
+                '--memory-injection-budget' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"memory_injection_budget"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

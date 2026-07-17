@@ -9,6 +9,7 @@ use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use SplFileInfo;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * R1 — builds and queries the owner-doc authority graph so any AI resolves
@@ -73,12 +74,12 @@ class AtlasDocsAuthorityGraphService
      */
     public function rowsForDoc(array $frontmatter, string $path): array
     {
-        $ownerId = trim((string) ($frontmatter['id'] ?? $frontmatter['graph_id'] ?? ''));
-        $state = trim((string) ($frontmatter['implementation_state'] ?? ''));
+        $ownerId = AiValueNormalizer::trimmedString($frontmatter['id'] ?? $frontmatter['graph_id'] ?? '');
+        $state = AiValueNormalizer::trimmedString($frontmatter['implementation_state'] ?? '');
         $rows = [];
 
         $add = function (string $kind, mixed $needle, string $basis) use (&$rows, $path, $ownerId, $state): void {
-            $needle = trim((string) $needle);
+            $needle = AiValueNormalizer::trimmedString($needle);
             if ($needle === '') {
                 return;
             }
@@ -119,7 +120,7 @@ class AtlasDocsAuthorityGraphService
      */
     public function locate(string $needle, int $limit = 5): array
     {
-        $normalized = mb_strtolower(trim($needle));
+        $normalized = AiValueNormalizer::lowerTrimmedString($needle);
 
         // Read-model fail-open: when the table was never materialized (fresh
         // env, test sqlite without migrations), resolve to "not found" instead

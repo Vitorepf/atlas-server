@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 /**
  * Pure resolver for cross-department veto propagation.
  *
@@ -247,6 +248,6 @@ final class AtlasAaeosVetoPropagationResolver
 
     private function normalize(string $value): string
     {
-        return strtolower(trim($value));
+        return AiValueNormalizer::lowerTrimmedString($value);
     }
 }

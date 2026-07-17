@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 /**
  * Pure Definition-of-Done validator for AAEOS completion claims.
  *
@@ -177,7 +178,7 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
             return '';
         }
 
-        return strtolower(trim($value));
+        return AiValueNormalizer::lowerTrimmedString($value);
     }
 
     /**

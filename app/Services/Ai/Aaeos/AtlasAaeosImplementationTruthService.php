@@ -7,6 +7,7 @@ namespace App\Services\Ai\Aaeos;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Support\Facades\File;
 use SplFileInfo;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * R4 keystone — computes the REAL implementation_state of a capability from the
@@ -675,7 +676,7 @@ class AtlasAaeosImplementationTruthService
      */
     public function normalizeState(string $state): string
     {
-        $normalized = strtolower(trim($state));
+        $normalized = AiValueNormalizer::lowerTrimmedString($state);
 
         if (in_array($normalized, ['verified', 'runtime_verified', 'solid_runtime'], true)) {
             return 'verified';

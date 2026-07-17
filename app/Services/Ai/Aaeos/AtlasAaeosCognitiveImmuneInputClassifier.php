@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 /**
  * First-decision router for the AAEOS cognitive immune layer.
  *
@@ -391,7 +392,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
 
     private function normalizeText(string $text): string
     {
-        return mb_strtolower(trim($text));
+        return AiValueNormalizer::lowerTrimmedString($text);
     }
 
     /**

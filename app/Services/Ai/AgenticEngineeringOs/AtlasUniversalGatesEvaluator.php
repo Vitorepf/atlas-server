@@ -6,6 +6,7 @@ namespace App\Services\Ai\AgenticEngineeringOs;
 
 use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
 use App\Services\Ai\Aaeos\Cores\SummaryFidelityCoverageScorer;
+use App\Services\Ai\Aaeos\Cores\MemoryInjectionBudgetAllocator;
 use App\Services\Ai\Aaeos\Cores\OutcomeCausalityRanker;
 use App\Services\Ai\AcosMax\PredictedImpactBand;
 use App\Services\Ai\AcosMax\PreReviewAdvisoryBand;
@@ -42,6 +43,7 @@ final class AtlasUniversalGatesEvaluator
         private readonly AaeosRequiredGateCoverageChecker $requiredGateCoverage = new AaeosRequiredGateCoverageChecker,
         private readonly OutcomeCausalityRanker $outcomeCausality = new OutcomeCausalityRanker,
         private readonly SummaryFidelityCoverageScorer $summaryFidelity = new SummaryFidelityCoverageScorer,
+        private readonly MemoryInjectionBudgetAllocator $memoryInjectionBudget = new MemoryInjectionBudgetAllocator,
     ) {}
 
     /**
@@ -495,6 +497,31 @@ final class AtlasUniversalGatesEvaluator
 
         /** @var list<array{id?: mixed, kind?: mixed, digest?: mixed}> $required */
         return $this->summaryFidelity->score($required, $summary);
+    }
+
+    /**
+     * Observe-only memory injection budget allocation.
+     * Accepts `{ranked_items|items:[...], total_budget_chars, per_item_cap_chars, min_excerpt_chars?}`.
+     * Does not add a universal-gate id (catalogue stays 15).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function memoryInjectionBudgetObserve(array $input): array
+    {
+        $items = AiValueNormalizer::arrayOrEmpty(
+            $input['ranked_items'] ?? $input['items'] ?? null,
+        );
+
+        /** @var list<array{ref:string,priority:int|float,estimated_chars:int}> $items */
+        return $this->memoryInjectionBudget->allocate(
+            $items,
+            (int) ($input['total_budget_chars'] ?? $input['total_budget'] ?? 0),
+            (int) ($input['per_item_cap_chars'] ?? $input['per_item_cap'] ?? 0),
+            array_key_exists('min_excerpt_chars', $input)
+                ? (int) $input['min_excerpt_chars']
+                : (array_key_exists('min_excerpt', $input) ? (int) $input['min_excerpt'] : null),
+        );
     }
 
     /**

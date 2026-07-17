@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Aaeos;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 /**
  * Runtime for the AAEOS Cross-Department Choreography — the state machine the
  * canonical doc describes (handoffs, vetos, repair loops, escalation) but lists
@@ -116,6 +117,6 @@ class AtlasCrossDepartmentChoreographyService
 
     private function departmentId(string $value): string
     {
-        return strtolower(trim($value));
+        return AiValueNormalizer::lowerTrimmedString($value);
     }
 }

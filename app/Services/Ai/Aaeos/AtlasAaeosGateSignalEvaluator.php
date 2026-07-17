@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos;
 
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * Per-phase gate-signal evaluator for the AAEOS runbook phases.
@@ -257,16 +258,12 @@ final class AtlasAaeosGateSignalEvaluator
 
     private function clampUnit(float $value): float
     {
-        if ($value < 0.0) {
-            return 0.0;
-        }
-
-        return $value > 1.0 ? 1.0 : $value;
+        return AiValueNormalizer::clampUnit($value);
     }
 
     private function isCompoundScope(string $scope): bool
     {
-        $normalized = ' '.strtolower(trim($scope)).' ';
+        $normalized = ' '.AiValueNormalizer::lowerTrimmedString($scope).' ';
         foreach (self::COMPOUND_CONNECTORS as $connector) {
             if (str_contains($normalized, $connector)) {
                 return true;
