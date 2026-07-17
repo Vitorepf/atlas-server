@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Cognition;
 
 use App\Services\Ai\Governance\AtlasConstitutionalKernelService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -48,7 +49,7 @@ class AtlasCognitiveFunctionAtlasService
     public function selfModel(): array
     {
         $scorecard = $this->scoreCard->build();
-        $subs = (array) ($scorecard['subsystems'] ?? []);
+        $subs = AiValueNormalizer::arrayOrEmpty($scorecard['subsystems'] ?? null);
 
         $groups = $this->extractGroups($subs);
         $shape = $this->buildShape($subs, $groups);
@@ -72,7 +73,7 @@ class AtlasCognitiveFunctionAtlasService
      */
     public function groupTaxonomy(): array
     {
-        return $this->extractGroups((array) ($this->scoreCard->build()['subsystems'] ?? []));
+        return $this->extractGroups(AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()['subsystems'] ?? null));
     }
 
     /**
@@ -83,7 +84,7 @@ class AtlasCognitiveFunctionAtlasService
         if ($group === '') {
             throw new InvalidArgumentException('group must be non-empty.');
         }
-        $subs = (array) ($this->scoreCard->build()['subsystems'] ?? []);
+        $subs = AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()['subsystems'] ?? null);
         $out = [];
         foreach ($subs as $s) {
             if (($s['group'] ?? null) === $group) {
@@ -99,7 +100,7 @@ class AtlasCognitiveFunctionAtlasService
      */
     public function gapsByGroup(): array
     {
-        $subs = (array) ($this->scoreCard->build()['subsystems'] ?? []);
+        $subs = AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()['subsystems'] ?? null);
         $tally = [];
         foreach ($subs as $s) {
             $g = (string) ($s['group'] ?? 'unknown');
@@ -125,7 +126,7 @@ class AtlasCognitiveFunctionAtlasService
         if ($acronym === '') {
             return null;
         }
-        foreach ((array) ($this->scoreCard->build()['subsystems'] ?? []) as $s) {
+        foreach (AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()['subsystems'] ?? null) as $s) {
             if (($s['acronym'] ?? null) === $acronym) {
                 return (string) ($s['group'] ?? '');
             }
@@ -139,7 +140,7 @@ class AtlasCognitiveFunctionAtlasService
      */
     public function cognitiveShape(): array
     {
-        $subs = (array) ($this->scoreCard->build()['subsystems'] ?? []);
+        $subs = AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()['subsystems'] ?? null);
         $groups = $this->extractGroups($subs);
 
         return $this->buildShape($subs, $groups);
@@ -183,7 +184,7 @@ class AtlasCognitiveFunctionAtlasService
             'compounding' => ['compounding'],
         ];
 
-        $subs = (array) ($this->scoreCard->build()['subsystems'] ?? []);
+        $subs = AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()['subsystems'] ?? null);
         $byGroup = [];
         foreach ($subs as $s) {
             $g = (string) ($s['group'] ?? '');

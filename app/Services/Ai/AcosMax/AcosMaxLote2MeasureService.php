@@ -206,7 +206,7 @@ final class AcosMaxLote2MeasureService
     {
         $counts = [];
         foreach ($partial as $row) {
-            foreach ((array) ($row['blocked_by'] ?? []) as $reason) {
+            foreach (AiValueNormalizer::arrayOrEmpty($row['blocked_by'] ?? null) as $reason) {
                 $key = AiValueNormalizer::trimmedString($reason);
                 if ($key === '') {
                     continue;

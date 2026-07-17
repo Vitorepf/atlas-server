@@ -32,7 +32,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
     public function run(): AtlasWatchdogCheckResult
     {
         $freeze = $this->freezePayloadOverride ?? $this->latestFreezePayload() ?? AtlasAcosFreezeCommand::defaultFreezePayload();
-        $thresholds = (array) ($freeze['thresholds'] ?? []);
+        $thresholds = AiValueNormalizer::arrayOrEmpty($freeze['thresholds'] ?? null);
         $denominatorMin = max(1, (int) ($freeze['denominator_min'] ?? $thresholds['denominator_min_samples'] ?? 5));
         $day = gmdate('Y-m-d');
         $report = $this->ledger->report(day: $day);

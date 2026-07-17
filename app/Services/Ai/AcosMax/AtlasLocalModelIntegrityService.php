@@ -25,7 +25,7 @@ final class AtlasLocalModelIntegrityService
     /** @param array<string,mixed>|null $manifest */
     public function __construct(?array $manifest = null)
     {
-        $this->manifest = $manifest ?? (array) config('atlas_model_manifest', []);
+        $this->manifest = $manifest ?? AiValueNormalizer::arrayOrEmpty(config('atlas_model_manifest', []));
     }
 
     /**
@@ -41,7 +41,7 @@ final class AtlasLocalModelIntegrityService
      */
     public function verifyAll(): array
     {
-        $artifacts = (array) ($this->manifest['artifacts'] ?? []);
+        $artifacts = AiValueNormalizer::arrayOrEmpty($this->manifest['artifacts'] ?? null);
         $rows = array_values(array_map(function ($entry): array {
             return $this->verifyOne(AiValueNormalizer::arrayOrEmpty($entry));
         }, $artifacts));

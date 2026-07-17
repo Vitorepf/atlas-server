@@ -1528,4 +1528,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertFalse($payload['auto_revert']);
         $this->assertSame('rollback_trigger_fired', $payload['alert_code']);
     }
+
+    public function test_long_horizon_gate_contract_observe_reports_fixtures(): void
+    {
+        $payload = $this->svc->longHorizonGateContractObserve([]);
+
+        $this->assertSame('atlas.cognition.acos_long_horizon_gate.v1', $payload['schema_version']);
+        $this->assertContains('live', $payload['fixtures']);
+        $this->assertContains('mature', $payload['fixtures']);
+        $this->assertSame('acos_long_horizon_ready', $payload['ready_status']);
+    }
 }

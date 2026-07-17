@@ -11,6 +11,7 @@ use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
 use InvalidArgumentException;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * Atlas Cognitive Memory Fabric — Schema Evolution Proposer (Patamar 3 closure).
@@ -98,8 +99,8 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
             throw new InvalidArgumentException("Unknown trigger '{$trigger}'.");
         }
         $rationale = (string) ($input['rationale'] ?? 'Operator-supplied schema evolution.');
-        $addedFields = array_values((array) ($input['added_fields'] ?? []));
-        $deprecatedFields = array_values((array) ($input['deprecated_fields'] ?? []));
+        $addedFields = array_values(AiValueNormalizer::arrayOrEmpty($input['added_fields'] ?? null));
+        $deprecatedFields = array_values(AiValueNormalizer::arrayOrEmpty($input['deprecated_fields'] ?? null));
         $actor = (string) ($input['actor'] ?? 'ACMF');
 
         $nextSchema = $this->bumpVersion($currentSchema);

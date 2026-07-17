@@ -282,7 +282,7 @@ final class AtlasImmuneHybridInputClassifier
         if (! is_array($decoded)) {
             return $this->anchors = [];
         }
-        $classes = (array) ($decoded['classes'] ?? []);
+        $classes = AiValueNormalizer::arrayOrEmpty($decoded['classes'] ?? null);
         $out = [];
         foreach ($classes as $class => $exemplars) {
             if (! is_string($class) || ! is_array($exemplars)) {

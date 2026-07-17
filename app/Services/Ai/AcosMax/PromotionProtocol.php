@@ -105,7 +105,7 @@ final class PromotionProtocol
 
         $required = $this->requiredFields($entry);
         if ($required['ok'] !== true) {
-            $missing = (array) ($required['missing'] ?? []);
+            $missing = AiValueNormalizer::arrayOrEmpty($required['missing'] ?? null);
 
             return $this->blocked(
                 in_array('rollback_trigger', $missing, true)

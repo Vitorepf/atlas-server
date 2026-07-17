@@ -35,7 +35,7 @@ final class ComposedObraArcLifecycle
         }
 
         $tasks = [];
-        foreach ((array) ($arc['tasks'] ?? []) as $task) {
+        foreach (AiValueNormalizer::arrayOrEmpty($arc['tasks'] ?? null) as $task) {
             if (! is_array($task)) {
                 continue;
             }
@@ -129,7 +129,7 @@ final class ComposedObraArcLifecycle
             return null;
         }
 
-        $tasks = array_values((array) ($state['tasks'] ?? []));
+        $tasks = array_values(AiValueNormalizer::arrayOrEmpty($state['tasks'] ?? null));
         usort($tasks, static fn (array $a, array $b): int => ((int) ($a['order'] ?? 0)) <=> ((int) ($b['order'] ?? 0)));
 
         foreach ($tasks as $task) {
@@ -183,7 +183,7 @@ final class ComposedObraArcLifecycle
             'receipt_hash' => hash('sha256', json_encode([$arcId, $reason, $state['consecutive_failures'] ?? 0], JSON_UNESCAPED_SLASHES)),
         ];
 
-        foreach ((array) ($state['tasks'] ?? []) as $taskId => $task) {
+        foreach (AiValueNormalizer::arrayOrEmpty($state['tasks'] ?? null) as $taskId => $task) {
             if (! is_array($task)) {
                 continue;
             }

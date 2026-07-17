@@ -156,7 +156,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
         $byKind = ['code' => 0, 'memory' => 0, 'graph' => 0, 'non_canonical' => 0];
 
         foreach ($entries as $entry) {
-            foreach ((array) ($entry['delivered_refs'] ?? []) as $ref) {
+            foreach (AiValueNormalizer::arrayOrEmpty($entry['delivered_refs'] ?? null) as $ref) {
                 if (! is_string($ref)) {
                     continue;
                 }

@@ -47,7 +47,7 @@ final class GoldenCounterfactualReplayService
         }
 
         $payload = $this->readJson($runsPath);
-        $runs = array_values((array) ($payload['runs'] ?? []));
+        $runs = array_values(AiValueNormalizer::arrayOrEmpty($payload['runs'] ?? null));
         $without = $this->firstRun($runs, 'without', $decisionId);
         $with = $this->firstRun($runs, 'with', $decisionId);
 

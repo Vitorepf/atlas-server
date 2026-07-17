@@ -414,7 +414,7 @@ final class DepartmentContractRuntime
         if (! isset(self::CATALOGUE[$to])) {
             return ['from' => $from, 'to' => $to, 'accepted' => false, 'reason' => "unknown department '{$to}'"];
         }
-        $allowedDownstream = (array) (self::CATALOGUE[$from]['emits_handoff_to'] ?? []);
+        $allowedDownstream = AiValueNormalizer::arrayOrEmpty(self::CATALOGUE[$from]['emits_handoff_to'] ?? null);
         if (! in_array($to, $allowedDownstream, true)) {
             return [
                 'from' => $from,
@@ -431,7 +431,7 @@ final class DepartmentContractRuntime
     /** @return list<string> */
     public function gatesFor(string $department): array
     {
-        return (array) (self::CATALOGUE[$department]['gates'] ?? []);
+        return AiValueNormalizer::arrayOrEmpty(self::CATALOGUE[$department]['gates'] ?? null);
     }
 
     public function evidenceSchemaFor(string $department): ?string

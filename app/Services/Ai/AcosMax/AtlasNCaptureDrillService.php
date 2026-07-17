@@ -114,7 +114,7 @@ final class AtlasNCaptureDrillService
             'capability_spec' => [
                 'function' => (string) data_get($drill, 'capability_spec.function', 'engine'),
                 'verified' => (bool) data_get($drill, 'capability_spec.verified'),
-                'violations' => array_values((array) data_get($drill, 'capability_spec.violations', [])),
+                'violations' => array_values(AiValueNormalizer::arrayOrEmpty(data_get($drill, 'capability_spec.violations', []))),
             ],
             'yardstick' => [
                 'golden_v2_passed' => (bool) data_get($drill, 'yardstick.golden_v2_passed'),

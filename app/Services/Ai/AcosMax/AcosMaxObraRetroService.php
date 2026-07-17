@@ -99,7 +99,7 @@ final class AcosMaxObraRetroService
             'workspace' => base_path(),
             'privacy_class' => 'normal',
         ], $candidate, [
-            'payload' => array_merge((array) ($candidate['payload'] ?? []), [
+            'payload' => array_merge(AiValueNormalizer::arrayOrEmpty($candidate['payload'] ?? null), [
                 'source' => 'acos_max_obra_retro',
                 'series_tag' => self::SERIES_TAG,
             ]),
@@ -112,8 +112,8 @@ final class AcosMaxObraRetroService
             'reason' => (string) ($result['reason'] ?? ''),
             'proposal_id' => $result['proposal_id'] ?? null,
             'kind' => (string) ($result['kind'] ?? ($payload['kind'] ?? '')),
-            'quality' => (array) ($result['quality'] ?? []),
-            'memory_admission' => (array) ($result['memory_admission'] ?? []),
+            'quality' => AiValueNormalizer::arrayOrEmpty($result['quality'] ?? null),
+            'memory_admission' => AiValueNormalizer::arrayOrEmpty($result['memory_admission'] ?? null),
             'auto_promoted' => (bool) ($result['auto_promoted'] ?? false),
             'requires_human_review' => (bool) ($result['requires_human_review'] ?? true),
         ];

@@ -67,7 +67,7 @@ final class CognitiveImmuneCheckContract
     public static function fromArray(array $input): self
     {
         $gateStatuses = array_fill_keys(self::GATE_IDS, self::DEFAULT_GATE_STATUS);
-        foreach ((array) ($input['gate_statuses'] ?? []) as $gateId => $status) {
+        foreach (AiValueNormalizer::arrayOrEmpty($input['gate_statuses'] ?? null) as $gateId => $status) {
             if (! is_string($gateId) || ! in_array($gateId, self::GATE_IDS, true)) {
                 continue;
             }
@@ -79,12 +79,12 @@ final class CognitiveImmuneCheckContract
         }
 
         $targetPaths = array_values(array_filter(
-            array_map(static fn ($path): string => AiValueNormalizer::trimmedString($path), (array) ($input['target_paths'] ?? [])),
+            array_map(static fn ($path): string => AiValueNormalizer::trimmedString($path), AiValueNormalizer::arrayOrEmpty($input['target_paths'] ?? null)),
             static fn (string $path): bool => $path !== '',
         ));
 
         $blockers = array_values(array_filter(
-            array_map(static fn ($blocker): string => AiValueNormalizer::trimmedString($blocker), (array) ($input['blockers'] ?? [])),
+            array_map(static fn ($blocker): string => AiValueNormalizer::trimmedString($blocker), AiValueNormalizer::arrayOrEmpty($input['blockers'] ?? null)),
             static fn (string $blocker): bool => $blocker !== '',
         ));
 

@@ -46,7 +46,7 @@ final class ImmuneSignatureIngestor
         }
 
         /** @var list<string> $signals */
-        $signals = array_values(array_map('strval', (array) ($classification['matched_signals'] ?? [])));
+        $signals = array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($classification['matched_signals'] ?? null)));
 
         return $this->store->recordFromIncident(
             (string) ($verdictRow['id'] ?? $contentHash),
@@ -106,7 +106,7 @@ final class ImmuneSignatureIngestor
     {
         $label = is_scalar($verdictRow['sample_label'] ?? null) ? (string) $verdictRow['sample_label'] : '';
         $status = AiValueNormalizer::lowerTrimmedString($verdictRow['promotion_status'] ?? '');
-        $blocking = array_values(array_filter((array) ($verdictRow['blocking_gate_ids'] ?? []), 'is_string'));
+        $blocking = array_values(array_filter(AiValueNormalizer::arrayOrEmpty($verdictRow['blocking_gate_ids'] ?? null), 'is_string'));
 
         return $label === ImmuneVerdictLedger::LABEL_TRUE_BLOCK
             && $status === 'blocked'

@@ -195,11 +195,11 @@ final class AtlasMissionControlCockpitService
         }
 
         $blocked = array_merge(
-            (array) ($gateReport['blocked'] ?? []),
-            (array) ($gateReport['missing'] ?? []),
+            AiValueNormalizer::arrayOrEmpty($gateReport['blocked'] ?? null),
+            AiValueNormalizer::arrayOrEmpty($gateReport['missing'] ?? null),
         );
         $hasEvidenceRefs = ! in_array('evidence_traceable', $blocked, true);
-        $testsPassed = in_array('tests_green', (array) ($gateReport['passed'] ?? []), true)
+        $testsPassed = in_array('tests_green', AiValueNormalizer::arrayOrEmpty($gateReport['passed'] ?? null), true)
             ? true
             : (in_array('tests_green', $blocked, true) ? false : null);
         $missingRequiredSources = in_array('decision_receipt_v2_signed', $blocked, true)

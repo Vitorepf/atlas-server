@@ -25,8 +25,8 @@ final class AtlasModelCapabilitySpecService
 
     public function __construct(?array $spec = null)
     {
-        $spec = $spec ?? (array) config('atlas_model_capability_spec', []);
-        $functions = (array) ($spec['functions'] ?? []);
+        $spec = $spec ?? AiValueNormalizer::arrayOrEmpty(config('atlas_model_capability_spec', []));
+        $functions = AiValueNormalizer::arrayOrEmpty($spec['functions'] ?? null);
         $this->functions = array_change_key_case($functions, CASE_LOWER);
     }
 
@@ -151,7 +151,7 @@ final class AtlasModelCapabilitySpecService
         if (! array_key_exists($specKey, $spec)) {
             return [];
         }
-        $allowed = (array) $spec[$specKey];
+        $allowed = AiValueNormalizer::arrayOrEmpty($spec[$specKey] ?? null);
         if ($allowed === []) {
             return [];
         }
@@ -241,7 +241,7 @@ final class AtlasModelCapabilitySpecService
         }
         $allowed = array_values(array_filter(array_map(
             static fn (mixed $value): string => AiValueNormalizer::lowerTrimmedString($value),
-            (array) $spec['license_allowed'],
+            AiValueNormalizer::arrayOrEmpty($spec['license_allowed'] ?? null),
         )));
         if ($allowed === []) {
             return [];

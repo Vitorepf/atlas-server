@@ -52,7 +52,7 @@ final class ExploratoryBetsPortfolio
         $objectiveClass = AiValueNormalizer::trimmedString($context['objective_class'] ?? '');
         /** @var array<string,string> $suspendedPaths */
         $suspendedPaths = array_filter(
-            (array) ($context['suspended_paths'] ?? []),
+            AiValueNormalizer::arrayOrEmpty($context['suspended_paths'] ?? null),
             static fn ($state): bool => AiValueNormalizer::trimmedStringOrNull($state) !== null,
         );
 

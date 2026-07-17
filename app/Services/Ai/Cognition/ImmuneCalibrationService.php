@@ -144,13 +144,13 @@ final class ImmuneCalibrationService
         $groups = [];
         foreach ($samples as $sample) {
             $writer = AiValueNormalizer::trimmedString($sample['writer'] ?? 'unknown') ?: 'unknown';
-            $gateStatuses = (array) ($sample['gate_statuses'] ?? []);
+            $gateStatuses = AiValueNormalizer::arrayOrEmpty($sample['gate_statuses'] ?? null);
             foreach ($this->sampleGateIds($sample) as $gateId) {
                 $key = $writer.'::'.$gateId;
                 $groups[$key] ??= $this->emptyGroup($writer, $gateId);
                 $status = (string) ($gateStatuses[$gateId] ?? 'pending');
                 $label = (string) ($sample['sample_label'] ?? '');
-                $expectedGateIds = array_fill_keys((array) ($sample['expected_block_gate_ids'] ?? []), true);
+                $expectedGateIds = array_fill_keys(AiValueNormalizer::arrayOrEmpty($sample['expected_block_gate_ids'] ?? null), true);
 
                 $groups[$key]['n']++;
                 if ($status === 'block') {
@@ -180,8 +180,8 @@ final class ImmuneCalibrationService
     {
         $gateIds = [];
         foreach ([
-            ...(array) ($sample['expected_block_gate_ids'] ?? []),
-            ...(array) ($sample['blocking_gate_ids'] ?? []),
+            ...AiValueNormalizer::arrayOrEmpty($sample['expected_block_gate_ids'] ?? null),
+            ...AiValueNormalizer::arrayOrEmpty($sample['blocking_gate_ids'] ?? null),
         ] as $gateId) {
             $gateId = AiValueNormalizer::upperTrimmedString($gateId);
             if (in_array($gateId, self::GATE_IDS, true)) {

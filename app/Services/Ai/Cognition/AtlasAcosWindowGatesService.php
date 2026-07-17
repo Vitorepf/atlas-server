@@ -73,7 +73,7 @@ final class AtlasAcosWindowGatesService
             ]];
         }
 
-        $dims = (array) ($card['components'] ?? []);
+        $dims = AiValueNormalizer::arrayOrEmpty($card['components'] ?? null);
 
         return [
             $this->dimension('D3_relation_density', $dims, 'relation_density', '>=70', 70, true),

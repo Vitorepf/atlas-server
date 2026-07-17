@@ -126,7 +126,7 @@ final class AcosMaxWindowOrchestratorService
             'slice' => (string) ($entry['slice'] ?? ''),
             'minimum_window' => (string) ($entry['shadow_minimum_window'] ?? ''),
             'duration_days' => $durationDays,
-            'depends_on' => array_values(array_map('strval', (array) ($entry['depends_on'] ?? []))),
+            'depends_on' => array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($entry['depends_on'] ?? null))),
             'series' => $series['series'] ?? null,
         ];
 

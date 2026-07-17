@@ -194,9 +194,9 @@ final class AtlasAcosWatchdogHealthService
     public function aurgCoverageReport(): array
     {
         $status = app(AtlasRealityGraphStatusService::class)->status();
-        $coverage = (array) ($status['coverage'] ?? []);
-        $store = (array) ($status['store'] ?? []);
-        $edgesBySource = (array) ($store['edges_by_source'] ?? []);
+        $coverage = AiValueNormalizer::arrayOrEmpty($status['coverage'] ?? null);
+        $store = AiValueNormalizer::arrayOrEmpty($status['store'] ?? null);
+        $edgesBySource = AiValueNormalizer::arrayOrEmpty($store['edges_by_source'] ?? null);
         $ratio = AiValueNormalizer::finiteFloatOrNull($coverage['memory_cross_layer_coverage_ratio'] ?? null) ?? 0.0;
         $blocking = [];
         if (! (bool) ($coverage['available'] ?? false)) {
@@ -398,7 +398,7 @@ final class AtlasAcosWatchdogHealthService
             if ($retention !== null) {
                 $retentionScores[] = $retention;
             }
-            foreach ((array) ($receipt->unresolved_loss ?? []) as $loss) {
+            foreach (AiValueNormalizer::arrayOrEmpty($receipt->unresolved_loss ?? null) as $loss) {
                 if (! is_array($loss)) {
                     continue;
                 }
@@ -439,7 +439,7 @@ final class AtlasAcosWatchdogHealthService
             'cross_week_recall_lift_gate' => [
                 'status' => $crossWeek['status'] ?? 'unknown',
                 'certified' => (bool) ($crossWeek['certified'] ?? false),
-                'blockers' => (array) ($crossWeek['blockers'] ?? []),
+                'blockers' => AiValueNormalizer::arrayOrEmpty($crossWeek['blockers'] ?? null),
             ],
             'rollback_trigger' => [
                 'id' => 'cpt_09_compaction_enforce',
@@ -461,7 +461,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $scorecard = app(AtlasCognitionScoreCardService::class)->build();
         $pipeline = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'score.dimensions.pipeline.score_out_of_10', 0.0)) ?? 0.0;
-        $partials = array_values(array_filter((array) ($scorecard['subsystems'] ?? []), static fn (array $row): bool => ($row['pipeline_status'] ?? null) === AtlasCognitionScoreCardService::STATUS_PARTIAL));
+        $partials = array_values(array_filter(AiValueNormalizer::arrayOrEmpty($scorecard['subsystems'] ?? null), static fn (array $row): bool => ($row['pipeline_status'] ?? null) === AtlasCognitionScoreCardService::STATUS_PARTIAL));
         $blocking = [];
         if ($pipeline < 10.0) {
             $blocking[] = 'pipeline_score_below_perfect';
@@ -524,7 +524,7 @@ final class AtlasAcosWatchdogHealthService
         $scorecard = app(AtlasCognitionScoreCardService::class)->build();
         $resolver = app(AtlasCognitionEvidenceResolver::class);
         $partials = [];
-        foreach ((array) ($scorecard['subsystems'] ?? []) as $row) {
+        foreach (AiValueNormalizer::arrayOrEmpty($scorecard['subsystems'] ?? null) as $row) {
             if (($row['pipeline_status'] ?? null) !== AtlasCognitionScoreCardService::STATUS_PARTIAL) {
                 continue;
             }
@@ -865,7 +865,7 @@ final class AtlasAcosWatchdogHealthService
             if (($row['promoted'] ?? false) === true
                 && ($row['evidence_provenance'] ?? null) === 'harness_captured'
                 && (int) ($row['tests_run'] ?? 0) > 0
-                && count((array) ($row['commands'] ?? [])) > 0) {
+                && count(AiValueNormalizer::arrayOrEmpty($row['commands'] ?? null)) > 0) {
                 $count++;
             }
         }

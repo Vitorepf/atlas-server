@@ -421,7 +421,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     private static function blockedWhenAsBlockers(array $placementResult): array
     {
-        $blockedWhen = (array) ($placementResult['blocked_when'] ?? []);
+        $blockedWhen = AiValueNormalizer::arrayOrEmpty($placementResult['blocked_when'] ?? null);
 
         return array_values(array_map(static fn (string $reason): array => [
             'id' => $reason,

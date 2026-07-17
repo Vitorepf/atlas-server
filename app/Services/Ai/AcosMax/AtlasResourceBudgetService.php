@@ -30,7 +30,7 @@ final class AtlasResourceBudgetService
      */
     public function __construct(?array $budget = null, ?callable $probe = null)
     {
-        $this->budget = $budget ?? (array) config('atlas_resource_budget', []);
+        $this->budget = $budget ?? AiValueNormalizer::arrayOrEmpty(config('atlas_resource_budget', []));
         $this->probe = $probe;
     }
 
@@ -52,7 +52,7 @@ final class AtlasResourceBudgetService
      */
     public function report(): array
     {
-        $components = (array) ($this->budget['components'] ?? []);
+        $components = AiValueNormalizer::arrayOrEmpty($this->budget['components'] ?? null);
         $rows = [];
         $totalRamCap = 0;
         $measuredSum = 0;

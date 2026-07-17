@@ -256,7 +256,7 @@ class AtlasCognitionEvidenceResolver
                 $targets[$ownerDoc][] = $capabilityId;
             }
 
-            foreach ((array) ($doc['evidence_refs'] ?? []) as $ref) {
+            foreach (AiValueNormalizer::arrayOrEmpty($doc['evidence_refs'] ?? null) as $ref) {
                 if (AiValueNormalizer::lowerTrimmedString($ref['kind'] ?? '') !== 'symbol') {
                     continue;
                 }

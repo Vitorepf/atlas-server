@@ -3,13 +3,13 @@
 namespace App\Services\Ai\Aaeos;
 
 use App\Models\AtlasDocsAuthorityGraph;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Engineering\EngineeringStringListNormalizer;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 use SplFileInfo;
-use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * R1 — builds and queries the owner-doc authority graph so any AI resolves
@@ -101,10 +101,10 @@ class AtlasDocsAuthorityGraphService
         if ($ownerId !== '') {
             $add('doc_id', $ownerId, 'doc_id');
         }
-        foreach ((array) ($frontmatter['governs'] ?? []) as $governs) {
+        foreach (AiValueNormalizer::arrayOrEmpty($frontmatter['governs'] ?? null) as $governs) {
             $add('governs', $governs, 'governs_frontmatter');
         }
-        foreach ((array) ($frontmatter['capabilities'] ?? []) as $capability) {
+        foreach (AiValueNormalizer::arrayOrEmpty($frontmatter['capabilities'] ?? null) as $capability) {
             $add('capability', $capability, 'capability_frontmatter');
         }
 

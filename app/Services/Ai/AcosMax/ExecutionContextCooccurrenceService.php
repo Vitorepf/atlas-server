@@ -50,7 +50,7 @@ final class ExecutionContextCooccurrenceService
             ]);
         }
 
-        $runs = array_values((array) ($this->readJson($runsPath)['runs'] ?? []));
+        $runs = array_values(AiValueNormalizer::arrayOrEmpty($this->readJson($runsPath)['runs'] ?? null));
         $measured = [];
         foreach ($runs as $run) {
             if (! is_array($run) || ($run['measured'] ?? false) !== true) {
@@ -78,8 +78,8 @@ final class ExecutionContextCooccurrenceService
 
         $cooccurrences = [];
         foreach ($measured as $run) {
-            $delivered = $this->stringList((array) ($run['delivered_refs'] ?? []));
-            $used = $this->stringList((array) ($run['used_refs'] ?? []));
+            $delivered = $this->stringList(AiValueNormalizer::arrayOrEmpty($run['delivered_refs'] ?? null));
+            $used = $this->stringList(AiValueNormalizer::arrayOrEmpty($run['used_refs'] ?? null));
             $intersection = array_values(array_intersect($delivered, $used));
             if ($intersection === []) {
                 continue;

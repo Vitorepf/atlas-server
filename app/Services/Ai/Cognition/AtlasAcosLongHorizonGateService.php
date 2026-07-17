@@ -26,7 +26,7 @@ final class AtlasAcosLongHorizonGateService
      */
     public function evaluate(array $options = []): array
     {
-        $cfg = (array) config('atlas.cognition.acos_long_horizon_gate', []);
+        $cfg = AiValueNormalizer::arrayOrEmpty(config('atlas.cognition.acos_long_horizon_gate', []));
         $enabled = (bool) ($options['enabled'] ?? $cfg['enabled'] ?? true);
         $fixture = AiValueNormalizer::trimmedString($options['fixture'] ?? 'live') ?: 'live';
 
@@ -827,7 +827,7 @@ final class AtlasAcosLongHorizonGateService
             'generated_at' => Carbon::now()->toIso8601String(),
             'assessment' => $assessment,
             'blockers' => $blockers,
-            'warnings' => array_values((array) ($assessment['warnings'] ?? [])),
+            'warnings' => array_values(AiValueNormalizer::arrayOrEmpty($assessment['warnings'] ?? null)),
             'config' => $config,
             'evidence' => [
                 'scorecard_schema' => (string) data_get($scorecard, 'schema_version', ''),
@@ -861,7 +861,7 @@ final class AtlasAcosLongHorizonGateService
             'fixture' => $fixture,
             'assessment' => $assessment,
             'blockers' => $blockers,
-            'warnings' => array_values((array) ($assessment['warnings'] ?? [])),
+            'warnings' => array_values(AiValueNormalizer::arrayOrEmpty($assessment['warnings'] ?? null)),
         ];
         if ($assessmentV2 !== null) {
             $receiptPayload['assessment_v2'] = $assessmentV2;

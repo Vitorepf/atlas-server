@@ -270,7 +270,7 @@ final class ComposedObraArcComposer
                 continue;
             }
             $block = is_array($lead['obra_cluster_candidate'] ?? null) ? $lead['obra_cluster_candidate'] : $lead;
-            foreach ((array) ($block['allowed_files'] ?? $block['member_paths'] ?? []) as $path) {
+            foreach (AiValueNormalizer::arrayOrEmpty($block['allowed_files'] ?? $block['member_paths'] ?? null) as $path) {
                 $normalized = ltrim(str_replace('\\', '/', AiValueNormalizer::trimmedString($path)), '/');
                 if ($normalized !== '') {
                     $paths[] = $normalized;

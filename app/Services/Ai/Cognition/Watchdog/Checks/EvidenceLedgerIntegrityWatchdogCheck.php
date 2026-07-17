@@ -7,6 +7,7 @@ namespace App\Services\Ai\Cognition\Watchdog\Checks;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AtomicBacklog\EvidenceLedgerHashChainIntegrityVerifier;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -75,7 +76,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
             $chainKey = (string) ($chain['chain_key'] ?? '');
             $status = (string) ($chain['status'] ?? 'ok');
             $length = (int) ($chain['chain_length'] ?? 0);
-            $tampered = array_values((array) ($chain['tampered_event_ids'] ?? []));
+            $tampered = array_values(AiValueNormalizer::arrayOrEmpty($chain['tampered_event_ids'] ?? null));
             $gap = (int) ($chain['gap_count'] ?? 0);
             $legacy = (int) ($chain['legacy_unchained_count'] ?? 0);
             $tamperedTotal += count($tampered);

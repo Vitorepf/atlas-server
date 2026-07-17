@@ -60,9 +60,9 @@ final class ImmuneVerdictLedger
      */
     public function sampleFromVerdict(string $candidateHash, string $writer, array $verdict, array $context = []): array
     {
-        $gateStatuses = $this->normalizeGateStatuses((array) ($verdict['gate_statuses'] ?? []));
-        $expectedBlockGateIds = $this->normalizeGateIds((array) ($context['expected_block_gate_ids'] ?? []));
-        $blockingGateIds = $this->normalizeGateIds((array) ($verdict['blocking_gate_ids'] ?? []));
+        $gateStatuses = $this->normalizeGateStatuses(AiValueNormalizer::arrayOrEmpty($verdict['gate_statuses'] ?? null));
+        $expectedBlockGateIds = $this->normalizeGateIds(AiValueNormalizer::arrayOrEmpty($context['expected_block_gate_ids'] ?? null));
+        $blockingGateIds = $this->normalizeGateIds(AiValueNormalizer::arrayOrEmpty($verdict['blocking_gate_ids'] ?? null));
         $sampleLabel = $this->sampleLabel(
             is_scalar($context['sample_label'] ?? null) ? (string) $context['sample_label'] : '',
             $gateStatuses,
@@ -81,7 +81,7 @@ final class ImmuneVerdictLedger
                 ? (string) $verdict['promotion_status']
                 : 'unclassified',
             'blocking_gate_ids' => $blockingGateIds,
-            'pending_gate_ids' => $this->normalizeGateIds((array) ($verdict['pending_gate_ids'] ?? [])),
+            'pending_gate_ids' => $this->normalizeGateIds(AiValueNormalizer::arrayOrEmpty($verdict['pending_gate_ids'] ?? null)),
             'expected_block_gate_ids' => $expectedBlockGateIds,
             'sample_label' => $sampleLabel,
             'decided_at' => $decidedAt->toIso8601String(),

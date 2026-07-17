@@ -154,7 +154,7 @@ final class AtlasAaeosHttpPathFacadeService
                 placementResult: $placementResult,
                 blockerCode: self::BLOCK_PLACEMENT_GATE_BLOCKED,
                 reason: 'Atlas placement gate blocked this intent before provider execution.',
-                blockedWhen: array_values((array) ($placementResult['blocked_when'] ?? [])),
+                blockedWhen: array_values(AiValueNormalizer::arrayOrEmpty($placementResult['blocked_when'] ?? null)),
                 configuredPhase: $configuredPhase,
                 startedAtNs: $startedAtNs,
                 placementCacheHit: $cacheHit,
@@ -173,7 +173,7 @@ final class AtlasAaeosHttpPathFacadeService
 
                 $blockedWhen = array_values(array_map(
                     static fn (array $b): string => AiValueNormalizer::trimmedString($b['id'] ?? ''),
-                    (array) $policyEnv['blockers'],
+                    AiValueNormalizer::arrayOrEmpty($policyEnv['blockers'] ?? null),
                 ));
                 if ($blockedWhen === [] && ($advance['reason'] ?? '') !== '') {
                     $blockedWhen = [AiValueNormalizer::trimmedString($advance['reason'] ?? '')];

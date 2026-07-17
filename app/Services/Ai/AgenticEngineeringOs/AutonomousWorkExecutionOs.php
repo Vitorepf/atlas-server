@@ -73,7 +73,7 @@ final class AutonomousWorkExecutionOs
         }
 
         // L6+ requires zero prior failure signatures with same goal hash
-        $priorFailures = (array) ($request['prior_failure_signatures'] ?? []);
+        $priorFailures = AiValueNormalizer::arrayOrEmpty($request['prior_failure_signatures'] ?? null);
         if (in_array($level, ['L6', 'L7'], true) && $priorFailures !== []) {
             $blocking[] = sprintf('autonomy_level %s blocks when prior failure signatures exist (%d found)', $level, count($priorFailures));
         }
@@ -117,7 +117,7 @@ final class AutonomousWorkExecutionOs
 
         $stages = array_map(
             static fn (array $s): array => $s['stage'] === $stage ? ['stage' => $stage, 'status' => $status] : $s,
-            (array) ($cycle['stages'] ?? []),
+            AiValueNormalizer::arrayOrEmpty($cycle['stages'] ?? null),
         );
 
         return array_merge($cycle, ['stages' => $stages]);
@@ -147,7 +147,7 @@ final class AutonomousWorkExecutionOs
     public function nextStageDecision(array $cycle): array
     {
         $statusByStage = [];
-        foreach ((array) ($cycle['stages'] ?? []) as $entry) {
+        foreach (AiValueNormalizer::arrayOrEmpty($cycle['stages'] ?? null) as $entry) {
             $statusByStage[AiValueNormalizer::trimmedString($entry['stage'] ?? '')]
                 = AiValueNormalizer::trimmedString($entry['status'] ?? 'pending') ?: 'pending';
         }

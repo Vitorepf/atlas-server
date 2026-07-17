@@ -39,6 +39,7 @@ use App\Services\Ai\Cognition\CaptureHmacLineageService;
 use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
 use App\Services\Ai\Cognition\AtlasAcosRollbackTriggerCheckService;
+use App\Services\Ai\Cognition\AtlasAcosLongHorizonGateService;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
@@ -2028,6 +2029,23 @@ final class AtlasUniversalGatesEvaluator
             'default_executor' => 'watchdog_alert_operator_reverts',
             'auto_revert' => false,
             'alert_code' => 'rollback_trigger_fired',
+        ];
+    }
+
+    /**
+     * Observe-only ACOS long-horizon gate contract (L6-9).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function longHorizonGateContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AtlasAcosLongHorizonGateService::SCHEMA_VERSION,
+            'fixtures' => ['live', 'mature', 'short-window'],
+            'ready_status' => 'acos_long_horizon_ready',
+            'blocked_status' => 'insufficient_long_horizon_evidence',
         ];
     }
 

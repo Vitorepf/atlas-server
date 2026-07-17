@@ -161,7 +161,7 @@ final class EvidenceVisionThesisLifecycle
     {
         $threshold = AiValueNormalizer::finiteFloatOrNull($criterion['threshold'] ?? null) ?? 0.0;
         $need = max(2, (int) ($criterion['consecutive_windows'] ?? 2));
-        $refs = (array) ($thesis['evidence'] ?? []);
+        $refs = AiValueNormalizer::arrayOrEmpty($thesis['evidence'] ?? null);
         $series = '';
         $stage = 'default';
         foreach ($refs as $ref) {
