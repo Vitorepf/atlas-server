@@ -2,6 +2,8 @@
 
 namespace App\Services\Ai\Kernel\Repair;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class RepairPayloadNormalizer
 {
     public static function boolean(mixed $value, bool $default = true): bool
@@ -57,10 +59,11 @@ final class RepairPayloadNormalizer
 
     public static function boundedFloat(mixed $value, float $default, float $min, float $max): float
     {
-        if (! is_numeric($value)) {
+        $numeric = AiValueNormalizer::finiteFloatOrNull($value);
+        if ($numeric === null) {
             return $default;
         }
 
-        return max($min, min($max, (float) $value));
+        return max($min, min($max, $numeric));
     }
 }

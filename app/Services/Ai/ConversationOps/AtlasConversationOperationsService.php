@@ -6,6 +6,7 @@ namespace App\Services\Ai\ConversationOps;
 
 use App\Services\Ai\ContextIntelligence\AtlasContextIntelligenceService;
 use App\Services\Ai\Mission\MissionCanonicalHash;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Carbon\CarbonImmutable;
 
 final class AtlasConversationOperationsService
@@ -253,7 +254,7 @@ final class AtlasConversationOperationsService
      */
     public function compressionCriticReport(array $input): array
     {
-        $mustKeepCoverage = (float) ($input['must_keep_coverage'] ?? 0.0);
+        $mustKeepCoverage = AiValueNormalizer::finiteFloatOrNull($input['must_keep_coverage'] ?? null) ?? 0.0;
         $missingMustKeep = array_values((array) ($input['missing_must_keep_ids'] ?? []));
         $status = $mustKeepCoverage >= 1.0 && $missingMustKeep === [] ? self::STATUS_HEALTHY : self::STATUS_BLOCKED;
         $payload = [

@@ -121,6 +121,7 @@ final class AtlasAaeosCommand extends Command
         {--array-field-reader= : JSON file with row+key (observe-only stringField)}
         {--veto-propagation-resolve= : JSON file with origin+veto_kind(+repair_iteration) (observe-only)}
         {--department-registry-validate= : JSON file with department or departments list (observe-only)}
+        {--cognitive-immune-classify= : JSON file with text(+metadata) (observe-only immune class)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -398,6 +399,7 @@ final class AtlasAaeosCommand extends Command
             ['array-field-reader', 'array_field_reader', fn (array $p) => $gates->arrayFieldReaderObserve($p)],
             ['veto-propagation-resolve', 'veto_propagation_resolve', fn (array $p) => $gates->vetoPropagationResolveObserve($p)],
             ['department-registry-validate', 'department_registry_validate', fn (array $p) => $gates->departmentRegistryValidateObserve($p)],
+            ['cognitive-immune-classify', 'cognitive_immune_classify', fn (array $p) => $gates->cognitiveImmuneClassifyObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

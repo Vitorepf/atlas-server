@@ -1303,4 +1303,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertFalse($payload['valid']);
         $this->assertNotSame([], $payload['blockers']);
     }
+
+    public function test_cognitive_immune_classify_observe_reports_class(): void
+    {
+        $payload = $this->svc->cognitiveImmuneClassifyObserve([
+            'text' => 'what time is it',
+        ]);
+
+        $this->assertSame('atlas.aaeos.cognitive_immune_input_classifier.v1', $payload['schema_version']);
+        $this->assertArrayHasKey('input_class', $payload);
+        $this->assertArrayHasKey('default_destination', $payload);
+    }
 }

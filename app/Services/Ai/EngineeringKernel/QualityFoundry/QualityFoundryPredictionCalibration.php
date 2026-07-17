@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\EngineeringKernel\QualityFoundry;
 
 use App\Services\Ai\EngineeringKernel\CanonicalKernelPayload;
+use App\Services\Ai\Support\AiValueNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -41,7 +42,10 @@ final class QualityFoundryPredictionCalibration
         if (! is_int($probability) && ! is_float($probability) && ! is_numeric($probability)) {
             throw new InvalidArgumentException('prediction_probability_invalid');
         }
-        $probability = (float) $probability;
+        $probability = AiValueNormalizer::finiteFloatOrNull($probability);
+        if ($probability === null) {
+            throw new InvalidArgumentException('prediction_probability_invalid');
+        }
         if ($probability < 0.0 || $probability > 1.0) {
             throw new InvalidArgumentException('prediction_probability_out_of_range');
         }
@@ -122,7 +126,7 @@ final class QualityFoundryPredictionCalibration
             return array_merge($base, ['status' => 'unresolved', 'blockers' => ['observation_before_window']]);
         }
 
-        $probability = (float) ($receipt['predicted_probability'] ?? 0.0);
+        $probability = AiValueNormalizer::finiteFloatOrNull($receipt['predicted_probability'] ?? null) ?? 0.0;
         $actual = $observation['observed'] ? 1.0 : 0.0;
         $error = round(($probability - $actual) ** 2, 6);
 
@@ -160,8 +164,8 @@ final class QualityFoundryPredictionCalibration
         }));
         $unresolved = count($records) - count($resolved);
         $late = count(array_filter($resolved, static fn (array $record): bool => ($record['status'] ?? null) === 'resolved_late'));
-        $averageError = $resolved === [] ? null : round(array_sum(array_map(static fn (array $record): float => (float) $record['calibration_error'], $resolved)) / count($resolved), 6);
-        $confidence = $resolved === [] ? 0.0 : round((count($resolved) / max(1, count($records))) * (1.0 - min(1.0, (float) $averageError)), 6);
+        $averageError = $resolved === [] ? null : round(array_sum(array_map(static fn (array $record): float => AiValueNormalizer::finiteFloatOrNull($record['calibration_error'] ?? null) ?? 0.0, $resolved)) / count($resolved), 6);
+        $confidence = $resolved === [] ? 0.0 : round((count($resolved) / max(1, count($records))) * (1.0 - min(1.0, AiValueNormalizer::finiteFloatOrNull($averageError) ?? 0.0)), 6);
         $uncertainty = $resolved === [] ? 1.0 : round(1.0 / sqrt(count($resolved)), 6);
         $blockers = $contradictoryIds === [] ? [] : ['contradictory_observation'];
 

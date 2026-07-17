@@ -53,6 +53,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosClaimDefinitionOfDoneValidator;
 use App\Services\Ai\Aaeos\Support\AtlasAaeosArrayFieldReader;
 use App\Services\Ai\Aaeos\AtlasAaeosVetoPropagationResolver;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentRegistryService;
+use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
 use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
@@ -1596,6 +1597,21 @@ final class AtlasUniversalGatesEvaluator
         $department = AiValueNormalizer::arrayOrEmpty($input['department'] ?? $input);
 
         return $registry->validateDepartment($department);
+    }
+
+    /**
+     * Observe-only AAEOS cognitive immune input classifier.
+     * Accepts `{text, metadata?}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function cognitiveImmuneClassifyObserve(array $input = []): array
+    {
+        $text = AiValueNormalizer::trimmedString($input['text'] ?? '');
+        $metadata = AiValueNormalizer::arrayOrEmpty($input['metadata'] ?? []);
+
+        return (new AtlasAaeosCognitiveImmuneInputClassifier)->classify($text, $metadata);
     }
 
     /**
