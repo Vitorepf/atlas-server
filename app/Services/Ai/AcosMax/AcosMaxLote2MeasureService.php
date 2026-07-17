@@ -112,12 +112,12 @@ final class AcosMaxLote2MeasureService
         $deliveriesByOutcome = [];
         $recallsByCandidate = [];
         foreach (DB::table('ai_rag_feedback_events')->orderBy('created_at')->get() as $row) {
-            $outcomeId = AiValueNormalizer::trimmedString($row->run_outcome_id ?? '');
+            $outcomeId = AiValueNormalizer::trimmedStringOrNull($row->run_outcome_id ?? null) ?? '';
             if ($outcomeId !== '') {
                 $deliveriesByOutcome[$outcomeId][] = $row;
             }
 
-            $candidateId = AiValueNormalizer::trimmedString($row->memory_candidate_id ?? '');
+            $candidateId = AiValueNormalizer::trimmedStringOrNull($row->memory_candidate_id ?? null) ?? '';
             if ($candidateId !== '') {
                 $recallsByCandidate[$candidateId][] = $row;
             }
@@ -125,7 +125,7 @@ final class AcosMaxLote2MeasureService
 
         $candidatesByOutcome = [];
         foreach (DB::table('ai_learning_candidates')->orderBy('created_at')->get() as $candidate) {
-            $outcomeId = AiValueNormalizer::trimmedString($candidate->run_outcome_id ?? '');
+            $outcomeId = AiValueNormalizer::trimmedStringOrNull($candidate->run_outcome_id ?? null) ?? '';
             if ($outcomeId !== '') {
                 $candidatesByOutcome[$outcomeId][] = $candidate;
             }
@@ -207,7 +207,7 @@ final class AcosMaxLote2MeasureService
         $counts = [];
         foreach ($partial as $row) {
             foreach (AiValueNormalizer::arrayOrEmpty($row['blocked_by'] ?? null) as $reason) {
-                $key = AiValueNormalizer::trimmedString($reason);
+                $key = AiValueNormalizer::trimmedStringOrNull($reason) ?? '';
                 if ($key === '') {
                     continue;
                 }
@@ -271,7 +271,7 @@ final class AcosMaxLote2MeasureService
         if ($decisionId === '') {
             $blockedBy[] = 'decision_receipt_missing';
         }
-        if ($delivery === null || AiValueNormalizer::trimmedString($delivery->retrieval_receipt_id ?? '') === '') {
+        if ($delivery === null || (AiValueNormalizer::trimmedStringOrNull($delivery->retrieval_receipt_id ?? null) ?? '') === '') {
             $blockedBy[] = 'delivered_context_missing';
         }
         if ($candidate === null) {
@@ -332,7 +332,7 @@ final class AcosMaxLote2MeasureService
     private function firstContextDelivery(array $deliveries): ?object
     {
         foreach ($deliveries as $delivery) {
-            if (AiValueNormalizer::trimmedString($delivery->retrieval_receipt_id ?? '') !== '') {
+            if ((AiValueNormalizer::trimmedStringOrNull($delivery->retrieval_receipt_id ?? null) ?? '') !== '') {
                 return $delivery;
             }
         }
@@ -372,7 +372,7 @@ final class AcosMaxLote2MeasureService
     private function firstNonEmpty(array $values): string
     {
         foreach ($values as $value) {
-            $string = AiValueNormalizer::trimmedString($value);
+            $string = AiValueNormalizer::trimmedStringOrNull($value) ?? '';
             if ($string !== '') {
                 return $string;
             }
@@ -441,11 +441,11 @@ final class AcosMaxLote2MeasureService
         $deliveriesByOutcome = [];
         $citationsByCandidate = [];
         foreach (DB::table('ai_rag_feedback_events')->orderBy('created_at')->get() as $row) {
-            $outcomeId = AiValueNormalizer::trimmedString($row->run_outcome_id ?? '');
+            $outcomeId = AiValueNormalizer::trimmedStringOrNull($row->run_outcome_id ?? null) ?? '';
             if ($outcomeId !== '') {
                 $deliveriesByOutcome[$outcomeId][] = $row;
             }
-            $candidateId = AiValueNormalizer::trimmedString($row->memory_candidate_id ?? '');
+            $candidateId = AiValueNormalizer::trimmedStringOrNull($row->memory_candidate_id ?? null) ?? '';
             if ($candidateId !== '') {
                 $citationsByCandidate[$candidateId][] = $row;
             }
@@ -464,7 +464,7 @@ final class AcosMaxLote2MeasureService
             }
 
             $candidateId = (string) ($candidate->id ?? '');
-            $lessonClass = AiValueNormalizer::trimmedString($candidate->memory_type ?? 'unknown') ?: 'unknown';
+            $lessonClass = AiValueNormalizer::trimmedStringOrNull($candidate->memory_type ?? null) ?? 'unknown';
             $outcome = $outcomes[(string) ($candidate->run_outcome_id ?? '')] ?? null;
             if ($outcome === null) {
                 continue;
@@ -646,7 +646,7 @@ final class AcosMaxLote2MeasureService
                 continue;
             }
 
-            $pairId = AiValueNormalizer::trimmedString($meta['pair_id'] ?? '');
+            $pairId = AiValueNormalizer::trimmedStringOrNull($meta['pair_id'] ?? null) ?? '';
             $arm = $this->counterfactualArm((string) ($meta['arm'] ?? ''));
             if ($pairId === '' || $arm === '') {
                 continue;
@@ -826,7 +826,7 @@ final class AcosMaxLote2MeasureService
      */
     private function memoryTypeFromCounterfactualMeta(array $meta): string
     {
-        $memoryType = AiValueNormalizer::trimmedString($meta['memory_type'] ?? '');
+        $memoryType = AiValueNormalizer::trimmedStringOrNull($meta['memory_type'] ?? null) ?? '';
 
         return $memoryType === '' ? 'unknown' : $memoryType;
     }

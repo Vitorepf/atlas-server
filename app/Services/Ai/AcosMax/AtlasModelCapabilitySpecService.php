@@ -63,7 +63,7 @@ final class AtlasModelCapabilitySpecService
         $spec = $this->specFor($function);
         $violations = [];
 
-        $modelId = AiValueNormalizer::trimmedString($model['model_id'] ?? '');
+        $modelId = AiValueNormalizer::trimmedStringOrNull($model['model_id'] ?? null) ?? '';
         if ($modelId === '') {
             $violations[] = [
                 'field' => 'model_id',

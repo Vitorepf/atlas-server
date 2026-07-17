@@ -65,8 +65,8 @@ final class AtlasLocalModelIntegrityService
      */
     public function verifyOne(array $entry): array
     {
-        $modelId = AiValueNormalizer::trimmedString($entry['model_id'] ?? '');
-        $path = AiValueNormalizer::trimmedString($entry['path'] ?? '');
+        $modelId = AiValueNormalizer::trimmedStringOrNull($entry['model_id'] ?? null) ?? '';
+        $path = AiValueNormalizer::trimmedStringOrNull($entry['path'] ?? null) ?? '';
         $pin = AiValueNormalizer::lowerTrimmedString($entry['sha256_pin'] ?? '');
 
         $row = [

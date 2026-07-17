@@ -10,7 +10,7 @@ final class AtlasAaeosQualityBarService
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.quality_bar.v1';
 
-    private const DEPARTMENT_DATA = [
+    public const DEPARTMENT_DATA = [
         ['department' => 'Engineering', 'threshold' => 0.85, 'current' => 0.92],
         ['department' => 'Product', 'threshold' => 0.80, 'current' => 0.75],
         ['department' => 'Design', 'threshold' => 0.80, 'current' => 0.88],

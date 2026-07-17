@@ -53,8 +53,8 @@ final class AcosMaxMeasureSeriesRegistry
     public function entries(): array
     {
         return array_values(array_map(function (array $entry): array {
-            $entry['slice'] = AiValueNormalizer::trimmedString($entry['slice'] ?? '');
-            $entry['series'] = AiValueNormalizer::trimmedString($entry['series'] ?? '');
+            $entry['slice'] = AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? '';
+            $entry['series'] = AiValueNormalizer::trimmedStringOrNull($entry['series'] ?? null) ?? '';
             $entry['ttl_days'] = max(1, (int) ($entry['ttl_days'] ?? 1));
 
             return $entry;
@@ -518,7 +518,7 @@ final class AcosMaxMeasureSeriesRegistry
     {
         $values = [];
         foreach ($this->entries() as $entry) {
-            $value = AiValueNormalizer::trimmedString($entry[$column] ?? '');
+            $value = AiValueNormalizer::trimmedStringOrNull($entry[$column] ?? null) ?? '';
             if ($value !== '') {
                 $values[$value] = true;
             }

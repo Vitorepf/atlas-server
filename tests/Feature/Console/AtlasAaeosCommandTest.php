@@ -3066,6 +3066,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_lote2_quality_bar_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-lqbc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-lqbc',
+                '--lote2-quality-bar-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"lote2_quality_bar_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

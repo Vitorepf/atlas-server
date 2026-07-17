@@ -3013,6 +3013,34 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only lote-2 measure ids + quality-bar department floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function lote2QualityBarContractObserve(array $input = []): array
+    {
+        return [
+            'maxl06_measure_id' => AcosMaxLote2MeasureService::MAXL06_MEASURE_ID,
+            'multn1704_measure_id' => AcosMaxLote2MeasureService::MULTN1704_MEASURE_ID,
+            'multx01_measure_id' => AcosMaxLote2MeasureService::MULTX01_MEASURE_ID,
+            'multx06_measure_id' => AcosMaxLote2MeasureService::MULTX06_MEASURE_ID,
+            'multx09_measure_id' => AcosMaxLote2MeasureService::MULTX09_MEASURE_ID,
+            'multj01_measure_id' => AcosMaxLote2MeasureService::MULTJ01_MEASURE_ID,
+            'multj02_measure_id' => AcosMaxLote2MeasureService::MULTJ02_MEASURE_ID,
+            'multj03_measure_id' => AcosMaxLote2MeasureService::MULTJ03_MEASURE_ID,
+            'multj04_measure_id' => AcosMaxLote2MeasureService::MULTJ04_MEASURE_ID,
+            'multj06_measure_id' => AcosMaxLote2MeasureService::MULTJ06_MEASURE_ID,
+            'teto02_measure_id' => AcosMaxLote2MeasureService::TETO02_MEASURE_ID,
+            'quality_bar_schema' => AtlasAaeosQualityBarService::SCHEMA_VERSION,
+            'quality_bar_department_count' => count(AtlasAaeosQualityBarService::DEPARTMENT_DATA),
+            'obra_retro_schema' => AcosMaxObraRetroService::SCHEMA_VERSION,
+            'obra_retro_scoreboard_path' => AcosMaxObraRetroService::SCOREBOARD_RELATIVE_PATH,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

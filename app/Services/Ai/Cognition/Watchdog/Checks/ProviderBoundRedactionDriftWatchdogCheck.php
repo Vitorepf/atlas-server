@@ -72,8 +72,8 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
     private function driftSignals(AtlasMemoryEntry $entry): array
     {
         $signals = [];
-        $body = AiValueNormalizer::trimmedString($entry->body);
-        $summary = AiValueNormalizer::trimmedString($entry->summary ?? '');
+        $body = AiValueNormalizer::trimmedStringOrNull($entry->body) ?? '';
+        $summary = AiValueNormalizer::trimmedStringOrNull($entry->summary ?? null) ?? '';
         $providerBody = $this->privacy->providerBody($entry);
         $providerSummary = (string) ($this->privacy->providerSummary($entry) ?? '');
 
@@ -89,7 +89,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
 
     private function memoryRef(AtlasMemoryEntry $entry): string
     {
-        $hash = AiValueNormalizer::trimmedString($entry->content_hash ?? '');
+        $hash = AiValueNormalizer::trimmedStringOrNull($entry->content_hash ?? null) ?? '';
         if ($hash === '') {
             $hash = hash('sha256', (string) $entry->id);
         }

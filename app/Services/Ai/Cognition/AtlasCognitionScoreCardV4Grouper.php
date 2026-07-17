@@ -65,7 +65,7 @@ final class AtlasCognitionScoreCardV4Grouper
                 $buckets[$module][$dim][] = (string) ($row[$dim] ?? 'blocked');
             }
             $buckets[$module]['members'][] = (string) ($row['acronym'] ?? '');
-            $serviceClass = AiValueNormalizer::trimmedString($row['service_class'] ?? '');
+            $serviceClass = AiValueNormalizer::trimmedStringOrNull($row['service_class'] ?? null) ?? '';
             if ($serviceClass !== '') {
                 $buckets[$module]['service_classes'][] = $serviceClass;
             }

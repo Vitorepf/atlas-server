@@ -241,7 +241,7 @@ final class AcosMaxObraRetroService
                 continue;
             }
 
-            $sliceId = AiValueNormalizer::trimmedString($match[1]);
+            $sliceId = AiValueNormalizer::trimmedStringOrNull($match[1]) ?? '';
             $slices[] = [
                 'id' => $sliceId,
                 'state' => $state,

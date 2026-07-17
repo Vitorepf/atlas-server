@@ -2125,4 +2125,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertGreaterThan(0, $payload['immune_strategic_marker_count']);
         $this->assertGreaterThan(0, $payload['immune_technical_marker_count']);
     }
+
+    public function test_lote2_quality_bar_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->lote2QualityBarContractObserve([]);
+
+        $this->assertSame('atlas.evidence.delta_attribution.v1', $payload['maxl06_measure_id']);
+        $this->assertSame('atlas.originator.predicted_impact_calibration.v1', $payload['multn1704_measure_id']);
+        $this->assertSame('acos.flywheel.loops.v1', $payload['multx01_measure_id']);
+        $this->assertSame('atlas.ai.procedural_skill_promoter.v1', $payload['multj04_measure_id']);
+        $this->assertSame('mission_e2e.v1', $payload['teto02_measure_id']);
+        $this->assertSame('atlas.aaeos.quality_bar.v1', $payload['quality_bar_schema']);
+        $this->assertGreaterThan(0, $payload['quality_bar_department_count']);
+        $this->assertSame('atlas.acos_max.obra_retro.v1', $payload['obra_retro_schema']);
+        $this->assertStringContainsString('scoreboard', $payload['obra_retro_scoreboard_path']);
+    }
 }
