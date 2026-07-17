@@ -23,6 +23,7 @@ use App\Services\Ai\Governance\Recursion\MetaLoopBreakerService;
 use App\Services\Ai\Memory\AtlasMemoryTemporalQualityService;
 use App\Services\Ai\OpenBrain\AtlasAobgLatencyLedger;
 use App\Services\Ai\Reality\AtlasAurgPprShadowDualReadLedger;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AcosMaxMeasureSeriesRegistry
 {
@@ -517,7 +518,7 @@ final class AcosMaxMeasureSeriesRegistry
     {
         $values = [];
         foreach ($this->entries() as $entry) {
-            $value = trim((string) ($entry[$column] ?? ''));
+            $value = AiValueNormalizer::trimmedString($entry[$column] ?? '');
             if ($value !== '') {
                 $values[$value] = true;
             }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Str;
 use RuntimeException;
 
@@ -231,7 +232,7 @@ final class AtlasNCaptureDrillService
     {
         $violations = [];
 
-        $engineId = trim((string) ($drill['engine_id'] ?? ''));
+        $engineId = AiValueNormalizer::trimmedString($drill['engine_id'] ?? '');
         if ($engineId === '') {
             $violations[] = ['field' => 'engine_id', 'reason' => 'drill_receipt_incomplete'];
         }

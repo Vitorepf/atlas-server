@@ -8,6 +8,7 @@ use App\Services\Ai\AgenticEngineeringOs\ArchitectAgentSpecPackGateContract;
 use App\Services\Ai\AgenticEngineeringOs\AtlasUniversalGatesEvaluator;
 use App\Services\Ai\AgenticEngineeringOs\DeliveryPackCompletenessScorer;
 use App\Services\Ai\AgenticEngineeringOs\QualityBarTelemetryContract;
+use App\Services\Ai\AgenticEngineeringOs\RealityCompilerSlice;
 use App\Services\Ai\AcosMax\PredictedImpactBand;
 use App\Services\Ai\AcosMax\PreReviewAdvisoryBand;
 use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
@@ -203,5 +204,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(PreReviewAdvisoryBand::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('insufficient_sample', $payload['basis']);
         $this->assertFalse($payload['source']['blocks_auto_apply']);
+    }
+
+    public function test_reality_compiler_slice_observe_projects_contract(): void
+    {
+        $payload = $this->svc->realityCompilerSliceObserve([
+            'intent' => ' compile-slice ',
+            'autonomy_level' => ' L2 ',
+        ]);
+
+        $this->assertSame(RealityCompilerSlice::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('compile-slice', $payload['intent']);
+        $this->assertSame('L2', $payload['autonomy_level']);
+        $this->assertCount(5, $payload['output_phases']);
+        $this->assertSame('pending', $payload['output_phases'][0]['status']);
     }
 }

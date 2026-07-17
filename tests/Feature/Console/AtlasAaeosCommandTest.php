@@ -183,6 +183,28 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_reality_compiler_slice(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-rcs-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'intent' => 'slice-1',
+            'autonomy_level' => 'L1',
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-rcs',
+                '--reality-compiler-slice' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"reality_compiler_slice"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

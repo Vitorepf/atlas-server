@@ -273,6 +273,18 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only projection of a Reality Compiler slice map into the
+     * contract shape. Does not add a universal-gate id.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function realityCompilerSliceObserve(array $input): array
+    {
+        return RealityCompilerSlice::fromArray($input)->toArray();
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

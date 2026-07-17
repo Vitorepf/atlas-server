@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class ExecutionContextCooccurrenceService
 {
     public const SCHEMA_VERSION = 'atlas.context.execution_cooccurrence.v1';
@@ -118,7 +120,7 @@ final class ExecutionContextCooccurrenceService
         }
         $decoded = json_decode($raw, true);
 
-        return is_array($decoded) ? $decoded : [];
+        return AiValueNormalizer::arrayOrEmpty($decoded);
     }
 
     /**
@@ -129,7 +131,7 @@ final class ExecutionContextCooccurrenceService
     {
         $out = [];
         foreach ($values as $value) {
-            $value = trim((string) $value);
+            $value = AiValueNormalizer::trimmedString($value);
             if ($value !== '' && ! in_array($value, $out, true)) {
                 $out[] = $value;
             }

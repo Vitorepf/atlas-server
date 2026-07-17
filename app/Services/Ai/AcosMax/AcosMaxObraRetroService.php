@@ -6,6 +6,7 @@ namespace App\Services\Ai\AcosMax;
 
 use App\Services\Ai\Aemor\AtlasEngineeringOutcomeRecorder;
 use App\Services\Ai\AtlasOpenBrainWriteBackService;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AcosMaxObraRetroService
 {
@@ -240,7 +241,7 @@ final class AcosMaxObraRetroService
                 continue;
             }
 
-            $sliceId = trim((string) $match[1]);
+            $sliceId = AiValueNormalizer::trimmedString($match[1]);
             $slices[] = [
                 'id' => $sliceId,
                 'state' => $state,
@@ -257,7 +258,7 @@ final class AcosMaxObraRetroService
 
     private function terminalState(string $statusText): ?string
     {
-        $first = strtolower(trim(explode('·', $statusText, 2)[0] ?? $statusText));
+        $first = AiValueNormalizer::lowerTrimmedString(explode('·', $statusText, 2)[0] ?? $statusText);
 
         return match (true) {
             str_starts_with($first, 'landed') => 'landed',

@@ -49,6 +49,7 @@ final class AtlasAaeosCommand extends Command
         {--architect-spec-pack= : JSON file with architect spec-pack gate payload (observe-only M1)}
         {--predicted-impact= : JSON file with predicted-impact candidate (observe-only band classify)}
         {--pre-review= : JSON file with pre-review advisory features (observe-only MULTN15-08)}
+        {--reality-compiler-slice= : JSON file with Reality Compiler slice map (observe-only contract)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -281,6 +282,17 @@ final class AtlasAaeosCommand extends Command
             $report['observe'] = array_merge(
                 is_array($report['observe'] ?? null) ? $report['observe'] : [],
                 ['pre_review_advisory' => $gates->preReviewAdvisoryObserve($features)],
+            );
+        }
+        $realitySlicePath = (string) ($this->option('reality-compiler-slice') ?? '');
+        if ($realitySlicePath !== '') {
+            $slice = $this->loadJsonFile($realitySlicePath);
+            if ($slice === null) {
+                return $this->failWith('universal-gates --reality-compiler-slice must be a readable JSON object');
+            }
+            $report['observe'] = array_merge(
+                is_array($report['observe'] ?? null) ? $report['observe'] : [],
+                ['reality_compiler_slice' => $gates->realityCompilerSliceObserve($slice)],
             );
         }
         $this->emit($report, $json);

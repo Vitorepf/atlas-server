@@ -100,7 +100,7 @@ final class AcosMeasureSeriesFreshnessReader
     {
         $latest = null;
         $files = is_dir($dir) ? glob(rtrim($dir, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'*.jsonl') : [];
-        foreach (is_array($files) ? $files : [] as $file) {
+        foreach (AiValueNormalizer::arrayOrEmpty($files) as $file) {
             $candidate = $this->jsonlFileLastAppendAt((string) $file, $entry);
             if ($candidate instanceof CarbonImmutable && ($latest === null || $candidate->greaterThan($latest))) {
                 $latest = $candidate;

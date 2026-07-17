@@ -90,7 +90,7 @@ final class GoldenCounterfactualReplayService
 
         $decoded = json_decode($raw, true);
 
-        return is_array($decoded) ? $decoded : [];
+        return AiValueNormalizer::arrayOrEmpty($decoded);
     }
 
     /**

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Immutable data contract for Reality Compiler slices — intent → governed
  * AAEOS execution packets traversing spec, simulation, swarm, evidence, review.
@@ -47,6 +49,47 @@ final readonly class RealityCompilerSlice
         );
 
         return new self('', 'L0', $phases);
+    }
+
+    /**
+     * Observe-friendly constructor from a loose map. Unknown/empty autonomy
+     * falls back to L0; empty output_phases use the default pending ladder.
+     *
+     * @param  array<string,mixed>  $input
+     */
+    public static function fromArray(array $input): self
+    {
+        $default = self::defaultShape();
+        $autonomy = AiValueNormalizer::trimmedString($input['autonomy_level'] ?? '');
+        $phases = self::normalizePhases(AiValueNormalizer::arrayOrEmpty($input['output_phases'] ?? null));
+
+        return new self(
+            AiValueNormalizer::trimmedString($input['intent'] ?? ''),
+            $autonomy !== '' ? $autonomy : $default->autonomyLevel,
+            $phases !== [] ? $phases : $default->outputPhases,
+        );
+    }
+
+    /**
+     * @param  array<mixed>  $raw
+     * @return list<array{phase: string, status: string}>
+     */
+    private static function normalizePhases(array $raw): array
+    {
+        $phases = [];
+        foreach ($raw as $row) {
+            if (! is_array($row)) {
+                continue;
+            }
+            $phase = AiValueNormalizer::trimmedString($row['phase'] ?? '');
+            $status = AiValueNormalizer::trimmedString($row['status'] ?? '');
+            if ($phase === '' || $status === '') {
+                continue;
+            }
+            $phases[] = ['phase' => $phase, 'status' => $status];
+        }
+
+        return $phases;
     }
 
     /**
