@@ -36,6 +36,7 @@ final class AaeosDeferredPhaseDispatcherService
 
     public function __construct(
         private readonly CacheRepository $cache,
+        private readonly PhaseAdvanceVerdictClassifier $phaseAdvance = new PhaseAdvanceVerdictClassifier,
     ) {}
 
     /**
@@ -59,7 +60,7 @@ final class AaeosDeferredPhaseDispatcherService
                 'intent_id' => (string) ($env['intent_id'] ?? ''),
                 'envelope' => $env,
                 // Observe-only: same advance classifier as HTTP path / cockpit.
-                'phase_advance' => (new PhaseAdvanceVerdictClassifier)->classify($env),
+                'phase_advance' => $this->phaseAdvance->classify($env),
                 'enqueued_at' => gmdate('c'),
             ];
             $line = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
