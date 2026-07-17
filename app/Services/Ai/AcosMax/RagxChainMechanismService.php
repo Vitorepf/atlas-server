@@ -47,6 +47,68 @@ final class RagxChainMechanismService
 
     public const FLAG_CROSS_ENCODER_RERANK = 'atlas.aobg.cross_encoder_rerank';
 
+    public const STAGE_RAGX_01 = 'RAGX-01';
+
+    public const STAGE_RAGX_02 = 'RAGX-02';
+
+    public const STAGE_RAGX_03 = 'RAGX-03';
+
+    public const STAGE_RAGX_05 = 'RAGX-05';
+
+    public const STAGE_RAGX_06 = 'RAGX-06';
+
+    public const STAGE_RAGX_07 = 'RAGX-07';
+
+    public const STAGE_RAGX_10 = 'RAGX-10';
+
+    public const STAGE_RAGX_11 = 'RAGX-11';
+
+    public const STAGE_MAXD_05 = 'MAXD-05';
+
+    public const MECHANISM_LATE_CHUNK = 'late_chunk_asef_chunks_shadow';
+
+    public const MECHANISM_FACET_RETRIEVAL = 'query_time_facets_existing_packfor_seam';
+
+    public const MECHANISM_FUSION = 'reciprocal_rank_fusion_existing_aobg_seam';
+
+    public const MECHANISM_CROSS_ENCODER = 'cross_encoder_rerank_existing_semantic_rag_seam';
+
+    public const MECHANISM_ADAPTIVE_K = 'score_distribution_adaptive_k_shadow';
+
+    public const MECHANISM_SPARSE_FALLBACK = 'deterministic_sparse_shadow_fallback';
+
+    public const MECHANISM_AB_REGISTRAR = 'records_only_ab_registrar';
+
+    public const MECHANISM_LOUVAIN = 'louvain_over_asef_chunks_shadow';
+
+    public const MECHANISM_RAPTOR_LITE = 'raptor_lite_from_louvain_and_verified_l2_summaries';
+
+    public const PENDING_JINA_V3_DUAL_READ = 'jina_v3_dual_read_benchmark_window';
+
+    public const PENDING_FACET_RETRIEVAL_AB = 'facet_retrieval_ab_soak';
+
+    public const PENDING_FUSION_SHADOW_AB = 'fusion_shadow_ab_window';
+
+    public const PENDING_RERANK_PRECISION3 = 'rerank_precision3_latency_window';
+
+    public const PENDING_LATE_CHUNK_SCORE_DIST = 'late_chunk_score_distribution_window';
+
+    public const PENDING_DENSE_VS_SPARSE = 'dense_vs_sparse_shadow_window';
+
+    public const PENDING_GOLDEN_V2_OR_LIVE = 'golden_v2_or_live_window_not_run';
+
+    public const PENDING_MAXA06_FASE2_BACKFILL = 'maxa06_fase2_code_symbol_embedding_backfill';
+
+    public const PENDING_RAPTOR_LITE_SUMMARY = 'raptor_lite_verified_summary_window';
+
+    public const BLOCKER_MAXA04 = 'MAXA-04';
+
+    public const BLOCKER_MAXA06_FASE2 = 'MAXA-06(fase 2)';
+
+    public const BLOCKER_MAXF09 = 'MAXF-09';
+
+    public const ADAPTIVE_K_SCORE_GAP_FLOOR = 0.25;
+
     public function __construct(
         private readonly ?AsefChunkIndexService $asefChunks = null,
         private readonly ?string $abLedgerPath = null,
@@ -59,29 +121,29 @@ final class RagxChainMechanismService
     public function stageReport(array $deps = []): array
     {
         $stages = [
-            'RAGX-01' => $this->stage(
+            self::STAGE_RAGX_01 => $this->stage(
                 self::FLAG_LATE_CHUNK_INDEX,
-                'late_chunk_asef_chunks_shadow',
-                blockedBy: $this->flag(self::FLAG_LATE_CHUNK_INDEX) && ! $this->flag(self::FLAG_LATE_CHUNK_MAXA04_PROMOTED) ? ['MAXA-04'] : [],
-                pendingWindow: ['jina_v3_dual_read_benchmark_window'],
+                self::MECHANISM_LATE_CHUNK,
+                blockedBy: $this->flag(self::FLAG_LATE_CHUNK_INDEX) && ! $this->flag(self::FLAG_LATE_CHUNK_MAXA04_PROMOTED) ? [self::BLOCKER_MAXA04] : [],
+                pendingWindow: [self::PENDING_JINA_V3_DUAL_READ],
             ),
-            'RAGX-02' => $this->stage(self::FLAG_FACET_RETRIEVAL, 'query_time_facets_existing_packfor_seam', pendingWindow: ['facet_retrieval_ab_soak']),
-            'RAGX-06' => $this->stage(self::FLAG_FUSION_ENABLED, 'reciprocal_rank_fusion_existing_aobg_seam', pendingWindow: ['fusion_shadow_ab_window']),
-            'RAGX-03' => $this->stage(self::FLAG_CROSS_ENCODER_RERANK, 'cross_encoder_rerank_existing_semantic_rag_seam', pendingWindow: ['rerank_precision3_latency_window']),
-            'RAGX-11' => $this->stage(self::FLAG_ADAPTIVE_K, 'score_distribution_adaptive_k_shadow', pendingWindow: ['late_chunk_score_distribution_window']),
-            'RAGX-05' => $this->stage(self::FLAG_SPARSE_FALLBACK, 'deterministic_sparse_shadow_fallback', pendingWindow: ['dense_vs_sparse_shadow_window']),
-            'RAGX-07' => $this->stage(self::FLAG_AB_REGISTRAR, 'records_only_ab_registrar', pendingWindow: ['golden_v2_or_live_window_not_run']),
-            'MAXD-05' => $this->stage(
+            self::STAGE_RAGX_02 => $this->stage(self::FLAG_FACET_RETRIEVAL, self::MECHANISM_FACET_RETRIEVAL, pendingWindow: [self::PENDING_FACET_RETRIEVAL_AB]),
+            self::STAGE_RAGX_06 => $this->stage(self::FLAG_FUSION_ENABLED, self::MECHANISM_FUSION, pendingWindow: [self::PENDING_FUSION_SHADOW_AB]),
+            self::STAGE_RAGX_03 => $this->stage(self::FLAG_CROSS_ENCODER_RERANK, self::MECHANISM_CROSS_ENCODER, pendingWindow: [self::PENDING_RERANK_PRECISION3]),
+            self::STAGE_RAGX_11 => $this->stage(self::FLAG_ADAPTIVE_K, self::MECHANISM_ADAPTIVE_K, pendingWindow: [self::PENDING_LATE_CHUNK_SCORE_DIST]),
+            self::STAGE_RAGX_05 => $this->stage(self::FLAG_SPARSE_FALLBACK, self::MECHANISM_SPARSE_FALLBACK, pendingWindow: [self::PENDING_DENSE_VS_SPARSE]),
+            self::STAGE_RAGX_07 => $this->stage(self::FLAG_AB_REGISTRAR, self::MECHANISM_AB_REGISTRAR, pendingWindow: [self::PENDING_GOLDEN_V2_OR_LIVE]),
+            self::STAGE_MAXD_05 => $this->stage(
                 self::FLAG_LOUVAIN_CHUNKS,
-                'louvain_over_asef_chunks_shadow',
-                blockedBy: $this->flag(self::FLAG_LOUVAIN_CHUNKS) && ! $this->flag(self::FLAG_MAXA06_FASE2_BACKFILLED) ? ['MAXA-06(fase 2)'] : [],
-                pendingWindow: ['maxa06_fase2_code_symbol_embedding_backfill'],
+                self::MECHANISM_LOUVAIN,
+                blockedBy: $this->flag(self::FLAG_LOUVAIN_CHUNKS) && ! $this->flag(self::FLAG_MAXA06_FASE2_BACKFILLED) ? [self::BLOCKER_MAXA06_FASE2] : [],
+                pendingWindow: [self::PENDING_MAXA06_FASE2_BACKFILL],
             ),
-            'RAGX-10' => $this->stage(
+            self::STAGE_RAGX_10 => $this->stage(
                 self::FLAG_RAPTOR_LITE,
-                'raptor_lite_from_louvain_and_verified_l2_summaries',
+                self::MECHANISM_RAPTOR_LITE,
                 blockedBy: $this->raptorBlockers($deps),
-                pendingWindow: ['raptor_lite_verified_summary_window'],
+                pendingWindow: [self::PENDING_RAPTOR_LITE_SUMMARY],
             ),
         ];
 
@@ -101,16 +163,16 @@ final class RagxChainMechanismService
     public function lateChunkIndexShadow(string $query, int $limit = 5, bool $allowExternalProvider = false): array
     {
         if (! $this->flag(self::FLAG_LATE_CHUNK_INDEX)) {
-            return $this->disabled('RAGX-01', self::FLAG_LATE_CHUNK_INDEX) + ['documents' => []];
+            return $this->disabled(self::STAGE_RAGX_01, self::FLAG_LATE_CHUNK_INDEX) + ['documents' => []];
         }
 
         if (! $this->flag(self::FLAG_LATE_CHUNK_MAXA04_PROMOTED)) {
             return [
                 'schema_version' => self::SCHEMA,
-                'slice' => 'RAGX-01',
+                'slice' => self::STAGE_RAGX_01,
                 'status' => 'blocked',
                 'mode' => 'shadow',
-                'blocked_by' => ['MAXA-04'],
+                'blocked_by' => [self::BLOCKER_MAXA04],
                 'pending_window' => ['jina_v3_dual_read_benchmark_window'],
                 'documents' => [],
                 'ab_green_claimed' => false,
@@ -123,7 +185,7 @@ final class RagxChainMechanismService
         } catch (Throwable $e) {
             return [
                 'schema_version' => self::SCHEMA,
-                'slice' => 'RAGX-01',
+                'slice' => self::STAGE_RAGX_01,
                 'status' => 'degraded',
                 'reason' => 'late_chunk_index_error',
                 'error_class' => $e::class,
@@ -134,7 +196,7 @@ final class RagxChainMechanismService
 
         return [
             'schema_version' => self::SCHEMA,
-            'slice' => 'RAGX-01',
+            'slice' => self::STAGE_RAGX_01,
             'status' => AiValueNormalizer::trimmedStringOrNull($result['status'] ?? null) ?? 'unknown',
             'mode' => 'shadow',
             'result' => $result,
@@ -179,15 +241,15 @@ final class RagxChainMechanismService
     public function louvainOverChunks(array $chunks, array $edges): array
     {
         if (! $this->flag(self::FLAG_LOUVAIN_CHUNKS)) {
-            return $this->disabled('MAXD-05', self::FLAG_LOUVAIN_CHUNKS) + ['communities' => []];
+            return $this->disabled(self::STAGE_MAXD_05, self::FLAG_LOUVAIN_CHUNKS) + ['communities' => []];
         }
 
         if (! $this->flag(self::FLAG_MAXA06_FASE2_BACKFILLED)) {
             return [
                 'schema_version' => self::LOUVAIN_SCHEMA,
-                'slice' => 'MAXD-05',
+                'slice' => self::STAGE_MAXD_05,
                 'status' => 'blocked',
-                'blocked_by' => ['MAXA-06(fase 2)'],
+                'blocked_by' => [self::BLOCKER_MAXA06_FASE2],
                 'pending_window' => ['maxa06_fase2_code_symbol_embedding_backfill'],
                 'communities' => [],
             ];
@@ -197,7 +259,7 @@ final class RagxChainMechanismService
         if ($nodes === []) {
             return [
                 'schema_version' => self::LOUVAIN_SCHEMA,
-                'slice' => 'MAXD-05',
+                'slice' => self::STAGE_MAXD_05,
                 'status' => 'empty',
                 'algorithm' => 'louvain_deterministic_local',
                 'communities' => [],
@@ -209,7 +271,7 @@ final class RagxChainMechanismService
 
         return [
             'schema_version' => self::LOUVAIN_SCHEMA,
-            'slice' => 'MAXD-05',
+            'slice' => self::STAGE_MAXD_05,
             'status' => 'ok',
             'algorithm' => 'louvain_deterministic_local',
             'node_count' => count($nodes),
@@ -228,14 +290,14 @@ final class RagxChainMechanismService
     public function raptorLite(array $communities, array $verifiedSummaries, array $deps = []): array
     {
         if (! $this->flag(self::FLAG_RAPTOR_LITE)) {
-            return $this->disabled('RAGX-10', self::FLAG_RAPTOR_LITE) + ['nodes' => []];
+            return $this->disabled(self::STAGE_RAGX_10, self::FLAG_RAPTOR_LITE) + ['nodes' => []];
         }
 
         $blockers = $this->raptorBlockers($deps);
         if ($blockers !== []) {
             return [
                 'schema_version' => self::RAPTOR_SCHEMA,
-                'slice' => 'RAGX-10',
+                'slice' => self::STAGE_RAGX_10,
                 'status' => 'blocked',
                 'blocked_by' => $blockers,
                 'pending_window' => ['raptor_lite_verified_summary_window'],
@@ -252,7 +314,7 @@ final class RagxChainMechanismService
         if ($verified === []) {
             return [
                 'schema_version' => self::RAPTOR_SCHEMA,
-                'slice' => 'RAGX-10',
+                'slice' => self::STAGE_RAGX_10,
                 'status' => 'insufficient_signal',
                 'reason' => 'no_verified_maxf09_l2_summaries',
                 'communities_seen' => count($communities),
@@ -274,7 +336,7 @@ final class RagxChainMechanismService
 
         return [
             'schema_version' => self::RAPTOR_SCHEMA,
-            'slice' => 'RAGX-10',
+            'slice' => self::STAGE_RAGX_10,
             'status' => 'ok',
             'nodes' => $nodes,
             'generated_summary' => false,
@@ -289,7 +351,7 @@ final class RagxChainMechanismService
     public function sparseShadow(string $query, array $documents, int $limit = 5): array
     {
         if (! $this->flag(self::FLAG_SPARSE_FALLBACK)) {
-            return $this->disabled('RAGX-05', self::FLAG_SPARSE_FALLBACK) + ['matches' => []];
+            return $this->disabled(self::STAGE_RAGX_05, self::FLAG_SPARSE_FALLBACK) + ['matches' => []];
         }
 
         $tokens = $this->tokens($query);
@@ -312,7 +374,7 @@ final class RagxChainMechanismService
 
         return [
             'schema_version' => self::SCHEMA,
-            'slice' => 'RAGX-05',
+            'slice' => self::STAGE_RAGX_05,
             'status' => 'shadow',
             'matches' => array_slice($matches, 0, max(1, $limit)),
             'ab_green_claimed' => false,
@@ -326,14 +388,14 @@ final class RagxChainMechanismService
     public function adaptiveK(array $scores, int $requestedK): array
     {
         if (! $this->flag(self::FLAG_ADAPTIVE_K)) {
-            return $this->disabled('RAGX-11', self::FLAG_ADAPTIVE_K) + ['k' => max(1, $requestedK)];
+            return $this->disabled(self::STAGE_RAGX_11, self::FLAG_ADAPTIVE_K) + ['k' => max(1, $requestedK)];
         }
 
         $scores = array_values(array_map('floatval', $scores));
         rsort($scores);
         $k = max(1, $requestedK);
         for ($i = 1; $i < count($scores); $i++) {
-            if (($scores[$i - 1] - $scores[$i]) >= 0.25) {
+            if (($scores[$i - 1] - $scores[$i]) >= self::ADAPTIVE_K_SCORE_GAP_FLOOR) {
                 $k = max(1, min($requestedK, $i));
                 break;
             }
@@ -341,7 +403,7 @@ final class RagxChainMechanismService
 
         return [
             'schema_version' => self::SCHEMA,
-            'slice' => 'RAGX-11',
+            'slice' => self::STAGE_RAGX_11,
             'status' => 'shadow',
             'k' => $k,
             'score_count' => count($scores),
@@ -395,10 +457,10 @@ final class RagxChainMechanismService
 
         $blockers = [];
         if (($deps['maxd05_louvain'] ?? false) !== true) {
-            $blockers[] = 'MAXD-05';
+            $blockers[] = self::STAGE_MAXD_05;
         }
         if (($deps['maxf09_l2_summaries'] ?? true) !== true) {
-            $blockers[] = 'MAXF-09';
+            $blockers[] = self::BLOCKER_MAXF09;
         }
 
         return $blockers;

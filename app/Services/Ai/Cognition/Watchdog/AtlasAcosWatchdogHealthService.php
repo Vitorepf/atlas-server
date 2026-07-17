@@ -262,8 +262,13 @@ final class AtlasAcosWatchdogHealthService
             );
         }
         $improperFloorDiscards = (int) (
-            data_get($quality, 'latest_snapshot.metadata.memory_recall_golden.improper_floor_discards')
-            ?? data_get($quality, 'latest_snapshot.metadata.memory_recall_corpus.metrics.improper_floor_discards', 0)
+            AiValueNormalizer::finiteFloatOrNull(
+                data_get($quality, 'latest_snapshot.metadata.memory_recall_golden.improper_floor_discards')
+            )
+            ?? AiValueNormalizer::finiteFloatOrNull(
+                data_get($quality, 'latest_snapshot.metadata.memory_recall_corpus.metrics.improper_floor_discards', 0)
+            )
+            ?? 0
         );
         $coverageRatio = AiValueNormalizer::finiteFloatOrNull(data_get($aurg, 'coverage.memory_cross_layer_coverage_ratio', 0.0)) ?? 0.0;
         $preFilterConcentration = AiValueNormalizer::finiteFloatOrNull(data_get(

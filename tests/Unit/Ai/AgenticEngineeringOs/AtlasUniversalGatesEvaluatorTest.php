@@ -2850,4 +2850,26 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['residual_ops_config_floor_count']);
     }
 
+
+    public function test_ragx_stage_mechanism_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->ragxStageMechanismFloorsContractObserve([]);
+
+        $this->assertSame('RAGX-01', $payload['ragx_stage_ragx_01']);
+        $this->assertSame('RAGX-11', $payload['ragx_stage_ragx_11']);
+        $this->assertSame('MAXD-05', $payload['ragx_stage_maxd_05']);
+        $this->assertSame('late_chunk_asef_chunks_shadow', $payload['ragx_mechanism_late_chunk']);
+        $this->assertSame('raptor_lite_from_louvain_and_verified_l2_summaries', $payload['ragx_mechanism_raptor_lite']);
+        $this->assertSame('jina_v3_dual_read_benchmark_window', $payload['ragx_pending_jina_v3_dual_read']);
+        $this->assertSame('raptor_lite_verified_summary_window', $payload['ragx_pending_raptor_lite_summary']);
+        $this->assertSame('MAXA-04', $payload['ragx_blocker_maxa04']);
+        $this->assertSame('MAXA-06(fase 2)', $payload['ragx_blocker_maxa06_fase2']);
+        $this->assertSame('MAXF-09', $payload['ragx_blocker_maxf09']);
+        $this->assertSame(0.25, $payload['ragx_adaptive_k_score_gap_floor']);
+        $this->assertSame('app/atlas/evidence/acos-long-horizon-gate.json', $payload['evolution_long_horizon_gate_evidence_relative']);
+        $this->assertSame('app/atlas/evidence/acos-delta-series.jsonl', $payload['evolution_delta_series_evidence_relative']);
+        $this->assertSame('atlas/scheduler/heartbeat.jsonl', $payload['evolution_scheduler_heartbeat_relative']);
+        $this->assertSame(34, $payload['ragx_stage_mechanism_floor_count']);
+    }
+
 }

@@ -69,6 +69,12 @@ class AtlasAcosEvolutionScoreService
 
     public const DEFAULT_GLOBAL_HINTS_ENABLED = true;
 
+    public const LONG_HORIZON_GATE_EVIDENCE_RELATIVE = 'app/atlas/evidence/acos-long-horizon-gate.json';
+
+    public const DELTA_SERIES_EVIDENCE_RELATIVE = 'app/atlas/evidence/acos-delta-series.jsonl';
+
+    public const SCHEDULER_HEARTBEAT_RELATIVE = 'atlas/scheduler/heartbeat.jsonl';
+
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
         private readonly AtlasLearningRecallUseLiftService $lift = new AtlasLearningRecallUseLiftService,
@@ -218,8 +224,8 @@ class AtlasAcosEvolutionScoreService
             'evidence' => 'heartbeat do com.atlas.scheduler '.($heartbeatFresh ? 'fresco' : 'parado/ausente'),
         ];
 
-        $gateFresh = $this->fileFresh(storage_path('app/atlas/evidence/acos-long-horizon-gate.json'), self::GATE_FRESH_SECONDS);
-        $seriesFresh = $this->fileFresh(storage_path('app/atlas/evidence/acos-delta-series.jsonl'), self::GATE_FRESH_SECONDS);
+        $gateFresh = $this->fileFresh(storage_path(self::LONG_HORIZON_GATE_EVIDENCE_RELATIVE), self::GATE_FRESH_SECONDS);
+        $seriesFresh = $this->fileFresh(storage_path(self::DELTA_SERIES_EVIDENCE_RELATIVE), self::GATE_FRESH_SECONDS);
         $signals[] = [
             'signal' => 'gates_auditados',
             'points' => round(($gateFresh ? 1.25 : 0.0) + ($seriesFresh ? 1.25 : 0.0), 2),
@@ -263,7 +269,7 @@ class AtlasAcosEvolutionScoreService
 
     private function heartbeatFresh(): bool
     {
-        return $this->fileFresh(storage_path('atlas/scheduler/heartbeat.jsonl'), self::HEARTBEAT_FRESH_SECONDS);
+        return $this->fileFresh(storage_path(self::SCHEDULER_HEARTBEAT_RELATIVE), self::HEARTBEAT_FRESH_SECONDS);
     }
 
     private function fileFresh(string $path, int $maxAgeSeconds): bool

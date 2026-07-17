@@ -4130,6 +4130,54 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: RAGX stage/mechanism/pending-window floors + evolution
+     * evidence path floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function ragxStageMechanismFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ragx_stage_ragx_01' => RagxChainMechanismService::STAGE_RAGX_01,
+            'ragx_stage_ragx_02' => RagxChainMechanismService::STAGE_RAGX_02,
+            'ragx_stage_ragx_03' => RagxChainMechanismService::STAGE_RAGX_03,
+            'ragx_stage_ragx_05' => RagxChainMechanismService::STAGE_RAGX_05,
+            'ragx_stage_ragx_06' => RagxChainMechanismService::STAGE_RAGX_06,
+            'ragx_stage_ragx_07' => RagxChainMechanismService::STAGE_RAGX_07,
+            'ragx_stage_ragx_10' => RagxChainMechanismService::STAGE_RAGX_10,
+            'ragx_stage_ragx_11' => RagxChainMechanismService::STAGE_RAGX_11,
+            'ragx_stage_maxd_05' => RagxChainMechanismService::STAGE_MAXD_05,
+            'ragx_mechanism_late_chunk' => RagxChainMechanismService::MECHANISM_LATE_CHUNK,
+            'ragx_mechanism_facet_retrieval' => RagxChainMechanismService::MECHANISM_FACET_RETRIEVAL,
+            'ragx_mechanism_fusion' => RagxChainMechanismService::MECHANISM_FUSION,
+            'ragx_mechanism_cross_encoder' => RagxChainMechanismService::MECHANISM_CROSS_ENCODER,
+            'ragx_mechanism_adaptive_k' => RagxChainMechanismService::MECHANISM_ADAPTIVE_K,
+            'ragx_mechanism_sparse_fallback' => RagxChainMechanismService::MECHANISM_SPARSE_FALLBACK,
+            'ragx_mechanism_ab_registrar' => RagxChainMechanismService::MECHANISM_AB_REGISTRAR,
+            'ragx_mechanism_louvain' => RagxChainMechanismService::MECHANISM_LOUVAIN,
+            'ragx_mechanism_raptor_lite' => RagxChainMechanismService::MECHANISM_RAPTOR_LITE,
+            'ragx_pending_jina_v3_dual_read' => RagxChainMechanismService::PENDING_JINA_V3_DUAL_READ,
+            'ragx_pending_facet_retrieval_ab' => RagxChainMechanismService::PENDING_FACET_RETRIEVAL_AB,
+            'ragx_pending_fusion_shadow_ab' => RagxChainMechanismService::PENDING_FUSION_SHADOW_AB,
+            'ragx_pending_rerank_precision3' => RagxChainMechanismService::PENDING_RERANK_PRECISION3,
+            'ragx_pending_late_chunk_score_dist' => RagxChainMechanismService::PENDING_LATE_CHUNK_SCORE_DIST,
+            'ragx_pending_dense_vs_sparse' => RagxChainMechanismService::PENDING_DENSE_VS_SPARSE,
+            'ragx_pending_golden_v2_or_live' => RagxChainMechanismService::PENDING_GOLDEN_V2_OR_LIVE,
+            'ragx_pending_maxa06_fase2_backfill' => RagxChainMechanismService::PENDING_MAXA06_FASE2_BACKFILL,
+            'ragx_pending_raptor_lite_summary' => RagxChainMechanismService::PENDING_RAPTOR_LITE_SUMMARY,
+            'ragx_blocker_maxa04' => RagxChainMechanismService::BLOCKER_MAXA04,
+            'ragx_blocker_maxa06_fase2' => RagxChainMechanismService::BLOCKER_MAXA06_FASE2,
+            'ragx_blocker_maxf09' => RagxChainMechanismService::BLOCKER_MAXF09,
+            'ragx_adaptive_k_score_gap_floor' => RagxChainMechanismService::ADAPTIVE_K_SCORE_GAP_FLOOR,
+            'evolution_long_horizon_gate_evidence_relative' => AtlasAcosEvolutionScoreService::LONG_HORIZON_GATE_EVIDENCE_RELATIVE,
+            'evolution_delta_series_evidence_relative' => AtlasAcosEvolutionScoreService::DELTA_SERIES_EVIDENCE_RELATIVE,
+            'evolution_scheduler_heartbeat_relative' => AtlasAcosEvolutionScoreService::SCHEDULER_HEARTBEAT_RELATIVE,
+            'ragx_stage_mechanism_floor_count' => 34,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>
