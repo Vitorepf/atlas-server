@@ -43,6 +43,7 @@ final class AtlasAaeosCommand extends Command
         {--receipt= : receipt_id used by phase-skip}
         {--reason= : human-readable reason for phase-skip}
         {--signals= : JSON file with universal-gate signals}
+        {--delivery-pack= : JSON file with delivery-pack composition (derives delivery_pack_completeness_min_0_95)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -212,6 +213,14 @@ final class AtlasAaeosCommand extends Command
             return $this->failWith('universal-gates requires --intent');
         }
         $signals = $this->loadSignals();
+        $deliveryPackPath = (string) ($this->option('delivery-pack') ?? '');
+        if ($deliveryPackPath !== '') {
+            $composition = $this->loadJsonFile($deliveryPackPath);
+            if ($composition === null) {
+                return $this->failWith('universal-gates --delivery-pack must be a readable JSON object');
+            }
+            $signals['delivery_pack_completeness_min_0_95'] = $gates->deliveryPackCompletenessSignal($composition);
+        }
         $report = $gates->evaluate($intent, $signals);
         $this->emit($report, $json);
 
@@ -222,12 +231,23 @@ final class AtlasAaeosCommand extends Command
     private function loadSignals(): array
     {
         $path = (string) ($this->option('signals') ?? '');
-        if ($path === '' || ! is_file($path)) {
+        if ($path === '') {
             return [];
+        }
+        $decoded = $this->loadJsonFile($path);
+
+        return is_array($decoded) ? $decoded : [];
+    }
+
+    /** @return array<string,mixed>|null */
+    private function loadJsonFile(string $path): ?array
+    {
+        if ($path === '' || ! is_file($path)) {
+            return null;
         }
         $decoded = json_decode((string) file_get_contents($path), true);
 
-        return is_array($decoded) ? $decoded : [];
+        return is_array($decoded) ? $decoded : null;
     }
 
     private function emit(mixed $payload, bool $json): void
