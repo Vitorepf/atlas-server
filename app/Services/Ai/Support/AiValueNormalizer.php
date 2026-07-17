@@ -41,4 +41,14 @@ final class AiValueNormalizer
     {
         return is_array($value) ? $value : [];
     }
+
+    public static function trimmedString(mixed $value): string
+    {
+        return trim((string) $value);
+    }
+
+    public static function lowerTrimmedString(mixed $value): string
+    {
+        return strtolower(self::trimmedString($value));
+    }
 }

@@ -34,10 +34,10 @@ final class Esp09IndependentChallengerService
      */
     public static function evaluate(array $context): array
     {
-        $author = trim((string) ($context['author_engine_id'] ?? ''));
-        $challengerEngine = trim((string) ($context['challenger_engine_id'] ?? ''));
+        $author = AiValueNormalizer::trimmedString($context['author_engine_id'] ?? '');
+        $challengerEngine = AiValueNormalizer::trimmedString($context['challenger_engine_id'] ?? '');
         $alignment = self::floatOrNull($context['operator_alignment'] ?? null);
-        $kind = trim((string) ($context['decision_kind'] ?? 'ordinary_route'));
+        $kind = AiValueNormalizer::trimmedString($context['decision_kind'] ?? 'ordinary_route');
 
         $base = [
             'schema_version' => self::SCHEMA_VERSION,

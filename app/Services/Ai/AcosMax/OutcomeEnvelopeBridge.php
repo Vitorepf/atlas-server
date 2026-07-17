@@ -103,7 +103,7 @@ final class OutcomeEnvelopeBridge
 
     private function adapter(string $origin): OutcomeEnvelopeAdapter
     {
-        $key = strtolower(trim($origin));
+        $key = AiValueNormalizer::lowerTrimmedString($origin);
         if (! in_array($key, OutcomeEnvelope::ADAPTER_ORIGINS, true) || ! isset($this->adapters[$key])) {
             throw new \InvalidArgumentException('outcome_envelope_adapter_unknown:'.$key);
         }

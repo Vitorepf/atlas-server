@@ -41,4 +41,11 @@ final class AiValueNormalizerTest extends TestCase
         $this->assertSame([], AiValueNormalizer::arrayOrEmpty(null));
         $this->assertSame([], AiValueNormalizer::arrayOrEmpty('x'));
     }
+
+    public function test_trimmed_and_lower_trimmed_string_helpers(): void
+    {
+        $this->assertSame('Alpha', AiValueNormalizer::trimmedString(' Alpha '));
+        $this->assertSame('alpha', AiValueNormalizer::lowerTrimmedString(' Alpha '));
+        $this->assertSame('', AiValueNormalizer::trimmedString(null));
+    }
 }

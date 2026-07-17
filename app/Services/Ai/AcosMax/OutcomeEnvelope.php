@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\AcosMax;
 
 use App\Services\Ai\AtlasDecide\AtlasDecideLiveOutcomeFeedbackService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -29,7 +30,7 @@ final class OutcomeEnvelope
      */
     public static function normalizeStatus(string $nativeStatus): string
     {
-        return match (strtolower(trim($nativeStatus))) {
+        return match (AiValueNormalizer::lowerTrimmedString($nativeStatus)) {
             'succeeded', 'success', 'passed' => 'succeeded',
             'failed', 'failure' => 'failed',
             default => 'blocked',
@@ -42,9 +43,9 @@ final class OutcomeEnvelope
      */
     public static function toNativeStatus(string $envelopeStatus, string $origin): string
     {
-        $status = strtolower(trim($envelopeStatus));
+        $status = AiValueNormalizer::lowerTrimmedString($envelopeStatus);
 
-        return match (strtolower(trim($origin))) {
+        return match (AiValueNormalizer::lowerTrimmedString($origin)) {
             'dev_procedural' => match ($status) {
                 'succeeded' => 'success',
                 'failed' => 'failed',
@@ -96,27 +97,27 @@ final class OutcomeEnvelope
      */
     public static function validate(array $data): array
     {
-        $schema = strtolower(trim((string) ($data['schema_version'] ?? '')));
+        $schema = AiValueNormalizer::lowerTrimmedString($data['schema_version'] ?? '');
         if ($schema !== self::SCHEMA_VERSION) {
             throw new InvalidArgumentException('outcome_envelope_schema_invalid');
         }
 
-        $formula = strtolower(trim((string) ($data['formula_version'] ?? '')));
+        $formula = AiValueNormalizer::lowerTrimmedString($data['formula_version'] ?? '');
         if ($formula !== self::FORMULA_VERSION) {
             throw new InvalidArgumentException('outcome_envelope_formula_invalid');
         }
 
-        $origin = strtolower(trim((string) ($data['adapter_origin'] ?? '')));
+        $origin = AiValueNormalizer::lowerTrimmedString($data['adapter_origin'] ?? '');
         if (! in_array($origin, self::ADAPTER_ORIGINS, true)) {
             throw new InvalidArgumentException('outcome_envelope_adapter_origin_invalid');
         }
 
-        $status = strtolower(trim((string) ($data['status'] ?? '')));
+        $status = AiValueNormalizer::lowerTrimmedString($data['status'] ?? '');
         if (! in_array($status, self::STATUSES, true)) {
             throw new InvalidArgumentException('outcome_envelope_status_invalid');
         }
 
-        $basis = strtolower(trim((string) ($data['verified_basis'] ?? '')));
+        $basis = AiValueNormalizer::lowerTrimmedString($data['verified_basis'] ?? '');
         if (! in_array($basis, [
             AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_SERVER_VERIFIED,
             AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_GATES_PASSED,
@@ -130,7 +131,7 @@ final class OutcomeEnvelope
         if (! is_array($divergent)) {
             throw new InvalidArgumentException('outcome_envelope_native_divergent_invalid');
         }
-        $divergentOrigin = strtolower(trim((string) ($divergent['origin'] ?? '')));
+        $divergentOrigin = AiValueNormalizer::lowerTrimmedString($divergent['origin'] ?? '');
         if ($divergentOrigin !== $origin) {
             throw new InvalidArgumentException('outcome_envelope_native_divergent_origin_mismatch');
         }
@@ -138,9 +139,9 @@ final class OutcomeEnvelope
             throw new InvalidArgumentException('outcome_envelope_native_divergent_fields_invalid');
         }
 
-        $executor = trim((string) ($data['executor'] ?? ''));
-        $taskCategory = trim((string) ($data['task_category'] ?? ''));
-        $provider = trim((string) ($data['provider'] ?? ''));
+        $executor = AiValueNormalizer::trimmedString($data['executor'] ?? '');
+        $taskCategory = AiValueNormalizer::trimmedString($data['task_category'] ?? '');
+        $provider = AiValueNormalizer::trimmedString($data['provider'] ?? '');
         if ($executor === '' || $taskCategory === '' || $provider === '') {
             throw new InvalidArgumentException('outcome_envelope_identity_fields_required');
         }
