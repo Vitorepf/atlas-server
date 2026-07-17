@@ -1731,4 +1731,18 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(8, $payload['min_n_per_class']);
         $this->assertFalse($payload['allocator_writes_own_weights']);
     }
+
+    public function test_predicted_impact_band_contract_observe_reports_bands(): void
+    {
+        $payload = $this->svc->predictedImpactBandContractObserve([]);
+
+        $this->assertSame('atlas.originator.predicted_impact_band.v1', $payload['schema_version']);
+        $this->assertContains('low', $payload['bands']);
+        $this->assertContains('high', $payload['bands']);
+        $this->assertSame(3, $payload['band_count']);
+        $this->assertSame(0, $payload['rung_weights']['task']);
+        $this->assertSame(3, $payload['rung_weights']['salto']);
+        $this->assertFalse($payload['influences_pick']);
+        $this->assertFalse($payload['single_scalar_score_emitted']);
+    }
 }

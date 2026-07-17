@@ -35,7 +35,7 @@ final class PromotionProtocol
     ];
 
     /** @var list<string> */
-    private const REQUIRED_FIELDS = [
+    public const REQUIRED_FIELDS = [
         'shadow_minimum_window',
         'flip_criterion',
         'rollback_trigger',
@@ -93,8 +93,8 @@ final class PromotionProtocol
      */
     public function flip(string $flagId, string $toState, array $context = []): array
     {
-        $flagId = AiValueNormalizer::trimmedString($flagId);
-        $toState = AiValueNormalizer::trimmedString($toState);
+        $flagId = AiValueNormalizer::trimmedStringOrNull($flagId) ?? '';
+        $toState = AiValueNormalizer::trimmedStringOrNull($toState) ?? '';
         $entry = $this->entryById($flagId);
         if ($entry === null) {
             return $this->blocked('unknown_flag', $flagId, $toState);
@@ -117,12 +117,12 @@ final class PromotionProtocol
             );
         }
 
-        $windowId = AiValueNormalizer::trimmedString($context['observation_window_id'] ?? '');
+        $windowId = AiValueNormalizer::trimmedStringOrNull($context['observation_window_id'] ?? null) ?? '';
         if ($windowId === '') {
             return $this->blocked('missing_observation_window_id', $flagId, $toState);
         }
 
-        $receipt = AiValueNormalizer::trimmedString($context['receipt'] ?? '');
+        $receipt = AiValueNormalizer::trimmedStringOrNull($context['receipt'] ?? null) ?? '';
         if ($receipt === '') {
             return $this->blocked('missing_flip_receipt', $flagId, $toState);
         }
@@ -154,8 +154,8 @@ final class PromotionProtocol
             'from_state' => $fromState,
             'to_state' => $toState,
             'observation_window_id' => $windowId,
-            'actor' => AiValueNormalizer::trimmedString($context['actor'] ?? 'atlas'),
-            'reason' => AiValueNormalizer::trimmedString($context['reason'] ?? ''),
+            'actor' => AiValueNormalizer::trimmedStringOrNull($context['actor'] ?? null) ?? 'atlas',
+            'reason' => AiValueNormalizer::trimmedStringOrNull($context['reason'] ?? null) ?? '',
             'receipt' => $receipt,
             'rollback_trigger' => (string) $entry['rollback_trigger'],
             'judge_engine_id' => (string) $entry['judge_engine_id'],
@@ -354,15 +354,15 @@ final class PromotionProtocol
      */
     private function normalizeManagedEntry(array $entry): array
     {
-        $state = AiValueNormalizer::trimmedString($entry['state'] ?? self::STATE_OFF);
+        $state = AiValueNormalizer::trimmedStringOrNull($entry['state'] ?? null) ?? self::STATE_OFF;
         if (! in_array($state, self::STATES, true)) {
             $state = self::STATE_OFF;
         }
 
         return array_merge($entry, [
-            'id' => AiValueNormalizer::trimmedString($entry['id'] ?? ''),
-            'family' => strtoupper(AiValueNormalizer::trimmedString($entry['family'] ?? '')),
-            'slice' => AiValueNormalizer::trimmedString($entry['slice'] ?? ''),
+            'id' => AiValueNormalizer::trimmedStringOrNull($entry['id'] ?? null) ?? '',
+            'family' => strtoupper(AiValueNormalizer::trimmedStringOrNull($entry['family'] ?? null) ?? ''),
+            'slice' => AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? '',
             'state' => $state,
             'status' => 'managed',
         ]);
@@ -376,8 +376,8 @@ final class PromotionProtocol
         $payload = is_array($entry) ? $entry : ['id' => $entry];
 
         return array_merge($payload, [
-            'id' => AiValueNormalizer::trimmedString($payload['id'] ?? ''),
-            'family' => strtoupper(AiValueNormalizer::trimmedString($payload['family'] ?? 'LEGACY')),
+            'id' => AiValueNormalizer::trimmedStringOrNull($payload['id'] ?? null) ?? '',
+            'family' => strtoupper(AiValueNormalizer::trimmedStringOrNull($payload['family'] ?? null) ?? 'LEGACY'),
             'status' => 'legacy_unmanaged',
         ]);
     }

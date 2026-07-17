@@ -2391,6 +2391,25 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only predicted-impact band contract (bands + rung weights).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function predictedImpactBandContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => PredictedImpactBand::SCHEMA_VERSION,
+            'bands' => PredictedImpactBand::BANDS,
+            'band_count' => count(PredictedImpactBand::BANDS),
+            'rung_weights' => PredictedImpactBand::RUNG_WEIGHT,
+            'influences_pick' => false,
+            'single_scalar_score_emitted' => false,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

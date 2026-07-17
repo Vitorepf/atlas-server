@@ -162,6 +162,7 @@ final class AtlasAaeosCommand extends Command
         {--ambition-rung-policy-contract= : JSON file (any object) to observe MULTN17-01 ambition rung policy}
         {--reactive-saturation-contract= : JSON file (any object) to observe reactive saturation floors}
         {--portfolio-budget-contract= : JSON file (any object) to observe MULTK-06 portfolio budget contract}
+        {--predicted-impact-band-contract= : JSON file (any object) to observe predicted-impact band contract}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -480,6 +481,7 @@ final class AtlasAaeosCommand extends Command
             ['ambition-rung-policy-contract', 'ambition_rung_policy_contract', fn (array $p) => $gates->ambitionRungPolicyContractObserve($p)],
             ['reactive-saturation-contract', 'reactive_saturation_contract', fn (array $p) => $gates->reactiveSaturationContractObserve($p)],
             ['portfolio-budget-contract', 'portfolio_budget_contract', fn (array $p) => $gates->portfolioBudgetContractObserve($p)],
+            ['predicted-impact-band-contract', 'predicted_impact_band_contract', fn (array $p) => $gates->predictedImpactBandContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
