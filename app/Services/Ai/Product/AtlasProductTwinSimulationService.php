@@ -4,6 +4,7 @@ namespace App\Services\Ai\Product;
 
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\Support\AiStringListNormalizer;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 class AtlasProductTwinSimulationService
 {
@@ -172,12 +173,8 @@ class AtlasProductTwinSimulationService
      */
     private function revenue(array $truth, array $context): array
     {
-        $observed = is_numeric($context['observed_revenue_usd'] ?? null)
-            ? (float) $context['observed_revenue_usd']
-            : null;
-        $target = is_numeric($context['target_revenue_usd'] ?? null)
-            ? (float) $context['target_revenue_usd']
-            : null;
+        $observed = AiValueNormalizer::finiteFloatOrNull($context['observed_revenue_usd'] ?? null);
+        $target = AiValueNormalizer::finiteFloatOrNull($context['target_revenue_usd'] ?? null);
         $hasPaymentObject = in_array('payment', AiStringListNormalizer::trimmedScalarValues(data_get($truth, 'business_domain.objects', [])), true);
 
         return [

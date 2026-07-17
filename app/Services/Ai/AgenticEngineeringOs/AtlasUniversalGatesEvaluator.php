@@ -1786,6 +1786,30 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only AAEOS blocker severity level catalogue.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function blockerSeverityLevelsObserve(array $input = []): array
+    {
+        $levels = [
+            AaeosBlockerSeverity::CRITICAL,
+            AaeosBlockerSeverity::HIGH,
+            AaeosBlockerSeverity::MEDIUM,
+            AaeosBlockerSeverity::LOW,
+        ];
+
+        return [
+            'schema_version' => 'atlas.aaeos.blocker_severity.v1',
+            'levels' => $levels,
+            'count' => count($levels),
+            'decisive_levels' => [AaeosBlockerSeverity::CRITICAL, AaeosBlockerSeverity::HIGH],
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

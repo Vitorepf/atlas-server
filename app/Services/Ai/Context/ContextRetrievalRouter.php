@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai\Context;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\ValueObjects\AiTaskRequest;
 use Illuminate\Support\Str;
 
@@ -98,9 +99,7 @@ final class ContextRetrievalRouter
             return null;
         }
 
-        $threshold = isset($options['fanout_threshold']) && is_numeric($options['fanout_threshold'])
-            ? (float) $options['fanout_threshold']
-            : 0.5;
+        $threshold = AiValueNormalizer::finiteFloatOrNull($options['fanout_threshold'] ?? null) ?? 0.5;
 
         return $this->fanoutGate->gate($scores, $threshold);
     }

@@ -8,6 +8,7 @@ use App\Services\Ai\Foundry\Frontier\Armor\FrontierMetricRollbackGate;
 use App\Services\Ai\Foundry\FoundrySchemas;
 use App\Services\Ai\Mission\MissionCanonicalHash;
 use App\Services\Ai\SoftwareCompanyStewardship\AreaFocusLoop\AutonomousLoopReceiptIntegrityService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 
 /**
@@ -440,12 +441,7 @@ final class FoundryEvolutionOutcomeMaterializerService
 
     private function parseFloatOrNull(string $stdout): ?float
     {
-        $trimmed = trim($stdout);
-        if ($trimmed === '' || ! is_numeric($trimmed)) {
-            return null;
-        }
-
-        return (float) $trimmed;
+        return AiValueNormalizer::finiteFloatOrNull($stdout);
     }
 
     /**

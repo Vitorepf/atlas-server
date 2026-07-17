@@ -1012,9 +1012,7 @@ final class MemoryConsolidationScanner
     private function clusterConfidence(array $members): float
     {
         $values = array_values(array_filter(array_map(
-            static fn (AtlasMemoryEntry $entry): ?float => is_numeric($entry->getAttribute('confidence'))
-                ? (float) $entry->getAttribute('confidence')
-                : null,
+            static fn (AtlasMemoryEntry $entry): ?float => AiValueNormalizer::finiteFloatOrNull($entry->getAttribute('confidence')),
             $members,
         ), static fn (?float $value): bool => $value !== null));
         if ($values === []) {

@@ -1409,4 +1409,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('human_review', $payload['phases_requiring_signature_at_l4']);
         $this->assertSame(count($payload['phases_requiring_signature_at_l4']), $payload['count']);
     }
+
+    public function test_blocker_severity_levels_observe_reports_catalogue(): void
+    {
+        $payload = $this->svc->blockerSeverityLevelsObserve([]);
+
+        $this->assertSame('atlas.aaeos.blocker_severity.v1', $payload['schema_version']);
+        $this->assertContains('critical', $payload['levels']);
+        $this->assertContains('high', $payload['decisive_levels']);
+        $this->assertSame(count($payload['levels']), $payload['count']);
+    }
 }
