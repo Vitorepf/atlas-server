@@ -299,10 +299,14 @@ final class AtlasMissionControlCockpitService
     {
         $out = [];
         foreach ($envelopes as $env) {
-            foreach (($env['blockers'] ?? []) as $blocker) {
-                if (is_array($blocker) && isset($blocker['id'])) {
-                    $out[] = $blocker;
+            foreach (AiValueNormalizer::arrayOrEmpty($env['blockers'] ?? null) as $blocker) {
+                if (! is_array($blocker)) {
+                    continue;
                 }
+                if (AiValueNormalizer::trimmedStringOrNull($blocker['id'] ?? null) === null) {
+                    continue;
+                }
+                $out[] = $blocker;
             }
         }
 

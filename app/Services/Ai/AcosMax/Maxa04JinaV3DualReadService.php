@@ -129,7 +129,7 @@ final class Maxa04JinaV3DualReadService
     {
         $normalized = [];
         foreach ($cases as $case) {
-            $queryId = trim((string) ($case['query_id'] ?? $case['id'] ?? ''));
+            $queryId = AiValueNormalizer::trimmedString($case['query_id'] ?? $case['id'] ?? '');
             if ($queryId === '') {
                 continue;
             }

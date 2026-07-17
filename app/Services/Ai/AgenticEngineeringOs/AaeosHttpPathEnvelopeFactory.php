@@ -390,15 +390,21 @@ final class AaeosHttpPathEnvelopeFactory
         }
 
         $blockers = [];
-        foreach ((array) ($assisted['blockers'] ?? []) as $blocker) {
-            if (is_array($blocker) && isset($blocker['id'])) {
+        foreach (AiValueNormalizer::arrayOrEmpty($assisted['blockers'] ?? null) as $blocker) {
+            if (is_array($blocker)) {
+                $id = AiValueNormalizer::trimmedStringOrNull($blocker['id'] ?? null);
+                if ($id === null) {
+                    continue;
+                }
+                $severity = AiValueNormalizer::trimmedString($blocker['severity'] ?? 'high');
+                $owner = AiValueNormalizer::trimmedString($blocker['owner'] ?? 'atlas-ai');
                 $blockers[] = [
-                    'id' => (string) $blocker['id'],
-                    'severity' => (string) ($blocker['severity'] ?? 'high'),
-                    'owner' => (string) ($blocker['owner'] ?? 'atlas-ai'),
+                    'id' => $id,
+                    'severity' => $severity !== '' ? $severity : 'high',
+                    'owner' => $owner !== '' ? $owner : 'atlas-ai',
                 ];
-            } elseif (is_string($blocker) && $blocker !== '') {
-                $blockers[] = ['id' => $blocker, 'severity' => 'high', 'owner' => 'atlas-ai'];
+            } elseif (($id = AiValueNormalizer::trimmedStringOrNull($blocker)) !== null) {
+                $blockers[] = ['id' => $id, 'severity' => 'high', 'owner' => 'atlas-ai'];
             }
         }
 

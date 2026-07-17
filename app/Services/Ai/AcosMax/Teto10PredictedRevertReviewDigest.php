@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * TETO-10 (§3144-3147) turns review debt into a terminal-first review product:
  * grouped by decision/family, ordered by predicted-revert value, and carrying
@@ -252,7 +254,7 @@ final class Teto10PredictedRevertReviewDigest
 
     private static function band(mixed $value): string
     {
-        $band = strtolower(trim((string) $value));
+        $band = AiValueNormalizer::lowerTrimmedString($value);
 
         return array_key_exists($band, self::BAND_RANK) ? $band : 'unknown';
     }
@@ -313,11 +315,7 @@ final class Teto10PredictedRevertReviewDigest
 
     private static function string(mixed $value): string
     {
-        if (is_scalar($value)) {
-            return trim((string) $value);
-        }
-
-        return '';
+        return AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '';
     }
 
     private static function plain(string $value): string
