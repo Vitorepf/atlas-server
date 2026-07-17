@@ -72,6 +72,7 @@ final class AtlasAaeosCommand extends Command
         {--domain-lexical= : JSON file with query + fields (observe-only domain lexical score)}
         {--gated-corpus= : JSON file with corpus sources (observe-only gated candidate mine)}
         {--structured-facts= : JSON file with memory_type + facts (observe-only schema validate)}
+        {--citation-grounding= : JSON file with response rows (observe-only citation grounding)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -300,6 +301,7 @@ final class AtlasAaeosCommand extends Command
             ['domain-lexical', 'domain_lexical', fn (array $p) => $gates->domainLexicalObserve($p)],
             ['gated-corpus', 'gated_corpus_candidates', fn (array $p) => $gates->gatedCorpusCandidatesObserve($p)],
             ['structured-facts', 'structured_fact_schema', fn (array $p) => $gates->structuredFactSchemaObserve($p)],
+            ['citation-grounding', 'citation_grounding', fn (array $p) => $gates->citationGroundingObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

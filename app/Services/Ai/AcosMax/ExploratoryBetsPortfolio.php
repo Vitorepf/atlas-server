@@ -62,7 +62,7 @@ final class ExploratoryBetsPortfolio
         $suspensionUpdates = [];
 
         foreach ($bets as $bet) {
-            $path = (string) $bet['path'];
+            $path = AiValueNormalizer::trimmedString($bet['path'] ?? '');
             $effect = $objectiveClass !== ''
                 ? $gate->effect($path, $objectiveClass)
                 : $gate->effect($path);
@@ -103,7 +103,7 @@ final class ExploratoryBetsPortfolio
             if ($path === '') {
                 continue;
             }
-            if ((string) ($candidate['rung'] ?? '') !== 'task') {
+            if (AiValueNormalizer::trimmedString($candidate['rung'] ?? '') !== 'task') {
                 continue;
             }
             if (array_key_exists('path_yield', $candidate) && $candidate['path_yield'] !== null) {
@@ -123,10 +123,10 @@ final class ExploratoryBetsPortfolio
      */
     private static function decisionFor(array $bet, array $effect, ?string $suspendedState): array
     {
-        $path = (string) $bet['path'];
+        $path = AiValueNormalizer::trimmedString($bet['path'] ?? '');
         $base = [
             'path' => $path,
-            'candidate_id' => (string) ($bet['id'] ?? $path),
+            'candidate_id' => AiValueNormalizer::trimmedString($bet['id'] ?? $path),
             'causal_effect' => $effect,
             'path_weight_multiplier' => 1.0,
         ];
@@ -172,7 +172,7 @@ final class ExploratoryBetsPortfolio
             'state' => $suspendedState === PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE
                 ? PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE
                 : 'exploring',
-            'basis' => (string) ($effect['reason'] ?? 'unproven_effect'),
+            'basis' => AiValueNormalizer::trimmedString($effect['reason'] ?? 'unproven_effect') ?: 'unproven_effect',
         ]);
     }
 
@@ -194,10 +194,10 @@ final class ExploratoryBetsPortfolio
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'decision_kind' => 'exploratory_bet_continuation_gate',
-            'path' => (string) $decision['path'],
-            'action' => (string) $decision['action'],
-            'state' => (string) $decision['state'],
-            'basis' => (string) $decision['basis'],
+            'path' => AiValueNormalizer::trimmedString($decision['path'] ?? ''),
+            'action' => AiValueNormalizer::trimmedString($decision['action'] ?? ''),
+            'state' => AiValueNormalizer::trimmedString($decision['state'] ?? ''),
+            'basis' => AiValueNormalizer::trimmedString($decision['basis'] ?? ''),
             'path_weight_multiplier' => (float) $decision['path_weight_multiplier'],
             'window_id' => $windowId,
             'window_days' => $windowDays,

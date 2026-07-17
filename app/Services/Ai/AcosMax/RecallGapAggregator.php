@@ -24,7 +24,7 @@ final class RecallGapAggregator
             if ((float) ($event['top_score'] ?? 0.0) >= self::WEAK_SCORE_FLOOR) {
                 continue;
             }
-            $normalized = self::normalize((string) ($event['query'] ?? ''));
+            $normalized = self::normalize(AiValueNormalizer::trimmedString($event['query'] ?? ''));
             if ($normalized === '') {
                 continue;
             }

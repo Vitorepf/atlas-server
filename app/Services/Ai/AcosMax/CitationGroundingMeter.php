@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 final class CitationGroundingMeter
 {
     public const SCHEMA_VERSION = 'atlas.context.citation_grounding.v1';
@@ -21,7 +23,7 @@ final class CitationGroundingMeter
 
         foreach ($responses as $response) {
             $delivered = array_fill_keys(array_map('strval', (array) ($response['delivered_refs'] ?? [])), true);
-            $refs = self::refs((string) ($response['response'] ?? ''));
+            $refs = self::refs(AiValueNormalizer::trimmedString($response['response'] ?? ''));
             if ($refs !== []) {
                 $withCitation++;
             }

@@ -710,6 +710,29 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_citation_grounding(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-cg-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'responses' => [
+                ['response' => 'ref=memory:x', 'delivered_refs' => ['memory:x']],
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-cg',
+                '--citation-grounding' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"citation_grounding"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

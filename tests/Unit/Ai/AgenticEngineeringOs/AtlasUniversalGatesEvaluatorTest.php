@@ -26,6 +26,7 @@ use App\Services\Ai\AcosMax\AmbitionRungPolicy;
 use App\Services\Ai\AcosMax\DomainLexicalNormalizer;
 use App\Services\Ai\AcosMax\GatedCorpusCandidateMiner;
 use App\Services\Ai\AcosMax\StructuredFactSchemaMap;
+use App\Services\Ai\AcosMax\CitationGroundingMeter;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -591,5 +592,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertFalse($payload['valid']);
         $this->assertContains('porque', $payload['missing']);
         $this->assertContains('expiry', $payload['missing']);
+    }
+
+    public function test_citation_grounding_observe_measures_responses(): void
+    {
+        $payload = $this->svc->citationGroundingObserve([
+            'responses' => [
+                [
+                    'response' => 'See ref=memory:abc and code:Foo',
+                    'delivered_refs' => ['memory:abc'],
+                ],
+            ],
+        ]);
+
+        $this->assertSame(CitationGroundingMeter::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('ok', $payload['status']);
+        $this->assertSame(1, $payload['unsupported_citation_count']);
+        $this->assertSame(0.5, $payload['grounding_rate']);
     }
 }

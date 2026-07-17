@@ -22,6 +22,7 @@ use App\Services\Ai\AcosMax\AmbitionRungPolicy;
 use App\Services\Ai\AcosMax\DomainLexicalNormalizer;
 use App\Services\Ai\AcosMax\GatedCorpusCandidateMiner;
 use App\Services\Ai\AcosMax\StructuredFactSchemaMap;
+use App\Services\Ai\AcosMax\CitationGroundingMeter;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -710,6 +711,23 @@ final class AtlasUniversalGatesEvaluator
         $facts = AiValueNormalizer::arrayOrEmpty($input['facts'] ?? null);
 
         return StructuredFactSchemaMap::validate($memoryType, $facts);
+    }
+
+    /**
+     * Observe-only citation grounding meter over response rows.
+     * Accepts a responses list or `{responses:[...]}`. Catalogue stays 15.
+     *
+     * @param  array<mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function citationGroundingObserve(array $input): array
+    {
+        $responses = array_is_list($input)
+            ? $input
+            : AiValueNormalizer::arrayOrEmpty($input['responses'] ?? null);
+
+        /** @var list<array<string,mixed>> $responses */
+        return CitationGroundingMeter::measure($responses);
     }
 
     /**
