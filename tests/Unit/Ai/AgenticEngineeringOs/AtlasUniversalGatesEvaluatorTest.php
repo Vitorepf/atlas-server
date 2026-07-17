@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Ai\AgenticEngineeringOs;
 
 use App\Services\Ai\AgenticEngineeringOs\AtlasUniversalGatesEvaluator;
+use App\Services\Ai\AgenticEngineeringOs\DeliveryPackCompletenessScorer;
 use App\Services\Ai\AgenticEngineeringOs\QualityBarTelemetryContract;
 use InvalidArgumentException;
 use Tests\TestCase;
@@ -103,5 +104,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
             'atlas.aaeos.quality_bar_telemetry.v1',
             QualityBarTelemetryContract::defaults()->toArray()['schema_version'],
         );
+    }
+
+    public function test_delivery_pack_completeness_signal_uses_live_scorer(): void
+    {
+        $this->assertSame(
+            DeliveryPackCompletenessScorer::class,
+            AtlasUniversalGatesEvaluator::UNIVERSAL_GATES['delivery_pack_completeness_min_0_95']['canonical_source'],
+        );
+
+        $complete = [
+            'changed_files' => 2,
+            'test_evidence' => ['tests/ExampleTest.php'],
+            'no_test_reason' => '',
+            'evidence_hashes' => ['sha256:aa'],
+            'risk_register_present' => true,
+            'receipt_present' => true,
+            'delivery_hash' => 'sha256:signed',
+        ];
+        $this->assertTrue($this->svc->deliveryPackCompletenessSignal($complete));
+
+        $unsigned = $complete;
+        $unsigned['delivery_hash'] = '';
+        $this->assertFalse($this->svc->deliveryPackCompletenessSignal($unsigned));
     }
 }

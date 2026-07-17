@@ -90,7 +90,7 @@ final class AtlasUniversalGatesEvaluator
         ],
         'delivery_pack_completeness_min_0_95' => [
             'description' => 'Delivery pack completeness score >= 0.95.',
-            'canonical_source' => 'delivery.completeness_evaluator',
+            'canonical_source' => DeliveryPackCompletenessScorer::class,
         ],
         'learning_capsule_registered' => [
             'description' => 'A learning_capsule was registered with ACOS for compounding.',
@@ -186,6 +186,25 @@ final class AtlasUniversalGatesEvaluator
         }
 
         return 'green';
+    }
+
+    /**
+     * Derive the boolean signal for `delivery_pack_completeness_min_0_95`
+     * from a delivery-pack composition via {@see DeliveryPackCompletenessScorer}.
+     *
+     * Passed only when status is `passed` and ratio >= 0.95 (gate floor).
+     *
+     * @param  array<string,mixed>  $composition
+     */
+    public function deliveryPackCompletenessSignal(
+        array $composition,
+        ?DeliveryPackCompletenessScorer $scorer = null,
+        float $minRatio = 0.95,
+    ): bool {
+        $report = ($scorer ?? new DeliveryPackCompletenessScorer)->score($composition);
+
+        return ($report['status'] ?? '') === 'passed'
+            && (float) ($report['ratio'] ?? 0.0) >= $minRatio;
     }
 
     /**

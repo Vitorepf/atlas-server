@@ -5,7 +5,10 @@ declare(strict_types=1);
 namespace App\Services\Ai\Aaeos\Cores;
 
 /**
- * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; ver triagem 2026-07-06)
+ * Summary fidelity / context-retention coverage over required summary items.
+ *
+ * Live consumers: {@see \App\Services\Ai\AiCompactionService} and
+ * {@see \App\Services\Ai\Compaction\VerifiedL2HierarchicalSummaryService}.
  */
 final class SummaryFidelityCoverageScorer
 {

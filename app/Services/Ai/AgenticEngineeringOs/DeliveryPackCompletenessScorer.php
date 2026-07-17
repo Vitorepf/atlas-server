@@ -7,7 +7,10 @@ namespace App\Services\Ai\AgenticEngineeringOs;
 use InvalidArgumentException;
 
 /**
- * @unwired-until 2026-08-05 (Obra #7 W2: capability testada aguardando consumidor; ver triagem 2026-07-06)
+ * P13 delivery-pack completeness gate.
+ *
+ * Live consumer: {@see AtlasUniversalGatesEvaluator::deliveryPackCompletenessSignal()}
+ * for the universal gate `delivery_pack_completeness_min_0_95`.
  */
 final class DeliveryPackCompletenessScorer
 {
