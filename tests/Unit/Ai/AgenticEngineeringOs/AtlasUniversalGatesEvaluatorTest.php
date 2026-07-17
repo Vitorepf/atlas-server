@@ -3759,4 +3759,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['obra_evidence_http_floor_count']);
     }
 
+
+    public function test_teto_cognitive_hmac_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->tetoCognitiveHmacFloorsContractObserve([]);
+
+        $this->assertSame('group_key', $payload['teto_field_group_key']);
+        $this->assertSame('decision_id', $payload['teto_field_decision_id']);
+        $this->assertSame('predicted_revert_band', $payload['teto_field_predicted_revert_band']);
+        $this->assertSame('high', $payload['teto_band_high']);
+        $this->assertSame('ok', $payload['teto_status_ok']);
+        $this->assertSame('group', $payload['cognitive_field_group']);
+        $this->assertSame('subsystems', $payload['cognitive_field_subsystems']);
+        $this->assertSame('declared_ready', $payload['cognitive_field_declared_ready']);
+        $this->assertSame('evidence_files_seen', $payload['cognitive_field_evidence_files_seen']);
+        $this->assertSame('atlas.cognitive_function_atlas.self_model.v1', $payload['cognitive_self_model_schema']);
+        $this->assertSame('status', $payload['hmac_field_status']);
+        $this->assertSame('head_receipt_hash', $payload['hmac_field_head_receipt_hash']);
+        $this->assertSame('stages', $payload['hmac_field_stages']);
+        $this->assertSame('stage_count', $payload['hmac_field_stage_count']);
+        $this->assertSame('receipt_hash', $payload['hmac_field_receipt_hash']);
+        $this->assertSame('ok', $payload['hmac_field_ok']);
+        $this->assertSame('atlas.capture.hmac_lineage.v1', $payload['hmac_schema_version']);
+        $this->assertSame(17, $payload['teto_cognitive_hmac_floor_count']);
+    }
+
 }

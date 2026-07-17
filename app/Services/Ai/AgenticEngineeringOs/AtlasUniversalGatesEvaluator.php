@@ -5383,6 +5383,37 @@ final class AtlasUniversalGatesEvaluator
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
+
+    /**
+     * Observe-only residual floors for TETO-10 / cognitive atlas / HMAC lineage field contracts.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'teto_field_group_key' => Teto10PredictedRevertReviewDigest::FIELD_GROUP_KEY,
+            'teto_field_decision_id' => Teto10PredictedRevertReviewDigest::FIELD_DECISION_ID,
+            'teto_field_predicted_revert_band' => Teto10PredictedRevertReviewDigest::FIELD_PREDICTED_REVERT_BAND,
+            'teto_band_high' => Teto10PredictedRevertReviewDigest::BAND_HIGH,
+            'teto_status_ok' => Teto10PredictedRevertReviewDigest::STATUS_OK,
+            'cognitive_field_group' => AtlasCognitiveFunctionAtlasService::FIELD_GROUP,
+            'cognitive_field_subsystems' => AtlasCognitiveFunctionAtlasService::FIELD_SUBSYSTEMS,
+            'cognitive_field_declared_ready' => AtlasCognitiveFunctionAtlasService::FIELD_DECLARED_READY,
+            'cognitive_field_evidence_files_seen' => AtlasCognitiveFunctionAtlasService::FIELD_EVIDENCE_FILES_SEEN,
+            'cognitive_self_model_schema' => AtlasCognitiveFunctionAtlasService::SELF_MODEL_SCHEMA,
+            'hmac_field_status' => CaptureHmacLineageService::FIELD_STATUS,
+            'hmac_field_head_receipt_hash' => CaptureHmacLineageService::FIELD_HEAD_RECEIPT_HASH,
+            'hmac_field_stages' => CaptureHmacLineageService::FIELD_STAGES,
+            'hmac_field_stage_count' => CaptureHmacLineageService::FIELD_STAGE_COUNT,
+            'hmac_field_receipt_hash' => CaptureHmacLineageService::FIELD_RECEIPT_HASH,
+            'hmac_field_ok' => CaptureHmacLineageService::FIELD_OK,
+            'hmac_schema_version' => CaptureHmacLineageService::SCHEMA_VERSION,
+            'teto_cognitive_hmac_floor_count' => 17,
+        ];
+    }
+
     public function obraEvidenceHttpFloorsContractObserve(array $input = []): array
     {
         return [

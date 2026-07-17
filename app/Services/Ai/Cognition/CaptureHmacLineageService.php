@@ -32,9 +32,25 @@ final class CaptureHmacLineageService
 
     public const STAGE_MEMORY = 'memory';
 
-    public const STAGE_UNKNOWN = 'unknown';
+
+    public const FIELD_STATUS = 'status';
+
+    public const FIELD_HEAD_RECEIPT_HASH = 'head_receipt_hash';
+
+    public const FIELD_STAGES = 'stages';
+
+    public const FIELD_STAGE_COUNT = 'stage_count';
+
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     public const FIELD_OK = 'ok';
+
+    public const FIELD_BROKEN = 'broken';
+
+    public const FIELD_LINEAGE = 'lineage';
+
+    public const STAGE_UNKNOWN = 'unknown';
+
 
     public const FIELD_RECEIPT_HASH = 'receipt_hash';
 
@@ -73,7 +89,7 @@ final class CaptureHmacLineageService
         $prevReceiptHash = $this->headReceiptHash($existingChain) ?? self::GENESIS_RECEIPT;
         $receiptHash = $this->chainLink($prevReceiptHash, $stagePayloadHash);
 
-        $stages = array_values(AiValueNormalizer::arrayOrEmpty($existingChain['stages'] ?? null));
+        $stages = array_values(AiValueNormalizer::arrayOrEmpty($existingChain[self::FIELD_STAGES] ?? null));
         $stages[] = [
             'stage' => $stage,
             'stage_payload_hash' => $stagePayloadHash,
@@ -90,22 +106,22 @@ final class CaptureHmacLineageService
      */
     public function verify(array $chain): array
     {
-        if (($chain['schema_version'] ?? null) !== self::SCHEMA_VERSION) {
+        if (($chain[self::FIELD_SCHEMA_VERSION] ?? null) !== self::SCHEMA_VERSION) {
             return [
-                'status' => self::STATUS_UNVERIFIABLE_LEGACY,
+                self::FIELD_STATUS => self::STATUS_UNVERIFIABLE_LEGACY,
                 self::FIELD_BROKEN_AT => null,
-                'stage_count' => 0,
-                'head_receipt_hash' => null,
+                self::FIELD_STAGE_COUNT => 0,
+                self::FIELD_HEAD_RECEIPT_HASH => null,
             ];
         }
 
-        $stages = array_values(AiValueNormalizer::arrayOrEmpty($chain['stages'] ?? null));
+        $stages = array_values(AiValueNormalizer::arrayOrEmpty($chain[self::FIELD_STAGES] ?? null));
         if ($stages === []) {
             return [
-                'status' => self::STATUS_UNVERIFIABLE_LEGACY,
+                self::FIELD_STATUS => self::STATUS_UNVERIFIABLE_LEGACY,
                 self::FIELD_BROKEN_AT => null,
-                'stage_count' => 0,
-                'head_receipt_hash' => null,
+                self::FIELD_STAGE_COUNT => 0,
+                self::FIELD_HEAD_RECEIPT_HASH => null,
             ];
         }
 
@@ -113,10 +129,10 @@ final class CaptureHmacLineageService
         foreach ($stages as $link) {
             if (! is_array($link)) {
                 return [
-                    'status' => 'broken_at:invalid_link',
+                    self::FIELD_STATUS => 'broken_at:invalid_link',
                     self::FIELD_BROKEN_AT => 'invalid_link',
-                    'stage_count' => count($stages),
-                    'head_receipt_hash' => $this->headReceiptHash($chain),
+                    self::FIELD_STAGE_COUNT => count($stages),
+                    self::FIELD_HEAD_RECEIPT_HASH => $this->headReceiptHash($chain),
                 ];
             }
 
@@ -129,20 +145,20 @@ final class CaptureHmacLineageService
             $storedPrevHash = AiValueNormalizer::trimmedStringOrNull($storedPrev);
             if ($storedPrevHash === null || $storedPrevHash !== $expectedPrev) {
                 return [
-                    'status' => 'broken_at:'.$stage,
+                    self::FIELD_STATUS => 'broken_at:'.$stage,
                     self::FIELD_BROKEN_AT => $stage,
-                    'stage_count' => count($stages),
-                    'head_receipt_hash' => $this->headReceiptHash($chain),
+                    self::FIELD_STAGE_COUNT => count($stages),
+                    self::FIELD_HEAD_RECEIPT_HASH => $this->headReceiptHash($chain),
                 ];
             }
 
             $expectedReceipt = $this->chainLink($expectedPrev, $stagePayloadHash);
             if ($storedReceipt === '' || ! hash_equals($expectedReceipt, $storedReceipt)) {
                 return [
-                    'status' => 'broken_at:'.$stage,
+                    self::FIELD_STATUS => 'broken_at:'.$stage,
                     self::FIELD_BROKEN_AT => $stage,
-                    'stage_count' => count($stages),
-                    'head_receipt_hash' => $this->headReceiptHash($chain),
+                    self::FIELD_STAGE_COUNT => count($stages),
+                    self::FIELD_HEAD_RECEIPT_HASH => $this->headReceiptHash($chain),
                 ];
             }
 
@@ -150,10 +166,10 @@ final class CaptureHmacLineageService
         }
 
         return [
-            'status' => self::STATUS_VERIFIED,
+            self::FIELD_STATUS => self::STATUS_VERIFIED,
             self::FIELD_BROKEN_AT => null,
-            'stage_count' => count($stages),
-            'head_receipt_hash' => $prev,
+            self::FIELD_STAGE_COUNT => count($stages),
+            self::FIELD_HEAD_RECEIPT_HASH => $prev,
         ];
     }
 
@@ -164,7 +180,7 @@ final class CaptureHmacLineageService
     {
         if (! DatabaseTableAvailability::has('captures')) {
             return [
-                'status' => self::STATUS_PENDING_WINDOW,
+                self::FIELD_STATUS => self::STATUS_PENDING_WINDOW,
                 'chained_captures' => 0,
                 'min_captures' => $minCaptures,
                 'coverage_rate' => null,
@@ -190,7 +206,7 @@ final class CaptureHmacLineageService
         $fullCoverage = $denominator >= $minCaptures && $chainedCount === $denominator;
 
         return [
-            'status' => $fullCoverage ? self::STATUS_READY : self::STATUS_PENDING_WINDOW,
+            self::FIELD_STATUS => $fullCoverage ? self::STATUS_READY : self::STATUS_PENDING_WINDOW,
             'chained_captures' => $chainedCount,
             'min_captures' => $minCaptures,
             'coverage_rate' => $denominator > 0 ? round($chainedCount / $denominator, 4) : null,
@@ -211,14 +227,14 @@ final class CaptureHmacLineageService
         if ($chain === null) {
             return [
                 self::FIELD_OK => false,
-                'status' => self::STATUS_NOT_FOUND,
+                self::FIELD_STATUS => self::STATUS_NOT_FOUND,
                 'ref' => $ref,
                 'chain' => null,
                 'verify' => [
-                    'status' => self::STATUS_NOT_FOUND,
+                    self::FIELD_STATUS => self::STATUS_NOT_FOUND,
                     self::FIELD_BROKEN_AT => null,
-                    'stage_count' => 0,
-                    'head_receipt_hash' => null,
+                    self::FIELD_STAGE_COUNT => 0,
+                    self::FIELD_HEAD_RECEIPT_HASH => null,
                 ],
             ];
         }
@@ -226,8 +242,8 @@ final class CaptureHmacLineageService
         $verify = $this->verify($chain);
 
         return [
-            self::FIELD_OK => $verify['status'] === self::STATUS_VERIFIED,
-            'status' => $verify['status'],
+            self::FIELD_OK => $verify[self::FIELD_STATUS] === self::STATUS_VERIFIED,
+            self::FIELD_STATUS => $verify[self::FIELD_STATUS],
             'ref' => $ref,
             'chain' => $this->providerSafeChain($chain),
             'verify' => $verify,
@@ -237,7 +253,7 @@ final class CaptureHmacLineageService
     public function stagePayloadHash(string $stage, array $payload): string
     {
         return hash('sha256', (string) json_encode([
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'stage' => $stage,
             'payload' => $this->sortKeysRecursive($payload),
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -255,7 +271,7 @@ final class CaptureHmacLineageService
      */
     public function headReceiptHash(array $chain): ?string
     {
-        $stages = array_values(AiValueNormalizer::arrayOrEmpty($chain['stages'] ?? null));
+        $stages = array_values(AiValueNormalizer::arrayOrEmpty($chain[self::FIELD_STAGES] ?? null));
         if ($stages === []) {
             return null;
         }
@@ -271,12 +287,12 @@ final class CaptureHmacLineageService
     public function envelope(array $stages): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'slice' => 'MAXI-07',
             'key_version' => 1,
             'threat_model' => self::THREAT_MODEL,
-            'stages' => $stages,
-            'head_receipt_hash' => $this->headReceiptHash(['stages' => $stages]),
+            self::FIELD_STAGES => $stages,
+            self::FIELD_HEAD_RECEIPT_HASH => $this->headReceiptHash([self::FIELD_STAGES => $stages]),
             'stamped_at' => now()->toJSON(),
         ];
     }
@@ -290,12 +306,12 @@ final class CaptureHmacLineageService
     public function providerSafeChain(array $chain): array
     {
         return [
-            'schema_version' => $chain['schema_version'] ?? self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => $chain[self::FIELD_SCHEMA_VERSION] ?? self::SCHEMA_VERSION,
             'slice' => $chain['slice'] ?? 'MAXI-07',
             'key_version' => $chain['key_version'] ?? 1,
             'threat_model' => $chain['threat_model'] ?? self::THREAT_MODEL,
-            'stages' => array_values(AiValueNormalizer::arrayOrEmpty($chain['stages'] ?? null)),
-            'head_receipt_hash' => $chain['head_receipt_hash'] ?? $this->headReceiptHash($chain),
+            self::FIELD_STAGES => array_values(AiValueNormalizer::arrayOrEmpty($chain[self::FIELD_STAGES] ?? null)),
+            self::FIELD_HEAD_RECEIPT_HASH => $chain[self::FIELD_HEAD_RECEIPT_HASH] ?? $this->headReceiptHash($chain),
             'stamped_at' => $chain['stamped_at'] ?? null,
         ];
     }

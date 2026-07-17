@@ -32,6 +32,27 @@ use InvalidArgumentException;
  */
 class AtlasCognitiveFunctionAtlasService
 {
+    public const FIELD_GROUP = 'group';
+
+    public const FIELD_SUBSYSTEMS = 'subsystems';
+
+    public const FIELD_NON_READY_PIPELINE = 'non_ready_pipeline';
+
+    public const FIELD_DECLARED_READY = 'declared_ready';
+
+    public const FIELD_EVIDENCE_FILES_SEEN = 'evidence_files_seen';
+
+    public const FIELD_STATUS = 'status';
+
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+
+    public const FIELD_FUNCTIONS = 'functions';
+
+    public const FIELD_READINESS = 'readiness';
+
+    public const FIELD_PIPELINE = 'pipeline';
+
+
     public const SELF_MODEL_SCHEMA = 'atlas.cognitive_function_atlas.self_model.v1';
 
     public const GROUP_SUMMARY_SCHEMA = 'atlas.cognitive_function_atlas.group_summary.v1';
@@ -55,14 +76,14 @@ class AtlasCognitiveFunctionAtlasService
     public function selfModel(): array
     {
         $scorecard = $this->scoreCard->build();
-        $subs = AiValueNormalizer::arrayOrEmpty($scorecard['subsystems'] ?? null);
+        $subs = AiValueNormalizer::arrayOrEmpty($scorecard[self::FIELD_SUBSYSTEMS] ?? null);
 
         $groups = $this->extractGroups($subs);
         $shape = $this->buildShape($subs, $groups);
         $gaps = $this->buildGaps($shape);
 
         return [
-            'schema_version' => self::SELF_MODEL_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::SELF_MODEL_SCHEMA,
             'generated_at' => $scorecard['generated_at'] ?? gmdate('c'),
             'subsystem_count' => count($subs),
             'group_count' => count($groups),
@@ -79,7 +100,7 @@ class AtlasCognitiveFunctionAtlasService
      */
     public function groupTaxonomy(): array
     {
-        return $this->extractGroups(AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()['subsystems'] ?? null));
+        return $this->extractGroups(AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()[self::FIELD_SUBSYSTEMS] ?? null));
     }
 
     /**
@@ -90,10 +111,10 @@ class AtlasCognitiveFunctionAtlasService
         if ($group === '') {
             throw new InvalidArgumentException('group must be non-empty.');
         }
-        $subs = AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()['subsystems'] ?? null);
+        $subs = AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()[self::FIELD_SUBSYSTEMS] ?? null);
         $out = [];
         foreach ($subs as $s) {
-            if (($s['group'] ?? null) === $group) {
+            if (($s[self::FIELD_GROUP] ?? null) === $group) {
                 $out[] = $s;
             }
         }
@@ -106,10 +127,10 @@ class AtlasCognitiveFunctionAtlasService
      */
     public function gapsByGroup(): array
     {
-        $subs = AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()['subsystems'] ?? null);
+        $subs = AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()[self::FIELD_SUBSYSTEMS] ?? null);
         $tally = [];
         foreach ($subs as $s) {
-            $g = (AiValueNormalizer::trimmedStringOrNull($s['group'] ?? null) ?? self::STATUS_UNKNOWN);
+            $g = (AiValueNormalizer::trimmedStringOrNull($s[self::FIELD_GROUP] ?? null) ?? self::STATUS_UNKNOWN);
             $pipeline = (AiValueNormalizer::trimmedStringOrNull($s['pipeline_status'] ?? null) ?? self::STATUS_UNKNOWN);
             if (! isset($tally[$g])) {
                 $tally[$g] = 0;
@@ -120,9 +141,9 @@ class AtlasCognitiveFunctionAtlasService
         }
         $out = [];
         foreach ($tally as $g => $n) {
-            $out[] = ['group' => $g, 'non_ready_pipeline' => $n];
+            $out[] = [self::FIELD_GROUP => $g, self::FIELD_NON_READY_PIPELINE => $n];
         }
-        usort($out, static fn ($a, $b): int => $b['non_ready_pipeline'] <=> $a['non_ready_pipeline']);
+        usort($out, static fn ($a, $b): int => $b[self::FIELD_NON_READY_PIPELINE] <=> $a[self::FIELD_NON_READY_PIPELINE]);
 
         return $out;
     }
@@ -132,9 +153,9 @@ class AtlasCognitiveFunctionAtlasService
         if ($acronym === '') {
             return null;
         }
-        foreach (AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()['subsystems'] ?? null) as $s) {
+        foreach (AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()[self::FIELD_SUBSYSTEMS] ?? null) as $s) {
             if (($s['acronym'] ?? null) === $acronym) {
-                return (AiValueNormalizer::trimmedStringOrNull($s['group'] ?? null) ?? '');
+                return (AiValueNormalizer::trimmedStringOrNull($s[self::FIELD_GROUP] ?? null) ?? '');
             }
         }
 
@@ -146,7 +167,7 @@ class AtlasCognitiveFunctionAtlasService
      */
     public function cognitiveShape(): array
     {
-        $subs = AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()['subsystems'] ?? null);
+        $subs = AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()[self::FIELD_SUBSYSTEMS] ?? null);
         $groups = $this->extractGroups($subs);
 
         return $this->buildShape($subs, $groups);
@@ -190,16 +211,16 @@ class AtlasCognitiveFunctionAtlasService
             'compounding' => ['compounding'],
         ];
 
-        $subs = AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()['subsystems'] ?? null);
+        $subs = AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()[self::FIELD_SUBSYSTEMS] ?? null);
         $byGroup = [];
         foreach ($subs as $s) {
-            $g = (AiValueNormalizer::trimmedStringOrNull($s['group'] ?? null) ?? '');
+            $g = (AiValueNormalizer::trimmedStringOrNull($s[self::FIELD_GROUP] ?? null) ?? '');
             if ($g === '') {
                 continue;
             }
-            $byGroup[$g] = $byGroup[$g] ?? ['declared_ready' => 0, 'evidence_files_seen' => 0, 'evidence_files_empty' => 0];
+            $byGroup[$g] = $byGroup[$g] ?? [self::FIELD_DECLARED_READY => 0, self::FIELD_EVIDENCE_FILES_SEEN => 0, 'evidence_files_empty' => 0];
             if (($s['pipeline_status'] ?? '') === self::STATUS_READY) {
-                $byGroup[$g]['declared_ready']++;
+                $byGroup[$g][self::FIELD_DECLARED_READY]++;
             }
         }
 
@@ -211,7 +232,7 @@ class AtlasCognitiveFunctionAtlasService
                     continue;
                 }
                 foreach (glob($dir.'/*.jsonl') ?: [] as $f) {
-                    $row['evidence_files_seen']++;
+                    $row[self::FIELD_EVIDENCE_FILES_SEEN]++;
                     if (filesize($f) === 0) {
                         $row['evidence_files_empty']++;
                     }
@@ -223,16 +244,16 @@ class AtlasCognitiveFunctionAtlasService
         $out = [];
         foreach ($byGroup as $g => $row) {
             $out[] = [
-                'group' => $g,
-                'declared_ready' => $row['declared_ready'],
-                'evidence_files_seen' => $row['evidence_files_seen'],
+                self::FIELD_GROUP => $g,
+                self::FIELD_DECLARED_READY => $row[self::FIELD_DECLARED_READY],
+                self::FIELD_EVIDENCE_FILES_SEEN => $row[self::FIELD_EVIDENCE_FILES_SEEN],
                 'evidence_files_empty' => $row['evidence_files_empty'],
             ];
         }
         // Sort: groups with most empty/missing evidence first (advisory gaps).
         usort($out, static function ($a, $b): int {
-            $a_lack = $a['declared_ready'] - $a['evidence_files_seen'];
-            $b_lack = $b['declared_ready'] - $b['evidence_files_seen'];
+            $a_lack = $a[self::FIELD_DECLARED_READY] - $a[self::FIELD_EVIDENCE_FILES_SEEN];
+            $b_lack = $b[self::FIELD_DECLARED_READY] - $b[self::FIELD_EVIDENCE_FILES_SEEN];
 
             return $b_lack <=> $a_lack;
         });
@@ -250,7 +271,7 @@ class AtlasCognitiveFunctionAtlasService
     {
         $set = [];
         foreach ($subs as $s) {
-            $g = (AiValueNormalizer::trimmedStringOrNull($s['group'] ?? null) ?? '');
+            $g = (AiValueNormalizer::trimmedStringOrNull($s[self::FIELD_GROUP] ?? null) ?? '');
             if ($g !== '') {
                 $set[$g] = true;
             }
@@ -278,7 +299,7 @@ class AtlasCognitiveFunctionAtlasService
             $pipelineBuilding = 0;
             $servicePresent = 0;
             foreach ($subs as $s) {
-                if (($s['group'] ?? null) !== $g) {
+                if (($s[self::FIELD_GROUP] ?? null) !== $g) {
                     continue;
                 }
                 $total++;
@@ -299,8 +320,8 @@ class AtlasCognitiveFunctionAtlasService
                 }
             }
             $shape[] = [
-                'schema_version' => self::GROUP_SUMMARY_SCHEMA,
-                'group' => $g,
+                self::FIELD_SCHEMA_VERSION => self::GROUP_SUMMARY_SCHEMA,
+                self::FIELD_GROUP => $g,
                 'total' => $total,
                 'code_ready' => $codeReady,
                 'doc_ready' => $docReady,
@@ -324,10 +345,10 @@ class AtlasCognitiveFunctionAtlasService
         foreach ($shape as $row) {
             $nonReady = (int) (AiValueNormalizer::finiteFloatOrNull($row['pipeline_partial'] ?? null) ?? 0) + (int) (AiValueNormalizer::finiteFloatOrNull($row['pipeline_building'] ?? null) ?? 0);
             if ($nonReady > 0) {
-                $out[] = ['group' => AiValueNormalizer::trimmedScalarStringOrNull($row['group'] ?? null) ?? '', 'non_ready_pipeline' => $nonReady];
+                $out[] = [self::FIELD_GROUP => AiValueNormalizer::trimmedScalarStringOrNull($row[self::FIELD_GROUP] ?? null) ?? '', self::FIELD_NON_READY_PIPELINE => $nonReady];
             }
         }
-        usort($out, static fn ($a, $b): int => $b['non_ready_pipeline'] <=> $a['non_ready_pipeline']);
+        usort($out, static fn ($a, $b): int => $b[self::FIELD_NON_READY_PIPELINE] <=> $a[self::FIELD_NON_READY_PIPELINE]);
 
         return $out;
     }

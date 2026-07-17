@@ -27,6 +27,31 @@ final class Teto10PredictedRevertReviewDigest
 
     public const STATUS_EMPTY = 'empty';
 
+
+    public const FIELD_GROUP_KEY = 'group_key';
+
+    public const FIELD_DECISION_ID = 'decision_id';
+
+    public const FIELD_FAMILY = 'family';
+
+    public const FIELD_PREDICTED_REVERT_BAND = 'predicted_revert_band';
+
+    public const FIELD_BAND_RANK = 'band_rank';
+
+    public const FIELD_HIGHEST_BAND_RANK = 'highest_band_rank';
+
+    public const FIELD_ITEMS = 'items';
+
+    public const FIELD_REVERSE_COMMAND = 'reverse_command';
+
+    public const FIELD_STATUS = 'status';
+
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+
+    public const FIELD_LIMIT = 'limit';
+
+    public const FIELD_GROUPS = 'groups';
+
     public const BAND_RANK = [
         self::BAND_HIGH => 0,
         self::BAND_SWEET => 1,
@@ -56,19 +81,19 @@ final class Teto10PredictedRevertReviewDigest
         $groups = self::groups($shown);
         $bandCounts = [self::BAND_HIGH => 0, self::BAND_SWEET => 0, self::BAND_LOW => 0, self::BAND_UNKNOWN => 0];
         foreach ($normalised as $item) {
-            $bandCounts[self::band($item['predicted_revert_band'])]++;
+            $bandCounts[self::band($item[self::FIELD_PREDICTED_REVERT_BAND])]++;
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => $normalised === [] ? self::STATUS_EMPTY : self::STATUS_OK,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_STATUS => $normalised === [] ? self::STATUS_EMPTY : self::STATUS_OK,
             'item_count' => count($normalised),
             'shown_item_count' => count($shown),
             'group_count' => count($groups),
             'cap' => $limit,
             'band_order' => [self::BAND_HIGH, self::BAND_SWEET, self::BAND_LOW, self::BAND_UNKNOWN],
             'band_counts' => $bandCounts,
-            'groups' => $groups,
+            self::FIELD_GROUPS => $groups,
             'pending_flips' => self::flaggedSection($shown, 'pending_flip', 'flip_ref'),
             'batched_asks' => self::flaggedSection($shown, 'batched_ask', 'ask_ref'),
             'source' => [
@@ -90,8 +115,8 @@ final class Teto10PredictedRevertReviewDigest
         $lines = [
             '# ACOS TETO-10 predicted-revert review digest',
             '',
-            '- schema: '.self::inline(self::string($digest['schema_version'] ?? self::SCHEMA_VERSION) ?: self::SCHEMA_VERSION),
-            '- status: '.self::plain(self::string($digest['status'] ?? self::BAND_UNKNOWN) ?: self::BAND_UNKNOWN),
+            '- schema: '.self::inline(self::string($digest[self::FIELD_SCHEMA_VERSION] ?? self::SCHEMA_VERSION) ?: self::SCHEMA_VERSION),
+            '- status: '.self::plain(self::string($digest[self::FIELD_STATUS] ?? self::BAND_UNKNOWN) ?: self::BAND_UNKNOWN),
             '- items: '.self::string($digest['shown_item_count'] ?? 0).'/'.self::string($digest['item_count'] ?? 0),
             '- order: high -> sweet -> low -> unknown',
             '- surface: markdown/CLI only',
@@ -99,7 +124,7 @@ final class Teto10PredictedRevertReviewDigest
         ];
 
         $currentBand = null;
-        foreach (AiValueNormalizer::arrayOrEmpty($digest['groups'] ?? null) as $group) {
+        foreach (AiValueNormalizer::arrayOrEmpty($digest[self::FIELD_GROUPS] ?? null) as $group) {
             if (! is_array($group)) {
                 continue;
             }
@@ -110,23 +135,23 @@ final class Teto10PredictedRevertReviewDigest
                 $currentBand = $band;
             }
 
-            $lines[] = '### '.self::plain(self::string($group['group_key'] ?? 'family:unknown') ?: 'family:unknown');
-            $decisionId = self::string($group['decision_id'] ?? '');
-            $family = self::string($group['family'] ?? '');
+            $lines[] = '### '.self::plain(self::string($group[self::FIELD_GROUP_KEY] ?? 'family:unknown') ?: 'family:unknown');
+            $decisionId = self::string($group[self::FIELD_DECISION_ID] ?? '');
+            $family = self::string($group[self::FIELD_FAMILY] ?? '');
             if ($decisionId !== '' || $family !== '') {
                 $lines[] = '- lineage: decision_id='.($decisionId !== '' ? self::plain($decisionId) : 'none')
                     .' family='.($family !== '' ? self::plain($family) : self::BAND_UNKNOWN);
             }
 
-            foreach (AiValueNormalizer::arrayOrEmpty($group['items'] ?? null) as $item) {
+            foreach (AiValueNormalizer::arrayOrEmpty($group[self::FIELD_ITEMS] ?? null) as $item) {
                 if (! is_array($item)) {
                     continue;
                 }
                 $lines[] = '- '.self::plain(self::string($item['id'] ?? 'item') ?: 'item').': '.self::plain(self::string($item['title'] ?? 'untitled') ?: 'untitled');
-                $lines[] = '  - band: '.self::plain(self::band($item['predicted_revert_band'] ?? self::BAND_UNKNOWN));
+                $lines[] = '  - band: '.self::plain(self::band($item[self::FIELD_PREDICTED_REVERT_BAND] ?? self::BAND_UNKNOWN));
                 $lines[] = '  - evidence: '.self::plain(implode(', ', array_map(self::string(...), AiValueNormalizer::arrayOrEmpty($item['evidence_refs'] ?? null))));
                 $lines[] = '  - diff-ref: '.self::plain(self::string($item['diff_ref'] ?? 'manual_review') ?: 'manual_review');
-                $lines[] = '  - reverse: '.self::inline(self::string($item['reverse_command'] ?? 'manual_review') ?: 'manual_review');
+                $lines[] = '  - reverse: '.self::inline(self::string($item[self::FIELD_REVERSE_COMMAND] ?? 'manual_review') ?: 'manual_review');
                 $lines[] = '  - review-mode: '.self::plain(self::string($item['review_mode'] ?? 'manual_review') ?: 'manual_review');
             }
             $lines[] = '';
@@ -145,22 +170,22 @@ final class Teto10PredictedRevertReviewDigest
     private static function normaliseItem(array $item, int $index): array
     {
         $id = self::string($item['id'] ?? null);
-        $decisionId = self::string($item['decision_id'] ?? null);
-        $family = self::string($item['family'] ?? null);
-        $band = self::band($item['predicted_revert_band'] ?? null);
+        $decisionId = self::string($item[self::FIELD_DECISION_ID] ?? null);
+        $family = self::string($item[self::FIELD_FAMILY] ?? null);
+        $band = self::band($item[self::FIELD_PREDICTED_REVERT_BAND] ?? null);
         $reverse = self::reverseCommand($item);
 
         return [
             'id' => $id !== '' ? $id : 'item-'.($index + 1),
             'title' => self::firstString($item, ['title', 'summary', 'description'], 'Untitled review item'),
-            'decision_id' => $decisionId !== '' ? $decisionId : null,
-            'family' => $family !== '' ? $family : self::BAND_UNKNOWN,
-            'group_key' => $decisionId !== '' ? 'decision:'.$decisionId : 'family:'.($family !== '' ? $family : self::BAND_UNKNOWN),
-            'predicted_revert_band' => $band,
-            'band_rank' => self::BAND_RANK[$band],
+            self::FIELD_DECISION_ID => $decisionId !== '' ? $decisionId : null,
+            self::FIELD_FAMILY => $family !== '' ? $family : self::BAND_UNKNOWN,
+            self::FIELD_GROUP_KEY => $decisionId !== '' ? 'decision:'.$decisionId : 'family:'.($family !== '' ? $family : self::BAND_UNKNOWN),
+            self::FIELD_PREDICTED_REVERT_BAND => $band,
+            self::FIELD_BAND_RANK => self::BAND_RANK[$band],
             'evidence_refs' => self::evidenceRefs($item),
             'diff_ref' => self::firstString($item, ['diff_ref', 'diff', 'patch_ref'], 'manual_review'),
-            'reverse_command' => $reverse,
+            self::FIELD_REVERSE_COMMAND => $reverse,
             'review_mode' => $reverse === 'manual_review' ? 'manual_review' : 'reversible',
             'pending_flip' => (AiValueNormalizer::boolOrNull($item['pending_flip'] ?? null) ?? false),
             'flip_ref' => self::firstString($item, ['flip_ref', 'flip_id'], ''),
@@ -175,8 +200,8 @@ final class Teto10PredictedRevertReviewDigest
      */
     private static function itemSorter(array $a, array $b): int
     {
-        return ((int) (AiValueNormalizer::finiteFloatOrNull($a['band_rank'] ?? null) ?? 0) <=> (int) (AiValueNormalizer::finiteFloatOrNull($b['band_rank'] ?? null) ?? 0))
-            ?: ((AiValueNormalizer::trimmedScalarStringOrNull($a['group_key'] ?? null) ?? '') <=> (AiValueNormalizer::trimmedScalarStringOrNull($b['group_key'] ?? null) ?? ''))
+        return ((int) (AiValueNormalizer::finiteFloatOrNull($a[self::FIELD_BAND_RANK] ?? null) ?? 0) <=> (int) (AiValueNormalizer::finiteFloatOrNull($b[self::FIELD_BAND_RANK] ?? null) ?? 0))
+            ?: ((AiValueNormalizer::trimmedScalarStringOrNull($a[self::FIELD_GROUP_KEY] ?? null) ?? '') <=> (AiValueNormalizer::trimmedScalarStringOrNull($b[self::FIELD_GROUP_KEY] ?? null) ?? ''))
             ?: ((AiValueNormalizer::trimmedScalarStringOrNull($a['id'] ?? null) ?? '') <=> (AiValueNormalizer::trimmedScalarStringOrNull($b['id'] ?? null) ?? ''));
     }
 
@@ -188,29 +213,29 @@ final class Teto10PredictedRevertReviewDigest
     {
         $groups = [];
         foreach ($items as $item) {
-            $key = AiValueNormalizer::trimmedScalarStringOrNull($item['group_key'] ?? null) ?? '';
+            $key = AiValueNormalizer::trimmedScalarStringOrNull($item[self::FIELD_GROUP_KEY] ?? null) ?? '';
             $groups[$key] ??= [
-                'group_key' => $key,
-                'decision_id' => $item['decision_id'],
-                'family' => $item['family'],
-                'highest_predicted_revert_band' => $item['predicted_revert_band'],
-                'highest_band_rank' => $item['band_rank'],
+                self::FIELD_GROUP_KEY => $key,
+                self::FIELD_DECISION_ID => $item[self::FIELD_DECISION_ID],
+                self::FIELD_FAMILY => $item[self::FIELD_FAMILY],
+                'highest_predicted_revert_band' => $item[self::FIELD_PREDICTED_REVERT_BAND],
+                self::FIELD_HIGHEST_BAND_RANK => $item[self::FIELD_BAND_RANK],
                 'item_count' => 0,
-                'items' => [],
+                self::FIELD_ITEMS => [],
             ];
             $groups[$key]['item_count']++;
-            $groups[$key]['items'][] = $item;
-            if ((int) (AiValueNormalizer::finiteFloatOrNull($item['band_rank'] ?? null) ?? 0) < (int) $groups[$key]['highest_band_rank']) {
-                $groups[$key]['highest_band_rank'] = $item['band_rank'];
-                $groups[$key]['highest_predicted_revert_band'] = $item['predicted_revert_band'];
+            $groups[$key][self::FIELD_ITEMS][] = $item;
+            if ((int) (AiValueNormalizer::finiteFloatOrNull($item[self::FIELD_BAND_RANK] ?? null) ?? 0) < (int) $groups[$key][self::FIELD_HIGHEST_BAND_RANK]) {
+                $groups[$key][self::FIELD_HIGHEST_BAND_RANK] = $item[self::FIELD_BAND_RANK];
+                $groups[$key]['highest_predicted_revert_band'] = $item[self::FIELD_PREDICTED_REVERT_BAND];
             }
         }
 
-        uasort($groups, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($a['highest_band_rank'] ?? null) ?? 0) <=> (int) (AiValueNormalizer::finiteFloatOrNull($b['highest_band_rank'] ?? null) ?? 0))
-            ?: ((AiValueNormalizer::trimmedScalarStringOrNull($a['group_key'] ?? null) ?? '') <=> (AiValueNormalizer::trimmedScalarStringOrNull($b['group_key'] ?? null) ?? '')));
+        uasort($groups, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($a[self::FIELD_HIGHEST_BAND_RANK] ?? null) ?? 0) <=> (int) (AiValueNormalizer::finiteFloatOrNull($b[self::FIELD_HIGHEST_BAND_RANK] ?? null) ?? 0))
+            ?: ((AiValueNormalizer::trimmedScalarStringOrNull($a[self::FIELD_GROUP_KEY] ?? null) ?? '') <=> (AiValueNormalizer::trimmedScalarStringOrNull($b[self::FIELD_GROUP_KEY] ?? null) ?? '')));
 
         return array_values(array_map(static function (array $group): array {
-            unset($group['highest_band_rank']);
+            unset($group[self::FIELD_HIGHEST_BAND_RANK]);
 
             return $group;
         }, $groups));
@@ -230,14 +255,14 @@ final class Teto10PredictedRevertReviewDigest
             $flagged[] = [
                 'id' => $item['id'],
                 'title' => $item['title'],
-                'decision_id' => $item['decision_id'],
-                'family' => $item['family'],
+                self::FIELD_DECISION_ID => $item[self::FIELD_DECISION_ID],
+                self::FIELD_FAMILY => $item[self::FIELD_FAMILY],
                 $refKey => $item[$refKey] !== '' ? $item[$refKey] : 'unlabelled',
-                'reverse_command' => $item['reverse_command'],
+                self::FIELD_REVERSE_COMMAND => $item[self::FIELD_REVERSE_COMMAND],
             ];
         }
 
-        return ['count' => count($flagged), 'items' => $flagged];
+        return ['count' => count($flagged), self::FIELD_ITEMS => $flagged];
     }
 
     /**
@@ -247,7 +272,7 @@ final class Teto10PredictedRevertReviewDigest
     private static function renderFlaggedSection(string $title, array $section): array
     {
         $lines = ['## '.$title];
-        $items = AiValueNormalizer::arrayOrEmpty($section['items'] ?? null);
+        $items = AiValueNormalizer::arrayOrEmpty($section[self::FIELD_ITEMS] ?? null);
         if ($items === []) {
             $lines[] = '- none';
             $lines[] = '';
@@ -261,7 +286,7 @@ final class Teto10PredictedRevertReviewDigest
             }
             $ref = self::string($item['flip_ref'] ?? $item['ask_ref'] ?? 'unlabelled') ?: 'unlabelled';
             $lines[] = '- '.self::plain(self::string($item['id'] ?? 'item') ?: 'item').' '.self::inline($ref)
-                .' reverse: '.self::inline(self::string($item['reverse_command'] ?? 'manual_review') ?: 'manual_review');
+                .' reverse: '.self::inline(self::string($item[self::FIELD_REVERSE_COMMAND] ?? 'manual_review') ?: 'manual_review');
         }
         $lines[] = '';
 

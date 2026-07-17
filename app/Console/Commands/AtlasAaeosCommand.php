@@ -265,6 +265,7 @@ final class AtlasAaeosCommand extends Command
         {--quality-veto-evolution-floors-contract= : JSON file (any object) to observe quality/veto/evolution residual floors}
         {--watchdog-immune-ragx-floors-contract= : JSON file (any object) to observe watchdog/immune/RAGX residual floors}
         {--obra-evidence-http-floors-contract= : JSON file (any object) to observe obra/evidence/HTTP residual floors}
+        {--teto-cognitive-hmac-floors-contract= : JSON file (any object) to observe teto/cognitive/HMAC residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -686,6 +687,7 @@ final class AtlasAaeosCommand extends Command
             ['quality-veto-evolution-floors-contract', 'quality_veto_evolution_floors_contract', fn (array $p) => $gates->qualityVetoEvolutionFloorsContractObserve($p)],
             ['watchdog-immune-ragx-floors-contract', 'watchdog_immune_ragx_floors_contract', fn (array $p) => $gates->watchdogImmuneRagxFloorsContractObserve($p)],
             ['obra-evidence-http-floors-contract', 'obra_evidence_http_floors_contract', fn (array $p) => $gates->obraEvidenceHttpFloorsContractObserve($p)],
+            ['teto-cognitive-hmac-floors-contract', 'teto_cognitive_hmac_floors_contract', fn (array $p) => $gates->tetoCognitiveHmacFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
