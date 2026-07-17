@@ -28,7 +28,7 @@ final class AaeosHttpPathEnvelopeFactory
             intentId: $intentId,
             phaseIn: AaeosPhaseHandoffService::PHASE_INTENT_CAPTURE,
             phaseOut: AaeosPhaseHandoffService::PHASE_INTENT_CAPTURE,
-            actor: ['kind' => 'system', 'id' => 'aaeos.http_path_facade', 'provider' => null],
+            actor: self::systemActor('aaeos.http_path_facade'),
             inputs: ['intent_hash' => $intentHash],
             outputs: ['intent_hash' => $intentHash, 'intent_id' => $intentId],
             gates: self::binaryGate('surface_captured_intent', true),
@@ -48,7 +48,7 @@ final class AaeosHttpPathEnvelopeFactory
             intentId: $intentId,
             phaseIn: AaeosPhaseHandoffService::PHASE_INTENT_CAPTURE,
             phaseOut: AaeosPhaseHandoffService::PHASE_DISAMBIGUATION,
-            actor: ['kind' => 'system', 'id' => 'aaeos.mission_detection', 'provider' => null],
+            actor: self::systemActor('aaeos.mission_detection'),
             inputs: ['intent_hash' => $intentHash],
             outputs: [
                 'mission_signal_kind' => $suggestedMissionType,
@@ -81,7 +81,7 @@ final class AaeosHttpPathEnvelopeFactory
             intentId: $intentId,
             phaseIn: AaeosPhaseHandoffService::PHASE_DISAMBIGUATION,
             phaseOut: AaeosPhaseHandoffService::PHASE_PLACEMENT,
-            actor: ['kind' => 'system', 'id' => 'aaeos.placement', 'provider' => null],
+            actor: self::systemActor('aaeos.placement'),
             inputs: ['intent_hash' => $intentHash],
             outputs: [
                 'placement_layer' => (string) ($placementResult['placement']['layer'] ?? 'unknown'),
@@ -113,7 +113,7 @@ final class AaeosHttpPathEnvelopeFactory
             intentId: $intentId,
             phaseIn: AaeosPhaseHandoffService::PHASE_PLACEMENT,
             phaseOut: AaeosPhaseHandoffService::PHASE_CLASSIFICATION,
-            actor: ['kind' => 'system', 'id' => 'aaeos.classification', 'provider' => null],
+            actor: self::systemActor('aaeos.classification'),
             inputs: ['intent_hash' => $intentHash],
             outputs: [
                 'flow_id' => $flowId,
@@ -143,7 +143,7 @@ final class AaeosHttpPathEnvelopeFactory
             intentId: $intentId,
             phaseIn: AaeosPhaseHandoffService::PHASE_CLASSIFICATION,
             phaseOut: AaeosPhaseHandoffService::PHASE_POLICY_GATE,
-            actor: ['kind' => 'system', 'id' => 'aaeos.policy_gate', 'provider' => null],
+            actor: self::systemActor('aaeos.policy_gate'),
             inputs: ['intent_hash' => $intentHash],
             outputs: [
                 'policy_target' => $target !== '' ? $target : 'none',
