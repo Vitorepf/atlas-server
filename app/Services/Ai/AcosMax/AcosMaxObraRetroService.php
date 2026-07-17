@@ -38,6 +38,8 @@ final class AcosMaxObraRetroService
 
     public const SLICE_STATE_REFUTADO = 'refutado';
 
+    public const SLICE_STATE_SUSPENDED = 'suspended';
+
     public function __construct(
         private readonly AtlasEngineeringOutcomeRecorder $outcomes,
         private readonly AtlasOpenBrainWriteBackService $writeBack,
@@ -285,7 +287,7 @@ final class AcosMaxObraRetroService
         return match (true) {
             str_starts_with($first, self::SLICE_STATE_LANDED) => self::SLICE_STATE_LANDED,
             str_starts_with($first, self::SLICE_STATE_REFUTADO) => self::SLICE_STATE_REFUTADO,
-            str_starts_with($first, 'suspended') => 'suspended',
+            str_starts_with($first, self::SLICE_STATE_SUSPENDED) => self::SLICE_STATE_SUSPENDED,
             default => null,
         };
     }

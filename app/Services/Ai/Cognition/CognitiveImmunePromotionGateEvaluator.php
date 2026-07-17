@@ -107,7 +107,7 @@ final class CognitiveImmunePromotionGateEvaluator
             'blocking_gate_ids' => $blockingGateIds,
             'pending_gate_ids' => $pendingGateIds,
             'reasons' => $reasons,
-            'autonomous_promotion_allowed' => $promotionStatus === 'trusted',
+            'autonomous_promotion_allowed' => $promotionStatus === self::TRUST_BAND_TRUSTED,
         ];
     }
 

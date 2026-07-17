@@ -102,7 +102,7 @@ final class Maxa04JinaV3DualReadService
             'schema_version' => Maxa04JinaV3DualReadLedger::SCHEMA,
             'slice' => 'MAXA-04',
             'status' => $status,
-            'reason' => $normalized === [] ? 'no_dual_read_cases' : null,
+            'reason' => $normalized === [] ? self::STATUS_NO_DUAL_READ_CASES : null,
             'window_basis' => $windowBasis,
             'summary' => $summary,
             'cases' => $normalized,

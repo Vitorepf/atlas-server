@@ -692,11 +692,11 @@ class AtlasAaeosImplementationTruthService
     {
         $normalized = AiValueNormalizer::lowerTrimmedString($state);
 
-        if (in_array($normalized, ['verified', 'runtime_verified', 'solid_runtime'], true)) {
+        if (in_array($normalized, [self::LEVEL_VERIFIED, 'runtime_verified', 'solid_runtime'], true)) {
             return self::LEVEL_VERIFIED;
         }
 
-        if (in_array($normalized, ['partial', 'implemented_partial', 'partial_runtime'], true)) {
+        if (in_array($normalized, [self::LEVEL_PARTIAL, 'implemented_partial', 'partial_runtime'], true)) {
             return self::LEVEL_PARTIAL;
         }
 

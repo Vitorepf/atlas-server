@@ -50,6 +50,8 @@ final class AtlasAaeosHttpPathFacadeService
 
     public const RESULT_BLOCKED = 'blocked';
 
+    public const RESULT_UNKNOWN = 'unknown';
+
     public const BLOCK_PLACEMENT_GATE_BLOCKED = 'placement_gate_blocked';
 
     public const BLOCK_POLICY_GATE_BLOCKED = 'policy_gate_blocked';
@@ -156,7 +158,7 @@ final class AtlasAaeosHttpPathFacadeService
 
         // ---- P2 placement (MANDATORY at Phase 1) --------------------------
         [$placementResult, $cacheHit] = $this->placeOrCache($intentText, $intentHash, $data);
-        $placementOk = ($placementResult['gate_status'] ?? 'unknown') !== 'blocked';
+        $placementOk = ($placementResult['gate_status'] ?? self::RESULT_UNKNOWN) !== self::RESULT_BLOCKED;
 
         $envelopes[] = $factory->placement($intentId, $intentHash, $placementResult, $placementOk);
 
@@ -371,7 +373,7 @@ final class AtlasAaeosHttpPathFacadeService
             )),
             'phases_executed_count' => count($envelopes),
             'placement_decision' => [
-                'gate_status' => AiValueNormalizer::trimmedStringOrNull($placementResult['gate_status'] ?? null) ?? 'unknown',
+                'gate_status' => AiValueNormalizer::trimmedStringOrNull($placementResult['gate_status'] ?? null) ?? self::RESULT_UNKNOWN,
                 'layer' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['layer'] ?? null) ?? 'unknown',
                 'domain' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['domain'] ?? null) ?? 'unknown',
                 'flow' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['flow'] ?? null) ?? 'unknown',

@@ -4754,6 +4754,27 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: newly published signature modes, obra suspended,
+     * http-path unknown, and department operator floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function signatureModeSuspendedUnknownFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'immune_signature_mode_off' => ImmuneSignatureStore::MODE_OFF,
+            'immune_signature_mode_observe' => ImmuneSignatureStore::MODE_OBSERVE,
+            'immune_signature_mode_enforce' => ImmuneSignatureStore::MODE_ENFORCE,
+            'obra_slice_state_suspended' => AcosMaxObraRetroService::SLICE_STATE_SUSPENDED,
+            'http_path_result_unknown' => AtlasAaeosHttpPathFacadeService::RESULT_UNKNOWN,
+            'department_operator' => DepartmentContractRuntime::DEPARTMENT_OPERATOR,
+            'department_qa' => DepartmentContractRuntime::DEPARTMENT_QA,
+            'signature_mode_suspended_unknown_floor_count' => 7,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

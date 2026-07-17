@@ -335,7 +335,7 @@ class AtlasCognitionEvidenceResolver
             $existingTestRefs === [] => 'candidate_test_symbol_missing',
             $greenCount === 0 => 'green_receipt_missing',
             $pipelineStatus !== self::STATUS_READY => 'green_receipt_stale_or_unmatched',
-            default => 'ready',
+            default => self::STATUS_READY,
         };
 
         return [

@@ -3203,4 +3203,18 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(19, $payload['residual_error_basis_status_floor_count']);
     }
 
+    public function test_signature_mode_suspended_unknown_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->signatureModeSuspendedUnknownFloorsContractObserve([]);
+
+        $this->assertSame('off', $payload['immune_signature_mode_off']);
+        $this->assertSame('observe', $payload['immune_signature_mode_observe']);
+        $this->assertSame('enforce', $payload['immune_signature_mode_enforce']);
+        $this->assertSame('suspended', $payload['obra_slice_state_suspended']);
+        $this->assertSame('unknown', $payload['http_path_result_unknown']);
+        $this->assertSame('operator', $payload['department_operator']);
+        $this->assertSame('qa', $payload['department_qa']);
+        $this->assertSame(7, $payload['signature_mode_suspended_unknown_floor_count']);
+    }
+
 }

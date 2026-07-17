@@ -39,7 +39,13 @@ final class ImmuneSignatureStore
 
     public const MODE_CONFIG_KEY = 'atlas.aaeos.immune_signature.mode';
 
-    public const DEFAULT_MODE = 'observe';
+    public const MODE_OFF = 'off';
+
+    public const MODE_OBSERVE = 'observe';
+
+    public const MODE_ENFORCE = 'enforce';
+
+    public const DEFAULT_MODE = self::MODE_OBSERVE;
 
     private readonly ImmuneSignatureDeriver $deriver;
 
@@ -253,12 +259,12 @@ final class ImmuneSignatureStore
     {
         $mode = AiValueNormalizer::lowerTrimmedString(config(self::MODE_CONFIG_KEY, self::DEFAULT_MODE));
 
-        return in_array($mode, ['off', 'observe', 'enforce'], true) ? $mode : 'observe';
+        return in_array($mode, [self::MODE_OFF, self::MODE_OBSERVE, self::MODE_ENFORCE], true) ? $mode : self::DEFAULT_MODE;
     }
 
     public function enforceEnabled(): bool
     {
-        return $this->mode() === 'enforce';
+        return $this->mode() === self::MODE_ENFORCE;
     }
 
     private function recordHit(string $id): void
