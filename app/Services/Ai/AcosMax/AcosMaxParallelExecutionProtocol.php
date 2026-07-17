@@ -36,6 +36,8 @@ final class AcosMaxParallelExecutionProtocol
 
     public const ENGINE_UNKNOWN = 'unknown';
 
+    public const FIELD_OK = 'ok';
+
 
     public function __construct(
         private readonly AtlasAobgBlackboardService $blackboard,
@@ -86,10 +88,10 @@ final class AcosMaxParallelExecutionProtocol
         ]);
 
         $status = (AiValueNormalizer::trimmedStringOrNull($result['status'] ?? null) ?? self::STATUS_ERROR);
-        if (($result['ok'] ?? false) === true && in_array($status, [self::STATUS_ACTIVE, self::STATUS_RENEWED], true)) {
+        if (($result[self::FIELD_OK] ?? false) === true && in_array($status, [self::STATUS_ACTIVE, self::STATUS_RENEWED], true)) {
             return [
                 'schema' => self::SCHEMA,
-                'ok' => true,
+                self::FIELD_OK => true,
                 'status' => $status,
                 'action' => self::ACTION_PROCEED,
                 'engine' => $engine,
@@ -110,7 +112,7 @@ final class AcosMaxParallelExecutionProtocol
 
         return [
             'schema' => self::SCHEMA,
-            'ok' => true,
+            self::FIELD_OK => true,
             'status' => $status === self::STATUS_CONFLICT ? self::STATUS_CONFLICT : $status,
             'action' => self::ACTION_SKIP,
             'engine' => $engine,
@@ -144,7 +146,7 @@ final class AcosMaxParallelExecutionProtocol
 
         return [
             'schema' => self::SCHEMA,
-            'ok' => true,
+            self::FIELD_OK => true,
             'released' => ((int) (AiValueNormalizer::finiteFloatOrNull($released['released_count'] ?? null) ?? 0)) > 0,
             'target' => $target,
         ];

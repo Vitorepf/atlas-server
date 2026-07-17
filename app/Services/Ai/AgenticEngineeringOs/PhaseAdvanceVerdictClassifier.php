@@ -31,6 +31,8 @@ final class PhaseAdvanceVerdictClassifier
 
     public const VERDICT_HALT = 'halt';
 
+    public const FIELD_BLOCKED = 'blocked';
+
     /** @var list<string> */
     public const VERDICTS = [
         self::VERDICT_ADVANCE,
@@ -81,7 +83,7 @@ final class PhaseAdvanceVerdictClassifier
         $gates = AiValueNormalizer::arrayOrEmpty($envelope['gates'] ?? null);
         $required = AiStringListNormalizer::trimmedStrings($gates['required'] ?? []);
         $passed = AiStringListNormalizer::trimmedStrings($gates['passed'] ?? []);
-        $blockedGates = AiStringListNormalizer::trimmedStrings($gates['blocked'] ?? []);
+        $blockedGates = AiStringListNormalizer::trimmedStrings($gates[self::FIELD_BLOCKED] ?? []);
 
         $blockers = AiValueNormalizer::arrayOrEmpty($envelope['blockers'] ?? null);
         $hasOpenBlockers = $this->hasOpenBlockers($blockers);

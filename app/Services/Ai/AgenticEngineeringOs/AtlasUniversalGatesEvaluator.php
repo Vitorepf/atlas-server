@@ -4995,6 +4995,27 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: corpus/parallel/truth-resolution/http/phase blocked residual floors.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function corpusParallelTruthBlockedFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'gated_corpus_source_unknown' => GatedCorpusCandidateMiner::SOURCE_UNKNOWN,
+            'parallel_field_ok' => AcosMaxParallelExecutionProtocol::FIELD_OK,
+            'implementation_truth_test_resolution_green' => AtlasAaeosImplementationTruthService::TEST_RESOLUTION_GREEN,
+            'implementation_truth_test_resolution_mixed' => AtlasAaeosImplementationTruthService::TEST_RESOLUTION_MIXED,
+            'implementation_truth_test_resolution_existence_only_unrun' => AtlasAaeosImplementationTruthService::TEST_RESOLUTION_EXISTENCE_ONLY_UNRUN,
+            'http_path_field_blocked' => AtlasAaeosHttpPathFacadeService::FIELD_BLOCKED,
+            'phase_advance_field_blocked' => PhaseAdvanceVerdictClassifier::FIELD_BLOCKED,
+            'lote2_field_partial' => AcosMaxLote2MeasureService::FIELD_PARTIAL,
+            'corpus_parallel_truth_blocked_floor_count' => 8,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -52,6 +52,8 @@ final class AtlasAaeosHttpPathFacadeService
 
     public const RESULT_UNKNOWN = 'unknown';
 
+    public const FIELD_BLOCKED = 'blocked';
+
     public const BLOCK_PLACEMENT_GATE_BLOCKED = 'placement_gate_blocked';
 
     public const BLOCK_POLICY_GATE_BLOCKED = 'policy_gate_blocked';
@@ -271,7 +273,7 @@ final class AtlasAaeosHttpPathFacadeService
                 'requests' => (int) $this->cache->get(self::TELEMETRY_KEY_REQUESTS, 0),
                 'canonical_calls' => (int) $this->cache->get(self::TELEMETRY_KEY_CANONICAL, 0),
                 'legacy_fallback' => (int) $this->cache->get(self::TELEMETRY_KEY_LEGACY_FALLBACK, 0),
-                'blocked' => (int) $this->cache->get(self::TELEMETRY_KEY_BLOCKED, 0),
+                self::FIELD_BLOCKED => (int) $this->cache->get(self::TELEMETRY_KEY_BLOCKED, 0),
             ],
             'latency_ms' => [
                 'samples' => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.count', 0),

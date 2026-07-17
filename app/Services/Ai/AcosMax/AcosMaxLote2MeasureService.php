@@ -68,6 +68,8 @@ final class AcosMaxLote2MeasureService
 
     public const FIELD_COMPLETE = 'complete';
 
+    public const FIELD_PARTIAL = 'partial';
+
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -185,8 +187,8 @@ final class AcosMaxLote2MeasureService
                 $loops[] = $assembled['loop'];
                 $durations[] = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($assembled, 'loop.time_to_recall_seconds')) ?? 0);
             } else {
-                $partial[] = $assembled['partial'];
-                if (in_array('fixture_chain', AiValueNormalizer::arrayOrEmpty($assembled['partial']['blocked_by'] ?? null), true)) {
+                $partial[] = $assembled[self::FIELD_PARTIAL];
+                if (in_array('fixture_chain', AiValueNormalizer::arrayOrEmpty($assembled[self::FIELD_PARTIAL]['blocked_by'] ?? null), true)) {
                     $fixtureRejected++;
                 }
             }
@@ -338,7 +340,7 @@ final class AcosMaxLote2MeasureService
         if ($blockedBy !== []) {
             return [
                 self::FIELD_COMPLETE => false,
-                'partial' => [
+                self::FIELD_PARTIAL => [
                     'loop_id' => hash('sha256', implode('|', array_map(static fn ($value): string => AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '', $chain))),
                     'chain' => $chain,
                     'proven_real' => $provenReal,

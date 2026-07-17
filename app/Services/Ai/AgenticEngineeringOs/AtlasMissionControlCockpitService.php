@@ -138,7 +138,7 @@ final class AtlasMissionControlCockpitService
      */
     private function buildQueueHealth(array $signals): ?array
     {
-        $numericKeys = ['servable_now', 'active_leases', 'blocked', 'quarantined', 'recoverable', 'malformed'];
+        $numericKeys = ['servable_now', 'active_leases', self::STATUS_BLOCKED, 'quarantined', 'recoverable', 'malformed'];
         $hasAnySignal = false;
         foreach ($numericKeys as $key) {
             if (isset($signals[$key]) && AiValueNormalizer::finiteFloatOrNull($signals[$key]) !== null) {

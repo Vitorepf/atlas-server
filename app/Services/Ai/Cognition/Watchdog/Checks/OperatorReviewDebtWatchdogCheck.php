@@ -38,7 +38,7 @@ final readonly class OperatorReviewDebtWatchdogCheck implements AtlasWatchdogChe
             ]);
         }
 
-        if (($evidence['status'] ?? null) === 'alert') {
+        if (($evidence['status'] ?? null) === AtlasWatchdogCheckResult::STATUS_ALERT) {
             return AtlasWatchdogCheckResult::alert($evidence, [
                 'code' => self::CHECK_ID,
                 'message' => 'Operator review-debt idade_max_da_fila exceeded the frozen cap; next auto-apply cycle is slowed ephemerally.',

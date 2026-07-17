@@ -248,6 +248,7 @@ final class AtlasAaeosCommand extends Command
         {--local-model-embedding-immune-unavailable-floors-contract= : JSON file (any object) to observe local-model/embedding/immune unavailable floors}
         {--prereview-parallel-flywheel-frontier-floors-contract= : JSON file (any object) to observe prereview/parallel/flywheel/frontier residual floors}
         {--obra-portfolio-pareto-blocked-floors-contract= : JSON file (any object) to observe obra/portfolio/pareto/http blocked residual floors}
+        {--corpus-parallel-truth-blocked-floors-contract= : JSON file (any object) to observe corpus/parallel/truth/phase blocked residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -652,6 +653,7 @@ final class AtlasAaeosCommand extends Command
             ['local-model-embedding-immune-unavailable-floors-contract', 'local_model_embedding_immune_unavailable_floors_contract', fn (array $p) => $gates->localModelEmbeddingImmuneUnavailableFloorsContractObserve($p)],
             ['prereview-parallel-flywheel-frontier-floors-contract', 'prereview_parallel_flywheel_frontier_floors_contract', fn (array $p) => $gates->prereviewParallelFlywheelFrontierFloorsContractObserve($p)],
             ['obra-portfolio-pareto-blocked-floors-contract', 'obra_portfolio_pareto_blocked_floors_contract', fn (array $p) => $gates->obraPortfolioParetoBlockedFloorsContractObserve($p)],
+            ['corpus-parallel-truth-blocked-floors-contract', 'corpus_parallel_truth_blocked_floors_contract', fn (array $p) => $gates->corpusParallelTruthBlockedFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

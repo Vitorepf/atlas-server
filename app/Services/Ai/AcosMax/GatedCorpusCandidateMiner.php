@@ -13,6 +13,8 @@ final class GatedCorpusCandidateMiner
     /** @var list<string> */
     public const PROTECTED = ['sensitive', 'secret', 'cyber'];
 
+    public const SOURCE_UNKNOWN = 'unknown';
+
     /**
      * @param  list<array<string,mixed>>  $sources
      * @return array<string,mixed>
@@ -35,7 +37,7 @@ final class GatedCorpusCandidateMiner
             $candidates[] = [
                 'schema_version' => self::SCHEMA_VERSION,
                 'origin_ref' => $ref,
-                'source' => AiValueNormalizer::trimmedStringOrNull($source['source'] ?? null) ?? 'unknown',
+                'source' => AiValueNormalizer::trimmedStringOrNull($source['source'] ?? null) ?? self::SOURCE_UNKNOWN,
                 'candidate_hash' => sha1($ref."\n".$text),
                 'admission' => [
                     'via_asi_02' => true,

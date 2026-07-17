@@ -61,6 +61,12 @@ class AtlasAaeosImplementationTruthService
 
     public const STATUS_BUILDING = 'building';
 
+    public const TEST_RESOLUTION_GREEN = 'green';
+
+    public const TEST_RESOLUTION_MIXED = 'mixed';
+
+    public const TEST_RESOLUTION_EXISTENCE_ONLY_UNRUN = 'existence_only_unrun';
+
     public const RANK = [
         self::LEVEL_SPEC => 0,
         self::LEVEL_PARTIAL => 1,
@@ -159,7 +165,7 @@ class AtlasAaeosImplementationTruthService
             return self::LEVEL_EXISTENCE_ONLY;
         }
 
-        return $greenRows === $testBearingRows ? 'green' : 'mixed';
+        return $greenRows === $testBearingRows ? self::TEST_RESOLUTION_GREEN : self::TEST_RESOLUTION_MIXED;
     }
 
     /**
@@ -633,7 +639,7 @@ class AtlasAaeosImplementationTruthService
         $testResolution = match (true) {
             $hasGreenTest => 'green_run',
             // A test symbol matched but no green run proves it — the lie this kills.
-            $hasTest => 'existence_only_unrun',
+            $hasTest => self::TEST_RESOLUTION_EXISTENCE_ONLY_UNRUN,
             default => 'none',
         };
 
