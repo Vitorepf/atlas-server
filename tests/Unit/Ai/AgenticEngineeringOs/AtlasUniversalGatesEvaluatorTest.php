@@ -1063,4 +1063,35 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('security', $payload['vetoing_department']);
         $this->assertSame('pause_downstream', $payload['action']);
     }
+
+    public function test_docs_authority_locate_observe_fail_open(): void
+    {
+        $payload = $this->svc->docsAuthorityLocateObserve(['needle' => 'aaeos']);
+
+        $this->assertSame('atlas.docs.locate.v1', $payload['schema_version']);
+        $this->assertArrayHasKey('resolved', $payload);
+        $this->assertArrayHasKey('candidates', $payload);
+    }
+
+    public function test_department_level_classifier_observe_classifies_ladder(): void
+    {
+        $payload = $this->svc->departmentLevelClassifierObserve([
+            'department_id' => ' forge ',
+            'metrics_snapshot' => [
+                'obra_completion_rate' => '0.95',
+            ],
+            'band_ladder' => [
+                [
+                    'level' => 'L1',
+                    'thresholds' => [
+                        ['metric' => 'obra_completion_rate', 'comparator' => '>=', 'value' => 0.5],
+                    ],
+                ],
+            ],
+        ]);
+
+        $this->assertSame('atlas.aaeos.department_level_classification.v1', $payload['schema_version']);
+        $this->assertSame('forge', $payload['department_id']);
+        $this->assertSame('L1', $payload['earned_level']);
+    }
 }

@@ -35,6 +35,26 @@ final class AiValueNormalizer
     }
 
     /**
+     * Coerce int/float/numeric-string into a finite float, else null.
+     */
+    public static function finiteFloatOrNull(mixed $value): ?float
+    {
+        if (is_string($value)) {
+            $value = trim($value);
+            if ($value === '' || ! is_numeric($value)) {
+                return null;
+            }
+            $value = (float) $value;
+        } elseif (is_int($value) || is_float($value)) {
+            $value = (float) $value;
+        } else {
+            return null;
+        }
+
+        return is_finite($value) ? $value : null;
+    }
+
+    /**
      * @return array<mixed>
      */
     public static function arrayOrEmpty(mixed $value): array

@@ -35,6 +35,17 @@ final class AiValueNormalizerTest extends TestCase
         $this->assertSame(1.0, AiValueNormalizer::clampUnit(1.7));
     }
 
+    public function test_finite_float_or_null_coerces_numeric_scalars(): void
+    {
+        $this->assertSame(0.5, AiValueNormalizer::finiteFloatOrNull(0.5));
+        $this->assertSame(2.0, AiValueNormalizer::finiteFloatOrNull(2));
+        $this->assertSame(0.9, AiValueNormalizer::finiteFloatOrNull(' 0.9 '));
+        $this->assertNull(AiValueNormalizer::finiteFloatOrNull(''));
+        $this->assertNull(AiValueNormalizer::finiteFloatOrNull('x'));
+        $this->assertNull(AiValueNormalizer::finiteFloatOrNull([]));
+        $this->assertNull(AiValueNormalizer::finiteFloatOrNull(INF));
+    }
+
     public function test_array_or_empty_rejects_non_arrays(): void
     {
         $this->assertSame(['a' => 1], AiValueNormalizer::arrayOrEmpty(['a' => 1]));

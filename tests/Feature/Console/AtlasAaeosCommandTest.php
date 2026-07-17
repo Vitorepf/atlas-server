@@ -1425,6 +1425,55 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_docs_authority_locate(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-dal-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(['needle' => 'aaeos']));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-dal',
+                '--docs-authority-locate' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"docs_authority_locate"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
+    public function test_universal_gates_observe_department_level_classifier(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-dlc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'department_id' => 'forge',
+            'metrics_snapshot' => ['obra_completion_rate' => 0.95],
+            'band_ladder' => [
+                [
+                    'level' => 'L1',
+                    'thresholds' => [
+                        ['metric' => 'obra_completion_rate', 'comparator' => '>=', 'value' => 0.5],
+                    ],
+                ],
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-dlc',
+                '--department-level-classifier' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"department_level_classifier"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

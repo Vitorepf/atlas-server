@@ -174,13 +174,7 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
             return null;
         }
 
-        $value = $measuredMetrics[$metric];
-
-        if (! is_int($value) && ! is_float($value)) {
-            return null;
-        }
-
-        return (float) $value;
+        return AiValueNormalizer::finiteFloatOrNull($measuredMetrics[$metric]);
     }
 
     /**
@@ -191,7 +185,7 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
         $count = 0;
 
         foreach ($measuredMetrics as $value) {
-            if (is_int($value) || is_float($value)) {
+            if (AiValueNormalizer::finiteFloatOrNull($value) !== null) {
                 $count++;
             }
         }

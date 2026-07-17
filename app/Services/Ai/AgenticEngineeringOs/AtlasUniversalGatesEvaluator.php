@@ -50,6 +50,9 @@ use App\Services\Ai\Aaeos\AaeosGeneratedContractGate;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
 use App\Services\Ai\Aaeos\AtlasDebugRootCauseService;
+use App\Services\Ai\Aaeos\AaeosDepartmentLevelClassifier;
+use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
+use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
 
@@ -1274,6 +1277,37 @@ final class AtlasUniversalGatesEvaluator
                 AiValueNormalizer::trimmedString($input['department'] ?? $input['vetoing_department'] ?? ''),
             ),
         };
+    }
+
+    /**
+     * Observe-only docs authority locate (fail-open when graph table missing).
+     * Accepts `{needle, limit?}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function docsAuthorityLocateObserve(array $input = []): array
+    {
+        $needle = AiValueNormalizer::trimmedString($input['needle'] ?? '');
+        $limit = max(1, (int) ($input['limit'] ?? 5));
+
+        return (new AtlasDocsAuthorityGraphService(new CanonicalDocsFrontmatterParser))->locate($needle, $limit);
+    }
+
+    /**
+     * Observe-only AAEOS department level classification.
+     * Accepts `{department_id, metrics_snapshot, band_ladder}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function departmentLevelClassifierObserve(array $input = []): array
+    {
+        return (new AaeosDepartmentLevelClassifier)->classify(
+            AiValueNormalizer::trimmedString($input['department_id'] ?? ''),
+            AiValueNormalizer::arrayOrEmpty($input['metrics_snapshot'] ?? null),
+            AiValueNormalizer::arrayOrEmpty($input['band_ladder'] ?? null),
+        );
     }
 
     /**

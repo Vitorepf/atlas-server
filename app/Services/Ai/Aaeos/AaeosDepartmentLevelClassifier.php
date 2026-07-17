@@ -127,13 +127,7 @@ final class AaeosDepartmentLevelClassifier
             return null;
         }
 
-        $value = $metricsSnapshot[$metric];
-
-        if (! is_int($value) && ! is_float($value)) {
-            return null;
-        }
-
-        return (float) $value;
+        return AiValueNormalizer::finiteFloatOrNull($metricsSnapshot[$metric]);
     }
 
     /**

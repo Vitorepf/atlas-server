@@ -176,19 +176,7 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
             return null;
         }
 
-        $value = $metricsSnapshot[$metric];
-
-        if (is_string($value) && is_numeric($value)) {
-            $value = (float) $value;
-
-            return is_finite($value) ? $value : null;
-        }
-
-        if (! is_int($value) && ! is_float($value)) {
-            return null;
-        }
-
-        return (float) $value;
+        return AiValueNormalizer::finiteFloatOrNull($metricsSnapshot[$metric]);
     }
 
 }
