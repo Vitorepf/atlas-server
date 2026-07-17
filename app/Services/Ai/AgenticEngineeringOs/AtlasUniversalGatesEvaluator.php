@@ -42,6 +42,9 @@ use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
 use App\Services\Ai\Cognition\AtlasAcosRollbackTriggerCheckService;
 use App\Services\Ai\Cognition\AtlasAcosLongHorizonGateService;
+use App\Services\Ai\Cognition\AtlasAcosWindowGatesService;
+use App\Services\Ai\Cognition\AtlasAcosEvolutionScoreService;
+use App\Services\Ai\Cognition\AtlasImmuneHybridInputClassifier;
 use App\Services\Ai\Cognition\ImmuneSignatureStore;
 use App\Services\Ai\Cognition\ImmuneVerdictLedger;
 use App\Services\Ai\AcosMax\PromotionProtocol;
@@ -1652,6 +1655,10 @@ final class AtlasUniversalGatesEvaluator
             'schema_version' => AtlasAaeosDepartmentRegistryService::SCHEMA,
             'canonical_departments' => AtlasAaeosDepartmentRegistryService::CANONICAL_DEPARTMENTS,
             'count' => count(AtlasAaeosDepartmentRegistryService::CANONICAL_DEPARTMENTS),
+            'required_fields' => AtlasAaeosDepartmentRegistryService::REQUIRED_FIELDS,
+            'required_field_count' => count(AtlasAaeosDepartmentRegistryService::REQUIRED_FIELDS),
+            'valid_maturity' => AtlasAaeosDepartmentRegistryService::VALID_MATURITY,
+            'valid_maturity_count' => count(AtlasAaeosDepartmentRegistryService::VALID_MATURITY),
         ];
     }
 
@@ -1702,6 +1709,9 @@ final class AtlasUniversalGatesEvaluator
             'schema_version' => AtlasAaeosPhaseRouterService::SCHEMA_VERSION,
             'valid_phases' => AtlasAaeosPhaseRouterService::VALID_PHASES,
             'count' => count(AtlasAaeosPhaseRouterService::VALID_PHASES),
+            'active_phase_ranks' => AtlasAaeosPhaseRouterService::ACTIVE_PHASE_RANKS,
+            'active_phase_count' => count(AtlasAaeosPhaseRouterService::ACTIVE_PHASE_RANKS),
+            'phase_descriptions' => AtlasAaeosPhaseRouterService::PHASE_DESCRIPTIONS,
         ];
     }
 
@@ -2730,6 +2740,29 @@ final class AtlasUniversalGatesEvaluator
             'promotion_max_tier' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_TIER,
             'consolidation_rerank_schema' => AtlasConsolidationRerankGuard::SCHEMA_VERSION,
             'consolidation_rerank_epsilon' => AtlasConsolidationRerankGuard::EPSILON,
+        ];
+    }
+
+    /**
+     * Observe-only window-gates / evolution-score / hybrid-classifier floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function windowEvolutionHybridContractObserve(array $input = []): array
+    {
+        return [
+            'window_gates_schema' => AtlasAcosWindowGatesService::SCHEMA_VERSION,
+            'receipt_fresh_seconds' => AtlasAcosWindowGatesService::RECEIPT_FRESH_SECONDS,
+            'evolution_score_schema' => AtlasAcosEvolutionScoreService::SCHEMA_VERSION,
+            'heartbeat_fresh_seconds' => AtlasAcosEvolutionScoreService::HEARTBEAT_FRESH_SECONDS,
+            'gate_fresh_seconds' => AtlasAcosEvolutionScoreService::GATE_FRESH_SECONDS,
+            'scheduled_organs' => AtlasAcosEvolutionScoreService::SCHEDULED_ORGANS,
+            'scheduled_organ_count' => count(AtlasAcosEvolutionScoreService::SCHEDULED_ORGANS),
+            'lift_cases_per_arm_required' => AtlasAcosEvolutionScoreService::LIFT_CASES_PER_ARM_REQUIRED,
+            'hostile_severity' => AtlasImmuneHybridInputClassifier::HOSTILE_SEVERITY,
+            'hostile_severity_count' => count(AtlasImmuneHybridInputClassifier::HOSTILE_SEVERITY),
         ];
     }
 

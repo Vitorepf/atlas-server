@@ -29,7 +29,7 @@ final class AtlasAcosWindowGatesService
     public const SCHEMA_VERSION = 'atlas.cognition.window_gates.v1';
 
     /** Receipt freshness before a certified gate is treated as stale (7 days). */
-    private const RECEIPT_FRESH_SECONDS = 604800;
+    public const RECEIPT_FRESH_SECONDS = 604800;
 
     public function __construct(
         private readonly ?AtlasMemoryQualityService $quality = null,

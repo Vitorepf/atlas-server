@@ -177,6 +177,7 @@ final class AtlasAaeosCommand extends Command
         {--segment-importance-contract= : JSON file (any object) to observe segment-importance kind weights + bonuses}
         {--cognitive-immune-promotion-gate-contract= : JSON file (any object) to observe cognitive-immune G0..G8 contract}
         {--cognitive-immune-input-classifier-contract= : JSON file (any object) to observe immune input classifier + veto/promotion floors}
+        {--window-evolution-hybrid-contract= : JSON file (any object) to observe window/evolution/hybrid floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -510,6 +511,7 @@ final class AtlasAaeosCommand extends Command
             ['segment-importance-contract', 'segment_importance_contract', fn (array $p) => $gates->segmentImportanceContractObserve($p)],
             ['cognitive-immune-promotion-gate-contract', 'cognitive_immune_promotion_gate_contract', fn (array $p) => $gates->cognitiveImmunePromotionGateContractObserve($p)],
             ['cognitive-immune-input-classifier-contract', 'cognitive_immune_input_classifier_contract', fn (array $p) => $gates->cognitiveImmuneInputClassifierContractObserve($p)],
+            ['window-evolution-hybrid-contract', 'window_evolution_hybrid_contract', fn (array $p) => $gates->windowEvolutionHybridContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

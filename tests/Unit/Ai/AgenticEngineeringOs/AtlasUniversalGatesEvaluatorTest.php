@@ -1322,6 +1322,10 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.aaeos.department.v1', $payload['schema_version']);
         $this->assertContains('dev', $payload['canonical_departments']);
         $this->assertSame(count($payload['canonical_departments']), $payload['count']);
+        $this->assertContains('maturity_level', $payload['required_fields']);
+        $this->assertSame(12, $payload['required_field_count']);
+        $this->assertContains('L0', $payload['valid_maturity']);
+        $this->assertSame(8, $payload['valid_maturity_count']);
     }
 
     public function test_universal_gates_catalogue_observe_reports_fifteen(): void
@@ -1349,6 +1353,9 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.aaeos.phase_router.v1', $payload['schema_version']);
         $this->assertContains('1', $payload['valid_phases']);
         $this->assertSame(count($payload['valid_phases']), $payload['count']);
+        $this->assertSame(1, $payload['active_phase_ranks']['1']);
+        $this->assertSame(4, $payload['active_phase_count']);
+        $this->assertArrayHasKey('legacy', $payload['phase_descriptions']);
     }
 
     public function test_choreography_handoff_kinds_observe_reports_catalogue(): void
@@ -1940,5 +1947,21 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(30, $payload['promotion_max_evidence_age_days']);
         $this->assertSame(5, $payload['promotion_max_tier']);
         $this->assertSame(0.0005, $payload['consolidation_rerank_epsilon']);
+    }
+
+    public function test_window_evolution_hybrid_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->windowEvolutionHybridContractObserve([]);
+
+        $this->assertSame('atlas.cognition.window_gates.v1', $payload['window_gates_schema']);
+        $this->assertSame(604800, $payload['receipt_fresh_seconds']);
+        $this->assertSame('atlas.cognition.evolution_score.v1', $payload['evolution_score_schema']);
+        $this->assertSame(7200, $payload['heartbeat_fresh_seconds']);
+        $this->assertSame(172800, $payload['gate_fresh_seconds']);
+        $this->assertContains('atlas:acos:delta-series', $payload['scheduled_organs']);
+        $this->assertSame(4, $payload['scheduled_organ_count']);
+        $this->assertSame(10, $payload['lift_cases_per_arm_required']);
+        $this->assertSame('prompt_injection', $payload['hostile_severity'][0]);
+        $this->assertSame(3, $payload['hostile_severity_count']);
     }
 }

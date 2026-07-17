@@ -43,13 +43,13 @@ class AtlasAcosEvolutionScoreService
     public const SCHEMA_VERSION = 'atlas.cognition.evolution_score.v1';
 
     /** Janela de frescor do heartbeat do scheduler (motor vivo). */
-    private const HEARTBEAT_FRESH_SECONDS = 7200;
+    public const HEARTBEAT_FRESH_SECONDS = 7200;
 
     /** Janela de frescor de receipts/série do gate de longo horizonte. */
-    private const GATE_FRESH_SECONDS = 172800;
+    public const GATE_FRESH_SECONDS = 172800;
 
     /** Comandos-órgão cuja presença agendada é exigida pela cadência H2.1. */
-    private const SCHEDULED_ORGANS = [
+    public const SCHEDULED_ORGANS = [
         'atlas:cognition:mint-pipeline-receipts',
         'atlas:acos:delta-series',
         'atlas:engineering:refactor-census',
@@ -57,13 +57,13 @@ class AtlasAcosEvolutionScoreService
     ];
 
     /** FQN da cadeia de promoção de tier (H3.2); probe por class_exists. */
-    private const TIER_CHAIN_CLASS = 'App\Services\Ai\AutonomousEvolution\AtlasLoopTierPromotionChainService';
+    public const TIER_CHAIN_CLASS = 'App\Services\Ai\AutonomousEvolution\AtlasLoopTierPromotionChainService';
 
     /** FQN do comando de reversão da memória (Carta Regra 4); probe por class_exists. */
-    private const REVERSAL_COMMAND_CLASS = 'App\Console\Commands\AtlasBrainReplayCommand';
+    public const REVERSAL_COMMAND_CLASS = 'App\Console\Commands\AtlasBrainReplayCommand';
 
     /** Minimum live A/B cases per arm before feedback_loop_vivo can score fully. */
-    private const LIFT_CASES_PER_ARM_REQUIRED = 10;
+    public const LIFT_CASES_PER_ARM_REQUIRED = 10;
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,

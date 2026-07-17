@@ -36,7 +36,7 @@ use App\Services\Ai\Support\AiValueNormalizer;
 final class AtlasImmuneHybridInputClassifier
 {
     /** @var list<string> Severity order (highest first). */
-    private const HOSTILE_SEVERITY = ['prompt_injection', 'private_sensitive', 'untrusted_content'];
+    public const HOSTILE_SEVERITY = ['prompt_injection', 'private_sensitive', 'untrusted_content'];
 
     private readonly AtlasAaeosCognitiveImmuneInputClassifier $base;
 

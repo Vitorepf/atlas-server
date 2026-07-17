@@ -2895,6 +2895,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_window_evolution_hybrid_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-wehc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-wehc',
+                '--window-evolution-hybrid-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"window_evolution_hybrid_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

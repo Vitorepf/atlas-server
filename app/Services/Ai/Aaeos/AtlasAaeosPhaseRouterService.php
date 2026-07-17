@@ -28,14 +28,14 @@ final class AtlasAaeosPhaseRouterService
         self::PHASE_4,
     ];
 
-    private const ACTIVE_PHASE_RANKS = [
+    public const ACTIVE_PHASE_RANKS = [
         self::PHASE_1 => 1,
         self::PHASE_2 => 2,
         self::PHASE_3 => 3,
         self::PHASE_4 => 4,
     ];
 
-    private const PHASE_DESCRIPTIONS = [
+    public const PHASE_DESCRIPTIONS = [
         self::PHASE_LEGACY => 'Legacy HTTP path; AAEOS facade inactive.',
         self::PHASE_1 => 'Phase 1; placement gate active.',
         self::PHASE_2 => 'Phase 2; classification and policy gates active.',
@@ -48,25 +48,25 @@ final class AtlasAaeosPhaseRouterService
     public function __construct(?string $configuredPhase = null)
     {
         $resolved = $configuredPhase !== null
-            ? AiValueNormalizer::trimmedString($configuredPhase)
-            : AiValueNormalizer::trimmedString(config('atlas.aaeos.http_path_phase', self::PHASE_LEGACY));
+            ? (AiValueNormalizer::trimmedStringOrNull($configuredPhase) ?? '')
+            : (AiValueNormalizer::trimmedStringOrNull(config('atlas.aaeos.http_path_phase', self::PHASE_LEGACY)) ?? '');
         $this->configuredPhase = $resolved !== '' ? $resolved : self::PHASE_LEGACY;
     }
 
     public static function isValidPhase(string $phase): bool
     {
-        return in_array(AiValueNormalizer::trimmedString($phase), self::VALID_PHASES, true);
+        return in_array(AiValueNormalizer::trimmedStringOrNull($phase) ?? '', self::VALID_PHASES, true);
     }
 
     public static function isActivePhase(string $phase): bool
     {
-        return array_key_exists(AiValueNormalizer::trimmedString($phase), self::ACTIVE_PHASE_RANKS);
+        return array_key_exists(AiValueNormalizer::trimmedStringOrNull($phase) ?? '', self::ACTIVE_PHASE_RANKS);
     }
 
     public static function phaseAtLeast(string $configuredPhase, string $threshold): bool
     {
-        $configuredRank = self::ACTIVE_PHASE_RANKS[AiValueNormalizer::trimmedString($configuredPhase)] ?? null;
-        $thresholdRank = self::ACTIVE_PHASE_RANKS[AiValueNormalizer::trimmedString($threshold)] ?? null;
+        $configuredRank = self::ACTIVE_PHASE_RANKS[AiValueNormalizer::trimmedStringOrNull($configuredPhase) ?? ''] ?? null;
+        $thresholdRank = self::ACTIVE_PHASE_RANKS[AiValueNormalizer::trimmedStringOrNull($threshold) ?? ''] ?? null;
 
         return $configuredRank !== null
             && $thresholdRank !== null

@@ -24,7 +24,7 @@ class AtlasAaeosDepartmentRegistryService
      *
      * @var array<int,string>
      */
-    private const REQUIRED_FIELDS = [
+    public const REQUIRED_FIELDS = [
         'id', 'human_name', 'scope', 'triggers', 'inputs', 'outputs',
         'gates', 'allowed_actions', 'forbidden_actions', 'escalation_to',
         'evidence_required', 'maturity_level',
@@ -33,7 +33,7 @@ class AtlasAaeosDepartmentRegistryService
     /**
      * @var array<int,string>
      */
-    private const VALID_MATURITY = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7'];
+    public const VALID_MATURITY = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7'];
 
     /**
      * The 11 canonical AAEOS departments.
