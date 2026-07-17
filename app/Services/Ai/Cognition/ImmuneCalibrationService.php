@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services\Ai\Cognition;
 
 use App\Services\Ai\Cognitive\PredictiveFailure\CalibrationBandClassifier;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 final class ImmuneCalibrationService
 {
@@ -106,7 +107,7 @@ final class ImmuneCalibrationService
     public function bandForRate(float $rate, int $denominator, int $minimum, string $metric): array
     {
         $denominator = max(0, $denominator);
-        $rate = round(max(0.0, min(1.0, $rate)), 6);
+        $rate = round(AiValueNormalizer::clampUnit($rate), 6);
 
         if ($metric === 'missed_poison_rate' && $denominator === 0) {
             return [

@@ -80,7 +80,7 @@ final class AtlasAaeosGateSignalEvaluator
         $ambiguityComponent = self::WEIGHT_NO_AMBIGUITY * $this->decay($ambiguityCount, self::AMBIGUITY_SATURATION);
         $missingComponent = self::WEIGHT_NO_MISSING * $this->decay($missingCount, self::MISSING_SATURATION);
 
-        $score = $this->clampUnit($resolvedComponent + $boundedComponent + $ambiguityComponent + $missingComponent);
+        $score = AiValueNormalizer::clampUnit($resolvedComponent + $boundedComponent + $ambiguityComponent + $missingComponent);
         $passed = $score >= self::INTENT_CLARITY_THRESHOLD;
 
         $reasons = [];
@@ -251,14 +251,7 @@ final class AtlasAaeosGateSignalEvaluator
             return $count > 0 ? 0.0 : 1.0;
         }
 
-        $ratio = 1.0 - ($count / $saturation);
-
-        return $ratio < 0.0 ? 0.0 : ($ratio > 1.0 ? 1.0 : $ratio);
-    }
-
-    private function clampUnit(float $value): float
-    {
-        return AiValueNormalizer::clampUnit($value);
+        return AiValueNormalizer::clampUnit(1.0 - ($count / $saturation));
     }
 
     private function isCompoundScope(string $scope): bool

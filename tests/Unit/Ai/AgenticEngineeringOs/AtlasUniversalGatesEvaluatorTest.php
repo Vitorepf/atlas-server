@@ -1440,4 +1440,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(count($payload['required_spec_pack_artifacts']), $payload['artifact_count']);
         $this->assertSame('R4', $payload['min_autonomous_risk_scope']);
     }
+
+    public function test_surprise_gate_bands_observe_reports_defaults(): void
+    {
+        $payload = $this->svc->surpriseGateBandsObserve([]);
+
+        $this->assertSame('atlas.cognition.surprise_gate.bands.v1', $payload['schema_version']);
+        $this->assertSame(0.5, $payload['default_threshold']);
+        $this->assertSame(0.75, $payload['default_high_band']);
+        $this->assertSame(8, $payload['default_min_prediction_tokens']);
+        $this->assertTrue($payload['fail_open_when_prediction_thin']);
+    }
 }

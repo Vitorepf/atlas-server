@@ -79,8 +79,7 @@ final class AtlasSurpriseGateService
         }
 
         $novel = array_values(array_diff($candidateTokens, $predictionTokens));
-        $surprise = count($novel) / count($candidateTokens);
-        $surprise = $surprise < 0.0 ? 0.0 : ($surprise > 1.0 ? 1.0 : $surprise);
+        $surprise = AiValueNormalizer::clampUnit(count($novel) / count($candidateTokens));
 
         $record = $surprise >= $threshold;
         $priority = ! $record ? 'low' : ($surprise >= $highBand ? 'high' : 'normal');

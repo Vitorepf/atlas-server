@@ -29,6 +29,7 @@ use App\Services\Ai\AcosMax\BeliefCascadeReverificationPlanner;
 use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
 use App\Services\Ai\AcosMax\EvidenceVisionThesisComposer;
 use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
+use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
@@ -1844,6 +1845,25 @@ final class AtlasUniversalGatesEvaluator
             'gate_count' => count(ArchitectAgentSpecPackGateContract::GATES),
             'min_autonomous_risk_scope' => ArchitectAgentSpecPackGateContract::MIN_AUTONOMOUS_RISK_SCOPE,
             'operator_signature_required_from' => ArchitectAgentSpecPackGateContract::OPERATOR_SIGNATURE_REQUIRED_FROM,
+        ];
+    }
+
+    /**
+     * Observe-only surprise-gate band defaults (Cognition T4-S2).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function surpriseGateBandsObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => 'atlas.cognition.surprise_gate.bands.v1',
+            'default_threshold' => AtlasSurpriseGateService::DEFAULT_THRESHOLD,
+            'default_high_band' => AtlasSurpriseGateService::DEFAULT_HIGH_BAND,
+            'default_min_prediction_tokens' => AtlasSurpriseGateService::DEFAULT_MIN_PREDICTION_TOKENS,
+            'unit_interval' => [0.0, 1.0],
+            'fail_open_when_prediction_thin' => true,
         ];
     }
 
