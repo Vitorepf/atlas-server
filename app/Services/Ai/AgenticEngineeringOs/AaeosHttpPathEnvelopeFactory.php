@@ -21,6 +21,8 @@ final class AaeosHttpPathEnvelopeFactory
 
     public const STATUS_UNKNOWN = 'unknown';
 
+    public const FIELD_BLOCKED = 'blocked';
+
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
         private readonly PhaseAdvanceVerdictClassifier $phaseAdvance = new PhaseAdvanceVerdictClassifier,
@@ -337,7 +339,7 @@ final class AaeosHttpPathEnvelopeFactory
         return [
             'required' => [$gate],
             'passed' => $ok ? [$gate] : [],
-            'blocked' => $ok ? [] : [$gate],
+            self::FIELD_BLOCKED => $ok ? [] : [$gate],
         ];
     }
 

@@ -18,6 +18,8 @@ final readonly class AtlasWatchdogCheckResult
 
     public const STATUS_ERROR = 'error';
 
+    public const FIELD_ALERT = 'alert';
+
     /** @var list<string> */
     public const STATUSES = [
         self::STATUS_OK,
@@ -86,7 +88,7 @@ final readonly class AtlasWatchdogCheckResult
         return [
             'status' => $this->status,
             'evidence' => $this->evidence,
-            'alert' => $this->alert,
+            self::FIELD_ALERT => $this->alert,
         ];
     }
 }

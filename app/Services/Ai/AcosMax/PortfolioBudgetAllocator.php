@@ -58,6 +58,14 @@ final class PortfolioBudgetAllocator
     /** Minimum n per class for yield to count; below ⇒ insufficient_n and default weight used. */
     public const MIN_N_PER_CLASS = 8;
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_WEIGHTS_REVERTED = 'weights_reverted_to_default';
+
+    public const BASIS_MEASURED = 'measured';
+
+    public const BASIS_INSUFFICIENT_N = 'insufficient_n';
+
     /**
      * @param  array<string,mixed>  $input keys:
      *   operator_weights: {reactive:float, originated:float, maintenance:float} — sums≈1.0
@@ -77,7 +85,7 @@ final class PortfolioBudgetAllocator
         $amendmentId = AiValueNormalizer::trimmedStringOrNull($input['amendment_receipt_id'] ?? null);
 
         $reasons = [];
-        $status = 'ok';
+        $status = self::STATUS_OK;
 
         // Weight-change guard: any deviation from default_mix requires an amendment id.
         // Without it, the derivation refuses (§2398 "mudança de peso sem amendment receipt ⇒ rejeitada").
@@ -85,7 +93,7 @@ final class PortfolioBudgetAllocator
         if ($amendmentId === null && ! self::sharesEqual($weights, $default)) {
             $usedWeights = $default;
             $reasons[] = 'weight_change_refused_missing_amendment_receipt';
-            $status = 'weights_reverted_to_default';
+            $status = self::STATUS_WEIGHTS_REVERTED;
         }
 
         // Reserve floor + apply ceilings + distribute residual.
@@ -99,7 +107,7 @@ final class PortfolioBudgetAllocator
             $yieldReport[$class] = [
                 'n' => $y['n'],
                 'mean_proven_yield' => $y['n'] >= self::MIN_N_PER_CLASS ? $y['mean_proven_yield'] : null,
-                'basis' => $y['n'] >= self::MIN_N_PER_CLASS ? 'measured' : 'insufficient_n',
+                'basis' => $y['n'] >= self::MIN_N_PER_CLASS ? self::BASIS_MEASURED : self::BASIS_INSUFFICIENT_N,
                 'allocated_share' => $usedWeights[$class],
             ];
         }

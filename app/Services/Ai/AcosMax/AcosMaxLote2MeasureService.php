@@ -66,6 +66,8 @@ final class AcosMaxLote2MeasureService
 
     public const MEMORY_TYPE_UNKNOWN = 'unknown';
 
+    public const FIELD_COMPLETE = 'complete';
+
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -179,7 +181,7 @@ final class AcosMaxLote2MeasureService
                 $recallsByCandidate,
             );
 
-            if ($assembled['complete'] === true) {
+            if ($assembled[self::FIELD_COMPLETE] === true) {
                 $loops[] = $assembled['loop'];
                 $durations[] = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($assembled, 'loop.time_to_recall_seconds')) ?? 0);
             } else {
@@ -335,7 +337,7 @@ final class AcosMaxLote2MeasureService
 
         if ($blockedBy !== []) {
             return [
-                'complete' => false,
+                self::FIELD_COMPLETE => false,
                 'partial' => [
                     'loop_id' => hash('sha256', implode('|', array_map(static fn ($value): string => AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '', $chain))),
                     'chain' => $chain,
@@ -347,7 +349,7 @@ final class AcosMaxLote2MeasureService
         }
 
         return [
-            'complete' => true,
+            self::FIELD_COMPLETE => true,
             'loop' => [
                 'loop_id' => hash('sha256', implode('|', array_map(static fn ($value): string => AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '', $chain))),
                 'chain' => $chain,
@@ -563,7 +565,7 @@ final class AcosMaxLote2MeasureService
             'schema_version' => self::REPORT_SCHEMA,
             'slice' => 'MULTX-06',
             'status' => $status,
-            'reason' => $status === 'ok' ? null : 'promoted_lesson_denominator_below_min',
+            'reason' => $status === self::STATUS_OK ? null : 'promoted_lesson_denominator_below_min',
             'formula_version' => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload('MULTX-06'), 'formula_version')) ?? '',
             'generated_at' => now()->toIso8601String(),
             'freeze' => self::freezePayload('MULTX-06'),

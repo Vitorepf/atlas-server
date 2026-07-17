@@ -4972,6 +4972,29 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: obra-retro/portfolio/cooccurrence/pareto/http blocked residual floors.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function obraPortfolioParetoBlockedFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'obra_retro_status_unknown' => AcosMaxObraRetroService::STATUS_UNKNOWN,
+            'portfolio_status_ok' => PortfolioBudgetAllocator::STATUS_OK,
+            'portfolio_status_weights_reverted' => PortfolioBudgetAllocator::STATUS_WEIGHTS_REVERTED,
+            'portfolio_basis_measured' => PortfolioBudgetAllocator::BASIS_MEASURED,
+            'portfolio_basis_insufficient_n' => PortfolioBudgetAllocator::BASIS_INSUFFICIENT_N,
+            'cooccurrence_status_ok' => ExecutionContextCooccurrenceService::STATUS_OK,
+            'lote2_field_complete' => AcosMaxLote2MeasureService::FIELD_COMPLETE,
+            'pareto_field_blocked' => ContextParetoDominanceFilter::FIELD_BLOCKED,
+            'http_envelope_field_blocked' => AaeosHttpPathEnvelopeFactory::FIELD_BLOCKED,
+            'watchdog_check_field_alert' => AtlasWatchdogCheckResult::FIELD_ALERT,
+            'obra_portfolio_pareto_blocked_floor_count' => 10,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

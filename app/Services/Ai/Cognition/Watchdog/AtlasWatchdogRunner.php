@@ -138,11 +138,11 @@ final readonly class AtlasWatchdogRunner
     {
         $alerts = [];
         foreach ($checks as $check) {
-            if (! is_array($check['alert'] ?? null)) {
+            if (! is_array($check[AtlasWatchdogCheckResult::FIELD_ALERT] ?? null)) {
                 continue;
             }
 
-            $alerts[] = ['check_id' => AiValueNormalizer::trimmedStringOrNull($check['id'] ?? null) ?? self::CHECK_ID_UNKNOWN] + $check['alert'];
+            $alerts[] = ['check_id' => AiValueNormalizer::trimmedStringOrNull($check['id'] ?? null) ?? self::CHECK_ID_UNKNOWN] + $check[AtlasWatchdogCheckResult::FIELD_ALERT];
         }
 
         return $alerts;

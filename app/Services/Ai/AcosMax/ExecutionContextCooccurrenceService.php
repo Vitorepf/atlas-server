@@ -16,6 +16,8 @@ final class ExecutionContextCooccurrenceService
 
     public const STATUS_UNMEASURABLE = 'unmeasurable';
 
+    public const STATUS_OK = 'ok';
+
     public const REASON_MEASURED_SHARE_ZERO = 'measured_share_zero';
 
     public const REASON_RUN_ARTIFACT_UNAVAILABLE = 'run_artifact_unavailable';
@@ -103,7 +105,7 @@ final class ExecutionContextCooccurrenceService
         }
 
         return array_replace($base, [
-            'status' => 'ok',
+            'status' => self::STATUS_OK,
             'reason' => null,
             'runs_path' => $runsPath,
             'denominator' => [

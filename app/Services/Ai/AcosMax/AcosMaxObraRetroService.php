@@ -20,6 +20,8 @@ final class AcosMaxObraRetroService
 
     public const STATUS_RECORDED = 'recorded';
 
+    public const STATUS_UNKNOWN = 'unknown';
+
     public const REASON_NO_TERMINAL_SLICES_FOR_LOTE = 'no_terminal_slices_for_lote';
 
     public const KIND_FAILURE_PATTERN = 'failure_pattern';
@@ -132,7 +134,7 @@ final class AcosMaxObraRetroService
         $result = $this->writeBack->proposeLearning($payload);
 
         return [
-            'status' => (AiValueNormalizer::trimmedStringOrNull($result['status'] ?? null) ?? 'unknown'),
+            'status' => (AiValueNormalizer::trimmedStringOrNull($result['status'] ?? null) ?? self::STATUS_UNKNOWN),
             'reason' => (AiValueNormalizer::trimmedStringOrNull($result['reason'] ?? null) ?? ''),
             'proposal_id' => $result['proposal_id'] ?? null,
             'kind' => AiValueNormalizer::trimmedStringOrNull($result['kind'] ?? $payload['kind'] ?? null) ?? '',
@@ -182,7 +184,7 @@ final class AcosMaxObraRetroService
         return [
             'slice_id' => AiValueNormalizer::trimmedScalarStringOrNull($slice['id'] ?? null) ?? '',
             'slice_state' => AiValueNormalizer::trimmedScalarStringOrNull($slice['state'] ?? null) ?? '',
-            'status' => (AiValueNormalizer::trimmedStringOrNull($recorded['status'] ?? null) ?? 'unknown'),
+            'status' => (AiValueNormalizer::trimmedStringOrNull($recorded['status'] ?? null) ?? self::STATUS_UNKNOWN),
             'outcome_id' => data_get($recorded, 'outcome.outcome_id'),
             'ai_run_outcome_id' => data_get($recorded, 'spine.ai_run_outcome.id'),
             'series_tag' => self::SERIES_TAG,

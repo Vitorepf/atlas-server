@@ -3351,4 +3351,21 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(14, $payload['prereview_parallel_flywheel_frontier_floor_count']);
     }
 
+    public function test_obra_portfolio_pareto_blocked_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->obraPortfolioParetoBlockedFloorsContractObserve([]);
+
+        $this->assertSame('unknown', $payload['obra_retro_status_unknown']);
+        $this->assertSame('ok', $payload['portfolio_status_ok']);
+        $this->assertSame('weights_reverted_to_default', $payload['portfolio_status_weights_reverted']);
+        $this->assertSame('measured', $payload['portfolio_basis_measured']);
+        $this->assertSame('insufficient_n', $payload['portfolio_basis_insufficient_n']);
+        $this->assertSame('ok', $payload['cooccurrence_status_ok']);
+        $this->assertSame('complete', $payload['lote2_field_complete']);
+        $this->assertSame('blocked', $payload['pareto_field_blocked']);
+        $this->assertSame('blocked', $payload['http_envelope_field_blocked']);
+        $this->assertSame('alert', $payload['watchdog_check_field_alert']);
+        $this->assertSame(10, $payload['obra_portfolio_pareto_blocked_floor_count']);
+    }
+
 }
