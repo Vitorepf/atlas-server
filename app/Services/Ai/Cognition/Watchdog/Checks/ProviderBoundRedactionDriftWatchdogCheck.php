@@ -9,6 +9,7 @@ use App\Services\Ai\AtlasMemoryPrivacyService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWatchdogCheck
 {
@@ -71,8 +72,8 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
     private function driftSignals(AtlasMemoryEntry $entry): array
     {
         $signals = [];
-        $body = trim((string) $entry->body);
-        $summary = trim((string) ($entry->summary ?? ''));
+        $body = AiValueNormalizer::trimmedString($entry->body);
+        $summary = AiValueNormalizer::trimmedString($entry->summary ?? '');
         $providerBody = $this->privacy->providerBody($entry);
         $providerSummary = (string) ($this->privacy->providerSummary($entry) ?? '');
 
@@ -88,7 +89,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
 
     private function memoryRef(AtlasMemoryEntry $entry): string
     {
-        $hash = trim((string) ($entry->content_hash ?? ''));
+        $hash = AiValueNormalizer::trimmedString($entry->content_hash ?? '');
         if ($hash === '') {
             $hash = hash('sha256', (string) $entry->id);
         }

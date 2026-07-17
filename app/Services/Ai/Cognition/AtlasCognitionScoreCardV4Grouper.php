@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Collapses 73 ACOS subsystems into ~15 deep modules for scorecard v4.
  */
@@ -11,7 +13,8 @@ final class AtlasCognitionScoreCardV4Grouper
 {
     public const SCHEMA_VERSION = 'atlas.cognition.scorecard.v4';
 
-    private const CONSUMER_GROUPS = [
+    /** @var list<string> */
+    public const CONSUMER_GROUPS = [
         'self_improvement',
         'self_construction',
         'cartography',
@@ -62,7 +65,7 @@ final class AtlasCognitionScoreCardV4Grouper
                 $buckets[$module][$dim][] = (string) ($row[$dim] ?? 'blocked');
             }
             $buckets[$module]['members'][] = (string) ($row['acronym'] ?? '');
-            $serviceClass = trim((string) ($row['service_class'] ?? ''));
+            $serviceClass = AiValueNormalizer::trimmedString($row['service_class'] ?? '');
             if ($serviceClass !== '') {
                 $buckets[$module]['service_classes'][] = $serviceClass;
             }

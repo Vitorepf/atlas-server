@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 use Throwable;
@@ -52,7 +53,7 @@ final class AtlasCognitionRemintTouchedQueue
 
         try {
             $disk = (string) config('atlas.cognition.remint_touched_queue_disk', 'local');
-            $path = trim((string) config('atlas.cognition.remint_touched_queue_path', 'atlas/cognition/remint-touched-queue.jsonl'));
+            $path = AiValueNormalizer::trimmedString(config('atlas.cognition.remint_touched_queue_path', 'atlas/cognition/remint-touched-queue.jsonl'));
             if ($path === '') {
                 return [
                     'queued' => false,
@@ -90,7 +91,7 @@ final class AtlasCognitionRemintTouchedQueue
     {
         $out = [];
         foreach ($paths as $path) {
-            $p = ltrim(str_replace('\\', '/', trim((string) $path)), '/');
+            $p = ltrim(str_replace('\\', '/', AiValueNormalizer::trimmedString($path)), '/');
             if ($p !== '' && ! str_contains($p, '..')) {
                 $out[$p] = true;
             }

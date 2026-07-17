@@ -1475,4 +1475,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(9, $payload['gate_count']);
         $this->assertSame('pending', $payload['default_gate_status']);
     }
+
+    public function test_cognition_evidence_statuses_observe_reports_catalogue(): void
+    {
+        $payload = $this->svc->cognitionEvidenceStatusesObserve([]);
+
+        $this->assertSame('atlas.cognition.evidence_statuses.v1', $payload['schema_version']);
+        $this->assertContains('ready', $payload['evidence_statuses']);
+        $this->assertContains('blocked', $payload['evidence_statuses']);
+        $this->assertContains('self_construction', $payload['consumer_groups']);
+        $this->assertSame(5, $payload['consumer_group_count']);
+    }
 }

@@ -9,6 +9,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
 use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
 use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Carbon\CarbonImmutable;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use Throwable;
@@ -208,7 +209,7 @@ class AtlasCognitionEvidenceResolver
 
         $ids = [];
         foreach ($this->ownerDocsForFqn($fqn) as $owner) {
-            $id = trim((string) ($owner['capability_id'] ?? ''));
+            $id = AiValueNormalizer::trimmedString($owner['capability_id'] ?? '');
             if ($id !== '') {
                 $ids[] = $id;
             }
@@ -245,7 +246,7 @@ class AtlasCognitionEvidenceResolver
         }
 
         foreach ($docs as $doc) {
-            $capabilityId = trim((string) ($doc['id'] ?? ''));
+            $capabilityId = AiValueNormalizer::trimmedString($doc['id'] ?? '');
             if ($capabilityId === '') {
                 continue;
             }
@@ -256,7 +257,7 @@ class AtlasCognitionEvidenceResolver
             }
 
             foreach ((array) ($doc['evidence_refs'] ?? []) as $ref) {
-                if (strtolower(trim((string) ($ref['kind'] ?? ''))) !== 'symbol') {
+                if (AiValueNormalizer::lowerTrimmedString($ref['kind'] ?? '') !== 'symbol') {
                     continue;
                 }
 
@@ -309,7 +310,7 @@ class AtlasCognitionEvidenceResolver
             fn (string $testRef): bool => $this->testSymbolExists($testRef),
         ));
         $ownerIds = array_values(array_unique(array_filter(array_map(
-            static fn (array $owner): string => trim((string) ($owner['capability_id'] ?? '')),
+            static fn (array $owner): string => AiValueNormalizer::trimmedString($owner['capability_id'] ?? ''),
             $owners,
         ))));
 
@@ -466,8 +467,8 @@ class AtlasCognitionEvidenceResolver
             $evidenceRefs = $doc['evidence_refs'];
             $testRefs = [];
             foreach ($evidenceRefs as $ref) {
-                if (strtolower(trim((string) ($ref['kind'] ?? ''))) === 'test') {
-                    $value = trim((string) ($ref['ref'] ?? ''));
+                if (AiValueNormalizer::lowerTrimmedString($ref['kind'] ?? '') === 'test') {
+                    $value = AiValueNormalizer::trimmedString($ref['ref'] ?? '');
                     if ($value !== '') {
                         $testRefs[] = $value;
                     }
@@ -475,10 +476,10 @@ class AtlasCognitionEvidenceResolver
             }
 
             foreach ($evidenceRefs as $ref) {
-                if (strtolower(trim((string) ($ref['kind'] ?? ''))) !== 'symbol') {
+                if (AiValueNormalizer::lowerTrimmedString($ref['kind'] ?? '') !== 'symbol') {
                     continue;
                 }
-                $symbolRef = trim((string) ($ref['ref'] ?? ''));
+                $symbolRef = AiValueNormalizer::trimmedString($ref['ref'] ?? '');
                 if ($symbolRef === '') {
                     continue;
                 }

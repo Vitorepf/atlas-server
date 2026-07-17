@@ -204,7 +204,7 @@ final class ImmuneVerdictLedger
     {
         $out = [];
         foreach ($gateIds as $gateId) {
-            $gateId = strtoupper(trim((string) $gateId));
+            $gateId = AiValueNormalizer::upperTrimmedString($gateId);
             if (preg_match('/^G[0-8]$/', $gateId) === 1) {
                 $out[$gateId] = true;
             }

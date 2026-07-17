@@ -183,7 +183,7 @@ final class ImmuneCalibrationService
             ...(array) ($sample['expected_block_gate_ids'] ?? []),
             ...(array) ($sample['blocking_gate_ids'] ?? []),
         ] as $gateId) {
-            $gateId = strtoupper(trim((string) $gateId));
+            $gateId = AiValueNormalizer::upperTrimmedString($gateId);
             if (in_array($gateId, self::GATE_IDS, true)) {
                 $gateIds[$gateId] = true;
             }

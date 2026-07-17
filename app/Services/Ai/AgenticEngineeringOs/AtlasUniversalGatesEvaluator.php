@@ -33,6 +33,8 @@ use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 use App\Services\Ai\Cognition\ImmuneCalibrationService;
 use App\Services\Ai\Cognition\CognitiveImmuneCheckContract;
 use App\Services\Ai\Cognition\ImmuneSignatureDeriver;
+use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
+use App\Services\Ai\Cognition\AtlasCognitionScoreCardV4Grouper;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
@@ -1908,6 +1910,29 @@ final class AtlasUniversalGatesEvaluator
             'default_gate_status' => CognitiveImmuneCheckContract::DEFAULT_GATE_STATUS,
             'hostile_classes' => ImmuneSignatureDeriver::HOSTILE_CLASSES,
             'signature_family_schema' => ImmuneSignatureDeriver::SCHEMA_VERSION,
+        ];
+    }
+
+    /**
+     * Observe-only ACOS evidence-resolver status + scorecard-v4 consumer groups.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function cognitionEvidenceStatusesObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => 'atlas.cognition.evidence_statuses.v1',
+            'evidence_statuses' => [
+                AtlasCognitionEvidenceResolver::STATUS_READY,
+                AtlasCognitionEvidenceResolver::STATUS_PARTIAL,
+                AtlasCognitionEvidenceResolver::STATUS_BUILDING,
+                AtlasCognitionEvidenceResolver::STATUS_BLOCKED,
+            ],
+            'scorecard_v4_schema' => AtlasCognitionScoreCardV4Grouper::SCHEMA_VERSION,
+            'consumer_groups' => AtlasCognitionScoreCardV4Grouper::CONSUMER_GROUPS,
+            'consumer_group_count' => count(AtlasCognitionScoreCardV4Grouper::CONSUMER_GROUPS),
         ];
     }
 
