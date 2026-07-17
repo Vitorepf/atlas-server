@@ -5362,6 +5362,37 @@ final class AtlasUniversalGatesEvaluator
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
+
+    /**
+     * Observe-only residual floors for quality-bar / veto / evolution-score field contracts.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function qualityVetoEvolutionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'quality_field_department' => AtlasAaeosQualityBarService::FIELD_DEPARTMENT,
+            'quality_field_threshold' => AtlasAaeosQualityBarService::FIELD_THRESHOLD,
+            'quality_field_current' => AtlasAaeosQualityBarService::FIELD_CURRENT,
+            'quality_field_deficit' => AtlasAaeosQualityBarService::FIELD_DEFICIT,
+            'quality_schema_version' => AtlasAaeosQualityBarService::SCHEMA_VERSION,
+            'veto_field_resolution' => AtlasAaeosVetoPropagationResolver::FIELD_RESOLUTION,
+            'veto_field_pause_set' => AtlasAaeosVetoPropagationResolver::FIELD_PAUSE_SET,
+            'veto_field_redirect_to' => AtlasAaeosVetoPropagationResolver::FIELD_REDIRECT_TO,
+            'veto_resolution_propagate_pause' => AtlasAaeosVetoPropagationResolver::RESOLUTION_PROPAGATE_PAUSE,
+            'veto_resolution_no_match' => AtlasAaeosVetoPropagationResolver::RESOLUTION_NO_MATCH,
+            'veto_schema_version' => AtlasAaeosVetoPropagationResolver::SCHEMA_VERSION,
+            'evolution_field_evidence' => AtlasAcosEvolutionScoreService::FIELD_EVIDENCE,
+            'evolution_field_points' => AtlasAcosEvolutionScoreService::FIELD_POINTS,
+            'evolution_field_score' => AtlasAcosEvolutionScoreService::FIELD_SCORE,
+            'evolution_field_signal' => AtlasAcosEvolutionScoreService::FIELD_SIGNAL,
+            'evolution_field_implemented' => AtlasAcosEvolutionScoreService::FIELD_IMPLEMENTED,
+            'evolution_schema_version' => AtlasAcosEvolutionScoreService::SCHEMA_VERSION,
+            'quality_veto_evolution_floor_count' => 17,
+        ];
+    }
+
     public function departmentContractMaturityFloorsContractObserve(array $input = []): array
     {
         return [

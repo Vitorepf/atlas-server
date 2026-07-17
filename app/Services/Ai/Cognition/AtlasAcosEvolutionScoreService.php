@@ -42,6 +42,27 @@ class AtlasAcosEvolutionScoreService
 {
     public const STATUS_UNKNOWN = 'unknown';
 
+
+    public const FIELD_EVIDENCE = 'evidence';
+
+    public const FIELD_POINTS = 'points';
+
+    public const FIELD_SIGNAL = 'signal';
+
+    public const FIELD_SCORE = 'score';
+
+    public const FIELD_IMPLEMENTED = 'implemented';
+
+    public const FIELD_AUDITED = 'audited';
+
+    public const FIELD_TIER_EXPOSED = 'tier_exposed';
+
+    public const FIELD_OPERATOR_SIGNED = 'operator_signed';
+
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+
+    public const FIELD_STATUS = 'status';
+
     public const SCHEMA_VERSION = 'atlas.cognition.evolution_score.v1';
 
     /** Janela de frescor do heartbeat do scheduler (motor vivo). */
@@ -93,10 +114,10 @@ class AtlasAcosEvolutionScoreService
         $inteligencia = $this->inteligenciaEntregue();
         $autonomia = $this->autonomia();
 
-        $overall = round(($execucao['score'] + $inteligencia['score'] + $autonomia['score']) / 3, 2);
+        $overall = round(($execucao[self::FIELD_SCORE] + $inteligencia[self::FIELD_SCORE] + $autonomia[self::FIELD_SCORE]) / 3, 2);
 
         $envelope = [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'generated_at' => gmdate('c'),
             'overall_out_of_10' => $overall,
             'dimensions' => [
@@ -111,7 +132,7 @@ class AtlasAcosEvolutionScoreService
             ],
         ];
         $envelope['score_hash'] = 'sha256:'.hash('sha256', (string) json_encode([
-            $overall, $execucao['score'], $inteligencia['score'], $autonomia['score'],
+            $overall, $execucao[self::FIELD_SCORE], $inteligencia[self::FIELD_SCORE], $autonomia[self::FIELD_SCORE],
         ], JSON_THROW_ON_ERROR));
 
         return $envelope;
@@ -126,13 +147,13 @@ class AtlasAcosEvolutionScoreService
         $pipeline = AiValueNormalizer::finiteFloatOrNull(data_get($card, 'score.dimensions.pipeline.score_out_of_10', 0.0)) ?? 0.0;
 
         return [
-            'score' => round($pipeline, 2),
+            self::FIELD_SCORE => round($pipeline, 2),
             'max' => 10.0,
             'signals' => [[
-                'signal' => 'pipeline_green_run_receipts',
-                'points' => round($pipeline, 2),
+                self::FIELD_SIGNAL => 'pipeline_green_run_receipts',
+                self::FIELD_POINTS => round($pipeline, 2),
                 'max' => 10.0,
-                'evidence' => 'scorecard v3 dimensão pipeline (green-run receipts reais, freshness-bound)',
+                self::FIELD_EVIDENCE => 'scorecard v3 dimensão pipeline (green-run receipts reais, freshness-bound)',
             ]],
         ];
     }
@@ -147,18 +168,18 @@ class AtlasAcosEvolutionScoreService
         $heartbeatFresh = $this->heartbeatFresh();
         $organsScheduled = $this->scheduledOrganCount();
         $signals[] = [
-            'signal' => 'cadencia_viva',
-            'points' => round(($heartbeatFresh ? 1.25 : 0.0) + 1.25 * ($organsScheduled / count(self::SCHEDULED_ORGANS)), 2),
+            self::FIELD_SIGNAL => 'cadencia_viva',
+            self::FIELD_POINTS => round(($heartbeatFresh ? 1.25 : 0.0) + 1.25 * ($organsScheduled / count(self::SCHEDULED_ORGANS)), 2),
             'max' => 2.5,
-            'evidence' => sprintf('heartbeat_fresh=%s organs_scheduled=%d/%d', $heartbeatFresh ? 'yes' : 'no', $organsScheduled, count(self::SCHEDULED_ORGANS)),
+            self::FIELD_EVIDENCE => sprintf('heartbeat_fresh=%s organs_scheduled=%d/%d', $heartbeatFresh ? 'yes' : 'no', $organsScheduled, count(self::SCHEDULED_ORGANS)),
         ];
 
         $unmarked = $this->unmarkedSessionEchoCount();
         $signals[] = [
-            'signal' => 'pack_anti_lixo',
-            'points' => $unmarked === 0 ? 2.5 : 0.0,
+            self::FIELD_SIGNAL => 'pack_anti_lixo',
+            self::FIELD_POINTS => $unmarked === 0 ? 2.5 : 0.0,
             'max' => 2.5,
-            'evidence' => $unmarked === -1 ? 'store ausente (0 honesto)' : sprintf('unmarked_session_echo_nodes=%d', $unmarked),
+            self::FIELD_EVIDENCE => $unmarked === -1 ? 'store ausente (0 honesto)' : sprintf('unmarked_session_echo_nodes=%d', $unmarked),
         ];
 
         $feedback7d = $this->tableCount('ai_rag_feedback_events', fn ($q) => $q->where('created_at', '>=', now()->subDays(7)));
@@ -175,14 +196,14 @@ class AtlasAcosEvolutionScoreService
             : round(min(2.5, max(0.0, $armProgress) * 2.5), 2);
 
         $signals[] = [
-            'signal' => 'feedback_loop_vivo',
-            'points' => $newFeedbackPoints,
+            self::FIELD_SIGNAL => 'feedback_loop_vivo',
+            self::FIELD_POINTS => $newFeedbackPoints,
             'max' => 2.5,
-            'evidence' => sprintf(
+            self::FIELD_EVIDENCE => sprintf(
                 'dual_read old_feedback=%.2f new_feedback=%.2f lift_status=%s with_cases=%d without_cases=%d measurement_ready=%s',
                 $oldFeedbackPoints,
                 $newFeedbackPoints,
-                (AiValueNormalizer::trimmedStringOrNull($lift['status'] ?? null) ?? self::STATUS_UNKNOWN),
+                (AiValueNormalizer::trimmedStringOrNull($lift[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
                 $withCount,
                 $withoutCount,
                 $measurementReady ? 'true' : 'false',
@@ -195,10 +216,10 @@ class AtlasAcosEvolutionScoreService
         $servedCompounding = $this->activeCompoundingMemoryServedByRecall();
         $newLicoesPoints = $servedCompounding ? 2.5 : 0.0;
         $signals[] = [
-            'signal' => 'licoes_geridas',
-            'points' => $newLicoesPoints,
+            self::FIELD_SIGNAL => 'licoes_geridas',
+            self::FIELD_POINTS => $newLicoesPoints,
             'max' => 2.5,
-            'evidence' => sprintf(
+            self::FIELD_EVIDENCE => sprintf(
                 'dual_read old_licoes=%.2f new_licoes=%.2f quarantine_held=%d promoted=%d active_compounding_served=%s',
                 $oldLicoesPoints,
                 $newLicoesPoints,
@@ -220,27 +241,27 @@ class AtlasAcosEvolutionScoreService
 
         $heartbeatFresh = $this->heartbeatFresh();
         $signals[] = [
-            'signal' => 'motor_vivo',
-            'points' => $heartbeatFresh ? 2.5 : 0.0,
+            self::FIELD_SIGNAL => 'motor_vivo',
+            self::FIELD_POINTS => $heartbeatFresh ? 2.5 : 0.0,
             'max' => 2.5,
-            'evidence' => 'heartbeat do com.atlas.scheduler '.($heartbeatFresh ? 'fresco' : 'parado/ausente'),
+            self::FIELD_EVIDENCE => 'heartbeat do com.atlas.scheduler '.($heartbeatFresh ? 'fresco' : 'parado/ausente'),
         ];
 
         $gateFresh = $this->fileFresh(storage_path(self::LONG_HORIZON_GATE_EVIDENCE_RELATIVE), self::GATE_FRESH_SECONDS);
         $seriesFresh = $this->fileFresh(storage_path(self::DELTA_SERIES_EVIDENCE_RELATIVE), self::GATE_FRESH_SECONDS);
         $signals[] = [
-            'signal' => 'gates_auditados',
-            'points' => round(($gateFresh ? 1.25 : 0.0) + ($seriesFresh ? 1.25 : 0.0), 2),
+            self::FIELD_SIGNAL => 'gates_auditados',
+            self::FIELD_POINTS => round(($gateFresh ? 1.25 : 0.0) + ($seriesFresh ? 1.25 : 0.0), 2),
             'max' => 2.5,
-            'evidence' => sprintf('long_horizon_receipt_fresh=%s delta_series_fresh=%s', $gateFresh ? 'yes' : 'no', $seriesFresh ? 'yes' : 'no'),
+            self::FIELD_EVIDENCE => sprintf('long_horizon_receipt_fresh=%s delta_series_fresh=%s', $gateFresh ? 'yes' : 'no', $seriesFresh ? 'yes' : 'no'),
         ];
 
         $chain = $this->tierChainReadiness();
         $signals[] = [
-            'signal' => 'cadeia_tier_implementada',
-            'points' => round(($chain['implemented'] ? 1.25 : 0.0) + ($chain['audited'] ? 1.25 : 0.0), 2),
+            self::FIELD_SIGNAL => 'cadeia_tier_implementada',
+            self::FIELD_POINTS => round(($chain[self::FIELD_IMPLEMENTED] ? 1.25 : 0.0) + ($chain[self::FIELD_AUDITED] ? 1.25 : 0.0), 2),
             'max' => 2.5,
-            'evidence' => $chain['evidence'],
+            self::FIELD_EVIDENCE => $chain[self::FIELD_EVIDENCE],
         ];
 
         $switchReadable = $this->loopMasterSwitchReadable();
@@ -251,14 +272,14 @@ class AtlasAcosEvolutionScoreService
         // substitui a aprovação." Continua evidence-resolved e degrade-safe.
         $governance = $this->autonomousGovernance();
         $signals[] = [
-            'signal' => 'execucao_governada',
-            'points' => round(($switchReadable ? 0.5 : 0.0) + ($chain['tier_exposed'] ? 1.0 : 0.0) + $governance['points'], 2),
+            self::FIELD_SIGNAL => 'execucao_governada',
+            self::FIELD_POINTS => round(($switchReadable ? 0.5 : 0.0) + ($chain[self::FIELD_TIER_EXPOSED] ? 1.0 : 0.0) + $governance[self::FIELD_POINTS], 2),
             'max' => 2.5,
-            'evidence' => sprintf(
+            self::FIELD_EVIDENCE => sprintf(
                 'master_switch=%s tier_exposed=%s governanca_autonoma=%s',
                 $switchReadable ? 'legível' : 'indisponível',
-                $chain['tier_exposed'] ? 'yes' : 'no',
-                $governance['evidence'],
+                $chain[self::FIELD_TIER_EXPOSED] ? 'yes' : 'no',
+                $governance[self::FIELD_EVIDENCE],
             ),
         ];
 
@@ -403,11 +424,11 @@ class AtlasAcosEvolutionScoreService
     {
         if (! class_exists(self::TIER_CHAIN_CLASS)) {
             return [
-                'implemented' => false,
-                'audited' => false,
-                'tier_exposed' => false,
-                'operator_signed' => false,
-                'evidence' => 'cadeia S49→S55 não implementada (classe ausente)',
+                self::FIELD_IMPLEMENTED => false,
+                self::FIELD_AUDITED => false,
+                self::FIELD_TIER_EXPOSED => false,
+                self::FIELD_OPERATOR_SIGNED => false,
+                self::FIELD_EVIDENCE => 'cadeia S49→S55 não implementada (classe ausente)',
             ];
         }
 
@@ -415,25 +436,25 @@ class AtlasAcosEvolutionScoreService
             $readiness = AiValueNormalizer::arrayOrEmpty(app(self::TIER_CHAIN_CLASS)->readiness());
 
             return [
-                'implemented' => (AiValueNormalizer::boolOrNull($readiness['implemented'] ?? null) ?? false),
-                'audited' => (AiValueNormalizer::boolOrNull($readiness['audited'] ?? null) ?? false),
-                'tier_exposed' => array_key_exists('tier', $readiness),
-                'operator_signed' => (AiValueNormalizer::boolOrNull($readiness['operator_signed'] ?? null) ?? false),
-                'evidence' => sprintf(
+                self::FIELD_IMPLEMENTED => (AiValueNormalizer::boolOrNull($readiness[self::FIELD_IMPLEMENTED] ?? null) ?? false),
+                self::FIELD_AUDITED => (AiValueNormalizer::boolOrNull($readiness[self::FIELD_AUDITED] ?? null) ?? false),
+                self::FIELD_TIER_EXPOSED => array_key_exists('tier', $readiness),
+                self::FIELD_OPERATOR_SIGNED => (AiValueNormalizer::boolOrNull($readiness[self::FIELD_OPERATOR_SIGNED] ?? null) ?? false),
+                self::FIELD_EVIDENCE => sprintf(
                     'chain implemented=%s audited=%s tier=%s signed=%s',
-                    ($readiness['implemented'] ?? false) ? 'yes' : 'no',
-                    ($readiness['audited'] ?? false) ? 'yes' : 'no',
+                    ($readiness[self::FIELD_IMPLEMENTED] ?? false) ? 'yes' : 'no',
+                    ($readiness[self::FIELD_AUDITED] ?? false) ? 'yes' : 'no',
                     (AiValueNormalizer::trimmedStringOrNull($readiness['tier'] ?? null) ?? '?'),
-                    ($readiness['operator_signed'] ?? false) ? 'yes' : 'no',
+                    ($readiness[self::FIELD_OPERATOR_SIGNED] ?? false) ? 'yes' : 'no',
                 ),
             ];
         } catch (Throwable $e) {
             return [
-                'implemented' => true,
-                'audited' => false,
-                'tier_exposed' => false,
-                'operator_signed' => false,
-                'evidence' => 'cadeia presente mas readiness() falhou: '.$e->getMessage(),
+                self::FIELD_IMPLEMENTED => true,
+                self::FIELD_AUDITED => false,
+                self::FIELD_TIER_EXPOSED => false,
+                self::FIELD_OPERATOR_SIGNED => false,
+                self::FIELD_EVIDENCE => 'cadeia presente mas readiness() falhou: '.$e->getMessage(),
             ];
         }
     }
@@ -478,8 +499,8 @@ class AtlasAcosEvolutionScoreService
         }
 
         return [
-            'points' => round(($reversible ? 0.5 : 0.0) + ($diaryOk ? 0.5 : 0.0), 2),
-            'evidence' => sprintf(
+            self::FIELD_POINTS => round(($reversible ? 0.5 : 0.0) + ($diaryOk ? 0.5 : 0.0), 2),
+            self::FIELD_EVIDENCE => sprintf(
                 'reversivel=%s(git=%s,replay=%s) diario_integro=%s(entradas=%d)',
                 $reversible ? 'yes' : 'no',
                 $gitRepo ? 'yes' : 'no',
@@ -498,11 +519,11 @@ class AtlasAcosEvolutionScoreService
     {
         $score = 0.0;
         foreach ($signals as $signal) {
-            $score += AiValueNormalizer::finiteFloatOrNull($signal['points'] ?? null) ?? 0.0;
+            $score += AiValueNormalizer::finiteFloatOrNull($signal[self::FIELD_POINTS] ?? null) ?? 0.0;
         }
 
         return [
-            'score' => round(min(10.0, $score), 2),
+            self::FIELD_SCORE => round(min(10.0, $score), 2),
             'max' => 10.0,
             'signals' => $signals,
         ];

@@ -3684,4 +3684,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['department_contract_maturity_floor_count']);
     }
 
+
+    public function test_quality_veto_evolution_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->qualityVetoEvolutionFloorsContractObserve([]);
+
+        $this->assertSame('department', $payload['quality_field_department']);
+        $this->assertSame('threshold', $payload['quality_field_threshold']);
+        $this->assertSame('current', $payload['quality_field_current']);
+        $this->assertSame('deficit', $payload['quality_field_deficit']);
+        $this->assertSame('atlas.aaeos.quality_bar.v1', $payload['quality_schema_version']);
+        $this->assertSame('resolution', $payload['veto_field_resolution']);
+        $this->assertSame('pause_set', $payload['veto_field_pause_set']);
+        $this->assertSame('redirect_to', $payload['veto_field_redirect_to']);
+        $this->assertSame('propagate_pause', $payload['veto_resolution_propagate_pause']);
+        $this->assertSame('no_match', $payload['veto_resolution_no_match']);
+        $this->assertSame('atlas.aaeos.veto_propagation.v1', $payload['veto_schema_version']);
+        $this->assertSame('evidence', $payload['evolution_field_evidence']);
+        $this->assertSame('points', $payload['evolution_field_points']);
+        $this->assertSame('score', $payload['evolution_field_score']);
+        $this->assertSame('signal', $payload['evolution_field_signal']);
+        $this->assertSame('implemented', $payload['evolution_field_implemented']);
+        $this->assertSame('atlas.cognition.evolution_score.v1', $payload['evolution_schema_version']);
+        $this->assertSame(17, $payload['quality_veto_evolution_floor_count']);
+    }
+
 }

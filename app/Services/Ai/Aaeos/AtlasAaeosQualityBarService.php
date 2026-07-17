@@ -10,39 +10,64 @@ final class AtlasAaeosQualityBarService
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.quality_bar.v1';
 
+
+    public const FIELD_DEPARTMENT = 'department';
+
+    public const FIELD_THRESHOLD = 'threshold';
+
+    public const FIELD_CURRENT = 'current';
+
+    public const FIELD_BREACHED = 'breached';
+
+    public const FIELD_DEFICIT = 'deficit';
+
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+
+    public const FIELD_DEPARTMENTS = 'departments';
+
+    public const FIELD_SIGNAL = 'signal';
+
+    public const FIELD_BREACH_COUNT = 'breach_count';
+
+    public const FIELD_BREACHES = 'breaches';
+
+    public const FIELD_WORST_BREACH = 'worst_breach';
+
+    public const FIELD_EMITTED_AT = 'emitted_at';
+
     public const DEPARTMENT_DATA = [
-        ['department' => 'Engineering', 'threshold' => 0.85, 'current' => 0.92],
-        ['department' => 'Product', 'threshold' => 0.80, 'current' => 0.75],
-        ['department' => 'Design', 'threshold' => 0.80, 'current' => 0.88],
-        ['department' => 'Marketing', 'threshold' => 0.75, 'current' => 0.70],
-        ['department' => 'Sales', 'threshold' => 0.80, 'current' => 0.85],
-        ['department' => 'Operations', 'threshold' => 0.78, 'current' => 0.72],
-        ['department' => 'Finance', 'threshold' => 0.82, 'current' => 0.90],
-        ['department' => 'Human Resources', 'threshold' => 0.75, 'current' => 0.68],
-        ['department' => 'Legal', 'threshold' => 0.85, 'current' => 0.79],
-        ['department' => 'Customer Success', 'threshold' => 0.80, 'current' => 0.81],
-        ['department' => 'Research', 'threshold' => 0.77, 'current' => 0.74],
+        [self::FIELD_DEPARTMENT => 'Engineering', self::FIELD_THRESHOLD => 0.85, self::FIELD_CURRENT => 0.92],
+        [self::FIELD_DEPARTMENT => 'Product', self::FIELD_THRESHOLD => 0.80, self::FIELD_CURRENT => 0.75],
+        [self::FIELD_DEPARTMENT => 'Design', self::FIELD_THRESHOLD => 0.80, self::FIELD_CURRENT => 0.88],
+        [self::FIELD_DEPARTMENT => 'Marketing', self::FIELD_THRESHOLD => 0.75, self::FIELD_CURRENT => 0.70],
+        [self::FIELD_DEPARTMENT => 'Sales', self::FIELD_THRESHOLD => 0.80, self::FIELD_CURRENT => 0.85],
+        [self::FIELD_DEPARTMENT => 'Operations', self::FIELD_THRESHOLD => 0.78, self::FIELD_CURRENT => 0.72],
+        [self::FIELD_DEPARTMENT => 'Finance', self::FIELD_THRESHOLD => 0.82, self::FIELD_CURRENT => 0.90],
+        [self::FIELD_DEPARTMENT => 'Human Resources', self::FIELD_THRESHOLD => 0.75, self::FIELD_CURRENT => 0.68],
+        [self::FIELD_DEPARTMENT => 'Legal', self::FIELD_THRESHOLD => 0.85, self::FIELD_CURRENT => 0.79],
+        [self::FIELD_DEPARTMENT => 'Customer Success', self::FIELD_THRESHOLD => 0.80, self::FIELD_CURRENT => 0.81],
+        [self::FIELD_DEPARTMENT => 'Research', self::FIELD_THRESHOLD => 0.77, self::FIELD_CURRENT => 0.74],
     ];
 
     public function qualityBar(): array
     {
         $departments = [];
         foreach (self::DEPARTMENT_DATA as $data) {
-            $threshold = AiValueNormalizer::finiteFloatOrNull($data['threshold']) ?? 0.0;
-            $current = AiValueNormalizer::finiteFloatOrNull($data['current']) ?? 0.0;
+            $threshold = AiValueNormalizer::finiteFloatOrNull($data[self::FIELD_THRESHOLD]) ?? 0.0;
+            $current = AiValueNormalizer::finiteFloatOrNull($data[self::FIELD_CURRENT]) ?? 0.0;
             $departments[] = [
-                'department' => AiValueNormalizer::trimmedStringOrNull($data['department']) ?? '',
-                'threshold' => $threshold,
-                'current' => $current,
-                'breached' => $current < $threshold,
-                'deficit' => $current < $threshold ? round($threshold - $current, 4) : 0.0,
+                self::FIELD_DEPARTMENT => AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_DEPARTMENT]) ?? '',
+                self::FIELD_THRESHOLD => $threshold,
+                self::FIELD_CURRENT => $current,
+                self::FIELD_BREACHED => $current < $threshold,
+                self::FIELD_DEFICIT => $current < $threshold ? round($threshold - $current, 4) : 0.0,
             ];
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'departments' => $departments,
-            'signal' => $this->emitSignal(),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_DEPARTMENTS => $departments,
+            self::FIELD_SIGNAL => $this->emitSignal(),
         ];
     }
 
@@ -51,11 +76,11 @@ final class AtlasAaeosQualityBarService
         $breaches = $this->collectBreaches();
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'breach_count' => count($breaches),
-            'breaches' => $breaches,
-            'worst_breach' => $breaches[0] ?? null,
-            'emitted_at' => gmdate('c'),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_BREACH_COUNT => count($breaches),
+            self::FIELD_BREACHES => $breaches,
+            self::FIELD_WORST_BREACH => $breaches[0] ?? null,
+            self::FIELD_EMITTED_AT => gmdate('c'),
         ];
     }
 
@@ -63,23 +88,23 @@ final class AtlasAaeosQualityBarService
     {
         $breaches = [];
         foreach (self::DEPARTMENT_DATA as $data) {
-            $threshold = AiValueNormalizer::finiteFloatOrNull($data['threshold']) ?? 0.0;
-            $current = AiValueNormalizer::finiteFloatOrNull($data['current']) ?? 0.0;
+            $threshold = AiValueNormalizer::finiteFloatOrNull($data[self::FIELD_THRESHOLD]) ?? 0.0;
+            $current = AiValueNormalizer::finiteFloatOrNull($data[self::FIELD_CURRENT]) ?? 0.0;
             if ($current < $threshold) {
                 $breaches[] = [
-                    'department' => AiValueNormalizer::trimmedStringOrNull($data['department']) ?? '',
-                    'threshold' => $threshold,
-                    'current' => $current,
-                    'breached' => true,
-                    'deficit' => round($threshold - $current, 4),
+                    self::FIELD_DEPARTMENT => AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_DEPARTMENT]) ?? '',
+                    self::FIELD_THRESHOLD => $threshold,
+                    self::FIELD_CURRENT => $current,
+                    self::FIELD_BREACHED => true,
+                    self::FIELD_DEFICIT => round($threshold - $current, 4),
                 ];
             }
         }
 
         usort(
             $breaches,
-            static fn (array $left, array $right): int => ($right['deficit'] <=> $left['deficit'])
-                ?: ($left['department'] <=> $right['department'])
+            static fn (array $left, array $right): int => ($right[self::FIELD_DEFICIT] <=> $left[self::FIELD_DEFICIT])
+                ?: ($left[self::FIELD_DEPARTMENT] <=> $right[self::FIELD_DEPARTMENT])
         );
 
         return $breaches;
