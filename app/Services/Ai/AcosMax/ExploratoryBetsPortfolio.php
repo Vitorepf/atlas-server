@@ -181,7 +181,7 @@ final class ExploratoryBetsPortfolio
     {
         return (int) ($effect['n_treat'] ?? 0) >= self::MIN_N
             && (int) ($effect['n_base'] ?? 0) >= self::MIN_N
-            && (float) ($effect['ci_high'] ?? 0.0) < 0.0;
+            && (AiValueNormalizer::finiteFloatOrNull($effect['ci_high'] ?? null) ?? 0.0) < 0.0;
     }
 
     /**

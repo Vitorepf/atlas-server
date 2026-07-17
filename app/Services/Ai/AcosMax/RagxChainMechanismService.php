@@ -416,7 +416,7 @@ final class RagxChainMechanismService
         foreach ($edges as $edge) {
             $source = AiValueNormalizer::trimmedString($edge['source'] ?? '');
             $target = AiValueNormalizer::trimmedString($edge['target'] ?? '');
-            $weight = max(0.0, (float) ($edge['weight'] ?? 1.0));
+            $weight = max(0.0, AiValueNormalizer::finiteFloatOrNull($edge['weight'] ?? null) ?? 1.0);
             if ($source === '' || $target === '' || $source === $target || $weight <= 0.0 || ! isset($known[$source], $known[$target])) {
                 continue;
             }
@@ -500,7 +500,7 @@ final class RagxChainMechanismService
                 if (($communities[$i] ?? null) !== ($communities[$j] ?? null)) {
                     continue;
                 }
-                $aij = (float) ($neighbors[$j] ?? 0.0);
+                $aij = AiValueNormalizer::finiteFloatOrNull($neighbors[$j] ?? null) ?? 0.0;
                 $q += $aij - (($degrees[$i] ?? 0.0) * ($degrees[$j] ?? 0.0) / $m2);
             }
         }

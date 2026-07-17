@@ -126,7 +126,7 @@ final class AcosMaxVerifiedShareService
             return 'insufficient_signal';
         }
 
-        return (float) ($aggregate['verified_share'] ?? 0.0) >= $shareMin ? 'ok' : 'below_threshold';
+        return (AiValueNormalizer::finiteFloatOrNull($aggregate['verified_share'] ?? null) ?? 0.0) >= $shareMin ? 'ok' : 'below_threshold';
     }
 
     /** @return array<string,int> */

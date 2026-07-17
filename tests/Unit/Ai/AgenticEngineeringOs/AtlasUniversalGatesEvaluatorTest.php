@@ -41,6 +41,7 @@ use App\Services\Ai\AcosMax\RagxChainMechanismService;
 use App\Services\Ai\AcosMax\AcosMaxProceduralSkillPromoterService;
 use App\Services\Ai\AcosMax\GoldenCounterfactualReplayService;
 use App\Services\Ai\AcosMax\ComposedObraArcComposer;
+use App\Services\Ai\AcosMax\ExploratoryBetsPortfolio;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AaeosGeneratedContractGate;
 use InvalidArgumentException;
@@ -1163,5 +1164,16 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
 
         $this->assertSame(ComposedObraArcComposer::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('flag_disabled', $payload['basis'] ?? $payload['reason'] ?? null);
+    }
+
+    public function test_exploratory_bets_portfolio_observe_reports_flag_disabled(): void
+    {
+        $payload = $this->svc->exploratoryBetsPortfolioObserve([
+            'candidates' => [],
+            'context' => ['enabled' => false],
+        ]);
+
+        $this->assertSame(ExploratoryBetsPortfolio::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('flag_disabled', $payload['status']);
     }
 }

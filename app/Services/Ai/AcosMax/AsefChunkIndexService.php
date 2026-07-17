@@ -173,9 +173,9 @@ final class AsefChunkIndexService
             if ($ref === '') {
                 continue;
             }
-            $sim = (float) ($hit['similarity'] ?? 0.0);
+            $sim = AiValueNormalizer::finiteFloatOrNull($hit['similarity'] ?? null) ?? 0.0;
             $counts[$ref] = ($counts[$ref] ?? 0) + 1;
-            if (! isset($best[$ref]) || $sim > (float) $best[$ref]['similarity']) {
+            if (! isset($best[$ref]) || $sim > (AiValueNormalizer::finiteFloatOrNull($best[$ref]['similarity'] ?? null) ?? 0.0)) {
                 $best[$ref] = [
                     'source_ref' => $ref,
                     'similarity' => $sim,

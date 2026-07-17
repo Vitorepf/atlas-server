@@ -42,6 +42,8 @@ use App\Services\Ai\AcosMax\RagxChainMechanismService;
 use App\Services\Ai\AcosMax\AcosMaxProceduralSkillPromoterService;
 use App\Services\Ai\AcosMax\GoldenCounterfactualReplayService;
 use App\Services\Ai\AcosMax\ComposedObraArcComposer;
+use App\Services\Ai\AcosMax\ExploratoryBetsPortfolio;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
@@ -1395,6 +1397,22 @@ final class AtlasUniversalGatesEvaluator
         return ComposedObraArcComposer::compose(
             AiValueNormalizer::arrayOrEmpty($input['candidates'] ?? null),
             AiValueNormalizer::arrayOrEmpty($input['cluster_leads'] ?? null),
+            AiValueNormalizer::arrayOrEmpty($input['context'] ?? null),
+        );
+    }
+
+    /**
+     * Observe-only exploratory bets portfolio (flag-gated).
+     * Accepts `{candidates|originated_candidates, context?}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function exploratoryBetsPortfolioObserve(array $input = []): array
+    {
+        return ExploratoryBetsPortfolio::evaluate(
+            AiValueNormalizer::arrayOrEmpty($input['candidates'] ?? $input['originated_candidates'] ?? null),
+            app(AtlasBrainCausalEffectGate::class),
             AiValueNormalizer::arrayOrEmpty($input['context'] ?? null),
         );
     }
