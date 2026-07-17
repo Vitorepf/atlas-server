@@ -24,6 +24,21 @@ final class ImmuneVerdictLedger
 
     public const LABEL_MISSED_POISON = 'missed_poison';
 
+    public const GATE_STATUS_PASS = 'pass';
+
+    public const GATE_STATUS_BLOCK = 'block';
+
+    public const GATE_STATUS_PENDING = 'pending';
+
+    /** @var list<string> */
+    public const GATE_STATUSES = [
+        self::GATE_STATUS_PASS,
+        self::GATE_STATUS_BLOCK,
+        self::GATE_STATUS_PENDING,
+    ];
+
+    public const WRITER_UNKNOWN = 'unknown';
+
     /** @var list<string> */
     public const LABELS = [
         self::LABEL_TRUE_BLOCK,
@@ -75,7 +90,7 @@ final class ImmuneVerdictLedger
             'id' => (string) Str::uuid(),
             'schema_version' => self::SCHEMA_VERSION,
             'candidate_hash' => $this->candidateHash($candidateHash),
-            'writer' => trim($writer) !== '' ? trim($writer) : 'unknown',
+            'writer' => trim($writer) !== '' ? trim($writer) : self::WRITER_UNKNOWN,
             'gate_statuses' => $gateStatuses,
             'promotion_status' => AiValueNormalizer::trimmedScalarStringOrNull($verdict['promotion_status'] ?? null) ?? 'unclassified',
             'blocking_gate_ids' => $blockingGateIds,
@@ -126,7 +141,7 @@ final class ImmuneVerdictLedger
 
         if ($expectedBlockGateIds !== []) {
             foreach ($expectedBlockGateIds as $gateId) {
-                if (($gateStatuses[$gateId] ?? '') !== 'block') {
+                if (($gateStatuses[$gateId] ?? '') !== self::GATE_STATUS_BLOCK) {
                     return self::LABEL_MISSED_POISON;
                 }
             }
@@ -187,7 +202,7 @@ final class ImmuneVerdictLedger
         foreach ($statuses as $gateId => $status) {
             $gateId = AiValueNormalizer::upperTrimmedString($gateId);
             $status = AiValueNormalizer::lowerTrimmedString($status);
-            if (preg_match('/^G[0-8]$/', $gateId) === 1 && in_array($status, ['pass', 'block', 'pending'], true)) {
+            if (preg_match('/^G[0-8]$/', $gateId) === 1 && in_array($status, self::GATE_STATUSES, true)) {
                 $out[$gateId] = $status;
             }
         }

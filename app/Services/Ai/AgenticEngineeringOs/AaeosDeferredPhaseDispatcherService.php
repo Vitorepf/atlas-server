@@ -36,6 +36,8 @@ final class AaeosDeferredPhaseDispatcherService
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.deferred_phase_dispatch.v1';
 
+    public const PHASE_UNKNOWN = 'unknown';
+
     public function __construct(
         private readonly CacheRepository $cache,
         private readonly PhaseAdvanceVerdictClassifier $phaseAdvance = new PhaseAdvanceVerdictClassifier,
@@ -138,7 +140,7 @@ final class AaeosDeferredPhaseDispatcherService
         fclose($fh);
 
         foreach ($claimed as $record) {
-            $phase = (AiValueNormalizer::trimmedStringOrNull($record['phase'] ?? null) ?? 'unknown');
+            $phase = (AiValueNormalizer::trimmedStringOrNull($record['phase'] ?? null) ?? self::PHASE_UNKNOWN);
             $this->incrementCounter('atlas.aaeos.deferred.claimed.'.$phase);
         }
 

@@ -57,6 +57,10 @@ class AtlasAaeosImplementationTruthService
 
     public const LEVEL_EXISTENCE_ONLY = 'existence_only';
 
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_BUILDING = 'building';
+
     public const RANK = [
         self::LEVEL_SPEC => 0,
         self::LEVEL_PARTIAL => 1,
@@ -193,7 +197,7 @@ class AtlasAaeosImplementationTruthService
                 $state = $this->normalizeState((AiValueNormalizer::trimmedStringOrNull($fm['implementation_state'] ?? null) ?? ''));
                 $status = AiValueNormalizer::lowerTrimmedString($fm['status'] ?? '');
                 $claims = in_array($state, [self::LEVEL_PARTIAL, self::LEVEL_VERIFIED], true)
-                    || in_array($status, ['active', 'building'], true);
+                    || in_array($status, [self::STATUS_ACTIVE, self::STATUS_BUILDING], true);
                 $hasEvidence = $this->normalizeEvidenceRefs($fm['evidence_refs'] ?? null) !== [];
 
                 if ($claims) {

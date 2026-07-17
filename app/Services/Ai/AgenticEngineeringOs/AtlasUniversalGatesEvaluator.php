@@ -4851,6 +4851,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: watchdog health / long-horizon / immune-gate / truth / deferred unknown floors.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function watchdogHealthActiveDisabledFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'watchdog_health_status_ok' => AtlasAcosWatchdogHealthService::STATUS_OK,
+            'watchdog_health_status_alert' => AtlasAcosWatchdogHealthService::STATUS_ALERT,
+            'watchdog_health_status_healthy' => AtlasAcosWatchdogHealthService::STATUS_HEALTHY,
+            'watchdog_health_status_ready' => AtlasAcosWatchdogHealthService::STATUS_READY,
+            'watchdog_health_status_not_ready' => AtlasAcosWatchdogHealthService::STATUS_NOT_READY,
+            'watchdog_health_status_unavailable' => AtlasAcosWatchdogHealthService::STATUS_UNAVAILABLE,
+            'long_horizon_status_blocked' => AtlasAcosLongHorizonGateService::STATUS_BLOCKED,
+            'long_horizon_status_disabled' => AtlasAcosLongHorizonGateService::STATUS_DISABLED,
+            'long_horizon_status_ready' => AtlasAcosLongHorizonGateService::STATUS_READY,
+            'long_horizon_status_insufficient' => AtlasAcosLongHorizonGateService::STATUS_INSUFFICIENT,
+            'implementation_truth_status_active' => AtlasAaeosImplementationTruthService::STATUS_ACTIVE,
+            'implementation_truth_status_building' => AtlasAaeosImplementationTruthService::STATUS_BUILDING,
+            'immune_verdict_gate_status_pass' => ImmuneVerdictLedger::GATE_STATUS_PASS,
+            'immune_verdict_gate_status_block' => ImmuneVerdictLedger::GATE_STATUS_BLOCK,
+            'immune_verdict_gate_status_pending' => ImmuneVerdictLedger::GATE_STATUS_PENDING,
+            'immune_verdict_writer_unknown' => ImmuneVerdictLedger::WRITER_UNKNOWN,
+            'deferred_phase_unknown' => AaeosDeferredPhaseDispatcherService::PHASE_UNKNOWN,
+            'dev_procedural_fallback_run_id' => DevProceduralOutcomeEnvelopeAdapter::FALLBACK_RUN_ID,
+            'watchdog_health_active_disabled_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -243,6 +243,7 @@ final class AtlasAaeosCommand extends Command
         {--architect-verdict-freeze-ready-floors-contract= : JSON file (any object) to observe architect/verdict/freeze/ready/rollback floors}
         {--mission-control-pending-partial-floors-contract= : JSON file (any object) to observe mission-control/reality-compiler/claim partial floors}
         {--volume-autonomy-coverage-unknown-floors-contract= : JSON file (any object) to observe volume/autonomy/coverage/unknown floors}
+        {--watchdog-health-active-disabled-floors-contract= : JSON file (any object) to observe watchdog-health/long-horizon/immune-gate/truth/deferred floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -642,6 +643,7 @@ final class AtlasAaeosCommand extends Command
             ['architect-verdict-freeze-ready-floors-contract', 'architect_verdict_freeze_ready_floors_contract', fn (array $p) => $gates->architectVerdictFreezeReadyFloorsContractObserve($p)],
             ['mission-control-pending-partial-floors-contract', 'mission_control_pending_partial_floors_contract', fn (array $p) => $gates->missionControlPendingPartialFloorsContractObserve($p)],
             ['volume-autonomy-coverage-unknown-floors-contract', 'volume_autonomy_coverage_unknown_floors_contract', fn (array $p) => $gates->volumeAutonomyCoverageUnknownFloorsContractObserve($p)],
+            ['watchdog-health-active-disabled-floors-contract', 'watchdog_health_active_disabled_floors_contract', fn (array $p) => $gates->watchdogHealthActiveDisabledFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

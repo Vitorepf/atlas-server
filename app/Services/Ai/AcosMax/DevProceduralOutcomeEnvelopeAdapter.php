@@ -16,6 +16,8 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
 
     public const NATIVE_SCHEMA_VERSION = 'atlas.dev.outcome_memory.v1';
 
+    public const FALLBACK_RUN_ID = 'unknown';
+
     /** @var list<string> */
     public const BOOL_FIELDS = ['proven_real', 'fake_green', 'should_promote_to_aemor'];
 
@@ -68,7 +70,7 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
 
         return [
             'schema_version' => self::NATIVE_SCHEMA_VERSION,
-            'run_id' => (AiValueNormalizer::trimmedStringOrNull($data['run_id'] ?? null) ?? 'unknown'),
+            'run_id' => (AiValueNormalizer::trimmedStringOrNull($data['run_id'] ?? null) ?? self::FALLBACK_RUN_ID),
             'outcome_status' => AiValueNormalizer::trimmedStringOrNull($fields['outcome_status'] ?? null) ?? OutcomeEnvelope::toNativeStatus((AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? 'blocked'), $this->origin()),
             'proven_real' => (AiValueNormalizer::boolOrNull($fields['proven_real'] ?? null) ?? false),
             'fake_green' => (AiValueNormalizer::boolOrNull($fields['fake_green'] ?? null) ?? false),

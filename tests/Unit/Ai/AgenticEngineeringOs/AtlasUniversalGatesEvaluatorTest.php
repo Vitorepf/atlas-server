@@ -3262,4 +3262,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(13, $payload['volume_autonomy_coverage_unknown_floor_count']);
     }
 
+    public function test_watchdog_health_active_disabled_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->watchdogHealthActiveDisabledFloorsContractObserve([]);
+
+        $this->assertSame('ok', $payload['watchdog_health_status_ok']);
+        $this->assertSame('alert', $payload['watchdog_health_status_alert']);
+        $this->assertSame('healthy', $payload['watchdog_health_status_healthy']);
+        $this->assertSame('ready', $payload['watchdog_health_status_ready']);
+        $this->assertSame('not_ready', $payload['watchdog_health_status_not_ready']);
+        $this->assertSame('unavailable', $payload['watchdog_health_status_unavailable']);
+        $this->assertSame('blocked', $payload['long_horizon_status_blocked']);
+        $this->assertSame('disabled', $payload['long_horizon_status_disabled']);
+        $this->assertSame('acos_long_horizon_ready', $payload['long_horizon_status_ready']);
+        $this->assertSame('insufficient_long_horizon_evidence', $payload['long_horizon_status_insufficient']);
+        $this->assertSame('active', $payload['implementation_truth_status_active']);
+        $this->assertSame('building', $payload['implementation_truth_status_building']);
+        $this->assertSame('pass', $payload['immune_verdict_gate_status_pass']);
+        $this->assertSame('block', $payload['immune_verdict_gate_status_block']);
+        $this->assertSame('pending', $payload['immune_verdict_gate_status_pending']);
+        $this->assertSame('unknown', $payload['immune_verdict_writer_unknown']);
+        $this->assertSame('unknown', $payload['deferred_phase_unknown']);
+        $this->assertSame('unknown', $payload['dev_procedural_fallback_run_id']);
+        $this->assertSame(18, $payload['watchdog_health_active_disabled_floor_count']);
+    }
+
 }

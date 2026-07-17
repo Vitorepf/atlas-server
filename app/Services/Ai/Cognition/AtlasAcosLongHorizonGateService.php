@@ -38,6 +38,14 @@ final class AtlasAcosLongHorizonGateService
 
     public const CONFIG_KEY = 'atlas.cognition.acos_long_horizon_gate';
 
+    public const STATUS_BLOCKED = 'blocked';
+
+    public const STATUS_DISABLED = 'disabled';
+
+    public const STATUS_READY = 'acos_long_horizon_ready';
+
+    public const STATUS_INSUFFICIENT = 'insufficient_long_horizon_evidence';
+
     /**
      * @param  array<string,mixed>  $options
      * @return array<string,mixed>
@@ -49,11 +57,11 @@ final class AtlasAcosLongHorizonGateService
         $fixture = AiValueNormalizer::trimmedStringOrNull($options['fixture'] ?? null) ?? 'live';
 
         if (! in_array($fixture, ['live', 'mature', 'short-window'], true)) {
-            return $this->payload('blocked', false, $fixture, [], [], [], ['unsupported_fixture'], []);
+            return $this->payload(self::STATUS_BLOCKED, false, $fixture, [], [], [], ['unsupported_fixture'], []);
         }
 
         if (! $enabled) {
-            return $this->payload('disabled', false, $fixture, [], [], [], ['acos_long_horizon_gate_disabled'], []);
+            return $this->payload(self::STATUS_DISABLED, false, $fixture, [], [], [], ['acos_long_horizon_gate_disabled'], []);
         }
 
         $minDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($options['min_days'] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($cfg['min_days'] ?? null) ?? self::DEFAULT_MIN_DAYS));
@@ -102,7 +110,7 @@ final class AtlasAcosLongHorizonGateService
             AiValueNormalizer::arrayOrEmpty(AiValueNormalizer::arrayOrEmpty($assessmentV2)['blockers'] ?? null),
         ));
         $certified = $blockers === [];
-        $status = $certified ? 'acos_long_horizon_ready' : 'insufficient_long_horizon_evidence';
+        $status = $certified ? self::STATUS_READY : self::STATUS_INSUFFICIENT;
 
         $config = [
             'min_days' => $minDays,
