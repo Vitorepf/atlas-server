@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use InvalidArgumentException;
 
 /**
@@ -77,7 +78,7 @@ final class DeliveryPackCompletenessScorer
         $riskRegisterPresent = $this->boolValue($composition['risk_register_present']);
         $receiptPresent = $this->boolValue($composition['receipt_present']);
 
-        $hashSigned = $this->stringValue($composition['delivery_hash']) !== '';
+        $hashSigned = AiValueNormalizer::trimmedStringOrNull($composition['delivery_hash'] ?? null) !== null;
         $hasEvidenceHashes = $evidenceHashes !== [];
 
         $factors = [
@@ -204,13 +205,5 @@ final class DeliveryPackCompletenessScorer
     private function boolValue($value): bool
     {
         return $value === true;
-    }
-
-    /**
-     * @param  mixed  $value
-     */
-    private function stringValue($value): string
-    {
-        return is_string($value) ? trim($value) : '';
     }
 }
