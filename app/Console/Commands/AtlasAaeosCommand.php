@@ -286,6 +286,7 @@ final class AtlasAaeosCommand extends Command
         {--esp09-lote2-hmac-floors-contract= : JSON file (any object) to observe ESP-09/LOTE2/HMAC residual floors}
         {--phase-obra-bets-floors-contract= : JSON file (any object) to observe phase-handoff/obra-arc/bets residual floors}
         {--parallel-truth-autonomy-floors-contract= : JSON file (any object) to observe parallel/truth/autonomy residual floors}
+        {--obra-thesis-skill-floors-contract= : JSON file (any object) to observe obra-retro/thesis/skill residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -728,6 +729,7 @@ final class AtlasAaeosCommand extends Command
             ['esp09-lote2-hmac-floors-contract', 'esp09_lote2_hmac_floors_contract', fn (array $p) => $gates->esp09Lote2HmacFloorsContractObserve($p)],
             ['phase-obra-bets-floors-contract', 'phase_obra_bets_floors_contract', fn (array $p) => $gates->phaseObraBetsFloorsContractObserve($p)],
             ['parallel-truth-autonomy-floors-contract', 'parallel_truth_autonomy_floors_contract', fn (array $p) => $gates->parallelTruthAutonomyFloorsContractObserve($p)],
+            ['obra-thesis-skill-floors-contract', 'obra_thesis_skill_floors_contract', fn (array $p) => $gates->obraThesisSkillFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -31,6 +31,14 @@ final class AcosMaxObraRetroService
     public const FIELD_LOTE = 'lote';
     public const FIELD_REASON = 'reason';
     public const FIELD_LESSONS = 'lessons';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_OUTCOMES = 'outcomes';
+    public const FIELD_LESSON_CANDIDATES = 'lesson_candidates';
+    public const FIELD_WORKSPACE = 'workspace';
+    public const FIELD_SUMMARY = 'summary';
+    public const FIELD_SLICE_ID = 'slice_id';
+    public const FIELD_SLICE_STATE = 'slice_state';
+    public const FIELD_PATH = 'path';
 
     public const REASON_NO_TERMINAL_SLICES_FOR_LOTE = 'no_terminal_slices_for_lote';
 
@@ -67,14 +75,14 @@ final class AcosMaxObraRetroService
 
         if ($slices === []) {
             return [
-                'schema_version' => self::SCHEMA_VERSION,
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
                 self::FIELD_STATUS => self::STATUS_BLOCKED,
                 self::FIELD_REASON => self::REASON_NO_TERMINAL_SLICES_FOR_LOTE,
                 self::FIELD_LOTE => $lote,
                 self::FIELD_SERIES_TAG => self::SERIES_TAG,
-                'outcomes' => [self::STATUS_RECORDED => 0, 'items' => []],
-                'lesson_candidates' => [
-                    'path' => self::LESSON_PATH_NORMAL_CAPTURE,
+                self::FIELD_OUTCOMES => [self::STATUS_RECORDED => 0, 'items' => []],
+                self::FIELD_LESSON_CANDIDATES => [
+                    self::FIELD_PATH => self::LESSON_PATH_NORMAL_CAPTURE,
                     self::FIELD_QUEUED => 0,
                     'items' => [],
                 ],
@@ -92,7 +100,7 @@ final class AcosMaxObraRetroService
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_STATUS => self::STATUS_RECORDED,
             self::FIELD_LOTE => $lote,
             self::FIELD_SERIES_TAG => self::SERIES_TAG,
@@ -101,15 +109,15 @@ final class AcosMaxObraRetroService
                 'terminal' => count($slices),
                 'ids' => array_map(static fn (array $slice): string => AiValueNormalizer::trimmedScalarStringOrNull($slice['id'] ?? null) ?? '', $slices),
             ],
-            'outcomes' => [
+            self::FIELD_OUTCOMES => [
                 self::STATUS_RECORDED => count(array_filter(
                     $outcomeItems,
                     static fn (array $item): bool => ($item[self::FIELD_STATUS] ?? null) === self::STATUS_RECORDED
                 )),
                 'items' => $outcomeItems,
             ],
-            'lesson_candidates' => [
-                'path' => self::LESSON_PATH_NORMAL_CAPTURE,
+            self::FIELD_LESSON_CANDIDATES => [
+                self::FIELD_PATH => self::LESSON_PATH_NORMAL_CAPTURE,
                 self::FIELD_QUEUED => count(array_filter(
                     $lessonItems,
                     static fn (array $item): bool => ($item[self::FIELD_STATUS] ?? null) === self::LESSON_STATUS_PENDING_REVIEW
@@ -132,7 +140,7 @@ final class AcosMaxObraRetroService
             self::FIELD_KIND => self::KIND_FAILURE_PATTERN,
             'scope' => self::SERIES_TAG,
             'flow_id' => self::SERIES_TAG,
-            'workspace' => base_path(),
+            self::FIELD_WORKSPACE => base_path(),
             'privacy_class' => 'normal',
         ], $candidate, [
             'payload' => array_merge(AiValueNormalizer::arrayOrEmpty($candidate['payload'] ?? null), [
@@ -170,9 +178,9 @@ final class AcosMaxObraRetroService
         $recorded = $this->outcomes->record([
             'executor' => 'forge',
             'objective' => sprintf('ACOS Max lote %d slice %s reached %s', $lote, $slice['id'], $slice[self::FIELD_STATE]),
-            'summary' => AiValueNormalizer::trimmedScalarStringOrNull($slice['line'] ?? null) ?? '',
+            self::FIELD_SUMMARY => AiValueNormalizer::trimmedScalarStringOrNull($slice['line'] ?? null) ?? '',
             self::FIELD_STATUS => $status,
-            'workspace' => base_path(),
+            self::FIELD_WORKSPACE => base_path(),
             'surface_id' => self::SERIES_TAG,
             'scope_type' => 'obra_lote',
             'scope_id' => sprintf('acos-max:lote-%d', $lote),
@@ -182,8 +190,8 @@ final class AcosMaxObraRetroService
             'actor_tag' => self::SERIES_TAG,
             'outcome_flow_id' => self::SERIES_TAG,
             self::FIELD_LOTE => $lote,
-            'slice_id' => $slice['id'],
-            'slice_state' => $slice[self::FIELD_STATE],
+            self::FIELD_SLICE_ID => $slice['id'],
+            self::FIELD_SLICE_STATE => $slice[self::FIELD_STATE],
             self::FIELD_EVIDENCE_REFS => AiValueNormalizer::arrayOrEmpty($slice[self::FIELD_EVIDENCE_REFS] ?? null),
             'metrics' => [
                 'tests_passed' => $status === self::OUTCOME_STATUS_SUCCEEDED,
@@ -192,8 +200,8 @@ final class AcosMaxObraRetroService
         ]);
 
         return [
-            'slice_id' => AiValueNormalizer::trimmedScalarStringOrNull($slice['id'] ?? null) ?? '',
-            'slice_state' => AiValueNormalizer::trimmedScalarStringOrNull($slice[self::FIELD_STATE] ?? null) ?? '',
+            self::FIELD_SLICE_ID => AiValueNormalizer::trimmedScalarStringOrNull($slice['id'] ?? null) ?? '',
+            self::FIELD_SLICE_STATE => AiValueNormalizer::trimmedScalarStringOrNull($slice[self::FIELD_STATE] ?? null) ?? '',
             self::FIELD_STATUS => (AiValueNormalizer::trimmedStringOrNull($recorded[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
             'outcome_id' => data_get($recorded, 'outcome.outcome_id'),
             'ai_run_outcome_id' => data_get($recorded, 'spine.ai_run_outcome.id'),
@@ -211,7 +219,7 @@ final class AcosMaxObraRetroService
 
         return [[
             self::FIELD_KIND => self::KIND_FAILURE_PATTERN,
-            'summary' => sprintf(
+            self::FIELD_SUMMARY => sprintf(
                 'ACOS Max lote %d close showed %d terminal slices (%s) need durable scoreboard refs and the obra:acos-max series tag so future lote retros can separate construction outcomes from product outcomes.',
                 $lote,
                 count($slices),

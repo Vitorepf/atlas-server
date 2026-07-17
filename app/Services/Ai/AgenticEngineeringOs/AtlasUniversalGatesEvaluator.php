@@ -5877,6 +5877,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function obraThesisSkillFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'obra_retro_field_schema_version' => AcosMaxObraRetroService::FIELD_SCHEMA_VERSION,
+            'obra_retro_field_outcomes' => AcosMaxObraRetroService::FIELD_OUTCOMES,
+            'obra_retro_field_lesson_candidates' => AcosMaxObraRetroService::FIELD_LESSON_CANDIDATES,
+            'obra_retro_field_workspace' => AcosMaxObraRetroService::FIELD_WORKSPACE,
+            'obra_retro_field_summary' => AcosMaxObraRetroService::FIELD_SUMMARY,
+            'obra_retro_field_slice_id' => AcosMaxObraRetroService::FIELD_SLICE_ID,
+            'thesis_field_schema_version' => EvidenceVisionThesisComposer::FIELD_SCHEMA_VERSION,
+            'thesis_field_composed' => EvidenceVisionThesisComposer::FIELD_COMPOSED,
+            'thesis_field_thesis_count' => EvidenceVisionThesisComposer::FIELD_THESIS_COUNT,
+            'thesis_field_theses' => EvidenceVisionThesisComposer::FIELD_THESES,
+            'thesis_field_max_theses' => EvidenceVisionThesisComposer::FIELD_MAX_THESES,
+            'thesis_field_influences_pick' => EvidenceVisionThesisComposer::FIELD_INFLUENCES_PICK,
+            'skill_field_reason' => AcosMaxProceduralSkillPromoterService::FIELD_REASON,
+            'skill_field_slice' => AcosMaxProceduralSkillPromoterService::FIELD_SLICE,
+            'skill_field_skill_schema_version' => AcosMaxProceduralSkillPromoterService::FIELD_SKILL_SCHEMA_VERSION,
+            'skill_field_enqueued' => AcosMaxProceduralSkillPromoterService::FIELD_ENQUEUED,
+            'skill_field_skill_name' => AcosMaxProceduralSkillPromoterService::FIELD_SKILL_NAME,
+            'obra_thesis_skill_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

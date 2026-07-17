@@ -79,6 +79,16 @@ final class EvidenceVisionThesisComposer
     public const FIELD_EXPIRES_AT = 'expires_at';
     public const FIELD_FILE = 'file';
     public const FIELD_LINE = 'line';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_COMPOSED = 'composed';
+    public const FIELD_THESIS_COUNT = 'thesis_count';
+    public const FIELD_THESES = 'theses';
+    public const FIELD_MAX_THESES = 'max_theses';
+    public const FIELD_HUMAN_AUTHORED_CLAIMS = 'human_authored_claims';
+    public const FIELD_INFLUENCES_PICK = 'influences_pick';
+    public const FIELD_INFLUENCES_PICK_MODE = 'influences_pick_mode';
+    public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
+    public const FIELD_THRESHOLD = 'threshold';
 
     /**
      * @param  array<string,mixed>  $context
@@ -136,17 +146,17 @@ final class EvidenceVisionThesisComposer
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'composed' => true,
-            'thesis_count' => count($theses),
-            'theses' => $theses,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_COMPOSED => true,
+            self::FIELD_THESIS_COUNT => count($theses),
+            self::FIELD_THESES => $theses,
             self::FIELD_STATUS => self::STATUS_OK,
             self::FIELD_SOURCE => [
-                'max_theses' => self::MAX_THESES,
-                'human_authored_claims' => false,
-                'influences_pick' => true,
-                'influences_pick_mode' => 'weight_only_never_veto',
-                'provider_calls_made' => false,
+                self::FIELD_MAX_THESES => self::MAX_THESES,
+                self::FIELD_HUMAN_AUTHORED_CLAIMS => false,
+                self::FIELD_INFLUENCES_PICK => true,
+                self::FIELD_INFLUENCES_PICK_MODE => 'weight_only_never_veto',
+                self::FIELD_PROVIDER_CALLS_MADE => false,
             ],
         ];
     }
@@ -295,7 +305,7 @@ final class EvidenceVisionThesisComposer
                 ),
                 self::FIELD_DEATH_CRITERION => [
                     self::FIELD_KIND => self::KIND_SERIES_RECOVERY,
-                    'threshold' => $recoveryFloor,
+                    self::FIELD_THRESHOLD => $recoveryFloor,
                     'consecutive_windows' => 2,
                     self::FIELD_DESCRIBED_AT_BIRTH => 'archive when series:'.$series.' stage '.$stage.' yield >= '.$recoveryFloor.' for 2 consecutive windows',
                 ],
@@ -354,7 +364,7 @@ final class EvidenceVisionThesisComposer
             ],
             self::FIELD_DEATH_CRITERION => [
                 self::FIELD_KIND => self::KIND_CALIBRATION_RESOLVED,
-                'threshold' => $sweetRate - 0.15,
+                self::FIELD_THRESHOLD => $sweetRate - 0.15,
                 self::FIELD_DESCRIBED_AT_BIRTH => 'archive when high_band realized_rate >= sweet_band - 0.15',
             ],
             self::FIELD_ALIGNMENT_KEYS => ['predicted-impact', 'pattern-design', 'comprehension-deepening'],
@@ -553,17 +563,17 @@ final class EvidenceVisionThesisComposer
     private static function emptyResult(string $reason): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'composed' => false,
-            'thesis_count' => 0,
-            'theses' => [],
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_COMPOSED => false,
+            self::FIELD_THESIS_COUNT => 0,
+            self::FIELD_THESES => [],
             self::FIELD_STATUS => $reason,
             self::FIELD_SOURCE => [
-                'max_theses' => self::MAX_THESES,
-                'human_authored_claims' => false,
-                'influences_pick' => false,
-                'influences_pick_mode' => 'weight_only_never_veto',
-                'provider_calls_made' => false,
+                self::FIELD_MAX_THESES => self::MAX_THESES,
+                self::FIELD_HUMAN_AUTHORED_CLAIMS => false,
+                self::FIELD_INFLUENCES_PICK => false,
+                self::FIELD_INFLUENCES_PICK_MODE => 'weight_only_never_veto',
+                self::FIELD_PROVIDER_CALLS_MADE => false,
             ],
         ];
     }

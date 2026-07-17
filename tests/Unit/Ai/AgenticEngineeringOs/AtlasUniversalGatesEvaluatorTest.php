@@ -4265,4 +4265,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['parallel_truth_autonomy_floor_count']);
     }
 
+    public function test_obra_thesis_skill_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->obraThesisSkillFloorsContractObserve([]);
+
+        $this->assertSame('schema_version', $payload['obra_retro_field_schema_version']);
+        $this->assertSame('outcomes', $payload['obra_retro_field_outcomes']);
+        $this->assertSame('lesson_candidates', $payload['obra_retro_field_lesson_candidates']);
+        $this->assertSame('workspace', $payload['obra_retro_field_workspace']);
+        $this->assertSame('summary', $payload['obra_retro_field_summary']);
+        $this->assertSame('slice_id', $payload['obra_retro_field_slice_id']);
+        $this->assertSame('schema_version', $payload['thesis_field_schema_version']);
+        $this->assertSame('composed', $payload['thesis_field_composed']);
+        $this->assertSame('thesis_count', $payload['thesis_field_thesis_count']);
+        $this->assertSame('theses', $payload['thesis_field_theses']);
+        $this->assertSame('max_theses', $payload['thesis_field_max_theses']);
+        $this->assertSame('influences_pick', $payload['thesis_field_influences_pick']);
+        $this->assertSame('reason', $payload['skill_field_reason']);
+        $this->assertSame('slice', $payload['skill_field_slice']);
+        $this->assertSame('skill_schema_version', $payload['skill_field_skill_schema_version']);
+        $this->assertSame('enqueued', $payload['skill_field_enqueued']);
+        $this->assertSame('skill_name', $payload['skill_field_skill_name']);
+        $this->assertSame(17, $payload['obra_thesis_skill_floor_count']);
+    }
+
 }

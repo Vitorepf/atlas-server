@@ -40,6 +40,14 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_CASE_COUNT_FLOOR = 'case_count_floor';
     public const FIELD_CANDIDATE_HASH = 'candidate_hash';
     public const FIELD_ADMISSION_DOOR = 'admission_door';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_SLICE = 'slice';
+    public const FIELD_SKILL_SCHEMA_VERSION = 'skill_schema_version';
+    public const FIELD_ENQUEUED = 'enqueued';
+    public const FIELD_GATE = 'gate';
+    public const FIELD_SKILL_NAME = 'skill_name';
+    public const FIELD_SKILL_V1 = 'skill_v1';
+    public const FIELD_SOURCE = 'source';
 
     public const STATUS_HOLD = 'hold';
 
@@ -99,13 +107,13 @@ final class AcosMaxProceduralSkillPromoterService
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'slice' => self::SLICE_MULTJ04,
+            self::FIELD_SLICE => self::SLICE_MULTJ04,
             self::FIELD_STATUS => $status,
-            'reason' => $status === self::STATUS_OK ? null : self::REASON_PROCEDURAL_CASE_COUNT_SOAK,
+            self::FIELD_REASON => $status === self::STATUS_OK ? null : self::REASON_PROCEDURAL_CASE_COUNT_SOAK,
             'generated_at' => Carbon::now()->toIso8601String(),
             'freeze' => $freeze,
             'measure_id' => self::measureId(),
-            'skill_schema_version' => self::SKILL_SCHEMA_VERSION,
+            self::FIELD_SKILL_SCHEMA_VERSION => self::SKILL_SCHEMA_VERSION,
             self::FIELD_CASE_COUNT_FLOOR => $effectiveFloor,
             self::FIELD_PROMOTION_ALLOWED => false,
             'scoreboard' => [
@@ -116,15 +124,15 @@ final class AcosMaxProceduralSkillPromoterService
                 'procedural_playbooks' => count($candidates),
                 'floor_met' => count($eligible),
                 'floor_pending' => count($candidates) - count($eligible),
-                'enqueued' => count($enqueued),
+                self::FIELD_ENQUEUED => count($enqueued),
             ],
             'candidates' => $candidates,
-            'enqueued' => $enqueued,
-            'gate' => [
+            self::FIELD_ENQUEUED => $enqueued,
+            self::FIELD_GATE => [
                 self::FIELD_ADMISSION_DOOR => self::ADMISSION_DOOR_ASI02,
                 self::FIELD_PROMOTION_ALLOWED => false,
                 self::FIELD_STATUS => self::STATUS_HOLD,
-                'reason' => $status === self::STATUS_OK ? self::REASON_AWAITING_ASI02_ADMISSION : self::REASON_PROCEDURAL_CASE_COUNT_SOAK,
+                self::FIELD_REASON => $status === self::STATUS_OK ? self::REASON_AWAITING_ASI02_ADMISSION : self::REASON_PROCEDURAL_CASE_COUNT_SOAK,
             ],
             'claim_policy' => [
                 'default_off' => true,
@@ -160,8 +168,8 @@ final class AcosMaxProceduralSkillPromoterService
         return [
             self::FIELD_CANDIDATE_HASH => $candidateHash,
             self::FIELD_TASK_CATEGORY => $playbook->taskCategory,
-            'skill_name' => $skillName,
-            'skill_schema_version' => self::SKILL_SCHEMA_VERSION,
+            self::FIELD_SKILL_NAME => $skillName,
+            self::FIELD_SKILL_SCHEMA_VERSION => self::SKILL_SCHEMA_VERSION,
             self::FIELD_CASE_COUNT => $caseCount,
             self::FIELD_CASE_COUNT_FLOOR => $floor,
             'case_count_floor_met' => $caseCount >= $floor,
@@ -170,17 +178,17 @@ final class AcosMaxProceduralSkillPromoterService
             'fake_green_suppressed' => (int) (AiValueNormalizer::finiteFloatOrNull($row['fake_green_suppressed'] ?? null) ?? 0),
             'corrections' => (int) (AiValueNormalizer::finiteFloatOrNull($row['corrections'] ?? null) ?? 0),
             self::FIELD_PROMOTION_ALLOWED => false,
-            'gate' => [
+            self::FIELD_GATE => [
                 self::FIELD_ADMISSION_DOOR => self::ADMISSION_DOOR_ASI02,
                 self::FIELD_PROMOTION_ALLOWED => false,
                 self::FIELD_STATUS => $caseCount >= $floor ? self::STATUS_HOLD_FOR_ASI02 : self::STATUS_PENDING_WINDOW,
-                'reason' => $caseCount >= $floor ? self::REASON_AWAITING_ASI02_ADMISSION : self::REASON_PROCEDURAL_CASE_COUNT_SOAK,
+                self::FIELD_REASON => $caseCount >= $floor ? self::REASON_AWAITING_ASI02_ADMISSION : self::REASON_PROCEDURAL_CASE_COUNT_SOAK,
             ],
-            'skill_v1' => [
+            self::FIELD_SKILL_V1 => [
                 self::FIELD_SCHEMA_VERSION => self::SKILL_SCHEMA_VERSION,
                 'name' => $skillName,
                 'description' => $playbook->objective,
-                'source' => [
+                self::FIELD_SOURCE => [
                     'kind' => self::KIND_PROCEDURAL_PLAYBOOK,
                     self::FIELD_TASK_CATEGORY => $playbook->taskCategory,
                     self::FIELD_CASE_COUNT => $caseCount,
@@ -225,8 +233,8 @@ final class AcosMaxProceduralSkillPromoterService
                 'evidence_refs' => $evidenceRefs,
                 'payload' => [
                     self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-                    'source' => [
-                        'slice' => self::SLICE_MULTJ04,
+                    self::FIELD_SOURCE => [
+                        self::FIELD_SLICE => self::SLICE_MULTJ04,
                         'author_engine' => 'procedural_skill_promoter',
                         'frontier_promotes' => false,
                         self::FIELD_ADMISSION_DOOR => self::ADMISSION_DOOR_ASI02,
@@ -234,7 +242,7 @@ final class AcosMaxProceduralSkillPromoterService
                     self::FIELD_CASE_COUNT_FLOOR => $candidate[self::FIELD_CASE_COUNT_FLOOR],
                     self::FIELD_CASE_COUNT => $candidate[self::FIELD_CASE_COUNT],
                     self::FIELD_PROMOTION_ALLOWED => false,
-                    'skill_v1' => $candidate['skill_v1'],
+                    self::FIELD_SKILL_V1 => $candidate[self::FIELD_SKILL_V1],
                 ],
                 'receipt_hash' => hash('sha256', 'multj04-'.$candidateHash),
                 'decided_at' => Carbon::now(),
@@ -244,7 +252,7 @@ final class AcosMaxProceduralSkillPromoterService
         return [
             'candidate_id' => AiValueNormalizer::trimmedStringOrNull($row->id) ?? '',
             self::FIELD_CANDIDATE_HASH => $candidateHash,
-            'skill_name' => AiValueNormalizer::trimmedStringOrNull($candidate['skill_name'] ?? null) ?? '',
+            self::FIELD_SKILL_NAME => AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_SKILL_NAME] ?? null) ?? '',
             self::FIELD_PROMOTION_ALLOWED => false,
             'created' => $row->wasRecentlyCreated,
         ];
