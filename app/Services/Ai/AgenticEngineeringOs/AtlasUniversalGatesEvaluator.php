@@ -55,8 +55,8 @@ use App\Services\Ai\Aaeos\AtlasAaeosVetoPropagationResolver;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentRegistryService;
 use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
 use App\Services\Ai\Telemetry\AiOutcomeAttributionService;
-use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosPhaseRouterService;
+use App\Services\Ai\AutonomousEvolution\Brain\AtlasBrainCausalEffectGate;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
 use App\Services\Ai\Aaeos\AtlasVetoPropagationWatchdog;
@@ -1662,6 +1662,22 @@ final class AtlasUniversalGatesEvaluator
             'schema_version' => 'atlas.aaeos.outcome_attribution_types.v1',
             'outcome_types' => AiOutcomeAttributionService::OUTCOME_TYPES,
             'count' => count(AiOutcomeAttributionService::OUTCOME_TYPES),
+        ];
+    }
+
+    /**
+     * Observe-only AAEOS phase-router valid phase catalogue.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function phaseRouterValidPhasesObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AtlasAaeosPhaseRouterService::SCHEMA_VERSION,
+            'valid_phases' => AtlasAaeosPhaseRouterService::VALID_PHASES,
+            'count' => count(AtlasAaeosPhaseRouterService::VALID_PHASES),
         ];
     }
 

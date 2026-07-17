@@ -1341,4 +1341,13 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('task_completed', $payload['outcome_types']);
         $this->assertSame(count($payload['outcome_types']), $payload['count']);
     }
+
+    public function test_phase_router_valid_phases_observe_reports_catalogue(): void
+    {
+        $payload = $this->svc->phaseRouterValidPhasesObserve([]);
+
+        $this->assertSame('atlas.aaeos.phase_router.v1', $payload['schema_version']);
+        $this->assertContains('1', $payload['valid_phases']);
+        $this->assertSame(count($payload['valid_phases']), $payload['count']);
+    }
 }

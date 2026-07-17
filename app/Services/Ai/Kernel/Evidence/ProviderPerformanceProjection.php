@@ -4,6 +4,7 @@ namespace App\Services\Ai\Kernel\Evidence;
 
 use App\Models\AtlasLedgerEvent;
 use App\Services\Ai\Support\DatabaseTableAvailability;
+use App\Services\Ai\Support\AiValueNormalizer;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
@@ -89,7 +90,7 @@ class ProviderPerformanceProjection
             'phase' => data_get($payload, 'phase'),
             'exit_status' => data_get($payload, 'exit_status'),
             'failure_reason' => data_get($payload, 'failure_reason'),
-            'latency_seconds' => is_numeric(data_get($payload, 'latency_seconds')) ? (float) data_get($payload, 'latency_seconds') : null,
+            'latency_seconds' => AiValueNormalizer::finiteFloatOrNull(data_get($payload, 'latency_seconds')),
             'attempt_number' => (int) data_get($payload, 'attempt_number', 0),
             'repair_count' => (int) data_get($payload, 'repair_count', 0),
             'quality_gate_result' => data_get($payload, 'quality_gate_result'),

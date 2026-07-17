@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Kernel\Decision;
 
 use App\Services\Ai\Kernel\Evidence\ProviderPerformanceProjection;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 class DynamicComputeMarketAdvisor
 {
@@ -41,9 +42,9 @@ class DynamicComputeMarketAdvisor
         $report = $this->providerPerformance->reportForWindow($since, filters: $filters);
         $marketReport = $this->providerPerformance->reportForWindow($since, filters: collect($filters)->except('provider')->all());
         $eventCount = (int) ($report['event_count'] ?? 0);
-        $successRate = is_numeric($report['success_rate'] ?? null) ? (float) $report['success_rate'] : null;
-        $averageLatency = is_numeric($report['average_latency_seconds'] ?? null) ? (float) $report['average_latency_seconds'] : null;
-        $averageCost = is_numeric($report['average_cost_microusd'] ?? null) ? (float) $report['average_cost_microusd'] : null;
+        $successRate = AiValueNormalizer::finiteFloatOrNull($report['success_rate'] ?? null);
+        $averageLatency = AiValueNormalizer::finiteFloatOrNull($report['average_latency_seconds'] ?? null);
+        $averageCost = AiValueNormalizer::finiteFloatOrNull($report['average_cost_microusd'] ?? null);
         $fallbackCount = (int) ($report['fallback_count'] ?? 0);
         $failureCount = (int) ($report['failure_count'] ?? 0);
         $unknownCostCount = (int) ($report['unknown_cost_count'] ?? 0);
@@ -96,7 +97,7 @@ class DynamicComputeMarketAdvisor
                 'cost_mode_counts' => $report['cost_mode_counts'] ?? [],
                 'cost_status' => $averageCost === null ? 'missing_cost_rate_or_unavailable' : 'available',
                 'total_tokens' => is_numeric($report['total_tokens'] ?? null) ? (int) $report['total_tokens'] : null,
-                'average_total_tokens' => is_numeric($report['average_total_tokens'] ?? null) ? (float) $report['average_total_tokens'] : null,
+                'average_total_tokens' => AiValueNormalizer::finiteFloatOrNull($report['average_total_tokens'] ?? null),
             ],
             'explanation' => [
                 'summary' => $this->summary($recommendation),
@@ -316,9 +317,9 @@ class DynamicComputeMarketAdvisor
             ->filter(fn (array $group): bool => (string) ($group['provider_cli'] ?? '') !== $selectedProvider)
             ->map(function (array $group) use ($selectedSuccessRate, $selectedLatency, $selectedCost): ?array {
                 $eventCount = (int) ($group['event_count'] ?? 0);
-                $successRate = is_numeric($group['success_rate'] ?? null) ? (float) $group['success_rate'] : null;
-                $latency = is_numeric($group['average_latency_seconds'] ?? null) ? (float) $group['average_latency_seconds'] : null;
-                $cost = is_numeric($group['average_cost_microusd'] ?? null) ? (float) $group['average_cost_microusd'] : null;
+                $successRate = AiValueNormalizer::finiteFloatOrNull($group['success_rate'] ?? null);
+                $latency = AiValueNormalizer::finiteFloatOrNull($group['average_latency_seconds'] ?? null);
+                $cost = AiValueNormalizer::finiteFloatOrNull($group['average_cost_microusd'] ?? null);
                 $qualityComparable = $selectedSuccessRate === null || $successRate === null || $successRate >= max(self::MIN_SUCCESS_RATE, $selectedSuccessRate - 0.05);
                 $latencyBetter = $selectedLatency !== null && $latency !== null && $latency < $selectedLatency;
                 $costBetter = $selectedCost !== null && $cost !== null && $cost < $selectedCost;
