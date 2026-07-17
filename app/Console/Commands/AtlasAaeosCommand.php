@@ -45,6 +45,7 @@ final class AtlasAaeosCommand extends Command
         {--signals= : JSON file with universal-gate signals}
         {--delivery-pack= : JSON file with delivery-pack composition (derives delivery_pack_completeness_min_0_95)}
         {--spec= : JSON file with compiled-spec shape (observe-only specCompletenessSignal)}
+        {--quality-bar= : JSON file with quality-bar telemetry (observe-only M5 contract)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -233,6 +234,17 @@ final class AtlasAaeosCommand extends Command
             $report['observe'] = array_merge(
                 is_array($report['observe'] ?? null) ? $report['observe'] : [],
                 ['spec_completeness' => $gates->specCompletenessSignal($spec)],
+            );
+        }
+        $qualityBarPath = (string) ($this->option('quality-bar') ?? '');
+        if ($qualityBarPath !== '') {
+            $qualityBar = $this->loadJsonFile($qualityBarPath);
+            if ($qualityBar === null) {
+                return $this->failWith('universal-gates --quality-bar must be a readable JSON object');
+            }
+            $report['observe'] = array_merge(
+                is_array($report['observe'] ?? null) ? $report['observe'] : [],
+                ['quality_bar_telemetry' => $gates->qualityBarTelemetryObserve($qualityBar)],
             );
         }
         $this->emit($report, $json);

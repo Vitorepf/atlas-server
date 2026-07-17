@@ -223,6 +223,18 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only projection of a quality-bar telemetry payload into the
+     * M5 contract shape. Does not add a universal-gate id (catalogue stays 15).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function qualityBarTelemetryObserve(array $input): array
+    {
+        return QualityBarTelemetryContract::fromArray($input)->toArray();
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

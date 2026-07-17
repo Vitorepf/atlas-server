@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use DateTimeImmutable;
 use DateTimeInterface;
 use DateTimeZone;
@@ -164,7 +165,7 @@ final class AcosMaxWindowOrchestratorService
 
     private function durationDays(string $window): ?int
     {
-        $window = strtolower(trim($window));
+        $window = AiValueNormalizer::lowerTrimmedString($window);
         if (preg_match('/^(\d+)\s*d$/', $window, $m) === 1) {
             return max(1, (int) $m[1]);
         }
@@ -177,7 +178,7 @@ final class AcosMaxWindowOrchestratorService
 
     private function dateOrNull(mixed $value): ?DateTimeImmutable
     {
-        if (! is_string($value) || trim($value) === '') {
+        if (AiValueNormalizer::trimmedStringOrNull($value) === null) {
             return null;
         }
 

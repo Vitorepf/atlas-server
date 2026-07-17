@@ -143,4 +143,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertTrue($this->svc->specCompletenessSignal($full));
         $this->assertFalse($this->svc->specCompletenessSignal([]));
     }
+
+    public function test_quality_bar_telemetry_observe_projects_m5_contract(): void
+    {
+        $payload = $this->svc->qualityBarTelemetryObserve([
+            'department_id' => 'dev',
+            'breach_count' => 2,
+            'evidence_hash' => 'sha256:qb',
+            'threshold_breaches' => [['metric' => 'coverage', 'comparator' => 'lt', 'value' => 0.8, 'observed' => 0.7, 'unit' => 'ratio']],
+        ]);
+
+        $this->assertSame(QualityBarTelemetryContract::SCHEMA, $payload['schema_version']);
+        $this->assertSame('dev', $payload['inputs']['department_id']);
+        $this->assertSame(2, $payload['inputs']['breach_count']);
+        $this->assertSame(QualityBarTelemetryContract::IMMUNE_GATE_ID, $payload['immune_gate_id']);
+    }
 }

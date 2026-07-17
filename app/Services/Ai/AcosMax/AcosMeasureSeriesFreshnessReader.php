@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Artisan;
@@ -52,7 +53,7 @@ final class AcosMeasureSeriesFreshnessReader
     /** @param array<string,mixed> $entry */
     private function commandLastAppendAt(array $entry): ?CarbonImmutable
     {
-        $command = trim((string) ($entry['path'] ?? ''));
+        $command = AiValueNormalizer::trimmedString($entry['path'] ?? '');
         if ($command === '' || ! str_starts_with($command, 'atlas:')) {
             return null;
         }
@@ -76,8 +77,8 @@ final class AcosMeasureSeriesFreshnessReader
     /** @param array<string,mixed> $entry */
     private function tableLastAppendAt(array $entry): ?CarbonImmutable
     {
-        $table = trim((string) ($entry['table'] ?? ''));
-        $timestampField = trim((string) ($entry['timestamp_field'] ?? 'occurred_at')) ?: 'occurred_at';
+        $table = AiValueNormalizer::trimmedString($entry['table'] ?? '');
+        $timestampField = AiValueNormalizer::trimmedString($entry['timestamp_field'] ?? 'occurred_at') ?: 'occurred_at';
         if ($table === '' || ! DatabaseTableAvailability::has($table)) {
             return null;
         }

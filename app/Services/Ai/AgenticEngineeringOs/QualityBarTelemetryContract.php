@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AgenticEngineeringOs;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * M5 · minimal data contract for quality-bar telemetry before the auto-blocking
  * immune gate wires into AtlasUniversalGatesEvaluator. Step-1 shape only — no
@@ -78,16 +80,13 @@ final class QualityBarTelemetryContract
      */
     public static function fromArray(array $input): self
     {
-        $breaches = $input['threshold_breaches'] ?? [];
-        if (! is_array($breaches)) {
-            $breaches = [];
-        }
+        $breaches = AiValueNormalizer::arrayOrEmpty($input['threshold_breaches'] ?? null);
 
         return new self(
-            departmentId: trim((string) ($input['department_id'] ?? '')),
+            departmentId: AiValueNormalizer::trimmedString($input['department_id'] ?? ''),
             breachCount: max(0, (int) ($input['breach_count'] ?? 0)),
             evaluatedWindowDays: max(1, (int) ($input['evaluated_window_days'] ?? self::EVALUATED_WINDOW_DAYS)),
-            evidenceHash: trim((string) ($input['evidence_hash'] ?? '')),
+            evidenceHash: AiValueNormalizer::trimmedString($input['evidence_hash'] ?? ''),
             thresholdBreaches: array_values($breaches),
         );
     }

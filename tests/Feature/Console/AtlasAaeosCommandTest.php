@@ -93,6 +93,30 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_quality_bar_telemetry(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-qb-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'department_id' => 'qa',
+            'breach_count' => 1,
+            'evidence_hash' => 'sha256:qb',
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-qb',
+                '--quality-bar' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('quality_bar_telemetry')
+                ->expectsOutputToContain('atlas.aaeos.quality_bar_telemetry.v1')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])
