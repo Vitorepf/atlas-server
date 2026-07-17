@@ -37,10 +37,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
 
         $episodeId = trim((string) ($context['episode_id'] ?? $native['episode_id'] ?? ''));
 
-        return OutcomeEnvelope::fromArray([
-            'schema_version' => OutcomeEnvelope::SCHEMA_VERSION,
-            'formula_version' => OutcomeEnvelope::FORMULA_VERSION,
-            'adapter_origin' => $this->origin(),
+        return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => in_array($executor, ['dev', 'forge', 'autonomos'], true) ? $executor : 'engineering',
             'task_category' => (string) ($contract['task_category'] ?? $native['task_category'] ?? $executor),
             'provider' => (string) ($contract['provider'] ?? $native['provider'] ?? 'absent'),
@@ -52,18 +49,14 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'evidence_ref_count' => (int) ($contract['evidence_ref_count'] ?? count($evidenceRefs)),
             'episode_id' => $episodeId !== '' ? $episodeId : null,
             'run_id' => trim((string) ($native['run_id'] ?? $native['scope_id'] ?? '')) ?: null,
-            'native_divergent' => [
-                'origin' => $this->origin(),
-                'fields' => [
-                    'outcome_type' => (string) ($native['outcome_type'] ?? 'engineering_delivery'),
-                    'summary' => (string) ($native['summary'] ?? $native['objective'] ?? ''),
-                    'metrics' => is_array($native['metrics'] ?? null) ? $native['metrics'] : [],
-                    'blockers' => is_array($native['blockers'] ?? null) ? $native['blockers'] : [],
-                    'context_utility' => is_array($native['context_utility'] ?? null) ? $native['context_utility'] : [],
-                    'patch_outcome' => is_array($native['patch_outcome'] ?? null) ? $native['patch_outcome'] : [],
-                    'learning_claim' => (string) ($native['learning_claim'] ?? ''),
-                ],
-            ],
+        ], [
+            'outcome_type' => (string) ($native['outcome_type'] ?? 'engineering_delivery'),
+            'summary' => (string) ($native['summary'] ?? $native['objective'] ?? ''),
+            'metrics' => is_array($native['metrics'] ?? null) ? $native['metrics'] : [],
+            'blockers' => is_array($native['blockers'] ?? null) ? $native['blockers'] : [],
+            'context_utility' => is_array($native['context_utility'] ?? null) ? $native['context_utility'] : [],
+            'patch_outcome' => is_array($native['patch_outcome'] ?? null) ? $native['patch_outcome'] : [],
+            'learning_claim' => (string) ($native['learning_claim'] ?? ''),
         ]);
     }
 

@@ -48,6 +48,26 @@ final class OutcomeEnvelope
     }
 
     /**
+     * Adapter entrypoint: stamps schema/formula/origin and binds native_divergent
+     * to the same origin so origin-mismatch cannot slip through construction.
+     *
+     * @param  array<string,mixed>  $fields  envelope fields except schema/formula/adapter_origin/native_divergent
+     * @param  array<string,mixed>  $nativeFields  divergent organ fields (never coerced)
+     */
+    public static function fromAdapter(string $origin, array $fields, array $nativeFields): self
+    {
+        return self::fromArray(array_merge($fields, [
+            'schema_version' => self::SCHEMA_VERSION,
+            'formula_version' => self::FORMULA_VERSION,
+            'adapter_origin' => $origin,
+            'native_divergent' => [
+                'origin' => $origin,
+                'fields' => $nativeFields,
+            ],
+        ]));
+    }
+
+    /**
      * @param  array<string,mixed>  $data
      * @return array<string,mixed>
      */

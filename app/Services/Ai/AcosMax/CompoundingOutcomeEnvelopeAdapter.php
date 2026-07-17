@@ -48,10 +48,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $verified = (bool) ($contract['verified'] ?? $native['verified'] ?? false);
         $evidenceRefs = is_array($native['evidence_refs'] ?? null) ? $native['evidence_refs'] : [];
 
-        return OutcomeEnvelope::fromArray([
-            'schema_version' => OutcomeEnvelope::SCHEMA_VERSION,
-            'formula_version' => OutcomeEnvelope::FORMULA_VERSION,
-            'adapter_origin' => $this->origin(),
+        return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => $executor,
             'task_category' => (string) ($contract['task_category'] ?? $executor),
             'provider' => (string) ($contract['provider'] ?? $native['provider'] ?? 'absent'),
@@ -63,19 +60,15 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'evidence_ref_count' => count($evidenceRefs),
             'episode_id' => null,
             'run_id' => trim((string) ($native['run_id'] ?? '')) ?: null,
-            'native_divergent' => [
-                'origin' => $this->origin(),
-                'fields' => [
-                    'flow_id' => $flowId,
-                    'flow_quality' => $native['flow_quality'] ?? null,
-                    'retrieval_quality' => $native['retrieval_quality'] ?? null,
-                    'execution_quality' => $native['execution_quality'] ?? null,
-                    'evidence_quality' => $native['evidence_quality'] ?? null,
-                    'learning_required' => (bool) ($native['learning_required'] ?? false),
-                    'missed_signals' => is_array($native['missed_signals'] ?? null) ? $native['missed_signals'] : [],
-                    'human_override' => (bool) ($native['human_override'] ?? false),
-                ],
-            ],
+        ], [
+            'flow_id' => $flowId,
+            'flow_quality' => $native['flow_quality'] ?? null,
+            'retrieval_quality' => $native['retrieval_quality'] ?? null,
+            'execution_quality' => $native['execution_quality'] ?? null,
+            'evidence_quality' => $native['evidence_quality'] ?? null,
+            'learning_required' => (bool) ($native['learning_required'] ?? false),
+            'missed_signals' => is_array($native['missed_signals'] ?? null) ? $native['missed_signals'] : [],
+            'human_override' => (bool) ($native['human_override'] ?? false),
         ]);
     }
 

@@ -27,10 +27,7 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
         $verified = $provenReal && ! $fakeGreen && in_array($verifiedBasis, AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASES_WEIGHTED, true);
         $evidenceKinds = is_array($native['evidence_kinds'] ?? null) ? $native['evidence_kinds'] : [];
 
-        return OutcomeEnvelope::fromArray([
-            'schema_version' => OutcomeEnvelope::SCHEMA_VERSION,
-            'formula_version' => OutcomeEnvelope::FORMULA_VERSION,
-            'adapter_origin' => $this->origin(),
+        return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => 'dev',
             'task_category' => (string) ($context['task_category'] ?? 'dev'),
             'provider' => strtolower(trim((string) ($context['provider'] ?? 'absent'))) ?: 'absent',
@@ -42,20 +39,16 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
             'evidence_ref_count' => count($evidenceKinds),
             'episode_id' => null,
             'run_id' => trim((string) ($native['run_id'] ?? '')) ?: null,
-            'native_divergent' => [
-                'origin' => $this->origin(),
-                'fields' => [
-                    'outcome_status' => (string) ($native['outcome_status'] ?? ''),
-                    'proven_real' => $provenReal,
-                    'fake_green' => $fakeGreen,
-                    'proof_reason' => (string) ($native['proof_reason'] ?? ''),
-                    'evidence_kinds' => $evidenceKinds,
-                    'selected_tests' => is_array($native['selected_tests'] ?? null) ? $native['selected_tests'] : [],
-                    'changed_files' => is_array($native['changed_files'] ?? null) ? $native['changed_files'] : [],
-                    'learning_candidates' => is_array($native['learning_candidates'] ?? null) ? $native['learning_candidates'] : [],
-                    'should_promote_to_aemor' => (bool) ($native['should_promote_to_aemor'] ?? false),
-                ],
-            ],
+        ], [
+            'outcome_status' => (string) ($native['outcome_status'] ?? ''),
+            'proven_real' => $provenReal,
+            'fake_green' => $fakeGreen,
+            'proof_reason' => (string) ($native['proof_reason'] ?? ''),
+            'evidence_kinds' => $evidenceKinds,
+            'selected_tests' => is_array($native['selected_tests'] ?? null) ? $native['selected_tests'] : [],
+            'changed_files' => is_array($native['changed_files'] ?? null) ? $native['changed_files'] : [],
+            'learning_candidates' => is_array($native['learning_candidates'] ?? null) ? $native['learning_candidates'] : [],
+            'should_promote_to_aemor' => (bool) ($native['should_promote_to_aemor'] ?? false),
         ]);
     }
 
