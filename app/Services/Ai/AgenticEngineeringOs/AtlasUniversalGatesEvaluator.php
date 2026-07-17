@@ -41,6 +41,7 @@ use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
 use App\Services\Ai\Cognition\AtlasAcosRollbackTriggerCheckService;
 use App\Services\Ai\Cognition\AtlasAcosLongHorizonGateService;
 use App\Services\Ai\Cognition\ImmuneSignatureStore;
+use App\Services\Ai\Cognition\ImmuneVerdictLedger;
 use App\Services\Ai\AcosMax\PromotionProtocol;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
@@ -1480,7 +1481,7 @@ final class AtlasUniversalGatesEvaluator
      */
     public function stringListNormalizeObserve(array $input = []): array
     {
-        $values = $input['values'] ?? [];
+        $values = AiValueNormalizer::arrayOrEmpty($input['values'] ?? null);
 
         return [
             'schema_version' => 'atlas.aaeos.string_list_normalize.v1',
@@ -2106,6 +2107,26 @@ final class AtlasUniversalGatesEvaluator
             'autonomy_levels' => AutonomousWorkExecutionOs::AUTONOMY_LEVELS,
             'cycle_stages' => AutonomousWorkExecutionOs::CYCLE_STAGES,
             'stage_count' => count(AutonomousWorkExecutionOs::CYCLE_STAGES),
+        ];
+    }
+
+    /**
+     * Observe-only immune verdict ledger labels (MAXI).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function immuneVerdictLedgerLabelsObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => ImmuneVerdictLedger::SCHEMA_VERSION,
+            'labels' => [
+                ImmuneVerdictLedger::LABEL_TRUE_BLOCK,
+                ImmuneVerdictLedger::LABEL_FALSE_BLOCK,
+                ImmuneVerdictLedger::LABEL_MISSED_POISON,
+            ],
+            'label_count' => 3,
         ];
     }
 

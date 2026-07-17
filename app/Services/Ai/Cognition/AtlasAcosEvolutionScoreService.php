@@ -304,7 +304,7 @@ class AtlasAcosEvolutionScoreService
                 ->orderBy('id')
                 ->chunkById(500, function ($nodes) use (&$count): void {
                     foreach ($nodes as $node) {
-                        $meta = json_decode((string) ($node->meta ?? ''), true) ?: [];
+                        $meta = AiValueNormalizer::arrayOrEmpty(json_decode((string) ($node->meta ?? ''), true));
                         if (($meta['origin'] ?? '') === AtlasOpenBrainWriteBackService::MISSION_ORIGIN_SESSION_CAPTURE) {
                             continue;
                         }

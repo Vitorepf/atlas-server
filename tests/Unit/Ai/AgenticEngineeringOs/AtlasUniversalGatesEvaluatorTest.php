@@ -1568,4 +1568,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('goal_recorded', $payload['cycle_stages']);
         $this->assertSame(6, $payload['stage_count']);
     }
+
+    public function test_immune_verdict_ledger_labels_observe_reports_labels(): void
+    {
+        $payload = $this->svc->immuneVerdictLedgerLabelsObserve([]);
+
+        $this->assertSame('atlas.cognition.immune_verdict_ledger.v1', $payload['schema_version']);
+        $this->assertContains('true_block', $payload['labels']);
+        $this->assertContains('missed_poison', $payload['labels']);
+        $this->assertSame(3, $payload['label_count']);
+    }
 }

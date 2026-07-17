@@ -151,10 +151,9 @@ final class CaptureHmacLineageService
 
         $recent = $rows->take($minCaptures);
         $chained = $recent->filter(function (object $row): bool {
-            $metadata = json_decode((string) ($row->metadata ?? '{}'), true);
+            $metadata = AiValueNormalizer::arrayOrEmpty(json_decode((string) ($row->metadata ?? '{}'), true));
 
-            return is_array($metadata)
-                && is_array(data_get($metadata, 'cognitive_quarantine.lineage.hmac_lineage'));
+            return is_array(data_get($metadata, 'cognitive_quarantine.lineage.hmac_lineage'));
         });
 
         $chainedCount = $chained->count();
