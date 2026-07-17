@@ -5348,6 +5348,37 @@ final class AtlasUniversalGatesEvaluator
      * @param  array<string,mixed>  $input
      * @return array<string,mixed>
      */
+
+    /**
+     * Observe-only residual floors for promotion protocol + LOTE2 measure field contracts.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function promotionLote2MeasureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'promotion_field_family' => PromotionProtocol::FIELD_FAMILY,
+            'promotion_field_state' => PromotionProtocol::FIELD_STATE,
+            'promotion_field_judge_engine_id' => PromotionProtocol::FIELD_JUDGE_ENGINE_ID,
+            'promotion_field_author_engine_id' => PromotionProtocol::FIELD_AUTHOR_ENGINE_ID,
+            'promotion_field_receipt' => PromotionProtocol::FIELD_RECEIPT,
+            'promotion_field_to_state' => PromotionProtocol::FIELD_TO_STATE,
+            'promotion_required_field_count' => count(PromotionProtocol::REQUIRED_FIELDS),
+            'promotion_state_off' => PromotionProtocol::STATE_OFF,
+            'lote2_field_measure_id' => AcosMaxLote2MeasureService::FIELD_MEASURE_ID,
+            'lote2_field_formula_version' => AcosMaxLote2MeasureService::FIELD_FORMULA_VERSION,
+            'lote2_field_denominator_min' => AcosMaxLote2MeasureService::FIELD_DENOMINATOR_MIN,
+            'lote2_field_kind' => AcosMaxLote2MeasureService::FIELD_KIND,
+            'lote2_field_status' => AcosMaxLote2MeasureService::FIELD_STATUS,
+            'lote2_status_measured' => AcosMaxLote2MeasureService::STATUS_MEASURED,
+            'lote2_field_slice' => AcosMaxLote2MeasureService::FIELD_SLICE,
+            'lote2_field_n_pairs' => AcosMaxLote2MeasureService::FIELD_N_PAIRS,
+            'lote2_field_schema_version' => AcosMaxLote2MeasureService::FIELD_SCHEMA_VERSION,
+            'promotion_lote2_measure_floor_count' => 17,
+        ];
+    }
+
     public function rotationMeasureSeriesFloorsContractObserve(array $input = []): array
     {
         return [

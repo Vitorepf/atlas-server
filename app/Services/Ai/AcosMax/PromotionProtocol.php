@@ -39,6 +39,26 @@ final class PromotionProtocol
 
     public const FIELD_MISSING = 'missing';
 
+    public const FIELD_FAMILY = 'family';
+
+    public const FIELD_STATE = 'state';
+
+    public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
+
+    public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
+
+    public const FIELD_SHADOW_MINIMUM_WINDOW = 'shadow_minimum_window';
+
+    public const FIELD_FLIP_CRITERION = 'flip_criterion';
+
+    public const FIELD_ROLLBACK_TRIGGER = 'rollback_trigger';
+
+    public const FIELD_RECEIPT = 'receipt';
+
+    public const FIELD_TO_STATE = 'to_state';
+
+    public const FIELD_FLAG_ID = 'flag_id';
+
     public const DEFAULT_LEDGER_RELATIVE_PATH = 'app/atlas/evidence/acos-max-promotion-flips.jsonl';
 
     /** @var list<string> */
@@ -52,11 +72,11 @@ final class PromotionProtocol
 
     /** @var list<string> */
     public const REQUIRED_FIELDS = [
-        'shadow_minimum_window',
-        'flip_criterion',
-        'rollback_trigger',
-        'judge_engine_id',
-        'receipt',
+        self::FIELD_SHADOW_MINIMUM_WINDOW,
+        self::FIELD_FLIP_CRITERION,
+        self::FIELD_ROLLBACK_TRIGGER,
+        self::FIELD_JUDGE_ENGINE_ID,
+        self::FIELD_RECEIPT,
     ];
 
     /** @var list<array<string,mixed>> */
@@ -138,16 +158,16 @@ final class PromotionProtocol
             return $this->blocked('missing_observation_window_id', $flagId, $toState);
         }
 
-        $receipt = AiValueNormalizer::trimmedStringOrNull($context['receipt'] ?? null) ?? '';
+        $receipt = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_RECEIPT] ?? null) ?? '';
         if ($receipt === '') {
             return $this->blocked('missing_flip_receipt', $flagId, $toState);
         }
 
-        $family = AiValueNormalizer::trimmedScalarStringOrNull($entry['family'] ?? null) ?? '';
+        $family = AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_FAMILY] ?? null) ?? '';
         $action = $this->actionForState($toState);
         if ($action === 'flip' && $this->familyAlreadyFlippedInWindow($family, $windowId)) {
             return $this->blocked('family_window_flip_already_recorded', $flagId, $toState, [
-                'family' => $family,
+                self::FIELD_FAMILY => $family,
                 'observation_window_id' => $windowId,
             ]);
         }
@@ -164,18 +184,18 @@ final class PromotionProtocol
             ])),
             'recorded_at' => date('c'),
             'action' => $action,
-            'flag_id' => $flagId,
-            'family' => $family,
+            self::FIELD_FLAG_ID => $flagId,
+            self::FIELD_FAMILY => $family,
             'slice' => (AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? ''),
             'from_state' => $fromState,
-            'to_state' => $toState,
+            self::FIELD_TO_STATE => $toState,
             'observation_window_id' => $windowId,
             'actor' => AiValueNormalizer::trimmedStringOrNull($context['actor'] ?? null) ?? 'atlas',
             'reason' => AiValueNormalizer::trimmedStringOrNull($context['reason'] ?? null) ?? '',
-            'receipt' => $receipt,
-            'rollback_trigger' => AiValueNormalizer::trimmedScalarStringOrNull($entry['rollback_trigger'] ?? null) ?? '',
-            'judge_engine_id' => AiValueNormalizer::trimmedScalarStringOrNull($entry['judge_engine_id'] ?? null) ?? '',
-            'protocol_receipt' => AiValueNormalizer::trimmedScalarStringOrNull($entry['receipt'] ?? null) ?? '',
+            self::FIELD_RECEIPT => $receipt,
+            self::FIELD_ROLLBACK_TRIGGER => AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_ROLLBACK_TRIGGER] ?? null) ?? '',
+            self::FIELD_JUDGE_ENGINE_ID => AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_JUDGE_ENGINE_ID] ?? null) ?? '',
+            'protocol_receipt' => AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_RECEIPT] ?? null) ?? '',
         ];
 
         $challenger = $this->observeChallenger($context);
@@ -236,89 +256,89 @@ final class PromotionProtocol
         return [
             [
                 'id' => 'ATLAS_AUTONOMOS_MASTER_ENABLED',
-                'family' => 'ASI',
+                self::FIELD_FAMILY => 'ASI',
                 'slice' => 'ASI-06',
-                'state' => self::STATE_OFF,
+                self::FIELD_STATE => self::STATE_OFF,
                 'env_key' => 'ATLAS_AUTONOMOS_MASTER_ENABLED',
-                'shadow_minimum_window' => 'operator_preflight_window',
-                'flip_criterion' => 'atlas:autonomos:preflight --json returns 8/8 green with ASI-01/02/05 evidence',
-                'rollback_trigger' => 'operator disables autonomos master on failed preflight regression or scoped-committer violation',
-                'judge_engine_id' => 'codex-elev26s-judge',
-                'receipt' => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:1412',
+                self::FIELD_SHADOW_MINIMUM_WINDOW => 'operator_preflight_window',
+                self::FIELD_FLIP_CRITERION => 'atlas:autonomos:preflight --json returns 8/8 green with ASI-01/02/05 evidence',
+                self::FIELD_ROLLBACK_TRIGGER => 'operator disables autonomos master on failed preflight regression or scoped-committer violation',
+                self::FIELD_JUDGE_ENGINE_ID => 'codex-elev26s-judge',
+                self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:1412',
                 'operator_only' => true,
             ],
             [
                 'id' => 'ATLAS_AUTONOMOUS_AUTO_APPLY',
-                'family' => 'ASI',
+                self::FIELD_FAMILY => 'ASI',
                 'slice' => 'ASI-07',
-                'state' => self::STATE_OFF,
+                self::FIELD_STATE => self::STATE_OFF,
                 'config_key' => 'atlas.ai.autonomous_learning.enabled',
                 'env_key' => 'ATLAS_AUTONOMOUS_AUTO_APPLY',
-                'shadow_minimum_window' => '7d',
-                'flip_criterion' => 'privacy fail-closed, reversal proven, and digest FEE-12 operational',
-                'rollback_trigger' => 'disable auto-apply when reversal_rate or negative_feedback guard breaches soak bounds',
-                'judge_engine_id' => 'codex-elev26s-judge',
-                'receipt' => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:1413',
+                self::FIELD_SHADOW_MINIMUM_WINDOW => '7d',
+                self::FIELD_FLIP_CRITERION => 'privacy fail-closed, reversal proven, and digest FEE-12 operational',
+                self::FIELD_ROLLBACK_TRIGGER => 'disable auto-apply when reversal_rate or negative_feedback guard breaches soak bounds',
+                self::FIELD_JUDGE_ENGINE_ID => 'codex-elev26s-judge',
+                self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:1413',
                 'operator_only' => true,
             ],
             [
                 'id' => 'ATLAS_BRAIN_REFLECTION_ENABLED',
-                'family' => 'ASI',
+                self::FIELD_FAMILY => 'ASI',
                 'slice' => 'ASI-08',
-                'state' => self::STATE_OFF,
+                self::FIELD_STATE => self::STATE_OFF,
                 'config_key' => 'atlas.brain.reflection_enabled',
                 'env_key' => 'ATLAS_BRAIN_REFLECTION_ENABLED',
-                'shadow_minimum_window' => '24h',
-                'flip_criterion' => 'reflection stream writes real post-landing entries and consumer reads PathYieldEwma samples',
-                'rollback_trigger' => 'disable reflection writer if pattern-ledger writes fail or no consumer traffic is observed',
-                'judge_engine_id' => 'codex-elev26s-judge',
-                'receipt' => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:1311',
+                self::FIELD_SHADOW_MINIMUM_WINDOW => '24h',
+                self::FIELD_FLIP_CRITERION => 'reflection stream writes real post-landing entries and consumer reads PathYieldEwma samples',
+                self::FIELD_ROLLBACK_TRIGGER => 'disable reflection writer if pattern-ledger writes fail or no consumer traffic is observed',
+                self::FIELD_JUDGE_ENGINE_ID => 'codex-elev26s-judge',
+                self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:1311',
             ],
             [
                 'id' => 'atlas.memory.fusion_v2_enabled',
-                'family' => 'MAXB',
+                self::FIELD_FAMILY => 'MAXB',
                 'slice' => 'MAXB-03',
-                'state' => self::STATE_OFF,
+                self::FIELD_STATE => self::STATE_OFF,
                 'config_key' => 'atlas.memory.fusion_v2_enabled',
-                'shadow_minimum_window' => '7d',
-                'flip_criterion' => 'golden v2 shows RRF cross-source precision improvement with OFF byte-identical',
-                'rollback_trigger' => 'return to legacy ranking formula on golden v2 regression or improper floor discard',
-                'judge_engine_id' => 'codex-elev26s-judge',
-                'receipt' => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:330',
+                self::FIELD_SHADOW_MINIMUM_WINDOW => '7d',
+                self::FIELD_FLIP_CRITERION => 'golden v2 shows RRF cross-source precision improvement with OFF byte-identical',
+                self::FIELD_ROLLBACK_TRIGGER => 'return to legacy ranking formula on golden v2 regression or improper floor discard',
+                self::FIELD_JUDGE_ENGINE_ID => 'codex-elev26s-judge',
+                self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:330',
             ],
             [
                 'id' => 'acos.land.autonomous_verification_required',
-                'family' => 'ASI',
+                self::FIELD_FAMILY => 'ASI',
                 'slice' => 'ASI-10',
-                'state' => self::STATE_OFF,
-                'shadow_minimum_window' => '7d',
-                'flip_criterion' => 'MULTV-01/02 receipts cover derived tier and verified_share floor is green',
-                'rollback_trigger' => 'disable autonomous land enforcement on false block or receipt-seal regression',
-                'judge_engine_id' => 'codex-elev26s-judge',
-                'receipt' => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:2681',
+                self::FIELD_STATE => self::STATE_OFF,
+                self::FIELD_SHADOW_MINIMUM_WINDOW => '7d',
+                self::FIELD_FLIP_CRITERION => 'MULTV-01/02 receipts cover derived tier and verified_share floor is green',
+                self::FIELD_ROLLBACK_TRIGGER => 'disable autonomous land enforcement on false block or receipt-seal regression',
+                self::FIELD_JUDGE_ENGINE_ID => 'codex-elev26s-judge',
+                self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:2681',
             ],
             [
                 'id' => 'acos.mutation_score.enforce_by_executor',
-                'family' => 'MULTV',
+                self::FIELD_FAMILY => 'MULTV',
                 'slice' => 'MULTV-03',
-                'state' => self::STATE_OFF,
-                'shadow_minimum_window' => '8 samples per executor',
-                'flip_criterion' => 'mutation MSI low advisory correlates with later real failure for the executor',
-                'rollback_trigger' => 'suspend executor family on negative root A/B or cost breach',
-                'judge_engine_id' => 'codex-elev26s-judge',
-                'receipt' => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:2639',
+                self::FIELD_STATE => self::STATE_OFF,
+                self::FIELD_SHADOW_MINIMUM_WINDOW => '8 samples per executor',
+                self::FIELD_FLIP_CRITERION => 'mutation MSI low advisory correlates with later real failure for the executor',
+                self::FIELD_ROLLBACK_TRIGGER => 'suspend executor family on negative root A/B or cost breach',
+                self::FIELD_JUDGE_ENGINE_ID => 'codex-elev26s-judge',
+                self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:2639',
             ],
             [
                 'id' => 'atlas.memory.contextual_blurb_enabled',
-                'family' => 'RAGX',
+                self::FIELD_FAMILY => 'RAGX',
                 'slice' => 'RAGX-02',
-                'state' => self::STATE_OFF,
+                self::FIELD_STATE => self::STATE_OFF,
                 'config_key' => 'atlas.memory.contextual_blurb_enabled',
-                'shadow_minimum_window' => '20 judged queries',
-                'flip_criterion' => 'code/KB R8 precision@5 improves by >=0.05 with latency reported',
-                'rollback_trigger' => 'disable contextual blurbs on precision regression or hallucinated-blurb sample failure',
-                'judge_engine_id' => 'codex-elev26s-judge',
-                'receipt' => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:2022',
+                self::FIELD_SHADOW_MINIMUM_WINDOW => '20 judged queries',
+                self::FIELD_FLIP_CRITERION => 'code/KB R8 precision@5 improves by >=0.05 with latency reported',
+                self::FIELD_ROLLBACK_TRIGGER => 'disable contextual blurbs on precision regression or hallucinated-blurb sample failure',
+                self::FIELD_JUDGE_ENGINE_ID => 'codex-elev26s-judge',
+                self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:2022',
             ],
         ];
     }
@@ -331,20 +351,20 @@ final class PromotionProtocol
         return [
             [
                 'id' => 'atlas.memory.feedback_ranking_enabled',
-                'family' => 'FEE',
+                self::FIELD_FAMILY => 'FEE',
                 'config_key' => 'atlas.memory.feedback_ranking_enabled',
                 'env_key' => 'ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED',
                 'source' => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:225',
             ],
             [
                 'id' => 'atlas.aobg.semantic_retrieval',
-                'family' => 'AOBG',
+                self::FIELD_FAMILY => 'AOBG',
                 'config_key' => 'atlas.aobg.semantic_retrieval',
                 'source' => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:252',
             ],
             [
                 'id' => 'ATLAS_AOBG_FUSION_ENABLED',
-                'family' => 'AOBG',
+                self::FIELD_FAMILY => 'AOBG',
                 'env_key' => 'ATLAS_AOBG_FUSION_ENABLED',
                 'source' => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:743',
             ],
@@ -370,16 +390,16 @@ final class PromotionProtocol
      */
     private function normalizeManagedEntry(array $entry): array
     {
-        $state = AiValueNormalizer::trimmedStringOrNull($entry['state'] ?? null) ?? self::STATE_OFF;
+        $state = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_STATE] ?? null) ?? self::STATE_OFF;
         if (! in_array($state, self::STATES, true)) {
             $state = self::STATE_OFF;
         }
 
         return array_merge($entry, [
             'id' => AiValueNormalizer::trimmedStringOrNull($entry['id'] ?? null) ?? '',
-            'family' => strtoupper(AiValueNormalizer::trimmedStringOrNull($entry['family'] ?? null) ?? ''),
+            self::FIELD_FAMILY => strtoupper(AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_FAMILY] ?? null) ?? ''),
             'slice' => AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? '',
-            'state' => $state,
+            self::FIELD_STATE => $state,
             'status' => self::STATUS_MANAGED,
         ]);
     }
@@ -393,7 +413,7 @@ final class PromotionProtocol
 
         return array_merge($payload, [
             'id' => AiValueNormalizer::trimmedStringOrNull($payload['id'] ?? null) ?? '',
-            'family' => strtoupper(AiValueNormalizer::trimmedStringOrNull($payload['family'] ?? null) ?? 'LEGACY'),
+            self::FIELD_FAMILY => strtoupper(AiValueNormalizer::trimmedStringOrNull($payload[self::FIELD_FAMILY] ?? null) ?? 'LEGACY'),
             'status' => self::STATUS_LEGACY_UNMANAGED,
         ]);
     }
@@ -419,14 +439,14 @@ final class PromotionProtocol
      */
     private function observeChallenger(array $context): ?array
     {
-        $author = AiValueNormalizer::trimmedStringOrNull($context['author_engine_id'] ?? null) ?? '';
+        $author = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_AUTHOR_ENGINE_ID] ?? null) ?? '';
         $challenger = AiValueNormalizer::trimmedStringOrNull($context['challenger_engine_id'] ?? null) ?? '';
         if ($author === '' || $challenger === '') {
             return null;
         }
 
         return Esp09IndependentChallengerService::evaluate([
-            'author_engine_id' => $author,
+            self::FIELD_AUTHOR_ENGINE_ID => $author,
             'challenger_engine_id' => $challenger,
             'operator_alignment' => $context['operator_alignment'] ?? null,
             'decision_kind' => $context['decision_kind'] ?? 'ordinary_route',
@@ -437,10 +457,10 @@ final class PromotionProtocol
     {
         $state = null;
         foreach ($this->ledgerEvents() as $event) {
-            if ((AiValueNormalizer::trimmedStringOrNull($event['flag_id'] ?? null) ?? '') !== $flagId) {
+            if ((AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_FLAG_ID] ?? null) ?? '') !== $flagId) {
                 continue;
             }
-            $candidate = (AiValueNormalizer::trimmedStringOrNull($event['to_state'] ?? null) ?? '');
+            $candidate = (AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_TO_STATE] ?? null) ?? '');
             if (in_array($candidate, self::STATES, true)) {
                 $state = $candidate;
             }
@@ -449,7 +469,7 @@ final class PromotionProtocol
             return $state;
         }
 
-        return AiValueNormalizer::trimmedStringOrNull($this->entryById($flagId)['state'] ?? null) ?? self::STATE_OFF;
+        return AiValueNormalizer::trimmedStringOrNull($this->entryById($flagId)[self::FIELD_STATE] ?? null) ?? self::STATE_OFF;
     }
 
     private function familyAlreadyFlippedInWindow(string $family, string $windowId): bool
@@ -458,7 +478,7 @@ final class PromotionProtocol
             if (($event['action'] ?? null) !== 'flip') {
                 continue;
             }
-            if ((AiValueNormalizer::trimmedStringOrNull($event['family'] ?? null) ?? '') === $family
+            if ((AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_FAMILY] ?? null) ?? '') === $family
                 && (AiValueNormalizer::trimmedStringOrNull($event['observation_window_id'] ?? null) ?? '') === $windowId) {
                 return true;
             }
@@ -487,8 +507,8 @@ final class PromotionProtocol
             'status' => self::STATUS_BLOCKED,
             'schema_version' => self::SCHEMA,
             'reason' => $reason,
-            'flag_id' => $flagId,
-            'to_state' => $toState,
+            self::FIELD_FLAG_ID => $flagId,
+            self::FIELD_TO_STATE => $toState,
         ], $extra);
     }
 
@@ -501,7 +521,7 @@ final class PromotionProtocol
         $id = AiValueNormalizer::trimmedStringOrNull($entry['id'] ?? null) ?? '';
         $last = null;
         foreach ($events as $event) {
-            if ((AiValueNormalizer::trimmedStringOrNull($event['flag_id'] ?? null) ?? '') === $id) {
+            if ((AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_FLAG_ID] ?? null) ?? '') === $id) {
                 $last = $event;
             }
         }
@@ -509,20 +529,20 @@ final class PromotionProtocol
         return [
             'id' => $id,
             'status' => self::STATUS_MANAGED,
-            'family' => AiValueNormalizer::trimmedStringOrNull($entry['family'] ?? null) ?? '',
+            self::FIELD_FAMILY => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_FAMILY] ?? null) ?? '',
             'slice' => AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? '',
-            'state' => $last !== null
-                ? (AiValueNormalizer::trimmedStringOrNull($last['to_state'] ?? null) ?? (AiValueNormalizer::trimmedStringOrNull($entry['state'] ?? null) ?? ''))
-                : (AiValueNormalizer::trimmedStringOrNull($entry['state'] ?? null) ?? ''),
+            self::FIELD_STATE => $last !== null
+                ? (AiValueNormalizer::trimmedStringOrNull($last[self::FIELD_TO_STATE] ?? null) ?? (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_STATE] ?? null) ?? ''))
+                : (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_STATE] ?? null) ?? ''),
             'config_key' => $entry['config_key'] ?? null,
             'env_key' => $entry['env_key'] ?? null,
             'operator_only' => (AiValueNormalizer::boolOrNull($entry['operator_only'] ?? null) ?? false),
             'required_fields' => $this->requiredFields($entry),
-            'shadow_minimum_window' => AiValueNormalizer::trimmedStringOrNull($entry['shadow_minimum_window'] ?? null) ?? '',
-            'flip_criterion' => AiValueNormalizer::trimmedStringOrNull($entry['flip_criterion'] ?? null) ?? '',
-            'rollback_trigger' => AiValueNormalizer::trimmedStringOrNull($entry['rollback_trigger'] ?? null) ?? '',
-            'judge_engine_id' => AiValueNormalizer::trimmedStringOrNull($entry['judge_engine_id'] ?? null) ?? '',
-            'receipt' => AiValueNormalizer::trimmedStringOrNull($entry['receipt'] ?? null) ?? '',
+            self::FIELD_SHADOW_MINIMUM_WINDOW => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SHADOW_MINIMUM_WINDOW] ?? null) ?? '',
+            self::FIELD_FLIP_CRITERION => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_FLIP_CRITERION] ?? null) ?? '',
+            self::FIELD_ROLLBACK_TRIGGER => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_ROLLBACK_TRIGGER] ?? null) ?? '',
+            self::FIELD_JUDGE_ENGINE_ID => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_JUDGE_ENGINE_ID] ?? null) ?? '',
+            self::FIELD_RECEIPT => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_RECEIPT] ?? null) ?? '',
             'last_flip' => $last,
         ];
     }
@@ -535,8 +555,8 @@ final class PromotionProtocol
         return [
             'id' => AiValueNormalizer::trimmedStringOrNull($entry['id'] ?? null) ?? '',
             'status' => self::STATUS_LEGACY_UNMANAGED,
-            'family' => AiValueNormalizer::trimmedStringOrNull($entry['family'] ?? null) ?? 'LEGACY',
-            'state' => self::STATE_LEGACY_UNMANAGED,
+            self::FIELD_FAMILY => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_FAMILY] ?? null) ?? 'LEGACY',
+            self::FIELD_STATE => self::STATE_LEGACY_UNMANAGED,
             'config_key' => $entry['config_key'] ?? null,
             'env_key' => $entry['env_key'] ?? null,
             'source' => $entry['source'] ?? null,

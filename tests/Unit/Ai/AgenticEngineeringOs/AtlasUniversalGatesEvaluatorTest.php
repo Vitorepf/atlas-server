@@ -3635,4 +3635,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['rotation_measure_series_floor_count']);
     }
 
+    public function test_promotion_lote2_measure_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->promotionLote2MeasureFloorsContractObserve([]);
+
+        $this->assertSame('family', $payload['promotion_field_family']);
+        $this->assertSame('state', $payload['promotion_field_state']);
+        $this->assertSame('judge_engine_id', $payload['promotion_field_judge_engine_id']);
+        $this->assertSame('author_engine_id', $payload['promotion_field_author_engine_id']);
+        $this->assertSame('receipt', $payload['promotion_field_receipt']);
+        $this->assertSame('to_state', $payload['promotion_field_to_state']);
+        $this->assertSame(5, $payload['promotion_required_field_count']);
+        $this->assertSame('off', $payload['promotion_state_off']);
+        $this->assertSame('measure_id', $payload['lote2_field_measure_id']);
+        $this->assertSame('formula_version', $payload['lote2_field_formula_version']);
+        $this->assertSame('denominator_min', $payload['lote2_field_denominator_min']);
+        $this->assertSame('kind', $payload['lote2_field_kind']);
+        $this->assertSame('status', $payload['lote2_field_status']);
+        $this->assertSame('measured', $payload['lote2_status_measured']);
+        $this->assertSame('slice', $payload['lote2_field_slice']);
+        $this->assertSame('n_pairs', $payload['lote2_field_n_pairs']);
+        $this->assertSame('schema_version', $payload['lote2_field_schema_version']);
+        $this->assertSame(17, $payload['promotion_lote2_measure_floor_count']);
+    }
+
 }

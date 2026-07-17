@@ -86,6 +86,29 @@ final class AcosMaxLote2MeasureService
 
     public const MISSION_STATUS_SUCCESS = 'success';
 
+    public const FIELD_MEASURE_ID = 'measure_id';
+
+    public const FIELD_FORMULA_VERSION = 'formula_version';
+
+    public const FIELD_DENOMINATOR_MIN = 'denominator_min';
+
+    public const FIELD_KIND = 'kind';
+
+    public const FIELD_FORMULA = 'formula';
+
+    public const FIELD_SLICE = 'slice';
+
+    public const FIELD_STATUS = 'status';
+
+    public const FIELD_REASON = 'reason';
+
+    public const FIELD_MEMORY_TYPE = 'memory_type';
+
+    public const FIELD_N_PAIRS = 'n_pairs';
+
+    public const FIELD_GENERATED_AT = 'generated_at';
+
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -94,12 +117,12 @@ final class AcosMaxLote2MeasureService
         $payloads = self::freezePayloads();
 
         return $payloads[$slice] ?? [
-            'kind' => self::KIND_MEASURE_FREEZE,
-            'measure_id' => AiValueNormalizer::lowerTrimmedString($slice).'.unknown',
-            'formula_version' => AiValueNormalizer::lowerTrimmedString($slice).'.unknown',
-            'formula' => 'Unknown LOTE 2 measure freeze.',
+            self::FIELD_KIND => self::KIND_MEASURE_FREEZE,
+            self::FIELD_MEASURE_ID => AiValueNormalizer::lowerTrimmedString($slice).'.unknown',
+            self::FIELD_FORMULA_VERSION => AiValueNormalizer::lowerTrimmedString($slice).'.unknown',
+            self::FIELD_FORMULA => 'Unknown LOTE 2 measure freeze.',
             'thresholds' => [],
-            'denominator_min' => 1,
+            self::FIELD_DENOMINATOR_MIN => 1,
             'ttl_days' => 30,
             'author_engine_id' => 'cursor-acos-max-lote2',
             'judge_engine_id' => 'codex-independent-lote2-judge',
@@ -110,7 +133,7 @@ final class AcosMaxLote2MeasureService
     public function maxl06DeltaAttribution(): array
     {
         return $this->emptyReport('MAXL-06', self::STATUS_PENDING_WINDOW, self::REASON_MISSING_LINEAGE_LEDGER, [
-            'measure_id' => self::MAXL06_MEASURE_ID,
+            self::FIELD_MEASURE_ID => self::MAXL06_MEASURE_ID,
             'basis' => self::BASIS_UNAVAILABLE,
             'allowed_basis' => ['lineage_ledger', 'git_log'],
             'counterfactual_basis' => 'none',
@@ -126,8 +149,8 @@ final class AcosMaxLote2MeasureService
         $originations = $this->countTableIfPresent('atlas_loop_origination_outcomes');
 
         return $this->emptyReport('MULTN17-04', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_PENDING_REAL_ORIGINATOR_OUTCOME, [
-            'measure_id' => self::MULTN1704_MEASURE_ID,
-            'denominator_min' => 20,
+            self::FIELD_MEASURE_ID => self::MULTN1704_MEASURE_ID,
+            self::FIELD_DENOMINATOR_MIN => 20,
             'denominator' => [
                 'originations' => $originations,
                 'resolved_outcomes' => 0,
@@ -144,8 +167,8 @@ final class AcosMaxLote2MeasureService
         $missingTables = array_values(array_filter($requiredTables, static fn (string $table): bool => ! Schema::hasTable($table)));
         if ($missingTables !== []) {
             return $this->emptyReport('MULTX-01', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_LOOP_SOURCE_TABLES_MISSING, [
-                'measure_id' => self::MULTX01_MEASURE_ID,
-                'denominator_min' => 1,
+                self::FIELD_MEASURE_ID => self::MULTX01_MEASURE_ID,
+                self::FIELD_DENOMINATOR_MIN => 1,
                 'loops_complete' => 0,
                 'loops' => [],
                 'loops_partial' => [],
@@ -215,15 +238,15 @@ final class AcosMaxLote2MeasureService
         $blockedByTop = $this->blockedByTopN($partial, 10);
 
         return [
-            'schema_version' => self::REPORT_SCHEMA,
-            'slice' => 'MULTX-01',
-            'status' => $marcoSatisfied ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SIGNAL,
-            'reason' => $marcoSatisfied ? null : 'no_complete_proven_real_loop_window',
-            'formula_version' => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload('MULTX-01'), 'formula_version')) ?? '',
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_SCHEMA_VERSION => self::REPORT_SCHEMA,
+            self::FIELD_SLICE => 'MULTX-01',
+            self::FIELD_STATUS => $marcoSatisfied ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SIGNAL,
+            self::FIELD_REASON => $marcoSatisfied ? null : 'no_complete_proven_real_loop_window',
+            self::FIELD_FORMULA_VERSION => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload('MULTX-01'), self::FIELD_FORMULA_VERSION)) ?? '',
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
             'freeze' => self::freezePayload('MULTX-01'),
-            'measure_id' => self::MULTX01_MEASURE_ID,
-            'denominator_min' => 1,
+            self::FIELD_MEASURE_ID => self::MULTX01_MEASURE_ID,
+            self::FIELD_DENOMINATOR_MIN => 1,
             'loops_complete' => $loopsComplete,
             'loops' => $loops,
             'loops_partial' => $partial,
@@ -272,7 +295,7 @@ final class AcosMaxLote2MeasureService
         arsort($counts);
         $top = [];
         foreach (array_slice($counts, 0, max(1, $limit), true) as $reason => $count) {
-            $top[] = ['reason' => AiValueNormalizer::trimmedScalarStringOrNull($reason) ?? '', 'count' => (int) $count];
+            $top[] = [self::FIELD_REASON => AiValueNormalizer::trimmedScalarStringOrNull($reason) ?? '', 'count' => (int) $count];
         }
 
         return $top;
@@ -472,8 +495,8 @@ final class AcosMaxLote2MeasureService
 
         if ($missingTables !== []) {
             return $this->emptyReport('MULTX-06', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_LEARNING_LATENCY_SOURCE_TABLES_MISSING, [
-                'measure_id' => self::MULTX06_MEASURE_ID,
-                'denominator_min' => $denominatorMin,
+                self::FIELD_MEASURE_ID => self::MULTX06_MEASURE_ID,
+                self::FIELD_DENOMINATOR_MIN => $denominatorMin,
                 'n' => 0,
                 'by_lesson_class' => [],
                 'never_delivered' => 0,
@@ -580,15 +603,15 @@ final class AcosMaxLote2MeasureService
         $status = $n >= $denominatorMin ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SIGNAL;
 
         return [
-            'schema_version' => self::REPORT_SCHEMA,
-            'slice' => 'MULTX-06',
-            'status' => $status,
-            'reason' => $status === self::STATUS_OK ? null : 'promoted_lesson_denominator_below_min',
-            'formula_version' => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload('MULTX-06'), 'formula_version')) ?? '',
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_SCHEMA_VERSION => self::REPORT_SCHEMA,
+            self::FIELD_SLICE => 'MULTX-06',
+            self::FIELD_STATUS => $status,
+            self::FIELD_REASON => $status === self::STATUS_OK ? null : 'promoted_lesson_denominator_below_min',
+            self::FIELD_FORMULA_VERSION => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload('MULTX-06'), self::FIELD_FORMULA_VERSION)) ?? '',
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
             'freeze' => self::freezePayload('MULTX-06'),
-            'measure_id' => self::MULTX06_MEASURE_ID,
-            'denominator_min' => $denominatorMin,
+            self::FIELD_MEASURE_ID => self::MULTX06_MEASURE_ID,
+            self::FIELD_DENOMINATOR_MIN => $denominatorMin,
             'n' => $n,
             'by_lesson_class' => $this->learningLatencyByClass($byClass),
             'never_delivered' => $neverDelivered,
@@ -645,8 +668,8 @@ final class AcosMaxLote2MeasureService
     public function multj01LessonHalfLife(): array
     {
         return $this->emptyReport('MULTJ-01', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_NO_MEASURED_LESSON_USAGE_BUCKETS, [
-            'measure_id' => self::MULTJ01_MEASURE_ID,
-            'denominator_min' => 8,
+            self::FIELD_MEASURE_ID => self::MULTJ01_MEASURE_ID,
+            self::FIELD_DENOMINATOR_MIN => 8,
             'bucket_width_weeks' => 2,
             'memory_types' => [],
             'buckets' => [],
@@ -657,7 +680,7 @@ final class AcosMaxLote2MeasureService
     public function multj02DedupCalibration(): array
     {
         return $this->emptyReport('MULTJ-02', self::STATUS_PENDING_WINDOW, self::REASON_CALIBRATION_FREEZE_ONLY, [
-            'measure_id' => self::MULTJ02_MEASURE_ID,
+            self::FIELD_MEASURE_ID => self::MULTJ02_MEASURE_ID,
             'mode' => self::MODE_OBSERVE,
             'would_merge_count' => 0,
             'actual_merge_count' => 0,
@@ -674,11 +697,11 @@ final class AcosMaxLote2MeasureService
 
         if (! Schema::hasTable('ai_rag_feedback_events')) {
             return $this->emptyReport('MULTJ-03', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_PAIRED_FEEDBACK_TABLE_MISSING, [
-                'measure_id' => self::MULTJ03_MEASURE_ID,
-                'denominator_min' => $denominatorMin,
+                self::FIELD_MEASURE_ID => self::MULTJ03_MEASURE_ID,
+                self::FIELD_DENOMINATOR_MIN => $denominatorMin,
                 'sample_rate' => $sampleRate,
                 'rate' => $sampleRate,
-                'n_pairs' => 0,
+                self::FIELD_N_PAIRS => 0,
                 'paired_delta' => null,
                 'memory_types' => [],
                 'peek_policy' => [
@@ -708,12 +731,12 @@ final class AcosMaxLote2MeasureService
             }
 
             $pairs[$pairId] ??= [
-                'memory_type' => $this->memoryTypeFromCounterfactualMeta($meta),
+                self::FIELD_MEMORY_TYPE => $this->memoryTypeFromCounterfactualMeta($meta),
                 'rows' => [],
                 'policy_violation_rows' => 0,
             ];
-            $pairs[$pairId]['memory_type'] = $pairs[$pairId]['memory_type'] !== self::MEMORY_TYPE_UNKNOWN
-                ? $pairs[$pairId]['memory_type']
+            $pairs[$pairId][self::FIELD_MEMORY_TYPE] = $pairs[$pairId][self::FIELD_MEMORY_TYPE] !== self::MEMORY_TYPE_UNKNOWN
+                ? $pairs[$pairId][self::FIELD_MEMORY_TYPE]
                 : $this->memoryTypeFromCounterfactualMeta($meta);
             $pairs[$pairId]['rows'][$arm] = [
                 'score' => $this->counterfactualScore($row, $meta),
@@ -744,18 +767,18 @@ final class AcosMaxLote2MeasureService
                 continue;
             }
 
-            $memoryType = (AiValueNormalizer::trimmedStringOrNull($pair['memory_type'] ?? null) ?? self::MEMORY_TYPE_UNKNOWN);
+            $memoryType = (AiValueNormalizer::trimmedStringOrNull($pair[self::FIELD_MEMORY_TYPE] ?? null) ?? self::MEMORY_TYPE_UNKNOWN);
             $control = AiValueNormalizer::finiteFloatOrNull($rows['control']['score'] ?? null) ?? 0.0;
             $treatment = AiValueNormalizer::finiteFloatOrNull($rows['treatment']['score'] ?? null) ?? 0.0;
             $delta = round($treatment - $control, 4);
             $groups[$memoryType] ??= [
-                'memory_type' => $memoryType,
-                'n_pairs' => 0,
+                self::FIELD_MEMORY_TYPE => $memoryType,
+                self::FIELD_N_PAIRS => 0,
                 'control_score_sum' => 0.0,
                 'treatment_score_sum' => 0.0,
                 'delta_sum' => 0.0,
             ];
-            $groups[$memoryType]['n_pairs']++;
+            $groups[$memoryType][self::FIELD_N_PAIRS]++;
             $groups[$memoryType]['control_score_sum'] += $control;
             $groups[$memoryType]['treatment_score_sum'] += $treatment;
             $groups[$memoryType]['delta_sum'] += $delta;
@@ -770,28 +793,28 @@ final class AcosMaxLote2MeasureService
             fn (array $group): array => $this->finalizeCounterfactualLiftGroup($group, $denominatorMin),
             $groups,
         ));
-        usort($memoryTypes, static fn (array $a, array $b): int => $a['memory_type'] <=> $b['memory_type']);
+        usort($memoryTypes, static fn (array $a, array $b): int => $a[self::FIELD_MEMORY_TYPE] <=> $b[self::FIELD_MEMORY_TYPE]);
 
-        $measured = array_values(array_filter($memoryTypes, static fn (array $group): bool => $group['status'] === self::STATUS_MEASURED));
+        $measured = array_values(array_filter($memoryTypes, static fn (array $group): bool => $group[self::FIELD_STATUS] === self::STATUS_MEASURED));
         $measuredPairs = array_sum(array_column($measured, 'n_pairs'));
         $measuredDeltaSum = array_sum(array_map(
-            static fn (array $group): float => (AiValueNormalizer::finiteFloatOrNull($group['paired_delta'] ?? null) ?? 0.0) * (int) $group['n_pairs'],
+            static fn (array $group): float => (AiValueNormalizer::finiteFloatOrNull($group['paired_delta'] ?? null) ?? 0.0) * (int) $group[self::FIELD_N_PAIRS],
             $measured,
         ));
 
         return [
-            'schema_version' => self::REPORT_SCHEMA,
-            'slice' => 'MULTJ-03',
-            'status' => $measuredPairs > 0 ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SIGNAL,
-            'reason' => $measuredPairs > 0 ? null : 'paired_peek_floor_below_minimum',
-            'formula_version' => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload('MULTJ-03'), 'formula_version')) ?? '',
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_SCHEMA_VERSION => self::REPORT_SCHEMA,
+            self::FIELD_SLICE => 'MULTJ-03',
+            self::FIELD_STATUS => $measuredPairs > 0 ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SIGNAL,
+            self::FIELD_REASON => $measuredPairs > 0 ? null : 'paired_peek_floor_below_minimum',
+            self::FIELD_FORMULA_VERSION => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload('MULTJ-03'), self::FIELD_FORMULA_VERSION)) ?? '',
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
             'freeze' => self::freezePayload('MULTJ-03'),
-            'measure_id' => self::MULTJ03_MEASURE_ID,
-            'denominator_min' => $denominatorMin,
+            self::FIELD_MEASURE_ID => self::MULTJ03_MEASURE_ID,
+            self::FIELD_DENOMINATOR_MIN => $denominatorMin,
             'sample_rate' => $sampleRate,
             'rate' => $sampleRate,
-            'n_pairs' => count($validDeltas),
+            self::FIELD_N_PAIRS => count($validDeltas),
             'paired_delta' => $measuredPairs > 0 ? round($measuredDeltaSum / $measuredPairs, 4) : null,
             'memory_types' => $memoryTypes,
             'peek_policy' => [
@@ -827,12 +850,12 @@ final class AcosMaxLote2MeasureService
      */
     private function finalizeCounterfactualLiftGroup(array $group, int $denominatorMin): array
     {
-        $n = (int) (AiValueNormalizer::finiteFloatOrNull($group['n_pairs'] ?? null) ?? 0);
+        $n = (int) (AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_N_PAIRS] ?? null) ?? 0);
 
         return [
-            'memory_type' => AiValueNormalizer::trimmedScalarStringOrNull($group['memory_type'] ?? null) ?? '',
-            'status' => $n >= $denominatorMin ? self::STATUS_MEASURED : self::STATUS_INSUFFICIENT_SIGNAL,
-            'n_pairs' => $n,
+            self::FIELD_MEMORY_TYPE => AiValueNormalizer::trimmedScalarStringOrNull($group[self::FIELD_MEMORY_TYPE] ?? null) ?? '',
+            self::FIELD_STATUS => $n >= $denominatorMin ? self::STATUS_MEASURED : self::STATUS_INSUFFICIENT_SIGNAL,
+            self::FIELD_N_PAIRS => $n,
             'control_score_mean' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group['control_score_sum'] ?? null) ?? 0.0) / $n, 4) : null,
             'treatment_score_mean' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group['treatment_score_sum'] ?? null) ?? 0.0) / $n, 4) : null,
             'paired_delta' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group['delta_sum'] ?? null) ?? 0.0) / $n, 4) : null,
@@ -881,7 +904,7 @@ final class AcosMaxLote2MeasureService
      */
     private function memoryTypeFromCounterfactualMeta(array $meta): string
     {
-        $memoryType = AiValueNormalizer::trimmedStringOrNull($meta['memory_type'] ?? null) ?? '';
+        $memoryType = AiValueNormalizer::trimmedStringOrNull($meta[self::FIELD_MEMORY_TYPE] ?? null) ?? '';
 
         return $memoryType === '' ? self::MEMORY_TYPE_UNKNOWN : $memoryType;
     }
@@ -901,8 +924,8 @@ final class AcosMaxLote2MeasureService
     {
         if (! Schema::hasTable('atlas_mission_deliveries')) {
             return $this->emptyReport('TETO-02', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_MISSION_DELIVERY_TABLE_MISSING, [
-                'measure_id' => self::TETO02_MEASURE_ID,
-                'denominator_min' => 20,
+                self::FIELD_MEASURE_ID => self::TETO02_MEASURE_ID,
+                self::FIELD_DENOMINATOR_MIN => 20,
                 'window_days' => $days,
                 'denominator' => ['operator_requests' => 0],
             ]);
@@ -922,15 +945,15 @@ final class AcosMaxLote2MeasureService
         ], true))->count();
 
         return [
-            'schema_version' => self::REPORT_SCHEMA,
-            'slice' => 'TETO-02',
-            'status' => $total >= 20 ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SIGNAL,
-            'reason' => $total >= 20 ? null : 'operator_request_window_below_floor',
-            'measure_id' => self::TETO02_MEASURE_ID,
-            'formula_version' => 'mission_e2e_rate.v1',
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_SCHEMA_VERSION => self::REPORT_SCHEMA,
+            self::FIELD_SLICE => 'TETO-02',
+            self::FIELD_STATUS => $total >= 20 ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SIGNAL,
+            self::FIELD_REASON => $total >= 20 ? null : 'operator_request_window_below_floor',
+            self::FIELD_MEASURE_ID => self::TETO02_MEASURE_ID,
+            self::FIELD_FORMULA_VERSION => 'mission_e2e_rate.v1',
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
             'freeze' => self::freezePayload('TETO-02'),
-            'denominator_min' => 20,
+            self::FIELD_DENOMINATOR_MIN => 20,
             'window_days' => $days,
             'metrics' => [
                 'operator_requests' => $total,
@@ -966,12 +989,12 @@ final class AcosMaxLote2MeasureService
     private static function payload(string $measureId, string $formulaVersion, string $formula, int $denominatorMin, int $ttlDays, string $author, string $judge, array $thresholds): array
     {
         return [
-            'kind' => self::KIND_MEASURE_FREEZE,
-            'measure_id' => $measureId,
-            'formula_version' => $formulaVersion,
-            'formula' => $formula,
+            self::FIELD_KIND => self::KIND_MEASURE_FREEZE,
+            self::FIELD_MEASURE_ID => $measureId,
+            self::FIELD_FORMULA_VERSION => $formulaVersion,
+            self::FIELD_FORMULA => $formula,
             'thresholds' => $thresholds,
-            'denominator_min' => $denominatorMin,
+            self::FIELD_DENOMINATOR_MIN => $denominatorMin,
             'ttl_days' => $ttlDays,
             'author_engine_id' => $author,
             'judge_engine_id' => $judge,
@@ -983,12 +1006,12 @@ final class AcosMaxLote2MeasureService
     private function emptyReport(string $slice, string $status, string $reason, array $extra): array
     {
         return array_merge([
-            'schema_version' => self::REPORT_SCHEMA,
-            'slice' => $slice,
-            'status' => $status,
-            'reason' => $reason,
-            'formula_version' => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload($slice), 'formula_version')) ?? '',
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_SCHEMA_VERSION => self::REPORT_SCHEMA,
+            self::FIELD_SLICE => $slice,
+            self::FIELD_STATUS => $status,
+            self::FIELD_REASON => $reason,
+            self::FIELD_FORMULA_VERSION => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload($slice), self::FIELD_FORMULA_VERSION)) ?? '',
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
             'freeze' => self::freezePayload($slice),
         ], $extra);
     }
