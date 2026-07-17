@@ -2295,4 +2295,37 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('spec_pack_hash', $payload['architect_evidence_required']);
         $this->assertSame(2, $payload['architect_evidence_required_count']);
     }
+
+    public function test_phase_doc_promotion_ids_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->phaseDocPromotionIdsContractObserve([]);
+
+        $this->assertContains('intent_capture', $payload['phase_ids']);
+        $this->assertContains('gates', $payload['phase_ids']);
+        $this->assertContains('learning', $payload['phase_ids']);
+        $this->assertSame(17, $payload['phase_id_count']);
+        $this->assertSame('policy_gate', $payload['phase_advance_policy_gate']);
+        $this->assertSame('receipt', $payload['phase_advance_receipt']);
+        $this->assertSame('policy_decision_allowed_true', $payload['policy_gate_token']);
+        $this->assertSame('advance', $payload['verdict_advance']);
+        $this->assertSame('repair', $payload['verdict_repair']);
+        $this->assertSame('block', $payload['verdict_block']);
+        $this->assertSame('halt', $payload['verdict_halt']);
+        $this->assertSame('DOC L0', $payload['doc_level_l0']);
+        $this->assertSame('DOC L4', $payload['doc_level_l4']);
+        $this->assertSame('none', $payload['doc_strength_none']);
+        $this->assertSame('partial', $payload['doc_strength_partial']);
+        $this->assertSame('strong', $payload['doc_strength_strong']);
+        $this->assertSame('off', $payload['promotion_state_off']);
+        $this->assertSame('shadow', $payload['promotion_state_shadow']);
+        $this->assertSame('live', $payload['promotion_state_live']);
+        $this->assertSame('rolled_back', $payload['promotion_state_rolled_back']);
+        $this->assertSame('suspended_pending_evidence', $payload['promotion_state_suspended_pending_evidence']);
+        $this->assertStringContainsString('acos-max-promotion-flips.jsonl', $payload['promotion_default_ledger_relative_path']);
+        $this->assertContains('flip_criterion', $payload['promotion_required_fields']);
+        $this->assertSame(5, $payload['promotion_required_field_count']);
+        $this->assertSame('owner_doc', $payload['claim_field_owner_doc']);
+        $this->assertSame('proof', $payload['claim_field_proof']);
+        $this->assertSame('caveat', $payload['claim_field_caveat']);
+    }
 }

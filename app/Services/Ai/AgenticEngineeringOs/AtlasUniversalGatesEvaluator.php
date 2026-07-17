@@ -3297,6 +3297,73 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only individual phase / doc-maturity / promotion id floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function phaseDocPromotionIdsContractObserve(array $input = []): array
+    {
+        return [
+            'phase_handoff_schema' => AaeosPhaseHandoffService::SCHEMA_VERSION,
+            'phase_ids' => [
+                AaeosPhaseHandoffService::PHASE_INTENT_CAPTURE,
+                AaeosPhaseHandoffService::PHASE_DISAMBIGUATION,
+                AaeosPhaseHandoffService::PHASE_PLACEMENT,
+                AaeosPhaseHandoffService::PHASE_CLASSIFICATION,
+                AaeosPhaseHandoffService::PHASE_POLICY_GATE,
+                AaeosPhaseHandoffService::PHASE_TOPOLOGY,
+                AaeosPhaseHandoffService::PHASE_ROUTING,
+                AaeosPhaseHandoffService::PHASE_SPEC,
+                AaeosPhaseHandoffService::PHASE_TASKS,
+                AaeosPhaseHandoffService::PHASE_RECEIPT,
+                AaeosPhaseHandoffService::PHASE_EXECUTION,
+                AaeosPhaseHandoffService::PHASE_GATES,
+                AaeosPhaseHandoffService::PHASE_EVIDENCE,
+                AaeosPhaseHandoffService::PHASE_DELIVERY,
+                AaeosPhaseHandoffService::PHASE_HUMAN_REVIEW,
+                AaeosPhaseHandoffService::PHASE_CERTIFICATION,
+                AaeosPhaseHandoffService::PHASE_LEARNING,
+            ],
+            'phase_id_count' => 17,
+            'phase_advance_schema' => PhaseAdvanceVerdictClassifier::SCHEMA_VERSION,
+            'phase_advance_policy_gate' => PhaseAdvanceVerdictClassifier::PHASE_POLICY_GATE,
+            'phase_advance_receipt' => PhaseAdvanceVerdictClassifier::PHASE_RECEIPT,
+            'policy_gate_token' => PhaseAdvanceVerdictClassifier::POLICY_GATE_TOKEN,
+            'verdict_advance' => PhaseAdvanceVerdictClassifier::VERDICT_ADVANCE,
+            'verdict_repair' => PhaseAdvanceVerdictClassifier::VERDICT_REPAIR,
+            'verdict_block' => PhaseAdvanceVerdictClassifier::VERDICT_BLOCK,
+            'verdict_halt' => PhaseAdvanceVerdictClassifier::VERDICT_HALT,
+            'doc_maturity_schema' => AtlasAaeosDocMaturityClassifier::SCHEMA_VERSION,
+            'doc_level_l0' => AtlasAaeosDocMaturityClassifier::LEVEL_L0,
+            'doc_level_l1' => AtlasAaeosDocMaturityClassifier::LEVEL_L1,
+            'doc_level_l2' => AtlasAaeosDocMaturityClassifier::LEVEL_L2,
+            'doc_level_l3' => AtlasAaeosDocMaturityClassifier::LEVEL_L3,
+            'doc_level_l4' => AtlasAaeosDocMaturityClassifier::LEVEL_L4,
+            'doc_strength_none' => AtlasAaeosDocMaturityClassifier::STRENGTH_NONE,
+            'doc_strength_partial' => AtlasAaeosDocMaturityClassifier::STRENGTH_PARTIAL,
+            'doc_strength_strong' => AtlasAaeosDocMaturityClassifier::STRENGTH_STRONG,
+            'promotion_schema' => PromotionProtocol::SCHEMA,
+            'promotion_state_off' => PromotionProtocol::STATE_OFF,
+            'promotion_state_shadow' => PromotionProtocol::STATE_SHADOW,
+            'promotion_state_live' => PromotionProtocol::STATE_LIVE,
+            'promotion_state_rolled_back' => PromotionProtocol::STATE_ROLLED_BACK,
+            'promotion_state_suspended_pending_evidence' => PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE,
+            'promotion_default_ledger_relative_path' => PromotionProtocol::DEFAULT_LEDGER_RELATIVE_PATH,
+            'promotion_required_fields' => PromotionProtocol::REQUIRED_FIELDS,
+            'promotion_required_field_count' => count(PromotionProtocol::REQUIRED_FIELDS),
+            'claim_dod_schema' => AtlasAaeosClaimDefinitionOfDoneValidator::SCHEMA_VERSION,
+            'claim_field_owner_doc' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_OWNER_DOC,
+            'claim_field_documental_state' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_DOCUMENTAL_STATE,
+            'claim_field_runtime_state' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_RUNTIME_STATE,
+            'claim_field_code_command_path' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_CODE_COMMAND_PATH,
+            'claim_field_proof' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_PROOF,
+            'claim_field_caveat' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_CAVEAT,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>
