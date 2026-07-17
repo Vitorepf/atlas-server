@@ -19,7 +19,7 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
     /** @param array<string,mixed> $native @param array<string,mixed> $context */
     public function toEnvelope(array $native, array $context = []): OutcomeEnvelope
     {
-        $status = $this->mapStatus((string) ($native['outcome_status'] ?? 'needs_review'));
+        $status = OutcomeEnvelope::normalizeStatus((string) ($native['outcome_status'] ?? 'needs_review'));
         $provenReal = (bool) ($native['proven_real'] ?? false);
         $fakeGreen = (bool) ($native['fake_green'] ?? false);
         $verifiedSourcePresent = array_key_exists('proven_real', $native);
@@ -77,15 +77,6 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
             'learning_candidates' => is_array($fields['learning_candidates'] ?? null) ? $fields['learning_candidates'] : [],
             'should_promote_to_aemor' => (bool) ($fields['should_promote_to_aemor'] ?? false),
         ];
-    }
-
-    private function mapStatus(string $nativeStatus): string
-    {
-        return match ($nativeStatus) {
-            'success', 'succeeded', 'passed' => 'succeeded',
-            'failed', 'failure' => 'failed',
-            default => 'blocked',
-        };
     }
 
     private function reverseStatus(string $envelopeStatus): string

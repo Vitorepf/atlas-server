@@ -31,11 +31,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         };
 
         $outcomeStatus = strtolower(trim((string) ($native['outcome_status'] ?? $native['status'] ?? 'passed')));
-        $status = match ($outcomeStatus) {
-            'passed', 'succeeded', 'success' => 'succeeded',
-            'failed', 'failure' => 'failed',
-            default => 'blocked',
-        };
+        $status = OutcomeEnvelope::normalizeStatus($outcomeStatus);
 
         $verifiedSourcePresent = array_key_exists('verified', $native)
             || is_array($native['payload']['outcome_contract_v2'] ?? null);

@@ -23,14 +23,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public function toEnvelope(array $native, array $context = []): OutcomeEnvelope
     {
         $executor = strtolower(trim((string) ($native['executor'] ?? $context['executor'] ?? 'engineering')));
-        $status = strtolower(trim((string) ($native['status'] ?? 'blocked')));
-        if (! in_array($status, OutcomeEnvelope::STATUSES, true)) {
-            $status = match ($status) {
-                'succeeded' => 'succeeded',
-                'failed' => 'failed',
-                default => 'blocked',
-            };
-        }
+        $status = OutcomeEnvelope::normalizeStatus((string) ($native['status'] ?? 'blocked'));
 
         $contract = is_array($context['outcome_contract_v2'] ?? null)
             ? $context['outcome_contract_v2']

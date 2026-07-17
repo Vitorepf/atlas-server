@@ -23,6 +23,19 @@ final class OutcomeEnvelope
 
     public const STATUSES = ['succeeded', 'failed', 'blocked'];
 
+    /**
+     * Map divergent native status labels onto the shared envelope statuses.
+     * Unknown / review-like values fail closed to blocked (never invent success).
+     */
+    public static function normalizeStatus(string $nativeStatus): string
+    {
+        return match (strtolower(trim($nativeStatus))) {
+            'succeeded', 'success', 'passed' => 'succeeded',
+            'failed', 'failure' => 'failed',
+            default => 'blocked',
+        };
+    }
+
     /** @param array<string,mixed> $data */
     private function __construct(private readonly array $data) {}
 
