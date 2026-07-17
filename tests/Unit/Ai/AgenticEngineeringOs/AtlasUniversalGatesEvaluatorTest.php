@@ -3953,4 +3953,28 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['obra_lote2_health_floor_count']);
     }
 
+    public function test_volume_cockpit_rollback_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->volumeCockpitRollbackFloorsContractObserve([]);
+
+        $this->assertSame('available', $payload['volume_field_available']);
+        $this->assertSame('count', $payload['volume_field_count']);
+        $this->assertSame('sources', $payload['volume_field_sources']);
+        $this->assertSame('status', $payload['volume_field_status']);
+        $this->assertSame('healthy', $payload['volume_status_healthy']);
+        $this->assertSame('atlas.acos.operational_volume.v1', $payload['volume_schema_version']);
+        $this->assertSame('status', $payload['cockpit_field_status']);
+        $this->assertSame('source', $payload['cockpit_field_source']);
+        $this->assertSame('payload', $payload['cockpit_field_payload']);
+        $this->assertSame('lines', $payload['cockpit_field_lines']);
+        $this->assertSame('ok', $payload['cockpit_status_ok']);
+        $this->assertSame('atlas.acos.cockpit.v1', $payload['cockpit_schema_version']);
+        $this->assertSame('slices', $payload['rollback_field_slices']);
+        $this->assertSame('rollback_action', $payload['rollback_field_rollback_action']);
+        $this->assertSame('executor', $payload['rollback_field_executor']);
+        $this->assertSame('status', $payload['rollback_field_status']);
+        $this->assertSame('atlas.acos.rollback_triggers.v1', $payload['rollback_schema_version']);
+        $this->assertSame(17, $payload['volume_cockpit_rollback_floor_count']);
+    }
+
 }

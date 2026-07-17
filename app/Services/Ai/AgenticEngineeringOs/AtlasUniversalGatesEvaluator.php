@@ -5565,6 +5565,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function volumeCockpitRollbackFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'volume_field_available' => AtlasOperationalVolumeCheckService::FIELD_AVAILABLE,
+            'volume_field_count' => AtlasOperationalVolumeCheckService::FIELD_COUNT,
+            'volume_field_sources' => AtlasOperationalVolumeCheckService::FIELD_SOURCES,
+            'volume_field_status' => AtlasOperationalVolumeCheckService::FIELD_STATUS,
+            'volume_status_healthy' => AtlasOperationalVolumeCheckService::STATUS_HEALTHY,
+            'volume_schema_version' => AtlasOperationalVolumeCheckService::SCHEMA_VERSION,
+            'cockpit_field_status' => AcosProgramCockpitService::FIELD_STATUS,
+            'cockpit_field_source' => AcosProgramCockpitService::FIELD_SOURCE,
+            'cockpit_field_payload' => AcosProgramCockpitService::FIELD_PAYLOAD,
+            'cockpit_field_lines' => AcosProgramCockpitService::FIELD_LINES,
+            'cockpit_status_ok' => AcosProgramCockpitService::STATUS_OK,
+            'cockpit_schema_version' => AcosProgramCockpitService::SCHEMA_VERSION,
+            'rollback_field_slices' => AtlasAcosRollbackTriggerCheckService::FIELD_SLICES,
+            'rollback_field_rollback_action' => AtlasAcosRollbackTriggerCheckService::FIELD_ROLLBACK_ACTION,
+            'rollback_field_executor' => AtlasAcosRollbackTriggerCheckService::FIELD_EXECUTOR,
+            'rollback_field_status' => AtlasAcosRollbackTriggerCheckService::FIELD_STATUS,
+            'rollback_schema_version' => AtlasAcosRollbackTriggerCheckService::SCHEMA_VERSION,
+            'volume_cockpit_rollback_floor_count' => 17,
+        ];
+    }
+
     public function tetoCognitiveHmacFloorsContractObserve(array $input = []): array
     {
         return [

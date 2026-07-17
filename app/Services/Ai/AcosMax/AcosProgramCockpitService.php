@@ -26,6 +26,13 @@ final class AcosProgramCockpitService
     public const REASON_SOURCE_UNAVAILABLE = 'source_unavailable';
 
     public const FIELD_ERROR = 'error';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_PAYLOAD = 'payload';
+    public const FIELD_LINES = 'lines';
+    public const FIELD_OK = 'ok';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_SECTIONS = 'sections';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -38,7 +45,7 @@ final class AcosProgramCockpitService
             'external_provider_call' => false,
             'provider_tokens_spent' => false,
             'mutates_state' => false,
-            'sections' => [
+            self::FIELD_SECTIONS => [
                 'm' => $this->commandSection('atlas:acos:m-series --json', 'atlas:acos:m-series', ['--json' => true]),
                 'r' => $this->commandSection('atlas:atlas-decide:live-feedback --regret --json', 'atlas:atlas-decide:live-feedback', ['--regret' => true, '--json' => true]),
                 'loops_funnel' => $this->loopsFunnelSection(),
@@ -69,10 +76,10 @@ final class AcosProgramCockpitService
             }
 
             return [
-                'status' => self::STATUS_OK,
-                'source' => $source,
+                self::FIELD_STATUS => self::STATUS_OK,
+                self::FIELD_SOURCE => $source,
                 'source_exit_code' => $exitCode,
-                'payload' => $decoded,
+                self::FIELD_PAYLOAD => $decoded,
             ];
         } catch (Throwable $e) {
             return $this->unavailable($source, self::REASON_SOURCE_UNAVAILABLE, [self::FIELD_ERROR => mb_substr($e->getMessage(), 0, 200)]);
@@ -87,9 +94,9 @@ final class AcosProgramCockpitService
     {
         try {
             return [
-                'status' => self::STATUS_OK,
-                'source' => $source,
-                'payload' => $callback(),
+                self::FIELD_STATUS => self::STATUS_OK,
+                self::FIELD_SOURCE => $source,
+                self::FIELD_PAYLOAD => $callback(),
             ];
         } catch (Throwable $e) {
             return $this->unavailable($source, self::REASON_SOURCE_UNAVAILABLE, [self::FIELD_ERROR => mb_substr($e->getMessage(), 0, 200)]);
@@ -100,17 +107,17 @@ final class AcosProgramCockpitService
     private function loopsFunnelSection(): array
     {
         return [
-            'status' => self::STATUS_OK,
-            'source' => [
+            self::FIELD_STATUS => self::STATUS_OK,
+            self::FIELD_SOURCE => [
                 'loops' => 'atlas:flywheel:loops --json',
                 'funnel' => 'MULTX-02 future source',
             ],
-            'payload' => [
+            self::FIELD_PAYLOAD => [
                 'loops' => $this->commandSection('atlas:flywheel:loops --json', 'atlas:flywheel:loops', ['--json' => true]),
                 'funnel' => [
-                    'status' => self::STATUS_UNAVAILABLE,
-                    'source' => 'MULTX-02',
-                    'reason' => self::REASON_SOURCE_NOT_LANDED_YET,
+                    self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
+                    self::FIELD_SOURCE => 'MULTX-02',
+                    self::FIELD_REASON => self::REASON_SOURCE_NOT_LANDED_YET,
                 ],
             ],
         ];
@@ -120,12 +127,12 @@ final class AcosProgramCockpitService
     private function brakesSection(): array
     {
         return [
-            'status' => self::STATUS_OK,
-            'source' => [
+            self::FIELD_STATUS => self::STATUS_OK,
+            self::FIELD_SOURCE => [
                 'rollback_triggers' => 'atlas:acos:rollback-triggers --json',
                 'operational_volume' => 'atlas:acos:operational-volume --json',
             ],
-            'payload' => [
+            self::FIELD_PAYLOAD => [
                 'rollback_triggers' => $this->commandSection('atlas:acos:rollback-triggers --json', 'atlas:acos:rollback-triggers', ['--json' => true]),
                 'operational_volume' => $this->commandSection('atlas:acos:operational-volume --json', 'atlas:acos:operational-volume', ['--json' => true]),
             ],
@@ -148,7 +155,7 @@ final class AcosProgramCockpitService
                 if (is_array($current)) {
                     $blocks[] = $current;
                 }
-                $current = ['heading' => $line, 'lines' => []];
+                $current = ['heading' => $line, self::FIELD_LINES => []];
 
                 continue;
             }
@@ -160,7 +167,7 @@ final class AcosProgramCockpitService
                     continue;
                 }
                 if ((AiValueNormalizer::trimmedStringOrNull($line) ?? '') !== '') {
-                    $current['lines'][] = $line;
+                    $current[self::FIELD_LINES][] = $line;
                 }
             }
         }
@@ -170,7 +177,7 @@ final class AcosProgramCockpitService
 
         $selected = null;
         foreach ($blocks as $block) {
-            $text = implode("\n", AiValueNormalizer::arrayOrEmpty($block['lines'] ?? null));
+            $text = implode("\n", AiValueNormalizer::arrayOrEmpty($block[self::FIELD_LINES] ?? null));
             if (str_contains($text, '[ ]')) {
                 $selected = $block;
                 break;
@@ -182,11 +189,11 @@ final class AcosProgramCockpitService
         }
 
         return [
-            'status' => self::STATUS_OK,
-            'source' => $path,
-            'payload' => [
+            self::FIELD_STATUS => self::STATUS_OK,
+            self::FIELD_SOURCE => $path,
+            self::FIELD_PAYLOAD => [
                 'heading' => AiValueNormalizer::trimmedStringOrNull($selected['heading'] ?? null) ?? '',
-                'lines' => array_values(AiValueNormalizer::arrayOrEmpty($selected['lines'] ?? null)),
+                self::FIELD_LINES => array_values(AiValueNormalizer::arrayOrEmpty($selected[self::FIELD_LINES] ?? null)),
             ],
         ];
     }
@@ -198,9 +205,9 @@ final class AcosProgramCockpitService
     private function unavailable(string $source, string $reason, array $extra = []): array
     {
         return [
-            'status' => self::STATUS_UNAVAILABLE,
-            'source' => $source,
-            'reason' => $reason,
+            self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
+            self::FIELD_SOURCE => $source,
+            self::FIELD_REASON => $reason,
             ...$extra,
         ];
     }
