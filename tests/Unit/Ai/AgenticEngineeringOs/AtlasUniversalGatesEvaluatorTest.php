@@ -3113,4 +3113,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(20, $payload['golden_pareto_scorer_maxa04_floor_count']);
     }
 
+    public function test_parallel_procedural_watchdog_residual_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->parallelProceduralWatchdogResidualFloorsContractObserve([]);
+
+        $this->assertSame('proceed', $payload['parallel_action_proceed']);
+        $this->assertSame('skip', $payload['parallel_action_skip']);
+        $this->assertSame('procedural_playbook', $payload['procedural_kind_playbook']);
+        $this->assertSame('held_for_evidence', $payload['procedural_status_held_for_evidence']);
+        $this->assertSame('unavailable', $payload['cockpit_status_unavailable']);
+        $this->assertSame('analyzed', $payload['debug_status_analyzed']);
+        $this->assertSame('no_baseline', $payload['rerank_status_no_baseline']);
+        $this->assertSame('simulated_fire', $payload['rollback_status_simulated_fire']);
+        $this->assertSame('latency_floor_exceeded', $payload['aobg_latency_reason_floor_exceeded']);
+        $this->assertSame('successful_drill_stale', $payload['substrate_reason_drill_stale']);
+        $this->assertSame('accepted', $payload['esp09_outcome_accepted']);
+        $this->assertSame(20, $payload['parallel_procedural_watchdog_residual_floor_count']);
+    }
+
 }

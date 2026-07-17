@@ -4624,7 +4624,9 @@ final class AtlasUniversalGatesEvaluator
             'substrate_reason_no_successful_drill' => SubstrateRestoreDrillWatchdogCheck::REASON_NO_SUCCESSFUL_DRILL,
             'substrate_reason_drill_fresh' => SubstrateRestoreDrillWatchdogCheck::REASON_SUCCESSFUL_DRILL_FRESH,
             'substrate_reason_drill_stale' => SubstrateRestoreDrillWatchdogCheck::REASON_SUCCESSFUL_DRILL_STALE,
-            'parallel_procedural_watchdog_residual_floor_count' => 18,
+            'esp09_outcome_accepted' => Esp09IndependentChallengerService::OUTCOME_ACCEPTED,
+            'esp09_outcome_ignored' => Esp09IndependentChallengerService::OUTCOME_IGNORED,
+            'parallel_procedural_watchdog_residual_floor_count' => 20,
         ];
     }
 
