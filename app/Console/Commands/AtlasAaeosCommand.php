@@ -51,6 +51,7 @@ final class AtlasAaeosCommand extends Command
         {--pre-review= : JSON file with pre-review advisory features (observe-only MULTN15-08)}
         {--reality-compiler-slice= : JSON file with Reality Compiler slice map (observe-only contract)}
         {--esp09-challenger= : JSON file with ESP-09 challenger context (observe-only advisory)}
+        {--dogfooding-leads= : JSON file with dogfooding friction events (observe-only mine)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -305,6 +306,17 @@ final class AtlasAaeosCommand extends Command
             $report['observe'] = array_merge(
                 is_array($report['observe'] ?? null) ? $report['observe'] : [],
                 ['esp09_challenger' => $gates->esp09ChallengerObserve($context)],
+            );
+        }
+        $dogfoodingPath = (string) ($this->option('dogfooding-leads') ?? '');
+        if ($dogfoodingPath !== '') {
+            $events = $this->loadJsonFile($dogfoodingPath);
+            if ($events === null) {
+                return $this->failWith('universal-gates --dogfooding-leads must be a readable JSON object');
+            }
+            $report['observe'] = array_merge(
+                is_array($report['observe'] ?? null) ? $report['observe'] : [],
+                ['dogfooding_friction_leads' => $gates->dogfoodingFrictionLeadsObserve($events)],
             );
         }
         $this->emit($report, $json);

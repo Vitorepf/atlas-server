@@ -8,6 +8,8 @@ use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
 use App\Services\Ai\AcosMax\PredictedImpactBand;
 use App\Services\Ai\AcosMax\PreReviewAdvisoryBand;
 use App\Services\Ai\AcosMax\Esp09IndependentChallengerService;
+use App\Services\Ai\AcosMax\DogfoodingFrictionLeadMiner;
+use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
  * Atlas Universal Gates Evaluator — produces `atlas.aaeos.gate_report.v1`
@@ -295,6 +297,23 @@ final class AtlasUniversalGatesEvaluator
     public function esp09ChallengerObserve(array $context): array
     {
         return Esp09IndependentChallengerService::evaluate($context);
+    }
+
+    /**
+     * Observe-only MULTN17-08 dogfooding friction lead mine.
+     * Accepts a list of events or `{events:[...]}`. Catalogue stays 15.
+     *
+     * @param  array<mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function dogfoodingFrictionLeadsObserve(array $input): array
+    {
+        $events = array_is_list($input)
+            ? $input
+            : AiValueNormalizer::arrayOrEmpty($input['events'] ?? null);
+
+        /** @var list<array<string,mixed>> $events */
+        return DogfoodingFrictionLeadMiner::mine($events);
     }
 
     /**

@@ -12,6 +12,7 @@ use App\Services\Ai\AgenticEngineeringOs\RealityCompilerSlice;
 use App\Services\Ai\AcosMax\PredictedImpactBand;
 use App\Services\Ai\AcosMax\PreReviewAdvisoryBand;
 use App\Services\Ai\AcosMax\Esp09IndependentChallengerService;
+use App\Services\Ai\AcosMax\DogfoodingFrictionLeadMiner;
 use App\Services\Ai\Aaeos\Cores\SpecCompletenessScorer;
 use InvalidArgumentException;
 use Tests\TestCase;
@@ -233,5 +234,18 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(Esp09IndependentChallengerService::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertTrue($payload['advisory_only']);
         $this->assertTrue($payload['triggered']);
+    }
+
+    public function test_dogfooding_friction_leads_observe_mines_events(): void
+    {
+        $payload = $this->svc->dogfoodingFrictionLeadsObserve([
+            'events' => [
+                ['signature' => 'slow-boot', 'target' => 'cli'],
+                ['signature' => 'slow-boot', 'target' => 'cli'],
+            ],
+        ]);
+
+        $this->assertSame(DogfoodingFrictionLeadMiner::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame('insufficient_signal', $payload['status']);
     }
 }

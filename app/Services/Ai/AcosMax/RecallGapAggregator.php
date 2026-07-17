@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use Illuminate\Support\Str;
 
 final class RecallGapAggregator
@@ -53,6 +54,6 @@ final class RecallGapAggregator
 
     private static function normalize(string $query): string
     {
-        return trim((string) preg_replace('/\s+/', ' ', Str::lower($query)));
+        return AiValueNormalizer::trimmedString(preg_replace('/\s+/', ' ', Str::lower($query)) ?? '');
     }
 }

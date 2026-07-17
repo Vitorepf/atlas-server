@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * MULTN17-06 — vision thesis lifecycle: TTL, death criterion archival, active-set for reorder.
  */
@@ -236,7 +238,7 @@ final class EvidenceVisionThesisLifecycle
             if (! is_array($lead)) {
                 continue;
             }
-            if (ltrim((string) ($lead['target_path'] ?? ''), '/') === $target) {
+            if (ltrim(AiValueNormalizer::trimmedString($lead['target_path'] ?? ''), '/') === $target) {
                 $remaining++;
             }
         }

@@ -229,6 +229,29 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_dogfooding_leads(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-dog-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'events' => [
+                ['signature' => 'x', 'target' => 'y'],
+            ],
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-dog',
+                '--dogfooding-leads' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"dogfooding_friction_leads"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])
