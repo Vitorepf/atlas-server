@@ -149,7 +149,7 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
             'delivery_hash' => 'sha256:signed',
         ]);
 
-        $this->assertSame(DeliveryPackCompletenessScorer::SCHEMA, $score['schema']);
+        $this->assertSame('atlas.aaeos.delivery_pack_completeness.v1', $score['schema']);
         $this->assertTrue($score['factors']['tests_present']);
         $this->assertSame([], $score['blockers']);
     }
