@@ -19,6 +19,8 @@ final class AaeosHttpPathEnvelopeFactory
 
     public const RISK_BAND_R3_PLUS = 'r3_plus';
 
+    public const STATUS_UNKNOWN = 'unknown';
+
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
         private readonly PhaseAdvanceVerdictClassifier $phaseAdvance = new PhaseAdvanceVerdictClassifier,
@@ -89,10 +91,10 @@ final class AaeosHttpPathEnvelopeFactory
             actor: self::systemActor('aaeos.placement'),
             inputs: ['intent_hash' => $intentHash],
             outputs: [
-                'placement_layer' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['layer'] ?? null) ?? 'unknown',
-                'placement_domain' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['domain'] ?? null) ?? 'unknown',
-                'placement_flow' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['flow'] ?? null) ?? 'unknown',
-                'gate_status' => AiValueNormalizer::trimmedStringOrNull($placementResult['gate_status'] ?? null) ?? 'unknown',
+                'placement_layer' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['layer'] ?? null) ?? self::STATUS_UNKNOWN,
+                'placement_domain' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['domain'] ?? null) ?? self::STATUS_UNKNOWN,
+                'placement_flow' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['flow'] ?? null) ?? self::STATUS_UNKNOWN,
+                'gate_status' => AiValueNormalizer::trimmedStringOrNull($placementResult['gate_status'] ?? null) ?? self::STATUS_UNKNOWN,
             ],
             gates: self::binaryGate('placement_decision_feature_path_valid', $placementOk),
             blockers: $placementOk ? [] : self::blockedWhenAsBlockers($placementResult),
@@ -106,9 +108,9 @@ final class AaeosHttpPathEnvelopeFactory
     public function classification(string $intentId, string $intentHash, array $data): array
     {
         $router = self::routerFromData($data);
-        $flowId = AiValueNormalizer::trimmedStringOrNull($router['flow_id'] ?? null) ?? 'unknown';
-        $commandIntent = AiValueNormalizer::trimmedStringOrNull($router['command_intent'] ?? null) ?? 'unknown';
-        $declared = $flowId !== 'unknown';
+        $flowId = AiValueNormalizer::trimmedStringOrNull($router['flow_id'] ?? null) ?? self::STATUS_UNKNOWN;
+        $commandIntent = AiValueNormalizer::trimmedStringOrNull($router['command_intent'] ?? null) ?? self::STATUS_UNKNOWN;
+        $declared = $flowId !== self::STATUS_UNKNOWN;
 
         return $this->handoff->emit(
             intentId: $intentId,
@@ -306,7 +308,7 @@ final class AaeosHttpPathEnvelopeFactory
     {
         $verdict = $this->phaseAdvance->classify($policyEnvelope)['verdict'] ?? '';
 
-        return in_array($verdict, ['halt', 'block'], true);
+        return in_array($verdict, [PhaseAdvanceVerdictClassifier::VERDICT_HALT, PhaseAdvanceVerdictClassifier::VERDICT_BLOCK], true);
     }
 
     /**

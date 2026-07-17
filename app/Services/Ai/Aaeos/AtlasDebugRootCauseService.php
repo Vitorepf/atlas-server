@@ -14,6 +14,8 @@ final class AtlasDebugRootCauseService
 
     public const STATUS_NO_DATA = 'no_data';
 
+    public const STATUS_UNKNOWN = 'unknown';
+
 
     public function getVersion(): string
     {
@@ -36,6 +38,6 @@ final class AtlasDebugRootCauseService
             return self::STATUS_NO_DATA;
         }
 
-        return AiValueNormalizer::trimmedStringOrNull($context['suspected_cause'] ?? null) ?? 'unknown';
+        return AiValueNormalizer::trimmedStringOrNull($context['suspected_cause'] ?? null) ?? self::STATUS_UNKNOWN;
     }
 }

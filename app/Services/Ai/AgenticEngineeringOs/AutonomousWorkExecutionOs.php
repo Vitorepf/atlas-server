@@ -34,12 +34,22 @@ final class AutonomousWorkExecutionOs
         'learning_extracted',
     ];
 
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_IN_PROGRESS = 'in_progress';
+
+    public const STATUS_SUCCEEDED = 'succeeded';
+
+    public const STATUS_FAILED = 'failed';
+
+    public const STATUS_SKIPPED = 'skipped';
+
     public const STAGE_STATUSES = [
-        'pending',
-        'in_progress',
-        'succeeded',
-        'failed',
-        'skipped',
+        self::STATUS_PENDING,
+        self::STATUS_IN_PROGRESS,
+        self::STATUS_SUCCEEDED,
+        self::STATUS_FAILED,
+        self::STATUS_SKIPPED,
     ];
 
     /**
@@ -91,7 +101,7 @@ final class AutonomousWorkExecutionOs
         $stages = array_map(
             static fn (string $stage): array => [
                 'stage' => $stage,
-                'status' => 'pending',
+                'status' => self::STATUS_PENDING,
             ],
             self::CYCLE_STAGES,
         );
@@ -157,11 +167,11 @@ final class AutonomousWorkExecutionOs
         foreach (AiValueNormalizer::arrayOrEmpty($cycle['stages'] ?? null) as $entry) {
             $stageKey = AiValueNormalizer::trimmedStringOrNull($entry['stage'] ?? null) ?? '';
             $statusByStage[$stageKey]
-                = AiValueNormalizer::trimmedStringOrNull($entry['status'] ?? null) ?? 'pending';
+                = AiValueNormalizer::trimmedStringOrNull($entry['status'] ?? null) ?? self::STATUS_PENDING;
         }
 
         foreach (self::CYCLE_STAGES as $stage) {
-            if (($statusByStage[$stage] ?? 'pending') === 'failed') {
+            if (($statusByStage[$stage] ?? self::STATUS_PENDING) === self::STATUS_FAILED) {
                 return [
                     'next_stage' => null,
                     'blocked' => true,
@@ -174,7 +184,7 @@ final class AutonomousWorkExecutionOs
         }
 
         foreach (self::CYCLE_STAGES as $stage) {
-            if (($statusByStage[$stage] ?? 'pending') === 'pending') {
+            if (($statusByStage[$stage] ?? self::STATUS_PENDING) === self::STATUS_PENDING) {
                 return [
                     'next_stage' => $stage,
                     'blocked' => false,

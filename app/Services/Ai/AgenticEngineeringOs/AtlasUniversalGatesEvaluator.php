@@ -4824,6 +4824,33 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: operational-volume / autonomy stage / gate-coverage /
+     * envelope-unknown floors — no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function volumeAutonomyCoverageUnknownFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'operational_volume_status_healthy' => AtlasOperationalVolumeCheckService::STATUS_HEALTHY,
+            'operational_volume_status_skipped' => AtlasOperationalVolumeCheckService::STATUS_SKIPPED,
+            'operational_volume_status_alert' => AtlasOperationalVolumeCheckService::STATUS_ALERT,
+            'autonomy_status_pending' => AutonomousWorkExecutionOs::STATUS_PENDING,
+            'autonomy_status_in_progress' => AutonomousWorkExecutionOs::STATUS_IN_PROGRESS,
+            'autonomy_status_succeeded' => AutonomousWorkExecutionOs::STATUS_SUCCEEDED,
+            'autonomy_status_failed' => AutonomousWorkExecutionOs::STATUS_FAILED,
+            'autonomy_status_skipped' => AutonomousWorkExecutionOs::STATUS_SKIPPED,
+            'gate_coverage_no_gate' => AaeosRequiredGateCoverageChecker::COVERAGE_NO_GATE,
+            'gate_coverage_incomplete' => AaeosRequiredGateCoverageChecker::COVERAGE_INCOMPLETE,
+            'gate_coverage_complete' => AaeosRequiredGateCoverageChecker::COVERAGE_COMPLETE,
+            'http_envelope_status_unknown' => AaeosHttpPathEnvelopeFactory::STATUS_UNKNOWN,
+            'debug_status_unknown' => AtlasDebugRootCauseService::STATUS_UNKNOWN,
+            'volume_autonomy_coverage_unknown_floor_count' => 13,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

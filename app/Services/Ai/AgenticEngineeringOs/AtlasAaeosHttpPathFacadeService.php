@@ -186,7 +186,7 @@ final class AtlasAaeosHttpPathFacadeService
             $envelopes[] = $policyEnv;
 
             $advance = $factory->phaseAdvanceVerdict($policyEnv);
-            if (in_array($advance['verdict'] ?? '', ['halt', 'block'], true)) {
+            if (in_array($advance['verdict'] ?? '', [PhaseAdvanceVerdictClassifier::VERDICT_HALT, PhaseAdvanceVerdictClassifier::VERDICT_BLOCK], true)) {
                 $this->incrementCounter(self::TELEMETRY_KEY_BLOCKED);
 
                 $blockedWhen = array_values(array_map(

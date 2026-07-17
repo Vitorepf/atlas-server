@@ -36,6 +36,12 @@ final class AtlasOperationalVolumeCheckService
 
     public const PREREQUISITE_GAP_HERMES_01 = 'GAP-HERMES-01';
 
+    public const STATUS_HEALTHY = 'healthy';
+
+    public const STATUS_SKIPPED = 'skipped';
+
+    public const STATUS_ALERT = 'alert';
+
     /** @var list<string> */
     public const DEV_FLOW_IDS = ['atlas_dev', 'atlas.dev', 'engineering.dev'];
 
@@ -62,11 +68,11 @@ final class AtlasOperationalVolumeCheckService
         $forgeAlert = $forgeCount['available'] && $forgeCount['count'] < self::FORGE_CYCLES_PER_WEEK_MIN;
         $alert = $devAlert || $forgeAlert;
 
-        $status = 'healthy';
+        $status = self::STATUS_HEALTHY;
         if (! $devCount['available'] && ! $forgeCount['available']) {
-            $status = 'skipped';
+            $status = self::STATUS_SKIPPED;
         } elseif ($alert) {
-            $status = 'alert';
+            $status = self::STATUS_ALERT;
         }
 
         return [

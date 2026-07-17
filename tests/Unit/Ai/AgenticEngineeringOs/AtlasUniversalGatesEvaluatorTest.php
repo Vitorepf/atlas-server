@@ -3247,4 +3247,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(7, $payload['mission_control_pending_partial_floor_count']);
     }
 
+    public function test_volume_autonomy_coverage_unknown_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->volumeAutonomyCoverageUnknownFloorsContractObserve([]);
+
+        $this->assertSame('healthy', $payload['operational_volume_status_healthy']);
+        $this->assertSame('alert', $payload['operational_volume_status_alert']);
+        $this->assertSame('pending', $payload['autonomy_status_pending']);
+        $this->assertSame('failed', $payload['autonomy_status_failed']);
+        $this->assertSame('complete', $payload['gate_coverage_complete']);
+        $this->assertSame('incomplete', $payload['gate_coverage_incomplete']);
+        $this->assertSame('unknown', $payload['http_envelope_status_unknown']);
+        $this->assertSame('unknown', $payload['debug_status_unknown']);
+        $this->assertSame(13, $payload['volume_autonomy_coverage_unknown_floor_count']);
+    }
+
 }
