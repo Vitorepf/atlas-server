@@ -176,7 +176,7 @@ class AtlasAaeosImplementationTruthService
                 }
                 $total++;
 
-                $state = $this->normalizeState((string) ($fm['implementation_state'] ?? ''));
+                $state = $this->normalizeState((AiValueNormalizer::trimmedStringOrNull($fm['implementation_state'] ?? null) ?? ''));
                 $status = AiValueNormalizer::lowerTrimmedString($fm['status'] ?? '');
                 $claims = in_array($state, ['partial', 'verified'], true)
                     || in_array($status, ['active', 'building'], true);
@@ -310,7 +310,7 @@ class AtlasAaeosImplementationTruthService
             $docs[] = [
                 'id' => (string) ($fm['id'] ?? $fm['graph_id'] ?? $relativePath),
                 'path' => $relativePath,
-                'implementation_state' => (string) ($fm['implementation_state'] ?? 'spec'),
+                'implementation_state' => (AiValueNormalizer::trimmedStringOrNull($fm['implementation_state'] ?? null) ?? 'spec'),
                 'evidence_refs' => $evidenceRefs,
             ];
         }
@@ -594,7 +594,7 @@ class AtlasAaeosImplementationTruthService
         $resolvedKinds = [];
         foreach ($resolutions as $resolution) {
             if (($resolution['resolved'] ?? false) === true) {
-                $resolvedKinds[(string) ($resolution['kind'] ?? '')] = true;
+                $resolvedKinds[(AiValueNormalizer::trimmedStringOrNull($resolution['kind'] ?? null) ?? '')] = true;
             }
         }
 

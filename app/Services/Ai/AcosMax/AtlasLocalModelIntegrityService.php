@@ -71,9 +71,9 @@ final class AtlasLocalModelIntegrityService
 
         $row = [
             'model_id' => $modelId !== '' ? $modelId : 'unknown',
-            'function' => (string) ($entry['function'] ?? ''),
-            'license' => (string) ($entry['license'] ?? ''),
-            'source_url' => (string) ($entry['source_url'] ?? ''),
+            'function' => (AiValueNormalizer::trimmedStringOrNull($entry['function'] ?? null) ?? ''),
+            'license' => (AiValueNormalizer::trimmedStringOrNull($entry['license'] ?? null) ?? ''),
+            'source_url' => (AiValueNormalizer::trimmedStringOrNull($entry['source_url'] ?? null) ?? ''),
             'path_declared' => $path,
             'path_resolved' => null,
             'pin_present' => $pin !== '',

@@ -161,7 +161,7 @@ final class AcosMaxProceduralSkillPromoterService
         $taskCategory = AiValueNormalizer::trimmedStringOrNull($candidate['task_category'] ?? null) ?? '';
         $evidenceRefs = [
             'procedural_playbook:'.hash('sha256', $taskCategory),
-            'multj04:case_count:'.(AiValueNormalizer::trimmedStringOrNull($candidate['case_count'] ?? null) ?? (string) ($candidate['case_count'] ?? 0)),
+            'multj04:case_count:'.(AiValueNormalizer::trimmedStringOrNull($candidate['case_count'] ?? null) ?? (AiValueNormalizer::trimmedStringOrNull($candidate['case_count'] ?? null) ?? 0)),
         ];
 
         $row = AiLearningCandidate::query()->firstOrCreate(

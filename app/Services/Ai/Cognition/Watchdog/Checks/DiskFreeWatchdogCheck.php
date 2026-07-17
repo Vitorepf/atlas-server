@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition\Watchdog\Checks;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
 use Carbon\CarbonImmutable;
@@ -84,7 +85,7 @@ final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
         $evidence = [
             'schema_version' => self::SCHEMA_VERSION,
             'generated_at' => $this->now->toIso8601String(),
-            'path' => (string) ($probed['path'] ?? ''),
+            'path' => (AiValueNormalizer::trimmedStringOrNull($probed['path'] ?? null) ?? ''),
             'free_gb' => $freeGb,
             'total_gb' => $totalGb,
             'floor_gb' => $this->floorGb,

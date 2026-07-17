@@ -148,8 +148,8 @@ final class ImmuneCalibrationService
             foreach ($this->sampleGateIds($sample) as $gateId) {
                 $key = $writer.'::'.$gateId;
                 $groups[$key] ??= $this->emptyGroup($writer, $gateId);
-                $status = (string) ($gateStatuses[$gateId] ?? 'pending');
-                $label = (string) ($sample['sample_label'] ?? '');
+                $status = (AiValueNormalizer::trimmedStringOrNull($gateStatuses[$gateId] ?? null) ?? 'pending');
+                $label = (AiValueNormalizer::trimmedStringOrNull($sample['sample_label'] ?? null) ?? '');
                 $expectedGateIds = array_fill_keys(AiValueNormalizer::arrayOrEmpty($sample['expected_block_gate_ids'] ?? null), true);
 
                 $groups[$key]['n']++;

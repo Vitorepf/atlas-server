@@ -145,7 +145,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             'id' => 'maxk05.signature_forged_boolean',
             'refused' => $refused,
             'expected' => 'ok=false',
-            'observed' => (string) ($verdict['reason'] ?? 'unknown'),
+            'observed' => (AiValueNormalizer::trimmedStringOrNull($verdict['reason'] ?? null) ?? 'unknown'),
         ];
     }
 
@@ -171,7 +171,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             'id' => 'maxk05.signature_receipt_missing',
             'refused' => $verdict['ok'] === false && $verdict['reason'] === 'signature_receipt_missing',
             'expected' => 'signature_receipt_missing',
-            'observed' => (string) ($verdict['reason'] ?? 'unknown'),
+            'observed' => (AiValueNormalizer::trimmedStringOrNull($verdict['reason'] ?? null) ?? 'unknown'),
         ];
     }
 
@@ -215,7 +215,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             'id' => 'maxk05.signature_nonce_reused',
             'refused' => $first['ok'] === true && $second['ok'] === false && $second['reason'] === 'signature_nonce_reused',
             'expected' => 'signature_nonce_reused after first spend',
-            'observed' => (string) ($second['reason'] ?? 'unknown'),
+            'observed' => (AiValueNormalizer::trimmedStringOrNull($second['reason'] ?? null) ?? 'unknown'),
         ];
     }
 

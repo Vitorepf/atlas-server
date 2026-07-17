@@ -73,8 +73,8 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
         $tamperedTotal = 0;
         $gapTotal = 0;
         foreach ($chains as $chain) {
-            $chainKey = (string) ($chain['chain_key'] ?? '');
-            $status = (string) ($chain['status'] ?? 'ok');
+            $chainKey = (AiValueNormalizer::trimmedStringOrNull($chain['chain_key'] ?? null) ?? '');
+            $status = (AiValueNormalizer::trimmedStringOrNull($chain['status'] ?? null) ?? 'ok');
             $length = (int) ($chain['chain_length'] ?? 0);
             $tampered = array_values(AiValueNormalizer::arrayOrEmpty($chain['tampered_event_ids'] ?? null));
             $gap = (int) ($chain['gap_count'] ?? 0);

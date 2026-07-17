@@ -2020,7 +2020,7 @@ final class AtlasUniversalGatesEvaluator
             ],
             'threat_model' => CaptureHmacLineageService::THREAT_MODEL,
             'health_report_check_ids' => array_values(array_map(
-                static fn (array $row): string => (string) ($row['id'] ?? ''),
+                static fn (array $row): string => (AiValueNormalizer::trimmedStringOrNull($row['id'] ?? null) ?? ''),
                 $healthCatalog,
             )),
             'health_report_check_count' => count($healthCatalog),
@@ -3551,6 +3551,33 @@ final class AtlasUniversalGatesEvaluator
             'window_orchestrator_schema' => AcosMaxWindowOrchestratorService::SCHEMA_VERSION,
             'long_horizon_gate_schema' => AtlasAcosLongHorizonGateService::SCHEMA_VERSION,
             'adapter_kind_count' => 3,
+        ];
+    }
+
+    /**
+     * Observe-only implementation-truth ranks + capture-hmac stage floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function implementationTruthRankContractObserve(array $input = []): array
+    {
+        return [
+            'implementation_truth_schema' => AtlasAaeosImplementationTruthService::SCHEMA,
+            'implementation_truth_ledger_schema' => AtlasAaeosImplementationTruthService::LEDGER_SCHEMA,
+            'implementation_truth_hash_format' => AtlasAaeosImplementationTruthService::IMPL_FILES_HASH_FORMAT,
+            'rank_spec' => AtlasAaeosImplementationTruthService::RANK['spec'],
+            'rank_partial' => AtlasAaeosImplementationTruthService::RANK['partial'],
+            'rank_verified' => AtlasAaeosImplementationTruthService::RANK['verified'],
+            'rank_count' => count(AtlasAaeosImplementationTruthService::RANK),
+            'capture_hmac_schema' => CaptureHmacLineageService::SCHEMA_VERSION,
+            'capture_hmac_stage_source' => CaptureHmacLineageService::STAGE_SOURCE,
+            'capture_hmac_stage_capture' => CaptureHmacLineageService::STAGE_CAPTURE,
+            'capture_hmac_stage_memory' => CaptureHmacLineageService::STAGE_MEMORY,
+            'rollback_trigger_schema' => AtlasAcosRollbackTriggerCheckService::SCHEMA_VERSION,
+            'golden_counterfactual_schema' => GoldenCounterfactualReplayService::SCHEMA_VERSION,
+            'asef_chunk_index_schema' => AsefChunkIndexService::SCHEMA_VERSION,
         ];
     }
 

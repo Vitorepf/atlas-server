@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition\Watchdog\Checks;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry;
 use App\Services\Ai\AcosMax\AcosMeasureSeriesFreshnessReader;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheck;
@@ -71,14 +72,14 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
         $status = $ageDays === null ? 'missing' : ($ageDays > $ttlDays ? 'stale' : 'ok');
 
         return [
-            'slice' => (string) ($entry['slice'] ?? ''),
-            'series' => (string) ($entry['series'] ?? ''),
+            'slice' => (AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? ''),
+            'series' => (AiValueNormalizer::trimmedStringOrNull($entry['series'] ?? null) ?? ''),
             'source_type' => (string) ($entry['source_type'] ?? (isset($entry['table']) ? 'table' : 'jsonl')),
             'path' => isset($entry['path']) ? $this->relativePath((string) $entry['path']) : null,
             'table' => isset($entry['table']) ? (string) $entry['table'] : null,
-            'timestamp_field' => (string) ($entry['timestamp_field'] ?? 'recorded_at'),
+            'timestamp_field' => (AiValueNormalizer::trimmedStringOrNull($entry['timestamp_field'] ?? null) ?? 'recorded_at'),
             'ttl_days' => $ttlDays,
-            'ttl_source' => (string) ($entry['ttl_source'] ?? 'freeze'),
+            'ttl_source' => (AiValueNormalizer::trimmedStringOrNull($entry['ttl_source'] ?? null) ?? 'freeze'),
             'last_append_at' => $lastAppendAt?->toIso8601String(),
             'age_days' => $ageDays,
             'status' => $status,

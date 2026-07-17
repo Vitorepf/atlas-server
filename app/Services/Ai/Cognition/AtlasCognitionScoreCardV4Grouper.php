@@ -51,7 +51,7 @@ final class AtlasCognitionScoreCardV4Grouper
     {
         $buckets = [];
         foreach ($subsystems as $row) {
-            $group = (string) ($row['group'] ?? 'unknown');
+            $group = (AiValueNormalizer::trimmedStringOrNull($row['group'] ?? null) ?? 'unknown');
             $isConsumer = in_array($group, self::CONSUMER_GROUPS, true);
             if ($isConsumer !== $consumers) {
                 continue;
@@ -62,9 +62,9 @@ final class AtlasCognitionScoreCardV4Grouper
             $buckets[$module]['name'] ??= $this->moduleName($module);
             $buckets[$module]['subsystem_count'] = ($buckets[$module]['subsystem_count'] ?? 0) + 1;
             foreach (['code_status', 'doc_status', 'pipeline_status'] as $dim) {
-                $buckets[$module][$dim][] = (string) ($row[$dim] ?? 'blocked');
+                $buckets[$module][$dim][] = (AiValueNormalizer::trimmedStringOrNull($row[$dim] ?? null) ?? 'blocked');
             }
-            $buckets[$module]['members'][] = (string) ($row['acronym'] ?? '');
+            $buckets[$module]['members'][] = (AiValueNormalizer::trimmedStringOrNull($row['acronym'] ?? null) ?? '');
             $serviceClass = AiValueNormalizer::trimmedStringOrNull($row['service_class'] ?? null) ?? '';
             if ($serviceClass !== '') {
                 $buckets[$module]['service_classes'][] = $serviceClass;

@@ -647,7 +647,7 @@ final class AcosMaxLote2MeasureService
             }
 
             $pairId = AiValueNormalizer::trimmedStringOrNull($meta['pair_id'] ?? null) ?? '';
-            $arm = $this->counterfactualArm((string) ($meta['arm'] ?? ''));
+            $arm = $this->counterfactualArm((AiValueNormalizer::trimmedStringOrNull($meta['arm'] ?? null) ?? ''));
             if ($pairId === '' || $arm === '') {
                 continue;
             }
@@ -689,7 +689,7 @@ final class AcosMaxLote2MeasureService
                 continue;
             }
 
-            $memoryType = (string) ($pair['memory_type'] ?? 'unknown');
+            $memoryType = (AiValueNormalizer::trimmedStringOrNull($pair['memory_type'] ?? null) ?? 'unknown');
             $control = AiValueNormalizer::finiteFloatOrNull($rows['control']['score'] ?? null) ?? 0.0;
             $treatment = AiValueNormalizer::finiteFloatOrNull($rows['treatment']['score'] ?? null) ?? 0.0;
             $delta = round($treatment - $control, 4);

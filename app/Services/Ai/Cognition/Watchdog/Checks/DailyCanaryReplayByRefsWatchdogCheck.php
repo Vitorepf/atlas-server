@@ -242,7 +242,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
             'version' => $chosenKey,
             'recall_at_5' => $recallNumeric === null ? null : round($recallNumeric, 4),
             'improper_floor_discards' => $discardsNumeric === null ? null : (int) $discardsNumeric,
-            'status' => (string) ($chosen['status'] ?? 'unknown'),
+            'status' => (AiValueNormalizer::trimmedStringOrNull($chosen['status'] ?? null) ?? 'unknown'),
         ];
     }
 

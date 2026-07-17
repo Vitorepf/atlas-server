@@ -120,7 +120,7 @@ final class AtlasFlywheelFunnelService
      */
     private function hasLesson(array $row): bool
     {
-        return in_array((string) ($row['learning_status'] ?? ''), ['candidate', 'promoted', 'applied'], true)
+        return in_array((AiValueNormalizer::trimmedStringOrNull($row['learning_status'] ?? null) ?? ''), ['candidate', 'promoted', 'applied'], true)
             || ($row['lesson_promoted'] ?? false) === true;
     }
 

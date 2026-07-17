@@ -86,8 +86,8 @@ final class AsefChunkIndexService
                 continue;
             }
 
-            $chunkHash = (string) ($chunk['chunk_hash'] ?? '');
-            $chunkText = (string) ($hashToText[$chunkHash] ?? '');
+            $chunkHash = (AiValueNormalizer::trimmedStringOrNull($chunk['chunk_hash'] ?? null) ?? '');
+            $chunkText = (AiValueNormalizer::trimmedStringOrNull($hashToText[$chunkHash] ?? null) ?? '');
             if ($chunkHash === '' || $chunkText === '') {
                 $skipped++;
 
@@ -106,9 +106,9 @@ final class AsefChunkIndexService
                 'section' => $section,
                 'chunk_text' => $chunkText,
                 'embedded_text' => $embeddedText,
-                'privacy_class' => (string) ($chunk['privacy_class'] ?? 'normal'),
+                'privacy_class' => (AiValueNormalizer::trimmedStringOrNull($chunk['privacy_class'] ?? null) ?? 'normal'),
                 'provider_safe' => (bool) ($chunk['provider_safe'] ?? true),
-                'delete_cascade_key' => (string) ($chunk['delete_cascade_key'] ?? ''),
+                'delete_cascade_key' => (AiValueNormalizer::trimmedStringOrNull($chunk['delete_cascade_key'] ?? null) ?? ''),
                 'embedding_status' => 'pending',
                 'created_at' => Carbon::now(),
                 'updated_at' => Carbon::now(),

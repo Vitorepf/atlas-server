@@ -103,8 +103,8 @@ class AtlasCognitiveFunctionAtlasService
         $subs = AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()['subsystems'] ?? null);
         $tally = [];
         foreach ($subs as $s) {
-            $g = (string) ($s['group'] ?? 'unknown');
-            $pipeline = (string) ($s['pipeline_status'] ?? 'unknown');
+            $g = (AiValueNormalizer::trimmedStringOrNull($s['group'] ?? null) ?? 'unknown');
+            $pipeline = (AiValueNormalizer::trimmedStringOrNull($s['pipeline_status'] ?? null) ?? 'unknown');
             if (! isset($tally[$g])) {
                 $tally[$g] = 0;
             }
@@ -128,7 +128,7 @@ class AtlasCognitiveFunctionAtlasService
         }
         foreach (AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()['subsystems'] ?? null) as $s) {
             if (($s['acronym'] ?? null) === $acronym) {
-                return (string) ($s['group'] ?? '');
+                return (AiValueNormalizer::trimmedStringOrNull($s['group'] ?? null) ?? '');
             }
         }
 
@@ -187,7 +187,7 @@ class AtlasCognitiveFunctionAtlasService
         $subs = AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()['subsystems'] ?? null);
         $byGroup = [];
         foreach ($subs as $s) {
-            $g = (string) ($s['group'] ?? '');
+            $g = (AiValueNormalizer::trimmedStringOrNull($s['group'] ?? null) ?? '');
             if ($g === '') {
                 continue;
             }
@@ -244,7 +244,7 @@ class AtlasCognitiveFunctionAtlasService
     {
         $set = [];
         foreach ($subs as $s) {
-            $g = (string) ($s['group'] ?? '');
+            $g = (AiValueNormalizer::trimmedStringOrNull($s['group'] ?? null) ?? '');
             if ($g !== '') {
                 $set[$g] = true;
             }
@@ -283,7 +283,7 @@ class AtlasCognitiveFunctionAtlasService
                 if (($s['doc_status'] ?? '') === 'ready') {
                     $docReady++;
                 }
-                $pipeline = (string) ($s['pipeline_status'] ?? '');
+                $pipeline = (AiValueNormalizer::trimmedStringOrNull($s['pipeline_status'] ?? null) ?? '');
                 if ($pipeline === 'ready') {
                     $pipelineReady++;
                 } elseif ($pipeline === 'partial') {

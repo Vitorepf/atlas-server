@@ -251,7 +251,7 @@ class AtlasCognitionEvidenceResolver
                 continue;
             }
 
-            $ownerDoc = $this->normalizePath((string) ($doc['path'] ?? ''));
+            $ownerDoc = $this->normalizePath((AiValueNormalizer::trimmedStringOrNull($doc['path'] ?? null) ?? ''));
             if ($ownerDoc !== '' && array_key_exists($ownerDoc, $targets)) {
                 $targets[$ownerDoc][] = $capabilityId;
             }
@@ -262,7 +262,7 @@ class AtlasCognitionEvidenceResolver
                 }
 
                 try {
-                    $filePaths = $this->resolver->resolveSymbolFilePaths((string) ($ref['ref'] ?? ''));
+                    $filePaths = $this->resolver->resolveSymbolFilePaths((AiValueNormalizer::trimmedStringOrNull($ref['ref'] ?? null) ?? ''));
                 } catch (Throwable) {
                     $filePaths = [];
                 }

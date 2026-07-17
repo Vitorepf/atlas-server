@@ -154,8 +154,8 @@ final class AtlasAcosWindowGatesService
             'status' => $certified && $fresh ? 'certified' : 'aguardando_janela',
             'certified' => $certified,
             'fresh' => $fresh,
-            'receipt_status' => (string) ($data['status'] ?? 'unknown'),
-            'generated_at' => (string) ($data['generated_at'] ?? ''),
+            'receipt_status' => (AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? 'unknown'),
+            'generated_at' => (AiValueNormalizer::trimmedStringOrNull($data['generated_at'] ?? null) ?? ''),
         ];
     }
 }

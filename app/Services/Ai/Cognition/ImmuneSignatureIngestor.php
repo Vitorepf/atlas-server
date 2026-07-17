@@ -35,7 +35,7 @@ final class ImmuneSignatureIngestor
             return null;
         }
 
-        $contentHash = (string) ($verdictRow['candidate_hash'] ?? '');
+        $contentHash = (AiValueNormalizer::trimmedStringOrNull($verdictRow['candidate_hash'] ?? null) ?? '');
         if ($contentHash === '') {
             return null;
         }
@@ -55,7 +55,7 @@ final class ImmuneSignatureIngestor
             $hostileClass,
             $signals,
             [
-                'writer' => (string) ($verdictRow['writer'] ?? 'unknown'),
+                'writer' => (AiValueNormalizer::trimmedStringOrNull($verdictRow['writer'] ?? null) ?? 'unknown'),
                 'sample_label' => $verdictRow['sample_label'] ?? null,
                 'promotion_status' => $verdictRow['promotion_status'] ?? null,
             ],

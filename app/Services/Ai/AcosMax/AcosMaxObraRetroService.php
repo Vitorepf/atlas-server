@@ -108,8 +108,8 @@ final class AcosMaxObraRetroService
         $result = $this->writeBack->proposeLearning($payload);
 
         return [
-            'status' => (string) ($result['status'] ?? 'unknown'),
-            'reason' => (string) ($result['reason'] ?? ''),
+            'status' => (AiValueNormalizer::trimmedStringOrNull($result['status'] ?? null) ?? 'unknown'),
+            'reason' => (AiValueNormalizer::trimmedStringOrNull($result['reason'] ?? null) ?? ''),
             'proposal_id' => $result['proposal_id'] ?? null,
             'kind' => (string) ($result['kind'] ?? ($payload['kind'] ?? '')),
             'quality' => AiValueNormalizer::arrayOrEmpty($result['quality'] ?? null),
@@ -158,7 +158,7 @@ final class AcosMaxObraRetroService
         return [
             'slice_id' => (string) $slice['id'],
             'slice_state' => (string) $slice['state'],
-            'status' => (string) ($recorded['status'] ?? 'unknown'),
+            'status' => (AiValueNormalizer::trimmedStringOrNull($recorded['status'] ?? null) ?? 'unknown'),
             'outcome_id' => data_get($recorded, 'outcome.outcome_id'),
             'ai_run_outcome_id' => data_get($recorded, 'spine.ai_run_outcome.id'),
             'series_tag' => self::SERIES_TAG,

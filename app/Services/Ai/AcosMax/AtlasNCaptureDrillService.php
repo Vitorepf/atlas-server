@@ -137,7 +137,7 @@ final class AtlasNCaptureDrillService
                 'bypass' => (bool) data_get($drill, 'admission.bypass'),
                 'reason' => data_get($drill, 'admission.reason'),
             ],
-            'trigger' => (string) ($drill['trigger'] ?? 'unknown'),
+            'trigger' => (AiValueNormalizer::trimmedStringOrNull($drill['trigger'] ?? null) ?? 'unknown'),
             'recorded_at' => now('UTC')->toIso8601String(),
         ];
 
@@ -161,7 +161,7 @@ final class AtlasNCaptureDrillService
         $inWindow = array_values(array_filter(
             $receipts,
             static function (array $r) use ($since): bool {
-                $ts = (string) ($r['recorded_at'] ?? '');
+                $ts = (AiValueNormalizer::trimmedStringOrNull($r['recorded_at'] ?? null) ?? '');
                 if ($ts === '') {
                     return false;
                 }
@@ -189,7 +189,7 @@ final class AtlasNCaptureDrillService
 
         $engines = [];
         foreach ($inWindow as $r) {
-            $engineId = (string) ($r['engine_id'] ?? '');
+            $engineId = (AiValueNormalizer::trimmedStringOrNull($r['engine_id'] ?? null) ?? '');
             if ($engineId === '') {
                 continue;
             }

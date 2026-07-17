@@ -118,7 +118,7 @@ final class AtlasConsolidationRerankGuard
         }
         try {
             $report = $this->corpus->report();
-            $status = (string) ($report['status'] ?? '');
+            $status = (AiValueNormalizer::trimmedStringOrNull($report['status'] ?? null) ?? '');
             // The corpus degrades to a non-`ok` status when the engine is absent.
             if ($status !== '' && $status !== 'ok' && $status !== 'healthy') {
                 return null;

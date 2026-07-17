@@ -2456,4 +2456,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.cognition.acos_long_horizon_gate.v1', $payload['long_horizon_gate_schema']);
         $this->assertSame(3, $payload['adapter_kind_count']);
     }
+
+    public function test_implementation_truth_rank_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->implementationTruthRankContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.implementation_state.v1', $payload['implementation_truth_schema']);
+        $this->assertSame('atlas.aaeos.capability_truth_ledger.v1', $payload['implementation_truth_ledger_schema']);
+        $this->assertSame('atlas.aaeos.impl_files_hash.v2', $payload['implementation_truth_hash_format']);
+        $this->assertSame(0, $payload['rank_spec']);
+        $this->assertSame(1, $payload['rank_partial']);
+        $this->assertSame(2, $payload['rank_verified']);
+        $this->assertSame(3, $payload['rank_count']);
+        $this->assertSame('atlas.capture.hmac_lineage.v1', $payload['capture_hmac_schema']);
+        $this->assertSame('source', $payload['capture_hmac_stage_source']);
+        $this->assertSame('capture', $payload['capture_hmac_stage_capture']);
+        $this->assertSame('memory', $payload['capture_hmac_stage_memory']);
+        $this->assertSame('atlas.acos.rollback_triggers.v1', $payload['rollback_trigger_schema']);
+        $this->assertSame('atlas.context.golden_counterfactual.v1', $payload['golden_counterfactual_schema']);
+        $this->assertSame('atlas.asef_chunks.index.v1', $payload['asef_chunk_index_schema']);
+    }
 }

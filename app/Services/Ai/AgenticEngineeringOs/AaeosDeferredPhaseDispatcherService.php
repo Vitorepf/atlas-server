@@ -138,7 +138,7 @@ final class AaeosDeferredPhaseDispatcherService
         fclose($fh);
 
         foreach ($claimed as $record) {
-            $phase = (string) ($record['phase'] ?? 'unknown');
+            $phase = (AiValueNormalizer::trimmedStringOrNull($record['phase'] ?? null) ?? 'unknown');
             $this->incrementCounter('atlas.aaeos.deferred.claimed.'.$phase);
         }
 

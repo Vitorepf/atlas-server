@@ -85,8 +85,8 @@ final class ExecutionContextCooccurrenceService
                 continue;
             }
             $cooccurrences[] = [
-                'run_id' => (string) ($run['run_id'] ?? ''),
-                'outcome_receipt_id' => (string) ($run['outcome_receipt_id'] ?? ''),
+                'run_id' => (AiValueNormalizer::trimmedStringOrNull($run['run_id'] ?? null) ?? ''),
+                'outcome_receipt_id' => (AiValueNormalizer::trimmedStringOrNull($run['outcome_receipt_id'] ?? null) ?? ''),
                 'green_run' => ($run['green_run'] ?? false) === true,
                 'delivered_ref_count' => count($delivered),
                 'used_ref_count' => count($used),

@@ -36,7 +36,7 @@ final class AtlasAcosRollbackTriggerCheckService
             if (! is_array($flip)) {
                 continue;
             }
-            $id = (string) ($flip['id'] ?? '');
+            $id = (AiValueNormalizer::trimmedStringOrNull($flip['id'] ?? null) ?? '');
             if ($id === '') {
                 continue;
             }
@@ -87,7 +87,7 @@ final class AtlasAcosRollbackTriggerCheckService
     private function simulatedEvaluation(array $flip, CarbonImmutable $asOf): array
     {
         return [
-            'trigger_id' => (string) ($flip['id'] ?? ''),
+            'trigger_id' => (AiValueNormalizer::trimmedStringOrNull($flip['id'] ?? null) ?? ''),
             'slices' => $flip['slices'] ?? [],
             'armed' => true,
             'fired' => true,
@@ -106,7 +106,7 @@ final class AtlasAcosRollbackTriggerCheckService
      */
     private function evaluateFlip(array $flip, CarbonImmutable $asOf): array
     {
-        $id = (string) ($flip['id'] ?? '');
+        $id = (AiValueNormalizer::trimmedStringOrNull($flip['id'] ?? null) ?? '');
         $condition = AiValueNormalizer::arrayOrEmpty($flip['condition'] ?? null);
         $armed = $this->flipIsArmed($condition);
 
@@ -155,7 +155,7 @@ final class AtlasAcosRollbackTriggerCheckService
      */
     private function envMatches(array $entry): bool
     {
-        $env = (string) ($entry['env'] ?? '');
+        $env = (AiValueNormalizer::trimmedStringOrNull($entry['env'] ?? null) ?? '');
         if ($env === '') {
             return false;
         }

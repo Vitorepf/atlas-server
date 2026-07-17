@@ -90,7 +90,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
      */
     public function propose(array $input): array
     {
-        $currentSchema = (string) ($input['current_schema'] ?? '');
+        $currentSchema = (AiValueNormalizer::trimmedStringOrNull($input['current_schema'] ?? null) ?? '');
         if ($currentSchema === '' || ! preg_match('/^atlas\.[a-z0-9_\.]+\.v\d+$/', $currentSchema)) {
             throw new InvalidArgumentException("current_schema must match 'atlas.*.v<n>' canon (got '{$currentSchema}').");
         }
@@ -98,10 +98,10 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         if (! in_array($trigger, self::VALID_TRIGGERS, true)) {
             throw new InvalidArgumentException("Unknown trigger '{$trigger}'.");
         }
-        $rationale = (string) ($input['rationale'] ?? 'Operator-supplied schema evolution.');
+        $rationale = (AiValueNormalizer::trimmedStringOrNull($input['rationale'] ?? null) ?? 'Operator-supplied schema evolution.');
         $addedFields = array_values(AiValueNormalizer::arrayOrEmpty($input['added_fields'] ?? null));
         $deprecatedFields = array_values(AiValueNormalizer::arrayOrEmpty($input['deprecated_fields'] ?? null));
-        $actor = (string) ($input['actor'] ?? 'ACMF');
+        $actor = (AiValueNormalizer::trimmedStringOrNull($input['actor'] ?? null) ?? 'ACMF');
 
         $nextSchema = $this->bumpVersion($currentSchema);
 

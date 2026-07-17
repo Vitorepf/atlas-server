@@ -89,9 +89,9 @@ final class Esp09IndependentChallengerService
                 'author_engine_id' => $author,
                 'challenger_engine_id' => $challengerEngine,
                 'decision_kind' => $kind,
-                'proposed_choice' => (string) ($context['proposed_choice'] ?? ''),
-                'alternative' => (string) ($context['alternative'] ?? ''),
-                'refutation' => (string) ($context['refutation'] ?? ''),
+                'proposed_choice' => (AiValueNormalizer::trimmedStringOrNull($context['proposed_choice'] ?? null) ?? ''),
+                'alternative' => (AiValueNormalizer::trimmedStringOrNull($context['alternative'] ?? null) ?? ''),
+                'refutation' => (AiValueNormalizer::trimmedStringOrNull($context['refutation'] ?? null) ?? ''),
                 'elev18_engine_ids_distinct' => true,
             ],
         ]);

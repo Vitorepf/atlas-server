@@ -170,7 +170,7 @@ class AtlasAcosEvolutionScoreService
                 'dual_read old_feedback=%.2f new_feedback=%.2f lift_status=%s with_cases=%d without_cases=%d measurement_ready=%s',
                 $oldFeedbackPoints,
                 $newFeedbackPoints,
-                (string) ($lift['status'] ?? 'unknown'),
+                (AiValueNormalizer::trimmedStringOrNull($lift['status'] ?? null) ?? 'unknown'),
                 $withCount,
                 $withoutCount,
                 $measurementReady ? 'true' : 'false',
@@ -411,7 +411,7 @@ class AtlasAcosEvolutionScoreService
                     'chain implemented=%s audited=%s tier=%s signed=%s',
                     ($readiness['implemented'] ?? false) ? 'yes' : 'no',
                     ($readiness['audited'] ?? false) ? 'yes' : 'no',
-                    (string) ($readiness['tier'] ?? '?'),
+                    (AiValueNormalizer::trimmedStringOrNull($readiness['tier'] ?? null) ?? '?'),
                     ($readiness['operator_signed'] ?? false) ? 'yes' : 'no',
                 ),
             ];

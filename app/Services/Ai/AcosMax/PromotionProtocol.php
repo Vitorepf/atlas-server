@@ -150,7 +150,7 @@ final class PromotionProtocol
             'action' => $action,
             'flag_id' => $flagId,
             'family' => $family,
-            'slice' => (string) ($entry['slice'] ?? ''),
+            'slice' => (AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? ''),
             'from_state' => $fromState,
             'to_state' => $toState,
             'observation_window_id' => $windowId,
@@ -421,10 +421,10 @@ final class PromotionProtocol
     {
         $state = null;
         foreach ($this->ledgerEvents() as $event) {
-            if ((string) ($event['flag_id'] ?? '') !== $flagId) {
+            if ((AiValueNormalizer::trimmedStringOrNull($event['flag_id'] ?? null) ?? '') !== $flagId) {
                 continue;
             }
-            $candidate = (string) ($event['to_state'] ?? '');
+            $candidate = (AiValueNormalizer::trimmedStringOrNull($event['to_state'] ?? null) ?? '');
             if (in_array($candidate, self::STATES, true)) {
                 $state = $candidate;
             }
@@ -442,8 +442,8 @@ final class PromotionProtocol
             if (($event['action'] ?? null) !== 'flip') {
                 continue;
             }
-            if ((string) ($event['family'] ?? '') === $family
-                && (string) ($event['observation_window_id'] ?? '') === $windowId) {
+            if ((AiValueNormalizer::trimmedStringOrNull($event['family'] ?? null) ?? '') === $family
+                && (AiValueNormalizer::trimmedStringOrNull($event['observation_window_id'] ?? null) ?? '') === $windowId) {
                 return true;
             }
         }

@@ -104,10 +104,10 @@ final class GoldenCounterfactualReplayService
     private function firstRun(array $runs, string $arm, ?string $decisionId): ?array
     {
         foreach ($runs as $run) {
-            if (! is_array($run) || (string) ($run['arm'] ?? '') !== $arm) {
+            if (! is_array($run) || (AiValueNormalizer::trimmedStringOrNull($run['arm'] ?? null) ?? '') !== $arm) {
                 continue;
             }
-            if ($decisionId !== null && $decisionId !== '' && (string) ($run['decision_id'] ?? '') !== $decisionId) {
+            if ($decisionId !== null && $decisionId !== '' && (AiValueNormalizer::trimmedStringOrNull($run['decision_id'] ?? null) ?? '') !== $decisionId) {
                 continue;
             }
             if (AiValueNormalizer::finiteFloatOrNull($run['recall_at_5'] ?? null) === null) {
@@ -121,13 +121,13 @@ final class GoldenCounterfactualReplayService
 
             return [
                 'arm' => $arm,
-                'decision_id' => (string) ($run['decision_id'] ?? ''),
+                'decision_id' => (AiValueNormalizer::trimmedStringOrNull($run['decision_id'] ?? null) ?? ''),
                 'run_id' => $runId,
                 'commit' => $commit,
                 'recall_at_5' => round(AiValueNormalizer::clampUnit(
                     AiValueNormalizer::finiteFloatOrNull($run['recall_at_5']) ?? 0.0
                 ), 6),
-                'executed_at' => (string) ($run['executed_at'] ?? ''),
+                'executed_at' => (AiValueNormalizer::trimmedStringOrNull($run['executed_at'] ?? null) ?? ''),
             ];
         }
 

@@ -70,7 +70,7 @@ final class AcosMaxParallelExecutionProtocol
             ],
         ]);
 
-        $status = (string) ($result['status'] ?? 'error');
+        $status = (AiValueNormalizer::trimmedStringOrNull($result['status'] ?? null) ?? 'error');
         if (($result['ok'] ?? false) === true && in_array($status, ['active', 'renewed'], true)) {
             return [
                 'schema' => self::SCHEMA,

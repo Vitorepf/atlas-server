@@ -288,7 +288,7 @@ final class ComposedObraArcComposer
     private static function groupTouchesSeed(array $group, array $seedPaths): bool
     {
         foreach ($group as $candidate) {
-            if (in_array((string) ($candidate['target_path'] ?? ''), $seedPaths, true)) {
+            if (in_array((AiValueNormalizer::trimmedStringOrNull($candidate['target_path'] ?? null) ?? ''), $seedPaths, true)) {
                 return true;
             }
         }
@@ -318,7 +318,7 @@ final class ComposedObraArcComposer
         $seen = [];
         $out = [];
         foreach ($group as $candidate) {
-            $id = (string) ($candidate['id'] ?? '');
+            $id = (AiValueNormalizer::trimmedStringOrNull($candidate['id'] ?? null) ?? '');
             if ($id === '' || isset($seen[$id])) {
                 continue;
             }

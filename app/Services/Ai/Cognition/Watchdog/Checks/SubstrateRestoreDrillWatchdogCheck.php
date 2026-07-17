@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition\Watchdog\Checks;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
 use App\Services\Ai\EngineeringKernel\Adapters\JsonlReceiptStore;
@@ -43,7 +44,7 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
             ]);
         }
 
-        $checkedAt = CarbonImmutable::parse((string) ($latest['checked_at'] ?? 'now'), 'UTC');
+        $checkedAt = CarbonImmutable::parse((AiValueNormalizer::trimmedStringOrNull($latest['checked_at'] ?? null) ?? 'now'), 'UTC');
         $ageDays = (int) $checkedAt->diffInDays(CarbonImmutable::now('UTC'));
         $evidence = [
             'schema_version' => self::SCHEMA_VERSION,
@@ -79,7 +80,7 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
 
         usort(
             $successes,
-            static fn (array $a, array $b): int => strcmp((string) ($b['checked_at'] ?? ''), (string) ($a['checked_at'] ?? '')),
+            static fn (array $a, array $b): int => strcmp((AiValueNormalizer::trimmedStringOrNull($b['checked_at'] ?? null) ?? ''), (AiValueNormalizer::trimmedStringOrNull($a['checked_at'] ?? null) ?? '')),
         );
 
         return $successes[0] ?? null;

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition;
 
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\AppendOnlyJsonlStore;
 use Throwable;
 
@@ -128,8 +129,8 @@ final class AtlasFrontierWaveLadder
         $counts = [];
         try {
             foreach (AppendOnlyJsonlStore::read($this->path) as $row) {
-                $wave = (string) ($row['wave'] ?? '');
-                if ($wave !== '' && in_array((string) ($row['kind'] ?? ''), self::EVENT_KINDS, true)) {
+                $wave = (AiValueNormalizer::trimmedStringOrNull($row['wave'] ?? null) ?? '');
+                if ($wave !== '' && in_array((AiValueNormalizer::trimmedStringOrNull($row['kind'] ?? null) ?? ''), self::EVENT_KINDS, true)) {
                     $counts[$wave] = ($counts[$wave] ?? 0) + 1;
                 }
             }

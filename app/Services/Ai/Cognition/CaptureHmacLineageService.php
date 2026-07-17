@@ -92,10 +92,10 @@ final class CaptureHmacLineageService
                 ];
             }
 
-            $stage = (string) ($link['stage'] ?? 'unknown');
-            $stagePayloadHash = (string) ($link['stage_payload_hash'] ?? '');
+            $stage = (AiValueNormalizer::trimmedStringOrNull($link['stage'] ?? null) ?? 'unknown');
+            $stagePayloadHash = (AiValueNormalizer::trimmedStringOrNull($link['stage_payload_hash'] ?? null) ?? '');
             $storedPrev = $link['prev_receipt_hash'] ?? null;
-            $storedReceipt = (string) ($link['receipt_hash'] ?? '');
+            $storedReceipt = (AiValueNormalizer::trimmedStringOrNull($link['receipt_hash'] ?? null) ?? '');
 
             $expectedPrev = $prev ?? self::GENESIS_RECEIPT;
             $storedPrevHash = AiValueNormalizer::trimmedStringOrNull($storedPrev);
@@ -233,7 +233,7 @@ final class CaptureHmacLineageService
         }
         $last = $stages[count($stages) - 1];
 
-        return is_array($last) ? (string) ($last['receipt_hash'] ?? '') : null;
+        return is_array($last) ? (AiValueNormalizer::trimmedStringOrNull($last['receipt_hash'] ?? null) ?? '') : null;
     }
 
     /**
