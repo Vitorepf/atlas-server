@@ -2241,6 +2241,24 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only SpecCompleteness contract thresholds.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function specCompletenessContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => SpecCompletenessScorer::SCHEMA_VERSION,
+            'text_min_length' => SpecCompletenessScorer::TEXT_MIN_LENGTH,
+            'total_fields' => SpecCompletenessScorer::TOTAL_FIELDS,
+            'complete_threshold' => SpecCompletenessScorer::COMPLETE_THRESHOLD,
+            'partial_threshold' => SpecCompletenessScorer::PARTIAL_THRESHOLD,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

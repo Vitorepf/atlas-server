@@ -163,7 +163,8 @@ final class AaeosPhaseHandoffService
         $this->assertProviderSafe($inputs, 'inputs');
         $this->assertProviderSafe($outputs, 'outputs');
         foreach ($evidenceHashes as $hash) {
-            if (! is_string($hash) || ! str_starts_with($hash, 'sha256:')) {
+            $hash = AiValueNormalizer::trimmedStringOrNull($hash);
+            if ($hash === null || ! str_starts_with($hash, 'sha256:')) {
                 throw new InvalidArgumentException('evidence_hashes must be sha256:* strings');
             }
         }

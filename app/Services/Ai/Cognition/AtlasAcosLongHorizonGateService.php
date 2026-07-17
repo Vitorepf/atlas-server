@@ -562,7 +562,8 @@ final class AtlasAcosLongHorizonGateService
             }
 
             foreach ($row['by_area'] as $area => $scores) {
-                if (! is_string($area) || ! is_array($scores)) {
+                $area = AiValueNormalizer::trimmedStringOrNull(is_string($area) ? $area : null);
+                if ($area === null || ! is_array($scores)) {
                     continue;
                 }
 

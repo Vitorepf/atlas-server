@@ -285,12 +285,14 @@ final class AtlasImmuneHybridInputClassifier
         $classes = AiValueNormalizer::arrayOrEmpty($decoded['classes'] ?? null);
         $out = [];
         foreach ($classes as $class => $exemplars) {
-            if (! is_string($class) || ! is_array($exemplars)) {
+            $class = AiValueNormalizer::trimmedStringOrNull(is_string($class) ? $class : null);
+            if ($class === null || ! is_array($exemplars)) {
                 continue;
             }
             $list = [];
             foreach ($exemplars as $exemplar) {
-                if (is_string($exemplar) && $exemplar !== '') {
+                $exemplar = AiValueNormalizer::trimmedStringOrNull($exemplar);
+                if ($exemplar !== null) {
                     $list[] = $exemplar;
                 }
             }

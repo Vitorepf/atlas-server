@@ -1637,4 +1637,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(45, $payload['soft_stale_age_days']);
         $this->assertSame(60, $payload['degrade_health_ceiling']);
     }
+
+    public function test_spec_completeness_contract_observe_reports_thresholds(): void
+    {
+        $payload = $this->svc->specCompletenessContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.spec_completeness_score.v1', $payload['schema_version']);
+        $this->assertSame(8, $payload['text_min_length']);
+        $this->assertSame(12, $payload['total_fields']);
+        $this->assertSame(80, $payload['complete_threshold']);
+        $this->assertSame(50, $payload['partial_threshold']);
+    }
 }

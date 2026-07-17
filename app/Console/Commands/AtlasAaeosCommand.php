@@ -154,6 +154,7 @@ final class AtlasAaeosCommand extends Command
         {--exploratory-bets-portfolio-contract= : JSON file (any object) to observe exploratory bets portfolio contract}
         {--composed-obra-arc-contract= : JSON file (any object) to observe composed obra-arc contract}
         {--memory-feedback-decay-contract= : JSON file (any object) to observe memory feedback decay contract}
+        {--spec-completeness-contract= : JSON file (any object) to observe SpecCompleteness contract}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -464,6 +465,7 @@ final class AtlasAaeosCommand extends Command
             ['exploratory-bets-portfolio-contract', 'exploratory_bets_portfolio_contract', fn (array $p) => $gates->exploratoryBetsPortfolioContractObserve($p)],
             ['composed-obra-arc-contract', 'composed_obra_arc_contract', fn (array $p) => $gates->composedObraArcContractObserve($p)],
             ['memory-feedback-decay-contract', 'memory_feedback_decay_contract', fn (array $p) => $gates->memoryFeedbackDecayContractObserve($p)],
+            ['spec-completeness-contract', 'spec_completeness_contract', fn (array $p) => $gates->specCompletenessContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
