@@ -31,7 +31,7 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => 'dev',
             'task_category' => (string) ($context['task_category'] ?? 'dev'),
-            'provider' => strtolower(trim((string) ($context['provider'] ?? 'absent'))) ?: 'absent',
+            'provider' => AiValueNormalizer::lowerTrimmedString($context['provider'] ?? 'absent') ?: 'absent',
             'status' => $status,
             'verified' => $verified,
             'verified_basis' => $verifiedBasis,
@@ -39,7 +39,7 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
             'certified_receipt_id' => $context['certified_receipt_id'] ?? null,
             'evidence_ref_count' => count($evidenceKinds),
             'episode_id' => null,
-            'run_id' => trim((string) ($native['run_id'] ?? '')) ?: null,
+            'run_id' => ($runId = AiValueNormalizer::trimmedString($native['run_id'] ?? '')) !== '' ? $runId : null,
         ], [
             'outcome_status' => (string) ($native['outcome_status'] ?? ''),
             'proven_real' => $provenReal,

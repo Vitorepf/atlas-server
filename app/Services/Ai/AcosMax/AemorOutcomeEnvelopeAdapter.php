@@ -23,7 +23,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
      */
     public function toEnvelope(array $native, array $context = []): OutcomeEnvelope
     {
-        $executor = strtolower(trim((string) ($native['executor'] ?? $context['executor'] ?? 'engineering')));
+        $executor = AiValueNormalizer::lowerTrimmedString($native['executor'] ?? $context['executor'] ?? 'engineering');
         $status = OutcomeEnvelope::normalizeStatus((string) ($native['status'] ?? 'blocked'));
 
         $contract = is_array($context['outcome_contract_v2'] ?? null)
@@ -32,11 +32,11 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
 
         $verifiedSourcePresent = array_key_exists('verified', $native)
             || array_key_exists('verified_source_present', $contract);
-        $verifiedBasis = strtolower(trim((string) ($contract['verified_basis'] ?? $native['verified_basis'] ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT)));
+        $verifiedBasis = AiValueNormalizer::lowerTrimmedString($contract['verified_basis'] ?? $native['verified_basis'] ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT);
         $verified = (bool) ($contract['verified'] ?? $native['verified'] ?? false);
         $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native['evidence_refs'] ?? null);
 
-        $episodeId = trim((string) ($context['episode_id'] ?? $native['episode_id'] ?? ''));
+        $episodeId = AiValueNormalizer::trimmedString($context['episode_id'] ?? $native['episode_id'] ?? '');
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => in_array($executor, ['dev', 'forge', 'autonomos'], true) ? $executor : 'engineering',
@@ -49,7 +49,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'certified_receipt_id' => $contract['certified_receipt_id'] ?? $native['certified_receipt_id'] ?? null,
             'evidence_ref_count' => (int) ($contract['evidence_ref_count'] ?? count($evidenceRefs)),
             'episode_id' => $episodeId !== '' ? $episodeId : null,
-            'run_id' => trim((string) ($native['run_id'] ?? $native['scope_id'] ?? '')) ?: null,
+            'run_id' => ($runId = AiValueNormalizer::trimmedString($native['run_id'] ?? $native['scope_id'] ?? '')) !== '' ? $runId : null,
         ], [
             'outcome_type' => (string) ($native['outcome_type'] ?? 'engineering_delivery'),
             'summary' => (string) ($native['summary'] ?? $native['objective'] ?? ''),

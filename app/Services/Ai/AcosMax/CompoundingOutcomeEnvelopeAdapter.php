@@ -23,7 +23,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
      */
     public function toEnvelope(array $native, array $context = []): OutcomeEnvelope
     {
-        $flowId = strtolower(trim((string) ($native['flow_id'] ?? 'atlas_conversation')));
+        $flowId = AiValueNormalizer::lowerTrimmedString($native['flow_id'] ?? 'atlas_conversation');
         $executor = match (true) {
             str_contains($flowId, 'forge') => 'forge',
             str_contains($flowId, 'autonomos') => 'autonomos',
@@ -31,19 +31,19 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             default => 'engineering',
         };
 
-        $outcomeStatus = strtolower(trim((string) ($native['outcome_status'] ?? $native['status'] ?? 'passed')));
+        $outcomeStatus = AiValueNormalizer::lowerTrimmedString($native['outcome_status'] ?? $native['status'] ?? 'passed');
         $status = OutcomeEnvelope::normalizeStatus($outcomeStatus);
 
         $verifiedSourcePresent = array_key_exists('verified', $native)
             || is_array($native['payload']['outcome_contract_v2'] ?? null);
         $contract = AiValueNormalizer::arrayOrEmpty($native['payload']['outcome_contract_v2'] ?? null);
-        $verifiedBasis = strtolower(trim((string) (
+        $verifiedBasis = AiValueNormalizer::lowerTrimmedString(
             $contract['verified_basis']
             ?? $native['verified_basis']
             ?? ($verifiedSourcePresent && ($native['verified'] ?? false) === true
                 ? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_GATES_PASSED
                 : AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT)
-        )));
+        );
         $verified = (bool) ($contract['verified'] ?? $native['verified'] ?? false);
         $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native['evidence_refs'] ?? null);
 
@@ -58,7 +58,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'certified_receipt_id' => $contract['certified_receipt_id'] ?? null,
             'evidence_ref_count' => count($evidenceRefs),
             'episode_id' => null,
-            'run_id' => trim((string) ($native['run_id'] ?? '')) ?: null,
+            'run_id' => ($runId = AiValueNormalizer::trimmedString($native['run_id'] ?? '')) !== '' ? $runId : null,
         ], [
             'flow_id' => $flowId,
             'flow_quality' => $native['flow_quality'] ?? null,
