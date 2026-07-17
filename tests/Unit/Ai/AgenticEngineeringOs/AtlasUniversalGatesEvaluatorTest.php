@@ -2937,4 +2937,23 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(20, $payload['outcome_maxa04_lote2_status_floor_count']);
     }
 
+
+    public function test_lote2_reason_ambition_portfolio_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->lote2ReasonAmbitionPortfolioFloorsContractObserve([]);
+
+        $this->assertSame('missing_lineage_ledger_dependencies', $payload['lote2_reason_missing_lineage_ledger']);
+        $this->assertSame('mission_delivery_table_missing', $payload['lote2_reason_mission_delivery_table_missing']);
+        $this->assertSame('task', $payload['ambition_rung_task']);
+        $this->assertSame('salto', $payload['ambition_rung_salto']);
+        $this->assertSame(4, $payload['ambition_rung_count']);
+        $this->assertSame('reactive', $payload['portfolio_class_reactive']);
+        $this->assertSame('maintenance', $payload['portfolio_class_maintenance']);
+        $this->assertSame(3, $payload['portfolio_class_count']);
+        $this->assertSame(0.05, $payload['portfolio_hard_floor_share']);
+        $this->assertSame(0.80, $payload['portfolio_hard_ceiling_share']);
+        $this->assertSame(8, $payload['portfolio_min_n_per_class']);
+        $this->assertSame(20, $payload['lote2_reason_ambition_portfolio_floor_count']);
+    }
+
 }

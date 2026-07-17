@@ -42,6 +42,22 @@ final class AcosMaxLote2MeasureService
 
     public const STATUS_MEASURED = 'measured';
 
+    public const REASON_MISSING_LINEAGE_LEDGER = 'missing_lineage_ledger_dependencies';
+
+    public const REASON_PENDING_REAL_ORIGINATOR_OUTCOME = 'pending_real_originator_outcome_window';
+
+    public const REASON_LOOP_SOURCE_TABLES_MISSING = 'loop_source_tables_missing';
+
+    public const REASON_LEARNING_LATENCY_SOURCE_TABLES_MISSING = 'learning_latency_source_tables_missing';
+
+    public const REASON_NO_MEASURED_LESSON_USAGE_BUCKETS = 'no_measured_lesson_usage_buckets';
+
+    public const REASON_CALIBRATION_FREEZE_ONLY = 'calibration_freeze_only_before_enforce';
+
+    public const REASON_PAIRED_FEEDBACK_TABLE_MISSING = 'paired_feedback_table_missing';
+
+    public const REASON_MISSION_DELIVERY_TABLE_MISSING = 'mission_delivery_table_missing';
+
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
     {
@@ -64,7 +80,7 @@ final class AcosMaxLote2MeasureService
     /** @return array<string,mixed> */
     public function maxl06DeltaAttribution(): array
     {
-        return $this->emptyReport('MAXL-06', self::STATUS_PENDING_WINDOW, 'missing_lineage_ledger_dependencies', [
+        return $this->emptyReport('MAXL-06', self::STATUS_PENDING_WINDOW, self::REASON_MISSING_LINEAGE_LEDGER, [
             'measure_id' => self::MAXL06_MEASURE_ID,
             'basis' => 'unavailable',
             'allowed_basis' => ['lineage_ledger', 'git_log'],
@@ -80,7 +96,7 @@ final class AcosMaxLote2MeasureService
     {
         $originations = $this->countTableIfPresent('atlas_loop_origination_outcomes');
 
-        return $this->emptyReport('MULTN17-04', self::STATUS_INSUFFICIENT_SIGNAL, 'pending_real_originator_outcome_window', [
+        return $this->emptyReport('MULTN17-04', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_PENDING_REAL_ORIGINATOR_OUTCOME, [
             'measure_id' => self::MULTN1704_MEASURE_ID,
             'denominator_min' => 20,
             'denominator' => [
@@ -98,7 +114,7 @@ final class AcosMaxLote2MeasureService
         $requiredTables = ['ai_run_outcomes', 'ai_rag_feedback_events', 'ai_learning_candidates'];
         $missingTables = array_values(array_filter($requiredTables, static fn (string $table): bool => ! Schema::hasTable($table)));
         if ($missingTables !== []) {
-            return $this->emptyReport('MULTX-01', self::STATUS_INSUFFICIENT_SIGNAL, 'loop_source_tables_missing', [
+            return $this->emptyReport('MULTX-01', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_LOOP_SOURCE_TABLES_MISSING, [
                 'measure_id' => self::MULTX01_MEASURE_ID,
                 'denominator_min' => 1,
                 'loops_complete' => 0,
@@ -113,7 +129,7 @@ final class AcosMaxLote2MeasureService
                 ],
                 'marco_esp_v1' => [
                     'satisfied' => false,
-                    'blocked_by' => ['loop_source_tables_missing'],
+                    'blocked_by' => [self::REASON_LOOP_SOURCE_TABLES_MISSING],
                 ],
                 'valid_loop_definition' => $this->multx01ValidLoopDefinition(),
             ]);
@@ -426,7 +442,7 @@ final class AcosMaxLote2MeasureService
         $denominatorMin = (int) data_get(self::freezePayload('MULTX-06'), 'thresholds.denominator_min_promoted_lessons', 8);
 
         if ($missingTables !== []) {
-            return $this->emptyReport('MULTX-06', self::STATUS_INSUFFICIENT_SIGNAL, 'learning_latency_source_tables_missing', [
+            return $this->emptyReport('MULTX-06', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_LEARNING_LATENCY_SOURCE_TABLES_MISSING, [
                 'measure_id' => self::MULTX06_MEASURE_ID,
                 'denominator_min' => $denominatorMin,
                 'n' => 0,
@@ -599,7 +615,7 @@ final class AcosMaxLote2MeasureService
     /** @return array<string,mixed> */
     public function multj01LessonHalfLife(): array
     {
-        return $this->emptyReport('MULTJ-01', self::STATUS_INSUFFICIENT_SIGNAL, 'no_measured_lesson_usage_buckets', [
+        return $this->emptyReport('MULTJ-01', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_NO_MEASURED_LESSON_USAGE_BUCKETS, [
             'measure_id' => self::MULTJ01_MEASURE_ID,
             'denominator_min' => 8,
             'bucket_width_weeks' => 2,
@@ -611,7 +627,7 @@ final class AcosMaxLote2MeasureService
     /** @return array<string,mixed> */
     public function multj02DedupCalibration(): array
     {
-        return $this->emptyReport('MULTJ-02', self::STATUS_PENDING_WINDOW, 'calibration_freeze_only_before_enforce', [
+        return $this->emptyReport('MULTJ-02', self::STATUS_PENDING_WINDOW, self::REASON_CALIBRATION_FREEZE_ONLY, [
             'measure_id' => self::MULTJ02_MEASURE_ID,
             'mode' => 'observe',
             'would_merge_count' => 0,
@@ -628,7 +644,7 @@ final class AcosMaxLote2MeasureService
         $sampleRate = AiValueNormalizer::finiteFloatOrNull(data_get(self::freezePayload('MULTJ-03'), 'thresholds.sample_rate', 0.05)) ?? 0.05;
 
         if (! Schema::hasTable('ai_rag_feedback_events')) {
-            return $this->emptyReport('MULTJ-03', self::STATUS_INSUFFICIENT_SIGNAL, 'paired_feedback_table_missing', [
+            return $this->emptyReport('MULTJ-03', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_PAIRED_FEEDBACK_TABLE_MISSING, [
                 'measure_id' => self::MULTJ03_MEASURE_ID,
                 'denominator_min' => $denominatorMin,
                 'sample_rate' => $sampleRate,
@@ -855,7 +871,7 @@ final class AcosMaxLote2MeasureService
     public function teto02MissionE2e(?int $days = null): array
     {
         if (! Schema::hasTable('atlas_mission_deliveries')) {
-            return $this->emptyReport('TETO-02', self::STATUS_INSUFFICIENT_SIGNAL, 'mission_delivery_table_missing', [
+            return $this->emptyReport('TETO-02', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_MISSION_DELIVERY_TABLE_MISSING, [
                 'measure_id' => self::TETO02_MEASURE_ID,
                 'denominator_min' => 20,
                 'window_days' => $days,

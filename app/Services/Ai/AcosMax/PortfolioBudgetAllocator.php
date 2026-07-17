@@ -31,7 +31,13 @@ final class PortfolioBudgetAllocator
     public const FORMULA_VERSION = 'atlas.multk_06.portfolio_allocation.v1';
 
     /** @var list<string> */
-    public const CLASSES = ['reactive', 'originated', 'maintenance'];
+    public const CLASS_REACTIVE = 'reactive';
+
+    public const CLASS_ORIGINATED = 'originated';
+
+    public const CLASS_MAINTENANCE = 'maintenance';
+
+    public const CLASSES = [self::CLASS_REACTIVE, self::CLASS_ORIGINATED, self::CLASS_MAINTENANCE];
 
     /**
      * Hard minimum share (anti-starvation) — pinned in the SOURCE so a

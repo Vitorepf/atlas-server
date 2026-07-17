@@ -3814,6 +3814,26 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+
+    public function test_universal_gates_observe_lote2_reason_ambition_portfolio_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-lrapfc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-lrapfc',
+                '--lote2-reason-ambition-portfolio-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"lote2_reason_ambition_portfolio_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

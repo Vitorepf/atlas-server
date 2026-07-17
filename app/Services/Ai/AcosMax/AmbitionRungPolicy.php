@@ -11,7 +11,15 @@ final class AmbitionRungPolicy
     public const SCHEMA_VERSION = 'atlas.originator.ambition_rung_policy.v1';
 
     /** @var list<string> */
-    public const RUNGS = ['task', 'slice', 'obra', 'salto'];
+    public const RUNG_TASK = 'task';
+
+    public const RUNG_SLICE = 'slice';
+
+    public const RUNG_OBRA = 'obra';
+
+    public const RUNG_SALTO = 'salto';
+
+    public const RUNGS = [self::RUNG_TASK, self::RUNG_SLICE, self::RUNG_OBRA, self::RUNG_SALTO];
 
     /**
      * @param  list<array<string,mixed>>  $candidates

@@ -4287,6 +4287,41 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+
+    /**
+     * Observe-only: Lote2 empty-report reasons + ambition/portfolio class floors —
+     * no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function lote2ReasonAmbitionPortfolioFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'lote2_reason_missing_lineage_ledger' => AcosMaxLote2MeasureService::REASON_MISSING_LINEAGE_LEDGER,
+            'lote2_reason_pending_real_originator_outcome' => AcosMaxLote2MeasureService::REASON_PENDING_REAL_ORIGINATOR_OUTCOME,
+            'lote2_reason_loop_source_tables_missing' => AcosMaxLote2MeasureService::REASON_LOOP_SOURCE_TABLES_MISSING,
+            'lote2_reason_learning_latency_source_tables_missing' => AcosMaxLote2MeasureService::REASON_LEARNING_LATENCY_SOURCE_TABLES_MISSING,
+            'lote2_reason_no_measured_lesson_usage_buckets' => AcosMaxLote2MeasureService::REASON_NO_MEASURED_LESSON_USAGE_BUCKETS,
+            'lote2_reason_calibration_freeze_only' => AcosMaxLote2MeasureService::REASON_CALIBRATION_FREEZE_ONLY,
+            'lote2_reason_paired_feedback_table_missing' => AcosMaxLote2MeasureService::REASON_PAIRED_FEEDBACK_TABLE_MISSING,
+            'lote2_reason_mission_delivery_table_missing' => AcosMaxLote2MeasureService::REASON_MISSION_DELIVERY_TABLE_MISSING,
+            'ambition_rung_task' => AmbitionRungPolicy::RUNG_TASK,
+            'ambition_rung_slice' => AmbitionRungPolicy::RUNG_SLICE,
+            'ambition_rung_obra' => AmbitionRungPolicy::RUNG_OBRA,
+            'ambition_rung_salto' => AmbitionRungPolicy::RUNG_SALTO,
+            'ambition_rung_count' => count(AmbitionRungPolicy::RUNGS),
+            'portfolio_class_reactive' => PortfolioBudgetAllocator::CLASS_REACTIVE,
+            'portfolio_class_originated' => PortfolioBudgetAllocator::CLASS_ORIGINATED,
+            'portfolio_class_maintenance' => PortfolioBudgetAllocator::CLASS_MAINTENANCE,
+            'portfolio_class_count' => count(PortfolioBudgetAllocator::CLASSES),
+            'portfolio_hard_floor_share' => PortfolioBudgetAllocator::HARD_FLOOR_SHARE,
+            'portfolio_hard_ceiling_share' => PortfolioBudgetAllocator::HARD_CEILING_SHARE,
+            'portfolio_min_n_per_class' => PortfolioBudgetAllocator::MIN_N_PER_CLASS,
+            'lote2_reason_ambition_portfolio_floor_count' => 20,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
