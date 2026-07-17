@@ -273,7 +273,7 @@ final class RagxChainMechanismService
         $tokens = $this->tokens($query);
         $matches = [];
         foreach ($documents as $index => $document) {
-            $text = strtolower((string) ($document['text'] ?? ''));
+            $text = AiValueNormalizer::lowerTrimmedString($document['text'] ?? '');
             $hits = 0;
             foreach ($tokens as $token) {
                 if (str_contains($text, $token)) {

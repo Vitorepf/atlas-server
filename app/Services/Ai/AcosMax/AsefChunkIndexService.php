@@ -139,7 +139,7 @@ final class AsefChunkIndexService
 
     public function deleteCascade(string $deleteCascadeKey): int
     {
-        $key = trim($deleteCascadeKey);
+        $key = AiValueNormalizer::trimmedString($deleteCascadeKey);
         if ($key === '' || ! DatabaseTableAvailability::has('asef_chunks')) {
             return 0;
         }
@@ -149,7 +149,7 @@ final class AsefChunkIndexService
 
     public function deleteBySourceRef(string $sourceRef): int
     {
-        $ref = trim($sourceRef);
+        $ref = AiValueNormalizer::trimmedString($sourceRef);
         if ($ref === '' || ! DatabaseTableAvailability::has('asef_chunks')) {
             return 0;
         }
@@ -219,7 +219,7 @@ final class AsefChunkIndexService
             ];
         }
 
-        $vector = $this->embeddings->embedText(trim($query), $allowExternalProvider);
+        $vector = $this->embeddings->embedText(AiValueNormalizer::trimmedString($query), $allowExternalProvider);
         $literal = $this->embeddings->vectorLiteral($vector);
         $modelId = EmbeddingProvenance::modelId($this->embeddings->lastInfo());
 

@@ -223,7 +223,7 @@ final class EvidenceVisionThesisLifecycle
     {
         $target = '';
         foreach ((array) ($thesis['alignment_keys'] ?? []) as $key) {
-            $key = (string) $key;
+            $key = AiValueNormalizer::trimmedString($key);
             if (str_contains($key, '/')) {
                 $target = ltrim($key, '/');
                 break;

@@ -118,7 +118,7 @@ final class EvidenceVisionThesisComposer
         ], JSON_UNESCAPED_SLASHES) ?: '');
 
         foreach ($forbidden as $needle) {
-            $needle = trim($needle);
+            $needle = AiValueNormalizer::trimmedString($needle);
             if ($needle !== '' && str_contains($haystack, mb_strtolower($needle))) {
                 return false;
             }

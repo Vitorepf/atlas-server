@@ -35,6 +35,7 @@ final class AtlasUniversalGatesEvaluator
     public function __construct(
         private readonly DeliveryPackCompletenessScorer $deliveryPackCompleteness = new DeliveryPackCompletenessScorer,
         private readonly SpecCompletenessScorer $specCompleteness = new SpecCompletenessScorer,
+        private readonly AaeosBlockerSeverityGate $blockerSeverity = new AaeosBlockerSeverityGate,
     ) {}
 
     /**
@@ -354,6 +355,22 @@ final class AtlasUniversalGatesEvaluator
 
         /** @var list<array<string,mixed>> $windows */
         return ReactiveSaturationSignal::classify($windows, $context);
+    }
+
+    /**
+     * Observe-only AAEOS blocker-severity gate assessment.
+     * Accepts a list of blockers or `{blockers:[...]}`. Catalogue stays 15.
+     *
+     * @param  array<mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function blockerSeverityObserve(array $input): array
+    {
+        $blockers = array_is_list($input)
+            ? $input
+            : AiValueNormalizer::arrayOrEmpty($input['blockers'] ?? null);
+
+        return $this->blockerSeverity->assess($blockers);
     }
 
     /**

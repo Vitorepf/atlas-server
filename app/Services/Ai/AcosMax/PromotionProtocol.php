@@ -93,8 +93,8 @@ final class PromotionProtocol
      */
     public function flip(string $flagId, string $toState, array $context = []): array
     {
-        $flagId = trim($flagId);
-        $toState = trim($toState);
+        $flagId = AiValueNormalizer::trimmedString($flagId);
+        $toState = AiValueNormalizer::trimmedString($toState);
         $entry = $this->entryById($flagId);
         if ($entry === null) {
             return $this->blocked('unknown_flag', $flagId, $toState);

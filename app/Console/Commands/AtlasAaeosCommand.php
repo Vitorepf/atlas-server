@@ -55,6 +55,7 @@ final class AtlasAaeosCommand extends Command
         {--esp09-challenger= : JSON file with ESP-09 challenger context (observe-only advisory)}
         {--dogfooding-leads= : JSON file with dogfooding friction events (observe-only mine)}
         {--reactive-saturation= : JSON file with reactive saturation windows (observe-only classify)}
+        {--blocker-severity= : JSON file with phase blockers (observe-only severity gate)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -246,6 +247,7 @@ final class AtlasAaeosCommand extends Command
             ['esp09-challenger', 'esp09_challenger', fn (array $p) => $gates->esp09ChallengerObserve($p)],
             ['dogfooding-leads', 'dogfooding_friction_leads', fn (array $p) => $gates->dogfoodingFrictionLeadsObserve($p)],
             ['reactive-saturation', 'reactive_saturation', fn (array $p) => $gates->reactiveSaturationObserve($p)],
+            ['blocker-severity', 'blocker_severity', fn (array $p) => $gates->blockerSeverityObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

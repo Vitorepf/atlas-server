@@ -281,4 +281,18 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('insufficient_windows', $payload['basis']);
         $this->assertSame(2, $payload['queue_depth']);
     }
+
+    public function test_blocker_severity_observe_assesses_blockers(): void
+    {
+        $payload = $this->svc->blockerSeverityObserve([
+            'blockers' => [
+                ['id' => 'b1', 'severity' => 'high', 'owner' => 'atlas-ai'],
+                ['id' => 'b2', 'severity' => 'medium', 'owner' => 'atlas-ai'],
+            ],
+        ]);
+
+        $this->assertSame('blocked', $payload['signal']);
+        $this->assertSame(1, $payload['high_count']);
+        $this->assertSame(1, $payload['medium_count']);
+    }
 }
