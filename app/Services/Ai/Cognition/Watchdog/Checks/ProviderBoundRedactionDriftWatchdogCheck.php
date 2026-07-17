@@ -19,6 +19,11 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
 
     public const SAMPLE_LIMIT = 200;
 
+    public const REASON_ATLAS_MEMORY_ENTRIES_MISSING = 'atlas_memory_entries_missing';
+
+    public const REASON_NO_PROVIDER_BOUND_REDACTION_DRIFT = 'no_provider_bound_redaction_drift';
+
+
     public function __construct(private AtlasMemoryPrivacyService $privacy) {}
 
     public function id(): string
@@ -31,7 +36,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
         if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
             return AtlasWatchdogCheckResult::skipped([
                 'schema' => self::SCHEMA_VERSION,
-                'reason' => 'atlas_memory_entries_missing',
+                'reason' => self::REASON_ATLAS_MEMORY_ENTRIES_MISSING,
             ]);
         }
 
@@ -69,7 +74,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
             ]);
         }
 
-        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => 'no_provider_bound_redaction_drift']);
+        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => self::REASON_NO_PROVIDER_BOUND_REDACTION_DRIFT]);
     }
 
     /**

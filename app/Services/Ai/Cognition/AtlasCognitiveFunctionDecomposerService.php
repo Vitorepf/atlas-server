@@ -43,6 +43,11 @@ final class AtlasCognitiveFunctionDecomposerService
 {
     public const SCHEMA = 'atlas.cognitive_function.decomposition.v1';
 
+    public const REASON_EMPTY_INPUT = 'empty_input';
+
+    public const REASON_NO_KEYWORD_SIGNAL = 'no_keyword_signal';
+
+
     public const FUNCTIONS = [
         'reasoning',
         'retrieval',
@@ -143,7 +148,7 @@ final class AtlasCognitiveFunctionDecomposerService
             // Empty input — neutral distribution + audit lean (something is wrong).
             $weights['audit'] = 1.0;
 
-            return $this->envelope($input, $context, $weights, ['reason' => 'empty_input']);
+            return $this->envelope($input, $context, $weights, ['reason' => self::REASON_EMPTY_INPUT]);
         }
 
         // Score rules.
@@ -157,7 +162,7 @@ final class AtlasCognitiveFunctionDecomposerService
             // No signals — neutral but lean toward reasoning (default cognitive default).
             $weights = ['reasoning' => 0.5, 'retrieval' => 0.2, 'generation' => 0.15, 'code' => 0.05, 'vision' => 0.05, 'audit' => 0.05];
 
-            return $this->envelope($input, $context, $weights, ['reason' => 'no_keyword_signal', 'hits' => $hits]);
+            return $this->envelope($input, $context, $weights, ['reason' => self::REASON_NO_KEYWORD_SIGNAL, 'hits' => $hits]);
         }
 
         foreach (self::FUNCTIONS as $axis) {

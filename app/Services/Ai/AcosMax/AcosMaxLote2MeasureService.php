@@ -58,6 +58,11 @@ final class AcosMaxLote2MeasureService
 
     public const REASON_MISSION_DELIVERY_TABLE_MISSING = 'mission_delivery_table_missing';
 
+    public const KIND_MEASURE_FREEZE = 'measure_freeze';
+
+    public const MODE_OBSERVE = 'observe';
+
+
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
     {
@@ -65,7 +70,7 @@ final class AcosMaxLote2MeasureService
         $payloads = self::freezePayloads();
 
         return $payloads[$slice] ?? [
-            'kind' => 'measure_freeze',
+            'kind' => self::KIND_MEASURE_FREEZE,
             'measure_id' => AiValueNormalizer::lowerTrimmedString($slice).'.unknown',
             'formula_version' => AiValueNormalizer::lowerTrimmedString($slice).'.unknown',
             'formula' => 'Unknown LOTE 2 measure freeze.',
@@ -629,7 +634,7 @@ final class AcosMaxLote2MeasureService
     {
         return $this->emptyReport('MULTJ-02', self::STATUS_PENDING_WINDOW, self::REASON_CALIBRATION_FREEZE_ONLY, [
             'measure_id' => self::MULTJ02_MEASURE_ID,
-            'mode' => 'observe',
+            'mode' => self::MODE_OBSERVE,
             'would_merge_count' => 0,
             'actual_merge_count' => 0,
             'threshold' => data_get(self::freezePayload('MULTJ-02'), 'thresholds.cosine_merge_threshold'),
@@ -937,7 +942,7 @@ final class AcosMaxLote2MeasureService
     private static function payload(string $measureId, string $formulaVersion, string $formula, int $denominatorMin, int $ttlDays, string $author, string $judge, array $thresholds): array
     {
         return [
-            'kind' => 'measure_freeze',
+            'kind' => self::KIND_MEASURE_FREEZE,
             'measure_id' => $measureId,
             'formula_version' => $formulaVersion,
             'formula' => $formula,

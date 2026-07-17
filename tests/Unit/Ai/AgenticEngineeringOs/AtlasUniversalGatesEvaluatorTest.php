@@ -3131,4 +3131,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(20, $payload['parallel_procedural_watchdog_residual_floor_count']);
     }
 
+    public function test_lote2_decomposer_redaction_unobserved_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->lote2DecomposerRedactionUnobservedFloorsContractObserve([]);
+
+        $this->assertSame('measure_freeze', $payload['lote2_kind_measure_freeze']);
+        $this->assertSame('observe', $payload['lote2_mode_observe']);
+        $this->assertSame('empty_input', $payload['decomposer_reason_empty_input']);
+        $this->assertSame('no_keyword_signal', $payload['decomposer_reason_no_keyword_signal']);
+        $this->assertSame('atlas_memory_entries_missing', $payload['redaction_reason_memory_entries_missing']);
+        $this->assertSame('ordinary_route', $payload['esp09_decision_kind_ordinary_route']);
+        $this->assertSame('active', $payload['bets_state_active']);
+        $this->assertSame('succeeded', $payload['obra_outcome_succeeded']);
+        $this->assertSame('failed', $payload['asef_status_failed']);
+        $this->assertSame('ok', $payload['promotion_status_ok']);
+        $this->assertSame('refused', $payload['composed_arc_status_refused']);
+        $this->assertSame(20, $payload['lote2_decomposer_redaction_unobserved_floor_count']);
+    }
+
 }

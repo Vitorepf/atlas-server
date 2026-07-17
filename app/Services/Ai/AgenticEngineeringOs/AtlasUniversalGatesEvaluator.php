@@ -4631,6 +4631,40 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: lote2 kind/mode + decomposer/redaction reasons + previously published but unobserved floors —
+     * no gate verdict.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function lote2DecomposerRedactionUnobservedFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'lote2_kind_measure_freeze' => AcosMaxLote2MeasureService::KIND_MEASURE_FREEZE,
+            'lote2_mode_observe' => AcosMaxLote2MeasureService::MODE_OBSERVE,
+            'decomposer_reason_empty_input' => AtlasCognitiveFunctionDecomposerService::REASON_EMPTY_INPUT,
+            'decomposer_reason_no_keyword_signal' => AtlasCognitiveFunctionDecomposerService::REASON_NO_KEYWORD_SIGNAL,
+            'redaction_reason_memory_entries_missing' => ProviderBoundRedactionDriftWatchdogCheck::REASON_ATLAS_MEMORY_ENTRIES_MISSING,
+            'redaction_reason_no_provider_bound_drift' => ProviderBoundRedactionDriftWatchdogCheck::REASON_NO_PROVIDER_BOUND_REDACTION_DRIFT,
+            'esp09_decision_kind_ordinary_route' => Esp09IndependentChallengerService::DECISION_KIND_ORDINARY_ROUTE,
+            'esp09_skip_reason_low_affinity' => Esp09IndependentChallengerService::SKIP_REASON_LOW_AFFINITY,
+            'esp09_reason_challenger_block_present' => Esp09IndependentChallengerService::REASON_CHALLENGER_BLOCK_PRESENT,
+            'esp09_death_review_near_zero_accepted' => Esp09IndependentChallengerService::DEATH_REVIEW_REASON_NEAR_ZERO_ACCEPTED,
+            'bets_state_active' => ExploratoryBetsPortfolio::STATE_ACTIVE,
+            'bets_state_exploring' => ExploratoryBetsPortfolio::STATE_EXPLORING,
+            'obra_outcome_succeeded' => AcosMaxObraRetroService::OUTCOME_STATUS_SUCCEEDED,
+            'obra_outcome_failed' => AcosMaxObraRetroService::OUTCOME_STATUS_FAILED,
+            'obra_slice_state_landed' => AcosMaxObraRetroService::SLICE_STATE_LANDED,
+            'asef_status_failed' => AsefChunkIndexService::STATUS_FAILED,
+            'asef_status_empty' => AsefChunkIndexService::STATUS_EMPTY,
+            'promotion_status_ok' => PromotionProtocol::STATUS_OK,
+            'ragx_reason_no_verified_maxf09_l2_summaries' => RagxChainMechanismService::REASON_NO_VERIFIED_MAXF09_L2_SUMMARIES,
+            'composed_arc_status_refused' => ComposedObraArcLifecycle::STATUS_REFUSED,
+            'lote2_decomposer_redaction_unobserved_floor_count' => 20,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>
