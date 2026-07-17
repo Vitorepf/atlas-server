@@ -61,6 +61,7 @@ use App\Services\Ai\AcosMax\AtlasKnowledgeItemEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\Teto10PredictedRevertReviewDigest;
 use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadLedger;
+use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadService;
 use App\Services\Ai\AcosMax\AtlasResourceBudgetService;
 use App\Services\Ai\AcosMax\AtlasModelCapabilitySpecService;
 use App\Services\Ai\AcosMax\AcosMeasureSeriesFreshnessReader;
@@ -1117,10 +1118,10 @@ final class AtlasUniversalGatesEvaluator
 
         return [
             'schema_version' => AcosMeasureSeriesFreshnessReader::SCHEMA,
-            'series' => AiValueNormalizer::trimmedString($entry['series'] ?? ''),
-            'source_type' => AiValueNormalizer::trimmedString($entry['source_type'] ?? ''),
-            'path' => AiValueNormalizer::trimmedString($entry['path'] ?? ''),
-            'table' => AiValueNormalizer::trimmedString($entry['table'] ?? ''),
+            'series' => AiValueNormalizer::trimmedStringOrNull($entry['series'] ?? null) ?? '',
+            'source_type' => AiValueNormalizer::trimmedStringOrNull($entry['source_type'] ?? null) ?? '',
+            'path' => AiValueNormalizer::trimmedStringOrNull($entry['path'] ?? null) ?? '',
+            'table' => AiValueNormalizer::trimmedStringOrNull($entry['table'] ?? null) ?? '',
             'last_append_at' => $latest?->toIso8601String(),
             'fresh' => $latest !== null,
         ];
@@ -2886,6 +2887,33 @@ final class AtlasUniversalGatesEvaluator
             'allowed_evidence_sources' => EvidenceVisionThesisComposer::ALLOWED_EVIDENCE_SOURCES,
             'allowed_evidence_source_count' => count(EvidenceVisionThesisComposer::ALLOWED_EVIDENCE_SOURCES),
             'remint_touched_schema' => AtlasCognitionRemintTouchedQueue::SCHEMA_VERSION,
+        ];
+    }
+
+    /**
+     * Observe-only measure-series freshness + MAXA-04 dual-read floors.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function measureSeriesMaxa04ContractObserve(array $input = []): array
+    {
+        return [
+            'freshness_schema' => AcosMeasureSeriesFreshnessReader::SCHEMA,
+            'capture_hmac_schema' => CaptureHmacLineageService::SCHEMA_VERSION,
+            'capture_hmac_stages' => [
+                CaptureHmacLineageService::STAGE_SOURCE,
+                CaptureHmacLineageService::STAGE_CAPTURE,
+                CaptureHmacLineageService::STAGE_MEMORY,
+            ],
+            'maxa04_candidate_model' => Maxa04JinaV3DualReadService::CANDIDATE_MODEL,
+            'maxa04_candidate_dimensions' => Maxa04JinaV3DualReadService::CANDIDATE_DIMENSIONS,
+            'maxa04_pending_window' => Maxa04JinaV3DualReadService::PENDING_WINDOW,
+            'maxa04_ledger_schema' => Maxa04JinaV3DualReadLedger::SCHEMA,
+            'maxa04_ledger_relative_path' => Maxa04JinaV3DualReadLedger::RELATIVE_PATH,
+            'teto10_schema' => Teto10PredictedRevertReviewDigest::SCHEMA_VERSION,
+            'teto10_band_rank' => Teto10PredictedRevertReviewDigest::BAND_RANK,
         ];
     }
 

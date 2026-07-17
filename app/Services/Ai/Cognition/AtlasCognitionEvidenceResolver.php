@@ -209,7 +209,7 @@ class AtlasCognitionEvidenceResolver
 
         $ids = [];
         foreach ($this->ownerDocsForFqn($fqn) as $owner) {
-            $id = AiValueNormalizer::trimmedString($owner['capability_id'] ?? '');
+            $id = AiValueNormalizer::trimmedStringOrNull($owner['capability_id'] ?? null) ?? '';
             if ($id !== '') {
                 $ids[] = $id;
             }
@@ -246,7 +246,7 @@ class AtlasCognitionEvidenceResolver
         }
 
         foreach ($docs as $doc) {
-            $capabilityId = AiValueNormalizer::trimmedString($doc['id'] ?? '');
+            $capabilityId = AiValueNormalizer::trimmedStringOrNull($doc['id'] ?? null) ?? '';
             if ($capabilityId === '') {
                 continue;
             }
@@ -310,7 +310,7 @@ class AtlasCognitionEvidenceResolver
             fn (string $testRef): bool => $this->testSymbolExists($testRef),
         ));
         $ownerIds = array_values(array_unique(array_filter(array_map(
-            static fn (array $owner): string => AiValueNormalizer::trimmedString($owner['capability_id'] ?? ''),
+            static fn (array $owner): string => AiValueNormalizer::trimmedStringOrNull($owner['capability_id'] ?? null) ?? '',
             $owners,
         ))));
 
@@ -468,7 +468,7 @@ class AtlasCognitionEvidenceResolver
             $testRefs = [];
             foreach ($evidenceRefs as $ref) {
                 if (AiValueNormalizer::lowerTrimmedString($ref['kind'] ?? '') === 'test') {
-                    $value = AiValueNormalizer::trimmedString($ref['ref'] ?? '');
+                    $value = AiValueNormalizer::trimmedStringOrNull($ref['ref'] ?? null) ?? '';
                     if ($value !== '') {
                         $testRefs[] = $value;
                     }
@@ -479,7 +479,7 @@ class AtlasCognitionEvidenceResolver
                 if (AiValueNormalizer::lowerTrimmedString($ref['kind'] ?? '') !== 'symbol') {
                     continue;
                 }
-                $symbolRef = AiValueNormalizer::trimmedString($ref['ref'] ?? '');
+                $symbolRef = AiValueNormalizer::trimmedStringOrNull($ref['ref'] ?? null) ?? '';
                 if ($symbolRef === '') {
                     continue;
                 }

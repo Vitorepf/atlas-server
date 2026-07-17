@@ -320,7 +320,7 @@ final class Teto10PredictedRevertReviewDigest
 
     private static function plain(string $value): string
     {
-        return str_replace(["\r", "\n"], ' ', AiValueNormalizer::trimmedString($value));
+        return str_replace(["\r", "\n"], ' ', AiValueNormalizer::trimmedStringOrNull($value) ?? '');
     }
 
     private static function inline(string $value): string

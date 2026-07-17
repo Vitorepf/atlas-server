@@ -277,7 +277,7 @@ final class CaptureHmacLineageService
      */
     private function parseRef(string $ref): array
     {
-        $trimmed = AiValueNormalizer::trimmedString($ref);
+        $trimmed = AiValueNormalizer::trimmedStringOrNull($ref) ?? '';
         if (str_contains($trimmed, ':')) {
             [$kind, $id] = explode(':', $trimmed, 2);
 

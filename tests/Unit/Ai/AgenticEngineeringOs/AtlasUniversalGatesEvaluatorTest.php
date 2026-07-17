@@ -2046,4 +2046,21 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(3, $payload['allowed_evidence_source_count']);
         $this->assertSame('atlas.cognition.remint_touched.queue_item.v1', $payload['remint_touched_schema']);
     }
+
+    public function test_measure_series_maxa04_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->measureSeriesMaxa04ContractObserve([]);
+
+        $this->assertSame('atlas.acos.measure_series_freshness_reader.v1', $payload['freshness_schema']);
+        $this->assertSame('atlas.capture.hmac_lineage.v1', $payload['capture_hmac_schema']);
+        $this->assertSame(['source', 'capture', 'memory'], $payload['capture_hmac_stages']);
+        $this->assertSame('jinaai/jina-embeddings-v3', $payload['maxa04_candidate_model']);
+        $this->assertSame(1024, $payload['maxa04_candidate_dimensions']);
+        $this->assertSame('jina_v3_dual_read_benchmark_window', $payload['maxa04_pending_window']);
+        $this->assertSame('atlas.semantic.jina_v3_dual_read.v1', $payload['maxa04_ledger_schema']);
+        $this->assertStringContainsString('maxa04-jina-v3-dual-read', $payload['maxa04_ledger_relative_path']);
+        $this->assertSame('atlas.acos.teto10.predicted_revert_review_digest.v1', $payload['teto10_schema']);
+        $this->assertIsArray($payload['teto10_band_rank']);
+        $this->assertNotEmpty($payload['teto10_band_rank']);
+    }
 }

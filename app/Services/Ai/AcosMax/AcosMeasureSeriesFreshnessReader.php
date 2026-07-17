@@ -30,7 +30,7 @@ final class AcosMeasureSeriesFreshnessReader
      */
     public function lastAppendAt(array $entry): ?CarbonImmutable
     {
-        $sourceType = AiValueNormalizer::trimmedString($entry['source_type'] ?? '');
+        $sourceType = AiValueNormalizer::trimmedStringOrNull($entry['source_type'] ?? null) ?? '';
         if (($entry['table'] ?? null) !== null || $sourceType === 'table') {
             return $this->tableLastAppendAt($entry);
         }
@@ -38,7 +38,7 @@ final class AcosMeasureSeriesFreshnessReader
             return $this->commandLastAppendAt($entry);
         }
 
-        $path = AiValueNormalizer::trimmedString($entry['path'] ?? '');
+        $path = AiValueNormalizer::trimmedStringOrNull($entry['path'] ?? null) ?? '';
         if ($path === '') {
             return null;
         }
@@ -53,21 +53,21 @@ final class AcosMeasureSeriesFreshnessReader
     /** @param array<string,mixed> $entry */
     private function commandLastAppendAt(array $entry): ?CarbonImmutable
     {
-        $command = AiValueNormalizer::trimmedString($entry['path'] ?? '');
+        $command = AiValueNormalizer::trimmedStringOrNull($entry['path'] ?? null) ?? '';
         if ($command === '' || ! str_starts_with($command, 'atlas:')) {
             return null;
         }
 
         try {
             Artisan::call($command);
-            $decoded = json_decode(AiValueNormalizer::trimmedString(Artisan::output()), true);
+            $decoded = json_decode(AiValueNormalizer::trimmedStringOrNull(Artisan::output()) ?? '', true);
             if (! is_array($decoded)) {
                 return null;
             }
 
             return $this->rowTimestamp(
                 $this->flattenFirstPayload($decoded),
-                AiValueNormalizer::trimmedString($entry['timestamp_field'] ?? 'generated_at') ?: 'generated_at',
+                AiValueNormalizer::trimmedStringOrNull($entry['timestamp_field'] ?? null) ?? 'generated_at',
             );
         } catch (Throwable) {
             return null;
@@ -77,8 +77,8 @@ final class AcosMeasureSeriesFreshnessReader
     /** @param array<string,mixed> $entry */
     private function tableLastAppendAt(array $entry): ?CarbonImmutable
     {
-        $table = AiValueNormalizer::trimmedString($entry['table'] ?? '');
-        $timestampField = AiValueNormalizer::trimmedString($entry['timestamp_field'] ?? 'occurred_at') ?: 'occurred_at';
+        $table = AiValueNormalizer::trimmedStringOrNull($entry['table'] ?? null) ?? '';
+        $timestampField = AiValueNormalizer::trimmedStringOrNull($entry['timestamp_field'] ?? null) ?? 'occurred_at';
         if ($table === '' || ! DatabaseTableAvailability::has($table)) {
             return null;
         }
@@ -86,7 +86,7 @@ final class AcosMeasureSeriesFreshnessReader
         try {
             $query = DB::table($table);
             foreach (AiValueNormalizer::arrayOrEmpty($entry['where'] ?? null) as $column => $value) {
-                $query->where(AiValueNormalizer::trimmedString($column), $value);
+                $query->where(AiValueNormalizer::trimmedStringOrNull($column) ?? '', $value);
             }
 
             return $this->parseDate($query->max($timestampField));
@@ -101,7 +101,7 @@ final class AcosMeasureSeriesFreshnessReader
         $latest = null;
         $files = is_dir($dir) ? glob(rtrim($dir, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR.'*.jsonl') : [];
         foreach (AiValueNormalizer::arrayOrEmpty($files) as $file) {
-            $candidate = $this->jsonlFileLastAppendAt(AiValueNormalizer::trimmedString($file), $entry);
+            $candidate = $this->jsonlFileLastAppendAt(AiValueNormalizer::trimmedStringOrNull($file) ?? '', $entry);
             if ($candidate instanceof CarbonImmutable && ($latest === null || $candidate->greaterThan($latest))) {
                 $latest = $candidate;
             }
@@ -122,13 +122,13 @@ final class AcosMeasureSeriesFreshnessReader
         if ($handle !== false) {
             try {
                 while (($line = fgets($handle)) !== false) {
-                    $decoded = json_decode(AiValueNormalizer::trimmedString($line), true);
+                    $decoded = json_decode(AiValueNormalizer::trimmedStringOrNull($line) ?? '', true);
                     if (! is_array($decoded)) {
                         continue;
                     }
                     $candidate = $this->rowTimestamp(
                         $decoded,
-                        AiValueNormalizer::trimmedString($entry['timestamp_field'] ?? 'recorded_at') ?: 'recorded_at',
+                        AiValueNormalizer::trimmedStringOrNull($entry['timestamp_field'] ?? null) ?? 'recorded_at',
                     );
                     if ($candidate instanceof CarbonImmutable && ($latest === null || $candidate->greaterThan($latest))) {
                         $latest = $candidate;

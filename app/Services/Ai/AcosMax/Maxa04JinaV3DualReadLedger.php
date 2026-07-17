@@ -36,10 +36,10 @@ final class Maxa04JinaV3DualReadLedger
 
     private function resolvedPath(): string
     {
-        $configured = AiValueNormalizer::trimmedString(
+        $configured = AiValueNormalizer::trimmedStringOrNull(
             $this->path
                 ?? config('atlas.semantic_memory.jina_v3_dual_read_ledger_path', storage_path(self::RELATIVE_PATH)),
-        );
+        ) ?? '';
 
         return $configured !== '' ? $configured : storage_path(self::RELATIVE_PATH);
     }
