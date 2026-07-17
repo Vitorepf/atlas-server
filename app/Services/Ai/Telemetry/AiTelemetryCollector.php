@@ -3,6 +3,7 @@
 namespace App\Services\Ai\Telemetry;
 
 use App\Models\AiTelemetryEvent;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Support\AtlasSecurity;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
@@ -134,7 +135,7 @@ class AiTelemetryCollector
             'occurred_at_client' => $this->nullableString($event['occurred_at_client'] ?? null),
             'received_at' => now(),
             'duration_ms' => $this->nonNegativeInteger($event['duration_ms'] ?? null),
-            'numeric_value' => is_numeric($event['numeric_value'] ?? null) ? (float) $event['numeric_value'] : null,
+            'numeric_value' => AiValueNormalizer::finiteFloatOrNull($event['numeric_value'] ?? null),
             'unit' => $this->limitedString($event['unit'] ?? null, 32),
             'metadata' => $metadata,
             'privacy' => $privacy,

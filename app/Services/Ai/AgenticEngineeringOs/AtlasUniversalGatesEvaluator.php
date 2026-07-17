@@ -1682,6 +1682,24 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only cross-department choreography handoff kind catalogue.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function choreographyHandoffKindsObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AtlasCrossDepartmentChoreographyService::HANDOFF_SCHEMA,
+            'handoff_kinds' => AtlasCrossDepartmentChoreographyService::HANDOFF_KINDS,
+            'count' => count(AtlasCrossDepartmentChoreographyService::HANDOFF_KINDS),
+            'veto_sla_seconds' => AtlasCrossDepartmentChoreographyService::VETO_SLA_SECONDS,
+            'repair_max_iterations' => AtlasCrossDepartmentChoreographyService::REPAIR_MAX_ITERATIONS,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

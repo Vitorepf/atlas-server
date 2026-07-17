@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\ControlPlane;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Pure Control Plane gate. Bounds each autonomous cycle by OWNER SCOPE, RISK CLASS, TASK COUNT and
  * COST BUDGET before any work is scheduled. NEVER schedules / executes / shells / gits / mutates.
@@ -108,8 +110,8 @@ final class AtlasSelfConstructionScopeRiskBudgetGate
         $forbidden = is_array($facts['forbidden_organs'] ?? null) ? array_values(array_map('strval', $facts['forbidden_organs'])) : [];
         $touched = is_array($facts['touched_organs'] ?? null) ? array_values(array_map('strval', $facts['touched_organs'])) : [];
         $rollbackReady = (bool) ($facts['rollback_ready'] ?? false);
-        $failureRate = isset($facts['failure_rate']) && is_numeric($facts['failure_rate']) ? (float) $facts['failure_rate'] : null;
-        $giveBackRate = isset($facts['give_back_rate']) && is_numeric($facts['give_back_rate']) ? (float) $facts['give_back_rate'] : null;
+        $failureRate = AiValueNormalizer::finiteFloatOrNull($facts['failure_rate'] ?? null);
+        $giveBackRate = AiValueNormalizer::finiteFloatOrNull($facts['give_back_rate'] ?? null);
         $cycleWindow = is_array($facts['cycle_window'] ?? null) ? $facts['cycle_window'] : null;
 
         if (! in_array($risk, self::RISKS, true)) {

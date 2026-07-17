@@ -126,6 +126,7 @@ final class AtlasAaeosCommand extends Command
         {--universal-gates-catalogue= : JSON file (any object) to observe the 15-gate catalogue}
         {--outcome-attribution-types= : JSON file (any object) to observe outcome attribution types}
         {--phase-router-valid-phases= : JSON file (any object) to observe AAEOS valid phases}
+        {--choreography-handoff-kinds= : JSON file (any object) to observe choreography handoff kinds}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -408,6 +409,7 @@ final class AtlasAaeosCommand extends Command
             ['universal-gates-catalogue', 'universal_gates_catalogue', fn (array $p) => $gates->universalGatesCatalogueObserve($p)],
             ['outcome-attribution-types', 'outcome_attribution_types', fn (array $p) => $gates->outcomeAttributionTypesObserve($p)],
             ['phase-router-valid-phases', 'phase_router_valid_phases', fn (array $p) => $gates->phaseRouterValidPhasesObserve($p)],
+            ['choreography-handoff-kinds', 'choreography_handoff_kinds', fn (array $p) => $gates->choreographyHandoffKindsObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

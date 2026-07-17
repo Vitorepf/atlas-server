@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\SelfConstruction\ExternalBrain;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * Pure compiler — turns capability scores, queue yield, give_back rates, simplification debt,
  * research gaps, and worker capacity into a deterministic 30-day (4-wave) autonomy plan.
@@ -136,7 +138,7 @@ final class AtlasExternalBrainOneMonthAutonomyPlanCompiler
                 continue;
             }
             $id = trim((string) ($row['capability_id'] ?? ''));
-            $score = is_numeric($row['score'] ?? null) ? (float) $row['score'] : null;
+            $score = AiValueNormalizer::finiteFloatOrNull($row['score'] ?? null);
             if ($id === '' || $score === null || $score >= self::BUILD_SCORE_THRESHOLD) {
                 continue;
             }
@@ -168,7 +170,7 @@ final class AtlasExternalBrainOneMonthAutonomyPlanCompiler
                 continue;
             }
             $family = trim((string) ($row['family'] ?? ''));
-            $rate = is_numeric($row['rate'] ?? null) ? (float) $row['rate'] : null;
+            $rate = AiValueNormalizer::finiteFloatOrNull($row['rate'] ?? null);
             if ($family === '' || $rate === null || $rate < self::SIMPLIFY_RATE_THRESHOLD) {
                 continue;
             }
@@ -179,7 +181,7 @@ final class AtlasExternalBrainOneMonthAutonomyPlanCompiler
                 continue;
             }
             $area = trim((string) ($row['area'] ?? ''));
-            $debt = is_numeric($row['debt_score'] ?? null) ? (float) $row['debt_score'] : null;
+            $debt = AiValueNormalizer::finiteFloatOrNull($row['debt_score'] ?? null);
             if ($area === '' || $debt === null || $debt < self::SIMPLIFY_DEBT_THRESHOLD) {
                 continue;
             }

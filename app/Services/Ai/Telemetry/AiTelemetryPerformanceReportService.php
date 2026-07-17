@@ -7,6 +7,7 @@ use App\Models\AiProviderHealthSnapshot;
 use App\Models\AiTraceMetricSummary;
 use App\Services\Ai\Mobile\AtlasInboxService;
 use App\Services\Ai\Mobile\ContextBundleService;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Telemetry\Engine\Dto\ReportContext;
 use App\Services\Ai\Telemetry\Engine\Dto\WindowAggregates;
@@ -995,7 +996,7 @@ class AiTelemetryPerformanceReportService
 
     private function formatCostSummary(array $summary): string
     {
-        $unknownRate = is_numeric($summary['unknown_cost_rate'] ?? null) ? (float) $summary['unknown_cost_rate'] : null;
+        $unknownRate = AiValueNormalizer::finiteFloatOrNull($summary['unknown_cost_rate'] ?? null);
         $usd = (float) ($summary['cost_usd_estimate'] ?? 0);
 
         if ((int) ($summary['traces'] ?? 0) > 0 && $unknownRate !== null && $unknownRate >= 0.99) {

@@ -1350,4 +1350,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertContains('1', $payload['valid_phases']);
         $this->assertSame(count($payload['valid_phases']), $payload['count']);
     }
+
+    public function test_choreography_handoff_kinds_observe_reports_catalogue(): void
+    {
+        $payload = $this->svc->choreographyHandoffKindsObserve([]);
+
+        $this->assertSame('atlas.aaeos.cross_dept.handoff.v1', $payload['schema_version']);
+        $this->assertContains('delegation', $payload['handoff_kinds']);
+        $this->assertSame(count($payload['handoff_kinds']), $payload['count']);
+        $this->assertSame(10, $payload['veto_sla_seconds']);
+        $this->assertSame(3, $payload['repair_max_iterations']);
+    }
 }

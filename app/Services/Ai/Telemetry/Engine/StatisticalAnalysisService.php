@@ -8,6 +8,7 @@ use App\Services\Ai\Telemetry\Engine\Dto\StatisticalResult;
 use App\Services\Ai\Telemetry\Engine\Dto\TrustResult;
 use App\Services\Ai\Telemetry\Engine\Dto\WindowAggregates;
 use App\Services\Ai\RuntimeBoundary\StatsEngineRuntimeClient;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use App\Services\Ai\Telemetry\Engine\Stats\BootstrapCalculator;
 use App\Services\Ai\Telemetry\Engine\Stats\WilsonCalculator;
@@ -209,7 +210,7 @@ class StatisticalAnalysisService
         $key = $aliases[$metric] ?? $metric;
         $value = $totals[$key] ?? null;
 
-        return is_numeric($value) ? (float) $value : null;
+        return AiValueNormalizer::finiteFloatOrNull($value);
     }
 
     /**

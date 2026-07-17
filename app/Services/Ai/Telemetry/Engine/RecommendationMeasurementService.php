@@ -4,6 +4,7 @@ namespace App\Services\Ai\Telemetry\Engine;
 
 use App\Models\AiPerformanceRecommendation;
 use App\Models\AiTraceMetricSummary;
+use App\Services\Ai\Support\AiValueNormalizer;
 use App\Services\Ai\Support\DatabaseTableAvailability;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -309,7 +310,7 @@ class RecommendationMeasurementService
 
     private function impact(AiPerformanceRecommendation $recommendation, ?float $baseline, array $observed, CarbonImmutable $clock): array
     {
-        $observedValue = is_numeric($observed['value'] ?? null) ? (float) $observed['value'] : null;
+        $observedValue = AiValueNormalizer::finiteFloatOrNull($observed['value'] ?? null);
         $direction = (string) data_get($recommendation->expected_impact, 'direction', 'increase');
 
         if ($baseline === null || $observedValue === null) {
@@ -349,7 +350,7 @@ class RecommendationMeasurementService
         $baseline = (array) $recommendation->baseline_snapshot;
         $value = $baseline['today_value'] ?? $baseline['mean'] ?? null;
 
-        return is_numeric($value) ? (float) $value : null;
+        return AiValueNormalizer::finiteFloatOrNull($value);
     }
 
     private function metricColumn(string $metric): ?string
