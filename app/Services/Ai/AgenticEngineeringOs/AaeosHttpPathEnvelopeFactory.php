@@ -31,7 +31,7 @@ final class AaeosHttpPathEnvelopeFactory
             actor: ['kind' => 'system', 'id' => 'aaeos.http_path_facade', 'provider' => null],
             inputs: ['intent_hash' => $intentHash],
             outputs: ['intent_hash' => $intentHash, 'intent_id' => $intentId],
-            gates: ['required' => ['surface_captured_intent'], 'passed' => ['surface_captured_intent']],
+            gates: self::binaryGate('surface_captured_intent', true),
         );
     }
 
@@ -54,10 +54,7 @@ final class AaeosHttpPathEnvelopeFactory
                 'mission_signal_kind' => $suggestedMissionType,
                 'mission_should_activate' => $shouldActivateMissionMode ? 'yes' : 'no',
             ],
-            gates: [
-                'required' => ['intent_clarity_score_min_0_8'],
-                'passed' => ['intent_clarity_score_min_0_8'],
-            ],
+            gates: self::binaryGate('intent_clarity_score_min_0_8', true),
         );
     }
 
@@ -92,11 +89,7 @@ final class AaeosHttpPathEnvelopeFactory
                 'placement_flow' => (string) ($placementResult['placement']['flow'] ?? 'unknown'),
                 'gate_status' => (string) ($placementResult['gate_status'] ?? 'unknown'),
             ],
-            gates: [
-                'required' => ['placement_decision_feature_path_valid'],
-                'passed' => $placementOk ? ['placement_decision_feature_path_valid'] : [],
-                'blocked' => $placementOk ? [] : ['placement_decision_feature_path_valid'],
-            ],
+            gates: self::binaryGate('placement_decision_feature_path_valid', $placementOk),
             blockers: $placementOk ? [] : self::blockedWhenAsBlockers($placementResult),
         );
     }
@@ -128,11 +121,7 @@ final class AaeosHttpPathEnvelopeFactory
                 'command_intent' => $commandIntent,
                 'target_department_declared' => $declared ? 'yes' : 'no',
             ],
-            gates: [
-                'required' => ['intent_classification_target_department_declared'],
-                'passed' => $declared ? ['intent_classification_target_department_declared'] : [],
-                'blocked' => $declared ? [] : ['intent_classification_target_department_declared'],
-            ],
+            gates: self::binaryGate('intent_classification_target_department_declared', $declared),
             blockers: $declared
                 ? []
                 : [['id' => 'classification_target_department_missing', 'severity' => 'medium', 'owner' => 'atlas-ai']],
@@ -188,11 +177,7 @@ final class AaeosHttpPathEnvelopeFactory
                 'policy_status' => $status !== '' ? $status : 'not_required',
                 'policy_allowed' => $allowed ? 'yes' : 'no',
             ],
-            gates: [
-                'required' => ['policy_decision_allowed_true'],
-                'passed' => $allowed ? ['policy_decision_allowed_true'] : [],
-                'blocked' => $allowed ? [] : ['policy_decision_allowed_true'],
-            ],
+            gates: self::binaryGate('policy_decision_allowed_true', $allowed),
             blockers: $blockers,
         );
     }
@@ -364,6 +349,20 @@ final class AaeosHttpPathEnvelopeFactory
     public static function phaseAdvanceVerdict(array $phaseEnvelope): array
     {
         return (new PhaseAdvanceVerdictClassifier())->classify($phaseEnvelope);
+    }
+
+    /**
+     * Single-gate pass/block projection shared by HTTP-path phase envelopes.
+     *
+     * @return array{required: list<string>, passed: list<string>, blocked: list<string>}
+     */
+    private static function binaryGate(string $gate, bool $ok): array
+    {
+        return [
+            'required' => [$gate],
+            'passed' => $ok ? [$gate] : [],
+            'blocked' => $ok ? [] : [$gate],
+        ];
     }
 
     /**
