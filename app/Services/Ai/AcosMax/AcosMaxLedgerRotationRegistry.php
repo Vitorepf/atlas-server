@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\AcosMax;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 /**
  * ELEV-24 — Registro de política de rotação/retenção POR ledger.
  *
@@ -47,7 +49,9 @@ final class AcosMaxLedgerRotationRegistry
      */
     public function policyFor(string $series): ?array
     {
-        return $this->policies[$series] ?? null;
+        $series = AiValueNormalizer::trimmedString($series);
+
+        return $series === '' ? null : ($this->policies[$series] ?? null);
     }
 
     /**
@@ -349,15 +353,20 @@ final class AcosMaxLedgerRotationRegistry
     {
         $normalized = [];
         foreach ($policies as $series => $policy) {
-            $mode = (string) ($policy['mode'] ?? 'rotate_hybrid');
+            $seriesKey = AiValueNormalizer::trimmedString($series);
+            if ($seriesKey === '') {
+                continue;
+            }
+            $policy = AiValueNormalizer::arrayOrEmpty($policy);
+            $mode = AiValueNormalizer::trimmedString($policy['mode'] ?? 'rotate_hybrid');
             if (! in_array($mode, ['append_forever', 'rotate_size', 'rotate_age', 'rotate_hybrid'], true)) {
                 $mode = 'rotate_hybrid';
             }
-            $normalized[(string) $series] = [
+            $normalized[$seriesKey] = [
                 'max_size_mb' => max(1, (int) ($policy['max_size_mb'] ?? 32)),
                 'max_age_days' => max(1, (int) ($policy['max_age_days'] ?? 30)),
                 'mode' => $mode,
-                'rationale' => (string) ($policy['rationale'] ?? ''),
+                'rationale' => AiValueNormalizer::trimmedString($policy['rationale'] ?? ''),
             ];
         }
 

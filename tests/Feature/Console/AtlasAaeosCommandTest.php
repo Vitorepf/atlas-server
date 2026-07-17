@@ -781,6 +781,29 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_belief_cascade(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-bc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode([
+            'origin' => 'A',
+            'graph' => ['A' => ['B']],
+            'depth_cap' => 2,
+        ]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-bc',
+                '--belief-cascade' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"belief_cascade"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

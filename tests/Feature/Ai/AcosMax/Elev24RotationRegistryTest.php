@@ -58,6 +58,31 @@ final class Elev24RotationRegistryTest extends TestCase
     }
 
     #[Test]
+    public function policy_lookup_trims_series_id_and_custom_policies(): void
+    {
+        $rotation = new AcosMaxLedgerRotationRegistry([
+            '  custom.series.v1  ' => [
+                'max_size_mb' => 4,
+                'max_age_days' => 7,
+                'mode' => 'rotate_size',
+                'rationale' => '  trimmed  ',
+            ],
+            '' => [
+                'max_size_mb' => 1,
+                'max_age_days' => 1,
+                'mode' => 'append_forever',
+            ],
+        ]);
+
+        $policy = $rotation->policyFor('  custom.series.v1  ');
+
+        $this->assertNotNull($policy);
+        $this->assertSame('rotate_size', $policy['mode']);
+        $this->assertSame('trimmed', $policy['rationale']);
+        $this->assertArrayNotHasKey('', $rotation->all());
+    }
+
+    #[Test]
     public function disk_free_watchdog_alerts_and_flags_background_pause_when_below_floor(): void
     {
         $probe = static fn (): array => [

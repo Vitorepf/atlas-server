@@ -29,6 +29,7 @@ use App\Services\Ai\AcosMax\StructuredFactSchemaMap;
 use App\Services\Ai\AcosMax\CitationGroundingMeter;
 use App\Services\Ai\AcosMax\ProvenanceWeightCalculator;
 use App\Services\Ai\AcosMax\RecallGapAggregator;
+use App\Services\Ai\AcosMax\BeliefCascadeReverificationPlanner;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -640,5 +641,17 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(RecallGapAggregator::SCHEMA_VERSION, $payload['schema_version']);
         $this->assertSame('ok', $payload['status']);
         $this->assertSame(3, $payload['candidates'][0]['occurrences']);
+    }
+
+    public function test_belief_cascade_observe_marks_descendants(): void
+    {
+        $payload = $this->svc->beliefCascadeObserve([
+            'origin' => 'A',
+            'graph' => ['A' => ['B'], 'B' => ['C']],
+            'depth_cap' => 3,
+        ]);
+
+        $this->assertSame(BeliefCascadeReverificationPlanner::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame(['B', 'C'], array_column($payload['marked'], 'id'));
     }
 }

@@ -25,6 +25,7 @@ use App\Services\Ai\AcosMax\StructuredFactSchemaMap;
 use App\Services\Ai\AcosMax\CitationGroundingMeter;
 use App\Services\Ai\AcosMax\ProvenanceWeightCalculator;
 use App\Services\Ai\AcosMax\RecallGapAggregator;
+use App\Services\Ai\AcosMax\BeliefCascadeReverificationPlanner;
 use App\Services\Ai\Support\AiValueNormalizer;
 
 /**
@@ -769,6 +770,24 @@ final class AtlasUniversalGatesEvaluator
 
         /** @var list<array<string,mixed>> $events */
         return RecallGapAggregator::aggregate($events, $minOccurrences);
+    }
+
+    /**
+     * Observe-only belief cascade reverification plan.
+     * Accepts `{origin:string, graph:{node:[children...]}, depth_cap?:int}`.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function beliefCascadeObserve(array $input): array
+    {
+        $origin = AiValueNormalizer::trimmedString($input['origin'] ?? '');
+        $graph = AiValueNormalizer::arrayOrEmpty($input['graph'] ?? null);
+        $depthCap = max(0, (int) ($input['depth_cap'] ?? 3));
+
+        /** @var array<string,list<string>> $graph */
+        return BeliefCascadeReverificationPlanner::plan($origin, $graph, $depthCap);
     }
 
     /**
