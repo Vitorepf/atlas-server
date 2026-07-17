@@ -103,7 +103,7 @@ final class ComposedObraArcComposer
                 continue;
             }
             $out[] = [
-                'id' => (string) ($candidate['id'] ?? 'cand-'.$index),
+                'id' => AiValueNormalizer::trimmedStringOrNull($candidate['id'] ?? null) ?? 'cand-'.$index,
                 'target_path' => $target,
                 'summary' => $summary,
                 'organ_class' => $organ,

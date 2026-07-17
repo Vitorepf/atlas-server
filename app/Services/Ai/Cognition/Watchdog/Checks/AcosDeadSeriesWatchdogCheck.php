@@ -74,7 +74,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
         return [
             'slice' => (AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? ''),
             'series' => (AiValueNormalizer::trimmedStringOrNull($entry['series'] ?? null) ?? ''),
-            'source_type' => (string) ($entry['source_type'] ?? (isset($entry['table']) ? 'table' : 'jsonl')),
+            'source_type' => AiValueNormalizer::trimmedStringOrNull($entry['source_type'] ?? null) ?? (isset($entry['table']) ? 'table' : 'jsonl'),
             'path' => isset($entry['path']) ? $this->relativePath((string) $entry['path']) : null,
             'table' => isset($entry['table']) ? (string) $entry['table'] : null,
             'timestamp_field' => (AiValueNormalizer::trimmedStringOrNull($entry['timestamp_field'] ?? null) ?? 'recorded_at'),

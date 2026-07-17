@@ -24,6 +24,8 @@ class AtlasDocsAuthorityGraphService
 {
     public const SCHEMA_VERSION = 'atlas.docs.authority_graph.v1';
 
+    public const LOCATE_SCHEMA = 'atlas.docs.locate.v1';
+
     /**
      * @var array<string, int>
      */
@@ -185,7 +187,7 @@ class AtlasDocsAuthorityGraphService
     {
         if ($matches->isEmpty()) {
             return [
-                'schema_version' => 'atlas.docs.locate.v1',
+                'schema_version' => self::LOCATE_SCHEMA,
                 'needle' => $needle,
                 'resolved' => false,
                 'owner_doc_path' => null,
@@ -200,7 +202,7 @@ class AtlasDocsAuthorityGraphService
         $confidence = $fallback ? self::CONFIDENCE['keyword_fallback'] : (int) $best->confidence;
 
         return [
-            'schema_version' => 'atlas.docs.locate.v1',
+            'schema_version' => self::LOCATE_SCHEMA,
             'needle' => $needle,
             'resolved' => true,
             'owner_doc_path' => (string) $best->owner_doc_path,

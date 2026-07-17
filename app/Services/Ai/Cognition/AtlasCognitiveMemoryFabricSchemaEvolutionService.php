@@ -94,7 +94,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         if ($currentSchema === '' || ! preg_match('/^atlas\.[a-z0-9_\.]+\.v\d+$/', $currentSchema)) {
             throw new InvalidArgumentException("current_schema must match 'atlas.*.v<n>' canon (got '{$currentSchema}').");
         }
-        $trigger = (string) ($input['trigger'] ?? self::TRIGGER_OPERATOR);
+        $trigger = AiValueNormalizer::trimmedStringOrNull($input['trigger'] ?? null) ?? self::TRIGGER_OPERATOR;
         if (! in_array($trigger, self::VALID_TRIGGERS, true)) {
             throw new InvalidArgumentException("Unknown trigger '{$trigger}'.");
         }

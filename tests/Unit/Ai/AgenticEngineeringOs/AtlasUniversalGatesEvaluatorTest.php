@@ -2476,4 +2476,21 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.context.golden_counterfactual.v1', $payload['golden_counterfactual_schema']);
         $this->assertSame('atlas.asef_chunks.index.v1', $payload['asef_chunk_index_schema']);
     }
+
+    public function test_secondary_report_schemas_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->secondaryReportSchemasContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.generated_contract_gate.v1', $payload['generated_contract_gate_schema']);
+        $this->assertSame('atlas.docs.locate.v1', $payload['docs_locate_schema']);
+        $this->assertSame('atlas.docs.authority_graph.v1', $payload['docs_authority_schema']);
+        $this->assertSame('atlas.esp_06.outcome_envelope_bridge.v1', $payload['outcome_envelope_bridge_schema']);
+        $this->assertSame('atlas.esp_06.outcome_envelope.v1', $payload['outcome_envelope_bridge_measure_id']);
+        $this->assertSame('atlas.acos.lote2.measure_report.v1', $payload['lote2_measure_report_schema']);
+        $this->assertSame('atlas.operator.pre_review_advisory_band.calibration.v1', $payload['pre_review_calibration_schema']);
+        $this->assertSame('atlas.operator.pre_review_advisory_band.v1', $payload['pre_review_advisory_schema']);
+        $this->assertSame('atlas.aaeos.doc_runtime_coverage.v1', $payload['doc_runtime_coverage_schema']);
+        $this->assertSame('atlas.model_integrity_manifest.v1', $payload['model_integrity_manifest_schema']);
+        $this->assertSame(7, $payload['secondary_report_schema_count']);
+    }
 }

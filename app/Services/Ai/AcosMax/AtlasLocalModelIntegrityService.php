@@ -19,6 +19,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasLocalModelIntegrityService
 {
+    public const MANIFEST_SCHEMA = 'atlas.model_integrity_manifest.v1';
+
     /** @var array<string, mixed> */
     private array $manifest;
 
@@ -49,7 +51,7 @@ final class AtlasLocalModelIntegrityService
         $status = array_count_values(array_map(static fn (array $row): string => (string) $row['status'], $rows));
 
         return [
-            'schema_version' => (string) ($this->manifest['schema_version'] ?? 'atlas.model_integrity_manifest.v1'),
+            'schema_version' => AiValueNormalizer::trimmedStringOrNull($this->manifest['schema_version'] ?? null) ?? self::MANIFEST_SCHEMA,
             'total' => count($rows),
             'verified' => $status['verified'] ?? 0,
             'mismatched' => $status['mismatched'] ?? 0,

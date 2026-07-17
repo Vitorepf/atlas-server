@@ -102,6 +102,7 @@ use App\Services\Ai\AcosMax\OutcomeEnvelope;
 use App\Services\Ai\AcosMax\AttemptLifecycleLedger;
 use App\Services\Ai\AcosMax\AtlasNCaptureDrillService;
 use App\Services\Ai\AcosMax\AcosMaxLote2MeasureService;
+use App\Services\Ai\AcosMax\AtlasLocalModelIntegrityService;
 use App\Services\Ai\AcosMax\AemorOutcomeEnvelopeAdapter;
 use App\Services\Ai\AcosMax\CompoundingOutcomeEnvelopeAdapter;
 use App\Services\Ai\AcosMax\DevProceduralOutcomeEnvelopeAdapter;
@@ -3578,6 +3579,30 @@ final class AtlasUniversalGatesEvaluator
             'rollback_trigger_schema' => AtlasAcosRollbackTriggerCheckService::SCHEMA_VERSION,
             'golden_counterfactual_schema' => GoldenCounterfactualReplayService::SCHEMA_VERSION,
             'asef_chunk_index_schema' => AsefChunkIndexService::SCHEMA_VERSION,
+        ];
+    }
+
+    /**
+     * Observe-only secondary report schema floors (locate/bridge/lote2/calibration/etc).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function secondaryReportSchemasContractObserve(array $input = []): array
+    {
+        return [
+            'generated_contract_gate_schema' => AaeosGeneratedContractGate::SCHEMA_VERSION,
+            'docs_locate_schema' => AtlasDocsAuthorityGraphService::LOCATE_SCHEMA,
+            'docs_authority_schema' => AtlasDocsAuthorityGraphService::SCHEMA_VERSION,
+            'outcome_envelope_bridge_schema' => OutcomeEnvelopeBridge::BRIDGE_SCHEMA,
+            'outcome_envelope_bridge_measure_id' => OutcomeEnvelopeBridge::MEASURE_ID,
+            'lote2_measure_report_schema' => AcosMaxLote2MeasureService::REPORT_SCHEMA,
+            'pre_review_calibration_schema' => PreReviewAdvisoryBand::CALIBRATION_SCHEMA,
+            'pre_review_advisory_schema' => PreReviewAdvisoryBand::SCHEMA_VERSION,
+            'doc_runtime_coverage_schema' => AtlasAaeosImplementationTruthService::DOC_RUNTIME_COVERAGE_SCHEMA,
+            'model_integrity_manifest_schema' => AtlasLocalModelIntegrityService::MANIFEST_SCHEMA,
+            'secondary_report_schema_count' => 7,
         ];
     }
 

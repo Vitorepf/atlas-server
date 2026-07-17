@@ -111,7 +111,7 @@ final class AcosMaxObraRetroService
             'status' => (AiValueNormalizer::trimmedStringOrNull($result['status'] ?? null) ?? 'unknown'),
             'reason' => (AiValueNormalizer::trimmedStringOrNull($result['reason'] ?? null) ?? ''),
             'proposal_id' => $result['proposal_id'] ?? null,
-            'kind' => (string) ($result['kind'] ?? ($payload['kind'] ?? '')),
+            'kind' => AiValueNormalizer::trimmedStringOrNull($result['kind'] ?? $payload['kind'] ?? null) ?? '',
             'quality' => AiValueNormalizer::arrayOrEmpty($result['quality'] ?? null),
             'memory_admission' => AiValueNormalizer::arrayOrEmpty($result['memory_admission'] ?? null),
             'auto_promoted' => (bool) ($result['auto_promoted'] ?? false),

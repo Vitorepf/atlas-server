@@ -17,6 +17,8 @@ final class OutcomeEnvelopeBridge
 {
     public const MEASURE_ID = 'atlas.esp_06.outcome_envelope.v1';
 
+    public const BRIDGE_SCHEMA = 'atlas.esp_06.outcome_envelope_bridge.v1';
+
     /** @var array<string, OutcomeEnvelopeAdapter> */
     private array $adapters;
 
@@ -68,7 +70,7 @@ final class OutcomeEnvelopeBridge
     public function producerConsumerMeta(): array
     {
         return [
-            'schema_version' => 'atlas.esp_06.outcome_envelope_bridge.v1',
+            'schema_version' => self::BRIDGE_SCHEMA,
             'measure_id' => self::MEASURE_ID,
             'enabled' => self::enabled(),
             'producers' => array_keys($this->adapters),

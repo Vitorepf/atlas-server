@@ -115,7 +115,7 @@ final class AtlasResourceBudgetService
         }
 
         return [
-            'schema_version' => (string) ($this->budget['schema_version'] ?? self::SCHEMA),
+            'schema_version' => AiValueNormalizer::trimmedStringOrNull($this->budget['schema_version'] ?? null) ?? self::SCHEMA,
             'host_ram_gib' => $hostGib,
             'engine_floor_gib' => $engineFloorGib,
             'total_ram_cap_mb' => $totalRamCap,

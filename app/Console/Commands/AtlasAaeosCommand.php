@@ -202,6 +202,7 @@ final class AtlasAaeosCommand extends Command
         {--watchdog-runner-autonomy-ladder-contract= : JSON file (any object) to observe watchdog-runner aggregate + autonomy-ladder check floors}
         {--outcome-envelope-adapters-contract= : JSON file (any object) to observe ESP-06 outcome envelope adapter kinds}
         {--implementation-truth-rank-contract= : JSON file (any object) to observe implementation-truth rank + capture-hmac stage floors}
+        {--secondary-report-schemas-contract= : JSON file (any object) to observe secondary report schema floors (locate/bridge/lote2/calibration)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -560,6 +561,7 @@ final class AtlasAaeosCommand extends Command
             ['watchdog-runner-autonomy-ladder-contract', 'watchdog_runner_autonomy_ladder_contract', fn (array $p) => $gates->watchdogRunnerAutonomyLadderContractObserve($p)],
             ['outcome-envelope-adapters-contract', 'outcome_envelope_adapters_contract', fn (array $p) => $gates->outcomeEnvelopeAdaptersContractObserve($p)],
             ['implementation-truth-rank-contract', 'implementation_truth_rank_contract', fn (array $p) => $gates->implementationTruthRankContractObserve($p)],
+            ['secondary-report-schemas-contract', 'secondary_report_schemas_contract', fn (array $p) => $gates->secondaryReportSchemasContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

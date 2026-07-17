@@ -52,8 +52,8 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => $executor,
-            'task_category' => (string) ($contract['task_category'] ?? $executor),
-            'provider' => (string) ($contract['provider'] ?? $native['provider'] ?? 'absent'),
+            'task_category' => AiValueNormalizer::trimmedStringOrNull($contract['task_category'] ?? $executor) ?? '',
+            'provider' => AiValueNormalizer::trimmedStringOrNull($contract['provider'] ?? $native['provider'] ?? null) ?? 'absent',
             'status' => $status,
             'verified' => $verified,
             'verified_basis' => $verifiedBasis,
@@ -91,7 +91,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'missed_signals' => AiValueNormalizer::arrayOrEmpty($fields['missed_signals'] ?? null),
             'human_override' => (bool) ($fields['human_override'] ?? false),
             'verified' => (bool) ($data['verified'] ?? false),
-            'verified_basis' => (string) ($data['verified_basis'] ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT),
+            'verified_basis' => AiValueNormalizer::trimmedStringOrNull($data['verified_basis'] ?? null) ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT,
         ];
     }
 }

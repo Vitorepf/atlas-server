@@ -32,6 +32,8 @@ final class AcosMaxLote2MeasureService
 
     public const TETO02_MEASURE_ID = 'mission_e2e.v1';
 
+    public const REPORT_SCHEMA = 'atlas.acos.lote2.measure_report.v1';
+
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
     {
@@ -160,7 +162,7 @@ final class AcosMaxLote2MeasureService
         $blockedByTop = $this->blockedByTopN($partial, 10);
 
         return [
-            'schema_version' => 'atlas.acos.lote2.measure_report.v1',
+            'schema_version' => self::REPORT_SCHEMA,
             'slice' => 'MULTX-01',
             'status' => $marcoSatisfied ? 'ok' : 'insufficient_signal',
             'reason' => $marcoSatisfied ? null : 'no_complete_proven_real_loop_window',
@@ -525,7 +527,7 @@ final class AcosMaxLote2MeasureService
         $status = $n >= $denominatorMin ? 'ok' : 'insufficient_signal';
 
         return [
-            'schema_version' => 'atlas.acos.lote2.measure_report.v1',
+            'schema_version' => self::REPORT_SCHEMA,
             'slice' => 'MULTX-06',
             'status' => $status,
             'reason' => $status === 'ok' ? null : 'promoted_lesson_denominator_below_min',
@@ -725,7 +727,7 @@ final class AcosMaxLote2MeasureService
         ));
 
         return [
-            'schema_version' => 'atlas.acos.lote2.measure_report.v1',
+            'schema_version' => self::REPORT_SCHEMA,
             'slice' => 'MULTJ-03',
             'status' => $measuredPairs > 0 ? 'ok' : 'insufficient_signal',
             'reason' => $measuredPairs > 0 ? null : 'paired_peek_floor_below_minimum',
@@ -867,7 +869,7 @@ final class AcosMaxLote2MeasureService
         ], true))->count();
 
         return [
-            'schema_version' => 'atlas.acos.lote2.measure_report.v1',
+            'schema_version' => self::REPORT_SCHEMA,
             'slice' => 'TETO-02',
             'status' => $total >= 20 ? 'ok' : 'insufficient_signal',
             'reason' => $total >= 20 ? null : 'operator_request_window_below_floor',
@@ -928,7 +930,7 @@ final class AcosMaxLote2MeasureService
     private function emptyReport(string $slice, string $status, string $reason, array $extra): array
     {
         return array_merge([
-            'schema_version' => 'atlas.acos.lote2.measure_report.v1',
+            'schema_version' => self::REPORT_SCHEMA,
             'slice' => $slice,
             'status' => $status,
             'reason' => $reason,

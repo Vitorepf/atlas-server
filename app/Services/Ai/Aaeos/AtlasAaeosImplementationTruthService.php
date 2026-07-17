@@ -44,6 +44,8 @@ class AtlasAaeosImplementationTruthService
     /** B3 freshness format — v2 anchors path set to canonical FQN (PIP-01); v1 receipts read stale honestly. */
     public const IMPL_FILES_HASH_FORMAT = 'atlas.aaeos.impl_files_hash.v2';
 
+    public const DOC_RUNTIME_COVERAGE_SCHEMA = 'atlas.aaeos.doc_runtime_coverage.v1';
+
     /**
      * @var array<string,int>
      */
@@ -202,7 +204,7 @@ class AtlasAaeosImplementationTruthService
             : 100;
 
         return [
-            'schema_version' => 'atlas.aaeos.doc_runtime_coverage.v1',
+            'schema_version' => self::DOC_RUNTIME_COVERAGE_SCHEMA,
             'total_canonical_docs' => $total,
             'claims_runtime' => $claimsRuntime,
             'with_evidence_refs' => $withEvidence,

@@ -433,7 +433,7 @@ final class PromotionProtocol
             return $state;
         }
 
-        return (string) ($this->entryById($flagId)['state'] ?? self::STATE_OFF);
+        return AiValueNormalizer::trimmedStringOrNull($this->entryById($flagId)['state'] ?? null) ?? self::STATE_OFF;
     }
 
     private function familyAlreadyFlippedInWindow(string $family, string $windowId): bool

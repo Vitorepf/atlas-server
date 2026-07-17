@@ -34,6 +34,8 @@ final class PreReviewAdvisoryBand
 
     public const FORMULA_VERSION = 'atlas.multn15_08.pre_review_band.v1';
 
+    public const CALIBRATION_SCHEMA = 'atlas.operator.pre_review_advisory_band.calibration.v1';
+
     /** Below this floor the band is `insufficient_sample`, NEVER a band. */
     public const MIN_N_FOR_BAND = 10;
 
@@ -154,7 +156,7 @@ final class PreReviewAdvisoryBand
         }
 
         return [
-            'schema_version' => 'atlas.operator.pre_review_advisory_band.calibration.v1',
+            'schema_version' => self::CALIBRATION_SCHEMA,
             'formula_version' => self::FORMULA_VERSION,
             'curve' => $curve,
             'lift_high_over_low' => $lift,
