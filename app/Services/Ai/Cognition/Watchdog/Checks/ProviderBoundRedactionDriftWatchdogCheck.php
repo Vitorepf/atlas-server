@@ -97,7 +97,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
     {
         $hash = AiValueNormalizer::trimmedStringOrNull($entry->content_hash ?? null) ?? '';
         if ($hash === '') {
-            $hash = hash('sha256', (string) $entry->id);
+            $hash = hash('sha256', AiValueNormalizer::trimmedScalarStringOrNull($entry->id ?? null) ?? '');
         }
 
         return 'memory:'.substr($hash, 0, 16);

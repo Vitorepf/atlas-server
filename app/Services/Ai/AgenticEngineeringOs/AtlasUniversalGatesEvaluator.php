@@ -3768,6 +3768,32 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only MAXA-04 embedding dual-read floors + promotion eligibility defaults.
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function maxa04PromotionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'maxa04_candidate_model' => Maxa04JinaV3DualReadService::CANDIDATE_MODEL,
+            'maxa04_candidate_dimensions' => Maxa04JinaV3DualReadService::CANDIDATE_DIMENSIONS,
+            'maxa04_pending_window' => Maxa04JinaV3DualReadService::PENDING_WINDOW,
+            'maxa04_current_model_fallback' => Maxa04JinaV3DualReadService::CURRENT_MODEL_FALLBACK,
+            'maxa04_ledger_schema' => Maxa04JinaV3DualReadLedger::SCHEMA,
+            'maxa04_ledger_relative_path' => Maxa04JinaV3DualReadLedger::RELATIVE_PATH,
+            'promotion_eligibility_schema' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::SCHEMA_VERSION,
+            'promotion_max_evidence_age_days' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_EVIDENCE_AGE_DAYS,
+            'promotion_max_tier' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_TIER,
+            'memory_fabric_proposal_schema' => AtlasCognitiveMemoryFabricSchemaEvolutionService::PROPOSAL_SCHEMA,
+            'memory_fabric_ticket_schema' => AtlasCognitiveMemoryFabricSchemaEvolutionService::TICKET_SCHEMA,
+            'memory_fabric_extension_pressure_threshold' => AtlasCognitiveMemoryFabricSchemaEvolutionService::EXTENSION_PRESSURE_THRESHOLD,
+            'maxa04_promotion_floor_count' => 12,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

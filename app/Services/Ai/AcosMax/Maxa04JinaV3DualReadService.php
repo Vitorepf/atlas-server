@@ -16,13 +16,15 @@ final class Maxa04JinaV3DualReadService
 
     public const PENDING_WINDOW = 'jina_v3_dual_read_benchmark_window';
 
+    public const CURRENT_MODEL_FALLBACK = 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2';
+
     /** @return array<string,mixed> */
     public function plan(): array
     {
-        $currentModel = (string) $this->configValue(
+        $currentModel = AiValueNormalizer::trimmedScalarStringOrNull($this->configValue(
             'atlas.semantic_memory.semantic_rag_model',
-            'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
-        );
+            self::CURRENT_MODEL_FALLBACK,
+        )) ?? self::CURRENT_MODEL_FALLBACK;
 
         return [
             'schema_version' => Maxa04JinaV3DualReadLedger::SCHEMA,

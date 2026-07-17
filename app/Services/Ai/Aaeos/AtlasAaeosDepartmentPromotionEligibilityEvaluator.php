@@ -170,8 +170,8 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
             return $this->floatValue($thresholds[$targetTier]);
         }
 
-        if (is_array($thresholds) && array_key_exists((string) $targetTier, $thresholds)) {
-            return $this->floatValue($thresholds[(string) $targetTier]);
+        if (is_array($thresholds) && array_key_exists(AiValueNormalizer::trimmedScalarStringOrNull($targetTier) ?? '', $thresholds)) {
+            return $this->floatValue($thresholds[AiValueNormalizer::trimmedScalarStringOrNull($targetTier) ?? '']);
         }
 
         return $this->floatValue($metrics['target_threshold'] ?? 0.0);

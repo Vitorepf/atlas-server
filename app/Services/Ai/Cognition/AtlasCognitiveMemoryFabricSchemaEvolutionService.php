@@ -239,13 +239,13 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         if ($added !== []) {
             $lines[] = '### Added fields';
             foreach ($added as $f) {
-                $lines[] = '- '.(is_array($f) ? json_encode($f) : (string) $f);
+                $lines[] = '- '.(is_array($f) ? json_encode($f) : (AiValueNormalizer::trimmedScalarStringOrNull($f) ?? ''));
             }
         }
         if ($deprecated !== []) {
             $lines[] = '### Deprecated fields';
             foreach ($deprecated as $f) {
-                $lines[] = '- '.(is_array($f) ? json_encode($f) : (string) $f);
+                $lines[] = '- '.(is_array($f) ? json_encode($f) : (AiValueNormalizer::trimmedScalarStringOrNull($f) ?? ''));
             }
         }
         $lines[] = '';
