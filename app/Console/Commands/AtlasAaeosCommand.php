@@ -90,6 +90,7 @@ final class AtlasAaeosCommand extends Command
         {--resource-budget= : JSON file with optional budget override (observe-only ELEV-27)}
         {--model-capability-spec= : JSON file with function+model (observe-only ELEV-29s)}
         {--measure-series-freshness= : JSON file with registry entry (observe-only ELEV-31)}
+        {--verified-share= : JSON file with optional days (observe-only ELEV-12)}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -336,6 +337,7 @@ final class AtlasAaeosCommand extends Command
             ['resource-budget', 'resource_budget', fn (array $p) => $gates->resourceBudgetObserve($p)],
             ['model-capability-spec', 'model_capability_spec', fn (array $p) => $gates->modelCapabilitySpecObserve($p)],
             ['measure-series-freshness', 'measure_series_freshness', fn (array $p) => $gates->measureSeriesFreshnessObserve($p)],
+            ['verified-share', 'verified_share', fn (array $p) => $gates->verifiedShareObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

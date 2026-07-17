@@ -37,6 +37,7 @@ use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadLedger;
 use App\Services\Ai\AcosMax\AtlasResourceBudgetService;
 use App\Services\Ai\AcosMax\AtlasModelCapabilitySpecService;
 use App\Services\Ai\AcosMax\AcosMeasureSeriesFreshnessReader;
+use App\Services\Ai\AcosMax\AcosMaxVerifiedShareService;
 use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
 
@@ -1055,6 +1056,20 @@ final class AtlasUniversalGatesEvaluator
             'last_append_at' => $latest?->toIso8601String(),
             'fresh' => $latest !== null,
         ];
+    }
+
+    /**
+     * Observe-only ELEV-12 verified-share measure report.
+     * Accepts optional `{days?:int}`. Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function verifiedShareObserve(array $input = []): array
+    {
+        $days = array_key_exists('days', $input) ? max(1, (int) $input['days']) : null;
+
+        return (new AcosMaxVerifiedShareService)->report($days);
     }
 
     /**

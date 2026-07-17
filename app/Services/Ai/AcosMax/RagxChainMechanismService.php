@@ -113,10 +113,10 @@ final class RagxChainMechanismService
         return [
             'schema_version' => self::SCHEMA,
             'slice' => 'RAGX-01',
-            'status' => (string) ($result['status'] ?? 'unknown'),
+            'status' => AiValueNormalizer::trimmedString($result['status'] ?? 'unknown') ?: 'unknown',
             'mode' => 'shadow',
             'result' => $result,
-            'documents' => array_values((array) ($result['documents'] ?? [])),
+            'documents' => array_values(AiValueNormalizer::arrayOrEmpty($result['documents'] ?? null)),
             'ab_green_claimed' => false,
         ];
     }
@@ -224,7 +224,7 @@ final class RagxChainMechanismService
 
         $verified = array_values(array_filter($verifiedSummaries, static function (array $summary): bool {
             return AiValueNormalizer::trimmedString($summary['summary'] ?? '') !== ''
-                && in_array((string) ($summary['status'] ?? 'verified'), ['verified', 'ok'], true);
+                && in_array(AiValueNormalizer::trimmedString($summary['status'] ?? 'verified') ?: 'verified', ['verified', 'ok'], true);
         }));
 
         if ($verified === []) {
@@ -243,9 +243,9 @@ final class RagxChainMechanismService
         $nodes = [];
         foreach ($verified as $index => $summary) {
             $nodes[] = [
-                'id' => (string) ($summary['id'] ?? ('raptor_lite_'.($index + 1))),
-                'community' => array_values((array) ($summary['community'] ?? ($communities[$index] ?? []))),
-                'summary_ref' => (string) ($summary['l2_summary_id'] ?? $summary['id'] ?? ''),
+                'id' => AiValueNormalizer::trimmedString($summary['id'] ?? ('raptor_lite_'.($index + 1))) ?: ('raptor_lite_'.($index + 1)),
+                'community' => array_values(AiValueNormalizer::arrayOrEmpty($summary['community'] ?? ($communities[$index] ?? null))),
+                'summary_ref' => AiValueNormalizer::trimmedString($summary['l2_summary_id'] ?? $summary['id'] ?? ''),
                 'source' => 'maxf09_verified_l2_summary',
             ];
         }
@@ -281,7 +281,7 @@ final class RagxChainMechanismService
                 }
             }
             $matches[] = [
-                'id' => (string) ($document['id'] ?? ('doc_'.$index)),
+                'id' => AiValueNormalizer::trimmedString($document['id'] ?? ('doc_'.$index)) ?: ('doc_'.$index),
                 'score' => $tokens === [] ? 0.0 : round($hits / count($tokens), 4),
                 'score_origin' => 'lexical_sparse_shadow',
             ];

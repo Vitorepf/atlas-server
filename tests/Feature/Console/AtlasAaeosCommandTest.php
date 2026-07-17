@@ -1145,6 +1145,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_verified_share(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-vs-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(['days' => 7]));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-vs',
+                '--verified-share' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"verified_share"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

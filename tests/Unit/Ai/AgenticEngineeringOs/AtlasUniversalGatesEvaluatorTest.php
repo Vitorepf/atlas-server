@@ -35,6 +35,7 @@ use App\Services\Ai\AcosMax\AtlasCodeSymbolEmbeddingCoverageService;
 use App\Services\Ai\AcosMax\Teto10PredictedRevertReviewDigest;
 use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadLedger;
 use App\Services\Ai\AcosMax\AcosMeasureSeriesFreshnessReader;
+use App\Services\Ai\AcosMax\AcosMaxVerifiedShareService;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -896,5 +897,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         } finally {
             @unlink($path);
         }
+    }
+
+    public function test_verified_share_observe_reports_measure_shape(): void
+    {
+        $payload = $this->svc->verifiedShareObserve(['days' => 7]);
+
+        $this->assertSame(AcosMaxVerifiedShareService::SCHEMA_VERSION, $payload['schema_version']);
+        $this->assertSame(AcosMaxVerifiedShareService::MEASURE_ID, $payload['measure_id']);
+        $this->assertArrayHasKey('status', $payload);
     }
 }
