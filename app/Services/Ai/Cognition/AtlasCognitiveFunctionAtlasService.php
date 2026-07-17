@@ -318,7 +318,7 @@ class AtlasCognitiveFunctionAtlasService
         foreach ($shape as $row) {
             $nonReady = (int) ($row['pipeline_partial'] ?? 0) + (int) ($row['pipeline_building'] ?? 0);
             if ($nonReady > 0) {
-                $out[] = ['group' => (string) $row['group'], 'non_ready_pipeline' => $nonReady];
+                $out[] = ['group' => AiValueNormalizer::trimmedScalarStringOrNull($row['group'] ?? null) ?? '', 'non_ready_pipeline' => $nonReady];
             }
         }
         usort($out, static fn ($a, $b): int => $b['non_ready_pipeline'] <=> $a['non_ready_pipeline']);

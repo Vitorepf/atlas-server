@@ -154,8 +154,8 @@ final class AtlasAcosWatchdogHealthService
                 'recall_usage_total' => $recallUsageTotal,
             ],
             'alert_detail' => $failed === [] ? null : [
-                'check_id' => (string) $failed[0]['id'],
-                'code' => (string) $failed[0]['code'],
+                'check_id' => AiValueNormalizer::trimmedScalarStringOrNull($failed[0]['id'] ?? null) ?? '',
+                'code' => AiValueNormalizer::trimmedScalarStringOrNull($failed[0]['code'] ?? null) ?? '',
                 'message' => 'Memory quality check failed.',
             ],
             'generated_at' => now()->toIso8601String(),
@@ -329,7 +329,7 @@ final class AtlasAcosWatchdogHealthService
         $transcript = 0;
         $byWriter = [];
         foreach ($events as $event) {
-            $writer = (string) ($event->flow_id ?: 'unknown');
+            $writer = AiValueNormalizer::trimmedScalarStringOrNull($event->flow_id ?: null) ?? 'unknown';
             $byWriter[$writer] ??= ['total' => 0, 'measured' => 0, 'delivered_refs' => 0];
             $byWriter[$writer]['total']++;
             $isMeasured = (int) $event->post_execution_utility > 0 || (int) $event->context_sufficiency > 0 || (int) $event->used_sources > 0;
@@ -675,10 +675,10 @@ final class AtlasAcosWatchdogHealthService
             'status' => $failed === [] ? 'ok' : 'alert',
             'alert' => $failed !== [],
             'checks' => $checks,
-            'blocking' => array_values(array_map(static fn (array $check): string => (string) $check['code'], $failed)),
+            'blocking' => array_values(array_map(static fn (array $check): string => AiValueNormalizer::trimmedScalarStringOrNull($check['code'] ?? null) ?? '', $failed)),
             'alert_detail' => $failed === [] ? null : [
                 'code' => $alertCode,
-                'check_id' => (string) $failed[0]['id'],
+                'check_id' => AiValueNormalizer::trimmedScalarStringOrNull($failed[0]['id'] ?? null) ?? '',
             ],
             ...$extra,
             'generated_at' => now()->toIso8601String(),

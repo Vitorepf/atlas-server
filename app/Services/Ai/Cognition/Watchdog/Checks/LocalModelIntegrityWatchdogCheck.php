@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services\Ai\Cognition\Watchdog\Checks;
 
+use App\Services\Ai\Support\AiValueNormalizer;
+
 use App\Services\Ai\AcosMax\AtlasLocalModelIntegrityService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
@@ -49,13 +51,13 @@ final readonly class LocalModelIntegrityWatchdogCheck implements AtlasWatchdogCh
         if ($report['mismatched'] > 0 || $report['missing'] > 0) {
             $offenders = array_values(array_filter(
                 $report['artifacts'],
-                static fn (array $row): bool => in_array((string) $row['status'], ['mismatched', 'missing'], true),
+                static fn (array $row): bool => in_array(AiValueNormalizer::trimmedScalarStringOrNull($row['status'] ?? null) ?? '', ['mismatched', 'missing'], true),
             ));
 
             return AtlasWatchdogCheckResult::alert($evidence, [
                 'code' => $report['mismatched'] > 0 ? 'local_model_hash_mismatch' : 'local_model_missing',
                 'message' => 'Local model artifact integrity broken vs manifest pin.',
-                'artifacts' => array_map(static fn (array $row): string => (string) $row['model_id'], $offenders),
+                'artifacts' => array_map(static fn (array $row): string => AiValueNormalizer::trimmedScalarStringOrNull($row['model_id'] ?? null) ?? '', $offenders),
             ]);
         }
 

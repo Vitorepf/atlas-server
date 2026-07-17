@@ -2553,4 +2553,14 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame('atlas.cognition.acos_long_horizon_gate.area_v2', $payload['long_horizon_area_v2_schema']);
         $this->assertSame(11, $payload['evaluator_observe_helper_count']);
     }
+
+    public function test_gate_report_schema_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->gateReportSchemaContractObserve([]);
+
+        $this->assertSame('atlas.aaeos.gate_report.v1', $payload['gate_report_schema']);
+        $this->assertSame('atlas.aaeos.universal_gates_catalogue.v1', $payload['universal_gates_catalogue_observe_schema']);
+        $this->assertSame(15, $payload['catalogue_gate_count']);
+        $this->assertSame(13, $payload['observe_helper_schema_count']);
+    }
 }

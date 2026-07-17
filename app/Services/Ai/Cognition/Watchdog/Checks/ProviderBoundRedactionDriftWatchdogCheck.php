@@ -81,7 +81,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
         $body = AiValueNormalizer::trimmedStringOrNull($entry->body) ?? '';
         $summary = AiValueNormalizer::trimmedStringOrNull($entry->summary ?? null) ?? '';
         $providerBody = $this->privacy->providerBody($entry);
-        $providerSummary = (string) ($this->privacy->providerSummary($entry) ?? '');
+        $providerSummary = AiValueNormalizer::trimmedStringOrNull($this->privacy->providerSummary($entry) ?? null) ?? '';
 
         if ($body !== '' && $providerBody !== '' && str_contains($providerBody, $body)) {
             $signals[] = 'provider_body_contains_raw_body';

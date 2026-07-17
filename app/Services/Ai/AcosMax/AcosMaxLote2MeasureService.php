@@ -141,8 +141,8 @@ final class AcosMaxLote2MeasureService
         foreach (DB::table('ai_run_outcomes')->orderBy('created_at')->get() as $outcome) {
             $assembled = $this->assembleMultx01Loop(
                 $outcome,
-                $deliveriesByOutcome[(string) $outcome->id] ?? [],
-                $candidatesByOutcome[(string) $outcome->id] ?? [],
+                $deliveriesByOutcome[AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? ''] ?? [],
+                $candidatesByOutcome[AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? ''] ?? [],
                 $recallsByCandidate,
             );
 
@@ -219,7 +219,7 @@ final class AcosMaxLote2MeasureService
         arsort($counts);
         $top = [];
         foreach (array_slice($counts, 0, max(1, $limit), true) as $reason => $count) {
-            $top[] = ['reason' => (string) $reason, 'count' => (int) $count];
+            $top[] = ['reason' => AiValueNormalizer::trimmedScalarStringOrNull($reason) ?? '', 'count' => (int) $count];
         }
 
         return $top;
@@ -251,8 +251,8 @@ final class AcosMaxLote2MeasureService
         $delivery = $this->firstContextDelivery($deliveries);
         $candidate = $candidates[0] ?? null;
         $recall = $candidate === null ? null : $this->firstSubsequentRecall(
-            $recallsByCandidate[(string) $candidate->id] ?? [],
-            (string) ($candidate->created_at ?? $outcome->created_at ?? ''),
+            $recallsByCandidate[AiValueNormalizer::trimmedScalarStringOrNull($candidate->id ?? null) ?? ''] ?? [],
+            AiValueNormalizer::trimmedString($candidate->created_at ?? $outcome->created_at ?? ''),
         );
 
         $decisionId = $this->firstNonEmpty([
@@ -304,7 +304,7 @@ final class AcosMaxLote2MeasureService
             return [
                 'complete' => false,
                 'partial' => [
-                    'loop_id' => hash('sha256', implode('|', array_map(static fn ($value): string => (string) $value, $chain))),
+                    'loop_id' => hash('sha256', implode('|', array_map(static fn ($value): string => AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '', $chain))),
                     'chain' => $chain,
                     'proven_real' => $provenReal,
                     'fixture_free' => ! $fixture,
@@ -316,13 +316,13 @@ final class AcosMaxLote2MeasureService
         return [
             'complete' => true,
             'loop' => [
-                'loop_id' => hash('sha256', implode('|', array_map(static fn ($value): string => (string) $value, $chain))),
+                'loop_id' => hash('sha256', implode('|', array_map(static fn ($value): string => AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '', $chain))),
                 'chain' => $chain,
                 'proven_real' => true,
                 'fixture_free' => true,
                 'time_to_recall_seconds' => $this->secondsBetween(
-                    (string) ($outcome->created_at ?? ''),
-                    (string) ($recall->created_at ?? ''),
+                    AiValueNormalizer::trimmedString($outcome->created_at ?? ''),
+                    AiValueNormalizer::trimmedString($recall->created_at ?? ''),
                 ),
             ],
         ];
@@ -348,7 +348,7 @@ final class AcosMaxLote2MeasureService
     private function firstSubsequentRecall(array $recalls, string $candidateCreatedAt): ?object
     {
         foreach ($recalls as $recall) {
-            if ($candidateCreatedAt === '' || strtotime((string) ($recall->created_at ?? '')) >= strtotime($candidateCreatedAt)) {
+            if ($candidateCreatedAt === '' || strtotime(AiValueNormalizer::trimmedString($recall->created_at ?? '')) >= strtotime($candidateCreatedAt)) {
                 return $recall;
             }
         }
@@ -472,10 +472,10 @@ final class AcosMaxLote2MeasureService
                 continue;
             }
 
-            $delivery = $this->firstContextDelivery($deliveriesByOutcome[(string) $outcome->id] ?? []);
-            $citation = $this->firstSubsequentRecall($citationsByCandidate[$candidateId] ?? [], (string) ($candidate->created_at ?? ''));
-            $deliverySeconds = $delivery === null ? null : $this->secondsBetween((string) ($outcome->created_at ?? ''), (string) ($delivery->created_at ?? ''));
-            $citationSeconds = $citation === null ? null : $this->secondsBetween((string) ($outcome->created_at ?? ''), (string) ($citation->created_at ?? ''));
+            $delivery = $this->firstContextDelivery($deliveriesByOutcome[AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? ''] ?? []);
+            $citation = $this->firstSubsequentRecall($citationsByCandidate[$candidateId] ?? [], AiValueNormalizer::trimmedString($candidate->created_at ?? ''));
+            $deliverySeconds = $delivery === null ? null : $this->secondsBetween(AiValueNormalizer::trimmedString($outcome->created_at ?? ''), AiValueNormalizer::trimmedString($delivery->created_at ?? ''));
+            $citationSeconds = $citation === null ? null : $this->secondsBetween(AiValueNormalizer::trimmedString($outcome->created_at ?? ''), AiValueNormalizer::trimmedString($citation->created_at ?? ''));
 
             if ($deliverySeconds === null) {
                 $neverDelivered++;

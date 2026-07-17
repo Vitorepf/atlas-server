@@ -34,7 +34,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
         $series = array_map(fn (array $entry): array => $this->seriesRow($entry, $now), $this->registry->entries());
         $dead = array_values(array_filter(
             $series,
-            static fn (array $row): bool => in_array((string) $row['status'], ['stale', 'missing'], true),
+            static fn (array $row): bool => in_array(AiValueNormalizer::trimmedScalarStringOrNull($row['status'] ?? null) ?? '', ['stale', 'missing'], true),
         ));
 
         $evidence = [
@@ -50,7 +50,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
             return AtlasWatchdogCheckResult::alert($evidence, [
                 'code' => 'acos_dead_series_stale',
                 'message' => 'Registered ACOS measure series exceeded its frozen TTL or has no append.',
-                'series' => array_values(array_map(static fn (array $row): string => (string) $row['series'], $dead)),
+                'series' => array_values(array_map(static fn (array $row): string => AiValueNormalizer::trimmedScalarStringOrNull($row['series'] ?? null) ?? '', $dead)),
                 'ledger' => 'atlas_ledger_events:watchdog_run_recorded',
             ]);
         }
@@ -75,8 +75,8 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
             'slice' => (AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? ''),
             'series' => (AiValueNormalizer::trimmedStringOrNull($entry['series'] ?? null) ?? ''),
             'source_type' => AiValueNormalizer::trimmedStringOrNull($entry['source_type'] ?? null) ?? (isset($entry['table']) ? 'table' : 'jsonl'),
-            'path' => isset($entry['path']) ? $this->relativePath((string) $entry['path']) : null,
-            'table' => isset($entry['table']) ? (string) $entry['table'] : null,
+            'path' => isset($entry['path']) ? $this->relativePath(AiValueNormalizer::trimmedScalarStringOrNull($entry['path'] ?? null) ?? '') : null,
+            'table' => AiValueNormalizer::trimmedScalarStringOrNull($entry['table'] ?? null),
             'timestamp_field' => (AiValueNormalizer::trimmedStringOrNull($entry['timestamp_field'] ?? null) ?? 'recorded_at'),
             'ttl_days' => $ttlDays,
             'ttl_source' => (AiValueNormalizer::trimmedStringOrNull($entry['ttl_source'] ?? null) ?? 'freeze'),

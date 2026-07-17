@@ -3727,6 +3727,23 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only gate-report schema floor (evaluator catalogue envelope).
+     * Catalogue stays 15.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function gateReportSchemaContractObserve(array $input = []): array
+    {
+        return [
+            'gate_report_schema' => self::SCHEMA_VERSION,
+            'universal_gates_catalogue_observe_schema' => self::OBSERVE_UNIVERSAL_GATES_CATALOGUE_SCHEMA,
+            'catalogue_gate_count' => count($this->catalogue()),
+            'observe_helper_schema_count' => 13,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -236,7 +236,7 @@ final class AcosMaxObraRetroService
                 continue;
             }
 
-            $state = $this->terminalState((string) $match[2]);
+            $state = $this->terminalState(AiValueNormalizer::trimmedScalarStringOrNull($match[2] ?? null) ?? '');
             if ($state === null) {
                 continue;
             }

@@ -125,7 +125,7 @@ final class AtlasImmuneHybridInputClassifier
             'max_similarity' => null,
             'hostile_class_candidate' => null,
             'lexical_hostile_class' => in_array($baseResult['input_class'], self::HOSTILE_SEVERITY, true)
-                ? (string) $baseResult['input_class']
+                ? (AiValueNormalizer::trimmedScalarStringOrNull($baseResult['input_class'] ?? null) ?? '')
                 : null,
             'winner_source' => 'lexical',
             'override_applied' => false,
@@ -199,7 +199,7 @@ final class AtlasImmuneHybridInputClassifier
             'max_similarity' => null,
             'hostile_class_candidate' => null,
             'lexical_hostile_class' => in_array($baseResult['input_class'], self::HOSTILE_SEVERITY, true)
-                ? (string) $baseResult['input_class']
+                ? (AiValueNormalizer::trimmedScalarStringOrNull($baseResult['input_class'] ?? null) ?? '')
                 : null,
             'winner_source' => 'immune_signature',
             'override_applied' => true,

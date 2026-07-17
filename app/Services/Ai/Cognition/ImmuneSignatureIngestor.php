@@ -69,7 +69,7 @@ final class ImmuneSignatureIngestor
     {
         $contentHash = is_string($entry->content_hash) && $entry->content_hash !== ''
             ? $entry->content_hash
-            : $this->deriver->contentHashFromText((string) ($entry->body ?? $entry->redacted_body ?? ''));
+            : $this->deriver->contentHashFromText(AiValueNormalizer::trimmedString($entry->body ?? $entry->redacted_body ?? ''));
 
         $metadata = AiValueNormalizer::arrayOrEmpty($entry->metadata);
         $classification = AiValueNormalizer::arrayOrEmpty($metadata['immune_classification'] ?? null);
@@ -104,7 +104,7 @@ final class ImmuneSignatureIngestor
      */
     private function isConfirmedPoisonVerdict(array $verdictRow): bool
     {
-        $label = is_scalar($verdictRow['sample_label'] ?? null) ? (string) $verdictRow['sample_label'] : '';
+        $label = AiValueNormalizer::trimmedScalarStringOrNull($verdictRow['sample_label'] ?? null) ?? '';
         $status = AiValueNormalizer::lowerTrimmedString($verdictRow['promotion_status'] ?? '');
         $blocking = array_values(array_filter(AiValueNormalizer::arrayOrEmpty($verdictRow['blocking_gate_ids'] ?? null), 'is_string'));
 

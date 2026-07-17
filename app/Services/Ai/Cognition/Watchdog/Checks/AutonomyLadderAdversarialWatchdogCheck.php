@@ -325,7 +325,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             'privacy_class' => 'sensitive',
             'ceiling' => PolicyCanon::AUTONOMY_AUTONOMOUS,
         ]);
-        $level = (string) $derived['requested_autonomy'];
+        $level = AiValueNormalizer::trimmedScalarStringOrNull($derived['requested_autonomy'] ?? null) ?? '';
         $refused = $level === PolicyCanon::AUTONOMY_EXECUTE_WITH_APPROVAL
             || $level === PolicyCanon::AUTONOMY_DRAFT
             || $level === PolicyCanon::AUTONOMY_SUGGEST;
@@ -351,7 +351,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             'n' => 20,
             'ceiling' => PolicyCanon::AUTONOMY_AUTONOMOUS,
         ]);
-        $level = (string) $derived['requested_autonomy'];
+        $level = AiValueNormalizer::trimmedScalarStringOrNull($derived['requested_autonomy'] ?? null) ?? '';
         $refused = $level === PolicyCanon::AUTONOMY_DRAFT
             || $level === PolicyCanon::AUTONOMY_SUGGEST;
 
@@ -377,7 +377,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             'n' => 100,
             'ceiling' => PolicyCanon::AUTONOMY_DRAFT,
         ]);
-        $level = (string) $derived['requested_autonomy'];
+        $level = AiValueNormalizer::trimmedScalarStringOrNull($derived['requested_autonomy'] ?? null) ?? '';
         $refused = RequestedAutonomyDerivation::isMonotonicallyDownward($level, PolicyCanon::AUTONOMY_DRAFT);
 
         return [

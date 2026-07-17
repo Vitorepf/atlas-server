@@ -64,7 +64,7 @@ final class ImmuneVerdictLedger
         $expectedBlockGateIds = $this->normalizeGateIds(AiValueNormalizer::arrayOrEmpty($context['expected_block_gate_ids'] ?? null));
         $blockingGateIds = $this->normalizeGateIds(AiValueNormalizer::arrayOrEmpty($verdict['blocking_gate_ids'] ?? null));
         $sampleLabel = $this->sampleLabel(
-            is_scalar($context['sample_label'] ?? null) ? (string) $context['sample_label'] : '',
+            AiValueNormalizer::trimmedScalarStringOrNull($context['sample_label'] ?? null) ?? '',
             $gateStatuses,
             $expectedBlockGateIds,
             $blockingGateIds,

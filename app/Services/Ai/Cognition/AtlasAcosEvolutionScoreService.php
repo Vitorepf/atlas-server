@@ -276,7 +276,7 @@ class AtlasAcosEvolutionScoreService
         try {
             $haystack = '';
             foreach (app(Schedule::class)->events() as $event) {
-                $haystack .= ' '.(string) ($event->command ?? '').' '.(string) ($event->description ?? '');
+                $haystack .= ' '.AiValueNormalizer::trimmedString($event->command ?? '').' '.AiValueNormalizer::trimmedString($event->description ?? '');
             }
             $found = 0;
             foreach (self::SCHEDULED_ORGANS as $organ) {
