@@ -9770,4 +9770,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['department_contract_cognition_score_cognitive_memory_consolidation_rerank_floor_count']);
     }
 
+    public function test_department_contract_acos_dead_aobg_latency_local_model_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->departmentContractAcosDeadAobgLatencyLocalModelFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_NO_HALLUCINATED_LINKS, $out['no_hallucinated_links']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_NONE, $out['none']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_OBRA_INTAKE_VALIDATED, $out['obra_intake_validated']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_OBRA_PACK_HASH, $out['obra_pack_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PATCH_HASH, $out['patch_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PLAN_APPROVED, $out['plan_approved']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_POLICY_DECISION_HASH, $out['policy_decision_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PRODUCT_CLARITY_SCORE_AVG, $out['product_clarity_score_avg']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PRODUCT_LOOP_COUNT_AVG, $out['product_loop_count_avg']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PROMOTE_TO_MEMORY, $out['promote_to_memory']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_JSONL, $out['jsonl']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_DEFAULT_PAYLOAD, $out['default_payload']);
+        $this->assertSame(LocalModelIntegrityWatchdogCheck::FIELD_LOCAL_MODEL_MISSING, $out['local_model_missing']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_UNTRUSTED_URL, $out['untrusted_url']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_QUALITY_BAR_NOT_MET, $out['quality_bar_not_met']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_MD, $out['md']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_WITH, $out['with']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_ROLLBACK_COMMAND, $out['rollback_command']);
+        $this->assertSame(18, $out['department_contract_acos_dead_aobg_latency_local_model_floor_count']);
+    }
+
 }

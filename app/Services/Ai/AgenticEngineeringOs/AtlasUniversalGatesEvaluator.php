@@ -12437,4 +12437,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B481).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function departmentContractAcosDeadAobgLatencyLocalModelFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'no_hallucinated_links' => DepartmentContractRuntime::FIELD_NO_HALLUCINATED_LINKS,
+            'none' => DepartmentContractRuntime::FIELD_NONE,
+            'obra_intake_validated' => DepartmentContractRuntime::FIELD_OBRA_INTAKE_VALIDATED,
+            'obra_pack_hash' => DepartmentContractRuntime::FIELD_OBRA_PACK_HASH,
+            'patch_hash' => DepartmentContractRuntime::FIELD_PATCH_HASH,
+            'plan_approved' => DepartmentContractRuntime::FIELD_PLAN_APPROVED,
+            'policy_decision_hash' => DepartmentContractRuntime::FIELD_POLICY_DECISION_HASH,
+            'product_clarity_score_avg' => DepartmentContractRuntime::FIELD_PRODUCT_CLARITY_SCORE_AVG,
+            'product_loop_count_avg' => DepartmentContractRuntime::FIELD_PRODUCT_LOOP_COUNT_AVG,
+            'promote_to_memory' => DepartmentContractRuntime::FIELD_PROMOTE_TO_MEMORY,
+            'jsonl' => AcosDeadSeriesWatchdogCheck::FIELD_JSONL,
+            'default_payload' => AobgLatencyWatchdogCheck::FIELD_DEFAULT_PAYLOAD,
+            'local_model_missing' => LocalModelIntegrityWatchdogCheck::FIELD_LOCAL_MODEL_MISSING,
+            'untrusted_url' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_UNTRUSTED_URL,
+            'quality_bar_not_met' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_QUALITY_BAR_NOT_MET,
+            'md' => AtlasDocsAuthorityGraphService::FIELD_MD,
+            'with' => AcosMaxLote2MeasureService::FIELD_WITH,
+            'rollback_command' => Teto10PredictedRevertReviewDigest::FIELD_ROLLBACK_COMMAND,
+            'department_contract_acos_dead_aobg_latency_local_model_floor_count' => 18,
+        ];
+    }
+
 }

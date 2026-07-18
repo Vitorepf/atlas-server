@@ -60,6 +60,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_APP = 'app';
     public const FIELD_MEASURE = 'measure';
     public const FIELD_OVERRIDE = 'override';
+    public const FIELD_DEFAULT_PAYLOAD = 'default_payload';
 
 
     /**
@@ -104,7 +105,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_THRESHOLDS => $thresholds,
             self::FIELD_DENOMINATOR_MIN => $denominatorMin,
             self::FIELD_REPORT => $report,
-            self::FIELD_FREEZE_SOURCE => $this->freezePayloadOverride !== null ? self::FIELD_OVERRIDE : ($this->latestFreezePayload() !== null ? self::FIELD_EVIDENCE_LEDGER : 'default_payload'),
+            self::FIELD_FREEZE_SOURCE => $this->freezePayloadOverride !== null ? self::FIELD_OVERRIDE : ($this->latestFreezePayload() !== null ? self::FIELD_EVIDENCE_LEDGER : self::FIELD_DEFAULT_PAYLOAD),
         ];
 
         if ($insufficient !== []) {

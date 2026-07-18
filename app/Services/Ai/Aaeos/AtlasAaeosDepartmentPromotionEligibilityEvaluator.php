@@ -52,6 +52,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_ALREADY_AT_MAX_TIER = 'already_at_max_tier';
     public const FIELD_EVIDENCE_STALE = 'evidence_stale';
+    public const FIELD_QUALITY_BAR_NOT_MET = 'quality_bar_not_met';
 
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department
@@ -99,7 +100,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
 
         if (! $qualityPrecondition[self::FIELD_PASSED]) {
             $failedPreconditions[] = 'quality_bar';
-            $blockingReasons[] = 'quality_bar_not_met';
+            $blockingReasons[] = self::FIELD_QUALITY_BAR_NOT_MET;
         }
 
         if (! $freshnessPrecondition[self::FIELD_PASSED]) {

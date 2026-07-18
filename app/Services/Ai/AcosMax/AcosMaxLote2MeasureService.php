@@ -273,6 +273,7 @@ final class AcosMaxLote2MeasureService
     public const FIELD_PAIRED_PEEK_FLOOR_BELOW_MINIMUM = 'paired_peek_floor_below_minimum';
     public const FIELD_PROMOTED_LESSON_DENOMINATOR_BELOW_MIN = 'promoted_lesson_denominator_below_min';
     public const FIELD_SUBSEQUENT_MEASURED_RECALL_MISSING = 'subsequent_measured_recall_missing';
+    public const FIELD_WITH = 'with';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -1058,7 +1059,7 @@ final class AcosMaxLote2MeasureService
 
         return match ($arm) {
             'control', self::FIELD_WITHOUT, self::FIELD_WITHOUT_LESSON => 'control',
-            'treatment', 'with', self::FIELD_WITH_LESSON => 'treatment',
+            'treatment', self::FIELD_WITH, self::FIELD_WITH_LESSON => 'treatment',
             default => '',
         };
     }

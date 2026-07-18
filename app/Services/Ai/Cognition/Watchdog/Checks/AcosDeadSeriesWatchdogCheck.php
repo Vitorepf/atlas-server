@@ -44,6 +44,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_ACOS_DEAD_SERIES_STALE = 'acos_dead_series_stale';
     public const FIELD_FREEZE = 'freeze';
     public const FIELD_RECORDED_AT = 'recorded_at';
+    public const FIELD_JSONL = 'jsonl';
 
     public function __construct(
         private AcosMaxMeasureSeriesRegistry $registry,
@@ -102,7 +103,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
         return [
             self::FIELD_SLICE => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SLICE] ?? null) ?? ''),
             self::FIELD_SERIES => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SERIES] ?? null) ?? ''),
-            self::FIELD_SOURCE_TYPE => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SOURCE_TYPE] ?? null) ?? (isset($entry[self::FIELD_TABLE]) ? 'table' : 'jsonl'),
+            self::FIELD_SOURCE_TYPE => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SOURCE_TYPE] ?? null) ?? (isset($entry[self::FIELD_TABLE]) ? 'table' : self::FIELD_JSONL),
             self::FIELD_PATH => isset($entry[self::FIELD_PATH]) ? $this->relativePath(AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_PATH] ?? null) ?? '') : null,
             self::FIELD_TABLE => AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_TABLE] ?? null),
             self::FIELD_TIMESTAMP_FIELD => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_TIMESTAMP_FIELD] ?? null) ?? self::FIELD_RECORDED_AT),

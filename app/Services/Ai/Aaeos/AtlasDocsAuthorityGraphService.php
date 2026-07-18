@@ -69,6 +69,7 @@ class AtlasDocsAuthorityGraphService
     public const FIELD_CAPABILITY = 'capability';
     public const FIELD_LIKE = 'like';
     public const FIELD_ARCHIVE = 'archive';
+    public const FIELD_MD = 'md';
 
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
@@ -266,7 +267,7 @@ class AtlasDocsAuthorityGraphService
         $docs = [];
         foreach (File::allFiles($root) as $file) {
             /** @var SplFileInfo $file */
-            if (AiValueNormalizer::lowerTrimmedString($file->getExtension()) !== 'md') {
+            if (AiValueNormalizer::lowerTrimmedString($file->getExtension()) !== self::FIELD_MD) {
                 continue;
             }
             $parsed = $this->frontmatter->parse(File::get($file->getPathname()));

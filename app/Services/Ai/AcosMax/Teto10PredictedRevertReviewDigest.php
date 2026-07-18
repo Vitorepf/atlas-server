@@ -103,6 +103,7 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_NONE = 'none';
     public const FIELD_PATCH_REF = 'patch_ref';
     public const FIELD_REVERSIBLE = 'reversible';
+    public const FIELD_ROLLBACK_COMMAND = 'rollback_command';
 
     /**
      * @param  list<array<string,mixed>>  $items
@@ -371,7 +372,7 @@ final class Teto10PredictedRevertReviewDigest
      */
     private static function reverseCommand(array $item): string
     {
-        $command = self::firstString($item, ['reverse_command', self::FIELD_REVERSE_HANDLE, 'rollback_command'], '');
+        $command = self::firstString($item, ['reverse_command', self::FIELD_REVERSE_HANDLE, self::FIELD_ROLLBACK_COMMAND], '');
         if ($command === '' || $command === self::FIELD_MANUAL_REVIEW) {
             return self::FIELD_MANUAL_REVIEW;
         }

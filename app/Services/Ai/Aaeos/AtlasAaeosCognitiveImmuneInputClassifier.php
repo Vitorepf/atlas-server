@@ -101,6 +101,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_RECURRENT_EPHEMERAL = 'recurrent_ephemeral';
     public const FIELD_SECRET_MARKER_PRIVACY = 'secret_marker_privacy';
     public const FIELD_TRIVIAL_QUESTION = 'trivial_question';
+    public const FIELD_UNTRUSTED_URL = 'untrusted_url';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -335,7 +336,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
 
         // 3. Untrusted: foreign / cited content is never a trusted candidate.
         if ($hasUrl) {
-            return [self::CLASS_UNTRUSTED_CONTENT, 'untrusted_url'];
+            return [self::CLASS_UNTRUSTED_CONTENT, self::FIELD_UNTRUSTED_URL];
         }
 
         // 4. Candidate-signal strength: strongest lexicon hit wins when > 0.
