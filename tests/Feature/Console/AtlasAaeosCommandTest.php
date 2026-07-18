@@ -9923,6 +9923,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b585_aaeos_quality_memory_feedback_injection_lote_measure_series_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b585-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b585',
+                '--b585-aaeos-quality-memory-feedback-injection-lote-measure-series-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b585_aaeos_quality_memory_feedback_injection_lote_measure_series_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

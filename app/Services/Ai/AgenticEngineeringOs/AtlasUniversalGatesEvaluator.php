@@ -15613,4 +15613,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B585).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b585AaeosQualityMemoryFeedbackInjectionLoteMeasureSeriesFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'worst_breach' => AtlasAaeosQualityBarService::FIELD_WORST_BREACH,
+            'emitted_at' => AtlasAaeosQualityBarService::FIELD_EMITTED_AT,
+            'threshold_reasons' => MemoryFeedbackDecayScorer::FIELD_THRESHOLD_REASONS,
+            'inputs_echo' => MemoryFeedbackDecayScorer::FIELD_INPUTS_ECHO,
+            'schema_version' => MemoryInjectionBudgetAllocator::FIELD_SCHEMA_VERSION,
+            'total_budget_chars' => MemoryInjectionBudgetAllocator::FIELD_TOTAL_BUDGET_CHARS,
+            'n_total' => AcosMaxLote2MeasureService::FIELD_N_TOTAL,
+            'fixture_rejected' => AcosMaxLote2MeasureService::FIELD_FIXTURE_REJECTED,
+            'path' => AcosMaxMeasureSeriesRegistry::FIELD_PATH,
+            'table' => AcosMaxMeasureSeriesRegistry::FIELD_TABLE,
+            'totals' => AcosMaxProceduralSkillPromoterService::FIELD_TOTALS,
+            'procedural_playbooks' => AcosMaxProceduralSkillPromoterService::FIELD_PROCEDURAL_PLAYBOOKS,
+            'ok' => AcosProgramCockpitService::FIELD_OK,
+            'reason' => AcosProgramCockpitService::FIELD_REASON,
+            'ram_actual_mb' => AtlasResourceBudgetService::FIELD_RAM_ACTUAL_MB,
+            'disk_cap_mb' => AtlasResourceBudgetService::FIELD_DISK_CAP_MB,
+            'death_criterion' => EvidenceVisionThesisLifecycle::FIELD_DEATH_CRITERION,
+            'receipt_hash' => EvidenceVisionThesisLifecycle::FIELD_RECEIPT_HASH,
+            'b585_aaeos_quality_memory_feedback_injection_lote_measure_series_floor_count' => 18,
+        ];
+    }
+
 }

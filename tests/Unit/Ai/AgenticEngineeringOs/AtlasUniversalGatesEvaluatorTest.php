@@ -12325,4 +12325,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b584_cognitive_function_immune_hybrid_calibration_aobg_latency_department_floor_count']);
     }
 
+    public function test_b585_aaeos_quality_memory_feedback_injection_lote_measure_series_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b585AaeosQualityMemoryFeedbackInjectionLoteMeasureSeriesFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_WORST_BREACH, $out['worst_breach']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_EMITTED_AT, $out['emitted_at']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_THRESHOLD_REASONS, $out['threshold_reasons']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_INPUTS_ECHO, $out['inputs_echo']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_TOTAL_BUDGET_CHARS, $out['total_budget_chars']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_N_TOTAL, $out['n_total']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_FIXTURE_REJECTED, $out['fixture_rejected']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_PATH, $out['path']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_TABLE, $out['table']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_TOTALS, $out['totals']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_PROCEDURAL_PLAYBOOKS, $out['procedural_playbooks']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_OK, $out['ok']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_RAM_ACTUAL_MB, $out['ram_actual_mb']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_DISK_CAP_MB, $out['disk_cap_mb']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_DEATH_CRITERION, $out['death_criterion']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_RECEIPT_HASH, $out['receipt_hash']);
+        $this->assertSame(18, $out['b585_aaeos_quality_memory_feedback_injection_lote_measure_series_floor_count']);
+    }
+
 }
