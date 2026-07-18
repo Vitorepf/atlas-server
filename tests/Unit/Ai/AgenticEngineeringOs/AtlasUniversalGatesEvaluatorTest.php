@@ -15474,4 +15474,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b711_cognition_score_floor_count']);
     }
 
+    public function test_b712_immune_promotion_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b712ImmunePromotionFloorsContractObserve([]);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_COUNT, $out['count']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_RECALL_CONCENTRATION_V2, $out['recall_concentration_v2']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::SCHEMA_VERSION, $out['atlas.cognition.cognitive_immune_promotion_gate.v1']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::STATUS_PASS, $out['pass']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::STATUS_BLOCK, $out['block']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::STATUS_PENDING, $out['pending']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::INT_2, $out['2']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::TRUST_BAND_BLOCKED, $out['blocked']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::TRUST_BAND_TRUSTED, $out['trusted']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::TRUST_BAND_UNCLASSIFIED, $out['unclassified']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::TRUST_BAND_WATCH, $out['watch']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::TRUST_BAND_CANDIDATE, $out['candidate']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_RECALLS, $out['recalls']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PER_ACTOR, $out['per_actor']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_POSITIVE_ACTOR_COUNT, $out['positive_actor_count']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_ACTOR, $out['actor']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_GATE_STATUSES, $out['gate_statuses']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROMOTION_STATUS, $out['promotion_status']);
+        $this->assertSame(18, $out['b712_immune_promotion_floor_count']);
+    }
+
 }

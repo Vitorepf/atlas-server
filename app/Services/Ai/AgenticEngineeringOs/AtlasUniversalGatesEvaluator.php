@@ -19520,4 +19520,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B712).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b712ImmunePromotionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'count' => CognitiveImmunePromotionGateEvaluator::FIELD_COUNT,
+            'recall_concentration_v2' => CognitiveImmunePromotionGateEvaluator::FIELD_RECALL_CONCENTRATION_V2,
+            'atlas.cognition.cognitive_immune_promotion_gate.v1' => CognitiveImmunePromotionGateEvaluator::SCHEMA_VERSION,
+            'pass' => CognitiveImmunePromotionGateEvaluator::STATUS_PASS,
+            'block' => CognitiveImmunePromotionGateEvaluator::STATUS_BLOCK,
+            'pending' => CognitiveImmunePromotionGateEvaluator::STATUS_PENDING,
+            '2' => CognitiveImmunePromotionGateEvaluator::INT_2,
+            'blocked' => CognitiveImmunePromotionGateEvaluator::TRUST_BAND_BLOCKED,
+            'trusted' => CognitiveImmunePromotionGateEvaluator::TRUST_BAND_TRUSTED,
+            'unclassified' => CognitiveImmunePromotionGateEvaluator::TRUST_BAND_UNCLASSIFIED,
+            'watch' => CognitiveImmunePromotionGateEvaluator::TRUST_BAND_WATCH,
+            'candidate' => CognitiveImmunePromotionGateEvaluator::TRUST_BAND_CANDIDATE,
+            'recalls' => CognitiveImmunePromotionGateEvaluator::FIELD_RECALLS,
+            'per_actor' => CognitiveImmunePromotionGateEvaluator::FIELD_PER_ACTOR,
+            'positive_actor_count' => CognitiveImmunePromotionGateEvaluator::FIELD_POSITIVE_ACTOR_COUNT,
+            'actor' => CognitiveImmunePromotionGateEvaluator::FIELD_ACTOR,
+            'gate_statuses' => CognitiveImmunePromotionGateEvaluator::FIELD_GATE_STATUSES,
+            'promotion_status' => CognitiveImmunePromotionGateEvaluator::FIELD_PROMOTION_STATUS,
+            'b712_immune_promotion_floor_count' => 18,
+        ];
+    }
+
 }
