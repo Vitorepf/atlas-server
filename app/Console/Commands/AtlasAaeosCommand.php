@@ -433,6 +433,7 @@ final class AtlasAaeosCommand extends Command
                             {--acos-watchdog-phase-handoff-architect-agent-autonomous-work-floors-contract= : JSON file (any object) to observe acos/watchdog/phase/handoff/architect/agent floors}
                             {--acos-watchdog-department-contract-cognition-remint-immune-check-floors-contract= : JSON file (any object) to observe acos/watchdog/department/contract/cognition/remint floors}
                             {--acos-watchdog-dead-aobg-latency-disk-free-substrate-floors-contract= : JSON file (any object) to observe acos/watchdog/dead/aobg/latency/disk floors}
+                            {--context-nudge-autonomy-ladder-mission-control-compounding-outcome-floors-contract= : JSON file (any object) to observe context/nudge/autonomy/ladder/mission/control floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1022,6 +1023,7 @@ final class AtlasAaeosCommand extends Command
             ['acos-watchdog-phase-handoff-architect-agent-autonomous-work-floors-contract', 'acos_watchdog_phase_handoff_architect_agent_autonomous_work_floors_contract', fn (array $p) => $gates->acosWatchdogPhaseHandoffArchitectAgentAutonomousWorkFloorsContractObserve($p)],
             ['acos-watchdog-department-contract-cognition-remint-immune-check-floors-contract', 'acos_watchdog_department_contract_cognition_remint_immune_check_floors_contract', fn (array $p) => $gates->acosWatchdogDepartmentContractCognitionRemintImmuneCheckFloorsContractObserve($p)],
             ['acos-watchdog-dead-aobg-latency-disk-free-substrate-floors-contract', 'acos_watchdog_dead_aobg_latency_disk_free_substrate_floors_contract', fn (array $p) => $gates->acosWatchdogDeadAobgLatencyDiskFreeSubstrateFloorsContractObserve($p)],
+            ['context-nudge-autonomy-ladder-mission-control-compounding-outcome-floors-contract', 'context_nudge_autonomy_ladder_mission_control_compounding_outcome_floors_contract', fn (array $p) => $gates->contextNudgeAutonomyLadderMissionControlCompoundingOutcomeFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

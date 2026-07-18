@@ -49,6 +49,8 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public const FIELD_VERIFIED_SOURCE_PRESENT = 'verified_source_present';
     public const FIELD_EVIDENCE_REF_COUNT = 'evidence_ref_count';
     public const FIELD_FIELDS = 'fields';
+    public const FIELD_AUTONOMOS = 'autonomos';
+    public const FIELD_DEV = 'dev';
 
     public function origin(): string
     {
@@ -64,8 +66,8 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $flowId = AiValueNormalizer::lowerTrimmedString($native[self::FIELD_FLOW_ID] ?? 'atlas_conversation');
         $executor = match (true) {
             str_contains($flowId, 'forge') => 'forge',
-            str_contains($flowId, 'autonomos') => 'autonomos',
-            str_contains($flowId, 'dev') => 'dev',
+            str_contains($flowId, self::FIELD_AUTONOMOS) => 'autonomos',
+            str_contains($flowId, self::FIELD_DEV) => 'dev',
             default => 'engineering',
         };
 

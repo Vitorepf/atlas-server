@@ -88,6 +88,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_TOPOLOGY = 'topology';
     public const FIELD_TOPOLOGY_REQUIRED = 'topology_required';
     public const FIELD_VERDICT = 'verdict';
+    public const FIELD_ATLAS_DEV = 'atlas_dev';
+    public const FIELD_ATLAS_FORGE = 'atlas_forge';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -206,7 +208,7 @@ final class AaeosHttpPathEnvelopeFactory
     {
         $assisted = self::assistedExecutionQuality($data);
         $target = AiValueNormalizer::trimmedStringOrNull(data_get($assisted, 'route.target', null)) ?? '';
-        $isDevTarget = $target === 'atlas_dev';
+        $isDevTarget = $target === self::FIELD_ATLAS_DEV;
         $status = AiValueNormalizer::trimmedStringOrNull($assisted[self::FIELD_STATUS] ?? null) ?? '';
         $allowed = $isDevTarget ? ($status === 'ready_for_assisted_execution') : true;
 
@@ -240,7 +242,7 @@ final class AaeosHttpPathEnvelopeFactory
         if (in_array($intent, ['plan', 'forge', 'obra'], true) || in_array($routingTask, ['plan', 'forge', 'obra'], true)) {
             return self::RISK_BAND_R3_PLUS;
         }
-        if ($flowId === 'programming.forge' || $flowId === 'atlas_forge') {
+        if ($flowId === 'programming.forge' || $flowId === self::FIELD_ATLAS_FORGE) {
             return self::RISK_BAND_R3_PLUS;
         }
 

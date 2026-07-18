@@ -96,6 +96,8 @@ final class AtlasMissionControlCockpitService
     public const FIELD_SCHEMA = 'schema';
     public const FIELD_SKIP_REASON = 'skip_reason';
     public const FIELD_SNAPSHOT_HASH = 'snapshot_hash';
+    public const FIELD_TESTS_GREEN = 'tests_green';
+    public const FIELD_DECISION_RECEIPT_V2_SIGNED = 'decision_receipt_v2_signed';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
@@ -271,10 +273,10 @@ final class AtlasMissionControlCockpitService
             AiValueNormalizer::arrayOrEmpty($gateReport[self::FIELD_MISSING] ?? null),
         );
         $hasEvidenceRefs = ! in_array('evidence_traceable', $blocked, true);
-        $testsPassed = in_array('tests_green', AiValueNormalizer::arrayOrEmpty($gateReport[self::FIELD_PASSED] ?? null), true)
+        $testsPassed = in_array(self::FIELD_TESTS_GREEN, AiValueNormalizer::arrayOrEmpty($gateReport[self::FIELD_PASSED] ?? null), true)
             ? true
-            : (in_array('tests_green', $blocked, true) ? false : null);
-        $missingRequiredSources = in_array('decision_receipt_v2_signed', $blocked, true)
+            : (in_array(self::FIELD_TESTS_GREEN, $blocked, true) ? false : null);
+        $missingRequiredSources = in_array(self::FIELD_DECISION_RECEIPT_V2_SIGNED, $blocked, true)
             || in_array('review_packet_signed', $blocked, true);
         $status = match ($outcome) {
             self::OUTCOME_GREEN, self::OUTCOME_EXCEPTION => self::STATUS_SUCCEEDED,

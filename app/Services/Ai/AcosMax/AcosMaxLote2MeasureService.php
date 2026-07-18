@@ -245,6 +245,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_WITH_LESSON = 'with_lesson';
     public const FIELD_WITHOUT_LESSON = 'without_lesson';
     public const FIELD_WOULD_MERGE_COUNT = 'would_merge_count';
+    public const FIELD_COUNTERFACTUAL_LIFT_V2 = 'counterfactual_lift_v2';
+    public const FIELD_DECISION_RECEIPT_ID = 'decision_receipt_id';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -469,7 +471,7 @@ final class AcosMaxLote2MeasureService
 
         $decisionId = $this->firstNonEmpty([
             data_get($outcomePayload, 'decision_id'),
-            data_get($outcomePayload, 'decision_receipt_id'),
+            data_get($outcomePayload, self::FIELD_DECISION_RECEIPT_ID),
             data_get($outcomePayload, 'receipt_id'),
         ]);
         $provenReal = data_get($outcomePayload, self::FIELD_PROVEN_REAL) === true;
@@ -1019,7 +1021,7 @@ final class AcosMaxLote2MeasureService
      */
     private function counterfactualLiftMeta(array $payload): array
     {
-        $meta = data_get($payload, 'counterfactual_lift_v2');
+        $meta = data_get($payload, self::FIELD_COUNTERFACTUAL_LIFT_V2);
 
         return AiValueNormalizer::arrayOrEmpty($meta);
     }

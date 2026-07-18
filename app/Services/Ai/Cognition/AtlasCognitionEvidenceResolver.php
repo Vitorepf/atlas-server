@@ -86,6 +86,8 @@ class AtlasCognitionEvidenceResolver
     public const FIELD_EXISTING_TEST_REFS = 'existing_test_refs';
     public const FIELD_MATCHED = 'matched';
     public const FIELD_RESOLVED = 'resolved';
+    public const FIELD_SYMBOL = 'symbol';
+    public const FIELD_TEST = 'test';
 
     /**
      * Memoized FQN-ownership index: short class name => list of owner-doc capabilities
@@ -278,7 +280,7 @@ class AtlasCognitionEvidenceResolver
             }
 
             foreach (AiValueNormalizer::arrayOrEmpty($doc[self::FIELD_EVIDENCE_REFS] ?? null) as $ref) {
-                if (AiValueNormalizer::lowerTrimmedString($ref[self::FIELD_KIND] ?? '') !== 'symbol') {
+                if (AiValueNormalizer::lowerTrimmedString($ref[self::FIELD_KIND] ?? '') !== self::FIELD_SYMBOL) {
                     continue;
                 }
 
@@ -488,7 +490,7 @@ class AtlasCognitionEvidenceResolver
             $evidenceRefs = $doc[self::FIELD_EVIDENCE_REFS];
             $testRefs = [];
             foreach ($evidenceRefs as $ref) {
-                if (AiValueNormalizer::lowerTrimmedString($ref[self::FIELD_KIND] ?? '') === 'test') {
+                if (AiValueNormalizer::lowerTrimmedString($ref[self::FIELD_KIND] ?? '') === self::FIELD_TEST) {
                     $value = AiValueNormalizer::trimmedStringOrNull($ref[self::FIELD_REF] ?? null) ?? '';
                     if ($value !== '') {
                         $testRefs[] = $value;
@@ -497,7 +499,7 @@ class AtlasCognitionEvidenceResolver
             }
 
             foreach ($evidenceRefs as $ref) {
-                if (AiValueNormalizer::lowerTrimmedString($ref[self::FIELD_KIND] ?? '') !== 'symbol') {
+                if (AiValueNormalizer::lowerTrimmedString($ref[self::FIELD_KIND] ?? '') !== self::FIELD_SYMBOL) {
                     continue;
                 }
                 $symbolRef = AiValueNormalizer::trimmedStringOrNull($ref[self::FIELD_REF] ?? null) ?? '';

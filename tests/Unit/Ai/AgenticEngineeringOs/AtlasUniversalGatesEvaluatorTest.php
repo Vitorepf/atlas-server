@@ -132,6 +132,7 @@ use App\Services\Ai\Cognition\Watchdog\Checks\AcosDeadSeriesWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\Checks\DiskFreeWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\Checks\SubstrateRestoreDrillWatchdogCheck;
 use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
+use App\Services\Ai\AcosMax\CompoundingOutcomeEnvelopeAdapter;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -8006,6 +8007,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(FactPairPolarityContradictionDetector::FIELD_NEGATED, $out['negated']);
         $this->assertSame(FactPairPolarityContradictionDetector::FIELD_VALUE, $out['value']);
         $this->assertSame(18, $out['acos_watchdog_dead_aobg_latency_disk_free_substrate_floor_count']);
+    }
+
+    public function test_context_nudge_autonomy_ladder_mission_control_compounding_outcome_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->contextNudgeAutonomyLadderMissionControlCompoundingOutcomeFloorsContractObserve([]);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_AUDITOR, $out['auditor']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_BDD, $out['bdd']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_BLOCKED, $out['blocked']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_METRICS_AUTHORITY_MISSING, $out['metrics_authority_missing']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_TESTS_GREEN, $out['tests_green']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_DECISION_RECEIPT_V2_SIGNED, $out['decision_receipt_v2_signed']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_AUTONOMOS, $out['autonomos']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_DEV, $out['dev']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CREATED_AT, $out['created_at']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CRITICAL, $out['critical']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_COUNTERFACTUAL_LIFT_V2, $out['counterfactual_lift_v2']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DECISION_RECEIPT_ID, $out['decision_receipt_id']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ATLAS_DEV, $out['atlas_dev']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ATLAS_FORGE, $out['atlas_forge']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_SYMBOL, $out['symbol']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_TEST, $out['test']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_COMMAND, $out['command']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_JSONL_DIR, $out['jsonl_dir']);
+        $this->assertSame(18, $out['context_nudge_autonomy_ladder_mission_control_compounding_outcome_floor_count']);
     }
 
 }

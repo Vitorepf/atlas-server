@@ -29,6 +29,8 @@ final class AcosMeasureSeriesFreshnessReader
     public const FIELD_PATH = 'path';
     public const FIELD_WHERE = 'where';
     public const FIELD_SOURCE_TYPE = 'source_type';
+    public const FIELD_COMMAND = 'command';
+    public const FIELD_JSONL_DIR = 'jsonl_dir';
 
     /**
      * @param  array<string,mixed>  $entry  registry entry
@@ -39,7 +41,7 @@ final class AcosMeasureSeriesFreshnessReader
         if (($entry[self::FIELD_TABLE] ?? null) !== null || $sourceType === 'table') {
             return $this->tableLastAppendAt($entry);
         }
-        if ($sourceType === 'command') {
+        if ($sourceType === self::FIELD_COMMAND) {
             return $this->commandLastAppendAt($entry);
         }
 
@@ -48,7 +50,7 @@ final class AcosMeasureSeriesFreshnessReader
             return null;
         }
 
-        if ($sourceType === 'jsonl_dir' || is_dir($path)) {
+        if ($sourceType === self::FIELD_JSONL_DIR || is_dir($path)) {
             return $this->jsonlDirLastAppendAt($path, $entry);
         }
 

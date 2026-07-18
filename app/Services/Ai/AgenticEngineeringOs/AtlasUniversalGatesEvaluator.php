@@ -10266,4 +10266,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B411).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function contextNudgeAutonomyLadderMissionControlCompoundingOutcomeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'auditor' => CognitiveContextNudgeApplier::FIELD_AUDITOR,
+            'bdd' => CognitiveContextNudgeApplier::FIELD_BDD,
+            'blocked' => AutonomyLadderAdversarialWatchdogCheck::FIELD_BLOCKED,
+            'metrics_authority_missing' => AutonomyLadderAdversarialWatchdogCheck::FIELD_METRICS_AUTHORITY_MISSING,
+            'tests_green' => AtlasMissionControlCockpitService::FIELD_TESTS_GREEN,
+            'decision_receipt_v2_signed' => AtlasMissionControlCockpitService::FIELD_DECISION_RECEIPT_V2_SIGNED,
+            'autonomos' => CompoundingOutcomeEnvelopeAdapter::FIELD_AUTONOMOS,
+            'dev' => CompoundingOutcomeEnvelopeAdapter::FIELD_DEV,
+            'created_at' => AtlasAcosWatchdogHealthService::FIELD_CREATED_AT,
+            'critical' => AtlasAcosWatchdogHealthService::FIELD_CRITICAL,
+            'counterfactual_lift_v2' => AcosMaxLote2MeasureService::FIELD_COUNTERFACTUAL_LIFT_V2,
+            'decision_receipt_id' => AcosMaxLote2MeasureService::FIELD_DECISION_RECEIPT_ID,
+            'atlas_dev' => AaeosHttpPathEnvelopeFactory::FIELD_ATLAS_DEV,
+            'atlas_forge' => AaeosHttpPathEnvelopeFactory::FIELD_ATLAS_FORGE,
+            'symbol' => AtlasCognitionEvidenceResolver::FIELD_SYMBOL,
+            'test' => AtlasCognitionEvidenceResolver::FIELD_TEST,
+            'command' => AcosMeasureSeriesFreshnessReader::FIELD_COMMAND,
+            'jsonl_dir' => AcosMeasureSeriesFreshnessReader::FIELD_JSONL_DIR,
+            'context_nudge_autonomy_ladder_mission_control_compounding_outcome_floor_count' => 18,
+        ];
+    }
+
 }

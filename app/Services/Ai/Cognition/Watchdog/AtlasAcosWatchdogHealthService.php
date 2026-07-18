@@ -287,6 +287,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_SYNTHETIC_SHARE_MAX = 'synthetic_share_max';
     public const FIELD_TASK_CATEGORY = 'task_category';
     public const FIELD_TENANT_ID = 'tenant_id';
+    public const FIELD_CREATED_AT = 'created_at';
+    public const FIELD_CRITICAL = 'critical';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -613,7 +615,7 @@ final class AtlasAcosWatchdogHealthService
                     continue;
                 }
                 $kind = AiValueNormalizer::lowerTrimmedString($loss[self::FIELD_KIND] ?? $loss[self::FIELD_SEVERITY] ?? $loss[self::FIELD_KEEP_KIND] ?? '');
-                if (str_contains($kind, 'critical')) {
+                if (str_contains($kind, self::FIELD_CRITICAL)) {
                     $criticalCuts++;
                 }
             }
@@ -1046,7 +1048,7 @@ final class AtlasAcosWatchdogHealthService
         $since = CarbonImmutable::now('UTC')->subDays($days);
 
         return array_values(array_filter($rows, function (array $row) use ($since, $recordedAtPath): bool {
-            $at = $this->parseDate(data_get($row, $recordedAtPath) ?? data_get($row, 'recorded_at') ?? data_get($row, 'created_at'));
+            $at = $this->parseDate(data_get($row, $recordedAtPath) ?? data_get($row, 'recorded_at') ?? data_get($row, self::FIELD_CREATED_AT));
 
             return $at !== null && $at->greaterThanOrEqualTo($since);
         }));

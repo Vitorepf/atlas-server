@@ -90,6 +90,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_GATES_MUTATION = 'gates_mutation';
     public const FIELD_READ_ONLY = 'read_only';
+    public const FIELD_BLOCKED = 'blocked';
+    public const FIELD_METRICS_AUTHORITY_MISSING = 'metrics_authority_missing';
 
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
@@ -281,8 +283,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
 
         $provenance = AiValueNormalizer::arrayOrEmpty($verdict[self::FIELD_METRICS_AUTHORITY] ?? null);
         $refused = ($verdict[self::FIELD_ELIGIBLE] ?? true) === false
-            && ($verdict[self::FIELD_DECISION] ?? '') === 'blocked'
-            && ($verdict[self::FIELD_REFUSAL_REASON] ?? '') === 'metrics_authority_missing'
+            && ($verdict[self::FIELD_DECISION] ?? '') === self::FIELD_BLOCKED
+            && ($verdict[self::FIELD_REFUSAL_REASON] ?? '') === self::FIELD_METRICS_AUTHORITY_MISSING
             && ($provenance[self::FIELD_SOURCE] ?? '') === AtlasAutonomyMetricsAuthorityPort::SOURCE_MISSING;
 
         return [
