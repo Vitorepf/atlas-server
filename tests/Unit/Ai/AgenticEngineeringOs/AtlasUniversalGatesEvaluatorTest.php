@@ -14174,4 +14174,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b659_blocker_severity_phase_handoff_floor_count']);
     }
 
+    public function test_b660_phase_handoff_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b660PhaseHandoffFloorsContractObserve([]);
+        $this->assertSame(AaeosPhaseHandoffService::SCHEMA_VERSION, $out['atlas.aaeos.phase.v1']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_BLOCKED, $out['blocked']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_PASSED, $out['passed']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_ACTOR, $out['actor']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_KIND, $out['kind']);
+        $this->assertSame(AaeosPhaseHandoffService::PHASE_GATES, $out['gates']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_SCHEMA, $out['schema']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_REQUIRED, $out['required']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_ID, $out['id']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_INTENT_ID, $out['intent_id']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_PHASE_IN, $out['phase_in']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_PHASE_OUT, $out['phase_out']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_INPUTS, $out['inputs']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_OUTPUTS, $out['outputs']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_EVIDENCE_HASHES, $out['evidence_hashes']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_BLOCKERS, $out['blockers']);
+        $this->assertSame(18, $out['b660_phase_handoff_floor_count']);
+    }
+
 }
