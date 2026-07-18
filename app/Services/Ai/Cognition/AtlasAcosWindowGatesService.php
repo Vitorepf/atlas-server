@@ -71,6 +71,7 @@ final class AtlasAcosWindowGatesService
     public const FIELD__JSON = '.json';
     public const FIELD_RECEIPT_ILEG_VEL = 'receipt ilegível';
     public const FIELD_RECEIPT_N_O_OBJETO = 'receipt não-objeto';
+    public const FIELD_VER_DOC__JANELA_ = 'ver doc (janela)';
     public const INT_70 = 70;
 
     /** Receipt freshness before a certified gate is treated as stale (7 days). */
@@ -126,7 +127,7 @@ final class AtlasAcosWindowGatesService
             $this->dimension(self::FIELD_D5_RATIONALE, $dims, self::FIELD_RATIONALE, '>=self::INT_70', 70, true),
             // D5 feedback / composite: the target direction is contested in the
             // docs (quality composite vs "<=50" marker) → report, never assert.
-            $this->dimension(self::FIELD_D4_D5_FEEDBACK, $dims, self::FIELD_FEEDBACK, 'ver doc (janela)', null, false),
+            $this->dimension(self::FIELD_D4_D5_FEEDBACK, $dims, self::FIELD_FEEDBACK, self::FIELD_VER_DOC__JANELA_, null, false),
         ];
     }
 

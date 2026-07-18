@@ -12712,4 +12712,23 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b600_ledger_rotation_local_model_operator_learning_provider_bound_floor_count']);
     }
 
+    public function test_b601_ledger_rotation_department_contract_acos_window_cognition_score_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b601LedgerRotationDepartmentContractAcosWindowCognitionScoreFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MULTX_01_LOOPS, $out['MULTX-01 loops']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MULTX_02_DIAGNOSTIC_FUNNEL_BY_EXECUTOR, $out['MULTX-02 diagnostic funnel by executor']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MULTX_06_LEARNING_LATENCY, $out['MULTX-06 learning latency']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MULTX_09_WINDOWS_DAG_SNAPSHOT, $out['MULTX-09 windows DAG snapshot']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_RAGX_07_RECORDS_A_B_REGISTRATIONS_ONLY__RESULTS_REMAIN_NULL_UNTIL_A_REAL_WINDOW_RUNS, $out['RAGX-07 records A/B registrations only; results remain null until a real window runs']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_REC_06_COMPUTED_BREAKER_REPORT__STAYS_SMALL_UNTIL_REAL_SERIES_ARM_IT, $out['REC-06 computed breaker report; stays small until real series arm it']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_TETO_02_MISSION_E2E, $out['TETO-02 mission e2e']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_HIGH_FREQUENCY_APPEND__MAXG_01_DECLARES_ROTATION_CONTRACT, $out['high-frequency append; MAXG-01 declares rotation contract']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ONE_TIME_CLEANUP_RECEIPT__AUDIT_FOREVER, $out['one-time cleanup receipt; audit forever']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REVISA_PATCHES_SPECS_MIGRATIONS_RELEASE_PACKS_COM_CHECKLIST_CAN_NICO_ANTES_DE_CERT, $out['revisa patches/specs/migrations/release_packs com checklist canônico antes de cert']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_VER_DOC__JANELA_, $out['ver doc (janela)']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_UNIFIED_REALITY_GRAPH_TEMPORAL__4_D_, $out['Unified Reality Graph Temporal (4D)']);
+        $this->assertSame(12, $out['b601_ledger_rotation_department_contract_acos_window_cognition_score_floor_count']);
+    }
+
 }

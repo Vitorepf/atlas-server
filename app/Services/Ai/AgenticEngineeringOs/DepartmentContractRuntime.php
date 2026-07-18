@@ -481,6 +481,7 @@ final class DepartmentContractRuntime
     public const FIELD_INVESTIGA_FALHAS_RUNTIME__GERA_HIP_TESES__REPRODUZ__ISOLA_E_PROP_E_FIX = 'investiga falhas runtime, gera hipóteses, reproduz, isola e propõe fix';
     public const FIELD_MONTA_DELIVERY_PACK_CAN_NICO__VALIDA_COMPLETENESS__ENCAMINHA_PARA_HUMAN_REVIEW_E_CERT = 'monta delivery_pack canônico, valida completeness, encaminha para human review e cert';
     public const FIELD_RECEBE_PEDIDO_HUMANO_AMB_GUO_E_PRODUZ_MISSION_ENVELOPE_CAN_NICA_ANTES_DE_PRODUCT = 'recebe pedido humano ambíguo e produz mission envelope canônica antes de product';
+    public const FIELD_REVISA_PATCHES_SPECS_MIGRATIONS_RELEASE_PACKS_COM_CHECKLIST_CAN_NICO_ANTES_DE_CERT = 'revisa patches/specs/migrations/release_packs com checklist canônico antes de cert';
     public const INT_11 = 11;
 
     /**
@@ -659,7 +660,7 @@ final class DepartmentContractRuntime
         self::DEPARTMENT_REVIEW => [
             self::FIELD_HUMAN_NAME => self::FIELD_REVIEW_DEPARTMENT,
             self::FIELD_DESCRIPTION => self::FIELD_CODE_SPEC_REVIEW__BOTTLENECK_AGAINST_WEAK_CLAIMS_,
-            self::FIELD_SCOPE => 'revisa patches/specs/migrations/release_packs com checklist canônico antes de cert',
+            self::FIELD_SCOPE => self::FIELD_REVISA_PATCHES_SPECS_MIGRATIONS_RELEASE_PACKS_COM_CHECKLIST_CAN_NICO_ANTES_DE_CERT,
             self::FIELD_TRIGGERS => [self::FIELD_DELIVERY_PACK_ASSEMBLED_TRUE, self::FIELD_SPEC_PACK_DRAFTED_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_DELIVERY_PACK, self::FIELD_SCHEMA => self::SCHEMA_DELIVERY_PACK],

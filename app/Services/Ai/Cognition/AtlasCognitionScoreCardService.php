@@ -358,6 +358,7 @@ class AtlasCognitionScoreCardService
     public const FIELD_SWARM_PRODUCTION_RESOLVER__REAL_PROVIDER_ = 'Swarm Production Resolver (real provider)';
     public const FIELD_TEOS_I3_COUNTERFACTUAL_RUNTIME = 'TEOS-I3 Counterfactual Runtime';
     public const FIELD_TEOS_I4_COUNTERFACTUAL_TREE = 'TEOS-I4 Counterfactual Tree';
+    public const FIELD_UNIFIED_REALITY_GRAPH_TEMPORAL__4_D_ = 'Unified Reality Graph Temporal (4D)';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -448,7 +449,7 @@ class AtlasCognitionScoreCardService
         // Patamar 2/3 — meta-learning, self-construction, AURG-4D, cross-domain mesh, TEOS-I3
         [self::FIELD_ADML,    self::FIELD_ATLAS_DECIDE_META_LEARNING,          self::FIELD_ATLAS_DECIDE,      AtlasDecideMetaLearningService::class],
         [self::FIELD_ASCB,    self::FIELD_SELF_CONSTRUCTION_SUBSYSTEM_BUILDER, self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionSubsystemBuilderService::class],
-        [self::FIELD_AURG_4_D, 'Unified Reality Graph Temporal (4D)', self::FIELD_REALITY,           AtlasUnifiedRealityGraphTemporalService::class],
+        [self::FIELD_AURG_4_D, self::FIELD_UNIFIED_REALITY_GRAPH_TEMPORAL__4_D_, self::FIELD_REALITY,           AtlasUnifiedRealityGraphTemporalService::class],
         [self::FIELD_ACDM,    self::FIELD_CROSS_DOMAIN_MESH,                   self::FIELD_CROSS_DOMAIN,      AtlasCrossDomainMeshService::class],
         [self::FIELD_TEOS_I3, self::FIELD_TEOS_I3_COUNTERFACTUAL_RUNTIME,      self::FIELD_TEOS,              AtlasTeosI3CounterfactualService::class],
 

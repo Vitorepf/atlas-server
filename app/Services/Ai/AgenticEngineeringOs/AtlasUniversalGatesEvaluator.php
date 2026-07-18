@@ -16095,4 +16095,29 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B601).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b601LedgerRotationDepartmentContractAcosWindowCognitionScoreFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'MULTX-01 loops' => AcosMaxLedgerRotationRegistry::FIELD_MULTX_01_LOOPS,
+            'MULTX-02 diagnostic funnel by executor' => AcosMaxLedgerRotationRegistry::FIELD_MULTX_02_DIAGNOSTIC_FUNNEL_BY_EXECUTOR,
+            'MULTX-06 learning latency' => AcosMaxLedgerRotationRegistry::FIELD_MULTX_06_LEARNING_LATENCY,
+            'MULTX-09 windows DAG snapshot' => AcosMaxLedgerRotationRegistry::FIELD_MULTX_09_WINDOWS_DAG_SNAPSHOT,
+            'RAGX-07 records A/B registrations only; results remain null until a real window runs' => AcosMaxLedgerRotationRegistry::FIELD_RAGX_07_RECORDS_A_B_REGISTRATIONS_ONLY__RESULTS_REMAIN_NULL_UNTIL_A_REAL_WINDOW_RUNS,
+            'REC-06 computed breaker report; stays small until real series arm it' => AcosMaxLedgerRotationRegistry::FIELD_REC_06_COMPUTED_BREAKER_REPORT__STAYS_SMALL_UNTIL_REAL_SERIES_ARM_IT,
+            'TETO-02 mission e2e' => AcosMaxLedgerRotationRegistry::FIELD_TETO_02_MISSION_E2E,
+            'high-frequency append; MAXG-01 declares rotation contract' => AcosMaxLedgerRotationRegistry::FIELD_HIGH_FREQUENCY_APPEND__MAXG_01_DECLARES_ROTATION_CONTRACT,
+            'one-time cleanup receipt; audit forever' => AcosMaxLedgerRotationRegistry::FIELD_ONE_TIME_CLEANUP_RECEIPT__AUDIT_FOREVER,
+            'revisa patches/specs/migrations/release_packs com checklist canônico antes de cert' => DepartmentContractRuntime::FIELD_REVISA_PATCHES_SPECS_MIGRATIONS_RELEASE_PACKS_COM_CHECKLIST_CAN_NICO_ANTES_DE_CERT,
+            'ver doc (janela)' => AtlasAcosWindowGatesService::FIELD_VER_DOC__JANELA_,
+            'Unified Reality Graph Temporal (4D)' => AtlasCognitionScoreCardService::FIELD_UNIFIED_REALITY_GRAPH_TEMPORAL__4_D_,
+            'b601_ledger_rotation_department_contract_acos_window_cognition_score_floor_count' => 12,
+        ];
+    }
+
 }

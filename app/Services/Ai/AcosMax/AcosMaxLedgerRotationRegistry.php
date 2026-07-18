@@ -127,6 +127,15 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_MULTK_03_DECISION_REPLAY_DIVERGENCE = 'MULTK-03 decision replay divergence';
     public const FIELD_MULTN15_02_APPROVAL_HISTORY = 'MULTN15-02 approval history';
     public const FIELD_MULTN17_04_ORIGINATOR_IMPACT = 'MULTN17-04 originator impact';
+    public const FIELD_MULTX_01_LOOPS = 'MULTX-01 loops';
+    public const FIELD_MULTX_02_DIAGNOSTIC_FUNNEL_BY_EXECUTOR = 'MULTX-02 diagnostic funnel by executor';
+    public const FIELD_MULTX_06_LEARNING_LATENCY = 'MULTX-06 learning latency';
+    public const FIELD_MULTX_09_WINDOWS_DAG_SNAPSHOT = 'MULTX-09 windows DAG snapshot';
+    public const FIELD_RAGX_07_RECORDS_A_B_REGISTRATIONS_ONLY__RESULTS_REMAIN_NULL_UNTIL_A_REAL_WINDOW_RUNS = 'RAGX-07 records A/B registrations only; results remain null until a real window runs';
+    public const FIELD_REC_06_COMPUTED_BREAKER_REPORT__STAYS_SMALL_UNTIL_REAL_SERIES_ARM_IT = 'REC-06 computed breaker report; stays small until real series arm it';
+    public const FIELD_TETO_02_MISSION_E2E = 'TETO-02 mission e2e';
+    public const FIELD_HIGH_FREQUENCY_APPEND__MAXG_01_DECLARES_ROTATION_CONTRACT = 'high-frequency append; MAXG-01 declares rotation contract';
+    public const FIELD_ONE_TIME_CLEANUP_RECEIPT__AUDIT_FOREVER = 'one-time cleanup receipt; audit forever';
     public const INT_8 = 8;
     public const INT_64 = 64;
     public const INT_45 = 45;
@@ -179,7 +188,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_128,
                 self::FIELD_MAX_AGE_DAYS => self::INT_45,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'high-frequency append; MAXG-01 declares rotation contract',
+                self::FIELD_RATIONALE => self::FIELD_HIGH_FREQUENCY_APPEND__MAXG_01_DECLARES_ROTATION_CONTRACT,
             ],
             self::FIELD_ASI_METRIC_M_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
@@ -197,7 +206,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_365,
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
-                self::FIELD_RATIONALE => 'one-time cleanup receipt; audit forever',
+                self::FIELD_RATIONALE => self::FIELD_ONE_TIME_CLEANUP_RECEIPT__AUDIT_FOREVER,
             ],
             self::FIELD_ACOS_ESP00_GROUND_TRUTH_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_8,
@@ -323,25 +332,25 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MULTX-01 loops',
+                self::FIELD_RATIONALE => self::FIELD_MULTX_01_LOOPS,
             ],
             self::FIELD_ATLAS_M_FUNNEL_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MULTX-02 diagnostic funnel by executor',
+                self::FIELD_RATIONALE => self::FIELD_MULTX_02_DIAGNOSTIC_FUNNEL_BY_EXECUTOR,
             ],
             self::FIELD_ACOS_LEARNING_LATENCY_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MULTX-06 learning latency',
+                self::FIELD_RATIONALE => self::FIELD_MULTX_06_LEARNING_LATENCY,
             ],
             self::FIELD_ACOS_WINDOWS_ORCHESTRATOR_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MULTX-09 windows DAG snapshot',
+                self::FIELD_RATIONALE => self::FIELD_MULTX_09_WINDOWS_DAG_SNAPSHOT,
             ],
             self::FIELD_ATLAS_AI_LESSON_HALF_LIFE_V2 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
@@ -365,7 +374,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'TETO-02 mission e2e',
+                self::FIELD_RATIONALE => self::FIELD_TETO_02_MISSION_E2E,
             ],
             self::FIELD_ATLAS_RESOURCE_BUDGET_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_8,
@@ -413,7 +422,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_16,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'RAGX-07 records A/B registrations only; results remain null until a real window runs',
+                self::FIELD_RATIONALE => self::FIELD_RAGX_07_RECORDS_A_B_REGISTRATIONS_ONLY__RESULTS_REMAIN_NULL_UNTIL_A_REAL_WINDOW_RUNS,
             ],
             self::FIELD_ATLAS_DECIDE_CASCADE_COST_ROUTER_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
@@ -455,7 +464,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'REC-06 computed breaker report; stays small until real series arm it',
+                self::FIELD_RATIONALE => self::FIELD_REC_06_COMPUTED_BREAKER_REPORT__STAYS_SMALL_UNTIL_REAL_SERIES_ARM_IT,
             ],
         ];
     }
