@@ -4930,4 +4930,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     }
 
 
+    public function test_truth_obra_thesis_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->truthObraThesisFloorsContractObserve([]);
+
+        $this->assertSame('claims_runtime', $payload['truth_field_claims_runtime']);
+        $this->assertSame('command', $payload['truth_field_command']);
+        $this->assertSame('coverage_pct', $payload['truth_field_coverage_pct']);
+        $this->assertSame('doc_schema', $payload['truth_field_doc_schema']);
+        $this->assertSame('format', $payload['truth_field_format']);
+        $this->assertSame('frontmatter', $payload['truth_field_frontmatter']);
+        $this->assertSame('actor_tag', $payload['obra_field_actor_tag']);
+        $this->assertSame('ai_run_outcome_id', $payload['obra_field_ai_run_outcome_id']);
+        $this->assertSame('auto_promoted', $payload['obra_field_auto_promoted']);
+        $this->assertSame('current_state', $payload['obra_field_current_state']);
+        $this->assertSame('executor', $payload['obra_field_executor']);
+        $this->assertSame('future_lote_close_requires', $payload['obra_field_future_lote_close_requires']);
+        $this->assertSame('alignment_keys', $payload['thesis_field_alignment_keys']);
+        $this->assertSame('archived_at_basis', $payload['thesis_field_archived_at_basis']);
+        $this->assertSame('bands', $payload['thesis_field_bands']);
+        $this->assertSame('calibration_resolved', $payload['thesis_field_calibration_resolved']);
+        $this->assertSame('consecutive_windows', $payload['thesis_field_consecutive_windows']);
+        $this->assertSame(17, $payload['truth_obra_thesis_floor_count']);
+    }
+
+
 }
