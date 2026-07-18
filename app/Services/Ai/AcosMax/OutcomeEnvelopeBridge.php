@@ -40,6 +40,8 @@ final class OutcomeEnvelopeBridge
     public const FIELD_THRESHOLDS = 'thresholds';
     public const FIELD_TTL_DAYS = 'ttl_days';
     public const FIELD_KIND = 'kind';
+    public const FIELD_ADAPTER_ORIGINS = 'adapter_origins';
+    public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
 
     /** @var array<string, OutcomeEnvelopeAdapter> */
     private array $adapters;
@@ -115,13 +117,13 @@ final class OutcomeEnvelopeBridge
             self::FIELD_FORMULA_VERSION => OutcomeEnvelope::FORMULA_VERSION,
             self::FIELD_FORMULA => 'Outcome envelope = MULTX-03 atlas.engineering_outcome.v2 contract projected through one thin adapter per native organ (dev_procedural, aemor, compounding). Divergent native fields remain in native_divergent.fields labeled by origin — never coerced or fused.',
             self::FIELD_THRESHOLDS => [
-                'adapter_origins' => OutcomeEnvelope::ADAPTER_ORIGINS,
+                self::FIELD_ADAPTER_ORIGINS => OutcomeEnvelope::ADAPTER_ORIGINS,
                 'flag' => self::ADAPTERS_ENABLED_CONFIG_KEY,
                 'flag_default' => false,
             ],
             'denominator_min' => 1,
             self::FIELD_TTL_DAYS => 90,
-            'author_engine_id' => 'cursor-acos-max-esp06',
+            self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-esp06',
             'judge_engine_id' => 'codex-independent-esp06-judge',
             'dual_read_required' => true,
         ];

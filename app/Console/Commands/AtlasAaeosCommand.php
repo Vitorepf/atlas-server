@@ -392,6 +392,7 @@ final class AtlasAaeosCommand extends Command
                             {--aaeos-department-string-debug-root-docs-authority-daily-floors-contract= : JSON file (any object) to observe aaeos/department/string/debug/root/docs floors}
                             {--generated-contract-aaeos-claim-department-exploratory-bets-provenance-floors-contract= : JSON file (any object) to observe generated/contract/aaeos/claim/department/exploratory floors}
                             {--aaeos-department-evidence-vision-golden-counterfactual-promotion-protocol-floors-contract= : JSON file (any object) to observe aaeos/department/evidence/vision/golden/counterfactual floors}
+                            {--segment-importance-summary-fidelity-outcome-envelope-ragx-chain-floors-contract= : JSON file (any object) to observe segment/importance/summary/fidelity/outcome/envelope floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -940,6 +941,7 @@ final class AtlasAaeosCommand extends Command
             ['aaeos-department-string-debug-root-docs-authority-daily-floors-contract', 'aaeos_department_string_debug_root_docs_authority_daily_floors_contract', fn (array $p) => $gates->aaeosDepartmentStringDebugRootDocsAuthorityDailyFloorsContractObserve($p)],
             ['generated-contract-aaeos-claim-department-exploratory-bets-provenance-floors-contract', 'generated_contract_aaeos_claim_department_exploratory_bets_provenance_floors_contract', fn (array $p) => $gates->generatedContractAaeosClaimDepartmentExploratoryBetsProvenanceFloorsContractObserve($p)],
             ['aaeos-department-evidence-vision-golden-counterfactual-promotion-protocol-floors-contract', 'aaeos_department_evidence_vision_golden_counterfactual_promotion_protocol_floors_contract', fn (array $p) => $gates->aaeosDepartmentEvidenceVisionGoldenCounterfactualPromotionProtocolFloorsContractObserve($p)],
+            ['segment-importance-summary-fidelity-outcome-envelope-ragx-chain-floors-contract', 'segment_importance_summary_fidelity_outcome_envelope_ragx_chain_floors_contract', fn (array $p) => $gates->segmentImportanceSummaryFidelityOutcomeEnvelopeRagxChainFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

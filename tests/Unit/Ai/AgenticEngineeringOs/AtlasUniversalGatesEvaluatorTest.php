@@ -116,6 +116,9 @@ use App\Services\Ai\AgenticEngineeringOs\AaeosBlockerSeverityGate;
 use App\Services\Ai\Cognition\ImmuneSignatureDeriver;
 use App\Services\Ai\Cognition\Watchdog\Checks\JointResourceBudgetWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\Checks\LocalModelIntegrityWatchdogCheck;
+use App\Services\Ai\AcosMax\OutcomeEnvelopeBridge;
+use App\Services\Ai\Cognition\AtlasImmuneHybridInputClassifier;
+use App\Services\Ai\Cognition\Watchdog\Checks\AobgLatencyWatchdogCheck;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -6965,6 +6968,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(LocalModelIntegrityWatchdogCheck::FIELD_CODE, $out['code']);
         $this->assertSame(LocalModelIntegrityWatchdogCheck::FIELD_MESSAGE, $out['message']);
         $this->assertSame(18, $out['aaeos_department_evidence_vision_golden_counterfactual_promotion_protocol_floor_count']);
+    }
+
+    public function test_segment_importance_summary_fidelity_outcome_envelope_ragx_chain_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->segmentImportanceSummaryFidelityOutcomeEnvelopeRagxChainFloorsContractObserve([]);
+        $this->assertSame(SegmentImportanceRanker::FIELD_KEPT_COUNT, $out['kept_count']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_KEPT_IDS, $out['kept_ids']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FIELD_MISSING_TOTAL, $out['missing_total']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FIELD_PRESENT_ITEM_IDS, $out['present_item_ids']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_ADAPTER_ORIGINS, $out['adapter_origins']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_AUTHOR_ENGINE_ID, $out['author_engine_id']);
+        $this->assertSame(RagxChainMechanismService::FIELD_L2_SUMMARY_ID, $out['l2_summary_id']);
+        $this->assertSame(RagxChainMechanismService::FIELD_MAXD05_LOUVAIN, $out['maxd05_louvain']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_COUNT, $out['count']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_EVIDENCE_REF, $out['evidence_ref']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_CLASSES, $out['classes']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_MODE, $out['mode']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_CODE, $out['code']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_FLOOR_MS, $out['floor_ms']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_PARTIAL_CLAIM, $out['partial_claim']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_PASSES, $out['passes']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_OBSERVED, $out['observed']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_PER_BAND, $out['per_band']);
+        $this->assertSame(18, $out['segment_importance_summary_fidelity_outcome_envelope_ragx_chain_floor_count']);
     }
 
 }

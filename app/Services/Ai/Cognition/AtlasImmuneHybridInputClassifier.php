@@ -74,6 +74,8 @@ final class AtlasImmuneHybridInputClassifier
     public const FIELD_SCORES_BY_CLASS = 'scores_by_class';
     public const FIELD_UNTRUSTED_CONTENT = 'untrusted_content';
     public const FIELD_THRESHOLDS = 'thresholds';
+    public const FIELD_CLASSES = 'classes';
+    public const FIELD_MODE = 'mode';
 
     private readonly AtlasAaeosCognitiveImmuneInputClassifier $base;
 
@@ -118,7 +120,7 @@ final class AtlasImmuneHybridInputClassifier
     {
         $signatureBlock = [
             self::FIELD_SCHEMA_VERSION => AtlasImmuneSignatureFreeze::MEASURE_ID,
-            'mode' => $this->signatureStore->mode(),
+            self::FIELD_MODE => $this->signatureStore->mode(),
             self::FIELD_MATCHED => false,
             self::FIELD_REF => null,
             self::FIELD_ENFORCE_APPLIED => false,
@@ -319,7 +321,7 @@ final class AtlasImmuneHybridInputClassifier
         if (! is_array($decoded)) {
             return $this->anchors = [];
         }
-        $classes = AiValueNormalizer::arrayOrEmpty($decoded['classes'] ?? null);
+        $classes = AiValueNormalizer::arrayOrEmpty($decoded[self::FIELD_CLASSES] ?? null);
         $out = [];
         foreach ($classes as $class => $exemplars) {
             $class = AiValueNormalizer::trimmedStringOrNull(is_string($class) ? $class : null);

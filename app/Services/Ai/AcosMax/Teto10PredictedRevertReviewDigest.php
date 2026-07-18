@@ -85,6 +85,8 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_UI_CREATED = 'ui_created';
     public const FIELD_ID = 'id';
     public const FIELD_SOURCE = 'source';
+    public const FIELD_COUNT = 'count';
+    public const FIELD_EVIDENCE_REF = 'evidence_ref';
 
     /**
      * @param  list<array<string,mixed>>  $items
@@ -285,7 +287,7 @@ final class Teto10PredictedRevertReviewDigest
             ];
         }
 
-        return ['count' => count($flagged), self::FIELD_ITEMS => $flagged];
+        return [self::FIELD_COUNT => count($flagged), self::FIELD_ITEMS => $flagged];
     }
 
     /**
@@ -340,7 +342,7 @@ final class Teto10PredictedRevertReviewDigest
             }
         }
 
-        $single = self::string($item['evidence_ref'] ?? null);
+        $single = self::string($item[self::FIELD_EVIDENCE_REF] ?? null);
         if ($single !== '') {
             $refs[] = $single;
         }

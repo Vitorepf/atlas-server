@@ -184,6 +184,8 @@ final class RagxChainMechanismService
     public const FIELD_SUMMARY_REF = 'summary_ref';
     public const FIELD_K = 'k';
     public const FIELD_WEIGHT = 'weight';
+    public const FIELD_L2_SUMMARY_ID = 'l2_summary_id';
+    public const FIELD_MAXD05_LOUVAIN = 'maxd05_louvain';
 
     public function __construct(
         private readonly ?AsefChunkIndexService $asefChunks = null,
@@ -405,7 +407,7 @@ final class RagxChainMechanismService
             $nodes[] = [
                 self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($summary[self::FIELD_ID] ?? null) ?? ('raptor_lite_'.($index + 1)),
                 self::FIELD_COMMUNITY => array_values(AiValueNormalizer::arrayOrEmpty($summary[self::FIELD_COMMUNITY] ?? ($communities[$index] ?? null))),
-                self::FIELD_SUMMARY_REF => AiValueNormalizer::trimmedStringOrNull($summary['l2_summary_id'] ?? $summary[self::FIELD_ID] ?? null) ?? '',
+                self::FIELD_SUMMARY_REF => AiValueNormalizer::trimmedStringOrNull($summary[self::FIELD_L2_SUMMARY_ID] ?? $summary[self::FIELD_ID] ?? null) ?? '',
                 self::FIELD_SOURCE => 'maxf09_verified_l2_summary',
             ];
         }
@@ -532,7 +534,7 @@ final class RagxChainMechanismService
         }
 
         $blockers = [];
-        if (($deps['maxd05_louvain'] ?? false) !== true) {
+        if (($deps[self::FIELD_MAXD05_LOUVAIN] ?? false) !== true) {
             $blockers[] = self::STAGE_MAXD_05;
         }
         if (($deps['maxf09_l2_summaries'] ?? true) !== true) {

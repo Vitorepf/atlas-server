@@ -37,6 +37,8 @@ final class SummaryFidelityCoverageScorer
     public const FIELD_PRESENT_TOTAL = 'present_total';
     public const FIELD_VERDICT = 'verdict';
     public const FIELD_UNVERIFIABLE_ITEM_IDS = 'unverifiable_item_ids';
+    public const FIELD_MISSING_TOTAL = 'missing_total';
+    public const FIELD_PRESENT_ITEM_IDS = 'present_item_ids';
 
 
     /**
@@ -145,10 +147,10 @@ final class SummaryFidelityCoverageScorer
             self::FIELD_MISSED_DECISION_RATE => $missedDecisionRate,
             self::FIELD_REQUIRED_TOTAL => $requiredTotal,
             self::FIELD_PRESENT_TOTAL => $presentTotal,
-            'missing_total' => $missingTotal,
+            self::FIELD_MISSING_TOTAL => $missingTotal,
             self::FIELD_DECISION_TOTAL => $decisionTotal,
             self::FIELD_MISSING_ITEM_IDS => $missingItemIds,
-            'present_item_ids' => $presentItemIds,
+            self::FIELD_PRESENT_ITEM_IDS => $presentItemIds,
             self::FIELD_MISSING_DECISION_IDS => $missingDecisionIds,
             self::FIELD_UNVERIFIABLE_ITEM_IDS => $unverifiableItemIds,
         ];

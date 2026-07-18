@@ -6913,6 +6913,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_segment_importance_summary_fidelity_outcome_envelope_ragx_chain_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b370-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b370',
+                '--segment-importance-summary-fidelity-outcome-envelope-ragx-chain-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"segment_importance_summary_fidelity_outcome_envelope_ragx_chain_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 
