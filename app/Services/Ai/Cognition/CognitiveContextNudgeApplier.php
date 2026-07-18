@@ -20,6 +20,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class CognitiveContextNudgeApplier
 {
+    public const FIELD_CODE = 'code';
+    public const FIELD_REASONING = 'reasoning';
     public const FIELD_AUDIT = 'audit';
     public const FIELD_RETRIEVAL = 'retrieval';
     public const FIELD_VISION = 'vision';
@@ -56,10 +58,10 @@ final class CognitiveContextNudgeApplier
             if (str_starts_with($framework, 'cartography') || $framework === 'kernel_vault') {
                 $hits[self::FIELD_AUDIT] += 2;
             } elseif (str_starts_with($framework, 'programming') || $framework === 'sdd' || $framework === 'bdd') {
-                $hits['code'] += 2;
+                $hits[self::FIELD_CODE] += 2;
                 $hits[self::FIELD_AUDIT] += 1;
             } elseif ($framework === 'mission_mode' || $framework === 'hyperflow') {
-                $hits['reasoning'] += 1;
+                $hits[self::FIELD_REASONING] += 1;
                 $hits[self::FIELD_RETRIEVAL] += 1;
             } elseif ($framework === 'vision' || str_starts_with($framework, 'visual')) {
                 $hits[self::FIELD_VISION] += 2;
@@ -82,7 +84,7 @@ final class CognitiveContextNudgeApplier
         } elseif ($role === 'writer' || $role === 'editor') {
             $hits[self::FIELD_GENERATION] += 1;
         } elseif ($role === 'engineer' || $role === 'developer' || $role === 'programmer') {
-            $hits['code'] += 1;
+            $hits[self::FIELD_CODE] += 1;
         }
 
         return $hits;

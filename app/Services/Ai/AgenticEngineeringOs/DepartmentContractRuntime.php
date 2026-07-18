@@ -20,6 +20,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class DepartmentContractRuntime
 {
+    public const FIELD_TO = 'to';
+    public const FIELD_DEPARTMENT = 'department';
     public const FIELD_MISSING = 'missing';
 
     public const FIELD_ACCEPTED = 'accepted';
@@ -540,23 +542,23 @@ final class DepartmentContractRuntime
     public function validateHandoff(string $from, string $to): array
     {
         if (! isset(self::CATALOGUE[$from])) {
-            return [self::FIELD_FROM => $from, 'to' => $to, self::FIELD_ACCEPTED => false, self::FIELD_REASON => "unknown department '{$from}'"];
+            return [self::FIELD_FROM => $from, self::FIELD_TO => $to, self::FIELD_ACCEPTED => false, self::FIELD_REASON => "unknown department '{$from}'"];
         }
         if (! isset(self::CATALOGUE[$to])) {
-            return [self::FIELD_FROM => $from, 'to' => $to, self::FIELD_ACCEPTED => false, self::FIELD_REASON => "unknown department '{$to}'"];
+            return [self::FIELD_FROM => $from, self::FIELD_TO => $to, self::FIELD_ACCEPTED => false, self::FIELD_REASON => "unknown department '{$to}'"];
         }
         $allowedDownstream = AiValueNormalizer::arrayOrEmpty(self::CATALOGUE[$from][self::FIELD_EMITS_HANDOFF_TO] ?? null);
         if (! in_array($to, $allowedDownstream, true)) {
             return [
                 self::FIELD_FROM => $from,
-                'to' => $to,
+                self::FIELD_TO => $to,
                 self::FIELD_ACCEPTED => false,
                 self::FIELD_REASON => sprintf('department "%s" does not emit handoff to "%s" (allowed: %s)',
                     $from, $to, implode(',', $allowedDownstream) ?: 'none'),
             ];
         }
 
-        return [self::FIELD_FROM => $from, 'to' => $to, self::FIELD_ACCEPTED => true, self::FIELD_REASON => null];
+        return [self::FIELD_FROM => $from, self::FIELD_TO => $to, self::FIELD_ACCEPTED => true, self::FIELD_REASON => null];
     }
 
     /** @return list<string> */
@@ -616,7 +618,7 @@ final class DepartmentContractRuntime
                 }
             }
             if ($missing !== []) {
-                $out[] = ['department' => $id, self::FIELD_MISSING => $missing];
+                $out[] = [self::FIELD_DEPARTMENT => $id, self::FIELD_MISSING => $missing];
             }
         }
 

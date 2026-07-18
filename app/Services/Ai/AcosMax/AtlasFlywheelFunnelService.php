@@ -10,6 +10,8 @@ use Illuminate\Support\Carbon;
 
 final class AtlasFlywheelFunnelService
 {
+    public const FIELD_ALL = 'all';
+    public const FIELD_MEMORY_WRITTEN = 'memory_written';
     public const SCHEMA_VERSION = 'atlas.m.funnel.v1';
 
     public const MEASURE_ID = 'atlas.m.funnel.v1';
@@ -225,7 +227,7 @@ final class AtlasFlywheelFunnelService
             self::FIELD_STAGES => self::STAGES,
             self::FIELD_BY_EXECUTOR => $byExecutor,
             'windows' => [
-                'all' => [
+                self::FIELD_ALL => [
                     self::FIELD_STATUS => $status,
                     self::FIELD_BY_EXECUTOR => $byExecutor,
                 ],
@@ -233,7 +235,7 @@ final class AtlasFlywheelFunnelService
             self::FIELD_CLAIM_POLICY => [
                 'read_only' => true,
                 'provider_calls_made' => false,
-                'memory_written' => false,
+                self::FIELD_MEMORY_WRITTEN => false,
                 'single_scalar_score_emitted' => false,
                 self::FIELD_USED_AS_PRODUCER_TARGET => false,
                 self::FIELD_DIAGNOSTIC_ONLY => true,

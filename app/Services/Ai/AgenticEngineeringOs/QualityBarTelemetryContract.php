@@ -13,6 +13,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class QualityBarTelemetryContract
 {
+    public const FIELD_AUTO_BLOCK_ON_BREACH = 'auto_block_on_breach';
+    public const FIELD_EVIDENCE_REQUIRED = 'evidence_required';
     public const SCHEMA = 'atlas.aaeos.quality_bar_telemetry.v1';
 
     public const QUALITY_BAR_SCHEMA = 'atlas.aaeos.quality_bar.v1';
@@ -113,8 +115,8 @@ final class QualityBarTelemetryContract
             self::FIELD_BREACH_SIGNAL => self::BREACH_SIGNAL,
             self::FIELD_CANONICAL_SOURCE => self::CANONICAL_SOURCE,
             self::FIELD_EVALUATED_WINDOW_DAYS => self::EVALUATED_WINDOW_DAYS,
-            'auto_block_on_breach' => self::AUTO_BLOCK_ON_BREACH,
-            'evidence_required' => self::EVIDENCE_REQUIRED,
+            self::FIELD_AUTO_BLOCK_ON_BREACH => self::AUTO_BLOCK_ON_BREACH,
+            self::FIELD_EVIDENCE_REQUIRED => self::EVIDENCE_REQUIRED,
             'telemetry_fields' => self::TELEMETRY_FIELDS,
             'inputs' => [
                 self::FIELD_DEPARTMENT_ID => $this->departmentId,

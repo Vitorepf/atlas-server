@@ -55,6 +55,12 @@ use App\Services\Ai\AgenticEngineeringOs\AaeosDeferredPhaseDispatcherService;
 use App\Services\Ai\Cognition\AtlasAcosWindowGatesService;
 use App\Services\Ai\Cognition\AtlasCognitionRemintTouchedQueue;
 use App\Services\Ai\Cognition\AtlasCognitionScoreCardV4Grouper;
+use App\Services\Ai\AgenticEngineeringOs\DepartmentContractRuntime;
+use App\Services\Ai\Cognition\CognitiveContextNudgeApplier;
+use App\Services\Ai\AcosMax\AemorOutcomeEnvelopeAdapter;
+use App\Services\Ai\AcosMax\AtlasFlywheelFunnelService;
+use App\Services\Ai\AgenticEngineeringOs\RunbookOrchestrator;
+use App\Services\Ai\Cognition\AtlasCognitiveFunctionAtlasService;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -6654,6 +6660,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_GOVERNANCE, $out['governance']);
         $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_GROUP, $out['group']);
         $this->assertSame(18, $out['repair_parallel_promoter_verified_cockpit_deferred_window_remint_scorecard_floor_count']);
+    }
+
+    public function test_obra_dept_nudge_aemor_ambition_flywheel_quality_runbook_function_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->obraDeptNudgeAemorAmbitionFlywheelQualityRunbookFunctionFloorsContractObserve([]);
+        $this->assertSame(ComposedObraArcComposer::FIELD_ID, $out['id']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_NEIGHBOR_BASIS, $out['neighbor_basis']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TO, $out['to']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DEPARTMENT, $out['department']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_CODE, $out['code']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_REASONING, $out['reasoning']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_EVIDENCE_REFS, $out['evidence_refs']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_FIELDS, $out['fields']);
+        $this->assertSame(AmbitionRungPolicy::FIELD_ID, $out['id']);
+        $this->assertSame(AmbitionRungPolicy::FIELD_RUNG_DISTRIBUTION, $out['rung_distribution']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_ALL, $out['all']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_MEMORY_WRITTEN, $out['memory_written']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_AUTO_BLOCK_ON_BREACH, $out['auto_block_on_breach']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_EVIDENCE_REQUIRED, $out['evidence_required']);
+        $this->assertSame(RunbookOrchestrator::FIELD_DEFAULT_FLOW_GATES_TOTAL, $out['default_flow_gates_total']);
+        $this->assertSame(RunbookOrchestrator::FIELD_DEPARTMENT_COUNT, $out['department_count']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_DOC_READY, $out['doc_ready']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_DOC_STATUS, $out['doc_status']);
+        $this->assertSame(18, $out['obra_dept_nudge_aemor_ambition_flywheel_quality_runbook_function_floor_count']);
     }
 
 }

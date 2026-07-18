@@ -8680,4 +8680,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract for obra/dept/nudge/aemor/ambition/flywheel/quality/runbook/function keys (B360).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function obraDeptNudgeAemorAmbitionFlywheelQualityRunbookFunctionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'id' => ComposedObraArcComposer::FIELD_ID,
+            'neighbor_basis' => ComposedObraArcComposer::FIELD_NEIGHBOR_BASIS,
+            'to' => DepartmentContractRuntime::FIELD_TO,
+            'department' => DepartmentContractRuntime::FIELD_DEPARTMENT,
+            'code' => CognitiveContextNudgeApplier::FIELD_CODE,
+            'reasoning' => CognitiveContextNudgeApplier::FIELD_REASONING,
+            'evidence_refs' => AemorOutcomeEnvelopeAdapter::FIELD_EVIDENCE_REFS,
+            'fields' => AemorOutcomeEnvelopeAdapter::FIELD_FIELDS,
+            'id' => AmbitionRungPolicy::FIELD_ID,
+            'rung_distribution' => AmbitionRungPolicy::FIELD_RUNG_DISTRIBUTION,
+            'all' => AtlasFlywheelFunnelService::FIELD_ALL,
+            'memory_written' => AtlasFlywheelFunnelService::FIELD_MEMORY_WRITTEN,
+            'auto_block_on_breach' => QualityBarTelemetryContract::FIELD_AUTO_BLOCK_ON_BREACH,
+            'evidence_required' => QualityBarTelemetryContract::FIELD_EVIDENCE_REQUIRED,
+            'default_flow_gates_total' => RunbookOrchestrator::FIELD_DEFAULT_FLOW_GATES_TOTAL,
+            'department_count' => RunbookOrchestrator::FIELD_DEPARTMENT_COUNT,
+            'doc_ready' => AtlasCognitiveFunctionAtlasService::FIELD_DOC_READY,
+            'doc_status' => AtlasCognitiveFunctionAtlasService::FIELD_DOC_STATUS,
+            'obra_dept_nudge_aemor_ambition_flywheel_quality_runbook_function_floor_count' => 18,
+        ];
+    }
+
 }

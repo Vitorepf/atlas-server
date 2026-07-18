@@ -16,6 +16,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class ComposedObraArcComposer
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_NEIGHBOR_BASIS = 'neighbor_basis';
     public const SCHEMA_VERSION = 'atlas.originator.composed_obra_arc.v1';
 
     public const MIN_NEIGHBOR_CANDIDATES = 3;
@@ -161,7 +163,7 @@ final class ComposedObraArcComposer
                 continue;
             }
             $out[] = [
-                'id' => AiValueNormalizer::trimmedStringOrNull($candidate['id'] ?? null) ?? 'cand-'.$index,
+                self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_ID] ?? null) ?? 'cand-'.$index,
                 self::FIELD_TARGET_PATH => $target,
                 self::FIELD_SUMMARY => $summary,
                 self::FIELD_ORGAN_CLASS => $organ,
@@ -191,7 +193,7 @@ final class ComposedObraArcComposer
             $neighbors = self::neighborSet($anchor[self::FIELD_ORGAN_CLASS], $graph);
             $group = [$anchor];
             foreach ($grounded as $other) {
-                if ($other['id'] === $anchor['id']) {
+                if ($other[self::FIELD_ID] === $anchor[self::FIELD_ID]) {
                     continue;
                 }
                 if (in_array($other[self::FIELD_ORGAN_CLASS], $neighbors, true) || $other[self::FIELD_ORGAN_CLASS] === $anchor[self::FIELD_ORGAN_CLASS]) {
@@ -294,7 +296,7 @@ final class ComposedObraArcComposer
                 self::FIELD_ACTION_ON_TRIGGER => 'archive_with_receipt',
             ],
             self::FIELD_SOURCE => [
-                'neighbor_basis' => 'organ_dependency_graph',
+                self::FIELD_NEIGHBOR_BASIS => 'organ_dependency_graph',
                 self::FIELD_AUTHOR_NEQ_JUDGE => $author !== $judge,
             ],
         ];
@@ -376,7 +378,7 @@ final class ComposedObraArcComposer
         $seen = [];
         $out = [];
         foreach ($group as $candidate) {
-            $id = (AiValueNormalizer::trimmedStringOrNull($candidate['id'] ?? null) ?? '');
+            $id = (AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_ID] ?? null) ?? '');
             if ($id === '' || isset($seen[$id])) {
                 continue;
             }

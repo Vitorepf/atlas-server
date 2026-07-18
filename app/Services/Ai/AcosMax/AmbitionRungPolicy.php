@@ -8,6 +8,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AmbitionRungPolicy
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_RUNG_DISTRIBUTION = 'rung_distribution';
     public const SCHEMA_VERSION = 'atlas.originator.ambition_rung_policy.v1';
 
     /** @var list<string> */
@@ -67,10 +69,10 @@ final class AmbitionRungPolicy
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'selected_id' => AiValueNormalizer::trimmedStringOrNull($selected['id'] ?? null) ?? '',
+            'selected_id' => AiValueNormalizer::trimmedStringOrNull($selected[self::FIELD_ID] ?? null) ?? '',
             self::FIELD_SELECTED_RUNG => AiValueNormalizer::trimmedStringOrNull($selected[self::FIELD_RUNG] ?? null) ?? '',
             self::FIELD_BASIS => $basis,
-            'rung_distribution' => $distribution,
+            self::FIELD_RUNG_DISTRIBUTION => $distribution,
             'source' => [
                 'rung_series_informational' => true,
                 'rung_series_used_as_score' => false,

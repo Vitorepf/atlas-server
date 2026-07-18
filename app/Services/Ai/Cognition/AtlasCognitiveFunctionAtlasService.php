@@ -32,6 +32,8 @@ use InvalidArgumentException;
  */
 class AtlasCognitiveFunctionAtlasService
 {
+    public const FIELD_DOC_READY = 'doc_ready';
+    public const FIELD_DOC_STATUS = 'doc_status';
     public const FIELD_GROUP = 'group';
 
     public const FIELD_SUBSYSTEMS = 'subsystems';
@@ -335,7 +337,7 @@ class AtlasCognitiveFunctionAtlasService
                     $codeReady++;
                     $servicePresent++;
                 }
-                if (($s['doc_status'] ?? '') === self::STATUS_READY) {
+                if (($s[self::FIELD_DOC_STATUS] ?? '') === self::STATUS_READY) {
                     $docReady++;
                 }
                 $pipeline = (AiValueNormalizer::trimmedStringOrNull($s[self::FIELD_PIPELINE_STATUS] ?? null) ?? '');
@@ -352,7 +354,7 @@ class AtlasCognitiveFunctionAtlasService
                 self::FIELD_GROUP => $g,
                 'total' => $total,
                 self::FIELD_CODE_READY => $codeReady,
-                'doc_ready' => $docReady,
+                self::FIELD_DOC_READY => $docReady,
                 self::FIELD_PIPELINE_READY => $pipelineReady,
                 self::FIELD_PIPELINE_PARTIAL => $pipelinePartial,
                 self::FIELD_PIPELINE_BUILDING => $pipelineBuilding,

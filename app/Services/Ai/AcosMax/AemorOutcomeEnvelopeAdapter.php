@@ -12,6 +12,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
 {
+    public const FIELD_EVIDENCE_REFS = 'evidence_refs';
+    public const FIELD_FIELDS = 'fields';
     public const ADAPTER_KIND = 'aemor';
 
     /** @var list<string> */
@@ -62,7 +64,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             || array_key_exists('verified_source_present', $contract);
         $verifiedBasis = AiValueNormalizer::lowerTrimmedString($contract[self::FIELD_VERIFIED_BASIS] ?? $native[self::FIELD_VERIFIED_BASIS] ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT);
         $verified = (AiValueNormalizer::boolOrNull($contract[self::FIELD_VERIFIED] ?? $native[self::FIELD_VERIFIED] ?? null) ?? false);
-        $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native['evidence_refs'] ?? null);
+        $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native[self::FIELD_EVIDENCE_REFS] ?? null);
 
         $episodeId = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_EPISODE_ID] ?? $native[self::FIELD_EPISODE_ID] ?? null) ?? '';
         $runId = AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_RUN_ID] ?? $native['scope_id'] ?? null) ?? '';
@@ -93,7 +95,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public function fromEnvelope(OutcomeEnvelope $envelope): array
     {
         $data = $envelope->toArray();
-        $fields = AiValueNormalizer::arrayOrEmpty($data['native_divergent']['fields'] ?? null);
+        $fields = AiValueNormalizer::arrayOrEmpty($data['native_divergent'][self::FIELD_FIELDS] ?? null);
 
         return [
             self::FIELD_EXECUTOR => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_EXECUTOR] ?? null) ?? 'engineering'),

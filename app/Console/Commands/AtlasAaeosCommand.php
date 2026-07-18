@@ -382,6 +382,7 @@ final class AtlasAaeosCommand extends Command
         {--segment-fidelity-causality-teto-ragx-envelope-latency-watchdog-hybrid-floors-contract= : JSON file (any object) to observe segment/fidelity/causality/teto/ragx/envelope/latency/watchdog/hybrid residual floors}
         {--memory-budget-recall-maxa-corpus-esp09-dogfood-autonomy-runner-freeze-floors-contract= : JSON file (any object) to observe memory/budget/recall/maxa/corpus/esp09/dogfood/autonomy/runner/freeze residual floors}
                             {--repair-parallel-promoter-verified-cockpit-deferred-window-remint-scorecard-floors-contract= : JSON file (any object) to observe repair/parallel/promoter/verified/cockpit/deferred/window/remint/scorecard floors}
+                            {--obra-dept-nudge-aemor-ambition-flywheel-quality-runbook-function-floors-contract= : JSON file (any object) to observe obra/dept/nudge/aemor/ambition/flywheel/quality/runbook/function floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -920,6 +921,7 @@ final class AtlasAaeosCommand extends Command
             ['segment-fidelity-causality-teto-ragx-envelope-latency-watchdog-hybrid-floors-contract', 'segment_fidelity_causality_teto_ragx_envelope_latency_watchdog_hybrid_floors_contract', fn (array $p) => $gates->segmentFidelityCausalityTetoRagxEnvelopeLatencyWatchdogHybridFloorsContractObserve($p)],
             ['memory-budget-recall-maxa-corpus-esp09-dogfood-autonomy-runner-freeze-floors-contract', 'memory_budget_recall_maxa_corpus_esp09_dogfood_autonomy_runner_freeze_floors_contract', fn (array $p) => $gates->memoryBudgetRecallMaxaCorpusEsp09DogfoodAutonomyRunnerFreezeFloorsContractObserve($p)],
             ['repair-parallel-promoter-verified-cockpit-deferred-window-remint-scorecard-floors-contract', 'repair_parallel_promoter_verified_cockpit_deferred_window_remint_scorecard_floors_contract', fn (array $p) => $gates->repairParallelPromoterVerifiedCockpitDeferredWindowRemintScorecardFloorsContractObserve($p)],
+            ['obra-dept-nudge-aemor-ambition-flywheel-quality-runbook-function-floors-contract', 'obra_dept_nudge_aemor_ambition_flywheel_quality_runbook_function_floors_contract', fn (array $p) => $gates->obraDeptNudgeAemorAmbitionFlywheelQualityRunbookFunctionFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

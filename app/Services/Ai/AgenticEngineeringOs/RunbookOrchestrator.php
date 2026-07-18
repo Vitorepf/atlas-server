@@ -18,6 +18,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class RunbookOrchestrator
 {
+    public const FIELD_DEFAULT_FLOW_GATES_TOTAL = 'default_flow_gates_total';
+    public const FIELD_DEPARTMENT_COUNT = 'department_count';
     public const SCHEMA_VERSION = 'atlas.agentic_engineering_os.runbook.v1';
 
     public const AMBITION_TRIVIAL = 'trivial';
@@ -196,8 +198,8 @@ final class RunbookOrchestrator
             self::FIELD_STRUCTURAL_CHANGES => $structuralChanges,
             'runtime_baseline' => [
                 self::FIELD_DEFAULT_FLOW => $baselineFlow,
-                'department_count' => count(DepartmentContractRuntime::CATALOGUE),
-                'default_flow_gates_total' => $baselineGatesTotal,
+                self::FIELD_DEPARTMENT_COUNT => count(DepartmentContractRuntime::CATALOGUE),
+                self::FIELD_DEFAULT_FLOW_GATES_TOTAL => $baselineGatesTotal,
             ],
             'motivating_evidence' => [
                 [
