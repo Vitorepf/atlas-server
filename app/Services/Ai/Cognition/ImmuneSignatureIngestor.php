@@ -33,6 +33,8 @@ final class ImmuneSignatureIngestor
     public const FIELD_IS_STRING = 'is_string';
     public const FIELD_PRIVATE_SENSITIVE = 'private_sensitive';
     public const FIELD_UNTRUSTED_CONTENT = 'untrusted_content';
+    public const FIELD_ANTI_MEMORY = 'anti_memory';
+    public const FIELD_PROMPT_INJECTION = 'prompt_injection';
 
     private readonly ImmuneSignatureStore $store;
 
@@ -142,7 +144,7 @@ final class ImmuneSignatureIngestor
     {
         $inputClass = AiValueNormalizer::lowerTrimmedString($classification[self::FIELD_INPUT_CLASS] ?? '');
 
-        return in_array($inputClass, ['prompt_injection', self::FIELD_PRIVATE_SENSITIVE, 'untrusted_content'], true)
+        return in_array($inputClass, [self::FIELD_PROMPT_INJECTION, self::FIELD_PRIVATE_SENSITIVE, 'untrusted_content'], true)
             ? $inputClass
             : null;
     }
@@ -150,7 +152,7 @@ final class ImmuneSignatureIngestor
     private function hostileClassFromMemoryType(string $memoryType): ?string
     {
         return match ($memoryType) {
-            'anti_memory', self::FIELD_REFUTATION_MEMORY => self::FIELD_UNTRUSTED_CONTENT,
+            self::FIELD_ANTI_MEMORY, self::FIELD_REFUTATION_MEMORY => self::FIELD_UNTRUSTED_CONTENT,
             default => null,
         };
     }

@@ -9419,4 +9419,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['memory_feedback_aaeos_gate_local_model_flywheel_funnel_floor_count']);
     }
 
+    public function test_ragx_chain_acos_rollback_immune_hybrid_signature_department_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->ragxChainAcosRollbackImmuneHybridSignatureDepartmentFloorsContractObserve([]);
+        $this->assertSame(RagxChainMechanismService::FIELD_DOC_, $out['doc_']);
+        $this->assertSame(RagxChainMechanismService::FIELD_RAPTOR_LITE_, $out['raptor_lite_']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_FLIP_NOT_ARMED, $out['flip_not_armed']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_PRE_FLIP, $out['pre_flip']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_SEMANTIC, $out['semantic']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_SEMANTIC_ARM_SIMILARITY_, $out['semantic_arm_similarity_']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_ANTI_MEMORY, $out['anti_memory']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_PROMPT_INJECTION, $out['prompt_injection']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_QA, $out['qa']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_WRITE_CODE, $out['write_code']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_PIPELINE_PARTIALS_PRESENT, $out['pipeline_partials_present']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_AI_RUN_OUTCOMES, $out['ai_run_outcomes']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_ATOMIC_CLAIM_INCOMPLETE, $out['atomic_claim_incomplete']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_CONSENT_PRIVACY_RETENTION_UNCONFIRMED, $out['consent_privacy_retention_unconfirmed']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_GIT_LOG, $out['git_log']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_LINEAGE_LEDGER, $out['lineage_ledger']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_INJECTION_MARKER, $out['injection_marker']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BUG, $out['bug']);
+        $this->assertSame(18, $out['ragx_chain_acos_rollback_immune_hybrid_signature_department_floor_count']);
+    }
+
 }

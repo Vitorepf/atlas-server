@@ -100,6 +100,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_RECURRENCE_COUNT = 'recurrence_count';
     public const FIELD_RETENTION_OK = 'retention_ok';
     public const FIELD_WATCH_STARTED_AT = 'watch_started_at';
+    public const FIELD_ATOMIC_CLAIM_INCOMPLETE = 'atomic_claim_incomplete';
+    public const FIELD_CONSENT_PRIVACY_RETENTION_UNCONFIRMED = 'consent_privacy_retention_unconfirmed';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -207,7 +209,7 @@ final class CognitiveImmunePromotionGateEvaluator
 
         return $confirmed
             ? [self::STATUS_PASS, '']
-            : [self::STATUS_PENDING, 'consent_privacy_retention_unconfirmed'];
+            : [self::STATUS_PENDING, self::FIELD_CONSENT_PRIVACY_RETENTION_UNCONFIRMED];
     }
 
     /**
@@ -225,7 +227,7 @@ final class CognitiveImmunePromotionGateEvaluator
 
         return $confirmed
             ? [self::STATUS_PASS, '']
-            : [self::STATUS_PENDING, 'atomic_claim_incomplete'];
+            : [self::STATUS_PENDING, self::FIELD_ATOMIC_CLAIM_INCOMPLETE];
     }
 
     /**

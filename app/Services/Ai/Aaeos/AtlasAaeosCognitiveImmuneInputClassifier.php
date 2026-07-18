@@ -91,6 +91,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_THESIS = 'thesis';
     public const FIELD_VALEU = 'valeu';
     public const FIELD_BELEZA = 'beleza';
+    public const FIELD_INJECTION_MARKER = 'injection_marker';
+    public const FIELD_BUG = 'bug';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -167,7 +169,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
      * Strong markers for a technical learning candidate.
      */
     public const TECHNICAL_MARKERS = [
-        'bug',
+        self::FIELD_BUG,
         self::FIELD_PATCH,
         self::FIELD_REGRESSION,
         'race condition',
@@ -311,7 +313,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     ): array {
         // 1. High-risk markers: instruction-override / injection always wins.
         if ($hasInjectionText) {
-            return [self::CLASS_PROMPT_INJECTION, 'injection_marker'];
+            return [self::CLASS_PROMPT_INJECTION, self::FIELD_INJECTION_MARKER];
         }
 
         // 2. Privacy: secret markers / privacy hints redact to sensitive.
@@ -449,7 +451,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
             $signals[] = 'recurrent';
         }
         if ($hasInjectionText) {
-            $signals[] = 'injection_marker';
+            $signals[] = self::FIELD_INJECTION_MARKER;
         }
         foreach ($candidateScores as $class => $score) {
             if ($score > 0) {

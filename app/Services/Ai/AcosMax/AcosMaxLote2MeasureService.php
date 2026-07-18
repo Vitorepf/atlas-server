@@ -263,6 +263,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_ATLAS_LOOP_ORIGINATION_OUTCOMES = 'atlas_loop_origination_outcomes';
     public const FIELD_WITHOUT = 'without';
+    public const FIELD_GIT_LOG = 'git_log';
+    public const FIELD_LINEAGE_LEDGER = 'lineage_ledger';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -289,7 +291,7 @@ final class AcosMaxLote2MeasureService
         return $this->emptyReport('MAXL-06', self::STATUS_PENDING_WINDOW, self::REASON_MISSING_LINEAGE_LEDGER, [
             self::FIELD_MEASURE_ID => self::MAXL06_MEASURE_ID,
             self::FIELD_BASIS => self::BASIS_UNAVAILABLE,
-            self::FIELD_ALLOWED_BASIS => ['lineage_ledger', 'git_log'],
+            self::FIELD_ALLOWED_BASIS => [self::FIELD_LINEAGE_LEDGER, self::FIELD_GIT_LOG],
             self::FIELD_COUNTERFACTUAL_BASIS => self::FIELD_NONE,
             self::FIELD_CORRELATION_LABEL_REQUIRED => self::FIELD_CORRELATIONAL_ATTRIBUTION,
             self::FIELD_ATTRIBUTED_DELTA => [],
@@ -1125,7 +1127,7 @@ final class AcosMaxLote2MeasureService
     public static function freezePayloads(): array
     {
         return [
-            'MAXL-06' => self::payload(self::MAXL06_MEASURE_ID, 'maxl06.delta_attribution.v1', 'Report-only attribution joins daily measure deltas to lineage decision_ids/commits; when lineage is absent, basis must be labeled and causal language must use correlational_attribution.', 1, 30, 'cursor-acos-max-maxl06', 'codex-independent-maxl06-judge', [self::FIELD_ALLOWED_BASIS => ['lineage_ledger', 'git_log'], self::FIELD_COUNTERFACTUAL_BASIS => self::FIELD_NONE]),
+            'MAXL-06' => self::payload(self::MAXL06_MEASURE_ID, 'maxl06.delta_attribution.v1', 'Report-only attribution joins daily measure deltas to lineage decision_ids/commits; when lineage is absent, basis must be labeled and causal language must use correlational_attribution.', 1, 30, 'cursor-acos-max-maxl06', 'codex-independent-maxl06-judge', [self::FIELD_ALLOWED_BASIS => [self::FIELD_LINEAGE_LEDGER, self::FIELD_GIT_LOG], self::FIELD_COUNTERFACTUAL_BASIS => self::FIELD_NONE]),
             'MULTN17-04' => self::payload(self::MULTN1704_MEASURE_ID, 'multn17.predicted_impact_calibration.v1', 'Derived predicted_impact band versus realized proven_real outcome curve for origination; report-only until at least 20 real originations resolve.', 20, 30, 'cursor-acos-max-multn17-04', 'codex-independent-multn17-04-judge', [self::FIELD_DENOMINATOR_MIN_ORIGINATIONS => 20, self::FIELD_MAX_ABS_DECLARED_REALIZED_DEVIATION => 1]),
             'MULTX-01' => self::payload(self::MULTX01_MEASURE_ID, 'multx.flywheel_loop_definition.v1', 'A valid loop chains task, decision receipt, delivered context, execution outcome, lesson, and subsequent measured recall; proven_real outcome is mandatory.', 1, 30, 'cursor-acos-max-multx01', 'codex-independent-multx01-judge', [self::FIELD_REQUIRES_PROVEN_REAL_OUTCOME => true]),
             'MULTX-06' => self::payload(self::MULTX06_MEASURE_ID, 'multx.learning_latency.v1', 'Measure p50/p95 latency from outcome-created lesson to first delivered context and first measured citation; never_delivered remains in denominator.', 8, 30, 'cursor-acos-max-multx06', 'codex-independent-multx06-judge', [self::FIELD_DENOMINATOR_MIN_PROMOTED_LESSONS => 8]),

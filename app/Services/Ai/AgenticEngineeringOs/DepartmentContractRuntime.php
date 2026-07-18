@@ -309,6 +309,8 @@ final class DepartmentContractRuntime
     public const FIELD_TESTS_GREEN = 'tests_green';
     public const FIELD_VERIFICATION_COMPLETE = 'verification_complete';
     public const FIELD_COVERAGE_MIN_THRESHOLD = 'coverage_min_threshold';
+    public const FIELD_QA = 'qa';
+    public const FIELD_WRITE_CODE = 'write_code';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -354,7 +356,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_GATES => ['intent_clarified', 'mission_authority_declared'],
             self::FIELD_ALLOWED_ACTIONS => ['ask_clarifying_question', self::FIELD_CLASSIFY_INTENT, 'route_to_department'],
-            self::FIELD_FORBIDDEN_ACTIONS => ['write_code', self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
+            self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_WRITE_CODE, self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['intent_clarification_log', 'mission_envelope_hash'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_EXECUTIVE_INTAKE, self::FIELD_LEDGER => self::FIELD_AAEOS_INTAKE_LEDGER],
@@ -378,7 +380,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_GATES => ['intent_clarity_score_min', 'acceptance_criteria_min_3'],
             self::FIELD_ALLOWED_ACTIONS => ['ask_clarifying_question', self::FIELD_PROPOSE_ACCEPTANCE_CRITERIA, 'split_intent'],
-            self::FIELD_FORBIDDEN_ACTIONS => ['write_code', self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
+            self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_WRITE_CODE, self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['clarification_log', 'acceptance_criteria_pack'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_ENGINEERING_GOALS, self::FIELD_LEDGER => self::FIELD_AAEOS_CLARIFICATION_LEDGER],
@@ -402,7 +404,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_GATES => ['adr_published', self::FIELD_BOUNDARY_VALIDATED, self::FIELD_SPEC_ACCEPTANCE_CRITERIA_COMPLETE, self::FIELD_BREAKING_CHANGE_DOCUMENTED, 'rollback_per_slice'],
             self::FIELD_ALLOWED_ACTIONS => ['draft_spec', self::FIELD_PROPOSE_MIGRATION_PLAN, self::FIELD_REQUEST_SECURITY_REVIEW, 'veto_execution'],
-            self::FIELD_FORBIDDEN_ACTIONS => ['write_code', self::FIELD_EXECUTE_MIGRATION, 'approve_release'],
+            self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_WRITE_CODE, self::FIELD_EXECUTE_MIGRATION, 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['spec_pack_hash', 'architect_decision_receipt'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_SPEC_PACKS, self::FIELD_LEDGER => self::FIELD_AAEOS_ARCHITECT_DECISION_LEDGER],
@@ -425,7 +427,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_GATES => ['research_findings_published', self::FIELD_REVIEW_ONLY_ACKNOWLEDGED, self::FIELD_SOURCES_MIN_3, self::FIELD_SOURCE_DATES_RECENT, 'no_hallucinated_links'],
             self::FIELD_ALLOWED_ACTIONS => ['fetch_sources', self::FIELD_SYNTHESIZE_FINDINGS, 'propose_doc_promotion'],
-            self::FIELD_FORBIDDEN_ACTIONS => ['write_code', self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
+            self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_WRITE_CODE, self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['sources_list_hash', 'research_pack_hash'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_RESEARCH_PACKS, self::FIELD_LEDGER => self::FIELD_AAEOS_SOURCE_LEDGER],
@@ -458,7 +460,7 @@ final class DepartmentContractRuntime
             self::FIELD_MATURITY_LEVEL => 'L1',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_PLAN_VISIBLE,
             self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_ARCHITECTURE],
-            self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_REVIEW, 'qa', self::DEPARTMENT_FORGE],
+            self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_REVIEW, self::FIELD_QA, self::DEPARTMENT_FORGE],
         ],
         self::DEPARTMENT_DEBUG => [
             self::FIELD_HUMAN_NAME => 'Debug Department',
@@ -480,7 +482,7 @@ final class DepartmentContractRuntime
             self::FIELD_OBSERVABILITY_SIGNALS => ['debug_mttr_p95', 'debug_repro_success_rate'],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_DEBUG_RECEIPT,
-            self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_DEV, 'qa', self::DEPARTMENT_FORGE],
+            self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_DEV, self::FIELD_QA, self::DEPARTMENT_FORGE],
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
         ],
         self::DEPARTMENT_REVIEW => [
@@ -504,7 +506,7 @@ final class DepartmentContractRuntime
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_REVIEW_RECEIPT,
             self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
-            self::FIELD_EMITS_HANDOFF_TO => ['qa', self::DEPARTMENT_DELIVERY],
+            self::FIELD_EMITS_HANDOFF_TO => [self::FIELD_QA, self::DEPARTMENT_DELIVERY],
         ],
         self::DEPARTMENT_QA => [
             self::FIELD_HUMAN_NAME => 'QA Department',
@@ -576,7 +578,7 @@ final class DepartmentContractRuntime
             self::FIELD_MATURITY_LEVEL => 'L4',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_PROGRAMMING_DURABLE_EXECUTION_HANDOFF,
             self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_ARCHITECTURE, self::DEPARTMENT_DEV],
-            self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_REVIEW, 'qa', self::DEPARTMENT_DELIVERY],
+            self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_REVIEW, self::FIELD_QA, self::DEPARTMENT_DELIVERY],
         ],
         self::DEPARTMENT_DELIVERY => [
             self::FIELD_HUMAN_NAME => 'Delivery Department',
@@ -598,7 +600,7 @@ final class DepartmentContractRuntime
             self::FIELD_OBSERVABILITY_SIGNALS => ['delivery_completeness_avg', 'delivery_review_loop_count'],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_ENGINEERING_RELEASE_DECISION,
-            self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_REVIEW, 'qa', self::DEPARTMENT_SECURITY],
+            self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_REVIEW, self::FIELD_QA, self::DEPARTMENT_SECURITY],
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_MEMORY],
         ],
         self::DEPARTMENT_MEMORY => [
@@ -622,7 +624,7 @@ final class DepartmentContractRuntime
             self::FIELD_OBSERVABILITY_SIGNALS => ['memory_promotion_rate', 'memory_quarantine_count'],
             self::FIELD_MATURITY_LEVEL => 'L3',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_LEARNING_COMPOUNDING_SIGNAL,
-            self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_DELIVERY, self::DEPARTMENT_REVIEW, 'qa', self::DEPARTMENT_FORGE],
+            self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_DELIVERY, self::DEPARTMENT_REVIEW, self::FIELD_QA, self::DEPARTMENT_FORGE],
             self::FIELD_EMITS_HANDOFF_TO => [],
         ],
     ];

@@ -198,6 +198,8 @@ final class RagxChainMechanismService
     public const FIELD_MAXF09_VERIFIED_L2_SUMMARY = 'maxf09_verified_l2_summary';
     public const FIELD_FLOATVAL = 'floatval';
     public const FIELD_SHA256 = 'sha256';
+    public const FIELD_DOC_ = 'doc_';
+    public const FIELD_RAPTOR_LITE_ = 'raptor_lite_';
 
     public function __construct(
         private readonly ?AsefChunkIndexService $asefChunks = null,
@@ -417,7 +419,7 @@ final class RagxChainMechanismService
         $nodes = [];
         foreach ($verified as $index => $summary) {
             $nodes[] = [
-                self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($summary[self::FIELD_ID] ?? null) ?? ('raptor_lite_'.($index + 1)),
+                self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($summary[self::FIELD_ID] ?? null) ?? (self::FIELD_RAPTOR_LITE_.($index + 1)),
                 self::FIELD_COMMUNITY => array_values(AiValueNormalizer::arrayOrEmpty($summary[self::FIELD_COMMUNITY] ?? ($communities[$index] ?? null))),
                 self::FIELD_SUMMARY_REF => AiValueNormalizer::trimmedStringOrNull($summary[self::FIELD_L2_SUMMARY_ID] ?? $summary[self::FIELD_ID] ?? null) ?? '',
                 self::FIELD_SOURCE => self::FIELD_MAXF09_VERIFIED_L2_SUMMARY,
@@ -455,7 +457,7 @@ final class RagxChainMechanismService
                 }
             }
             $matches[] = [
-                self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($document[self::FIELD_ID] ?? null) ?? ('doc_'.$index),
+                self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($document[self::FIELD_ID] ?? null) ?? (self::FIELD_DOC_.$index),
                 self::FIELD_SCORE => $tokens === [] ? 0.0 : round($hits / count($tokens), 4),
                 self::FIELD_SCORE_ORIGIN => self::FIELD_LEXICAL_SPARSE_SHADOW,
             ];

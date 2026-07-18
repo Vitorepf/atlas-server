@@ -12003,4 +12003,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B467).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function ragxChainAcosRollbackImmuneHybridSignatureDepartmentFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'doc_' => RagxChainMechanismService::FIELD_DOC_,
+            'raptor_lite_' => RagxChainMechanismService::FIELD_RAPTOR_LITE_,
+            'flip_not_armed' => AtlasAcosRollbackTriggerCheckService::FIELD_FLIP_NOT_ARMED,
+            'pre_flip' => AtlasAcosRollbackTriggerCheckService::FIELD_PRE_FLIP,
+            'semantic' => AtlasImmuneHybridInputClassifier::FIELD_SEMANTIC,
+            'semantic_arm_similarity_' => AtlasImmuneHybridInputClassifier::FIELD_SEMANTIC_ARM_SIMILARITY_,
+            'anti_memory' => ImmuneSignatureIngestor::FIELD_ANTI_MEMORY,
+            'prompt_injection' => ImmuneSignatureIngestor::FIELD_PROMPT_INJECTION,
+            'qa' => DepartmentContractRuntime::FIELD_QA,
+            'write_code' => DepartmentContractRuntime::FIELD_WRITE_CODE,
+            'pipeline_partials_present' => AtlasAcosWatchdogHealthService::FIELD_PIPELINE_PARTIALS_PRESENT,
+            'ai_run_outcomes' => AtlasAcosWatchdogHealthService::FIELD_AI_RUN_OUTCOMES,
+            'atomic_claim_incomplete' => CognitiveImmunePromotionGateEvaluator::FIELD_ATOMIC_CLAIM_INCOMPLETE,
+            'consent_privacy_retention_unconfirmed' => CognitiveImmunePromotionGateEvaluator::FIELD_CONSENT_PRIVACY_RETENTION_UNCONFIRMED,
+            'git_log' => AcosMaxLote2MeasureService::FIELD_GIT_LOG,
+            'lineage_ledger' => AcosMaxLote2MeasureService::FIELD_LINEAGE_LEDGER,
+            'injection_marker' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_INJECTION_MARKER,
+            'bug' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BUG,
+            'ragx_chain_acos_rollback_immune_hybrid_signature_department_floor_count' => 18,
+        ];
+    }
+
 }

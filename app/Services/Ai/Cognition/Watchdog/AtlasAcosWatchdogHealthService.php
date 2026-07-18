@@ -331,6 +331,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_SURFACE_ID = 'surface_id';
     public const FIELD_UTILITY_REAL_SHARE = 'utility_real_share';
     public const FIELD_WINDOWED_CONCENTRATION_GUARDED = 'windowed_concentration_guarded';
+    public const FIELD_PIPELINE_PARTIALS_PRESENT = 'pipeline_partials_present';
+    public const FIELD_AI_RUN_OUTCOMES = 'ai_run_outcomes';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -404,7 +406,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $now = CarbonImmutable::now('UTC');
         $lastNegative = $this->latestMemoryFeedbackAt(AtlasMemoryEntryUsage::negativeFeedbackActions());
-        $lastOutcome = $this->latestModelAt(AiRunOutcome::class, 'created_at', 'ai_run_outcomes');
+        $lastOutcome = $this->latestModelAt(AiRunOutcome::class, 'created_at', self::FIELD_AI_RUN_OUTCOMES);
         $lastDeliveredRefs = $this->latestRagDeliveredRefsAt();
         $aemor = [];
         foreach (['dev', 'forge', 'task'] as $source) {
@@ -721,7 +723,7 @@ final class AtlasAcosWatchdogHealthService
             $blocking[] = 'pipeline_score_below_perfect';
         }
         if ($partials !== []) {
-            $blocking[] = 'pipeline_partials_present';
+            $blocking[] = self::FIELD_PIPELINE_PARTIALS_PRESENT;
         }
         $payload = [
             self::FIELD_SCHEMA_VERSION => self::PIPELINE_SCORECARD_STABILITY_SCHEMA,
@@ -796,7 +798,7 @@ final class AtlasAcosWatchdogHealthService
         }));
         $blocking = [];
         if ($partials !== []) {
-            $blocking[] = 'pipeline_partials_present';
+            $blocking[] = self::FIELD_PIPELINE_PARTIALS_PRESENT;
         }
         if ($stale !== []) {
             $blocking[] = 'pipeline_partial_stale_after_mint_window';
