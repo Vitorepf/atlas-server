@@ -80,6 +80,8 @@ final class AcosMaxVerifiedShareService
     public const FIELD_OWNER = 'owner';
     public const FIELD_RECORDED_AT = 'recorded_at';
     public const FIELD_ROLE = 'role';
+    public const FIELD_SOURCES = 'sources';
+    public const FIELD_SURFACE = 'surface';
 
 
     /** @return array<string,mixed> */
@@ -170,7 +172,7 @@ final class AcosMaxVerifiedShareService
             ],
             self::FIELD_AGGREGATE => $aggregate,
             self::FIELD_EXECUTORS => $executors,
-            'sources' => [
+            self::FIELD_SOURCES => [
                 self::FIELD_OUTCOME_DENOMINATOR => 'storage/atlas/atlas_decide/live_outcomes.jsonl',
                 'verification_numerator' => 'atlas_ledger_events engineering.execution.coverage.recorded mode=enforce',
             ],
@@ -316,7 +318,7 @@ final class AcosMaxVerifiedShareService
     /** @param array<string,mixed> $row */
     private function executorFromCoverage(array $row): ?string
     {
-        $surface = AiValueNormalizer::trimmedStringOrNull($row['surface'] ?? null) ?? '';
+        $surface = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_SURFACE] ?? null) ?? '';
         $owner = AiValueNormalizer::trimmedStringOrNull(EngineeringExecutionSurfaceRegistry::surface($surface)[self::FIELD_OWNER] ?? null) ?? '';
 
         return $this->normalizeExecutor($owner);

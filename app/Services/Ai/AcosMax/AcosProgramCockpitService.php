@@ -44,6 +44,8 @@ final class AcosProgramCockpitService
     public const FIELD_PROVIDER_TOKENS_SPENT = 'provider_tokens_spent';
     public const FIELD_EXIT_CODE = 'exit_code';
     public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_LOOPS_FUNNEL = 'loops_funnel';
+    public const FIELD_MUTATES_STATE = 'mutates_state';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -55,11 +57,11 @@ final class AcosProgramCockpitService
             self::FIELD_GENERATED_AT => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
             self::FIELD_EXTERNAL_PROVIDER_CALL => false,
             self::FIELD_PROVIDER_TOKENS_SPENT => false,
-            'mutates_state' => false,
+            self::FIELD_MUTATES_STATE => false,
             self::FIELD_SECTIONS => [
                 'm' => $this->commandSection('atlas:acos:m-series --json', 'atlas:acos:m-series', ['--json' => true]),
                 'r' => $this->commandSection('atlas:atlas-decide:live-feedback --regret --json', 'atlas:atlas-decide:live-feedback', ['--regret' => true, '--json' => true]),
-                'loops_funnel' => $this->loopsFunnelSection(),
+                self::FIELD_LOOPS_FUNNEL => $this->loopsFunnelSection(),
                 'windows' => $this->commandSection('atlas:windows --json', 'atlas:windows', ['--json' => true]),
                 'pending_flips' => $this->commandSection('atlas:promotions --json', 'atlas:promotions', ['--json' => true]),
                 'review_debt' => $this->callbackSection(

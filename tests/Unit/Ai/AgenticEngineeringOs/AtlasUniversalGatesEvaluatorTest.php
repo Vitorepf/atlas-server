@@ -7324,4 +7324,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['outcome_envelope_ragx_chain_teto_predicted_immune_hybrid_floor_count']);
     }
 
+    public function test_maxa_jina_immune_classifier_watchdog_runner_lote_measure_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->maxaJinaImmuneClassifierWatchdogRunnerLoteMeasureFloorsContractObserve([]);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_ID, $out['id']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_LEDGER_RECORDED, $out['ledger_recorded']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_NOTE, $out['note']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_SCOPE_ID, $out['scope_id']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_SCOPE_TYPE, $out['scope_type']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DENOMINATOR_MIN_PROMOTED_LESSONS, $out['denominator_min_promoted_lessons']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DEPENDENCIES, $out['dependencies']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_READ_ONLY, $out['read_only']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_RECEIPT_HASH, $out['receipt_hash']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_SOURCES, $out['sources']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_SURFACE, $out['surface']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_PARALLELIZABLE_GROUPS, $out['parallelizable_groups']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_RECORDED_AT, $out['recorded_at']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_LOOPS_FUNNEL, $out['loops_funnel']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_MUTATES_STATE, $out['mutates_state']);
+        $this->assertSame(AmbitionRungPolicy::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AmbitionRungPolicy::FIELD_SELECTED_ID, $out['selected_id']);
+        $this->assertSame(18, $out['maxa_jina_immune_classifier_watchdog_runner_lote_measure_floor_count']);
+    }
+
 }

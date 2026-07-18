@@ -56,6 +56,8 @@ final class AcosMaxWindowOrchestratorService
     public const FIELD_LAST_DATA_AT = 'last_data_at';
     public const FIELD_MINIMUM_WINDOW = 'minimum_window';
     public const FIELD_MINIMUM_WINDOW_RUNNING = 'minimum_window_running';
+    public const FIELD_PARALLELIZABLE_GROUPS = 'parallelizable_groups';
+    public const FIELD_RECORDED_AT = 'recorded_at';
 
 
     public function __construct(
@@ -103,7 +105,7 @@ final class AcosMaxWindowOrchestratorService
                 'scheduler' => false,
             ],
             self::FIELD_CRITICAL_PATH => $critical,
-            'parallelizable_groups' => $this->parallelizableGroups($active),
+            self::FIELD_PARALLELIZABLE_GROUPS => $this->parallelizableGroups($active),
             'watchdog' => [
                 self::FIELD_DEAD_AFTER_DAYS => max(1, $deadAfterDays),
                 self::FIELD_ALERTS => array_values(array_filter(
@@ -183,7 +185,7 @@ final class AcosMaxWindowOrchestratorService
             ]);
         }
 
-        $startedAt = $this->dateOrNull($lastEvent['recorded_at'] ?? null);
+        $startedAt = $this->dateOrNull($lastEvent[self::FIELD_RECORDED_AT] ?? null);
         $elapsed = $startedAt instanceof DateTimeImmutable
             ? max(0, intdiv($now->getTimestamp() - $startedAt->getTimestamp(), 86_400))
             : null;

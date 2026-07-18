@@ -204,6 +204,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_DENOMINATOR_MIN_ORIGINATIONS = 'denominator_min_originations';
     public const FIELD_DENOMINATOR_MIN_PAIRS = 'denominator_min_pairs';
     public const FIELD_DENOMINATOR_MIN_PER_BUCKET = 'denominator_min_per_bucket';
+    public const FIELD_DENOMINATOR_MIN_PROMOTED_LESSONS = 'denominator_min_promoted_lessons';
+    public const FIELD_DEPENDENCIES = 'dependencies';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -234,7 +236,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_COUNTERFACTUAL_BASIS => 'none',
             self::FIELD_CORRELATION_LABEL_REQUIRED => 'correlational_attribution',
             self::FIELD_ATTRIBUTED_DELTA => [],
-            'dependencies' => ['ASI-11', 'MAXL-04'],
+            self::FIELD_DEPENDENCIES => ['ASI-11', 'MAXL-04'],
         ]);
     }
 
@@ -1069,7 +1071,7 @@ final class AcosMaxLote2MeasureService
             'MAXL-06' => self::payload(self::MAXL06_MEASURE_ID, 'maxl06.delta_attribution.v1', 'Report-only attribution joins daily measure deltas to lineage decision_ids/commits; when lineage is absent, basis must be labeled and causal language must use correlational_attribution.', 1, 30, 'cursor-acos-max-maxl06', 'codex-independent-maxl06-judge', [self::FIELD_ALLOWED_BASIS => ['lineage_ledger', 'git_log'], self::FIELD_COUNTERFACTUAL_BASIS => 'none']),
             'MULTN17-04' => self::payload(self::MULTN1704_MEASURE_ID, 'multn17.predicted_impact_calibration.v1', 'Derived predicted_impact band versus realized proven_real outcome curve for origination; report-only until at least 20 real originations resolve.', 20, 30, 'cursor-acos-max-multn17-04', 'codex-independent-multn17-04-judge', [self::FIELD_DENOMINATOR_MIN_ORIGINATIONS => 20, 'max_abs_declared_realized_deviation' => 1]),
             'MULTX-01' => self::payload(self::MULTX01_MEASURE_ID, 'multx.flywheel_loop_definition.v1', 'A valid loop chains task, decision receipt, delivered context, execution outcome, lesson, and subsequent measured recall; proven_real outcome is mandatory.', 1, 30, 'cursor-acos-max-multx01', 'codex-independent-multx01-judge', [self::FIELD_REQUIRES_PROVEN_REAL_OUTCOME => true]),
-            'MULTX-06' => self::payload(self::MULTX06_MEASURE_ID, 'multx.learning_latency.v1', 'Measure p50/p95 latency from outcome-created lesson to first delivered context and first measured citation; never_delivered remains in denominator.', 8, 30, 'cursor-acos-max-multx06', 'codex-independent-multx06-judge', ['denominator_min_promoted_lessons' => 8]),
+            'MULTX-06' => self::payload(self::MULTX06_MEASURE_ID, 'multx.learning_latency.v1', 'Measure p50/p95 latency from outcome-created lesson to first delivered context and first measured citation; never_delivered remains in denominator.', 8, 30, 'cursor-acos-max-multx06', 'codex-independent-multx06-judge', [self::FIELD_DENOMINATOR_MIN_PROMOTED_LESSONS => 8]),
             'MULTX-09' => self::payload(self::MULTX09_MEASURE_ID, 'multx.windows_orchestrator.v1', 'Read-only PromotionProtocol window DAG: started windows publish days_remaining and critical path; not-started windows never receive fabricated ETA; associated series silence beyond the watchdog floor emits dead_window.', 1, 30, 'cursor-acos-max-multx09', 'codex-independent-multx09-judge', [self::FIELD_DEAD_WINDOW_SILENT_DAYS => 3, 'not_started_eta_allowed' => false, self::FIELD_READ_ONLY => true]),
             'MULTJ-01' => self::payload(self::MULTJ01_MEASURE_ID, 'multj.lesson_half_life.v2', 'Bucket lesson lift by age since promotion using two-week buckets; buckets below n=8 publish insufficient instead of null.', 8, 30, 'cursor-acos-max-multj01', 'codex-independent-multj01-judge', [self::FIELD_BUCKET_WIDTH_WEEKS => 2, self::FIELD_DENOMINATOR_MIN_PER_BUCKET => 8]),
             'MULTJ-02' => self::payload(self::MULTJ02_MEASURE_ID, 'multj.semantic_dedup_freeze.v1', 'Semantic lesson dedup threshold freeze for observe-mode would-merge receipts; enforcement requires later calibrated promotion.', 1, 30, 'cursor-acos-max-multj02', 'codex-independent-multj02-judge', [self::FIELD_COSINE_MERGE_THRESHOLD => 0.88, 'observe_mode_actual_merges' => 0]),

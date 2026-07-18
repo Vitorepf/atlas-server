@@ -109,6 +109,8 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_PRIOR_CORRECTIONS = 'prior_corrections';
     public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
     public const FIELD_QUEUE = 'queue';
+    public const FIELD_READ_ONLY = 'read_only';
+    public const FIELD_RECEIPT_HASH = 'receipt_hash';
 
 
     public function __construct(
@@ -179,7 +181,7 @@ final class AcosMaxProceduralSkillPromoterService
             ],
             self::FIELD_CLAIM_POLICY => [
                 self::FIELD_DEFAULT_OFF => true,
-                'read_only' => ! $enqueueRequested,
+                self::FIELD_READ_ONLY => ! $enqueueRequested,
                 self::FIELD_ENQUEUE_ENABLED => $this->enqueueEnabled(),
                 self::FIELD_ENQUEUE_REQUESTED => $enqueue,
                 self::FIELD_ENQUEUE_EFFECTIVE => $enqueueRequested,
@@ -287,7 +289,7 @@ final class AcosMaxProceduralSkillPromoterService
                     self::FIELD_PROMOTION_ALLOWED => false,
                     self::FIELD_SKILL_V1 => $candidate[self::FIELD_SKILL_V1],
                 ],
-                'receipt_hash' => hash('sha256', 'multj04-'.$candidateHash),
+                self::FIELD_RECEIPT_HASH => hash('sha256', 'multj04-'.$candidateHash),
                 self::FIELD_DECIDED_AT => Carbon::now(),
             ],
         );

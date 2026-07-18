@@ -63,6 +63,8 @@ final class AtlasImmuneClassifierHybridFreeze
     public const FIELD_SWITCH = 'switch';
     public const FIELD_DEFAULT = 'default';
     public const FIELD_FREEZE = 'freeze';
+    public const FIELD_ID = 'id';
+    public const FIELD_NOTE = 'note';
 
     /**
      * @return array<string,mixed>
@@ -113,10 +115,10 @@ final class AtlasImmuneClassifierHybridFreeze
             self::FIELD_JUDGE_ENGINE_ID => 'codex-immune-hybrid-classifier-judge',
             self::FIELD_CALIBRATION_AUTHORITY => [
                 self::FIELD_FREEZE => ImmuneCalibrationService::MEASURE_ID,
-                'note' => 'tau is a MAXI-03 freeze-stamped input; recalibration flows through the MAXI-03 seam.',
+                self::FIELD_NOTE => 'tau is a MAXI-03 freeze-stamped input; recalibration flows through the MAXI-03 seam.',
             ],
             'series' => [
-                'id' => self::MEASURE_ID,
+                self::FIELD_ID => self::MEASURE_ID,
                 'registry_status' => 'registered_elev_20s',
                 'source_type' => 'jsonl',
             ],

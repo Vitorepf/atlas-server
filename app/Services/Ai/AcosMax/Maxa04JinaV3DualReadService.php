@@ -76,6 +76,8 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_REQUIRES_DUAL_READ_LEDGER = 'requires_dual_read_ledger';
     public const FIELD_DESCRIPTION = 'description';
     public const FIELD_HANDLE = 'handle';
+    public const FIELD_ID = 'id';
+    public const FIELD_LEDGER_RECORDED = 'ledger_recorded';
 
 
     /** @return array<string,mixed> */
@@ -183,7 +185,7 @@ final class Maxa04JinaV3DualReadService
 
         ($ledger ?? new Maxa04JinaV3DualReadLedger)->append($receipt);
 
-        return $report + ['ledger_recorded' => true, self::FIELD_DUAL_READ_HASH => $receipt[self::FIELD_DUAL_READ_HASH]];
+        return $report + [self::FIELD_LEDGER_RECORDED => true, self::FIELD_DUAL_READ_HASH => $receipt[self::FIELD_DUAL_READ_HASH]];
     }
 
     /** @param list<array<string,mixed>> $cases @return list<array<string,mixed>> */
@@ -191,7 +193,7 @@ final class Maxa04JinaV3DualReadService
     {
         $normalized = [];
         foreach ($cases as $case) {
-            $queryId = AiValueNormalizer::trimmedStringOrNull($case[self::FIELD_QUERY_ID] ?? $case['id'] ?? null) ?? '';
+            $queryId = AiValueNormalizer::trimmedStringOrNull($case[self::FIELD_QUERY_ID] ?? $case[self::FIELD_ID] ?? null) ?? '';
             if ($queryId === '') {
                 continue;
             }
