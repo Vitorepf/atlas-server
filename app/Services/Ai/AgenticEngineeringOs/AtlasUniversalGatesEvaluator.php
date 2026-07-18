@@ -12158,4 +12158,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B472).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function aemorOutcomeDepartmentContractAcosWatchdogImmunePromotionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'autonomos' => AemorOutcomeEnvelopeAdapter::FIELD_AUTONOMOS,
+            'dev' => AemorOutcomeEnvelopeAdapter::FIELD_DEV,
+            'architect_spec_completeness_score' => DepartmentContractRuntime::FIELD_ARCHITECT_SPEC_COMPLETENESS_SCORE,
+            'architect_veto_count' => DepartmentContractRuntime::FIELD_ARCHITECT_VETO_COUNT,
+            'governance_soak_volume_below_floor' => AtlasAcosWatchdogHealthService::FIELD_GOVERNANCE_SOAK_VOLUME_BELOW_FLOOR,
+            'improper_floor_discards_present' => AtlasAcosWatchdogHealthService::FIELD_IMPROPER_FLOOR_DISCARDS_PRESENT,
+            'probation_recall_single_actor_inflated' => CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_RECALL_SINGLE_ACTOR_INFLATED,
+            'probation_unevaluated' => CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_UNEVALUATED,
+            'inactivated_by_negative_feedback' => MemoryFeedbackDecayScorer::FIELD_INACTIVATED_BY_NEGATIVE_FEEDBACK,
+            'inactivated_by_stale_age' => MemoryFeedbackDecayScorer::FIELD_INACTIVATED_BY_STALE_AGE,
+            'model_id_missing' => AtlasLocalModelIntegrityService::FIELD_MODEL_ID_MISSING,
+            'path_not_configured' => AtlasLocalModelIntegrityService::FIELD_PATH_NOT_CONFIGURED,
+            'scorecard_hash_missing' => AtlasAcosLongHorizonGateService::FIELD_SCORECARD_HASH_MISSING,
+            'scorecard_overall_below_floor' => AtlasAcosLongHorizonGateService::FIELD_SCORECARD_OVERALL_BELOW_FLOOR,
+            'porque' => AtlasCognitiveFunctionDecomposerService::FIELD_PORQUE,
+            'service' => AtlasCognitiveFunctionDecomposerService::FIELD_SERVICE,
+            'graduacao' => AtlasFrontierWaveLadder::FIELD_GRADUACAO,
+            'memory_cited_by_foreign_session' => AtlasFrontierWaveLadder::FIELD_MEMORY_CITED_BY_FOREIGN_SESSION,
+            'aemor_outcome_department_contract_acos_watchdog_immune_promotion_floor_count' => 18,
+        ];
+    }
+
 }

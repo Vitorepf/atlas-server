@@ -45,6 +45,8 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public const FIELD_ENGINEERING = 'engineering';
     public const FIELD_ENGINEERING_DELIVERY = 'engineering_delivery';
     public const FIELD_FORGE = 'forge';
+    public const FIELD_AUTONOMOS = 'autonomos';
+    public const FIELD_DEV = 'dev';
 
     public const STATUS_ABSENT = 'absent';
 
@@ -76,7 +78,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $runId = AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_RUN_ID] ?? $native[self::FIELD_SCOPE_ID] ?? null) ?? '';
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
-            self::FIELD_EXECUTOR => in_array($executor, ['dev', self::FIELD_FORGE, 'autonomos'], true) ? $executor : 'engineering',
+            self::FIELD_EXECUTOR => in_array($executor, [self::FIELD_DEV, self::FIELD_FORGE, self::FIELD_AUTONOMOS], true) ? $executor : 'engineering',
             self::FIELD_TASK_CATEGORY => AiValueNormalizer::trimmedStringOrNull($contract[self::FIELD_TASK_CATEGORY] ?? $native[self::FIELD_TASK_CATEGORY] ?? $executor) ?? '',
             self::FIELD_PROVIDER => AiValueNormalizer::trimmedStringOrNull($contract[self::FIELD_PROVIDER] ?? $native[self::FIELD_PROVIDER] ?? null) ?? self::STATUS_ABSENT,
             self::FIELD_STATUS => $status,

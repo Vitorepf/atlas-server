@@ -319,6 +319,8 @@ final class DepartmentContractRuntime
     public const FIELD_ADR_PUBLISHED = 'adr_published';
     public const FIELD_ALLOW = 'allow';
     public const FIELD_ARCHITECT_DECISION_RECEIPT = 'architect_decision_receipt';
+    public const FIELD_ARCHITECT_SPEC_COMPLETENESS_SCORE = 'architect_spec_completeness_score';
+    public const FIELD_ARCHITECT_VETO_COUNT = 'architect_veto_count';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -416,7 +418,7 @@ final class DepartmentContractRuntime
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['spec_pack_hash', self::FIELD_ARCHITECT_DECISION_RECEIPT],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_SPEC_PACKS, self::FIELD_LEDGER => self::FIELD_AAEOS_ARCHITECT_DECISION_LEDGER],
-            self::FIELD_OBSERVABILITY_SIGNALS => ['architect_spec_completeness_score', 'architect_veto_count'],
+            self::FIELD_OBSERVABILITY_SIGNALS => [self::FIELD_ARCHITECT_SPEC_COMPLETENESS_SCORE, self::FIELD_ARCHITECT_VETO_COUNT],
             self::FIELD_MATURITY_LEVEL => 'L3',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_ENGINEERING_ARCHITECTURE_DECISION,
             self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_PRODUCT],

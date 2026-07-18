@@ -187,6 +187,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_CODIGO = 'codigo';
     public const FIELD_ESCREVA = 'escreva';
     public const FIELD_IMAGEM = 'imagem';
+    public const FIELD_PORQUE = 'porque';
+    public const FIELD_SERVICE = 'service';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -205,7 +207,7 @@ final class AtlasCognitiveFunctionDecomposerService
      */
     public const RULES = [
         self::FIELD_REASONING => [
-            'porque', 'por que', self::FIELD_ANALISE, self::FIELD_ANALISA, self::FIELD_EXPLIQUE, self::FIELD_PENSE, self::FIELD_PONDERE,
+            self::FIELD_PORQUE, 'por que', self::FIELD_ANALISE, self::FIELD_ANALISA, self::FIELD_EXPLIQUE, self::FIELD_PENSE, self::FIELD_PONDERE,
             self::FIELD_DECIDA, self::FIELD_DECISAO, self::FIELD_COMPARE, self::FIELD_AVALIE, self::FIELD_LOGICA, self::FIELD_ESTRATEGIA,
             self::FIELD_RACIOCINE, self::FIELD_INVESTIGUE, self::FIELD_WHY, 'reason',
         ],
@@ -225,7 +227,7 @@ final class AtlasCognitiveFunctionDecomposerService
             self::FIELD_COMPONENTE, self::FIELD_SERVICO, self::FIELD_CLASSE, self::FIELD_FUNCAO, self::FIELD_CONTROLLER, self::FIELD_CLI,
             self::FIELD_ARTISAN, self::FIELD_MIGRATION, self::FIELD_COMPOSER, self::FIELD_NPM, self::FIELD_PHPUNIT, self::FIELD_PEST,
             self::FIELD_PATCH, 'pull request', 'pr ', ' pr,', self::FIELD_MERGE, 'git ',
-            'code', 'function', 'class', 'service', self::FIELD_REFACTOR, self::FIELD_TEST, self::FIELD_BUILD,
+            'code', 'function', 'class', self::FIELD_SERVICE, self::FIELD_REFACTOR, self::FIELD_TEST, self::FIELD_BUILD,
         ],
         self::FIELD_VISION => [
             self::FIELD_IMAGEM, self::FIELD_FOTO, self::FIELD_SCREENSHOT, self::FIELD_VISUALIZE, self::FIELD_DESIGN, self::FIELD_LAYOUT,

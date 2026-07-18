@@ -57,6 +57,8 @@ final class MemoryFeedbackDecayScorer
     public const FIELD_DEGRADED_BY_FEEDBACK_PRESSURE = 'degraded_by_feedback_pressure';
     public const FIELD_DEGRADED_BY_LOW_RECALL_HIT_RATE = 'degraded_by_low_recall_hit_rate';
     public const FIELD_DEGRADED_BY_STALE_AGE = 'degraded_by_stale_age';
+    public const FIELD_INACTIVATED_BY_NEGATIVE_FEEDBACK = 'inactivated_by_negative_feedback';
+    public const FIELD_INACTIVATED_BY_STALE_AGE = 'inactivated_by_stale_age';
 
     /**
      * @param  array<string, mixed>  $signals
@@ -165,13 +167,13 @@ final class MemoryFeedbackDecayScorer
         }
 
         if ($negative >= self::INACTIVATE_NEGATIVE_THRESHOLD && $healthScore <= self::INACTIVATE_HEALTH_CEILING) {
-            $reasons[] = 'inactivated_by_negative_feedback';
+            $reasons[] = self::FIELD_INACTIVATED_BY_NEGATIVE_FEEDBACK;
 
             return self::DECISION_INACTIVATE;
         }
 
         if ($staleness === self::DECISION_STALE_INACTIVE_CANDIDATE) {
-            $reasons[] = 'inactivated_by_stale_age';
+            $reasons[] = self::FIELD_INACTIVATED_BY_STALE_AGE;
 
             return self::DECISION_INACTIVATE;
         }

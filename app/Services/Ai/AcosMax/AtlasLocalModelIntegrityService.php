@@ -68,6 +68,8 @@ final class AtlasLocalModelIntegrityService
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_ARTIFACT_UNREADABLE = 'artifact_unreadable';
     public const FIELD_HASH_FAILED = 'hash_failed';
+    public const FIELD_MODEL_ID_MISSING = 'model_id_missing';
+    public const FIELD_PATH_NOT_CONFIGURED = 'path_not_configured';
 
     /** @var array<string, mixed> */
     private array $manifest;
@@ -136,7 +138,7 @@ final class AtlasLocalModelIntegrityService
 
         if ($modelId === '') {
             $row[self::FIELD_STATUS] = self::STATUS_INVALID;
-            $row[self::FIELD_REASON] = 'model_id_missing';
+            $row[self::FIELD_REASON] = self::FIELD_MODEL_ID_MISSING;
 
             return $row;
         }
@@ -150,7 +152,7 @@ final class AtlasLocalModelIntegrityService
 
         if ($path === '') {
             $row[self::FIELD_STATUS] = self::STATUS_MISSING;
-            $row[self::FIELD_REASON] = 'path_not_configured';
+            $row[self::FIELD_REASON] = self::FIELD_PATH_NOT_CONFIGURED;
 
             return $row;
         }

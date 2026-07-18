@@ -110,6 +110,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_PROBATION_NEGATIVE_FEEDBACK_COUNT = 'probation_negative_feedback_count';
     public const FIELD_PROBATION_NEGATIVE_FEEDBACK_PRESENT = 'probation_negative_feedback_present';
     public const FIELD_PROBATION_RECALL_ACTOR_COUNTS = 'probation_recall_actor_counts';
+    public const FIELD_PROBATION_RECALL_SINGLE_ACTOR_INFLATED = 'probation_recall_single_actor_inflated';
+    public const FIELD_PROBATION_UNEVALUATED = 'probation_unevaluated';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -357,7 +359,7 @@ final class CognitiveImmunePromotionGateEvaluator
     private function probationGate(array $signals, bool $candidatePresent): array
     {
         if (! $candidatePresent) {
-            return [self::STATUS_PENDING, 'probation_unevaluated'];
+            return [self::STATUS_PENDING, self::FIELD_PROBATION_UNEVALUATED];
         }
 
         if ($this->hasProbationNegativeFeedback($signals)) {
@@ -374,7 +376,7 @@ final class CognitiveImmunePromotionGateEvaluator
 
         $recallEvidence = $this->probationRecallEvidence($signals);
         if ($recallEvidence[self::FIELD_POSITIVE_ACTOR_COUNT] < self::PROBATION_MIN_RECALL_ACTORS) {
-            return [self::STATUS_PENDING, 'probation_recall_single_actor_inflated'];
+            return [self::STATUS_PENDING, self::FIELD_PROBATION_RECALL_SINGLE_ACTOR_INFLATED];
         }
 
         if ($recallEvidence[self::FIELD_RECALLS] < ImmuneCalibrationService::DENOMINATOR_MIN) {

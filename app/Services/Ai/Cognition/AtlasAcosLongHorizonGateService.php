@@ -176,6 +176,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_PIPELINE_SCORE_BELOW_FLOOR = 'pipeline_score_below_floor';
     public const FIELD_PIPELINE_SCORE_NEAR_FLOOR = 'pipeline_score_near_floor';
+    public const FIELD_SCORECARD_HASH_MISSING = 'scorecard_hash_missing';
+    public const FIELD_SCORECARD_OVERALL_BELOW_FLOOR = 'scorecard_overall_below_floor';
 
     /**
      * @param  array<string,mixed>  $options
@@ -433,13 +435,13 @@ final class AtlasAcosLongHorizonGateService
 
         $blockers = [];
         if ($overall < $minOverall) {
-            $blockers[] = 'scorecard_overall_below_floor';
+            $blockers[] = self::FIELD_SCORECARD_OVERALL_BELOW_FLOOR;
         }
         if ($pipeline < $minPipeline) {
             $blockers[] = self::FIELD_PIPELINE_SCORE_BELOW_FLOOR;
         }
         if ($scorecardHash === '' || ! str_starts_with($scorecardHash, 'sha256:')) {
-            $blockers[] = 'scorecard_hash_missing';
+            $blockers[] = self::FIELD_SCORECARD_HASH_MISSING;
         }
         array_push($blockers, ...$this->windowIntegrityBlockers(
             $window,

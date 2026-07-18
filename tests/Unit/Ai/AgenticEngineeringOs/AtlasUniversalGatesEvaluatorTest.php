@@ -9544,4 +9544,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['aaeos_implementation_docs_authority_department_cross_contract_acos_floor_count']);
     }
 
+    public function test_aemor_outcome_department_contract_acos_watchdog_immune_promotion_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->aemorOutcomeDepartmentContractAcosWatchdogImmunePromotionFloorsContractObserve([]);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_AUTONOMOS, $out['autonomos']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_DEV, $out['dev']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ARCHITECT_SPEC_COMPLETENESS_SCORE, $out['architect_spec_completeness_score']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ARCHITECT_VETO_COUNT, $out['architect_veto_count']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_GOVERNANCE_SOAK_VOLUME_BELOW_FLOOR, $out['governance_soak_volume_below_floor']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_IMPROPER_FLOOR_DISCARDS_PRESENT, $out['improper_floor_discards_present']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_RECALL_SINGLE_ACTOR_INFLATED, $out['probation_recall_single_actor_inflated']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_UNEVALUATED, $out['probation_unevaluated']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_INACTIVATED_BY_NEGATIVE_FEEDBACK, $out['inactivated_by_negative_feedback']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_INACTIVATED_BY_STALE_AGE, $out['inactivated_by_stale_age']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_MODEL_ID_MISSING, $out['model_id_missing']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_PATH_NOT_CONFIGURED, $out['path_not_configured']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SCORECARD_HASH_MISSING, $out['scorecard_hash_missing']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SCORECARD_OVERALL_BELOW_FLOOR, $out['scorecard_overall_below_floor']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_PORQUE, $out['porque']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_SERVICE, $out['service']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_GRADUACAO, $out['graduacao']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_MEMORY_CITED_BY_FOREIGN_SESSION, $out['memory_cited_by_foreign_session']);
+        $this->assertSame(18, $out['aemor_outcome_department_contract_acos_watchdog_immune_promotion_floor_count']);
+    }
+
 }

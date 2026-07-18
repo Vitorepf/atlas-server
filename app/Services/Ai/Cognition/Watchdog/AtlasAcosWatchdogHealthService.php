@@ -341,6 +341,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_CROSS_WEEK_RECALL_LIFT_NOT_CERTIFIED = 'cross_week_recall_lift_not_certified';
     public const FIELD_GOVERNANCE_BYPASS_RATE_NONZERO = 'governance_bypass_rate_nonzero';
     public const FIELD_GOVERNANCE_FALSE_POSITIVE_NONZERO = 'governance_false_positive_nonzero';
+    public const FIELD_GOVERNANCE_SOAK_VOLUME_BELOW_FLOOR = 'governance_soak_volume_below_floor';
+    public const FIELD_IMPROPER_FLOOR_DISCARDS_PRESENT = 'improper_floor_discards_present';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -523,7 +525,7 @@ final class AtlasAcosWatchdogHealthService
             $issues[] = 'recall_at_5_below_floor_or_unmeasured';
         }
         if ($improperFloorDiscards > 0) {
-            $issues[] = 'improper_floor_discards_present';
+            $issues[] = self::FIELD_IMPROPER_FLOOR_DISCARDS_PRESENT;
         }
         if ($coverageRatio < self::RAG_COVERAGE_FLOOR) {
             $issues[] = self::FIELD_AURG_CROSS_LAYER_COVERAGE_BELOW_FLOOR;
@@ -843,7 +845,7 @@ final class AtlasAcosWatchdogHealthService
                     && $bypassRate === 0.0
                     && (int) (AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_FALSE_POSITIVE_TOTAL] ?? null) ?? 0) === 0,
                 self::FIELD_BLOCKING => array_values(array_filter([
-                    count(array_filter($governanceByExecutor, static fn (int $count): bool => $count >= self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR)) >= 3 ? null : 'governance_soak_volume_below_floor',
+                    count(array_filter($governanceByExecutor, static fn (int $count): bool => $count >= self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR)) >= 3 ? null : self::FIELD_GOVERNANCE_SOAK_VOLUME_BELOW_FLOOR,
                     $bypassRate === 0.0 ? null : self::FIELD_GOVERNANCE_BYPASS_RATE_NONZERO,
                     (int) (AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_FALSE_POSITIVE_TOTAL] ?? null) ?? 0) === 0 ? null : self::FIELD_GOVERNANCE_FALSE_POSITIVE_NONZERO,
                 ])),
