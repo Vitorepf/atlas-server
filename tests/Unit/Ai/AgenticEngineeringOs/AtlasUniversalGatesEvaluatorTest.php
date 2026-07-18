@@ -16452,4 +16452,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b750_aobg_latency_floor_count']);
     }
 
+    public function test_b751_substrate_restore_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b751SubstrateRestoreFloorsContractObserve([]);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::SCHEMA_VERSION, $out['atlas.memory.substrate_restore_drill.watchdog.v1']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::CHECK_ID, $out['wdg-01.substrate_restore_drill']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::DEFAULT_MAX_SUCCESS_AGE_DAYS, $out['45']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::RECEIPT_PATH_CONFIG_KEY, $out['atlas.cognition.substrate_restore_drill.receipt_path']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::DEFAULT_RECEIPT_RELATIVE_PATH, $out['app/atlas/evidence/substrate-restore-drills.jsonl']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::MAX_SUCCESS_AGE_DAYS_CONFIG_KEY, $out['atlas.cognition.substrate_restore_drill.max_success_age_days']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::REASON_NO_SUCCESSFUL_DRILL, $out['no_successful_drill']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::REASON_SUCCESSFUL_DRILL_FRESH, $out['successful_drill_fresh']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::REASON_SUCCESSFUL_DRILL_STALE, $out['successful_drill_stale']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_REASON, $out['reason']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_RECEIPT_PATH, $out['receipt_path']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_MAX_SUCCESS_AGE_DAYS, $out['max_success_age_days']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_CODE, $out['code']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_LAST_SUCCESSFUL_DRILL_AT, $out['last_successful_drill_at']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_AGE_DAYS, $out['age_days']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_CHECKED_AT, $out['checked_at']);
+        $this->assertSame(18, $out['b751_substrate_restore_floor_count']);
+    }
+
 }

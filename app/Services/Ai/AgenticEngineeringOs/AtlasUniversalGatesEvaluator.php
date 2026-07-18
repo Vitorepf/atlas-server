@@ -20729,4 +20729,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B751).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b751SubstrateRestoreFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.memory.substrate_restore_drill.watchdog.v1' => SubstrateRestoreDrillWatchdogCheck::SCHEMA_VERSION,
+            'wdg-01.substrate_restore_drill' => SubstrateRestoreDrillWatchdogCheck::CHECK_ID,
+            '45' => SubstrateRestoreDrillWatchdogCheck::DEFAULT_MAX_SUCCESS_AGE_DAYS,
+            'atlas.cognition.substrate_restore_drill.receipt_path' => SubstrateRestoreDrillWatchdogCheck::RECEIPT_PATH_CONFIG_KEY,
+            'app/atlas/evidence/substrate-restore-drills.jsonl' => SubstrateRestoreDrillWatchdogCheck::DEFAULT_RECEIPT_RELATIVE_PATH,
+            'atlas.cognition.substrate_restore_drill.max_success_age_days' => SubstrateRestoreDrillWatchdogCheck::MAX_SUCCESS_AGE_DAYS_CONFIG_KEY,
+            'no_successful_drill' => SubstrateRestoreDrillWatchdogCheck::REASON_NO_SUCCESSFUL_DRILL,
+            'successful_drill_fresh' => SubstrateRestoreDrillWatchdogCheck::REASON_SUCCESSFUL_DRILL_FRESH,
+            'successful_drill_stale' => SubstrateRestoreDrillWatchdogCheck::REASON_SUCCESSFUL_DRILL_STALE,
+            'reason' => SubstrateRestoreDrillWatchdogCheck::FIELD_REASON,
+            'schema_version' => SubstrateRestoreDrillWatchdogCheck::FIELD_SCHEMA_VERSION,
+            'receipt_path' => SubstrateRestoreDrillWatchdogCheck::FIELD_RECEIPT_PATH,
+            'max_success_age_days' => SubstrateRestoreDrillWatchdogCheck::FIELD_MAX_SUCCESS_AGE_DAYS,
+            'code' => SubstrateRestoreDrillWatchdogCheck::FIELD_CODE,
+            'message' => SubstrateRestoreDrillWatchdogCheck::FIELD_MESSAGE,
+            'last_successful_drill_at' => SubstrateRestoreDrillWatchdogCheck::FIELD_LAST_SUCCESSFUL_DRILL_AT,
+            'age_days' => SubstrateRestoreDrillWatchdogCheck::FIELD_AGE_DAYS,
+            'checked_at' => SubstrateRestoreDrillWatchdogCheck::FIELD_CHECKED_AT,
+            'b751_substrate_restore_floor_count' => 18,
+        ];
+    }
+
 }
