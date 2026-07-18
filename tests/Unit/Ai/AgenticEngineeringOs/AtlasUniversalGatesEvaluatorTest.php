@@ -13923,4 +13923,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b649_required_gate_department_contract_floor_count']);
     }
 
+    public function test_b650_department_contract_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b650DepartmentContractFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TO, $out['to']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DEPARTMENT, $out['department']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MISSING, $out['missing']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ACCEPTED, $out['accepted']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_NAME, $out['name']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SCHEMA, $out['schema']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_HUMAN_NAME, $out['human_name']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DESCRIPTION, $out['description']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SCOPE, $out['scope']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TRIGGERS, $out['triggers']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_INPUTS, $out['inputs']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_OUTPUTS, $out['outputs']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ACCEPTS_HANDOFF_FROM, $out['accepts_handoff_from']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REASON, $out['reason']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_STATUS, $out['status']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_OK, $out['ok']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_CONTRACT, $out['contract']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ALLOWED_ACTIONS, $out['allowed_actions']);
+        $this->assertSame(18, $out['b650_department_contract_floor_count']);
+    }
+
 }
