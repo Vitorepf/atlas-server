@@ -16613,4 +16613,28 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B618).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b618LearningProposalsMemoryCognitiveFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.aaeos.learning_proposals.v1' => AtlasLearningProposalsService::SCHEMA_VERSION,
+            'low' => AtlasLearningProposalsService::RISK_LOW,
+            'medium' => AtlasLearningProposalsService::RISK_MEDIUM,
+            'high' => AtlasLearningProposalsService::RISK_HIGH,
+            'admitted' => AtlasLearningProposalsService::STATUS_ADMITTED,
+            'needs_more_evidence' => AtlasLearningProposalsService::STATUS_NEEDS_MORE_EVIDENCE,
+            'rejected' => AtlasLearningProposalsService::STATUS_REJECTED,
+            'auto' => AtlasLearningProposalsService::APPLY_AUTO,
+            'human_review' => AtlasLearningProposalsService::APPLY_REVIEW,
+            '0.5' => AtlasLearningProposalsService::WEAK_SIGNAL_FLOOR,
+            'atlas.memory.cognitive_immune_learning_kernel.v1' => AtlasMemoryCognitiveImmuneLearningKernelService::SCHEMA,
+            'b618_learning_proposals_memory_cognitive_floor_count' => 11,
+        ];
+    }
+
 }

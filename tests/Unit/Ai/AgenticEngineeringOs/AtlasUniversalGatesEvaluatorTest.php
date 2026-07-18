@@ -13128,4 +13128,22 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b617_memory_cognitive_floor_count']);
     }
 
+    public function test_b618_learning_proposals_memory_cognitive_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b618LearningProposalsMemoryCognitiveFloorsContractObserve([]);
+        $this->assertSame(AtlasLearningProposalsService::SCHEMA_VERSION, $out['atlas.aaeos.learning_proposals.v1']);
+        $this->assertSame(AtlasLearningProposalsService::RISK_LOW, $out['low']);
+        $this->assertSame(AtlasLearningProposalsService::RISK_MEDIUM, $out['medium']);
+        $this->assertSame(AtlasLearningProposalsService::RISK_HIGH, $out['high']);
+        $this->assertSame(AtlasLearningProposalsService::STATUS_ADMITTED, $out['admitted']);
+        $this->assertSame(AtlasLearningProposalsService::STATUS_NEEDS_MORE_EVIDENCE, $out['needs_more_evidence']);
+        $this->assertSame(AtlasLearningProposalsService::STATUS_REJECTED, $out['rejected']);
+        $this->assertSame(AtlasLearningProposalsService::APPLY_AUTO, $out['auto']);
+        $this->assertSame(AtlasLearningProposalsService::APPLY_REVIEW, $out['human_review']);
+        $this->assertSame(AtlasLearningProposalsService::WEAK_SIGNAL_FLOOR, $out['0.5']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::SCHEMA, $out['atlas.memory.cognitive_immune_learning_kernel.v1']);
+        $this->assertSame(11, $out['b618_learning_proposals_memory_cognitive_floor_count']);
+    }
+
 }
