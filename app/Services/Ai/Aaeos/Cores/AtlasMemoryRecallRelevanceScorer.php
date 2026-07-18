@@ -48,6 +48,8 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_IMPORTANCE = 'importance';
     public const FIELD_ISSUE = 'issue';
     public const FIELD_PREFERENCE = 'preference';
+    public const FIELD_PRIORITY = 'priority';
+    public const FIELD_RESOLUTION = 'resolution';
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -78,7 +80,7 @@ final class AtlasMemoryRecallRelevanceScorer
                 + $this->typeWeight($type);
         }
 
-        return $this->floatField($row, 'priority', 50.0)
+        return $this->floatField($row, self::FIELD_PRIORITY, 50.0)
             + $this->floatField($row, self::FIELD_IMPORTANCE, 3.0) * 10
             + $this->floatField($row, self::FIELD_CONFIDENCE, 0.7) * 10
             + $this->floatField($row, self::FIELD_HYBRID_SCORE, 0.0) * 30
@@ -108,7 +110,7 @@ final class AtlasMemoryRecallRelevanceScorer
     public function typeWeight(string $type): int
     {
         return match ($type) {
-            'decision', 'resolution', self::FIELD_REQUIREMENT => 16,
+            'decision', self::FIELD_RESOLUTION, self::FIELD_REQUIREMENT => 16,
             self::FIELD_ISSUE, self::FIELD_FAILURE => 14,
             'technical_context', 'command', self::FIELD_EVIDENCE, self::FIELD_HARNESS_LEARNING => 11,
             self::FIELD_PREFERENCE, self::FIELD_FEEDBACK => 8,

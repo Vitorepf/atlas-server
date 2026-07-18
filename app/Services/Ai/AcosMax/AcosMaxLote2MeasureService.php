@@ -258,6 +258,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_LEGACY_UNJOINED = 'legacy_unjoined';
     public const FIELD_AI_RAG_FEEDBACK_EVENTS = 'ai_rag_feedback_events';
     public const FIELD_AI_LEARNING_CANDIDATES = 'ai_learning_candidates';
+    public const FIELD_AI_RUN_OUTCOMES = 'ai_run_outcomes';
+    public const FIELD_ATLAS_MISSION_DELIVERIES = 'atlas_mission_deliveries';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -363,7 +365,7 @@ final class AcosMaxLote2MeasureService
         $durations = [];
         $fixtureRejected = 0;
 
-        foreach (DB::table('ai_run_outcomes')->orderBy('created_at')->get() as $outcome) {
+        foreach (DB::table(self::FIELD_AI_RUN_OUTCOMES)->orderBy('created_at')->get() as $outcome) {
             $assembled = $this->assembleMultx01Loop(
                 $outcome,
                 $deliveriesByOutcome[AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? ''] ?? [],
@@ -661,7 +663,7 @@ final class AcosMaxLote2MeasureService
         }
 
         $outcomes = [];
-        foreach (DB::table('ai_run_outcomes')->get() as $outcome) {
+        foreach (DB::table(self::FIELD_AI_RUN_OUTCOMES)->get() as $outcome) {
             $outcomes[AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? ''] = $outcome;
         }
 
@@ -1071,7 +1073,7 @@ final class AcosMaxLote2MeasureService
     /** @return array<string,mixed> */
     public function teto02MissionE2e(?int $days = null): array
     {
-        if (! Schema::hasTable('atlas_mission_deliveries')) {
+        if (! Schema::hasTable(self::FIELD_ATLAS_MISSION_DELIVERIES)) {
             return $this->emptyReport('TETO-02', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_MISSION_DELIVERY_TABLE_MISSING, [
                 self::FIELD_MEASURE_ID => self::TETO02_MEASURE_ID,
                 self::FIELD_DENOMINATOR_MIN => 20,
@@ -1080,7 +1082,7 @@ final class AcosMaxLote2MeasureService
             ]);
         }
 
-        $query = DB::table('atlas_mission_deliveries');
+        $query = DB::table(self::FIELD_ATLAS_MISSION_DELIVERIES);
         if ($days !== null && $days > 0) {
             $query->where(self::FIELD_CREATED_AT, '>=', now()->subDays($days));
         }

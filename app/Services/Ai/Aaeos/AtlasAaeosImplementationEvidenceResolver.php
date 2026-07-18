@@ -64,6 +64,8 @@ class AtlasAaeosImplementationEvidenceResolver
     public const FIELD_STATUS = 'status';
     public const FIELD_APP = 'app';
     public const FIELD_FILE_PATH = 'file_path';
+    public const FIELD_MEMORY_LIMIT = 'memory_limit';
+    public const FIELD_SYMBOL_TYPE = 'symbol_type';
 
     /**
      * The active Code Intelligence index, loaded ONCE per request and matched in PHP. Stored
@@ -85,8 +87,8 @@ class AtlasAaeosImplementationEvidenceResolver
      *   - 'test':   offsets of type test_method|class      (matchTest, resolveTestFilePath)
      *   - 'byType': [symbol_type => offsets]               (matchTyped, the FQN helpers)
      * EVERY view preserves heap load order, and the partition predicate is exactly the
-     * symbol_type filter each matcher already applied (`whereIn('symbol_type', …)` /
-     * `where('symbol_type', …)`). So iterating a view visits precisely the rows the old per-ref
+     * symbol_type filter each matcher already applied (`whereIn(self::FIELD_SYMBOL_TYPE, …)` /
+     * `where(self::FIELD_SYMBOL_TYPE, …)`). So iterating a view visits precisely the rows the old per-ref
      * query admitted, in the same order — identical results (incl. cross-type first-match
      * selection in matchTest), just without re-scanning the ~108k-row table or re-querying per
      * ref. The old per-ref `symbol_name LIKE '%ref'` queries were a leading-wildcard seq-scan;
@@ -158,14 +160,14 @@ class AtlasAaeosImplementationEvidenceResolver
         $floorBytes = 512 * 1024 * 1024;
         $current = $this->memoryLimitBytes();
         if ($current !== -1 && $current < $floorBytes) {
-            @ini_set('memory_limit', '512M');
+            @ini_set(self::FIELD_MEMORY_LIMIT, '512M');
         }
     }
 
     /** Current `memory_limit` in bytes; -1 means unlimited. */
     private function memoryLimitBytes(): int
     {
-        $raw = AiValueNormalizer::trimmedStringOrNull(ini_get('memory_limit')) ?? '';
+        $raw = AiValueNormalizer::trimmedStringOrNull(ini_get(self::FIELD_MEMORY_LIMIT)) ?? '';
         if ($raw === '' || $raw === '-1') {
             return -1;
         }

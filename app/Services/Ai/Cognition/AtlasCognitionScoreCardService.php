@@ -191,6 +191,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_EVIDENCE = 'evidence';
     public const FIELD_LONG_HORIZON = 'long_horizon';
     public const FIELD_OPEN_BRAIN = 'open_brain';
+    public const FIELD_PERSISTENT_CONTEXT = 'persistent_context';
+    public const FIELD_REALITY = 'reality';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -278,7 +280,7 @@ class AtlasCognitionScoreCardService
         // Patamar 2/3 — meta-learning, self-construction, AURG-4D, cross-domain mesh, TEOS-I3
         ['ADML',    'Atlas Decide Meta-Learning',          self::FIELD_ATLAS_DECIDE,      AtlasDecideMetaLearningService::class],
         ['ASCB',    'Self-Construction Subsystem Builder', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionSubsystemBuilderService::class],
-        ['AURG-4D', 'Unified Reality Graph Temporal (4D)', 'reality',           AtlasUnifiedRealityGraphTemporalService::class],
+        ['AURG-4D', 'Unified Reality Graph Temporal (4D)', self::FIELD_REALITY,           AtlasUnifiedRealityGraphTemporalService::class],
         ['ACDM',    'Cross-Domain Mesh',                   self::FIELD_CROSS_DOMAIN,      AtlasCrossDomainMeshService::class],
         ['TEOS-I3', 'TEOS-I3 Counterfactual Runtime',      self::FIELD_TEOS,              AtlasTeosI3CounterfactualService::class],
 
@@ -339,7 +341,7 @@ class AtlasCognitionScoreCardService
     public const V4_SUPPLEMENTAL_SUBSYSTEMS = [
         ['ACCCR', 'Context Cache Compiler Runtime', self::FIELD_CONTEXT_CACHE, AtlasContextCacheCompilerRuntimeService::class],
         ['ACIE', 'Context Intelligence Engine', self::FIELD_CONTEXT_INTELLIGENCE, AtlasContextOperationsRuntimeService::class],
-        ['APCR', 'Persistent Context Runtime', 'persistent_context', AtlasPersistentContextRuntimeService::class],
+        ['APCR', 'Persistent Context Runtime', self::FIELD_PERSISTENT_CONTEXT, AtlasPersistentContextRuntimeService::class],
         ['AEMOR', 'Execution Memory Outcome Runtime', self::FIELD_AEMOR, AtlasAemorCertificationService::class],
         ['TEOS-I1', 'Long-Horizon Intelligence Layer', self::FIELD_LONG_HORIZON, LongHorizonContinuityCertificationService::class],
         ['AVCEL', 'Verified Context Execution Loop', 'verified_context', AtlasVerifiedContextExecutionLoopService::class],

@@ -9018,4 +9018,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['reality_compiler_cognitive_function_department_contract_aaeos_immune_floor_count']);
     }
 
+    public function test_cognitive_function_department_contract_cognition_score_lote_measure_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitiveFunctionDepartmentContractCognitionScoreLoteMeasureFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_FIND, $out['find']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_FOTO, $out['foto']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MODIFY_MIGRATIONS_WITHOUT_ARCHITECT, $out['modify_migrations_without_architect']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MODIFY_SECURITY_POLICY, $out['modify_security_policy']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_PERSISTENT_CONTEXT, $out['persistent_context']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_REALITY, $out['reality']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_AI_RUN_OUTCOMES, $out['ai_run_outcomes']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_ATLAS_MISSION_DELIVERIES, $out['atlas_mission_deliveries']);
+        $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_INVALID, $out['outcome_envelope_native_divergent_invalid']);
+        $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_SCHEMA_INVALID, $out['outcome_envelope_schema_invalid']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MEMORY_LIMIT, $out['memory_limit']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_SYMBOL_TYPE, $out['symbol_type']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_STRATEGIC, $out['strategic']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TECHNICAL_LEARNING_SIGNAL, $out['technical_learning_signal']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DEV, $out['dev']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_REVIEW, $out['review']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_PRIORITY, $out['priority']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_RESOLUTION, $out['resolution']);
+        $this->assertSame(18, $out['cognitive_function_department_contract_cognition_score_lote_measure_floor_count']);
+    }
+
 }

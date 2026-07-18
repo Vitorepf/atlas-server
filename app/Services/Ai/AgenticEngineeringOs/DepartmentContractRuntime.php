@@ -269,6 +269,8 @@ final class DepartmentContractRuntime
     public const FIELD_MEMORY_HAS_NO_DOWNSTREAM = 'memory_has_no_downstream';
     public const FIELD_EVERY_DEPARTMENT_DECLARES_GATES = 'every_department_declares_gates';
     public const FIELD_MODIFY_EVIDENCE_LEDGER = 'modify_evidence_ledger';
+    public const FIELD_MODIFY_MIGRATIONS_WITHOUT_ARCHITECT = 'modify_migrations_without_architect';
+    public const FIELD_MODIFY_SECURITY_POLICY = 'modify_security_policy';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -410,7 +412,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_GATES => ['plan_approved', 'tests_focused', 'review_gate', self::FIELD_LINT_GREEN, 'typecheck_green', 'tests_green', 'scope_guard_ok'],
             self::FIELD_ALLOWED_ACTIONS => ['edit_allowed_files', 'run_tests', 'request_provider_call'],
-            self::FIELD_FORBIDDEN_ACTIONS => ['edit_security_policy', 'modify_migrations_without_architect', 'approve_release'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['edit_security_policy', self::FIELD_MODIFY_MIGRATIONS_WITHOUT_ARCHITECT, 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_FORGE],
             self::FIELD_EVIDENCE_REQUIRED => ['patch_hash', 'test_output_hash', 'scope_guard_report'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_DEV_RUNS, self::FIELD_LEDGER => self::FIELD_AAEOS_DEV_EVIDENCE_LEDGER],
@@ -528,7 +530,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_GATES => ['obra_intake_validated', 'provider_topology_green', 'all-15-universal-gates', self::FIELD_LONG_HORIZON_STATE_PERSISTED, 'reservation_ledger_consistent', 'merge_review_promotion_passed'],
             self::FIELD_ALLOWED_ACTIONS => ['spawn_agents', self::FIELD_CLAIM_RESERVATIONS, 'request_provider_topology', 'merge_after_review'],
-            self::FIELD_FORBIDDEN_ACTIONS => ['bypass_review', 'modify_security_policy', 'ship_without_cert'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['bypass_review', self::FIELD_MODIFY_SECURITY_POLICY, 'ship_without_cert'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['obra_pack_hash', self::FIELD_EXECUTION_LOG_HASH, 'merge_review_evidence_hash'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_OBRA_RUNS, self::FIELD_LEDGER => self::FIELD_AAEOS_FORGE_EVIDENCE_LEDGER],

@@ -11506,4 +11506,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B451).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function cognitiveFunctionDepartmentContractCognitionScoreLoteMeasureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'find' => AtlasCognitiveFunctionDecomposerService::FIELD_FIND,
+            'foto' => AtlasCognitiveFunctionDecomposerService::FIELD_FOTO,
+            'modify_migrations_without_architect' => DepartmentContractRuntime::FIELD_MODIFY_MIGRATIONS_WITHOUT_ARCHITECT,
+            'modify_security_policy' => DepartmentContractRuntime::FIELD_MODIFY_SECURITY_POLICY,
+            'persistent_context' => AtlasCognitionScoreCardService::FIELD_PERSISTENT_CONTEXT,
+            'reality' => AtlasCognitionScoreCardService::FIELD_REALITY,
+            'ai_run_outcomes' => AcosMaxLote2MeasureService::FIELD_AI_RUN_OUTCOMES,
+            'atlas_mission_deliveries' => AcosMaxLote2MeasureService::FIELD_ATLAS_MISSION_DELIVERIES,
+            'outcome_envelope_native_divergent_invalid' => OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_INVALID,
+            'outcome_envelope_schema_invalid' => OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_SCHEMA_INVALID,
+            'memory_limit' => AtlasAaeosImplementationEvidenceResolver::FIELD_MEMORY_LIMIT,
+            'symbol_type' => AtlasAaeosImplementationEvidenceResolver::FIELD_SYMBOL_TYPE,
+            'strategic' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_STRATEGIC,
+            'technical_learning_signal' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TECHNICAL_LEARNING_SIGNAL,
+            'dev' => AtlasAaeosDepartmentRegistryService::FIELD_DEV,
+            'review' => AtlasAaeosDepartmentRegistryService::FIELD_REVIEW,
+            'priority' => AtlasMemoryRecallRelevanceScorer::FIELD_PRIORITY,
+            'resolution' => AtlasMemoryRecallRelevanceScorer::FIELD_RESOLUTION,
+            'cognitive_function_department_contract_cognition_score_lote_measure_floor_count' => 18,
+        ];
+    }
+
 }

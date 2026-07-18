@@ -84,6 +84,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_RELEASE = 'release';
     public const FIELD_SHIPPED = 'shipped';
     public const FIELD_STRATEGY = 'strategy';
+    public const FIELD_STRATEGIC = 'strategic';
+    public const FIELD_TECHNICAL_LEARNING_SIGNAL = 'technical_learning_signal';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -150,7 +152,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         self::FIELD_HIPOTESE,
         self::FIELD_PRINCIPIO,
         self::FIELD_STRATEGY,
-        'strategic',
+        self::FIELD_STRATEGIC,
         'thesis',
         self::FIELD_HYPOTHESIS,
         self::FIELD_FRAMEWORK,
@@ -399,7 +401,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     {
         return match ($candidateClass) {
             self::CLASS_STRATEGIC_INSIGHT_CANDIDATE => self::FIELD_STRATEGIC_INSIGHT_SIGNAL,
-            self::CLASS_TECHNICAL_LEARNING_CANDIDATE => 'technical_learning_signal',
+            self::CLASS_TECHNICAL_LEARNING_CANDIDATE => self::FIELD_TECHNICAL_LEARNING_SIGNAL,
             self::CLASS_PERSONAL_FACT_CANDIDATE => self::FIELD_PERSONAL_FACT_SIGNAL,
             self::CLASS_PROJECT_EVIDENCE => self::FIELD_PROJECT_EVIDENCE_SIGNAL,
             self::CLASS_CONVERSATION_TRACE => self::FIELD_CONVERSATION_TRACE_SIGNAL,

@@ -107,6 +107,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_EXPLIQUE = 'explique';
     public const FIELD_DECIDA = 'decida';
     public const FIELD_FIGMA = 'figma';
+    public const FIELD_FIND = 'find';
+    public const FIELD_FOTO = 'foto';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -132,7 +134,7 @@ final class AtlasCognitiveFunctionDecomposerService
         self::FIELD_RETRIEVAL => [
             'busque', 'procure', 'encontre', 'pesquise', 'mostre', 'liste',
             'recupere', 'lookup', 'qual e', 'quais sao', self::FIELD_CITE, self::FIELD_CADASTR,
-            self::FIELD_DOCUMENTA, 'memoria', 'search', 'find', 'show',
+            self::FIELD_DOCUMENTA, 'memoria', 'search', self::FIELD_FIND, 'show',
         ],
         self::FIELD_GENERATION => [
             'escreva', 'redija', 'crie', self::FIELD_COMPONHA, 'rascunhe', 'gere',
@@ -148,7 +150,7 @@ final class AtlasCognitiveFunctionDecomposerService
             'code', 'function', 'class', 'service', 'refactor', 'test', self::FIELD_BUILD,
         ],
         self::FIELD_VISION => [
-            'imagem', 'foto', 'screenshot', 'visualize', 'design', 'layout',
+            'imagem', self::FIELD_FOTO, 'screenshot', 'visualize', 'design', 'layout',
             'mockup', self::FIELD_FIGMA, 'png', 'jpg', 'svg', 'tela', 'ui ', 'ux ',
             'cor ', 'paleta', 'visual', 'screenshot', 'image', 'render',
         ],
