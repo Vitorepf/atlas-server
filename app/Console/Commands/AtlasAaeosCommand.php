@@ -788,6 +788,7 @@ final class AtlasAaeosCommand extends Command
                             {--b763-debug-root-cross-department-floors-contract= : JSON file (any object) to observe debug/root/cross/department floors}
                             {--b764-cross-department-floors-contract= : JSON file (any object) to observe cross/department floors}
                             {--b765-docs-authority-floors-contract= : JSON file (any object) to observe docs/authority floors}
+                            {--b766-aaeos-gate-floors-contract= : JSON file (any object) to observe aaeos/gate floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1732,6 +1733,7 @@ final class AtlasAaeosCommand extends Command
             ['b763-debug-root-cross-department-floors-contract', 'b763_debug_root_cross_department_floors_contract', fn (array $p) => $gates->b763DebugRootCrossDepartmentFloorsContractObserve($p)],
             ['b764-cross-department-floors-contract', 'b764_cross_department_floors_contract', fn (array $p) => $gates->b764CrossDepartmentFloorsContractObserve($p)],
             ['b765-docs-authority-floors-contract', 'b765_docs_authority_floors_contract', fn (array $p) => $gates->b765DocsAuthorityFloorsContractObserve($p)],
+            ['b766-aaeos-gate-floors-contract', 'b766_aaeos_gate_floors_contract', fn (array $p) => $gates->b766AaeosGateFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

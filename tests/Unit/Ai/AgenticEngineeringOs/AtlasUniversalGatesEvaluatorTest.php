@@ -16827,4 +16827,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b765_docs_authority_floor_count']);
     }
 
+    public function test_b766_aaeos_gate_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b766AaeosGateFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_GATE, $out['gate']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_INTENT, $out['intent']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::SCHEMA_VERSION, $out['atlas.aaeos.gate_signal.v1']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::GATE_INTENT_CLARITY, $out['intent_clarity_score_min_0_8']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::GATE_SPEC_PACK, $out['spec_pack_acceptance_criteria_min_3']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::GATE_TASK_PACK, $out['task_pack_atomic_true_for_each']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::INTENT_CLARITY_THRESHOLD, $out['0.8']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::SPEC_PACK_MIN_CRITERIA, $out['3']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::WEIGHT_RESOLVED, $out['0.4']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::WEIGHT_BOUNDED, $out['0.3']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::WEIGHT_NO_AMBIGUITY, $out['0.2']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::WEIGHT_NO_MISSING, $out['0.1']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::AMBIGUITY_SATURATION, $out['2']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::MISSING_SATURATION, $out['1']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_PASSED, $out['passed']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_GATES, $out['gates']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_ALL_PASSED, $out['all_passed']);
+        $this->assertSame(18, $out['b766_aaeos_gate_floor_count']);
+    }
+
 }

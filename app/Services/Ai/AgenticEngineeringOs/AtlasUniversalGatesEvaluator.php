@@ -21194,4 +21194,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B766).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b766AaeosGateFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'gate' => AtlasAaeosGateSignalEvaluator::FIELD_GATE,
+            'intent' => AtlasAaeosGateSignalEvaluator::FIELD_INTENT,
+            'atlas.aaeos.gate_signal.v1' => AtlasAaeosGateSignalEvaluator::SCHEMA_VERSION,
+            'intent_clarity_score_min_0_8' => AtlasAaeosGateSignalEvaluator::GATE_INTENT_CLARITY,
+            'spec_pack_acceptance_criteria_min_3' => AtlasAaeosGateSignalEvaluator::GATE_SPEC_PACK,
+            'task_pack_atomic_true_for_each' => AtlasAaeosGateSignalEvaluator::GATE_TASK_PACK,
+            '0.8' => AtlasAaeosGateSignalEvaluator::INTENT_CLARITY_THRESHOLD,
+            '3' => AtlasAaeosGateSignalEvaluator::SPEC_PACK_MIN_CRITERIA,
+            '0.4' => AtlasAaeosGateSignalEvaluator::WEIGHT_RESOLVED,
+            '0.3' => AtlasAaeosGateSignalEvaluator::WEIGHT_BOUNDED,
+            '0.2' => AtlasAaeosGateSignalEvaluator::WEIGHT_NO_AMBIGUITY,
+            '0.1' => AtlasAaeosGateSignalEvaluator::WEIGHT_NO_MISSING,
+            '2' => AtlasAaeosGateSignalEvaluator::AMBIGUITY_SATURATION,
+            '1' => AtlasAaeosGateSignalEvaluator::MISSING_SATURATION,
+            'passed' => AtlasAaeosGateSignalEvaluator::FIELD_PASSED,
+            'schema_version' => AtlasAaeosGateSignalEvaluator::FIELD_SCHEMA_VERSION,
+            'gates' => AtlasAaeosGateSignalEvaluator::FIELD_GATES,
+            'all_passed' => AtlasAaeosGateSignalEvaluator::FIELD_ALL_PASSED,
+            'b766_aaeos_gate_floor_count' => 18,
+        ];
+    }
+
 }
