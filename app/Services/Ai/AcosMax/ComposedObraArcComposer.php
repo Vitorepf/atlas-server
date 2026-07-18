@@ -59,6 +59,12 @@ final class ComposedObraArcComposer
     public const FIELD_CONSECUTIVE_FAILURES = 'consecutive_failures';
     public const FIELD_CONSECUTIVE_FAILURES_K = 'consecutive_failures_k';
     public const FIELD_DECISION_KIND = 'decision_kind';
+    public const FIELD_EXECUTABLE = 'executable';
+    public const FIELD_FALSIFIED_WHEN = 'falsified_when';
+    public const FIELD_FQCN = 'fqcn';
+    public const FIELD_GRAPH = 'graph';
+    public const FIELD_INDIVIDUAL_GATE_REQUIRED = 'individual_gate_required';
+    public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
 
     public const STATUS_FLAG_DISABLED = 'flag_disabled';
 
@@ -83,12 +89,12 @@ final class ComposedObraArcComposer
         }
 
         $author = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_AUTHOR_ENGINE_ID] ?? null) ?? self::DEFAULT_AUTHOR_ENGINE_ID;
-        $judge = AiValueNormalizer::trimmedStringOrNull($context['judge_engine_id'] ?? null) ?? self::DEFAULT_JUDGE_ENGINE_ID;
+        $judge = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_JUDGE_ENGINE_ID] ?? null) ?? self::DEFAULT_JUDGE_ENGINE_ID;
         if ($author === '' || $judge === '' || $author === $judge) {
             return self::emptyResult(self::STATUS_AUTHOR_JUDGE_INVARIANT_VIOLATION);
         }
 
-        $graph = $context['graph'] ?? new AtlasBrainOrganDependencyGraph;
+        $graph = $context[self::FIELD_GRAPH] ?? new AtlasBrainOrganDependencyGraph;
         if (! $graph instanceof AtlasBrainOrganDependencyGraph) {
             return self::emptyResult(self::STATUS_INVALID_DEPENDENCY_GRAPH);
         }
@@ -254,7 +260,7 @@ final class ComposedObraArcComposer
                 self::FIELD_ORDER => (int) (AiValueNormalizer::finiteFloatOrNull($task[self::FIELD_ORDER] ?? null) ?? 0),
                 self::FIELD_TARGET_PATH => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_TARGET_PATH] ?? null) ?? '',
                 'objective' => AiValueNormalizer::trimmedScalarStringOrNull($task['summary'] ?? null) ?? '',
-                'individual_gate_required' => true,
+                self::FIELD_INDIVIDUAL_GATE_REQUIRED => true,
                 self::FIELD_ARCHITECT_PHASE_GATE => true,
                 'seed_gate' => true,
             ];
@@ -266,12 +272,12 @@ final class ComposedObraArcComposer
             'obra_id' => $obraId,
             'thesis' => [
                 self::FIELD_CLAIM => 'Wiring the neighbor organs '.implode(', ', array_map(static fn (array $t): string => basename(AiValueNormalizer::trimmedScalarStringOrNull($t[self::FIELD_TARGET_PATH] ?? null) ?? '', '.php'), $tasks)).' materially increases end-to-end leverage.',
-                'falsified_when' => 'No task in the arc reaches proven_real landing within the arc TTL.',
+                self::FIELD_FALSIFIED_WHEN => 'No task in the arc reaches proven_real landing within the arc TTL.',
                 self::FIELD_AUTHOR_ENGINE_ID => $author,
             ],
             'tasks' => $tasks,
             self::FIELD_COMPLETION_CRITERION => [
-                'executable' => 'Every ordered arc task lands with proven_real outcome; partial completion leaves arc open.',
+                self::FIELD_EXECUTABLE => 'Every ordered arc task lands with proven_real outcome; partial completion leaves arc open.',
                 self::FIELD_CERTIFIER_ENGINE_ID => $judge,
             ],
             'kill_gate' => [
@@ -378,7 +384,7 @@ final class ComposedObraArcComposer
      */
     private static function organClass(array $candidate, string $targetPath): string
     {
-        $fqcn = AiValueNormalizer::trimmedStringOrNull($candidate['target_fqcn'] ?? $candidate['fqcn'] ?? null) ?? '';
+        $fqcn = AiValueNormalizer::trimmedStringOrNull($candidate['target_fqcn'] ?? $candidate[self::FIELD_FQCN] ?? null) ?? '';
         if ($fqcn !== '') {
             return ltrim(AiValueNormalizer::trimmedStringOrNull($fqcn) ?? '', '\\');
         }

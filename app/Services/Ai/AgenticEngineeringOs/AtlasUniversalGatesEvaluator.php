@@ -7378,6 +7378,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: residual FIELD_* floors for FlywheelFunnel + ImmuneClassifierHybridFreeze + ComposedObraArc.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, bool|int|string>
+     */
+    public function flywheelImmuneObraFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'flywheel_field_actor' => AtlasFlywheelFunnelService::FIELD_ACTOR,
+            'flywheel_field_claim_policy' => AtlasFlywheelFunnelService::FIELD_CLAIM_POLICY,
+            'flywheel_field_denominator_min' => AtlasFlywheelFunnelService::FIELD_DENOMINATOR_MIN,
+            'flywheel_field_diagnostic_only' => AtlasFlywheelFunnelService::FIELD_DIAGNOSTIC_ONLY,
+            'flywheel_field_learning_status' => AtlasFlywheelFunnelService::FIELD_LEARNING_STATUS,
+            'flywheel_field_lesson_promoted' => AtlasFlywheelFunnelService::FIELD_LESSON_PROMOTED,
+            'immune_freeze_field_calibration_authority' => AtlasImmuneClassifierHybridFreeze::FIELD_CALIBRATION_AUTHORITY,
+            'immune_freeze_field_candidate_text_leaves_machine' => AtlasImmuneClassifierHybridFreeze::FIELD_CANDIDATE_TEXT_LEAVES_MACHINE,
+            'immune_freeze_field_config_key' => AtlasImmuneClassifierHybridFreeze::FIELD_CONFIG_KEY,
+            'immune_freeze_field_content_hash' => AtlasImmuneClassifierHybridFreeze::FIELD_CONTENT_HASH,
+            'immune_freeze_field_corpus_path' => AtlasImmuneClassifierHybridFreeze::FIELD_CORPUS_PATH,
+            'immune_freeze_field_corpus_sha256' => AtlasImmuneClassifierHybridFreeze::FIELD_CORPUS_SHA256,
+            'obra_field_executable' => ComposedObraArcComposer::FIELD_EXECUTABLE,
+            'obra_field_falsified_when' => ComposedObraArcComposer::FIELD_FALSIFIED_WHEN,
+            'obra_field_fqcn' => ComposedObraArcComposer::FIELD_FQCN,
+            'obra_field_graph' => ComposedObraArcComposer::FIELD_GRAPH,
+            'obra_field_individual_gate_required' => ComposedObraArcComposer::FIELD_INDIVIDUAL_GATE_REQUIRED,
+            'obra_field_judge_engine_id' => ComposedObraArcComposer::FIELD_JUDGE_ENGINE_ID,
+            'flywheel_immune_obra_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

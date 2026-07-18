@@ -37,6 +37,12 @@ final class AtlasFlywheelFunnelService
     public const FIELD_FORMULA_VERSION = 'formula_version';
     public const FIELD_GENERATED_AT = 'generated_at';
     public const FIELD_SOURCE = 'source';
+    public const FIELD_ACTOR = 'actor';
+    public const FIELD_CLAIM_POLICY = 'claim_policy';
+    public const FIELD_DENOMINATOR_MIN = 'denominator_min';
+    public const FIELD_DIAGNOSTIC_ONLY = 'diagnostic_only';
+    public const FIELD_LEARNING_STATUS = 'learning_status';
+    public const FIELD_LESSON_PROMOTED = 'lesson_promoted';
 
     /** @var list<string> */
     public const STAGES = [
@@ -92,7 +98,7 @@ final class AtlasFlywheelFunnelService
     private function stages(array $rows, int $denominatorMin): array
     {
         $withLesson = array_values(array_filter($rows, fn (array $row): bool => $this->hasLesson($row)));
-        $promoted = array_values(array_filter($withLesson, static fn (array $row): bool => ($row['lesson_promoted'] ?? false) === true));
+        $promoted = array_values(array_filter($withLesson, static fn (array $row): bool => ($row[self::FIELD_LESSON_PROMOTED] ?? false) === true));
         $recalled = array_values(array_filter($promoted, static fn (array $row): bool => ($row['promoted_lesson_recalled'] ?? false) === true));
         $cited = array_values(array_filter($recalled, static fn (array $row): bool => ($row['promoted_lesson_cited'] ?? false) === true));
 
@@ -103,7 +109,7 @@ final class AtlasFlywheelFunnelService
                 $denominatorMin,
             ),
             self::FIELD_LESSONS_WITHOUT_PROMOTION => $this->stage(
-                count(array_filter($withLesson, static fn (array $row): bool => ($row['lesson_promoted'] ?? false) !== true)),
+                count(array_filter($withLesson, static fn (array $row): bool => ($row[self::FIELD_LESSON_PROMOTED] ?? false) !== true)),
                 count($withLesson),
                 $denominatorMin,
             ),
@@ -142,8 +148,8 @@ final class AtlasFlywheelFunnelService
      */
     private function hasLesson(array $row): bool
     {
-        return in_array((AiValueNormalizer::trimmedStringOrNull($row['learning_status'] ?? null) ?? ''), ['candidate', 'promoted', 'applied'], true)
-            || ($row['lesson_promoted'] ?? false) === true;
+        return in_array((AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_LEARNING_STATUS] ?? null) ?? ''), ['candidate', 'promoted', 'applied'], true)
+            || ($row[self::FIELD_LESSON_PROMOTED] ?? false) === true;
     }
 
     /**
@@ -156,7 +162,7 @@ final class AtlasFlywheelFunnelService
             return $role;
         }
 
-        $actor = AiValueNormalizer::lowerTrimmedString($row['actor'] ?? '');
+        $actor = AiValueNormalizer::lowerTrimmedString($row[self::FIELD_ACTOR] ?? '');
         foreach (['dev', 'forge', 'autonomos'] as $executor) {
             if (str_contains($actor, $executor)) {
                 return $executor;
@@ -211,7 +217,7 @@ final class AtlasFlywheelFunnelService
                 'outcomes_path' => $path,
                 'outcome_rows' => $rowCount,
             ],
-            'denominator_min' => $denominatorMin,
+            self::FIELD_DENOMINATOR_MIN => $denominatorMin,
             self::FIELD_STAGES => self::STAGES,
             self::FIELD_BY_EXECUTOR => $byExecutor,
             'windows' => [
@@ -220,13 +226,13 @@ final class AtlasFlywheelFunnelService
                     self::FIELD_BY_EXECUTOR => $byExecutor,
                 ],
             ],
-            'claim_policy' => [
+            self::FIELD_CLAIM_POLICY => [
                 'read_only' => true,
                 'provider_calls_made' => false,
                 'memory_written' => false,
                 'single_scalar_score_emitted' => false,
                 'used_as_producer_target' => false,
-                'diagnostic_only' => true,
+                self::FIELD_DIAGNOSTIC_ONLY => true,
             ],
         ];
     }

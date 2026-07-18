@@ -5546,5 +5546,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['ncapture_scorecard_esp09_floor_count']);
     }
 
+    public function test_flywheel_immune_obra_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->flywheelImmuneObraFloorsContractObserve([]);
+
+        $this->assertSame('actor', $payload['flywheel_field_actor']);
+        $this->assertSame('claim_policy', $payload['flywheel_field_claim_policy']);
+        $this->assertSame('denominator_min', $payload['flywheel_field_denominator_min']);
+        $this->assertSame('diagnostic_only', $payload['flywheel_field_diagnostic_only']);
+        $this->assertSame('learning_status', $payload['flywheel_field_learning_status']);
+        $this->assertSame('lesson_promoted', $payload['flywheel_field_lesson_promoted']);
+        $this->assertSame('calibration_authority', $payload['immune_freeze_field_calibration_authority']);
+        $this->assertSame('candidate_text_leaves_machine', $payload['immune_freeze_field_candidate_text_leaves_machine']);
+        $this->assertSame('config_key', $payload['immune_freeze_field_config_key']);
+        $this->assertSame('content_hash', $payload['immune_freeze_field_content_hash']);
+        $this->assertSame('corpus_path', $payload['immune_freeze_field_corpus_path']);
+        $this->assertSame('corpus_sha256', $payload['immune_freeze_field_corpus_sha256']);
+        $this->assertSame('executable', $payload['obra_field_executable']);
+        $this->assertSame('falsified_when', $payload['obra_field_falsified_when']);
+        $this->assertSame('fqcn', $payload['obra_field_fqcn']);
+        $this->assertSame('graph', $payload['obra_field_graph']);
+        $this->assertSame('individual_gate_required', $payload['obra_field_individual_gate_required']);
+        $this->assertSame('judge_engine_id', $payload['obra_field_judge_engine_id']);
+        $this->assertSame(18, $payload['flywheel_immune_obra_floor_count']);
+    }
+
 
 }

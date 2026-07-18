@@ -49,6 +49,12 @@ final class AtlasImmuneClassifierHybridFreeze
     public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
     public const FIELD_BASELINE_CAPACITY_NOTE = 'baseline_capacity_note';
     public const FIELD_BASELINE_PORT = 'baseline_port';
+    public const FIELD_CALIBRATION_AUTHORITY = 'calibration_authority';
+    public const FIELD_CANDIDATE_TEXT_LEAVES_MACHINE = 'candidate_text_leaves_machine';
+    public const FIELD_CONFIG_KEY = 'config_key';
+    public const FIELD_CONTENT_HASH = 'content_hash';
+    public const FIELD_CORPUS_PATH = 'corpus_path';
+    public const FIELD_CORPUS_SHA256 = 'corpus_sha256';
 
     /**
      * @return array<string,mixed>
@@ -84,20 +90,20 @@ final class AtlasImmuneClassifierHybridFreeze
                 self::FIELD_BASELINE_CAPACITY_NOTE => 'char-bigram Jaccard is a floor lexical arm; daemon-backed real embeddings can raise recall + drop FP without changing the freeze contract.',
             ],
             'switch' => [
-                'config_key' => 'atlas.aaeos.immune_classifier.semantic_arm_enabled',
+                self::FIELD_CONFIG_KEY => 'atlas.aaeos.immune_classifier.semantic_arm_enabled',
                 'default' => false,
                 'off_contract' => 'byte_identical_to_base_classifier',
             ],
             'fixtures' => [
                 self::FIELD_ANCHORS_PATH => self::ANCHOR_FIXTURE_RELATIVE,
                 self::FIELD_ANCHORS_SHA256 => self::anchorsHash(),
-                'corpus_path' => self::CORPUS_FIXTURE_RELATIVE,
-                'corpus_sha256' => self::corpusHash(),
+                self::FIELD_CORPUS_PATH => self::CORPUS_FIXTURE_RELATIVE,
+                self::FIELD_CORPUS_SHA256 => self::corpusHash(),
             ],
             'ttl_days' => self::TTL_DAYS,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxi-04',
             'judge_engine_id' => 'codex-immune-hybrid-classifier-judge',
-            'calibration_authority' => [
+            self::FIELD_CALIBRATION_AUTHORITY => [
                 'freeze' => ImmuneCalibrationService::MEASURE_ID,
                 'note' => 'tau is a MAXI-03 freeze-stamped input; recalibration flows through the MAXI-03 seam.',
             ],
@@ -108,12 +114,12 @@ final class AtlasImmuneClassifierHybridFreeze
             ],
             'privacy_guarantees' => [
                 self::FIELD_ANCHORS_LOCAL_ONLY => true,
-                'candidate_text_leaves_machine' => false,
+                self::FIELD_CANDIDATE_TEXT_LEAVES_MACHINE => false,
                 'provider_calls_in_arm_path' => 0,
             ],
             'off_switch_byte_identical' => true,
         ];
-        $payload['content_hash'] = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $payload[self::FIELD_CONTENT_HASH] = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return $payload;
     }
