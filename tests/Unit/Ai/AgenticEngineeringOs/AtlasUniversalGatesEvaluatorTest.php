@@ -10139,4 +10139,20 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b495_cognition_score_aaeos_http_spec_completeness_ledger_rotation_floor_count']);
     }
 
+    public function test_b496_cognition_score_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b496CognitionScoreFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ASWC, $out['ASWC']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ASWE, $out['ASWE']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ATBS, $out['ATBS']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ATDC, $out['ATDC']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ATER, $out['ATER']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AURG, $out['AURG']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AVCEL, $out['AVCEL']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_EVIDENCE_2, $out['EVIDENCE']);
+        $this->assertSame(AtlasCognitionScoreCardService::INT_10, $out['10']);
+        $this->assertSame(9, $out['b496_cognition_score_floor_count']);
+    }
+
 }
