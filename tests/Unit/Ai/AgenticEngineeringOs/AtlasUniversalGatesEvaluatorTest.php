@@ -15975,4 +15975,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b731_acos_window_floor_count']);
     }
 
+    public function test_b732_context_nudge_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b732ContextNudgeFloorsContractObserve([]);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_CODE, $out['code']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_REASONING, $out['reasoning']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_AUDIT, $out['audit']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_RETRIEVAL, $out['retrieval']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_VISION, $out['vision']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_GENERATION, $out['generation']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_FRAMEWORK, $out['framework']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_ROLE, $out['role']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_AUDITOR, $out['auditor']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_BDD, $out['bdd']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_CARTOGRAPHY, $out['cartography']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_DEVELOPER, $out['developer']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_EDITOR, $out['editor']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_ENGINEER, $out['engineer']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_HYPERFLOW, $out['hyperflow']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_KERNEL_VAULT, $out['kernel_vault']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_LIBRARIAN, $out['librarian']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_MISSION_MODE, $out['mission_mode']);
+        $this->assertSame(18, $out['b732_context_nudge_floor_count']);
+    }
+
 }

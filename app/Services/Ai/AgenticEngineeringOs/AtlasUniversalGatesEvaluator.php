@@ -20140,4 +20140,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B732).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b732ContextNudgeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'code' => CognitiveContextNudgeApplier::FIELD_CODE,
+            'reasoning' => CognitiveContextNudgeApplier::FIELD_REASONING,
+            'audit' => CognitiveContextNudgeApplier::FIELD_AUDIT,
+            'retrieval' => CognitiveContextNudgeApplier::FIELD_RETRIEVAL,
+            'vision' => CognitiveContextNudgeApplier::FIELD_VISION,
+            'generation' => CognitiveContextNudgeApplier::FIELD_GENERATION,
+            'framework' => CognitiveContextNudgeApplier::FIELD_FRAMEWORK,
+            'role' => CognitiveContextNudgeApplier::FIELD_ROLE,
+            'auditor' => CognitiveContextNudgeApplier::FIELD_AUDITOR,
+            'bdd' => CognitiveContextNudgeApplier::FIELD_BDD,
+            'cartography' => CognitiveContextNudgeApplier::FIELD_CARTOGRAPHY,
+            'developer' => CognitiveContextNudgeApplier::FIELD_DEVELOPER,
+            'editor' => CognitiveContextNudgeApplier::FIELD_EDITOR,
+            'engineer' => CognitiveContextNudgeApplier::FIELD_ENGINEER,
+            'hyperflow' => CognitiveContextNudgeApplier::FIELD_HYPERFLOW,
+            'kernel_vault' => CognitiveContextNudgeApplier::FIELD_KERNEL_VAULT,
+            'librarian' => CognitiveContextNudgeApplier::FIELD_LIBRARIAN,
+            'mission_mode' => CognitiveContextNudgeApplier::FIELD_MISSION_MODE,
+            'b732_context_nudge_floor_count' => 18,
+        ];
+    }
+
 }
