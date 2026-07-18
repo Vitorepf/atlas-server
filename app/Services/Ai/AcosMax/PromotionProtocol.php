@@ -126,6 +126,8 @@ final class PromotionProtocol
     public const FIELD_MAXB = 'MAXB';
     public const FIELD_MULTV = 'MULTV';
     public const FIELD_RAGX = 'RAGX';
+    public const FIELD_ASI_06 = 'ASI-06';
+    public const FIELD_ASI_07 = 'ASI-07';
 
     /** @var list<string> */
     public const STATES = [
@@ -323,7 +325,7 @@ final class PromotionProtocol
             [
                 self::FIELD_ID => self::FIELD_ATLAS_AUTONOMOS_MASTER_ENABLED,
                 self::FIELD_FAMILY => self::FIELD_ASI,
-                self::FIELD_SLICE => 'ASI-06',
+                self::FIELD_SLICE => self::FIELD_ASI_06,
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_ENV_KEY => self::FIELD_ATLAS_AUTONOMOS_MASTER_ENABLED,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => self::FIELD_OPERATOR_PREFLIGHT_WINDOW,
@@ -336,7 +338,7 @@ final class PromotionProtocol
             [
                 self::FIELD_ID => self::FIELD_ATLAS_AUTONOMOUS_AUTO_APPLY,
                 self::FIELD_FAMILY => self::FIELD_ASI,
-                self::FIELD_SLICE => 'ASI-07',
+                self::FIELD_SLICE => self::FIELD_ASI_07,
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_CONFIG_KEY => 'atlas.ai.autonomous_learning.enabled',
                 self::FIELD_ENV_KEY => self::FIELD_ATLAS_AUTONOMOUS_AUTO_APPLY,

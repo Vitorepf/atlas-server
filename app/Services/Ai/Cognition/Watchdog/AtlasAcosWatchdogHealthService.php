@@ -360,6 +360,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_WATCH_REGRESSED = 'watch_regressed';
     public const FIELD_UTC = 'UTC';
     public const FIELD_YMD_HIS = 'YmdHis';
+    public const FIELD_MEASUREMENT_WITH_RECALLED_MEMORY_CASE_COUNT = 'measurement.with_recalled_memory.case_count';
+    public const FIELD_MEASUREMENT_WITHOUT_RECALLED_MEMORY_CASE_COUNT = 'measurement.without_recalled_memory.case_count';
     public const INT_100 = 100;
     public const FLOAT_10_0 = 10.0;
 
@@ -453,10 +455,10 @@ final class AtlasAcosWatchdogHealthService
         foreach ($aemor as $source => $at) {
             $checks[] = $this->ageCheck(self::FIELD_LAST_AEMOR_EPISODE_.$source, $at, self::LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS, $now);
         }
-        $checks[] = $this->checkRow(self::FIELD_LIFT_CASE_COUNT, (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.with_recalled_memory.case_count', 0)) ?? 0) > 0
-            && (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.without_recalled_memory.case_count', 0)) ?? 0) > 0, [
-                self::FIELD_WITH_RECALLED_MEMORY => data_get($lift, 'measurement.with_recalled_memory.case_count', 0),
-                self::FIELD_WITHOUT_RECALLED_MEMORY => data_get($lift, 'measurement.without_recalled_memory.case_count', 0),
+        $checks[] = $this->checkRow(self::FIELD_LIFT_CASE_COUNT, (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, self::FIELD_MEASUREMENT_WITH_RECALLED_MEMORY_CASE_COUNT, 0)) ?? 0) > 0
+            && (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, self::FIELD_MEASUREMENT_WITHOUT_RECALLED_MEMORY_CASE_COUNT, 0)) ?? 0) > 0, [
+                self::FIELD_WITH_RECALLED_MEMORY => data_get($lift, self::FIELD_MEASUREMENT_WITH_RECALLED_MEMORY_CASE_COUNT, 0),
+                self::FIELD_WITHOUT_RECALLED_MEMORY => data_get($lift, self::FIELD_MEASUREMENT_WITHOUT_RECALLED_MEMORY_CASE_COUNT, 0),
                 self::FIELD_MEASUREMENT_READY => data_get($lift, 'measurement.measurement_ready', false),
             ], self::FIELD_LEARNING_LIFT_CASES_MISSING);
 
@@ -787,8 +789,8 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_LIFT_STATUS => $status,
             self::FIELD_BLOCKING => array_values(array_unique($blocking)),
             self::FIELD_CASE_COUNTS => [
-                self::FIELD_WITH_RECALLED_MEMORY => (int) (AiValueNormalizer::finiteFloatOrNull(data_get($report, 'measurement.with_recalled_memory.case_count', 0)) ?? 0),
-                self::FIELD_WITHOUT_RECALLED_MEMORY => (int) (AiValueNormalizer::finiteFloatOrNull(data_get($report, 'measurement.without_recalled_memory.case_count', 0)) ?? 0),
+                self::FIELD_WITH_RECALLED_MEMORY => (int) (AiValueNormalizer::finiteFloatOrNull(data_get($report, self::FIELD_MEASUREMENT_WITH_RECALLED_MEMORY_CASE_COUNT, 0)) ?? 0),
+                self::FIELD_WITHOUT_RECALLED_MEMORY => (int) (AiValueNormalizer::finiteFloatOrNull(data_get($report, self::FIELD_MEASUREMENT_WITHOUT_RECALLED_MEMORY_CASE_COUNT, 0)) ?? 0),
             ],
             self::FIELD_BLOCKER_SERIES => $series,
             self::FIELD_GENERATED_AT => now()->toIso8601String(),

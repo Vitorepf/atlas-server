@@ -60,6 +60,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_GROUND_TRUTH_RECEIPT = 'ground_truth_receipt';
     public const FIELD_ONE_TIME_CLEANUP_RECEIPT = 'one_time_cleanup_receipt';
     public const FIELD_TS = 'ts';
+    public const FIELD_MAXA_06 = 'MAXA-06';
+    public const FIELD_MAXL_06 = 'MAXL-06';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -326,12 +328,12 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:operator.approval_history.v1',
             ],
             [
-                self::FIELD_SLICE => 'MAXL-06',
+                self::FIELD_SLICE => self::FIELD_MAXL_06,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::MAXL06_MEASURE_ID,
                 self::FIELD_PATH => 'atlas:acos:delta-attribution --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload('MAXL-06')[self::FIELD_TTL_DAYS],
+                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MAXL_06)[self::FIELD_TTL_DAYS],
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.evidence.delta_attribution.v1',
             ],
             [
@@ -506,7 +508,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.n_capture_drill.v1',
             ],
             [
-                self::FIELD_SLICE => 'MAXA-06',
+                self::FIELD_SLICE => self::FIELD_MAXA_06,
                 self::FIELD_SERIES => AtlasKnowledgeItemEmbeddingCoverageService::MEASURE_ID,
                 self::FIELD_PATH => 'AtlasKnowledgeItemEmbeddingCoverageService::report',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
@@ -515,7 +517,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.kb_embedding_coverage.v1',
             ],
             [
-                self::FIELD_SLICE => 'MAXA-06',
+                self::FIELD_SLICE => self::FIELD_MAXA_06,
                 self::FIELD_SERIES => AtlasCodeSymbolEmbeddingCoverageService::MEASURE_ID,
                 self::FIELD_PATH => 'AtlasCodeSymbolEmbeddingCoverageService::report',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,

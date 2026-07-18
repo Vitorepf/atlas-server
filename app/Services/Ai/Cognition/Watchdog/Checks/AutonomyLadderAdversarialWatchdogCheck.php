@@ -104,6 +104,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_PROBE_SETUP_FAILED = 'probe_setup_failed';
     public const FIELD_SENSITIVE = 'sensitive';
     public const FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE = 'atlas_aemor_memory_candidate';
+    public const FIELD_ATLAS_OPERATOR = 'atlas-operator';
+    public const FIELD_POLICY_H = 'policy-h';
     public const INT_20 = 20;
     public const INT_999 = 999;
     public const INT_10 = 10;
@@ -192,9 +194,9 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         [$ledger, $path] = $this->tempSignatureLedger();
         $verdict = $ledger->verify(
             signature: 'operator',
-            actor: 'atlas-operator',
+            actor: self::FIELD_ATLAS_OPERATOR,
             nonce: 'forged-boolean',
-            policyHash: 'policy-h',
+            policyHash: self::FIELD_POLICY_H,
             targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
             targetId: 'cand-1',
         );
@@ -224,9 +226,9 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         [$ledger, $path] = $this->tempSignatureLedger();
         $verdict = $ledger->verify(
             signature: 'operator',
-            actor: 'atlas-operator',
+            actor: self::FIELD_ATLAS_OPERATOR,
             nonce: 'never-issued',
-            policyHash: 'policy-h',
+            policyHash: self::FIELD_POLICY_H,
             targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
             targetId: 'cand-2',
         );
@@ -251,26 +253,26 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         [$ledger, $path] = $this->tempSignatureLedger();
         $ledger->record(
             signature: 'operator',
-            actor: 'atlas-operator',
+            actor: self::FIELD_ATLAS_OPERATOR,
             nonce: 'nonce-reused-probe',
-            policyHash: 'policy-h',
+            policyHash: self::FIELD_POLICY_H,
             targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
             targetId: 'cand-3',
         );
         $first = $ledger->verify(
             signature: 'operator',
-            actor: 'atlas-operator',
+            actor: self::FIELD_ATLAS_OPERATOR,
             nonce: 'nonce-reused-probe',
-            policyHash: 'policy-h',
+            policyHash: self::FIELD_POLICY_H,
             targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
             targetId: 'cand-3',
         );
         // Second verify — must fail because nonce is now spent.
         $second = $ledger->verify(
             signature: 'operator',
-            actor: 'atlas-operator',
+            actor: self::FIELD_ATLAS_OPERATOR,
             nonce: 'nonce-reused-probe',
-            policyHash: 'policy-h',
+            policyHash: self::FIELD_POLICY_H,
             targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
             targetId: 'cand-3',
         );

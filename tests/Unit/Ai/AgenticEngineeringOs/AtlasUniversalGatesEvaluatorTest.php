@@ -10205,4 +10205,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b498_code_symbol_immune_classifier_knowledge_item_aobg_latency_floor_count']);
     }
 
+    public function test_b499_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b499MeasureSeriesLoteLedgerRotationAcosWatchdogAutonomyFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXA_06, $out['MAXA-06']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXL_06, $out['MAXL-06']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTJ_03, $out['MULTJ-03']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTX_06, $out['MULTX-06']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ACOS_ASI05_LEDGER_CLEANUP_V1, $out['acos.asi05.ledger_cleanup.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ACOS_DEAD_SERIES_WATCHDOG_V1, $out['acos.dead_series_watchdog.v1']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_MEASUREMENT_WITH_RECALLED_MEMORY_CASE_COUNT, $out['measurement.with_recalled_memory.case_count']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_MEASUREMENT_WITHOUT_RECALLED_MEMORY_CASE_COUNT, $out['measurement.without_recalled_memory.case_count']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_ATLAS_OPERATOR, $out['atlas-operator']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_POLICY_H, $out['policy-h']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_ADMISSION_ADMITTED, $out['admission.admitted']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_ADMISSION_BYPASS, $out['admission.bypass']);
+        $this->assertSame(PromotionProtocol::FIELD_ASI_06, $out['ASI-06']);
+        $this->assertSame(PromotionProtocol::FIELD_ASI_07, $out['ASI-07']);
+        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_80, $out['0.80']);
+        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_75, $out['0.75']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACMF_SE, $out['ACMF-SE']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AKIF_OCR, $out['AKIF-OCR']);
+        $this->assertSame(18, $out['b499_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floor_count']);
+    }
+
 }
