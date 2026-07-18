@@ -79,6 +79,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const FIELD_SERIES = 'series';
     public const FIELD_SERIES_REGISTRY = 'series_registry';
     public const FIELD_SOURCE_TYPE = 'source_type';
+    public const FIELD_STALE_DEFINITION = 'stale_definition';
+    public const FIELD_TARGET_COVERAGE_RATIO = 'target_coverage_ratio';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -89,9 +91,9 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
             self::FIELD_FORMULA => 'MAXA-06 fase 1: coverage_ratio = active items whose MAXA-03 provenance (embedding_model + embedded_content_hash) matches current content_hash, over active items. Stale = provenance stamped but hash drifted. Missing = no provenance.',
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_THRESHOLDS => [
-                'target_coverage_ratio' => 1.0,
+                self::FIELD_TARGET_COVERAGE_RATIO => 1.0,
                 self::FIELD_DENOMINATOR_MIN_ACTIVE_ITEMS => 1,
-                'stale_definition' => 'embedded_content_hash != content_hash',
+                self::FIELD_STALE_DEFINITION => 'embedded_content_hash != content_hash',
                 self::FIELD_MISSING_DEFINITION => 'embedding_model IS NULL OR embedded_content_hash IS NULL',
                 self::FIELD_SCOPE => 'active_items_only',
             ],

@@ -7474,4 +7474,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['acos_evolution_long_rollback_lote_measure_code_symbol_floor_count']);
     }
 
+    public function test_pre_review_phase_advance_cognition_score_lote_measure_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->preReviewPhaseAdvanceCognitionScoreLoteMeasureFloorsContractObserve([]);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_MIN_LIFT, $out['min_lift']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_MIN_N, $out['min_n']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_REQUIRED, $out['required']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_EXTERNAL_RIVALS_CERTIFICATION_TOUCHED, $out['external_rivals_certification_touched']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_MAX, $out['max']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_OBSERVE_MODE_ACTUAL_MERGES, $out['observe_mode_actual_merges']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_ORIGINATIONS, $out['originations']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_TARGET_COVERAGE_RATIO, $out['target_coverage_ratio']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_TTL_DAYS, $out['ttl_days']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_STALE_DEFINITION, $out['stale_definition']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_TARGET_COVERAGE_RATIO, $out['target_coverage_ratio']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_TIME_TO_FIRST_ROUTED_TASK_SECONDS, $out['time_to_first_routed_task_seconds']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_TIMES, $out['times']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_PROVEN_REAL, $out['proven_real']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_REALIZED_TRUE, $out['realized_true']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_N_BASE, $out['n_base']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_N_TREAT, $out['n_treat']);
+        $this->assertSame(18, $out['pre_review_phase_advance_cognition_score_lote_measure_floor_count']);
+    }
+
 }

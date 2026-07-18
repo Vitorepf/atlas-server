@@ -82,6 +82,8 @@ final class PreReviewAdvisoryBand
     public const FIELD_REUSES_CALIBRATION_BAND_CLASSIFIER = 'reuses_calibration_band_classifier';
     public const FIELD_LIFT_HIGH_OVER_LOW = 'lift_high_over_low';
     public const FIELD_MEDIUM = 'medium';
+    public const FIELD_MIN_LIFT = 'min_lift';
+    public const FIELD_MIN_N = 'min_n';
 
     /**
      * @param  array<string,mixed>  $features required keys:
@@ -200,8 +202,8 @@ final class PreReviewAdvisoryBand
             self::FIELD_LIFT_HIGH_OVER_LOW => $lift,
             self::FIELD_LIFT_BASIS => $liftBasis,
             self::FIELD_DEATH_CRITERION => [
-                'min_n' => self::DEATH_MIN_N,
-                'min_lift' => self::DEATH_MIN_LIFT,
+                self::FIELD_MIN_N => self::DEATH_MIN_N,
+                self::FIELD_MIN_LIFT => self::DEATH_MIN_LIFT,
                 'satisfied_for_death' => $liftBasis === self::BASIS_MEASURED && $lift !== null && $lift < self::DEATH_MIN_LIFT,
             ],
             self::FIELD_SOURCE => [

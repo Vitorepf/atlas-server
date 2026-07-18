@@ -65,6 +65,8 @@ final class ExploratoryBetsPortfolio
     public const FIELD_FLAG_DEFAULT = 'flag_default';
     public const FIELD_ID = 'id';
     public const FIELD_MIN_N = 'min_n';
+    public const FIELD_N_BASE = 'n_base';
+    public const FIELD_N_TREAT = 'n_treat';
 
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
 
@@ -246,8 +248,8 @@ final class ExploratoryBetsPortfolio
     /** @param array<string,mixed> $effect */
     private static function isProvenNegative(array $effect): bool
     {
-        return (int) (AiValueNormalizer::finiteFloatOrNull($effect['n_treat'] ?? null) ?? 0) >= self::MIN_N
-            && (int) (AiValueNormalizer::finiteFloatOrNull($effect['n_base'] ?? null) ?? 0) >= self::MIN_N
+        return (int) (AiValueNormalizer::finiteFloatOrNull($effect[self::FIELD_N_TREAT] ?? null) ?? 0) >= self::MIN_N
+            && (int) (AiValueNormalizer::finiteFloatOrNull($effect[self::FIELD_N_BASE] ?? null) ?? 0) >= self::MIN_N
             && (AiValueNormalizer::finiteFloatOrNull($effect[self::FIELD_CI_HIGH] ?? null) ?? 0.0) < 0.0;
     }
 

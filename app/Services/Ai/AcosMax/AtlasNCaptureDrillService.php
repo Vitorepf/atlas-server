@@ -119,6 +119,8 @@ final class AtlasNCaptureDrillService
     public const FIELD_ROUTED_TASKS_OBSERVED = 'routed_tasks_observed';
     public const FIELD_SERIES = 'series';
     public const FIELD_TIME_TO_FIRST_PROVEN_REAL_SECONDS = 'time_to_first_proven_real_seconds';
+    public const FIELD_TIME_TO_FIRST_ROUTED_TASK_SECONDS = 'time_to_first_routed_task_seconds';
+    public const FIELD_TIMES = 'times';
 
     private readonly string $ledgerPath;
 
@@ -201,8 +203,8 @@ final class AtlasNCaptureDrillService
                 self::FIELD_REGRET_MEASURE_ID => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'yardstick.regret_measure_id')) ?? 'atlas.decide.route_regret.v2',
                 self::FIELD_PEEK_MODE => true,
             ],
-            'times' => [
-                'time_to_first_routed_task_seconds' => (int) data_get($drill, 'times.time_to_first_routed_task_seconds'),
+            self::FIELD_TIMES => [
+                self::FIELD_TIME_TO_FIRST_ROUTED_TASK_SECONDS => (int) data_get($drill, 'times.time_to_first_routed_task_seconds'),
                 self::FIELD_TIME_TO_FIRST_PROVEN_REAL_SECONDS => (int) data_get($drill, 'times.time_to_first_proven_real_seconds'),
                 self::FIELD_HOURS_OF_INTEGRATION => AiValueNormalizer::finiteFloatOrNull(data_get($drill, 'times.hours_of_integration')) ?? 0.0,
             ],

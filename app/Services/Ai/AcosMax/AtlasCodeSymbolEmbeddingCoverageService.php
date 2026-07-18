@@ -79,6 +79,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_SERIES_REGISTRY = 'series_registry';
     public const FIELD_SOURCE_TYPE = 'source_type';
     public const FIELD_STALE_DEFINITION = 'stale_definition';
+    public const FIELD_TARGET_COVERAGE_RATIO = 'target_coverage_ratio';
+    public const FIELD_TTL_DAYS = 'ttl_days';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -89,7 +91,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             self::FIELD_FORMULA => 'MAXA-06 fase 2: coverage_ratio = active code symbols whose provenance in atlas_code_symbol_embeddings (embedding_model + embedded_content_hash) matches current source_hash, over active code symbols. Stale = provenance stamped but source_hash drifted (incremental re-embed target). Missing = no embedding row for the symbol.',
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_THRESHOLDS => [
-                'target_coverage_ratio' => 1.0,
+                self::FIELD_TARGET_COVERAGE_RATIO => 1.0,
                 self::FIELD_DENOMINATOR_MIN_ACTIVE_SYMBOLS => 1,
                 self::FIELD_STALE_DEFINITION => 'atlas_code_symbol_embeddings.embedded_content_hash != atlas_engineering_code_symbols.source_hash',
                 self::FIELD_MISSING_DEFINITION => 'no matching row in atlas_code_symbol_embeddings for symbol_id',
@@ -97,7 +99,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
                 self::FIELD_DEFAULT_SWITCH => 'off',
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
-            'ttl_days' => 60,
+            self::FIELD_TTL_DAYS => 60,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxa06-fase2',
             self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-maxa06-fase2-judge',
             self::FIELD_DUAL_READ_REQUIRED => false,

@@ -51,6 +51,8 @@ final class EvidenceVisionThesisLifecycle
     public const FIELD_LEAD_CLUSTER_CLEARED = 'lead_cluster_cleared';
     public const FIELD_N_REALIZED = 'n_realized';
     public const FIELD_PATH = 'path';
+    public const FIELD_PROVEN_REAL = 'proven_real';
+    public const FIELD_REALIZED_TRUE = 'realized_true';
 
     /** @var array<string,array<string,mixed>> */
     private static array $active = [];
@@ -248,7 +250,7 @@ final class EvidenceVisionThesisLifecycle
         if ($highN <= 0) {
             return false;
         }
-        $highRate = ((int) (AiValueNormalizer::finiteFloatOrNull($high['realized_true'] ?? null) ?? 0)) / $highN;
+        $highRate = ((int) (AiValueNormalizer::finiteFloatOrNull($high[self::FIELD_REALIZED_TRUE] ?? null) ?? 0)) / $highN;
 
         return $highRate >= (AiValueNormalizer::finiteFloatOrNull($criterion[self::FIELD_THRESHOLD] ?? null) ?? 0.0);
     }
@@ -307,7 +309,7 @@ final class EvidenceVisionThesisLifecycle
             if (! is_array($row)) {
                 continue;
             }
-            if ((AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_PATH] ?? null) ?? '') === $path && ($row['proven_real'] ?? null) === true) {
+            if ((AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_PATH] ?? null) ?? '') === $path && ($row[self::FIELD_PROVEN_REAL] ?? null) === true) {
                 return true;
             }
         }

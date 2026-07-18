@@ -157,6 +157,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_COGNITIVE_IMMUNE_LAW_ENFORCED = 'cognitive_immune_law_enforced';
     public const FIELD_DIMENSIONS = 'dimensions';
     public const FIELD_DOC = 'doc';
+    public const FIELD_EXTERNAL_RIVALS_CERTIFICATION_TOUCHED = 'external_rivals_certification_touched';
+    public const FIELD_MAX = 'max';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -443,7 +445,7 @@ class AtlasCognitionScoreCardService
             $key = str_replace('_status', '', $dim);
             $totals[$key] = [
                 'sum' => $sum,
-                'max' => $max,
+                self::FIELD_MAX => $max,
                 self::FIELD_SCORE_OUT_OF_10 => $max > 0 ? round(($sum / $max) * 10, 2) : 0.0,
             ];
         }
@@ -470,7 +472,7 @@ class AtlasCognitionScoreCardService
             self::FIELD_BENCHMARK_CLAIM_ALLOWED => false,
             'rivals_claim_allowed' => false,
             'superiority_claim_allowed' => false,
-            'external_rivals_certification_touched' => false,
+            self::FIELD_EXTERNAL_RIVALS_CERTIFICATION_TOUCHED => false,
             self::FIELD_COGNITIVE_IMMUNE_LAW_ENFORCED => true,
             'must_keep_coverage_invariant' => true,
             'provider_safe_only_enforced' => true,

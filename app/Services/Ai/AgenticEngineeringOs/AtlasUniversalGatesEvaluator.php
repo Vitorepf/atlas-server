@@ -9614,4 +9614,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B390).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function preReviewPhaseAdvanceCognitionScoreLoteMeasureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'min_lift' => PreReviewAdvisoryBand::FIELD_MIN_LIFT,
+            'min_n' => PreReviewAdvisoryBand::FIELD_MIN_N,
+            'required' => PhaseAdvanceVerdictClassifier::FIELD_REQUIRED,
+            'schema_version' => PhaseAdvanceVerdictClassifier::FIELD_SCHEMA_VERSION,
+            'external_rivals_certification_touched' => AtlasCognitionScoreCardService::FIELD_EXTERNAL_RIVALS_CERTIFICATION_TOUCHED,
+            'max' => AtlasCognitionScoreCardService::FIELD_MAX,
+            'observe_mode_actual_merges' => AcosMaxLote2MeasureService::FIELD_OBSERVE_MODE_ACTUAL_MERGES,
+            'originations' => AcosMaxLote2MeasureService::FIELD_ORIGINATIONS,
+            'target_coverage_ratio' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_TARGET_COVERAGE_RATIO,
+            'ttl_days' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_TTL_DAYS,
+            'stale_definition' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_STALE_DEFINITION,
+            'target_coverage_ratio' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_TARGET_COVERAGE_RATIO,
+            'time_to_first_routed_task_seconds' => AtlasNCaptureDrillService::FIELD_TIME_TO_FIRST_ROUTED_TASK_SECONDS,
+            'times' => AtlasNCaptureDrillService::FIELD_TIMES,
+            'proven_real' => EvidenceVisionThesisLifecycle::FIELD_PROVEN_REAL,
+            'realized_true' => EvidenceVisionThesisLifecycle::FIELD_REALIZED_TRUE,
+            'n_base' => ExploratoryBetsPortfolio::FIELD_N_BASE,
+            'n_treat' => ExploratoryBetsPortfolio::FIELD_N_TREAT,
+            'pre_review_phase_advance_cognition_score_lote_measure_floor_count' => 18,
+        ];
+    }
+
 }
