@@ -16025,4 +16025,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b733_operational_volume_floor_count']);
     }
 
+    public function test_b734_immune_verdict_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b734ImmuneVerdictFloorsContractObserve([]);
+        $this->assertSame(ImmuneVerdictLedger::TABLE, $out['immune_verdict_ledger']);
+        $this->assertSame(ImmuneVerdictLedger::SCHEMA_VERSION, $out['atlas.cognition.immune_verdict_ledger.v1']);
+        $this->assertSame(ImmuneVerdictLedger::LABEL_TRUE_BLOCK, $out['true_block']);
+        $this->assertSame(ImmuneVerdictLedger::LABEL_FALSE_BLOCK, $out['false_block']);
+        $this->assertSame(ImmuneVerdictLedger::LABEL_MISSED_POISON, $out['missed_poison']);
+        $this->assertSame(ImmuneVerdictLedger::GATE_STATUS_PASS, $out['pass']);
+        $this->assertSame(ImmuneVerdictLedger::GATE_STATUS_BLOCK, $out['block']);
+        $this->assertSame(ImmuneVerdictLedger::GATE_STATUS_PENDING, $out['pending']);
+        $this->assertSame(ImmuneVerdictLedger::WRITER_UNKNOWN, $out['unknown']);
+        $this->assertSame(ImmuneVerdictLedger::FIELD_SAMPLE_LABEL, $out['sample_label']);
+        $this->assertSame(ImmuneVerdictLedger::FIELD_PROMOTION_STATUS, $out['promotion_status']);
+        $this->assertSame(ImmuneVerdictLedger::FIELD_PENDING_GATE_IDS, $out['pending_gate_ids']);
+        $this->assertSame(ImmuneVerdictLedger::FIELD_METADATA, $out['metadata']);
+        $this->assertSame(ImmuneVerdictLedger::FIELD_GATE_STATUSES, $out['gate_statuses']);
+        $this->assertSame(ImmuneVerdictLedger::FIELD_EXPECTED_BLOCK_GATE_IDS, $out['expected_block_gate_ids']);
+        $this->assertSame(ImmuneVerdictLedger::FIELD_DECIDED_AT, $out['decided_at']);
+        $this->assertSame(ImmuneVerdictLedger::FIELD_BLOCKING_GATE_IDS, $out['blocking_gate_ids']);
+        $this->assertSame(ImmuneVerdictLedger::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(18, $out['b734_immune_verdict_floor_count']);
+    }
+
 }

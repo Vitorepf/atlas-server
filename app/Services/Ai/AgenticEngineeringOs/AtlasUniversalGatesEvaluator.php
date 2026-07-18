@@ -20202,4 +20202,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B734).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b734ImmuneVerdictFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'immune_verdict_ledger' => ImmuneVerdictLedger::TABLE,
+            'atlas.cognition.immune_verdict_ledger.v1' => ImmuneVerdictLedger::SCHEMA_VERSION,
+            'true_block' => ImmuneVerdictLedger::LABEL_TRUE_BLOCK,
+            'false_block' => ImmuneVerdictLedger::LABEL_FALSE_BLOCK,
+            'missed_poison' => ImmuneVerdictLedger::LABEL_MISSED_POISON,
+            'pass' => ImmuneVerdictLedger::GATE_STATUS_PASS,
+            'block' => ImmuneVerdictLedger::GATE_STATUS_BLOCK,
+            'pending' => ImmuneVerdictLedger::GATE_STATUS_PENDING,
+            'unknown' => ImmuneVerdictLedger::WRITER_UNKNOWN,
+            'sample_label' => ImmuneVerdictLedger::FIELD_SAMPLE_LABEL,
+            'promotion_status' => ImmuneVerdictLedger::FIELD_PROMOTION_STATUS,
+            'pending_gate_ids' => ImmuneVerdictLedger::FIELD_PENDING_GATE_IDS,
+            'metadata' => ImmuneVerdictLedger::FIELD_METADATA,
+            'gate_statuses' => ImmuneVerdictLedger::FIELD_GATE_STATUSES,
+            'expected_block_gate_ids' => ImmuneVerdictLedger::FIELD_EXPECTED_BLOCK_GATE_IDS,
+            'decided_at' => ImmuneVerdictLedger::FIELD_DECIDED_AT,
+            'blocking_gate_ids' => ImmuneVerdictLedger::FIELD_BLOCKING_GATE_IDS,
+            'schema_version' => ImmuneVerdictLedger::FIELD_SCHEMA_VERSION,
+            'b734_immune_verdict_floor_count' => 18,
+        ];
+    }
+
 }
