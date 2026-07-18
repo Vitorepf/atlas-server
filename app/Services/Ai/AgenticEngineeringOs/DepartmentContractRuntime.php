@@ -241,6 +241,8 @@ final class DepartmentContractRuntime
     public const FIELD_TASK_PACK = 'task_pack';
     public const FIELD_TEST_PACK = 'test_pack';
     public const FIELD_TOPOLOGY_PLAN = 'topology_plan';
+    public const FIELD_APPROVE_RELEASE = 'approve_release';
+    public const FIELD_ROLLBACK_PLAN_PRESENT = 'rollback_plan_present';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -286,7 +288,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_GATES => ['intent_clarified', 'mission_authority_declared'],
             self::FIELD_ALLOWED_ACTIONS => ['ask_clarifying_question', 'classify_intent', 'route_to_department'],
-            self::FIELD_FORBIDDEN_ACTIONS => ['write_code', 'approve_release', 'modify_security_policy'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['write_code', self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['intent_clarification_log', 'mission_envelope_hash'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_EXECUTIVE_INTAKE, self::FIELD_LEDGER => self::FIELD_AAEOS_INTAKE_LEDGER],
@@ -310,7 +312,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_GATES => ['intent_clarity_score_min', 'acceptance_criteria_min_3'],
             self::FIELD_ALLOWED_ACTIONS => ['ask_clarifying_question', 'propose_acceptance_criteria', 'split_intent'],
-            self::FIELD_FORBIDDEN_ACTIONS => ['write_code', 'approve_release', 'modify_security_policy'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['write_code', self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['clarification_log', 'acceptance_criteria_pack'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_ENGINEERING_GOALS, self::FIELD_LEDGER => self::FIELD_AAEOS_CLARIFICATION_LEDGER],
@@ -357,7 +359,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_GATES => ['research_findings_published', 'review_only_acknowledged', 'sources_min_3', 'source_dates_recent', 'no_hallucinated_links'],
             self::FIELD_ALLOWED_ACTIONS => ['fetch_sources', 'synthesize_findings', 'propose_doc_promotion'],
-            self::FIELD_FORBIDDEN_ACTIONS => ['write_code', 'approve_release', 'modify_security_policy'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['write_code', self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['sources_list_hash', 'research_pack_hash'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_RESEARCH_PACKS, self::FIELD_LEDGER => self::FIELD_AAEOS_SOURCE_LEDGER],
@@ -521,7 +523,7 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_DELIVERY_PACK, self::FIELD_SCHEMA => self::SCHEMA_DELIVERY_PACK],
             ],
-            self::FIELD_GATES => ['release_authority_declared', 'rollback_plan_present', 'delivery_pack_completeness_min_0_95', 'evidence_traceable'],
+            self::FIELD_GATES => ['release_authority_declared', self::FIELD_ROLLBACK_PLAN_PRESENT, 'delivery_pack_completeness_min_0_95', 'evidence_traceable'],
             self::FIELD_ALLOWED_ACTIONS => ['assemble_delivery_pack', 'sign_delivery_hash', 'request_human_review'],
             self::FIELD_FORBIDDEN_ACTIONS => ['edit_code', 'approve_release_without_review', 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_REVIEW, self::DEPARTMENT_OPERATOR],
@@ -703,7 +705,7 @@ final class DepartmentContractRuntime
             'risk_scope',
             'spec_pack_hash',
             'acceptance_criteria_present',
-            'rollback_plan_present',
+            self::FIELD_ROLLBACK_PLAN_PRESENT,
             'breaking_change_matrix_present',
             'operator_signature_present',
         ];

@@ -11072,4 +11072,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B437).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function acosMeasureLocalModelComposedObraPreReviewFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'recorded_at' => AcosMeasureSeriesFreshnessReader::FIELD_RECORDED_AT,
+            'created_at' => AcosMeasureSeriesFreshnessReader::FIELD_CREATED_AT,
+            'base_path' => AtlasLocalModelIntegrityService::FIELD_BASE_PATH,
+            'sha256' => AtlasLocalModelIntegrityService::FIELD_SHA256,
+            'seed_gate_rejected' => ComposedObraArcLifecycle::FIELD_SEED_GATE_REJECTED,
+            'sha256' => ComposedObraArcLifecycle::FIELD_SHA256,
+            'ops' => PreReviewAdvisoryBand::FIELD_OPS,
+            'unknown' => PreReviewAdvisoryBand::FIELD_UNKNOWN,
+            'evidence' => RealityCompilerSlice::FIELD_EVIDENCE,
+            'simulation' => RealityCompilerSlice::FIELD_SIMULATION,
+            'atlas' => AtlasCognitiveFunctionAtlasService::FIELD_ATLAS,
+            'storage_path' => AtlasCognitiveFunctionAtlasService::FIELD_STORAGE_PATH,
+            'atlas' => DiskFreeWatchdogCheck::FIELD_ATLAS,
+            'disk_below_floor' => DiskFreeWatchdogCheck::FIELD_DISK_BELOW_FLOOR,
+            'analisa' => AtlasCognitiveFunctionDecomposerService::FIELD_ANALISA,
+            'audita' => AtlasCognitiveFunctionDecomposerService::FIELD_AUDITA,
+            'approve_release' => DepartmentContractRuntime::FIELD_APPROVE_RELEASE,
+            'rollback_plan_present' => DepartmentContractRuntime::FIELD_ROLLBACK_PLAN_PRESENT,
+            'acos_measure_local_model_composed_obra_pre_review_floor_count' => 18,
+        ];
+    }
+
 }

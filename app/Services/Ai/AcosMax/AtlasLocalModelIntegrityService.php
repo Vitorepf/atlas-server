@@ -64,6 +64,8 @@ final class AtlasLocalModelIntegrityService
     public const FIELD_SHA256_PIN = 'sha256_pin';
     public const FIELD_PATH_DECLARED = 'path_declared';
     public const FIELD_PIN_PRESENT = 'pin_present';
+    public const FIELD_BASE_PATH = 'base_path';
+    public const FIELD_SHA256 = 'sha256';
 
     /** @var array<string, mixed> */
     private array $manifest;
@@ -161,7 +163,7 @@ final class AtlasLocalModelIntegrityService
             return $row;
         }
 
-        $computed = @hash_file('sha256', $resolved);
+        $computed = @hash_file(self::FIELD_SHA256, $resolved);
         if (AiValueNormalizer::trimmedStringOrNull($computed) === null) {
             $row[self::FIELD_STATUS] = self::STATUS_MISSING;
             $row[self::FIELD_REASON] = 'hash_failed';
@@ -191,7 +193,7 @@ final class AtlasLocalModelIntegrityService
             return $path;
         }
 
-        if (function_exists('base_path')) {
+        if (function_exists(self::FIELD_BASE_PATH)) {
             return base_path($path);
         }
 

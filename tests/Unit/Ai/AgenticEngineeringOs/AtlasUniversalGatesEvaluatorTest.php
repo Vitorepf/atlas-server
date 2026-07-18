@@ -141,6 +141,7 @@ use App\Services\Ai\Cognition\Watchdog\Checks\EvidenceLedgerIntegrityWatchdogChe
 use App\Services\Ai\Cognition\Watchdog\Checks\ProviderBoundRedactionDriftWatchdogCheck;
 use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 use App\Services\Ai\AcosMax\OutcomeEnvelope;
+use App\Services\Ai\AcosMax\ComposedObraArcLifecycle;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -8665,6 +8666,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(StructuredFactSchemaMap::FIELD_CAUSA, $out['causa']);
         $this->assertSame(StructuredFactSchemaMap::FIELD_ALTERNATIVAS, $out['alternativas']);
         $this->assertSame(18, $out['phase_advance_consolidation_rerank_immune_check_verdict_aobg_floor_count']);
+    }
+
+    public function test_acos_measure_local_model_composed_obra_pre_review_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->acosMeasureLocalModelComposedObraPreReviewFloorsContractObserve([]);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_RECORDED_AT, $out['recorded_at']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_CREATED_AT, $out['created_at']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_BASE_PATH, $out['base_path']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_SEED_GATE_REJECTED, $out['seed_gate_rejected']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_OPS, $out['ops']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_UNKNOWN, $out['unknown']);
+        $this->assertSame(RealityCompilerSlice::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(RealityCompilerSlice::FIELD_SIMULATION, $out['simulation']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_ATLAS, $out['atlas']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_STORAGE_PATH, $out['storage_path']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_ATLAS, $out['atlas']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_DISK_BELOW_FLOOR, $out['disk_below_floor']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_ANALISA, $out['analisa']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_AUDITA, $out['audita']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_APPROVE_RELEASE, $out['approve_release']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ROLLBACK_PLAN_PRESENT, $out['rollback_plan_present']);
+        $this->assertSame(18, $out['acos_measure_local_model_composed_obra_pre_review_floor_count']);
     }
 
 }

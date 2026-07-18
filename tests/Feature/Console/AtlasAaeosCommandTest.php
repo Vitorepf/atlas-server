@@ -7851,6 +7851,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_acos_measure_local_model_composed_obra_pre_review_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b437-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b437',
+                '--acos-measure-local-model-composed-obra-pre-review-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"acos_measure_local_model_composed_obra_pre_review_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

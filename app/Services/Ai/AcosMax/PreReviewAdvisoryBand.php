@@ -88,10 +88,12 @@ final class PreReviewAdvisoryBand
     public const FIELD_SATISFIED_FOR_DEATH = 'satisfied_for_death';
     public const FIELD_SINGLE_SCALAR_FORBIDDEN = 'single_scalar_forbidden';
     public const FIELD_SWEET = 'sweet';
+    public const FIELD_OPS = 'ops';
+    public const FIELD_UNKNOWN = 'unknown';
 
     /**
      * @param  array<string,mixed>  $features required keys:
-     *   target_class: string (e.g. 'migrations', 'ops', 'debug', 'unknown')
+     *   target_class: string (e.g. 'migrations', self::FIELD_OPS, 'debug', self::FIELD_UNKNOWN)
      *   risk_band: 'low'|'medium'|'high'|'critical'|null
      *   confidence_band: 'low'|'sweet'|'high'|null (declared self-model band)
      *   similar_revert_rate: float [0..1] (from MAXN-03)

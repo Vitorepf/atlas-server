@@ -79,6 +79,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_ANALISE = 'analise';
     public const FIELD_ARTISAN = 'artisan';
+    public const FIELD_ANALISA = 'analisa';
+    public const FIELD_AUDITA = 'audita';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -97,7 +99,7 @@ final class AtlasCognitiveFunctionDecomposerService
      */
     public const RULES = [
         self::FIELD_REASONING => [
-            'porque', 'por que', self::FIELD_ANALISE, 'analisa', 'explique', 'pense', 'pondere',
+            'porque', 'por que', self::FIELD_ANALISE, self::FIELD_ANALISA, 'explique', 'pense', 'pondere',
             'decida', 'decisao', 'compare', 'avalie', 'logica', 'estrategia',
             'raciocine', 'investigue', 'why', 'reason',
         ],
@@ -125,7 +127,7 @@ final class AtlasCognitiveFunctionDecomposerService
             'cor ', 'paleta', 'visual', 'screenshot', 'image', 'render',
         ],
         self::FIELD_AUDIT => [
-            'audite', 'audita', 'audit', 'verifique', 'valide', 'cheque',
+            'audite', self::FIELD_AUDITA, 'audit', 'verifique', 'valide', 'cheque',
             'inspecione', 'governance', 'invariant', 'kernel', 'cartografia',
             'doc', 'documento', 'compliance', 'evidence', 'evidencia',
             'integrity', 'tamper', 'sha256', 'hash ', 'verify',

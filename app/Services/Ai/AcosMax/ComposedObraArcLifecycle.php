@@ -53,6 +53,8 @@ final class ComposedObraArcLifecycle
     public const FIELD_TARGET_PATH = 'target_path';
     public const FIELD_ARCHIVED_AT_BASIS = 'archived_at_basis';
     public const FIELD_RECEIPT_HASH = 'receipt_hash';
+    public const FIELD_SEED_GATE_REJECTED = 'seed_gate_rejected';
+    public const FIELD_SHA256 = 'sha256';
 
     public const TASK_STATUS_FAILED = 'failed';
 
@@ -163,7 +165,7 @@ final class ComposedObraArcLifecycle
             return self::refusal(self::REASON_ARC_NOT_ACTIVE, $arcId);
         }
 
-        self::markTask($arcId, $taskId, 'seed_gate_rejected');
+        self::markTask($arcId, $taskId, self::FIELD_SEED_GATE_REJECTED);
         // Independence: consecutive failure counter is NOT incremented.
 
         return self::status($arcId);
@@ -230,7 +232,7 @@ final class ComposedObraArcLifecycle
             self::FIELD_ARCHIVED_AT_BASIS => $reason,
             self::FIELD_CONSECUTIVE_FAILURES => (int) (AiValueNormalizer::finiteFloatOrNull($state[self::FIELD_CONSECUTIVE_FAILURES] ?? null) ?? 0),
             self::FIELD_KILL_GATE_K => (int) ($state[self::FIELD_KILL_GATE_K] ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES),
-            self::FIELD_RECEIPT_HASH => hash('sha256', json_encode([$arcId, $reason, $state[self::FIELD_CONSECUTIVE_FAILURES] ?? 0], JSON_UNESCAPED_SLASHES)),
+            self::FIELD_RECEIPT_HASH => hash(self::FIELD_SHA256, json_encode([$arcId, $reason, $state[self::FIELD_CONSECUTIVE_FAILURES] ?? 0], JSON_UNESCAPED_SLASHES)),
         ];
 
         foreach (AiValueNormalizer::arrayOrEmpty($state[self::FIELD_TASKS] ?? null) as $taskId => $task) {

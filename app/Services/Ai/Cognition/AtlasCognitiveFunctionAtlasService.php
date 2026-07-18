@@ -102,6 +102,8 @@ class AtlasCognitiveFunctionAtlasService
     public const FIELD_SCORE = 'score';
     public const FIELD_TEOS = 'teos';
     public const FIELD_TOTAL = 'total';
+    public const FIELD_ATLAS = 'atlas';
+    public const FIELD_STORAGE_PATH = 'storage_path';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scoreCard,
@@ -231,7 +233,7 @@ class AtlasCognitiveFunctionAtlasService
      */
     public function runtimeEvidenceByGroup(?string $storageBase = null): array
     {
-        $base = $storageBase ?? (function_exists('storage_path') ? storage_path('atlas') : sys_get_temp_dir().'/atlas');
+        $base = $storageBase ?? (function_exists(self::FIELD_STORAGE_PATH) ? storage_path(self::FIELD_ATLAS) : sys_get_temp_dir().'/atlas');
         // Heuristic mapping of group → expected JSONL roots under storage/atlas/.
         $groupRoots = [
             self::FIELD_COGNITIVE_IMMUNE => ['aemor', 'cognitive_immune'],
