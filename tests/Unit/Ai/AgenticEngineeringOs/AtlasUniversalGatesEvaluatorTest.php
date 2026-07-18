@@ -15599,4 +15599,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b716_cognitive_memory_floor_count']);
     }
 
+    public function test_b717_fact_pair_consolidation_rerank_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b717FactPairConsolidationRerankFloorsContractObserve([]);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_CONTRADICTS, $out['contradicts']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_KIND, $out['kind']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_NEGATED, $out['negated']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_VALUE, $out['value']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_PREDICATE, $out['predicate']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_SUBJECT, $out['subject']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_HARD_NEGATION_CONTRADICTION, $out['hard_negation_contradiction']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_NONE, $out['none']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_UNRELATED, $out['unrelated']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_HASH, $out['hash']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_LABEL, $out['label']);
+        $this->assertSame(AtlasConsolidationRerankGuard::SCHEMA_VERSION, $out['atlas.cognition.rerank_guard.v1']);
+        $this->assertSame(AtlasConsolidationRerankGuard::EPSILON, $out['0.0005']);
+        $this->assertSame(AtlasConsolidationRerankGuard::STATUS_NO_BASELINE, $out['no_baseline']);
+        $this->assertSame(AtlasConsolidationRerankGuard::STATUS_UNMEASURED, $out['unmeasured']);
+        $this->assertSame(AtlasConsolidationRerankGuard::STATUS_OK, $out['ok']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_PRECISION_AT_K, $out['precision_at_k']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_REASON, $out['reason']);
+        $this->assertSame(18, $out['b717_fact_pair_consolidation_rerank_floor_count']);
+    }
+
 }

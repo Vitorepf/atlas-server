@@ -739,6 +739,7 @@ final class AtlasAaeosCommand extends Command
                             {--b714-cognition-score-floors-contract= : JSON file (any object) to observe cognition/score floors}
                             {--b715-immune-signature-floors-contract= : JSON file (any object) to observe immune/signature floors}
                             {--b716-cognitive-memory-floors-contract= : JSON file (any object) to observe cognitive/memory floors}
+                            {--b717-fact-pair-consolidation-rerank-floors-contract= : JSON file (any object) to observe fact/pair/consolidation/rerank floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1634,6 +1635,7 @@ final class AtlasAaeosCommand extends Command
             ['b714-cognition-score-floors-contract', 'b714_cognition_score_floors_contract', fn (array $p) => $gates->b714CognitionScoreFloorsContractObserve($p)],
             ['b715-immune-signature-floors-contract', 'b715_immune_signature_floors_contract', fn (array $p) => $gates->b715ImmuneSignatureFloorsContractObserve($p)],
             ['b716-cognitive-memory-floors-contract', 'b716_cognitive_memory_floors_contract', fn (array $p) => $gates->b716CognitiveMemoryFloorsContractObserve($p)],
+            ['b717-fact-pair-consolidation-rerank-floors-contract', 'b717_fact_pair_consolidation_rerank_floors_contract', fn (array $p) => $gates->b717FactPairConsolidationRerankFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

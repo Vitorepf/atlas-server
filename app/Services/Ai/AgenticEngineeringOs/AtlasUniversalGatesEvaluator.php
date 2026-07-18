@@ -19675,4 +19675,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B717).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b717FactPairConsolidationRerankFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'contradicts' => FactPairPolarityContradictionDetector::FIELD_CONTRADICTS,
+            'kind' => FactPairPolarityContradictionDetector::FIELD_KIND,
+            'negated' => FactPairPolarityContradictionDetector::FIELD_NEGATED,
+            'value' => FactPairPolarityContradictionDetector::FIELD_VALUE,
+            'predicate' => FactPairPolarityContradictionDetector::FIELD_PREDICATE,
+            'subject' => FactPairPolarityContradictionDetector::FIELD_SUBJECT,
+            'hard_negation_contradiction' => FactPairPolarityContradictionDetector::FIELD_HARD_NEGATION_CONTRADICTION,
+            'none' => FactPairPolarityContradictionDetector::FIELD_NONE,
+            'unrelated' => FactPairPolarityContradictionDetector::FIELD_UNRELATED,
+            'hash' => AtlasConsolidationRerankGuard::FIELD_HASH,
+            'label' => AtlasConsolidationRerankGuard::FIELD_LABEL,
+            'atlas.cognition.rerank_guard.v1' => AtlasConsolidationRerankGuard::SCHEMA_VERSION,
+            '0.0005' => AtlasConsolidationRerankGuard::EPSILON,
+            'no_baseline' => AtlasConsolidationRerankGuard::STATUS_NO_BASELINE,
+            'unmeasured' => AtlasConsolidationRerankGuard::STATUS_UNMEASURED,
+            'ok' => AtlasConsolidationRerankGuard::STATUS_OK,
+            'precision_at_k' => AtlasConsolidationRerankGuard::FIELD_PRECISION_AT_K,
+            'reason' => AtlasConsolidationRerankGuard::FIELD_REASON,
+            'b717_fact_pair_consolidation_rerank_floor_count' => 18,
+        ];
+    }
+
 }
