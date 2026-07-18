@@ -70,6 +70,8 @@ final class OutcomeEnvelope
     public const FIELD_OUTCOME_ENVELOPE_VERIFIED_INVALID = 'outcome_envelope_verified_invalid';
     public const FIELD_OUTCOME_ENVELOPE_CERTIFIED_RECEIPT_ID_INVALID = 'outcome_envelope_certified_receipt_id_invalid';
     public const FIELD_OUTCOME_ENVELOPE_EVIDENCE_REF_COUNT_INVALID = 'outcome_envelope_evidence_ref_count_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_FIELDS_INVALID = 'outcome_envelope_native_divergent_fields_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_ORIGIN_MISMATCH = 'outcome_envelope_native_divergent_origin_mismatch';
 
     /**
      * Map divergent native status labels onto the shared envelope statuses.
@@ -180,10 +182,10 @@ final class OutcomeEnvelope
         }
         $divergentOrigin = AiValueNormalizer::lowerTrimmedString($divergent[self::FIELD_ORIGIN] ?? '');
         if ($divergentOrigin !== $origin) {
-            throw new InvalidArgumentException('outcome_envelope_native_divergent_origin_mismatch');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_ORIGIN_MISMATCH);
         }
         if (! is_array($divergent[self::FIELD_FIELDS] ?? null)) {
-            throw new InvalidArgumentException('outcome_envelope_native_divergent_fields_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_FIELDS_INVALID);
         }
 
         $executor = AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_EXECUTOR] ?? null) ?? '';

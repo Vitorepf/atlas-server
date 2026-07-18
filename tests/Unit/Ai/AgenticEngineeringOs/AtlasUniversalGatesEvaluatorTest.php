@@ -11218,4 +11218,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b539_aaeos_veto_segment_importance_flywheel_funnel_pre_review_floor_count']);
     }
 
+    public function test_b540_immune_calibration_daily_canary_aaeos_cognitive_lote_measure_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b540ImmuneCalibrationDailyCanaryAaeosCognitiveLoteMeasureFloorsContractObserve([]);
+        $this->assertSame(ImmuneCalibrationService::FIELD_KNOWN_MISS_SEED, $out['known_miss_seed']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_INFORMATIONAL_ONLY_NEVER_AUTO_ADJUSTS_GATE, $out['informational_only_never_auto_adjusts_gate']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_REF_STABILITY, $out['ref_stability']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_NO_RAW_QUERY_OR_CONTEXT_IN_REPORT_OR_LEDGER, $out['no_raw_query_or_context_in_report_or_ledger']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HAS_URL, $out['has_url']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IMPERATIVE_VERB, $out['imperative_verb']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_COMPLETION_CLAIM_ALLOWED_WITHOUT_PROVEN_REAL, $out['completion_claim_allowed_without_proven_real']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_FIXTURE_CHAIN, $out['fixture_chain']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_APP_ATLAS_EVIDENCE_RAGX_AB_REGISTRATIONS_JSONL, $out['app/atlas/evidence/ragx-ab-registrations.jsonl']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL, $out['atlas/atlas_decide/live_outcomes.jsonl']);
+        $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_FIELDS_INVALID, $out['outcome_envelope_native_divergent_fields_invalid']);
+        $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_ORIGIN_MISMATCH, $out['outcome_envelope_native_divergent_origin_mismatch']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_REVERSE_COMMAND, $out['reverse_command']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_TITLE, $out['title']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_CODE_STATUS, $out['code_status']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_PIPELINE_STATUS, $out['pipeline_status']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_WATCH_TIME_BELOW_CALIBRATED_THRESHOLD, $out['probation_watch_time_below_calibrated_threshold']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROVENANCE_CYCLE_DETECTED, $out['provenance_cycle_detected']);
+        $this->assertSame(18, $out['b540_immune_calibration_daily_canary_aaeos_cognitive_lote_measure_floor_count']);
+    }
+
 }

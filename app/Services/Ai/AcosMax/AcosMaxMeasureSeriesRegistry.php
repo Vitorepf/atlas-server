@@ -163,6 +163,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_ESP_00_GROUND_TRUTH_JSONL = 'app/atlas/evidence/acos-max-esp-00-ground-truth.jsonl';
     public const FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_MAXI_04_CLASSIFIER_HYBRID_JSONL = 'app/atlas/evidence/acos-max-maxi-04-classifier-hybrid.jsonl';
     public const FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_MAXM01_PROVIDER_LEAK_CORPUS_JSONL = 'app/atlas/evidence/acos-max-maxm01-provider-leak-corpus.jsonl';
+    public const FIELD_APP_ATLAS_EVIDENCE_RAGX_AB_REGISTRATIONS_JSONL = 'app/atlas/evidence/ragx-ab-registrations.jsonl';
+    public const FIELD_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL = 'atlas/atlas_decide/live_outcomes.jsonl';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -252,7 +254,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_ELEV_12,
                 self::FIELD_SERIES => AcosMaxVerifiedShareService::MEASURE_ID,
-                self::FIELD_PATH => storage_path('atlas/atlas_decide/live_outcomes.jsonl'),
+                self::FIELD_PATH => storage_path(self::FIELD_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxVerifiedShareService::freezePayload()[self::FIELD_TTL_DAYS],
@@ -647,7 +649,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_RAGX_07,
                 self::FIELD_SERIES => RagxChainMechanismService::AB_SCHEMA,
-                self::FIELD_PATH => storage_path('app/atlas/evidence/ragx-ab-registrations.jsonl'),
+                self::FIELD_PATH => storage_path(self::FIELD_APP_ATLAS_EVIDENCE_RAGX_AB_REGISTRATIONS_JSONL),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
                 self::FIELD_TTL_DAYS => self::INT_90,

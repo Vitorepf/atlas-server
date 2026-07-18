@@ -442,7 +442,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         $signals = [];
 
         if ($hasUrl) {
-            $signals[] = 'has_url';
+            $signals[] = self::FIELD_HAS_URL;
         }
         if ($hasSecretMarker) {
             $signals[] = self::FIELD_HAS_SECRET_MARKER;
@@ -451,7 +451,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
             $signals[] = 'is_question';
         }
         if ($imperativeVerb) {
-            $signals[] = 'imperative_verb';
+            $signals[] = self::FIELD_IMPERATIVE_VERB;
         }
         if ($privacyHint) {
             $signals[] = self::FIELD_PRIVACY_HINT;

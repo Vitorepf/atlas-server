@@ -119,6 +119,7 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_SECRET_OR_SENSITIVE_PRESENT = 'secret_or_sensitive_present';
     public const FIELD_PROBATION_RECALL_BELOW_CALIBRATED_THRESHOLD = 'probation_recall_below_calibrated_threshold';
     public const FIELD_PROBATION_SUPERVENING_CONTRADICTION_PRESENT = 'probation_supervening_contradiction_present';
+    public const FIELD_PROBATION_WATCH_TIME_BELOW_CALIBRATED_THRESHOLD = 'probation_watch_time_below_calibrated_threshold';
     public const INT_2 = 2;
 
     /**
@@ -303,7 +304,7 @@ final class CognitiveImmunePromotionGateEvaluator
         }
 
         if ($this->flag($signals, self::FIELD_PROVENANCE_CYCLE_DETECTED)) {
-            return [self::STATUS_BLOCK, 'provenance_cycle_detected'];
+            return [self::STATUS_BLOCK, self::FIELD_PROVENANCE_CYCLE_DETECTED];
         }
 
         return $candidatePresent
@@ -379,7 +380,7 @@ final class CognitiveImmunePromotionGateEvaluator
         }
 
         if ($this->probationWatchAgeDays($signals) < ImmuneCalibrationService::TTL_DAYS) {
-            return [self::STATUS_PENDING, 'probation_watch_time_below_calibrated_threshold'];
+            return [self::STATUS_PENDING, self::FIELD_PROBATION_WATCH_TIME_BELOW_CALIBRATED_THRESHOLD];
         }
 
         $recallEvidence = $this->probationRecallEvidence($signals);

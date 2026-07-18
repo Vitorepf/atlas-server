@@ -14237,4 +14237,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B540).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b540ImmuneCalibrationDailyCanaryAaeosCognitiveLoteMeasureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'known_miss_seed' => ImmuneCalibrationService::FIELD_KNOWN_MISS_SEED,
+            'informational_only_never_auto_adjusts_gate' => ImmuneCalibrationService::FIELD_INFORMATIONAL_ONLY_NEVER_AUTO_ADJUSTS_GATE,
+            'ref_stability' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_REF_STABILITY,
+            'no_raw_query_or_context_in_report_or_ledger' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_NO_RAW_QUERY_OR_CONTEXT_IN_REPORT_OR_LEDGER,
+            'has_url' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HAS_URL,
+            'imperative_verb' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IMPERATIVE_VERB,
+            'completion_claim_allowed_without_proven_real' => AcosMaxLote2MeasureService::FIELD_COMPLETION_CLAIM_ALLOWED_WITHOUT_PROVEN_REAL,
+            'fixture_chain' => AcosMaxLote2MeasureService::FIELD_FIXTURE_CHAIN,
+            'app/atlas/evidence/ragx-ab-registrations.jsonl' => AcosMaxMeasureSeriesRegistry::FIELD_APP_ATLAS_EVIDENCE_RAGX_AB_REGISTRATIONS_JSONL,
+            'atlas/atlas_decide/live_outcomes.jsonl' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL,
+            'outcome_envelope_native_divergent_fields_invalid' => OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_FIELDS_INVALID,
+            'outcome_envelope_native_divergent_origin_mismatch' => OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_ORIGIN_MISMATCH,
+            'reverse_command' => Teto10PredictedRevertReviewDigest::FIELD_REVERSE_COMMAND,
+            'title' => Teto10PredictedRevertReviewDigest::FIELD_TITLE,
+            'code_status' => AtlasCognitionScoreCardV4Grouper::FIELD_CODE_STATUS,
+            'pipeline_status' => AtlasCognitionScoreCardV4Grouper::FIELD_PIPELINE_STATUS,
+            'probation_watch_time_below_calibrated_threshold' => CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_WATCH_TIME_BELOW_CALIBRATED_THRESHOLD,
+            'provenance_cycle_detected' => CognitiveImmunePromotionGateEvaluator::FIELD_PROVENANCE_CYCLE_DETECTED,
+            'b540_immune_calibration_daily_canary_aaeos_cognitive_lote_measure_floor_count' => 18,
+        ];
+    }
+
 }

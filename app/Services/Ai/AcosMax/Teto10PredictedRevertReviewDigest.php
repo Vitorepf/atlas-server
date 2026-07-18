@@ -223,7 +223,7 @@ final class Teto10PredictedRevertReviewDigest
 
         return [
             self::FIELD_ID => $id !== '' ? $id : 'item-'.($index + 1),
-            self::FIELD_TITLE => self::firstString($item, ['title', self::FIELD_SUMMARY, self::FIELD_DESCRIPTION], 'Untitled review item'),
+            self::FIELD_TITLE => self::firstString($item, [self::FIELD_TITLE, self::FIELD_SUMMARY, self::FIELD_DESCRIPTION], 'Untitled review item'),
             self::FIELD_DECISION_ID => $decisionId !== '' ? $decisionId : null,
             self::FIELD_FAMILY => $family !== '' ? $family : self::BAND_UNKNOWN,
             self::FIELD_GROUP_KEY => $decisionId !== '' ? 'decision:'.$decisionId : 'family:'.($family !== '' ? $family : self::BAND_UNKNOWN),
@@ -376,7 +376,7 @@ final class Teto10PredictedRevertReviewDigest
      */
     private static function reverseCommand(array $item): string
     {
-        $command = self::firstString($item, ['reverse_command', self::FIELD_REVERSE_HANDLE, self::FIELD_ROLLBACK_COMMAND], '');
+        $command = self::firstString($item, [self::FIELD_REVERSE_COMMAND, self::FIELD_REVERSE_HANDLE, self::FIELD_ROLLBACK_COMMAND], '');
         if ($command === '' || $command === self::FIELD_MANUAL_REVIEW) {
             return self::FIELD_MANUAL_REVIEW;
         }

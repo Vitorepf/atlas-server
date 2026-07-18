@@ -131,7 +131,7 @@ final class AtlasCognitionScoreCardV4Grouper
             $buckets[$module][self::FIELD_ACRONYM] ??= $module;
             $buckets[$module][self::FIELD_NAME] ??= $this->moduleName($module);
             $buckets[$module][self::FIELD_SUBSYSTEM_COUNT] = ($buckets[$module][self::FIELD_SUBSYSTEM_COUNT] ?? 0) + 1;
-            foreach (['code_status', self::FIELD_DOC_STATUS, 'pipeline_status'] as $dim) {
+            foreach ([self::FIELD_CODE_STATUS, self::FIELD_DOC_STATUS, self::FIELD_PIPELINE_STATUS] as $dim) {
                 $buckets[$module][$dim][] = (AiValueNormalizer::trimmedStringOrNull($row[$dim] ?? null) ?? self::STATUS_BLOCKED);
             }
             $buckets[$module][self::FIELD_MEMBERS][] = (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_ACRONYM] ?? null) ?? '');

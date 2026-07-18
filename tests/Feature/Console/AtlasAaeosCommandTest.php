@@ -9293,6 +9293,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b540_immune_calibration_daily_canary_aaeos_cognitive_lote_measure_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b540-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b540',
+                '--b540-immune-calibration-daily-canary-aaeos-cognitive-lote-measure-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b540_immune_calibration_daily_canary_aaeos_cognitive_lote_measure_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

@@ -107,6 +107,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_V3 = 'v3';
     public const FIELD_V4 = 'v4';
     public const FIELD_WDG_01_DAILY_CANARY_REPLAY_BY_REFS = 'wdg-01.daily_canary_replay_by_refs';
+    public const FIELD_NO_RAW_QUERY_OR_CONTEXT_IN_REPORT_OR_LEDGER = 'no_raw_query_or_context_in_report_or_ledger';
 
 
     public function __construct(
@@ -155,7 +156,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_IMPROPER_FLOOR_DISCARDS => $golden[self::FIELD_IMPROPER_FLOOR_DISCARDS],
             self::FIELD_GOLDEN_STATUS => $golden[self::FIELD_STATUS],
             self::FIELD_GOLDEN_RECALL_AT_5_FLOOR => self::GOLDEN_RECALL_AT_5_ALERT_FLOOR,
-            self::FIELD_PROVIDER_SAFE_INVARIANT => 'no_raw_query_or_context_in_report_or_ledger',
+            self::FIELD_PROVIDER_SAFE_INVARIANT => self::FIELD_NO_RAW_QUERY_OR_CONTEXT_IN_REPORT_OR_LEDGER,
         ];
 
         $this->assertProviderSafeEvidence($evidence);
@@ -331,7 +332,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
 
         if ($refStability !== null && $refStability < self::REF_STABILITY_ALERT_FLOOR) {
             $violations[] = [
-                self::FIELD_METRIC => 'ref_stability',
+                self::FIELD_METRIC => self::FIELD_REF_STABILITY,
                 self::FIELD_VALUE => $refStability,
                 self::FIELD_FLOOR => self::REF_STABILITY_ALERT_FLOOR,
             ];

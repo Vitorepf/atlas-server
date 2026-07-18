@@ -125,6 +125,7 @@ final class ImmuneCalibrationService
     public const FIELD_CURSOR_ACOS_MAX_MAXI_03 = 'cursor-acos-max-maxi-03';
     public const FIELD_MAXI_03_KNOWN_MISS_G3_SEED_V1 = 'maxi-03-known-miss-g3-seed-v1';
     public const FIELD_MAXI_03_KNOWN_SHOULD_CATCH_G3 = 'maxi-03-known-should-catch-g3';
+    public const FIELD_INFORMATIONAL_ONLY_NEVER_AUTO_ADJUSTS_GATE = 'informational_only_never_auto_adjusts_gate';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -170,7 +171,7 @@ final class ImmuneCalibrationService
             ],
             self::FIELD_CAVEATS => [
                 self::FIELD_MISSED_POISON_RATE => 'lower_bound_known_miss: denominator is seeded known-should-catch plus labelled real known-miss samples only; never treated as calibrated when denominator is zero.',
-                self::FIELD_CONTROL => 'informational_only_never_auto_adjusts_gate',
+                self::FIELD_CONTROL => self::FIELD_INFORMATIONAL_ONLY_NEVER_AUTO_ADJUSTS_GATE,
             ],
             self::FIELD_GROUPS => $groups,
         ];
@@ -368,7 +369,7 @@ final class ImmuneCalibrationService
 
         return $this->ledger->sampleFromVerdict(
             hash(self::FIELD_SHA256, self::FIELD_MAXI_03_KNOWN_MISS_G3_SEED_V1),
-            'known_miss_seed',
+            self::FIELD_KNOWN_MISS_SEED,
             $this->evaluator->evaluate($signals),
             [
                 self::FIELD_EXPECTED_BLOCK_GATE_IDS => ['G3'],

@@ -328,6 +328,7 @@ final class AcosMaxLote2MeasureService
     public const FIELD_THRESHOLDS_DENOMINATOR_MIN_PAIRS = 'thresholds.denominator_min_pairs';
     public const FIELD_THRESHOLDS_DENOMINATOR_MIN_PROMOTED_LESSONS = 'thresholds.denominator_min_promoted_lessons';
     public const FIELD_THRESHOLDS_SAMPLE_RATE = 'thresholds.sample_rate';
+    public const FIELD_COMPLETION_CLAIM_ALLOWED_WITHOUT_PROVEN_REAL = 'completion_claim_allowed_without_proven_real';
     public const INT_3 = 3;
     public const FLOAT_0_0001 = 0.0001;
     public const FLOAT_0_05 = 0.05;
@@ -500,7 +501,7 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_PROVIDER_CALLS_MADE => false,
                 self::FIELD_MEMORY_WRITTEN => false,
                 self::FIELD_SYNTHETIC_FIXTURE_CLAIM_ALLOWED => false,
-                'completion_claim_allowed_without_proven_real' => false,
+                self::FIELD_COMPLETION_CLAIM_ALLOWED_WITHOUT_PROVEN_REAL => false,
             ],
         ];
     }
@@ -588,7 +589,7 @@ final class AcosMaxLote2MeasureService
             $blockedBy[] = self::FIELD_SUBSEQUENT_MEASURED_RECALL_MISSING;
         }
         if ($fixture) {
-            $blockedBy[] = 'fixture_chain';
+            $blockedBy[] = self::FIELD_FIXTURE_CHAIN;
         }
 
         $taskId = $this->firstNonEmpty([
