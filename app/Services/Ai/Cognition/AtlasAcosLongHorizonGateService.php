@@ -137,6 +137,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_DOES_NOT_INFLATE_SCORE = 'does_not_inflate_score';
     public const FIELD_DOES_NOT_MINT_RECEIPTS = 'does_not_mint_receipts';
     public const FIELD_GATE_V1_BYTE_IDENTICAL_WITHOUT_V2 = 'gate_v1_byte_identical_without_v2';
+    public const FIELD_LATEST_SERIES_OVERALL = 'latest_series_overall';
+    public const FIELD_LONGITUDINAL_AREA_FLOOR_V2 = 'longitudinal_area_floor_v2';
 
     /**
      * @param  array<string,mixed>  $options
@@ -434,7 +436,7 @@ final class AtlasAcosLongHorizonGateService
             'overall_score' => round($overall, 3),
             'pipeline_score' => round($pipeline, 3),
             self::FIELD_SCORECARD_HASH => $scorecardHash,
-            'latest_series_overall' => round($latestSeriesOverall, 3),
+            self::FIELD_LATEST_SERIES_OVERALL => round($latestSeriesOverall, 3),
             'min_certification_window_overall' => round($minCertificationWindowOverall, 3),
             self::FIELD_CERTIFICATION_WINDOW_DAYS_BELOW_FLOOR => $certificationWindowDaysBelowFloor,
             self::FIELD_FLOORS => [
@@ -969,7 +971,7 @@ final class AtlasAcosLongHorizonGateService
         if ($assessmentV2 !== null) {
             $payload[self::FIELD_ASSESSMENT_V2] = $assessmentV2;
             $payload[self::FIELD_EVIDENCE]['series_v2_rows_sampled'] = (int) (AiValueNormalizer::finiteFloatOrNull($assessmentV2[self::FIELD_SERIES_DAY_COUNT] ?? null) ?? 0);
-            $payload[self::FIELD_CLAIM_POLICY]['longitudinal_area_floor_v2'] = true;
+            $payload[self::FIELD_CLAIM_POLICY][self::FIELD_LONGITUDINAL_AREA_FLOOR_V2] = true;
             $payload[self::FIELD_CLAIM_POLICY][self::FIELD_GATE_V1_BYTE_IDENTICAL_WITHOUT_V2] = true;
         }
 

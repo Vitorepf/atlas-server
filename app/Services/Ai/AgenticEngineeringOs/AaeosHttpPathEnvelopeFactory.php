@@ -81,6 +81,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_SPEC = 'spec';
     public const FIELD_SPEC_INVOCATION = 'spec_invocation';
     public const FIELD_SPEC_REQUIRED = 'spec_required';
+    public const FIELD_TARGET_DEPARTMENT_DECLARED = 'target_department_declared';
+    public const FIELD_TASK_PACK_INVOCATION = 'task_pack_invocation';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -182,7 +184,7 @@ final class AaeosHttpPathEnvelopeFactory
             outputs: [
                 self::FIELD_FLOW_ID => $flowId,
                 self::FIELD_COMMAND_INTENT => $commandIntent,
-                'target_department_declared' => $declared ? 'yes' : 'no',
+                self::FIELD_TARGET_DEPARTMENT_DECLARED => $declared ? 'yes' : 'no',
             ],
             gates: self::binaryGate('intent_classification_target_department_declared', $declared),
             blockers: $declared
@@ -298,7 +300,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase4.tasks.r1_r2_fast_path',
             self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
             self::FIELD_OUTPUTS => [
-                'task_pack_invocation' => 'deferred',
+                self::FIELD_TASK_PACK_INVOCATION => 'deferred',
                 'task_pack_required' => 'yes',
             ],
             self::FIELD_REQUIRED_GATE => 'task_pack_atomic_true_for_each',

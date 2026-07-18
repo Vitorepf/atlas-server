@@ -62,6 +62,8 @@ final class RunbookOrchestrator
     public const FIELD_FREQUENCY = 'frequency';
     public const FIELD_HANDOFF_TO = 'handoff_to';
     public const FIELD_ID = 'id';
+    public const FIELD_INTENT = 'intent';
+    public const FIELD_INTENT_HASH = 'intent_hash';
 
     /**
      * Canonical default flow for a non-trivial intent. Trivial intents
@@ -107,7 +109,7 @@ final class RunbookOrchestrator
      */
     public function plan(array $request): array
     {
-        $intent = AiValueNormalizer::trimmedStringOrNull($request['intent'] ?? null) ?? '';
+        $intent = AiValueNormalizer::trimmedStringOrNull($request[self::FIELD_INTENT] ?? null) ?? '';
         $intentClass = AiValueNormalizer::trimmedStringOrNull($request[self::FIELD_INTENT_CLASS] ?? null) ?? $this->classify($intent);
         $needsResearch = (AiValueNormalizer::boolOrNull($request[self::FIELD_NEEDS_RESEARCH] ?? null) ?? false);
         $needsDebug = (AiValueNormalizer::boolOrNull($request[self::FIELD_NEEDS_DEBUG] ?? null) ?? false);
@@ -126,7 +128,7 @@ final class RunbookOrchestrator
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'intent_hash' => hash('sha256', $intent),
+            self::FIELD_INTENT_HASH => hash('sha256', $intent),
             self::FIELD_INTENT_CLASS => $intentClass,
             'stages' => $stages,
             'stage_count' => count($stages),

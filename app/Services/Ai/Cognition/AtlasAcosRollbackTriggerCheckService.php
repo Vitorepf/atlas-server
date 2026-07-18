@@ -58,6 +58,8 @@ final class AtlasAcosRollbackTriggerCheckService
     public const FIELD_FLIP_COUNT = 'flip_count';
     public const FIELD_KIND = 'kind';
     public const FIELD_REQUIRES_FLIP = 'requires_flip';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_SIMULATED = 'simulated';
 
 
     /**
@@ -95,7 +97,7 @@ final class AtlasAcosRollbackTriggerCheckService
                     self::FIELD_ROLLBACK_ACTION => $flip[self::FIELD_ROLLBACK_ACTION] ?? [],
                     self::FIELD_EXECUTOR => $flip[self::FIELD_EXECUTOR] ?? 'watchdog_alert_operator_reverts',
                     self::FIELD_CONDITION_KIND => data_get($flip, 'condition.kind'),
-                    'simulated' => $simulated,
+                    self::FIELD_SIMULATED => $simulated,
                 ];
             }
         }
@@ -109,7 +111,7 @@ final class AtlasAcosRollbackTriggerCheckService
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_CHECKED_AT => $asOf->toIso8601String(),
             self::FIELD_STATUS => $status,
             self::STATUS_ALERT => $alert,

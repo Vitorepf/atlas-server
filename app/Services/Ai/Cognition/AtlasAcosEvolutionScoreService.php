@@ -109,6 +109,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_INTELIGENCIA_ENTREGUE = 'inteligencia_entregue';
     public const FIELD_METHOD = 'method';
     public const FIELD_NOTES = 'notes';
+    public const FIELD_OK = 'ok';
+    public const FIELD_ORIGIN = 'origin';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -350,7 +352,7 @@ class AtlasAcosEvolutionScoreService
                 ->chunkById(500, function ($nodes) use (&$count): void {
                     foreach ($nodes as $node) {
                         $meta = AiValueNormalizer::arrayOrEmpty(json_decode((string) ($node->meta ?? ''), true));
-                        if (($meta['origin'] ?? '') === AtlasOpenBrainWriteBackService::MISSION_ORIGIN_SESSION_CAPTURE) {
+                        if (($meta[self::FIELD_ORIGIN] ?? '') === AtlasOpenBrainWriteBackService::MISSION_ORIGIN_SESSION_CAPTURE) {
                             continue;
                         }
                         if (AiValueNormalizer::trimmedStringOrNull($meta['provider'] ?? null) !== null
@@ -505,7 +507,7 @@ class AtlasAcosEvolutionScoreService
         try {
             $chain = (new AtlasEvolutionDiary)->verifyChain();
             $diaryCount = (int) (AiValueNormalizer::finiteFloatOrNull($chain[self::FIELD_COUNT] ?? null) ?? 0);
-            $diaryOk = ($chain['ok'] ?? false) === true && $diaryCount > 0;
+            $diaryOk = ($chain[self::FIELD_OK] ?? false) === true && $diaryCount > 0;
         } catch (Throwable) {
             $diaryOk = false;
         }

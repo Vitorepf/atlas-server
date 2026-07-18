@@ -7599,4 +7599,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['lote_measure_http_path_phase_handoff_aaeos_mission_floor_count']);
     }
 
+    public function test_lote_measure_http_path_mission_control_department_contract_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->loteMeasureHttpPathMissionControlDepartmentContractFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_REQUIRES_DELIVERED_CONTEXT_RECEIPT, $out['requires_delivered_context_receipt']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_REQUIRES_LEARNING_CANDIDATE, $out['requires_learning_candidate']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_TARGET_DEPARTMENT_DECLARED, $out['target_department_declared']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_TASK_PACK_INVOCATION, $out['task_pack_invocation']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_REQUIRED, $out['required']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_SCHEMA, $out['schema']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RULE_ID, $out['rule_id']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SCHEMA_FIELDS_12_PRESENT, $out['schema_fields_12_present']);
+        $this->assertSame(RunbookOrchestrator::FIELD_INTENT, $out['intent']);
+        $this->assertSame(RunbookOrchestrator::FIELD_INTENT_HASH, $out['intent_hash']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_OK, $out['ok']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_ORIGIN, $out['origin']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_LATEST_SERIES_OVERALL, $out['latest_series_overall']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_LONGITUDINAL_AREA_FLOOR_V2, $out['longitudinal_area_floor_v2']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_SIMULATED, $out['simulated']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_VALUE, $out['value']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_WINDOW_RECEIPTS, $out['window_receipts']);
+        $this->assertSame(18, $out['lote_measure_http_path_mission_control_department_contract_floor_count']);
+    }
+
 }

@@ -92,6 +92,8 @@ final class AtlasMissionControlCockpitService
     public const FIELD_RECOVERABLE = 'recoverable';
     public const FIELD_RECOVERABLE_COUNT = 'recoverable_count';
     public const FIELD_REPORT_HASH = 'report_hash';
+    public const FIELD_REQUIRED = 'required';
+    public const FIELD_SCHEMA = 'schema';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
@@ -136,7 +138,7 @@ final class AtlasMissionControlCockpitService
         $queueHealth = $this->buildQueueHealth($queueSignals);
 
         $payload = [
-            'schema' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA => self::SCHEMA_VERSION,
             self::FIELD_INTENT_ID => $intentId,
             self::FIELD_AUTONOMY_LEVEL => $autonomyLevel,
             self::FIELD_PHASE_COUNT => count(AaeosPhaseHandoffService::PHASES),
@@ -323,7 +325,7 @@ final class AtlasMissionControlCockpitService
             $gates = AiValueNormalizer::arrayOrEmpty($env[self::FIELD_GATES] ?? null);
             $blocked = AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_BLOCKED] ?? null);
             $passed = AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_PASSED] ?? null);
-            $required = AiValueNormalizer::arrayOrEmpty($gates['required'] ?? null);
+            $required = AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_REQUIRED] ?? null);
             $actor = AiValueNormalizer::arrayOrEmpty($env[self::FIELD_ACTOR] ?? null);
             $skipped = ! empty($env['skip_reason']);
             $status = $skipped ? self::STATUS_SKIPPED : (count($blocked) > 0 ? self::STATUS_BLOCKED : ($env[self::FIELD_ENDED_AT] ?? null ? self::STATUS_COMPLETE : self::STATUS_IN_PROGRESS));

@@ -186,6 +186,8 @@ final class DepartmentContractRuntime
     public const FIELD_HANDOFF_INVARIANTS = 'handoff_invariants';
     public const FIELD_OBSERVE = 'observe';
     public const FIELD_PASSED = 'passed';
+    public const FIELD_RULE_ID = 'rule_id';
+    public const FIELD_SCHEMA_FIELDS_12_PRESENT = 'schema_fields_12_present';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -536,7 +538,7 @@ final class DepartmentContractRuntime
                 'every_department_declares_12_canon_fields',
             ],
             self::FIELD_EVIDENCE_COUNT => count(array_unique(array_column(self::CATALOGUE, 'evidence_schema'))),
-            'schema_fields_12_present' => $this->schemaFields12Present(),
+            self::FIELD_SCHEMA_FIELDS_12_PRESENT => $this->schemaFields12Present(),
         ];
     }
 
@@ -691,7 +693,7 @@ final class DepartmentContractRuntime
         }
 
         return [
-            'rule_id' => 'risk_scope_below_min_autonomous',
+            self::FIELD_RULE_ID => 'risk_scope_below_min_autonomous',
             self::FIELD_GATE_REQUIRED => false,
             self::FIELD_PASSED => true,
             self::FIELD_REASON => null,

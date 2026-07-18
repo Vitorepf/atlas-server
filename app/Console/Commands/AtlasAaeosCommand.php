@@ -417,6 +417,7 @@ final class AtlasAaeosCommand extends Command
                             {--lote-measure-evidence-vision-exploratory-bets-pre-review-floors-contract= : JSON file (any object) to observe lote/measure/evidence/vision/exploratory/bets floors}
                             {--daily-canary-lote-measure-exploratory-bets-pre-review-floors-contract= : JSON file (any object) to observe daily/canary/lote/measure/exploratory/bets floors}
                             {--lote-measure-http-path-phase-handoff-aaeos-mission-floors-contract= : JSON file (any object) to observe lote/measure/http/path/phase/handoff floors}
+                            {--lote-measure-http-path-mission-control-department-contract-floors-contract= : JSON file (any object) to observe lote/measure/http/path/mission/control floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -990,6 +991,7 @@ final class AtlasAaeosCommand extends Command
             ['lote-measure-evidence-vision-exploratory-bets-pre-review-floors-contract', 'lote_measure_evidence_vision_exploratory_bets_pre_review_floors_contract', fn (array $p) => $gates->loteMeasureEvidenceVisionExploratoryBetsPreReviewFloorsContractObserve($p)],
             ['daily-canary-lote-measure-exploratory-bets-pre-review-floors-contract', 'daily_canary_lote_measure_exploratory_bets_pre_review_floors_contract', fn (array $p) => $gates->dailyCanaryLoteMeasureExploratoryBetsPreReviewFloorsContractObserve($p)],
             ['lote-measure-http-path-phase-handoff-aaeos-mission-floors-contract', 'lote_measure_http_path_phase_handoff_aaeos_mission_floors_contract', fn (array $p) => $gates->loteMeasureHttpPathPhaseHandoffAaeosMissionFloorsContractObserve($p)],
+            ['lote-measure-http-path-mission-control-department-contract-floors-contract', 'lote_measure_http_path_mission_control_department_contract_floors_contract', fn (array $p) => $gates->loteMeasureHttpPathMissionControlDepartmentContractFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

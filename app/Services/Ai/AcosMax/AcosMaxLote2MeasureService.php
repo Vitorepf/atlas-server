@@ -226,6 +226,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_REQUEST_TO_DELIVERY_P95_SECONDS = 'request_to_delivery_p95_seconds';
     public const FIELD_REQUIRES_CHAINED_IDS = 'requires_chained_ids';
     public const FIELD_REQUIRES_DECISION_RECEIPT_ID = 'requires_decision_receipt_id';
+    public const FIELD_REQUIRES_DELIVERED_CONTEXT_RECEIPT = 'requires_delivered_context_receipt';
+    public const FIELD_REQUIRES_LEARNING_CANDIDATE = 'requires_learning_candidate';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -424,8 +426,8 @@ final class AcosMaxLote2MeasureService
         return [
             self::FIELD_REQUIRES_PROVEN_REAL_OUTCOME => true,
             self::FIELD_REQUIRES_DECISION_RECEIPT_ID => true,
-            'requires_delivered_context_receipt' => true,
-            'requires_learning_candidate' => true,
+            self::FIELD_REQUIRES_DELIVERED_CONTEXT_RECEIPT => true,
+            self::FIELD_REQUIRES_LEARNING_CANDIDATE => true,
             'requires_subsequent_measured_recall' => true,
             self::FIELD_REQUIRES_ZERO_FIXTURE => true,
             self::FIELD_LEGACY_UNJOINED_ROWS => 'legacy_unjoined',

@@ -54,6 +54,8 @@ final class AtlasAcosWindowGatesService
     public const FIELD_NOTE = 'note';
     public const FIELD_RECEIPT_STATUS = 'receipt_status';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_VALUE = 'value';
+    public const FIELD_WINDOW_RECEIPTS = 'window_receipts';
 
     /** Receipt freshness before a certified gate is treated as stale (7 days). */
     public const RECEIPT_FRESH_SECONDS = 604800;
@@ -76,7 +78,7 @@ final class AtlasAcosWindowGatesService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_GENERATED_AT => gmdate('c'),
             self::FIELD_LIVE_DIMENSIONS => $this->liveDimensions(),
-            'window_receipts' => $this->windowReceipts(),
+            self::FIELD_WINDOW_RECEIPTS => $this->windowReceipts(),
             self::FIELD_NOTE => 'Gates de valor/janela são código-completo, prova pendente: a certificação enche na cadência de dados reais. Nada aqui é fabricado — valores medidos + veredito da própria fonte.',
         ];
     }
@@ -123,7 +125,7 @@ final class AtlasAcosWindowGatesService
         }
         $value = $dims[$key];
 
-        $out = [self::FIELD_GATE => $gate, self::FIELD_TARGET => $target, 'value' => $value];
+        $out = [self::FIELD_GATE => $gate, self::FIELD_TARGET => $target, self::FIELD_VALUE => $value];
         $numeric = AiValueNormalizer::finiteFloatOrNull($value);
         if ($assert && $threshold !== null && $numeric !== null) {
             $out[self::FIELD_STATUS] = $numeric >= $threshold ? self::STATUS_MET : self::STATUS_AGUARDANDO_JANELA;
