@@ -59,6 +59,8 @@ final class AcosProgramCockpitService
     public const FIELD_MULTX_02 = 'MULTX-02';
     public const FIELD_ATLAS_PROMOTIONS = 'atlas:promotions';
     public const FIELD_ATLAS_WINDOWS = 'atlas:windows';
+    public const FIELD___JSON = '--json';
+    public const FIELD___REGRET = '--regret';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -72,11 +74,11 @@ final class AcosProgramCockpitService
             self::FIELD_PROVIDER_TOKENS_SPENT => false,
             self::FIELD_MUTATES_STATE => false,
             self::FIELD_SECTIONS => [
-                'm' => $this->commandSection('atlas:acos:m-series --json', 'atlas:acos:m-series', ['--json' => true]),
-                'r' => $this->commandSection('atlas:atlas-decide:live-feedback --regret --json', 'atlas:atlas-decide:live-feedback', ['--regret' => true, '--json' => true]),
+                'm' => $this->commandSection('atlas:acos:m-series --json', 'atlas:acos:m-series', [self::FIELD___JSON => true]),
+                'r' => $this->commandSection('atlas:atlas-decide:live-feedback --regret --json', 'atlas:atlas-decide:live-feedback', [self::FIELD___REGRET => true, self::FIELD___JSON => true]),
                 self::FIELD_LOOPS_FUNNEL => $this->loopsFunnelSection(),
-                self::FIELD_WINDOWS => $this->commandSection('atlas:windows --json', self::FIELD_ATLAS_WINDOWS, ['--json' => true]),
-                self::FIELD_PENDING_FLIPS => $this->commandSection('atlas:promotions --json', self::FIELD_ATLAS_PROMOTIONS, ['--json' => true]),
+                self::FIELD_WINDOWS => $this->commandSection('atlas:windows --json', self::FIELD_ATLAS_WINDOWS, [self::FIELD___JSON => true]),
+                self::FIELD_PENDING_FLIPS => $this->commandSection('atlas:promotions --json', self::FIELD_ATLAS_PROMOTIONS, [self::FIELD___JSON => true]),
                 self::FIELD_REVIEW_DEBT => $this->callbackSection(
                     'AtlasOperatorReviewDebtMeter::report(7)',
                     fn (): array => (new AtlasOperatorReviewDebtMeter)->report(7),
@@ -139,7 +141,7 @@ final class AcosProgramCockpitService
                 self::FIELD_FUNNEL => 'MULTX-02 future source',
             ],
             self::FIELD_PAYLOAD => [
-                self::FIELD_LOOPS => $this->commandSection('atlas:flywheel:loops --json', 'atlas:flywheel:loops', ['--json' => true]),
+                self::FIELD_LOOPS => $this->commandSection('atlas:flywheel:loops --json', 'atlas:flywheel:loops', [self::FIELD___JSON => true]),
                 self::FIELD_FUNNEL => [
                     self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
                     self::FIELD_SOURCE => self::FIELD_MULTX_02,
@@ -159,8 +161,8 @@ final class AcosProgramCockpitService
                 self::FIELD_OPERATIONAL_VOLUME => 'atlas:acos:operational-volume --json',
             ],
             self::FIELD_PAYLOAD => [
-                self::FIELD_ROLLBACK_TRIGGERS => $this->commandSection('atlas:acos:rollback-triggers --json', 'atlas:acos:rollback-triggers', ['--json' => true]),
-                self::FIELD_OPERATIONAL_VOLUME => $this->commandSection('atlas:acos:operational-volume --json', 'atlas:acos:operational-volume', ['--json' => true]),
+                self::FIELD_ROLLBACK_TRIGGERS => $this->commandSection('atlas:acos:rollback-triggers --json', 'atlas:acos:rollback-triggers', [self::FIELD___JSON => true]),
+                self::FIELD_OPERATIONAL_VOLUME => $this->commandSection('atlas:acos:operational-volume --json', 'atlas:acos:operational-volume', [self::FIELD___JSON => true]),
             ],
         ];
     }

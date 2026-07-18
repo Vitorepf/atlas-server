@@ -13989,4 +13989,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B532).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b532KnowledgeItemDepartmentContractLoteMeasureAcosWatchdogFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'embedded_content_hash' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_EMBEDDED_CONTENT_HASH,
+            'atlas_engineering_knowledge_items' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS,
+            'evidence_required' => DepartmentContractRuntime::FIELD_EVIDENCE_REQUIRED,
+            'evidence_schema' => DepartmentContractRuntime::FIELD_EVIDENCE_SCHEMA,
+            'control' => AcosMaxLote2MeasureService::FIELD_CONTROL,
+            'decision_id' => AcosMaxLote2MeasureService::FIELD_DECISION_ID,
+            'correlation_id' => AtlasAcosWatchdogHealthService::FIELD_CORRELATION_ID,
+            'synthetic' => AtlasAcosWatchdogHealthService::FIELD_SYNTHETIC,
+            'batched_ask' => Teto10PredictedRevertReviewDigest::FIELD_BATCHED_ASK,
+            'flip_ref' => Teto10PredictedRevertReviewDigest::FIELD_FLIP_REF,
+            'confidence' => AtlasDocsAuthorityGraphService::FIELD_CONFIDENCE,
+            'doc_id' => AtlasDocsAuthorityGraphService::FIELD_DOC_ID,
+            '--json' => AcosProgramCockpitService::FIELD___JSON,
+            '--regret' => AcosProgramCockpitService::FIELD___REGRET,
+            'receipt' => AaeosHttpPathEnvelopeFactory::FIELD_RECEIPT,
+            'routing' => AaeosHttpPathEnvelopeFactory::FIELD_ROUTING,
+            'code' => AtlasAcosLongHorizonGateService::FIELD_CODE,
+            'app/atlas/evidence/acos-delta-series.jsonl' => AtlasAcosLongHorizonGateService::FIELD_APP_ATLAS_EVIDENCE_ACOS_DELTA_SERIES_JSONL,
+            'b532_knowledge_item_department_contract_lote_measure_acos_watchdog_floor_count' => 18,
+        ];
+    }
+
 }

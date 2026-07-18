@@ -145,7 +145,7 @@ class AtlasDocsAuthorityGraphService
         };
 
         if ($ownerId !== '') {
-            $add('doc_id', $ownerId, 'doc_id');
+            $add(self::FIELD_DOC_ID, $ownerId, self::FIELD_DOC_ID);
         }
         foreach (AiValueNormalizer::arrayOrEmpty($frontmatter[self::FIELD_GOVERNS] ?? null) as $governs) {
             $add('governs', $governs, 'governs_frontmatter');
@@ -177,7 +177,7 @@ class AtlasDocsAuthorityGraphService
 
         $exact = AtlasDocsAuthorityGraph::query()
             ->where(self::FIELD_NEEDLE_NORMALIZED, $normalized)
-            ->orderByDesc('confidence')
+            ->orderByDesc(self::FIELD_CONFIDENCE)
             ->limit($limit)
             ->get();
 
@@ -198,7 +198,7 @@ class AtlasDocsAuthorityGraphService
                         ->orWhere('owner_doc_id', self::FIELD_LIKE, '%'.$variant.'%');
                 }
             })
-            ->orderByDesc('confidence')
+            ->orderByDesc(self::FIELD_CONFIDENCE)
             ->limit($limit)
             ->get();
 

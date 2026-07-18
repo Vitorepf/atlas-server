@@ -390,7 +390,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     public function routing(string $intentId, string $intentHash, string $riskBand): array
     {
-        return $this->deferredPhase('routing', $intentId, $intentHash, $riskBand);
+        return $this->deferredPhase(self::FIELD_ROUTING, $intentId, $intentHash, $riskBand);
     }
 
     /**
@@ -414,7 +414,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     public function receipt(string $intentId, string $intentHash, string $riskBand): array
     {
-        return $this->deferredPhase('receipt', $intentId, $intentHash, $riskBand);
+        return $this->deferredPhase(self::FIELD_RECEIPT, $intentId, $intentHash, $riskBand);
     }
 
     /**

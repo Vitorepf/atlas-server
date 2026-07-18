@@ -554,6 +554,7 @@ final class AtlasAaeosCommand extends Command
                             {--b529-acos-watchdog-long-verified-share-pre-review-golden-floors-contract= : JSON file (any object) to observe acos/watchdog/long/verified/share/pre floors}
                             {--b530-immune-signature-calibration-aemor-outcome-compounding-evidence-vision-floors-contract= : JSON file (any object) to observe immune/signature/calibration/aemor/outcome/compounding floors}
                             {--b531-memory-feedback-aaeos-test-implementation-department-contract-lote-floors-contract= : JSON file (any object) to observe memory/feedback/aaeos/test/implementation/department floors}
+                            {--b532-knowledge-item-department-contract-lote-measure-acos-watchdog-floors-contract= : JSON file (any object) to observe knowledge/item/department/contract/lote/measure floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1264,6 +1265,7 @@ final class AtlasAaeosCommand extends Command
             ['b529-acos-watchdog-long-verified-share-pre-review-golden-floors-contract', 'b529_acos_watchdog_long_verified_share_pre_review_golden_floors_contract', fn (array $p) => $gates->b529AcosWatchdogLongVerifiedSharePreReviewGoldenFloorsContractObserve($p)],
             ['b530-immune-signature-calibration-aemor-outcome-compounding-evidence-vision-floors-contract', 'b530_immune_signature_calibration_aemor_outcome_compounding_evidence_vision_floors_contract', fn (array $p) => $gates->b530ImmuneSignatureCalibrationAemorOutcomeCompoundingEvidenceVisionFloorsContractObserve($p)],
             ['b531-memory-feedback-aaeos-test-implementation-department-contract-lote-floors-contract', 'b531_memory_feedback_aaeos_test_implementation_department_contract_lote_floors_contract', fn (array $p) => $gates->b531MemoryFeedbackAaeosTestImplementationDepartmentContractLoteFloorsContractObserve($p)],
+            ['b532-knowledge-item-department-contract-lote-measure-acos-watchdog-floors-contract', 'b532_knowledge_item_department_contract_lote_measure_acos_watchdog_floors_contract', fn (array $p) => $gates->b532KnowledgeItemDepartmentContractLoteMeasureAcosWatchdogFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

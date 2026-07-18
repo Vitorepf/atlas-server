@@ -561,7 +561,7 @@ final class AcosMaxLote2MeasureService
         );
 
         $decisionId = $this->firstNonEmpty([
-            data_get($outcomePayload, 'decision_id'),
+            data_get($outcomePayload, self::FIELD_DECISION_ID),
             data_get($outcomePayload, self::FIELD_DECISION_RECEIPT_ID),
             data_get($outcomePayload, self::FIELD_RECEIPT_ID),
         ]);
@@ -1122,7 +1122,7 @@ final class AcosMaxLote2MeasureService
         $arm = AiValueNormalizer::lowerTrimmedString($arm);
 
         return match ($arm) {
-            'control', self::FIELD_WITHOUT, self::FIELD_WITHOUT_LESSON => 'control',
+            self::FIELD_CONTROL, self::FIELD_WITHOUT, self::FIELD_WITHOUT_LESSON => self::FIELD_CONTROL,
             self::FIELD_TREATMENT, self::FIELD_WITH, self::FIELD_WITH_LESSON => self::FIELD_TREATMENT,
             default => '',
         };

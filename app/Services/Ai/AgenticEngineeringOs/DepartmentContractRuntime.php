@@ -437,7 +437,7 @@ final class DepartmentContractRuntime
         'allowed_actions',
         'forbidden_actions',
         'escalation_to',
-        'evidence_required',
+        self::FIELD_EVIDENCE_REQUIRED,
         'persistence',
         'observability_signals',
     ];
@@ -769,7 +769,7 @@ final class DepartmentContractRuntime
                 self::FIELD_EVERY_DEPARTMENT_DECLARES_EVIDENCE_SCHEMA,
                 self::FIELD_EVERY_DEPARTMENT_DECLARES_12_CANON_FIELDS,
             ],
-            self::FIELD_EVIDENCE_COUNT => count(array_unique(array_column(self::CATALOGUE, 'evidence_schema'))),
+            self::FIELD_EVIDENCE_COUNT => count(array_unique(array_column(self::CATALOGUE, self::FIELD_EVIDENCE_SCHEMA))),
             self::FIELD_SCHEMA_FIELDS_12_PRESENT => $this->schemaFields12Present(),
         ];
     }

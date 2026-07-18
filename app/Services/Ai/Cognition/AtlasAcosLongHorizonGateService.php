@@ -188,6 +188,7 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_SCORE_OVERALL_OUT_OF_10 = 'score.overall_out_of_10';
     public const FIELD_SOURCES_SCORECARD = 'sources.scorecard';
     public const FIELD_SOURCES_SCORECARD_OVERALL = 'sources.scorecard_overall';
+    public const FIELD_APP_ATLAS_EVIDENCE_ACOS_DELTA_SERIES_JSONL = 'app/atlas/evidence/acos-delta-series.jsonl';
     public const INT_2 = 2;
     public const FLOAT_9_5 = 9.5;
     public const FLOAT_0_0 = 0.0;
@@ -217,7 +218,7 @@ final class AtlasAcosLongHorizonGateService
         $warningMargin = $this->clampOutOfTen($options[self::FIELD_WARNING_MARGIN] ?? $cfg[self::FIELD_WARNING_MARGIN] ?? self::DEFAULT_WARNING_MARGIN, self::DEFAULT_WARNING_MARGIN);
         $maxLatestStaleDays = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($options[self::FIELD_MAX_LATEST_STALE_DAYS] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($cfg[self::FIELD_MAX_LATEST_STALE_DAYS] ?? null) ?? self::DEFAULT_MAX_LATEST_STALE_DAYS));
         $maxGapDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($options[self::FIELD_MAX_GAP_DAYS] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($cfg[self::FIELD_MAX_GAP_DAYS] ?? null) ?? self::DEFAULT_MAX_GAP_DAYS));
-        $seriesPath = AiValueNormalizer::trimmedStringOrNull($options[self::FIELD_SERIES_PATH] ?? $cfg[self::FIELD_SERIES_PATH] ?? null) ?? storage_path('app/atlas/evidence/acos-delta-series.jsonl');
+        $seriesPath = AiValueNormalizer::trimmedStringOrNull($options[self::FIELD_SERIES_PATH] ?? $cfg[self::FIELD_SERIES_PATH] ?? null) ?? storage_path(self::FIELD_APP_ATLAS_EVIDENCE_ACOS_DELTA_SERIES_JSONL);
         $seriesV2Path = AiValueNormalizer::trimmedStringOrNull($options[self::FIELD_SERIES_V2_PATH] ?? $cfg[self::FIELD_SERIES_V2_PATH] ?? null) ?? storage_path('app/atlas/evidence/acos-delta-series.v2.jsonl');
         $minAreaOverall = $this->clampOutOfTen($options[self::FIELD_MIN_AREA_OVERALL] ?? $cfg[self::FIELD_MIN_AREA_OVERALL] ?? $minOverall, $minOverall);
         $minAreaCode = $this->clampOutOfTen($options[self::FIELD_MIN_AREA_CODE] ?? $cfg[self::FIELD_MIN_AREA_CODE] ?? $minAreaOverall, $minAreaOverall);
@@ -741,7 +742,7 @@ final class AtlasAcosLongHorizonGateService
                 }
 
                 $dayBelow = false;
-                foreach (['overall', 'code', 'doc', 'pipeline'] as $dimension) {
+                foreach (['overall', self::FIELD_CODE, 'doc', 'pipeline'] as $dimension) {
                     $score = round(AiValueNormalizer::finiteFloatOrNull($scores[$dimension] ?? 0.0) ?? 0.0, 3);
                     $minAreaScores[$area][$dimension] = isset($minAreaScores[$area][$dimension])
                         ? min($minAreaScores[$area][$dimension], $score)

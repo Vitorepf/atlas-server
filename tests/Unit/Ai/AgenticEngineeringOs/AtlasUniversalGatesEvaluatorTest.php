@@ -11018,4 +11018,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b531_memory_feedback_aaeos_test_implementation_department_contract_lote_floor_count']);
     }
 
+    public function test_b532_knowledge_item_department_contract_lote_measure_acos_watchdog_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b532KnowledgeItemDepartmentContractLoteMeasureAcosWatchdogFloorsContractObserve([]);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_EMBEDDED_CONTENT_HASH, $out['embedded_content_hash']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS, $out['atlas_engineering_knowledge_items']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EVIDENCE_REQUIRED, $out['evidence_required']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EVIDENCE_SCHEMA, $out['evidence_schema']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CONTROL, $out['control']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DECISION_ID, $out['decision_id']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CORRELATION_ID, $out['correlation_id']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SYNTHETIC, $out['synthetic']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_BATCHED_ASK, $out['batched_ask']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_FLIP_REF, $out['flip_ref']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_CONFIDENCE, $out['confidence']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_DOC_ID, $out['doc_id']);
+        $this->assertSame(AcosProgramCockpitService::FIELD___JSON, $out['--json']);
+        $this->assertSame(AcosProgramCockpitService::FIELD___REGRET, $out['--regret']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_RECEIPT, $out['receipt']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ROUTING, $out['routing']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_CODE, $out['code']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_APP_ATLAS_EVIDENCE_ACOS_DELTA_SERIES_JSONL, $out['app/atlas/evidence/acos-delta-series.jsonl']);
+        $this->assertSame(18, $out['b532_knowledge_item_department_contract_lote_measure_acos_watchdog_floor_count']);
+    }
+
 }

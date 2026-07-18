@@ -140,8 +140,8 @@ final class Teto10PredictedRevertReviewDigest
             self::FIELD_BAND_ORDER => [self::BAND_HIGH, self::BAND_SWEET, self::BAND_LOW, self::BAND_UNKNOWN],
             self::FIELD_BAND_COUNTS => $bandCounts,
             self::FIELD_GROUPS => $groups,
-            self::FIELD_PENDING_FLIPS => self::flaggedSection($shown, 'pending_flip', 'flip_ref'),
-            self::FIELD_BATCHED_ASKS => self::flaggedSection($shown, 'batched_ask', self::FIELD_ASK_REF),
+            self::FIELD_PENDING_FLIPS => self::flaggedSection($shown, 'pending_flip', self::FIELD_FLIP_REF),
+            self::FIELD_BATCHED_ASKS => self::flaggedSection($shown, self::FIELD_BATCHED_ASK, self::FIELD_ASK_REF),
             self::FIELD_SOURCE => [
                 self::FIELD_SLICE => self::FIELD_TETO_10,
                 self::FIELD_FRONTIER_PLAN_SECTION => '3144-3147',
@@ -234,7 +234,7 @@ final class Teto10PredictedRevertReviewDigest
             self::FIELD_REVERSE_COMMAND => $reverse,
             self::FIELD_REVIEW_MODE => $reverse === self::FIELD_MANUAL_REVIEW ? self::FIELD_MANUAL_REVIEW : self::FIELD_REVERSIBLE,
             self::FIELD_PENDING_FLIP => (AiValueNormalizer::boolOrNull($item[self::FIELD_PENDING_FLIP] ?? null) ?? false),
-            self::FIELD_FLIP_REF => self::firstString($item, ['flip_ref', self::FIELD_FLIP_ID], ''),
+            self::FIELD_FLIP_REF => self::firstString($item, [self::FIELD_FLIP_REF, self::FIELD_FLIP_ID], ''),
             self::FIELD_BATCHED_ASK => (AiValueNormalizer::boolOrNull($item[self::FIELD_BATCHED_ASK] ?? null) ?? false),
             self::FIELD_ASK_REF => self::firstString($item, [self::FIELD_ASK_REF, self::FIELD_ASK_ID], ''),
         ];

@@ -636,7 +636,7 @@ final class AtlasAcosWatchdogHealthService
             $isMeasured = (int) $event->post_execution_utility > 0 || (int) $event->context_sufficiency > 0 || (int) $event->used_sources > 0;
             $hasDelivered = (int) $event->included_sources > 0 || (AiValueNormalizer::trimmedStringOrNull($event->retrieval_receipt_id) ?? '') !== '';
             $payload = AiValueNormalizer::arrayOrEmpty($event->payload);
-            $isSynthetic = ($payload[self::FIELD_SYNTHETIC] ?? false) === true || str_contains(AiValueNormalizer::lowerTrimmedString($payload[self::FIELD_SOURCE] ?? ''), 'synthetic');
+            $isSynthetic = ($payload[self::FIELD_SYNTHETIC] ?? false) === true || str_contains(AiValueNormalizer::lowerTrimmedString($payload[self::FIELD_SOURCE] ?? ''), self::FIELD_SYNTHETIC);
             $isTranscript = str_contains(AiValueNormalizer::lowerTrimmedString($payload[self::FIELD_SOURCE] ?? $payload[self::FIELD_ORIGIN] ?? ''), self::FIELD_TRANSCRIPT_INFERRED);
             $measured += $isMeasured ? 1 : 0;
             $delivered += $hasDelivered ? 1 : 0;
@@ -1105,7 +1105,7 @@ final class AtlasAcosWatchdogHealthService
             } else {
                 // Repair migrations may recreate the ledger without scope columns;
                 // correlation_id still scopes watchdog blocker history honestly.
-                $query->where('correlation_id', 'acos:watchdog:'.$scopeId);
+                $query->where(self::FIELD_CORRELATION_ID, 'acos:watchdog:'.$scopeId);
             }
             $first = $query->first();
             $firstAt = $this->parseDate($first?->occurred_at) ?? CarbonImmutable::now(self::FIELD_UTC);

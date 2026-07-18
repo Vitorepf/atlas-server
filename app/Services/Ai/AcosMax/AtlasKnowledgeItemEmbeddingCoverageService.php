@@ -138,8 +138,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
             return $this->emptyReport(self::STATUS_TABLE_MISSING, self::FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS_MISSING, $freeze);
         }
 
-        $columnsReady = DatabaseTableAvailability::hasColumn('atlas_engineering_knowledge_items', 'embedding_model')
-            && DatabaseTableAvailability::hasColumn('atlas_engineering_knowledge_items', 'embedded_content_hash');
+        $columnsReady = DatabaseTableAvailability::hasColumn(self::FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS, 'embedding_model')
+            && DatabaseTableAvailability::hasColumn(self::FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS, self::FIELD_EMBEDDED_CONTENT_HASH);
 
         if (! $columnsReady) {
             return $this->emptyReport(self::FIELD_COLUMNS_MISSING, self::FIELD_PROVENANCE_COLUMNS_NOT_MIGRATED, $freeze);
@@ -160,19 +160,19 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
         $covered = (clone $baseQuery)
             ->whereNotNull(self::FIELD_EMBEDDING_MODEL)
             ->whereNotNull(self::FIELD_EMBEDDED_CONTENT_HASH)
-            ->whereColumn('embedded_content_hash', self::FIELD_CONTENT_HASH)
+            ->whereColumn(self::FIELD_EMBEDDED_CONTENT_HASH, self::FIELD_CONTENT_HASH)
             ->count();
 
         $stale = (clone $baseQuery)
             ->whereNotNull(self::FIELD_EMBEDDING_MODEL)
             ->whereNotNull(self::FIELD_EMBEDDED_CONTENT_HASH)
-            ->whereColumn('embedded_content_hash', '!=', self::FIELD_CONTENT_HASH)
+            ->whereColumn(self::FIELD_EMBEDDED_CONTENT_HASH, '!=', self::FIELD_CONTENT_HASH)
             ->count();
 
         $missing = (clone $baseQuery)
             ->where(function ($q): void {
                 $q->whereNull(self::FIELD_EMBEDDING_MODEL)
-                    ->orWhereNull('embedded_content_hash');
+                    ->orWhereNull(self::FIELD_EMBEDDED_CONTENT_HASH);
             })
             ->count();
 
