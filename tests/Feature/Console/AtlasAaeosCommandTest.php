@@ -9755,6 +9755,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b573_obra_retro_evidence_vision_ragx_chain_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b573-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b573',
+                '--b573-obra-retro-evidence-vision-ragx-chain-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b573_obra_retro_evidence_vision_ragx_chain_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

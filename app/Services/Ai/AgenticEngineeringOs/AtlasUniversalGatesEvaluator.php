@@ -15241,4 +15241,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B573).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b573ObraRetroEvidenceVisionRagxChainFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'lote' => AcosMaxObraRetroService::FIELD_LOTE,
+            'reason' => AcosMaxObraRetroService::FIELD_REASON,
+            'lessons' => AcosMaxObraRetroService::FIELD_LESSONS,
+            'slice_state' => AcosMaxObraRetroService::FIELD_SLICE_STATE,
+            'path' => AcosMaxObraRetroService::FIELD_PATH,
+            'ids' => AcosMaxObraRetroService::FIELD_IDS,
+            'expires_at' => EvidenceVisionThesisComposer::FIELD_EXPIRES_AT,
+            'file' => EvidenceVisionThesisComposer::FIELD_FILE,
+            'line' => EvidenceVisionThesisComposer::FIELD_LINE,
+            'human_authored_claims' => EvidenceVisionThesisComposer::FIELD_HUMAN_AUTHORED_CLAIMS,
+            'influences_pick_mode' => EvidenceVisionThesisComposer::FIELD_INFLUENCES_PICK_MODE,
+            'provider_calls_made' => EvidenceVisionThesisComposer::FIELD_PROVIDER_CALLS_MADE,
+            'documents' => RagxChainMechanismService::FIELD_DOCUMENTS,
+            'mechanisms' => RagxChainMechanismService::FIELD_MECHANISMS,
+            'flags' => RagxChainMechanismService::FIELD_FLAGS,
+            'registered' => RagxChainMechanismService::FIELD_REGISTERED,
+            'id' => RagxChainMechanismService::FIELD_ID,
+            'generated_summary' => RagxChainMechanismService::FIELD_GENERATED_SUMMARY,
+            'b573_obra_retro_evidence_vision_ragx_chain_floor_count' => 18,
+        ];
+    }
+
 }

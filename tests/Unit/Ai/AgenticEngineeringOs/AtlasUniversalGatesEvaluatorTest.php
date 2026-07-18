@@ -12024,4 +12024,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b572_execution_context_immune_signature_aaeos_veto_floor_count']);
     }
 
+    public function test_b573_obra_retro_evidence_vision_ragx_chain_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b573ObraRetroEvidenceVisionRagxChainFloorsContractObserve([]);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_LOTE, $out['lote']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_LESSONS, $out['lessons']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_SLICE_STATE, $out['slice_state']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_PATH, $out['path']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_IDS, $out['ids']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_EXPIRES_AT, $out['expires_at']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_FILE, $out['file']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_LINE, $out['line']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_HUMAN_AUTHORED_CLAIMS, $out['human_authored_claims']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_INFLUENCES_PICK_MODE, $out['influences_pick_mode']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_PROVIDER_CALLS_MADE, $out['provider_calls_made']);
+        $this->assertSame(RagxChainMechanismService::FIELD_DOCUMENTS, $out['documents']);
+        $this->assertSame(RagxChainMechanismService::FIELD_MECHANISMS, $out['mechanisms']);
+        $this->assertSame(RagxChainMechanismService::FIELD_FLAGS, $out['flags']);
+        $this->assertSame(RagxChainMechanismService::FIELD_REGISTERED, $out['registered']);
+        $this->assertSame(RagxChainMechanismService::FIELD_ID, $out['id']);
+        $this->assertSame(RagxChainMechanismService::FIELD_GENERATED_SUMMARY, $out['generated_summary']);
+        $this->assertSame(18, $out['b573_obra_retro_evidence_vision_ragx_chain_floor_count']);
+    }
+
 }
