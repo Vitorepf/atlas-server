@@ -349,6 +349,10 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_LINKER_MEMORY_CODE = 'linker_memory_code';
     public const FIELD_MEASURED_COUNT_BELOW_FLOOR = 'measured_count_below_floor';
     public const FIELD_MEMORY_CROSS_LAYER_COVERAGE_BELOW_FLOOR = 'memory_cross_layer_coverage_below_floor';
+    public const FIELD_PIPELINE_PARTIAL_STALE_AFTER_MINT_WINDOW = 'pipeline_partial_stale_after_mint_window';
+    public const FIELD_PIPELINE_SCORE_BELOW_PERFECT = 'pipeline_score_below_perfect';
+    public const FIELD_RECALL_AT_5_BELOW_FLOOR_OR_UNMEASURED = 'recall_at_5_below_floor_or_unmeasured';
+    public const FIELD_REGRESSED = 'regressed';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -366,7 +370,7 @@ final class AtlasAcosWatchdogHealthService
         $trendStatus = AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'trend.status')) ?? self::STATUS_UNKNOWN;
         $currentDelta = data_get($scorecard, 'trend.current_delta_from_latest');
         $latestDelta = data_get($scorecard, 'trend.latest_delta_from_previous');
-        $scoreRegressed = in_array($trendStatus, ['regressed', 'watch_regressed'], true)
+        $scoreRegressed = in_array($trendStatus, [self::FIELD_REGRESSED, 'watch_regressed'], true)
             || (is_numeric($currentDelta) && (int) $currentDelta < -self::MEMORY_SCORE_REGRESSION_TOLERANCE)
             || (is_numeric($latestDelta) && (int) $latestDelta < -self::MEMORY_SCORE_REGRESSION_TOLERANCE);
 
@@ -528,7 +532,7 @@ final class AtlasAcosWatchdogHealthService
             $issues[] = 'retrieval_eval_below_floor';
         }
         if ($recallAt5 === null || $recallAt5 < self::RAG_RECALL_AT_5_FLOOR) {
-            $issues[] = 'recall_at_5_below_floor_or_unmeasured';
+            $issues[] = self::FIELD_RECALL_AT_5_BELOW_FLOOR_OR_UNMEASURED;
         }
         if ($improperFloorDiscards > 0) {
             $issues[] = self::FIELD_IMPROPER_FLOOR_DISCARDS_PRESENT;
@@ -736,7 +740,7 @@ final class AtlasAcosWatchdogHealthService
         $partials = array_values(array_filter(AiValueNormalizer::arrayOrEmpty($scorecard[self::FIELD_SUBSYSTEMS] ?? null), static fn (array $row): bool => ($row[self::FIELD_PIPELINE_STATUS] ?? null) === AtlasCognitionScoreCardService::STATUS_PARTIAL));
         $blocking = [];
         if ($pipeline < 10.0) {
-            $blocking[] = 'pipeline_score_below_perfect';
+            $blocking[] = self::FIELD_PIPELINE_SCORE_BELOW_PERFECT;
         }
         if ($partials !== []) {
             $blocking[] = self::FIELD_PIPELINE_PARTIALS_PRESENT;
@@ -817,7 +821,7 @@ final class AtlasAcosWatchdogHealthService
             $blocking[] = self::FIELD_PIPELINE_PARTIALS_PRESENT;
         }
         if ($stale !== []) {
-            $blocking[] = 'pipeline_partial_stale_after_mint_window';
+            $blocking[] = self::FIELD_PIPELINE_PARTIAL_STALE_AFTER_MINT_WINDOW;
         }
 
         return [

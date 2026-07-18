@@ -12282,4 +12282,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B476).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function jointResourceDepartmentContractAcosWatchdogCognitiveFunctionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'component_over_ram_cap' => JointResourceBudgetWatchdogCheck::FIELD_COMPONENT_OVER_RAM_CAP,
+            'measured_overshoot' => JointResourceBudgetWatchdogCheck::FIELD_MEASURED_OVERSHOOT,
+            'clarification_log' => DepartmentContractRuntime::FIELD_CLARIFICATION_LOG,
+            'completeness_report_hash' => DepartmentContractRuntime::FIELD_COMPLETENESS_REPORT_HASH,
+            'coverage_report_hash' => DepartmentContractRuntime::FIELD_COVERAGE_REPORT_HASH,
+            'debug_mttr_p95' => DepartmentContractRuntime::FIELD_DEBUG_MTTR_P95,
+            'pipeline_partial_stale_after_mint_window' => AtlasAcosWatchdogHealthService::FIELD_PIPELINE_PARTIAL_STALE_AFTER_MINT_WINDOW,
+            'pipeline_score_below_perfect' => AtlasAcosWatchdogHealthService::FIELD_PIPELINE_SCORE_BELOW_PERFECT,
+            'recall_at_5_below_floor_or_unmeasured' => AtlasAcosWatchdogHealthService::FIELD_RECALL_AT_5_BELOW_FLOOR_OR_UNMEASURED,
+            'regressed' => AtlasAcosWatchdogHealthService::FIELD_REGRESSED,
+            'teste' => AtlasCognitiveFunctionDecomposerService::FIELD_TESTE,
+            'verifique' => AtlasCognitiveFunctionDecomposerService::FIELD_VERIFIQUE,
+            'pack_diff_merged' => AtlasFrontierWaveLadder::FIELD_PACK_DIFF_MERGED,
+            'portao' => AtlasFrontierWaveLadder::FIELD_PORTAO,
+            'atlas_aemor_memory_candidate' => AutonomyLadderAdversarialWatchdogCheck::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
+            'agent' => AaeosPhaseHandoffService::FIELD_AGENT,
+            'qa' => AtlasAaeosDepartmentMaturityService::FIELD_QA,
+            'repair_loop_4th_iteration' => AtlasAaeosVetoPropagationResolver::FIELD_REPAIR_LOOP_4TH_ITERATION,
+            'joint_resource_department_contract_acos_watchdog_cognitive_function_floor_count' => 18,
+        ];
+    }
+
 }

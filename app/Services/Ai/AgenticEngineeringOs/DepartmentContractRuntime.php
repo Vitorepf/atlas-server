@@ -327,6 +327,10 @@ final class DepartmentContractRuntime
     public const FIELD_BYPASS_REVIEW = 'bypass_review';
     public const FIELD_BYPASS_SOVEREIGNTY = 'bypass_sovereignty';
     public const FIELD_CHECKLIST_COMPLETION_HASH = 'checklist_completion_hash';
+    public const FIELD_CLARIFICATION_LOG = 'clarification_log';
+    public const FIELD_COMPLETENESS_REPORT_HASH = 'completeness_report_hash';
+    public const FIELD_COVERAGE_REPORT_HASH = 'coverage_report_hash';
+    public const FIELD_DEBUG_MTTR_P95 = 'debug_mttr_p95';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -398,7 +402,7 @@ final class DepartmentContractRuntime
             self::FIELD_ALLOWED_ACTIONS => [self::FIELD_ASK_CLARIFYING_QUESTION, self::FIELD_PROPOSE_ACCEPTANCE_CRITERIA, 'split_intent'],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_WRITE_CODE, self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
-            self::FIELD_EVIDENCE_REQUIRED => ['clarification_log', self::FIELD_ACCEPTANCE_CRITERIA_PACK],
+            self::FIELD_EVIDENCE_REQUIRED => [self::FIELD_CLARIFICATION_LOG, self::FIELD_ACCEPTANCE_CRITERIA_PACK],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_ENGINEERING_GOALS, self::FIELD_LEDGER => self::FIELD_AAEOS_CLARIFICATION_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['product_clarity_score_avg', 'product_loop_count_avg'],
             self::FIELD_MATURITY_LEVEL => 'L3',
@@ -495,7 +499,7 @@ final class DepartmentContractRuntime
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY],
             self::FIELD_EVIDENCE_REQUIRED => ['repro_steps_hash', self::FIELD_LOGS_HASH, 'root_cause_pack_hash'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_DEBUG_INVESTIGATIONS, self::FIELD_LEDGER => self::FIELD_AAEOS_DEBUG_LEDGER],
-            self::FIELD_OBSERVABILITY_SIGNALS => ['debug_mttr_p95', 'debug_repro_success_rate'],
+            self::FIELD_OBSERVABILITY_SIGNALS => [self::FIELD_DEBUG_MTTR_P95, 'debug_repro_success_rate'],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_DEBUG_RECEIPT,
             self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_DEV, self::FIELD_QA, self::DEPARTMENT_FORGE],
@@ -540,7 +544,7 @@ final class DepartmentContractRuntime
             self::FIELD_ALLOWED_ACTIONS => ['write_tests', self::FIELD_REQUEST_TEST_DATA, self::FIELD_BLOCK_ON_COVERAGE_DROP],
             self::FIELD_FORBIDDEN_ACTIONS => ['modify_production_code_outside_tests', 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW],
-            self::FIELD_EVIDENCE_REQUIRED => ['test_pack_hash', 'coverage_report_hash'],
+            self::FIELD_EVIDENCE_REQUIRED => ['test_pack_hash', self::FIELD_COVERAGE_REPORT_HASH],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_TEST_PACKS, self::FIELD_LEDGER => self::FIELD_AAEOS_QA_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['qa_coverage_p50', 'qa_regression_catch_rate'],
             self::FIELD_MATURITY_LEVEL => 'L2',
@@ -611,7 +615,7 @@ final class DepartmentContractRuntime
             self::FIELD_ALLOWED_ACTIONS => [self::FIELD_ASSEMBLE_DELIVERY_PACK, self::FIELD_SIGN_DELIVERY_HASH, 'request_human_review'],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_EDIT_CODE, self::FIELD_APPROVE_RELEASE_WITHOUT_REVIEW, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_REVIEW, self::DEPARTMENT_OPERATOR],
-            self::FIELD_EVIDENCE_REQUIRED => ['delivery_pack_hash', 'completeness_report_hash'],
+            self::FIELD_EVIDENCE_REQUIRED => ['delivery_pack_hash', self::FIELD_COMPLETENESS_REPORT_HASH],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_DELIVERY_PACKS, self::FIELD_LEDGER => self::FIELD_AAEOS_DELIVERY_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['delivery_completeness_avg', 'delivery_review_loop_count'],
             self::FIELD_MATURITY_LEVEL => 'L2',

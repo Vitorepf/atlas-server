@@ -36,6 +36,8 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
     public const FIELD_GENERATED_AT = 'generated_at';
     public const FIELD_PAPER_OVERSHOOT = 'paper_overshoot';
     public const FIELD_JOINT_RESOURCE_BUDGET_BREACH = 'joint_resource_budget_breach';
+    public const FIELD_COMPONENT_OVER_RAM_CAP = 'component_over_ram_cap';
+    public const FIELD_MEASURED_OVERSHOOT = 'measured_overshoot';
 
     public function __construct(
         private AtlasResourceBudgetService $service,
@@ -71,10 +73,10 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
             $reasons[] = 'paper_overshoot';
         }
         if ($report[self::FIELD_OVER_CAP_COMPONENTS] !== []) {
-            $reasons[] = 'component_over_ram_cap';
+            $reasons[] = self::FIELD_COMPONENT_OVER_RAM_CAP;
         }
         if (is_int($report[self::FIELD_MEASURED_HEADROOM_MB]) && $report[self::FIELD_MEASURED_HEADROOM_MB] < 0) {
-            $reasons[] = 'measured_overshoot';
+            $reasons[] = self::FIELD_MEASURED_OVERSHOOT;
         }
 
         if ($reasons !== []) {

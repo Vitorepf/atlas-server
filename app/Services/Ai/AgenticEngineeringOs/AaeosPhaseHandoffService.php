@@ -71,6 +71,7 @@ final class AaeosPhaseHandoffService
     public const FIELD_OPERATOR = 'operator';
     public const FIELD_PHASE = 'phase';
     public const FIELD_SYSTEM = 'system';
+    public const FIELD_AGENT = 'agent';
 
     public static function requireIntentId(string $intentId): void
     {
@@ -268,7 +269,7 @@ final class AaeosPhaseHandoffService
         }
         if (! isset($envelope[self::FIELD_ACTOR]) || ! is_array($envelope[self::FIELD_ACTOR]) || ! isset($envelope[self::FIELD_ACTOR][self::FIELD_KIND])) {
             $reasons[] = 'actor.kind required';
-        } elseif (! in_array($envelope[self::FIELD_ACTOR][self::FIELD_KIND], ['agent', self::FIELD_OPERATOR, 'system'], true)) {
+        } elseif (! in_array($envelope[self::FIELD_ACTOR][self::FIELD_KIND], [self::FIELD_AGENT, self::FIELD_OPERATOR, 'system'], true)) {
             $reasons[] = 'actor.kind must be agent|operator|system';
         }
         if (! isset($envelope[self::FIELD_GATES]) || ! is_array($envelope[self::FIELD_GATES])) {
@@ -347,7 +348,7 @@ final class AaeosPhaseHandoffService
     /** @param array<string,mixed> $actor */
     private function assertActor(array $actor): void
     {
-        if (! isset($actor[self::FIELD_KIND]) || ! in_array($actor[self::FIELD_KIND], ['agent', self::FIELD_OPERATOR, 'system'], true)) {
+        if (! isset($actor[self::FIELD_KIND]) || ! in_array($actor[self::FIELD_KIND], [self::FIELD_AGENT, self::FIELD_OPERATOR, 'system'], true)) {
             throw new InvalidArgumentException('actor.kind must be agent|operator|system');
         }
         if (! isset($actor[self::FIELD_ID]) || $actor[self::FIELD_ID] === '') {

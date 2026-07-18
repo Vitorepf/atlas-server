@@ -38,7 +38,7 @@ final class AtlasFrontierWaveLadder
 
     /** The three external-event kinds that count (obra20 §15). */
     public const EVENT_KINDS = [
-        'pack_diff_merged',            // um pack que mudou um diff mergeado
+        self::FIELD_PACK_DIFF_MERGED,            // um pack que mudou um diff mergeado
         self::FIELD_CONTRADICTION_PREVENTED_ERROR, // contradição que impediu erro real
         self::FIELD_MEMORY_CITED_BY_FOREIGN_SESSION, // memória citada por sessão que não a gerou
     ];
@@ -69,6 +69,8 @@ final class AtlasFrontierWaveLadder
     public const FIELD_ECONOMIA = 'economia';
     public const FIELD_GRADUACAO = 'graduacao';
     public const FIELD_MEMORY_CITED_BY_FOREIGN_SESSION = 'memory_cited_by_foreign_session';
+    public const FIELD_PACK_DIFF_MERGED = 'pack_diff_merged';
+    public const FIELD_PORTAO = 'portao';
 
     /**
      * Waves in activation order (obra20 §Fase-0 + contexto-mestre §5).
@@ -129,7 +131,7 @@ final class AtlasFrontierWaveLadder
         $waves = [];
         foreach (self::WAVES as $i => $wave) {
             if ($i === 0) {
-                $activation = 'portao'; // Fase 0 constitution — build first, gates the rest
+                $activation = self::FIELD_PORTAO; // Fase 0 constitution — build first, gates the rest
                 $priorEvents = null;
             } else {
                 $priorKey = self::WAVES[$i - 1][self::FIELD_KEY];

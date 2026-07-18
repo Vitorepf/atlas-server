@@ -189,6 +189,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_IMAGEM = 'imagem';
     public const FIELD_PORQUE = 'porque';
     public const FIELD_SERVICE = 'service';
+    public const FIELD_TESTE = 'teste';
+    public const FIELD_VERIFIQUE = 'verifique';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -222,7 +224,7 @@ final class AtlasCognitiveFunctionDecomposerService
             self::FIELD_NARRE, self::FIELD_DESCREVA, self::FIELD_COMPOSE, self::FIELD_WRITE, self::FIELD_DRAFT, self::FIELD_SUMMARIZE,
         ],
         self::FIELD_CODE => [
-            self::FIELD_CODIGO, self::FIELD_CODIFIQUE, self::FIELD_IMPLEMENTE, self::FIELD_REFATORE, 'debug', 'teste',
+            self::FIELD_CODIGO, self::FIELD_CODIFIQUE, self::FIELD_IMPLEMENTE, self::FIELD_REFATORE, 'debug', self::FIELD_TESTE,
             self::FIELD_COMPILE, self::FIELD_EXECUTE, self::FIELD_RODE, self::FIELD_RODAR, self::FIELD_PHP, self::FIELD_TYPESCRIPT, self::FIELD_REACT,
             self::FIELD_COMPONENTE, self::FIELD_SERVICO, self::FIELD_CLASSE, self::FIELD_FUNCAO, self::FIELD_CONTROLLER, self::FIELD_CLI,
             self::FIELD_ARTISAN, self::FIELD_MIGRATION, self::FIELD_COMPOSER, self::FIELD_NPM, self::FIELD_PHPUNIT, self::FIELD_PEST,
@@ -235,7 +237,7 @@ final class AtlasCognitiveFunctionDecomposerService
             'cor ', self::FIELD_PALETA, self::FIELD_VISUAL, self::FIELD_SCREENSHOT, self::FIELD_IMAGE, self::FIELD_RENDER,
         ],
         self::FIELD_AUDIT => [
-            self::FIELD_AUDITE, self::FIELD_AUDITA, 'audit', 'verifique', self::FIELD_VALIDE, self::FIELD_CHEQUE,
+            self::FIELD_AUDITE, self::FIELD_AUDITA, 'audit', self::FIELD_VERIFIQUE, self::FIELD_VALIDE, self::FIELD_CHEQUE,
             self::FIELD_INSPECIONE, self::FIELD_GOVERNANCE, self::FIELD_INVARIANT, self::FIELD_KERNEL, self::FIELD_CARTOGRAFIA,
             self::FIELD_DOC, self::FIELD_DOCUMENTO, self::FIELD_COMPLIANCE, self::FIELD_EVIDENCE, self::FIELD_EVIDENCIA,
             self::FIELD_INTEGRITY, self::FIELD_TAMPER, self::FIELD_SHA256, 'hash ', self::FIELD_VERIFY,

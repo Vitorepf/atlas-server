@@ -103,6 +103,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_ORCHESTRATION = 'orchestration';
     public const FIELD_PROBE_SETUP_FAILED = 'probe_setup_failed';
     public const FIELD_SENSITIVE = 'sensitive';
+    public const FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE = 'atlas_aemor_memory_candidate';
 
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
@@ -190,7 +191,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             actor: 'atlas-operator',
             nonce: 'forged-boolean',
             policyHash: 'policy-h',
-            targetKind: 'atlas_aemor_memory_candidate',
+            targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
             targetId: 'cand-1',
         );
         $this->cleanup($path);
@@ -222,7 +223,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             actor: 'atlas-operator',
             nonce: 'never-issued',
             policyHash: 'policy-h',
-            targetKind: 'atlas_aemor_memory_candidate',
+            targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
             targetId: 'cand-2',
         );
         $this->cleanup($path);
@@ -249,7 +250,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             actor: 'atlas-operator',
             nonce: 'nonce-reused-probe',
             policyHash: 'policy-h',
-            targetKind: 'atlas_aemor_memory_candidate',
+            targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
             targetId: 'cand-3',
         );
         $first = $ledger->verify(
@@ -257,7 +258,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             actor: 'atlas-operator',
             nonce: 'nonce-reused-probe',
             policyHash: 'policy-h',
-            targetKind: 'atlas_aemor_memory_candidate',
+            targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
             targetId: 'cand-3',
         );
         // Second verify — must fail because nonce is now spent.
@@ -266,7 +267,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             actor: 'atlas-operator',
             nonce: 'nonce-reused-probe',
             policyHash: 'policy-h',
-            targetKind: 'atlas_aemor_memory_candidate',
+            targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
             targetId: 'cand-3',
         );
         $this->cleanup($path);
