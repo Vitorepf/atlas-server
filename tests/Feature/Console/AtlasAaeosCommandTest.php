@@ -6285,6 +6285,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_fact_citation_provenance_recall_cascade_vision_cooccur_gate_dispatch_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-fcprcvgdgd-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-fcprcvgdgd',
+                '--fact-citation-provenance-recall-cascade-vision-cooccur-gate-dispatch-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"fact_citation_provenance_recall_cascade_vision_cooccur_gate_dispatch_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

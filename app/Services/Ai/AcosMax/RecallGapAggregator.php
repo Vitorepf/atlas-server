@@ -26,6 +26,8 @@ final class RecallGapAggregator
     public const FIELD_STATUS = 'status';
     public const FIELD_RAW_QUERY_STORED = 'raw_query_stored';
     public const FIELD_AUTO_CREATES_MEMORY = 'auto_creates_memory';
+    public const FIELD_CANDIDATES = 'candidates';
+    public const FIELD_QUERY = 'query';
 
     /**
      * @param  list<array<string,mixed>>  $events
@@ -38,7 +40,7 @@ final class RecallGapAggregator
             if ((AiValueNormalizer::finiteFloatOrNull($event['top_score'] ?? null) ?? 0.0) >= self::WEAK_SCORE_FLOOR) {
                 continue;
             }
-            $normalized = self::normalize(AiValueNormalizer::trimmedStringOrNull($event['query'] ?? null) ?? '');
+            $normalized = self::normalize(AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_QUERY] ?? null) ?? '');
             if ($normalized === '') {
                 continue;
             }
@@ -62,7 +64,7 @@ final class RecallGapAggregator
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_STATUS => $candidates === [] ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK,
-            'candidates' => $candidates,
+            self::FIELD_CANDIDATES => $candidates,
         ];
     }
 

@@ -11,6 +11,8 @@ final class BeliefCascadeReverificationPlanner
     public const SCHEMA_VERSION = 'atlas.memory.belief_cascade_reverification.v1';
 
     public const DEFAULT_DEPTH_CAP = 3;
+    public const FIELD_CAPS_HIT = 'caps_hit';
+    public const FIELD_CASCADE_ORIGIN = 'cascade_origin';
 
     /**
      * @param  array<string,list<string>>  $graph
@@ -39,7 +41,7 @@ final class BeliefCascadeReverificationPlanner
                     continue;
                 }
                 $seen[$child] = true;
-                $marked[] = ['id' => $child, 'needs_reverification' => true, 'cascade_origin' => $origin];
+                $marked[] = ['id' => $child, 'needs_reverification' => true, self::FIELD_CASCADE_ORIGIN => $origin];
                 $queue[] = [$child, $depth + 1];
             }
         }
@@ -47,7 +49,7 @@ final class BeliefCascadeReverificationPlanner
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'marked' => $marked,
-            'caps_hit' => ['depth' => $depthHit],
+            self::FIELD_CAPS_HIT => ['depth' => $depthHit],
             'source' => [
                 'deletes_descendants' => false,
                 'sync_write_path' => false,

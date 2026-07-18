@@ -22,12 +22,14 @@ final class StructuredFactSchemaMap
     public const FIELD_FAIL_OPEN_ENTRY_ALLOWED = 'fail_open_entry_allowed';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_STATUS = 'status';
+    public const FIELD_DECISION = 'decision';
+    public const FIELD_GOTCHA = 'gotcha';
 
     /** @var array<string,list<string>> */
     public const REQUIRED = [
-        'decision' => ['contexto', 'alternativas', 'porque', 'expiry'],
+        self::FIELD_DECISION => ['contexto', 'alternativas', 'porque', 'expiry'],
         'harness_learning' => ['sintoma', 'causa', 'fix', 'versao'],
-        'gotcha' => ['sintoma', 'causa', 'fix', 'versao'],
+        self::FIELD_GOTCHA => ['sintoma', 'causa', 'fix', 'versao'],
     ];
 
     /**

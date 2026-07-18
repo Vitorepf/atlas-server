@@ -5971,5 +5971,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['spec_summary_budget_decay_segment_pareto_recall_outcome_corpus_floor_count']);
     }
 
+    public function test_fact_citation_provenance_recall_cascade_vision_cooccur_gate_dispatch_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->factCitationProvenanceRecallCascadeVisionCooccurGateDispatchFloorsContractObserve([]);
+
+        $this->assertSame('decision', $payload['fact_field_decision']);
+        $this->assertSame('gotcha', $payload['fact_field_gotcha']);
+        $this->assertSame('citation_coverage', $payload['citation_field_citation_coverage']);
+        $this->assertSame('delivered_refs', $payload['citation_field_delivered_refs']);
+        $this->assertSame('dead_ref_counts_as_weight', $payload['provenance_field_dead_ref_counts_as_weight']);
+        $this->assertSame('dead_refs', $payload['provenance_field_dead_refs']);
+        $this->assertSame('candidates', $payload['gap_field_candidates']);
+        $this->assertSame('query', $payload['gap_field_query']);
+        $this->assertSame('caps_hit', $payload['cascade_field_caps_hit']);
+        $this->assertSame('cascade_origin', $payload['cascade_field_cascade_origin']);
+        $this->assertSame('forbidden_strings', $payload['vision_field_forbidden_strings']);
+        $this->assertSame('high', $payload['vision_field_high']);
+        $this->assertSame('cooccurrence_count', $payload['cooccur_field_cooccurrence_count']);
+        $this->assertSame('delivered_ref_count', $payload['cooccur_field_delivered_ref_count']);
+        $this->assertSame('acceptance', $payload['gate_field_acceptance']);
+        $this->assertSame('acceptance_criteria', $payload['gate_field_acceptance_criteria']);
+        $this->assertSame('blocker_signal', $payload['dispatch_field_blocker_signal']);
+        $this->assertSame('dispatch_id', $payload['dispatch_field_dispatch_id']);
+        $this->assertSame(18, $payload['fact_citation_provenance_recall_cascade_vision_cooccur_gate_dispatch_floor_count']);
+    }
+
 
 }

@@ -67,6 +67,8 @@ final class AtlasAaeosGateSignalEvaluator
     public const FIELD_GATES = 'gates';
     public const FIELD_ALL_PASSED = 'all_passed';
     public const FIELD_REASONS = 'reasons';
+    public const FIELD_ACCEPTANCE = 'acceptance';
+    public const FIELD_ACCEPTANCE_CRITERIA = 'acceptance_criteria';
 
     /**
      * P1 disambiguation gate: weighted + clamped 0..1 intent-clarity score.
@@ -120,7 +122,7 @@ final class AtlasAaeosGateSignalEvaluator
      */
     public function evaluateSpecPackAcceptanceCriteria(array $specPack): array
     {
-        $raw = AiStringListNormalizer::strings($specPack['acceptance_criteria'] ?? []);
+        $raw = AiStringListNormalizer::strings($specPack[self::FIELD_ACCEPTANCE_CRITERIA] ?? []);
 
         $distinct = [];
         $blankCount = 0;
@@ -279,7 +281,7 @@ final class AtlasAaeosGateSignalEvaluator
      */
     private function hasAcceptance(array $task): bool
     {
-        $acceptance = $task['acceptance'] ?? null;
+        $acceptance = $task[self::FIELD_ACCEPTANCE] ?? null;
 
         if (is_string($acceptance)) {
             return (AiValueNormalizer::trimmedStringOrNull($acceptance) ?? '') !== '';

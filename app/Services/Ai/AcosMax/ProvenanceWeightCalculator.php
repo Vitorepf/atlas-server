@@ -11,6 +11,8 @@ final class ProvenanceWeightCalculator
     public const SCHEMA_VERSION = 'atlas.memory.provenance_weight.v1';
 
     public const FLOOR = 0.5;
+    public const FIELD_DEAD_REF_COUNTS_AS_WEIGHT = 'dead_ref_counts_as_weight';
+    public const FIELD_DEAD_REFS = 'dead_refs';
 
     /**
      * @param  list<string>  $evidenceRefs
@@ -46,10 +48,10 @@ final class ProvenanceWeightCalculator
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'resolved_count' => count($resolved),
-            'dead_refs' => $dead,
+            self::FIELD_DEAD_REFS => $dead,
             'multiplier' => round($multiplier, 2),
             'source' => [
-                'dead_ref_counts_as_weight' => false,
+                self::FIELD_DEAD_REF_COUNTS_AS_WEIGHT => false,
                 'floor' => self::FLOOR,
                 'hot_path_ledger_lookup' => false,
             ],

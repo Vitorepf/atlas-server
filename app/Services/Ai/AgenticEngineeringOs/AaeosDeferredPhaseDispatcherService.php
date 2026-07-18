@@ -45,6 +45,8 @@ final class AaeosDeferredPhaseDispatcherService
     public const FIELD_BLOCKERS = 'blockers';
     public const FIELD_INTENT_ID = 'intent_id';
     public const FIELD_SCHEMA = 'schema';
+    public const FIELD_BLOCKER_SIGNAL = 'blocker_signal';
+    public const FIELD_DISPATCH_ID = 'dispatch_id';
 
     public function __construct(
         private readonly CacheRepository $cache,
@@ -69,7 +71,7 @@ final class AaeosDeferredPhaseDispatcherService
             }
             $record = [
                 self::FIELD_SCHEMA => self::SCHEMA_VERSION,
-                'dispatch_id' => 'disp-'.Str::ulid()->toBase32(),
+                self::FIELD_DISPATCH_ID => 'disp-'.Str::ulid()->toBase32(),
                 self::FIELD_PHASE => AiValueNormalizer::trimmedStringOrNull($env['phase_out'] ?? null) ?? '',
                 self::FIELD_INTENT_ID => AiValueNormalizer::trimmedStringOrNull($env[self::FIELD_INTENT_ID] ?? null) ?? '',
                 'envelope' => $env,
@@ -79,7 +81,7 @@ final class AaeosDeferredPhaseDispatcherService
                 // carries open blockers / blocked gates (never blocks enqueue).
                 'outcome_causality' => $this->observeCausality($env),
                 // Observe-only severity reduction (same gate as cockpit).
-                'blocker_signal' => $this->observeBlockerSignal($env),
+                self::FIELD_BLOCKER_SIGNAL => $this->observeBlockerSignal($env),
                 'enqueued_at' => gmdate('c'),
             ];
             $line = json_encode($record, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);

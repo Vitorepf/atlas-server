@@ -13,6 +13,8 @@ final class CitationGroundingMeter
     public const STATUS_OK = 'ok';
 
     public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+    public const FIELD_CITATION_COVERAGE = 'citation_coverage';
+    public const FIELD_DELIVERED_REFS = 'delivered_refs';
 
     /**
      * @param  list<array<string,mixed>>  $responses
@@ -26,7 +28,7 @@ final class CitationGroundingMeter
         $unsupported = 0;
 
         foreach ($responses as $response) {
-            $delivered = array_fill_keys(array_map('strval', AiValueNormalizer::arrayOrEmpty($response['delivered_refs'] ?? null)), true);
+            $delivered = array_fill_keys(array_map('strval', AiValueNormalizer::arrayOrEmpty($response[self::FIELD_DELIVERED_REFS] ?? null)), true);
             $refs = self::refs(AiValueNormalizer::trimmedStringOrNull($response['response'] ?? null) ?? '');
             if ($refs !== []) {
                 $withCitation++;
@@ -45,7 +47,7 @@ final class CitationGroundingMeter
             'schema_version' => self::SCHEMA_VERSION,
             'status' => $cited === 0 ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK,
             'grounding_rate' => $cited === 0 ? null : round($grounded / $cited, 4),
-            'citation_coverage' => count($responses) === 0 ? 0.0 : round($withCitation / count($responses), 4),
+            self::FIELD_CITATION_COVERAGE => count($responses) === 0 ? 0.0 : round($withCitation / count($responses), 4),
             'unsupported_citation_count' => $unsupported,
             'measured_count' => $withCitation,
             'total' => count($responses),

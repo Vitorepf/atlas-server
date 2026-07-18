@@ -36,6 +36,8 @@ final class ExecutionContextCooccurrenceService
     public const FIELD_GREEN_RUN = 'green_run';
     public const FIELD_ENFORCEMENT_ALLOWED = 'enforcement_allowed';
     public const FIELD_CLAIM_POLICY = 'claim_policy';
+    public const FIELD_COOCCURRENCE_COUNT = 'cooccurrence_count';
+    public const FIELD_DELIVERED_REF_COUNT = 'delivered_ref_count';
 
 
     public const REASON_MEASURED_SHARE_ZERO = 'measured_share_zero';
@@ -117,7 +119,7 @@ final class ExecutionContextCooccurrenceService
                 self::FIELD_RUN_ID => (AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_RUN_ID] ?? null) ?? ''),
                 self::FIELD_OUTCOME_RECEIPT_ID => (AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_OUTCOME_RECEIPT_ID] ?? null) ?? ''),
                 self::FIELD_GREEN_RUN => ($run[self::FIELD_GREEN_RUN] ?? false) === true,
-                'delivered_ref_count' => count($delivered),
+                self::FIELD_DELIVERED_REF_COUNT => count($delivered),
                 'used_ref_count' => count($used),
                 'intersection_refs' => $intersection,
                 self::FIELD_CONTEXT_CAUSAL_BINDING => 'correlational_cooccurrence',
@@ -133,7 +135,7 @@ final class ExecutionContextCooccurrenceService
                 self::FIELD_MEASURED_RUNS => $measuredCount,
                 self::FIELD_MEASURED_SHARE => $measuredShare,
             ],
-            'cooccurrence_count' => count($cooccurrences),
+            self::FIELD_COOCCURRENCE_COUNT => count($cooccurrences),
             self::FIELD_COOCCURRENCES => $cooccurrences,
         ]);
     }

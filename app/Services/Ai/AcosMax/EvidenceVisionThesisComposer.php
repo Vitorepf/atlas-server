@@ -97,6 +97,8 @@ final class EvidenceVisionThesisComposer
     public const FIELD_CONSECUTIVE_WINDOWS = 'consecutive_windows';
     public const FIELD_BANDS = 'bands';
     public const FIELD_CALIBRATION = 'calibration';
+    public const FIELD_FORBIDDEN_STRINGS = 'forbidden_strings';
+    public const FIELD_HIGH = 'high';
 
     /**
      * @param  array<string,mixed>  $context
@@ -335,7 +337,7 @@ final class EvidenceVisionThesisComposer
     private static function calibrationDriftTheses(array $calibration, string $bornAt, int $ttlDays): array
     {
         $bands = AiValueNormalizer::arrayOrEmpty($calibration[self::FIELD_BANDS] ?? null);
-        $high = AiValueNormalizer::arrayOrEmpty($bands['high'] ?? null);
+        $high = AiValueNormalizer::arrayOrEmpty($bands[self::FIELD_HIGH] ?? null);
         $sweet = AiValueNormalizer::arrayOrEmpty($bands['sweet'] ?? null);
         $highN = (int) (AiValueNormalizer::finiteFloatOrNull($high[self::FIELD_N_REALIZED] ?? null) ?? 0);
         $sweetN = (int) (AiValueNormalizer::finiteFloatOrNull($sweet[self::FIELD_N_REALIZED] ?? null) ?? 0);
@@ -550,7 +552,7 @@ final class EvidenceVisionThesisComposer
      */
     private static function forbiddenStrings(array $context): array
     {
-        $raw = $context['forbidden_strings'] ?? $context['operator_forbidden_strings'] ?? [];
+        $raw = $context[self::FIELD_FORBIDDEN_STRINGS] ?? $context['operator_forbidden_strings'] ?? [];
 
         return array_values(array_filter(array_map(
             static fn ($value): string => AiValueNormalizer::trimmedStringOrNull($value) ?? '',

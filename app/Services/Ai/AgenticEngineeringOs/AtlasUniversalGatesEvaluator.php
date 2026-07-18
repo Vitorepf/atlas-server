@@ -7906,6 +7906,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for fact/citation/provenance/recall/cascade/vision/cooccur/gate/dispatch peels.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function factCitationProvenanceRecallCascadeVisionCooccurGateDispatchFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'fact_field_decision' => StructuredFactSchemaMap::FIELD_DECISION,
+            'fact_field_gotcha' => StructuredFactSchemaMap::FIELD_GOTCHA,
+            'citation_field_citation_coverage' => CitationGroundingMeter::FIELD_CITATION_COVERAGE,
+            'citation_field_delivered_refs' => CitationGroundingMeter::FIELD_DELIVERED_REFS,
+            'provenance_field_dead_ref_counts_as_weight' => ProvenanceWeightCalculator::FIELD_DEAD_REF_COUNTS_AS_WEIGHT,
+            'provenance_field_dead_refs' => ProvenanceWeightCalculator::FIELD_DEAD_REFS,
+            'gap_field_candidates' => RecallGapAggregator::FIELD_CANDIDATES,
+            'gap_field_query' => RecallGapAggregator::FIELD_QUERY,
+            'cascade_field_caps_hit' => BeliefCascadeReverificationPlanner::FIELD_CAPS_HIT,
+            'cascade_field_cascade_origin' => BeliefCascadeReverificationPlanner::FIELD_CASCADE_ORIGIN,
+            'vision_field_forbidden_strings' => EvidenceVisionThesisComposer::FIELD_FORBIDDEN_STRINGS,
+            'vision_field_high' => EvidenceVisionThesisComposer::FIELD_HIGH,
+            'cooccur_field_cooccurrence_count' => ExecutionContextCooccurrenceService::FIELD_COOCCURRENCE_COUNT,
+            'cooccur_field_delivered_ref_count' => ExecutionContextCooccurrenceService::FIELD_DELIVERED_REF_COUNT,
+            'gate_field_acceptance' => AtlasAaeosGateSignalEvaluator::FIELD_ACCEPTANCE,
+            'gate_field_acceptance_criteria' => AtlasAaeosGateSignalEvaluator::FIELD_ACCEPTANCE_CRITERIA,
+            'dispatch_field_blocker_signal' => AaeosDeferredPhaseDispatcherService::FIELD_BLOCKER_SIGNAL,
+            'dispatch_field_dispatch_id' => AaeosDeferredPhaseDispatcherService::FIELD_DISPATCH_ID,
+            'fact_citation_provenance_recall_cascade_vision_cooccur_gate_dispatch_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>
