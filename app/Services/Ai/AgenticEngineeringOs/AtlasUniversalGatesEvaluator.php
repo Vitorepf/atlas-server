@@ -18931,4 +18931,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B693).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b693DogfoodingFrictionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.originator.dogfooding_friction_leads.v1' => DogfoodingFrictionLeadMiner::SCHEMA_VERSION,
+            '3' => DogfoodingFrictionLeadMiner::MIN_OCCURRENCES,
+            'ok' => DogfoodingFrictionLeadMiner::STATUS_OK,
+            'insufficient_signal' => DogfoodingFrictionLeadMiner::STATUS_INSUFFICIENT_SIGNAL,
+            'schema_version' => DogfoodingFrictionLeadMiner::FIELD_SCHEMA_VERSION,
+            'class' => DogfoodingFrictionLeadMiner::FIELD_CLASS,
+            'signature' => DogfoodingFrictionLeadMiner::FIELD_SIGNATURE,
+            'occurrences' => DogfoodingFrictionLeadMiner::FIELD_OCCURRENCES,
+            'target' => DogfoodingFrictionLeadMiner::FIELD_TARGET,
+            'objective' => DogfoodingFrictionLeadMiner::FIELD_OBJECTIVE,
+            'evidence_refs' => DogfoodingFrictionLeadMiner::FIELD_EVIDENCE_REFS,
+            'source' => DogfoodingFrictionLeadMiner::FIELD_SOURCE,
+            'lead_only_not_seed' => DogfoodingFrictionLeadMiner::FIELD_LEAD_ONLY_NOT_SEED,
+            'leads' => DogfoodingFrictionLeadMiner::FIELD_LEADS,
+            'operator_text_in_objective' => DogfoodingFrictionLeadMiner::FIELD_OPERATOR_TEXT_IN_OBJECTIVE,
+            'provider_calls_made' => DogfoodingFrictionLeadMiner::FIELD_PROVIDER_CALLS_MADE,
+            'status' => DogfoodingFrictionLeadMiner::FIELD_STATUS,
+            'kind' => DogfoodingFrictionLeadMiner::FIELD_KIND,
+            'b693_dogfooding_friction_floor_count' => 18,
+        ];
+    }
+
 }

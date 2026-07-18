@@ -14999,4 +14999,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b692_exploratory_bets_floor_count']);
     }
 
+    public function test_b693_dogfooding_friction_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b693DogfoodingFrictionFloorsContractObserve([]);
+        $this->assertSame(DogfoodingFrictionLeadMiner::SCHEMA_VERSION, $out['atlas.originator.dogfooding_friction_leads.v1']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::MIN_OCCURRENCES, $out['3']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::STATUS_OK, $out['ok']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::STATUS_INSUFFICIENT_SIGNAL, $out['insufficient_signal']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_CLASS, $out['class']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_SIGNATURE, $out['signature']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_OCCURRENCES, $out['occurrences']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_TARGET, $out['target']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_OBJECTIVE, $out['objective']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_EVIDENCE_REFS, $out['evidence_refs']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_SOURCE, $out['source']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_LEAD_ONLY_NOT_SEED, $out['lead_only_not_seed']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_LEADS, $out['leads']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_OPERATOR_TEXT_IN_OBJECTIVE, $out['operator_text_in_objective']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_PROVIDER_CALLS_MADE, $out['provider_calls_made']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_STATUS, $out['status']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_KIND, $out['kind']);
+        $this->assertSame(18, $out['b693_dogfooding_friction_floor_count']);
+    }
+
 }
