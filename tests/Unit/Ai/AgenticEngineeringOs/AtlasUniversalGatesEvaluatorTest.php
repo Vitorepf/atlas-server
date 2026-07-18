@@ -5696,5 +5696,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['decomposer_evidence_teto_fact_ragx_golden_floor_count']);
     }
 
+    public function test_envelope_integrity_promoter_series_lote2_lexical_substrate_bets_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->envelopeIntegrityPromoterSeriesLote2LexicalSubstrateBetsFloorsContractObserve([]);
+
+        $this->assertSame('certified_receipt_id', $payload['envelope_field_certified_receipt_id']);
+        $this->assertSame('provider', $payload['envelope_field_provider']);
+        $this->assertSame('task_category', $payload['envelope_field_task_category']);
+        $this->assertSame('model_verified', $payload['integrity_field_model_verified']);
+        $this->assertSame('sha256_computed', $payload['integrity_field_sha256_computed']);
+        $this->assertSame('sha256_pin', $payload['integrity_field_sha256_pin']);
+        $this->assertSame('fake_green_suppressed', $payload['promoter_field_fake_green_suppressed']);
+        $this->assertSame('success_rate', $payload['promoter_field_success_rate']);
+        $this->assertSame('successes', $payload['promoter_field_successes']);
+        $this->assertSame('scope_id', $payload['series_field_scope_id']);
+        $this->assertSame('scope_type', $payload['series_field_scope_type']);
+        $this->assertSame('where', $payload['series_field_where']);
+        $this->assertSame('treatment', $payload['lote2_field_treatment']);
+        $this->assertSame('usage_rows_recorded', $payload['lote2_field_usage_rows_recorded']);
+        $this->assertSame('window_days', $payload['lote2_field_window_days']);
+        $this->assertSame('verification', $payload['lexical_field_verification']);
+        $this->assertSame('checked_at', $payload['substrate_field_checked_at']);
+        $this->assertSame('suspension_update', $payload['bets_field_suspension_update']);
+        $this->assertSame(18, $payload['envelope_integrity_promoter_series_lote2_lexical_substrate_bets_floor_count']);
+    }
+
 
 }

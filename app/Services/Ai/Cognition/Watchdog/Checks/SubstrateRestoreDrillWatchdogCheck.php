@@ -37,6 +37,7 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_MESSAGE = 'message';
     public const FIELD_LAST_SUCCESSFUL_DRILL_AT = 'last_successful_drill_at';
     public const FIELD_AGE_DAYS = 'age_days';
+    public const FIELD_CHECKED_AT = 'checked_at';
 
 
     public function id(): string
@@ -63,7 +64,7 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
             ]);
         }
 
-        $checkedAt = CarbonImmutable::parse((AiValueNormalizer::trimmedStringOrNull($latest['checked_at'] ?? null) ?? 'now'), 'UTC');
+        $checkedAt = CarbonImmutable::parse((AiValueNormalizer::trimmedStringOrNull($latest[self::FIELD_CHECKED_AT] ?? null) ?? 'now'), 'UTC');
         $ageDays = (int) $checkedAt->diffInDays(CarbonImmutable::now('UTC'));
         $evidence = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
@@ -94,12 +95,12 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
             $rows,
             static fn (array $row): bool => ($row['status'] ?? null) === 'restored_ok'
                 && (AiValueNormalizer::boolOrNull($row['restored_ok'] ?? null) ?? false)
-                && is_string($row['checked_at'] ?? null),
+                && is_string($row[self::FIELD_CHECKED_AT] ?? null),
         ));
 
         usort(
             $successes,
-            static fn (array $a, array $b): int => strcmp((AiValueNormalizer::trimmedStringOrNull($b['checked_at'] ?? null) ?? ''), (AiValueNormalizer::trimmedStringOrNull($a['checked_at'] ?? null) ?? '')),
+            static fn (array $a, array $b): int => strcmp((AiValueNormalizer::trimmedStringOrNull($b[self::FIELD_CHECKED_AT] ?? null) ?? ''), (AiValueNormalizer::trimmedStringOrNull($a[self::FIELD_CHECKED_AT] ?? null) ?? '')),
         );
 
         return $successes[0] ?? null;

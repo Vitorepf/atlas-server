@@ -57,6 +57,9 @@ final class AtlasLocalModelIntegrityService
     public const FIELD_LICENSE = 'license';
     public const FIELD_SOURCE_URL = 'source_url';
     public const FIELD_PATH_RESOLVED = 'path_resolved';
+    public const FIELD_MODEL_VERIFIED = 'model_verified';
+    public const FIELD_SHA256_COMPUTED = 'sha256_computed';
+    public const FIELD_SHA256_PIN = 'sha256_pin';
 
     /** @var array<string, mixed> */
     private array $manifest;
@@ -106,7 +109,7 @@ final class AtlasLocalModelIntegrityService
     {
         $modelId = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_MODEL_ID] ?? null) ?? '';
         $path = AiValueNormalizer::trimmedStringOrNull($entry['path'] ?? null) ?? '';
-        $pin = AiValueNormalizer::lowerTrimmedString($entry['sha256_pin'] ?? '');
+        $pin = AiValueNormalizer::lowerTrimmedString($entry[self::FIELD_SHA256_PIN] ?? '');
 
         $row = [
             self::FIELD_MODEL_ID => $modelId !== '' ? $modelId : self::FALLBACK_MODEL_ID,
@@ -116,9 +119,9 @@ final class AtlasLocalModelIntegrityService
             'path_declared' => $path,
             self::FIELD_PATH_RESOLVED => null,
             'pin_present' => $pin !== '',
-            'sha256_pin' => $pin !== '' ? $pin : null,
-            'sha256_computed' => null,
-            'model_verified' => false,
+            self::FIELD_SHA256_PIN => $pin !== '' ? $pin : null,
+            self::FIELD_SHA256_COMPUTED => null,
+            self::FIELD_MODEL_VERIFIED => false,
             self::FIELD_STATUS => self::STATUS_UNKNOWN,
             self::FIELD_REASON => null,
         ];
@@ -162,9 +165,9 @@ final class AtlasLocalModelIntegrityService
             return $row;
         }
 
-        $row['sha256_computed'] = $computed;
+        $row[self::FIELD_SHA256_COMPUTED] = $computed;
         if (hash_equals($pin, $computed)) {
-            $row['model_verified'] = true;
+            $row[self::FIELD_MODEL_VERIFIED] = true;
             $row[self::FIELD_STATUS] = self::STATUS_VERIFIED;
         } else {
             $row[self::FIELD_STATUS] = self::STATUS_MISMATCHED;

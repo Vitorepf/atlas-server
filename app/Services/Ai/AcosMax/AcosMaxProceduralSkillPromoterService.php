@@ -92,6 +92,9 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_DESCRIPTION = 'description';
     public const FIELD_ENQUEUE_EFFECTIVE = 'enqueue_effective';
     public const FIELD_ENQUEUE_ENABLED = 'enqueue_enabled';
+    public const FIELD_FAKE_GREEN_SUPPRESSED = 'fake_green_suppressed';
+    public const FIELD_SUCCESS_RATE = 'success_rate';
+    public const FIELD_SUCCESSES = 'successes';
 
 
     public function __construct(
@@ -199,9 +202,9 @@ final class AcosMaxProceduralSkillPromoterService
             self::FIELD_CASE_COUNT => $caseCount,
             self::FIELD_CASE_COUNT_FLOOR => $floor,
             self::FIELD_CASE_COUNT_FLOOR_MET => $caseCount >= $floor,
-            'successes' => (int) (AiValueNormalizer::finiteFloatOrNull($row['successes'] ?? null) ?? 0),
-            'success_rate' => AiValueNormalizer::finiteFloatOrNull($row['success_rate'] ?? null) ?? 0.0,
-            'fake_green_suppressed' => (int) (AiValueNormalizer::finiteFloatOrNull($row['fake_green_suppressed'] ?? null) ?? 0),
+            self::FIELD_SUCCESSES => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_SUCCESSES] ?? null) ?? 0),
+            self::FIELD_SUCCESS_RATE => AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_SUCCESS_RATE] ?? null) ?? 0.0,
+            self::FIELD_FAKE_GREEN_SUPPRESSED => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_FAKE_GREEN_SUPPRESSED] ?? null) ?? 0),
             self::FIELD_CORRECTIONS => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_CORRECTIONS] ?? null) ?? 0),
             self::FIELD_PROMOTION_ALLOWED => false,
             self::FIELD_GATE => [

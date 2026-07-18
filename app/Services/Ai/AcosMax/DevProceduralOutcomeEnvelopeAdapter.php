@@ -37,6 +37,9 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
     public const FIELD_EVIDENCE_KINDS = 'evidence_kinds';
     public const FIELD_CHANGED_FILES = 'changed_files';
     public const FIELD_STATUS = 'status';
+    public const FIELD_CERTIFIED_RECEIPT_ID = 'certified_receipt_id';
+    public const FIELD_PROVIDER = 'provider';
+    public const FIELD_TASK_CATEGORY = 'task_category';
 
     /** @var list<string> */
     public const BOOL_FIELDS = [self::FIELD_PROVEN_REAL, self::FIELD_FAKE_GREEN, self::FIELD_SHOULD_PROMOTE_TO_AEMOR];
@@ -60,13 +63,13 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => 'dev',
-            'task_category' => (AiValueNormalizer::trimmedStringOrNull($context['task_category'] ?? null) ?? 'dev'),
-            'provider' => AiValueNormalizer::lowerTrimmedString($context['provider'] ?? self::STATUS_ABSENT) ?: self::STATUS_ABSENT,
+            self::FIELD_TASK_CATEGORY => (AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_TASK_CATEGORY] ?? null) ?? 'dev'),
+            self::FIELD_PROVIDER => AiValueNormalizer::lowerTrimmedString($context[self::FIELD_PROVIDER] ?? self::STATUS_ABSENT) ?: self::STATUS_ABSENT,
             self::FIELD_STATUS => $status,
             self::FIELD_VERIFIED => $verified,
             'verified_basis' => $verifiedBasis,
             'verified_source_present' => $verifiedSourcePresent,
-            'certified_receipt_id' => $context['certified_receipt_id'] ?? null,
+            self::FIELD_CERTIFIED_RECEIPT_ID => $context[self::FIELD_CERTIFIED_RECEIPT_ID] ?? null,
             'evidence_ref_count' => count($evidenceKinds),
             'episode_id' => null,
             self::FIELD_RUN_ID => $runId !== '' ? $runId : null,

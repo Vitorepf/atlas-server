@@ -21,6 +21,7 @@ final class DomainLexicalNormalizer
     public const FIELD_EVIDENCE = 'evidence';
     public const FIELD_EXECUTION = 'execution';
     public const FIELD_MEMORY = 'memory';
+    public const FIELD_VERIFICATION = 'verification';
 
     public const MAX_EXPANDED_TOKENS = 32;
 
@@ -37,8 +38,8 @@ final class DomainLexicalNormalizer
         'decisão' => [self::FIELD_DECISION],
         'evidencia' => [self::FIELD_EVIDENCE],
         'evidência' => [self::FIELD_EVIDENCE],
-        'verificacao' => ['verification'],
-        'verificação' => ['verification'],
+        'verificacao' => [self::FIELD_VERIFICATION],
+        'verificação' => [self::FIELD_VERIFICATION],
         self::FIELD_APRENDIZADO => ['learning'],
         'operador' => ['operator'],
     ];

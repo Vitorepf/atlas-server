@@ -54,6 +54,7 @@ final class ExploratoryBetsPortfolio
     public const FIELD_COUNTS_LANDING_OR_ACCEPTANCE = 'counts_landing_or_acceptance';
     public const FIELD_COUNTS_PROVEN_REAL_ONLY = 'counts_proven_real_only';
     public const FIELD_DECISION_KIND = 'decision_kind';
+    public const FIELD_SUSPENSION_UPDATE = 'suspension_update';
 
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
 
@@ -127,8 +128,8 @@ final class ExploratoryBetsPortfolio
             $receipt = self::receipt($decision, $effect, $k, $windowId, $windowDays);
             $receipts[] = $receipt;
 
-            if (isset($decision['suspension_update'])) {
-                $suspensionUpdates[] = $decision['suspension_update'];
+            if (isset($decision[self::FIELD_SUSPENSION_UPDATE])) {
+                $suspensionUpdates[] = $decision[self::FIELD_SUSPENSION_UPDATE];
             }
         }
 
@@ -198,7 +199,7 @@ final class ExploratoryBetsPortfolio
                 self::FIELD_BASIS => $action === self::ACTION_RESUME_AND_DOUBLE_DOWN ? self::BASIS_EVIDENCE_TURNED_POSITIVE : self::BASIS_POSITIVE_CAUSAL_EFFECT,
             ]);
             if ($action === self::ACTION_RESUME_AND_DOUBLE_DOWN) {
-                $decision['suspension_update'] = [
+                $decision[self::FIELD_SUSPENSION_UPDATE] = [
                     self::FIELD_PATH => $path,
                     self::FIELD_FROM_STATE => PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE,
                     self::FIELD_TO_STATE => self::STATE_ACTIVE,
@@ -214,7 +215,7 @@ final class ExploratoryBetsPortfolio
                 self::FIELD_ACTION => self::ACTION_SUSPEND,
                 self::FIELD_STATE => PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE,
                 self::FIELD_BASIS => self::BASIS_PROVEN_NEGATIVE_EFFECT,
-                'suspension_update' => [
+                self::FIELD_SUSPENSION_UPDATE => [
                     self::FIELD_PATH => $path,
                     self::FIELD_FROM_STATE => $suspendedState ?? self::STATE_EXPLORING,
                     self::FIELD_TO_STATE => PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE,

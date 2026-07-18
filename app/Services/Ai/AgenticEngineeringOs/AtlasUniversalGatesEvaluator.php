@@ -7564,6 +7564,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: residual FIELD_* floors for envelope/integrity/promoter/series/lote2/lexical/substrate/bets.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, bool|int|string>
+     */
+    public function envelopeIntegrityPromoterSeriesLote2LexicalSubstrateBetsFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'envelope_field_certified_receipt_id' => DevProceduralOutcomeEnvelopeAdapter::FIELD_CERTIFIED_RECEIPT_ID,
+            'envelope_field_provider' => DevProceduralOutcomeEnvelopeAdapter::FIELD_PROVIDER,
+            'envelope_field_task_category' => DevProceduralOutcomeEnvelopeAdapter::FIELD_TASK_CATEGORY,
+            'integrity_field_model_verified' => AtlasLocalModelIntegrityService::FIELD_MODEL_VERIFIED,
+            'integrity_field_sha256_computed' => AtlasLocalModelIntegrityService::FIELD_SHA256_COMPUTED,
+            'integrity_field_sha256_pin' => AtlasLocalModelIntegrityService::FIELD_SHA256_PIN,
+            'promoter_field_fake_green_suppressed' => AcosMaxProceduralSkillPromoterService::FIELD_FAKE_GREEN_SUPPRESSED,
+            'promoter_field_success_rate' => AcosMaxProceduralSkillPromoterService::FIELD_SUCCESS_RATE,
+            'promoter_field_successes' => AcosMaxProceduralSkillPromoterService::FIELD_SUCCESSES,
+            'series_field_scope_id' => AcosMaxMeasureSeriesRegistry::FIELD_SCOPE_ID,
+            'series_field_scope_type' => AcosMaxMeasureSeriesRegistry::FIELD_SCOPE_TYPE,
+            'series_field_where' => AcosMaxMeasureSeriesRegistry::FIELD_WHERE,
+            'lote2_field_treatment' => AcosMaxLote2MeasureService::FIELD_TREATMENT,
+            'lote2_field_usage_rows_recorded' => AcosMaxLote2MeasureService::FIELD_USAGE_ROWS_RECORDED,
+            'lote2_field_window_days' => AcosMaxLote2MeasureService::FIELD_WINDOW_DAYS,
+            'lexical_field_verification' => DomainLexicalNormalizer::FIELD_VERIFICATION,
+            'substrate_field_checked_at' => SubstrateRestoreDrillWatchdogCheck::FIELD_CHECKED_AT,
+            'bets_field_suspension_update' => ExploratoryBetsPortfolio::FIELD_SUSPENSION_UPDATE,
+            'envelope_integrity_promoter_series_lote2_lexical_substrate_bets_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -181,6 +181,9 @@ final class AcosMaxLote2MeasureService
     public const FIELD_POLICY_VALID = 'policy_valid';
     public const FIELD_POSITIVE_LIFT_FABRICATED = 'positive_lift_fabricated';
     public const FIELD_RATE = 'rate';
+    public const FIELD_TREATMENT = 'treatment';
+    public const FIELD_USAGE_ROWS_RECORDED = 'usage_rows_recorded';
+    public const FIELD_WINDOW_DAYS = 'window_days';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -778,7 +781,7 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_MEMORY_TYPES => [],
                 self::FIELD_PEEK_POLICY => [
                     self::FIELD_RECORD_USAGE_FOR_PEEK => false,
-                    'usage_rows_recorded' => 0,
+                    self::FIELD_USAGE_ROWS_RECORDED => 0,
                 ],
                 self::FIELD_INVALID_PAIRS => [
                     self::FIELD_PEEK_POLICY_VIOLATION => 0,
@@ -834,14 +837,14 @@ final class AcosMaxLote2MeasureService
                 $invalidPolicyRows += count($rows);
                 continue;
             }
-            if (! isset($rows[self::FIELD_CONTROL], $rows['treatment'])) {
+            if (! isset($rows[self::FIELD_CONTROL], $rows[self::FIELD_TREATMENT])) {
                 $incompletePairs++;
                 continue;
             }
 
             $memoryType = (AiValueNormalizer::trimmedStringOrNull($pair[self::FIELD_MEMORY_TYPE] ?? null) ?? self::MEMORY_TYPE_UNKNOWN);
             $control = AiValueNormalizer::finiteFloatOrNull($rows[self::FIELD_CONTROL][self::FIELD_SCORE] ?? null) ?? 0.0;
-            $treatment = AiValueNormalizer::finiteFloatOrNull($rows['treatment'][self::FIELD_SCORE] ?? null) ?? 0.0;
+            $treatment = AiValueNormalizer::finiteFloatOrNull($rows[self::FIELD_TREATMENT][self::FIELD_SCORE] ?? null) ?? 0.0;
             $delta = round($treatment - $control, 4);
             $groups[$memoryType] ??= [
                 self::FIELD_MEMORY_TYPE => $memoryType,
@@ -891,7 +894,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_MEMORY_TYPES => $memoryTypes,
             self::FIELD_PEEK_POLICY => [
                 self::FIELD_RECORD_USAGE_FOR_PEEK => false,
-                'usage_rows_recorded' => $invalidPolicyRows,
+                self::FIELD_USAGE_ROWS_RECORDED => $invalidPolicyRows,
             ],
             self::FIELD_INVALID_PAIRS => [
                 self::FIELD_PEEK_POLICY_VIOLATION => $invalidPolicyPairs,
@@ -998,7 +1001,7 @@ final class AcosMaxLote2MeasureService
             return $this->emptyReport('TETO-02', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_MISSION_DELIVERY_TABLE_MISSING, [
                 self::FIELD_MEASURE_ID => self::TETO02_MEASURE_ID,
                 self::FIELD_DENOMINATOR_MIN => 20,
-                'window_days' => $days,
+                self::FIELD_WINDOW_DAYS => $days,
                 self::FIELD_DENOMINATOR => [self::FIELD_OPERATOR_REQUESTS => 0],
             ]);
         }
@@ -1026,7 +1029,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
             self::FIELD_FREEZE => self::freezePayload('TETO-02'),
             self::FIELD_DENOMINATOR_MIN => 20,
-            'window_days' => $days,
+            self::FIELD_WINDOW_DAYS => $days,
             'metrics' => [
                 self::FIELD_OPERATOR_REQUESTS => $total,
                 'completed_e2e' => $completed,
