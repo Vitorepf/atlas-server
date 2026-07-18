@@ -151,7 +151,10 @@ class AtlasArenaDrainCommand extends Command
             'atlas:rivals', 'plan',
             '--suite='.$group['suite'],
             '--arms='.implode(',', $armIds),
-            '--repetitions=1', '--seed=1',
+            // ≥3 repetições: 1 rep carimbava repetitions_below_min:1<3 em TODO
+            // relatório da Arena — o app media com claim eternamente bloqueado.
+            '--repetitions='.max(1, (int) config('atlas_arena.worker_repetitions', 3)),
+            '--seed=1',
             '--budget='.$budget,
             '--max-cases='.$maxCases,
             // Suites da Arena são todas externas (sem snapshot git por case):

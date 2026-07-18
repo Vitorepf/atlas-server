@@ -42,6 +42,9 @@ return [
     // em N por rodada (determinístico) — cobertura cresce por rodadas, não
     // por uma maratona de horas por drain.
     'worker_max_cases_per_run' => (int) env('ATLAS_ARENA_WORKER_MAX_CASES', 10),
+    // ≥3 = mínimo do claim gate (repetitions_below_min); 1 media com claim
+    // eternamente bloqueado.
+    'worker_repetitions' => (int) env('ATLAS_ARENA_WORKER_REPETITIONS', 3),
 
     'capability_map' => [
         'terminal_bench' => [
