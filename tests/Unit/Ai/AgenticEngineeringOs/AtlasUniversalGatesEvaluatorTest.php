@@ -7750,4 +7750,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['acos_watchdog_immune_calibration_long_lote_measure_runbook_floor_count']);
     }
 
+    public function test_b401_acos_watchdog_immune_calibration_long_lote_measure_runbook_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b401AcosWatchdogImmuneCalibrationLongLoteMeasureRunbookFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CRITICAL_MUST_KEEP_CUTS, $out['critical_must_keep_cuts']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CRITICAL_MUST_KEEP_SHADOW_CUTS, $out['critical_must_keep_shadow_cuts']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CROSS_WEEK_RECALL_LIFT_GATE, $out['cross_week_recall_lift_gate']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_GATE, $out['gate']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_GATE_STATUSES, $out['gate_statuses']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_RECEIPT_HASH, $out['receipt_hash']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_RESOLVED_EVIDENCE_ROWS, $out['resolved_evidence_rows']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_TIME_TO_RECALL_SECONDS, $out['time_to_recall_seconds']);
+        $this->assertSame(RunbookOrchestrator::FIELD_REVIEW_STATUS, $out['review_status']);
+        $this->assertSame(RunbookOrchestrator::FIELD_RUNTIME_BASELINE, $out['runtime_baseline']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SUPERIORITY_CLAIM_ALLOWED, $out['superiority_claim_allowed']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SUPPLEMENTAL, $out['supplemental']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_PROVIDER_SAFE_INVARIANT, $out['provider_safe_invariant']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_R5, $out['r5']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ESCALATION_CYCLES, $out['escalation_cycles']);
+        $this->assertSame(18, $out['b401_acos_watchdog_immune_calibration_long_lote_measure_runbook_floor_count']);
+    }
+
 }

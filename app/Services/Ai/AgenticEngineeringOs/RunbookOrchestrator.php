@@ -74,6 +74,8 @@ final class RunbookOrchestrator
     public const FIELD_REPLAY_OBRAS_COUNT_MIN = 'replay_obras_count_min';
     public const FIELD_REPLAY_REGRESSION_OBSERVED_COUNT_MAX = 'replay_regression_observed_count_max';
     public const FIELD_REQUIRES_REPLAY_BEFORE_PROMOTION = 'requires_replay_before_promotion';
+    public const FIELD_REVIEW_STATUS = 'review_status';
+    public const FIELD_RUNTIME_BASELINE = 'runtime_baseline';
 
     /**
      * Canonical default flow for a non-trivial intent. Trivial intents
@@ -214,7 +216,7 @@ final class RunbookOrchestrator
             self::FIELD_PROPOSAL_ID => 'arp-'.bin2hex(random_bytes(8)),
             self::FIELD_TITLE => $title,
             self::FIELD_STRUCTURAL_CHANGES => $structuralChanges,
-            'runtime_baseline' => [
+            self::FIELD_RUNTIME_BASELINE => [
                 self::FIELD_DEFAULT_FLOW => $baselineFlow,
                 self::FIELD_DEPARTMENT_COUNT => count(DepartmentContractRuntime::CATALOGUE),
                 self::FIELD_DEFAULT_FLOW_GATES_TOTAL => $baselineGatesTotal,
@@ -234,7 +236,7 @@ final class RunbookOrchestrator
                 self::FIELD_ARCHITECT_SIGNATURES_COUNT => 2,
             ],
             self::FIELD_REQUIRES_REPLAY_BEFORE_PROMOTION => true,
-            'review_status' => 'pending_replay',
+            self::FIELD_REVIEW_STATUS => 'pending_replay',
             self::FIELD_PROPOSED_BY_ACTOR => AiValueNormalizer::arrayOrEmpty($request[self::FIELD_PROPOSED_BY_ACTOR] ?? [
                 self::FIELD_KIND => self::ACTOR_KIND_AGENT,
                 self::FIELD_ID => 'aaeos-runbook-orchestrator',

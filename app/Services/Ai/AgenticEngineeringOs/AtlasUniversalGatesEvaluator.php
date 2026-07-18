@@ -9955,4 +9955,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B401).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b401AcosWatchdogImmuneCalibrationLongLoteMeasureRunbookFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'critical_must_keep_cuts' => AtlasAcosWatchdogHealthService::FIELD_CRITICAL_MUST_KEEP_CUTS,
+            'critical_must_keep_shadow_cuts' => AtlasAcosWatchdogHealthService::FIELD_CRITICAL_MUST_KEEP_SHADOW_CUTS,
+            'cross_week_recall_lift_gate' => AtlasAcosWatchdogHealthService::FIELD_CROSS_WEEK_RECALL_LIFT_GATE,
+            'gate' => ImmuneCalibrationService::FIELD_GATE,
+            'gate_statuses' => ImmuneCalibrationService::FIELD_GATE_STATUSES,
+            'id' => ImmuneCalibrationService::FIELD_ID,
+            'receipt_hash' => AtlasAcosLongHorizonGateService::FIELD_RECEIPT_HASH,
+            'resolved_evidence_rows' => AtlasAcosLongHorizonGateService::FIELD_RESOLVED_EVIDENCE_ROWS,
+            'threshold' => AcosMaxLote2MeasureService::FIELD_THRESHOLD,
+            'time_to_recall_seconds' => AcosMaxLote2MeasureService::FIELD_TIME_TO_RECALL_SECONDS,
+            'review_status' => RunbookOrchestrator::FIELD_REVIEW_STATUS,
+            'runtime_baseline' => RunbookOrchestrator::FIELD_RUNTIME_BASELINE,
+            'superiority_claim_allowed' => AtlasCognitionScoreCardService::FIELD_SUPERIORITY_CLAIM_ALLOWED,
+            'supplemental' => AtlasCognitionScoreCardService::FIELD_SUPPLEMENTAL,
+            'provider_safe_invariant' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_PROVIDER_SAFE_INVARIANT,
+            'r5' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_R5,
+            'schema_version' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_SCHEMA_VERSION,
+            'escalation_cycles' => AtlasAaeosDepartmentRegistryService::FIELD_ESCALATION_CYCLES,
+            'b401_acos_watchdog_immune_calibration_long_lote_measure_runbook_floor_count' => 18,
+        ];
+    }
+
 }

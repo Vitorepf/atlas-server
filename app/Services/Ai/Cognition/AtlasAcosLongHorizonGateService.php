@@ -149,6 +149,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_PROVENANCE = 'provenance';
     public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
     public const FIELD_PROVIDER_TOKENS_SPENT = 'provider_tokens_spent';
+    public const FIELD_RECEIPT_HASH = 'receipt_hash';
+    public const FIELD_RESOLVED_EVIDENCE_ROWS = 'resolved_evidence_rows';
 
     /**
      * @param  array<string,mixed>  $options
@@ -380,7 +382,7 @@ final class AtlasAcosLongHorizonGateService
             self::FIELD_CERTIFICATION_WINDOW_SAMPLE_COUNT => count($sampledDatesInWindow),
             self::FIELD_MAX_CONSECUTIVE_GAP_DAYS => (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_MAX_CONSECUTIVE_GAP_DAYS] ?? null) ?? 0),
             self::FIELD_BACKFILLED_SAMPLES => (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_BACKFILLED_SAMPLES] ?? null) ?? 0),
-            'resolved_evidence_rows' => $resolvedEvidenceRows,
+            self::FIELD_RESOLVED_EVIDENCE_ROWS => $resolvedEvidenceRows,
         ];
     }
 
@@ -998,7 +1000,7 @@ final class AtlasAcosLongHorizonGateService
             $receiptPayload[self::FIELD_ASSESSMENT_V2] = $assessmentV2;
         }
 
-        $payload['receipt_hash'] = 'sha256:'.hash('sha256', json_encode($receiptPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        $payload[self::FIELD_RECEIPT_HASH] = 'sha256:'.hash('sha256', json_encode($receiptPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
         return $payload;
     }

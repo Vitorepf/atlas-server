@@ -86,6 +86,9 @@ final class ImmuneCalibrationService
     public const FIELD_CONTRADICTS_NEWER = 'contradicts_newer';
     public const FIELD_DUAL_READ_REQUIRED = 'dual_read_required';
     public const FIELD_FUTURE_UTILITY = 'future_utility';
+    public const FIELD_GATE = 'gate';
+    public const FIELD_GATE_STATUSES = 'gate_statuses';
+    public const FIELD_ID = 'id';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -155,7 +158,7 @@ final class ImmuneCalibrationService
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxi-03',
             'judge_engine_id' => 'codex-independent-immune-calibration-judge',
             'series' => [
-                'id' => self::MEASURE_ID,
+                self::FIELD_ID => self::MEASURE_ID,
                 'reader_command' => 'atlas:immune:calibration --json',
                 'table' => ImmuneVerdictLedger::TABLE,
                 self::FIELD_REGISTRY_STATUS => 'registered_elev_20s',
@@ -209,7 +212,7 @@ final class ImmuneCalibrationService
         $groups = [];
         foreach ($samples as $sample) {
             $writer = AiValueNormalizer::trimmedStringOrNull($sample[self::FIELD_WRITER] ?? null) ?? ImmuneVerdictLedger::WRITER_UNKNOWN;
-            $gateStatuses = AiValueNormalizer::arrayOrEmpty($sample['gate_statuses'] ?? null);
+            $gateStatuses = AiValueNormalizer::arrayOrEmpty($sample[self::FIELD_GATE_STATUSES] ?? null);
             foreach ($this->sampleGateIds($sample) as $gateId) {
                 $key = $writer.'::'.$gateId;
                 $groups[$key] ??= $this->emptyGroup($writer, $gateId);
@@ -261,7 +264,7 @@ final class ImmuneCalibrationService
     private function emptyGroup(string $writer, string $gateId): array
     {
         return [
-            'gate' => $gateId,
+            self::FIELD_GATE => $gateId,
             self::FIELD_WRITER => $writer,
             'n' => 0,
             self::FIELD_BLOCKS => 0,

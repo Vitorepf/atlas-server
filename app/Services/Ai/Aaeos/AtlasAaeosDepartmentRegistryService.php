@@ -28,6 +28,7 @@ class AtlasAaeosDepartmentRegistryService
     public const FIELD_MATURITY_LEVEL = 'maturity_level';
     public const FIELD_DEPARTMENTS = 'departments';
     public const FIELD_DUPLICATE_IDS = 'duplicate_ids';
+    public const FIELD_ESCALATION_CYCLES = 'escalation_cycles';
 
     /**
      * The 12 mandatory fields — a department missing any is a blocker.
@@ -130,7 +131,7 @@ class AtlasAaeosDepartmentRegistryService
             self::FIELD_VALID => $allValid,
             self::FIELD_DEPARTMENT_COUNT => count($departments),
             self::FIELD_DUPLICATE_IDS => $duplicateIds,
-            'escalation_cycles' => $cycles,
+            self::FIELD_ESCALATION_CYCLES => $cycles,
             self::FIELD_DEPARTMENTS => $results,
         ];
     }

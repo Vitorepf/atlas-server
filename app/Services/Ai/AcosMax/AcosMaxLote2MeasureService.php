@@ -238,6 +238,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_SUBSEQUENT_RECALL_FEEDBACK_ID = 'subsequent_recall_feedback_id';
     public const FIELD_TARGET_MISSION_E2E_RATE = 'target_mission_e2e_rate';
     public const FIELD_TASK_ID = 'task_id';
+    public const FIELD_THRESHOLD = 'threshold';
+    public const FIELD_TIME_TO_RECALL_SECONDS = 'time_to_recall_seconds';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -525,7 +527,7 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_CHAIN => $chain,
                 self::FIELD_PROVEN_REAL => true,
                 self::FIELD_FIXTURE_FREE => true,
-                'time_to_recall_seconds' => $this->secondsBetween(
+                self::FIELD_TIME_TO_RECALL_SECONDS => $this->secondsBetween(
                     AiValueNormalizer::trimmedString($outcome->created_at ?? ''),
                     AiValueNormalizer::trimmedString($recall->created_at ?? ''),
                 ),
@@ -813,7 +815,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_MODE => self::MODE_OBSERVE,
             'would_merge_count' => 0,
             self::FIELD_ACTUAL_MERGE_COUNT => 0,
-            'threshold' => data_get(self::freezePayload('MULTJ-02'), 'thresholds.cosine_merge_threshold'),
+            self::FIELD_THRESHOLD => data_get(self::freezePayload('MULTJ-02'), 'thresholds.cosine_merge_threshold'),
             self::FIELD_REVERSIBLE_RECEIPT_REQUIRED => true,
         ]);
     }

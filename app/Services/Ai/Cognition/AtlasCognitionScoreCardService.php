@@ -167,6 +167,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_ROWS = 'rows';
     public const FIELD_SCHEMA = 'schema';
     public const FIELD_SUM = 'sum';
+    public const FIELD_SUPERIORITY_CLAIM_ALLOWED = 'superiority_claim_allowed';
+    public const FIELD_SUPPLEMENTAL = 'supplemental';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -479,7 +481,7 @@ class AtlasCognitionScoreCardService
         return [
             self::FIELD_BENCHMARK_CLAIM_ALLOWED => false,
             self::FIELD_RIVALS_CLAIM_ALLOWED => false,
-            'superiority_claim_allowed' => false,
+            self::FIELD_SUPERIORITY_CLAIM_ALLOWED => false,
             self::FIELD_EXTERNAL_RIVALS_CERTIFICATION_TOUCHED => false,
             self::FIELD_COGNITIVE_IMMUNE_LAW_ENFORCED => true,
             self::FIELD_MUST_KEEP_COVERAGE_INVARIANT => true,
@@ -536,7 +538,7 @@ class AtlasCognitionScoreCardService
                 self::FIELD_GROUP => $group,
                 self::FIELD_SERVICE_CLASS => $serviceClass,
                 self::FIELD_EVIDENCE_ALIAS_OF => null,
-                'supplemental' => true,
+                self::FIELD_SUPPLEMENTAL => true,
                 self::FIELD_CODE_STATUS => $this->probeCodeStatus($serviceClass),
                 self::FIELD_DOC_STATUS => $this->evidence->resolveDocStatus($serviceClass),
                 self::FIELD_PIPELINE_STATUS => $this->evidence->resolvePipelineStatus($serviceClass),

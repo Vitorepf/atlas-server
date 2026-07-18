@@ -225,6 +225,9 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_CONTEXT_RETENTION_SCORE_COUNT = 'context_retention_score_count';
     public const FIELD_CONTEXT_RETENTION_SCORE_MIN = 'context_retention_score_min';
     public const FIELD_CORRELATION_ID = 'correlation_id';
+    public const FIELD_CRITICAL_MUST_KEEP_CUTS = 'critical_must_keep_cuts';
+    public const FIELD_CRITICAL_MUST_KEEP_SHADOW_CUTS = 'critical_must_keep_shadow_cuts';
+    public const FIELD_CROSS_WEEK_RECALL_LIFT_GATE = 'cross_week_recall_lift_gate';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -580,11 +583,11 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_WINDOW => [
                 self::FIELD_DAYS => self::COMPACTION_WINDOW_DAYS,
                 self::FIELD_COMPACTION_COUNT => $receipts->count(),
-                'critical_must_keep_shadow_cuts' => $criticalCuts,
+                self::FIELD_CRITICAL_MUST_KEEP_SHADOW_CUTS => $criticalCuts,
                 self::FIELD_CONTEXT_RETENTION_SCORE_MIN => $minRetention,
                 self::FIELD_CONTEXT_RETENTION_SCORE_COUNT => count($retentionScores),
             ],
-            'cross_week_recall_lift_gate' => [
+            self::FIELD_CROSS_WEEK_RECALL_LIFT_GATE => [
                 self::FIELD_STATUS => $crossWeek[self::FIELD_STATUS] ?? self::STATUS_UNKNOWN,
                 self::FIELD_CERTIFIED => (AiValueNormalizer::boolOrNull($crossWeek[self::FIELD_CERTIFIED] ?? null) ?? false),
                 self::FIELD_BLOCKERS => AiValueNormalizer::arrayOrEmpty($crossWeek[self::FIELD_BLOCKERS] ?? null),
@@ -597,7 +600,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_THRESHOLDS => [
                 self::FIELD_WINDOW_DAYS => self::COMPACTION_WINDOW_DAYS,
                 'min_compactions' => self::COMPACTION_MIN_RECEIPTS,
-                'critical_must_keep_cuts' => 0,
+                self::FIELD_CRITICAL_MUST_KEEP_CUTS => 0,
                 'min_context_retention_score' => self::COMPACTION_MIN_RETENTION_SCORE,
             ],
             self::FIELD_GENERATED_AT => now()->toIso8601String(),

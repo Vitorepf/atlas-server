@@ -43,6 +43,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_EMBEDDING_ALLOWED = 'embedding_allowed';
     public const FIELD_MEMORY_ELIGIBLE = 'memory_eligible';
     public const FIELD_REASON = 'reason';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -235,7 +236,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         $embeddingAllowed = $this->deriveEmbeddingAllowed($inputClass, $memoryEligible);
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_INPUT_CLASS => $inputClass,
             self::FIELD_DEFAULT_DESTINATION => self::DESTINATIONS[$inputClass],
             self::FIELD_MEMORY_ELIGIBLE => $memoryEligible,
