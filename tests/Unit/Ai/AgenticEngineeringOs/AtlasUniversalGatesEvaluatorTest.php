@@ -154,6 +154,7 @@ use App\Services\Ai\Aaeos\Generated\AtlasLearningProposalsService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdComparator;
 use App\Services\Ai\AgenticEngineeringOs\AaeosRequiredGateCoverageChecker;
+use App\Services\Ai\AgenticEngineeringOs\AaeosBlockerSeverity;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -14046,6 +14047,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(RunbookOrchestrator::FIELD_INTENT_CLASS, $out['intent_class']);
         $this->assertSame(RunbookOrchestrator::FIELD_PROPOSAL_HASH, $out['proposal_hash']);
         $this->assertSame(18, $out['b654_runbook_floor_count']);
+    }
+
+    public function test_b655_blocker_severity_mission_control_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b655BlockerSeverityMissionControlFloorsContractObserve([]);
+        $this->assertSame(AaeosBlockerSeverity::CRITICAL, $out['critical']);
+        $this->assertSame(AaeosBlockerSeverity::HIGH, $out['high']);
+        $this->assertSame(AaeosBlockerSeverity::MEDIUM, $out['medium']);
+        $this->assertSame(AaeosBlockerSeverity::LOW, $out['low']);
+        $this->assertSame(AaeosBlockerSeverity::FIELD_OWNER, $out['owner']);
+        $this->assertSame(AaeosBlockerSeverity::FIELD_SEVERITY, $out['severity']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasMissionControlCockpitService::SCHEMA_VERSION, $out['atlas.aaeos.mission_control_cockpit.v1']);
+        $this->assertSame(AtlasMissionControlCockpitService::STATUS_PENDING, $out['pending']);
+        $this->assertSame(AtlasMissionControlCockpitService::STATUS_SKIPPED, $out['skipped']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_BLOCKED, $out['blocked']);
+        $this->assertSame(AtlasMissionControlCockpitService::STATUS_COMPLETE, $out['complete']);
+        $this->assertSame(AtlasMissionControlCockpitService::STATUS_IN_PROGRESS, $out['in_progress']);
+        $this->assertSame(AtlasMissionControlCockpitService::STATUS_SUCCEEDED, $out['succeeded']);
+        $this->assertSame(AtlasMissionControlCockpitService::STATUS_FAILED, $out['failed']);
+        $this->assertSame(AtlasMissionControlCockpitService::OUTCOME_GREEN, $out['green']);
+        $this->assertSame(AtlasMissionControlCockpitService::OUTCOME_RED, $out['red']);
+        $this->assertSame(18, $out['b655_blocker_severity_mission_control_floor_count']);
     }
 
 }

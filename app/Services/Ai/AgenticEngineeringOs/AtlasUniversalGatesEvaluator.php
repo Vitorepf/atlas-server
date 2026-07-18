@@ -17753,4 +17753,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B655).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b655BlockerSeverityMissionControlFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'critical' => AaeosBlockerSeverity::CRITICAL,
+            'high' => AaeosBlockerSeverity::HIGH,
+            'medium' => AaeosBlockerSeverity::MEDIUM,
+            'low' => AaeosBlockerSeverity::LOW,
+            'owner' => AaeosBlockerSeverity::FIELD_OWNER,
+            'severity' => AaeosBlockerSeverity::FIELD_SEVERITY,
+            'id' => AtlasMissionControlCockpitService::FIELD_ID,
+            'kind' => AtlasMissionControlCockpitService::FIELD_KIND,
+            'atlas.aaeos.mission_control_cockpit.v1' => AtlasMissionControlCockpitService::SCHEMA_VERSION,
+            'pending' => AtlasMissionControlCockpitService::STATUS_PENDING,
+            'skipped' => AtlasMissionControlCockpitService::STATUS_SKIPPED,
+            'blocked' => AtlasMissionControlCockpitService::FIELD_BLOCKED,
+            'complete' => AtlasMissionControlCockpitService::STATUS_COMPLETE,
+            'in_progress' => AtlasMissionControlCockpitService::STATUS_IN_PROGRESS,
+            'succeeded' => AtlasMissionControlCockpitService::STATUS_SUCCEEDED,
+            'failed' => AtlasMissionControlCockpitService::STATUS_FAILED,
+            'green' => AtlasMissionControlCockpitService::OUTCOME_GREEN,
+            'red' => AtlasMissionControlCockpitService::OUTCOME_RED,
+            'b655_blocker_severity_mission_control_floor_count' => 18,
+        ];
+    }
+
 }
