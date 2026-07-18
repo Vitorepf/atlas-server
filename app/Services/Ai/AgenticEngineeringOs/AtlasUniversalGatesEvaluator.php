@@ -18559,4 +18559,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B681).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b681EspIndependentFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.esp_09.challenger_advisory.v1' => Esp09IndependentChallengerService::MEASURE_ID,
+            'atlas.esp_09.challenger_advisory.v1' => Esp09IndependentChallengerService::MEASURE_ID,
+            '0.80' => Esp09IndependentChallengerService::HIGH_ALIGNMENT_BAND,
+            'recursive_improvement' => Esp09IndependentChallengerService::TRIGGER_KIND_RECURSIVE_IMPROVEMENT,
+            'composed_obra' => Esp09IndependentChallengerService::TRIGGER_KIND_COMPOSED_OBRA,
+            '2' => Esp09IndependentChallengerService::DEFAULT_MIN_PER_WINDOW,
+            '2' => Esp09IndependentChallengerService::DEFAULT_MIN_PER_WINDOW,
+            'ordinary_route' => Esp09IndependentChallengerService::DECISION_KIND_ORDINARY_ROUTE,
+            'invalid' => Esp09IndependentChallengerService::STATUS_INVALID,
+            'skipped' => Esp09IndependentChallengerService::STATUS_SKIPPED,
+            'advisory' => Esp09IndependentChallengerService::STATUS_ADVISORY,
+            'delayed' => Esp09IndependentChallengerService::STATUS_DELAYED,
+            'clear' => Esp09IndependentChallengerService::STATUS_CLEAR,
+            'engine_ids_required' => Esp09IndependentChallengerService::ERROR_ENGINE_IDS_REQUIRED,
+            'challenger_engine_must_differ' => Esp09IndependentChallengerService::ERROR_CHALLENGER_ENGINE_MUST_DIFFER,
+            'error' => Esp09IndependentChallengerService::FIELD_ERROR,
+            'status' => Esp09IndependentChallengerService::FIELD_STATUS,
+            'schema_version' => Esp09IndependentChallengerService::FIELD_SCHEMA_VERSION,
+            'b681_esp_independent_floor_count' => 18,
+        ];
+    }
+
 }

@@ -14699,4 +14699,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b680_domain_lexical_floor_count']);
     }
 
+    public function test_b681_esp_independent_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b681EspIndependentFloorsContractObserve([]);
+        $this->assertSame(Esp09IndependentChallengerService::MEASURE_ID, $out['atlas.esp_09.challenger_advisory.v1']);
+        $this->assertSame(Esp09IndependentChallengerService::MEASURE_ID, $out['atlas.esp_09.challenger_advisory.v1']);
+        $this->assertSame(Esp09IndependentChallengerService::HIGH_ALIGNMENT_BAND, $out['0.80']);
+        $this->assertSame(Esp09IndependentChallengerService::TRIGGER_KIND_RECURSIVE_IMPROVEMENT, $out['recursive_improvement']);
+        $this->assertSame(Esp09IndependentChallengerService::TRIGGER_KIND_COMPOSED_OBRA, $out['composed_obra']);
+        $this->assertSame(Esp09IndependentChallengerService::DEFAULT_MIN_PER_WINDOW, $out['2']);
+        $this->assertSame(Esp09IndependentChallengerService::DEFAULT_MIN_PER_WINDOW, $out['2']);
+        $this->assertSame(Esp09IndependentChallengerService::DECISION_KIND_ORDINARY_ROUTE, $out['ordinary_route']);
+        $this->assertSame(Esp09IndependentChallengerService::STATUS_INVALID, $out['invalid']);
+        $this->assertSame(Esp09IndependentChallengerService::STATUS_SKIPPED, $out['skipped']);
+        $this->assertSame(Esp09IndependentChallengerService::STATUS_ADVISORY, $out['advisory']);
+        $this->assertSame(Esp09IndependentChallengerService::STATUS_DELAYED, $out['delayed']);
+        $this->assertSame(Esp09IndependentChallengerService::STATUS_CLEAR, $out['clear']);
+        $this->assertSame(Esp09IndependentChallengerService::ERROR_ENGINE_IDS_REQUIRED, $out['engine_ids_required']);
+        $this->assertSame(Esp09IndependentChallengerService::ERROR_CHALLENGER_ENGINE_MUST_DIFFER, $out['challenger_engine_must_differ']);
+        $this->assertSame(Esp09IndependentChallengerService::FIELD_ERROR, $out['error']);
+        $this->assertSame(Esp09IndependentChallengerService::FIELD_STATUS, $out['status']);
+        $this->assertSame(Esp09IndependentChallengerService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(18, $out['b681_esp_independent_floor_count']);
+    }
+
 }
