@@ -15365,4 +15365,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B577).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b577PromotionProtocolCognitionScoreEvidenceLedgerFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'shadow_minimum_window' => PromotionProtocol::FIELD_SHADOW_MINIMUM_WINDOW,
+            'flip_criterion' => PromotionProtocol::FIELD_FLIP_CRITERION,
+            'flag_id' => PromotionProtocol::FIELD_FLAG_ID,
+            'observation_window_id' => PromotionProtocol::FIELD_OBSERVATION_WINDOW_ID,
+            'source' => PromotionProtocol::FIELD_SOURCE,
+            'operator_only' => PromotionProtocol::FIELD_OPERATOR_ONLY,
+            'status' => AtlasCognitionScoreCardService::FIELD_STATUS,
+            'generated_at' => AtlasCognitionScoreCardService::FIELD_GENERATED_AT,
+            'subsystem_count' => AtlasCognitionScoreCardService::FIELD_SUBSYSTEM_COUNT,
+            'scored_subsystem_count' => AtlasCognitionScoreCardService::FIELD_SCORED_SUBSYSTEM_COUNT,
+            'claim_policy' => AtlasCognitionScoreCardService::FIELD_CLAIM_POLICY,
+            'module_count' => AtlasCognitionScoreCardService::FIELD_MODULE_COUNT,
+            'schema_version' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_SCHEMA_VERSION,
+            'date' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_DATE,
+            'code' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_CODE,
+            'message' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_MESSAGE,
+            'chain_key' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_CHAIN_KEY,
+            'chains' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_CHAINS,
+            'b577_promotion_protocol_cognition_score_evidence_ledger_floor_count' => 18,
+        ];
+    }
+
 }

@@ -12124,4 +12124,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b576_composed_obra_dev_procedural_outcome_envelope_floor_count']);
     }
 
+    public function test_b577_promotion_protocol_cognition_score_evidence_ledger_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b577PromotionProtocolCognitionScoreEvidenceLedgerFloorsContractObserve([]);
+        $this->assertSame(PromotionProtocol::FIELD_SHADOW_MINIMUM_WINDOW, $out['shadow_minimum_window']);
+        $this->assertSame(PromotionProtocol::FIELD_FLIP_CRITERION, $out['flip_criterion']);
+        $this->assertSame(PromotionProtocol::FIELD_FLAG_ID, $out['flag_id']);
+        $this->assertSame(PromotionProtocol::FIELD_OBSERVATION_WINDOW_ID, $out['observation_window_id']);
+        $this->assertSame(PromotionProtocol::FIELD_SOURCE, $out['source']);
+        $this->assertSame(PromotionProtocol::FIELD_OPERATOR_ONLY, $out['operator_only']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SUBSYSTEM_COUNT, $out['subsystem_count']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SCORED_SUBSYSTEM_COUNT, $out['scored_subsystem_count']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CLAIM_POLICY, $out['claim_policy']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_MODULE_COUNT, $out['module_count']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_DATE, $out['date']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_CODE, $out['code']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_CHAIN_KEY, $out['chain_key']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_CHAINS, $out['chains']);
+        $this->assertSame(18, $out['b577_promotion_protocol_cognition_score_evidence_ledger_floor_count']);
+    }
+
 }

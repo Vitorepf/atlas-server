@@ -599,6 +599,7 @@ final class AtlasAaeosCommand extends Command
                             {--b574-http-path-cross-department-segment-importance-floors-contract= : JSON file (any object) to observe http/path/cross/department/segment/importance floors}
                             {--b575-parallel-execution-aemor-outcome-knowledge-item-floors-contract= : JSON file (any object) to observe parallel/execution/aemor/outcome/knowledge/item floors}
                             {--b576-composed-obra-dev-procedural-outcome-envelope-floors-contract= : JSON file (any object) to observe composed/obra/dev/procedural/outcome/envelope floors}
+                            {--b577-promotion-protocol-cognition-score-evidence-ledger-floors-contract= : JSON file (any object) to observe promotion/protocol/cognition/score/evidence/ledger floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1354,6 +1355,7 @@ final class AtlasAaeosCommand extends Command
             ['b574-http-path-cross-department-segment-importance-floors-contract', 'b574_http_path_cross_department_segment_importance_floors_contract', fn (array $p) => $gates->b574HttpPathCrossDepartmentSegmentImportanceFloorsContractObserve($p)],
             ['b575-parallel-execution-aemor-outcome-knowledge-item-floors-contract', 'b575_parallel_execution_aemor_outcome_knowledge_item_floors_contract', fn (array $p) => $gates->b575ParallelExecutionAemorOutcomeKnowledgeItemFloorsContractObserve($p)],
             ['b576-composed-obra-dev-procedural-outcome-envelope-floors-contract', 'b576_composed_obra_dev_procedural_outcome_envelope_floors_contract', fn (array $p) => $gates->b576ComposedObraDevProceduralOutcomeEnvelopeFloorsContractObserve($p)],
+            ['b577-promotion-protocol-cognition-score-evidence-ledger-floors-contract', 'b577_promotion_protocol_cognition_score_evidence_ledger_floors_contract', fn (array $p) => $gates->b577PromotionProtocolCognitionScoreEvidenceLedgerFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
