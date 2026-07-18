@@ -11939,6 +11939,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b729_cognition_evidence_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b729-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b729',
+                '--b729-cognition-evidence-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b729_cognition_evidence_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

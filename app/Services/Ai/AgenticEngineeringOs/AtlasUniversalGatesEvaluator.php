@@ -20047,4 +20047,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B729).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b729CognitionEvidenceFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'id' => AtlasCognitionEvidenceResolver::FIELD_ID,
+            'owner_doc' => AtlasCognitionEvidenceResolver::FIELD_OWNER_DOC,
+            'ready' => AtlasCognitionEvidenceResolver::STATUS_READY,
+            'partial' => AtlasCognitionEvidenceResolver::STATUS_PARTIAL,
+            'building' => AtlasCognitionEvidenceResolver::STATUS_BUILDING,
+            'blocked' => AtlasCognitionEvidenceResolver::STATUS_BLOCKED,
+            'status' => AtlasCognitionEvidenceResolver::FIELD_STATUS,
+            'reason' => AtlasCognitionEvidenceResolver::FIELD_REASON,
+            'owner_capability_ids' => AtlasCognitionEvidenceResolver::FIELD_OWNER_CAPABILITY_IDS,
+            'candidate_test_refs' => AtlasCognitionEvidenceResolver::FIELD_CANDIDATE_TEST_REFS,
+            'latest_receipt_at' => AtlasCognitionEvidenceResolver::FIELD_LATEST_RECEIPT_AT,
+            'latest_receipt_age_days' => AtlasCognitionEvidenceResolver::FIELD_LATEST_RECEIPT_AGE_DAYS,
+            'green_receipt_count' => AtlasCognitionEvidenceResolver::FIELD_GREEN_RECEIPT_COUNT,
+            'test_file_hash' => AtlasCognitionEvidenceResolver::FIELD_TEST_FILE_HASH,
+            'capability_id' => AtlasCognitionEvidenceResolver::FIELD_CAPABILITY_ID,
+            'evidence_refs' => AtlasCognitionEvidenceResolver::FIELD_EVIDENCE_REFS,
+            'test_refs' => AtlasCognitionEvidenceResolver::FIELD_TEST_REFS,
+            'kind' => AtlasCognitionEvidenceResolver::FIELD_KIND,
+            'b729_cognition_evidence_floor_count' => 18,
+        ];
+    }
+
 }

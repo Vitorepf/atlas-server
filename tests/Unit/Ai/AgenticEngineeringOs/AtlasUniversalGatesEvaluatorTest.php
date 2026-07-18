@@ -15900,4 +15900,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b728_frontier_wave_floor_count']);
     }
 
+    public function test_b729_cognition_evidence_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b729CognitionEvidenceFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_OWNER_DOC, $out['owner_doc']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::STATUS_READY, $out['ready']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::STATUS_PARTIAL, $out['partial']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::STATUS_BUILDING, $out['building']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::STATUS_BLOCKED, $out['blocked']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_OWNER_CAPABILITY_IDS, $out['owner_capability_ids']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_CANDIDATE_TEST_REFS, $out['candidate_test_refs']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_LATEST_RECEIPT_AT, $out['latest_receipt_at']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_LATEST_RECEIPT_AGE_DAYS, $out['latest_receipt_age_days']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_GREEN_RECEIPT_COUNT, $out['green_receipt_count']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_TEST_FILE_HASH, $out['test_file_hash']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_CAPABILITY_ID, $out['capability_id']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_EVIDENCE_REFS, $out['evidence_refs']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_TEST_REFS, $out['test_refs']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_KIND, $out['kind']);
+        $this->assertSame(18, $out['b729_cognition_evidence_floor_count']);
+    }
+
 }
