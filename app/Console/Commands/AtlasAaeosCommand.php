@@ -593,6 +593,7 @@ final class AtlasAaeosCommand extends Command
                             {--b568-verified-share-esp-independent-floors-contract= : JSON file (any object) to observe verified/share/esp/independent floors}
                             {--b569-pre-review-cognitive-function-floors-contract= : JSON file (any object) to observe pre/review/cognitive/function floors}
                             {--b570-aaeos-quality-lote-measure-procedural-skill-floors-contract= : JSON file (any object) to observe aaeos/quality/lote/measure/procedural/skill floors}
+                            {--b571-capture-hmac-phase-handoff-floors-contract= : JSON file (any object) to observe capture/hmac/phase/handoff floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1342,6 +1343,7 @@ final class AtlasAaeosCommand extends Command
             ['b568-verified-share-esp-independent-floors-contract', 'b568_verified_share_esp_independent_floors_contract', fn (array $p) => $gates->b568VerifiedShareEspIndependentFloorsContractObserve($p)],
             ['b569-pre-review-cognitive-function-floors-contract', 'b569_pre_review_cognitive_function_floors_contract', fn (array $p) => $gates->b569PreReviewCognitiveFunctionFloorsContractObserve($p)],
             ['b570-aaeos-quality-lote-measure-procedural-skill-floors-contract', 'b570_aaeos_quality_lote_measure_procedural_skill_floors_contract', fn (array $p) => $gates->b570AaeosQualityLoteMeasureProceduralSkillFloorsContractObserve($p)],
+            ['b571-capture-hmac-phase-handoff-floors-contract', 'b571_capture_hmac_phase_handoff_floors_contract', fn (array $p) => $gates->b571CaptureHmacPhaseHandoffFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

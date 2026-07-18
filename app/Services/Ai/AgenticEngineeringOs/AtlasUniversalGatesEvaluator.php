@@ -15179,4 +15179,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B571).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b571CaptureHmacPhaseHandoffFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => CaptureHmacLineageService::FIELD_SCHEMA_VERSION,
+            'broken' => CaptureHmacLineageService::FIELD_BROKEN,
+            'lineage' => CaptureHmacLineageService::FIELD_LINEAGE,
+            'min_captures' => CaptureHmacLineageService::FIELD_MIN_CAPTURES,
+            'note' => CaptureHmacLineageService::FIELD_NOTE,
+            'ref' => CaptureHmacLineageService::FIELD_REF,
+            'chain' => CaptureHmacLineageService::FIELD_CHAIN,
+            'verify' => CaptureHmacLineageService::FIELD_VERIFY,
+            'slice' => CaptureHmacLineageService::FIELD_SLICE,
+            'schema' => AaeosPhaseHandoffService::FIELD_SCHEMA,
+            'required' => AaeosPhaseHandoffService::FIELD_REQUIRED,
+            'id' => AaeosPhaseHandoffService::FIELD_ID,
+            'status' => AaeosPhaseHandoffService::FIELD_STATUS,
+            'reason' => AaeosPhaseHandoffService::FIELD_REASON,
+            'blockers' => AaeosPhaseHandoffService::FIELD_BLOCKERS,
+            'started_at' => AaeosPhaseHandoffService::FIELD_STARTED_AT,
+            'ended_at' => AaeosPhaseHandoffService::FIELD_ENDED_AT,
+            'skip_reason' => AaeosPhaseHandoffService::FIELD_SKIP_REASON,
+            'b571_capture_hmac_phase_handoff_floor_count' => 18,
+        ];
+    }
+
 }

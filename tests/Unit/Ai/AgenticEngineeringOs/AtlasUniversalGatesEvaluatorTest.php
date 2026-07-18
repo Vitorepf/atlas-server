@@ -11974,4 +11974,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b570_aaeos_quality_lote_measure_procedural_skill_floor_count']);
     }
 
+    public function test_b571_capture_hmac_phase_handoff_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b571CaptureHmacPhaseHandoffFloorsContractObserve([]);
+        $this->assertSame(CaptureHmacLineageService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_BROKEN, $out['broken']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_LINEAGE, $out['lineage']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_MIN_CAPTURES, $out['min_captures']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_NOTE, $out['note']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_REF, $out['ref']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_CHAIN, $out['chain']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_VERIFY, $out['verify']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_SLICE, $out['slice']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_SCHEMA, $out['schema']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_REQUIRED, $out['required']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_ID, $out['id']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_BLOCKERS, $out['blockers']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_STARTED_AT, $out['started_at']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_ENDED_AT, $out['ended_at']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_SKIP_REASON, $out['skip_reason']);
+        $this->assertSame(18, $out['b571_capture_hmac_phase_handoff_floor_count']);
+    }
+
 }

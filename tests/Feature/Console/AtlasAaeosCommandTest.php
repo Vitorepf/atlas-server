@@ -9727,6 +9727,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b571_capture_hmac_phase_handoff_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b571-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b571',
+                '--b571-capture-hmac-phase-handoff-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b571_capture_hmac_phase_handoff_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 
