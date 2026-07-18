@@ -20481,4 +20481,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B743).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b743WatchdogCheckAcosFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'Watchdog check id cannot be empty.' => AtlasWatchdogCheckRegistry::FIELD_WATCHDOG_CHECK_ID_CANNOT_BE_EMPTY_,
+            'ai_run_outcome_max_age_hours' => AtlasAcosWatchdogHealthService::FIELD_AI_RUN_OUTCOME_MAX_AGE_HOURS,
+            'by_executor' => AtlasAcosWatchdogHealthService::FIELD_BY_EXECUTOR,
+            'atlas.memory.quality_check.v1' => AtlasAcosWatchdogHealthService::MEMORY_QUALITY_SCHEMA,
+            'atlas.context.feedback_health.v1' => AtlasAcosWatchdogHealthService::CONTEXT_FEEDBACK_SCHEMA,
+            'atlas.compaction.soak_watch.v1' => AtlasAcosWatchdogHealthService::COMPACTION_SOAK_SCHEMA,
+            'atlas.engineering.enforce_readiness.v1' => AtlasAcosWatchdogHealthService::ENGINEERING_READINESS_SCHEMA,
+            'status' => AtlasAcosWatchdogHealthService::FIELD_STATUS,
+            'blocking' => AtlasAcosWatchdogHealthService::FIELD_BLOCKING,
+            'schema_version' => AtlasAcosWatchdogHealthService::FIELD_SCHEMA_VERSION,
+            'generated_at' => AtlasAcosWatchdogHealthService::FIELD_GENERATED_AT,
+            'thresholds' => AtlasAcosWatchdogHealthService::FIELD_THRESHOLDS,
+            'code' => AtlasAcosWatchdogHealthService::FIELD_CODE,
+            'total' => AtlasAcosWatchdogHealthService::FIELD_TOTAL,
+            'ready_to_enforce' => AtlasAcosWatchdogHealthService::FIELD_READY_TO_ENFORCE,
+            'checks' => AtlasAcosWatchdogHealthService::FIELD_CHECKS,
+            'green' => AtlasAcosWatchdogHealthService::FIELD_GREEN,
+            'red' => AtlasAcosWatchdogHealthService::FIELD_RED,
+            'b743_watchdog_check_acos_floor_count' => 18,
+        ];
+    }
+
 }
