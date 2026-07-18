@@ -71,6 +71,8 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_RATIONALE = 'rationale';
     public const FIELD_SCHEMA = 'schema';
     public const FIELD_DECISION = 'decision';
+    public const FIELD_REQUESTED_AUTONOMY = 'requested_autonomy';
+    public const FIELD_PROPOSAL_ID = 'proposal_id';
 
     private ?string $proposalsLogOverride = null;
 
@@ -133,7 +135,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
             self::FIELD_PROPOSED_EFFECT => "propose evolution {$currentSchema} -> {$nextSchema}",
             self::FIELD_SCOPE => [self::FIELD_PRIVACY_CLASS => 'normal'],
             self::FIELD_ACTOR => $actor,
-            'requested_autonomy' => 'execute_with_approval',
+            self::FIELD_REQUESTED_AUTONOMY => 'execute_with_approval',
         ]);
 
         $proposalId = 'acmf_'.substr(hash('sha256', $currentSchema.'|'.$nextSchema.'|'.$trigger), 0, 12);
@@ -141,7 +143,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
 
         $proposal = [
             'schema_version' => self::PROPOSAL_SCHEMA,
-            'proposal_id' => $proposalId,
+            self::FIELD_PROPOSAL_ID => $proposalId,
             'generated_at' => $generatedAt,
             self::FIELD_CURRENT_SCHEMA => $currentSchema,
             self::FIELD_PROPOSED_NEXT_SCHEMA => $nextSchema,

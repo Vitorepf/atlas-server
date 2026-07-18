@@ -8151,6 +8151,31 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function frontierRerankFabricDecompSpecpackHandoffEnvelopeBlockerAdvisoryFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'frontier_field_constituicao' => AtlasFrontierWaveLadder::FIELD_CONSTITUICAO,
+            'frontier_field_external_events' => AtlasFrontierWaveLadder::FIELD_EXTERNAL_EVENTS,
+            'rerank_field_current_precision_at_k' => AtlasConsolidationRerankGuard::FIELD_CURRENT_PRECISION_AT_K,
+            'rerank_field_baseline_precision_at_k' => AtlasConsolidationRerankGuard::FIELD_BASELINE_PRECISION_AT_K,
+            'fabric_field_requested_autonomy' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_REQUESTED_AUTONOMY,
+            'fabric_field_proposal_id' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_PROPOSAL_ID,
+            'decomp_field_input_length' => AtlasCognitiveFunctionDecomposerService::FIELD_INPUT_LENGTH,
+            'decomp_field_input_preview' => AtlasCognitiveFunctionDecomposerService::FIELD_INPUT_PREVIEW,
+            'specpack_field_department_id' => ArchitectAgentSpecPackGateContract::FIELD_DEPARTMENT_ID,
+            'specpack_field_min_autonomous_risk_scope' => ArchitectAgentSpecPackGateContract::FIELD_MIN_AUTONOMOUS_RISK_SCOPE,
+            'handoff_field_surface_captured_intent' => AaeosPhaseHandoffService::FIELD_SURFACE_CAPTURED_INTENT,
+            'handoff_field_intent_clarity_score_min_0_8' => AaeosPhaseHandoffService::FIELD_INTENT_CLARITY_SCORE_MIN_0_8,
+            'envelope_factory_field_placement_layer' => AaeosHttpPathEnvelopeFactory::FIELD_PLACEMENT_LAYER,
+            'envelope_factory_field_placement_flow' => AaeosHttpPathEnvelopeFactory::FIELD_PLACEMENT_FLOW,
+            'blocker_field_critical_count' => AaeosBlockerSeverityGate::FIELD_CRITICAL_COUNT,
+            'blocker_field_high_count' => AaeosBlockerSeverityGate::FIELD_HIGH_COUNT,
+            'advisory_field_delays_auto_apply' => PreReviewAdvisoryBand::FIELD_DELAYS_AUTO_APPLY,
+            'advisory_field_mutates_pipeline' => PreReviewAdvisoryBand::FIELD_MUTATES_PIPELINE,
+            'frontier_rerank_fabric_decomp_specpack_handoff_envelope_blocker_advisory_floor_count' => 18,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

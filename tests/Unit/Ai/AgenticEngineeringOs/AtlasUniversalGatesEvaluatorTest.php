@@ -6199,6 +6199,33 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['volume_sig_hybrid_delivery_autowork_mission_http_impact_floor_count']);
     }
 
+    public function test_frontier_rerank_fabric_decomp_specpack_handoff_envelope_blocker_advisory_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->frontierRerankFabricDecompSpecpackHandoffEnvelopeBlockerAdvisoryFloorsContractObserve([]);
+
+        $this->assertSame('constituicao', $payload['frontier_field_constituicao']);
+        $this->assertSame('external_events', $payload['frontier_field_external_events']);
+        $this->assertSame('current_precision_at_k', $payload['rerank_field_current_precision_at_k']);
+        $this->assertSame('baseline_precision_at_k', $payload['rerank_field_baseline_precision_at_k']);
+        $this->assertSame('requested_autonomy', $payload['fabric_field_requested_autonomy']);
+        $this->assertSame('proposal_id', $payload['fabric_field_proposal_id']);
+        $this->assertSame('input_length', $payload['decomp_field_input_length']);
+        $this->assertSame('input_preview', $payload['decomp_field_input_preview']);
+        $this->assertSame('department_id', $payload['specpack_field_department_id']);
+        $this->assertSame('min_autonomous_risk_scope', $payload['specpack_field_min_autonomous_risk_scope']);
+        $this->assertSame('surface_captured_intent', $payload['handoff_field_surface_captured_intent']);
+        $this->assertSame('intent_clarity_score_min_0_8', $payload['handoff_field_intent_clarity_score_min_0_8']);
+        $this->assertSame('placement_layer', $payload['envelope_factory_field_placement_layer']);
+        $this->assertSame('placement_flow', $payload['envelope_factory_field_placement_flow']);
+        $this->assertSame('critical_count', $payload['blocker_field_critical_count']);
+        $this->assertSame('high_count', $payload['blocker_field_high_count']);
+        $this->assertSame('delays_auto_apply', $payload['advisory_field_delays_auto_apply']);
+        $this->assertSame('mutates_pipeline', $payload['advisory_field_mutates_pipeline']);
+        $this->assertSame(18, $payload['frontier_rerank_fabric_decomp_specpack_handoff_envelope_blocker_advisory_floor_count']);
+    }
+
+
+
 
 
 

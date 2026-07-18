@@ -11,6 +11,8 @@ final class AaeosBlockerSeverityGate
     public const SIGNAL_WARNING = 'warning';
 
     public const SIGNAL_CLEAR = 'clear';
+    public const FIELD_CRITICAL_COUNT = 'critical_count';
+    public const FIELD_HIGH_COUNT = 'high_count';
 
     /** @var list<string> */
     public const SIGNALS = [
@@ -58,8 +60,8 @@ final class AaeosBlockerSeverityGate
 
         return [
             'signal' => $this->resolveSignal($criticalCount, $highCount, $mediumCount),
-            'critical_count' => $criticalCount,
-            'high_count' => $highCount,
+            self::FIELD_CRITICAL_COUNT => $criticalCount,
+            self::FIELD_HIGH_COUNT => $highCount,
             'medium_count' => $mediumCount,
             'low_count' => $lowCount,
             'unknown_count' => $unknownCount,

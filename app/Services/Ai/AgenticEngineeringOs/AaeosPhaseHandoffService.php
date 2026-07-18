@@ -51,6 +51,8 @@ final class AaeosPhaseHandoffService
     public const FIELD_NEXT_PHASE = 'next_phase';
     public const FIELD_SKIP_REASON = 'skip_reason';
     public const FIELD_AUTONOMY_LEVEL = 'autonomy_level';
+    public const FIELD_SURFACE_CAPTURED_INTENT = 'surface_captured_intent';
+    public const FIELD_INTENT_CLARITY_SCORE_MIN_0_8 = 'intent_clarity_score_min_0_8';
 
     public static function requireIntentId(string $intentId): void
     {
@@ -126,8 +128,8 @@ final class AaeosPhaseHandoffService
      * @var array<string,list<string>>
      */
     public const PHASE_GATES_MAP = [
-        self::PHASE_INTENT_CAPTURE => ['surface_captured_intent'],
-        self::PHASE_DISAMBIGUATION => ['intent_clarity_score_min_0_8'],
+        self::PHASE_INTENT_CAPTURE => [self::FIELD_SURFACE_CAPTURED_INTENT],
+        self::PHASE_DISAMBIGUATION => [self::FIELD_INTENT_CLARITY_SCORE_MIN_0_8],
         self::PHASE_PLACEMENT => ['placement_decision_feature_path_valid'],
         self::PHASE_CLASSIFICATION => ['intent_classification_target_department_declared'],
         self::PHASE_POLICY_GATE => ['policy_decision_allowed_true'],

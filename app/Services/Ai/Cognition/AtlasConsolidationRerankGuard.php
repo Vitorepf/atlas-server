@@ -38,6 +38,8 @@ final class AtlasConsolidationRerankGuard
     public const FIELD_PRECISION_AT_K = 'precision_at_k';
     public const FIELD_REASON = 'reason';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_CURRENT_PRECISION_AT_K = 'current_precision_at_k';
+    public const FIELD_BASELINE_PRECISION_AT_K = 'baseline_precision_at_k';
 
     public const STATUS_OK = 'ok';
 
@@ -104,8 +106,8 @@ final class AtlasConsolidationRerankGuard
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'verdict' => $verdict,
             'promote_allowed' => $verdict === 'promote_allowed',
-            'current_precision_at_k' => $current,
-            'baseline_precision_at_k' => $baseline,
+            self::FIELD_CURRENT_PRECISION_AT_K => $current,
+            self::FIELD_BASELINE_PRECISION_AT_K => $baseline,
             'label' => 'refatoracao',
         ];
     }

@@ -74,6 +74,8 @@ final class PreReviewAdvisoryBand
     public const FIELD_BLOCKS_AUTO_APPLY = 'blocks_auto_apply';
     public const FIELD_CRITICAL = 'critical';
     public const FIELD_DEATH_CRITERION = 'death_criterion';
+    public const FIELD_DELAYS_AUTO_APPLY = 'delays_auto_apply';
+    public const FIELD_MUTATES_PIPELINE = 'mutates_pipeline';
 
     /**
      * @param  array<string,mixed>  $features required keys:
@@ -109,8 +111,8 @@ final class PreReviewAdvisoryBand
             self::FIELD_BASIS => self::BASIS_INSUFFICIENT_SAMPLE,
             self::FIELD_SOURCE => [
                 self::FIELD_BLOCKS_AUTO_APPLY => false,
-                'delays_auto_apply' => false,
-                'mutates_pipeline' => false,
+                self::FIELD_DELAYS_AUTO_APPLY => false,
+                self::FIELD_MUTATES_PIPELINE => false,
                 'reorders_digest_only' => true,
                 'reuses_calibration_band_classifier' => true,
                 'min_n_for_band' => self::MIN_N_FOR_BAND,

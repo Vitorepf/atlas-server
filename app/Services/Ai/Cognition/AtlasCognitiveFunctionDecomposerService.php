@@ -66,6 +66,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_FRAMEWORK = 'framework';
     public const FIELD_PRIVACY_CLASS = 'privacy_class';
     public const FIELD_ROLE = 'role';
+    public const FIELD_INPUT_LENGTH = 'input_length';
+    public const FIELD_INPUT_PREVIEW = 'input_preview';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -257,8 +259,8 @@ final class AtlasCognitiveFunctionDecomposerService
         $envelope = [
             'schema_version' => self::SCHEMA,
             'generated_at' => $generatedAt,
-            'input_length' => mb_strlen($input),
-            'input_preview' => mb_substr($input, 0, 120),
+            self::FIELD_INPUT_LENGTH => mb_strlen($input),
+            self::FIELD_INPUT_PREVIEW => mb_substr($input, 0, 120),
             self::FIELD_CONTEXT => [
                 self::FIELD_ROLE => $context[self::FIELD_ROLE] ?? null,
                 self::FIELD_FRAMEWORK => $context[self::FIELD_FRAMEWORK] ?? null,

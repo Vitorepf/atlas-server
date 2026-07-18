@@ -49,6 +49,8 @@ final class AtlasFrontierWaveLadder
     public const FIELD_KIND = 'kind';
     public const FIELD_WAVES = 'waves';
     public const FIELD_ACTIVATION = 'activation';
+    public const FIELD_CONSTITUICAO = 'constituicao';
+    public const FIELD_EXTERNAL_EVENTS = 'external_events';
 
     /**
      * Waves in activation order (obra20 §Fase-0 + contexto-mestre §5).
@@ -56,7 +58,7 @@ final class AtlasFrontierWaveLadder
      * @var array<int,array{key:string,systems:list<string>,summary:string}>
      */
     public const WAVES = [
-        [self::FIELD_KEY => 'fase_0', self::FIELD_SYSTEMS => ['constituicao'], self::FIELD_SUMMARY => 'Constituição: scorecard 10× congelado por hash + quarentena de síntese + razão de transações + journal-first (Sistema 8) — o PORTÃO'],
+        [self::FIELD_KEY => 'fase_0', self::FIELD_SYSTEMS => [self::FIELD_CONSTITUICAO], self::FIELD_SUMMARY => 'Constituição: scorecard 10× congelado por hash + quarentena de síntese + razão de transações + journal-first (Sistema 8) — o PORTÃO'],
         [self::FIELD_KEY => 'onda_1', self::FIELD_SYSTEMS => ['SIS2'], self::FIELD_SUMMARY => 'SIS2 ALIS self-host (TETO: soberania + custo R$0, NÃO paridade; juiz assimétrico junto)'],
         [self::FIELD_KEY => 'onda_2', self::FIELD_SYSTEMS => ['SIS3', 'SIS5'], self::FIELD_SUMMARY => 'SIS3 causal ∥ SIS5 curiosidade + auto-construção fechada'],
         [self::FIELD_KEY => 'onda_3', self::FIELD_SYSTEMS => ['SIS6', 'SIS7'], self::FIELD_SUMMARY => 'SIS6 fábrica de frotas ∥ SIS7 simbiose/multi-domínio (trading SHADOW-ONLY, execução real PROIBIDA)'],
@@ -121,7 +123,7 @@ final class AtlasFrontierWaveLadder
                 self::FIELD_SYSTEMS => $wave[self::FIELD_SYSTEMS],
                 self::FIELD_SUMMARY => $wave[self::FIELD_SUMMARY],
                 self::FIELD_ACTIVATION => $activation,
-                'external_events' => $counts[$wave[self::FIELD_KEY]] ?? 0,
+                self::FIELD_EXTERNAL_EVENTS => $counts[$wave[self::FIELD_KEY]] ?? 0,
                 'prior_events' => $priorEvents,
                 'threshold' => self::EVENT_THRESHOLD,
             ];
