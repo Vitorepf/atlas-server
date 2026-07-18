@@ -10847,6 +10847,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b651_quality_bar_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b651-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b651',
+                '--b651-quality-bar-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b651_quality_bar_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

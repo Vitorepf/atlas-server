@@ -17629,4 +17629,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B651).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b651QualityBarFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'auto_block_on_breach' => QualityBarTelemetryContract::FIELD_AUTO_BLOCK_ON_BREACH,
+            'evidence_required' => QualityBarTelemetryContract::FIELD_EVIDENCE_REQUIRED,
+            'atlas.aaeos.quality_bar_telemetry.v1' => QualityBarTelemetryContract::SCHEMA,
+            'atlas.aaeos.quality_bar.v1' => QualityBarTelemetryContract::QUALITY_BAR_SCHEMA,
+            'quality_bar_auto_block' => QualityBarTelemetryContract::IMMUNE_GATE_ID,
+            'dept_quality_bar_breach_count' => QualityBarTelemetryContract::BREACH_SIGNAL,
+            'atlas.aaeos.quality_bar' => QualityBarTelemetryContract::CANONICAL_SOURCE,
+            '30' => QualityBarTelemetryContract::EVALUATED_WINDOW_DAYS,
+            'evaluated_window_days' => QualityBarTelemetryContract::FIELD_EVALUATED_WINDOW_DAYS,
+            'department_id' => QualityBarTelemetryContract::FIELD_DEPARTMENT_ID,
+            'breach_count' => QualityBarTelemetryContract::FIELD_BREACH_COUNT,
+            'evidence_hash' => QualityBarTelemetryContract::FIELD_EVIDENCE_HASH,
+            'threshold_breaches' => QualityBarTelemetryContract::FIELD_THRESHOLD_BREACHES,
+            'schema_version' => QualityBarTelemetryContract::FIELD_SCHEMA_VERSION,
+            'quality_bar_schema' => QualityBarTelemetryContract::FIELD_QUALITY_BAR_SCHEMA,
+            'immune_gate_id' => QualityBarTelemetryContract::FIELD_IMMUNE_GATE_ID,
+            'breach_signal' => QualityBarTelemetryContract::FIELD_BREACH_SIGNAL,
+            'canonical_source' => QualityBarTelemetryContract::FIELD_CANONICAL_SOURCE,
+            'b651_quality_bar_floor_count' => 18,
+        ];
+    }
+
 }

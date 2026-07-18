@@ -13948,4 +13948,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b650_department_contract_floor_count']);
     }
 
+    public function test_b651_quality_bar_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b651QualityBarFloorsContractObserve([]);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_AUTO_BLOCK_ON_BREACH, $out['auto_block_on_breach']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_EVIDENCE_REQUIRED, $out['evidence_required']);
+        $this->assertSame(QualityBarTelemetryContract::SCHEMA, $out['atlas.aaeos.quality_bar_telemetry.v1']);
+        $this->assertSame(QualityBarTelemetryContract::QUALITY_BAR_SCHEMA, $out['atlas.aaeos.quality_bar.v1']);
+        $this->assertSame(QualityBarTelemetryContract::IMMUNE_GATE_ID, $out['quality_bar_auto_block']);
+        $this->assertSame(QualityBarTelemetryContract::BREACH_SIGNAL, $out['dept_quality_bar_breach_count']);
+        $this->assertSame(QualityBarTelemetryContract::CANONICAL_SOURCE, $out['atlas.aaeos.quality_bar']);
+        $this->assertSame(QualityBarTelemetryContract::EVALUATED_WINDOW_DAYS, $out['30']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_EVALUATED_WINDOW_DAYS, $out['evaluated_window_days']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_DEPARTMENT_ID, $out['department_id']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_BREACH_COUNT, $out['breach_count']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_EVIDENCE_HASH, $out['evidence_hash']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_THRESHOLD_BREACHES, $out['threshold_breaches']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_QUALITY_BAR_SCHEMA, $out['quality_bar_schema']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_IMMUNE_GATE_ID, $out['immune_gate_id']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_BREACH_SIGNAL, $out['breach_signal']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_CANONICAL_SOURCE, $out['canonical_source']);
+        $this->assertSame(18, $out['b651_quality_bar_floor_count']);
+    }
+
 }
