@@ -83,6 +83,8 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_PROPOSAL_HASH = 'proposal_hash';
     public const FIELD_REFERENCE_COUNT = 'reference_count';
     public const FIELD_REQUIRES_HUMAN_APPROVAL = 'requires_human_approval';
+    public const FIELD_SCAN_HASH = 'scan_hash';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     private ?string $proposalsLogOverride = null;
 
@@ -152,7 +154,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         $generatedAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
 
         $proposal = [
-            'schema_version' => self::PROPOSAL_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::PROPOSAL_SCHEMA,
             self::FIELD_PROPOSAL_ID => $proposalId,
             self::FIELD_GENERATED_AT => $generatedAt,
             self::FIELD_CURRENT_SCHEMA => $currentSchema,
@@ -238,7 +240,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
             self::FIELD_FILES_SCANNED => $scanned,
             'threshold' => $threshold,
             self::FIELD_PRESSURE_DETECTED => $referenceCount > $threshold,
-            'scan_hash' => $scanHash,
+            self::FIELD_SCAN_HASH => $scanHash,
         ];
     }
 

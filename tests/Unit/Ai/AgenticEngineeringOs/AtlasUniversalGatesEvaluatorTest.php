@@ -7699,4 +7699,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['lote_measure_runbook_acos_long_cognition_score_cognitive_floor_count']);
     }
 
+    public function test_b399_lote_measure_runbook_acos_long_cognition_score_cognitive_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b399LoteMeasureRunbookAcosLongCognitionScoreCognitiveFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_REVERSIBLE_RECEIPT_REQUIRED, $out['reversible_receipt_required']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_SUBSEQUENT_RECALL_FEEDBACK_ID, $out['subsequent_recall_feedback_id']);
+        $this->assertSame(RunbookOrchestrator::FIELD_PROPOSED_AT, $out['proposed_at']);
+        $this->assertSame(RunbookOrchestrator::FIELD_REPLAY_OBRAS_COUNT_MIN, $out['replay_obras_count_min']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_PIPELINE_SCORE, $out['pipeline_score']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_PROVENANCE, $out['provenance']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_RIVALS_CLAIM_ALLOWED, $out['rivals_claim_allowed']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ROWS, $out['rows']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_SCAN_HASH, $out['scan_hash']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_REGISTRY_STATUS, $out['registry_status']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_SERIES, $out['series']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_MODE_CONFIG_KEY, $out['mode_config_key']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_PRIVACY, $out['privacy']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_WINDOWS, $out['windows']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_CONTENT_HASH, $out['content_hash']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_CONTRADICTS_NEWER, $out['contradicts_newer']);
+        $this->assertSame(18, $out['b399_lote_measure_runbook_acos_long_cognition_score_cognitive_floor_count']);
+    }
+
 }

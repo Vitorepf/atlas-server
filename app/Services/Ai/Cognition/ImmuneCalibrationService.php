@@ -82,6 +82,8 @@ final class ImmuneCalibrationService
     public const FIELD_CONSENT_GRANTED = 'consent_granted';
     public const FIELD_CONTAINS_SECRET = 'contains_secret';
     public const FIELD_CONTAINS_SENSITIVE_UNNECESSARY = 'contains_sensitive_unnecessary';
+    public const FIELD_CONTENT_HASH = 'content_hash';
+    public const FIELD_CONTRADICTS_NEWER = 'contradicts_newer';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -159,7 +161,7 @@ final class ImmuneCalibrationService
             self::FIELD_REGISTRY_STATUS => 'registered_elev_20s',
             'dual_read_required' => false,
         ];
-        $payload['content_hash'] = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $payload[self::FIELD_CONTENT_HASH] = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return $payload;
     }
@@ -316,7 +318,7 @@ final class ImmuneCalibrationService
             'provider_safe' => true,
             self::FIELD_CONTAINS_SECRET => false,
             self::FIELD_CONTAINS_SENSITIVE_UNNECESSARY => false,
-            'contradicts_newer' => false,
+            self::FIELD_CONTRADICTS_NEWER => false,
             'outcome_validated' => false,
             'scope' => 'domain',
             'promotion_mode_hint' => 'proposal',

@@ -9893,4 +9893,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B399).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b399LoteMeasureRunbookAcosLongCognitionScoreCognitiveFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'reversible_receipt_required' => AcosMaxLote2MeasureService::FIELD_REVERSIBLE_RECEIPT_REQUIRED,
+            'subsequent_recall_feedback_id' => AcosMaxLote2MeasureService::FIELD_SUBSEQUENT_RECALL_FEEDBACK_ID,
+            'proposed_at' => RunbookOrchestrator::FIELD_PROPOSED_AT,
+            'replay_obras_count_min' => RunbookOrchestrator::FIELD_REPLAY_OBRAS_COUNT_MIN,
+            'pipeline_score' => AtlasAcosLongHorizonGateService::FIELD_PIPELINE_SCORE,
+            'provenance' => AtlasAcosLongHorizonGateService::FIELD_PROVENANCE,
+            'rivals_claim_allowed' => AtlasCognitionScoreCardService::FIELD_RIVALS_CLAIM_ALLOWED,
+            'rows' => AtlasCognitionScoreCardService::FIELD_ROWS,
+            'scan_hash' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_SCAN_HASH,
+            'schema_version' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_SCHEMA_VERSION,
+            'registry_status' => AtlasImmuneClassifierHybridFreeze::FIELD_REGISTRY_STATUS,
+            'series' => AtlasImmuneClassifierHybridFreeze::FIELD_SERIES,
+            'mode_config_key' => AtlasImmuneSignatureFreeze::FIELD_MODE_CONFIG_KEY,
+            'privacy' => AtlasImmuneSignatureFreeze::FIELD_PRIVACY,
+            'schema_version' => AtlasOperationalVolumeCheckService::FIELD_SCHEMA_VERSION,
+            'windows' => AtlasOperationalVolumeCheckService::FIELD_WINDOWS,
+            'content_hash' => ImmuneCalibrationService::FIELD_CONTENT_HASH,
+            'contradicts_newer' => ImmuneCalibrationService::FIELD_CONTRADICTS_NEWER,
+            'b399_lote_measure_runbook_acos_long_cognition_score_cognitive_floor_count' => 18,
+        ];
+    }
+
 }

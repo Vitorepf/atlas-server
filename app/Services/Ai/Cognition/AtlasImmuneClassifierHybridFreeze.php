@@ -69,6 +69,8 @@ final class AtlasImmuneClassifierHybridFreeze
     public const FIELD_OFF_SWITCH_BYTE_IDENTICAL = 'off_switch_byte_identical';
     public const FIELD_PRIVACY_GUARANTEES = 'privacy_guarantees';
     public const FIELD_PROVIDER_CALLS_IN_ARM_PATH = 'provider_calls_in_arm_path';
+    public const FIELD_REGISTRY_STATUS = 'registry_status';
+    public const FIELD_SERIES = 'series';
 
     /**
      * @return array<string,mixed>
@@ -121,9 +123,9 @@ final class AtlasImmuneClassifierHybridFreeze
                 self::FIELD_FREEZE => ImmuneCalibrationService::MEASURE_ID,
                 self::FIELD_NOTE => 'tau is a MAXI-03 freeze-stamped input; recalibration flows through the MAXI-03 seam.',
             ],
-            'series' => [
+            self::FIELD_SERIES => [
                 self::FIELD_ID => self::MEASURE_ID,
-                'registry_status' => 'registered_elev_20s',
+                self::FIELD_REGISTRY_STATUS => 'registered_elev_20s',
                 'source_type' => 'jsonl',
             ],
             self::FIELD_PRIVACY_GUARANTEES => [

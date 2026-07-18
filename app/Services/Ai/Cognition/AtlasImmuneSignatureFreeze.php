@@ -24,6 +24,8 @@ final class AtlasImmuneSignatureFreeze
     public const FIELD_DEFAULT_MODE = 'default_mode';
     public const FIELD_DEPENDENCIES = 'dependencies';
     public const FIELD_KIND = 'kind';
+    public const FIELD_MODE_CONFIG_KEY = 'mode_config_key';
+    public const FIELD_PRIVACY = 'privacy';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -35,12 +37,12 @@ final class AtlasImmuneSignatureFreeze
             self::FIELD_FAMILY_SCHEMA_VERSION => ImmuneSignatureDeriver::SCHEMA_VERSION,
             self::FIELD_AUTHOR => 'cursor-acos-max-maxi-05',
             self::FIELD_JUDGE => 'codex-immune-signature-judge',
-            'mode_config_key' => ImmuneSignatureStore::MODE_CONFIG_KEY,
+            self::FIELD_MODE_CONFIG_KEY => ImmuneSignatureStore::MODE_CONFIG_KEY,
             self::FIELD_DEFAULT_MODE => ImmuneSignatureStore::DEFAULT_MODE,
             self::FIELD_DECAY_DAYS => 90,
             self::FIELD_ACCEPTANCE => [
                 self::FIELD_CELLS_WITH_HIT_COUNT_GTE_2 => 3,
-                'privacy' => 'no_raw_poison_text_in_store',
+                self::FIELD_PRIVACY => 'no_raw_poison_text_in_store',
             ],
             self::FIELD_DEPENDENCIES => [
                 'MAXI-03' => 'immune_verdict_ledger',

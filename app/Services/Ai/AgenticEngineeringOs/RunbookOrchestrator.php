@@ -70,6 +70,8 @@ final class RunbookOrchestrator
     public const FIELD_MOTIVATING_EVIDENCE = 'motivating_evidence';
     public const FIELD_PROMOTION_GATES = 'promotion_gates';
     public const FIELD_PROPOSAL_ID = 'proposal_id';
+    public const FIELD_PROPOSED_AT = 'proposed_at';
+    public const FIELD_REPLAY_OBRAS_COUNT_MIN = 'replay_obras_count_min';
 
     /**
      * Canonical default flow for a non-trivial intent. Trivial intents
@@ -224,7 +226,7 @@ final class RunbookOrchestrator
             self::FIELD_TOUCHES_SOVEREIGNTY_LAYER => $touchesSovereignty,
             'safety_sovereignty_block_applied' => $touchesSovereignty,
             self::FIELD_PROMOTION_GATES => [
-                'replay_obras_count_min' => self::REPLAY_OBRAS_COUNT_MIN,
+                self::FIELD_REPLAY_OBRAS_COUNT_MIN => self::REPLAY_OBRAS_COUNT_MIN,
                 'replay_regression_observed_count_max' => 0,
                 self::FIELD_DUAL_SIGNATURE_REQUIRED => true,
                 self::FIELD_ARCHITECT_SIGNATURES_COUNT => 2,
@@ -236,7 +238,7 @@ final class RunbookOrchestrator
                 self::FIELD_ID => 'aaeos-runbook-orchestrator',
                 self::FIELD_AUTONOMY_LEVEL => 'L13',
             ]),
-            'proposed_at' => now()->toAtomString(),
+            self::FIELD_PROPOSED_AT => now()->toAtomString(),
         ];
         $proposal[self::FIELD_PROPOSAL_HASH] = hash('sha256', json_encode(
             array_diff_key($proposal, [self::FIELD_PROPOSAL_HASH => true]),

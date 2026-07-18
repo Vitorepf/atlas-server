@@ -234,6 +234,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_RESOLVED_OUTCOMES = 'resolved_outcomes';
     public const FIELD_RETRIEVAL_POLICY_CHANGED = 'retrieval_policy_changed';
     public const FIELD_RETRIEVAL_RECEIPT_ID = 'retrieval_receipt_id';
+    public const FIELD_REVERSIBLE_RECEIPT_REQUIRED = 'reversible_receipt_required';
+    public const FIELD_SUBSEQUENT_RECALL_FEEDBACK_ID = 'subsequent_recall_feedback_id';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -498,7 +500,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_DECISION_ID => $decisionId,
             self::FIELD_RETRIEVAL_RECEIPT_ID => $delivery === null ? null : (AiValueNormalizer::trimmedScalarStringOrNull($delivery->retrieval_receipt_id ?? null) ?? ''),
             self::FIELD_LEARNING_CANDIDATE_ID => $candidate === null ? null : (AiValueNormalizer::trimmedScalarStringOrNull($candidate->id ?? null) ?? ''),
-            'subsequent_recall_feedback_id' => $recall === null ? null : (AiValueNormalizer::trimmedScalarStringOrNull($recall->id ?? null) ?? ''),
+            self::FIELD_SUBSEQUENT_RECALL_FEEDBACK_ID => $recall === null ? null : (AiValueNormalizer::trimmedScalarStringOrNull($recall->id ?? null) ?? ''),
         ];
 
         if ($blockedBy !== []) {
@@ -810,7 +812,7 @@ final class AcosMaxLote2MeasureService
             'would_merge_count' => 0,
             self::FIELD_ACTUAL_MERGE_COUNT => 0,
             'threshold' => data_get(self::freezePayload('MULTJ-02'), 'thresholds.cosine_merge_threshold'),
-            'reversible_receipt_required' => true,
+            self::FIELD_REVERSIBLE_RECEIPT_REQUIRED => true,
         ]);
     }
 

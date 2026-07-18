@@ -163,6 +163,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_PIPELINE = 'pipeline';
     public const FIELD_PROVIDER_SAFE_ONLY_ENFORCED = 'provider_safe_only_enforced';
     public const FIELD_READINESS_DEFINITION = 'readiness_definition';
+    public const FIELD_RIVALS_CLAIM_ALLOWED = 'rivals_claim_allowed';
+    public const FIELD_ROWS = 'rows';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -474,7 +476,7 @@ class AtlasCognitionScoreCardService
     {
         return [
             self::FIELD_BENCHMARK_CLAIM_ALLOWED => false,
-            'rivals_claim_allowed' => false,
+            self::FIELD_RIVALS_CLAIM_ALLOWED => false,
             'superiority_claim_allowed' => false,
             self::FIELD_EXTERNAL_RIVALS_CERTIFICATION_TOUCHED => false,
             self::FIELD_COGNITIVE_IMMUNE_LAW_ENFORCED => true,
@@ -501,7 +503,7 @@ class AtlasCognitionScoreCardService
 
         return 'sha256:'.hash('sha256', json_encode([
             'schema' => self::SCHEMA_VERSION,
-            'rows' => $canonical,
+            self::FIELD_ROWS => $canonical,
             self::FIELD_OVERALL => $score[self::FIELD_OVERALL_OUT_OF_10],
         ], JSON_THROW_ON_ERROR));
     }

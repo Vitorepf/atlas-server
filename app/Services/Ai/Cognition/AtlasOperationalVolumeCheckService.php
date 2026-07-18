@@ -68,6 +68,8 @@ final class AtlasOperationalVolumeCheckService
     public const FIELD_ID = 'id';
     public const FIELD_NOTE = 'note';
     public const FIELD_PREREQUISITES = 'prerequisites';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_WINDOWS = 'windows';
 
     /**
      * @return array<string,mixed>
@@ -97,7 +99,7 @@ final class AtlasOperationalVolumeCheckService
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_CHECKED_AT => $asOf->toIso8601String(),
             self::FIELD_STATUS => $status,
             self::STATUS_ALERT => $alert,
@@ -113,7 +115,7 @@ final class AtlasOperationalVolumeCheckService
                     self::FIELD_NOTE => 'Hermes transport may drop final stdout chunks; Autônomos/brain-writer volume can read falsely low until resolved upstream.',
                 ],
             ],
-            'windows' => [
+            self::FIELD_WINDOWS => [
                 self::FIELD_DEV => [
                     self::FIELD_LABEL => 'previous_business_day',
                     self::FIELD_START => $devWindowStart->toIso8601String(),

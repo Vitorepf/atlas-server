@@ -145,6 +145,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_OVERALL = 'overall';
     public const FIELD_OVERALL_OUT_OF_10 = 'overall_out_of_10';
     public const FIELD_OVERALL_SCORE = 'overall_score';
+    public const FIELD_PIPELINE_SCORE = 'pipeline_score';
+    public const FIELD_PROVENANCE = 'provenance';
 
     /**
      * @param  array<string,mixed>  $options
@@ -440,7 +442,7 @@ final class AtlasAcosLongHorizonGateService
 
         return array_merge($this->windowIntegrityProjection($window, $seriesPath, $resolvedEvidenceRows), [
             self::FIELD_OVERALL_SCORE => round($overall, 3),
-            'pipeline_score' => round($pipeline, 3),
+            self::FIELD_PIPELINE_SCORE => round($pipeline, 3),
             self::FIELD_SCORECARD_HASH => $scorecardHash,
             self::FIELD_LATEST_SERIES_OVERALL => round($latestSeriesOverall, 3),
             self::FIELD_MIN_CERTIFICATION_WINDOW_OVERALL => round($minCertificationWindowOverall, 3),
@@ -659,7 +661,7 @@ final class AtlasAcosLongHorizonGateService
     {
         $count = 0;
         foreach ($series as $row) {
-            $provenance = (AiValueNormalizer::trimmedStringOrNull($row['provenance'] ?? null) ?? '');
+            $provenance = (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_PROVENANCE] ?? null) ?? '');
             $source = AiValueNormalizer::trimmedStringOrNull(data_get($row, 'sources.scorecard')) ?? '';
             if ($provenance === 'resolved-evidence' || str_contains($source, 'resolved-evidence')) {
                 $count++;
