@@ -8383,6 +8383,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual FIELD_* floors: doc-maturity/attempt/scorecard/http/qbar/compound/immune/phase/dept.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function maturityAttemptScorecardHttpQbarCompoundImmunePhaseDeptFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'doc_maturity_field_contracts' => AtlasAaeosDocMaturityClassifier::FIELD_CONTRACTS,
+            'doc_maturity_field_level' => AtlasAaeosDocMaturityClassifier::FIELD_LEVEL,
+            'attempt_field_attempt_id_deduped' => AttemptLifecycleLedger::FIELD_ATTEMPT_ID_DEDUPED,
+            'attempt_field_source' => AttemptLifecycleLedger::FIELD_SOURCE,
+            'scorecard_field_benchmark_claim_allowed' => AtlasCognitionScoreCardService::FIELD_BENCHMARK_CLAIM_ALLOWED,
+            'scorecard_field_cognitive_immune_law_enforced' => AtlasCognitionScoreCardService::FIELD_COGNITIVE_IMMUNE_LAW_ENFORCED,
+            'http_env_field_passed' => AaeosHttpPathEnvelopeFactory::FIELD_PASSED,
+            'http_env_field_policy_allowed' => AaeosHttpPathEnvelopeFactory::FIELD_POLICY_ALLOWED,
+            'qbar_field_missing_metric' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_MISSING_METRIC,
+            'qbar_field_observed' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_OBSERVED,
+            'compound_field_evidence_ref_count' => CompoundingOutcomeEnvelopeAdapter::FIELD_EVIDENCE_REF_COUNT,
+            'compound_field_fields' => CompoundingOutcomeEnvelopeAdapter::FIELD_FIELDS,
+            'immune_promo_field_autonomous_promotion_allowed' => CognitiveImmunePromotionGateEvaluator::FIELD_AUTONOMOUS_PROMOTION_ALLOWED,
+            'immune_promo_field_reasons' => CognitiveImmunePromotionGateEvaluator::FIELD_REASONS,
+            'phase_verdict_field_gates' => PhaseAdvanceVerdictClassifier::FIELD_GATES,
+            'phase_verdict_field_high_blocker_ids' => PhaseAdvanceVerdictClassifier::FIELD_HIGH_BLOCKER_IDS,
+            'dept_level_field_failed_thresholds' => AaeosDepartmentLevelClassifier::FIELD_FAILED_THRESHOLDS,
+            'dept_level_field_satisfied' => AaeosDepartmentLevelClassifier::FIELD_SATISFIED,
+            'maturity_attempt_scorecard_http_qbar_compound_immune_phase_dept_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

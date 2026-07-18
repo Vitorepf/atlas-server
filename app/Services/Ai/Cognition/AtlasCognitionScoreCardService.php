@@ -151,6 +151,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_OVERALL_OUT_OF_10 = 'overall_out_of_10';
     public const FIELD_SUBSYSTEMS = 'subsystems';
     public const FIELD_NOTES = 'notes';
+    public const FIELD_BENCHMARK_CLAIM_ALLOWED = 'benchmark_claim_allowed';
+    public const FIELD_COGNITIVE_IMMUNE_LAW_ENFORCED = 'cognitive_immune_law_enforced';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -461,11 +463,11 @@ class AtlasCognitionScoreCardService
     private function claimPolicy(): array
     {
         return [
-            'benchmark_claim_allowed' => false,
+            self::FIELD_BENCHMARK_CLAIM_ALLOWED => false,
             'rivals_claim_allowed' => false,
             'superiority_claim_allowed' => false,
             'external_rivals_certification_touched' => false,
-            'cognitive_immune_law_enforced' => true,
+            self::FIELD_COGNITIVE_IMMUNE_LAW_ENFORCED => true,
             'must_keep_coverage_invariant' => true,
             'provider_safe_only_enforced' => true,
         ];

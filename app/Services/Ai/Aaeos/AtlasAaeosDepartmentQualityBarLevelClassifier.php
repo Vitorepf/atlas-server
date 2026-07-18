@@ -25,6 +25,8 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
     public const FIELD_EVALUATED_BANDS = 'evaluated_bands';
     public const FIELD_EVALUATED_METRICS = 'evaluated_metrics';
     public const FIELD_THRESHOLDS = 'thresholds';
+    public const FIELD_MISSING_METRIC = 'missing_metric';
+    public const FIELD_OBSERVED = 'observed';
 
     /**
      * Deterministically classify a department against a caller-supplied, lowest-first
@@ -172,9 +174,9 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
                 self::FIELD_METRIC => $threshold[self::FIELD_METRIC],
                 self::FIELD_COMPARATOR => $threshold[self::FIELD_COMPARATOR],
                 'threshold' => $threshold[self::FIELD_VALUE],
-                'observed' => $observed,
+                self::FIELD_OBSERVED => $observed,
                 'satisfied' => false,
-                'missing_metric' => $missingMetric,
+                self::FIELD_MISSING_METRIC => $missingMetric,
             ];
         }
 

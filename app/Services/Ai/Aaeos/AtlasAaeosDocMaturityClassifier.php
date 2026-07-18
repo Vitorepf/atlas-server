@@ -57,6 +57,8 @@ final class AtlasAaeosDocMaturityClassifier
     public const STRENGTH_PARTIAL = 'partial';
 
     public const STRENGTH_STRONG = 'strong';
+    public const FIELD_CONTRACTS = 'contracts';
+    public const FIELD_LEVEL = 'level';
 
     /** @var list<string> */
     public const LEVELS = [
@@ -116,7 +118,7 @@ final class AtlasAaeosDocMaturityClassifier
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'level' => $level,
+            self::FIELD_LEVEL => $level,
             'level_ordinal' => $ordinal,
             // Doc maturity never proves runtime: encodes the line 218 failure mode.
             'runtime_ready' => false,
@@ -228,7 +230,7 @@ final class AtlasAaeosDocMaturityClassifier
     {
         return match ($ordinal) {
             0 => $hasMother ? [] : ['mother_doc'],
-            1 => $hasContracts ? [] : ['contracts'],
+            1 => $hasContracts ? [] : [self::FIELD_CONTRACTS],
             2 => $runbook === self::STRENGTH_STRONG ? [] : ['runbook'],
             3 => $this->weakSignals($signalStrengths),
             default => [],

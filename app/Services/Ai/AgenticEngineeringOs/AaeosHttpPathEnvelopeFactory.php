@@ -67,6 +67,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_PLACEMENT_DOMAIN = 'placement_domain';
     public const FIELD_PLACEMENT_LAYER = 'placement_layer';
     public const FIELD_PLACEMENT_FLOW = 'placement_flow';
+    public const FIELD_PASSED = 'passed';
+    public const FIELD_POLICY_ALLOWED = 'policy_allowed';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -198,7 +200,7 @@ final class AaeosHttpPathEnvelopeFactory
             outputs: [
                 'policy_target' => $target !== '' ? $target : 'none',
                 'policy_status' => $status !== '' ? $status : 'not_required',
-                'policy_allowed' => $allowed ? 'yes' : 'no',
+                self::FIELD_POLICY_ALLOWED => $allowed ? 'yes' : 'no',
             ],
             gates: self::binaryGate('policy_decision_allowed_true', $allowed),
             blockers: self::assistedExecutionBlockers($assisted, $isDevTarget, $allowed),
@@ -383,7 +385,7 @@ final class AaeosHttpPathEnvelopeFactory
     {
         return [
             'required' => [$gate],
-            'passed' => $ok ? [$gate] : [],
+            self::FIELD_PASSED => $ok ? [$gate] : [],
             self::FIELD_BLOCKED => $ok ? [] : [$gate],
         ];
     }

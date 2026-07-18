@@ -23,6 +23,8 @@ final class AaeosDepartmentLevelClassifier
     public const FIELD_THRESHOLD = 'threshold';
     public const FIELD_OBSERVED = 'observed';
     public const FIELD_EVALUATED_BANDS = 'evaluated_bands';
+    public const FIELD_FAILED_THRESHOLDS = 'failed_thresholds';
+    public const FIELD_SATISFIED = 'satisfied';
 
     /**
      * Deterministically walk a caller-supplied (bottom-up ordered) band ladder and
@@ -111,8 +113,8 @@ final class AaeosDepartmentLevelClassifier
 
             $evaluatedBands[] = [
                 self::FIELD_LEVEL => $band[self::FIELD_LEVEL],
-                'satisfied' => $satisfied,
-                'failed_thresholds' => $failedThresholds,
+                self::FIELD_SATISFIED => $satisfied,
+                self::FIELD_FAILED_THRESHOLDS => $failedThresholds,
             ];
         }
 

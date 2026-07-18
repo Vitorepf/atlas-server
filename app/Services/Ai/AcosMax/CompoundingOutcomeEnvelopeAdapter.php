@@ -47,6 +47,8 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public const FIELD_NATIVE_DIVERGENT = 'native_divergent';
     public const FIELD_EXECUTOR = 'executor';
     public const FIELD_VERIFIED_SOURCE_PRESENT = 'verified_source_present';
+    public const FIELD_EVIDENCE_REF_COUNT = 'evidence_ref_count';
+    public const FIELD_FIELDS = 'fields';
 
     public function origin(): string
     {
@@ -93,7 +95,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             self::FIELD_VERIFIED_BASIS => $verifiedBasis,
             self::FIELD_VERIFIED_SOURCE_PRESENT => $verifiedSourcePresent,
             self::FIELD_CERTIFIED_RECEIPT_ID => $contract[self::FIELD_CERTIFIED_RECEIPT_ID] ?? null,
-            'evidence_ref_count' => count($evidenceRefs),
+            self::FIELD_EVIDENCE_REF_COUNT => count($evidenceRefs),
             self::FIELD_EPISODE_ID => null,
             self::FIELD_RUN_ID => $runId !== '' ? $runId : null,
         ], [
@@ -111,7 +113,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public function fromEnvelope(OutcomeEnvelope $envelope): array
     {
         $data = $envelope->toArray();
-        $fields = AiValueNormalizer::arrayOrEmpty($data[self::FIELD_NATIVE_DIVERGENT]['fields'] ?? null);
+        $fields = AiValueNormalizer::arrayOrEmpty($data[self::FIELD_NATIVE_DIVERGENT][self::FIELD_FIELDS] ?? null);
 
         return [
             self::FIELD_FLOW_ID => (AiValueNormalizer::trimmedStringOrNull($fields[self::FIELD_FLOW_ID] ?? null) ?? 'atlas_conversation'),

@@ -47,6 +47,8 @@ final class AttemptLifecycleLedger
     public const FIELD_STARTED_AT = 'started_at';
     public const FIELD_UNTERMINATED_COUNT = 'unterminated_count';
     public const FIELD_OUTCOME_WITHOUT_ATTEMPT_ALLOWED = 'outcome_without_attempt_allowed';
+    public const FIELD_ATTEMPT_ID_DEDUPED = 'attempt_id_deduped';
+    public const FIELD_SOURCE = 'source';
 
     /** @var array<string,array<string,mixed>> */
     private array $attempts = [];
@@ -108,9 +110,9 @@ final class AttemptLifecycleLedger
                 $this->attempts,
                 static fn (array $attempt): bool => $attempt[self::FIELD_STATE] === self::STATE_STARTED,
             )),
-            'source' => [
+            self::FIELD_SOURCE => [
                 self::FIELD_OUTCOME_WITHOUT_ATTEMPT_ALLOWED => false,
-                'attempt_id_deduped' => true,
+                self::FIELD_ATTEMPT_ID_DEDUPED => true,
             ],
         ];
     }

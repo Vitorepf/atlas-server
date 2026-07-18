@@ -6424,4 +6424,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['texec_obra_evo_window_rollback_maturity_embed_horizon_floor_count']);
     }
 
+    public function test_maturity_attempt_scorecard_http_qbar_compound_immune_phase_dept_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->maturityAttemptScorecardHttpQbarCompoundImmunePhaseDeptFloorsContractObserve([]);
+
+        $this->assertSame('contracts', $payload['doc_maturity_field_contracts']);
+        $this->assertSame('level', $payload['doc_maturity_field_level']);
+        $this->assertSame('attempt_id_deduped', $payload['attempt_field_attempt_id_deduped']);
+        $this->assertSame('source', $payload['attempt_field_source']);
+        $this->assertSame('benchmark_claim_allowed', $payload['scorecard_field_benchmark_claim_allowed']);
+        $this->assertSame('cognitive_immune_law_enforced', $payload['scorecard_field_cognitive_immune_law_enforced']);
+        $this->assertSame('passed', $payload['http_env_field_passed']);
+        $this->assertSame('policy_allowed', $payload['http_env_field_policy_allowed']);
+        $this->assertSame('missing_metric', $payload['qbar_field_missing_metric']);
+        $this->assertSame('observed', $payload['qbar_field_observed']);
+        $this->assertSame('evidence_ref_count', $payload['compound_field_evidence_ref_count']);
+        $this->assertSame('fields', $payload['compound_field_fields']);
+        $this->assertSame('autonomous_promotion_allowed', $payload['immune_promo_field_autonomous_promotion_allowed']);
+        $this->assertSame('reasons', $payload['immune_promo_field_reasons']);
+        $this->assertSame('gates', $payload['phase_verdict_field_gates']);
+        $this->assertSame('high_blocker_ids', $payload['phase_verdict_field_high_blocker_ids']);
+        $this->assertSame('failed_thresholds', $payload['dept_level_field_failed_thresholds']);
+        $this->assertSame('satisfied', $payload['dept_level_field_satisfied']);
+        $this->assertSame(18, $payload['maturity_attempt_scorecard_http_qbar_compound_immune_phase_dept_floor_count']);
+    }
+
 }

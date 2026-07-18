@@ -373,6 +373,7 @@ final class AtlasAaeosCommand extends Command
         {--volume-immune-scorecard-phase-delivery-autowork-citation-cascade-budget-floors-contract= : JSON file (any object) to observe volume/immune/scorecard/phase/delivery/autowork/citation/cascade/budget residual floors}
         {--frontier-rerank-fabric-cockpit-http-specpack-advisory-ncapture-model-floors-contract= : JSON file (any object) to observe frontier/rerank/fabric/cockpit/http/specpack/advisory/ncapture/model residual floors}
         {--texec-obra-evo-window-rollback-maturity-embed-horizon-floors-contract= : JSON file (any object) to observe texec/obra/evo/window/rollback/maturity/embed/horizon residual floors}
+        {--maturity-attempt-scorecard-http-qbar-compound-immune-phase-dept-floors-contract= : JSON file (any object) to observe maturity/attempt/scorecard/http/qbar/compound/immune/phase/dept residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -902,6 +903,7 @@ final class AtlasAaeosCommand extends Command
             ['volume-immune-scorecard-phase-delivery-autowork-citation-cascade-budget-floors-contract', 'volume_immune_scorecard_phase_delivery_autowork_citation_cascade_budget_floors_contract', fn (array $p) => $gates->volumeImmuneScorecardPhaseDeliveryAutoworkCitationCascadeBudgetFloorsContractObserve($p)],
             ['frontier-rerank-fabric-cockpit-http-specpack-advisory-ncapture-model-floors-contract', 'frontier_rerank_fabric_cockpit_http_specpack_advisory_ncapture_model_floors_contract', fn (array $p) => $gates->frontierRerankFabricCockpitHttpSpecpackAdvisoryNcaptureModelFloorsContractObserve($p)],
             ['texec-obra-evo-window-rollback-maturity-embed-horizon-floors-contract', 'texec_obra_evo_window_rollback_maturity_embed_horizon_floors_contract', fn (array $p) => $gates->texecObraEvoWindowRollbackMaturityEmbedHorizonFloorsContractObserve($p)],
+            ['maturity-attempt-scorecard-http-qbar-compound-immune-phase-dept-floors-contract', 'maturity_attempt_scorecard_http_qbar_compound_immune_phase_dept_floors_contract', fn (array $p) => $gates->maturityAttemptScorecardHttpQbarCompoundImmunePhaseDeptFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
