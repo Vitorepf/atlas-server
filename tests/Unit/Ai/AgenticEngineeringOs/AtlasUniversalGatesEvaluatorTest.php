@@ -5921,5 +5921,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['registry_spec_summary_memory_segment_pareto_recall_outcome_floor_count']);
     }
 
+    public function test_impact_advisory_esp09_dogfood_saturation_budget_ambition_asef_lexical_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->impactAdvisoryEsp09DogfoodSaturationBudgetAmbitionAsefLexicalFloorsContractObserve([]);
+
+        $this->assertSame('bands', $payload['impact_field_bands']);
+        $this->assertSame('caller_declared_band_ignored', $payload['impact_field_caller_declared_band_ignored']);
+        $this->assertSame('band', $payload['advisory_field_band']);
+        $this->assertSame('blocks_auto_apply', $payload['advisory_field_blocks_auto_apply']);
+        $this->assertSame('elev18_engine_ids_distinct', $payload['esp09_field_elev18_engine_ids_distinct']);
+        $this->assertSame('high_alignment_band', $payload['esp09_field_high_alignment_band']);
+        $this->assertSame('lead_only_not_seed', $payload['dogfood_field_lead_only_not_seed']);
+        $this->assertSame('leads', $payload['dogfood_field_leads']);
+        $this->assertSame('disables_reactive_lane', $payload['saturation_field_disables_reactive_lane']);
+        $this->assertSame('provider_calls_made', $payload['saturation_field_provider_calls_made']);
+        $this->assertSame('allocator_writes_own_weights', $payload['budget_field_allocator_writes_own_weights']);
+        $this->assertSame('ceiling_absolute', $payload['budget_field_ceiling_absolute']);
+        $this->assertSame('basis', $payload['ambition_field_basis']);
+        $this->assertSame('current_rung', $payload['ambition_field_current_rung']);
+        $this->assertSame('candidate_set', $payload['asef_field_candidate_set']);
+        $this->assertSame('chunk_hit_count', $payload['asef_field_chunk_hit_count']);
+        $this->assertSame('equivalences', $payload['lexical_field_equivalences']);
+        $this->assertSame('esteira', $payload['lexical_field_esteira']);
+        $this->assertSame(18, $payload['impact_advisory_esp09_dogfood_saturation_budget_ambition_asef_lexical_floor_count']);
+    }
+
 
 }

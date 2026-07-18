@@ -88,6 +88,8 @@ final class AsefChunkIndexService
     public const FIELD_EMBEDDED_CONTENT_HASH = 'embedded_content_hash';
     public const FIELD_CREATED_AT = 'created_at';
     public const FIELD_MANIFEST_STATUS = 'manifest_status';
+    public const FIELD_CANDIDATE_SET = 'candidate_set';
+    public const FIELD_CHUNK_HIT_COUNT = 'chunk_hit_count';
 
     public function __construct(
         private readonly AtlasSemanticEmbeddingFoundationService $asef,
@@ -135,7 +137,7 @@ final class AsefChunkIndexService
         }
 
         $manifest = $this->asef->candidateSet([$source]);
-        $chunks = $manifest['candidate_set'][self::FIELD_CHUNKS] ?? [];
+        $chunks = $manifest[self::FIELD_CANDIDATE_SET][self::FIELD_CHUNKS] ?? [];
         $hashToText = $this->asef->chunkTextsByHash($text);
 
         $written = 0;
@@ -250,7 +252,7 @@ final class AsefChunkIndexService
 
         $docs = [];
         foreach ($best as $ref => $row) {
-            $docs[] = $row + ['chunk_hit_count' => (int) $counts[$ref]];
+            $docs[] = $row + [self::FIELD_CHUNK_HIT_COUNT => (int) $counts[$ref]];
         }
 
         usort($docs, static fn (array $a, array $b): int => $b[self::FIELD_SIMILARITY] <=> $a[self::FIELD_SIMILARITY]);

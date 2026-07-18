@@ -80,6 +80,8 @@ final class Esp09IndependentChallengerService
     public const FIELD_DENOMINATOR = 'denominator';
     public const FIELD_PROPOSED_CHOICE = 'proposed_choice';
     public const FIELD_REFUTATION = 'refutation';
+    public const FIELD_ELEV18_ENGINE_IDS_DISTINCT = 'elev18_engine_ids_distinct';
+    public const FIELD_HIGH_ALIGNMENT_BAND = 'high_alignment_band';
 
     public const SKIP_REASON_LOW_AFFINITY = 'low_affinity';
 
@@ -165,7 +167,7 @@ final class Esp09IndependentChallengerService
                 self::FIELD_PROPOSED_CHOICE => (AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_PROPOSED_CHOICE] ?? null) ?? ''),
                 self::FIELD_ALTERNATIVE => (AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_ALTERNATIVE] ?? null) ?? ''),
                 self::FIELD_REFUTATION => (AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_REFUTATION] ?? null) ?? ''),
-                'elev18_engine_ids_distinct' => true,
+                self::FIELD_ELEV18_ENGINE_IDS_DISTINCT => true,
             ],
         ]);
     }
@@ -266,7 +268,7 @@ final class Esp09IndependentChallengerService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_MODE => self::MODE,
-            'high_alignment_band' => self::HIGH_ALIGNMENT_BAND,
+            self::FIELD_HIGH_ALIGNMENT_BAND => self::HIGH_ALIGNMENT_BAND,
             'trigger_kinds' => self::TRIGGER_KINDS,
             'ttl_days' => 30,
             self::FIELD_GATES_OVERRIDE => false,

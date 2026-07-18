@@ -21,6 +21,8 @@ final class ReactiveSaturationSignal
     public const FIELD_TAIL = 'tail';
     public const FIELD_SOURCE = 'source';
     public const FIELD_REPORT_ONLY = 'report_only';
+    public const FIELD_DISABLES_REACTIVE_LANE = 'disables_reactive_lane';
+    public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
 
     /**
      * @param  list<array<string,mixed>>  $windows
@@ -68,9 +70,9 @@ final class ReactiveSaturationSignal
             self::FIELD_TAIL => $tail,
             self::FIELD_SOURCE => [
                 self::FIELD_REPORT_ONLY => true,
-                'disables_reactive_lane' => false,
+                self::FIELD_DISABLES_REACTIVE_LANE => false,
                 'uses_queue_empty_as_sole_signal' => false,
-                'provider_calls_made' => false,
+                self::FIELD_PROVIDER_CALLS_MADE => false,
             ],
         ];
     }

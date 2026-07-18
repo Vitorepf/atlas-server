@@ -7844,6 +7844,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for impact/advisory/esp09/dogfood/saturation/budget/ambition/asef/lexical peels.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function impactAdvisoryEsp09DogfoodSaturationBudgetAmbitionAsefLexicalFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'impact_field_bands' => PredictedImpactBand::FIELD_BANDS,
+            'impact_field_caller_declared_band_ignored' => PredictedImpactBand::FIELD_CALLER_DECLARED_BAND_IGNORED,
+            'advisory_field_band' => PreReviewAdvisoryBand::FIELD_BAND,
+            'advisory_field_blocks_auto_apply' => PreReviewAdvisoryBand::FIELD_BLOCKS_AUTO_APPLY,
+            'esp09_field_elev18_engine_ids_distinct' => Esp09IndependentChallengerService::FIELD_ELEV18_ENGINE_IDS_DISTINCT,
+            'esp09_field_high_alignment_band' => Esp09IndependentChallengerService::FIELD_HIGH_ALIGNMENT_BAND,
+            'dogfood_field_lead_only_not_seed' => DogfoodingFrictionLeadMiner::FIELD_LEAD_ONLY_NOT_SEED,
+            'dogfood_field_leads' => DogfoodingFrictionLeadMiner::FIELD_LEADS,
+            'saturation_field_disables_reactive_lane' => ReactiveSaturationSignal::FIELD_DISABLES_REACTIVE_LANE,
+            'saturation_field_provider_calls_made' => ReactiveSaturationSignal::FIELD_PROVIDER_CALLS_MADE,
+            'budget_field_allocator_writes_own_weights' => PortfolioBudgetAllocator::FIELD_ALLOCATOR_WRITES_OWN_WEIGHTS,
+            'budget_field_ceiling_absolute' => PortfolioBudgetAllocator::FIELD_CEILING_ABSOLUTE,
+            'ambition_field_basis' => AmbitionRungPolicy::FIELD_BASIS,
+            'ambition_field_current_rung' => AmbitionRungPolicy::FIELD_CURRENT_RUNG,
+            'asef_field_candidate_set' => AsefChunkIndexService::FIELD_CANDIDATE_SET,
+            'asef_field_chunk_hit_count' => AsefChunkIndexService::FIELD_CHUNK_HIT_COUNT,
+            'lexical_field_equivalences' => DomainLexicalNormalizer::FIELD_EQUIVALENCES,
+            'lexical_field_esteira' => DomainLexicalNormalizer::FIELD_ESTEIRA,
+            'impact_advisory_esp09_dogfood_saturation_budget_ambition_asef_lexical_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -353,6 +353,7 @@ final class AtlasAaeosCommand extends Command
         {--delivery-immune-registry-operator-lote2-health-horizon-promoter-floors-contract= : JSON file (any object) to observe delivery/immune/registry/operator/lote2/health/horizon/promoter residual floors}
         {--lote2-health-horizon-promoter-capture-obra-dual-truth-vision-floors-contract= : JSON file (any object) to observe lote2/health/horizon/promoter/capture/obra/dual/truth/vision residual floors}
         {--registry-spec-summary-memory-segment-pareto-recall-outcome-floors-contract= : JSON file (any object) to observe registry/spec/summary/memory/segment/pareto/recall/outcome residual floors}
+        {--impact-advisory-esp09-dogfood-saturation-budget-ambition-asef-lexical-floors-contract= : JSON file (any object) to observe impact/advisory/esp09/dogfood/saturation/budget/ambition/asef/lexical residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -862,6 +863,7 @@ final class AtlasAaeosCommand extends Command
             ['delivery-immune-registry-operator-lote2-health-horizon-promoter-floors-contract', 'delivery_immune_registry_operator_lote2_health_horizon_promoter_floors_contract', fn (array $p) => $gates->deliveryImmuneRegistryOperatorLote2HealthHorizonPromoterFloorsContractObserve($p)],
             ['lote2-health-horizon-promoter-capture-obra-dual-truth-vision-floors-contract', 'lote2_health_horizon_promoter_capture_obra_dual_truth_vision_floors_contract', fn (array $p) => $gates->lote2HealthHorizonPromoterCaptureObraDualTruthVisionFloorsContractObserve($p)],
             ['registry-spec-summary-memory-segment-pareto-recall-outcome-floors-contract', 'registry_spec_summary_memory_segment_pareto_recall_outcome_floors_contract', fn (array $p) => $gates->registrySpecSummaryMemorySegmentParetoRecallOutcomeFloorsContractObserve($p)],
+            ['impact-advisory-esp09-dogfood-saturation-budget-ambition-asef-lexical-floors-contract', 'impact_advisory_esp09_dogfood_saturation_budget_ambition_asef_lexical_floors_contract', fn (array $p) => $gates->impactAdvisoryEsp09DogfoodSaturationBudgetAmbitionAsefLexicalFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

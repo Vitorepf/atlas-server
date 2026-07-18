@@ -22,6 +22,8 @@ final class DomainLexicalNormalizer
     public const FIELD_EXECUTION = 'execution';
     public const FIELD_MEMORY = 'memory';
     public const FIELD_VERIFICATION = 'verification';
+    public const FIELD_EQUIVALENCES = 'equivalences';
+    public const FIELD_ESTEIRA = 'esteira';
 
     public const MAX_EXPANDED_TOKENS = 32;
 
@@ -31,7 +33,7 @@ final class DomainLexicalNormalizer
         'memória' => [self::FIELD_MEMORY],
         self::FIELD_CEREBRO => [self::FIELD_BRAIN],
         'cérebro' => [self::FIELD_BRAIN],
-        'esteira' => ['pipeline'],
+        self::FIELD_ESTEIRA => ['pipeline'],
         'execucao' => [self::FIELD_EXECUTION],
         'execução' => [self::FIELD_EXECUTION],
         self::FIELD_DECISAO => [self::FIELD_DECISION],
@@ -97,7 +99,7 @@ final class DomainLexicalNormalizer
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'formula_version' => self::FORMULA_VERSION,
-            'equivalences' => self::EQUIVALENCES,
+            self::FIELD_EQUIVALENCES => self::EQUIVALENCES,
             'max_expanded_tokens' => self::MAX_EXPANDED_TOKENS,
             'provider_calls_made' => false,
             self::FIELD_DETERMINISTIC => true,

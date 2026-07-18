@@ -24,6 +24,8 @@ final class AmbitionRungPolicy
     public const FIELD_ENABLED = 'enabled';
     public const FIELD_RUNG = 'rung';
     public const FIELD_LEVERAGE = 'leverage';
+    public const FIELD_BASIS = 'basis';
+    public const FIELD_CURRENT_RUNG = 'current_rung';
 
     public const BASIS_FLAG_DISABLED = 'flag_disabled';
 
@@ -45,7 +47,7 @@ final class AmbitionRungPolicy
         if (($context[self::FIELD_ENABLED] ?? false) === true) {
             $basis = self::BASIS_NOT_SATURATED;
             if (($context['reactive_saturated'] ?? false) === true) {
-                $current = AiValueNormalizer::trimmedStringOrNull($context['current_rung'] ?? null) ?? self::RUNG_TASK;
+                $current = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_CURRENT_RUNG] ?? null) ?? self::RUNG_TASK;
                 $target = self::nextRung($current);
                 $currentBest = self::bestLeverage($candidates);
                 foreach ($candidates as $candidate) {
@@ -63,7 +65,7 @@ final class AmbitionRungPolicy
             'schema_version' => self::SCHEMA_VERSION,
             'selected_id' => AiValueNormalizer::trimmedStringOrNull($selected['id'] ?? null) ?? '',
             'selected_rung' => AiValueNormalizer::trimmedStringOrNull($selected[self::FIELD_RUNG] ?? null) ?? '',
-            'basis' => $basis,
+            self::FIELD_BASIS => $basis,
             'rung_distribution' => $distribution,
             'source' => [
                 'rung_series_informational' => true,

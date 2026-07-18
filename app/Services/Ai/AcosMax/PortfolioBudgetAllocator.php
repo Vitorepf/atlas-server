@@ -81,6 +81,8 @@ final class PortfolioBudgetAllocator
     public const FIELD_REASONS = 'reasons';
     public const FIELD_SOURCE = 'source';
     public const FIELD_WEIGHTS_ARE_OPERATOR_AUTHORED = 'weights_are_operator_authored';
+    public const FIELD_ALLOCATOR_WRITES_OWN_WEIGHTS = 'allocator_writes_own_weights';
+    public const FIELD_CEILING_ABSOLUTE = 'ceiling_absolute';
 
     /**
      * @param  array<string,mixed>  $input keys:
@@ -140,10 +142,10 @@ final class PortfolioBudgetAllocator
             self::FIELD_REASONS => $reasons,
             self::FIELD_SOURCE => [
                 self::FIELD_WEIGHTS_ARE_OPERATOR_AUTHORED => true,
-                'allocator_writes_own_weights' => false,
+                self::FIELD_ALLOCATOR_WRITES_OWN_WEIGHTS => false,
                 'yield_recomputed_here' => false,
                 'starvation_floor_absolute' => self::HARD_FLOOR_SHARE,
-                'ceiling_absolute' => self::HARD_CEILING_SHARE,
+                self::FIELD_CEILING_ABSOLUTE => self::HARD_CEILING_SHARE,
                 'consumer_of_maxn_04' => true,
                 'consumer_of_maxk_07' => true,
                 'flag' => 'atlas.multk_06.portfolio_allocation_enabled',

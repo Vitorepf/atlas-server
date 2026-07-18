@@ -70,6 +70,8 @@ final class PreReviewAdvisoryBand
     public const FIELD_HIGH = 'high';
     public const FIELD_LOW = 'low';
     public const FIELD_REVERTED = 'reverted';
+    public const FIELD_BAND = 'band';
+    public const FIELD_BLOCKS_AUTO_APPLY = 'blocks_auto_apply';
 
     /**
      * @param  array<string,mixed>  $features required keys:
@@ -104,7 +106,7 @@ final class PreReviewAdvisoryBand
             self::FIELD_PROBABILITY => null,
             self::FIELD_BASIS => self::BASIS_INSUFFICIENT_SAMPLE,
             self::FIELD_SOURCE => [
-                'blocks_auto_apply' => false,
+                self::FIELD_BLOCKS_AUTO_APPLY => false,
                 'delays_auto_apply' => false,
                 'mutates_pipeline' => false,
                 'reorders_digest_only' => true,
@@ -137,7 +139,7 @@ final class PreReviewAdvisoryBand
 
         $classification = ($classifier ?? new CalibrationBandClassifier)->classify($probability);
 
-        $result[self::FIELD_PREDICTED_REVERT_BAND] = AiValueNormalizer::trimmedStringOrNull($classification['band'] ?? null) ?? '';
+        $result[self::FIELD_PREDICTED_REVERT_BAND] = AiValueNormalizer::trimmedStringOrNull($classification[self::FIELD_BAND] ?? null) ?? '';
         $result[self::FIELD_PROBABILITY] = $probability;
         $result[self::FIELD_BASIS] = self::BASIS_MEASURED;
 

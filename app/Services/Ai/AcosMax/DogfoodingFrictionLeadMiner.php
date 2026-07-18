@@ -23,6 +23,8 @@ final class DogfoodingFrictionLeadMiner
     public const FIELD_OBJECTIVE = 'objective';
     public const FIELD_EVIDENCE_REFS = 'evidence_refs';
     public const FIELD_SOURCE = 'source';
+    public const FIELD_LEAD_ONLY_NOT_SEED = 'lead_only_not_seed';
+    public const FIELD_LEADS = 'leads';
 
     /**
      * @param  list<array<string,mixed>>  $events
@@ -62,7 +64,7 @@ final class DogfoodingFrictionLeadMiner
                 )),
                 self::FIELD_SOURCE => [
                     'operator_text_in_objective' => false,
-                    'lead_only_not_seed' => true,
+                    self::FIELD_LEAD_ONLY_NOT_SEED => true,
                     'provider_calls_made' => false,
                 ],
             ];
@@ -71,7 +73,7 @@ final class DogfoodingFrictionLeadMiner
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'status' => $leads === [] ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK,
-            'leads' => $leads,
+            self::FIELD_LEADS => $leads,
         ];
     }
 
