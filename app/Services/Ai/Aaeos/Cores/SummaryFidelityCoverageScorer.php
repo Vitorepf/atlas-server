@@ -42,6 +42,8 @@ final class SummaryFidelityCoverageScorer
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_KIND = 'kind';
     public const FIELD_ID = 'id';
+    public const FLOAT_0_0 = 0.0;
+    public const FLOAT_1_0 = 1.0;
 
 
     /**
@@ -164,7 +166,7 @@ final class SummaryFidelityCoverageScorer
         return $this->resolveVerdict(
             $contextRetentionScore,
             $missedDecisionRate,
-            $missedDecisionRate > 0.0,
+            $missedDecisionRate > self::FLOAT_0_0,
         );
     }
 
@@ -177,7 +179,7 @@ final class SummaryFidelityCoverageScorer
             return self::VERDICT_FAILED;
         }
 
-        if ($contextRetentionScore >= 1.0 && $missedDecisionRate <= 0.0) {
+        if ($contextRetentionScore >= self::FLOAT_1_0 && $missedDecisionRate <= self::FLOAT_0_0) {
             return self::VERDICT_PASSED;
         }
 

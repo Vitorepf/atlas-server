@@ -61,6 +61,8 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_MEASURE = 'measure';
     public const FIELD_OVERRIDE = 'override';
     public const FIELD_DEFAULT_PAYLOAD = 'default_payload';
+    public const FIELD_Y_M_D = 'Y-m-d';
+    public const FIELD_AOBG_LATENCY_LEDGER_V1 = 'aobg.latency_ledger.v1';
 
 
     /**
@@ -82,7 +84,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
         $freeze = $this->freezePayloadOverride ?? $this->latestFreezePayload() ?? AtlasAcosFreezeCommand::defaultFreezePayload();
         $thresholds = AiValueNormalizer::arrayOrEmpty($freeze[self::FIELD_THRESHOLDS] ?? null);
         $denominatorMin = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($thresholds[self::FIELD_DENOMINATOR_MIN_SAMPLES] ?? null) ?? self::DEFAULT_DENOMINATOR_MIN));
-        $day = gmdate('Y-m-d');
+        $day = gmdate(self::FIELD_Y_M_D);
         $report = $this->ledger->report(day: $day);
         $ops = AiValueNormalizer::arrayOrEmpty(data_get($report, 'days.'.$day.'.ops', []));
 
@@ -147,7 +149,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
                 return null;
             }
 
-            $event = $ledger->latestForScope(self::FIELD_MEASURE, 'aobg.latency_ledger.v1', 'measure.freeze.recorded');
+            $event = $ledger->latestForScope(self::FIELD_MEASURE, self::FIELD_AOBG_LATENCY_LEDGER_V1, 'measure.freeze.recorded');
 
             return $event instanceof AtlasLedgerEvent && is_array($event->payload) ? $event->payload : null;
         } catch (Throwable) {

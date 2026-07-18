@@ -40,6 +40,8 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
     public const FIELD_NONE = 'none';
     public const FIELD_PROVIDER_BODY_CONTAINS_RAW_BODY = 'provider_body_contains_raw_body';
     public const FIELD_PROVIDER_SUMMARY_CONTAINS_RAW_SUMMARY = 'provider_summary_contains_raw_summary';
+    public const FIELD_PRIVACY_PROVIDER_BODY_VERIFIED = 'privacy.provider_body_verified';
+    public const FIELD_PROVIDER_PROJECTION_PROVIDER_BODY_VERIFIED = 'provider_projection.provider_body_verified';
 
 
     public function __construct(private AtlasMemoryPrivacyService $privacy) {}
@@ -69,10 +71,10 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
                     $drift[] = [
                         self::FIELD_MEMORY_REF => $this->memoryRef($entry),
                         self::FIELD_SIGNALS => $signals,
-                        self::FIELD_VERIFIED_BY => data_get($entry->metadata, 'privacy.provider_body_verified') === true
-                            ? 'privacy.provider_body_verified'
-                            : (data_get($entry->metadata, 'provider_projection.provider_body_verified') === true
-                                ? 'provider_projection.provider_body_verified'
+                        self::FIELD_VERIFIED_BY => data_get($entry->metadata, self::FIELD_PRIVACY_PROVIDER_BODY_VERIFIED) === true
+                            ? self::FIELD_PRIVACY_PROVIDER_BODY_VERIFIED
+                            : (data_get($entry->metadata, self::FIELD_PROVIDER_PROJECTION_PROVIDER_BODY_VERIFIED) === true
+                                ? self::FIELD_PROVIDER_PROJECTION_PROVIDER_BODY_VERIFIED
                                 : self::FIELD_NONE),
                     ];
                 }

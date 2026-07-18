@@ -96,6 +96,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const FIELD_NO_ACTIVE_KNOWLEDGE_ITEMS = 'no_active_knowledge_items';
     public const FIELD_PROVENANCE_COLUMNS_NOT_MIGRATED = 'provenance_columns_not_migrated';
     public const FIELD_UTC = 'UTC';
+    public const FIELD_CODEX_INDEPENDENT_MAXA06_FASE1_JUDGE = 'codex-independent-maxa06-fase1-judge';
+    public const FIELD_CURSOR_ACOS_MAX_MAXA06_FASE1 = 'cursor-acos-max-maxa06-fase1';
     public const INT_60 = 60;
 
     /** @return array<string,mixed> */
@@ -115,8 +117,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
             self::FIELD_TTL_DAYS => self::INT_60,
-            self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxa06-fase1',
-            self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-maxa06-fase1-judge',
+            self::FIELD_AUTHOR_ENGINE_ID => self::FIELD_CURSOR_ACOS_MAX_MAXA06_FASE1,
+            self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_INDEPENDENT_MAXA06_FASE1_JUDGE,
             self::FIELD_DUAL_READ_REQUIRED => false,
             self::FIELD_SERIES_REGISTRY => [
                 self::FIELD_SERIES => self::MEASURE_ID,

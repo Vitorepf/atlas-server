@@ -93,6 +93,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS_MISSING = 'atlas_engineering_code_symbols_missing';
     public const FIELD_NO_ACTIVE_CODE_SYMBOLS = 'no_active_code_symbols';
     public const FIELD_UTC = 'UTC';
+    public const FIELD_S_ID = 's.id';
+    public const FIELD_E_SYMBOL_ID = 'e.symbol_id';
     public const INT_60 = 60;
 
     /** @return array<string,mixed> */
@@ -150,14 +152,14 @@ final class AtlasCodeSymbolEmbeddingCoverageService
         }
 
         $covered = DB::table('atlas_engineering_code_symbols as s')
-            ->join('atlas_code_symbol_embeddings as e', 's.id', '=', 'e.symbol_id')
+            ->join('atlas_code_symbol_embeddings as e', self::FIELD_S_ID, '=', self::FIELD_E_SYMBOL_ID)
             ->where('s.status', self::STATUS_ACTIVE)
             ->whereNull('s.archived_at')
             ->whereColumn('e.embedded_content_hash', 's.source_hash')
             ->count();
 
         $stale = DB::table('atlas_engineering_code_symbols as s')
-            ->join('atlas_code_symbol_embeddings as e', 's.id', '=', 'e.symbol_id')
+            ->join('atlas_code_symbol_embeddings as e', self::FIELD_S_ID, '=', self::FIELD_E_SYMBOL_ID)
             ->where('s.status', self::STATUS_ACTIVE)
             ->whereNull('s.archived_at')
             ->whereColumn('e.embedded_content_hash', '!=', 's.source_hash')
@@ -165,11 +167,11 @@ final class AtlasCodeSymbolEmbeddingCoverageService
 
         // Missing = active symbols without ANY embedding row.
         $withEmbedding = DB::table('atlas_engineering_code_symbols as s')
-            ->join('atlas_code_symbol_embeddings as e', 's.id', '=', 'e.symbol_id')
+            ->join('atlas_code_symbol_embeddings as e', self::FIELD_S_ID, '=', self::FIELD_E_SYMBOL_ID)
             ->where('s.status', self::STATUS_ACTIVE)
             ->whereNull('s.archived_at')
             ->distinct()
-            ->count('s.id');
+            ->count(self::FIELD_S_ID);
         $missing = max(0, $active - $withEmbedding);
 
         $ratio = round($covered / max(1, $active), 4);

@@ -102,6 +102,8 @@ final class AcosMaxObraRetroService
     public const FIELD_NORMAL_QUALITY_GATED_LESSON_CANDIDATES = 'normal_quality_gated_lesson_candidates';
     public const FIELD_OUTC_01_OUTCOME_RECORDS = 'outc_01_outcome_records';
     public const FIELD_SCOREBOARD_SLICE_REFS = 'scoreboard_slice_refs';
+    public const FIELD_OUTCOME_OUTCOME_ID = 'outcome.outcome_id';
+    public const FIELD_SPINE_AI_RUN_OUTCOME_ID = 'spine.ai_run_outcome.id';
 
     public function __construct(
         private readonly AtlasEngineeringOutcomeRecorder $outcomes,
@@ -246,8 +248,8 @@ final class AcosMaxObraRetroService
             self::FIELD_SLICE_ID => AiValueNormalizer::trimmedScalarStringOrNull($slice[self::FIELD_ID] ?? null) ?? '',
             self::FIELD_SLICE_STATE => AiValueNormalizer::trimmedScalarStringOrNull($slice[self::FIELD_STATE] ?? null) ?? '',
             self::FIELD_STATUS => (AiValueNormalizer::trimmedStringOrNull($recorded[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
-            self::FIELD_OUTCOME_ID => data_get($recorded, 'outcome.outcome_id'),
-            self::FIELD_AI_RUN_OUTCOME_ID => data_get($recorded, 'spine.ai_run_outcome.id'),
+            self::FIELD_OUTCOME_ID => data_get($recorded, self::FIELD_OUTCOME_OUTCOME_ID),
+            self::FIELD_AI_RUN_OUTCOME_ID => data_get($recorded, self::FIELD_SPINE_AI_RUN_OUTCOME_ID),
             self::FIELD_SERIES_TAG => self::SERIES_TAG,
         ];
     }

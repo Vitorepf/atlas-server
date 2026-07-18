@@ -10180,4 +10180,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b497_http_path_evidence_vision_pre_review_outcome_causality_floor_count']);
     }
 
+    public function test_b498_code_symbol_immune_classifier_knowledge_item_aobg_latency_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b498CodeSymbolImmuneClassifierKnowledgeItemAobgLatencyFloorsContractObserve([]);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_S_ID, $out['s.id']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_E_SYMBOL_ID, $out['e.symbol_id']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_ATLAS_AAEOS_IMMUNE_CLASSIFIER_SEMANTIC_ARM_ENABLED, $out['atlas.aaeos.immune_classifier.semantic_arm_enabled']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_CODEX_IMMUNE_HYBRID_CLASSIFIER_JUDGE, $out['codex-immune-hybrid-classifier-judge']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_CODEX_INDEPENDENT_MAXA06_FASE1_JUDGE, $out['codex-independent-maxa06-fase1-judge']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_CURSOR_ACOS_MAX_MAXA06_FASE1, $out['cursor-acos-max-maxa06-fase1']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_Y_M_D, $out['Y-m-d']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_AOBG_LATENCY_LEDGER_V1, $out['aobg.latency_ledger.v1']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_PRIVACY_PROVIDER_BODY_VERIFIED, $out['privacy.provider_body_verified']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_PROVIDER_PROJECTION_PROVIDER_BODY_VERIFIED, $out['provider_projection.provider_body_verified']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FLOAT_0_0, $out['0.0']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FLOAT_1_0, $out['1.0']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_OUTCOME_OUTCOME_ID, $out['outcome.outcome_id']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_SPINE_AI_RUN_OUTCOME_ID, $out['spine.ai_run_outcome.id']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_ATLAS_AAEOS_DEFERRED_CLAIMED_, $out['atlas.aaeos.deferred.claimed.']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_ATLAS_AAEOS_DEFERRED_ENQUEUED_, $out['atlas.aaeos.deferred.enqueued.']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_METRICS_PRECISION_AT_K, $out['metrics.precision_at_k']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_METRICS_PRIMARY_K, $out['metrics.primary_k']);
+        $this->assertSame(18, $out['b498_code_symbol_immune_classifier_knowledge_item_aobg_latency_floor_count']);
+    }
+
 }

@@ -12947,4 +12947,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B498).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b498CodeSymbolImmuneClassifierKnowledgeItemAobgLatencyFloorsContractObserve(array $input = []): array
+    {
+        return [
+            's.id' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_S_ID,
+            'e.symbol_id' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_E_SYMBOL_ID,
+            'atlas.aaeos.immune_classifier.semantic_arm_enabled' => AtlasImmuneClassifierHybridFreeze::FIELD_ATLAS_AAEOS_IMMUNE_CLASSIFIER_SEMANTIC_ARM_ENABLED,
+            'codex-immune-hybrid-classifier-judge' => AtlasImmuneClassifierHybridFreeze::FIELD_CODEX_IMMUNE_HYBRID_CLASSIFIER_JUDGE,
+            'codex-independent-maxa06-fase1-judge' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_CODEX_INDEPENDENT_MAXA06_FASE1_JUDGE,
+            'cursor-acos-max-maxa06-fase1' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_CURSOR_ACOS_MAX_MAXA06_FASE1,
+            'Y-m-d' => AobgLatencyWatchdogCheck::FIELD_Y_M_D,
+            'aobg.latency_ledger.v1' => AobgLatencyWatchdogCheck::FIELD_AOBG_LATENCY_LEDGER_V1,
+            'privacy.provider_body_verified' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_PRIVACY_PROVIDER_BODY_VERIFIED,
+            'provider_projection.provider_body_verified' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_PROVIDER_PROJECTION_PROVIDER_BODY_VERIFIED,
+            '0.0' => SummaryFidelityCoverageScorer::FLOAT_0_0,
+            '1.0' => SummaryFidelityCoverageScorer::FLOAT_1_0,
+            'outcome.outcome_id' => AcosMaxObraRetroService::FIELD_OUTCOME_OUTCOME_ID,
+            'spine.ai_run_outcome.id' => AcosMaxObraRetroService::FIELD_SPINE_AI_RUN_OUTCOME_ID,
+            'atlas.aaeos.deferred.claimed.' => AaeosDeferredPhaseDispatcherService::FIELD_ATLAS_AAEOS_DEFERRED_CLAIMED_,
+            'atlas.aaeos.deferred.enqueued.' => AaeosDeferredPhaseDispatcherService::FIELD_ATLAS_AAEOS_DEFERRED_ENQUEUED_,
+            'metrics.precision_at_k' => AtlasConsolidationRerankGuard::FIELD_METRICS_PRECISION_AT_K,
+            'metrics.primary_k' => AtlasConsolidationRerankGuard::FIELD_METRICS_PRIMARY_K,
+            'b498_code_symbol_immune_classifier_knowledge_item_aobg_latency_floor_count' => 18,
+        ];
+    }
+
 }

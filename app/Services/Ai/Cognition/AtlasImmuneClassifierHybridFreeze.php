@@ -77,6 +77,8 @@ final class AtlasImmuneClassifierHybridFreeze
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_REGISTERED_ELEV_20S = 'registered_elev_20s';
     public const FIELD_BIGRAM_JACCARD_IMMUNE_SEMANTIC_SIMILARITY_PORT = 'BigramJaccardImmuneSemanticSimilarityPort';
+    public const FIELD_ATLAS_AAEOS_IMMUNE_CLASSIFIER_SEMANTIC_ARM_ENABLED = 'atlas.aaeos.immune_classifier.semantic_arm_enabled';
+    public const FIELD_CODEX_IMMUNE_HYBRID_CLASSIFIER_JUDGE = 'codex-immune-hybrid-classifier-judge';
     public const INT_20 = 20;
 
     /**
@@ -113,7 +115,7 @@ final class AtlasImmuneClassifierHybridFreeze
                 self::FIELD_BASELINE_CAPACITY_NOTE => 'char-bigram Jaccard is a floor lexical arm; daemon-backed real embeddings can raise recall + drop FP without changing the freeze contract.',
             ],
             self::FIELD_SWITCH => [
-                self::FIELD_CONFIG_KEY => 'atlas.aaeos.immune_classifier.semantic_arm_enabled',
+                self::FIELD_CONFIG_KEY => self::FIELD_ATLAS_AAEOS_IMMUNE_CLASSIFIER_SEMANTIC_ARM_ENABLED,
                 self::FIELD_DEFAULT => false,
                 self::FIELD_OFF_CONTRACT => self::FIELD_BYTE_IDENTICAL_TO_BASE_CLASSIFIER,
             ],
@@ -125,7 +127,7 @@ final class AtlasImmuneClassifierHybridFreeze
             ],
             self::FIELD_TTL_DAYS => self::TTL_DAYS,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxi-04',
-            self::FIELD_JUDGE_ENGINE_ID => 'codex-immune-hybrid-classifier-judge',
+            self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_IMMUNE_HYBRID_CLASSIFIER_JUDGE,
             self::FIELD_CALIBRATION_AUTHORITY => [
                 self::FIELD_FREEZE => ImmuneCalibrationService::MEASURE_ID,
                 self::FIELD_NOTE => 'tau is a MAXI-03 freeze-stamped input; recalibration flows through the MAXI-03 seam.',

@@ -54,6 +54,8 @@ final class AtlasConsolidationRerankGuard
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_STORAGE_PATH = 'storage_path';
     public const FIELD_BLOCKED_REGRESSION = 'blocked_regression';
+    public const FIELD_METRICS_PRECISION_AT_K = 'metrics.precision_at_k';
+    public const FIELD_METRICS_PRIMARY_K = 'metrics.primary_k';
 
 
     private string $baselinePath;
@@ -149,8 +151,8 @@ final class AtlasConsolidationRerankGuard
             if ($status !== '' && $status !== self::STATUS_OK && $status !== self::STATUS_HEALTHY) {
                 return null;
             }
-            $pAtK = AiValueNormalizer::arrayOrEmpty(data_get($report, 'metrics.precision_at_k', []));
-            $primary = data_get($report, 'metrics.primary_k', array_key_first($pAtK));
+            $pAtK = AiValueNormalizer::arrayOrEmpty(data_get($report, self::FIELD_METRICS_PRECISION_AT_K, []));
+            $primary = data_get($report, self::FIELD_METRICS_PRIMARY_K, array_key_first($pAtK));
             $value = $pAtK[AiValueNormalizer::trimmedScalarStringOrNull($primary) ?? ''] ?? null;
 
             return AiValueNormalizer::finiteFloatOrNull($value);

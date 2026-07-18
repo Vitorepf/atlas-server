@@ -58,6 +58,8 @@ final class AaeosDeferredPhaseDispatcherService
     public const FIELD_OUTPUTS = 'outputs';
     public const FIELD_QUEUE_PATH = 'queue_path';
     public const FIELD_DEFERRED = 'deferred';
+    public const FIELD_ATLAS_AAEOS_DEFERRED_CLAIMED_ = 'atlas.aaeos.deferred.claimed.';
+    public const FIELD_ATLAS_AAEOS_DEFERRED_ENQUEUED_ = 'atlas.aaeos.deferred.enqueued.';
 
     public function __construct(
         private readonly CacheRepository $cache,
@@ -100,7 +102,7 @@ final class AaeosDeferredPhaseDispatcherService
                 AppendOnlyJsonlStore::appendEncodedLineSilently($path, $line, FILE_APPEND | LOCK_EX, 0o755);
             }
             $enqueued[] = $record;
-            $this->incrementCounter('atlas.aaeos.deferred.enqueued.'.$record[self::FIELD_PHASE]);
+            $this->incrementCounter(self::FIELD_ATLAS_AAEOS_DEFERRED_ENQUEUED_.$record[self::FIELD_PHASE]);
         }
 
         return [
@@ -162,7 +164,7 @@ final class AaeosDeferredPhaseDispatcherService
 
         foreach ($claimed as $record) {
             $phase = (AiValueNormalizer::trimmedStringOrNull($record[self::FIELD_PHASE] ?? null) ?? self::PHASE_UNKNOWN);
-            $this->incrementCounter('atlas.aaeos.deferred.claimed.'.$phase);
+            $this->incrementCounter(self::FIELD_ATLAS_AAEOS_DEFERRED_CLAIMED_.$phase);
         }
 
         return $claimed;
