@@ -120,6 +120,8 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD_SOURCE_TYPE = 'source_type';
     public const FIELD_SUM = 'sum';
     public const FIELD_VERDICT = 'verdict';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_APP_SURFACE = 'app_surface';
 
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
 
@@ -350,10 +352,10 @@ final class AtlasAaeosHttpPathFacadeService
     private function hashIntent(string $intentText): string
     {
         if ($intentText === '') {
-            return 'sha256:'.hash('sha256', 'empty_intent');
+            return 'sha256:'.hash(self::FIELD_SHA256, 'empty_intent');
         }
 
-        return 'sha256:'.hash('sha256', $intentText);
+        return 'sha256:'.hash(self::FIELD_SHA256, $intentText);
     }
 
     /**
@@ -363,7 +365,7 @@ final class AtlasAaeosHttpPathFacadeService
     private function placeOrCache(string $intentText, string $intentHash, array $data): array
     {
         $ttl = (int) (AiValueNormalizer::finiteFloatOrNull(config(self::PLACEMENT_CACHE_TTL_CONFIG_KEY, self::DEFAULT_PLACEMENT_CACHE_TTL_SECONDS)) ?? self::DEFAULT_PLACEMENT_CACHE_TTL_SECONDS);
-        $cacheKey = 'atlas.aaeos.placement.'.hash('sha256', $intentHash.'|'.($data[self::FIELD_SOURCE_TYPE] ?? ''));
+        $cacheKey = 'atlas.aaeos.placement.'.hash(self::FIELD_SHA256, $intentHash.'|'.($data[self::FIELD_SOURCE_TYPE] ?? ''));
         $cached = $ttl > 0 ? $this->cache->get($cacheKey) : null;
         if (is_array($cached)) {
             return [$cached, true];
@@ -388,7 +390,7 @@ final class AtlasAaeosHttpPathFacadeService
     {
         $payload = self::requestPayload($data);
         $hints = [];
-        foreach (['atlas_mode', 'current_mode', 'flow_id', 'domain_id', 'surface_id', 'app_surface', 'routing_task'] as $key) {
+        foreach (['atlas_mode', 'current_mode', 'flow_id', 'domain_id', 'surface_id', self::FIELD_APP_SURFACE, 'routing_task'] as $key) {
             $value = AiValueNormalizer::trimmedStringOrNull($payload[$key] ?? null);
             if ($value !== null) {
                 $hints[] = $key.'='.$value;

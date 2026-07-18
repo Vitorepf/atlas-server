@@ -10979,4 +10979,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B434).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function cognitiveFunctionImmunePromotionCognitionScoreAaeosDepartmentFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'analise' => AtlasCognitiveFunctionDecomposerService::FIELD_ANALISE,
+            'artisan' => AtlasCognitiveFunctionDecomposerService::FIELD_ARTISAN,
+            'probation_watch_age_days' => CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_WATCH_AGE_DAYS,
+            'atomic_claim_present' => CognitiveImmunePromotionGateEvaluator::FIELD_ATOMIC_CLAIM_PRESENT,
+            'aucri' => AtlasCognitionScoreCardService::FIELD_AUCRI,
+            'atlas_decide' => AtlasCognitionScoreCardService::FIELD_ATLAS_DECIDE,
+            'allowed_actions' => AtlasAaeosDepartmentRegistryService::FIELD_ALLOWED_ACTIONS,
+            'architect' => AtlasAaeosDepartmentRegistryService::FIELD_ARCHITECT,
+            'outcome_envelope_adapter_origin_invalid' => OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_ADAPTER_ORIGIN_INVALID,
+            'outcome_envelope_episode_id_invalid' => OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_EPISODE_ID_INVALID,
+            'cartography' => AtlasCognitionScoreCardV4Grouper::FIELD_CARTOGRAPHY,
+            'consumer' => AtlasCognitionScoreCardV4Grouper::FIELD_CONSUMER,
+            'predicate' => FactPairPolarityContradictionDetector::FIELD_PREDICATE,
+            'subject' => FactPairPolarityContradictionDetector::FIELD_SUBJECT,
+            'feedback' => AtlasAcosWindowGatesService::FIELD_FEEDBACK,
+            'memory_quality' => AtlasAcosWindowGatesService::FIELD_MEMORY_QUALITY,
+            'sha256' => AtlasAaeosHttpPathFacadeService::FIELD_SHA256,
+            'app_surface' => AtlasAaeosHttpPathFacadeService::FIELD_APP_SURFACE,
+            'cognitive_function_immune_promotion_cognition_score_aaeos_department_floor_count' => 18,
+        ];
+    }
+
 }

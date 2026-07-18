@@ -140,6 +140,7 @@ use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\Checks\EvidenceLedgerIntegrityWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\Checks\ProviderBoundRedactionDriftWatchdogCheck;
 use App\Services\Ai\Cognition\AtlasSurpriseGateService;
+use App\Services\Ai\AcosMax\OutcomeEnvelope;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -8589,6 +8590,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(PredictedImpactBand::FIELD_SWEET, $out['sweet']);
         $this->assertSame(RagxChainMechanismService::FIELD_MAXF09_VERIFIED_L2_SUMMARY, $out['maxf09_verified_l2_summary']);
         $this->assertSame(18, $out['department_contract_window_orchestrator_model_capability_n_capture_floor_count']);
+    }
+
+    public function test_cognitive_function_immune_promotion_cognition_score_aaeos_department_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitiveFunctionImmunePromotionCognitionScoreAaeosDepartmentFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_ANALISE, $out['analise']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_ARTISAN, $out['artisan']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_WATCH_AGE_DAYS, $out['probation_watch_age_days']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_ATOMIC_CLAIM_PRESENT, $out['atomic_claim_present']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AUCRI, $out['aucri']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ATLAS_DECIDE, $out['atlas_decide']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ALLOWED_ACTIONS, $out['allowed_actions']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ARCHITECT, $out['architect']);
+        $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_ADAPTER_ORIGIN_INVALID, $out['outcome_envelope_adapter_origin_invalid']);
+        $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_EPISODE_ID_INVALID, $out['outcome_envelope_episode_id_invalid']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_CARTOGRAPHY, $out['cartography']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_CONSUMER, $out['consumer']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_PREDICATE, $out['predicate']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_SUBJECT, $out['subject']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_FEEDBACK, $out['feedback']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_MEMORY_QUALITY, $out['memory_quality']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_APP_SURFACE, $out['app_surface']);
+        $this->assertSame(18, $out['cognitive_function_immune_promotion_cognition_score_aaeos_department_floor_count']);
     }
 
 }

@@ -59,6 +59,8 @@ final class OutcomeEnvelope
     public const FIELD_EVIDENCE_REF_COUNT = 'evidence_ref_count';
     public const FIELD_EPISODE_ID = 'episode_id';
     public const FIELD_RUN_ID = 'run_id';
+    public const FIELD_OUTCOME_ENVELOPE_ADAPTER_ORIGIN_INVALID = 'outcome_envelope_adapter_origin_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_EPISODE_ID_INVALID = 'outcome_envelope_episode_id_invalid';
 
     /**
      * Map divergent native status labels onto the shared envelope statuses.
@@ -145,7 +147,7 @@ final class OutcomeEnvelope
 
         $origin = AiValueNormalizer::lowerTrimmedString($data[self::FIELD_ADAPTER_ORIGIN] ?? '');
         if (! in_array($origin, self::ADAPTER_ORIGINS, true)) {
-            throw new InvalidArgumentException('outcome_envelope_adapter_origin_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_ADAPTER_ORIGIN_INVALID);
         }
 
         $status = AiValueNormalizer::lowerTrimmedString($data[self::FIELD_STATUS] ?? '');
@@ -201,7 +203,7 @@ final class OutcomeEnvelope
 
         $episodeId = $data[self::FIELD_EPISODE_ID] ?? null;
         if ($episodeId !== null && AiValueNormalizer::trimmedStringOrNull($episodeId) === null) {
-            throw new InvalidArgumentException('outcome_envelope_episode_id_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_EPISODE_ID_INVALID);
         }
 
         return [

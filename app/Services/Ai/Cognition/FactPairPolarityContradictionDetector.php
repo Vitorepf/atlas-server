@@ -21,6 +21,8 @@ final class FactPairPolarityContradictionDetector
     public const FIELD_KIND = 'kind';
     public const FIELD_NEGATED = 'negated';
     public const FIELD_VALUE = 'value';
+    public const FIELD_PREDICATE = 'predicate';
+    public const FIELD_SUBJECT = 'subject';
     /**
      * @param  array{subject?:mixed, predicate?:mixed, negated?:mixed, value?:mixed}  $factA
      * @param  array{subject?:mixed, predicate?:mixed, negated?:mixed, value?:mixed}  $factB
@@ -28,8 +30,8 @@ final class FactPairPolarityContradictionDetector
      */
     public function detect(array $factA, array $factB): array
     {
-        $sameSubject = $this->normalizeKey($factA, 'subject') === $this->normalizeKey($factB, 'subject');
-        $samePredicate = $this->normalizeKey($factA, 'predicate') === $this->normalizeKey($factB, 'predicate');
+        $sameSubject = $this->normalizeKey($factA, self::FIELD_SUBJECT) === $this->normalizeKey($factB, self::FIELD_SUBJECT);
+        $samePredicate = $this->normalizeKey($factA, self::FIELD_PREDICATE) === $this->normalizeKey($factB, self::FIELD_PREDICATE);
 
         // (1) Different subject OR predicate -> the facts are not about the same claim.
         if (! $sameSubject || ! $samePredicate) {

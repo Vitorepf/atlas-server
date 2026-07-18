@@ -69,6 +69,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_AUTONOMOUS_PROMOTION_ALLOWED = 'autonomous_promotion_allowed';
     public const FIELD_REASONS = 'reasons';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_PROBATION_WATCH_AGE_DAYS = 'probation_watch_age_days';
+    public const FIELD_ATOMIC_CLAIM_PRESENT = 'atomic_claim_present';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -84,7 +86,7 @@ final class CognitiveImmunePromotionGateEvaluator
      */
     public function evaluate(array $signals): array
     {
-        $candidatePresent = $this->flag($signals, 'atomic_claim_present');
+        $candidatePresent = $this->flag($signals, self::FIELD_ATOMIC_CLAIM_PRESENT);
 
         $gateStatuses = [];
         $reasons = [];
@@ -187,7 +189,7 @@ final class CognitiveImmunePromotionGateEvaluator
      */
     private function extractionGate(array $signals): array
     {
-        $confirmed = $this->flag($signals, 'atomic_claim_present')
+        $confirmed = $this->flag($signals, self::FIELD_ATOMIC_CLAIM_PRESENT)
             && $this->nonEmptyString($signals, 'claim_type')
             && $this->flag($signals, 'claim_source_present')
             && $this->nonEmptyString($signals, 'scope');
@@ -450,8 +452,8 @@ final class CognitiveImmunePromotionGateEvaluator
      */
     private function probationWatchAgeDays(array $signals): int
     {
-        if (array_key_exists('probation_watch_age_days', $signals)) {
-            return max(0, $this->intValue($signals, 'probation_watch_age_days'));
+        if (array_key_exists(self::FIELD_PROBATION_WATCH_AGE_DAYS, $signals)) {
+            return max(0, $this->intValue($signals, self::FIELD_PROBATION_WATCH_AGE_DAYS));
         }
 
         $startedAt = $this->timestampValue($signals, 'probation_entered_at')

@@ -56,6 +56,8 @@ final class AtlasAcosWindowGatesService
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_VALUE = 'value';
     public const FIELD_WINDOW_RECEIPTS = 'window_receipts';
+    public const FIELD_FEEDBACK = 'feedback';
+    public const FIELD_MEMORY_QUALITY = 'memory_quality';
 
     /** Receipt freshness before a certified gate is treated as stale (7 days). */
     public const RECEIPT_FRESH_SECONDS = 604800;
@@ -96,7 +98,7 @@ final class AtlasAcosWindowGatesService
             $card = $this->quality()->scorecard();
         } catch (Throwable) {
             return [[
-                self::FIELD_GATE => 'memory_quality',
+                self::FIELD_GATE => self::FIELD_MEMORY_QUALITY,
                 self::FIELD_STATUS => self::STATUS_SEM_DADOS,
                 self::FIELD_EVIDENCE => 'AtlasMemoryQualityService::scorecard indisponível (tabelas ausentes)',
             ]];
@@ -110,7 +112,7 @@ final class AtlasAcosWindowGatesService
             $this->dimension('D5_rationale', $dims, 'rationale', '>=70', 70, true),
             // D5 feedback / composite: the target direction is contested in the
             // docs (quality composite vs "<=50" marker) → report, never assert.
-            $this->dimension('D4_D5_feedback', $dims, 'feedback', 'ver doc (janela)', null, false),
+            $this->dimension('D4_D5_feedback', $dims, self::FIELD_FEEDBACK, 'ver doc (janela)', null, false),
         ];
     }
 

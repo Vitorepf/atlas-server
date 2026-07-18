@@ -77,6 +77,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_INPUT = 'input';
     public const FIELD_SCHEMA = 'schema';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_ANALISE = 'analise';
+    public const FIELD_ARTISAN = 'artisan';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -95,7 +97,7 @@ final class AtlasCognitiveFunctionDecomposerService
      */
     public const RULES = [
         self::FIELD_REASONING => [
-            'porque', 'por que', 'analise', 'analisa', 'explique', 'pense', 'pondere',
+            'porque', 'por que', self::FIELD_ANALISE, 'analisa', 'explique', 'pense', 'pondere',
             'decida', 'decisao', 'compare', 'avalie', 'logica', 'estrategia',
             'raciocine', 'investigue', 'why', 'reason',
         ],
@@ -113,7 +115,7 @@ final class AtlasCognitiveFunctionDecomposerService
             'codigo', 'codifique', 'implemente', 'refatore', 'debug', 'teste',
             'compile', 'execute', 'rode', 'rodar', 'php', 'typescript', 'react',
             'componente', 'servico', 'classe', 'funcao', 'controller', 'cli',
-            'artisan', 'migration', 'composer', 'npm', 'phpunit', 'pest',
+            self::FIELD_ARTISAN, 'migration', 'composer', 'npm', 'phpunit', 'pest',
             'patch', 'pull request', 'pr ', ' pr,', 'merge', 'git ',
             'code', 'function', 'class', 'service', 'refactor', 'test', 'build',
         ],

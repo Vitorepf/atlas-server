@@ -50,12 +50,14 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_SUPPLEMENTAL = 'supplemental';
     public const FIELD_TEOS = 'teos';
     public const FIELD_VERIFIED_CONTEXT = 'verified_context';
+    public const FIELD_CARTOGRAPHY = 'cartography';
+    public const FIELD_CONSUMER = 'consumer';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
         'self_improvement',
         'self_construction',
-        'cartography',
+        self::FIELD_CARTOGRAPHY,
         'programming',
         'research_domain',
     ];
@@ -124,7 +126,7 @@ final class AtlasCognitionScoreCardV4Grouper
                 self::FIELD_MEMBERS => $bucket[self::FIELD_MEMBERS] ?? [],
                 self::FIELD_SERVICE_CLASSES => array_values(array_unique($bucket[self::FIELD_SERVICE_CLASSES] ?? [])),
                 self::FIELD_SUPPLEMENTAL_COUNT => (int) (AiValueNormalizer::finiteFloatOrNull($bucket[self::FIELD_SUPPLEMENTAL_COUNT] ?? null) ?? 0),
-                self::FIELD_BOUNDARY => $consumers ? 'consumer' : 'acos',
+                self::FIELD_BOUNDARY => $consumers ? self::FIELD_CONSUMER : 'acos',
             ];
         }
 
@@ -139,7 +141,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_COGNITIVE_IMMUNE => 'IMMUNE',
             self::FIELD_MEMORY_CORE => 'MEMORY',
             self::FIELD_AUCRI => 'CONTEXT',
-            'self_improvement', 'self_construction', 'cartography', 'programming', self::FIELD_RESEARCH_DOMAIN => 'CONSUMERS',
+            'self_improvement', 'self_construction', self::FIELD_CARTOGRAPHY, 'programming', self::FIELD_RESEARCH_DOMAIN => 'CONSUMERS',
             self::FIELD_GOVERNANCE => 'GOVERNANCE',
             self::FIELD_ATLAS_DECIDE => 'DECIDE',
             self::FIELD_COMPOUNDING => 'COMPOUND',
