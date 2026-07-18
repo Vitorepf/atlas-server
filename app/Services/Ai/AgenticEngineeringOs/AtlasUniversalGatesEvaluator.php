@@ -18900,4 +18900,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B692).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b692ExploratoryBetsFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.originator.exploratory_bets_portfolio.v1' => ExploratoryBetsPortfolio::SCHEMA_VERSION,
+            '3' => ExploratoryBetsPortfolio::DEFAULT_K,
+            '7' => ExploratoryBetsPortfolio::DEFAULT_WINDOW_DAYS,
+            '5' => ExploratoryBetsPortfolio::MIN_N,
+            '2.0' => ExploratoryBetsPortfolio::DOUBLE_DOWN_MULTIPLIER,
+            'flag_disabled' => ExploratoryBetsPortfolio::STATUS_FLAG_DISABLED,
+            'enabled' => ExploratoryBetsPortfolio::FIELD_ENABLED,
+            'path' => ExploratoryBetsPortfolio::FIELD_PATH,
+            'basis' => ExploratoryBetsPortfolio::FIELD_BASIS,
+            'state' => ExploratoryBetsPortfolio::FIELD_STATE,
+            'action' => ExploratoryBetsPortfolio::FIELD_ACTION,
+            'status' => ExploratoryBetsPortfolio::FIELD_STATUS,
+            'bets' => ExploratoryBetsPortfolio::FIELD_BETS,
+            'k' => ExploratoryBetsPortfolio::FIELD_K,
+            'window_days' => ExploratoryBetsPortfolio::FIELD_WINDOW_DAYS,
+            'schema_version' => ExploratoryBetsPortfolio::FIELD_SCHEMA_VERSION,
+            'path_weight_multiplier' => ExploratoryBetsPortfolio::FIELD_PATH_WEIGHT_MULTIPLIER,
+            'originated_candidates' => ExploratoryBetsPortfolio::FIELD_ORIGINATED_CANDIDATES,
+            'b692_exploratory_bets_floor_count' => 18,
+        ];
+    }
+
 }
