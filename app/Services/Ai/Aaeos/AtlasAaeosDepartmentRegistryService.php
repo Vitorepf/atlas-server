@@ -51,6 +51,7 @@ class AtlasAaeosDepartmentRegistryService
     public const FIELD_TRIGGERS = 'triggers';
     public const FIELD_PRODUCT = 'product';
     public const FIELD_QA = 'qa';
+    public const FIELD_ESCALATION_TO_MUST_NOT_POINT_TO_THE_DEPARTMENT_ITSELF = 'escalation_to must not point to the department itself';
 
     /**
      * The 12 mandatory fields — a department missing any is a blocker.
@@ -104,7 +105,7 @@ class AtlasAaeosDepartmentRegistryService
         $escalation = $this->departmentId($contract[self::FIELD_ESCALATION_TO] ?? '');
         if ($escalation !== '' && $escalation !== self::FIELD_OPERATOR) {
             if ($escalation === $id) {
-                $blockers[] = 'escalation_to must not point to the department itself';
+                $blockers[] = self::FIELD_ESCALATION_TO_MUST_NOT_POINT_TO_THE_DEPARTMENT_ITSELF;
             } elseif (! in_array($escalation, array_map(self::FIELD_STRTOLOWER, $knownDepartmentIds), true)) {
                 $blockers[] = "escalation_to [{$escalation}] is not a known department";
             }

@@ -12587,4 +12587,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b595_ledger_rotation_cognition_score_department_contract_acos_evolution_floor_count']);
     }
 
+    public function test_b596_ledger_rotation_cognition_score_department_contract_acos_evolution_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b596LedgerRotationCognitionScoreDepartmentContractAcosEvolutionFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAXA_04_SHADOW_DUAL_READ_RECEIPTS_BEFORE_ANY_MODEL_PROMOTION, $out['MAXA-04 shadow dual-read receipts before any model promotion']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAXA_06_FASE_1_KB_COVERAGE_READER__WATCHDOG_SNAPSHOT_CADENCE_TIED_TO_KNOWLEDGE_SYNC_RUNS, $out['MAXA-06 fase 1 KB coverage reader; watchdog snapshot cadence tied to knowledge sync runs']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAXA_06_FASE_2_CODE_SYMBOL_EMBEDDING_COVERAGE_READER, $out['MAXA-06 fase 2 code-symbol embedding coverage reader']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CROSS_DOMAIN_MESH, $out['Cross-Domain Mesh']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_EMBODIMENT_INTEGRATION__P7_CLOSURE_, $out['Embodiment Integration (P7 closure)']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_LONG_HORIZON_INTELLIGENCE_LAYER, $out['Long-Horizon Intelligence Layer']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RELEASE__ROLLBACK_DECISION__DEPLOYMENT_EVIDENCE_, $out['Release, rollback decision, deployment evidence.']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SECURITY_REVIEW__OWASP__SECRETS__DEPENDENCY_CVES_, $out['Security review; OWASP, secrets, dependency CVEs.']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TEST_SELECTION__REGRESSION__VERIFICATION_, $out['Test selection, regression, verification.']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_REVERSIVEL__S_GIT__S_REPLAY__S__DIARIO_INTEGRO__S_ENTRADAS__D_, $out['reversivel=%s(git=%s,replay=%s) diario_integro=%s(entradas=%d)']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_SCORECARD_V3_DIMENS_O_PIPELINE__GREEN_RUN_RECEIPTS_REAIS__FRESHNESS_BOUND_, $out['scorecard v3 dimensão pipeline (green-run receipts reais, freshness-bound)']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_STORE_AUSENTE__0_HONESTO_, $out['store ausente (0 honesto)']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_RAG_10_AURG_CROSS_LAYER_COVERAGE_IS_BELOW_FLOOR_, $out['RAG-10 AURG cross-layer coverage is below floor.']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_RAG_12_RETRIEVAL_DIMENSION_WATCHDOG_FOUND_A_REGRESSION_OR_MASKING_ISSUE_, $out['RAG-12 retrieval dimension watchdog found a regression or masking issue.']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ESCALATION_TO_MUST_NOT_POINT_TO_THE_DEPARTMENT_ITSELF, $out['escalation_to must not point to the department itself']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_UNKNOWN_VETOING_DEPARTMENT__ONLY_SECURITY_ARCHITECT_REVIEW_OPERATOR_CAN_VETO, $out['unknown vetoing department; only security/architect/review/operator can veto']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_UNKNOWN_LOTE_2_MEASURE_FREEZE_, $out['Unknown LOTE 2 measure freeze.']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_ACOS_MAX_LOTE__D_SLICE__S_REACHED__S, $out['ACOS Max lote %d slice %s reached %s']);
+        $this->assertSame(18, $out['b596_ledger_rotation_cognition_score_department_contract_acos_evolution_floor_count']);
+    }
+
 }

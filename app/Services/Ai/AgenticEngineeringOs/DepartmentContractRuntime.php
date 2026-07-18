@@ -470,6 +470,9 @@ final class DepartmentContractRuntime
     public const FIELD_HEAVY_OBRAS_WITH_PROVIDER_TOPOLOGY___MULTI_AGENT_SCHEDULER_ = 'Heavy Obras with provider topology + multi-agent scheduler.';
     public const FIELD_INVESTIGATES_UNKNOWNS_BEFORE_COMMIT__NEVER_MODIFIES_RUNTIME_ = 'Investigates unknowns before commit; never modifies runtime.';
     public const FIELD_RECEIVES_AMBIGUOUS_HUMAN_INTENT__EMITS_CANONICAL_MISSION_ENVELOPE_ = 'Receives ambiguous human intent; emits canonical mission envelope.';
+    public const FIELD_RELEASE__ROLLBACK_DECISION__DEPLOYMENT_EVIDENCE_ = 'Release, rollback decision, deployment evidence.';
+    public const FIELD_SECURITY_REVIEW__OWASP__SECRETS__DEPENDENCY_CVES_ = 'Security review; OWASP, secrets, dependency CVEs.';
+    public const FIELD_TEST_SELECTION__REGRESSION__VERIFICATION_ = 'Test selection, regression, verification.';
     public const INT_11 = 11;
 
     /**
@@ -670,7 +673,7 @@ final class DepartmentContractRuntime
         ],
         self::DEPARTMENT_QA => [
             self::FIELD_HUMAN_NAME => self::FIELD_QA_DEPARTMENT,
-            self::FIELD_DESCRIPTION => 'Test selection, regression, verification.',
+            self::FIELD_DESCRIPTION => self::FIELD_TEST_SELECTION__REGRESSION__VERIFICATION_,
             self::FIELD_SCOPE => 'garante testabilidade, cobertura, regressão, contract tests e fixtures',
             self::FIELD_TRIGGERS => [self::FIELD_TASK_PACK_DECOMPOSED_TRUE, self::FIELD_DELIVERY_PACK_ASSEMBLED_TRUE],
             self::FIELD_INPUTS => [
@@ -694,7 +697,7 @@ final class DepartmentContractRuntime
         ],
         self::DEPARTMENT_SECURITY => [
             self::FIELD_HUMAN_NAME => self::FIELD_SECURITY_DEPARTMENT,
-            self::FIELD_DESCRIPTION => 'Security review; OWASP, secrets, dependency CVEs.',
+            self::FIELD_DESCRIPTION => self::FIELD_SECURITY_REVIEW__OWASP__SECRETS__DEPENDENCY_CVES_,
             self::FIELD_SCOPE => 'enforce de policy, threat-modeling, secret scanning, dependency audit, sovereignty boundary',
             self::FIELD_TRIGGERS => [self::FIELD_SECURITY_PATH_TOUCHED_TRUE, 'intent_class_in=[sensitive,secret,cyber]', self::FIELD_RELEASE_PACK_DRAFTED_TRUE],
             self::FIELD_INPUTS => [
@@ -742,7 +745,7 @@ final class DepartmentContractRuntime
         ],
         self::DEPARTMENT_DELIVERY => [
             self::FIELD_HUMAN_NAME => self::FIELD_DELIVERY_DEPARTMENT,
-            self::FIELD_DESCRIPTION => 'Release, rollback decision, deployment evidence.',
+            self::FIELD_DESCRIPTION => self::FIELD_RELEASE__ROLLBACK_DECISION__DEPLOYMENT_EVIDENCE_,
             self::FIELD_SCOPE => 'monta delivery_pack canônico, valida completeness, encaminha para human review e cert',
             self::FIELD_TRIGGERS => [self::FIELD_EXECUTION_COMPLETE_TRUE, self::FIELD_EVIDENCE_PACK_READY_TRUE],
             self::FIELD_INPUTS => [

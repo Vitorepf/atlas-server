@@ -65,6 +65,8 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_OPE_08_LIFT_CYCLE_BLOCKERS_ARE_NOT_CLOSING_ = 'OPE-08 lift cycle blockers are not closing.';
     public const FIELD_OPE_10_FOUND_PERSISTENT_PARTIAL_SCORECARD_RECEIPTS_ = 'OPE-10 found persistent partial scorecard receipts.';
     public const FIELD_PIP_08_SCORECARD_STABILITY_HAS_NOT_REACHED_A_GREEN_PIPELINE_SERIES_ = 'PIP-08 scorecard stability has not reached a green pipeline series.';
+    public const FIELD_RAG_10_AURG_CROSS_LAYER_COVERAGE_IS_BELOW_FLOOR_ = 'RAG-10 AURG cross-layer coverage is below floor.';
+    public const FIELD_RAG_12_RETRIEVAL_DIMENSION_WATCHDOG_FOUND_A_REGRESSION_OR_MASKING_ISSUE_ = 'RAG-12 retrieval dimension watchdog found a regression or masking issue.';
 
     public const CATALOG = [
         [
@@ -83,13 +85,13 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_ID => self::FIELD_RAG_10_AURG_COVERAGE,
             self::FIELD_REPORT_METHOD => self::FIELD_AURG_COVERAGE_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_AURG_COVERAGE_GATE_FAILED,
-            self::FIELD_MESSAGE => 'RAG-10 AURG cross-layer coverage is below floor.',
+            self::FIELD_MESSAGE => self::FIELD_RAG_10_AURG_CROSS_LAYER_COVERAGE_IS_BELOW_FLOOR_,
         ],
         [
             self::FIELD_ID => self::FIELD_RAG_12_RAG_DIMENSION,
             self::FIELD_REPORT_METHOD => self::FIELD_RAG_DIMENSION_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_RAG_DIMENSION_WATCHDOG_FAILED,
-            self::FIELD_MESSAGE => 'RAG-12 retrieval dimension watchdog found a regression or masking issue.',
+            self::FIELD_MESSAGE => self::FIELD_RAG_12_RETRIEVAL_DIMENSION_WATCHDOG_FOUND_A_REGRESSION_OR_MASKING_ISSUE_,
         ],
         [
             self::FIELD_ID => self::FIELD_COM_10_CONTEXT_FEEDBACK_HEALTH,

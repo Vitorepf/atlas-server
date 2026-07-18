@@ -86,6 +86,7 @@ class AtlasCrossDepartmentChoreographyService
     public const FIELD_FORGE = 'forge';
     public const FIELD_DEV = 'dev';
     public const FIELD_DELIVERY = 'delivery';
+    public const FIELD_UNKNOWN_VETOING_DEPARTMENT__ONLY_SECURITY_ARCHITECT_REVIEW_OPERATOR_CAN_VETO = 'unknown vetoing department; only security/architect/review/operator can veto';
 
     /**
      * Veto propagation rules keyed by the vetoing department.
@@ -116,7 +117,7 @@ class AtlasCrossDepartmentChoreographyService
                 self::FIELD_RECOGNIZED => false,
                 self::FIELD_VETOING_DEPARTMENT => $dept,
                 self::FIELD_ACTION => self::ACTION_NOOP,
-                self::FIELD_REASON => 'unknown vetoing department; only security/architect/review/operator can veto',
+                self::FIELD_REASON => self::FIELD_UNKNOWN_VETOING_DEPARTMENT__ONLY_SECURITY_ARCHITECT_REVIEW_OPERATOR_CAN_VETO,
             ];
         }
 

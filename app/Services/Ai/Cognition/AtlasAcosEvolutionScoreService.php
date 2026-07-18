@@ -162,6 +162,9 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_LEG_VEL = 'legível';
     public const FIELD_LONG_HORIZON_RECEIPT_FRESH__S_DELTA_SERIES_FRESH__S = 'long_horizon_receipt_fresh=%s delta_series_fresh=%s';
     public const FIELD_MASTER_SWITCH__S_TIER_EXPOSED__S_GOVERNANCA_AUTONOMA__S = 'master_switch=%s tier_exposed=%s governanca_autonoma=%s';
+    public const FIELD_REVERSIVEL__S_GIT__S_REPLAY__S__DIARIO_INTEGRO__S_ENTRADAS__D_ = 'reversivel=%s(git=%s,replay=%s) diario_integro=%s(entradas=%d)';
+    public const FIELD_SCORECARD_V3_DIMENS_O_PIPELINE__GREEN_RUN_RECEIPTS_REAIS__FRESHNESS_BOUND_ = 'scorecard v3 dimensão pipeline (green-run receipts reais, freshness-bound)';
+    public const FIELD_STORE_AUSENTE__0_HONESTO_ = 'store ausente (0 honesto)';
     public const FLOAT_2_5 = 2.5;
     public const FLOAT_10_0 = 10.0;
 
@@ -220,7 +223,7 @@ class AtlasAcosEvolutionScoreService
                 self::FIELD_SIGNAL => self::FIELD_PIPELINE_GREEN_RUN_RECEIPTS,
                 self::FIELD_POINTS => round($pipeline, 2),
                 self::FIELD_MAX => self::FLOAT_10_0,
-                self::FIELD_EVIDENCE => 'scorecard v3 dimensão pipeline (green-run receipts reais, freshness-bound)',
+                self::FIELD_EVIDENCE => self::FIELD_SCORECARD_V3_DIMENS_O_PIPELINE__GREEN_RUN_RECEIPTS_REAIS__FRESHNESS_BOUND_,
             ]],
         ];
     }
@@ -246,7 +249,7 @@ class AtlasAcosEvolutionScoreService
             self::FIELD_SIGNAL => self::FIELD_PACK_ANTI_LIXO,
             self::FIELD_POINTS => $unmarked === 0 ? 2.5 : 0.0,
             self::FIELD_MAX => self::FLOAT_2_5,
-            self::FIELD_EVIDENCE => $unmarked === -1 ? 'store ausente (0 honesto)' : sprintf('unmarked_session_echo_nodes=%d', $unmarked),
+            self::FIELD_EVIDENCE => $unmarked === -1 ? self::FIELD_STORE_AUSENTE__0_HONESTO_ : sprintf('unmarked_session_echo_nodes=%d', $unmarked),
         ];
 
         $feedback7d = $this->tableCount(self::FIELD_AI_RAG_FEEDBACK_EVENTS, fn ($q) => $q->where(self::FIELD_CREATED_AT, '>=', now()->subDays(7)));
@@ -568,7 +571,7 @@ class AtlasAcosEvolutionScoreService
         return [
             self::FIELD_POINTS => round(($reversible ? 0.5 : 0.0) + ($diaryOk ? 0.5 : 0.0), 2),
             self::FIELD_EVIDENCE => sprintf(
-                'reversivel=%s(git=%s,replay=%s) diario_integro=%s(entradas=%d)',
+                self::FIELD_REVERSIVEL__S_GIT__S_REPLAY__S__DIARIO_INTEGRO__S_ENTRADAS__D_,
                 $reversible ? self::FIELD_YES : self::FIELD_NO,
                 $gitRepo ? self::FIELD_YES : self::FIELD_NO,
                 $replayReady ? self::FIELD_YES : self::FIELD_NO,

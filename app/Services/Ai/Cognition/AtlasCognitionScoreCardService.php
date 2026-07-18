@@ -342,6 +342,9 @@ class AtlasCognitionScoreCardService
     public const FIELD_COGNITIVE_FUNCTION_DECOMPOSER__6_AXIS_ = 'Cognitive Function Decomposer (6-axis)';
     public const FIELD_COGNITIVE_FUNCTION_SWARM_ROUTER__P6_CLOSURE_ = 'Cognitive Function Swarm Router (P6 closure)';
     public const FIELD_COMPOUNDING_LEVEL_8_9_DISTILLATION = 'Compounding Level 8/9 Distillation';
+    public const FIELD_CROSS_DOMAIN_MESH = 'Cross-Domain Mesh';
+    public const FIELD_EMBODIMENT_INTEGRATION__P7_CLOSURE_ = 'Embodiment Integration (P7 closure)';
+    public const FIELD_LONG_HORIZON_INTELLIGENCE_LAYER = 'Long-Horizon Intelligence Layer';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -433,7 +436,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ADML,    self::FIELD_ATLAS_DECIDE_META_LEARNING,          self::FIELD_ATLAS_DECIDE,      AtlasDecideMetaLearningService::class],
         [self::FIELD_ASCB,    'Self-Construction Subsystem Builder', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionSubsystemBuilderService::class],
         [self::FIELD_AURG_4_D, 'Unified Reality Graph Temporal (4D)', self::FIELD_REALITY,           AtlasUnifiedRealityGraphTemporalService::class],
-        [self::FIELD_ACDM,    'Cross-Domain Mesh',                   self::FIELD_CROSS_DOMAIN,      AtlasCrossDomainMeshService::class],
+        [self::FIELD_ACDM,    self::FIELD_CROSS_DOMAIN_MESH,                   self::FIELD_CROSS_DOMAIN,      AtlasCrossDomainMeshService::class],
         [self::FIELD_TEOS_I3, 'TEOS-I3 Counterfactual Runtime',      self::FIELD_TEOS,              AtlasTeosI3CounterfactualService::class],
 
         // Patamar 4 — Constitutional Kernel, Autonomy Admission, CognitiveFunctionAtlas, Reconciliation Runtime, TEOS-I4, Swarm Conductor, Temporary Domain Composition
@@ -467,7 +470,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ASAF,    'Swarm Auto-Failover (A4)',                  self::FIELD_ATLAS_DECIDE,      AtlasSwarmAutoFailoverService::class],
         [self::FIELD_ARDS,    self::FIELD_RUNTIME_DEGRADATION_SIGNAL_INGRESS,        self::FIELD_PATAMAR_4,         AtlasRuntimeDegradationSignalService::class],
         [self::FIELD_ASDM,    'Self-Divergence Model (target vs current)', self::FIELD_SELF_CONSTRUCTION, AtlasSelfDivergenceModelService::class],
-        [self::FIELD_AEMB,    'Embodiment Integration (P7 closure)',       self::FIELD_PATAMAR_4,         AtlasEmbodimentIntegrationService::class],
+        [self::FIELD_AEMB,    self::FIELD_EMBODIMENT_INTEGRATION__P7_CLOSURE_,       self::FIELD_PATAMAR_4,         AtlasEmbodimentIntegrationService::class],
 
         // Patamar 1/2/3 closures — OCR confidence, Compounding L8/L9
         // COM-09: ACOP→ACRS bridge deleted — JSONL had 1 smoke signal (null value);
@@ -495,7 +498,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ACIE, self::FIELD_CONTEXT_INTELLIGENCE_ENGINE, self::FIELD_CONTEXT_INTELLIGENCE, AtlasContextOperationsRuntimeService::class],
         [self::FIELD_APCR, self::FIELD_PERSISTENT_CONTEXT_RUNTIME, self::FIELD_PERSISTENT_CONTEXT, AtlasPersistentContextRuntimeService::class],
         [self::FIELD_AEMOR_2, self::FIELD_EXECUTION_MEMORY_OUTCOME_RUNTIME, self::FIELD_AEMOR, AtlasAemorCertificationService::class],
-        [self::FIELD_TEOS_I1, 'Long-Horizon Intelligence Layer', self::FIELD_LONG_HORIZON, LongHorizonContinuityCertificationService::class],
+        [self::FIELD_TEOS_I1, self::FIELD_LONG_HORIZON_INTELLIGENCE_LAYER, self::FIELD_LONG_HORIZON, LongHorizonContinuityCertificationService::class],
         [self::FIELD_AVCEL, self::FIELD_VERIFIED_CONTEXT_EXECUTION_LOOP, self::FIELD_VERIFIED_CONTEXT, AtlasVerifiedContextExecutionLoopService::class],
         [self::FIELD_ACQCG, self::FIELD_CONTEXT_QUALITY_CERTIFICATION_GATE, self::FIELD_CONTEXT_QUALITY, AtlasContextQualityCertificationService::class],
         [self::FIELD_AOBG, self::FIELD_OPEN_BRAIN_GATEWAY, self::FIELD_OPEN_BRAIN, AtlasOpenBrainMcpService::class],

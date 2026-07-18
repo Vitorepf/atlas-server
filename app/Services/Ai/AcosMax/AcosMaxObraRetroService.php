@@ -105,6 +105,7 @@ final class AcosMaxObraRetroService
     public const FIELD_OUTCOME_OUTCOME_ID = 'outcome.outcome_id';
     public const FIELD_SPINE_AI_RUN_OUTCOME_ID = 'spine.ai_run_outcome.id';
     public const FIELD_OBRA_ACOS_MAX_SERIES_TAG = 'obra:acos-max_series_tag';
+    public const FIELD_ACOS_MAX_LOTE__D_SLICE__S_REACHED__S = 'ACOS Max lote %d slice %s reached %s';
 
     public function __construct(
         private readonly AtlasEngineeringOutcomeRecorder $outcomes,
@@ -223,7 +224,7 @@ final class AcosMaxObraRetroService
 
         $recorded = $this->outcomes->record([
             self::FIELD_EXECUTOR => self::FIELD_FORGE,
-            self::FIELD_OBJECTIVE => sprintf('ACOS Max lote %d slice %s reached %s', $lote, $slice[self::FIELD_ID], $slice[self::FIELD_STATE]),
+            self::FIELD_OBJECTIVE => sprintf(self::FIELD_ACOS_MAX_LOTE__D_SLICE__S_REACHED__S, $lote, $slice[self::FIELD_ID], $slice[self::FIELD_STATE]),
             self::FIELD_SUMMARY => AiValueNormalizer::trimmedScalarStringOrNull($slice[self::FIELD_LINE] ?? null) ?? '',
             self::FIELD_STATUS => $status,
             self::FIELD_WORKSPACE => base_path(),

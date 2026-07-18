@@ -15940,4 +15940,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B596).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b596LedgerRotationCognitionScoreDepartmentContractAcosEvolutionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'MAXA-04 shadow dual-read receipts before any model promotion' => AcosMaxLedgerRotationRegistry::FIELD_MAXA_04_SHADOW_DUAL_READ_RECEIPTS_BEFORE_ANY_MODEL_PROMOTION,
+            'MAXA-06 fase 1 KB coverage reader; watchdog snapshot cadence tied to knowledge sync runs' => AcosMaxLedgerRotationRegistry::FIELD_MAXA_06_FASE_1_KB_COVERAGE_READER__WATCHDOG_SNAPSHOT_CADENCE_TIED_TO_KNOWLEDGE_SYNC_RUNS,
+            'MAXA-06 fase 2 code-symbol embedding coverage reader' => AcosMaxLedgerRotationRegistry::FIELD_MAXA_06_FASE_2_CODE_SYMBOL_EMBEDDING_COVERAGE_READER,
+            'Cross-Domain Mesh' => AtlasCognitionScoreCardService::FIELD_CROSS_DOMAIN_MESH,
+            'Embodiment Integration (P7 closure)' => AtlasCognitionScoreCardService::FIELD_EMBODIMENT_INTEGRATION__P7_CLOSURE_,
+            'Long-Horizon Intelligence Layer' => AtlasCognitionScoreCardService::FIELD_LONG_HORIZON_INTELLIGENCE_LAYER,
+            'Release, rollback decision, deployment evidence.' => DepartmentContractRuntime::FIELD_RELEASE__ROLLBACK_DECISION__DEPLOYMENT_EVIDENCE_,
+            'Security review; OWASP, secrets, dependency CVEs.' => DepartmentContractRuntime::FIELD_SECURITY_REVIEW__OWASP__SECRETS__DEPENDENCY_CVES_,
+            'Test selection, regression, verification.' => DepartmentContractRuntime::FIELD_TEST_SELECTION__REGRESSION__VERIFICATION_,
+            'reversivel=%s(git=%s,replay=%s) diario_integro=%s(entradas=%d)' => AtlasAcosEvolutionScoreService::FIELD_REVERSIVEL__S_GIT__S_REPLAY__S__DIARIO_INTEGRO__S_ENTRADAS__D_,
+            'scorecard v3 dimensão pipeline (green-run receipts reais, freshness-bound)' => AtlasAcosEvolutionScoreService::FIELD_SCORECARD_V3_DIMENS_O_PIPELINE__GREEN_RUN_RECEIPTS_REAIS__FRESHNESS_BOUND_,
+            'store ausente (0 honesto)' => AtlasAcosEvolutionScoreService::FIELD_STORE_AUSENTE__0_HONESTO_,
+            'RAG-10 AURG cross-layer coverage is below floor.' => HealthReportWatchdogCheck::FIELD_RAG_10_AURG_CROSS_LAYER_COVERAGE_IS_BELOW_FLOOR_,
+            'RAG-12 retrieval dimension watchdog found a regression or masking issue.' => HealthReportWatchdogCheck::FIELD_RAG_12_RETRIEVAL_DIMENSION_WATCHDOG_FOUND_A_REGRESSION_OR_MASKING_ISSUE_,
+            'escalation_to must not point to the department itself' => AtlasAaeosDepartmentRegistryService::FIELD_ESCALATION_TO_MUST_NOT_POINT_TO_THE_DEPARTMENT_ITSELF,
+            'unknown vetoing department; only security/architect/review/operator can veto' => AtlasCrossDepartmentChoreographyService::FIELD_UNKNOWN_VETOING_DEPARTMENT__ONLY_SECURITY_ARCHITECT_REVIEW_OPERATOR_CAN_VETO,
+            'Unknown LOTE 2 measure freeze.' => AcosMaxLote2MeasureService::FIELD_UNKNOWN_LOTE_2_MEASURE_FREEZE_,
+            'ACOS Max lote %d slice %s reached %s' => AcosMaxObraRetroService::FIELD_ACOS_MAX_LOTE__D_SLICE__S_REACHED__S,
+            'b596_ledger_rotation_cognition_score_department_contract_acos_evolution_floor_count' => 18,
+        ];
+    }
+
 }
