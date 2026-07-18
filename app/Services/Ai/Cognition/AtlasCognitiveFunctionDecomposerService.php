@@ -70,6 +70,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_ROLE = 'role';
     public const FIELD_INPUT_LENGTH = 'input_length';
     public const FIELD_INPUT_PREVIEW = 'input_preview';
+    public const FIELD_DECOMPOSITION_HASH = 'decomposition_hash';
+    public const FIELD_DOMINANT = 'dominant';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -273,11 +275,11 @@ final class AtlasCognitiveFunctionDecomposerService
             self::FIELD_DEBUG => $debug,
             self::FIELD_CLAIM_POLICY => $this->claimPolicy(),
         ];
-        $envelope['decomposition_hash'] = 'sha256:'.hash('sha256', json_encode([
+        $envelope[self::FIELD_DECOMPOSITION_HASH] = 'sha256:'.hash('sha256', json_encode([
             'schema' => self::SCHEMA,
             'input' => $input,
             self::FIELD_WEIGHTS => $weights,
-            'dominant' => $dominant,
+            self::FIELD_DOMINANT => $dominant,
             self::FIELD_CONTEXT => $envelope[self::FIELD_CONTEXT],
         ], JSON_THROW_ON_ERROR));
 

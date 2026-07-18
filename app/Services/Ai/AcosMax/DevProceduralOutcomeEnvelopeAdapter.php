@@ -49,6 +49,8 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
     public const BOOL_FIELDS = [self::FIELD_PROVEN_REAL, self::FIELD_FAKE_GREEN, self::FIELD_SHOULD_PROMOTE_TO_AEMOR];
     public const FIELD_VERIFIED_SOURCE_PRESENT = 'verified_source_present';
     public const FIELD_EVIDENCE_REF_COUNT = 'evidence_ref_count';
+    public const FIELD_NATIVE_DIVERGENT = 'native_divergent';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     public function origin(): string
     {
@@ -95,10 +97,10 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
     public function fromEnvelope(OutcomeEnvelope $envelope): array
     {
         $data = $envelope->toArray();
-        $fields = AiValueNormalizer::arrayOrEmpty($data['native_divergent'][self::FIELD_FIELDS] ?? null);
+        $fields = AiValueNormalizer::arrayOrEmpty($data[self::FIELD_NATIVE_DIVERGENT][self::FIELD_FIELDS] ?? null);
 
         return [
-            'schema_version' => self::NATIVE_SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::NATIVE_SCHEMA_VERSION,
             self::FIELD_RUN_ID => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_RUN_ID] ?? null) ?? self::FALLBACK_RUN_ID),
             self::FIELD_OUTCOME_STATUS => AiValueNormalizer::trimmedStringOrNull($fields[self::FIELD_OUTCOME_STATUS] ?? null) ?? OutcomeEnvelope::toNativeStatus((AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_STATUS] ?? null) ?? OutcomeEnvelope::STATUS_BLOCKED), $this->origin()),
             self::FIELD_PROVEN_REAL => (AiValueNormalizer::boolOrNull($fields[self::FIELD_PROVEN_REAL] ?? null) ?? false),

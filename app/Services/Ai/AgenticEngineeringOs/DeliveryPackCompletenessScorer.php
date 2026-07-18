@@ -36,6 +36,8 @@ final class DeliveryPackCompletenessScorer
     public const FIELD_TEST_EVIDENCE = 'test_evidence';
     public const FIELD_FILES_HAVE_EVIDENCE = 'files_have_evidence';
     public const FIELD_TESTS_PRESENT = 'tests_present';
+    public const FIELD_EVIDENCE_HASHES = 'evidence_hashes';
+    public const FIELD_EVIDENCE_PRESENT = 'evidence_present';
 
     /** @var list<string> */
     public const REQUIRED_KEYS = [
@@ -92,7 +94,7 @@ final class DeliveryPackCompletenessScorer
 
         $changedFiles = max(0, $this->intValue($composition[self::FIELD_CHANGED_FILES]));
         $testEvidence = $this->arrayValue($composition[self::FIELD_TEST_EVIDENCE]);
-        $evidenceHashes = $this->arrayValue($composition['evidence_hashes']);
+        $evidenceHashes = $this->arrayValue($composition[self::FIELD_EVIDENCE_HASHES]);
         $riskRegisterPresent = $this->boolValue($composition[self::FIELD_RISK_REGISTER_PRESENT]);
         $receiptPresent = $this->boolValue($composition[self::FIELD_RECEIPT_PRESENT]);
 
@@ -102,7 +104,7 @@ final class DeliveryPackCompletenessScorer
         $factors = [
             self::FIELD_FILES_HAVE_EVIDENCE => $changedFiles === 0 ? true : $hasEvidenceHashes,
             self::FIELD_TESTS_PRESENT => $testEvidence !== [],
-            'evidence_present' => $hasEvidenceHashes,
+            self::FIELD_EVIDENCE_PRESENT => $hasEvidenceHashes,
             self::FIELD_RECEIPT_PRESENT => $receiptPresent,
             self::FIELD_RISK_REGISTER_PRESENT => $riskRegisterPresent,
         ];

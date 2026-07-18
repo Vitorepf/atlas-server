@@ -39,6 +39,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_NEXT_EVALUATION_DUE = 'next_evaluation_due';
     public const FIELD_PRIMARY_BLOCKER = 'primary_blocker';
     public const FIELD_SCHEMA = 'schema';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_SEVERITY = 'severity';
 
     public const DEPARTMENTS = [
         [
@@ -134,7 +136,7 @@ final class AtlasAaeosDepartmentMaturityService
     public function maturity(): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_DEPARTMENTS => $this->buildDepartments(),
         ];
     }
@@ -151,7 +153,7 @@ final class AtlasAaeosDepartmentMaturityService
                 self::FIELD_BLOCKERS_TO_NEXT => [
                     [
                         self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_BLOCKER_ID]) ?? '',
-                        'severity' => AiValueNormalizer::lowerTrimmedString($department[self::FIELD_BLOCKER_SEVERITY]),
+                        self::FIELD_SEVERITY => AiValueNormalizer::lowerTrimmedString($department[self::FIELD_BLOCKER_SEVERITY]),
                         self::FIELD_OWNER => self::OWNER,
                         self::FIELD_SUMMARY => AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_BLOCKER_SUMMARY]) ?? '',
                     ],

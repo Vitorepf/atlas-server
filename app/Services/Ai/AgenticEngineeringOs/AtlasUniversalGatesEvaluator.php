@@ -9118,4 +9118,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B374).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function resourceBudgetBeliefCascadeCitationGroundingDevProceduralFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'over_cap_components' => AtlasResourceBudgetService::FIELD_OVER_CAP_COMPONENTS,
+            'paper_headroom_mb' => AtlasResourceBudgetService::FIELD_PAPER_HEADROOM_MB,
+            'schema_version' => BeliefCascadeReverificationPlanner::FIELD_SCHEMA_VERSION,
+            'source' => BeliefCascadeReverificationPlanner::FIELD_SOURCE,
+            'schema_version' => CitationGroundingMeter::FIELD_SCHEMA_VERSION,
+            'source' => CitationGroundingMeter::FIELD_SOURCE,
+            'native_divergent' => DevProceduralOutcomeEnvelopeAdapter::FIELD_NATIVE_DIVERGENT,
+            'schema_version' => DevProceduralOutcomeEnvelopeAdapter::FIELD_SCHEMA_VERSION,
+            'evidence_hashes' => DeliveryPackCompletenessScorer::FIELD_EVIDENCE_HASHES,
+            'evidence_present' => DeliveryPackCompletenessScorer::FIELD_EVIDENCE_PRESENT,
+            'decomposition_hash' => AtlasCognitiveFunctionDecomposerService::FIELD_DECOMPOSITION_HASH,
+            'dominant' => AtlasCognitiveFunctionDecomposerService::FIELD_DOMINANT,
+            'decay_days' => AtlasImmuneSignatureFreeze::FIELD_DECAY_DAYS,
+            'default_mode' => AtlasImmuneSignatureFreeze::FIELD_DEFAULT_MODE,
+            'forge_cycles_per_week_min' => AtlasOperationalVolumeCheckService::FIELD_FORGE_CYCLES_PER_WEEK_MIN,
+            'id' => AtlasOperationalVolumeCheckService::FIELD_ID,
+            'schema_version' => AtlasAaeosDepartmentMaturityService::FIELD_SCHEMA_VERSION,
+            'severity' => AtlasAaeosDepartmentMaturityService::FIELD_SEVERITY,
+            'resource_budget_belief_cascade_citation_grounding_dev_procedural_floor_count' => 18,
+        ];
+    }
+
 }

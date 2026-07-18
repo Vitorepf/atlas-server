@@ -19,6 +19,8 @@ final class BeliefCascadeReverificationPlanner
     public const FIELD_MARKED = 'marked';
     public const FIELD_DEPTH = 'depth';
     public const FIELD_DELETES_DESCENDANTS = 'deletes_descendants';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_SOURCE = 'source';
 
     /**
      * @param  array<string,list<string>>  $graph
@@ -53,10 +55,10 @@ final class BeliefCascadeReverificationPlanner
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_MARKED => $marked,
             self::FIELD_CAPS_HIT => [self::FIELD_DEPTH => $depthHit],
-            'source' => [
+            self::FIELD_SOURCE => [
                 self::FIELD_DELETES_DESCENDANTS => false,
                 'sync_write_path' => false,
                 self::FIELD_CYCLE_SAFE => true,

@@ -7074,4 +7074,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['aemor_outcome_ambition_rung_flywheel_funnel_composed_obra_floor_count']);
     }
 
+    public function test_resource_budget_belief_cascade_citation_grounding_dev_procedural_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->resourceBudgetBeliefCascadeCitationGroundingDevProceduralFloorsContractObserve([]);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_OVER_CAP_COMPONENTS, $out['over_cap_components']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_PAPER_HEADROOM_MB, $out['paper_headroom_mb']);
+        $this->assertSame(BeliefCascadeReverificationPlanner::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(BeliefCascadeReverificationPlanner::FIELD_SOURCE, $out['source']);
+        $this->assertSame(CitationGroundingMeter::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(CitationGroundingMeter::FIELD_SOURCE, $out['source']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_NATIVE_DIVERGENT, $out['native_divergent']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_EVIDENCE_HASHES, $out['evidence_hashes']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_EVIDENCE_PRESENT, $out['evidence_present']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DECOMPOSITION_HASH, $out['decomposition_hash']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DOMINANT, $out['dominant']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_DECAY_DAYS, $out['decay_days']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_DEFAULT_MODE, $out['default_mode']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_FORGE_CYCLES_PER_WEEK_MIN, $out['forge_cycles_per_week_min']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SEVERITY, $out['severity']);
+        $this->assertSame(18, $out['resource_budget_belief_cascade_citation_grounding_dev_procedural_floor_count']);
+    }
+
 }

@@ -46,6 +46,8 @@ final class AtlasResourceBudgetService
     public const FIELD_TOTAL_RAM_CAP_MB = 'total_ram_cap_mb';
     public const FIELD_ENGINE_FLOOR_MB = 'engine_floor_mb';
     public const FIELD_HOST_RAM_MB = 'host_ram_mb';
+    public const FIELD_OVER_CAP_COMPONENTS = 'over_cap_components';
+    public const FIELD_PAPER_HEADROOM_MB = 'paper_headroom_mb';
 
     /** @var array<string,mixed> */
     private array $budget;
@@ -149,10 +151,10 @@ final class AtlasResourceBudgetService
             self::FIELD_ENGINE_FLOOR_MB => $engineFloorMb,
             self::FIELD_HOST_RAM_MB => $hostMb,
             self::FIELD_DECLARED_PAPER_STATUS => $paperStatus,
-            'paper_headroom_mb' => $paperHeadroom,
+            self::FIELD_PAPER_HEADROOM_MB => $paperHeadroom,
             self::FIELD_MEASURED_RAM_MB => $anyMeasured ? $measuredSum : null,
             self::FIELD_MEASURED_HEADROOM_MB => $measuredHeadroom,
-            'over_cap_components' => array_values(array_unique($overCap)),
+            self::FIELD_OVER_CAP_COMPONENTS => array_values(array_unique($overCap)),
             self::FIELD_COMPONENTS => $rows,
         ];
     }
