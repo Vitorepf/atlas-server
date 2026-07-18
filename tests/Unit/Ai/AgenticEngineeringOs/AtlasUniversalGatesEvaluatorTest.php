@@ -13447,4 +13447,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b630_aaeos_quality_floor_count']);
     }
 
+    public function test_b631_generated_contract_repair_loop_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b631GeneratedContractRepairLoopFloorsContractObserve([]);
+        $this->assertSame(AaeosGeneratedContractGate::SCHEMA_VERSION, $out['atlas.aaeos.generated_contract_gate.v1']);
+        $this->assertSame(AaeosGeneratedContractGate::HOT_PATH_ENABLED_CONFIG_KEY, $out['atlas_elite_compaction.generated.hot_path_enabled']);
+        $this->assertSame(AaeosGeneratedContractGate::QUARANTINE_NAMESPACE_CONFIG_KEY, $out['atlas_elite_compaction.generated.quarantine_namespace']);
+        $this->assertSame(AaeosGeneratedContractGate::FIELD_HOT_PATH_ENABLED, $out['hot_path_enabled']);
+        $this->assertSame(AaeosGeneratedContractGate::FIELD_GENERATED_FILE_COUNT, $out['generated_file_count']);
+        $this->assertSame(AaeosGeneratedContractGate::FIELD_QUARANTINE_NAMESPACE, $out['quarantine_namespace']);
+        $this->assertSame(AaeosGeneratedContractGate::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AaeosGeneratedContractGate::FIELD_APP_SERVICES_AI_AAEOS_GENERATED, $out['app/Services/Ai/Aaeos/Generated']);
+        $this->assertSame(AaeosGeneratedContractGate::FIELD_AAEOS_GENERATED_, $out['Aaeos/Generated/']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_ESCALATE, $out['escalate']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_ESCALATE_TO, $out['escalate_to']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_REMAINING_REPAIRS, $out['remaining_repairs']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_ATTEMPT, $out['attempt']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_ADMITTED, $out['admitted']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_ESCALATED, $out['escalated']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_DECISION, $out['decision']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_REPAIR, $out['repair']);
+        $this->assertSame(18, $out['b631_generated_contract_repair_loop_floor_count']);
+    }
+
 }

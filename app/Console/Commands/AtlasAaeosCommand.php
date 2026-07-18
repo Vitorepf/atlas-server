@@ -653,6 +653,7 @@ final class AtlasAaeosCommand extends Command
                             {--b628-aaeos-department-floors-contract= : JSON file (any object) to observe aaeos/department floors}
                             {--b629-aaeos-claim-floors-contract= : JSON file (any object) to observe aaeos/claim floors}
                             {--b630-aaeos-quality-floors-contract= : JSON file (any object) to observe aaeos/quality floors}
+                            {--b631-generated-contract-repair-loop-floors-contract= : JSON file (any object) to observe generated/contract/repair/loop floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1462,6 +1463,7 @@ final class AtlasAaeosCommand extends Command
             ['b628-aaeos-department-floors-contract', 'b628_aaeos_department_floors_contract', fn (array $p) => $gates->b628AaeosDepartmentFloorsContractObserve($p)],
             ['b629-aaeos-claim-floors-contract', 'b629_aaeos_claim_floors_contract', fn (array $p) => $gates->b629AaeosClaimFloorsContractObserve($p)],
             ['b630-aaeos-quality-floors-contract', 'b630_aaeos_quality_floors_contract', fn (array $p) => $gates->b630AaeosQualityFloorsContractObserve($p)],
+            ['b631-generated-contract-repair-loop-floors-contract', 'b631_generated_contract_repair_loop_floors_contract', fn (array $p) => $gates->b631GeneratedContractRepairLoopFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

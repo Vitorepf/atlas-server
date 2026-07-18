@@ -17009,4 +17009,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B631).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b631GeneratedContractRepairLoopFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.aaeos.generated_contract_gate.v1' => AaeosGeneratedContractGate::SCHEMA_VERSION,
+            'atlas_elite_compaction.generated.hot_path_enabled' => AaeosGeneratedContractGate::HOT_PATH_ENABLED_CONFIG_KEY,
+            'atlas_elite_compaction.generated.quarantine_namespace' => AaeosGeneratedContractGate::QUARANTINE_NAMESPACE_CONFIG_KEY,
+            'hot_path_enabled' => AaeosGeneratedContractGate::FIELD_HOT_PATH_ENABLED,
+            'generated_file_count' => AaeosGeneratedContractGate::FIELD_GENERATED_FILE_COUNT,
+            'quarantine_namespace' => AaeosGeneratedContractGate::FIELD_QUARANTINE_NAMESPACE,
+            'schema_version' => AaeosGeneratedContractGate::FIELD_SCHEMA_VERSION,
+            'app/Services/Ai/Aaeos/Generated' => AaeosGeneratedContractGate::FIELD_APP_SERVICES_AI_AAEOS_GENERATED,
+            'Aaeos/Generated/' => AaeosGeneratedContractGate::FIELD_AAEOS_GENERATED_,
+            'escalate' => AtlasRepairLoopGuard::FIELD_ESCALATE,
+            'schema_version' => AtlasRepairLoopGuard::FIELD_SCHEMA_VERSION,
+            'escalate_to' => AtlasRepairLoopGuard::FIELD_ESCALATE_TO,
+            'remaining_repairs' => AtlasRepairLoopGuard::FIELD_REMAINING_REPAIRS,
+            'attempt' => AtlasRepairLoopGuard::FIELD_ATTEMPT,
+            'admitted' => AtlasRepairLoopGuard::FIELD_ADMITTED,
+            'escalated' => AtlasRepairLoopGuard::FIELD_ESCALATED,
+            'decision' => AtlasRepairLoopGuard::FIELD_DECISION,
+            'repair' => AtlasRepairLoopGuard::FIELD_REPAIR,
+            'b631_generated_contract_repair_loop_floor_count' => 18,
+        ];
+    }
+
 }
