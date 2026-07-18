@@ -156,6 +156,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosThresholdComparator;
 use App\Services\Ai\AgenticEngineeringOs\AaeosRequiredGateCoverageChecker;
 use App\Services\Ai\AgenticEngineeringOs\AaeosBlockerSeverity;
 use App\Services\Ai\Cognition\TemporalSupersessionClassifier;
+use App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -16048,6 +16049,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(ImmuneVerdictLedger::FIELD_BLOCKING_GATE_IDS, $out['blocking_gate_ids']);
         $this->assertSame(ImmuneVerdictLedger::FIELD_SCHEMA_VERSION, $out['schema_version']);
         $this->assertSame(18, $out['b734_immune_verdict_floor_count']);
+    }
+
+    public function test_b735_numeric_range_cognitive_function_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b735NumericRangeCognitiveFunctionFloorsContractObserve([]);
+        $this->assertSame(NumericRangeOverlapContradictionDetector::RELATION_INVALID, $out['invalid']);
+        $this->assertSame(NumericRangeOverlapContradictionDetector::RELATION_EQUAL, $out['equal']);
+        $this->assertSame(NumericRangeOverlapContradictionDetector::RELATION_DISJOINT, $out['disjoint']);
+        $this->assertSame(NumericRangeOverlapContradictionDetector::RELATION_TOUCHING, $out['touching']);
+        $this->assertSame(NumericRangeOverlapContradictionDetector::RELATION_A_CONTAINS_B, $out['a_contains_b']);
+        $this->assertSame(NumericRangeOverlapContradictionDetector::RELATION_B_CONTAINS_A, $out['b_contains_a']);
+        $this->assertSame(NumericRangeOverlapContradictionDetector::RELATION_OVERLAP, $out['overlap']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CLAIM_POLICY, $out['claim_policy']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DEBUG, $out['debug']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::SCHEMA, $out['atlas.cognitive_function.decomposition.v1']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::REASON_EMPTY_INPUT, $out['empty_input']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::REASON_NO_KEYWORD_SIGNAL, $out['no_keyword_signal']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_REASONING, $out['reasoning']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_RETRIEVAL, $out['retrieval']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_GENERATION, $out['generation']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CODE, $out['code']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_VISION, $out['vision']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_AUDIT, $out['audit']);
+        $this->assertSame(18, $out['b735_numeric_range_cognitive_function_floor_count']);
     }
 
 }

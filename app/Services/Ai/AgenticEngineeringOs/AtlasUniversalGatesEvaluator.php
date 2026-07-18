@@ -20233,4 +20233,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B735).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b735NumericRangeCognitiveFunctionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'invalid' => NumericRangeOverlapContradictionDetector::RELATION_INVALID,
+            'equal' => NumericRangeOverlapContradictionDetector::RELATION_EQUAL,
+            'disjoint' => NumericRangeOverlapContradictionDetector::RELATION_DISJOINT,
+            'touching' => NumericRangeOverlapContradictionDetector::RELATION_TOUCHING,
+            'a_contains_b' => NumericRangeOverlapContradictionDetector::RELATION_A_CONTAINS_B,
+            'b_contains_a' => NumericRangeOverlapContradictionDetector::RELATION_B_CONTAINS_A,
+            'overlap' => NumericRangeOverlapContradictionDetector::RELATION_OVERLAP,
+            'claim_policy' => AtlasCognitiveFunctionDecomposerService::FIELD_CLAIM_POLICY,
+            'debug' => AtlasCognitiveFunctionDecomposerService::FIELD_DEBUG,
+            'atlas.cognitive_function.decomposition.v1' => AtlasCognitiveFunctionDecomposerService::SCHEMA,
+            'empty_input' => AtlasCognitiveFunctionDecomposerService::REASON_EMPTY_INPUT,
+            'no_keyword_signal' => AtlasCognitiveFunctionDecomposerService::REASON_NO_KEYWORD_SIGNAL,
+            'reasoning' => AtlasCognitiveFunctionDecomposerService::FIELD_REASONING,
+            'retrieval' => AtlasCognitiveFunctionDecomposerService::FIELD_RETRIEVAL,
+            'generation' => AtlasCognitiveFunctionDecomposerService::FIELD_GENERATION,
+            'code' => AtlasCognitiveFunctionDecomposerService::FIELD_CODE,
+            'vision' => AtlasCognitiveFunctionDecomposerService::FIELD_VISION,
+            'audit' => AtlasCognitiveFunctionDecomposerService::FIELD_AUDIT,
+            'b735_numeric_range_cognitive_function_floor_count' => 18,
+        ];
+    }
+
 }
