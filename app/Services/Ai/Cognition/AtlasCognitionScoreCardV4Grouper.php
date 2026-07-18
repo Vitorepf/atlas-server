@@ -46,6 +46,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_LONG_HORIZON = 'long_horizon';
     public const FIELD_OPEN_BRAIN = 'open_brain';
     public const FIELD_PERSISTENT_CONTEXT = 'persistent_context';
+    public const FIELD_SERVICE_CLASS = 'service_class';
+    public const FIELD_SUPPLEMENTAL = 'supplemental';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -99,11 +101,11 @@ final class AtlasCognitionScoreCardV4Grouper
                 $buckets[$module][$dim][] = (AiValueNormalizer::trimmedStringOrNull($row[$dim] ?? null) ?? self::STATUS_BLOCKED);
             }
             $buckets[$module][self::FIELD_MEMBERS][] = (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_ACRONYM] ?? null) ?? '');
-            $serviceClass = AiValueNormalizer::trimmedStringOrNull($row['service_class'] ?? null) ?? '';
+            $serviceClass = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_SERVICE_CLASS] ?? null) ?? '';
             if ($serviceClass !== '') {
                 $buckets[$module][self::FIELD_SERVICE_CLASSES][] = $serviceClass;
             }
-            if (($row['supplemental'] ?? false) === true) {
+            if (($row[self::FIELD_SUPPLEMENTAL] ?? false) === true) {
                 $buckets[$module][self::FIELD_SUPPLEMENTAL_COUNT] = ($buckets[$module][self::FIELD_SUPPLEMENTAL_COUNT] ?? 0) + 1;
             }
         }

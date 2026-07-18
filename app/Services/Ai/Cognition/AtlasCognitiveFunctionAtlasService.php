@@ -98,6 +98,8 @@ class AtlasCognitiveFunctionAtlasService
     public const FIELD_MEMORY = 'memory';
     public const FIELD_MEMORY_CORE = 'memory_core';
     public const FIELD_REALITY = 'reality';
+    public const FIELD_RECONCILIATION = 'reconciliation';
+    public const FIELD_SCORE = 'score';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scoreCard,
@@ -124,7 +126,7 @@ class AtlasCognitiveFunctionAtlasService
             self::FIELD_GROUPS => $groups,
             self::FIELD_SHAPE => $shape,
             self::FIELD_GAPS => $gaps,
-            self::FIELD_OVERALL_SCORE => $scorecard['score'] ?? null,
+            self::FIELD_OVERALL_SCORE => $scorecard[self::FIELD_SCORE] ?? null,
             self::FIELD_KERNEL_HASH => $this->kernel->kernelHash(),
         ];
     }
@@ -240,7 +242,7 @@ class AtlasCognitiveFunctionAtlasService
             self::FIELD_CROSS_DOMAIN => [self::FIELD_CROSS_DOMAIN],
             'teos' => ['teos_i3', 'teos_i4'],
             self::FIELD_GOVERNANCE => [self::FIELD_GOVERNANCE],
-            self::FIELD_AUTONOMY => ['reconciliation'],
+            self::FIELD_AUTONOMY => [self::FIELD_RECONCILIATION],
             self::FIELD_COGNITION => [],
             self::FIELD_COMPOUNDING => [self::FIELD_COMPOUNDING],
         ];

@@ -7649,4 +7649,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['aobg_latency_lote_measure_http_path_mission_control_floor_count']);
     }
 
+    public function test_immune_classifier_lote_measure_http_path_runbook_acos_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->immuneClassifierLoteMeasureHttpPathRunbookAcosFloorsContractObserve([]);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_OFF_CONTRACT, $out['off_contract']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_OFF_SWITCH_BYTE_IDENTICAL, $out['off_switch_byte_identical']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_REQUIRES_SUBSEQUENT_MEASURED_RECALL, $out['requires_subsequent_measured_recall']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_RESOLVED_OUTCOMES, $out['resolved_outcomes']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_TOPOLOGY, $out['topology']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_TOPOLOGY_REQUIRED, $out['topology_required']);
+        $this->assertSame(RunbookOrchestrator::FIELD_LIMITATION_OBSERVED, $out['limitation_observed']);
+        $this->assertSame(RunbookOrchestrator::FIELD_MOTIVATING_EVIDENCE, $out['motivating_evidence']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_SCORE_HASH, $out['score_hash']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_SOURCE_UTILITY, $out['source_utility']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_NOW, $out['now']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_OVERALL, $out['overall']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_MUST_KEEP_COVERAGE_INVARIANT, $out['must_keep_coverage_invariant']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_PIPELINE, $out['pipeline']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_SERVICE_CLASS, $out['service_class']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_SUPPLEMENTAL, $out['supplemental']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_RECONCILIATION, $out['reconciliation']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_SCORE, $out['score']);
+        $this->assertSame(18, $out['immune_classifier_lote_measure_http_path_runbook_acos_floor_count']);
+    }
+
 }

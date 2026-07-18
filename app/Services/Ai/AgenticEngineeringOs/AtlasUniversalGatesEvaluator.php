@@ -9831,4 +9831,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B397).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function immuneClassifierLoteMeasureHttpPathRunbookAcosFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'off_contract' => AtlasImmuneClassifierHybridFreeze::FIELD_OFF_CONTRACT,
+            'off_switch_byte_identical' => AtlasImmuneClassifierHybridFreeze::FIELD_OFF_SWITCH_BYTE_IDENTICAL,
+            'requires_subsequent_measured_recall' => AcosMaxLote2MeasureService::FIELD_REQUIRES_SUBSEQUENT_MEASURED_RECALL,
+            'resolved_outcomes' => AcosMaxLote2MeasureService::FIELD_RESOLVED_OUTCOMES,
+            'topology' => AaeosHttpPathEnvelopeFactory::FIELD_TOPOLOGY,
+            'topology_required' => AaeosHttpPathEnvelopeFactory::FIELD_TOPOLOGY_REQUIRED,
+            'limitation_observed' => RunbookOrchestrator::FIELD_LIMITATION_OBSERVED,
+            'motivating_evidence' => RunbookOrchestrator::FIELD_MOTIVATING_EVIDENCE,
+            'score_hash' => AtlasAcosEvolutionScoreService::FIELD_SCORE_HASH,
+            'source_utility' => AtlasAcosEvolutionScoreService::FIELD_SOURCE_UTILITY,
+            'now' => AtlasAcosLongHorizonGateService::FIELD_NOW,
+            'overall' => AtlasAcosLongHorizonGateService::FIELD_OVERALL,
+            'must_keep_coverage_invariant' => AtlasCognitionScoreCardService::FIELD_MUST_KEEP_COVERAGE_INVARIANT,
+            'pipeline' => AtlasCognitionScoreCardService::FIELD_PIPELINE,
+            'service_class' => AtlasCognitionScoreCardV4Grouper::FIELD_SERVICE_CLASS,
+            'supplemental' => AtlasCognitionScoreCardV4Grouper::FIELD_SUPPLEMENTAL,
+            'reconciliation' => AtlasCognitiveFunctionAtlasService::FIELD_RECONCILIATION,
+            'score' => AtlasCognitiveFunctionAtlasService::FIELD_SCORE,
+            'immune_classifier_lote_measure_http_path_runbook_acos_floor_count' => 18,
+        ];
+    }
+
 }

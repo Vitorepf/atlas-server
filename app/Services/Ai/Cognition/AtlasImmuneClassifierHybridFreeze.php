@@ -65,6 +65,8 @@ final class AtlasImmuneClassifierHybridFreeze
     public const FIELD_FREEZE = 'freeze';
     public const FIELD_ID = 'id';
     public const FIELD_NOTE = 'note';
+    public const FIELD_OFF_CONTRACT = 'off_contract';
+    public const FIELD_OFF_SWITCH_BYTE_IDENTICAL = 'off_switch_byte_identical';
 
     /**
      * @return array<string,mixed>
@@ -102,7 +104,7 @@ final class AtlasImmuneClassifierHybridFreeze
             self::FIELD_SWITCH => [
                 self::FIELD_CONFIG_KEY => 'atlas.aaeos.immune_classifier.semantic_arm_enabled',
                 self::FIELD_DEFAULT => false,
-                'off_contract' => 'byte_identical_to_base_classifier',
+                self::FIELD_OFF_CONTRACT => 'byte_identical_to_base_classifier',
             ],
             self::FIELD_FIXTURES => [
                 self::FIELD_ANCHORS_PATH => self::ANCHOR_FIXTURE_RELATIVE,
@@ -127,7 +129,7 @@ final class AtlasImmuneClassifierHybridFreeze
                 self::FIELD_CANDIDATE_TEXT_LEAVES_MACHINE => false,
                 'provider_calls_in_arm_path' => 0,
             ],
-            'off_switch_byte_identical' => true,
+            self::FIELD_OFF_SWITCH_BYTE_IDENTICAL => true,
         ];
         $payload[self::FIELD_CONTENT_HASH] = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 

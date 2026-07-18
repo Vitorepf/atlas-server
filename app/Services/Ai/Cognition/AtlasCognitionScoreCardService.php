@@ -159,6 +159,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_DOC = 'doc';
     public const FIELD_EXTERNAL_RIVALS_CERTIFICATION_TOUCHED = 'external_rivals_certification_touched';
     public const FIELD_MAX = 'max';
+    public const FIELD_MUST_KEEP_COVERAGE_INVARIANT = 'must_keep_coverage_invariant';
+    public const FIELD_PIPELINE = 'pipeline';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -453,7 +455,7 @@ class AtlasCognitionScoreCardService
         $overall = round(
             ($totals[self::FIELD_CODE][self::FIELD_SCORE_OUT_OF_10]
                 + $totals[self::FIELD_DOC][self::FIELD_SCORE_OUT_OF_10]
-                + $totals['pipeline'][self::FIELD_SCORE_OUT_OF_10]) / 3,
+                + $totals[self::FIELD_PIPELINE][self::FIELD_SCORE_OUT_OF_10]) / 3,
             2
         );
 
@@ -474,7 +476,7 @@ class AtlasCognitionScoreCardService
             'superiority_claim_allowed' => false,
             self::FIELD_EXTERNAL_RIVALS_CERTIFICATION_TOUCHED => false,
             self::FIELD_COGNITIVE_IMMUNE_LAW_ENFORCED => true,
-            'must_keep_coverage_invariant' => true,
+            self::FIELD_MUST_KEEP_COVERAGE_INVARIANT => true,
             'provider_safe_only_enforced' => true,
         ];
     }

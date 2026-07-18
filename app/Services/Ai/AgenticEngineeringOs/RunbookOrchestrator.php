@@ -66,6 +66,8 @@ final class RunbookOrchestrator
     public const FIELD_INTENT_HASH = 'intent_hash';
     public const FIELD_KIND = 'kind';
     public const FIELD_LIMITATION = 'limitation';
+    public const FIELD_LIMITATION_OBSERVED = 'limitation_observed';
+    public const FIELD_MOTIVATING_EVIDENCE = 'motivating_evidence';
 
     /**
      * Canonical default flow for a non-trivial intent. Trivial intents
@@ -211,9 +213,9 @@ final class RunbookOrchestrator
                 self::FIELD_DEPARTMENT_COUNT => count(DepartmentContractRuntime::CATALOGUE),
                 self::FIELD_DEFAULT_FLOW_GATES_TOTAL => $baselineGatesTotal,
             ],
-            'motivating_evidence' => [
+            self::FIELD_MOTIVATING_EVIDENCE => [
                 [
-                    'limitation_observed' => $limitation,
+                    self::FIELD_LIMITATION_OBSERVED => $limitation,
                     self::FIELD_FREQUENCY => 1,
                 ],
             ],

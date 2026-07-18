@@ -85,6 +85,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_TASK_PACK_INVOCATION = 'task_pack_invocation';
     public const FIELD_TASK_PACK_REQUIRED = 'task_pack_required';
     public const FIELD_TASKS = 'tasks';
+    public const FIELD_TOPOLOGY = 'topology';
+    public const FIELD_TOPOLOGY_REQUIRED = 'topology_required';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -259,14 +261,14 @@ final class AaeosHttpPathEnvelopeFactory
      * }>
      */
     public const DEFERRED_PHASE_SPECS = [
-        'topology' => [
+        self::FIELD_TOPOLOGY => [
             self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_POLICY_GATE,
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_TOPOLOGY,
             self::FIELD_ACTOR_ID => 'aaeos.topology',
             self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase3.topology.r1_r2_fast_path',
             self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
             self::FIELD_OUTPUTS => [
-                'topology_required' => 'yes',
+                self::FIELD_TOPOLOGY_REQUIRED => 'yes',
                 self::FIELD_AAWR_INVOCATION => 'deferred',
             ],
             self::FIELD_REQUIRED_GATE => 'topology_plan_providers_min_1_available',

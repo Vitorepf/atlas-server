@@ -113,6 +113,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_ORIGIN = 'origin';
     public const FIELD_OVERALL_OUT_OF_10 = 'overall_out_of_10';
     public const FIELD_PROVIDER = 'provider';
+    public const FIELD_SCORE_HASH = 'score_hash';
+    public const FIELD_SOURCE_UTILITY = 'source_utility';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -147,7 +149,7 @@ class AtlasAcosEvolutionScoreService
                 self::FIELD_AUTONOMY_GOVERNANCE => 'Carta de Autonomia (Regra 4): a assinatura do operador foi revogada; a parcela antes presa a ela agora mede o substituto REAL — reversibilidade viva (git revert + atlas:brain:replay) + Diário de Evolução íntegro. Degrade-safe: sem esse substrato, pontua 0, nunca fabricado.',
             ],
         ];
-        $envelope['score_hash'] = 'sha256:'.hash('sha256', (string) json_encode([
+        $envelope[self::FIELD_SCORE_HASH] = 'sha256:'.hash('sha256', (string) json_encode([
             $overall, $execucao[self::FIELD_SCORE], $inteligencia[self::FIELD_SCORE], $autonomia[self::FIELD_SCORE],
         ], JSON_THROW_ON_ERROR));
 
@@ -411,7 +413,7 @@ class AtlasAcosEvolutionScoreService
 
             return AiRagFeedbackEvent::query()
                 ->where('created_at', '>=', now()->subDays(7))
-                ->get(['source_utility'])
+                ->get([self::FIELD_SOURCE_UTILITY])
                 ->contains(function (AiRagFeedbackEvent $event) use ($activeKeys): bool {
                     $utility = AiValueNormalizer::arrayOrEmpty($event->source_utility);
                     foreach ($utility as $key => $status) {

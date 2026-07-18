@@ -141,6 +141,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_LONGITUDINAL_AREA_FLOOR_V2 = 'longitudinal_area_floor_v2';
     public const FIELD_METRICS = 'metrics';
     public const FIELD_MIN_CERTIFICATION_WINDOW_OVERALL = 'min_certification_window_overall';
+    public const FIELD_NOW = 'now';
+    public const FIELD_OVERALL = 'overall';
 
     /**
      * @param  array<string,mixed>  $options
@@ -176,7 +178,7 @@ final class AtlasAcosLongHorizonGateService
         // "Today" is injectable so the frozen test can pin the freshness window
         // deterministically; in production it is the real UTC calendar day. It
         // is the anchor that makes the future-date and staleness guards bite.
-        $today = $this->today($options['now'] ?? null, $fixture);
+        $today = $this->today($options[self::FIELD_NOW] ?? null, $fixture);
 
         [$scorecard, $series] = match ($fixture) {
             self::FIXTURE_MATURE => [$this->fixtureScorecard(9.72, 9.68), $this->fixtureSeries(31, 9.72, $today)],
@@ -194,7 +196,7 @@ final class AtlasAcosLongHorizonGateService
                 ? $options[self::FIELD_SERIES_V2]
                 : $this->readSeries($seriesV2Path);
             $assessmentV2 = $this->assessAreaSeriesV2($seriesV2, $minDays, [
-                'overall' => $minAreaOverall,
+                self::FIELD_OVERALL => $minAreaOverall,
                 self::FIELD_CODE => $minAreaCode,
                 self::FIELD_DOC => $minAreaDoc,
                 self::FIELD_PIPELINE => $minAreaPipeline,

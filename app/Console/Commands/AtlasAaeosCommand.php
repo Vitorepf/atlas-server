@@ -419,6 +419,7 @@ final class AtlasAaeosCommand extends Command
                             {--lote-measure-http-path-phase-handoff-aaeos-mission-floors-contract= : JSON file (any object) to observe lote/measure/http/path/phase/handoff floors}
                             {--lote-measure-http-path-mission-control-department-contract-floors-contract= : JSON file (any object) to observe lote/measure/http/path/mission/control floors}
                             {--aobg-latency-lote-measure-http-path-mission-control-floors-contract= : JSON file (any object) to observe aobg/latency/lote/measure/http/path floors}
+                            {--immune-classifier-lote-measure-http-path-runbook-acos-floors-contract= : JSON file (any object) to observe immune/classifier/lote/measure/http/path floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -994,6 +995,7 @@ final class AtlasAaeosCommand extends Command
             ['lote-measure-http-path-phase-handoff-aaeos-mission-floors-contract', 'lote_measure_http_path_phase_handoff_aaeos_mission_floors_contract', fn (array $p) => $gates->loteMeasureHttpPathPhaseHandoffAaeosMissionFloorsContractObserve($p)],
             ['lote-measure-http-path-mission-control-department-contract-floors-contract', 'lote_measure_http_path_mission_control_department_contract_floors_contract', fn (array $p) => $gates->loteMeasureHttpPathMissionControlDepartmentContractFloorsContractObserve($p)],
             ['aobg-latency-lote-measure-http-path-mission-control-floors-contract', 'aobg_latency_lote_measure_http_path_mission_control_floors_contract', fn (array $p) => $gates->aobgLatencyLoteMeasureHttpPathMissionControlFloorsContractObserve($p)],
+            ['immune-classifier-lote-measure-http-path-runbook-acos-floors-contract', 'immune_classifier_lote_measure_http_path_runbook_acos_floors_contract', fn (array $p) => $gates->immuneClassifierLoteMeasureHttpPathRunbookAcosFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

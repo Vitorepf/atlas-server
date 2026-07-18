@@ -7291,6 +7291,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_immune_classifier_lote_measure_http_path_runbook_acos_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b397-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b397',
+                '--immune-classifier-lote-measure-http-path-runbook-acos-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"immune_classifier_lote_measure_http_path_runbook_acos_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 
