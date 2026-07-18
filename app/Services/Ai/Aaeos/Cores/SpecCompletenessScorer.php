@@ -51,6 +51,8 @@ final class SpecCompletenessScorer
     public const FIELD_MISSING_OR_WEAK = 'missing_or_weak';
     public const FIELD_PRESENT_COUNT = 'present_count';
     public const FIELD_TOTAL_FIELDS = 'total_fields';
+    public const FIELD_TOO_SHORT = 'too_short';
+    public const FIELD_ABSENT = 'absent';
 
 
     /**
@@ -182,11 +184,11 @@ final class SpecCompletenessScorer
     {
         $trimmed = AiValueNormalizer::trimmedStringOrNull($value);
         if ($trimmed === null) {
-            return [false, false, 'absent'];
+            return [false, false, self::FIELD_ABSENT];
         }
 
         if (mb_strlen($trimmed) < self::TEXT_MIN_LENGTH) {
-            return [true, false, 'too_short'];
+            return [true, false, self::FIELD_TOO_SHORT];
         }
 
         return [true, true, self::REASON_OK];
@@ -202,7 +204,7 @@ final class SpecCompletenessScorer
         }
 
         if (! $this->hasMeaningfulItem($value)) {
-            return [true, false, 'too_short'];
+            return [true, false, self::FIELD_TOO_SHORT];
         }
 
         return [true, true, self::REASON_OK];

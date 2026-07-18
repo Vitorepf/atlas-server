@@ -11972,4 +11972,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B466).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function memoryFeedbackAaeosGateLocalModelFlywheelFunnelFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'archived_by_stale_feedback' => MemoryFeedbackDecayScorer::FIELD_ARCHIVED_BY_STALE_FEEDBACK,
+            'degraded_by_feedback_pressure' => MemoryFeedbackDecayScorer::FIELD_DEGRADED_BY_FEEDBACK_PRESSURE,
+            'task_' => AtlasAaeosGateSignalEvaluator::FIELD_TASK_,
+            'all_tasks_atomic' => AtlasAaeosGateSignalEvaluator::FIELD_ALL_TASKS_ATOMIC,
+            'artifact_unreadable' => AtlasLocalModelIntegrityService::FIELD_ARTIFACT_UNREADABLE,
+            'hash_failed' => AtlasLocalModelIntegrityService::FIELD_HASH_FAILED,
+            'autonomos' => AtlasFlywheelFunnelService::FIELD_AUTONOMOS,
+            'dev' => AtlasFlywheelFunnelService::FIELD_DEV,
+            'sintoma' => StructuredFactSchemaMap::FIELD_SINTOMA,
+            'versao' => StructuredFactSchemaMap::FIELD_VERSAO,
+            'aemor' => AtlasCognitiveFunctionAtlasService::FIELD_AEMOR,
+            'swarm' => AtlasCognitiveFunctionAtlasService::FIELD_SWARM,
+            'too_short' => SpecCompletenessScorer::FIELD_TOO_SHORT,
+            'absent' => SpecCompletenessScorer::FIELD_ABSENT,
+            'rb' => AcosMeasureSeriesFreshnessReader::FIELD_RB,
+            'timestamp' => AcosMeasureSeriesFreshnessReader::FIELD_TIMESTAMP,
+            'paper_overshoot' => AtlasResourceBudgetService::FIELD_PAPER_OVERSHOOT,
+            'unmeasured' => AtlasResourceBudgetService::FIELD_UNMEASURED,
+            'memory_feedback_aaeos_gate_local_model_flywheel_funnel_floor_count' => 18,
+        ];
+    }
+
 }

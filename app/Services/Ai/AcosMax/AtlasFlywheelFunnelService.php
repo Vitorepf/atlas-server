@@ -58,6 +58,8 @@ final class AtlasFlywheelFunnelService
     public const FIELD_WINDOWS = 'windows';
     public const FIELD_FORGE = 'forge';
     public const FIELD_PROMOTED = 'promoted';
+    public const FIELD_AUTONOMOS = 'autonomos';
+    public const FIELD_DEV = 'dev';
 
     /** @var list<string> */
     public const STAGES = [
@@ -173,12 +175,12 @@ final class AtlasFlywheelFunnelService
     private function executor(array $row): string
     {
         $role = AiValueNormalizer::lowerTrimmedString($row[self::FIELD_ROLE] ?? '');
-        if (in_array($role, ['dev', self::FIELD_FORGE, 'autonomos'], true)) {
+        if (in_array($role, [self::FIELD_DEV, self::FIELD_FORGE, self::FIELD_AUTONOMOS], true)) {
             return $role;
         }
 
         $actor = AiValueNormalizer::lowerTrimmedString($row[self::FIELD_ACTOR] ?? '');
-        foreach (['dev', self::FIELD_FORGE, 'autonomos'] as $executor) {
+        foreach ([self::FIELD_DEV, self::FIELD_FORGE, self::FIELD_AUTONOMOS] as $executor) {
             if (str_contains($actor, $executor)) {
                 return $executor;
             }

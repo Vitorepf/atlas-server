@@ -53,6 +53,8 @@ final class MemoryFeedbackDecayScorer
     public const FIELD_RECORDED_AT_AGE_DAYS = 'recorded_at_age_days';
     public const FIELD_STALE_COUNT = 'stale_count';
     public const FIELD_WRONG_CONTEXT_COUNT = 'wrong_context_count';
+    public const FIELD_ARCHIVED_BY_STALE_FEEDBACK = 'archived_by_stale_feedback';
+    public const FIELD_DEGRADED_BY_FEEDBACK_PRESSURE = 'degraded_by_feedback_pressure';
 
     /**
      * @param  array<string, mixed>  $signals
@@ -155,7 +157,7 @@ final class MemoryFeedbackDecayScorer
         array &$reasons,
     ): string {
         if ($stale >= self::ARCHIVE_STALE_FEEDBACK_THRESHOLD) {
-            $reasons[] = 'archived_by_stale_feedback';
+            $reasons[] = self::FIELD_ARCHIVED_BY_STALE_FEEDBACK;
 
             return self::DECISION_ARCHIVE;
         }
@@ -179,7 +181,7 @@ final class MemoryFeedbackDecayScorer
         // enxertou aqui uma regra que inativava memórias agressivamente e
         // quebrou o teste congelado por 3 semanas — removido em 03/07.
         if ($negative >= self::INACTIVATE_NEGATIVE_THRESHOLD || $wrongContext > 0 || $healthScore <= self::DEGRADE_HEALTH_CEILING) {
-            $reasons[] = 'degraded_by_feedback_pressure';
+            $reasons[] = self::FIELD_DEGRADED_BY_FEEDBACK_PRESSURE;
 
             return self::DECISION_DEGRADE;
         }

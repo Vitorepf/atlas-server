@@ -9394,4 +9394,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cognitive_function_memory_recall_verified_share_knowledge_item_floor_count']);
     }
 
+    public function test_memory_feedback_aaeos_gate_local_model_flywheel_funnel_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->memoryFeedbackAaeosGateLocalModelFlywheelFunnelFloorsContractObserve([]);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_ARCHIVED_BY_STALE_FEEDBACK, $out['archived_by_stale_feedback']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_DEGRADED_BY_FEEDBACK_PRESSURE, $out['degraded_by_feedback_pressure']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_TASK_, $out['task_']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_ALL_TASKS_ATOMIC, $out['all_tasks_atomic']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_ARTIFACT_UNREADABLE, $out['artifact_unreadable']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_HASH_FAILED, $out['hash_failed']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_AUTONOMOS, $out['autonomos']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_DEV, $out['dev']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_SINTOMA, $out['sintoma']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_VERSAO, $out['versao']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_AEMOR, $out['aemor']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_SWARM, $out['swarm']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_TOO_SHORT, $out['too_short']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_ABSENT, $out['absent']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_RB, $out['rb']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_TIMESTAMP, $out['timestamp']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_PAPER_OVERSHOOT, $out['paper_overshoot']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_UNMEASURED, $out['unmeasured']);
+        $this->assertSame(18, $out['memory_feedback_aaeos_gate_local_model_flywheel_funnel_floor_count']);
+    }
+
 }

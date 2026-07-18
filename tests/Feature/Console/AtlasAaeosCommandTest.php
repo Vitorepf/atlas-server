@@ -8257,6 +8257,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_memory_feedback_aaeos_gate_local_model_flywheel_funnel_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b466-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b466',
+                '--memory-feedback-aaeos-gate-local-model-flywheel-funnel-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"memory_feedback_aaeos_gate_local_model_flywheel_funnel_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

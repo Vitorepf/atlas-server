@@ -66,6 +66,8 @@ final class AtlasLocalModelIntegrityService
     public const FIELD_PIN_PRESENT = 'pin_present';
     public const FIELD_BASE_PATH = 'base_path';
     public const FIELD_SHA256 = 'sha256';
+    public const FIELD_ARTIFACT_UNREADABLE = 'artifact_unreadable';
+    public const FIELD_HASH_FAILED = 'hash_failed';
 
     /** @var array<string, mixed> */
     private array $manifest;
@@ -158,7 +160,7 @@ final class AtlasLocalModelIntegrityService
 
         if ($resolved === null || ! is_file($resolved) || ! is_readable($resolved)) {
             $row[self::FIELD_STATUS] = self::STATUS_MISSING;
-            $row[self::FIELD_REASON] = 'artifact_unreadable';
+            $row[self::FIELD_REASON] = self::FIELD_ARTIFACT_UNREADABLE;
 
             return $row;
         }
@@ -166,7 +168,7 @@ final class AtlasLocalModelIntegrityService
         $computed = @hash_file(self::FIELD_SHA256, $resolved);
         if (AiValueNormalizer::trimmedStringOrNull($computed) === null) {
             $row[self::FIELD_STATUS] = self::STATUS_MISSING;
-            $row[self::FIELD_REASON] = 'hash_failed';
+            $row[self::FIELD_REASON] = self::FIELD_HASH_FAILED;
 
             return $row;
         }

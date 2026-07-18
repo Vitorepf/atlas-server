@@ -35,6 +35,8 @@ final class AcosMeasureSeriesFreshnessReader
     public const FIELD_OCCURRED_AT = 'occurred_at';
     public const FIELD_RECORDED_AT = 'recorded_at';
     public const FIELD_CREATED_AT = 'created_at';
+    public const FIELD_RB = 'rb';
+    public const FIELD_TIMESTAMP = 'timestamp';
 
     /**
      * @param  array<string,mixed>  $entry  registry entry
@@ -129,7 +131,7 @@ final class AcosMeasureSeriesFreshnessReader
         }
 
         $latest = null;
-        $handle = fopen($path, 'rb');
+        $handle = fopen($path, self::FIELD_RB);
         if ($handle !== false) {
             try {
                 while (($line = fgets($handle)) !== false) {
@@ -162,7 +164,7 @@ final class AcosMeasureSeriesFreshnessReader
     /** @param array<string,mixed> $row */
     private function rowTimestamp(array $row, string $preferredField): ?CarbonImmutable
     {
-        foreach (array_values(array_unique([$preferredField, self::FIELD_RECORDED_AT, 'ts', self::FIELD_CREATED_AT, 'occurred_at', 'timestamp'])) as $field) {
+        foreach (array_values(array_unique([$preferredField, self::FIELD_RECORDED_AT, 'ts', self::FIELD_CREATED_AT, 'occurred_at', self::FIELD_TIMESTAMP])) as $field) {
             $parsed = $this->parseDate($row[$field] ?? null);
             if ($parsed instanceof CarbonImmutable) {
                 return $parsed;

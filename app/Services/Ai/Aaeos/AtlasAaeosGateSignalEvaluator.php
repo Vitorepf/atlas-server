@@ -81,6 +81,8 @@ final class AtlasAaeosGateSignalEvaluator
     public const FIELD_SPEC_PACK = 'spec_pack';
     public const FIELD_TASK_PACK = 'task_pack';
     public const FIELD_TASKS = 'tasks';
+    public const FIELD_TASK_ = 'task_';
+    public const FIELD_ALL_TASKS_ATOMIC = 'all_tasks_atomic';
 
     /**
      * P1 disambiguation gate: weighted + clamped 0..1 intent-clarity score.
@@ -187,17 +189,17 @@ final class AtlasAaeosGateSignalEvaluator
         foreach ($tasks as $index => $task) {
             $scope = $this->stringOrNull($task[self::FIELD_SCOPE] ?? null) ?? '';
             if ($this->isCompoundScope($scope)) {
-                $reasons[] = 'task_'.$index.'_compound_scope';
+                $reasons[] = self::FIELD_TASK_.$index.'_compound_scope';
                 $allAtomic = false;
             }
             if (! $this->hasAcceptance($task)) {
-                $reasons[] = 'task_'.$index.'_missing_acceptance';
+                $reasons[] = self::FIELD_TASK_.$index.'_missing_acceptance';
                 $allAtomic = false;
             }
         }
 
         if ($reasons === []) {
-            $reasons[] = 'all_tasks_atomic';
+            $reasons[] = self::FIELD_ALL_TASKS_ATOMIC;
         }
 
         return $this->gateResult(self::GATE_TASK_PACK, $allAtomic, $allAtomic, $reasons);
