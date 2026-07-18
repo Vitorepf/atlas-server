@@ -21597,4 +21597,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B779).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b779AaeosVetoFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'forge' => AtlasAaeosVetoPropagationResolver::FIELD_FORGE,
+            'qa' => AtlasAaeosVetoPropagationResolver::FIELD_QA,
+            'atlas.aaeos.veto_propagation.v1' => AtlasAaeosVetoPropagationResolver::SCHEMA_VERSION,
+            'resolution' => AtlasAaeosVetoPropagationResolver::FIELD_RESOLUTION,
+            'pause_set' => AtlasAaeosVetoPropagationResolver::FIELD_PAUSE_SET,
+            'redirect_to' => AtlasAaeosVetoPropagationResolver::FIELD_REDIRECT_TO,
+            'escalation_target' => AtlasAaeosVetoPropagationResolver::FIELD_ESCALATION_TARGET,
+            'override' => AtlasAaeosVetoPropagationResolver::FIELD_OVERRIDE,
+            'matched_rule' => AtlasAaeosVetoPropagationResolver::FIELD_MATCHED_RULE,
+            'reason' => AtlasAaeosVetoPropagationResolver::FIELD_REASON,
+            'origin_department' => AtlasAaeosVetoPropagationResolver::FIELD_ORIGIN_DEPARTMENT,
+            'veto_kind' => AtlasAaeosVetoPropagationResolver::FIELD_VETO_KIND,
+            'repair_iteration' => AtlasAaeosVetoPropagationResolver::FIELD_REPAIR_ITERATION,
+            'schema_version' => AtlasAaeosVetoPropagationResolver::FIELD_SCHEMA_VERSION,
+            'review' => AtlasAaeosVetoPropagationResolver::FIELD_REVIEW,
+            'operator' => AtlasAaeosVetoPropagationResolver::FIELD_OPERATOR,
+            'product' => AtlasAaeosVetoPropagationResolver::FIELD_PRODUCT,
+            'architect' => AtlasAaeosVetoPropagationResolver::FIELD_ARCHITECT,
+            'b779_aaeos_veto_floor_count' => 18,
+        ];
+    }
+
 }
