@@ -16126,4 +16126,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b737_immune_calibration_floor_count']);
     }
 
+    public function test_b738_cognition_remint_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b738CognitionRemintFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::FIELD_COMMAND, $out['command']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::FIELD_COMMAND_ARGS, $out['command_args']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::SCHEMA_VERSION, $out['atlas.cognition.remint_touched.queue_item.v1']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::ENABLED_CONFIG_KEY, $out['atlas.cognition.remint_touched_enabled']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::QUEUE_DISK_CONFIG_KEY, $out['atlas.cognition.remint_touched_queue_disk']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::DEFAULT_QUEUE_DISK, $out['local']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::QUEUE_PATH_CONFIG_KEY, $out['atlas.cognition.remint_touched_queue_path']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::DEFAULT_QUEUE_PATH, $out['atlas/cognition/remint-touched-queue.jsonl']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::MODE_OFF, $out['off']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::MODE_DEFERRED_DISK_QUEUE, $out['deferred_disk_queue']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::REASON_DISABLED, $out['disabled']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::REASON_EMPTY_PATHS, $out['empty_paths']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::REASON_QUEUE_PATH_EMPTY, $out['queue_path_empty']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::REASON_QUEUE_WRITE_FAILED, $out['queue_write_failed']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::FIELD_QUEUED, $out['queued']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::FIELD_QUEUED, $out['queued']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::FIELD_ERROR, $out['error']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::FIELD_REASON, $out['reason']);
+        $this->assertSame(18, $out['b738_cognition_remint_floor_count']);
+    }
+
 }

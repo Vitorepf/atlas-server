@@ -20326,4 +20326,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B738).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b738CognitionRemintFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'command' => AtlasCognitionRemintTouchedQueue::FIELD_COMMAND,
+            'command_args' => AtlasCognitionRemintTouchedQueue::FIELD_COMMAND_ARGS,
+            'atlas.cognition.remint_touched.queue_item.v1' => AtlasCognitionRemintTouchedQueue::SCHEMA_VERSION,
+            'atlas.cognition.remint_touched_enabled' => AtlasCognitionRemintTouchedQueue::ENABLED_CONFIG_KEY,
+            'atlas.cognition.remint_touched_queue_disk' => AtlasCognitionRemintTouchedQueue::QUEUE_DISK_CONFIG_KEY,
+            'local' => AtlasCognitionRemintTouchedQueue::DEFAULT_QUEUE_DISK,
+            'atlas.cognition.remint_touched_queue_path' => AtlasCognitionRemintTouchedQueue::QUEUE_PATH_CONFIG_KEY,
+            'atlas/cognition/remint-touched-queue.jsonl' => AtlasCognitionRemintTouchedQueue::DEFAULT_QUEUE_PATH,
+            'off' => AtlasCognitionRemintTouchedQueue::MODE_OFF,
+            'deferred_disk_queue' => AtlasCognitionRemintTouchedQueue::MODE_DEFERRED_DISK_QUEUE,
+            'disabled' => AtlasCognitionRemintTouchedQueue::REASON_DISABLED,
+            'empty_paths' => AtlasCognitionRemintTouchedQueue::REASON_EMPTY_PATHS,
+            'queue_path_empty' => AtlasCognitionRemintTouchedQueue::REASON_QUEUE_PATH_EMPTY,
+            'queue_write_failed' => AtlasCognitionRemintTouchedQueue::REASON_QUEUE_WRITE_FAILED,
+            'queued' => AtlasCognitionRemintTouchedQueue::FIELD_QUEUED,
+            'queued' => AtlasCognitionRemintTouchedQueue::FIELD_QUEUED,
+            'error' => AtlasCognitionRemintTouchedQueue::FIELD_ERROR,
+            'reason' => AtlasCognitionRemintTouchedQueue::FIELD_REASON,
+            'b738_cognition_remint_floor_count' => 18,
+        ];
+    }
+
 }
