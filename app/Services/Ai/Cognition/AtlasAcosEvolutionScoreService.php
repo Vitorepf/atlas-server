@@ -115,6 +115,7 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_PROVIDER = 'provider';
     public const FIELD_SCORE_HASH = 'score_hash';
     public const FIELD_SOURCE_UTILITY = 'source_utility';
+    public const FIELD_TIER = 'tier';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -462,7 +463,7 @@ class AtlasAcosEvolutionScoreService
                     'chain implemented=%s audited=%s tier=%s signed=%s',
                     ($readiness[self::FIELD_IMPLEMENTED] ?? false) ? 'yes' : 'no',
                     ($readiness[self::FIELD_AUDITED] ?? false) ? 'yes' : 'no',
-                    (AiValueNormalizer::trimmedStringOrNull($readiness['tier'] ?? null) ?? '?'),
+                    (AiValueNormalizer::trimmedStringOrNull($readiness[self::FIELD_TIER] ?? null) ?? '?'),
                     ($readiness[self::FIELD_OPERATOR_SIGNED] ?? false) ? 'yes' : 'no',
                 ),
             ];

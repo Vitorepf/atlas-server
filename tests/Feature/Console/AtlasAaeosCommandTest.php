@@ -7459,6 +7459,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_acos_watchdog_department_contract_cognition_remint_immune_check_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b409-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b409',
+                '--acos-watchdog-department-contract-cognition-remint-immune-check-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"acos_watchdog_department_contract_cognition_remint_immune_check_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

@@ -269,6 +269,16 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_PROMOTED = 'promoted';
     public const FIELD_PROMOTED_HARNESS_CAPTURED_CYCLES = 'promoted_harness_captured_cycles';
     public const FIELD_PROVEN_REAL = 'proven_real';
+    public const FIELD_PROVIDER_GOVERNANCE_COVERAGE_LEDGER = 'provider_governance_coverage_ledger';
+    public const FIELD_READY_ROUTES = 'ready_routes';
+    public const FIELD_REAL_EXECUTIONS_PER_EXECUTOR = 'real_executions_per_executor';
+    public const FIELD_REQUIRED = 'required';
+    public const FIELD_ROLE = 'role';
+    public const FIELD_ROLLBACK_ENV = 'rollback_env';
+    public const FIELD_ROLLBACK_TRIGGER = 'rollback_trigger';
+    public const FIELD_ROUTES = 'routes';
+    public const FIELD_SCOPE_ID = 'scope_id';
+    public const FIELD_SCOPE_TYPE = 'scope_type';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -299,7 +309,7 @@ final class AtlasAcosWatchdogHealthService
             ], 'memory_quality_score_regressed'),
             $this->checkRow('freshness_full', $freshness >= 100, [
                 self::FIELD_FRESHNESS_COMPONENT => $freshness,
-                'required' => 100,
+                self::FIELD_REQUIRED => 100,
             ], 'memory_freshness_below_full'),
             $this->checkRow('windowed_concentration_guarded', $concentration <= self::MEMORY_CONCENTRATION_FLOOR || $demotionEnabled || $recallUsageTotal === 0, [
                 self::FIELD_WINDOWED_CONCENTRATION_RATIO => $concentration,
@@ -633,10 +643,10 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_CERTIFIED => (AiValueNormalizer::boolOrNull($crossWeek[self::FIELD_CERTIFIED] ?? null) ?? false),
                 self::FIELD_BLOCKERS => AiValueNormalizer::arrayOrEmpty($crossWeek[self::FIELD_BLOCKERS] ?? null),
             ],
-            'rollback_trigger' => [
+            self::FIELD_ROLLBACK_TRIGGER => [
                 self::FIELD_ID => 'cpt_09_compaction_enforce',
                 self::FIELD_CONDITION => '>=1 critical must_keep cut after enforcement flip',
-                'rollback_env' => 'ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE=observe',
+                self::FIELD_ROLLBACK_ENV => 'ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE=observe',
             ],
             self::FIELD_THRESHOLDS => [
                 self::FIELD_WINDOW_DAYS => self::COMPACTION_WINDOW_DAYS,
@@ -791,7 +801,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_ADML_COST_OUTCOME => [
                 self::STATUS_READY => count($admlRoutes) >= self::ENG_MIN_ADML_PROVEN_ROUTES,
                 self::FIELD_BLOCKING => count($admlRoutes) >= self::ENG_MIN_ADML_PROVEN_ROUTES ? [] : [self::FIELD_ADML_PROVEN_ROUTE_VOLUME_BELOW_FLOOR],
-                self::FIELD_RAW => ['ready_routes' => count($admlRoutes), 'routes' => $admlRoutes],
+                self::FIELD_RAW => [self::FIELD_READY_ROUTES => count($admlRoutes), self::FIELD_ROUTES => $admlRoutes],
             ],
         ];
         $blocking = [];
@@ -806,13 +816,13 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_BLOCKING => array_values(array_unique($blocking)),
             self::FIELD_FLIPS => $flips,
             'sources' => [
-                'provider_governance_coverage_ledger' => $this->relativePath($coverage->logPath()),
+                self::FIELD_PROVIDER_GOVERNANCE_COVERAGE_LEDGER => $this->relativePath($coverage->logPath()),
                 self::FIELD_LIVE_OUTCOMES_JSONL => $this->relativePath($live->logPath()),
                 self::FIELD_FORGE_SOVEREIGN_VERDICT_JSONL => $this->relativePath($this->forgeSovereignVerdictPath()),
             ],
             self::FIELD_THRESHOLDS => [
                 self::FIELD_WINDOW_DAYS => self::ENG_WINDOW_DAYS,
-                'real_executions_per_executor' => self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR,
+                self::FIELD_REAL_EXECUTIONS_PER_EXECUTOR => self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR,
                 self::FIELD_FORGE_PROMOTED_CYCLES => self::ENG_MIN_FORGE_PROMOTED_CYCLES,
                 self::FIELD_ADML_PROVEN_ROUTES => self::ENG_MIN_ADML_PROVEN_ROUTES,
             ],
@@ -1009,8 +1019,8 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_OPERATOR_ID => 'system',
                 self::FIELD_ENVELOPE_ID => 'acos:watchdog:'.$scopeId.':'.now()->format('YmdHis'),
                 self::FIELD_CORRELATION_ID => 'acos:watchdog:'.$scopeId,
-                'scope_type' => 'acos_watchdog',
-                'scope_id' => $scopeId,
+                self::FIELD_SCOPE_TYPE => 'acos_watchdog',
+                self::FIELD_SCOPE_ID => $scopeId,
                 self::FIELD_EMITTER_STAGE => 'atlas.acos.watchdog',
                 self::FIELD_EMITTER_VERSION => self::ONDA4_EMITTER_VERSION,
             ]);
@@ -1076,7 +1086,7 @@ final class AtlasAcosWatchdogHealthService
             if (($row[self::FIELD_PROVEN_REAL] ?? false) !== true) {
                 continue;
             }
-            $route = (AiValueNormalizer::trimmedStringOrNull($row['task_category'] ?? null) ?? '').'|'.(AiValueNormalizer::trimmedStringOrNull($row['role'] ?? null) ?? '');
+            $route = (AiValueNormalizer::trimmedStringOrNull($row['task_category'] ?? null) ?? '').'|'.(AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_ROLE] ?? null) ?? '');
             if ($route !== '|') {
                 $routes[$route] = ($routes[$route] ?? 0) + 1;
             }

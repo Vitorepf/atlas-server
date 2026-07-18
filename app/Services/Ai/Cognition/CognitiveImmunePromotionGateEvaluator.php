@@ -68,6 +68,7 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_PENDING_GATE_IDS = 'pending_gate_ids';
     public const FIELD_AUTONOMOUS_PROMOTION_ALLOWED = 'autonomous_promotion_allowed';
     public const FIELD_REASONS = 'reasons';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -113,7 +114,7 @@ final class CognitiveImmunePromotionGateEvaluator
         );
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_GATE_STATUSES => $gateStatuses,
             self::FIELD_PROMOTION_STATUS => $promotionStatus,
             self::FIELD_BLOCKING_GATE_IDS => $blockingGateIds,

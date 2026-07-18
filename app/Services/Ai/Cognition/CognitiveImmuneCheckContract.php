@@ -45,6 +45,7 @@ final class CognitiveImmuneCheckContract
     public const FIELD_PENDING_GATES = 'pending_gates';
     public const FIELD_INPUTS = 'inputs';
     public const FIELD_OUTPUTS = 'outputs';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     public const ALLOWED_GATE_STATUSES = [
         self::GATE_STATUS_PENDING,
@@ -129,7 +130,7 @@ final class CognitiveImmuneCheckContract
     public function toArray(): array
     {
         return [
-            'schema_version' => self::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             self::FIELD_FINDING_ID => $this->findingId,
             self::FIELD_DECISION_SURFACE => $this->decisionSurface,
             self::FIELD_INPUTS => [

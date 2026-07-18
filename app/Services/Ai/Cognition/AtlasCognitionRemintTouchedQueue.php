@@ -53,6 +53,7 @@ final class AtlasCognitionRemintTouchedQueue
     public const FIELD_QUEUE_PATH = 'queue_path';
     public const FIELD_QUEUED_AT = 'queued_at';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_TASK_PACKET_ID = 'task_packet_id';
 
     /**
      * @param  list<string>  $paths
@@ -82,7 +83,7 @@ final class AtlasCognitionRemintTouchedQueue
         $payload = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_QUEUED_AT => Carbon::now()->toIso8601String(),
-            'task_packet_id' => $taskPacketId,
+            self::FIELD_TASK_PACKET_ID => $taskPacketId,
             self::FIELD_PATHS => $paths,
             self::FIELD_COMMAND => $command,
             self::FIELD_COMMAND_ARGS => [

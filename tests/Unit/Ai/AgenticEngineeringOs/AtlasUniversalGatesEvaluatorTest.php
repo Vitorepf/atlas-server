@@ -126,6 +126,8 @@ use App\Services\Ai\Cognition\Watchdog\Checks\AutonomyLadderAdversarialWatchdogC
 use App\Services\Ai\Cognition\CaptureHmacLineageService;
 use App\Services\Ai\Aaeos\AtlasVetoPropagationWatchdog;
 use App\Services\Ai\AcosMax\AtlasModelCapabilitySpecService;
+use App\Services\Ai\Cognition\CognitiveImmuneCheckContract;
+use App\Services\Ai\Cognition\ImmuneVerdictLedger;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -7950,6 +7952,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_RESOLVED, $out['resolved']);
         $this->assertSame(AtlasFrontierWaveLadder::FIELD_REF, $out['ref']);
         $this->assertSame(18, $out['acos_watchdog_phase_handoff_architect_agent_autonomous_work_floor_count']);
+    }
+
+    public function test_acos_watchdog_department_contract_cognition_remint_immune_check_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->acosWatchdogDepartmentContractCognitionRemintImmuneCheckFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_PROVIDER_GOVERNANCE_COVERAGE_LEDGER, $out['provider_governance_coverage_ledger']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_READY_ROUTES, $out['ready_routes']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_REAL_EXECUTIONS_PER_EXECUTOR, $out['real_executions_per_executor']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_REQUIRED, $out['required']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ROLE, $out['role']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ROLLBACK_ENV, $out['rollback_env']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ROLLBACK_TRIGGER, $out['rollback_trigger']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ROUTES, $out['routes']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SCOPE_ID, $out['scope_id']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SCOPE_TYPE, $out['scope_type']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SPEC_COMPLETENESS, $out['spec_completeness']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::FIELD_TASK_PACKET_ID, $out['task_packet_id']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(ImmuneVerdictLedger::FIELD_CREATED_AT, $out['created_at']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_VERDICT, $out['verdict']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_TIER, $out['tier']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(18, $out['acos_watchdog_department_contract_cognition_remint_immune_check_floor_count']);
     }
 
 }

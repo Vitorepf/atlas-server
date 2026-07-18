@@ -10203,4 +10203,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B409).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function acosWatchdogDepartmentContractCognitionRemintImmuneCheckFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'provider_governance_coverage_ledger' => AtlasAcosWatchdogHealthService::FIELD_PROVIDER_GOVERNANCE_COVERAGE_LEDGER,
+            'ready_routes' => AtlasAcosWatchdogHealthService::FIELD_READY_ROUTES,
+            'real_executions_per_executor' => AtlasAcosWatchdogHealthService::FIELD_REAL_EXECUTIONS_PER_EXECUTOR,
+            'required' => AtlasAcosWatchdogHealthService::FIELD_REQUIRED,
+            'role' => AtlasAcosWatchdogHealthService::FIELD_ROLE,
+            'rollback_env' => AtlasAcosWatchdogHealthService::FIELD_ROLLBACK_ENV,
+            'rollback_trigger' => AtlasAcosWatchdogHealthService::FIELD_ROLLBACK_TRIGGER,
+            'routes' => AtlasAcosWatchdogHealthService::FIELD_ROUTES,
+            'scope_id' => AtlasAcosWatchdogHealthService::FIELD_SCOPE_ID,
+            'scope_type' => AtlasAcosWatchdogHealthService::FIELD_SCOPE_TYPE,
+            'spec_completeness' => DepartmentContractRuntime::FIELD_SPEC_COMPLETENESS,
+            'task_packet_id' => AtlasCognitionRemintTouchedQueue::FIELD_TASK_PACKET_ID,
+            'schema_version' => CognitiveImmuneCheckContract::FIELD_SCHEMA_VERSION,
+            'schema_version' => CognitiveImmunePromotionGateEvaluator::FIELD_SCHEMA_VERSION,
+            'created_at' => ImmuneVerdictLedger::FIELD_CREATED_AT,
+            'verdict' => AaeosHttpPathEnvelopeFactory::FIELD_VERDICT,
+            'tier' => AtlasAcosEvolutionScoreService::FIELD_TIER,
+            'schema_version' => AtlasCognitiveFunctionDecomposerService::FIELD_SCHEMA_VERSION,
+            'acos_watchdog_department_contract_cognition_remint_immune_check_floor_count' => 18,
+        ];
+    }
+
 }

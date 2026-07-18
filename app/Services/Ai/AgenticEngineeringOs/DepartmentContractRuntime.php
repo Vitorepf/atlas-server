@@ -190,6 +190,7 @@ final class DepartmentContractRuntime
     public const FIELD_SCHEMA_FIELDS_12_PRESENT = 'schema_fields_12_present';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_SPEC = 'spec';
+    public const FIELD_SPEC_COMPLETENESS = 'spec_completeness';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -674,7 +675,7 @@ final class DepartmentContractRuntime
         $spec = AiValueNormalizer::arrayOrEmpty($input[self::FIELD_SPEC] ?? null);
         if ($spec !== []) {
             $result[self::FIELD_OBSERVE] = [
-                'spec_completeness' => $this->specCompleteness->score($spec),
+                self::FIELD_SPEC_COMPLETENESS => $this->specCompleteness->score($spec),
             ];
         }
 

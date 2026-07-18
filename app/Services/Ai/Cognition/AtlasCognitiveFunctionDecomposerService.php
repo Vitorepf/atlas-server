@@ -76,6 +76,7 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_GENERATED_AT = 'generated_at';
     public const FIELD_INPUT = 'input';
     public const FIELD_SCHEMA = 'schema';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -265,7 +266,7 @@ final class AtlasCognitiveFunctionDecomposerService
 
         $generatedAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
         $envelope = [
-            'schema_version' => self::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             self::FIELD_GENERATED_AT => $generatedAt,
             self::FIELD_INPUT_LENGTH => mb_strlen($input),
             self::FIELD_INPUT_PREVIEW => mb_substr($input, 0, 120),

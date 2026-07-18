@@ -51,6 +51,7 @@ final class ImmuneVerdictLedger
     public const FIELD_WRITER = 'writer';
     public const FIELD_ID = 'id';
     public const FIELD_UPDATED_AT = 'updated_at';
+    public const FIELD_CREATED_AT = 'created_at';
 
     /** @var list<string> */
     public const LABELS = [
@@ -184,7 +185,7 @@ final class ImmuneVerdictLedger
             self::FIELD_SAMPLE_LABEL => $row[self::FIELD_SAMPLE_LABEL],
             self::FIELD_METADATA => json_encode($row[self::FIELD_METADATA], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
             self::FIELD_DECIDED_AT => $row[self::FIELD_DECIDED_AT],
-            'created_at' => now(),
+            self::FIELD_CREATED_AT => now(),
             self::FIELD_UPDATED_AT => now(),
         ];
     }

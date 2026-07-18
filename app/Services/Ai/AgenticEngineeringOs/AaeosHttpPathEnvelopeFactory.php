@@ -87,6 +87,7 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_TASKS = 'tasks';
     public const FIELD_TOPOLOGY = 'topology';
     public const FIELD_TOPOLOGY_REQUIRED = 'topology_required';
+    public const FIELD_VERDICT = 'verdict';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -373,7 +374,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     public function policyGateBlocked(array $policyEnvelope): bool
     {
-        $verdict = $this->phaseAdvance->classify($policyEnvelope)['verdict'] ?? '';
+        $verdict = $this->phaseAdvance->classify($policyEnvelope)[self::FIELD_VERDICT] ?? '';
 
         return in_array($verdict, [PhaseAdvanceVerdictClassifier::VERDICT_HALT, PhaseAdvanceVerdictClassifier::VERDICT_BLOCK], true);
     }
