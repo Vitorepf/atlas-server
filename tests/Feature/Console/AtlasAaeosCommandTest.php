@@ -10161,6 +10161,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b602_aaeos_veto_citation_grounding_gated_corpus_cognitive_lote_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b602-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b602',
+                '--b602-aaeos-veto-citation-grounding-gated-corpus-cognitive-lote-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b602_aaeos_veto_citation_grounding_gated_corpus_cognitive_lote_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

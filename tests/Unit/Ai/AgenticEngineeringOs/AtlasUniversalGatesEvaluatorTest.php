@@ -12731,4 +12731,23 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(12, $out['b601_ledger_rotation_department_contract_acos_window_cognition_score_floor_count']);
     }
 
+    public function test_b602_aaeos_veto_citation_grounding_gated_corpus_cognitive_lote_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b602AaeosVetoCitationGroundingGatedCorpusCognitiveLoteFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::RESOLUTION_REDIRECT_UPSTREAM, $out['redirect_upstream']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::RESOLUTION_OVERRIDE_PASS, $out['override_pass']);
+        $this->assertSame(CitationGroundingMeter::STATUS_INSUFFICIENT_SIGNAL, $out['insufficient_signal']);
+        $this->assertSame(GatedCorpusCandidateMiner::STATUS_INSUFFICIENT_SIGNAL, $out['insufficient_signal']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_OPERATIONAL_EPHEMERAL, $out['operational_ephemeral']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_TASK_OR_REMINDER, $out['task_or_reminder']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_CONVERSATION_TRACE, $out['conversation_trace']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_PERSONAL_FACT_CANDIDATE, $out['personal_fact_candidate']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_TECHNICAL_LEARNING_CANDIDATE, $out['technical_learning_candidate']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_STRATEGIC_INSIGHT_CANDIDATE, $out['strategic_insight_candidate']);
+        $this->assertSame(AcosMaxLote2MeasureService::MISSION_STATUS_DELIVERED, $out['delivered']);
+        $this->assertSame(AcosMaxLote2MeasureService::MISSION_STATUS_SUCCEEDED, $out['succeeded']);
+        $this->assertSame(12, $out['b602_aaeos_veto_citation_grounding_gated_corpus_cognitive_lote_floor_count']);
+    }
+
 }

@@ -16120,4 +16120,29 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B602).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b602AaeosVetoCitationGroundingGatedCorpusCognitiveLoteFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'redirect_upstream' => AtlasAaeosVetoPropagationResolver::RESOLUTION_REDIRECT_UPSTREAM,
+            'override_pass' => AtlasAaeosVetoPropagationResolver::RESOLUTION_OVERRIDE_PASS,
+            'insufficient_signal' => CitationGroundingMeter::STATUS_INSUFFICIENT_SIGNAL,
+            'insufficient_signal' => GatedCorpusCandidateMiner::STATUS_INSUFFICIENT_SIGNAL,
+            'operational_ephemeral' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_OPERATIONAL_EPHEMERAL,
+            'task_or_reminder' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_TASK_OR_REMINDER,
+            'conversation_trace' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_CONVERSATION_TRACE,
+            'personal_fact_candidate' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_PERSONAL_FACT_CANDIDATE,
+            'technical_learning_candidate' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_TECHNICAL_LEARNING_CANDIDATE,
+            'strategic_insight_candidate' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_STRATEGIC_INSIGHT_CANDIDATE,
+            'delivered' => AcosMaxLote2MeasureService::MISSION_STATUS_DELIVERED,
+            'succeeded' => AcosMaxLote2MeasureService::MISSION_STATUS_SUCCEEDED,
+            'b602_aaeos_veto_citation_grounding_gated_corpus_cognitive_lote_floor_count' => 12,
+        ];
+    }
+
 }
