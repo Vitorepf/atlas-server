@@ -431,14 +431,14 @@ final class DepartmentContractRuntime
         'human_name',
         'scope',
         'triggers',
-        'inputs',
+        self::FIELD_INPUTS,
         'outputs',
         self::FIELD_GATES,
         self::FIELD_ALLOWED_ACTIONS,
         self::FIELD_FORBIDDEN_ACTIONS,
         self::FIELD_ESCALATION_TO,
         self::FIELD_EVIDENCE_REQUIRED,
-        'persistence',
+        self::FIELD_PERSISTENCE,
         'observability_signals',
     ];
 

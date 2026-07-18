@@ -14082,4 +14082,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B535).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b535DailyCanaryImmunePromotionDepartmentContractAsefChunkFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'golden_recall_at_5' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_GOLDEN_RECALL_AT_5,
+            'improper_floor_discards' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_IMPROPER_FLOOR_DISCARDS,
+            'probation_recall_below_calibrated_threshold' => CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_RECALL_BELOW_CALIBRATED_THRESHOLD,
+            'probation_supervening_contradiction_present' => CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_SUPERVENING_CONTRADICTION_PRESENT,
+            'inputs' => DepartmentContractRuntime::FIELD_INPUTS,
+            'persistence' => DepartmentContractRuntime::FIELD_PERSISTENCE,
+            'chunk_hash' => AsefChunkIndexService::FIELD_CHUNK_HASH,
+            'embedding' => AsefChunkIndexService::FIELD_EMBEDDING,
+            'dev' => AtlasAaeosVetoPropagationResolver::FIELD_DEV,
+            'operator' => AtlasAaeosVetoPropagationResolver::FIELD_OPERATOR,
+            'blocking_questions' => SpecCompletenessScorer::FIELD_BLOCKING_QUESTIONS,
+            'assumptions' => SpecCompletenessScorer::FIELD_ASSUMPTIONS,
+            'negative_count' => MemoryFeedbackDecayScorer::FIELD_NEGATIVE_COUNT,
+            'positive_count' => MemoryFeedbackDecayScorer::FIELD_POSITIVE_COUNT,
+            'kind' => SegmentImportanceRanker::FIELD_KIND,
+            'links_decision_or_blocker' => SegmentImportanceRanker::FIELD_LINKS_DECISION_OR_BLOCKER,
+            'reasoning' => AtlasCognitiveFunctionDecomposerService::FIELD_REASONING,
+            'retrieval' => AtlasCognitiveFunctionDecomposerService::FIELD_RETRIEVAL,
+            'b535_daily_canary_immune_promotion_department_contract_asef_chunk_floor_count' => 18,
+        ];
+    }
+
 }

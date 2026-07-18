@@ -199,8 +199,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FLOAT_0_05 = 0.05;
 
     public const FUNCTIONS = [
-        'reasoning',
-        'retrieval',
+        self::FIELD_REASONING,
+        self::FIELD_RETRIEVAL,
         'generation',
         self::FIELD_CODE,
         'vision',
@@ -375,7 +375,7 @@ final class AtlasCognitiveFunctionDecomposerService
             }
         }
         // Dominant function.
-        $dominant = 'reasoning';
+        $dominant = self::FIELD_REASONING;
         $top = -1.0;
         foreach (self::FUNCTIONS as $axis) {
             if (($weights[$axis] ?? 0) > $top) {

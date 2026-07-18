@@ -223,10 +223,10 @@ final class SegmentImportanceRanker
         $scored = [];
 
         foreach (array_values($maybeDiscard) as $row) {
-            $kind = AtlasAaeosArrayFieldReader::stringField($row, 'kind');
+            $kind = AtlasAaeosArrayFieldReader::stringField($row, self::FIELD_KIND);
             $recencyRank = $this->intField($row, 'recency_rank');
             $hasEvidenceRef = $this->boolField($row, self::FIELD_HAS_EVIDENCE_REF);
-            $linksDecisionOrBlocker = $this->boolField($row, 'links_decision_or_blocker');
+            $linksDecisionOrBlocker = $this->boolField($row, self::FIELD_LINKS_DECISION_OR_BLOCKER);
             $dupGroup = $this->nullableStringField($row, self::FIELD_DUP_GROUP);
             $importance = AiValueNormalizer::clampUnit($this->numericField($row, self::FIELD_IMPORTANCE) / 100.0);
 

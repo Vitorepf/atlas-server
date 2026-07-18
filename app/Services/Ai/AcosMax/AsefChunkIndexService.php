@@ -282,7 +282,7 @@ final class AsefChunkIndexService
             ];
         }
 
-        if (! DatabaseTableAvailability::hasColumn(self::FIELD_ASEF_CHUNKS, 'embedding')) {
+        if (! DatabaseTableAvailability::hasColumn(self::FIELD_ASEF_CHUNKS, self::FIELD_EMBEDDING)) {
             return [
                 self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
                 self::FIELD_STATUS => self::STATUS_DEGRADED,
@@ -297,7 +297,7 @@ final class AsefChunkIndexService
 
         $builder = DB::table(self::FIELD_ASEF_CHUNKS)
             ->whereNotNull(self::FIELD_EMBEDDING)
-            ->select([self::FIELD_SOURCE_REF, 'chunk_hash', 'chunk_id'])
+            ->select([self::FIELD_SOURCE_REF, self::FIELD_CHUNK_HASH, 'chunk_id'])
             ->selectRaw('(1 - (embedding <=> ?::vector)) AS similarity', [$literal]);
 
         EmbeddingProvenance::scopeCurrentModel($builder, self::FIELD_ASEF_CHUNKS, $modelId);
@@ -341,7 +341,7 @@ final class AsefChunkIndexService
 
         $existing = DB::table(self::FIELD_ASEF_CHUNKS)
             ->where(self::FIELD_SOURCE_REF, $row[self::FIELD_SOURCE_REF])
-            ->where('chunk_hash', $row[self::FIELD_CHUNK_HASH])
+            ->where(self::FIELD_CHUNK_HASH, $row[self::FIELD_CHUNK_HASH])
             ->first();
 
         if ($existing !== null) {
@@ -374,7 +374,7 @@ final class AsefChunkIndexService
      */
     private function writeVector(string $id, array $vector): void
     {
-        if (! DatabaseTableAvailability::hasColumn(self::FIELD_ASEF_CHUNKS, 'embedding')) {
+        if (! DatabaseTableAvailability::hasColumn(self::FIELD_ASEF_CHUNKS, self::FIELD_EMBEDDING)) {
             return;
         }
 

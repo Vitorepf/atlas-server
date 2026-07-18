@@ -117,6 +117,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_SAFETY_UNEVALUATED = 'safety_unevaluated';
     public const FIELD_SCOPE_UNRESOLVED = 'scope_unresolved';
     public const FIELD_SECRET_OR_SENSITIVE_PRESENT = 'secret_or_sensitive_present';
+    public const FIELD_PROBATION_RECALL_BELOW_CALIBRATED_THRESHOLD = 'probation_recall_below_calibrated_threshold';
+    public const FIELD_PROBATION_SUPERVENING_CONTRADICTION_PRESENT = 'probation_supervening_contradiction_present';
     public const INT_2 = 2;
 
     /**
@@ -373,7 +375,7 @@ final class CognitiveImmunePromotionGateEvaluator
         }
 
         if ($this->hasProbationSuperveningContradiction($signals)) {
-            return [self::STATUS_PENDING, 'probation_supervening_contradiction_present'];
+            return [self::STATUS_PENDING, self::FIELD_PROBATION_SUPERVENING_CONTRADICTION_PRESENT];
         }
 
         if ($this->probationWatchAgeDays($signals) < ImmuneCalibrationService::TTL_DAYS) {
@@ -386,7 +388,7 @@ final class CognitiveImmunePromotionGateEvaluator
         }
 
         if ($recallEvidence[self::FIELD_RECALLS] < ImmuneCalibrationService::DENOMINATOR_MIN) {
-            return [self::STATUS_PENDING, 'probation_recall_below_calibrated_threshold'];
+            return [self::STATUS_PENDING, self::FIELD_PROBATION_RECALL_BELOW_CALIBRATED_THRESHOLD];
         }
 
         return [self::STATUS_PASS, ''];

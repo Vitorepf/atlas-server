@@ -339,7 +339,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
 
         if ($golden[self::FIELD_RECALL_AT_5] !== null && $golden[self::FIELD_RECALL_AT_5] < self::GOLDEN_RECALL_AT_5_ALERT_FLOOR) {
             $violations[] = [
-                self::FIELD_METRIC => 'golden_recall_at_5',
+                self::FIELD_METRIC => self::FIELD_GOLDEN_RECALL_AT_5,
                 self::FIELD_VALUE => $golden[self::FIELD_RECALL_AT_5],
                 self::FIELD_FLOOR => self::GOLDEN_RECALL_AT_5_ALERT_FLOOR,
                 self::FIELD_VERSION => $golden[self::FIELD_VERSION],
@@ -348,7 +348,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
 
         if ($golden[self::FIELD_IMPROPER_FLOOR_DISCARDS] !== null && $golden[self::FIELD_IMPROPER_FLOOR_DISCARDS] > self::IMPROPER_FLOOR_DISCARD_ALERT_CEILING) {
             $violations[] = [
-                self::FIELD_METRIC => 'improper_floor_discards',
+                self::FIELD_METRIC => self::FIELD_IMPROPER_FLOOR_DISCARDS,
                 self::FIELD_VALUE => $golden[self::FIELD_IMPROPER_FLOOR_DISCARDS],
                 self::FIELD_CEILING => self::IMPROPER_FLOOR_DISCARD_ALERT_CEILING,
                 self::FIELD_VERSION => $golden[self::FIELD_VERSION],

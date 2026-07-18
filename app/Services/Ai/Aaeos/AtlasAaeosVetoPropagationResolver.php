@@ -102,14 +102,14 @@ final class AtlasAaeosVetoPropagationResolver
     {
         return [
             self::FIELD_PRODUCT => [self::FIELD_ARCHITECT],
-            self::FIELD_ARCHITECT => [self::FIELD_SECURITY, self::FIELD_FORGE, 'dev'],
+            self::FIELD_ARCHITECT => [self::FIELD_SECURITY, self::FIELD_FORGE, self::FIELD_DEV],
             self::FIELD_DEV => [self::FIELD_REVIEW],
             self::FIELD_FORGE => [self::FIELD_REVIEW],
             self::FIELD_REVIEW => [self::FIELD_ARCHITECT, self::FIELD_DELIVERY],
-            self::FIELD_SECURITY => ['operator', self::FIELD_ARCHITECT],
+            self::FIELD_SECURITY => [self::FIELD_OPERATOR, self::FIELD_ARCHITECT],
             self::FIELD_DELIVERY => [self::FIELD_OPERATOR],
             self::FIELD_OPERATOR => [self::FIELD_MEMORY],
-            self::FIELD_QA => ['dev', self::FIELD_FORGE],
+            self::FIELD_QA => [self::FIELD_DEV, self::FIELD_FORGE],
             self::FIELD_DEBUG => [self::FIELD_DEV],
             self::FIELD_MEMORY => [],
         ];
@@ -154,7 +154,7 @@ final class AtlasAaeosVetoPropagationResolver
         // iteration on a matched veto cycle, escalate to Architect + Operator
         // regardless of the base rule's escalation target.
         if ($autoEscalated && $resolution !== self::RESOLUTION_NO_MATCH) {
-            $escalationTarget = $this->reachableTargets([self::FIELD_ARCHITECT, 'operator']);
+            $escalationTarget = $this->reachableTargets([self::FIELD_ARCHITECT, self::FIELD_OPERATOR]);
             $matchedRule = self::FIELD_REPAIR_LOOP_4TH_ITERATION;
             $reason = 'repair_loop_reached_4th_iteration_auto_escalated_to_architect_and_operator';
         }
@@ -191,7 +191,7 @@ final class AtlasAaeosVetoPropagationResolver
     private function matchRule(string $origin, string $kind): array
     {
         // Operator veto -> override final (always passes).
-        if ($origin === 'operator' && $kind === 'override') {
+        if ($origin === self::FIELD_OPERATOR && $kind === 'override') {
             return [
                 self::FIELD_RESOLUTION => self::RESOLUTION_OVERRIDE_PASS,
                 self::FIELD_PAUSE_SET => [],
@@ -209,7 +209,7 @@ final class AtlasAaeosVetoPropagationResolver
         if ($origin === self::FIELD_SECURITY && $kind === self::FIELD_SECURITY) {
             return [
                 self::FIELD_RESOLUTION => self::RESOLUTION_PROPAGATE_PAUSE,
-                self::FIELD_PAUSE_SET => $this->reachableTargets(['dev', self::FIELD_FORGE, self::FIELD_DELIVERY]),
+                self::FIELD_PAUSE_SET => $this->reachableTargets([self::FIELD_DEV, self::FIELD_FORGE, self::FIELD_DELIVERY]),
                 self::FIELD_REDIRECT_TO => [],
                 self::FIELD_ESCALATION_TARGET => $this->reachableTargets([self::FIELD_OPERATOR]),
                 self::FIELD_OVERRIDE => false,
@@ -236,7 +236,7 @@ final class AtlasAaeosVetoPropagationResolver
             return [
                 self::FIELD_RESOLUTION => self::RESOLUTION_REDIRECT_UPSTREAM,
                 self::FIELD_PAUSE_SET => [],
-                self::FIELD_REDIRECT_TO => $this->reachableTargets(['dev', self::FIELD_FORGE]),
+                self::FIELD_REDIRECT_TO => $this->reachableTargets([self::FIELD_DEV, self::FIELD_FORGE]),
                 self::FIELD_ESCALATION_TARGET => [],
                 self::FIELD_OVERRIDE => false,
                 self::FIELD_MATCHED_RULE => self::FIELD_REVIEW_DELIVERY_VETO,

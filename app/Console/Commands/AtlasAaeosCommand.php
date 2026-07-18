@@ -557,6 +557,7 @@ final class AtlasAaeosCommand extends Command
                             {--b532-knowledge-item-department-contract-lote-measure-acos-watchdog-floors-contract= : JSON file (any object) to observe knowledge/item/department/contract/lote/measure floors}
                             {--b533-evidence-vision-memory-recall-department-contract-lote-measure-floors-contract= : JSON file (any object) to observe evidence/vision/memory/recall/department/contract floors}
                             {--b534-delivery-pack-department-contract-lote-measure-series-docs-floors-contract= : JSON file (any object) to observe delivery/pack/department/contract/lote/measure floors}
+                            {--b535-daily-canary-immune-promotion-department-contract-asef-chunk-floors-contract= : JSON file (any object) to observe daily/canary/immune/promotion/department/contract floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1270,6 +1271,7 @@ final class AtlasAaeosCommand extends Command
             ['b532-knowledge-item-department-contract-lote-measure-acos-watchdog-floors-contract', 'b532_knowledge_item_department_contract_lote_measure_acos_watchdog_floors_contract', fn (array $p) => $gates->b532KnowledgeItemDepartmentContractLoteMeasureAcosWatchdogFloorsContractObserve($p)],
             ['b533-evidence-vision-memory-recall-department-contract-lote-measure-floors-contract', 'b533_evidence_vision_memory_recall_department_contract_lote_measure_floors_contract', fn (array $p) => $gates->b533EvidenceVisionMemoryRecallDepartmentContractLoteMeasureFloorsContractObserve($p)],
             ['b534-delivery-pack-department-contract-lote-measure-series-docs-floors-contract', 'b534_delivery_pack_department_contract_lote_measure_series_docs_floors_contract', fn (array $p) => $gates->b534DeliveryPackDepartmentContractLoteMeasureSeriesDocsFloorsContractObserve($p)],
+            ['b535-daily-canary-immune-promotion-department-contract-asef-chunk-floors-contract', 'b535_daily_canary_immune_promotion_department_contract_asef_chunk_floors_contract', fn (array $p) => $gates->b535DailyCanaryImmunePromotionDepartmentContractAsefChunkFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

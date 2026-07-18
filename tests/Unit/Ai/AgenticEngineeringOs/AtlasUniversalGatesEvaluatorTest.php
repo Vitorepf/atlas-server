@@ -11093,4 +11093,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b534_delivery_pack_department_contract_lote_measure_series_docs_floor_count']);
     }
 
+    public function test_b535_daily_canary_immune_promotion_department_contract_asef_chunk_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b535DailyCanaryImmunePromotionDepartmentContractAsefChunkFloorsContractObserve([]);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_GOLDEN_RECALL_AT_5, $out['golden_recall_at_5']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_IMPROPER_FLOOR_DISCARDS, $out['improper_floor_discards']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_RECALL_BELOW_CALIBRATED_THRESHOLD, $out['probation_recall_below_calibrated_threshold']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_SUPERVENING_CONTRADICTION_PRESENT, $out['probation_supervening_contradiction_present']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_INPUTS, $out['inputs']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PERSISTENCE, $out['persistence']);
+        $this->assertSame(AsefChunkIndexService::FIELD_CHUNK_HASH, $out['chunk_hash']);
+        $this->assertSame(AsefChunkIndexService::FIELD_EMBEDDING, $out['embedding']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_DEV, $out['dev']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_OPERATOR, $out['operator']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_BLOCKING_QUESTIONS, $out['blocking_questions']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_ASSUMPTIONS, $out['assumptions']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_NEGATIVE_COUNT, $out['negative_count']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_POSITIVE_COUNT, $out['positive_count']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_KIND, $out['kind']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_LINKS_DECISION_OR_BLOCKER, $out['links_decision_or_blocker']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_REASONING, $out['reasoning']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_RETRIEVAL, $out['retrieval']);
+        $this->assertSame(18, $out['b535_daily_canary_immune_promotion_department_contract_asef_chunk_floor_count']);
+    }
+
 }

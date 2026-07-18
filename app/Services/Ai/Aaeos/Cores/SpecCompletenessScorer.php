@@ -91,8 +91,8 @@ final class SpecCompletenessScorer
         'non_goals',
         'requirements',
         'acceptance_criteria',
-        'assumptions',
-        'blocking_questions',
+        self::FIELD_ASSUMPTIONS,
+        self::FIELD_BLOCKING_QUESTIONS,
     ];
 
     /**
@@ -175,7 +175,7 @@ final class SpecCompletenessScorer
      */
     private function evaluateField(string $field, mixed $value): array
     {
-        if ($field === 'blocking_questions' && $value === []) {
+        if ($field === self::FIELD_BLOCKING_QUESTIONS && $value === []) {
             return [true, true, self::REASON_OK];
         }
 
