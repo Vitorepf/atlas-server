@@ -18869,4 +18869,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B691).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b691PromotionProtocolFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.acos.promotion_protocol.v1' => PromotionProtocol::SCHEMA,
+            'atlas.acos.promotion_protocol.report.v1' => PromotionProtocol::REPORT_SCHEMA,
+            'off' => PromotionProtocol::STATE_OFF,
+            'shadow' => PromotionProtocol::STATE_SHADOW,
+            'live' => PromotionProtocol::STATE_LIVE,
+            'rolled_back' => PromotionProtocol::STATE_ROLLED_BACK,
+            'suspended_pending_evidence' => PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE,
+            'legacy_unmanaged' => PromotionProtocol::STATUS_LEGACY_UNMANAGED,
+            'recorded' => PromotionProtocol::STATUS_RECORDED,
+            'ok' => PromotionProtocol::FIELD_OK,
+            'managed' => PromotionProtocol::STATUS_MANAGED,
+            'legacy_unmanaged' => PromotionProtocol::STATUS_LEGACY_UNMANAGED,
+            'blocked' => PromotionProtocol::STATUS_BLOCKED,
+            'ok' => PromotionProtocol::FIELD_OK,
+            'missing' => PromotionProtocol::FIELD_MISSING,
+            'family' => PromotionProtocol::FIELD_FAMILY,
+            'state' => PromotionProtocol::FIELD_STATE,
+            'judge_engine_id' => PromotionProtocol::FIELD_JUDGE_ENGINE_ID,
+            'b691_promotion_protocol_floor_count' => 18,
+        ];
+    }
+
 }

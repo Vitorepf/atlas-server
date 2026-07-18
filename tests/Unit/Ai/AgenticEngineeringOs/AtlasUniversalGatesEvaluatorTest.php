@@ -14949,4 +14949,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b690_outcome_envelope_floor_count']);
     }
 
+    public function test_b691_promotion_protocol_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b691PromotionProtocolFloorsContractObserve([]);
+        $this->assertSame(PromotionProtocol::SCHEMA, $out['atlas.acos.promotion_protocol.v1']);
+        $this->assertSame(PromotionProtocol::REPORT_SCHEMA, $out['atlas.acos.promotion_protocol.report.v1']);
+        $this->assertSame(PromotionProtocol::STATE_OFF, $out['off']);
+        $this->assertSame(PromotionProtocol::STATE_SHADOW, $out['shadow']);
+        $this->assertSame(PromotionProtocol::STATE_LIVE, $out['live']);
+        $this->assertSame(PromotionProtocol::STATE_ROLLED_BACK, $out['rolled_back']);
+        $this->assertSame(PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE, $out['suspended_pending_evidence']);
+        $this->assertSame(PromotionProtocol::STATUS_LEGACY_UNMANAGED, $out['legacy_unmanaged']);
+        $this->assertSame(PromotionProtocol::STATUS_RECORDED, $out['recorded']);
+        $this->assertSame(PromotionProtocol::FIELD_OK, $out['ok']);
+        $this->assertSame(PromotionProtocol::STATUS_MANAGED, $out['managed']);
+        $this->assertSame(PromotionProtocol::STATUS_LEGACY_UNMANAGED, $out['legacy_unmanaged']);
+        $this->assertSame(PromotionProtocol::STATUS_BLOCKED, $out['blocked']);
+        $this->assertSame(PromotionProtocol::FIELD_OK, $out['ok']);
+        $this->assertSame(PromotionProtocol::FIELD_MISSING, $out['missing']);
+        $this->assertSame(PromotionProtocol::FIELD_FAMILY, $out['family']);
+        $this->assertSame(PromotionProtocol::FIELD_STATE, $out['state']);
+        $this->assertSame(PromotionProtocol::FIELD_JUDGE_ENGINE_ID, $out['judge_engine_id']);
+        $this->assertSame(18, $out['b691_promotion_protocol_floor_count']);
+    }
+
 }
