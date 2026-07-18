@@ -14324,4 +14324,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b665_compounding_outcome_floor_count']);
     }
 
+    public function test_b666_ledger_rotation_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b666LedgerRotationFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::INT_32, $out['32']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::INT_30, $out['30']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::MODE_APPEND_FOREVER, $out['append_forever']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::MODE_ROTATE_HYBRID, $out['rotate_hybrid']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::MODE_ROTATE_SIZE, $out['rotate_size']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::MODE_ROTATE_AGE, $out['rotate_age']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAX_SIZE_MB, $out['max_size_mb']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAX_AGE_DAYS, $out['max_age_days']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MODE, $out['mode']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_RATIONALE, $out['rationale']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ACOS_ASI05_LEDGER_CLEANUP_V1, $out['acos.asi05.ledger_cleanup.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ACOS_DEAD_SERIES_WATCHDOG_V1, $out['acos.dead_series_watchdog.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ACOS_ESP00_GROUND_TRUTH_V1, $out['acos.esp00.ground_truth.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ACOS_FLYWHEEL_LOOPS_V1, $out['acos.flywheel.loops.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ACOS_LEARNING_LATENCY_V1, $out['acos.learning_latency.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ACOS_OPERATOR_REVIEW_DEBT_V1, $out['acos.operator_review_debt.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ACOS_VERIFIED_SHARE_V1, $out['acos.verified_share.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ACOS_WINDOWS_ORCHESTRATOR_V1, $out['acos.windows_orchestrator.v1']);
+        $this->assertSame(18, $out['b666_ledger_rotation_floor_count']);
+    }
+
 }

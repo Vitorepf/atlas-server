@@ -18094,4 +18094,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B666).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b666LedgerRotationFloorsContractObserve(array $input = []): array
+    {
+        return [
+            '32' => AcosMaxLedgerRotationRegistry::INT_32,
+            '30' => AcosMaxLedgerRotationRegistry::INT_30,
+            'append_forever' => AcosMaxLedgerRotationRegistry::MODE_APPEND_FOREVER,
+            'rotate_hybrid' => AcosMaxLedgerRotationRegistry::MODE_ROTATE_HYBRID,
+            'rotate_size' => AcosMaxLedgerRotationRegistry::MODE_ROTATE_SIZE,
+            'rotate_age' => AcosMaxLedgerRotationRegistry::MODE_ROTATE_AGE,
+            'max_size_mb' => AcosMaxLedgerRotationRegistry::FIELD_MAX_SIZE_MB,
+            'max_age_days' => AcosMaxLedgerRotationRegistry::FIELD_MAX_AGE_DAYS,
+            'mode' => AcosMaxLedgerRotationRegistry::FIELD_MODE,
+            'rationale' => AcosMaxLedgerRotationRegistry::FIELD_RATIONALE,
+            'acos.asi05.ledger_cleanup.v1' => AcosMaxLedgerRotationRegistry::FIELD_ACOS_ASI05_LEDGER_CLEANUP_V1,
+            'acos.dead_series_watchdog.v1' => AcosMaxLedgerRotationRegistry::FIELD_ACOS_DEAD_SERIES_WATCHDOG_V1,
+            'acos.esp00.ground_truth.v1' => AcosMaxLedgerRotationRegistry::FIELD_ACOS_ESP00_GROUND_TRUTH_V1,
+            'acos.flywheel.loops.v1' => AcosMaxLedgerRotationRegistry::FIELD_ACOS_FLYWHEEL_LOOPS_V1,
+            'acos.learning_latency.v1' => AcosMaxLedgerRotationRegistry::FIELD_ACOS_LEARNING_LATENCY_V1,
+            'acos.operator_review_debt.v1' => AcosMaxLedgerRotationRegistry::FIELD_ACOS_OPERATOR_REVIEW_DEBT_V1,
+            'acos.verified_share.v1' => AcosMaxLedgerRotationRegistry::FIELD_ACOS_VERIFIED_SHARE_V1,
+            'acos.windows_orchestrator.v1' => AcosMaxLedgerRotationRegistry::FIELD_ACOS_WINDOWS_ORCHESTRATOR_V1,
+            'b666_ledger_rotation_floor_count' => 18,
+        ];
+    }
+
 }
