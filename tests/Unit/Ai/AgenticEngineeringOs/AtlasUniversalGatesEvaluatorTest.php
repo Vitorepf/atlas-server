@@ -13847,4 +13847,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b646_architect_agent_floor_count']);
     }
 
+    public function test_b647_phase_advance_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b647PhaseAdvanceFloorsContractObserve([]);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_ID, $out['id']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_OPERATOR_SIGNATURE, $out['operator_signature']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::SCHEMA_VERSION, $out['atlas.aaeos.phase_advance_verdict.v1']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::PHASE_POLICY_GATE, $out['policy_gate']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::PHASE_RECEIPT, $out['receipt']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::POLICY_GATE_TOKEN, $out['policy_decision_allowed_true']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::VERDICT_ADVANCE, $out['advance']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::VERDICT_REPAIR, $out['repair']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::VERDICT_BLOCK, $out['block']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::VERDICT_HALT, $out['halt']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_BLOCKED, $out['blocked']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_PHASE_OUT, $out['phase_out']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_BLOCKERS, $out['blockers']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_MISSING_GATES, $out['missing_gates']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_BLOCKED_GATES, $out['blocked_gates']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_GATES, $out['gates']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_HIGH_BLOCKER_IDS, $out['high_blocker_ids']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_PASSED, $out['passed']);
+        $this->assertSame(18, $out['b647_phase_advance_floor_count']);
+    }
+
 }

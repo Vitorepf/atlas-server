@@ -17505,4 +17505,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B647).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b647PhaseAdvanceFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'id' => PhaseAdvanceVerdictClassifier::FIELD_ID,
+            'operator_signature' => PhaseAdvanceVerdictClassifier::FIELD_OPERATOR_SIGNATURE,
+            'atlas.aaeos.phase_advance_verdict.v1' => PhaseAdvanceVerdictClassifier::SCHEMA_VERSION,
+            'policy_gate' => PhaseAdvanceVerdictClassifier::PHASE_POLICY_GATE,
+            'receipt' => PhaseAdvanceVerdictClassifier::PHASE_RECEIPT,
+            'policy_decision_allowed_true' => PhaseAdvanceVerdictClassifier::POLICY_GATE_TOKEN,
+            'advance' => PhaseAdvanceVerdictClassifier::VERDICT_ADVANCE,
+            'repair' => PhaseAdvanceVerdictClassifier::VERDICT_REPAIR,
+            'block' => PhaseAdvanceVerdictClassifier::VERDICT_BLOCK,
+            'halt' => PhaseAdvanceVerdictClassifier::VERDICT_HALT,
+            'blocked' => PhaseAdvanceVerdictClassifier::FIELD_BLOCKED,
+            'phase_out' => PhaseAdvanceVerdictClassifier::FIELD_PHASE_OUT,
+            'blockers' => PhaseAdvanceVerdictClassifier::FIELD_BLOCKERS,
+            'missing_gates' => PhaseAdvanceVerdictClassifier::FIELD_MISSING_GATES,
+            'blocked_gates' => PhaseAdvanceVerdictClassifier::FIELD_BLOCKED_GATES,
+            'gates' => PhaseAdvanceVerdictClassifier::FIELD_GATES,
+            'high_blocker_ids' => PhaseAdvanceVerdictClassifier::FIELD_HIGH_BLOCKER_IDS,
+            'passed' => PhaseAdvanceVerdictClassifier::FIELD_PASSED,
+            'b647_phase_advance_floor_count' => 18,
+        ];
+    }
+
 }
