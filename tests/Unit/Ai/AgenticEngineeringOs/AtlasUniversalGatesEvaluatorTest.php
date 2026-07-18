@@ -13547,4 +13547,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b634_outcome_causality_floor_count']);
     }
 
+    public function test_b635_memory_recall_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b635MemoryRecallFloorsContractObserve([]);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::SCHEMA_VERSION, $out['atlas.aaeos.memory_recall_ranking.v1']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_ENGINEERING_RUN, $out['engineering_run']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_FEEDBACK, $out['feedback']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_HARNESS_LEARNING, $out['harness_learning']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_MEMORY_TYPE, $out['memory_type']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_PROJECT, $out['project']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_RANK, $out['rank']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_SESSION, $out['session']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_REQUIREMENT, $out['requirement']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_WORKSPACE, $out['workspace']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_VERBATIM, $out['verbatim']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_FAILURE, $out['failure']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_RELEVANCE_SCORE, $out['relevance_score']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_SCOPE, $out['scope']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_SCOPE_TYPE, $out['scope_type']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_SOURCE, $out['source']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_TASK, $out['task']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_TITLE, $out['title']);
+        $this->assertSame(18, $out['b635_memory_recall_floor_count']);
+    }
+
 }

@@ -17133,4 +17133,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B635).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b635MemoryRecallFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.aaeos.memory_recall_ranking.v1' => AtlasMemoryRecallRelevanceScorer::SCHEMA_VERSION,
+            'engineering_run' => AtlasMemoryRecallRelevanceScorer::FIELD_ENGINEERING_RUN,
+            'feedback' => AtlasMemoryRecallRelevanceScorer::FIELD_FEEDBACK,
+            'harness_learning' => AtlasMemoryRecallRelevanceScorer::FIELD_HARNESS_LEARNING,
+            'memory_type' => AtlasMemoryRecallRelevanceScorer::FIELD_MEMORY_TYPE,
+            'project' => AtlasMemoryRecallRelevanceScorer::FIELD_PROJECT,
+            'rank' => AtlasMemoryRecallRelevanceScorer::FIELD_RANK,
+            'session' => AtlasMemoryRecallRelevanceScorer::FIELD_SESSION,
+            'requirement' => AtlasMemoryRecallRelevanceScorer::FIELD_REQUIREMENT,
+            'workspace' => AtlasMemoryRecallRelevanceScorer::FIELD_WORKSPACE,
+            'verbatim' => AtlasMemoryRecallRelevanceScorer::FIELD_VERBATIM,
+            'failure' => AtlasMemoryRecallRelevanceScorer::FIELD_FAILURE,
+            'relevance_score' => AtlasMemoryRecallRelevanceScorer::FIELD_RELEVANCE_SCORE,
+            'scope' => AtlasMemoryRecallRelevanceScorer::FIELD_SCOPE,
+            'scope_type' => AtlasMemoryRecallRelevanceScorer::FIELD_SCOPE_TYPE,
+            'source' => AtlasMemoryRecallRelevanceScorer::FIELD_SOURCE,
+            'task' => AtlasMemoryRecallRelevanceScorer::FIELD_TASK,
+            'title' => AtlasMemoryRecallRelevanceScorer::FIELD_TITLE,
+            'b635_memory_recall_floor_count' => 18,
+        ];
+    }
+
 }
