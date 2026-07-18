@@ -119,6 +119,7 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_PROCEDURAL_SKILL_PROMOTER = 'procedural_skill_promoter';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_THRESHOLDS_PROCEDURAL_CASE_COUNT_FLOOR = 'thresholds.procedural_case_count_floor';
+    public const FIELD_MULTJ_04_PROCEDURAL_TO_SKILL_V1_PROPOSAL_FOR__S_HELD_UNDER_ASI_02__CASE_COUNT__D__ = 'MULTJ-04 procedural-to-skill.v1 proposal for %s held under ASI-02 (case_count=%d).';
     public const INT_40 = 40;
 
 
@@ -278,7 +279,7 @@ final class AcosMaxProceduralSkillPromoterService
                 self::FIELD_MEMORY_TYPE => self::SKILL_SCHEMA_VERSION,
                 self::FIELD_SCOPE => self::FIELD_GLOBAL,
                 self::FIELD_CLAIM => sprintf(
-                    'MULTJ-04 procedural-to-skill.v1 proposal for %s held under ASI-02 (case_count=%d).',
+                    self::FIELD_MULTJ_04_PROCEDURAL_TO_SKILL_V1_PROPOSAL_FOR__S_HELD_UNDER_ASI_02__CASE_COUNT__D__,
                     $taskCategory,
                     (int) (AiValueNormalizer::finiteFloatOrNull($candidate[self::FIELD_CASE_COUNT] ?? null) ?? 0),
                 ),

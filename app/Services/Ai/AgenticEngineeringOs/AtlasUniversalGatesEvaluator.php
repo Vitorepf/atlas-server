@@ -15971,4 +15971,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B597).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b597LedgerRotationCognitionScoreDepartmentContractProceduralSkillFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'MAXD-04 PPR shadow dual-read receipts before any query promotion' => AcosMaxLedgerRotationRegistry::FIELD_MAXD_04_PPR_SHADOW_DUAL_READ_RECEIPTS_BEFORE_ANY_QUERY_PROMOTION,
+            'MAXH-01 computed reader' => AcosMaxLedgerRotationRegistry::FIELD_MAXH_01_COMPUTED_READER,
+            'MAXI-02 capture audit; DB table pruning' => AcosMaxLedgerRotationRegistry::FIELD_MAXI_02_CAPTURE_AUDIT__DB_TABLE_PRUNING,
+            'MAXI-03 verdict ledger table' => AcosMaxLedgerRotationRegistry::FIELD_MAXI_03_VERDICT_LEDGER_TABLE,
+            'Memory Core (entries+relations)' => AtlasCognitionScoreCardService::FIELD_MEMORY_CORE__ENTRIES_RELATIONS_,
+            'Memory Recall (hybrid)' => AtlasCognitionScoreCardService::FIELD_MEMORY_RECALL__HYBRID_,
+            'Self-Construction Promotion Plan' => AtlasCognitionScoreCardService::FIELD_SELF_CONSTRUCTION_PROMOTION_PLAN,
+            'Self-Construction Scaffold Staging Executor' => AtlasCognitionScoreCardService::FIELD_SELF_CONSTRUCTION_SCAFFOLD_STAGING_EXECUTOR,
+            'Turns intent into product spec + acceptance criteria.' => DepartmentContractRuntime::FIELD_TURNS_INTENT_INTO_PRODUCT_SPEC___ACCEPTANCE_CRITERIA_,
+            'executa fast-path para intents R1-R3 (1-5 arquivos, baixo-médio risco) com governance leve' => DepartmentContractRuntime::FIELD_EXECUTA_FAST_PATH_PARA_INTENTS_R1_R3__1_5_ARQUIVOS__BAIXO_M_DIO_RISCO__COM_GOVERNANCE_LEVE,
+            'produz state-of-the-art source-backed para suportar Architect e Self-Construction' => DepartmentContractRuntime::FIELD_PRODUZ_STATE_OF_THE_ART_SOURCE_BACKED_PARA_SUPORTAR_ARCHITECT_E_SELF_CONSTRUCTION,
+            'department "%s" does not emit handoff to "%s" (allowed: %s)' => DepartmentContractRuntime::FIELD_DEPARTMENT___S__DOES_NOT_EMIT_HANDOFF_TO___S___ALLOWED___S_,
+            'MULTJ-04 procedural-to-skill.v1 proposal for %s held under ASI-02 (case_count=%d).' => AcosMaxProceduralSkillPromoterService::FIELD_MULTJ_04_PROCEDURAL_TO_SKILL_V1_PROPOSAL_FOR__S_HELD_UNDER_ASI_02__CASE_COUNT__D__,
+            'atlas_ledger_events engineering.execution.coverage.recorded mode=enforce' => AcosMaxVerifiedShareService::FIELD_ATLAS_LEDGER_EVENTS_ENGINEERING_EXECUTION_COVERAGE_RECORDED_MODE_ENFORCE,
+            'MULTX-02 future source' => AcosProgramCockpitService::FIELD_MULTX_02_FUTURE_SOURCE,
+            'Improve recurring Atlas operator friction around ' => DogfoodingFrictionLeadMiner::FIELD_IMPROVE_RECURRING_ATLAS_OPERATOR_FRICTION_AROUND_,
+            'Delivery-pack composition must not be empty.' => DeliveryPackCompletenessScorer::FIELD_DELIVERY_PACK_COMPOSITION_MUST_NOT_BE_EMPTY_,
+            'today 00:00:00 UTC' => AtlasAcosLongHorizonGateService::FIELD_TODAY_00_00_00_UTC,
+            'b597_ledger_rotation_cognition_score_department_contract_procedural_skill_floor_count' => 18,
+        ];
+    }
+
 }

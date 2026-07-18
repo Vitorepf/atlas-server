@@ -192,6 +192,7 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_APP_ATLAS_EVIDENCE_ACOS_DELTA_SERIES_V2_JSONL = 'app/atlas/evidence/acos-delta-series.v2.jsonl';
     public const FIELD_DELTA_SERIES_RESOLVED_EVIDENCE_SOURCE_MISSING = 'delta_series_resolved_evidence_source_missing';
     public const FIELD_SERIES_V2_RESOLVED_EVIDENCE_SOURCE_MISSING = 'series_v2_resolved_evidence_source_missing';
+    public const FIELD_TODAY_00_00_00_UTC = 'today 00:00:00 UTC';
     public const INT_2 = 2;
     public const FLOAT_9_5 = 9.5;
     public const FLOAT_0_0 = 0.0;
@@ -826,7 +827,7 @@ final class AtlasAcosLongHorizonGateService
         try {
             return new DateTimeImmutable(Carbon::now(self::FIELD_UTC)->format(self::FIELD_Y_M_D).' 00:00:00 UTC');
         } catch (Throwable) {
-            return new DateTimeImmutable('today 00:00:00 UTC');
+            return new DateTimeImmutable(self::FIELD_TODAY_00_00_00_UTC);
         }
     }
 

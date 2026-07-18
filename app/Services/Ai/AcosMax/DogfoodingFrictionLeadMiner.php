@@ -31,6 +31,7 @@ final class DogfoodingFrictionLeadMiner
     public const FIELD_KIND = 'kind';
     public const FIELD_DOGFOODING = 'dogfooding';
     public const FIELD_UNKNOWN_TARGET = 'unknown_target';
+    public const FIELD_IMPROVE_RECURRING_ATLAS_OPERATOR_FRICTION_AROUND_ = 'Improve recurring Atlas operator friction around ';
 
     /**
      * @param  list<array<string,mixed>>  $events
@@ -59,7 +60,7 @@ final class DogfoodingFrictionLeadMiner
                 self::FIELD_SIGNATURE => $signature,
                 self::FIELD_OCCURRENCES => count($group),
                 self::FIELD_TARGET => $target,
-                self::FIELD_OBJECTIVE => 'Improve recurring Atlas operator friction around '.$target,
+                self::FIELD_OBJECTIVE => self::FIELD_IMPROVE_RECURRING_ATLAS_OPERATOR_FRICTION_AROUND_.$target,
                 self::FIELD_EVIDENCE_REFS => array_values(array_map(
                     static fn (array $event): string => 'friction:'.sha1(json_encode([
                         $event[self::FIELD_SIGNATURE] ?? '',

@@ -345,6 +345,10 @@ class AtlasCognitionScoreCardService
     public const FIELD_CROSS_DOMAIN_MESH = 'Cross-Domain Mesh';
     public const FIELD_EMBODIMENT_INTEGRATION__P7_CLOSURE_ = 'Embodiment Integration (P7 closure)';
     public const FIELD_LONG_HORIZON_INTELLIGENCE_LAYER = 'Long-Horizon Intelligence Layer';
+    public const FIELD_MEMORY_CORE__ENTRIES_RELATIONS_ = 'Memory Core (entries+relations)';
+    public const FIELD_MEMORY_RECALL__HYBRID_ = 'Memory Recall (hybrid)';
+    public const FIELD_SELF_CONSTRUCTION_PROMOTION_PLAN = 'Self-Construction Promotion Plan';
+    public const FIELD_SELF_CONSTRUCTION_SCAFFOLD_STAGING_EXECUTOR = 'Self-Construction Scaffold Staging Executor';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -405,9 +409,9 @@ class AtlasCognitionScoreCardService
         [self::FIELD_G8,     self::FIELD_COMPOUNDING_EFFECT,          self::FIELD_COGNITIVE_IMMUNE, AtlasCompoundingRuntimeService::class],
 
         // Memory Core (3)
-        [self::FIELD_MEM_CORE,   'Memory Core (entries+relations)', self::FIELD_MEMORY_CORE, AtlasMemoryConflictResolutionService::class],
+        [self::FIELD_MEM_CORE,   self::FIELD_MEMORY_CORE__ENTRIES_RELATIONS_, self::FIELD_MEMORY_CORE, AtlasMemoryConflictResolutionService::class],
         [self::FIELD_MEM_DELTA,  self::FIELD_MEMORY_DELTA_PROPOSER,           self::FIELD_MEMORY_CORE, AiMemoryDeltaProposer::class],
-        [self::FIELD_MEM_RECALL, 'Memory Recall (hybrid)',          self::FIELD_MEMORY_CORE, AtlasHybridRetrievalInfrastructureService::class],
+        [self::FIELD_MEM_RECALL, self::FIELD_MEMORY_RECALL__HYBRID_,          self::FIELD_MEMORY_CORE, AtlasHybridRetrievalInfrastructureService::class],
 
         // AUCRI 18 blocks
         [self::FIELD_ASEF,  self::FIELD_SEMANTIC_EMBEDDING_FOUNDATION,     self::FIELD_AUCRI, AtlasSemanticEmbeddingFoundationService::class],
@@ -454,8 +458,8 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ADLF,    self::FIELD_ATLAS_DECIDE_LIVE_OUTCOME_FEEDBACK,  self::FIELD_ATLAS_DECIDE,      AtlasDecideLiveOutcomeFeedbackService::class],
         [self::FIELD_AACM,    self::FIELD_ANTIFRAGILITY_COMPOSITION_METRIC,    self::FIELD_COMPOUNDING,       AtlasAntifragilityCompositionMetricService::class],
         [self::FIELD_ACMF_SE, self::FIELD_COGNITIVE_MEMORY_FABRIC_SCHEMA_EVOLUTION, self::FIELD_AUCRI,         AtlasCognitiveMemoryFabricSchemaEvolutionService::class],
-        [self::FIELD_ASCB_EX, 'Self-Construction Scaffold Staging Executor', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionScaffoldStagingExecutorService::class],
-        [self::FIELD_ASCB_PP, 'Self-Construction Promotion Plan',          self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionPromotionPlanService::class],
+        [self::FIELD_ASCB_EX, self::FIELD_SELF_CONSTRUCTION_SCAFFOLD_STAGING_EXECUTOR, self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionScaffoldStagingExecutorService::class],
+        [self::FIELD_ASCB_PP, self::FIELD_SELF_CONSTRUCTION_PROMOTION_PLAN,          self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionPromotionPlanService::class],
         [self::FIELD_ACTG,    self::FIELD_CARTOGRAPHY_TRUTH_GUARD,                   self::FIELD_CARTOGRAPHY,       CartographyTruthGuardService::class],
         [self::FIELD_AGPF,    self::FIELD_ATLAS_GATEWAY_PREFLIGHT__TEOS_I4_,         self::FIELD_ATLAS_DECIDE,      AtlasGatewayPreflightService::class],
         [self::FIELD_ACVS,    self::FIELD_CONSTITUTIONAL_VAULT_SERVICE,              self::FIELD_GOVERNANCE,        AtlasConstitutionalVaultService::class],

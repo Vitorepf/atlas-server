@@ -110,6 +110,7 @@ final class AcosMaxVerifiedShareService
     public const FIELD_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL = 'atlas/atlas_decide/live_outcomes.jsonl';
     public const FIELD_STORAGE_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL = 'storage/atlas/atlas_decide/live_outcomes.jsonl';
     public const FIELD_ATLAS_ACOS_VERIFIED_SHARE___JSON = 'atlas:acos:verified-share --json';
+    public const FIELD_ATLAS_LEDGER_EVENTS_ENGINEERING_EXECUTION_COVERAGE_RECORDED_MODE_ENFORCE = 'atlas_ledger_events engineering.execution.coverage.recorded mode=enforce';
 
 
     /** @return array<string,mixed> */
@@ -202,7 +203,7 @@ final class AcosMaxVerifiedShareService
             self::FIELD_EXECUTORS => $executors,
             self::FIELD_SOURCES => [
                 self::FIELD_OUTCOME_DENOMINATOR => self::FIELD_STORAGE_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL,
-                self::FIELD_VERIFICATION_NUMERATOR => 'atlas_ledger_events engineering.execution.coverage.recorded mode=enforce',
+                self::FIELD_VERIFICATION_NUMERATOR => self::FIELD_ATLAS_LEDGER_EVENTS_ENGINEERING_EXECUTION_COVERAGE_RECORDED_MODE_ENFORCE,
             ],
         ];
     }

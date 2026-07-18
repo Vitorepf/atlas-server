@@ -74,6 +74,7 @@ final class AcosProgramCockpitService
     public const FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK___REGRET___JSON = 'atlas:atlas-decide:live-feedback --regret --json';
     public const FIELD_ATLAS_PROMOTIONS___JSON = 'atlas:promotions --json';
     public const FIELD_ATLAS_WINDOWS___JSON = 'atlas:windows --json';
+    public const FIELD_MULTX_02_FUTURE_SOURCE = 'MULTX-02 future source';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -151,7 +152,7 @@ final class AcosProgramCockpitService
             self::FIELD_STATUS => self::STATUS_OK,
             self::FIELD_SOURCE => [
                 self::FIELD_LOOPS => self::FIELD_ATLAS_FLYWHEEL_LOOPS___JSON,
-                self::FIELD_FUNNEL => 'MULTX-02 future source',
+                self::FIELD_FUNNEL => self::FIELD_MULTX_02_FUTURE_SOURCE,
             ],
             self::FIELD_PAYLOAD => [
                 self::FIELD_LOOPS => $this->commandSection(self::FIELD_ATLAS_FLYWHEEL_LOOPS___JSON, self::FIELD_ATLAS_FLYWHEEL_LOOPS, [self::FIELD___JSON => true]),

@@ -473,6 +473,10 @@ final class DepartmentContractRuntime
     public const FIELD_RELEASE__ROLLBACK_DECISION__DEPLOYMENT_EVIDENCE_ = 'Release, rollback decision, deployment evidence.';
     public const FIELD_SECURITY_REVIEW__OWASP__SECRETS__DEPENDENCY_CVES_ = 'Security review; OWASP, secrets, dependency CVEs.';
     public const FIELD_TEST_SELECTION__REGRESSION__VERIFICATION_ = 'Test selection, regression, verification.';
+    public const FIELD_TURNS_INTENT_INTO_PRODUCT_SPEC___ACCEPTANCE_CRITERIA_ = 'Turns intent into product spec + acceptance criteria.';
+    public const FIELD_EXECUTA_FAST_PATH_PARA_INTENTS_R1_R3__1_5_ARQUIVOS__BAIXO_M_DIO_RISCO__COM_GOVERNANCE_LEVE = 'executa fast-path para intents R1-R3 (1-5 arquivos, baixo-médio risco) com governance leve';
+    public const FIELD_PRODUZ_STATE_OF_THE_ART_SOURCE_BACKED_PARA_SUPORTAR_ARCHITECT_E_SELF_CONSTRUCTION = 'produz state-of-the-art source-backed para suportar Architect e Self-Construction';
+    public const FIELD_DEPARTMENT___S__DOES_NOT_EMIT_HANDOFF_TO___S___ALLOWED___S_ = 'department "%s" does not emit handoff to "%s" (allowed: %s)';
     public const INT_11 = 11;
 
     /**
@@ -531,7 +535,7 @@ final class DepartmentContractRuntime
         ],
         self::DEPARTMENT_PRODUCT => [
             self::FIELD_HUMAN_NAME => self::FIELD_PRODUCT_DEPARTMENT,
-            self::FIELD_DESCRIPTION => 'Turns intent into product spec + acceptance criteria.',
+            self::FIELD_DESCRIPTION => self::FIELD_TURNS_INTENT_INTO_PRODUCT_SPEC___ACCEPTANCE_CRITERIA_,
             self::FIELD_SCOPE => 'traduz intenção humana ambígua em engineering_goal disambiguado com critérios de aceitação mensuráveis',
             self::FIELD_TRIGGERS => [self::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_PRODUCT],
             self::FIELD_INPUTS => [
@@ -580,7 +584,7 @@ final class DepartmentContractRuntime
         self::DEPARTMENT_RESEARCH => [
             self::FIELD_HUMAN_NAME => self::FIELD_RESEARCH_DEPARTMENT,
             self::FIELD_DESCRIPTION => self::FIELD_INVESTIGATES_UNKNOWNS_BEFORE_COMMIT__NEVER_MODIFIES_RUNTIME_,
-            self::FIELD_SCOPE => 'produz state-of-the-art source-backed para suportar Architect e Self-Construction',
+            self::FIELD_SCOPE => self::FIELD_PRODUZ_STATE_OF_THE_ART_SOURCE_BACKED_PARA_SUPORTAR_ARCHITECT_E_SELF_CONSTRUCTION,
             self::FIELD_TRIGGERS => [self::FIELD_SELF_CONSTRUCTION_GAP_DETECTED_TRUE, self::FIELD_ARCHITECT_RESEARCH_NEEDED_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_RESEARCH_QUESTION, self::FIELD_SCHEMA => self::SCHEMA_RESEARCH_QUESTION],
@@ -603,7 +607,7 @@ final class DepartmentContractRuntime
         self::DEPARTMENT_DEV => [
             self::FIELD_HUMAN_NAME => self::FIELD_DEV_DEPARTMENT,
             self::FIELD_DESCRIPTION => self::FIELD_ATLAS_DEV_FAST_LANE__SMALL_MEDIUM_CHANGES_WITH_PLAN___GATES_,
-            self::FIELD_SCOPE => 'executa fast-path para intents R1-R3 (1-5 arquivos, baixo-médio risco) com governance leve',
+            self::FIELD_SCOPE => self::FIELD_EXECUTA_FAST_PATH_PARA_INTENTS_R1_R3__1_5_ARQUIVOS__BAIXO_M_DIO_RISCO__COM_GOVERNANCE_LEVE,
             self::FIELD_TRIGGERS => [self::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DEV, 'scope<=R3'],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
@@ -847,7 +851,7 @@ final class DepartmentContractRuntime
                 self::FIELD_FROM => $from,
                 self::FIELD_TO => $to,
                 self::FIELD_ACCEPTED => false,
-                self::FIELD_REASON => sprintf('department "%s" does not emit handoff to "%s" (allowed: %s)',
+                self::FIELD_REASON => sprintf(self::FIELD_DEPARTMENT___S__DOES_NOT_EMIT_HANDOFF_TO___S___ALLOWED___S_,
                     $from, $to, implode(',', $allowedDownstream) ?: self::FIELD_NONE),
             ];
         }

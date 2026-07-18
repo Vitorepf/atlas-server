@@ -12612,4 +12612,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b596_ledger_rotation_cognition_score_department_contract_acos_evolution_floor_count']);
     }
 
+    public function test_b597_ledger_rotation_cognition_score_department_contract_procedural_skill_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b597LedgerRotationCognitionScoreDepartmentContractProceduralSkillFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAXD_04_PPR_SHADOW_DUAL_READ_RECEIPTS_BEFORE_ANY_QUERY_PROMOTION, $out['MAXD-04 PPR shadow dual-read receipts before any query promotion']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAXH_01_COMPUTED_READER, $out['MAXH-01 computed reader']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAXI_02_CAPTURE_AUDIT__DB_TABLE_PRUNING, $out['MAXI-02 capture audit; DB table pruning']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAXI_03_VERDICT_LEDGER_TABLE, $out['MAXI-03 verdict ledger table']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_MEMORY_CORE__ENTRIES_RELATIONS_, $out['Memory Core (entries+relations)']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_MEMORY_RECALL__HYBRID_, $out['Memory Recall (hybrid)']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SELF_CONSTRUCTION_PROMOTION_PLAN, $out['Self-Construction Promotion Plan']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SELF_CONSTRUCTION_SCAFFOLD_STAGING_EXECUTOR, $out['Self-Construction Scaffold Staging Executor']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TURNS_INTENT_INTO_PRODUCT_SPEC___ACCEPTANCE_CRITERIA_, $out['Turns intent into product spec + acceptance criteria.']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EXECUTA_FAST_PATH_PARA_INTENTS_R1_R3__1_5_ARQUIVOS__BAIXO_M_DIO_RISCO__COM_GOVERNANCE_LEVE, $out['executa fast-path para intents R1-R3 (1-5 arquivos, baixo-médio risco) com governance leve']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PRODUZ_STATE_OF_THE_ART_SOURCE_BACKED_PARA_SUPORTAR_ARCHITECT_E_SELF_CONSTRUCTION, $out['produz state-of-the-art source-backed para suportar Architect e Self-Construction']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DEPARTMENT___S__DOES_NOT_EMIT_HANDOFF_TO___S___ALLOWED___S_, $out['department "%s" does not emit handoff to "%s" (allowed: %s)']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_MULTJ_04_PROCEDURAL_TO_SKILL_V1_PROPOSAL_FOR__S_HELD_UNDER_ASI_02__CASE_COUNT__D__, $out['MULTJ-04 procedural-to-skill.v1 proposal for %s held under ASI-02 (case_count=%d).']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_ATLAS_LEDGER_EVENTS_ENGINEERING_EXECUTION_COVERAGE_RECORDED_MODE_ENFORCE, $out['atlas_ledger_events engineering.execution.coverage.recorded mode=enforce']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_MULTX_02_FUTURE_SOURCE, $out['MULTX-02 future source']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_IMPROVE_RECURRING_ATLAS_OPERATOR_FRICTION_AROUND_, $out['Improve recurring Atlas operator friction around ']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_DELIVERY_PACK_COMPOSITION_MUST_NOT_BE_EMPTY_, $out['Delivery-pack composition must not be empty.']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_TODAY_00_00_00_UTC, $out['today 00:00:00 UTC']);
+        $this->assertSame(18, $out['b597_ledger_rotation_cognition_score_department_contract_procedural_skill_floor_count']);
+    }
+
 }

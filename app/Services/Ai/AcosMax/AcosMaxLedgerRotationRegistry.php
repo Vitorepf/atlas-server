@@ -103,6 +103,10 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_MAXA_04_SHADOW_DUAL_READ_RECEIPTS_BEFORE_ANY_MODEL_PROMOTION = 'MAXA-04 shadow dual-read receipts before any model promotion';
     public const FIELD_MAXA_06_FASE_1_KB_COVERAGE_READER__WATCHDOG_SNAPSHOT_CADENCE_TIED_TO_KNOWLEDGE_SYNC_RUNS = 'MAXA-06 fase 1 KB coverage reader; watchdog snapshot cadence tied to knowledge sync runs';
     public const FIELD_MAXA_06_FASE_2_CODE_SYMBOL_EMBEDDING_COVERAGE_READER = 'MAXA-06 fase 2 code-symbol embedding coverage reader';
+    public const FIELD_MAXD_04_PPR_SHADOW_DUAL_READ_RECEIPTS_BEFORE_ANY_QUERY_PROMOTION = 'MAXD-04 PPR shadow dual-read receipts before any query promotion';
+    public const FIELD_MAXH_01_COMPUTED_READER = 'MAXH-01 computed reader';
+    public const FIELD_MAXI_02_CAPTURE_AUDIT__DB_TABLE_PRUNING = 'MAXI-02 capture audit; DB table pruning';
+    public const FIELD_MAXI_03_VERDICT_LEDGER_TABLE = 'MAXI-03 verdict ledger table';
     public const INT_8 = 8;
     public const INT_64 = 64;
     public const INT_45 = 45;
@@ -191,19 +195,19 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_45,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MAXH-01 computed reader',
+                self::FIELD_RATIONALE => self::FIELD_MAXH_01_COMPUTED_READER,
             ],
             self::FIELD_ATLAS_CAPTURE_COGNITIVE_IMMUNE_AUDIT_V2 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_128,
                 self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MAXI-02 capture audit; DB table pruning',
+                self::FIELD_RATIONALE => self::FIELD_MAXI_02_CAPTURE_AUDIT__DB_TABLE_PRUNING,
             ],
             self::FIELD_ATLAS_IMMUNE_CALIBRATION_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_128,
                 self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MAXI-03 verdict ledger table',
+                self::FIELD_RATIONALE => self::FIELD_MAXI_03_VERDICT_LEDGER_TABLE,
             ],
             self::FIELD_ACOS_DEAD_SERIES_WATCHDOG_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
@@ -425,7 +429,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MAXD-04 PPR shadow dual-read receipts before any query promotion',
+                self::FIELD_RATIONALE => self::FIELD_MAXD_04_PPR_SHADOW_DUAL_READ_RECEIPTS_BEFORE_ANY_QUERY_PROMOTION,
             ],
             self::FIELD_ATLAS_ACOS_REC06_META_LOOP_BREAKERS_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_8,

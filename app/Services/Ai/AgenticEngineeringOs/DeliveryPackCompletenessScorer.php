@@ -42,6 +42,7 @@ final class DeliveryPackCompletenessScorer
     public const FIELD_HASH_SIGNED = 'hash_signed';
     public const FIELD_SCHEMA = 'schema';
     public const FIELD_NO_TEST_REASON = 'no_test_reason';
+    public const FIELD_DELIVERY_PACK_COMPOSITION_MUST_NOT_BE_EMPTY_ = 'Delivery-pack composition must not be empty.';
     public const FLOAT_1_0 = 1.0;
 
     /** @var list<string> */
@@ -195,7 +196,7 @@ final class DeliveryPackCompletenessScorer
     private function guard(array $composition): void
     {
         if ($composition === []) {
-            throw new InvalidArgumentException('Delivery-pack composition must not be empty.');
+            throw new InvalidArgumentException(self::FIELD_DELIVERY_PACK_COMPOSITION_MUST_NOT_BE_EMPTY_);
         }
 
         foreach (self::REQUIRED_KEYS as $key) {
