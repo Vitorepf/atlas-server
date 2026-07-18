@@ -43,6 +43,7 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_STATUS = 'status';
     public const FIELD_NOW = 'now';
     public const FIELD_SUBSTRATE_RESTORE_DRILL_MISSING = 'substrate_restore_drill_missing';
+    public const FIELD_SUBSTRATE_RESTORE_DRILL_STALE = 'substrate_restore_drill_stale';
 
 
     public function id(): string
@@ -82,7 +83,7 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
 
         if ($ageDays > $maxAgeDays) {
             return AtlasWatchdogCheckResult::alert($evidence + [self::FIELD_REASON => self::REASON_SUCCESSFUL_DRILL_STALE], [
-                self::FIELD_CODE => 'substrate_restore_drill_stale',
+                self::FIELD_CODE => self::FIELD_SUBSTRATE_RESTORE_DRILL_STALE,
                 self::FIELD_MESSAGE => 'Last successful SUB-01 restore drill is older than the allowed window.',
             ]);
         }

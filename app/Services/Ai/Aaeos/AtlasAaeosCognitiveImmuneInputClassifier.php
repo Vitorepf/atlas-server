@@ -90,6 +90,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_THANKS = 'thanks';
     public const FIELD_THESIS = 'thesis';
     public const FIELD_VALEU = 'valeu';
+    public const FIELD_BELEZA = 'beleza';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -215,7 +216,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const CONVERSATION_MARKERS = [
         'obrigado',
         self::FIELD_VALEU,
-        'beleza',
+        self::FIELD_BELEZA,
         'tudo bem',
         'bom dia',
         'boa tarde',

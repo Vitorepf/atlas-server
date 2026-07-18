@@ -68,6 +68,7 @@ class AtlasAaeosImplementationEvidenceResolver
     public const FIELD_SYMBOL_TYPE = 'symbol_type';
     public const FIELD_CLI_COMMAND = 'cli_command';
     public const FIELD_MIGRATION_TABLE = 'migration_table';
+    public const FIELD_SIGNATURE = 'signature';
 
     /**
      * The active Code Intelligence index, loaded ONCE per request and matched in PHP. Stored
@@ -235,7 +236,7 @@ class AtlasAaeosImplementationEvidenceResolver
         $rows = AtlasEngineeringCodeSymbol::query()
             ->toBase()
             ->where(self::FIELD_STATUS, self::STATUS_ACTIVE)
-            ->select(['symbol_name', self::FIELD_FILE_PATH, 'signature', 'symbol_type'])
+            ->select(['symbol_name', self::FIELD_FILE_PATH, self::FIELD_SIGNATURE, 'symbol_type'])
             ->distinct()
             ->cursor();
 

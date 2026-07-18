@@ -67,6 +67,7 @@ final class OutcomeEnvelope
     public const FIELD_OUTCOME_ENVELOPE_SCHEMA_INVALID = 'outcome_envelope_schema_invalid';
     public const FIELD_OUTCOME_ENVELOPE_STATUS_INVALID = 'outcome_envelope_status_invalid';
     public const FIELD_OUTCOME_ENVELOPE_VERIFIED_BASIS_INVALID = 'outcome_envelope_verified_basis_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_VERIFIED_INVALID = 'outcome_envelope_verified_invalid';
 
     /**
      * Map divergent native status labels onto the shared envelope statuses.
@@ -191,7 +192,7 @@ final class OutcomeEnvelope
         }
 
         if (! is_bool($data[self::FIELD_VERIFIED] ?? null)) {
-            throw new InvalidArgumentException('outcome_envelope_verified_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_VERIFIED_INVALID);
         }
         if (! is_bool($data[self::FIELD_VERIFIED_SOURCE_PRESENT] ?? null)) {
             throw new InvalidArgumentException('outcome_envelope_verified_source_present_invalid');

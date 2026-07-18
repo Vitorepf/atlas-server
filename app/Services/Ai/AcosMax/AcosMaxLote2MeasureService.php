@@ -262,6 +262,7 @@ final class AcosMaxLote2MeasureService
     public const FIELD_ATLAS_MISSION_DELIVERIES = 'atlas_mission_deliveries';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_ATLAS_LOOP_ORIGINATION_OUTCOMES = 'atlas_loop_origination_outcomes';
+    public const FIELD_WITHOUT = 'without';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -1046,7 +1047,7 @@ final class AcosMaxLote2MeasureService
         $arm = AiValueNormalizer::lowerTrimmedString($arm);
 
         return match ($arm) {
-            'control', 'without', self::FIELD_WITHOUT_LESSON => 'control',
+            'control', self::FIELD_WITHOUT, self::FIELD_WITHOUT_LESSON => 'control',
             'treatment', 'with', self::FIELD_WITH_LESSON => 'treatment',
             default => '',
         };

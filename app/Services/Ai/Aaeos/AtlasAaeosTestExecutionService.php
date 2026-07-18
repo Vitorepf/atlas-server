@@ -72,6 +72,7 @@ class AtlasAaeosTestExecutionService
     public const FIELD_PHPUNIT_BINARY_MISSING = 'phpunit_binary_missing';
     public const FIELD_PROCESS_UNAVAILABLE = 'process_unavailable';
     public const FIELD_REVIEW = 'review';
+    public const FIELD_DELIVERY = 'delivery';
 
     public function __construct(
         private readonly float $timeout = 180.0,
@@ -255,7 +256,7 @@ class AtlasAaeosTestExecutionService
         // A red run is a delivery-stage veto: resolve where it must propagate via the
         // canonical department transition graph, same as any other cross-department veto.
         if (! $run[self::FIELD_PASSED]) {
-            $payload[self::FIELD_VETO_PROPAGATION] = $this->vetoResolver->resolve(self::FIELD_REVIEW, 'delivery');
+            $payload[self::FIELD_VETO_PROPAGATION] = $this->vetoResolver->resolve(self::FIELD_REVIEW, self::FIELD_DELIVERY);
         }
 
         // PIP-03 — ambiguous refs never ran PHPUnit; persisting them would pollute

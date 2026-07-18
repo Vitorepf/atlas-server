@@ -11909,4 +11909,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B464).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function cognitiveFunctionSubstrateRestoreOutcomeEnvelopeAaeosDepartmentFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'sintetize' => AtlasCognitiveFunctionDecomposerService::FIELD_SINTETIZE,
+            'svg' => AtlasCognitiveFunctionDecomposerService::FIELD_SVG,
+            'tamper' => AtlasCognitiveFunctionDecomposerService::FIELD_TAMPER,
+            'test' => AtlasCognitiveFunctionDecomposerService::FIELD_TEST,
+            'transforme' => AtlasCognitiveFunctionDecomposerService::FIELD_TRANSFORME,
+            'typescript' => AtlasCognitiveFunctionDecomposerService::FIELD_TYPESCRIPT,
+            'valide' => AtlasCognitiveFunctionDecomposerService::FIELD_VALIDE,
+            'verify' => AtlasCognitiveFunctionDecomposerService::FIELD_VERIFY,
+            'visual' => AtlasCognitiveFunctionDecomposerService::FIELD_VISUAL,
+            'visualize' => AtlasCognitiveFunctionDecomposerService::FIELD_VISUALIZE,
+            'substrate_restore_drill_stale' => SubstrateRestoreDrillWatchdogCheck::FIELD_SUBSTRATE_RESTORE_DRILL_STALE,
+            'outcome_envelope_verified_invalid' => OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_VERIFIED_INVALID,
+            'beleza' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BELEZA,
+            'triggers' => AtlasAaeosDepartmentRegistryService::FIELD_TRIGGERS,
+            'signature' => AtlasAaeosImplementationEvidenceResolver::FIELD_SIGNATURE,
+            'delivery' => AtlasAaeosTestExecutionService::FIELD_DELIVERY,
+            'technical_context' => AtlasMemoryRecallRelevanceScorer::FIELD_TECHNICAL_CONTEXT,
+            'without' => AcosMaxLote2MeasureService::FIELD_WITHOUT,
+            'cognitive_function_substrate_restore_outcome_envelope_aaeos_department_floor_count' => 18,
+        ];
+    }
+
 }

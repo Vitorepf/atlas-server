@@ -166,6 +166,16 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_SHOW = 'show';
     public const FIELD_STORAGE_PATH = 'storage_path';
     public const FIELD_SUMMARIZE = 'summarize';
+    public const FIELD_SINTETIZE = 'sintetize';
+    public const FIELD_SVG = 'svg';
+    public const FIELD_TAMPER = 'tamper';
+    public const FIELD_TEST = 'test';
+    public const FIELD_TRANSFORME = 'transforme';
+    public const FIELD_TYPESCRIPT = 'typescript';
+    public const FIELD_VALIDE = 'valide';
+    public const FIELD_VERIFY = 'verify';
+    public const FIELD_VISUAL = 'visual';
+    public const FIELD_VISUALIZE = 'visualize';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -195,27 +205,27 @@ final class AtlasCognitiveFunctionDecomposerService
         ],
         self::FIELD_GENERATION => [
             'escreva', self::FIELD_REDIJA, self::FIELD_CRIE, self::FIELD_COMPONHA, self::FIELD_RASCUNHE, self::FIELD_GERE,
-            'sintetize', self::FIELD_RESUMA, 'transforme', self::FIELD_REESCREVA, self::FIELD_CONTINUE,
+            self::FIELD_SINTETIZE, self::FIELD_RESUMA, self::FIELD_TRANSFORME, self::FIELD_REESCREVA, self::FIELD_CONTINUE,
             self::FIELD_NARRE, self::FIELD_DESCREVA, self::FIELD_COMPOSE, 'write', 'draft', self::FIELD_SUMMARIZE,
         ],
         self::FIELD_CODE => [
             'codigo', self::FIELD_CODIFIQUE, self::FIELD_IMPLEMENTE, self::FIELD_REFATORE, 'debug', 'teste',
-            self::FIELD_COMPILE, self::FIELD_EXECUTE, self::FIELD_RODE, self::FIELD_RODAR, self::FIELD_PHP, 'typescript', 'react',
+            self::FIELD_COMPILE, self::FIELD_EXECUTE, self::FIELD_RODE, self::FIELD_RODAR, self::FIELD_PHP, self::FIELD_TYPESCRIPT, 'react',
             self::FIELD_COMPONENTE, self::FIELD_SERVICO, self::FIELD_CLASSE, self::FIELD_FUNCAO, self::FIELD_CONTROLLER, self::FIELD_CLI,
             self::FIELD_ARTISAN, self::FIELD_MIGRATION, self::FIELD_COMPOSER, self::FIELD_NPM, self::FIELD_PHPUNIT, self::FIELD_PEST,
             self::FIELD_PATCH, 'pull request', 'pr ', ' pr,', self::FIELD_MERGE, 'git ',
-            'code', 'function', 'class', 'service', self::FIELD_REFACTOR, 'test', self::FIELD_BUILD,
+            'code', 'function', 'class', 'service', self::FIELD_REFACTOR, self::FIELD_TEST, self::FIELD_BUILD,
         ],
         self::FIELD_VISION => [
-            'imagem', self::FIELD_FOTO, self::FIELD_SCREENSHOT, 'visualize', self::FIELD_DESIGN, self::FIELD_LAYOUT,
-            self::FIELD_MOCKUP, self::FIELD_FIGMA, self::FIELD_PNG, self::FIELD_JPG, 'svg', 'tela', 'ui ', 'ux ',
-            'cor ', self::FIELD_PALETA, 'visual', self::FIELD_SCREENSHOT, self::FIELD_IMAGE, self::FIELD_RENDER,
+            'imagem', self::FIELD_FOTO, self::FIELD_SCREENSHOT, self::FIELD_VISUALIZE, self::FIELD_DESIGN, self::FIELD_LAYOUT,
+            self::FIELD_MOCKUP, self::FIELD_FIGMA, self::FIELD_PNG, self::FIELD_JPG, self::FIELD_SVG, 'tela', 'ui ', 'ux ',
+            'cor ', self::FIELD_PALETA, self::FIELD_VISUAL, self::FIELD_SCREENSHOT, self::FIELD_IMAGE, self::FIELD_RENDER,
         ],
         self::FIELD_AUDIT => [
-            'audite', self::FIELD_AUDITA, 'audit', 'verifique', 'valide', 'cheque',
+            'audite', self::FIELD_AUDITA, 'audit', 'verifique', self::FIELD_VALIDE, 'cheque',
             self::FIELD_INSPECIONE, self::FIELD_GOVERNANCE, self::FIELD_INVARIANT, self::FIELD_KERNEL, self::FIELD_CARTOGRAFIA,
             self::FIELD_DOC, self::FIELD_DOCUMENTO, self::FIELD_COMPLIANCE, self::FIELD_EVIDENCE, self::FIELD_EVIDENCIA,
-            self::FIELD_INTEGRITY, 'tamper', self::FIELD_SHA256, 'hash ', 'verify',
+            self::FIELD_INTEGRITY, self::FIELD_TAMPER, self::FIELD_SHA256, 'hash ', self::FIELD_VERIFY,
         ],
     ];
 

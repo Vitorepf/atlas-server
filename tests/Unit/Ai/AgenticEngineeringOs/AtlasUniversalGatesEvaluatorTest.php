@@ -9343,4 +9343,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cognitive_function_autonomy_ladder_compaction_recovery_daily_canary_floor_count']);
     }
 
+    public function test_cognitive_function_substrate_restore_outcome_envelope_aaeos_department_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitiveFunctionSubstrateRestoreOutcomeEnvelopeAaeosDepartmentFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_SINTETIZE, $out['sintetize']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_SVG, $out['svg']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_TAMPER, $out['tamper']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_TEST, $out['test']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_TRANSFORME, $out['transforme']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_TYPESCRIPT, $out['typescript']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_VALIDE, $out['valide']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_VERIFY, $out['verify']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_VISUAL, $out['visual']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_VISUALIZE, $out['visualize']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_SUBSTRATE_RESTORE_DRILL_STALE, $out['substrate_restore_drill_stale']);
+        $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_VERIFIED_INVALID, $out['outcome_envelope_verified_invalid']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BELEZA, $out['beleza']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_TRIGGERS, $out['triggers']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_SIGNATURE, $out['signature']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_DELIVERY, $out['delivery']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_TECHNICAL_CONTEXT, $out['technical_context']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_WITHOUT, $out['without']);
+        $this->assertSame(18, $out['cognitive_function_substrate_restore_outcome_envelope_aaeos_department_floor_count']);
+    }
+
 }
