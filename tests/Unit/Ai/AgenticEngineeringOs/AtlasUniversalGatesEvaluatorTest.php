@@ -16502,4 +16502,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b752_compaction_recovery_disk_free_floor_count']);
     }
 
+    public function test_b753_disk_free_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b753DiskFreeFloorsContractObserve([]);
+        $this->assertSame(DiskFreeWatchdogCheck::SCHEMA_VERSION, $out['atlas.acos.disk_free_watchdog.v1']);
+        $this->assertSame(DiskFreeWatchdogCheck::CHECK_ID, $out['elev-24.disk_free']);
+        $this->assertSame(DiskFreeWatchdogCheck::DEFAULT_FLOOR_GB, $out['5']);
+        $this->assertSame(DiskFreeWatchdogCheck::FLOOR_GB_CONFIG_KEY, $out['atlas_resource_budget.disk_free_floor_gb']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_PATH, $out['path']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_FREE_GB, $out['free_gb']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_FLOOR_GB, $out['floor_gb']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_FREE_BYTES, $out['free_bytes']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_TOTAL_BYTES, $out['total_bytes']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_CODE, $out['code']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_TOTAL_GB, $out['total_gb']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_BACKGROUND_SHOULD_PAUSE, $out['background_should_pause']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_ATLAS, $out['atlas']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_DISK_BELOW_FLOOR, $out['disk_below_floor']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_UTC, $out['UTC']);
+        $this->assertSame(18, $out['b753_disk_free_floor_count']);
+    }
+
 }

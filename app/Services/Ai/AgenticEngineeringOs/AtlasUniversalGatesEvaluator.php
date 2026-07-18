@@ -20791,4 +20791,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B753).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b753DiskFreeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.acos.disk_free_watchdog.v1' => DiskFreeWatchdogCheck::SCHEMA_VERSION,
+            'elev-24.disk_free' => DiskFreeWatchdogCheck::CHECK_ID,
+            '5' => DiskFreeWatchdogCheck::DEFAULT_FLOOR_GB,
+            'atlas_resource_budget.disk_free_floor_gb' => DiskFreeWatchdogCheck::FLOOR_GB_CONFIG_KEY,
+            'path' => DiskFreeWatchdogCheck::FIELD_PATH,
+            'free_gb' => DiskFreeWatchdogCheck::FIELD_FREE_GB,
+            'floor_gb' => DiskFreeWatchdogCheck::FIELD_FLOOR_GB,
+            'free_bytes' => DiskFreeWatchdogCheck::FIELD_FREE_BYTES,
+            'total_bytes' => DiskFreeWatchdogCheck::FIELD_TOTAL_BYTES,
+            'schema_version' => DiskFreeWatchdogCheck::FIELD_SCHEMA_VERSION,
+            'code' => DiskFreeWatchdogCheck::FIELD_CODE,
+            'total_gb' => DiskFreeWatchdogCheck::FIELD_TOTAL_GB,
+            'generated_at' => DiskFreeWatchdogCheck::FIELD_GENERATED_AT,
+            'background_should_pause' => DiskFreeWatchdogCheck::FIELD_BACKGROUND_SHOULD_PAUSE,
+            'message' => DiskFreeWatchdogCheck::FIELD_MESSAGE,
+            'atlas' => DiskFreeWatchdogCheck::FIELD_ATLAS,
+            'disk_below_floor' => DiskFreeWatchdogCheck::FIELD_DISK_BELOW_FLOOR,
+            'UTC' => DiskFreeWatchdogCheck::FIELD_UTC,
+            'b753_disk_free_floor_count' => 18,
+        ];
+    }
+
 }
