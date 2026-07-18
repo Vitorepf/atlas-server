@@ -92,6 +92,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const FIELD_NO_ITEMS_EMBEDDED_YET = 'no_items_embedded_yet';
     public const FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS_MISSING = 'atlas_engineering_knowledge_items_missing';
     public const FIELD_COLUMNS_MISSING = 'columns_missing';
+    public const FIELD_CONTENT_HASH = 'content_hash';
+    public const FIELD_NO_ACTIVE_KNOWLEDGE_ITEMS = 'no_active_knowledge_items';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -144,7 +146,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
         $active = (clone $baseQuery)->count();
 
         if ($active === 0) {
-            return array_merge($this->emptyReport(self::STATUS_INSUFFICIENT_SIGNAL, 'no_active_knowledge_items', $freeze), [
+            return array_merge($this->emptyReport(self::STATUS_INSUFFICIENT_SIGNAL, self::FIELD_NO_ACTIVE_KNOWLEDGE_ITEMS, $freeze), [
                 self::FIELD_AGGREGATE => $this->emptyAggregate(),
             ]);
         }
@@ -152,13 +154,13 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
         $covered = (clone $baseQuery)
             ->whereNotNull(self::FIELD_EMBEDDING_MODEL)
             ->whereNotNull(self::FIELD_EMBEDDED_CONTENT_HASH)
-            ->whereColumn('embedded_content_hash', 'content_hash')
+            ->whereColumn('embedded_content_hash', self::FIELD_CONTENT_HASH)
             ->count();
 
         $stale = (clone $baseQuery)
             ->whereNotNull(self::FIELD_EMBEDDING_MODEL)
             ->whereNotNull(self::FIELD_EMBEDDED_CONTENT_HASH)
-            ->whereColumn('embedded_content_hash', '!=', 'content_hash')
+            ->whereColumn('embedded_content_hash', '!=', self::FIELD_CONTENT_HASH)
             ->count();
 
         $missing = (clone $baseQuery)

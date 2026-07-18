@@ -11599,4 +11599,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B454).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function aaeosTestCognitiveFunctionDepartmentContractImplementationMemoryFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'process_unavailable' => AtlasAaeosTestExecutionService::FIELD_PROCESS_UNAVAILABLE,
+            'review' => AtlasAaeosTestExecutionService::FIELD_REVIEW,
+            'controller' => AtlasCognitiveFunctionDecomposerService::FIELD_CONTROLLER,
+            'implemente' => AtlasCognitiveFunctionDecomposerService::FIELD_IMPLEMENTE,
+            'propose_migration_plan' => DepartmentContractRuntime::FIELD_PROPOSE_MIGRATION_PLAN,
+            'provider_topology_green' => DepartmentContractRuntime::FIELD_PROVIDER_TOPOLOGY_GREEN,
+            'scope' => AtlasAaeosDepartmentRegistryService::FIELD_SCOPE,
+            'security' => AtlasAaeosDepartmentRegistryService::FIELD_SECURITY,
+            'cli_command' => AtlasAaeosImplementationEvidenceResolver::FIELD_CLI_COMMAND,
+            'migration_table' => AtlasAaeosImplementationEvidenceResolver::FIELD_MIGRATION_TABLE,
+            'score' => AtlasMemoryRecallRelevanceScorer::FIELD_SCORE,
+            'semantic_note' => AtlasMemoryRecallRelevanceScorer::FIELD_SEMANTIC_NOTE,
+            'content_hash' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_CONTENT_HASH,
+            'no_active_knowledge_items' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_NO_ACTIVE_KNOWLEDGE_ITEMS,
+            'promote' => AtlasAcosEvolutionScoreService::FIELD_PROMOTE,
+            'sha256' => AtlasAcosEvolutionScoreService::FIELD_SHA256,
+            'app' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_APP,
+            'now' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_NOW,
+            'aaeos_test_cognitive_function_department_contract_implementation_memory_floor_count' => 18,
+        ];
+    }
+
 }

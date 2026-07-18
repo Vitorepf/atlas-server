@@ -136,6 +136,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_AI_COMPOUNDING_MEMORIES = 'ai_compounding_memories';
     public const FIELD_HOLD = 'hold';
     public const FIELD_MISSION = 'mission';
+    public const FIELD_PROMOTE = 'promote';
+    public const FIELD_SHA256 = 'sha256';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -170,7 +172,7 @@ class AtlasAcosEvolutionScoreService
                 self::FIELD_AUTONOMY_GOVERNANCE => 'Carta de Autonomia (Regra 4): a assinatura do operador foi revogada; a parcela antes presa a ela agora mede o substituto REAL — reversibilidade viva (git revert + atlas:brain:replay) + Diário de Evolução íntegro. Degrade-safe: sem esse substrato, pontua 0, nunca fabricado.',
             ],
         ];
-        $envelope[self::FIELD_SCORE_HASH] = 'sha256:'.hash('sha256', (string) json_encode([
+        $envelope[self::FIELD_SCORE_HASH] = 'sha256:'.hash(self::FIELD_SHA256, (string) json_encode([
             $overall, $execucao[self::FIELD_SCORE], $inteligencia[self::FIELD_SCORE], $autonomia[self::FIELD_SCORE],
         ], JSON_THROW_ON_ERROR));
 
@@ -250,7 +252,7 @@ class AtlasAcosEvolutionScoreService
         ];
 
         $held = $this->tableCount(self::FIELD_AI_LEARNING_CANDIDATES, fn ($q) => $q->where(self::FIELD_DECISION, self::FIELD_HOLD));
-        $promoted = $this->tableCount(self::FIELD_AI_LEARNING_CANDIDATES, fn ($q) => $q->where(self::FIELD_DECISION, 'promote'));
+        $promoted = $this->tableCount(self::FIELD_AI_LEARNING_CANDIDATES, fn ($q) => $q->where(self::FIELD_DECISION, self::FIELD_PROMOTE));
         $oldLicoesPoints = round(($held > 0 ? 1.25 : 0.0) + ($promoted > 0 ? 1.25 : 0.0), 2);
         $servedCompounding = $this->activeCompoundingMemoryServedByRecall();
         $newLicoesPoints = $servedCompounding ? 2.5 : 0.0;

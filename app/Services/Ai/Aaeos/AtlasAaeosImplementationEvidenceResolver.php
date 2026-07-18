@@ -66,6 +66,8 @@ class AtlasAaeosImplementationEvidenceResolver
     public const FIELD_FILE_PATH = 'file_path';
     public const FIELD_MEMORY_LIMIT = 'memory_limit';
     public const FIELD_SYMBOL_TYPE = 'symbol_type';
+    public const FIELD_CLI_COMMAND = 'cli_command';
+    public const FIELD_MIGRATION_TABLE = 'migration_table';
 
     /**
      * The active Code Intelligence index, loaded ONCE per request and matched in PHP. Stored
@@ -287,10 +289,10 @@ class AtlasAaeosImplementationEvidenceResolver
         $matched = $ref === '' ? null : match ($kind) {
             self::FIELD_SYMBOL => $this->matchSymbol($ref),
             self::FIELD_ROUTE => $this->matchTyped('route', $ref),
-            self::FIELD_COMMAND => $this->matchTyped('cli_command', $ref),
+            self::FIELD_COMMAND => $this->matchTyped(self::FIELD_CLI_COMMAND, $ref),
             self::FIELD_TEST => $this->matchTest($ref),
             self::FIELD_RECEIPT => $this->matchReceipt($ref),
-            self::FIELD_MIGRATION => $this->matchTyped('migration_table', $ref),
+            self::FIELD_MIGRATION => $this->matchTyped(self::FIELD_MIGRATION_TABLE, $ref),
             default => null,
         };
 

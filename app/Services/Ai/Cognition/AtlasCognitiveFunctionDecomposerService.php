@@ -113,6 +113,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_DESIGN = 'design';
     public const FIELD_FUNCAO = 'funcao';
     public const FIELD_IMAGE = 'image';
+    public const FIELD_CONTROLLER = 'controller';
+    public const FIELD_IMPLEMENTE = 'implemente';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -146,9 +148,9 @@ final class AtlasCognitiveFunctionDecomposerService
             'narre', 'descreva', self::FIELD_COMPOSE, 'write', 'draft', 'summarize',
         ],
         self::FIELD_CODE => [
-            'codigo', self::FIELD_CODIFIQUE, 'implemente', 'refatore', 'debug', 'teste',
+            'codigo', self::FIELD_CODIFIQUE, self::FIELD_IMPLEMENTE, 'refatore', 'debug', 'teste',
             self::FIELD_COMPILE, self::FIELD_EXECUTE, 'rode', 'rodar', 'php', 'typescript', 'react',
-            self::FIELD_COMPONENTE, 'servico', self::FIELD_CLASSE, self::FIELD_FUNCAO, 'controller', self::FIELD_CLI,
+            self::FIELD_COMPONENTE, 'servico', self::FIELD_CLASSE, self::FIELD_FUNCAO, self::FIELD_CONTROLLER, self::FIELD_CLI,
             self::FIELD_ARTISAN, 'migration', 'composer', 'npm', 'phpunit', 'pest',
             'patch', 'pull request', 'pr ', ' pr,', 'merge', 'git ',
             'code', 'function', 'class', 'service', 'refactor', 'test', self::FIELD_BUILD,

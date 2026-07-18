@@ -92,6 +92,8 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_PHP = 'php';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_BASE_PATH = 'base_path';
+    public const FIELD_APP = 'app';
+    public const FIELD_NOW = 'now';
 
     private ?string $proposalsLogOverride = null;
 
@@ -158,7 +160,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         ]);
 
         $proposalId = 'acmf_'.substr(hash(self::FIELD_SHA256, $currentSchema.'|'.$nextSchema.'|'.$trigger), 0, 12);
-        $generatedAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+        $generatedAt = (new DateTimeImmutable(self::FIELD_NOW, new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
 
         $proposal = [
             self::FIELD_SCHEMA_VERSION => self::PROPOSAL_SCHEMA,
@@ -207,7 +209,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
      */
     public function detectExtensionPressure(string $schema, ?string $rootDir = null): array
     {
-        $rootDir ??= defined(self::FIELD_BASE_PATH) && function_exists(self::FIELD_BASE_PATH) ? base_path('app') : __DIR__.'/../../../..';
+        $rootDir ??= defined(self::FIELD_BASE_PATH) && function_exists(self::FIELD_BASE_PATH) ? base_path(self::FIELD_APP) : __DIR__.'/../../../..';
         $rootDir = rtrim((string) realpath($rootDir), '/\\').DIRECTORY_SEPARATOR;
 
         $threshold = self::EXTENSION_PRESSURE_THRESHOLD;

@@ -9093,4 +9093,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b453_capture_hmac_cognitive_function_department_contract_immune_promotion_floor_count']);
     }
 
+    public function test_aaeos_test_cognitive_function_department_contract_implementation_memory_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->aaeosTestCognitiveFunctionDepartmentContractImplementationMemoryFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_PROCESS_UNAVAILABLE, $out['process_unavailable']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_REVIEW, $out['review']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CONTROLLER, $out['controller']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_IMPLEMENTE, $out['implemente']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PROPOSE_MIGRATION_PLAN, $out['propose_migration_plan']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PROVIDER_TOPOLOGY_GREEN, $out['provider_topology_green']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_SCOPE, $out['scope']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_SECURITY, $out['security']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_CLI_COMMAND, $out['cli_command']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MIGRATION_TABLE, $out['migration_table']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_SCORE, $out['score']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_SEMANTIC_NOTE, $out['semantic_note']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_CONTENT_HASH, $out['content_hash']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_NO_ACTIVE_KNOWLEDGE_ITEMS, $out['no_active_knowledge_items']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_PROMOTE, $out['promote']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_APP, $out['app']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_NOW, $out['now']);
+        $this->assertSame(18, $out['aaeos_test_cognitive_function_department_contract_implementation_memory_floor_count']);
+    }
+
 }

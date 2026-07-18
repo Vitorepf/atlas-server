@@ -275,6 +275,8 @@ final class DepartmentContractRuntime
     public const FIELD_PROMOTION_GATE_PASSED = 'promotion_gate_passed';
     public const FIELD_NOISE_IMMUNITY_CHECK_OK = 'noise_immunity_check_ok';
     public const FIELD_PROPOSE_ACCEPTANCE_CRITERIA = 'propose_acceptance_criteria';
+    public const FIELD_PROPOSE_MIGRATION_PLAN = 'propose_migration_plan';
+    public const FIELD_PROVIDER_TOPOLOGY_GREEN = 'provider_topology_green';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -367,7 +369,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_MIGRATION_PLAN, self::FIELD_SCHEMA => self::SCHEMA_MIGRATION_PLAN],
             ],
             self::FIELD_GATES => ['adr_published', self::FIELD_BOUNDARY_VALIDATED, 'spec_acceptance_criteria_complete', self::FIELD_BREAKING_CHANGE_DOCUMENTED, 'rollback_per_slice'],
-            self::FIELD_ALLOWED_ACTIONS => ['draft_spec', 'propose_migration_plan', 'request_security_review', 'veto_execution'],
+            self::FIELD_ALLOWED_ACTIONS => ['draft_spec', self::FIELD_PROPOSE_MIGRATION_PLAN, 'request_security_review', 'veto_execution'],
             self::FIELD_FORBIDDEN_ACTIONS => ['write_code', self::FIELD_EXECUTE_MIGRATION, 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['spec_pack_hash', 'architect_decision_receipt'],
@@ -532,7 +534,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_OBRA_PACK, self::FIELD_SCHEMA => self::SCHEMA_OBRA_PACK],
                 [self::FIELD_NAME => self::FIELD_EXECUTION_LOG, self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
             ],
-            self::FIELD_GATES => ['obra_intake_validated', 'provider_topology_green', 'all-15-universal-gates', self::FIELD_LONG_HORIZON_STATE_PERSISTED, 'reservation_ledger_consistent', 'merge_review_promotion_passed'],
+            self::FIELD_GATES => ['obra_intake_validated', self::FIELD_PROVIDER_TOPOLOGY_GREEN, 'all-15-universal-gates', self::FIELD_LONG_HORIZON_STATE_PERSISTED, 'reservation_ledger_consistent', 'merge_review_promotion_passed'],
             self::FIELD_ALLOWED_ACTIONS => ['spawn_agents', self::FIELD_CLAIM_RESERVATIONS, 'request_provider_topology', 'merge_after_review'],
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_review', self::FIELD_MODIFY_SECURITY_POLICY, 'ship_without_cert'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
