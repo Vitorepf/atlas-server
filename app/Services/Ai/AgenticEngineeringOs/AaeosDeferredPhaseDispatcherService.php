@@ -49,6 +49,8 @@ final class AaeosDeferredPhaseDispatcherService
     public const FIELD_DISPATCH_ID = 'dispatch_id';
     public const FIELD_PHASE_OUT = 'phase_out';
     public const FIELD_ENVELOPE = 'envelope';
+    public const FIELD_PHASE_ADVANCE = 'phase_advance';
+    public const FIELD_OUTCOME_CAUSALITY = 'outcome_causality';
 
     public function __construct(
         private readonly CacheRepository $cache,
@@ -78,10 +80,10 @@ final class AaeosDeferredPhaseDispatcherService
                 self::FIELD_INTENT_ID => AiValueNormalizer::trimmedStringOrNull($env[self::FIELD_INTENT_ID] ?? null) ?? '',
                 self::FIELD_ENVELOPE => $env,
                 // Observe-only: same advance classifier as HTTP path / cockpit.
-                'phase_advance' => $this->phaseAdvance->classify($env),
+                self::FIELD_PHASE_ADVANCE => $this->phaseAdvance->classify($env),
                 // Observe-only causality when the deferred envelope already
                 // carries open blockers / blocked gates (never blocks enqueue).
-                'outcome_causality' => $this->observeCausality($env),
+                self::FIELD_OUTCOME_CAUSALITY => $this->observeCausality($env),
                 // Observe-only severity reduction (same gate as cockpit).
                 self::FIELD_BLOCKER_SIGNAL => $this->observeBlockerSignal($env),
                 'enqueued_at' => gmdate('c'),

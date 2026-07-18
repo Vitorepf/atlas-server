@@ -214,6 +214,8 @@ final class AtlasAcosWatchdogHealthService
     public const ADML_COST_OUTCOME_ENABLED_CONFIG_KEY = 'atlas.patamar4.adml_cost_outcome.enabled';
 
     public const DEFAULT_ADML_COST_OUTCOME_ENABLED = false;
+    public const FIELD_CURRENT_DELTA_FROM_LATEST = 'current_delta_from_latest';
+    public const FIELD_LATEST_DELTA_FROM_PREVIOUS = 'latest_delta_from_previous';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -239,8 +241,8 @@ final class AtlasAcosWatchdogHealthService
             $this->checkRow('score_regression', ! $scoreRegressed, [
                 self::FIELD_TREND_STATUS => $trendStatus,
                 self::FIELD_TOLERANCE_POINTS => self::MEMORY_SCORE_REGRESSION_TOLERANCE,
-                'current_delta_from_latest' => $currentDelta,
-                'latest_delta_from_previous' => $latestDelta,
+                self::FIELD_CURRENT_DELTA_FROM_LATEST => $currentDelta,
+                self::FIELD_LATEST_DELTA_FROM_PREVIOUS => $latestDelta,
             ], 'memory_quality_score_regressed'),
             $this->checkRow('freshness_full', $freshness >= 100, [
                 'freshness_component' => $freshness,

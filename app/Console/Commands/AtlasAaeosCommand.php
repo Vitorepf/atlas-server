@@ -368,6 +368,7 @@ final class AtlasAaeosCommand extends Command
         {--integrity-promo-share-thesis-atlas-promo-flywheel-golden-ambition-floors-contract= : JSON file (any object) to observe integrity/promo/share/thesis/atlas/promo/flywheel/golden/ambition residual floors}
         {--ledger-disk-latency-teto-ragx-envelope-fidelity-segment-causality-floors-contract= : JSON file (any object) to observe ledger/disk/latency/teto/ragx/envelope/fidelity/segment/causality residual floors}
         {--autonomy-watchdog-scorecard-maxa-corpus-esp09-budget-recall-veto-floors-contract= : JSON file (any object) to observe autonomy/watchdog/scorecard/maxa/corpus/esp09/budget/recall/veto residual floors}
+        {--health-immune-calib-deferred-cooccur-thesis-lexical-repair-docs-floors-contract= : JSON file (any object) to observe health/immune/calib/deferred/cooccur/thesis/lexical/repair/docs residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -892,6 +893,7 @@ final class AtlasAaeosCommand extends Command
             ['integrity-promo-share-thesis-atlas-promo-flywheel-golden-ambition-floors-contract', 'integrity_promo_share_thesis_atlas_promo_flywheel_golden_ambition_floors_contract', fn (array $p) => $gates->integrityPromoShareThesisAtlasPromoFlywheelGoldenAmbitionFloorsContractObserve($p)],
             ['ledger-disk-latency-teto-ragx-envelope-fidelity-segment-causality-floors-contract', 'ledger_disk_latency_teto_ragx_envelope_fidelity_segment_causality_floors_contract', fn (array $p) => $gates->ledgerDiskLatencyTetoRagxEnvelopeFidelitySegmentCausalityFloorsContractObserve($p)],
             ['autonomy-watchdog-scorecard-maxa-corpus-esp09-budget-recall-veto-floors-contract', 'autonomy_watchdog_scorecard_maxa_corpus_esp09_budget_recall_veto_floors_contract', fn (array $p) => $gates->autonomyWatchdogScorecardMaxaCorpusEsp09BudgetRecallVetoFloorsContractObserve($p)],
+            ['health-immune-calib-deferred-cooccur-thesis-lexical-repair-docs-floors-contract', 'health_immune_calib_deferred_cooccur_thesis_lexical_repair_docs_floors_contract', fn (array $p) => $gates->healthImmuneCalibDeferredCooccurThesisLexicalRepairDocsFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -32,7 +32,7 @@ class AtlasDocsAuthorityGraphService
     public const CONFIDENCE = [
         self::FIELD_GOVERNS_FRONTMATTER => 100,
         self::FIELD_DOC_ID => 95,
-        'capability_frontmatter' => 80,
+        self::FIELD_CAPABILITY_FRONTMATTER => 80,
         self::FIELD_KEYWORD_FALLBACK => 40,
     ];
 
@@ -52,6 +52,8 @@ class AtlasDocsAuthorityGraphService
     public const FIELD_OWNER_IMPLEMENTATION_STATE = 'owner_implementation_state';
     public const FIELD_GOVERNS_FRONTMATTER = 'governs_frontmatter';
     public const FIELD_DOC_ID = 'doc_id';
+    public const FIELD_CAPABILITY_FRONTMATTER = 'capability_frontmatter';
+    public const FIELD_ROWS = 'rows';
 
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
@@ -83,7 +85,7 @@ class AtlasDocsAuthorityGraphService
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'rows' => count($rows),
+            self::FIELD_ROWS => count($rows),
             'docs' => count($docs),
         ];
     }

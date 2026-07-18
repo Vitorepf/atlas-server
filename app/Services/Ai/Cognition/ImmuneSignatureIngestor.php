@@ -23,6 +23,8 @@ final class ImmuneSignatureIngestor
     public const FIELD_DECISION_ID = 'decision_id';
     public const FIELD_CANDIDATE_HASH = 'candidate_hash';
     public const FIELD_IMMUNE_CLASSIFICATION = 'immune_classification';
+    public const FIELD_MEMORY_TYPE = 'memory_type';
+    public const FIELD_REFUTATION_MEMORY = 'refutation_memory';
 
     private readonly ImmuneSignatureStore $store;
 
@@ -106,7 +108,7 @@ final class ImmuneSignatureIngestor
             [
                 self::FIELD_MEMORY_ID => AiValueNormalizer::trimmedScalarStringOrNull($entry->id ?? null) ?? '',
                 self::FIELD_DECISION_ID => $decisionId,
-                'memory_type' => $memoryType,
+                self::FIELD_MEMORY_TYPE => $memoryType,
             ],
         );
     }
@@ -140,7 +142,7 @@ final class ImmuneSignatureIngestor
     private function hostileClassFromMemoryType(string $memoryType): ?string
     {
         return match ($memoryType) {
-            'anti_memory', 'refutation_memory' => 'untrusted_content',
+            'anti_memory', self::FIELD_REFUTATION_MEMORY => 'untrusted_content',
             default => null,
         };
     }

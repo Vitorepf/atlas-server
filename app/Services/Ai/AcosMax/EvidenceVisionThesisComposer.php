@@ -101,6 +101,8 @@ final class EvidenceVisionThesisComposer
     public const FIELD_HIGH = 'high';
     public const FIELD_SERIES_WINDOWS = 'series_windows';
     public const FIELD_LEADS = 'leads';
+    public const FIELD_REMAINING_ROWS_MAX = 'remaining_rows_max';
+    public const FIELD_OUTCOMES = 'outcomes';
 
     /**
      * @param  array<string,mixed>  $context
@@ -144,7 +146,7 @@ final class EvidenceVisionThesisComposer
             }
         }
 
-        foreach (self::outcomeStallTheses(AiValueNormalizer::arrayOrEmpty($context['outcomes'] ?? null), $bornAt, $ttlDays) as $thesis) {
+        foreach (self::outcomeStallTheses(AiValueNormalizer::arrayOrEmpty($context[self::FIELD_OUTCOMES] ?? null), $bornAt, $ttlDays) as $thesis) {
             if (count($theses) >= self::MAX_THESES) {
                 break;
             }
@@ -431,7 +433,7 @@ final class EvidenceVisionThesisComposer
                 self::FIELD_EVIDENCE => $refs,
                 self::FIELD_DEATH_CRITERION => [
                     self::FIELD_KIND => self::KIND_LEAD_CLUSTER_CLEARED,
-                    'remaining_rows_max' => 0,
+                    self::FIELD_REMAINING_ROWS_MAX => 0,
                     self::FIELD_DESCRIBED_AT_BIRTH => 'archive when open evidence rows for '.$target.' drop below 2',
                 ],
                 self::FIELD_ALIGNMENT_KEYS => [$target, dirname($target)],

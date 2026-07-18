@@ -6299,6 +6299,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['autonomy_watchdog_scorecard_maxa_corpus_esp09_budget_recall_veto_floor_count']);
     }
 
+    public function test_health_immune_calib_deferred_cooccur_thesis_lexical_repair_docs_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->healthImmuneCalibDeferredCooccurThesisLexicalRepairDocsFloorsContractObserve([]);
+
+        $this->assertSame('current_delta_from_latest', $payload['watchdog_health_field_current_delta_from_latest']);
+        $this->assertSame('latest_delta_from_previous', $payload['watchdog_health_field_latest_delta_from_previous']);
+        $this->assertSame('memory_type', $payload['immune_ingest_field_memory_type']);
+        $this->assertSame('refutation_memory', $payload['immune_ingest_field_refutation_memory']);
+        $this->assertSame('control', $payload['immune_calib_field_control']);
+        $this->assertSame('formula', $payload['immune_calib_field_formula']);
+        $this->assertSame('phase_advance', $payload['deferred_phase_field_phase_advance']);
+        $this->assertSame('outcome_causality', $payload['deferred_phase_field_outcome_causality']);
+        $this->assertSame('generated_at', $payload['cooccur_field_generated_at']);
+        $this->assertSame('provider_calls_made', $payload['cooccur_field_provider_calls_made']);
+        $this->assertSame('remaining_rows_max', $payload['thesis_composer_field_remaining_rows_max']);
+        $this->assertSame('outcomes', $payload['thesis_composer_field_outcomes']);
+        $this->assertSame('memoria', $payload['lexical_field_memoria']);
+        $this->assertSame('verificacao', $payload['lexical_field_verificacao']);
+        $this->assertSame('escalated', $payload['repair_loop_field_escalated']);
+        $this->assertSame('decision', $payload['repair_loop_field_decision']);
+        $this->assertSame('capability_frontmatter', $payload['docs_auth_field_capability_frontmatter']);
+        $this->assertSame('rows', $payload['docs_auth_field_rows']);
+        $this->assertSame(18, $payload['health_immune_calib_deferred_cooccur_thesis_lexical_repair_docs_floor_count']);
+    }
+
 
 
 

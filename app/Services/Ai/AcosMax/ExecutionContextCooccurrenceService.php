@@ -45,6 +45,8 @@ final class ExecutionContextCooccurrenceService
     public const REASON_MEASURED_SHARE_ZERO = 'measured_share_zero';
 
     public const REASON_RUN_ARTIFACT_UNAVAILABLE = 'run_artifact_unavailable';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
 
 
     /**
@@ -56,13 +58,13 @@ final class ExecutionContextCooccurrenceService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
             self::FIELD_CONTEXT_CAUSAL_BINDING => 'correlational_cooccurrence',
             self::FIELD_ENFORCEMENT_ALLOWED => false,
             self::FIELD_REQUIRES_COUNTERFACTUAL_BEFORE_ENFORCEMENT => GoldenCounterfactualReplayService::MEASURE_ID,
             self::FIELD_CLAIM_POLICY => [
                 self::FIELD_READ_ONLY => true,
-                'provider_calls_made' => false,
+                self::FIELD_PROVIDER_CALLS_MADE => false,
                 'memory_written' => false,
                 'feeds_enforcement' => false,
                 'intersection_alone_is_not_causal' => true,

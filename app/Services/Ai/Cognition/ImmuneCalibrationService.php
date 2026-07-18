@@ -74,6 +74,8 @@ final class ImmuneCalibrationService
     public const FIELD_CLAIM_SOURCE_PRESENT = 'claim_source_present';
     public const FIELD_DENOMINATOR_MIN_SAMPLES = 'denominator_min_samples';
     public const FIELD_KNOWN_MISS_DENOMINATOR_MUST_BE_NON_ZERO = 'known_miss_denominator_must_be_non_zero';
+    public const FIELD_CONTROL = 'control';
+    public const FIELD_FORMULA = 'formula';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -119,7 +121,7 @@ final class ImmuneCalibrationService
             ],
             self::FIELD_CAVEATS => [
                 self::FIELD_MISSED_POISON_RATE => 'lower_bound_known_miss: denominator is seeded known-should-catch plus labelled real known-miss samples only; never treated as calibrated when denominator is zero.',
-                'control' => 'informational_only_never_auto_adjusts_gate',
+                self::FIELD_CONTROL => 'informational_only_never_auto_adjusts_gate',
             ],
             self::FIELD_GROUPS => $groups,
         ];
@@ -132,7 +134,7 @@ final class ImmuneCalibrationService
             'kind' => self::KIND_MEASURE_FREEZE,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
-            'formula' => 'Per gate+writer: false_block_rate=false_block/blocks; missed_poison_rate=missed_poison/known_should_catch_denominator (lower_bound_known_miss); band is pure CalibrationBandClassifier over the rate, but status is insufficient_sample until denominator_min is met.',
+            self::FIELD_FORMULA => 'Per gate+writer: false_block_rate=false_block/blocks; missed_poison_rate=missed_poison/known_should_catch_denominator (lower_bound_known_miss); band is pure CalibrationBandClassifier over the rate, but status is insufficient_sample until denominator_min is met.',
             'thresholds' => [
                 self::FIELD_DENOMINATOR_MIN_SAMPLES => self::DENOMINATOR_MIN,
                 self::FIELD_KNOWN_MISS_DENOMINATOR_MUST_BE_NON_ZERO => true,

@@ -8251,6 +8251,31 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function healthImmuneCalibDeferredCooccurThesisLexicalRepairDocsFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'watchdog_health_field_current_delta_from_latest' => AtlasAcosWatchdogHealthService::FIELD_CURRENT_DELTA_FROM_LATEST,
+            'watchdog_health_field_latest_delta_from_previous' => AtlasAcosWatchdogHealthService::FIELD_LATEST_DELTA_FROM_PREVIOUS,
+            'immune_ingest_field_memory_type' => ImmuneSignatureIngestor::FIELD_MEMORY_TYPE,
+            'immune_ingest_field_refutation_memory' => ImmuneSignatureIngestor::FIELD_REFUTATION_MEMORY,
+            'immune_calib_field_control' => ImmuneCalibrationService::FIELD_CONTROL,
+            'immune_calib_field_formula' => ImmuneCalibrationService::FIELD_FORMULA,
+            'deferred_phase_field_phase_advance' => AaeosDeferredPhaseDispatcherService::FIELD_PHASE_ADVANCE,
+            'deferred_phase_field_outcome_causality' => AaeosDeferredPhaseDispatcherService::FIELD_OUTCOME_CAUSALITY,
+            'cooccur_field_generated_at' => ExecutionContextCooccurrenceService::FIELD_GENERATED_AT,
+            'cooccur_field_provider_calls_made' => ExecutionContextCooccurrenceService::FIELD_PROVIDER_CALLS_MADE,
+            'thesis_composer_field_remaining_rows_max' => EvidenceVisionThesisComposer::FIELD_REMAINING_ROWS_MAX,
+            'thesis_composer_field_outcomes' => EvidenceVisionThesisComposer::FIELD_OUTCOMES,
+            'lexical_field_memoria' => DomainLexicalNormalizer::FIELD_MEMORIA,
+            'lexical_field_verificacao' => DomainLexicalNormalizer::FIELD_VERIFICACAO,
+            'repair_loop_field_escalated' => AtlasRepairLoopGuard::FIELD_ESCALATED,
+            'repair_loop_field_decision' => AtlasRepairLoopGuard::FIELD_DECISION,
+            'docs_auth_field_capability_frontmatter' => AtlasDocsAuthorityGraphService::FIELD_CAPABILITY_FRONTMATTER,
+            'docs_auth_field_rows' => AtlasDocsAuthorityGraphService::FIELD_ROWS,
+            'health_immune_calib_deferred_cooccur_thesis_lexical_repair_docs_floor_count' => 18,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
