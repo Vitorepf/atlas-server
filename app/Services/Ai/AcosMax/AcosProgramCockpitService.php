@@ -69,6 +69,8 @@ final class AcosProgramCockpitService
     public const FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE_ATLAS_ACOS_MAX_EXECUTION_SCOREBOARD_V1_MD = 'docs/engineering-knowledge-base/atlas-acos-max-execution-scoreboard-v1.md';
     public const FIELD_ATLAS_ACOS_OPERATIONAL_VOLUME___JSON = 'atlas:acos:operational-volume --json';
     public const FIELD_ATLAS_ACOS_ROLLBACK_TRIGGERS___JSON = 'atlas:acos:rollback-triggers --json';
+    public const FIELD_ATLAS_FLYWHEEL_LOOPS___JSON = 'atlas:flywheel:loops --json';
+    public const FIELD_ATLAS_ACOS_M_SERIES___JSON = 'atlas:acos:m-series --json';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -82,7 +84,7 @@ final class AcosProgramCockpitService
             self::FIELD_PROVIDER_TOKENS_SPENT => false,
             self::FIELD_MUTATES_STATE => false,
             self::FIELD_SECTIONS => [
-                'm' => $this->commandSection('atlas:acos:m-series --json', self::FIELD_ATLAS_ACOS_M_SERIES, [self::FIELD___JSON => true]),
+                'm' => $this->commandSection(self::FIELD_ATLAS_ACOS_M_SERIES___JSON, self::FIELD_ATLAS_ACOS_M_SERIES, [self::FIELD___JSON => true]),
                 'r' => $this->commandSection('atlas:atlas-decide:live-feedback --regret --json', self::FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK, [self::FIELD___REGRET => true, self::FIELD___JSON => true]),
                 self::FIELD_LOOPS_FUNNEL => $this->loopsFunnelSection(),
                 self::FIELD_WINDOWS => $this->commandSection('atlas:windows --json', self::FIELD_ATLAS_WINDOWS, [self::FIELD___JSON => true]),
@@ -145,11 +147,11 @@ final class AcosProgramCockpitService
         return [
             self::FIELD_STATUS => self::STATUS_OK,
             self::FIELD_SOURCE => [
-                self::FIELD_LOOPS => 'atlas:flywheel:loops --json',
+                self::FIELD_LOOPS => self::FIELD_ATLAS_FLYWHEEL_LOOPS___JSON,
                 self::FIELD_FUNNEL => 'MULTX-02 future source',
             ],
             self::FIELD_PAYLOAD => [
-                self::FIELD_LOOPS => $this->commandSection('atlas:flywheel:loops --json', self::FIELD_ATLAS_FLYWHEEL_LOOPS, [self::FIELD___JSON => true]),
+                self::FIELD_LOOPS => $this->commandSection(self::FIELD_ATLAS_FLYWHEEL_LOOPS___JSON, self::FIELD_ATLAS_FLYWHEEL_LOOPS, [self::FIELD___JSON => true]),
                 self::FIELD_FUNNEL => [
                     self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
                     self::FIELD_SOURCE => self::FIELD_MULTX_02,

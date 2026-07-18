@@ -127,6 +127,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_NEVER_ISSUED = 'never-issued';
     public const FIELD_L0 = 'L0';
     public const FIELD_L1 = 'L1';
+    public const FIELD__JSONL = '.jsonl';
+    public const FIELD_OK_FALSE = 'ok=false';
     public const INT_5 = 5;
     public const FLOAT_0_10 = 0.10;
     public const FLOAT_0_42 = 0.42;
@@ -236,7 +238,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         return [
             self::FIELD_ID => self::FIELD_MAXK05_SIGNATURE_FORGED_BOOLEAN,
             self::FIELD_REFUSED => $refused,
-            self::FIELD_EXPECTED => 'ok=false',
+            self::FIELD_EXPECTED => self::FIELD_OK_FALSE,
             self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($verdict[self::FIELD_REASON] ?? null) ?? self::PROBE_ID_UNKNOWN),
         ];
     }
@@ -520,7 +522,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             return sys_get_temp_dir().DIRECTORY_SEPARATOR.$prefix.uniqid('', true);
         }
 
-        return $temp.'.jsonl';
+        return $temp.self::FIELD__JSONL;
     }
 
     private function cleanup(string $path): void
@@ -528,7 +530,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         if ($path !== '' && is_file($path)) {
             @unlink($path);
         }
-        $base = str_ends_with($path, '.jsonl') ? substr($path, 0, -6) : $path;
+        $base = str_ends_with($path, self::FIELD__JSONL) ? substr($path, 0, -6) : $path;
         if ($base !== '' && is_file($base)) {
             @unlink($base);
         }

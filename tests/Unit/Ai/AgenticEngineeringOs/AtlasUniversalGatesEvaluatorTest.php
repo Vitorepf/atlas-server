@@ -11418,4 +11418,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b547_cognition_score_department_contract_measure_series_immune_promotion_floor_count']);
     }
 
+    public function test_b548_cognition_score_department_contract_measure_series_immune_promotion_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b548CognitionScoreDepartmentContractMeasureSeriesImmunePromotionFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ATLAS_SWARM_PARALLEL_DISPATCHER, $out['Atlas Swarm Parallel Dispatcher']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AUTONOMOUS_RECONCILIATION_RUNTIME, $out['Autonomous Reconciliation Runtime']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DELIVERY_DEPARTMENT, $out['Delivery Department']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DEV_DEPARTMENT, $out['Dev Department']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_AI_LESSON_DEDUP_CALIBRATION___JSON, $out['atlas:ai:lesson-dedup-calibration --json']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_AI_LESSON_HALF_LIFE___JSON, $out['atlas:ai:lesson-half-life --json']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_CACHE_COMPILER_RUNTIME, $out['Context Cache Compiler Runtime']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_INTELLIGENCE_ENGINE, $out['Context Intelligence Engine']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_G8, $out['G8']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_G2, $out['G2']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_FLYWHEEL_LOOPS___JSON, $out['atlas:flywheel:loops --json']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_ACOS_M_SERIES___JSON, $out['atlas:acos:m-series --json']);
+        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R2, $out['R2']);
+        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R3, $out['R3']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_G3, $out['G3']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_ATLAS_IMMUNE_CALIBRATION___JSON, $out['atlas:immune:calibration --json']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD__JSONL, $out['.jsonl']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_OK_FALSE, $out['ok=false']);
+        $this->assertSame(18, $out['b548_cognition_score_department_contract_measure_series_immune_promotion_floor_count']);
+    }
+
 }

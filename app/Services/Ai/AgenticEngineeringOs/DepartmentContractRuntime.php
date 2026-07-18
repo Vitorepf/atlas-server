@@ -423,6 +423,8 @@ final class DepartmentContractRuntime
     public const FIELD_L3 = 'L3';
     public const FIELD_ARCHITECT_DEPARTMENT = 'Architect Department';
     public const FIELD_DEBUG_DEPARTMENT = 'Debug Department';
+    public const FIELD_DELIVERY_DEPARTMENT = 'Delivery Department';
+    public const FIELD_DEV_DEPARTMENT = 'Dev Department';
     public const INT_11 = 11;
 
     /**
@@ -551,7 +553,7 @@ final class DepartmentContractRuntime
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_ARCHITECTURE, self::DEPARTMENT_PRODUCT],
         ],
         self::DEPARTMENT_DEV => [
-            self::FIELD_HUMAN_NAME => 'Dev Department',
+            self::FIELD_HUMAN_NAME => self::FIELD_DEV_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Atlas Dev fast-lane; small/medium changes with plan + gates.',
             self::FIELD_SCOPE => 'executa fast-path para intents R1-R3 (1-5 arquivos, baixo-médio risco) com governance leve',
             self::FIELD_TRIGGERS => ['intent_classification.target_department=dev', 'scope<=R3'],
@@ -694,7 +696,7 @@ final class DepartmentContractRuntime
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_REVIEW, self::FIELD_QA, self::DEPARTMENT_DELIVERY],
         ],
         self::DEPARTMENT_DELIVERY => [
-            self::FIELD_HUMAN_NAME => 'Delivery Department',
+            self::FIELD_HUMAN_NAME => self::FIELD_DELIVERY_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Release, rollback decision, deployment evidence.',
             self::FIELD_SCOPE => 'monta delivery_pack canônico, valida completeness, encaminha para human review e cert',
             self::FIELD_TRIGGERS => ['execution_complete=true', 'evidence_pack_ready=true'],

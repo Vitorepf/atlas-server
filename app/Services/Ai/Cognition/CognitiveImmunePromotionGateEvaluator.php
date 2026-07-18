@@ -122,6 +122,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_PROBATION_WATCH_TIME_BELOW_CALIBRATED_THRESHOLD = 'probation_watch_time_below_calibrated_threshold';
     public const FIELD_G0 = 'G0';
     public const FIELD_G1 = 'G1';
+    public const FIELD_G8 = 'G8';
+    public const FIELD_G2 = 'G2';
     public const INT_2 = 2;
 
     /**
@@ -205,13 +207,13 @@ final class CognitiveImmunePromotionGateEvaluator
         return match ($gateId) {
             self::FIELD_G0 => $this->captureGate($signals),
             self::FIELD_G1 => $this->extractionGate($signals),
-            'G2' => $this->signalGate($signals),
+            self::FIELD_G2 => $this->signalGate($signals),
             'G3' => $this->safetyGate($signals, $candidatePresent),
             'G4' => $this->contradictionGate($signals, $candidatePresent),
             'G5' => $this->outcomeGate($signals),
             'G6' => $this->scopeGate($signals),
             'G7' => $this->promotionModeGate($signals),
-            'G8' => $this->probationGate($signals, $candidatePresent),
+            self::FIELD_G8 => $this->probationGate($signals, $candidatePresent),
             default => [self::STATUS_PENDING, self::FIELD_GATE_UNKNOWN],
         };
     }
@@ -423,7 +425,7 @@ final class CognitiveImmunePromotionGateEvaluator
         }
 
         // Clean candidate held back solely by an open probation gate -> watch.
-        if ($pendingGateIds === ['G8']) {
+        if ($pendingGateIds === [self::FIELD_G8]) {
             return self::TRUST_BAND_WATCH;
         }
 

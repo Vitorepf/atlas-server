@@ -273,6 +273,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_ANTIFRAGILITY_COMPOSITION_METRIC = 'Antifragility Composition Metric';
     public const FIELD_ATLAS_DECIDE_GATEWAY_CONSULTATION = 'Atlas Decide Gateway Consultation';
     public const FIELD_ATLAS_DECIDE_LIVE_OUTCOME_FEEDBACK = 'Atlas Decide Live Outcome Feedback';
+    public const FIELD_ATLAS_SWARM_PARALLEL_DISPATCHER = 'Atlas Swarm Parallel Dispatcher';
+    public const FIELD_AUTONOMOUS_RECONCILIATION_RUNTIME = 'Autonomous Reconciliation Runtime';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -371,7 +373,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ACK,     'Constitutional Kernel',               self::FIELD_GOVERNANCE,        AtlasConstitutionalKernelService::class],
         [self::FIELD_AAA,     'Autonomy Admission',                  self::FIELD_GOVERNANCE,        AtlasAutonomyAdmissionService::class],
         [self::FIELD_ACFA,    'Cognitive Function Atlas',            self::FIELD_COGNITION,         AtlasCognitiveFunctionAtlasService::class],
-        [self::FIELD_AARR,    'Autonomous Reconciliation Runtime',   self::FIELD_AUTONOMY,          AtlasAutonomousReconciliationRuntimeService::class],
+        [self::FIELD_AARR,    self::FIELD_AUTONOMOUS_RECONCILIATION_RUNTIME,   self::FIELD_AUTONOMY,          AtlasAutonomousReconciliationRuntimeService::class],
         [self::FIELD_TEOS_I4, 'TEOS-I4 Counterfactual Tree',         self::FIELD_TEOS,              AtlasTeosI4CounterfactualTreeService::class],
         [self::FIELD_ASWC,    'Swarm Conductor',                     self::FIELD_ATLAS_DECIDE,      AtlasSwarmConductorService::class],
         [self::FIELD_ASWE,    'Swarm Executor',                      self::FIELD_ATLAS_DECIDE,      AtlasSwarmExecutorService::class],
@@ -393,7 +395,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ASOS,    'Atlas Scheduler OS (Cron 24/7)',            self::FIELD_PATAMAR_4,         AtlasSchedulerHealthService::class],
         [self::FIELD_ASPR,    'Swarm Production Resolver (real provider)', self::FIELD_ATLAS_DECIDE,      AtlasSwarmProductionResolverService::class],
         [self::FIELD_ACFD,    'Cognitive Function Decomposer (6-axis)',    self::FIELD_COGNITION,         AtlasCognitiveFunctionDecomposerService::class],
-        [self::FIELD_ASPD,    'Atlas Swarm Parallel Dispatcher',           self::FIELD_ATLAS_DECIDE,      AtlasSwarmParallelDispatchService::class],
+        [self::FIELD_ASPD,    self::FIELD_ATLAS_SWARM_PARALLEL_DISPATCHER,           self::FIELD_ATLAS_DECIDE,      AtlasSwarmParallelDispatchService::class],
         [self::FIELD_ACSR,    'Cognitive Function Swarm Router (P6 closure)', self::FIELD_ATLAS_DECIDE,   AtlasCognitiveFunctionSwarmRouterService::class],
         [self::FIELD_ASAF,    'Swarm Auto-Failover (A4)',                  self::FIELD_ATLAS_DECIDE,      AtlasSwarmAutoFailoverService::class],
         [self::FIELD_ARDS,    'Runtime Degradation Signal Ingress',        self::FIELD_PATAMAR_4,         AtlasRuntimeDegradationSignalService::class],

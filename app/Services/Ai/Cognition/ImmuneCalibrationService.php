@@ -126,6 +126,8 @@ final class ImmuneCalibrationService
     public const FIELD_MAXI_03_KNOWN_MISS_G3_SEED_V1 = 'maxi-03-known-miss-g3-seed-v1';
     public const FIELD_MAXI_03_KNOWN_SHOULD_CATCH_G3 = 'maxi-03-known-should-catch-g3';
     public const FIELD_INFORMATIONAL_ONLY_NEVER_AUTO_ADJUSTS_GATE = 'informational_only_never_auto_adjusts_gate';
+    public const FIELD_G3 = 'G3';
+    public const FIELD_ATLAS_IMMUNE_CALIBRATION___JSON = 'atlas:immune:calibration --json';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -196,7 +198,7 @@ final class ImmuneCalibrationService
             self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_INDEPENDENT_IMMUNE_CALIBRATION_JUDGE,
             self::FIELD_SERIES => [
                 self::FIELD_ID => self::MEASURE_ID,
-                self::FIELD_READER_COMMAND => 'atlas:immune:calibration --json',
+                self::FIELD_READER_COMMAND => self::FIELD_ATLAS_IMMUNE_CALIBRATION___JSON,
                 self::FIELD_TABLE => ImmuneVerdictLedger::TABLE,
                 self::FIELD_REGISTRY_STATUS => self::FIELD_REGISTERED_ELEV_20S,
             ],
@@ -372,7 +374,7 @@ final class ImmuneCalibrationService
             self::FIELD_KNOWN_MISS_SEED,
             $this->evaluator->evaluate($signals),
             [
-                self::FIELD_EXPECTED_BLOCK_GATE_IDS => ['G3'],
+                self::FIELD_EXPECTED_BLOCK_GATE_IDS => [self::FIELD_G3],
                 self::FIELD_METADATA => [
                     self::FIELD_SEED => self::FIELD_MAXI_03_KNOWN_SHOULD_CATCH_G3,
                     self::FIELD_PIPELINE => self::FIELD_COGNITIVE_IMMUNE_PROMOTION_GATE_EVALUATOR,

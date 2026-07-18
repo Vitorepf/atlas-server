@@ -14485,4 +14485,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B548).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b548CognitionScoreDepartmentContractMeasureSeriesImmunePromotionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'Atlas Swarm Parallel Dispatcher' => AtlasCognitionScoreCardService::FIELD_ATLAS_SWARM_PARALLEL_DISPATCHER,
+            'Autonomous Reconciliation Runtime' => AtlasCognitionScoreCardService::FIELD_AUTONOMOUS_RECONCILIATION_RUNTIME,
+            'Delivery Department' => DepartmentContractRuntime::FIELD_DELIVERY_DEPARTMENT,
+            'Dev Department' => DepartmentContractRuntime::FIELD_DEV_DEPARTMENT,
+            'atlas:ai:lesson-dedup-calibration --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_AI_LESSON_DEDUP_CALIBRATION___JSON,
+            'atlas:ai:lesson-half-life --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_AI_LESSON_HALF_LIFE___JSON,
+            'Context Cache Compiler Runtime' => AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_CACHE_COMPILER_RUNTIME,
+            'Context Intelligence Engine' => AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_INTELLIGENCE_ENGINE,
+            'G8' => CognitiveImmunePromotionGateEvaluator::FIELD_G8,
+            'G2' => CognitiveImmunePromotionGateEvaluator::FIELD_G2,
+            'atlas:flywheel:loops --json' => AcosProgramCockpitService::FIELD_ATLAS_FLYWHEEL_LOOPS___JSON,
+            'atlas:acos:m-series --json' => AcosProgramCockpitService::FIELD_ATLAS_ACOS_M_SERIES___JSON,
+            'R2' => AtlasAaeosValueNormalizer::FIELD_R2,
+            'R3' => AtlasAaeosValueNormalizer::FIELD_R3,
+            'G3' => ImmuneCalibrationService::FIELD_G3,
+            'atlas:immune:calibration --json' => ImmuneCalibrationService::FIELD_ATLAS_IMMUNE_CALIBRATION___JSON,
+            '.jsonl' => AutonomyLadderAdversarialWatchdogCheck::FIELD__JSONL,
+            'ok=false' => AutonomyLadderAdversarialWatchdogCheck::FIELD_OK_FALSE,
+            'b548_cognition_score_department_contract_measure_series_immune_promotion_floor_count' => 18,
+        ];
+    }
+
 }

@@ -86,6 +86,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_AUTONOMOUS_RECONCILIATION = 'Autonomous Reconciliation';
     public const FIELD_COGNITIVE_FUNCTION_ATLAS = 'Cognitive Function Atlas';
     public const FIELD_CONSTITUTIONAL_GOVERNANCE = 'Constitutional Governance';
+    public const FIELD_CONTEXT_CACHE_COMPILER_RUNTIME = 'Context Cache Compiler Runtime';
+    public const FIELD_CONTEXT_INTELLIGENCE_ENGINE = 'Context Intelligence Engine';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -212,8 +214,8 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_COGNITION_2 => self::FIELD_COGNITIVE_FUNCTION_ATLAS,
             self::FIELD_AUTONOMY_2 => self::FIELD_AUTONOMOUS_RECONCILIATION,
             self::FIELD_PATAMAR4_2 => 'Patamar 4 Integration',
-            self::FIELD_CONTEXT_CACHE_2 => 'Context Cache Compiler Runtime',
-            self::FIELD_CONTEXT_INTELLIGENCE_2 => 'Context Intelligence Engine',
+            self::FIELD_CONTEXT_CACHE_2 => self::FIELD_CONTEXT_CACHE_COMPILER_RUNTIME,
+            self::FIELD_CONTEXT_INTELLIGENCE_2 => self::FIELD_CONTEXT_INTELLIGENCE_ENGINE,
             self::FIELD_PERSISTENT_CONTEXT_2 => 'Persistent Context Runtime',
             self::FIELD_AEMOR_2 => 'Execution Memory Outcome Runtime',
             self::FIELD_LONG_HORIZON_2 => 'TEOS-I1 Long-Horizon Intelligence',
