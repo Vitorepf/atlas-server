@@ -184,6 +184,8 @@ final class DepartmentContractRuntime
     public const FIELD_EVIDENCE_COUNT = 'evidence_count';
     public const FIELD_GATE_REQUIRED = 'gate_required';
     public const FIELD_HANDOFF_INVARIANTS = 'handoff_invariants';
+    public const FIELD_OBSERVE = 'observe';
+    public const FIELD_PASSED = 'passed';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -667,7 +669,7 @@ final class DepartmentContractRuntime
         // Observe-only: when a compiled-spec map is supplied, stamp SpecCompletenessScorer.
         $spec = AiValueNormalizer::arrayOrEmpty($input['spec'] ?? null);
         if ($spec !== []) {
-            $result['observe'] = [
+            $result[self::FIELD_OBSERVE] = [
                 'spec_completeness' => $this->specCompleteness->score($spec),
             ];
         }
@@ -691,7 +693,7 @@ final class DepartmentContractRuntime
         return [
             'rule_id' => 'risk_scope_below_min_autonomous',
             self::FIELD_GATE_REQUIRED => false,
-            'passed' => true,
+            self::FIELD_PASSED => true,
             self::FIELD_REASON => null,
         ];
     }

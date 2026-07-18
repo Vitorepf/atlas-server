@@ -7574,4 +7574,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['daily_canary_lote_measure_exploratory_bets_pre_review_floor_count']);
     }
 
+    public function test_lote_measure_http_path_phase_handoff_aaeos_mission_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->loteMeasureHttpPathPhaseHandoffAaeosMissionFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_REQUIRES_CHAINED_IDS, $out['requires_chained_ids']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_REQUIRES_DECISION_RECEIPT_ID, $out['requires_decision_receipt_id']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_SPEC_INVOCATION, $out['spec_invocation']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_SPEC_REQUIRED, $out['spec_required']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_PROVIDER, $out['provider']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_SPEC_PACK_ACCEPTANCE_CRITERIA_MIN_3, $out['spec_pack_acceptance_criteria_min_3']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_SUM, $out['sum']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_VERDICT, $out['verdict']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_RECOVERABLE_COUNT, $out['recoverable_count']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_REPORT_HASH, $out['report_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_OBSERVE, $out['observe']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PASSED, $out['passed']);
+        $this->assertSame(RunbookOrchestrator::FIELD_HANDOFF_TO, $out['handoff_to']);
+        $this->assertSame(RunbookOrchestrator::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_METHOD, $out['method']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_NOTES, $out['notes']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_DOES_NOT_MINT_RECEIPTS, $out['does_not_mint_receipts']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_GATE_V1_BYTE_IDENTICAL_WITHOUT_V2, $out['gate_v1_byte_identical_without_v2']);
+        $this->assertSame(18, $out['lote_measure_http_path_phase_handoff_aaeos_mission_floor_count']);
+    }
+
 }

@@ -9738,4 +9738,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B394).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function loteMeasureHttpPathPhaseHandoffAaeosMissionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'requires_chained_ids' => AcosMaxLote2MeasureService::FIELD_REQUIRES_CHAINED_IDS,
+            'requires_decision_receipt_id' => AcosMaxLote2MeasureService::FIELD_REQUIRES_DECISION_RECEIPT_ID,
+            'spec_invocation' => AaeosHttpPathEnvelopeFactory::FIELD_SPEC_INVOCATION,
+            'spec_required' => AaeosHttpPathEnvelopeFactory::FIELD_SPEC_REQUIRED,
+            'provider' => AaeosPhaseHandoffService::FIELD_PROVIDER,
+            'spec_pack_acceptance_criteria_min_3' => AaeosPhaseHandoffService::FIELD_SPEC_PACK_ACCEPTANCE_CRITERIA_MIN_3,
+            'sum' => AtlasAaeosHttpPathFacadeService::FIELD_SUM,
+            'verdict' => AtlasAaeosHttpPathFacadeService::FIELD_VERDICT,
+            'recoverable_count' => AtlasMissionControlCockpitService::FIELD_RECOVERABLE_COUNT,
+            'report_hash' => AtlasMissionControlCockpitService::FIELD_REPORT_HASH,
+            'observe' => DepartmentContractRuntime::FIELD_OBSERVE,
+            'passed' => DepartmentContractRuntime::FIELD_PASSED,
+            'handoff_to' => RunbookOrchestrator::FIELD_HANDOFF_TO,
+            'id' => RunbookOrchestrator::FIELD_ID,
+            'method' => AtlasAcosEvolutionScoreService::FIELD_METHOD,
+            'notes' => AtlasAcosEvolutionScoreService::FIELD_NOTES,
+            'does_not_mint_receipts' => AtlasAcosLongHorizonGateService::FIELD_DOES_NOT_MINT_RECEIPTS,
+            'gate_v1_byte_identical_without_v2' => AtlasAcosLongHorizonGateService::FIELD_GATE_V1_BYTE_IDENTICAL_WITHOUT_V2,
+            'lote_measure_http_path_phase_handoff_aaeos_mission_floor_count' => 18,
+        ];
+    }
+
 }

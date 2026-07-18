@@ -107,6 +107,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_EXECUCAO_PROVADA = 'execucao_provada';
     public const FIELD_GENERATED_AT = 'generated_at';
     public const FIELD_INTELIGENCIA_ENTREGUE = 'inteligencia_entregue';
+    public const FIELD_METHOD = 'method';
+    public const FIELD_NOTES = 'notes';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -136,8 +138,8 @@ class AtlasAcosEvolutionScoreService
                 self::FIELD_AUTONOMIA => $autonomia,
             ],
             self::FIELD_ACOS_SCORECARD_OVERALL => AiValueNormalizer::finiteFloatOrNull(data_get($card, 'score.overall_out_of_10', 0.0)) ?? 0.0,
-            'notes' => [
-                'method' => 'Toda parcela é função de evidência resolvida em runtime (probe de DB/arquivo/agenda/classe); nenhum literal auto-declarado.',
+            self::FIELD_NOTES => [
+                self::FIELD_METHOD => 'Toda parcela é função de evidência resolvida em runtime (probe de DB/arquivo/agenda/classe); nenhum literal auto-declarado.',
                 self::FIELD_AUTONOMY_GOVERNANCE => 'Carta de Autonomia (Regra 4): a assinatura do operador foi revogada; a parcela antes presa a ela agora mede o substituto REAL — reversibilidade viva (git revert + atlas:brain:replay) + Diário de Evolução íntegro. Degrade-safe: sem esse substrato, pontua 0, nunca fabricado.',
             ],
         ];

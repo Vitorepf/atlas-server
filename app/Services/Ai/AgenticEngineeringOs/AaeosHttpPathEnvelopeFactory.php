@@ -79,6 +79,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_ROUTING = 'routing';
     public const FIELD_ROUTING_TASK = 'routing_task';
     public const FIELD_SPEC = 'spec';
+    public const FIELD_SPEC_INVOCATION = 'spec_invocation';
+    public const FIELD_SPEC_REQUIRED = 'spec_required';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -284,8 +286,8 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase4.spec.r1_r2_fast_path',
             self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
             self::FIELD_OUTPUTS => [
-                'spec_invocation' => 'deferred',
-                'spec_required' => 'yes',
+                self::FIELD_SPEC_INVOCATION => 'deferred',
+                self::FIELD_SPEC_REQUIRED => 'yes',
             ],
             self::FIELD_REQUIRED_GATE => 'spec_pack_acceptance_criteria_min_3',
         ],

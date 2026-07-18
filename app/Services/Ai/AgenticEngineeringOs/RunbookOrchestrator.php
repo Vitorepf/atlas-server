@@ -60,6 +60,8 @@ final class RunbookOrchestrator
     public const FIELD_DUAL_SIGNATURE_REQUIRED = 'dual_signature_required';
     public const FIELD_EMITS_HANDOFF_TO = 'emits_handoff_to';
     public const FIELD_FREQUENCY = 'frequency';
+    public const FIELD_HANDOFF_TO = 'handoff_to';
+    public const FIELD_ID = 'id';
 
     /**
      * Canonical default flow for a non-trivial intent. Trivial intents
@@ -118,7 +120,7 @@ final class RunbookOrchestrator
                 self::FIELD_DEPARTMENT => $dept,
                 self::FIELD_GATES => $this->departments->gatesFor($dept),
                 self::FIELD_EVIDENCE_SCHEMA => $this->departments->evidenceSchemaFor($dept),
-                'handoff_to' => AiValueNormalizer::arrayOrEmpty(DepartmentContractRuntime::CATALOGUE[$dept][self::FIELD_EMITS_HANDOFF_TO] ?? null),
+                self::FIELD_HANDOFF_TO => AiValueNormalizer::arrayOrEmpty(DepartmentContractRuntime::CATALOGUE[$dept][self::FIELD_EMITS_HANDOFF_TO] ?? null),
             ];
         }
 
@@ -223,7 +225,7 @@ final class RunbookOrchestrator
             'review_status' => 'pending_replay',
             self::FIELD_PROPOSED_BY_ACTOR => AiValueNormalizer::arrayOrEmpty($request[self::FIELD_PROPOSED_BY_ACTOR] ?? [
                 'kind' => self::ACTOR_KIND_AGENT,
-                'id' => 'aaeos-runbook-orchestrator',
+                self::FIELD_ID => 'aaeos-runbook-orchestrator',
                 self::FIELD_AUTONOMY_LEVEL => 'L13',
             ]),
             'proposed_at' => now()->toAtomString(),

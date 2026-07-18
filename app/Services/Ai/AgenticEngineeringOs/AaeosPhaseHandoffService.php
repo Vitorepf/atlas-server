@@ -65,6 +65,8 @@ final class AaeosPhaseHandoffService
     public const FIELD_OPERATOR_DECISION_RECEIPT_APPROVED = 'operator_decision_receipt_approved';
     public const FIELD_PLACEMENT_DECISION_FEATURE_PATH_VALID = 'placement_decision_feature_path_valid';
     public const FIELD_POLICY_DECISION_ALLOWED_TRUE = 'policy_decision_allowed_true';
+    public const FIELD_PROVIDER = 'provider';
+    public const FIELD_SPEC_PACK_ACCEPTANCE_CRITERIA_MIN_3 = 'spec_pack_acceptance_criteria_min_3';
 
     public static function requireIntentId(string $intentId): void
     {
@@ -147,7 +149,7 @@ final class AaeosPhaseHandoffService
         self::PHASE_POLICY_GATE => [self::FIELD_POLICY_DECISION_ALLOWED_TRUE],
         self::PHASE_TOPOLOGY => [self::FIELD_TOPOLOGY_PLAN_PROVIDERS_MIN_1_AVAILABLE],
         self::PHASE_ROUTING => [self::FIELD_DEPARTMENT_ROUTE_OWNER_CONFIRMED],
-        self::PHASE_SPEC => ['spec_pack_acceptance_criteria_min_3'],
+        self::PHASE_SPEC => [self::FIELD_SPEC_PACK_ACCEPTANCE_CRITERIA_MIN_3],
         self::PHASE_TASKS => ['task_pack_atomic_true_for_each'],
         self::PHASE_RECEIPT => [self::FIELD_DECISION_RECEIPT_V2_SIGNED],
         self::PHASE_EXECUTION => [self::FIELD_EXECUTION_LOG_WATCHDOG_OK],
@@ -305,7 +307,7 @@ final class AaeosPhaseHandoffService
             self::FIELD_INTENT_ID => $intentId,
             self::FIELD_PHASE_IN => $phase,
             self::FIELD_PHASE_OUT => $phase,
-            self::FIELD_ACTOR => [self::FIELD_KIND => 'system', self::FIELD_ID => 'aaeos.phase_skip', 'provider' => null],
+            self::FIELD_ACTOR => [self::FIELD_KIND => 'system', self::FIELD_ID => 'aaeos.phase_skip', self::FIELD_PROVIDER => null],
             self::FIELD_INPUTS => [],
             self::FIELD_OUTPUTS => [],
             self::FIELD_EVIDENCE_HASHES => [],

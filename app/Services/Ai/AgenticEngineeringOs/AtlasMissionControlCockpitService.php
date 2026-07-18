@@ -90,6 +90,8 @@ final class AtlasMissionControlCockpitService
     public const FIELD_QUEUE_HEALTH = 'queue_health';
     public const FIELD_RECOMMENDED_OPERATOR_ACTION = 'recommended_operator_action';
     public const FIELD_RECOVERABLE = 'recoverable';
+    public const FIELD_RECOVERABLE_COUNT = 'recoverable_count';
+    public const FIELD_REPORT_HASH = 'report_hash';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
@@ -164,7 +166,7 @@ final class AtlasMissionControlCockpitService
             $intentId,
             array_column($journey, 'phase'),
             array_column($journey, 'status'),
-            $gateReport['report_hash'] ?? null,
+            $gateReport[self::FIELD_REPORT_HASH] ?? null,
         ]) ?: '');
 
         return $payload;
@@ -214,7 +216,7 @@ final class AtlasMissionControlCockpitService
             self::FIELD_SERVABLE_NOW => $servableNow,
             self::FIELD_ACTIVE_LEASES => $activeLeases,
             self::FIELD_BLOCKED_OR_QUARANTINED_COUNT => $blocked + $quarantined,
-            'recoverable_count' => $recoverable,
+            self::FIELD_RECOVERABLE_COUNT => $recoverable,
             self::FIELD_MALFORMED_COUNT => $malformed,
             self::FIELD_IMPLEMENTABLE_SUPPLY => $servableNow,
             self::FIELD_RECOMMENDED_OPERATOR_ACTION => $recommendedAction,

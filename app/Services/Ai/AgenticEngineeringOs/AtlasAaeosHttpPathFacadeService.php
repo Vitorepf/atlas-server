@@ -118,6 +118,8 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD_PLACEMENT_CACHE_HIT = 'placement_cache_hit';
     public const FIELD_PLACEMENT_DECISION = 'placement_decision';
     public const FIELD_SOURCE_TYPE = 'source_type';
+    public const FIELD_SUM = 'sum';
+    public const FIELD_VERDICT = 'verdict';
 
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
 
@@ -227,7 +229,7 @@ final class AtlasAaeosHttpPathFacadeService
             $envelopes[] = $policyEnv;
 
             $advance = $factory->phaseAdvanceVerdict($policyEnv);
-            if (in_array($advance['verdict'] ?? '', [PhaseAdvanceVerdictClassifier::VERDICT_HALT, PhaseAdvanceVerdictClassifier::VERDICT_BLOCK], true)) {
+            if (in_array($advance[self::FIELD_VERDICT] ?? '', [PhaseAdvanceVerdictClassifier::VERDICT_HALT, PhaseAdvanceVerdictClassifier::VERDICT_BLOCK], true)) {
                 $this->incrementCounter(self::TELEMETRY_KEY_BLOCKED);
 
                 $blockedWhen = array_values(array_map(
@@ -316,7 +318,7 @@ final class AtlasAaeosHttpPathFacadeService
             ],
             self::FIELD_LATENCY_MS => [
                 self::FIELD_SAMPLES => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.count', 0),
-                'sum' => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.sum', 0),
+                self::FIELD_SUM => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.sum', 0),
                 self::FIELD_MAX => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.max', 0),
             ],
         ];

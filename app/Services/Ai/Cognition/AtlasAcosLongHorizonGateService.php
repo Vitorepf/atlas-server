@@ -135,6 +135,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_DIMENSIONS = 'dimensions';
     public const FIELD_DOES_NOT_BACKFILL_TIME = 'does_not_backfill_time';
     public const FIELD_DOES_NOT_INFLATE_SCORE = 'does_not_inflate_score';
+    public const FIELD_DOES_NOT_MINT_RECEIPTS = 'does_not_mint_receipts';
+    public const FIELD_GATE_V1_BYTE_IDENTICAL_WITHOUT_V2 = 'gate_v1_byte_identical_without_v2';
 
     /**
      * @param  array<string,mixed>  $options
@@ -954,7 +956,7 @@ final class AtlasAcosLongHorizonGateService
             self::FIELD_CLAIM_POLICY => [
                 'scorecard_resolved_evidence_only' => true,
                 self::FIELD_DELTA_SERIES_APPEND_ONLY_INPUT => true,
-                'does_not_mint_receipts' => true,
+                self::FIELD_DOES_NOT_MINT_RECEIPTS => true,
                 self::FIELD_DOES_NOT_BACKFILL_TIME => true,
                 self::FIELD_DOES_NOT_INFLATE_SCORE => true,
                 'provider_calls_made' => false,
@@ -968,7 +970,7 @@ final class AtlasAcosLongHorizonGateService
             $payload[self::FIELD_ASSESSMENT_V2] = $assessmentV2;
             $payload[self::FIELD_EVIDENCE]['series_v2_rows_sampled'] = (int) (AiValueNormalizer::finiteFloatOrNull($assessmentV2[self::FIELD_SERIES_DAY_COUNT] ?? null) ?? 0);
             $payload[self::FIELD_CLAIM_POLICY]['longitudinal_area_floor_v2'] = true;
-            $payload[self::FIELD_CLAIM_POLICY]['gate_v1_byte_identical_without_v2'] = true;
+            $payload[self::FIELD_CLAIM_POLICY][self::FIELD_GATE_V1_BYTE_IDENTICAL_WITHOUT_V2] = true;
         }
 
         $receiptPayload = [
