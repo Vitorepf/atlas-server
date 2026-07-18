@@ -15399,4 +15399,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b708_maxa_jina_floor_count']);
     }
 
+    public function test_b709_maxa_jina_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b709MaxaJinaFloorsContractObserve([]);
+        $this->assertSame(Maxa04JinaV3DualReadService::CANDIDATE_MODEL, $out['jinaai/jina-embeddings-v3']);
+        $this->assertSame(Maxa04JinaV3DualReadService::CANDIDATE_DIMENSIONS, $out['1024']);
+        $this->assertSame(Maxa04JinaV3DualReadService::PENDING_WINDOW, $out['jina_v3_dual_read_benchmark_window']);
+        $this->assertSame(Maxa04JinaV3DualReadService::STATUS_PENDING_WINDOW, $out['pending_window']);
+        $this->assertSame(Maxa04JinaV3DualReadService::STATUS_INSUFFICIENT_SIGNAL, $out['insufficient_signal']);
+        $this->assertSame(Maxa04JinaV3DualReadService::CURRENT_MODEL_FALLBACK, $out['sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2']);
+        $this->assertSame(Maxa04JinaV3DualReadService::MODE_SHADOW_ONLY, $out['shadow_only']);
+        $this->assertSame(Maxa04JinaV3DualReadService::STATUS_MECHANISM_READY, $out['mechanism_ready']);
+        $this->assertSame(Maxa04JinaV3DualReadService::STATUS_NO_DUAL_READ_CASES, $out['no_dual_read_cases']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_STATUS, $out['status']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_SLICE, $out['slice']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_REASON, $out['reason']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_CASES, $out['cases']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_SUMMARY, $out['summary']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_WINDOW_BASIS, $out['window_basis']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_PROMOTION, $out['promotion']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_ROLLBACK, $out['rollback']);
+        $this->assertSame(18, $out['b709_maxa_jina_floor_count']);
+    }
+
 }
