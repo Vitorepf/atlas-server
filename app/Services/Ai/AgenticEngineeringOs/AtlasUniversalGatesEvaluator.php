@@ -18311,4 +18311,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B673).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b673CodeSymbolFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'denominator_min_active_symbols' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_DENOMINATOR_MIN_ACTIVE_SYMBOLS,
+            'dual_read_required' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_DUAL_READ_REQUIRED,
+            'atlas.acos_max.code_symbol_embedding_coverage.v1' => AtlasCodeSymbolEmbeddingCoverageService::SCHEMA_VERSION,
+            'atlas.code_symbol_embedding_coverage.v1' => AtlasCodeSymbolEmbeddingCoverageService::MEASURE_ID,
+            'code_symbol_embedding_coverage.v1' => AtlasCodeSymbolEmbeddingCoverageService::FORMULA_VERSION,
+            'measure_freeze' => AtlasCodeSymbolEmbeddingCoverageService::KIND_MEASURE_FREEZE,
+            'active' => AtlasCodeSymbolEmbeddingCoverageService::STATUS_ACTIVE,
+            'ok' => AtlasCodeSymbolEmbeddingCoverageService::STATUS_OK,
+            'insufficient_signal' => AtlasCodeSymbolEmbeddingCoverageService::STATUS_INSUFFICIENT_SIGNAL,
+            'partial_coverage' => AtlasCodeSymbolEmbeddingCoverageService::STATUS_PARTIAL_COVERAGE,
+            'table_missing' => AtlasCodeSymbolEmbeddingCoverageService::STATUS_TABLE_MISSING,
+            'measure_id' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_MEASURE_ID,
+            'formula_version' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_FORMULA_VERSION,
+            'denominator_min' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_DENOMINATOR_MIN,
+            'aggregate' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_AGGREGATE,
+            'schema_version' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_SCHEMA_VERSION,
+            'generated_at' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_GENERATED_AT,
+            'freeze' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_FREEZE,
+            'b673_code_symbol_floor_count' => 18,
+        ];
+    }
+
 }

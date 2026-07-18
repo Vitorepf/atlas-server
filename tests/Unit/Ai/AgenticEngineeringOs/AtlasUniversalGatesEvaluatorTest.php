@@ -14499,4 +14499,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b672_composed_obra_floor_count']);
     }
 
+    public function test_b673_code_symbol_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b673CodeSymbolFloorsContractObserve([]);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_DENOMINATOR_MIN_ACTIVE_SYMBOLS, $out['denominator_min_active_symbols']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_DUAL_READ_REQUIRED, $out['dual_read_required']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::SCHEMA_VERSION, $out['atlas.acos_max.code_symbol_embedding_coverage.v1']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::MEASURE_ID, $out['atlas.code_symbol_embedding_coverage.v1']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FORMULA_VERSION, $out['code_symbol_embedding_coverage.v1']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::KIND_MEASURE_FREEZE, $out['measure_freeze']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::STATUS_ACTIVE, $out['active']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::STATUS_OK, $out['ok']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::STATUS_INSUFFICIENT_SIGNAL, $out['insufficient_signal']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::STATUS_PARTIAL_COVERAGE, $out['partial_coverage']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::STATUS_TABLE_MISSING, $out['table_missing']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_MEASURE_ID, $out['measure_id']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_DENOMINATOR_MIN, $out['denominator_min']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_AGGREGATE, $out['aggregate']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_FREEZE, $out['freeze']);
+        $this->assertSame(18, $out['b673_code_symbol_floor_count']);
+    }
+
 }
