@@ -14249,4 +14249,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b662_window_orchestrator_floor_count']);
     }
 
+    public function test_b663_attempt_lifecycle_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b663AttemptLifecycleFloorsContractObserve([]);
+        $this->assertSame(AttemptLifecycleLedger::SCHEMA_VERSION, $out['atlas.execution.attempt_lifecycle.v1']);
+        $this->assertSame(AttemptLifecycleLedger::STATE_STARTED, $out['started']);
+        $this->assertSame(AttemptLifecycleLedger::STATE_COMPLETED, $out['completed']);
+        $this->assertSame(AttemptLifecycleLedger::STATE_CRASHED, $out['crashed']);
+        $this->assertSame(AttemptLifecycleLedger::STATE_TIMED_OUT, $out['timed_out']);
+        $this->assertSame(AttemptLifecycleLedger::STATE_ABANDONED, $out['abandoned']);
+        $this->assertSame(AttemptLifecycleLedger::REASON_TASK_OR_ATTEMPT_UNRESOLVABLE, $out['task_or_attempt_unresolvable']);
+        $this->assertSame(AttemptLifecycleLedger::REASON_DUPLICATE_ATTEMPT, $out['duplicate_attempt']);
+        $this->assertSame(AttemptLifecycleLedger::REASON_ATTEMPT_MISSING, $out['attempt_missing']);
+        $this->assertSame(AttemptLifecycleLedger::REASON_INVALID_TERMINAL_STATE, $out['invalid_terminal_state']);
+        $this->assertSame(AttemptLifecycleLedger::FIELD_ACCEPTED, $out['accepted']);
+        $this->assertSame(AttemptLifecycleLedger::FIELD_REASON, $out['reason']);
+        $this->assertSame(AttemptLifecycleLedger::FIELD_ATTEMPT, $out['attempt']);
+        $this->assertSame(AttemptLifecycleLedger::FIELD_ATTEMPT_ID, $out['attempt_id']);
+        $this->assertSame(AttemptLifecycleLedger::FIELD_TASK_ID, $out['task_id']);
+        $this->assertSame(AttemptLifecycleLedger::FIELD_STATE, $out['state']);
+        $this->assertSame(AttemptLifecycleLedger::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AttemptLifecycleLedger::FIELD_ATTEMPTS, $out['attempts']);
+        $this->assertSame(18, $out['b663_attempt_lifecycle_floor_count']);
+    }
+
 }

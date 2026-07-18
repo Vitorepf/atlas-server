@@ -18001,4 +18001,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B663).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b663AttemptLifecycleFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.execution.attempt_lifecycle.v1' => AttemptLifecycleLedger::SCHEMA_VERSION,
+            'started' => AttemptLifecycleLedger::STATE_STARTED,
+            'completed' => AttemptLifecycleLedger::STATE_COMPLETED,
+            'crashed' => AttemptLifecycleLedger::STATE_CRASHED,
+            'timed_out' => AttemptLifecycleLedger::STATE_TIMED_OUT,
+            'abandoned' => AttemptLifecycleLedger::STATE_ABANDONED,
+            'task_or_attempt_unresolvable' => AttemptLifecycleLedger::REASON_TASK_OR_ATTEMPT_UNRESOLVABLE,
+            'duplicate_attempt' => AttemptLifecycleLedger::REASON_DUPLICATE_ATTEMPT,
+            'attempt_missing' => AttemptLifecycleLedger::REASON_ATTEMPT_MISSING,
+            'invalid_terminal_state' => AttemptLifecycleLedger::REASON_INVALID_TERMINAL_STATE,
+            'accepted' => AttemptLifecycleLedger::FIELD_ACCEPTED,
+            'reason' => AttemptLifecycleLedger::FIELD_REASON,
+            'attempt' => AttemptLifecycleLedger::FIELD_ATTEMPT,
+            'attempt_id' => AttemptLifecycleLedger::FIELD_ATTEMPT_ID,
+            'task_id' => AttemptLifecycleLedger::FIELD_TASK_ID,
+            'state' => AttemptLifecycleLedger::FIELD_STATE,
+            'schema_version' => AttemptLifecycleLedger::FIELD_SCHEMA_VERSION,
+            'attempts' => AttemptLifecycleLedger::FIELD_ATTEMPTS,
+            'b663_attempt_lifecycle_floor_count' => 18,
+        ];
+    }
+
 }
