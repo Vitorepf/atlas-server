@@ -263,6 +263,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_ASCB_PP = 'ASCB-PP';
     public const FIELD_ASI_L7 = 'ASI-L7';
     public const FIELD_AURG_4_D = 'AURG-4D';
+    public const FIELD_MEM_CORE = 'MEM-CORE';
+    public const FIELD_MEM_DELTA = 'MEM-DELTA';
     public const INT_10 = 10;
 
     /** Score points per status. */
@@ -321,8 +323,8 @@ class AtlasCognitionScoreCardService
         ['G8',     'Compounding Effect',          self::FIELD_COGNITIVE_IMMUNE, AtlasCompoundingRuntimeService::class],
 
         // Memory Core (3)
-        ['MEM-CORE',   'Memory Core (entries+relations)', self::FIELD_MEMORY_CORE, AtlasMemoryConflictResolutionService::class],
-        ['MEM-DELTA',  'Memory Delta Proposer',           self::FIELD_MEMORY_CORE, AiMemoryDeltaProposer::class],
+        [self::FIELD_MEM_CORE,   'Memory Core (entries+relations)', self::FIELD_MEMORY_CORE, AtlasMemoryConflictResolutionService::class],
+        [self::FIELD_MEM_DELTA,  'Memory Delta Proposer',           self::FIELD_MEMORY_CORE, AiMemoryDeltaProposer::class],
         ['MEM-RECALL', 'Memory Recall (hybrid)',          self::FIELD_MEMORY_CORE, AtlasHybridRetrievalInfrastructureService::class],
 
         // AUCRI 18 blocks

@@ -10430,4 +10430,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b507_acos_evolution_memory_recall_measure_series_lote_ledger_floor_count']);
     }
 
+    public function test_b508_spec_completeness_aaeos_http_measure_series_lote_ledger_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b508SpecCompletenessAaeosHttpMeasureSeriesLoteLedgerFloorsContractObserve([]);
+        $this->assertSame(SpecCompletenessScorer::INT_8, $out['8']);
+        $this->assertSame(SpecCompletenessScorer::INT_5, $out['5']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_ATLAS_AAEOS_PLACEMENT_, $out['atlas.aaeos.placement.']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_PAYLOAD_INTENT_ID, $out['payload.intent_id']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ESP_00, $out['ESP-00']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ESP_03, $out['ESP-03']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTJ02_JUDGE, $out['codex-independent-multj02-judge']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTJ03_JUDGE, $out['codex-independent-multj03-judge']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_AURG_PPR_SHADOW_DUAL_READ_V1, $out['atlas.aurg.ppr_shadow_dual_read.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_CAPTURE_COGNITIVE_IMMUNE_AUDIT_V2, $out['atlas.capture.cognitive_immune_audit.v2']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LATEST_SNAPSHOT_SNAPSHOT_AT, $out['latest_snapshot.snapshot_at']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_MEASUREMENT_BLOCKERS, $out['measurement.blockers']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_ATLAS_FORGE_2, $out['atlas-forge']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_CODEX_ELEV12_JUDGE, $out['codex-elev12-judge']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_MEM_CORE, $out['MEM-CORE']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_MEM_DELTA, $out['MEM-DELTA']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_ENG_11_ENFORCE_READINESS, $out['eng-11.enforce_readiness']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_FEE_13_LEARNING_CADENCE, $out['fee-13.learning_cadence']);
+        $this->assertSame(18, $out['b508_spec_completeness_aaeos_http_measure_series_lote_ledger_floor_count']);
+    }
+
 }

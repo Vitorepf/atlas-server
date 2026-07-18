@@ -13257,4 +13257,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B508).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b508SpecCompletenessAaeosHttpMeasureSeriesLoteLedgerFloorsContractObserve(array $input = []): array
+    {
+        return [
+            '8' => SpecCompletenessScorer::INT_8,
+            '5' => SpecCompletenessScorer::INT_5,
+            'atlas.aaeos.placement.' => AtlasAaeosHttpPathFacadeService::FIELD_ATLAS_AAEOS_PLACEMENT_,
+            'payload.intent_id' => AtlasAaeosHttpPathFacadeService::FIELD_PAYLOAD_INTENT_ID,
+            'ESP-00' => AcosMaxMeasureSeriesRegistry::FIELD_ESP_00,
+            'ESP-03' => AcosMaxMeasureSeriesRegistry::FIELD_ESP_03,
+            'codex-independent-multj02-judge' => AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTJ02_JUDGE,
+            'codex-independent-multj03-judge' => AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTJ03_JUDGE,
+            'atlas.aurg.ppr_shadow_dual_read.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_AURG_PPR_SHADOW_DUAL_READ_V1,
+            'atlas.capture.cognitive_immune_audit.v2' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_CAPTURE_COGNITIVE_IMMUNE_AUDIT_V2,
+            'latest_snapshot.snapshot_at' => AtlasAcosWatchdogHealthService::FIELD_LATEST_SNAPSHOT_SNAPSHOT_AT,
+            'measurement.blockers' => AtlasAcosWatchdogHealthService::FIELD_MEASUREMENT_BLOCKERS,
+            'atlas-forge' => AcosMaxVerifiedShareService::FIELD_ATLAS_FORGE_2,
+            'codex-elev12-judge' => AcosMaxVerifiedShareService::FIELD_CODEX_ELEV12_JUDGE,
+            'MEM-CORE' => AtlasCognitionScoreCardService::FIELD_MEM_CORE,
+            'MEM-DELTA' => AtlasCognitionScoreCardService::FIELD_MEM_DELTA,
+            'eng-11.enforce_readiness' => HealthReportWatchdogCheck::FIELD_ENG_11_ENFORCE_READINESS,
+            'fee-13.learning_cadence' => HealthReportWatchdogCheck::FIELD_FEE_13_LEARNING_CADENCE,
+            'b508_spec_completeness_aaeos_http_measure_series_lote_ledger_floor_count' => 18,
+        ];
+    }
+
 }

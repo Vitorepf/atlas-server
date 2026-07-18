@@ -49,6 +49,8 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_REPORT = 'scorecardReceiptsDiagnosisReport';
     public const FIELD_COM_10_CONTEXT_FEEDBACK_HEALTH = 'com-10.context_feedback_health';
     public const FIELD_CPT_09_COMPACTION_SOAK = 'cpt-09.compaction_soak';
+    public const FIELD_ENG_11_ENFORCE_READINESS = 'eng-11.enforce_readiness';
+    public const FIELD_FEE_13_LEARNING_CADENCE = 'fee-13.learning_cadence';
 
     public const CATALOG = [
         [
@@ -58,7 +60,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_MESSAGE => 'MEM-09 memory quality watchdog is not green.',
         ],
         [
-            self::FIELD_ID => 'fee-13.learning_cadence',
+            self::FIELD_ID => self::FIELD_FEE_13_LEARNING_CADENCE,
             self::FIELD_REPORT_METHOD => self::FIELD_LEARNING_CADENCE_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_LEARNING_CADENCE_STALLED,
             self::FIELD_MESSAGE => 'FEE-13 learning cadence is stalled or under-evidenced.',
@@ -106,7 +108,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_MESSAGE => 'OPE-10 found persistent partial scorecard receipts.',
         ],
         [
-            self::FIELD_ID => 'eng-11.enforce_readiness',
+            self::FIELD_ID => self::FIELD_ENG_11_ENFORCE_READINESS,
             self::FIELD_REPORT_METHOD => self::FIELD_ENGINEERING_ENFORCE_READINESS_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_ENGINEERING_ENFORCE_READINESS_NOT_READY,
             self::FIELD_MESSAGE => 'ENG-11 enforcement flips are not ready for promotion.',

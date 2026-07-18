@@ -131,6 +131,8 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD_AAEOS_HTTP_PATH_PHASE_1_EMPTY_INTENT = 'aaeos_http_path_phase_1_empty_intent';
     public const FIELD_ATLAS_MODE = 'atlas_mode';
     public const FIELD_ROUTING_TASK = 'routing_task';
+    public const FIELD_ATLAS_AAEOS_PLACEMENT_ = 'atlas.aaeos.placement.';
+    public const FIELD_PAYLOAD_INTENT_ID = 'payload.intent_id';
     public const INT_422 = 422;
 
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
@@ -341,7 +343,7 @@ final class AtlasAaeosHttpPathFacadeService
      */
     private function newIntentId(array $data): string
     {
-        $existing = AiValueNormalizer::trimmedStringOrNull(data_get($data, 'payload.intent_id'));
+        $existing = AiValueNormalizer::trimmedStringOrNull(data_get($data, self::FIELD_PAYLOAD_INTENT_ID));
         if ($existing !== null) {
             return $existing;
         }
@@ -375,7 +377,7 @@ final class AtlasAaeosHttpPathFacadeService
     private function placeOrCache(string $intentText, string $intentHash, array $data): array
     {
         $ttl = (int) (AiValueNormalizer::finiteFloatOrNull(config(self::PLACEMENT_CACHE_TTL_CONFIG_KEY, self::DEFAULT_PLACEMENT_CACHE_TTL_SECONDS)) ?? self::DEFAULT_PLACEMENT_CACHE_TTL_SECONDS);
-        $cacheKey = 'atlas.aaeos.placement.'.hash(self::FIELD_SHA256, $intentHash.'|'.($data[self::FIELD_SOURCE_TYPE] ?? ''));
+        $cacheKey = self::FIELD_ATLAS_AAEOS_PLACEMENT_.hash(self::FIELD_SHA256, $intentHash.'|'.($data[self::FIELD_SOURCE_TYPE] ?? ''));
         $cached = $ttl > 0 ? $this->cache->get($cacheKey) : null;
         if (is_array($cached)) {
             return [$cached, true];

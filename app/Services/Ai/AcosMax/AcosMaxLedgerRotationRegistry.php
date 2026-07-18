@@ -62,6 +62,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ATLAS_AI_LESSON_SEMANTIC_DEDUP_V1 = 'atlas.ai.lesson_semantic_dedup.v1';
     public const FIELD_ATLAS_AI_LESSON_TYPE_YIELD_V2 = 'atlas.ai.lesson_type_yield.v2';
     public const FIELD_ATLAS_AI_PROCEDURAL_SKILL_PROMOTER_V1 = 'atlas.ai.procedural_skill_promoter.v1';
+    public const FIELD_ATLAS_AURG_PPR_SHADOW_DUAL_READ_V1 = 'atlas.aurg.ppr_shadow_dual_read.v1';
+    public const FIELD_ATLAS_CAPTURE_COGNITIVE_IMMUNE_AUDIT_V2 = 'atlas.capture.cognitive_immune_audit.v2';
     public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
@@ -151,7 +153,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXH-01 computed reader',
             ],
-            'atlas.capture.cognitive_immune_audit.v2' => [
+            self::FIELD_ATLAS_CAPTURE_COGNITIVE_IMMUNE_AUDIT_V2 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_128,
                 self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
@@ -379,7 +381,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXA-06 fase 2 code-symbol embedding coverage reader',
             ],
-            'atlas.aurg.ppr_shadow_dual_read.v1' => [
+            self::FIELD_ATLAS_AURG_PPR_SHADOW_DUAL_READ_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,

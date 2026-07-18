@@ -99,6 +99,8 @@ final class AcosMaxVerifiedShareService
     public const FIELD_UTC = 'UTC';
     public const FIELD_ATLAS_AUTONOMOS_2 = 'atlas-autonomos';
     public const FIELD_ATLAS_DEV_2 = 'atlas-dev';
+    public const FIELD_ATLAS_FORGE_2 = 'atlas-forge';
+    public const FIELD_CODEX_ELEV12_JUDGE = 'codex-elev12-judge';
 
 
     /** @return array<string,mixed> */
@@ -117,7 +119,7 @@ final class AcosMaxVerifiedShareService
             self::FIELD_DENOMINATOR_MIN => self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS,
             self::FIELD_TTL_DAYS => self::DEFAULT_TTL_DAYS,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-elev12',
-            self::FIELD_JUDGE_ENGINE_ID => 'codex-elev12-judge',
+            self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV12_JUDGE,
             self::FIELD_SERIES_REGISTRY => [
                 self::FIELD_SERIES => self::MEASURE_ID,
                 self::FIELD_PATH => 'atlas:acos:verified-share --json',
@@ -347,7 +349,7 @@ final class AcosMaxVerifiedShareService
 
         return match (true) {
             in_array($value, ['dev', self::FIELD_ATLAS_DEV, self::FIELD_ATLAS_DEV_2], true) => self::FIELD_DEV,
-            in_array($value, ['forge', self::FIELD_ATLAS_FORGE, 'atlas-forge'], true) => self::FIELD_FORGE,
+            in_array($value, ['forge', self::FIELD_ATLAS_FORGE, self::FIELD_ATLAS_FORGE_2], true) => self::FIELD_FORGE,
             in_array($value, ['autonomos', self::FIELD_AUTONOMOUS, self::FIELD_ATLAS_AUTONOMOS, self::FIELD_ATLAS_AUTONOMOS_2], true) => self::FIELD_AUTONOMOS,
             default => null,
         };

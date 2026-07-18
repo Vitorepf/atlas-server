@@ -78,6 +78,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_ELEV_20S = 'ELEV-20s';
     public const FIELD_ELEV_25 = 'ELEV-25';
     public const FIELD_ELEV_27 = 'ELEV-27';
+    public const FIELD_ESP_00 = 'ESP-00';
+    public const FIELD_ESP_03 = 'ESP-03';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -183,7 +185,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => self::FIELD_ONE_TIME_CLEANUP_RECEIPT,
             ],
             [
-                self::FIELD_SLICE => 'ESP-00',
+                self::FIELD_SLICE => self::FIELD_ESP_00,
                 self::FIELD_SERIES => 'acos.esp00.ground_truth.v1',
                 self::FIELD_PATH => storage_path('app/atlas/evidence/acos-max-esp-00-ground-truth.jsonl'),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
@@ -479,7 +481,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'elev-27-resource-budget',
             ],
             [
-                self::FIELD_SLICE => 'ESP-03',
+                self::FIELD_SLICE => self::FIELD_ESP_03,
                 self::FIELD_SERIES => 'atlas.test_attestation.v1',
                 self::FIELD_PATH => 'AtlasTestAttestationService::attest',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,

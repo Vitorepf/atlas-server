@@ -378,6 +378,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_CORPUS_METRICS_RECALL_AT_5 = 'latest_snapshot.metadata.memory_recall_corpus.metrics.recall_at_5';
     public const FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_GOLDEN_IMPROPER_FLOOR_DISCARDS = 'latest_snapshot.metadata.memory_recall_golden.improper_floor_discards';
     public const FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_GOLDEN_RECALL_AT_5 = 'latest_snapshot.metadata.memory_recall_golden.recall_at_5';
+    public const FIELD_LATEST_SNAPSHOT_SNAPSHOT_AT = 'latest_snapshot.snapshot_at';
+    public const FIELD_MEASUREMENT_BLOCKERS = 'measurement.blockers';
     public const INT_100 = 100;
     public const FLOAT_10_0 = 10.0;
 
@@ -388,7 +390,7 @@ final class AtlasAcosWatchdogHealthService
     public function memoryQualityCheck(array $filters = []): array
     {
         $scorecard = app(AtlasMemoryQualityService::class)->scorecard($filters);
-        $latestSnapshotAt = $this->parseDate(data_get($scorecard, 'latest_snapshot.snapshot_at'));
+        $latestSnapshotAt = $this->parseDate(data_get($scorecard, self::FIELD_LATEST_SNAPSHOT_SNAPSHOT_AT));
         $snapshotAgeHours = $latestSnapshotAt ? round($latestSnapshotAt->diffInMinutes(CarbonImmutable::now(self::FIELD_UTC)) / 60, 2) : null;
         $freshness = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, self::FIELD_COMPONENTS_FRESHNESS, 0)) ?? 0);
         $concentration = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, self::FIELD_RATIOS_RECALL_CONCENTRATION_RATIO, 0.0)) ?? 0.0;
@@ -791,7 +793,7 @@ final class AtlasAcosWatchdogHealthService
     public function liftCycleClosureReport(): array
     {
         $report = app(AtlasLearningRecallUseLiftService::class)->report();
-        $blockers = array_values(AiValueNormalizer::arrayOrEmpty(data_get($report, 'measurement.blockers', [])));
+        $blockers = array_values(AiValueNormalizer::arrayOrEmpty(data_get($report, self::FIELD_MEASUREMENT_BLOCKERS, [])));
         $status = (AiValueNormalizer::trimmedStringOrNull($report[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN);
         $series = $this->blockerSeries(self::FIELD_OPE_08_LIFT_CYCLE_CLOSURE, $blockers);
         $stalled = array_values(array_filter($series, static fn (array $row): bool => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_DAYS_IN_BLOCK] ?? null) ?? 0) > self::LIFT_STALLED_DAYS));
