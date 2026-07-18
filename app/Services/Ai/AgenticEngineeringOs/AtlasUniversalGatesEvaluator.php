@@ -14962,4 +14962,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B564).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b564LoteMeasureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'cited' => AcosMaxLote2MeasureService::FIELD_CITED,
+            'blocked_by' => AcosMaxLote2MeasureService::FIELD_BLOCKED_BY,
+            'score' => AcosMaxLote2MeasureService::FIELD_SCORE,
+            'formula' => AcosMaxLote2MeasureService::FIELD_FORMULA,
+            'reason' => AcosMaxLote2MeasureService::FIELD_REASON,
+            'memory_type' => AcosMaxLote2MeasureService::FIELD_MEMORY_TYPE,
+            'generated_at' => AcosMaxLote2MeasureService::FIELD_GENERATED_AT,
+            'lesson_class' => AcosMaxLote2MeasureService::FIELD_LESSON_CLASS,
+            'citation_latencies' => AcosMaxLote2MeasureService::FIELD_CITATION_LATENCIES,
+            'record_usage_for_peek' => AcosMaxLote2MeasureService::FIELD_RECORD_USAGE_FOR_PEEK,
+            'provider_calls_made' => AcosMaxLote2MeasureService::FIELD_PROVIDER_CALLS_MADE,
+            'delivery_p95' => AcosMaxLote2MeasureService::FIELD_DELIVERY_P95,
+            'citation_p50' => AcosMaxLote2MeasureService::FIELD_CITATION_P50,
+            'delivery_latencies' => AcosMaxLote2MeasureService::FIELD_DELIVERY_LATENCIES,
+            'memory_types' => AcosMaxLote2MeasureService::FIELD_MEMORY_TYPES,
+            'ttl_days' => AcosMaxLote2MeasureService::FIELD_TTL_DAYS,
+            'author_engine_id' => AcosMaxLote2MeasureService::FIELD_AUTHOR_ENGINE_ID,
+            'judge_engine_id' => AcosMaxLote2MeasureService::FIELD_JUDGE_ENGINE_ID,
+            'b564_lote_measure_floor_count' => 18,
+        ];
+    }
+
 }

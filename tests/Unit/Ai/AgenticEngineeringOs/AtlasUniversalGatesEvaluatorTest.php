@@ -11799,4 +11799,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b563_acos_watchdog_floor_count']);
     }
 
+    public function test_b564_lote_measure_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b564LoteMeasureFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CITED, $out['cited']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_BLOCKED_BY, $out['blocked_by']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_SCORE, $out['score']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_FORMULA, $out['formula']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MEMORY_TYPE, $out['memory_type']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_LESSON_CLASS, $out['lesson_class']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CITATION_LATENCIES, $out['citation_latencies']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_RECORD_USAGE_FOR_PEEK, $out['record_usage_for_peek']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_PROVIDER_CALLS_MADE, $out['provider_calls_made']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DELIVERY_P95, $out['delivery_p95']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CITATION_P50, $out['citation_p50']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DELIVERY_LATENCIES, $out['delivery_latencies']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MEMORY_TYPES, $out['memory_types']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_TTL_DAYS, $out['ttl_days']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_AUTHOR_ENGINE_ID, $out['author_engine_id']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_JUDGE_ENGINE_ID, $out['judge_engine_id']);
+        $this->assertSame(18, $out['b564_lote_measure_floor_count']);
+    }
+
 }
