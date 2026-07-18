@@ -16207,4 +16207,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B605).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b605PromotionProtocolPhaseHandoffComposedObraAcosWatchdogFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'MULTV-01/02 receipts cover derived tier and verified_share floor is green' => PromotionProtocol::FIELD_MULTV_01_02_RECEIPTS_COVER_DERIVED_TIER_AND_VERIFIED_SHARE_FLOOR_IS_GREEN,
+            'golden v2 shows RRF cross-source precision improvement with OFF byte-identical' => PromotionProtocol::FIELD_GOLDEN_V2_SHOWS_RRF_CROSS_SOURCE_PRECISION_IMPROVEMENT_WITH_OFF_BYTE_IDENTICAL,
+            'privacy fail-closed, reversal proven, and digest FEE-12 operational' => PromotionProtocol::FIELD_PRIVACY_FAIL_CLOSED__REVERSAL_PROVEN__AND_DIGEST_FEE_12_OPERATIONAL,
+            'reflection stream writes real post-landing entries and consumer reads PathYieldEwma samples' => PromotionProtocol::FIELD_REFLECTION_STREAM_WRITES_REAL_POST_LANDING_ENTRIES_AND_CONSUMER_READS_PATH_YIELD_EWMA_SAMPLES,
+            'disable auto-apply when reversal_rate or negative_feedback guard breaches soak bounds' => PromotionProtocol::FIELD_DISABLE_AUTO_APPLY_WHEN_REVERSAL_RATE_OR_NEGATIVE_FEEDBACK_GUARD_BREACHES_SOAK_BOUNDS,
+            'disable autonomous land enforcement on false block or receipt-seal regression' => PromotionProtocol::FIELD_DISABLE_AUTONOMOUS_LAND_ENFORCEMENT_ON_FALSE_BLOCK_OR_RECEIPT_SEAL_REGRESSION,
+            'disable reflection writer if pattern-ledger writes fail or no consumer traffic is observed' => PromotionProtocol::FIELD_DISABLE_REFLECTION_WRITER_IF_PATTERN_LEDGER_WRITES_FAIL_OR_NO_CONSUMER_TRAFFIC_IS_OBSERVED,
+            'intent_id required' => AaeosPhaseHandoffService::FIELD_INTENT_ID_REQUIRED,
+            'skip requires receipt_id' => AaeosPhaseHandoffService::FIELD_SKIP_REQUIRES_RECEIPT_ID,
+            'actor.id required' => AaeosPhaseHandoffService::FIELD_ACTOR_ID_REQUIRED,
+            'skip requires non-empty reason' => AaeosPhaseHandoffService::FIELD_SKIP_REQUIRES_NON_EMPTY_REASON,
+            'No task in the arc reaches proven_real landing within the arc TTL.' => ComposedObraArcComposer::FIELD_NO_TASK_IN_THE_ARC_REACHES_PROVEN_REAL_LANDING_WITHIN_THE_ARC_TTL_,
+            'Memory quality check failed.' => AtlasAcosWatchdogHealthService::FIELD_MEMORY_QUALITY_CHECK_FAILED_,
+            'group must be non-empty.' => AtlasCognitiveFunctionAtlasService::FIELD_GROUP_MUST_BE_NON_EMPTY_,
+            'Operator-driven. ACMF does not auto-apply schema migrations.' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_OPERATOR_DRIVEN__ACMF_DOES_NOT_AUTO_APPLY_SCHEMA_MIGRATIONS_,
+            'Ativação sequencial por eventos externos REAIS no ledger — nenhuma frente declara sucesso sobre si mesma (obra20 §15). Desenho/spec paralelos; ativação gated.' => AtlasFrontierWaveLadder::FIELD_ATIVA__O_SEQUENCIAL_POR_EVENTOS_EXTERNOS_REAIS_NO_LEDGER___NENHUMA_FRENTE_DECLARA_SUCESSO_SOBRE_SI_MESMA__OBRA20__15___DESENHO_SPEC_PARALELOS__ATIVA__O_GATED_,
+            'A MAXK ladder/envelope forgery was NOT refused — regression opens the boolean-forgeable gate.' => AutonomyLadderAdversarialWatchdogCheck::FIELD_A_MAXK_LADDER_ENVELOPE_FORGERY_WAS_NOT_REFUSED___REGRESSION_OPENS_THE_BOOLEAN_FORGEABLE_GATE_,
+            'HealthReportWatchdogCheck requires non-empty id/method/alert/message.' => HealthReportWatchdogCheck::FIELD_HEALTH_REPORT_WATCHDOG_CHECK_REQUIRES_NON_EMPTY_ID_METHOD_ALERT_MESSAGE_,
+            'b605_promotion_protocol_phase_handoff_composed_obra_acos_watchdog_floor_count' => 18,
+        ];
+    }
+
 }

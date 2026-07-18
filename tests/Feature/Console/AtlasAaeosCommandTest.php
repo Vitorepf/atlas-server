@@ -10203,6 +10203,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b605_promotion_protocol_phase_handoff_composed_obra_acos_watchdog_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b605-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b605',
+                '--b605-promotion-protocol-phase-handoff-composed-obra-acos-watchdog-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b605_promotion_protocol_phase_handoff_composed_obra_acos_watchdog_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

@@ -67,6 +67,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_PIP_08_SCORECARD_STABILITY_HAS_NOT_REACHED_A_GREEN_PIPELINE_SERIES_ = 'PIP-08 scorecard stability has not reached a green pipeline series.';
     public const FIELD_RAG_10_AURG_CROSS_LAYER_COVERAGE_IS_BELOW_FLOOR_ = 'RAG-10 AURG cross-layer coverage is below floor.';
     public const FIELD_RAG_12_RETRIEVAL_DIMENSION_WATCHDOG_FOUND_A_REGRESSION_OR_MASKING_ISSUE_ = 'RAG-12 retrieval dimension watchdog found a regression or masking issue.';
+    public const FIELD_HEALTH_REPORT_WATCHDOG_CHECK_REQUIRES_NON_EMPTY_ID_METHOD_ALERT_MESSAGE_ = 'HealthReportWatchdogCheck requires non-empty id/method/alert/message.';
 
     public const CATALOG = [
         [
@@ -145,7 +146,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
         private string $message,
     ) {
         if ($checkId === '' || $reportMethod === '' || $alertCode === '' || $message === '') {
-            throw new InvalidArgumentException('HealthReportWatchdogCheck requires non-empty id/method/alert/message.');
+            throw new InvalidArgumentException(self::FIELD_HEALTH_REPORT_WATCHDOG_CHECK_REQUIRES_NON_EMPTY_ID_METHOD_ALERT_MESSAGE_);
         }
         if (! method_exists($this->health, $reportMethod)) {
             throw new InvalidArgumentException("Unknown health report method: {$reportMethod}");

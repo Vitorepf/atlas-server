@@ -390,6 +390,7 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_CORPUS_METRICS_IMPROPER_FLOOR_DISCARDS = 'latest_snapshot.metadata.memory_recall_corpus.metrics.improper_floor_discards';
     public const FIELD_RECALL_CONCENTRATION_HIGH_WITHOUT_DEMOTION = 'recall_concentration_high_without_demotion';
     public const FIELD_ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE_OBSERVE = 'ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE=observe';
+    public const FIELD_MEMORY_QUALITY_CHECK_FAILED_ = 'Memory quality check failed.';
     public const FLOAT_0_0 = 0.0;
     public const INT_3 = 3;
     public const INT_100 = 100;
@@ -456,7 +457,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_ALERT_DETAIL => $failed === [] ? null : [
                 self::FIELD_CHECK_ID => AiValueNormalizer::trimmedScalarStringOrNull($failed[0][self::FIELD_ID] ?? null) ?? '',
                 self::FIELD_CODE => AiValueNormalizer::trimmedScalarStringOrNull($failed[0][self::FIELD_CODE] ?? null) ?? '',
-                self::FIELD_MESSAGE => 'Memory quality check failed.',
+                self::FIELD_MESSAGE => self::FIELD_MEMORY_QUALITY_CHECK_FAILED_,
             ],
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];

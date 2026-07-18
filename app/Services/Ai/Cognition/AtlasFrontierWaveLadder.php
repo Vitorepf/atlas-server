@@ -81,6 +81,7 @@ final class AtlasFrontierWaveLadder
     public const FIELD_SIS3_CAUSAL___SIS5_CURIOSIDADE___AUTO_CONSTRU__O_FECHADA = 'SIS3 causal ∥ SIS5 curiosidade + auto-construção fechada';
     public const FIELD_CONSTITUI__O__SCORECARD_10__CONGELADO_POR_HASH___QUARENTENA_DE_S_NTESE___RAZ_O_DE_TRANSA__ES___JOURNAL_FIRST__SISTEMA_8____O_PORT_O = 'Constituição: scorecard 10× congelado por hash + quarentena de síntese + razão de transações + journal-first (Sistema 8) — o PORTÃO';
     public const FIELD_SIS6_F_BRICA_DE_FROTAS___SIS7_SIMBIOSE_MULTI_DOM_NIO__TRADING_SHADOW_ONLY__EXECU__O_REAL_PROIBIDA_ = 'SIS6 fábrica de frotas ∥ SIS7 simbiose/multi-domínio (trading SHADOW-ONLY, execução real PROIBIDA)';
+    public const FIELD_ATIVA__O_SEQUENCIAL_POR_EVENTOS_EXTERNOS_REAIS_NO_LEDGER___NENHUMA_FRENTE_DECLARA_SUCESSO_SOBRE_SI_MESMA__OBRA20__15___DESENHO_SPEC_PARALELOS__ATIVA__O_GATED_ = 'Ativação sequencial por eventos externos REAIS no ledger — nenhuma frente declara sucesso sobre si mesma (obra20 §15). Desenho/spec paralelos; ativação gated.';
 
     /**
      * Waves in activation order (obra20 §Fase-0 + contexto-mestre §5).
@@ -164,7 +165,7 @@ final class AtlasFrontierWaveLadder
             self::FIELD_GENERATED_AT => gmdate('c'),
             self::FIELD_EVENT_THRESHOLD => self::EVENT_THRESHOLD,
             self::FIELD_WAVES => $waves,
-            self::FIELD_NOTE => 'Ativação sequencial por eventos externos REAIS no ledger — nenhuma frente declara sucesso sobre si mesma (obra20 §15). Desenho/spec paralelos; ativação gated.',
+            self::FIELD_NOTE => self::FIELD_ATIVA__O_SEQUENCIAL_POR_EVENTOS_EXTERNOS_REAIS_NO_LEDGER___NENHUMA_FRENTE_DECLARA_SUCESSO_SOBRE_SI_MESMA__OBRA20__15___DESENHO_SPEC_PARALELOS__ATIVA__O_GATED_,
         ];
     }
 

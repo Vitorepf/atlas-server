@@ -147,6 +147,13 @@ final class PromotionProtocol
     public const FIELD_SUSPEND_EXECUTOR_FAMILY_ON_NEGATIVE_ROOT_A_B_OR_COST_BREACH = 'suspend executor family on negative root A/B or cost breach';
     public const FIELD_DISABLE_CONTEXTUAL_BLURBS_ON_PRECISION_REGRESSION_OR_HALLUCINATED_BLURB_SAMPLE_FAILURE = 'disable contextual blurbs on precision regression or hallucinated-blurb sample failure';
     public const FIELD_OPERATOR_DISABLES_AUTONOMOS_MASTER_ON_FAILED_PREFLIGHT_REGRESSION_OR_SCOPED_COMMITTER_VIOLATION = 'operator disables autonomos master on failed preflight regression or scoped-committer violation';
+    public const FIELD_MULTV_01_02_RECEIPTS_COVER_DERIVED_TIER_AND_VERIFIED_SHARE_FLOOR_IS_GREEN = 'MULTV-01/02 receipts cover derived tier and verified_share floor is green';
+    public const FIELD_GOLDEN_V2_SHOWS_RRF_CROSS_SOURCE_PRECISION_IMPROVEMENT_WITH_OFF_BYTE_IDENTICAL = 'golden v2 shows RRF cross-source precision improvement with OFF byte-identical';
+    public const FIELD_PRIVACY_FAIL_CLOSED__REVERSAL_PROVEN__AND_DIGEST_FEE_12_OPERATIONAL = 'privacy fail-closed, reversal proven, and digest FEE-12 operational';
+    public const FIELD_REFLECTION_STREAM_WRITES_REAL_POST_LANDING_ENTRIES_AND_CONSUMER_READS_PATH_YIELD_EWMA_SAMPLES = 'reflection stream writes real post-landing entries and consumer reads PathYieldEwma samples';
+    public const FIELD_DISABLE_AUTO_APPLY_WHEN_REVERSAL_RATE_OR_NEGATIVE_FEEDBACK_GUARD_BREACHES_SOAK_BOUNDS = 'disable auto-apply when reversal_rate or negative_feedback guard breaches soak bounds';
+    public const FIELD_DISABLE_AUTONOMOUS_LAND_ENFORCEMENT_ON_FALSE_BLOCK_OR_RECEIPT_SEAL_REGRESSION = 'disable autonomous land enforcement on false block or receipt-seal regression';
+    public const FIELD_DISABLE_REFLECTION_WRITER_IF_PATTERN_LEDGER_WRITES_FAIL_OR_NO_CONSUMER_TRAFFIC_IS_OBSERVED = 'disable reflection writer if pattern-ledger writes fail or no consumer traffic is observed';
     public const FLOAT_0_05 = 0.05;
 
     /** @var list<string> */
@@ -363,8 +370,8 @@ final class PromotionProtocol
                 self::FIELD_CONFIG_KEY => self::FIELD_ATLAS_AI_AUTONOMOUS_LEARNING_ENABLED,
                 self::FIELD_ENV_KEY => self::FIELD_ATLAS_AUTONOMOUS_AUTO_APPLY,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '7d',
-                self::FIELD_FLIP_CRITERION => 'privacy fail-closed, reversal proven, and digest FEE-12 operational',
-                self::FIELD_ROLLBACK_TRIGGER => 'disable auto-apply when reversal_rate or negative_feedback guard breaches soak bounds',
+                self::FIELD_FLIP_CRITERION => self::FIELD_PRIVACY_FAIL_CLOSED__REVERSAL_PROVEN__AND_DIGEST_FEE_12_OPERATIONAL,
+                self::FIELD_ROLLBACK_TRIGGER => self::FIELD_DISABLE_AUTO_APPLY_WHEN_REVERSAL_RATE_OR_NEGATIVE_FEEDBACK_GUARD_BREACHES_SOAK_BOUNDS,
                 self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV26S_JUDGE,
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:1413',
                 self::FIELD_OPERATOR_ONLY => true,
@@ -377,8 +384,8 @@ final class PromotionProtocol
                 self::FIELD_CONFIG_KEY => self::FIELD_ATLAS_BRAIN_REFLECTION_ENABLED_2,
                 self::FIELD_ENV_KEY => self::FIELD_ATLAS_BRAIN_REFLECTION_ENABLED,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '24h',
-                self::FIELD_FLIP_CRITERION => 'reflection stream writes real post-landing entries and consumer reads PathYieldEwma samples',
-                self::FIELD_ROLLBACK_TRIGGER => 'disable reflection writer if pattern-ledger writes fail or no consumer traffic is observed',
+                self::FIELD_FLIP_CRITERION => self::FIELD_REFLECTION_STREAM_WRITES_REAL_POST_LANDING_ENTRIES_AND_CONSUMER_READS_PATH_YIELD_EWMA_SAMPLES,
+                self::FIELD_ROLLBACK_TRIGGER => self::FIELD_DISABLE_REFLECTION_WRITER_IF_PATTERN_LEDGER_WRITES_FAIL_OR_NO_CONSUMER_TRAFFIC_IS_OBSERVED,
                 self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV26S_JUDGE,
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:1311',
             ],
@@ -389,7 +396,7 @@ final class PromotionProtocol
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_CONFIG_KEY => self::FIELD_ATLAS_MEMORY_FUSION_V2_ENABLED,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '7d',
-                self::FIELD_FLIP_CRITERION => 'golden v2 shows RRF cross-source precision improvement with OFF byte-identical',
+                self::FIELD_FLIP_CRITERION => self::FIELD_GOLDEN_V2_SHOWS_RRF_CROSS_SOURCE_PRECISION_IMPROVEMENT_WITH_OFF_BYTE_IDENTICAL,
                 self::FIELD_ROLLBACK_TRIGGER => 'return to legacy ranking formula on golden v2 regression or improper floor discard',
                 self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV26S_JUDGE,
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:330',
@@ -400,8 +407,8 @@ final class PromotionProtocol
                 self::FIELD_SLICE => self::FIELD_ASI_10,
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '7d',
-                self::FIELD_FLIP_CRITERION => 'MULTV-01/02 receipts cover derived tier and verified_share floor is green',
-                self::FIELD_ROLLBACK_TRIGGER => 'disable autonomous land enforcement on false block or receipt-seal regression',
+                self::FIELD_FLIP_CRITERION => self::FIELD_MULTV_01_02_RECEIPTS_COVER_DERIVED_TIER_AND_VERIFIED_SHARE_FLOOR_IS_GREEN,
+                self::FIELD_ROLLBACK_TRIGGER => self::FIELD_DISABLE_AUTONOMOUS_LAND_ENFORCEMENT_ON_FALSE_BLOCK_OR_RECEIPT_SEAL_REGRESSION,
                 self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV26S_JUDGE,
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:2681',
             ],

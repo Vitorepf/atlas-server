@@ -101,6 +101,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_SCHEMA_PROPOSALS_JSONL = 'schema_proposals.jsonl';
     public const FIELD_ATLAS_ACMF = 'atlas/acmf';
     public const FIELD_OPERATOR_SUPPLIED_SCHEMA_EVOLUTION_ = 'Operator-supplied schema evolution.';
+    public const FIELD_OPERATOR_DRIVEN__ACMF_DOES_NOT_AUTO_APPLY_SCHEMA_MIGRATIONS_ = 'Operator-driven. ACMF does not auto-apply schema migrations.';
 
     private ?string $proposalsLogOverride = null;
 
@@ -294,7 +295,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         }
         $lines[] = '';
         $lines[] = '## Migration';
-        $lines[] = 'Operator-driven. ACMF does not auto-apply schema migrations.';
+        $lines[] = self::FIELD_OPERATOR_DRIVEN__ACMF_DOES_NOT_AUTO_APPLY_SCHEMA_MIGRATIONS_;
 
         return implode("\n", $lines);
     }

@@ -627,6 +627,7 @@ final class AtlasAaeosCommand extends Command
                             {--b602-aaeos-veto-citation-grounding-gated-corpus-cognitive-lote-floors-contract= : JSON file (any object) to observe aaeos/veto/citation/grounding/gated/corpus floors}
                             {--b603-maxa-jina-generated-contract-lote-measure-department-acos-floors-contract= : JSON file (any object) to observe maxa/jina/generated/contract/lote/measure floors}
                             {--b604-lote-measure-department-contract-acos-evolution-operational-volume-floors-contract= : JSON file (any object) to observe lote/measure/department/contract/acos/evolution floors}
+                            {--b605-promotion-protocol-phase-handoff-composed-obra-acos-watchdog-floors-contract= : JSON file (any object) to observe promotion/protocol/phase/handoff/composed/obra floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1410,6 +1411,7 @@ final class AtlasAaeosCommand extends Command
             ['b602-aaeos-veto-citation-grounding-gated-corpus-cognitive-lote-floors-contract', 'b602_aaeos_veto_citation_grounding_gated_corpus_cognitive_lote_floors_contract', fn (array $p) => $gates->b602AaeosVetoCitationGroundingGatedCorpusCognitiveLoteFloorsContractObserve($p)],
             ['b603-maxa-jina-generated-contract-lote-measure-department-acos-floors-contract', 'b603_maxa_jina_generated_contract_lote_measure_department_acos_floors_contract', fn (array $p) => $gates->b603MaxaJinaGeneratedContractLoteMeasureDepartmentAcosFloorsContractObserve($p)],
             ['b604-lote-measure-department-contract-acos-evolution-operational-volume-floors-contract', 'b604_lote_measure_department_contract_acos_evolution_operational_volume_floors_contract', fn (array $p) => $gates->b604LoteMeasureDepartmentContractAcosEvolutionOperationalVolumeFloorsContractObserve($p)],
+            ['b605-promotion-protocol-phase-handoff-composed-obra-acos-watchdog-floors-contract', 'b605_promotion_protocol_phase_handoff_composed_obra_acos_watchdog_floors_contract', fn (array $p) => $gates->b605PromotionProtocolPhaseHandoffComposedObraAcosWatchdogFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

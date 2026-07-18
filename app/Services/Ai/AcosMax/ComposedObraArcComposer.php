@@ -100,6 +100,7 @@ final class ComposedObraArcComposer
     public const FIELD__PHP = '.php';
     public const FIELD_EVERY_ORDERED_ARC_TASK_LANDS_WITH_PROVEN_REAL_OUTCOME__PARTIAL_COMPLETION_LEAVES_ARC_OPEN_ = 'Every ordered arc task lands with proven_real outcome; partial completion leaves arc open.';
     public const FIELD_WIRING_THE_NEIGHBOR_ORGANS_ = 'Wiring the neighbor organs ';
+    public const FIELD_NO_TASK_IN_THE_ARC_REACHES_PROVEN_REAL_LANDING_WITHIN_THE_ARC_TTL_ = 'No task in the arc reaches proven_real landing within the arc TTL.';
     public const INT_2 = 2;
 
     /**
@@ -298,7 +299,7 @@ final class ComposedObraArcComposer
             self::FIELD_OBRA_ID => $obraId,
             self::FIELD_THESIS => [
                 self::FIELD_CLAIM => self::FIELD_WIRING_THE_NEIGHBOR_ORGANS_.implode(', ', array_map(static fn (array $t): string => basename(AiValueNormalizer::trimmedScalarStringOrNull($t[self::FIELD_TARGET_PATH] ?? null) ?? '', self::FIELD__PHP), $tasks)).' materially increases end-to-end leverage.',
-                self::FIELD_FALSIFIED_WHEN => 'No task in the arc reaches proven_real landing within the arc TTL.',
+                self::FIELD_FALSIFIED_WHEN => self::FIELD_NO_TASK_IN_THE_ARC_REACHES_PROVEN_REAL_LANDING_WITHIN_THE_ARC_TTL_,
                 self::FIELD_AUTHOR_ENGINE_ID => $author,
             ],
             self::FIELD_TASKS => $tasks,

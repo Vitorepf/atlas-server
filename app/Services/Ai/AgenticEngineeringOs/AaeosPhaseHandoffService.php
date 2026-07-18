@@ -80,13 +80,17 @@ final class AaeosPhaseHandoffService
     public const FIELD_ACTOR_KIND_REQUIRED = 'actor.kind required';
     public const FIELD_EVIDENCE_HASHES_MUST_BE_SHA256___STRINGS = 'evidence_hashes must be sha256:* strings';
     public const FIELD_SCHEMA_MUST_BE_ = 'schema must be ';
+    public const FIELD_INTENT_ID_REQUIRED = 'intent_id required';
+    public const FIELD_SKIP_REQUIRES_RECEIPT_ID = 'skip requires receipt_id';
+    public const FIELD_ACTOR_ID_REQUIRED = 'actor.id required';
+    public const FIELD_SKIP_REQUIRES_NON_EMPTY_REASON = 'skip requires non-empty reason';
     public const INT_4 = 4;
     public const INT_256 = 256;
 
     public static function requireIntentId(string $intentId): void
     {
         if ($intentId === '') {
-            throw new InvalidArgumentException('intent_id required');
+            throw new InvalidArgumentException(self::FIELD_INTENT_ID_REQUIRED);
         }
     }
 
@@ -311,10 +315,10 @@ final class AaeosPhaseHandoffService
     {
         $this->assertPhase($phase, self::FIELD_PHASE);
         if ($receiptId === '') {
-            throw new InvalidArgumentException('skip requires receipt_id');
+            throw new InvalidArgumentException(self::FIELD_SKIP_REQUIRES_RECEIPT_ID);
         }
         if ($reason === '') {
-            throw new InvalidArgumentException('skip requires non-empty reason');
+            throw new InvalidArgumentException(self::FIELD_SKIP_REQUIRES_NON_EMPTY_REASON);
         }
 
         return [
@@ -362,7 +366,7 @@ final class AaeosPhaseHandoffService
             throw new InvalidArgumentException(self::FIELD_ACTOR_KIND_MUST_BE_AGENT_OPERATOR_SYSTEM);
         }
         if (! isset($actor[self::FIELD_ID]) || $actor[self::FIELD_ID] === '') {
-            throw new InvalidArgumentException('actor.id required');
+            throw new InvalidArgumentException(self::FIELD_ACTOR_ID_REQUIRED);
         }
     }
 

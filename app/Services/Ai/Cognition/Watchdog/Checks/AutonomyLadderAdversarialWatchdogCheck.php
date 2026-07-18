@@ -133,6 +133,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_PROMOTES_SELECTION_FALSE_AND_BLOCKER_FALSE = 'promotes_selection=false AND blocker=false';
     public const FIELD_DERIVED___CEILING_DRAFT = 'derived ≤ ceiling=draft';
     public const FIELD_SIGNATURE_NONCE_REUSED_AFTER_FIRST_SPEND = 'signature_nonce_reused after first spend';
+    public const FIELD_A_MAXK_LADDER_ENVELOPE_FORGERY_WAS_NOT_REFUSED___REGRESSION_OPENS_THE_BOOLEAN_FORGEABLE_GATE_ = 'A MAXK ladder/envelope forgery was NOT refused — regression opens the boolean-forgeable gate.';
     public const INT_5 = 5;
     public const FLOAT_0_10 = 0.10;
     public const FLOAT_0_42 = 0.42;
@@ -205,7 +206,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         if ($violations !== []) {
             return AtlasWatchdogCheckResult::alert($evidence, [
                 self::FIELD_CODE => self::FIELD_MAXK09_ADVERSARIAL_PROBE_PASSED,
-                self::FIELD_MESSAGE => 'A MAXK ladder/envelope forgery was NOT refused — regression opens the boolean-forgeable gate.',
+                self::FIELD_MESSAGE => self::FIELD_A_MAXK_LADDER_ENVELOPE_FORGERY_WAS_NOT_REFUSED___REGRESSION_OPENS_THE_BOOLEAN_FORGEABLE_GATE_,
                 self::FIELD_VIOLATIONS => $violations,
             ]);
         }

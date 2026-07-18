@@ -109,6 +109,7 @@ class AtlasCognitiveFunctionAtlasService
     public const FIELD_TEOS_I3 = 'teos_i3';
     public const FIELD_TEOS_I4 = 'teos_i4';
     public const FIELD_THRESHOLD_MUST_BE____1_ = 'threshold must be >= 1.';
+    public const FIELD_GROUP_MUST_BE_NON_EMPTY_ = 'group must be non-empty.';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scoreCard,
@@ -154,7 +155,7 @@ class AtlasCognitiveFunctionAtlasService
     public function subsystemsByGroup(string $group): array
     {
         if ($group === '') {
-            throw new InvalidArgumentException('group must be non-empty.');
+            throw new InvalidArgumentException(self::FIELD_GROUP_MUST_BE_NON_EMPTY_);
         }
         $subs = AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()[self::FIELD_SUBSYSTEMS] ?? null);
         $out = [];
