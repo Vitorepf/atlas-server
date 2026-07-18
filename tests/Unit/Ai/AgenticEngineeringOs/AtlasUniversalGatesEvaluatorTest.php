@@ -16602,4 +16602,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b756_autonomy_ladder_floor_count']);
     }
 
+    public function test_b757_local_model_evidence_ledger_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b757LocalModelEvidenceLedgerFloorsContractObserve([]);
+        $this->assertSame(LocalModelIntegrityWatchdogCheck::SCHEMA_VERSION, $out['atlas.acos.local_model_integrity_watchdog.v1']);
+        $this->assertSame(LocalModelIntegrityWatchdogCheck::CHECK_ID, $out['elev-19.local_model_integrity']);
+        $this->assertSame(LocalModelIntegrityWatchdogCheck::FIELD_ARTIFACTS, $out['artifacts']);
+        $this->assertSame(LocalModelIntegrityWatchdogCheck::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(LocalModelIntegrityWatchdogCheck::FIELD_MODEL_ID, $out['model_id']);
+        $this->assertSame(LocalModelIntegrityWatchdogCheck::FIELD_TOTAL, $out['total']);
+        $this->assertSame(LocalModelIntegrityWatchdogCheck::FIELD_STATUS, $out['status']);
+        $this->assertSame(LocalModelIntegrityWatchdogCheck::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(LocalModelIntegrityWatchdogCheck::FIELD_CODE, $out['code']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::SCHEMA_VERSION, $out['atlas.acos.watchdog.evidence_ledger_integrity.v1']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::DEFAULT_LEDGER_RELATIVE_PATH, $out['storage/atlas/evidence-ledger-integrity/integrity.jsonl']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::REASON_CHAINS_INTACT, $out['chains_intact']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::STATUS_OK, $out['ok']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::REASON_GAP, $out['gap']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::REASON_TAMPERED, $out['tampered']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::REASON_VERIFIER_THREW, $out['verifier_threw']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_STATUS, $out['status']);
+        $this->assertSame(18, $out['b757_local_model_evidence_ledger_floor_count']);
+    }
+
 }
