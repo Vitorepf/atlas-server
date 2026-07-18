@@ -14,11 +14,11 @@
 | bfcl | ✅ | unit-script PHP → bridge | `scripts/rivals-bfcl-atlas-unit.php` |
 | aider_polyglot | ✅ | override no adapter | `AiderBenchAdapter::commandTemplateForArm` |
 | swe_bench_live | ✅ | unit-script com `--runtime={runtime}` | `scripts/rivals-swe-live-unit.php` |
-| senior_swe_bench | ❌ | — | ver §Harbor abaixo |
-| swe_marathon | ❌ | — | ver §Harbor abaixo |
-| live_code_bench | ❌ | — | ver §Unit-script abaixo |
-| inspect_evals | ❌ | — | ver §Endpoint abaixo |
-| tau2_bench | ❌ | — | ver §Endpoint abaixo |
+| senior_swe_bench | ✅ (2026-07-18, prova pendente) | agente harbor espelho host↔ambiente | `scripts/rivals_harbor_atlas_agent.py` |
+| swe_marathon | ✅ (2026-07-18, prova pendente) | agente harbor espelho host↔ambiente | `scripts/rivals_harbor_atlas_agent.py` |
+| live_code_bench | ✅ (2026-07-18, prova pendente) | overlay bare com client-bridge | `scripts/rivals_lcb_atlas.py` |
+| inspect_evals | ✅ (2026-07-18, PROVADO: gsm8k 1.000) | endpoint OpenAI-compat local :8791 | `scripts/rivals-atlas-openai-endpoint.php` |
+| tau2_bench | ✅ (2026-07-18, tool-calls smoked) | endpoint OpenAI-compat local :8791 | `scripts/rivals-atlas-openai-endpoint.php` |
 
 A guarda `AbstractExternalSuiteAdapter::planCommands` (fail-fast pré-spend)
 lança `<suite>_runtime_unsupported:atlas_dev` para as 5 sem braço — correto:
@@ -104,3 +104,33 @@ unidades pareadas (6 casos × bare/atlas_dev): braço atlas_dev com `success ·
 exit 0` em casos reais (tb_fix_git, tb_git-multibranch, tb_hello-world);
 falhas simétricas nos dois braços = problema do caso, nunca do braço. Os
 zeros do scoreboard pós-15/jul eram rodadas pré-conserto + fila parada.
+
+
+## Worker autônomo + endpoint (2026-07-18, noite — commits f4fc710031/224b39cd3e)
+
+Os 10/10 braços com-Atlas existem em código. Peças novas:
+
+- **com.atlas.arena-drain** (LaunchAgent, KeepAlive + loop 60s em
+  `scripts/run-arena-drain.sh`): botão "Rodar medição" no app → fila →
+  execução SEM intervenção. StartInterval de launchd NÃO dispara neste Mac
+  (provado: runs=1 em 10min); o padrão da casa é KeepAlive, e bootstrap não
+  auto-inicia — sempre `launchctl kickstart` após bootstrap.
+- **com.atlas.rivals-openai-endpoint** (LaunchAgent, KeepAlive):
+  `php -S 127.0.0.1:8791 scripts/rivals-atlas-openai-endpoint.php`,
+  PHP_CLI_SERVER_WORKERS=4. Cada /v1/chat/completions = hermes one-shot
+  (--safe-mode, --ignore-user-config, HERMES_HOME isolado) → Verboo; recibos
+  em `storage/atlas/rivals/endpoint_receipts.jsonl`. Tool-calls bridgeados
+  por prompt-JSON (smoked com get_reservation). PROVA inspect: gsm8k_af9bef9a
+  accuracy 1.000 via endpoint (13.170 tokens in — overhead do runtime visível
+  e medido).
+- **Drain com repetições ≥3** (`worker_repetitions`, env
+  ATLAS_ARENA_WORKER_REPETITIONS): 1 rep carimbava repetitions_below_min em
+  todo relatório do app.
+- **Casos fantasma do terminal_bench**: tb_git-bisect e tb_kernel-config
+  apontavam para tasks INEXISTENTES no dataset (ValueError: No tasks found
+  matching pattern) — eram os "2 env-quebrados" com falha simétrica.
+  Substituídos no registry (`external/terminal_bench/cases/`) por
+  tb_git-leak-recovery e tb_broken-python (tasks reais, medium/easy).
+- Teto conhecido (tau2): o user-sim TAMBÉM passa pelo endpoint governado
+  (litellm resolve base por env, sem split por papel). Simétrico e dito;
+  separar exige binding de modelo por-braço no plano.
