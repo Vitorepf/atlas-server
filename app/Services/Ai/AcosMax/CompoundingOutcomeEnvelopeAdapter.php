@@ -36,6 +36,11 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public const FIELD_EXECUTION_QUALITY = 'execution_quality';
     public const FIELD_EVIDENCE_QUALITY = 'evidence_quality';
     public const FIELD_STATUS = 'status';
+    public const FIELD_PROVIDER = 'provider';
+    public const FIELD_TASK_CATEGORY = 'task_category';
+    public const FIELD_CERTIFIED_RECEIPT_ID = 'certified_receipt_id';
+    public const FIELD_OUTCOME_STATUS = 'outcome_status';
+    public const FIELD_PAYLOAD = 'payload';
 
     public function origin(): string
     {
@@ -56,12 +61,12 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             default => 'engineering',
         };
 
-        $outcomeStatus = AiValueNormalizer::lowerTrimmedString($native['outcome_status'] ?? $native[self::FIELD_STATUS] ?? self::STATUS_PASSED);
+        $outcomeStatus = AiValueNormalizer::lowerTrimmedString($native[self::FIELD_OUTCOME_STATUS] ?? $native[self::FIELD_STATUS] ?? self::STATUS_PASSED);
         $status = OutcomeEnvelope::normalizeStatus($outcomeStatus);
 
         $verifiedSourcePresent = array_key_exists(self::FIELD_VERIFIED, $native)
-            || is_array($native['payload']['outcome_contract_v2'] ?? null);
-        $contract = AiValueNormalizer::arrayOrEmpty($native['payload']['outcome_contract_v2'] ?? null);
+            || is_array($native[self::FIELD_PAYLOAD]['outcome_contract_v2'] ?? null);
+        $contract = AiValueNormalizer::arrayOrEmpty($native[self::FIELD_PAYLOAD]['outcome_contract_v2'] ?? null);
         $verifiedBasis = AiValueNormalizer::lowerTrimmedString(
             $contract[self::FIELD_VERIFIED_BASIS]
             ?? $native[self::FIELD_VERIFIED_BASIS]
@@ -75,13 +80,13 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             'executor' => $executor,
-            'task_category' => AiValueNormalizer::trimmedStringOrNull($contract['task_category'] ?? $executor) ?? '',
-            'provider' => AiValueNormalizer::trimmedStringOrNull($contract['provider'] ?? $native['provider'] ?? null) ?? self::STATUS_ABSENT,
+            self::FIELD_TASK_CATEGORY => AiValueNormalizer::trimmedStringOrNull($contract[self::FIELD_TASK_CATEGORY] ?? $executor) ?? '',
+            self::FIELD_PROVIDER => AiValueNormalizer::trimmedStringOrNull($contract[self::FIELD_PROVIDER] ?? $native[self::FIELD_PROVIDER] ?? null) ?? self::STATUS_ABSENT,
             self::FIELD_STATUS => $status,
             self::FIELD_VERIFIED => $verified,
             self::FIELD_VERIFIED_BASIS => $verifiedBasis,
             'verified_source_present' => $verifiedSourcePresent,
-            'certified_receipt_id' => $contract['certified_receipt_id'] ?? null,
+            self::FIELD_CERTIFIED_RECEIPT_ID => $contract[self::FIELD_CERTIFIED_RECEIPT_ID] ?? null,
             'evidence_ref_count' => count($evidenceRefs),
             'episode_id' => null,
             self::FIELD_RUN_ID => $runId !== '' ? $runId : null,
@@ -105,7 +110,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         return [
             self::FIELD_FLOW_ID => (AiValueNormalizer::trimmedStringOrNull($fields[self::FIELD_FLOW_ID] ?? null) ?? 'atlas_conversation'),
             self::FIELD_RUN_ID => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_RUN_ID] ?? null) ?? ''),
-            'outcome_status' => OutcomeEnvelope::toNativeStatus((AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_STATUS] ?? null) ?? OutcomeEnvelope::STATUS_BLOCKED), $this->origin()),
+            self::FIELD_OUTCOME_STATUS => OutcomeEnvelope::toNativeStatus((AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_STATUS] ?? null) ?? OutcomeEnvelope::STATUS_BLOCKED), $this->origin()),
             self::FIELD_FLOW_QUALITY => $fields[self::FIELD_FLOW_QUALITY] ?? null,
             self::FIELD_RETRIEVAL_QUALITY => $fields[self::FIELD_RETRIEVAL_QUALITY] ?? null,
             self::FIELD_EXECUTION_QUALITY => $fields[self::FIELD_EXECUTION_QUALITY] ?? null,

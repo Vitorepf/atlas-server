@@ -322,6 +322,7 @@ final class AtlasAaeosCommand extends Command
         {--schema-aemor-lifecycle-floors-contract= : JSON file (any object) to observe schema/aemor/lifecycle residual floors}
         {--dept-quality-evidence-floors-contract= : JSON file (any object) to observe dept/quality/evidence residual floors}
         {--truth-immune-veto-floors-contract= : JSON file (any object) to observe truth/immune/veto residual floors}
+        {--dead-series-outcome-compounding-floors-contract= : JSON file (any object) to observe dead-series/outcome/compounding residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -800,6 +801,7 @@ final class AtlasAaeosCommand extends Command
             ['schema-aemor-lifecycle-floors-contract', 'schema_aemor_lifecycle_floors_contract', fn (array $p) => $gates->schemaAemorLifecycleFloorsContractObserve($p)],
             ['dept-quality-evidence-floors-contract', 'dept_quality_evidence_floors_contract', fn (array $p) => $gates->deptQualityEvidenceFloorsContractObserve($p)],
             ['truth-immune-veto-floors-contract', 'truth_immune_veto_floors_contract', fn (array $p) => $gates->truthImmuneVetoFloorsContractObserve($p)],
+            ['dead-series-outcome-compounding-floors-contract', 'dead_series_outcome_compounding_floors_contract', fn (array $p) => $gates->deadSeriesOutcomeCompoundingFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

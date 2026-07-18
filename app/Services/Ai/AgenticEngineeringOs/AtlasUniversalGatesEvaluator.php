@@ -6909,6 +6909,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function deadSeriesOutcomeCompoundingFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'dead_series_field_path' => AcosDeadSeriesWatchdogCheck::FIELD_PATH,
+            'dead_series_field_table' => AcosDeadSeriesWatchdogCheck::FIELD_TABLE,
+            'dead_series_field_slice' => AcosDeadSeriesWatchdogCheck::FIELD_SLICE,
+            'dead_series_field_source_type' => AcosDeadSeriesWatchdogCheck::FIELD_SOURCE_TYPE,
+            'dead_series_field_timestamp_field' => AcosDeadSeriesWatchdogCheck::FIELD_TIMESTAMP_FIELD,
+            'dead_series_field_ttl_days' => AcosDeadSeriesWatchdogCheck::FIELD_TTL_DAYS,
+            'outcome_field_verified_source_present' => OutcomeEnvelope::FIELD_VERIFIED_SOURCE_PRESENT,
+            'outcome_field_executor' => OutcomeEnvelope::FIELD_EXECUTOR,
+            'outcome_field_task_category' => OutcomeEnvelope::FIELD_TASK_CATEGORY,
+            'outcome_field_provider' => OutcomeEnvelope::FIELD_PROVIDER,
+            'outcome_field_status' => OutcomeEnvelope::FIELD_STATUS,
+            'outcome_field_verified_basis' => OutcomeEnvelope::FIELD_VERIFIED_BASIS,
+            'compounding_field_provider' => CompoundingOutcomeEnvelopeAdapter::FIELD_PROVIDER,
+            'compounding_field_task_category' => CompoundingOutcomeEnvelopeAdapter::FIELD_TASK_CATEGORY,
+            'compounding_field_certified_receipt_id' => CompoundingOutcomeEnvelopeAdapter::FIELD_CERTIFIED_RECEIPT_ID,
+            'compounding_field_outcome_status' => CompoundingOutcomeEnvelopeAdapter::FIELD_OUTCOME_STATUS,
+            'compounding_field_payload' => CompoundingOutcomeEnvelopeAdapter::FIELD_PAYLOAD,
+            'dead_series_outcome_compounding_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

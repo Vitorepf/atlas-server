@@ -5150,5 +5150,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['truth_immune_veto_floor_count']);
     }
 
+    public function test_dead_series_outcome_compounding_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->deadSeriesOutcomeCompoundingFloorsContractObserve([]);
+
+        $this->assertSame('path', $payload['dead_series_field_path']);
+        $this->assertSame('table', $payload['dead_series_field_table']);
+        $this->assertSame('slice', $payload['dead_series_field_slice']);
+        $this->assertSame('source_type', $payload['dead_series_field_source_type']);
+        $this->assertSame('timestamp_field', $payload['dead_series_field_timestamp_field']);
+        $this->assertSame('ttl_days', $payload['dead_series_field_ttl_days']);
+        $this->assertSame('verified_source_present', $payload['outcome_field_verified_source_present']);
+        $this->assertSame('executor', $payload['outcome_field_executor']);
+        $this->assertSame('task_category', $payload['outcome_field_task_category']);
+        $this->assertSame('provider', $payload['outcome_field_provider']);
+        $this->assertSame('status', $payload['outcome_field_status']);
+        $this->assertSame('verified_basis', $payload['outcome_field_verified_basis']);
+        $this->assertSame('provider', $payload['compounding_field_provider']);
+        $this->assertSame('task_category', $payload['compounding_field_task_category']);
+        $this->assertSame('certified_receipt_id', $payload['compounding_field_certified_receipt_id']);
+        $this->assertSame('outcome_status', $payload['compounding_field_outcome_status']);
+        $this->assertSame('payload', $payload['compounding_field_payload']);
+        $this->assertSame(17, $payload['dead_series_outcome_compounding_floor_count']);
+    }
+
 
 }

@@ -49,6 +49,12 @@ final class OutcomeEnvelope
     public const FIELD_NATIVE_DIVERGENT = 'native_divergent';
     public const FIELD_ORIGIN = 'origin';
     public const FIELD_FIELDS = 'fields';
+    public const FIELD_VERIFIED_SOURCE_PRESENT = 'verified_source_present';
+    public const FIELD_EXECUTOR = 'executor';
+    public const FIELD_TASK_CATEGORY = 'task_category';
+    public const FIELD_PROVIDER = 'provider';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_VERIFIED_BASIS = 'verified_basis';
 
     /**
      * Map divergent native status labels onto the shared envelope statuses.
@@ -138,12 +144,12 @@ final class OutcomeEnvelope
             throw new InvalidArgumentException('outcome_envelope_adapter_origin_invalid');
         }
 
-        $status = AiValueNormalizer::lowerTrimmedString($data['status'] ?? '');
+        $status = AiValueNormalizer::lowerTrimmedString($data[self::FIELD_STATUS] ?? '');
         if (! in_array($status, self::STATUSES, true)) {
             throw new InvalidArgumentException('outcome_envelope_status_invalid');
         }
 
-        $basis = AiValueNormalizer::lowerTrimmedString($data['verified_basis'] ?? '');
+        $basis = AiValueNormalizer::lowerTrimmedString($data[self::FIELD_VERIFIED_BASIS] ?? '');
         if (! in_array($basis, [
             AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_SERVER_VERIFIED,
             AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_GATES_PASSED,
@@ -165,9 +171,9 @@ final class OutcomeEnvelope
             throw new InvalidArgumentException('outcome_envelope_native_divergent_fields_invalid');
         }
 
-        $executor = AiValueNormalizer::trimmedStringOrNull($data['executor'] ?? null) ?? '';
-        $taskCategory = AiValueNormalizer::trimmedStringOrNull($data['task_category'] ?? null) ?? '';
-        $provider = AiValueNormalizer::trimmedStringOrNull($data['provider'] ?? null) ?? '';
+        $executor = AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_EXECUTOR] ?? null) ?? '';
+        $taskCategory = AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_TASK_CATEGORY] ?? null) ?? '';
+        $provider = AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_PROVIDER] ?? null) ?? '';
         if ($executor === '' || $taskCategory === '' || $provider === '') {
             throw new InvalidArgumentException('outcome_envelope_identity_fields_required');
         }
@@ -175,7 +181,7 @@ final class OutcomeEnvelope
         if (! is_bool($data[self::FIELD_VERIFIED] ?? null)) {
             throw new InvalidArgumentException('outcome_envelope_verified_invalid');
         }
-        if (! is_bool($data['verified_source_present'] ?? null)) {
+        if (! is_bool($data[self::FIELD_VERIFIED_SOURCE_PRESENT] ?? null)) {
             throw new InvalidArgumentException('outcome_envelope_verified_source_present_invalid');
         }
 
@@ -198,13 +204,13 @@ final class OutcomeEnvelope
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_ADAPTER_ORIGIN => $origin,
-            'executor' => $executor,
-            'task_category' => $taskCategory,
-            'provider' => $provider,
-            'status' => $status,
+            self::FIELD_EXECUTOR => $executor,
+            self::FIELD_TASK_CATEGORY => $taskCategory,
+            self::FIELD_PROVIDER => $provider,
+            self::FIELD_STATUS => $status,
             self::FIELD_VERIFIED => (AiValueNormalizer::boolOrNull($data[self::FIELD_VERIFIED] ?? null) ?? false),
-            'verified_basis' => $basis,
-            'verified_source_present' => (AiValueNormalizer::boolOrNull($data['verified_source_present'] ?? null) ?? false),
+            self::FIELD_VERIFIED_BASIS => $basis,
+            self::FIELD_VERIFIED_SOURCE_PRESENT => (AiValueNormalizer::boolOrNull($data[self::FIELD_VERIFIED_SOURCE_PRESENT] ?? null) ?? false),
             'certified_receipt_id' => $certifiedReceiptId !== null ? AiValueNormalizer::trimmedStringOrNull($certifiedReceiptId) ?? '' : null,
             'evidence_ref_count' => $evidenceRefCount,
             'episode_id' => $episodeId !== null ? AiValueNormalizer::trimmedStringOrNull($episodeId) ?? '' : null,

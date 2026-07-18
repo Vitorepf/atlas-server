@@ -30,6 +30,12 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_CODE = 'code';
     public const FIELD_MESSAGE = 'message';
     public const FIELD_LEDGER = 'ledger';
+    public const FIELD_PATH = 'path';
+    public const FIELD_TABLE = 'table';
+    public const FIELD_SLICE = 'slice';
+    public const FIELD_SOURCE_TYPE = 'source_type';
+    public const FIELD_TIMESTAMP_FIELD = 'timestamp_field';
+    public const FIELD_TTL_DAYS = 'ttl_days';
 
     public function __construct(
         private AcosMaxMeasureSeriesRegistry $registry,
@@ -78,7 +84,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
      */
     private function seriesRow(array $entry, CarbonImmutable $now): array
     {
-        $ttlDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($entry['ttl_days'] ?? null) ?? 1));
+        $ttlDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($entry[self::FIELD_TTL_DAYS] ?? null) ?? 1));
         $lastAppendAt = $this->freshness->lastAppendAt($entry);
         $ageDays = $lastAppendAt instanceof CarbonImmutable
             ? (int) floor(max(0, $lastAppendAt->diffInSeconds($now)) / 86400)
@@ -86,13 +92,13 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
         $status = $ageDays === null ? self::STATUS_MISSING : ($ageDays > $ttlDays ? self::STATUS_STALE : self::STATUS_OK);
 
         return [
-            'slice' => (AiValueNormalizer::trimmedStringOrNull($entry['slice'] ?? null) ?? ''),
+            self::FIELD_SLICE => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SLICE] ?? null) ?? ''),
             self::FIELD_SERIES => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SERIES] ?? null) ?? ''),
-            'source_type' => AiValueNormalizer::trimmedStringOrNull($entry['source_type'] ?? null) ?? (isset($entry['table']) ? 'table' : 'jsonl'),
-            'path' => isset($entry['path']) ? $this->relativePath(AiValueNormalizer::trimmedScalarStringOrNull($entry['path'] ?? null) ?? '') : null,
-            'table' => AiValueNormalizer::trimmedScalarStringOrNull($entry['table'] ?? null),
-            'timestamp_field' => (AiValueNormalizer::trimmedStringOrNull($entry['timestamp_field'] ?? null) ?? 'recorded_at'),
-            'ttl_days' => $ttlDays,
+            self::FIELD_SOURCE_TYPE => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SOURCE_TYPE] ?? null) ?? (isset($entry[self::FIELD_TABLE]) ? 'table' : 'jsonl'),
+            self::FIELD_PATH => isset($entry[self::FIELD_PATH]) ? $this->relativePath(AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_PATH] ?? null) ?? '') : null,
+            self::FIELD_TABLE => AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_TABLE] ?? null),
+            self::FIELD_TIMESTAMP_FIELD => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_TIMESTAMP_FIELD] ?? null) ?? 'recorded_at'),
+            self::FIELD_TTL_DAYS => $ttlDays,
             'ttl_source' => (AiValueNormalizer::trimmedStringOrNull($entry['ttl_source'] ?? null) ?? 'freeze'),
             'last_append_at' => $lastAppendAt?->toIso8601String(),
             'age_days' => $ageDays,
