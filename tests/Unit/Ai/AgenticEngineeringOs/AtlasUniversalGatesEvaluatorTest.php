@@ -15574,4 +15574,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b715_immune_signature_floor_count']);
     }
 
+    public function test_b716_cognitive_memory_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b716CognitiveMemoryFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_FILES_MATCHING, $out['files_matching']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_FILES_SCANNED, $out['files_scanned']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::PROPOSAL_SCHEMA, $out['atlas.acmf.schema_proposal.v1']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::TICKET_SCHEMA, $out['atlas.acmf.schema_evolution_ticket.v1']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::TRIGGER_OPERATOR, $out['operator_request']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::TRIGGER_FRONTMATTER_DRIFT, $out['frontmatter_drift']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::TRIGGER_EXTENSION_PRESSURE, $out['extension_pressure']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::EXTENSION_PRESSURE_THRESHOLD, $out['4']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_CHANGE_KIND, $out['change_kind']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_PROPOSED_EFFECT, $out['proposed_effect']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_SCOPE, $out['scope']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_PRIVACY_CLASS, $out['privacy_class']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_ACTOR, $out['actor']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_CURRENT_SCHEMA, $out['current_schema']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_PROPOSED_NEXT_SCHEMA, $out['proposed_next_schema']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_KERNEL_DECISION, $out['kernel_decision']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_ADDED_FIELDS, $out['added_fields']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_DEPRECATED_FIELDS, $out['deprecated_fields']);
+        $this->assertSame(18, $out['b716_cognitive_memory_floor_count']);
+    }
+
 }

@@ -19644,4 +19644,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B716).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b716CognitiveMemoryFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'files_matching' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_FILES_MATCHING,
+            'files_scanned' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_FILES_SCANNED,
+            'atlas.acmf.schema_proposal.v1' => AtlasCognitiveMemoryFabricSchemaEvolutionService::PROPOSAL_SCHEMA,
+            'atlas.acmf.schema_evolution_ticket.v1' => AtlasCognitiveMemoryFabricSchemaEvolutionService::TICKET_SCHEMA,
+            'operator_request' => AtlasCognitiveMemoryFabricSchemaEvolutionService::TRIGGER_OPERATOR,
+            'frontmatter_drift' => AtlasCognitiveMemoryFabricSchemaEvolutionService::TRIGGER_FRONTMATTER_DRIFT,
+            'extension_pressure' => AtlasCognitiveMemoryFabricSchemaEvolutionService::TRIGGER_EXTENSION_PRESSURE,
+            '4' => AtlasCognitiveMemoryFabricSchemaEvolutionService::EXTENSION_PRESSURE_THRESHOLD,
+            'change_kind' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_CHANGE_KIND,
+            'proposed_effect' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_PROPOSED_EFFECT,
+            'scope' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_SCOPE,
+            'privacy_class' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_PRIVACY_CLASS,
+            'actor' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_ACTOR,
+            'current_schema' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_CURRENT_SCHEMA,
+            'proposed_next_schema' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_PROPOSED_NEXT_SCHEMA,
+            'kernel_decision' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_KERNEL_DECISION,
+            'added_fields' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_ADDED_FIELDS,
+            'deprecated_fields' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_DEPRECATED_FIELDS,
+            'b716_cognitive_memory_floor_count' => 18,
+        ];
+    }
+
 }
