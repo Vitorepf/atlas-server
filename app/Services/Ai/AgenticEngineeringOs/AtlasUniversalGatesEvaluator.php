@@ -17226,4 +17226,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B638).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b638SegmentImportanceFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.aaeos.segment_importance_ranking.v1' => SegmentImportanceRanker::SCHEMA_VERSION,
+            '0.3' => SegmentImportanceRanker::KIND_WEIGHT_UNKNOWN,
+            '0.20' => SegmentImportanceRanker::EVIDENCE_REF_BONUS,
+            '0.30' => SegmentImportanceRanker::DECISION_OR_BLOCKER_LINK_BONUS,
+            '0.5' => SegmentImportanceRanker::DEDUP_STEP_PENALTY,
+            '1.0' => SegmentImportanceRanker::FLOAT_1_0,
+            'budget_exceeded' => SegmentImportanceRanker::DROP_REASON_BUDGET_EXCEEDED,
+            'oversized_segment' => SegmentImportanceRanker::DROP_REASON_OVERSIZED_SEGMENT,
+            'keep' => SegmentImportanceRanker::DECISION_KEEP,
+            'drop' => SegmentImportanceRanker::DECISION_DROP,
+            'score' => SegmentImportanceRanker::FIELD_SCORE,
+            'recency_rank' => SegmentImportanceRanker::FIELD_RECENCY_RANK,
+            'kind_weight' => SegmentImportanceRanker::FIELD_KIND_WEIGHT,
+            'decision' => SegmentImportanceRanker::FIELD_DECISION,
+            'drop_reason' => SegmentImportanceRanker::FIELD_DROP_REASON,
+            'kind' => SegmentImportanceRanker::FIELD_KIND,
+            'status' => SegmentImportanceRanker::FIELD_STATUS,
+            'segments' => SegmentImportanceRanker::FIELD_SEGMENTS,
+            'b638_segment_importance_floor_count' => 18,
+        ];
+    }
+
 }

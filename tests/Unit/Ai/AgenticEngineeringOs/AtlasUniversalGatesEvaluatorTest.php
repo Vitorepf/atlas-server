@@ -13622,4 +13622,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b637_memory_injection_floor_count']);
     }
 
+    public function test_b638_segment_importance_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b638SegmentImportanceFloorsContractObserve([]);
+        $this->assertSame(SegmentImportanceRanker::SCHEMA_VERSION, $out['atlas.aaeos.segment_importance_ranking.v1']);
+        $this->assertSame(SegmentImportanceRanker::KIND_WEIGHT_UNKNOWN, $out['0.3']);
+        $this->assertSame(SegmentImportanceRanker::EVIDENCE_REF_BONUS, $out['0.20']);
+        $this->assertSame(SegmentImportanceRanker::DECISION_OR_BLOCKER_LINK_BONUS, $out['0.30']);
+        $this->assertSame(SegmentImportanceRanker::DEDUP_STEP_PENALTY, $out['0.5']);
+        $this->assertSame(SegmentImportanceRanker::FLOAT_1_0, $out['1.0']);
+        $this->assertSame(SegmentImportanceRanker::DROP_REASON_BUDGET_EXCEEDED, $out['budget_exceeded']);
+        $this->assertSame(SegmentImportanceRanker::DROP_REASON_OVERSIZED_SEGMENT, $out['oversized_segment']);
+        $this->assertSame(SegmentImportanceRanker::DECISION_KEEP, $out['keep']);
+        $this->assertSame(SegmentImportanceRanker::DECISION_DROP, $out['drop']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_SCORE, $out['score']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_RECENCY_RANK, $out['recency_rank']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_KIND_WEIGHT, $out['kind_weight']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_DECISION, $out['decision']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_DROP_REASON, $out['drop_reason']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_KIND, $out['kind']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_STATUS, $out['status']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_SEGMENTS, $out['segments']);
+        $this->assertSame(18, $out['b638_segment_importance_floor_count']);
+    }
+
 }
