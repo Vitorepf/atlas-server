@@ -9839,6 +9839,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b579_reactive_saturation_department_contract_acos_evolution_window_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b579-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b579',
+                '--b579-reactive-saturation-department-contract-acos-evolution-window-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b579_reactive_saturation_department_contract_acos_evolution_window_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

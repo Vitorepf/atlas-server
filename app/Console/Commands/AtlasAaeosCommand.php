@@ -601,6 +601,7 @@ final class AtlasAaeosCommand extends Command
                             {--b576-composed-obra-dev-procedural-outcome-envelope-floors-contract= : JSON file (any object) to observe composed/obra/dev/procedural/outcome/envelope floors}
                             {--b577-promotion-protocol-cognition-score-evidence-ledger-floors-contract= : JSON file (any object) to observe promotion/protocol/cognition/score/evidence/ledger floors}
                             {--b578-window-orchestrator-code-symbol-exploratory-bets-maxa-jina-floors-contract= : JSON file (any object) to observe window/orchestrator/code/symbol/exploratory/bets floors}
+                            {--b579-reactive-saturation-department-contract-acos-evolution-window-floors-contract= : JSON file (any object) to observe reactive/saturation/department/contract/acos/evolution floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1358,6 +1359,7 @@ final class AtlasAaeosCommand extends Command
             ['b576-composed-obra-dev-procedural-outcome-envelope-floors-contract', 'b576_composed_obra_dev_procedural_outcome_envelope_floors_contract', fn (array $p) => $gates->b576ComposedObraDevProceduralOutcomeEnvelopeFloorsContractObserve($p)],
             ['b577-promotion-protocol-cognition-score-evidence-ledger-floors-contract', 'b577_promotion_protocol_cognition_score_evidence_ledger_floors_contract', fn (array $p) => $gates->b577PromotionProtocolCognitionScoreEvidenceLedgerFloorsContractObserve($p)],
             ['b578-window-orchestrator-code-symbol-exploratory-bets-maxa-jina-floors-contract', 'b578_window_orchestrator_code_symbol_exploratory_bets_maxa_jina_floors_contract', fn (array $p) => $gates->b578WindowOrchestratorCodeSymbolExploratoryBetsMaxaJinaFloorsContractObserve($p)],
+            ['b579-reactive-saturation-department-contract-acos-evolution-window-floors-contract', 'b579_reactive_saturation_department_contract_acos_evolution_window_floors_contract', fn (array $p) => $gates->b579ReactiveSaturationDepartmentContractAcosEvolutionWindowFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

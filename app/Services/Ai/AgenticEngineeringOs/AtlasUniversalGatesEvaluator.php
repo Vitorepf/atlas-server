@@ -15427,4 +15427,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B579).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b579ReactiveSaturationDepartmentContractAcosEvolutionWindowFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'pick_hint' => ReactiveSaturationSignal::FIELD_PICK_HINT,
+            'queue_depth' => ReactiveSaturationSignal::FIELD_QUEUE_DEPTH,
+            'tail' => ReactiveSaturationSignal::FIELD_TAIL,
+            'source' => ReactiveSaturationSignal::FIELD_SOURCE,
+            'report_only' => ReactiveSaturationSignal::FIELD_REPORT_ONLY,
+            'description' => DepartmentContractRuntime::FIELD_DESCRIPTION,
+            'ok' => DepartmentContractRuntime::FIELD_OK,
+            'contract' => DepartmentContractRuntime::FIELD_CONTRACT,
+            'primary_table' => DepartmentContractRuntime::FIELD_PRIMARY_TABLE,
+            'ledger' => DepartmentContractRuntime::FIELD_LEDGER,
+            'audited' => AtlasAcosEvolutionScoreService::FIELD_AUDITED,
+            'tier_exposed' => AtlasAcosEvolutionScoreService::FIELD_TIER_EXPOSED,
+            'operator_signed' => AtlasAcosEvolutionScoreService::FIELD_OPERATOR_SIGNED,
+            'schema_version' => AtlasAcosEvolutionScoreService::FIELD_SCHEMA_VERSION,
+            'reason' => AtlasAcosWindowGatesService::FIELD_REASON,
+            'ok' => AtlasAcosWindowGatesService::FIELD_OK,
+            'windows' => AtlasAcosWindowGatesService::FIELD_WINDOWS,
+            'days' => AtlasAcosWindowGatesService::FIELD_DAYS,
+            'b579_reactive_saturation_department_contract_acos_evolution_window_floor_count' => 18,
+        ];
+    }
+
 }

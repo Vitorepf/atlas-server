@@ -12174,4 +12174,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b578_window_orchestrator_code_symbol_exploratory_bets_maxa_jina_floor_count']);
     }
 
+    public function test_b579_reactive_saturation_department_contract_acos_evolution_window_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b579ReactiveSaturationDepartmentContractAcosEvolutionWindowFloorsContractObserve([]);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_PICK_HINT, $out['pick_hint']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_QUEUE_DEPTH, $out['queue_depth']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_TAIL, $out['tail']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_SOURCE, $out['source']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_REPORT_ONLY, $out['report_only']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DESCRIPTION, $out['description']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_OK, $out['ok']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_CONTRACT, $out['contract']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PRIMARY_TABLE, $out['primary_table']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_LEDGER, $out['ledger']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_AUDITED, $out['audited']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_TIER_EXPOSED, $out['tier_exposed']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_OPERATOR_SIGNED, $out['operator_signed']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_OK, $out['ok']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_WINDOWS, $out['windows']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_DAYS, $out['days']);
+        $this->assertSame(18, $out['b579_reactive_saturation_department_contract_acos_evolution_window_floor_count']);
+    }
+
 }
