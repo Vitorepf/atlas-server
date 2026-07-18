@@ -14599,4 +14599,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b676_measure_series_floor_count']);
     }
 
+    public function test_b677_outcome_envelope_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b677OutcomeEnvelopeFloorsContractObserve([]);
+        $this->assertSame(OutcomeEnvelopeBridge::MEASURE_ID, $out['atlas.esp_06.outcome_envelope.v1']);
+        $this->assertSame(OutcomeEnvelopeBridge::BRIDGE_SCHEMA, $out['atlas.esp_06.outcome_envelope_bridge.v1']);
+        $this->assertSame(OutcomeEnvelopeBridge::ADAPTERS_ENABLED_CONFIG_KEY, $out['atlas.esp_06.outcome_envelope_adapters_enabled']);
+        $this->assertSame(OutcomeEnvelopeBridge::KIND_MEASURE_FREEZE, $out['measure_freeze']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_ENABLED, $out['enabled']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_DEV_PROCEDURAL, $out['dev_procedural']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_AEMOR, $out['aemor']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_COMPOUNDING, $out['compounding']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_MEASURE_ID, $out['measure_id']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_PRODUCERS, $out['producers']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_CONSUMERS, $out['consumers']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_FREEZE, $out['freeze']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_ANTI_UNIFICATION_FENCE, $out['anti_unification_fence']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_FORMULA, $out['formula']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_THRESHOLDS, $out['thresholds']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_TTL_DAYS, $out['ttl_days']);
+        $this->assertSame(18, $out['b677_outcome_envelope_floor_count']);
+    }
+
 }

@@ -18435,4 +18435,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B677).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b677OutcomeEnvelopeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.esp_06.outcome_envelope.v1' => OutcomeEnvelopeBridge::MEASURE_ID,
+            'atlas.esp_06.outcome_envelope_bridge.v1' => OutcomeEnvelopeBridge::BRIDGE_SCHEMA,
+            'atlas.esp_06.outcome_envelope_adapters_enabled' => OutcomeEnvelopeBridge::ADAPTERS_ENABLED_CONFIG_KEY,
+            'measure_freeze' => OutcomeEnvelopeBridge::KIND_MEASURE_FREEZE,
+            'enabled' => OutcomeEnvelopeBridge::FIELD_ENABLED,
+            'dev_procedural' => OutcomeEnvelopeBridge::FIELD_DEV_PROCEDURAL,
+            'aemor' => OutcomeEnvelopeBridge::FIELD_AEMOR,
+            'compounding' => OutcomeEnvelopeBridge::FIELD_COMPOUNDING,
+            'measure_id' => OutcomeEnvelopeBridge::FIELD_MEASURE_ID,
+            'schema_version' => OutcomeEnvelopeBridge::FIELD_SCHEMA_VERSION,
+            'producers' => OutcomeEnvelopeBridge::FIELD_PRODUCERS,
+            'consumers' => OutcomeEnvelopeBridge::FIELD_CONSUMERS,
+            'freeze' => OutcomeEnvelopeBridge::FIELD_FREEZE,
+            'anti_unification_fence' => OutcomeEnvelopeBridge::FIELD_ANTI_UNIFICATION_FENCE,
+            'formula_version' => OutcomeEnvelopeBridge::FIELD_FORMULA_VERSION,
+            'formula' => OutcomeEnvelopeBridge::FIELD_FORMULA,
+            'thresholds' => OutcomeEnvelopeBridge::FIELD_THRESHOLDS,
+            'ttl_days' => OutcomeEnvelopeBridge::FIELD_TTL_DAYS,
+            'b677_outcome_envelope_floor_count' => 18,
+        ];
+    }
+
 }
