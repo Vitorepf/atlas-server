@@ -20016,4 +20016,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B728).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b728FrontierWaveFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'at' => AtlasFrontierWaveLadder::FIELD_AT,
+            'event_threshold' => AtlasFrontierWaveLadder::FIELD_EVENT_THRESHOLD,
+            'atlas.cognition.frontier_ladder.v1' => AtlasFrontierWaveLadder::SCHEMA_VERSION,
+            '5' => AtlasFrontierWaveLadder::EVENT_THRESHOLD,
+            'active' => AtlasFrontierWaveLadder::ACTIVATION_ACTIVE,
+            'aguardando_eventos' => AtlasFrontierWaveLadder::ACTIVATION_AGUARDANDO_EVENTOS,
+            'schema_version' => AtlasFrontierWaveLadder::FIELD_SCHEMA_VERSION,
+            'key' => AtlasFrontierWaveLadder::FIELD_KEY,
+            'systems' => AtlasFrontierWaveLadder::FIELD_SYSTEMS,
+            'summary' => AtlasFrontierWaveLadder::FIELD_SUMMARY,
+            'wave' => AtlasFrontierWaveLadder::FIELD_WAVE,
+            'kind' => AtlasFrontierWaveLadder::FIELD_KIND,
+            'waves' => AtlasFrontierWaveLadder::FIELD_WAVES,
+            'activation' => AtlasFrontierWaveLadder::FIELD_ACTIVATION,
+            'constituicao' => AtlasFrontierWaveLadder::FIELD_CONSTITUICAO,
+            'external_events' => AtlasFrontierWaveLadder::FIELD_EXTERNAL_EVENTS,
+            'prior_events' => AtlasFrontierWaveLadder::FIELD_PRIOR_EVENTS,
+            'threshold' => AtlasFrontierWaveLadder::FIELD_THRESHOLD,
+            'b728_frontier_wave_floor_count' => 18,
+        ];
+    }
+
 }

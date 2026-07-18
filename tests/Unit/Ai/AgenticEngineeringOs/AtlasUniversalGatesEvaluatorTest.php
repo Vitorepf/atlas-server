@@ -15875,4 +15875,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b727_immune_check_floor_count']);
     }
 
+    public function test_b728_frontier_wave_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b728FrontierWaveFloorsContractObserve([]);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_AT, $out['at']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_EVENT_THRESHOLD, $out['event_threshold']);
+        $this->assertSame(AtlasFrontierWaveLadder::SCHEMA_VERSION, $out['atlas.cognition.frontier_ladder.v1']);
+        $this->assertSame(AtlasFrontierWaveLadder::EVENT_THRESHOLD, $out['5']);
+        $this->assertSame(AtlasFrontierWaveLadder::ACTIVATION_ACTIVE, $out['active']);
+        $this->assertSame(AtlasFrontierWaveLadder::ACTIVATION_AGUARDANDO_EVENTOS, $out['aguardando_eventos']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_KEY, $out['key']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_SYSTEMS, $out['systems']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_SUMMARY, $out['summary']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_WAVE, $out['wave']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_WAVES, $out['waves']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_ACTIVATION, $out['activation']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_CONSTITUICAO, $out['constituicao']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_EXTERNAL_EVENTS, $out['external_events']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_PRIOR_EVENTS, $out['prior_events']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(18, $out['b728_frontier_wave_floor_count']);
+    }
+
 }
