@@ -588,6 +588,7 @@ final class AtlasAaeosCommand extends Command
                             {--b563-acos-watchdog-floors-contract= : JSON file (any object) to observe acos/watchdog floors}
                             {--b564-lote-measure-floors-contract= : JSON file (any object) to observe lote/measure floors}
                             {--b565-asef-chunk-aaeos-implementation-floors-contract= : JSON file (any object) to observe asef/chunk/aaeos/implementation floors}
+                            {--b566-immune-calibration-composed-obra-floors-contract= : JSON file (any object) to observe immune/calibration/composed/obra floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1332,6 +1333,7 @@ final class AtlasAaeosCommand extends Command
             ['b563-acos-watchdog-floors-contract', 'b563_acos_watchdog_floors_contract', fn (array $p) => $gates->b563AcosWatchdogFloorsContractObserve($p)],
             ['b564-lote-measure-floors-contract', 'b564_lote_measure_floors_contract', fn (array $p) => $gates->b564LoteMeasureFloorsContractObserve($p)],
             ['b565-asef-chunk-aaeos-implementation-floors-contract', 'b565_asef_chunk_aaeos_implementation_floors_contract', fn (array $p) => $gates->b565AsefChunkAaeosImplementationFloorsContractObserve($p)],
+            ['b566-immune-calibration-composed-obra-floors-contract', 'b566_immune_calibration_composed_obra_floors_contract', fn (array $p) => $gates->b566ImmuneCalibrationComposedObraFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

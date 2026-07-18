@@ -11849,4 +11849,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b565_asef_chunk_aaeos_implementation_floor_count']);
     }
 
+    public function test_b566_immune_calibration_composed_obra_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b566ImmuneCalibrationComposedObraFloorsContractObserve([]);
+        $this->assertSame(ImmuneCalibrationService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_MODE, $out['mode']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_MEASURE_ID, $out['measure_id']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_REASON, $out['reason']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_METRIC, $out['metric']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_DENOMINATOR, $out['denominator']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_VALUE, $out['value']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_BLOCKS, $out['blocks']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_REASON, $out['reason']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_OK, $out['ok']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_CANDIDATES, $out['candidates']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_SOURCE, $out['source']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_BASIS, $out['basis']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_ARC_BUYS_GATE_WHOLESALE, $out['arc_buys_gate_wholesale']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_AUTO_MERGE, $out['auto_merge']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_EACH_TASK_REQUIRES_ARCHITECT_AND_SEED_GATE, $out['each_task_requires_architect_and_seed_gate']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_PROVIDER_CALLS_MADE, $out['provider_calls_made']);
+        $this->assertSame(18, $out['b566_immune_calibration_composed_obra_floor_count']);
+    }
+
 }

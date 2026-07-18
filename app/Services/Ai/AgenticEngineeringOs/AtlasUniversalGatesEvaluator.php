@@ -15024,4 +15024,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B566).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b566ImmuneCalibrationComposedObraFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => ImmuneCalibrationService::FIELD_SCHEMA_VERSION,
+            'mode' => ImmuneCalibrationService::FIELD_MODE,
+            'measure_id' => ImmuneCalibrationService::FIELD_MEASURE_ID,
+            'formula_version' => ImmuneCalibrationService::FIELD_FORMULA_VERSION,
+            'reason' => ImmuneCalibrationService::FIELD_REASON,
+            'metric' => ImmuneCalibrationService::FIELD_METRIC,
+            'denominator' => ImmuneCalibrationService::FIELD_DENOMINATOR,
+            'value' => ImmuneCalibrationService::FIELD_VALUE,
+            'blocks' => ImmuneCalibrationService::FIELD_BLOCKS,
+            'reason' => ComposedObraArcComposer::FIELD_REASON,
+            'ok' => ComposedObraArcComposer::FIELD_OK,
+            'candidates' => ComposedObraArcComposer::FIELD_CANDIDATES,
+            'source' => ComposedObraArcComposer::FIELD_SOURCE,
+            'basis' => ComposedObraArcComposer::FIELD_BASIS,
+            'arc_buys_gate_wholesale' => ComposedObraArcComposer::FIELD_ARC_BUYS_GATE_WHOLESALE,
+            'auto_merge' => ComposedObraArcComposer::FIELD_AUTO_MERGE,
+            'each_task_requires_architect_and_seed_gate' => ComposedObraArcComposer::FIELD_EACH_TASK_REQUIRES_ARCHITECT_AND_SEED_GATE,
+            'provider_calls_made' => ComposedObraArcComposer::FIELD_PROVIDER_CALLS_MADE,
+            'b566_immune_calibration_composed_obra_floor_count' => 18,
+        ];
+    }
+
 }
