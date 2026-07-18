@@ -14749,4 +14749,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b682_lote_measure_floor_count']);
     }
 
+    public function test_b683_execution_context_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b683ExecutionContextFloorsContractObserve([]);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_DELIVERED_REFS, $out['delivered_refs']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_FEEDS_ENFORCEMENT, $out['feeds_enforcement']);
+        $this->assertSame(ExecutionContextCooccurrenceService::MEASURE_ID, $out['atlas.context.execution_cooccurrence.v1']);
+        $this->assertSame(ExecutionContextCooccurrenceService::MEASURE_ID, $out['atlas.context.execution_cooccurrence.v1']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FORMULA_VERSION, $out['atlas_context_execution_cooccurrence_v1']);
+        $this->assertSame(ExecutionContextCooccurrenceService::STATUS_UNMEASURABLE, $out['unmeasurable']);
+        $this->assertSame(ExecutionContextCooccurrenceService::STATUS_OK, $out['ok']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_MEASURED, $out['measured']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_STATUS, $out['status']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_REASON, $out['reason']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_MEASURE_ID, $out['measure_id']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_RUNS_PATH, $out['runs_path']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_DENOMINATOR, $out['denominator']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_RUNS, $out['runs']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_MEASURED_RUNS, $out['measured_runs']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_MEASURED_SHARE, $out['measured_share']);
+        $this->assertSame(18, $out['b683_execution_context_floor_count']);
+    }
+
 }

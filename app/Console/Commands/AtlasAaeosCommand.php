@@ -705,6 +705,7 @@ final class AtlasAaeosCommand extends Command
                             {--b680-domain-lexical-floors-contract= : JSON file (any object) to observe domain/lexical floors}
                             {--b681-esp-independent-floors-contract= : JSON file (any object) to observe esp/independent floors}
                             {--b682-lote-measure-floors-contract= : JSON file (any object) to observe lote/measure floors}
+                            {--b683-execution-context-floors-contract= : JSON file (any object) to observe execution/context floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1566,6 +1567,7 @@ final class AtlasAaeosCommand extends Command
             ['b680-domain-lexical-floors-contract', 'b680_domain_lexical_floors_contract', fn (array $p) => $gates->b680DomainLexicalFloorsContractObserve($p)],
             ['b681-esp-independent-floors-contract', 'b681_esp_independent_floors_contract', fn (array $p) => $gates->b681EspIndependentFloorsContractObserve($p)],
             ['b682-lote-measure-floors-contract', 'b682_lote_measure_floors_contract', fn (array $p) => $gates->b682LoteMeasureFloorsContractObserve($p)],
+            ['b683-execution-context-floors-contract', 'b683_execution_context_floors_contract', fn (array $p) => $gates->b683ExecutionContextFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

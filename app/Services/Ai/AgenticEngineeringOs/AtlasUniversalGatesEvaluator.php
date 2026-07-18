@@ -18621,4 +18621,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B683).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b683ExecutionContextFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'delivered_refs' => ExecutionContextCooccurrenceService::FIELD_DELIVERED_REFS,
+            'feeds_enforcement' => ExecutionContextCooccurrenceService::FIELD_FEEDS_ENFORCEMENT,
+            'atlas.context.execution_cooccurrence.v1' => ExecutionContextCooccurrenceService::MEASURE_ID,
+            'atlas.context.execution_cooccurrence.v1' => ExecutionContextCooccurrenceService::MEASURE_ID,
+            'atlas_context_execution_cooccurrence_v1' => ExecutionContextCooccurrenceService::FORMULA_VERSION,
+            'unmeasurable' => ExecutionContextCooccurrenceService::STATUS_UNMEASURABLE,
+            'ok' => ExecutionContextCooccurrenceService::STATUS_OK,
+            'measured' => ExecutionContextCooccurrenceService::FIELD_MEASURED,
+            'schema_version' => ExecutionContextCooccurrenceService::FIELD_SCHEMA_VERSION,
+            'status' => ExecutionContextCooccurrenceService::FIELD_STATUS,
+            'reason' => ExecutionContextCooccurrenceService::FIELD_REASON,
+            'measure_id' => ExecutionContextCooccurrenceService::FIELD_MEASURE_ID,
+            'formula_version' => ExecutionContextCooccurrenceService::FIELD_FORMULA_VERSION,
+            'runs_path' => ExecutionContextCooccurrenceService::FIELD_RUNS_PATH,
+            'denominator' => ExecutionContextCooccurrenceService::FIELD_DENOMINATOR,
+            'runs' => ExecutionContextCooccurrenceService::FIELD_RUNS,
+            'measured_runs' => ExecutionContextCooccurrenceService::FIELD_MEASURED_RUNS,
+            'measured_share' => ExecutionContextCooccurrenceService::FIELD_MEASURED_SHARE,
+            'b683_execution_context_floor_count' => 18,
+        ];
+    }
+
 }
