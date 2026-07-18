@@ -16978,4 +16978,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b771_aaeos_department_floor_count']);
     }
 
+    public function test_b772_aaeos_phase_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b772AaeosPhaseFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_POLICY_GATE, $out['policy_gate']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_RECEIPT, $out['receipt']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::SCHEMA_VERSION, $out['atlas.aaeos.phase_router.v1']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::PHASE_LEGACY, $out['legacy']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::PHASE_1, $out['1']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::INT_2, $out['2']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::INT_3, $out['3']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::INT_4, $out['4']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::HTTP_PATH_PHASE_CONFIG_KEY, $out['atlas.aaeos.http_path_phase']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_CONFIGURED_PHASE, $out['configured_phase']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_IS_VALID, $out['is_valid']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_IS_ACTIVE, $out['is_active']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_IS_LEGACY, $out['is_legacy']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_DESCRIPTION, $out['description']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_VALID_PHASES, $out['valid_phases']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_PHASE_CAPABILITIES, $out['phase_capabilities']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_INTENT_CAPTURE, $out['intent_capture']);
+        $this->assertSame(18, $out['b772_aaeos_phase_floor_count']);
+    }
+
 }

@@ -21380,4 +21380,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B772).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b772AaeosPhaseFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'policy_gate' => AtlasAaeosPhaseRouterService::FIELD_POLICY_GATE,
+            'receipt' => AtlasAaeosPhaseRouterService::FIELD_RECEIPT,
+            'atlas.aaeos.phase_router.v1' => AtlasAaeosPhaseRouterService::SCHEMA_VERSION,
+            'legacy' => AtlasAaeosPhaseRouterService::PHASE_LEGACY,
+            '1' => AtlasAaeosPhaseRouterService::PHASE_1,
+            '2' => AtlasAaeosPhaseRouterService::INT_2,
+            '3' => AtlasAaeosPhaseRouterService::INT_3,
+            '4' => AtlasAaeosPhaseRouterService::INT_4,
+            'atlas.aaeos.http_path_phase' => AtlasAaeosPhaseRouterService::HTTP_PATH_PHASE_CONFIG_KEY,
+            'schema_version' => AtlasAaeosPhaseRouterService::FIELD_SCHEMA_VERSION,
+            'configured_phase' => AtlasAaeosPhaseRouterService::FIELD_CONFIGURED_PHASE,
+            'is_valid' => AtlasAaeosPhaseRouterService::FIELD_IS_VALID,
+            'is_active' => AtlasAaeosPhaseRouterService::FIELD_IS_ACTIVE,
+            'is_legacy' => AtlasAaeosPhaseRouterService::FIELD_IS_LEGACY,
+            'description' => AtlasAaeosPhaseRouterService::FIELD_DESCRIPTION,
+            'valid_phases' => AtlasAaeosPhaseRouterService::FIELD_VALID_PHASES,
+            'phase_capabilities' => AtlasAaeosPhaseRouterService::FIELD_PHASE_CAPABILITIES,
+            'intent_capture' => AtlasAaeosPhaseRouterService::FIELD_INTENT_CAPTURE,
+            'b772_aaeos_phase_floor_count' => 18,
+        ];
+    }
+
 }
