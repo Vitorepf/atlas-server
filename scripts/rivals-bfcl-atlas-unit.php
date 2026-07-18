@@ -79,11 +79,16 @@ $proof = is_file($proofPath)
     ? (json_decode((string) file_get_contents($proofPath), true) ?? [])
     : [];
 $answer = json_decode((string) file_get_contents($workspace.'/answer.json'), true);
-if (! $solver->isSuccessful()
-    || ($proof['real_provider'] ?? false) !== true
-    || ! is_array($answer)) {
+if (! $solver->isSuccessful() || ($proof['real_provider'] ?? false) !== true) {
     fwrite(STDERR, $solver->getErrorOutput());
     exit(1);
+}
+if (! is_array($answer)) {
+    // Modelo escreveu lixo no answer.json (visto ao vivo: "..."): isso é
+    // resposta ERRADA, não defeito de ambiente — exit 1 aqui virava
+    // environment_failure e inflava a taxa que bloqueia claims. Resposta
+    // vazia segue para o grader nativo reprovar como model_failure.
+    $answer = [];
 }
 $usage = (array) ($proof['usage'] ?? []);
 $resultDir = $scratch.'/result/'.$registryModel.'/non_live';
