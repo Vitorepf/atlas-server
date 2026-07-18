@@ -14649,4 +14649,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b678_portfolio_budget_floor_count']);
     }
 
+    public function test_b679_belief_cascade_domain_lexical_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b679BeliefCascadeDomainLexicalFloorsContractObserve([]);
+        $this->assertSame(BeliefCascadeReverificationPlanner::FIELD_CYCLE_SAFE, $out['cycle_safe']);
+        $this->assertSame(BeliefCascadeReverificationPlanner::FIELD_ID, $out['id']);
+        $this->assertSame(BeliefCascadeReverificationPlanner::SCHEMA_VERSION, $out['atlas.memory.belief_cascade_reverification.v1']);
+        $this->assertSame(BeliefCascadeReverificationPlanner::DEFAULT_DEPTH_CAP, $out['3']);
+        $this->assertSame(BeliefCascadeReverificationPlanner::FIELD_CAPS_HIT, $out['caps_hit']);
+        $this->assertSame(BeliefCascadeReverificationPlanner::FIELD_CASCADE_ORIGIN, $out['cascade_origin']);
+        $this->assertSame(BeliefCascadeReverificationPlanner::FIELD_NEEDS_REVERIFICATION, $out['needs_reverification']);
+        $this->assertSame(BeliefCascadeReverificationPlanner::FIELD_MARKED, $out['marked']);
+        $this->assertSame(BeliefCascadeReverificationPlanner::FIELD_DEPTH, $out['depth']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_LEARNING, $out['learning']);
+        $this->assertSame(DomainLexicalNormalizer::SCHEMA_VERSION, $out['atlas.memory.domain_lexical_normalizer.v1']);
+        $this->assertSame(DomainLexicalNormalizer::FORMULA_VERSION, $out['maxb10.domain_equivalence.v1']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_APRENDIZADO, $out['aprendizado']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_BRAIN, $out['brain']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_CEREBRO, $out['cerebro']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_DECISAO, $out['decisao']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_DECISION, $out['decision']);
+        $this->assertSame(18, $out['b679_belief_cascade_domain_lexical_floor_count']);
+    }
+
 }

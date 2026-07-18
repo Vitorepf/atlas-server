@@ -18497,4 +18497,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B679).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b679BeliefCascadeDomainLexicalFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'cycle_safe' => BeliefCascadeReverificationPlanner::FIELD_CYCLE_SAFE,
+            'id' => BeliefCascadeReverificationPlanner::FIELD_ID,
+            'atlas.memory.belief_cascade_reverification.v1' => BeliefCascadeReverificationPlanner::SCHEMA_VERSION,
+            '3' => BeliefCascadeReverificationPlanner::DEFAULT_DEPTH_CAP,
+            'caps_hit' => BeliefCascadeReverificationPlanner::FIELD_CAPS_HIT,
+            'cascade_origin' => BeliefCascadeReverificationPlanner::FIELD_CASCADE_ORIGIN,
+            'needs_reverification' => BeliefCascadeReverificationPlanner::FIELD_NEEDS_REVERIFICATION,
+            'marked' => BeliefCascadeReverificationPlanner::FIELD_MARKED,
+            'depth' => BeliefCascadeReverificationPlanner::FIELD_DEPTH,
+            'formula_version' => DomainLexicalNormalizer::FIELD_FORMULA_VERSION,
+            'learning' => DomainLexicalNormalizer::FIELD_LEARNING,
+            'atlas.memory.domain_lexical_normalizer.v1' => DomainLexicalNormalizer::SCHEMA_VERSION,
+            'maxb10.domain_equivalence.v1' => DomainLexicalNormalizer::FORMULA_VERSION,
+            'aprendizado' => DomainLexicalNormalizer::FIELD_APRENDIZADO,
+            'brain' => DomainLexicalNormalizer::FIELD_BRAIN,
+            'cerebro' => DomainLexicalNormalizer::FIELD_CEREBRO,
+            'decisao' => DomainLexicalNormalizer::FIELD_DECISAO,
+            'decision' => DomainLexicalNormalizer::FIELD_DECISION,
+            'b679_belief_cascade_domain_lexical_floor_count' => 18,
+        ];
+    }
+
 }

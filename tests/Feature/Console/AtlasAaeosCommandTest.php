@@ -11239,6 +11239,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b679_belief_cascade_domain_lexical_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b679-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b679',
+                '--b679-belief-cascade-domain-lexical-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b679_belief_cascade_domain_lexical_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 
