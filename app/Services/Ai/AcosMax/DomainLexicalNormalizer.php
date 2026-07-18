@@ -9,6 +9,8 @@ use Illuminate\Support\Str;
 
 final class DomainLexicalNormalizer
 {
+    public const FIELD_FORMULA_VERSION = 'formula_version';
+    public const FIELD_LEARNING = 'learning';
     public const SCHEMA_VERSION = 'atlas.memory.domain_lexical_normalizer.v1';
 
     public const FORMULA_VERSION = 'maxb10.domain_equivalence.v1';
@@ -46,7 +48,7 @@ final class DomainLexicalNormalizer
         'evidência' => [self::FIELD_EVIDENCE],
         self::FIELD_VERIFICACAO => [self::FIELD_VERIFICATION],
         'verificação' => [self::FIELD_VERIFICATION],
-        self::FIELD_APRENDIZADO => ['learning'],
+        self::FIELD_APRENDIZADO => [self::FIELD_LEARNING],
         'operador' => ['operator'],
     ];
 
@@ -102,7 +104,7 @@ final class DomainLexicalNormalizer
     {
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'formula_version' => self::FORMULA_VERSION,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_EQUIVALENCES => self::EQUIVALENCES,
             'max_expanded_tokens' => self::MAX_EXPANDED_TOKENS,
             'provider_calls_made' => false,

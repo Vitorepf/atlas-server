@@ -42,6 +42,8 @@ use Illuminate\Support\Str;
  */
 final class AtlasAaeosHttpPathFacadeService
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_INPUT_TEXT = 'input_text';
     public const STATUS_SCHEMA = 'atlas.aaeos.http_path_status.v1';
 
     public const REQUEST_SCHEMA = 'atlas.aaeos.http_path_request.v1';
@@ -221,7 +223,7 @@ final class AtlasAaeosHttpPathFacadeService
                 $this->incrementCounter(self::TELEMETRY_KEY_BLOCKED);
 
                 $blockedWhen = array_values(array_map(
-                    static fn (array $b): string => AiValueNormalizer::trimmedStringOrNull($b['id'] ?? null) ?? '',
+                    static fn (array $b): string => AiValueNormalizer::trimmedStringOrNull($b[self::FIELD_ID] ?? null) ?? '',
                     AiValueNormalizer::arrayOrEmpty($policyEnv[self::FIELD_BLOCKERS] ?? null),
                 ));
                 if ($blockedWhen === [] && ($advance[self::FIELD_REASON] ?? '') !== '') {
@@ -330,7 +332,7 @@ final class AtlasAaeosHttpPathFacadeService
      */
     private function extractIntentText(array $data): string
     {
-        $text = $data['input_text'] ?? data_get($data, 'payload.prompt') ?? '';
+        $text = $data[self::FIELD_INPUT_TEXT] ?? data_get($data, 'payload.prompt') ?? '';
 
         return is_string($text) ? AiValueNormalizer::trimmedStringOrNull($text) ?? '' : '';
     }

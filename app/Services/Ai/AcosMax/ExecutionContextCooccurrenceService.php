@@ -8,6 +8,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class ExecutionContextCooccurrenceService
 {
+    public const FIELD_DELIVERED_REFS = 'delivered_refs';
+    public const FIELD_FEEDS_ENFORCEMENT = 'feeds_enforcement';
     public const SCHEMA_VERSION = 'atlas.context.execution_cooccurrence.v1';
 
     public const MEASURE_ID = 'atlas.context.execution_cooccurrence.v1';
@@ -66,7 +68,7 @@ final class ExecutionContextCooccurrenceService
                 self::FIELD_READ_ONLY => true,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
                 'memory_written' => false,
-                'feeds_enforcement' => false,
+                self::FIELD_FEEDS_ENFORCEMENT => false,
                 'intersection_alone_is_not_causal' => true,
             ],
         ];
@@ -113,7 +115,7 @@ final class ExecutionContextCooccurrenceService
 
         $cooccurrences = [];
         foreach ($measured as $run) {
-            $delivered = $this->stringList(AiValueNormalizer::arrayOrEmpty($run['delivered_refs'] ?? null));
+            $delivered = $this->stringList(AiValueNormalizer::arrayOrEmpty($run[self::FIELD_DELIVERED_REFS] ?? null));
             $used = $this->stringList(AiValueNormalizer::arrayOrEmpty($run['used_refs'] ?? null));
             $intersection = array_values(array_intersect($delivered, $used));
             if ($intersection === []) {

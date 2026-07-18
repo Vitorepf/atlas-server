@@ -33,6 +33,8 @@ use RuntimeException;
  */
 final class AtlasNCaptureDrillService
 {
+    public const FIELD_PATH = 'path';
+    public const FIELD_PEEK_MODE = 'peek_mode';
     public const SCHEMA_VERSION = 'atlas.acos_max.n_capture_drill.v1';
 
     public const MEASURE_ID = 'atlas.n_capture_drill.v1';
@@ -155,7 +157,7 @@ final class AtlasNCaptureDrillService
             self::FIELD_DUAL_READ_REQUIRED => false,
             self::FIELD_SERIES_REGISTRY => [
                 'series' => self::MEASURE_ID,
-                'path' => 'atlas:teto:n-capture-drill --json',
+                self::FIELD_PATH => 'atlas:teto:n-capture-drill --json',
                 self::FIELD_SOURCE_TYPE => 'jsonl',
             ],
         ];
@@ -191,7 +193,7 @@ final class AtlasNCaptureDrillService
                 self::FIELD_GOLDEN_V2_PASSED => (AiValueNormalizer::boolOrNull(data_get($drill, 'yardstick.golden_v2_passed')) ?? false),
                 self::FIELD_GOLDEN_V2_SCORE => data_get($drill, 'yardstick.golden_v2_score'),
                 'regret_measure_id' => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'yardstick.regret_measure_id')) ?? 'atlas.decide.route_regret.v2',
-                'peek_mode' => true,
+                self::FIELD_PEEK_MODE => true,
             ],
             'times' => [
                 'time_to_first_routed_task_seconds' => (int) data_get($drill, 'times.time_to_first_routed_task_seconds'),

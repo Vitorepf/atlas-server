@@ -25,6 +25,8 @@ use Throwable;
  */
 final class AtlasConsolidationRerankGuard
 {
+    public const FIELD_HASH = 'hash';
+    public const FIELD_LABEL = 'label';
     public const SCHEMA_VERSION = 'atlas.cognition.rerank_guard.v1';
 
     /** Float tolerance so equal precision counts as non-regression. */
@@ -76,7 +78,7 @@ final class AtlasConsolidationRerankGuard
             self::FIELD_PRECISION_AT_K => round($precision, 4),
             self::FIELD_FROZEN_AT => gmdate('c'),
         ];
-        $baseline['hash'] = 'sha256:'.hash('sha256', (string) json_encode(['p' => $baseline[self::FIELD_PRECISION_AT_K]]));
+        $baseline[self::FIELD_HASH] = 'sha256:'.hash('sha256', (string) json_encode(['p' => $baseline[self::FIELD_PRECISION_AT_K]]));
 
         try {
             $dir = dirname($this->baselinePath);
@@ -110,7 +112,7 @@ final class AtlasConsolidationRerankGuard
             self::FIELD_PROMOTE_ALLOWED => $verdict === 'promote_allowed',
             self::FIELD_CURRENT_PRECISION_AT_K => $current,
             self::FIELD_BASELINE_PRECISION_AT_K => $baseline,
-            'label' => 'refatoracao',
+            self::FIELD_LABEL => 'refatoracao',
         ];
     }
 

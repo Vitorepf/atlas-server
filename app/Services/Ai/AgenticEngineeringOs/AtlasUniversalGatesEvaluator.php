@@ -8742,4 +8742,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B362).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function nCaptureDomainLexicalEvidenceVisionExecutionContextFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'path' => AtlasNCaptureDrillService::FIELD_PATH,
+            'peek_mode' => AtlasNCaptureDrillService::FIELD_PEEK_MODE,
+            'formula_version' => DomainLexicalNormalizer::FIELD_FORMULA_VERSION,
+            'learning' => DomainLexicalNormalizer::FIELD_LEARNING,
+            'operator_forbidden_strings' => EvidenceVisionThesisComposer::FIELD_OPERATOR_FORBIDDEN_STRINGS,
+            'outcome_id' => EvidenceVisionThesisComposer::FIELD_OUTCOME_ID,
+            'delivered_refs' => ExecutionContextCooccurrenceService::FIELD_DELIVERED_REFS,
+            'feeds_enforcement' => ExecutionContextCooccurrenceService::FIELD_FEEDS_ENFORCEMENT,
+            'evidence_required' => ArchitectAgentSpecPackGateContract::FIELD_EVIDENCE_REQUIRED,
+            'gates' => ArchitectAgentSpecPackGateContract::FIELD_GATES,
+            'id' => AtlasAaeosHttpPathFacadeService::FIELD_ID,
+            'input_text' => AtlasAaeosHttpPathFacadeService::FIELD_INPUT_TEXT,
+            'id' => AtlasMissionControlCockpitService::FIELD_ID,
+            'kind' => AtlasMissionControlCockpitService::FIELD_KIND,
+            'files_matching' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_FILES_MATCHING,
+            'files_scanned' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_FILES_SCANNED,
+            'hash' => AtlasConsolidationRerankGuard::FIELD_HASH,
+            'label' => AtlasConsolidationRerankGuard::FIELD_LABEL,
+            'n_capture_domain_lexical_evidence_vision_execution_context_floor_count' => 18,
+        ];
+    }
+
 }

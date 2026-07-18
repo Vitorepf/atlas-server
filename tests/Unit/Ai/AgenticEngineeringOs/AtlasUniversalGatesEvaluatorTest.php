@@ -67,6 +67,12 @@ use App\Services\Ai\AgenticEngineeringOs\AutonomousWorkExecutionOs;
 use App\Services\Ai\Cognition\AtlasCognitiveFunctionDecomposerService;
 use App\Services\Ai\Cognition\AtlasImmuneSignatureFreeze;
 use App\Services\Ai\Cognition\AtlasOperationalVolumeCheckService;
+use App\Services\Ai\AcosMax\EvidenceVisionThesisComposer;
+use App\Services\Ai\AcosMax\ExecutionContextCooccurrenceService;
+use App\Services\Ai\AgenticEngineeringOs\AtlasAaeosHttpPathFacadeService;
+use App\Services\Ai\AgenticEngineeringOs\AtlasMissionControlCockpitService;
+use App\Services\Ai\Cognition\AtlasCognitiveMemoryFabricSchemaEvolutionService;
+use App\Services\Ai\Cognition\AtlasConsolidationRerankGuard;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -6716,6 +6722,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_DEV, $out['dev']);
         $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_FORGE, $out['forge']);
         $this->assertSame(18, $out['delivery_pack_resource_budget_belief_cascade_citation_grounding_floor_count']);
+    }
+
+    public function test_n_capture_domain_lexical_evidence_vision_execution_context_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->nCaptureDomainLexicalEvidenceVisionExecutionContextFloorsContractObserve([]);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_PATH, $out['path']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_PEEK_MODE, $out['peek_mode']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_LEARNING, $out['learning']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_OPERATOR_FORBIDDEN_STRINGS, $out['operator_forbidden_strings']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_OUTCOME_ID, $out['outcome_id']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_DELIVERED_REFS, $out['delivered_refs']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_FEEDS_ENFORCEMENT, $out['feeds_enforcement']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_EVIDENCE_REQUIRED, $out['evidence_required']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_GATES, $out['gates']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_INPUT_TEXT, $out['input_text']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_FILES_MATCHING, $out['files_matching']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_FILES_SCANNED, $out['files_scanned']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_HASH, $out['hash']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_LABEL, $out['label']);
+        $this->assertSame(18, $out['n_capture_domain_lexical_evidence_vision_execution_context_floor_count']);
     }
 
 }

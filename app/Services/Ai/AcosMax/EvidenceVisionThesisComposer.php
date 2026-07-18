@@ -15,6 +15,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class EvidenceVisionThesisComposer
 {
+    public const FIELD_OPERATOR_FORBIDDEN_STRINGS = 'operator_forbidden_strings';
+    public const FIELD_OUTCOME_ID = 'outcome_id';
     public const SCHEMA_VERSION = 'atlas.originator.evidence_vision_thesis.v1';
 
     public const MAX_THESES = 3;
@@ -479,7 +481,7 @@ final class EvidenceVisionThesisComposer
                 self::FIELD_EVIDENCE => array_map(
                     static fn (array $row, int $index): array => [
                         self::FIELD_SOURCE => 'outcome',
-                        self::FIELD_REF => 'outcome:'.((AiValueNormalizer::trimmedStringOrNull($row['outcome_id'] ?? null) ?? '') ?: ('stall-'.$index)),
+                        self::FIELD_REF => 'outcome:'.((AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_OUTCOME_ID] ?? null) ?? '') ?: ('stall-'.$index)),
                         self::FIELD_FIELD => self::FIELD_PROVEN_REAL,
                         self::FIELD_VALUE => false,
                     ],
@@ -556,7 +558,7 @@ final class EvidenceVisionThesisComposer
      */
     private static function forbiddenStrings(array $context): array
     {
-        $raw = $context[self::FIELD_FORBIDDEN_STRINGS] ?? $context['operator_forbidden_strings'] ?? [];
+        $raw = $context[self::FIELD_FORBIDDEN_STRINGS] ?? $context[self::FIELD_OPERATOR_FORBIDDEN_STRINGS] ?? [];
 
         return array_values(array_filter(array_map(
             static fn ($value): string => AiValueNormalizer::trimmedStringOrNull($value) ?? '',

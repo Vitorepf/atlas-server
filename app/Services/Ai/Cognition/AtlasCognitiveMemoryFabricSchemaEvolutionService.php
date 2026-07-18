@@ -40,6 +40,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasCognitiveMemoryFabricSchemaEvolutionService
 {
+    public const FIELD_FILES_MATCHING = 'files_matching';
+    public const FIELD_FILES_SCANNED = 'files_scanned';
     public const PROPOSAL_SCHEMA = 'atlas.acmf.schema_proposal.v1';
 
     public const TICKET_SCHEMA = 'atlas.acmf.schema_evolution_ticket.v1';
@@ -226,8 +228,8 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         return [
             self::FIELD_SCHEMA => $schema,
             'reference_count' => $referenceCount,
-            'files_matching' => $matched,
-            'files_scanned' => $scanned,
+            self::FIELD_FILES_MATCHING => $matched,
+            self::FIELD_FILES_SCANNED => $scanned,
             'threshold' => $threshold,
             'pressure_detected' => $referenceCount > $threshold,
             'scan_hash' => $scanHash,

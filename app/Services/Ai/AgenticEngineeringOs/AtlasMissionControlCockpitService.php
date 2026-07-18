@@ -23,6 +23,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasMissionControlCockpitService
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_KIND = 'kind';
     public const SCHEMA_VERSION = 'atlas.aaeos.mission_control_cockpit.v1';
 
     public const STATUS_PENDING = 'pending';
@@ -324,7 +326,7 @@ final class AtlasMissionControlCockpitService
                 self::FIELD_GATES_PASSED => count($passed),
                 self::FIELD_GATES_BLOCKED => count($blocked),
                 self::FIELD_GATE_COVERAGE => $this->gateCoverage->check($required, $passed),
-                self::FIELD_ACTOR_KIND => $actor['kind'] ?? null,
+                self::FIELD_ACTOR_KIND => $actor[self::FIELD_KIND] ?? null,
                 self::FIELD_OPERATOR_SIGNATURE => $env[self::FIELD_OPERATOR_SIGNATURE] ?? null,
             ];
         }
@@ -361,7 +363,7 @@ final class AtlasMissionControlCockpitService
                 if (! is_array($blocker)) {
                     continue;
                 }
-                if (AiValueNormalizer::trimmedStringOrNull($blocker['id'] ?? null) === null) {
+                if (AiValueNormalizer::trimmedStringOrNull($blocker[self::FIELD_ID] ?? null) === null) {
                     continue;
                 }
                 $out[] = $blocker;

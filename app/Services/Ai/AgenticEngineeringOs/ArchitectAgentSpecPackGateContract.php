@@ -12,6 +12,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class ArchitectAgentSpecPackGateContract
 {
+    public const FIELD_EVIDENCE_REQUIRED = 'evidence_required';
+    public const FIELD_GATES = 'gates';
     public const SCHEMA = 'atlas.aaeos.architect_agent_spec_pack_gate.v1';
 
     public const DEPARTMENT_ID = DepartmentContractRuntime::DEPARTMENT_ARCHITECTURE;
@@ -114,8 +116,8 @@ final class ArchitectAgentSpecPackGateContract
             self::FIELD_OPERATOR_SIGNATURE_REQUIRED_FROM => self::OPERATOR_SIGNATURE_REQUIRED_FROM,
             self::FIELD_SPEC_PACK_SCHEMA => self::SPEC_PACK_SCHEMA,
             'required_spec_pack_artifacts' => self::REQUIRED_SPEC_PACK_ARTIFACTS,
-            'gates' => self::GATES,
-            'evidence_required' => self::EVIDENCE_REQUIRED,
+            self::FIELD_GATES => self::GATES,
+            self::FIELD_EVIDENCE_REQUIRED => self::EVIDENCE_REQUIRED,
             'inputs' => [
                 self::FIELD_RISK_SCOPE => $this->riskScope,
                 self::FIELD_SPEC_PACK_HASH => $this->specPackHash,
