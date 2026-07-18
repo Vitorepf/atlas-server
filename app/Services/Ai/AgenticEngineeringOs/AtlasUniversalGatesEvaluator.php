@@ -7658,6 +7658,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for promotion/parallel/docs/reality/evidence/repair/architect/delivery/scorecard peels (B325).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function promotionParallelDocsRealityEvidenceRepairArchitectDeliveryScorecardFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'promotion_field_current_score' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_CURRENT_SCORE,
+            'promotion_field_unresolved' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_UNRESOLVED,
+            'parallel_field_cwd' => AcosMaxParallelExecutionProtocol::FIELD_CWD,
+            'parallel_field_workspace' => AcosMaxParallelExecutionProtocol::FIELD_WORKSPACE,
+            'docs_field_owner_doc_id' => AtlasDocsAuthorityGraphService::FIELD_OWNER_DOC_ID,
+            'docs_field_owner_implementation_state' => AtlasDocsAuthorityGraphService::FIELD_OWNER_IMPLEMENTATION_STATE,
+            'reality_field_autonomy_level' => RealityCompilerSlice::FIELD_AUTONOMY_LEVEL,
+            'reality_field_intent' => RealityCompilerSlice::FIELD_INTENT,
+            'evidence_field_kind' => AtlasAaeosEvidenceRefNormalizer::FIELD_KIND,
+            'evidence_field_ref' => AtlasAaeosEvidenceRefNormalizer::FIELD_REF,
+            'repair_field_escalate_to' => AtlasRepairLoopGuard::FIELD_ESCALATE_TO,
+            'repair_field_remaining_repairs' => AtlasRepairLoopGuard::FIELD_REMAINING_REPAIRS,
+            'architect_field_acceptance_criteria_present' => ArchitectAgentSpecPackGateContract::FIELD_ACCEPTANCE_CRITERIA_PRESENT,
+            'architect_field_breaking_change_matrix_present' => ArchitectAgentSpecPackGateContract::FIELD_BREAKING_CHANGE_MATRIX_PRESENT,
+            'delivery_field_ratio' => DeliveryPackCompletenessScorer::FIELD_RATIO,
+            'delivery_field_receipt_present' => DeliveryPackCompletenessScorer::FIELD_RECEIPT_PRESENT,
+            'scorecard_field_supplemental_count' => AtlasCognitionScoreCardV4Grouper::FIELD_SUPPLEMENTAL_COUNT,
+            'scorecard_field_evidence' => AtlasCognitionScoreCardV4Grouper::FIELD_EVIDENCE,
+            'promotion_parallel_docs_reality_evidence_repair_architect_delivery_scorecard_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

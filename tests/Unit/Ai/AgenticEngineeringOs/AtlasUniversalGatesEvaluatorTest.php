@@ -5771,5 +5771,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['evolution_reality_freshness_nudge_immune_share_flywheel_aemor_quality_floor_count']);
     }
 
+    public function test_promotion_parallel_docs_reality_evidence_repair_architect_delivery_scorecard_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->promotionParallelDocsRealityEvidenceRepairArchitectDeliveryScorecardFloorsContractObserve([]);
+
+        $this->assertSame('current_score', $payload['promotion_field_current_score']);
+        $this->assertSame('unresolved', $payload['promotion_field_unresolved']);
+        $this->assertSame('cwd', $payload['parallel_field_cwd']);
+        $this->assertSame('workspace', $payload['parallel_field_workspace']);
+        $this->assertSame('owner_doc_id', $payload['docs_field_owner_doc_id']);
+        $this->assertSame('owner_implementation_state', $payload['docs_field_owner_implementation_state']);
+        $this->assertSame('autonomy_level', $payload['reality_field_autonomy_level']);
+        $this->assertSame('intent', $payload['reality_field_intent']);
+        $this->assertSame('kind', $payload['evidence_field_kind']);
+        $this->assertSame('ref', $payload['evidence_field_ref']);
+        $this->assertSame('escalate_to', $payload['repair_field_escalate_to']);
+        $this->assertSame('remaining_repairs', $payload['repair_field_remaining_repairs']);
+        $this->assertSame('acceptance_criteria_present', $payload['architect_field_acceptance_criteria_present']);
+        $this->assertSame('breaking_change_matrix_present', $payload['architect_field_breaking_change_matrix_present']);
+        $this->assertSame('ratio', $payload['delivery_field_ratio']);
+        $this->assertSame('receipt_present', $payload['delivery_field_receipt_present']);
+        $this->assertSame('supplemental_count', $payload['scorecard_field_supplemental_count']);
+        $this->assertSame('evidence', $payload['scorecard_field_evidence']);
+        $this->assertSame(18, $payload['promotion_parallel_docs_reality_evidence_repair_architect_delivery_scorecard_floor_count']);
+    }
+
 
 }

@@ -14,6 +14,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasAaeosEvidenceRefNormalizer
 {
+    public const FIELD_KIND = 'kind';
+    public const FIELD_REF = 'ref';
     /**
      * Accept evidence_refs as a list of "kind: ref" strings or {kind,ref} maps.
      *
@@ -24,8 +26,8 @@ final class AtlasAaeosEvidenceRefNormalizer
         $refs = [];
         foreach (AiValueNormalizer::arrayOrEmpty($raw) as $entry) {
             if (is_array($entry)) {
-                $kind = $this->ref($entry['kind'] ?? '');
-                $ref = $this->ref($entry['ref'] ?? '');
+                $kind = $this->ref($entry[self::FIELD_KIND] ?? '');
+                $ref = $this->ref($entry[self::FIELD_REF] ?? '');
             } elseif (($entryString = AiValueNormalizer::trimmedStringOrNull($entry)) !== null && str_contains($entryString, ':')) {
                 [$kind, $ref] = array_map(
                     fn (string $value): string => $this->ref($value),
@@ -36,7 +38,7 @@ final class AtlasAaeosEvidenceRefNormalizer
             }
 
             if ($kind !== '' && $ref !== '') {
-                $refs[] = ['kind' => $kind, 'ref' => $ref];
+                $refs[] = [self::FIELD_KIND => $kind, self::FIELD_REF => $ref];
             }
         }
 

@@ -23,6 +23,8 @@ final class ArchitectAgentSpecPackGateContract
     public const OPERATOR_SIGNATURE_REQUIRED_FROM = 'R5';
 
     public const SPEC_PACK_SCHEMA = 'atlas.spec_pack.v1';
+    public const FIELD_ACCEPTANCE_CRITERIA_PRESENT = 'acceptance_criteria_present';
+    public const FIELD_BREAKING_CHANGE_MATRIX_PRESENT = 'breaking_change_matrix_present';
 
     /**
      * Required spec_pack sections before high-risk autonomous work may proceed.
@@ -85,9 +87,9 @@ final class ArchitectAgentSpecPackGateContract
         return new self(
             riskScope: AiValueNormalizer::trimmedStringOrNull($input['risk_scope'] ?? null) ?? self::MIN_AUTONOMOUS_RISK_SCOPE,
             specPackHash: AiValueNormalizer::trimmedStringOrNull($input['spec_pack_hash'] ?? null) ?? '',
-            acceptanceCriteriaPresent: (AiValueNormalizer::boolOrNull($input['acceptance_criteria_present'] ?? null) ?? false),
+            acceptanceCriteriaPresent: (AiValueNormalizer::boolOrNull($input[self::FIELD_ACCEPTANCE_CRITERIA_PRESENT] ?? null) ?? false),
             rollbackPlanPresent: (AiValueNormalizer::boolOrNull($input['rollback_plan_present'] ?? null) ?? false),
-            breakingChangeMatrixPresent: (AiValueNormalizer::boolOrNull($input['breaking_change_matrix_present'] ?? null) ?? false),
+            breakingChangeMatrixPresent: (AiValueNormalizer::boolOrNull($input[self::FIELD_BREAKING_CHANGE_MATRIX_PRESENT] ?? null) ?? false),
             operatorSignaturePresent: (AiValueNormalizer::boolOrNull($input['operator_signature_present'] ?? null) ?? false),
         );
     }
@@ -109,9 +111,9 @@ final class ArchitectAgentSpecPackGateContract
             'inputs' => [
                 'risk_scope' => $this->riskScope,
                 'spec_pack_hash' => $this->specPackHash,
-                'acceptance_criteria_present' => $this->acceptanceCriteriaPresent,
+                self::FIELD_ACCEPTANCE_CRITERIA_PRESENT => $this->acceptanceCriteriaPresent,
                 'rollback_plan_present' => $this->rollbackPlanPresent,
-                'breaking_change_matrix_present' => $this->breakingChangeMatrixPresent,
+                self::FIELD_BREAKING_CHANGE_MATRIX_PRESENT => $this->breakingChangeMatrixPresent,
                 'operator_signature_present' => $this->operatorSignaturePresent,
             ],
         ];

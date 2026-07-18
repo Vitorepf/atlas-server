@@ -48,6 +48,8 @@ class AtlasDocsAuthorityGraphService
     public const FIELD_PATH = 'path';
     public const FIELD_RESOLVED = 'resolved';
     public const FIELD_CANDIDATES = 'candidates';
+    public const FIELD_OWNER_DOC_ID = 'owner_doc_id';
+    public const FIELD_OWNER_IMPLEMENTATION_STATE = 'owner_implementation_state';
 
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
@@ -111,10 +113,10 @@ class AtlasDocsAuthorityGraphService
                 self::FIELD_NEEDLE => $needle,
                 'needle_normalized' => mb_substr(AiValueNormalizer::lowerTrimmedString($needle), 0, 300),
                 self::FIELD_OWNER_DOC_PATH => mb_substr($path, 0, 500),
-                'owner_doc_id' => $ownerId !== '' ? mb_substr($ownerId, 0, 200) : null,
+                self::FIELD_OWNER_DOC_ID => $ownerId !== '' ? mb_substr($ownerId, 0, 200) : null,
                 self::FIELD_OWNER_BASIS => $basis,
                 self::FIELD_CONFIDENCE => self::CONFIDENCE[$basis] ?? 0,
-                'owner_implementation_state' => $state !== '' ? mb_substr($state, 0, 60) : null,
+                self::FIELD_OWNER_IMPLEMENTATION_STATE => $state !== '' ? mb_substr($state, 0, 60) : null,
             ];
         };
 
@@ -219,10 +221,10 @@ class AtlasDocsAuthorityGraphService
             self::FIELD_NEEDLE => $needle,
             self::FIELD_RESOLVED => true,
             self::FIELD_OWNER_DOC_PATH => AiValueNormalizer::trimmedScalarStringOrNull($best->owner_doc_path ?? null) ?? '',
-            'owner_doc_id' => $best->owner_doc_id,
+            self::FIELD_OWNER_DOC_ID => $best->owner_doc_id,
             self::FIELD_OWNER_BASIS => $basis,
             self::FIELD_CONFIDENCE => $confidence,
-            'owner_implementation_state' => $best->owner_implementation_state,
+            self::FIELD_OWNER_IMPLEMENTATION_STATE => $best->owner_implementation_state,
             self::FIELD_CANDIDATES => $matches->map(fn (AtlasDocsAuthorityGraph $row): array => [
                 self::FIELD_OWNER_DOC_PATH => AiValueNormalizer::trimmedScalarStringOrNull($row->owner_doc_path ?? null) ?? '',
                 self::FIELD_NEEDLE => AiValueNormalizer::trimmedScalarStringOrNull($row->needle ?? null) ?? '',

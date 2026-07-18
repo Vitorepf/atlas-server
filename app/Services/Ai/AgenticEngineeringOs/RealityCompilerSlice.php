@@ -26,6 +26,8 @@ final readonly class RealityCompilerSlice
     public const STATUS_PENDING = 'pending';
     public const FIELD_PHASE = 'phase';
     public const FIELD_STATUS = 'status';
+    public const FIELD_AUTONOMY_LEVEL = 'autonomy_level';
+    public const FIELD_INTENT = 'intent';
 
     /** @var list<string> */
     public const EXECUTION_PHASES = [
@@ -64,11 +66,11 @@ final readonly class RealityCompilerSlice
     public static function fromArray(array $input): self
     {
         $default = self::defaultShape();
-        $autonomy = AiValueNormalizer::trimmedStringOrNull($input['autonomy_level'] ?? null) ?? '';
+        $autonomy = AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_AUTONOMY_LEVEL] ?? null) ?? '';
         $phases = self::normalizePhases(AiValueNormalizer::arrayOrEmpty($input['output_phases'] ?? null));
 
         return new self(
-            AiValueNormalizer::trimmedStringOrNull($input['intent'] ?? null) ?? '',
+            AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_INTENT] ?? null) ?? '',
             $autonomy !== '' ? $autonomy : $default->autonomyLevel,
             $phases !== [] ? $phases : $default->outputPhases,
         );
@@ -108,8 +110,8 @@ final readonly class RealityCompilerSlice
     {
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'intent' => $this->intent,
-            'autonomy_level' => $this->autonomyLevel,
+            self::FIELD_INTENT => $this->intent,
+            self::FIELD_AUTONOMY_LEVEL => $this->autonomyLevel,
             'output_phases' => $this->outputPhases,
         ];
     }

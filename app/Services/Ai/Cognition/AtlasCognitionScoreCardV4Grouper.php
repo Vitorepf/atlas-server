@@ -36,6 +36,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_CONTEXT_INTELLIGENCE = 'context_intelligence';
     public const FIELD_CONTEXT_QUALITY = 'context_quality';
     public const FIELD_CROSS_DOMAIN = 'cross_domain';
+    public const FIELD_SUPPLEMENTAL_COUNT = 'supplemental_count';
+    public const FIELD_EVIDENCE = 'evidence';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -94,7 +96,7 @@ final class AtlasCognitionScoreCardV4Grouper
                 $buckets[$module][self::FIELD_SERVICE_CLASSES][] = $serviceClass;
             }
             if (($row['supplemental'] ?? false) === true) {
-                $buckets[$module]['supplemental_count'] = ($buckets[$module]['supplemental_count'] ?? 0) + 1;
+                $buckets[$module][self::FIELD_SUPPLEMENTAL_COUNT] = ($buckets[$module][self::FIELD_SUPPLEMENTAL_COUNT] ?? 0) + 1;
             }
         }
 
@@ -109,7 +111,7 @@ final class AtlasCognitionScoreCardV4Grouper
                 self::FIELD_PIPELINE_STATUS => $this->rollup($bucket[self::FIELD_PIPELINE_STATUS] ?? []),
                 self::FIELD_MEMBERS => $bucket[self::FIELD_MEMBERS] ?? [],
                 self::FIELD_SERVICE_CLASSES => array_values(array_unique($bucket[self::FIELD_SERVICE_CLASSES] ?? [])),
-                'supplemental_count' => (int) (AiValueNormalizer::finiteFloatOrNull($bucket['supplemental_count'] ?? null) ?? 0),
+                self::FIELD_SUPPLEMENTAL_COUNT => (int) (AiValueNormalizer::finiteFloatOrNull($bucket[self::FIELD_SUPPLEMENTAL_COUNT] ?? null) ?? 0),
                 self::FIELD_BOUNDARY => $consumers ? 'consumer' : 'acos',
             ];
         }
@@ -142,7 +144,7 @@ final class AtlasCognitionScoreCardV4Grouper
             'verified_context' => 'VERIFIED-CONTEXT',
             self::FIELD_CONTEXT_QUALITY => 'CONTEXT-QUALITY',
             'open_brain' => 'OPEN-BRAIN',
-            'evidence' => 'EVIDENCE',
+            self::FIELD_EVIDENCE => 'EVIDENCE',
             default => 'OTHER',
         };
     }

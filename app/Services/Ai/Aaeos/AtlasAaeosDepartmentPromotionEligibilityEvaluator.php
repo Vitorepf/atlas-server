@@ -31,6 +31,8 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     public const FIELD_AUTO_PROMOTE_ALLOWED = 'auto_promote_allowed';
     public const FIELD_BLOCKERS = 'blockers';
     public const FIELD_BLOCKERS_TO_NEXT = 'blockers_to_next';
+    public const FIELD_CURRENT_SCORE = 'current_score';
+    public const FIELD_UNRESOLVED = 'unresolved';
 
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department
@@ -71,7 +73,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
 
         if (! $blockerPrecondition[self::FIELD_PASSED]) {
             $failedPreconditions[] = 'blockers';
-            foreach ($blockerPrecondition['unresolved'] as $unresolvedId) {
+            foreach ($blockerPrecondition[self::FIELD_UNRESOLVED] as $unresolvedId) {
                 $blockingReasons[] = 'blocked_by_unresolved_blockers:' . $unresolvedId;
             }
         }
@@ -154,7 +156,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
         return [
             self::FIELD_PASSED => $unresolved === [],
             'total' => count($blockers),
-            'unresolved' => $unresolved,
+            self::FIELD_UNRESOLVED => $unresolved,
         ];
     }
 
@@ -165,13 +167,13 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
      */
     private function evaluateQualityBar(array $metrics, int $targetTier): array
     {
-        $currentScore = $this->floatValue($metrics['current_score'] ?? 0.0);
+        $currentScore = $this->floatValue($metrics[self::FIELD_CURRENT_SCORE] ?? 0.0);
         $requiredThreshold = $this->resolveRequiredThreshold($metrics, $targetTier);
         $deficit = max(0.0, round($requiredThreshold - $currentScore, 4));
 
         return [
             self::FIELD_PASSED => $currentScore >= $requiredThreshold,
-            'current_score' => $currentScore,
+            self::FIELD_CURRENT_SCORE => $currentScore,
             'required_threshold' => $requiredThreshold,
             'deficit' => $deficit,
         ];

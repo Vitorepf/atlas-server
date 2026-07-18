@@ -26,6 +26,8 @@ final class DeliveryPackCompletenessScorer
     public const BLOCKER_MISSING_HASH = 'missing_signed_delivery_hash';
 
     public const BLOCKER_EVIDENCE_REQUIRED = 'evidence_hashes_required_for_changes';
+    public const FIELD_RATIO = 'ratio';
+    public const FIELD_RECEIPT_PRESENT = 'receipt_present';
 
     /** @var list<string> */
     public const REQUIRED_KEYS = [
@@ -84,7 +86,7 @@ final class DeliveryPackCompletenessScorer
         $testEvidence = $this->arrayValue($composition['test_evidence']);
         $evidenceHashes = $this->arrayValue($composition['evidence_hashes']);
         $riskRegisterPresent = $this->boolValue($composition['risk_register_present']);
-        $receiptPresent = $this->boolValue($composition['receipt_present']);
+        $receiptPresent = $this->boolValue($composition[self::FIELD_RECEIPT_PRESENT]);
 
         $hashSigned = AiValueNormalizer::trimmedStringOrNull($composition['delivery_hash'] ?? null) !== null;
         $hasEvidenceHashes = $evidenceHashes !== [];
@@ -93,7 +95,7 @@ final class DeliveryPackCompletenessScorer
             'files_have_evidence' => $changedFiles === 0 ? true : $hasEvidenceHashes,
             'tests_present' => $testEvidence !== [],
             'evidence_present' => $hasEvidenceHashes,
-            'receipt_present' => $receiptPresent,
+            self::FIELD_RECEIPT_PRESENT => $receiptPresent,
             'risk_register_present' => $riskRegisterPresent,
         ];
 
@@ -111,7 +113,7 @@ final class DeliveryPackCompletenessScorer
 
         return [
             'schema' => self::SCHEMA,
-            'ratio' => $ratio,
+            self::FIELD_RATIO => $ratio,
             'status' => $this->resolveStatus($blockers, $ratio),
             'factors' => $factors,
             'blockers' => $blockers,
@@ -129,7 +131,7 @@ final class DeliveryPackCompletenessScorer
         $report = $this->score($composition);
 
         return ($report['status'] ?? '') === self::STATUS_PASSED
-            && (AiValueNormalizer::finiteFloatOrNull($report['ratio'] ?? null) ?? 0.0) >= $minRatio;
+            && (AiValueNormalizer::finiteFloatOrNull($report[self::FIELD_RATIO] ?? null) ?? 0.0) >= $minRatio;
     }
 
     /**

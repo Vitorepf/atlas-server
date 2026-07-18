@@ -16,6 +16,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 class AtlasRepairLoopGuard
 {
+    public const FIELD_ESCALATE_TO = 'escalate_to';
+    public const FIELD_REMAINING_REPAIRS = 'remaining_repairs';
     public function __construct(
         private readonly AtlasCrossDepartmentChoreographyService $choreography,
     ) {}
@@ -36,8 +38,8 @@ class AtlasRepairLoopGuard
             'attempt' => $next,
             'admitted' => ($decision['decision'] ?? null) === 'repair',
             'escalated' => (AiValueNormalizer::boolOrNull($decision['escalate'] ?? null) ?? false),
-            'escalate_to' => $decision['escalate_to'] ?? [],
-            'remaining_repairs' => $decision['remaining_repairs'] ?? 0,
+            self::FIELD_ESCALATE_TO => $decision[self::FIELD_ESCALATE_TO] ?? [],
+            self::FIELD_REMAINING_REPAIRS => $decision[self::FIELD_REMAINING_REPAIRS] ?? 0,
         ];
     }
 }

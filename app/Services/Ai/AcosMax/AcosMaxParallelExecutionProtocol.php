@@ -49,6 +49,8 @@ final class AcosMaxParallelExecutionProtocol
     public const FIELD_CLAIM = 'claim';
     public const FIELD_SKIP_REASON = 'skip_reason';
     public const FIELD_TTL = 'ttl';
+    public const FIELD_CWD = 'cwd';
+    public const FIELD_WORKSPACE = 'workspace';
 
 
     public function __construct(
@@ -90,8 +92,8 @@ final class AcosMaxParallelExecutionProtocol
 
         $result = $this->blackboard->claim($engine, self::CLAIM_KIND, $target, [
             self::FIELD_TTL => $ttl,
-            'workspace' => $opts['workspace'] ?? null,
-            'cwd' => $opts['cwd'] ?? null,
+            self::FIELD_WORKSPACE => $opts[self::FIELD_WORKSPACE] ?? null,
+            self::FIELD_CWD => $opts[self::FIELD_CWD] ?? null,
             'meta' => [
                 'protocol' => self::SCHEMA,
                 self::FIELD_LOTE => $lote,
