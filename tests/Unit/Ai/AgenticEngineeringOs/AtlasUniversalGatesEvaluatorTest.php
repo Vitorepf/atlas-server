@@ -11568,4 +11568,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b553_cognition_score_department_contract_measure_series_daily_canary_floor_count']);
     }
 
+    public function test_b554_cognition_score_department_contract_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b554CognitionScoreDepartmentContractFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CONTEXT_RANKING_SYSTEM, $out['Context Ranking System']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_DECISION_GATE, $out['Decision Gate']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_EVIDENCE_LEDGER_MEMORY_SIDE, $out['Evidence Ledger Memory Side']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_EVIDENCE_PROMOTION_GATE, $out['Evidence Promotion Gate']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_EXECUTION_MEMORY_OUTCOME_RUNTIME, $out['Execution Memory Outcome Runtime']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_G0, $out['G0']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_G1, $out['G1']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_G2, $out['G2']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_G3, $out['G3']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DELIVERY_PACK_ASSEMBLED_TRUE, $out['delivery_pack_assembled=true']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ARCHITECT_RESEARCH_NEEDED_TRUE, $out['architect.research_needed=true']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_BREAKING_CHANGE_DETECTED_TRUE, $out['breaking_change_detected=true']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_CONTEXT_PACK_REQUEST_TRUE, $out['context_pack_request=true']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EVIDENCE_PACK_READY_TRUE, $out['evidence_pack_ready=true']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EXECUTION_COMPLETE_TRUE, $out['execution_complete=true']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_INCIDENT_DETECTED_TRUE, $out['incident_detected=true']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DEV, $out['intent_classification.target_department=dev']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_FORGE, $out['intent_classification.target_department=forge']);
+        $this->assertSame(18, $out['b554_cognition_score_department_contract_floor_count']);
+    }
+
 }

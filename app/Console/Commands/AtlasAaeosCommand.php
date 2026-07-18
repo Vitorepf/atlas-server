@@ -576,6 +576,7 @@ final class AtlasAaeosCommand extends Command
                             {--b551-cognition-score-department-contract-measure-series-lote-phase-floors-contract= : JSON file (any object) to observe cognition/score/department/contract/measure/series floors}
                             {--b552-cognition-score-department-contract-measure-series-knowledge-item-floors-contract= : JSON file (any object) to observe cognition/score/department/contract/measure/series floors}
                             {--b553-cognition-score-department-contract-measure-series-daily-canary-floors-contract= : JSON file (any object) to observe cognition/score/department/contract/measure/series floors}
+                            {--b554-cognition-score-department-contract-floors-contract= : JSON file (any object) to observe cognition/score/department/contract floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1308,6 +1309,7 @@ final class AtlasAaeosCommand extends Command
             ['b551-cognition-score-department-contract-measure-series-lote-phase-floors-contract', 'b551_cognition_score_department_contract_measure_series_lote_phase_floors_contract', fn (array $p) => $gates->b551CognitionScoreDepartmentContractMeasureSeriesLotePhaseFloorsContractObserve($p)],
             ['b552-cognition-score-department-contract-measure-series-knowledge-item-floors-contract', 'b552_cognition_score_department_contract_measure_series_knowledge_item_floors_contract', fn (array $p) => $gates->b552CognitionScoreDepartmentContractMeasureSeriesKnowledgeItemFloorsContractObserve($p)],
             ['b553-cognition-score-department-contract-measure-series-daily-canary-floors-contract', 'b553_cognition_score_department_contract_measure_series_daily_canary_floors_contract', fn (array $p) => $gates->b553CognitionScoreDepartmentContractMeasureSeriesDailyCanaryFloorsContractObserve($p)],
+            ['b554-cognition-score-department-contract-floors-contract', 'b554_cognition_score_department_contract_floors_contract', fn (array $p) => $gates->b554CognitionScoreDepartmentContractFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

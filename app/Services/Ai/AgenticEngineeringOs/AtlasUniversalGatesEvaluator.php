@@ -14671,4 +14671,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B554).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b554CognitionScoreDepartmentContractFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'Context Ranking System' => AtlasCognitionScoreCardService::FIELD_CONTEXT_RANKING_SYSTEM,
+            'Decision Gate' => AtlasCognitionScoreCardService::FIELD_DECISION_GATE,
+            'Evidence Ledger Memory Side' => AtlasCognitionScoreCardService::FIELD_EVIDENCE_LEDGER_MEMORY_SIDE,
+            'Evidence Promotion Gate' => AtlasCognitionScoreCardService::FIELD_EVIDENCE_PROMOTION_GATE,
+            'Execution Memory Outcome Runtime' => AtlasCognitionScoreCardService::FIELD_EXECUTION_MEMORY_OUTCOME_RUNTIME,
+            'G0' => AtlasCognitionScoreCardService::FIELD_G0,
+            'G1' => AtlasCognitionScoreCardService::FIELD_G1,
+            'G2' => AtlasCognitionScoreCardService::FIELD_G2,
+            'G3' => AtlasCognitionScoreCardService::FIELD_G3,
+            'delivery_pack_assembled=true' => DepartmentContractRuntime::FIELD_DELIVERY_PACK_ASSEMBLED_TRUE,
+            'architect.research_needed=true' => DepartmentContractRuntime::FIELD_ARCHITECT_RESEARCH_NEEDED_TRUE,
+            'breaking_change_detected=true' => DepartmentContractRuntime::FIELD_BREAKING_CHANGE_DETECTED_TRUE,
+            'context_pack_request=true' => DepartmentContractRuntime::FIELD_CONTEXT_PACK_REQUEST_TRUE,
+            'evidence_pack_ready=true' => DepartmentContractRuntime::FIELD_EVIDENCE_PACK_READY_TRUE,
+            'execution_complete=true' => DepartmentContractRuntime::FIELD_EXECUTION_COMPLETE_TRUE,
+            'incident_detected=true' => DepartmentContractRuntime::FIELD_INCIDENT_DETECTED_TRUE,
+            'intent_classification.target_department=dev' => DepartmentContractRuntime::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DEV,
+            'intent_classification.target_department=forge' => DepartmentContractRuntime::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_FORGE,
+            'b554_cognition_score_department_contract_floor_count' => 18,
+        ];
+    }
+
 }

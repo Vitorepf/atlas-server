@@ -441,6 +441,15 @@ final class DepartmentContractRuntime
     public const FIELD_RESEARCH_DEPARTMENT = 'Research Department';
     public const FIELD_REVIEW_DEPARTMENT = 'Review Department';
     public const FIELD_SECURITY_DEPARTMENT = 'Security Department';
+    public const FIELD_DELIVERY_PACK_ASSEMBLED_TRUE = 'delivery_pack_assembled=true';
+    public const FIELD_ARCHITECT_RESEARCH_NEEDED_TRUE = 'architect.research_needed=true';
+    public const FIELD_BREAKING_CHANGE_DETECTED_TRUE = 'breaking_change_detected=true';
+    public const FIELD_CONTEXT_PACK_REQUEST_TRUE = 'context_pack_request=true';
+    public const FIELD_EVIDENCE_PACK_READY_TRUE = 'evidence_pack_ready=true';
+    public const FIELD_EXECUTION_COMPLETE_TRUE = 'execution_complete=true';
+    public const FIELD_INCIDENT_DETECTED_TRUE = 'incident_detected=true';
+    public const FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DEV = 'intent_classification.target_department=dev';
+    public const FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_FORGE = 'intent_classification.target_department=forge';
     public const INT_11 = 11;
 
     /**
@@ -525,7 +534,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_ARCHITECT_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Decides system design, ADRs, technical boundaries.',
             self::FIELD_SCOPE => 'define spec_pack canônico, breaking_change_matrix e migration_plan antes de qualquer execução',
-            self::FIELD_TRIGGERS => ['intent_classification.scope>=R3', 'breaking_change_detected=true'],
+            self::FIELD_TRIGGERS => ['intent_classification.scope>=R3', self::FIELD_BREAKING_CHANGE_DETECTED_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_ENGINEERING_GOAL_DISAMBIGUATED, self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL_DISAMBIGUATED],
             ],
@@ -549,7 +558,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_RESEARCH_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Investigates unknowns before commit; never modifies runtime.',
             self::FIELD_SCOPE => 'produz state-of-the-art source-backed para suportar Architect e Self-Construction',
-            self::FIELD_TRIGGERS => ['self_construction.gap_detected=true', 'architect.research_needed=true'],
+            self::FIELD_TRIGGERS => ['self_construction.gap_detected=true', self::FIELD_ARCHITECT_RESEARCH_NEEDED_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_RESEARCH_QUESTION, self::FIELD_SCHEMA => self::SCHEMA_RESEARCH_QUESTION],
             ],
@@ -572,7 +581,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_DEV_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Atlas Dev fast-lane; small/medium changes with plan + gates.',
             self::FIELD_SCOPE => 'executa fast-path para intents R1-R3 (1-5 arquivos, baixo-médio risco) com governance leve',
-            self::FIELD_TRIGGERS => ['intent_classification.target_department=dev', 'scope<=R3'],
+            self::FIELD_TRIGGERS => [self::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DEV, 'scope<=R3'],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
                 [self::FIELD_NAME => self::FIELD_TASK_PACK, self::FIELD_SCHEMA => self::SCHEMA_TASK_PACK],
@@ -597,7 +606,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_DEBUG_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Failure investigation, repair orchestration, escalation triggers.',
             self::FIELD_SCOPE => 'investiga falhas runtime, gera hipóteses, reproduz, isola e propõe fix',
-            self::FIELD_TRIGGERS => ['incident_detected=true', 'test_red_after_green=true', 'production_alert=true'],
+            self::FIELD_TRIGGERS => [self::FIELD_INCIDENT_DETECTED_TRUE, 'test_red_after_green=true', 'production_alert=true'],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_FAILURE_REPORT, self::FIELD_SCHEMA => self::SCHEMA_FAILURE_REPORT],
             ],
@@ -620,7 +629,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_REVIEW_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Code/spec review; bottleneck against weak claims.',
             self::FIELD_SCOPE => 'revisa patches/specs/migrations/release_packs com checklist canônico antes de cert',
-            self::FIELD_TRIGGERS => ['delivery_pack_assembled=true', 'spec_pack_drafted=true'],
+            self::FIELD_TRIGGERS => [self::FIELD_DELIVERY_PACK_ASSEMBLED_TRUE, 'spec_pack_drafted=true'],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_DELIVERY_PACK, self::FIELD_SCHEMA => self::SCHEMA_DELIVERY_PACK],
             ],
@@ -643,7 +652,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_QA_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Test selection, regression, verification.',
             self::FIELD_SCOPE => 'garante testabilidade, cobertura, regressão, contract tests e fixtures',
-            self::FIELD_TRIGGERS => ['task_pack_decomposed=true', 'delivery_pack_assembled=true'],
+            self::FIELD_TRIGGERS => ['task_pack_decomposed=true', self::FIELD_DELIVERY_PACK_ASSEMBLED_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
                 [self::FIELD_NAME => self::FIELD_PATCH_PACK, self::FIELD_SCHEMA => self::SCHEMA_PATCH_PACK],
@@ -690,7 +699,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_FORGE_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Heavy Obras with provider topology + multi-agent scheduler.',
             self::FIELD_SCOPE => 'executa Obras pesadas multi-módulo R3-R5 com paralelismo, durable reservation, multi-provider',
-            self::FIELD_TRIGGERS => ['intent_classification.target_department=forge', 'scope>=R3', 'multi_module_detected=true'],
+            self::FIELD_TRIGGERS => [self::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_FORGE, 'scope>=R3', 'multi_module_detected=true'],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
                 [self::FIELD_NAME => self::FIELD_TOPOLOGY_PLAN, self::FIELD_SCHEMA => self::SCHEMA_TOPOLOGY_PLAN],
@@ -715,7 +724,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_DELIVERY_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Release, rollback decision, deployment evidence.',
             self::FIELD_SCOPE => 'monta delivery_pack canônico, valida completeness, encaminha para human review e cert',
-            self::FIELD_TRIGGERS => ['execution_complete=true', 'evidence_pack_ready=true'],
+            self::FIELD_TRIGGERS => [self::FIELD_EXECUTION_COMPLETE_TRUE, self::FIELD_EVIDENCE_PACK_READY_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_EVIDENCE_PACK, self::FIELD_SCHEMA => self::SCHEMA_EVIDENCE_PACK],
             ],
@@ -738,7 +747,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_MEMORY_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Evidence ledger, learning, compounding signal extraction.',
             self::FIELD_SCOPE => 'persistência governada de learnings, context packs, decisões, falhas, cross-session continuity',
-            self::FIELD_TRIGGERS => ['learning_capsule_emitted=true', 'session_handoff_requested=true', 'context_pack_request=true'],
+            self::FIELD_TRIGGERS => ['learning_capsule_emitted=true', 'session_handoff_requested=true', self::FIELD_CONTEXT_PACK_REQUEST_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_LEARNING_CAPSULE, self::FIELD_SCHEMA => self::SCHEMA_LEARNING_CAPSULE],
             ],
