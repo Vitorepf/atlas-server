@@ -14774,4 +14774,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b683_execution_context_floor_count']);
     }
 
+    public function test_b684_pre_review_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b684PreReviewFloorsContractObserve([]);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_FABRICATES_RATE_ON_ZERO_N, $out['fabricates_rate_on_zero_n']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_LIFT_BASIS, $out['lift_basis']);
+        $this->assertSame(PreReviewAdvisoryBand::SCHEMA_VERSION, $out['atlas.operator.pre_review_advisory_band.v1']);
+        $this->assertSame(PreReviewAdvisoryBand::FORMULA_VERSION, $out['atlas.multn15_08.pre_review_band.v1']);
+        $this->assertSame(PreReviewAdvisoryBand::CALIBRATION_SCHEMA, $out['atlas.operator.pre_review_advisory_band.calibration.v1']);
+        $this->assertSame(PreReviewAdvisoryBand::MIN_N_FOR_BAND, $out['10']);
+        $this->assertSame(PreReviewAdvisoryBand::DEATH_MIN_N, $out['30']);
+        $this->assertSame(PreReviewAdvisoryBand::FLOAT_0_15, $out['0.15']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_UNKNOWN, $out['unknown']);
+        $this->assertSame(PreReviewAdvisoryBand::BASIS_INSUFFICIENT_SAMPLE, $out['insufficient_sample']);
+        $this->assertSame(PreReviewAdvisoryBand::BASIS_MEASURED, $out['measured']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_PREDICTED_REVERT_BAND, $out['predicted_revert_band']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_BASIS, $out['basis']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_REALIZED_REVERT_RATE, $out['realized_revert_rate']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_FEATURES, $out['features']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_PROBABILITY, $out['probability']);
+        $this->assertSame(18, $out['b684_pre_review_floor_count']);
+    }
+
 }

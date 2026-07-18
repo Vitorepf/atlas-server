@@ -18652,4 +18652,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B684).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b684PreReviewFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'fabricates_rate_on_zero_n' => PreReviewAdvisoryBand::FIELD_FABRICATES_RATE_ON_ZERO_N,
+            'lift_basis' => PreReviewAdvisoryBand::FIELD_LIFT_BASIS,
+            'atlas.operator.pre_review_advisory_band.v1' => PreReviewAdvisoryBand::SCHEMA_VERSION,
+            'atlas.multn15_08.pre_review_band.v1' => PreReviewAdvisoryBand::FORMULA_VERSION,
+            'atlas.operator.pre_review_advisory_band.calibration.v1' => PreReviewAdvisoryBand::CALIBRATION_SCHEMA,
+            '10' => PreReviewAdvisoryBand::MIN_N_FOR_BAND,
+            '30' => PreReviewAdvisoryBand::DEATH_MIN_N,
+            '0.15' => PreReviewAdvisoryBand::FLOAT_0_15,
+            'unknown' => PreReviewAdvisoryBand::FIELD_UNKNOWN,
+            'insufficient_sample' => PreReviewAdvisoryBand::BASIS_INSUFFICIENT_SAMPLE,
+            'measured' => PreReviewAdvisoryBand::BASIS_MEASURED,
+            'schema_version' => PreReviewAdvisoryBand::FIELD_SCHEMA_VERSION,
+            'formula_version' => PreReviewAdvisoryBand::FIELD_FORMULA_VERSION,
+            'predicted_revert_band' => PreReviewAdvisoryBand::FIELD_PREDICTED_REVERT_BAND,
+            'basis' => PreReviewAdvisoryBand::FIELD_BASIS,
+            'realized_revert_rate' => PreReviewAdvisoryBand::FIELD_REALIZED_REVERT_RATE,
+            'features' => PreReviewAdvisoryBand::FIELD_FEATURES,
+            'probability' => PreReviewAdvisoryBand::FIELD_PROBABILITY,
+            'b684_pre_review_floor_count' => 18,
+        ];
+    }
+
 }
