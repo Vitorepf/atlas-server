@@ -16276,4 +16276,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b743_watchdog_check_acos_floor_count']);
     }
 
+    public function test_b744_acos_watchdog_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b744AcosWatchdogFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_AI_RUN_OUTCOME_MAX_AGE_HOURS, $out['ai_run_outcome_max_age_hours']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_BY_EXECUTOR, $out['by_executor']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::MEMORY_QUALITY_SCHEMA, $out['atlas.memory.quality_check.v1']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::CONTEXT_FEEDBACK_SCHEMA, $out['atlas.context.feedback_health.v1']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::COMPACTION_SOAK_SCHEMA, $out['atlas.compaction.soak_watch.v1']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::ENGINEERING_READINESS_SCHEMA, $out['atlas.engineering.enforce_readiness.v1']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_BLOCKING, $out['blocking']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_THRESHOLDS, $out['thresholds']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CODE, $out['code']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_TOTAL, $out['total']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_READY_TO_ENFORCE, $out['ready_to_enforce']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CHECKS, $out['checks']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_GREEN, $out['green']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_RED, $out['red']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_YELLOW, $out['yellow']);
+        $this->assertSame(18, $out['b744_acos_watchdog_floor_count']);
+    }
+
 }
