@@ -16677,4 +16677,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b759_operator_review_aaeos_doc_floor_count']);
     }
 
+    public function test_b760_aaeos_doc_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b760AaeosDocFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_LEVEL_ORDINAL, $out['level_ordinal']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_MISSING_FOR_NEXT, $out['missing_for_next']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::SCHEMA_VERSION, $out['atlas.aaeos.doc_maturity.v1']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L0, $out['DOC L0']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L1, $out['DOC L1']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L2, $out['DOC L2']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L3, $out['DOC L3']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L4, $out['DOC L4']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::STRENGTH_NONE, $out['none']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::STRENGTH_PARTIAL, $out['partial']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::STRENGTH_STRONG, $out['strong']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_CONTRACTS, $out['contracts']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_LEVEL, $out['level']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_MOTHER_DOC, $out['mother_doc']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_RATIONALE, $out['rationale']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_RUNBOOK, $out['runbook']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_RUNTIME_READY, $out['runtime_ready']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_SATISFIED, $out['satisfied']);
+        $this->assertSame(18, $out['b760_aaeos_doc_floor_count']);
+    }
+
 }

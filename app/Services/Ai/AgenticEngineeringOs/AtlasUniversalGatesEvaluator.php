@@ -21008,4 +21008,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B760).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b760AaeosDocFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'level_ordinal' => AtlasAaeosDocMaturityClassifier::FIELD_LEVEL_ORDINAL,
+            'missing_for_next' => AtlasAaeosDocMaturityClassifier::FIELD_MISSING_FOR_NEXT,
+            'atlas.aaeos.doc_maturity.v1' => AtlasAaeosDocMaturityClassifier::SCHEMA_VERSION,
+            'DOC L0' => AtlasAaeosDocMaturityClassifier::LEVEL_L0,
+            'DOC L1' => AtlasAaeosDocMaturityClassifier::LEVEL_L1,
+            'DOC L2' => AtlasAaeosDocMaturityClassifier::LEVEL_L2,
+            'DOC L3' => AtlasAaeosDocMaturityClassifier::LEVEL_L3,
+            'DOC L4' => AtlasAaeosDocMaturityClassifier::LEVEL_L4,
+            'none' => AtlasAaeosDocMaturityClassifier::STRENGTH_NONE,
+            'partial' => AtlasAaeosDocMaturityClassifier::STRENGTH_PARTIAL,
+            'strong' => AtlasAaeosDocMaturityClassifier::STRENGTH_STRONG,
+            'contracts' => AtlasAaeosDocMaturityClassifier::FIELD_CONTRACTS,
+            'level' => AtlasAaeosDocMaturityClassifier::FIELD_LEVEL,
+            'mother_doc' => AtlasAaeosDocMaturityClassifier::FIELD_MOTHER_DOC,
+            'rationale' => AtlasAaeosDocMaturityClassifier::FIELD_RATIONALE,
+            'runbook' => AtlasAaeosDocMaturityClassifier::FIELD_RUNBOOK,
+            'runtime_ready' => AtlasAaeosDocMaturityClassifier::FIELD_RUNTIME_READY,
+            'satisfied' => AtlasAaeosDocMaturityClassifier::FIELD_SATISFIED,
+            'b760_aaeos_doc_floor_count' => 18,
+        ];
+    }
+
 }
