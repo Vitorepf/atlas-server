@@ -356,6 +356,7 @@ final class AtlasAaeosCommand extends Command
         {--impact-advisory-esp09-dogfood-saturation-budget-ambition-asef-lexical-floors-contract= : JSON file (any object) to observe impact/advisory/esp09/dogfood/saturation/budget/ambition/asef/lexical residual floors}
         {--spec-summary-budget-decay-segment-pareto-recall-outcome-corpus-floors-contract= : JSON file (any object) to observe spec/summary/budget/decay/segment/pareto/recall/outcome/corpus residual floors}
         {--fact-citation-provenance-recall-cascade-vision-cooccur-gate-dispatch-floors-contract= : JSON file (any object) to observe fact/citation/provenance/recall/cascade/vision/cooccur/gate/dispatch residual floors}
+        {--summary-budget-decay-segment-pareto-recall-outcome-impact-advisory-floors-contract= : JSON file (any object) to observe summary/budget/decay/segment/pareto/recall/outcome/impact/advisory residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -868,6 +869,7 @@ final class AtlasAaeosCommand extends Command
             ['impact-advisory-esp09-dogfood-saturation-budget-ambition-asef-lexical-floors-contract', 'impact_advisory_esp09_dogfood_saturation_budget_ambition_asef_lexical_floors_contract', fn (array $p) => $gates->impactAdvisoryEsp09DogfoodSaturationBudgetAmbitionAsefLexicalFloorsContractObserve($p)],
             ['spec-summary-budget-decay-segment-pareto-recall-outcome-corpus-floors-contract', 'spec_summary_budget_decay_segment_pareto_recall_outcome_corpus_floors_contract', fn (array $p) => $gates->specSummaryBudgetDecaySegmentParetoRecallOutcomeCorpusFloorsContractObserve($p)],
             ['fact-citation-provenance-recall-cascade-vision-cooccur-gate-dispatch-floors-contract', 'fact_citation_provenance_recall_cascade_vision_cooccur_gate_dispatch_floors_contract', fn (array $p) => $gates->factCitationProvenanceRecallCascadeVisionCooccurGateDispatchFloorsContractObserve($p)],
+            ['summary-budget-decay-segment-pareto-recall-outcome-impact-advisory-floors-contract', 'summary_budget_decay_segment_pareto_recall_outcome_impact_advisory_floors_contract', fn (array $p) => $gates->summaryBudgetDecaySegmentParetoRecallOutcomeImpactAdvisoryFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -31,6 +31,8 @@ final class SummaryFidelityCoverageScorer
     public const FIELD_DECISION_TOTAL = 'decision_total';
     public const FIELD_DIGEST = 'digest';
     public const FIELD_MISSED_DECISION_RATE = 'missed_decision_rate';
+    public const FIELD_MISSING_DECISION_IDS = 'missing_decision_ids';
+    public const FIELD_MISSING_ITEM_IDS = 'missing_item_ids';
 
 
     /**
@@ -141,9 +143,9 @@ final class SummaryFidelityCoverageScorer
             'present_total' => $presentTotal,
             'missing_total' => $missingTotal,
             self::FIELD_DECISION_TOTAL => $decisionTotal,
-            'missing_item_ids' => $missingItemIds,
+            self::FIELD_MISSING_ITEM_IDS => $missingItemIds,
             'present_item_ids' => $presentItemIds,
-            'missing_decision_ids' => $missingDecisionIds,
+            self::FIELD_MISSING_DECISION_IDS => $missingDecisionIds,
             'unverifiable_item_ids' => $unverifiableItemIds,
         ];
     }

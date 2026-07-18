@@ -42,6 +42,8 @@ final class ContextParetoDominanceFilter
     public const FIELD_EQUALS = 'equals';
     public const FIELD_EVALUATED = 'evaluated';
     public const FIELD_FAILED_CONSTRAINTS = 'failed_constraints';
+    public const FIELD_MAX = 'max';
+    public const FIELD_MIN = 'min';
 
 
     /**
@@ -242,14 +244,14 @@ final class ContextParetoDominanceFilter
 
         if (array_key_exists('min', $rule)) {
             $numeric = AiValueNormalizer::finiteFloatOrNull($value);
-            if ($numeric === null || $numeric < (AiValueNormalizer::finiteFloatOrNull($rule['min'] ?? null) ?? 0.0)) {
+            if ($numeric === null || $numeric < (AiValueNormalizer::finiteFloatOrNull($rule[self::FIELD_MIN] ?? null) ?? 0.0)) {
                 return false;
             }
         }
 
         if (array_key_exists('max', $rule)) {
             $numeric = AiValueNormalizer::finiteFloatOrNull($value);
-            if ($numeric === null || $numeric > (AiValueNormalizer::finiteFloatOrNull($rule['max'] ?? null) ?? 0.0)) {
+            if ($numeric === null || $numeric > (AiValueNormalizer::finiteFloatOrNull($rule[self::FIELD_MAX] ?? null) ?? 0.0)) {
                 return false;
             }
         }

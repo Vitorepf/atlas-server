@@ -24,6 +24,8 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_FEEDBACK = 'feedback';
     public const FIELD_HARNESS_LEARNING = 'harness_learning';
     public const FIELD_MEMORY_TYPE = 'memory_type';
+    public const FIELD_PROJECT = 'project';
+    public const FIELD_RANK = 'rank';
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -70,7 +72,7 @@ final class AtlasMemoryRecallRelevanceScorer
         return match ($scope) {
             'task' => 22,
             self::FIELD_ENGINEERING_RUN => 20,
-            'project' => 16,
+            self::FIELD_PROJECT => 16,
             'workspace' => 12,
             'session' => 10,
             'user' => 8,
@@ -141,7 +143,7 @@ final class AtlasMemoryRecallRelevanceScorer
         foreach ($ordered as $row) {
             $position++;
             $row['relevance_score'] = round($this->score($row), 3);
-            $row['rank'] = $position;
+            $row[self::FIELD_RANK] = $position;
             $ranked[] = $row;
         }
 

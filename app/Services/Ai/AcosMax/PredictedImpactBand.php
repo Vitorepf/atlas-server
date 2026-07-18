@@ -41,6 +41,8 @@ final class PredictedImpactBand
     public const FIELD_UNRESOLVED = 'unresolved';
     public const FIELD_BANDS = 'bands';
     public const FIELD_CALLER_DECLARED_BAND_IGNORED = 'caller_declared_band_ignored';
+    public const FIELD_INFLUENCES_PICK = 'influences_pick';
+    public const FIELD_REALIZED = 'realized';
 
     /**
      * @param  array<string,mixed>  $candidate
@@ -64,7 +66,7 @@ final class PredictedImpactBand
             self::FIELD_COMPONENTS => [self::FIELD_RUNG => $rung, self::FIELD_RANK => $rank, self::FIELD_PATH_YIELD => $yield],
             self::FIELD_SOURCE => [
                 self::FIELD_CALLER_DECLARED_BAND_IGNORED => true,
-                'influences_pick' => false,
+                self::FIELD_INFLUENCES_PICK => false,
                 'single_scalar_score_emitted' => false,
             ],
         ];
@@ -91,7 +93,7 @@ final class PredictedImpactBand
                 continue;
             }
             $bands[$band][self::FIELD_N_REALIZED]++;
-            if (($row['realized'] ?? false) === true) {
+            if (($row[self::FIELD_REALIZED] ?? false) === true) {
                 $bands[$band][self::FIELD_REALIZED_TRUE]++;
             }
         }

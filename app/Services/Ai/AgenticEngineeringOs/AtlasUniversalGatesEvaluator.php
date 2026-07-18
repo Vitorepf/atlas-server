@@ -7937,6 +7937,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for summary/budget/decay/segment/pareto/recall/outcome/impact/advisory peels.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function summaryBudgetDecaySegmentParetoRecallOutcomeImpactAdvisoryFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'summary_field_missing_decision_ids' => SummaryFidelityCoverageScorer::FIELD_MISSING_DECISION_IDS,
+            'summary_field_missing_item_ids' => SummaryFidelityCoverageScorer::FIELD_MISSING_ITEM_IDS,
+            'budget_field_estimated_chars' => MemoryInjectionBudgetAllocator::FIELD_ESTIMATED_CHARS,
+            'budget_field_min_excerpt_chars' => MemoryInjectionBudgetAllocator::FIELD_MIN_EXCERPT_CHARS,
+            'decay_field_stale_count' => MemoryFeedbackDecayScorer::FIELD_STALE_COUNT,
+            'decay_field_wrong_context_count' => MemoryFeedbackDecayScorer::FIELD_WRONG_CONTEXT_COUNT,
+            'segment_field_duplicate' => SegmentImportanceRanker::FIELD_DUPLICATE,
+            'segment_field_has_evidence_ref' => SegmentImportanceRanker::FIELD_HAS_EVIDENCE_REF,
+            'pareto_field_max' => ContextParetoDominanceFilter::FIELD_MAX,
+            'pareto_field_min' => ContextParetoDominanceFilter::FIELD_MIN,
+            'recall_field_project' => AtlasMemoryRecallRelevanceScorer::FIELD_PROJECT,
+            'recall_field_rank' => AtlasMemoryRecallRelevanceScorer::FIELD_RANK,
+            'outcome_field_candidates' => OutcomeCausalityRanker::FIELD_CANDIDATES,
+            'outcome_field_has_evidence_refs' => OutcomeCausalityRanker::FIELD_HAS_EVIDENCE_REFS,
+            'impact_field_influences_pick' => PredictedImpactBand::FIELD_INFLUENCES_PICK,
+            'impact_field_realized' => PredictedImpactBand::FIELD_REALIZED,
+            'advisory_field_critical' => PreReviewAdvisoryBand::FIELD_CRITICAL,
+            'advisory_field_death_criterion' => PreReviewAdvisoryBand::FIELD_DEATH_CRITERION,
+            'summary_budget_decay_segment_pareto_recall_outcome_impact_advisory_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

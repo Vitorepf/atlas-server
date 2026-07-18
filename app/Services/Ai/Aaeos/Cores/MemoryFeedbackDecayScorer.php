@@ -51,6 +51,8 @@ final class MemoryFeedbackDecayScorer
     public const FIELD_NEGATIVE_COUNT = 'negative_count';
     public const FIELD_POSITIVE_COUNT = 'positive_count';
     public const FIELD_RECORDED_AT_AGE_DAYS = 'recorded_at_age_days';
+    public const FIELD_STALE_COUNT = 'stale_count';
+    public const FIELD_WRONG_CONTEXT_COUNT = 'wrong_context_count';
 
     /**
      * @param  array<string, mixed>  $signals
@@ -130,8 +132,8 @@ final class MemoryFeedbackDecayScorer
             self::FIELD_INPUTS_ECHO => [
                 self::FIELD_POSITIVE_COUNT => $positive,
                 self::FIELD_NEGATIVE_COUNT => $negative,
-                'wrong_context_count' => $wrongContext,
-                'stale_count' => $stale,
+                self::FIELD_WRONG_CONTEXT_COUNT => $wrongContext,
+                self::FIELD_STALE_COUNT => $stale,
                 self::FIELD_BASE_PRIORITY => $basePriority,
                 self::FIELD_RECORDED_AT_AGE_DAYS => $recordedAge,
                 self::FIELD_LAST_USED_AT_AGE_DAYS => $lastUsedAge,

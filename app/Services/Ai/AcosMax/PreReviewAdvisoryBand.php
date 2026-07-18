@@ -72,6 +72,8 @@ final class PreReviewAdvisoryBand
     public const FIELD_REVERTED = 'reverted';
     public const FIELD_BAND = 'band';
     public const FIELD_BLOCKS_AUTO_APPLY = 'blocks_auto_apply';
+    public const FIELD_CRITICAL = 'critical';
+    public const FIELD_DEATH_CRITERION = 'death_criterion';
 
     /**
      * @param  array<string,mixed>  $features required keys:
@@ -124,7 +126,7 @@ final class PreReviewAdvisoryBand
         $probability = $rate;
         // Risk nudge: higher risk band ⇒ higher predicted-revert probability.
         $probability += match ($riskBand) {
-            'critical' => 0.15,
+            self::FIELD_CRITICAL => 0.15,
             self::FIELD_HIGH => 0.08,
             'medium' => 0.02,
             default => 0.0,
@@ -189,7 +191,7 @@ final class PreReviewAdvisoryBand
             self::FIELD_CURVE => $curve,
             'lift_high_over_low' => $lift,
             'lift_basis' => $liftBasis,
-            'death_criterion' => [
+            self::FIELD_DEATH_CRITERION => [
                 'min_n' => self::DEATH_MIN_N,
                 'min_lift' => self::DEATH_MIN_LIFT,
                 'satisfied_for_death' => $liftBasis === self::BASIS_MEASURED && $lift !== null && $lift < self::DEATH_MIN_LIFT,

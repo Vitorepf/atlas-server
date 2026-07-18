@@ -5996,5 +5996,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['fact_citation_provenance_recall_cascade_vision_cooccur_gate_dispatch_floor_count']);
     }
 
+    public function test_summary_budget_decay_segment_pareto_recall_outcome_impact_advisory_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->summaryBudgetDecaySegmentParetoRecallOutcomeImpactAdvisoryFloorsContractObserve([]);
+
+        $this->assertSame('missing_decision_ids', $payload['summary_field_missing_decision_ids']);
+        $this->assertSame('missing_item_ids', $payload['summary_field_missing_item_ids']);
+        $this->assertSame('estimated_chars', $payload['budget_field_estimated_chars']);
+        $this->assertSame('min_excerpt_chars', $payload['budget_field_min_excerpt_chars']);
+        $this->assertSame('stale_count', $payload['decay_field_stale_count']);
+        $this->assertSame('wrong_context_count', $payload['decay_field_wrong_context_count']);
+        $this->assertSame('duplicate', $payload['segment_field_duplicate']);
+        $this->assertSame('has_evidence_ref', $payload['segment_field_has_evidence_ref']);
+        $this->assertSame('max', $payload['pareto_field_max']);
+        $this->assertSame('min', $payload['pareto_field_min']);
+        $this->assertSame('project', $payload['recall_field_project']);
+        $this->assertSame('rank', $payload['recall_field_rank']);
+        $this->assertSame('candidates', $payload['outcome_field_candidates']);
+        $this->assertSame('has_evidence_refs', $payload['outcome_field_has_evidence_refs']);
+        $this->assertSame('influences_pick', $payload['impact_field_influences_pick']);
+        $this->assertSame('realized', $payload['impact_field_realized']);
+        $this->assertSame('critical', $payload['advisory_field_critical']);
+        $this->assertSame('death_criterion', $payload['advisory_field_death_criterion']);
+        $this->assertSame(18, $payload['summary_budget_decay_segment_pareto_recall_outcome_impact_advisory_floor_count']);
+    }
+
 
 }

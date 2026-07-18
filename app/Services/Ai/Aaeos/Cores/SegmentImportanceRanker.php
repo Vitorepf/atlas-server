@@ -26,7 +26,7 @@ final class SegmentImportanceRanker
         self::FIELD_FACT => 0.4,
         'stale_query' => 0.1,
         'low_score_ref' => 0.1,
-        'duplicate' => 0.1,
+        self::FIELD_DUPLICATE => 0.1,
     ];
 
     public const KIND_WEIGHT_UNKNOWN = 0.3;
@@ -66,6 +66,8 @@ final class SegmentImportanceRanker
     public const FIELD_DROPPED_COUNT = 'dropped_count';
     public const FIELD_DROPPED_IDS = 'dropped_ids';
     public const FIELD_DUP_GROUP = 'dup_group';
+    public const FIELD_DUPLICATE = 'duplicate';
+    public const FIELD_HAS_EVIDENCE_REF = 'has_evidence_ref';
 
     /**
      * Rank may-discard segments by composite signal and greedily fill a token budget.
@@ -232,7 +234,7 @@ final class SegmentImportanceRanker
                 self::FIELD_KIND => $kind,
                 self::FIELD_RECENCY_RANK => $recencyRank,
                 self::FIELD_TOKEN_ESTIMATE => max($this->intField($row, 'token_estimate'), 0),
-                'has_evidence_ref' => $hasEvidenceRef,
+                self::FIELD_HAS_EVIDENCE_REF => $hasEvidenceRef,
                 'links_decision_or_blocker' => $linksDecisionOrBlocker,
                 self::FIELD_DUP_GROUP => $dupGroup,
                 self::FIELD_KIND_WEIGHT => $kindWeight,

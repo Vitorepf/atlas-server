@@ -35,6 +35,8 @@ final class MemoryInjectionBudgetAllocator
     public const FIELD_ADMITTED_COUNT = 'admitted_count';
     public const FIELD_DROPPED = 'dropped';
     public const FIELD_DROPPED_COUNT = 'dropped_count';
+    public const FIELD_ESTIMATED_CHARS = 'estimated_chars';
+    public const FIELD_MIN_EXCERPT_CHARS = 'min_excerpt_chars';
 
     /**
      * Pure char-budget packer. Sorts a copy of the ranked items by
@@ -122,7 +124,7 @@ final class MemoryInjectionBudgetAllocator
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_TOTAL_BUDGET_CHARS => $totalBudget,
             'per_item_cap_chars' => $perItemCap,
-            'min_excerpt_chars' => $minExcerpt,
+            self::FIELD_MIN_EXCERPT_CHARS => $minExcerpt,
             self::FIELD_ADMITTED => $admitted,
             self::FIELD_DROPPED => $dropped,
             'used_chars' => $usedChars,
@@ -213,7 +215,7 @@ final class MemoryInjectionBudgetAllocator
      */
     private function estimatedChars(array $item): int
     {
-        $value = AiValueNormalizer::finiteFloatOrNull($item['estimated_chars'] ?? 0);
+        $value = AiValueNormalizer::finiteFloatOrNull($item[self::FIELD_ESTIMATED_CHARS] ?? 0);
 
         return $value === null ? 0 : max(0, (int) $value);
     }

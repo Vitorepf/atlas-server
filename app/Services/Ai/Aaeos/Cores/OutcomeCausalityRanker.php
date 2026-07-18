@@ -58,6 +58,8 @@ final class OutcomeCausalityRanker
     public const FIELD_ALTERNATIVE_EXPLANATIONS = 'alternative_explanations';
     public const FIELD_ATTRIBUTION_BLOCKED = 'attribution_blocked';
     public const FIELD_ATTRIBUTION_CONFIDENCE = 'attribution_confidence';
+    public const FIELD_CANDIDATES = 'candidates';
+    public const FIELD_HAS_EVIDENCE_REFS = 'has_evidence_refs';
 
     /** @var list<string> */
     public const PRIMARY_CAUSES = [
@@ -141,7 +143,7 @@ final class OutcomeCausalityRanker
     public function rankOutcomeEnvelope(array $envelope): array
     {
         $outcome = AiValueNormalizer::lowerTrimmedString($envelope[self::FIELD_OUTCOME] ?? '');
-        $hasEvidenceRefs = (AiValueNormalizer::boolOrNull($envelope['has_evidence_refs'] ?? null) ?? false);
+        $hasEvidenceRefs = (AiValueNormalizer::boolOrNull($envelope[self::FIELD_HAS_EVIDENCE_REFS] ?? null) ?? false);
         $testsPassed = array_key_exists('tests_passed', $envelope) ? $envelope['tests_passed'] : null;
         $missingRequiredSources = (AiValueNormalizer::boolOrNull($envelope['missing_required_sources'] ?? null) ?? false);
         $allowedFilesSufficient = (AiValueNormalizer::boolOrNull($envelope[self::FIELD_ALLOWED_FILES_SUFFICIENT] ?? null) ?? true);
@@ -210,7 +212,7 @@ final class OutcomeCausalityRanker
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'candidates' => $ranked,
+            self::FIELD_CANDIDATES => $ranked,
             'primary_cause' => $primaryCause,
             self::FIELD_ALTERNATIVE_EXPLANATIONS => $alternativeExplanations,
             self::FIELD_ATTRIBUTION_CONFIDENCE => $this->attributionConfidence($primaryCause),
