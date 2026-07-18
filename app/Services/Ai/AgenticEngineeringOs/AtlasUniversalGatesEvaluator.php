@@ -18156,4 +18156,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B668).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b668GoldenCounterfactualFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.context.golden_counterfactual.v1' => GoldenCounterfactualReplayService::MEASURE_ID,
+            'atlas.context.golden_counterfactual.v1' => GoldenCounterfactualReplayService::MEASURE_ID,
+            'atlas_context_golden_counterfactual_v1' => GoldenCounterfactualReplayService::FORMULA_VERSION,
+            'skipped' => GoldenCounterfactualReplayService::STATUS_SKIPPED,
+            'ok' => GoldenCounterfactualReplayService::STATUS_OK,
+            'paired_arms_missing' => GoldenCounterfactualReplayService::REASON_PAIRED_ARMS_MISSING,
+            'paired_golden_runs_unavailable' => GoldenCounterfactualReplayService::REASON_PAIRED_GOLDEN_RUNS_UNAVAILABLE,
+            'schema_version' => GoldenCounterfactualReplayService::FIELD_SCHEMA_VERSION,
+            'status' => GoldenCounterfactualReplayService::FIELD_STATUS,
+            'reason' => GoldenCounterfactualReplayService::FIELD_REASON,
+            'decision_id' => GoldenCounterfactualReplayService::FIELD_DECISION_ID,
+            'runs_path' => GoldenCounterfactualReplayService::FIELD_RUNS_PATH,
+            'counterfactual' => GoldenCounterfactualReplayService::FIELD_COUNTERFACTUAL,
+            'without' => GoldenCounterfactualReplayService::FIELD_WITHOUT,
+            'with' => GoldenCounterfactualReplayService::FIELD_WITH,
+            'recall_at_5' => GoldenCounterfactualReplayService::FIELD_RECALL_AT_5,
+            'measure_id' => GoldenCounterfactualReplayService::FIELD_MEASURE_ID,
+            'formula_version' => GoldenCounterfactualReplayService::FIELD_FORMULA_VERSION,
+            'b668_golden_counterfactual_floor_count' => 18,
+        ];
+    }
+
 }

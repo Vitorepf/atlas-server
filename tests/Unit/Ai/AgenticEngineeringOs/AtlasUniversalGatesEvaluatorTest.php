@@ -14374,4 +14374,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b667_knowledge_item_floor_count']);
     }
 
+    public function test_b668_golden_counterfactual_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b668GoldenCounterfactualFloorsContractObserve([]);
+        $this->assertSame(GoldenCounterfactualReplayService::MEASURE_ID, $out['atlas.context.golden_counterfactual.v1']);
+        $this->assertSame(GoldenCounterfactualReplayService::MEASURE_ID, $out['atlas.context.golden_counterfactual.v1']);
+        $this->assertSame(GoldenCounterfactualReplayService::FORMULA_VERSION, $out['atlas_context_golden_counterfactual_v1']);
+        $this->assertSame(GoldenCounterfactualReplayService::STATUS_SKIPPED, $out['skipped']);
+        $this->assertSame(GoldenCounterfactualReplayService::STATUS_OK, $out['ok']);
+        $this->assertSame(GoldenCounterfactualReplayService::REASON_PAIRED_ARMS_MISSING, $out['paired_arms_missing']);
+        $this->assertSame(GoldenCounterfactualReplayService::REASON_PAIRED_GOLDEN_RUNS_UNAVAILABLE, $out['paired_golden_runs_unavailable']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_STATUS, $out['status']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_REASON, $out['reason']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_DECISION_ID, $out['decision_id']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_RUNS_PATH, $out['runs_path']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_COUNTERFACTUAL, $out['counterfactual']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_WITHOUT, $out['without']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_WITH, $out['with']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_RECALL_AT_5, $out['recall_at_5']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_MEASURE_ID, $out['measure_id']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(18, $out['b668_golden_counterfactual_floor_count']);
+    }
+
 }
