@@ -16752,4 +16752,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b762_department_level_floor_count']);
     }
 
+    public function test_b763_debug_root_cross_department_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b763DebugRootCrossDepartmentFloorsContractObserve([]);
+        $this->assertSame(AtlasDebugRootCauseService::SERVICE_VERSION, $out['atlas.aaeos.debug.root_cause.v1']);
+        $this->assertSame(AtlasDebugRootCauseService::STATUS_ANALYZED, $out['analyzed']);
+        $this->assertSame(AtlasDebugRootCauseService::STATUS_NO_DATA, $out['no_data']);
+        $this->assertSame(AtlasDebugRootCauseService::STATUS_UNKNOWN, $out['unknown']);
+        $this->assertSame(AtlasDebugRootCauseService::FIELD_CONTEXT, $out['context']);
+        $this->assertSame(AtlasDebugRootCauseService::FIELD_ROOT_CAUSE, $out['root_cause']);
+        $this->assertSame(AtlasDebugRootCauseService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasDebugRootCauseService::FIELD_SUSPECTED_CAUSE, $out['suspected_cause']);
+        $this->assertSame(AtlasDebugRootCauseService::FIELD_VERSION, $out['version']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_ESCALATE_TO, $out['escalate_to']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_FROM_DEPARTMENT, $out['from_department']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::HANDOFF_SCHEMA, $out['atlas.aaeos.cross_dept.handoff.v1']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::VETO_SLA_SECONDS, $out['10']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::REPAIR_MAX_ITERATIONS, $out['3']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_DELEGATION, $out['delegation']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_ESCALATION, $out['escalation']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_VETO, $out['veto']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_REPAIR, $out['repair']);
+        $this->assertSame(18, $out['b763_debug_root_cross_department_floor_count']);
+    }
+
 }

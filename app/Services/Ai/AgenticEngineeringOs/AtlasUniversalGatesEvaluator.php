@@ -21101,4 +21101,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B763).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b763DebugRootCrossDepartmentFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.aaeos.debug.root_cause.v1' => AtlasDebugRootCauseService::SERVICE_VERSION,
+            'analyzed' => AtlasDebugRootCauseService::STATUS_ANALYZED,
+            'no_data' => AtlasDebugRootCauseService::STATUS_NO_DATA,
+            'unknown' => AtlasDebugRootCauseService::STATUS_UNKNOWN,
+            'context' => AtlasDebugRootCauseService::FIELD_CONTEXT,
+            'root_cause' => AtlasDebugRootCauseService::FIELD_ROOT_CAUSE,
+            'status' => AtlasDebugRootCauseService::FIELD_STATUS,
+            'suspected_cause' => AtlasDebugRootCauseService::FIELD_SUSPECTED_CAUSE,
+            'version' => AtlasDebugRootCauseService::FIELD_VERSION,
+            'escalate_to' => AtlasCrossDepartmentChoreographyService::FIELD_ESCALATE_TO,
+            'from_department' => AtlasCrossDepartmentChoreographyService::FIELD_FROM_DEPARTMENT,
+            'atlas.aaeos.cross_dept.handoff.v1' => AtlasCrossDepartmentChoreographyService::HANDOFF_SCHEMA,
+            '10' => AtlasCrossDepartmentChoreographyService::VETO_SLA_SECONDS,
+            '3' => AtlasCrossDepartmentChoreographyService::REPAIR_MAX_ITERATIONS,
+            'delegation' => AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_DELEGATION,
+            'escalation' => AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_ESCALATION,
+            'veto' => AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_VETO,
+            'repair' => AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_REPAIR,
+            'b763_debug_root_cross_department_floor_count' => 18,
+        ];
+    }
+
 }
