@@ -66,6 +66,8 @@ final class AtlasOperationalVolumeCheckService
     public const FIELD_THRESHOLDS = 'thresholds';
     public const FIELD_FORGE_CYCLES_PER_WEEK_MIN = 'forge_cycles_per_week_min';
     public const FIELD_ID = 'id';
+    public const FIELD_NOTE = 'note';
+    public const FIELD_PREREQUISITES = 'prerequisites';
 
     /**
      * @return array<string,mixed>
@@ -104,11 +106,11 @@ final class AtlasOperationalVolumeCheckService
                 self::FIELD_DEV_RUNS_PER_BUSINESS_DAY_MIN => self::DEV_RUNS_PER_BUSINESS_DAY_MIN,
                 self::FIELD_FORGE_CYCLES_PER_WEEK_MIN => self::FORGE_CYCLES_PER_WEEK_MIN,
             ],
-            'prerequisites' => [
+            self::FIELD_PREREQUISITES => [
                 [
                     self::FIELD_ID => self::PREREQUISITE_GAP_HERMES_01,
                     self::FIELD_STATUS => 'named_prerequisite',
-                    'note' => 'Hermes transport may drop final stdout chunks; Autônomos/brain-writer volume can read falsely low until resolved upstream.',
+                    self::FIELD_NOTE => 'Hermes transport may drop final stdout chunks; Autônomos/brain-writer volume can read falsely low until resolved upstream.',
                 ],
             ],
             'windows' => [

@@ -23,6 +23,8 @@ final class CitationGroundingMeter
     public const FIELD_MEASURED_COUNT = 'measured_count';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_SOURCE = 'source';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_TOTAL = 'total';
 
     /**
      * @param  list<array<string,mixed>>  $responses
@@ -53,12 +55,12 @@ final class CitationGroundingMeter
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'status' => $cited === 0 ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK,
+            self::FIELD_STATUS => $cited === 0 ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK,
             self::FIELD_GROUNDING_RATE => $cited === 0 ? null : round($grounded / $cited, 4),
             self::FIELD_CITATION_COVERAGE => count($responses) === 0 ? 0.0 : round($withCitation / count($responses), 4),
             self::FIELD_UNSUPPORTED_CITATION_COUNT => $unsupported,
             self::FIELD_MEASURED_COUNT => $withCitation,
-            'total' => count($responses),
+            self::FIELD_TOTAL => count($responses),
             self::FIELD_SOURCE => [
                 self::FIELD_FUSES_GROUNDING_AND_COVERAGE => false,
                 self::FIELD_PROVIDER_CALLS_MADE => false,

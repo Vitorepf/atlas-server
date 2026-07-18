@@ -7399,4 +7399,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['flywheel_funnel_department_contract_runbook_cognitive_function_lote_floor_count']);
     }
 
+    public function test_citation_grounding_delivery_pack_cognitive_function_immune_signature_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->citationGroundingDeliveryPackCognitiveFunctionImmuneSignatureFloorsContractObserve([]);
+        $this->assertSame(CitationGroundingMeter::FIELD_STATUS, $out['status']);
+        $this->assertSame(CitationGroundingMeter::FIELD_TOTAL, $out['total']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_FACTORS, $out['factors']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_HASH_SIGNED, $out['hash_signed']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DOMINANT_FUNCTION, $out['dominant_function']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_DEPENDENCIES, $out['dependencies']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_NOTE, $out['note']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_PREREQUISITES, $out['prerequisites']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MAX_ABS_DECLARED_REALIZED_DEVIATION, $out['max_abs_declared_realized_deviation']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_METRICS, $out['metrics']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_SERIES, $out['series']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_SERIES_REGISTRY, $out['series_registry']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_ROLE, $out['role']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_SINGLE_SCALAR_SCORE_EMITTED, $out['single_scalar_score_emitted']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_SCOPE, $out['scope']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_SERIES, $out['series']);
+        $this->assertSame(18, $out['citation_grounding_delivery_pack_cognitive_function_immune_signature_floor_count']);
+    }
+
 }

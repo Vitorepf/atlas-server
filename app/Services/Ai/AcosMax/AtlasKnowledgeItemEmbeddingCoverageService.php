@@ -75,6 +75,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const FIELD_DENOMINATOR_MIN_ACTIVE_ITEMS = 'denominator_min_active_items';
     public const FIELD_MISSING_DEFINITION = 'missing_definition';
     public const FIELD_PATH = 'path';
+    public const FIELD_SCOPE = 'scope';
+    public const FIELD_SERIES = 'series';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -89,7 +91,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
                 self::FIELD_DENOMINATOR_MIN_ACTIVE_ITEMS => 1,
                 'stale_definition' => 'embedded_content_hash != content_hash',
                 self::FIELD_MISSING_DEFINITION => 'embedding_model IS NULL OR embedded_content_hash IS NULL',
-                'scope' => 'active_items_only',
+                self::FIELD_SCOPE => 'active_items_only',
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
             'ttl_days' => 60,
@@ -97,7 +99,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
             self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-maxa06-fase1-judge',
             self::FIELD_DUAL_READ_REQUIRED => false,
             'series_registry' => [
-                'series' => self::MEASURE_ID,
+                self::FIELD_SERIES => self::MEASURE_ID,
                 self::FIELD_PATH => 'atlas:memory:kb-embedding-coverage --json',
                 'source_type' => 'computed_reader_field',
             ],

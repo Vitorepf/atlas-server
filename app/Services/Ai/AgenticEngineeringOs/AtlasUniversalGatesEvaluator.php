@@ -9521,4 +9521,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B387).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function citationGroundingDeliveryPackCognitiveFunctionImmuneSignatureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'status' => CitationGroundingMeter::FIELD_STATUS,
+            'total' => CitationGroundingMeter::FIELD_TOTAL,
+            'factors' => DeliveryPackCompletenessScorer::FIELD_FACTORS,
+            'hash_signed' => DeliveryPackCompletenessScorer::FIELD_HASH_SIGNED,
+            'dominant_function' => AtlasCognitiveFunctionDecomposerService::FIELD_DOMINANT_FUNCTION,
+            'generated_at' => AtlasCognitiveFunctionDecomposerService::FIELD_GENERATED_AT,
+            'dependencies' => AtlasImmuneSignatureFreeze::FIELD_DEPENDENCIES,
+            'kind' => AtlasImmuneSignatureFreeze::FIELD_KIND,
+            'note' => AtlasOperationalVolumeCheckService::FIELD_NOTE,
+            'prerequisites' => AtlasOperationalVolumeCheckService::FIELD_PREREQUISITES,
+            'max_abs_declared_realized_deviation' => AcosMaxLote2MeasureService::FIELD_MAX_ABS_DECLARED_REALIZED_DEVIATION,
+            'metrics' => AcosMaxLote2MeasureService::FIELD_METRICS,
+            'series' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_SERIES,
+            'series_registry' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_SERIES_REGISTRY,
+            'role' => AtlasFlywheelFunnelService::FIELD_ROLE,
+            'single_scalar_score_emitted' => AtlasFlywheelFunnelService::FIELD_SINGLE_SCALAR_SCORE_EMITTED,
+            'scope' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_SCOPE,
+            'series' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_SERIES,
+            'citation_grounding_delivery_pack_cognitive_function_immune_signature_floor_count' => 18,
+        ];
+    }
+
 }

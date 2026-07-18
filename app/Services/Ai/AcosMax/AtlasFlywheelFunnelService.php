@@ -53,6 +53,8 @@ final class AtlasFlywheelFunnelService
     public const FIELD_OUTCOMES_PATH = 'outcomes_path';
     public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
     public const FIELD_READ_ONLY = 'read_only';
+    public const FIELD_ROLE = 'role';
+    public const FIELD_SINGLE_SCALAR_SCORE_EMITTED = 'single_scalar_score_emitted';
 
     /** @var list<string> */
     public const STAGES = [
@@ -167,7 +169,7 @@ final class AtlasFlywheelFunnelService
      */
     private function executor(array $row): string
     {
-        $role = AiValueNormalizer::lowerTrimmedString($row['role'] ?? '');
+        $role = AiValueNormalizer::lowerTrimmedString($row[self::FIELD_ROLE] ?? '');
         if (in_array($role, ['dev', 'forge', 'autonomos'], true)) {
             return $role;
         }
@@ -240,7 +242,7 @@ final class AtlasFlywheelFunnelService
                 self::FIELD_READ_ONLY => true,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
                 self::FIELD_MEMORY_WRITTEN => false,
-                'single_scalar_score_emitted' => false,
+                self::FIELD_SINGLE_SCALAR_SCORE_EMITTED => false,
                 self::FIELD_USED_AS_PRODUCER_TARGET => false,
                 self::FIELD_DIAGNOSTIC_ONLY => true,
             ],

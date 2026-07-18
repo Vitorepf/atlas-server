@@ -22,12 +22,14 @@ final class AtlasImmuneSignatureFreeze
     public const FIELD_JUDGE = 'judge';
     public const FIELD_DECAY_DAYS = 'decay_days';
     public const FIELD_DEFAULT_MODE = 'default_mode';
+    public const FIELD_DEPENDENCIES = 'dependencies';
+    public const FIELD_KIND = 'kind';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
         return [
-            'kind' => self::KIND_MEASURE_FREEZE,
+            self::FIELD_KIND => self::KIND_MEASURE_FREEZE,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             'schema_version' => ImmuneSignatureStore::SCHEMA_VERSION,
             self::FIELD_FAMILY_SCHEMA_VERSION => ImmuneSignatureDeriver::SCHEMA_VERSION,
@@ -40,7 +42,7 @@ final class AtlasImmuneSignatureFreeze
                 self::FIELD_CELLS_WITH_HIT_COUNT_GTE_2 => 3,
                 'privacy' => 'no_raw_poison_text_in_store',
             ],
-            'dependencies' => [
+            self::FIELD_DEPENDENCIES => [
                 'MAXI-03' => 'immune_verdict_ledger',
                 'MAXI-04' => 'hybrid_classifier_consult',
                 'ASI-11' => 'memory_revert_ingest',

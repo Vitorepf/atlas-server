@@ -409,6 +409,7 @@ final class AtlasAaeosCommand extends Command
                             {--maxa-jina-immune-classifier-watchdog-runner-lote-measure-floors-contract= : JSON file (any object) to observe maxa/jina/immune/classifier/watchdog/runner floors}
                             {--deferred-phase-acos-window-cognition-remint-score-lote-floors-contract= : JSON file (any object) to observe deferred/phase/acos/window/cognition/remint floors}
                             {--flywheel-funnel-department-contract-runbook-cognitive-function-lote-floors-contract= : JSON file (any object) to observe flywheel/funnel/department/contract/runbook/cognitive floors}
+                            {--citation-grounding-delivery-pack-cognitive-function-immune-signature-floors-contract= : JSON file (any object) to observe citation/grounding/delivery/pack/cognitive/function floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -974,6 +975,7 @@ final class AtlasAaeosCommand extends Command
             ['maxa-jina-immune-classifier-watchdog-runner-lote-measure-floors-contract', 'maxa_jina_immune_classifier_watchdog_runner_lote_measure_floors_contract', fn (array $p) => $gates->maxaJinaImmuneClassifierWatchdogRunnerLoteMeasureFloorsContractObserve($p)],
             ['deferred-phase-acos-window-cognition-remint-score-lote-floors-contract', 'deferred_phase_acos_window_cognition_remint_score_lote_floors_contract', fn (array $p) => $gates->deferredPhaseAcosWindowCognitionRemintScoreLoteFloorsContractObserve($p)],
             ['flywheel-funnel-department-contract-runbook-cognitive-function-lote-floors-contract', 'flywheel_funnel_department_contract_runbook_cognitive_function_lote_floors_contract', fn (array $p) => $gates->flywheelFunnelDepartmentContractRunbookCognitiveFunctionLoteFloorsContractObserve($p)],
+            ['citation-grounding-delivery-pack-cognitive-function-immune-signature-floors-contract', 'citation_grounding_delivery_pack_cognitive_function_immune_signature_floors_contract', fn (array $p) => $gates->citationGroundingDeliveryPackCognitiveFunctionImmuneSignatureFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

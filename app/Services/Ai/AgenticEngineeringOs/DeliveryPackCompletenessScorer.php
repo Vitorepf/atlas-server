@@ -38,6 +38,8 @@ final class DeliveryPackCompletenessScorer
     public const FIELD_TESTS_PRESENT = 'tests_present';
     public const FIELD_EVIDENCE_HASHES = 'evidence_hashes';
     public const FIELD_EVIDENCE_PRESENT = 'evidence_present';
+    public const FIELD_FACTORS = 'factors';
+    public const FIELD_HASH_SIGNED = 'hash_signed';
 
     /** @var list<string> */
     public const REQUIRED_KEYS = [
@@ -125,9 +127,9 @@ final class DeliveryPackCompletenessScorer
             'schema' => self::SCHEMA,
             self::FIELD_RATIO => $ratio,
             self::FIELD_STATUS => $this->resolveStatus($blockers, $ratio),
-            'factors' => $factors,
+            self::FIELD_FACTORS => $factors,
             self::FIELD_BLOCKERS => $blockers,
-            'hash_signed' => $hashSigned,
+            self::FIELD_HASH_SIGNED => $hashSigned,
         ];
     }
 

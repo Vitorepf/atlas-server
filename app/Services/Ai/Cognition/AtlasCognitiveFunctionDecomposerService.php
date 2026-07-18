@@ -72,6 +72,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_INPUT_PREVIEW = 'input_preview';
     public const FIELD_DECOMPOSITION_HASH = 'decomposition_hash';
     public const FIELD_DOMINANT = 'dominant';
+    public const FIELD_DOMINANT_FUNCTION = 'dominant_function';
+    public const FIELD_GENERATED_AT = 'generated_at';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -262,7 +264,7 @@ final class AtlasCognitiveFunctionDecomposerService
         $generatedAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
         $envelope = [
             'schema_version' => self::SCHEMA,
-            'generated_at' => $generatedAt,
+            self::FIELD_GENERATED_AT => $generatedAt,
             self::FIELD_INPUT_LENGTH => mb_strlen($input),
             self::FIELD_INPUT_PREVIEW => mb_substr($input, 0, 120),
             self::FIELD_CONTEXT => [
@@ -271,7 +273,7 @@ final class AtlasCognitiveFunctionDecomposerService
                 self::FIELD_PRIVACY_CLASS => $context[self::FIELD_PRIVACY_CLASS] ?? null,
             ],
             self::FIELD_WEIGHTS => $weights,
-            'dominant_function' => $dominant,
+            self::FIELD_DOMINANT_FUNCTION => $dominant,
             self::FIELD_DEBUG => $debug,
             self::FIELD_CLAIM_POLICY => $this->claimPolicy(),
         ];

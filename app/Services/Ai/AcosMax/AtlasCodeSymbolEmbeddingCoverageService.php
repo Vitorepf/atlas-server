@@ -75,6 +75,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_MISSING_DEFINITION = 'missing_definition';
     public const FIELD_PATH = 'path';
     public const FIELD_SCOPE = 'scope';
+    public const FIELD_SERIES = 'series';
+    public const FIELD_SERIES_REGISTRY = 'series_registry';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -97,8 +99,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxa06-fase2',
             self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-maxa06-fase2-judge',
             self::FIELD_DUAL_READ_REQUIRED => false,
-            'series_registry' => [
-                'series' => self::MEASURE_ID,
+            self::FIELD_SERIES_REGISTRY => [
+                self::FIELD_SERIES => self::MEASURE_ID,
                 self::FIELD_PATH => 'atlas:code:symbol-embedding-coverage --json',
                 'source_type' => 'computed_reader_field',
             ],
