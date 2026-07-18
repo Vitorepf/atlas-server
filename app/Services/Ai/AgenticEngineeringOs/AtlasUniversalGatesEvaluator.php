@@ -14931,4 +14931,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B563).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b563AcosWatchdogFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'code' => AtlasAcosWatchdogHealthService::FIELD_CODE,
+            'total' => AtlasAcosWatchdogHealthService::FIELD_TOTAL,
+            'ready_to_enforce' => AtlasAcosWatchdogHealthService::FIELD_READY_TO_ENFORCE,
+            'checks' => AtlasAcosWatchdogHealthService::FIELD_CHECKS,
+            'green' => AtlasAcosWatchdogHealthService::FIELD_GREEN,
+            'red' => AtlasAcosWatchdogHealthService::FIELD_RED,
+            'yellow' => AtlasAcosWatchdogHealthService::FIELD_YELLOW,
+            'ok' => AtlasAcosWatchdogHealthService::FIELD_OK,
+            'fail' => AtlasAcosWatchdogHealthService::FIELD_FAIL,
+            'warn' => AtlasAcosWatchdogHealthService::FIELD_WARN,
+            'reason' => AtlasAcosWatchdogHealthService::FIELD_REASON,
+            'value' => AtlasAcosWatchdogHealthService::FIELD_VALUE,
+            'threshold' => AtlasAcosWatchdogHealthService::FIELD_THRESHOLD,
+            'recall_usage_total' => AtlasAcosWatchdogHealthService::FIELD_RECALL_USAGE_TOTAL,
+            'score' => AtlasAcosWatchdogHealthService::FIELD_SCORE,
+            'alert_detail' => AtlasAcosWatchdogHealthService::FIELD_ALERT_DETAIL,
+            'check_id' => AtlasAcosWatchdogHealthService::FIELD_CHECK_ID,
+            'message' => AtlasAcosWatchdogHealthService::FIELD_MESSAGE,
+            'b563_acos_watchdog_floor_count' => 18,
+        ];
+    }
+
 }

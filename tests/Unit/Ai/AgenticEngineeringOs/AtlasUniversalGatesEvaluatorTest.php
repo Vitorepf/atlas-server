@@ -11774,4 +11774,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b562_maxa_jina_acos_long_floor_count']);
     }
 
+    public function test_b563_acos_watchdog_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b563AcosWatchdogFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CODE, $out['code']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_TOTAL, $out['total']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_READY_TO_ENFORCE, $out['ready_to_enforce']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CHECKS, $out['checks']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_GREEN, $out['green']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_RED, $out['red']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_YELLOW, $out['yellow']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_OK, $out['ok']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_FAIL, $out['fail']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_WARN, $out['warn']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_VALUE, $out['value']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_RECALL_USAGE_TOTAL, $out['recall_usage_total']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SCORE, $out['score']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ALERT_DETAIL, $out['alert_detail']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CHECK_ID, $out['check_id']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(18, $out['b563_acos_watchdog_floor_count']);
+    }
+
 }
