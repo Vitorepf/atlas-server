@@ -65,11 +65,13 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_SECURITY = 'security';
     public const FIELD_SECURITY_THREAT_MODELING_L4 = 'security_threat_modeling_l4';
     public const FIELD_QA = 'qa';
+    public const FIELD_L2 = 'L2';
+    public const FIELD_L3 = 'L3';
 
     public const DEPARTMENTS = [
         [
             self::FIELD_DEPARTMENT_ID => self::FIELD_PRODUCT,
-            self::FIELD_CURRENT_LEVEL => 'L3',
+            self::FIELD_CURRENT_LEVEL => self::FIELD_L3,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#product'],
             self::FIELD_BLOCKER_ID => self::FIELD_PRODUCT_MOBILE_SURFACE_L4,
             self::FIELD_BLOCKER_SUMMARY => 'falta surface mobile completa para L4',
@@ -77,7 +79,7 @@ final class AtlasAaeosDepartmentMaturityService
         ],
         [
             self::FIELD_DEPARTMENT_ID => self::FIELD_ARCHITECT,
-            self::FIELD_CURRENT_LEVEL => 'L3',
+            self::FIELD_CURRENT_LEVEL => self::FIELD_L3,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#architect'],
             self::FIELD_BLOCKER_ID => self::FIELD_ARCHITECT_AUTONOMOUS_AGENT_L4,
             self::FIELD_BLOCKER_SUMMARY => 'precisa Architect agent autonomo para L4',
@@ -85,7 +87,7 @@ final class AtlasAaeosDepartmentMaturityService
         ],
         [
             self::FIELD_DEPARTMENT_ID => self::FIELD_RESEARCH,
-            self::FIELD_CURRENT_LEVEL => 'L2',
+            self::FIELD_CURRENT_LEVEL => self::FIELD_L2,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#research'],
             self::FIELD_BLOCKER_ID => self::FIELD_RESEARCH_SOURCE_BACKED_SCORE_L3,
             self::FIELD_BLOCKER_SUMMARY => 'source-backed score baixo para L3',
@@ -101,7 +103,7 @@ final class AtlasAaeosDepartmentMaturityService
         ],
         [
             self::FIELD_DEPARTMENT_ID => self::FIELD_DEBUG,
-            self::FIELD_CURRENT_LEVEL => 'L2',
+            self::FIELD_CURRENT_LEVEL => self::FIELD_L2,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#debug'],
             self::FIELD_BLOCKER_ID => self::FIELD_DEBUG_AUTOMATED_ROOT_CAUSE_L3,
             self::FIELD_BLOCKER_SUMMARY => 'falta automated root-cause para L3',
@@ -109,7 +111,7 @@ final class AtlasAaeosDepartmentMaturityService
         ],
         [
             self::FIELD_DEPARTMENT_ID => self::FIELD_REVIEW,
-            self::FIELD_CURRENT_LEVEL => 'L2',
+            self::FIELD_CURRENT_LEVEL => self::FIELD_L2,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#review'],
             self::FIELD_BLOCKER_ID => self::FIELD_REVIEW_CROSS_REVIEW_R4,
             self::FIELD_BLOCKER_SUMMARY => 'falta cross-review automatico R4+',
@@ -117,7 +119,7 @@ final class AtlasAaeosDepartmentMaturityService
         ],
         [
             self::FIELD_DEPARTMENT_ID => self::FIELD_QA,
-            self::FIELD_CURRENT_LEVEL => 'L2',
+            self::FIELD_CURRENT_LEVEL => self::FIELD_L2,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#qa'],
             self::FIELD_BLOCKER_ID => self::FIELD_QA_CONTRACT_TESTING_E2E_L4,
             self::FIELD_BLOCKER_SUMMARY => 'falta contract testing E2E',
@@ -125,7 +127,7 @@ final class AtlasAaeosDepartmentMaturityService
         ],
         [
             self::FIELD_DEPARTMENT_ID => self::FIELD_SECURITY,
-            self::FIELD_CURRENT_LEVEL => 'L3',
+            self::FIELD_CURRENT_LEVEL => self::FIELD_L3,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#security'],
             self::FIELD_BLOCKER_ID => self::FIELD_SECURITY_THREAT_MODELING_L4,
             self::FIELD_BLOCKER_SUMMARY => 'falta threat modeling automatico',
@@ -141,7 +143,7 @@ final class AtlasAaeosDepartmentMaturityService
         ],
         [
             self::FIELD_DEPARTMENT_ID => self::FIELD_DELIVERY,
-            self::FIELD_CURRENT_LEVEL => 'L2',
+            self::FIELD_CURRENT_LEVEL => self::FIELD_L2,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#delivery'],
             self::FIELD_BLOCKER_ID => self::FIELD_DELIVERY_ZERO_DOWNTIME_L3,
             self::FIELD_BLOCKER_SUMMARY => 'falta zero-downtime gate L3',
@@ -149,7 +151,7 @@ final class AtlasAaeosDepartmentMaturityService
         ],
         [
             self::FIELD_DEPARTMENT_ID => self::FIELD_MEMORY,
-            self::FIELD_CURRENT_LEVEL => 'L3',
+            self::FIELD_CURRENT_LEVEL => self::FIELD_L3,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#memory'],
             self::FIELD_BLOCKER_ID => self::FIELD_MEMORY_CROSS_SESSION_HANDOFF_L4,
             self::FIELD_BLOCKER_SUMMARY => 'falta cross-session handoff pack L4',

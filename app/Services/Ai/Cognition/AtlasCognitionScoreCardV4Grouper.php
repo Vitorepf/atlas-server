@@ -82,6 +82,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_OPEN_BRAIN_2 = 'OPEN-BRAIN';
     public const FIELD_PERSISTENT_CONTEXT_2 = 'PERSISTENT-CONTEXT';
     public const FIELD_VERIFIED_CONTEXT_2 = 'VERIFIED-CONTEXT';
+    public const FIELD_ACOS_CONSUMERS_AND_LEGACY_PROJECTIONS = 'ACOS Consumers and Legacy Projections';
+    public const FIELD_AUTONOMOUS_RECONCILIATION = 'Autonomous Reconciliation';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -199,14 +201,14 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_IMMUNE => 'Cognitive Immune G0-G8',
             self::FIELD_MEMORY => 'Memory Core',
             self::FIELD_CONTEXT => 'Context Runtime (AUCRI policies)',
-            self::FIELD_CONSUMERS => 'ACOS Consumers and Legacy Projections',
+            self::FIELD_CONSUMERS => self::FIELD_ACOS_CONSUMERS_AND_LEGACY_PROJECTIONS,
             self::FIELD_GOVERNANCE_2 => 'Constitutional Governance',
             self::FIELD_DECIDE => 'Atlas Decide + Swarm',
             self::FIELD_COMPOUND => self::FIELD_COMPOUNDING_2,
             self::FIELD_REALITY_2 => 'Reality Graph + Cross-Domain',
             self::FIELD_TEOS_2 => 'TEOS Counterfactuals',
             self::FIELD_COGNITION_2 => 'Cognitive Function Atlas',
-            self::FIELD_AUTONOMY_2 => 'Autonomous Reconciliation',
+            self::FIELD_AUTONOMY_2 => self::FIELD_AUTONOMOUS_RECONCILIATION,
             self::FIELD_PATAMAR4_2 => 'Patamar 4 Integration',
             self::FIELD_CONTEXT_CACHE_2 => 'Context Cache Compiler Runtime',
             self::FIELD_CONTEXT_INTELLIGENCE_2 => 'Context Intelligence Engine',

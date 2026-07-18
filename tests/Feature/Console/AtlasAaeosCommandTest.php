@@ -9377,6 +9377,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b546_aaeos_department_autonomous_work_http_aobg_latency_quality_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b546-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b546',
+                '--b546-aaeos-department-autonomous-work-http-aobg-latency-quality-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b546_aaeos_department_autonomous_work_http_aobg_latency_quality_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

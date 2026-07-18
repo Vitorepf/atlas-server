@@ -134,6 +134,8 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD_ATLAS_AAEOS_PLACEMENT_ = 'atlas.aaeos.placement.';
     public const FIELD_PAYLOAD_INTENT_ID = 'payload.intent_id';
     public const FIELD_PAYLOAD_PROMPT = 'payload.prompt';
+    public const FIELD__COUNT = '.count';
+    public const FIELD__MAX = '.max';
     public const INT_422 = 422;
 
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
@@ -332,9 +334,9 @@ final class AtlasAaeosHttpPathFacadeService
                 self::FIELD_BLOCKED => (int) $this->cache->get(self::TELEMETRY_KEY_BLOCKED, 0),
             ],
             self::FIELD_LATENCY_MS => [
-                self::FIELD_SAMPLES => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.count', 0),
+                self::FIELD_SAMPLES => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.self::FIELD__COUNT, 0),
                 self::FIELD_SUM => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.sum', 0),
-                self::FIELD_MAX => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.max', 0),
+                self::FIELD_MAX => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.self::FIELD__MAX, 0),
             ],
         ];
     }
@@ -518,9 +520,9 @@ final class AtlasAaeosHttpPathFacadeService
         if (! (AiValueNormalizer::boolOrNull(config(self::TELEMETRY_ENABLED_CONFIG_KEY, self::DEFAULT_TELEMETRY_ENABLED)) ?? self::DEFAULT_TELEMETRY_ENABLED)) {
             return;
         }
-        $countKey = self::TELEMETRY_KEY_LATENCY.'.count';
+        $countKey = self::TELEMETRY_KEY_LATENCY.self::FIELD__COUNT;
         $sumKey = self::TELEMETRY_KEY_LATENCY.'.sum';
-        $maxKey = self::TELEMETRY_KEY_LATENCY.'.max';
+        $maxKey = self::TELEMETRY_KEY_LATENCY.self::FIELD__MAX;
         $count = (int) $this->cache->get($countKey, 0);
         $sum = (int) $this->cache->get($sumKey, 0);
         $max = (int) $this->cache->get($maxKey, 0);

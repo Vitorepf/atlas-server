@@ -269,6 +269,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_TEOS_I1 = 'TEOS-I1';
     public const FIELD_TEOS_I3 = 'TEOS-I3';
     public const FIELD_TEOS_I4 = 'TEOS-I4';
+    public const FIELD_AGENTIC_RAG_FRAMEWORK = 'Agentic RAG Framework';
+    public const FIELD_ANTIFRAGILITY_COMPOSITION_METRIC = 'Antifragility Composition Metric';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -336,7 +338,7 @@ class AtlasCognitionScoreCardService
         // AUCRI 18 blocks
         [self::FIELD_ASEF,  'Semantic Embedding Foundation',     self::FIELD_AUCRI, AtlasSemanticEmbeddingFoundationService::class],
         [self::FIELD_AHRI,  'Hybrid Retrieval Infrastructure',   self::FIELD_AUCRI, AtlasHybridRetrievalInfrastructureService::class],
-        [self::FIELD_AARF,  'Agentic RAG Framework',             self::FIELD_AUCRI, AtlasAgenticRagFrameworkService::class],
+        [self::FIELD_AARF,  self::FIELD_AGENTIC_RAG_FRAMEWORK,             self::FIELD_AUCRI, AtlasAgenticRagFrameworkService::class],
         [self::FIELD_ACRS,  'Context Ranking System',            self::FIELD_AUCRI, AtlasContextRankingSystemService::class],
         [self::FIELD_ACFQ,  'Context Freshness Quality Gate',    self::FIELD_AUCRI, AtlasContextFreshnessQualityGateService::class],
         [self::FIELD_ARFL,  'Retrieval Feedback Loop',           self::FIELD_AUCRI, AtlasRetrievalFeedbackLoopService::class],
@@ -376,7 +378,7 @@ class AtlasCognitionScoreCardService
         // Patamar 4 · integration layer
         [self::FIELD_ADGW,    'Atlas Decide Gateway Consultation',   self::FIELD_ATLAS_DECIDE,      AtlasDecideGatewayConsultationService::class],
         [self::FIELD_ADLF,    'Atlas Decide Live Outcome Feedback',  self::FIELD_ATLAS_DECIDE,      AtlasDecideLiveOutcomeFeedbackService::class],
-        [self::FIELD_AACM,    'Antifragility Composition Metric',    self::FIELD_COMPOUNDING,       AtlasAntifragilityCompositionMetricService::class],
+        [self::FIELD_AACM,    self::FIELD_ANTIFRAGILITY_COMPOSITION_METRIC,    self::FIELD_COMPOUNDING,       AtlasAntifragilityCompositionMetricService::class],
         [self::FIELD_ACMF_SE, 'Cognitive Memory Fabric Schema Evolution', self::FIELD_AUCRI,         AtlasCognitiveMemoryFabricSchemaEvolutionService::class],
         [self::FIELD_ASCB_EX, 'Self-Construction Scaffold Staging Executor', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionScaffoldStagingExecutorService::class],
         [self::FIELD_ASCB_PP, 'Self-Construction Promotion Plan',          self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionPromotionPlanService::class],

@@ -14423,4 +14423,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B546).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b546AaeosDepartmentAutonomousWorkHttpAobgLatencyQualityFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'L2' => AtlasAaeosDepartmentMaturityService::FIELD_L2,
+            'L3' => AtlasAaeosDepartmentMaturityService::FIELD_L3,
+            'L6' => AutonomousWorkExecutionOs::FIELD_L6,
+            'L7' => AutonomousWorkExecutionOs::FIELD_L7,
+            '.count' => AtlasAaeosHttpPathFacadeService::FIELD__COUNT,
+            '.max' => AtlasAaeosHttpPathFacadeService::FIELD__MAX,
+            '.p95_ms' => AobgLatencyWatchdogCheck::FIELD__P95_MS,
+            '.ops' => AobgLatencyWatchdogCheck::FIELD__OPS,
+            'Customer Success' => AtlasAaeosQualityBarService::FIELD_CUSTOMER_SUCCESS,
+            'Human Resources' => AtlasAaeosQualityBarService::FIELD_HUMAN_RESOURCES,
+            'Agentic RAG Framework' => AtlasCognitionScoreCardService::FIELD_AGENTIC_RAG_FRAMEWORK,
+            'Antifragility Composition Metric' => AtlasCognitionScoreCardService::FIELD_ANTIFRAGILITY_COMPOSITION_METRIC,
+            'L2' => DepartmentContractRuntime::FIELD_L2,
+            'L3' => DepartmentContractRuntime::FIELD_L3,
+            'atlas:acos:delta-attribution --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_ACOS_DELTA_ATTRIBUTION___JSON,
+            'atlas:acos:rec06-breakers --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_ACOS_REC06_BREAKERS___JSON,
+            'ACOS Consumers and Legacy Projections' => AtlasCognitionScoreCardV4Grouper::FIELD_ACOS_CONSUMERS_AND_LEGACY_PROJECTIONS,
+            'Autonomous Reconciliation' => AtlasCognitionScoreCardV4Grouper::FIELD_AUTONOMOUS_RECONCILIATION,
+            'b546_aaeos_department_autonomous_work_http_aobg_latency_quality_floor_count' => 18,
+        ];
+    }
+
 }

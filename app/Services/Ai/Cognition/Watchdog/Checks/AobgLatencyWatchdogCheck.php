@@ -64,6 +64,8 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_Y_M_D = 'Y-m-d';
     public const FIELD_AOBG_LATENCY_LEDGER_V1 = 'aobg.latency_ledger.v1';
     public const FIELD_MEASURE_FREEZE_RECORDED = 'measure.freeze.recorded';
+    public const FIELD__P95_MS = '.p95_ms';
+    public const FIELD__OPS = '.ops';
 
 
     /**
@@ -87,12 +89,12 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
         $denominatorMin = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($thresholds[self::FIELD_DENOMINATOR_MIN_SAMPLES] ?? null) ?? self::DEFAULT_DENOMINATOR_MIN));
         $day = gmdate(self::FIELD_Y_M_D);
         $report = $this->ledger->report(day: $day);
-        $ops = AiValueNormalizer::arrayOrEmpty(data_get($report, 'days.'.$day.'.ops', []));
+        $ops = AiValueNormalizer::arrayOrEmpty(data_get($report, 'days.'.$day.self::FIELD__OPS, []));
 
         $insufficient = [];
         foreach (AtlasAobgLatencyLedger::OPS as $op) {
             $samples = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($ops, $op.'.samples', 0)) ?? 0);
-            if ($samples < $denominatorMin || data_get($ops, $op.'.p95_ms') === null) {
+            if ($samples < $denominatorMin || data_get($ops, $op.self::FIELD__P95_MS) === null) {
                 $insufficient[] = [
                     self::FIELD_OP => $op,
                     self::FIELD_SAMPLES => $samples,
@@ -124,7 +126,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
             AtlasAobgLatencyLedger::OP_RECALL => AiValueNormalizer::finiteFloatOrNull($thresholds[self::FIELD_RECALL_P95_MS_ALERT] ?? null) ?? self::DEFAULT_RECALL_P95_MS_ALERT,
             AtlasAobgLatencyLedger::OP_HOOK => AiValueNormalizer::finiteFloatOrNull($thresholds[self::FIELD_HOOK_P95_MS_ALERT] ?? null) ?? self::DEFAULT_HOOK_P95_MS_ALERT,
         ] as $op => $floor) {
-            $p95 = AiValueNormalizer::finiteFloatOrNull(data_get($ops, $op.'.p95_ms', 0.0)) ?? 0.0;
+            $p95 = AiValueNormalizer::finiteFloatOrNull(data_get($ops, $op.self::FIELD__P95_MS, 0.0)) ?? 0.0;
             if ($p95 > $floor) {
                 $alerts[] = [self::FIELD_OP => $op, self::FIELD_P95_MS => $p95, self::FIELD_FLOOR_MS => $floor];
             }

@@ -166,6 +166,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_APP_ATLAS_EVIDENCE_RAGX_AB_REGISTRATIONS_JSONL = 'app/atlas/evidence/ragx-ab-registrations.jsonl';
     public const FIELD_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL = 'atlas/atlas_decide/live_outcomes.jsonl';
     public const FIELD_FREEZE_ATLAS_ORIGINATOR_PREDICTED_IMPACT_CALIBRATION_V1 = 'freeze:atlas.originator.predicted_impact_calibration.v1';
+    public const FIELD_ATLAS_ACOS_DELTA_ATTRIBUTION___JSON = 'atlas:acos:delta-attribution --json';
+    public const FIELD_ATLAS_ACOS_REC06_BREAKERS___JSON = 'atlas:acos:rec06-breakers --json';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -434,7 +436,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MAXL_06,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::MAXL06_MEASURE_ID,
-                self::FIELD_PATH => 'atlas:acos:delta-attribution --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_ACOS_DELTA_ATTRIBUTION___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MAXL_06)[self::FIELD_TTL_DAYS],
@@ -659,7 +661,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_REC_06,
                 self::FIELD_SERIES => MetaLoopBreakerService::SCHEMA_VERSION,
-                self::FIELD_PATH => 'atlas:acos:rec06-breakers --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_ACOS_REC06_BREAKERS___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => self::INT_30,

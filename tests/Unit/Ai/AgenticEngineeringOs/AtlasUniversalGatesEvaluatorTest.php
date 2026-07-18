@@ -11368,4 +11368,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b545_aaeos_cognitive_implementation_veto_segment_importance_spec_completeness_floor_count']);
     }
 
+    public function test_b546_aaeos_department_autonomous_work_http_aobg_latency_quality_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b546AaeosDepartmentAutonomousWorkHttpAobgLatencyQualityFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_L2, $out['L2']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_L3, $out['L3']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_L6, $out['L6']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_L7, $out['L7']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD__COUNT, $out['.count']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD__MAX, $out['.max']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD__P95_MS, $out['.p95_ms']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD__OPS, $out['.ops']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_CUSTOMER_SUCCESS, $out['Customer Success']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_HUMAN_RESOURCES, $out['Human Resources']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AGENTIC_RAG_FRAMEWORK, $out['Agentic RAG Framework']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ANTIFRAGILITY_COMPOSITION_METRIC, $out['Antifragility Composition Metric']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_L2, $out['L2']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_L3, $out['L3']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_ACOS_DELTA_ATTRIBUTION___JSON, $out['atlas:acos:delta-attribution --json']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_ACOS_REC06_BREAKERS___JSON, $out['atlas:acos:rec06-breakers --json']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_ACOS_CONSUMERS_AND_LEGACY_PROJECTIONS, $out['ACOS Consumers and Legacy Projections']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_AUTONOMOUS_RECONCILIATION, $out['Autonomous Reconciliation']);
+        $this->assertSame(18, $out['b546_aaeos_department_autonomous_work_http_aobg_latency_quality_floor_count']);
+    }
+
 }
