@@ -9895,6 +9895,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b583_n_capture_compounding_outcome_dogfooding_friction_gated_corpus_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b583-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b583',
+                '--b583-n-capture-compounding-outcome-dogfooding-friction-gated-corpus-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b583_n_capture_compounding_outcome_dogfooding_friction_gated_corpus_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

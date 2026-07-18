@@ -15551,4 +15551,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B583).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b583NCaptureCompoundingOutcomeDogfoodingFrictionGatedCorpusFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ok' => AtlasNCaptureDrillService::FIELD_OK,
+            'cold_start_channels_allowed' => AtlasNCaptureDrillService::FIELD_COLD_START_CHANNELS_ALLOWED,
+            'yardstick_required_series' => AtlasNCaptureDrillService::FIELD_YARDSTICK_REQUIRED_SERIES,
+            'flow_id' => CompoundingOutcomeEnvelopeAdapter::FIELD_FLOW_ID,
+            'evidence_quality' => CompoundingOutcomeEnvelopeAdapter::FIELD_EVIDENCE_QUALITY,
+            'status' => CompoundingOutcomeEnvelopeAdapter::FIELD_STATUS,
+            'objective' => DogfoodingFrictionLeadMiner::FIELD_OBJECTIVE,
+            'evidence_refs' => DogfoodingFrictionLeadMiner::FIELD_EVIDENCE_REFS,
+            'source' => DogfoodingFrictionLeadMiner::FIELD_SOURCE,
+            'origin_ref' => GatedCorpusCandidateMiner::FIELD_ORIGIN_REF,
+            'admission' => GatedCorpusCandidateMiner::FIELD_ADMISSION,
+            'direct_write' => GatedCorpusCandidateMiner::FIELD_DIRECT_WRITE,
+            'source' => RecallGapAggregator::FIELD_SOURCE,
+            'raw_query_stored' => RecallGapAggregator::FIELD_RAW_QUERY_STORED,
+            'auto_creates_memory' => RecallGapAggregator::FIELD_AUTO_CREATES_MEMORY,
+            'stage' => AutonomousWorkExecutionOs::FIELD_STAGE,
+            'status' => AutonomousWorkExecutionOs::FIELD_STATUS,
+            'schema_version' => AutonomousWorkExecutionOs::FIELD_SCHEMA_VERSION,
+            'b583_n_capture_compounding_outcome_dogfooding_friction_gated_corpus_floor_count' => 18,
+        ];
+    }
+
 }

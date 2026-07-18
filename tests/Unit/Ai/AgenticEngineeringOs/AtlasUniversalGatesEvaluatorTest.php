@@ -12275,4 +12275,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b582_operational_volume_capture_hmac_aaeos_department_outcome_causality_floor_count']);
     }
 
+    public function test_b583_n_capture_compounding_outcome_dogfooding_friction_gated_corpus_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b583NCaptureCompoundingOutcomeDogfoodingFrictionGatedCorpusFloorsContractObserve([]);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_OK, $out['ok']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_COLD_START_CHANNELS_ALLOWED, $out['cold_start_channels_allowed']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_YARDSTICK_REQUIRED_SERIES, $out['yardstick_required_series']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_FLOW_ID, $out['flow_id']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_EVIDENCE_QUALITY, $out['evidence_quality']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_STATUS, $out['status']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_OBJECTIVE, $out['objective']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_EVIDENCE_REFS, $out['evidence_refs']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_SOURCE, $out['source']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_ORIGIN_REF, $out['origin_ref']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_ADMISSION, $out['admission']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_DIRECT_WRITE, $out['direct_write']);
+        $this->assertSame(RecallGapAggregator::FIELD_SOURCE, $out['source']);
+        $this->assertSame(RecallGapAggregator::FIELD_RAW_QUERY_STORED, $out['raw_query_stored']);
+        $this->assertSame(RecallGapAggregator::FIELD_AUTO_CREATES_MEMORY, $out['auto_creates_memory']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_STAGE, $out['stage']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_STATUS, $out['status']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(18, $out['b583_n_capture_compounding_outcome_dogfooding_friction_gated_corpus_floor_count']);
+    }
+
 }
