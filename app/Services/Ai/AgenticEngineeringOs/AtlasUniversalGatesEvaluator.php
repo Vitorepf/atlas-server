@@ -20264,4 +20264,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B736).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b736CognitiveFunctionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'claim_policy' => AtlasCognitiveFunctionDecomposerService::FIELD_CLAIM_POLICY,
+            'debug' => AtlasCognitiveFunctionDecomposerService::FIELD_DEBUG,
+            'atlas.cognitive_function.decomposition.v1' => AtlasCognitiveFunctionDecomposerService::SCHEMA,
+            'empty_input' => AtlasCognitiveFunctionDecomposerService::REASON_EMPTY_INPUT,
+            'no_keyword_signal' => AtlasCognitiveFunctionDecomposerService::REASON_NO_KEYWORD_SIGNAL,
+            'reasoning' => AtlasCognitiveFunctionDecomposerService::FIELD_REASONING,
+            'retrieval' => AtlasCognitiveFunctionDecomposerService::FIELD_RETRIEVAL,
+            'generation' => AtlasCognitiveFunctionDecomposerService::FIELD_GENERATION,
+            'code' => AtlasCognitiveFunctionDecomposerService::FIELD_CODE,
+            'vision' => AtlasCognitiveFunctionDecomposerService::FIELD_VISION,
+            'audit' => AtlasCognitiveFunctionDecomposerService::FIELD_AUDIT,
+            'reason' => AtlasCognitiveFunctionDecomposerService::FIELD_REASON,
+            'hits' => AtlasCognitiveFunctionDecomposerService::FIELD_HITS,
+            'context' => AtlasCognitiveFunctionDecomposerService::FIELD_CONTEXT,
+            'weights' => AtlasCognitiveFunctionDecomposerService::FIELD_WEIGHTS,
+            'benchmark_claim_allowed' => AtlasCognitiveFunctionDecomposerService::FIELD_BENCHMARK_CLAIM_ALLOWED,
+            'rivals_claim_allowed' => AtlasCognitiveFunctionDecomposerService::FIELD_RIVALS_CLAIM_ALLOWED,
+            'superiority_claim_allowed' => AtlasCognitiveFunctionDecomposerService::FIELD_SUPERIORITY_CLAIM_ALLOWED,
+            'b736_cognitive_function_floor_count' => 18,
+        ];
+    }
+
 }

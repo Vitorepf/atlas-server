@@ -16076,4 +16076,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b735_numeric_range_cognitive_function_floor_count']);
     }
 
+    public function test_b736_cognitive_function_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b736CognitiveFunctionFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CLAIM_POLICY, $out['claim_policy']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DEBUG, $out['debug']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::SCHEMA, $out['atlas.cognitive_function.decomposition.v1']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::REASON_EMPTY_INPUT, $out['empty_input']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::REASON_NO_KEYWORD_SIGNAL, $out['no_keyword_signal']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_REASONING, $out['reasoning']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_RETRIEVAL, $out['retrieval']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_GENERATION, $out['generation']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CODE, $out['code']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_VISION, $out['vision']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_AUDIT, $out['audit']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_HITS, $out['hits']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CONTEXT, $out['context']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_WEIGHTS, $out['weights']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_BENCHMARK_CLAIM_ALLOWED, $out['benchmark_claim_allowed']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_RIVALS_CLAIM_ALLOWED, $out['rivals_claim_allowed']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_SUPERIORITY_CLAIM_ALLOWED, $out['superiority_claim_allowed']);
+        $this->assertSame(18, $out['b736_cognitive_function_floor_count']);
+    }
+
 }
