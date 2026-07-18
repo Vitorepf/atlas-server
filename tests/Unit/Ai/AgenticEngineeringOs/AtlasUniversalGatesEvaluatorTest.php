@@ -15374,4 +15374,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b707_citation_grounding_maxa_jina_floor_count']);
     }
 
+    public function test_b708_maxa_jina_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b708MaxaJinaFloorsContractObserve([]);
+        $this->assertSame(Maxa04JinaV3DualReadLedger::SCHEMA, $out['atlas.semantic.jina_v3_dual_read.v1']);
+        $this->assertSame(Maxa04JinaV3DualReadLedger::RELATIVE_PATH, $out['app/atlas/evidence/maxa04-jina-v3-dual-read.jsonl']);
+        $this->assertSame(Maxa04JinaV3DualReadLedger::LEDGER_PATH_CONFIG_KEY, $out['atlas.semantic_memory.jina_v3_dual_read_ledger_path']);
+        $this->assertSame(Maxa04JinaV3DualReadService::CANDIDATE_MODEL, $out['jinaai/jina-embeddings-v3']);
+        $this->assertSame(Maxa04JinaV3DualReadService::CANDIDATE_DIMENSIONS, $out['1024']);
+        $this->assertSame(Maxa04JinaV3DualReadService::PENDING_WINDOW, $out['jina_v3_dual_read_benchmark_window']);
+        $this->assertSame(Maxa04JinaV3DualReadService::STATUS_PENDING_WINDOW, $out['pending_window']);
+        $this->assertSame(Maxa04JinaV3DualReadService::STATUS_INSUFFICIENT_SIGNAL, $out['insufficient_signal']);
+        $this->assertSame(Maxa04JinaV3DualReadService::CURRENT_MODEL_FALLBACK, $out['sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2']);
+        $this->assertSame(Maxa04JinaV3DualReadService::MODE_SHADOW_ONLY, $out['shadow_only']);
+        $this->assertSame(Maxa04JinaV3DualReadService::STATUS_MECHANISM_READY, $out['mechanism_ready']);
+        $this->assertSame(Maxa04JinaV3DualReadService::STATUS_NO_DUAL_READ_CASES, $out['no_dual_read_cases']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_STATUS, $out['status']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_SLICE, $out['slice']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_REASON, $out['reason']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_CASES, $out['cases']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_SUMMARY, $out['summary']);
+        $this->assertSame(18, $out['b708_maxa_jina_floor_count']);
+    }
+
 }

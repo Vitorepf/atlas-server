@@ -19396,4 +19396,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B708).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b708MaxaJinaFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.semantic.jina_v3_dual_read.v1' => Maxa04JinaV3DualReadLedger::SCHEMA,
+            'app/atlas/evidence/maxa04-jina-v3-dual-read.jsonl' => Maxa04JinaV3DualReadLedger::RELATIVE_PATH,
+            'atlas.semantic_memory.jina_v3_dual_read_ledger_path' => Maxa04JinaV3DualReadLedger::LEDGER_PATH_CONFIG_KEY,
+            'jinaai/jina-embeddings-v3' => Maxa04JinaV3DualReadService::CANDIDATE_MODEL,
+            '1024' => Maxa04JinaV3DualReadService::CANDIDATE_DIMENSIONS,
+            'jina_v3_dual_read_benchmark_window' => Maxa04JinaV3DualReadService::PENDING_WINDOW,
+            'pending_window' => Maxa04JinaV3DualReadService::STATUS_PENDING_WINDOW,
+            'insufficient_signal' => Maxa04JinaV3DualReadService::STATUS_INSUFFICIENT_SIGNAL,
+            'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2' => Maxa04JinaV3DualReadService::CURRENT_MODEL_FALLBACK,
+            'shadow_only' => Maxa04JinaV3DualReadService::MODE_SHADOW_ONLY,
+            'mechanism_ready' => Maxa04JinaV3DualReadService::STATUS_MECHANISM_READY,
+            'no_dual_read_cases' => Maxa04JinaV3DualReadService::STATUS_NO_DUAL_READ_CASES,
+            'schema_version' => Maxa04JinaV3DualReadService::FIELD_SCHEMA_VERSION,
+            'status' => Maxa04JinaV3DualReadService::FIELD_STATUS,
+            'slice' => Maxa04JinaV3DualReadService::FIELD_SLICE,
+            'reason' => Maxa04JinaV3DualReadService::FIELD_REASON,
+            'cases' => Maxa04JinaV3DualReadService::FIELD_CASES,
+            'summary' => Maxa04JinaV3DualReadService::FIELD_SUMMARY,
+            'b708_maxa_jina_floor_count' => 18,
+        ];
+    }
+
 }
