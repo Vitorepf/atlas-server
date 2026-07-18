@@ -14733,4 +14733,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B556).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b556CognitionScoreDepartmentContractFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'Learning Signal Extraction' => AtlasCognitionScoreCardService::FIELD_LEARNING_SIGNAL_EXTRACTION,
+            'Memory Delta Proposer' => AtlasCognitionScoreCardService::FIELD_MEMORY_DELTA_PROPOSER,
+            'Memory Promotion' => AtlasCognitionScoreCardService::FIELD_MEMORY_PROMOTION,
+            'Nightly Counterfactuals' => AtlasCognitionScoreCardService::FIELD_NIGHTLY_COUNTERFACTUALS,
+            'Open Brain Gateway' => AtlasCognitionScoreCardService::FIELD_OPEN_BRAIN_GATEWAY,
+            'Outcome Replay' => AtlasCognitionScoreCardService::FIELD_OUTCOME_REPLAY,
+            'Persistent Context Runtime' => AtlasCognitionScoreCardService::FIELD_PERSISTENT_CONTEXT_RUNTIME,
+            'Programming Cartography Publisher' => AtlasCognitionScoreCardService::FIELD_PROGRAMMING_CARTOGRAPHY_PUBLISHER,
+            'Python Data Retrieval Runtime' => AtlasCognitionScoreCardService::FIELD_PYTHON_DATA_RETRIEVAL_RUNTIME,
+            'Raw Capture Layer' => AtlasCognitionScoreCardService::FIELD_RAW_CAPTURE_LAYER,
+            'Research Domain Runtime' => AtlasCognitionScoreCardService::FIELD_RESEARCH_DOMAIN_RUNTIME,
+            'Retrieval Cost Latency Governor' => AtlasCognitionScoreCardService::FIELD_RETRIEVAL_COST_LATENCY_GOVERNOR,
+            'Retrieval Evaluation Arena' => AtlasCognitionScoreCardService::FIELD_RETRIEVAL_EVALUATION_ARENA,
+            'Retrieval Feedback Loop' => AtlasCognitionScoreCardService::FIELD_RETRIEVAL_FEEDBACK_LOOP,
+            'Retrieval Privacy Trust Layer' => AtlasCognitionScoreCardService::FIELD_RETRIEVAL_PRIVACY_TRUST_LAYER,
+            'spec_pack_drafted=true' => DepartmentContractRuntime::FIELD_SPEC_PACK_DRAFTED_TRUE,
+            'task_pack_decomposed=true' => DepartmentContractRuntime::FIELD_TASK_PACK_DECOMPOSED_TRUE,
+            'test_red_after_green=true' => DepartmentContractRuntime::FIELD_TEST_RED_AFTER_GREEN_TRUE,
+            'b556_cognition_score_department_contract_floor_count' => 18,
+        ];
+    }
+
 }

@@ -459,6 +459,9 @@ final class DepartmentContractRuntime
     public const FIELD_SECURITY_PATH_TOUCHED_TRUE = 'security_path_touched=true';
     public const FIELD_SELF_CONSTRUCTION_GAP_DETECTED_TRUE = 'self_construction.gap_detected=true';
     public const FIELD_SESSION_HANDOFF_REQUESTED_TRUE = 'session_handoff_requested=true';
+    public const FIELD_SPEC_PACK_DRAFTED_TRUE = 'spec_pack_drafted=true';
+    public const FIELD_TASK_PACK_DECOMPOSED_TRUE = 'task_pack_decomposed=true';
+    public const FIELD_TEST_RED_AFTER_GREEN_TRUE = 'test_red_after_green=true';
     public const INT_11 = 11;
 
     /**
@@ -615,7 +618,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_DEBUG_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Failure investigation, repair orchestration, escalation triggers.',
             self::FIELD_SCOPE => 'investiga falhas runtime, gera hipóteses, reproduz, isola e propõe fix',
-            self::FIELD_TRIGGERS => [self::FIELD_INCIDENT_DETECTED_TRUE, 'test_red_after_green=true', self::FIELD_PRODUCTION_ALERT_TRUE],
+            self::FIELD_TRIGGERS => [self::FIELD_INCIDENT_DETECTED_TRUE, self::FIELD_TEST_RED_AFTER_GREEN_TRUE, self::FIELD_PRODUCTION_ALERT_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_FAILURE_REPORT, self::FIELD_SCHEMA => self::SCHEMA_FAILURE_REPORT],
             ],
@@ -638,7 +641,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_REVIEW_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Code/spec review; bottleneck against weak claims.',
             self::FIELD_SCOPE => 'revisa patches/specs/migrations/release_packs com checklist canônico antes de cert',
-            self::FIELD_TRIGGERS => [self::FIELD_DELIVERY_PACK_ASSEMBLED_TRUE, 'spec_pack_drafted=true'],
+            self::FIELD_TRIGGERS => [self::FIELD_DELIVERY_PACK_ASSEMBLED_TRUE, self::FIELD_SPEC_PACK_DRAFTED_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_DELIVERY_PACK, self::FIELD_SCHEMA => self::SCHEMA_DELIVERY_PACK],
             ],
@@ -661,7 +664,7 @@ final class DepartmentContractRuntime
             self::FIELD_HUMAN_NAME => self::FIELD_QA_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Test selection, regression, verification.',
             self::FIELD_SCOPE => 'garante testabilidade, cobertura, regressão, contract tests e fixtures',
-            self::FIELD_TRIGGERS => ['task_pack_decomposed=true', self::FIELD_DELIVERY_PACK_ASSEMBLED_TRUE],
+            self::FIELD_TRIGGERS => [self::FIELD_TASK_PACK_DECOMPOSED_TRUE, self::FIELD_DELIVERY_PACK_ASSEMBLED_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
                 [self::FIELD_NAME => self::FIELD_PATCH_PACK, self::FIELD_SCHEMA => self::SCHEMA_PATCH_PACK],

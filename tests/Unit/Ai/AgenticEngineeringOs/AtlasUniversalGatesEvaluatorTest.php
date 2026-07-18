@@ -11618,4 +11618,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b555_cognition_score_department_contract_floor_count']);
     }
 
+    public function test_b556_cognition_score_department_contract_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b556CognitionScoreDepartmentContractFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_LEARNING_SIGNAL_EXTRACTION, $out['Learning Signal Extraction']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_MEMORY_DELTA_PROPOSER, $out['Memory Delta Proposer']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_MEMORY_PROMOTION, $out['Memory Promotion']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_NIGHTLY_COUNTERFACTUALS, $out['Nightly Counterfactuals']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_OPEN_BRAIN_GATEWAY, $out['Open Brain Gateway']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_OUTCOME_REPLAY, $out['Outcome Replay']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_PERSISTENT_CONTEXT_RUNTIME, $out['Persistent Context Runtime']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_PROGRAMMING_CARTOGRAPHY_PUBLISHER, $out['Programming Cartography Publisher']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_PYTHON_DATA_RETRIEVAL_RUNTIME, $out['Python Data Retrieval Runtime']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_RAW_CAPTURE_LAYER, $out['Raw Capture Layer']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_RESEARCH_DOMAIN_RUNTIME, $out['Research Domain Runtime']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_RETRIEVAL_COST_LATENCY_GOVERNOR, $out['Retrieval Cost Latency Governor']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_RETRIEVAL_EVALUATION_ARENA, $out['Retrieval Evaluation Arena']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_RETRIEVAL_FEEDBACK_LOOP, $out['Retrieval Feedback Loop']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_RETRIEVAL_PRIVACY_TRUST_LAYER, $out['Retrieval Privacy Trust Layer']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SPEC_PACK_DRAFTED_TRUE, $out['spec_pack_drafted=true']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TASK_PACK_DECOMPOSED_TRUE, $out['task_pack_decomposed=true']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TEST_RED_AFTER_GREEN_TRUE, $out['test_red_after_green=true']);
+        $this->assertSame(18, $out['b556_cognition_score_department_contract_floor_count']);
+    }
+
 }
