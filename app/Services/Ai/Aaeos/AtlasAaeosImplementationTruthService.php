@@ -107,6 +107,8 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_INDEX_RESOLVED = 'index_resolved';
     public const FIELD_TOTAL_CANONICAL_DOCS = 'total_canonical_docs';
     public const FIELD_WITH_EVIDENCE_REFS = 'with_evidence_refs';
+    public const FIELD_PATHS = 'paths';
+    public const FIELD_RANK_CLAIMED = 'rank_claimed';
 
     public const RANK = [
         self::LEVEL_SPEC => 0,
@@ -488,7 +490,7 @@ class AtlasAaeosImplementationTruthService
         return [
             self::FIELD_FORMAT => self::IMPL_FILES_HASH_FORMAT,
             self::FIELD_IMPL_FILES_HASH => $this->combineImplFilesHash($breakdown),
-            'paths' => $breakdown,
+            self::FIELD_PATHS => $breakdown,
         ];
     }
 
@@ -713,7 +715,7 @@ class AtlasAaeosImplementationTruthService
             self::FIELD_CLAIMED_STATE => $claimed,
             self::FIELD_CLAIMED_STATE_RAW => AiValueNormalizer::trimmedStringOrNull($claimedState) ?? '',
             self::FIELD_COMPUTED_STATE => $computed,
-            'rank_claimed' => $rankClaimed,
+            self::FIELD_RANK_CLAIMED => $rankClaimed,
             'rank_computed' => $rankComputed,
             // Over-claim: the doc claims MORE than the index can prove. This is the
             // blocking condition. Under-claim (computed > claimed) is fine (a warning).

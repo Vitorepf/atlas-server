@@ -69,6 +69,8 @@ final class AtlasAaeosGateSignalEvaluator
     public const FIELD_REASONS = 'reasons';
     public const FIELD_ACCEPTANCE = 'acceptance';
     public const FIELD_ACCEPTANCE_CRITERIA = 'acceptance_criteria';
+    public const FIELD_AMBIGUITY_TOKENS = 'ambiguity_tokens';
+    public const FIELD_COMPUTED_VALUE = 'computed_value';
 
     /**
      * P1 disambiguation gate: weighted + clamped 0..1 intent-clarity score.
@@ -80,7 +82,7 @@ final class AtlasAaeosGateSignalEvaluator
     {
         $resolvedTarget = $this->stringOrNull($disambiguationFeatures['resolved_target'] ?? null);
         $scopeBounded = ($disambiguationFeatures['scope_bounded'] ?? false) === true;
-        $ambiguityTokens = AiStringListNormalizer::strings($disambiguationFeatures['ambiguity_tokens'] ?? []);
+        $ambiguityTokens = AiStringListNormalizer::strings($disambiguationFeatures[self::FIELD_AMBIGUITY_TOKENS] ?? []);
         $missingCount = $this->missingAnswersCount($disambiguationFeatures['missing_answers'] ?? []);
 
         $ambiguityCount = count($ambiguityTokens);
@@ -247,7 +249,7 @@ final class AtlasAaeosGateSignalEvaluator
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'gate' => $gate,
             self::FIELD_PASSED => $passed,
-            'computed_value' => $computedValue,
+            self::FIELD_COMPUTED_VALUE => $computedValue,
             self::FIELD_REASONS => array_values($reasons),
         ];
     }

@@ -44,6 +44,8 @@ final class ContextParetoDominanceFilter
     public const FIELD_FAILED_CONSTRAINTS = 'failed_constraints';
     public const FIELD_MAX = 'max';
     public const FIELD_MIN = 'min';
+    public const FIELD_OBJECTIVE_DIRECTION = 'objective_direction';
+    public const FIELD_SUMMARY = 'summary';
 
 
     /**
@@ -120,11 +122,11 @@ final class ContextParetoDominanceFilter
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'objective_direction' => $direction,
+            self::FIELD_OBJECTIVE_DIRECTION => $direction,
             self::FIELD_FRONTIER => $frontier,
             self::FIELD_BLOCKED => $blocked,
             self::FIELD_EVALUATED => $evaluated,
-            'summary' => [
+            self::FIELD_SUMMARY => [
                 'total' => count($variants),
                 self::FIELD_ADMITTED => $admittedCount,
                 self::FIELD_BLOCKED => $blockedCount,

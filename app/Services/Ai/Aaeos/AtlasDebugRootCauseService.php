@@ -15,6 +15,8 @@ final class AtlasDebugRootCauseService
     public const STATUS_NO_DATA = 'no_data';
 
     public const STATUS_UNKNOWN = 'unknown';
+    public const FIELD_CONTEXT = 'context';
+    public const FIELD_ROOT_CAUSE = 'root_cause';
 
 
     public function getVersion(): string
@@ -27,8 +29,8 @@ final class AtlasDebugRootCauseService
         return [
             'version' => self::SERVICE_VERSION,
             'status' => self::STATUS_ANALYZED,
-            'context' => $context,
-            'root_cause' => $this->determineRootCause($context),
+            self::FIELD_CONTEXT => $context,
+            self::FIELD_ROOT_CAUSE => $this->determineRootCause($context),
         ];
     }
 

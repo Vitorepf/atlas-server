@@ -6654,7 +6654,28 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+
+    public function test_universal_gates_observe_gate_signal_truth_router_veto_choreo_debug_docs_watchdog_pareto_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b352-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b352',
+                '--gate-signal-truth-router-veto-choreo-debug-docs-watchdog-pareto-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"gate_signal_truth_router_veto_choreo_debug_docs_watchdog_pareto_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
+
 
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

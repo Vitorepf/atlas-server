@@ -54,6 +54,8 @@ class AtlasDocsAuthorityGraphService
     public const FIELD_DOC_ID = 'doc_id';
     public const FIELD_CAPABILITY_FRONTMATTER = 'capability_frontmatter';
     public const FIELD_ROWS = 'rows';
+    public const FIELD_BASIS = 'basis';
+    public const FIELD_CAPABILITIES = 'capabilities';
 
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
@@ -130,7 +132,7 @@ class AtlasDocsAuthorityGraphService
         foreach (AiValueNormalizer::arrayOrEmpty($frontmatter['governs'] ?? null) as $governs) {
             $add('governs', $governs, 'governs_frontmatter');
         }
-        foreach (AiValueNormalizer::arrayOrEmpty($frontmatter['capabilities'] ?? null) as $capability) {
+        foreach (AiValueNormalizer::arrayOrEmpty($frontmatter[self::FIELD_CAPABILITIES] ?? null) as $capability) {
             $add('capability', $capability, 'capability_frontmatter');
         }
 
@@ -232,7 +234,7 @@ class AtlasDocsAuthorityGraphService
             self::FIELD_CANDIDATES => $matches->map(fn (AtlasDocsAuthorityGraph $row): array => [
                 self::FIELD_OWNER_DOC_PATH => AiValueNormalizer::trimmedScalarStringOrNull($row->owner_doc_path ?? null) ?? '',
                 self::FIELD_NEEDLE => AiValueNormalizer::trimmedScalarStringOrNull($row->needle ?? null) ?? '',
-                'basis' => $fallback ? 'keyword_fallback' : (AiValueNormalizer::trimmedScalarStringOrNull($row->owner_basis ?? null) ?? ''),
+                self::FIELD_BASIS => $fallback ? 'keyword_fallback' : (AiValueNormalizer::trimmedScalarStringOrNull($row->owner_basis ?? null) ?? ''),
                 self::FIELD_CONFIDENCE => $fallback ? self::CONFIDENCE[self::FIELD_KEYWORD_FALLBACK] : (int) $row->confidence,
             ])->all(),
         ];

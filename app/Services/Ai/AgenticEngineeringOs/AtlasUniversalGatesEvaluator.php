@@ -8413,6 +8413,38 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+
+    /**
+     * Observe-only residual FIELD_* floors (B352).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function gateSignalTruthRouterVetoChoreoDebugDocsWatchdogParetoFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'gate_signal_field_ambiguity_tokens' => AtlasAaeosGateSignalEvaluator::FIELD_AMBIGUITY_TOKENS,
+            'gate_signal_field_computed_value' => AtlasAaeosGateSignalEvaluator::FIELD_COMPUTED_VALUE,
+            'impl_truth_field_paths' => AtlasAaeosImplementationTruthService::FIELD_PATHS,
+            'impl_truth_field_rank_claimed' => AtlasAaeosImplementationTruthService::FIELD_RANK_CLAIMED,
+            'phase_router_field_classification' => AtlasAaeosPhaseRouterService::FIELD_CLASSIFICATION,
+            'phase_router_field_placement' => AtlasAaeosPhaseRouterService::FIELD_PLACEMENT,
+            'veto_prop_field_debug' => AtlasAaeosVetoPropagationResolver::FIELD_DEBUG,
+            'veto_prop_field_delivery' => AtlasAaeosVetoPropagationResolver::FIELD_DELIVERY,
+            'choreo_field_decision' => AtlasCrossDepartmentChoreographyService::FIELD_DECISION,
+            'choreo_field_escalate' => AtlasCrossDepartmentChoreographyService::FIELD_ESCALATE,
+            'debug_rc_field_context' => AtlasDebugRootCauseService::FIELD_CONTEXT,
+            'debug_rc_field_root_cause' => AtlasDebugRootCauseService::FIELD_ROOT_CAUSE,
+            'docs_auth_field_basis' => AtlasDocsAuthorityGraphService::FIELD_BASIS,
+            'docs_auth_field_capabilities' => AtlasDocsAuthorityGraphService::FIELD_CAPABILITIES,
+            'veto_wd_field_final_override' => AtlasVetoPropagationWatchdog::FIELD_FINAL_OVERRIDE,
+            'veto_wd_field_veto_receipts' => AtlasVetoPropagationWatchdog::FIELD_VETO_RECEIPTS,
+            'pareto_field_objective_direction' => ContextParetoDominanceFilter::FIELD_OBJECTIVE_DIRECTION,
+            'pareto_field_summary' => ContextParetoDominanceFilter::FIELD_SUMMARY,
+            'gate_signal_truth_router_veto_choreo_debug_docs_watchdog_pareto_floor_count' => 18,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

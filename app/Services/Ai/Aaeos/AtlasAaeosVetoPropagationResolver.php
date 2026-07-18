@@ -78,6 +78,8 @@ final class AtlasAaeosVetoPropagationResolver
     public const REASON_REVIEW_DELIVERY_VETO_REPAIR = 'review_delivery_veto_redirects_to_dev_forge_for_repair';
 
     public const REASON_NO_CANONICAL_VETO_RULE = 'no_canonical_veto_rule_matched_origin_and_kind';
+    public const FIELD_DEBUG = 'debug';
+    public const FIELD_DELIVERY = 'delivery';
 
     /**
      * Encoded canonical department adjacency (mermaid stateDiagram transitions).
@@ -95,10 +97,10 @@ final class AtlasAaeosVetoPropagationResolver
             'forge' => [self::FIELD_REVIEW],
             self::FIELD_REVIEW => ['architect', 'delivery'],
             'security' => ['operator', 'architect'],
-            'delivery' => [self::FIELD_OPERATOR],
+            self::FIELD_DELIVERY => [self::FIELD_OPERATOR],
             self::FIELD_OPERATOR => [self::FIELD_MEMORY],
             'qa' => ['dev', 'forge'],
-            'debug' => [self::FIELD_DEV],
+            self::FIELD_DEBUG => [self::FIELD_DEV],
             self::FIELD_MEMORY => [],
         ];
     }

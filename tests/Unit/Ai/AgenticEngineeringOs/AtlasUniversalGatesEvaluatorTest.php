@@ -6449,4 +6449,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['maturity_attempt_scorecard_http_qbar_compound_immune_phase_dept_floor_count']);
     }
 
+    public function test_gate_signal_truth_router_veto_choreo_debug_docs_watchdog_pareto_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->gateSignalTruthRouterVetoChoreoDebugDocsWatchdogParetoFloorsContractObserve([]);
+
+        $this->assertSame('ambiguity_tokens', $payload['gate_signal_field_ambiguity_tokens']);
+        $this->assertSame('computed_value', $payload['gate_signal_field_computed_value']);
+        $this->assertSame('paths', $payload['impl_truth_field_paths']);
+        $this->assertSame('rank_claimed', $payload['impl_truth_field_rank_claimed']);
+        $this->assertSame('classification', $payload['phase_router_field_classification']);
+        $this->assertSame('placement', $payload['phase_router_field_placement']);
+        $this->assertSame('debug', $payload['veto_prop_field_debug']);
+        $this->assertSame('delivery', $payload['veto_prop_field_delivery']);
+        $this->assertSame('decision', $payload['choreo_field_decision']);
+        $this->assertSame('escalate', $payload['choreo_field_escalate']);
+        $this->assertSame('context', $payload['debug_rc_field_context']);
+        $this->assertSame('root_cause', $payload['debug_rc_field_root_cause']);
+        $this->assertSame('basis', $payload['docs_auth_field_basis']);
+        $this->assertSame('capabilities', $payload['docs_auth_field_capabilities']);
+        $this->assertSame('final_override', $payload['veto_wd_field_final_override']);
+        $this->assertSame('veto_receipts', $payload['veto_wd_field_veto_receipts']);
+        $this->assertSame('objective_direction', $payload['pareto_field_objective_direction']);
+        $this->assertSame('summary', $payload['pareto_field_summary']);
+        $this->assertSame(18, $payload['gate_signal_truth_router_veto_choreo_debug_docs_watchdog_pareto_floor_count']);
+    }
+
 }

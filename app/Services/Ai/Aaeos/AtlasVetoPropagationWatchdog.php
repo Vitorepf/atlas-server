@@ -20,6 +20,8 @@ class AtlasVetoPropagationWatchdog
     public const FIELD_LIFT = 'lift';
     public const FIELD_FINAL_OVERRIDE_ACTIVE = 'final_override_active';
     public const FIELD_PAUSE_SLA_SECONDS = 'pause_sla_seconds';
+    public const FIELD_FINAL_OVERRIDE = 'final_override';
+    public const FIELD_VETO_RECEIPTS = 'veto_receipts';
     public function __construct(
         private readonly AtlasCrossDepartmentChoreographyService $choreography,
     ) {}
@@ -56,7 +58,7 @@ class AtlasVetoPropagationWatchdog
                     unset($paused[$pausedKey]);
                 }
             } else {
-                if (($veto['final_override'] ?? false) === true) {
+                if (($veto[self::FIELD_FINAL_OVERRIDE] ?? false) === true) {
                     $finalOverride = true;
                 }
                 foreach (AiValueNormalizer::arrayOrEmpty($veto[self::FIELD_PAUSED_DEPARTMENTS] ?? null) as $p) {
@@ -75,7 +77,7 @@ class AtlasVetoPropagationWatchdog
             self::FIELD_PAUSED_DEPARTMENTS => array_values(array_keys($paused)),
             self::FIELD_FINAL_OVERRIDE_ACTIVE => $finalOverride,
             self::FIELD_PAUSE_SLA_SECONDS => AtlasCrossDepartmentChoreographyService::VETO_SLA_SECONDS,
-            'veto_receipts' => $receipts,
+            self::FIELD_VETO_RECEIPTS => $receipts,
         ];
     }
 }
