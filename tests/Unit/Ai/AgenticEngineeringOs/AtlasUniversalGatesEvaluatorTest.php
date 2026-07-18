@@ -6349,6 +6349,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['dept_immune_nudge_runbook_quality_dev_compound_obra_floor_count']);
     }
 
+    public function test_volume_immune_scorecard_phase_delivery_autowork_citation_cascade_budget_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->volumeImmuneScorecardPhaseDeliveryAutoworkCitationCascadeBudgetFloorsContractObserve([]);
+
+        $this->assertSame('checked_at', $payload['volume_check_field_checked_at']);
+        $this->assertSame('thresholds', $payload['volume_check_field_thresholds']);
+        $this->assertSame('author', $payload['immune_freeze_field_author']);
+        $this->assertSame('judge', $payload['immune_freeze_field_judge']);
+        $this->assertSame('subsystems', $payload['scorecard_field_subsystems']);
+        $this->assertSame('notes', $payload['scorecard_field_notes']);
+        $this->assertSame('missing_gates', $payload['phase_verdict_field_missing_gates']);
+        $this->assertSame('blocked_gates', $payload['phase_verdict_field_blocked_gates']);
+        $this->assertSame('files_have_evidence', $payload['delivery_pack_field_files_have_evidence']);
+        $this->assertSame('tests_present', $payload['delivery_pack_field_tests_present']);
+        $this->assertSame('cycle_id', $payload['autowork_field_cycle_id']);
+        $this->assertSame('goal_hash', $payload['autowork_field_goal_hash']);
+        $this->assertSame('unsupported_citation_count', $payload['citation_field_unsupported_citation_count']);
+        $this->assertSame('measured_count', $payload['citation_field_measured_count']);
+        $this->assertSame('depth', $payload['cascade_field_depth']);
+        $this->assertSame('deletes_descendants', $payload['cascade_field_deletes_descendants']);
+        $this->assertSame('engine_floor_mb', $payload['resource_budget_field_engine_floor_mb']);
+        $this->assertSame('host_ram_mb', $payload['resource_budget_field_host_ram_mb']);
+        $this->assertSame(18, $payload['volume_immune_scorecard_phase_delivery_autowork_citation_cascade_budget_floor_count']);
+    }
+
 
 
 

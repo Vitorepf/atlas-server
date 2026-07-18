@@ -149,6 +149,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_SUPPLEMENTAL_SUBSYSTEM_COUNT = 'supplemental_subsystem_count';
     public const FIELD_NAME = 'name';
     public const FIELD_OVERALL_OUT_OF_10 = 'overall_out_of_10';
+    public const FIELD_SUBSYSTEMS = 'subsystems';
+    public const FIELD_NOTES = 'notes';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -341,10 +343,10 @@ class AtlasCognitionScoreCardService
                 $rows,
                 static fn (array $row): bool => $row[self::FIELD_EVIDENCE_ALIAS_OF] === null,
             )),
-            'subsystems' => $rows,
+            self::FIELD_SUBSYSTEMS => $rows,
             self::FIELD_SCORE => $score,
             self::FIELD_CLAIM_POLICY => $this->claimPolicy(),
-            'notes' => [
+            self::FIELD_NOTES => [
                 'readiness_definition' => 'A unique service facet is ready when code, doc and pipeline are ready. Alias facets remain visible but are not scored twice. Real-world volume remains separate.',
             ],
         ];

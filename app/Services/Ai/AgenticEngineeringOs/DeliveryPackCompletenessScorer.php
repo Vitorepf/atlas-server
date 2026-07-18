@@ -32,6 +32,8 @@ final class DeliveryPackCompletenessScorer
     public const FIELD_BLOCKERS = 'blockers';
     public const FIELD_CHANGED_FILES = 'changed_files';
     public const FIELD_TEST_EVIDENCE = 'test_evidence';
+    public const FIELD_FILES_HAVE_EVIDENCE = 'files_have_evidence';
+    public const FIELD_TESTS_PRESENT = 'tests_present';
 
     /** @var list<string> */
     public const REQUIRED_KEYS = [
@@ -96,8 +98,8 @@ final class DeliveryPackCompletenessScorer
         $hasEvidenceHashes = $evidenceHashes !== [];
 
         $factors = [
-            'files_have_evidence' => $changedFiles === 0 ? true : $hasEvidenceHashes,
-            'tests_present' => $testEvidence !== [],
+            self::FIELD_FILES_HAVE_EVIDENCE => $changedFiles === 0 ? true : $hasEvidenceHashes,
+            self::FIELD_TESTS_PRESENT => $testEvidence !== [],
             'evidence_present' => $hasEvidenceHashes,
             self::FIELD_RECEIPT_PRESENT => $receiptPresent,
             self::FIELD_RISK_REGISTER_PRESENT => $riskRegisterPresent,

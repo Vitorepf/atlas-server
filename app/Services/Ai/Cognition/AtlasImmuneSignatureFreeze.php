@@ -16,6 +16,8 @@ final class AtlasImmuneSignatureFreeze
     public const KIND_MEASURE_FREEZE = 'measure_freeze';
     public const FIELD_MEASURE_ID = 'measure_id';
     public const FIELD_FAMILY_SCHEMA_VERSION = 'family_schema_version';
+    public const FIELD_AUTHOR = 'author';
+    public const FIELD_JUDGE = 'judge';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -25,8 +27,8 @@ final class AtlasImmuneSignatureFreeze
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             'schema_version' => ImmuneSignatureStore::SCHEMA_VERSION,
             self::FIELD_FAMILY_SCHEMA_VERSION => ImmuneSignatureDeriver::SCHEMA_VERSION,
-            'author' => 'cursor-acos-max-maxi-05',
-            'judge' => 'codex-immune-signature-judge',
+            self::FIELD_AUTHOR => 'cursor-acos-max-maxi-05',
+            self::FIELD_JUDGE => 'codex-immune-signature-judge',
             'mode_config_key' => ImmuneSignatureStore::MODE_CONFIG_KEY,
             'default_mode' => ImmuneSignatureStore::DEFAULT_MODE,
             'decay_days' => 90,

@@ -60,6 +60,8 @@ final class AtlasOperationalVolumeCheckService
 
     /** @var list<string> */
     public const FORGE_FLOW_IDS = ['atlas_forge', 'engineering.forge'];
+    public const FIELD_CHECKED_AT = 'checked_at';
+    public const FIELD_THRESHOLDS = 'thresholds';
 
     /**
      * @return array<string,mixed>
@@ -90,11 +92,11 @@ final class AtlasOperationalVolumeCheckService
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'checked_at' => $asOf->toIso8601String(),
+            self::FIELD_CHECKED_AT => $asOf->toIso8601String(),
             self::FIELD_STATUS => $status,
             self::STATUS_ALERT => $alert,
             self::FIELD_ALERT_CODE => $alert ? 'janela_faminta' : null,
-            'thresholds' => [
+            self::FIELD_THRESHOLDS => [
                 self::FIELD_DEV_RUNS_PER_BUSINESS_DAY_MIN => self::DEV_RUNS_PER_BUSINESS_DAY_MIN,
                 'forge_cycles_per_week_min' => self::FORGE_CYCLES_PER_WEEK_MIN,
             ],

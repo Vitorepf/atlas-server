@@ -34,6 +34,8 @@ final class PhaseAdvanceVerdictClassifier
     public const FIELD_BLOCKED = 'blocked';
     public const FIELD_PHASE_OUT = 'phase_out';
     public const FIELD_BLOCKERS = 'blockers';
+    public const FIELD_MISSING_GATES = 'missing_gates';
+    public const FIELD_BLOCKED_GATES = 'blocked_gates';
 
     /** @var list<string> */
     public const VERDICTS = [
@@ -108,8 +110,8 @@ final class PhaseAdvanceVerdictClassifier
             'schema_version' => self::SCHEMA_VERSION,
             'verdict' => $verdict,
             'reason' => $reason,
-            'missing_gates' => $missingGates,
-            'blocked_gates' => $blockedGates,
+            self::FIELD_MISSING_GATES => $missingGates,
+            self::FIELD_BLOCKED_GATES => $blockedGates,
             'high_blocker_ids' => $highBlockerIds,
         ];
     }

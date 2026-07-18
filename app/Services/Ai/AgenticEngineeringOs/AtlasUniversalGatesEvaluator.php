@@ -8301,6 +8301,31 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function volumeImmuneScorecardPhaseDeliveryAutoworkCitationCascadeBudgetFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'volume_check_field_checked_at' => AtlasOperationalVolumeCheckService::FIELD_CHECKED_AT,
+            'volume_check_field_thresholds' => AtlasOperationalVolumeCheckService::FIELD_THRESHOLDS,
+            'immune_freeze_field_author' => AtlasImmuneSignatureFreeze::FIELD_AUTHOR,
+            'immune_freeze_field_judge' => AtlasImmuneSignatureFreeze::FIELD_JUDGE,
+            'scorecard_field_subsystems' => AtlasCognitionScoreCardService::FIELD_SUBSYSTEMS,
+            'scorecard_field_notes' => AtlasCognitionScoreCardService::FIELD_NOTES,
+            'phase_verdict_field_missing_gates' => PhaseAdvanceVerdictClassifier::FIELD_MISSING_GATES,
+            'phase_verdict_field_blocked_gates' => PhaseAdvanceVerdictClassifier::FIELD_BLOCKED_GATES,
+            'delivery_pack_field_files_have_evidence' => DeliveryPackCompletenessScorer::FIELD_FILES_HAVE_EVIDENCE,
+            'delivery_pack_field_tests_present' => DeliveryPackCompletenessScorer::FIELD_TESTS_PRESENT,
+            'autowork_field_cycle_id' => AutonomousWorkExecutionOs::FIELD_CYCLE_ID,
+            'autowork_field_goal_hash' => AutonomousWorkExecutionOs::FIELD_GOAL_HASH,
+            'citation_field_unsupported_citation_count' => CitationGroundingMeter::FIELD_UNSUPPORTED_CITATION_COUNT,
+            'citation_field_measured_count' => CitationGroundingMeter::FIELD_MEASURED_COUNT,
+            'cascade_field_depth' => BeliefCascadeReverificationPlanner::FIELD_DEPTH,
+            'cascade_field_deletes_descendants' => BeliefCascadeReverificationPlanner::FIELD_DELETES_DESCENDANTS,
+            'resource_budget_field_engine_floor_mb' => AtlasResourceBudgetService::FIELD_ENGINE_FLOOR_MB,
+            'resource_budget_field_host_ram_mb' => AtlasResourceBudgetService::FIELD_HOST_RAM_MB,
+            'volume_immune_scorecard_phase_delivery_autowork_citation_cascade_budget_floor_count' => 18,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

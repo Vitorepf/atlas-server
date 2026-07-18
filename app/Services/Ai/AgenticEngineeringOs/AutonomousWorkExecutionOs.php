@@ -59,6 +59,8 @@ final class AutonomousWorkExecutionOs
     public const FIELD_BLOCKING_REASONS = 'blocking_reasons';
     public const FIELD_OPERATOR_CONSENT_PRESENT = 'operator_consent_present';
     public const FIELD_PRIOR_FAILURE_SIGNATURES = 'prior_failure_signatures';
+    public const FIELD_CYCLE_ID = 'cycle_id';
+    public const FIELD_GOAL_HASH = 'goal_hash';
 
     public const STAGE_STATUSES = [
         self::STATUS_PENDING,
@@ -124,8 +126,8 @@ final class AutonomousWorkExecutionOs
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'cycle_id' => 'cycle-'.bin2hex(random_bytes(6)),
-            'goal_hash' => hash('sha256', $goal),
+            self::FIELD_CYCLE_ID => 'cycle-'.bin2hex(random_bytes(6)),
+            self::FIELD_GOAL_HASH => hash('sha256', $goal),
             self::FIELD_AUTONOMY_LEVEL => $level,
             'may_proceed' => $mayProceed,
             self::FIELD_BLOCKING_REASONS => $blocking,

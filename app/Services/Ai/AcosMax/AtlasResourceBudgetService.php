@@ -42,6 +42,8 @@ final class AtlasResourceBudgetService
     public const FIELD_DECLARED_PAPER_STATUS = 'declared_paper_status';
     public const FIELD_DISK_ACTUAL_MB = 'disk_actual_mb';
     public const FIELD_TOTAL_RAM_CAP_MB = 'total_ram_cap_mb';
+    public const FIELD_ENGINE_FLOOR_MB = 'engine_floor_mb';
+    public const FIELD_HOST_RAM_MB = 'host_ram_mb';
 
     /** @var array<string,mixed> */
     private array $budget;
@@ -142,8 +144,8 @@ final class AtlasResourceBudgetService
             self::FIELD_HOST_RAM_GIB => $hostGib,
             self::FIELD_ENGINE_FLOOR_GIB => $engineFloorGib,
             self::FIELD_TOTAL_RAM_CAP_MB => $totalRamCap,
-            'engine_floor_mb' => $engineFloorMb,
-            'host_ram_mb' => $hostMb,
+            self::FIELD_ENGINE_FLOOR_MB => $engineFloorMb,
+            self::FIELD_HOST_RAM_MB => $hostMb,
             self::FIELD_DECLARED_PAPER_STATUS => $paperStatus,
             'paper_headroom_mb' => $paperHeadroom,
             'measured_ram_mb' => $anyMeasured ? $measuredSum : null,
