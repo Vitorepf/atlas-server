@@ -17319,4 +17319,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B641).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b641MemoryFeedbackFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.aaeos.memory_feedback_decay.v1' => MemoryFeedbackDecayScorer::SCHEMA_VERSION,
+            '180' => MemoryFeedbackDecayScorer::HARD_STALE_AGE_DAYS,
+            '45' => MemoryFeedbackDecayScorer::SOFT_STALE_AGE_DAYS,
+            '50' => MemoryFeedbackDecayScorer::DEFAULT_BASE_PRIORITY,
+            '2' => MemoryFeedbackDecayScorer::ARCHIVE_STALE_FEEDBACK_THRESHOLD,
+            '3' => MemoryFeedbackDecayScorer::INACTIVATE_NEGATIVE_THRESHOLD,
+            '40' => MemoryFeedbackDecayScorer::INACTIVATE_HEALTH_CEILING,
+            '60' => MemoryFeedbackDecayScorer::DEGRADE_HEALTH_CEILING,
+            'archive' => MemoryFeedbackDecayScorer::DECISION_ARCHIVE,
+            'inactivate' => MemoryFeedbackDecayScorer::DECISION_INACTIVATE,
+            'degrade' => MemoryFeedbackDecayScorer::DECISION_DEGRADE,
+            'keep' => MemoryFeedbackDecayScorer::DECISION_KEEP,
+            'stale_inactive_candidate' => MemoryFeedbackDecayScorer::DECISION_STALE_INACTIVE_CANDIDATE,
+            'stale_review_recommended' => MemoryFeedbackDecayScorer::DECISION_STALE_REVIEW_RECOMMENDED,
+            'fresh' => MemoryFeedbackDecayScorer::DECISION_FRESH,
+            'schema_version' => MemoryFeedbackDecayScorer::FIELD_SCHEMA_VERSION,
+            'health_score' => MemoryFeedbackDecayScorer::FIELD_HEALTH_SCORE,
+            'effective_priority' => MemoryFeedbackDecayScorer::FIELD_EFFECTIVE_PRIORITY,
+            'b641_memory_feedback_floor_count' => 18,
+        ];
+    }
+
 }

@@ -13697,4 +13697,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b640_spec_completeness_floor_count']);
     }
 
+    public function test_b641_memory_feedback_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b641MemoryFeedbackFloorsContractObserve([]);
+        $this->assertSame(MemoryFeedbackDecayScorer::SCHEMA_VERSION, $out['atlas.aaeos.memory_feedback_decay.v1']);
+        $this->assertSame(MemoryFeedbackDecayScorer::HARD_STALE_AGE_DAYS, $out['180']);
+        $this->assertSame(MemoryFeedbackDecayScorer::SOFT_STALE_AGE_DAYS, $out['45']);
+        $this->assertSame(MemoryFeedbackDecayScorer::DEFAULT_BASE_PRIORITY, $out['50']);
+        $this->assertSame(MemoryFeedbackDecayScorer::ARCHIVE_STALE_FEEDBACK_THRESHOLD, $out['2']);
+        $this->assertSame(MemoryFeedbackDecayScorer::INACTIVATE_NEGATIVE_THRESHOLD, $out['3']);
+        $this->assertSame(MemoryFeedbackDecayScorer::INACTIVATE_HEALTH_CEILING, $out['40']);
+        $this->assertSame(MemoryFeedbackDecayScorer::DEGRADE_HEALTH_CEILING, $out['60']);
+        $this->assertSame(MemoryFeedbackDecayScorer::DECISION_ARCHIVE, $out['archive']);
+        $this->assertSame(MemoryFeedbackDecayScorer::DECISION_INACTIVATE, $out['inactivate']);
+        $this->assertSame(MemoryFeedbackDecayScorer::DECISION_DEGRADE, $out['degrade']);
+        $this->assertSame(MemoryFeedbackDecayScorer::DECISION_KEEP, $out['keep']);
+        $this->assertSame(MemoryFeedbackDecayScorer::DECISION_STALE_INACTIVE_CANDIDATE, $out['stale_inactive_candidate']);
+        $this->assertSame(MemoryFeedbackDecayScorer::DECISION_STALE_REVIEW_RECOMMENDED, $out['stale_review_recommended']);
+        $this->assertSame(MemoryFeedbackDecayScorer::DECISION_FRESH, $out['fresh']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_HEALTH_SCORE, $out['health_score']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_EFFECTIVE_PRIORITY, $out['effective_priority']);
+        $this->assertSame(18, $out['b641_memory_feedback_floor_count']);
+    }
+
 }
