@@ -11293,4 +11293,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b542_aaeos_test_verified_share_acos_program_http_path_floor_count']);
     }
 
+    public function test_b543_aaeos_doc_gate_context_pareto_outcome_causality_summary_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b543AaeosDocGateContextParetoOutcomeCausalitySummaryFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_RUNBOOK, $out['runbook']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_TASK_PACK, $out['task_pack']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_MIN, $out['min']);
+        $this->assertSame(OutcomeCausalityRanker::FIELD_TESTS_PASSED, $out['tests_passed']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FIELD_DIGEST, $out['digest']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_ENGINE_ID, $out['engine_id']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_PATH_YIELD, $out['path_yield']);
+        $this->assertSame(PromotionProtocol::FIELD_ROLLBACK_TRIGGER, $out['rollback_trigger']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_FRESHNESS, $out['freshness']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_OVER_RAM_CAP, $out['over_ram_cap']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_WITHOUT, $out['without']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_TEST, $out['test']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_VISION, $out['vision']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_TABLE, $out['table']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_CHAIN_LENGTH, $out['chain_length']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_RESTORED_OK, $out['restored_ok']);
+        $this->assertSame(AaeosGeneratedContractGate::FIELD_APP_SERVICES_AI_AAEOS_GENERATED, $out['app/Services/Ai/Aaeos/Generated']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_EVIDENCE_COMPLETE_ALL_REQUIRED_FIELDS_PRESENT, $out['evidence_complete_all_required_fields_present']);
+        $this->assertSame(18, $out['b543_aaeos_doc_gate_context_pareto_outcome_causality_summary_floor_count']);
+    }
+
 }

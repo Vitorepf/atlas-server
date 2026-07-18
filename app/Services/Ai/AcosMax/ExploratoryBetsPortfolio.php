@@ -187,7 +187,7 @@ final class ExploratoryBetsPortfolio
             if ((AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_RUNG] ?? null) ?? '') !== AmbitionRungPolicy::RUNG_TASK) {
                 continue;
             }
-            if (array_key_exists('path_yield', $candidate) && $candidate[self::FIELD_PATH_YIELD] !== null) {
+            if (array_key_exists(self::FIELD_PATH_YIELD, $candidate) && $candidate[self::FIELD_PATH_YIELD] !== null) {
                 continue;
             }
 

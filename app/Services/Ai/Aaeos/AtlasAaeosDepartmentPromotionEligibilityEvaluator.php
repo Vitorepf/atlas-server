@@ -104,7 +104,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
         }
 
         if (! $freshnessPrecondition[self::FIELD_PASSED]) {
-            $failedPreconditions[] = 'freshness';
+            $failedPreconditions[] = self::FIELD_FRESHNESS;
             $blockingReasons[] = self::FIELD_EVIDENCE_STALE;
         }
 
@@ -147,7 +147,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
      */
     public function preconditionKeys(): array
     {
-        return [self::FIELD_BLOCKERS, self::FIELD_QUALITY_BAR, 'freshness'];
+        return [self::FIELD_BLOCKERS, self::FIELD_QUALITY_BAR, self::FIELD_FRESHNESS];
     }
 
     /**

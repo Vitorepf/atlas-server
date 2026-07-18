@@ -155,7 +155,7 @@ final class OutcomeCausalityRanker
     {
         $outcome = AiValueNormalizer::lowerTrimmedString($envelope[self::FIELD_OUTCOME] ?? '');
         $hasEvidenceRefs = (AiValueNormalizer::boolOrNull($envelope[self::FIELD_HAS_EVIDENCE_REFS] ?? null) ?? false);
-        $testsPassed = array_key_exists('tests_passed', $envelope) ? $envelope[self::FIELD_TESTS_PASSED] : null;
+        $testsPassed = array_key_exists(self::FIELD_TESTS_PASSED, $envelope) ? $envelope[self::FIELD_TESTS_PASSED] : null;
         $missingRequiredSources = (AiValueNormalizer::boolOrNull($envelope[self::FIELD_MISSING_REQUIRED_SOURCES] ?? null) ?? false);
         $allowedFilesSufficient = (AiValueNormalizer::boolOrNull($envelope[self::FIELD_ALLOWED_FILES_SUFFICIENT] ?? null) ?? true);
         $packetQualityFailed = (AiValueNormalizer::boolOrNull($envelope[self::FIELD_PACKET_QUALITY_FAILED] ?? null) ?? false);

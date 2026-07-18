@@ -226,7 +226,7 @@ final class AtlasAaeosGateSignalEvaluator
         if (array_key_exists(self::FIELD_SPEC_PACK, $phaseOutputs)) {
             $gates[] = $this->evaluateSpecPackAcceptanceCriteria($this->asArray($phaseOutputs[self::FIELD_SPEC_PACK]));
         }
-        if (array_key_exists('task_pack', $phaseOutputs)) {
+        if (array_key_exists(self::FIELD_TASK_PACK, $phaseOutputs)) {
             $gates[] = $this->evaluateTaskPackAtomicity($this->asArray($phaseOutputs[self::FIELD_TASK_PACK]));
         }
 

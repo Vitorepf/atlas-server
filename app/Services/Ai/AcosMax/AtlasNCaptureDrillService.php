@@ -176,7 +176,7 @@ final class AtlasNCaptureDrillService
                 ],
                 self::FIELD_PEEK_ONLY => true,
                 self::FIELD_REQUIRED_FIELDS => [
-                    'engine_id',
+                    self::FIELD_ENGINE_ID,
                     self::FIELD_CAPABILITY_SPEC_VERIFIED,
                     self::FIELD_YARDSTICK_GOLDEN_V2_PASSED,
                     self::FIELD_TIMES_TIME_TO_FIRST_ROUTED_TASK_SECONDS,
@@ -344,7 +344,7 @@ final class AtlasNCaptureDrillService
 
         $engineId = AiValueNormalizer::trimmedStringOrNull($drill[self::FIELD_ENGINE_ID] ?? null) ?? '';
         if ($engineId === '') {
-            $violations[] = [self::FIELD_FIELD => 'engine_id', self::FIELD_REASON => self::REASON_DRILL_RECEIPT_INCOMPLETE];
+            $violations[] = [self::FIELD_FIELD => self::FIELD_ENGINE_ID, self::FIELD_REASON => self::REASON_DRILL_RECEIPT_INCOMPLETE];
         }
 
         foreach ([

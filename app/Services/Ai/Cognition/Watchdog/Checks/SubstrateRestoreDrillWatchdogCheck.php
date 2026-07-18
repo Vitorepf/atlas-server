@@ -100,7 +100,7 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
         $rows = (new JsonlReceiptStore($receiptPath))->read();
         $successes = array_values(array_filter(
             $rows,
-            static fn (array $row): bool => ($row[self::FIELD_STATUS] ?? null) === 'restored_ok'
+            static fn (array $row): bool => ($row[self::FIELD_STATUS] ?? null) === self::FIELD_RESTORED_OK
                 && (AiValueNormalizer::boolOrNull($row[self::FIELD_RESTORED_OK] ?? null) ?? false)
                 && is_string($row[self::FIELD_CHECKED_AT] ?? null),
         ));

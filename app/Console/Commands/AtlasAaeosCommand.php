@@ -565,6 +565,7 @@ final class AtlasAaeosCommand extends Command
                             {--b540-immune-calibration-daily-canary-aaeos-cognitive-lote-measure-floors-contract= : JSON file (any object) to observe immune/calibration/daily/canary/aaeos/cognitive floors}
                             {--b541-acos-watchdog-immune-signature-knowledge-item-model-capability-floors-contract= : JSON file (any object) to observe acos/watchdog/immune/signature/knowledge/item floors}
                             {--b542-aaeos-test-verified-share-acos-program-http-path-floors-contract= : JSON file (any object) to observe aaeos/test/verified/share/acos/program floors}
+                            {--b543-aaeos-doc-gate-context-pareto-outcome-causality-summary-floors-contract= : JSON file (any object) to observe aaeos/doc/gate/context/pareto/outcome floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1286,6 +1287,7 @@ final class AtlasAaeosCommand extends Command
             ['b540-immune-calibration-daily-canary-aaeos-cognitive-lote-measure-floors-contract', 'b540_immune_calibration_daily_canary_aaeos_cognitive_lote_measure_floors_contract', fn (array $p) => $gates->b540ImmuneCalibrationDailyCanaryAaeosCognitiveLoteMeasureFloorsContractObserve($p)],
             ['b541-acos-watchdog-immune-signature-knowledge-item-model-capability-floors-contract', 'b541_acos_watchdog_immune_signature_knowledge_item_model_capability_floors_contract', fn (array $p) => $gates->b541AcosWatchdogImmuneSignatureKnowledgeItemModelCapabilityFloorsContractObserve($p)],
             ['b542-aaeos-test-verified-share-acos-program-http-path-floors-contract', 'b542_aaeos_test_verified_share_acos_program_http_path_floors_contract', fn (array $p) => $gates->b542AaeosTestVerifiedShareAcosProgramHttpPathFloorsContractObserve($p)],
+            ['b543-aaeos-doc-gate-context-pareto-outcome-causality-summary-floors-contract', 'b543_aaeos_doc_gate_context_pareto_outcome_causality_summary_floors_contract', fn (array $p) => $gates->b543AaeosDocGateContextParetoOutcomeCausalitySummaryFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

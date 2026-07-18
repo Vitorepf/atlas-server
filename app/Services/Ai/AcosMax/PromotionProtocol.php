@@ -227,7 +227,7 @@ final class PromotionProtocol
             $missing = AiValueNormalizer::arrayOrEmpty($required[self::FIELD_MISSING] ?? null);
 
             return $this->blocked(
-                in_array('rollback_trigger', $missing, true)
+                in_array(self::FIELD_ROLLBACK_TRIGGER, $missing, true)
                     ? self::FIELD_MISSING_PREDECLARED_ROLLBACK_TRIGGER
                     : self::FIELD_MISSING_REQUIRED_FIELDS,
                 $flagId,

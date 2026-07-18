@@ -93,7 +93,7 @@ final class AtlasAaeosDocMaturityClassifier
     {
         $hasMother = $this->boolPart($sections, self::FIELD_MOTHER_DOC);
         $hasContracts = $this->boolPart($sections, self::FIELD_CONTRACTS);
-        $runbook = $this->strength($sections, 'runbook');
+        $runbook = $this->strength($sections, self::FIELD_RUNBOOK);
 
         $signalStrengths = [];
         foreach (self::L4_SIGNALS as $signal) {
@@ -218,7 +218,7 @@ final class AtlasAaeosDocMaturityClassifier
         }
 
         if ($runbook === self::STRENGTH_STRONG) {
-            $satisfied[] = 'runbook';
+            $satisfied[] = self::FIELD_RUNBOOK;
         }
 
         foreach (self::L4_SIGNALS as $signal) {

@@ -247,7 +247,7 @@ final class ContextParetoDominanceFilter
             }
         }
 
-        if (array_key_exists('min', $rule)) {
+        if (array_key_exists(self::FIELD_MIN, $rule)) {
             $numeric = AiValueNormalizer::finiteFloatOrNull($value);
             if ($numeric === null || $numeric < (AiValueNormalizer::finiteFloatOrNull($rule[self::FIELD_MIN] ?? null) ?? 0.0)) {
                 return false;

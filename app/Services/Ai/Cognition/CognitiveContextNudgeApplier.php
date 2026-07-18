@@ -80,7 +80,7 @@ final class CognitiveContextNudgeApplier
             } elseif ($framework === self::FIELD_MISSION_MODE || $framework === self::FIELD_HYPERFLOW) {
                 $hits[self::FIELD_REASONING] += 1;
                 $hits[self::FIELD_RETRIEVAL] += 1;
-            } elseif ($framework === 'vision' || str_starts_with($framework, self::FIELD_VISUAL)) {
+            } elseif ($framework === self::FIELD_VISION || str_starts_with($framework, self::FIELD_VISUAL)) {
                 $hits[self::FIELD_VISION] += 2;
             }
         }

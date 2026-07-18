@@ -22,6 +22,7 @@ final class AaeosGeneratedContractGate
     public const FIELD_GENERATED_FILE_COUNT = 'generated_file_count';
     public const FIELD_QUARANTINE_NAMESPACE = 'quarantine_namespace';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_APP_SERVICES_AI_AAEOS_GENERATED = 'app/Services/Ai/Aaeos/Generated';
 
     public function assertHotPathAllowed(string $class): void
     {
@@ -43,7 +44,7 @@ final class AaeosGeneratedContractGate
      */
     public function status(): array
     {
-        $root = base_path('app/Services/Ai/Aaeos/Generated');
+        $root = base_path(self::FIELD_APP_SERVICES_AI_AAEOS_GENERATED);
         $count = count(glob($root.'/*.php') ?: []);
 
         return [

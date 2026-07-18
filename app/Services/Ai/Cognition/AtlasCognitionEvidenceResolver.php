@@ -450,7 +450,7 @@ class AtlasCognitionEvidenceResolver
     /**
      * Does a *Test* symbol for this ref exist in the code-intel index? FQN-anchored via
      * resolveTestFqn (refuses an ambiguous bare fragment); falls back to the existence
-     * match resolve('test',...) for a bare-but-resolvable <Short>Test class. EXISTENCE
+     * match resolve(self::FIELD_TEST,...) for a bare-but-resolvable <Short>Test class. EXISTENCE
      * only — never green-ness.
      */
     private function testSymbolExists(string $testRef): bool
@@ -465,7 +465,7 @@ class AtlasCognitionEvidenceResolver
             if ($this->resolver->resolveTestFqn($testRef) !== null) {
                 return true;
             }
-            $resolution = $this->resolver->resolve('test', $testRef);
+            $resolution = $this->resolver->resolve(self::FIELD_TEST, $testRef);
         } catch (Throwable) {
             return false;
         }

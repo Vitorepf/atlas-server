@@ -204,7 +204,7 @@ final class SummaryFidelityCoverageScorer
      */
     private function usableDigest(array $item): ?string
     {
-        if (! array_key_exists('digest', $item)) {
+        if (! array_key_exists(self::FIELD_DIGEST, $item)) {
             return null;
         }
 

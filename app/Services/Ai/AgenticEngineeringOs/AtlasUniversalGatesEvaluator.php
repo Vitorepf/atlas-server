@@ -14330,4 +14330,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B543).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b543AaeosDocGateContextParetoOutcomeCausalitySummaryFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'runbook' => AtlasAaeosDocMaturityClassifier::FIELD_RUNBOOK,
+            'task_pack' => AtlasAaeosGateSignalEvaluator::FIELD_TASK_PACK,
+            'min' => ContextParetoDominanceFilter::FIELD_MIN,
+            'tests_passed' => OutcomeCausalityRanker::FIELD_TESTS_PASSED,
+            'digest' => SummaryFidelityCoverageScorer::FIELD_DIGEST,
+            'engine_id' => AtlasNCaptureDrillService::FIELD_ENGINE_ID,
+            'path_yield' => ExploratoryBetsPortfolio::FIELD_PATH_YIELD,
+            'rollback_trigger' => PromotionProtocol::FIELD_ROLLBACK_TRIGGER,
+            'freshness' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_FRESHNESS,
+            'over_ram_cap' => AtlasResourceBudgetService::FIELD_OVER_RAM_CAP,
+            'without' => GoldenCounterfactualReplayService::FIELD_WITHOUT,
+            'test' => AtlasCognitionEvidenceResolver::FIELD_TEST,
+            'vision' => CognitiveContextNudgeApplier::FIELD_VISION,
+            'table' => AcosDeadSeriesWatchdogCheck::FIELD_TABLE,
+            'chain_length' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_CHAIN_LENGTH,
+            'restored_ok' => SubstrateRestoreDrillWatchdogCheck::FIELD_RESTORED_OK,
+            'app/Services/Ai/Aaeos/Generated' => AaeosGeneratedContractGate::FIELD_APP_SERVICES_AI_AAEOS_GENERATED,
+            'evidence_complete_all_required_fields_present' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_EVIDENCE_COMPLETE_ALL_REQUIRED_FIELDS_PRESENT,
+            'b543_aaeos_doc_gate_context_pareto_outcome_causality_summary_floor_count' => 18,
+        ];
+    }
+
 }

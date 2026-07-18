@@ -148,7 +148,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_DATE => $date,
             self::FIELD_CHAINS => count($safeChains),
-            self::FIELD_CHAIN_LENGTH => array_sum(array_column($safeChains, 'chain_length')),
+            self::FIELD_CHAIN_LENGTH => array_sum(array_column($safeChains, self::FIELD_CHAIN_LENGTH)),
             self::FIELD_TAMPERED_EVENT_IDS => array_values(array_merge(
                 ...array_map(static fn (array $c): array => $c[self::FIELD_TAMPERED_EVENT_IDS], $safeChains),
             )),

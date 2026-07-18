@@ -9335,6 +9335,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b543_aaeos_doc_gate_context_pareto_outcome_causality_summary_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b543-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b543',
+                '--b543-aaeos-doc-gate-context-pareto-outcome-causality-summary-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b543_aaeos_doc_gate_context_pareto_outcome_causality_summary_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

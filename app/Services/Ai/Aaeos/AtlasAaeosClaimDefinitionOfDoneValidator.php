@@ -49,6 +49,7 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
     public const FIELD_PRESENT_FIELDS = 'present_fields';
     public const FIELD_REASON = 'reason';
     public const FIELD_EVIDENCE_COMPLETE_PARTIAL_STATE_CAVEATED = 'evidence_complete_partial_state_caveated';
+    public const FIELD_EVIDENCE_COMPLETE_ALL_REQUIRED_FIELDS_PRESENT = 'evidence_complete_all_required_fields_present';
 
     public const STATUS_PRESENT = 'present';
 
@@ -210,7 +211,7 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
         if ($verdict === self::VERDICT_EVIDENCE) {
             return $partialClaim
                 ? self::FIELD_EVIDENCE_COMPLETE_PARTIAL_STATE_CAVEATED
-                : 'evidence_complete_all_required_fields_present';
+                : self::FIELD_EVIDENCE_COMPLETE_ALL_REQUIRED_FIELDS_PRESENT;
         }
 
         return 'narrative_missing_required_fields:'.implode(',', $missingFields);
