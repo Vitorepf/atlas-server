@@ -88,6 +88,12 @@ use App\Services\Ai\Aaeos\AtlasAaeosDocMaturityClassifier;
 use App\Services\Ai\AgenticEngineeringOs\PhaseAdvanceVerdictClassifier;
 use App\Services\Ai\Cognition\AtlasFrontierWaveLadder;
 use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
+use App\Services\Ai\Aaeos\AtlasAaeosImplementationTruthService;
+use App\Services\Ai\Aaeos\AtlasAaeosGateSignalEvaluator;
+use App\Services\Ai\Cognition\ImmuneCalibrationService;
+use App\Services\Ai\Cognition\ImmuneSignatureIngestor;
+use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
+use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -6812,6 +6818,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_COUNT, $out['count']);
         $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_RECALL_CONCENTRATION_V2, $out['recall_concentration_v2']);
         $this->assertSame(18, $out['http_path_cognition_score_department_level_aaeos_doc_floor_count']);
+    }
+
+    public function test_aaeos_implementation_context_pareto_gate_phase_immune_calibration_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->aaeosImplementationContextParetoGatePhaseImmuneCalibrationFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_RANK_COMPUTED, $out['rank_computed']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_ID, $out['id']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_GATE, $out['gate']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_INTENT, $out['intent']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_POLICY_GATE, $out['policy_gate']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_RECEIPT, $out['receipt']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_CLAIM_TYPE, $out['claim_type']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_CLASSIFIER_BAND, $out['classifier_band']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_BLOCKING_GATE_IDS, $out['blocking_gate_ids']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_AI_RUN_OUTCOME_MAX_AGE_HOURS, $out['ai_run_outcome_max_age_hours']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_BY_EXECUTOR, $out['by_executor']);
+        $this->assertSame(AtlasUniversalGatesEvaluator::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasUniversalGatesEvaluator::FIELD_CANONICAL_SOURCE, $out['canonical_source']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_OWNER_DOC, $out['owner_doc']);
+        $this->assertSame(18, $out['aaeos_implementation_context_pareto_gate_phase_immune_calibration_floor_count']);
     }
 
 }

@@ -12,6 +12,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class ImmuneSignatureIngestor
 {
+    public const FIELD_BLOCKING_GATE_IDS = 'blocking_gate_ids';
+    public const FIELD_ID = 'id';
     public const STATUS_BLOCKED = 'blocked';
 
     public const WRITER_UNKNOWN = 'unknown';
@@ -63,7 +65,7 @@ final class ImmuneSignatureIngestor
         $signals = array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($classification[self::FIELD_MATCHED_SIGNALS] ?? null)));
 
         return $this->store->recordFromIncident(
-            (AiValueNormalizer::trimmedStringOrNull($verdictRow['id'] ?? null) ?? $contentHash),
+            (AiValueNormalizer::trimmedStringOrNull($verdictRow[self::FIELD_ID] ?? null) ?? $contentHash),
             ImmuneSignatureStore::ORIGIN_VERDICT,
             $contentHash,
             $hostileClass,
@@ -120,7 +122,7 @@ final class ImmuneSignatureIngestor
     {
         $label = AiValueNormalizer::trimmedScalarStringOrNull($verdictRow[self::FIELD_SAMPLE_LABEL] ?? null) ?? '';
         $status = AiValueNormalizer::lowerTrimmedString($verdictRow[self::FIELD_PROMOTION_STATUS] ?? '');
-        $blocking = array_values(array_filter(AiValueNormalizer::arrayOrEmpty($verdictRow['blocking_gate_ids'] ?? null), 'is_string'));
+        $blocking = array_values(array_filter(AiValueNormalizer::arrayOrEmpty($verdictRow[self::FIELD_BLOCKING_GATE_IDS] ?? null), 'is_string'));
 
         return $label === ImmuneVerdictLedger::LABEL_TRUE_BLOCK
             && $status === self::STATUS_BLOCKED

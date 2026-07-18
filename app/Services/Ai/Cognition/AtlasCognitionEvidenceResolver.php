@@ -58,6 +58,8 @@ use Throwable;
  */
 class AtlasCognitionEvidenceResolver
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_OWNER_DOC = 'owner_doc';
     public const STATUS_READY = 'ready';
 
     public const STATUS_PARTIAL = 'partial';
@@ -264,7 +266,7 @@ class AtlasCognitionEvidenceResolver
         }
 
         foreach ($docs as $doc) {
-            $capabilityId = AiValueNormalizer::trimmedStringOrNull($doc['id'] ?? null) ?? '';
+            $capabilityId = AiValueNormalizer::trimmedStringOrNull($doc[self::FIELD_ID] ?? null) ?? '';
             if ($capabilityId === '') {
                 continue;
             }
@@ -506,8 +508,8 @@ class AtlasCognitionEvidenceResolver
                 // a coarse bucket, never the ownership decision.
                 $short = $this->classBasename($symbolRef);
                 $index[$short][] = [
-                    self::FIELD_CAPABILITY_ID => AiValueNormalizer::trimmedScalarStringOrNull($doc['id'] ?? null) ?? '',
-                    'owner_doc' => AiValueNormalizer::trimmedScalarStringOrNull($doc[self::FIELD_PATH] ?? null) ?? '',
+                    self::FIELD_CAPABILITY_ID => AiValueNormalizer::trimmedScalarStringOrNull($doc[self::FIELD_ID] ?? null) ?? '',
+                    self::FIELD_OWNER_DOC => AiValueNormalizer::trimmedScalarStringOrNull($doc[self::FIELD_PATH] ?? null) ?? '',
                     self::FIELD_SYMBOL_REF => $symbolRef,
                     self::FIELD_EVIDENCE_REFS => $evidenceRefs,
                     self::FIELD_TEST_REFS => $testRefs,

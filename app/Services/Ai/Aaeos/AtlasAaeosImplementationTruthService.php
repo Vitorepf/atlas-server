@@ -37,6 +37,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 class AtlasAaeosImplementationTruthService
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_RANK_COMPUTED = 'rank_computed';
     public const SCHEMA = 'atlas.aaeos.implementation_state.v1';
 
     public const LEDGER_SCHEMA = 'atlas.aaeos.capability_truth_ledger.v1';
@@ -136,7 +138,7 @@ class AtlasAaeosImplementationTruthService
         if ($capability !== null && AiValueNormalizer::trimmedStringOrNull($capability) !== null) {
             $docs = array_values(array_filter(
                 $docs,
-                fn (array $doc): bool => $doc['id'] === $capability || str_contains($doc[self::FIELD_PATH], $capability),
+                fn (array $doc): bool => $doc[self::FIELD_ID] === $capability || str_contains($doc[self::FIELD_PATH], $capability),
             ));
         }
 
@@ -148,7 +150,7 @@ class AtlasAaeosImplementationTruthService
         $greenRows = 0;
 
         foreach ($docs as $doc) {
-            $result = $this->compute($doc[self::FIELD_IMPLEMENTATION_STATE], $doc[self::FIELD_EVIDENCE_REFS], $doc['id']);
+            $result = $this->compute($doc[self::FIELD_IMPLEMENTATION_STATE], $doc[self::FIELD_EVIDENCE_REFS], $doc[self::FIELD_ID]);
             $byComputed[$result[self::FIELD_COMPUTED_STATE]]++;
             if ($result[self::FIELD_DRIFT] === true) {
                 $driftCount++;
@@ -161,7 +163,7 @@ class AtlasAaeosImplementationTruthService
             }
             $rows[] = [
                 self::FIELD_SCHEMA_VERSION => self::LEDGER_SCHEMA,
-                self::FIELD_CAPABILITY_ID => $doc['id'],
+                self::FIELD_CAPABILITY_ID => $doc[self::FIELD_ID],
                 self::FIELD_OWNER_DOC => $doc[self::FIELD_PATH],
                 self::FIELD_CLAIMED_STATE => $result[self::FIELD_CLAIMED_STATE],
                 self::FIELD_CLAIMED_STATE_RAW => $result[self::FIELD_CLAIMED_STATE_RAW],
@@ -299,7 +301,7 @@ class AtlasAaeosImplementationTruthService
         if ($capability !== null && AiValueNormalizer::trimmedStringOrNull($capability) !== null) {
             $docs = array_values(array_filter(
                 $docs,
-                fn (array $doc): bool => $doc['id'] === $capability || str_contains($doc[self::FIELD_PATH], $capability),
+                fn (array $doc): bool => $doc[self::FIELD_ID] === $capability || str_contains($doc[self::FIELD_PATH], $capability),
             ));
         }
 
@@ -325,7 +327,7 @@ class AtlasAaeosImplementationTruthService
                 continue;
             }
             $out[] = [
-                self::FIELD_CAPABILITY_ID => $doc['id'],
+                self::FIELD_CAPABILITY_ID => $doc[self::FIELD_ID],
                 self::FIELD_OWNER_DOC => $doc[self::FIELD_PATH],
                 self::FIELD_EVIDENCE_REFS => $doc[self::FIELD_EVIDENCE_REFS],
                 'test_refs' => $testRefs,
@@ -375,14 +377,14 @@ class AtlasAaeosImplementationTruthService
             }
             $relativePath = str_replace(base_path().DIRECTORY_SEPARATOR, '', $file->getPathname());
             $docs[] = [
-                'id' => AiValueNormalizer::trimmedStringOrNull($fm['id'] ?? $fm[self::FIELD_GRAPH_ID] ?? $relativePath) ?? $relativePath,
+                self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($fm[self::FIELD_ID] ?? $fm[self::FIELD_GRAPH_ID] ?? $relativePath) ?? $relativePath,
                 self::FIELD_PATH => $relativePath,
                 self::FIELD_IMPLEMENTATION_STATE => (AiValueNormalizer::trimmedStringOrNull($fm[self::FIELD_IMPLEMENTATION_STATE] ?? null) ?? self::LEVEL_SPEC),
                 self::FIELD_EVIDENCE_REFS => $evidenceRefs,
             ];
         }
 
-        usort($docs, fn (array $a, array $b): int => strcmp($a['id'], $b['id']));
+        usort($docs, fn (array $a, array $b): int => strcmp($a[self::FIELD_ID], $b[self::FIELD_ID]));
 
         return $docs;
     }
@@ -716,7 +718,7 @@ class AtlasAaeosImplementationTruthService
             self::FIELD_CLAIMED_STATE_RAW => AiValueNormalizer::trimmedStringOrNull($claimedState) ?? '',
             self::FIELD_COMPUTED_STATE => $computed,
             self::FIELD_RANK_CLAIMED => $rankClaimed,
-            'rank_computed' => $rankComputed,
+            self::FIELD_RANK_COMPUTED => $rankComputed,
             // Over-claim: the doc claims MORE than the index can prove. This is the
             // blocking condition. Under-claim (computed > claimed) is fine (a warning).
             self::FIELD_DRIFT => $rankClaimed > $rankComputed,

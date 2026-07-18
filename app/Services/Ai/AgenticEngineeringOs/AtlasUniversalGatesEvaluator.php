@@ -163,6 +163,8 @@ use RuntimeException;
  */
 final class AtlasUniversalGatesEvaluator
 {
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_CANONICAL_SOURCE = 'canonical_source';
     public const SCHEMA_VERSION = 'atlas.aaeos.gate_report.v1';
 
     public const OBSERVE_LEDGER_ROTATION_SCHEMA = 'atlas.aaeos.ledger_rotation_observe.v1';
@@ -219,63 +221,63 @@ final class AtlasUniversalGatesEvaluator
     public const UNIVERSAL_GATES = [
         'lint_green' => [
             'description' => 'Linter passes on all changed files.',
-            'canonical_source' => 'tools.lint_runner',
+            self::FIELD_CANONICAL_SOURCE => 'tools.lint_runner',
         ],
         'typecheck_green' => [
             'description' => 'Static type check passes (PHPStan/tsc/mypy).',
-            'canonical_source' => 'tools.typecheck_runner',
+            self::FIELD_CANONICAL_SOURCE => 'tools.typecheck_runner',
         ],
         'tests_green' => [
             'description' => 'Selected + regression test suite is green.',
-            'canonical_source' => 'tools.test_runner',
+            self::FIELD_CANONICAL_SOURCE => 'tools.test_runner',
         ],
         'coverage_min_threshold' => [
             'description' => 'Coverage meets the project floor for the touched scope.',
-            'canonical_source' => 'tools.coverage_reporter',
+            self::FIELD_CANONICAL_SOURCE => 'tools.coverage_reporter',
         ],
         'scope_guard_ok' => [
             'description' => 'No file outside declared scope was modified.',
-            'canonical_source' => 'governance.scope_guard',
+            self::FIELD_CANONICAL_SOURCE => 'governance.scope_guard',
         ],
         'security_scan_clean' => [
             'description' => 'Security scanner (SAST / OWASP) reports no findings above threshold.',
-            'canonical_source' => 'security.scan_runner',
+            self::FIELD_CANONICAL_SOURCE => 'security.scan_runner',
         ],
         'dependency_audit_clean' => [
             'description' => 'Dependency CVE audit reports no unacknowledged vulns.',
-            'canonical_source' => 'security.dependency_audit',
+            self::FIELD_CANONICAL_SOURCE => 'security.dependency_audit',
         ],
         'secret_scan_clean' => [
             'description' => 'No new secrets committed; existing secrets remain quarantined.',
-            'canonical_source' => 'security.secret_scan',
+            self::FIELD_CANONICAL_SOURCE => 'security.secret_scan',
         ],
         'sovereignty_boundary_respected' => [
             'description' => 'No sensitive/secret/cyber payload crossed local-first boundary.',
-            'canonical_source' => 'security.sovereignty_gate',
+            self::FIELD_CANONICAL_SOURCE => 'security.sovereignty_gate',
         ],
         'decision_receipt_v2_signed' => [
             'description' => 'Decision Receipt v2 is signed and persisted before execution.',
-            'canonical_source' => 'governance.decision_receipt_v2',
+            self::FIELD_CANONICAL_SOURCE => 'governance.decision_receipt_v2',
         ],
         'evidence_traceable' => [
             'description' => 'Every claim links to a hash-addressable evidence artifact.',
-            'canonical_source' => 'evidence.ledger',
+            self::FIELD_CANONICAL_SOURCE => 'evidence.ledger',
         ],
         'rollback_plan_present' => [
             'description' => 'Rollback plan exists for every breaking change.',
-            'canonical_source' => 'delivery.rollback_planner',
+            self::FIELD_CANONICAL_SOURCE => 'delivery.rollback_planner',
         ],
         'review_packet_signed' => [
             'description' => 'Review department signed the review packet for this delivery.',
-            'canonical_source' => 'review.packet_signer',
+            self::FIELD_CANONICAL_SOURCE => 'review.packet_signer',
         ],
         'delivery_pack_completeness_min_0_95' => [
             'description' => 'Delivery pack completeness score >= 0.95.',
-            'canonical_source' => DeliveryPackCompletenessScorer::class,
+            self::FIELD_CANONICAL_SOURCE => DeliveryPackCompletenessScorer::class,
         ],
         'learning_capsule_registered' => [
             'description' => 'A learning_capsule was registered with ACOS for compounding.',
-            'canonical_source' => 'memory.learning_capsule_registry',
+            self::FIELD_CANONICAL_SOURCE => 'memory.learning_capsule_registry',
         ],
     ];
 
@@ -757,7 +759,7 @@ final class AtlasUniversalGatesEvaluator
         $ranked = $this->memoryRecallRelevance->rank($rows);
 
         return [
-            'schema_version' => AtlasMemoryRecallRelevanceScorer::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AtlasMemoryRecallRelevanceScorer::SCHEMA_VERSION,
             'ranked' => $ranked,
             'count' => count($ranked),
         ];
@@ -817,7 +819,7 @@ final class AtlasUniversalGatesEvaluator
         $fields = AiValueNormalizer::arrayOrEmpty($input['fields'] ?? null);
 
         return [
-            'schema_version' => DomainLexicalNormalizer::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => DomainLexicalNormalizer::SCHEMA_VERSION,
             'formula_version' => DomainLexicalNormalizer::FORMULA_VERSION,
             'query' => $query,
             'score' => DomainLexicalNormalizer::score($query, $fields),
@@ -948,7 +950,7 @@ final class AtlasUniversalGatesEvaluator
         $policy = $series === '' ? null : $registry->policyFor($series);
 
         return [
-            'schema_version' => self::OBSERVE_LEDGER_ROTATION_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::OBSERVE_LEDGER_ROTATION_SCHEMA,
             'series' => $series,
             'found' => $policy !== null,
             'policy' => $policy,
@@ -970,7 +972,7 @@ final class AtlasUniversalGatesEvaluator
         /** @var list<string> $forbidden */
 
         return [
-            'schema_version' => self::OBSERVE_EVIDENCE_VISION_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::OBSERVE_EVIDENCE_VISION_SCHEMA,
             'field_sources_valid' => EvidenceVisionThesisComposer::thesisFieldSourcesValid($thesis),
             'operator_fence_pass' => EvidenceVisionThesisComposer::thesisPassesOperatorFence($thesis, $forbidden),
         ];
@@ -1040,7 +1042,7 @@ final class AtlasUniversalGatesEvaluator
         $normalized = AtlasAaeosThresholdLadderNormalizer::levelLadder($ladder);
 
         return [
-            'schema_version' => self::OBSERVE_THRESHOLD_LADDER_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::OBSERVE_THRESHOLD_LADDER_SCHEMA,
             'valid' => $normalized !== [] || $ladder === [],
             'band_count' => count($normalized),
             'ladder' => $normalized,
@@ -1105,7 +1107,7 @@ final class AtlasUniversalGatesEvaluator
         $ledger = new Maxa04JinaV3DualReadLedger($path);
 
         return [
-            'schema_version' => Maxa04JinaV3DualReadLedger::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => Maxa04JinaV3DualReadLedger::SCHEMA,
             'path' => $ledger->path(),
             'relative_path' => Maxa04JinaV3DualReadLedger::RELATIVE_PATH,
             'custom_path' => $path !== null,
@@ -1179,7 +1181,7 @@ final class AtlasUniversalGatesEvaluator
         $latest = (new AcosMeasureSeriesFreshnessReader)->lastAppendAt($entry);
 
         return [
-            'schema_version' => AcosMeasureSeriesFreshnessReader::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => AcosMeasureSeriesFreshnessReader::SCHEMA,
             'series' => AiValueNormalizer::trimmedStringOrNull($entry['series'] ?? null) ?? '',
             'source_type' => AiValueNormalizer::trimmedStringOrNull($entry['source_type'] ?? null) ?? '',
             'path' => AiValueNormalizer::trimmedStringOrNull($entry['path'] ?? null) ?? '',
@@ -1471,7 +1473,7 @@ final class AtlasUniversalGatesEvaluator
     public function phaseHandoffCatalogueObserve(array $input = []): array
     {
         return [
-            'schema_version' => AaeosPhaseHandoffService::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AaeosPhaseHandoffService::SCHEMA_VERSION,
             'phase_count' => count(AaeosPhaseHandoffService::PHASES),
             'phases' => AaeosPhaseHandoffService::PHASES,
             'autonomy_level_int' => AaeosPhaseHandoffService::autonomyLevelInt(
@@ -1565,7 +1567,7 @@ final class AtlasUniversalGatesEvaluator
         $values = AiValueNormalizer::arrayOrEmpty($input['values'] ?? null);
 
         return [
-            'schema_version' => self::OBSERVE_STRING_LIST_NORMALIZE_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::OBSERVE_STRING_LIST_NORMALIZE_SCHEMA,
             'trimmed_strings' => AtlasAaeosStringListNormalizer::trimmedStrings($values),
             'unique_trimmed_strings' => AtlasAaeosStringListNormalizer::uniqueTrimmedStrings($values),
             'non_empty_strings' => AtlasAaeosStringListNormalizer::nonEmptyStrings($values),
@@ -1587,7 +1589,7 @@ final class AtlasUniversalGatesEvaluator
         $threshold = AiValueNormalizer::finiteFloatOrNull($input['threshold'] ?? null) ?? 0.0;
 
         return [
-            'schema_version' => self::OBSERVE_THRESHOLD_COMPARATOR_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::OBSERVE_THRESHOLD_COMPARATOR_SCHEMA,
             'comparator' => $comparator,
             'observed' => $observed,
             'threshold' => $threshold,
@@ -1609,7 +1611,7 @@ final class AtlasUniversalGatesEvaluator
         $refs = $normalizer->listFromRaw($input['evidence_refs'] ?? []);
 
         return [
-            'schema_version' => self::OBSERVE_EVIDENCE_REF_NORMALIZE_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::OBSERVE_EVIDENCE_REF_NORMALIZE_SCHEMA,
             'count' => count($refs),
             'evidence_refs' => $refs,
         ];
@@ -1656,7 +1658,7 @@ final class AtlasUniversalGatesEvaluator
         $key = AiValueNormalizer::trimmedStringOrNull($input['key'] ?? null) ?? 'id';
 
         return [
-            'schema_version' => self::OBSERVE_ARRAY_FIELD_READER_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::OBSERVE_ARRAY_FIELD_READER_SCHEMA,
             'key' => $key,
             'string_field' => AtlasAaeosArrayFieldReader::stringField($row, $key),
         ];
@@ -1723,7 +1725,7 @@ final class AtlasUniversalGatesEvaluator
     public function departmentCanonicalListObserve(array $input = []): array
     {
         return [
-            'schema_version' => AtlasAaeosDepartmentRegistryService::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => AtlasAaeosDepartmentRegistryService::SCHEMA,
             'canonical_departments' => AtlasAaeosDepartmentRegistryService::CANONICAL_DEPARTMENTS,
             'count' => count(AtlasAaeosDepartmentRegistryService::CANONICAL_DEPARTMENTS),
             'required_fields' => AtlasAaeosDepartmentRegistryService::REQUIRED_FIELDS,
@@ -1745,7 +1747,7 @@ final class AtlasUniversalGatesEvaluator
         $gates = $this->catalogue();
 
         return [
-            'schema_version' => self::OBSERVE_UNIVERSAL_GATES_CATALOGUE_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::OBSERVE_UNIVERSAL_GATES_CATALOGUE_SCHEMA,
             'count' => count($gates),
             'gates' => $gates,
         ];
@@ -1761,7 +1763,7 @@ final class AtlasUniversalGatesEvaluator
     public function outcomeAttributionTypesObserve(array $input = []): array
     {
         return [
-            'schema_version' => self::OBSERVE_OUTCOME_ATTRIBUTION_TYPES_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::OBSERVE_OUTCOME_ATTRIBUTION_TYPES_SCHEMA,
             'outcome_types' => AiOutcomeAttributionService::OUTCOME_TYPES,
             'count' => count(AiOutcomeAttributionService::OUTCOME_TYPES),
         ];
@@ -1777,7 +1779,7 @@ final class AtlasUniversalGatesEvaluator
     public function phaseRouterValidPhasesObserve(array $input = []): array
     {
         return [
-            'schema_version' => AtlasAaeosPhaseRouterService::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AtlasAaeosPhaseRouterService::SCHEMA_VERSION,
             'valid_phases' => AtlasAaeosPhaseRouterService::VALID_PHASES,
             'count' => count(AtlasAaeosPhaseRouterService::VALID_PHASES),
             'active_phase_ranks' => AtlasAaeosPhaseRouterService::ACTIVE_PHASE_RANKS,
@@ -1796,7 +1798,7 @@ final class AtlasUniversalGatesEvaluator
     public function choreographyHandoffKindsObserve(array $input = []): array
     {
         return [
-            'schema_version' => AtlasCrossDepartmentChoreographyService::HANDOFF_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => AtlasCrossDepartmentChoreographyService::HANDOFF_SCHEMA,
             'handoff_kinds' => AtlasCrossDepartmentChoreographyService::HANDOFF_KINDS,
             'count' => count(AtlasCrossDepartmentChoreographyService::HANDOFF_KINDS),
             'veto_sla_seconds' => AtlasCrossDepartmentChoreographyService::VETO_SLA_SECONDS,
@@ -1814,7 +1816,7 @@ final class AtlasUniversalGatesEvaluator
     public function realityCompilerPhasesObserve(array $input = []): array
     {
         return [
-            'schema_version' => RealityCompilerSlice::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => RealityCompilerSlice::SCHEMA_VERSION,
             'execution_phases' => RealityCompilerSlice::EXECUTION_PHASES,
             'count' => count(RealityCompilerSlice::EXECUTION_PHASES),
         ];
@@ -1830,7 +1832,7 @@ final class AtlasUniversalGatesEvaluator
     public function scopeRiskClassesObserve(array $input = []): array
     {
         return [
-            'schema_version' => AtlasSelfConstructionScopeRiskBudgetGate::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => AtlasSelfConstructionScopeRiskBudgetGate::SCHEMA,
             'risk_classes' => AtlasSelfConstructionScopeRiskBudgetGate::RISKS,
             'count' => count(AtlasSelfConstructionScopeRiskBudgetGate::RISKS),
             'risk_floor_default' => AtlasSelfConstructionScopeRiskBudgetGate::RISK_FLOOR_DEFAULT,
@@ -1847,7 +1849,7 @@ final class AtlasUniversalGatesEvaluator
     public function organMeshPhasesObserve(array $input = []): array
     {
         return [
-            'schema_version' => AtlasExternalBrainOrganMeshOrchestrator::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => AtlasExternalBrainOrganMeshOrchestrator::SCHEMA,
             'phases' => AtlasExternalBrainOrganMeshOrchestrator::PHASES,
             'count' => count(AtlasExternalBrainOrganMeshOrchestrator::PHASES),
         ];
@@ -1863,7 +1865,7 @@ final class AtlasUniversalGatesEvaluator
     public function telemetrySurfacesObserve(array $input = []): array
     {
         return [
-            'schema_version' => self::OBSERVE_TELEMETRY_COLLECTOR_SURFACES_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::OBSERVE_TELEMETRY_COLLECTOR_SURFACES_SCHEMA,
             'surfaces' => AiTelemetryCollector::SURFACES,
             'runtimes' => AiTelemetryCollector::RUNTIMES,
             'surface_count' => count(AiTelemetryCollector::SURFACES),
@@ -1881,7 +1883,7 @@ final class AtlasUniversalGatesEvaluator
     public function phaseSignatureL4Observe(array $input = []): array
     {
         return [
-            'schema_version' => AaeosPhaseHandoffService::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AaeosPhaseHandoffService::SCHEMA_VERSION,
             'phases_requiring_signature_at_l4' => AaeosPhaseHandoffService::PHASES_REQUIRING_SIGNATURE_AT_L4,
             'count' => count(AaeosPhaseHandoffService::PHASES_REQUIRING_SIGNATURE_AT_L4),
         ];
@@ -1904,7 +1906,7 @@ final class AtlasUniversalGatesEvaluator
         ];
 
         return [
-            'schema_version' => self::OBSERVE_BLOCKER_SEVERITY_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::OBSERVE_BLOCKER_SEVERITY_SCHEMA,
             'levels' => $levels,
             'count' => count($levels),
             'decisive_levels' => [AaeosBlockerSeverity::CRITICAL, AaeosBlockerSeverity::HIGH],
@@ -1921,7 +1923,7 @@ final class AtlasUniversalGatesEvaluator
     public function scopeHighRisksObserve(array $input = []): array
     {
         return [
-            'schema_version' => AtlasSelfConstructionScopeRiskBudgetGate::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => AtlasSelfConstructionScopeRiskBudgetGate::SCHEMA,
             'high_risks' => AtlasSelfConstructionScopeRiskBudgetGate::HIGH_RISKS,
             'count' => count(AtlasSelfConstructionScopeRiskBudgetGate::HIGH_RISKS),
             'max_failure_rate' => AtlasSelfConstructionScopeRiskBudgetGate::MAX_FAILURE_RATE,
@@ -1939,7 +1941,7 @@ final class AtlasUniversalGatesEvaluator
     public function architectSpecCatalogueObserve(array $input = []): array
     {
         return [
-            'schema_version' => ArchitectAgentSpecPackGateContract::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => ArchitectAgentSpecPackGateContract::SCHEMA,
             'required_spec_pack_artifacts' => ArchitectAgentSpecPackGateContract::REQUIRED_SPEC_PACK_ARTIFACTS,
             'gates' => ArchitectAgentSpecPackGateContract::GATES,
             'artifact_count' => count(ArchitectAgentSpecPackGateContract::REQUIRED_SPEC_PACK_ARTIFACTS),
@@ -1959,7 +1961,7 @@ final class AtlasUniversalGatesEvaluator
     public function surpriseGateBandsObserve(array $input = []): array
     {
         return [
-            'schema_version' => self::OBSERVE_SURPRISE_GATE_BANDS_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::OBSERVE_SURPRISE_GATE_BANDS_SCHEMA,
             'default_threshold' => AtlasSurpriseGateService::DEFAULT_THRESHOLD,
             'default_high_band' => AtlasSurpriseGateService::DEFAULT_HIGH_BAND,
             'default_min_prediction_tokens' => AtlasSurpriseGateService::DEFAULT_MIN_PREDICTION_TOKENS,
@@ -1978,7 +1980,7 @@ final class AtlasUniversalGatesEvaluator
     public function immuneCalibrationContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => ImmuneCalibrationService::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => ImmuneCalibrationService::SCHEMA_VERSION,
             'measure_id' => ImmuneCalibrationService::MEASURE_ID,
             'formula_version' => ImmuneCalibrationService::FORMULA_VERSION,
             'denominator_min' => ImmuneCalibrationService::DENOMINATOR_MIN,
@@ -1998,7 +2000,7 @@ final class AtlasUniversalGatesEvaluator
     public function cognitiveImmuneCheckContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => CognitiveImmuneCheckContract::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => CognitiveImmuneCheckContract::SCHEMA,
             'gate_ids' => CognitiveImmuneCheckContract::GATE_IDS,
             'gate_count' => count(CognitiveImmuneCheckContract::GATE_IDS),
             'check_categories' => CognitiveImmuneCheckContract::CHECK_CATEGORIES,
@@ -2019,7 +2021,7 @@ final class AtlasUniversalGatesEvaluator
     public function cognitionEvidenceStatusesObserve(array $input = []): array
     {
         return [
-            'schema_version' => self::OBSERVE_EVIDENCE_STATUSES_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::OBSERVE_EVIDENCE_STATUSES_SCHEMA,
             'evidence_statuses' => [
                 AtlasCognitionEvidenceResolver::STATUS_READY,
                 AtlasCognitionEvidenceResolver::STATUS_PARTIAL,
@@ -2044,7 +2046,7 @@ final class AtlasUniversalGatesEvaluator
         $healthCatalog = HealthReportWatchdogCheck::catalog();
 
         return [
-            'schema_version' => CaptureHmacLineageService::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => CaptureHmacLineageService::SCHEMA_VERSION,
             'genesis_receipt' => CaptureHmacLineageService::GENESIS_RECEIPT,
             'stages' => [
                 CaptureHmacLineageService::STAGE_SOURCE,
@@ -2070,7 +2072,7 @@ final class AtlasUniversalGatesEvaluator
     public function cognitiveFunctionAxesObserve(array $input = []): array
     {
         return [
-            'schema_version' => AtlasCognitiveFunctionDecomposerService::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => AtlasCognitiveFunctionDecomposerService::SCHEMA,
             'functions' => AtlasCognitiveFunctionDecomposerService::FUNCTIONS,
             'function_count' => count(AtlasCognitiveFunctionDecomposerService::FUNCTIONS),
             'rule_axes' => array_keys(AtlasCognitiveFunctionDecomposerService::RULES),
@@ -2088,7 +2090,7 @@ final class AtlasUniversalGatesEvaluator
     public function gateSignalContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => AtlasAaeosGateSignalEvaluator::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AtlasAaeosGateSignalEvaluator::SCHEMA_VERSION,
             'gates' => [
                 AtlasAaeosGateSignalEvaluator::GATE_INTENT_CLARITY,
                 AtlasAaeosGateSignalEvaluator::GATE_SPEC_PACK,
@@ -2118,7 +2120,7 @@ final class AtlasUniversalGatesEvaluator
     public function rollbackTriggerContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => AtlasAcosRollbackTriggerCheckService::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AtlasAcosRollbackTriggerCheckService::SCHEMA_VERSION,
             'default_executor' => 'watchdog_alert_operator_reverts',
             'auto_revert' => false,
             'alert_code' => 'rollback_trigger_fired',
@@ -2135,7 +2137,7 @@ final class AtlasUniversalGatesEvaluator
     public function longHorizonGateContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => AtlasAcosLongHorizonGateService::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AtlasAcosLongHorizonGateService::SCHEMA_VERSION,
             'fixtures' => ['live', 'mature', 'short-window'],
             'ready_status' => 'acos_long_horizon_ready',
             'blocked_status' => 'insufficient_long_horizon_evidence',
@@ -2152,7 +2154,7 @@ final class AtlasUniversalGatesEvaluator
     public function immuneSignatureStoreContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => ImmuneSignatureStore::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => ImmuneSignatureStore::SCHEMA_VERSION,
             'measure_id' => ImmuneSignatureStore::MEASURE_ID,
             'statuses' => [
                 ImmuneSignatureStore::STATUS_ACTIVE,
@@ -2176,7 +2178,7 @@ final class AtlasUniversalGatesEvaluator
     public function promotionProtocolStatesObserve(array $input = []): array
     {
         return [
-            'schema_version' => PromotionProtocol::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => PromotionProtocol::SCHEMA,
             'report_schema' => PromotionProtocol::REPORT_SCHEMA,
             'states' => PromotionProtocol::STATES,
             'state_count' => count(PromotionProtocol::STATES),
@@ -2193,7 +2195,7 @@ final class AtlasUniversalGatesEvaluator
     public function autonomousWorkCycleStagesObserve(array $input = []): array
     {
         return [
-            'schema_version' => AutonomousWorkExecutionOs::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AutonomousWorkExecutionOs::SCHEMA_VERSION,
             'autonomy_levels' => AutonomousWorkExecutionOs::AUTONOMY_LEVELS,
             'cycle_stages' => AutonomousWorkExecutionOs::CYCLE_STAGES,
             'stage_count' => count(AutonomousWorkExecutionOs::CYCLE_STAGES),
@@ -2212,7 +2214,7 @@ final class AtlasUniversalGatesEvaluator
     public function immuneVerdictLedgerLabelsObserve(array $input = []): array
     {
         return [
-            'schema_version' => ImmuneVerdictLedger::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => ImmuneVerdictLedger::SCHEMA_VERSION,
             'labels' => ImmuneVerdictLedger::LABELS,
             'label_count' => count(ImmuneVerdictLedger::LABELS),
         ];
@@ -2228,7 +2230,7 @@ final class AtlasUniversalGatesEvaluator
     public function flywheelFunnelStagesObserve(array $input = []): array
     {
         return [
-            'schema_version' => AtlasFlywheelFunnelService::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AtlasFlywheelFunnelService::SCHEMA_VERSION,
             'measure_id' => AtlasFlywheelFunnelService::MEASURE_ID,
             'formula_version' => AtlasFlywheelFunnelService::FORMULA_VERSION,
             'stages' => AtlasFlywheelFunnelService::STAGES,
@@ -2246,7 +2248,7 @@ final class AtlasUniversalGatesEvaluator
     public function missionControlCockpitSchemaObserve(array $input = []): array
     {
         return [
-            'schema_version' => AtlasMissionControlCockpitService::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AtlasMissionControlCockpitService::SCHEMA_VERSION,
             'phase_count' => count(AaeosPhaseHandoffService::PHASES),
             'phases' => AaeosPhaseHandoffService::PHASES,
         ];
@@ -2262,7 +2264,7 @@ final class AtlasUniversalGatesEvaluator
     public function evidenceVisionThesisLifecycleObserve(array $input = []): array
     {
         return [
-            'schema_version' => EvidenceVisionThesisLifecycle::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => EvidenceVisionThesisLifecycle::SCHEMA_VERSION,
             'composer_schema' => EvidenceVisionThesisComposer::SCHEMA_VERSION,
             'max_theses' => EvidenceVisionThesisComposer::MAX_THESES,
             'min_regression_windows' => EvidenceVisionThesisComposer::MIN_REGRESSION_WINDOWS,
@@ -2285,7 +2287,7 @@ final class AtlasUniversalGatesEvaluator
     public function exploratoryBetsPortfolioContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => ExploratoryBetsPortfolio::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => ExploratoryBetsPortfolio::SCHEMA_VERSION,
             'default_k' => ExploratoryBetsPortfolio::DEFAULT_K,
             'default_window_days' => ExploratoryBetsPortfolio::DEFAULT_WINDOW_DAYS,
             'min_n' => ExploratoryBetsPortfolio::MIN_N,
@@ -2323,7 +2325,7 @@ final class AtlasUniversalGatesEvaluator
     public function memoryFeedbackDecayContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => MemoryFeedbackDecayScorer::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => MemoryFeedbackDecayScorer::SCHEMA_VERSION,
             'hard_stale_age_days' => MemoryFeedbackDecayScorer::HARD_STALE_AGE_DAYS,
             'soft_stale_age_days' => MemoryFeedbackDecayScorer::SOFT_STALE_AGE_DAYS,
             'default_base_priority' => MemoryFeedbackDecayScorer::DEFAULT_BASE_PRIORITY,
@@ -2344,7 +2346,7 @@ final class AtlasUniversalGatesEvaluator
     public function specCompletenessContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => SpecCompletenessScorer::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => SpecCompletenessScorer::SCHEMA_VERSION,
             'text_min_length' => SpecCompletenessScorer::TEXT_MIN_LENGTH,
             'total_fields' => SpecCompletenessScorer::TOTAL_FIELDS,
             'complete_threshold' => SpecCompletenessScorer::COMPLETE_THRESHOLD,
@@ -2408,7 +2410,7 @@ final class AtlasUniversalGatesEvaluator
     public function outcomeEnvelopeContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => OutcomeEnvelope::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => OutcomeEnvelope::SCHEMA_VERSION,
             'formula_version' => OutcomeEnvelope::FORMULA_VERSION,
             'adapter_origins' => OutcomeEnvelope::ADAPTER_ORIGINS,
             'statuses' => OutcomeEnvelope::STATUSES,
@@ -2427,7 +2429,7 @@ final class AtlasUniversalGatesEvaluator
     public function preReviewAdvisoryContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => PreReviewAdvisoryBand::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => PreReviewAdvisoryBand::SCHEMA_VERSION,
             'formula_version' => PreReviewAdvisoryBand::FORMULA_VERSION,
             'min_n_for_band' => PreReviewAdvisoryBand::MIN_N_FOR_BAND,
             'death_min_n' => PreReviewAdvisoryBand::DEATH_MIN_N,
@@ -2447,7 +2449,7 @@ final class AtlasUniversalGatesEvaluator
     public function ambitionRungPolicyContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => AmbitionRungPolicy::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AmbitionRungPolicy::SCHEMA_VERSION,
             'rungs' => AmbitionRungPolicy::RUNGS,
             'rung_count' => count(AmbitionRungPolicy::RUNGS),
             'scope_has_ceiling' => false,
@@ -2465,7 +2467,7 @@ final class AtlasUniversalGatesEvaluator
     public function reactiveSaturationContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => ReactiveSaturationSignal::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => ReactiveSaturationSignal::SCHEMA_VERSION,
             'min_n_per_window' => ReactiveSaturationSignal::MIN_N_PER_WINDOW,
             'min_windows' => ReactiveSaturationSignal::MIN_WINDOWS,
             'report_only' => true,
@@ -2484,7 +2486,7 @@ final class AtlasUniversalGatesEvaluator
     public function portfolioBudgetContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => PortfolioBudgetAllocator::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => PortfolioBudgetAllocator::SCHEMA_VERSION,
             'formula_version' => PortfolioBudgetAllocator::FORMULA_VERSION,
             'classes' => PortfolioBudgetAllocator::CLASSES,
             'class_count' => count(PortfolioBudgetAllocator::CLASSES),
@@ -2505,7 +2507,7 @@ final class AtlasUniversalGatesEvaluator
     public function predictedImpactBandContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => PredictedImpactBand::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => PredictedImpactBand::SCHEMA_VERSION,
             'bands' => PredictedImpactBand::BANDS,
             'band_count' => count(PredictedImpactBand::BANDS),
             'rung_weights' => PredictedImpactBand::RUNG_WEIGHT,
@@ -2524,7 +2526,7 @@ final class AtlasUniversalGatesEvaluator
     public function gatedCorpusContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => GatedCorpusCandidateMiner::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => GatedCorpusCandidateMiner::SCHEMA_VERSION,
             'protected_classes' => GatedCorpusCandidateMiner::PROTECTED,
             'protected_class_count' => count(GatedCorpusCandidateMiner::PROTECTED),
             'candidate_only' => true,
@@ -2543,7 +2545,7 @@ final class AtlasUniversalGatesEvaluator
     public function claimDefinitionOfDoneContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => AtlasAaeosClaimDefinitionOfDoneValidator::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AtlasAaeosClaimDefinitionOfDoneValidator::SCHEMA_VERSION,
             'evaluated_against' => AtlasAaeosClaimDefinitionOfDoneValidator::EVALUATED_AGAINST,
             'canonical_fields' => AtlasAaeosClaimDefinitionOfDoneValidator::CANONICAL_FIELDS,
             'unconditional_fields' => AtlasAaeosClaimDefinitionOfDoneValidator::UNCONDITIONAL_FIELDS,
@@ -2571,7 +2573,7 @@ final class AtlasUniversalGatesEvaluator
     public function qualityBarTelemetryContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => QualityBarTelemetryContract::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => QualityBarTelemetryContract::SCHEMA,
             'quality_bar_schema' => QualityBarTelemetryContract::QUALITY_BAR_SCHEMA,
             'immune_gate_id' => QualityBarTelemetryContract::IMMUNE_GATE_ID,
             'breach_signal' => QualityBarTelemetryContract::BREACH_SIGNAL,
@@ -2592,7 +2594,7 @@ final class AtlasUniversalGatesEvaluator
     public function docMaturityContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => AtlasAaeosDocMaturityClassifier::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AtlasAaeosDocMaturityClassifier::SCHEMA_VERSION,
             'levels' => AtlasAaeosDocMaturityClassifier::LEVELS,
             'level_count' => count(AtlasAaeosDocMaturityClassifier::LEVELS),
             'boolean_requirements' => AtlasAaeosDocMaturityClassifier::BOOLEAN_REQUIREMENTS,
@@ -2612,7 +2614,7 @@ final class AtlasUniversalGatesEvaluator
     public function attemptLifecycleContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => AttemptLifecycleLedger::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AttemptLifecycleLedger::SCHEMA_VERSION,
             'terminal_states' => AttemptLifecycleLedger::TERMINAL_STATES,
             'terminal_state_count' => count(AttemptLifecycleLedger::TERMINAL_STATES),
             'outcome_without_attempt_allowed' => false,
@@ -2630,7 +2632,7 @@ final class AtlasUniversalGatesEvaluator
     public function esp09ChallengerContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => Esp09IndependentChallengerService::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => Esp09IndependentChallengerService::SCHEMA_VERSION,
             'measure_id' => Esp09IndependentChallengerService::MEASURE_ID,
             'mode' => Esp09IndependentChallengerService::MODE,
             'high_alignment_band' => Esp09IndependentChallengerService::HIGH_ALIGNMENT_BAND,
@@ -2671,7 +2673,7 @@ final class AtlasUniversalGatesEvaluator
     public function deliveryPackContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => DeliveryPackCompletenessScorer::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => DeliveryPackCompletenessScorer::SCHEMA,
             'required_keys' => DeliveryPackCompletenessScorer::REQUIRED_KEYS,
             'required_key_count' => count(DeliveryPackCompletenessScorer::REQUIRED_KEYS),
             'statuses' => DeliveryPackCompletenessScorer::STATUSES,
@@ -2764,7 +2766,7 @@ final class AtlasUniversalGatesEvaluator
     public function segmentImportanceContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => SegmentImportanceRanker::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => SegmentImportanceRanker::SCHEMA_VERSION,
             'kind_weights' => SegmentImportanceRanker::KIND_WEIGHT,
             'kind_weight_count' => count(SegmentImportanceRanker::KIND_WEIGHT),
             'kind_weight_unknown' => SegmentImportanceRanker::KIND_WEIGHT_UNKNOWN,
@@ -2789,7 +2791,7 @@ final class AtlasUniversalGatesEvaluator
     public function cognitiveImmunePromotionGateContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => CognitiveImmunePromotionGateEvaluator::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => CognitiveImmunePromotionGateEvaluator::SCHEMA_VERSION,
             'gate_ids' => CognitiveImmunePromotionGateEvaluator::GATE_IDS,
             'gate_count' => count(CognitiveImmunePromotionGateEvaluator::GATE_IDS),
             'statuses' => [
@@ -2814,7 +2816,7 @@ final class AtlasUniversalGatesEvaluator
     public function cognitiveImmuneInputClassifierContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => AtlasAaeosCognitiveImmuneInputClassifier::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AtlasAaeosCognitiveImmuneInputClassifier::SCHEMA_VERSION,
             'recurrence_memory_threshold' => AtlasAaeosCognitiveImmuneInputClassifier::RECURRENCE_MEMORY_THRESHOLD,
             'destination_classes' => array_keys(AtlasAaeosCognitiveImmuneInputClassifier::DESTINATIONS),
             'destination_class_count' => count(AtlasAaeosCognitiveImmuneInputClassifier::DESTINATIONS),
@@ -3235,7 +3237,7 @@ final class AtlasUniversalGatesEvaluator
     public function outcomeCausalityWeightsContractObserve(array $input = []): array
     {
         return [
-            'schema_version' => OutcomeCausalityRanker::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => OutcomeCausalityRanker::SCHEMA_VERSION,
             'primary_causes' => OutcomeCausalityRanker::PRIMARY_CAUSES,
             'primary_cause_count' => count(OutcomeCausalityRanker::PRIMARY_CAUSES),
             'outcomes' => OutcomeCausalityRanker::OUTCOMES,
@@ -8659,7 +8661,7 @@ final class AtlasUniversalGatesEvaluator
     {
         return [
             'escalate' => AtlasRepairLoopGuard::FIELD_ESCALATE,
-            'schema_version' => AtlasRepairLoopGuard::FIELD_SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AtlasRepairLoopGuard::FIELD_SCHEMA_VERSION,
             'meta' => AcosMaxParallelExecutionProtocol::FIELD_META,
             'protocol' => AcosMaxParallelExecutionProtocol::FIELD_PROTOCOL,
             'frontier_promotes' => AcosMaxProceduralSkillPromoterService::FIELD_FRONTIER_PROMOTES,
@@ -8832,6 +8834,37 @@ final class AtlasUniversalGatesEvaluator
             'count' => CognitiveImmunePromotionGateEvaluator::FIELD_COUNT,
             'recall_concentration_v2' => CognitiveImmunePromotionGateEvaluator::FIELD_RECALL_CONCENTRATION_V2,
             'http_path_cognition_score_department_level_aaeos_doc_floor_count' => 18,
+        ];
+    }
+
+    /**
+     * Observe-only floors contract (B365).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function aaeosImplementationContextParetoGatePhaseImmuneCalibrationFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'id' => AtlasAaeosImplementationTruthService::FIELD_ID,
+            'rank_computed' => AtlasAaeosImplementationTruthService::FIELD_RANK_COMPUTED,
+            'id' => ContextParetoDominanceFilter::FIELD_ID,
+            'schema_version' => ContextParetoDominanceFilter::FIELD_SCHEMA_VERSION,
+            'gate' => AtlasAaeosGateSignalEvaluator::FIELD_GATE,
+            'intent' => AtlasAaeosGateSignalEvaluator::FIELD_INTENT,
+            'policy_gate' => AtlasAaeosPhaseRouterService::FIELD_POLICY_GATE,
+            'receipt' => AtlasAaeosPhaseRouterService::FIELD_RECEIPT,
+            'claim_type' => ImmuneCalibrationService::FIELD_CLAIM_TYPE,
+            'classifier_band' => ImmuneCalibrationService::FIELD_CLASSIFIER_BAND,
+            'blocking_gate_ids' => ImmuneSignatureIngestor::FIELD_BLOCKING_GATE_IDS,
+            'id' => ImmuneSignatureIngestor::FIELD_ID,
+            'ai_run_outcome_max_age_hours' => AtlasAcosWatchdogHealthService::FIELD_AI_RUN_OUTCOME_MAX_AGE_HOURS,
+            'by_executor' => AtlasAcosWatchdogHealthService::FIELD_BY_EXECUTOR,
+            'schema_version' => AtlasUniversalGatesEvaluator::FIELD_SCHEMA_VERSION,
+            'canonical_source' => AtlasUniversalGatesEvaluator::FIELD_CANONICAL_SOURCE,
+            'id' => AtlasCognitionEvidenceResolver::FIELD_ID,
+            'owner_doc' => AtlasCognitionEvidenceResolver::FIELD_OWNER_DOC,
+            'aaeos_implementation_context_pareto_gate_phase_immune_calibration_floor_count' => 18,
         ];
     }
 

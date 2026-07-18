@@ -19,6 +19,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class ContextParetoDominanceFilter
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const SCHEMA_VERSION = 'atlas.aaeos.context_pareto_dominance.v1';
 
     public const DIRECTION_MAXIMIZE = 'maximize';
@@ -68,7 +70,7 @@ final class ContextParetoDominanceFilter
 
             if ($failed !== []) {
                 $blocked[] = [
-                    'id' => $id,
+                    self::FIELD_ID => $id,
                     self::FIELD_FAILED_CONSTRAINTS => $failed,
                 ];
                 $blockedById[$id] = $failed;
@@ -87,7 +89,7 @@ final class ContextParetoDominanceFilter
 
             if (array_key_exists($id, $blockedById)) {
                 $evaluated[] = [
-                    'id' => $id,
+                    self::FIELD_ID => $id,
                     self::FIELD_STATUS => self::STATUS_BLOCKED,
                     self::FIELD_DOMINATED_BY => [],
                 ];
@@ -100,7 +102,7 @@ final class ContextParetoDominanceFilter
             if ($dominatedBy === []) {
                 $frontier[] = $id;
                 $evaluated[] = [
-                    'id' => $id,
+                    self::FIELD_ID => $id,
                     self::FIELD_STATUS => self::STATUS_FRONTIER,
                     self::FIELD_DOMINATED_BY => [],
                 ];
@@ -109,7 +111,7 @@ final class ContextParetoDominanceFilter
             }
 
             $evaluated[] = [
-                'id' => $id,
+                self::FIELD_ID => $id,
                 self::FIELD_STATUS => self::STATUS_DOMINATED,
                 self::FIELD_DOMINATED_BY => $dominatedBy,
             ];
@@ -121,7 +123,7 @@ final class ContextParetoDominanceFilter
         $dominatedCount = $admittedCount - $frontierCount;
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_OBJECTIVE_DIRECTION => $direction,
             self::FIELD_FRONTIER => $frontier,
             self::FIELD_BLOCKED => $blocked,
@@ -291,6 +293,6 @@ final class ContextParetoDominanceFilter
      */
     private function variantId(array $variant): string
     {
-        return AiValueNormalizer::trimmedStringOrNull($variant['id'] ?? null) ?? '';
+        return AiValueNormalizer::trimmedStringOrNull($variant[self::FIELD_ID] ?? null) ?? '';
     }
 }

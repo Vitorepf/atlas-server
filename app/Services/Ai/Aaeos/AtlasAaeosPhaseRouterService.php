@@ -8,6 +8,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AtlasAaeosPhaseRouterService
 {
+    public const FIELD_POLICY_GATE = 'policy_gate';
+    public const FIELD_RECEIPT = 'receipt';
     public const SCHEMA_VERSION = 'atlas.aaeos.phase_router.v1';
 
     public const PHASE_LEGACY = 'legacy';
@@ -155,12 +157,12 @@ final class AtlasAaeosPhaseRouterService
                 self::FIELD_DISAMBIGUATION => $this->isActive(),
                 self::FIELD_PLACEMENT => $this->atLeastPhase1(),
                 self::FIELD_CLASSIFICATION => $this->atLeastPhase2(),
-                'policy_gate' => $this->atLeastPhase2(),
+                self::FIELD_POLICY_GATE => $this->atLeastPhase2(),
                 'topology' => $this->atLeastPhase3(),
                 'routing' => $this->atLeastPhase3(),
                 'spec' => $this->atLeastPhase4(),
                 'tasks' => $this->atLeastPhase4(),
-                'receipt' => $this->atLeastPhase4(),
+                self::FIELD_RECEIPT => $this->atLeastPhase4(),
             ],
         ];
     }

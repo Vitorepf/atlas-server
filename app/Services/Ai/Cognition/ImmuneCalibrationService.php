@@ -9,6 +9,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class ImmuneCalibrationService
 {
+    public const FIELD_CLAIM_TYPE = 'claim_type';
+    public const FIELD_CLASSIFIER_BAND = 'classifier_band';
     public const SCHEMA_VERSION = 'atlas.cognition.immune_calibration.v1';
 
     public const MEASURE_ID = 'atlas.immune.calibration.v1';
@@ -183,7 +185,7 @@ final class ImmuneCalibrationService
             self::FIELD_VALUE => $rate,
             self::FIELD_DENOMINATOR => $denominator,
             self::FIELD_BAND => $status === self::STATUS_CALIBRATED ? $classified[self::FIELD_BAND] : self::BAND_INSUFFICIENT_SAMPLE,
-            'classifier_band' => $classified[self::FIELD_BAND],
+            self::FIELD_CLASSIFIER_BAND => $classified[self::FIELD_BAND],
             'classifier_schema_version' => $classified[self::FIELD_SCHEMA_VERSION],
             self::FIELD_STATUS => $status,
             self::FIELD_REASON => $status === self::STATUS_CALIBRATED ? 'denominator_met' : 'denominator_below_min',
@@ -302,7 +304,7 @@ final class ImmuneCalibrationService
             'privacy_class' => 'normal',
             'retention_ok' => true,
             self::FIELD_ATOMIC_CLAIM_PRESENT => true,
-            'claim_type' => 'technical_learning_candidate',
+            self::FIELD_CLAIM_TYPE => 'technical_learning_candidate',
             self::FIELD_CLAIM_SOURCE_PRESENT => true,
             'future_utility' => true,
             'novelty' => true,

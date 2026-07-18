@@ -29,6 +29,8 @@ use Throwable;
 
 final class AtlasAcosWatchdogHealthService
 {
+    public const FIELD_AI_RUN_OUTCOME_MAX_AGE_HOURS = 'ai_run_outcome_max_age_hours';
+    public const FIELD_BY_EXECUTOR = 'by_executor';
     public const MEMORY_QUALITY_SCHEMA = 'atlas.memory.quality_check.v1';
 
     public const CONTEXT_FEEDBACK_SCHEMA = 'atlas.context.feedback_health.v1';
@@ -318,7 +320,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_THRESHOLDS => [
                 'negative_feedback_max_age_hours' => self::LEARNING_NEGATIVE_MAX_AGE_HOURS,
                 self::FIELD_AEMOR_SOURCE_MAX_AGE_HOURS => self::LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS,
-                'ai_run_outcome_max_age_hours' => self::LEARNING_AI_RUN_OUTCOME_MAX_AGE_HOURS,
+                self::FIELD_AI_RUN_OUTCOME_MAX_AGE_HOURS => self::LEARNING_AI_RUN_OUTCOME_MAX_AGE_HOURS,
             ],
             self::FIELD_LIFT_STATUS => (AiValueNormalizer::trimmedStringOrNull($lift[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
         ], 'learning_cadence_stalled');
@@ -724,7 +726,7 @@ final class AtlasAcosWatchdogHealthService
                 ])),
                 self::FIELD_RAW => [
                     self::FIELD_WINDOW_DAYS => self::ENG_WINDOW_DAYS,
-                    'by_executor' => $governanceByExecutor,
+                    self::FIELD_BY_EXECUTOR => $governanceByExecutor,
                     self::FIELD_BYPASS_RATE => AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_BYPASS_RATE] ?? null) ?? 0.0,
                     self::FIELD_FALSE_POSITIVE_TOTAL => (int) (AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_FALSE_POSITIVE_TOTAL] ?? null) ?? 0),
                     self::FIELD_FP_DEFINITION => (AiValueNormalizer::trimmedStringOrNull($summary[self::FIELD_FP_DEFINITION] ?? null) ?? ''),

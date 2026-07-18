@@ -18,6 +18,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasAaeosGateSignalEvaluator
 {
+    public const FIELD_GATE = 'gate';
+    public const FIELD_INTENT = 'intent';
     public const SCHEMA_VERSION = 'atlas.aaeos.gate_signal.v1';
 
     public const GATE_INTENT_CLARITY = 'intent_clarity_score_min_0_8';
@@ -205,7 +207,7 @@ final class AtlasAaeosGateSignalEvaluator
         $gates = [];
 
         if (array_key_exists('intent', $phaseOutputs)) {
-            $gates[] = $this->evaluateIntentClarity($this->asArray($phaseOutputs['intent']));
+            $gates[] = $this->evaluateIntentClarity($this->asArray($phaseOutputs[self::FIELD_INTENT]));
         }
         if (array_key_exists('spec_pack', $phaseOutputs)) {
             $gates[] = $this->evaluateSpecPackAcceptanceCriteria($this->asArray($phaseOutputs['spec_pack']));
@@ -247,7 +249,7 @@ final class AtlasAaeosGateSignalEvaluator
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'gate' => $gate,
+            self::FIELD_GATE => $gate,
             self::FIELD_PASSED => $passed,
             self::FIELD_COMPUTED_VALUE => $computedValue,
             self::FIELD_REASONS => array_values($reasons),
