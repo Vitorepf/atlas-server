@@ -5596,5 +5596,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['health_lote2_runbook_floor_count']);
     }
 
+    public function test_health_lote2_horizon_more_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->healthLote2HorizonMoreFloorsContractObserve([]);
+
+        $this->assertSame('fp_definition', $payload['health_field_fp_definition']);
+        $this->assertSame('hours', $payload['health_field_hours']);
+        $this->assertSame('partial_count', $payload['health_field_partial_count']);
+        $this->assertSame('pipeline_status', $payload['health_field_pipeline_status']);
+        $this->assertSame('recall_at_5', $payload['health_field_recall_at_5']);
+        $this->assertSame('retrieval_eval', $payload['health_field_retrieval_eval']);
+        $this->assertSame('operator_requests', $payload['lote2_field_operator_requests']);
+        $this->assertSame('peek_policy', $payload['lote2_field_peek_policy']);
+        $this->assertSame('peek_policy_violation', $payload['lote2_field_peek_policy_violation']);
+        $this->assertSame('policy_valid', $payload['lote2_field_policy_valid']);
+        $this->assertSame('positive_lift_fabricated', $payload['lote2_field_positive_lift_fabricated']);
+        $this->assertSame('rate', $payload['lote2_field_rate']);
+        $this->assertSame('assessment_v2', $payload['horizon_field_assessment_v2']);
+        $this->assertSame('recorded_at', $payload['horizon_field_recorded_at']);
+        $this->assertSame('scorecard_overall', $payload['horizon_field_scorecard_overall']);
+        $this->assertSame('scorecard_report', $payload['horizon_field_scorecard_report']);
+        $this->assertSame('series', $payload['horizon_field_series']);
+        $this->assertSame('series_v2', $payload['horizon_field_series_v2']);
+        $this->assertSame(18, $payload['health_lote2_horizon_more_floor_count']);
+    }
+
 
 }

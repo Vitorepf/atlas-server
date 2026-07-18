@@ -141,6 +141,12 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_DELIVERED_REFS_SHARE = 'delivered_refs_share';
     public const FIELD_EDGES_BY_SOURCE = 'edges_by_source';
     public const FIELD_FIRST_SEEN_AT = 'first_seen_at';
+    public const FIELD_FP_DEFINITION = 'fp_definition';
+    public const FIELD_HOURS = 'hours';
+    public const FIELD_PARTIAL_COUNT = 'partial_count';
+    public const FIELD_PIPELINE_STATUS = 'pipeline_status';
+    public const FIELD_RECALL_AT_5 = 'recall_at_5';
+    public const FIELD_RETRIEVAL_EVAL = 'retrieval_eval';
 
     public const STATUS_UNKNOWN = 'unknown';
 
@@ -395,15 +401,15 @@ final class AtlasAcosWatchdogHealthService
             self::STATUS_ALERT => $issues !== [],
             'issues' => array_values(array_unique($issues)),
             self::FIELD_RAW => [
-                'retrieval_eval' => $retrievalEval,
-                'recall_at_5' => $recallAt5,
+                self::FIELD_RETRIEVAL_EVAL => $retrievalEval,
+                self::FIELD_RECALL_AT_5 => $recallAt5,
                 'improper_floor_discards' => $improperFloorDiscards,
                 self::FIELD_AURG_CROSS_LAYER_COVERAGE_RATIO => $coverageRatio,
                 'pre_filter_concentration_ratio' => $preFilterConcentration,
             ],
             self::FIELD_THRESHOLDS => [
-                'retrieval_eval' => self::RAG_RETRIEVAL_EVAL_FLOOR,
-                'recall_at_5' => self::RAG_RECALL_AT_5_FLOOR,
+                self::FIELD_RETRIEVAL_EVAL => self::RAG_RETRIEVAL_EVAL_FLOOR,
+                self::FIELD_RECALL_AT_5 => self::RAG_RECALL_AT_5_FLOOR,
                 self::FIELD_AURG_CROSS_LAYER_COVERAGE_RATIO => self::RAG_COVERAGE_FLOOR,
                 'pre_filter_concentration_mask_floor' => self::RAG_PRE_FILTER_CONCENTRATION_MASK_FLOOR,
             ],
@@ -424,7 +430,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_TOTAL_EVENT_COUNT => 0,
                 self::FIELD_MEASURED_SHARE => 0.0,
                 'writer_shares' => [],
-                self::FIELD_WINDOW => ['hours' => self::FEEDBACK_WINDOW_HOURS, self::FIELD_TOTAL_EVENT_COUNT => 0],
+                self::FIELD_WINDOW => [self::FIELD_HOURS => self::FEEDBACK_WINDOW_HOURS, self::FIELD_TOTAL_EVENT_COUNT => 0],
                 self::FIELD_GENERATED_AT => now()->toIso8601String(),
             ];
         }
@@ -474,7 +480,7 @@ final class AtlasAcosWatchdogHealthService
             self::STATUS_ALERT => $blocking !== [],
             self::FIELD_BLOCKING => $blocking,
             self::FIELD_WINDOW => [
-                'hours' => self::FEEDBACK_WINDOW_HOURS,
+                self::FIELD_HOURS => self::FEEDBACK_WINDOW_HOURS,
                 self::FIELD_TOTAL_EVENT_COUNT => $total,
                 'measured_count' => $measured,
                 'delivered_refs_count' => $delivered,
@@ -581,7 +587,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $scorecard = app(AtlasCognitionScoreCardService::class)->build();
         $pipeline = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'score.dimensions.pipeline.score_out_of_10', 0.0)) ?? 0.0;
-        $partials = array_values(array_filter(AiValueNormalizer::arrayOrEmpty($scorecard['subsystems'] ?? null), static fn (array $row): bool => ($row['pipeline_status'] ?? null) === AtlasCognitionScoreCardService::STATUS_PARTIAL));
+        $partials = array_values(array_filter(AiValueNormalizer::arrayOrEmpty($scorecard['subsystems'] ?? null), static fn (array $row): bool => ($row[self::FIELD_PIPELINE_STATUS] ?? null) === AtlasCognitionScoreCardService::STATUS_PARTIAL));
         $blocking = [];
         if ($pipeline < 10.0) {
             $blocking[] = 'pipeline_score_below_perfect';
@@ -595,7 +601,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_BLOCKING => $blocking,
             'scorecard_hash' => $scorecard['scorecard_hash'] ?? null,
             'pipeline_score_out_of_10' => $pipeline,
-            'partial_count' => count($partials),
+            self::FIELD_PARTIAL_COUNT => count($partials),
             'partial_acronyms' => array_values(array_map(static fn (array $row): string => (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_ACRONYM] ?? null) ?? ''), array_slice($partials, 0, 10))),
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
@@ -645,7 +651,7 @@ final class AtlasAcosWatchdogHealthService
         $resolver = app(AtlasCognitionEvidenceResolver::class);
         $partials = [];
         foreach (AiValueNormalizer::arrayOrEmpty($scorecard['subsystems'] ?? null) as $row) {
-            if (($row['pipeline_status'] ?? null) !== AtlasCognitionScoreCardService::STATUS_PARTIAL) {
+            if (($row[self::FIELD_PIPELINE_STATUS] ?? null) !== AtlasCognitionScoreCardService::STATUS_PARTIAL) {
                 continue;
             }
             $diagnosis = $resolver->resolvePipelineDiagnosis((AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_SERVICE_CLASS] ?? null) ?? ''));
@@ -672,7 +678,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_SCHEMA_VERSION => self::OPE_SCORECARD_RECEIPTS_DIAGNOSIS_SCHEMA,
             self::FIELD_STATUS => $blocking === [] ? self::STATUS_OK : self::STATUS_ALERT,
             self::FIELD_BLOCKING => $blocking,
-            'partial_count' => count($partials),
+            self::FIELD_PARTIAL_COUNT => count($partials),
             'stale_partial_count' => count($stale),
             'diagnoses' => $partials,
             self::FIELD_THRESHOLDS => ['partial_stale_days' => self::PIPELINE_PARTIAL_STALE_DAYS],
@@ -708,7 +714,7 @@ final class AtlasAcosWatchdogHealthService
                     'by_executor' => $governanceByExecutor,
                     self::FIELD_BYPASS_RATE => AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_BYPASS_RATE] ?? null) ?? 0.0,
                     self::FIELD_FALSE_POSITIVE_TOTAL => (int) (AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_FALSE_POSITIVE_TOTAL] ?? null) ?? 0),
-                    'fp_definition' => (AiValueNormalizer::trimmedStringOrNull($summary['fp_definition'] ?? null) ?? ''),
+                    self::FIELD_FP_DEFINITION => (AiValueNormalizer::trimmedStringOrNull($summary[self::FIELD_FP_DEFINITION] ?? null) ?? ''),
                 ],
             ],
             'forge_gate_enforce' => [

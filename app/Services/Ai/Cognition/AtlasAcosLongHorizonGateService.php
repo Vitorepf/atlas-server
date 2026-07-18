@@ -117,6 +117,12 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_DATES = 'dates';
     public const FIELD_FLOORS = 'floors';
     public const FIELD_EVIDENCE = 'evidence';
+    public const FIELD_ASSESSMENT_V2 = 'assessment_v2';
+    public const FIELD_RECORDED_AT = 'recorded_at';
+    public const FIELD_SCORECARD_OVERALL = 'scorecard_overall';
+    public const FIELD_SCORECARD_REPORT = 'scorecard_report';
+    public const FIELD_SERIES = 'series';
+    public const FIELD_SERIES_V2 = 'series_v2';
 
     /**
      * @param  array<string,mixed>  $options
@@ -158,16 +164,16 @@ final class AtlasAcosLongHorizonGateService
             self::FIXTURE_MATURE => [$this->fixtureScorecard(9.72, 9.68), $this->fixtureSeries(31, 9.72, $today)],
             self::FIXTURE_SHORT_WINDOW => [$this->fixtureScorecard(8.05, 5.77), $this->fixtureSeries(2, 8.05, $today)],
             default => [
-                is_array($options['scorecard_report'] ?? null) ? $options['scorecard_report'] : $this->liveScorecard(),
-                is_array($options['series'] ?? null) ? $options['series'] : $this->readSeries($seriesPath),
+                is_array($options[self::FIELD_SCORECARD_REPORT] ?? null) ? $options[self::FIELD_SCORECARD_REPORT] : $this->liveScorecard(),
+                is_array($options[self::FIELD_SERIES] ?? null) ? $options[self::FIELD_SERIES] : $this->readSeries($seriesPath),
             ],
         };
 
         $assessment = $this->assess($scorecard, $series, $minDays, $minOverall, $minPipeline, $warningMargin, $maxLatestStaleDays, $maxGapDays, $today, $seriesPath);
         $assessmentV2 = null;
         if (array_key_exists('series_v2', $options) || array_key_exists('series_v2_path', $options)) {
-            $seriesV2 = is_array($options['series_v2'] ?? null)
-                ? $options['series_v2']
+            $seriesV2 = is_array($options[self::FIELD_SERIES_V2] ?? null)
+                ? $options[self::FIELD_SERIES_V2]
                 : $this->readSeries($seriesV2Path);
             $assessmentV2 = $this->assessAreaSeriesV2($seriesV2, $minDays, [
                 'overall' => $minAreaOverall,
@@ -561,7 +567,7 @@ final class AtlasAcosLongHorizonGateService
                 continue;
             }
 
-            $recordedAtDate = $this->recordedAtCalendarDate($row['recorded_at'] ?? null);
+            $recordedAtDate = $this->recordedAtCalendarDate($row[self::FIELD_RECORDED_AT] ?? null);
             if ($recordedAtDate === null || $recordedAtDate !== $date) {
                 $count++;
             }
@@ -889,9 +895,9 @@ final class AtlasAcosLongHorizonGateService
             $date = $today->modify("-$i days")->format('Y-m-d');
             $rows[] = [
                 self::FIELD_DATE => $date,
-                'recorded_at' => $date.'T00:00:00+00:00',
-                'metrics' => ['scorecard_overall' => $overall],
-                'sources' => ['scorecard_overall' => 'AtlasCognitionScoreCardService::build() (resolved-evidence)'],
+                self::FIELD_RECORDED_AT => $date.'T00:00:00+00:00',
+                'metrics' => [self::FIELD_SCORECARD_OVERALL => $overall],
+                'sources' => [self::FIELD_SCORECARD_OVERALL => 'AtlasCognitionScoreCardService::build() (resolved-evidence)'],
             ];
         }
 
@@ -947,7 +953,7 @@ final class AtlasAcosLongHorizonGateService
             ],
         ];
         if ($assessmentV2 !== null) {
-            $payload['assessment_v2'] = $assessmentV2;
+            $payload[self::FIELD_ASSESSMENT_V2] = $assessmentV2;
             $payload[self::FIELD_EVIDENCE]['series_v2_rows_sampled'] = (int) (AiValueNormalizer::finiteFloatOrNull($assessmentV2[self::FIELD_SERIES_DAY_COUNT] ?? null) ?? 0);
             $payload[self::FIELD_CLAIM_POLICY]['longitudinal_area_floor_v2'] = true;
             $payload[self::FIELD_CLAIM_POLICY]['gate_v1_byte_identical_without_v2'] = true;
@@ -963,7 +969,7 @@ final class AtlasAcosLongHorizonGateService
             self::FIELD_WARNINGS => array_values(AiValueNormalizer::arrayOrEmpty($assessment[self::FIELD_WARNINGS] ?? null)),
         ];
         if ($assessmentV2 !== null) {
-            $receiptPayload['assessment_v2'] = $assessmentV2;
+            $receiptPayload[self::FIELD_ASSESSMENT_V2] = $assessmentV2;
         }
 
         $payload['receipt_hash'] = 'sha256:'.hash('sha256', json_encode($receiptPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));

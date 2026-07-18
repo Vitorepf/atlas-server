@@ -7440,6 +7440,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: residual FIELD_* floors for WatchdogHealth + Lote2Measure + LongHorizonGate.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, bool|int|string>
+     */
+    public function healthLote2HorizonMoreFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'health_field_fp_definition' => AtlasAcosWatchdogHealthService::FIELD_FP_DEFINITION,
+            'health_field_hours' => AtlasAcosWatchdogHealthService::FIELD_HOURS,
+            'health_field_partial_count' => AtlasAcosWatchdogHealthService::FIELD_PARTIAL_COUNT,
+            'health_field_pipeline_status' => AtlasAcosWatchdogHealthService::FIELD_PIPELINE_STATUS,
+            'health_field_recall_at_5' => AtlasAcosWatchdogHealthService::FIELD_RECALL_AT_5,
+            'health_field_retrieval_eval' => AtlasAcosWatchdogHealthService::FIELD_RETRIEVAL_EVAL,
+            'lote2_field_operator_requests' => AcosMaxLote2MeasureService::FIELD_OPERATOR_REQUESTS,
+            'lote2_field_peek_policy' => AcosMaxLote2MeasureService::FIELD_PEEK_POLICY,
+            'lote2_field_peek_policy_violation' => AcosMaxLote2MeasureService::FIELD_PEEK_POLICY_VIOLATION,
+            'lote2_field_policy_valid' => AcosMaxLote2MeasureService::FIELD_POLICY_VALID,
+            'lote2_field_positive_lift_fabricated' => AcosMaxLote2MeasureService::FIELD_POSITIVE_LIFT_FABRICATED,
+            'lote2_field_rate' => AcosMaxLote2MeasureService::FIELD_RATE,
+            'horizon_field_assessment_v2' => AtlasAcosLongHorizonGateService::FIELD_ASSESSMENT_V2,
+            'horizon_field_recorded_at' => AtlasAcosLongHorizonGateService::FIELD_RECORDED_AT,
+            'horizon_field_scorecard_overall' => AtlasAcosLongHorizonGateService::FIELD_SCORECARD_OVERALL,
+            'horizon_field_scorecard_report' => AtlasAcosLongHorizonGateService::FIELD_SCORECARD_REPORT,
+            'horizon_field_series' => AtlasAcosLongHorizonGateService::FIELD_SERIES,
+            'horizon_field_series_v2' => AtlasAcosLongHorizonGateService::FIELD_SERIES_V2,
+            'health_lote2_horizon_more_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

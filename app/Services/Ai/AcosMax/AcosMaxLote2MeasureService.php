@@ -175,6 +175,12 @@ final class AcosMaxLote2MeasureService
     public const FIELD_INVALID_PAIRS = 'invalid_pairs';
     public const FIELD_LOOP = 'loop';
     public const FIELD_MODE = 'mode';
+    public const FIELD_OPERATOR_REQUESTS = 'operator_requests';
+    public const FIELD_PEEK_POLICY = 'peek_policy';
+    public const FIELD_PEEK_POLICY_VIOLATION = 'peek_policy_violation';
+    public const FIELD_POLICY_VALID = 'policy_valid';
+    public const FIELD_POSITIVE_LIFT_FABRICATED = 'positive_lift_fabricated';
+    public const FIELD_RATE = 'rate';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -766,18 +772,18 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_MEASURE_ID => self::MULTJ03_MEASURE_ID,
                 self::FIELD_DENOMINATOR_MIN => $denominatorMin,
                 self::FIELD_SAMPLE_RATE => $sampleRate,
-                'rate' => $sampleRate,
+                self::FIELD_RATE => $sampleRate,
                 self::FIELD_N_PAIRS => 0,
                 self::FIELD_PAIRED_DELTA => null,
                 self::FIELD_MEMORY_TYPES => [],
-                'peek_policy' => [
+                self::FIELD_PEEK_POLICY => [
                     self::FIELD_RECORD_USAGE_FOR_PEEK => false,
                     'usage_rows_recorded' => 0,
                 ],
                 self::FIELD_INVALID_PAIRS => [
-                    'peek_policy_violation' => 0,
+                    self::FIELD_PEEK_POLICY_VIOLATION => 0,
                     self::FIELD_INCOMPLETE => 0,
-                    'positive_lift_fabricated' => 0,
+                    self::FIELD_POSITIVE_LIFT_FABRICATED => 0,
                 ],
             ]);
         }
@@ -806,10 +812,10 @@ final class AcosMaxLote2MeasureService
                 : $this->memoryTypeFromCounterfactualMeta($meta);
             $pairs[$pairId][self::FIELD_ROWS][$arm] = [
                 self::FIELD_SCORE => $this->counterfactualScore($row, $meta),
-                'policy_valid' => AiValueNormalizer::lowerTrimmedString($meta[self::FIELD_MODE] ?? 'peek') === 'peek'
+                self::FIELD_POLICY_VALID => AiValueNormalizer::lowerTrimmedString($meta[self::FIELD_MODE] ?? 'peek') === 'peek'
                     && ($meta['record_usage'] ?? false) === false,
             ];
-            if (! $pairs[$pairId][self::FIELD_ROWS][$arm]['policy_valid']) {
+            if (! $pairs[$pairId][self::FIELD_ROWS][$arm][self::FIELD_POLICY_VALID]) {
                 $pairs[$pairId][self::FIELD_POLICY_VIOLATION_ROWS]++;
             }
         }
@@ -879,18 +885,18 @@ final class AcosMaxLote2MeasureService
             self::FIELD_MEASURE_ID => self::MULTJ03_MEASURE_ID,
             self::FIELD_DENOMINATOR_MIN => $denominatorMin,
             self::FIELD_SAMPLE_RATE => $sampleRate,
-            'rate' => $sampleRate,
+            self::FIELD_RATE => $sampleRate,
             self::FIELD_N_PAIRS => count($validDeltas),
             self::FIELD_PAIRED_DELTA => $measuredPairs > 0 ? round($measuredDeltaSum / $measuredPairs, 4) : null,
             self::FIELD_MEMORY_TYPES => $memoryTypes,
-            'peek_policy' => [
+            self::FIELD_PEEK_POLICY => [
                 self::FIELD_RECORD_USAGE_FOR_PEEK => false,
                 'usage_rows_recorded' => $invalidPolicyRows,
             ],
             self::FIELD_INVALID_PAIRS => [
-                'peek_policy_violation' => $invalidPolicyPairs,
+                self::FIELD_PEEK_POLICY_VIOLATION => $invalidPolicyPairs,
                 self::FIELD_INCOMPLETE => $incompletePairs,
-                'positive_lift_fabricated' => $positiveLiftFabricated,
+                self::FIELD_POSITIVE_LIFT_FABRICATED => $positiveLiftFabricated,
             ],
             self::FIELD_CLAIM_POLICY => [
                 self::FIELD_READ_ONLY => true,
@@ -993,7 +999,7 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_MEASURE_ID => self::TETO02_MEASURE_ID,
                 self::FIELD_DENOMINATOR_MIN => 20,
                 'window_days' => $days,
-                self::FIELD_DENOMINATOR => ['operator_requests' => 0],
+                self::FIELD_DENOMINATOR => [self::FIELD_OPERATOR_REQUESTS => 0],
             ]);
         }
 
@@ -1022,7 +1028,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_DENOMINATOR_MIN => 20,
             'window_days' => $days,
             'metrics' => [
-                'operator_requests' => $total,
+                self::FIELD_OPERATOR_REQUESTS => $total,
                 'completed_e2e' => $completed,
                 'mission_e2e_rate' => $total > 0 ? round($completed / $total, 4) : null,
                 'asks_per_request' => null,
