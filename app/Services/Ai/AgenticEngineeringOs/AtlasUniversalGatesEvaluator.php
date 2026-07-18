@@ -17164,4 +17164,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B636).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b636ContextParetoFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'id' => ContextParetoDominanceFilter::FIELD_ID,
+            'schema_version' => ContextParetoDominanceFilter::FIELD_SCHEMA_VERSION,
+            'atlas.aaeos.context_pareto_dominance.v1' => ContextParetoDominanceFilter::SCHEMA_VERSION,
+            'maximize' => ContextParetoDominanceFilter::DIRECTION_MAXIMIZE,
+            'minimize' => ContextParetoDominanceFilter::DIRECTION_MINIMIZE,
+            'blocked' => ContextParetoDominanceFilter::FIELD_BLOCKED,
+            'dominated' => ContextParetoDominanceFilter::FIELD_DOMINATED,
+            'frontier' => ContextParetoDominanceFilter::FIELD_FRONTIER,
+            'blocked' => ContextParetoDominanceFilter::FIELD_BLOCKED,
+            'dominated' => ContextParetoDominanceFilter::FIELD_DOMINATED,
+            'frontier' => ContextParetoDominanceFilter::FIELD_FRONTIER,
+            'dominated_by' => ContextParetoDominanceFilter::FIELD_DOMINATED_BY,
+            'status' => ContextParetoDominanceFilter::FIELD_STATUS,
+            'admitted' => ContextParetoDominanceFilter::FIELD_ADMITTED,
+            'equals' => ContextParetoDominanceFilter::FIELD_EQUALS,
+            'evaluated' => ContextParetoDominanceFilter::FIELD_EVALUATED,
+            'failed_constraints' => ContextParetoDominanceFilter::FIELD_FAILED_CONSTRAINTS,
+            'max' => ContextParetoDominanceFilter::FIELD_MAX,
+            'b636_context_pareto_floor_count' => 18,
+        ];
+    }
+
 }

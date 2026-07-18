@@ -658,6 +658,7 @@ final class AtlasAaeosCommand extends Command
                             {--b633-aaeos-implementation-floors-contract= : JSON file (any object) to observe aaeos/implementation floors}
                             {--b634-outcome-causality-floors-contract= : JSON file (any object) to observe outcome/causality floors}
                             {--b635-memory-recall-floors-contract= : JSON file (any object) to observe memory/recall floors}
+                            {--b636-context-pareto-floors-contract= : JSON file (any object) to observe context/pareto floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1472,6 +1473,7 @@ final class AtlasAaeosCommand extends Command
             ['b633-aaeos-implementation-floors-contract', 'b633_aaeos_implementation_floors_contract', fn (array $p) => $gates->b633AaeosImplementationFloorsContractObserve($p)],
             ['b634-outcome-causality-floors-contract', 'b634_outcome_causality_floors_contract', fn (array $p) => $gates->b634OutcomeCausalityFloorsContractObserve($p)],
             ['b635-memory-recall-floors-contract', 'b635_memory_recall_floors_contract', fn (array $p) => $gates->b635MemoryRecallFloorsContractObserve($p)],
+            ['b636-context-pareto-floors-contract', 'b636_context_pareto_floors_contract', fn (array $p) => $gates->b636ContextParetoFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

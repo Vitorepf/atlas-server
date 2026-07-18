@@ -13572,4 +13572,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b635_memory_recall_floor_count']);
     }
 
+    public function test_b636_context_pareto_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b636ContextParetoFloorsContractObserve([]);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_ID, $out['id']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(ContextParetoDominanceFilter::SCHEMA_VERSION, $out['atlas.aaeos.context_pareto_dominance.v1']);
+        $this->assertSame(ContextParetoDominanceFilter::DIRECTION_MAXIMIZE, $out['maximize']);
+        $this->assertSame(ContextParetoDominanceFilter::DIRECTION_MINIMIZE, $out['minimize']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_BLOCKED, $out['blocked']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_DOMINATED, $out['dominated']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_FRONTIER, $out['frontier']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_BLOCKED, $out['blocked']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_DOMINATED, $out['dominated']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_FRONTIER, $out['frontier']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_DOMINATED_BY, $out['dominated_by']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_STATUS, $out['status']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_ADMITTED, $out['admitted']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_EQUALS, $out['equals']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_EVALUATED, $out['evaluated']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_FAILED_CONSTRAINTS, $out['failed_constraints']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_MAX, $out['max']);
+        $this->assertSame(18, $out['b636_context_pareto_floor_count']);
+    }
+
 }
