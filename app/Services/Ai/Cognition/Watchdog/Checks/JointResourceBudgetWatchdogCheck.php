@@ -19,6 +19,12 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
     public const SCHEMA_VERSION = 'atlas.acos.joint_resource_budget_watchdog.v1';
 
     public const CHECK_ID = 'elev-27.joint_resource_budget';
+    public const FIELD_MEASURED_HEADROOM_MB = 'measured_headroom_mb';
+    public const FIELD_OVER_CAP_COMPONENTS = 'over_cap_components';
+    public const FIELD_HOST_RAM_GIB = 'host_ram_gib';
+    public const FIELD_ENGINE_FLOOR_GIB = 'engine_floor_gib';
+    public const FIELD_TOTAL_RAM_CAP_MB = 'total_ram_cap_mb';
+    public const FIELD_PAPER_HEADROOM_MB = 'paper_headroom_mb';
 
     public function __construct(
         private AtlasResourceBudgetService $service,
@@ -38,14 +44,14 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
         $evidence = [
             'schema_version' => self::SCHEMA_VERSION,
             'generated_at' => $now->toIso8601String(),
-            'host_ram_gib' => $report['host_ram_gib'],
-            'engine_floor_gib' => $report['engine_floor_gib'],
-            'total_ram_cap_mb' => $report['total_ram_cap_mb'],
+            self::FIELD_HOST_RAM_GIB => $report[self::FIELD_HOST_RAM_GIB],
+            self::FIELD_ENGINE_FLOOR_GIB => $report[self::FIELD_ENGINE_FLOOR_GIB],
+            self::FIELD_TOTAL_RAM_CAP_MB => $report[self::FIELD_TOTAL_RAM_CAP_MB],
             'paper_status' => $report['declared_paper_status'],
-            'paper_headroom_mb' => $report['paper_headroom_mb'],
+            self::FIELD_PAPER_HEADROOM_MB => $report[self::FIELD_PAPER_HEADROOM_MB],
             'measured_ram_mb' => $report['measured_ram_mb'],
-            'measured_headroom_mb' => $report['measured_headroom_mb'],
-            'over_cap_components' => $report['over_cap_components'],
+            self::FIELD_MEASURED_HEADROOM_MB => $report[self::FIELD_MEASURED_HEADROOM_MB],
+            self::FIELD_OVER_CAP_COMPONENTS => $report[self::FIELD_OVER_CAP_COMPONENTS],
             'components' => $report['components'],
         ];
 
@@ -53,10 +59,10 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
         if ($report['declared_paper_status'] === 'paper_overshoot') {
             $reasons[] = 'paper_overshoot';
         }
-        if ($report['over_cap_components'] !== []) {
+        if ($report[self::FIELD_OVER_CAP_COMPONENTS] !== []) {
             $reasons[] = 'component_over_ram_cap';
         }
-        if (is_int($report['measured_headroom_mb']) && $report['measured_headroom_mb'] < 0) {
+        if (is_int($report[self::FIELD_MEASURED_HEADROOM_MB]) && $report[self::FIELD_MEASURED_HEADROOM_MB] < 0) {
             $reasons[] = 'measured_overshoot';
         }
 

@@ -151,6 +151,12 @@ final class AcosMaxLote2MeasureService
     public const FIELD_DELTA_SUM = 'delta_sum';
     public const FIELD_MISSING_TABLES = 'missing_tables';
     public const FIELD_TIME_PER_LOOP = 'time_per_loop';
+    public const FIELD_P50_SECONDS = 'p50_seconds';
+    public const FIELD_P95_SECONDS = 'p95_seconds';
+    public const FIELD_MARCO_ESP_V1 = 'marco_esp_v1';
+    public const FIELD_SATISFIED = 'satisfied';
+    public const FIELD_VALID_LOOP_DEFINITION = 'valid_loop_definition';
+    public const FIELD_REQUIRES_ZERO_FIXTURE = 'requires_zero_fixture';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -218,14 +224,14 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_FIXTURE_REJECTED => 0,
                 self::FIELD_MISSING_TABLES => $missingTables,
                 self::FIELD_TIME_PER_LOOP => [
-                    'p50_seconds' => null,
-                    'p95_seconds' => null,
+                    self::FIELD_P50_SECONDS => null,
+                    self::FIELD_P95_SECONDS => null,
                 ],
-                'marco_esp_v1' => [
-                    'satisfied' => false,
+                self::FIELD_MARCO_ESP_V1 => [
+                    self::FIELD_SATISFIED => false,
                     self::FIELD_BLOCKED_BY => [self::REASON_LOOP_SOURCE_TABLES_MISSING],
                 ],
-                'valid_loop_definition' => $this->multx01ValidLoopDefinition(),
+                self::FIELD_VALID_LOOP_DEFINITION => $this->multx01ValidLoopDefinition(),
             ]);
         }
 
@@ -296,18 +302,18 @@ final class AcosMaxLote2MeasureService
             self::FIELD_N_TOTAL => $loopsComplete + count($partial),
             self::FIELD_FIXTURE_REJECTED => $fixtureRejected,
             self::FIELD_TIME_PER_LOOP => [
-                'p50_seconds' => $this->percentileInt($durations, 0.50),
-                'p95_seconds' => $this->percentileInt($durations, 0.95),
+                self::FIELD_P50_SECONDS => $this->percentileInt($durations, 0.50),
+                self::FIELD_P95_SECONDS => $this->percentileInt($durations, 0.95),
             ],
-            'marco_esp_v1' => [
-                'satisfied' => $marcoSatisfied,
+            self::FIELD_MARCO_ESP_V1 => [
+                self::FIELD_SATISFIED => $marcoSatisfied,
                 self::FIELD_BLOCKED_BY => $marcoSatisfied ? [] : ['no_complete_proven_real_loop_window'],
                 'requires_loops_complete_min' => 1,
                 'requires_proven_real' => true,
                 'requires_chained_ids' => true,
-                'requires_zero_fixture' => true,
+                self::FIELD_REQUIRES_ZERO_FIXTURE => true,
             ],
-            'valid_loop_definition' => $this->multx01ValidLoopDefinition(),
+            self::FIELD_VALID_LOOP_DEFINITION => $this->multx01ValidLoopDefinition(),
             self::FIELD_CLAIM_POLICY => [
                 self::FIELD_READ_ONLY => true,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
@@ -352,7 +358,7 @@ final class AcosMaxLote2MeasureService
             'requires_delivered_context_receipt' => true,
             'requires_learning_candidate' => true,
             'requires_subsequent_measured_recall' => true,
-            'requires_zero_fixture' => true,
+            self::FIELD_REQUIRES_ZERO_FIXTURE => true,
             'legacy_unjoined_rows' => 'legacy_unjoined',
         ];
     }

@@ -7099,6 +7099,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for joint budget / lote2 / long-horizon peels.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function jointLote2HorizonFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'joint_field_measured_headroom_mb' => JointResourceBudgetWatchdogCheck::FIELD_MEASURED_HEADROOM_MB,
+            'joint_field_over_cap_components' => JointResourceBudgetWatchdogCheck::FIELD_OVER_CAP_COMPONENTS,
+            'joint_field_host_ram_gib' => JointResourceBudgetWatchdogCheck::FIELD_HOST_RAM_GIB,
+            'joint_field_engine_floor_gib' => JointResourceBudgetWatchdogCheck::FIELD_ENGINE_FLOOR_GIB,
+            'joint_field_total_ram_cap_mb' => JointResourceBudgetWatchdogCheck::FIELD_TOTAL_RAM_CAP_MB,
+            'joint_field_paper_headroom_mb' => JointResourceBudgetWatchdogCheck::FIELD_PAPER_HEADROOM_MB,
+            'lote2_field_p50_seconds' => AcosMaxLote2MeasureService::FIELD_P50_SECONDS,
+            'lote2_field_p95_seconds' => AcosMaxLote2MeasureService::FIELD_P95_SECONDS,
+            'lote2_field_marco_esp_v1' => AcosMaxLote2MeasureService::FIELD_MARCO_ESP_V1,
+            'lote2_field_satisfied' => AcosMaxLote2MeasureService::FIELD_SATISFIED,
+            'lote2_field_valid_loop_definition' => AcosMaxLote2MeasureService::FIELD_VALID_LOOP_DEFINITION,
+            'lote2_field_requires_zero_fixture' => AcosMaxLote2MeasureService::FIELD_REQUIRES_ZERO_FIXTURE,
+            'horizon_field_day_count' => AtlasAcosLongHorizonGateService::FIELD_DAY_COUNT,
+            'horizon_field_calendar_span' => AtlasAcosLongHorizonGateService::FIELD_CALENDAR_SPAN,
+            'horizon_field_resolved_evidence' => AtlasAcosLongHorizonGateService::FIELD_RESOLVED_EVIDENCE,
+            'horizon_field_future_dated' => AtlasAcosLongHorizonGateService::FIELD_FUTURE_DATED,
+            'horizon_field_window_stale' => AtlasAcosLongHorizonGateService::FIELD_WINDOW_STALE,
+            'horizon_field_gap' => AtlasAcosLongHorizonGateService::FIELD_GAP,
+            'joint_lote2_horizon_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

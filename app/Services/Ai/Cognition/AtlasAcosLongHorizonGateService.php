@@ -99,6 +99,12 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_MIN_AREA_DOC = 'min_area_doc';
     public const FIELD_MIN_AREA_PIPELINE = 'min_area_pipeline';
     public const FIELD_SAMPLED_DATES_IN_WINDOW = 'sampled_dates_in_window';
+    public const FIELD_DAY_COUNT = 'day_count';
+    public const FIELD_CALENDAR_SPAN = 'calendar_span';
+    public const FIELD_RESOLVED_EVIDENCE = 'resolved_evidence';
+    public const FIELD_FUTURE_DATED = 'future_dated';
+    public const FIELD_WINDOW_STALE = 'window_stale';
+    public const FIELD_GAP = 'gap';
 
     /**
      * @param  array<string,mixed>  $options
@@ -276,22 +282,22 @@ final class AtlasAcosLongHorizonGateService
         $backfilledSamples = (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_BACKFILLED_SAMPLES] ?? null) ?? 0);
 
         if ($seriesDayCount < $minDays) {
-            $blockers[] = $codes['day_count'];
+            $blockers[] = $codes[self::FIELD_DAY_COUNT];
         }
         if ($calendarSpanDays < $minDays) {
-            $blockers[] = $codes['calendar_span'];
+            $blockers[] = $codes[self::FIELD_CALENDAR_SPAN];
         }
         if ($resolvedEvidenceRows < $seriesDayCount) {
-            $blockers[] = $codes['resolved_evidence'];
+            $blockers[] = $codes[self::FIELD_RESOLVED_EVIDENCE];
         }
         if ($futureDatedRows > 0) {
-            $blockers[] = $codes['future_dated'];
+            $blockers[] = $codes[self::FIELD_FUTURE_DATED];
         }
         if ($latestDate === null || $latestStalenessDays > $maxLatestStaleDays) {
-            $blockers[] = $codes['window_stale'];
+            $blockers[] = $codes[self::FIELD_WINDOW_STALE];
         }
         if ($maxConsecutiveGapDays > $maxGapDays) {
-            $blockers[] = $codes['gap'];
+            $blockers[] = $codes[self::FIELD_GAP];
         }
         if ($backfilledSamples > 0) {
             $blockers[] = $codes['backfilled'];
@@ -371,12 +377,12 @@ final class AtlasAcosLongHorizonGateService
             $maxLatestStaleDays,
             $maxGapDays,
             [
-                'day_count' => 'series_day_count_below_floor',
-                'calendar_span' => 'calendar_span_below_floor',
-                'resolved_evidence' => 'delta_series_resolved_evidence_source_missing',
-                'future_dated' => 'delta_series_future_dated_rows',
-                'window_stale' => 'delta_series_window_stale',
-                'gap' => 'series_gap_exceeds_floor',
+                self::FIELD_DAY_COUNT => 'series_day_count_below_floor',
+                self::FIELD_CALENDAR_SPAN => 'calendar_span_below_floor',
+                self::FIELD_RESOLVED_EVIDENCE => 'delta_series_resolved_evidence_source_missing',
+                self::FIELD_FUTURE_DATED => 'delta_series_future_dated_rows',
+                self::FIELD_WINDOW_STALE => 'delta_series_window_stale',
+                self::FIELD_GAP => 'series_gap_exceeds_floor',
                 'backfilled' => 'backfilled_sample_detected',
             ],
         ));
@@ -582,12 +588,12 @@ final class AtlasAcosLongHorizonGateService
             $maxLatestStaleDays,
             $maxGapDays,
             [
-                'day_count' => 'series_v2_day_count_below_floor',
-                'calendar_span' => 'series_v2_calendar_span_below_floor',
-                'resolved_evidence' => 'series_v2_resolved_evidence_source_missing',
-                'future_dated' => 'series_v2_future_dated_rows',
-                'window_stale' => 'series_v2_window_stale',
-                'gap' => 'series_v2_gap_exceeds_floor',
+                self::FIELD_DAY_COUNT => 'series_v2_day_count_below_floor',
+                self::FIELD_CALENDAR_SPAN => 'series_v2_calendar_span_below_floor',
+                self::FIELD_RESOLVED_EVIDENCE => 'series_v2_resolved_evidence_source_missing',
+                self::FIELD_FUTURE_DATED => 'series_v2_future_dated_rows',
+                self::FIELD_WINDOW_STALE => 'series_v2_window_stale',
+                self::FIELD_GAP => 'series_v2_gap_exceeds_floor',
                 'backfilled' => 'series_v2_backfilled_sample_detected',
             ],
         );

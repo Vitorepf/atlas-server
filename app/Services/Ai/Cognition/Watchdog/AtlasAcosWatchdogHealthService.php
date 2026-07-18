@@ -117,6 +117,12 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_WINDOWED_CONCENTRATION_RATIO = 'windowed_concentration_ratio';
     public const FIELD_SNAPSHOT_AGE_HOURS = 'snapshot_age_hours';
     public const FIELD_MAX_AGE_HOURS = 'max_age_hours';
+    public const FIELD_RECALL_USAGE_TOTAL = 'recall_usage_total';
+    public const FIELD_SCORE = 'score';
+    public const FIELD_ALERT_DETAIL = 'alert_detail';
+    public const FIELD_CHECK_ID = 'check_id';
+    public const FIELD_MESSAGE = 'message';
+    public const FIELD_LAST_AT = 'last_at';
 
     public const STATUS_UNKNOWN = 'unknown';
 
@@ -209,7 +215,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_WINDOWED_CONCENTRATION_RATIO => $concentration,
                 self::FIELD_THRESHOLD => self::MEMORY_CONCENTRATION_FLOOR,
                 'demotion_enabled' => $demotionEnabled,
-                'recall_usage_total' => $recallUsageTotal,
+                self::FIELD_RECALL_USAGE_TOTAL => $recallUsageTotal,
             ], 'recall_concentration_high_without_demotion'),
             $this->checkRow('snapshot_fresh', $snapshotAgeHours !== null && $snapshotAgeHours <= self::MEMORY_SNAPSHOT_MAX_AGE_HOURS, [
                 self::FIELD_SNAPSHOT_AGE_HOURS => $snapshotAgeHours,
@@ -225,17 +231,17 @@ final class AtlasAcosWatchdogHealthService
             self::STATUS_ALERT => $failed !== [],
             self::FIELD_CHECKS => $checks,
             self::FIELD_RAW => [
-                'score' => (int) (AiValueNormalizer::finiteFloatOrNull($scorecard['score'] ?? null) ?? 0),
+                self::FIELD_SCORE => (int) (AiValueNormalizer::finiteFloatOrNull($scorecard[self::FIELD_SCORE] ?? null) ?? 0),
                 self::FIELD_STATUS => (AiValueNormalizer::trimmedStringOrNull($scorecard[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
                 'freshness' => $freshness,
                 self::FIELD_WINDOWED_CONCENTRATION_RATIO => $concentration,
                 self::FIELD_SNAPSHOT_AGE_HOURS => $snapshotAgeHours,
-                'recall_usage_total' => $recallUsageTotal,
+                self::FIELD_RECALL_USAGE_TOTAL => $recallUsageTotal,
             ],
-            'alert_detail' => $failed === [] ? null : [
-                'check_id' => AiValueNormalizer::trimmedScalarStringOrNull($failed[0][self::FIELD_ID] ?? null) ?? '',
+            self::FIELD_ALERT_DETAIL => $failed === [] ? null : [
+                self::FIELD_CHECK_ID => AiValueNormalizer::trimmedScalarStringOrNull($failed[0][self::FIELD_ID] ?? null) ?? '',
                 self::FIELD_CODE => AiValueNormalizer::trimmedScalarStringOrNull($failed[0][self::FIELD_CODE] ?? null) ?? '',
-                'message' => 'Memory quality check failed.',
+                self::FIELD_MESSAGE => 'Memory quality check failed.',
             ],
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
@@ -258,7 +264,7 @@ final class AtlasAcosWatchdogHealthService
             $this->ageCheck('last_negative_feedback', $lastNegative, self::LEARNING_NEGATIVE_MAX_AGE_HOURS, $now),
             $this->ageCheck('last_ai_run_outcome', $lastOutcome, self::LEARNING_AI_RUN_OUTCOME_MAX_AGE_HOURS, $now),
             $this->checkRow('last_delivered_refs_event', $lastDeliveredRefs !== null, [
-                'last_at' => $lastDeliveredRefs?->toIso8601String(),
+                self::FIELD_LAST_AT => $lastDeliveredRefs?->toIso8601String(),
             ], 'no_recent_delivered_refs_event'),
         ];
         foreach ($aemor as $source => $at) {
@@ -740,7 +746,7 @@ final class AtlasAcosWatchdogHealthService
             evidence: $report,
             alert: [
                 self::FIELD_CODE => $alertCode,
-                'message' => $message,
+                self::FIELD_MESSAGE => $message,
             ],
         );
     }
@@ -760,9 +766,9 @@ final class AtlasAcosWatchdogHealthService
             self::STATUS_ALERT => $failed !== [],
             self::FIELD_CHECKS => $checks,
             self::FIELD_BLOCKING => array_values(array_map(static fn (array $check): string => AiValueNormalizer::trimmedScalarStringOrNull($check[self::FIELD_CODE] ?? null) ?? '', $failed)),
-            'alert_detail' => $failed === [] ? null : [
+            self::FIELD_ALERT_DETAIL => $failed === [] ? null : [
                 self::FIELD_CODE => $alertCode,
-                'check_id' => AiValueNormalizer::trimmedScalarStringOrNull($failed[0][self::FIELD_ID] ?? null) ?? '',
+                self::FIELD_CHECK_ID => AiValueNormalizer::trimmedScalarStringOrNull($failed[0][self::FIELD_ID] ?? null) ?? '',
             ],
             ...$extra,
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
@@ -785,7 +791,7 @@ final class AtlasAcosWatchdogHealthService
         $age = $at ? round($at->diffInMinutes($now) / 60, 2) : null;
 
         return $this->checkRow($id, $age !== null && $age <= $maxAgeHours, [
-            'last_at' => $at?->toIso8601String(),
+            self::FIELD_LAST_AT => $at?->toIso8601String(),
             'age_hours' => $age,
             self::FIELD_MAX_AGE_HOURS => $maxAgeHours,
         ], $id.'_stale_or_missing');

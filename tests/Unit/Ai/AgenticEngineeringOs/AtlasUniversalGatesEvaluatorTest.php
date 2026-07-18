@@ -5321,5 +5321,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['health_canary_maxa04_floor_count']);
     }
 
+    public function test_joint_lote2_horizon_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->jointLote2HorizonFloorsContractObserve([]);
+
+        $this->assertSame('measured_headroom_mb', $payload['joint_field_measured_headroom_mb']);
+        $this->assertSame('over_cap_components', $payload['joint_field_over_cap_components']);
+        $this->assertSame('host_ram_gib', $payload['joint_field_host_ram_gib']);
+        $this->assertSame('engine_floor_gib', $payload['joint_field_engine_floor_gib']);
+        $this->assertSame('total_ram_cap_mb', $payload['joint_field_total_ram_cap_mb']);
+        $this->assertSame('paper_headroom_mb', $payload['joint_field_paper_headroom_mb']);
+        $this->assertSame('p50_seconds', $payload['lote2_field_p50_seconds']);
+        $this->assertSame('p95_seconds', $payload['lote2_field_p95_seconds']);
+        $this->assertSame('marco_esp_v1', $payload['lote2_field_marco_esp_v1']);
+        $this->assertSame('satisfied', $payload['lote2_field_satisfied']);
+        $this->assertSame('valid_loop_definition', $payload['lote2_field_valid_loop_definition']);
+        $this->assertSame('requires_zero_fixture', $payload['lote2_field_requires_zero_fixture']);
+        $this->assertSame('day_count', $payload['horizon_field_day_count']);
+        $this->assertSame('calendar_span', $payload['horizon_field_calendar_span']);
+        $this->assertSame('resolved_evidence', $payload['horizon_field_resolved_evidence']);
+        $this->assertSame('future_dated', $payload['horizon_field_future_dated']);
+        $this->assertSame('window_stale', $payload['horizon_field_window_stale']);
+        $this->assertSame('gap', $payload['horizon_field_gap']);
+        $this->assertSame(18, $payload['joint_lote2_horizon_floor_count']);
+    }
+
 
 }
