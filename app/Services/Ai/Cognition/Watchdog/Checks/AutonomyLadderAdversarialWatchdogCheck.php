@@ -110,6 +110,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_NONCE_REUSED_PROBE = 'nonce-reused-probe';
     public const FIELD_MAXK06_METRICS_AUTHORITY_TAMPERED = 'maxk06.metrics_authority_tampered';
     public const FIELD_CAND_1 = 'cand-1';
+    public const FIELD_CAND_2 = 'cand-2';
+    public const FIELD_FORGED_BOOLEAN = 'forged-boolean';
     public const INT_20 = 20;
     public const INT_999 = 999;
     public const INT_10 = 10;
@@ -199,7 +201,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $verdict = $ledger->verify(
             signature: 'operator',
             actor: self::FIELD_ATLAS_OPERATOR,
-            nonce: 'forged-boolean',
+            nonce: self::FIELD_FORGED_BOOLEAN,
             policyHash: self::FIELD_POLICY_H,
             targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
             targetId: self::FIELD_CAND_1,
@@ -234,7 +236,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             nonce: 'never-issued',
             policyHash: self::FIELD_POLICY_H,
             targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
-            targetId: 'cand-2',
+            targetId: self::FIELD_CAND_2,
         );
         $this->cleanup($path);
 

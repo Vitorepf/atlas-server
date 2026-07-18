@@ -136,6 +136,8 @@ final class AtlasNCaptureDrillService
     public const FIELD_CAPABILITY_SPEC_VERIFIED = 'capability_spec.verified';
     public const FIELD_YARDSTICK_GOLDEN_V2_PASSED = 'yardstick.golden_v2_passed';
     public const FIELD_TIMES_HOURS_OF_INTEGRATION = 'times.hours_of_integration';
+    public const FIELD_TIMES_TIME_TO_FIRST_PROVEN_REAL_SECONDS = 'times.time_to_first_proven_real_seconds';
+    public const FIELD_TIMES_TIME_TO_FIRST_ROUTED_TASK_SECONDS = 'times.time_to_first_routed_task_seconds';
     public const INT_365 = 365;
 
     private readonly string $ledgerPath;
@@ -166,8 +168,8 @@ final class AtlasNCaptureDrillService
                     'engine_id',
                     self::FIELD_CAPABILITY_SPEC_VERIFIED,
                     self::FIELD_YARDSTICK_GOLDEN_V2_PASSED,
-                    'times.time_to_first_routed_task_seconds',
-                    'times.time_to_first_proven_real_seconds',
+                    self::FIELD_TIMES_TIME_TO_FIRST_ROUTED_TASK_SECONDS,
+                    self::FIELD_TIMES_TIME_TO_FIRST_PROVEN_REAL_SECONDS,
                     self::FIELD_TIMES_HOURS_OF_INTEGRATION,
                     self::FIELD_ADMISSION_ADMITTED,
                     self::FIELD_ADMISSION_COLD_START_VIA,
@@ -220,8 +222,8 @@ final class AtlasNCaptureDrillService
                 self::FIELD_PEEK_MODE => true,
             ],
             self::FIELD_TIMES => [
-                self::FIELD_TIME_TO_FIRST_ROUTED_TASK_SECONDS => (int) data_get($drill, 'times.time_to_first_routed_task_seconds'),
-                self::FIELD_TIME_TO_FIRST_PROVEN_REAL_SECONDS => (int) data_get($drill, 'times.time_to_first_proven_real_seconds'),
+                self::FIELD_TIME_TO_FIRST_ROUTED_TASK_SECONDS => (int) data_get($drill, self::FIELD_TIMES_TIME_TO_FIRST_ROUTED_TASK_SECONDS),
+                self::FIELD_TIME_TO_FIRST_PROVEN_REAL_SECONDS => (int) data_get($drill, self::FIELD_TIMES_TIME_TO_FIRST_PROVEN_REAL_SECONDS),
                 self::FIELD_HOURS_OF_INTEGRATION => AiValueNormalizer::finiteFloatOrNull(data_get($drill, self::FIELD_TIMES_HOURS_OF_INTEGRATION)) ?? 0.0,
             ],
             self::FIELD_DENOMINATORS => [
@@ -337,8 +339,8 @@ final class AtlasNCaptureDrillService
         foreach ([
             self::FIELD_CAPABILITY_SPEC_VERIFIED,
             self::FIELD_YARDSTICK_GOLDEN_V2_PASSED,
-            'times.time_to_first_routed_task_seconds',
-            'times.time_to_first_proven_real_seconds',
+            self::FIELD_TIMES_TIME_TO_FIRST_ROUTED_TASK_SECONDS,
+            self::FIELD_TIMES_TIME_TO_FIRST_PROVEN_REAL_SECONDS,
             self::FIELD_TIMES_HOURS_OF_INTEGRATION,
             self::FIELD_ADMISSION_ADMITTED,
             self::FIELD_ADMISSION_COLD_START_VIA,

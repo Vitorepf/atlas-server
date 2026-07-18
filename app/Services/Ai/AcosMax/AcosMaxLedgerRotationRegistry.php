@@ -50,6 +50,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ACOS_FLYWHEEL_LOOPS_V1 = 'acos.flywheel.loops.v1';
     public const FIELD_ACOS_LEARNING_LATENCY_V1 = 'acos.learning_latency.v1';
     public const FIELD_ACOS_OPERATOR_REVIEW_DEBT_V1 = 'acos.operator_review_debt.v1';
+    public const FIELD_ACOS_VERIFIED_SHARE_V1 = 'acos.verified_share.v1';
+    public const FIELD_ACOS_WINDOWS_ORCHESTRATOR_V1 = 'acos.windows_orchestrator.v1';
     public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
@@ -109,7 +111,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_SIZE,
                 self::FIELD_RATIONALE => 'ELEV-02 metric M series; monthly append cadence',
             ],
-            'acos.verified_share.v1' => [
+            self::FIELD_ACOS_VERIFIED_SHARE_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
@@ -259,7 +261,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTX-06 learning latency',
             ],
-            'acos.windows_orchestrator.v1' => [
+            self::FIELD_ACOS_WINDOWS_ORCHESTRATOR_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,

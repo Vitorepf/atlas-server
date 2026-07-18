@@ -66,6 +66,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_MULTJ_02 = 'MULTJ-02';
     public const FIELD_MULTJ_03 = 'MULTJ-03';
     public const FIELD_MULTJ_04 = 'MULTJ-04';
+    public const FIELD_MULTJ_06 = 'MULTJ-06';
+    public const FIELD_MULTN17_04 = 'MULTN17-04';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -359,12 +361,12 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.context.execution_cooccurrence.v1',
             ],
             [
-                self::FIELD_SLICE => 'MULTN17-04',
+                self::FIELD_SLICE => self::FIELD_MULTN17_04,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::MULTN1704_MEASURE_ID,
                 self::FIELD_PATH => 'atlas:brain:predicted-impact --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload('MULTN17-04')[self::FIELD_TTL_DAYS],
+                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTN17_04)[self::FIELD_TTL_DAYS],
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.originator.predicted_impact_calibration.v1',
             ],
             [
@@ -440,12 +442,12 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.ai.procedural_skill_promoter.v1',
             ],
             [
-                self::FIELD_SLICE => 'MULTJ-06',
+                self::FIELD_SLICE => self::FIELD_MULTJ_06,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::MULTJ06_MEASURE_ID,
                 self::FIELD_PATH => 'atlas:ai:abstraction-ladder --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload('MULTJ-06')[self::FIELD_TTL_DAYS],
+                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTJ_06)[self::FIELD_TTL_DAYS],
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.ai.abstraction_ladder.v1',
             ],
             [

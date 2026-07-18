@@ -132,6 +132,8 @@ final class PromotionProtocol
     public const FIELD_ASI_10 = 'ASI-10';
     public const FIELD_MAXB_03 = 'MAXB-03';
     public const FIELD_MULTV_03 = 'MULTV-03';
+    public const FIELD_RAGX_02 = 'RAGX-02';
+    public const FIELD_CODEX_ELEV26S_JUDGE = 'codex-elev26s-judge';
 
     /** @var list<string> */
     public const STATES = [
@@ -335,7 +337,7 @@ final class PromotionProtocol
                 self::FIELD_SHADOW_MINIMUM_WINDOW => self::FIELD_OPERATOR_PREFLIGHT_WINDOW,
                 self::FIELD_FLIP_CRITERION => 'atlas:autonomos:preflight --json returns 8/8 green with ASI-01/02/05 evidence',
                 self::FIELD_ROLLBACK_TRIGGER => 'operator disables autonomos master on failed preflight regression or scoped-committer violation',
-                self::FIELD_JUDGE_ENGINE_ID => 'codex-elev26s-judge',
+                self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV26S_JUDGE,
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:1412',
                 self::FIELD_OPERATOR_ONLY => true,
             ],
@@ -349,7 +351,7 @@ final class PromotionProtocol
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '7d',
                 self::FIELD_FLIP_CRITERION => 'privacy fail-closed, reversal proven, and digest FEE-12 operational',
                 self::FIELD_ROLLBACK_TRIGGER => 'disable auto-apply when reversal_rate or negative_feedback guard breaches soak bounds',
-                self::FIELD_JUDGE_ENGINE_ID => 'codex-elev26s-judge',
+                self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV26S_JUDGE,
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:1413',
                 self::FIELD_OPERATOR_ONLY => true,
             ],
@@ -363,7 +365,7 @@ final class PromotionProtocol
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '24h',
                 self::FIELD_FLIP_CRITERION => 'reflection stream writes real post-landing entries and consumer reads PathYieldEwma samples',
                 self::FIELD_ROLLBACK_TRIGGER => 'disable reflection writer if pattern-ledger writes fail or no consumer traffic is observed',
-                self::FIELD_JUDGE_ENGINE_ID => 'codex-elev26s-judge',
+                self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV26S_JUDGE,
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:1311',
             ],
             [
@@ -375,7 +377,7 @@ final class PromotionProtocol
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '7d',
                 self::FIELD_FLIP_CRITERION => 'golden v2 shows RRF cross-source precision improvement with OFF byte-identical',
                 self::FIELD_ROLLBACK_TRIGGER => 'return to legacy ranking formula on golden v2 regression or improper floor discard',
-                self::FIELD_JUDGE_ENGINE_ID => 'codex-elev26s-judge',
+                self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV26S_JUDGE,
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:330',
             ],
             [
@@ -386,7 +388,7 @@ final class PromotionProtocol
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '7d',
                 self::FIELD_FLIP_CRITERION => 'MULTV-01/02 receipts cover derived tier and verified_share floor is green',
                 self::FIELD_ROLLBACK_TRIGGER => 'disable autonomous land enforcement on false block or receipt-seal regression',
-                self::FIELD_JUDGE_ENGINE_ID => 'codex-elev26s-judge',
+                self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV26S_JUDGE,
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:2681',
             ],
             [
@@ -397,19 +399,19 @@ final class PromotionProtocol
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '8 samples per executor',
                 self::FIELD_FLIP_CRITERION => 'mutation MSI low advisory correlates with later real failure for the executor',
                 self::FIELD_ROLLBACK_TRIGGER => 'suspend executor family on negative root A/B or cost breach',
-                self::FIELD_JUDGE_ENGINE_ID => 'codex-elev26s-judge',
+                self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV26S_JUDGE,
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:2639',
             ],
             [
                 self::FIELD_ID => 'atlas.memory.contextual_blurb_enabled',
                 self::FIELD_FAMILY => self::FIELD_RAGX,
-                self::FIELD_SLICE => 'RAGX-02',
+                self::FIELD_SLICE => self::FIELD_RAGX_02,
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_CONFIG_KEY => 'atlas.memory.contextual_blurb_enabled',
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '20 judged queries',
                 self::FIELD_FLIP_CRITERION => 'code/KB R8 precision@5 improves by >=0.05 with latency reported',
                 self::FIELD_ROLLBACK_TRIGGER => 'disable contextual blurbs on precision regression or hallucinated-blurb sample failure',
-                self::FIELD_JUDGE_ENGINE_ID => 'codex-elev26s-judge',
+                self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV26S_JUDGE,
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:2022',
             ],
         ];

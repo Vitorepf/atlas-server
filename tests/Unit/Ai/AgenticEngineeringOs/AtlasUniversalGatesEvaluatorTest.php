@@ -10280,4 +10280,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b501_acos_long_measure_series_lote_ledger_rotation_watchdog_floor_count']);
     }
 
+    public function test_b502_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b502MeasureSeriesLoteLedgerRotationAcosWatchdogAutonomyFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MULTJ_06, $out['MULTJ-06']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MULTN17_04, $out['MULTN17-04']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTJ_01, $out['MULTJ-01']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTN17_04, $out['MULTN17-04']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ACOS_VERIFIED_SHARE_V1, $out['acos.verified_share.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ACOS_WINDOWS_ORCHESTRATOR_V1, $out['acos.windows_orchestrator.v1']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ATLAS_LEARNING_CADENCE_WATCHDOG_V1, $out['atlas.learning.cadence_watchdog.v1']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_COMPONENTS_FRESHNESS, $out['components.freshness']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_CAND_2, $out['cand-2']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_FORGED_BOOLEAN, $out['forged-boolean']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_TIMES_TIME_TO_FIRST_PROVEN_REAL_SECONDS, $out['times.time_to_first_proven_real_seconds']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_TIMES_TIME_TO_FIRST_ROUTED_TASK_SECONDS, $out['times.time_to_first_routed_task_seconds']);
+        $this->assertSame(PromotionProtocol::FIELD_RAGX_02, $out['RAGX-02']);
+        $this->assertSame(PromotionProtocol::FIELD_CODEX_ELEV26S_JUDGE, $out['codex-elev26s-judge']);
+        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_70, $out['0.70']);
+        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_72, $out['0.72']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_PLACEMENT, $out['aaeos.placement']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_POLICY_GATE, $out['aaeos.policy_gate']);
+        $this->assertSame(18, $out['b502_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floor_count']);
+    }
+
 }

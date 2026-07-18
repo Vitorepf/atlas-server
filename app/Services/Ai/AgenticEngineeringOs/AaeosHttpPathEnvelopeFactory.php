@@ -124,6 +124,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_AAEOS_CLASSIFICATION = 'aaeos.classification';
     public const FIELD_AAEOS_HTTP_PATH_FACADE = 'aaeos.http_path_facade';
     public const FIELD_AAEOS_MISSION_DETECTION = 'aaeos.mission_detection';
+    public const FIELD_AAEOS_PLACEMENT = 'aaeos.placement';
+    public const FIELD_AAEOS_POLICY_GATE = 'aaeos.policy_gate';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -192,7 +194,7 @@ final class AaeosHttpPathEnvelopeFactory
             intentId: $intentId,
             phaseIn: AaeosPhaseHandoffService::PHASE_DISAMBIGUATION,
             phaseOut: AaeosPhaseHandoffService::PHASE_PLACEMENT,
-            actor: self::systemActor('aaeos.placement'),
+            actor: self::systemActor(self::FIELD_AAEOS_PLACEMENT),
             inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
                 self::FIELD_PLACEMENT_LAYER => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_LAYER] ?? null) ?? self::STATUS_UNKNOWN,
@@ -250,7 +252,7 @@ final class AaeosHttpPathEnvelopeFactory
             intentId: $intentId,
             phaseIn: AaeosPhaseHandoffService::PHASE_CLASSIFICATION,
             phaseOut: AaeosPhaseHandoffService::PHASE_POLICY_GATE,
-            actor: self::systemActor('aaeos.policy_gate'),
+            actor: self::systemActor(self::FIELD_AAEOS_POLICY_GATE),
             inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
                 self::FIELD_POLICY_TARGET => $target !== '' ? $target : self::FIELD_NONE,

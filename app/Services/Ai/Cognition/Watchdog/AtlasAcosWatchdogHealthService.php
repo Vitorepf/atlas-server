@@ -366,6 +366,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_OPE_08_LIFT_CYCLE_CLOSURE = 'ope-08.lift_cycle_closure';
     public const FIELD_RATIOS_RECALL_CONCENTRATION_RATIO = 'ratios.recall_concentration_ratio';
     public const FIELD_ATLAS_ACOS_WATCHDOG = 'atlas.acos.watchdog';
+    public const FIELD_ATLAS_LEARNING_CADENCE_WATCHDOG_V1 = 'atlas.learning.cadence_watchdog.v1';
+    public const FIELD_COMPONENTS_FRESHNESS = 'components.freshness';
     public const INT_100 = 100;
     public const FLOAT_10_0 = 10.0;
 
@@ -378,7 +380,7 @@ final class AtlasAcosWatchdogHealthService
         $scorecard = app(AtlasMemoryQualityService::class)->scorecard($filters);
         $latestSnapshotAt = $this->parseDate(data_get($scorecard, 'latest_snapshot.snapshot_at'));
         $snapshotAgeHours = $latestSnapshotAt ? round($latestSnapshotAt->diffInMinutes(CarbonImmutable::now(self::FIELD_UTC)) / 60, 2) : null;
-        $freshness = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'components.freshness', 0)) ?? 0);
+        $freshness = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, self::FIELD_COMPONENTS_FRESHNESS, 0)) ?? 0);
         $concentration = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, self::FIELD_RATIOS_RECALL_CONCENTRATION_RATIO, 0.0)) ?? 0.0;
         $recallUsageTotal = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'counts.retrieval_eval.recall_usage_total', 0)) ?? 0);
         $demotionEnabled = (AiValueNormalizer::boolOrNull(config(self::RECALL_CONCENTRATION_DEMOTION_ENABLED_CONFIG_KEY, self::DEFAULT_RECALL_CONCENTRATION_DEMOTION_ENABLED)) ?? self::DEFAULT_RECALL_CONCENTRATION_DEMOTION_ENABLED);
@@ -466,7 +468,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_MEASUREMENT_READY => data_get($lift, self::FIELD_MEASUREMENT_MEASUREMENT_READY, false),
             ], self::FIELD_LEARNING_LIFT_CASES_MISSING);
 
-        return $this->reportFromChecks('atlas.learning.cadence_watchdog.v1', $checks, [
+        return $this->reportFromChecks(self::FIELD_ATLAS_LEARNING_CADENCE_WATCHDOG_V1, $checks, [
             self::FIELD_THRESHOLDS => [
                 self::FIELD_NEGATIVE_FEEDBACK_MAX_AGE_HOURS => self::LEARNING_NEGATIVE_MAX_AGE_HOURS,
                 self::FIELD_AEMOR_SOURCE_MAX_AGE_HOURS => self::LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS,
