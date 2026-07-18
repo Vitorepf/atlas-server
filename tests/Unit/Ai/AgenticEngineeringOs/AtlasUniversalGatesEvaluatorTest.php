@@ -5246,5 +5246,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['watchdog_impact_budget_floor_count']);
     }
 
+    public function test_longhorizon_lote2_adversarial_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->longhorizonLote2AdversarialFloorsContractObserve([]);
+
+        $this->assertSame('series_v2_path', $payload['longhorizon_field_series_v2_path']);
+        $this->assertSame('min_area_overall', $payload['longhorizon_field_min_area_overall']);
+        $this->assertSame('min_area_code', $payload['longhorizon_field_min_area_code']);
+        $this->assertSame('min_area_doc', $payload['longhorizon_field_min_area_doc']);
+        $this->assertSame('min_area_pipeline', $payload['longhorizon_field_min_area_pipeline']);
+        $this->assertSame('sampled_dates_in_window', $payload['longhorizon_field_sampled_dates_in_window']);
+        $this->assertSame('policy_violation_rows', $payload['lote2_field_policy_violation_rows']);
+        $this->assertSame('control_score_sum', $payload['lote2_field_control_score_sum']);
+        $this->assertSame('treatment_score_sum', $payload['lote2_field_treatment_score_sum']);
+        $this->assertSame('delta_sum', $payload['lote2_field_delta_sum']);
+        $this->assertSame('missing_tables', $payload['lote2_field_missing_tables']);
+        $this->assertSame('time_per_loop', $payload['lote2_field_time_per_loop']);
+        $this->assertSame('assist_sessions', $payload['adversarial_field_assist_sessions']);
+        $this->assertSame('acceptance_rate', $payload['adversarial_field_acceptance_rate']);
+        $this->assertSame('severe_hallucination_count', $payload['adversarial_field_severe_hallucination_count']);
+        $this->assertSame('metrics_authority', $payload['adversarial_field_metrics_authority']);
+        $this->assertSame('eligible', $payload['adversarial_field_eligible']);
+        $this->assertSame('code', $payload['adversarial_field_code']);
+        $this->assertSame(18, $payload['longhorizon_lote2_adversarial_floor_count']);
+    }
+
 
 }

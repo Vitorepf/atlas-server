@@ -326,6 +326,7 @@ final class AtlasAaeosCommand extends Command
         {--immune-integrity-obra-floors-contract= : JSON file (any object) to observe immune/integrity/obra residual floors}
         {--teto-atlas-longhorizon-floors-contract= : JSON file (any object) to observe teto/atlas/longhorizon residual floors}
         {--watchdog-impact-budget-floors-contract= : JSON file (any object) to observe watchdog/impact/budget residual floors}
+        {--longhorizon-lote2-adversarial-floors-contract= : JSON file (any object) to observe longhorizon/lote2/adversarial residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -808,6 +809,7 @@ final class AtlasAaeosCommand extends Command
             ['immune-integrity-obra-floors-contract', 'immune_integrity_obra_floors_contract', fn (array $p) => $gates->immuneIntegrityObraFloorsContractObserve($p)],
             ['teto-atlas-longhorizon-floors-contract', 'teto_atlas_longhorizon_floors_contract', fn (array $p) => $gates->tetoAtlasLonghorizonFloorsContractObserve($p)],
             ['watchdog-impact-budget-floors-contract', 'watchdog_impact_budget_floors_contract', fn (array $p) => $gates->watchdogImpactBudgetFloorsContractObserve($p)],
+            ['longhorizon-lote2-adversarial-floors-contract', 'longhorizon_lote2_adversarial_floors_contract', fn (array $p) => $gates->longhorizonLote2AdversarialFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -93,6 +93,12 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_BACKFILLED_SAMPLES = 'backfilled_samples';
     public const FIELD_AREAS_BELOW_FLOOR = 'areas_below_floor';
     public const FIELD_CLAIM_POLICY = 'claim_policy';
+    public const FIELD_SERIES_V2_PATH = 'series_v2_path';
+    public const FIELD_MIN_AREA_OVERALL = 'min_area_overall';
+    public const FIELD_MIN_AREA_CODE = 'min_area_code';
+    public const FIELD_MIN_AREA_DOC = 'min_area_doc';
+    public const FIELD_MIN_AREA_PIPELINE = 'min_area_pipeline';
+    public const FIELD_SAMPLED_DATES_IN_WINDOW = 'sampled_dates_in_window';
 
     /**
      * @param  array<string,mixed>  $options
@@ -119,11 +125,11 @@ final class AtlasAcosLongHorizonGateService
         $maxLatestStaleDays = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($options[self::FIELD_MAX_LATEST_STALE_DAYS] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($cfg[self::FIELD_MAX_LATEST_STALE_DAYS] ?? null) ?? self::DEFAULT_MAX_LATEST_STALE_DAYS));
         $maxGapDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($options[self::FIELD_MAX_GAP_DAYS] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($cfg[self::FIELD_MAX_GAP_DAYS] ?? null) ?? self::DEFAULT_MAX_GAP_DAYS));
         $seriesPath = AiValueNormalizer::trimmedStringOrNull($options[self::FIELD_SERIES_PATH] ?? $cfg[self::FIELD_SERIES_PATH] ?? null) ?? storage_path('app/atlas/evidence/acos-delta-series.jsonl');
-        $seriesV2Path = AiValueNormalizer::trimmedStringOrNull($options['series_v2_path'] ?? $cfg['series_v2_path'] ?? null) ?? storage_path('app/atlas/evidence/acos-delta-series.v2.jsonl');
-        $minAreaOverall = $this->clampOutOfTen($options['min_area_overall'] ?? $cfg['min_area_overall'] ?? $minOverall, $minOverall);
-        $minAreaCode = $this->clampOutOfTen($options['min_area_code'] ?? $cfg['min_area_code'] ?? $minAreaOverall, $minAreaOverall);
-        $minAreaDoc = $this->clampOutOfTen($options['min_area_doc'] ?? $cfg['min_area_doc'] ?? $minAreaOverall, $minAreaOverall);
-        $minAreaPipeline = $this->clampOutOfTen($options['min_area_pipeline'] ?? $cfg['min_area_pipeline'] ?? $minAreaOverall, $minAreaOverall);
+        $seriesV2Path = AiValueNormalizer::trimmedStringOrNull($options[self::FIELD_SERIES_V2_PATH] ?? $cfg[self::FIELD_SERIES_V2_PATH] ?? null) ?? storage_path('app/atlas/evidence/acos-delta-series.v2.jsonl');
+        $minAreaOverall = $this->clampOutOfTen($options[self::FIELD_MIN_AREA_OVERALL] ?? $cfg[self::FIELD_MIN_AREA_OVERALL] ?? $minOverall, $minOverall);
+        $minAreaCode = $this->clampOutOfTen($options[self::FIELD_MIN_AREA_CODE] ?? $cfg[self::FIELD_MIN_AREA_CODE] ?? $minAreaOverall, $minAreaOverall);
+        $minAreaDoc = $this->clampOutOfTen($options[self::FIELD_MIN_AREA_DOC] ?? $cfg[self::FIELD_MIN_AREA_DOC] ?? $minAreaOverall, $minAreaOverall);
+        $minAreaPipeline = $this->clampOutOfTen($options[self::FIELD_MIN_AREA_PIPELINE] ?? $cfg[self::FIELD_MIN_AREA_PIPELINE] ?? $minAreaOverall, $minAreaOverall);
 
         // "Today" is injectable so the frozen test can pin the freshness window
         // deterministically; in production it is the real UTC calendar day. It
@@ -171,11 +177,11 @@ final class AtlasAcosLongHorizonGateService
         ];
         if ($assessmentV2 !== null) {
             $config += [
-                'series_v2_path' => $seriesV2Path,
-                'min_area_overall' => $minAreaOverall,
-                'min_area_code' => $minAreaCode,
-                'min_area_doc' => $minAreaDoc,
-                'min_area_pipeline' => $minAreaPipeline,
+                self::FIELD_SERIES_V2_PATH => $seriesV2Path,
+                self::FIELD_MIN_AREA_OVERALL => $minAreaOverall,
+                self::FIELD_MIN_AREA_CODE => $minAreaCode,
+                self::FIELD_MIN_AREA_DOC => $minAreaDoc,
+                self::FIELD_MIN_AREA_PIPELINE => $minAreaPipeline,
             ];
         }
 
@@ -230,7 +236,7 @@ final class AtlasAcosLongHorizonGateService
             self::FIELD_FUTURE_DATED_ROWS => $futureDatedRows,
             self::FIELD_LATEST_STALENESS_DAYS => $this->latestStalenessDays($latestDate, $today),
             self::FIELD_CERTIFICATION_WINDOW_DATES => $certificationWindowDates,
-            'sampled_dates_in_window' => $sampledDatesInWindow,
+            self::FIELD_SAMPLED_DATES_IN_WINDOW => $sampledDatesInWindow,
             self::FIELD_MAX_CONSECUTIVE_GAP_DAYS => $this->maxConsecutiveGapDays($sampledDatesInWindow),
             self::FIELD_BACKFILLED_SAMPLES => $this->backfilledSamplesInWindow($series, $certificationWindowDates),
         ];
@@ -306,8 +312,8 @@ final class AtlasAcosLongHorizonGateService
         $certificationWindowDates = is_array($window[self::FIELD_CERTIFICATION_WINDOW_DATES] ?? null)
             ? $window[self::FIELD_CERTIFICATION_WINDOW_DATES]
             : [];
-        $sampledDatesInWindow = is_array($window['sampled_dates_in_window'] ?? null)
-            ? $window['sampled_dates_in_window']
+        $sampledDatesInWindow = is_array($window[self::FIELD_SAMPLED_DATES_IN_WINDOW] ?? null)
+            ? $window[self::FIELD_SAMPLED_DATES_IN_WINDOW]
             : [];
 
         return [

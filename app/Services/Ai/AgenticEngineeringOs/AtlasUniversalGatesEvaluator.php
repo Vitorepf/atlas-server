@@ -7006,6 +7006,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for long-horizon / lote2 / adversarial ladder peels.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function longhorizonLote2AdversarialFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'longhorizon_field_series_v2_path' => AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_PATH,
+            'longhorizon_field_min_area_overall' => AtlasAcosLongHorizonGateService::FIELD_MIN_AREA_OVERALL,
+            'longhorizon_field_min_area_code' => AtlasAcosLongHorizonGateService::FIELD_MIN_AREA_CODE,
+            'longhorizon_field_min_area_doc' => AtlasAcosLongHorizonGateService::FIELD_MIN_AREA_DOC,
+            'longhorizon_field_min_area_pipeline' => AtlasAcosLongHorizonGateService::FIELD_MIN_AREA_PIPELINE,
+            'longhorizon_field_sampled_dates_in_window' => AtlasAcosLongHorizonGateService::FIELD_SAMPLED_DATES_IN_WINDOW,
+            'lote2_field_policy_violation_rows' => AcosMaxLote2MeasureService::FIELD_POLICY_VIOLATION_ROWS,
+            'lote2_field_control_score_sum' => AcosMaxLote2MeasureService::FIELD_CONTROL_SCORE_SUM,
+            'lote2_field_treatment_score_sum' => AcosMaxLote2MeasureService::FIELD_TREATMENT_SCORE_SUM,
+            'lote2_field_delta_sum' => AcosMaxLote2MeasureService::FIELD_DELTA_SUM,
+            'lote2_field_missing_tables' => AcosMaxLote2MeasureService::FIELD_MISSING_TABLES,
+            'lote2_field_time_per_loop' => AcosMaxLote2MeasureService::FIELD_TIME_PER_LOOP,
+            'adversarial_field_assist_sessions' => AutonomyLadderAdversarialWatchdogCheck::FIELD_ASSIST_SESSIONS,
+            'adversarial_field_acceptance_rate' => AutonomyLadderAdversarialWatchdogCheck::FIELD_ACCEPTANCE_RATE,
+            'adversarial_field_severe_hallucination_count' => AutonomyLadderAdversarialWatchdogCheck::FIELD_SEVERE_HALLUCINATION_COUNT,
+            'adversarial_field_metrics_authority' => AutonomyLadderAdversarialWatchdogCheck::FIELD_METRICS_AUTHORITY,
+            'adversarial_field_eligible' => AutonomyLadderAdversarialWatchdogCheck::FIELD_ELIGIBLE,
+            'adversarial_field_code' => AutonomyLadderAdversarialWatchdogCheck::FIELD_CODE,
+            'longhorizon_lote2_adversarial_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

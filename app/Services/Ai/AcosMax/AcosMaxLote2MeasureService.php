@@ -145,6 +145,12 @@ final class AcosMaxLote2MeasureService
     public const FIELD_LOOPS_PARTIAL = 'loops_partial';
     public const FIELD_N_TOTAL = 'n_total';
     public const FIELD_FIXTURE_REJECTED = 'fixture_rejected';
+    public const FIELD_POLICY_VIOLATION_ROWS = 'policy_violation_rows';
+    public const FIELD_CONTROL_SCORE_SUM = 'control_score_sum';
+    public const FIELD_TREATMENT_SCORE_SUM = 'treatment_score_sum';
+    public const FIELD_DELTA_SUM = 'delta_sum';
+    public const FIELD_MISSING_TABLES = 'missing_tables';
+    public const FIELD_TIME_PER_LOOP = 'time_per_loop';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -210,8 +216,8 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_LOOPS_PARTIAL => [],
                 self::FIELD_N_TOTAL => 0,
                 self::FIELD_FIXTURE_REJECTED => 0,
-                'missing_tables' => $missingTables,
-                'time_per_loop' => [
+                self::FIELD_MISSING_TABLES => $missingTables,
+                self::FIELD_TIME_PER_LOOP => [
                     'p50_seconds' => null,
                     'p95_seconds' => null,
                 ],
@@ -289,7 +295,7 @@ final class AcosMaxLote2MeasureService
             'blocked_by_top' => $blockedByTop,
             self::FIELD_N_TOTAL => $loopsComplete + count($partial),
             self::FIELD_FIXTURE_REJECTED => $fixtureRejected,
-            'time_per_loop' => [
+            self::FIELD_TIME_PER_LOOP => [
                 'p50_seconds' => $this->percentileInt($durations, 0.50),
                 'p95_seconds' => $this->percentileInt($durations, 0.95),
             ],
@@ -543,7 +549,7 @@ final class AcosMaxLote2MeasureService
                     self::FIELD_CITATION_P50 => null,
                     self::FIELD_CITATION_P95 => null,
                 ],
-                'missing_tables' => $missingTables,
+                self::FIELD_MISSING_TABLES => $missingTables,
             ]);
         }
 
@@ -769,7 +775,7 @@ final class AcosMaxLote2MeasureService
             $pairs[$pairId] ??= [
                 self::FIELD_MEMORY_TYPE => $this->memoryTypeFromCounterfactualMeta($meta),
                 self::FIELD_ROWS => [],
-                'policy_violation_rows' => 0,
+                self::FIELD_POLICY_VIOLATION_ROWS => 0,
             ];
             $pairs[$pairId][self::FIELD_MEMORY_TYPE] = $pairs[$pairId][self::FIELD_MEMORY_TYPE] !== self::MEMORY_TYPE_UNKNOWN
                 ? $pairs[$pairId][self::FIELD_MEMORY_TYPE]
@@ -780,7 +786,7 @@ final class AcosMaxLote2MeasureService
                     && ($meta['record_usage'] ?? false) === false,
             ];
             if (! $pairs[$pairId][self::FIELD_ROWS][$arm]['policy_valid']) {
-                $pairs[$pairId]['policy_violation_rows']++;
+                $pairs[$pairId][self::FIELD_POLICY_VIOLATION_ROWS]++;
             }
         }
 
@@ -793,7 +799,7 @@ final class AcosMaxLote2MeasureService
 
         foreach ($pairs as $pair) {
             $rows = $pair[self::FIELD_ROWS];
-            if (($pair['policy_violation_rows'] ?? 0) > 0) {
+            if (($pair[self::FIELD_POLICY_VIOLATION_ROWS] ?? 0) > 0) {
                 $invalidPolicyPairs++;
                 $invalidPolicyRows += count($rows);
                 continue;
@@ -810,14 +816,14 @@ final class AcosMaxLote2MeasureService
             $groups[$memoryType] ??= [
                 self::FIELD_MEMORY_TYPE => $memoryType,
                 self::FIELD_N_PAIRS => 0,
-                'control_score_sum' => 0.0,
-                'treatment_score_sum' => 0.0,
-                'delta_sum' => 0.0,
+                self::FIELD_CONTROL_SCORE_SUM => 0.0,
+                self::FIELD_TREATMENT_SCORE_SUM => 0.0,
+                self::FIELD_DELTA_SUM => 0.0,
             ];
             $groups[$memoryType][self::FIELD_N_PAIRS]++;
-            $groups[$memoryType]['control_score_sum'] += $control;
-            $groups[$memoryType]['treatment_score_sum'] += $treatment;
-            $groups[$memoryType]['delta_sum'] += $delta;
+            $groups[$memoryType][self::FIELD_CONTROL_SCORE_SUM] += $control;
+            $groups[$memoryType][self::FIELD_TREATMENT_SCORE_SUM] += $treatment;
+            $groups[$memoryType][self::FIELD_DELTA_SUM] += $delta;
             $validDeltas[] = $delta;
 
             if ($memoryType === 'irrelevant' && $delta > 0.0001) {
@@ -892,9 +898,9 @@ final class AcosMaxLote2MeasureService
             self::FIELD_MEMORY_TYPE => AiValueNormalizer::trimmedScalarStringOrNull($group[self::FIELD_MEMORY_TYPE] ?? null) ?? '',
             self::FIELD_STATUS => $n >= $denominatorMin ? self::STATUS_MEASURED : self::STATUS_INSUFFICIENT_SIGNAL,
             self::FIELD_N_PAIRS => $n,
-            'control_score_mean' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group['control_score_sum'] ?? null) ?? 0.0) / $n, 4) : null,
-            'treatment_score_mean' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group['treatment_score_sum'] ?? null) ?? 0.0) / $n, 4) : null,
-            self::FIELD_PAIRED_DELTA => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group['delta_sum'] ?? null) ?? 0.0) / $n, 4) : null,
+            'control_score_mean' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_CONTROL_SCORE_SUM] ?? null) ?? 0.0) / $n, 4) : null,
+            'treatment_score_mean' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_TREATMENT_SCORE_SUM] ?? null) ?? 0.0) / $n, 4) : null,
+            self::FIELD_PAIRED_DELTA => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_DELTA_SUM] ?? null) ?? 0.0) / $n, 4) : null,
         ];
     }
 

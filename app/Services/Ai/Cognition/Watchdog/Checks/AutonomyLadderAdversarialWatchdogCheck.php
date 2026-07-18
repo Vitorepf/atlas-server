@@ -76,6 +76,12 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_VIOLATIONS = 'violations';
     public const FIELD_OPERATOR = 'operator';
     public const FIELD_REVERSAL_RATE = 'reversal_rate';
+    public const FIELD_ASSIST_SESSIONS = 'assist_sessions';
+    public const FIELD_ACCEPTANCE_RATE = 'acceptance_rate';
+    public const FIELD_SEVERE_HALLUCINATION_COUNT = 'severe_hallucination_count';
+    public const FIELD_METRICS_AUTHORITY = 'metrics_authority';
+    public const FIELD_ELIGIBLE = 'eligible';
+    public const FIELD_CODE = 'code';
 
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
@@ -133,13 +139,13 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
 
         if ($errors !== []) {
             return AtlasWatchdogCheckResult::error($evidence, [
-                'code' => 'maxk09_probe_orchestration_error',
+                self::FIELD_CODE => 'maxk09_probe_orchestration_error',
                 self::FIELD_MESSAGE => 'Adversarial probe orchestration failed.',
             ]);
         }
         if ($violations !== []) {
             return AtlasWatchdogCheckResult::alert($evidence, [
-                'code' => 'maxk09_adversarial_probe_passed',
+                self::FIELD_CODE => 'maxk09_adversarial_probe_passed',
                 self::FIELD_MESSAGE => 'A MAXK ladder/envelope forgery was NOT refused — regression opens the boolean-forgeable gate.',
                 self::FIELD_VIOLATIONS => $violations,
             ]);
@@ -265,8 +271,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $verdict = $this->ladder->evaluatePromotionAuthoritative('L0', $authority, [self::FIELD_OPERATOR => true]);
         $this->cleanup($path);
 
-        $provenance = AiValueNormalizer::arrayOrEmpty($verdict['metrics_authority'] ?? null);
-        $refused = ($verdict['eligible'] ?? true) === false
+        $provenance = AiValueNormalizer::arrayOrEmpty($verdict[self::FIELD_METRICS_AUTHORITY] ?? null);
+        $refused = ($verdict[self::FIELD_ELIGIBLE] ?? true) === false
             && ($verdict[self::FIELD_DECISION] ?? '') === 'blocked'
             && ($verdict[self::FIELD_REFUSAL_REASON] ?? '') === 'metrics_authority_missing'
             && ($provenance[self::FIELD_SOURCE] ?? '') === AtlasAutonomyMetricsAuthorityPort::SOURCE_MISSING;
@@ -292,9 +298,9 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $authority->seal(
             level: 'L1',
             metrics: [
-                'assist_sessions' => 10,
-                'acceptance_rate' => 0.10,
-                'severe_hallucination_count' => 5,
+                self::FIELD_ASSIST_SESSIONS => 10,
+                self::FIELD_ACCEPTANCE_RATE => 0.10,
+                self::FIELD_SEVERE_HALLUCINATION_COUNT => 5,
             ],
             sourceId: 'maxk09-probe',
         );
@@ -307,9 +313,9 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
                 $entry = json_decode($lines[0], true);
                 if (is_array($entry)) {
                     // Adversary overwrites metrics but leaves entry_hash alone.
-                    $entry[self::FIELD_METRICS]['assist_sessions'] = 999;
-                    $entry[self::FIELD_METRICS]['acceptance_rate'] = 1.0;
-                    $entry[self::FIELD_METRICS]['severe_hallucination_count'] = 0;
+                    $entry[self::FIELD_METRICS][self::FIELD_ASSIST_SESSIONS] = 999;
+                    $entry[self::FIELD_METRICS][self::FIELD_ACCEPTANCE_RATE] = 1.0;
+                    $entry[self::FIELD_METRICS][self::FIELD_SEVERE_HALLUCINATION_COUNT] = 0;
                     file_put_contents($path, json_encode($entry)."\n");
                     $tamperOk = true;
                 }
@@ -334,11 +340,11 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             ];
         }
 
-        $provenance = AiValueNormalizer::arrayOrEmpty($verdict['metrics_authority'] ?? null);
+        $provenance = AiValueNormalizer::arrayOrEmpty($verdict[self::FIELD_METRICS_AUTHORITY] ?? null);
 
         return [
             self::FIELD_ID => 'maxk06.metrics_authority_tampered',
-            self::FIELD_REFUSED => ($verdict['eligible'] ?? true) === false
+            self::FIELD_REFUSED => ($verdict[self::FIELD_ELIGIBLE] ?? true) === false
                 && ($verdict[self::FIELD_REFUSAL_REASON] ?? '') === 'metrics_authority_tampered'
                 && ($provenance[self::FIELD_SOURCE] ?? '') === AtlasAutonomyMetricsAuthorityPort::SOURCE_TAMPERED,
             self::FIELD_EXPECTED => 'blocked+metrics_authority_tampered',
