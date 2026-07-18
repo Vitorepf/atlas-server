@@ -12584,4 +12584,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B486).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b486CognitionScorePromotionProtocolLedgerRotationHealthReportFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'AARF' => AtlasCognitionScoreCardService::FIELD_AARF,
+            'AARR' => AtlasCognitionScoreCardService::FIELD_AARR,
+            'AEMOR' => AtlasCognitionScoreCardV4Grouper::FIELD_AEMOR_2,
+            'AUTONOMY' => AtlasCognitionScoreCardV4Grouper::FIELD_AUTONOMY_2,
+            'ASI' => PromotionProtocol::FIELD_ASI,
+            'AOBG' => PromotionProtocol::FIELD_AOBG,
+            '60' => AcosMaxLedgerRotationRegistry::INT_60,
+            '30' => AcosMaxLedgerRotationRegistry::INT_30,
+            'contextFeedbackHealthReport' => HealthReportWatchdogCheck::FIELD_CONTEXT_FEEDBACK_HEALTH_REPORT,
+            'engineeringEnforceReadinessReport' => HealthReportWatchdogCheck::FIELD_ENGINEERING_ENFORCE_READINESS_REPORT,
+            '16' => AtlasMemoryRecallRelevanceScorer::INT_16,
+            '10' => AtlasMemoryRecallRelevanceScorer::INT_10,
+            'Finance' => AtlasAaeosQualityBarService::FIELD_FINANCE,
+            'Legal' => AtlasAaeosQualityBarService::FIELD_LEGAL,
+            'APP_ENV' => AtlasAaeosTestExecutionService::FIELD_APP_ENV,
+            'DB_CONNECTION' => AtlasAaeosTestExecutionService::FIELD_DB_CONNECTION,
+            '30' => AcosMaxMeasureSeriesRegistry::INT_30,
+            '90' => AcosMaxMeasureSeriesRegistry::INT_90,
+            'b486_cognition_score_promotion_protocol_ledger_rotation_health_report_floor_count' => 18,
+        ];
+    }
+
 }

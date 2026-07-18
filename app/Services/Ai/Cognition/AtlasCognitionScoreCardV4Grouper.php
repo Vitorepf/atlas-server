@@ -59,6 +59,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_SELF_CONSTRUCTION = 'self_construction';
     public const FIELD_SELF_IMPROVEMENT = 'self_improvement';
     public const FIELD_ACOS = 'acos';
+    public const FIELD_AEMOR_2 = 'AEMOR';
+    public const FIELD_AUTONOMY_2 = 'AUTONOMY';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -155,12 +157,12 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_REALITY, self::FIELD_CROSS_DOMAIN => 'REALITY',
             self::FIELD_TEOS => 'TEOS',
             self::FIELD_COGNITION => 'COGNITION',
-            self::FIELD_AUTONOMY => 'AUTONOMY',
+            self::FIELD_AUTONOMY => self::FIELD_AUTONOMY_2,
             self::FIELD_PATAMAR4, self::FIELD_PATAMAR_4, self::FIELD_INTEGRATION => 'PATAMAR4',
             self::FIELD_CONTEXT_CACHE => 'CONTEXT-CACHE',
             self::FIELD_CONTEXT_INTELLIGENCE => 'CONTEXT-INTELLIGENCE',
             self::FIELD_PERSISTENT_CONTEXT => 'PERSISTENT-CONTEXT',
-            self::FIELD_AEMOR => 'AEMOR',
+            self::FIELD_AEMOR => self::FIELD_AEMOR_2,
             self::FIELD_LONG_HORIZON => 'LONG-HORIZON',
             self::FIELD_VERIFIED_CONTEXT => 'VERIFIED-CONTEXT',
             self::FIELD_CONTEXT_QUALITY => 'CONTEXT-QUALITY',
@@ -183,12 +185,12 @@ final class AtlasCognitionScoreCardV4Grouper
             'REALITY' => 'Reality Graph + Cross-Domain',
             'TEOS' => 'TEOS Counterfactuals',
             'COGNITION' => 'Cognitive Function Atlas',
-            'AUTONOMY' => 'Autonomous Reconciliation',
+            self::FIELD_AUTONOMY_2 => 'Autonomous Reconciliation',
             'PATAMAR4' => 'Patamar 4 Integration',
             'CONTEXT-CACHE' => 'Context Cache Compiler Runtime',
             'CONTEXT-INTELLIGENCE' => 'Context Intelligence Engine',
             'PERSISTENT-CONTEXT' => 'Persistent Context Runtime',
-            'AEMOR' => 'Execution Memory Outcome Runtime',
+            self::FIELD_AEMOR_2 => 'Execution Memory Outcome Runtime',
             'LONG-HORIZON' => 'TEOS-I1 Long-Horizon Intelligence',
             'VERIFIED-CONTEXT' => 'Verified Context Execution Loop',
             'CONTEXT-QUALITY' => 'Context Quality Certification Gate',

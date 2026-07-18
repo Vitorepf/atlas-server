@@ -114,6 +114,8 @@ final class PromotionProtocol
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_UNKNOWN_FLAG = 'unknown_flag';
     public const FIELD_MISSING_REQUIRED_FIELDS = 'missing_required_fields';
+    public const FIELD_ASI = 'ASI';
+    public const FIELD_AOBG = 'AOBG';
 
     /** @var list<string> */
     public const STATES = [
@@ -310,7 +312,7 @@ final class PromotionProtocol
         return [
             [
                 self::FIELD_ID => 'ATLAS_AUTONOMOS_MASTER_ENABLED',
-                self::FIELD_FAMILY => 'ASI',
+                self::FIELD_FAMILY => self::FIELD_ASI,
                 self::FIELD_SLICE => 'ASI-06',
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_ENV_KEY => 'ATLAS_AUTONOMOS_MASTER_ENABLED',
@@ -323,7 +325,7 @@ final class PromotionProtocol
             ],
             [
                 self::FIELD_ID => 'ATLAS_AUTONOMOUS_AUTO_APPLY',
-                self::FIELD_FAMILY => 'ASI',
+                self::FIELD_FAMILY => self::FIELD_ASI,
                 self::FIELD_SLICE => 'ASI-07',
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_CONFIG_KEY => 'atlas.ai.autonomous_learning.enabled',
@@ -337,7 +339,7 @@ final class PromotionProtocol
             ],
             [
                 self::FIELD_ID => 'ATLAS_BRAIN_REFLECTION_ENABLED',
-                self::FIELD_FAMILY => 'ASI',
+                self::FIELD_FAMILY => self::FIELD_ASI,
                 self::FIELD_SLICE => 'ASI-08',
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_CONFIG_KEY => 'atlas.brain.reflection_enabled',
@@ -362,7 +364,7 @@ final class PromotionProtocol
             ],
             [
                 self::FIELD_ID => 'acos.land.autonomous_verification_required',
-                self::FIELD_FAMILY => 'ASI',
+                self::FIELD_FAMILY => self::FIELD_ASI,
                 self::FIELD_SLICE => 'ASI-10',
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '7d',
@@ -412,13 +414,13 @@ final class PromotionProtocol
             ],
             [
                 self::FIELD_ID => 'atlas.aobg.semantic_retrieval',
-                self::FIELD_FAMILY => 'AOBG',
+                self::FIELD_FAMILY => self::FIELD_AOBG,
                 self::FIELD_CONFIG_KEY => 'atlas.aobg.semantic_retrieval',
                 self::FIELD_SOURCE => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:252',
             ],
             [
                 self::FIELD_ID => 'ATLAS_AOBG_FUSION_ENABLED',
-                self::FIELD_FAMILY => 'AOBG',
+                self::FIELD_FAMILY => self::FIELD_AOBG,
                 self::FIELD_ENV_KEY => 'ATLAS_AOBG_FUSION_ENABLED',
                 self::FIELD_SOURCE => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:743',
             ],

@@ -56,6 +56,8 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_COMMAND = 'command';
     public const FIELD_DECISION = 'decision';
     public const FIELD_MEMORY = 'memory';
+    public const INT_16 = 16;
+    public const INT_10 = 10;
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -102,9 +104,9 @@ final class AtlasMemoryRecallRelevanceScorer
         return match ($scope) {
             self::FIELD_TASK => 22,
             self::FIELD_ENGINEERING_RUN => 20,
-            self::FIELD_PROJECT => 16,
+            self::FIELD_PROJECT => self::INT_16,
             self::FIELD_WORKSPACE => 12,
-            self::FIELD_SESSION => 10,
+            self::FIELD_SESSION => self::INT_10,
             self::FIELD_USER => 8,
             default => 4,
         };
@@ -116,7 +118,7 @@ final class AtlasMemoryRecallRelevanceScorer
     public function typeWeight(string $type): int
     {
         return match ($type) {
-            self::FIELD_DECISION, self::FIELD_RESOLUTION, self::FIELD_REQUIREMENT => 16,
+            self::FIELD_DECISION, self::FIELD_RESOLUTION, self::FIELD_REQUIREMENT => self::INT_16,
             self::FIELD_ISSUE, self::FIELD_FAILURE => 14,
             self::FIELD_TECHNICAL_CONTEXT, self::FIELD_COMMAND, self::FIELD_EVIDENCE, self::FIELD_HARNESS_LEARNING => 11,
             self::FIELD_PREFERENCE, self::FIELD_FEEDBACK => 8,

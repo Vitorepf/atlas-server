@@ -74,6 +74,8 @@ class AtlasAaeosTestExecutionService
     public const FIELD_REVIEW = 'review';
     public const FIELD_DELIVERY = 'delivery';
     public const FIELD_GIT = 'git';
+    public const FIELD_APP_ENV = 'APP_ENV';
+    public const FIELD_DB_CONNECTION = 'DB_CONNECTION';
 
     public function __construct(
         private readonly float $timeout = 180.0,
@@ -423,7 +425,7 @@ class AtlasAaeosTestExecutionService
             base_path(),
             // Force a sqlite :memory: DB for the spawned suite so it never touches
             // the live pgsql runtime, mirroring the test harness env.
-            ['DB_CONNECTION' => self::FIELD_SQLITE, 'DB_DATABASE' => ':memory:'] + $this->inheritedEnv(),
+            [self::FIELD_DB_CONNECTION => self::FIELD_SQLITE, 'DB_DATABASE' => ':memory:'] + $this->inheritedEnv(),
         );
         $process->setTimeout($this->timeout);
 
@@ -507,14 +509,14 @@ class AtlasAaeosTestExecutionService
     private function inheritedEnv(): array
     {
         $env = [];
-        foreach (['PATH', 'HOME', 'APP_ENV'] as $key) {
+        foreach (['PATH', 'HOME', self::FIELD_APP_ENV] as $key) {
             $value = getenv($key);
             if (is_string($value) && $value !== '') {
                 $env[$key] = $value;
             }
         }
         // Default the spawned suite to the testing env unless the operator set one.
-        $env['APP_ENV'] = $env['APP_ENV'] ?? self::FIELD_TESTING;
+        $env[self::FIELD_APP_ENV] = $env[self::FIELD_APP_ENV] ?? self::FIELD_TESTING;
 
         return $env;
     }

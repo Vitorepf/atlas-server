@@ -60,6 +60,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_GROUND_TRUTH_RECEIPT = 'ground_truth_receipt';
     public const FIELD_ONE_TIME_CLEANUP_RECEIPT = 'one_time_cleanup_receipt';
     public const FIELD_TS = 'ts';
+    public const INT_30 = 30;
+    public const INT_90 = 90;
 
     public const SOURCE_TYPE_JSONL = 'jsonl';
 
@@ -174,7 +176,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TABLE => self::FIELD_ATLAS_LEDGER_EVENTS,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_OCCURRED_AT,
-                self::FIELD_TTL_DAYS => 30,
+                self::FIELD_TTL_DAYS => self::INT_30,
                 self::FIELD_TTL_SOURCE => 'maxl-02-freeze-equivalent',
             ],
             [
@@ -214,7 +216,7 @@ final class AcosMaxMeasureSeriesRegistry
                     self::FIELD_SCOPE_TYPE => self::FIELD_ACOS_WATCHDOG,
                     self::FIELD_SCOPE_ID => self::FIELD_UNIFIED,
                 ],
-                self::FIELD_TTL_DAYS => 30,
+                self::FIELD_TTL_DAYS => self::INT_30,
                 self::FIELD_TTL_SOURCE => 'elev-20s-freeze-equivalent',
             ],
             [
@@ -272,7 +274,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_PATH => 'AtlasDecideCostOutcomeRouter::costOutcomeRoute.cascade',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => 30,
+                self::FIELD_TTL_DAYS => self::INT_30,
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.decide.cascade_cost_router.v1',
             ],
             [
@@ -281,7 +283,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_PATH => 'atlas:decide:replay-divergence --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => 30,
+                self::FIELD_TTL_DAYS => self::INT_30,
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.decide.replay_divergence.v1',
             ],
             [
@@ -335,7 +337,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_PATH => 'atlas:context:golden-counterfactual --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => 90,
+                self::FIELD_TTL_DAYS => self::INT_90,
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.context.golden_counterfactual.v1',
             ],
             [
@@ -344,7 +346,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_PATH => 'atlas:context:execution-cooccurrence --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => 90,
+                self::FIELD_TTL_DAYS => self::INT_90,
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.context.execution_cooccurrence.v1',
             ],
             [
@@ -371,7 +373,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_PATH => 'atlas:flywheel:funnel --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => 30,
+                self::FIELD_TTL_DAYS => self::INT_30,
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.m.funnel.v1',
             ],
             [
@@ -452,7 +454,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_PATH => 'AtlasResourceBudgetService::report',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => 30,
+                self::FIELD_TTL_DAYS => self::INT_30,
                 self::FIELD_TTL_SOURCE => 'elev-27-resource-budget',
             ],
             [
@@ -461,7 +463,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_PATH => 'AtlasTestAttestationService::attest',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_ATTESTED_AT,
-                self::FIELD_TTL_DAYS => 30,
+                self::FIELD_TTL_DAYS => self::INT_30,
                 self::FIELD_TTL_SOURCE => 'esp-03-test-attestation-seal',
             ],
             [
@@ -524,7 +526,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_PATH => storage_path(AtlasAurgPprShadowDualReadLedger::RELATIVE_PATH),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
-                self::FIELD_TTL_DAYS => 90,
+                self::FIELD_TTL_DAYS => self::INT_90,
                 self::FIELD_TTL_SOURCE => 'maxd-04-ppr-shadow-dual-read-window',
             ],
             [
@@ -533,7 +535,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_PATH => storage_path(Maxa04JinaV3DualReadLedger::RELATIVE_PATH),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
-                self::FIELD_TTL_DAYS => 90,
+                self::FIELD_TTL_DAYS => self::INT_90,
                 self::FIELD_TTL_SOURCE => 'maxa-04-jina-v3-dual-read-window',
             ],
             [
@@ -542,7 +544,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_PATH => storage_path('app/atlas/evidence/ragx-ab-registrations.jsonl'),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
-                self::FIELD_TTL_DAYS => 90,
+                self::FIELD_TTL_DAYS => self::INT_90,
                 self::FIELD_TTL_SOURCE => 'ragx-07-records-only-ab-registration',
             ],
             [
@@ -551,7 +553,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_PATH => 'atlas:acos:rec06-breakers --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => 30,
+                self::FIELD_TTL_DAYS => self::INT_30,
                 self::FIELD_TTL_SOURCE => 'rec-06-meta-loop-breaker-reader',
             ],
         ];

@@ -44,6 +44,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_MODE = 'mode';
 
     public const FIELD_RATIONALE = 'rationale';
+    public const INT_60 = 60;
+    public const INT_30 = 30;
     public const INT_32 = 32;
     public const INT_90 = 90;
 
@@ -126,61 +128,61 @@ final class AcosMaxLedgerRotationRegistry
             ],
             'atlas.capture.cognitive_immune_audit.v2' => [
                 self::FIELD_MAX_SIZE_MB => 128,
-                self::FIELD_MAX_AGE_DAYS => 30,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXI-02 capture audit; DB table pruning',
             ],
             'atlas.immune.calibration.v1' => [
                 self::FIELD_MAX_SIZE_MB => 128,
-                self::FIELD_MAX_AGE_DAYS => 30,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXI-03 verdict ledger table',
             ],
             'acos.dead_series_watchdog.v1' => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
-                self::FIELD_MAX_AGE_DAYS => 30,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'ELEV-20s DB-backed watchdog run trail',
             ],
             'acos.operator_review_debt.v1' => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
-                self::FIELD_MAX_AGE_DAYS => 30,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'ELEV-25 review-debt watchdog trail',
             ],
             'atlas.ai.lesson_quality.v2' => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
-                self::FIELD_MAX_AGE_DAYS => 60,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXJ-01 lesson quality reader',
             ],
             'atlas.ai.lesson_type_yield.v2' => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
-                self::FIELD_MAX_AGE_DAYS => 60,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXJ-05 lesson type yield',
             ],
             'atlas.decide.route_regret.v2' => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
-                self::FIELD_MAX_AGE_DAYS => 60,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXK-01 route regret',
             ],
             'atlas.decide.cost_outcome_uncertainty.v1' => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
-                self::FIELD_MAX_AGE_DAYS => 60,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTK-01 cost-outcome',
             ],
             'atlas.decide.replay_divergence.v1' => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
-                self::FIELD_MAX_AGE_DAYS => 30,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTK-03 decision replay divergence',
             ],
             'atlas.decide.zero_weight_outcomes.v1' => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
-                self::FIELD_MAX_AGE_DAYS => 60,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'ESP-05 zero-weight outcomes',
             ],
@@ -234,7 +236,7 @@ final class AcosMaxLedgerRotationRegistry
             ],
             'atlas.m.funnel.v1' => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
-                self::FIELD_MAX_AGE_DAYS => 30,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTX-02 diagnostic funnel by executor',
             ],
@@ -246,7 +248,7 @@ final class AcosMaxLedgerRotationRegistry
             ],
             'acos.windows_orchestrator.v1' => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
-                self::FIELD_MAX_AGE_DAYS => 30,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTX-09 windows DAG snapshot',
             ],
@@ -276,7 +278,7 @@ final class AcosMaxLedgerRotationRegistry
             ],
             'atlas.resource_budget.v1' => [
                 self::FIELD_MAX_SIZE_MB => 8,
-                self::FIELD_MAX_AGE_DAYS => 30,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'ELEV-27 joint budget reader; watchdog snapshot cadence',
             ],
@@ -294,7 +296,7 @@ final class AcosMaxLedgerRotationRegistry
             ],
             'atlas.immune.classifier_hybrid.v1' => [
                 self::FIELD_MAX_SIZE_MB => 16,
-                self::FIELD_MAX_AGE_DAYS => 60,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXI-04 hybrid-classifier switch receipt; measurement cadence tied to arm-ON runs',
             ],
@@ -306,7 +308,7 @@ final class AcosMaxLedgerRotationRegistry
             ],
             'atlas.kb_embedding_coverage.v1' => [
                 self::FIELD_MAX_SIZE_MB => 8,
-                self::FIELD_MAX_AGE_DAYS => 60,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXA-06 fase 1 KB coverage reader; watchdog snapshot cadence tied to knowledge sync runs',
             ],
@@ -324,7 +326,7 @@ final class AcosMaxLedgerRotationRegistry
             ],
             'atlas.decide.cascade_cost_router.v1' => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
-                self::FIELD_MAX_AGE_DAYS => 60,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTK-02 cascade cost router computed-reader snapshots',
             ],
@@ -342,13 +344,13 @@ final class AcosMaxLedgerRotationRegistry
             ],
             'atlas.immune.signature_store.v1' => [
                 self::FIELD_MAX_SIZE_MB => 64,
-                self::FIELD_MAX_AGE_DAYS => 60,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXI-05 immune signature DB-backed store; watchdog/table pruning cadence',
             ],
             'atlas.code_symbol_embedding_coverage.v1' => [
                 self::FIELD_MAX_SIZE_MB => 8,
-                self::FIELD_MAX_AGE_DAYS => 60,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXA-06 fase 2 code-symbol embedding coverage reader',
             ],
@@ -360,7 +362,7 @@ final class AcosMaxLedgerRotationRegistry
             ],
             'atlas.acos.rec06.meta_loop_breakers.v1' => [
                 self::FIELD_MAX_SIZE_MB => 8,
-                self::FIELD_MAX_AGE_DAYS => 30,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'REC-06 computed breaker report; stays small until real series arm it',
             ],

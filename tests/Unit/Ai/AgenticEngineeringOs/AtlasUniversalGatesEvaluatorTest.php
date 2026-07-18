@@ -9889,4 +9889,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b485_cognition_score_ledger_rotation_health_report_aaeos_quality_floor_count']);
     }
 
+    public function test_b486_cognition_score_promotion_protocol_ledger_rotation_health_report_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b486CognitionScorePromotionProtocolLedgerRotationHealthReportFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AARF, $out['AARF']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AARR, $out['AARR']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_AEMOR_2, $out['AEMOR']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_AUTONOMY_2, $out['AUTONOMY']);
+        $this->assertSame(PromotionProtocol::FIELD_ASI, $out['ASI']);
+        $this->assertSame(PromotionProtocol::FIELD_AOBG, $out['AOBG']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::INT_60, $out['60']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::INT_30, $out['30']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_CONTEXT_FEEDBACK_HEALTH_REPORT, $out['contextFeedbackHealthReport']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_ENGINEERING_ENFORCE_READINESS_REPORT, $out['engineeringEnforceReadinessReport']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::INT_16, $out['16']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::INT_10, $out['10']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_FINANCE, $out['Finance']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_LEGAL, $out['Legal']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_APP_ENV, $out['APP_ENV']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_DB_CONNECTION, $out['DB_CONNECTION']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::INT_30, $out['30']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::INT_90, $out['90']);
+        $this->assertSame(18, $out['b486_cognition_score_promotion_protocol_ledger_rotation_health_report_floor_count']);
+    }
+
 }

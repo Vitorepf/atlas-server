@@ -199,6 +199,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_VERIFIED_CONTEXT = 'verified_context';
     public const FIELD_AAA = 'AAA';
     public const FIELD_AACM = 'AACM';
+    public const FIELD_AARF = 'AARF';
+    public const FIELD_AARR = 'AARR';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -263,7 +265,7 @@ class AtlasCognitionScoreCardService
         // AUCRI 18 blocks
         ['ASEF',  'Semantic Embedding Foundation',     self::FIELD_AUCRI, AtlasSemanticEmbeddingFoundationService::class],
         ['AHRI',  'Hybrid Retrieval Infrastructure',   self::FIELD_AUCRI, AtlasHybridRetrievalInfrastructureService::class],
-        ['AARF',  'Agentic RAG Framework',             self::FIELD_AUCRI, AtlasAgenticRagFrameworkService::class],
+        [self::FIELD_AARF,  'Agentic RAG Framework',             self::FIELD_AUCRI, AtlasAgenticRagFrameworkService::class],
         ['ACRS',  'Context Ranking System',            self::FIELD_AUCRI, AtlasContextRankingSystemService::class],
         ['ACFQ',  'Context Freshness Quality Gate',    self::FIELD_AUCRI, AtlasContextFreshnessQualityGateService::class],
         ['ARFL',  'Retrieval Feedback Loop',           self::FIELD_AUCRI, AtlasRetrievalFeedbackLoopService::class],
@@ -294,7 +296,7 @@ class AtlasCognitionScoreCardService
         ['ACK',     'Constitutional Kernel',               self::FIELD_GOVERNANCE,        AtlasConstitutionalKernelService::class],
         [self::FIELD_AAA,     'Autonomy Admission',                  self::FIELD_GOVERNANCE,        AtlasAutonomyAdmissionService::class],
         ['ACFA',    'Cognitive Function Atlas',            self::FIELD_COGNITION,         AtlasCognitiveFunctionAtlasService::class],
-        ['AARR',    'Autonomous Reconciliation Runtime',   self::FIELD_AUTONOMY,          AtlasAutonomousReconciliationRuntimeService::class],
+        [self::FIELD_AARR,    'Autonomous Reconciliation Runtime',   self::FIELD_AUTONOMY,          AtlasAutonomousReconciliationRuntimeService::class],
         ['TEOS-I4', 'TEOS-I4 Counterfactual Tree',         self::FIELD_TEOS,              AtlasTeosI4CounterfactualTreeService::class],
         ['ASWC',    'Swarm Conductor',                     self::FIELD_ATLAS_DECIDE,      AtlasSwarmConductorService::class],
         ['ASWE',    'Swarm Executor',                      self::FIELD_ATLAS_DECIDE,      AtlasSwarmExecutorService::class],
