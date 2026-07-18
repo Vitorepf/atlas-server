@@ -13103,4 +13103,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b616_memory_cognitive_floor_count']);
     }
 
+    public function test_b617_memory_cognitive_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b617MemoryCognitiveFloorsContractObserve([]);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_FOI_VALIDADO_POR_FEEDBACK__TESTE__REPLAY_OU_USO_, $out['foi validado por feedback, teste, replay ou uso?']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_GLOBAL, $out['global']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_HA_CLAIM_ATOMICO__TIPO__ESCOPO_E_FONTE_, $out['ha claim atomico, tipo, escopo e fonte?']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_HA_UTILIDADE_FUTURA__NOVIDADE_OU_RECORRENCIA_, $out['ha utilidade futura, novidade ou recorrencia?']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_LEARNING_NEVER_ALTERS_CRITICAL_BEHAVIOR_WITHOUT_PROPOSAL_OR_REVIEW, $out['learning_never_alters_critical_behavior_without_proposal_or_review']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_MISSING_CLEARANCE, $out['missing_clearance']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_MISSING_EVIDENCE, $out['missing_evidence']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_MISSING_REASON, $out['missing_reason']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_MISSING_REQUIRED_METADATA, $out['missing_required_metadata']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ORIGIN, $out['origin']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PODE_CAPTURAR_COM_CONSENTIMENTO__PRIVACY_E_RETENTION_, $out['pode capturar com consentimento, privacy e retention?']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_POLICY, $out['policy']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PREFER_INSUFFICIENT_CONTEXT_OVER_RETRIEVING_GARBAGE, $out['prefer_insufficient_context_over_retrieving_garbage']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PROVENANCE, $out['provenance']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_RAW_CAPTURE_NEVER_ENTERS_CONTEXT_BUILDER_DIRECTLY, $out['raw_capture_never_enters_context_builder_directly']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_TTL_EXPIRATION, $out['ttl_expiration']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_UNKNOWN_FORGETTING_KIND, $out['unknown_forgetting_kind']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_VALE_PARA_GLOBAL__WORKSPACE__PROJETO__TAREFA__DOMINIO_OU_SESSAO_, $out['vale para global, workspace, projeto, tarefa, dominio ou sessao?']);
+        $this->assertSame(18, $out['b617_memory_cognitive_floor_count']);
+    }
+
 }

@@ -192,6 +192,24 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
     public const FIELD_EMBEDDING_ALLOWED_FLAG_FALSE = 'embedding_allowed_flag_false';
     public const FIELD_ENTRA_COMO_WATCH_ANTES_DE_TRUSTED_ = 'entra como watch antes de trusted?';
     public const FIELD_EVERY_MEMORY_HAS_SCOPE_SOURCE_STATE_USE_REASON = 'every_memory_has_scope_source_state_use_reason';
+    public const FIELD_FOI_VALIDADO_POR_FEEDBACK__TESTE__REPLAY_OU_USO_ = 'foi validado por feedback, teste, replay ou uso?';
+    public const FIELD_GLOBAL = 'global';
+    public const FIELD_HA_CLAIM_ATOMICO__TIPO__ESCOPO_E_FONTE_ = 'ha claim atomico, tipo, escopo e fonte?';
+    public const FIELD_HA_UTILIDADE_FUTURA__NOVIDADE_OU_RECORRENCIA_ = 'ha utilidade futura, novidade ou recorrencia?';
+    public const FIELD_LEARNING_NEVER_ALTERS_CRITICAL_BEHAVIOR_WITHOUT_PROPOSAL_OR_REVIEW = 'learning_never_alters_critical_behavior_without_proposal_or_review';
+    public const FIELD_MISSING_CLEARANCE = 'missing_clearance';
+    public const FIELD_MISSING_EVIDENCE = 'missing_evidence';
+    public const FIELD_MISSING_REASON = 'missing_reason';
+    public const FIELD_MISSING_REQUIRED_METADATA = 'missing_required_metadata';
+    public const FIELD_ORIGIN = 'origin';
+    public const FIELD_PODE_CAPTURAR_COM_CONSENTIMENTO__PRIVACY_E_RETENTION_ = 'pode capturar com consentimento, privacy e retention?';
+    public const FIELD_POLICY = 'policy';
+    public const FIELD_PREFER_INSUFFICIENT_CONTEXT_OVER_RETRIEVING_GARBAGE = 'prefer_insufficient_context_over_retrieving_garbage';
+    public const FIELD_PROVENANCE = 'provenance';
+    public const FIELD_RAW_CAPTURE_NEVER_ENTERS_CONTEXT_BUILDER_DIRECTLY = 'raw_capture_never_enters_context_builder_directly';
+    public const FIELD_TTL_EXPIRATION = 'ttl_expiration';
+    public const FIELD_UNKNOWN_FORGETTING_KIND = 'unknown_forgetting_kind';
+    public const FIELD_VALE_PARA_GLOBAL__WORKSPACE__PROJETO__TAREFA__DOMINIO_OU_SESSAO_ = 'vale para global, workspace, projeto, tarefa, dominio ou sessao?';
 
     /**
      * Default cognitive-quarantine state. Every input is born here.
@@ -235,13 +253,13 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
      * @var array<int,array{id:string,signal:string,question:string}>
      */
     private const GATES = [
-        [self::FIELD_ID => self::FIELD_G0, self::FIELD_SIGNAL => self::FIELD_CAPTURE_CONSENTED, self::FIELD_QUESTION => 'pode capturar com consentimento, privacy e retention?'],
-        [self::FIELD_ID => self::FIELD_G1, self::FIELD_SIGNAL => self::FIELD_ATOMIC_CLAIM, self::FIELD_QUESTION => 'ha claim atomico, tipo, escopo e fonte?'],
-        [self::FIELD_ID => self::FIELD_G2, self::FIELD_SIGNAL => self::FIELD_FUTURE_SIGNAL, self::FIELD_QUESTION => 'ha utilidade futura, novidade ou recorrencia?'],
+        [self::FIELD_ID => self::FIELD_G0, self::FIELD_SIGNAL => self::FIELD_CAPTURE_CONSENTED, self::FIELD_QUESTION => self::FIELD_PODE_CAPTURAR_COM_CONSENTIMENTO__PRIVACY_E_RETENTION_],
+        [self::FIELD_ID => self::FIELD_G1, self::FIELD_SIGNAL => self::FIELD_ATOMIC_CLAIM, self::FIELD_QUESTION => self::FIELD_HA_CLAIM_ATOMICO__TIPO__ESCOPO_E_FONTE_],
+        [self::FIELD_ID => self::FIELD_G2, self::FIELD_SIGNAL => self::FIELD_FUTURE_SIGNAL, self::FIELD_QUESTION => self::FIELD_HA_UTILIDADE_FUTURA__NOVIDADE_OU_RECORRENCIA_],
         [self::FIELD_ID => self::FIELD_G3, self::FIELD_SIGNAL => self::FIELD_PROVIDER_SAFE, self::FIELD_QUESTION => self::FIELD_E_PROVIDER_SAFE__SEM_SEGREDO_E_SEM_DADO_SENSIVEL_DESNECESSARIO_],
         [self::FIELD_ID => self::FIELD_G4, self::FIELD_SIGNAL => self::FIELD_NO_CONTRADICTION, self::FIELD_QUESTION => self::FIELD_CONFLITA_COM_MEMORIA__CODIGO__DOCS_OU_DECISAO_MAIS_NOVA_],
-        [self::FIELD_ID => self::FIELD_G5, self::FIELD_SIGNAL => self::FIELD_OUTCOME_VALIDATED, self::FIELD_QUESTION => 'foi validado por feedback, teste, replay ou uso?'],
-        [self::FIELD_ID => self::FIELD_G6, self::FIELD_SIGNAL => self::FIELD_SCOPE_RESOLVED, self::FIELD_QUESTION => 'vale para global, workspace, projeto, tarefa, dominio ou sessao?'],
+        [self::FIELD_ID => self::FIELD_G5, self::FIELD_SIGNAL => self::FIELD_OUTCOME_VALIDATED, self::FIELD_QUESTION => self::FIELD_FOI_VALIDADO_POR_FEEDBACK__TESTE__REPLAY_OU_USO_],
+        [self::FIELD_ID => self::FIELD_G6, self::FIELD_SIGNAL => self::FIELD_SCOPE_RESOLVED, self::FIELD_QUESTION => self::FIELD_VALE_PARA_GLOBAL__WORKSPACE__PROJETO__TAREFA__DOMINIO_OU_SESSAO_],
         [self::FIELD_ID => self::FIELD_G7, self::FIELD_SIGNAL => self::FIELD_PROMOTION_MODE_SET, self::FIELD_QUESTION => self::FIELD_AUTO__REVIEW_HUMANO__PROPOSAL_OU_BLOQUEIO_],
         [self::FIELD_ID => self::FIELD_G8, self::FIELD_SIGNAL => self::FIELD_PROBATION_ENTERED, self::FIELD_QUESTION => self::FIELD_ENTRA_COMO_WATCH_ANTES_DE_TRUSTED_],
     ];
@@ -258,18 +276,18 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
 
     /** Required metadata on every vector before similarity is allowed to run. */
     private const VECTOR_REQUIRED_META = [
-        'origin', self::FIELD_TRUST_LEVEL, self::FIELD_PRIVACY, self::FIELD_RETENTION,
+        self::FIELD_ORIGIN, self::FIELD_TRUST_LEVEL, self::FIELD_PRIVACY, self::FIELD_RETENTION,
         self::FIELD_EXPIRES_AT, self::FIELD_EMBEDDING_ALLOWED, self::FIELD_TOMBSTONE_STATUS,
     ];
 
     /** Clearances Constelacao demands before admitting any semantic state. */
     private const CONSTELLATION_CLEARANCES = [
-        'provenance', self::FIELD_SEMANTIC_VALUE, self::FIELD_SCOPE,
+        self::FIELD_PROVENANCE, self::FIELD_SEMANTIC_VALUE, self::FIELD_SCOPE,
         self::FIELD_REVERSIBILITY, self::FIELD_PRIVACY_CLEARANCE, self::FIELD_REASON,
     ];
 
     /** Scopes that carry critical/policy weight (Rule 7: never auto-promote). */
-    private const CRITICAL_SCOPES = ['global', 'policy'];
+    private const CRITICAL_SCOPES = [self::FIELD_GLOBAL, self::FIELD_POLICY];
 
     /** Memory states the doc permits. */
     public const MEMORY_STATES = [
@@ -517,7 +535,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
             }
         }
         if ($missing !== []) {
-            $reasons[] = 'missing_required_metadata';
+            $reasons[] = self::FIELD_MISSING_REQUIRED_METADATA;
         }
 
         // The flag must be explicitly true; default-false quarantine holds.
@@ -559,7 +577,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
             }
         }
         if ($missing !== []) {
-            $reasons[] = 'missing_clearance';
+            $reasons[] = self::FIELD_MISSING_CLEARANCE;
         }
 
         $eligible = $reasons === [];
@@ -581,20 +599,20 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
     public function forgettingReceipt(string $kind, string $reason, string $evidenceRef): array
     {
         $allowedKinds = [
-            'ttl_expiration', self::FIELD_CONFIDENCE_DECAY, self::FIELD_SUPERSESSION,
+            self::FIELD_TTL_EXPIRATION, self::FIELD_CONFIDENCE_DECAY, self::FIELD_SUPERSESSION,
             self::FIELD_ARCHIVAL, self::FIELD_HARD_DELETE, self::FIELD_NEGATIVE_MEMORY,
         ];
         $k = $this->normalize($kind);
         $errors = [];
 
         if (! in_array($k, $allowedKinds, true)) {
-            $errors[] = 'unknown_forgetting_kind';
+            $errors[] = self::FIELD_UNKNOWN_FORGETTING_KIND;
         }
         if (AiValueNormalizer::trimmedStringOrNull($reason) === null) {
-            $errors[] = 'missing_reason';
+            $errors[] = self::FIELD_MISSING_REASON;
         }
         if (AiValueNormalizer::trimmedStringOrNull($evidenceRef) === null) {
-            $errors[] = 'missing_evidence';
+            $errors[] = self::FIELD_MISSING_EVIDENCE;
         }
 
         return [
@@ -611,14 +629,14 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
     public function nonNegotiableRules(): array
     {
         return [
-            'raw_capture_never_enters_context_builder_directly',
+            self::FIELD_RAW_CAPTURE_NEVER_ENTERS_CONTEXT_BUILDER_DIRECTLY,
             self::FIELD_CHAT_TRANSCRIPT_NEVER_BECOMES_MEMORY_SILENTLY,
             self::FIELD_ARCHIVE_IS_NOT_MEMORY_APPROVED,
             self::FIELD_DELETE_PROPAGATES_TO_MEMORY_EMBEDDINGS_CACHES_CONSTELLATION,
             self::FIELD_EVERY_MEMORY_HAS_SCOPE_SOURCE_STATE_USE_REASON,
             self::FIELD_RETRIEVAL_WITHOUT_REASON_IS_A_BUG,
-            'learning_never_alters_critical_behavior_without_proposal_or_review',
-            'prefer_insufficient_context_over_retrieving_garbage',
+            self::FIELD_LEARNING_NEVER_ALTERS_CRITICAL_BEHAVIOR_WITHOUT_PROPOSAL_OR_REVIEW,
+            self::FIELD_PREFER_INSUFFICIENT_CONTEXT_OVER_RETRIEVING_GARBAGE,
         ];
     }
 

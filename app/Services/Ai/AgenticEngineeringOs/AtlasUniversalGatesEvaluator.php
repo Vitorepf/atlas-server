@@ -16582,4 +16582,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B617).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b617MemoryCognitiveFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'foi validado por feedback, teste, replay ou uso?' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_FOI_VALIDADO_POR_FEEDBACK__TESTE__REPLAY_OU_USO_,
+            'global' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_GLOBAL,
+            'ha claim atomico, tipo, escopo e fonte?' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_HA_CLAIM_ATOMICO__TIPO__ESCOPO_E_FONTE_,
+            'ha utilidade futura, novidade ou recorrencia?' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_HA_UTILIDADE_FUTURA__NOVIDADE_OU_RECORRENCIA_,
+            'learning_never_alters_critical_behavior_without_proposal_or_review' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_LEARNING_NEVER_ALTERS_CRITICAL_BEHAVIOR_WITHOUT_PROPOSAL_OR_REVIEW,
+            'missing_clearance' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_MISSING_CLEARANCE,
+            'missing_evidence' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_MISSING_EVIDENCE,
+            'missing_reason' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_MISSING_REASON,
+            'missing_required_metadata' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_MISSING_REQUIRED_METADATA,
+            'origin' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ORIGIN,
+            'pode capturar com consentimento, privacy e retention?' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PODE_CAPTURAR_COM_CONSENTIMENTO__PRIVACY_E_RETENTION_,
+            'policy' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_POLICY,
+            'prefer_insufficient_context_over_retrieving_garbage' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PREFER_INSUFFICIENT_CONTEXT_OVER_RETRIEVING_GARBAGE,
+            'provenance' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PROVENANCE,
+            'raw_capture_never_enters_context_builder_directly' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_RAW_CAPTURE_NEVER_ENTERS_CONTEXT_BUILDER_DIRECTLY,
+            'ttl_expiration' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_TTL_EXPIRATION,
+            'unknown_forgetting_kind' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_UNKNOWN_FORGETTING_KIND,
+            'vale para global, workspace, projeto, tarefa, dominio ou sessao?' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_VALE_PARA_GLOBAL__WORKSPACE__PROJETO__TAREFA__DOMINIO_OU_SESSAO_,
+            'b617_memory_cognitive_floor_count' => 18,
+        ];
+    }
+
 }
