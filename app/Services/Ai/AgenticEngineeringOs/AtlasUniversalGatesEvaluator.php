@@ -21628,4 +21628,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B780).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b780AaeosDepartmentFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'next_band' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_NEXT_BAND,
+            'next_band_breaches' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_NEXT_BAND_BREACHES,
+            'atlas.aaeos.department_maturity_band.v1' => AtlasAaeosDepartmentMaturityBandClassifier::SCHEMA_VERSION,
+            'missing' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_MISSING,
+            'band' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_BAND,
+            'rank' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_RANK,
+            'schema_version' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_SCHEMA_VERSION,
+            'qualifies' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_QUALIFIES,
+            'breaches' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_BREACHES,
+            'qualified_band' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_QUALIFIED_BAND,
+            'qualified_rank' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_QUALIFIED_RANK,
+            'promotion_blocked' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_PROMOTION_BLOCKED,
+            'comparator' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_COMPARATOR,
+            'metric' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_METRIC,
+            'value' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_VALUE,
+            'all_bands_breached' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_ALL_BANDS_BREACHED,
+            'departments' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_DEPARTMENTS,
+            'observed' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_OBSERVED,
+            'b780_aaeos_department_floor_count' => 18,
+        ];
+    }
+
 }
