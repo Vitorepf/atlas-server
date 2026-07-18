@@ -18838,4 +18838,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B690).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b690OutcomeEnvelopeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.engineering_outcome.v2' => OutcomeEnvelope::SCHEMA_VERSION,
+            'esp06.outcome_envelope.v1' => OutcomeEnvelope::FORMULA_VERSION,
+            'succeeded' => OutcomeEnvelope::STATUS_SUCCEEDED,
+            'failed' => OutcomeEnvelope::STATUS_FAILED,
+            'blocked' => OutcomeEnvelope::STATUS_BLOCKED,
+            'success' => OutcomeEnvelope::NATIVE_SUCCESS,
+            'passed' => OutcomeEnvelope::NATIVE_PASSED,
+            'failure' => OutcomeEnvelope::NATIVE_FAILURE,
+            'dev_procedural' => OutcomeEnvelope::ORIGIN_DEV_PROCEDURAL,
+            'aemor' => OutcomeEnvelope::ORIGIN_AEMOR,
+            'compounding' => OutcomeEnvelope::ORIGIN_COMPOUNDING,
+            'verified' => OutcomeEnvelope::FIELD_VERIFIED,
+            'schema_version' => OutcomeEnvelope::FIELD_SCHEMA_VERSION,
+            'formula_version' => OutcomeEnvelope::FIELD_FORMULA_VERSION,
+            'adapter_origin' => OutcomeEnvelope::FIELD_ADAPTER_ORIGIN,
+            'native_divergent' => OutcomeEnvelope::FIELD_NATIVE_DIVERGENT,
+            'origin' => OutcomeEnvelope::FIELD_ORIGIN,
+            'fields' => OutcomeEnvelope::FIELD_FIELDS,
+            'b690_outcome_envelope_floor_count' => 18,
+        ];
+    }
+
 }

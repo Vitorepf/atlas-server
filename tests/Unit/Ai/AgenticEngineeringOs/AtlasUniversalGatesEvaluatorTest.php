@@ -14924,4 +14924,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b689_aemor_outcome_floor_count']);
     }
 
+    public function test_b690_outcome_envelope_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b690OutcomeEnvelopeFloorsContractObserve([]);
+        $this->assertSame(OutcomeEnvelope::SCHEMA_VERSION, $out['atlas.engineering_outcome.v2']);
+        $this->assertSame(OutcomeEnvelope::FORMULA_VERSION, $out['esp06.outcome_envelope.v1']);
+        $this->assertSame(OutcomeEnvelope::STATUS_SUCCEEDED, $out['succeeded']);
+        $this->assertSame(OutcomeEnvelope::STATUS_FAILED, $out['failed']);
+        $this->assertSame(OutcomeEnvelope::STATUS_BLOCKED, $out['blocked']);
+        $this->assertSame(OutcomeEnvelope::NATIVE_SUCCESS, $out['success']);
+        $this->assertSame(OutcomeEnvelope::NATIVE_PASSED, $out['passed']);
+        $this->assertSame(OutcomeEnvelope::NATIVE_FAILURE, $out['failure']);
+        $this->assertSame(OutcomeEnvelope::ORIGIN_DEV_PROCEDURAL, $out['dev_procedural']);
+        $this->assertSame(OutcomeEnvelope::ORIGIN_AEMOR, $out['aemor']);
+        $this->assertSame(OutcomeEnvelope::ORIGIN_COMPOUNDING, $out['compounding']);
+        $this->assertSame(OutcomeEnvelope::FIELD_VERIFIED, $out['verified']);
+        $this->assertSame(OutcomeEnvelope::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(OutcomeEnvelope::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(OutcomeEnvelope::FIELD_ADAPTER_ORIGIN, $out['adapter_origin']);
+        $this->assertSame(OutcomeEnvelope::FIELD_NATIVE_DIVERGENT, $out['native_divergent']);
+        $this->assertSame(OutcomeEnvelope::FIELD_ORIGIN, $out['origin']);
+        $this->assertSame(OutcomeEnvelope::FIELD_FIELDS, $out['fields']);
+        $this->assertSame(18, $out['b690_outcome_envelope_floor_count']);
+    }
+
 }
