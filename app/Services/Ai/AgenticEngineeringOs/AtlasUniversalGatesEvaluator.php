@@ -7347,6 +7347,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: residual FIELD_* floors for NCaptureDrill + ScoreCardV4Grouper + Esp09Challenger.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, bool|int|string>
+     */
+    public function ncaptureScorecardEsp09FloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ncapture_field_dual_read_required' => AtlasNCaptureDrillService::FIELD_DUAL_READ_REQUIRED,
+            'ncapture_field_engines' => AtlasNCaptureDrillService::FIELD_ENGINES,
+            'ncapture_field_freeze' => AtlasNCaptureDrillService::FIELD_FREEZE,
+            'ncapture_field_generated_at' => AtlasNCaptureDrillService::FIELD_GENERATED_AT,
+            'ncapture_field_golden_v2_passed' => AtlasNCaptureDrillService::FIELD_GOLDEN_V2_PASSED,
+            'ncapture_field_golden_v2_score' => AtlasNCaptureDrillService::FIELD_GOLDEN_V2_SCORE,
+            'scorecard_field_cognitive_immune' => AtlasCognitionScoreCardV4Grouper::FIELD_COGNITIVE_IMMUNE,
+            'scorecard_field_compounding' => AtlasCognitionScoreCardV4Grouper::FIELD_COMPOUNDING,
+            'scorecard_field_context_cache' => AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_CACHE,
+            'scorecard_field_context_intelligence' => AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_INTELLIGENCE,
+            'scorecard_field_context_quality' => AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_QUALITY,
+            'scorecard_field_cross_domain' => AtlasCognitionScoreCardV4Grouper::FIELD_CROSS_DOMAIN,
+            'esp09_field_accepted_rate' => Esp09IndependentChallengerService::FIELD_ACCEPTED_RATE,
+            'esp09_field_alternative' => Esp09IndependentChallengerService::FIELD_ALTERNATIVE,
+            'esp09_field_challenger_block_present' => Esp09IndependentChallengerService::FIELD_CHALLENGER_BLOCK_PRESENT,
+            'esp09_field_death_review_candidate' => Esp09IndependentChallengerService::FIELD_DEATH_REVIEW_CANDIDATE,
+            'esp09_field_death_review_reason' => Esp09IndependentChallengerService::FIELD_DEATH_REVIEW_REASON,
+            'esp09_field_denominator' => Esp09IndependentChallengerService::FIELD_DENOMINATOR,
+            'ncapture_scorecard_esp09_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

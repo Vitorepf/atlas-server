@@ -337,6 +337,7 @@ final class AtlasAaeosCommand extends Command
         {--health-lote2-horizon-depth-floors-contract= : JSON file (any object) to observe health/lote2/horizon depth residual floors}
         {--runbook-immune-promoter-floors-contract= : JSON file (any object) to observe runbook/immune/promoter residual floors}
         {--lexical-envelope-cockpit-floors-contract= : JSON file (any object) to observe lexical/envelope/cockpit residual floors}
+        {--ncapture-scorecard-esp09-floors-contract= : JSON file (any object) to observe ncapture/scorecard/esp09 residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -830,6 +831,7 @@ final class AtlasAaeosCommand extends Command
             ['health-lote2-horizon-depth-floors-contract', 'health_lote2_horizon_depth_floors_contract', fn (array $p) => $gates->healthLote2HorizonDepthFloorsContractObserve($p)],
             ['runbook-immune-promoter-floors-contract', 'runbook_immune_promoter_floors_contract', fn (array $p) => $gates->runbookImmunePromoterFloorsContractObserve($p)],
             ['lexical-envelope-cockpit-floors-contract', 'lexical_envelope_cockpit_floors_contract', fn (array $p) => $gates->lexicalEnvelopeCockpitFloorsContractObserve($p)],
+            ['ncapture-scorecard-esp09-floors-contract', 'ncapture_scorecard_esp09_floors_contract', fn (array $p) => $gates->ncaptureScorecardEsp09FloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -72,6 +72,12 @@ final class Esp09IndependentChallengerService
     public const FIELD_SKIP_REASON = 'skip_reason';
     public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
     public const FIELD_CHALLENGER_ENGINE_ID = 'challenger_engine_id';
+    public const FIELD_ACCEPTED_RATE = 'accepted_rate';
+    public const FIELD_ALTERNATIVE = 'alternative';
+    public const FIELD_CHALLENGER_BLOCK_PRESENT = 'challenger_block_present';
+    public const FIELD_DEATH_REVIEW_CANDIDATE = 'death_review_candidate';
+    public const FIELD_DEATH_REVIEW_REASON = 'death_review_reason';
+    public const FIELD_DENOMINATOR = 'denominator';
 
     public const SKIP_REASON_LOW_AFFINITY = 'low_affinity';
 
@@ -155,7 +161,7 @@ final class Esp09IndependentChallengerService
                 self::FIELD_CHALLENGER_ENGINE_ID => $challengerEngine,
                 self::FIELD_DECISION_KIND => $kind,
                 'proposed_choice' => (AiValueNormalizer::trimmedStringOrNull($context['proposed_choice'] ?? null) ?? ''),
-                'alternative' => (AiValueNormalizer::trimmedStringOrNull($context['alternative'] ?? null) ?? ''),
+                self::FIELD_ALTERNATIVE => (AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_ALTERNATIVE] ?? null) ?? ''),
                 'refutation' => (AiValueNormalizer::trimmedStringOrNull($context['refutation'] ?? null) ?? ''),
                 'elev18_engine_ids_distinct' => true,
             ],
@@ -169,7 +175,7 @@ final class Esp09IndependentChallengerService
     public static function promotionGate(array $context): array
     {
         $requires = ($context['requires_challenger'] ?? false) === true;
-        $present = ($context['challenger_block_present'] ?? false) === true;
+        $present = ($context[self::FIELD_CHALLENGER_BLOCK_PRESENT] ?? false) === true;
 
         if ($requires && ! $present) {
             return [
@@ -237,13 +243,13 @@ final class Esp09IndependentChallengerService
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'series' => self::MEASURE_ID,
-            'denominator' => $denominator,
+            self::FIELD_DENOMINATOR => $denominator,
             self::OUTCOME_ACCEPTED => $accepted,
             self::OUTCOME_IGNORED => $ignored,
-            'accepted_rate' => $acceptedRate,
+            self::FIELD_ACCEPTED_RATE => $acceptedRate,
             'windows' => $byWindow,
-            'death_review_candidate' => $deathReview,
-            'death_review_reason' => $deathReview
+            self::FIELD_DEATH_REVIEW_CANDIDATE => $deathReview,
+            self::FIELD_DEATH_REVIEW_REASON => $deathReview
                 ? self::DEATH_REVIEW_REASON_NEAR_ZERO_ACCEPTED
                 : null,
         ];

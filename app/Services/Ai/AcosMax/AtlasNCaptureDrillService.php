@@ -99,6 +99,12 @@ final class AtlasNCaptureDrillService
     public const FIELD_REQUIRED_FIELDS = 'required_fields';
     public const FIELD_TTL_DAYS = 'ttl_days';
     public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
+    public const FIELD_DUAL_READ_REQUIRED = 'dual_read_required';
+    public const FIELD_ENGINES = 'engines';
+    public const FIELD_FREEZE = 'freeze';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_GOLDEN_V2_PASSED = 'golden_v2_passed';
+    public const FIELD_GOLDEN_V2_SCORE = 'golden_v2_score';
 
     private readonly string $ledgerPath;
 
@@ -140,7 +146,7 @@ final class AtlasNCaptureDrillService
             self::FIELD_TTL_DAYS => 365,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-teto01',
             self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-teto01-judge',
-            'dual_read_required' => false,
+            self::FIELD_DUAL_READ_REQUIRED => false,
             'series_registry' => [
                 'series' => self::MEASURE_ID,
                 'path' => 'atlas:teto:n-capture-drill --json',
@@ -176,8 +182,8 @@ final class AtlasNCaptureDrillService
                 'violations' => array_values(AiValueNormalizer::arrayOrEmpty(data_get($drill, 'capability_spec.violations', []))),
             ],
             'yardstick' => [
-                'golden_v2_passed' => (AiValueNormalizer::boolOrNull(data_get($drill, 'yardstick.golden_v2_passed')) ?? false),
-                'golden_v2_score' => data_get($drill, 'yardstick.golden_v2_score'),
+                self::FIELD_GOLDEN_V2_PASSED => (AiValueNormalizer::boolOrNull(data_get($drill, 'yardstick.golden_v2_passed')) ?? false),
+                self::FIELD_GOLDEN_V2_SCORE => data_get($drill, 'yardstick.golden_v2_score'),
                 'regret_measure_id' => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'yardstick.regret_measure_id')) ?? 'atlas.decide.route_regret.v2',
                 'peek_mode' => true,
             ],
@@ -259,8 +265,8 @@ final class AtlasNCaptureDrillService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
-            'generated_at' => now('UTC')->toIso8601String(),
-            'freeze' => $freeze,
+            self::FIELD_GENERATED_AT => now('UTC')->toIso8601String(),
+            self::FIELD_FREEZE => $freeze,
             'window_days' => $windowDays,
             self::FIELD_STATUS => $status,
             self::FIELD_REASON => $reason,
@@ -269,7 +275,7 @@ final class AtlasNCaptureDrillService
                 self::FIELD_DRILLS_IN_WINDOW => count($inWindow),
                 self::FIELD_ADMITTED_COUNT => count($admitted),
                 'refused_count' => count($refused),
-                'engines' => $engines,
+                self::FIELD_ENGINES => $engines,
             ],
             'latest' => $inWindow === [] ? null : end($inWindow),
             self::FIELD_DRILLS => $inWindow,

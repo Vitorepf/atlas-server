@@ -30,6 +30,12 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_AUTONOMY = 'autonomy';
     public const FIELD_BOUNDARY = 'boundary';
     public const FIELD_COGNITION = 'cognition';
+    public const FIELD_COGNITIVE_IMMUNE = 'cognitive_immune';
+    public const FIELD_COMPOUNDING = 'compounding';
+    public const FIELD_CONTEXT_CACHE = 'context_cache';
+    public const FIELD_CONTEXT_INTELLIGENCE = 'context_intelligence';
+    public const FIELD_CONTEXT_QUALITY = 'context_quality';
+    public const FIELD_CROSS_DOMAIN = 'cross_domain';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -116,25 +122,25 @@ final class AtlasCognitionScoreCardV4Grouper
     private function moduleKey(string $group): string
     {
         return match ($group) {
-            'cognitive_immune' => 'IMMUNE',
+            self::FIELD_COGNITIVE_IMMUNE => 'IMMUNE',
             'memory_core' => 'MEMORY',
             self::FIELD_AUCRI => 'CONTEXT',
             'self_improvement', 'self_construction', 'cartography', 'programming', 'research_domain' => 'CONSUMERS',
             'governance' => 'GOVERNANCE',
             self::FIELD_ATLAS_DECIDE => 'DECIDE',
-            'compounding' => 'COMPOUND',
-            'reality', 'cross_domain' => 'REALITY',
+            self::FIELD_COMPOUNDING => 'COMPOUND',
+            'reality', self::FIELD_CROSS_DOMAIN => 'REALITY',
             'teos' => 'TEOS',
             self::FIELD_COGNITION => 'COGNITION',
             self::FIELD_AUTONOMY => 'AUTONOMY',
             'patamar4', 'patamar_4', 'integration' => 'PATAMAR4',
-            'context_cache' => 'CONTEXT-CACHE',
-            'context_intelligence' => 'CONTEXT-INTELLIGENCE',
+            self::FIELD_CONTEXT_CACHE => 'CONTEXT-CACHE',
+            self::FIELD_CONTEXT_INTELLIGENCE => 'CONTEXT-INTELLIGENCE',
             'persistent_context' => 'PERSISTENT-CONTEXT',
             self::FIELD_AEMOR => 'AEMOR',
             'long_horizon' => 'LONG-HORIZON',
             'verified_context' => 'VERIFIED-CONTEXT',
-            'context_quality' => 'CONTEXT-QUALITY',
+            self::FIELD_CONTEXT_QUALITY => 'CONTEXT-QUALITY',
             'open_brain' => 'OPEN-BRAIN',
             'evidence' => 'EVIDENCE',
             default => 'OTHER',

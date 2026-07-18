@@ -5521,5 +5521,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['lexical_envelope_cockpit_floor_count']);
     }
 
+    public function test_ncapture_scorecard_esp09_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->ncaptureScorecardEsp09FloorsContractObserve([]);
+
+        $this->assertSame('dual_read_required', $payload['ncapture_field_dual_read_required']);
+        $this->assertSame('engines', $payload['ncapture_field_engines']);
+        $this->assertSame('freeze', $payload['ncapture_field_freeze']);
+        $this->assertSame('generated_at', $payload['ncapture_field_generated_at']);
+        $this->assertSame('golden_v2_passed', $payload['ncapture_field_golden_v2_passed']);
+        $this->assertSame('golden_v2_score', $payload['ncapture_field_golden_v2_score']);
+        $this->assertSame('cognitive_immune', $payload['scorecard_field_cognitive_immune']);
+        $this->assertSame('compounding', $payload['scorecard_field_compounding']);
+        $this->assertSame('context_cache', $payload['scorecard_field_context_cache']);
+        $this->assertSame('context_intelligence', $payload['scorecard_field_context_intelligence']);
+        $this->assertSame('context_quality', $payload['scorecard_field_context_quality']);
+        $this->assertSame('cross_domain', $payload['scorecard_field_cross_domain']);
+        $this->assertSame('accepted_rate', $payload['esp09_field_accepted_rate']);
+        $this->assertSame('alternative', $payload['esp09_field_alternative']);
+        $this->assertSame('challenger_block_present', $payload['esp09_field_challenger_block_present']);
+        $this->assertSame('death_review_candidate', $payload['esp09_field_death_review_candidate']);
+        $this->assertSame('death_review_reason', $payload['esp09_field_death_review_reason']);
+        $this->assertSame('denominator', $payload['esp09_field_denominator']);
+        $this->assertSame(18, $payload['ncapture_scorecard_esp09_floor_count']);
+    }
+
 
 }
