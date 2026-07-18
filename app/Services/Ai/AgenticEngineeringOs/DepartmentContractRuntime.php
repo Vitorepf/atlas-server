@@ -263,6 +263,8 @@ final class DepartmentContractRuntime
     public const FIELD_EXECUTION_LOG_HASH = 'execution_log_hash';
     public const FIELD_FORGE_PARALLEL_AGENT_COUNT = 'forge_parallel_agent_count';
     public const FIELD_LEARNING_SIGNAL_EXTRACTED = 'learning_signal_extracted';
+    public const FIELD_LINT_GREEN = 'lint_green';
+    public const FIELD_LOGS_HASH = 'logs_hash';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -402,7 +404,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_EXECUTION_LOG, self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
                 [self::FIELD_NAME => self::FIELD_PATCH_PACK, self::FIELD_SCHEMA => self::SCHEMA_PATCH_PACK],
             ],
-            self::FIELD_GATES => ['plan_approved', 'tests_focused', 'review_gate', 'lint_green', 'typecheck_green', 'tests_green', 'scope_guard_ok'],
+            self::FIELD_GATES => ['plan_approved', 'tests_focused', 'review_gate', self::FIELD_LINT_GREEN, 'typecheck_green', 'tests_green', 'scope_guard_ok'],
             self::FIELD_ALLOWED_ACTIONS => ['edit_allowed_files', 'run_tests', 'request_provider_call'],
             self::FIELD_FORBIDDEN_ACTIONS => ['edit_security_policy', 'modify_migrations_without_architect', 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_FORGE],
@@ -429,7 +431,7 @@ final class DepartmentContractRuntime
             self::FIELD_ALLOWED_ACTIONS => ['read_logs', 'run_repro', 'request_observability_query'],
             self::FIELD_FORBIDDEN_ACTIONS => ['modify_production_data', 'deploy_fix_without_review'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY],
-            self::FIELD_EVIDENCE_REQUIRED => ['repro_steps_hash', 'logs_hash', 'root_cause_pack_hash'],
+            self::FIELD_EVIDENCE_REQUIRED => ['repro_steps_hash', self::FIELD_LOGS_HASH, 'root_cause_pack_hash'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_DEBUG_INVESTIGATIONS, self::FIELD_LEDGER => self::FIELD_AAEOS_DEBUG_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['debug_mttr_p95', 'debug_repro_success_rate'],
             self::FIELD_MATURITY_LEVEL => 'L2',

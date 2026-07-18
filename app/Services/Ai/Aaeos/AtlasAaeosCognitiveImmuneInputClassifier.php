@@ -78,6 +78,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_PATCH = 'patch';
     public const FIELD_PRINCIPIO = 'principio';
     public const FIELD_PRIVACY_HINT = 'privacy_hint';
+    public const FIELD_RECURRENCE_COUNT = 'recurrence_count';
+    public const FIELD_REFACTOR = 'refactor';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -159,7 +161,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         'regression',
         'race condition',
         self::FIELD_LATENCY,
-        'refactor',
+        self::FIELD_REFACTOR,
         'stack trace',
         'null pointer',
         'memory leak',
@@ -231,7 +233,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         $isQuestion = $this->flag($metadata, self::FIELD_IS_QUESTION);
         $imperativeVerb = $this->flag($metadata, self::FIELD_IMPERATIVE_VERB);
         $privacyHint = $this->flag($metadata, self::FIELD_PRIVACY_HINT);
-        $recurrenceCount = $this->intFlag($metadata, 'recurrence_count');
+        $recurrenceCount = $this->intFlag($metadata, self::FIELD_RECURRENCE_COUNT);
 
         $normalized = $this->normalizeText($text);
         $hasInjectionText = $this->containsAny($normalized, self::INJECTION_MARKERS);

@@ -53,6 +53,8 @@ final class AcosProgramCockpitService
     public const FIELD_WINDOWS = 'windows';
     public const FIELD_CURRENT_LOTE_NOT_FOUND = 'current_lote_not_found';
     public const FIELD_NOW = 'now';
+    public const FIELD_SCOREBOARD_MISSING = 'scoreboard_missing';
+    public const FIELD_SOURCE_DID_NOT_EMIT_JSON = 'source_did_not_emit_json';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -92,7 +94,7 @@ final class AcosProgramCockpitService
             $exitCode = Artisan::call($command, $arguments, $buffer);
             $decoded = json_decode(AiValueNormalizer::trimmedStringOrNull($buffer->fetch()) ?? '', true);
             if (! is_array($decoded)) {
-                return $this->unavailable($source, 'source_did_not_emit_json', [self::FIELD_EXIT_CODE => $exitCode]);
+                return $this->unavailable($source, self::FIELD_SOURCE_DID_NOT_EMIT_JSON, [self::FIELD_EXIT_CODE => $exitCode]);
             }
 
             return [
@@ -163,7 +165,7 @@ final class AcosProgramCockpitService
     private function scoreboardSection(string $path): array
     {
         if (! is_file($path)) {
-            return $this->unavailable($path, 'scoreboard_missing');
+            return $this->unavailable($path, self::FIELD_SCOREBOARD_MISSING);
         }
 
         $content = (string) file_get_contents($path);

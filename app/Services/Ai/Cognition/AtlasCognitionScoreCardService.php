@@ -189,6 +189,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_CONTEXT_INTELLIGENCE = 'context_intelligence';
     public const FIELD_CONTEXT_QUALITY = 'context_quality';
     public const FIELD_EVIDENCE = 'evidence';
+    public const FIELD_LONG_HORIZON = 'long_horizon';
+    public const FIELD_OPEN_BRAIN = 'open_brain';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -339,10 +341,10 @@ class AtlasCognitionScoreCardService
         ['ACIE', 'Context Intelligence Engine', self::FIELD_CONTEXT_INTELLIGENCE, AtlasContextOperationsRuntimeService::class],
         ['APCR', 'Persistent Context Runtime', 'persistent_context', AtlasPersistentContextRuntimeService::class],
         ['AEMOR', 'Execution Memory Outcome Runtime', self::FIELD_AEMOR, AtlasAemorCertificationService::class],
-        ['TEOS-I1', 'Long-Horizon Intelligence Layer', 'long_horizon', LongHorizonContinuityCertificationService::class],
+        ['TEOS-I1', 'Long-Horizon Intelligence Layer', self::FIELD_LONG_HORIZON, LongHorizonContinuityCertificationService::class],
         ['AVCEL', 'Verified Context Execution Loop', 'verified_context', AtlasVerifiedContextExecutionLoopService::class],
         ['ACQCG', 'Context Quality Certification Gate', self::FIELD_CONTEXT_QUALITY, AtlasContextQualityCertificationService::class],
-        ['AOBG', 'Open Brain Gateway', 'open_brain', AtlasOpenBrainMcpService::class],
+        ['AOBG', 'Open Brain Gateway', self::FIELD_OPEN_BRAIN, AtlasOpenBrainMcpService::class],
         ['EVIDENCE', 'Evidence Ledger Memory Side', self::FIELD_EVIDENCE, AtlasEvidenceLedger::class],
     ];
 

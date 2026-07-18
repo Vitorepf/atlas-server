@@ -8943,4 +8943,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cognition_score_aaeos_http_acos_window_fact_pair_floor_count']);
     }
 
+    public function test_reactive_saturation_architect_agent_autonomous_work_acos_program_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->reactiveSaturationArchitectAgentAutonomousWorkAcosProgramFloorsContractObserve([]);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_BYTE_IDENTICAL_PICK, $out['byte_identical_pick']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_INSUFFICIENT_WINDOWS, $out['insufficient_windows']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_ROLLBACK_PER_SLICE, $out['rollback_per_slice']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_ROLLBACK_PLAN, $out['rollback_plan']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_CERTIFICATION_EVALUATED, $out['certification_evaluated']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_SCOREBOARD_MISSING, $out['scoreboard_missing']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_SOURCE_DID_NOT_EMIT_JSON, $out['source_did_not_emit_json']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_PRIVATE_SENSITIVE, $out['private_sensitive']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_UNTRUSTED_CONTENT, $out['untrusted_content']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_EXECUTE, $out['execute']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_LINT_GREEN, $out['lint_green']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_LOGS_HASH, $out['logs_hash']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RECURRENCE_COUNT, $out['recurrence_count']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_REFACTOR, $out['refactor']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_LONG_HORIZON, $out['long_horizon']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_OPEN_BRAIN, $out['open_brain']);
+        $this->assertSame(18, $out['reactive_saturation_architect_agent_autonomous_work_acos_program_floor_count']);
+    }
+
 }

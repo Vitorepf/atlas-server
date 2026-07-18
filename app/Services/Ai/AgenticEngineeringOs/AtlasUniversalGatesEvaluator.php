@@ -11413,4 +11413,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B448).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function reactiveSaturationArchitectAgentAutonomousWorkAcosProgramFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'byte_identical_pick' => ReactiveSaturationSignal::FIELD_BYTE_IDENTICAL_PICK,
+            'insufficient_windows' => ReactiveSaturationSignal::FIELD_INSUFFICIENT_WINDOWS,
+            'rollback_per_slice' => ArchitectAgentSpecPackGateContract::FIELD_ROLLBACK_PER_SLICE,
+            'rollback_plan' => ArchitectAgentSpecPackGateContract::FIELD_ROLLBACK_PLAN,
+            'certification_evaluated' => AutonomousWorkExecutionOs::FIELD_CERTIFICATION_EVALUATED,
+            'sha256' => AutonomousWorkExecutionOs::FIELD_SHA256,
+            'scoreboard_missing' => AcosProgramCockpitService::FIELD_SCOREBOARD_MISSING,
+            'source_did_not_emit_json' => AcosProgramCockpitService::FIELD_SOURCE_DID_NOT_EMIT_JSON,
+            'private_sensitive' => ImmuneSignatureIngestor::FIELD_PRIVATE_SENSITIVE,
+            'untrusted_content' => ImmuneSignatureIngestor::FIELD_UNTRUSTED_CONTENT,
+            'evidence' => AtlasCognitiveFunctionDecomposerService::FIELD_EVIDENCE,
+            'execute' => AtlasCognitiveFunctionDecomposerService::FIELD_EXECUTE,
+            'lint_green' => DepartmentContractRuntime::FIELD_LINT_GREEN,
+            'logs_hash' => DepartmentContractRuntime::FIELD_LOGS_HASH,
+            'recurrence_count' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RECURRENCE_COUNT,
+            'refactor' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_REFACTOR,
+            'long_horizon' => AtlasCognitionScoreCardService::FIELD_LONG_HORIZON,
+            'open_brain' => AtlasCognitionScoreCardService::FIELD_OPEN_BRAIN,
+            'reactive_saturation_architect_agent_autonomous_work_acos_program_floor_count' => 18,
+        ];
+    }
+
 }

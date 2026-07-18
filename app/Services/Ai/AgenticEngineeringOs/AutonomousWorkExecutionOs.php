@@ -32,7 +32,7 @@ final class AutonomousWorkExecutionOs
         self::FIELD_CYCLE_PLANNED,
         'steps_decomposed',
         'step_executed',
-        'certification_evaluated',
+        self::FIELD_CERTIFICATION_EVALUATED,
         self::FIELD_LEARNING_EXTRACTED,
     ];
 
@@ -66,6 +66,8 @@ final class AutonomousWorkExecutionOs
     public const FIELD_MAY_PROCEED = 'may_proceed';
     public const FIELD_CYCLE_PLANNED = 'cycle_planned';
     public const FIELD_LEARNING_EXTRACTED = 'learning_extracted';
+    public const FIELD_CERTIFICATION_EVALUATED = 'certification_evaluated';
+    public const FIELD_SHA256 = 'sha256';
 
     public const STAGE_STATUSES = [
         self::STATUS_PENDING,
@@ -132,7 +134,7 @@ final class AutonomousWorkExecutionOs
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_CYCLE_ID => 'cycle-'.bin2hex(random_bytes(6)),
-            self::FIELD_GOAL_HASH => hash('sha256', $goal),
+            self::FIELD_GOAL_HASH => hash(self::FIELD_SHA256, $goal),
             self::FIELD_AUTONOMY_LEVEL => $level,
             self::FIELD_MAY_PROCEED => $mayProceed,
             self::FIELD_BLOCKING_REASONS => $blocking,

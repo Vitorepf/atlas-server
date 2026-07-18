@@ -8005,6 +8005,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_reactive_saturation_architect_agent_autonomous_work_acos_program_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b448-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b448',
+                '--reactive-saturation-architect-agent-autonomous-work-acos-program-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"reactive_saturation_architect_agent_autonomous_work_acos_program_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

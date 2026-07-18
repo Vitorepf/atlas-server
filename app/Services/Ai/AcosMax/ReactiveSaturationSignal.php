@@ -27,6 +27,8 @@ final class ReactiveSaturationSignal
     public const FIELD_YIELD = 'yield';
     public const FIELD_FALLING_YIELD_WITH_HYSTERESIS = 'falling_yield_with_hysteresis';
     public const FIELD_INSUFFICIENT_N = 'insufficient_n';
+    public const FIELD_BYTE_IDENTICAL_PICK = 'byte_identical_pick';
+    public const FIELD_INSUFFICIENT_WINDOWS = 'insufficient_windows';
 
     /**
      * @param  list<array<string,mixed>>  $windows
@@ -38,12 +40,12 @@ final class ReactiveSaturationSignal
         $context = AiValueNormalizer::arrayOrEmpty($context);
         $tail = array_slice($windows, -self::MIN_WINDOWS);
         if (count($tail) < self::MIN_WINDOWS) {
-            return self::result(false, 'insufficient_windows', 'byte_identical_pick', $tail, $context);
+            return self::result(false, self::FIELD_INSUFFICIENT_WINDOWS, self::FIELD_BYTE_IDENTICAL_PICK, $tail, $context);
         }
 
         foreach ($tail as $window) {
             if ((int) (AiValueNormalizer::finiteFloatOrNull($window['n'] ?? null) ?? 0) < self::MIN_N_PER_WINDOW) {
-                return self::result(false, self::FIELD_INSUFFICIENT_N, 'byte_identical_pick', $tail, $context);
+                return self::result(false, self::FIELD_INSUFFICIENT_N, self::FIELD_BYTE_IDENTICAL_PICK, $tail, $context);
             }
         }
 
@@ -55,7 +57,7 @@ final class ReactiveSaturationSignal
 
         return $falling
             ? self::result(true, self::FIELD_FALLING_YIELD_WITH_HYSTERESIS, 'prefer_originated', $tail, $context)
-            : self::result(false, 'stable_or_recovering_yield', 'byte_identical_pick', $tail, $context);
+            : self::result(false, 'stable_or_recovering_yield', self::FIELD_BYTE_IDENTICAL_PICK, $tail, $context);
     }
 
     /**
