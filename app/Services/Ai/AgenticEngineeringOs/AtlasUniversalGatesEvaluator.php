@@ -14144,4 +14144,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B537).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b537MaxaJinaCaptureHmacAcosWatchdogImmuneSignatureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'candidate_precision_at_5' => Maxa04JinaV3DualReadService::FIELD_CANDIDATE_PRECISION_AT_5,
+            'candidate_recall_at_5' => Maxa04JinaV3DualReadService::FIELD_CANDIDATE_RECALL_AT_5,
+            'id' => CaptureHmacLineageService::FIELD_ID,
+            'captures' => CaptureHmacLineageService::FIELD_CAPTURES,
+            'app/atlas/engineering-kernel/forge-sovereign-verdicts.jsonl' => AtlasAcosWatchdogHealthService::FIELD_APP_ATLAS_ENGINEERING_KERNEL_FORGE_SOVEREIGN_VERDICTS_JSONL,
+            'dev' => AtlasAcosWatchdogHealthService::FIELD_DEV,
+            'hit_count' => ImmuneSignatureStore::FIELD_HIT_COUNT,
+            'id' => ImmuneSignatureStore::FIELD_ID,
+            'license_allowed' => AtlasModelCapabilitySpecService::FIELD_LICENSE_ALLOWED,
+            'dim' => AtlasModelCapabilitySpecService::FIELD_DIM,
+            'governs_frontmatter' => AtlasDocsAuthorityGraphService::FIELD_GOVERNS_FRONTMATTER,
+            'owner_doc_id' => AtlasDocsAuthorityGraphService::FIELD_OWNER_DOC_ID,
+            'outcome_proven' => EvidenceVisionThesisLifecycle::FIELD_OUTCOME_PROVEN,
+            'series' => EvidenceVisionThesisLifecycle::FIELD_SERIES,
+            'delivery_hash' => DeliveryPackCompletenessScorer::FIELD_DELIVERY_HASH,
+            'risk_register_present' => DeliveryPackCompletenessScorer::FIELD_RISK_REGISTER_PRESENT,
+            'outputs' => AaeosPhaseHandoffService::FIELD_OUTPUTS,
+            'system' => AaeosPhaseHandoffService::FIELD_SYSTEM,
+            'b537_maxa_jina_capture_hmac_acos_watchdog_immune_signature_floor_count' => 18,
+        ];
+    }
+
 }

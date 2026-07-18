@@ -124,7 +124,7 @@ final class AtlasModelCapabilitySpecService
         ));
 
         $violations = array_merge($violations, $this->checkEnum(
-            $spec, $model, self::FIELD_DIM, 'dim', self::FIELD_DIM_NOT_ALLOWED
+            $spec, $model, self::FIELD_DIM, self::FIELD_DIM, self::FIELD_DIM_NOT_ALLOWED
         ));
 
         $violations = array_merge($violations, $this->checkEnum(
@@ -282,7 +282,7 @@ final class AtlasModelCapabilitySpecService
      */
     private function checkLicense(array $spec, array $model): array
     {
-        if (! array_key_exists('license_allowed', $spec)) {
+        if (! array_key_exists(self::FIELD_LICENSE_ALLOWED, $spec)) {
             return [];
         }
         $allowed = array_values(array_filter(array_map(

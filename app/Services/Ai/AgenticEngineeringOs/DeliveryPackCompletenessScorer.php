@@ -50,9 +50,9 @@ final class DeliveryPackCompletenessScorer
         'test_evidence',
         self::FIELD_NO_TEST_REASON,
         self::FIELD_EVIDENCE_HASHES,
-        'risk_register_present',
+        self::FIELD_RISK_REGISTER_PRESENT,
         self::FIELD_RECEIPT_PRESENT,
-        'delivery_hash',
+        self::FIELD_DELIVERY_HASH,
     ];
 
     /** @var list<string> */

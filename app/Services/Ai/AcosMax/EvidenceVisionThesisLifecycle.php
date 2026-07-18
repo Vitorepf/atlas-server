@@ -195,7 +195,7 @@ final class EvidenceVisionThesisLifecycle
             self::FIELD_SERIES_RECOVERY => self::seriesRecoveryMet($thesis, $seriesWindows, $criterion) ? 'series_recovery' : null,
             self::FIELD_CALIBRATION_RESOLVED => self::calibrationResolved($calibration, $criterion) ? self::FIELD_CALIBRATION_RESOLVED : null,
             self::FIELD_LEAD_CLUSTER_CLEARED => self::leadClusterCleared($thesis, $leads, $criterion) ? self::FIELD_LEAD_CLUSTER_CLEARED : null,
-            self::FIELD_OUTCOME_PROVEN => self::outcomeProven($thesis, $outcomes) ? 'outcome_proven' : null,
+            self::FIELD_OUTCOME_PROVEN => self::outcomeProven($thesis, $outcomes) ? self::FIELD_OUTCOME_PROVEN : null,
             default => null,
         };
     }
@@ -213,7 +213,7 @@ final class EvidenceVisionThesisLifecycle
         $series = '';
         $stage = 'default';
         foreach ($refs as $ref) {
-            if (! is_array($ref) || ($ref[self::FIELD_SOURCE] ?? '') !== 'series') {
+            if (! is_array($ref) || ($ref[self::FIELD_SOURCE] ?? '') !== self::FIELD_SERIES) {
                 continue;
             }
             if (preg_match('/series:([^:]+):stage=([^:]+):window=/', AiValueNormalizer::trimmedStringOrNull($ref[self::FIELD_REF] ?? null) ?? '', $matches) === 1) {

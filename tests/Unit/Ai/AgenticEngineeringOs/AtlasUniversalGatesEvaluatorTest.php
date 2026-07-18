@@ -11143,4 +11143,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b536_cognition_score_acos_evolution_autonomy_ladder_code_symbol_floor_count']);
     }
 
+    public function test_b537_maxa_jina_capture_hmac_acos_watchdog_immune_signature_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b537MaxaJinaCaptureHmacAcosWatchdogImmuneSignatureFloorsContractObserve([]);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_CANDIDATE_PRECISION_AT_5, $out['candidate_precision_at_5']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_CANDIDATE_RECALL_AT_5, $out['candidate_recall_at_5']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_ID, $out['id']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_CAPTURES, $out['captures']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_APP_ATLAS_ENGINEERING_KERNEL_FORGE_SOVEREIGN_VERDICTS_JSONL, $out['app/atlas/engineering-kernel/forge-sovereign-verdicts.jsonl']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_DEV, $out['dev']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_HIT_COUNT, $out['hit_count']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_LICENSE_ALLOWED, $out['license_allowed']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_DIM, $out['dim']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_GOVERNS_FRONTMATTER, $out['governs_frontmatter']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_OWNER_DOC_ID, $out['owner_doc_id']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_OUTCOME_PROVEN, $out['outcome_proven']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_SERIES, $out['series']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_DELIVERY_HASH, $out['delivery_hash']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_RISK_REGISTER_PRESENT, $out['risk_register_present']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_OUTPUTS, $out['outputs']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_SYSTEM, $out['system']);
+        $this->assertSame(18, $out['b537_maxa_jina_capture_hmac_acos_watchdog_immune_signature_floor_count']);
+    }
+
 }

@@ -205,7 +205,7 @@ final class ImmuneSignatureStore
 
         try {
             DB::table(self::TABLE)
-                ->where('id', $row[self::FIELD_ID])
+                ->where(self::FIELD_ID, $row[self::FIELD_ID])
                 ->update([
                     self::FIELD_STATUS => self::STATUS_REVOKED,
                     self::FIELD_UPDATED_AT => now(),
@@ -231,7 +231,7 @@ final class ImmuneSignatureStore
         try {
             return DB::table(self::TABLE)
                 ->where(self::FIELD_STATUS, self::STATUS_ACTIVE)
-                ->where('hit_count', 0)
+                ->where(self::FIELD_HIT_COUNT, 0)
                 ->where(self::FIELD_FIRST_SEEN, '<', $cutoff)
                 ->update([
                     self::FIELD_STATUS => self::STATUS_DECAYED,
@@ -259,7 +259,7 @@ final class ImmuneSignatureStore
             $active = (int) DB::table(self::TABLE)->where(self::FIELD_STATUS, self::STATUS_ACTIVE)->count();
             $soaked = (int) DB::table(self::TABLE)
                 ->where(self::FIELD_STATUS, self::STATUS_ACTIVE)
-                ->where('hit_count', '>=', 2)
+                ->where(self::FIELD_HIT_COUNT, '>=', 2)
                 ->count();
         } catch (Throwable) {
             return [
@@ -320,7 +320,7 @@ final class ImmuneSignatureStore
     {
         try {
             DB::table(self::TABLE)
-                ->where('id', $id)
+                ->where(self::FIELD_ID, $id)
                 ->where(self::FIELD_STATUS, self::STATUS_ACTIVE)
                 ->update([
                     self::FIELD_HIT_COUNT => DB::raw('hit_count + 1'),
@@ -364,7 +364,7 @@ final class ImmuneSignatureStore
     private function findById(string $id): ?array
     {
         try {
-            $row = DB::table(self::TABLE)->where('id', $id)->first();
+            $row = DB::table(self::TABLE)->where(self::FIELD_ID, $id)->first();
         } catch (Throwable) {
             return null;
         }

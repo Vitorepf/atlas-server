@@ -223,11 +223,11 @@ final class CaptureHmacLineageService
             ];
         }
 
-        $rows = DB::table('captures')
+        $rows = DB::table(self::FIELD_CAPTURES)
             ->whereNull(self::FIELD_DELETED_AT)
             ->orderByDesc(self::FIELD_CREATED_AT)
             ->limit(max($minCaptures * 4, 40))
-            ->get(['id', self::FIELD_METADATA, 'created_at']);
+            ->get([self::FIELD_ID, self::FIELD_METADATA, 'created_at']);
 
         $recent = $rows->take($minCaptures);
         $chained = $recent->filter(function (object $row): bool {
@@ -389,7 +389,7 @@ final class CaptureHmacLineageService
 
         $capture = Capture::query()
             ->where(function ($query) use ($id): void {
-                $query->where('id', $id)->orWhere(self::FIELD_CLIENT_ID, $id);
+                $query->where(self::FIELD_ID, $id)->orWhere(self::FIELD_CLIENT_ID, $id);
             })
             ->first();
 
@@ -412,7 +412,7 @@ final class CaptureHmacLineageService
         }
 
         $packet = AtlasKnowledgeSourcePacket::query()
-            ->where('id', $id)
+            ->where(self::FIELD_ID, $id)
             ->orWhere(self::FIELD_SOURCE_HASH, AiValueNormalizer::lowerTrimmedString($id))
             ->first();
 

@@ -148,7 +148,7 @@ class AtlasDocsAuthorityGraphService
             $add(self::FIELD_DOC_ID, $ownerId, self::FIELD_DOC_ID);
         }
         foreach (AiValueNormalizer::arrayOrEmpty($frontmatter[self::FIELD_GOVERNS] ?? null) as $governs) {
-            $add(self::FIELD_GOVERNS, $governs, 'governs_frontmatter');
+            $add(self::FIELD_GOVERNS, $governs, self::FIELD_GOVERNS_FRONTMATTER);
         }
         foreach (AiValueNormalizer::arrayOrEmpty($frontmatter[self::FIELD_CAPABILITIES] ?? null) as $capability) {
             $add(self::FIELD_CAPABILITY, $capability, self::FIELD_CAPABILITY_FRONTMATTER);
@@ -195,7 +195,7 @@ class AtlasDocsAuthorityGraphService
                 foreach ($variants as $variant) {
                     $w->orWhere(self::FIELD_NEEDLE_NORMALIZED, self::FIELD_LIKE, '%'.$variant.'%')
                         ->orWhere('owner_doc_path', self::FIELD_LIKE, '%'.$variant.'%')
-                        ->orWhere('owner_doc_id', self::FIELD_LIKE, '%'.$variant.'%');
+                        ->orWhere(self::FIELD_OWNER_DOC_ID, self::FIELD_LIKE, '%'.$variant.'%');
                 }
             })
             ->orderByDesc(self::FIELD_CONFIDENCE)

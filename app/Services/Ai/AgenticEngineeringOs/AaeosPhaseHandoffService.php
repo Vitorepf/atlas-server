@@ -210,7 +210,7 @@ final class AaeosPhaseHandoffService
         }
         $this->assertActor($actor);
         $this->assertProviderSafe($inputs, self::FIELD_INPUTS);
-        $this->assertProviderSafe($outputs, 'outputs');
+        $this->assertProviderSafe($outputs, self::FIELD_OUTPUTS);
         foreach ($evidenceHashes as $hash) {
             $hash = AiValueNormalizer::trimmedStringOrNull($hash);
             if ($hash === null || ! str_starts_with($hash, 'sha256:')) {
@@ -272,7 +272,7 @@ final class AaeosPhaseHandoffService
         }
         if (! isset($envelope[self::FIELD_ACTOR]) || ! is_array($envelope[self::FIELD_ACTOR]) || ! isset($envelope[self::FIELD_ACTOR][self::FIELD_KIND])) {
             $reasons[] = 'actor.kind required';
-        } elseif (! in_array($envelope[self::FIELD_ACTOR][self::FIELD_KIND], [self::FIELD_AGENT, self::FIELD_OPERATOR, 'system'], true)) {
+        } elseif (! in_array($envelope[self::FIELD_ACTOR][self::FIELD_KIND], [self::FIELD_AGENT, self::FIELD_OPERATOR, self::FIELD_SYSTEM], true)) {
             $reasons[] = 'actor.kind must be agent|operator|system';
         }
         if (! isset($envelope[self::FIELD_GATES]) || ! is_array($envelope[self::FIELD_GATES])) {
@@ -351,7 +351,7 @@ final class AaeosPhaseHandoffService
     /** @param array<string,mixed> $actor */
     private function assertActor(array $actor): void
     {
-        if (! isset($actor[self::FIELD_KIND]) || ! in_array($actor[self::FIELD_KIND], [self::FIELD_AGENT, self::FIELD_OPERATOR, 'system'], true)) {
+        if (! isset($actor[self::FIELD_KIND]) || ! in_array($actor[self::FIELD_KIND], [self::FIELD_AGENT, self::FIELD_OPERATOR, self::FIELD_SYSTEM], true)) {
             throw new InvalidArgumentException('actor.kind must be agent|operator|system');
         }
         if (! isset($actor[self::FIELD_ID]) || $actor[self::FIELD_ID] === '') {

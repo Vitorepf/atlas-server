@@ -236,9 +236,9 @@ final class Maxa04JinaV3DualReadService
             self::FIELD_CASES => $count,
             self::FIELD_TARGETS_AVAILABLE => $targets,
             self::FIELD_CURRENT_RECALL_AT_5_MEAN => $this->mean($cases, 'current_recall_at_5'),
-            self::FIELD_CANDIDATE_RECALL_AT_5_MEAN => $this->mean($cases, 'candidate_recall_at_5'),
+            self::FIELD_CANDIDATE_RECALL_AT_5_MEAN => $this->mean($cases, self::FIELD_CANDIDATE_RECALL_AT_5),
             self::FIELD_CURRENT_PRECISION_AT_5_MEAN => $this->mean($cases, 'current_precision_at_5'),
-            self::FIELD_CANDIDATE_PRECISION_AT_5_MEAN => $this->mean($cases, 'candidate_precision_at_5'),
+            self::FIELD_CANDIDATE_PRECISION_AT_5_MEAN => $this->mean($cases, self::FIELD_CANDIDATE_PRECISION_AT_5),
         ];
     }
 

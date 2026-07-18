@@ -9251,6 +9251,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b537_maxa_jina_capture_hmac_acos_watchdog_immune_signature_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b537-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b537',
+                '--b537-maxa-jina-capture-hmac-acos-watchdog-immune-signature-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b537_maxa_jina_capture_hmac_acos_watchdog_immune_signature_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

@@ -386,6 +386,7 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_TREND_CURRENT_DELTA_FROM_LATEST = 'trend.current_delta_from_latest';
     public const FIELD_TREND_LATEST_DELTA_FROM_PREVIOUS = 'trend.latest_delta_from_previous';
     public const FIELD_TREND_STATUS_2 = 'trend.status';
+    public const FIELD_APP_ATLAS_ENGINEERING_KERNEL_FORGE_SOVEREIGN_VERDICTS_JSONL = 'app/atlas/engineering-kernel/forge-sovereign-verdicts.jsonl';
     public const FLOAT_0_0 = 0.0;
     public const INT_3 = 3;
     public const INT_100 = 100;
@@ -466,7 +467,7 @@ final class AtlasAcosWatchdogHealthService
         $lastOutcome = $this->latestModelAt(AiRunOutcome::class, self::FIELD_CREATED_AT, self::FIELD_AI_RUN_OUTCOMES);
         $lastDeliveredRefs = $this->latestRagDeliveredRefsAt();
         $aemor = [];
-        foreach (['dev', self::FIELD_FORGE, self::FIELD_TASK] as $source) {
+        foreach ([self::FIELD_DEV, self::FIELD_FORGE, self::FIELD_TASK] as $source) {
             $aemor[$source] = $this->latestAemorSourceAt($source);
         }
 
@@ -1208,7 +1209,7 @@ final class AtlasAcosWatchdogHealthService
 
     private function forgeSovereignVerdictPath(): string
     {
-        return storage_path('app/atlas/engineering-kernel/forge-sovereign-verdicts.jsonl');
+        return storage_path(self::FIELD_APP_ATLAS_ENGINEERING_KERNEL_FORGE_SOVEREIGN_VERDICTS_JSONL);
     }
 
     private function relativePath(string $path): string
