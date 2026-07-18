@@ -16365,4 +16365,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B610).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b610MemoryCognitiveLearningProposalsFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'private_sensitive' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PRIVATE_SENSITIVE,
+            'probation_entered' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PROBATION_ENTERED,
+            'project_evidence' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PROJECT_EVIDENCE,
+            'promotion_mode' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PROMOTION_MODE,
+            'promotion_mode_set' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PROMOTION_MODE_SET,
+            'reason' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_REASON,
+            'recurrence_count' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_RECURRENCE_COUNT,
+            'scope_resolved' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_SCOPE_RESOLVED,
+            'strategic_insight_candidate' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_STRATEGIC_INSIGHT_CANDIDATE,
+            'failure_pattern' => AtlasLearningProposalsService::FIELD_FAILURE_PATTERN,
+            'heuristic' => AtlasLearningProposalsService::FIELD_HEURISTIC,
+            'retrieval_hints' => AtlasLearningProposalsService::FIELD_RETRIEVAL_HINTS,
+            'router' => AtlasLearningProposalsService::FIELD_ROUTER,
+            'suggestion' => AtlasLearningProposalsService::FIELD_SUGGESTION,
+            'task_class' => AtlasLearningProposalsService::FIELD_TASK_CLASS,
+            'terminal_stage' => AtlasLearningProposalsService::FIELD_TERMINAL_STAGE,
+            'total' => AtlasLearningProposalsService::FIELD_TOTAL,
+            'unspecified learning signal' => AtlasLearningProposalsService::FIELD_UNSPECIFIED_LEARNING_SIGNAL,
+            'b610_memory_cognitive_learning_proposals_floor_count' => 18,
+        ];
+    }
+
 }

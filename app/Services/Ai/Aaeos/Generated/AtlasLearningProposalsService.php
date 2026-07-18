@@ -73,14 +73,14 @@ final class AtlasLearningProposalsService
         self::FIELD_ROUTING,
         self::FIELD_GATE,
         self::FIELD_EVAL_GATE,
-        'heuristic',
+        self::FIELD_HEURISTIC,
     ];
 
     /** Kinds that are valid Learning outputs but do not gate critical behavior. */
     public const NON_CRITICAL_KINDS = [
         self::FIELD_RETRIEVAL_HINT,
         self::FIELD_MEMORY,
-        'failure_pattern',
+        self::FIELD_FAILURE_PATTERN,
         self::FIELD_DOCUMENTATION_HEALTH,
     ];
 
@@ -137,6 +137,15 @@ final class AtlasLearningProposalsService
     public const FIELD_RANKED = 'ranked';
     public const FIELD_RENDER_TO_HUMAN = 'render_to_human';
     public const FIELD_RETRIEVAL = 'retrieval';
+    public const FIELD_FAILURE_PATTERN = 'failure_pattern';
+    public const FIELD_HEURISTIC = 'heuristic';
+    public const FIELD_RETRIEVAL_HINTS = 'retrieval_hints';
+    public const FIELD_ROUTER = 'router';
+    public const FIELD_SUGGESTION = 'suggestion';
+    public const FIELD_TASK_CLASS = 'task_class';
+    public const FIELD_TERMINAL_STAGE = 'terminal_stage';
+    public const FIELD_TOTAL = 'total';
+    public const FIELD_UNSPECIFIED_LEARNING_SIGNAL = 'unspecified learning signal';
 
     /**
      * Evaluate a single execution signal into a learning proposal verdict.
@@ -161,7 +170,7 @@ final class AtlasLearningProposalsService
         $evidence = AtlasAaeosStringListNormalizer::trimmedScalarValues($signal[self::FIELD_EVIDENCE_REFS] ?? []);
         $sampleSize = max(0, (int) ($signal[self::FIELD_SAMPLE_SIZE] ?? 0));
         $effect = $this->clamp01((float) ($signal[self::FIELD_EFFECT_SIZE] ?? 0.0));
-        $summary = $this->string($signal[self::FIELD_SUMMARY] ?? null) ?? 'unspecified learning signal';
+        $summary = $this->string($signal[self::FIELD_SUMMARY] ?? null) ?? self::FIELD_UNSPECIFIED_LEARNING_SIGNAL;
 
         $strength = $this->signalStrength($evidence, $sampleSize, $effect);
         $critical = $this->isCriticalKind($kind);
@@ -240,7 +249,7 @@ final class AtlasLearningProposalsService
         $critical = $normalized !== null && $this->isCriticalKind($normalized);
 
         return [
-            'suggestion' => self::FIELD_LEARNING_EMITS_PROPOSAL,
+            self::FIELD_SUGGESTION => self::FIELD_LEARNING_EMITS_PROPOSAL,
             self::FIELD_DECISION => self::FIELD_HUMAN_OR_POLICY_DECIDES,
             // Terminal stage is presentation, never direct mutation (Fluxo:
             // Output Renderer apresenta). Critical kinds force human review.
@@ -288,7 +297,7 @@ final class AtlasLearningProposalsService
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'total' => count($sorted),
+            self::FIELD_TOTAL => count($sorted),
             self::FIELD_RANKED => $sorted,
             self::FIELD_CANON_READY => $canonReady,
             self::FIELD_CANON_READY_COUNT => count($canonReady),
@@ -317,7 +326,7 @@ final class AtlasLearningProposalsService
             self::FIELD_KIND => self::FIELD_ROUTING,
             self::FIELD_SUMMARY => sprintf(
                 'route %s default to %s over %s',
-                AiValueNormalizer::trimmedString($comparison['task_class'] ?? self::FIELD_TASK) ?: self::FIELD_TASK,
+                AiValueNormalizer::trimmedString($comparison[self::FIELD_TASK_CLASS] ?? self::FIELD_TASK) ?: self::FIELD_TASK,
                 AiValueNormalizer::trimmedString($comparison[self::FIELD_CHALLENGER] ?? self::FIELD_CHALLENGER) ?: self::FIELD_CHALLENGER,
                 AiValueNormalizer::trimmedString($comparison[self::FIELD_INCUMBENT] ?? self::FIELD_INCUMBENT) ?: self::FIELD_INCUMBENT,
             ),
@@ -386,7 +395,7 @@ final class AtlasLearningProposalsService
             // Critical kinds can never auto-apply even once admitted.
             self::FIELD_MAY_AUTO_APPLY => $admitted && ! $critical,
             self::FIELD_REQUIRES_REVIEW => $critical || ! $admitted,
-            'terminal_stage' => self::FIELD_RENDER_TO_HUMAN,
+            self::FIELD_TERMINAL_STAGE => self::FIELD_RENDER_TO_HUMAN,
         ];
     }
 
@@ -418,8 +427,8 @@ final class AtlasLearningProposalsService
 
         // A couple of documented aliases.
         return match ($kind) {
-            'router' => self::FIELD_ROUTING,
-            self::FIELD_RETRIEVAL, 'retrieval_hints' => self::FIELD_RETRIEVAL_HINT,
+            self::FIELD_ROUTER => self::FIELD_ROUTING,
+            self::FIELD_RETRIEVAL, self::FIELD_RETRIEVAL_HINTS => self::FIELD_RETRIEVAL_HINT,
             default => null,
         };
     }
