@@ -376,6 +376,7 @@ final class AtlasAaeosCommand extends Command
         {--maturity-attempt-scorecard-http-qbar-compound-immune-phase-dept-floors-contract= : JSON file (any object) to observe maturity/attempt/scorecard/http/qbar/compound/immune/phase/dept residual floors}
         {--gate-signal-truth-router-veto-choreo-debug-docs-watchdog-pareto-floors-contract= : JSON file (any object) to observe gate/truth/router/veto/choreo/debug/docs/watchdog/pareto residual floors}
         {--immune-freeze-outcome-window-flywheel-promo-calib-handoff-runbook-floors-contract= : JSON file (any object) to observe immune/outcome/window/flywheel/promo/calib/handoff/runbook residual floors}
+        {--verdict-dept-debt-canary-asef-freshness-reality-list-schema-floors-contract= : JSON file (any object) to observe verdict/dept/debt/canary/asef/freshness/reality/list/schema residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -908,6 +909,7 @@ final class AtlasAaeosCommand extends Command
             ['maturity-attempt-scorecard-http-qbar-compound-immune-phase-dept-floors-contract', 'maturity_attempt_scorecard_http_qbar_compound_immune_phase_dept_floors_contract', fn (array $p) => $gates->maturityAttemptScorecardHttpQbarCompoundImmunePhaseDeptFloorsContractObserve($p)],
             ['gate-signal-truth-router-veto-choreo-debug-docs-watchdog-pareto-floors-contract', 'gate_signal_truth_router_veto_choreo_debug_docs_watchdog_pareto_floors_contract', fn (array $p) => $gates->gateSignalTruthRouterVetoChoreoDebugDocsWatchdogParetoFloorsContractObserve($p)],
             ['immune-freeze-outcome-window-flywheel-promo-calib-handoff-runbook-floors-contract', 'immune_freeze_outcome_window_flywheel_promo_calib_handoff_runbook_floors_contract', fn (array $p) => $gates->immuneFreezeOutcomeWindowFlywheelPromoCalibHandoffRunbookFloorsContractObserve($p)],
+            ['verdict-dept-debt-canary-asef-freshness-reality-list-schema-floors-contract', 'verdict_dept_debt_canary_asef_freshness_reality_list_schema_floors_contract', fn (array $p) => $gates->verdictDeptDebtCanaryAsefFreshnessRealityListSchemaFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -90,6 +90,8 @@ final class AsefChunkIndexService
     public const FIELD_MANIFEST_STATUS = 'manifest_status';
     public const FIELD_CANDIDATE_SET = 'candidate_set';
     public const FIELD_CHUNK_HIT_COUNT = 'chunk_hit_count';
+    public const FIELD_ID = 'id';
+    public const FIELD_CHUNK_HITS = 'chunk_hits';
 
     public function __construct(
         private readonly AtlasSemanticEmbeddingFoundationService $asef,
@@ -161,7 +163,7 @@ final class AsefChunkIndexService
 
             $embeddedText = self::contextualizedText($title, $section, $chunkText);
             $row = [
-                'id' => (string) Str::uuid(),
+                self::FIELD_ID => (string) Str::uuid(),
                 self::FIELD_CHUNK_ID => AiValueNormalizer::trimmedStringOrNull($chunk[self::FIELD_CHUNK_ID] ?? null) ?? ('asef_'.substr($chunkHash, 0, 24)),
                 self::FIELD_SOURCE_REF => $sourceRef,
                 self::FIELD_SOURCE_HASH => AiValueNormalizer::trimmedStringOrNull($chunk[self::FIELD_SOURCE_HASH] ?? null) ?? MissionCanonicalHash::sha256($sourceRef),
@@ -313,7 +315,7 @@ final class AsefChunkIndexService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_STATUS => self::STATUS_OK,
             self::FIELD_EMBEDDING_MODEL => $modelId,
-            'chunk_hits' => count($rows),
+            self::FIELD_CHUNK_HITS => count($rows),
             self::FIELD_DOCUMENTS => $documents,
         ];
     }
@@ -359,7 +361,7 @@ final class AsefChunkIndexService
         }
 
         DB::table('asef_chunks')->insert($row);
-        $this->writeVector(AiValueNormalizer::trimmedScalarStringOrNull($row['id'] ?? null) ?? '', $vector);
+        $this->writeVector(AiValueNormalizer::trimmedScalarStringOrNull($row[self::FIELD_ID] ?? null) ?? '', $vector);
     }
 
     /**

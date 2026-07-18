@@ -9,6 +9,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AtlasAaeosStringListNormalizer
 {
+    public const FIELD_TYPE = 'type';
+    public const FIELD_NAME = 'name';
     /**
      * @param  mixed  $values
      * @return list<string>
@@ -161,7 +163,7 @@ final class AtlasAaeosStringListNormalizer
                 continue;
             }
 
-            $ref = $value['kind'] ?? ($value['type'] ?? ($value['id'] ?? ($value['name'] ?? null)));
+            $ref = $value['kind'] ?? ($value[self::FIELD_TYPE] ?? ($value['id'] ?? ($value[self::FIELD_NAME] ?? null)));
             if (($ref = AiValueNormalizer::trimmedStringOrNull($ref)) !== null) {
                 $strings[] = $ref;
             }

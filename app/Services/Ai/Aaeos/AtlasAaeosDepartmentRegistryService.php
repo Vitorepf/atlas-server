@@ -24,6 +24,8 @@ class AtlasAaeosDepartmentRegistryService
     public const FIELD_BLOCKERS = 'blockers';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_DEPARTMENT_COUNT = 'department_count';
+    public const FIELD_ID = 'id';
+    public const FIELD_MATURITY_LEVEL = 'maturity_level';
 
     /**
      * The 12 mandatory fields — a department missing any is a blocker.
@@ -68,8 +70,8 @@ class AtlasAaeosDepartmentRegistryService
             }
         }
 
-        $id = $this->departmentId($contract['id'] ?? '');
-        $maturity = $this->maturityLevel($contract['maturity_level'] ?? '');
+        $id = $this->departmentId($contract[self::FIELD_ID] ?? '');
+        $maturity = $this->maturityLevel($contract[self::FIELD_MATURITY_LEVEL] ?? '');
         if ($maturity !== '' && ! in_array($maturity, self::VALID_MATURITY, true)) {
             $blockers[] = "maturity_level [{$maturity}] is not in L0..L7";
         }
@@ -85,7 +87,7 @@ class AtlasAaeosDepartmentRegistryService
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA,
-            'id' => $id,
+            self::FIELD_ID => $id,
             self::FIELD_VALID => $blockers === [],
             self::FIELD_BLOCKERS => $blockers,
         ];
@@ -110,7 +112,7 @@ class AtlasAaeosDepartmentRegistryService
         foreach ($departments as $dept) {
             $result = $this->validateDepartment($dept, $knownIds);
             $results[] = $result;
-            $id = $result['id'];
+            $id = $result[self::FIELD_ID];
             $escalation = $this->departmentId($dept[self::FIELD_ESCALATION_TO] ?? '');
             if ($id !== '' && $escalation !== '' && $escalation !== 'operator') {
                 $escalationMap[$id] = $escalation;
@@ -166,7 +168,7 @@ class AtlasAaeosDepartmentRegistryService
     {
         $ids = [];
         foreach ($departments as $dept) {
-            $id = $this->departmentId($dept['id'] ?? '');
+            $id = $this->departmentId($dept[self::FIELD_ID] ?? '');
             if ($id !== '') {
                 $ids[] = $id;
             }

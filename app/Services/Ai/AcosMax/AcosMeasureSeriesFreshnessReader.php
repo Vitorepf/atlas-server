@@ -26,6 +26,8 @@ final class AcosMeasureSeriesFreshnessReader
     public const SCHEMA = 'atlas.acos.measure_series_freshness_reader.v1';
     public const FIELD_TIMESTAMP_FIELD = 'timestamp_field';
     public const FIELD_TABLE = 'table';
+    public const FIELD_PATH = 'path';
+    public const FIELD_WHERE = 'where';
 
     /**
      * @param  array<string,mixed>  $entry  registry entry
@@ -40,7 +42,7 @@ final class AcosMeasureSeriesFreshnessReader
             return $this->commandLastAppendAt($entry);
         }
 
-        $path = AiValueNormalizer::trimmedStringOrNull($entry['path'] ?? null) ?? '';
+        $path = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_PATH] ?? null) ?? '';
         if ($path === '') {
             return null;
         }
@@ -55,7 +57,7 @@ final class AcosMeasureSeriesFreshnessReader
     /** @param array<string,mixed> $entry */
     private function commandLastAppendAt(array $entry): ?CarbonImmutable
     {
-        $command = AiValueNormalizer::trimmedStringOrNull($entry['path'] ?? null) ?? '';
+        $command = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_PATH] ?? null) ?? '';
         if ($command === '' || ! str_starts_with($command, 'atlas:')) {
             return null;
         }
@@ -87,7 +89,7 @@ final class AcosMeasureSeriesFreshnessReader
 
         try {
             $query = DB::table($table);
-            foreach (AiValueNormalizer::arrayOrEmpty($entry['where'] ?? null) as $column => $value) {
+            foreach (AiValueNormalizer::arrayOrEmpty($entry[self::FIELD_WHERE] ?? null) as $column => $value) {
                 $query->where(AiValueNormalizer::trimmedStringOrNull($column) ?? '', $value);
             }
 

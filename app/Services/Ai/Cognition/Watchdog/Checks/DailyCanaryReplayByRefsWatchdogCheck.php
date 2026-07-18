@@ -90,6 +90,8 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_REF_STABILITY_FLOOR = 'ref_stability_floor';
     public const FIELD_GOLDEN_VERSION = 'golden_version';
     public const FIELD_GOLDEN_RECALL_AT_5 = 'golden_recall_at_5';
+    public const FIELD_V1 = 'v1';
+    public const FIELD_VIOLATIONS = 'violations';
 
 
     public function __construct(
@@ -154,7 +156,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
                 [
                     self::FIELD_CODE => 'daily_canary_drift',
                     'message' => 'MAXG-06 daily canary detected drift above frozen thresholds.',
-                    'violations' => $violations,
+                    self::FIELD_VIOLATIONS => $violations,
                 ],
             );
         }
@@ -258,7 +260,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
                 break;
             }
         }
-        if ($chosenKey === null && isset($versions['v1']) && is_array($versions['v1'])) {
+        if ($chosenKey === null && isset($versions[self::FIELD_V1]) && is_array($versions[self::FIELD_V1])) {
             $chosenKey = 'v1';
         }
         if ($chosenKey === null) {

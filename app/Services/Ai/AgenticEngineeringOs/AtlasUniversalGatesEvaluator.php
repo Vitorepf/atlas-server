@@ -8478,6 +8478,39 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors: immune verdict / dept registry / review debt /
+     * canary replay / ASEF chunk / measure freshness / reality compiler / string list /
+     * structured fact schema (B354).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function verdictDeptDebtCanaryAsefFreshnessRealityListSchemaFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'verdict_field_id' => ImmuneVerdictLedger::FIELD_ID,
+            'verdict_field_updated_at' => ImmuneVerdictLedger::FIELD_UPDATED_AT,
+            'dept_reg_field_id' => AtlasAaeosDepartmentRegistryService::FIELD_ID,
+            'dept_reg_field_maturity_level' => AtlasAaeosDepartmentRegistryService::FIELD_MATURITY_LEVEL,
+            'review_debt_field_message' => OperatorReviewDebtWatchdogCheck::FIELD_MESSAGE,
+            'review_debt_field_code' => OperatorReviewDebtWatchdogCheck::FIELD_CODE,
+            'canary_field_v1' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_V1,
+            'canary_field_violations' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_VIOLATIONS,
+            'asef_field_id' => AsefChunkIndexService::FIELD_ID,
+            'asef_field_chunk_hits' => AsefChunkIndexService::FIELD_CHUNK_HITS,
+            'freshness_field_path' => AcosMeasureSeriesFreshnessReader::FIELD_PATH,
+            'freshness_field_where' => AcosMeasureSeriesFreshnessReader::FIELD_WHERE,
+            'reality_field_output_phases' => RealityCompilerSlice::FIELD_OUTPUT_PHASES,
+            'reality_field_schema_version' => RealityCompilerSlice::FIELD_SCHEMA_VERSION,
+            'string_list_field_type' => AtlasAaeosStringListNormalizer::FIELD_TYPE,
+            'string_list_field_name' => AtlasAaeosStringListNormalizer::FIELD_NAME,
+            'fact_schema_field_source' => StructuredFactSchemaMap::FIELD_SOURCE,
+            'fact_schema_field_required_on_write' => StructuredFactSchemaMap::FIELD_REQUIRED_ON_WRITE,
+            'verdict_dept_debt_canary_asef_freshness_reality_list_schema_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

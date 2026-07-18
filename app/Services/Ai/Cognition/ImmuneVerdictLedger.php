@@ -49,6 +49,8 @@ final class ImmuneVerdictLedger
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_CANDIDATE_HASH = 'candidate_hash';
     public const FIELD_WRITER = 'writer';
+    public const FIELD_ID = 'id';
+    public const FIELD_UPDATED_AT = 'updated_at';
 
     /** @var list<string> */
     public const LABELS = [
@@ -98,7 +100,7 @@ final class ImmuneVerdictLedger
         $decidedAt = $this->parseDate($context[self::FIELD_DECIDED_AT] ?? null) ?? CarbonImmutable::now('UTC');
 
         return [
-            'id' => (string) Str::uuid(),
+            self::FIELD_ID => (string) Str::uuid(),
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_CANDIDATE_HASH => $this->candidateHash($candidateHash),
             self::FIELD_WRITER => trim($writer) !== '' ? trim($writer) : self::WRITER_UNKNOWN,
@@ -170,7 +172,7 @@ final class ImmuneVerdictLedger
     private function databaseRow(array $row): array
     {
         return [
-            'id' => $row['id'],
+            self::FIELD_ID => $row[self::FIELD_ID],
             self::FIELD_SCHEMA_VERSION => $row[self::FIELD_SCHEMA_VERSION],
             self::FIELD_CANDIDATE_HASH => $row[self::FIELD_CANDIDATE_HASH],
             self::FIELD_WRITER => $row[self::FIELD_WRITER],
@@ -183,7 +185,7 @@ final class ImmuneVerdictLedger
             self::FIELD_METADATA => json_encode($row[self::FIELD_METADATA], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
             self::FIELD_DECIDED_AT => $row[self::FIELD_DECIDED_AT],
             'created_at' => now(),
-            'updated_at' => now(),
+            self::FIELD_UPDATED_AT => now(),
         ];
     }
 
@@ -191,7 +193,7 @@ final class ImmuneVerdictLedger
     private function rowFromDatabase(object $row): array
     {
         return [
-            'id' => AiValueNormalizer::trimmedScalarStringOrNull($row->id ?? null) ?? '',
+            self::FIELD_ID => AiValueNormalizer::trimmedScalarStringOrNull($row->id ?? null) ?? '',
             self::FIELD_SCHEMA_VERSION => AiValueNormalizer::trimmedScalarStringOrNull($row->schema_version ?? null) ?? '',
             self::FIELD_CANDIDATE_HASH => AiValueNormalizer::trimmedScalarStringOrNull($row->candidate_hash ?? null) ?? '',
             self::FIELD_WRITER => AiValueNormalizer::trimmedScalarStringOrNull($row->writer ?? null) ?? '',

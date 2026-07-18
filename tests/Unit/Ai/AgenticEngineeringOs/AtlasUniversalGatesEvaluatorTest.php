@@ -6499,4 +6499,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['immune_freeze_outcome_window_flywheel_promo_calib_handoff_runbook_floor_count']);
     }
 
+    public function test_verdict_dept_debt_canary_asef_freshness_reality_list_schema_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->verdictDeptDebtCanaryAsefFreshnessRealityListSchemaFloorsContractObserve([]);
+
+        $this->assertSame('id', $payload['verdict_field_id']);
+        $this->assertSame('updated_at', $payload['verdict_field_updated_at']);
+        $this->assertSame('id', $payload['dept_reg_field_id']);
+        $this->assertSame('maturity_level', $payload['dept_reg_field_maturity_level']);
+        $this->assertSame('message', $payload['review_debt_field_message']);
+        $this->assertSame('code', $payload['review_debt_field_code']);
+        $this->assertSame('v1', $payload['canary_field_v1']);
+        $this->assertSame('violations', $payload['canary_field_violations']);
+        $this->assertSame('id', $payload['asef_field_id']);
+        $this->assertSame('chunk_hits', $payload['asef_field_chunk_hits']);
+        $this->assertSame('path', $payload['freshness_field_path']);
+        $this->assertSame('where', $payload['freshness_field_where']);
+        $this->assertSame('output_phases', $payload['reality_field_output_phases']);
+        $this->assertSame('schema_version', $payload['reality_field_schema_version']);
+        $this->assertSame('type', $payload['string_list_field_type']);
+        $this->assertSame('name', $payload['string_list_field_name']);
+        $this->assertSame('source', $payload['fact_schema_field_source']);
+        $this->assertSame('required_on_write', $payload['fact_schema_field_required_on_write']);
+        $this->assertSame(18, $payload['verdict_dept_debt_canary_asef_freshness_reality_list_schema_floor_count']);
+    }
+
 }

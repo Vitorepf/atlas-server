@@ -26,6 +26,8 @@ final class StructuredFactSchemaMap
     public const FIELD_GOTCHA = 'gotcha';
     public const FIELD_HARNESS_LEARNING = 'harness_learning';
     public const FIELD_LLM_EXTRACTION_HOT_PATH = 'llm_extraction_hot_path';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_REQUIRED_ON_WRITE = 'required_on_write';
 
     /** @var array<string,list<string>> */
     public const REQUIRED = [
@@ -62,8 +64,8 @@ final class StructuredFactSchemaMap
             self::FIELD_VALID => $missing === [],
             self::FIELD_MISSING => $missing,
             self::FIELD_FAIL_OPEN_ENTRY_ALLOWED => true,
-            'source' => [
-                'required_on_write' => false,
+            self::FIELD_SOURCE => [
+                self::FIELD_REQUIRED_ON_WRITE => false,
                 self::FIELD_LLM_EXTRACTION_HOT_PATH => false,
             ],
         ];
