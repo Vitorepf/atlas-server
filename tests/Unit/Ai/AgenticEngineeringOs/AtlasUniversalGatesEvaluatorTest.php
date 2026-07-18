@@ -12049,4 +12049,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b573_obra_retro_evidence_vision_ragx_chain_floor_count']);
     }
 
+    public function test_b574_http_path_cross_department_segment_importance_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b574HttpPathCrossDepartmentSegmentImportanceFloorsContractObserve([]);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_PHASE_OUT, $out['phase_out']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ACTOR_ID, $out['actor_id']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_SKIP_RECEIPT_ID, $out['skip_receipt_id']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_OUTPUTS, $out['outputs']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_REQUIRED_GATE, $out['required_gate']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_RISK_BAND, $out['risk_band']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_FROM, $out['from']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_TO, $out['to']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_SECURITY, $out['security']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_REVIEW, $out['review']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_FINAL_OVERRIDE, $out['final_override']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_DROP_REASON, $out['drop_reason']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_STATUS, $out['status']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_SEGMENTS, $out['segments']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_DECISION_NOTE, $out['decision_note']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_FACT, $out['fact']);
+        $this->assertSame(18, $out['b574_http_path_cross_department_segment_importance_floor_count']);
+    }
+
 }

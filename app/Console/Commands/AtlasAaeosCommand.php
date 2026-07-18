@@ -596,6 +596,7 @@ final class AtlasAaeosCommand extends Command
                             {--b571-capture-hmac-phase-handoff-floors-contract= : JSON file (any object) to observe capture/hmac/phase/handoff floors}
                             {--b572-execution-context-immune-signature-aaeos-veto-floors-contract= : JSON file (any object) to observe execution/context/immune/signature/aaeos/veto floors}
                             {--b573-obra-retro-evidence-vision-ragx-chain-floors-contract= : JSON file (any object) to observe obra/retro/evidence/vision/ragx/chain floors}
+                            {--b574-http-path-cross-department-segment-importance-floors-contract= : JSON file (any object) to observe http/path/cross/department/segment/importance floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1348,6 +1349,7 @@ final class AtlasAaeosCommand extends Command
             ['b571-capture-hmac-phase-handoff-floors-contract', 'b571_capture_hmac_phase_handoff_floors_contract', fn (array $p) => $gates->b571CaptureHmacPhaseHandoffFloorsContractObserve($p)],
             ['b572-execution-context-immune-signature-aaeos-veto-floors-contract', 'b572_execution_context_immune_signature_aaeos_veto_floors_contract', fn (array $p) => $gates->b572ExecutionContextImmuneSignatureAaeosVetoFloorsContractObserve($p)],
             ['b573-obra-retro-evidence-vision-ragx-chain-floors-contract', 'b573_obra_retro_evidence_vision_ragx_chain_floors_contract', fn (array $p) => $gates->b573ObraRetroEvidenceVisionRagxChainFloorsContractObserve($p)],
+            ['b574-http-path-cross-department-segment-importance-floors-contract', 'b574_http_path_cross_department_segment_importance_floors_contract', fn (array $p) => $gates->b574HttpPathCrossDepartmentSegmentImportanceFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

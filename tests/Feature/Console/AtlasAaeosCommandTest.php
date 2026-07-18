@@ -9769,6 +9769,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b574_http_path_cross_department_segment_importance_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b574-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b574',
+                '--b574-http-path-cross-department-segment-importance-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b574_http_path_cross_department_segment_importance_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 
