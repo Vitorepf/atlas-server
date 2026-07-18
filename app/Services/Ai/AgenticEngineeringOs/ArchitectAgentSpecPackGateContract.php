@@ -31,6 +31,8 @@ final class ArchitectAgentSpecPackGateContract
     public const FIELD_SPEC_PACK_HASH = 'spec_pack_hash';
     public const FIELD_DEPARTMENT_ID = 'department_id';
     public const FIELD_MIN_AUTONOMOUS_RISK_SCOPE = 'min_autonomous_risk_scope';
+    public const FIELD_OPERATOR_SIGNATURE_REQUIRED_FROM = 'operator_signature_required_from';
+    public const FIELD_SPEC_PACK_SCHEMA = 'spec_pack_schema';
 
     /**
      * Required spec_pack sections before high-risk autonomous work may proceed.
@@ -109,8 +111,8 @@ final class ArchitectAgentSpecPackGateContract
             'schema_version' => self::SCHEMA,
             self::FIELD_DEPARTMENT_ID => self::DEPARTMENT_ID,
             self::FIELD_MIN_AUTONOMOUS_RISK_SCOPE => self::MIN_AUTONOMOUS_RISK_SCOPE,
-            'operator_signature_required_from' => self::OPERATOR_SIGNATURE_REQUIRED_FROM,
-            'spec_pack_schema' => self::SPEC_PACK_SCHEMA,
+            self::FIELD_OPERATOR_SIGNATURE_REQUIRED_FROM => self::OPERATOR_SIGNATURE_REQUIRED_FROM,
+            self::FIELD_SPEC_PACK_SCHEMA => self::SPEC_PACK_SCHEMA,
             'required_spec_pack_artifacts' => self::REQUIRED_SPEC_PACK_ARTIFACTS,
             'gates' => self::GATES,
             'evidence_required' => self::EVIDENCE_REQUIRED,

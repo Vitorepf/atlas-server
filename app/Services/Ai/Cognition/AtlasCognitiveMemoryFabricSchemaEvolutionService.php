@@ -73,6 +73,8 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_DECISION = 'decision';
     public const FIELD_REQUESTED_AUTONOMY = 'requested_autonomy';
     public const FIELD_PROPOSAL_ID = 'proposal_id';
+    public const FIELD_DOC_SKELETON = 'doc_skeleton';
+    public const FIELD_ADMISSION_DECISION = 'admission_decision';
 
     private ?string $proposalsLogOverride = null;
 
@@ -151,9 +153,9 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
             self::FIELD_RATIONALE => $rationale,
             self::FIELD_ADDED_FIELDS => $addedFields,
             self::FIELD_DEPRECATED_FIELDS => $deprecatedFields,
-            'doc_skeleton' => $this->docSkeleton($currentSchema, $nextSchema, $addedFields, $deprecatedFields),
+            self::FIELD_DOC_SKELETON => $this->docSkeleton($currentSchema, $nextSchema, $addedFields, $deprecatedFields),
             self::FIELD_KERNEL_DECISION => $kernelEnv[self::FIELD_DECISION],
-            'admission_decision' => $admissionEnv[self::FIELD_DECISION],
+            self::FIELD_ADMISSION_DECISION => $admissionEnv[self::FIELD_DECISION],
             'requires_human_approval' => true,
             'is_proposal' => true,
         ];

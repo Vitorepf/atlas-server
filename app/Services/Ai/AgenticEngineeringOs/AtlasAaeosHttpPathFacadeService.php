@@ -106,6 +106,8 @@ final class AtlasAaeosHttpPathFacadeService
     public const TELEMETRY_ENABLED_CONFIG_KEY = 'atlas.aaeos.telemetry_enabled';
 
     public const DEFAULT_TELEMETRY_ENABLED = true;
+    public const FIELD_REQUESTS = 'requests';
+    public const FIELD_SAMPLES = 'samples';
 
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
 
@@ -297,13 +299,13 @@ final class AtlasAaeosHttpPathFacadeService
             self::FIELD_FACADE_ACTIVE => self::isActive($configuredPhase),
             self::FIELD_PHASE_ROUTER => (new AtlasAaeosPhaseRouterService($configuredPhase))->statusSnapshot(),
             self::FIELD_COUNTERS => [
-                'requests' => (int) $this->cache->get(self::TELEMETRY_KEY_REQUESTS, 0),
+                self::FIELD_REQUESTS => (int) $this->cache->get(self::TELEMETRY_KEY_REQUESTS, 0),
                 self::FIELD_CANONICAL_CALLS => (int) $this->cache->get(self::TELEMETRY_KEY_CANONICAL, 0),
                 self::FIELD_LEGACY_FALLBACK => (int) $this->cache->get(self::TELEMETRY_KEY_LEGACY_FALLBACK, 0),
                 self::FIELD_BLOCKED => (int) $this->cache->get(self::TELEMETRY_KEY_BLOCKED, 0),
             ],
             self::FIELD_LATENCY_MS => [
-                'samples' => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.count', 0),
+                self::FIELD_SAMPLES => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.count', 0),
                 'sum' => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.sum', 0),
                 'max' => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.max', 0),
             ],

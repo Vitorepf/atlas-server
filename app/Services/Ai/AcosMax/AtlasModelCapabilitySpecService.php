@@ -45,6 +45,8 @@ final class AtlasModelCapabilitySpecService
     public const FIELD_VIOLATIONS = 'violations';
     public const FIELD_LATENCY_PER_PAIR_MS_P95 = 'latency_per_pair_ms_p95';
     public const FIELD_FUNCTIONS = 'functions';
+    public const FIELD_FUNCTION = 'function';
+    public const FIELD_LICENSE_ALLOWED = 'license_allowed';
     /** @var array<string, array<string, mixed>> */
     private array $functions;
 
@@ -136,7 +138,7 @@ final class AtlasModelCapabilitySpecService
 
         return [
             self::FIELD_STATUS => $violations === [] ? self::STATUS_OK : self::STATUS_VIOLATES_SPEC,
-            'function' => AiValueNormalizer::lowerTrimmedString($function),
+            self::FIELD_FUNCTION => AiValueNormalizer::lowerTrimmedString($function),
             self::FIELD_MODEL_ID => $modelId !== '' ? $modelId : self::FALLBACK_MODEL_ID,
             self::FIELD_VIOLATIONS => $violations,
         ];
@@ -266,7 +268,7 @@ final class AtlasModelCapabilitySpecService
         }
         $allowed = array_values(array_filter(array_map(
             static fn (mixed $value): string => AiValueNormalizer::lowerTrimmedString($value),
-            AiValueNormalizer::arrayOrEmpty($spec['license_allowed'] ?? null),
+            AiValueNormalizer::arrayOrEmpty($spec[self::FIELD_LICENSE_ALLOWED] ?? null),
         )));
         if ($allowed === []) {
             return [];

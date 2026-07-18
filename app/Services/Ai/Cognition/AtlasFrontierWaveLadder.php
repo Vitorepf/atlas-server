@@ -51,6 +51,8 @@ final class AtlasFrontierWaveLadder
     public const FIELD_ACTIVATION = 'activation';
     public const FIELD_CONSTITUICAO = 'constituicao';
     public const FIELD_EXTERNAL_EVENTS = 'external_events';
+    public const FIELD_PRIOR_EVENTS = 'prior_events';
+    public const FIELD_THRESHOLD = 'threshold';
 
     /**
      * Waves in activation order (obra20 §Fase-0 + contexto-mestre §5).
@@ -124,8 +126,8 @@ final class AtlasFrontierWaveLadder
                 self::FIELD_SUMMARY => $wave[self::FIELD_SUMMARY],
                 self::FIELD_ACTIVATION => $activation,
                 self::FIELD_EXTERNAL_EVENTS => $counts[$wave[self::FIELD_KEY]] ?? 0,
-                'prior_events' => $priorEvents,
-                'threshold' => self::EVENT_THRESHOLD,
+                self::FIELD_PRIOR_EVENTS => $priorEvents,
+                self::FIELD_THRESHOLD => self::EVENT_THRESHOLD,
             ];
         }
 

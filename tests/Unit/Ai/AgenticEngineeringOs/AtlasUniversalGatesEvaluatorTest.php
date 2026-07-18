@@ -6374,6 +6374,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['volume_immune_scorecard_phase_delivery_autowork_citation_cascade_budget_floor_count']);
     }
 
+    public function test_frontier_rerank_fabric_cockpit_http_specpack_advisory_ncapture_model_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->frontierRerankFabricCockpitHttpSpecpackAdvisoryNcaptureModelFloorsContractObserve([]);
+
+        $this->assertSame('prior_events', $payload['frontier_field_prior_events']);
+        $this->assertSame('threshold', $payload['frontier_field_threshold']);
+        $this->assertSame('frozen_at', $payload['rerank_field_frozen_at']);
+        $this->assertSame('promote_allowed', $payload['rerank_field_promote_allowed']);
+        $this->assertSame('doc_skeleton', $payload['fabric_field_doc_skeleton']);
+        $this->assertSame('admission_decision', $payload['fabric_field_admission_decision']);
+        $this->assertSame('phases', $payload['cockpit_field_phases']);
+        $this->assertSame('outcome_causality', $payload['cockpit_field_outcome_causality']);
+        $this->assertSame('requests', $payload['http_facade_field_requests']);
+        $this->assertSame('samples', $payload['http_facade_field_samples']);
+        $this->assertSame('operator_signature_required_from', $payload['specpack_field_operator_signature_required_from']);
+        $this->assertSame('spec_pack_schema', $payload['specpack_field_spec_pack_schema']);
+        $this->assertSame('reorders_digest_only', $payload['advisory_field_reorders_digest_only']);
+        $this->assertSame('reuses_calibration_band_classifier', $payload['advisory_field_reuses_calibration_band_classifier']);
+        $this->assertSame('function', $payload['ncapture_field_function']);
+        $this->assertSame('verified', $payload['ncapture_field_verified']);
+        $this->assertSame('function', $payload['model_cap_field_function']);
+        $this->assertSame('license_allowed', $payload['model_cap_field_license_allowed']);
+        $this->assertSame(18, $payload['frontier_rerank_fabric_cockpit_http_specpack_advisory_ncapture_model_floor_count']);
+    }
+
 
 
 

@@ -109,6 +109,8 @@ final class AtlasNCaptureDrillService
     public const FIELD_LATEST = 'latest';
     public const FIELD_SERIES_REGISTRY = 'series_registry';
     public const FIELD_SOURCE_TYPE = 'source_type';
+    public const FIELD_FUNCTION = 'function';
+    public const FIELD_VERIFIED = 'verified';
 
     private readonly string $ledgerPath;
 
@@ -181,8 +183,8 @@ final class AtlasNCaptureDrillService
             self::FIELD_DRILL_ID => AiValueNormalizer::trimmedStringOrNull($drill[self::FIELD_DRILL_ID] ?? null) ?? (string) Str::uuid(),
             self::FIELD_ENGINE_ID => AiValueNormalizer::trimmedScalarStringOrNull($drill[self::FIELD_ENGINE_ID] ?? null) ?? '',
             self::FIELD_CAPABILITY_SPEC => [
-                'function' => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'capability_spec.function')) ?? 'engine',
-                'verified' => (AiValueNormalizer::boolOrNull(data_get($drill, 'capability_spec.verified')) ?? false),
+                self::FIELD_FUNCTION => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'capability_spec.function')) ?? 'engine',
+                self::FIELD_VERIFIED => (AiValueNormalizer::boolOrNull(data_get($drill, 'capability_spec.verified')) ?? false),
                 'violations' => array_values(AiValueNormalizer::arrayOrEmpty(data_get($drill, 'capability_spec.violations', []))),
             ],
             'yardstick' => [

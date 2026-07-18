@@ -371,6 +371,7 @@ final class AtlasAaeosCommand extends Command
         {--health-immune-calib-deferred-cooccur-thesis-lexical-repair-docs-floors-contract= : JSON file (any object) to observe health/immune/calib/deferred/cooccur/thesis/lexical/repair/docs residual floors}
         {--dept-immune-nudge-runbook-quality-dev-compound-obra-floors-contract= : JSON file (any object) to observe dept/immune/nudge/runbook/quality/dev/compound/obra residual floors}
         {--volume-immune-scorecard-phase-delivery-autowork-citation-cascade-budget-floors-contract= : JSON file (any object) to observe volume/immune/scorecard/phase/delivery/autowork/citation/cascade/budget residual floors}
+        {--frontier-rerank-fabric-cockpit-http-specpack-advisory-ncapture-model-floors-contract= : JSON file (any object) to observe frontier/rerank/fabric/cockpit/http/specpack/advisory/ncapture/model residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -898,6 +899,7 @@ final class AtlasAaeosCommand extends Command
             ['health-immune-calib-deferred-cooccur-thesis-lexical-repair-docs-floors-contract', 'health_immune_calib_deferred_cooccur_thesis_lexical_repair_docs_floors_contract', fn (array $p) => $gates->healthImmuneCalibDeferredCooccurThesisLexicalRepairDocsFloorsContractObserve($p)],
             ['dept-immune-nudge-runbook-quality-dev-compound-obra-floors-contract', 'dept_immune_nudge_runbook_quality_dev_compound_obra_floors_contract', fn (array $p) => $gates->deptImmuneNudgeRunbookQualityDevCompoundObraFloorsContractObserve($p)],
             ['volume-immune-scorecard-phase-delivery-autowork-citation-cascade-budget-floors-contract', 'volume_immune_scorecard_phase_delivery_autowork_citation_cascade_budget_floors_contract', fn (array $p) => $gates->volumeImmuneScorecardPhaseDeliveryAutoworkCitationCascadeBudgetFloorsContractObserve($p)],
+            ['frontier-rerank-fabric-cockpit-http-specpack-advisory-ncapture-model-floors-contract', 'frontier_rerank_fabric_cockpit_http_specpack_advisory_ncapture_model_floors_contract', fn (array $p) => $gates->frontierRerankFabricCockpitHttpSpecpackAdvisoryNcaptureModelFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

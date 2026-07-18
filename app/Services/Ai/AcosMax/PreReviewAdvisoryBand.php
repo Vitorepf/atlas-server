@@ -76,6 +76,8 @@ final class PreReviewAdvisoryBand
     public const FIELD_DEATH_CRITERION = 'death_criterion';
     public const FIELD_DELAYS_AUTO_APPLY = 'delays_auto_apply';
     public const FIELD_MUTATES_PIPELINE = 'mutates_pipeline';
+    public const FIELD_REORDERS_DIGEST_ONLY = 'reorders_digest_only';
+    public const FIELD_REUSES_CALIBRATION_BAND_CLASSIFIER = 'reuses_calibration_band_classifier';
 
     /**
      * @param  array<string,mixed>  $features required keys:
@@ -113,8 +115,8 @@ final class PreReviewAdvisoryBand
                 self::FIELD_BLOCKS_AUTO_APPLY => false,
                 self::FIELD_DELAYS_AUTO_APPLY => false,
                 self::FIELD_MUTATES_PIPELINE => false,
-                'reorders_digest_only' => true,
-                'reuses_calibration_band_classifier' => true,
+                self::FIELD_REORDERS_DIGEST_ONLY => true,
+                self::FIELD_REUSES_CALIBRATION_BAND_CLASSIFIER => true,
                 'min_n_for_band' => self::MIN_N_FOR_BAND,
             ],
         ];

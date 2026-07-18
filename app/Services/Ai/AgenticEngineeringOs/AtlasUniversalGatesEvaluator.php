@@ -8326,6 +8326,31 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function frontierRerankFabricCockpitHttpSpecpackAdvisoryNcaptureModelFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'frontier_field_prior_events' => AtlasFrontierWaveLadder::FIELD_PRIOR_EVENTS,
+            'frontier_field_threshold' => AtlasFrontierWaveLadder::FIELD_THRESHOLD,
+            'rerank_field_frozen_at' => AtlasConsolidationRerankGuard::FIELD_FROZEN_AT,
+            'rerank_field_promote_allowed' => AtlasConsolidationRerankGuard::FIELD_PROMOTE_ALLOWED,
+            'fabric_field_doc_skeleton' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_DOC_SKELETON,
+            'fabric_field_admission_decision' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_ADMISSION_DECISION,
+            'cockpit_field_phases' => AtlasMissionControlCockpitService::FIELD_PHASES,
+            'cockpit_field_outcome_causality' => AtlasMissionControlCockpitService::FIELD_OUTCOME_CAUSALITY,
+            'http_facade_field_requests' => AtlasAaeosHttpPathFacadeService::FIELD_REQUESTS,
+            'http_facade_field_samples' => AtlasAaeosHttpPathFacadeService::FIELD_SAMPLES,
+            'specpack_field_operator_signature_required_from' => ArchitectAgentSpecPackGateContract::FIELD_OPERATOR_SIGNATURE_REQUIRED_FROM,
+            'specpack_field_spec_pack_schema' => ArchitectAgentSpecPackGateContract::FIELD_SPEC_PACK_SCHEMA,
+            'advisory_field_reorders_digest_only' => PreReviewAdvisoryBand::FIELD_REORDERS_DIGEST_ONLY,
+            'advisory_field_reuses_calibration_band_classifier' => PreReviewAdvisoryBand::FIELD_REUSES_CALIBRATION_BAND_CLASSIFIER,
+            'ncapture_field_function' => AtlasNCaptureDrillService::FIELD_FUNCTION,
+            'ncapture_field_verified' => AtlasNCaptureDrillService::FIELD_VERIFIED,
+            'model_cap_field_function' => AtlasModelCapabilitySpecService::FIELD_FUNCTION,
+            'model_cap_field_license_allowed' => AtlasModelCapabilitySpecService::FIELD_LICENSE_ALLOWED,
+            'frontier_rerank_fabric_cockpit_http_specpack_advisory_ncapture_model_floor_count' => 18,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
