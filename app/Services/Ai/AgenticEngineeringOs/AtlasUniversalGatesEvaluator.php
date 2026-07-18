@@ -17536,4 +17536,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B648).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b648RealityCompilerRequiredGateFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.reality_compiler.slice.v1' => RealityCompilerSlice::SCHEMA_VERSION,
+            'pending' => RealityCompilerSlice::STATUS_PENDING,
+            'phase' => RealityCompilerSlice::FIELD_PHASE,
+            'status' => RealityCompilerSlice::FIELD_STATUS,
+            'autonomy_level' => RealityCompilerSlice::FIELD_AUTONOMY_LEVEL,
+            'intent' => RealityCompilerSlice::FIELD_INTENT,
+            'output_phases' => RealityCompilerSlice::FIELD_OUTPUT_PHASES,
+            'schema_version' => RealityCompilerSlice::FIELD_SCHEMA_VERSION,
+            'evidence' => RealityCompilerSlice::FIELD_EVIDENCE,
+            'simulation' => RealityCompilerSlice::FIELD_SIMULATION,
+            'atlas.aaeos.phase.v1' => AaeosRequiredGateCoverageChecker::SCHEMA_VERSION,
+            'no_gate' => AaeosRequiredGateCoverageChecker::COVERAGE_NO_GATE,
+            'incomplete' => AaeosRequiredGateCoverageChecker::COVERAGE_INCOMPLETE,
+            'complete' => AaeosRequiredGateCoverageChecker::COVERAGE_COMPLETE,
+            'missing' => AaeosRequiredGateCoverageChecker::FIELD_MISSING,
+            'coverage' => AaeosRequiredGateCoverageChecker::FIELD_COVERAGE,
+            'satisfied' => AaeosRequiredGateCoverageChecker::FIELD_SATISFIED,
+            'extra_passed_gates' => AaeosRequiredGateCoverageChecker::FIELD_EXTRA_PASSED_GATES,
+            'b648_reality_compiler_required_gate_floor_count' => 18,
+        ];
+    }
+
 }

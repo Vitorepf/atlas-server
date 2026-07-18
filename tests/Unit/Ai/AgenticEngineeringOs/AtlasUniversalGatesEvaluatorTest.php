@@ -153,6 +153,7 @@ use App\Services\Ai\Aaeos\Generated\AtlasMemoryCognitiveImmuneLearningKernelServ
 use App\Services\Ai\Aaeos\Generated\AtlasLearningProposalsService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdComparator;
+use App\Services\Ai\AgenticEngineeringOs\AaeosRequiredGateCoverageChecker;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -13870,6 +13871,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_HIGH_BLOCKER_IDS, $out['high_blocker_ids']);
         $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_PASSED, $out['passed']);
         $this->assertSame(18, $out['b647_phase_advance_floor_count']);
+    }
+
+    public function test_b648_reality_compiler_required_gate_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b648RealityCompilerRequiredGateFloorsContractObserve([]);
+        $this->assertSame(RealityCompilerSlice::SCHEMA_VERSION, $out['atlas.reality_compiler.slice.v1']);
+        $this->assertSame(RealityCompilerSlice::STATUS_PENDING, $out['pending']);
+        $this->assertSame(RealityCompilerSlice::FIELD_PHASE, $out['phase']);
+        $this->assertSame(RealityCompilerSlice::FIELD_STATUS, $out['status']);
+        $this->assertSame(RealityCompilerSlice::FIELD_AUTONOMY_LEVEL, $out['autonomy_level']);
+        $this->assertSame(RealityCompilerSlice::FIELD_INTENT, $out['intent']);
+        $this->assertSame(RealityCompilerSlice::FIELD_OUTPUT_PHASES, $out['output_phases']);
+        $this->assertSame(RealityCompilerSlice::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(RealityCompilerSlice::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(RealityCompilerSlice::FIELD_SIMULATION, $out['simulation']);
+        $this->assertSame(AaeosRequiredGateCoverageChecker::SCHEMA_VERSION, $out['atlas.aaeos.phase.v1']);
+        $this->assertSame(AaeosRequiredGateCoverageChecker::COVERAGE_NO_GATE, $out['no_gate']);
+        $this->assertSame(AaeosRequiredGateCoverageChecker::COVERAGE_INCOMPLETE, $out['incomplete']);
+        $this->assertSame(AaeosRequiredGateCoverageChecker::COVERAGE_COMPLETE, $out['complete']);
+        $this->assertSame(AaeosRequiredGateCoverageChecker::FIELD_MISSING, $out['missing']);
+        $this->assertSame(AaeosRequiredGateCoverageChecker::FIELD_COVERAGE, $out['coverage']);
+        $this->assertSame(AaeosRequiredGateCoverageChecker::FIELD_SATISFIED, $out['satisfied']);
+        $this->assertSame(AaeosRequiredGateCoverageChecker::FIELD_EXTRA_PASSED_GATES, $out['extra_passed_gates']);
+        $this->assertSame(18, $out['b648_reality_compiler_required_gate_floor_count']);
     }
 
 }

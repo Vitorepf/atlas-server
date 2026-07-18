@@ -10805,6 +10805,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b648_reality_compiler_required_gate_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b648-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b648',
+                '--b648-reality-compiler-required-gate-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b648_reality_compiler_required_gate_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 
