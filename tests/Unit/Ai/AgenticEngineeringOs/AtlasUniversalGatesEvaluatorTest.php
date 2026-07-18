@@ -7249,4 +7249,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['obra_retro_daily_canary_aaeos_gate_implementation_cross_floor_count']);
     }
 
+    public function test_exploratory_bets_aaeos_implementation_cross_department_docs_authority_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->exploratoryBetsAaeosImplementationCrossDepartmentDocsAuthorityFloorsContractObserve([]);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_ID, $out['id']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_MIN_N, $out['min_n']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_VERIFIABLY_BACKED, $out['verifiably_backed']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_WIRING, $out['wiring']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_REQUIRES_OPERATOR_RECEIPT, $out['requires_operator_receipt']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_TO_DEPARTMENT, $out['to_department']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_NEEDLE_KIND, $out['needle_kind']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_NEEDLE_NORMALIZED, $out['needle_normalized']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_TITLE, $out['title']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_TYPE, $out['type']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_TOKEN_BUDGET, $out['token_budget']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DEFAULT_OFF, $out['default_off']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DELIVERY_LATENCY_SECONDS, $out['delivery_latency_seconds']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_SCOPE_ID, $out['scope_id']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_SCOPE_TYPE, $out['scope_type']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_OBJECTIVE, $out['objective']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_PAYLOAD, $out['payload']);
+        $this->assertSame(18, $out['exploratory_bets_aaeos_implementation_cross_department_docs_authority_floor_count']);
+    }
+
 }

@@ -103,6 +103,8 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_FORBIDDEN_ACTIONS = 'forbidden_actions';
     public const FIELD_MEMORY_TYPE = 'memory_type';
     public const FIELD_NAME = 'name';
+    public const FIELD_OBJECTIVE = 'objective';
+    public const FIELD_PAYLOAD = 'payload';
 
 
     public function __construct(
@@ -231,7 +233,7 @@ final class AcosMaxProceduralSkillPromoterService
                     self::FIELD_CASE_COUNT => $caseCount,
                 ],
                 self::FIELD_BODY => [
-                    'objective' => $playbook->objective,
+                    self::FIELD_OBJECTIVE => $playbook->objective,
                     'steps' => $playbook->steps,
                     'postconditions' => $playbook->postconditions,
                     self::FIELD_FORBIDDEN_ACTIONS => $playbook->forbiddenActions,
@@ -268,7 +270,7 @@ final class AcosMaxProceduralSkillPromoterService
                 self::FIELD_CONFIDENCE => 40,
                 self::FIELD_PROMOTION_ALLOWED => false,
                 self::FIELD_EVIDENCE_REFS => $evidenceRefs,
-                'payload' => [
+                self::FIELD_PAYLOAD => [
                     self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
                     self::FIELD_SOURCE => [
                         self::FIELD_SLICE => self::SLICE_MULTJ04,

@@ -63,6 +63,8 @@ final class ExploratoryBetsPortfolio
     public const FIELD_USES_ATLAS_BRAIN_CAUSAL_EFFECT_GATE = 'uses_atlas_brain_causal_effect_gate';
     public const FIELD_FLAG = 'flag';
     public const FIELD_FLAG_DEFAULT = 'flag_default';
+    public const FIELD_ID = 'id';
+    public const FIELD_MIN_N = 'min_n';
 
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
 
@@ -191,7 +193,7 @@ final class ExploratoryBetsPortfolio
         $path = AiValueNormalizer::trimmedStringOrNull($bet[self::FIELD_PATH] ?? null) ?? '';
         $base = [
             self::FIELD_PATH => $path,
-            self::FIELD_CANDIDATE_ID => AiValueNormalizer::trimmedStringOrNull($bet['id'] ?? null) ?? $path,
+            self::FIELD_CANDIDATE_ID => AiValueNormalizer::trimmedStringOrNull($bet[self::FIELD_ID] ?? null) ?? $path,
             self::FIELD_CAUSAL_EFFECT => $effect,
             self::FIELD_PATH_WEIGHT_MULTIPLIER => 1.0,
         ];
@@ -267,7 +269,7 @@ final class ExploratoryBetsPortfolio
             self::FIELD_WINDOW_ID => $windowId,
             self::FIELD_WINDOW_DAYS => $windowDays,
             self::FIELD_K => $k,
-            'min_n' => self::MIN_N,
+            self::FIELD_MIN_N => self::MIN_N,
             self::FIELD_CAUSAL_EFFECT => $effect,
         ];
     }

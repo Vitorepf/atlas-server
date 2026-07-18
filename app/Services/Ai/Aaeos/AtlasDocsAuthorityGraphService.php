@@ -62,6 +62,8 @@ class AtlasDocsAuthorityGraphService
     public const FIELD_GRAPH_ID = 'graph_id';
     public const FIELD_ID = 'id';
     public const FIELD_IMPLEMENTATION_STATE = 'implementation_state';
+    public const FIELD_NEEDLE_KIND = 'needle_kind';
+    public const FIELD_NEEDLE_NORMALIZED = 'needle_normalized';
 
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
@@ -121,9 +123,9 @@ class AtlasDocsAuthorityGraphService
             // arbitrary, and pgsql (unlike sqlite) enforces varchar lengths.
             $needle = mb_substr($needle, 0, 300);
             $rows[] = [
-                'needle_kind' => mb_substr($kind, 0, 40),
+                self::FIELD_NEEDLE_KIND => mb_substr($kind, 0, 40),
                 self::FIELD_NEEDLE => $needle,
-                'needle_normalized' => mb_substr(AiValueNormalizer::lowerTrimmedString($needle), 0, 300),
+                self::FIELD_NEEDLE_NORMALIZED => mb_substr(AiValueNormalizer::lowerTrimmedString($needle), 0, 300),
                 self::FIELD_OWNER_DOC_PATH => mb_substr($path, 0, 500),
                 self::FIELD_OWNER_DOC_ID => $ownerId !== '' ? mb_substr($ownerId, 0, 200) : null,
                 self::FIELD_OWNER_BASIS => $basis,

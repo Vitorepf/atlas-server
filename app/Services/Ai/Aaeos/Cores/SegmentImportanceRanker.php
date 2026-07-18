@@ -76,6 +76,8 @@ final class SegmentImportanceRanker
     public const FIELD_KEPT_IDS = 'kept_ids';
     public const FIELD_LINKS_DECISION_OR_BLOCKER = 'links_decision_or_blocker';
     public const FIELD_RANKED = 'ranked';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_TOKEN_BUDGET = 'token_budget';
 
     /**
      * Rank may-discard segments by composite signal and greedily fill a token budget.
@@ -170,8 +172,8 @@ final class SegmentImportanceRanker
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'token_budget' => $budget,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_TOKEN_BUDGET => $budget,
             self::FIELD_RANKED => $ranked,
             self::FIELD_KEPT_IDS => $keptIds,
             self::FIELD_DROPPED_IDS => $droppedIds,

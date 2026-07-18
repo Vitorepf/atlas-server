@@ -403,6 +403,7 @@ final class AtlasAaeosCommand extends Command
                             {--aaeos-implementation-phase-immune-calibration-signature-acos-watchdog-floors-contract= : JSON file (any object) to observe aaeos/implementation/phase/immune/calibration/signature floors}
                             {--cross-department-portfolio-budget-aaeos-gate-implementation-phase-floors-contract= : JSON file (any object) to observe cross/department/portfolio/budget/aaeos/gate floors}
                             {--obra-retro-daily-canary-aaeos-gate-implementation-cross-floors-contract= : JSON file (any object) to observe obra/retro/daily/canary/aaeos/gate floors}
+                            {--exploratory-bets-aaeos-implementation-cross-department-docs-authority-floors-contract= : JSON file (any object) to observe exploratory/bets/aaeos/implementation/cross/department floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -962,6 +963,7 @@ final class AtlasAaeosCommand extends Command
             ['aaeos-implementation-phase-immune-calibration-signature-acos-watchdog-floors-contract', 'aaeos_implementation_phase_immune_calibration_signature_acos_watchdog_floors_contract', fn (array $p) => $gates->aaeosImplementationPhaseImmuneCalibrationSignatureAcosWatchdogFloorsContractObserve($p)],
             ['cross-department-portfolio-budget-aaeos-gate-implementation-phase-floors-contract', 'cross_department_portfolio_budget_aaeos_gate_implementation_phase_floors_contract', fn (array $p) => $gates->crossDepartmentPortfolioBudgetAaeosGateImplementationPhaseFloorsContractObserve($p)],
             ['obra-retro-daily-canary-aaeos-gate-implementation-cross-floors-contract', 'obra_retro_daily_canary_aaeos_gate_implementation_cross_floors_contract', fn (array $p) => $gates->obraRetroDailyCanaryAaeosGateImplementationCrossFloorsContractObserve($p)],
+            ['exploratory-bets-aaeos-implementation-cross-department-docs-authority-floors-contract', 'exploratory_bets_aaeos_implementation_cross_department_docs_authority_floors_contract', fn (array $p) => $gates->exploratoryBetsAaeosImplementationCrossDepartmentDocsAuthorityFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

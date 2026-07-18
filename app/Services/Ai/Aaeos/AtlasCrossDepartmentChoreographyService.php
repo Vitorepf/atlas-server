@@ -79,6 +79,8 @@ class AtlasCrossDepartmentChoreographyService
     public const FIELD_MAX_ITERATIONS = 'max_iterations';
     public const FIELD_PAYLOAD = 'payload';
     public const FIELD_REMAINING_REPAIRS = 'remaining_repairs';
+    public const FIELD_REQUIRES_OPERATOR_RECEIPT = 'requires_operator_receipt';
+    public const FIELD_TO_DEPARTMENT = 'to_department';
 
     /**
      * Veto propagation rules keyed by the vetoing department.
@@ -123,7 +125,7 @@ class AtlasCrossDepartmentChoreographyService
             self::FIELD_RETURN_TO => $rule[self::FIELD_RETURN_TO],
             self::FIELD_FINAL_OVERRIDE => $rule[self::FIELD_FINAL],
             self::FIELD_PAUSE_SLA_SECONDS => self::VETO_SLA_SECONDS,
-            'requires_operator_receipt' => $dept === self::TARGET_OPERATOR,
+            self::FIELD_REQUIRES_OPERATOR_RECEIPT => $dept === self::TARGET_OPERATOR,
         ];
     }
 
@@ -163,7 +165,7 @@ class AtlasCrossDepartmentChoreographyService
             self::FIELD_SCHEMA_VERSION => self::HANDOFF_SCHEMA,
             self::FIELD_KIND => in_array($kind, self::HANDOFF_KINDS, true) ? $kind : self::HANDOFF_KIND_DELEGATION,
             self::FIELD_FROM_DEPARTMENT => $this->departmentId($from),
-            'to_department' => $this->departmentId($to),
+            self::FIELD_TO_DEPARTMENT => $this->departmentId($to),
             'valid_kind' => in_array($kind, self::HANDOFF_KINDS, true),
             self::FIELD_PAYLOAD => $payload,
         ];

@@ -36,6 +36,8 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_SCOPE_TYPE = 'scope_type';
     public const FIELD_SOURCE = 'source';
     public const FIELD_TASK = 'task';
+    public const FIELD_TITLE = 'title';
+    public const FIELD_TYPE = 'type';
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -186,7 +188,7 @@ final class AtlasMemoryRecallRelevanceScorer
      */
     private function typeOf(array $row, string $default): string
     {
-        return AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_MEMORY_TYPE] ?? $row['type'] ?? null) ?? $default;
+        return AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_MEMORY_TYPE] ?? $row[self::FIELD_TYPE] ?? null) ?? $default;
     }
 
     /**
@@ -194,7 +196,7 @@ final class AtlasMemoryRecallRelevanceScorer
      */
     private function titleOf(array $row): string
     {
-        return AiValueNormalizer::trimmedStringOrNull($row['title'] ?? null) ?? '';
+        return AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_TITLE] ?? null) ?? '';
     }
 
     /**
