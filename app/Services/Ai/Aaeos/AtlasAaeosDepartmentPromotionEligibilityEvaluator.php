@@ -92,14 +92,14 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
         $blockingReasons = [];
 
         if (! $blockerPrecondition[self::FIELD_PASSED]) {
-            $failedPreconditions[] = 'blockers';
+            $failedPreconditions[] = self::FIELD_BLOCKERS;
             foreach ($blockerPrecondition[self::FIELD_UNRESOLVED] as $unresolvedId) {
                 $blockingReasons[] = 'blocked_by_unresolved_blockers:' . $unresolvedId;
             }
         }
 
         if (! $qualityPrecondition[self::FIELD_PASSED]) {
-            $failedPreconditions[] = 'quality_bar';
+            $failedPreconditions[] = self::FIELD_QUALITY_BAR;
             $blockingReasons[] = self::FIELD_QUALITY_BAR_NOT_MET;
         }
 
@@ -147,7 +147,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
      */
     public function preconditionKeys(): array
     {
-        return ['blockers', 'quality_bar', 'freshness'];
+        return [self::FIELD_BLOCKERS, self::FIELD_QUALITY_BAR, 'freshness'];
     }
 
     /**

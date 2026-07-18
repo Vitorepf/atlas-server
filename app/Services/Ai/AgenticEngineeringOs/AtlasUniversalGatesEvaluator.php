@@ -13865,4 +13865,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B528).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b528QualityBarAaeosCognitiveOutcomeEnvelopeOperationalVolumeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'breach_count' => QualityBarTelemetryContract::FIELD_BREACH_COUNT,
+            'evaluated_window_days' => QualityBarTelemetryContract::FIELD_EVALUATED_WINDOW_DAYS,
+            'privacy_hint' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PRIVACY_HINT,
+            'has_secret_marker' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HAS_SECRET_MARKER,
+            'outcome_envelope_certified_receipt_id_invalid' => OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_CERTIFIED_RECEIPT_ID_INVALID,
+            'outcome_envelope_evidence_ref_count_invalid' => OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_EVIDENCE_REF_COUNT_INVALID,
+            'ai_run_outcomes' => AtlasOperationalVolumeCheckService::FIELD_AI_RUN_OUTCOMES,
+            'atlas_aemor_execution_episodes' => AtlasOperationalVolumeCheckService::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES,
+            'contracts' => AtlasAaeosDocMaturityClassifier::FIELD_CONTRACTS,
+            'mother_doc' => AtlasAaeosDocMaturityClassifier::FIELD_MOTHER_DOC,
+            'intent' => AtlasAaeosGateSignalEvaluator::FIELD_INTENT,
+            'spec_pack' => AtlasAaeosGateSignalEvaluator::FIELD_SPEC_PACK,
+            'equals' => ContextParetoDominanceFilter::FIELD_EQUALS,
+            'max' => ContextParetoDominanceFilter::FIELD_MAX,
+            'quality_bar' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_QUALITY_BAR,
+            'blockers' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS,
+            'capability_id' => AtlasCognitionEvidenceResolver::FIELD_CAPABILITY_ID,
+            'symbol' => AtlasCognitionEvidenceResolver::FIELD_SYMBOL,
+            'b528_quality_bar_aaeos_cognitive_outcome_envelope_operational_volume_floor_count' => 18,
+        ];
+    }
+
 }

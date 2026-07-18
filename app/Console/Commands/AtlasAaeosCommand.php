@@ -550,6 +550,7 @@ final class AtlasAaeosCommand extends Command
                             {--b525-measure-series-http-path-floors-contract= : JSON file (any object) to observe measure/series/http/path floors}
                             {--b526-measure-series-floors-contract= : JSON file (any object) to observe measure/series floors}
                             {--b527-docs-authority-aaeos-veto-phase-handoff-asef-chunk-floors-contract= : JSON file (any object) to observe docs/authority/aaeos/veto/phase/handoff floors}
+                            {--b528-quality-bar-aaeos-cognitive-outcome-envelope-operational-volume-floors-contract= : JSON file (any object) to observe quality/bar/aaeos/cognitive/outcome/envelope floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1256,6 +1257,7 @@ final class AtlasAaeosCommand extends Command
             ['b525-measure-series-http-path-floors-contract', 'b525_measure_series_http_path_floors_contract', fn (array $p) => $gates->b525MeasureSeriesHttpPathFloorsContractObserve($p)],
             ['b526-measure-series-floors-contract', 'b526_measure_series_floors_contract', fn (array $p) => $gates->b526MeasureSeriesFloorsContractObserve($p)],
             ['b527-docs-authority-aaeos-veto-phase-handoff-asef-chunk-floors-contract', 'b527_docs_authority_aaeos_veto_phase_handoff_asef_chunk_floors_contract', fn (array $p) => $gates->b527DocsAuthorityAaeosVetoPhaseHandoffAsefChunkFloorsContractObserve($p)],
+            ['b528-quality-bar-aaeos-cognitive-outcome-envelope-operational-volume-floors-contract', 'b528_quality_bar_aaeos_cognitive_outcome_envelope_operational_volume_floors_contract', fn (array $p) => $gates->b528QualityBarAaeosCognitiveOutcomeEnvelopeOperationalVolumeFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

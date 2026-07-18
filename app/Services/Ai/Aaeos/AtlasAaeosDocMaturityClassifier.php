@@ -91,8 +91,8 @@ final class AtlasAaeosDocMaturityClassifier
      */
     public function classify(array $sections): array
     {
-        $hasMother = $this->boolPart($sections, 'mother_doc');
-        $hasContracts = $this->boolPart($sections, 'contracts');
+        $hasMother = $this->boolPart($sections, self::FIELD_MOTHER_DOC);
+        $hasContracts = $this->boolPart($sections, self::FIELD_CONTRACTS);
         $runbook = $this->strength($sections, 'runbook');
 
         $signalStrengths = [];
@@ -210,11 +210,11 @@ final class AtlasAaeosDocMaturityClassifier
         $satisfied = [];
 
         if ($hasMother) {
-            $satisfied[] = 'mother_doc';
+            $satisfied[] = self::FIELD_MOTHER_DOC;
         }
 
         if ($hasContracts) {
-            $satisfied[] = 'contracts';
+            $satisfied[] = self::FIELD_CONTRACTS;
         }
 
         if ($runbook === self::STRENGTH_STRONG) {

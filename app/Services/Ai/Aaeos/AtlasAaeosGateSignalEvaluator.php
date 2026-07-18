@@ -220,10 +220,10 @@ final class AtlasAaeosGateSignalEvaluator
     {
         $gates = [];
 
-        if (array_key_exists('intent', $phaseOutputs)) {
+        if (array_key_exists(self::FIELD_INTENT, $phaseOutputs)) {
             $gates[] = $this->evaluateIntentClarity($this->asArray($phaseOutputs[self::FIELD_INTENT]));
         }
-        if (array_key_exists('spec_pack', $phaseOutputs)) {
+        if (array_key_exists(self::FIELD_SPEC_PACK, $phaseOutputs)) {
             $gates[] = $this->evaluateSpecPackAcceptanceCriteria($this->asArray($phaseOutputs[self::FIELD_SPEC_PACK]));
         }
         if (array_key_exists('task_pack', $phaseOutputs)) {

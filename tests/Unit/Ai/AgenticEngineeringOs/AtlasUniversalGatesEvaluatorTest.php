@@ -10918,4 +10918,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b527_docs_authority_aaeos_veto_phase_handoff_asef_chunk_floor_count']);
     }
 
+    public function test_b528_quality_bar_aaeos_cognitive_outcome_envelope_operational_volume_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b528QualityBarAaeosCognitiveOutcomeEnvelopeOperationalVolumeFloorsContractObserve([]);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_BREACH_COUNT, $out['breach_count']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_EVALUATED_WINDOW_DAYS, $out['evaluated_window_days']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PRIVACY_HINT, $out['privacy_hint']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HAS_SECRET_MARKER, $out['has_secret_marker']);
+        $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_CERTIFIED_RECEIPT_ID_INVALID, $out['outcome_envelope_certified_receipt_id_invalid']);
+        $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_EVIDENCE_REF_COUNT_INVALID, $out['outcome_envelope_evidence_ref_count_invalid']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_AI_RUN_OUTCOMES, $out['ai_run_outcomes']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES, $out['atlas_aemor_execution_episodes']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_CONTRACTS, $out['contracts']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_MOTHER_DOC, $out['mother_doc']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_INTENT, $out['intent']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_SPEC_PACK, $out['spec_pack']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_EQUALS, $out['equals']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_MAX, $out['max']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_QUALITY_BAR, $out['quality_bar']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS, $out['blockers']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_CAPABILITY_ID, $out['capability_id']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_SYMBOL, $out['symbol']);
+        $this->assertSame(18, $out['b528_quality_bar_aaeos_cognitive_outcome_envelope_operational_volume_floor_count']);
+    }
+
 }

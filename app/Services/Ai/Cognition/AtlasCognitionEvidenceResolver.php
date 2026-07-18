@@ -28,7 +28,7 @@ use Throwable;
  *
  *   - doc_status=ready (per service_class FQN): some canonical doc declares a
  *     `symbol: <ref>` evidence_ref AND
- *     AtlasAaeosImplementationEvidenceResolver::resolve('symbol', <ref>) matches
+ *     AtlasAaeosImplementationEvidenceResolver::resolve(self::FIELD_SYMBOL, <ref>) matches
  *     the scorecard FQN EXACTLY (or by the FQN suffix '\<FQN>'). This FQN-BIND is
  *     mandatory: a doc declaring `symbol: AtlasTokenEconomyRuntimeService` (which
  *     resolves to App\Services\Ai\Context\AtlasTokenEconomyRuntimeService) must NOT
@@ -123,7 +123,7 @@ class AtlasCognitionEvidenceResolver
     /**
      * Resolve doc_status for a scorecard service_class FQN from REAL doc ownership.
      *
-     * ready    -> >=1 owner doc declares `symbol: <ref>` AND resolve('symbol',<ref>)
+     * ready    -> >=1 owner doc declares `symbol: <ref>` AND resolve(self::FIELD_SYMBOL,<ref>)
      *             matches THIS FQN exactly (FQN-bound; an alias short-name collision
      *             cannot mis-credit).
      * blocked  -> a null/blank service_class can never own a doc.
@@ -222,7 +222,7 @@ class AtlasCognitionEvidenceResolver
 
     /**
      * The owner-doc capabilities that OWN this FQN: a doc declares `symbol: <ref>` AND
-     * resolve('symbol',<ref>) matches the FQN exactly (or by the '\<FQN>' suffix). Reads
+     * resolve(self::FIELD_SYMBOL,<ref>) matches the FQN exactly (or by the '\<FQN>' suffix). Reads
      * the memoized ownership index; degrade-safe (empty on a blind index/no docs).
      *
      * @return array<int,array{capability_id:string, owner_doc:string, symbol_ref:string, evidence_refs:array<int,array{kind:string,ref:string}>, test_refs:array<int,string>}>
@@ -353,7 +353,7 @@ class AtlasCognitionEvidenceResolver
         $greenCount = 0;
         if ($ownerIds !== [] && DatabaseTableAvailability::has(self::FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS)) {
             $query = AtlasAaeosTestRunReceipt::query()
-                ->whereIn('capability_id', $ownerIds);
+                ->whereIn(self::FIELD_CAPABILITY_ID, $ownerIds);
             if ($candidateTestRefs !== []) {
                 $query->whereIn(self::FIELD_TEST_REF, $candidateTestRefs);
             }
@@ -399,7 +399,7 @@ class AtlasCognitionEvidenceResolver
             // WITHHOLD ownership (-> doc not ready), never crash a scorecard read and
             // never fabricate a match. Mirrors the ADRS resolver's never-fabricate rule.
             try {
-                $resolution = $this->resolver->resolve('symbol', $candidate[self::FIELD_SYMBOL_REF]);
+                $resolution = $this->resolver->resolve(self::FIELD_SYMBOL, $candidate[self::FIELD_SYMBOL_REF]);
             } catch (Throwable) {
                 continue;
             }

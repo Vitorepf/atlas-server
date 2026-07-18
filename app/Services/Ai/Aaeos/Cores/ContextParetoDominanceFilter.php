@@ -241,7 +241,7 @@ final class ContextParetoDominanceFilter
     {
         $value = $variant[$field] ?? null;
 
-        if (array_key_exists('equals', $rule)) {
+        if (array_key_exists(self::FIELD_EQUALS, $rule)) {
             if ($value !== $rule[self::FIELD_EQUALS]) {
                 return false;
             }
@@ -254,7 +254,7 @@ final class ContextParetoDominanceFilter
             }
         }
 
-        if (array_key_exists('max', $rule)) {
+        if (array_key_exists(self::FIELD_MAX, $rule)) {
             $numeric = AiValueNormalizer::finiteFloatOrNull($value);
             if ($numeric === null || $numeric > (AiValueNormalizer::finiteFloatOrNull($rule[self::FIELD_MAX] ?? null) ?? 0.0)) {
                 return false;

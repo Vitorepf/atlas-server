@@ -331,7 +331,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         }
 
         if ($privacyHint) {
-            return [self::CLASS_PRIVATE_SENSITIVE, 'privacy_hint'];
+            return [self::CLASS_PRIVATE_SENSITIVE, self::FIELD_PRIVACY_HINT];
         }
 
         // 3. Untrusted: foreign / cited content is never a trusted candidate.
@@ -445,7 +445,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
             $signals[] = 'has_url';
         }
         if ($hasSecretMarker) {
-            $signals[] = 'has_secret_marker';
+            $signals[] = self::FIELD_HAS_SECRET_MARKER;
         }
         if ($isQuestion) {
             $signals[] = 'is_question';
@@ -454,7 +454,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
             $signals[] = 'imperative_verb';
         }
         if ($privacyHint) {
-            $signals[] = 'privacy_hint';
+            $signals[] = self::FIELD_PRIVACY_HINT;
         }
         if ($recurrenceCount >= self::RECURRENCE_MEMORY_THRESHOLD) {
             $signals[] = self::FIELD_RECURRENT;

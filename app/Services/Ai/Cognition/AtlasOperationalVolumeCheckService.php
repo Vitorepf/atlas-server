@@ -168,18 +168,18 @@ final class AtlasOperationalVolumeCheckService
         $total = 0;
         $available = false;
 
-        if (DatabaseTableAvailability::has('ai_run_outcomes')) {
+        if (DatabaseTableAvailability::has(self::FIELD_AI_RUN_OUTCOMES)) {
             $available = true;
-            $sources[] = 'ai_run_outcomes';
+            $sources[] = self::FIELD_AI_RUN_OUTCOMES;
             $total += (int) AiRunOutcome::query()
                 ->whereIn(self::FIELD_FLOW_ID, self::DEV_FLOW_IDS)
                 ->whereBetween(self::FIELD_CREATED_AT, [$start, $end])
                 ->count();
         }
 
-        if (DatabaseTableAvailability::has('atlas_aemor_execution_episodes')) {
+        if (DatabaseTableAvailability::has(self::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES)) {
             $available = true;
-            $sources[] = 'atlas_aemor_execution_episodes';
+            $sources[] = self::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES;
             $total += (int) AtlasAemorExecutionEpisode::query()
                 ->whereIn(self::FIELD_FLOW_ID, self::DEV_FLOW_IDS)
                 ->whereBetween(self::FIELD_CREATED_AT, [$start, $end])
@@ -214,10 +214,10 @@ final class AtlasOperationalVolumeCheckService
             }
         }
 
-        if (DatabaseTableAvailability::has('ai_run_outcomes')) {
+        if (DatabaseTableAvailability::has(self::FIELD_AI_RUN_OUTCOMES)) {
             $available = true;
             if (! in_array(self::FIELD_AI_RUN_OUTCOMES, $sources, true)) {
-                $sources[] = 'ai_run_outcomes';
+                $sources[] = self::FIELD_AI_RUN_OUTCOMES;
             }
             $total += (int) AiRunOutcome::query()
                 ->whereIn(self::FIELD_FLOW_ID, self::FORGE_FLOW_IDS)
@@ -225,10 +225,10 @@ final class AtlasOperationalVolumeCheckService
                 ->count();
         }
 
-        if (DatabaseTableAvailability::has('atlas_aemor_execution_episodes')) {
+        if (DatabaseTableAvailability::has(self::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES)) {
             $available = true;
             if (! in_array(self::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES, $sources, true)) {
-                $sources[] = 'atlas_aemor_execution_episodes';
+                $sources[] = self::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES;
             }
             $total += (int) AtlasAemorExecutionEpisode::query()
                 ->whereIn(self::FIELD_FLOW_ID, self::FORGE_FLOW_IDS)

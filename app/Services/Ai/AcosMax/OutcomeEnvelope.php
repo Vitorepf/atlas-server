@@ -68,6 +68,8 @@ final class OutcomeEnvelope
     public const FIELD_OUTCOME_ENVELOPE_STATUS_INVALID = 'outcome_envelope_status_invalid';
     public const FIELD_OUTCOME_ENVELOPE_VERIFIED_BASIS_INVALID = 'outcome_envelope_verified_basis_invalid';
     public const FIELD_OUTCOME_ENVELOPE_VERIFIED_INVALID = 'outcome_envelope_verified_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_CERTIFIED_RECEIPT_ID_INVALID = 'outcome_envelope_certified_receipt_id_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_EVIDENCE_REF_COUNT_INVALID = 'outcome_envelope_evidence_ref_count_invalid';
 
     /**
      * Map divergent native status labels onto the shared envelope statuses.
@@ -200,12 +202,12 @@ final class OutcomeEnvelope
 
         $evidenceRefCount = $data[self::FIELD_EVIDENCE_REF_COUNT] ?? null;
         if (! is_int($evidenceRefCount) || $evidenceRefCount < 0) {
-            throw new InvalidArgumentException('outcome_envelope_evidence_ref_count_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_EVIDENCE_REF_COUNT_INVALID);
         }
 
         $certifiedReceiptId = $data[self::FIELD_CERTIFIED_RECEIPT_ID] ?? null;
         if ($certifiedReceiptId !== null && AiValueNormalizer::trimmedStringOrNull($certifiedReceiptId) === null) {
-            throw new InvalidArgumentException('outcome_envelope_certified_receipt_id_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_CERTIFIED_RECEIPT_ID_INVALID);
         }
 
         $episodeId = $data[self::FIELD_EPISODE_ID] ?? null;
