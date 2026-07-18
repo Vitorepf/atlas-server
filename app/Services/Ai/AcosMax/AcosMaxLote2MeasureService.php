@@ -163,6 +163,12 @@ final class AcosMaxLote2MeasureService
     public const FIELD_LOOP_ID = 'loop_id';
     public const FIELD_FIXTURE_FREE = 'fixture_free';
     public const FIELD_BY_LESSON_CLASS = 'by_lesson_class';
+    public const FIELD_ADMISSION_DOOR = 'admission_door';
+    public const FIELD_ACTUAL_MERGE_COUNT = 'actual_merge_count';
+    public const FIELD_ATTRIBUTED_DELTA = 'attributed_delta';
+    public const FIELD_BANDS = 'bands';
+    public const FIELD_BASIS = 'basis';
+    public const FIELD_BUCKETS = 'buckets';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -188,11 +194,11 @@ final class AcosMaxLote2MeasureService
     {
         return $this->emptyReport('MAXL-06', self::STATUS_PENDING_WINDOW, self::REASON_MISSING_LINEAGE_LEDGER, [
             self::FIELD_MEASURE_ID => self::MAXL06_MEASURE_ID,
-            'basis' => self::BASIS_UNAVAILABLE,
+            self::FIELD_BASIS => self::BASIS_UNAVAILABLE,
             self::FIELD_ALLOWED_BASIS => ['lineage_ledger', 'git_log'],
             self::FIELD_COUNTERFACTUAL_BASIS => 'none',
             'correlation_label_required' => 'correlational_attribution',
-            'attributed_delta' => [],
+            self::FIELD_ATTRIBUTED_DELTA => [],
             'dependencies' => ['ASI-11', 'MAXL-04'],
         ]);
     }
@@ -209,7 +215,7 @@ final class AcosMaxLote2MeasureService
                 'originations' => $originations,
                 'resolved_outcomes' => 0,
             ],
-            'bands' => [],
+            self::FIELD_BANDS => [],
             'unresolved' => $originations,
         ]);
     }
@@ -726,7 +732,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_DENOMINATOR_MIN => 8,
             'bucket_width_weeks' => 2,
             self::FIELD_MEMORY_TYPES => [],
-            'buckets' => [],
+            self::FIELD_BUCKETS => [],
         ]);
     }
 
@@ -737,7 +743,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_MEASURE_ID => self::MULTJ02_MEASURE_ID,
             'mode' => self::MODE_OBSERVE,
             'would_merge_count' => 0,
-            'actual_merge_count' => 0,
+            self::FIELD_ACTUAL_MERGE_COUNT => 0,
             'threshold' => data_get(self::freezePayload('MULTJ-02'), 'thresholds.cosine_merge_threshold'),
             'reversible_receipt_required' => true,
         ]);
@@ -1033,7 +1039,7 @@ final class AcosMaxLote2MeasureService
             'MULTJ-01' => self::payload(self::MULTJ01_MEASURE_ID, 'multj.lesson_half_life.v2', 'Bucket lesson lift by age since promotion using two-week buckets; buckets below n=8 publish insufficient instead of null.', 8, 30, 'cursor-acos-max-multj01', 'codex-independent-multj01-judge', ['bucket_width_weeks' => 2, 'denominator_min_per_bucket' => 8]),
             'MULTJ-02' => self::payload(self::MULTJ02_MEASURE_ID, 'multj.semantic_dedup_freeze.v1', 'Semantic lesson dedup threshold freeze for observe-mode would-merge receipts; enforcement requires later calibrated promotion.', 1, 30, 'cursor-acos-max-multj02', 'codex-independent-multj02-judge', ['cosine_merge_threshold' => 0.88, 'observe_mode_actual_merges' => 0]),
             'MULTJ-03' => self::payload(self::MULTJ03_MEASURE_ID, 'multj.counterfactual_lift.v2', 'Paired peek evaluation of the same task with and without injected lesson; n_pairs below 8 publishes insufficient_signal and peek must not record usage.', 8, 30, 'cursor-acos-max-multj03', 'codex-independent-multj03-judge', [self::FIELD_SAMPLE_RATE => 0.05, 'denominator_min_pairs' => 8, self::FIELD_RECORD_USAGE_FOR_PEEK => false]),
-            'MULTJ-04' => self::payload(self::MULTJ04_MEASURE_ID, 'multj.procedural_skill_promoter.v1', 'Procedural playbooks can propose skill.v1 candidates only after the real procedural case_count floor; output is default-OFF and ASI-02 holds promotion_allowed=false until gates pass.', AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR, 30, 'cursor-acos-max-multj04', 'codex-independent-multj04-judge', ['procedural_case_count_floor' => AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR, 'default_off' => true, 'admission_door' => 'ASI-02']),
+            'MULTJ-04' => self::payload(self::MULTJ04_MEASURE_ID, 'multj.procedural_skill_promoter.v1', 'Procedural playbooks can propose skill.v1 candidates only after the real procedural case_count floor; output is default-OFF and ASI-02 holds promotion_allowed=false until gates pass.', AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR, 30, 'cursor-acos-max-multj04', 'codex-independent-multj04-judge', ['procedural_case_count_floor' => AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR, 'default_off' => true, self::FIELD_ADMISSION_DOOR => 'ASI-02']),
             'MULTJ-06' => self::payload(self::MULTJ06_MEASURE_ID, 'multj.abstraction_ladder.v1', 'Distinct-signature patterns sharing primary_cause aggregate to level-3 principles when distinct_signature_k is met; derived_from refs must resolve or gate rejects.', 3, 30, 'cursor-acos-max-multj06', 'codex-independent-multj06-judge', ['distinct_signature_k' => 3, 'pattern_floor' => 1]),
             'TETO-02' => self::payload(self::TETO02_MEASURE_ID, 'mission_e2e_rate.v1', 'Operator natural-language request to completed result rate, asks per request, and request-to-delivery latency; abandoned missions stay in the denominator.', 20, 30, 'cursor-acos-max-teto02', 'codex-independent-teto02-judge', ['target_mission_e2e_rate' => 0.70, 'denominator_min_operator_requests' => 20]),
         ];

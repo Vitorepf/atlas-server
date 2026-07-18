@@ -5886,6 +5886,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_health_lote2_horizon_depth_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-hlhd-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-hlhd',
+                '--health-lote2-horizon-depth-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"health_lote2_horizon_depth_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

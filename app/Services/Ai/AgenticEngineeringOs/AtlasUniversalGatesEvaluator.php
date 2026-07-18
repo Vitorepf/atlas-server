@@ -7254,6 +7254,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: depth residual FIELD_* floors for watchdog health + lote2 measure + long-horizon gate.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, bool|int|string>
+     */
+    public function healthLote2HorizonDepthFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'watchdog_health_field_age_hours' => AtlasAcosWatchdogHealthService::FIELD_AGE_HOURS,
+            'watchdog_health_field_available' => AtlasAcosWatchdogHealthService::FIELD_AVAILABLE,
+            'watchdog_health_field_blocker' => AtlasAcosWatchdogHealthService::FIELD_BLOCKER,
+            'watchdog_health_field_autonomos' => AtlasAcosWatchdogHealthService::FIELD_AUTONOMOS,
+            'watchdog_health_field_aurg_cross_layer_coverage_ratio' => AtlasAcosWatchdogHealthService::FIELD_AURG_CROSS_LAYER_COVERAGE_RATIO,
+            'watchdog_health_field_aemor_source_max_age_hours' => AtlasAcosWatchdogHealthService::FIELD_AEMOR_SOURCE_MAX_AGE_HOURS,
+            'lote2_field_admission_door' => AcosMaxLote2MeasureService::FIELD_ADMISSION_DOOR,
+            'lote2_field_actual_merge_count' => AcosMaxLote2MeasureService::FIELD_ACTUAL_MERGE_COUNT,
+            'lote2_field_attributed_delta' => AcosMaxLote2MeasureService::FIELD_ATTRIBUTED_DELTA,
+            'lote2_field_bands' => AcosMaxLote2MeasureService::FIELD_BANDS,
+            'lote2_field_basis' => AcosMaxLote2MeasureService::FIELD_BASIS,
+            'lote2_field_buckets' => AcosMaxLote2MeasureService::FIELD_BUCKETS,
+            'long_horizon_field_assessment' => AtlasAcosLongHorizonGateService::FIELD_ASSESSMENT,
+            'long_horizon_field_by_area' => AtlasAcosLongHorizonGateService::FIELD_BY_AREA,
+            'long_horizon_field_completion_claim_allowed' => AtlasAcosLongHorizonGateService::FIELD_COMPLETION_CLAIM_ALLOWED,
+            'long_horizon_field_dates' => AtlasAcosLongHorizonGateService::FIELD_DATES,
+            'long_horizon_field_floors' => AtlasAcosLongHorizonGateService::FIELD_FLOORS,
+            'long_horizon_field_evidence' => AtlasAcosLongHorizonGateService::FIELD_EVIDENCE,
+            'health_lote2_horizon_depth_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

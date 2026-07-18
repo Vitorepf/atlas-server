@@ -129,6 +129,12 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_COVERAGE = 'coverage';
     public const FIELD_LAST_INGEST_AT = 'last_ingest_at';
     public const FIELD_MEMORY_CROSS_LAYER_COVERAGE_RATIO = 'memory_cross_layer_coverage_ratio';
+    public const FIELD_AGE_HOURS = 'age_hours';
+    public const FIELD_AVAILABLE = 'available';
+    public const FIELD_BLOCKER = 'blocker';
+    public const FIELD_AUTONOMOS = 'autonomos';
+    public const FIELD_AURG_CROSS_LAYER_COVERAGE_RATIO = 'aurg_cross_layer_coverage_ratio';
+    public const FIELD_AEMOR_SOURCE_MAX_AGE_HOURS = 'aemor_source_max_age_hours';
 
     public const STATUS_UNKNOWN = 'unknown';
 
@@ -286,7 +292,7 @@ final class AtlasAcosWatchdogHealthService
         return $this->reportFromChecks('atlas.learning.cadence_watchdog.v1', $checks, [
             self::FIELD_THRESHOLDS => [
                 'negative_feedback_max_age_hours' => self::LEARNING_NEGATIVE_MAX_AGE_HOURS,
-                'aemor_source_max_age_hours' => self::LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS,
+                self::FIELD_AEMOR_SOURCE_MAX_AGE_HOURS => self::LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS,
                 'ai_run_outcome_max_age_hours' => self::LEARNING_AI_RUN_OUTCOME_MAX_AGE_HOURS,
             ],
             self::FIELD_LIFT_STATUS => (AiValueNormalizer::trimmedStringOrNull($lift[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
@@ -302,7 +308,7 @@ final class AtlasAcosWatchdogHealthService
         $edgesBySource = AiValueNormalizer::arrayOrEmpty($store['edges_by_source'] ?? null);
         $ratio = AiValueNormalizer::finiteFloatOrNull($coverage[self::FIELD_MEMORY_CROSS_LAYER_COVERAGE_RATIO] ?? null) ?? 0.0;
         $blocking = [];
-        if (! (AiValueNormalizer::boolOrNull($coverage['available'] ?? null) ?? false)) {
+        if (! (AiValueNormalizer::boolOrNull($coverage[self::FIELD_AVAILABLE] ?? null) ?? false)) {
             $blocking[] = (AiValueNormalizer::trimmedStringOrNull($coverage[self::FIELD_REASON] ?? null) ?? 'aurg_store_unavailable');
         }
         if ($ratio < self::RAG_COVERAGE_FLOOR) {
@@ -386,13 +392,13 @@ final class AtlasAcosWatchdogHealthService
                 'retrieval_eval' => $retrievalEval,
                 'recall_at_5' => $recallAt5,
                 'improper_floor_discards' => $improperFloorDiscards,
-                'aurg_cross_layer_coverage_ratio' => $coverageRatio,
+                self::FIELD_AURG_CROSS_LAYER_COVERAGE_RATIO => $coverageRatio,
                 'pre_filter_concentration_ratio' => $preFilterConcentration,
             ],
             self::FIELD_THRESHOLDS => [
                 'retrieval_eval' => self::RAG_RETRIEVAL_EVAL_FLOOR,
                 'recall_at_5' => self::RAG_RECALL_AT_5_FLOOR,
-                'aurg_cross_layer_coverage_ratio' => self::RAG_COVERAGE_FLOOR,
+                self::FIELD_AURG_CROSS_LAYER_COVERAGE_RATIO => self::RAG_COVERAGE_FLOOR,
                 'pre_filter_concentration_mask_floor' => self::RAG_PRE_FILTER_CONCENTRATION_MASK_FLOOR,
             ],
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
@@ -798,7 +804,7 @@ final class AtlasAcosWatchdogHealthService
 
         return $this->checkRow($id, $age !== null && $age <= $maxAgeHours, [
             self::FIELD_LAST_AT => $at?->toIso8601String(),
-            'age_hours' => $age,
+            self::FIELD_AGE_HOURS => $age,
             self::FIELD_MAX_AGE_HOURS => $maxAgeHours,
         ], $id.'_stale_or_missing');
     }
@@ -882,7 +888,7 @@ final class AtlasAcosWatchdogHealthService
     {
         if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
             return array_map(static fn (string $blocker): array => [
-                'blocker' => $blocker,
+                self::FIELD_BLOCKER => $blocker,
                 self::FIELD_DAYS_IN_BLOCK => 0,
                 'first_seen_at' => null,
             ], $blockers);
@@ -905,7 +911,7 @@ final class AtlasAcosWatchdogHealthService
             $first = $query->first();
             $firstAt = $this->parseDate($first?->occurred_at) ?? CarbonImmutable::now('UTC');
             $series[] = [
-                'blocker' => $blocker,
+                self::FIELD_BLOCKER => $blocker,
                 'first_seen_at' => $first?->occurred_at?->toIso8601String(),
                 self::FIELD_DAYS_IN_BLOCK => (int) floor($firstAt->diffInHours(CarbonImmutable::now('UTC')) / 24),
             ];
@@ -953,7 +959,7 @@ final class AtlasAcosWatchdogHealthService
     /** @param list<array<string,mixed>> $rows @return array<string,int> */
     private function countExecutors(array $rows): array
     {
-        $counts = ['dev' => 0, 'forge' => 0, 'autonomos' => 0];
+        $counts = ['dev' => 0, 'forge' => 0, self::FIELD_AUTONOMOS => 0];
         foreach ($rows as $row) {
             $actor = AiValueNormalizer::lowerTrimmedString(data_get($row, 'context.executor', data_get($row, 'context.actor', data_get($row, 'surface', ''))));
             foreach (array_keys($counts) as $executor) {

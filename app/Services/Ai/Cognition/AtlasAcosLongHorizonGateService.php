@@ -111,6 +111,12 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_AREA_DAYS_BELOW_FLOOR = 'area_days_below_floor';
     public const FIELD_DAYS_BELOW_FLOOR = 'days_below_floor';
     public const FIELD_BENCHMARK_CLAIM_ALLOWED = 'benchmark_claim_allowed';
+    public const FIELD_ASSESSMENT = 'assessment';
+    public const FIELD_BY_AREA = 'by_area';
+    public const FIELD_COMPLETION_CLAIM_ALLOWED = 'completion_claim_allowed';
+    public const FIELD_DATES = 'dates';
+    public const FIELD_FLOORS = 'floors';
+    public const FIELD_EVIDENCE = 'evidence';
 
     /**
      * @param  array<string,mixed>  $options
@@ -239,7 +245,7 @@ final class AtlasAcosLongHorizonGateService
         $sampledDatesInWindow = $this->sampledDatesInWindow($series, $certificationWindowDates);
 
         return [
-            'dates' => $dates,
+            self::FIELD_DATES => $dates,
             self::FIELD_FIRST_DATE => $firstDate,
             self::FIELD_LATEST_DATE => $latestDate,
             self::FIELD_TODAY => $todayKey,
@@ -411,7 +417,7 @@ final class AtlasAcosLongHorizonGateService
             'latest_series_overall' => round($latestSeriesOverall, 3),
             'min_certification_window_overall' => round($minCertificationWindowOverall, 3),
             'certification_window_days_below_floor' => $certificationWindowDaysBelowFloor,
-            'floors' => [
+            self::FIELD_FLOORS => [
                 self::FIELD_MIN_DAYS => $minDays,
                 self::FIELD_MIN_OVERALL => $minOverall,
                 self::FIELD_MIN_PIPELINE => $minPipeline,
@@ -610,7 +616,7 @@ final class AtlasAcosLongHorizonGateService
 
         return array_merge($this->windowIntegrityProjection($window, $seriesPath, $resolvedEvidenceRows), [
             self::FIELD_SCHEMA_VERSION => self::AREA_V2_SCHEMA,
-            'floors' => $floors,
+            self::FIELD_FLOORS => $floors,
             self::FIELD_MIN_AREA_SCORES => $areaScan[self::FIELD_MIN_AREA_SCORES],
             self::FIELD_AREA_DAYS_BELOW_FLOOR => $areaScan[self::FIELD_AREA_DAYS_BELOW_FLOOR],
             self::FIELD_AREAS_BELOW_FLOOR => $areaScan[self::FIELD_AREAS_BELOW_FLOOR],
@@ -649,11 +655,11 @@ final class AtlasAcosLongHorizonGateService
 
         foreach ($series as $row) {
             $date = (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_DATE] ?? null) ?? '');
-            if ($date === '' || ! isset($window[$date]) || ! is_array($row['by_area'] ?? null)) {
+            if ($date === '' || ! isset($window[$date]) || ! is_array($row[self::FIELD_BY_AREA] ?? null)) {
                 continue;
             }
 
-            foreach ($row['by_area'] as $area => $scores) {
+            foreach ($row[self::FIELD_BY_AREA] as $area => $scores) {
                 $area = AiValueNormalizer::trimmedStringOrNull(is_string($area) ? $area : null);
                 if ($area === null || ! is_array($scores)) {
                     continue;
@@ -915,14 +921,14 @@ final class AtlasAcosLongHorizonGateService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'status' => $status,
             self::FIELD_CERTIFIED => $certified,
-            'completion_claim_allowed' => $certified,
+            self::FIELD_COMPLETION_CLAIM_ALLOWED => $certified,
             self::FIELD_FIXTURE => $fixture,
             self::FIELD_GENERATED_AT => Carbon::now()->toIso8601String(),
-            'assessment' => $assessment,
+            self::FIELD_ASSESSMENT => $assessment,
             self::FIELD_BLOCKERS => $blockers,
             self::FIELD_WARNINGS => array_values(AiValueNormalizer::arrayOrEmpty($assessment[self::FIELD_WARNINGS] ?? null)),
             'config' => $config,
-            'evidence' => [
+            self::FIELD_EVIDENCE => [
                 'scorecard_schema' => AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'schema_version')) ?? '',
                 self::FIELD_SCORECARD_HASH => AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'scorecard_hash')) ?? '',
                 'series_rows_sampled' => count($series),
@@ -942,7 +948,7 @@ final class AtlasAcosLongHorizonGateService
         ];
         if ($assessmentV2 !== null) {
             $payload['assessment_v2'] = $assessmentV2;
-            $payload['evidence']['series_v2_rows_sampled'] = (int) (AiValueNormalizer::finiteFloatOrNull($assessmentV2[self::FIELD_SERIES_DAY_COUNT] ?? null) ?? 0);
+            $payload[self::FIELD_EVIDENCE]['series_v2_rows_sampled'] = (int) (AiValueNormalizer::finiteFloatOrNull($assessmentV2[self::FIELD_SERIES_DAY_COUNT] ?? null) ?? 0);
             $payload[self::FIELD_CLAIM_POLICY]['longitudinal_area_floor_v2'] = true;
             $payload[self::FIELD_CLAIM_POLICY]['gate_v1_byte_identical_without_v2'] = true;
         }
@@ -952,7 +958,7 @@ final class AtlasAcosLongHorizonGateService
             'status' => $status,
             self::FIELD_CERTIFIED => $certified,
             self::FIELD_FIXTURE => $fixture,
-            'assessment' => $assessment,
+            self::FIELD_ASSESSMENT => $assessment,
             self::FIELD_BLOCKERS => $blockers,
             self::FIELD_WARNINGS => array_values(AiValueNormalizer::arrayOrEmpty($assessment[self::FIELD_WARNINGS] ?? null)),
         ];

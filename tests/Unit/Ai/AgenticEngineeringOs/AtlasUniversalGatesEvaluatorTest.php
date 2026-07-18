@@ -5446,5 +5446,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['health_lote2_horizon_residual_floor_count']);
     }
 
+    public function test_health_lote2_horizon_depth_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->healthLote2HorizonDepthFloorsContractObserve([]);
+
+        $this->assertSame('age_hours', $payload['watchdog_health_field_age_hours']);
+        $this->assertSame('available', $payload['watchdog_health_field_available']);
+        $this->assertSame('blocker', $payload['watchdog_health_field_blocker']);
+        $this->assertSame('autonomos', $payload['watchdog_health_field_autonomos']);
+        $this->assertSame('aurg_cross_layer_coverage_ratio', $payload['watchdog_health_field_aurg_cross_layer_coverage_ratio']);
+        $this->assertSame('aemor_source_max_age_hours', $payload['watchdog_health_field_aemor_source_max_age_hours']);
+        $this->assertSame('admission_door', $payload['lote2_field_admission_door']);
+        $this->assertSame('actual_merge_count', $payload['lote2_field_actual_merge_count']);
+        $this->assertSame('attributed_delta', $payload['lote2_field_attributed_delta']);
+        $this->assertSame('bands', $payload['lote2_field_bands']);
+        $this->assertSame('basis', $payload['lote2_field_basis']);
+        $this->assertSame('buckets', $payload['lote2_field_buckets']);
+        $this->assertSame('assessment', $payload['long_horizon_field_assessment']);
+        $this->assertSame('by_area', $payload['long_horizon_field_by_area']);
+        $this->assertSame('completion_claim_allowed', $payload['long_horizon_field_completion_claim_allowed']);
+        $this->assertSame('dates', $payload['long_horizon_field_dates']);
+        $this->assertSame('floors', $payload['long_horizon_field_floors']);
+        $this->assertSame('evidence', $payload['long_horizon_field_evidence']);
+        $this->assertSame(18, $payload['health_lote2_horizon_depth_floor_count']);
+    }
+
 
 }
