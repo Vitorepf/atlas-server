@@ -12191,6 +12191,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b747_daily_canary_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b747-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b747',
+                '--b747-daily-canary-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b747_daily_canary_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

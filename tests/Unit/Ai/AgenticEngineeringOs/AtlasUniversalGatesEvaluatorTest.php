@@ -16352,4 +16352,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b746_health_report_floor_count']);
     }
 
+    public function test_b747_daily_canary_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b747DailyCanaryFloorsContractObserve([]);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::SCHEMA_VERSION, $out['atlas.acos.watchdog.daily_canary_replay_by_refs.v1']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::DEFAULT_WINDOW_HOURS, $out['24']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::DEFAULT_TOP_N_FLOWS, $out['25']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::REF_STABILITY_ALERT_FLOOR, $out['0.95']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::GOLDEN_RECALL_AT_5_ALERT_FLOOR, $out['0.40']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::IMPROPER_FLOOR_DISCARD_ALERT_CEILING, $out['0']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FORBIDDEN_EVIDENCE_KEY_PATTERN, $out['/(^|_)(query|prompt|context|body|markdown|text|raw)(_|$)/i']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::STATUS_UNAVAILABLE, $out['unavailable']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::STATUS_UNKNOWN, $out['unknown']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::REASON_CANARY_DRIFT, $out['canary_drift']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::REASON_CANARY_WITHIN_FLOORS, $out['canary_within_floors']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::REASON_INSUFFICIENT_SIGNAL, $out['insufficient_signal']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_RECALL_AT_5, $out['recall_at_5']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_IMPROPER_FLOOR_DISCARDS, $out['improper_floor_discards']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_STATUS, $out['status']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_REFS_TOTAL, $out['refs_total']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_REFS_CANONICAL, $out['refs_canonical']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_FLOWS_CHECKED, $out['flows_checked']);
+        $this->assertSame(18, $out['b747_daily_canary_floor_count']);
+    }
+
 }

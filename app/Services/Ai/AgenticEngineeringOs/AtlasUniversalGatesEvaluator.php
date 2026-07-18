@@ -20605,4 +20605,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B747).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b747DailyCanaryFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.acos.watchdog.daily_canary_replay_by_refs.v1' => DailyCanaryReplayByRefsWatchdogCheck::SCHEMA_VERSION,
+            '24' => DailyCanaryReplayByRefsWatchdogCheck::DEFAULT_WINDOW_HOURS,
+            '25' => DailyCanaryReplayByRefsWatchdogCheck::DEFAULT_TOP_N_FLOWS,
+            '0.95' => DailyCanaryReplayByRefsWatchdogCheck::REF_STABILITY_ALERT_FLOOR,
+            '0.40' => DailyCanaryReplayByRefsWatchdogCheck::GOLDEN_RECALL_AT_5_ALERT_FLOOR,
+            '0' => DailyCanaryReplayByRefsWatchdogCheck::IMPROPER_FLOOR_DISCARD_ALERT_CEILING,
+            '/(^|_)(query|prompt|context|body|markdown|text|raw)(_|$)/i' => DailyCanaryReplayByRefsWatchdogCheck::FORBIDDEN_EVIDENCE_KEY_PATTERN,
+            'unavailable' => DailyCanaryReplayByRefsWatchdogCheck::STATUS_UNAVAILABLE,
+            'unknown' => DailyCanaryReplayByRefsWatchdogCheck::STATUS_UNKNOWN,
+            'canary_drift' => DailyCanaryReplayByRefsWatchdogCheck::REASON_CANARY_DRIFT,
+            'canary_within_floors' => DailyCanaryReplayByRefsWatchdogCheck::REASON_CANARY_WITHIN_FLOORS,
+            'insufficient_signal' => DailyCanaryReplayByRefsWatchdogCheck::REASON_INSUFFICIENT_SIGNAL,
+            'recall_at_5' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_RECALL_AT_5,
+            'improper_floor_discards' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_IMPROPER_FLOOR_DISCARDS,
+            'status' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_STATUS,
+            'refs_total' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_REFS_TOTAL,
+            'refs_canonical' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_REFS_CANONICAL,
+            'flows_checked' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_FLOWS_CHECKED,
+            'b747_daily_canary_floor_count' => 18,
+        ];
+    }
+
 }
