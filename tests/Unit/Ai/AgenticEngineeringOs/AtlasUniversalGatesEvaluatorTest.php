@@ -14224,4 +14224,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b661_recall_gap_window_orchestrator_floor_count']);
     }
 
+    public function test_b662_window_orchestrator_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b662WindowOrchestratorFloorsContractObserve([]);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_ID, $out['id']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_DEAD_AFTER_DAYS, $out['dead_after_days']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::SCHEMA_VERSION, $out['atlas.acos.windows.v1']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::STATE_NOT_STARTED, $out['not_started']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::STATE_UNKNOWN, $out['unknown']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::BLOCKING_WINDOW_NOT_STARTED, $out['window_not_started']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::STATUS_DEAD_WINDOW, $out['dead_window']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::STATUS_UNAVAILABLE, $out['unavailable']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::STATUS_OK, $out['ok']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::REASON_NO_STARTED_WINDOW_WITH_NUMERIC_DURATION, $out['no_started_window_with_numeric_duration']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_SLICE, $out['slice']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_DAYS_REMAINING, $out['days_remaining']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_FLAG_ID, $out['flag_id']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_OBSERVATION_WINDOW_ID, $out['observation_window_id']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_SERIES, $out['series']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_FAMILY, $out['family']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_STATE, $out['state']);
+        $this->assertSame(18, $out['b662_window_orchestrator_floor_count']);
+    }
+
 }

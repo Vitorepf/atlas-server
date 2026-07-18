@@ -17970,4 +17970,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B662).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b662WindowOrchestratorFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'id' => AcosMaxWindowOrchestratorService::FIELD_ID,
+            'dead_after_days' => AcosMaxWindowOrchestratorService::FIELD_DEAD_AFTER_DAYS,
+            'atlas.acos.windows.v1' => AcosMaxWindowOrchestratorService::SCHEMA_VERSION,
+            'not_started' => AcosMaxWindowOrchestratorService::STATE_NOT_STARTED,
+            'unknown' => AcosMaxWindowOrchestratorService::STATE_UNKNOWN,
+            'window_not_started' => AcosMaxWindowOrchestratorService::BLOCKING_WINDOW_NOT_STARTED,
+            'dead_window' => AcosMaxWindowOrchestratorService::STATUS_DEAD_WINDOW,
+            'unavailable' => AcosMaxWindowOrchestratorService::STATUS_UNAVAILABLE,
+            'ok' => AcosMaxWindowOrchestratorService::STATUS_OK,
+            'no_started_window_with_numeric_duration' => AcosMaxWindowOrchestratorService::REASON_NO_STARTED_WINDOW_WITH_NUMERIC_DURATION,
+            'slice' => AcosMaxWindowOrchestratorService::FIELD_SLICE,
+            'days_remaining' => AcosMaxWindowOrchestratorService::FIELD_DAYS_REMAINING,
+            'flag_id' => AcosMaxWindowOrchestratorService::FIELD_FLAG_ID,
+            'observation_window_id' => AcosMaxWindowOrchestratorService::FIELD_OBSERVATION_WINDOW_ID,
+            'status' => AcosMaxWindowOrchestratorService::FIELD_STATUS,
+            'series' => AcosMaxWindowOrchestratorService::FIELD_SERIES,
+            'family' => AcosMaxWindowOrchestratorService::FIELD_FAMILY,
+            'state' => AcosMaxWindowOrchestratorService::FIELD_STATE,
+            'b662_window_orchestrator_floor_count' => 18,
+        ];
+    }
+
 }

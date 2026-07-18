@@ -684,6 +684,7 @@ final class AtlasAaeosCommand extends Command
                             {--b659-blocker-severity-phase-handoff-floors-contract= : JSON file (any object) to observe blocker/severity/phase/handoff floors}
                             {--b660-phase-handoff-floors-contract= : JSON file (any object) to observe phase/handoff floors}
                             {--b661-recall-gap-window-orchestrator-floors-contract= : JSON file (any object) to observe recall/gap/window/orchestrator floors}
+                            {--b662-window-orchestrator-floors-contract= : JSON file (any object) to observe window/orchestrator floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1524,6 +1525,7 @@ final class AtlasAaeosCommand extends Command
             ['b659-blocker-severity-phase-handoff-floors-contract', 'b659_blocker_severity_phase_handoff_floors_contract', fn (array $p) => $gates->b659BlockerSeverityPhaseHandoffFloorsContractObserve($p)],
             ['b660-phase-handoff-floors-contract', 'b660_phase_handoff_floors_contract', fn (array $p) => $gates->b660PhaseHandoffFloorsContractObserve($p)],
             ['b661-recall-gap-window-orchestrator-floors-contract', 'b661_recall_gap_window_orchestrator_floors_contract', fn (array $p) => $gates->b661RecallGapWindowOrchestratorFloorsContractObserve($p)],
+            ['b662-window-orchestrator-floors-contract', 'b662_window_orchestrator_floors_contract', fn (array $p) => $gates->b662WindowOrchestratorFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
