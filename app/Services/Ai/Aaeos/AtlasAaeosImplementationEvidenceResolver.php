@@ -61,6 +61,7 @@ class AtlasAaeosImplementationEvidenceResolver
     public const FIELD_RESOLVED = 'resolved';
     public const FIELD_ROUTE = 'route';
     public const FIELD_TEST_METHOD = 'test_method';
+    public const FIELD_STATUS = 'status';
 
     /**
      * The active Code Intelligence index, loaded ONCE per request and matched in PHP. Stored
@@ -227,7 +228,7 @@ class AtlasAaeosImplementationEvidenceResolver
 
         $rows = AtlasEngineeringCodeSymbol::query()
             ->toBase()
-            ->where('status', self::STATUS_ACTIVE)
+            ->where(self::FIELD_STATUS, self::STATUS_ACTIVE)
             ->select(['symbol_name', 'file_path', 'signature', 'symbol_type'])
             ->distinct()
             ->cursor();

@@ -8541,4 +8541,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['department_contract_teto_predicted_mission_control_acos_evolution_floor_count']);
     }
 
+    public function test_department_contract_health_report_dev_procedural_execution_context_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->departmentContractHealthReportDevProceduralExecutionContextFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EVIDENCE_PACK, $out['evidence_pack']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_FAILURE_REPORT, $out['failure_report']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_INTENT_RAW, $out['intent_raw']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_LEARNING_CAPSULE, $out['learning_capsule']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MEMORY_RECORD, $out['memory_record']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MIGRATION_PLAN, $out['migration_plan']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MISSION_ENVELOPE, $out['mission_envelope']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_OBRA_PACK, $out['obra_pack']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_POLICY_DECISION, $out['policy_decision']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_FAILED, $out['scorecard_receipts_diagnosis_failed']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_SCORECARD_STABILITY_FAILED, $out['scorecard_stability_failed']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_DEV, $out['dev']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_CORRELATIONAL_COOCCURRENCE, $out['correlational_cooccurrence']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_EVIDENCE_COMPLETE_PARTIAL_STATE_CAVEATED, $out['evidence_complete_partial_state_caveated']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_DEV_OR_FORGE, $out['dev_or_forge']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_ATLAS_DOCS_AUTHORITY_GRAPH, $out['atlas_docs_authority_graph']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_SEMANTIC, $out['semantic']);
+        $this->assertSame(18, $out['department_contract_health_report_dev_procedural_execution_context_floor_count']);
+    }
+
 }

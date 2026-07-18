@@ -35,6 +35,8 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_LIFT_CYCLE_CLOSURE_STALLED = 'lift_cycle_closure_stalled';
     public const FIELD_MEMORY_QUALITY_CHECK_FAILED = 'memory_quality_check_failed';
     public const FIELD_RAG_DIMENSION_WATCHDOG_FAILED = 'rag_dimension_watchdog_failed';
+    public const FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_FAILED = 'scorecard_receipts_diagnosis_failed';
+    public const FIELD_SCORECARD_STABILITY_FAILED = 'scorecard_stability_failed';
 
     public const CATALOG = [
         [
@@ -76,7 +78,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
         [
             self::FIELD_ID => 'pip-08.scorecard_stability',
             self::FIELD_REPORT_METHOD => 'pipelineStabilityReport',
-            self::FIELD_ALERT_CODE => 'scorecard_stability_failed',
+            self::FIELD_ALERT_CODE => self::FIELD_SCORECARD_STABILITY_FAILED,
             self::FIELD_MESSAGE => 'PIP-08 scorecard stability has not reached a green pipeline series.',
         ],
         [
@@ -88,7 +90,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
         [
             self::FIELD_ID => 'ope-10.scorecard_receipts_diagnosis',
             self::FIELD_REPORT_METHOD => 'scorecardReceiptsDiagnosisReport',
-            self::FIELD_ALERT_CODE => 'scorecard_receipts_diagnosis_failed',
+            self::FIELD_ALERT_CODE => self::FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_FAILED,
             self::FIELD_MESSAGE => 'OPE-10 found persistent partial scorecard receipts.',
         ],
         [

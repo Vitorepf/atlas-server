@@ -10917,4 +10917,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B432).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function departmentContractHealthReportDevProceduralExecutionContextFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'evidence_pack' => DepartmentContractRuntime::FIELD_EVIDENCE_PACK,
+            'failure_report' => DepartmentContractRuntime::FIELD_FAILURE_REPORT,
+            'intent_raw' => DepartmentContractRuntime::FIELD_INTENT_RAW,
+            'learning_capsule' => DepartmentContractRuntime::FIELD_LEARNING_CAPSULE,
+            'memory_record' => DepartmentContractRuntime::FIELD_MEMORY_RECORD,
+            'migration_plan' => DepartmentContractRuntime::FIELD_MIGRATION_PLAN,
+            'mission_envelope' => DepartmentContractRuntime::FIELD_MISSION_ENVELOPE,
+            'obra_pack' => DepartmentContractRuntime::FIELD_OBRA_PACK,
+            'policy_decision' => DepartmentContractRuntime::FIELD_POLICY_DECISION,
+            'scorecard_receipts_diagnosis_failed' => HealthReportWatchdogCheck::FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_FAILED,
+            'scorecard_stability_failed' => HealthReportWatchdogCheck::FIELD_SCORECARD_STABILITY_FAILED,
+            'dev' => DevProceduralOutcomeEnvelopeAdapter::FIELD_DEV,
+            'correlational_cooccurrence' => ExecutionContextCooccurrenceService::FIELD_CORRELATIONAL_COOCCURRENCE,
+            'evidence_complete_partial_state_caveated' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_EVIDENCE_COMPLETE_PARTIAL_STATE_CAVEATED,
+            'status' => AtlasAaeosImplementationEvidenceResolver::FIELD_STATUS,
+            'dev_or_forge' => AtlasCrossDepartmentChoreographyService::FIELD_DEV_OR_FORGE,
+            'atlas_docs_authority_graph' => AtlasDocsAuthorityGraphService::FIELD_ATLAS_DOCS_AUTHORITY_GRAPH,
+            'semantic' => AtlasMemoryRecallRelevanceScorer::FIELD_SEMANTIC,
+            'department_contract_health_report_dev_procedural_execution_context_floor_count' => 18,
+        ];
+    }
+
 }

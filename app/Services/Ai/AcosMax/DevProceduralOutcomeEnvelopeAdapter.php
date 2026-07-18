@@ -51,6 +51,7 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
     public const FIELD_EVIDENCE_REF_COUNT = 'evidence_ref_count';
     public const FIELD_NATIVE_DIVERGENT = 'native_divergent';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_DEV = 'dev';
 
     public function origin(): string
     {
@@ -70,8 +71,8 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
         $runId = AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_RUN_ID] ?? null) ?? '';
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
-            self::FIELD_EXECUTOR => 'dev',
-            self::FIELD_TASK_CATEGORY => (AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_TASK_CATEGORY] ?? null) ?? 'dev'),
+            self::FIELD_EXECUTOR => self::FIELD_DEV,
+            self::FIELD_TASK_CATEGORY => (AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_TASK_CATEGORY] ?? null) ?? self::FIELD_DEV),
             self::FIELD_PROVIDER => AiValueNormalizer::lowerTrimmedString($context[self::FIELD_PROVIDER] ?? self::STATUS_ABSENT) ?: self::STATUS_ABSENT,
             self::FIELD_STATUS => $status,
             self::FIELD_VERIFIED => $verified,

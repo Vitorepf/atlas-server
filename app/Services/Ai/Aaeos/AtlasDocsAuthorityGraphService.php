@@ -65,6 +65,7 @@ class AtlasDocsAuthorityGraphService
     public const FIELD_NEEDLE_KIND = 'needle_kind';
     public const FIELD_NEEDLE_NORMALIZED = 'needle_normalized';
     public const FIELD_UPDATED_AT = 'updated_at';
+    public const FIELD_ATLAS_DOCS_AUTHORITY_GRAPH = 'atlas_docs_authority_graph';
 
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
@@ -162,7 +163,7 @@ class AtlasDocsAuthorityGraphService
         // Read-model fail-open: when the table was never materialized (fresh
         // env, test sqlite without migrations), resolve to "not found" instead
         // of a QueryException. Guard here, once, for every caller.
-        if (! DatabaseTableAvailability::has('atlas_docs_authority_graph')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_DOCS_AUTHORITY_GRAPH)) {
             return $this->result($needle, collect(), fallback: true);
         }
 

@@ -54,6 +54,7 @@ final class ExecutionContextCooccurrenceService
     public const FIELD_MEMORY_WRITTEN = 'memory_written';
     public const FIELD_USED_REF_COUNT = 'used_ref_count';
     public const FIELD_USED_REFS = 'used_refs';
+    public const FIELD_CORRELATIONAL_COOCCURRENCE = 'correlational_cooccurrence';
 
 
     /**
@@ -66,7 +67,7 @@ final class ExecutionContextCooccurrenceService
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
-            self::FIELD_CONTEXT_CAUSAL_BINDING => 'correlational_cooccurrence',
+            self::FIELD_CONTEXT_CAUSAL_BINDING => self::FIELD_CORRELATIONAL_COOCCURRENCE,
             self::FIELD_ENFORCEMENT_ALLOWED => false,
             self::FIELD_REQUIRES_COUNTERFACTUAL_BEFORE_ENFORCEMENT => GoldenCounterfactualReplayService::MEASURE_ID,
             self::FIELD_CLAIM_POLICY => [
@@ -133,7 +134,7 @@ final class ExecutionContextCooccurrenceService
                 self::FIELD_DELIVERED_REF_COUNT => count($delivered),
                 self::FIELD_USED_REF_COUNT => count($used),
                 self::FIELD_INTERSECTION_REFS => $intersection,
-                self::FIELD_CONTEXT_CAUSAL_BINDING => 'correlational_cooccurrence',
+                self::FIELD_CONTEXT_CAUSAL_BINDING => self::FIELD_CORRELATIONAL_COOCCURRENCE,
             ];
         }
 

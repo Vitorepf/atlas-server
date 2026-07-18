@@ -48,6 +48,7 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
     public const FIELD_PASSES = 'passes';
     public const FIELD_PRESENT_FIELDS = 'present_fields';
     public const FIELD_REASON = 'reason';
+    public const FIELD_EVIDENCE_COMPLETE_PARTIAL_STATE_CAVEATED = 'evidence_complete_partial_state_caveated';
 
     public const STATUS_PRESENT = 'present';
 
@@ -208,7 +209,7 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
     {
         if ($verdict === self::VERDICT_EVIDENCE) {
             return $partialClaim
-                ? 'evidence_complete_partial_state_caveated'
+                ? self::FIELD_EVIDENCE_COMPLETE_PARTIAL_STATE_CAVEATED
                 : 'evidence_complete_all_required_fields_present';
         }
 

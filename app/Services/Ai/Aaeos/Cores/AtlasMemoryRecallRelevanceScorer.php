@@ -41,6 +41,7 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_USER = 'user';
     public const FIELD_GLOBAL = 'global';
     public const FIELD_REGISTRY = 'registry';
+    public const FIELD_SEMANTIC = 'semantic';
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -54,7 +55,7 @@ final class AtlasMemoryRecallRelevanceScorer
     {
         $source = $this->sourceOf($row);
 
-        if ($source === 'semantic') {
+        if ($source === self::FIELD_SEMANTIC) {
             $type = $this->typeOf($row, 'semantic_note');
 
             return $this->floatField($row, 'score', 0.55) * 100

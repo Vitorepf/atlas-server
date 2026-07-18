@@ -223,6 +223,15 @@ final class DepartmentContractRuntime
     public const FIELD_ACCEPTANCE_CRITERIA = 'acceptance_criteria';
     public const FIELD_CONTEXT_PACK = 'context_pack';
     public const FIELD_ENGINEERING_GOAL_RAW = 'engineering_goal_raw';
+    public const FIELD_EVIDENCE_PACK = 'evidence_pack';
+    public const FIELD_FAILURE_REPORT = 'failure_report';
+    public const FIELD_INTENT_RAW = 'intent_raw';
+    public const FIELD_LEARNING_CAPSULE = 'learning_capsule';
+    public const FIELD_MEMORY_RECORD = 'memory_record';
+    public const FIELD_MIGRATION_PLAN = 'migration_plan';
+    public const FIELD_MISSION_ENVELOPE = 'mission_envelope';
+    public const FIELD_OBRA_PACK = 'obra_pack';
+    public const FIELD_POLICY_DECISION = 'policy_decision';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -261,10 +270,10 @@ final class DepartmentContractRuntime
             self::FIELD_SCOPE => 'recebe pedido humano ambíguo e produz mission envelope canônica antes de product',
             self::FIELD_TRIGGERS => ['operator_intent_raw_received=true'],
             self::FIELD_INPUTS => [
-                [self::FIELD_NAME => 'intent_raw', self::FIELD_SCHEMA => self::SCHEMA_INTENT_RAW],
+                [self::FIELD_NAME => self::FIELD_INTENT_RAW, self::FIELD_SCHEMA => self::SCHEMA_INTENT_RAW],
             ],
             self::FIELD_OUTPUTS => [
-                [self::FIELD_NAME => 'mission_envelope', self::FIELD_SCHEMA => self::SCHEMA_AI_MISSION],
+                [self::FIELD_NAME => self::FIELD_MISSION_ENVELOPE, self::FIELD_SCHEMA => self::SCHEMA_AI_MISSION],
             ],
             self::FIELD_GATES => ['intent_clarified', 'mission_authority_declared'],
             self::FIELD_ALLOWED_ACTIONS => ['ask_clarifying_question', 'classify_intent', 'route_to_department'],
@@ -312,7 +321,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
-                [self::FIELD_NAME => 'migration_plan', self::FIELD_SCHEMA => self::SCHEMA_MIGRATION_PLAN],
+                [self::FIELD_NAME => self::FIELD_MIGRATION_PLAN, self::FIELD_SCHEMA => self::SCHEMA_MIGRATION_PLAN],
             ],
             self::FIELD_GATES => ['adr_published', 'boundary_validated', 'spec_acceptance_criteria_complete', 'breaking_change_documented', 'rollback_per_slice'],
             self::FIELD_ALLOWED_ACTIONS => ['draft_spec', 'propose_migration_plan', 'request_security_review', 'veto_execution'],
@@ -380,7 +389,7 @@ final class DepartmentContractRuntime
             self::FIELD_SCOPE => 'investiga falhas runtime, gera hipóteses, reproduz, isola e propõe fix',
             self::FIELD_TRIGGERS => ['incident_detected=true', 'test_red_after_green=true', 'production_alert=true'],
             self::FIELD_INPUTS => [
-                [self::FIELD_NAME => 'failure_report', self::FIELD_SCHEMA => self::SCHEMA_FAILURE_REPORT],
+                [self::FIELD_NAME => self::FIELD_FAILURE_REPORT, self::FIELD_SCHEMA => self::SCHEMA_FAILURE_REPORT],
             ],
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => 'root_cause_pack', self::FIELD_SCHEMA => self::SCHEMA_ROOT_CAUSE_PACK],
@@ -453,7 +462,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => 'policy_request', self::FIELD_SCHEMA => self::SCHEMA_POLICY_REQUEST],
             ],
             self::FIELD_OUTPUTS => [
-                [self::FIELD_NAME => 'policy_decision', self::FIELD_SCHEMA => self::SCHEMA_POLICY_DECISION],
+                [self::FIELD_NAME => self::FIELD_POLICY_DECISION, self::FIELD_SCHEMA => self::SCHEMA_POLICY_DECISION],
             ],
             self::FIELD_GATES => ['security_scan_clean', 'cve_acknowledged', 'secret_scan_clean', 'dependency_audit_clean', 'threat_model_present', 'sovereignty_boundary_respected'],
             self::FIELD_ALLOWED_ACTIONS => ['allow', 'deny', 'request_mitigation', 'escalate_to_operator'],
@@ -477,7 +486,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => 'topology_plan', self::FIELD_SCHEMA => self::SCHEMA_TOPOLOGY_PLAN],
             ],
             self::FIELD_OUTPUTS => [
-                [self::FIELD_NAME => 'obra_pack', self::FIELD_SCHEMA => self::SCHEMA_OBRA_PACK],
+                [self::FIELD_NAME => self::FIELD_OBRA_PACK, self::FIELD_SCHEMA => self::SCHEMA_OBRA_PACK],
                 [self::FIELD_NAME => self::FIELD_EXECUTION_LOG, self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
             ],
             self::FIELD_GATES => ['obra_intake_validated', 'provider_topology_green', 'all-15-universal-gates', 'long_horizon_state_persisted', 'reservation_ledger_consistent', 'merge_review_promotion_passed'],
@@ -498,7 +507,7 @@ final class DepartmentContractRuntime
             self::FIELD_SCOPE => 'monta delivery_pack canônico, valida completeness, encaminha para human review e cert',
             self::FIELD_TRIGGERS => ['execution_complete=true', 'evidence_pack_ready=true'],
             self::FIELD_INPUTS => [
-                [self::FIELD_NAME => 'evidence_pack', self::FIELD_SCHEMA => self::SCHEMA_EVIDENCE_PACK],
+                [self::FIELD_NAME => self::FIELD_EVIDENCE_PACK, self::FIELD_SCHEMA => self::SCHEMA_EVIDENCE_PACK],
             ],
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_DELIVERY_PACK, self::FIELD_SCHEMA => self::SCHEMA_DELIVERY_PACK],
@@ -521,10 +530,10 @@ final class DepartmentContractRuntime
             self::FIELD_SCOPE => 'persistência governada de learnings, context packs, decisões, falhas, cross-session continuity',
             self::FIELD_TRIGGERS => ['learning_capsule_emitted=true', 'session_handoff_requested=true', 'context_pack_request=true'],
             self::FIELD_INPUTS => [
-                [self::FIELD_NAME => 'learning_capsule', self::FIELD_SCHEMA => self::SCHEMA_LEARNING_CAPSULE],
+                [self::FIELD_NAME => self::FIELD_LEARNING_CAPSULE, self::FIELD_SCHEMA => self::SCHEMA_LEARNING_CAPSULE],
             ],
             self::FIELD_OUTPUTS => [
-                [self::FIELD_NAME => 'memory_record', self::FIELD_SCHEMA => self::SCHEMA_MEMORY_RECORD],
+                [self::FIELD_NAME => self::FIELD_MEMORY_RECORD, self::FIELD_SCHEMA => self::SCHEMA_MEMORY_RECORD],
                 [self::FIELD_NAME => self::FIELD_CONTEXT_PACK, self::FIELD_SCHEMA => self::SCHEMA_CONTEXT_PACK],
             ],
             self::FIELD_GATES => ['evidence_persisted', 'learning_signal_extracted', 'promotion_gate_passed', 'noise_immunity_check_ok', 'schema_versioned'],
