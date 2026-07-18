@@ -18745,4 +18745,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B687).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b687ComposedObraFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'id' => ComposedObraArcComposer::FIELD_ID,
+            'neighbor_basis' => ComposedObraArcComposer::FIELD_NEIGHBOR_BASIS,
+            'atlas.originator.composed_obra_arc.v1' => ComposedObraArcComposer::SCHEMA_VERSION,
+            '3' => ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES,
+            '3' => ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES,
+            'cursor-acos-max-multn1702' => ComposedObraArcComposer::DEFAULT_AUTHOR_ENGINE_ID,
+            'codex-independent-multn1702-judge' => ComposedObraArcComposer::DEFAULT_JUDGE_ENGINE_ID,
+            'enabled' => ComposedObraArcComposer::FIELD_ENABLED,
+            'target_path' => ComposedObraArcComposer::FIELD_TARGET_PATH,
+            'organ_class' => ComposedObraArcComposer::FIELD_ORGAN_CLASS,
+            'leverage' => ComposedObraArcComposer::FIELD_LEVERAGE,
+            'status' => ComposedObraArcComposer::FIELD_STATUS,
+            'reason' => ComposedObraArcComposer::FIELD_REASON,
+            'arc_id' => ComposedObraArcComposer::FIELD_ARC_ID,
+            'ok' => ComposedObraArcComposer::FIELD_OK,
+            'candidates' => ComposedObraArcComposer::FIELD_CANDIDATES,
+            'schema_version' => ComposedObraArcComposer::FIELD_SCHEMA_VERSION,
+            'source' => ComposedObraArcComposer::FIELD_SOURCE,
+            'b687_composed_obra_floor_count' => 18,
+        ];
+    }
+
 }

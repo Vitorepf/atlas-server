@@ -14849,4 +14849,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b686_provenance_weight_composed_obra_floor_count']);
     }
 
+    public function test_b687_composed_obra_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b687ComposedObraFloorsContractObserve([]);
+        $this->assertSame(ComposedObraArcComposer::FIELD_ID, $out['id']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_NEIGHBOR_BASIS, $out['neighbor_basis']);
+        $this->assertSame(ComposedObraArcComposer::SCHEMA_VERSION, $out['atlas.originator.composed_obra_arc.v1']);
+        $this->assertSame(ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES, $out['3']);
+        $this->assertSame(ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES, $out['3']);
+        $this->assertSame(ComposedObraArcComposer::DEFAULT_AUTHOR_ENGINE_ID, $out['cursor-acos-max-multn1702']);
+        $this->assertSame(ComposedObraArcComposer::DEFAULT_JUDGE_ENGINE_ID, $out['codex-independent-multn1702-judge']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_ENABLED, $out['enabled']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_TARGET_PATH, $out['target_path']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_ORGAN_CLASS, $out['organ_class']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_LEVERAGE, $out['leverage']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_STATUS, $out['status']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_REASON, $out['reason']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_ARC_ID, $out['arc_id']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_OK, $out['ok']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_CANDIDATES, $out['candidates']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_SOURCE, $out['source']);
+        $this->assertSame(18, $out['b687_composed_obra_floor_count']);
+    }
+
 }
