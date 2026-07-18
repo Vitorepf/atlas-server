@@ -14023,4 +14023,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b653_delivery_pack_floor_count']);
     }
 
+    public function test_b654_runbook_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b654RunbookFloorsContractObserve([]);
+        $this->assertSame(RunbookOrchestrator::FIELD_DEFAULT_FLOW_GATES_TOTAL, $out['default_flow_gates_total']);
+        $this->assertSame(RunbookOrchestrator::FIELD_DEPARTMENT_COUNT, $out['department_count']);
+        $this->assertSame(RunbookOrchestrator::SCHEMA_VERSION, $out['atlas.agentic_engineering_os.runbook.v1']);
+        $this->assertSame(RunbookOrchestrator::AMBITION_TRIVIAL, $out['trivial']);
+        $this->assertSame(RunbookOrchestrator::AMBITION_TASK, $out['task']);
+        $this->assertSame(RunbookOrchestrator::AMBITION_MISSION, $out['mission']);
+        $this->assertSame(RunbookOrchestrator::AMBITION_OBRA, $out['obra']);
+        $this->assertSame(RunbookOrchestrator::ACTOR_KIND_AGENT, $out['agent']);
+        $this->assertSame(RunbookOrchestrator::ARCHITECTURE_REDESIGN_PROPOSAL_SCHEMA, $out['atlas.architecture.redesign_proposal.v1']);
+        $this->assertSame(RunbookOrchestrator::FIELD_ARCHITECT_SIGNATURES_COUNT, $out['architect_signatures_count']);
+        $this->assertSame(RunbookOrchestrator::FIELD_AUTONOMY_LEVEL, $out['autonomy_level']);
+        $this->assertSame(RunbookOrchestrator::FIELD_CURRENT, $out['current']);
+        $this->assertSame(RunbookOrchestrator::FIELD_CURRENT_STATE_SNAPSHOT_HASH, $out['current_state_snapshot_hash']);
+        $this->assertSame(RunbookOrchestrator::FIELD_DEFAULT_FLOW, $out['default_flow']);
+        $this->assertSame(RunbookOrchestrator::FIELD_DEPARTMENT, $out['department']);
+        $this->assertSame(RunbookOrchestrator::FIELD_GATES, $out['gates']);
+        $this->assertSame(RunbookOrchestrator::FIELD_INTENT_CLASS, $out['intent_class']);
+        $this->assertSame(RunbookOrchestrator::FIELD_PROPOSAL_HASH, $out['proposal_hash']);
+        $this->assertSame(18, $out['b654_runbook_floor_count']);
+    }
+
 }

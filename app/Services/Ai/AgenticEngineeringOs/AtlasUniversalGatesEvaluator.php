@@ -17722,4 +17722,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B654).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b654RunbookFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'default_flow_gates_total' => RunbookOrchestrator::FIELD_DEFAULT_FLOW_GATES_TOTAL,
+            'department_count' => RunbookOrchestrator::FIELD_DEPARTMENT_COUNT,
+            'atlas.agentic_engineering_os.runbook.v1' => RunbookOrchestrator::SCHEMA_VERSION,
+            'trivial' => RunbookOrchestrator::AMBITION_TRIVIAL,
+            'task' => RunbookOrchestrator::AMBITION_TASK,
+            'mission' => RunbookOrchestrator::AMBITION_MISSION,
+            'obra' => RunbookOrchestrator::AMBITION_OBRA,
+            'agent' => RunbookOrchestrator::ACTOR_KIND_AGENT,
+            'atlas.architecture.redesign_proposal.v1' => RunbookOrchestrator::ARCHITECTURE_REDESIGN_PROPOSAL_SCHEMA,
+            'architect_signatures_count' => RunbookOrchestrator::FIELD_ARCHITECT_SIGNATURES_COUNT,
+            'autonomy_level' => RunbookOrchestrator::FIELD_AUTONOMY_LEVEL,
+            'current' => RunbookOrchestrator::FIELD_CURRENT,
+            'current_state_snapshot_hash' => RunbookOrchestrator::FIELD_CURRENT_STATE_SNAPSHOT_HASH,
+            'default_flow' => RunbookOrchestrator::FIELD_DEFAULT_FLOW,
+            'department' => RunbookOrchestrator::FIELD_DEPARTMENT,
+            'gates' => RunbookOrchestrator::FIELD_GATES,
+            'intent_class' => RunbookOrchestrator::FIELD_INTENT_CLASS,
+            'proposal_hash' => RunbookOrchestrator::FIELD_PROPOSAL_HASH,
+            'b654_runbook_floor_count' => 18,
+        ];
+    }
+
 }
