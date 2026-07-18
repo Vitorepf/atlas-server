@@ -67,6 +67,7 @@ final class AtlasAcosRollbackTriggerCheckService
     public const FIELD_ROLLBACK_TRIGGER_FIRED = 'rollback_trigger_fired';
     public const FIELD_FLIP_NOT_ARMED = 'flip_not_armed';
     public const FIELD_PRE_FLIP = 'pre_flip';
+    public const FIELD_CONDITION_KIND_2 = 'condition.kind';
 
 
     /**
@@ -103,7 +104,7 @@ final class AtlasAcosRollbackTriggerCheckService
                     self::FIELD_SLICES => $flip[self::FIELD_SLICES] ?? [],
                     self::FIELD_ROLLBACK_ACTION => $flip[self::FIELD_ROLLBACK_ACTION] ?? [],
                     self::FIELD_EXECUTOR => $flip[self::FIELD_EXECUTOR] ?? self::FIELD_WATCHDOG_ALERT_OPERATOR_REVERTS,
-                    self::FIELD_CONDITION_KIND => data_get($flip, 'condition.kind'),
+                    self::FIELD_CONDITION_KIND => data_get($flip, self::FIELD_CONDITION_KIND_2),
                     self::FIELD_SIMULATED => $simulated,
                 ];
             }
@@ -143,7 +144,7 @@ final class AtlasAcosRollbackTriggerCheckService
             self::FIELD_FIRED => true,
             self::FIELD_STATUS => self::STATUS_SIMULATED_FIRE,
             self::FIELD_REASON => self::REASON_SIMULATED_CONDITION,
-            self::FIELD_CONDITION_KIND => data_get($flip, 'condition.kind'),
+            self::FIELD_CONDITION_KIND => data_get($flip, self::FIELD_CONDITION_KIND_2),
             self::FIELD_ROLLBACK_ACTION => $flip[self::FIELD_ROLLBACK_ACTION] ?? [],
             self::FIELD_EXECUTOR => $flip[self::FIELD_EXECUTOR] ?? self::FIELD_WATCHDOG_ALERT_OPERATOR_REVERTS,
             self::FIELD_CHECKED_AT => $asOf->toIso8601String(),

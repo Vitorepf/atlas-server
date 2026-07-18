@@ -61,6 +61,7 @@ final class MemoryFeedbackDecayScorer
     public const FIELD_INACTIVATED_BY_STALE_AGE = 'inactivated_by_stale_age';
     public const FIELD_SOFT_STALE_AGE_EXCEEDS_45D = 'soft_stale_age_exceeds_45d';
     public const FIELD_STALE_AGE_EXCEEDS_180D = 'stale_age_exceeds_180d';
+    public const FLOAT_0_0 = 0.0;
 
     /**
      * @param  array<string, mixed>  $signals
@@ -198,7 +199,7 @@ final class MemoryFeedbackDecayScorer
             return self::DECISION_DEGRADE;
         }
 
-        if ($staleness === self::DECISION_FRESH && $hitRate === 0.0) {
+        if ($staleness === self::DECISION_FRESH && $hitRate === self::FLOAT_0_0) {
             $reasons[] = self::FIELD_DEGRADED_BY_LOW_RECALL_HIT_RATE;
 
             return self::DECISION_DEGRADE;

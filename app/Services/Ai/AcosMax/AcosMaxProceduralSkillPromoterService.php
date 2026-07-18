@@ -118,6 +118,7 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_GLOBAL = 'global';
     public const FIELD_PROCEDURAL_SKILL_PROMOTER = 'procedural_skill_promoter';
     public const FIELD_SHA256 = 'sha256';
+    public const FIELD_THRESHOLDS_PROCEDURAL_CASE_COUNT_FLOOR = 'thresholds.procedural_case_count_floor';
     public const INT_40 = 40;
 
 
@@ -129,7 +130,7 @@ final class AcosMaxProceduralSkillPromoterService
     public function report(?int $floor = null, bool $enqueue = false): array
     {
         $freeze = AcosMaxLote2MeasureService::freezePayload(self::SLICE_MULTJ04);
-        $effectiveFloor = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($floor) ?? data_get($freeze, 'thresholds.procedural_case_count_floor', self::DEFAULT_CASE_COUNT_FLOOR)));
+        $effectiveFloor = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($floor) ?? data_get($freeze, self::FIELD_THRESHOLDS_PROCEDURAL_CASE_COUNT_FLOOR, self::DEFAULT_CASE_COUNT_FLOOR)));
         $ledger = $this->ledger ?? new AtlasProceduralPlaybookLedger;
         $cadence = $ledger->cadence();
         $enqueueRequested = $enqueue && $this->enqueueEnabled();

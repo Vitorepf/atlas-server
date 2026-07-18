@@ -10680,4 +10680,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b517_measure_series_lote_ledger_rotation_immune_classifier_signature_floor_count']);
     }
 
+    public function test_b518_measure_series_lote_ledger_rotation_acos_rollback_aaeos_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b518MeasureSeriesLoteLedgerRotationAcosRollbackAaeosFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MULTK_02, $out['MULTK-02']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MULTK_03, $out['MULTK-03']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MULTN15_02, $out['MULTN15-02']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MULTX_02, $out['MULTX-02']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_LOOP_TIME_TO_RECALL_SECONDS, $out['loop.time_to_recall_seconds']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MAXL06_DELTA_ATTRIBUTION_V1, $out['maxl06.delta_attribution.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTJ_ABSTRACTION_LADDER_V1, $out['multj.abstraction_ladder.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTJ_COUNTERFACTUAL_LIFT_V2, $out['multj.counterfactual_lift.v2']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_N_CAPTURE_DRILL_V1, $out['atlas.n_capture_drill.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_ORIGINATOR_PREDICTED_IMPACT_CALIBRATION_V1, $out['atlas.originator.predicted_impact_calibration.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_PROVIDER_LEAK_CORPUS_V1, $out['atlas.provider_leak_corpus.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_RESOURCE_BUDGET_V1, $out['atlas.resource_budget.v1']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_CONDITION_KIND_2, $out['condition.kind']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::INT_2, $out['2']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::INT_4, $out['4']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_REV_PARSE, $out['rev-parse']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FLOAT_0_0, $out['0.0']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_THRESHOLDS_PROCEDURAL_CASE_COUNT_FLOOR, $out['thresholds.procedural_case_count_floor']);
+        $this->assertSame(18, $out['b518_measure_series_lote_ledger_rotation_acos_rollback_aaeos_floor_count']);
+    }
+
 }

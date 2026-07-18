@@ -128,11 +128,12 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_ARCHIVE = 'archive';
     public const FIELD_PARTIAL_RUNTIME = 'partial_runtime';
     public const FIELD_SOLID_RUNTIME = 'solid_runtime';
+    public const INT_2 = 2;
 
     public const RANK = [
         self::LEVEL_SPEC => 0,
         self::LEVEL_PARTIAL => 1,
-        self::LEVEL_VERIFIED => 2,
+        self::LEVEL_VERIFIED => self::INT_2,
     ];
 
     public function __construct(

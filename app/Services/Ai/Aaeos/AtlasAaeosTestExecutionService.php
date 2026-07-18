@@ -80,6 +80,7 @@ class AtlasAaeosTestExecutionService
     public const FIELD_HEAD = 'HEAD';
     public const FIELD_HOME = 'HOME';
     public const FIELD_PATH = 'PATH';
+    public const FIELD_REV_PARSE = 'rev-parse';
 
     public function __construct(
         private readonly float $timeout = 180.0,
@@ -531,7 +532,7 @@ class AtlasAaeosTestExecutionService
             return null;
         }
         try {
-            $process = new Process([self::FIELD_GIT, '-C', base_path(), 'rev-parse', '--short=12', self::FIELD_HEAD]);
+            $process = new Process([self::FIELD_GIT, '-C', base_path(), self::FIELD_REV_PARSE, '--short=12', self::FIELD_HEAD]);
             $process->setTimeout(10.0);
             $process->run();
             $stamp = AiValueNormalizer::trimmedStringOrNull($process->getOutput()) ?? '';

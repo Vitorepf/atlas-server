@@ -13567,4 +13567,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B518).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b518MeasureSeriesLoteLedgerRotationAcosRollbackAaeosFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'MULTK-02' => AcosMaxMeasureSeriesRegistry::FIELD_MULTK_02,
+            'MULTK-03' => AcosMaxMeasureSeriesRegistry::FIELD_MULTK_03,
+            'MULTN15-02' => AcosMaxMeasureSeriesRegistry::FIELD_MULTN15_02,
+            'MULTX-02' => AcosMaxMeasureSeriesRegistry::FIELD_MULTX_02,
+            'loop.time_to_recall_seconds' => AcosMaxLote2MeasureService::FIELD_LOOP_TIME_TO_RECALL_SECONDS,
+            'maxl06.delta_attribution.v1' => AcosMaxLote2MeasureService::FIELD_MAXL06_DELTA_ATTRIBUTION_V1,
+            'multj.abstraction_ladder.v1' => AcosMaxLote2MeasureService::FIELD_MULTJ_ABSTRACTION_LADDER_V1,
+            'multj.counterfactual_lift.v2' => AcosMaxLote2MeasureService::FIELD_MULTJ_COUNTERFACTUAL_LIFT_V2,
+            'atlas.n_capture_drill.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_N_CAPTURE_DRILL_V1,
+            'atlas.originator.predicted_impact_calibration.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_ORIGINATOR_PREDICTED_IMPACT_CALIBRATION_V1,
+            'atlas.provider_leak_corpus.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_PROVIDER_LEAK_CORPUS_V1,
+            'atlas.resource_budget.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_RESOURCE_BUDGET_V1,
+            'condition.kind' => AtlasAcosRollbackTriggerCheckService::FIELD_CONDITION_KIND_2,
+            '2' => AtlasAaeosImplementationTruthService::INT_2,
+            '4' => AtlasAaeosPhaseRouterService::INT_4,
+            'rev-parse' => AtlasAaeosTestExecutionService::FIELD_REV_PARSE,
+            '0.0' => MemoryFeedbackDecayScorer::FLOAT_0_0,
+            'thresholds.procedural_case_count_floor' => AcosMaxProceduralSkillPromoterService::FIELD_THRESHOLDS_PROCEDURAL_CASE_COUNT_FLOOR,
+            'b518_measure_series_lote_ledger_rotation_acos_rollback_aaeos_floor_count' => 18,
+        ];
+    }
+
 }

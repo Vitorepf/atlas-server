@@ -39,6 +39,7 @@ final class AtlasAaeosPhaseRouterService
     public const FIELD_SPEC = 'spec';
     public const FIELD_TASKS = 'tasks';
     public const FIELD_TOPOLOGY = 'topology';
+    public const INT_4 = 4;
     public const INT_2 = 2;
     public const INT_3 = 3;
 
@@ -54,7 +55,7 @@ final class AtlasAaeosPhaseRouterService
         self::PHASE_1 => 1,
         self::PHASE_2 => self::INT_2,
         self::PHASE_3 => self::INT_3,
-        self::PHASE_4 => 4,
+        self::PHASE_4 => self::INT_4,
     ];
 
     public const PHASE_DESCRIPTIONS = [

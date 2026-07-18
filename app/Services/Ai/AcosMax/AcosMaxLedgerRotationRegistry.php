@@ -82,6 +82,10 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ATLAS_KB_EMBEDDING_COVERAGE_V1 = 'atlas.kb_embedding_coverage.v1';
     public const FIELD_ATLAS_M_FUNNEL_V1 = 'atlas.m.funnel.v1';
     public const FIELD_ATLAS_MEMORY_TEMPORAL_TRUTH_V2 = 'atlas.memory.temporal_truth.v2';
+    public const FIELD_ATLAS_N_CAPTURE_DRILL_V1 = 'atlas.n_capture_drill.v1';
+    public const FIELD_ATLAS_ORIGINATOR_PREDICTED_IMPACT_CALIBRATION_V1 = 'atlas.originator.predicted_impact_calibration.v1';
+    public const FIELD_ATLAS_PROVIDER_LEAK_CORPUS_V1 = 'atlas.provider_leak_corpus.v1';
+    public const FIELD_ATLAS_RESOURCE_BUDGET_V1 = 'atlas.resource_budget.v1';
     public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
@@ -267,7 +271,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXL-08 report-only context execution co-occurrence',
             ],
-            'atlas.originator.predicted_impact_calibration.v1' => [
+            self::FIELD_ATLAS_ORIGINATOR_PREDICTED_IMPACT_CALIBRATION_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
@@ -321,7 +325,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'TETO-02 mission e2e',
             ],
-            'atlas.resource_budget.v1' => [
+            self::FIELD_ATLAS_RESOURCE_BUDGET_V1 => [
                 self::FIELD_MAX_SIZE_MB => 8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
@@ -333,7 +337,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'ESP-03 per-landing attestation seal; per-commit cadence',
             ],
-            'atlas.provider_leak_corpus.v1' => [
+            self::FIELD_ATLAS_PROVIDER_LEAK_CORPUS_V1 => [
                 self::FIELD_MAX_SIZE_MB => 8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_365,
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
@@ -345,7 +349,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXI-04 hybrid-classifier switch receipt; measurement cadence tied to arm-ON runs',
             ],
-            'atlas.n_capture_drill.v1' => [
+            self::FIELD_ATLAS_N_CAPTURE_DRILL_V1 => [
                 self::FIELD_MAX_SIZE_MB => 8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_365,
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,

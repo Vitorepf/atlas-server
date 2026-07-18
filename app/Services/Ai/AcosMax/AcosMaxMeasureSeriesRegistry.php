@@ -99,6 +99,10 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_MAXL_08 = 'MAXL-08';
     public const FIELD_MAXM_01 = 'MAXM-01';
     public const FIELD_MULTK_01 = 'MULTK-01';
+    public const FIELD_MULTK_02 = 'MULTK-02';
+    public const FIELD_MULTK_03 = 'MULTK-03';
+    public const FIELD_MULTN15_02 = 'MULTN15-02';
+    public const FIELD_MULTX_02 = 'MULTX-02';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -311,7 +315,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.decide.cost_outcome_uncertainty.v1',
             ],
             [
-                self::FIELD_SLICE => 'MULTK-02',
+                self::FIELD_SLICE => self::FIELD_MULTK_02,
                 self::FIELD_SERIES => AtlasDecideCostOutcomeRouter::MULTK02_MEASURE_ID,
                 self::FIELD_PATH => 'AtlasDecideCostOutcomeRouter::costOutcomeRoute.cascade',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
@@ -320,7 +324,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.decide.cascade_cost_router.v1',
             ],
             [
-                self::FIELD_SLICE => 'MULTK-03',
+                self::FIELD_SLICE => self::FIELD_MULTK_03,
                 self::FIELD_SERIES => AtlasDecideReplayDivergenceService::MEASURE_ID,
                 self::FIELD_PATH => 'atlas:decide:replay-divergence --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
@@ -356,7 +360,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.esp_09.challenger_advisory.v1',
             ],
             [
-                self::FIELD_SLICE => 'MULTN15-02',
+                self::FIELD_SLICE => self::FIELD_MULTN15_02,
                 self::FIELD_SERIES => OperatorApprovalHistoryMeter::MEASURE_ID,
                 self::FIELD_PATH => 'atlas:operator-approval-history --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
@@ -410,7 +414,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:acos.flywheel.loops.v1',
             ],
             [
-                self::FIELD_SLICE => 'MULTX-02',
+                self::FIELD_SLICE => self::FIELD_MULTX_02,
                 self::FIELD_SERIES => AtlasFlywheelFunnelService::MEASURE_ID,
                 self::FIELD_PATH => 'atlas:flywheel:funnel --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
