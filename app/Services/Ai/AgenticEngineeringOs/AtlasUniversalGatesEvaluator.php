@@ -15816,4 +15816,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B592).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b592KnowledgeItemComposedObraAaeosHttpAutonomousWorkFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'embedding_model IS NULL OR embedded_content_hash IS NULL' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_EMBEDDING_MODEL_IS_NULL_OR_EMBEDDED_CONTENT_HASH_IS_NULL,
+            'embedded_content_hash != content_hash' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_EMBEDDED_CONTENT_HASH____CONTENT_HASH,
+            'Every ordered arc task lands with proven_real outcome; partial completion leaves arc open.' => ComposedObraArcComposer::FIELD_EVERY_ORDERED_ARC_TASK_LANDS_WITH_PROVEN_REAL_OUTCOME__PARTIAL_COMPLETION_LEAVES_ARC_OPEN_,
+            'Wiring the neighbor organs ' => ComposedObraArcComposer::FIELD_WIRING_THE_NEIGHBOR_ORGANS_,
+            'Atlas placement gate blocked this intent before provider execution.' => AtlasAaeosHttpPathFacadeService::FIELD_ATLAS_PLACEMENT_GATE_BLOCKED_THIS_INTENT_BEFORE_PROVIDER_EXECUTION_,
+            'Atlas policy gate blocked this intent before provider execution' => AtlasAaeosHttpPathFacadeService::FIELD_ATLAS_POLICY_GATE_BLOCKED_THIS_INTENT_BEFORE_PROVIDER_EXECUTION,
+            'autonomy_level %s blocks when prior failure signatures exist (%d found)' => AutonomousWorkExecutionOs::FIELD_AUTONOMY_LEVEL__S_BLOCKS_WHEN_PRIOR_FAILURE_SIGNATURES_EXIST___D_FOUND_,
+            'autonomy_level %s requires operator_consent_present=true' => AutonomousWorkExecutionOs::FIELD_AUTONOMY_LEVEL__S_REQUIRES_OPERATOR_CONSENT_PRESENT_TRUE,
+            'Runbook for %s intent: %d stages, %d gates total.' => RunbookOrchestrator::FIELD_RUNBOOK_FOR__S_INTENT___D_STAGES___D_GATES_TOTAL_,
+            'title and limitation are required for structural redesign proposals.' => RunbookOrchestrator::FIELD_TITLE_AND_LIMITATION_ARE_REQUIRED_FOR_STRUCTURAL_REDESIGN_PROPOSALS_,
+            'Economia de arms + depreciação + graduação em regime' => AtlasFrontierWaveLadder::FIELD_ECONOMIA_DE_ARMS___DEPRECIA__O___GRADUA__O_EM_REGIME,
+            'SIS3 causal ∥ SIS5 curiosidade + auto-construção fechada' => AtlasFrontierWaveLadder::FIELD_SIS3_CAUSAL___SIS5_CURIOSIDADE___AUTO_CONSTRU__O_FECHADA,
+            'Evidence ledger chain integrity verifier detected chain gaps.' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_EVIDENCE_LEDGER_CHAIN_INTEGRITY_VERIFIER_DETECTED_CHAIN_GAPS_,
+            'Evidence ledger chain integrity verifier detected tampered events.' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_EVIDENCE_LEDGER_CHAIN_INTEGRITY_VERIFIER_DETECTED_TAMPERED_EVENTS_,
+            'Last successful SUB-01 restore drill is older than the allowed window.' => SubstrateRestoreDrillWatchdogCheck::FIELD_LAST_SUCCESSFUL_SUB_01_RESTORE_DRILL_IS_OLDER_THAN_THE_ALLOWED_WINDOW_,
+            'No successful SUB-01 restore drill receipt found.' => SubstrateRestoreDrillWatchdogCheck::FIELD_NO_SUCCESSFUL_SUB_01_RESTORE_DRILL_RECEIPT_FOUND_,
+            'ELEV-20s DB-backed watchdog run trail' => AcosMaxLedgerRotationRegistry::FIELD_ELEV_20S_DB_BACKED_WATCHDOG_RUN_TRAIL,
+            'ELEV-25 review-debt watchdog trail' => AcosMaxLedgerRotationRegistry::FIELD_ELEV_25_REVIEW_DEBT_WATCHDOG_TRAIL,
+            'b592_knowledge_item_composed_obra_aaeos_http_autonomous_work_floor_count' => 18,
+        ];
+    }
+
 }

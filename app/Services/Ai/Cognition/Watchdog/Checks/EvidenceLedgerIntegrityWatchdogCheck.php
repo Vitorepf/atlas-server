@@ -68,6 +68,8 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_NOW = 'now';
     public const FIELD_BASE_PATH = 'base_path';
     public const FIELD_WDG_01_EVIDENCE_LEDGER_INTEGRITY = 'wdg-01.evidence_ledger_integrity';
+    public const FIELD_EVIDENCE_LEDGER_CHAIN_INTEGRITY_VERIFIER_DETECTED_CHAIN_GAPS_ = 'Evidence ledger chain integrity verifier detected chain gaps.';
+    public const FIELD_EVIDENCE_LEDGER_CHAIN_INTEGRITY_VERIFIER_DETECTED_TAMPERED_EVENTS_ = 'Evidence ledger chain integrity verifier detected tampered events.';
 
 
     public function __construct(
@@ -161,7 +163,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
                 $evidence + [self::FIELD_REASON => self::REASON_TAMPERED],
                 [
                     self::FIELD_CODE => self::FIELD_EVIDENCE_LEDGER_TAMPERED,
-                    self::FIELD_MESSAGE => 'Evidence ledger chain integrity verifier detected tampered events.',
+                    self::FIELD_MESSAGE => self::FIELD_EVIDENCE_LEDGER_CHAIN_INTEGRITY_VERIFIER_DETECTED_TAMPERED_EVENTS_,
                     self::FIELD_TAMPERED_EVENT_IDS => $evidence[self::FIELD_TAMPERED_EVENT_IDS],
                 ],
             );
@@ -172,7 +174,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
                 $evidence + [self::FIELD_REASON => self::REASON_GAP],
                 [
                     self::FIELD_CODE => self::FIELD_EVIDENCE_LEDGER_GAP,
-                    self::FIELD_MESSAGE => 'Evidence ledger chain integrity verifier detected chain gaps.',
+                    self::FIELD_MESSAGE => self::FIELD_EVIDENCE_LEDGER_CHAIN_INTEGRITY_VERIFIER_DETECTED_CHAIN_GAPS_,
                     self::FIELD_GAP_COUNT => $gapTotal,
                 ],
             );

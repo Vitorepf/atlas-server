@@ -88,6 +88,8 @@ final class RunbookOrchestrator
     public const FIELD_L13 = 'L13';
     public const FIELD_AAEOS_RUNBOOK_ORCHESTRATOR = 'aaeos-runbook-orchestrator';
     public const FIELD_ATLAS_AGENTIC_ENGINEERING_OS_RUNBOOK = 'atlas-agentic-engineering-os-runbook';
+    public const FIELD_RUNBOOK_FOR__S_INTENT___D_STAGES___D_GATES_TOTAL_ = 'Runbook for %s intent: %d stages, %d gates total.';
+    public const FIELD_TITLE_AND_LIMITATION_ARE_REQUIRED_FOR_STRUCTURAL_REDESIGN_PROPOSALS_ = 'title and limitation are required for structural redesign proposals.';
     public const INT_2 = 2;
     public const INT_12 = 12;
 
@@ -159,7 +161,7 @@ final class RunbookOrchestrator
             self::FIELD_STAGES => $stages,
             self::FIELD_STAGE_COUNT => count($stages),
             self::FIELD_DETAIL => sprintf(
-                'Runbook for %s intent: %d stages, %d gates total.',
+                self::FIELD_RUNBOOK_FOR__S_INTENT___D_STAGES___D_GATES_TOTAL_,
                 $intentClass,
                 count($stages),
                 array_sum(array_map(static fn ($s): int => count($s[self::FIELD_GATES]), $stages)),
@@ -191,7 +193,7 @@ final class RunbookOrchestrator
         $title = AiValueNormalizer::trimmedStringOrNull($request[self::FIELD_TITLE] ?? null) ?? '';
         $limitation = AiValueNormalizer::trimmedStringOrNull($request[self::FIELD_LIMITATION] ?? null) ?? '';
         if ($title === '' || $limitation === '') {
-            throw new \InvalidArgumentException('title and limitation are required for structural redesign proposals.');
+            throw new \InvalidArgumentException(self::FIELD_TITLE_AND_LIMITATION_ARE_REQUIRED_FOR_STRUCTURAL_REDESIGN_PROPOSALS_);
         }
 
         $rawChanges = AiValueNormalizer::arrayOrEmpty($request[self::FIELD_STRUCTURAL_CHANGES] ?? null);

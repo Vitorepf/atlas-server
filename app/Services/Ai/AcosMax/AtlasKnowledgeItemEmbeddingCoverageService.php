@@ -99,6 +99,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const FIELD_CODEX_INDEPENDENT_MAXA06_FASE1_JUDGE = 'codex-independent-maxa06-fase1-judge';
     public const FIELD_CURSOR_ACOS_MAX_MAXA06_FASE1 = 'cursor-acos-max-maxa06-fase1';
     public const FIELD_ATLAS_MEMORY_KB_EMBEDDING_COVERAGE___JSON = 'atlas:memory:kb-embedding-coverage --json';
+    public const FIELD_EMBEDDING_MODEL_IS_NULL_OR_EMBEDDED_CONTENT_HASH_IS_NULL = 'embedding_model IS NULL OR embedded_content_hash IS NULL';
+    public const FIELD_EMBEDDED_CONTENT_HASH____CONTENT_HASH = 'embedded_content_hash != content_hash';
     public const FLOAT_1_0 = 1.0;
     public const INT_60 = 60;
 
@@ -113,8 +115,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
             self::FIELD_THRESHOLDS => [
                 self::FIELD_TARGET_COVERAGE_RATIO => self::FLOAT_1_0,
                 self::FIELD_DENOMINATOR_MIN_ACTIVE_ITEMS => 1,
-                self::FIELD_STALE_DEFINITION => 'embedded_content_hash != content_hash',
-                self::FIELD_MISSING_DEFINITION => 'embedding_model IS NULL OR embedded_content_hash IS NULL',
+                self::FIELD_STALE_DEFINITION => self::FIELD_EMBEDDED_CONTENT_HASH____CONTENT_HASH,
+                self::FIELD_MISSING_DEFINITION => self::FIELD_EMBEDDING_MODEL_IS_NULL_OR_EMBEDDED_CONTENT_HASH_IS_NULL,
                 self::FIELD_SCOPE => self::FIELD_ACTIVE_ITEMS_ONLY,
             ],
             self::FIELD_DENOMINATOR_MIN => 1,

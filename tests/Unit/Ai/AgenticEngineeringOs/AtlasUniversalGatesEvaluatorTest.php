@@ -12487,4 +12487,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b591_evidence_vision_phase_handoff_autonomy_ladder_aaeos_doc_floor_count']);
     }
 
+    public function test_b592_knowledge_item_composed_obra_aaeos_http_autonomous_work_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b592KnowledgeItemComposedObraAaeosHttpAutonomousWorkFloorsContractObserve([]);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_EMBEDDING_MODEL_IS_NULL_OR_EMBEDDED_CONTENT_HASH_IS_NULL, $out['embedding_model IS NULL OR embedded_content_hash IS NULL']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_EMBEDDED_CONTENT_HASH____CONTENT_HASH, $out['embedded_content_hash != content_hash']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_EVERY_ORDERED_ARC_TASK_LANDS_WITH_PROVEN_REAL_OUTCOME__PARTIAL_COMPLETION_LEAVES_ARC_OPEN_, $out['Every ordered arc task lands with proven_real outcome; partial completion leaves arc open.']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_WIRING_THE_NEIGHBOR_ORGANS_, $out['Wiring the neighbor organs ']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_ATLAS_PLACEMENT_GATE_BLOCKED_THIS_INTENT_BEFORE_PROVIDER_EXECUTION_, $out['Atlas placement gate blocked this intent before provider execution.']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_ATLAS_POLICY_GATE_BLOCKED_THIS_INTENT_BEFORE_PROVIDER_EXECUTION, $out['Atlas policy gate blocked this intent before provider execution']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_AUTONOMY_LEVEL__S_BLOCKS_WHEN_PRIOR_FAILURE_SIGNATURES_EXIST___D_FOUND_, $out['autonomy_level %s blocks when prior failure signatures exist (%d found)']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_AUTONOMY_LEVEL__S_REQUIRES_OPERATOR_CONSENT_PRESENT_TRUE, $out['autonomy_level %s requires operator_consent_present=true']);
+        $this->assertSame(RunbookOrchestrator::FIELD_RUNBOOK_FOR__S_INTENT___D_STAGES___D_GATES_TOTAL_, $out['Runbook for %s intent: %d stages, %d gates total.']);
+        $this->assertSame(RunbookOrchestrator::FIELD_TITLE_AND_LIMITATION_ARE_REQUIRED_FOR_STRUCTURAL_REDESIGN_PROPOSALS_, $out['title and limitation are required for structural redesign proposals.']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_ECONOMIA_DE_ARMS___DEPRECIA__O___GRADUA__O_EM_REGIME, $out['Economia de arms + depreciação + graduação em regime']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_SIS3_CAUSAL___SIS5_CURIOSIDADE___AUTO_CONSTRU__O_FECHADA, $out['SIS3 causal ∥ SIS5 curiosidade + auto-construção fechada']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_EVIDENCE_LEDGER_CHAIN_INTEGRITY_VERIFIER_DETECTED_CHAIN_GAPS_, $out['Evidence ledger chain integrity verifier detected chain gaps.']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_EVIDENCE_LEDGER_CHAIN_INTEGRITY_VERIFIER_DETECTED_TAMPERED_EVENTS_, $out['Evidence ledger chain integrity verifier detected tampered events.']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_LAST_SUCCESSFUL_SUB_01_RESTORE_DRILL_IS_OLDER_THAN_THE_ALLOWED_WINDOW_, $out['Last successful SUB-01 restore drill is older than the allowed window.']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_NO_SUCCESSFUL_SUB_01_RESTORE_DRILL_RECEIPT_FOUND_, $out['No successful SUB-01 restore drill receipt found.']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ELEV_20S_DB_BACKED_WATCHDOG_RUN_TRAIL, $out['ELEV-20s DB-backed watchdog run trail']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ELEV_25_REVIEW_DEBT_WATCHDOG_TRAIL, $out['ELEV-25 review-debt watchdog trail']);
+        $this->assertSame(18, $out['b592_knowledge_item_composed_obra_aaeos_http_autonomous_work_floor_count']);
+    }
+
 }

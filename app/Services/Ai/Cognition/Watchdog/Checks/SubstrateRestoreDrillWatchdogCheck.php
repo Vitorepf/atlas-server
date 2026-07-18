@@ -45,6 +45,8 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_SUBSTRATE_RESTORE_DRILL_MISSING = 'substrate_restore_drill_missing';
     public const FIELD_SUBSTRATE_RESTORE_DRILL_STALE = 'substrate_restore_drill_stale';
     public const FIELD_UTC = 'UTC';
+    public const FIELD_LAST_SUCCESSFUL_SUB_01_RESTORE_DRILL_IS_OLDER_THAN_THE_ALLOWED_WINDOW_ = 'Last successful SUB-01 restore drill is older than the allowed window.';
+    public const FIELD_NO_SUCCESSFUL_SUB_01_RESTORE_DRILL_RECEIPT_FOUND_ = 'No successful SUB-01 restore drill receipt found.';
 
 
     public function id(): string
@@ -67,7 +69,7 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
                 self::FIELD_REASON => self::REASON_NO_SUCCESSFUL_DRILL,
             ], [
                 self::FIELD_CODE => self::FIELD_SUBSTRATE_RESTORE_DRILL_MISSING,
-                self::FIELD_MESSAGE => 'No successful SUB-01 restore drill receipt found.',
+                self::FIELD_MESSAGE => self::FIELD_NO_SUCCESSFUL_SUB_01_RESTORE_DRILL_RECEIPT_FOUND_,
             ]);
         }
 
@@ -85,7 +87,7 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
         if ($ageDays > $maxAgeDays) {
             return AtlasWatchdogCheckResult::alert($evidence + [self::FIELD_REASON => self::REASON_SUCCESSFUL_DRILL_STALE], [
                 self::FIELD_CODE => self::FIELD_SUBSTRATE_RESTORE_DRILL_STALE,
-                self::FIELD_MESSAGE => 'Last successful SUB-01 restore drill is older than the allowed window.',
+                self::FIELD_MESSAGE => self::FIELD_LAST_SUCCESSFUL_SUB_01_RESTORE_DRILL_IS_OLDER_THAN_THE_ALLOWED_WINDOW_,
             ]);
         }
 

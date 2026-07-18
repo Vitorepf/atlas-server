@@ -92,6 +92,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_OPERATOR_APPROVAL_HISTORY_V1 = 'operator.approval_history.v1';
     public const FIELD_ELEV_02_METRIC_M_SERIES__MONTHLY_APPEND_CADENCE = 'ELEV-02 metric M series; monthly append cadence';
     public const FIELD_ELEV_12_VERIFIED_SHARE_OBSERVED_DAILY = 'ELEV-12 verified-share observed daily';
+    public const FIELD_ELEV_20S_DB_BACKED_WATCHDOG_RUN_TRAIL = 'ELEV-20s DB-backed watchdog run trail';
+    public const FIELD_ELEV_25_REVIEW_DEBT_WATCHDOG_TRAIL = 'ELEV-25 review-debt watchdog trail';
     public const INT_8 = 8;
     public const INT_64 = 64;
     public const INT_45 = 45;
@@ -198,13 +200,13 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'ELEV-20s DB-backed watchdog run trail',
+                self::FIELD_RATIONALE => self::FIELD_ELEV_20S_DB_BACKED_WATCHDOG_RUN_TRAIL,
             ],
             self::FIELD_ACOS_OPERATOR_REVIEW_DEBT_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'ELEV-25 review-debt watchdog trail',
+                self::FIELD_RATIONALE => self::FIELD_ELEV_25_REVIEW_DEBT_WATCHDOG_TRAIL,
             ],
             self::FIELD_ATLAS_AI_LESSON_QUALITY_V2 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,

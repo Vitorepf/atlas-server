@@ -137,6 +137,8 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD__COUNT = '.count';
     public const FIELD__MAX = '.max';
     public const FIELD__SUM = '.sum';
+    public const FIELD_ATLAS_PLACEMENT_GATE_BLOCKED_THIS_INTENT_BEFORE_PROVIDER_EXECUTION_ = 'Atlas placement gate blocked this intent before provider execution.';
+    public const FIELD_ATLAS_POLICY_GATE_BLOCKED_THIS_INTENT_BEFORE_PROVIDER_EXECUTION = 'Atlas policy gate blocked this intent before provider execution';
     public const INT_422 = 422;
 
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
@@ -232,7 +234,7 @@ final class AtlasAaeosHttpPathFacadeService
                 envelopes: $envelopes,
                 placementResult: $placementResult,
                 blockerCode: self::BLOCK_PLACEMENT_GATE_BLOCKED,
-                reason: 'Atlas placement gate blocked this intent before provider execution.',
+                reason: self::FIELD_ATLAS_PLACEMENT_GATE_BLOCKED_THIS_INTENT_BEFORE_PROVIDER_EXECUTION_,
                 blockedWhen: array_values(AiValueNormalizer::arrayOrEmpty($placementResult[self::FIELD_BLOCKED_WHEN] ?? null)),
                 configuredPhase: $configuredPhase,
                 startedAtNs: $startedAtNs,
@@ -264,7 +266,7 @@ final class AtlasAaeosHttpPathFacadeService
                     envelopes: $envelopes,
                     placementResult: $placementResult,
                     blockerCode: self::BLOCK_POLICY_GATE_BLOCKED,
-                    reason: 'Atlas policy gate blocked this intent before provider execution'
+                    reason: self::FIELD_ATLAS_POLICY_GATE_BLOCKED_THIS_INTENT_BEFORE_PROVIDER_EXECUTION
                         .(($advance[self::FIELD_REASON] ?? '') !== '' ? ' ('.$advance[self::FIELD_REASON].').' : '.'),
                     blockedWhen: $blockedWhen,
                     configuredPhase: $configuredPhase,
