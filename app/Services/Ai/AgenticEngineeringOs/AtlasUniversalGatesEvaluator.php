@@ -15334,4 +15334,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B576).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b576ComposedObraDevProceduralOutcomeEnvelopeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'tasks' => ComposedObraArcLifecycle::FIELD_TASKS,
+            'schema_version' => ComposedObraArcLifecycle::FIELD_SCHEMA_VERSION,
+            'archive_receipt' => ComposedObraArcLifecycle::FIELD_ARCHIVE_RECEIPT,
+            'opened_at' => ComposedObraArcLifecycle::FIELD_OPENED_AT,
+            'closed_at' => ComposedObraArcLifecycle::FIELD_CLOSED_AT,
+            'reason' => ComposedObraArcLifecycle::FIELD_REASON,
+            'fake_green' => DevProceduralOutcomeEnvelopeAdapter::FIELD_FAKE_GREEN,
+            'should_promote_to_aemor' => DevProceduralOutcomeEnvelopeAdapter::FIELD_SHOULD_PROMOTE_TO_AEMOR,
+            'learning_candidates' => DevProceduralOutcomeEnvelopeAdapter::FIELD_LEARNING_CANDIDATES,
+            'evidence_kinds' => DevProceduralOutcomeEnvelopeAdapter::FIELD_EVIDENCE_KINDS,
+            'changed_files' => DevProceduralOutcomeEnvelopeAdapter::FIELD_CHANGED_FILES,
+            'status' => DevProceduralOutcomeEnvelopeAdapter::FIELD_STATUS,
+            'origin' => OutcomeEnvelope::FIELD_ORIGIN,
+            'fields' => OutcomeEnvelope::FIELD_FIELDS,
+            'certified_receipt_id' => OutcomeEnvelope::FIELD_CERTIFIED_RECEIPT_ID,
+            'evidence_ref_count' => OutcomeEnvelope::FIELD_EVIDENCE_REF_COUNT,
+            'episode_id' => OutcomeEnvelope::FIELD_EPISODE_ID,
+            'run_id' => OutcomeEnvelope::FIELD_RUN_ID,
+            'b576_composed_obra_dev_procedural_outcome_envelope_floor_count' => 18,
+        ];
+    }
+
 }

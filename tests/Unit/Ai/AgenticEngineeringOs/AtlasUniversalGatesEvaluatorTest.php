@@ -12099,4 +12099,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b575_parallel_execution_aemor_outcome_knowledge_item_floor_count']);
     }
 
+    public function test_b576_composed_obra_dev_procedural_outcome_envelope_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b576ComposedObraDevProceduralOutcomeEnvelopeFloorsContractObserve([]);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_TASKS, $out['tasks']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_ARCHIVE_RECEIPT, $out['archive_receipt']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_OPENED_AT, $out['opened_at']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_CLOSED_AT, $out['closed_at']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_REASON, $out['reason']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_FAKE_GREEN, $out['fake_green']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_SHOULD_PROMOTE_TO_AEMOR, $out['should_promote_to_aemor']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_LEARNING_CANDIDATES, $out['learning_candidates']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_EVIDENCE_KINDS, $out['evidence_kinds']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_CHANGED_FILES, $out['changed_files']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_STATUS, $out['status']);
+        $this->assertSame(OutcomeEnvelope::FIELD_ORIGIN, $out['origin']);
+        $this->assertSame(OutcomeEnvelope::FIELD_FIELDS, $out['fields']);
+        $this->assertSame(OutcomeEnvelope::FIELD_CERTIFIED_RECEIPT_ID, $out['certified_receipt_id']);
+        $this->assertSame(OutcomeEnvelope::FIELD_EVIDENCE_REF_COUNT, $out['evidence_ref_count']);
+        $this->assertSame(OutcomeEnvelope::FIELD_EPISODE_ID, $out['episode_id']);
+        $this->assertSame(OutcomeEnvelope::FIELD_RUN_ID, $out['run_id']);
+        $this->assertSame(18, $out['b576_composed_obra_dev_procedural_outcome_envelope_floor_count']);
+    }
+
 }
