@@ -12149,4 +12149,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b577_promotion_protocol_cognition_score_evidence_ledger_floor_count']);
     }
 
+    public function test_b578_window_orchestrator_code_symbol_exploratory_bets_maxa_jina_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b578WindowOrchestratorCodeSymbolExploratoryBetsMaxaJinaFloorsContractObserve([]);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_SERIES, $out['series']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_FAMILY, $out['family']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_STATE, $out['state']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_READ_ONLY, $out['read_only']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_PROMOTION_PROTOCOL_SCHEMA, $out['promotion_protocol_schema']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_FREEZE, $out['freeze']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_FORMULA, $out['formula']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_THRESHOLDS, $out['thresholds']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_SUSPENSION_UPDATES, $out['suspension_updates']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_SOURCE, $out['source']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_FROM_STATE, $out['from_state']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_TO_STATE, $out['to_state']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_TARGETS_AVAILABLE, $out['targets_available']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_DUAL_READ_HASH, $out['dual_read_hash']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_CANDIDATE_MODEL, $out['candidate_model']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_CTX_TOKENS, $out['ctx_tokens']);
+        $this->assertSame(18, $out['b578_window_orchestrator_code_symbol_exploratory_bets_maxa_jina_floor_count']);
+    }
+
 }

@@ -15396,4 +15396,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B578).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b578WindowOrchestratorCodeSymbolExploratoryBetsMaxaJinaFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'series' => AcosMaxWindowOrchestratorService::FIELD_SERIES,
+            'family' => AcosMaxWindowOrchestratorService::FIELD_FAMILY,
+            'state' => AcosMaxWindowOrchestratorService::FIELD_STATE,
+            'read_only' => AcosMaxWindowOrchestratorService::FIELD_READ_ONLY,
+            'promotion_protocol_schema' => AcosMaxWindowOrchestratorService::FIELD_PROMOTION_PROTOCOL_SCHEMA,
+            'schema_version' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_SCHEMA_VERSION,
+            'generated_at' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_GENERATED_AT,
+            'freeze' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_FREEZE,
+            'formula' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_FORMULA,
+            'thresholds' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_THRESHOLDS,
+            'suspension_updates' => ExploratoryBetsPortfolio::FIELD_SUSPENSION_UPDATES,
+            'source' => ExploratoryBetsPortfolio::FIELD_SOURCE,
+            'from_state' => ExploratoryBetsPortfolio::FIELD_FROM_STATE,
+            'to_state' => ExploratoryBetsPortfolio::FIELD_TO_STATE,
+            'targets_available' => Maxa04JinaV3DualReadService::FIELD_TARGETS_AVAILABLE,
+            'dual_read_hash' => Maxa04JinaV3DualReadService::FIELD_DUAL_READ_HASH,
+            'candidate_model' => Maxa04JinaV3DualReadService::FIELD_CANDIDATE_MODEL,
+            'ctx_tokens' => Maxa04JinaV3DualReadService::FIELD_CTX_TOKENS,
+            'b578_window_orchestrator_code_symbol_exploratory_bets_maxa_jina_floor_count' => 18,
+        ];
+    }
+
 }
