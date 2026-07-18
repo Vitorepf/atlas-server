@@ -81,10 +81,10 @@ final class MemoryFeedbackDecayScorer
         $positive = $this->nonNegativeInt($signals, self::FIELD_POSITIVE_COUNT);
         $negative = $this->nonNegativeInt($signals, self::FIELD_NEGATIVE_COUNT);
         $wrongContext = $this->nonNegativeInt($signals, 'wrong_context_count');
-        $stale = $this->nonNegativeInt($signals, 'stale_count');
+        $stale = $this->nonNegativeInt($signals, self::FIELD_STALE_COUNT);
         $basePriority = $this->clamp(0, 100, $this->intOrDefault($signals, self::FIELD_BASE_PRIORITY, self::DEFAULT_BASE_PRIORITY));
 
-        $recordedAge = $this->ageOrNull($signals, 'recorded_at_age_days');
+        $recordedAge = $this->ageOrNull($signals, self::FIELD_RECORDED_AT_AGE_DAYS);
         $lastUsedAge = $this->ageOrNull($signals, self::FIELD_LAST_USED_AT_AGE_DAYS);
         $hitRate = $this->hitRateOrNull($signals);
 

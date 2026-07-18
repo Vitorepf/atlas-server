@@ -190,6 +190,7 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_SOURCES_SCORECARD_OVERALL = 'sources.scorecard_overall';
     public const FIELD_APP_ATLAS_EVIDENCE_ACOS_DELTA_SERIES_JSONL = 'app/atlas/evidence/acos-delta-series.jsonl';
     public const FIELD_APP_ATLAS_EVIDENCE_ACOS_DELTA_SERIES_V2_JSONL = 'app/atlas/evidence/acos-delta-series.v2.jsonl';
+    public const FIELD_DELTA_SERIES_RESOLVED_EVIDENCE_SOURCE_MISSING = 'delta_series_resolved_evidence_source_missing';
     public const INT_2 = 2;
     public const FLOAT_9_5 = 9.5;
     public const FLOAT_0_0 = 0.0;
@@ -468,7 +469,7 @@ final class AtlasAcosLongHorizonGateService
             [
                 self::FIELD_DAY_COUNT => self::FIELD_SERIES_DAY_COUNT_BELOW_FLOOR,
                 self::FIELD_CALENDAR_SPAN => self::FIELD_CALENDAR_SPAN_BELOW_FLOOR,
-                self::FIELD_RESOLVED_EVIDENCE => 'delta_series_resolved_evidence_source_missing',
+                self::FIELD_RESOLVED_EVIDENCE => self::FIELD_DELTA_SERIES_RESOLVED_EVIDENCE_SOURCE_MISSING,
                 self::FIELD_FUTURE_DATED => self::FIELD_DELTA_SERIES_FUTURE_DATED_ROWS,
                 self::FIELD_WINDOW_STALE => self::FIELD_DELTA_SERIES_WINDOW_STALE,
                 self::FIELD_GAP => self::FIELD_SERIES_GAP_EXCEEDS_FLOOR,
@@ -743,7 +744,7 @@ final class AtlasAcosLongHorizonGateService
                 }
 
                 $dayBelow = false;
-                foreach (['overall', self::FIELD_CODE, self::FIELD_DOC, 'pipeline'] as $dimension) {
+                foreach ([self::FIELD_OVERALL, self::FIELD_CODE, self::FIELD_DOC, 'pipeline'] as $dimension) {
                     $score = round(AiValueNormalizer::finiteFloatOrNull($scores[$dimension] ?? 0.0) ?? 0.0, 3);
                     $minAreaScores[$area][$dimension] = isset($minAreaScores[$area][$dimension])
                         ? min($minAreaScores[$area][$dimension], $score)

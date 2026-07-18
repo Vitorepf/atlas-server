@@ -355,9 +355,9 @@ final class AcosMaxVerifiedShareService
         $value = AiValueNormalizer::lowerTrimmedString($value);
 
         return match (true) {
-            in_array($value, ['dev', self::FIELD_ATLAS_DEV, self::FIELD_ATLAS_DEV_2], true) => self::FIELD_DEV,
+            in_array($value, [self::FIELD_DEV, self::FIELD_ATLAS_DEV, self::FIELD_ATLAS_DEV_2], true) => self::FIELD_DEV,
             in_array($value, ['forge', self::FIELD_ATLAS_FORGE, self::FIELD_ATLAS_FORGE_2], true) => self::FIELD_FORGE,
-            in_array($value, ['autonomos', self::FIELD_AUTONOMOUS, self::FIELD_ATLAS_AUTONOMOS, self::FIELD_ATLAS_AUTONOMOS_2], true) => self::FIELD_AUTONOMOS,
+            in_array($value, [self::FIELD_AUTONOMOS, self::FIELD_AUTONOMOUS, self::FIELD_ATLAS_AUTONOMOS, self::FIELD_ATLAS_AUTONOMOS_2], true) => self::FIELD_AUTONOMOS,
             default => null,
         };
     }

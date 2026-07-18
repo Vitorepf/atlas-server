@@ -382,7 +382,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     public function topology(string $intentId, string $intentHash, string $riskBand): array
     {
-        return $this->deferredPhase('topology', $intentId, $intentHash, $riskBand);
+        return $this->deferredPhase(self::FIELD_TOPOLOGY, $intentId, $intentHash, $riskBand);
     }
 
     /**
@@ -519,7 +519,7 @@ final class AaeosHttpPathEnvelopeFactory
                 $owner = AiValueNormalizer::trimmedStringOrNull($blocker[self::FIELD_OWNER] ?? null) ?? self::FIELD_ATLAS_AI;
                 $blockers[] = [
                     self::FIELD_ID => $id,
-                    self::FIELD_SEVERITY => $severity !== '' ? $severity : 'high',
+                    self::FIELD_SEVERITY => $severity !== '' ? $severity : self::FIELD_HIGH,
                     self::FIELD_OWNER => $owner !== '' ? $owner : self::FIELD_ATLAS_AI,
                 ];
             } elseif (($id = AiValueNormalizer::trimmedStringOrNull($blocker)) !== null) {

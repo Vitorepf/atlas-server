@@ -428,8 +428,8 @@ final class DepartmentContractRuntime
      * @var list<string>
      */
     public const CANONICAL_FIELDS = [
-        'human_name',
-        'scope',
+        self::FIELD_HUMAN_NAME,
+        self::FIELD_SCOPE,
         'triggers',
         self::FIELD_INPUTS,
         self::FIELD_OUTPUTS,

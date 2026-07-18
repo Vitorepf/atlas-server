@@ -11168,4 +11168,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b537_maxa_jina_capture_hmac_acos_watchdog_immune_signature_floor_count']);
     }
 
+    public function test_b538_aaeos_test_http_path_department_contract_verified_share_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b538AaeosTestHttpPathDepartmentContractVerifiedShareFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD___FILTER, $out['--filter']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_TOPOLOGY, $out['topology']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_HIGH, $out['high']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SCOPE, $out['scope']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_HUMAN_NAME, $out['human_name']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_AUTONOMOS, $out['autonomos']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_DEV, $out['dev']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_ACOS_ROLLBACK_TRIGGERS, $out['atlas:acos:rollback-triggers']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK, $out['atlas:atlas-decide:live-feedback']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_OPEN_BLOCKERS_REPAIR, $out['open_blockers_repair']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_OPERATOR_SIGNATURE_REQUIRED, $out['operator_signature_required']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_DELTA_SERIES_RESOLVED_EVIDENCE_SOURCE_MISSING, $out['delta_series_resolved_evidence_source_missing']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_OVERALL, $out['overall']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_RECORDED_AT_AGE_DAYS, $out['recorded_at_age_days']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_STALE_COUNT, $out['stale_count']);
+        $this->assertSame(AsefChunkIndexService::FIELD_DELETE_CASCADE_KEY, $out['delete_cascade_key']);
+        $this->assertSame(AsefChunkIndexService::FIELD_ID, $out['id']);
+        $this->assertSame(18, $out['b538_aaeos_test_http_path_department_contract_verified_share_floor_count']);
+    }
+
 }

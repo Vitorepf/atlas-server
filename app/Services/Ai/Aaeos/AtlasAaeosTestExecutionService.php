@@ -81,6 +81,7 @@ class AtlasAaeosTestExecutionService
     public const FIELD_HOME = 'HOME';
     public const FIELD_PATH = 'PATH';
     public const FIELD_REV_PARSE = 'rev-parse';
+    public const FIELD___FILTER = '--filter';
 
     public function __construct(
         private readonly float $timeout = 180.0,
@@ -325,7 +326,7 @@ class AtlasAaeosTestExecutionService
         }
 
         try {
-            $process = new Process([self::FIELD_GIT, '-C', base_path(), 'status', '--porcelain']);
+            $process = new Process([self::FIELD_GIT, '-C', base_path(), self::FIELD_STATUS, '--porcelain']);
             $process->setTimeout(10.0);
             $process->run();
             $out = AiValueNormalizer::trimmedStringOrNull($process->getOutput()) ?? '';
@@ -423,7 +424,7 @@ class AtlasAaeosTestExecutionService
         if ($explicitPath !== null && (AiValueNormalizer::trimmedStringOrNull($explicitPath) ?? '') !== '' && is_file($explicitPath)) {
             $command[] = $explicitPath;
         }
-        array_push($command, '--filter', $filter, '--no-coverage');
+        array_push($command, self::FIELD___FILTER, $filter, '--no-coverage');
 
         $process = new Process(
             $command,

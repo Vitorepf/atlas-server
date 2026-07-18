@@ -161,12 +161,12 @@ final class PhaseAdvanceVerdictClassifier
 
         // Rule 3: a receipt phase without an operator signature blocks decisively.
         if ($phaseOut === self::PHASE_RECEIPT && $operatorSignature === null) {
-            return [self::VERDICT_BLOCK, 'operator_signature_required'];
+            return [self::VERDICT_BLOCK, self::FIELD_OPERATOR_SIGNATURE_REQUIRED];
         }
 
         // Rule 4: remaining (non-high) open blockers require repair.
         if ($hasOpenBlockers) {
-            return [self::VERDICT_REPAIR, 'open_blockers_repair'];
+            return [self::VERDICT_REPAIR, self::FIELD_OPEN_BLOCKERS_REPAIR];
         }
 
         // Rule 5: any missing required gate requires repair.

@@ -14175,4 +14175,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B538).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b538AaeosTestHttpPathDepartmentContractVerifiedShareFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'status' => AtlasAaeosTestExecutionService::FIELD_STATUS,
+            '--filter' => AtlasAaeosTestExecutionService::FIELD___FILTER,
+            'topology' => AaeosHttpPathEnvelopeFactory::FIELD_TOPOLOGY,
+            'high' => AaeosHttpPathEnvelopeFactory::FIELD_HIGH,
+            'scope' => DepartmentContractRuntime::FIELD_SCOPE,
+            'human_name' => DepartmentContractRuntime::FIELD_HUMAN_NAME,
+            'autonomos' => AcosMaxVerifiedShareService::FIELD_AUTONOMOS,
+            'dev' => AcosMaxVerifiedShareService::FIELD_DEV,
+            'atlas:acos:rollback-triggers' => AcosProgramCockpitService::FIELD_ATLAS_ACOS_ROLLBACK_TRIGGERS,
+            'atlas:atlas-decide:live-feedback' => AcosProgramCockpitService::FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK,
+            'open_blockers_repair' => PhaseAdvanceVerdictClassifier::FIELD_OPEN_BLOCKERS_REPAIR,
+            'operator_signature_required' => PhaseAdvanceVerdictClassifier::FIELD_OPERATOR_SIGNATURE_REQUIRED,
+            'delta_series_resolved_evidence_source_missing' => AtlasAcosLongHorizonGateService::FIELD_DELTA_SERIES_RESOLVED_EVIDENCE_SOURCE_MISSING,
+            'overall' => AtlasAcosLongHorizonGateService::FIELD_OVERALL,
+            'recorded_at_age_days' => MemoryFeedbackDecayScorer::FIELD_RECORDED_AT_AGE_DAYS,
+            'stale_count' => MemoryFeedbackDecayScorer::FIELD_STALE_COUNT,
+            'delete_cascade_key' => AsefChunkIndexService::FIELD_DELETE_CASCADE_KEY,
+            'id' => AsefChunkIndexService::FIELD_ID,
+            'b538_aaeos_test_http_path_department_contract_verified_share_floor_count' => 18,
+        ];
+    }
+
 }

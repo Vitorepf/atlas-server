@@ -560,6 +560,7 @@ final class AtlasAaeosCommand extends Command
                             {--b535-daily-canary-immune-promotion-department-contract-asef-chunk-floors-contract= : JSON file (any object) to observe daily/canary/immune/promotion/department/contract floors}
                             {--b536-cognition-score-acos-evolution-autonomy-ladder-code-symbol-floors-contract= : JSON file (any object) to observe cognition/score/acos/evolution/autonomy/ladder floors}
                             {--b537-maxa-jina-capture-hmac-acos-watchdog-immune-signature-floors-contract= : JSON file (any object) to observe maxa/jina/capture/hmac/acos/watchdog floors}
+                            {--b538-aaeos-test-http-path-department-contract-verified-share-floors-contract= : JSON file (any object) to observe aaeos/test/http/path/department/contract floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1276,6 +1277,7 @@ final class AtlasAaeosCommand extends Command
             ['b535-daily-canary-immune-promotion-department-contract-asef-chunk-floors-contract', 'b535_daily_canary_immune_promotion_department_contract_asef_chunk_floors_contract', fn (array $p) => $gates->b535DailyCanaryImmunePromotionDepartmentContractAsefChunkFloorsContractObserve($p)],
             ['b536-cognition-score-acos-evolution-autonomy-ladder-code-symbol-floors-contract', 'b536_cognition_score_acos_evolution_autonomy_ladder_code_symbol_floors_contract', fn (array $p) => $gates->b536CognitionScoreAcosEvolutionAutonomyLadderCodeSymbolFloorsContractObserve($p)],
             ['b537-maxa-jina-capture-hmac-acos-watchdog-immune-signature-floors-contract', 'b537_maxa_jina_capture_hmac_acos_watchdog_immune_signature_floors_contract', fn (array $p) => $gates->b537MaxaJinaCaptureHmacAcosWatchdogImmuneSignatureFloorsContractObserve($p)],
+            ['b538-aaeos-test-http-path-department-contract-verified-share-floors-contract', 'b538_aaeos_test_http_path_department_contract_verified_share_floors_contract', fn (array $p) => $gates->b538AaeosTestHttpPathDepartmentContractVerifiedShareFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

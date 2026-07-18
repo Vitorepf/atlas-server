@@ -63,6 +63,8 @@ final class AcosProgramCockpitService
     public const FIELD___REGRET = '--regret';
     public const FIELD_ATLAS_ACOS_M_SERIES = 'atlas:acos:m-series';
     public const FIELD_ATLAS_ACOS_OPERATIONAL_VOLUME = 'atlas:acos:operational-volume';
+    public const FIELD_ATLAS_ACOS_ROLLBACK_TRIGGERS = 'atlas:acos:rollback-triggers';
+    public const FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK = 'atlas:atlas-decide:live-feedback';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -77,7 +79,7 @@ final class AcosProgramCockpitService
             self::FIELD_MUTATES_STATE => false,
             self::FIELD_SECTIONS => [
                 'm' => $this->commandSection('atlas:acos:m-series --json', self::FIELD_ATLAS_ACOS_M_SERIES, [self::FIELD___JSON => true]),
-                'r' => $this->commandSection('atlas:atlas-decide:live-feedback --regret --json', 'atlas:atlas-decide:live-feedback', [self::FIELD___REGRET => true, self::FIELD___JSON => true]),
+                'r' => $this->commandSection('atlas:atlas-decide:live-feedback --regret --json', self::FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK, [self::FIELD___REGRET => true, self::FIELD___JSON => true]),
                 self::FIELD_LOOPS_FUNNEL => $this->loopsFunnelSection(),
                 self::FIELD_WINDOWS => $this->commandSection('atlas:windows --json', self::FIELD_ATLAS_WINDOWS, [self::FIELD___JSON => true]),
                 self::FIELD_PENDING_FLIPS => $this->commandSection('atlas:promotions --json', self::FIELD_ATLAS_PROMOTIONS, [self::FIELD___JSON => true]),
@@ -163,7 +165,7 @@ final class AcosProgramCockpitService
                 self::FIELD_OPERATIONAL_VOLUME => 'atlas:acos:operational-volume --json',
             ],
             self::FIELD_PAYLOAD => [
-                self::FIELD_ROLLBACK_TRIGGERS => $this->commandSection('atlas:acos:rollback-triggers --json', 'atlas:acos:rollback-triggers', [self::FIELD___JSON => true]),
+                self::FIELD_ROLLBACK_TRIGGERS => $this->commandSection('atlas:acos:rollback-triggers --json', self::FIELD_ATLAS_ACOS_ROLLBACK_TRIGGERS, [self::FIELD___JSON => true]),
                 self::FIELD_OPERATIONAL_VOLUME => $this->commandSection('atlas:acos:operational-volume --json', self::FIELD_ATLAS_ACOS_OPERATIONAL_VOLUME, [self::FIELD___JSON => true]),
             ],
         ];

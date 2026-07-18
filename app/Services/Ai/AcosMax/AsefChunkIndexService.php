@@ -216,7 +216,7 @@ final class AsefChunkIndexService
             return 0;
         }
 
-        return (int) DB::table(self::FIELD_ASEF_CHUNKS)->where('delete_cascade_key', $key)->delete();
+        return (int) DB::table(self::FIELD_ASEF_CHUNKS)->where(self::FIELD_DELETE_CASCADE_KEY, $key)->delete();
     }
 
     public function deleteBySourceRef(string $sourceRef): int
@@ -359,7 +359,7 @@ final class AsefChunkIndexService
                 self::FIELD_EMBEDDING_STATUS => self::EMBEDDING_STATUS_PERSISTED,
                 self::FIELD_UPDATED_AT => Carbon::now(),
             ];
-            DB::table(self::FIELD_ASEF_CHUNKS)->where('id', $existing->id)->update($update);
+            DB::table(self::FIELD_ASEF_CHUNKS)->where(self::FIELD_ID, $existing->id)->update($update);
             $this->writeVector(AiValueNormalizer::trimmedScalarStringOrNull($existing->id ?? null) ?? '', $vector);
 
             return;
