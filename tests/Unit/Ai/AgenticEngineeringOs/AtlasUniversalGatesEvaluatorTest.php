@@ -13672,4 +13672,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b639_summary_fidelity_floor_count']);
     }
 
+    public function test_b640_spec_completeness_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b640SpecCompletenessFloorsContractObserve([]);
+        $this->assertSame(SpecCompletenessScorer::SCHEMA_VERSION, $out['atlas.aaeos.spec_completeness_score.v1']);
+        $this->assertSame(SpecCompletenessScorer::INT_8, $out['8']);
+        $this->assertSame(SpecCompletenessScorer::INT_12, $out['12']);
+        $this->assertSame(SpecCompletenessScorer::COMPLETE_THRESHOLD, $out['80']);
+        $this->assertSame(SpecCompletenessScorer::PARTIAL_THRESHOLD, $out['50']);
+        $this->assertSame(SpecCompletenessScorer::VERDICT_COMPLETE, $out['complete']);
+        $this->assertSame(SpecCompletenessScorer::VERDICT_PARTIAL, $out['partial']);
+        $this->assertSame(SpecCompletenessScorer::VERDICT_INSUFFICIENT, $out['insufficient']);
+        $this->assertSame(SpecCompletenessScorer::REASON_OK, $out['ok']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_WEIGHT, $out['weight']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_REASON, $out['reason']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_RAW_REQUEST, $out['raw_request']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_INTERPRETED_GOAL, $out['interpreted_goal']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_NON_GOALS, $out['non_goals']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_PRODUCT_AREA, $out['product_area']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_REQUIREMENTS, $out['requirements']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_ACCEPTANCE_CRITERIA, $out['acceptance_criteria']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_BUSINESS_ACTOR_OBJECT_ACTION, $out['business_actor_object_action']);
+        $this->assertSame(18, $out['b640_spec_completeness_floor_count']);
+    }
+
 }

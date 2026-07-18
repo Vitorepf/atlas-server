@@ -17288,4 +17288,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B640).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b640SpecCompletenessFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.aaeos.spec_completeness_score.v1' => SpecCompletenessScorer::SCHEMA_VERSION,
+            '8' => SpecCompletenessScorer::INT_8,
+            '12' => SpecCompletenessScorer::INT_12,
+            '80' => SpecCompletenessScorer::COMPLETE_THRESHOLD,
+            '50' => SpecCompletenessScorer::PARTIAL_THRESHOLD,
+            'complete' => SpecCompletenessScorer::VERDICT_COMPLETE,
+            'partial' => SpecCompletenessScorer::VERDICT_PARTIAL,
+            'insufficient' => SpecCompletenessScorer::VERDICT_INSUFFICIENT,
+            'ok' => SpecCompletenessScorer::REASON_OK,
+            'weight' => SpecCompletenessScorer::FIELD_WEIGHT,
+            'reason' => SpecCompletenessScorer::FIELD_REASON,
+            'raw_request' => SpecCompletenessScorer::FIELD_RAW_REQUEST,
+            'interpreted_goal' => SpecCompletenessScorer::FIELD_INTERPRETED_GOAL,
+            'non_goals' => SpecCompletenessScorer::FIELD_NON_GOALS,
+            'product_area' => SpecCompletenessScorer::FIELD_PRODUCT_AREA,
+            'requirements' => SpecCompletenessScorer::FIELD_REQUIREMENTS,
+            'acceptance_criteria' => SpecCompletenessScorer::FIELD_ACCEPTANCE_CRITERIA,
+            'business_actor_object_action' => SpecCompletenessScorer::FIELD_BUSINESS_ACTOR_OBJECT_ACTION,
+            'b640_spec_completeness_floor_count' => 18,
+        ];
+    }
+
 }
