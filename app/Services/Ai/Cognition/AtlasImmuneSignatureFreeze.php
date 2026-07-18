@@ -32,6 +32,7 @@ final class AtlasImmuneSignatureFreeze
     public const FIELD_IMMUNE_VERDICT_LEDGER = 'immune_verdict_ledger';
     public const FIELD_MEMORY_REVERT_INGEST = 'memory_revert_ingest';
     public const FIELD_NO_RAW_POISON_TEXT_IN_STORE = 'no_raw_poison_text_in_store';
+    public const INT_90 = 90;
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -45,7 +46,7 @@ final class AtlasImmuneSignatureFreeze
             self::FIELD_JUDGE => 'codex-immune-signature-judge',
             self::FIELD_MODE_CONFIG_KEY => ImmuneSignatureStore::MODE_CONFIG_KEY,
             self::FIELD_DEFAULT_MODE => ImmuneSignatureStore::DEFAULT_MODE,
-            self::FIELD_DECAY_DAYS => 90,
+            self::FIELD_DECAY_DAYS => self::INT_90,
             self::FIELD_ACCEPTANCE => [
                 self::FIELD_CELLS_WITH_HIT_COUNT_GTE_2 => 3,
                 self::FIELD_PRIVACY => self::FIELD_NO_RAW_POISON_TEXT_IN_STORE,

@@ -55,6 +55,7 @@ final class ImmuneVerdictLedger
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_STRVAL = 'strval';
     public const FIELD_UNCLASSIFIED = 'unclassified';
+    public const FIELD_UTC = 'UTC';
 
     /** @var list<string> */
     public const LABELS = [
@@ -101,7 +102,7 @@ final class ImmuneVerdictLedger
             $expectedBlockGateIds,
             $blockingGateIds,
         );
-        $decidedAt = $this->parseDate($context[self::FIELD_DECIDED_AT] ?? null) ?? CarbonImmutable::now('UTC');
+        $decidedAt = $this->parseDate($context[self::FIELD_DECIDED_AT] ?? null) ?? CarbonImmutable::now(self::FIELD_UTC);
 
         return [
             self::FIELD_ID => (string) Str::uuid(),
@@ -131,7 +132,7 @@ final class ImmuneVerdictLedger
         try {
             $query = DB::table(self::TABLE);
             if ($days !== null) {
-                $query->where('decided_at', '>=', CarbonImmutable::now('UTC')->subDays(max(1, $days)));
+                $query->where('decided_at', '>=', CarbonImmutable::now(self::FIELD_UTC)->subDays(max(1, $days)));
             }
 
             return $query

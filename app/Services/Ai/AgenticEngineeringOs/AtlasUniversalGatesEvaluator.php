@@ -12770,4 +12770,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B492).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b492CognitionScoreProceduralSkillEspIndependentMaxaJinaFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ACMF' => AtlasCognitionScoreCardService::FIELD_ACMF,
+            'ACOP' => AtlasCognitionScoreCardService::FIELD_ACOP,
+            'ACPFR' => AtlasCognitionScoreCardService::FIELD_ACPFR,
+            'ACQCG' => AtlasCognitionScoreCardService::FIELD_ACQCG,
+            'ACRS' => AtlasCognitionScoreCardService::FIELD_ACRS,
+            'ACSR' => AtlasCognitionScoreCardService::FIELD_ACSR,
+            'ACTG' => AtlasCognitionScoreCardService::FIELD_ACTG,
+            'REALITY' => AtlasCognitionScoreCardV4Grouper::FIELD_REALITY_2,
+            'TEOS' => AtlasCognitionScoreCardV4Grouper::FIELD_TEOS_2,
+            'Compounding' => AtlasCognitionScoreCardV4Grouper::FIELD_COMPOUNDING_2,
+            'OTHER' => AtlasCognitionScoreCardV4Grouper::FIELD_OTHER,
+            '40' => AcosMaxProceduralSkillPromoterService::INT_40,
+            '30' => Esp09IndependentChallengerService::INT_30,
+            '8192' => Maxa04JinaV3DualReadService::INT_8192,
+            '90' => OutcomeEnvelopeBridge::INT_90,
+            '90' => AtlasImmuneSignatureFreeze::INT_90,
+            'UTC' => ImmuneVerdictLedger::FIELD_UTC,
+            'UTC' => SubstrateRestoreDrillWatchdogCheck::FIELD_UTC,
+            'b492_cognition_score_procedural_skill_esp_independent_maxa_jina_floor_count' => 18,
+        ];
+    }
+
 }

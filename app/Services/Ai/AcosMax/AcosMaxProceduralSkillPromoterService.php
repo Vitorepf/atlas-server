@@ -118,6 +118,7 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_GLOBAL = 'global';
     public const FIELD_PROCEDURAL_SKILL_PROMOTER = 'procedural_skill_promoter';
     public const FIELD_SHA256 = 'sha256';
+    public const INT_40 = 40;
 
 
     public function __construct(
@@ -280,7 +281,7 @@ final class AcosMaxProceduralSkillPromoterService
                     $taskCategory,
                     (int) (AiValueNormalizer::finiteFloatOrNull($candidate[self::FIELD_CASE_COUNT] ?? null) ?? 0),
                 ),
-                self::FIELD_CONFIDENCE => 40,
+                self::FIELD_CONFIDENCE => self::INT_40,
                 self::FIELD_PROMOTION_ALLOWED => false,
                 self::FIELD_EVIDENCE_REFS => $evidenceRefs,
                 self::FIELD_PAYLOAD => [

@@ -88,6 +88,7 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_MEAN = 'mean';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_CANDIDATE_REGRESSION_OR_UNMEASURED = 'candidate_regression_or_unmeasured';
+    public const INT_8192 = 8192;
 
 
     /** @return array<string,mixed> */
@@ -120,7 +121,7 @@ final class Maxa04JinaV3DualReadService
                     self::FIELD_MODEL => self::CANDIDATE_MODEL,
                 ]),
                 self::FIELD_DIMENSIONS => self::CANDIDATE_DIMENSIONS,
-                self::FIELD_CTX_TOKENS => 8192,
+                self::FIELD_CTX_TOKENS => self::INT_8192,
                 self::FIELD_POOLING => self::FIELD_MEAN,
                 self::FIELD_MULTILINGUAL_PT => true,
             ],

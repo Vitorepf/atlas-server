@@ -71,6 +71,10 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_IMMUNE = 'IMMUNE';
     public const FIELD_MEMORY = 'MEMORY';
     public const FIELD_PATAMAR4_2 = 'PATAMAR4';
+    public const FIELD_REALITY_2 = 'REALITY';
+    public const FIELD_TEOS_2 = 'TEOS';
+    public const FIELD_COMPOUNDING_2 = 'Compounding';
+    public const FIELD_OTHER = 'OTHER';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -164,8 +168,8 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_GOVERNANCE => self::FIELD_GOVERNANCE_2,
             self::FIELD_ATLAS_DECIDE => self::FIELD_DECIDE,
             self::FIELD_COMPOUNDING => self::FIELD_COMPOUND,
-            self::FIELD_REALITY, self::FIELD_CROSS_DOMAIN => 'REALITY',
-            self::FIELD_TEOS => 'TEOS',
+            self::FIELD_REALITY, self::FIELD_CROSS_DOMAIN => self::FIELD_REALITY_2,
+            self::FIELD_TEOS => self::FIELD_TEOS_2,
             self::FIELD_COGNITION => self::FIELD_COGNITION_2,
             self::FIELD_AUTONOMY => self::FIELD_AUTONOMY_2,
             self::FIELD_PATAMAR4, self::FIELD_PATAMAR_4, self::FIELD_INTEGRATION => self::FIELD_PATAMAR4_2,
@@ -178,7 +182,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_CONTEXT_QUALITY => 'CONTEXT-QUALITY',
             self::FIELD_OPEN_BRAIN => 'OPEN-BRAIN',
             self::FIELD_EVIDENCE => self::FIELD_EVIDENCE_2,
-            default => 'OTHER',
+            default => self::FIELD_OTHER,
         };
     }
 
@@ -191,9 +195,9 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_CONSUMERS => 'ACOS Consumers and Legacy Projections',
             self::FIELD_GOVERNANCE_2 => 'Constitutional Governance',
             self::FIELD_DECIDE => 'Atlas Decide + Swarm',
-            self::FIELD_COMPOUND => 'Compounding',
-            'REALITY' => 'Reality Graph + Cross-Domain',
-            'TEOS' => 'TEOS Counterfactuals',
+            self::FIELD_COMPOUND => self::FIELD_COMPOUNDING_2,
+            self::FIELD_REALITY_2 => 'Reality Graph + Cross-Domain',
+            self::FIELD_TEOS_2 => 'TEOS Counterfactuals',
             self::FIELD_COGNITION_2 => 'Cognitive Function Atlas',
             self::FIELD_AUTONOMY_2 => 'Autonomous Reconciliation',
             self::FIELD_PATAMAR4_2 => 'Patamar 4 Integration',

@@ -47,6 +47,7 @@ final class OutcomeEnvelopeBridge
     public const FIELD_FLAG = 'flag';
     public const FIELD_FLAG_DEFAULT = 'flag_default';
     public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
+    public const INT_90 = 90;
 
     /** @var array<string, OutcomeEnvelopeAdapter> */
     private array $adapters;
@@ -127,7 +128,7 @@ final class OutcomeEnvelopeBridge
                 self::FIELD_FLAG_DEFAULT => false,
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
-            self::FIELD_TTL_DAYS => 90,
+            self::FIELD_TTL_DAYS => self::INT_90,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-esp06',
             self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-esp06-judge',
             self::FIELD_DUAL_READ_REQUIRED => true,

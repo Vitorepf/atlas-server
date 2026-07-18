@@ -211,6 +211,13 @@ class AtlasCognitionScoreCardService
     public const FIELD_ACIE = 'ACIE';
     public const FIELD_ACK = 'ACK';
     public const FIELD_ACL8 = 'ACL8';
+    public const FIELD_ACMF = 'ACMF';
+    public const FIELD_ACOP = 'ACOP';
+    public const FIELD_ACPFR = 'ACPFR';
+    public const FIELD_ACQCG = 'ACQCG';
+    public const FIELD_ACRS = 'ACRS';
+    public const FIELD_ACSR = 'ACSR';
+    public const FIELD_ACTG = 'ACTG';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -276,7 +283,7 @@ class AtlasCognitionScoreCardService
         ['ASEF',  'Semantic Embedding Foundation',     self::FIELD_AUCRI, AtlasSemanticEmbeddingFoundationService::class],
         ['AHRI',  'Hybrid Retrieval Infrastructure',   self::FIELD_AUCRI, AtlasHybridRetrievalInfrastructureService::class],
         [self::FIELD_AARF,  'Agentic RAG Framework',             self::FIELD_AUCRI, AtlasAgenticRagFrameworkService::class],
-        ['ACRS',  'Context Ranking System',            self::FIELD_AUCRI, AtlasContextRankingSystemService::class],
+        [self::FIELD_ACRS,  'Context Ranking System',            self::FIELD_AUCRI, AtlasContextRankingSystemService::class],
         [self::FIELD_ACFQ,  'Context Freshness Quality Gate',    self::FIELD_AUCRI, AtlasContextFreshnessQualityGateService::class],
         ['ARFL',  'Retrieval Feedback Loop',           self::FIELD_AUCRI, AtlasRetrievalFeedbackLoopService::class],
         ['AGRN',  'Graph Retrieval Network',           self::FIELD_AUCRI, AtlasGraphRetrievalNetworkService::class],
@@ -284,13 +291,13 @@ class AtlasCognitionScoreCardService
         ['APDR',  'Python Data Retrieval Runtime',     self::FIELD_AUCRI, AtlasPythonDataRetrievalRuntimeService::class],
         ['AREBA', 'Retrieval Evaluation Arena',        self::FIELD_AUCRI, AtlasRetrievalEvaluationBenchmarkArenaService::class],
         ['ARCLG', 'Retrieval Cost Latency Governor',   self::FIELD_AUCRI, AtlasRetrievalCostLatencyGovernorService::class],
-        ['ACOP',  'Context Observability Plane',       self::FIELD_AUCRI, AtlasContextObservabilityPlaneService::class],
+        [self::FIELD_ACOP,  'Context Observability Plane',       self::FIELD_AUCRI, AtlasContextObservabilityPlaneService::class],
         ['ARPTL', 'Retrieval Privacy Trust Layer',     self::FIELD_AUCRI, AtlasRetrievalPrivacyTrustLayerService::class],
         ['AKIF',  'Knowledge Ingestion Fabric',        self::FIELD_AUCRI, AtlasKnowledgeSourcePacketRegistryService::class],
-        ['ACMF',  'Cognitive Memory Fabric',           self::FIELD_AUCRI, AtlasCognitiveMemoryFabricService::class],
+        [self::FIELD_ACMF,  'Cognitive Memory Fabric',           self::FIELD_AUCRI, AtlasCognitiveMemoryFabricService::class],
         [self::FIELD_ACCR,  'Context Compiler Runtime',          self::FIELD_AUCRI, AtlasContextCompilerRuntimeService::class],
         ['ATER',  'Token Economy Runtime',             self::FIELD_AUCRI, AtlasTokenEconomyBudgetPolicyService::class],
-        ['ACPFR', 'Context Pareto Frontier Runtime',   self::FIELD_AUCRI, AtlasContextParetoFrontierRuntimeService::class],
+        [self::FIELD_ACPFR, 'Context Pareto Frontier Runtime',   self::FIELD_AUCRI, AtlasContextParetoFrontierRuntimeService::class],
 
         // Self-Improvement L7 (closed loop)
         ['ASI-L7', 'Self-Improvement Closed Loop L7', self::FIELD_SELF_IMPROVEMENT, AtlasSelfImprovementResultLedgerService::class],
@@ -319,7 +326,7 @@ class AtlasCognitionScoreCardService
         ['ACMF-SE', 'Cognitive Memory Fabric Schema Evolution', self::FIELD_AUCRI,         AtlasCognitiveMemoryFabricSchemaEvolutionService::class],
         ['ASCB-EX', 'Self-Construction Scaffold Staging Executor', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionScaffoldStagingExecutorService::class],
         ['ASCB-PP', 'Self-Construction Promotion Plan',          self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionPromotionPlanService::class],
-        ['ACTG',    'Cartography Truth Guard',                   self::FIELD_CARTOGRAPHY,       CartographyTruthGuardService::class],
+        [self::FIELD_ACTG,    'Cartography Truth Guard',                   self::FIELD_CARTOGRAPHY,       CartographyTruthGuardService::class],
         ['AGPF',    'Atlas Gateway Preflight (TEOS-I4)',         self::FIELD_ATLAS_DECIDE,      AtlasGatewayPreflightService::class],
         ['ACVS',    'Constitutional Vault Service',              self::FIELD_GOVERNANCE,        AtlasConstitutionalVaultService::class],
         ['ATBS',    'Trust Budget Service',                      self::FIELD_GOVERNANCE,        AtlasTrustBudgetService::class],
@@ -329,7 +336,7 @@ class AtlasCognitionScoreCardService
         ['ASPR',    'Swarm Production Resolver (real provider)', self::FIELD_ATLAS_DECIDE,      AtlasSwarmProductionResolverService::class],
         [self::FIELD_ACFD,    'Cognitive Function Decomposer (6-axis)',    self::FIELD_COGNITION,         AtlasCognitiveFunctionDecomposerService::class],
         ['ASPD',    'Atlas Swarm Parallel Dispatcher',           self::FIELD_ATLAS_DECIDE,      AtlasSwarmParallelDispatchService::class],
-        ['ACSR',    'Cognitive Function Swarm Router (P6 closure)', self::FIELD_ATLAS_DECIDE,   AtlasCognitiveFunctionSwarmRouterService::class],
+        [self::FIELD_ACSR,    'Cognitive Function Swarm Router (P6 closure)', self::FIELD_ATLAS_DECIDE,   AtlasCognitiveFunctionSwarmRouterService::class],
         ['ASAF',    'Swarm Auto-Failover (A4)',                  self::FIELD_ATLAS_DECIDE,      AtlasSwarmAutoFailoverService::class],
         ['ARDS',    'Runtime Degradation Signal Ingress',        self::FIELD_PATAMAR_4,         AtlasRuntimeDegradationSignalService::class],
         ['ASDM',    'Self-Divergence Model (target vs current)', self::FIELD_SELF_CONSTRUCTION, AtlasSelfDivergenceModelService::class],
@@ -363,7 +370,7 @@ class AtlasCognitionScoreCardService
         ['AEMOR', 'Execution Memory Outcome Runtime', self::FIELD_AEMOR, AtlasAemorCertificationService::class],
         ['TEOS-I1', 'Long-Horizon Intelligence Layer', self::FIELD_LONG_HORIZON, LongHorizonContinuityCertificationService::class],
         ['AVCEL', 'Verified Context Execution Loop', self::FIELD_VERIFIED_CONTEXT, AtlasVerifiedContextExecutionLoopService::class],
-        ['ACQCG', 'Context Quality Certification Gate', self::FIELD_CONTEXT_QUALITY, AtlasContextQualityCertificationService::class],
+        [self::FIELD_ACQCG, 'Context Quality Certification Gate', self::FIELD_CONTEXT_QUALITY, AtlasContextQualityCertificationService::class],
         ['AOBG', 'Open Brain Gateway', self::FIELD_OPEN_BRAIN, AtlasOpenBrainMcpService::class],
         ['EVIDENCE', 'Evidence Ledger Memory Side', self::FIELD_EVIDENCE, AtlasEvidenceLedger::class],
     ];

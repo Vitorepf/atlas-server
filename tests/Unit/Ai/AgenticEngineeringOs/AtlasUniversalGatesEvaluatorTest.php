@@ -10039,4 +10039,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b491_cognition_score_acos_watchdog_autonomy_ladder_aaeos_test_floor_count']);
     }
 
+    public function test_b492_cognition_score_procedural_skill_esp_independent_maxa_jina_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b492CognitionScoreProceduralSkillEspIndependentMaxaJinaFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACMF, $out['ACMF']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACOP, $out['ACOP']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACPFR, $out['ACPFR']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACQCG, $out['ACQCG']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACRS, $out['ACRS']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACSR, $out['ACSR']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACTG, $out['ACTG']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_REALITY_2, $out['REALITY']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_TEOS_2, $out['TEOS']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_COMPOUNDING_2, $out['Compounding']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_OTHER, $out['OTHER']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::INT_40, $out['40']);
+        $this->assertSame(Esp09IndependentChallengerService::INT_30, $out['30']);
+        $this->assertSame(Maxa04JinaV3DualReadService::INT_8192, $out['8192']);
+        $this->assertSame(OutcomeEnvelopeBridge::INT_90, $out['90']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::INT_90, $out['90']);
+        $this->assertSame(ImmuneVerdictLedger::FIELD_UTC, $out['UTC']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_UTC, $out['UTC']);
+        $this->assertSame(18, $out['b492_cognition_score_procedural_skill_esp_independent_maxa_jina_floor_count']);
+    }
+
 }
