@@ -120,6 +120,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_PROBATION_RECALL_BELOW_CALIBRATED_THRESHOLD = 'probation_recall_below_calibrated_threshold';
     public const FIELD_PROBATION_SUPERVENING_CONTRADICTION_PRESENT = 'probation_supervening_contradiction_present';
     public const FIELD_PROBATION_WATCH_TIME_BELOW_CALIBRATED_THRESHOLD = 'probation_watch_time_below_calibrated_threshold';
+    public const FIELD_G0 = 'G0';
+    public const FIELD_G1 = 'G1';
     public const INT_2 = 2;
 
     /**
@@ -201,8 +203,8 @@ final class CognitiveImmunePromotionGateEvaluator
     private function evaluateGate(string $gateId, array $signals, bool $candidatePresent): array
     {
         return match ($gateId) {
-            'G0' => $this->captureGate($signals),
-            'G1' => $this->extractionGate($signals),
+            self::FIELD_G0 => $this->captureGate($signals),
+            self::FIELD_G1 => $this->extractionGate($signals),
             'G2' => $this->signalGate($signals),
             'G3' => $this->safetyGate($signals, $candidatePresent),
             'G4' => $this->contradictionGate($signals, $candidatePresent),
@@ -416,7 +418,7 @@ final class CognitiveImmunePromotionGateEvaluator
         }
 
         // No blocks and no captured atomic claim yet -> nothing to classify.
-        if ($gateStatuses['G0'] !== self::STATUS_PASS || $gateStatuses['G1'] !== self::STATUS_PASS) {
+        if ($gateStatuses[self::FIELD_G0] !== self::STATUS_PASS || $gateStatuses[self::FIELD_G1] !== self::STATUS_PASS) {
             return self::TRUST_BAND_UNCLASSIFIED;
         }
 

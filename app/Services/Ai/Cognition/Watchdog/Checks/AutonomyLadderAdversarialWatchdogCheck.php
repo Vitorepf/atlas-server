@@ -125,6 +125,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_MAXK09_PROBE = 'maxk09-probe';
     public const FIELD_MAXK09_SIGLEDGER_ = 'maxk09-sigledger-';
     public const FIELD_NEVER_ISSUED = 'never-issued';
+    public const FIELD_L0 = 'L0';
+    public const FIELD_L1 = 'L1';
     public const INT_5 = 5;
     public const FLOAT_0_10 = 0.10;
     public const FLOAT_0_42 = 0.42;
@@ -319,7 +321,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     {
         $path = $this->tempFile(self::FIELD_MAXK09_AUTH_MISSING_);
         $authority = new SealedLedgerAutonomyMetricsAuthority($path);
-        $verdict = $this->ladder->evaluatePromotionAuthoritative('L0', $authority, [self::FIELD_OPERATOR => true]);
+        $verdict = $this->ladder->evaluatePromotionAuthoritative(self::FIELD_L0, $authority, [self::FIELD_OPERATOR => true]);
         $this->cleanup($path);
 
         $provenance = AiValueNormalizer::arrayOrEmpty($verdict[self::FIELD_METRICS_AUTHORITY] ?? null);
@@ -347,7 +349,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $path = $this->tempFile(self::FIELD_MAXK09_AUTH_TAMPERED_);
         $authority = new SealedLedgerAutonomyMetricsAuthority($path);
         $authority->seal(
-            level: 'L1',
+            level: self::FIELD_L1,
             metrics: [
                 self::FIELD_ASSIST_SESSIONS => self::INT_10,
                 self::FIELD_ACCEPTANCE_RATE => self::FLOAT_0_10,
@@ -376,7 +378,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         }
 
         $verdict = $this->ladder->evaluatePromotionAuthoritative(
-            'L0',
+            self::FIELD_L0,
             new SealedLedgerAutonomyMetricsAuthority($path),
             [self::FIELD_OPERATOR => true],
         );

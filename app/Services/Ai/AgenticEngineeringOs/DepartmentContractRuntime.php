@@ -421,6 +421,8 @@ final class DepartmentContractRuntime
     public const FIELD_ALL_15_UNIVERSAL_GATES = 'all-15-universal-gates';
     public const FIELD_L2 = 'L2';
     public const FIELD_L3 = 'L3';
+    public const FIELD_ARCHITECT_DEPARTMENT = 'Architect Department';
+    public const FIELD_DEBUG_DEPARTMENT = 'Debug Department';
     public const INT_11 = 11;
 
     /**
@@ -502,7 +504,7 @@ final class DepartmentContractRuntime
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_ARCHITECTURE],
         ],
         self::DEPARTMENT_ARCHITECTURE => [
-            self::FIELD_HUMAN_NAME => 'Architect Department',
+            self::FIELD_HUMAN_NAME => self::FIELD_ARCHITECT_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Decides system design, ADRs, technical boundaries.',
             self::FIELD_SCOPE => 'define spec_pack canônico, breaking_change_matrix e migration_plan antes de qualquer execução',
             self::FIELD_TRIGGERS => ['intent_classification.scope>=R3', 'breaking_change_detected=true'],
@@ -574,7 +576,7 @@ final class DepartmentContractRuntime
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_REVIEW, self::FIELD_QA, self::DEPARTMENT_FORGE],
         ],
         self::DEPARTMENT_DEBUG => [
-            self::FIELD_HUMAN_NAME => 'Debug Department',
+            self::FIELD_HUMAN_NAME => self::FIELD_DEBUG_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Failure investigation, repair orchestration, escalation triggers.',
             self::FIELD_SCOPE => 'investiga falhas runtime, gera hipóteses, reproduz, isola e propõe fix',
             self::FIELD_TRIGGERS => ['incident_detected=true', 'test_red_after_green=true', 'production_alert=true'],

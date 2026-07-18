@@ -168,6 +168,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_FREEZE_ATLAS_ORIGINATOR_PREDICTED_IMPACT_CALIBRATION_V1 = 'freeze:atlas.originator.predicted_impact_calibration.v1';
     public const FIELD_ATLAS_ACOS_DELTA_ATTRIBUTION___JSON = 'atlas:acos:delta-attribution --json';
     public const FIELD_ATLAS_ACOS_REC06_BREAKERS___JSON = 'atlas:acos:rec06-breakers --json';
+    public const FIELD_ATLAS_AI_ABSTRACTION_LADDER___JSON = 'atlas:ai:abstraction-ladder --json';
+    public const FIELD_ATLAS_AI_COUNTERFACTUAL_LIFT___JSON = 'atlas:ai:counterfactual-lift --json';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -526,7 +528,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MULTJ_03,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::MULTJ03_MEASURE_ID,
-                self::FIELD_PATH => 'atlas:ai:counterfactual-lift --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_AI_COUNTERFACTUAL_LIFT___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTJ_03)[self::FIELD_TTL_DAYS],
@@ -544,7 +546,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MULTJ_06,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::MULTJ06_MEASURE_ID,
-                self::FIELD_PATH => 'atlas:ai:abstraction-ladder --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_AI_ABSTRACTION_LADDER___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTJ_06)[self::FIELD_TTL_DAYS],

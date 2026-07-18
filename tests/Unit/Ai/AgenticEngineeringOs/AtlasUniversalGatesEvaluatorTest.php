@@ -11393,4 +11393,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b546_aaeos_department_autonomous_work_http_aobg_latency_quality_floor_count']);
     }
 
+    public function test_b547_cognition_score_department_contract_measure_series_immune_promotion_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b547CognitionScoreDepartmentContractMeasureSeriesImmunePromotionFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ATLAS_DECIDE_GATEWAY_CONSULTATION, $out['Atlas Decide Gateway Consultation']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ATLAS_DECIDE_LIVE_OUTCOME_FEEDBACK, $out['Atlas Decide Live Outcome Feedback']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ARCHITECT_DEPARTMENT, $out['Architect Department']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DEBUG_DEPARTMENT, $out['Debug Department']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_AI_ABSTRACTION_LADDER___JSON, $out['atlas:ai:abstraction-ladder --json']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_AI_COUNTERFACTUAL_LIFT___JSON, $out['atlas:ai:counterfactual-lift --json']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_COGNITIVE_FUNCTION_ATLAS, $out['Cognitive Function Atlas']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_CONSTITUTIONAL_GOVERNANCE, $out['Constitutional Governance']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_G0, $out['G0']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_G1, $out['G1']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_ACOS_OPERATIONAL_VOLUME___JSON, $out['atlas:acos:operational-volume --json']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_ACOS_ROLLBACK_TRIGGERS___JSON, $out['atlas:acos:rollback-triggers --json']);
+        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R0, $out['R0']);
+        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R1, $out['R1']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_L0, $out['L0']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_L1, $out['L1']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_BATCHED_ASKS_2, $out['Batched asks']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_PENDING_FLIPS_2, $out['Pending flips']);
+        $this->assertSame(18, $out['b547_cognition_score_department_contract_measure_series_immune_promotion_floor_count']);
+    }
+
 }

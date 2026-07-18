@@ -569,6 +569,7 @@ final class AtlasAaeosCommand extends Command
                             {--b544-aaeos-implementation-department-value-portfolio-budget-deferred-phase-floors-contract= : JSON file (any object) to observe aaeos/implementation/department/value/portfolio/budget floors}
                             {--b545-aaeos-cognitive-implementation-veto-segment-importance-spec-completeness-floors-contract= : JSON file (any object) to observe aaeos/cognitive/implementation/veto/segment/importance floors}
                             {--b546-aaeos-department-autonomous-work-http-aobg-latency-quality-floors-contract= : JSON file (any object) to observe aaeos/department/autonomous/work/http/aobg floors}
+                            {--b547-cognition-score-department-contract-measure-series-immune-promotion-floors-contract= : JSON file (any object) to observe cognition/score/department/contract/measure/series floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1294,6 +1295,7 @@ final class AtlasAaeosCommand extends Command
             ['b544-aaeos-implementation-department-value-portfolio-budget-deferred-phase-floors-contract', 'b544_aaeos_implementation_department_value_portfolio_budget_deferred_phase_floors_contract', fn (array $p) => $gates->b544AaeosImplementationDepartmentValuePortfolioBudgetDeferredPhaseFloorsContractObserve($p)],
             ['b545-aaeos-cognitive-implementation-veto-segment-importance-spec-completeness-floors-contract', 'b545_aaeos_cognitive_implementation_veto_segment_importance_spec_completeness_floors_contract', fn (array $p) => $gates->b545AaeosCognitiveImplementationVetoSegmentImportanceSpecCompletenessFloorsContractObserve($p)],
             ['b546-aaeos-department-autonomous-work-http-aobg-latency-quality-floors-contract', 'b546_aaeos_department_autonomous_work_http_aobg_latency_quality_floors_contract', fn (array $p) => $gates->b546AaeosDepartmentAutonomousWorkHttpAobgLatencyQualityFloorsContractObserve($p)],
+            ['b547-cognition-score-department-contract-measure-series-immune-promotion-floors-contract', 'b547_cognition_score_department_contract_measure_series_immune_promotion_floors_contract', fn (array $p) => $gates->b547CognitionScoreDepartmentContractMeasureSeriesImmunePromotionFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -14454,4 +14454,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B547).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b547CognitionScoreDepartmentContractMeasureSeriesImmunePromotionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'Atlas Decide Gateway Consultation' => AtlasCognitionScoreCardService::FIELD_ATLAS_DECIDE_GATEWAY_CONSULTATION,
+            'Atlas Decide Live Outcome Feedback' => AtlasCognitionScoreCardService::FIELD_ATLAS_DECIDE_LIVE_OUTCOME_FEEDBACK,
+            'Architect Department' => DepartmentContractRuntime::FIELD_ARCHITECT_DEPARTMENT,
+            'Debug Department' => DepartmentContractRuntime::FIELD_DEBUG_DEPARTMENT,
+            'atlas:ai:abstraction-ladder --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_AI_ABSTRACTION_LADDER___JSON,
+            'atlas:ai:counterfactual-lift --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_AI_COUNTERFACTUAL_LIFT___JSON,
+            'Cognitive Function Atlas' => AtlasCognitionScoreCardV4Grouper::FIELD_COGNITIVE_FUNCTION_ATLAS,
+            'Constitutional Governance' => AtlasCognitionScoreCardV4Grouper::FIELD_CONSTITUTIONAL_GOVERNANCE,
+            'G0' => CognitiveImmunePromotionGateEvaluator::FIELD_G0,
+            'G1' => CognitiveImmunePromotionGateEvaluator::FIELD_G1,
+            'atlas:acos:operational-volume --json' => AcosProgramCockpitService::FIELD_ATLAS_ACOS_OPERATIONAL_VOLUME___JSON,
+            'atlas:acos:rollback-triggers --json' => AcosProgramCockpitService::FIELD_ATLAS_ACOS_ROLLBACK_TRIGGERS___JSON,
+            'R0' => AtlasAaeosValueNormalizer::FIELD_R0,
+            'R1' => AtlasAaeosValueNormalizer::FIELD_R1,
+            'L0' => AutonomyLadderAdversarialWatchdogCheck::FIELD_L0,
+            'L1' => AutonomyLadderAdversarialWatchdogCheck::FIELD_L1,
+            'Batched asks' => Teto10PredictedRevertReviewDigest::FIELD_BATCHED_ASKS_2,
+            'Pending flips' => Teto10PredictedRevertReviewDigest::FIELD_PENDING_FLIPS_2,
+            'b547_cognition_score_department_contract_measure_series_immune_promotion_floor_count' => 18,
+        ];
+    }
+
 }

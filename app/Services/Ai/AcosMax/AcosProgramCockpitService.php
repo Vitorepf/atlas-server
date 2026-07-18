@@ -67,6 +67,8 @@ final class AcosProgramCockpitService
     public const FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK = 'atlas:atlas-decide:live-feedback';
     public const FIELD_ATLAS_FLYWHEEL_LOOPS = 'atlas:flywheel:loops';
     public const FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE_ATLAS_ACOS_MAX_EXECUTION_SCOREBOARD_V1_MD = 'docs/engineering-knowledge-base/atlas-acos-max-execution-scoreboard-v1.md';
+    public const FIELD_ATLAS_ACOS_OPERATIONAL_VOLUME___JSON = 'atlas:acos:operational-volume --json';
+    public const FIELD_ATLAS_ACOS_ROLLBACK_TRIGGERS___JSON = 'atlas:acos:rollback-triggers --json';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -163,12 +165,12 @@ final class AcosProgramCockpitService
         return [
             self::FIELD_STATUS => self::STATUS_OK,
             self::FIELD_SOURCE => [
-                self::FIELD_ROLLBACK_TRIGGERS => 'atlas:acos:rollback-triggers --json',
-                self::FIELD_OPERATIONAL_VOLUME => 'atlas:acos:operational-volume --json',
+                self::FIELD_ROLLBACK_TRIGGERS => self::FIELD_ATLAS_ACOS_ROLLBACK_TRIGGERS___JSON,
+                self::FIELD_OPERATIONAL_VOLUME => self::FIELD_ATLAS_ACOS_OPERATIONAL_VOLUME___JSON,
             ],
             self::FIELD_PAYLOAD => [
-                self::FIELD_ROLLBACK_TRIGGERS => $this->commandSection('atlas:acos:rollback-triggers --json', self::FIELD_ATLAS_ACOS_ROLLBACK_TRIGGERS, [self::FIELD___JSON => true]),
-                self::FIELD_OPERATIONAL_VOLUME => $this->commandSection('atlas:acos:operational-volume --json', self::FIELD_ATLAS_ACOS_OPERATIONAL_VOLUME, [self::FIELD___JSON => true]),
+                self::FIELD_ROLLBACK_TRIGGERS => $this->commandSection(self::FIELD_ATLAS_ACOS_ROLLBACK_TRIGGERS___JSON, self::FIELD_ATLAS_ACOS_ROLLBACK_TRIGGERS, [self::FIELD___JSON => true]),
+                self::FIELD_OPERATIONAL_VOLUME => $this->commandSection(self::FIELD_ATLAS_ACOS_OPERATIONAL_VOLUME___JSON, self::FIELD_ATLAS_ACOS_OPERATIONAL_VOLUME, [self::FIELD___JSON => true]),
             ],
         ];
     }

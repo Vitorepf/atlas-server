@@ -271,6 +271,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_TEOS_I4 = 'TEOS-I4';
     public const FIELD_AGENTIC_RAG_FRAMEWORK = 'Agentic RAG Framework';
     public const FIELD_ANTIFRAGILITY_COMPOSITION_METRIC = 'Antifragility Composition Metric';
+    public const FIELD_ATLAS_DECIDE_GATEWAY_CONSULTATION = 'Atlas Decide Gateway Consultation';
+    public const FIELD_ATLAS_DECIDE_LIVE_OUTCOME_FEEDBACK = 'Atlas Decide Live Outcome Feedback';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -376,8 +378,8 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ATDC,    'Temporary Domain Composition',        self::FIELD_CROSS_DOMAIN,      AtlasTemporaryDomainCompositionService::class],
 
         // Patamar 4 · integration layer
-        [self::FIELD_ADGW,    'Atlas Decide Gateway Consultation',   self::FIELD_ATLAS_DECIDE,      AtlasDecideGatewayConsultationService::class],
-        [self::FIELD_ADLF,    'Atlas Decide Live Outcome Feedback',  self::FIELD_ATLAS_DECIDE,      AtlasDecideLiveOutcomeFeedbackService::class],
+        [self::FIELD_ADGW,    self::FIELD_ATLAS_DECIDE_GATEWAY_CONSULTATION,   self::FIELD_ATLAS_DECIDE,      AtlasDecideGatewayConsultationService::class],
+        [self::FIELD_ADLF,    self::FIELD_ATLAS_DECIDE_LIVE_OUTCOME_FEEDBACK,  self::FIELD_ATLAS_DECIDE,      AtlasDecideLiveOutcomeFeedbackService::class],
         [self::FIELD_AACM,    self::FIELD_ANTIFRAGILITY_COMPOSITION_METRIC,    self::FIELD_COMPOUNDING,       AtlasAntifragilityCompositionMetricService::class],
         [self::FIELD_ACMF_SE, 'Cognitive Memory Fabric Schema Evolution', self::FIELD_AUCRI,         AtlasCognitiveMemoryFabricSchemaEvolutionService::class],
         [self::FIELD_ASCB_EX, 'Self-Construction Scaffold Staging Executor', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionScaffoldStagingExecutorService::class],

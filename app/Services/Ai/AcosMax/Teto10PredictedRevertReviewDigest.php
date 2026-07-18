@@ -106,6 +106,8 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_ROLLBACK_COMMAND = 'rollback_command';
     public const FIELD_TETO_10 = 'TETO-10';
     public const FIELD_FAMILY_UNKNOWN = 'family:unknown';
+    public const FIELD_BATCHED_ASKS_2 = 'Batched asks';
+    public const FIELD_PENDING_FLIPS_2 = 'Pending flips';
     public const INT_3 = 3;
     public const INT_2 = 2;
 
@@ -203,8 +205,8 @@ final class Teto10PredictedRevertReviewDigest
             $lines[] = '';
         }
 
-        $lines = array_merge($lines, self::renderFlaggedSection('Pending flips', AiValueNormalizer::arrayOrEmpty($digest[self::FIELD_PENDING_FLIPS] ?? null)));
-        $lines = array_merge($lines, self::renderFlaggedSection('Batched asks', AiValueNormalizer::arrayOrEmpty($digest[self::FIELD_BATCHED_ASKS] ?? null)));
+        $lines = array_merge($lines, self::renderFlaggedSection(self::FIELD_PENDING_FLIPS_2, AiValueNormalizer::arrayOrEmpty($digest[self::FIELD_PENDING_FLIPS] ?? null)));
+        $lines = array_merge($lines, self::renderFlaggedSection(self::FIELD_BATCHED_ASKS_2, AiValueNormalizer::arrayOrEmpty($digest[self::FIELD_BATCHED_ASKS] ?? null)));
 
         return rtrim(implode(PHP_EOL, $lines)).PHP_EOL;
     }
