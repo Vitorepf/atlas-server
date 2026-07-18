@@ -63,6 +63,8 @@ final class AaeosPhaseHandoffService
     public const FIELD_EXECUTION_LOG_WATCHDOG_OK = 'execution_log_watchdog_ok';
     public const FIELD_LEARNING_CAPSULE_REGISTERED_IN_ACOS = 'learning_capsule_registered_in_acos';
     public const FIELD_OPERATOR_DECISION_RECEIPT_APPROVED = 'operator_decision_receipt_approved';
+    public const FIELD_PLACEMENT_DECISION_FEATURE_PATH_VALID = 'placement_decision_feature_path_valid';
+    public const FIELD_POLICY_DECISION_ALLOWED_TRUE = 'policy_decision_allowed_true';
 
     public static function requireIntentId(string $intentId): void
     {
@@ -140,9 +142,9 @@ final class AaeosPhaseHandoffService
     public const PHASE_GATES_MAP = [
         self::PHASE_INTENT_CAPTURE => [self::FIELD_SURFACE_CAPTURED_INTENT],
         self::PHASE_DISAMBIGUATION => [self::FIELD_INTENT_CLARITY_SCORE_MIN_0_8],
-        self::PHASE_PLACEMENT => ['placement_decision_feature_path_valid'],
+        self::PHASE_PLACEMENT => [self::FIELD_PLACEMENT_DECISION_FEATURE_PATH_VALID],
         self::PHASE_CLASSIFICATION => ['intent_classification_target_department_declared'],
-        self::PHASE_POLICY_GATE => ['policy_decision_allowed_true'],
+        self::PHASE_POLICY_GATE => [self::FIELD_POLICY_DECISION_ALLOWED_TRUE],
         self::PHASE_TOPOLOGY => [self::FIELD_TOPOLOGY_PLAN_PROVIDERS_MIN_1_AVAILABLE],
         self::PHASE_ROUTING => [self::FIELD_DEPARTMENT_ROUTE_OWNER_CONFIRMED],
         self::PHASE_SPEC => ['spec_pack_acceptance_criteria_min_3'],

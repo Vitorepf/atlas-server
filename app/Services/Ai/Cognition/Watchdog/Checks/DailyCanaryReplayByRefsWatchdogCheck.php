@@ -96,6 +96,8 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_DELIVERED_REFS = 'delivered_refs';
     public const FIELD_FD = 'fd';
     public const FIELD_GOLDEN_RECALL_AT_5_FLOOR = 'golden_recall_at_5_floor';
+    public const FIELD_GOLDEN_STATUS = 'golden_status';
+    public const FIELD_GRAPH = 'graph';
 
 
     public function __construct(
@@ -142,7 +144,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_GOLDEN_VERSION => $golden[self::FIELD_VERSION],
             self::FIELD_GOLDEN_RECALL_AT_5 => $golden[self::FIELD_RECALL_AT_5],
             self::FIELD_IMPROPER_FLOOR_DISCARDS => $golden[self::FIELD_IMPROPER_FLOOR_DISCARDS],
-            'golden_status' => $golden[self::FIELD_STATUS],
+            self::FIELD_GOLDEN_STATUS => $golden[self::FIELD_STATUS],
             self::FIELD_GOLDEN_RECALL_AT_5_FLOOR => self::GOLDEN_RECALL_AT_5_ALERT_FLOOR,
             'provider_safe_invariant' => 'no_raw_query_or_context_in_report_or_ledger',
         ];
@@ -198,7 +200,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     {
         $total = 0;
         $canonical = 0;
-        $byKind = [self::FIELD_CODE => 0, 'memory' => 0, 'graph' => 0, self::FIELD_NON_CANONICAL => 0];
+        $byKind = [self::FIELD_CODE => 0, 'memory' => 0, self::FIELD_GRAPH => 0, self::FIELD_NON_CANONICAL => 0];
 
         foreach ($entries as $entry) {
             foreach (AiValueNormalizer::arrayOrEmpty($entry[self::FIELD_DELIVERED_REFS] ?? null) as $ref) {

@@ -71,6 +71,8 @@ final class ExploratoryBetsPortfolio
     public const FIELD_PATH_YIELD = 'path_yield';
     public const FIELD_REASON = 'reason';
     public const FIELD_RECOMPUTES_MULTK_06_ALLOCATION = 'recomputes_multk_06_allocation';
+    public const FIELD_RUNG = 'rung';
+    public const FIELD_SUSPENDS_ON_INSUFFICIENT_N = 'suspends_on_insufficient_n';
 
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
 
@@ -176,7 +178,7 @@ final class ExploratoryBetsPortfolio
             if ($path === '') {
                 continue;
             }
-            if ((AiValueNormalizer::trimmedStringOrNull($candidate['rung'] ?? null) ?? '') !== AmbitionRungPolicy::RUNG_TASK) {
+            if ((AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_RUNG] ?? null) ?? '') !== AmbitionRungPolicy::RUNG_TASK) {
                 continue;
             }
             if (array_key_exists('path_yield', $candidate) && $candidate[self::FIELD_PATH_YIELD] !== null) {
@@ -290,7 +292,7 @@ final class ExploratoryBetsPortfolio
             self::FIELD_WRITES_CLASS_ALLOCATION_WEIGHTS => false,
             self::FIELD_COUNTS_LANDING_OR_ACCEPTANCE => false,
             self::FIELD_COUNTS_PROVEN_REAL_ONLY => true,
-            'suspends_on_insufficient_n' => false,
+            self::FIELD_SUSPENDS_ON_INSUFFICIENT_N => false,
             self::FIELD_DELETES_SUSPENDED_FAMILY => false,
             self::FIELD_FLAG => 'atlas.loop.exploratory_bets_portfolio_enabled',
             self::FIELD_FLAG_DEFAULT => 'off',

@@ -7549,4 +7549,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['lote_measure_evidence_vision_exploratory_bets_pre_review_floor_count']);
     }
 
+    public function test_daily_canary_lote_measure_exploratory_bets_pre_review_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->dailyCanaryLoteMeasureExploratoryBetsPreReviewFloorsContractObserve([]);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_GOLDEN_STATUS, $out['golden_status']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_GRAPH, $out['graph']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_REQUEST_TO_DELIVERY_P50_SECONDS, $out['request_to_delivery_p50_seconds']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_REQUEST_TO_DELIVERY_P95_SECONDS, $out['request_to_delivery_p95_seconds']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_RUNG, $out['rung']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_SUSPENDS_ON_INSUFFICIENT_N, $out['suspends_on_insufficient_n']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_SINGLE_SCALAR_FORBIDDEN, $out['single_scalar_forbidden']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_SWEET, $out['sweet']);
+        $this->assertSame(RagxChainMechanismService::FIELD_SUMMARY, $out['summary']);
+        $this->assertSame(RagxChainMechanismService::FIELD_TARGET, $out['target']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ROUTING_TASK, $out['routing_task']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_SPEC, $out['spec']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_PLACEMENT_DECISION_FEATURE_PATH_VALID, $out['placement_decision_feature_path_valid']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_POLICY_DECISION_ALLOWED_TRUE, $out['policy_decision_allowed_true']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_PLACEMENT_DECISION, $out['placement_decision']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_SOURCE_TYPE, $out['source_type']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_RECOMMENDED_OPERATOR_ACTION, $out['recommended_operator_action']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_RECOVERABLE, $out['recoverable']);
+        $this->assertSame(18, $out['daily_canary_lote_measure_exploratory_bets_pre_review_floor_count']);
+    }
+
 }

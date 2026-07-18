@@ -88,6 +88,8 @@ final class AtlasMissionControlCockpitService
     public const FIELD_PROVIDER_SAFE = 'provider_safe';
     public const FIELD_QUARANTINED = 'quarantined';
     public const FIELD_QUEUE_HEALTH = 'queue_health';
+    public const FIELD_RECOMMENDED_OPERATOR_ACTION = 'recommended_operator_action';
+    public const FIELD_RECOVERABLE = 'recoverable';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
@@ -198,7 +200,7 @@ final class AtlasMissionControlCockpitService
         $activeLeases = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_ACTIVE_LEASES] ?? 0) ?? 0));
         $blocked = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_BLOCKED] ?? 0) ?? 0));
         $quarantined = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_QUARANTINED] ?? 0) ?? 0));
-        $recoverable = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['recoverable'] ?? 0) ?? 0));
+        $recoverable = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_RECOVERABLE] ?? 0) ?? 0));
         $malformed = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_MALFORMED] ?? 0) ?? 0));
 
         $recommendedAction = match (true) {
@@ -215,7 +217,7 @@ final class AtlasMissionControlCockpitService
             'recoverable_count' => $recoverable,
             self::FIELD_MALFORMED_COUNT => $malformed,
             self::FIELD_IMPLEMENTABLE_SUPPLY => $servableNow,
-            'recommended_operator_action' => $recommendedAction,
+            self::FIELD_RECOMMENDED_OPERATOR_ACTION => $recommendedAction,
         ];
     }
 

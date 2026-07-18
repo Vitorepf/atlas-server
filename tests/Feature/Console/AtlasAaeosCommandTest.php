@@ -7235,6 +7235,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_daily_canary_lote_measure_exploratory_bets_pre_review_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b393-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b393',
+                '--daily-canary-lote-measure-exploratory-bets-pre-review-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"daily_canary_lote_measure_exploratory_bets_pre_review_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

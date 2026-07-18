@@ -77,6 +77,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_RECEIPT_REQUIRED = 'receipt_required';
     public const FIELD_REQUIRED = 'required';
     public const FIELD_ROUTING = 'routing';
+    public const FIELD_ROUTING_TASK = 'routing_task';
+    public const FIELD_SPEC = 'spec';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -223,7 +225,7 @@ final class AaeosHttpPathEnvelopeFactory
     {
         $payload = self::requestPayload($data);
         $intent = AiValueNormalizer::trimmedStringOrNull(data_get($payload, 'atlas_ai_router.command_intent')) ?? '';
-        $routingTask = AiValueNormalizer::trimmedStringOrNull($payload['routing_task'] ?? null) ?? '';
+        $routingTask = AiValueNormalizer::trimmedStringOrNull($payload[self::FIELD_ROUTING_TASK] ?? null) ?? '';
         $flowId = AiValueNormalizer::trimmedStringOrNull(data_get($payload, 'atlas_ai_router.flow_id')) ?? '';
 
         if (in_array($intent, ['plan', 'forge', 'obra'], true) || in_array($routingTask, ['plan', 'forge', 'obra'], true)) {
@@ -275,7 +277,7 @@ final class AaeosHttpPathEnvelopeFactory
             ],
             self::FIELD_REQUIRED_GATE => 'department_route_owner_confirmed',
         ],
-        'spec' => [
+        self::FIELD_SPEC => [
             self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_ROUTING,
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_SPEC,
             self::FIELD_ACTOR_ID => 'aaeos.spec',

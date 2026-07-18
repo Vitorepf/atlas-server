@@ -86,6 +86,8 @@ final class PreReviewAdvisoryBand
     public const FIELD_MIN_N = 'min_n';
     public const FIELD_MIN_N_FOR_BAND = 'min_n_for_band';
     public const FIELD_SATISFIED_FOR_DEATH = 'satisfied_for_death';
+    public const FIELD_SINGLE_SCALAR_FORBIDDEN = 'single_scalar_forbidden';
+    public const FIELD_SWEET = 'sweet';
 
     /**
      * @param  array<string,mixed>  $features required keys:
@@ -169,7 +171,7 @@ final class PreReviewAdvisoryBand
      */
     public static function calibration(array $observations): array
     {
-        $buckets = [self::FIELD_LOW => [self::FIELD_N => 0, self::FIELD_REVERTED => 0], 'sweet' => [self::FIELD_N => 0, self::FIELD_REVERTED => 0], self::FIELD_HIGH => [self::FIELD_N => 0, self::FIELD_REVERTED => 0]];
+        $buckets = [self::FIELD_LOW => [self::FIELD_N => 0, self::FIELD_REVERTED => 0], self::FIELD_SWEET => [self::FIELD_N => 0, self::FIELD_REVERTED => 0], self::FIELD_HIGH => [self::FIELD_N => 0, self::FIELD_REVERTED => 0]];
         foreach ($observations as $obs) {
             $band = AiValueNormalizer::trimmedStringOrNull($obs[self::FIELD_PREDICTED_REVERT_BAND] ?? null);
             if ($band === null || ! isset($buckets[$band])) {
@@ -209,7 +211,7 @@ final class PreReviewAdvisoryBand
                 self::FIELD_SATISFIED_FOR_DEATH => $liftBasis === self::BASIS_MEASURED && $lift !== null && $lift < self::DEATH_MIN_LIFT,
             ],
             self::FIELD_SOURCE => [
-                'single_scalar_forbidden' => true,
+                self::FIELD_SINGLE_SCALAR_FORBIDDEN => true,
                 self::FIELD_FABRICATES_RATE_ON_ZERO_N => false,
             ],
         ];

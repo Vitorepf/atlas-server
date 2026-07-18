@@ -415,6 +415,7 @@ final class AtlasAaeosCommand extends Command
                             {--pre-review-phase-advance-cognition-score-lote-measure-floors-contract= : JSON file (any object) to observe pre/review/phase/advance/cognition/score floors}
                             {--immune-calibration-acos-watchdog-lote-measure-n-capture-floors-contract= : JSON file (any object) to observe immune/calibration/acos/watchdog/lote/measure floors}
                             {--lote-measure-evidence-vision-exploratory-bets-pre-review-floors-contract= : JSON file (any object) to observe lote/measure/evidence/vision/exploratory/bets floors}
+                            {--daily-canary-lote-measure-exploratory-bets-pre-review-floors-contract= : JSON file (any object) to observe daily/canary/lote/measure/exploratory/bets floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -986,6 +987,7 @@ final class AtlasAaeosCommand extends Command
             ['pre-review-phase-advance-cognition-score-lote-measure-floors-contract', 'pre_review_phase_advance_cognition_score_lote_measure_floors_contract', fn (array $p) => $gates->preReviewPhaseAdvanceCognitionScoreLoteMeasureFloorsContractObserve($p)],
             ['immune-calibration-acos-watchdog-lote-measure-n-capture-floors-contract', 'immune_calibration_acos_watchdog_lote_measure_n_capture_floors_contract', fn (array $p) => $gates->immuneCalibrationAcosWatchdogLoteMeasureNCaptureFloorsContractObserve($p)],
             ['lote-measure-evidence-vision-exploratory-bets-pre-review-floors-contract', 'lote_measure_evidence_vision_exploratory_bets_pre_review_floors_contract', fn (array $p) => $gates->loteMeasureEvidenceVisionExploratoryBetsPreReviewFloorsContractObserve($p)],
+            ['daily-canary-lote-measure-exploratory-bets-pre-review-floors-contract', 'daily_canary_lote_measure_exploratory_bets_pre_review_floors_contract', fn (array $p) => $gates->dailyCanaryLoteMeasureExploratoryBetsPreReviewFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

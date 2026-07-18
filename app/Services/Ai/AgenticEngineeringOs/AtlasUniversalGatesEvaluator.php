@@ -9707,4 +9707,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B393).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function dailyCanaryLoteMeasureExploratoryBetsPreReviewFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'golden_status' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_GOLDEN_STATUS,
+            'graph' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_GRAPH,
+            'request_to_delivery_p50_seconds' => AcosMaxLote2MeasureService::FIELD_REQUEST_TO_DELIVERY_P50_SECONDS,
+            'request_to_delivery_p95_seconds' => AcosMaxLote2MeasureService::FIELD_REQUEST_TO_DELIVERY_P95_SECONDS,
+            'rung' => ExploratoryBetsPortfolio::FIELD_RUNG,
+            'suspends_on_insufficient_n' => ExploratoryBetsPortfolio::FIELD_SUSPENDS_ON_INSUFFICIENT_N,
+            'single_scalar_forbidden' => PreReviewAdvisoryBand::FIELD_SINGLE_SCALAR_FORBIDDEN,
+            'sweet' => PreReviewAdvisoryBand::FIELD_SWEET,
+            'summary' => RagxChainMechanismService::FIELD_SUMMARY,
+            'target' => RagxChainMechanismService::FIELD_TARGET,
+            'routing_task' => AaeosHttpPathEnvelopeFactory::FIELD_ROUTING_TASK,
+            'spec' => AaeosHttpPathEnvelopeFactory::FIELD_SPEC,
+            'placement_decision_feature_path_valid' => AaeosPhaseHandoffService::FIELD_PLACEMENT_DECISION_FEATURE_PATH_VALID,
+            'policy_decision_allowed_true' => AaeosPhaseHandoffService::FIELD_POLICY_DECISION_ALLOWED_TRUE,
+            'placement_decision' => AtlasAaeosHttpPathFacadeService::FIELD_PLACEMENT_DECISION,
+            'source_type' => AtlasAaeosHttpPathFacadeService::FIELD_SOURCE_TYPE,
+            'recommended_operator_action' => AtlasMissionControlCockpitService::FIELD_RECOMMENDED_OPERATOR_ACTION,
+            'recoverable' => AtlasMissionControlCockpitService::FIELD_RECOVERABLE,
+            'daily_canary_lote_measure_exploratory_bets_pre_review_floor_count' => 18,
+        ];
+    }
+
 }

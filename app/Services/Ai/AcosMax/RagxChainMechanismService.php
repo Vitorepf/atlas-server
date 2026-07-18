@@ -190,6 +190,8 @@ final class RagxChainMechanismService
     public const FIELD_MECHANISM = 'mechanism';
     public const FIELD_SCORE_COUNT = 'score_count';
     public const FIELD_SCORE_ORIGIN = 'score_origin';
+    public const FIELD_SUMMARY = 'summary';
+    public const FIELD_TARGET = 'target';
 
     public function __construct(
         private readonly ?AsefChunkIndexService $asefChunks = null,
@@ -389,7 +391,7 @@ final class RagxChainMechanismService
         }
 
         $verified = array_values(array_filter($verifiedSummaries, static function (array $summary): bool {
-            return (AiValueNormalizer::trimmedStringOrNull($summary['summary'] ?? null) ?? '') !== ''
+            return (AiValueNormalizer::trimmedStringOrNull($summary[self::FIELD_SUMMARY] ?? null) ?? '') !== ''
                 && in_array(AiValueNormalizer::trimmedStringOrNull($summary[self::FIELD_STATUS] ?? null) ?? self::STATUS_VERIFIED, [self::STATUS_VERIFIED, self::STATUS_OK], true);
         }));
 
@@ -581,7 +583,7 @@ final class RagxChainMechanismService
         }
         foreach ($edges as $edge) {
             $source = AiValueNormalizer::trimmedStringOrNull($edge[self::FIELD_SOURCE] ?? null) ?? '';
-            $target = AiValueNormalizer::trimmedStringOrNull($edge['target'] ?? null) ?? '';
+            $target = AiValueNormalizer::trimmedStringOrNull($edge[self::FIELD_TARGET] ?? null) ?? '';
             $weight = max(0.0, AiValueNormalizer::finiteFloatOrNull($edge[self::FIELD_WEIGHT] ?? null) ?? 1.0);
             if ($source === '' || $target === '' || $source === $target || $weight <= 0.0 || ! isset($known[$source], $known[$target])) {
                 continue;

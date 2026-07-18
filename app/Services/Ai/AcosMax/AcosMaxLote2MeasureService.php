@@ -222,6 +222,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_PATTERN_FLOOR = 'pattern_floor';
     public const FIELD_PROCEDURAL_CASE_COUNT_FLOOR = 'procedural_case_count_floor';
     public const FIELD_RECORD_USAGE = 'record_usage';
+    public const FIELD_REQUEST_TO_DELIVERY_P50_SECONDS = 'request_to_delivery_p50_seconds';
+    public const FIELD_REQUEST_TO_DELIVERY_P95_SECONDS = 'request_to_delivery_p95_seconds';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -1073,8 +1075,8 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_COMPLETED_E2E => $completed,
                 self::FIELD_MISSION_E2E_RATE => $total > 0 ? round($completed / $total, 4) : null,
                 self::FIELD_ASKS_PER_REQUEST => null,
-                'request_to_delivery_p50_seconds' => null,
-                'request_to_delivery_p95_seconds' => null,
+                self::FIELD_REQUEST_TO_DELIVERY_P50_SECONDS => null,
+                self::FIELD_REQUEST_TO_DELIVERY_P95_SECONDS => null,
             ],
             self::FIELD_ABANDONED_COUNT_AS_NOT_COMPLETED => true,
         ];

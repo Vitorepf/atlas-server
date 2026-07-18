@@ -116,6 +116,8 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD_PHASES_EXECUTED = 'phases_executed';
     public const FIELD_PHASES_EXECUTED_COUNT = 'phases_executed_count';
     public const FIELD_PLACEMENT_CACHE_HIT = 'placement_cache_hit';
+    public const FIELD_PLACEMENT_DECISION = 'placement_decision';
+    public const FIELD_SOURCE_TYPE = 'source_type';
 
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
 
@@ -359,7 +361,7 @@ final class AtlasAaeosHttpPathFacadeService
     private function placeOrCache(string $intentText, string $intentHash, array $data): array
     {
         $ttl = (int) (AiValueNormalizer::finiteFloatOrNull(config(self::PLACEMENT_CACHE_TTL_CONFIG_KEY, self::DEFAULT_PLACEMENT_CACHE_TTL_SECONDS)) ?? self::DEFAULT_PLACEMENT_CACHE_TTL_SECONDS);
-        $cacheKey = 'atlas.aaeos.placement.'.hash('sha256', $intentHash.'|'.($data['source_type'] ?? ''));
+        $cacheKey = 'atlas.aaeos.placement.'.hash('sha256', $intentHash.'|'.($data[self::FIELD_SOURCE_TYPE] ?? ''));
         $cached = $ttl > 0 ? $this->cache->get($cacheKey) : null;
         if (is_array($cached)) {
             return [$cached, true];
@@ -411,7 +413,7 @@ final class AtlasAaeosHttpPathFacadeService
                 $envelopes,
             )),
             self::FIELD_PHASES_EXECUTED_COUNT => count($envelopes),
-            'placement_decision' => [
+            self::FIELD_PLACEMENT_DECISION => [
                 self::FIELD_GATE_STATUS => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_GATE_STATUS] ?? null) ?? self::RESULT_UNKNOWN,
                 self::FIELD_LAYER => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_LAYER] ?? null) ?? self::RESULT_UNKNOWN,
                 self::FIELD_DOMAIN => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_DOMAIN] ?? null) ?? self::RESULT_UNKNOWN,
