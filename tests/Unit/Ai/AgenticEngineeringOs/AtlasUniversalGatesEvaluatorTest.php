@@ -9694,4 +9694,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['department_contract_acos_watchdog_aaeos_test_implementation_summary_floor_count']);
     }
 
+    public function test_department_contract_verified_share_phase_advance_model_capability_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->departmentContractVerifiedSharePhaseAdvanceModelCapabilityFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DEV_RUN_DURATION_P95, $out['dev_run_duration_p95']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DEV_SCOPE_VIOLATION_COUNT, $out['dev_scope_violation_count']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DRAFT_SPEC, $out['draft_spec']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EDIT_ALLOWED_FILES, $out['edit_allowed_files']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EDIT_SECURITY_POLICY, $out['edit_security_policy']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EMIT_CONTEXT_PACK, $out['emit_context_pack']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ESCALATE_TO_OPERATOR, $out['escalate_to_operator']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EVIDENCE_PERSISTED, $out['evidence_persisted']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EXECUTIVE_INTAKE_HAS_NO_UPSTREAM, $out['executive_intake_has_no_upstream']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EXPOSE_SECRETS, $out['expose_secrets']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_RB, $out['rb']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_HIGH_SEVERITY_BLOCKER_BLOCK, $out['high_severity_blocker_block']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_POOLING_NOT_ALLOWED, $out['pooling_not_allowed']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_GOLDEN_V2, $out['golden_v2']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_PROTECTED_CLASS_OMITTED, $out['protected_class_omitted']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_CANDIDATE_REGRESSION_OR_UNMEASURED, $out['candidate_regression_or_unmeasured']);
+        $this->assertSame(PromotionProtocol::FIELD_MISSING_REQUIRED_FIELDS, $out['missing_required_fields']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_GOAL_RECORDED, $out['goal_recorded']);
+        $this->assertSame(18, $out['department_contract_verified_share_phase_advance_model_capability_floor_count']);
+    }
+
 }

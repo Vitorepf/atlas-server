@@ -128,6 +128,7 @@ final class AtlasNCaptureDrillService
     public const FIELD_JSONL = 'jsonl';
     public const FIELD_NO_DRILL_IN_WINDOW = 'no_drill_in_window';
     public const FIELD_TETO01_RECEIPT_ENCODE_FAILED = 'teto01_receipt_encode_failed';
+    public const FIELD_GOLDEN_V2 = 'golden_v2';
 
     private readonly string $ledgerPath;
 
@@ -149,7 +150,7 @@ final class AtlasNCaptureDrillService
                 self::FIELD_COLD_START_CHANNELS_ALLOWED => [self::COLD_START_CHANNEL_MAXK02],
                 self::FIELD_BYPASS_FORBIDDEN => true,
                 self::FIELD_YARDSTICK_REQUIRED_SERIES => [
-                    'golden_v2',
+                    self::FIELD_GOLDEN_V2,
                     'atlas.decide.route_regret.v2',
                 ],
                 self::FIELD_PEEK_ONLY => true,

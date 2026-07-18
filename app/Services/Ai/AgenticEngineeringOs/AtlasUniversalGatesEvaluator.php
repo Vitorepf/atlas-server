@@ -12344,4 +12344,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B478).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function departmentContractVerifiedSharePhaseAdvanceModelCapabilityFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'dev_run_duration_p95' => DepartmentContractRuntime::FIELD_DEV_RUN_DURATION_P95,
+            'dev_scope_violation_count' => DepartmentContractRuntime::FIELD_DEV_SCOPE_VIOLATION_COUNT,
+            'draft_spec' => DepartmentContractRuntime::FIELD_DRAFT_SPEC,
+            'edit_allowed_files' => DepartmentContractRuntime::FIELD_EDIT_ALLOWED_FILES,
+            'edit_security_policy' => DepartmentContractRuntime::FIELD_EDIT_SECURITY_POLICY,
+            'emit_context_pack' => DepartmentContractRuntime::FIELD_EMIT_CONTEXT_PACK,
+            'escalate_to_operator' => DepartmentContractRuntime::FIELD_ESCALATE_TO_OPERATOR,
+            'evidence_persisted' => DepartmentContractRuntime::FIELD_EVIDENCE_PERSISTED,
+            'executive_intake_has_no_upstream' => DepartmentContractRuntime::FIELD_EXECUTIVE_INTAKE_HAS_NO_UPSTREAM,
+            'expose_secrets' => DepartmentContractRuntime::FIELD_EXPOSE_SECRETS,
+            'rb' => AcosMaxVerifiedShareService::FIELD_RB,
+            'high_severity_blocker_block' => PhaseAdvanceVerdictClassifier::FIELD_HIGH_SEVERITY_BLOCKER_BLOCK,
+            'pooling_not_allowed' => AtlasModelCapabilitySpecService::FIELD_POOLING_NOT_ALLOWED,
+            'golden_v2' => AtlasNCaptureDrillService::FIELD_GOLDEN_V2,
+            'protected_class_omitted' => GatedCorpusCandidateMiner::FIELD_PROTECTED_CLASS_OMITTED,
+            'candidate_regression_or_unmeasured' => Maxa04JinaV3DualReadService::FIELD_CANDIDATE_REGRESSION_OR_UNMEASURED,
+            'missing_required_fields' => PromotionProtocol::FIELD_MISSING_REQUIRED_FIELDS,
+            'goal_recorded' => AutonomousWorkExecutionOs::FIELD_GOAL_RECORDED,
+            'department_contract_verified_share_phase_advance_model_capability_floor_count' => 18,
+        ];
+    }
+
 }

@@ -500,6 +500,7 @@ final class AtlasAaeosCommand extends Command
                             {--department-contract-acos-watchdog-flywheel-funnel-local-model-floors-contract= : JSON file (any object) to observe department/contract/acos/watchdog/flywheel/funnel floors}
                             {--joint-resource-department-contract-acos-watchdog-cognitive-function-floors-contract= : JSON file (any object) to observe joint/resource/department/contract/acos/watchdog floors}
                             {--department-contract-acos-watchdog-aaeos-test-implementation-summary-floors-contract= : JSON file (any object) to observe department/contract/acos/watchdog/aaeos/test floors}
+                            {--department-contract-verified-share-phase-advance-model-capability-floors-contract= : JSON file (any object) to observe department/contract/verified/share/phase/advance floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1156,6 +1157,7 @@ final class AtlasAaeosCommand extends Command
             ['department-contract-acos-watchdog-flywheel-funnel-local-model-floors-contract', 'department_contract_acos_watchdog_flywheel_funnel_local_model_floors_contract', fn (array $p) => $gates->departmentContractAcosWatchdogFlywheelFunnelLocalModelFloorsContractObserve($p)],
             ['joint-resource-department-contract-acos-watchdog-cognitive-function-floors-contract', 'joint_resource_department_contract_acos_watchdog_cognitive_function_floors_contract', fn (array $p) => $gates->jointResourceDepartmentContractAcosWatchdogCognitiveFunctionFloorsContractObserve($p)],
             ['department-contract-acos-watchdog-aaeos-test-implementation-summary-floors-contract', 'department_contract_acos_watchdog_aaeos_test_implementation_summary_floors_contract', fn (array $p) => $gates->departmentContractAcosWatchdogAaeosTestImplementationSummaryFloorsContractObserve($p)],
+            ['department-contract-verified-share-phase-advance-model-capability-floors-contract', 'department_contract_verified_share_phase_advance_model_capability_floors_contract', fn (array $p) => $gates->departmentContractVerifiedSharePhaseAdvanceModelCapabilityFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

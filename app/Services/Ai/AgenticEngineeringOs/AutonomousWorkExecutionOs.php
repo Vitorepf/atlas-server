@@ -28,7 +28,7 @@ final class AutonomousWorkExecutionOs
     public const AUTONOMY_LEVELS = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7'];
 
     public const CYCLE_STAGES = [
-        'goal_recorded',
+        self::FIELD_GOAL_RECORDED,
         self::FIELD_CYCLE_PLANNED,
         self::FIELD_STEPS_DECOMPOSED,
         self::FIELD_STEP_EXECUTED,
@@ -70,6 +70,7 @@ final class AutonomousWorkExecutionOs
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_STEPS_DECOMPOSED = 'steps_decomposed';
     public const FIELD_STEP_EXECUTED = 'step_executed';
+    public const FIELD_GOAL_RECORDED = 'goal_recorded';
 
     public const STAGE_STATUSES = [
         self::STATUS_PENDING,

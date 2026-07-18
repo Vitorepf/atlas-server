@@ -95,6 +95,7 @@ final class AcosMaxVerifiedShareService
     public const FIELD_ATLAS_FORGE = 'atlas_forge';
     public const FIELD_AUTONOMOUS = 'autonomous';
     public const FIELD_ATLAS_AUTONOMOS = 'atlas_autonomos';
+    public const FIELD_RB = 'rb';
 
 
     /** @return array<string,mixed> */
@@ -227,7 +228,7 @@ final class AcosMaxVerifiedShareService
         }
 
         $latest = null;
-        $handle = fopen($path, 'rb');
+        $handle = fopen($path, self::FIELD_RB);
         if ($handle === false) {
             return null;
         }
@@ -271,7 +272,7 @@ final class AcosMaxVerifiedShareService
         }
 
         $rows = [];
-        $handle = fopen($path, 'rb');
+        $handle = fopen($path, self::FIELD_RB);
         if ($handle === false) {
             return [];
         }

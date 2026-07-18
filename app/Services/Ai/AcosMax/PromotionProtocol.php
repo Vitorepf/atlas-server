@@ -113,6 +113,7 @@ final class PromotionProtocol
     public const FIELD_MISSING_OBSERVATION_WINDOW_ID = 'missing_observation_window_id';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_UNKNOWN_FLAG = 'unknown_flag';
+    public const FIELD_MISSING_REQUIRED_FIELDS = 'missing_required_fields';
 
     /** @var list<string> */
     public const STATES = [
@@ -199,7 +200,7 @@ final class PromotionProtocol
             return $this->blocked(
                 in_array('rollback_trigger', $missing, true)
                     ? self::FIELD_MISSING_PREDECLARED_ROLLBACK_TRIGGER
-                    : 'missing_required_fields',
+                    : self::FIELD_MISSING_REQUIRED_FIELDS,
                 $flagId,
                 $toState,
                 [self::FIELD_MISSING => $missing],

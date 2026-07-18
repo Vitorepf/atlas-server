@@ -51,6 +51,7 @@ final class PhaseAdvanceVerdictClassifier
     public const FIELD_PHASE_ADVANCE_READY = 'phase_advance_ready';
     public const FIELD_POLICY_DECISION_NOT_ALLOWED_HALT = 'policy_decision_not_allowed_halt';
     public const FIELD_OPERATOR_SIGNATURE_REQUIRED = 'operator_signature_required';
+    public const FIELD_HIGH_SEVERITY_BLOCKER_BLOCK = 'high_severity_blocker_block';
 
     /** @var list<string> */
     public const VERDICTS = [
@@ -68,7 +69,7 @@ final class PhaseAdvanceVerdictClassifier
      * @var list<string>
      */
     public const RULES = [
-        'high_severity_blocker_block',
+        self::FIELD_HIGH_SEVERITY_BLOCKER_BLOCK,
         self::FIELD_POLICY_DECISION_NOT_ALLOWED_HALT,
         self::FIELD_OPERATOR_SIGNATURE_REQUIRED,
         self::FIELD_OPEN_BLOCKERS_REPAIR,
@@ -150,7 +151,7 @@ final class PhaseAdvanceVerdictClassifier
         // Rule 1: a high/critical blocker outranks repair and forces a block
         // (aligned with {@see AaeosBlockerSeverityGate} blocked signal).
         if ($highBlockerIds !== []) {
-            return [self::VERDICT_BLOCK, 'high_severity_blocker_block'];
+            return [self::VERDICT_BLOCK, self::FIELD_HIGH_SEVERITY_BLOCKER_BLOCK];
         }
 
         // Rule 2: a policy gate whose decision token is not passed halts (no high blocker).

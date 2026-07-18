@@ -87,6 +87,7 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_JINA_V3_REEMBEDDED_SHADOW_INDEX = 'jina_v3_reembedded_shadow_index';
     public const FIELD_MEAN = 'mean';
     public const FIELD_SHA256 = 'sha256';
+    public const FIELD_CANDIDATE_REGRESSION_OR_UNMEASURED = 'candidate_regression_or_unmeasured';
 
 
     /** @return array<string,mixed> */
@@ -257,7 +258,7 @@ final class Maxa04JinaV3DualReadService
 
         return $recallOk && $precisionOk
             ? self::FIELD_CANDIDATE_NON_REGRESSION_OBSERVED
-            : 'candidate_regression_or_unmeasured';
+            : self::FIELD_CANDIDATE_REGRESSION_OR_UNMEASURED;
     }
 
     /** @return array<string,mixed> */
