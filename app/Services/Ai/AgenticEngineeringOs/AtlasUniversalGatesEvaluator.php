@@ -17939,4 +17939,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B661).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b661RecallGapWindowOrchestratorFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.memory.recall_gap_aggregator.v1' => RecallGapAggregator::SCHEMA_VERSION,
+            '0.35' => RecallGapAggregator::WEAK_SCORE_FLOOR,
+            '3' => RecallGapAggregator::DEFAULT_MIN_OCCURRENCES,
+            'ok' => RecallGapAggregator::STATUS_OK,
+            'insufficient_signal' => RecallGapAggregator::STATUS_INSUFFICIENT_SIGNAL,
+            'schema_version' => RecallGapAggregator::FIELD_SCHEMA_VERSION,
+            'candidate_type' => RecallGapAggregator::FIELD_CANDIDATE_TYPE,
+            'query_hash' => RecallGapAggregator::FIELD_QUERY_HASH,
+            'occurrences' => RecallGapAggregator::FIELD_OCCURRENCES,
+            'id' => AcosMaxWindowOrchestratorService::FIELD_ID,
+            'dead_after_days' => AcosMaxWindowOrchestratorService::FIELD_DEAD_AFTER_DAYS,
+            'atlas.acos.windows.v1' => AcosMaxWindowOrchestratorService::SCHEMA_VERSION,
+            'not_started' => AcosMaxWindowOrchestratorService::STATE_NOT_STARTED,
+            'unknown' => AcosMaxWindowOrchestratorService::STATE_UNKNOWN,
+            'window_not_started' => AcosMaxWindowOrchestratorService::BLOCKING_WINDOW_NOT_STARTED,
+            'dead_window' => AcosMaxWindowOrchestratorService::STATUS_DEAD_WINDOW,
+            'unavailable' => AcosMaxWindowOrchestratorService::STATUS_UNAVAILABLE,
+            'ok' => AcosMaxWindowOrchestratorService::STATUS_OK,
+            'b661_recall_gap_window_orchestrator_floor_count' => 18,
+        ];
+    }
+
 }

@@ -14199,4 +14199,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b660_phase_handoff_floor_count']);
     }
 
+    public function test_b661_recall_gap_window_orchestrator_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b661RecallGapWindowOrchestratorFloorsContractObserve([]);
+        $this->assertSame(RecallGapAggregator::SCHEMA_VERSION, $out['atlas.memory.recall_gap_aggregator.v1']);
+        $this->assertSame(RecallGapAggregator::WEAK_SCORE_FLOOR, $out['0.35']);
+        $this->assertSame(RecallGapAggregator::DEFAULT_MIN_OCCURRENCES, $out['3']);
+        $this->assertSame(RecallGapAggregator::STATUS_OK, $out['ok']);
+        $this->assertSame(RecallGapAggregator::STATUS_INSUFFICIENT_SIGNAL, $out['insufficient_signal']);
+        $this->assertSame(RecallGapAggregator::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(RecallGapAggregator::FIELD_CANDIDATE_TYPE, $out['candidate_type']);
+        $this->assertSame(RecallGapAggregator::FIELD_QUERY_HASH, $out['query_hash']);
+        $this->assertSame(RecallGapAggregator::FIELD_OCCURRENCES, $out['occurrences']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_ID, $out['id']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_DEAD_AFTER_DAYS, $out['dead_after_days']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::SCHEMA_VERSION, $out['atlas.acos.windows.v1']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::STATE_NOT_STARTED, $out['not_started']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::STATE_UNKNOWN, $out['unknown']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::BLOCKING_WINDOW_NOT_STARTED, $out['window_not_started']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::STATUS_DEAD_WINDOW, $out['dead_window']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::STATUS_UNAVAILABLE, $out['unavailable']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::STATUS_OK, $out['ok']);
+        $this->assertSame(18, $out['b661_recall_gap_window_orchestrator_floor_count']);
+    }
+
 }
