@@ -30,10 +30,10 @@ class AtlasDocsAuthorityGraphService
      * @var array<string, int>
      */
     public const CONFIDENCE = [
-        self::FIELD_GOVERNS_FRONTMATTER => 100,
+        self::FIELD_GOVERNS_FRONTMATTER => self::INT_100,
         self::FIELD_DOC_ID => 95,
         self::FIELD_CAPABILITY_FRONTMATTER => 80,
-        self::FIELD_KEYWORD_FALLBACK => 40,
+        self::FIELD_KEYWORD_FALLBACK => self::INT_40,
     ];
 
     public const DEFAULT_LOCATE_LIMIT = 5;
@@ -70,6 +70,8 @@ class AtlasDocsAuthorityGraphService
     public const FIELD_LIKE = 'like';
     public const FIELD_ARCHIVE = 'archive';
     public const FIELD_MD = 'md';
+    public const INT_100 = 100;
+    public const INT_40 = 40;
 
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,

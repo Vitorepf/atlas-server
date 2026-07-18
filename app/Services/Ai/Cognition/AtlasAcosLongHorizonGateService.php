@@ -180,6 +180,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_SCORECARD_OVERALL_BELOW_FLOOR = 'scorecard_overall_below_floor';
     public const FIELD_SCORECARD_OVERALL_NEAR_FLOOR = 'scorecard_overall_near_floor';
     public const FIELD_SERIES_DAY_BELOW_FLOOR = 'series_day_below_floor';
+    public const FIELD_UTC = 'UTC';
+    public const INT_10 = 10;
 
     /**
      * @param  array<string,mixed>  $options
@@ -768,7 +770,7 @@ final class AtlasAcosLongHorizonGateService
 
         try {
             return (new DateTimeImmutable($recordedAt))
-                ->setTimezone(new \DateTimeZone('UTC'))
+                ->setTimezone(new \DateTimeZone(self::FIELD_UTC))
                 ->format('Y-m-d');
         } catch (Throwable) {
             return null;
@@ -808,7 +810,7 @@ final class AtlasAcosLongHorizonGateService
         }
 
         try {
-            return new DateTimeImmutable(Carbon::now('UTC')->format('Y-m-d').' 00:00:00 UTC');
+            return new DateTimeImmutable(Carbon::now(self::FIELD_UTC)->format('Y-m-d').' 00:00:00 UTC');
         } catch (Throwable) {
             return new DateTimeImmutable('today 00:00:00 UTC');
         }
@@ -922,7 +924,7 @@ final class AtlasAcosLongHorizonGateService
             self::FIELD_SCORE => [
                 self::FIELD_OVERALL_OUT_OF_10 => $overall,
                 self::FIELD_DIMENSIONS => [
-                    self::FIELD_CODE => [self::FIELD_SCORE_OUT_OF_10 => 10],
+                    self::FIELD_CODE => [self::FIELD_SCORE_OUT_OF_10 => self::INT_10],
                     self::FIELD_DOC => [self::FIELD_SCORE_OUT_OF_10 => 9.5],
                     self::FIELD_PIPELINE => [self::FIELD_SCORE_OUT_OF_10 => $pipeline],
                 ],

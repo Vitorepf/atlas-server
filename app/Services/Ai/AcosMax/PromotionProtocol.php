@@ -118,6 +118,8 @@ final class PromotionProtocol
     public const FIELD_AOBG = 'AOBG';
     public const FIELD_ATLAS_AOBG_FUSION_ENABLED = 'ATLAS_AOBG_FUSION_ENABLED';
     public const FIELD_ATLAS_AUTONOMOS_MASTER_ENABLED = 'ATLAS_AUTONOMOS_MASTER_ENABLED';
+    public const FIELD_ATLAS_AUTONOMOUS_AUTO_APPLY = 'ATLAS_AUTONOMOUS_AUTO_APPLY';
+    public const FIELD_ATLAS_BRAIN_REFLECTION_ENABLED = 'ATLAS_BRAIN_REFLECTION_ENABLED';
 
     /** @var list<string> */
     public const STATES = [
@@ -326,12 +328,12 @@ final class PromotionProtocol
                 self::FIELD_OPERATOR_ONLY => true,
             ],
             [
-                self::FIELD_ID => 'ATLAS_AUTONOMOUS_AUTO_APPLY',
+                self::FIELD_ID => self::FIELD_ATLAS_AUTONOMOUS_AUTO_APPLY,
                 self::FIELD_FAMILY => self::FIELD_ASI,
                 self::FIELD_SLICE => 'ASI-07',
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_CONFIG_KEY => 'atlas.ai.autonomous_learning.enabled',
-                self::FIELD_ENV_KEY => 'ATLAS_AUTONOMOUS_AUTO_APPLY',
+                self::FIELD_ENV_KEY => self::FIELD_ATLAS_AUTONOMOUS_AUTO_APPLY,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '7d',
                 self::FIELD_FLIP_CRITERION => 'privacy fail-closed, reversal proven, and digest FEE-12 operational',
                 self::FIELD_ROLLBACK_TRIGGER => 'disable auto-apply when reversal_rate or negative_feedback guard breaches soak bounds',
@@ -340,12 +342,12 @@ final class PromotionProtocol
                 self::FIELD_OPERATOR_ONLY => true,
             ],
             [
-                self::FIELD_ID => 'ATLAS_BRAIN_REFLECTION_ENABLED',
+                self::FIELD_ID => self::FIELD_ATLAS_BRAIN_REFLECTION_ENABLED,
                 self::FIELD_FAMILY => self::FIELD_ASI,
                 self::FIELD_SLICE => 'ASI-08',
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_CONFIG_KEY => 'atlas.brain.reflection_enabled',
-                self::FIELD_ENV_KEY => 'ATLAS_BRAIN_REFLECTION_ENABLED',
+                self::FIELD_ENV_KEY => self::FIELD_ATLAS_BRAIN_REFLECTION_ENABLED,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '24h',
                 self::FIELD_FLIP_CRITERION => 'reflection stream writes real post-landing entries and consumer reads PathYieldEwma samples',
                 self::FIELD_ROLLBACK_TRIGGER => 'disable reflection writer if pattern-ledger writes fail or no consumer traffic is observed',

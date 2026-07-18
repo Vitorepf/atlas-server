@@ -9939,4 +9939,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b487_cognition_score_promotion_protocol_ledger_rotation_health_report_floor_count']);
     }
 
+    public function test_b488_acos_long_cognition_score_promotion_protocol_ledger_rotation_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b488AcosLongCognitionScorePromotionProtocolLedgerRotationFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_UTC, $out['UTC']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::INT_10, $out['10']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACCR, $out['ACCR']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACDM, $out['ACDM']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_CONSUMERS, $out['CONSUMERS']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT, $out['CONTEXT']);
+        $this->assertSame(PromotionProtocol::FIELD_ATLAS_AUTONOMOUS_AUTO_APPLY, $out['ATLAS_AUTONOMOUS_AUTO_APPLY']);
+        $this->assertSame(PromotionProtocol::FIELD_ATLAS_BRAIN_REFLECTION_ENABLED, $out['ATLAS_BRAIN_REFLECTION_ENABLED']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::INT_128, $out['128']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::INT_180, $out['180']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_UTC, $out['UTC']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_YMD_HIS, $out['YmdHis']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::INT_100, $out['100']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::INT_40, $out['40']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::INT_10, $out['10']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::INT_100, $out['100']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_DB_DATABASE, $out['DB_DATABASE']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_HEAD, $out['HEAD']);
+        $this->assertSame(18, $out['b488_acos_long_cognition_score_promotion_protocol_ledger_rotation_floor_count']);
+    }
+
 }

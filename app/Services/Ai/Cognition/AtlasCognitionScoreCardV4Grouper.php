@@ -63,6 +63,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_AUTONOMY_2 = 'AUTONOMY';
     public const FIELD_COGNITION_2 = 'COGNITION';
     public const FIELD_COMPOUND = 'COMPOUND';
+    public const FIELD_CONSUMERS = 'CONSUMERS';
+    public const FIELD_CONTEXT = 'CONTEXT';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -151,8 +153,8 @@ final class AtlasCognitionScoreCardV4Grouper
         return match ($group) {
             self::FIELD_COGNITIVE_IMMUNE => 'IMMUNE',
             self::FIELD_MEMORY_CORE => 'MEMORY',
-            self::FIELD_AUCRI => 'CONTEXT',
-            self::FIELD_SELF_IMPROVEMENT, self::FIELD_SELF_CONSTRUCTION, self::FIELD_CARTOGRAPHY, self::FIELD_PROGRAMMING, self::FIELD_RESEARCH_DOMAIN => 'CONSUMERS',
+            self::FIELD_AUCRI => self::FIELD_CONTEXT,
+            self::FIELD_SELF_IMPROVEMENT, self::FIELD_SELF_CONSTRUCTION, self::FIELD_CARTOGRAPHY, self::FIELD_PROGRAMMING, self::FIELD_RESEARCH_DOMAIN => self::FIELD_CONSUMERS,
             self::FIELD_GOVERNANCE => 'GOVERNANCE',
             self::FIELD_ATLAS_DECIDE => 'DECIDE',
             self::FIELD_COMPOUNDING => self::FIELD_COMPOUND,
@@ -179,8 +181,8 @@ final class AtlasCognitionScoreCardV4Grouper
         return match ($key) {
             'IMMUNE' => 'Cognitive Immune G0-G8',
             'MEMORY' => 'Memory Core',
-            'CONTEXT' => 'Context Runtime (AUCRI policies)',
-            'CONSUMERS' => 'ACOS Consumers and Legacy Projections',
+            self::FIELD_CONTEXT => 'Context Runtime (AUCRI policies)',
+            self::FIELD_CONSUMERS => 'ACOS Consumers and Legacy Projections',
             'GOVERNANCE' => 'Constitutional Governance',
             'DECIDE' => 'Atlas Decide + Swarm',
             self::FIELD_COMPOUND => 'Compounding',

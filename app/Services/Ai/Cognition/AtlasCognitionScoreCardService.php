@@ -203,6 +203,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_AARR = 'AARR';
     public const FIELD_ABDD = 'ABDD';
     public const FIELD_ACCCR = 'ACCCR';
+    public const FIELD_ACCR = 'ACCR';
+    public const FIELD_ACDM = 'ACDM';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -280,7 +282,7 @@ class AtlasCognitionScoreCardService
         ['ARPTL', 'Retrieval Privacy Trust Layer',     self::FIELD_AUCRI, AtlasRetrievalPrivacyTrustLayerService::class],
         ['AKIF',  'Knowledge Ingestion Fabric',        self::FIELD_AUCRI, AtlasKnowledgeSourcePacketRegistryService::class],
         ['ACMF',  'Cognitive Memory Fabric',           self::FIELD_AUCRI, AtlasCognitiveMemoryFabricService::class],
-        ['ACCR',  'Context Compiler Runtime',          self::FIELD_AUCRI, AtlasContextCompilerRuntimeService::class],
+        [self::FIELD_ACCR,  'Context Compiler Runtime',          self::FIELD_AUCRI, AtlasContextCompilerRuntimeService::class],
         ['ATER',  'Token Economy Runtime',             self::FIELD_AUCRI, AtlasTokenEconomyBudgetPolicyService::class],
         ['ACPFR', 'Context Pareto Frontier Runtime',   self::FIELD_AUCRI, AtlasContextParetoFrontierRuntimeService::class],
 
@@ -291,7 +293,7 @@ class AtlasCognitionScoreCardService
         ['ADML',    'Atlas Decide Meta-Learning',          self::FIELD_ATLAS_DECIDE,      AtlasDecideMetaLearningService::class],
         ['ASCB',    'Self-Construction Subsystem Builder', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionSubsystemBuilderService::class],
         ['AURG-4D', 'Unified Reality Graph Temporal (4D)', self::FIELD_REALITY,           AtlasUnifiedRealityGraphTemporalService::class],
-        ['ACDM',    'Cross-Domain Mesh',                   self::FIELD_CROSS_DOMAIN,      AtlasCrossDomainMeshService::class],
+        [self::FIELD_ACDM,    'Cross-Domain Mesh',                   self::FIELD_CROSS_DOMAIN,      AtlasCrossDomainMeshService::class],
         ['TEOS-I3', 'TEOS-I3 Counterfactual Runtime',      self::FIELD_TEOS,              AtlasTeosI3CounterfactualService::class],
 
         // Patamar 4 — Constitutional Kernel, Autonomy Admission, CognitiveFunctionAtlas, Reconciliation Runtime, TEOS-I4, Swarm Conductor, Temporary Domain Composition

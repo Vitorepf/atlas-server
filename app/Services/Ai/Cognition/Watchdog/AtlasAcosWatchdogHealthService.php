@@ -358,6 +358,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_TASK = 'task';
     public const FIELD_TOTAL_EVENT_COUNT_BELOW_FLOOR = 'total_event_count_below_floor';
     public const FIELD_WATCH_REGRESSED = 'watch_regressed';
+    public const FIELD_UTC = 'UTC';
+    public const FIELD_YMD_HIS = 'YmdHis';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -367,7 +369,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $scorecard = app(AtlasMemoryQualityService::class)->scorecard($filters);
         $latestSnapshotAt = $this->parseDate(data_get($scorecard, 'latest_snapshot.snapshot_at'));
-        $snapshotAgeHours = $latestSnapshotAt ? round($latestSnapshotAt->diffInMinutes(CarbonImmutable::now('UTC')) / 60, 2) : null;
+        $snapshotAgeHours = $latestSnapshotAt ? round($latestSnapshotAt->diffInMinutes(CarbonImmutable::now(self::FIELD_UTC)) / 60, 2) : null;
         $freshness = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'components.freshness', 0)) ?? 0);
         $concentration = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'ratios.recall_concentration_ratio', 0.0)) ?? 0.0;
         $recallUsageTotal = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'counts.retrieval_eval.recall_usage_total', 0)) ?? 0);
@@ -429,7 +431,7 @@ final class AtlasAcosWatchdogHealthService
     /** @return array<string,mixed> */
     public function learningCadenceReport(): array
     {
-        $now = CarbonImmutable::now('UTC');
+        $now = CarbonImmutable::now(self::FIELD_UTC);
         $lastNegative = $this->latestMemoryFeedbackAt(AtlasMemoryEntryUsage::negativeFeedbackActions());
         $lastOutcome = $this->latestModelAt(AiRunOutcome::class, 'created_at', self::FIELD_AI_RUN_OUTCOMES);
         $lastDeliveredRefs = $this->latestRagDeliveredRefsAt();
@@ -575,7 +577,7 @@ final class AtlasAcosWatchdogHealthService
     /** @return array<string,mixed> */
     public function contextFeedbackHealthReport(): array
     {
-        $since = CarbonImmutable::now('UTC')->subHours(self::FEEDBACK_WINDOW_HOURS);
+        $since = CarbonImmutable::now(self::FIELD_UTC)->subHours(self::FEEDBACK_WINDOW_HOURS);
         if (! DatabaseTableAvailability::has(self::FIELD_AI_RAG_FEEDBACK_EVENTS)) {
             return [
                 self::FIELD_SCHEMA_VERSION => self::CONTEXT_FEEDBACK_SCHEMA,
@@ -660,7 +662,7 @@ final class AtlasAcosWatchdogHealthService
     /** @return array<string,mixed> */
     public function compactionSoakWatchReport(): array
     {
-        $since = CarbonImmutable::now('UTC')->subDays(self::COMPACTION_WINDOW_DAYS);
+        $since = CarbonImmutable::now(self::FIELD_UTC)->subDays(self::COMPACTION_WINDOW_DAYS);
         if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_LONG_HORIZON_COMPACTION_RECEIPTS)) {
             return [
                 self::FIELD_SCHEMA_VERSION => self::COMPACTION_SOAK_SCHEMA,
@@ -1076,11 +1078,11 @@ final class AtlasAcosWatchdogHealthService
                 $query->where('correlation_id', 'acos:watchdog:'.$scopeId);
             }
             $first = $query->first();
-            $firstAt = $this->parseDate($first?->occurred_at) ?? CarbonImmutable::now('UTC');
+            $firstAt = $this->parseDate($first?->occurred_at) ?? CarbonImmutable::now(self::FIELD_UTC);
             $series[] = [
                 self::FIELD_BLOCKER => $blocker,
                 self::FIELD_FIRST_SEEN_AT => $first?->occurred_at?->toIso8601String(),
-                self::FIELD_DAYS_IN_BLOCK => (int) floor($firstAt->diffInHours(CarbonImmutable::now('UTC')) / 24),
+                self::FIELD_DAYS_IN_BLOCK => (int) floor($firstAt->diffInHours(CarbonImmutable::now(self::FIELD_UTC)) / 24),
             ];
         }
 
@@ -1096,7 +1098,7 @@ final class AtlasAcosWatchdogHealthService
             app(AtlasEvidenceLedger::class)->record($type, $payload, [
                 self::FIELD_TENANT_ID => self::FIELD_DEFAULT,
                 self::FIELD_OPERATOR_ID => self::FIELD_SYSTEM,
-                self::FIELD_ENVELOPE_ID => 'acos:watchdog:'.$scopeId.':'.now()->format('YmdHis'),
+                self::FIELD_ENVELOPE_ID => 'acos:watchdog:'.$scopeId.':'.now()->format(self::FIELD_YMD_HIS),
                 self::FIELD_CORRELATION_ID => 'acos:watchdog:'.$scopeId,
                 self::FIELD_SCOPE_TYPE => self::FIELD_ACOS_WATCHDOG,
                 self::FIELD_SCOPE_ID => $scopeId,
@@ -1114,7 +1116,7 @@ final class AtlasAcosWatchdogHealthService
      */
     private function rowsInWindow(array $rows, int $days, string $recordedAtPath = 'recorded_at'): array
     {
-        $since = CarbonImmutable::now('UTC')->subDays($days);
+        $since = CarbonImmutable::now(self::FIELD_UTC)->subDays($days);
 
         return array_values(array_filter($rows, function (array $row) use ($since, $recordedAtPath): bool {
             $at = $this->parseDate(data_get($row, $recordedAtPath) ?? data_get($row, self::FIELD_RECORDED_AT) ?? data_get($row, self::FIELD_CREATED_AT));

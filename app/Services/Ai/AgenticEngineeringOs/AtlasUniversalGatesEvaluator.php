@@ -12646,4 +12646,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B488).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b488AcosLongCognitionScorePromotionProtocolLedgerRotationFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'UTC' => AtlasAcosLongHorizonGateService::FIELD_UTC,
+            '10' => AtlasAcosLongHorizonGateService::INT_10,
+            'ACCR' => AtlasCognitionScoreCardService::FIELD_ACCR,
+            'ACDM' => AtlasCognitionScoreCardService::FIELD_ACDM,
+            'CONSUMERS' => AtlasCognitionScoreCardV4Grouper::FIELD_CONSUMERS,
+            'CONTEXT' => AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT,
+            'ATLAS_AUTONOMOUS_AUTO_APPLY' => PromotionProtocol::FIELD_ATLAS_AUTONOMOUS_AUTO_APPLY,
+            'ATLAS_BRAIN_REFLECTION_ENABLED' => PromotionProtocol::FIELD_ATLAS_BRAIN_REFLECTION_ENABLED,
+            '128' => AcosMaxLedgerRotationRegistry::INT_128,
+            '180' => AcosMaxLedgerRotationRegistry::INT_180,
+            'UTC' => AtlasAcosWatchdogHealthService::FIELD_UTC,
+            'YmdHis' => AtlasAcosWatchdogHealthService::FIELD_YMD_HIS,
+            '100' => AtlasDocsAuthorityGraphService::INT_100,
+            '40' => AtlasDocsAuthorityGraphService::INT_40,
+            '10' => AutonomyLadderAdversarialWatchdogCheck::INT_10,
+            '100' => AutonomyLadderAdversarialWatchdogCheck::INT_100,
+            'DB_DATABASE' => AtlasAaeosTestExecutionService::FIELD_DB_DATABASE,
+            'HEAD' => AtlasAaeosTestExecutionService::FIELD_HEAD,
+            'b488_acos_long_cognition_score_promotion_protocol_ledger_rotation_floor_count' => 18,
+        ];
+    }
+
 }
