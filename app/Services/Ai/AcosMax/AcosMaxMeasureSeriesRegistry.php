@@ -82,6 +82,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_ESP_03 = 'ESP-03';
     public const FIELD_ESP_05 = 'ESP-05';
     public const FIELD_ESP_06 = 'ESP-06';
+    public const FIELD_ESP_09 = 'ESP-09';
+    public const FIELD_MAXA_04 = 'MAXA-04';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -330,7 +332,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.esp_06.outcome_envelope.v1',
             ],
             [
-                self::FIELD_SLICE => 'ESP-09',
+                self::FIELD_SLICE => self::FIELD_ESP_09,
                 self::FIELD_SERIES => Esp09IndependentChallengerService::MEASURE_ID,
                 self::FIELD_PATH => 'Esp09IndependentChallengerService::refutationSeries',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
@@ -555,7 +557,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'maxd-04-ppr-shadow-dual-read-window',
             ],
             [
-                self::FIELD_SLICE => 'MAXA-04',
+                self::FIELD_SLICE => self::FIELD_MAXA_04,
                 self::FIELD_SERIES => Maxa04JinaV3DualReadLedger::SCHEMA,
                 self::FIELD_PATH => storage_path(Maxa04JinaV3DualReadLedger::RELATIVE_PATH),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,

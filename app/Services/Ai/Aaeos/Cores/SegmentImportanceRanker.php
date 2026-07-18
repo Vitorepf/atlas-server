@@ -21,9 +21,9 @@ final class SegmentImportanceRanker
         self::FIELD_BLOCKER => self::FLOAT_1_0,
         self::FIELD_DOD => self::FLOAT_1_0,
         self::FIELD_RISK_CRITICAL => self::FLOAT_1_0,
-        self::FIELD_EVIDENCE => 0.6,
-        self::FIELD_DECISION_NOTE => 0.6,
-        self::FIELD_FACT => 0.4,
+        self::FIELD_EVIDENCE => self::FLOAT_0_6,
+        self::FIELD_DECISION_NOTE => self::FLOAT_0_6,
+        self::FIELD_FACT => self::FLOAT_0_4,
         self::FIELD_STALE_QUERY => self::FLOAT_0_1,
         self::FIELD_LOW_SCORE_REF => self::FLOAT_0_1,
         self::FIELD_DUPLICATE => self::FLOAT_0_1,
@@ -80,6 +80,8 @@ final class SegmentImportanceRanker
     public const FIELD_TOKEN_BUDGET = 'token_budget';
     public const FIELD_TOKENS_AVAILABLE = 'tokens_available';
     public const FIELD_IMPORTANCE = 'importance';
+    public const FLOAT_0_6 = 0.6;
+    public const FLOAT_0_4 = 0.4;
     public const FLOAT_1_0 = 1.0;
     public const FLOAT_0_1 = 0.1;
 

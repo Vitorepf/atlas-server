@@ -122,6 +122,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_MAXK08_MINER_REPORT_ONLY = 'maxk08.miner_report_only';
     public const FIELD_MAXK09_AUTH_MISSING_ = 'maxk09-auth-missing-';
     public const FIELD_MAXK09_AUTH_TAMPERED_ = 'maxk09-auth-tampered-';
+    public const FIELD_MAXK09_PROBE = 'maxk09-probe';
+    public const FIELD_MAXK09_SIGLEDGER_ = 'maxk09-sigledger-';
     public const INT_20 = 20;
     public const INT_999 = 999;
     public const INT_10 = 10;
@@ -346,7 +348,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
                 self::FIELD_ACCEPTANCE_RATE => 0.10,
                 self::FIELD_SEVERE_HALLUCINATION_COUNT => 5,
             ],
-            sourceId: 'maxk09-probe',
+            sourceId: self::FIELD_MAXK09_PROBE,
         );
 
         $tamperOk = false;
@@ -499,7 +501,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
      */
     private function tempSignatureLedger(): array
     {
-        $path = $this->tempFile('maxk09-sigledger-');
+        $path = $this->tempFile(self::FIELD_MAXK09_SIGLEDGER_);
 
         return [new AtlasAutonomyLadderSignatureLedger($path), $path];
     }

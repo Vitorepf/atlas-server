@@ -13319,4 +13319,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B510).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b510EvidenceVisionOutcomeCausalityPreReviewSegmentImportanceFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'frontier-harvest' => EvidenceVisionThesisComposer::FIELD_FRONTIER_HARVEST,
+            'predicted-impact' => EvidenceVisionThesisComposer::FIELD_PREDICTED_IMPACT,
+            '0.76' => OutcomeCausalityRanker::FLOAT_0_76,
+            '0.78' => OutcomeCausalityRanker::FLOAT_0_78,
+            '0.02' => PreReviewAdvisoryBand::FLOAT_0_02,
+            '0.05' => PreReviewAdvisoryBand::FLOAT_0_05,
+            '0.6' => SegmentImportanceRanker::FLOAT_0_6,
+            '0.4' => SegmentImportanceRanker::FLOAT_0_4,
+            'ESP-09' => AcosMaxMeasureSeriesRegistry::FIELD_ESP_09,
+            'MAXA-04' => AcosMaxMeasureSeriesRegistry::FIELD_MAXA_04,
+            'codex-independent-multn17-04-judge' => AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTN17_04_JUDGE,
+            'codex-independent-multx01-judge' => AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTX01_JUDGE,
+            'atlas.context.golden_counterfactual.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_CONTEXT_GOLDEN_COUNTERFACTUAL_V1,
+            'atlas.decide.cascade_cost_router.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_DECIDE_CASCADE_COST_ROUTER_V1,
+            'score.overall_out_of_10' => AtlasAcosLongHorizonGateService::FIELD_SCORE_OVERALL_OUT_OF_10,
+            'sources.scorecard' => AtlasAcosLongHorizonGateService::FIELD_SOURCES_SCORECARD,
+            'maxk09-probe' => AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK09_PROBE,
+            'maxk09-sigledger-' => AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK09_SIGLEDGER_,
+            'b510_evidence_vision_outcome_causality_pre_review_segment_importance_floor_count' => 18,
+        ];
+    }
+
 }

@@ -10480,4 +10480,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b509_measure_series_lote_ledger_rotation_acos_watchdog_code_floor_count']);
     }
 
+    public function test_b510_evidence_vision_outcome_causality_pre_review_segment_importance_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b510EvidenceVisionOutcomeCausalityPreReviewSegmentImportanceFloorsContractObserve([]);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_FRONTIER_HARVEST, $out['frontier-harvest']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_PREDICTED_IMPACT, $out['predicted-impact']);
+        $this->assertSame(OutcomeCausalityRanker::FLOAT_0_76, $out['0.76']);
+        $this->assertSame(OutcomeCausalityRanker::FLOAT_0_78, $out['0.78']);
+        $this->assertSame(PreReviewAdvisoryBand::FLOAT_0_02, $out['0.02']);
+        $this->assertSame(PreReviewAdvisoryBand::FLOAT_0_05, $out['0.05']);
+        $this->assertSame(SegmentImportanceRanker::FLOAT_0_6, $out['0.6']);
+        $this->assertSame(SegmentImportanceRanker::FLOAT_0_4, $out['0.4']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ESP_09, $out['ESP-09']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXA_04, $out['MAXA-04']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTN17_04_JUDGE, $out['codex-independent-multn17-04-judge']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTX01_JUDGE, $out['codex-independent-multx01-judge']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_CONTEXT_GOLDEN_COUNTERFACTUAL_V1, $out['atlas.context.golden_counterfactual.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_DECIDE_CASCADE_COST_ROUTER_V1, $out['atlas.decide.cascade_cost_router.v1']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SCORE_OVERALL_OUT_OF_10, $out['score.overall_out_of_10']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SOURCES_SCORECARD, $out['sources.scorecard']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK09_PROBE, $out['maxk09-probe']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK09_SIGLEDGER_, $out['maxk09-sigledger-']);
+        $this->assertSame(18, $out['b510_evidence_vision_outcome_causality_pre_review_segment_importance_floor_count']);
+    }
+
 }

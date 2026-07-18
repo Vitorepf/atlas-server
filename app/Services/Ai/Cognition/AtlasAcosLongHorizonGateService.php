@@ -185,6 +185,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_RESOLVED_EVIDENCE_2 = 'resolved-evidence';
     public const FIELD_METRICS_SCORECARD_OVERALL = 'metrics.scorecard_overall';
     public const FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10 = 'score.dimensions.pipeline.score_out_of_10';
+    public const FIELD_SCORE_OVERALL_OUT_OF_10 = 'score.overall_out_of_10';
+    public const FIELD_SOURCES_SCORECARD = 'sources.scorecard';
     public const INT_10 = 10;
 
     /**
@@ -428,7 +430,7 @@ final class AtlasAcosLongHorizonGateService
      */
     private function assess(array $scorecard, array $series, int $minDays, float $minOverall, float $minPipeline, float $warningMargin, int $maxLatestStaleDays, int $maxGapDays, DateTimeImmutable $today, string $seriesPath): array
     {
-        $overall = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'score.overall_out_of_10', 0.0)) ?? 0.0;
+        $overall = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, self::FIELD_SCORE_OVERALL_OUT_OF_10, 0.0)) ?? 0.0;
         $pipeline = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, self::FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10, 0.0)) ?? 0.0;
         $scorecardHash = AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'scorecard_hash')) ?? '';
 
@@ -701,7 +703,7 @@ final class AtlasAcosLongHorizonGateService
         $count = 0;
         foreach ($series as $row) {
             $provenance = (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_PROVENANCE] ?? null) ?? '');
-            $source = AiValueNormalizer::trimmedStringOrNull(data_get($row, 'sources.scorecard')) ?? '';
+            $source = AiValueNormalizer::trimmedStringOrNull(data_get($row, self::FIELD_SOURCES_SCORECARD)) ?? '';
             if ($provenance === self::FIELD_RESOLVED_EVIDENCE_2 || str_contains($source, self::FIELD_RESOLVED_EVIDENCE_2)) {
                 $count++;
             }

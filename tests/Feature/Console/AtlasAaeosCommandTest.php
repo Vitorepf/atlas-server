@@ -8873,6 +8873,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b510_evidence_vision_outcome_causality_pre_review_segment_importance_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b510-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b510',
+                '--b510-evidence-vision-outcome-causality-pre-review-segment-importance-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b510_evidence_vision_outcome_causality_pre_review_segment_importance_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 
