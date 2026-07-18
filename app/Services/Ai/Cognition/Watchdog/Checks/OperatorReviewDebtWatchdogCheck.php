@@ -21,6 +21,7 @@ final readonly class OperatorReviewDebtWatchdogCheck implements AtlasWatchdogChe
     public const FIELD_CODE = 'code';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_STATUS = 'status';
+    public const FIELD_ELEV_25_REVIEW_DEBT_UNAVAILABLE = 'elev_25_review_debt_unavailable';
 
     public function __construct(
         private AtlasWeeklyMemoryDigestService $digest,
@@ -39,7 +40,7 @@ final readonly class OperatorReviewDebtWatchdogCheck implements AtlasWatchdogChe
             return AtlasWatchdogCheckResult::error([
                 self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             ], [
-                self::FIELD_CODE => 'elev_25_review_debt_unavailable',
+                self::FIELD_CODE => self::FIELD_ELEV_25_REVIEW_DEBT_UNAVAILABLE,
                 self::FIELD_MESSAGE => $e->getMessage(),
             ]);
         }

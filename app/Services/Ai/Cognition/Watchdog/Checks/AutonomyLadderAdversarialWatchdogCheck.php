@@ -102,6 +102,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_MAXK09_PROBE_ORCHESTRATION_ERROR = 'maxk09_probe_orchestration_error';
     public const FIELD_ORCHESTRATION = 'orchestration';
     public const FIELD_PROBE_SETUP_FAILED = 'probe_setup_failed';
+    public const FIELD_SENSITIVE = 'sensitive';
 
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
@@ -381,7 +382,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     private function probeShrinkPrivacySensitive(): array
     {
         $derived = RequestedAutonomyDerivation::derive([
-            self::FIELD_PRIVACY_CLASS => 'sensitive',
+            self::FIELD_PRIVACY_CLASS => self::FIELD_SENSITIVE,
             self::FIELD_CEILING => PolicyCanon::AUTONOMY_AUTONOMOUS,
         ]);
         $level = AiValueNormalizer::trimmedScalarStringOrNull($derived[self::FIELD_REQUESTED_AUTONOMY] ?? null) ?? '';

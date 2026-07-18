@@ -29,6 +29,7 @@ final readonly class LocalModelIntegrityWatchdogCheck implements AtlasWatchdogCh
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_CODE = 'code';
     public const FIELD_MESSAGE = 'message';
+    public const FIELD_LOCAL_MODEL_HASH_MISMATCH = 'local_model_hash_mismatch';
 
     public function __construct(
         private AtlasLocalModelIntegrityService $service,
@@ -67,7 +68,7 @@ final readonly class LocalModelIntegrityWatchdogCheck implements AtlasWatchdogCh
             ));
 
             return AtlasWatchdogCheckResult::alert($evidence, [
-                self::FIELD_CODE => $report[AtlasLocalModelIntegrityService::FIELD_MISMATCHED] > 0 ? 'local_model_hash_mismatch' : 'local_model_missing',
+                self::FIELD_CODE => $report[AtlasLocalModelIntegrityService::FIELD_MISMATCHED] > 0 ? self::FIELD_LOCAL_MODEL_HASH_MISMATCH : 'local_model_missing',
                 self::FIELD_MESSAGE => 'Local model artifact integrity broken vs manifest pin.',
                 self::FIELD_ARTIFACTS => array_map(static fn (array $row): string => AiValueNormalizer::trimmedScalarStringOrNull($row[self::FIELD_MODEL_ID] ?? null) ?? '', $offenders),
             ]);

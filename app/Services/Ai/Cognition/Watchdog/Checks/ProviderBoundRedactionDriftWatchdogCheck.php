@@ -36,6 +36,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
     public const FIELD_ATLAS_MEMORY_ENTRIES = 'atlas_memory_entries';
     public const FIELD_REDACTED = 'redacted';
     public const FIELD_PROVIDER_BOUND_REDACTION_DRIFT = 'provider_bound_redaction_drift';
+    public const FIELD_SHA256 = 'sha256';
 
 
     public function __construct(private AtlasMemoryPrivacyService $privacy) {}
@@ -116,7 +117,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
     {
         $hash = AiValueNormalizer::trimmedStringOrNull($entry->content_hash ?? null) ?? '';
         if ($hash === '') {
-            $hash = hash('sha256', AiValueNormalizer::trimmedScalarStringOrNull($entry->id ?? null) ?? '');
+            $hash = hash(self::FIELD_SHA256, AiValueNormalizer::trimmedScalarStringOrNull($entry->id ?? null) ?? '');
         }
 
         return 'memory:'.substr($hash, 0, 16);

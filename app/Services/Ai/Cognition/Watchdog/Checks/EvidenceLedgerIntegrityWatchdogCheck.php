@@ -66,6 +66,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_EVIDENCE_LEDGER_TAMPERED = 'evidence_ledger_tampered';
     public const FIELD_EVIDENCE_LEDGER_VERIFIER_ERROR = 'evidence_ledger_verifier_error';
     public const FIELD_NOW = 'now';
+    public const FIELD_BASE_PATH = 'base_path';
 
 
     public function __construct(
@@ -185,7 +186,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
             return $this->ledgerPath;
         }
 
-        if (function_exists('base_path')) {
+        if (function_exists(self::FIELD_BASE_PATH)) {
             return base_path(self::DEFAULT_LEDGER_RELATIVE_PATH);
         }
 

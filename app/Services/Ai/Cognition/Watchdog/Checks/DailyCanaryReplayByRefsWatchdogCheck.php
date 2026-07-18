@@ -102,6 +102,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_MESSAGE = 'message';
     public const FIELD_PROVIDER_SAFE_INVARIANT = 'provider_safe_invariant';
     public const FIELD_R5 = 'r5';
+    public const FIELD_DAILY_CANARY_DRIFT = 'daily_canary_drift';
 
 
     public function __construct(
@@ -164,7 +165,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
             return AtlasWatchdogCheckResult::alert(
                 $evidence + [self::FIELD_REASON => self::REASON_CANARY_DRIFT],
                 [
-                    self::FIELD_CODE => 'daily_canary_drift',
+                    self::FIELD_CODE => self::FIELD_DAILY_CANARY_DRIFT,
                     self::FIELD_MESSAGE => 'MAXG-06 daily canary detected drift above frozen thresholds.',
                     self::FIELD_VIOLATIONS => $violations,
                 ],

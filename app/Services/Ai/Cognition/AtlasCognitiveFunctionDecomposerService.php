@@ -156,6 +156,16 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_REFATORE = 'refatore';
     public const FIELD_RENDER = 'render';
     public const FIELD_RODE = 'rode';
+    public const FIELD_CRIE = 'crie';
+    public const FIELD_GERE = 'gere';
+    public const FIELD_REESCREVA = 'reescreva';
+    public const FIELD_RESUMA = 'resuma';
+    public const FIELD_RODAR = 'rodar';
+    public const FIELD_SEARCH = 'search';
+    public const FIELD_SERVICO = 'servico';
+    public const FIELD_SHOW = 'show';
+    public const FIELD_STORAGE_PATH = 'storage_path';
+    public const FIELD_SUMMARIZE = 'summarize';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -181,17 +191,17 @@ final class AtlasCognitiveFunctionDecomposerService
         self::FIELD_RETRIEVAL => [
             'busque', self::FIELD_PROCURE, self::FIELD_ENCONTRE, self::FIELD_PESQUISE, self::FIELD_MOSTRE, self::FIELD_LISTE,
             self::FIELD_RECUPERE, self::FIELD_LOOKUP, 'qual e', 'quais sao', self::FIELD_CITE, self::FIELD_CADASTR,
-            self::FIELD_DOCUMENTA, self::FIELD_MEMORIA, 'search', self::FIELD_FIND, 'show',
+            self::FIELD_DOCUMENTA, self::FIELD_MEMORIA, self::FIELD_SEARCH, self::FIELD_FIND, self::FIELD_SHOW,
         ],
         self::FIELD_GENERATION => [
-            'escreva', self::FIELD_REDIJA, 'crie', self::FIELD_COMPONHA, self::FIELD_RASCUNHE, 'gere',
-            'sintetize', 'resuma', 'transforme', 'reescreva', self::FIELD_CONTINUE,
-            self::FIELD_NARRE, self::FIELD_DESCREVA, self::FIELD_COMPOSE, 'write', 'draft', 'summarize',
+            'escreva', self::FIELD_REDIJA, self::FIELD_CRIE, self::FIELD_COMPONHA, self::FIELD_RASCUNHE, self::FIELD_GERE,
+            'sintetize', self::FIELD_RESUMA, 'transforme', self::FIELD_REESCREVA, self::FIELD_CONTINUE,
+            self::FIELD_NARRE, self::FIELD_DESCREVA, self::FIELD_COMPOSE, 'write', 'draft', self::FIELD_SUMMARIZE,
         ],
         self::FIELD_CODE => [
             'codigo', self::FIELD_CODIFIQUE, self::FIELD_IMPLEMENTE, self::FIELD_REFATORE, 'debug', 'teste',
-            self::FIELD_COMPILE, self::FIELD_EXECUTE, self::FIELD_RODE, 'rodar', self::FIELD_PHP, 'typescript', 'react',
-            self::FIELD_COMPONENTE, 'servico', self::FIELD_CLASSE, self::FIELD_FUNCAO, self::FIELD_CONTROLLER, self::FIELD_CLI,
+            self::FIELD_COMPILE, self::FIELD_EXECUTE, self::FIELD_RODE, self::FIELD_RODAR, self::FIELD_PHP, 'typescript', 'react',
+            self::FIELD_COMPONENTE, self::FIELD_SERVICO, self::FIELD_CLASSE, self::FIELD_FUNCAO, self::FIELD_CONTROLLER, self::FIELD_CLI,
             self::FIELD_ARTISAN, self::FIELD_MIGRATION, self::FIELD_COMPOSER, self::FIELD_NPM, self::FIELD_PHPUNIT, self::FIELD_PEST,
             self::FIELD_PATCH, 'pull request', 'pr ', ' pr,', self::FIELD_MERGE, 'git ',
             'code', 'function', 'class', 'service', self::FIELD_REFACTOR, 'test', self::FIELD_BUILD,
@@ -231,7 +241,7 @@ final class AtlasCognitiveFunctionDecomposerService
         if ($this->logPathOverride !== null) {
             return $this->logPathOverride;
         }
-        $base = function_exists('storage_path')
+        $base = function_exists(self::FIELD_STORAGE_PATH)
             ? storage_path('atlas/cognition')
             : sys_get_temp_dir().'/atlas/cognition';
 

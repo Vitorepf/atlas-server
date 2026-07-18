@@ -9318,4 +9318,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cognitive_function_department_contract_phase_advance_immune_check_floor_count']);
     }
 
+    public function test_cognitive_function_autonomy_ladder_compaction_recovery_daily_canary_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitiveFunctionAutonomyLadderCompactionRecoveryDailyCanaryFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CRIE, $out['crie']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_GERE, $out['gere']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_REESCREVA, $out['reescreva']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_RESUMA, $out['resuma']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_RODAR, $out['rodar']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_SEARCH, $out['search']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_SERVICO, $out['servico']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_SHOW, $out['show']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_STORAGE_PATH, $out['storage_path']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_SUMMARIZE, $out['summarize']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_SENSITIVE, $out['sensitive']);
+        $this->assertSame(CompactionRecoverySampleWatchdogCheck::FIELD_COMPACTION_RECOVERY_RATE_BELOW_FLOOR, $out['compaction_recovery_rate_below_floor']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_DAILY_CANARY_DRIFT, $out['daily_canary_drift']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_BASE_PATH, $out['base_path']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_JOINT_RESOURCE_BUDGET_BREACH, $out['joint_resource_budget_breach']);
+        $this->assertSame(LocalModelIntegrityWatchdogCheck::FIELD_LOCAL_MODEL_HASH_MISMATCH, $out['local_model_hash_mismatch']);
+        $this->assertSame(OperatorReviewDebtWatchdogCheck::FIELD_ELEV_25_REVIEW_DEBT_UNAVAILABLE, $out['elev_25_review_debt_unavailable']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(18, $out['cognitive_function_autonomy_ladder_compaction_recovery_daily_canary_floor_count']);
+    }
+
 }

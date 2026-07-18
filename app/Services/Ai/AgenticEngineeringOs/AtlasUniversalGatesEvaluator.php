@@ -11878,4 +11878,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B463).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function cognitiveFunctionAutonomyLadderCompactionRecoveryDailyCanaryFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'crie' => AtlasCognitiveFunctionDecomposerService::FIELD_CRIE,
+            'gere' => AtlasCognitiveFunctionDecomposerService::FIELD_GERE,
+            'reescreva' => AtlasCognitiveFunctionDecomposerService::FIELD_REESCREVA,
+            'resuma' => AtlasCognitiveFunctionDecomposerService::FIELD_RESUMA,
+            'rodar' => AtlasCognitiveFunctionDecomposerService::FIELD_RODAR,
+            'search' => AtlasCognitiveFunctionDecomposerService::FIELD_SEARCH,
+            'servico' => AtlasCognitiveFunctionDecomposerService::FIELD_SERVICO,
+            'show' => AtlasCognitiveFunctionDecomposerService::FIELD_SHOW,
+            'storage_path' => AtlasCognitiveFunctionDecomposerService::FIELD_STORAGE_PATH,
+            'summarize' => AtlasCognitiveFunctionDecomposerService::FIELD_SUMMARIZE,
+            'sensitive' => AutonomyLadderAdversarialWatchdogCheck::FIELD_SENSITIVE,
+            'compaction_recovery_rate_below_floor' => CompactionRecoverySampleWatchdogCheck::FIELD_COMPACTION_RECOVERY_RATE_BELOW_FLOOR,
+            'daily_canary_drift' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_DAILY_CANARY_DRIFT,
+            'base_path' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_BASE_PATH,
+            'joint_resource_budget_breach' => JointResourceBudgetWatchdogCheck::FIELD_JOINT_RESOURCE_BUDGET_BREACH,
+            'local_model_hash_mismatch' => LocalModelIntegrityWatchdogCheck::FIELD_LOCAL_MODEL_HASH_MISMATCH,
+            'elev_25_review_debt_unavailable' => OperatorReviewDebtWatchdogCheck::FIELD_ELEV_25_REVIEW_DEBT_UNAVAILABLE,
+            'sha256' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_SHA256,
+            'cognitive_function_autonomy_ladder_compaction_recovery_daily_canary_floor_count' => 18,
+        ];
+    }
+
 }

@@ -35,6 +35,7 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
     public const FIELD_CODE = 'code';
     public const FIELD_GENERATED_AT = 'generated_at';
     public const FIELD_PAPER_OVERSHOOT = 'paper_overshoot';
+    public const FIELD_JOINT_RESOURCE_BUDGET_BREACH = 'joint_resource_budget_breach';
 
     public function __construct(
         private AtlasResourceBudgetService $service,
@@ -78,7 +79,7 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
 
         if ($reasons !== []) {
             return AtlasWatchdogCheckResult::alert($evidence, [
-                self::FIELD_CODE => 'joint_resource_budget_breach',
+                self::FIELD_CODE => self::FIELD_JOINT_RESOURCE_BUDGET_BREACH,
                 self::FIELD_REASONS => $reasons,
                 self::FIELD_MESSAGE => 'Joint resource budget breached vs declared cap and/or host ceiling.',
             ]);
