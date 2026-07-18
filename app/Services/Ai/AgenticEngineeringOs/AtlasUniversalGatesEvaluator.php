@@ -6645,6 +6645,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function httpCockpitFacadeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'envelope_field_aawr_invocation' => AaeosHttpPathEnvelopeFactory::FIELD_AAWR_INVOCATION,
+            'envelope_field_blocked_when' => AaeosHttpPathEnvelopeFactory::FIELD_BLOCKED_WHEN,
+            'envelope_field_blockers' => AaeosHttpPathEnvelopeFactory::FIELD_BLOCKERS,
+            'envelope_field_command_intent' => AaeosHttpPathEnvelopeFactory::FIELD_COMMAND_INTENT,
+            'envelope_field_company_runtime_invocation' => AaeosHttpPathEnvelopeFactory::FIELD_COMPANY_RUNTIME_INVOCATION,
+            'envelope_field_decision_receipt_v2_invocation' => AaeosHttpPathEnvelopeFactory::FIELD_DECISION_RECEIPT_V2_INVOCATION,
+            'cockpit_field_active_leases' => AtlasMissionControlCockpitService::FIELD_ACTIVE_LEASES,
+            'cockpit_field_actor' => AtlasMissionControlCockpitService::FIELD_ACTOR,
+            'cockpit_field_autonomy_level' => AtlasMissionControlCockpitService::FIELD_AUTONOMY_LEVEL,
+            'cockpit_field_blocked_or_quarantined_count' => AtlasMissionControlCockpitService::FIELD_BLOCKED_OR_QUARANTINED_COUNT,
+            'cockpit_field_blocker_signal' => AtlasMissionControlCockpitService::FIELD_BLOCKER_SIGNAL,
+            'cockpit_field_blockers' => AtlasMissionControlCockpitService::FIELD_BLOCKERS,
+            'facade_field_aaeos_http_path' => AtlasAaeosHttpPathFacadeService::FIELD_AAEOS_HTTP_PATH,
+            'facade_field_blocked_when' => AtlasAaeosHttpPathFacadeService::FIELD_BLOCKED_WHEN,
+            'facade_field_blockers' => AtlasAaeosHttpPathFacadeService::FIELD_BLOCKERS,
+            'facade_field_canonical_calls' => AtlasAaeosHttpPathFacadeService::FIELD_CANONICAL_CALLS,
+            'facade_field_code' => AtlasAaeosHttpPathFacadeService::FIELD_CODE,
+            'http_cockpit_facade_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

@@ -47,6 +47,12 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_RISK_BAND = 'risk_band';
 
     public const FIELD_STATUS = 'status';
+    public const FIELD_AAWR_INVOCATION = 'aawr_invocation';
+    public const FIELD_BLOCKED_WHEN = 'blocked_when';
+    public const FIELD_BLOCKERS = 'blockers';
+    public const FIELD_COMMAND_INTENT = 'command_intent';
+    public const FIELD_COMPANY_RUNTIME_INVOCATION = 'company_runtime_invocation';
+    public const FIELD_DECISION_RECEIPT_V2_INVOCATION = 'decision_receipt_v2_invocation';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -136,7 +142,7 @@ final class AaeosHttpPathEnvelopeFactory
     {
         $router = self::routerFromData($data);
         $flowId = AiValueNormalizer::trimmedStringOrNull($router['flow_id'] ?? null) ?? self::STATUS_UNKNOWN;
-        $commandIntent = AiValueNormalizer::trimmedStringOrNull($router['command_intent'] ?? null) ?? self::STATUS_UNKNOWN;
+        $commandIntent = AiValueNormalizer::trimmedStringOrNull($router[self::FIELD_COMMAND_INTENT] ?? null) ?? self::STATUS_UNKNOWN;
         $declared = $flowId !== self::STATUS_UNKNOWN;
 
         return $this->handoff->emit(
@@ -147,7 +153,7 @@ final class AaeosHttpPathEnvelopeFactory
             inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
                 'flow_id' => $flowId,
-                'command_intent' => $commandIntent,
+                self::FIELD_COMMAND_INTENT => $commandIntent,
                 'target_department_declared' => $declared ? 'yes' : 'no',
             ],
             gates: self::binaryGate('intent_classification_target_department_declared', $declared),
@@ -229,7 +235,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
             self::FIELD_OUTPUTS => [
                 'topology_required' => 'yes',
-                'aawr_invocation' => 'deferred',
+                self::FIELD_AAWR_INVOCATION => 'deferred',
             ],
             self::FIELD_REQUIRED_GATE => 'topology_plan_providers_min_1_available',
         ],
@@ -241,7 +247,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
             self::FIELD_OUTPUTS => [
                 'department_route' => 'engineering_or_forge_pending_aawr',
-                'company_runtime_invocation' => 'deferred',
+                self::FIELD_COMPANY_RUNTIME_INVOCATION => 'deferred',
             ],
             self::FIELD_REQUIRED_GATE => 'department_route_owner_confirmed',
         ],
@@ -276,7 +282,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase4.receipt.r1_r2_fast_path',
             self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved_legacy_trace_audit',
             self::FIELD_OUTPUTS => [
-                'decision_receipt_v2_invocation' => 'deferred',
+                self::FIELD_DECISION_RECEIPT_V2_INVOCATION => 'deferred',
                 'receipt_required' => 'yes',
             ],
             self::FIELD_REQUIRED_GATE => 'decision_receipt_v2_signed',
@@ -415,7 +421,7 @@ final class AaeosHttpPathEnvelopeFactory
         }
 
         $blockers = [];
-        foreach (AiValueNormalizer::arrayOrEmpty($assisted['blockers'] ?? null) as $blocker) {
+        foreach (AiValueNormalizer::arrayOrEmpty($assisted[self::FIELD_BLOCKERS] ?? null) as $blocker) {
             if (is_array($blocker)) {
                 $id = AiValueNormalizer::trimmedStringOrNull($blocker['id'] ?? null);
                 if ($id === null) {
@@ -450,7 +456,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     private static function blockedWhenAsBlockers(array $placementResult): array
     {
-        $blockedWhen = AiValueNormalizer::arrayOrEmpty($placementResult['blocked_when'] ?? null);
+        $blockedWhen = AiValueNormalizer::arrayOrEmpty($placementResult[self::FIELD_BLOCKED_WHEN] ?? null);
 
         return array_values(array_map(static fn (string $reason): array => [
             'id' => $reason,

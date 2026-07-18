@@ -58,6 +58,12 @@ final class AtlasMissionControlCockpitService
     public const FIELD_GATE_COVERAGE = 'gate_coverage';
     public const FIELD_ACTOR_KIND = 'actor_kind';
     public const FIELD_OPERATOR_SIGNATURE = 'operator_signature';
+    public const FIELD_ACTIVE_LEASES = 'active_leases';
+    public const FIELD_ACTOR = 'actor';
+    public const FIELD_AUTONOMY_LEVEL = 'autonomy_level';
+    public const FIELD_BLOCKED_OR_QUARANTINED_COUNT = 'blocked_or_quarantined_count';
+    public const FIELD_BLOCKER_SIGNAL = 'blocker_signal';
+    public const FIELD_BLOCKERS = 'blockers';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
@@ -104,18 +110,18 @@ final class AtlasMissionControlCockpitService
         $payload = [
             'schema' => self::SCHEMA_VERSION,
             'intent_id' => $intentId,
-            'autonomy_level' => $autonomyLevel,
+            self::FIELD_AUTONOMY_LEVEL => $autonomyLevel,
             'phase_count' => count(AaeosPhaseHandoffService::PHASES),
             'phases' => $journey,
             'current_phase' => $currentPhase,
             'next_phase' => $currentPhase === null ? AaeosPhaseHandoffService::PHASES[0] : $this->phases->canonicalNextPhase($currentPhase),
             'gate_report' => $gateReport,
             'department_count' => $departmentsCount,
-            'blockers' => $blockers,
+            self::FIELD_BLOCKERS => $blockers,
             // WIRE-OBSERVE (Obra #7): severity reduction over the raw blocker
             // list — tells the operator whether the intent is blocked/warning/
             // clear. Observe-only: never changes blockers or phase statuses.
-            'blocker_signal' => $this->blockerSeverity->assess($blockers),
+            self::FIELD_BLOCKER_SIGNAL => $this->blockerSeverity->assess($blockers),
             // Observe-only advance verdict over the latest phase envelope
             // (same classifier the HTTP policy gate now uses live).
             'phase_advance' => $this->latestPhaseAdvance($phaseEnvelopes),
@@ -165,7 +171,7 @@ final class AtlasMissionControlCockpitService
         }
 
         $servableNow = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['servable_now'] ?? 0) ?? 0));
-        $activeLeases = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['active_leases'] ?? 0) ?? 0));
+        $activeLeases = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_ACTIVE_LEASES] ?? 0) ?? 0));
         $blocked = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_BLOCKED] ?? 0) ?? 0));
         $quarantined = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['quarantined'] ?? 0) ?? 0));
         $recoverable = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['recoverable'] ?? 0) ?? 0));
@@ -180,8 +186,8 @@ final class AtlasMissionControlCockpitService
 
         return [
             'servable_now' => $servableNow,
-            'active_leases' => $activeLeases,
-            'blocked_or_quarantined_count' => $blocked + $quarantined,
+            self::FIELD_ACTIVE_LEASES => $activeLeases,
+            self::FIELD_BLOCKED_OR_QUARANTINED_COUNT => $blocked + $quarantined,
             'recoverable_count' => $recoverable,
             'malformed_count' => $malformed,
             'implementable_supply' => $servableNow,
@@ -290,7 +296,7 @@ final class AtlasMissionControlCockpitService
             $blocked = AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_BLOCKED] ?? null);
             $passed = AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_PASSED] ?? null);
             $required = AiValueNormalizer::arrayOrEmpty($gates['required'] ?? null);
-            $actor = AiValueNormalizer::arrayOrEmpty($env['actor'] ?? null);
+            $actor = AiValueNormalizer::arrayOrEmpty($env[self::FIELD_ACTOR] ?? null);
             $skipped = ! empty($env['skip_reason']);
             $status = $skipped ? self::STATUS_SKIPPED : (count($blocked) > 0 ? self::STATUS_BLOCKED : ($env['ended_at'] ?? null ? self::STATUS_COMPLETE : self::STATUS_IN_PROGRESS));
             $out[] = [
@@ -333,7 +339,7 @@ final class AtlasMissionControlCockpitService
     {
         $out = [];
         foreach ($envelopes as $env) {
-            foreach (AiValueNormalizer::arrayOrEmpty($env['blockers'] ?? null) as $blocker) {
+            foreach (AiValueNormalizer::arrayOrEmpty($env[self::FIELD_BLOCKERS] ?? null) as $blocker) {
                 if (! is_array($blocker)) {
                     continue;
                 }

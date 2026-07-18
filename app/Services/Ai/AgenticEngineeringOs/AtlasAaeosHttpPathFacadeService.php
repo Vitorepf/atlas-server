@@ -62,6 +62,11 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD_BLOCKER = 'blocker';
     public const FIELD_TELEMETRY = 'telemetry';
     public const FIELD_GATE_STATUS = 'gate_status';
+    public const FIELD_AAEOS_HTTP_PATH = 'aaeos_http_path';
+    public const FIELD_BLOCKED_WHEN = 'blocked_when';
+    public const FIELD_BLOCKERS = 'blockers';
+    public const FIELD_CANONICAL_CALLS = 'canonical_calls';
+    public const FIELD_CODE = 'code';
 
     public const BLOCK_PLACEMENT_GATE_BLOCKED = 'placement_gate_blocked';
 
@@ -183,7 +188,7 @@ final class AtlasAaeosHttpPathFacadeService
                 placementResult: $placementResult,
                 blockerCode: self::BLOCK_PLACEMENT_GATE_BLOCKED,
                 reason: 'Atlas placement gate blocked this intent before provider execution.',
-                blockedWhen: array_values(AiValueNormalizer::arrayOrEmpty($placementResult['blocked_when'] ?? null)),
+                blockedWhen: array_values(AiValueNormalizer::arrayOrEmpty($placementResult[self::FIELD_BLOCKED_WHEN] ?? null)),
                 configuredPhase: $configuredPhase,
                 startedAtNs: $startedAtNs,
                 placementCacheHit: $cacheHit,
@@ -202,7 +207,7 @@ final class AtlasAaeosHttpPathFacadeService
 
                 $blockedWhen = array_values(array_map(
                     static fn (array $b): string => AiValueNormalizer::trimmedStringOrNull($b['id'] ?? null) ?? '',
-                    AiValueNormalizer::arrayOrEmpty($policyEnv['blockers'] ?? null),
+                    AiValueNormalizer::arrayOrEmpty($policyEnv[self::FIELD_BLOCKERS] ?? null),
                 ));
                 if ($blockedWhen === [] && ($advance[self::FIELD_REASON] ?? '') !== '') {
                     $blockedWhen = [AiValueNormalizer::trimmedStringOrNull($advance[self::FIELD_REASON] ?? null) ?? ''];
@@ -280,7 +285,7 @@ final class AtlasAaeosHttpPathFacadeService
             'phase_router' => (new AtlasAaeosPhaseRouterService($configuredPhase))->statusSnapshot(),
             'counters' => [
                 'requests' => (int) $this->cache->get(self::TELEMETRY_KEY_REQUESTS, 0),
-                'canonical_calls' => (int) $this->cache->get(self::TELEMETRY_KEY_CANONICAL, 0),
+                self::FIELD_CANONICAL_CALLS => (int) $this->cache->get(self::TELEMETRY_KEY_CANONICAL, 0),
                 'legacy_fallback' => (int) $this->cache->get(self::TELEMETRY_KEY_LEGACY_FALLBACK, 0),
                 self::FIELD_BLOCKED => (int) $this->cache->get(self::TELEMETRY_KEY_BLOCKED, 0),
             ],
@@ -375,7 +380,7 @@ final class AtlasAaeosHttpPathFacadeService
     private function mergeFacadeMetadata(array $data, string $intentId, array $envelopes, array $placementResult): array
     {
         $payload = self::requestPayload($data);
-        $payload['aaeos_http_path'] = [
+        $payload[self::FIELD_AAEOS_HTTP_PATH] = [
             'schema' => self::REQUEST_SCHEMA,
             self::FIELD_INTENT_ID => $intentId,
             'phases_executed' => array_values(array_map(
@@ -422,9 +427,9 @@ final class AtlasAaeosHttpPathFacadeService
             self::FIELD_DATA => $this->mergeFacadeMetadata($data, $intentId, $envelopes, $placementResult),
             self::FIELD_ENVELOPES => $envelopes,
             self::FIELD_BLOCKER => [
-                'code' => $blockerCode,
+                self::FIELD_CODE => $blockerCode,
                 self::FIELD_REASON => $reason,
-                'blocked_when' => array_values($blockedWhen),
+                self::FIELD_BLOCKED_WHEN => array_values($blockedWhen),
                 'http_status' => 422,
             ],
             self::FIELD_TELEMETRY => $this->telemetry($configuredPhase, $this->elapsedMs($startedAtNs), $placementCacheHit),

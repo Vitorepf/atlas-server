@@ -4880,4 +4880,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     }
 
 
+    public function test_http_cockpit_facade_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->httpCockpitFacadeFloorsContractObserve([]);
+
+        $this->assertSame('aawr_invocation', $payload['envelope_field_aawr_invocation']);
+        $this->assertSame('blocked_when', $payload['envelope_field_blocked_when']);
+        $this->assertSame('blockers', $payload['envelope_field_blockers']);
+        $this->assertSame('command_intent', $payload['envelope_field_command_intent']);
+        $this->assertSame('company_runtime_invocation', $payload['envelope_field_company_runtime_invocation']);
+        $this->assertSame('decision_receipt_v2_invocation', $payload['envelope_field_decision_receipt_v2_invocation']);
+        $this->assertSame('active_leases', $payload['cockpit_field_active_leases']);
+        $this->assertSame('actor', $payload['cockpit_field_actor']);
+        $this->assertSame('autonomy_level', $payload['cockpit_field_autonomy_level']);
+        $this->assertSame('blocked_or_quarantined_count', $payload['cockpit_field_blocked_or_quarantined_count']);
+        $this->assertSame('blocker_signal', $payload['cockpit_field_blocker_signal']);
+        $this->assertSame('blockers', $payload['cockpit_field_blockers']);
+        $this->assertSame('aaeos_http_path', $payload['facade_field_aaeos_http_path']);
+        $this->assertSame('blocked_when', $payload['facade_field_blocked_when']);
+        $this->assertSame('blockers', $payload['facade_field_blockers']);
+        $this->assertSame('canonical_calls', $payload['facade_field_canonical_calls']);
+        $this->assertSame('code', $payload['facade_field_code']);
+        $this->assertSame(17, $payload['http_cockpit_facade_floor_count']);
+    }
+
+
 }
