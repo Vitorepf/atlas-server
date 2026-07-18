@@ -391,6 +391,10 @@ $receipt = [
     ],
     'stdout_sha256' => hash('sha256', $process->getOutput()),
     'stderr_sha256' => hash('sha256', $process->getErrorOutput()),
+    // Cauda do erro SÓ quando o runtime não provou: morte em ~1,4s sem JSON
+    // era indiagnosticável com stderr reduzido a hash (3/4 unidades do run
+    // 20260718_175624). Runtime provado = sem cauda (nada a vazar).
+    'stderr_tail' => $atlasRuntimeProven ? null : mb_substr(trim($process->getErrorOutput()."\n".$process->getOutput()), -600),
 ];
 file_put_contents(
     $workspace.'/.rivals_atlas_dev_bridge.json',
