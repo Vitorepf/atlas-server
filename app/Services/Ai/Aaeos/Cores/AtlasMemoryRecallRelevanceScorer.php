@@ -46,6 +46,8 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_CONFIDENCE = 'confidence';
     public const FIELD_EVIDENCE = 'evidence';
     public const FIELD_IMPORTANCE = 'importance';
+    public const FIELD_ISSUE = 'issue';
+    public const FIELD_PREFERENCE = 'preference';
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -107,9 +109,9 @@ final class AtlasMemoryRecallRelevanceScorer
     {
         return match ($type) {
             'decision', 'resolution', self::FIELD_REQUIREMENT => 16,
-            'issue', self::FIELD_FAILURE => 14,
+            self::FIELD_ISSUE, self::FIELD_FAILURE => 14,
             'technical_context', 'command', self::FIELD_EVIDENCE, self::FIELD_HARNESS_LEARNING => 11,
-            'preference', self::FIELD_FEEDBACK => 8,
+            self::FIELD_PREFERENCE, self::FIELD_FEEDBACK => 8,
             default => 5,
         };
     }

@@ -471,6 +471,7 @@ final class AtlasAaeosCommand extends Command
                             {--window-orchestrator-ragx-chain-cognitive-function-department-contract-floors-contract= : JSON file (any object) to observe window/orchestrator/ragx/chain/cognitive/function floors}
                             {--cognition-score-aaeos-http-acos-window-fact-pair-floors-contract= : JSON file (any object) to observe cognition/score/aaeos/http/acos/window floors}
                             {--reactive-saturation-architect-agent-autonomous-work-acos-program-floors-contract= : JSON file (any object) to observe reactive/saturation/architect/agent/autonomous/work floors}
+                            {--phase-advance-structured-fact-immune-check-cognitive-function-floors-contract= : JSON file (any object) to observe phase/advance/structured/fact/immune/check floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1098,6 +1099,7 @@ final class AtlasAaeosCommand extends Command
             ['window-orchestrator-ragx-chain-cognitive-function-department-contract-floors-contract', 'window_orchestrator_ragx_chain_cognitive_function_department_contract_floors_contract', fn (array $p) => $gates->windowOrchestratorRagxChainCognitiveFunctionDepartmentContractFloorsContractObserve($p)],
             ['cognition-score-aaeos-http-acos-window-fact-pair-floors-contract', 'cognition_score_aaeos_http_acos_window_fact_pair_floors_contract', fn (array $p) => $gates->cognitionScoreAaeosHttpAcosWindowFactPairFloorsContractObserve($p)],
             ['reactive-saturation-architect-agent-autonomous-work-acos-program-floors-contract', 'reactive_saturation_architect_agent_autonomous_work_acos_program_floors_contract', fn (array $p) => $gates->reactiveSaturationArchitectAgentAutonomousWorkAcosProgramFloorsContractObserve($p)],
+            ['phase-advance-structured-fact-immune-check-cognitive-function-floors-contract', 'phase_advance_structured_fact_immune_check_cognitive_function_floors_contract', fn (array $p) => $gates->phaseAdvanceStructuredFactImmuneCheckCognitiveFunctionFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

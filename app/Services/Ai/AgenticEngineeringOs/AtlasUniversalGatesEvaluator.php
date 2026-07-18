@@ -11444,4 +11444,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B449).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function phaseAdvanceStructuredFactImmuneCheckCognitiveFunctionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'missing_required_gates_repair' => PhaseAdvanceVerdictClassifier::FIELD_MISSING_REQUIRED_GATES_REPAIR,
+            'phase_advance_ready' => PhaseAdvanceVerdictClassifier::FIELD_PHASE_ADVANCE_READY,
+            'fix' => StructuredFactSchemaMap::FIELD_FIX,
+            'porque' => StructuredFactSchemaMap::FIELD_PORQUE,
+            'bias' => CognitiveImmuneCheckContract::FIELD_BIAS,
+            'scope_creep' => CognitiveImmuneCheckContract::FIELD_SCOPE_CREEP,
+            'evidencia' => AtlasCognitiveFunctionDecomposerService::FIELD_EVIDENCIA,
+            'explique' => AtlasCognitiveFunctionDecomposerService::FIELD_EXPLIQUE,
+            'long_horizon_state_persisted' => DepartmentContractRuntime::FIELD_LONG_HORIZON_STATE_PERSISTED,
+            'memory_has_no_downstream' => DepartmentContractRuntime::FIELD_MEMORY_HAS_NO_DOWNSTREAM,
+            'regression' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_REGRESSION,
+            'release' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RELEASE,
+            'atlas_aurg_nodes' => AtlasAcosEvolutionScoreService::FIELD_ATLAS_AURG_NODES,
+            'ai_compounding_memories' => AtlasAcosEvolutionScoreService::FIELD_AI_COMPOUNDING_MEMORIES,
+            'gates' => AtlasAaeosDepartmentRegistryService::FIELD_GATES,
+            'inputs' => AtlasAaeosDepartmentRegistryService::FIELD_INPUTS,
+            'issue' => AtlasMemoryRecallRelevanceScorer::FIELD_ISSUE,
+            'preference' => AtlasMemoryRecallRelevanceScorer::FIELD_PREFERENCE,
+            'phase_advance_structured_fact_immune_check_cognitive_function_floor_count' => 18,
+        ];
+    }
+
 }

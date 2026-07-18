@@ -103,6 +103,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_DOCUMENTO = 'documento';
     public const FIELD_EVIDENCE = 'evidence';
     public const FIELD_EXECUTE = 'execute';
+    public const FIELD_EVIDENCIA = 'evidencia';
+    public const FIELD_EXPLIQUE = 'explique';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -121,7 +123,7 @@ final class AtlasCognitiveFunctionDecomposerService
      */
     public const RULES = [
         self::FIELD_REASONING => [
-            'porque', 'por que', self::FIELD_ANALISE, self::FIELD_ANALISA, 'explique', 'pense', 'pondere',
+            'porque', 'por que', self::FIELD_ANALISE, self::FIELD_ANALISA, self::FIELD_EXPLIQUE, 'pense', 'pondere',
             'decida', self::FIELD_DECISAO, self::FIELD_COMPARE, self::FIELD_AVALIE, 'logica', 'estrategia',
             'raciocine', 'investigue', 'why', 'reason',
         ],
@@ -151,7 +153,7 @@ final class AtlasCognitiveFunctionDecomposerService
         self::FIELD_AUDIT => [
             'audite', self::FIELD_AUDITA, 'audit', 'verifique', 'valide', 'cheque',
             'inspecione', 'governance', 'invariant', 'kernel', self::FIELD_CARTOGRAFIA,
-            self::FIELD_DOC, self::FIELD_DOCUMENTO, self::FIELD_COMPLIANCE, self::FIELD_EVIDENCE, 'evidencia',
+            self::FIELD_DOC, self::FIELD_DOCUMENTO, self::FIELD_COMPLIANCE, self::FIELD_EVIDENCE, self::FIELD_EVIDENCIA,
             'integrity', 'tamper', self::FIELD_SHA256, 'hash ', 'verify',
         ],
     ];

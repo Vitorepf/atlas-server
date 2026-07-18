@@ -38,6 +38,8 @@ class AtlasAaeosDepartmentRegistryService
     public const FIELD_FORBIDDEN_ACTIONS = 'forbidden_actions';
     public const FIELD_HUMAN_NAME = 'human_name';
     public const FIELD_MEMORY = 'memory';
+    public const FIELD_GATES = 'gates';
+    public const FIELD_INPUTS = 'inputs';
 
     /**
      * The 12 mandatory fields — a department missing any is a blocker.
@@ -45,8 +47,8 @@ class AtlasAaeosDepartmentRegistryService
      * @var array<int,string>
      */
     public const REQUIRED_FIELDS = [
-        'id', self::FIELD_HUMAN_NAME, 'scope', 'triggers', 'inputs', 'outputs',
-        'gates', self::FIELD_ALLOWED_ACTIONS, self::FIELD_FORBIDDEN_ACTIONS, 'escalation_to',
+        'id', self::FIELD_HUMAN_NAME, 'scope', 'triggers', self::FIELD_INPUTS, 'outputs',
+        self::FIELD_GATES, self::FIELD_ALLOWED_ACTIONS, self::FIELD_FORBIDDEN_ACTIONS, 'escalation_to',
         self::FIELD_EVIDENCE_REQUIRED, 'maturity_level',
     ];
 

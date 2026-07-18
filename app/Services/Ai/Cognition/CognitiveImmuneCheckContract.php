@@ -21,9 +21,9 @@ final class CognitiveImmuneCheckContract
     public const CHECK_CATEGORIES = [
         'drift',
         self::FIELD_CONTRADICTION,
-        'bias',
+        self::FIELD_BIAS,
         'hallucinated_authority',
-        'scope_creep',
+        self::FIELD_SCOPE_CREEP,
     ];
 
     public const GATE_STATUS_PENDING = 'pending';
@@ -48,6 +48,8 @@ final class CognitiveImmuneCheckContract
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_AUTONOMOUS_ENGINEERING = 'autonomous_engineering';
     public const FIELD_CONTRADICTION = 'contradiction';
+    public const FIELD_BIAS = 'bias';
+    public const FIELD_SCOPE_CREEP = 'scope_creep';
 
     public const ALLOWED_GATE_STATUSES = [
         self::GATE_STATUS_PENDING,

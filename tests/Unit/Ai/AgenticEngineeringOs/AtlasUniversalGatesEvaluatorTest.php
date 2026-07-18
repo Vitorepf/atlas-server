@@ -8968,4 +8968,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['reactive_saturation_architect_agent_autonomous_work_acos_program_floor_count']);
     }
 
+    public function test_phase_advance_structured_fact_immune_check_cognitive_function_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->phaseAdvanceStructuredFactImmuneCheckCognitiveFunctionFloorsContractObserve([]);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_MISSING_REQUIRED_GATES_REPAIR, $out['missing_required_gates_repair']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_PHASE_ADVANCE_READY, $out['phase_advance_ready']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_FIX, $out['fix']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_PORQUE, $out['porque']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_BIAS, $out['bias']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_SCOPE_CREEP, $out['scope_creep']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_EVIDENCIA, $out['evidencia']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_EXPLIQUE, $out['explique']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_LONG_HORIZON_STATE_PERSISTED, $out['long_horizon_state_persisted']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MEMORY_HAS_NO_DOWNSTREAM, $out['memory_has_no_downstream']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_REGRESSION, $out['regression']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RELEASE, $out['release']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_ATLAS_AURG_NODES, $out['atlas_aurg_nodes']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_AI_COMPOUNDING_MEMORIES, $out['ai_compounding_memories']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_GATES, $out['gates']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_INPUTS, $out['inputs']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_ISSUE, $out['issue']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_PREFERENCE, $out['preference']);
+        $this->assertSame(18, $out['phase_advance_structured_fact_immune_check_cognitive_function_floor_count']);
+    }
+
 }

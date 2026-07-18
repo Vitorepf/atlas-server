@@ -265,6 +265,8 @@ final class DepartmentContractRuntime
     public const FIELD_LEARNING_SIGNAL_EXTRACTED = 'learning_signal_extracted';
     public const FIELD_LINT_GREEN = 'lint_green';
     public const FIELD_LOGS_HASH = 'logs_hash';
+    public const FIELD_LONG_HORIZON_STATE_PERSISTED = 'long_horizon_state_persisted';
+    public const FIELD_MEMORY_HAS_NO_DOWNSTREAM = 'memory_has_no_downstream';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -522,7 +524,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_OBRA_PACK, self::FIELD_SCHEMA => self::SCHEMA_OBRA_PACK],
                 [self::FIELD_NAME => self::FIELD_EXECUTION_LOG, self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
             ],
-            self::FIELD_GATES => ['obra_intake_validated', 'provider_topology_green', 'all-15-universal-gates', 'long_horizon_state_persisted', 'reservation_ledger_consistent', 'merge_review_promotion_passed'],
+            self::FIELD_GATES => ['obra_intake_validated', 'provider_topology_green', 'all-15-universal-gates', self::FIELD_LONG_HORIZON_STATE_PERSISTED, 'reservation_ledger_consistent', 'merge_review_promotion_passed'],
             self::FIELD_ALLOWED_ACTIONS => ['spawn_agents', self::FIELD_CLAIM_RESERVATIONS, 'request_provider_topology', 'merge_after_review'],
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_review', 'modify_security_policy', 'ship_without_cert'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
@@ -609,7 +611,7 @@ final class DepartmentContractRuntime
             self::FIELD_DEPARTMENTS => self::CATALOGUE,
             self::FIELD_HANDOFF_INVARIANTS => [
                 'executive_intake_has_no_upstream',
-                'memory_has_no_downstream',
+                self::FIELD_MEMORY_HAS_NO_DOWNSTREAM,
                 'every_department_declares_gates',
                 self::FIELD_EVERY_DEPARTMENT_DECLARES_EVIDENCE_SCHEMA,
                 self::FIELD_EVERY_DEPARTMENT_DECLARES_12_CANON_FIELDS,

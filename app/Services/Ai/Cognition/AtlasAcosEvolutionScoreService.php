@@ -132,6 +132,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_SOURCE_KIND = 'source_kind';
     public const FIELD_AI_LEARNING_CANDIDATES = 'ai_learning_candidates';
     public const FIELD_AI_RAG_FEEDBACK_EVENTS = 'ai_rag_feedback_events';
+    public const FIELD_ATLAS_AURG_NODES = 'atlas_aurg_nodes';
+    public const FIELD_AI_COMPOUNDING_MEMORIES = 'ai_compounding_memories';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -363,11 +365,11 @@ class AtlasAcosEvolutionScoreService
     private function unmarkedSessionEchoCount(): int
     {
         try {
-            if (! Schema::hasTable('atlas_aurg_nodes')) {
+            if (! Schema::hasTable(self::FIELD_ATLAS_AURG_NODES)) {
                 return -1;
             }
             $count = 0;
-            DB::table('atlas_aurg_nodes')
+            DB::table(self::FIELD_ATLAS_AURG_NODES)
                 ->where(self::FIELD_SOURCE_KIND, 'mission')
                 ->orderBy('id')
                 ->chunkById(500, function ($nodes) use (&$count): void {
@@ -408,7 +410,7 @@ class AtlasAcosEvolutionScoreService
     private function activeCompoundingMemoryServedByRecall(): bool
     {
         try {
-            if (! Schema::hasTable('ai_compounding_memories') || ! Schema::hasTable(self::FIELD_AI_RAG_FEEDBACK_EVENTS)) {
+            if (! Schema::hasTable(self::FIELD_AI_COMPOUNDING_MEMORIES) || ! Schema::hasTable(self::FIELD_AI_RAG_FEEDBACK_EVENTS)) {
                 return false;
             }
 

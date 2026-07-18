@@ -30,12 +30,14 @@ final class StructuredFactSchemaMap
     public const FIELD_REQUIRED_ON_WRITE = 'required_on_write';
     public const FIELD_CAUSA = 'causa';
     public const FIELD_ALTERNATIVAS = 'alternativas';
+    public const FIELD_FIX = 'fix';
+    public const FIELD_PORQUE = 'porque';
 
     /** @var array<string,list<string>> */
     public const REQUIRED = [
-        self::FIELD_DECISION => ['contexto', self::FIELD_ALTERNATIVAS, 'porque', 'expiry'],
-        self::FIELD_HARNESS_LEARNING => ['sintoma', self::FIELD_CAUSA, 'fix', 'versao'],
-        self::FIELD_GOTCHA => ['sintoma', self::FIELD_CAUSA, 'fix', 'versao'],
+        self::FIELD_DECISION => ['contexto', self::FIELD_ALTERNATIVAS, self::FIELD_PORQUE, 'expiry'],
+        self::FIELD_HARNESS_LEARNING => ['sintoma', self::FIELD_CAUSA, self::FIELD_FIX, 'versao'],
+        self::FIELD_GOTCHA => ['sintoma', self::FIELD_CAUSA, self::FIELD_FIX, 'versao'],
     ];
 
     /**

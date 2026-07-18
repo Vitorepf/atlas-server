@@ -80,6 +80,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_PRIVACY_HINT = 'privacy_hint';
     public const FIELD_RECURRENCE_COUNT = 'recurrence_count';
     public const FIELD_REFACTOR = 'refactor';
+    public const FIELD_REGRESSION = 'regression';
+    public const FIELD_RELEASE = 'release';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -158,7 +160,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const TECHNICAL_MARKERS = [
         'bug',
         self::FIELD_PATCH,
-        'regression',
+        self::FIELD_REGRESSION,
         'race condition',
         self::FIELD_LATENCY,
         self::FIELD_REFACTOR,
@@ -194,7 +196,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         'build passou',
         'testes passaram',
         self::FIELD_MERGED,
-        'release',
+        self::FIELD_RELEASE,
         'shipped',
         'em producao',
     ];
