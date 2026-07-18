@@ -45,6 +45,8 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
 
     /** @var list<string> */
     public const BOOL_FIELDS = [self::FIELD_PROVEN_REAL, self::FIELD_FAKE_GREEN, self::FIELD_SHOULD_PROMOTE_TO_AEMOR];
+    public const FIELD_VERIFIED_SOURCE_PRESENT = 'verified_source_present';
+    public const FIELD_EVIDENCE_REF_COUNT = 'evidence_ref_count';
 
     public function origin(): string
     {
@@ -70,9 +72,9 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
             self::FIELD_STATUS => $status,
             self::FIELD_VERIFIED => $verified,
             self::FIELD_VERIFIED_BASIS => $verifiedBasis,
-            'verified_source_present' => $verifiedSourcePresent,
+            self::FIELD_VERIFIED_SOURCE_PRESENT => $verifiedSourcePresent,
             self::FIELD_CERTIFIED_RECEIPT_ID => $context[self::FIELD_CERTIFIED_RECEIPT_ID] ?? null,
-            'evidence_ref_count' => count($evidenceKinds),
+            self::FIELD_EVIDENCE_REF_COUNT => count($evidenceKinds),
             'episode_id' => null,
             self::FIELD_RUN_ID => $runId !== '' ? $runId : null,
         ], [

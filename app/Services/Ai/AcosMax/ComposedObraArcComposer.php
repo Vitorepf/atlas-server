@@ -81,6 +81,8 @@ final class ComposedObraArcComposer
     public const STATUS_INSUFFICIENT_GROUNDED_CANDIDATES = 'insufficient_grounded_candidates';
 
     public const STATUS_NO_NEIGHBOR_CLUSTER = 'no_neighbor_cluster';
+    public const FIELD_SEED_GATE = 'seed_gate';
+    public const FIELD_OBRA_ID = 'obra_id';
 
     /**
      * @param  list<array<string,mixed>>  $candidates  grounded origination candidates
@@ -268,14 +270,14 @@ final class ComposedObraArcComposer
                 self::FIELD_OBJECTIVE => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_SUMMARY] ?? null) ?? '',
                 self::FIELD_INDIVIDUAL_GATE_REQUIRED => true,
                 self::FIELD_ARCHITECT_PHASE_GATE => true,
-                'seed_gate' => true,
+                self::FIELD_SEED_GATE => true,
             ];
         }
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_ARC_ID => $arcId,
-            'obra_id' => $obraId,
+            self::FIELD_OBRA_ID => $obraId,
             'thesis' => [
                 self::FIELD_CLAIM => 'Wiring the neighbor organs '.implode(', ', array_map(static fn (array $t): string => basename(AiValueNormalizer::trimmedScalarStringOrNull($t[self::FIELD_TARGET_PATH] ?? null) ?? '', '.php'), $tasks)).' materially increases end-to-end leverage.',
                 self::FIELD_FALSIFIED_WHEN => 'No task in the arc reaches proven_real landing within the arc TTL.',

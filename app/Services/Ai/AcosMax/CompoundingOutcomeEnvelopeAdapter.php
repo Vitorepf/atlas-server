@@ -45,6 +45,8 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public const FIELD_EPISODE_ID = 'episode_id';
     public const FIELD_EVIDENCE_REFS = 'evidence_refs';
     public const FIELD_NATIVE_DIVERGENT = 'native_divergent';
+    public const FIELD_EXECUTOR = 'executor';
+    public const FIELD_VERIFIED_SOURCE_PRESENT = 'verified_source_present';
 
     public function origin(): string
     {
@@ -83,13 +85,13 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $runId = AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_RUN_ID] ?? null) ?? '';
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
-            'executor' => $executor,
+            self::FIELD_EXECUTOR => $executor,
             self::FIELD_TASK_CATEGORY => AiValueNormalizer::trimmedStringOrNull($contract[self::FIELD_TASK_CATEGORY] ?? $executor) ?? '',
             self::FIELD_PROVIDER => AiValueNormalizer::trimmedStringOrNull($contract[self::FIELD_PROVIDER] ?? $native[self::FIELD_PROVIDER] ?? null) ?? self::STATUS_ABSENT,
             self::FIELD_STATUS => $status,
             self::FIELD_VERIFIED => $verified,
             self::FIELD_VERIFIED_BASIS => $verifiedBasis,
-            'verified_source_present' => $verifiedSourcePresent,
+            self::FIELD_VERIFIED_SOURCE_PRESENT => $verifiedSourcePresent,
             self::FIELD_CERTIFIED_RECEIPT_ID => $contract[self::FIELD_CERTIFIED_RECEIPT_ID] ?? null,
             'evidence_ref_count' => count($evidenceRefs),
             self::FIELD_EPISODE_ID => null,

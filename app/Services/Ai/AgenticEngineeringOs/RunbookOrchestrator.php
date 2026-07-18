@@ -52,6 +52,8 @@ final class RunbookOrchestrator
 
     /** Minimum replay count before a structural redesign may be promoted. */
     public const REPLAY_OBRAS_COUNT_MIN = 100;
+    public const FIELD_ORDER = 'order';
+    public const FIELD_EVIDENCE_SCHEMA = 'evidence_schema';
 
     /**
      * Canonical default flow for a non-trivial intent. Trivial intents
@@ -106,10 +108,10 @@ final class RunbookOrchestrator
         $stages = [];
         foreach ($flow as $i => $dept) {
             $stages[] = [
-                'order' => $i + 1,
+                self::FIELD_ORDER => $i + 1,
                 self::FIELD_DEPARTMENT => $dept,
                 self::FIELD_GATES => $this->departments->gatesFor($dept),
-                'evidence_schema' => $this->departments->evidenceSchemaFor($dept),
+                self::FIELD_EVIDENCE_SCHEMA => $this->departments->evidenceSchemaFor($dept),
                 'handoff_to' => AiValueNormalizer::arrayOrEmpty(DepartmentContractRuntime::CATALOGUE[$dept]['emits_handoff_to'] ?? null),
             ];
         }

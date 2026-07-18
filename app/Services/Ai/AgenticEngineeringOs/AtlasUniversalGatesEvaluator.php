@@ -8276,6 +8276,31 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function deptImmuneNudgeRunbookQualityDevCompoundObraFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'dept_runtime_field_from' => DepartmentContractRuntime::FIELD_FROM,
+            'dept_runtime_field_departments' => DepartmentContractRuntime::FIELD_DEPARTMENTS,
+            'immune_promo_field_blocking_gate_ids' => CognitiveImmunePromotionGateEvaluator::FIELD_BLOCKING_GATE_IDS,
+            'immune_promo_field_pending_gate_ids' => CognitiveImmunePromotionGateEvaluator::FIELD_PENDING_GATE_IDS,
+            'immune_check_field_inputs' => CognitiveImmuneCheckContract::FIELD_INPUTS,
+            'immune_check_field_outputs' => CognitiveImmuneCheckContract::FIELD_OUTPUTS,
+            'nudge_field_framework' => CognitiveContextNudgeApplier::FIELD_FRAMEWORK,
+            'nudge_field_role' => CognitiveContextNudgeApplier::FIELD_ROLE,
+            'runbook_field_order' => RunbookOrchestrator::FIELD_ORDER,
+            'runbook_field_evidence_schema' => RunbookOrchestrator::FIELD_EVIDENCE_SCHEMA,
+            'quality_bar_field_breach_signal' => QualityBarTelemetryContract::FIELD_BREACH_SIGNAL,
+            'quality_bar_field_canonical_source' => QualityBarTelemetryContract::FIELD_CANONICAL_SOURCE,
+            'dev_proc_field_verified_source_present' => DevProceduralOutcomeEnvelopeAdapter::FIELD_VERIFIED_SOURCE_PRESENT,
+            'dev_proc_field_evidence_ref_count' => DevProceduralOutcomeEnvelopeAdapter::FIELD_EVIDENCE_REF_COUNT,
+            'compound_field_executor' => CompoundingOutcomeEnvelopeAdapter::FIELD_EXECUTOR,
+            'compound_field_verified_source_present' => CompoundingOutcomeEnvelopeAdapter::FIELD_VERIFIED_SOURCE_PRESENT,
+            'obra_arc_field_seed_gate' => ComposedObraArcComposer::FIELD_SEED_GATE,
+            'obra_arc_field_obra_id' => ComposedObraArcComposer::FIELD_OBRA_ID,
+            'dept_immune_nudge_runbook_quality_dev_compound_obra_floor_count' => 18,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

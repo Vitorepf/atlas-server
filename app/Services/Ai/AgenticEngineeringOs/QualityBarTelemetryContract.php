@@ -36,6 +36,8 @@ final class QualityBarTelemetryContract
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_QUALITY_BAR_SCHEMA = 'quality_bar_schema';
     public const FIELD_IMMUNE_GATE_ID = 'immune_gate_id';
+    public const FIELD_BREACH_SIGNAL = 'breach_signal';
+    public const FIELD_CANONICAL_SOURCE = 'canonical_source';
 
     /**
      * Gate evidence required — not boolean-only pass/fail.
@@ -108,8 +110,8 @@ final class QualityBarTelemetryContract
             self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             self::FIELD_QUALITY_BAR_SCHEMA => self::QUALITY_BAR_SCHEMA,
             self::FIELD_IMMUNE_GATE_ID => self::IMMUNE_GATE_ID,
-            'breach_signal' => self::BREACH_SIGNAL,
-            'canonical_source' => self::CANONICAL_SOURCE,
+            self::FIELD_BREACH_SIGNAL => self::BREACH_SIGNAL,
+            self::FIELD_CANONICAL_SOURCE => self::CANONICAL_SOURCE,
             self::FIELD_EVALUATED_WINDOW_DAYS => self::EVALUATED_WINDOW_DAYS,
             'auto_block_on_breach' => self::AUTO_BLOCK_ON_BREACH,
             'evidence_required' => self::EVIDENCE_REQUIRED,

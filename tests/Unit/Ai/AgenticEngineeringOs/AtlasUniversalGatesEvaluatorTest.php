@@ -6324,6 +6324,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['health_immune_calib_deferred_cooccur_thesis_lexical_repair_docs_floor_count']);
     }
 
+    public function test_dept_immune_nudge_runbook_quality_dev_compound_obra_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->deptImmuneNudgeRunbookQualityDevCompoundObraFloorsContractObserve([]);
+
+        $this->assertSame('from', $payload['dept_runtime_field_from']);
+        $this->assertSame('departments', $payload['dept_runtime_field_departments']);
+        $this->assertSame('blocking_gate_ids', $payload['immune_promo_field_blocking_gate_ids']);
+        $this->assertSame('pending_gate_ids', $payload['immune_promo_field_pending_gate_ids']);
+        $this->assertSame('inputs', $payload['immune_check_field_inputs']);
+        $this->assertSame('outputs', $payload['immune_check_field_outputs']);
+        $this->assertSame('framework', $payload['nudge_field_framework']);
+        $this->assertSame('role', $payload['nudge_field_role']);
+        $this->assertSame('order', $payload['runbook_field_order']);
+        $this->assertSame('evidence_schema', $payload['runbook_field_evidence_schema']);
+        $this->assertSame('breach_signal', $payload['quality_bar_field_breach_signal']);
+        $this->assertSame('canonical_source', $payload['quality_bar_field_canonical_source']);
+        $this->assertSame('verified_source_present', $payload['dev_proc_field_verified_source_present']);
+        $this->assertSame('evidence_ref_count', $payload['dev_proc_field_evidence_ref_count']);
+        $this->assertSame('executor', $payload['compound_field_executor']);
+        $this->assertSame('verified_source_present', $payload['compound_field_verified_source_present']);
+        $this->assertSame('seed_gate', $payload['obra_arc_field_seed_gate']);
+        $this->assertSame('obra_id', $payload['obra_arc_field_obra_id']);
+        $this->assertSame(18, $payload['dept_immune_nudge_runbook_quality_dev_compound_obra_floor_count']);
+    }
+
 
 
 

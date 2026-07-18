@@ -176,6 +176,8 @@ final class DepartmentContractRuntime
 
     /** Escalation target id used by department contracts (not a full department row). */
     public const DEPARTMENT_OPERATOR = 'operator';
+    public const FIELD_FROM = 'from';
+    public const FIELD_DEPARTMENTS = 'departments';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -517,7 +519,7 @@ final class DepartmentContractRuntime
             'schema_version' => self::SCHEMA_VERSION,
             self::FIELD_DEPARTMENT_COUNT => count(self::CATALOGUE),
             self::FIELD_CANON_DEPARTMENT_COUNT => 11,
-            'departments' => self::CATALOGUE,
+            self::FIELD_DEPARTMENTS => self::CATALOGUE,
             'handoff_invariants' => [
                 'executive_intake_has_no_upstream',
                 'memory_has_no_downstream',
@@ -538,15 +540,15 @@ final class DepartmentContractRuntime
     public function validateHandoff(string $from, string $to): array
     {
         if (! isset(self::CATALOGUE[$from])) {
-            return ['from' => $from, 'to' => $to, self::FIELD_ACCEPTED => false, self::FIELD_REASON => "unknown department '{$from}'"];
+            return [self::FIELD_FROM => $from, 'to' => $to, self::FIELD_ACCEPTED => false, self::FIELD_REASON => "unknown department '{$from}'"];
         }
         if (! isset(self::CATALOGUE[$to])) {
-            return ['from' => $from, 'to' => $to, self::FIELD_ACCEPTED => false, self::FIELD_REASON => "unknown department '{$to}'"];
+            return [self::FIELD_FROM => $from, 'to' => $to, self::FIELD_ACCEPTED => false, self::FIELD_REASON => "unknown department '{$to}'"];
         }
         $allowedDownstream = AiValueNormalizer::arrayOrEmpty(self::CATALOGUE[$from][self::FIELD_EMITS_HANDOFF_TO] ?? null);
         if (! in_array($to, $allowedDownstream, true)) {
             return [
-                'from' => $from,
+                self::FIELD_FROM => $from,
                 'to' => $to,
                 self::FIELD_ACCEPTED => false,
                 self::FIELD_REASON => sprintf('department "%s" does not emit handoff to "%s" (allowed: %s)',
@@ -554,7 +556,7 @@ final class DepartmentContractRuntime
             ];
         }
 
-        return ['from' => $from, 'to' => $to, self::FIELD_ACCEPTED => true, self::FIELD_REASON => null];
+        return [self::FIELD_FROM => $from, 'to' => $to, self::FIELD_ACCEPTED => true, self::FIELD_REASON => null];
     }
 
     /** @return list<string> */

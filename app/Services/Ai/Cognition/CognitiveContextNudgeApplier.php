@@ -24,6 +24,8 @@ final class CognitiveContextNudgeApplier
     public const FIELD_RETRIEVAL = 'retrieval';
     public const FIELD_VISION = 'vision';
     public const FIELD_GENERATION = 'generation';
+    public const FIELD_FRAMEWORK = 'framework';
+    public const FIELD_ROLE = 'role';
     /**
      * Apply framework + role nudges to the keyword-scored hits map.
      *
@@ -34,11 +36,11 @@ final class CognitiveContextNudgeApplier
     public function applyNudges(array $hits, array $context): array
     {
         // Framework nudges.
-        $framework = AiValueNormalizer::lowerTrimmedString($context['framework'] ?? '');
+        $framework = AiValueNormalizer::lowerTrimmedString($context[self::FIELD_FRAMEWORK] ?? '');
         $hits = $this->applyFrameworkNudge($hits, $framework);
 
         // Role nudges.
-        $role = AiValueNormalizer::lowerTrimmedString($context['role'] ?? '');
+        $role = AiValueNormalizer::lowerTrimmedString($context[self::FIELD_ROLE] ?? '');
         $hits = $this->applyRoleNudge($hits, $role);
 
         return $hits;
