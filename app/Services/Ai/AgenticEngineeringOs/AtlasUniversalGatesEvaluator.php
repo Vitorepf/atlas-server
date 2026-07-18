@@ -21132,4 +21132,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B764).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b764CrossDepartmentFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'escalate_to' => AtlasCrossDepartmentChoreographyService::FIELD_ESCALATE_TO,
+            'from_department' => AtlasCrossDepartmentChoreographyService::FIELD_FROM_DEPARTMENT,
+            'atlas.aaeos.cross_dept.handoff.v1' => AtlasCrossDepartmentChoreographyService::HANDOFF_SCHEMA,
+            '10' => AtlasCrossDepartmentChoreographyService::VETO_SLA_SECONDS,
+            '3' => AtlasCrossDepartmentChoreographyService::REPAIR_MAX_ITERATIONS,
+            'delegation' => AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_DELEGATION,
+            'escalation' => AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_ESCALATION,
+            'veto' => AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_VETO,
+            'repair' => AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_REPAIR,
+            'review_request' => AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_REVIEW_REQUEST,
+            'noop' => AtlasCrossDepartmentChoreographyService::ACTION_NOOP,
+            'pause_downstream' => AtlasCrossDepartmentChoreographyService::ACTION_PAUSE_DOWNSTREAM,
+            'return_upstream' => AtlasCrossDepartmentChoreographyService::ACTION_RETURN_UPSTREAM,
+            'override' => AtlasCrossDepartmentChoreographyService::ACTION_OVERRIDE,
+            'architect' => AtlasCrossDepartmentChoreographyService::TARGET_ARCHITECT,
+            'operator' => AtlasCrossDepartmentChoreographyService::TARGET_OPERATOR,
+            'product' => AtlasCrossDepartmentChoreographyService::TARGET_PRODUCT,
+            'action' => AtlasCrossDepartmentChoreographyService::FIELD_ACTION,
+            'b764_cross_department_floor_count' => 18,
+        ];
+    }
+
 }

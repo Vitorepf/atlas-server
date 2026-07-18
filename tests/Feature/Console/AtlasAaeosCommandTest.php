@@ -12429,6 +12429,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b764_cross_department_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b764-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b764',
+                '--b764-cross-department-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b764_cross_department_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

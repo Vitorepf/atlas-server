@@ -16777,4 +16777,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b763_debug_root_cross_department_floor_count']);
     }
 
+    public function test_b764_cross_department_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b764CrossDepartmentFloorsContractObserve([]);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_ESCALATE_TO, $out['escalate_to']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_FROM_DEPARTMENT, $out['from_department']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::HANDOFF_SCHEMA, $out['atlas.aaeos.cross_dept.handoff.v1']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::VETO_SLA_SECONDS, $out['10']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::REPAIR_MAX_ITERATIONS, $out['3']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_DELEGATION, $out['delegation']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_ESCALATION, $out['escalation']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_VETO, $out['veto']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_REPAIR, $out['repair']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::HANDOFF_KIND_REVIEW_REQUEST, $out['review_request']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::ACTION_NOOP, $out['noop']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::ACTION_PAUSE_DOWNSTREAM, $out['pause_downstream']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::ACTION_RETURN_UPSTREAM, $out['return_upstream']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::ACTION_OVERRIDE, $out['override']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::TARGET_ARCHITECT, $out['architect']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::TARGET_OPERATOR, $out['operator']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::TARGET_PRODUCT, $out['product']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_ACTION, $out['action']);
+        $this->assertSame(18, $out['b764_cross_department_floor_count']);
+    }
+
 }
