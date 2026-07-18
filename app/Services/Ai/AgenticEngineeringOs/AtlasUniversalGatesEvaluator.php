@@ -21318,4 +21318,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B770).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b770AaeosCognitiveFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'input_class' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_INPUT_CLASS,
+            'matched_signals' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MATCHED_SIGNALS,
+            'atlas.aaeos.cognitive_immune_input_classifier.v1' => AtlasAaeosCognitiveImmuneInputClassifier::SCHEMA_VERSION,
+            '3' => AtlasAaeosCognitiveImmuneInputClassifier::RECURRENCE_MEMORY_THRESHOLD,
+            'trivial_query' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_TRIVIAL_QUERY,
+            'operational_ephemeral' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_OPERATIONAL_EPHEMERAL,
+            'task_or_reminder' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_TASK_OR_REMINDER,
+            'project_evidence' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PROJECT_EVIDENCE,
+            'conversation_trace' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_CONVERSATION_TRACE,
+            'personal_fact_candidate' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_PERSONAL_FACT_CANDIDATE,
+            'technical_learning_candidate' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_TECHNICAL_LEARNING_CANDIDATE,
+            'strategic_insight_candidate' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_STRATEGIC_INSIGHT_CANDIDATE,
+            'untrusted_content' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_UNTRUSTED_CONTENT,
+            'prompt_injection' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_PROMPT_INJECTION,
+            'private_sensitive' => AtlasAaeosCognitiveImmuneInputClassifier::CLASS_PRIVATE_SENSITIVE,
+            'default_destination' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DEFAULT_DESTINATION,
+            'embedding_allowed' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EMBEDDING_ALLOWED,
+            'memory_eligible' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEMORY_ELIGIBLE,
+            'b770_aaeos_cognitive_floor_count' => 18,
+        ];
+    }
+
 }

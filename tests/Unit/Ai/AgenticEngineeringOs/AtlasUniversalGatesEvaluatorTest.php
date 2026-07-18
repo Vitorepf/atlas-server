@@ -16928,4 +16928,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b769_aaeos_implementation_floor_count']);
     }
 
+    public function test_b770_aaeos_cognitive_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b770AaeosCognitiveFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_INPUT_CLASS, $out['input_class']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MATCHED_SIGNALS, $out['matched_signals']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::SCHEMA_VERSION, $out['atlas.aaeos.cognitive_immune_input_classifier.v1']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::RECURRENCE_MEMORY_THRESHOLD, $out['3']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_TRIVIAL_QUERY, $out['trivial_query']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_OPERATIONAL_EPHEMERAL, $out['operational_ephemeral']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_TASK_OR_REMINDER, $out['task_or_reminder']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PROJECT_EVIDENCE, $out['project_evidence']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_CONVERSATION_TRACE, $out['conversation_trace']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_PERSONAL_FACT_CANDIDATE, $out['personal_fact_candidate']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_TECHNICAL_LEARNING_CANDIDATE, $out['technical_learning_candidate']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_STRATEGIC_INSIGHT_CANDIDATE, $out['strategic_insight_candidate']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_UNTRUSTED_CONTENT, $out['untrusted_content']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_PROMPT_INJECTION, $out['prompt_injection']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::CLASS_PRIVATE_SENSITIVE, $out['private_sensitive']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DEFAULT_DESTINATION, $out['default_destination']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EMBEDDING_ALLOWED, $out['embedding_allowed']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEMORY_ELIGIBLE, $out['memory_eligible']);
+        $this->assertSame(18, $out['b770_aaeos_cognitive_floor_count']);
+    }
+
 }
