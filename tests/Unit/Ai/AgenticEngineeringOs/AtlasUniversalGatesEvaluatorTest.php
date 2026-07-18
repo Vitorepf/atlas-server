@@ -9845,4 +9845,21 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b483_department_contract_floor_count']);
     }
 
+    public function test_b484_department_contract_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b484DepartmentContractFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SHIP_WITHOUT_CERT, $out['ship_without_cert']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SHIP_WITHOUT_EVIDENCE, $out['ship_without_evidence']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SOURCES_LIST_HASH, $out['sources_list_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SOVEREIGNTY_BOUNDARY_RESPECTED, $out['sovereignty_boundary_respected']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SPAWN_AGENTS, $out['spawn_agents']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SPLIT_INTENT, $out['split_intent']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TEST_PACK_HASH, $out['test_pack_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_VETO_EXECUTION, $out['veto_execution']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_VETO_RELEASE, $out['veto_release']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_WRITE_TESTS, $out['write_tests']);
+        $this->assertSame(10, $out['b484_department_contract_floor_count']);
+    }
+
 }

@@ -12530,4 +12530,27 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B484).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b484DepartmentContractFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ship_without_cert' => DepartmentContractRuntime::FIELD_SHIP_WITHOUT_CERT,
+            'ship_without_evidence' => DepartmentContractRuntime::FIELD_SHIP_WITHOUT_EVIDENCE,
+            'sources_list_hash' => DepartmentContractRuntime::FIELD_SOURCES_LIST_HASH,
+            'sovereignty_boundary_respected' => DepartmentContractRuntime::FIELD_SOVEREIGNTY_BOUNDARY_RESPECTED,
+            'spawn_agents' => DepartmentContractRuntime::FIELD_SPAWN_AGENTS,
+            'split_intent' => DepartmentContractRuntime::FIELD_SPLIT_INTENT,
+            'test_pack_hash' => DepartmentContractRuntime::FIELD_TEST_PACK_HASH,
+            'veto_execution' => DepartmentContractRuntime::FIELD_VETO_EXECUTION,
+            'veto_release' => DepartmentContractRuntime::FIELD_VETO_RELEASE,
+            'write_tests' => DepartmentContractRuntime::FIELD_WRITE_TESTS,
+            'b484_department_contract_floor_count' => 10,
+        ];
+    }
+
 }
