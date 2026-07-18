@@ -390,6 +390,24 @@ final class DepartmentContractRuntime
     public const FIELD_REQUEST_OBSERVABILITY_QUERY = 'request_observability_query';
     public const FIELD_REQUEST_PROVIDER_CALL = 'request_provider_call';
     public const FIELD_RESEARCH_FINDINGS_PUBLISHED = 'research_findings_published';
+    public const FIELD_RESEARCH_HALLUCINATION_COUNT = 'research_hallucination_count';
+    public const FIELD_RESEARCH_PACK_HASH = 'research_pack_hash';
+    public const FIELD_RESEARCH_SOURCE_FRESHNESS_AVG = 'research_source_freshness_avg';
+    public const FIELD_REVIEW_FINDINGS_SEVERITY_AVG = 'review_findings_severity_avg';
+    public const FIELD_REVIEW_PACKET_SIGNED = 'review_packet_signed';
+    public const FIELD_REVIEW_REPORT_HASH = 'review_report_hash';
+    public const FIELD_REVIEW_VETO_COUNT = 'review_veto_count';
+    public const FIELD_RISK_SCOPE = 'risk_scope';
+    public const FIELD_ROLLBACK_PER_SLICE = 'rollback_per_slice';
+    public const FIELD_ROOT_CAUSE_EVIDENCE_PRESENT = 'root_cause_evidence_present';
+    public const FIELD_ROOT_CAUSE_PACK_HASH = 'root_cause_pack_hash';
+    public const FIELD_ROUTE_TO_DEPARTMENT = 'route_to_department';
+    public const FIELD_SCHEMA_VERSIONED = 'schema_versioned';
+    public const FIELD_SCOPE_GUARD_OK = 'scope_guard_ok';
+    public const FIELD_SCOPE_GUARD_REPORT = 'scope_guard_report';
+    public const FIELD_SECURITY_DENY_COUNT = 'security_deny_count';
+    public const FIELD_SECURITY_SCAN_CLEAN = 'security_scan_clean';
+    public const FIELD_SECURITY_SECRET_FINDING_COUNT = 'security_secret_finding_count';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -434,7 +452,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_MISSION_ENVELOPE, self::FIELD_SCHEMA => self::SCHEMA_AI_MISSION],
             ],
             self::FIELD_GATES => [self::FIELD_INTENT_CLARIFIED, self::FIELD_MISSION_AUTHORITY_DECLARED],
-            self::FIELD_ALLOWED_ACTIONS => [self::FIELD_ASK_CLARIFYING_QUESTION, self::FIELD_CLASSIFY_INTENT, 'route_to_department'],
+            self::FIELD_ALLOWED_ACTIONS => [self::FIELD_ASK_CLARIFYING_QUESTION, self::FIELD_CLASSIFY_INTENT, self::FIELD_ROUTE_TO_DEPARTMENT],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_WRITE_CODE, self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => [self::FIELD_INTENT_CLARIFICATION_LOG, self::FIELD_MISSION_ENVELOPE_HASH],
@@ -481,7 +499,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
                 [self::FIELD_NAME => self::FIELD_MIGRATION_PLAN, self::FIELD_SCHEMA => self::SCHEMA_MIGRATION_PLAN],
             ],
-            self::FIELD_GATES => [self::FIELD_ADR_PUBLISHED, self::FIELD_BOUNDARY_VALIDATED, self::FIELD_SPEC_ACCEPTANCE_CRITERIA_COMPLETE, self::FIELD_BREAKING_CHANGE_DOCUMENTED, 'rollback_per_slice'],
+            self::FIELD_GATES => [self::FIELD_ADR_PUBLISHED, self::FIELD_BOUNDARY_VALIDATED, self::FIELD_SPEC_ACCEPTANCE_CRITERIA_COMPLETE, self::FIELD_BREAKING_CHANGE_DOCUMENTED, self::FIELD_ROLLBACK_PER_SLICE],
             self::FIELD_ALLOWED_ACTIONS => [self::FIELD_DRAFT_SPEC, self::FIELD_PROPOSE_MIGRATION_PLAN, self::FIELD_REQUEST_SECURITY_REVIEW, 'veto_execution'],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_WRITE_CODE, self::FIELD_EXECUTE_MIGRATION, 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
@@ -508,9 +526,9 @@ final class DepartmentContractRuntime
             self::FIELD_ALLOWED_ACTIONS => [self::FIELD_FETCH_SOURCES, self::FIELD_SYNTHESIZE_FINDINGS, self::FIELD_PROPOSE_DOC_PROMOTION],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_WRITE_CODE, self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
-            self::FIELD_EVIDENCE_REQUIRED => ['sources_list_hash', 'research_pack_hash'],
+            self::FIELD_EVIDENCE_REQUIRED => ['sources_list_hash', self::FIELD_RESEARCH_PACK_HASH],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_RESEARCH_PACKS, self::FIELD_LEDGER => self::FIELD_AAEOS_SOURCE_LEDGER],
-            self::FIELD_OBSERVABILITY_SIGNALS => ['research_source_freshness_avg', 'research_hallucination_count'],
+            self::FIELD_OBSERVABILITY_SIGNALS => [self::FIELD_RESEARCH_SOURCE_FRESHNESS_AVG, self::FIELD_RESEARCH_HALLUCINATION_COUNT],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_RESEARCH_FINDINGS,
             self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_ARCHITECTURE, self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
@@ -529,11 +547,11 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_EXECUTION_LOG, self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
                 [self::FIELD_NAME => self::FIELD_PATCH_PACK, self::FIELD_SCHEMA => self::SCHEMA_PATCH_PACK],
             ],
-            self::FIELD_GATES => [self::FIELD_PLAN_APPROVED, self::FIELD_TESTS_FOCUSED, self::FIELD_REVIEW_GATE, self::FIELD_LINT_GREEN, self::FIELD_TYPECHECK_GREEN, self::FIELD_TESTS_GREEN, 'scope_guard_ok'],
+            self::FIELD_GATES => [self::FIELD_PLAN_APPROVED, self::FIELD_TESTS_FOCUSED, self::FIELD_REVIEW_GATE, self::FIELD_LINT_GREEN, self::FIELD_TYPECHECK_GREEN, self::FIELD_TESTS_GREEN, self::FIELD_SCOPE_GUARD_OK],
             self::FIELD_ALLOWED_ACTIONS => [self::FIELD_EDIT_ALLOWED_FILES, self::FIELD_RUN_TESTS, self::FIELD_REQUEST_PROVIDER_CALL],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_EDIT_SECURITY_POLICY, self::FIELD_MODIFY_MIGRATIONS_WITHOUT_ARCHITECT, 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_FORGE],
-            self::FIELD_EVIDENCE_REQUIRED => [self::FIELD_PATCH_HASH, self::FIELD_TEST_OUTPUT_HASH, 'scope_guard_report'],
+            self::FIELD_EVIDENCE_REQUIRED => [self::FIELD_PATCH_HASH, self::FIELD_TEST_OUTPUT_HASH, self::FIELD_SCOPE_GUARD_REPORT],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_DEV_RUNS, self::FIELD_LEDGER => self::FIELD_AAEOS_DEV_EVIDENCE_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => [self::FIELD_DEV_RUN_DURATION_P95, self::FIELD_DEV_REPAIR_LOOP_COUNT, self::FIELD_DEV_SCOPE_VIOLATION_COUNT],
             self::FIELD_MATURITY_LEVEL => 'L1',
@@ -552,11 +570,11 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_ROOT_CAUSE_PACK, self::FIELD_SCHEMA => self::SCHEMA_ROOT_CAUSE_PACK],
             ],
-            self::FIELD_GATES => [self::FIELD_FAILURE_CAPSULE_EMITTED, self::FIELD_REPAIR_BUDGET_RESPECTED, self::FIELD_REPRODUCTION_CONFIRMED, 'root_cause_evidence_present'],
+            self::FIELD_GATES => [self::FIELD_FAILURE_CAPSULE_EMITTED, self::FIELD_REPAIR_BUDGET_RESPECTED, self::FIELD_REPRODUCTION_CONFIRMED, self::FIELD_ROOT_CAUSE_EVIDENCE_PRESENT],
             self::FIELD_ALLOWED_ACTIONS => [self::FIELD_READ_LOGS, self::FIELD_RUN_REPRO, self::FIELD_REQUEST_OBSERVABILITY_QUERY],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_MODIFY_PRODUCTION_DATA, self::FIELD_DEPLOY_FIX_WITHOUT_REVIEW],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY],
-            self::FIELD_EVIDENCE_REQUIRED => [self::FIELD_REPRO_STEPS_HASH, self::FIELD_LOGS_HASH, 'root_cause_pack_hash'],
+            self::FIELD_EVIDENCE_REQUIRED => [self::FIELD_REPRO_STEPS_HASH, self::FIELD_LOGS_HASH, self::FIELD_ROOT_CAUSE_PACK_HASH],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_DEBUG_INVESTIGATIONS, self::FIELD_LEDGER => self::FIELD_AAEOS_DEBUG_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => [self::FIELD_DEBUG_MTTR_P95, self::FIELD_DEBUG_REPRO_SUCCESS_RATE],
             self::FIELD_MATURITY_LEVEL => 'L2',
@@ -575,13 +593,13 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_REVIEW_REPORT, self::FIELD_SCHEMA => self::SCHEMA_REVIEW_REPORT],
             ],
-            self::FIELD_GATES => ['review_packet_signed', self::FIELD_RISK_ACKNOWLEDGED, self::FIELD_REVIEW_CHECKLIST_COMPLETE, self::FIELD_BLOCKERS_ADDRESSED, self::FIELD_EVIDENCE_TRACEABLE],
+            self::FIELD_GATES => [self::FIELD_REVIEW_PACKET_SIGNED, self::FIELD_RISK_ACKNOWLEDGED, self::FIELD_REVIEW_CHECKLIST_COMPLETE, self::FIELD_BLOCKERS_ADDRESSED, self::FIELD_EVIDENCE_TRACEABLE],
             self::FIELD_ALLOWED_ACTIONS => [self::FIELD_REQUEST_CHANGES, self::FIELD_APPROVE_FOR_CERT, 'veto_release'],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_EDIT_CODE, self::FIELD_DEPLOY_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
-            self::FIELD_EVIDENCE_REQUIRED => ['review_report_hash', self::FIELD_CHECKLIST_COMPLETION_HASH],
+            self::FIELD_EVIDENCE_REQUIRED => [self::FIELD_REVIEW_REPORT_HASH, self::FIELD_CHECKLIST_COMPLETION_HASH],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_REVIEW_REPORTS, self::FIELD_LEDGER => self::FIELD_AAEOS_REVIEW_LEDGER],
-            self::FIELD_OBSERVABILITY_SIGNALS => ['review_findings_severity_avg', 'review_veto_count'],
+            self::FIELD_OBSERVABILITY_SIGNALS => [self::FIELD_REVIEW_FINDINGS_SEVERITY_AVG, self::FIELD_REVIEW_VETO_COUNT],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_REVIEW_RECEIPT,
             self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
@@ -622,13 +640,13 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_POLICY_DECISION, self::FIELD_SCHEMA => self::SCHEMA_POLICY_DECISION],
             ],
-            self::FIELD_GATES => ['security_scan_clean', self::FIELD_CVE_ACKNOWLEDGED, self::FIELD_SECRET_SCAN_CLEAN, self::FIELD_DEPENDENCY_AUDIT_CLEAN, self::FIELD_THREAT_MODEL_PRESENT, 'sovereignty_boundary_respected'],
+            self::FIELD_GATES => [self::FIELD_SECURITY_SCAN_CLEAN, self::FIELD_CVE_ACKNOWLEDGED, self::FIELD_SECRET_SCAN_CLEAN, self::FIELD_DEPENDENCY_AUDIT_CLEAN, self::FIELD_THREAT_MODEL_PRESENT, 'sovereignty_boundary_respected'],
             self::FIELD_ALLOWED_ACTIONS => [self::FIELD_ALLOW, self::FIELD_DENY, self::FIELD_REQUEST_MITIGATION, self::FIELD_ESCALATE_TO_OPERATOR],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_BYPASS_SOVEREIGNTY, self::FIELD_APPROVE_UNAUDITED_DEP, 'ship_without_evidence'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => [self::FIELD_POLICY_DECISION_HASH, self::FIELD_SECRET_SCAN_REPORT_HASH, self::FIELD_DEPENDENCY_AUDIT_HASH],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_POLICY_DECISIONS, self::FIELD_LEDGER => self::FIELD_AAEOS_SECURITY_LEDGER],
-            self::FIELD_OBSERVABILITY_SIGNALS => ['security_deny_count', 'security_secret_finding_count'],
+            self::FIELD_OBSERVABILITY_SIGNALS => [self::FIELD_SECURITY_DENY_COUNT, self::FIELD_SECURITY_SECRET_FINDING_COUNT],
             self::FIELD_MATURITY_LEVEL => 'L3',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_SECURITY_FINDING,
             self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_DEV, self::DEPARTMENT_REVIEW, self::DEPARTMENT_FORGE],
@@ -694,7 +712,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_MEMORY_RECORD, self::FIELD_SCHEMA => self::SCHEMA_MEMORY_RECORD],
                 [self::FIELD_NAME => self::FIELD_CONTEXT_PACK, self::FIELD_SCHEMA => self::SCHEMA_CONTEXT_PACK],
             ],
-            self::FIELD_GATES => [self::FIELD_EVIDENCE_PERSISTED, self::FIELD_LEARNING_SIGNAL_EXTRACTED, self::FIELD_PROMOTION_GATE_PASSED, self::FIELD_NOISE_IMMUNITY_CHECK_OK, 'schema_versioned'],
+            self::FIELD_GATES => [self::FIELD_EVIDENCE_PERSISTED, self::FIELD_LEARNING_SIGNAL_EXTRACTED, self::FIELD_PROMOTION_GATE_PASSED, self::FIELD_NOISE_IMMUNITY_CHECK_OK, self::FIELD_SCHEMA_VERSIONED],
             self::FIELD_ALLOWED_ACTIONS => [self::FIELD_PROMOTE_TO_MEMORY, self::FIELD_QUARANTINE_CAPSULE, self::FIELD_EMIT_CONTEXT_PACK],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_BYPASS_PROMOTION_GATE, self::FIELD_MODIFY_EVIDENCE_LEDGER, self::FIELD_EXPOSE_SECRETS],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
@@ -849,7 +867,7 @@ final class DepartmentContractRuntime
         }
 
         $allowedKeys = [
-            'risk_scope',
+            self::FIELD_RISK_SCOPE,
             self::FIELD_SPEC_PACK_HASH,
             self::FIELD_ACCEPTANCE_CRITERIA_PRESENT,
             self::FIELD_ROLLBACK_PLAN_PRESENT,

@@ -9820,4 +9820,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['department_contract_aaeos_http_acos_evolution_immune_promotion_floor_count']);
     }
 
+    public function test_b483_department_contract_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b483DepartmentContractFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RESEARCH_HALLUCINATION_COUNT, $out['research_hallucination_count']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RESEARCH_PACK_HASH, $out['research_pack_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RESEARCH_SOURCE_FRESHNESS_AVG, $out['research_source_freshness_avg']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REVIEW_FINDINGS_SEVERITY_AVG, $out['review_findings_severity_avg']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REVIEW_PACKET_SIGNED, $out['review_packet_signed']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REVIEW_REPORT_HASH, $out['review_report_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REVIEW_VETO_COUNT, $out['review_veto_count']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RISK_SCOPE, $out['risk_scope']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ROLLBACK_PER_SLICE, $out['rollback_per_slice']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ROOT_CAUSE_EVIDENCE_PRESENT, $out['root_cause_evidence_present']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ROOT_CAUSE_PACK_HASH, $out['root_cause_pack_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ROUTE_TO_DEPARTMENT, $out['route_to_department']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SCHEMA_VERSIONED, $out['schema_versioned']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SCOPE_GUARD_OK, $out['scope_guard_ok']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SCOPE_GUARD_REPORT, $out['scope_guard_report']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SECURITY_DENY_COUNT, $out['security_deny_count']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SECURITY_SCAN_CLEAN, $out['security_scan_clean']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SECURITY_SECRET_FINDING_COUNT, $out['security_secret_finding_count']);
+        $this->assertSame(18, $out['b483_department_contract_floor_count']);
+    }
+
 }

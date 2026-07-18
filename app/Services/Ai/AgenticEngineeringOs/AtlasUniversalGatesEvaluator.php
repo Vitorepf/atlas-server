@@ -12499,4 +12499,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B483).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b483DepartmentContractFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'research_hallucination_count' => DepartmentContractRuntime::FIELD_RESEARCH_HALLUCINATION_COUNT,
+            'research_pack_hash' => DepartmentContractRuntime::FIELD_RESEARCH_PACK_HASH,
+            'research_source_freshness_avg' => DepartmentContractRuntime::FIELD_RESEARCH_SOURCE_FRESHNESS_AVG,
+            'review_findings_severity_avg' => DepartmentContractRuntime::FIELD_REVIEW_FINDINGS_SEVERITY_AVG,
+            'review_packet_signed' => DepartmentContractRuntime::FIELD_REVIEW_PACKET_SIGNED,
+            'review_report_hash' => DepartmentContractRuntime::FIELD_REVIEW_REPORT_HASH,
+            'review_veto_count' => DepartmentContractRuntime::FIELD_REVIEW_VETO_COUNT,
+            'risk_scope' => DepartmentContractRuntime::FIELD_RISK_SCOPE,
+            'rollback_per_slice' => DepartmentContractRuntime::FIELD_ROLLBACK_PER_SLICE,
+            'root_cause_evidence_present' => DepartmentContractRuntime::FIELD_ROOT_CAUSE_EVIDENCE_PRESENT,
+            'root_cause_pack_hash' => DepartmentContractRuntime::FIELD_ROOT_CAUSE_PACK_HASH,
+            'route_to_department' => DepartmentContractRuntime::FIELD_ROUTE_TO_DEPARTMENT,
+            'schema_versioned' => DepartmentContractRuntime::FIELD_SCHEMA_VERSIONED,
+            'scope_guard_ok' => DepartmentContractRuntime::FIELD_SCOPE_GUARD_OK,
+            'scope_guard_report' => DepartmentContractRuntime::FIELD_SCOPE_GUARD_REPORT,
+            'security_deny_count' => DepartmentContractRuntime::FIELD_SECURITY_DENY_COUNT,
+            'security_scan_clean' => DepartmentContractRuntime::FIELD_SECURITY_SCAN_CLEAN,
+            'security_secret_finding_count' => DepartmentContractRuntime::FIELD_SECURITY_SECRET_FINDING_COUNT,
+            'b483_department_contract_floor_count' => 18,
+        ];
+    }
+
 }
