@@ -80,6 +80,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ATLAS_IMMUNE_CLASSIFIER_HYBRID_V1 = 'atlas.immune.classifier_hybrid.v1';
     public const FIELD_ATLAS_IMMUNE_SIGNATURE_STORE_V1 = 'atlas.immune.signature_store.v1';
     public const FIELD_ATLAS_KB_EMBEDDING_COVERAGE_V1 = 'atlas.kb_embedding_coverage.v1';
+    public const FIELD_ATLAS_M_FUNNEL_V1 = 'atlas.m.funnel.v1';
+    public const FIELD_ATLAS_MEMORY_TEMPORAL_TRUTH_V2 = 'atlas.memory.temporal_truth.v2';
     public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
@@ -163,7 +165,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
                 self::FIELD_RATIONALE => 'MAXL-02 hash chain: never rotate, integrity backbone',
             ],
-            'atlas.memory.temporal_truth.v2' => [
+            self::FIELD_ATLAS_MEMORY_TEMPORAL_TRUTH_V2 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_45,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
@@ -277,7 +279,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTX-01 loops',
             ],
-            'atlas.m.funnel.v1' => [
+            self::FIELD_ATLAS_M_FUNNEL_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,

@@ -10655,4 +10655,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b516_measure_series_lote_ledger_rotation_acos_watchdog_outcome_floor_count']);
     }
 
+    public function test_b517_measure_series_lote_ledger_rotation_immune_classifier_signature_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b517MeasureSeriesLoteLedgerRotationImmuneClassifierSignatureFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXL_08, $out['MAXL-08']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXM_01, $out['MAXM-01']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MULTK_01, $out['MULTK-01']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTX06, $out['cursor-acos-max-multx06']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTX09, $out['cursor-acos-max-multx09']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_TETO02, $out['cursor-acos-max-teto02']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_M_FUNNEL_V1, $out['atlas.m.funnel.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_MEMORY_TEMPORAL_TRUTH_V2, $out['atlas.memory.temporal_truth.v2']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FLOAT_0_30, $out['0.30']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FLOAT_0_80, $out['0.80']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_CURSOR_ACOS_MAX_MAXI_05, $out['cursor-acos-max-maxi-05']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::INT_3, $out['3']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_MAXI_03_KNOWN_MISS_G3_SEED_V1, $out['maxi-03-known-miss-g3-seed-v1']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_MAXI_03_KNOWN_SHOULD_CATCH_G3, $out['maxi-03-known-should-catch-g3']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_RAG_10_AURG_COVERAGE, $out['rag-10.aurg_coverage']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_RAG_12_RAG_DIMENSION, $out['rag-12.rag_dimension']);
+        $this->assertSame(ImmuneSignatureStore::INT_3, $out['3']);
+        $this->assertSame(RagxChainMechanismService::FLOAT_0_0, $out['0.0']);
+        $this->assertSame(18, $out['b517_measure_series_lote_ledger_rotation_immune_classifier_signature_floor_count']);
+    }
+
 }

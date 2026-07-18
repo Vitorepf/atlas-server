@@ -36,6 +36,8 @@ final class AtlasImmuneSignatureFreeze
     public const FIELD_MAXI_03 = 'MAXI-03';
     public const FIELD_MAXI_04 = 'MAXI-04';
     public const FIELD_CODEX_IMMUNE_SIGNATURE_JUDGE = 'codex-immune-signature-judge';
+    public const FIELD_CURSOR_ACOS_MAX_MAXI_05 = 'cursor-acos-max-maxi-05';
+    public const INT_3 = 3;
     public const INT_90 = 90;
 
     /** @return array<string,mixed> */
@@ -46,13 +48,13 @@ final class AtlasImmuneSignatureFreeze
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_SCHEMA_VERSION => ImmuneSignatureStore::SCHEMA_VERSION,
             self::FIELD_FAMILY_SCHEMA_VERSION => ImmuneSignatureDeriver::SCHEMA_VERSION,
-            self::FIELD_AUTHOR => 'cursor-acos-max-maxi-05',
+            self::FIELD_AUTHOR => self::FIELD_CURSOR_ACOS_MAX_MAXI_05,
             self::FIELD_JUDGE => self::FIELD_CODEX_IMMUNE_SIGNATURE_JUDGE,
             self::FIELD_MODE_CONFIG_KEY => ImmuneSignatureStore::MODE_CONFIG_KEY,
             self::FIELD_DEFAULT_MODE => ImmuneSignatureStore::DEFAULT_MODE,
             self::FIELD_DECAY_DAYS => self::INT_90,
             self::FIELD_ACCEPTANCE => [
-                self::FIELD_CELLS_WITH_HIT_COUNT_GTE_2 => 3,
+                self::FIELD_CELLS_WITH_HIT_COUNT_GTE_2 => self::INT_3,
                 self::FIELD_PRIVACY => self::FIELD_NO_RAW_POISON_TEXT_IN_STORE,
             ],
             self::FIELD_DEPENDENCIES => [

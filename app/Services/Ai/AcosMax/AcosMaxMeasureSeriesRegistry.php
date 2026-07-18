@@ -96,6 +96,9 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_MAXK_01 = 'MAXK-01';
     public const FIELD_MAXL_02 = 'MAXL-02';
     public const FIELD_MAXL_07 = 'MAXL-07';
+    public const FIELD_MAXL_08 = 'MAXL-08';
+    public const FIELD_MAXM_01 = 'MAXM-01';
+    public const FIELD_MULTK_01 = 'MULTK-01';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -299,7 +302,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.decide.route_regret.v2',
             ],
             [
-                self::FIELD_SLICE => 'MULTK-01',
+                self::FIELD_SLICE => self::FIELD_MULTK_01,
                 self::FIELD_SERIES => AtlasDecideCostOutcomeRouter::MULTK01_MEASURE_ID,
                 self::FIELD_PATH => 'AtlasDecideCostOutcomeRouter::costOutcomeCandidates',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
@@ -380,7 +383,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.context.golden_counterfactual.v1',
             ],
             [
-                self::FIELD_SLICE => 'MAXL-08',
+                self::FIELD_SLICE => self::FIELD_MAXL_08,
                 self::FIELD_SERIES => ExecutionContextCooccurrenceService::MEASURE_ID,
                 self::FIELD_PATH => 'atlas:context:execution-cooccurrence --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
@@ -506,7 +509,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'esp-03-test-attestation-seal',
             ],
             [
-                self::FIELD_SLICE => 'MAXM-01',
+                self::FIELD_SLICE => self::FIELD_MAXM_01,
                 self::FIELD_SERIES => 'atlas.provider_leak_corpus.v1',
                 self::FIELD_PATH => storage_path('app/atlas/evidence/acos-max-maxm01-provider-leak-corpus.jsonl'),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,

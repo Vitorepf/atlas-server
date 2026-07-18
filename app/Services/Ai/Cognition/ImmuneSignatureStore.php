@@ -94,6 +94,7 @@ final class ImmuneSignatureStore
     public const FIELD_REF = 'ref';
     public const FIELD_IMMUNE_SIGNATURE_REAL_HITS_SOAK = 'immune_signature_real_hits_soak';
     public const FIELD_UTC = 'UTC';
+    public const INT_3 = 3;
 
     private readonly ImmuneSignatureDeriver $deriver;
 
@@ -275,12 +276,12 @@ final class ImmuneSignatureStore
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
             self::FIELD_MODE => $this->mode(),
-            self::FIELD_STATUS => $soaked >= 3 ? self::STATUS_OK : self::STATUS_PENDING_WINDOW,
-            self::FIELD_PENDING_REASON => $soaked >= 3 ? null : self::FIELD_IMMUNE_SIGNATURE_REAL_HITS_SOAK,
+            self::FIELD_STATUS => $soaked >= self::INT_3 ? self::STATUS_OK : self::STATUS_PENDING_WINDOW,
+            self::FIELD_PENDING_REASON => $soaked >= self::INT_3 ? null : self::FIELD_IMMUNE_SIGNATURE_REAL_HITS_SOAK,
             self::FIELD_ACTIVE_CELLS => $active,
             self::FIELD_CELLS_WITH_HIT_COUNT_GTE_2 => $soaked,
             self::FIELD_ACCEPTANCE_FLOOR => [
-                self::FIELD_CELLS_WITH_HIT_COUNT_GTE_2 => 3,
+                self::FIELD_CELLS_WITH_HIT_COUNT_GTE_2 => self::INT_3,
             ],
         ];
     }

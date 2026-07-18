@@ -13536,4 +13536,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B517).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b517MeasureSeriesLoteLedgerRotationImmuneClassifierSignatureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'MAXL-08' => AcosMaxMeasureSeriesRegistry::FIELD_MAXL_08,
+            'MAXM-01' => AcosMaxMeasureSeriesRegistry::FIELD_MAXM_01,
+            'MULTK-01' => AcosMaxMeasureSeriesRegistry::FIELD_MULTK_01,
+            'cursor-acos-max-multx06' => AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTX06,
+            'cursor-acos-max-multx09' => AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTX09,
+            'cursor-acos-max-teto02' => AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_TETO02,
+            'atlas.m.funnel.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_M_FUNNEL_V1,
+            'atlas.memory.temporal_truth.v2' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_MEMORY_TEMPORAL_TRUTH_V2,
+            '0.30' => AtlasImmuneClassifierHybridFreeze::FLOAT_0_30,
+            '0.80' => AtlasImmuneClassifierHybridFreeze::FLOAT_0_80,
+            'cursor-acos-max-maxi-05' => AtlasImmuneSignatureFreeze::FIELD_CURSOR_ACOS_MAX_MAXI_05,
+            '3' => AtlasImmuneSignatureFreeze::INT_3,
+            'maxi-03-known-miss-g3-seed-v1' => ImmuneCalibrationService::FIELD_MAXI_03_KNOWN_MISS_G3_SEED_V1,
+            'maxi-03-known-should-catch-g3' => ImmuneCalibrationService::FIELD_MAXI_03_KNOWN_SHOULD_CATCH_G3,
+            'rag-10.aurg_coverage' => HealthReportWatchdogCheck::FIELD_RAG_10_AURG_COVERAGE,
+            'rag-12.rag_dimension' => HealthReportWatchdogCheck::FIELD_RAG_12_RAG_DIMENSION,
+            '3' => ImmuneSignatureStore::INT_3,
+            '0.0' => RagxChainMechanismService::FLOAT_0_0,
+            'b517_measure_series_lote_ledger_rotation_immune_classifier_signature_floor_count' => 18,
+        ];
+    }
+
 }

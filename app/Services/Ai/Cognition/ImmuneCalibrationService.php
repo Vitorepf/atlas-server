@@ -123,6 +123,8 @@ final class ImmuneCalibrationService
     public const FIELD_COGNITIVE_IMMUNE_PROMOTION_GATE_EVALUATOR = 'CognitiveImmunePromotionGateEvaluator';
     public const FIELD_CODEX_INDEPENDENT_IMMUNE_CALIBRATION_JUDGE = 'codex-independent-immune-calibration-judge';
     public const FIELD_CURSOR_ACOS_MAX_MAXI_03 = 'cursor-acos-max-maxi-03';
+    public const FIELD_MAXI_03_KNOWN_MISS_G3_SEED_V1 = 'maxi-03-known-miss-g3-seed-v1';
+    public const FIELD_MAXI_03_KNOWN_SHOULD_CATCH_G3 = 'maxi-03-known-should-catch-g3';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -365,13 +367,13 @@ final class ImmuneCalibrationService
         ];
 
         return $this->ledger->sampleFromVerdict(
-            hash(self::FIELD_SHA256, 'maxi-03-known-miss-g3-seed-v1'),
+            hash(self::FIELD_SHA256, self::FIELD_MAXI_03_KNOWN_MISS_G3_SEED_V1),
             'known_miss_seed',
             $this->evaluator->evaluate($signals),
             [
                 self::FIELD_EXPECTED_BLOCK_GATE_IDS => ['G3'],
                 self::FIELD_METADATA => [
-                    self::FIELD_SEED => 'maxi-03-known-should-catch-g3',
+                    self::FIELD_SEED => self::FIELD_MAXI_03_KNOWN_SHOULD_CATCH_G3,
                     self::FIELD_PIPELINE => self::FIELD_COGNITIVE_IMMUNE_PROMOTION_GATE_EVALUATOR,
                     self::FIELD_RAW_CONTENT_EXPOSED => false,
                 ],

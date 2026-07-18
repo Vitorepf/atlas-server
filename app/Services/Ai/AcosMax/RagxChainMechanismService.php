@@ -201,6 +201,7 @@ final class RagxChainMechanismService
     public const FIELD_DOC_ = 'doc_';
     public const FIELD_RAPTOR_LITE_ = 'raptor_lite_';
     public const FIELD_RAGX = 'RAGX';
+    public const FLOAT_0_0 = 0.0;
     public const INT_10 = 10;
 
     public function __construct(
@@ -595,7 +596,7 @@ final class RagxChainMechanismService
             $source = AiValueNormalizer::trimmedStringOrNull($edge[self::FIELD_SOURCE] ?? null) ?? '';
             $target = AiValueNormalizer::trimmedStringOrNull($edge[self::FIELD_TARGET] ?? null) ?? '';
             $weight = max(0.0, AiValueNormalizer::finiteFloatOrNull($edge[self::FIELD_WEIGHT] ?? null) ?? 1.0);
-            if ($source === '' || $target === '' || $source === $target || $weight <= 0.0 || ! isset($known[$source], $known[$target])) {
+            if ($source === '' || $target === '' || $source === $target || $weight <= self::FLOAT_0_0 || ! isset($known[$source], $known[$target])) {
                 continue;
             }
             $adjacency[$source][$target] = ($adjacency[$source][$target] ?? 0.0) + $weight;
@@ -663,16 +664,16 @@ final class RagxChainMechanismService
     private function modularity(array $communities, array $adjacency): float
     {
         $degrees = [];
-        $m2 = 0.0;
+        $m2 = self::FLOAT_0_0;
         foreach ($adjacency as $node => $neighbors) {
             $degrees[$node] = array_sum($neighbors);
             $m2 += $degrees[$node];
         }
-        if ($m2 <= 0.0) {
+        if ($m2 <= self::FLOAT_0_0) {
             return 0.0;
         }
 
-        $q = 0.0;
+        $q = self::FLOAT_0_0;
         foreach ($adjacency as $i => $neighbors) {
             foreach ($adjacency as $j => $_) {
                 if (($communities[$i] ?? null) !== ($communities[$j] ?? null)) {

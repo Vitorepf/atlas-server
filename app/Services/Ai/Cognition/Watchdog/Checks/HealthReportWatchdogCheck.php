@@ -55,6 +55,8 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_OPE_08_LIFT_CYCLE_CLOSURE = 'ope-08.lift_cycle_closure';
     public const FIELD_OPE_10_SCORECARD_RECEIPTS_DIAGNOSIS = 'ope-10.scorecard_receipts_diagnosis';
     public const FIELD_PIP_08_SCORECARD_STABILITY = 'pip-08.scorecard_stability';
+    public const FIELD_RAG_10_AURG_COVERAGE = 'rag-10.aurg_coverage';
+    public const FIELD_RAG_12_RAG_DIMENSION = 'rag-12.rag_dimension';
 
     public const CATALOG = [
         [
@@ -70,13 +72,13 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_MESSAGE => 'FEE-13 learning cadence is stalled or under-evidenced.',
         ],
         [
-            self::FIELD_ID => 'rag-10.aurg_coverage',
+            self::FIELD_ID => self::FIELD_RAG_10_AURG_COVERAGE,
             self::FIELD_REPORT_METHOD => self::FIELD_AURG_COVERAGE_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_AURG_COVERAGE_GATE_FAILED,
             self::FIELD_MESSAGE => 'RAG-10 AURG cross-layer coverage is below floor.',
         ],
         [
-            self::FIELD_ID => 'rag-12.rag_dimension',
+            self::FIELD_ID => self::FIELD_RAG_12_RAG_DIMENSION,
             self::FIELD_REPORT_METHOD => self::FIELD_RAG_DIMENSION_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_RAG_DIMENSION_WATCHDOG_FAILED,
             self::FIELD_MESSAGE => 'RAG-12 retrieval dimension watchdog found a regression or masking issue.',
