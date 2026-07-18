@@ -20760,4 +20760,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B752).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b752CompactionRecoveryDiskFreeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'maxf-02.compaction_recovery_sample' => CompactionRecoverySampleWatchdogCheck::CHECK_ID,
+            '50' => CompactionRecoverySampleWatchdogCheck::DEFAULT_LIMIT,
+            '14' => CompactionRecoverySampleWatchdogCheck::DEFAULT_DAYS,
+            '20' => CompactionRecoverySampleWatchdogCheck::DEFAULT_MIN_RECEIPTS,
+            'atlas.compaction.recovery_sample_watchdog_limit' => CompactionRecoverySampleWatchdogCheck::LIMIT_CONFIG_KEY,
+            'atlas.compaction.recovery_sample_watchdog_days' => CompactionRecoverySampleWatchdogCheck::DAYS_CONFIG_KEY,
+            'atlas.compaction.recovery_sample_min_receipts' => CompactionRecoverySampleWatchdogCheck::MIN_RECEIPTS_CONFIG_KEY,
+            'ok' => CompactionRecoverySampleWatchdogCheck::STATUS_OK,
+            'unknown' => CompactionRecoverySampleWatchdogCheck::STATUS_UNKNOWN,
+            'atlas.acos.disk_free_watchdog.v1' => DiskFreeWatchdogCheck::SCHEMA_VERSION,
+            'elev-24.disk_free' => DiskFreeWatchdogCheck::CHECK_ID,
+            '5' => DiskFreeWatchdogCheck::DEFAULT_FLOOR_GB,
+            'atlas_resource_budget.disk_free_floor_gb' => DiskFreeWatchdogCheck::FLOOR_GB_CONFIG_KEY,
+            'path' => DiskFreeWatchdogCheck::FIELD_PATH,
+            'free_gb' => DiskFreeWatchdogCheck::FIELD_FREE_GB,
+            'floor_gb' => DiskFreeWatchdogCheck::FIELD_FLOOR_GB,
+            'free_bytes' => DiskFreeWatchdogCheck::FIELD_FREE_BYTES,
+            'total_bytes' => DiskFreeWatchdogCheck::FIELD_TOTAL_BYTES,
+            'b752_compaction_recovery_disk_free_floor_count' => 18,
+        ];
+    }
+
 }

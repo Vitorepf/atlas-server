@@ -12261,6 +12261,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b752_compaction_recovery_disk_free_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b752-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b752',
+                '--b752-compaction-recovery-disk-free-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b752_compaction_recovery_disk_free_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

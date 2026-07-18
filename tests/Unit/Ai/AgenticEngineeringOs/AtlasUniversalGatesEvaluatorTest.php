@@ -16477,4 +16477,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b751_substrate_restore_floor_count']);
     }
 
+    public function test_b752_compaction_recovery_disk_free_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b752CompactionRecoveryDiskFreeFloorsContractObserve([]);
+        $this->assertSame(CompactionRecoverySampleWatchdogCheck::CHECK_ID, $out['maxf-02.compaction_recovery_sample']);
+        $this->assertSame(CompactionRecoverySampleWatchdogCheck::DEFAULT_LIMIT, $out['50']);
+        $this->assertSame(CompactionRecoverySampleWatchdogCheck::DEFAULT_DAYS, $out['14']);
+        $this->assertSame(CompactionRecoverySampleWatchdogCheck::DEFAULT_MIN_RECEIPTS, $out['20']);
+        $this->assertSame(CompactionRecoverySampleWatchdogCheck::LIMIT_CONFIG_KEY, $out['atlas.compaction.recovery_sample_watchdog_limit']);
+        $this->assertSame(CompactionRecoverySampleWatchdogCheck::DAYS_CONFIG_KEY, $out['atlas.compaction.recovery_sample_watchdog_days']);
+        $this->assertSame(CompactionRecoverySampleWatchdogCheck::MIN_RECEIPTS_CONFIG_KEY, $out['atlas.compaction.recovery_sample_min_receipts']);
+        $this->assertSame(CompactionRecoverySampleWatchdogCheck::STATUS_OK, $out['ok']);
+        $this->assertSame(CompactionRecoverySampleWatchdogCheck::STATUS_UNKNOWN, $out['unknown']);
+        $this->assertSame(DiskFreeWatchdogCheck::SCHEMA_VERSION, $out['atlas.acos.disk_free_watchdog.v1']);
+        $this->assertSame(DiskFreeWatchdogCheck::CHECK_ID, $out['elev-24.disk_free']);
+        $this->assertSame(DiskFreeWatchdogCheck::DEFAULT_FLOOR_GB, $out['5']);
+        $this->assertSame(DiskFreeWatchdogCheck::FLOOR_GB_CONFIG_KEY, $out['atlas_resource_budget.disk_free_floor_gb']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_PATH, $out['path']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_FREE_GB, $out['free_gb']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_FLOOR_GB, $out['floor_gb']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_FREE_BYTES, $out['free_bytes']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_TOTAL_BYTES, $out['total_bytes']);
+        $this->assertSame(18, $out['b752_compaction_recovery_disk_free_floor_count']);
+    }
+
 }
