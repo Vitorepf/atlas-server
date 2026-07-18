@@ -62,6 +62,7 @@ final class AcosMaxWindowOrchestratorService
     public const FIELD_SILENT_DAYS = 'silent_days';
     public const FIELD_TO_STATE = 'to_state';
     public const FIELD_WATCHDOG = 'watchdog';
+    public const FIELD_WINDOWS = 'windows';
 
 
     public function __construct(
@@ -116,7 +117,7 @@ final class AcosMaxWindowOrchestratorService
                     array_map(static fn (array $window): ?array => $window[self::FIELD_WATCHDOG_ALERT] ?? null, $windows)
                 )),
             ],
-            'windows' => array_map(static function (array $window): array {
+            self::FIELD_WINDOWS => array_map(static function (array $window): array {
                 unset($window[self::FIELD_WATCHDOG_ALERT]);
 
                 return $window;

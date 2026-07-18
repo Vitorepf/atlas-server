@@ -41,6 +41,7 @@ final class MemoryInjectionBudgetAllocator
     public const FIELD_USED_CHARS = 'used_chars';
     public const FIELD_TRUNCATED = 'truncated';
     public const FIELD_REMAINING_CHARS = 'remaining_chars';
+    public const FIELD_REASON = 'reason';
 
     /**
      * Pure char-budget packer. Sorts a copy of the ranked items by
@@ -202,7 +203,7 @@ final class MemoryInjectionBudgetAllocator
             self::FIELD_REF => $ref,
             self::FIELD_PRIORITY => $priority,
             self::FIELD_REQUESTED_CHARS => $estimated,
-            'reason' => $reason,
+            self::FIELD_REASON => $reason,
         ];
     }
 

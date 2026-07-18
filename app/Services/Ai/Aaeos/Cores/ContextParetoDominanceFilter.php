@@ -48,6 +48,7 @@ final class ContextParetoDominanceFilter
     public const FIELD_MIN = 'min';
     public const FIELD_OBJECTIVE_DIRECTION = 'objective_direction';
     public const FIELD_SUMMARY = 'summary';
+    public const FIELD_TOTAL = 'total';
 
 
     /**
@@ -129,7 +130,7 @@ final class ContextParetoDominanceFilter
             self::FIELD_BLOCKED => $blocked,
             self::FIELD_EVALUATED => $evaluated,
             self::FIELD_SUMMARY => [
-                'total' => count($variants),
+                self::FIELD_TOTAL => count($variants),
                 self::FIELD_ADMITTED => $admittedCount,
                 self::FIELD_BLOCKED => $blockedCount,
                 self::FIELD_FRONTIER => $frontierCount,

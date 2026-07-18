@@ -234,6 +234,10 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_DIAGNOSES = 'diagnoses';
     public const FIELD_DIAGNOSIS = 'diagnosis';
     public const FIELD_EMITTER_STAGE = 'emitter_stage';
+    public const FIELD_EMITTER_VERSION = 'emitter_version';
+    public const FIELD_ENVELOPE_ID = 'envelope_id';
+    public const FIELD_EVIDENCE_PROVENANCE = 'evidence_provenance';
+    public const FIELD_FLIPS = 'flips';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -769,7 +773,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_STATUS => $blocking === [] ? self::STATUS_READY : self::STATUS_NOT_READY,
             self::FIELD_READY_TO_ENFORCE => $blocking === [],
             self::FIELD_BLOCKING => array_values(array_unique($blocking)),
-            'flips' => $flips,
+            self::FIELD_FLIPS => $flips,
             'sources' => [
                 'provider_governance_coverage_ledger' => $this->relativePath($coverage->logPath()),
                 'live_outcomes_jsonl' => $this->relativePath($live->logPath()),
@@ -972,12 +976,12 @@ final class AtlasAcosWatchdogHealthService
             app(AtlasEvidenceLedger::class)->record($type, $payload, [
                 'tenant_id' => 'default',
                 'operator_id' => 'system',
-                'envelope_id' => 'acos:watchdog:'.$scopeId.':'.now()->format('YmdHis'),
+                self::FIELD_ENVELOPE_ID => 'acos:watchdog:'.$scopeId.':'.now()->format('YmdHis'),
                 self::FIELD_CORRELATION_ID => 'acos:watchdog:'.$scopeId,
                 'scope_type' => 'acos_watchdog',
                 'scope_id' => $scopeId,
                 self::FIELD_EMITTER_STAGE => 'atlas.acos.watchdog',
-                'emitter_version' => self::ONDA4_EMITTER_VERSION,
+                self::FIELD_EMITTER_VERSION => self::ONDA4_EMITTER_VERSION,
             ]);
         } catch (Throwable) {
             // The health report remains honest even if the append-only evidence sink is absent.
@@ -1020,7 +1024,7 @@ final class AtlasAcosWatchdogHealthService
         $count = 0;
         foreach (AppendOnlyJsonlStore::read($this->forgeSovereignVerdictPath()) as $row) {
             if (($row['promoted'] ?? false) === true
-                && ($row['evidence_provenance'] ?? null) === 'harness_captured'
+                && ($row[self::FIELD_EVIDENCE_PROVENANCE] ?? null) === 'harness_captured'
                 && (int) (AiValueNormalizer::finiteFloatOrNull($row['tests_run'] ?? null) ?? 0) > 0
                 && count(AiValueNormalizer::arrayOrEmpty($row[self::FIELD_COMMANDS] ?? null)) > 0) {
                 $count++;

@@ -7826,4 +7826,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['acos_watchdog_immune_calibration_long_runbook_lote_measure_floor_count']);
     }
 
+    public function test_acos_watchdog_immune_calibration_long_context_pareto_memory_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->acosWatchdogImmuneCalibrationLongContextParetoMemoryFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_EMITTER_VERSION, $out['emitter_version']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ENVELOPE_ID, $out['envelope_id']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_EVIDENCE_PROVENANCE, $out['evidence_provenance']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_FLIPS, $out['flips']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_OUTCOME_VALIDATED, $out['outcome_validated']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_PIPELINE, $out['pipeline']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_PRIVACY_CLASS, $out['privacy_class']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_PROMOTION_MODE_HINT, $out['promotion_mode_hint']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SOURCES, $out['sources']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SUPERIORITY_CLAIM_ALLOWED, $out['superiority_claim_allowed']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_UNSUPPORTED_FIXTURE, $out['unsupported_fixture']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_WORKSPACE_MUTATED, $out['workspace_mutated']);
+        $this->assertSame(ContextParetoDominanceFilter::FIELD_TOTAL, $out['total']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_REASON, $out['reason']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_TOKENS_AVAILABLE, $out['tokens_available']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_VERIFIED, $out['verified']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_WINDOWS, $out['windows']);
+        $this->assertSame(18, $out['acos_watchdog_immune_calibration_long_context_pareto_memory_floor_count']);
+    }
+
 }

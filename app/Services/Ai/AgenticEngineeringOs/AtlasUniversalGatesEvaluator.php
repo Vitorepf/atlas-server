@@ -10048,4 +10048,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B404).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function acosWatchdogImmuneCalibrationLongContextParetoMemoryFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'emitter_version' => AtlasAcosWatchdogHealthService::FIELD_EMITTER_VERSION,
+            'envelope_id' => AtlasAcosWatchdogHealthService::FIELD_ENVELOPE_ID,
+            'evidence_provenance' => AtlasAcosWatchdogHealthService::FIELD_EVIDENCE_PROVENANCE,
+            'flips' => AtlasAcosWatchdogHealthService::FIELD_FLIPS,
+            'outcome_validated' => ImmuneCalibrationService::FIELD_OUTCOME_VALIDATED,
+            'pipeline' => ImmuneCalibrationService::FIELD_PIPELINE,
+            'privacy_class' => ImmuneCalibrationService::FIELD_PRIVACY_CLASS,
+            'promotion_mode_hint' => ImmuneCalibrationService::FIELD_PROMOTION_MODE_HINT,
+            'sources' => AtlasAcosLongHorizonGateService::FIELD_SOURCES,
+            'superiority_claim_allowed' => AtlasAcosLongHorizonGateService::FIELD_SUPERIORITY_CLAIM_ALLOWED,
+            'unsupported_fixture' => AtlasAcosLongHorizonGateService::FIELD_UNSUPPORTED_FIXTURE,
+            'workspace_mutated' => AtlasAcosLongHorizonGateService::FIELD_WORKSPACE_MUTATED,
+            'total' => ContextParetoDominanceFilter::FIELD_TOTAL,
+            'reason' => MemoryInjectionBudgetAllocator::FIELD_REASON,
+            'tokens_available' => SegmentImportanceRanker::FIELD_TOKENS_AVAILABLE,
+            'schema_version' => SummaryFidelityCoverageScorer::FIELD_SCHEMA_VERSION,
+            'verified' => AcosMaxObraRetroService::FIELD_VERIFIED,
+            'windows' => AcosMaxWindowOrchestratorService::FIELD_WINDOWS,
+            'acos_watchdog_immune_calibration_long_context_pareto_memory_floor_count' => 18,
+        ];
+    }
+
 }

@@ -157,6 +157,10 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_SCORECARD_SCHEMA = 'scorecard_schema';
     public const FIELD_SERIES_ROWS_SAMPLED = 'series_rows_sampled';
     public const FIELD_SERIES_V2_ROWS_SAMPLED = 'series_v2_rows_sampled';
+    public const FIELD_SOURCES = 'sources';
+    public const FIELD_SUPERIORITY_CLAIM_ALLOWED = 'superiority_claim_allowed';
+    public const FIELD_UNSUPPORTED_FIXTURE = 'unsupported_fixture';
+    public const FIELD_WORKSPACE_MUTATED = 'workspace_mutated';
 
     /**
      * @param  array<string,mixed>  $options
@@ -169,7 +173,7 @@ final class AtlasAcosLongHorizonGateService
         $fixture = AiValueNormalizer::trimmedStringOrNull($options[self::FIELD_FIXTURE] ?? null) ?? self::FIXTURE_LIVE;
 
         if (! in_array($fixture, [self::FIXTURE_LIVE, self::FIXTURE_MATURE, self::FIXTURE_SHORT_WINDOW], true)) {
-            return $this->payload(self::STATUS_BLOCKED, false, $fixture, [], [], [], ['unsupported_fixture'], []);
+            return $this->payload(self::STATUS_BLOCKED, false, $fixture, [], [], [], [self::FIELD_UNSUPPORTED_FIXTURE], []);
         }
 
         if (! $enabled) {
@@ -907,7 +911,7 @@ final class AtlasAcosLongHorizonGateService
             self::FIELD_CLAIM_POLICY => [
                 self::FIELD_BENCHMARK_CLAIM_ALLOWED => false,
                 self::FIELD_RIVALS_CLAIM_ALLOWED => false,
-                'superiority_claim_allowed' => false,
+                self::FIELD_SUPERIORITY_CLAIM_ALLOWED => false,
             ],
         ];
         $payload[self::FIELD_SCORECARD_HASH] = 'sha256:'.hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
@@ -931,7 +935,7 @@ final class AtlasAcosLongHorizonGateService
                 self::FIELD_DATE => $date,
                 self::FIELD_RECORDED_AT => $date.'T00:00:00+00:00',
                 self::FIELD_METRICS => [self::FIELD_SCORECARD_OVERALL => $overall],
-                'sources' => [self::FIELD_SCORECARD_OVERALL => 'AtlasCognitionScoreCardService::build() (resolved-evidence)'],
+                self::FIELD_SOURCES => [self::FIELD_SCORECARD_OVERALL => 'AtlasCognitionScoreCardService::build() (resolved-evidence)'],
             ];
         }
 
@@ -981,7 +985,7 @@ final class AtlasAcosLongHorizonGateService
                 self::FIELD_DOES_NOT_INFLATE_SCORE => true,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
                 self::FIELD_PROVIDER_TOKENS_SPENT => false,
-                'workspace_mutated' => false,
+                self::FIELD_WORKSPACE_MUTATED => false,
                 self::FIELD_BENCHMARK_CLAIM_ALLOWED => false,
                 self::FIELD_COMPLETION_REQUIRES_REAL_30D_WINDOW => true,
             ],

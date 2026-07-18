@@ -95,6 +95,10 @@ final class ImmuneCalibrationService
     public const FIELD_MISSED_POISON_RATE_BOUND = 'missed_poison_rate_bound';
     public const FIELD_NOVELTY = 'novelty';
     public const FIELD_ON_PROBATION = 'on_probation';
+    public const FIELD_OUTCOME_VALIDATED = 'outcome_validated';
+    public const FIELD_PIPELINE = 'pipeline';
+    public const FIELD_PRIVACY_CLASS = 'privacy_class';
+    public const FIELD_PROMOTION_MODE_HINT = 'promotion_mode_hint';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -318,7 +322,7 @@ final class ImmuneCalibrationService
     {
         $signals = [
             self::FIELD_CONSENT_GRANTED => true,
-            'privacy_class' => 'normal',
+            self::FIELD_PRIVACY_CLASS => 'normal',
             'retention_ok' => true,
             self::FIELD_ATOMIC_CLAIM_PRESENT => true,
             self::FIELD_CLAIM_TYPE => 'technical_learning_candidate',
@@ -330,9 +334,9 @@ final class ImmuneCalibrationService
             self::FIELD_CONTAINS_SECRET => false,
             self::FIELD_CONTAINS_SENSITIVE_UNNECESSARY => false,
             self::FIELD_CONTRADICTS_NEWER => false,
-            'outcome_validated' => false,
+            self::FIELD_OUTCOME_VALIDATED => false,
             'scope' => 'domain',
-            'promotion_mode_hint' => 'proposal',
+            self::FIELD_PROMOTION_MODE_HINT => 'proposal',
             self::FIELD_ON_PROBATION => true,
         ];
 
@@ -344,7 +348,7 @@ final class ImmuneCalibrationService
                 self::FIELD_EXPECTED_BLOCK_GATE_IDS => ['G3'],
                 self::FIELD_METADATA => [
                     'seed' => 'maxi-03-known-should-catch-g3',
-                    'pipeline' => 'CognitiveImmunePromotionGateEvaluator',
+                    self::FIELD_PIPELINE => 'CognitiveImmunePromotionGateEvaluator',
                     'raw_content_exposed' => false,
                 ],
             ],

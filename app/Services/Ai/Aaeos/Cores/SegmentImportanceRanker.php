@@ -78,6 +78,7 @@ final class SegmentImportanceRanker
     public const FIELD_RANKED = 'ranked';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_TOKEN_BUDGET = 'token_budget';
+    public const FIELD_TOKENS_AVAILABLE = 'tokens_available';
 
     /**
      * Rank may-discard segments by composite signal and greedily fill a token budget.
@@ -179,7 +180,7 @@ final class SegmentImportanceRanker
             self::FIELD_DROPPED_IDS => $droppedIds,
             self::FIELD_BOUNDARY_INDEX => $boundaryIndex ?? count($ranked),
             self::FIELD_TOKENS_KEPT => $tokensKept,
-            'tokens_available' => max($budget - $tokensKept, 0),
+            self::FIELD_TOKENS_AVAILABLE => max($budget - $tokensKept, 0),
             self::FIELD_KEPT_COUNT => count($keptIds),
             self::FIELD_DROPPED_COUNT => count($droppedIds),
         ];

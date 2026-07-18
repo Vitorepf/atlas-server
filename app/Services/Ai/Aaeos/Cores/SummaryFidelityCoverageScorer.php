@@ -39,6 +39,7 @@ final class SummaryFidelityCoverageScorer
     public const FIELD_UNVERIFIABLE_ITEM_IDS = 'unverifiable_item_ids';
     public const FIELD_MISSING_TOTAL = 'missing_total';
     public const FIELD_PRESENT_ITEM_IDS = 'present_item_ids';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
 
     /**
@@ -141,7 +142,7 @@ final class SummaryFidelityCoverageScorer
         );
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_VERDICT => $verdict,
             self::FIELD_CONTEXT_RETENTION_SCORE => $contextRetentionScore,
             self::FIELD_MISSED_DECISION_RATE => $missedDecisionRate,
