@@ -58,6 +58,8 @@ final class RunbookOrchestrator
     public const FIELD_EVIDENCE_SCHEMA = 'evidence_schema';
     public const FIELD_DETAIL = 'detail';
     public const FIELD_DUAL_SIGNATURE_REQUIRED = 'dual_signature_required';
+    public const FIELD_EMITS_HANDOFF_TO = 'emits_handoff_to';
+    public const FIELD_FREQUENCY = 'frequency';
 
     /**
      * Canonical default flow for a non-trivial intent. Trivial intents
@@ -116,7 +118,7 @@ final class RunbookOrchestrator
                 self::FIELD_DEPARTMENT => $dept,
                 self::FIELD_GATES => $this->departments->gatesFor($dept),
                 self::FIELD_EVIDENCE_SCHEMA => $this->departments->evidenceSchemaFor($dept),
-                'handoff_to' => AiValueNormalizer::arrayOrEmpty(DepartmentContractRuntime::CATALOGUE[$dept]['emits_handoff_to'] ?? null),
+                'handoff_to' => AiValueNormalizer::arrayOrEmpty(DepartmentContractRuntime::CATALOGUE[$dept][self::FIELD_EMITS_HANDOFF_TO] ?? null),
             ];
         }
 
@@ -206,7 +208,7 @@ final class RunbookOrchestrator
             'motivating_evidence' => [
                 [
                     'limitation_observed' => $limitation,
-                    'frequency' => 1,
+                    self::FIELD_FREQUENCY => 1,
                 ],
             ],
             self::FIELD_TOUCHES_SOVEREIGNTY_LAYER => $touchesSovereignty,

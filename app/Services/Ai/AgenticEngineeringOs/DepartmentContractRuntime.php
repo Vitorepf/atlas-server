@@ -182,6 +182,8 @@ final class DepartmentContractRuntime
     public const FIELD_DEPARTMENTS = 'departments';
     public const FIELD_EVALUATION = 'evaluation';
     public const FIELD_EVIDENCE_COUNT = 'evidence_count';
+    public const FIELD_GATE_REQUIRED = 'gate_required';
+    public const FIELD_HANDOFF_INVARIANTS = 'handoff_invariants';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -524,7 +526,7 @@ final class DepartmentContractRuntime
             self::FIELD_DEPARTMENT_COUNT => count(self::CATALOGUE),
             self::FIELD_CANON_DEPARTMENT_COUNT => 11,
             self::FIELD_DEPARTMENTS => self::CATALOGUE,
-            'handoff_invariants' => [
+            self::FIELD_HANDOFF_INVARIANTS => [
                 'executive_intake_has_no_upstream',
                 'memory_has_no_downstream',
                 'every_department_declares_gates',
@@ -688,7 +690,7 @@ final class DepartmentContractRuntime
 
         return [
             'rule_id' => 'risk_scope_below_min_autonomous',
-            'gate_required' => false,
+            self::FIELD_GATE_REQUIRED => false,
             'passed' => true,
             self::FIELD_REASON => null,
         ];

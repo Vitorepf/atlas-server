@@ -208,6 +208,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_DEPENDENCIES = 'dependencies';
     public const FIELD_DISTINCT_SIGNATURE_K = 'distinct_signature_k';
     public const FIELD_DUAL_READ_REQUIRED = 'dual_read_required';
+    public const FIELD_LEARNING_CANDIDATE_ID = 'learning_candidate_id';
+    public const FIELD_LEGACY_UNJOINED_ROWS = 'legacy_unjoined_rows';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -410,7 +412,7 @@ final class AcosMaxLote2MeasureService
             'requires_learning_candidate' => true,
             'requires_subsequent_measured_recall' => true,
             self::FIELD_REQUIRES_ZERO_FIXTURE => true,
-            'legacy_unjoined_rows' => 'legacy_unjoined',
+            self::FIELD_LEGACY_UNJOINED_ROWS => 'legacy_unjoined',
         ];
     }
 
@@ -471,7 +473,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_OUTCOME_ID => AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? '',
             self::FIELD_DECISION_ID => $decisionId,
             'retrieval_receipt_id' => $delivery === null ? null : (AiValueNormalizer::trimmedScalarStringOrNull($delivery->retrieval_receipt_id ?? null) ?? ''),
-            'learning_candidate_id' => $candidate === null ? null : (AiValueNormalizer::trimmedScalarStringOrNull($candidate->id ?? null) ?? ''),
+            self::FIELD_LEARNING_CANDIDATE_ID => $candidate === null ? null : (AiValueNormalizer::trimmedScalarStringOrNull($candidate->id ?? null) ?? ''),
             'subsequent_recall_feedback_id' => $recall === null ? null : (AiValueNormalizer::trimmedScalarStringOrNull($recall->id ?? null) ?? ''),
         ];
 

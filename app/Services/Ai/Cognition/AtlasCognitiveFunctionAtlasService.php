@@ -96,6 +96,8 @@ class AtlasCognitiveFunctionAtlasService
     public const FIELD_PIPELINE_READY = 'pipeline_ready';
     public const FIELD_KERNEL_HASH = 'kernel_hash';
     public const FIELD_MEMORY = 'memory';
+    public const FIELD_MEMORY_CORE = 'memory_core';
+    public const FIELD_REALITY = 'reality';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scoreCard,
@@ -229,12 +231,12 @@ class AtlasCognitiveFunctionAtlasService
         // Heuristic mapping of group → expected JSONL roots under storage/atlas/.
         $groupRoots = [
             self::FIELD_COGNITIVE_IMMUNE => ['aemor', 'cognitive_immune'],
-            'memory_core' => [self::FIELD_MEMORY],
+            self::FIELD_MEMORY_CORE => [self::FIELD_MEMORY],
             self::FIELD_AUCRI => [self::FIELD_AKIF],
             self::FIELD_SELF_IMPROVEMENT => [self::FIELD_SELF_IMPROVEMENT],
             self::FIELD_ATLAS_DECIDE => ['atlas_decide', 'swarm'],
             self::FIELD_SELF_CONSTRUCTION => [self::FIELD_SELF_CONSTRUCTION],
-            'reality' => [self::FIELD_AURG],
+            self::FIELD_REALITY => [self::FIELD_AURG],
             self::FIELD_CROSS_DOMAIN => [self::FIELD_CROSS_DOMAIN],
             'teos' => ['teos_i3', 'teos_i4'],
             self::FIELD_GOVERNANCE => [self::FIELD_GOVERNANCE],

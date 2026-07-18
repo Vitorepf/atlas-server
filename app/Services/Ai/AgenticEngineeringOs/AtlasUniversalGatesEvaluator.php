@@ -9490,4 +9490,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B386).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function flywheelFunnelDepartmentContractRunbookCognitiveFunctionLoteFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'provider_calls_made' => AtlasFlywheelFunnelService::FIELD_PROVIDER_CALLS_MADE,
+            'read_only' => AtlasFlywheelFunnelService::FIELD_READ_ONLY,
+            'gate_required' => DepartmentContractRuntime::FIELD_GATE_REQUIRED,
+            'handoff_invariants' => DepartmentContractRuntime::FIELD_HANDOFF_INVARIANTS,
+            'emits_handoff_to' => RunbookOrchestrator::FIELD_EMITS_HANDOFF_TO,
+            'frequency' => RunbookOrchestrator::FIELD_FREQUENCY,
+            'memory_core' => AtlasCognitiveFunctionAtlasService::FIELD_MEMORY_CORE,
+            'reality' => AtlasCognitiveFunctionAtlasService::FIELD_REALITY,
+            'learning_candidate_id' => AcosMaxLote2MeasureService::FIELD_LEARNING_CANDIDATE_ID,
+            'legacy_unjoined_rows' => AcosMaxLote2MeasureService::FIELD_LEGACY_UNJOINED_ROWS,
+            'skill_files_written' => AcosMaxProceduralSkillPromoterService::FIELD_SKILL_FILES_WRITTEN,
+            'steps' => AcosMaxProceduralSkillPromoterService::FIELD_STEPS,
+            'to_state' => AcosMaxWindowOrchestratorService::FIELD_TO_STATE,
+            'watchdog' => AcosMaxWindowOrchestratorService::FIELD_WATCHDOG,
+            'schema_version' => AcosProgramCockpitService::FIELD_SCHEMA_VERSION,
+            'source_exit_code' => AcosProgramCockpitService::FIELD_SOURCE_EXIT_CODE,
+            'path' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_PATH,
+            'scope' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_SCOPE,
+            'flywheel_funnel_department_contract_runbook_cognitive_function_lote_floor_count' => 18,
+        ];
+    }
+
 }

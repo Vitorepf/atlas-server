@@ -60,6 +60,8 @@ final class AcosMaxWindowOrchestratorService
     public const FIELD_RECORDED_AT = 'recorded_at';
     public const FIELD_SCHEDULER = 'scheduler';
     public const FIELD_SILENT_DAYS = 'silent_days';
+    public const FIELD_TO_STATE = 'to_state';
+    public const FIELD_WATCHDOG = 'watchdog';
 
 
     public function __construct(
@@ -108,7 +110,7 @@ final class AcosMaxWindowOrchestratorService
             ],
             self::FIELD_CRITICAL_PATH => $critical,
             self::FIELD_PARALLELIZABLE_GROUPS => $this->parallelizableGroups($active),
-            'watchdog' => [
+            self::FIELD_WATCHDOG => [
                 self::FIELD_DEAD_AFTER_DAYS => max(1, $deadAfterDays),
                 self::FIELD_ALERTS => array_values(array_filter(
                     array_map(static fn (array $window): ?array => $window[self::FIELD_WATCHDOG_ALERT] ?? null, $windows)
@@ -196,7 +198,7 @@ final class AcosMaxWindowOrchestratorService
             : null;
 
         $window = array_merge($base, [
-            self::FIELD_STATE => (AiValueNormalizer::trimmedStringOrNull($lastEvent['to_state'] ?? null) ?? self::STATE_UNKNOWN),
+            self::FIELD_STATE => (AiValueNormalizer::trimmedStringOrNull($lastEvent[self::FIELD_TO_STATE] ?? null) ?? self::STATE_UNKNOWN),
             self::FIELD_OBSERVATION_WINDOW_ID => (AiValueNormalizer::trimmedStringOrNull($lastEvent[self::FIELD_OBSERVATION_WINDOW_ID] ?? null) ?? ''),
             self::FIELD_STARTED_AT => $startedAt?->format(DateTimeInterface::ATOM),
             self::FIELD_DAYS_ELAPSED => $elapsed,

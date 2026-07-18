@@ -7374,4 +7374,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['deferred_phase_acos_window_cognition_remint_score_lote_floor_count']);
     }
 
+    public function test_flywheel_funnel_department_contract_runbook_cognitive_function_lote_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->flywheelFunnelDepartmentContractRunbookCognitiveFunctionLoteFloorsContractObserve([]);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_PROVIDER_CALLS_MADE, $out['provider_calls_made']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_READ_ONLY, $out['read_only']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_GATE_REQUIRED, $out['gate_required']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_HANDOFF_INVARIANTS, $out['handoff_invariants']);
+        $this->assertSame(RunbookOrchestrator::FIELD_EMITS_HANDOFF_TO, $out['emits_handoff_to']);
+        $this->assertSame(RunbookOrchestrator::FIELD_FREQUENCY, $out['frequency']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_MEMORY_CORE, $out['memory_core']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_REALITY, $out['reality']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_LEARNING_CANDIDATE_ID, $out['learning_candidate_id']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_LEGACY_UNJOINED_ROWS, $out['legacy_unjoined_rows']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_SKILL_FILES_WRITTEN, $out['skill_files_written']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_STEPS, $out['steps']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_TO_STATE, $out['to_state']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_WATCHDOG, $out['watchdog']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_SOURCE_EXIT_CODE, $out['source_exit_code']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_PATH, $out['path']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_SCOPE, $out['scope']);
+        $this->assertSame(18, $out['flywheel_funnel_department_contract_runbook_cognitive_function_lote_floor_count']);
+    }
+
 }

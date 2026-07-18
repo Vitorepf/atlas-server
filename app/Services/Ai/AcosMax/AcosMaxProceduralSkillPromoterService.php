@@ -113,6 +113,8 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_RECEIPT_HASH = 'receipt_hash';
     public const FIELD_RUN_OUTCOME_ID = 'run_outcome_id';
     public const FIELD_SCOPE = 'scope';
+    public const FIELD_SKILL_FILES_WRITTEN = 'skill_files_written';
+    public const FIELD_STEPS = 'steps';
 
 
     public function __construct(
@@ -191,7 +193,7 @@ final class AcosMaxProceduralSkillPromoterService
                 self::FIELD_ADMISSION_DOOR => self::ADMISSION_DOOR_ASI02,
                 self::FIELD_PROMOTION_ALLOWED => false,
                 self::FIELD_AUTO_PROMOTION_ALLOWED => false,
-                'skill_files_written' => false,
+                self::FIELD_SKILL_FILES_WRITTEN => false,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
             ],
         ];
@@ -242,7 +244,7 @@ final class AcosMaxProceduralSkillPromoterService
                 ],
                 self::FIELD_BODY => [
                     self::FIELD_OBJECTIVE => $playbook->objective,
-                    'steps' => $playbook->steps,
+                    self::FIELD_STEPS => $playbook->steps,
                     self::FIELD_POSTCONDITIONS => $playbook->postconditions,
                     self::FIELD_FORBIDDEN_ACTIONS => $playbook->forbiddenActions,
                     self::FIELD_PRIOR_CORRECTIONS => $playbook->priorCorrections,

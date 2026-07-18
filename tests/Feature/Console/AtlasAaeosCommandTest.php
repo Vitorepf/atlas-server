@@ -7137,6 +7137,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_flywheel_funnel_department_contract_runbook_cognitive_function_lote_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b386-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b386',
+                '--flywheel-funnel-department-contract-runbook-cognitive-function-lote-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"flywheel_funnel_department_contract_runbook_cognitive_function_lote_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

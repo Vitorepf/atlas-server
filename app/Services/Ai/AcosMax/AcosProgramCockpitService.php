@@ -48,6 +48,8 @@ final class AcosProgramCockpitService
     public const FIELD_MUTATES_STATE = 'mutates_state';
     public const FIELD_PENDING_FLIPS = 'pending_flips';
     public const FIELD_REVIEW_DEBT = 'review_debt';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_SOURCE_EXIT_CODE = 'source_exit_code';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -55,7 +57,7 @@ final class AcosProgramCockpitService
         $scoreboardPath ??= base_path('docs/engineering-knowledge-base/atlas-acos-max-execution-scoreboard-v1.md');
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_GENERATED_AT => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
             self::FIELD_EXTERNAL_PROVIDER_CALL => false,
             self::FIELD_PROVIDER_TOKENS_SPENT => false,
@@ -93,7 +95,7 @@ final class AcosProgramCockpitService
             return [
                 self::FIELD_STATUS => self::STATUS_OK,
                 self::FIELD_SOURCE => $source,
-                'source_exit_code' => $exitCode,
+                self::FIELD_SOURCE_EXIT_CODE => $exitCode,
                 self::FIELD_PAYLOAD => $decoded,
             ];
         } catch (Throwable $e) {

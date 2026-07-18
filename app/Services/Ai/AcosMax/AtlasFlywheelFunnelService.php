@@ -51,6 +51,8 @@ final class AtlasFlywheelFunnelService
     public const FIELD_SUBSEQUENT_OUTCOME_IMPROVED = 'subsequent_outcome_improved';
     public const FIELD_OUTCOME_ROWS = 'outcome_rows';
     public const FIELD_OUTCOMES_PATH = 'outcomes_path';
+    public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
+    public const FIELD_READ_ONLY = 'read_only';
 
     /** @var list<string> */
     public const STAGES = [
@@ -235,8 +237,8 @@ final class AtlasFlywheelFunnelService
                 ],
             ],
             self::FIELD_CLAIM_POLICY => [
-                'read_only' => true,
-                'provider_calls_made' => false,
+                self::FIELD_READ_ONLY => true,
+                self::FIELD_PROVIDER_CALLS_MADE => false,
                 self::FIELD_MEMORY_WRITTEN => false,
                 'single_scalar_score_emitted' => false,
                 self::FIELD_USED_AS_PRODUCER_TARGET => false,
