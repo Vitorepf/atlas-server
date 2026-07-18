@@ -12300,4 +12300,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b583_n_capture_compounding_outcome_dogfooding_friction_gated_corpus_floor_count']);
     }
 
+    public function test_b584_cognitive_function_immune_hybrid_calibration_aobg_latency_department_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b584CognitiveFunctionImmuneHybridCalibrationAobgLatencyDepartmentFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_HITS, $out['hits']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_EXTERNAL_RIVALS_CERTIFICATION_TOUCHED, $out['external_rivals_certification_touched']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_COGNITIVE_IMMUNE_LAW_ENFORCED, $out['cognitive_immune_law_enforced']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_REF, $out['ref']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_HOSTILE_CLASS_CANDIDATE, $out['hostile_class_candidate']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_STATUS, $out['status']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_GROUPS, $out['groups']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_DENOMINATOR_MIN, $out['denominator_min']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_CAVEATS, $out['caveats']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_DAY, $out['day']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_DENOMINATOR_MIN, $out['denominator_min']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_CAPPING_METRIC, $out['capping_metric']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_MISSING_METRICS, $out['missing_metrics']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_TYPES, $out['types']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_SIG, $out['sig']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_VALID_PHASES, $out['valid_phases']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_PHASE_CAPABILITIES, $out['phase_capabilities']);
+        $this->assertSame(18, $out['b584_cognitive_function_immune_hybrid_calibration_aobg_latency_department_floor_count']);
+    }
+
 }
