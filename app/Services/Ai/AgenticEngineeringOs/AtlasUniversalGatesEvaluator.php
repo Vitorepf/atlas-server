@@ -21070,4 +21070,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B762).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b762DepartmentLevelFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'value' => AaeosDepartmentLevelClassifier::FIELD_VALUE,
+            'thresholds' => AaeosDepartmentLevelClassifier::FIELD_THRESHOLDS,
+            'atlas.aaeos.department_level_classification.v1' => AaeosDepartmentLevelClassifier::SCHEMA_VERSION,
+            'schema_version' => AaeosDepartmentLevelClassifier::FIELD_SCHEMA_VERSION,
+            'department_id' => AaeosDepartmentLevelClassifier::FIELD_DEPARTMENT_ID,
+            'earned_level' => AaeosDepartmentLevelClassifier::FIELD_EARNED_LEVEL,
+            'earned_level_index' => AaeosDepartmentLevelClassifier::FIELD_EARNED_LEVEL_INDEX,
+            'highest_band_offered' => AaeosDepartmentLevelClassifier::FIELD_HIGHEST_BAND_OFFERED,
+            'all_bands_satisfied' => AaeosDepartmentLevelClassifier::FIELD_ALL_BANDS_SATISFIED,
+            'capping_metric' => AaeosDepartmentLevelClassifier::FIELD_CAPPING_METRIC,
+            'missing_metrics' => AaeosDepartmentLevelClassifier::FIELD_MISSING_METRICS,
+            'level' => AaeosDepartmentLevelClassifier::FIELD_LEVEL,
+            'comparator' => AaeosDepartmentLevelClassifier::FIELD_COMPARATOR,
+            'metric' => AaeosDepartmentLevelClassifier::FIELD_METRIC,
+            'threshold' => AaeosDepartmentLevelClassifier::FIELD_THRESHOLD,
+            'observed' => AaeosDepartmentLevelClassifier::FIELD_OBSERVED,
+            'evaluated_bands' => AaeosDepartmentLevelClassifier::FIELD_EVALUATED_BANDS,
+            'failed_thresholds' => AaeosDepartmentLevelClassifier::FIELD_FAILED_THRESHOLDS,
+            'b762_department_level_floor_count' => 18,
+        ];
+    }
+
 }

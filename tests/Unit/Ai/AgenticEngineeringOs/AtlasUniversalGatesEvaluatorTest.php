@@ -16727,4 +16727,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b761_aaeos_department_floor_count']);
     }
 
+    public function test_b762_department_level_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b762DepartmentLevelFloorsContractObserve([]);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_VALUE, $out['value']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_THRESHOLDS, $out['thresholds']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::SCHEMA_VERSION, $out['atlas.aaeos.department_level_classification.v1']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_DEPARTMENT_ID, $out['department_id']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_EARNED_LEVEL, $out['earned_level']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_EARNED_LEVEL_INDEX, $out['earned_level_index']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_HIGHEST_BAND_OFFERED, $out['highest_band_offered']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_ALL_BANDS_SATISFIED, $out['all_bands_satisfied']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_CAPPING_METRIC, $out['capping_metric']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_MISSING_METRICS, $out['missing_metrics']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_LEVEL, $out['level']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_COMPARATOR, $out['comparator']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_METRIC, $out['metric']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_OBSERVED, $out['observed']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_EVALUATED_BANDS, $out['evaluated_bands']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_FAILED_THRESHOLDS, $out['failed_thresholds']);
+        $this->assertSame(18, $out['b762_department_level_floor_count']);
+    }
+
 }
