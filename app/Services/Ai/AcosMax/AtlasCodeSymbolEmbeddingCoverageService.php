@@ -146,8 +146,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             return $this->emptyReport(self::STATUS_TABLE_MISSING, self::FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS_MISSING, $freeze);
         }
 
-        $active = DB::table('atlas_engineering_code_symbols')
-            ->where('status', self::STATUS_ACTIVE)
+        $active = DB::table(self::FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS)
+            ->where(self::FIELD_STATUS, self::STATUS_ACTIVE)
             ->whereNull(self::FIELD_ARCHIVED_AT)
             ->count();
 

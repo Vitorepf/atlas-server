@@ -230,7 +230,7 @@ final class Teto10PredictedRevertReviewDigest
             self::FIELD_PREDICTED_REVERT_BAND => $band,
             self::FIELD_BAND_RANK => self::BAND_RANK[$band],
             self::FIELD_EVIDENCE_REFS => self::evidenceRefs($item),
-            self::FIELD_DIFF_REF => self::firstString($item, ['diff_ref', self::FIELD_DIFF, self::FIELD_PATCH_REF], self::FIELD_MANUAL_REVIEW),
+            self::FIELD_DIFF_REF => self::firstString($item, [self::FIELD_DIFF_REF, self::FIELD_DIFF, self::FIELD_PATCH_REF], self::FIELD_MANUAL_REVIEW),
             self::FIELD_REVERSE_COMMAND => $reverse,
             self::FIELD_REVIEW_MODE => $reverse === self::FIELD_MANUAL_REVIEW ? self::FIELD_MANUAL_REVIEW : self::FIELD_REVERSIBLE,
             self::FIELD_PENDING_FLIP => (AiValueNormalizer::boolOrNull($item[self::FIELD_PENDING_FLIP] ?? null) ?? false),
@@ -303,7 +303,7 @@ final class Teto10PredictedRevertReviewDigest
                 self::FIELD_TITLE => $item[self::FIELD_TITLE],
                 self::FIELD_DECISION_ID => $item[self::FIELD_DECISION_ID],
                 self::FIELD_FAMILY => $item[self::FIELD_FAMILY],
-                $refKey => $item[$refKey] !== '' ? $item[$refKey] : 'unlabelled',
+                $refKey => $item[$refKey] !== '' ? $item[$refKey] : self::FIELD_UNLABELLED,
                 self::FIELD_REVERSE_COMMAND => $item[self::FIELD_REVERSE_COMMAND],
             ];
         }
@@ -330,7 +330,7 @@ final class Teto10PredictedRevertReviewDigest
             if (! is_array($item)) {
                 continue;
             }
-            $ref = self::string($item[self::FIELD_FLIP_REF] ?? $item[self::FIELD_ASK_REF] ?? self::FIELD_UNLABELLED) ?: 'unlabelled';
+            $ref = self::string($item[self::FIELD_FLIP_REF] ?? $item[self::FIELD_ASK_REF] ?? self::FIELD_UNLABELLED) ?: self::FIELD_UNLABELLED;
             $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? self::FIELD_ITEM) ?: self::FIELD_ITEM).' '.self::inline($ref)
                 .' reverse: '.self::inline(self::string($item[self::FIELD_REVERSE_COMMAND] ?? self::FIELD_MANUAL_REVIEW) ?: self::FIELD_MANUAL_REVIEW);
         }

@@ -179,7 +179,7 @@ final class AtlasMissionControlCockpitService
         $payload[self::FIELD_SNAPSHOT_HASH] = 'sha256:'.hash(self::FIELD_SHA256, json_encode([
             $intentId,
             array_column($journey, self::FIELD_PHASE),
-            array_column($journey, 'status'),
+            array_column($journey, self::FIELD_STATUS),
             $gateReport[self::FIELD_REPORT_HASH] ?? null,
         ]) ?: '');
 
@@ -200,7 +200,7 @@ final class AtlasMissionControlCockpitService
      */
     private function buildQueueHealth(array $signals): ?array
     {
-        $numericKeys = ['servable_now', self::FIELD_ACTIVE_LEASES, self::STATUS_BLOCKED, 'quarantined', 'recoverable', 'malformed'];
+        $numericKeys = ['servable_now', self::FIELD_ACTIVE_LEASES, self::STATUS_BLOCKED, self::FIELD_QUARANTINED, 'recoverable', 'malformed'];
         $hasAnySignal = false;
         foreach ($numericKeys as $key) {
             if (isset($signals[$key]) && AiValueNormalizer::finiteFloatOrNull($signals[$key]) !== null) {

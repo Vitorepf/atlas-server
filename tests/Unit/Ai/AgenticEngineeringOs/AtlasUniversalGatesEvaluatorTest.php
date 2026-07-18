@@ -11118,4 +11118,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b535_daily_canary_immune_promotion_department_contract_asef_chunk_floor_count']);
     }
 
+    public function test_b536_cognition_score_acos_evolution_autonomy_ladder_code_symbol_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b536CognitionScoreAcosEvolutionAutonomyLadderCodeSymbolFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_DOC_STATUS, $out['doc_status']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_RESEARCH_DOMAIN, $out['research_domain']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_TIER, $out['tier']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_ATLAS_ACOS_DELTA_SERIES, $out['atlas:acos:delta-series']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_OPERATOR, $out['operator']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_SIGNATURE_RECEIPT_MISSING, $out['signature_receipt_missing']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS, $out['atlas_engineering_code_symbols']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_OBSERVABILITY_SIGNALS, $out['observability_signals']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_OUTPUTS, $out['outputs']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_N_PAIRS, $out['n_pairs']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_PEEK, $out['peek']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_QUARANTINED, $out['quarantined']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_STATUS, $out['status']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_UNLABELLED, $out['unlabelled']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_DIFF_REF, $out['diff_ref']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_MAXI_04_CLASSIFIER_HYBRID_JSONL, $out['app/atlas/evidence/acos-max-maxi-04-classifier-hybrid.jsonl']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_MAXM01_PROVIDER_LEAK_CORPUS_JSONL, $out['app/atlas/evidence/acos-max-maxm01-provider-leak-corpus.jsonl']);
+        $this->assertSame(18, $out['b536_cognition_score_acos_evolution_autonomy_ladder_code_symbol_floor_count']);
+    }
+
 }

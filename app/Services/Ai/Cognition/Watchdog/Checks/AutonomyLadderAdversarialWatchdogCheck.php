@@ -216,7 +216,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     {
         [$ledger, $path] = $this->tempSignatureLedger();
         $verdict = $ledger->verify(
-            signature: 'operator',
+            signature: self::FIELD_OPERATOR,
             actor: self::FIELD_ATLAS_OPERATOR,
             nonce: self::FIELD_FORGED_BOOLEAN,
             policyHash: self::FIELD_POLICY_H,
@@ -225,7 +225,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         );
         $this->cleanup($path);
 
-        // The ledger surface returns 'signature_receipt_missing' when the row
+        // The ledger surface returns self::FIELD_SIGNATURE_RECEIPT_MISSING when the row
         // is absent — which is the outcome for a bare boolean receipt after
         // the applier layer converts `true` into a missing-field verdict at
         // its own boundary. Either refusal reason satisfies the invariant.
@@ -248,7 +248,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     {
         [$ledger, $path] = $this->tempSignatureLedger();
         $verdict = $ledger->verify(
-            signature: 'operator',
+            signature: self::FIELD_OPERATOR,
             actor: self::FIELD_ATLAS_OPERATOR,
             nonce: self::FIELD_NEVER_ISSUED,
             policyHash: self::FIELD_POLICY_H,
@@ -260,7 +260,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         return [
             self::FIELD_ID => self::FIELD_MAXK05_SIGNATURE_RECEIPT_MISSING,
             self::FIELD_REFUSED => $verdict[self::FIELD_OK] === false && $verdict[self::FIELD_REASON] === self::FIELD_SIGNATURE_RECEIPT_MISSING,
-            self::FIELD_EXPECTED => 'signature_receipt_missing',
+            self::FIELD_EXPECTED => self::FIELD_SIGNATURE_RECEIPT_MISSING,
             self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($verdict[self::FIELD_REASON] ?? null) ?? self::PROBE_ID_UNKNOWN),
         ];
     }
@@ -275,7 +275,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     {
         [$ledger, $path] = $this->tempSignatureLedger();
         $ledger->record(
-            signature: 'operator',
+            signature: self::FIELD_OPERATOR,
             actor: self::FIELD_ATLAS_OPERATOR,
             nonce: self::FIELD_NONCE_REUSED_PROBE,
             policyHash: self::FIELD_POLICY_H,
@@ -283,7 +283,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             targetId: self::FIELD_CAND_3,
         );
         $first = $ledger->verify(
-            signature: 'operator',
+            signature: self::FIELD_OPERATOR,
             actor: self::FIELD_ATLAS_OPERATOR,
             nonce: self::FIELD_NONCE_REUSED_PROBE,
             policyHash: self::FIELD_POLICY_H,
@@ -292,7 +292,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         );
         // Second verify — must fail because nonce is now spent.
         $second = $ledger->verify(
-            signature: 'operator',
+            signature: self::FIELD_OPERATOR,
             actor: self::FIELD_ATLAS_OPERATOR,
             nonce: self::FIELD_NONCE_REUSED_PROBE,
             policyHash: self::FIELD_POLICY_H,

@@ -14113,4 +14113,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B536).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b536CognitionScoreAcosEvolutionAutonomyLadderCodeSymbolFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'doc_status' => AtlasCognitionScoreCardV4Grouper::FIELD_DOC_STATUS,
+            'research_domain' => AtlasCognitionScoreCardV4Grouper::FIELD_RESEARCH_DOMAIN,
+            'tier' => AtlasAcosEvolutionScoreService::FIELD_TIER,
+            'atlas:acos:delta-series' => AtlasAcosEvolutionScoreService::FIELD_ATLAS_ACOS_DELTA_SERIES,
+            'operator' => AutonomyLadderAdversarialWatchdogCheck::FIELD_OPERATOR,
+            'signature_receipt_missing' => AutonomyLadderAdversarialWatchdogCheck::FIELD_SIGNATURE_RECEIPT_MISSING,
+            'status' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_STATUS,
+            'atlas_engineering_code_symbols' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS,
+            'observability_signals' => DepartmentContractRuntime::FIELD_OBSERVABILITY_SIGNALS,
+            'outputs' => DepartmentContractRuntime::FIELD_OUTPUTS,
+            'n_pairs' => AcosMaxLote2MeasureService::FIELD_N_PAIRS,
+            'peek' => AcosMaxLote2MeasureService::FIELD_PEEK,
+            'quarantined' => AtlasMissionControlCockpitService::FIELD_QUARANTINED,
+            'status' => AtlasMissionControlCockpitService::FIELD_STATUS,
+            'unlabelled' => Teto10PredictedRevertReviewDigest::FIELD_UNLABELLED,
+            'diff_ref' => Teto10PredictedRevertReviewDigest::FIELD_DIFF_REF,
+            'app/atlas/evidence/acos-max-maxi-04-classifier-hybrid.jsonl' => AcosMaxMeasureSeriesRegistry::FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_MAXI_04_CLASSIFIER_HYBRID_JSONL,
+            'app/atlas/evidence/acos-max-maxm01-provider-leak-corpus.jsonl' => AcosMaxMeasureSeriesRegistry::FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_MAXM01_PROVIDER_LEAK_CORPUS_JSONL,
+            'b536_cognition_score_acos_evolution_autonomy_ladder_code_symbol_floor_count' => 18,
+        ];
+    }
+
 }

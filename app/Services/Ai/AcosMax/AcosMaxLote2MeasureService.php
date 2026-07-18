@@ -969,7 +969,7 @@ final class AcosMaxLote2MeasureService
                 : $this->memoryTypeFromCounterfactualMeta($meta);
             $pairs[$pairId][self::FIELD_ROWS][$arm] = [
                 self::FIELD_SCORE => $this->counterfactualScore($row, $meta),
-                self::FIELD_POLICY_VALID => AiValueNormalizer::lowerTrimmedString($meta[self::FIELD_MODE] ?? 'peek') === self::FIELD_PEEK
+                self::FIELD_POLICY_VALID => AiValueNormalizer::lowerTrimmedString($meta[self::FIELD_MODE] ?? self::FIELD_PEEK) === self::FIELD_PEEK
                     && ($meta[self::FIELD_RECORD_USAGE] ?? false) === false,
             ];
             if (! $pairs[$pairId][self::FIELD_ROWS][$arm][self::FIELD_POLICY_VALID]) {
@@ -1025,7 +1025,7 @@ final class AcosMaxLote2MeasureService
         usort($memoryTypes, static fn (array $a, array $b): int => $a[self::FIELD_MEMORY_TYPE] <=> $b[self::FIELD_MEMORY_TYPE]);
 
         $measured = array_values(array_filter($memoryTypes, static fn (array $group): bool => $group[self::FIELD_STATUS] === self::STATUS_MEASURED));
-        $measuredPairs = array_sum(array_column($measured, 'n_pairs'));
+        $measuredPairs = array_sum(array_column($measured, self::FIELD_N_PAIRS));
         $measuredDeltaSum = array_sum(array_map(
             static fn (array $group): float => (AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_PAIRED_DELTA] ?? null) ?? 0.0) * (int) $group[self::FIELD_N_PAIRS],
             $measured,

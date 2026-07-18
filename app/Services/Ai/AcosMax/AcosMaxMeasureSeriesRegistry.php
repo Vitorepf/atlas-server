@@ -161,6 +161,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_FREEZE_OPERATOR_APPROVAL_HISTORY_V1 = 'freeze:operator.approval_history.v1';
     public const FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_ASI_05_LEDGER_CLEANUP_JSONL = 'app/atlas/evidence/acos-max-asi-05-ledger-cleanup.jsonl';
     public const FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_ESP_00_GROUND_TRUTH_JSONL = 'app/atlas/evidence/acos-max-esp-00-ground-truth.jsonl';
+    public const FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_MAXI_04_CLASSIFIER_HYBRID_JSONL = 'app/atlas/evidence/acos-max-maxi-04-classifier-hybrid.jsonl';
+    public const FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_MAXM01_PROVIDER_LEAK_CORPUS_JSONL = 'app/atlas/evidence/acos-max-maxm01-provider-leak-corpus.jsonl';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -573,7 +575,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MAXM_01,
                 self::FIELD_SERIES => self::FIELD_ATLAS_PROVIDER_LEAK_CORPUS_V1,
-                self::FIELD_PATH => storage_path('app/atlas/evidence/acos-max-maxm01-provider-leak-corpus.jsonl'),
+                self::FIELD_PATH => storage_path(self::FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_MAXM01_PROVIDER_LEAK_CORPUS_JSONL),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
                 self::FIELD_TTL_DAYS => self::INT_180,
@@ -582,7 +584,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MAXI_04,
                 self::FIELD_SERIES => AtlasImmuneClassifierHybridFreeze::MEASURE_ID,
-                self::FIELD_PATH => storage_path('app/atlas/evidence/acos-max-maxi-04-classifier-hybrid.jsonl'),
+                self::FIELD_PATH => storage_path(self::FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_MAXI_04_CLASSIFIER_HYBRID_JSONL),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
                 self::FIELD_TTL_DAYS => AtlasImmuneClassifierHybridFreeze::TTL_DAYS,

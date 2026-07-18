@@ -432,14 +432,14 @@ final class DepartmentContractRuntime
         'scope',
         'triggers',
         self::FIELD_INPUTS,
-        'outputs',
+        self::FIELD_OUTPUTS,
         self::FIELD_GATES,
         self::FIELD_ALLOWED_ACTIONS,
         self::FIELD_FORBIDDEN_ACTIONS,
         self::FIELD_ESCALATION_TO,
         self::FIELD_EVIDENCE_REQUIRED,
         self::FIELD_PERSISTENCE,
-        'observability_signals',
+        self::FIELD_OBSERVABILITY_SIGNALS,
     ];
 
     /**

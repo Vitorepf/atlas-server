@@ -78,7 +78,7 @@ class AtlasAcosEvolutionScoreService
     /** Comandos-órgão cuja presença agendada é exigida pela cadência H2.1. */
     public const SCHEDULED_ORGANS = [
         'atlas:cognition:mint-pipeline-receipts',
-        'atlas:acos:delta-series',
+        self::FIELD_ATLAS_ACOS_DELTA_SERIES,
         'atlas:engineering:refactor-census',
         self::FIELD_ACOS_HARVEST_OBRA_LESSONS,
     ];
@@ -150,6 +150,7 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_MEASUREMENT_WITHOUT_RECALLED_MEMORY_CASE_COUNT = 'measurement.without_recalled_memory.case_count';
     public const FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10 = 'score.dimensions.pipeline.score_out_of_10';
     public const FIELD_SCORE_OVERALL_OUT_OF_10 = 'score.overall_out_of_10';
+    public const FIELD_ATLAS_ACOS_DELTA_SERIES = 'atlas:acos:delta-series';
     public const FLOAT_2_5 = 2.5;
     public const FLOAT_10_0 = 10.0;
 
@@ -493,7 +494,7 @@ class AtlasAcosEvolutionScoreService
             return [
                 self::FIELD_IMPLEMENTED => (AiValueNormalizer::boolOrNull($readiness[self::FIELD_IMPLEMENTED] ?? null) ?? false),
                 self::FIELD_AUDITED => (AiValueNormalizer::boolOrNull($readiness[self::FIELD_AUDITED] ?? null) ?? false),
-                self::FIELD_TIER_EXPOSED => array_key_exists('tier', $readiness),
+                self::FIELD_TIER_EXPOSED => array_key_exists(self::FIELD_TIER, $readiness),
                 self::FIELD_OPERATOR_SIGNED => (AiValueNormalizer::boolOrNull($readiness[self::FIELD_OPERATOR_SIGNED] ?? null) ?? false),
                 self::FIELD_EVIDENCE => sprintf(
                     'chain implemented=%s audited=%s tier=%s signed=%s',
