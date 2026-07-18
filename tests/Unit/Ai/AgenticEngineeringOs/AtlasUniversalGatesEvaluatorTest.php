@@ -13146,4 +13146,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(11, $out['b618_learning_proposals_memory_cognitive_floor_count']);
     }
 
+    public function test_b619_aaeos_department_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b619AaeosDepartmentFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::SCHEMA, $out['atlas.aaeos.department.v1']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_VALID, $out['valid']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ESCALATION_TO, $out['escalation_to']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_BLOCKERS, $out['blockers']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DEPARTMENT_COUNT, $out['department_count']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_MATURITY_LEVEL, $out['maturity_level']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DEPARTMENTS, $out['departments']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DUPLICATE_IDS, $out['duplicate_ids']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ESCALATION_CYCLES, $out['escalation_cycles']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_OPERATOR, $out['operator']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ALLOWED_ACTIONS, $out['allowed_actions']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ARCHITECT, $out['architect']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DEBUG, $out['debug']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DELIVERY, $out['delivery']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_EVIDENCE_REQUIRED, $out['evidence_required']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_FORBIDDEN_ACTIONS, $out['forbidden_actions']);
+        $this->assertSame(18, $out['b619_aaeos_department_floor_count']);
+    }
+
 }
