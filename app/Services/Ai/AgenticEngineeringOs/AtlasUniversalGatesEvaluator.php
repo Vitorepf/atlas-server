@@ -9645,4 +9645,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B391).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function immuneCalibrationAcosWatchdogLoteMeasureNCaptureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'contains_secret' => ImmuneCalibrationService::FIELD_CONTAINS_SECRET,
+            'contains_sensitive_unnecessary' => ImmuneCalibrationService::FIELD_CONTAINS_SENSITIVE_UNNECESSARY,
+            'compaction_receipts_table_missing' => AtlasAcosWatchdogHealthService::FIELD_COMPACTION_RECEIPTS_TABLE_MISSING,
+            'condition' => AtlasAcosWatchdogHealthService::FIELD_CONDITION,
+            'pair_id' => AcosMaxLote2MeasureService::FIELD_PAIR_ID,
+            'pattern_floor' => AcosMaxLote2MeasureService::FIELD_PATTERN_FLOOR,
+            'violations' => AtlasNCaptureDrillService::FIELD_VIOLATIONS,
+            'window_days' => AtlasNCaptureDrillService::FIELD_WINDOW_DAYS,
+            'ref' => EvidenceVisionThesisLifecycle::FIELD_REF,
+            'series' => EvidenceVisionThesisLifecycle::FIELD_SERIES,
+            'path_id' => ExploratoryBetsPortfolio::FIELD_PATH_ID,
+            'path_yield' => ExploratoryBetsPortfolio::FIELD_PATH_YIELD,
+            'git_checkout_performed' => GoldenCounterfactualReplayService::FIELD_GIT_CHECKOUT_PERFORMED,
+            'metric' => GoldenCounterfactualReplayService::FIELD_METRIC,
+            'mode' => Maxa04JinaV3DualReadService::FIELD_MODE,
+            'recorded_at' => Maxa04JinaV3DualReadService::FIELD_RECORDED_AT,
+            'flag' => OutcomeEnvelopeBridge::FIELD_FLAG,
+            'flag_default' => OutcomeEnvelopeBridge::FIELD_FLAG_DEFAULT,
+            'immune_calibration_acos_watchdog_lote_measure_n_capture_floor_count' => 18,
+        ];
+    }
+
 }

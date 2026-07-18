@@ -47,6 +47,8 @@ final class GoldenCounterfactualReplayService
     public const FIELD_DELTA_REQUIRES_BOTH_ARMS = 'delta_requires_both_arms';
     public const FIELD_EXTRAPOLATION_ALLOWED = 'extrapolation_allowed';
     public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_GIT_CHECKOUT_PERFORMED = 'git_checkout_performed';
+    public const FIELD_METRIC = 'metric';
 
 
     /**
@@ -63,7 +65,7 @@ final class GoldenCounterfactualReplayService
             self::FIELD_CLAIM_POLICY => [
                 self::FIELD_READ_ONLY => true,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
-                'git_checkout_performed' => false,
+                self::FIELD_GIT_CHECKOUT_PERFORMED => false,
                 self::FIELD_EXTRAPOLATION_ALLOWED => false,
                 self::FIELD_DELTA_REQUIRES_BOTH_ARMS => true,
             ],
@@ -105,7 +107,7 @@ final class GoldenCounterfactualReplayService
             self::FIELD_COUNTERFACTUAL => [
                 self::FIELD_WITHOUT => $without,
                 self::FIELD_WITH => $with,
-                'metric' => 'recall_at_5',
+                self::FIELD_METRIC => 'recall_at_5',
                 self::FIELD_RECALL_AT_5_WITHOUT => $without[self::FIELD_RECALL_AT_5],
                 self::FIELD_RECALL_AT_5_WITH => $with[self::FIELD_RECALL_AT_5],
                 self::FIELD_DELTA => round(

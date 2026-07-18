@@ -44,6 +44,8 @@ final class OutcomeEnvelopeBridge
     public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
     public const FIELD_DENOMINATOR_MIN = 'denominator_min';
     public const FIELD_DUAL_READ_REQUIRED = 'dual_read_required';
+    public const FIELD_FLAG = 'flag';
+    public const FIELD_FLAG_DEFAULT = 'flag_default';
 
     /** @var array<string, OutcomeEnvelopeAdapter> */
     private array $adapters;
@@ -120,8 +122,8 @@ final class OutcomeEnvelopeBridge
             self::FIELD_FORMULA => 'Outcome envelope = MULTX-03 atlas.engineering_outcome.v2 contract projected through one thin adapter per native organ (dev_procedural, aemor, compounding). Divergent native fields remain in native_divergent.fields labeled by origin — never coerced or fused.',
             self::FIELD_THRESHOLDS => [
                 self::FIELD_ADAPTER_ORIGINS => OutcomeEnvelope::ADAPTER_ORIGINS,
-                'flag' => self::ADAPTERS_ENABLED_CONFIG_KEY,
-                'flag_default' => false,
+                self::FIELD_FLAG => self::ADAPTERS_ENABLED_CONFIG_KEY,
+                self::FIELD_FLAG_DEFAULT => false,
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
             self::FIELD_TTL_DAYS => 90,

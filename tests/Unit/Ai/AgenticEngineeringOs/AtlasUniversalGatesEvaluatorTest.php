@@ -7499,4 +7499,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['pre_review_phase_advance_cognition_score_lote_measure_floor_count']);
     }
 
+    public function test_immune_calibration_acos_watchdog_lote_measure_n_capture_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->immuneCalibrationAcosWatchdogLoteMeasureNCaptureFloorsContractObserve([]);
+        $this->assertSame(ImmuneCalibrationService::FIELD_CONTAINS_SECRET, $out['contains_secret']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_CONTAINS_SENSITIVE_UNNECESSARY, $out['contains_sensitive_unnecessary']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_COMPACTION_RECEIPTS_TABLE_MISSING, $out['compaction_receipts_table_missing']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CONDITION, $out['condition']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_PAIR_ID, $out['pair_id']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_PATTERN_FLOOR, $out['pattern_floor']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_VIOLATIONS, $out['violations']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_WINDOW_DAYS, $out['window_days']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_REF, $out['ref']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_SERIES, $out['series']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_PATH_ID, $out['path_id']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_PATH_YIELD, $out['path_yield']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_GIT_CHECKOUT_PERFORMED, $out['git_checkout_performed']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_METRIC, $out['metric']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_MODE, $out['mode']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_RECORDED_AT, $out['recorded_at']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_FLAG, $out['flag']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_FLAG_DEFAULT, $out['flag_default']);
+        $this->assertSame(18, $out['immune_calibration_acos_watchdog_lote_measure_n_capture_floor_count']);
+    }
+
 }

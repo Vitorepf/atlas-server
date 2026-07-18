@@ -78,6 +78,8 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_HANDLE = 'handle';
     public const FIELD_ID = 'id';
     public const FIELD_LEDGER_RECORDED = 'ledger_recorded';
+    public const FIELD_MODE = 'mode';
+    public const FIELD_RECORDED_AT = 'recorded_at';
 
 
     /** @return array<string,mixed> */
@@ -122,7 +124,7 @@ final class Maxa04JinaV3DualReadService
                 self::FIELD_AB_GREEN_CLAIM_ALLOWED => false,
             ],
             'reembed_path' => [
-                'mode' => self::MODE_SHADOW_ONLY,
+                self::FIELD_MODE => self::MODE_SHADOW_ONLY,
                 self::FIELD_COMMAND => 'ATLAS_SEMANTIC_RAG_MODEL=jinaai/jina-embeddings-v3 php artisan atlas:memory:embed-backfill --stale --json',
                 self::FIELD_WRITES_LIVE_DEFAULT_MODEL => false,
                 self::FIELD_REQUIRES_DUAL_READ_LEDGER => true,
@@ -174,7 +176,7 @@ final class Maxa04JinaV3DualReadService
             self::FIELD_SCHEMA_VERSION => Maxa04JinaV3DualReadLedger::SCHEMA,
             self::FIELD_SERIES => Maxa04JinaV3DualReadLedger::SCHEMA,
             self::FIELD_SLICE => 'MAXA-04',
-            'recorded_at' => now()->toJSON(),
+            self::FIELD_RECORDED_AT => now()->toJSON(),
             self::FIELD_STATUS => $report[self::FIELD_STATUS],
             self::FIELD_WINDOW_BASIS => $report[self::FIELD_WINDOW_BASIS],
             self::FIELD_SUMMARY => $report[self::FIELD_SUMMARY],

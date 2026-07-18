@@ -220,6 +220,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_LATEST_DELTA_FROM_PREVIOUS = 'latest_delta_from_previous';
     public const FIELD_BY_WRITER = 'by_writer';
     public const FIELD_COMMANDS = 'commands';
+    public const FIELD_COMPACTION_RECEIPTS_TABLE_MISSING = 'compaction_receipts_table_missing';
+    public const FIELD_CONDITION = 'condition';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -528,7 +530,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_SCHEMA_VERSION => self::COMPACTION_SOAK_SCHEMA,
                 self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
                 self::FIELD_READY_TO_ENFORCE => false,
-                self::FIELD_BLOCKING => ['compaction_receipts_table_missing'],
+                self::FIELD_BLOCKING => [self::FIELD_COMPACTION_RECEIPTS_TABLE_MISSING],
                 self::FIELD_WINDOW => [self::FIELD_DAYS => self::COMPACTION_WINDOW_DAYS, self::FIELD_COMPACTION_COUNT => 0],
                 self::FIELD_GENERATED_AT => now()->toIso8601String(),
             ];
@@ -586,7 +588,7 @@ final class AtlasAcosWatchdogHealthService
             ],
             'rollback_trigger' => [
                 self::FIELD_ID => 'cpt_09_compaction_enforce',
-                'condition' => '>=1 critical must_keep cut after enforcement flip',
+                self::FIELD_CONDITION => '>=1 critical must_keep cut after enforcement flip',
                 'rollback_env' => 'ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE=observe',
             ],
             self::FIELD_THRESHOLDS => [

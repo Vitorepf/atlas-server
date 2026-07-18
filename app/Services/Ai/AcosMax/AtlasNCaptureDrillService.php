@@ -121,6 +121,8 @@ final class AtlasNCaptureDrillService
     public const FIELD_TIME_TO_FIRST_PROVEN_REAL_SECONDS = 'time_to_first_proven_real_seconds';
     public const FIELD_TIME_TO_FIRST_ROUTED_TASK_SECONDS = 'time_to_first_routed_task_seconds';
     public const FIELD_TIMES = 'times';
+    public const FIELD_VIOLATIONS = 'violations';
+    public const FIELD_WINDOW_DAYS = 'window_days';
 
     private readonly string $ledgerPath;
 
@@ -195,7 +197,7 @@ final class AtlasNCaptureDrillService
             self::FIELD_CAPABILITY_SPEC => [
                 self::FIELD_FUNCTION => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'capability_spec.function')) ?? 'engine',
                 self::FIELD_VERIFIED => (AiValueNormalizer::boolOrNull(data_get($drill, 'capability_spec.verified')) ?? false),
-                'violations' => array_values(AiValueNormalizer::arrayOrEmpty(data_get($drill, 'capability_spec.violations', []))),
+                self::FIELD_VIOLATIONS => array_values(AiValueNormalizer::arrayOrEmpty(data_get($drill, 'capability_spec.violations', []))),
             ],
             'yardstick' => [
                 self::FIELD_GOLDEN_V2_PASSED => (AiValueNormalizer::boolOrNull(data_get($drill, 'yardstick.golden_v2_passed')) ?? false),
@@ -283,7 +285,7 @@ final class AtlasNCaptureDrillService
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_GENERATED_AT => now('UTC')->toIso8601String(),
             self::FIELD_FREEZE => $freeze,
-            'window_days' => $windowDays,
+            self::FIELD_WINDOW_DAYS => $windowDays,
             self::FIELD_STATUS => $status,
             self::FIELD_REASON => $reason,
             self::FIELD_DENOMINATOR_MIN => (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? 0),

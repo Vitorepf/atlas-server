@@ -80,6 +80,8 @@ final class ImmuneCalibrationService
     public const FIELD_FORMULA = 'formula';
     public const FIELD_CLASSIFIER_SCHEMA_VERSION = 'classifier_schema_version';
     public const FIELD_CONSENT_GRANTED = 'consent_granted';
+    public const FIELD_CONTAINS_SECRET = 'contains_secret';
+    public const FIELD_CONTAINS_SENSITIVE_UNNECESSARY = 'contains_sensitive_unnecessary';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -312,8 +314,8 @@ final class ImmuneCalibrationService
             'novelty' => true,
             'recurrence_count' => 1,
             'provider_safe' => true,
-            'contains_secret' => false,
-            'contains_sensitive_unnecessary' => false,
+            self::FIELD_CONTAINS_SECRET => false,
+            self::FIELD_CONTAINS_SENSITIVE_UNNECESSARY => false,
             'contradicts_newer' => false,
             'outcome_validated' => false,
             'scope' => 'domain',

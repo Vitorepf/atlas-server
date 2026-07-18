@@ -67,6 +67,8 @@ final class ExploratoryBetsPortfolio
     public const FIELD_MIN_N = 'min_n';
     public const FIELD_N_BASE = 'n_base';
     public const FIELD_N_TREAT = 'n_treat';
+    public const FIELD_PATH_ID = 'path_id';
+    public const FIELD_PATH_YIELD = 'path_yield';
 
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
 
@@ -168,14 +170,14 @@ final class ExploratoryBetsPortfolio
             if (! is_array($candidate)) {
                 continue;
             }
-            $path = AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_PATH] ?? $candidate['path_id'] ?? null) ?? '';
+            $path = AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_PATH] ?? $candidate[self::FIELD_PATH_ID] ?? null) ?? '';
             if ($path === '') {
                 continue;
             }
             if ((AiValueNormalizer::trimmedStringOrNull($candidate['rung'] ?? null) ?? '') !== AmbitionRungPolicy::RUNG_TASK) {
                 continue;
             }
-            if (array_key_exists('path_yield', $candidate) && $candidate['path_yield'] !== null) {
+            if (array_key_exists('path_yield', $candidate) && $candidate[self::FIELD_PATH_YIELD] !== null) {
                 continue;
             }
 
