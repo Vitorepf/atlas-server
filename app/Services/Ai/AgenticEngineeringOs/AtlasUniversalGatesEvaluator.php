@@ -20636,4 +20636,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B748).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b748AcosDeadFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.acos.dead_series_watchdog.v1' => AcosDeadSeriesWatchdogCheck::SCHEMA_VERSION,
+            'elev-20s.dead_series_registry' => AcosDeadSeriesWatchdogCheck::CHECK_ID,
+            'ok' => AcosDeadSeriesWatchdogCheck::STATUS_OK,
+            'stale' => AcosDeadSeriesWatchdogCheck::STATUS_STALE,
+            'missing' => AcosDeadSeriesWatchdogCheck::STATUS_MISSING,
+            'series' => AcosDeadSeriesWatchdogCheck::FIELD_SERIES,
+            'schema_version' => AcosDeadSeriesWatchdogCheck::FIELD_SCHEMA_VERSION,
+            'generated_at' => AcosDeadSeriesWatchdogCheck::FIELD_GENERATED_AT,
+            'registry_count' => AcosDeadSeriesWatchdogCheck::FIELD_REGISTRY_COUNT,
+            'dead_count' => AcosDeadSeriesWatchdogCheck::FIELD_DEAD_COUNT,
+            'code' => AcosDeadSeriesWatchdogCheck::FIELD_CODE,
+            'message' => AcosDeadSeriesWatchdogCheck::FIELD_MESSAGE,
+            'ledger' => AcosDeadSeriesWatchdogCheck::FIELD_LEDGER,
+            'path' => AcosDeadSeriesWatchdogCheck::FIELD_PATH,
+            'table' => AcosDeadSeriesWatchdogCheck::FIELD_TABLE,
+            'slice' => AcosDeadSeriesWatchdogCheck::FIELD_SLICE,
+            'source_type' => AcosDeadSeriesWatchdogCheck::FIELD_SOURCE_TYPE,
+            'timestamp_field' => AcosDeadSeriesWatchdogCheck::FIELD_TIMESTAMP_FIELD,
+            'b748_acos_dead_floor_count' => 18,
+        ];
+    }
+
 }

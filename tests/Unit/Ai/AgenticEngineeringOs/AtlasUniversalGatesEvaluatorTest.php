@@ -16377,4 +16377,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b747_daily_canary_floor_count']);
     }
 
+    public function test_b748_acos_dead_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b748AcosDeadFloorsContractObserve([]);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::SCHEMA_VERSION, $out['atlas.acos.dead_series_watchdog.v1']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::CHECK_ID, $out['elev-20s.dead_series_registry']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::STATUS_OK, $out['ok']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::STATUS_STALE, $out['stale']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::STATUS_MISSING, $out['missing']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_SERIES, $out['series']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_REGISTRY_COUNT, $out['registry_count']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_DEAD_COUNT, $out['dead_count']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_CODE, $out['code']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_LEDGER, $out['ledger']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_PATH, $out['path']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_TABLE, $out['table']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_SLICE, $out['slice']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_SOURCE_TYPE, $out['source_type']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_TIMESTAMP_FIELD, $out['timestamp_field']);
+        $this->assertSame(18, $out['b748_acos_dead_floor_count']);
+    }
+
 }
