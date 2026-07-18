@@ -94,6 +94,7 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_MAXA04_RESTORE_CURRENT_SEMANTIC_RAG_MODEL = 'maxa04:restore-current-semantic-rag-model';
     public const FIELD_ATLAS_SEMANTIC_RAG_MODEL_JINAAI_JINA_EMBEDDINGS_V3_PHP_ARTISAN_ATLAS_MEMORY_EMBED_BACKFILL___STALE___JSON = 'ATLAS_SEMANTIC_RAG_MODEL=jinaai/jina-embeddings-v3 php artisan atlas:memory:embed-backfill --stale --json';
     public const FIELD_MAXA_04_ONLY_LANDS_THE_DUAL_READ_RE_EMBED_MECHANISM__PROMOTION_REQUIRES_A_LATER_OPERATOR_REVIEWED_BENCHMARK_WINDOW_ = 'MAXA-04 only lands the dual-read/re-embed mechanism; promotion requires a later operator-reviewed benchmark window.';
+    public const FIELD_RESTORE_ATLAS_SEMANTIC_RAG_MODEL_TO_THE_PRIOR_MODEL_AND_DISCARD_JINA_V3_SHADOW_ROWS_BEFORE_ANY_OPERATOR_PROMOTION_ = 'Restore ATLAS_SEMANTIC_RAG_MODEL to the prior model and discard jina-v3 shadow rows before any operator promotion.';
     public const INT_8192 = 8192;
 
 
@@ -146,7 +147,7 @@ final class Maxa04JinaV3DualReadService
             ],
             self::FIELD_ROLLBACK => [
                 self::FIELD_HANDLE => self::FIELD_MAXA04_RESTORE_CURRENT_SEMANTIC_RAG_MODEL,
-                self::FIELD_DESCRIPTION => 'Restore ATLAS_SEMANTIC_RAG_MODEL to the prior model and discard jina-v3 shadow rows before any operator promotion.',
+                self::FIELD_DESCRIPTION => self::FIELD_RESTORE_ATLAS_SEMANTIC_RAG_MODEL_TO_THE_PRIOR_MODEL_AND_DISCARD_JINA_V3_SHADOW_ROWS_BEFORE_ANY_OPERATOR_PROMOTION_,
                 self::FIELD_DEFAULT_MODEL_UNCHANGED => true,
             ],
             self::FIELD_DEFAULT_PROMOTED => false,

@@ -79,6 +79,7 @@ final class AtlasOperationalVolumeCheckService
     public const FIELD_NAMED_PREREQUISITE = 'named_prerequisite';
     public const FIELD_PREVIOUS_BUSINESS_DAY = 'previous_business_day';
     public const FIELD_ROLLING_7D_ENDING_YESTERDAY = 'rolling_7d_ending_yesterday';
+    public const FIELD_HERMES_TRANSPORT_MAY_DROP_FINAL_STDOUT_CHUNKS__AUT_NOMOS_BRAIN_WRITER_VOLUME_CAN_READ_FALSELY_LOW_UNTIL_RESOLVED_UPSTREAM_ = 'Hermes transport may drop final stdout chunks; Autônomos/brain-writer volume can read falsely low until resolved upstream.';
 
     /**
      * @return array<string,mixed>
@@ -121,7 +122,7 @@ final class AtlasOperationalVolumeCheckService
                 [
                     self::FIELD_ID => self::PREREQUISITE_GAP_HERMES_01,
                     self::FIELD_STATUS => self::FIELD_NAMED_PREREQUISITE,
-                    self::FIELD_NOTE => 'Hermes transport may drop final stdout chunks; Autônomos/brain-writer volume can read falsely low until resolved upstream.',
+                    self::FIELD_NOTE => self::FIELD_HERMES_TRANSPORT_MAY_DROP_FINAL_STDOUT_CHUNKS__AUT_NOMOS_BRAIN_WRITER_VOLUME_CAN_READ_FALSELY_LOW_UNTIL_RESOLVED_UPSTREAM_,
                 ],
             ],
             self::FIELD_WINDOWS => [

@@ -70,6 +70,7 @@ final class AtlasAaeosDocMaturityClassifier
     public const FIELD_DOC_L0__NO_MOTHER_DOC_AND_NO_CONTRACTS__IDEA_RESEARCH_SOURCE_MATERIAL_WITHOUT_CONTRACT__ = 'DOC L0: no mother_doc and no contracts (idea/research/source material without contract).';
     public const FIELD_DOC_L1__MOTHER_DOC_ONLY__CONTRACTS_ABSENT__FRAGMENTARY_MOTHER_NORTH_STAR_DOC__ = 'DOC L1: mother_doc only, contracts absent (fragmentary mother/north-star doc).';
     public const FIELD_DOC_L3__MOTHER_DOC___CONTRACTS___STRONG_RUNBOOK__BUT_ = 'DOC L3: mother_doc + contracts + strong runbook, but ';
+    public const FIELD_DOC_L4__MOTHER_DOC___CONTRACTS___STRONG_RUNBOOK___MATRIX_QUALITY_BAR_EVIDENCE_GATES_ALL_STRONG_ = 'DOC L4: mother_doc + contracts + strong runbook + matrix/quality_bar/evidence/gates all strong.';
 
     /** @var list<string> */
     public const LEVELS = [
@@ -107,7 +108,7 @@ final class AtlasAaeosDocMaturityClassifier
         if ($hasMother && $hasContracts && $runbook === self::STRENGTH_STRONG && $allSignalsStrong) {
             $level = self::LEVEL_L4;
             $ordinal = 4;
-            $rationale = 'DOC L4: mother_doc + contracts + strong runbook + matrix/quality_bar/evidence/gates all strong.';
+            $rationale = self::FIELD_DOC_L4__MOTHER_DOC___CONTRACTS___STRONG_RUNBOOK___MATRIX_QUALITY_BAR_EVIDENCE_GATES_ALL_STRONG_;
         } elseif ($hasMother && $hasContracts && $runbook === self::STRENGTH_STRONG) {
             $level = self::LEVEL_L3;
             $ordinal = 3;

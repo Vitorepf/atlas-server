@@ -359,6 +359,7 @@ class AtlasCognitionScoreCardService
     public const FIELD_TEOS_I3_COUNTERFACTUAL_RUNTIME = 'TEOS-I3 Counterfactual Runtime';
     public const FIELD_TEOS_I4_COUNTERFACTUAL_TREE = 'TEOS-I4 Counterfactual Tree';
     public const FIELD_UNIFIED_REALITY_GRAPH_TEMPORAL__4_D_ = 'Unified Reality Graph Temporal (4D)';
+    public const FIELD_A_UNIQUE_SERVICE_FACET_IS_READY_WHEN_CODE__DOC_AND_PIPELINE_ARE_READY__ALIAS_FACETS_REMAIN_VISIBLE_BUT_ARE_NOT_SCORED_TWICE__REAL_WORLD_VOLUME_REMAINS_SEPARATE_ = 'A unique service facet is ready when code, doc and pipeline are ready. Alias facets remain visible but are not scored twice. Real-world volume remains separate.';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -558,7 +559,7 @@ class AtlasCognitionScoreCardService
             self::FIELD_SCORE => $score,
             self::FIELD_CLAIM_POLICY => $this->claimPolicy(),
             self::FIELD_NOTES => [
-                self::FIELD_READINESS_DEFINITION => 'A unique service facet is ready when code, doc and pipeline are ready. Alias facets remain visible but are not scored twice. Real-world volume remains separate.',
+                self::FIELD_READINESS_DEFINITION => self::FIELD_A_UNIQUE_SERVICE_FACET_IS_READY_WHEN_CODE__DOC_AND_PIPELINE_ARE_READY__ALIAS_FACETS_REMAIN_VISIBLE_BUT_ARE_NOT_SCORED_TWICE__REAL_WORLD_VOLUME_REMAINS_SEPARATE_,
             ],
         ];
         $envelope[self::FIELD_SCORECARD_HASH] = $this->hash($rows, $score);

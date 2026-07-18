@@ -111,6 +111,7 @@ final class AcosMaxVerifiedShareService
     public const FIELD_STORAGE_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL = 'storage/atlas/atlas_decide/live_outcomes.jsonl';
     public const FIELD_ATLAS_ACOS_VERIFIED_SHARE___JSON = 'atlas:acos:verified-share --json';
     public const FIELD_ATLAS_LEDGER_EVENTS_ENGINEERING_EXECUTION_COVERAGE_RECORDED_MODE_ENFORCE = 'atlas_ledger_events engineering.execution.coverage.recorded mode=enforce';
+    public const FIELD_VERIFIED_SHARE___ENFORCE_MODE_VERIFICATION_RECEIPTS___OUTC_01_OUTCOME_RECEIPTS__GROUPED_BY_EXECUTOR = 'verified_share = enforce-mode verification receipts ÷ OUTC-01 outcome receipts, grouped by executor';
 
 
     /** @return array<string,mixed> */
@@ -119,7 +120,7 @@ final class AcosMaxVerifiedShareService
         return [
             self::FIELD_KIND => self::KIND_MEASURE_FREEZE,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
-            self::FIELD_FORMULA => 'verified_share = enforce-mode verification receipts ÷ OUTC-01 outcome receipts, grouped by executor',
+            self::FIELD_FORMULA => self::FIELD_VERIFIED_SHARE___ENFORCE_MODE_VERIFICATION_RECEIPTS___OUTC_01_OUTCOME_RECEIPTS__GROUPED_BY_EXECUTOR,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_THRESHOLDS => [
                 self::FIELD_VERIFIED_SHARE_MIN => self::DEFAULT_VERIFIED_SHARE_MIN,

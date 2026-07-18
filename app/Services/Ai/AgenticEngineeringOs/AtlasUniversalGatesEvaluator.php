@@ -16176,4 +16176,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B604).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b604LoteMeasureDepartmentContractAcosEvolutionOperationalVolumeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'Derived predicted_impact band versus realized proven_real outcome curve for origination; report-only until at least 20 real originations resolve.' => AcosMaxLote2MeasureService::FIELD_DERIVED_PREDICTED_IMPACT_BAND_VERSUS_REALIZED_PROVEN_REAL_OUTCOME_CURVE_FOR_ORIGINATION__REPORT_ONLY_UNTIL_AT_LEAST_20_REAL_ORIGINATIONS_RESOLVE_,
+            'Measure p50/p95 latency from outcome-created lesson to first delivered context and first measured citation; never_delivered remains in denominator.' => AcosMaxLote2MeasureService::FIELD_MEASURE_P50_P95_LATENCY_FROM_OUTCOME_CREATED_LESSON_TO_FIRST_DELIVERED_CONTEXT_AND_FIRST_MEASURED_CITATION__NEVER_DELIVERED_REMAINS_IN_DENOMINATOR_,
+            'Operator natural-language request to completed result rate, asks per request, and request-to-delivery latency; abandoned missions stay in the denominator.' => AcosMaxLote2MeasureService::FIELD_OPERATOR_NATURAL_LANGUAGE_REQUEST_TO_COMPLETED_RESULT_RATE__ASKS_PER_REQUEST__AND_REQUEST_TO_DELIVERY_LATENCY__ABANDONED_MISSIONS_STAY_IN_THE_DENOMINATOR_,
+            'Paired peek evaluation of the same task with and without injected lesson; n_pairs below 8 publishes insufficient_signal and peek must not record usage.' => AcosMaxLote2MeasureService::FIELD_PAIRED_PEEK_EVALUATION_OF_THE_SAME_TASK_WITH_AND_WITHOUT_INJECTED_LESSON__N_PAIRS_BELOW_8_PUBLISHES_INSUFFICIENT_SIGNAL_AND_PEEK_MUST_NOT_RECORD_USAGE_,
+            'Semantic lesson dedup threshold freeze for observe-mode would-merge receipts; enforcement requires later calibrated promotion.' => AcosMaxLote2MeasureService::FIELD_SEMANTIC_LESSON_DEDUP_THRESHOLD_FREEZE_FOR_OBSERVE_MODE_WOULD_MERGE_RECEIPTS__ENFORCEMENT_REQUIRES_LATER_CALIBRATED_PROMOTION_,
+            'enforce de policy, threat-modeling, secret scanning, dependency audit, sovereignty boundary' => DepartmentContractRuntime::FIELD_ENFORCE_DE_POLICY__THREAT_MODELING__SECRET_SCANNING__DEPENDENCY_AUDIT__SOVEREIGNTY_BOUNDARY,
+            'persistência governada de learnings, context packs, decisões, falhas, cross-session continuity' => DepartmentContractRuntime::FIELD_PERSIST_NCIA_GOVERNADA_DE_LEARNINGS__CONTEXT_PACKS__DECIS_ES__FALHAS__CROSS_SESSION_CONTINUITY,
+            'traduz intenção humana ambígua em engineering_goal disambiguado com critérios de aceitação mensuráveis' => DepartmentContractRuntime::FIELD_TRADUZ_INTEN__O_HUMANA_AMB_GUA_EM_ENGINEERING_GOAL_DISAMBIGUADO_COM_CRIT_RIOS_DE_ACEITA__O_MENSUR_VEIS,
+            'dual_read old_licoes=%.2f new_licoes=%.2f quarantine_held=%d promoted=%d active_compounding_served=%s' => AtlasAcosEvolutionScoreService::FIELD_DUAL_READ_OLD_LICOES___2F_NEW_LICOES___2F_QUARANTINE_HELD__D_PROMOTED__D_ACTIVE_COMPOUNDING_SERVED__S,
+            'parado/ausente' => AtlasAcosEvolutionScoreService::FIELD_PARADO_AUSENTE,
+            'Hermes transport may drop final stdout chunks; Autônomos/brain-writer volume can read falsely low until resolved upstream.' => AtlasOperationalVolumeCheckService::FIELD_HERMES_TRANSPORT_MAY_DROP_FINAL_STDOUT_CHUNKS__AUT_NOMOS_BRAIN_WRITER_VOLUME_CAN_READ_FALSELY_LOW_UNTIL_RESOLVED_UPSTREAM_,
+            'Operator review-debt idade_max_da_fila exceeded the frozen cap; next auto-apply cycle is slowed ephemerally.' => OperatorReviewDebtWatchdogCheck::FIELD_OPERATOR_REVIEW_DEBT_IDADE_MAX_DA_FILA_EXCEEDED_THE_FROZEN_CAP__NEXT_AUTO_APPLY_CYCLE_IS_SLOWED_EPHEMERALLY_,
+            'DOC L4: mother_doc + contracts + strong runbook + matrix/quality_bar/evidence/gates all strong.' => AtlasAaeosDocMaturityClassifier::FIELD_DOC_L4__MOTHER_DOC___CONTRACTS___STRONG_RUNBOOK___MATRIX_QUALITY_BAR_EVIDENCE_GATES_ALL_STRONG_,
+            'TETO-01 N-Capture Drill receipt: quarterly-ish cadence, permanent audit anchor for N×M thesis proofs' => AcosMaxLedgerRotationRegistry::FIELD_TETO_01_N_CAPTURE_DRILL_RECEIPT__QUARTERLY_ISH_CADENCE__PERMANENT_AUDIT_ANCHOR_FOR_N_M_THESIS_PROOFS,
+            'verified_share = enforce-mode verification receipts ÷ OUTC-01 outcome receipts, grouped by executor' => AcosMaxVerifiedShareService::FIELD_VERIFIED_SHARE___ENFORCE_MODE_VERIFICATION_RECEIPTS___OUTC_01_OUTCOME_RECEIPTS__GROUPED_BY_EXECUTOR,
+            'Restore ATLAS_SEMANTIC_RAG_MODEL to the prior model and discard jina-v3 shadow rows before any operator promotion.' => Maxa04JinaV3DualReadService::FIELD_RESTORE_ATLAS_SEMANTIC_RAG_MODEL_TO_THE_PRIOR_MODEL_AND_DISCARD_JINA_V3_SHADOW_ROWS_BEFORE_ANY_OPERATOR_PROMOTION_,
+            'operator disables autonomos master on failed preflight regression or scoped-committer violation' => PromotionProtocol::FIELD_OPERATOR_DISABLES_AUTONOMOS_MASTER_ON_FAILED_PREFLIGHT_REGRESSION_OR_SCOPED_COMMITTER_VIOLATION,
+            'A unique service facet is ready when code, doc and pipeline are ready. Alias facets remain visible but are not scored twice. Real-world volume remains separate.' => AtlasCognitionScoreCardService::FIELD_A_UNIQUE_SERVICE_FACET_IS_READY_WHEN_CODE__DOC_AND_PIPELINE_ARE_READY__ALIAS_FACETS_REMAIN_VISIBLE_BUT_ARE_NOT_SCORED_TWICE__REAL_WORLD_VOLUME_REMAINS_SEPARATE_,
+            'b604_lote_measure_department_contract_acos_evolution_operational_volume_floor_count' => 18,
+        ];
+    }
+
 }

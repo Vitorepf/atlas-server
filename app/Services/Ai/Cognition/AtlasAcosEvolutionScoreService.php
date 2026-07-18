@@ -167,6 +167,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_STORE_AUSENTE__0_HONESTO_ = 'store ausente (0 honesto)';
     public const FIELD_TODA_PARCELA___FUN__O_DE_EVID_NCIA_RESOLVIDA_EM_RUNTIME__PROBE_DE_DB_ARQUIVO_AGENDA_CLASSE___NENHUM_LITERAL_AUTO_DECLARADO_ = 'Toda parcela é função de evidência resolvida em runtime (probe de DB/arquivo/agenda/classe); nenhum literal auto-declarado.';
     public const FIELD_DUAL_READ_OLD_FEEDBACK___2F_NEW_FEEDBACK___2F_LIFT_STATUS__S_WITH_CASES__D_WITHOUT_CASES__D_MEASUREMENT_READY__S = 'dual_read old_feedback=%.2f new_feedback=%.2f lift_status=%s with_cases=%d without_cases=%d measurement_ready=%s';
+    public const FIELD_DUAL_READ_OLD_LICOES___2F_NEW_LICOES___2F_QUARANTINE_HELD__D_PROMOTED__D_ACTIVE_COMPOUNDING_SERVED__S = 'dual_read old_licoes=%.2f new_licoes=%.2f quarantine_held=%d promoted=%d active_compounding_served=%s';
+    public const FIELD_PARADO_AUSENTE = 'parado/ausente';
     public const FLOAT_2_5 = 2.5;
     public const FLOAT_10_0 = 10.0;
 
@@ -292,7 +294,7 @@ class AtlasAcosEvolutionScoreService
             self::FIELD_POINTS => $newLicoesPoints,
             self::FIELD_MAX => self::FLOAT_2_5,
             self::FIELD_EVIDENCE => sprintf(
-                'dual_read old_licoes=%.2f new_licoes=%.2f quarantine_held=%d promoted=%d active_compounding_served=%s',
+                self::FIELD_DUAL_READ_OLD_LICOES___2F_NEW_LICOES___2F_QUARANTINE_HELD__D_PROMOTED__D_ACTIVE_COMPOUNDING_SERVED__S,
                 $oldLicoesPoints,
                 $newLicoesPoints,
                 max(0, $held),
@@ -316,7 +318,7 @@ class AtlasAcosEvolutionScoreService
             self::FIELD_SIGNAL => self::FIELD_MOTOR_VIVO,
             self::FIELD_POINTS => $heartbeatFresh ? 2.5 : 0.0,
             self::FIELD_MAX => self::FLOAT_2_5,
-            self::FIELD_EVIDENCE => self::FIELD_HEARTBEAT_DO_COM_ATLAS_SCHEDULER_.($heartbeatFresh ? self::FIELD_FRESCO : 'parado/ausente'),
+            self::FIELD_EVIDENCE => self::FIELD_HEARTBEAT_DO_COM_ATLAS_SCHEDULER_.($heartbeatFresh ? self::FIELD_FRESCO : self::FIELD_PARADO_AUSENTE),
         ];
 
         $gateFresh = $this->fileFresh(storage_path(self::LONG_HORIZON_GATE_EVIDENCE_RELATIVE), self::GATE_FRESH_SECONDS);

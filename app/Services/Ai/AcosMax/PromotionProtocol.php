@@ -146,6 +146,7 @@ final class PromotionProtocol
     public const FIELD_MUTATION_MSI_LOW_ADVISORY_CORRELATES_WITH_LATER_REAL_FAILURE_FOR_THE_EXECUTOR = 'mutation MSI low advisory correlates with later real failure for the executor';
     public const FIELD_SUSPEND_EXECUTOR_FAMILY_ON_NEGATIVE_ROOT_A_B_OR_COST_BREACH = 'suspend executor family on negative root A/B or cost breach';
     public const FIELD_DISABLE_CONTEXTUAL_BLURBS_ON_PRECISION_REGRESSION_OR_HALLUCINATED_BLURB_SAMPLE_FAILURE = 'disable contextual blurbs on precision regression or hallucinated-blurb sample failure';
+    public const FIELD_OPERATOR_DISABLES_AUTONOMOS_MASTER_ON_FAILED_PREFLIGHT_REGRESSION_OR_SCOPED_COMMITTER_VIOLATION = 'operator disables autonomos master on failed preflight regression or scoped-committer violation';
     public const FLOAT_0_05 = 0.05;
 
     /** @var list<string> */
@@ -349,7 +350,7 @@ final class PromotionProtocol
                 self::FIELD_ENV_KEY => self::FIELD_ATLAS_AUTONOMOS_MASTER_ENABLED,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => self::FIELD_OPERATOR_PREFLIGHT_WINDOW,
                 self::FIELD_FLIP_CRITERION => self::FIELD_ATLAS_AUTONOMOS_PREFLIGHT___JSON_RETURNS_8_8_GREEN_WITH_ASI_01_02_05_EVIDENCE,
-                self::FIELD_ROLLBACK_TRIGGER => 'operator disables autonomos master on failed preflight regression or scoped-committer violation',
+                self::FIELD_ROLLBACK_TRIGGER => self::FIELD_OPERATOR_DISABLES_AUTONOMOS_MASTER_ON_FAILED_PREFLIGHT_REGRESSION_OR_SCOPED_COMMITTER_VIOLATION,
                 self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV26S_JUDGE,
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:1412',
                 self::FIELD_OPERATOR_ONLY => true,

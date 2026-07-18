@@ -484,6 +484,9 @@ final class DepartmentContractRuntime
     public const FIELD_REVISA_PATCHES_SPECS_MIGRATIONS_RELEASE_PACKS_COM_CHECKLIST_CAN_NICO_ANTES_DE_CERT = 'revisa patches/specs/migrations/release_packs com checklist canônico antes de cert';
     public const FIELD_EXECUTA_OBRAS_PESADAS_MULTI_M_DULO_R3_R5_COM_PARALELISMO__DURABLE_RESERVATION__MULTI_PROVIDER = 'executa Obras pesadas multi-módulo R3-R5 com paralelismo, durable reservation, multi-provider';
     public const FIELD_DEFINE_SPEC_PACK_CAN_NICO__BREAKING_CHANGE_MATRIX_E_MIGRATION_PLAN_ANTES_DE_QUALQUER_EXECU__O = 'define spec_pack canônico, breaking_change_matrix e migration_plan antes de qualquer execução';
+    public const FIELD_ENFORCE_DE_POLICY__THREAT_MODELING__SECRET_SCANNING__DEPENDENCY_AUDIT__SOVEREIGNTY_BOUNDARY = 'enforce de policy, threat-modeling, secret scanning, dependency audit, sovereignty boundary';
+    public const FIELD_PERSIST_NCIA_GOVERNADA_DE_LEARNINGS__CONTEXT_PACKS__DECIS_ES__FALHAS__CROSS_SESSION_CONTINUITY = 'persistência governada de learnings, context packs, decisões, falhas, cross-session continuity';
+    public const FIELD_TRADUZ_INTEN__O_HUMANA_AMB_GUA_EM_ENGINEERING_GOAL_DISAMBIGUADO_COM_CRIT_RIOS_DE_ACEITA__O_MENSUR_VEIS = 'traduz intenção humana ambígua em engineering_goal disambiguado com critérios de aceitação mensuráveis';
     public const INT_11 = 11;
 
     /**
@@ -543,7 +546,7 @@ final class DepartmentContractRuntime
         self::DEPARTMENT_PRODUCT => [
             self::FIELD_HUMAN_NAME => self::FIELD_PRODUCT_DEPARTMENT,
             self::FIELD_DESCRIPTION => self::FIELD_TURNS_INTENT_INTO_PRODUCT_SPEC___ACCEPTANCE_CRITERIA_,
-            self::FIELD_SCOPE => 'traduz intenção humana ambígua em engineering_goal disambiguado com critérios de aceitação mensuráveis',
+            self::FIELD_SCOPE => self::FIELD_TRADUZ_INTEN__O_HUMANA_AMB_GUA_EM_ENGINEERING_GOAL_DISAMBIGUADO_COM_CRIT_RIOS_DE_ACEITA__O_MENSUR_VEIS,
             self::FIELD_TRIGGERS => [self::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_PRODUCT],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_ENGINEERING_GOAL_RAW, self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL],
@@ -709,7 +712,7 @@ final class DepartmentContractRuntime
         self::DEPARTMENT_SECURITY => [
             self::FIELD_HUMAN_NAME => self::FIELD_SECURITY_DEPARTMENT,
             self::FIELD_DESCRIPTION => self::FIELD_SECURITY_REVIEW__OWASP__SECRETS__DEPENDENCY_CVES_,
-            self::FIELD_SCOPE => 'enforce de policy, threat-modeling, secret scanning, dependency audit, sovereignty boundary',
+            self::FIELD_SCOPE => self::FIELD_ENFORCE_DE_POLICY__THREAT_MODELING__SECRET_SCANNING__DEPENDENCY_AUDIT__SOVEREIGNTY_BOUNDARY,
             self::FIELD_TRIGGERS => [self::FIELD_SECURITY_PATH_TOUCHED_TRUE, 'intent_class_in=[sensitive,secret,cyber]', self::FIELD_RELEASE_PACK_DRAFTED_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_POLICY_REQUEST, self::FIELD_SCHEMA => self::SCHEMA_POLICY_REQUEST],
@@ -780,7 +783,7 @@ final class DepartmentContractRuntime
         self::DEPARTMENT_MEMORY => [
             self::FIELD_HUMAN_NAME => self::FIELD_MEMORY_DEPARTMENT,
             self::FIELD_DESCRIPTION => self::FIELD_EVIDENCE_LEDGER__LEARNING__COMPOUNDING_SIGNAL_EXTRACTION_,
-            self::FIELD_SCOPE => 'persistência governada de learnings, context packs, decisões, falhas, cross-session continuity',
+            self::FIELD_SCOPE => self::FIELD_PERSIST_NCIA_GOVERNADA_DE_LEARNINGS__CONTEXT_PACKS__DECIS_ES__FALHAS__CROSS_SESSION_CONTINUITY,
             self::FIELD_TRIGGERS => [self::FIELD_LEARNING_CAPSULE_EMITTED_TRUE, self::FIELD_SESSION_HANDOFF_REQUESTED_TRUE, self::FIELD_CONTEXT_PACK_REQUEST_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_LEARNING_CAPSULE, self::FIELD_SCHEMA => self::SCHEMA_LEARNING_CAPSULE],

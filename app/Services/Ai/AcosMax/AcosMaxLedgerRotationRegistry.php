@@ -136,6 +136,7 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_TETO_02_MISSION_E2E = 'TETO-02 mission e2e';
     public const FIELD_HIGH_FREQUENCY_APPEND__MAXG_01_DECLARES_ROTATION_CONTRACT = 'high-frequency append; MAXG-01 declares rotation contract';
     public const FIELD_ONE_TIME_CLEANUP_RECEIPT__AUDIT_FOREVER = 'one-time cleanup receipt; audit forever';
+    public const FIELD_TETO_01_N_CAPTURE_DRILL_RECEIPT__QUARTERLY_ISH_CADENCE__PERMANENT_AUDIT_ANCHOR_FOR_N_M_THESIS_PROOFS = 'TETO-01 N-Capture Drill receipt: quarterly-ish cadence, permanent audit anchor for N×M thesis proofs';
     public const INT_8 = 8;
     public const INT_64 = 64;
     public const INT_45 = 45;
@@ -404,7 +405,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_365,
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
-                self::FIELD_RATIONALE => 'TETO-01 N-Capture Drill receipt: quarterly-ish cadence, permanent audit anchor for N×M thesis proofs',
+                self::FIELD_RATIONALE => self::FIELD_TETO_01_N_CAPTURE_DRILL_RECEIPT__QUARTERLY_ISH_CADENCE__PERMANENT_AUDIT_ANCHOR_FOR_N_M_THESIS_PROOFS,
             ],
             self::FIELD_ATLAS_KB_EMBEDDING_COVERAGE_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_8,

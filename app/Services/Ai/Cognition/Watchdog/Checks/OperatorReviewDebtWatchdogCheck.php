@@ -22,6 +22,7 @@ final readonly class OperatorReviewDebtWatchdogCheck implements AtlasWatchdogChe
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_STATUS = 'status';
     public const FIELD_ELEV_25_REVIEW_DEBT_UNAVAILABLE = 'elev_25_review_debt_unavailable';
+    public const FIELD_OPERATOR_REVIEW_DEBT_IDADE_MAX_DA_FILA_EXCEEDED_THE_FROZEN_CAP__NEXT_AUTO_APPLY_CYCLE_IS_SLOWED_EPHEMERALLY_ = 'Operator review-debt idade_max_da_fila exceeded the frozen cap; next auto-apply cycle is slowed ephemerally.';
 
     public function __construct(
         private AtlasWeeklyMemoryDigestService $digest,
@@ -48,7 +49,7 @@ final readonly class OperatorReviewDebtWatchdogCheck implements AtlasWatchdogChe
         if (($evidence[self::FIELD_STATUS] ?? null) === AtlasWatchdogCheckResult::STATUS_ALERT) {
             return AtlasWatchdogCheckResult::alert($evidence, [
                 self::FIELD_CODE => self::CHECK_ID,
-                self::FIELD_MESSAGE => 'Operator review-debt idade_max_da_fila exceeded the frozen cap; next auto-apply cycle is slowed ephemerally.',
+                self::FIELD_MESSAGE => self::FIELD_OPERATOR_REVIEW_DEBT_IDADE_MAX_DA_FILA_EXCEEDED_THE_FROZEN_CAP__NEXT_AUTO_APPLY_CYCLE_IS_SLOWED_EPHEMERALLY_,
                 self::FIELD_CADENCE => $evidence[self::FIELD_CADENCE] ?? [],
             ]);
         }

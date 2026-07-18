@@ -626,6 +626,7 @@ final class AtlasAaeosCommand extends Command
                             {--b601-ledger-rotation-department-contract-acos-window-cognition-score-floors-contract= : JSON file (any object) to observe ledger/rotation/department/contract/acos/window floors}
                             {--b602-aaeos-veto-citation-grounding-gated-corpus-cognitive-lote-floors-contract= : JSON file (any object) to observe aaeos/veto/citation/grounding/gated/corpus floors}
                             {--b603-maxa-jina-generated-contract-lote-measure-department-acos-floors-contract= : JSON file (any object) to observe maxa/jina/generated/contract/lote/measure floors}
+                            {--b604-lote-measure-department-contract-acos-evolution-operational-volume-floors-contract= : JSON file (any object) to observe lote/measure/department/contract/acos/evolution floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1408,6 +1409,7 @@ final class AtlasAaeosCommand extends Command
             ['b601-ledger-rotation-department-contract-acos-window-cognition-score-floors-contract', 'b601_ledger_rotation_department_contract_acos_window_cognition_score_floors_contract', fn (array $p) => $gates->b601LedgerRotationDepartmentContractAcosWindowCognitionScoreFloorsContractObserve($p)],
             ['b602-aaeos-veto-citation-grounding-gated-corpus-cognitive-lote-floors-contract', 'b602_aaeos_veto_citation_grounding_gated_corpus_cognitive_lote_floors_contract', fn (array $p) => $gates->b602AaeosVetoCitationGroundingGatedCorpusCognitiveLoteFloorsContractObserve($p)],
             ['b603-maxa-jina-generated-contract-lote-measure-department-acos-floors-contract', 'b603_maxa_jina_generated_contract_lote_measure_department_acos_floors_contract', fn (array $p) => $gates->b603MaxaJinaGeneratedContractLoteMeasureDepartmentAcosFloorsContractObserve($p)],
+            ['b604-lote-measure-department-contract-acos-evolution-operational-volume-floors-contract', 'b604_lote_measure_department_contract_acos_evolution_operational_volume_floors_contract', fn (array $p) => $gates->b604LoteMeasureDepartmentContractAcosEvolutionOperationalVolumeFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
