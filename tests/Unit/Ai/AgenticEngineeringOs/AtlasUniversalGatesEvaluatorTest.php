@@ -15449,4 +15449,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b710_evidence_vision_floor_count']);
     }
 
+    public function test_b711_cognition_score_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b711CognitionScoreFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_V4, $out['v4']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CODE, $out['code']);
+        $this->assertSame(AtlasCognitionScoreCardService::SCHEMA_VERSION, $out['atlas.cognition.scorecard.v3']);
+        $this->assertSame(AtlasCognitionScoreCardService::DUAL_EMIT_V3_CONFIG_KEY, $out['atlas_elite_compaction.scorecard.dual_emit_v3']);
+        $this->assertSame(AtlasCognitionScoreCardService::STATUS_READY, $out['ready']);
+        $this->assertSame(AtlasCognitionScoreCardService::STATUS_PARTIAL, $out['partial']);
+        $this->assertSame(AtlasCognitionScoreCardService::STATUS_BUILDING, $out['building']);
+        $this->assertSame(AtlasCognitionScoreCardService::STATUS_BLOCKED, $out['blocked']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_EVIDENCE_ALIAS_OF, $out['evidence_alias_of']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACRONYM, $out['acronym']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SCORE_OUT_OF_10, $out['score_out_of_10']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_PIPELINE_STATUS, $out['pipeline_status']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_DOC_STATUS, $out['doc_status']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CODE_STATUS, $out['code_status']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_OVERALL, $out['overall']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(18, $out['b711_cognition_score_floor_count']);
+    }
+
 }
