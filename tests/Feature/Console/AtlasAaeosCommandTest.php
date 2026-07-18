@@ -6731,6 +6731,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_segment_fidelity_causality_teto_ragx_envelope_latency_watchdog_hybrid_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b357-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b357',
+                '--segment-fidelity-causality-teto-ragx-envelope-latency-watchdog-hybrid-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"segment_fidelity_causality_teto_ragx_envelope_latency_watchdog_hybrid_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

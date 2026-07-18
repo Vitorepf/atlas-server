@@ -62,6 +62,8 @@ final class OutcomeCausalityRanker
     public const FIELD_HAS_EVIDENCE_REFS = 'has_evidence_refs';
     public const FIELD_PRIMARY_CAUSE = 'primary_cause';
     public const FIELD_TESTS_PASSED = 'tests_passed';
+    public const FIELD_PACKET_QUALITY_FAILED = 'packet_quality_failed';
+    public const FIELD_MISSING_REQUIRED_SOURCES = 'missing_required_sources';
 
     /** @var list<string> */
     public const PRIMARY_CAUSES = [
@@ -147,9 +149,9 @@ final class OutcomeCausalityRanker
         $outcome = AiValueNormalizer::lowerTrimmedString($envelope[self::FIELD_OUTCOME] ?? '');
         $hasEvidenceRefs = (AiValueNormalizer::boolOrNull($envelope[self::FIELD_HAS_EVIDENCE_REFS] ?? null) ?? false);
         $testsPassed = array_key_exists('tests_passed', $envelope) ? $envelope[self::FIELD_TESTS_PASSED] : null;
-        $missingRequiredSources = (AiValueNormalizer::boolOrNull($envelope['missing_required_sources'] ?? null) ?? false);
+        $missingRequiredSources = (AiValueNormalizer::boolOrNull($envelope[self::FIELD_MISSING_REQUIRED_SOURCES] ?? null) ?? false);
         $allowedFilesSufficient = (AiValueNormalizer::boolOrNull($envelope[self::FIELD_ALLOWED_FILES_SUFFICIENT] ?? null) ?? true);
-        $packetQualityFailed = (AiValueNormalizer::boolOrNull($envelope['packet_quality_failed'] ?? null) ?? false);
+        $packetQualityFailed = (AiValueNormalizer::boolOrNull($envelope[self::FIELD_PACKET_QUALITY_FAILED] ?? null) ?? false);
 
         $candidates = $this->buildCandidates(
             $hasEvidenceRefs,

@@ -182,6 +182,8 @@ final class RagxChainMechanismService
     public const REASON_NO_VERIFIED_MAXF09_L2_SUMMARIES = 'no_verified_maxf09_l2_summaries';
     public const FIELD_RECORDED_AT = 'recorded_at';
     public const FIELD_SUMMARY_REF = 'summary_ref';
+    public const FIELD_K = 'k';
+    public const FIELD_WEIGHT = 'weight';
 
     public function __construct(
         private readonly ?AsefChunkIndexService $asefChunks = null,
@@ -462,7 +464,7 @@ final class RagxChainMechanismService
     public function adaptiveK(array $scores, int $requestedK): array
     {
         if (! $this->flag(self::FLAG_ADAPTIVE_K)) {
-            return $this->disabled(self::STAGE_RAGX_11, self::FLAG_ADAPTIVE_K) + ['k' => max(1, $requestedK)];
+            return $this->disabled(self::STAGE_RAGX_11, self::FLAG_ADAPTIVE_K) + [self::FIELD_K => max(1, $requestedK)];
         }
 
         $scores = array_values(array_map('floatval', $scores));
@@ -479,7 +481,7 @@ final class RagxChainMechanismService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             self::FIELD_SLICE => self::STAGE_RAGX_11,
             self::FIELD_STATUS => self::STATUS_SHADOW,
-            'k' => $k,
+            self::FIELD_K => $k,
             'score_count' => count($scores),
             self::FIELD_AB_GREEN_CLAIMED => false,
         ];
@@ -574,7 +576,7 @@ final class RagxChainMechanismService
         foreach ($edges as $edge) {
             $source = AiValueNormalizer::trimmedStringOrNull($edge[self::FIELD_SOURCE] ?? null) ?? '';
             $target = AiValueNormalizer::trimmedStringOrNull($edge['target'] ?? null) ?? '';
-            $weight = max(0.0, AiValueNormalizer::finiteFloatOrNull($edge['weight'] ?? null) ?? 1.0);
+            $weight = max(0.0, AiValueNormalizer::finiteFloatOrNull($edge[self::FIELD_WEIGHT] ?? null) ?? 1.0);
             if ($source === '' || $target === '' || $source === $target || $weight <= 0.0 || ! isset($known[$source], $known[$target])) {
                 continue;
             }

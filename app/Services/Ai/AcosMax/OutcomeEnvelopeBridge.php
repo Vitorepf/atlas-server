@@ -38,6 +38,8 @@ final class OutcomeEnvelopeBridge
     public const FIELD_FORMULA_VERSION = 'formula_version';
     public const FIELD_FORMULA = 'formula';
     public const FIELD_THRESHOLDS = 'thresholds';
+    public const FIELD_TTL_DAYS = 'ttl_days';
+    public const FIELD_KIND = 'kind';
 
     /** @var array<string, OutcomeEnvelopeAdapter> */
     private array $adapters;
@@ -108,7 +110,7 @@ final class OutcomeEnvelopeBridge
     public static function freezePayload(): array
     {
         return [
-            'kind' => self::KIND_MEASURE_FREEZE,
+            self::FIELD_KIND => self::KIND_MEASURE_FREEZE,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_FORMULA_VERSION => OutcomeEnvelope::FORMULA_VERSION,
             self::FIELD_FORMULA => 'Outcome envelope = MULTX-03 atlas.engineering_outcome.v2 contract projected through one thin adapter per native organ (dev_procedural, aemor, compounding). Divergent native fields remain in native_divergent.fields labeled by origin — never coerced or fused.',
@@ -118,7 +120,7 @@ final class OutcomeEnvelopeBridge
                 'flag_default' => false,
             ],
             'denominator_min' => 1,
-            'ttl_days' => 90,
+            self::FIELD_TTL_DAYS => 90,
             'author_engine_id' => 'cursor-acos-max-esp06',
             'judge_engine_id' => 'codex-independent-esp06-judge',
             'dual_read_required' => true,

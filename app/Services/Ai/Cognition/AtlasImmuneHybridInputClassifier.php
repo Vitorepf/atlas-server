@@ -72,6 +72,8 @@ final class AtlasImmuneHybridInputClassifier
     public const FIELD_MEMORY_ELIGIBLE = 'memory_eligible';
     public const FIELD_HOSTILE_CLASS = 'hostile_class';
     public const FIELD_SCORES_BY_CLASS = 'scores_by_class';
+    public const FIELD_UNTRUSTED_CONTENT = 'untrusted_content';
+    public const FIELD_THRESHOLDS = 'thresholds';
 
     private readonly AtlasAaeosCognitiveImmuneInputClassifier $base;
 
@@ -104,7 +106,7 @@ final class AtlasImmuneHybridInputClassifier
         $this->signatureStore = $signatureStore ?? new ImmuneSignatureStore;
         $this->anchors = $anchors;
         $freeze = AtlasImmuneClassifierHybridFreeze::freezePayload();
-        $this->tau = $tau ?? (AiValueNormalizer::finiteFloatOrNull($freeze['thresholds'][self::FIELD_TAU] ?? null) ?? 0.62);
+        $this->tau = $tau ?? (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_THRESHOLDS][self::FIELD_TAU] ?? null) ?? 0.62);
         $this->enabled = $enabled ?? (AiValueNormalizer::boolOrNull(config(self::SEMANTIC_ARM_ENABLED_CONFIG_KEY, self::DEFAULT_SEMANTIC_ARM_ENABLED)) ?? self::DEFAULT_SEMANTIC_ARM_ENABLED);
     }
 
@@ -294,7 +296,7 @@ final class AtlasImmuneHybridInputClassifier
         return match ($class) {
             'prompt_injection' => 'blocked_ephemeral_evidence',
             'private_sensitive' => 'redact_minimize',
-            'untrusted_content' => 'cited_data_not_instruction',
+            self::FIELD_UNTRUSTED_CONTENT => 'cited_data_not_instruction',
             default => 'blocked_ephemeral_evidence',
         };
     }

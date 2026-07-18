@@ -8577,6 +8577,38 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors: segment ranker / fidelity / causality / teto digest /
+     * ragx chain / outcome envelope / AOBG latency / watchdog result / immune hybrid (B357).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function segmentFidelityCausalityTetoRagxEnvelopeLatencyWatchdogHybridFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'segment_field_id' => SegmentImportanceRanker::FIELD_ID,
+            'segment_field_tokens_kept' => SegmentImportanceRanker::FIELD_TOKENS_KEPT,
+            'fidelity_field_verdict' => SummaryFidelityCoverageScorer::FIELD_VERDICT,
+            'fidelity_field_unverifiable_item_ids' => SummaryFidelityCoverageScorer::FIELD_UNVERIFIABLE_ITEM_IDS,
+            'causality_field_packet_quality_failed' => OutcomeCausalityRanker::FIELD_PACKET_QUALITY_FAILED,
+            'causality_field_missing_required_sources' => OutcomeCausalityRanker::FIELD_MISSING_REQUIRED_SOURCES,
+            'teto_field_id' => Teto10PredictedRevertReviewDigest::FIELD_ID,
+            'teto_field_source' => Teto10PredictedRevertReviewDigest::FIELD_SOURCE,
+            'ragx_field_k' => RagxChainMechanismService::FIELD_K,
+            'ragx_field_weight' => RagxChainMechanismService::FIELD_WEIGHT,
+            'envelope_field_ttl_days' => OutcomeEnvelopeBridge::FIELD_TTL_DAYS,
+            'envelope_field_kind' => OutcomeEnvelopeBridge::FIELD_KIND,
+            'latency_field_op' => AobgLatencyWatchdogCheck::FIELD_OP,
+            'latency_field_violations' => AobgLatencyWatchdogCheck::FIELD_VIOLATIONS,
+            'watchdog_field_status' => AtlasWatchdogCheckResult::FIELD_STATUS,
+            'watchdog_field_evidence' => AtlasWatchdogCheckResult::FIELD_EVIDENCE,
+            'hybrid_field_untrusted_content' => AtlasImmuneHybridInputClassifier::FIELD_UNTRUSTED_CONTENT,
+            'hybrid_field_thresholds' => AtlasImmuneHybridInputClassifier::FIELD_THRESHOLDS,
+            'segment_fidelity_causality_teto_ragx_envelope_latency_watchdog_hybrid_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

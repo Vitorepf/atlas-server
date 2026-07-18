@@ -70,6 +70,8 @@ final class SegmentImportanceRanker
     public const FIELD_HAS_EVIDENCE_REF = 'has_evidence_ref';
     public const FIELD_STALE_QUERY = 'stale_query';
     public const FIELD_LOW_SCORE_REF = 'low_score_ref';
+    public const FIELD_ID = 'id';
+    public const FIELD_TOKENS_KEPT = 'tokens_kept';
 
     /**
      * Rank may-discard segments by composite signal and greedily fill a token budget.
@@ -146,13 +148,13 @@ final class SegmentImportanceRanker
             }
 
             if ($decision === self::DECISION_KEEP) {
-                $keptIds[] = $segment['id'];
+                $keptIds[] = $segment[self::FIELD_ID];
             } else {
-                $droppedIds[] = $segment['id'];
+                $droppedIds[] = $segment[self::FIELD_ID];
             }
 
             $ranked[] = [
-                'id' => $segment['id'],
+                self::FIELD_ID => $segment[self::FIELD_ID],
                 self::FIELD_KIND => $segment[self::FIELD_KIND],
                 self::FIELD_SCORE => $segment[self::FIELD_SCORE],
                 self::FIELD_RECENCY_RANK => $segment[self::FIELD_RECENCY_RANK],
@@ -170,7 +172,7 @@ final class SegmentImportanceRanker
             'kept_ids' => $keptIds,
             self::FIELD_DROPPED_IDS => $droppedIds,
             self::FIELD_BOUNDARY_INDEX => $boundaryIndex ?? count($ranked),
-            'tokens_kept' => $tokensKept,
+            self::FIELD_TOKENS_KEPT => $tokensKept,
             'tokens_available' => max($budget - $tokensKept, 0),
             'kept_count' => count($keptIds),
             self::FIELD_DROPPED_COUNT => count($droppedIds),
@@ -232,7 +234,7 @@ final class SegmentImportanceRanker
             $score = round($base + $dedupPenalty, 4);
 
             $scored[] = [
-                'id' => AtlasAaeosArrayFieldReader::stringField($row, 'id'),
+                self::FIELD_ID => AtlasAaeosArrayFieldReader::stringField($row, 'id'),
                 self::FIELD_KIND => $kind,
                 self::FIELD_RECENCY_RANK => $recencyRank,
                 self::FIELD_TOKEN_ESTIMATE => max($this->intField($row, 'token_estimate'), 0),
@@ -289,7 +291,7 @@ final class SegmentImportanceRanker
             return $b[self::FIELD_KIND_WEIGHT] <=> $a[self::FIELD_KIND_WEIGHT];
         }
 
-        return strcmp($a['id'], $b['id']);
+        return strcmp($a[self::FIELD_ID], $b[self::FIELD_ID]);
     }
 
     /**

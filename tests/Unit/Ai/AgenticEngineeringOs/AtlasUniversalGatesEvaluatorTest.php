@@ -6574,4 +6574,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['promo_handoff_blocker_protocol_replay_thesis_integrity_budget_deriver_floor_count']);
     }
 
+    public function test_segment_fidelity_causality_teto_ragx_envelope_latency_watchdog_hybrid_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->segmentFidelityCausalityTetoRagxEnvelopeLatencyWatchdogHybridFloorsContractObserve([]);
+
+        $this->assertSame('id', $payload['segment_field_id']);
+        $this->assertSame('tokens_kept', $payload['segment_field_tokens_kept']);
+        $this->assertSame('verdict', $payload['fidelity_field_verdict']);
+        $this->assertSame('unverifiable_item_ids', $payload['fidelity_field_unverifiable_item_ids']);
+        $this->assertSame('packet_quality_failed', $payload['causality_field_packet_quality_failed']);
+        $this->assertSame('missing_required_sources', $payload['causality_field_missing_required_sources']);
+        $this->assertSame('id', $payload['teto_field_id']);
+        $this->assertSame('source', $payload['teto_field_source']);
+        $this->assertSame('k', $payload['ragx_field_k']);
+        $this->assertSame('weight', $payload['ragx_field_weight']);
+        $this->assertSame('ttl_days', $payload['envelope_field_ttl_days']);
+        $this->assertSame('kind', $payload['envelope_field_kind']);
+        $this->assertSame('op', $payload['latency_field_op']);
+        $this->assertSame('violations', $payload['latency_field_violations']);
+        $this->assertSame('status', $payload['watchdog_field_status']);
+        $this->assertSame('evidence', $payload['watchdog_field_evidence']);
+        $this->assertSame('untrusted_content', $payload['hybrid_field_untrusted_content']);
+        $this->assertSame('thresholds', $payload['hybrid_field_thresholds']);
+        $this->assertSame(18, $payload['segment_fidelity_causality_teto_ragx_envelope_latency_watchdog_hybrid_floor_count']);
+    }
+
 }
