@@ -13973,4 +13973,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b651_quality_bar_floor_count']);
     }
 
+    public function test_b652_aaeos_http_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b652AaeosHttpFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_INPUT_TEXT, $out['input_text']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::STATUS_SCHEMA, $out['atlas.aaeos.http_path_status.v1']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::REQUEST_SCHEMA, $out['atlas.aaeos.http_path_request.v1']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::RESULT_OK, $out['ok']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_BLOCKED, $out['blocked']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::RESULT_UNKNOWN, $out['unknown']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_BLOCKED, $out['blocked']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_INTENT_ID, $out['intent_id']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_ENVELOPES, $out['envelopes']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_PLACEMENT, $out['placement']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_DATA, $out['data']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_BLOCKER, $out['blocker']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_TELEMETRY, $out['telemetry']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_GATE_STATUS, $out['gate_status']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_AAEOS_HTTP_PATH, $out['aaeos_http_path']);
+        $this->assertSame(18, $out['b652_aaeos_http_floor_count']);
+    }
+
 }

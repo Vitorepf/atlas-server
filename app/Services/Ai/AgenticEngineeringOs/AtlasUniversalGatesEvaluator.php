@@ -17660,4 +17660,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B652).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b652AaeosHttpFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'id' => AtlasAaeosHttpPathFacadeService::FIELD_ID,
+            'input_text' => AtlasAaeosHttpPathFacadeService::FIELD_INPUT_TEXT,
+            'atlas.aaeos.http_path_status.v1' => AtlasAaeosHttpPathFacadeService::STATUS_SCHEMA,
+            'atlas.aaeos.http_path_request.v1' => AtlasAaeosHttpPathFacadeService::REQUEST_SCHEMA,
+            'ok' => AtlasAaeosHttpPathFacadeService::RESULT_OK,
+            'blocked' => AtlasAaeosHttpPathFacadeService::FIELD_BLOCKED,
+            'unknown' => AtlasAaeosHttpPathFacadeService::RESULT_UNKNOWN,
+            'blocked' => AtlasAaeosHttpPathFacadeService::FIELD_BLOCKED,
+            'intent_id' => AtlasAaeosHttpPathFacadeService::FIELD_INTENT_ID,
+            'reason' => AtlasAaeosHttpPathFacadeService::FIELD_REASON,
+            'envelopes' => AtlasAaeosHttpPathFacadeService::FIELD_ENVELOPES,
+            'placement' => AtlasAaeosHttpPathFacadeService::FIELD_PLACEMENT,
+            'status' => AtlasAaeosHttpPathFacadeService::FIELD_STATUS,
+            'data' => AtlasAaeosHttpPathFacadeService::FIELD_DATA,
+            'blocker' => AtlasAaeosHttpPathFacadeService::FIELD_BLOCKER,
+            'telemetry' => AtlasAaeosHttpPathFacadeService::FIELD_TELEMETRY,
+            'gate_status' => AtlasAaeosHttpPathFacadeService::FIELD_GATE_STATUS,
+            'aaeos_http_path' => AtlasAaeosHttpPathFacadeService::FIELD_AAEOS_HTTP_PATH,
+            'b652_aaeos_http_floor_count' => 18,
+        ];
+    }
+
 }
