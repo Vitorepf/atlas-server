@@ -86,6 +86,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_REFUSED_COUNT = 'refused_count';
     public const FIELD_PROBES = 'probes';
     public const FIELD_ERRORS = 'errors';
+    public const FIELD_N = 'n';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
@@ -127,7 +129,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         }
 
         $evidence = [
-            'schema_version' => self::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             self::FIELD_PROBES => $probes,
             self::FIELD_PROBE_COUNT => count($probes),
             self::FIELD_REFUSED_COUNT => count(array_filter($probes, static fn (array $p): bool => ($p[self::FIELD_REFUSED] ?? false) === true)),
@@ -391,7 +393,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $derived = RequestedAutonomyDerivation::derive([
             self::FIELD_PRIVACY_CLASS => 'normal',
             self::FIELD_REVERSAL_RATE => 0.42,
-            'n' => 20,
+            self::FIELD_N => 20,
             self::FIELD_CEILING => PolicyCanon::AUTONOMY_AUTONOMOUS,
         ]);
         $level = AiValueNormalizer::trimmedScalarStringOrNull($derived[self::FIELD_REQUESTED_AUTONOMY] ?? null) ?? '';
@@ -417,7 +419,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $derived = RequestedAutonomyDerivation::derive([
             self::FIELD_PRIVACY_CLASS => 'normal',
             self::FIELD_REVERSAL_RATE => 0.0,
-            'n' => 100,
+            self::FIELD_N => 100,
             self::FIELD_CEILING => PolicyCanon::AUTONOMY_DRAFT,
         ]);
         $level = AiValueNormalizer::trimmedScalarStringOrNull($derived[self::FIELD_REQUESTED_AUTONOMY] ?? null) ?? '';

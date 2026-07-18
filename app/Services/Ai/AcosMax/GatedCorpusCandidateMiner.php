@@ -32,6 +32,8 @@ final class GatedCorpusCandidateMiner
     public const FIELD_OMITTED = 'omitted';
     public const FIELD_VIA_ASI_02 = 'via_asi_02';
     public const FIELD_WRITES_MEMORY_DIRECTLY = 'writes_memory_directly';
+    public const FIELD_TEXT = 'text';
+    public const FIELD_REF = 'ref';
 
     /**
      * @param  list<array<string,mixed>>  $sources
@@ -47,8 +49,8 @@ final class GatedCorpusCandidateMiner
                 $omitted[] = 'protected_class_omitted';
                 continue;
             }
-            $text = AiValueNormalizer::trimmedStringOrNull($source['text'] ?? null);
-            $ref = AiValueNormalizer::trimmedStringOrNull($source['ref'] ?? null);
+            $text = AiValueNormalizer::trimmedStringOrNull($source[self::FIELD_TEXT] ?? null);
+            $ref = AiValueNormalizer::trimmedStringOrNull($source[self::FIELD_REF] ?? null);
             if ($text === null || $ref === null) {
                 continue;
             }

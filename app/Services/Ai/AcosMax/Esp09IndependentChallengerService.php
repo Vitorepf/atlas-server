@@ -106,6 +106,8 @@ final class Esp09IndependentChallengerService
     public const PROMOTION_WITHOUT_BLOCK = 'delayed_not_vetoed';
     public const FIELD_TRIGGER = 'trigger';
     public const FIELD_TRIGGER_KINDS = 'trigger_kinds';
+    public const FIELD_WINDOWS = 'windows';
+    public const FIELD_WINDOW = 'window';
 
     /**
      * @param  array<string,mixed>  $context
@@ -216,7 +218,7 @@ final class Esp09IndependentChallengerService
 
         foreach ($events as $event) {
             $outcome = AiValueNormalizer::lowerTrimmedString($event[self::FIELD_OUTCOME] ?? '');
-            $window = AiValueNormalizer::trimmedStringOrNull($event['window'] ?? null) ?? 'default';
+            $window = AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_WINDOW] ?? null) ?? 'default';
             $byWindow[$window] ??= [self::OUTCOME_ACCEPTED => 0, self::OUTCOME_IGNORED => 0];
 
             if ($outcome === self::OUTCOME_ACCEPTED) {
@@ -255,7 +257,7 @@ final class Esp09IndependentChallengerService
             self::OUTCOME_ACCEPTED => $accepted,
             self::OUTCOME_IGNORED => $ignored,
             self::FIELD_ACCEPTED_RATE => $acceptedRate,
-            'windows' => $byWindow,
+            self::FIELD_WINDOWS => $byWindow,
             self::FIELD_DEATH_REVIEW_CANDIDATE => $deathReview,
             self::FIELD_DEATH_REVIEW_REASON => $deathReview
                 ? self::DEATH_REVIEW_REASON_NEAR_ZERO_ACCEPTED

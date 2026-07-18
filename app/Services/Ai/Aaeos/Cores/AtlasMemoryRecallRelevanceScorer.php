@@ -28,6 +28,8 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_RANK = 'rank';
     public const FIELD_SESSION = 'session';
     public const FIELD_REQUIREMENT = 'requirement';
+    public const FIELD_WORKSPACE = 'workspace';
+    public const FIELD_VERBATIM = 'verbatim';
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -75,7 +77,7 @@ final class AtlasMemoryRecallRelevanceScorer
             'task' => 22,
             self::FIELD_ENGINEERING_RUN => 20,
             self::FIELD_PROJECT => 16,
-            'workspace' => 12,
+            self::FIELD_WORKSPACE => 12,
             self::FIELD_SESSION => 10,
             'user' => 8,
             default => 4,
@@ -160,7 +162,7 @@ final class AtlasMemoryRecallRelevanceScorer
         $source = AiValueNormalizer::trimmedStringOrNull($row['source'] ?? null) ?? '';
 
         return match ($source) {
-            'semantic', 'verbatim' => $source,
+            'semantic', self::FIELD_VERBATIM => $source,
             default => 'registry',
         };
     }

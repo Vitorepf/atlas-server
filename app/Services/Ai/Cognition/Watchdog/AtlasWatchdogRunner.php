@@ -39,6 +39,8 @@ final readonly class AtlasWatchdogRunner
     public const FIELD_CHECK_ID = 'check_id';
     public const FIELD_CHECKS = 'checks';
     public const FIELD_ALERTS = 'alerts';
+    public const FIELD_ID = 'id';
+    public const FIELD_TOTAL = 'total';
 
     public function __construct(
         private AtlasWatchdogCheckRegistry $registry,
@@ -73,7 +75,7 @@ final readonly class AtlasWatchdogRunner
                 )->toArray();
             }
 
-            $checks[] = ['id' => $id] + $row;
+            $checks[] = [self::FIELD_ID => $id] + $row;
         }
 
         $payload = [
@@ -128,7 +130,7 @@ final readonly class AtlasWatchdogRunner
     private function counts(array $checks): array
     {
         $counts = [
-            'total' => count($checks),
+            self::FIELD_TOTAL => count($checks),
             AtlasWatchdogCheckResult::STATUS_OK => 0,
             AtlasWatchdogCheckResult::STATUS_WARNING => 0,
             AtlasWatchdogCheckResult::STATUS_ALERT => 0,
@@ -158,7 +160,7 @@ final readonly class AtlasWatchdogRunner
                 continue;
             }
 
-            $alerts[] = [self::FIELD_CHECK_ID => AiValueNormalizer::trimmedStringOrNull($check['id'] ?? null) ?? self::CHECK_ID_UNKNOWN] + $check[AtlasWatchdogCheckResult::FIELD_ALERT];
+            $alerts[] = [self::FIELD_CHECK_ID => AiValueNormalizer::trimmedStringOrNull($check[self::FIELD_ID] ?? null) ?? self::CHECK_ID_UNKNOWN] + $check[AtlasWatchdogCheckResult::FIELD_ALERT];
         }
 
         return $alerts;

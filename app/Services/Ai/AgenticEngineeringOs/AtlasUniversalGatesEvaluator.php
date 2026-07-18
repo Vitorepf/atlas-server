@@ -8609,6 +8609,38 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors: memory budget / recall scorer / maxa dual-read /
+     * gated corpus / esp09 / dogfooding / autonomy ladder / watchdog runner / hybrid freeze (B358).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function memoryBudgetRecallMaxaCorpusEsp09DogfoodAutonomyRunnerFreezeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'budget_field_truncated' => MemoryInjectionBudgetAllocator::FIELD_TRUNCATED,
+            'budget_field_remaining_chars' => MemoryInjectionBudgetAllocator::FIELD_REMAINING_CHARS,
+            'recall_field_workspace' => AtlasMemoryRecallRelevanceScorer::FIELD_WORKSPACE,
+            'recall_field_verbatim' => AtlasMemoryRecallRelevanceScorer::FIELD_VERBATIM,
+            'maxa_field_writes_live_default_model' => Maxa04JinaV3DualReadService::FIELD_WRITES_LIVE_DEFAULT_MODEL,
+            'maxa_field_requires_dual_read_ledger' => Maxa04JinaV3DualReadService::FIELD_REQUIRES_DUAL_READ_LEDGER,
+            'corpus_field_text' => GatedCorpusCandidateMiner::FIELD_TEXT,
+            'corpus_field_ref' => GatedCorpusCandidateMiner::FIELD_REF,
+            'esp09_field_windows' => Esp09IndependentChallengerService::FIELD_WINDOWS,
+            'esp09_field_window' => Esp09IndependentChallengerService::FIELD_WINDOW,
+            'dogfood_field_status' => DogfoodingFrictionLeadMiner::FIELD_STATUS,
+            'dogfood_field_kind' => DogfoodingFrictionLeadMiner::FIELD_KIND,
+            'autonomy_field_n' => AutonomyLadderAdversarialWatchdogCheck::FIELD_N,
+            'autonomy_field_schema_version' => AutonomyLadderAdversarialWatchdogCheck::FIELD_SCHEMA_VERSION,
+            'runner_field_id' => AtlasWatchdogRunner::FIELD_ID,
+            'runner_field_total' => AtlasWatchdogRunner::FIELD_TOTAL,
+            'freeze_field_ttl_days' => AtlasImmuneClassifierHybridFreeze::FIELD_TTL_DAYS,
+            'freeze_field_switch' => AtlasImmuneClassifierHybridFreeze::FIELD_SWITCH,
+            'memory_budget_recall_maxa_corpus_esp09_dogfood_autonomy_runner_freeze_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

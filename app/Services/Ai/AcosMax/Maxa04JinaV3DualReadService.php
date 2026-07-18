@@ -72,6 +72,8 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_DUAL_READ = 'dual_read';
     public const FIELD_REQUIRED = 'required';
     public const FIELD_LEDGER_PATH = 'ledger_path';
+    public const FIELD_WRITES_LIVE_DEFAULT_MODEL = 'writes_live_default_model';
+    public const FIELD_REQUIRES_DUAL_READ_LEDGER = 'requires_dual_read_ledger';
 
 
     /** @return array<string,mixed> */
@@ -118,8 +120,8 @@ final class Maxa04JinaV3DualReadService
             'reembed_path' => [
                 'mode' => self::MODE_SHADOW_ONLY,
                 self::FIELD_COMMAND => 'ATLAS_SEMANTIC_RAG_MODEL=jinaai/jina-embeddings-v3 php artisan atlas:memory:embed-backfill --stale --json',
-                'writes_live_default_model' => false,
-                'requires_dual_read_ledger' => true,
+                self::FIELD_WRITES_LIVE_DEFAULT_MODEL => false,
+                self::FIELD_REQUIRES_DUAL_READ_LEDGER => true,
             ],
             self::FIELD_ROLLBACK => [
                 'handle' => 'maxa04:restore-current-semantic-rag-model',

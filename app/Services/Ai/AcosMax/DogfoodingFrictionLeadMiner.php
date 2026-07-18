@@ -27,6 +27,8 @@ final class DogfoodingFrictionLeadMiner
     public const FIELD_LEADS = 'leads';
     public const FIELD_OPERATOR_TEXT_IN_OBJECTIVE = 'operator_text_in_objective';
     public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_KIND = 'kind';
 
     /**
      * @param  list<array<string,mixed>>  $events
@@ -59,7 +61,7 @@ final class DogfoodingFrictionLeadMiner
                 self::FIELD_EVIDENCE_REFS => array_values(array_map(
                     static fn (array $event): string => 'friction:'.sha1(json_encode([
                         $event[self::FIELD_SIGNATURE] ?? '',
-                        $event['kind'] ?? '',
+                        $event[self::FIELD_KIND] ?? '',
                         $event[self::FIELD_TARGET] ?? '',
                     ], JSON_UNESCAPED_SLASHES)),
                     $group,
@@ -74,7 +76,7 @@ final class DogfoodingFrictionLeadMiner
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'status' => $leads === [] ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK,
+            self::FIELD_STATUS => $leads === [] ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK,
             self::FIELD_LEADS => $leads,
         ];
     }

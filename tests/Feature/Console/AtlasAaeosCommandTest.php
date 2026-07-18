@@ -6745,6 +6745,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_memory_budget_recall_maxa_corpus_esp09_dogfood_autonomy_runner_freeze_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b358-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b358',
+                '--memory-budget-recall-maxa-corpus-esp09-dogfood-autonomy-runner-freeze-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"memory_budget_recall_maxa_corpus_esp09_dogfood_autonomy_runner_freeze_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

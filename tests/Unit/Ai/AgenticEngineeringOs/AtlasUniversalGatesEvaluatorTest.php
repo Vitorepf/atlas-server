@@ -6599,4 +6599,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['segment_fidelity_causality_teto_ragx_envelope_latency_watchdog_hybrid_floor_count']);
     }
 
+    public function test_memory_budget_recall_maxa_corpus_esp09_dogfood_autonomy_runner_freeze_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->memoryBudgetRecallMaxaCorpusEsp09DogfoodAutonomyRunnerFreezeFloorsContractObserve([]);
+
+        $this->assertSame('truncated', $payload['budget_field_truncated']);
+        $this->assertSame('remaining_chars', $payload['budget_field_remaining_chars']);
+        $this->assertSame('workspace', $payload['recall_field_workspace']);
+        $this->assertSame('verbatim', $payload['recall_field_verbatim']);
+        $this->assertSame('writes_live_default_model', $payload['maxa_field_writes_live_default_model']);
+        $this->assertSame('requires_dual_read_ledger', $payload['maxa_field_requires_dual_read_ledger']);
+        $this->assertSame('text', $payload['corpus_field_text']);
+        $this->assertSame('ref', $payload['corpus_field_ref']);
+        $this->assertSame('windows', $payload['esp09_field_windows']);
+        $this->assertSame('window', $payload['esp09_field_window']);
+        $this->assertSame('status', $payload['dogfood_field_status']);
+        $this->assertSame('kind', $payload['dogfood_field_kind']);
+        $this->assertSame('n', $payload['autonomy_field_n']);
+        $this->assertSame('schema_version', $payload['autonomy_field_schema_version']);
+        $this->assertSame('id', $payload['runner_field_id']);
+        $this->assertSame('total', $payload['runner_field_total']);
+        $this->assertSame('ttl_days', $payload['freeze_field_ttl_days']);
+        $this->assertSame('switch', $payload['freeze_field_switch']);
+        $this->assertSame(18, $payload['memory_budget_recall_maxa_corpus_esp09_dogfood_autonomy_runner_freeze_floor_count']);
+    }
+
 }
