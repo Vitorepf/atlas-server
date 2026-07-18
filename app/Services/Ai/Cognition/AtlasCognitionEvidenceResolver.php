@@ -90,6 +90,8 @@ class AtlasCognitionEvidenceResolver
     public const FIELD_TEST = 'test';
     public const FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS = 'atlas_aaeos_test_run_receipts';
     public const FIELD_CANDIDATE_TEST_REF_MISSING = 'candidate_test_ref_missing';
+    public const FIELD_CANDIDATE_TEST_SYMBOL_MISSING = 'candidate_test_symbol_missing';
+    public const FIELD_GREEN_RECEIPT_MISSING = 'green_receipt_missing';
 
     /**
      * Memoized FQN-ownership index: short class name => list of owner-doc capabilities
@@ -357,8 +359,8 @@ class AtlasCognitionEvidenceResolver
         $reason = match (true) {
             $owners === [] => 'owner_doc_missing',
             $candidateTestRefs === [] => self::FIELD_CANDIDATE_TEST_REF_MISSING,
-            $existingTestRefs === [] => 'candidate_test_symbol_missing',
-            $greenCount === 0 => 'green_receipt_missing',
+            $existingTestRefs === [] => self::FIELD_CANDIDATE_TEST_SYMBOL_MISSING,
+            $greenCount === 0 => self::FIELD_GREEN_RECEIPT_MISSING,
             $pipelineStatus !== self::STATUS_READY => 'green_receipt_stale_or_unmatched',
             default => self::STATUS_READY,
         };

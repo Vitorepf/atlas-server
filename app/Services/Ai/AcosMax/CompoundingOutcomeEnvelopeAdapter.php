@@ -51,6 +51,8 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public const FIELD_FIELDS = 'fields';
     public const FIELD_AUTONOMOS = 'autonomos';
     public const FIELD_DEV = 'dev';
+    public const FIELD_ATLAS_CONVERSATION = 'atlas_conversation';
+    public const FIELD_FORGE = 'forge';
 
     public function origin(): string
     {
@@ -63,9 +65,9 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
      */
     public function toEnvelope(array $native, array $context = []): OutcomeEnvelope
     {
-        $flowId = AiValueNormalizer::lowerTrimmedString($native[self::FIELD_FLOW_ID] ?? 'atlas_conversation');
+        $flowId = AiValueNormalizer::lowerTrimmedString($native[self::FIELD_FLOW_ID] ?? self::FIELD_ATLAS_CONVERSATION);
         $executor = match (true) {
-            str_contains($flowId, 'forge') => 'forge',
+            str_contains($flowId, self::FIELD_FORGE) => self::FIELD_FORGE,
             str_contains($flowId, self::FIELD_AUTONOMOS) => 'autonomos',
             str_contains($flowId, self::FIELD_DEV) => 'dev',
             default => 'engineering',
@@ -118,7 +120,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $fields = AiValueNormalizer::arrayOrEmpty($data[self::FIELD_NATIVE_DIVERGENT][self::FIELD_FIELDS] ?? null);
 
         return [
-            self::FIELD_FLOW_ID => (AiValueNormalizer::trimmedStringOrNull($fields[self::FIELD_FLOW_ID] ?? null) ?? 'atlas_conversation'),
+            self::FIELD_FLOW_ID => (AiValueNormalizer::trimmedStringOrNull($fields[self::FIELD_FLOW_ID] ?? null) ?? self::FIELD_ATLAS_CONVERSATION),
             self::FIELD_RUN_ID => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_RUN_ID] ?? null) ?? ''),
             self::FIELD_OUTCOME_STATUS => OutcomeEnvelope::toNativeStatus((AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_STATUS] ?? null) ?? OutcomeEnvelope::STATUS_BLOCKED), $this->origin()),
             self::FIELD_FLOW_QUALITY => $fields[self::FIELD_FLOW_QUALITY] ?? null,

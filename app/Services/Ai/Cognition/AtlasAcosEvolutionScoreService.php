@@ -124,6 +124,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_EXECUCAO_GOVERNADA = 'execucao_governada';
     public const FIELD_FEEDBACK_LOOP_VIVO = 'feedback_loop_vivo';
     public const FIELD_FRESCO = 'fresco';
+    public const FIELD_GATES_AUDITADOS = 'gates_auditados';
+    public const FIELD_LICOES_GERIDAS = 'licoes_geridas';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -243,7 +245,7 @@ class AtlasAcosEvolutionScoreService
         $servedCompounding = $this->activeCompoundingMemoryServedByRecall();
         $newLicoesPoints = $servedCompounding ? 2.5 : 0.0;
         $signals[] = [
-            self::FIELD_SIGNAL => 'licoes_geridas',
+            self::FIELD_SIGNAL => self::FIELD_LICOES_GERIDAS,
             self::FIELD_POINTS => $newLicoesPoints,
             self::FIELD_MAX => 2.5,
             self::FIELD_EVIDENCE => sprintf(
@@ -277,7 +279,7 @@ class AtlasAcosEvolutionScoreService
         $gateFresh = $this->fileFresh(storage_path(self::LONG_HORIZON_GATE_EVIDENCE_RELATIVE), self::GATE_FRESH_SECONDS);
         $seriesFresh = $this->fileFresh(storage_path(self::DELTA_SERIES_EVIDENCE_RELATIVE), self::GATE_FRESH_SECONDS);
         $signals[] = [
-            self::FIELD_SIGNAL => 'gates_auditados',
+            self::FIELD_SIGNAL => self::FIELD_GATES_AUDITADOS,
             self::FIELD_POINTS => round(($gateFresh ? 1.25 : 0.0) + ($seriesFresh ? 1.25 : 0.0), 2),
             self::FIELD_MAX => 2.5,
             self::FIELD_EVIDENCE => sprintf('long_horizon_receipt_fresh=%s delta_series_fresh=%s', $gateFresh ? self::FIELD_YES : 'no', $seriesFresh ? self::FIELD_YES : 'no'),

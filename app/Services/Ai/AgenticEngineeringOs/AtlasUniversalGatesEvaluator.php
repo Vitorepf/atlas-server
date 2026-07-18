@@ -10669,4 +10669,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B424).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function compoundingOutcomeAcosMeasureDepartmentContractEvolutionLongFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas_conversation' => CompoundingOutcomeEnvelopeAdapter::FIELD_ATLAS_CONVERSATION,
+            'forge' => CompoundingOutcomeEnvelopeAdapter::FIELD_FORGE,
+            'generated_at' => AcosMeasureSeriesFreshnessReader::FIELD_GENERATED_AT,
+            'occurred_at' => AcosMeasureSeriesFreshnessReader::FIELD_OCCURRED_AT,
+            'aaeos_intake_ledger' => DepartmentContractRuntime::FIELD_AAEOS_INTAKE_LEDGER,
+            'aaeos_memory_ledger' => DepartmentContractRuntime::FIELD_AAEOS_MEMORY_LEDGER,
+            'gates_auditados' => AtlasAcosEvolutionScoreService::FIELD_GATES_AUDITADOS,
+            'licoes_geridas' => AtlasAcosEvolutionScoreService::FIELD_LICOES_GERIDAS,
+            'series_v2_backfilled_sample_detected' => AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_BACKFILLED_SAMPLE_DETECTED,
+            'series_v2_calendar_span_below_floor' => AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_CALENDAR_SPAN_BELOW_FLOOR,
+            'candidate_test_symbol_missing' => AtlasCognitionEvidenceResolver::FIELD_CANDIDATE_TEST_SYMBOL_MISSING,
+            'green_receipt_missing' => AtlasCognitionEvidenceResolver::FIELD_GREEN_RECEIPT_MISSING,
+            'learning_cadence_stalled' => HealthReportWatchdogCheck::FIELD_LEARNING_CADENCE_STALLED,
+            'lift_cycle_closure_stalled' => HealthReportWatchdogCheck::FIELD_LIFT_CYCLE_CLOSURE_STALLED,
+            'respond_and_expire' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RESPOND_AND_EXPIRE,
+            'strategic_insight_signal' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_STRATEGIC_INSIGHT_SIGNAL,
+            'research_source_backed_score_l3' => AtlasAaeosDepartmentMaturityService::FIELD_RESEARCH_SOURCE_BACKED_SCORE_L3,
+            'review' => AtlasAaeosDepartmentMaturityService::FIELD_REVIEW,
+            'compounding_outcome_acos_measure_department_contract_evolution_long_floor_count' => 18,
+        ];
+    }
+
 }

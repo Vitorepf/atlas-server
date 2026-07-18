@@ -59,6 +59,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_PRODUCT_MOBILE_SURFACE_L4 = 'product_mobile_surface_l4';
     public const FIELD_QA_CONTRACT_TESTING_E2E_L4 = 'qa_contract_testing_e2e_l4';
     public const FIELD_RESEARCH = 'research';
+    public const FIELD_RESEARCH_SOURCE_BACKED_SCORE_L3 = 'research_source_backed_score_l3';
+    public const FIELD_REVIEW = 'review';
 
     public const DEPARTMENTS = [
         [
@@ -81,7 +83,7 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_DEPARTMENT_ID => self::FIELD_RESEARCH,
             self::FIELD_CURRENT_LEVEL => 'L2',
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#research'],
-            self::FIELD_BLOCKER_ID => 'research_source_backed_score_l3',
+            self::FIELD_BLOCKER_ID => self::FIELD_RESEARCH_SOURCE_BACKED_SCORE_L3,
             self::FIELD_BLOCKER_SUMMARY => 'source-backed score baixo para L3',
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],
@@ -102,7 +104,7 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],
         [
-            self::FIELD_DEPARTMENT_ID => 'review',
+            self::FIELD_DEPARTMENT_ID => self::FIELD_REVIEW,
             self::FIELD_CURRENT_LEVEL => 'L2',
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#review'],
             self::FIELD_BLOCKER_ID => 'review_cross_review_r4',

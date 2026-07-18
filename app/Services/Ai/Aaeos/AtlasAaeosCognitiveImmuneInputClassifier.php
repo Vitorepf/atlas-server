@@ -56,6 +56,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_PROJECT_EVIDENCE = 'project_evidence';
     public const FIELD_PROJECT_EVIDENCE_SIGNAL = 'project_evidence_signal';
     public const FIELD_REDACT_MINIMIZE = 'redact_minimize';
+    public const FIELD_RESPOND_AND_EXPIRE = 'respond_and_expire';
+    public const FIELD_STRATEGIC_INSIGHT_SIGNAL = 'strategic_insight_signal';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -65,7 +67,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
      * @var array<string, string>
      */
     public const DESTINATIONS = [
-        self::CLASS_TRIVIAL_QUERY => 'respond_and_expire',
+        self::CLASS_TRIVIAL_QUERY => self::FIELD_RESPOND_AND_EXPIRE,
         self::CLASS_OPERATIONAL_EPHEMERAL => 'task_reminder_cold_file',
         self::CLASS_TASK_OR_REMINDER => 'task_routine',
         self::CLASS_PROJECT_EVIDENCE => self::FIELD_PROJECT_EVIDENCE,
@@ -370,7 +372,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     private function candidateReason(string $candidateClass): string
     {
         return match ($candidateClass) {
-            self::CLASS_STRATEGIC_INSIGHT_CANDIDATE => 'strategic_insight_signal',
+            self::CLASS_STRATEGIC_INSIGHT_CANDIDATE => self::FIELD_STRATEGIC_INSIGHT_SIGNAL,
             self::CLASS_TECHNICAL_LEARNING_CANDIDATE => 'technical_learning_signal',
             self::CLASS_PERSONAL_FACT_CANDIDATE => self::FIELD_PERSONAL_FACT_SIGNAL,
             self::CLASS_PROJECT_EVIDENCE => self::FIELD_PROJECT_EVIDENCE_SIGNAL,

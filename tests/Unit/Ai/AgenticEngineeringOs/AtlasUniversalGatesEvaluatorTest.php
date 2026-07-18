@@ -8341,4 +8341,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cognitive_memory_immune_classifier_acos_dead_aobg_latency_floor_count']);
     }
 
+    public function test_compounding_outcome_acos_measure_department_contract_evolution_long_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->compoundingOutcomeAcosMeasureDepartmentContractEvolutionLongFloorsContractObserve([]);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_ATLAS_CONVERSATION, $out['atlas_conversation']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_OCCURRED_AT, $out['occurred_at']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_INTAKE_LEDGER, $out['aaeos_intake_ledger']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_MEMORY_LEDGER, $out['aaeos_memory_ledger']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_GATES_AUDITADOS, $out['gates_auditados']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_LICOES_GERIDAS, $out['licoes_geridas']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_BACKFILLED_SAMPLE_DETECTED, $out['series_v2_backfilled_sample_detected']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_CALENDAR_SPAN_BELOW_FLOOR, $out['series_v2_calendar_span_below_floor']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_CANDIDATE_TEST_SYMBOL_MISSING, $out['candidate_test_symbol_missing']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_GREEN_RECEIPT_MISSING, $out['green_receipt_missing']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_LEARNING_CADENCE_STALLED, $out['learning_cadence_stalled']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_LIFT_CYCLE_CLOSURE_STALLED, $out['lift_cycle_closure_stalled']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RESPOND_AND_EXPIRE, $out['respond_and_expire']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_STRATEGIC_INSIGHT_SIGNAL, $out['strategic_insight_signal']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_RESEARCH_SOURCE_BACKED_SCORE_L3, $out['research_source_backed_score_l3']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_REVIEW, $out['review']);
+        $this->assertSame(18, $out['compounding_outcome_acos_measure_department_contract_evolution_long_floor_count']);
+    }
+
 }
