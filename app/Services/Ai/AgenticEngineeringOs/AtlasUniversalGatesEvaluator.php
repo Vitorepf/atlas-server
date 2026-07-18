@@ -15675,4 +15675,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B587).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b587ImmuneSignatureVerdictAcosDeadDiskFreeProviderFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'updated_at' => ImmuneSignatureStore::FIELD_UPDATED_AT,
+            'cells_with_hit_count_gte_2' => ImmuneSignatureStore::FIELD_CELLS_WITH_HIT_COUNT_GTE_2,
+            'metadata' => ImmuneVerdictLedger::FIELD_METADATA,
+            'expected_block_gate_ids' => ImmuneVerdictLedger::FIELD_EXPECTED_BLOCK_GATE_IDS,
+            'generated_at' => AcosDeadSeriesWatchdogCheck::FIELD_GENERATED_AT,
+            'ledger' => AcosDeadSeriesWatchdogCheck::FIELD_LEDGER,
+            'schema_version' => DiskFreeWatchdogCheck::FIELD_SCHEMA_VERSION,
+            'total_gb' => DiskFreeWatchdogCheck::FIELD_TOTAL_GB,
+            'verified_by' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_VERIFIED_BY,
+            'checked' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_CHECKED,
+            'last_successful_drill_at' => SubstrateRestoreDrillWatchdogCheck::FIELD_LAST_SUCCESSFUL_DRILL_AT,
+            'age_days' => SubstrateRestoreDrillWatchdogCheck::FIELD_AGE_DAYS,
+            'qualified_rank' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_QUALIFIED_RANK,
+            'blocking_reasons' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKING_REASONS,
+            'green_run_rows' => AtlasAaeosImplementationTruthService::FIELD_GREEN_RUN_ROWS,
+            'impl_files_hash' => AtlasAaeosTestExecutionService::FIELD_IMPL_FILES_HASH,
+            'band' => AtlasAaeosThresholdLadderNormalizer::FIELD_BAND,
+            'schema_version' => AtlasAaeosVetoPropagationResolver::FIELD_SCHEMA_VERSION,
+            'b587_immune_signature_verdict_acos_dead_disk_free_provider_floor_count' => 18,
+        ];
+    }
+
 }

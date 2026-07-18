@@ -148,6 +148,7 @@ use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use App\Services\Ai\Cognition\BigramJaccardImmuneSemanticSimilarityPort;
 use App\Services\Ai\AcosMax\AttemptLifecycleLedger;
+use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -12373,6 +12374,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasSurpriseGateService::FIELD_NOVEL_TOKENS, $out['novel_tokens']);
         $this->assertSame(AtlasSurpriseGateService::FIELD_CANDIDATE_TOKENS, $out['candidate_tokens']);
         $this->assertSame(18, $out['b586_execution_context_outcome_envelope_predicted_impact_acos_rollback_floor_count']);
+    }
+
+    public function test_b587_immune_signature_verdict_acos_dead_disk_free_provider_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b587ImmuneSignatureVerdictAcosDeadDiskFreeProviderFloorsContractObserve([]);
+        $this->assertSame(ImmuneSignatureStore::FIELD_UPDATED_AT, $out['updated_at']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_CELLS_WITH_HIT_COUNT_GTE_2, $out['cells_with_hit_count_gte_2']);
+        $this->assertSame(ImmuneVerdictLedger::FIELD_METADATA, $out['metadata']);
+        $this->assertSame(ImmuneVerdictLedger::FIELD_EXPECTED_BLOCK_GATE_IDS, $out['expected_block_gate_ids']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_LEDGER, $out['ledger']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_TOTAL_GB, $out['total_gb']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_VERIFIED_BY, $out['verified_by']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_CHECKED, $out['checked']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_LAST_SUCCESSFUL_DRILL_AT, $out['last_successful_drill_at']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_AGE_DAYS, $out['age_days']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_QUALIFIED_RANK, $out['qualified_rank']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKING_REASONS, $out['blocking_reasons']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_GREEN_RUN_ROWS, $out['green_run_rows']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_IMPL_FILES_HASH, $out['impl_files_hash']);
+        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_BAND, $out['band']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(18, $out['b587_immune_signature_verdict_acos_dead_disk_free_provider_floor_count']);
     }
 
 }

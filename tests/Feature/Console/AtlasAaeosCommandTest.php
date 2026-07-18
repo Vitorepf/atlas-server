@@ -9951,6 +9951,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b587_immune_signature_verdict_acos_dead_disk_free_provider_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b587-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b587',
+                '--b587-immune-signature-verdict-acos-dead-disk-free-provider-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b587_immune_signature_verdict_acos_dead_disk_free_provider_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 
