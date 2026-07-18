@@ -9268,4 +9268,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cognitive_function_department_contract_evidence_vision_pre_review_floor_count']);
     }
 
+    public function test_cognitive_function_department_contract_autonomous_work_runbook_consolidation_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitiveFunctionDepartmentContractAutonomousWorkRunbookConsolidationFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_JPG, $out['jpg']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_MOSTRE, $out['mostre']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_PHPUNIT, $out['phpunit']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_PONDERE, $out['pondere']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_PROCURE, $out['procure']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_RACIOCINE, $out['raciocine']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ACCEPTANCE_CRITERIA_PRESENT, $out['acceptance_criteria_present']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TEST_OUTPUT_HASH, $out['test_output_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TESTS_FOCUSED, $out['tests_focused']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_THREAT_MODEL_PRESENT, $out['threat_model_present']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TYPECHECK_GREEN, $out['typecheck_green']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_STEPS_DECOMPOSED, $out['steps_decomposed']);
+        $this->assertSame(RunbookOrchestrator::FIELD_PHASE, $out['phase']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_STORAGE_PATH, $out['storage_path']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_STORAGE_PATH, $out['storage_path']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_ROLLING_7D_ENDING_YESTERDAY, $out['rolling_7d_ending_yesterday']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_NORMAL, $out['normal']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_WRITER, $out['writer']);
+        $this->assertSame(18, $out['cognitive_function_department_contract_autonomous_work_runbook_consolidation_floor_count']);
+    }
+
 }

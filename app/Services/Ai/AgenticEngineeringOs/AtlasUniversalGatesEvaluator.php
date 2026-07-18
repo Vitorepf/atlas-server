@@ -11816,4 +11816,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B461).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function cognitiveFunctionDepartmentContractAutonomousWorkRunbookConsolidationFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'jpg' => AtlasCognitiveFunctionDecomposerService::FIELD_JPG,
+            'mostre' => AtlasCognitiveFunctionDecomposerService::FIELD_MOSTRE,
+            'phpunit' => AtlasCognitiveFunctionDecomposerService::FIELD_PHPUNIT,
+            'pondere' => AtlasCognitiveFunctionDecomposerService::FIELD_PONDERE,
+            'procure' => AtlasCognitiveFunctionDecomposerService::FIELD_PROCURE,
+            'raciocine' => AtlasCognitiveFunctionDecomposerService::FIELD_RACIOCINE,
+            'acceptance_criteria_present' => DepartmentContractRuntime::FIELD_ACCEPTANCE_CRITERIA_PRESENT,
+            'test_output_hash' => DepartmentContractRuntime::FIELD_TEST_OUTPUT_HASH,
+            'tests_focused' => DepartmentContractRuntime::FIELD_TESTS_FOCUSED,
+            'threat_model_present' => DepartmentContractRuntime::FIELD_THREAT_MODEL_PRESENT,
+            'typecheck_green' => DepartmentContractRuntime::FIELD_TYPECHECK_GREEN,
+            'steps_decomposed' => AutonomousWorkExecutionOs::FIELD_STEPS_DECOMPOSED,
+            'phase' => RunbookOrchestrator::FIELD_PHASE,
+            'storage_path' => AtlasConsolidationRerankGuard::FIELD_STORAGE_PATH,
+            'storage_path' => AtlasFrontierWaveLadder::FIELD_STORAGE_PATH,
+            'rolling_7d_ending_yesterday' => AtlasOperationalVolumeCheckService::FIELD_ROLLING_7D_ENDING_YESTERDAY,
+            'normal' => AtlasSurpriseGateService::FIELD_NORMAL,
+            'writer' => CognitiveContextNudgeApplier::FIELD_WRITER,
+            'cognitive_function_department_contract_autonomous_work_runbook_consolidation_floor_count' => 18,
+        ];
+    }
+
 }

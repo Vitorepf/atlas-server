@@ -64,6 +64,7 @@ final class AtlasFrontierWaveLadder
     public const FIELD_ONDA_3 = 'onda_3';
     public const FIELD_DEPRECIACAO = 'depreciacao';
     public const FIELD_ONDA_4 = 'onda_4';
+    public const FIELD_STORAGE_PATH = 'storage_path';
 
     /**
      * Waves in activation order (obra20 §Fase-0 + contexto-mestre §5).
@@ -82,7 +83,7 @@ final class AtlasFrontierWaveLadder
 
     public function __construct(?string $path = null)
     {
-        $this->path = $path ?? (function_exists('storage_path')
+        $this->path = $path ?? (function_exists(self::FIELD_STORAGE_PATH)
             ? storage_path('atlas/frontier/external_events.jsonl')
             : sys_get_temp_dir().'/atlas/frontier/external_events.jsonl');
     }

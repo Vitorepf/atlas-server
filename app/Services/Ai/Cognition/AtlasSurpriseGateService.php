@@ -64,6 +64,7 @@ final class AtlasSurpriseGateService
     public const FIELD_CANDIDATE_TOKENS = 'candidate_tokens';
     public const FIELD_HIGH = 'high';
     public const FIELD_LOW = 'low';
+    public const FIELD_NORMAL = 'normal';
 
     /**
      * Julga um candidato contra a predição pré-sessão.
@@ -85,7 +86,7 @@ final class AtlasSurpriseGateService
             return [
                 self::FIELD_SURPRISE => 1.0,
                 self::FIELD_RECORD => true,
-                self::FIELD_PRIORITY => 'normal',
+                self::FIELD_PRIORITY => self::FIELD_NORMAL,
                 self::FIELD_PREDICTED => false,
                 self::FIELD_GATED => false,
                 self::FIELD_NOVEL_TOKENS => count($candidateTokens),

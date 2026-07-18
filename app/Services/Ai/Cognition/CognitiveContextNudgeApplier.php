@@ -44,6 +44,7 @@ final class CognitiveContextNudgeApplier
     public const FIELD_REVIEWER = 'reviewer';
     public const FIELD_SDD = 'sdd';
     public const FIELD_VISUAL = 'visual';
+    public const FIELD_WRITER = 'writer';
     /**
      * Apply framework + role nudges to the keyword-scored hits map.
      *
@@ -97,7 +98,7 @@ final class CognitiveContextNudgeApplier
             $hits[self::FIELD_AUDIT] += 1;
         } elseif ($role === self::FIELD_RESEARCHER || $role === self::FIELD_LIBRARIAN) {
             $hits[self::FIELD_RETRIEVAL] += 1;
-        } elseif ($role === 'writer' || $role === self::FIELD_EDITOR) {
+        } elseif ($role === self::FIELD_WRITER || $role === self::FIELD_EDITOR) {
             $hits[self::FIELD_GENERATION] += 1;
         } elseif ($role === self::FIELD_ENGINEER || $role === self::FIELD_DEVELOPER || $role === self::FIELD_PROGRAMMER) {
             $hits[self::FIELD_CODE] += 1;

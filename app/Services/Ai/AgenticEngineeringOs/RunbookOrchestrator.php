@@ -83,6 +83,7 @@ final class RunbookOrchestrator
     public const FIELD_STAGES = 'stages';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_PENDING_REPLAY = 'pending_replay';
+    public const FIELD_PHASE = 'phase';
 
     /**
      * Canonical default flow for a non-trivial intent. Trivial intents
@@ -194,7 +195,7 @@ final class RunbookOrchestrator
                 continue;
             }
             $target = AiValueNormalizer::trimmedStringOrNull($change[self::FIELD_TARGET] ?? null) ?? '';
-            if (! in_array($target, ['department', 'phase', 'gate'], true)) {
+            if (! in_array($target, ['department', self::FIELD_PHASE, 'gate'], true)) {
                 continue;
             }
             $current = AiValueNormalizer::trimmedStringOrNull($change[self::FIELD_CURRENT] ?? null) ?? '';

@@ -300,6 +300,11 @@ final class DepartmentContractRuntime
     public const FIELD_SPEC_ACCEPTANCE_CRITERIA_COMPLETE = 'spec_acceptance_criteria_complete';
     public const FIELD_SPEC_PACK_HASH = 'spec_pack_hash';
     public const FIELD_SYNTHESIZE_FINDINGS = 'synthesize_findings';
+    public const FIELD_ACCEPTANCE_CRITERIA_PRESENT = 'acceptance_criteria_present';
+    public const FIELD_TEST_OUTPUT_HASH = 'test_output_hash';
+    public const FIELD_TESTS_FOCUSED = 'tests_focused';
+    public const FIELD_THREAT_MODEL_PRESENT = 'threat_model_present';
+    public const FIELD_TYPECHECK_GREEN = 'typecheck_green';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -439,11 +444,11 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_EXECUTION_LOG, self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
                 [self::FIELD_NAME => self::FIELD_PATCH_PACK, self::FIELD_SCHEMA => self::SCHEMA_PATCH_PACK],
             ],
-            self::FIELD_GATES => ['plan_approved', 'tests_focused', 'review_gate', self::FIELD_LINT_GREEN, 'typecheck_green', 'tests_green', 'scope_guard_ok'],
+            self::FIELD_GATES => ['plan_approved', self::FIELD_TESTS_FOCUSED, 'review_gate', self::FIELD_LINT_GREEN, self::FIELD_TYPECHECK_GREEN, 'tests_green', 'scope_guard_ok'],
             self::FIELD_ALLOWED_ACTIONS => ['edit_allowed_files', self::FIELD_RUN_TESTS, 'request_provider_call'],
             self::FIELD_FORBIDDEN_ACTIONS => ['edit_security_policy', self::FIELD_MODIFY_MIGRATIONS_WITHOUT_ARCHITECT, 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_FORGE],
-            self::FIELD_EVIDENCE_REQUIRED => ['patch_hash', 'test_output_hash', 'scope_guard_report'],
+            self::FIELD_EVIDENCE_REQUIRED => ['patch_hash', self::FIELD_TEST_OUTPUT_HASH, 'scope_guard_report'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_DEV_RUNS, self::FIELD_LEDGER => self::FIELD_AAEOS_DEV_EVIDENCE_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['dev_run_duration_p95', self::FIELD_DEV_REPAIR_LOOP_COUNT, 'dev_scope_violation_count'],
             self::FIELD_MATURITY_LEVEL => 'L1',
@@ -532,7 +537,7 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_POLICY_DECISION, self::FIELD_SCHEMA => self::SCHEMA_POLICY_DECISION],
             ],
-            self::FIELD_GATES => ['security_scan_clean', self::FIELD_CVE_ACKNOWLEDGED, self::FIELD_SECRET_SCAN_CLEAN, self::FIELD_DEPENDENCY_AUDIT_CLEAN, 'threat_model_present', 'sovereignty_boundary_respected'],
+            self::FIELD_GATES => ['security_scan_clean', self::FIELD_CVE_ACKNOWLEDGED, self::FIELD_SECRET_SCAN_CLEAN, self::FIELD_DEPENDENCY_AUDIT_CLEAN, self::FIELD_THREAT_MODEL_PRESENT, 'sovereignty_boundary_respected'],
             self::FIELD_ALLOWED_ACTIONS => ['allow', self::FIELD_DENY, self::FIELD_REQUEST_MITIGATION, 'escalate_to_operator'],
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_sovereignty', self::FIELD_APPROVE_UNAUDITED_DEP, 'ship_without_evidence'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
@@ -761,7 +766,7 @@ final class DepartmentContractRuntime
         $allowedKeys = [
             'risk_scope',
             self::FIELD_SPEC_PACK_HASH,
-            'acceptance_criteria_present',
+            self::FIELD_ACCEPTANCE_CRITERIA_PRESENT,
             self::FIELD_ROLLBACK_PLAN_PRESENT,
             self::FIELD_BREAKING_CHANGE_MATRIX_PRESENT,
             self::FIELD_OPERATOR_SIGNATURE_PRESENT,

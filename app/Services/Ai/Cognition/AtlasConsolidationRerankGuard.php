@@ -52,6 +52,7 @@ final class AtlasConsolidationRerankGuard
     public const FIELD_VERDICT = 'verdict';
     public const FIELD_REFATORACAO = 'refatoracao';
     public const FIELD_SHA256 = 'sha256';
+    public const FIELD_STORAGE_PATH = 'storage_path';
 
 
     private string $baselinePath;
@@ -60,7 +61,7 @@ final class AtlasConsolidationRerankGuard
         private readonly ?LocalRagPrecisionCorpusService $corpus = null,
         ?string $baselinePath = null,
     ) {
-        $this->baselinePath = $baselinePath ?? (function_exists('storage_path')
+        $this->baselinePath = $baselinePath ?? (function_exists(self::FIELD_STORAGE_PATH)
             ? storage_path('atlas/consolidation/rerank_baseline.json')
             : sys_get_temp_dir().'/atlas/consolidation/rerank_baseline.json');
     }

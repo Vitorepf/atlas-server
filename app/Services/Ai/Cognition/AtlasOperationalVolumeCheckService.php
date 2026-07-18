@@ -78,6 +78,7 @@ final class AtlasOperationalVolumeCheckService
     public const FIELD_JANELA_FAMINTA = 'janela_faminta';
     public const FIELD_NAMED_PREREQUISITE = 'named_prerequisite';
     public const FIELD_PREVIOUS_BUSINESS_DAY = 'previous_business_day';
+    public const FIELD_ROLLING_7D_ENDING_YESTERDAY = 'rolling_7d_ending_yesterday';
 
     /**
      * @return array<string,mixed>
@@ -135,7 +136,7 @@ final class AtlasOperationalVolumeCheckService
                     self::STATUS_ALERT => $devAlert,
                 ],
                 self::FIELD_FORGE => [
-                    self::FIELD_LABEL => 'rolling_7d_ending_yesterday',
+                    self::FIELD_LABEL => self::FIELD_ROLLING_7D_ENDING_YESTERDAY,
                     self::FIELD_START => $forgeWindowStart->toIso8601String(),
                     self::FIELD_END => $forgeWindowEnd->toIso8601String(),
                     self::FIELD_COUNT => $forgeCount[self::FIELD_COUNT],
