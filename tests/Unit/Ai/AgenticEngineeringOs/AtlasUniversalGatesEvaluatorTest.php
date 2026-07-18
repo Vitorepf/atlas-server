@@ -10355,4 +10355,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b504_runbook_measure_series_lote_ledger_rotation_acos_watchdog_floor_count']);
     }
 
+    public function test_b505_cognition_score_immune_signature_maxa_jina_outcome_envelope_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b505CognitionScoreImmuneSignatureMaxaJinaOutcomeEnvelopeFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_CACHE_2, $out['CONTEXT-CACHE']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_INTELLIGENCE_2, $out['CONTEXT-INTELLIGENCE']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_ASI_11, $out['ASI-11']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_MAXI_03, $out['MAXI-03']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_MAXA_04, $out['MAXA-04']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_ATLAS_SEMANTIC_MEMORY_EMBEDDING_DIMENSIONS, $out['atlas.semantic_memory.embedding_dimensions']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_CODEX_INDEPENDENT_ESP06_JUDGE, $out['codex-independent-esp06-judge']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_CURSOR_ACOS_MAX_ESP06, $out['cursor-acos-max-esp06']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ASI_05, $out['ASI-05']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ELEV_02, $out['ELEV-02']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTJ_06, $out['MULTJ-06']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTX_09, $out['MULTX-09']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_AI_COUNTERFACTUAL_LIFT_V2, $out['atlas.ai.counterfactual_lift.v2']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_AI_LESSON_HALF_LIFE_V2, $out['atlas.ai.lesson_half_life.v2']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_COUNTS_RETRIEVAL_EVAL_RECALL_USAGE_TOTAL, $out['counts.retrieval_eval.recall_usage_total']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_COVERAGE_MEMORY_CROSS_LAYER_COVERAGE_RATIO, $out['coverage.memory_cross_layer_coverage_ratio']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK07_NEVER_EXCEEDS_CEILING, $out['maxk07.never_exceeds_ceiling']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK07_PRIVACY_SENSITIVE_SHRINKS, $out['maxk07.privacy_sensitive_shrinks']);
+        $this->assertSame(18, $out['b505_cognition_score_immune_signature_maxa_jina_outcome_envelope_floor_count']);
+    }
+
 }

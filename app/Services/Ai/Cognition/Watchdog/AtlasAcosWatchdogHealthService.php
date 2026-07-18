@@ -372,6 +372,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_CONTEXT_ACTOR = 'context.actor';
     public const FIELD_CONTEXT_EXECUTOR = 'context.executor';
     public const FIELD_CONTEXT_RECORDED_AT = 'context.recorded_at';
+    public const FIELD_COUNTS_RETRIEVAL_EVAL_RECALL_USAGE_TOTAL = 'counts.retrieval_eval.recall_usage_total';
+    public const FIELD_COVERAGE_MEMORY_CROSS_LAYER_COVERAGE_RATIO = 'coverage.memory_cross_layer_coverage_ratio';
     public const INT_100 = 100;
     public const FLOAT_10_0 = 10.0;
 
@@ -386,7 +388,7 @@ final class AtlasAcosWatchdogHealthService
         $snapshotAgeHours = $latestSnapshotAt ? round($latestSnapshotAt->diffInMinutes(CarbonImmutable::now(self::FIELD_UTC)) / 60, 2) : null;
         $freshness = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, self::FIELD_COMPONENTS_FRESHNESS, 0)) ?? 0);
         $concentration = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, self::FIELD_RATIOS_RECALL_CONCENTRATION_RATIO, 0.0)) ?? 0.0;
-        $recallUsageTotal = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'counts.retrieval_eval.recall_usage_total', 0)) ?? 0);
+        $recallUsageTotal = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, self::FIELD_COUNTS_RETRIEVAL_EVAL_RECALL_USAGE_TOTAL, 0)) ?? 0);
         $demotionEnabled = (AiValueNormalizer::boolOrNull(config(self::RECALL_CONCENTRATION_DEMOTION_ENABLED_CONFIG_KEY, self::DEFAULT_RECALL_CONCENTRATION_DEMOTION_ENABLED)) ?? self::DEFAULT_RECALL_CONCENTRATION_DEMOTION_ENABLED);
         $trendStatus = AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'trend.status')) ?? self::STATUS_UNKNOWN;
         $currentDelta = data_get($scorecard, 'trend.current_delta_from_latest');
@@ -542,7 +544,7 @@ final class AtlasAcosWatchdogHealthService
             )
             ?? 0
         );
-        $coverageRatio = AiValueNormalizer::finiteFloatOrNull(data_get($aurg, 'coverage.memory_cross_layer_coverage_ratio', 0.0)) ?? 0.0;
+        $coverageRatio = AiValueNormalizer::finiteFloatOrNull(data_get($aurg, self::FIELD_COVERAGE_MEMORY_CROSS_LAYER_COVERAGE_RATIO, 0.0)) ?? 0.0;
         $preFilterConcentration = AiValueNormalizer::finiteFloatOrNull(data_get(
             $quality,
             'ratios.pre_filter_recall_concentration_ratio',

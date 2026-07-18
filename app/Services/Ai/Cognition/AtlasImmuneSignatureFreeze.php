@@ -32,6 +32,8 @@ final class AtlasImmuneSignatureFreeze
     public const FIELD_IMMUNE_VERDICT_LEDGER = 'immune_verdict_ledger';
     public const FIELD_MEMORY_REVERT_INGEST = 'memory_revert_ingest';
     public const FIELD_NO_RAW_POISON_TEXT_IN_STORE = 'no_raw_poison_text_in_store';
+    public const FIELD_ASI_11 = 'ASI-11';
+    public const FIELD_MAXI_03 = 'MAXI-03';
     public const INT_90 = 90;
 
     /** @return array<string,mixed> */
@@ -52,9 +54,9 @@ final class AtlasImmuneSignatureFreeze
                 self::FIELD_PRIVACY => self::FIELD_NO_RAW_POISON_TEXT_IN_STORE,
             ],
             self::FIELD_DEPENDENCIES => [
-                'MAXI-03' => self::FIELD_IMMUNE_VERDICT_LEDGER,
+                self::FIELD_MAXI_03 => self::FIELD_IMMUNE_VERDICT_LEDGER,
                 'MAXI-04' => self::FIELD_HYBRID_CLASSIFIER_CONSULT,
-                'ASI-11' => self::FIELD_MEMORY_REVERT_INGEST,
+                self::FIELD_ASI_11 => self::FIELD_MEMORY_REVERT_INGEST,
             ],
             self::FIELD_TTL_DAYS => self::TTL_DAYS,
         ];

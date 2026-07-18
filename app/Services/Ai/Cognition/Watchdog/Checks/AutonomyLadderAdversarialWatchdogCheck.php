@@ -116,6 +116,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_MAXK05_SIGNATURE_NONCE_REUSED = 'maxk05.signature_nonce_reused';
     public const FIELD_MAXK05_SIGNATURE_RECEIPT_MISSING = 'maxk05.signature_receipt_missing';
     public const FIELD_MAXK06_METRICS_AUTHORITY_MISSING = 'maxk06.metrics_authority_missing';
+    public const FIELD_MAXK07_NEVER_EXCEEDS_CEILING = 'maxk07.never_exceeds_ceiling';
+    public const FIELD_MAXK07_PRIVACY_SENSITIVE_SHRINKS = 'maxk07.privacy_sensitive_shrinks';
     public const INT_20 = 20;
     public const INT_999 = 999;
     public const INT_10 = 10;
@@ -408,7 +410,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             || $level === PolicyCanon::AUTONOMY_SUGGEST;
 
         return [
-            self::FIELD_ID => 'maxk07.privacy_sensitive_shrinks',
+            self::FIELD_ID => self::FIELD_MAXK07_PRIVACY_SENSITIVE_SHRINKS,
             self::FIELD_REFUSED => $refused,
             self::FIELD_EXPECTED => '≤ execute_with_approval',
             self::FIELD_OBSERVED => $level,
@@ -458,7 +460,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $refused = RequestedAutonomyDerivation::isMonotonicallyDownward($level, PolicyCanon::AUTONOMY_DRAFT);
 
         return [
-            self::FIELD_ID => 'maxk07.never_exceeds_ceiling',
+            self::FIELD_ID => self::FIELD_MAXK07_NEVER_EXCEEDS_CEILING,
             self::FIELD_REFUSED => $refused,
             self::FIELD_EXPECTED => 'derived ≤ ceiling=draft',
             self::FIELD_OBSERVED => $level,

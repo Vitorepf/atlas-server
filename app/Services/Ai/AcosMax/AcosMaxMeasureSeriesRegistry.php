@@ -72,6 +72,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_MULTX_06 = 'MULTX-06';
     public const FIELD_MULTX_09 = 'MULTX-09';
     public const FIELD_TETO_02 = 'TETO-02';
+    public const FIELD_ASI_05 = 'ASI-05';
+    public const FIELD_ELEV_02 = 'ELEV-02';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -150,7 +152,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:aobg.latency_ledger.v1',
             ],
             [
-                self::FIELD_SLICE => 'ELEV-02',
+                self::FIELD_SLICE => self::FIELD_ELEV_02,
                 self::FIELD_SERIES => AtlasAcosMSeriesCommand::MEASURE_ID,
                 self::FIELD_PATH => storage_path(AtlasAcosMSeriesCommand::DEFAULT_SERIES_RELATIVE_PATH),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
@@ -168,7 +170,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:acos.verified_share.v1',
             ],
             [
-                self::FIELD_SLICE => 'ASI-05',
+                self::FIELD_SLICE => self::FIELD_ASI_05,
                 self::FIELD_SERIES => 'acos.asi05.ledger_cleanup.v1',
                 self::FIELD_PATH => storage_path('app/atlas/evidence/acos-max-asi-05-ledger-cleanup.jsonl'),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,

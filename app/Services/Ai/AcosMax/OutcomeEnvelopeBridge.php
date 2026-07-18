@@ -47,6 +47,8 @@ final class OutcomeEnvelopeBridge
     public const FIELD_FLAG = 'flag';
     public const FIELD_FLAG_DEFAULT = 'flag_default';
     public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
+    public const FIELD_CODEX_INDEPENDENT_ESP06_JUDGE = 'codex-independent-esp06-judge';
+    public const FIELD_CURSOR_ACOS_MAX_ESP06 = 'cursor-acos-max-esp06';
     public const INT_90 = 90;
 
     /** @var array<string, OutcomeEnvelopeAdapter> */
@@ -129,8 +131,8 @@ final class OutcomeEnvelopeBridge
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
             self::FIELD_TTL_DAYS => self::INT_90,
-            self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-esp06',
-            self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-esp06-judge',
+            self::FIELD_AUTHOR_ENGINE_ID => self::FIELD_CURSOR_ACOS_MAX_ESP06,
+            self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_INDEPENDENT_ESP06_JUDGE,
             self::FIELD_DUAL_READ_REQUIRED => true,
         ];
     }

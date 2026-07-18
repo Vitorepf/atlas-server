@@ -75,6 +75,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_TEOS_2 = 'TEOS';
     public const FIELD_COMPOUNDING_2 = 'Compounding';
     public const FIELD_OTHER = 'OTHER';
+    public const FIELD_CONTEXT_CACHE_2 = 'CONTEXT-CACHE';
+    public const FIELD_CONTEXT_INTELLIGENCE_2 = 'CONTEXT-INTELLIGENCE';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -173,8 +175,8 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_COGNITION => self::FIELD_COGNITION_2,
             self::FIELD_AUTONOMY => self::FIELD_AUTONOMY_2,
             self::FIELD_PATAMAR4, self::FIELD_PATAMAR_4, self::FIELD_INTEGRATION => self::FIELD_PATAMAR4_2,
-            self::FIELD_CONTEXT_CACHE => 'CONTEXT-CACHE',
-            self::FIELD_CONTEXT_INTELLIGENCE => 'CONTEXT-INTELLIGENCE',
+            self::FIELD_CONTEXT_CACHE => self::FIELD_CONTEXT_CACHE_2,
+            self::FIELD_CONTEXT_INTELLIGENCE => self::FIELD_CONTEXT_INTELLIGENCE_2,
             self::FIELD_PERSISTENT_CONTEXT => 'PERSISTENT-CONTEXT',
             self::FIELD_AEMOR => self::FIELD_AEMOR_2,
             self::FIELD_LONG_HORIZON => 'LONG-HORIZON',
@@ -201,8 +203,8 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_COGNITION_2 => 'Cognitive Function Atlas',
             self::FIELD_AUTONOMY_2 => 'Autonomous Reconciliation',
             self::FIELD_PATAMAR4_2 => 'Patamar 4 Integration',
-            'CONTEXT-CACHE' => 'Context Cache Compiler Runtime',
-            'CONTEXT-INTELLIGENCE' => 'Context Intelligence Engine',
+            self::FIELD_CONTEXT_CACHE_2 => 'Context Cache Compiler Runtime',
+            self::FIELD_CONTEXT_INTELLIGENCE_2 => 'Context Intelligence Engine',
             'PERSISTENT-CONTEXT' => 'Persistent Context Runtime',
             self::FIELD_AEMOR_2 => 'Execution Memory Outcome Runtime',
             'LONG-HORIZON' => 'TEOS-I1 Long-Horizon Intelligence',

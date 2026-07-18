@@ -88,6 +88,8 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_MEAN = 'mean';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_CANDIDATE_REGRESSION_OR_UNMEASURED = 'candidate_regression_or_unmeasured';
+    public const FIELD_MAXA_04 = 'MAXA-04';
+    public const FIELD_ATLAS_SEMANTIC_MEMORY_EMBEDDING_DIMENSIONS = 'atlas.semantic_memory.embedding_dimensions';
     public const INT_8192 = 8192;
 
 
@@ -101,7 +103,7 @@ final class Maxa04JinaV3DualReadService
 
         return [
             self::FIELD_SCHEMA_VERSION => Maxa04JinaV3DualReadLedger::SCHEMA,
-            self::FIELD_SLICE => 'MAXA-04',
+            self::FIELD_SLICE => self::FIELD_MAXA_04,
             self::FIELD_STATUS => self::STATUS_MECHANISM_READY,
             self::FIELD_SERIES => Maxa04JinaV3DualReadLedger::SCHEMA,
             self::FIELD_CURRENT_MODEL => [
@@ -111,7 +113,7 @@ final class Maxa04JinaV3DualReadService
                     self::FIELD_PROVIDER => self::FIELD_SEMANTIC_RAG,
                     self::FIELD_MODEL => $currentModel,
                 ]),
-                self::FIELD_DIMENSIONS => (int) $this->configValue('atlas.semantic_memory.embedding_dimensions', 384),
+                self::FIELD_DIMENSIONS => (int) $this->configValue(self::FIELD_ATLAS_SEMANTIC_MEMORY_EMBEDDING_DIMENSIONS, 384),
             ],
             self::FIELD_CANDIDATE_MODEL => [
                 self::FIELD_PROVIDER => self::FIELD_SEMANTIC_RAG,
@@ -162,7 +164,7 @@ final class Maxa04JinaV3DualReadService
 
         return [
             self::FIELD_SCHEMA_VERSION => Maxa04JinaV3DualReadLedger::SCHEMA,
-            self::FIELD_SLICE => 'MAXA-04',
+            self::FIELD_SLICE => self::FIELD_MAXA_04,
             self::FIELD_STATUS => $status,
             self::FIELD_REASON => $normalized === [] ? self::STATUS_NO_DUAL_READ_CASES : null,
             self::FIELD_WINDOW_BASIS => $windowBasis,
@@ -184,7 +186,7 @@ final class Maxa04JinaV3DualReadService
         $receipt = [
             self::FIELD_SCHEMA_VERSION => Maxa04JinaV3DualReadLedger::SCHEMA,
             self::FIELD_SERIES => Maxa04JinaV3DualReadLedger::SCHEMA,
-            self::FIELD_SLICE => 'MAXA-04',
+            self::FIELD_SLICE => self::FIELD_MAXA_04,
             self::FIELD_RECORDED_AT => now()->toJSON(),
             self::FIELD_STATUS => $report[self::FIELD_STATUS],
             self::FIELD_WINDOW_BASIS => $report[self::FIELD_WINDOW_BASIS],

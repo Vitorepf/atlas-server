@@ -13164,4 +13164,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B505).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b505CognitionScoreImmuneSignatureMaxaJinaOutcomeEnvelopeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'CONTEXT-CACHE' => AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_CACHE_2,
+            'CONTEXT-INTELLIGENCE' => AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_INTELLIGENCE_2,
+            'ASI-11' => AtlasImmuneSignatureFreeze::FIELD_ASI_11,
+            'MAXI-03' => AtlasImmuneSignatureFreeze::FIELD_MAXI_03,
+            'MAXA-04' => Maxa04JinaV3DualReadService::FIELD_MAXA_04,
+            'atlas.semantic_memory.embedding_dimensions' => Maxa04JinaV3DualReadService::FIELD_ATLAS_SEMANTIC_MEMORY_EMBEDDING_DIMENSIONS,
+            'codex-independent-esp06-judge' => OutcomeEnvelopeBridge::FIELD_CODEX_INDEPENDENT_ESP06_JUDGE,
+            'cursor-acos-max-esp06' => OutcomeEnvelopeBridge::FIELD_CURSOR_ACOS_MAX_ESP06,
+            'ASI-05' => AcosMaxMeasureSeriesRegistry::FIELD_ASI_05,
+            'ELEV-02' => AcosMaxMeasureSeriesRegistry::FIELD_ELEV_02,
+            'MULTJ-06' => AcosMaxLote2MeasureService::FIELD_MULTJ_06,
+            'MULTX-09' => AcosMaxLote2MeasureService::FIELD_MULTX_09,
+            'atlas.ai.counterfactual_lift.v2' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_AI_COUNTERFACTUAL_LIFT_V2,
+            'atlas.ai.lesson_half_life.v2' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_AI_LESSON_HALF_LIFE_V2,
+            'counts.retrieval_eval.recall_usage_total' => AtlasAcosWatchdogHealthService::FIELD_COUNTS_RETRIEVAL_EVAL_RECALL_USAGE_TOTAL,
+            'coverage.memory_cross_layer_coverage_ratio' => AtlasAcosWatchdogHealthService::FIELD_COVERAGE_MEMORY_CROSS_LAYER_COVERAGE_RATIO,
+            'maxk07.never_exceeds_ceiling' => AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK07_NEVER_EXCEEDS_CEILING,
+            'maxk07.privacy_sensitive_shrinks' => AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK07_PRIVACY_SENSITIVE_SHRINKS,
+            'b505_cognition_score_immune_signature_maxa_jina_outcome_envelope_floor_count' => 18,
+        ];
+    }
+
 }
