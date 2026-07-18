@@ -20109,4 +20109,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B731).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b731AcosWindowFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'components' => AtlasAcosWindowGatesService::FIELD_COMPONENTS,
+            'fresh' => AtlasAcosWindowGatesService::FIELD_FRESH,
+            'atlas.cognition.window_gates.v1' => AtlasAcosWindowGatesService::SCHEMA_VERSION,
+            'unknown' => AtlasAcosWindowGatesService::STATUS_UNKNOWN,
+            'sem_dados' => AtlasAcosWindowGatesService::STATUS_SEM_DADOS,
+            'aguardando_janela' => AtlasAcosWindowGatesService::STATUS_AGUARDANDO_JANELA,
+            'certified' => AtlasAcosWindowGatesService::FIELD_CERTIFIED,
+            'met' => AtlasAcosWindowGatesService::STATUS_MET,
+            'certified' => AtlasAcosWindowGatesService::FIELD_CERTIFIED,
+            'status' => AtlasAcosWindowGatesService::FIELD_STATUS,
+            'gate' => AtlasAcosWindowGatesService::FIELD_GATE,
+            'reason' => AtlasAcosWindowGatesService::FIELD_REASON,
+            'ok' => AtlasAcosWindowGatesService::FIELD_OK,
+            'windows' => AtlasAcosWindowGatesService::FIELD_WINDOWS,
+            'days' => AtlasAcosWindowGatesService::FIELD_DAYS,
+            'evidence' => AtlasAcosWindowGatesService::FIELD_EVIDENCE,
+            'generated_at' => AtlasAcosWindowGatesService::FIELD_GENERATED_AT,
+            'target' => AtlasAcosWindowGatesService::FIELD_TARGET,
+            'b731_acos_window_floor_count' => 18,
+        ];
+    }
+
 }

@@ -15950,4 +15950,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b730_capture_hmac_floor_count']);
     }
 
+    public function test_b731_acos_window_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b731AcosWindowFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_COMPONENTS, $out['components']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_FRESH, $out['fresh']);
+        $this->assertSame(AtlasAcosWindowGatesService::SCHEMA_VERSION, $out['atlas.cognition.window_gates.v1']);
+        $this->assertSame(AtlasAcosWindowGatesService::STATUS_UNKNOWN, $out['unknown']);
+        $this->assertSame(AtlasAcosWindowGatesService::STATUS_SEM_DADOS, $out['sem_dados']);
+        $this->assertSame(AtlasAcosWindowGatesService::STATUS_AGUARDANDO_JANELA, $out['aguardando_janela']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_CERTIFIED, $out['certified']);
+        $this->assertSame(AtlasAcosWindowGatesService::STATUS_MET, $out['met']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_CERTIFIED, $out['certified']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_GATE, $out['gate']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_OK, $out['ok']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_WINDOWS, $out['windows']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_DAYS, $out['days']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_TARGET, $out['target']);
+        $this->assertSame(18, $out['b731_acos_window_floor_count']);
+    }
+
 }
