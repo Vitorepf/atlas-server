@@ -32,6 +32,8 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_VERBATIM = 'verbatim';
     public const FIELD_FAILURE = 'failure';
     public const FIELD_RELEVANCE_SCORE = 'relevance_score';
+    public const FIELD_SCOPE = 'scope';
+    public const FIELD_SCOPE_TYPE = 'scope_type';
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -174,7 +176,7 @@ final class AtlasMemoryRecallRelevanceScorer
      */
     private function scopeOf(array $row): string
     {
-        return AiValueNormalizer::trimmedStringOrNull($row['scope_type'] ?? $row['scope'] ?? null) ?? 'global';
+        return AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_SCOPE_TYPE] ?? $row[self::FIELD_SCOPE] ?? null) ?? 'global';
     }
 
     /**

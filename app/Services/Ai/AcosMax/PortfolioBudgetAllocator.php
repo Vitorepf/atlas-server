@@ -89,6 +89,8 @@ final class PortfolioBudgetAllocator
     public const FIELD_CONSUMER_OF_MAXK_07 = 'consumer_of_maxk_07';
     public const FIELD_CONSUMER_OF_MAXN_04 = 'consumer_of_maxn_04';
     public const FIELD_FLAG = 'flag';
+    public const FIELD_STARVATION_FLOOR_ABSOLUTE = 'starvation_floor_absolute';
+    public const FIELD_YIELD_RECOMPUTED_HERE = 'yield_recomputed_here';
 
     /**
      * @param  array<string,mixed>  $input keys:
@@ -149,8 +151,8 @@ final class PortfolioBudgetAllocator
             self::FIELD_SOURCE => [
                 self::FIELD_WEIGHTS_ARE_OPERATOR_AUTHORED => true,
                 self::FIELD_ALLOCATOR_WRITES_OWN_WEIGHTS => false,
-                'yield_recomputed_here' => false,
-                'starvation_floor_absolute' => self::HARD_FLOOR_SHARE,
+                self::FIELD_YIELD_RECOMPUTED_HERE => false,
+                self::FIELD_STARVATION_FLOOR_ABSOLUTE => self::HARD_FLOOR_SHARE,
                 self::FIELD_CEILING_ABSOLUTE => self::HARD_CEILING_SHARE,
                 self::FIELD_CONSUMER_OF_MAXN_04 => true,
                 self::FIELD_CONSUMER_OF_MAXK_07 => true,

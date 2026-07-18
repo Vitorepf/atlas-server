@@ -77,6 +77,8 @@ final class AtlasAaeosGateSignalEvaluator
     public const FIELD_NO_PHASE_OUTPUTS = 'no_phase_outputs';
     public const FIELD_RESOLVED_TARGET = 'resolved_target';
     public const FIELD_SCOPE = 'scope';
+    public const FIELD_SCOPE_BOUNDED = 'scope_bounded';
+    public const FIELD_SPEC_PACK = 'spec_pack';
 
     /**
      * P1 disambiguation gate: weighted + clamped 0..1 intent-clarity score.
@@ -87,7 +89,7 @@ final class AtlasAaeosGateSignalEvaluator
     public function evaluateIntentClarity(array $disambiguationFeatures): array
     {
         $resolvedTarget = $this->stringOrNull($disambiguationFeatures[self::FIELD_RESOLVED_TARGET] ?? null);
-        $scopeBounded = ($disambiguationFeatures['scope_bounded'] ?? false) === true;
+        $scopeBounded = ($disambiguationFeatures[self::FIELD_SCOPE_BOUNDED] ?? false) === true;
         $ambiguityTokens = AiStringListNormalizer::strings($disambiguationFeatures[self::FIELD_AMBIGUITY_TOKENS] ?? []);
         $missingCount = $this->missingAnswersCount($disambiguationFeatures[self::FIELD_MISSING_ANSWERS] ?? []);
 
@@ -214,7 +216,7 @@ final class AtlasAaeosGateSignalEvaluator
             $gates[] = $this->evaluateIntentClarity($this->asArray($phaseOutputs[self::FIELD_INTENT]));
         }
         if (array_key_exists('spec_pack', $phaseOutputs)) {
-            $gates[] = $this->evaluateSpecPackAcceptanceCriteria($this->asArray($phaseOutputs['spec_pack']));
+            $gates[] = $this->evaluateSpecPackAcceptanceCriteria($this->asArray($phaseOutputs[self::FIELD_SPEC_PACK]));
         }
         if (array_key_exists('task_pack', $phaseOutputs)) {
             $gates[] = $this->evaluateTaskPackAtomicity($this->asArray($phaseOutputs['task_pack']));

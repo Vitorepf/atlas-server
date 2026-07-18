@@ -61,6 +61,8 @@ class AtlasAaeosTestExecutionService
     public const FIELD_BORN_STALE = 'born_stale';
     public const FIELD_FRESH_HASHES = 'fresh_hashes';
     public const FIELD_GIT_PORCELAIN = 'git_porcelain';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_SEALED = 'sealed';
 
     public function __construct(
         private readonly float $timeout = 180.0,
@@ -224,7 +226,7 @@ class AtlasAaeosTestExecutionService
         }
 
         $payload = [
-            'schema_version' => self::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             self::FIELD_CAPABILITY_ID => $capabilityId,
             self::FIELD_TEST_REF => $testRef,
             self::FIELD_FILTER => $filter,
@@ -287,7 +289,7 @@ class AtlasAaeosTestExecutionService
         );
 
         return [
-            'sealed' => $sealed,
+            self::FIELD_SEALED => $sealed,
             self::FIELD_BORN_STALE => ! $sealed,
             self::FIELD_FRESH_HASHES => $freshHashes,
             self::FIELD_EXPLAIN => $sealed ? null : $truth->explainImplFilesHash($evidenceRefs),

@@ -75,6 +75,8 @@ class AtlasCrossDepartmentChoreographyService
     public const FIELD_PAUSE_SLA_SECONDS = 'pause_sla_seconds';
     public const FIELD_DECISION = 'decision';
     public const FIELD_ESCALATE = 'escalate';
+    public const FIELD_ITERATION = 'iteration';
+    public const FIELD_MAX_ITERATIONS = 'max_iterations';
 
     /**
      * Veto propagation rules keyed by the vetoing department.
@@ -138,8 +140,8 @@ class AtlasCrossDepartmentChoreographyService
         return [
             self::FIELD_SCHEMA_VERSION => self::HANDOFF_SCHEMA,
             self::FIELD_KIND => $escalate ? self::HANDOFF_KIND_ESCALATION : self::HANDOFF_KIND_REPAIR,
-            'iteration' => $iteration,
-            'max_iterations' => $maxIterations,
+            self::FIELD_ITERATION => $iteration,
+            self::FIELD_MAX_ITERATIONS => $maxIterations,
             self::FIELD_DECISION => $escalate ? 'escalate' : self::HANDOFF_KIND_REPAIR,
             self::FIELD_ESCALATE => $escalate,
             self::FIELD_ESCALATE_TO => $escalate ? [self::TARGET_ARCHITECT, self::TARGET_OPERATOR] : [],

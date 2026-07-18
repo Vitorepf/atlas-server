@@ -113,6 +113,8 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_RANK_CLAIMED = 'rank_claimed';
     public const FIELD_ROUTE = 'route';
     public const FIELD_SCORE_OUT_OF_10 = 'score_out_of_10';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_TEST_FILE_HASH = 'test_file_hash';
 
     public const RANK = [
         self::LEVEL_SPEC => 0,
@@ -248,7 +250,7 @@ class AtlasAaeosImplementationTruthService
                 $total++;
 
                 $state = $this->normalizeState((AiValueNormalizer::trimmedStringOrNull($fm[self::FIELD_IMPLEMENTATION_STATE] ?? null) ?? ''));
-                $status = AiValueNormalizer::lowerTrimmedString($fm['status'] ?? '');
+                $status = AiValueNormalizer::lowerTrimmedString($fm[self::FIELD_STATUS] ?? '');
                 $claims = in_array($state, [self::LEVEL_PARTIAL, self::LEVEL_VERIFIED], true)
                     || in_array($status, [self::STATUS_ACTIVE, self::STATUS_BUILDING], true);
                 $hasEvidence = $this->normalizeEvidenceRefs($fm[self::FIELD_EVIDENCE_REFS] ?? null) !== [];
@@ -467,7 +469,7 @@ class AtlasAaeosImplementationTruthService
     public function freshnessHashes(array $evidenceRefs, string $testRef): array
     {
         return [
-            'test_file_hash' => $this->currentTestFileHash($testRef),
+            self::FIELD_TEST_FILE_HASH => $this->currentTestFileHash($testRef),
             self::FIELD_IMPL_FILES_HASH => $this->currentImplFilesHash($evidenceRefs),
         ];
     }

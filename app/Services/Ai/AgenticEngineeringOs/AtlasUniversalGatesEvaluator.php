@@ -9273,4 +9273,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B379).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function crossDepartmentPortfolioBudgetAaeosGateImplementationPhaseFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'iteration' => AtlasCrossDepartmentChoreographyService::FIELD_ITERATION,
+            'max_iterations' => AtlasCrossDepartmentChoreographyService::FIELD_MAX_ITERATIONS,
+            'starvation_floor_absolute' => PortfolioBudgetAllocator::FIELD_STARVATION_FLOOR_ABSOLUTE,
+            'yield_recomputed_here' => PortfolioBudgetAllocator::FIELD_YIELD_RECOMPUTED_HERE,
+            'resolved' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_RESOLVED,
+            'target_threshold' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_TARGET_THRESHOLD,
+            'scope_bounded' => AtlasAaeosGateSignalEvaluator::FIELD_SCOPE_BOUNDED,
+            'spec_pack' => AtlasAaeosGateSignalEvaluator::FIELD_SPEC_PACK,
+            'status' => AtlasAaeosImplementationTruthService::FIELD_STATUS,
+            'test_file_hash' => AtlasAaeosImplementationTruthService::FIELD_TEST_FILE_HASH,
+            'tasks' => AtlasAaeosPhaseRouterService::FIELD_TASKS,
+            'topology' => AtlasAaeosPhaseRouterService::FIELD_TOPOLOGY,
+            'schema_version' => AtlasAaeosTestExecutionService::FIELD_SCHEMA_VERSION,
+            'sealed' => AtlasAaeosTestExecutionService::FIELD_SEALED,
+            'governs' => AtlasDocsAuthorityGraphService::FIELD_GOVERNS,
+            'graph_id' => AtlasDocsAuthorityGraphService::FIELD_GRAPH_ID,
+            'scope' => AtlasMemoryRecallRelevanceScorer::FIELD_SCOPE,
+            'scope_type' => AtlasMemoryRecallRelevanceScorer::FIELD_SCOPE_TYPE,
+            'cross_department_portfolio_budget_aaeos_gate_implementation_phase_floor_count' => 18,
+        ];
+    }
+
 }

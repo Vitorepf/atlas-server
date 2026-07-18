@@ -7199,4 +7199,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['aaeos_implementation_phase_immune_calibration_signature_acos_watchdog_floor_count']);
     }
 
+    public function test_cross_department_portfolio_budget_aaeos_gate_implementation_phase_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->crossDepartmentPortfolioBudgetAaeosGateImplementationPhaseFloorsContractObserve([]);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_ITERATION, $out['iteration']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_MAX_ITERATIONS, $out['max_iterations']);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_STARVATION_FLOOR_ABSOLUTE, $out['starvation_floor_absolute']);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_YIELD_RECOMPUTED_HERE, $out['yield_recomputed_here']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_RESOLVED, $out['resolved']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_TARGET_THRESHOLD, $out['target_threshold']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_SCOPE_BOUNDED, $out['scope_bounded']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_SPEC_PACK, $out['spec_pack']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_TEST_FILE_HASH, $out['test_file_hash']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_TASKS, $out['tasks']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_TOPOLOGY, $out['topology']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_SEALED, $out['sealed']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_GOVERNS, $out['governs']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_GRAPH_ID, $out['graph_id']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_SCOPE, $out['scope']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_SCOPE_TYPE, $out['scope_type']);
+        $this->assertSame(18, $out['cross_department_portfolio_budget_aaeos_gate_implementation_phase_floor_count']);
+    }
+
 }

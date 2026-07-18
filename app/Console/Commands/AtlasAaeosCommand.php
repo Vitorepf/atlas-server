@@ -401,6 +401,7 @@ final class AtlasAaeosCommand extends Command
                             {--aaeos-test-window-orchestrator-code-symbol-knowledge-item-floors-contract= : JSON file (any object) to observe aaeos/test/window/orchestrator/code/symbol floors}
                             {--pre-review-http-path-phase-advance-cognition-score-floors-contract= : JSON file (any object) to observe pre/review/http/path/phase/advance floors}
                             {--aaeos-implementation-phase-immune-calibration-signature-acos-watchdog-floors-contract= : JSON file (any object) to observe aaeos/implementation/phase/immune/calibration/signature floors}
+                            {--cross-department-portfolio-budget-aaeos-gate-implementation-phase-floors-contract= : JSON file (any object) to observe cross/department/portfolio/budget/aaeos/gate floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -958,6 +959,7 @@ final class AtlasAaeosCommand extends Command
             ['aaeos-test-window-orchestrator-code-symbol-knowledge-item-floors-contract', 'aaeos_test_window_orchestrator_code_symbol_knowledge_item_floors_contract', fn (array $p) => $gates->aaeosTestWindowOrchestratorCodeSymbolKnowledgeItemFloorsContractObserve($p)],
             ['pre-review-http-path-phase-advance-cognition-score-floors-contract', 'pre_review_http_path_phase_advance_cognition_score_floors_contract', fn (array $p) => $gates->preReviewHttpPathPhaseAdvanceCognitionScoreFloorsContractObserve($p)],
             ['aaeos-implementation-phase-immune-calibration-signature-acos-watchdog-floors-contract', 'aaeos_implementation_phase_immune_calibration_signature_acos_watchdog_floors_contract', fn (array $p) => $gates->aaeosImplementationPhaseImmuneCalibrationSignatureAcosWatchdogFloorsContractObserve($p)],
+            ['cross-department-portfolio-budget-aaeos-gate-implementation-phase-floors-contract', 'cross_department_portfolio_budget_aaeos_gate_implementation_phase_floors_contract', fn (array $p) => $gates->crossDepartmentPortfolioBudgetAaeosGateImplementationPhaseFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

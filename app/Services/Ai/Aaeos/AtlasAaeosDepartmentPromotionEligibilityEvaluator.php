@@ -47,6 +47,8 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     public const FIELD_MAX_EVIDENCE_AGE_DAYS = 'max_evidence_age_days';
     public const FIELD_MAX_TIER = 'max_tier';
     public const FIELD_REQUIRED_THRESHOLD = 'required_threshold';
+    public const FIELD_RESOLVED = 'resolved';
+    public const FIELD_TARGET_THRESHOLD = 'target_threshold';
 
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department
@@ -158,7 +160,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
                 continue;
             }
 
-            if (($blocker['resolved'] ?? false) === true) {
+            if (($blocker[self::FIELD_RESOLVED] ?? false) === true) {
                 continue;
             }
 
@@ -208,7 +210,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
             return $this->floatValue($thresholds[AiValueNormalizer::trimmedScalarStringOrNull($targetTier) ?? '']);
         }
 
-        return $this->floatValue($metrics['target_threshold'] ?? 0.0);
+        return $this->floatValue($metrics[self::FIELD_TARGET_THRESHOLD] ?? 0.0);
     }
 
     /**

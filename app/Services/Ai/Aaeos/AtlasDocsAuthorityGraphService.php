@@ -58,6 +58,8 @@ class AtlasDocsAuthorityGraphService
     public const FIELD_CAPABILITIES = 'capabilities';
     public const FIELD_CREATED_AT = 'created_at';
     public const FIELD_DOCS = 'docs';
+    public const FIELD_GOVERNS = 'governs';
+    public const FIELD_GRAPH_ID = 'graph_id';
 
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
@@ -104,7 +106,7 @@ class AtlasDocsAuthorityGraphService
      */
     public function rowsForDoc(array $frontmatter, string $path): array
     {
-        $ownerId = AiValueNormalizer::trimmedStringOrNull($frontmatter['id'] ?? $frontmatter['graph_id'] ?? null) ?? '';
+        $ownerId = AiValueNormalizer::trimmedStringOrNull($frontmatter['id'] ?? $frontmatter[self::FIELD_GRAPH_ID] ?? null) ?? '';
         $state = AiValueNormalizer::trimmedStringOrNull($frontmatter['implementation_state'] ?? null) ?? '';
         $rows = [];
 
@@ -131,7 +133,7 @@ class AtlasDocsAuthorityGraphService
         if ($ownerId !== '') {
             $add('doc_id', $ownerId, 'doc_id');
         }
-        foreach (AiValueNormalizer::arrayOrEmpty($frontmatter['governs'] ?? null) as $governs) {
+        foreach (AiValueNormalizer::arrayOrEmpty($frontmatter[self::FIELD_GOVERNS] ?? null) as $governs) {
             $add('governs', $governs, 'governs_frontmatter');
         }
         foreach (AiValueNormalizer::arrayOrEmpty($frontmatter[self::FIELD_CAPABILITIES] ?? null) as $capability) {
