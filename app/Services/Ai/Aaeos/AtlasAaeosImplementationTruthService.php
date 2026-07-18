@@ -123,6 +123,7 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_NONE = 'none';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_IMPLEMENTED_PARTIAL = 'implemented_partial';
+    public const FIELD_RUNTIME_VERIFIED = 'runtime_verified';
 
     public const RANK = [
         self::LEVEL_SPEC => 0,
@@ -759,7 +760,7 @@ class AtlasAaeosImplementationTruthService
     {
         $normalized = AiValueNormalizer::lowerTrimmedString($state);
 
-        if (in_array($normalized, [self::LEVEL_VERIFIED, 'runtime_verified', 'solid_runtime'], true)) {
+        if (in_array($normalized, [self::LEVEL_VERIFIED, self::FIELD_RUNTIME_VERIFIED, 'solid_runtime'], true)) {
             return self::LEVEL_VERIFIED;
         }
 

@@ -66,6 +66,7 @@ class AtlasDocsAuthorityGraphService
     public const FIELD_NEEDLE_NORMALIZED = 'needle_normalized';
     public const FIELD_UPDATED_AT = 'updated_at';
     public const FIELD_ATLAS_DOCS_AUTHORITY_GRAPH = 'atlas_docs_authority_graph';
+    public const FIELD_CAPABILITY = 'capability';
 
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
@@ -143,7 +144,7 @@ class AtlasDocsAuthorityGraphService
             $add('governs', $governs, 'governs_frontmatter');
         }
         foreach (AiValueNormalizer::arrayOrEmpty($frontmatter[self::FIELD_CAPABILITIES] ?? null) as $capability) {
-            $add('capability', $capability, 'capability_frontmatter');
+            $add(self::FIELD_CAPABILITY, $capability, 'capability_frontmatter');
         }
 
         return $rows;

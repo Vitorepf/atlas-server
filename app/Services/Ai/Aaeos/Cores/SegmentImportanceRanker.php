@@ -79,6 +79,7 @@ final class SegmentImportanceRanker
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_TOKEN_BUDGET = 'token_budget';
     public const FIELD_TOKENS_AVAILABLE = 'tokens_available';
+    public const FIELD_IMPORTANCE = 'importance';
 
     /**
      * Rank may-discard segments by composite signal and greedily fill a token budget.
@@ -223,7 +224,7 @@ final class SegmentImportanceRanker
             $hasEvidenceRef = $this->boolField($row, 'has_evidence_ref');
             $linksDecisionOrBlocker = $this->boolField($row, 'links_decision_or_blocker');
             $dupGroup = $this->nullableStringField($row, 'dup_group');
-            $importance = AiValueNormalizer::clampUnit($this->numericField($row, 'importance') / 100.0);
+            $importance = AiValueNormalizer::clampUnit($this->numericField($row, self::FIELD_IMPORTANCE) / 100.0);
 
             $kindWeight = $this->kindWeight($kind);
             $dedupPenalty = $this->dedupPenalty($dupGroup, $dupGroupSeen);

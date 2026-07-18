@@ -40,6 +40,7 @@ final class SummaryFidelityCoverageScorer
     public const FIELD_MISSING_TOTAL = 'missing_total';
     public const FIELD_PRESENT_ITEM_IDS = 'present_item_ids';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_KIND = 'kind';
 
 
     /**
@@ -83,7 +84,7 @@ final class SummaryFidelityCoverageScorer
 
             $id = $this->stringValue($item, 'id');
             $idToken = AiValueNormalizer::trimmedStringOrNull($id) ?? '';
-            $kind = $this->normalize($this->stringValue($item, 'kind'));
+            $kind = $this->normalize($this->stringValue($item, self::FIELD_KIND));
             $isDecision = $kind === self::DECISION_KIND;
 
             if ($isDecision) {

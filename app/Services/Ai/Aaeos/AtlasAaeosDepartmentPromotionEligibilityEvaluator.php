@@ -49,6 +49,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     public const FIELD_REQUIRED_THRESHOLD = 'required_threshold';
     public const FIELD_RESOLVED = 'resolved';
     public const FIELD_TARGET_THRESHOLD = 'target_threshold';
+    public const FIELD_SHA256 = 'sha256';
 
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department
@@ -287,7 +288,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
             self::FIELD_BLOCKING_REASONS => $blockingReasons,
         ];
 
-        return hash('sha256', (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        return hash(self::FIELD_SHA256, (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     private function intValue(mixed $value, int $default = 0): int

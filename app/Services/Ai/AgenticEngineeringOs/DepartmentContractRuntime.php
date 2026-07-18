@@ -285,6 +285,11 @@ final class DepartmentContractRuntime
     public const FIELD_REQUEST_PROVIDER_TOPOLOGY = 'request_provider_topology';
     public const FIELD_REQUEST_SECURITY_REVIEW = 'request_security_review';
     public const FIELD_REQUEST_TEST_DATA = 'request_test_data';
+    public const FIELD_RESERVATION_LEDGER_CONSISTENT = 'reservation_ledger_consistent';
+    public const FIELD_REVIEW_ONLY_ACKNOWLEDGED = 'review_only_acknowledged';
+    public const FIELD_RISK_ACKNOWLEDGED = 'risk_acknowledged';
+    public const FIELD_RUN_REPRO = 'run_repro';
+    public const FIELD_RUN_TESTS = 'run_tests';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -399,7 +404,7 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_RESEARCH_PACK, self::FIELD_SCHEMA => self::SCHEMA_RESEARCH_PACK],
             ],
-            self::FIELD_GATES => ['research_findings_published', 'review_only_acknowledged', 'sources_min_3', 'source_dates_recent', 'no_hallucinated_links'],
+            self::FIELD_GATES => ['research_findings_published', self::FIELD_REVIEW_ONLY_ACKNOWLEDGED, 'sources_min_3', 'source_dates_recent', 'no_hallucinated_links'],
             self::FIELD_ALLOWED_ACTIONS => ['fetch_sources', 'synthesize_findings', 'propose_doc_promotion'],
             self::FIELD_FORBIDDEN_ACTIONS => ['write_code', self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
@@ -425,7 +430,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_PATCH_PACK, self::FIELD_SCHEMA => self::SCHEMA_PATCH_PACK],
             ],
             self::FIELD_GATES => ['plan_approved', 'tests_focused', 'review_gate', self::FIELD_LINT_GREEN, 'typecheck_green', 'tests_green', 'scope_guard_ok'],
-            self::FIELD_ALLOWED_ACTIONS => ['edit_allowed_files', 'run_tests', 'request_provider_call'],
+            self::FIELD_ALLOWED_ACTIONS => ['edit_allowed_files', self::FIELD_RUN_TESTS, 'request_provider_call'],
             self::FIELD_FORBIDDEN_ACTIONS => ['edit_security_policy', self::FIELD_MODIFY_MIGRATIONS_WITHOUT_ARCHITECT, 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_FORGE],
             self::FIELD_EVIDENCE_REQUIRED => ['patch_hash', 'test_output_hash', 'scope_guard_report'],
@@ -448,7 +453,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_ROOT_CAUSE_PACK, self::FIELD_SCHEMA => self::SCHEMA_ROOT_CAUSE_PACK],
             ],
             self::FIELD_GATES => ['failure_capsule_emitted', self::FIELD_REPAIR_BUDGET_RESPECTED, self::FIELD_REPRODUCTION_CONFIRMED, 'root_cause_evidence_present'],
-            self::FIELD_ALLOWED_ACTIONS => ['read_logs', 'run_repro', 'request_observability_query'],
+            self::FIELD_ALLOWED_ACTIONS => ['read_logs', self::FIELD_RUN_REPRO, 'request_observability_query'],
             self::FIELD_FORBIDDEN_ACTIONS => ['modify_production_data', 'deploy_fix_without_review'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY],
             self::FIELD_EVIDENCE_REQUIRED => ['repro_steps_hash', self::FIELD_LOGS_HASH, 'root_cause_pack_hash'],
@@ -470,7 +475,7 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_REVIEW_REPORT, self::FIELD_SCHEMA => self::SCHEMA_REVIEW_REPORT],
             ],
-            self::FIELD_GATES => ['review_packet_signed', 'risk_acknowledged', 'review_checklist_complete', self::FIELD_BLOCKERS_ADDRESSED, 'evidence_traceable'],
+            self::FIELD_GATES => ['review_packet_signed', self::FIELD_RISK_ACKNOWLEDGED, 'review_checklist_complete', self::FIELD_BLOCKERS_ADDRESSED, 'evidence_traceable'],
             self::FIELD_ALLOWED_ACTIONS => ['request_changes', self::FIELD_APPROVE_FOR_CERT, 'veto_release'],
             self::FIELD_FORBIDDEN_ACTIONS => ['edit_code', self::FIELD_DEPLOY_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
@@ -542,7 +547,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_OBRA_PACK, self::FIELD_SCHEMA => self::SCHEMA_OBRA_PACK],
                 [self::FIELD_NAME => self::FIELD_EXECUTION_LOG, self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
             ],
-            self::FIELD_GATES => ['obra_intake_validated', self::FIELD_PROVIDER_TOPOLOGY_GREEN, 'all-15-universal-gates', self::FIELD_LONG_HORIZON_STATE_PERSISTED, 'reservation_ledger_consistent', 'merge_review_promotion_passed'],
+            self::FIELD_GATES => ['obra_intake_validated', self::FIELD_PROVIDER_TOPOLOGY_GREEN, 'all-15-universal-gates', self::FIELD_LONG_HORIZON_STATE_PERSISTED, self::FIELD_RESERVATION_LEDGER_CONSISTENT, 'merge_review_promotion_passed'],
             self::FIELD_ALLOWED_ACTIONS => ['spawn_agents', self::FIELD_CLAIM_RESERVATIONS, self::FIELD_REQUEST_PROVIDER_TOPOLOGY, 'merge_after_review'],
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_review', self::FIELD_MODIFY_SECURITY_POLICY, 'ship_without_cert'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],

@@ -124,6 +124,12 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_LISTE = 'liste';
     public const FIELD_LOGICA = 'logica';
     public const FIELD_LOOKUP = 'lookup';
+    public const FIELD_ESTRATEGIA = 'estrategia';
+    public const FIELD_INVESTIGUE = 'investigue';
+    public const FIELD_MEMORIA = 'memoria';
+    public const FIELD_MERGE = 'merge';
+    public const FIELD_MIGRATION = 'migration';
+    public const FIELD_MOCKUP = 'mockup';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -143,13 +149,13 @@ final class AtlasCognitiveFunctionDecomposerService
     public const RULES = [
         self::FIELD_REASONING => [
             'porque', 'por que', self::FIELD_ANALISE, self::FIELD_ANALISA, self::FIELD_EXPLIQUE, 'pense', 'pondere',
-            self::FIELD_DECIDA, self::FIELD_DECISAO, self::FIELD_COMPARE, self::FIELD_AVALIE, self::FIELD_LOGICA, 'estrategia',
-            'raciocine', 'investigue', 'why', 'reason',
+            self::FIELD_DECIDA, self::FIELD_DECISAO, self::FIELD_COMPARE, self::FIELD_AVALIE, self::FIELD_LOGICA, self::FIELD_ESTRATEGIA,
+            'raciocine', self::FIELD_INVESTIGUE, 'why', 'reason',
         ],
         self::FIELD_RETRIEVAL => [
             'busque', 'procure', 'encontre', 'pesquise', 'mostre', self::FIELD_LISTE,
             'recupere', self::FIELD_LOOKUP, 'qual e', 'quais sao', self::FIELD_CITE, self::FIELD_CADASTR,
-            self::FIELD_DOCUMENTA, 'memoria', 'search', self::FIELD_FIND, 'show',
+            self::FIELD_DOCUMENTA, self::FIELD_MEMORIA, 'search', self::FIELD_FIND, 'show',
         ],
         self::FIELD_GENERATION => [
             'escreva', 'redija', 'crie', self::FIELD_COMPONHA, 'rascunhe', 'gere',
@@ -160,13 +166,13 @@ final class AtlasCognitiveFunctionDecomposerService
             'codigo', self::FIELD_CODIFIQUE, self::FIELD_IMPLEMENTE, 'refatore', 'debug', 'teste',
             self::FIELD_COMPILE, self::FIELD_EXECUTE, 'rode', 'rodar', 'php', 'typescript', 'react',
             self::FIELD_COMPONENTE, 'servico', self::FIELD_CLASSE, self::FIELD_FUNCAO, self::FIELD_CONTROLLER, self::FIELD_CLI,
-            self::FIELD_ARTISAN, 'migration', 'composer', 'npm', 'phpunit', 'pest',
-            'patch', 'pull request', 'pr ', ' pr,', 'merge', 'git ',
+            self::FIELD_ARTISAN, self::FIELD_MIGRATION, 'composer', 'npm', 'phpunit', 'pest',
+            'patch', 'pull request', 'pr ', ' pr,', self::FIELD_MERGE, 'git ',
             'code', 'function', 'class', 'service', 'refactor', 'test', self::FIELD_BUILD,
         ],
         self::FIELD_VISION => [
             'imagem', self::FIELD_FOTO, self::FIELD_SCREENSHOT, 'visualize', self::FIELD_DESIGN, self::FIELD_LAYOUT,
-            'mockup', self::FIELD_FIGMA, 'png', 'jpg', 'svg', 'tela', 'ui ', 'ux ',
+            self::FIELD_MOCKUP, self::FIELD_FIGMA, 'png', 'jpg', 'svg', 'tela', 'ui ', 'ux ',
             'cor ', 'paleta', 'visual', self::FIELD_SCREENSHOT, self::FIELD_IMAGE, 'render',
         ],
         self::FIELD_AUDIT => [

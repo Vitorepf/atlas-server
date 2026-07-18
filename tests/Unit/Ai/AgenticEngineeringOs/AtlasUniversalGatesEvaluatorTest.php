@@ -9193,4 +9193,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cognitive_function_department_contract_capture_hmac_fact_pair_floor_count']);
     }
 
+    public function test_cognitive_function_department_contract_aaeos_implementation_cross_docs_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitiveFunctionDepartmentContractAaeosImplementationCrossDocsFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_ESTRATEGIA, $out['estrategia']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_INVESTIGUE, $out['investigue']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_MEMORIA, $out['memoria']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_MERGE, $out['merge']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_MIGRATION, $out['migration']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_MOCKUP, $out['mockup']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RESERVATION_LEDGER_CONSISTENT, $out['reservation_ledger_consistent']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REVIEW_ONLY_ACKNOWLEDGED, $out['review_only_acknowledged']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RISK_ACKNOWLEDGED, $out['risk_acknowledged']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RUN_REPRO, $out['run_repro']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RUN_TESTS, $out['run_tests']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SECURITY_THREAT_MODELING_L4, $out['security_threat_modeling_l4']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_RUNTIME_VERIFIED, $out['runtime_verified']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_CAPABILITY, $out['capability']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_IMPORTANCE, $out['importance']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FIELD_KIND, $out['kind']);
+        $this->assertSame(18, $out['cognitive_function_department_contract_aaeos_implementation_cross_docs_floor_count']);
+    }
+
 }
