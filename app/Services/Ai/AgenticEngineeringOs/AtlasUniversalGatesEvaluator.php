@@ -16823,4 +16823,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B625).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b625AaeosThresholdStringVetoFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'value' => AtlasAaeosThresholdLadderNormalizer::FIELD_VALUE,
+            'thresholds' => AtlasAaeosThresholdLadderNormalizer::FIELD_THRESHOLDS,
+            'rank' => AtlasAaeosThresholdLadderNormalizer::FIELD_RANK,
+            'metric' => AtlasAaeosThresholdLadderNormalizer::FIELD_METRIC,
+            'comparator' => AtlasAaeosThresholdLadderNormalizer::FIELD_COMPARATOR,
+            'level' => AtlasAaeosThresholdLadderNormalizer::FIELD_LEVEL,
+            'band' => AtlasAaeosThresholdLadderNormalizer::FIELD_BAND,
+            'type' => AtlasAaeosStringListNormalizer::FIELD_TYPE,
+            'name' => AtlasAaeosStringListNormalizer::FIELD_NAME,
+            'id' => AtlasAaeosStringListNormalizer::FIELD_ID,
+            'kind' => AtlasAaeosStringListNormalizer::FIELD_KIND,
+            'forge' => AtlasAaeosVetoPropagationResolver::FIELD_FORGE,
+            'qa' => AtlasAaeosVetoPropagationResolver::FIELD_QA,
+            'atlas.aaeos.veto_propagation.v1' => AtlasAaeosVetoPropagationResolver::SCHEMA_VERSION,
+            'resolution' => AtlasAaeosVetoPropagationResolver::FIELD_RESOLUTION,
+            'pause_set' => AtlasAaeosVetoPropagationResolver::FIELD_PAUSE_SET,
+            'redirect_to' => AtlasAaeosVetoPropagationResolver::FIELD_REDIRECT_TO,
+            'escalation_target' => AtlasAaeosVetoPropagationResolver::FIELD_ESCALATION_TARGET,
+            'b625_aaeos_threshold_string_veto_floor_count' => 18,
+        ];
+    }
+
 }

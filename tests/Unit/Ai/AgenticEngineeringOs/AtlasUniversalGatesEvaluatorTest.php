@@ -13297,4 +13297,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b624_aaeos_department_floor_count']);
     }
 
+    public function test_b625_aaeos_threshold_string_veto_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b625AaeosThresholdStringVetoFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_VALUE, $out['value']);
+        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_THRESHOLDS, $out['thresholds']);
+        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_RANK, $out['rank']);
+        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_METRIC, $out['metric']);
+        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_COMPARATOR, $out['comparator']);
+        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_LEVEL, $out['level']);
+        $this->assertSame(AtlasAaeosThresholdLadderNormalizer::FIELD_BAND, $out['band']);
+        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_TYPE, $out['type']);
+        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_NAME, $out['name']);
+        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_QA, $out['qa']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::SCHEMA_VERSION, $out['atlas.aaeos.veto_propagation.v1']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_RESOLUTION, $out['resolution']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_PAUSE_SET, $out['pause_set']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REDIRECT_TO, $out['redirect_to']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
+        $this->assertSame(18, $out['b625_aaeos_threshold_string_veto_floor_count']);
+    }
+
 }
