@@ -6621,6 +6621,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function composedPromotionRagxFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'composed_field_action_on_trigger' => ComposedObraArcComposer::FIELD_ACTION_ON_TRIGGER,
+            'composed_field_architect_phase_gate' => ComposedObraArcComposer::FIELD_ARCHITECT_PHASE_GATE,
+            'composed_field_author_neq_judge' => ComposedObraArcComposer::FIELD_AUTHOR_NEQ_JUDGE,
+            'composed_field_certifier_engine_id' => ComposedObraArcComposer::FIELD_CERTIFIER_ENGINE_ID,
+            'composed_field_challenger_advisory' => ComposedObraArcComposer::FIELD_CHALLENGER_ADVISORY,
+            'composed_field_challenger_engine_id' => ComposedObraArcComposer::FIELD_CHALLENGER_ENGINE_ID,
+            'promotion_field_action' => PromotionProtocol::FIELD_ACTION,
+            'promotion_field_actor' => PromotionProtocol::FIELD_ACTOR,
+            'promotion_field_allowed_states' => PromotionProtocol::FIELD_ALLOWED_STATES,
+            'promotion_field_challenger_advisory' => PromotionProtocol::FIELD_CHALLENGER_ADVISORY,
+            'promotion_field_challenger_engine_id' => PromotionProtocol::FIELD_CHALLENGER_ENGINE_ID,
+            'promotion_field_decision_kind' => PromotionProtocol::FIELD_DECISION_KIND,
+            'ragx_field_algorithm' => RagxChainMechanismService::FIELD_ALGORITHM,
+            'ragx_field_baseline' => RagxChainMechanismService::FIELD_BASELINE,
+            'ragx_field_candidate' => RagxChainMechanismService::FIELD_CANDIDATE,
+            'ragx_field_communities_seen' => RagxChainMechanismService::FIELD_COMMUNITIES_SEEN,
+            'ragx_field_community' => RagxChainMechanismService::FIELD_COMMUNITY,
+            'composed_promotion_ragx_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

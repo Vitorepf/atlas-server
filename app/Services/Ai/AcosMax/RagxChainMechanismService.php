@@ -161,6 +161,11 @@ final class RagxChainMechanismService
     public const FIELD_GENERATED_SUMMARY = 'generated_summary';
     public const FIELD_SCORE = 'score';
     public const FIELD_REASON = 'reason';
+    public const FIELD_ALGORITHM = 'algorithm';
+    public const FIELD_BASELINE = 'baseline';
+    public const FIELD_CANDIDATE = 'candidate';
+    public const FIELD_COMMUNITIES_SEEN = 'communities_seen';
+    public const FIELD_COMMUNITY = 'community';
 
     public const REASON_LATE_CHUNK_INDEX_ERROR = 'late_chunk_index_error';
 
@@ -274,8 +279,8 @@ final class RagxChainMechanismService
             'recorded_at' => Carbon::now()->toISOString(),
             'experiment_id' => AiValueNormalizer::trimmedStringOrNull($experiment['experiment_id'] ?? null) ?? hash('sha256', json_encode($experiment, JSON_THROW_ON_ERROR)),
             self::FIELD_SLICE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_SLICE]  ?? null) ?? 'RAGX',
-            'baseline' => AiValueNormalizer::trimmedStringOrNull($experiment['baseline']  ?? null) ?? self::STATUS_UNKNOWN,
-            'candidate' => AiValueNormalizer::trimmedStringOrNull($experiment['candidate']  ?? null) ?? self::STATUS_UNKNOWN,
+            self::FIELD_BASELINE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_BASELINE]  ?? null) ?? self::STATUS_UNKNOWN,
+            self::FIELD_CANDIDATE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_CANDIDATE]  ?? null) ?? self::STATUS_UNKNOWN,
             'result' => null,
             self::FIELD_AB_GREEN_CLAIMED => false,
             self::FIELD_PENDING_WINDOW => [self::PENDING_GOLDEN_V2_OR_LIVE],
@@ -318,7 +323,7 @@ final class RagxChainMechanismService
                 self::FIELD_SCHEMA_VERSION => self::LOUVAIN_SCHEMA,
                 self::FIELD_SLICE => self::STAGE_MAXD_05,
                 self::FIELD_STATUS => self::STATUS_EMPTY,
-                'algorithm' => 'louvain_deterministic_local',
+                self::FIELD_ALGORITHM => 'louvain_deterministic_local',
                 self::FIELD_COMMUNITIES => [],
             ];
         }
@@ -330,7 +335,7 @@ final class RagxChainMechanismService
             self::FIELD_SCHEMA_VERSION => self::LOUVAIN_SCHEMA,
             self::FIELD_SLICE => self::STAGE_MAXD_05,
             self::FIELD_STATUS => self::STATUS_OK,
-            'algorithm' => 'louvain_deterministic_local',
+            self::FIELD_ALGORITHM => 'louvain_deterministic_local',
             'node_count' => count($nodes),
             'edge_count' => count($edges),
             self::FIELD_COMMUNITIES => $communities,
@@ -374,7 +379,7 @@ final class RagxChainMechanismService
                 self::FIELD_SLICE => self::STAGE_RAGX_10,
                 self::FIELD_STATUS => self::STATUS_INSUFFICIENT_SIGNAL,
                 self::FIELD_REASON => self::REASON_NO_VERIFIED_MAXF09_L2_SUMMARIES,
-                'communities_seen' => count($communities),
+                self::FIELD_COMMUNITIES_SEEN => count($communities),
                 self::FIELD_NODES => [],
                 self::FIELD_GENERATED_SUMMARY => false,
                 self::FIELD_AB_GREEN_CLAIMED => false,
@@ -385,7 +390,7 @@ final class RagxChainMechanismService
         foreach ($verified as $index => $summary) {
             $nodes[] = [
                 self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($summary[self::FIELD_ID] ?? null) ?? ('raptor_lite_'.($index + 1)),
-                'community' => array_values(AiValueNormalizer::arrayOrEmpty($summary['community'] ?? ($communities[$index] ?? null))),
+                self::FIELD_COMMUNITY => array_values(AiValueNormalizer::arrayOrEmpty($summary[self::FIELD_COMMUNITY] ?? ($communities[$index] ?? null))),
                 'summary_ref' => AiValueNormalizer::trimmedStringOrNull($summary['l2_summary_id'] ?? $summary[self::FIELD_ID] ?? null) ?? '',
                 'source' => 'maxf09_verified_l2_summary',
             ];

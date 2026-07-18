@@ -4855,4 +4855,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     }
 
 
+    public function test_composed_promotion_ragx_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->composedPromotionRagxFloorsContractObserve([]);
+
+        $this->assertSame('action_on_trigger', $payload['composed_field_action_on_trigger']);
+        $this->assertSame('architect_phase_gate', $payload['composed_field_architect_phase_gate']);
+        $this->assertSame('author_neq_judge', $payload['composed_field_author_neq_judge']);
+        $this->assertSame('certifier_engine_id', $payload['composed_field_certifier_engine_id']);
+        $this->assertSame('challenger_advisory', $payload['composed_field_challenger_advisory']);
+        $this->assertSame('challenger_engine_id', $payload['composed_field_challenger_engine_id']);
+        $this->assertSame('action', $payload['promotion_field_action']);
+        $this->assertSame('actor', $payload['promotion_field_actor']);
+        $this->assertSame('allowed_states', $payload['promotion_field_allowed_states']);
+        $this->assertSame('challenger_advisory', $payload['promotion_field_challenger_advisory']);
+        $this->assertSame('challenger_engine_id', $payload['promotion_field_challenger_engine_id']);
+        $this->assertSame('decision_kind', $payload['promotion_field_decision_kind']);
+        $this->assertSame('algorithm', $payload['ragx_field_algorithm']);
+        $this->assertSame('baseline', $payload['ragx_field_baseline']);
+        $this->assertSame('candidate', $payload['ragx_field_candidate']);
+        $this->assertSame('communities_seen', $payload['ragx_field_communities_seen']);
+        $this->assertSame('community', $payload['ragx_field_community']);
+        $this->assertSame(17, $payload['composed_promotion_ragx_floor_count']);
+    }
+
+
 }

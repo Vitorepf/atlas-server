@@ -47,6 +47,12 @@ final class ComposedObraArcComposer
     public const FIELD_EACH_TASK_REQUIRES_ARCHITECT_AND_SEED_GATE = 'each_task_requires_architect_and_seed_gate';
     public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
     public const FIELD_ORDER = 'order';
+    public const FIELD_ACTION_ON_TRIGGER = 'action_on_trigger';
+    public const FIELD_ARCHITECT_PHASE_GATE = 'architect_phase_gate';
+    public const FIELD_AUTHOR_NEQ_JUDGE = 'author_neq_judge';
+    public const FIELD_CERTIFIER_ENGINE_ID = 'certifier_engine_id';
+    public const FIELD_CHALLENGER_ADVISORY = 'challenger_advisory';
+    public const FIELD_CHALLENGER_ENGINE_ID = 'challenger_engine_id';
 
     public const STATUS_FLAG_DISABLED = 'flag_disabled';
 
@@ -100,9 +106,9 @@ final class ComposedObraArcComposer
             self::FIELD_ARCS => [$arc],
             self::FIELD_ARC_COUNT => 1,
             // Observe-only ESP-09 advisory (composed_obra trigger); never vetoes compose.
-            'challenger_advisory' => Esp09IndependentChallengerService::evaluate([
+            self::FIELD_CHALLENGER_ADVISORY => Esp09IndependentChallengerService::evaluate([
                 self::FIELD_AUTHOR_ENGINE_ID => $author,
-                'challenger_engine_id' => $judge,
+                self::FIELD_CHALLENGER_ENGINE_ID => $judge,
                 'decision_kind' => 'composed_obra',
             ]),
             self::FIELD_SOURCE => [
@@ -243,7 +249,7 @@ final class ComposedObraArcComposer
                 self::FIELD_TARGET_PATH => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_TARGET_PATH] ?? null) ?? '',
                 'objective' => AiValueNormalizer::trimmedScalarStringOrNull($task['summary'] ?? null) ?? '',
                 'individual_gate_required' => true,
-                'architect_phase_gate' => true,
+                self::FIELD_ARCHITECT_PHASE_GATE => true,
                 'seed_gate' => true,
             ];
         }
@@ -260,16 +266,16 @@ final class ComposedObraArcComposer
             'tasks' => $tasks,
             'completion_criterion' => [
                 'executable' => 'Every ordered arc task lands with proven_real outcome; partial completion leaves arc open.',
-                'certifier_engine_id' => $judge,
+                self::FIELD_CERTIFIER_ENGINE_ID => $judge,
             ],
             'kill_gate' => [
                 'consecutive_failures_k' => self::KILL_GATE_CONSECUTIVE_FAILURES,
                 'consecutive_failures' => 0,
-                'action_on_trigger' => 'archive_with_receipt',
+                self::FIELD_ACTION_ON_TRIGGER => 'archive_with_receipt',
             ],
             self::FIELD_SOURCE => [
                 'neighbor_basis' => 'organ_dependency_graph',
-                'author_neq_judge' => $author !== $judge,
+                self::FIELD_AUTHOR_NEQ_JUDGE => $author !== $judge,
             ],
         ];
     }

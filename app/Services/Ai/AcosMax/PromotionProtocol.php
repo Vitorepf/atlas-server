@@ -76,6 +76,12 @@ final class PromotionProtocol
     public const FIELD_ID = 'id';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_REASON = 'reason';
+    public const FIELD_ACTION = 'action';
+    public const FIELD_ACTOR = 'actor';
+    public const FIELD_ALLOWED_STATES = 'allowed_states';
+    public const FIELD_CHALLENGER_ADVISORY = 'challenger_advisory';
+    public const FIELD_CHALLENGER_ENGINE_ID = 'challenger_engine_id';
+    public const FIELD_DECISION_KIND = 'decision_kind';
 
     public const DEFAULT_LEDGER_RELATIVE_PATH = 'app/atlas/evidence/acos-max-promotion-flips.jsonl';
 
@@ -154,7 +160,7 @@ final class PromotionProtocol
             return $this->blocked('unknown_flag', $flagId, $toState);
         }
         if (! in_array($toState, self::STATES, true)) {
-            return $this->blocked('invalid_state', $flagId, $toState, ['allowed_states' => self::STATES]);
+            return $this->blocked('invalid_state', $flagId, $toState, [self::FIELD_ALLOWED_STATES => self::STATES]);
         }
 
         $required = $this->requiredFields($entry);
@@ -201,14 +207,14 @@ final class PromotionProtocol
                 (string) microtime(true),
             ])),
             'recorded_at' => date('c'),
-            'action' => $action,
+            self::FIELD_ACTION => $action,
             self::FIELD_FLAG_ID => $flagId,
             self::FIELD_FAMILY => $family,
             self::FIELD_SLICE => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SLICE] ?? null) ?? ''),
             'from_state' => $fromState,
             self::FIELD_TO_STATE => $toState,
             self::FIELD_OBSERVATION_WINDOW_ID => $windowId,
-            'actor' => AiValueNormalizer::trimmedStringOrNull($context['actor'] ?? null) ?? 'atlas',
+            self::FIELD_ACTOR => AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_ACTOR] ?? null) ?? 'atlas',
             self::FIELD_REASON => AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_REASON] ?? null) ?? '',
             self::FIELD_RECEIPT => $receipt,
             self::FIELD_ROLLBACK_TRIGGER => AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_ROLLBACK_TRIGGER] ?? null) ?? '',
@@ -219,7 +225,7 @@ final class PromotionProtocol
         $challenger = $this->observeChallenger($context);
         if ($challenger !== null) {
             // Observe-only ESP-09 advisory — never vetoes the flip decision.
-            $event['challenger_advisory'] = $challenger;
+            $event[self::FIELD_CHALLENGER_ADVISORY] = $challenger;
         }
 
         $this->ledger->append($event, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -458,16 +464,16 @@ final class PromotionProtocol
     private function observeChallenger(array $context): ?array
     {
         $author = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_AUTHOR_ENGINE_ID] ?? null) ?? '';
-        $challenger = AiValueNormalizer::trimmedStringOrNull($context['challenger_engine_id'] ?? null) ?? '';
+        $challenger = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_CHALLENGER_ENGINE_ID] ?? null) ?? '';
         if ($author === '' || $challenger === '') {
             return null;
         }
 
         return Esp09IndependentChallengerService::evaluate([
             self::FIELD_AUTHOR_ENGINE_ID => $author,
-            'challenger_engine_id' => $challenger,
+            self::FIELD_CHALLENGER_ENGINE_ID => $challenger,
             'operator_alignment' => $context['operator_alignment'] ?? null,
-            'decision_kind' => $context['decision_kind'] ?? 'ordinary_route',
+            self::FIELD_DECISION_KIND => $context[self::FIELD_DECISION_KIND] ?? 'ordinary_route',
         ]);
     }
 
@@ -493,7 +499,7 @@ final class PromotionProtocol
     private function familyAlreadyFlippedInWindow(string $family, string $windowId): bool
     {
         foreach ($this->ledgerEvents() as $event) {
-            if (($event['action'] ?? null) !== 'flip') {
+            if (($event[self::FIELD_ACTION] ?? null) !== 'flip') {
                 continue;
             }
             if ((AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_FAMILY] ?? null) ?? '') === $family
