@@ -70,6 +70,10 @@ class RoutingDecisionEngine
         ];
         if ($discovery->confidence === CodeDiscoveryManifest::CONFIDENCE_BLOCKING_AMBIGUITY
             && ! in_array($classification->taskKind, $readOnlyKinds, true)
+            // Rivals isolado: worktree de benchmark é desconhecido POR DESENHO
+            // (discovery sempre ambígua); o escopo é adotado da proposta do
+            // provider no kernel — ambiguidade aqui não pode bloquear.
+            && ! $this->allowsRivalsIsolatedRuntimeExecution($envelope)
         ) {
             $blockers[] = 'discovery_blocking_ambiguity';
             $reasons[] = 'discovery_blocking_ambiguity';
@@ -97,9 +101,13 @@ class RoutingDecisionEngine
             );
         }
 
-        // Read-only style task kinds answer in place.
-        if ($classification->taskKind === TaskClassification::KIND_QUESTION
-            || $classification->taskKind === TaskClassification::KIND_REVIEW) {
+        // Read-only style task kinds answer in place — EXCETO sob rivals
+        // isolado: benchmark é sempre tarefa de execução, e "fix the git
+        // repository" lido como pergunta respondia referência de OUTRO
+        // workspace em vez de executar (tb_fix_git, runs 181509/182640).
+        if (($classification->taskKind === TaskClassification::KIND_QUESTION
+            || $classification->taskKind === TaskClassification::KIND_REVIEW)
+            && ! $this->allowsRivalsIsolatedRuntimeExecution($envelope)) {
             $reasons[] = "task_kind={$classification->taskKind}_routes_read_only";
 
             return new RoutingDecision(
@@ -123,7 +131,10 @@ class RoutingDecisionEngine
         // Low-clarity write intents stay in plan-only via read_only_answer so
         // the operator can answer the clarifying question before tokens burn.
         if ($envelope->intentClarityLevel === IntakeNormalizer::CLARITY_LOW
-            && $classification->writeImplied) {
+            && $classification->writeImplied
+            // Rivals isolado: não há operador para responder pergunta
+            // clarificadora no meio do benchmark — executa com o que tem.
+            && ! $this->allowsRivalsIsolatedRuntimeExecution($envelope)) {
             $reasons[] = 'intent_clarity_low_with_write_implied';
 
             return new RoutingDecision(
