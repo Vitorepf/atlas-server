@@ -61,6 +61,8 @@ final class AcosProgramCockpitService
     public const FIELD_ATLAS_WINDOWS = 'atlas:windows';
     public const FIELD___JSON = '--json';
     public const FIELD___REGRET = '--regret';
+    public const FIELD_ATLAS_ACOS_M_SERIES = 'atlas:acos:m-series';
+    public const FIELD_ATLAS_ACOS_OPERATIONAL_VOLUME = 'atlas:acos:operational-volume';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -74,7 +76,7 @@ final class AcosProgramCockpitService
             self::FIELD_PROVIDER_TOKENS_SPENT => false,
             self::FIELD_MUTATES_STATE => false,
             self::FIELD_SECTIONS => [
-                'm' => $this->commandSection('atlas:acos:m-series --json', 'atlas:acos:m-series', [self::FIELD___JSON => true]),
+                'm' => $this->commandSection('atlas:acos:m-series --json', self::FIELD_ATLAS_ACOS_M_SERIES, [self::FIELD___JSON => true]),
                 'r' => $this->commandSection('atlas:atlas-decide:live-feedback --regret --json', 'atlas:atlas-decide:live-feedback', [self::FIELD___REGRET => true, self::FIELD___JSON => true]),
                 self::FIELD_LOOPS_FUNNEL => $this->loopsFunnelSection(),
                 self::FIELD_WINDOWS => $this->commandSection('atlas:windows --json', self::FIELD_ATLAS_WINDOWS, [self::FIELD___JSON => true]),
@@ -162,7 +164,7 @@ final class AcosProgramCockpitService
             ],
             self::FIELD_PAYLOAD => [
                 self::FIELD_ROLLBACK_TRIGGERS => $this->commandSection('atlas:acos:rollback-triggers --json', 'atlas:acos:rollback-triggers', [self::FIELD___JSON => true]),
-                self::FIELD_OPERATIONAL_VOLUME => $this->commandSection('atlas:acos:operational-volume --json', 'atlas:acos:operational-volume', [self::FIELD___JSON => true]),
+                self::FIELD_OPERATIONAL_VOLUME => $this->commandSection('atlas:acos:operational-volume --json', self::FIELD_ATLAS_ACOS_OPERATIONAL_VOLUME, [self::FIELD___JSON => true]),
             ],
         ];
     }

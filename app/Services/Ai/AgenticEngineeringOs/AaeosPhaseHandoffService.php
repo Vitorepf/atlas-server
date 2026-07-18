@@ -206,10 +206,10 @@ final class AaeosPhaseHandoffService
         $this->assertPhase($phaseIn, self::FIELD_PHASE_IN);
         $this->assertPhase($phaseOut, self::FIELD_PHASE_OUT);
         if ($nextPhase !== null) {
-            $this->assertPhase($nextPhase, 'next_phase');
+            $this->assertPhase($nextPhase, self::FIELD_NEXT_PHASE);
         }
         $this->assertActor($actor);
-        $this->assertProviderSafe($inputs, 'inputs');
+        $this->assertProviderSafe($inputs, self::FIELD_INPUTS);
         $this->assertProviderSafe($outputs, 'outputs');
         foreach ($evidenceHashes as $hash) {
             $hash = AiValueNormalizer::trimmedStringOrNull($hash);

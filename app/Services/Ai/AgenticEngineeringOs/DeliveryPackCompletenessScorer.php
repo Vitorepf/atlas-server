@@ -49,9 +49,9 @@ final class DeliveryPackCompletenessScorer
         'changed_files',
         'test_evidence',
         self::FIELD_NO_TEST_REASON,
-        'evidence_hashes',
+        self::FIELD_EVIDENCE_HASHES,
         'risk_register_present',
-        'receipt_present',
+        self::FIELD_RECEIPT_PRESENT,
         'delivery_hash',
     ];
 

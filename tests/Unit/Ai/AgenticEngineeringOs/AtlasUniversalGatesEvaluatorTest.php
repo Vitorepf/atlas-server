@@ -11068,4 +11068,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b533_evidence_vision_memory_recall_department_contract_lote_measure_floor_count']);
     }
 
+    public function test_b534_delivery_pack_department_contract_lote_measure_series_docs_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b534DeliveryPackDepartmentContractLoteMeasureSeriesDocsFloorsContractObserve([]);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_EVIDENCE_HASHES, $out['evidence_hashes']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_RECEIPT_PRESENT, $out['receipt_present']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ALLOWED_ACTIONS, $out['allowed_actions']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ESCALATION_TO, $out['escalation_to']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_AI_LEARNING_CANDIDATES, $out['ai_learning_candidates']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_AI_RUN_OUTCOMES, $out['ai_run_outcomes']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_ASI_05_LEDGER_CLEANUP_JSONL, $out['app/atlas/evidence/acos-max-asi-05-ledger-cleanup.jsonl']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_ESP_00_GROUND_TRUTH_JSONL, $out['app/atlas/evidence/acos-max-esp-00-ground-truth.jsonl']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_CAPABILITY_FRONTMATTER, $out['capability_frontmatter']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_GOVERNS, $out['governs']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_SPEC, $out['spec']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_TASKS, $out['tasks']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_INPUTS, $out['inputs']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_NEXT_PHASE, $out['next_phase']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_DOC, $out['doc']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_APP_ATLAS_EVIDENCE_ACOS_DELTA_SERIES_V2_JSONL, $out['app/atlas/evidence/acos-delta-series.v2.jsonl']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_ACOS_M_SERIES, $out['atlas:acos:m-series']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_ACOS_OPERATIONAL_VOLUME, $out['atlas:acos:operational-volume']);
+        $this->assertSame(18, $out['b534_delivery_pack_department_contract_lote_measure_series_docs_floor_count']);
+    }
+
 }

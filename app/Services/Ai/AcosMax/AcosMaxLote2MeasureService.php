@@ -392,7 +392,7 @@ final class AcosMaxLote2MeasureService
     /** @return array<string,mixed> */
     public function multx01FlywheelLoops(): array
     {
-        $requiredTables = ['ai_run_outcomes', self::FIELD_AI_RAG_FEEDBACK_EVENTS, 'ai_learning_candidates'];
+        $requiredTables = [self::FIELD_AI_RUN_OUTCOMES, self::FIELD_AI_RAG_FEEDBACK_EVENTS, self::FIELD_AI_LEARNING_CANDIDATES];
         $missingTables = array_values(array_filter($requiredTables, static fn (string $table): bool => ! Schema::hasTable($table)));
         if ($missingTables !== []) {
             return $this->emptyReport(self::FIELD_MULTX_01, self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_LOOP_SOURCE_TABLES_MISSING, [
@@ -718,7 +718,7 @@ final class AcosMaxLote2MeasureService
     /** @return array<string,mixed> */
     public function multx06LearningLatency(): array
     {
-        $requiredTables = ['ai_run_outcomes', self::FIELD_AI_RAG_FEEDBACK_EVENTS, 'ai_learning_candidates'];
+        $requiredTables = [self::FIELD_AI_RUN_OUTCOMES, self::FIELD_AI_RAG_FEEDBACK_EVENTS, self::FIELD_AI_LEARNING_CANDIDATES];
         $missingTables = array_values(array_filter($requiredTables, static fn (string $table): bool => ! Schema::hasTable($table)));
         $denominatorMin = (int) data_get(self::freezePayload(self::FIELD_MULTX_06), self::FIELD_THRESHOLDS_DENOMINATOR_MIN_PROMOTED_LESSONS, 8);
 

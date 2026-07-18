@@ -398,7 +398,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     public function spec(string $intentId, string $intentHash, string $riskBand): array
     {
-        return $this->deferredPhase('spec', $intentId, $intentHash, $riskBand);
+        return $this->deferredPhase(self::FIELD_SPEC, $intentId, $intentHash, $riskBand);
     }
 
     /**
@@ -406,7 +406,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     public function tasks(string $intentId, string $intentHash, string $riskBand): array
     {
-        return $this->deferredPhase('tasks', $intentId, $intentHash, $riskBand);
+        return $this->deferredPhase(self::FIELD_TASKS, $intentId, $intentHash, $riskBand);
     }
 
     /**

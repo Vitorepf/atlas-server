@@ -14051,4 +14051,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B534).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b534DeliveryPackDepartmentContractLoteMeasureSeriesDocsFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'evidence_hashes' => DeliveryPackCompletenessScorer::FIELD_EVIDENCE_HASHES,
+            'receipt_present' => DeliveryPackCompletenessScorer::FIELD_RECEIPT_PRESENT,
+            'allowed_actions' => DepartmentContractRuntime::FIELD_ALLOWED_ACTIONS,
+            'escalation_to' => DepartmentContractRuntime::FIELD_ESCALATION_TO,
+            'ai_learning_candidates' => AcosMaxLote2MeasureService::FIELD_AI_LEARNING_CANDIDATES,
+            'ai_run_outcomes' => AcosMaxLote2MeasureService::FIELD_AI_RUN_OUTCOMES,
+            'app/atlas/evidence/acos-max-asi-05-ledger-cleanup.jsonl' => AcosMaxMeasureSeriesRegistry::FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_ASI_05_LEDGER_CLEANUP_JSONL,
+            'app/atlas/evidence/acos-max-esp-00-ground-truth.jsonl' => AcosMaxMeasureSeriesRegistry::FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_ESP_00_GROUND_TRUTH_JSONL,
+            'capability_frontmatter' => AtlasDocsAuthorityGraphService::FIELD_CAPABILITY_FRONTMATTER,
+            'governs' => AtlasDocsAuthorityGraphService::FIELD_GOVERNS,
+            'spec' => AaeosHttpPathEnvelopeFactory::FIELD_SPEC,
+            'tasks' => AaeosHttpPathEnvelopeFactory::FIELD_TASKS,
+            'inputs' => AaeosPhaseHandoffService::FIELD_INPUTS,
+            'next_phase' => AaeosPhaseHandoffService::FIELD_NEXT_PHASE,
+            'doc' => AtlasAcosLongHorizonGateService::FIELD_DOC,
+            'app/atlas/evidence/acos-delta-series.v2.jsonl' => AtlasAcosLongHorizonGateService::FIELD_APP_ATLAS_EVIDENCE_ACOS_DELTA_SERIES_V2_JSONL,
+            'atlas:acos:m-series' => AcosProgramCockpitService::FIELD_ATLAS_ACOS_M_SERIES,
+            'atlas:acos:operational-volume' => AcosProgramCockpitService::FIELD_ATLAS_ACOS_OPERATIONAL_VOLUME,
+            'b534_delivery_pack_department_contract_lote_measure_series_docs_floor_count' => 18,
+        ];
+    }
+
 }

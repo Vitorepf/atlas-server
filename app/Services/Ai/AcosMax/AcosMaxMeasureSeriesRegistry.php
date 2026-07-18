@@ -159,6 +159,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_FREEZE_ATLAS_N_CAPTURE_DRILL_V1 = 'freeze:atlas.n_capture_drill.v1';
     public const FIELD_FREEZE_MISSION_E2E_V1 = 'freeze:mission_e2e.v1';
     public const FIELD_FREEZE_OPERATOR_APPROVAL_HISTORY_V1 = 'freeze:operator.approval_history.v1';
+    public const FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_ASI_05_LEDGER_CLEANUP_JSONL = 'app/atlas/evidence/acos-max-asi-05-ledger-cleanup.jsonl';
+    public const FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_ESP_00_GROUND_TRUTH_JSONL = 'app/atlas/evidence/acos-max-esp-00-ground-truth.jsonl';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -257,7 +259,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_ASI_05,
                 self::FIELD_SERIES => self::FIELD_ACOS_ASI05_LEDGER_CLEANUP_V1,
-                self::FIELD_PATH => storage_path('app/atlas/evidence/acos-max-asi-05-ledger-cleanup.jsonl'),
+                self::FIELD_PATH => storage_path(self::FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_ASI_05_LEDGER_CLEANUP_JSONL),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
                 self::FIELD_TTL_DAYS => self::INT_365,
@@ -266,7 +268,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_ESP_00,
                 self::FIELD_SERIES => self::FIELD_ACOS_ESP00_GROUND_TRUTH_V1,
-                self::FIELD_PATH => storage_path('app/atlas/evidence/acos-max-esp-00-ground-truth.jsonl'),
+                self::FIELD_PATH => storage_path(self::FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_ESP_00_GROUND_TRUTH_JSONL),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
                 self::FIELD_TTL_DAYS => self::INT_365,

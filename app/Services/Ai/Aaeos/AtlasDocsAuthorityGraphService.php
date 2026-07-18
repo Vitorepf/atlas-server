@@ -148,10 +148,10 @@ class AtlasDocsAuthorityGraphService
             $add(self::FIELD_DOC_ID, $ownerId, self::FIELD_DOC_ID);
         }
         foreach (AiValueNormalizer::arrayOrEmpty($frontmatter[self::FIELD_GOVERNS] ?? null) as $governs) {
-            $add('governs', $governs, 'governs_frontmatter');
+            $add(self::FIELD_GOVERNS, $governs, 'governs_frontmatter');
         }
         foreach (AiValueNormalizer::arrayOrEmpty($frontmatter[self::FIELD_CAPABILITIES] ?? null) as $capability) {
-            $add(self::FIELD_CAPABILITY, $capability, 'capability_frontmatter');
+            $add(self::FIELD_CAPABILITY, $capability, self::FIELD_CAPABILITY_FRONTMATTER);
         }
 
         return $rows;
