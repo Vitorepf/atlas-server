@@ -4829,4 +4829,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     }
 
 
+
+    public function test_decay_portfolio_spec_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->decayPortfolioSpecFloorsContractObserve([]);
+
+        $this->assertSame('schema_version', $payload['decay_field_schema_version']);
+        $this->assertSame('health_score', $payload['decay_field_health_score']);
+        $this->assertSame('effective_priority', $payload['decay_field_effective_priority']);
+        $this->assertSame('lifecycle_action', $payload['decay_field_lifecycle_action']);
+        $this->assertSame('staleness', $payload['decay_field_staleness']);
+        $this->assertSame('age_days', $payload['decay_field_age_days']);
+        $this->assertSame('decision_kind', $payload['portfolio_field_decision_kind']);
+        $this->assertSame('allocation', $payload['portfolio_field_allocation']);
+        $this->assertSame('default_mix', $payload['portfolio_field_default_mix']);
+        $this->assertSame('yield_by_class', $payload['portfolio_field_yield_by_class']);
+        $this->assertSame('reasons', $payload['portfolio_field_reasons']);
+        $this->assertSame('source', $payload['portfolio_field_source']);
+        $this->assertSame('business_actor_object_action', $payload['spec_field_business_actor_object_action']);
+        $this->assertSame('design_system_constraints', $payload['spec_field_design_system_constraints']);
+        $this->assertSame('security_constraints', $payload['spec_field_security_constraints']);
+        $this->assertSame('assumptions', $payload['spec_field_assumptions']);
+        $this->assertSame('blocking_questions', $payload['spec_field_blocking_questions']);
+        $this->assertSame(17, $payload['decay_portfolio_spec_floor_count']);
+    }
+
+
 }

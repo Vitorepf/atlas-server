@@ -6597,6 +6597,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function decayPortfolioSpecFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'decay_field_schema_version' => MemoryFeedbackDecayScorer::FIELD_SCHEMA_VERSION,
+            'decay_field_health_score' => MemoryFeedbackDecayScorer::FIELD_HEALTH_SCORE,
+            'decay_field_effective_priority' => MemoryFeedbackDecayScorer::FIELD_EFFECTIVE_PRIORITY,
+            'decay_field_lifecycle_action' => MemoryFeedbackDecayScorer::FIELD_LIFECYCLE_ACTION,
+            'decay_field_staleness' => MemoryFeedbackDecayScorer::FIELD_STALENESS,
+            'decay_field_age_days' => MemoryFeedbackDecayScorer::FIELD_AGE_DAYS,
+            'portfolio_field_decision_kind' => PortfolioBudgetAllocator::FIELD_DECISION_KIND,
+            'portfolio_field_allocation' => PortfolioBudgetAllocator::FIELD_ALLOCATION,
+            'portfolio_field_default_mix' => PortfolioBudgetAllocator::FIELD_DEFAULT_MIX,
+            'portfolio_field_yield_by_class' => PortfolioBudgetAllocator::FIELD_YIELD_BY_CLASS,
+            'portfolio_field_reasons' => PortfolioBudgetAllocator::FIELD_REASONS,
+            'portfolio_field_source' => PortfolioBudgetAllocator::FIELD_SOURCE,
+            'spec_field_business_actor_object_action' => SpecCompletenessScorer::FIELD_BUSINESS_ACTOR_OBJECT_ACTION,
+            'spec_field_design_system_constraints' => SpecCompletenessScorer::FIELD_DESIGN_SYSTEM_CONSTRAINTS,
+            'spec_field_security_constraints' => SpecCompletenessScorer::FIELD_SECURITY_CONSTRAINTS,
+            'spec_field_assumptions' => SpecCompletenessScorer::FIELD_ASSUMPTIONS,
+            'spec_field_blocking_questions' => SpecCompletenessScorer::FIELD_BLOCKING_QUESTIONS,
+            'decay_portfolio_spec_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

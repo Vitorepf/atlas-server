@@ -33,6 +33,14 @@ final class SpecCompletenessScorer
     public const FIELD_PRODUCT_AREA = 'product_area';
     public const FIELD_REQUIREMENTS = 'requirements';
     public const FIELD_ACCEPTANCE_CRITERIA = 'acceptance_criteria';
+    public const FIELD_BUSINESS_ACTOR_OBJECT_ACTION = 'business_actor_object_action';
+    public const FIELD_DESIGN_SYSTEM_CONSTRAINTS = 'design_system_constraints';
+    public const FIELD_SECURITY_CONSTRAINTS = 'security_constraints';
+    public const FIELD_ASSUMPTIONS = 'assumptions';
+    public const FIELD_BLOCKING_QUESTIONS = 'blocking_questions';
+    public const FIELD_TEST_STRATEGY = 'test_strategy';
+    public const FIELD_PRESENT = 'present';
+    public const FIELD_SATISFIED = 'satisfied';
 
 
     /**
@@ -43,14 +51,14 @@ final class SpecCompletenessScorer
         self::FIELD_INTERPRETED_GOAL => 12,
         self::FIELD_NON_GOALS => 5,
         self::FIELD_PRODUCT_AREA => 7,
-        'business_actor_object_action' => 10,
+        self::FIELD_BUSINESS_ACTOR_OBJECT_ACTION => 10,
         self::FIELD_REQUIREMENTS => 12,
         self::FIELD_ACCEPTANCE_CRITERIA => 14,
-        'design_system_constraints' => 6,
-        'security_constraints' => 8,
-        'assumptions' => 9,
-        'blocking_questions' => 1,
-        'test_strategy' => 8,
+        self::FIELD_DESIGN_SYSTEM_CONSTRAINTS => 6,
+        self::FIELD_SECURITY_CONSTRAINTS => 8,
+        self::FIELD_ASSUMPTIONS => 9,
+        self::FIELD_BLOCKING_QUESTIONS => 1,
+        self::FIELD_TEST_STRATEGY => 8,
     ];
 
     /**
@@ -96,8 +104,8 @@ final class SpecCompletenessScorer
             }
 
             $fields[$field] = [
-                'present' => $present,
-                'satisfied' => $satisfied,
+                self::FIELD_PRESENT => $present,
+                self::FIELD_SATISFIED => $satisfied,
                 self::FIELD_WEIGHT => $weight,
                 'earned' => $earned,
                 self::FIELD_REASON => $reason,

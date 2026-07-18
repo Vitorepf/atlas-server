@@ -73,6 +73,14 @@ final class PortfolioBudgetAllocator
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_FORMULA_VERSION = 'formula_version';
     public const FIELD_STATUS = 'status';
+    public const FIELD_DECISION_KIND = 'decision_kind';
+    public const FIELD_ALLOCATION = 'allocation';
+    public const FIELD_DEFAULT_MIX = 'default_mix';
+    public const FIELD_YIELD_BY_CLASS = 'yield_by_class';
+    public const FIELD_AMENDMENT_RECEIPT_ID = 'amendment_receipt_id';
+    public const FIELD_REASONS = 'reasons';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_WEIGHTS_ARE_OPERATOR_AUTHORED = 'weights_are_operator_authored';
 
     /**
      * @param  array<string,mixed>  $input keys:
@@ -86,11 +94,11 @@ final class PortfolioBudgetAllocator
      */
     public static function derive(array $input): array
     {
-        $default = self::normalizeShares($input['default_mix'] ?? [], self::equalDefault());
+        $default = self::normalizeShares($input[self::FIELD_DEFAULT_MIX] ?? [], self::equalDefault());
         $weights = self::normalizeShares($input['operator_weights'] ?? [], $default);
         $ceilings = self::normalizeCeilings($input['ceiling_bands'] ?? []);
-        $yields = self::normalizeYields($input['yield_by_class'] ?? []);
-        $amendmentId = AiValueNormalizer::trimmedStringOrNull($input['amendment_receipt_id'] ?? null);
+        $yields = self::normalizeYields($input[self::FIELD_YIELD_BY_CLASS] ?? []);
+        $amendmentId = AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_AMENDMENT_RECEIPT_ID] ?? null);
 
         $reasons = [];
         $status = self::STATUS_OK;
@@ -123,15 +131,15 @@ final class PortfolioBudgetAllocator
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
-            'decision_kind' => 'portfolio_allocation',
+            self::FIELD_DECISION_KIND => 'portfolio_allocation',
             self::FIELD_STATUS => $status,
-            'allocation' => $usedWeights,
-            'default_mix' => $default,
-            'yield_by_class' => $yieldReport,
-            'amendment_receipt_id' => $amendmentId,
-            'reasons' => $reasons,
-            'source' => [
-                'weights_are_operator_authored' => true,
+            self::FIELD_ALLOCATION => $usedWeights,
+            self::FIELD_DEFAULT_MIX => $default,
+            self::FIELD_YIELD_BY_CLASS => $yieldReport,
+            self::FIELD_AMENDMENT_RECEIPT_ID => $amendmentId,
+            self::FIELD_REASONS => $reasons,
+            self::FIELD_SOURCE => [
+                self::FIELD_WEIGHTS_ARE_OPERATOR_AUTHORED => true,
                 'allocator_writes_own_weights' => false,
                 'yield_recomputed_here' => false,
                 'starvation_floor_absolute' => self::HARD_FLOOR_SHARE,

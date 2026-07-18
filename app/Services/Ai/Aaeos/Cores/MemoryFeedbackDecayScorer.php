@@ -37,6 +37,14 @@ final class MemoryFeedbackDecayScorer
     public const DECISION_STALE_REVIEW_RECOMMENDED = 'stale_review_recommended';
 
     public const DECISION_FRESH = 'fresh';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_HEALTH_SCORE = 'health_score';
+    public const FIELD_EFFECTIVE_PRIORITY = 'effective_priority';
+    public const FIELD_LIFECYCLE_ACTION = 'lifecycle_action';
+    public const FIELD_STALENESS = 'staleness';
+    public const FIELD_AGE_DAYS = 'age_days';
+    public const FIELD_THRESHOLD_REASONS = 'threshold_reasons';
+    public const FIELD_INPUTS_ECHO = 'inputs_echo';
 
     /**
      * @param  array<string, mixed>  $signals
@@ -106,14 +114,14 @@ final class MemoryFeedbackDecayScorer
         );
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'health_score' => $healthScore,
-            'effective_priority' => $effectivePriority,
-            'lifecycle_action' => $lifecycleAction,
-            'staleness' => $staleness,
-            'age_days' => $recordedAge,
-            'threshold_reasons' => array_values($reasons),
-            'inputs_echo' => [
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_HEALTH_SCORE => $healthScore,
+            self::FIELD_EFFECTIVE_PRIORITY => $effectivePriority,
+            self::FIELD_LIFECYCLE_ACTION => $lifecycleAction,
+            self::FIELD_STALENESS => $staleness,
+            self::FIELD_AGE_DAYS => $recordedAge,
+            self::FIELD_THRESHOLD_REASONS => array_values($reasons),
+            self::FIELD_INPUTS_ECHO => [
                 'positive_count' => $positive,
                 'negative_count' => $negative,
                 'wrong_context_count' => $wrongContext,
