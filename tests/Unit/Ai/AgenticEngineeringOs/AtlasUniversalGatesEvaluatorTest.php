@@ -16577,4 +16577,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b755_provider_bound_floor_count']);
     }
 
+    public function test_b756_autonomy_ladder_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b756AutonomyLadderFloorsContractObserve([]);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::SCHEMA, $out['atlas.acos.watchdog.autonomy_ladder_adversarial.v1']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::CHECK_ID, $out['maxk-09.autonomy_ladder_adversarial']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_REFUSED, $out['refused']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_OBSERVED, $out['observed']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_EXPECTED, $out['expected']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_REASON, $out['reason']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_STATUS, $out['status']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_CHECK, $out['check']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_DETAILS, $out['details']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_PASSED, $out['passed']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::EXPORT_BOOL_TRUE, $out['true']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::EXPORT_BOOL_FALSE, $out['false']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::EXPORT_BOOL_UNSET, $out['unset']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::PROBE_ID_UNKNOWN, $out['unknown']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_OK, $out['ok']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_ID, $out['id']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_SOURCE, $out['source']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_REFUSAL_REASON, $out['refusal_reason']);
+        $this->assertSame(18, $out['b756_autonomy_ladder_floor_count']);
+    }
+
 }

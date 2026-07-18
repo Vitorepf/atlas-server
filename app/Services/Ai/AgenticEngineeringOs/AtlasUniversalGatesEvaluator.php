@@ -20884,4 +20884,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B756).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b756AutonomyLadderFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.acos.watchdog.autonomy_ladder_adversarial.v1' => AutonomyLadderAdversarialWatchdogCheck::SCHEMA,
+            'maxk-09.autonomy_ladder_adversarial' => AutonomyLadderAdversarialWatchdogCheck::CHECK_ID,
+            'refused' => AutonomyLadderAdversarialWatchdogCheck::FIELD_REFUSED,
+            'observed' => AutonomyLadderAdversarialWatchdogCheck::FIELD_OBSERVED,
+            'expected' => AutonomyLadderAdversarialWatchdogCheck::FIELD_EXPECTED,
+            'reason' => AutonomyLadderAdversarialWatchdogCheck::FIELD_REASON,
+            'status' => AutonomyLadderAdversarialWatchdogCheck::FIELD_STATUS,
+            'check' => AutonomyLadderAdversarialWatchdogCheck::FIELD_CHECK,
+            'details' => AutonomyLadderAdversarialWatchdogCheck::FIELD_DETAILS,
+            'passed' => AutonomyLadderAdversarialWatchdogCheck::FIELD_PASSED,
+            'true' => AutonomyLadderAdversarialWatchdogCheck::EXPORT_BOOL_TRUE,
+            'false' => AutonomyLadderAdversarialWatchdogCheck::EXPORT_BOOL_FALSE,
+            'unset' => AutonomyLadderAdversarialWatchdogCheck::EXPORT_BOOL_UNSET,
+            'unknown' => AutonomyLadderAdversarialWatchdogCheck::PROBE_ID_UNKNOWN,
+            'ok' => AutonomyLadderAdversarialWatchdogCheck::FIELD_OK,
+            'id' => AutonomyLadderAdversarialWatchdogCheck::FIELD_ID,
+            'source' => AutonomyLadderAdversarialWatchdogCheck::FIELD_SOURCE,
+            'refusal_reason' => AutonomyLadderAdversarialWatchdogCheck::FIELD_REFUSAL_REASON,
+            'b756_autonomy_ladder_floor_count' => 18,
+        ];
+    }
+
 }
