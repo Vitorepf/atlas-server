@@ -17381,4 +17381,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B643).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b643MemoryCognitiveFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.memory.cognitive_immune_learning_kernel.v1' => AtlasMemoryCognitiveImmuneLearningKernelService::SCHEMA,
+            'G0' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G0,
+            'G1' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G1,
+            'G2' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G2,
+            'G3' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G3,
+            'G4' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G4,
+            'G5' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G5,
+            'G6' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G6,
+            'G7' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G7,
+            'G8' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G8,
+            'can_become_memory' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CAN_BECOME_MEMORY,
+            'destination' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_DESTINATION,
+            'id' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ID,
+            'question' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_QUESTION,
+            'signal' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_SIGNAL,
+            'untrusted_content' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_UNTRUSTED_CONTENT,
+            'reasons' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_REASONS,
+            'atomic_claim' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ATOMIC_CLAIM,
+            'b643_memory_cognitive_floor_count' => 18,
+        ];
+    }
+
 }

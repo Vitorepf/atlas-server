@@ -13747,4 +13747,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b642_learning_proposals_floor_count']);
     }
 
+    public function test_b643_memory_cognitive_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b643MemoryCognitiveFloorsContractObserve([]);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::SCHEMA, $out['atlas.memory.cognitive_immune_learning_kernel.v1']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G0, $out['G0']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G1, $out['G1']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G2, $out['G2']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G3, $out['G3']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G4, $out['G4']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G5, $out['G5']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G6, $out['G6']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G7, $out['G7']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G8, $out['G8']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CAN_BECOME_MEMORY, $out['can_become_memory']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_DESTINATION, $out['destination']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_QUESTION, $out['question']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_SIGNAL, $out['signal']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_UNTRUSTED_CONTENT, $out['untrusted_content']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_REASONS, $out['reasons']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ATOMIC_CLAIM, $out['atomic_claim']);
+        $this->assertSame(18, $out['b643_memory_cognitive_floor_count']);
+    }
+
 }

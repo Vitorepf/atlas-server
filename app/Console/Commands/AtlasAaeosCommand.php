@@ -665,6 +665,7 @@ final class AtlasAaeosCommand extends Command
                             {--b640-spec-completeness-floors-contract= : JSON file (any object) to observe spec/completeness floors}
                             {--b641-memory-feedback-floors-contract= : JSON file (any object) to observe memory/feedback floors}
                             {--b642-learning-proposals-floors-contract= : JSON file (any object) to observe learning/proposals floors}
+                            {--b643-memory-cognitive-floors-contract= : JSON file (any object) to observe memory/cognitive floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1486,6 +1487,7 @@ final class AtlasAaeosCommand extends Command
             ['b640-spec-completeness-floors-contract', 'b640_spec_completeness_floors_contract', fn (array $p) => $gates->b640SpecCompletenessFloorsContractObserve($p)],
             ['b641-memory-feedback-floors-contract', 'b641_memory_feedback_floors_contract', fn (array $p) => $gates->b641MemoryFeedbackFloorsContractObserve($p)],
             ['b642-learning-proposals-floors-contract', 'b642_learning_proposals_floors_contract', fn (array $p) => $gates->b642LearningProposalsFloorsContractObserve($p)],
+            ['b643-memory-cognitive-floors-contract', 'b643_memory_cognitive_floors_contract', fn (array $p) => $gates->b643MemoryCognitiveFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
