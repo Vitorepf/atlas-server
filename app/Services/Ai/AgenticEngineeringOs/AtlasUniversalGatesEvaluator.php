@@ -19241,4 +19241,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B703).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b703ResourceBudgetFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'measured_headroom_mb' => AtlasResourceBudgetService::FIELD_MEASURED_HEADROOM_MB,
+            'measured_ram_mb' => AtlasResourceBudgetService::FIELD_MEASURED_RAM_MB,
+            'atlas.resource_budget.v1' => AtlasResourceBudgetService::SCHEMA,
+            'atlas_resource_budget' => AtlasResourceBudgetService::BUDGET_CONFIG_KEY,
+            '48' => AtlasResourceBudgetService::DEFAULT_HOST_RAM_GIB,
+            '12' => AtlasResourceBudgetService::DEFAULT_ENGINE_FLOOR_GIB,
+            'ram_mb' => AtlasResourceBudgetService::FIELD_RAM_MB,
+            'disk_mb' => AtlasResourceBudgetService::FIELD_DISK_MB,
+            'name' => AtlasResourceBudgetService::FIELD_NAME,
+            'purpose' => AtlasResourceBudgetService::FIELD_PURPOSE,
+            'ram_cap_mb' => AtlasResourceBudgetService::FIELD_RAM_CAP_MB,
+            'ram_actual_mb' => AtlasResourceBudgetService::FIELD_RAM_ACTUAL_MB,
+            'disk_cap_mb' => AtlasResourceBudgetService::FIELD_DISK_CAP_MB,
+            'status' => AtlasResourceBudgetService::FIELD_STATUS,
+            'cpu_share' => AtlasResourceBudgetService::FIELD_CPU_SHARE,
+            'probe_hint' => AtlasResourceBudgetService::FIELD_PROBE_HINT,
+            'schema_version' => AtlasResourceBudgetService::FIELD_SCHEMA_VERSION,
+            'host_ram_gib' => AtlasResourceBudgetService::FIELD_HOST_RAM_GIB,
+            'b703_resource_budget_floor_count' => 18,
+        ];
+    }
+
 }

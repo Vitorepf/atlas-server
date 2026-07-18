@@ -15249,4 +15249,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b702_evidence_vision_floor_count']);
     }
 
+    public function test_b703_resource_budget_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b703ResourceBudgetFloorsContractObserve([]);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_MEASURED_HEADROOM_MB, $out['measured_headroom_mb']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_MEASURED_RAM_MB, $out['measured_ram_mb']);
+        $this->assertSame(AtlasResourceBudgetService::SCHEMA, $out['atlas.resource_budget.v1']);
+        $this->assertSame(AtlasResourceBudgetService::BUDGET_CONFIG_KEY, $out['atlas_resource_budget']);
+        $this->assertSame(AtlasResourceBudgetService::DEFAULT_HOST_RAM_GIB, $out['48']);
+        $this->assertSame(AtlasResourceBudgetService::DEFAULT_ENGINE_FLOOR_GIB, $out['12']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_RAM_MB, $out['ram_mb']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_DISK_MB, $out['disk_mb']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_NAME, $out['name']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_PURPOSE, $out['purpose']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_RAM_CAP_MB, $out['ram_cap_mb']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_RAM_ACTUAL_MB, $out['ram_actual_mb']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_DISK_CAP_MB, $out['disk_cap_mb']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_CPU_SHARE, $out['cpu_share']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_PROBE_HINT, $out['probe_hint']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_HOST_RAM_GIB, $out['host_ram_gib']);
+        $this->assertSame(18, $out['b703_resource_budget_floor_count']);
+    }
+
 }
