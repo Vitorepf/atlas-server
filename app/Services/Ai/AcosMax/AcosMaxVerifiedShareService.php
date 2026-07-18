@@ -74,6 +74,8 @@ final class AcosMaxVerifiedShareService
     public const FIELD_VERIFIED_SHARE = 'verified_share';
     public const FIELD_WINDOW_DAYS = 'window_days';
     public const FIELD_VERIFIED_COUNT = 'verified_count';
+    public const FIELD_JUDGE_AUTHOR_DISTINCT = 'judge_author_distinct';
+    public const FIELD_MODE = 'mode';
 
 
     /** @return array<string,mixed> */
@@ -159,7 +161,7 @@ final class AcosMaxVerifiedShareService
                 self::FIELD_THRESHOLDS => AiValueNormalizer::arrayOrEmpty($freeze[self::FIELD_THRESHOLDS] ?? null),
                 self::FIELD_AUTHOR_ENGINE_ID => $authorEngineId,
                 self::FIELD_JUDGE_ENGINE_ID => $judgeEngineId,
-                'judge_author_distinct' => $authorEngineId !== '' && $authorEngineId !== $judgeEngineId,
+                self::FIELD_JUDGE_AUTHOR_DISTINCT => $authorEngineId !== '' && $authorEngineId !== $judgeEngineId,
                 self::FIELD_SERIES_REGISTRY => AiValueNormalizer::arrayOrEmpty($freeze[self::FIELD_SERIES_REGISTRY] ?? null),
             ],
             self::FIELD_AGGREGATE => $aggregate,
@@ -291,7 +293,7 @@ final class AcosMaxVerifiedShareService
             ->get()
             ->map(static fn (AtlasLedgerEvent $event): array => (array) $event->payload)
             ->filter(static fn (array $payload): bool => ($payload[self::FIELD_EVENT_NAME] ?? null) === 'engineering.execution.coverage.recorded'
-                && ($payload['mode'] ?? null) === 'enforce')
+                && ($payload[self::FIELD_MODE] ?? null) === 'enforce')
             ->values()
             ->all();
     }

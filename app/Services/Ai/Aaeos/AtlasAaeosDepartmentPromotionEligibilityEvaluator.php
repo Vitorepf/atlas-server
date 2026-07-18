@@ -39,6 +39,8 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     public const FIELD_TIER_THRESHOLDS = 'tier_thresholds';
     public const FIELD_CANONICAL_WRITE_ALLOWED = 'canonical_write_allowed';
     public const FIELD_DEFICIT = 'deficit';
+    public const FIELD_ELIGIBILITY_HASH = 'eligibility_hash';
+    public const FIELD_FRESHNESS = 'freshness';
 
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department
@@ -103,7 +105,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
         $preconditions = [
             self::FIELD_BLOCKERS => $blockerPrecondition,
             self::FIELD_QUALITY_BAR => $qualityPrecondition,
-            'freshness' => $freshnessPrecondition,
+            self::FIELD_FRESHNESS => $freshnessPrecondition,
         ];
 
         return [
@@ -114,7 +116,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
             self::FIELD_PRECONDITIONS => $preconditions,
             self::FIELD_FAILED_PRECONDITIONS => $failedPreconditions,
             self::FIELD_BLOCKING_REASONS => $blockingReasons,
-            'eligibility_hash' => $this->eligibilityHash(
+            self::FIELD_ELIGIBILITY_HASH => $this->eligibilityHash(
                 $currentTier,
                 $targetTier,
                 $eligible,

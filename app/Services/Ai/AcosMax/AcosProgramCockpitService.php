@@ -42,6 +42,8 @@ final class AcosProgramCockpitService
     public const FIELD_HEADING = 'heading';
     public const FIELD_EXTERNAL_PROVIDER_CALL = 'external_provider_call';
     public const FIELD_PROVIDER_TOKENS_SPENT = 'provider_tokens_spent';
+    public const FIELD_EXIT_CODE = 'exit_code';
+    public const FIELD_GENERATED_AT = 'generated_at';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -50,7 +52,7 @@ final class AcosProgramCockpitService
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'generated_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            self::FIELD_GENERATED_AT => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
             self::FIELD_EXTERNAL_PROVIDER_CALL => false,
             self::FIELD_PROVIDER_TOKENS_SPENT => false,
             'mutates_state' => false,
@@ -81,7 +83,7 @@ final class AcosProgramCockpitService
             $exitCode = Artisan::call($command, $arguments, $buffer);
             $decoded = json_decode(AiValueNormalizer::trimmedStringOrNull($buffer->fetch()) ?? '', true);
             if (! is_array($decoded)) {
-                return $this->unavailable($source, 'source_did_not_emit_json', ['exit_code' => $exitCode]);
+                return $this->unavailable($source, 'source_did_not_emit_json', [self::FIELD_EXIT_CODE => $exitCode]);
             }
 
             return [

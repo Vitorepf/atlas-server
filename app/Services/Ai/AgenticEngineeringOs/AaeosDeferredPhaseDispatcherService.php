@@ -53,6 +53,8 @@ final class AaeosDeferredPhaseDispatcherService
     public const FIELD_ENVELOPE = 'envelope';
     public const FIELD_PHASE_ADVANCE = 'phase_advance';
     public const FIELD_OUTCOME_CAUSALITY = 'outcome_causality';
+    public const FIELD_ENQUEUED_COUNT = 'enqueued_count';
+    public const FIELD_GATES = 'gates';
 
     public function __construct(
         private readonly CacheRepository $cache,
@@ -101,7 +103,7 @@ final class AaeosDeferredPhaseDispatcherService
         return [
             self::FIELD_SCHEMA => self::SCHEMA_VERSION,
             'queue_path' => $path,
-            'enqueued_count' => count($enqueued),
+            self::FIELD_ENQUEUED_COUNT => count($enqueued),
             self::FIELD_ENQUEUED => $enqueued,
         ];
     }
@@ -202,7 +204,7 @@ final class AaeosDeferredPhaseDispatcherService
      */
     private function observeCausality(array $envelope): ?array
     {
-        $gates = AiValueNormalizer::arrayOrEmpty($envelope['gates'] ?? null);
+        $gates = AiValueNormalizer::arrayOrEmpty($envelope[self::FIELD_GATES] ?? null);
         $blockedGates = AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_BLOCKED] ?? null);
         $blockers = AiValueNormalizer::arrayOrEmpty($envelope[self::FIELD_BLOCKERS] ?? null);
         if ($blockedGates === [] && $blockers === []) {

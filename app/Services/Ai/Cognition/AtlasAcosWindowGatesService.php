@@ -50,6 +50,8 @@ final class AtlasAcosWindowGatesService
     public const FIELD_EVIDENCE = 'evidence';
     public const FIELD_GENERATED_AT = 'generated_at';
     public const FIELD_TARGET = 'target';
+    public const FIELD_LIVE_DIMENSIONS = 'live_dimensions';
+    public const FIELD_NOTE = 'note';
 
     /** Receipt freshness before a certified gate is treated as stale (7 days). */
     public const RECEIPT_FRESH_SECONDS = 604800;
@@ -71,9 +73,9 @@ final class AtlasAcosWindowGatesService
         return [
             'schema_version' => self::SCHEMA_VERSION,
             self::FIELD_GENERATED_AT => gmdate('c'),
-            'live_dimensions' => $this->liveDimensions(),
+            self::FIELD_LIVE_DIMENSIONS => $this->liveDimensions(),
             'window_receipts' => $this->windowReceipts(),
-            'note' => 'Gates de valor/janela são código-completo, prova pendente: a certificação enche na cadência de dados reais. Nada aqui é fabricado — valores medidos + veredito da própria fonte.',
+            self::FIELD_NOTE => 'Gates de valor/janela são código-completo, prova pendente: a certificação enche na cadência de dados reais. Nada aqui é fabricado — valores medidos + veredito da própria fonte.',
         ];
     }
 

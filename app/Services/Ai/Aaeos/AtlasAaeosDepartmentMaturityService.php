@@ -35,6 +35,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_DEPARTMENTS = 'departments';
     public const FIELD_ID = 'id';
     public const FIELD_LAST_EVALUATION = 'last_evaluation';
+    public const FIELD_MATURITY_TIER = 'maturity_tier';
+    public const FIELD_NEXT_EVALUATION_DUE = 'next_evaluation_due';
 
     public const DEPARTMENTS = [
         [
@@ -140,7 +142,7 @@ final class AtlasAaeosDepartmentMaturityService
         return array_map(
             fn (array $department): array => [
                 self::FIELD_DEPARTMENT => AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_DEPARTMENT_ID]) ?? '',
-                'maturity_tier' => $this->parseLevel($department[self::FIELD_CURRENT_LEVEL]),
+                self::FIELD_MATURITY_TIER => $this->parseLevel($department[self::FIELD_CURRENT_LEVEL]),
                 self::FIELD_SIGNALS => $this->buildSignals($department),
                 'schema' => self::SCHEMA_VERSION,
                 self::FIELD_EVIDENCE => $department[self::FIELD_EVIDENCE],
@@ -153,7 +155,7 @@ final class AtlasAaeosDepartmentMaturityService
                     ],
                 ],
                 self::FIELD_LAST_EVALUATION => self::LAST_EVALUATION,
-                'next_evaluation_due' => self::NEXT_EVALUATION_DUE,
+                self::FIELD_NEXT_EVALUATION_DUE => self::NEXT_EVALUATION_DUE,
                 self::FIELD_OWNER => self::OWNER,
             ],
             self::DEPARTMENTS,

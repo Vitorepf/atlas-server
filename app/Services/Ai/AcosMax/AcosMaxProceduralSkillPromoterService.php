@@ -101,6 +101,8 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_EVIDENCE_REFS = 'evidence_refs';
     public const FIELD_FLOOR_PENDING = 'floor_pending';
     public const FIELD_FORBIDDEN_ACTIONS = 'forbidden_actions';
+    public const FIELD_MEMORY_TYPE = 'memory_type';
+    public const FIELD_NAME = 'name';
 
 
     public function __construct(
@@ -221,7 +223,7 @@ final class AcosMaxProceduralSkillPromoterService
             ],
             self::FIELD_SKILL_V1 => [
                 self::FIELD_SCHEMA_VERSION => self::SKILL_SCHEMA_VERSION,
-                'name' => $skillName,
+                self::FIELD_NAME => $skillName,
                 self::FIELD_DESCRIPTION => $playbook->objective,
                 self::FIELD_SOURCE => [
                     self::FIELD_KIND => self::KIND_PROCEDURAL_PLAYBOOK,
@@ -256,7 +258,7 @@ final class AcosMaxProceduralSkillPromoterService
                 'run_outcome_id' => null,
                 self::FIELD_STATUS => self::STATUS_HELD_FOR_EVIDENCE,
                 self::FIELD_DECISION => self::STATUS_HOLD,
-                'memory_type' => self::SKILL_SCHEMA_VERSION,
+                self::FIELD_MEMORY_TYPE => self::SKILL_SCHEMA_VERSION,
                 'scope' => 'global',
                 self::FIELD_CLAIM => sprintf(
                     'MULTJ-04 procedural-to-skill.v1 proposal for %s held under ASI-02 (case_count=%d).',

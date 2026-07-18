@@ -9056,4 +9056,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B372).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function proceduralSkillVerifiedShareAcosProgramDeferredPhaseFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'memory_type' => AcosMaxProceduralSkillPromoterService::FIELD_MEMORY_TYPE,
+            'name' => AcosMaxProceduralSkillPromoterService::FIELD_NAME,
+            'judge_author_distinct' => AcosMaxVerifiedShareService::FIELD_JUDGE_AUTHOR_DISTINCT,
+            'mode' => AcosMaxVerifiedShareService::FIELD_MODE,
+            'exit_code' => AcosProgramCockpitService::FIELD_EXIT_CODE,
+            'generated_at' => AcosProgramCockpitService::FIELD_GENERATED_AT,
+            'enqueued_count' => AaeosDeferredPhaseDispatcherService::FIELD_ENQUEUED_COUNT,
+            'gates' => AaeosDeferredPhaseDispatcherService::FIELD_GATES,
+            'live_dimensions' => AtlasAcosWindowGatesService::FIELD_LIVE_DIMENSIONS,
+            'note' => AtlasAcosWindowGatesService::FIELD_NOTE,
+            'json' => AtlasCognitionRemintTouchedQueue::FIELD_JSON,
+            'metadata' => AtlasCognitionRemintTouchedQueue::FIELD_METADATA,
+            'integration' => AtlasCognitionScoreCardV4Grouper::FIELD_INTEGRATION,
+            'long_horizon' => AtlasCognitionScoreCardV4Grouper::FIELD_LONG_HORIZON,
+            'maturity_tier' => AtlasAaeosDepartmentMaturityService::FIELD_MATURITY_TIER,
+            'next_evaluation_due' => AtlasAaeosDepartmentMaturityService::FIELD_NEXT_EVALUATION_DUE,
+            'eligibility_hash' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_ELIGIBILITY_HASH,
+            'freshness' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_FRESHNESS,
+            'procedural_skill_verified_share_acos_program_deferred_phase_floor_count' => 18,
+        ];
+    }
+
 }

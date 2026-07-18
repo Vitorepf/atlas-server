@@ -47,6 +47,8 @@ final class AtlasCognitionRemintTouchedQueue
     public const FIELD_REASON = 'reason';
     public const FIELD_MODE = 'mode';
     public const FIELD_PATHS = 'paths';
+    public const FIELD_JSON = 'json';
+    public const FIELD_METADATA = 'metadata';
 
     /**
      * @param  list<string>  $paths
@@ -81,9 +83,9 @@ final class AtlasCognitionRemintTouchedQueue
             self::FIELD_COMMAND => $command,
             self::FIELD_COMMAND_ARGS => [
                 self::FIELD_PATHS => $paths,
-                'json' => true,
+                self::FIELD_JSON => true,
             ],
-            'metadata' => $metadata,
+            self::FIELD_METADATA => $metadata,
         ];
 
         try {

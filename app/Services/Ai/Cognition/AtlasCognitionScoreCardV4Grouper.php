@@ -42,6 +42,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_EVIDENCE = 'evidence';
     public const FIELD_MEMORY_CORE = 'memory_core';
     public const FIELD_RESEARCH_DOMAIN = 'research_domain';
+    public const FIELD_INTEGRATION = 'integration';
+    public const FIELD_LONG_HORIZON = 'long_horizon';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -139,12 +141,12 @@ final class AtlasCognitionScoreCardV4Grouper
             'teos' => 'TEOS',
             self::FIELD_COGNITION => 'COGNITION',
             self::FIELD_AUTONOMY => 'AUTONOMY',
-            'patamar4', 'patamar_4', 'integration' => 'PATAMAR4',
+            'patamar4', 'patamar_4', self::FIELD_INTEGRATION => 'PATAMAR4',
             self::FIELD_CONTEXT_CACHE => 'CONTEXT-CACHE',
             self::FIELD_CONTEXT_INTELLIGENCE => 'CONTEXT-INTELLIGENCE',
             'persistent_context' => 'PERSISTENT-CONTEXT',
             self::FIELD_AEMOR => 'AEMOR',
-            'long_horizon' => 'LONG-HORIZON',
+            self::FIELD_LONG_HORIZON => 'LONG-HORIZON',
             'verified_context' => 'VERIFIED-CONTEXT',
             self::FIELD_CONTEXT_QUALITY => 'CONTEXT-QUALITY',
             'open_brain' => 'OPEN-BRAIN',

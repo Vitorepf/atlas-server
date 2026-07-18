@@ -7024,4 +7024,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['memory_recall_esp_independent_maxa_jina_immune_classifier_floor_count']);
     }
 
+    public function test_procedural_skill_verified_share_acos_program_deferred_phase_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->proceduralSkillVerifiedShareAcosProgramDeferredPhaseFloorsContractObserve([]);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_MEMORY_TYPE, $out['memory_type']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_NAME, $out['name']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_JUDGE_AUTHOR_DISTINCT, $out['judge_author_distinct']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_MODE, $out['mode']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_EXIT_CODE, $out['exit_code']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_ENQUEUED_COUNT, $out['enqueued_count']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_GATES, $out['gates']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_LIVE_DIMENSIONS, $out['live_dimensions']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_NOTE, $out['note']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::FIELD_JSON, $out['json']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::FIELD_METADATA, $out['metadata']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_INTEGRATION, $out['integration']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_LONG_HORIZON, $out['long_horizon']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_MATURITY_TIER, $out['maturity_tier']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_NEXT_EVALUATION_DUE, $out['next_evaluation_due']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_ELIGIBILITY_HASH, $out['eligibility_hash']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_FRESHNESS, $out['freshness']);
+        $this->assertSame(18, $out['procedural_skill_verified_share_acos_program_deferred_phase_floor_count']);
+    }
+
 }
