@@ -70,6 +70,12 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_BAND_ORDER = 'band_order';
     public const FIELD_BAND_COUNTS = 'band_counts';
     public const FIELD_PENDING_FLIPS = 'pending_flips';
+    public const FIELD_EVIDENCE_REFS = 'evidence_refs';
+    public const FIELD_HIGHEST_PREDICTED_REVERT_BAND = 'highest_predicted_revert_band';
+    public const FIELD_BATCHED_ASKS = 'batched_asks';
+    public const FIELD_DIFF_REF = 'diff_ref';
+    public const FIELD_REVIEW_MODE = 'review_mode';
+    public const FIELD_PENDING_FLIP = 'pending_flip';
 
     /**
      * @param  list<array<string,mixed>>  $items
@@ -103,7 +109,7 @@ final class Teto10PredictedRevertReviewDigest
             self::FIELD_BAND_COUNTS => $bandCounts,
             self::FIELD_GROUPS => $groups,
             self::FIELD_PENDING_FLIPS => self::flaggedSection($shown, 'pending_flip', 'flip_ref'),
-            'batched_asks' => self::flaggedSection($shown, 'batched_ask', 'ask_ref'),
+            self::FIELD_BATCHED_ASKS => self::flaggedSection($shown, 'batched_ask', 'ask_ref'),
             'source' => [
                 'slice' => 'TETO-10',
                 'frontier_plan_section' => '3144-3147',
@@ -136,7 +142,7 @@ final class Teto10PredictedRevertReviewDigest
             if (! is_array($group)) {
                 continue;
             }
-            $band = self::band($group['highest_predicted_revert_band'] ?? self::BAND_UNKNOWN);
+            $band = self::band($group[self::FIELD_HIGHEST_PREDICTED_REVERT_BAND] ?? self::BAND_UNKNOWN);
             if ($band !== $currentBand) {
                 $lines[] = '## Predicted revert: '.$band;
                 $lines[] = '';
@@ -157,16 +163,16 @@ final class Teto10PredictedRevertReviewDigest
                 }
                 $lines[] = '- '.self::plain(self::string($item['id'] ?? 'item') ?: 'item').': '.self::plain(self::string($item[self::FIELD_TITLE] ?? 'untitled') ?: 'untitled');
                 $lines[] = '  - band: '.self::plain(self::band($item[self::FIELD_PREDICTED_REVERT_BAND] ?? self::BAND_UNKNOWN));
-                $lines[] = '  - evidence: '.self::plain(implode(', ', array_map(self::string(...), AiValueNormalizer::arrayOrEmpty($item['evidence_refs'] ?? null))));
-                $lines[] = '  - diff-ref: '.self::plain(self::string($item['diff_ref'] ?? 'manual_review') ?: 'manual_review');
+                $lines[] = '  - evidence: '.self::plain(implode(', ', array_map(self::string(...), AiValueNormalizer::arrayOrEmpty($item[self::FIELD_EVIDENCE_REFS] ?? null))));
+                $lines[] = '  - diff-ref: '.self::plain(self::string($item[self::FIELD_DIFF_REF] ?? 'manual_review') ?: 'manual_review');
                 $lines[] = '  - reverse: '.self::inline(self::string($item[self::FIELD_REVERSE_COMMAND] ?? 'manual_review') ?: 'manual_review');
-                $lines[] = '  - review-mode: '.self::plain(self::string($item['review_mode'] ?? 'manual_review') ?: 'manual_review');
+                $lines[] = '  - review-mode: '.self::plain(self::string($item[self::FIELD_REVIEW_MODE] ?? 'manual_review') ?: 'manual_review');
             }
             $lines[] = '';
         }
 
         $lines = array_merge($lines, self::renderFlaggedSection('Pending flips', AiValueNormalizer::arrayOrEmpty($digest[self::FIELD_PENDING_FLIPS] ?? null)));
-        $lines = array_merge($lines, self::renderFlaggedSection('Batched asks', AiValueNormalizer::arrayOrEmpty($digest['batched_asks'] ?? null)));
+        $lines = array_merge($lines, self::renderFlaggedSection('Batched asks', AiValueNormalizer::arrayOrEmpty($digest[self::FIELD_BATCHED_ASKS] ?? null)));
 
         return rtrim(implode(PHP_EOL, $lines)).PHP_EOL;
     }
@@ -191,11 +197,11 @@ final class Teto10PredictedRevertReviewDigest
             self::FIELD_GROUP_KEY => $decisionId !== '' ? 'decision:'.$decisionId : 'family:'.($family !== '' ? $family : self::BAND_UNKNOWN),
             self::FIELD_PREDICTED_REVERT_BAND => $band,
             self::FIELD_BAND_RANK => self::BAND_RANK[$band],
-            'evidence_refs' => self::evidenceRefs($item),
-            'diff_ref' => self::firstString($item, ['diff_ref', 'diff', 'patch_ref'], 'manual_review'),
+            self::FIELD_EVIDENCE_REFS => self::evidenceRefs($item),
+            self::FIELD_DIFF_REF => self::firstString($item, ['diff_ref', 'diff', 'patch_ref'], 'manual_review'),
             self::FIELD_REVERSE_COMMAND => $reverse,
-            'review_mode' => $reverse === 'manual_review' ? 'manual_review' : 'reversible',
-            'pending_flip' => (AiValueNormalizer::boolOrNull($item['pending_flip'] ?? null) ?? false),
+            self::FIELD_REVIEW_MODE => $reverse === 'manual_review' ? 'manual_review' : 'reversible',
+            self::FIELD_PENDING_FLIP => (AiValueNormalizer::boolOrNull($item[self::FIELD_PENDING_FLIP] ?? null) ?? false),
             'flip_ref' => self::firstString($item, ['flip_ref', 'flip_id'], ''),
             'batched_ask' => (AiValueNormalizer::boolOrNull($item['batched_ask'] ?? null) ?? false),
             'ask_ref' => self::firstString($item, ['ask_ref', 'ask_id'], ''),
@@ -226,7 +232,7 @@ final class Teto10PredictedRevertReviewDigest
                 self::FIELD_GROUP_KEY => $key,
                 self::FIELD_DECISION_ID => $item[self::FIELD_DECISION_ID],
                 self::FIELD_FAMILY => $item[self::FIELD_FAMILY],
-                'highest_predicted_revert_band' => $item[self::FIELD_PREDICTED_REVERT_BAND],
+                self::FIELD_HIGHEST_PREDICTED_REVERT_BAND => $item[self::FIELD_PREDICTED_REVERT_BAND],
                 self::FIELD_HIGHEST_BAND_RANK => $item[self::FIELD_BAND_RANK],
                 self::FIELD_ITEM_COUNT => 0,
                 self::FIELD_ITEMS => [],
@@ -235,7 +241,7 @@ final class Teto10PredictedRevertReviewDigest
             $groups[$key][self::FIELD_ITEMS][] = $item;
             if ((int) (AiValueNormalizer::finiteFloatOrNull($item[self::FIELD_BAND_RANK] ?? null) ?? 0) < (int) $groups[$key][self::FIELD_HIGHEST_BAND_RANK]) {
                 $groups[$key][self::FIELD_HIGHEST_BAND_RANK] = $item[self::FIELD_BAND_RANK];
-                $groups[$key]['highest_predicted_revert_band'] = $item[self::FIELD_PREDICTED_REVERT_BAND];
+                $groups[$key][self::FIELD_HIGHEST_PREDICTED_REVERT_BAND] = $item[self::FIELD_PREDICTED_REVERT_BAND];
             }
         }
 
@@ -315,7 +321,7 @@ final class Teto10PredictedRevertReviewDigest
     private static function evidenceRefs(array $item): array
     {
         $refs = [];
-        $rawRefs = $item['evidence_refs'] ?? null;
+        $rawRefs = $item[self::FIELD_EVIDENCE_REFS] ?? null;
         if (is_array($rawRefs)) {
             foreach ($rawRefs as $ref) {
                 $value = self::string($ref);

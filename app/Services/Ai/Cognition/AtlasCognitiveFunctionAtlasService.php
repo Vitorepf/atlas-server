@@ -84,6 +84,12 @@ class AtlasCognitiveFunctionAtlasService
     public const FIELD_COGNITIVE_IMMUNE = 'cognitive_immune';
     public const FIELD_COMPOUNDING = 'compounding';
     public const FIELD_CROSS_DOMAIN = 'cross_domain';
+    public const FIELD_PIPELINE_STATUS = 'pipeline_status';
+    public const FIELD_SELF_IMPROVEMENT = 'self_improvement';
+    public const FIELD_SELF_CONSTRUCTION = 'self_construction';
+    public const FIELD_GOVERNANCE = 'governance';
+    public const FIELD_PIPELINE_PARTIAL = 'pipeline_partial';
+    public const FIELD_PIPELINE_BUILDING = 'pipeline_building';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scoreCard,
@@ -151,7 +157,7 @@ class AtlasCognitiveFunctionAtlasService
         $tally = [];
         foreach ($subs as $s) {
             $g = (AiValueNormalizer::trimmedStringOrNull($s[self::FIELD_GROUP] ?? null) ?? self::STATUS_UNKNOWN);
-            $pipeline = (AiValueNormalizer::trimmedStringOrNull($s['pipeline_status'] ?? null) ?? self::STATUS_UNKNOWN);
+            $pipeline = (AiValueNormalizer::trimmedStringOrNull($s[self::FIELD_PIPELINE_STATUS] ?? null) ?? self::STATUS_UNKNOWN);
             if (! isset($tally[$g])) {
                 $tally[$g] = 0;
             }
@@ -219,13 +225,13 @@ class AtlasCognitiveFunctionAtlasService
             self::FIELD_COGNITIVE_IMMUNE => ['aemor', 'cognitive_immune'],
             'memory_core' => ['memory'],
             self::FIELD_AUCRI => [self::FIELD_AKIF],
-            'self_improvement' => ['self_improvement'],
+            self::FIELD_SELF_IMPROVEMENT => [self::FIELD_SELF_IMPROVEMENT],
             self::FIELD_ATLAS_DECIDE => ['atlas_decide', 'swarm'],
-            'self_construction' => ['self_construction'],
+            self::FIELD_SELF_CONSTRUCTION => [self::FIELD_SELF_CONSTRUCTION],
             'reality' => [self::FIELD_AURG],
             self::FIELD_CROSS_DOMAIN => [self::FIELD_CROSS_DOMAIN],
             'teos' => ['teos_i3', 'teos_i4'],
-            'governance' => ['governance'],
+            self::FIELD_GOVERNANCE => [self::FIELD_GOVERNANCE],
             self::FIELD_AUTONOMY => ['reconciliation'],
             self::FIELD_COGNITION => [],
             self::FIELD_COMPOUNDING => [self::FIELD_COMPOUNDING],
@@ -239,7 +245,7 @@ class AtlasCognitiveFunctionAtlasService
                 continue;
             }
             $byGroup[$g] = $byGroup[$g] ?? [self::FIELD_DECLARED_READY => 0, self::FIELD_EVIDENCE_FILES_SEEN => 0, self::FIELD_EVIDENCE_FILES_EMPTY => 0];
-            if (($s['pipeline_status'] ?? '') === self::STATUS_READY) {
+            if (($s[self::FIELD_PIPELINE_STATUS] ?? '') === self::STATUS_READY) {
                 $byGroup[$g][self::FIELD_DECLARED_READY]++;
             }
         }
@@ -330,7 +336,7 @@ class AtlasCognitiveFunctionAtlasService
                 if (($s['doc_status'] ?? '') === self::STATUS_READY) {
                     $docReady++;
                 }
-                $pipeline = (AiValueNormalizer::trimmedStringOrNull($s['pipeline_status'] ?? null) ?? '');
+                $pipeline = (AiValueNormalizer::trimmedStringOrNull($s[self::FIELD_PIPELINE_STATUS] ?? null) ?? '');
                 if ($pipeline === self::STATUS_READY) {
                     $pipelineReady++;
                 } elseif ($pipeline === self::STATUS_PARTIAL) {
@@ -346,8 +352,8 @@ class AtlasCognitiveFunctionAtlasService
                 self::FIELD_CODE_READY => $codeReady,
                 'doc_ready' => $docReady,
                 'pipeline_ready' => $pipelineReady,
-                'pipeline_partial' => $pipelinePartial,
-                'pipeline_building' => $pipelineBuilding,
+                self::FIELD_PIPELINE_PARTIAL => $pipelinePartial,
+                self::FIELD_PIPELINE_BUILDING => $pipelineBuilding,
                 'service_present' => $servicePresent,
             ];
         }
@@ -363,7 +369,7 @@ class AtlasCognitiveFunctionAtlasService
     {
         $out = [];
         foreach ($shape as $row) {
-            $nonReady = (int) (AiValueNormalizer::finiteFloatOrNull($row['pipeline_partial'] ?? null) ?? 0) + (int) (AiValueNormalizer::finiteFloatOrNull($row['pipeline_building'] ?? null) ?? 0);
+            $nonReady = (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_PIPELINE_PARTIAL] ?? null) ?? 0) + (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_PIPELINE_BUILDING] ?? null) ?? 0);
             if ($nonReady > 0) {
                 $out[] = [self::FIELD_GROUP => AiValueNormalizer::trimmedScalarStringOrNull($row[self::FIELD_GROUP] ?? null) ?? '', self::FIELD_NON_READY_PIPELINE => $nonReady];
             }

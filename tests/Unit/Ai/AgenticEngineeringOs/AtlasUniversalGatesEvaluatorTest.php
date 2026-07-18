@@ -5198,5 +5198,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['immune_integrity_obra_floor_count']);
     }
 
+    public function test_teto_atlas_longhorizon_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->tetoAtlasLonghorizonFloorsContractObserve([]);
+
+        $this->assertSame('evidence_refs', $payload['teto_field_evidence_refs']);
+        $this->assertSame('highest_predicted_revert_band', $payload['teto_field_highest_predicted_revert_band']);
+        $this->assertSame('batched_asks', $payload['teto_field_batched_asks']);
+        $this->assertSame('diff_ref', $payload['teto_field_diff_ref']);
+        $this->assertSame('review_mode', $payload['teto_field_review_mode']);
+        $this->assertSame('pending_flip', $payload['teto_field_pending_flip']);
+        $this->assertSame('pipeline_status', $payload['atlas_field_pipeline_status']);
+        $this->assertSame('self_improvement', $payload['atlas_field_self_improvement']);
+        $this->assertSame('self_construction', $payload['atlas_field_self_construction']);
+        $this->assertSame('governance', $payload['atlas_field_governance']);
+        $this->assertSame('pipeline_partial', $payload['atlas_field_pipeline_partial']);
+        $this->assertSame('pipeline_building', $payload['atlas_field_pipeline_building']);
+        $this->assertSame('latest_staleness_days', $payload['longhorizon_field_latest_staleness_days']);
+        $this->assertSame('max_consecutive_gap_days', $payload['longhorizon_field_max_consecutive_gap_days']);
+        $this->assertSame('backfilled_samples', $payload['longhorizon_field_backfilled_samples']);
+        $this->assertSame('areas_below_floor', $payload['longhorizon_field_areas_below_floor']);
+        $this->assertSame('claim_policy', $payload['longhorizon_field_claim_policy']);
+        $this->assertSame(17, $payload['teto_atlas_longhorizon_floor_count']);
+    }
+
 
 }

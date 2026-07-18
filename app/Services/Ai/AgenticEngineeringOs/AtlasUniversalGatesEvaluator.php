@@ -6957,6 +6957,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function tetoAtlasLonghorizonFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'teto_field_evidence_refs' => Teto10PredictedRevertReviewDigest::FIELD_EVIDENCE_REFS,
+            'teto_field_highest_predicted_revert_band' => Teto10PredictedRevertReviewDigest::FIELD_HIGHEST_PREDICTED_REVERT_BAND,
+            'teto_field_batched_asks' => Teto10PredictedRevertReviewDigest::FIELD_BATCHED_ASKS,
+            'teto_field_diff_ref' => Teto10PredictedRevertReviewDigest::FIELD_DIFF_REF,
+            'teto_field_review_mode' => Teto10PredictedRevertReviewDigest::FIELD_REVIEW_MODE,
+            'teto_field_pending_flip' => Teto10PredictedRevertReviewDigest::FIELD_PENDING_FLIP,
+            'atlas_field_pipeline_status' => AtlasCognitiveFunctionAtlasService::FIELD_PIPELINE_STATUS,
+            'atlas_field_self_improvement' => AtlasCognitiveFunctionAtlasService::FIELD_SELF_IMPROVEMENT,
+            'atlas_field_self_construction' => AtlasCognitiveFunctionAtlasService::FIELD_SELF_CONSTRUCTION,
+            'atlas_field_governance' => AtlasCognitiveFunctionAtlasService::FIELD_GOVERNANCE,
+            'atlas_field_pipeline_partial' => AtlasCognitiveFunctionAtlasService::FIELD_PIPELINE_PARTIAL,
+            'atlas_field_pipeline_building' => AtlasCognitiveFunctionAtlasService::FIELD_PIPELINE_BUILDING,
+            'longhorizon_field_latest_staleness_days' => AtlasAcosLongHorizonGateService::FIELD_LATEST_STALENESS_DAYS,
+            'longhorizon_field_max_consecutive_gap_days' => AtlasAcosLongHorizonGateService::FIELD_MAX_CONSECUTIVE_GAP_DAYS,
+            'longhorizon_field_backfilled_samples' => AtlasAcosLongHorizonGateService::FIELD_BACKFILLED_SAMPLES,
+            'longhorizon_field_areas_below_floor' => AtlasAcosLongHorizonGateService::FIELD_AREAS_BELOW_FLOOR,
+            'longhorizon_field_claim_policy' => AtlasAcosLongHorizonGateService::FIELD_CLAIM_POLICY,
+            'teto_atlas_longhorizon_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

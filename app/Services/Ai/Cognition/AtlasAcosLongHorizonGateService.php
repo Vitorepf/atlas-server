@@ -88,6 +88,11 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_FIRST_DATE = 'first_date';
     public const FIELD_TODAY = 'today';
     public const FIELD_FUTURE_DATED_ROWS = 'future_dated_rows';
+    public const FIELD_LATEST_STALENESS_DAYS = 'latest_staleness_days';
+    public const FIELD_MAX_CONSECUTIVE_GAP_DAYS = 'max_consecutive_gap_days';
+    public const FIELD_BACKFILLED_SAMPLES = 'backfilled_samples';
+    public const FIELD_AREAS_BELOW_FLOOR = 'areas_below_floor';
+    public const FIELD_CLAIM_POLICY = 'claim_policy';
 
     /**
      * @param  array<string,mixed>  $options
@@ -223,11 +228,11 @@ final class AtlasAcosLongHorizonGateService
             self::FIELD_SERIES_DAY_COUNT => count($uniqueDates),
             self::FIELD_CALENDAR_SPAN_DAYS => $this->calendarSpanDays($firstDate, $latestDate),
             self::FIELD_FUTURE_DATED_ROWS => $futureDatedRows,
-            'latest_staleness_days' => $this->latestStalenessDays($latestDate, $today),
+            self::FIELD_LATEST_STALENESS_DAYS => $this->latestStalenessDays($latestDate, $today),
             self::FIELD_CERTIFICATION_WINDOW_DATES => $certificationWindowDates,
             'sampled_dates_in_window' => $sampledDatesInWindow,
-            'max_consecutive_gap_days' => $this->maxConsecutiveGapDays($sampledDatesInWindow),
-            'backfilled_samples' => $this->backfilledSamplesInWindow($series, $certificationWindowDates),
+            self::FIELD_MAX_CONSECUTIVE_GAP_DAYS => $this->maxConsecutiveGapDays($sampledDatesInWindow),
+            self::FIELD_BACKFILLED_SAMPLES => $this->backfilledSamplesInWindow($series, $certificationWindowDates),
         ];
     }
 
@@ -260,9 +265,9 @@ final class AtlasAcosLongHorizonGateService
         $calendarSpanDays = (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_CALENDAR_SPAN_DAYS] ?? null) ?? 0);
         $futureDatedRows = (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_FUTURE_DATED_ROWS] ?? null) ?? 0);
         $latestDate = $window[self::FIELD_LATEST_DATE] ?? null;
-        $latestStalenessDays = (int) (AiValueNormalizer::finiteFloatOrNull($window['latest_staleness_days'] ?? null) ?? 0);
-        $maxConsecutiveGapDays = (int) (AiValueNormalizer::finiteFloatOrNull($window['max_consecutive_gap_days'] ?? null) ?? 0);
-        $backfilledSamples = (int) (AiValueNormalizer::finiteFloatOrNull($window['backfilled_samples'] ?? null) ?? 0);
+        $latestStalenessDays = (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_LATEST_STALENESS_DAYS] ?? null) ?? 0);
+        $maxConsecutiveGapDays = (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_MAX_CONSECUTIVE_GAP_DAYS] ?? null) ?? 0);
+        $backfilledSamples = (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_BACKFILLED_SAMPLES] ?? null) ?? 0);
 
         if ($seriesDayCount < $minDays) {
             $blockers[] = $codes['day_count'];
@@ -313,12 +318,12 @@ final class AtlasAcosLongHorizonGateService
             self::FIELD_LATEST_DATE => $latestDate,
             self::FIELD_TODAY => $window[self::FIELD_TODAY] ?? null,
             self::FIELD_FUTURE_DATED_ROWS => (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_FUTURE_DATED_ROWS] ?? null) ?? 0),
-            'latest_staleness_days' => (int) (AiValueNormalizer::finiteFloatOrNull($window['latest_staleness_days'] ?? null) ?? 0),
+            self::FIELD_LATEST_STALENESS_DAYS => (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_LATEST_STALENESS_DAYS] ?? null) ?? 0),
             'certification_window_start' => $certificationWindowDates[0] ?? null,
             'certification_window_end' => $latestDate,
             'certification_window_sample_count' => count($sampledDatesInWindow),
-            'max_consecutive_gap_days' => (int) (AiValueNormalizer::finiteFloatOrNull($window['max_consecutive_gap_days'] ?? null) ?? 0),
-            'backfilled_samples' => (int) (AiValueNormalizer::finiteFloatOrNull($window['backfilled_samples'] ?? null) ?? 0),
+            self::FIELD_MAX_CONSECUTIVE_GAP_DAYS => (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_MAX_CONSECUTIVE_GAP_DAYS] ?? null) ?? 0),
+            self::FIELD_BACKFILLED_SAMPLES => (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_BACKFILLED_SAMPLES] ?? null) ?? 0),
             'resolved_evidence_rows' => $resolvedEvidenceRows,
         ];
     }
@@ -581,7 +586,7 @@ final class AtlasAcosLongHorizonGateService
             ],
         );
 
-        foreach ($areaScan['areas_below_floor'] as $area) {
+        foreach ($areaScan[self::FIELD_AREAS_BELOW_FLOOR] as $area) {
             $blockers[] = 'area_below_floor:'.$area;
         }
 
@@ -590,7 +595,7 @@ final class AtlasAcosLongHorizonGateService
             'floors' => $floors,
             'min_area_scores' => $areaScan['min_area_scores'],
             'area_days_below_floor' => $areaScan['area_days_below_floor'],
-            'areas_below_floor' => $areaScan['areas_below_floor'],
+            self::FIELD_AREAS_BELOW_FLOOR => $areaScan[self::FIELD_AREAS_BELOW_FLOOR],
             self::FIELD_BLOCKERS => $blockers,
         ]);
     }
@@ -661,7 +666,7 @@ final class AtlasAcosLongHorizonGateService
         return [
             'min_area_scores' => $minAreaScores,
             'area_days_below_floor' => $areaDaysBelowFloor,
-            'areas_below_floor' => array_values(array_keys(array_filter(
+            self::FIELD_AREAS_BELOW_FLOOR => array_values(array_keys(array_filter(
                 $areaDaysBelowFloor,
                 static fn (int $days): bool => $days > 0,
             ))),
@@ -835,7 +840,7 @@ final class AtlasAcosLongHorizonGateService
                     self::FIELD_PIPELINE => [self::FIELD_SCORE_OUT_OF_10 => $pipeline],
                 ],
             ],
-            'claim_policy' => [
+            self::FIELD_CLAIM_POLICY => [
                 'benchmark_claim_allowed' => false,
                 'rivals_claim_allowed' => false,
                 'superiority_claim_allowed' => false,
@@ -904,7 +909,7 @@ final class AtlasAcosLongHorizonGateService
                 'scorecard_hash' => AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'scorecard_hash')) ?? '',
                 'series_rows_sampled' => count($series),
             ],
-            'claim_policy' => [
+            self::FIELD_CLAIM_POLICY => [
                 'scorecard_resolved_evidence_only' => true,
                 'delta_series_append_only_input' => true,
                 'does_not_mint_receipts' => true,
@@ -920,8 +925,8 @@ final class AtlasAcosLongHorizonGateService
         if ($assessmentV2 !== null) {
             $payload['assessment_v2'] = $assessmentV2;
             $payload['evidence']['series_v2_rows_sampled'] = (int) (AiValueNormalizer::finiteFloatOrNull($assessmentV2[self::FIELD_SERIES_DAY_COUNT] ?? null) ?? 0);
-            $payload['claim_policy']['longitudinal_area_floor_v2'] = true;
-            $payload['claim_policy']['gate_v1_byte_identical_without_v2'] = true;
+            $payload[self::FIELD_CLAIM_POLICY]['longitudinal_area_floor_v2'] = true;
+            $payload[self::FIELD_CLAIM_POLICY]['gate_v1_byte_identical_without_v2'] = true;
         }
 
         $receiptPayload = [
