@@ -5346,5 +5346,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['joint_lote2_horizon_floor_count']);
     }
 
+    public function test_threshold_http_immune_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->thresholdHttpImmuneFloorsContractObserve([]);
+
+        $this->assertSame('value', $payload['threshold_field_value']);
+        $this->assertSame('thresholds', $payload['threshold_field_thresholds']);
+        $this->assertSame('rank', $payload['threshold_field_rank']);
+        $this->assertSame('metric', $payload['threshold_field_metric']);
+        $this->assertSame('comparator', $payload['threshold_field_comparator']);
+        $this->assertSame('level', $payload['threshold_field_level']);
+        $this->assertSame('schema', $payload['http_field_schema']);
+        $this->assertSame('latency_ms', $payload['http_field_latency_ms']);
+        $this->assertSame('layer', $payload['http_field_layer']);
+        $this->assertSame('requires_ap', $payload['http_field_requires_ap']);
+        $this->assertSame('payload', $payload['http_field_payload']);
+        $this->assertSame('http_status', $payload['http_field_http_status']);
+        $this->assertSame('sample_label', $payload['immune_ingest_field_sample_label']);
+        $this->assertSame('promotion_status', $payload['immune_ingest_field_promotion_status']);
+        $this->assertSame('writer', $payload['immune_ingest_field_writer']);
+        $this->assertSame('matched_signals', $payload['immune_ingest_field_matched_signals']);
+        $this->assertSame('memory_id', $payload['immune_ingest_field_memory_id']);
+        $this->assertSame('decision_id', $payload['immune_ingest_field_decision_id']);
+        $this->assertSame(18, $payload['threshold_http_immune_floor_count']);
+    }
+
 
 }

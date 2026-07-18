@@ -7130,6 +7130,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for threshold ladder / http facade / immune ingest peels.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function thresholdHttpImmuneFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'threshold_field_value' => AtlasAaeosThresholdLadderNormalizer::FIELD_VALUE,
+            'threshold_field_thresholds' => AtlasAaeosThresholdLadderNormalizer::FIELD_THRESHOLDS,
+            'threshold_field_rank' => AtlasAaeosThresholdLadderNormalizer::FIELD_RANK,
+            'threshold_field_metric' => AtlasAaeosThresholdLadderNormalizer::FIELD_METRIC,
+            'threshold_field_comparator' => AtlasAaeosThresholdLadderNormalizer::FIELD_COMPARATOR,
+            'threshold_field_level' => AtlasAaeosThresholdLadderNormalizer::FIELD_LEVEL,
+            'http_field_schema' => AtlasAaeosHttpPathFacadeService::FIELD_SCHEMA,
+            'http_field_latency_ms' => AtlasAaeosHttpPathFacadeService::FIELD_LATENCY_MS,
+            'http_field_layer' => AtlasAaeosHttpPathFacadeService::FIELD_LAYER,
+            'http_field_requires_ap' => AtlasAaeosHttpPathFacadeService::FIELD_REQUIRES_AP,
+            'http_field_payload' => AtlasAaeosHttpPathFacadeService::FIELD_PAYLOAD,
+            'http_field_http_status' => AtlasAaeosHttpPathFacadeService::FIELD_HTTP_STATUS,
+            'immune_ingest_field_sample_label' => ImmuneSignatureIngestor::FIELD_SAMPLE_LABEL,
+            'immune_ingest_field_promotion_status' => ImmuneSignatureIngestor::FIELD_PROMOTION_STATUS,
+            'immune_ingest_field_writer' => ImmuneSignatureIngestor::FIELD_WRITER,
+            'immune_ingest_field_matched_signals' => ImmuneSignatureIngestor::FIELD_MATCHED_SIGNALS,
+            'immune_ingest_field_memory_id' => ImmuneSignatureIngestor::FIELD_MEMORY_ID,
+            'immune_ingest_field_decision_id' => ImmuneSignatureIngestor::FIELD_DECISION_ID,
+            'threshold_http_immune_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -8,6 +8,13 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AtlasAaeosThresholdLadderNormalizer
 {
+    public const FIELD_VALUE = 'value';
+    public const FIELD_THRESHOLDS = 'thresholds';
+    public const FIELD_RANK = 'rank';
+    public const FIELD_METRIC = 'metric';
+    public const FIELD_COMPARATOR = 'comparator';
+    public const FIELD_LEVEL = 'level';
+    public const FIELD_BAND = 'band';
     /**
      * @param  list<array{level: string, thresholds: list<array{metric: string, comparator: string, value: float}>}>  $bandLadder
      * @return list<array{level: string, thresholds: list<array{metric: string, comparator: string, value: float}>}>
@@ -25,19 +32,19 @@ final class AtlasAaeosThresholdLadderNormalizer
                 return [];
             }
 
-            $level = AiValueNormalizer::trimmedStringOrNull($band['level'] ?? null);
+            $level = AiValueNormalizer::trimmedStringOrNull($band[self::FIELD_LEVEL] ?? null);
             if ($level === null) {
                 return [];
             }
 
-            $thresholds = self::thresholds($band['thresholds'] ?? null);
+            $thresholds = self::thresholds($band[self::FIELD_THRESHOLDS] ?? null);
             if ($thresholds === null) {
                 return [];
             }
 
             $bands[] = [
-                'level' => $level,
-                'thresholds' => $thresholds,
+                self::FIELD_LEVEL => $level,
+                self::FIELD_THRESHOLDS => $thresholds,
             ];
         }
 
@@ -57,24 +64,24 @@ final class AtlasAaeosThresholdLadderNormalizer
         $bands = [];
 
         foreach ($bandLadder as $band) {
-            if (! is_array($band) || ! isset($band['rank']) || ! is_int($band['rank'])) {
+            if (! is_array($band) || ! isset($band[self::FIELD_RANK]) || ! is_int($band[self::FIELD_RANK])) {
                 return [];
             }
 
-            $bandName = AiValueNormalizer::trimmedStringOrNull($band['band'] ?? null);
+            $bandName = AiValueNormalizer::trimmedStringOrNull($band[self::FIELD_BAND] ?? null);
             if ($bandName === null) {
                 return [];
             }
 
-            $thresholds = self::thresholds($band['thresholds'] ?? null);
+            $thresholds = self::thresholds($band[self::FIELD_THRESHOLDS] ?? null);
             if ($thresholds === null) {
                 return [];
             }
 
             $bands[] = [
-                'band' => $bandName,
-                'rank' => $band['rank'],
-                'thresholds' => $thresholds,
+                self::FIELD_BAND => $bandName,
+                self::FIELD_RANK => $band[self::FIELD_RANK],
+                self::FIELD_THRESHOLDS => $thresholds,
             ];
         }
 
@@ -98,9 +105,9 @@ final class AtlasAaeosThresholdLadderNormalizer
             }
 
             $normalized[] = [
-                'metric' => AiValueNormalizer::trimmedStringOrNull($threshold['metric']) ?? '',
-                'comparator' => AiValueNormalizer::trimmedStringOrNull($threshold['comparator']) ?? '',
-                'value' => AiValueNormalizer::finiteFloatOrNull($threshold['value']) ?? 0.0,
+                self::FIELD_METRIC => AiValueNormalizer::trimmedStringOrNull($threshold[self::FIELD_METRIC]) ?? '',
+                self::FIELD_COMPARATOR => AiValueNormalizer::trimmedStringOrNull($threshold[self::FIELD_COMPARATOR]) ?? '',
+                self::FIELD_VALUE => AiValueNormalizer::finiteFloatOrNull($threshold[self::FIELD_VALUE]) ?? 0.0,
             ];
         }
 
@@ -110,10 +117,10 @@ final class AtlasAaeosThresholdLadderNormalizer
     private static function isThresholdShape(mixed $threshold): bool
     {
         return is_array($threshold)
-            && isset($threshold['metric'], $threshold['comparator'], $threshold['value'])
-            && AiValueNormalizer::trimmedStringOrNull($threshold['metric']) !== null
-            && AiValueNormalizer::trimmedStringOrNull($threshold['comparator']) !== null
-            && in_array(get_debug_type($threshold['value']), ['int', 'float'], true)
-            && is_finite(AiValueNormalizer::finiteFloatOrNull($threshold['value']) ?? NAN);
+            && isset($threshold[self::FIELD_METRIC], $threshold[self::FIELD_COMPARATOR], $threshold[self::FIELD_VALUE])
+            && AiValueNormalizer::trimmedStringOrNull($threshold[self::FIELD_METRIC]) !== null
+            && AiValueNormalizer::trimmedStringOrNull($threshold[self::FIELD_COMPARATOR]) !== null
+            && in_array(get_debug_type($threshold[self::FIELD_VALUE]), ['int', 'float'], true)
+            && is_finite(AiValueNormalizer::finiteFloatOrNull($threshold[self::FIELD_VALUE]) ?? NAN);
     }
 }

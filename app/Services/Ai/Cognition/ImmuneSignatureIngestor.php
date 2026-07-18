@@ -15,6 +15,12 @@ final class ImmuneSignatureIngestor
     public const STATUS_BLOCKED = 'blocked';
 
     public const WRITER_UNKNOWN = 'unknown';
+    public const FIELD_SAMPLE_LABEL = 'sample_label';
+    public const FIELD_PROMOTION_STATUS = 'promotion_status';
+    public const FIELD_WRITER = 'writer';
+    public const FIELD_MATCHED_SIGNALS = 'matched_signals';
+    public const FIELD_MEMORY_ID = 'memory_id';
+    public const FIELD_DECISION_ID = 'decision_id';
 
     private readonly ImmuneSignatureStore $store;
 
@@ -50,7 +56,7 @@ final class ImmuneSignatureIngestor
         }
 
         /** @var list<string> $signals */
-        $signals = array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($classification['matched_signals'] ?? null)));
+        $signals = array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($classification[self::FIELD_MATCHED_SIGNALS] ?? null)));
 
         return $this->store->recordFromIncident(
             (AiValueNormalizer::trimmedStringOrNull($verdictRow['id'] ?? null) ?? $contentHash),
@@ -59,9 +65,9 @@ final class ImmuneSignatureIngestor
             $hostileClass,
             $signals,
             [
-                'writer' => (AiValueNormalizer::trimmedStringOrNull($verdictRow['writer'] ?? null) ?? self::WRITER_UNKNOWN),
-                'sample_label' => $verdictRow['sample_label'] ?? null,
-                'promotion_status' => $verdictRow['promotion_status'] ?? null,
+                self::FIELD_WRITER => (AiValueNormalizer::trimmedStringOrNull($verdictRow[self::FIELD_WRITER] ?? null) ?? self::WRITER_UNKNOWN),
+                self::FIELD_SAMPLE_LABEL => $verdictRow[self::FIELD_SAMPLE_LABEL] ?? null,
+                self::FIELD_PROMOTION_STATUS => $verdictRow[self::FIELD_PROMOTION_STATUS] ?? null,
             ],
         );
     }
@@ -87,7 +93,7 @@ final class ImmuneSignatureIngestor
         }
 
         /** @var list<string> $signals */
-        $signals = array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($classification['matched_signals'] ?? ['memory_revert'])));
+        $signals = array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($classification[self::FIELD_MATCHED_SIGNALS] ?? ['memory_revert'])));
 
         return $this->store->recordFromIncident(
             'decision:'.$decisionId.':memory:'.$entry->id,
@@ -96,8 +102,8 @@ final class ImmuneSignatureIngestor
             $hostileClass,
             $signals,
             [
-                'memory_id' => AiValueNormalizer::trimmedScalarStringOrNull($entry->id ?? null) ?? '',
-                'decision_id' => $decisionId,
+                self::FIELD_MEMORY_ID => AiValueNormalizer::trimmedScalarStringOrNull($entry->id ?? null) ?? '',
+                self::FIELD_DECISION_ID => $decisionId,
                 'memory_type' => $memoryType,
             ],
         );
@@ -108,8 +114,8 @@ final class ImmuneSignatureIngestor
      */
     private function isConfirmedPoisonVerdict(array $verdictRow): bool
     {
-        $label = AiValueNormalizer::trimmedScalarStringOrNull($verdictRow['sample_label'] ?? null) ?? '';
-        $status = AiValueNormalizer::lowerTrimmedString($verdictRow['promotion_status'] ?? '');
+        $label = AiValueNormalizer::trimmedScalarStringOrNull($verdictRow[self::FIELD_SAMPLE_LABEL] ?? null) ?? '';
+        $status = AiValueNormalizer::lowerTrimmedString($verdictRow[self::FIELD_PROMOTION_STATUS] ?? '');
         $blocking = array_values(array_filter(AiValueNormalizer::arrayOrEmpty($verdictRow['blocking_gate_ids'] ?? null), 'is_string'));
 
         return $label === ImmuneVerdictLedger::LABEL_TRUE_BLOCK

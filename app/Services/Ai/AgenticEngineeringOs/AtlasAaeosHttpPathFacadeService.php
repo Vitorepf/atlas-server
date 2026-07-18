@@ -72,6 +72,12 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD_DOMAIN = 'domain';
     public const FIELD_FACADE_ACTIVE = 'facade_active';
     public const FIELD_FLOW = 'flow';
+    public const FIELD_SCHEMA = 'schema';
+    public const FIELD_LATENCY_MS = 'latency_ms';
+    public const FIELD_LAYER = 'layer';
+    public const FIELD_REQUIRES_AP = 'requires_ap';
+    public const FIELD_PAYLOAD = 'payload';
+    public const FIELD_HTTP_STATUS = 'http_status';
 
     public const BLOCK_PLACEMENT_GATE_BLOCKED = 'placement_gate_blocked';
 
@@ -284,7 +290,7 @@ final class AtlasAaeosHttpPathFacadeService
     public function telemetrySnapshot(string $configuredPhase): array
     {
         return [
-            'schema' => self::STATUS_SCHEMA,
+            self::FIELD_SCHEMA => self::STATUS_SCHEMA,
             self::FIELD_CONFIGURED_PHASE => $configuredPhase,
             self::FIELD_FACADE_ACTIVE => self::isActive($configuredPhase),
             'phase_router' => (new AtlasAaeosPhaseRouterService($configuredPhase))->statusSnapshot(),
@@ -294,7 +300,7 @@ final class AtlasAaeosHttpPathFacadeService
                 'legacy_fallback' => (int) $this->cache->get(self::TELEMETRY_KEY_LEGACY_FALLBACK, 0),
                 self::FIELD_BLOCKED => (int) $this->cache->get(self::TELEMETRY_KEY_BLOCKED, 0),
             ],
-            'latency_ms' => [
+            self::FIELD_LATENCY_MS => [
                 'samples' => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.count', 0),
                 'sum' => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.sum', 0),
                 'max' => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.max', 0),
@@ -386,7 +392,7 @@ final class AtlasAaeosHttpPathFacadeService
     {
         $payload = self::requestPayload($data);
         $payload[self::FIELD_AAEOS_HTTP_PATH] = [
-            'schema' => self::REQUEST_SCHEMA,
+            self::FIELD_SCHEMA => self::REQUEST_SCHEMA,
             self::FIELD_INTENT_ID => $intentId,
             'phases_executed' => array_values(array_map(
                 static fn (array $env): string => AiValueNormalizer::trimmedStringOrNull($env['phase_out'] ?? null) ?? self::RESULT_UNKNOWN,
@@ -395,14 +401,14 @@ final class AtlasAaeosHttpPathFacadeService
             'phases_executed_count' => count($envelopes),
             'placement_decision' => [
                 self::FIELD_GATE_STATUS => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_GATE_STATUS] ?? null) ?? self::RESULT_UNKNOWN,
-                'layer' => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT]['layer'] ?? null) ?? self::RESULT_UNKNOWN,
+                self::FIELD_LAYER => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_LAYER] ?? null) ?? self::RESULT_UNKNOWN,
                 self::FIELD_DOMAIN => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_DOMAIN] ?? null) ?? self::RESULT_UNKNOWN,
                 self::FIELD_FLOW => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_FLOW] ?? null) ?? self::RESULT_UNKNOWN,
-                'requires_ap' => (AiValueNormalizer::boolOrNull($placementResult[self::FIELD_PLACEMENT]['requires_ap'] ?? null) ?? false),
+                self::FIELD_REQUIRES_AP => (AiValueNormalizer::boolOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_REQUIRES_AP] ?? null) ?? false),
             ],
             self::FIELD_ENVELOPES => $envelopes,
         ];
-        $data['payload'] = $payload;
+        $data[self::FIELD_PAYLOAD] = $payload;
 
         return $data;
     }
@@ -435,7 +441,7 @@ final class AtlasAaeosHttpPathFacadeService
                 self::FIELD_CODE => $blockerCode,
                 self::FIELD_REASON => $reason,
                 self::FIELD_BLOCKED_WHEN => array_values($blockedWhen),
-                'http_status' => 422,
+                self::FIELD_HTTP_STATUS => 422,
             ],
             self::FIELD_TELEMETRY => $this->telemetry($configuredPhase, $this->elapsedMs($startedAtNs), $placementCacheHit),
         ];
@@ -448,7 +454,7 @@ final class AtlasAaeosHttpPathFacadeService
     {
         return [
             'phase_active' => $phaseActive,
-            'latency_ms' => $latencyMs,
+            self::FIELD_LATENCY_MS => $latencyMs,
             'placement_cache_hit' => $placementCacheHit,
         ];
     }
@@ -500,6 +506,6 @@ final class AtlasAaeosHttpPathFacadeService
      */
     private static function requestPayload(array $data): array
     {
-        return AiValueNormalizer::arrayOrEmpty($data['payload'] ?? null);
+        return AiValueNormalizer::arrayOrEmpty($data[self::FIELD_PAYLOAD] ?? null);
     }
 }
