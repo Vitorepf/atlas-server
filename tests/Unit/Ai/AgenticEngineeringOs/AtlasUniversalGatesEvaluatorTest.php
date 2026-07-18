@@ -16151,4 +16151,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b738_cognition_remint_floor_count']);
     }
 
+    public function test_b739_immune_hybrid_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b739ImmuneHybridFloorsContractObserve([]);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::SEMANTIC_ARM_ENABLED_CONFIG_KEY, $out['atlas.aaeos.immune_classifier.semantic_arm_enabled']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::SOURCE_UNAVAILABLE, $out['unavailable']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::SOURCE_JACCARD_BASELINE, $out['jaccard_baseline']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_ENABLED, $out['enabled']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_INPUT_CLASS, $out['input_class']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_WINNER_SOURCE, $out['winner_source']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_REF, $out['ref']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_MATCHED_SIGNALS, $out['matched_signals']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_IMMUNE_SIGNATURE, $out['immune_signature']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_HYBRID_ARM, $out['hybrid_arm']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_HOSTILE_CLASS_CANDIDATE, $out['hostile_class_candidate']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_SOURCE, $out['source']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_TAU, $out['tau']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_MAX_SIMILARITY, $out['max_similarity']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_LEXICAL_HOSTILE_CLASS, $out['lexical_hostile_class']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_OVERRIDE_APPLIED, $out['override_applied']);
+        $this->assertSame(18, $out['b739_immune_hybrid_floor_count']);
+    }
+
 }

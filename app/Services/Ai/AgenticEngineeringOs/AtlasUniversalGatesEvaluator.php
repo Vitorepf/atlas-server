@@ -20357,4 +20357,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B739).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b739ImmuneHybridFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.aaeos.immune_classifier.semantic_arm_enabled' => AtlasImmuneHybridInputClassifier::SEMANTIC_ARM_ENABLED_CONFIG_KEY,
+            'unavailable' => AtlasImmuneHybridInputClassifier::SOURCE_UNAVAILABLE,
+            'jaccard_baseline' => AtlasImmuneHybridInputClassifier::SOURCE_JACCARD_BASELINE,
+            'enabled' => AtlasImmuneHybridInputClassifier::FIELD_ENABLED,
+            'input_class' => AtlasImmuneHybridInputClassifier::FIELD_INPUT_CLASS,
+            'winner_source' => AtlasImmuneHybridInputClassifier::FIELD_WINNER_SOURCE,
+            'ref' => AtlasImmuneHybridInputClassifier::FIELD_REF,
+            'matched_signals' => AtlasImmuneHybridInputClassifier::FIELD_MATCHED_SIGNALS,
+            'immune_signature' => AtlasImmuneHybridInputClassifier::FIELD_IMMUNE_SIGNATURE,
+            'hybrid_arm' => AtlasImmuneHybridInputClassifier::FIELD_HYBRID_ARM,
+            'hostile_class_candidate' => AtlasImmuneHybridInputClassifier::FIELD_HOSTILE_CLASS_CANDIDATE,
+            'status' => AtlasImmuneHybridInputClassifier::FIELD_STATUS,
+            'schema_version' => AtlasImmuneHybridInputClassifier::FIELD_SCHEMA_VERSION,
+            'source' => AtlasImmuneHybridInputClassifier::FIELD_SOURCE,
+            'tau' => AtlasImmuneHybridInputClassifier::FIELD_TAU,
+            'max_similarity' => AtlasImmuneHybridInputClassifier::FIELD_MAX_SIMILARITY,
+            'lexical_hostile_class' => AtlasImmuneHybridInputClassifier::FIELD_LEXICAL_HOSTILE_CLASS,
+            'override_applied' => AtlasImmuneHybridInputClassifier::FIELD_OVERRIDE_APPLIED,
+            'b739_immune_hybrid_floor_count' => 18,
+        ];
+    }
+
 }
