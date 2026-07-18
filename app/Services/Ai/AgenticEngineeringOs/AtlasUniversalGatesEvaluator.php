@@ -15117,4 +15117,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B569).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b569PreReviewCognitiveFunctionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => PreReviewAdvisoryBand::FIELD_SCHEMA_VERSION,
+            'formula_version' => PreReviewAdvisoryBand::FIELD_FORMULA_VERSION,
+            'features' => PreReviewAdvisoryBand::FIELD_FEATURES,
+            'probability' => PreReviewAdvisoryBand::FIELD_PROBABILITY,
+            'source' => PreReviewAdvisoryBand::FIELD_SOURCE,
+            'curve' => PreReviewAdvisoryBand::FIELD_CURVE,
+            'n' => PreReviewAdvisoryBand::FIELD_N,
+            'reverts' => PreReviewAdvisoryBand::FIELD_REVERTS,
+            'reverted' => PreReviewAdvisoryBand::FIELD_REVERTED,
+            'non_ready_pipeline' => AtlasCognitiveFunctionAtlasService::FIELD_NON_READY_PIPELINE,
+            'status' => AtlasCognitiveFunctionAtlasService::FIELD_STATUS,
+            'schema_version' => AtlasCognitiveFunctionAtlasService::FIELD_SCHEMA_VERSION,
+            'functions' => AtlasCognitiveFunctionAtlasService::FIELD_FUNCTIONS,
+            'readiness' => AtlasCognitiveFunctionAtlasService::FIELD_READINESS,
+            'pipeline' => AtlasCognitiveFunctionAtlasService::FIELD_PIPELINE,
+            'evidence_files_empty' => AtlasCognitiveFunctionAtlasService::FIELD_EVIDENCE_FILES_EMPTY,
+            'shape' => AtlasCognitiveFunctionAtlasService::FIELD_SHAPE,
+            'gaps' => AtlasCognitiveFunctionAtlasService::FIELD_GAPS,
+            'b569_pre_review_cognitive_function_floor_count' => 18,
+        ];
+    }
+
 }

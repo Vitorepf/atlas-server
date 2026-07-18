@@ -11924,4 +11924,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b568_verified_share_esp_independent_floor_count']);
     }
 
+    public function test_b569_pre_review_cognitive_function_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b569PreReviewCognitiveFunctionFloorsContractObserve([]);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_FEATURES, $out['features']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_PROBABILITY, $out['probability']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_SOURCE, $out['source']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_CURVE, $out['curve']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_N, $out['n']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_REVERTS, $out['reverts']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_REVERTED, $out['reverted']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_NON_READY_PIPELINE, $out['non_ready_pipeline']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_FUNCTIONS, $out['functions']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_READINESS, $out['readiness']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_PIPELINE, $out['pipeline']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_EVIDENCE_FILES_EMPTY, $out['evidence_files_empty']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_SHAPE, $out['shape']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_GAPS, $out['gaps']);
+        $this->assertSame(18, $out['b569_pre_review_cognitive_function_floor_count']);
+    }
+
 }

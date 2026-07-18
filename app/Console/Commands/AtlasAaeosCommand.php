@@ -591,6 +591,7 @@ final class AtlasAaeosCommand extends Command
                             {--b566-immune-calibration-composed-obra-floors-contract= : JSON file (any object) to observe immune/calibration/composed/obra floors}
                             {--b567-teto-predicted-autonomy-ladder-floors-contract= : JSON file (any object) to observe teto/predicted/autonomy/ladder floors}
                             {--b568-verified-share-esp-independent-floors-contract= : JSON file (any object) to observe verified/share/esp/independent floors}
+                            {--b569-pre-review-cognitive-function-floors-contract= : JSON file (any object) to observe pre/review/cognitive/function floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1338,6 +1339,7 @@ final class AtlasAaeosCommand extends Command
             ['b566-immune-calibration-composed-obra-floors-contract', 'b566_immune_calibration_composed_obra_floors_contract', fn (array $p) => $gates->b566ImmuneCalibrationComposedObraFloorsContractObserve($p)],
             ['b567-teto-predicted-autonomy-ladder-floors-contract', 'b567_teto_predicted_autonomy_ladder_floors_contract', fn (array $p) => $gates->b567TetoPredictedAutonomyLadderFloorsContractObserve($p)],
             ['b568-verified-share-esp-independent-floors-contract', 'b568_verified_share_esp_independent_floors_contract', fn (array $p) => $gates->b568VerifiedShareEspIndependentFloorsContractObserve($p)],
+            ['b569-pre-review-cognitive-function-floors-contract', 'b569_pre_review_cognitive_function_floors_contract', fn (array $p) => $gates->b569PreReviewCognitiveFunctionFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
