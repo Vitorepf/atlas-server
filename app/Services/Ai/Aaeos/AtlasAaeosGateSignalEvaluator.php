@@ -79,6 +79,8 @@ final class AtlasAaeosGateSignalEvaluator
     public const FIELD_SCOPE = 'scope';
     public const FIELD_SCOPE_BOUNDED = 'scope_bounded';
     public const FIELD_SPEC_PACK = 'spec_pack';
+    public const FIELD_TASK_PACK = 'task_pack';
+    public const FIELD_TASKS = 'tasks';
 
     /**
      * P1 disambiguation gate: weighted + clamped 0..1 intent-clarity score.
@@ -172,7 +174,7 @@ final class AtlasAaeosGateSignalEvaluator
      */
     public function evaluateTaskPackAtomicity(array $taskPack): array
     {
-        $tasks = $this->taskList($taskPack['tasks'] ?? []);
+        $tasks = $this->taskList($taskPack[self::FIELD_TASKS] ?? []);
 
         $reasons = [];
         if ($tasks === []) {
@@ -219,7 +221,7 @@ final class AtlasAaeosGateSignalEvaluator
             $gates[] = $this->evaluateSpecPackAcceptanceCriteria($this->asArray($phaseOutputs[self::FIELD_SPEC_PACK]));
         }
         if (array_key_exists('task_pack', $phaseOutputs)) {
-            $gates[] = $this->evaluateTaskPackAtomicity($this->asArray($phaseOutputs['task_pack']));
+            $gates[] = $this->evaluateTaskPackAtomicity($this->asArray($phaseOutputs[self::FIELD_TASK_PACK]));
         }
 
         if ($gates === []) {

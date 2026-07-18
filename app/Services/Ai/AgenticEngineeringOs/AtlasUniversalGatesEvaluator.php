@@ -9304,4 +9304,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B380).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function obraRetroDailyCanaryAaeosGateImplementationCrossFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'provider' => AcosMaxObraRetroService::FIELD_PROVIDER,
+            'run_id' => AcosMaxObraRetroService::FIELD_RUN_ID,
+            'fd' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_FD,
+            'golden_recall_at_5_floor' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_GOLDEN_RECALL_AT_5_FLOOR,
+            'task_pack' => AtlasAaeosGateSignalEvaluator::FIELD_TASK_PACK,
+            'tasks' => AtlasAaeosGateSignalEvaluator::FIELD_TASKS,
+            'test_refs' => AtlasAaeosImplementationTruthService::FIELD_TEST_REFS,
+            'unverifiable_claims' => AtlasAaeosImplementationTruthService::FIELD_UNVERIFIABLE_CLAIMS,
+            'payload' => AtlasCrossDepartmentChoreographyService::FIELD_PAYLOAD,
+            'remaining_repairs' => AtlasCrossDepartmentChoreographyService::FIELD_REMAINING_REPAIRS,
+            'id' => AtlasDocsAuthorityGraphService::FIELD_ID,
+            'implementation_state' => AtlasDocsAuthorityGraphService::FIELD_IMPLEMENTATION_STATE,
+            'source' => AtlasMemoryRecallRelevanceScorer::FIELD_SOURCE,
+            'task' => AtlasMemoryRecallRelevanceScorer::FIELD_TASK,
+            'links_decision_or_blocker' => SegmentImportanceRanker::FIELD_LINKS_DECISION_OR_BLOCKER,
+            'ranked' => SegmentImportanceRanker::FIELD_RANKED,
+            'dead_window_silent_days' => AcosMaxLote2MeasureService::FIELD_DEAD_WINDOW_SILENT_DAYS,
+            'decision_id' => AcosMaxLote2MeasureService::FIELD_DECISION_ID,
+            'obra_retro_daily_canary_aaeos_gate_implementation_cross_floor_count' => 18,
+        ];
+    }
+
 }

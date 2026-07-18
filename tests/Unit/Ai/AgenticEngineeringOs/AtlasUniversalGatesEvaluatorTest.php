@@ -7224,4 +7224,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cross_department_portfolio_budget_aaeos_gate_implementation_phase_floor_count']);
     }
 
+    public function test_obra_retro_daily_canary_aaeos_gate_implementation_cross_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->obraRetroDailyCanaryAaeosGateImplementationCrossFloorsContractObserve([]);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_PROVIDER, $out['provider']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_RUN_ID, $out['run_id']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_FD, $out['fd']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_GOLDEN_RECALL_AT_5_FLOOR, $out['golden_recall_at_5_floor']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_TASK_PACK, $out['task_pack']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_TASKS, $out['tasks']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_TEST_REFS, $out['test_refs']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_UNVERIFIABLE_CLAIMS, $out['unverifiable_claims']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_PAYLOAD, $out['payload']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_REMAINING_REPAIRS, $out['remaining_repairs']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_IMPLEMENTATION_STATE, $out['implementation_state']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_SOURCE, $out['source']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_TASK, $out['task']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_LINKS_DECISION_OR_BLOCKER, $out['links_decision_or_blocker']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_RANKED, $out['ranked']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DEAD_WINDOW_SILENT_DAYS, $out['dead_window_silent_days']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DECISION_ID, $out['decision_id']);
+        $this->assertSame(18, $out['obra_retro_daily_canary_aaeos_gate_implementation_cross_floor_count']);
+    }
+
 }

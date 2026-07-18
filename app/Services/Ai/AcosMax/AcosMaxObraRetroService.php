@@ -86,6 +86,8 @@ final class AcosMaxObraRetroService
     public const FIELD_METRICS = 'metrics';
     public const FIELD_OUTCOME_ID = 'outcome_id';
     public const FIELD_PROPOSED_STATE = 'proposed_state';
+    public const FIELD_PROVIDER = 'provider';
+    public const FIELD_RUN_ID = 'run_id';
 
     public function __construct(
         private readonly AtlasEngineeringOutcomeRecorder $outcomes,
@@ -211,8 +213,8 @@ final class AcosMaxObraRetroService
             'surface_id' => self::SERIES_TAG,
             'scope_type' => 'obra_lote',
             'scope_id' => sprintf('acos-max:lote-%d', $lote),
-            'run_id' => sprintf('acos-max:lote-%d:%s:%s', $lote, $slice[self::FIELD_ID], $slice[self::FIELD_STATE]),
-            'provider' => 'local',
+            self::FIELD_RUN_ID => sprintf('acos-max:lote-%d:%s:%s', $lote, $slice[self::FIELD_ID], $slice[self::FIELD_STATE]),
+            self::FIELD_PROVIDER => 'local',
             'verified' => true,
             self::FIELD_ACTOR_TAG => self::SERIES_TAG,
             self::FIELD_OUTCOME_FLOW_ID => self::SERIES_TAG,

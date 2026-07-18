@@ -77,6 +77,8 @@ class AtlasCrossDepartmentChoreographyService
     public const FIELD_ESCALATE = 'escalate';
     public const FIELD_ITERATION = 'iteration';
     public const FIELD_MAX_ITERATIONS = 'max_iterations';
+    public const FIELD_PAYLOAD = 'payload';
+    public const FIELD_REMAINING_REPAIRS = 'remaining_repairs';
 
     /**
      * Veto propagation rules keyed by the vetoing department.
@@ -145,7 +147,7 @@ class AtlasCrossDepartmentChoreographyService
             self::FIELD_DECISION => $escalate ? 'escalate' : self::HANDOFF_KIND_REPAIR,
             self::FIELD_ESCALATE => $escalate,
             self::FIELD_ESCALATE_TO => $escalate ? [self::TARGET_ARCHITECT, self::TARGET_OPERATOR] : [],
-            'remaining_repairs' => $escalate ? 0 : max(0, $maxIterations - $iteration),
+            self::FIELD_REMAINING_REPAIRS => $escalate ? 0 : max(0, $maxIterations - $iteration),
         ];
     }
 
@@ -163,7 +165,7 @@ class AtlasCrossDepartmentChoreographyService
             self::FIELD_FROM_DEPARTMENT => $this->departmentId($from),
             'to_department' => $this->departmentId($to),
             'valid_kind' => in_array($kind, self::HANDOFF_KINDS, true),
-            'payload' => $payload,
+            self::FIELD_PAYLOAD => $payload,
         ];
     }
 

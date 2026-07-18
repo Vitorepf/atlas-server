@@ -34,6 +34,8 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_RELEVANCE_SCORE = 'relevance_score';
     public const FIELD_SCOPE = 'scope';
     public const FIELD_SCOPE_TYPE = 'scope_type';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_TASK = 'task';
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -78,7 +80,7 @@ final class AtlasMemoryRecallRelevanceScorer
     public function scopeWeight(string $scope): int
     {
         return match ($scope) {
-            'task' => 22,
+            self::FIELD_TASK => 22,
             self::FIELD_ENGINEERING_RUN => 20,
             self::FIELD_PROJECT => 16,
             self::FIELD_WORKSPACE => 12,
@@ -163,7 +165,7 @@ final class AtlasMemoryRecallRelevanceScorer
      */
     private function sourceOf(array $row): string
     {
-        $source = AiValueNormalizer::trimmedStringOrNull($row['source'] ?? null) ?? '';
+        $source = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_SOURCE] ?? null) ?? '';
 
         return match ($source) {
             'semantic', self::FIELD_VERBATIM => $source,

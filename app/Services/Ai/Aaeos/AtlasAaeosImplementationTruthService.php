@@ -115,6 +115,8 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_SCORE_OUT_OF_10 = 'score_out_of_10';
     public const FIELD_STATUS = 'status';
     public const FIELD_TEST_FILE_HASH = 'test_file_hash';
+    public const FIELD_TEST_REFS = 'test_refs';
+    public const FIELD_UNVERIFIABLE_CLAIMS = 'unverifiable_claims';
 
     public const RANK = [
         self::LEVEL_SPEC => 0,
@@ -280,7 +282,7 @@ class AtlasAaeosImplementationTruthService
             self::FIELD_CLAIMS_RUNTIME => $claimsRuntime,
             self::FIELD_WITH_EVIDENCE_REFS => $withEvidence,
             'verifiably_backed' => $backed,
-            'unverifiable_claims' => $unverifiable,
+            self::FIELD_UNVERIFIABLE_CLAIMS => $unverifiable,
             self::FIELD_COVERAGE_PCT => $coveragePct,
             self::FIELD_SCORE_OUT_OF_10 => round($coveragePct / 10, 1),
         ];
@@ -334,7 +336,7 @@ class AtlasAaeosImplementationTruthService
                 self::FIELD_CAPABILITY_ID => $doc[self::FIELD_ID],
                 self::FIELD_OWNER_DOC => $doc[self::FIELD_PATH],
                 self::FIELD_EVIDENCE_REFS => $doc[self::FIELD_EVIDENCE_REFS],
-                'test_refs' => $testRefs,
+                self::FIELD_TEST_REFS => $testRefs,
             ];
         }
 

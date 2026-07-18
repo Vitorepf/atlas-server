@@ -60,6 +60,8 @@ class AtlasDocsAuthorityGraphService
     public const FIELD_DOCS = 'docs';
     public const FIELD_GOVERNS = 'governs';
     public const FIELD_GRAPH_ID = 'graph_id';
+    public const FIELD_ID = 'id';
+    public const FIELD_IMPLEMENTATION_STATE = 'implementation_state';
 
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
@@ -106,8 +108,8 @@ class AtlasDocsAuthorityGraphService
      */
     public function rowsForDoc(array $frontmatter, string $path): array
     {
-        $ownerId = AiValueNormalizer::trimmedStringOrNull($frontmatter['id'] ?? $frontmatter[self::FIELD_GRAPH_ID] ?? null) ?? '';
-        $state = AiValueNormalizer::trimmedStringOrNull($frontmatter['implementation_state'] ?? null) ?? '';
+        $ownerId = AiValueNormalizer::trimmedStringOrNull($frontmatter[self::FIELD_ID] ?? $frontmatter[self::FIELD_GRAPH_ID] ?? null) ?? '';
+        $state = AiValueNormalizer::trimmedStringOrNull($frontmatter[self::FIELD_IMPLEMENTATION_STATE] ?? null) ?? '';
         $rows = [];
 
         $add = function (string $kind, mixed $needle, string $basis) use (&$rows, $path, $ownerId, $state): void {

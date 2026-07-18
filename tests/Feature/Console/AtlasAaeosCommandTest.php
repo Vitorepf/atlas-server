@@ -7053,6 +7053,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_obra_retro_daily_canary_aaeos_gate_implementation_cross_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b380-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b380',
+                '--obra-retro-daily-canary-aaeos-gate-implementation-cross-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"obra_retro_daily_canary_aaeos_gate_implementation_cross_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

@@ -94,6 +94,8 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_VIOLATIONS = 'violations';
     public const FIELD_CEILING = 'ceiling';
     public const FIELD_DELIVERED_REFS = 'delivered_refs';
+    public const FIELD_FD = 'fd';
+    public const FIELD_GOLDEN_RECALL_AT_5_FLOOR = 'golden_recall_at_5_floor';
 
 
     public function __construct(
@@ -141,7 +143,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_GOLDEN_RECALL_AT_5 => $golden[self::FIELD_RECALL_AT_5],
             self::FIELD_IMPROPER_FLOOR_DISCARDS => $golden[self::FIELD_IMPROPER_FLOOR_DISCARDS],
             'golden_status' => $golden[self::FIELD_STATUS],
-            'golden_recall_at_5_floor' => self::GOLDEN_RECALL_AT_5_ALERT_FLOOR,
+            self::FIELD_GOLDEN_RECALL_AT_5_FLOOR => self::GOLDEN_RECALL_AT_5_ALERT_FLOOR,
             'provider_safe_invariant' => 'no_raw_query_or_context_in_report_or_ledger',
         ];
 
@@ -276,7 +278,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
 
         $chosen = $versions[$chosenKey];
         $recall = $chosen[self::FIELD_RECALL_AT_5] ?? $chosen['r5'] ?? null;
-        $discards = $chosen[self::FIELD_IMPROPER_FLOOR_DISCARDS] ?? $chosen['fd'] ?? null;
+        $discards = $chosen[self::FIELD_IMPROPER_FLOOR_DISCARDS] ?? $chosen[self::FIELD_FD] ?? null;
 
         $recallNumeric = AiValueNormalizer::finiteFloatOrNull($recall);
         $discardsNumeric = AiValueNormalizer::finiteFloatOrNull($discards);
