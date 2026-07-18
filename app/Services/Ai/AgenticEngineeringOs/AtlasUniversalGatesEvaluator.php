@@ -11754,4 +11754,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B459).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function cognitiveFunctionDepartmentContractMeasureSeriesVerifiedShareFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'composer' => AtlasCognitiveFunctionDecomposerService::FIELD_COMPOSER,
+            'narre' => AtlasCognitiveFunctionDecomposerService::FIELD_NARRE,
+            'now' => AtlasCognitiveFunctionDecomposerService::FIELD_NOW,
+            'paleta' => AtlasCognitiveFunctionDecomposerService::FIELD_PALETA,
+            'patch' => AtlasCognitiveFunctionDecomposerService::FIELD_PATCH,
+            'pense' => AtlasCognitiveFunctionDecomposerService::FIELD_PENSE,
+            'review_checklist_complete' => DepartmentContractRuntime::FIELD_REVIEW_CHECKLIST_COMPLETE,
+            'secret_scan_clean' => DepartmentContractRuntime::FIELD_SECRET_SCAN_CLEAN,
+            'secret_scan_report_hash' => DepartmentContractRuntime::FIELD_SECRET_SCAN_REPORT_HASH,
+            'sign_delivery_hash' => DepartmentContractRuntime::FIELD_SIGN_DELIVERY_HASH,
+            'sources_min_3' => DepartmentContractRuntime::FIELD_SOURCES_MIN_3,
+            'one_time_cleanup_receipt' => AcosMaxMeasureSeriesRegistry::FIELD_ONE_TIME_CLEANUP_RECEIPT,
+            'autonomous' => AcosMaxVerifiedShareService::FIELD_AUTONOMOUS,
+            'forge' => AemorOutcomeEnvelopeAdapter::FIELD_FORGE,
+            'normal' => AsefChunkIndexService::FIELD_NORMAL,
+            'no_active_code_symbols' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_NO_ACTIVE_CODE_SYMBOLS,
+            'strval' => CitationGroundingMeter::FIELD_STRVAL,
+            'engineering' => CompoundingOutcomeEnvelopeAdapter::FIELD_ENGINEERING,
+            'cognitive_function_department_contract_measure_series_verified_share_floor_count' => 18,
+        ];
+    }
+
 }

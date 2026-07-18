@@ -53,6 +53,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public const FIELD_DEV = 'dev';
     public const FIELD_ATLAS_CONVERSATION = 'atlas_conversation';
     public const FIELD_FORGE = 'forge';
+    public const FIELD_ENGINEERING = 'engineering';
 
     public function origin(): string
     {
@@ -70,7 +71,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             str_contains($flowId, self::FIELD_FORGE) => self::FIELD_FORGE,
             str_contains($flowId, self::FIELD_AUTONOMOS) => 'autonomos',
             str_contains($flowId, self::FIELD_DEV) => 'dev',
-            default => 'engineering',
+            default => self::FIELD_ENGINEERING,
         };
 
         $outcomeStatus = AiValueNormalizer::lowerTrimmedString($native[self::FIELD_OUTCOME_STATUS] ?? $native[self::FIELD_STATUS] ?? self::STATUS_PASSED);

@@ -91,6 +91,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_SYMBOLS_AWAITING_BACKFILL_OR_RE_EMBED = 'symbols_awaiting_backfill_or_re_embed';
     public const FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS_MISSING = 'atlas_code_symbol_embeddings_missing';
     public const FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS_MISSING = 'atlas_engineering_code_symbols_missing';
+    public const FIELD_NO_ACTIVE_CODE_SYMBOLS = 'no_active_code_symbols';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -141,7 +142,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
 
         if ($active === 0) {
             return array_merge(
-                $this->emptyReport(self::STATUS_INSUFFICIENT_SIGNAL, 'no_active_code_symbols', $freeze),
+                $this->emptyReport(self::STATUS_INSUFFICIENT_SIGNAL, self::FIELD_NO_ACTIVE_CODE_SYMBOLS, $freeze),
                 [self::FIELD_AGGREGATE => $this->emptyAggregate()],
             );
         }

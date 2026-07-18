@@ -130,6 +130,12 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_MERGE = 'merge';
     public const FIELD_MIGRATION = 'migration';
     public const FIELD_MOCKUP = 'mockup';
+    public const FIELD_COMPOSER = 'composer';
+    public const FIELD_NARRE = 'narre';
+    public const FIELD_NOW = 'now';
+    public const FIELD_PALETA = 'paleta';
+    public const FIELD_PATCH = 'patch';
+    public const FIELD_PENSE = 'pense';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -148,7 +154,7 @@ final class AtlasCognitiveFunctionDecomposerService
      */
     public const RULES = [
         self::FIELD_REASONING => [
-            'porque', 'por que', self::FIELD_ANALISE, self::FIELD_ANALISA, self::FIELD_EXPLIQUE, 'pense', 'pondere',
+            'porque', 'por que', self::FIELD_ANALISE, self::FIELD_ANALISA, self::FIELD_EXPLIQUE, self::FIELD_PENSE, 'pondere',
             self::FIELD_DECIDA, self::FIELD_DECISAO, self::FIELD_COMPARE, self::FIELD_AVALIE, self::FIELD_LOGICA, self::FIELD_ESTRATEGIA,
             'raciocine', self::FIELD_INVESTIGUE, 'why', 'reason',
         ],
@@ -160,20 +166,20 @@ final class AtlasCognitiveFunctionDecomposerService
         self::FIELD_GENERATION => [
             'escreva', 'redija', 'crie', self::FIELD_COMPONHA, 'rascunhe', 'gere',
             'sintetize', 'resuma', 'transforme', 'reescreva', self::FIELD_CONTINUE,
-            'narre', 'descreva', self::FIELD_COMPOSE, 'write', 'draft', 'summarize',
+            self::FIELD_NARRE, 'descreva', self::FIELD_COMPOSE, 'write', 'draft', 'summarize',
         ],
         self::FIELD_CODE => [
             'codigo', self::FIELD_CODIFIQUE, self::FIELD_IMPLEMENTE, 'refatore', 'debug', 'teste',
             self::FIELD_COMPILE, self::FIELD_EXECUTE, 'rode', 'rodar', 'php', 'typescript', 'react',
             self::FIELD_COMPONENTE, 'servico', self::FIELD_CLASSE, self::FIELD_FUNCAO, self::FIELD_CONTROLLER, self::FIELD_CLI,
-            self::FIELD_ARTISAN, self::FIELD_MIGRATION, 'composer', 'npm', 'phpunit', 'pest',
-            'patch', 'pull request', 'pr ', ' pr,', self::FIELD_MERGE, 'git ',
+            self::FIELD_ARTISAN, self::FIELD_MIGRATION, self::FIELD_COMPOSER, 'npm', 'phpunit', 'pest',
+            self::FIELD_PATCH, 'pull request', 'pr ', ' pr,', self::FIELD_MERGE, 'git ',
             'code', 'function', 'class', 'service', 'refactor', 'test', self::FIELD_BUILD,
         ],
         self::FIELD_VISION => [
             'imagem', self::FIELD_FOTO, self::FIELD_SCREENSHOT, 'visualize', self::FIELD_DESIGN, self::FIELD_LAYOUT,
             self::FIELD_MOCKUP, self::FIELD_FIGMA, 'png', 'jpg', 'svg', 'tela', 'ui ', 'ux ',
-            'cor ', 'paleta', 'visual', self::FIELD_SCREENSHOT, self::FIELD_IMAGE, 'render',
+            'cor ', self::FIELD_PALETA, 'visual', self::FIELD_SCREENSHOT, self::FIELD_IMAGE, 'render',
         ],
         self::FIELD_AUDIT => [
             'audite', self::FIELD_AUDITA, 'audit', 'verifique', 'valide', 'cheque',
@@ -317,7 +323,7 @@ final class AtlasCognitiveFunctionDecomposerService
             }
         }
 
-        $generatedAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+        $generatedAt = (new DateTimeImmutable(self::FIELD_NOW, new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
         $envelope = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             self::FIELD_GENERATED_AT => $generatedAt,

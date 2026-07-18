@@ -95,6 +95,7 @@ final class AsefChunkIndexService
     public const FIELD_PGSQL = 'pgsql';
     public const FIELD_ASEF_CHUNKS = 'asef_chunks';
     public const FIELD_EMBEDDING = 'embedding';
+    public const FIELD_NORMAL = 'normal';
 
     public function __construct(
         private readonly AtlasSemanticEmbeddingFoundationService $asef,
@@ -176,7 +177,7 @@ final class AsefChunkIndexService
                 self::FIELD_SECTION => $section,
                 self::FIELD_CHUNK_TEXT => $chunkText,
                 self::FIELD_EMBEDDED_TEXT => $embeddedText,
-                self::FIELD_PRIVACY_CLASS => (AiValueNormalizer::trimmedStringOrNull($chunk[self::FIELD_PRIVACY_CLASS] ?? null) ?? 'normal'),
+                self::FIELD_PRIVACY_CLASS => (AiValueNormalizer::trimmedStringOrNull($chunk[self::FIELD_PRIVACY_CLASS] ?? null) ?? self::FIELD_NORMAL),
                 self::FIELD_PROVIDER_SAFE => (AiValueNormalizer::boolOrNull($chunk[self::FIELD_PROVIDER_SAFE] ?? null) ?? true),
                 self::FIELD_DELETE_CASCADE_KEY => (AiValueNormalizer::trimmedStringOrNull($chunk[self::FIELD_DELETE_CASCADE_KEY] ?? null) ?? ''),
                 self::FIELD_EMBEDDING_STATUS => self::EMBEDDING_STATUS_PENDING,

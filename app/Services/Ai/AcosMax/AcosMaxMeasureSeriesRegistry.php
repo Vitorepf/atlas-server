@@ -58,6 +58,7 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_DECIDED_AT = 'decided_at';
     public const FIELD_FIRST_SEEN = 'first_seen';
     public const FIELD_GROUND_TRUTH_RECEIPT = 'ground_truth_receipt';
+    public const FIELD_ONE_TIME_CLEANUP_RECEIPT = 'one_time_cleanup_receipt';
 
     public const SOURCE_TYPE_JSONL = 'jsonl';
 
@@ -155,7 +156,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
                 self::FIELD_TTL_DAYS => 365,
-                self::FIELD_TTL_SOURCE => 'one_time_cleanup_receipt',
+                self::FIELD_TTL_SOURCE => self::FIELD_ONE_TIME_CLEANUP_RECEIPT,
             ],
             [
                 self::FIELD_SLICE => 'ESP-00',

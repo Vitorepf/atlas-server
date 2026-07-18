@@ -481,6 +481,7 @@ final class AtlasAaeosCommand extends Command
                             {--cognitive-function-department-contract-model-capability-http-path-floors-contract= : JSON file (any object) to observe cognitive/function/department/contract/model/capability floors}
                             {--cognitive-function-department-contract-capture-hmac-fact-pair-floors-contract= : JSON file (any object) to observe cognitive/function/department/contract/capture/hmac floors}
                             {--cognitive-function-department-contract-aaeos-implementation-cross-docs-floors-contract= : JSON file (any object) to observe cognitive/function/department/contract/aaeos/implementation floors}
+                            {--cognitive-function-department-contract-measure-series-verified-share-floors-contract= : JSON file (any object) to observe cognitive/function/department/contract/measure/series floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1118,6 +1119,7 @@ final class AtlasAaeosCommand extends Command
             ['cognitive-function-department-contract-model-capability-http-path-floors-contract', 'cognitive_function_department_contract_model_capability_http_path_floors_contract', fn (array $p) => $gates->cognitiveFunctionDepartmentContractModelCapabilityHttpPathFloorsContractObserve($p)],
             ['cognitive-function-department-contract-capture-hmac-fact-pair-floors-contract', 'cognitive_function_department_contract_capture_hmac_fact_pair_floors_contract', fn (array $p) => $gates->cognitiveFunctionDepartmentContractCaptureHmacFactPairFloorsContractObserve($p)],
             ['cognitive-function-department-contract-aaeos-implementation-cross-docs-floors-contract', 'cognitive_function_department_contract_aaeos_implementation_cross_docs_floors_contract', fn (array $p) => $gates->cognitiveFunctionDepartmentContractAaeosImplementationCrossDocsFloorsContractObserve($p)],
+            ['cognitive-function-department-contract-measure-series-verified-share-floors-contract', 'cognitive_function_department_contract_measure_series_verified_share_floors_contract', fn (array $p) => $gates->cognitiveFunctionDepartmentContractMeasureSeriesVerifiedShareFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

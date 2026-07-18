@@ -25,6 +25,7 @@ final class CitationGroundingMeter
     public const FIELD_SOURCE = 'source';
     public const FIELD_STATUS = 'status';
     public const FIELD_TOTAL = 'total';
+    public const FIELD_STRVAL = 'strval';
 
     /**
      * @param  list<array<string,mixed>>  $responses
@@ -38,7 +39,7 @@ final class CitationGroundingMeter
         $unsupported = 0;
 
         foreach ($responses as $response) {
-            $delivered = array_fill_keys(array_map('strval', AiValueNormalizer::arrayOrEmpty($response[self::FIELD_DELIVERED_REFS] ?? null)), true);
+            $delivered = array_fill_keys(array_map(self::FIELD_STRVAL, AiValueNormalizer::arrayOrEmpty($response[self::FIELD_DELIVERED_REFS] ?? null)), true);
             $refs = self::refs(AiValueNormalizer::trimmedStringOrNull($response[self::FIELD_RESPONSE] ?? null) ?? '');
             if ($refs !== []) {
                 $withCitation++;

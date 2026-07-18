@@ -9218,4 +9218,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cognitive_function_department_contract_aaeos_implementation_cross_docs_floor_count']);
     }
 
+    public function test_cognitive_function_department_contract_measure_series_verified_share_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitiveFunctionDepartmentContractMeasureSeriesVerifiedShareFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_COMPOSER, $out['composer']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_NARRE, $out['narre']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_NOW, $out['now']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_PALETA, $out['paleta']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_PATCH, $out['patch']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_PENSE, $out['pense']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REVIEW_CHECKLIST_COMPLETE, $out['review_checklist_complete']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SECRET_SCAN_CLEAN, $out['secret_scan_clean']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SECRET_SCAN_REPORT_HASH, $out['secret_scan_report_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SIGN_DELIVERY_HASH, $out['sign_delivery_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SOURCES_MIN_3, $out['sources_min_3']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ONE_TIME_CLEANUP_RECEIPT, $out['one_time_cleanup_receipt']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_AUTONOMOUS, $out['autonomous']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AsefChunkIndexService::FIELD_NORMAL, $out['normal']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_NO_ACTIVE_CODE_SYMBOLS, $out['no_active_code_symbols']);
+        $this->assertSame(CitationGroundingMeter::FIELD_STRVAL, $out['strval']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_ENGINEERING, $out['engineering']);
+        $this->assertSame(18, $out['cognitive_function_department_contract_measure_series_verified_share_floor_count']);
+    }
+
 }

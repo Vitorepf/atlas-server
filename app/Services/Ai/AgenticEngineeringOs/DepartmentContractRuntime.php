@@ -290,6 +290,11 @@ final class DepartmentContractRuntime
     public const FIELD_RISK_ACKNOWLEDGED = 'risk_acknowledged';
     public const FIELD_RUN_REPRO = 'run_repro';
     public const FIELD_RUN_TESTS = 'run_tests';
+    public const FIELD_REVIEW_CHECKLIST_COMPLETE = 'review_checklist_complete';
+    public const FIELD_SECRET_SCAN_CLEAN = 'secret_scan_clean';
+    public const FIELD_SECRET_SCAN_REPORT_HASH = 'secret_scan_report_hash';
+    public const FIELD_SIGN_DELIVERY_HASH = 'sign_delivery_hash';
+    public const FIELD_SOURCES_MIN_3 = 'sources_min_3';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -404,7 +409,7 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_RESEARCH_PACK, self::FIELD_SCHEMA => self::SCHEMA_RESEARCH_PACK],
             ],
-            self::FIELD_GATES => ['research_findings_published', self::FIELD_REVIEW_ONLY_ACKNOWLEDGED, 'sources_min_3', 'source_dates_recent', 'no_hallucinated_links'],
+            self::FIELD_GATES => ['research_findings_published', self::FIELD_REVIEW_ONLY_ACKNOWLEDGED, self::FIELD_SOURCES_MIN_3, 'source_dates_recent', 'no_hallucinated_links'],
             self::FIELD_ALLOWED_ACTIONS => ['fetch_sources', 'synthesize_findings', 'propose_doc_promotion'],
             self::FIELD_FORBIDDEN_ACTIONS => ['write_code', self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
@@ -475,7 +480,7 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_REVIEW_REPORT, self::FIELD_SCHEMA => self::SCHEMA_REVIEW_REPORT],
             ],
-            self::FIELD_GATES => ['review_packet_signed', self::FIELD_RISK_ACKNOWLEDGED, 'review_checklist_complete', self::FIELD_BLOCKERS_ADDRESSED, 'evidence_traceable'],
+            self::FIELD_GATES => ['review_packet_signed', self::FIELD_RISK_ACKNOWLEDGED, self::FIELD_REVIEW_CHECKLIST_COMPLETE, self::FIELD_BLOCKERS_ADDRESSED, 'evidence_traceable'],
             self::FIELD_ALLOWED_ACTIONS => ['request_changes', self::FIELD_APPROVE_FOR_CERT, 'veto_release'],
             self::FIELD_FORBIDDEN_ACTIONS => ['edit_code', self::FIELD_DEPLOY_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
@@ -522,11 +527,11 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_POLICY_DECISION, self::FIELD_SCHEMA => self::SCHEMA_POLICY_DECISION],
             ],
-            self::FIELD_GATES => ['security_scan_clean', self::FIELD_CVE_ACKNOWLEDGED, 'secret_scan_clean', 'dependency_audit_clean', 'threat_model_present', 'sovereignty_boundary_respected'],
+            self::FIELD_GATES => ['security_scan_clean', self::FIELD_CVE_ACKNOWLEDGED, self::FIELD_SECRET_SCAN_CLEAN, 'dependency_audit_clean', 'threat_model_present', 'sovereignty_boundary_respected'],
             self::FIELD_ALLOWED_ACTIONS => ['allow', self::FIELD_DENY, self::FIELD_REQUEST_MITIGATION, 'escalate_to_operator'],
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_sovereignty', self::FIELD_APPROVE_UNAUDITED_DEP, 'ship_without_evidence'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
-            self::FIELD_EVIDENCE_REQUIRED => ['policy_decision_hash', 'secret_scan_report_hash', 'dependency_audit_hash'],
+            self::FIELD_EVIDENCE_REQUIRED => ['policy_decision_hash', self::FIELD_SECRET_SCAN_REPORT_HASH, 'dependency_audit_hash'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_POLICY_DECISIONS, self::FIELD_LEDGER => self::FIELD_AAEOS_SECURITY_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['security_deny_count', 'security_secret_finding_count'],
             self::FIELD_MATURITY_LEVEL => 'L3',
@@ -571,7 +576,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_DELIVERY_PACK, self::FIELD_SCHEMA => self::SCHEMA_DELIVERY_PACK],
             ],
             self::FIELD_GATES => ['release_authority_declared', self::FIELD_ROLLBACK_PLAN_PRESENT, self::FIELD_DELIVERY_PACK_COMPLETENESS_MIN_0_95, 'evidence_traceable'],
-            self::FIELD_ALLOWED_ACTIONS => ['assemble_delivery_pack', 'sign_delivery_hash', 'request_human_review'],
+            self::FIELD_ALLOWED_ACTIONS => ['assemble_delivery_pack', self::FIELD_SIGN_DELIVERY_HASH, 'request_human_review'],
             self::FIELD_FORBIDDEN_ACTIONS => ['edit_code', self::FIELD_APPROVE_RELEASE_WITHOUT_REVIEW, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_REVIEW, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['delivery_pack_hash', 'completeness_report_hash'],
