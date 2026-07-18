@@ -7689,6 +7689,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for integrity/architect/veto/bets/promotion/freeze/compounding/resolver/budget peels (B326).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function integrityArchitectVetoBetsPromotionFreezeCompoundingResolverBudgetFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'integrity_field_artifacts' => LocalModelIntegrityWatchdogCheck::FIELD_ARTIFACTS,
+            'integrity_field_generated_at' => LocalModelIntegrityWatchdogCheck::FIELD_GENERATED_AT,
+            'architect_field_operator_signature_present' => ArchitectAgentSpecPackGateContract::FIELD_OPERATOR_SIGNATURE_PRESENT,
+            'architect_field_risk_scope' => ArchitectAgentSpecPackGateContract::FIELD_RISK_SCOPE,
+            'veto_field_paused_departments' => AtlasVetoPropagationWatchdog::FIELD_PAUSED_DEPARTMENTS,
+            'veto_field_department' => AtlasVetoPropagationWatchdog::FIELD_DEPARTMENT,
+            'bets_field_window_id' => ExploratoryBetsPortfolio::FIELD_WINDOW_ID,
+            'bets_field_deletes_suspended_family' => ExploratoryBetsPortfolio::FIELD_DELETES_SUSPENDED_FAMILY,
+            'promotion_field_operator_alignment' => PromotionProtocol::FIELD_OPERATOR_ALIGNMENT,
+            'promotion_field_event' => PromotionProtocol::FIELD_EVENT,
+            'freeze_field_judge_engine_id' => AtlasImmuneClassifierHybridFreeze::FIELD_JUDGE_ENGINE_ID,
+            'freeze_field_fixtures' => AtlasImmuneClassifierHybridFreeze::FIELD_FIXTURES,
+            'compounding_field_outcome_contract_v2' => CompoundingOutcomeEnvelopeAdapter::FIELD_OUTCOME_CONTRACT_V2,
+            'compounding_field_episode_id' => CompoundingOutcomeEnvelopeAdapter::FIELD_EPISODE_ID,
+            'resolver_field_memory' => AtlasAaeosVetoPropagationResolver::FIELD_MEMORY,
+            'resolver_field_auto_escalated' => AtlasAaeosVetoPropagationResolver::FIELD_AUTO_ESCALATED,
+            'budget_field_components' => AtlasResourceBudgetService::FIELD_COMPONENTS,
+            'budget_field_declared_paper_status' => AtlasResourceBudgetService::FIELD_DECLARED_PAPER_STATUS,
+            'integrity_architect_veto_bets_promotion_freeze_compounding_resolver_budget_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

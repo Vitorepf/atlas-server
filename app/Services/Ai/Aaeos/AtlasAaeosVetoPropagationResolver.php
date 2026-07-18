@@ -52,6 +52,8 @@ final class AtlasAaeosVetoPropagationResolver
     public const FIELD_PRODUCT = 'product';
     public const FIELD_ARCHITECT = 'architect';
     public const FIELD_DEV = 'dev';
+    public const FIELD_MEMORY = 'memory';
+    public const FIELD_AUTO_ESCALATED = 'auto_escalated';
 
     public const RESOLUTION_PROPAGATE_PAUSE = 'propagate_pause';
 
@@ -94,10 +96,10 @@ final class AtlasAaeosVetoPropagationResolver
             self::FIELD_REVIEW => ['architect', 'delivery'],
             'security' => ['operator', 'architect'],
             'delivery' => [self::FIELD_OPERATOR],
-            self::FIELD_OPERATOR => ['memory'],
+            self::FIELD_OPERATOR => [self::FIELD_MEMORY],
             'qa' => ['dev', 'forge'],
             'debug' => [self::FIELD_DEV],
-            'memory' => [],
+            self::FIELD_MEMORY => [],
         ];
     }
 
@@ -155,7 +157,7 @@ final class AtlasAaeosVetoPropagationResolver
             self::FIELD_REDIRECT_TO => $redirectTo,
             self::FIELD_ESCALATION_TARGET => $escalationTarget,
             self::FIELD_OVERRIDE => $override,
-            'auto_escalated' => $autoEscalated,
+            self::FIELD_AUTO_ESCALATED => $autoEscalated,
             self::FIELD_REASON => $reason,
             self::FIELD_MATCHED_RULE => $matchedRule,
         ];

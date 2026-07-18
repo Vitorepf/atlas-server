@@ -38,6 +38,8 @@ final class AtlasResourceBudgetService
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_HOST_RAM_GIB = 'host_ram_gib';
     public const FIELD_ENGINE_FLOOR_GIB = 'engine_floor_gib';
+    public const FIELD_COMPONENTS = 'components';
+    public const FIELD_DECLARED_PAPER_STATUS = 'declared_paper_status';
 
     /** @var array<string,mixed> */
     private array $budget;
@@ -73,7 +75,7 @@ final class AtlasResourceBudgetService
      */
     public function report(): array
     {
-        $components = AiValueNormalizer::arrayOrEmpty($this->budget['components'] ?? null);
+        $components = AiValueNormalizer::arrayOrEmpty($this->budget[self::FIELD_COMPONENTS] ?? null);
         $rows = [];
         $totalRamCap = 0;
         $measuredSum = 0;
@@ -140,12 +142,12 @@ final class AtlasResourceBudgetService
             'total_ram_cap_mb' => $totalRamCap,
             'engine_floor_mb' => $engineFloorMb,
             'host_ram_mb' => $hostMb,
-            'declared_paper_status' => $paperStatus,
+            self::FIELD_DECLARED_PAPER_STATUS => $paperStatus,
             'paper_headroom_mb' => $paperHeadroom,
             'measured_ram_mb' => $anyMeasured ? $measuredSum : null,
             'measured_headroom_mb' => $measuredHeadroom,
             'over_cap_components' => array_values(array_unique($overCap)),
-            'components' => $rows,
+            self::FIELD_COMPONENTS => $rows,
         ];
     }
 

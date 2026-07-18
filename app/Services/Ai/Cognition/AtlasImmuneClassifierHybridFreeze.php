@@ -11,7 +11,7 @@ namespace App\Services\Ai\Cognition;
  * data are decorative).
  *
  * Author\u2260judge: {@see self::freezePayload()[self::FIELD_AUTHOR_ENGINE_ID]} !==
- * {@see self::freezePayload()['judge_engine_id']}. The MAXI-03 calibration
+ * {@see self::freezePayload()[self::FIELD_JUDGE_ENGINE_ID]}. The MAXI-03 calibration
  * freeze ({@see ImmuneCalibrationService::freezePayload()}) is the CALIBRATION
  * AUTHORITY for tau; this freeze pins the acceptance floors for MAXI-04 itself.
  *
@@ -55,6 +55,8 @@ final class AtlasImmuneClassifierHybridFreeze
     public const FIELD_CONTENT_HASH = 'content_hash';
     public const FIELD_CORPUS_PATH = 'corpus_path';
     public const FIELD_CORPUS_SHA256 = 'corpus_sha256';
+    public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
+    public const FIELD_FIXTURES = 'fixtures';
 
     /**
      * @return array<string,mixed>
@@ -94,7 +96,7 @@ final class AtlasImmuneClassifierHybridFreeze
                 'default' => false,
                 'off_contract' => 'byte_identical_to_base_classifier',
             ],
-            'fixtures' => [
+            self::FIELD_FIXTURES => [
                 self::FIELD_ANCHORS_PATH => self::ANCHOR_FIXTURE_RELATIVE,
                 self::FIELD_ANCHORS_SHA256 => self::anchorsHash(),
                 self::FIELD_CORPUS_PATH => self::CORPUS_FIXTURE_RELATIVE,
@@ -102,7 +104,7 @@ final class AtlasImmuneClassifierHybridFreeze
             ],
             'ttl_days' => self::TTL_DAYS,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxi-04',
-            'judge_engine_id' => 'codex-immune-hybrid-classifier-judge',
+            self::FIELD_JUDGE_ENGINE_ID => 'codex-immune-hybrid-classifier-judge',
             self::FIELD_CALIBRATION_AUTHORITY => [
                 'freeze' => ImmuneCalibrationService::MEASURE_ID,
                 'note' => 'tau is a MAXI-03 freeze-stamped input; recalibration flows through the MAXI-03 seam.',

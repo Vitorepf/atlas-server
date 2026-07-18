@@ -82,6 +82,8 @@ final class PromotionProtocol
     public const FIELD_CHALLENGER_ADVISORY = 'challenger_advisory';
     public const FIELD_CHALLENGER_ENGINE_ID = 'challenger_engine_id';
     public const FIELD_DECISION_KIND = 'decision_kind';
+    public const FIELD_OPERATOR_ALIGNMENT = 'operator_alignment';
+    public const FIELD_EVENT = 'event';
 
     public const DEFAULT_LEDGER_RELATIVE_PATH = 'app/atlas/evidence/acos-max-promotion-flips.jsonl';
 
@@ -234,7 +236,7 @@ final class PromotionProtocol
             self::FIELD_OK => true,
             self::FIELD_STATUS => self::STATUS_RECORDED,
             self::FIELD_SCHEMA_VERSION => self::SCHEMA,
-            'event' => $event,
+            self::FIELD_EVENT => $event,
         ];
     }
 
@@ -472,7 +474,7 @@ final class PromotionProtocol
         return Esp09IndependentChallengerService::evaluate([
             self::FIELD_AUTHOR_ENGINE_ID => $author,
             self::FIELD_CHALLENGER_ENGINE_ID => $challenger,
-            'operator_alignment' => $context['operator_alignment'] ?? null,
+            self::FIELD_OPERATOR_ALIGNMENT => $context[self::FIELD_OPERATOR_ALIGNMENT] ?? null,
             self::FIELD_DECISION_KIND => $context[self::FIELD_DECISION_KIND] ?? 'ordinary_route',
         ]);
     }

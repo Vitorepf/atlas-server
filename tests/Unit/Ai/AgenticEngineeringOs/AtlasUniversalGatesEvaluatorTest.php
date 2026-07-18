@@ -5796,5 +5796,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['promotion_parallel_docs_reality_evidence_repair_architect_delivery_scorecard_floor_count']);
     }
 
+    public function test_integrity_architect_veto_bets_promotion_freeze_compounding_resolver_budget_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->integrityArchitectVetoBetsPromotionFreezeCompoundingResolverBudgetFloorsContractObserve([]);
+
+        $this->assertSame('artifacts', $payload['integrity_field_artifacts']);
+        $this->assertSame('generated_at', $payload['integrity_field_generated_at']);
+        $this->assertSame('operator_signature_present', $payload['architect_field_operator_signature_present']);
+        $this->assertSame('risk_scope', $payload['architect_field_risk_scope']);
+        $this->assertSame('paused_departments', $payload['veto_field_paused_departments']);
+        $this->assertSame('department', $payload['veto_field_department']);
+        $this->assertSame('window_id', $payload['bets_field_window_id']);
+        $this->assertSame('deletes_suspended_family', $payload['bets_field_deletes_suspended_family']);
+        $this->assertSame('operator_alignment', $payload['promotion_field_operator_alignment']);
+        $this->assertSame('event', $payload['promotion_field_event']);
+        $this->assertSame('judge_engine_id', $payload['freeze_field_judge_engine_id']);
+        $this->assertSame('fixtures', $payload['freeze_field_fixtures']);
+        $this->assertSame('outcome_contract_v2', $payload['compounding_field_outcome_contract_v2']);
+        $this->assertSame('episode_id', $payload['compounding_field_episode_id']);
+        $this->assertSame('memory', $payload['resolver_field_memory']);
+        $this->assertSame('auto_escalated', $payload['resolver_field_auto_escalated']);
+        $this->assertSame('components', $payload['budget_field_components']);
+        $this->assertSame('declared_paper_status', $payload['budget_field_declared_paper_status']);
+        $this->assertSame(18, $payload['integrity_architect_veto_bets_promotion_freeze_compounding_resolver_budget_floor_count']);
+    }
+
 
 }

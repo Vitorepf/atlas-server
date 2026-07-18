@@ -6152,6 +6152,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_integrity_architect_veto_bets_promotion_freeze_compounding_resolver_budget_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-iavbpfcrb-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-iavbpfcrb',
+                '--integrity-architect-veto-bets-promotion-freeze-compounding-resolver-budget-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"integrity_architect_veto_bets_promotion_freeze_compounding_resolver_budget_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

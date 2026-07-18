@@ -41,6 +41,8 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public const FIELD_CERTIFIED_RECEIPT_ID = 'certified_receipt_id';
     public const FIELD_OUTCOME_STATUS = 'outcome_status';
     public const FIELD_PAYLOAD = 'payload';
+    public const FIELD_OUTCOME_CONTRACT_V2 = 'outcome_contract_v2';
+    public const FIELD_EPISODE_ID = 'episode_id';
 
     public function origin(): string
     {
@@ -65,8 +67,8 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $status = OutcomeEnvelope::normalizeStatus($outcomeStatus);
 
         $verifiedSourcePresent = array_key_exists(self::FIELD_VERIFIED, $native)
-            || is_array($native[self::FIELD_PAYLOAD]['outcome_contract_v2'] ?? null);
-        $contract = AiValueNormalizer::arrayOrEmpty($native[self::FIELD_PAYLOAD]['outcome_contract_v2'] ?? null);
+            || is_array($native[self::FIELD_PAYLOAD][self::FIELD_OUTCOME_CONTRACT_V2] ?? null);
+        $contract = AiValueNormalizer::arrayOrEmpty($native[self::FIELD_PAYLOAD][self::FIELD_OUTCOME_CONTRACT_V2] ?? null);
         $verifiedBasis = AiValueNormalizer::lowerTrimmedString(
             $contract[self::FIELD_VERIFIED_BASIS]
             ?? $native[self::FIELD_VERIFIED_BASIS]
@@ -88,7 +90,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             'verified_source_present' => $verifiedSourcePresent,
             self::FIELD_CERTIFIED_RECEIPT_ID => $contract[self::FIELD_CERTIFIED_RECEIPT_ID] ?? null,
             'evidence_ref_count' => count($evidenceRefs),
-            'episode_id' => null,
+            self::FIELD_EPISODE_ID => null,
             self::FIELD_RUN_ID => $runId !== '' ? $runId : null,
         ], [
             self::FIELD_FLOW_ID => $flowId,

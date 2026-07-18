@@ -25,6 +25,8 @@ final class ArchitectAgentSpecPackGateContract
     public const SPEC_PACK_SCHEMA = 'atlas.spec_pack.v1';
     public const FIELD_ACCEPTANCE_CRITERIA_PRESENT = 'acceptance_criteria_present';
     public const FIELD_BREAKING_CHANGE_MATRIX_PRESENT = 'breaking_change_matrix_present';
+    public const FIELD_OPERATOR_SIGNATURE_PRESENT = 'operator_signature_present';
+    public const FIELD_RISK_SCOPE = 'risk_scope';
 
     /**
      * Required spec_pack sections before high-risk autonomous work may proceed.
@@ -85,12 +87,12 @@ final class ArchitectAgentSpecPackGateContract
     public static function fromArray(array $input): self
     {
         return new self(
-            riskScope: AiValueNormalizer::trimmedStringOrNull($input['risk_scope'] ?? null) ?? self::MIN_AUTONOMOUS_RISK_SCOPE,
+            riskScope: AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_RISK_SCOPE] ?? null) ?? self::MIN_AUTONOMOUS_RISK_SCOPE,
             specPackHash: AiValueNormalizer::trimmedStringOrNull($input['spec_pack_hash'] ?? null) ?? '',
             acceptanceCriteriaPresent: (AiValueNormalizer::boolOrNull($input[self::FIELD_ACCEPTANCE_CRITERIA_PRESENT] ?? null) ?? false),
             rollbackPlanPresent: (AiValueNormalizer::boolOrNull($input['rollback_plan_present'] ?? null) ?? false),
             breakingChangeMatrixPresent: (AiValueNormalizer::boolOrNull($input[self::FIELD_BREAKING_CHANGE_MATRIX_PRESENT] ?? null) ?? false),
-            operatorSignaturePresent: (AiValueNormalizer::boolOrNull($input['operator_signature_present'] ?? null) ?? false),
+            operatorSignaturePresent: (AiValueNormalizer::boolOrNull($input[self::FIELD_OPERATOR_SIGNATURE_PRESENT] ?? null) ?? false),
         );
     }
 
@@ -109,12 +111,12 @@ final class ArchitectAgentSpecPackGateContract
             'gates' => self::GATES,
             'evidence_required' => self::EVIDENCE_REQUIRED,
             'inputs' => [
-                'risk_scope' => $this->riskScope,
+                self::FIELD_RISK_SCOPE => $this->riskScope,
                 'spec_pack_hash' => $this->specPackHash,
                 self::FIELD_ACCEPTANCE_CRITERIA_PRESENT => $this->acceptanceCriteriaPresent,
                 'rollback_plan_present' => $this->rollbackPlanPresent,
                 self::FIELD_BREAKING_CHANGE_MATRIX_PRESENT => $this->breakingChangeMatrixPresent,
-                'operator_signature_present' => $this->operatorSignaturePresent,
+                self::FIELD_OPERATOR_SIGNATURE_PRESENT => $this->operatorSignaturePresent,
             ],
         ];
     }

@@ -21,6 +21,8 @@ final readonly class LocalModelIntegrityWatchdogCheck implements AtlasWatchdogCh
     public const SCHEMA_VERSION = 'atlas.acos.local_model_integrity_watchdog.v1';
 
     public const CHECK_ID = 'elev-19.local_model_integrity';
+    public const FIELD_ARTIFACTS = 'artifacts';
+    public const FIELD_GENERATED_AT = 'generated_at';
 
     public function __construct(
         private AtlasLocalModelIntegrityService $service,
@@ -39,18 +41,18 @@ final readonly class LocalModelIntegrityWatchdogCheck implements AtlasWatchdogCh
 
         $evidence = [
             'schema_version' => self::SCHEMA_VERSION,
-            'generated_at' => $now->toIso8601String(),
+            self::FIELD_GENERATED_AT => $now->toIso8601String(),
             'total' => $report['total'],
             AtlasLocalModelIntegrityService::FIELD_VERIFIED => $report[AtlasLocalModelIntegrityService::FIELD_VERIFIED],
             AtlasLocalModelIntegrityService::FIELD_MISMATCHED => $report[AtlasLocalModelIntegrityService::FIELD_MISMATCHED],
             AtlasLocalModelIntegrityService::FIELD_MISSING => $report[AtlasLocalModelIntegrityService::FIELD_MISSING],
             AtlasLocalModelIntegrityService::FIELD_UNPINNED => $report[AtlasLocalModelIntegrityService::FIELD_UNPINNED],
-            'artifacts' => $report['artifacts'],
+            self::FIELD_ARTIFACTS => $report[self::FIELD_ARTIFACTS],
         ];
 
         if ($report[AtlasLocalModelIntegrityService::FIELD_MISMATCHED] > 0 || $report[AtlasLocalModelIntegrityService::FIELD_MISSING] > 0) {
             $offenders = array_values(array_filter(
-                $report['artifacts'],
+                $report[self::FIELD_ARTIFACTS],
                 static fn (array $row): bool => in_array(
                     AiValueNormalizer::trimmedScalarStringOrNull($row['status'] ?? null) ?? '',
                     [AtlasLocalModelIntegrityService::STATUS_MISMATCHED, AtlasLocalModelIntegrityService::STATUS_MISSING],
@@ -61,7 +63,7 @@ final readonly class LocalModelIntegrityWatchdogCheck implements AtlasWatchdogCh
             return AtlasWatchdogCheckResult::alert($evidence, [
                 'code' => $report[AtlasLocalModelIntegrityService::FIELD_MISMATCHED] > 0 ? 'local_model_hash_mismatch' : 'local_model_missing',
                 'message' => 'Local model artifact integrity broken vs manifest pin.',
-                'artifacts' => array_map(static fn (array $row): string => AiValueNormalizer::trimmedScalarStringOrNull($row['model_id'] ?? null) ?? '', $offenders),
+                self::FIELD_ARTIFACTS => array_map(static fn (array $row): string => AiValueNormalizer::trimmedScalarStringOrNull($row['model_id'] ?? null) ?? '', $offenders),
             ]);
         }
 

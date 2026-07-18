@@ -55,6 +55,8 @@ final class ExploratoryBetsPortfolio
     public const FIELD_COUNTS_PROVEN_REAL_ONLY = 'counts_proven_real_only';
     public const FIELD_DECISION_KIND = 'decision_kind';
     public const FIELD_SUSPENSION_UPDATE = 'suspension_update';
+    public const FIELD_WINDOW_ID = 'window_id';
+    public const FIELD_DELETES_SUSPENDED_FAMILY = 'deletes_suspended_family';
 
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
 
@@ -104,7 +106,7 @@ final class ExploratoryBetsPortfolio
         }
 
         $k = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($context[self::FIELD_K] ?? null) ?? self::DEFAULT_K));
-        $windowId = AiValueNormalizer::trimmedStringOrNull($context['window_id']  ?? null) ?? 'current_window';
+        $windowId = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_WINDOW_ID]  ?? null) ?? 'current_window';
         $windowDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($context[self::FIELD_WINDOW_DAYS] ?? null) ?? self::DEFAULT_WINDOW_DAYS));
         $objectiveClass = AiValueNormalizer::trimmedStringOrNull($context['objective_class'] ?? null) ?? '';
         /** @var array<string,string> $suspendedPaths */
@@ -256,7 +258,7 @@ final class ExploratoryBetsPortfolio
             self::FIELD_STATE => AiValueNormalizer::trimmedStringOrNull($decision[self::FIELD_STATE] ?? null) ?? '',
             self::FIELD_BASIS => AiValueNormalizer::trimmedStringOrNull($decision[self::FIELD_BASIS] ?? null) ?? '',
             self::FIELD_PATH_WEIGHT_MULTIPLIER => AiValueNormalizer::finiteFloatOrNull($decision[self::FIELD_PATH_WEIGHT_MULTIPLIER] ?? null) ?? 0.0,
-            'window_id' => $windowId,
+            self::FIELD_WINDOW_ID => $windowId,
             self::FIELD_WINDOW_DAYS => $windowDays,
             self::FIELD_K => $k,
             'min_n' => self::MIN_N,
@@ -275,7 +277,7 @@ final class ExploratoryBetsPortfolio
             self::FIELD_COUNTS_LANDING_OR_ACCEPTANCE => false,
             self::FIELD_COUNTS_PROVEN_REAL_ONLY => true,
             'suspends_on_insufficient_n' => false,
-            'deletes_suspended_family' => false,
+            self::FIELD_DELETES_SUSPENDED_FAMILY => false,
             'flag' => 'atlas.loop.exploratory_bets_portfolio_enabled',
             'flag_default' => 'off',
         ];

@@ -14,6 +14,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 class AtlasVetoPropagationWatchdog
 {
+    public const FIELD_PAUSED_DEPARTMENTS = 'paused_departments';
+    public const FIELD_DEPARTMENT = 'department';
     public function __construct(
         private readonly AtlasCrossDepartmentChoreographyService $choreography,
     ) {}
@@ -35,14 +37,14 @@ class AtlasVetoPropagationWatchdog
             if (! is_array($event)) {
                 continue;
             }
-            $dept = AiValueNormalizer::trimmedStringOrNull($event['department'] ?? null) ?? '';
+            $dept = AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_DEPARTMENT] ?? null) ?? '';
             $veto = $this->choreography->evaluateVeto($dept);
             if (($veto['recognized'] ?? false) !== true) {
                 continue;
             }
 
             if (($event['lift'] ?? false) === true) {
-                foreach (AiValueNormalizer::arrayOrEmpty($veto['paused_departments'] ?? null) as $p) {
+                foreach (AiValueNormalizer::arrayOrEmpty($veto[self::FIELD_PAUSED_DEPARTMENTS] ?? null) as $p) {
                     $pausedKey = AiValueNormalizer::trimmedStringOrNull($p);
                     if ($pausedKey === null) {
                         continue;
@@ -53,7 +55,7 @@ class AtlasVetoPropagationWatchdog
                 if (($veto['final_override'] ?? false) === true) {
                     $finalOverride = true;
                 }
-                foreach (AiValueNormalizer::arrayOrEmpty($veto['paused_departments'] ?? null) as $p) {
+                foreach (AiValueNormalizer::arrayOrEmpty($veto[self::FIELD_PAUSED_DEPARTMENTS] ?? null) as $p) {
                     $pausedKey = AiValueNormalizer::trimmedStringOrNull($p);
                     if ($pausedKey === null) {
                         continue;
@@ -66,7 +68,7 @@ class AtlasVetoPropagationWatchdog
 
         return [
             'schema_version' => AtlasCrossDepartmentChoreographyService::HANDOFF_SCHEMA,
-            'paused_departments' => array_values(array_keys($paused)),
+            self::FIELD_PAUSED_DEPARTMENTS => array_values(array_keys($paused)),
             'final_override_active' => $finalOverride,
             'pause_sla_seconds' => AtlasCrossDepartmentChoreographyService::VETO_SLA_SECONDS,
             'veto_receipts' => $receipts,
