@@ -12863,4 +12863,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B495).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b495CognitionScoreAaeosHttpSpecCompletenessLedgerRotationFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'AREBA' => AtlasCognitionScoreCardService::FIELD_AREBA,
+            'ARFL' => AtlasCognitionScoreCardService::FIELD_ARFL,
+            'ARPTL' => AtlasCognitionScoreCardService::FIELD_ARPTL,
+            'ASAF' => AtlasCognitionScoreCardService::FIELD_ASAF,
+            'ASAR' => AtlasCognitionScoreCardService::FIELD_ASAR,
+            'ASCB' => AtlasCognitionScoreCardService::FIELD_ASCB,
+            'ASDM' => AtlasCognitionScoreCardService::FIELD_ASDM,
+            'ASEF' => AtlasCognitionScoreCardService::FIELD_ASEF,
+            'ASOS' => AtlasCognitionScoreCardService::FIELD_ASOS,
+            'ASPD' => AtlasCognitionScoreCardService::FIELD_ASPD,
+            'ASPR' => AtlasCognitionScoreCardService::FIELD_ASPR,
+            '422' => AtlasAaeosHttpPathFacadeService::INT_422,
+            '14' => SpecCompletenessScorer::INT_14,
+            '64' => AcosMaxLedgerRotationRegistry::INT_64,
+            '180' => AcosMaxMeasureSeriesRegistry::INT_180,
+            '11' => DepartmentContractRuntime::INT_11,
+            'Sales' => AtlasAaeosQualityBarService::FIELD_SALES,
+            'SIS7' => AtlasFrontierWaveLadder::FIELD_SIS7,
+            'b495_cognition_score_aaeos_http_spec_completeness_ledger_rotation_floor_count' => 18,
+        ];
+    }
+
 }

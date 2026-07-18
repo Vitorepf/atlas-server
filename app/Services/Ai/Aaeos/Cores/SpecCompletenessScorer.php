@@ -54,6 +54,7 @@ final class SpecCompletenessScorer
     public const FIELD_TOO_SHORT = 'too_short';
     public const FIELD_ABSENT = 'absent';
     public const FIELD_EMPTY_LIST = 'empty_list';
+    public const INT_14 = 14;
     public const INT_12 = 12;
     public const INT_10 = 10;
 
@@ -68,7 +69,7 @@ final class SpecCompletenessScorer
         self::FIELD_PRODUCT_AREA => 7,
         self::FIELD_BUSINESS_ACTOR_OBJECT_ACTION => self::INT_10,
         self::FIELD_REQUIREMENTS => self::INT_12,
-        self::FIELD_ACCEPTANCE_CRITERIA => 14,
+        self::FIELD_ACCEPTANCE_CRITERIA => self::INT_14,
         self::FIELD_DESIGN_SYSTEM_CONSTRAINTS => 6,
         self::FIELD_SECURITY_CONSTRAINTS => 8,
         self::FIELD_ASSUMPTIONS => 9,

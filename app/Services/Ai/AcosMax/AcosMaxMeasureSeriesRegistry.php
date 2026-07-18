@@ -60,6 +60,7 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_GROUND_TRUTH_RECEIPT = 'ground_truth_receipt';
     public const FIELD_ONE_TIME_CLEANUP_RECEIPT = 'one_time_cleanup_receipt';
     public const FIELD_TS = 'ts';
+    public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
     public const INT_30 = 30;
@@ -474,7 +475,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_PATH => storage_path('app/atlas/evidence/acos-max-maxm01-provider-leak-corpus.jsonl'),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
-                self::FIELD_TTL_DAYS => 180,
+                self::FIELD_TTL_DAYS => self::INT_180,
                 self::FIELD_TTL_SOURCE => 'maxm-01-frozen-corpus-baseline',
             ],
             [

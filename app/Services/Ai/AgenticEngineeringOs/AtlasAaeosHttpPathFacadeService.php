@@ -131,6 +131,7 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD_AAEOS_HTTP_PATH_PHASE_1_EMPTY_INTENT = 'aaeos_http_path_phase_1_empty_intent';
     public const FIELD_ATLAS_MODE = 'atlas_mode';
     public const FIELD_ROUTING_TASK = 'routing_task';
+    public const INT_422 = 422;
 
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
 
@@ -468,7 +469,7 @@ final class AtlasAaeosHttpPathFacadeService
                 self::FIELD_CODE => $blockerCode,
                 self::FIELD_REASON => $reason,
                 self::FIELD_BLOCKED_WHEN => array_values($blockedWhen),
-                self::FIELD_HTTP_STATUS => 422,
+                self::FIELD_HTTP_STATUS => self::INT_422,
             ],
             self::FIELD_TELEMETRY => $this->telemetry($configuredPhase, $this->elapsedMs($startedAtNs), $placementCacheHit),
         ];

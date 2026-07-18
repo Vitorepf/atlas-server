@@ -42,13 +42,14 @@ final class AtlasAaeosQualityBarService
     public const FIELD_OPERATIONS = 'Operations';
     public const FIELD_PRODUCT = 'Product';
     public const FIELD_RESEARCH = 'Research';
+    public const FIELD_SALES = 'Sales';
 
     public const DEPARTMENT_DATA = [
         [self::FIELD_DEPARTMENT => self::FIELD_ENGINEERING, self::FIELD_THRESHOLD => 0.85, self::FIELD_CURRENT => 0.92],
         [self::FIELD_DEPARTMENT => self::FIELD_PRODUCT, self::FIELD_THRESHOLD => 0.80, self::FIELD_CURRENT => 0.75],
         [self::FIELD_DEPARTMENT => self::FIELD_DESIGN, self::FIELD_THRESHOLD => 0.80, self::FIELD_CURRENT => 0.88],
         [self::FIELD_DEPARTMENT => self::FIELD_MARKETING, self::FIELD_THRESHOLD => 0.75, self::FIELD_CURRENT => 0.70],
-        [self::FIELD_DEPARTMENT => 'Sales', self::FIELD_THRESHOLD => 0.80, self::FIELD_CURRENT => 0.85],
+        [self::FIELD_DEPARTMENT => self::FIELD_SALES, self::FIELD_THRESHOLD => 0.80, self::FIELD_CURRENT => 0.85],
         [self::FIELD_DEPARTMENT => self::FIELD_OPERATIONS, self::FIELD_THRESHOLD => 0.78, self::FIELD_CURRENT => 0.72],
         [self::FIELD_DEPARTMENT => self::FIELD_FINANCE, self::FIELD_THRESHOLD => 0.82, self::FIELD_CURRENT => 0.90],
         [self::FIELD_DEPARTMENT => 'Human Resources', self::FIELD_THRESHOLD => 0.75, self::FIELD_CURRENT => 0.68],

@@ -44,6 +44,7 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_MODE = 'mode';
 
     public const FIELD_RATIONALE = 'rationale';
+    public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
     public const INT_128 = 128;
@@ -349,7 +350,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_RATIONALE => 'MULTJ-06 abstraction ladder computed-reader snapshots',
             ],
             'atlas.immune.signature_store.v1' => [
-                self::FIELD_MAX_SIZE_MB => 64,
+                self::FIELD_MAX_SIZE_MB => self::INT_64,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXI-05 immune signature DB-backed store; watchdog/table pruning cadence',

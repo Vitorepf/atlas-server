@@ -418,6 +418,7 @@ final class DepartmentContractRuntime
     public const FIELD_VETO_EXECUTION = 'veto_execution';
     public const FIELD_VETO_RELEASE = 'veto_release';
     public const FIELD_WRITE_TESTS = 'write_tests';
+    public const INT_11 = 11;
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -758,7 +759,7 @@ final class DepartmentContractRuntime
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_DEPARTMENT_COUNT => count(self::CATALOGUE),
-            self::FIELD_CANON_DEPARTMENT_COUNT => 11,
+            self::FIELD_CANON_DEPARTMENT_COUNT => self::INT_11,
             self::FIELD_DEPARTMENTS => self::CATALOGUE,
             self::FIELD_HANDOFF_INVARIANTS => [
                 self::FIELD_EXECUTIVE_INTAKE_HAS_NO_UPSTREAM,

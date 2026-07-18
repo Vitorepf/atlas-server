@@ -517,6 +517,7 @@ final class AtlasAaeosCommand extends Command
                             {--b492-cognition-score-procedural-skill-esp-independent-maxa-jina-floors-contract= : JSON file (any object) to observe cognition/score/procedural/skill/esp/independent floors}
                             {--b493-cognition-score-immune-signature-verified-share-window-orchestrator-floors-contract= : JSON file (any object) to observe cognition/score/immune/signature/verified/share floors}
                             {--b494-cognition-score-watchdog-runner-acos-dead-disk-free-floors-contract= : JSON file (any object) to observe cognition/score/watchdog/runner/acos/dead floors}
+                            {--b495-cognition-score-aaeos-http-spec-completeness-ledger-rotation-floors-contract= : JSON file (any object) to observe cognition/score/aaeos/http/spec/completeness floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1190,6 +1191,7 @@ final class AtlasAaeosCommand extends Command
             ['b492-cognition-score-procedural-skill-esp-independent-maxa-jina-floors-contract', 'b492_cognition_score_procedural_skill_esp_independent_maxa_jina_floors_contract', fn (array $p) => $gates->b492CognitionScoreProceduralSkillEspIndependentMaxaJinaFloorsContractObserve($p)],
             ['b493-cognition-score-immune-signature-verified-share-window-orchestrator-floors-contract', 'b493_cognition_score_immune_signature_verified_share_window_orchestrator_floors_contract', fn (array $p) => $gates->b493CognitionScoreImmuneSignatureVerifiedShareWindowOrchestratorFloorsContractObserve($p)],
             ['b494-cognition-score-watchdog-runner-acos-dead-disk-free-floors-contract', 'b494_cognition_score_watchdog_runner_acos_dead_disk_free_floors_contract', fn (array $p) => $gates->b494CognitionScoreWatchdogRunnerAcosDeadDiskFreeFloorsContractObserve($p)],
+            ['b495-cognition-score-aaeos-http-spec-completeness-ledger-rotation-floors-contract', 'b495_cognition_score_aaeos_http_spec_completeness_ledger_rotation_floors_contract', fn (array $p) => $gates->b495CognitionScoreAaeosHttpSpecCompletenessLedgerRotationFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

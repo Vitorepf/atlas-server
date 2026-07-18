@@ -10114,4 +10114,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b494_cognition_score_watchdog_runner_acos_dead_disk_free_floor_count']);
     }
 
+    public function test_b495_cognition_score_aaeos_http_spec_completeness_ledger_rotation_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b495CognitionScoreAaeosHttpSpecCompletenessLedgerRotationFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AREBA, $out['AREBA']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ARFL, $out['ARFL']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ARPTL, $out['ARPTL']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ASAF, $out['ASAF']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ASAR, $out['ASAR']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ASCB, $out['ASCB']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ASDM, $out['ASDM']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ASEF, $out['ASEF']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ASOS, $out['ASOS']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ASPD, $out['ASPD']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ASPR, $out['ASPR']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::INT_422, $out['422']);
+        $this->assertSame(SpecCompletenessScorer::INT_14, $out['14']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::INT_64, $out['64']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::INT_180, $out['180']);
+        $this->assertSame(DepartmentContractRuntime::INT_11, $out['11']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_SALES, $out['Sales']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_SIS7, $out['SIS7']);
+        $this->assertSame(18, $out['b495_cognition_score_aaeos_http_spec_completeness_ledger_rotation_floor_count']);
+    }
+
 }
