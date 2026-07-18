@@ -14574,4 +14574,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b675_ambition_rung_floor_count']);
     }
 
+    public function test_b676_measure_series_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b676MeasureSeriesFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_SLICE, $out['slice']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_SERIES, $out['series']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_PATH, $out['path']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::SOURCE_TYPE_TABLE, $out['table']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_TTL_DAYS, $out['ttl_days']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_TIMESTAMP_FIELD, $out['timestamp_field']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_SOURCE_TYPE, $out['source_type']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_TTL_SOURCE, $out['ttl_source']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_SCOPE_ID, $out['scope_id']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_SCOPE_TYPE, $out['scope_type']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_WHERE, $out['where']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_RECORDED_AT, $out['recorded_at']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_LEDGER_EVENTS, $out['atlas_ledger_events']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_OCCURRED_AT, $out['occurred_at']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ACOS_WATCHDOG, $out['acos_watchdog']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_UNIFIED, $out['unified']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATTESTED_AT, $out['attested_at']);
+        $this->assertSame(18, $out['b676_measure_series_floor_count']);
+    }
+
 }

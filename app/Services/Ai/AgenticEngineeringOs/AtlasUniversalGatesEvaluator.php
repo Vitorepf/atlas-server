@@ -18404,4 +18404,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B676).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b676MeasureSeriesFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'slice' => AcosMaxMeasureSeriesRegistry::FIELD_SLICE,
+            'series' => AcosMaxMeasureSeriesRegistry::FIELD_SERIES,
+            'path' => AcosMaxMeasureSeriesRegistry::FIELD_PATH,
+            'table' => AcosMaxMeasureSeriesRegistry::SOURCE_TYPE_TABLE,
+            'ttl_days' => AcosMaxMeasureSeriesRegistry::FIELD_TTL_DAYS,
+            'timestamp_field' => AcosMaxMeasureSeriesRegistry::FIELD_TIMESTAMP_FIELD,
+            'source_type' => AcosMaxMeasureSeriesRegistry::FIELD_SOURCE_TYPE,
+            'ttl_source' => AcosMaxMeasureSeriesRegistry::FIELD_TTL_SOURCE,
+            'scope_id' => AcosMaxMeasureSeriesRegistry::FIELD_SCOPE_ID,
+            'scope_type' => AcosMaxMeasureSeriesRegistry::FIELD_SCOPE_TYPE,
+            'where' => AcosMaxMeasureSeriesRegistry::FIELD_WHERE,
+            'generated_at' => AcosMaxMeasureSeriesRegistry::FIELD_GENERATED_AT,
+            'recorded_at' => AcosMaxMeasureSeriesRegistry::FIELD_RECORDED_AT,
+            'atlas_ledger_events' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_LEDGER_EVENTS,
+            'occurred_at' => AcosMaxMeasureSeriesRegistry::FIELD_OCCURRED_AT,
+            'acos_watchdog' => AcosMaxMeasureSeriesRegistry::FIELD_ACOS_WATCHDOG,
+            'unified' => AcosMaxMeasureSeriesRegistry::FIELD_UNIFIED,
+            'attested_at' => AcosMaxMeasureSeriesRegistry::FIELD_ATTESTED_AT,
+            'b676_measure_series_floor_count' => 18,
+        ];
+    }
+
 }
