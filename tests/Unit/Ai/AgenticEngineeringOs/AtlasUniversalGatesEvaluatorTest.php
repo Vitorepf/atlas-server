@@ -11749,4 +11749,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b561_evidence_vision_exploratory_bets_floor_count']);
     }
 
+    public function test_b562_maxa_jina_acos_long_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b562MaxaJinaAcosLongFloorsContractObserve([]);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_REASON, $out['reason']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_SUMMARY, $out['summary']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_WINDOW_BASIS, $out['window_basis']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_PROMOTION, $out['promotion']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_ROLLBACK, $out['rollback']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_PROVIDER, $out['provider']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_MODEL, $out['model']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_SERIES, $out['series']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_CERTIFICATION_WINDOW_DATES, $out['certification_window_dates']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_MIN_DAYS, $out['min_days']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_WARNING_MARGIN, $out['warning_margin']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_OK, $out['ok']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_FAIL, $out['fail']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_WARN, $out['warn']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_VALUE, $out['value']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(18, $out['b562_maxa_jina_acos_long_floor_count']);
+    }
+
 }

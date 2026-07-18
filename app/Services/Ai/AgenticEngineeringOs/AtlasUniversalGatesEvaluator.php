@@ -14900,4 +14900,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B562).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b562MaxaJinaAcosLongFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => Maxa04JinaV3DualReadService::FIELD_SCHEMA_VERSION,
+            'reason' => Maxa04JinaV3DualReadService::FIELD_REASON,
+            'summary' => Maxa04JinaV3DualReadService::FIELD_SUMMARY,
+            'window_basis' => Maxa04JinaV3DualReadService::FIELD_WINDOW_BASIS,
+            'promotion' => Maxa04JinaV3DualReadService::FIELD_PROMOTION,
+            'rollback' => Maxa04JinaV3DualReadService::FIELD_ROLLBACK,
+            'provider' => Maxa04JinaV3DualReadService::FIELD_PROVIDER,
+            'model' => Maxa04JinaV3DualReadService::FIELD_MODEL,
+            'series' => Maxa04JinaV3DualReadService::FIELD_SERIES,
+            'certification_window_dates' => AtlasAcosLongHorizonGateService::FIELD_CERTIFICATION_WINDOW_DATES,
+            'min_days' => AtlasAcosLongHorizonGateService::FIELD_MIN_DAYS,
+            'warning_margin' => AtlasAcosLongHorizonGateService::FIELD_WARNING_MARGIN,
+            'ok' => AtlasAcosLongHorizonGateService::FIELD_OK,
+            'fail' => AtlasAcosLongHorizonGateService::FIELD_FAIL,
+            'warn' => AtlasAcosLongHorizonGateService::FIELD_WARN,
+            'reason' => AtlasAcosLongHorizonGateService::FIELD_REASON,
+            'value' => AtlasAcosLongHorizonGateService::FIELD_VALUE,
+            'threshold' => AtlasAcosLongHorizonGateService::FIELD_THRESHOLD,
+            'b562_maxa_jina_acos_long_floor_count' => 18,
+        ];
+    }
+
 }
