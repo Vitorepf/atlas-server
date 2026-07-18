@@ -20667,4 +20667,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B749).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b749OperatorLearningAobgLatencyFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'maxn-01.operator_learning_capture_schema' => OperatorLearningCaptureSchemaWatchdogCheck::CHECK_ID,
+            'missing_tables' => OperatorLearningCaptureSchemaWatchdogCheck::FIELD_MISSING_TABLES,
+            'chat_capture_enabled' => OperatorLearningCaptureSchemaWatchdogCheck::FIELD_CHAT_CAPTURE_ENABLED,
+            'reason' => OperatorLearningCaptureSchemaWatchdogCheck::FIELD_REASON,
+            'operator_schema_ready' => OperatorLearningCaptureSchemaWatchdogCheck::FIELD_OPERATOR_SCHEMA_READY,
+            'code' => OperatorLearningCaptureSchemaWatchdogCheck::FIELD_CODE,
+            'message' => OperatorLearningCaptureSchemaWatchdogCheck::FIELD_MESSAGE,
+            'operator_learning_capture_disabled' => OperatorLearningCaptureSchemaWatchdogCheck::FIELD_OPERATOR_LEARNING_CAPTURE_DISABLED,
+            'operator_learning_schema_missing' => OperatorLearningCaptureSchemaWatchdogCheck::FIELD_OPERATOR_LEARNING_SCHEMA_MISSING,
+            'atlas.acos.watchdog.aobg_latency.v1' => AobgLatencyWatchdogCheck::SCHEMA_VERSION,
+            'wdg-01.aobg_latency' => AobgLatencyWatchdogCheck::CHECK_ID,
+            'aobg.latency_ledger.v1' => AobgLatencyWatchdogCheck::FIELD_AOBG_LATENCY_LEDGER_V1,
+            '5' => AobgLatencyWatchdogCheck::DEFAULT_DENOMINATOR_MIN,
+            '18000.0' => AobgLatencyWatchdogCheck::DEFAULT_PACK_P95_MS_ALERT,
+            '15000.0' => AobgLatencyWatchdogCheck::DEFAULT_RECALL_P95_MS_ALERT,
+            '20000.0' => AobgLatencyWatchdogCheck::DEFAULT_HOOK_P95_MS_ALERT,
+            'insufficient_signal' => AobgLatencyWatchdogCheck::REASON_INSUFFICIENT_SIGNAL,
+            'latency_floor_exceeded' => AobgLatencyWatchdogCheck::REASON_LATENCY_FLOOR_EXCEEDED,
+            'b749_operator_learning_aobg_latency_floor_count' => 18,
+        ];
+    }
+
 }

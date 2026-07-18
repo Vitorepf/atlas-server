@@ -16402,4 +16402,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b748_acos_dead_floor_count']);
     }
 
+    public function test_b749_operator_learning_aobg_latency_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b749OperatorLearningAobgLatencyFloorsContractObserve([]);
+        $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::CHECK_ID, $out['maxn-01.operator_learning_capture_schema']);
+        $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::FIELD_MISSING_TABLES, $out['missing_tables']);
+        $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::FIELD_CHAT_CAPTURE_ENABLED, $out['chat_capture_enabled']);
+        $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::FIELD_REASON, $out['reason']);
+        $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::FIELD_OPERATOR_SCHEMA_READY, $out['operator_schema_ready']);
+        $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::FIELD_CODE, $out['code']);
+        $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::FIELD_OPERATOR_LEARNING_CAPTURE_DISABLED, $out['operator_learning_capture_disabled']);
+        $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::FIELD_OPERATOR_LEARNING_SCHEMA_MISSING, $out['operator_learning_schema_missing']);
+        $this->assertSame(AobgLatencyWatchdogCheck::SCHEMA_VERSION, $out['atlas.acos.watchdog.aobg_latency.v1']);
+        $this->assertSame(AobgLatencyWatchdogCheck::CHECK_ID, $out['wdg-01.aobg_latency']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_AOBG_LATENCY_LEDGER_V1, $out['aobg.latency_ledger.v1']);
+        $this->assertSame(AobgLatencyWatchdogCheck::DEFAULT_DENOMINATOR_MIN, $out['5']);
+        $this->assertSame(AobgLatencyWatchdogCheck::DEFAULT_PACK_P95_MS_ALERT, $out['18000.0']);
+        $this->assertSame(AobgLatencyWatchdogCheck::DEFAULT_RECALL_P95_MS_ALERT, $out['15000.0']);
+        $this->assertSame(AobgLatencyWatchdogCheck::DEFAULT_HOOK_P95_MS_ALERT, $out['20000.0']);
+        $this->assertSame(AobgLatencyWatchdogCheck::REASON_INSUFFICIENT_SIGNAL, $out['insufficient_signal']);
+        $this->assertSame(AobgLatencyWatchdogCheck::REASON_LATENCY_FLOOR_EXCEEDED, $out['latency_floor_exceeded']);
+        $this->assertSame(18, $out['b749_operator_learning_aobg_latency_floor_count']);
+    }
+
 }
