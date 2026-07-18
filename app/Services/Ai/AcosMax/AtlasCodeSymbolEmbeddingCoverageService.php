@@ -83,6 +83,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_TTL_DAYS = 'ttl_days';
     public const FIELD_ACTIVE_SYMBOLS_ONLY = 'active_symbols_only';
     public const FIELD_ARCHIVED_AT = 'archived_at';
+    public const FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS = 'atlas_code_symbol_embeddings';
+    public const FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS = 'atlas_engineering_code_symbols';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -118,11 +120,11 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     {
         $freeze = self::freezePayload();
 
-        if (! DatabaseTableAvailability::has('atlas_engineering_code_symbols')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS)) {
             return $this->emptyReport(self::STATUS_TABLE_MISSING, 'atlas_engineering_code_symbols_missing', $freeze);
         }
 
-        if (! DatabaseTableAvailability::has('atlas_code_symbol_embeddings')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS)) {
             return $this->emptyReport(self::STATUS_TABLE_MISSING, 'atlas_code_symbol_embeddings_missing', $freeze);
         }
 

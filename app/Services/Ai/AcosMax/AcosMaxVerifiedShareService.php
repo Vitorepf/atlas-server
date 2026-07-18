@@ -85,6 +85,8 @@ final class AcosMaxVerifiedShareService
     public const FIELD_TASK_CATEGORY = 'task_category';
     public const FIELD_VERIFICATION_NUMERATOR = 'verification_numerator';
     public const FIELD_ENFORCE = 'enforce';
+    public const FIELD_ATLAS_LEDGER_EVENTS = 'atlas_ledger_events';
+    public const FIELD_AUTONOMOS = 'autonomos';
 
 
     /** @return array<string,mixed> */
@@ -291,7 +293,7 @@ final class AcosMaxVerifiedShareService
     /** @return list<array<string,mixed>> */
     private function coverageRows(CarbonImmutable $since): array
     {
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_LEDGER_EVENTS)) {
             return [];
         }
 
@@ -334,7 +336,7 @@ final class AcosMaxVerifiedShareService
         return match (true) {
             in_array($value, ['dev', 'atlas_dev', 'atlas-dev'], true) => 'dev',
             in_array($value, ['forge', 'atlas_forge', 'atlas-forge'], true) => 'forge',
-            in_array($value, ['autonomos', 'autonomous', 'atlas_autonomos', 'atlas-autonomos'], true) => 'autonomos',
+            in_array($value, ['autonomos', 'autonomous', 'atlas_autonomos', 'atlas-autonomos'], true) => self::FIELD_AUTONOMOS,
             default => null,
         };
     }

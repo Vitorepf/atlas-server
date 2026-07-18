@@ -203,6 +203,8 @@ final class DepartmentContractRuntime
     public const FIELD_AAEOS_DELIVERY_LEDGER = 'aaeos_delivery_ledger';
     public const FIELD_AAEOS_DELIVERY_PACKS = 'aaeos_delivery_packs';
     public const FIELD_AAEOS_DEV_EVIDENCE_LEDGER = 'aaeos_dev_evidence_ledger';
+    public const FIELD_AAEOS_DEV_RUNS = 'aaeos_dev_runs';
+    public const FIELD_AAEOS_ENGINEERING_GOALS = 'aaeos_engineering_goals';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -275,7 +277,7 @@ final class DepartmentContractRuntime
             self::FIELD_FORBIDDEN_ACTIONS => ['write_code', 'approve_release', 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['clarification_log', 'acceptance_criteria_pack'],
-            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_engineering_goals', self::FIELD_LEDGER => self::FIELD_AAEOS_CLARIFICATION_LEDGER],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_ENGINEERING_GOALS, self::FIELD_LEDGER => self::FIELD_AAEOS_CLARIFICATION_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['product_clarity_score_avg', 'product_loop_count_avg'],
             self::FIELD_MATURITY_LEVEL => 'L3',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_MINI_PROGRAMMING_SPEC,
@@ -347,7 +349,7 @@ final class DepartmentContractRuntime
             self::FIELD_FORBIDDEN_ACTIONS => ['edit_security_policy', 'modify_migrations_without_architect', 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_FORGE],
             self::FIELD_EVIDENCE_REQUIRED => ['patch_hash', 'test_output_hash', 'scope_guard_report'],
-            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_dev_runs', self::FIELD_LEDGER => self::FIELD_AAEOS_DEV_EVIDENCE_LEDGER],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_DEV_RUNS, self::FIELD_LEDGER => self::FIELD_AAEOS_DEV_EVIDENCE_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['dev_run_duration_p95', 'dev_repair_loop_count', 'dev_scope_violation_count'],
             self::FIELD_MATURITY_LEVEL => 'L1',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_PLAN_VISIBLE,

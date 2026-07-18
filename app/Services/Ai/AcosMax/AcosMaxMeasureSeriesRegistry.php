@@ -52,6 +52,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_OCCURRED_AT = 'occurred_at';
     public const FIELD_ACOS_WATCHDOG = 'acos_watchdog';
     public const FIELD_UNIFIED = 'unified';
+    public const FIELD_ATTESTED_AT = 'attested_at';
+    public const FIELD_CAPTURES = 'captures';
 
     public const SOURCE_TYPE_JSONL = 'jsonl';
 
@@ -181,7 +183,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => 'MAXI-02',
                 self::FIELD_SERIES => 'atlas.capture.cognitive_immune_audit.v2',
-                self::FIELD_TABLE => 'captures',
+                self::FIELD_TABLE => self::FIELD_CAPTURES,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
                 self::FIELD_TIMESTAMP_FIELD => 'created_at',
                 self::FIELD_TTL_DAYS => ImmuneCalibrationService::TTL_DAYS,
@@ -452,7 +454,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SERIES => 'atlas.test_attestation.v1',
                 self::FIELD_PATH => 'AtlasTestAttestationService::attest',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
-                self::FIELD_TIMESTAMP_FIELD => 'attested_at',
+                self::FIELD_TIMESTAMP_FIELD => self::FIELD_ATTESTED_AT,
                 self::FIELD_TTL_DAYS => 30,
                 self::FIELD_TTL_SOURCE => 'esp-03-test-attestation-seal',
             ],

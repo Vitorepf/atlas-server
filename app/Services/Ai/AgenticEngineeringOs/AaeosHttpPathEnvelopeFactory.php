@@ -98,6 +98,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_CLASSIFICATION_TARGET_DEPARTMENT_MISSING = 'classification_target_department_missing';
     public const FIELD_DECISION_RECEIPT_V2_SIGNED = 'decision_receipt_v2_signed';
     public const FIELD_DEPARTMENT_ROUTE_OWNER_CONFIRMED = 'department_route_owner_confirmed';
+    public const FIELD_ENGINEERING_OR_FORGE_PENDING_AAWR = 'engineering_or_forge_pending_aawr';
+    public const FIELD_MEDIUM = 'medium';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -204,7 +206,7 @@ final class AaeosHttpPathEnvelopeFactory
             gates: self::binaryGate('intent_classification_target_department_declared', $declared),
             blockers: $declared
                 ? []
-                : [[self::FIELD_ID => self::FIELD_CLASSIFICATION_TARGET_DEPARTMENT_MISSING, self::FIELD_SEVERITY => 'medium', self::FIELD_OWNER => 'atlas-ai']],
+                : [[self::FIELD_ID => self::FIELD_CLASSIFICATION_TARGET_DEPARTMENT_MISSING, self::FIELD_SEVERITY => self::FIELD_MEDIUM, self::FIELD_OWNER => 'atlas-ai']],
         );
     }
 
@@ -291,7 +293,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase3.routing.r1_r2_fast_path',
             self::FIELD_SKIP_REASON => self::FIELD_R1_R2_FAST_PATH_PRESERVED,
             self::FIELD_OUTPUTS => [
-                self::FIELD_DEPARTMENT_ROUTE => 'engineering_or_forge_pending_aawr',
+                self::FIELD_DEPARTMENT_ROUTE => self::FIELD_ENGINEERING_OR_FORGE_PENDING_AAWR,
                 self::FIELD_COMPANY_RUNTIME_INVOCATION => self::FIELD_DEFERRED,
             ],
             self::FIELD_REQUIRED_GATE => self::FIELD_DEPARTMENT_ROUTE_OWNER_CONFIRMED,

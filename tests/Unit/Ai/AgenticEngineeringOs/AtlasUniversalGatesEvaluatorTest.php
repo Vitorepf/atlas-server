@@ -8291,4 +8291,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['frontier_wave_acos_rollback_department_contract_aaeos_long_floor_count']);
     }
 
+    public function test_department_contract_aaeos_cognitive_measure_series_http_path_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->departmentContractAaeosCognitiveMeasureSeriesHttpPathFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_DEV_RUNS, $out['aaeos_dev_runs']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_ENGINEERING_GOALS, $out['aaeos_engineering_goals']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_PRODUCT, $out['product']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_PRODUCT_MOBILE_SURFACE_L4, $out['product_mobile_surface_l4']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PROJECT_EVIDENCE_SIGNAL, $out['project_evidence_signal']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_REDACT_MINIMIZE, $out['redact_minimize']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATTESTED_AT, $out['attested_at']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_CAPTURES, $out['captures']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ENGINEERING_OR_FORGE_PENDING_AAWR, $out['engineering_or_forge_pending_aawr']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_MEDIUM, $out['medium']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_PROGRAMMER, $out['programmer']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_PROGRAMMING, $out['programming']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_DEFAULT, $out['default']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_EVENT_TYPE, $out['event_type']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_ATLAS_LEDGER_EVENTS, $out['atlas_ledger_events']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_AUTONOMOS, $out['autonomos']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS, $out['atlas_code_symbol_embeddings']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS, $out['atlas_engineering_code_symbols']);
+        $this->assertSame(18, $out['department_contract_aaeos_cognitive_measure_series_http_path_floor_count']);
+    }
+
 }

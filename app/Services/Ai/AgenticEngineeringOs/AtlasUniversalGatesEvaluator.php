@@ -10607,4 +10607,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B422).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function departmentContractAaeosCognitiveMeasureSeriesHttpPathFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'aaeos_dev_runs' => DepartmentContractRuntime::FIELD_AAEOS_DEV_RUNS,
+            'aaeos_engineering_goals' => DepartmentContractRuntime::FIELD_AAEOS_ENGINEERING_GOALS,
+            'product' => AtlasAaeosDepartmentMaturityService::FIELD_PRODUCT,
+            'product_mobile_surface_l4' => AtlasAaeosDepartmentMaturityService::FIELD_PRODUCT_MOBILE_SURFACE_L4,
+            'project_evidence_signal' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PROJECT_EVIDENCE_SIGNAL,
+            'redact_minimize' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_REDACT_MINIMIZE,
+            'attested_at' => AcosMaxMeasureSeriesRegistry::FIELD_ATTESTED_AT,
+            'captures' => AcosMaxMeasureSeriesRegistry::FIELD_CAPTURES,
+            'engineering_or_forge_pending_aawr' => AaeosHttpPathEnvelopeFactory::FIELD_ENGINEERING_OR_FORGE_PENDING_AAWR,
+            'medium' => AaeosHttpPathEnvelopeFactory::FIELD_MEDIUM,
+            'programmer' => CognitiveContextNudgeApplier::FIELD_PROGRAMMER,
+            'programming' => CognitiveContextNudgeApplier::FIELD_PROGRAMMING,
+            'default' => AtlasAcosWatchdogHealthService::FIELD_DEFAULT,
+            'event_type' => AtlasAcosWatchdogHealthService::FIELD_EVENT_TYPE,
+            'atlas_ledger_events' => AcosMaxVerifiedShareService::FIELD_ATLAS_LEDGER_EVENTS,
+            'autonomos' => AcosMaxVerifiedShareService::FIELD_AUTONOMOS,
+            'atlas_code_symbol_embeddings' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS,
+            'atlas_engineering_code_symbols' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS,
+            'department_contract_aaeos_cognitive_measure_series_http_path_floor_count' => 18,
+        ];
+    }
+
 }

@@ -55,13 +55,15 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_FORGE_MERGE_REVIEW_PROMOTION_R5 = 'forge_merge_review_promotion_r5';
     public const FIELD_MEMORY = 'memory';
     public const FIELD_MEMORY_CROSS_SESSION_HANDOFF_L4 = 'memory_cross_session_handoff_l4';
+    public const FIELD_PRODUCT = 'product';
+    public const FIELD_PRODUCT_MOBILE_SURFACE_L4 = 'product_mobile_surface_l4';
 
     public const DEPARTMENTS = [
         [
-            self::FIELD_DEPARTMENT_ID => 'product',
+            self::FIELD_DEPARTMENT_ID => self::FIELD_PRODUCT,
             self::FIELD_CURRENT_LEVEL => 'L3',
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#product'],
-            self::FIELD_BLOCKER_ID => 'product_mobile_surface_l4',
+            self::FIELD_BLOCKER_ID => self::FIELD_PRODUCT_MOBILE_SURFACE_L4,
             self::FIELD_BLOCKER_SUMMARY => 'falta surface mobile completa para L4',
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],

@@ -54,6 +54,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_PERSONAL_FACT_SIGNAL = 'personal_fact_signal';
     public const FIELD_PRIVATE_REVIEW = 'private_review';
     public const FIELD_PROJECT_EVIDENCE = 'project_evidence';
+    public const FIELD_PROJECT_EVIDENCE_SIGNAL = 'project_evidence_signal';
+    public const FIELD_REDACT_MINIMIZE = 'redact_minimize';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -73,7 +75,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         self::CLASS_STRATEGIC_INSIGHT_CANDIDATE => self::FIELD_MEMORY_CONSTELLATION_CANDIDATE,
         self::CLASS_UNTRUSTED_CONTENT => self::FIELD_CITED_DATA_NOT_INSTRUCTION,
         self::CLASS_PROMPT_INJECTION => self::FIELD_BLOCKED_EPHEMERAL_EVIDENCE,
-        self::CLASS_PRIVATE_SENSITIVE => 'redact_minimize',
+        self::CLASS_PRIVATE_SENSITIVE => self::FIELD_REDACT_MINIMIZE,
     ];
 
     /**
@@ -371,7 +373,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
             self::CLASS_STRATEGIC_INSIGHT_CANDIDATE => 'strategic_insight_signal',
             self::CLASS_TECHNICAL_LEARNING_CANDIDATE => 'technical_learning_signal',
             self::CLASS_PERSONAL_FACT_CANDIDATE => self::FIELD_PERSONAL_FACT_SIGNAL,
-            self::CLASS_PROJECT_EVIDENCE => 'project_evidence_signal',
+            self::CLASS_PROJECT_EVIDENCE => self::FIELD_PROJECT_EVIDENCE_SIGNAL,
             self::CLASS_CONVERSATION_TRACE => self::FIELD_CONVERSATION_TRACE_SIGNAL,
             default => self::FIELD_CANDIDATE_SIGNAL,
         };

@@ -304,6 +304,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_ATLAS_MEMORY_ENTRY_USAGES = 'atlas_memory_entry_usages';
     public const FIELD_AURG_STORE_UNAVAILABLE = 'aurg_store_unavailable';
     public const FIELD_CPT_09_COMPACTION_ENFORCE = 'cpt_09_compaction_enforce';
+    public const FIELD_DEFAULT = 'default';
+    public const FIELD_EVENT_TYPE = 'event_type';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -1011,7 +1013,7 @@ final class AtlasAcosWatchdogHealthService
         $series = [];
         foreach ($blockers as $blocker) {
             $query = AtlasLedgerEvent::query()
-                ->where('event_type', LedgerEventType::OperationBlocked->value)
+                ->where(self::FIELD_EVENT_TYPE, LedgerEventType::OperationBlocked->value)
                 ->whereJsonContains('payload->blockers', $blocker)
                 ->orderBy('occurred_at');
             if ($hasScopeColumns) {
@@ -1040,7 +1042,7 @@ final class AtlasAcosWatchdogHealthService
     {
         try {
             app(AtlasEvidenceLedger::class)->record($type, $payload, [
-                self::FIELD_TENANT_ID => 'default',
+                self::FIELD_TENANT_ID => self::FIELD_DEFAULT,
                 self::FIELD_OPERATOR_ID => 'system',
                 self::FIELD_ENVELOPE_ID => 'acos:watchdog:'.$scopeId.':'.now()->format('YmdHis'),
                 self::FIELD_CORRELATION_ID => 'acos:watchdog:'.$scopeId,
