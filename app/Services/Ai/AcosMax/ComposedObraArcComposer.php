@@ -94,6 +94,7 @@ final class ComposedObraArcComposer
     public const FIELD_ORGAN_DEPENDENCY_GRAPH = 'organ_dependency_graph';
     public const FIELD_ORGAN_DEPENDENCY_NEIGHBORS = 'organ_dependency_neighbors';
     public const FIELD_TASK_ = 'task_';
+    public const FIELD_SHA256 = 'sha256';
 
     /**
      * @param  list<array<string,mixed>>  $candidates  grounded origination candidates
@@ -269,13 +270,13 @@ final class ComposedObraArcComposer
         $targets = array_map(static fn (array $task): string => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_TARGET_PATH] ?? null) ?? '', $group);
         sort($targets);
         $arcSeed = implode('|', $targets);
-        $arcId = 'arc_'.substr(hash('sha256', $arcSeed), 0, 16);
-        $obraId = 'obra_'.substr(hash('sha256', 'obra:'.$arcSeed), 0, 16);
+        $arcId = 'arc_'.substr(hash(self::FIELD_SHA256, $arcSeed), 0, 16);
+        $obraId = 'obra_'.substr(hash(self::FIELD_SHA256, 'obra:'.$arcSeed), 0, 16);
 
         $tasks = [];
         foreach ($group as $task) {
             $tasks[] = [
-                self::FIELD_TASK_ID => self::FIELD_TASK_.substr(hash('sha256', $arcId.':'.($task[self::FIELD_TARGET_PATH] ?? '')), 0, 12),
+                self::FIELD_TASK_ID => self::FIELD_TASK_.substr(hash(self::FIELD_SHA256, $arcId.':'.($task[self::FIELD_TARGET_PATH] ?? '')), 0, 12),
                 self::FIELD_ORDER => (int) (AiValueNormalizer::finiteFloatOrNull($task[self::FIELD_ORDER] ?? null) ?? 0),
                 self::FIELD_TARGET_PATH => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_TARGET_PATH] ?? null) ?? '',
                 self::FIELD_OBJECTIVE => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_SUMMARY] ?? null) ?? '',

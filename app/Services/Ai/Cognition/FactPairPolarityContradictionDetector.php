@@ -25,6 +25,8 @@ final class FactPairPolarityContradictionDetector
     public const FIELD_SUBJECT = 'subject';
     public const FIELD_HARD_NEGATION_CONTRADICTION = 'hard_negation_contradiction';
     public const FIELD_NONE = 'none';
+    public const FIELD_UNRELATED = 'unrelated';
+    public const FIELD_VALUE_CONFLICT = 'value_conflict';
     /**
      * @param  array{subject?:mixed, predicate?:mixed, negated?:mixed, value?:mixed}  $factA
      * @param  array{subject?:mixed, predicate?:mixed, negated?:mixed, value?:mixed}  $factB
@@ -37,7 +39,7 @@ final class FactPairPolarityContradictionDetector
 
         // (1) Different subject OR predicate -> the facts are not about the same claim.
         if (! $sameSubject || ! $samePredicate) {
-            return $this->result(false, 'unrelated');
+            return $this->result(false, self::FIELD_UNRELATED);
         }
 
         $negatedA = $this->negated($factA);
@@ -53,7 +55,7 @@ final class FactPairPolarityContradictionDetector
 
         // (3) Same claim, same polarity, both values present but not loosely equal -> value conflict.
         if ($valueA !== null && $valueB !== null && ! $this->looselyEqual($valueA, $valueB)) {
-            return $this->result(true, 'value_conflict');
+            return $this->result(true, self::FIELD_VALUE_CONFLICT);
         }
 
         // (4) Otherwise the pair is consistent.

@@ -127,6 +127,7 @@ final class AtlasNCaptureDrillService
     public const FIELD_ENGINE = 'engine';
     public const FIELD_JSONL = 'jsonl';
     public const FIELD_NO_DRILL_IN_WINDOW = 'no_drill_in_window';
+    public const FIELD_TETO01_RECEIPT_ENCODE_FAILED = 'teto01_receipt_encode_failed';
 
     private readonly string $ledgerPath;
 
@@ -374,7 +375,7 @@ final class AtlasNCaptureDrillService
         }
         $encoded = json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
         if ($encoded === false) {
-            throw new RuntimeException('teto01_receipt_encode_failed');
+            throw new RuntimeException(self::FIELD_TETO01_RECEIPT_ENCODE_FAILED);
         }
         file_put_contents($this->ledgerPath, $encoded.PHP_EOL, FILE_APPEND | LOCK_EX);
     }

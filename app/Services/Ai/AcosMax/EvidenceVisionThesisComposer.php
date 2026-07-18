@@ -114,6 +114,7 @@ final class EvidenceVisionThesisComposer
     public const FIELD_WEIGHT_ONLY_NEVER_VETO = 'weight_only_never_veto';
     public const FIELD_DEFAULT = 'default';
     public const FIELD_OPEN_EVIDENCE = 'open_evidence';
+    public const FIELD_SHA256 = 'sha256';
 
     /**
      * @param  array<string,mixed>  $context
@@ -310,7 +311,7 @@ final class EvidenceVisionThesisComposer
             [$series, $stage] = explode('|', $key, 2);
             $first = $yields[0];
             $last = $yields[count($yields) - 1];
-            $thesisId = hash('sha256', 'series-regression|'.$series.'|'.$stage.'|'.$first.'|'.$last);
+            $thesisId = hash(self::FIELD_SHA256, 'series-regression|'.$series.'|'.$stage.'|'.$first.'|'.$last);
             $recoveryFloor = $yields[count($yields) - 2];
 
             $theses[] = [
@@ -366,7 +367,7 @@ final class EvidenceVisionThesisComposer
             return [];
         }
 
-        $thesisId = hash('sha256', 'calibration-drift|'.$highRate.'|'.$sweetRate);
+        $thesisId = hash(self::FIELD_SHA256, 'calibration-drift|'.$highRate.'|'.$sweetRate);
 
         return [[
             self::FIELD_THESIS_ID => $thesisId,
@@ -426,7 +427,7 @@ final class EvidenceVisionThesisComposer
             if (count($rows) < 2) {
                 continue;
             }
-            $thesisId = hash('sha256', 'lead-cluster|'.$target.'|'.count($rows));
+            $thesisId = hash(self::FIELD_SHA256, 'lead-cluster|'.$target.'|'.count($rows));
             $refs = array_map(
                 static fn (array $row): array => [
                     self::FIELD_SOURCE => self::FIELD_LEDGER,
@@ -482,7 +483,7 @@ final class EvidenceVisionThesisComposer
             if (count($failures) < 3) {
                 continue;
             }
-            $thesisId = hash('sha256', 'outcome-stall|'.$path.'|'.count($failures));
+            $thesisId = hash(self::FIELD_SHA256, 'outcome-stall|'.$path.'|'.count($failures));
             $theses[] = [
                 self::FIELD_THESIS_ID => $thesisId,
                 self::FIELD_STATUS => self::STATUS_ACTIVE,

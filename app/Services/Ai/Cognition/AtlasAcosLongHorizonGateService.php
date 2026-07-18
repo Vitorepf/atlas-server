@@ -173,6 +173,7 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_SERIES_V2_FUTURE_DATED_ROWS = 'series_v2_future_dated_rows';
     public const FIELD_SERIES_V2_GAP_EXCEEDS_FLOOR = 'series_v2_gap_exceeds_floor';
     public const FIELD_SERIES_V2_WINDOW_STALE = 'series_v2_window_stale';
+    public const FIELD_SHA256 = 'sha256';
 
     /**
      * @param  array<string,mixed>  $options
@@ -926,7 +927,7 @@ final class AtlasAcosLongHorizonGateService
                 self::FIELD_SUPERIORITY_CLAIM_ALLOWED => false,
             ],
         ];
-        $payload[self::FIELD_SCORECARD_HASH] = 'sha256:'.hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        $payload[self::FIELD_SCORECARD_HASH] = 'sha256:'.hash(self::FIELD_SHA256, json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
         return $payload;
     }
@@ -1022,7 +1023,7 @@ final class AtlasAcosLongHorizonGateService
             $receiptPayload[self::FIELD_ASSESSMENT_V2] = $assessmentV2;
         }
 
-        $payload[self::FIELD_RECEIPT_HASH] = 'sha256:'.hash('sha256', json_encode($receiptPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        $payload[self::FIELD_RECEIPT_HASH] = 'sha256:'.hash(self::FIELD_SHA256, json_encode($receiptPayload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
         return $payload;
     }

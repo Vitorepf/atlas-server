@@ -105,6 +105,8 @@ final class CaptureHmacLineageService
     public const FIELD_CLIENT_ID = 'client_id';
     public const FIELD_CREATED_AT = 'created_at';
     public const FIELD_INVALID_LINK = 'invalid_link';
+    public const FIELD_METADATA = 'metadata';
+    public const FIELD_SOURCE_HASH = 'source_hash';
 
     /**
      * @param  array<string,mixed>  $existingChain
@@ -220,7 +222,7 @@ final class CaptureHmacLineageService
             ->whereNull(self::FIELD_DELETED_AT)
             ->orderByDesc(self::FIELD_CREATED_AT)
             ->limit(max($minCaptures * 4, 40))
-            ->get(['id', 'metadata', 'created_at']);
+            ->get(['id', self::FIELD_METADATA, 'created_at']);
 
         $recent = $rows->take($minCaptures);
         $chained = $recent->filter(function (object $row): bool {
@@ -406,7 +408,7 @@ final class CaptureHmacLineageService
 
         $packet = AtlasKnowledgeSourcePacket::query()
             ->where('id', $id)
-            ->orWhere('source_hash', AiValueNormalizer::lowerTrimmedString($id))
+            ->orWhere(self::FIELD_SOURCE_HASH, AiValueNormalizer::lowerTrimmedString($id))
             ->first();
 
         if ($packet === null) {

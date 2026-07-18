@@ -117,6 +117,7 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_STEPS = 'steps';
     public const FIELD_GLOBAL = 'global';
     public const FIELD_PROCEDURAL_SKILL_PROMOTER = 'procedural_skill_promoter';
+    public const FIELD_SHA256 = 'sha256';
 
 
     public function __construct(
@@ -214,7 +215,7 @@ final class AcosMaxProceduralSkillPromoterService
     {
         $caseCount = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_ATTEMPTS] ?? null) ?? 0));
         $skillName = $this->skillName($playbook->taskCategory);
-        $candidateHash = hash('sha256', self::SCHEMA_VERSION.'|'.$playbook->key().'|'.self::SKILL_SCHEMA_VERSION);
+        $candidateHash = hash(self::FIELD_SHA256, self::SCHEMA_VERSION.'|'.$playbook->key().'|'.self::SKILL_SCHEMA_VERSION);
 
         return [
             self::FIELD_CANDIDATE_HASH => $candidateHash,
@@ -261,7 +262,7 @@ final class AcosMaxProceduralSkillPromoterService
         $candidateHash = AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_CANDIDATE_HASH] ?? null) ?? '';
         $taskCategory = AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_TASK_CATEGORY] ?? null) ?? '';
         $evidenceRefs = [
-            'procedural_playbook:'.hash('sha256', $taskCategory),
+            'procedural_playbook:'.hash(self::FIELD_SHA256, $taskCategory),
             'multj04:case_count:'.(AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_CASE_COUNT] ?? null) ?? (AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_CASE_COUNT] ?? null) ?? 0)),
         ];
 
@@ -295,7 +296,7 @@ final class AcosMaxProceduralSkillPromoterService
                     self::FIELD_PROMOTION_ALLOWED => false,
                     self::FIELD_SKILL_V1 => $candidate[self::FIELD_SKILL_V1],
                 ],
-                self::FIELD_RECEIPT_HASH => hash('sha256', 'multj04-'.$candidateHash),
+                self::FIELD_RECEIPT_HASH => hash(self::FIELD_SHA256, 'multj04-'.$candidateHash),
                 self::FIELD_DECIDED_AT => Carbon::now(),
             ],
         );
@@ -318,7 +319,7 @@ final class AcosMaxProceduralSkillPromoterService
     {
         $slug = trim(AiValueNormalizer::lowerTrimmedString(preg_replace('/[^a-zA-Z0-9]+/', '-', AiValueNormalizer::trimmedStringOrNull($taskCategory) ?? '') ?? ''), '-');
         if ($slug === '') {
-            $slug = substr(hash('sha256', $taskCategory), 0, 12);
+            $slug = substr(hash(self::FIELD_SHA256, $taskCategory), 0, 12);
         }
 
         return substr('procedural-'.$slug, 0, 64);

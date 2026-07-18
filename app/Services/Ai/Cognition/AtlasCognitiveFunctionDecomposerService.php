@@ -119,6 +119,11 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_INTEGRITY = 'integrity';
     public const FIELD_GOVERNANCE = 'governance';
     public const FIELD_KERNEL = 'kernel';
+    public const FIELD_INVARIANT = 'invariant';
+    public const FIELD_LAYOUT = 'layout';
+    public const FIELD_LISTE = 'liste';
+    public const FIELD_LOGICA = 'logica';
+    public const FIELD_LOOKUP = 'lookup';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -138,12 +143,12 @@ final class AtlasCognitiveFunctionDecomposerService
     public const RULES = [
         self::FIELD_REASONING => [
             'porque', 'por que', self::FIELD_ANALISE, self::FIELD_ANALISA, self::FIELD_EXPLIQUE, 'pense', 'pondere',
-            self::FIELD_DECIDA, self::FIELD_DECISAO, self::FIELD_COMPARE, self::FIELD_AVALIE, 'logica', 'estrategia',
+            self::FIELD_DECIDA, self::FIELD_DECISAO, self::FIELD_COMPARE, self::FIELD_AVALIE, self::FIELD_LOGICA, 'estrategia',
             'raciocine', 'investigue', 'why', 'reason',
         ],
         self::FIELD_RETRIEVAL => [
-            'busque', 'procure', 'encontre', 'pesquise', 'mostre', 'liste',
-            'recupere', 'lookup', 'qual e', 'quais sao', self::FIELD_CITE, self::FIELD_CADASTR,
+            'busque', 'procure', 'encontre', 'pesquise', 'mostre', self::FIELD_LISTE,
+            'recupere', self::FIELD_LOOKUP, 'qual e', 'quais sao', self::FIELD_CITE, self::FIELD_CADASTR,
             self::FIELD_DOCUMENTA, 'memoria', 'search', self::FIELD_FIND, 'show',
         ],
         self::FIELD_GENERATION => [
@@ -160,13 +165,13 @@ final class AtlasCognitiveFunctionDecomposerService
             'code', 'function', 'class', 'service', 'refactor', 'test', self::FIELD_BUILD,
         ],
         self::FIELD_VISION => [
-            'imagem', self::FIELD_FOTO, self::FIELD_SCREENSHOT, 'visualize', self::FIELD_DESIGN, 'layout',
+            'imagem', self::FIELD_FOTO, self::FIELD_SCREENSHOT, 'visualize', self::FIELD_DESIGN, self::FIELD_LAYOUT,
             'mockup', self::FIELD_FIGMA, 'png', 'jpg', 'svg', 'tela', 'ui ', 'ux ',
             'cor ', 'paleta', 'visual', self::FIELD_SCREENSHOT, self::FIELD_IMAGE, 'render',
         ],
         self::FIELD_AUDIT => [
             'audite', self::FIELD_AUDITA, 'audit', 'verifique', 'valide', 'cheque',
-            self::FIELD_INSPECIONE, self::FIELD_GOVERNANCE, 'invariant', self::FIELD_KERNEL, self::FIELD_CARTOGRAFIA,
+            self::FIELD_INSPECIONE, self::FIELD_GOVERNANCE, self::FIELD_INVARIANT, self::FIELD_KERNEL, self::FIELD_CARTOGRAFIA,
             self::FIELD_DOC, self::FIELD_DOCUMENTO, self::FIELD_COMPLIANCE, self::FIELD_EVIDENCE, self::FIELD_EVIDENCIA,
             self::FIELD_INTEGRITY, 'tamper', self::FIELD_SHA256, 'hash ', 'verify',
         ],

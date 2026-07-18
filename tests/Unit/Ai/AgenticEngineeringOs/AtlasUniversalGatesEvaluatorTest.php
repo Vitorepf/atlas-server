@@ -9168,4 +9168,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cognitive_function_department_contract_model_capability_http_path_floor_count']);
     }
 
+    public function test_cognitive_function_department_contract_capture_hmac_fact_pair_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitiveFunctionDepartmentContractCaptureHmacFactPairFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_INVARIANT, $out['invariant']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_LAYOUT, $out['layout']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_LISTE, $out['liste']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_LOGICA, $out['logica']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_LOOKUP, $out['lookup']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REPRODUCTION_CONFIRMED, $out['reproduction_confirmed']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REQUEST_PROVIDER_TOPOLOGY, $out['request_provider_topology']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REQUEST_SECURITY_REVIEW, $out['request_security_review']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REQUEST_TEST_DATA, $out['request_test_data']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_METADATA, $out['metadata']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_SOURCE_HASH, $out['source_hash']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_UNRELATED, $out['unrelated']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_VALUE_CONFLICT, $out['value_conflict']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_TETO01_RECEIPT_ENCODE_FAILED, $out['teto01_receipt_encode_failed']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(18, $out['cognitive_function_department_contract_capture_hmac_fact_pair_floor_count']);
+    }
+
 }

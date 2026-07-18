@@ -11692,4 +11692,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B457).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function cognitiveFunctionDepartmentContractCaptureHmacFactPairFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'invariant' => AtlasCognitiveFunctionDecomposerService::FIELD_INVARIANT,
+            'layout' => AtlasCognitiveFunctionDecomposerService::FIELD_LAYOUT,
+            'liste' => AtlasCognitiveFunctionDecomposerService::FIELD_LISTE,
+            'logica' => AtlasCognitiveFunctionDecomposerService::FIELD_LOGICA,
+            'lookup' => AtlasCognitiveFunctionDecomposerService::FIELD_LOOKUP,
+            'reproduction_confirmed' => DepartmentContractRuntime::FIELD_REPRODUCTION_CONFIRMED,
+            'request_provider_topology' => DepartmentContractRuntime::FIELD_REQUEST_PROVIDER_TOPOLOGY,
+            'request_security_review' => DepartmentContractRuntime::FIELD_REQUEST_SECURITY_REVIEW,
+            'request_test_data' => DepartmentContractRuntime::FIELD_REQUEST_TEST_DATA,
+            'metadata' => CaptureHmacLineageService::FIELD_METADATA,
+            'source_hash' => CaptureHmacLineageService::FIELD_SOURCE_HASH,
+            'unrelated' => FactPairPolarityContradictionDetector::FIELD_UNRELATED,
+            'value_conflict' => FactPairPolarityContradictionDetector::FIELD_VALUE_CONFLICT,
+            'sha256' => AcosMaxProceduralSkillPromoterService::FIELD_SHA256,
+            'sha256' => EvidenceVisionThesisComposer::FIELD_SHA256,
+            'sha256' => ComposedObraArcComposer::FIELD_SHA256,
+            'teto01_receipt_encode_failed' => AtlasNCaptureDrillService::FIELD_TETO01_RECEIPT_ENCODE_FAILED,
+            'sha256' => AtlasAcosLongHorizonGateService::FIELD_SHA256,
+            'cognitive_function_department_contract_capture_hmac_fact_pair_floor_count' => 18,
+        ];
+    }
+
 }
