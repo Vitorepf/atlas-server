@@ -8818,4 +8818,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['frontier_wave_immune_calibration_cognitive_function_department_contract_floor_count']);
     }
 
+    public function test_lote_measure_promotion_protocol_knowledge_item_verified_share_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->loteMeasurePromotionProtocolKnowledgeItemVerifiedShareFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_AI_RAG_FEEDBACK_EVENTS, $out['ai_rag_feedback_events']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_AI_LEARNING_CANDIDATES, $out['ai_learning_candidates']);
+        $this->assertSame(PromotionProtocol::FIELD_FAMILY_WINDOW_FLIP_ALREADY_RECORDED, $out['family_window_flip_already_recorded']);
+        $this->assertSame(PromotionProtocol::FIELD_INVALID_STATE, $out['invalid_state']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS_MISSING, $out['atlas_engineering_knowledge_items_missing']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_COLUMNS_MISSING, $out['columns_missing']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_ATLAS_DEV, $out['atlas_dev']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_ATLAS_FORGE, $out['atlas_forge']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS_MISSING, $out['atlas_code_symbol_embeddings_missing']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS_MISSING, $out['atlas_engineering_code_symbols_missing']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_NORMAL_QUALITY_GATED_LESSON_CANDIDATES, $out['normal_quality_gated_lesson_candidates']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_OUTC_01_OUTCOME_RECORDS, $out['outc_01_outcome_records']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_COMPILE, $out['compile']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_COMPONHA, $out['componha']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DELIVERY_PACK_COMPLETENESS_MIN_0_95, $out['delivery_pack_completeness_min_0_95']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DENY, $out['deny']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_NOVELTY, $out['novelty']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_OUTCOME_VALIDATED, $out['outcome_validated']);
+        $this->assertSame(18, $out['lote_measure_promotion_protocol_knowledge_item_verified_share_floor_count']);
+    }
+
 }

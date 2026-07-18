@@ -81,6 +81,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_EVALUATED_AT = 'evaluated_at';
     public const FIELD_FUTURE_UTILITY = 'future_utility';
     public const FIELD_NEGATIVE_FEEDBACK_COUNT = 'negative_feedback_count';
+    public const FIELD_NOVELTY = 'novelty';
+    public const FIELD_OUTCOME_VALIDATED = 'outcome_validated';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -218,7 +220,7 @@ final class CognitiveImmunePromotionGateEvaluator
     private function signalGate(array $signals): array
     {
         $confirmed = $this->flag($signals, self::FIELD_FUTURE_UTILITY)
-            || $this->flag($signals, 'novelty')
+            || $this->flag($signals, self::FIELD_NOVELTY)
             || $this->intValue($signals, 'recurrence_count') >= 2;
 
         return $confirmed
@@ -280,7 +282,7 @@ final class CognitiveImmunePromotionGateEvaluator
      */
     private function outcomeGate(array $signals): array
     {
-        return $this->flag($signals, 'outcome_validated')
+        return $this->flag($signals, self::FIELD_OUTCOME_VALIDATED)
             ? [self::STATUS_PASS, '']
             : [self::STATUS_PENDING, 'outcome_not_validated'];
     }

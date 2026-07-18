@@ -90,6 +90,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const FIELD_COMPUTED_READER_FIELD = 'computed_reader_field';
     public const FIELD_ITEMS_AWAITING_BACKFILL_OR_RE_EMBED = 'items_awaiting_backfill_or_re_embed';
     public const FIELD_NO_ITEMS_EMBEDDED_YET = 'no_items_embedded_yet';
+    public const FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS_MISSING = 'atlas_engineering_knowledge_items_missing';
+    public const FIELD_COLUMNS_MISSING = 'columns_missing';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -125,14 +127,14 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
         $freeze = self::freezePayload();
 
         if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS)) {
-            return $this->emptyReport(self::STATUS_TABLE_MISSING, 'atlas_engineering_knowledge_items_missing', $freeze);
+            return $this->emptyReport(self::STATUS_TABLE_MISSING, self::FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS_MISSING, $freeze);
         }
 
         $columnsReady = DatabaseTableAvailability::hasColumn('atlas_engineering_knowledge_items', 'embedding_model')
             && DatabaseTableAvailability::hasColumn('atlas_engineering_knowledge_items', 'embedded_content_hash');
 
         if (! $columnsReady) {
-            return $this->emptyReport('columns_missing', 'provenance_columns_not_migrated', $freeze);
+            return $this->emptyReport(self::FIELD_COLUMNS_MISSING, 'provenance_columns_not_migrated', $freeze);
         }
 
         $baseQuery = AtlasEngineeringKnowledgeItem::query()

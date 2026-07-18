@@ -253,6 +253,8 @@ final class DepartmentContractRuntime
     public const FIELD_CLAIM_RESERVATIONS = 'claim_reservations';
     public const FIELD_CLASSIFY_INTENT = 'classify_intent';
     public const FIELD_CVE_ACKNOWLEDGED = 'cve_acknowledged';
+    public const FIELD_DELIVERY_PACK_COMPLETENESS_MIN_0_95 = 'delivery_pack_completeness_min_0_95';
+    public const FIELD_DENY = 'deny';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -486,7 +488,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_POLICY_DECISION, self::FIELD_SCHEMA => self::SCHEMA_POLICY_DECISION],
             ],
             self::FIELD_GATES => ['security_scan_clean', self::FIELD_CVE_ACKNOWLEDGED, 'secret_scan_clean', 'dependency_audit_clean', 'threat_model_present', 'sovereignty_boundary_respected'],
-            self::FIELD_ALLOWED_ACTIONS => ['allow', 'deny', 'request_mitigation', 'escalate_to_operator'],
+            self::FIELD_ALLOWED_ACTIONS => ['allow', self::FIELD_DENY, 'request_mitigation', 'escalate_to_operator'],
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_sovereignty', self::FIELD_APPROVE_UNAUDITED_DEP, 'ship_without_evidence'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['policy_decision_hash', 'secret_scan_report_hash', 'dependency_audit_hash'],
@@ -533,7 +535,7 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_DELIVERY_PACK, self::FIELD_SCHEMA => self::SCHEMA_DELIVERY_PACK],
             ],
-            self::FIELD_GATES => ['release_authority_declared', self::FIELD_ROLLBACK_PLAN_PRESENT, 'delivery_pack_completeness_min_0_95', 'evidence_traceable'],
+            self::FIELD_GATES => ['release_authority_declared', self::FIELD_ROLLBACK_PLAN_PRESENT, self::FIELD_DELIVERY_PACK_COMPLETENESS_MIN_0_95, 'evidence_traceable'],
             self::FIELD_ALLOWED_ACTIONS => ['assemble_delivery_pack', 'sign_delivery_hash', 'request_human_review'],
             self::FIELD_FORBIDDEN_ACTIONS => ['edit_code', self::FIELD_APPROVE_RELEASE_WITHOUT_REVIEW, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_REVIEW, self::DEPARTMENT_OPERATOR],

@@ -256,6 +256,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_CORRELATIONAL_ATTRIBUTION = 'correlational_attribution';
     public const FIELD_CREATED_AT = 'created_at';
     public const FIELD_LEGACY_UNJOINED = 'legacy_unjoined';
+    public const FIELD_AI_RAG_FEEDBACK_EVENTS = 'ai_rag_feedback_events';
+    public const FIELD_AI_LEARNING_CANDIDATES = 'ai_learning_candidates';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -310,7 +312,7 @@ final class AcosMaxLote2MeasureService
     /** @return array<string,mixed> */
     public function multx01FlywheelLoops(): array
     {
-        $requiredTables = ['ai_run_outcomes', 'ai_rag_feedback_events', 'ai_learning_candidates'];
+        $requiredTables = ['ai_run_outcomes', self::FIELD_AI_RAG_FEEDBACK_EVENTS, 'ai_learning_candidates'];
         $missingTables = array_values(array_filter($requiredTables, static fn (string $table): bool => ! Schema::hasTable($table)));
         if ($missingTables !== []) {
             return $this->emptyReport('MULTX-01', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_LOOP_SOURCE_TABLES_MISSING, [
@@ -336,7 +338,7 @@ final class AcosMaxLote2MeasureService
 
         $deliveriesByOutcome = [];
         $recallsByCandidate = [];
-        foreach (DB::table('ai_rag_feedback_events')->orderBy('created_at')->get() as $row) {
+        foreach (DB::table(self::FIELD_AI_RAG_FEEDBACK_EVENTS)->orderBy('created_at')->get() as $row) {
             $outcomeId = AiValueNormalizer::trimmedStringOrNull($row->run_outcome_id ?? null) ?? '';
             if ($outcomeId !== '') {
                 $deliveriesByOutcome[$outcomeId][] = $row;
@@ -349,7 +351,7 @@ final class AcosMaxLote2MeasureService
         }
 
         $candidatesByOutcome = [];
-        foreach (DB::table('ai_learning_candidates')->orderBy('created_at')->get() as $candidate) {
+        foreach (DB::table(self::FIELD_AI_LEARNING_CANDIDATES)->orderBy('created_at')->get() as $candidate) {
             $outcomeId = AiValueNormalizer::trimmedStringOrNull($candidate->run_outcome_id ?? null) ?? '';
             if ($outcomeId !== '') {
                 $candidatesByOutcome[$outcomeId][] = $candidate;
@@ -636,7 +638,7 @@ final class AcosMaxLote2MeasureService
     /** @return array<string,mixed> */
     public function multx06LearningLatency(): array
     {
-        $requiredTables = ['ai_run_outcomes', 'ai_rag_feedback_events', 'ai_learning_candidates'];
+        $requiredTables = ['ai_run_outcomes', self::FIELD_AI_RAG_FEEDBACK_EVENTS, 'ai_learning_candidates'];
         $missingTables = array_values(array_filter($requiredTables, static fn (string $table): bool => ! Schema::hasTable($table)));
         $denominatorMin = (int) data_get(self::freezePayload('MULTX-06'), 'thresholds.denominator_min_promoted_lessons', 8);
 
@@ -665,7 +667,7 @@ final class AcosMaxLote2MeasureService
 
         $deliveriesByOutcome = [];
         $citationsByCandidate = [];
-        foreach (DB::table('ai_rag_feedback_events')->orderBy('created_at')->get() as $row) {
+        foreach (DB::table(self::FIELD_AI_RAG_FEEDBACK_EVENTS)->orderBy('created_at')->get() as $row) {
             $outcomeId = AiValueNormalizer::trimmedStringOrNull($row->run_outcome_id ?? null) ?? '';
             if ($outcomeId !== '') {
                 $deliveriesByOutcome[$outcomeId][] = $row;
@@ -683,7 +685,7 @@ final class AcosMaxLote2MeasureService
         $neverCited = 0;
         $byClass = [];
 
-        foreach (DB::table('ai_learning_candidates')->orderBy('created_at')->get() as $candidate) {
+        foreach (DB::table(self::FIELD_AI_LEARNING_CANDIDATES)->orderBy('created_at')->get() as $candidate) {
             if (! $this->isPromotedLearningCandidate($candidate)) {
                 continue;
             }
@@ -842,7 +844,7 @@ final class AcosMaxLote2MeasureService
         $denominatorMin = (int) data_get(self::freezePayload('MULTJ-03'), 'thresholds.denominator_min_pairs', 8);
         $sampleRate = AiValueNormalizer::finiteFloatOrNull(data_get(self::freezePayload('MULTJ-03'), 'thresholds.sample_rate', 0.05)) ?? 0.05;
 
-        if (! Schema::hasTable('ai_rag_feedback_events')) {
+        if (! Schema::hasTable(self::FIELD_AI_RAG_FEEDBACK_EVENTS)) {
             return $this->emptyReport('MULTJ-03', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_PAIRED_FEEDBACK_TABLE_MISSING, [
                 self::FIELD_MEASURE_ID => self::MULTJ03_MEASURE_ID,
                 self::FIELD_DENOMINATOR_MIN => $denominatorMin,
@@ -864,7 +866,7 @@ final class AcosMaxLote2MeasureService
         }
 
         $pairs = [];
-        foreach (DB::table('ai_rag_feedback_events')->orderBy('created_at')->get() as $row) {
+        foreach (DB::table(self::FIELD_AI_RAG_FEEDBACK_EVENTS)->orderBy('created_at')->get() as $row) {
             $payload = $this->decodeJsonObject($row->payload ?? null);
             $meta = $this->counterfactualLiftMeta($payload);
             if ($meta === []) {

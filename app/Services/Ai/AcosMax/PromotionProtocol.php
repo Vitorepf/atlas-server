@@ -107,6 +107,8 @@ final class PromotionProtocol
     public const FIELD_ORDINARY_ROUTE = 'ordinary_route';
     public const FIELD_ROLLBACK = 'rollback';
     public const FIELD_SUSPEND = 'suspend';
+    public const FIELD_FAMILY_WINDOW_FLIP_ALREADY_RECORDED = 'family_window_flip_already_recorded';
+    public const FIELD_INVALID_STATE = 'invalid_state';
 
     /** @var list<string> */
     public const STATES = [
@@ -183,7 +185,7 @@ final class PromotionProtocol
             return $this->blocked('unknown_flag', $flagId, $toState);
         }
         if (! in_array($toState, self::STATES, true)) {
-            return $this->blocked('invalid_state', $flagId, $toState, [self::FIELD_ALLOWED_STATES => self::STATES]);
+            return $this->blocked(self::FIELD_INVALID_STATE, $flagId, $toState, [self::FIELD_ALLOWED_STATES => self::STATES]);
         }
 
         $required = $this->requiredFields($entry);
@@ -213,7 +215,7 @@ final class PromotionProtocol
         $family = AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_FAMILY] ?? null) ?? '';
         $action = $this->actionForState($toState);
         if ($action === self::FIELD_FLIP && $this->familyAlreadyFlippedInWindow($family, $windowId)) {
-            return $this->blocked('family_window_flip_already_recorded', $flagId, $toState, [
+            return $this->blocked(self::FIELD_FAMILY_WINDOW_FLIP_ALREADY_RECORDED, $flagId, $toState, [
                 self::FIELD_FAMILY => $family,
                 self::FIELD_OBSERVATION_WINDOW_ID => $windowId,
             ]);

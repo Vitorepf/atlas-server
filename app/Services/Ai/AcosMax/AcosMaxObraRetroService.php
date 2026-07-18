@@ -99,6 +99,8 @@ final class AcosMaxObraRetroService
     public const FIELD_LOCAL = 'local';
     public const FIELD_NORMAL = 'normal';
     public const FIELD_OBRA_LOTE = 'obra_lote';
+    public const FIELD_NORMAL_QUALITY_GATED_LESSON_CANDIDATES = 'normal_quality_gated_lesson_candidates';
+    public const FIELD_OUTC_01_OUTCOME_RECORDS = 'outc_01_outcome_records';
 
     public function __construct(
         private readonly AtlasEngineeringOutcomeRecorder $outcomes,
@@ -279,9 +281,9 @@ final class AcosMaxObraRetroService
             self::FIELD_PROPOSED_STATE => [
                 self::FIELD_FUTURE_LOTE_CLOSE_REQUIRES => [
                     'scoreboard_slice_refs',
-                    'outc_01_outcome_records',
+                    self::FIELD_OUTC_01_OUTCOME_RECORDS,
                     'obra:acos-max_series_tag',
-                    'normal_quality_gated_lesson_candidates',
+                    self::FIELD_NORMAL_QUALITY_GATED_LESSON_CANDIDATES,
                 ],
             ],
         ]];

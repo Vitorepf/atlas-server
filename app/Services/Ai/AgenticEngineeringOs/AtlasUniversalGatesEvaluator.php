@@ -11258,4 +11258,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B443).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function loteMeasurePromotionProtocolKnowledgeItemVerifiedShareFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ai_rag_feedback_events' => AcosMaxLote2MeasureService::FIELD_AI_RAG_FEEDBACK_EVENTS,
+            'ai_learning_candidates' => AcosMaxLote2MeasureService::FIELD_AI_LEARNING_CANDIDATES,
+            'family_window_flip_already_recorded' => PromotionProtocol::FIELD_FAMILY_WINDOW_FLIP_ALREADY_RECORDED,
+            'invalid_state' => PromotionProtocol::FIELD_INVALID_STATE,
+            'atlas_engineering_knowledge_items_missing' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS_MISSING,
+            'columns_missing' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_COLUMNS_MISSING,
+            'atlas_dev' => AcosMaxVerifiedShareService::FIELD_ATLAS_DEV,
+            'atlas_forge' => AcosMaxVerifiedShareService::FIELD_ATLAS_FORGE,
+            'atlas_code_symbol_embeddings_missing' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS_MISSING,
+            'atlas_engineering_code_symbols_missing' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS_MISSING,
+            'normal_quality_gated_lesson_candidates' => AcosMaxObraRetroService::FIELD_NORMAL_QUALITY_GATED_LESSON_CANDIDATES,
+            'outc_01_outcome_records' => AcosMaxObraRetroService::FIELD_OUTC_01_OUTCOME_RECORDS,
+            'compile' => AtlasCognitiveFunctionDecomposerService::FIELD_COMPILE,
+            'componha' => AtlasCognitiveFunctionDecomposerService::FIELD_COMPONHA,
+            'delivery_pack_completeness_min_0_95' => DepartmentContractRuntime::FIELD_DELIVERY_PACK_COMPLETENESS_MIN_0_95,
+            'deny' => DepartmentContractRuntime::FIELD_DENY,
+            'novelty' => CognitiveImmunePromotionGateEvaluator::FIELD_NOVELTY,
+            'outcome_validated' => CognitiveImmunePromotionGateEvaluator::FIELD_OUTCOME_VALIDATED,
+            'lote_measure_promotion_protocol_knowledge_item_verified_share_floor_count' => 18,
+        ];
+    }
+
 }
