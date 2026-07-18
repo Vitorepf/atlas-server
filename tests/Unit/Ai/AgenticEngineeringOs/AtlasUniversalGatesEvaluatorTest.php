@@ -13422,4 +13422,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b629_aaeos_claim_floor_count']);
     }
 
+    public function test_b630_aaeos_quality_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b630AaeosQualityFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosQualityBarService::SCHEMA_VERSION, $out['atlas.aaeos.quality_bar.v1']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_DEPARTMENT, $out['department']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_CURRENT, $out['current']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_BREACHED, $out['breached']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_DEFICIT, $out['deficit']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_DEPARTMENTS, $out['departments']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_SIGNAL, $out['signal']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_BREACH_COUNT, $out['breach_count']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_BREACHES, $out['breaches']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_WORST_BREACH, $out['worst_breach']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_EMITTED_AT, $out['emitted_at']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_DESIGN, $out['Design']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_ENGINEERING, $out['Engineering']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_FINANCE, $out['Finance']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_LEGAL, $out['Legal']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_MARKETING, $out['Marketing']);
+        $this->assertSame(18, $out['b630_aaeos_quality_floor_count']);
+    }
+
 }

@@ -16978,4 +16978,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B630).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b630AaeosQualityFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.aaeos.quality_bar.v1' => AtlasAaeosQualityBarService::SCHEMA_VERSION,
+            'department' => AtlasAaeosQualityBarService::FIELD_DEPARTMENT,
+            'threshold' => AtlasAaeosQualityBarService::FIELD_THRESHOLD,
+            'current' => AtlasAaeosQualityBarService::FIELD_CURRENT,
+            'breached' => AtlasAaeosQualityBarService::FIELD_BREACHED,
+            'deficit' => AtlasAaeosQualityBarService::FIELD_DEFICIT,
+            'schema_version' => AtlasAaeosQualityBarService::FIELD_SCHEMA_VERSION,
+            'departments' => AtlasAaeosQualityBarService::FIELD_DEPARTMENTS,
+            'signal' => AtlasAaeosQualityBarService::FIELD_SIGNAL,
+            'breach_count' => AtlasAaeosQualityBarService::FIELD_BREACH_COUNT,
+            'breaches' => AtlasAaeosQualityBarService::FIELD_BREACHES,
+            'worst_breach' => AtlasAaeosQualityBarService::FIELD_WORST_BREACH,
+            'emitted_at' => AtlasAaeosQualityBarService::FIELD_EMITTED_AT,
+            'Design' => AtlasAaeosQualityBarService::FIELD_DESIGN,
+            'Engineering' => AtlasAaeosQualityBarService::FIELD_ENGINEERING,
+            'Finance' => AtlasAaeosQualityBarService::FIELD_FINANCE,
+            'Legal' => AtlasAaeosQualityBarService::FIELD_LEGAL,
+            'Marketing' => AtlasAaeosQualityBarService::FIELD_MARKETING,
+            'b630_aaeos_quality_floor_count' => 18,
+        ];
+    }
+
 }
