@@ -94,6 +94,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_DEFERRED = 'deferred';
     public const FIELD_HIGH = 'high';
     public const FIELD_R1_R2_FAST_PATH_PRESERVED = 'r1_r2_fast_path_preserved';
+    public const FIELD_ASSISTED_EXECUTION_NEEDS_CONTEXT = 'assisted_execution_needs_context';
+    public const FIELD_CLASSIFICATION_TARGET_DEPARTMENT_MISSING = 'classification_target_department_missing';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -200,7 +202,7 @@ final class AaeosHttpPathEnvelopeFactory
             gates: self::binaryGate('intent_classification_target_department_declared', $declared),
             blockers: $declared
                 ? []
-                : [[self::FIELD_ID => 'classification_target_department_missing', self::FIELD_SEVERITY => 'medium', self::FIELD_OWNER => 'atlas-ai']],
+                : [[self::FIELD_ID => self::FIELD_CLASSIFICATION_TARGET_DEPARTMENT_MISSING, self::FIELD_SEVERITY => 'medium', self::FIELD_OWNER => 'atlas-ai']],
         );
     }
 
@@ -482,7 +484,7 @@ final class AaeosHttpPathEnvelopeFactory
 
         if ($blockers === []) {
             $blockers[] = [
-                self::FIELD_ID => 'assisted_execution_needs_context',
+                self::FIELD_ID => self::FIELD_ASSISTED_EXECUTION_NEEDS_CONTEXT,
                 self::FIELD_SEVERITY => self::FIELD_HIGH,
                 self::FIELD_OWNER => 'atlas-ai',
             ];

@@ -195,6 +195,8 @@ final class DepartmentContractRuntime
     public const FIELD_DELIVERY_PACK = 'delivery_pack';
     public const FIELD_ENGINEERING_GOAL_DISAMBIGUATED = 'engineering_goal_disambiguated';
     public const FIELD_EXECUTION_LOG = 'execution_log';
+    public const FIELD_PATCH_PACK = 'patch_pack';
+    public const FIELD_AAEOS_ARCHITECT_DECISION_LEDGER = 'aaeos_architect_decision_ledger';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -291,7 +293,7 @@ final class DepartmentContractRuntime
             self::FIELD_FORBIDDEN_ACTIONS => ['write_code', 'execute_migration', 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['spec_pack_hash', 'architect_decision_receipt'],
-            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_spec_packs', self::FIELD_LEDGER => 'aaeos_architect_decision_ledger'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_spec_packs', self::FIELD_LEDGER => self::FIELD_AAEOS_ARCHITECT_DECISION_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['architect_spec_completeness_score', 'architect_veto_count'],
             self::FIELD_MATURITY_LEVEL => 'L3',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_ENGINEERING_ARCHITECTURE_DECISION,
@@ -332,7 +334,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_EXECUTION_LOG, self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
-                [self::FIELD_NAME => 'patch_pack', self::FIELD_SCHEMA => self::SCHEMA_PATCH_PACK],
+                [self::FIELD_NAME => self::FIELD_PATCH_PACK, self::FIELD_SCHEMA => self::SCHEMA_PATCH_PACK],
             ],
             self::FIELD_GATES => ['plan_approved', 'tests_focused', 'review_gate', 'lint_green', 'typecheck_green', 'tests_green', 'scope_guard_ok'],
             self::FIELD_ALLOWED_ACTIONS => ['edit_allowed_files', 'run_tests', 'request_provider_call'],
@@ -399,7 +401,7 @@ final class DepartmentContractRuntime
             self::FIELD_TRIGGERS => ['task_pack_decomposed=true', 'delivery_pack_assembled=true'],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
-                [self::FIELD_NAME => 'patch_pack', self::FIELD_SCHEMA => self::SCHEMA_PATCH_PACK],
+                [self::FIELD_NAME => self::FIELD_PATCH_PACK, self::FIELD_SCHEMA => self::SCHEMA_PATCH_PACK],
             ],
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => 'test_pack', self::FIELD_SCHEMA => self::SCHEMA_TEST_PACK],

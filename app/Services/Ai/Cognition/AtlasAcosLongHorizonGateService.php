@@ -163,6 +163,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_WORKSPACE_MUTATED = 'workspace_mutated';
     public const FIELD_BACKFILLED_SAMPLE_DETECTED = 'backfilled_sample_detected';
     public const FIELD_CALENDAR_SPAN_BELOW_FLOOR = 'calendar_span_below_floor';
+    public const FIELD_DELTA_SERIES_FUTURE_DATED_ROWS = 'delta_series_future_dated_rows';
+    public const FIELD_DELTA_SERIES_WINDOW_STALE = 'delta_series_window_stale';
 
     /**
      * @param  array<string,mixed>  $options
@@ -438,8 +440,8 @@ final class AtlasAcosLongHorizonGateService
                 self::FIELD_DAY_COUNT => 'series_day_count_below_floor',
                 self::FIELD_CALENDAR_SPAN => self::FIELD_CALENDAR_SPAN_BELOW_FLOOR,
                 self::FIELD_RESOLVED_EVIDENCE => 'delta_series_resolved_evidence_source_missing',
-                self::FIELD_FUTURE_DATED => 'delta_series_future_dated_rows',
-                self::FIELD_WINDOW_STALE => 'delta_series_window_stale',
+                self::FIELD_FUTURE_DATED => self::FIELD_DELTA_SERIES_FUTURE_DATED_ROWS,
+                self::FIELD_WINDOW_STALE => self::FIELD_DELTA_SERIES_WINDOW_STALE,
                 self::FIELD_GAP => 'series_gap_exceeds_floor',
                 self::FIELD_BACKFILLED => self::FIELD_BACKFILLED_SAMPLE_DETECTED,
             ],

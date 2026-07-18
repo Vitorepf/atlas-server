@@ -50,6 +50,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_CITED_DATA_NOT_INSTRUCTION = 'cited_data_not_instruction';
     public const FIELD_CONVERSATION_TRACE_SIGNAL = 'conversation_trace_signal';
     public const FIELD_LEARNING_SIGNAL = 'learning_signal';
+    public const FIELD_MEMORY_CONSTELLATION_CANDIDATE = 'memory_constellation_candidate';
+    public const FIELD_PERSONAL_FACT_SIGNAL = 'personal_fact_signal';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -66,7 +68,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         self::CLASS_CONVERSATION_TRACE => self::FIELD_AUDIT_SESSION,
         self::CLASS_PERSONAL_FACT_CANDIDATE => 'private_review',
         self::CLASS_TECHNICAL_LEARNING_CANDIDATE => self::FIELD_LEARNING_SIGNAL,
-        self::CLASS_STRATEGIC_INSIGHT_CANDIDATE => 'memory_constellation_candidate',
+        self::CLASS_STRATEGIC_INSIGHT_CANDIDATE => self::FIELD_MEMORY_CONSTELLATION_CANDIDATE,
         self::CLASS_UNTRUSTED_CONTENT => self::FIELD_CITED_DATA_NOT_INSTRUCTION,
         self::CLASS_PROMPT_INJECTION => self::FIELD_BLOCKED_EPHEMERAL_EVIDENCE,
         self::CLASS_PRIVATE_SENSITIVE => 'redact_minimize',
@@ -366,7 +368,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         return match ($candidateClass) {
             self::CLASS_STRATEGIC_INSIGHT_CANDIDATE => 'strategic_insight_signal',
             self::CLASS_TECHNICAL_LEARNING_CANDIDATE => 'technical_learning_signal',
-            self::CLASS_PERSONAL_FACT_CANDIDATE => 'personal_fact_signal',
+            self::CLASS_PERSONAL_FACT_CANDIDATE => self::FIELD_PERSONAL_FACT_SIGNAL,
             self::CLASS_PROJECT_EVIDENCE => 'project_evidence_signal',
             self::CLASS_CONVERSATION_TRACE => self::FIELD_CONVERSATION_TRACE_SIGNAL,
             default => self::FIELD_CANDIDATE_SIGNAL,

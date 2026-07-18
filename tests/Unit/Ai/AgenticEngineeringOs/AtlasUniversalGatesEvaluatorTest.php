@@ -8191,4 +8191,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['acos_long_obra_retro_department_contract_aaeos_evolution_floor_count']);
     }
 
+    public function test_knowledge_item_aemor_outcome_department_contract_aaeos_acos_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->knowledgeItemAemorOutcomeDepartmentContractAaeosAcosFloorsContractObserve([]);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_EMBEDDING_MODEL, $out['embedding_model']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_EMBEDDED_CONTENT_HASH, $out['embedded_content_hash']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_ENGINEERING, $out['engineering']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_ENGINEERING_DELIVERY, $out['engineering_delivery']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PATCH_PACK, $out['patch_pack']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_ARCHITECT_DECISION_LEDGER, $out['aaeos_architect_decision_ledger']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DELIVERY, $out['delivery']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DELIVERY_ZERO_DOWNTIME_L3, $out['delivery_zero_downtime_l3']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_DECISION, $out['decision']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_CADEIA_TIER_IMPLEMENTADA, $out['cadeia_tier_implementada']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEMORY_CONSTELLATION_CANDIDATE, $out['memory_constellation_candidate']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PERSONAL_FACT_SIGNAL, $out['personal_fact_signal']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ASSISTED_EXECUTION_NEEDS_CONTEXT, $out['assisted_execution_needs_context']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_CLASSIFICATION_TARGET_DEPARTMENT_MISSING, $out['classification_target_department_missing']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ATLAS_LONG_HORIZON_COMPACTION_RECEIPTS, $out['atlas_long_horizon_compaction_receipts']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ATLAS_MEMORY_ENTRY_USAGES, $out['atlas_memory_entry_usages']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_DELTA_SERIES_FUTURE_DATED_ROWS, $out['delta_series_future_dated_rows']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_DELTA_SERIES_WINDOW_STALE, $out['delta_series_window_stale']);
+        $this->assertSame(18, $out['knowledge_item_aemor_outcome_department_contract_aaeos_acos_floor_count']);
+    }
+
 }

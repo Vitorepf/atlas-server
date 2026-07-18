@@ -47,6 +47,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_ARCHITECT_AUTONOMOUS_AGENT_L4 = 'architect_autonomous_agent_l4';
     public const FIELD_DEBUG = 'debug';
     public const FIELD_DEBUG_AUTOMATED_ROOT_CAUSE_L3 = 'debug_automated_root_cause_l3';
+    public const FIELD_DELIVERY = 'delivery';
+    public const FIELD_DELIVERY_ZERO_DOWNTIME_L3 = 'delivery_zero_downtime_l3';
 
     public const DEPARTMENTS = [
         [
@@ -122,10 +124,10 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],
         [
-            self::FIELD_DEPARTMENT_ID => 'delivery',
+            self::FIELD_DEPARTMENT_ID => self::FIELD_DELIVERY,
             self::FIELD_CURRENT_LEVEL => 'L2',
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#delivery'],
-            self::FIELD_BLOCKER_ID => 'delivery_zero_downtime_l3',
+            self::FIELD_BLOCKER_ID => self::FIELD_DELIVERY_ZERO_DOWNTIME_L3,
             self::FIELD_BLOCKER_SUMMARY => 'falta zero-downtime gate L3',
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_HIGH,
         ],

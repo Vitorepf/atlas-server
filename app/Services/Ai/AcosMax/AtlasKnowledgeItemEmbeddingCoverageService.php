@@ -82,6 +82,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const FIELD_STALE_DEFINITION = 'stale_definition';
     public const FIELD_TARGET_COVERAGE_RATIO = 'target_coverage_ratio';
     public const FIELD_TTL_DAYS = 'ttl_days';
+    public const FIELD_EMBEDDING_MODEL = 'embedding_model';
+    public const FIELD_EMBEDDED_CONTENT_HASH = 'embedded_content_hash';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -140,20 +142,20 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
         }
 
         $covered = (clone $baseQuery)
-            ->whereNotNull('embedding_model')
-            ->whereNotNull('embedded_content_hash')
+            ->whereNotNull(self::FIELD_EMBEDDING_MODEL)
+            ->whereNotNull(self::FIELD_EMBEDDED_CONTENT_HASH)
             ->whereColumn('embedded_content_hash', 'content_hash')
             ->count();
 
         $stale = (clone $baseQuery)
-            ->whereNotNull('embedding_model')
-            ->whereNotNull('embedded_content_hash')
+            ->whereNotNull(self::FIELD_EMBEDDING_MODEL)
+            ->whereNotNull(self::FIELD_EMBEDDED_CONTENT_HASH)
             ->whereColumn('embedded_content_hash', '!=', 'content_hash')
             ->count();
 
         $missing = (clone $baseQuery)
             ->where(function ($q): void {
-                $q->whereNull('embedding_model')
+                $q->whereNull(self::FIELD_EMBEDDING_MODEL)
                     ->orWhereNull('embedded_content_hash');
             })
             ->count();

@@ -118,6 +118,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_TIER = 'tier';
     public const FIELD_YES = 'yes';
     public const FIELD_CREATED_AT = 'created_at';
+    public const FIELD_DECISION = 'decision';
+    public const FIELD_CADEIA_TIER_IMPLEMENTADA = 'cadeia_tier_implementada';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -231,8 +233,8 @@ class AtlasAcosEvolutionScoreService
             ),
         ];
 
-        $held = $this->tableCount('ai_learning_candidates', fn ($q) => $q->where('decision', 'hold'));
-        $promoted = $this->tableCount('ai_learning_candidates', fn ($q) => $q->where('decision', 'promote'));
+        $held = $this->tableCount('ai_learning_candidates', fn ($q) => $q->where(self::FIELD_DECISION, 'hold'));
+        $promoted = $this->tableCount('ai_learning_candidates', fn ($q) => $q->where(self::FIELD_DECISION, 'promote'));
         $oldLicoesPoints = round(($held > 0 ? 1.25 : 0.0) + ($promoted > 0 ? 1.25 : 0.0), 2);
         $servedCompounding = $this->activeCompoundingMemoryServedByRecall();
         $newLicoesPoints = $servedCompounding ? 2.5 : 0.0;
@@ -279,7 +281,7 @@ class AtlasAcosEvolutionScoreService
 
         $chain = $this->tierChainReadiness();
         $signals[] = [
-            self::FIELD_SIGNAL => 'cadeia_tier_implementada',
+            self::FIELD_SIGNAL => self::FIELD_CADEIA_TIER_IMPLEMENTADA,
             self::FIELD_POINTS => round(($chain[self::FIELD_IMPLEMENTED] ? 1.25 : 0.0) + ($chain[self::FIELD_AUDITED] ? 1.25 : 0.0), 2),
             self::FIELD_MAX => 2.5,
             self::FIELD_EVIDENCE => $chain[self::FIELD_EVIDENCE],

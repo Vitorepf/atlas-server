@@ -300,6 +300,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_ACOS_WATCHDOG = 'acos_watchdog';
     public const FIELD_ATLAS_AEMOR_EXECUTION_EPISODES = 'atlas_aemor_execution_episodes';
     public const FIELD_ATLAS_LEDGER_EVENTS = 'atlas_ledger_events';
+    public const FIELD_ATLAS_LONG_HORIZON_COMPACTION_RECEIPTS = 'atlas_long_horizon_compaction_receipts';
+    public const FIELD_ATLAS_MEMORY_ENTRY_USAGES = 'atlas_memory_entry_usages';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -603,7 +605,7 @@ final class AtlasAcosWatchdogHealthService
     public function compactionSoakWatchReport(): array
     {
         $since = CarbonImmutable::now('UTC')->subDays(self::COMPACTION_WINDOW_DAYS);
-        if (! DatabaseTableAvailability::has('atlas_long_horizon_compaction_receipts')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_LONG_HORIZON_COMPACTION_RECEIPTS)) {
             return [
                 self::FIELD_SCHEMA_VERSION => self::COMPACTION_SOAK_SCHEMA,
                 self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
@@ -936,7 +938,7 @@ final class AtlasAcosWatchdogHealthService
     /** @param list<string> $actions */
     private function latestMemoryFeedbackAt(array $actions): ?CarbonImmutable
     {
-        if (! DatabaseTableAvailability::has('atlas_memory_entry_usages')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_MEMORY_ENTRY_USAGES)) {
             return null;
         }
         $raw = AtlasMemoryEntryUsage::query()

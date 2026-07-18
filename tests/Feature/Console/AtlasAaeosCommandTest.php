@@ -7585,6 +7585,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_knowledge_item_aemor_outcome_department_contract_aaeos_acos_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b418-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b418',
+                '--knowledge-item-aemor-outcome-department-contract-aaeos-acos-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"knowledge_item_aemor_outcome_department_contract_aaeos_acos_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

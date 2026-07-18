@@ -10483,4 +10483,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B418).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function knowledgeItemAemorOutcomeDepartmentContractAaeosAcosFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'embedding_model' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_EMBEDDING_MODEL,
+            'embedded_content_hash' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_EMBEDDED_CONTENT_HASH,
+            'engineering' => AemorOutcomeEnvelopeAdapter::FIELD_ENGINEERING,
+            'engineering_delivery' => AemorOutcomeEnvelopeAdapter::FIELD_ENGINEERING_DELIVERY,
+            'patch_pack' => DepartmentContractRuntime::FIELD_PATCH_PACK,
+            'aaeos_architect_decision_ledger' => DepartmentContractRuntime::FIELD_AAEOS_ARCHITECT_DECISION_LEDGER,
+            'delivery' => AtlasAaeosDepartmentMaturityService::FIELD_DELIVERY,
+            'delivery_zero_downtime_l3' => AtlasAaeosDepartmentMaturityService::FIELD_DELIVERY_ZERO_DOWNTIME_L3,
+            'decision' => AtlasAcosEvolutionScoreService::FIELD_DECISION,
+            'cadeia_tier_implementada' => AtlasAcosEvolutionScoreService::FIELD_CADEIA_TIER_IMPLEMENTADA,
+            'memory_constellation_candidate' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEMORY_CONSTELLATION_CANDIDATE,
+            'personal_fact_signal' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PERSONAL_FACT_SIGNAL,
+            'assisted_execution_needs_context' => AaeosHttpPathEnvelopeFactory::FIELD_ASSISTED_EXECUTION_NEEDS_CONTEXT,
+            'classification_target_department_missing' => AaeosHttpPathEnvelopeFactory::FIELD_CLASSIFICATION_TARGET_DEPARTMENT_MISSING,
+            'atlas_long_horizon_compaction_receipts' => AtlasAcosWatchdogHealthService::FIELD_ATLAS_LONG_HORIZON_COMPACTION_RECEIPTS,
+            'atlas_memory_entry_usages' => AtlasAcosWatchdogHealthService::FIELD_ATLAS_MEMORY_ENTRY_USAGES,
+            'delta_series_future_dated_rows' => AtlasAcosLongHorizonGateService::FIELD_DELTA_SERIES_FUTURE_DATED_ROWS,
+            'delta_series_window_stale' => AtlasAcosLongHorizonGateService::FIELD_DELTA_SERIES_WINDOW_STALE,
+            'knowledge_item_aemor_outcome_department_contract_aaeos_acos_floor_count' => 18,
+        ];
+    }
+
 }
