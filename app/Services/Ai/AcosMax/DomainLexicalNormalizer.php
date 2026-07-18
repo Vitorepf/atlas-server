@@ -36,6 +36,8 @@ final class DomainLexicalNormalizer
     public const FIELD_OPERADOR = 'operador';
     public const FIELD_OPERATOR = 'operator';
     public const FIELD_PIPELINE = 'pipeline';
+    public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     /** @var array<string,list<string>> */
     public const EQUIVALENCES = [
@@ -107,11 +109,11 @@ final class DomainLexicalNormalizer
     public static function contract(): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_EQUIVALENCES => self::EQUIVALENCES,
             self::FIELD_MAX_EXPANDED_TOKENS => self::MAX_EXPANDED_TOKENS,
-            'provider_calls_made' => false,
+            self::FIELD_PROVIDER_CALLS_MADE => false,
             self::FIELD_DETERMINISTIC => true,
         ];
     }

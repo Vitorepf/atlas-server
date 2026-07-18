@@ -49,6 +49,8 @@ final class EvidenceVisionThesisLifecycle
     public const FIELD_HIGH = 'high';
     public const FIELD_KIND = 'kind';
     public const FIELD_LEAD_CLUSTER_CLEARED = 'lead_cluster_cleared';
+    public const FIELD_N_REALIZED = 'n_realized';
+    public const FIELD_PATH = 'path';
 
     /** @var array<string,array<string,mixed>> */
     private static array $active = [];
@@ -242,7 +244,7 @@ final class EvidenceVisionThesisLifecycle
     {
         $bands = AiValueNormalizer::arrayOrEmpty($calibration[self::FIELD_BANDS] ?? null);
         $high = AiValueNormalizer::arrayOrEmpty($bands[self::FIELD_HIGH] ?? null);
-        $highN = (int) (AiValueNormalizer::finiteFloatOrNull($high['n_realized'] ?? null) ?? 0);
+        $highN = (int) (AiValueNormalizer::finiteFloatOrNull($high[self::FIELD_N_REALIZED] ?? null) ?? 0);
         if ($highN <= 0) {
             return false;
         }
@@ -305,7 +307,7 @@ final class EvidenceVisionThesisLifecycle
             if (! is_array($row)) {
                 continue;
             }
-            if ((AiValueNormalizer::trimmedStringOrNull($row['path'] ?? null) ?? '') === $path && ($row['proven_real'] ?? null) === true) {
+            if ((AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_PATH] ?? null) ?? '') === $path && ($row['proven_real'] ?? null) === true) {
                 return true;
             }
         }

@@ -117,6 +117,8 @@ final class AtlasNCaptureDrillService
     public const FIELD_REFUSED_COUNT = 'refused_count';
     public const FIELD_REGRET_MEASURE_ID = 'regret_measure_id';
     public const FIELD_ROUTED_TASKS_OBSERVED = 'routed_tasks_observed';
+    public const FIELD_SERIES = 'series';
+    public const FIELD_TIME_TO_FIRST_PROVEN_REAL_SECONDS = 'time_to_first_proven_real_seconds';
 
     private readonly string $ledgerPath;
 
@@ -160,7 +162,7 @@ final class AtlasNCaptureDrillService
             self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-teto01-judge',
             self::FIELD_DUAL_READ_REQUIRED => false,
             self::FIELD_SERIES_REGISTRY => [
-                'series' => self::MEASURE_ID,
+                self::FIELD_SERIES => self::MEASURE_ID,
                 self::FIELD_PATH => 'atlas:teto:n-capture-drill --json',
                 self::FIELD_SOURCE_TYPE => 'jsonl',
             ],
@@ -201,7 +203,7 @@ final class AtlasNCaptureDrillService
             ],
             'times' => [
                 'time_to_first_routed_task_seconds' => (int) data_get($drill, 'times.time_to_first_routed_task_seconds'),
-                'time_to_first_proven_real_seconds' => (int) data_get($drill, 'times.time_to_first_proven_real_seconds'),
+                self::FIELD_TIME_TO_FIRST_PROVEN_REAL_SECONDS => (int) data_get($drill, 'times.time_to_first_proven_real_seconds'),
                 self::FIELD_HOURS_OF_INTEGRATION => AiValueNormalizer::finiteFloatOrNull(data_get($drill, 'times.hours_of_integration')) ?? 0.0,
             ],
             self::FIELD_DENOMINATORS => [

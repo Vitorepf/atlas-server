@@ -105,6 +105,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_AUTONOMIA = 'autonomia';
     public const FIELD_DIMENSIONS = 'dimensions';
     public const FIELD_EXECUCAO_PROVADA = 'execucao_provada';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_INTELIGENCIA_ENTREGUE = 'inteligencia_entregue';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -126,11 +128,11 @@ class AtlasAcosEvolutionScoreService
 
         $envelope = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'generated_at' => gmdate('c'),
+            self::FIELD_GENERATED_AT => gmdate('c'),
             'overall_out_of_10' => $overall,
             self::FIELD_DIMENSIONS => [
                 self::FIELD_EXECUCAO_PROVADA => $execucao,
-                'inteligencia_entregue' => $inteligencia,
+                self::FIELD_INTELIGENCIA_ENTREGUE => $inteligencia,
                 self::FIELD_AUTONOMIA => $autonomia,
             ],
             self::FIELD_ACOS_SCORECARD_OVERALL => AiValueNormalizer::finiteFloatOrNull(data_get($card, 'score.overall_out_of_10', 0.0)) ?? 0.0,

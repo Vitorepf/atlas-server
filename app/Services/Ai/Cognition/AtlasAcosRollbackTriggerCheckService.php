@@ -56,6 +56,8 @@ final class AtlasAcosRollbackTriggerCheckService
     public const FIELD_CONDITION = 'condition';
     public const FIELD_EVALUATIONS = 'evaluations';
     public const FIELD_FLIP_COUNT = 'flip_count';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_REQUIRES_FLIP = 'requires_flip';
 
 
     /**
@@ -156,7 +158,7 @@ final class AtlasAcosRollbackTriggerCheckService
             self::FIELD_FIRED => false,
             self::FIELD_STATUS => $armed ? 'monitoring' : 'pre_flip',
             self::FIELD_REASON => $armed ? 'condition_not_met' : 'flip_not_armed',
-            self::FIELD_CONDITION_KIND => $condition['kind'] ?? null,
+            self::FIELD_CONDITION_KIND => $condition[self::FIELD_KIND] ?? null,
             self::FIELD_ROLLBACK_ACTION => $flip[self::FIELD_ROLLBACK_ACTION] ?? [],
             self::FIELD_EXECUTOR => $flip[self::FIELD_EXECUTOR] ?? 'watchdog_alert_operator_reverts',
             self::FIELD_CHECKED_AT => $asOf->toIso8601String(),
@@ -168,7 +170,7 @@ final class AtlasAcosRollbackTriggerCheckService
      */
     private function flipIsArmed(array $condition): bool
     {
-        $requires = $condition['requires_flip'] ?? null;
+        $requires = $condition[self::FIELD_REQUIRES_FLIP] ?? null;
         if (! is_array($requires)) {
             return false;
         }

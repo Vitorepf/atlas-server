@@ -7449,4 +7449,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['n_capture_domain_lexical_execution_context_aaeos_http_floor_count']);
     }
 
+    public function test_acos_evolution_long_rollback_lote_measure_code_symbol_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->acosEvolutionLongRollbackLoteMeasureCodeSymbolFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_INTELIGENCIA_ENTREGUE, $out['inteligencia_entregue']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_DOES_NOT_BACKFILL_TIME, $out['does_not_backfill_time']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_DOES_NOT_INFLATE_SCORE, $out['does_not_inflate_score']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_REQUIRES_FLIP, $out['requires_flip']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_NO_COMPLETE_PROVEN_REAL_LOOP_WINDOW, $out['no_complete_proven_real_loop_window']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_NOT_STARTED_ETA_ALLOWED, $out['not_started_eta_allowed']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_SOURCE_TYPE, $out['source_type']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_STALE_DEFINITION, $out['stale_definition']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_SERIES_REGISTRY, $out['series_registry']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_SOURCE_TYPE, $out['source_type']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_SERIES, $out['series']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_TIME_TO_FIRST_PROVEN_REAL_SECONDS, $out['time_to_first_proven_real_seconds']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_PROVIDER_CALLS_MADE, $out['provider_calls_made']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_N_REALIZED, $out['n_realized']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_PATH, $out['path']);
+        $this->assertSame(18, $out['acos_evolution_long_rollback_lote_measure_code_symbol_floor_count']);
+    }
+
 }

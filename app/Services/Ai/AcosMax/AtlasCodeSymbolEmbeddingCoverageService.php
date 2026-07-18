@@ -77,6 +77,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_SCOPE = 'scope';
     public const FIELD_SERIES = 'series';
     public const FIELD_SERIES_REGISTRY = 'series_registry';
+    public const FIELD_SOURCE_TYPE = 'source_type';
+    public const FIELD_STALE_DEFINITION = 'stale_definition';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -89,7 +91,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             self::FIELD_THRESHOLDS => [
                 'target_coverage_ratio' => 1.0,
                 self::FIELD_DENOMINATOR_MIN_ACTIVE_SYMBOLS => 1,
-                'stale_definition' => 'atlas_code_symbol_embeddings.embedded_content_hash != atlas_engineering_code_symbols.source_hash',
+                self::FIELD_STALE_DEFINITION => 'atlas_code_symbol_embeddings.embedded_content_hash != atlas_engineering_code_symbols.source_hash',
                 self::FIELD_MISSING_DEFINITION => 'no matching row in atlas_code_symbol_embeddings for symbol_id',
                 self::FIELD_SCOPE => 'active_symbols_only',
                 self::FIELD_DEFAULT_SWITCH => 'off',
@@ -102,7 +104,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             self::FIELD_SERIES_REGISTRY => [
                 self::FIELD_SERIES => self::MEASURE_ID,
                 self::FIELD_PATH => 'atlas:code:symbol-embedding-coverage --json',
-                'source_type' => 'computed_reader_field',
+                self::FIELD_SOURCE_TYPE => 'computed_reader_field',
             ],
         ];
     }

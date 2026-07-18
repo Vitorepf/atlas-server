@@ -9583,4 +9583,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B389).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function acosEvolutionLongRollbackLoteMeasureCodeSymbolFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'generated_at' => AtlasAcosEvolutionScoreService::FIELD_GENERATED_AT,
+            'inteligencia_entregue' => AtlasAcosEvolutionScoreService::FIELD_INTELIGENCIA_ENTREGUE,
+            'does_not_backfill_time' => AtlasAcosLongHorizonGateService::FIELD_DOES_NOT_BACKFILL_TIME,
+            'does_not_inflate_score' => AtlasAcosLongHorizonGateService::FIELD_DOES_NOT_INFLATE_SCORE,
+            'kind' => AtlasAcosRollbackTriggerCheckService::FIELD_KIND,
+            'requires_flip' => AtlasAcosRollbackTriggerCheckService::FIELD_REQUIRES_FLIP,
+            'no_complete_proven_real_loop_window' => AcosMaxLote2MeasureService::FIELD_NO_COMPLETE_PROVEN_REAL_LOOP_WINDOW,
+            'not_started_eta_allowed' => AcosMaxLote2MeasureService::FIELD_NOT_STARTED_ETA_ALLOWED,
+            'source_type' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_SOURCE_TYPE,
+            'stale_definition' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_STALE_DEFINITION,
+            'series_registry' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_SERIES_REGISTRY,
+            'source_type' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_SOURCE_TYPE,
+            'series' => AtlasNCaptureDrillService::FIELD_SERIES,
+            'time_to_first_proven_real_seconds' => AtlasNCaptureDrillService::FIELD_TIME_TO_FIRST_PROVEN_REAL_SECONDS,
+            'provider_calls_made' => DomainLexicalNormalizer::FIELD_PROVIDER_CALLS_MADE,
+            'schema_version' => DomainLexicalNormalizer::FIELD_SCHEMA_VERSION,
+            'n_realized' => EvidenceVisionThesisLifecycle::FIELD_N_REALIZED,
+            'path' => EvidenceVisionThesisLifecycle::FIELD_PATH,
+            'acos_evolution_long_rollback_lote_measure_code_symbol_floor_count' => 18,
+        ];
+    }
+
 }

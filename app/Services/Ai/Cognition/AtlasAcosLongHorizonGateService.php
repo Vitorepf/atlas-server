@@ -133,6 +133,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_COMPLETION_REQUIRES_REAL_30D_WINDOW = 'completion_requires_real_30d_window';
     public const FIELD_DELTA_SERIES_APPEND_ONLY_INPUT = 'delta_series_append_only_input';
     public const FIELD_DIMENSIONS = 'dimensions';
+    public const FIELD_DOES_NOT_BACKFILL_TIME = 'does_not_backfill_time';
+    public const FIELD_DOES_NOT_INFLATE_SCORE = 'does_not_inflate_score';
 
     /**
      * @param  array<string,mixed>  $options
@@ -953,8 +955,8 @@ final class AtlasAcosLongHorizonGateService
                 'scorecard_resolved_evidence_only' => true,
                 self::FIELD_DELTA_SERIES_APPEND_ONLY_INPUT => true,
                 'does_not_mint_receipts' => true,
-                'does_not_backfill_time' => true,
-                'does_not_inflate_score' => true,
+                self::FIELD_DOES_NOT_BACKFILL_TIME => true,
+                self::FIELD_DOES_NOT_INFLATE_SCORE => true,
                 'provider_calls_made' => false,
                 'provider_tokens_spent' => false,
                 'workspace_mutated' => false,

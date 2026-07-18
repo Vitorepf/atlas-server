@@ -7179,6 +7179,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_acos_evolution_long_rollback_lote_measure_code_symbol_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b389-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b389',
+                '--acos-evolution-long-rollback-lote-measure-code-symbol-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"acos_evolution_long_rollback_lote_measure_code_symbol_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 
