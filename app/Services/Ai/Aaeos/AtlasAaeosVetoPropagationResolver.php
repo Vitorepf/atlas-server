@@ -87,6 +87,8 @@ final class AtlasAaeosVetoPropagationResolver
     public const FIELD_NONE = 'none';
     public const FIELD_OPERATOR_OVERRIDE = 'operator_override';
     public const FIELD_REVIEW_DELIVERY_VETO = 'review_delivery_veto';
+    public const FIELD_SECURITY_VETO = 'security_veto';
+    public const FIELD_SPEC = 'spec';
 
     /**
      * Encoded canonical department adjacency (mermaid stateDiagram transitions).
@@ -210,13 +212,13 @@ final class AtlasAaeosVetoPropagationResolver
                 self::FIELD_REDIRECT_TO => [],
                 self::FIELD_ESCALATION_TARGET => $this->reachableTargets([self::FIELD_OPERATOR]),
                 self::FIELD_OVERRIDE => false,
-                self::FIELD_MATCHED_RULE => 'security_veto',
+                self::FIELD_MATCHED_RULE => self::FIELD_SECURITY_VETO,
                 self::FIELD_REASON => self::REASON_SECURITY_VETO_PAUSE_DOWNSTREAM,
             ];
         }
 
         // Architect veto on spec -> back to Product for clarification.
-        if ($origin === 'architect' && $kind === 'spec') {
+        if ($origin === 'architect' && $kind === self::FIELD_SPEC) {
             return [
                 self::FIELD_RESOLUTION => self::RESOLUTION_REDIRECT_UPSTREAM,
                 self::FIELD_PAUSE_SET => [],

@@ -451,6 +451,7 @@ final class AtlasAaeosCommand extends Command
                             {--lote-measure-asef-chunk-resource-budget-department-contract-floors-contract= : JSON file (any object) to observe lote/measure/asef/chunk/resource/budget floors}
                             {--immune-hybrid-capture-hmac-watchdog-runner-signature-department-floors-contract= : JSON file (any object) to observe immune/hybrid/capture/hmac/watchdog/runner floors}
                             {--aaeos-test-evidence-ledger-department-contract-cognition-health-floors-contract= : JSON file (any object) to observe aaeos/test/evidence/ledger/department/contract floors}
+                            {--department-contract-http-path-frontier-wave-operational-volume-floors-contract= : JSON file (any object) to observe department/contract/http/path/frontier/wave floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1058,6 +1059,7 @@ final class AtlasAaeosCommand extends Command
             ['lote-measure-asef-chunk-resource-budget-department-contract-floors-contract', 'lote_measure_asef_chunk_resource_budget_department_contract_floors_contract', fn (array $p) => $gates->loteMeasureAsefChunkResourceBudgetDepartmentContractFloorsContractObserve($p)],
             ['immune-hybrid-capture-hmac-watchdog-runner-signature-department-floors-contract', 'immune_hybrid_capture_hmac_watchdog_runner_signature_department_floors_contract', fn (array $p) => $gates->immuneHybridCaptureHmacWatchdogRunnerSignatureDepartmentFloorsContractObserve($p)],
             ['aaeos-test-evidence-ledger-department-contract-cognition-health-floors-contract', 'aaeos_test_evidence_ledger_department_contract_cognition_health_floors_contract', fn (array $p) => $gates->aaeosTestEvidenceLedgerDepartmentContractCognitionHealthFloorsContractObserve($p)],
+            ['department-contract-http-path-frontier-wave-operational-volume-floors-contract', 'department_contract_http_path_frontier_wave_operational_volume_floors_contract', fn (array $p) => $gates->departmentContractHttpPathFrontierWaveOperationalVolumeFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

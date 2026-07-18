@@ -100,6 +100,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_FORGERY_PASSED = 'forgery_passed';
     public const FIELD_MAXK09_ADVERSARIAL_PROBE_PASSED = 'maxk09_adversarial_probe_passed';
     public const FIELD_MAXK09_PROBE_ORCHESTRATION_ERROR = 'maxk09_probe_orchestration_error';
+    public const FIELD_ORCHESTRATION = 'orchestration';
+    public const FIELD_PROBE_SETUP_FAILED = 'probe_setup_failed';
 
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
@@ -128,7 +130,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             $probes[] = $this->probeShrinkNeverExceedsCeiling();
             $probes[] = $this->probeMinerIsReportOnly();
         } catch (Throwable $e) {
-            $errors[] = [self::FIELD_PROBE => 'orchestration', self::FIELD_MESSAGE => $e->getMessage()];
+            $errors[] = [self::FIELD_PROBE => self::FIELD_ORCHESTRATION, self::FIELD_MESSAGE => $e->getMessage()];
         }
 
         foreach ($probes as $probe) {
@@ -354,7 +356,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
                 self::FIELD_ID => 'maxk06.metrics_authority_tampered',
                 self::FIELD_REFUSED => false,
                 self::FIELD_EXPECTED => 'blocked+metrics_authority_tampered',
-                self::FIELD_OBSERVED => 'probe_setup_failed',
+                self::FIELD_OBSERVED => self::FIELD_PROBE_SETUP_FAILED,
             ];
         }
 

@@ -8466,4 +8466,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['aaeos_test_evidence_ledger_department_contract_cognition_health_floor_count']);
     }
 
+    public function test_department_contract_http_path_frontier_wave_operational_volume_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->departmentContractHttpPathFrontierWaveOperationalVolumeFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_SOURCE_LEDGER, $out['aaeos_source_ledger']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_SPEC_PACKS, $out['aaeos_spec_packs']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_SYSTEM, $out['system']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_TASK_PACK_ATOMIC_TRUE_FOR_EACH, $out['task_pack_atomic_true_for_each']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_ONDA_2, $out['onda_2']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_ONDA_3, $out['onda_3']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_NAMED_PREREQUISITE, $out['named_prerequisite']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_PREVIOUS_BUSINESS_DAY, $out['previous_business_day']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_SDD, $out['sdd']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_VISUAL, $out['visual']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_NORMAL, $out['normal']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_PROPOSAL, $out['proposal']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_INCLUDED_SOURCES, $out['included_sources']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SYSTEM, $out['system']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_ORCHESTRATION, $out['orchestration']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_PROBE_SETUP_FAILED, $out['probe_setup_failed']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_SECURITY_VETO, $out['security_veto']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_SPEC, $out['spec']);
+        $this->assertSame(18, $out['department_contract_http_path_frontier_wave_operational_volume_floor_count']);
+    }
+
 }

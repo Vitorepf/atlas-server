@@ -10824,4 +10824,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B429).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function departmentContractHttpPathFrontierWaveOperationalVolumeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'aaeos_source_ledger' => DepartmentContractRuntime::FIELD_AAEOS_SOURCE_LEDGER,
+            'aaeos_spec_packs' => DepartmentContractRuntime::FIELD_AAEOS_SPEC_PACKS,
+            'system' => AaeosHttpPathEnvelopeFactory::FIELD_SYSTEM,
+            'task_pack_atomic_true_for_each' => AaeosHttpPathEnvelopeFactory::FIELD_TASK_PACK_ATOMIC_TRUE_FOR_EACH,
+            'onda_2' => AtlasFrontierWaveLadder::FIELD_ONDA_2,
+            'onda_3' => AtlasFrontierWaveLadder::FIELD_ONDA_3,
+            'named_prerequisite' => AtlasOperationalVolumeCheckService::FIELD_NAMED_PREREQUISITE,
+            'previous_business_day' => AtlasOperationalVolumeCheckService::FIELD_PREVIOUS_BUSINESS_DAY,
+            'sdd' => CognitiveContextNudgeApplier::FIELD_SDD,
+            'visual' => CognitiveContextNudgeApplier::FIELD_VISUAL,
+            'normal' => ImmuneCalibrationService::FIELD_NORMAL,
+            'proposal' => ImmuneCalibrationService::FIELD_PROPOSAL,
+            'included_sources' => AtlasAcosWatchdogHealthService::FIELD_INCLUDED_SOURCES,
+            'system' => AtlasAcosWatchdogHealthService::FIELD_SYSTEM,
+            'orchestration' => AutonomyLadderAdversarialWatchdogCheck::FIELD_ORCHESTRATION,
+            'probe_setup_failed' => AutonomyLadderAdversarialWatchdogCheck::FIELD_PROBE_SETUP_FAILED,
+            'security_veto' => AtlasAaeosVetoPropagationResolver::FIELD_SECURITY_VETO,
+            'spec' => AtlasAaeosVetoPropagationResolver::FIELD_SPEC,
+            'department_contract_http_path_frontier_wave_operational_volume_floor_count' => 18,
+        ];
+    }
+
 }

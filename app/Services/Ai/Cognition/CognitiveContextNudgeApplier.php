@@ -42,6 +42,8 @@ final class CognitiveContextNudgeApplier
     public const FIELD_PROGRAMMING = 'programming';
     public const FIELD_RESEARCHER = 'researcher';
     public const FIELD_REVIEWER = 'reviewer';
+    public const FIELD_SDD = 'sdd';
+    public const FIELD_VISUAL = 'visual';
     /**
      * Apply framework + role nudges to the keyword-scored hits map.
      *
@@ -71,13 +73,13 @@ final class CognitiveContextNudgeApplier
         if ($framework !== '') {
             if (str_starts_with($framework, self::FIELD_CARTOGRAPHY) || $framework === self::FIELD_KERNEL_VAULT) {
                 $hits[self::FIELD_AUDIT] += 2;
-            } elseif (str_starts_with($framework, self::FIELD_PROGRAMMING) || $framework === 'sdd' || $framework === self::FIELD_BDD) {
+            } elseif (str_starts_with($framework, self::FIELD_PROGRAMMING) || $framework === self::FIELD_SDD || $framework === self::FIELD_BDD) {
                 $hits[self::FIELD_CODE] += 2;
                 $hits[self::FIELD_AUDIT] += 1;
             } elseif ($framework === self::FIELD_MISSION_MODE || $framework === self::FIELD_HYPERFLOW) {
                 $hits[self::FIELD_REASONING] += 1;
                 $hits[self::FIELD_RETRIEVAL] += 1;
-            } elseif ($framework === 'vision' || str_starts_with($framework, 'visual')) {
+            } elseif ($framework === 'vision' || str_starts_with($framework, self::FIELD_VISUAL)) {
                 $hits[self::FIELD_VISION] += 2;
             }
         }

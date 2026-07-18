@@ -217,6 +217,8 @@ final class DepartmentContractRuntime
     public const FIELD_AAEOS_REVIEW_LEDGER = 'aaeos_review_ledger';
     public const FIELD_AAEOS_REVIEW_REPORTS = 'aaeos_review_reports';
     public const FIELD_AAEOS_SECURITY_LEDGER = 'aaeos_security_ledger';
+    public const FIELD_AAEOS_SOURCE_LEDGER = 'aaeos_source_ledger';
+    public const FIELD_AAEOS_SPEC_PACKS = 'aaeos_spec_packs';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -313,7 +315,7 @@ final class DepartmentContractRuntime
             self::FIELD_FORBIDDEN_ACTIONS => ['write_code', 'execute_migration', 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['spec_pack_hash', 'architect_decision_receipt'],
-            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_spec_packs', self::FIELD_LEDGER => self::FIELD_AAEOS_ARCHITECT_DECISION_LEDGER],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_SPEC_PACKS, self::FIELD_LEDGER => self::FIELD_AAEOS_ARCHITECT_DECISION_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['architect_spec_completeness_score', 'architect_veto_count'],
             self::FIELD_MATURITY_LEVEL => 'L3',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_ENGINEERING_ARCHITECTURE_DECISION,
@@ -336,7 +338,7 @@ final class DepartmentContractRuntime
             self::FIELD_FORBIDDEN_ACTIONS => ['write_code', 'approve_release', 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['sources_list_hash', 'research_pack_hash'],
-            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_RESEARCH_PACKS, self::FIELD_LEDGER => 'aaeos_source_ledger'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_RESEARCH_PACKS, self::FIELD_LEDGER => self::FIELD_AAEOS_SOURCE_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['research_source_freshness_avg', 'research_hallucination_count'],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_RESEARCH_FINDINGS,

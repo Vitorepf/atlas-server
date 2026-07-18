@@ -102,6 +102,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_MEDIUM = 'medium';
     public const FIELD_READY_FOR_ASSISTED_EXECUTION = 'ready_for_assisted_execution';
     public const FIELD_SPEC_PACK_ACCEPTANCE_CRITERIA_MIN_3 = 'spec_pack_acceptance_criteria_min_3';
+    public const FIELD_SYSTEM = 'system';
+    public const FIELD_TASK_PACK_ATOMIC_TRUE_FOR_EACH = 'task_pack_atomic_true_for_each';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -322,7 +324,7 @@ final class AaeosHttpPathEnvelopeFactory
                 self::FIELD_TASK_PACK_INVOCATION => self::FIELD_DEFERRED,
                 self::FIELD_TASK_PACK_REQUIRED => self::FIELD_YES,
             ],
-            self::FIELD_REQUIRED_GATE => 'task_pack_atomic_true_for_each',
+            self::FIELD_REQUIRED_GATE => self::FIELD_TASK_PACK_ATOMIC_TRUE_FOR_EACH,
         ],
         self::FIELD_RECEIPT => [
             self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_TASKS,
@@ -579,6 +581,6 @@ final class AaeosHttpPathEnvelopeFactory
      */
     private static function systemActor(string $id): array
     {
-        return [self::FIELD_KIND => 'system', self::FIELD_ID => $id, self::FIELD_PROVIDER => null];
+        return [self::FIELD_KIND => self::FIELD_SYSTEM, self::FIELD_ID => $id, self::FIELD_PROVIDER => null];
     }
 }

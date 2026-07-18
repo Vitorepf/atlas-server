@@ -76,6 +76,8 @@ final class AtlasOperationalVolumeCheckService
     public const FIELD_FLOW_ID = 'flow_id';
     public const FIELD_AI_FORGE_WORK_PACKET_EXECUTION_CYCLES = 'ai_forge_work_packet_execution_cycles';
     public const FIELD_JANELA_FAMINTA = 'janela_faminta';
+    public const FIELD_NAMED_PREREQUISITE = 'named_prerequisite';
+    public const FIELD_PREVIOUS_BUSINESS_DAY = 'previous_business_day';
 
     /**
      * @return array<string,mixed>
@@ -117,13 +119,13 @@ final class AtlasOperationalVolumeCheckService
             self::FIELD_PREREQUISITES => [
                 [
                     self::FIELD_ID => self::PREREQUISITE_GAP_HERMES_01,
-                    self::FIELD_STATUS => 'named_prerequisite',
+                    self::FIELD_STATUS => self::FIELD_NAMED_PREREQUISITE,
                     self::FIELD_NOTE => 'Hermes transport may drop final stdout chunks; Autônomos/brain-writer volume can read falsely low until resolved upstream.',
                 ],
             ],
             self::FIELD_WINDOWS => [
                 self::FIELD_DEV => [
-                    self::FIELD_LABEL => 'previous_business_day',
+                    self::FIELD_LABEL => self::FIELD_PREVIOUS_BUSINESS_DAY,
                     self::FIELD_START => $devWindowStart->toIso8601String(),
                     self::FIELD_END => $devWindowEnd->toIso8601String(),
                     self::FIELD_COUNT => $devCount[self::FIELD_COUNT],

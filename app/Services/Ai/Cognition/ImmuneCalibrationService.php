@@ -115,6 +115,8 @@ final class ImmuneCalibrationService
     public const FIELD_DENOMINATOR_MET = 'denominator_met';
     public const FIELD_DOMAIN = 'domain';
     public const FIELD_LOWER_BOUND_KNOWN_MISS = 'lower_bound_known_miss';
+    public const FIELD_NORMAL = 'normal';
+    public const FIELD_PROPOSAL = 'proposal';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -338,7 +340,7 @@ final class ImmuneCalibrationService
     {
         $signals = [
             self::FIELD_CONSENT_GRANTED => true,
-            self::FIELD_PRIVACY_CLASS => 'normal',
+            self::FIELD_PRIVACY_CLASS => self::FIELD_NORMAL,
             self::FIELD_RETENTION_OK => true,
             self::FIELD_ATOMIC_CLAIM_PRESENT => true,
             self::FIELD_CLAIM_TYPE => 'technical_learning_candidate',
@@ -352,7 +354,7 @@ final class ImmuneCalibrationService
             self::FIELD_CONTRADICTS_NEWER => false,
             self::FIELD_OUTCOME_VALIDATED => false,
             self::FIELD_SCOPE => self::FIELD_DOMAIN,
-            self::FIELD_PROMOTION_MODE_HINT => 'proposal',
+            self::FIELD_PROMOTION_MODE_HINT => self::FIELD_PROPOSAL,
             self::FIELD_ON_PROBATION => true,
         ];
 

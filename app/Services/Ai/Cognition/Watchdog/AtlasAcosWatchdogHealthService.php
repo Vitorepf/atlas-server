@@ -308,6 +308,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_EVENT_TYPE = 'event_type';
     public const FIELD_FEEDBACK_ACTION = 'feedback_action';
     public const FIELD_FLOW_ID = 'flow_id';
+    public const FIELD_INCLUDED_SOURCES = 'included_sources';
+    public const FIELD_SYSTEM = 'system';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -971,7 +973,7 @@ final class AtlasAcosWatchdogHealthService
         }
         $row = AiRagFeedbackEvent::query()
             ->where(function ($query): void {
-                $query->where('included_sources', '>', 0)
+                $query->where(self::FIELD_INCLUDED_SOURCES, '>', 0)
                     ->orWhereNotNull('retrieval_receipt_id');
             })
             ->latest('created_at')
@@ -1045,7 +1047,7 @@ final class AtlasAcosWatchdogHealthService
         try {
             app(AtlasEvidenceLedger::class)->record($type, $payload, [
                 self::FIELD_TENANT_ID => self::FIELD_DEFAULT,
-                self::FIELD_OPERATOR_ID => 'system',
+                self::FIELD_OPERATOR_ID => self::FIELD_SYSTEM,
                 self::FIELD_ENVELOPE_ID => 'acos:watchdog:'.$scopeId.':'.now()->format('YmdHis'),
                 self::FIELD_CORRELATION_ID => 'acos:watchdog:'.$scopeId,
                 self::FIELD_SCOPE_TYPE => self::FIELD_ACOS_WATCHDOG,
