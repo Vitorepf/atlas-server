@@ -183,6 +183,10 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_ATLAS_FLYWHEEL_FUNNEL___JSON = 'atlas:flywheel:funnel --json';
     public const FIELD_ATLAS_FLYWHEEL_LEARNING_LATENCY___JSON = 'atlas:flywheel:learning-latency --json';
     public const FIELD_ATLAS_FLYWHEEL_LOOPS___JSON = 'atlas:flywheel:loops --json';
+    public const FIELD_ATLAS_MEMORY_TEMPORAL_QUALITY___JSON = 'atlas:memory:temporal-quality --json';
+    public const FIELD_ATLAS_MISSION_E2E___JSON = 'atlas:mission:e2e --json';
+    public const FIELD_ATLAS_OPERATOR_APPROVAL_HISTORY___JSON = 'atlas:operator-approval-history --json';
+    public const FIELD_ATLAS_WINDOWS___JSON = 'atlas:windows --json';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -308,7 +312,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MAXH_01,
                 self::FIELD_SERIES => AtlasMemoryTemporalQualityService::MEASURE_ID,
-                self::FIELD_PATH => 'atlas:memory:temporal-quality --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_MEMORY_TEMPORAL_QUALITY___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AtlasMemoryTemporalQualityService::freezePayload()[self::FIELD_TTL_DAYS],
@@ -442,7 +446,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MULTN15_02,
                 self::FIELD_SERIES => OperatorApprovalHistoryMeter::MEASURE_ID,
-                self::FIELD_PATH => 'atlas:operator-approval-history --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_OPERATOR_APPROVAL_HISTORY___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => OperatorApprovalHistoryMeter::TTL_DAYS,
@@ -514,7 +518,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MULTX_09,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::MULTX09_MEASURE_ID,
-                self::FIELD_PATH => 'atlas:windows --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_WINDOWS___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTX_09)[self::FIELD_TTL_DAYS],
@@ -568,7 +572,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_TETO_02,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::TETO02_MEASURE_ID,
-                self::FIELD_PATH => 'atlas:mission:e2e --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_MISSION_E2E___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_TETO_02)[self::FIELD_TTL_DAYS],

@@ -337,7 +337,7 @@ final class ImmuneCalibrationService
             self::DENOMINATOR_MIN,
             self::FIELD_MISSED_POISON_RATE,
         );
-        $group[self::FIELD_MISSED_POISON_RATE][self::FIELD_BOUND] = 'lower_bound_known_miss';
+        $group[self::FIELD_MISSED_POISON_RATE][self::FIELD_BOUND] = self::FIELD_LOWER_BOUND_KNOWN_MISS;
         $group[self::FIELD_CALIBRATION_STATUS] = $group[self::FIELD_FALSE_BLOCK_RATE][self::FIELD_STATUS] === self::STATUS_CALIBRATED
             && $group[self::FIELD_MISSED_POISON_RATE][self::FIELD_STATUS] === self::STATUS_CALIBRATED
                 ? self::STATUS_CALIBRATED

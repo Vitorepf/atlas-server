@@ -14640,4 +14640,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B553).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b553CognitionScoreDepartmentContractMeasureSeriesDailyCanaryFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'Context Intelligence Engine' => AtlasCognitionScoreCardService::FIELD_CONTEXT_INTELLIGENCE_ENGINE,
+            'Context Observability Plane' => AtlasCognitionScoreCardService::FIELD_CONTEXT_OBSERVABILITY_PLANE,
+            'Context Pareto Frontier Runtime' => AtlasCognitionScoreCardService::FIELD_CONTEXT_PARETO_FRONTIER_RUNTIME,
+            'Context Quality Certification Gate' => AtlasCognitionScoreCardService::FIELD_CONTEXT_QUALITY_CERTIFICATION_GATE,
+            'R5' => DepartmentContractRuntime::FIELD_R5,
+            'Research Department' => DepartmentContractRuntime::FIELD_RESEARCH_DEPARTMENT,
+            'Review Department' => DepartmentContractRuntime::FIELD_REVIEW_DEPARTMENT,
+            'Security Department' => DepartmentContractRuntime::FIELD_SECURITY_DEPARTMENT,
+            'atlas:memory:temporal-quality --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_MEMORY_TEMPORAL_QUALITY___JSON,
+            'atlas:mission:e2e --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_MISSION_E2E___JSON,
+            'atlas:operator-approval-history --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_OPERATOR_APPROVAL_HISTORY___JSON,
+            'atlas:windows --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_WINDOWS___JSON,
+            'v1' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_V1,
+            '.git' => AtlasAcosEvolutionScoreService::FIELD__GIT,
+            '.json' => AtlasAcosWindowGatesService::FIELD__JSON,
+            'G7' => CognitiveImmunePromotionGateEvaluator::FIELD_G7,
+            'lower_bound_known_miss' => ImmuneCalibrationService::FIELD_LOWER_BOUND_KNOWN_MISS,
+            '.samples' => AobgLatencyWatchdogCheck::FIELD__SAMPLES,
+            'b553_cognition_score_department_contract_measure_series_daily_canary_floor_count' => 18,
+        ];
+    }
+
 }

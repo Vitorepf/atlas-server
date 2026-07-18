@@ -277,7 +277,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
             }
         }
         if ($chosenKey === null && isset($versions[self::FIELD_V1]) && is_array($versions[self::FIELD_V1])) {
-            $chosenKey = 'v1';
+            $chosenKey = self::FIELD_V1;
         }
         if ($chosenKey === null) {
             return [

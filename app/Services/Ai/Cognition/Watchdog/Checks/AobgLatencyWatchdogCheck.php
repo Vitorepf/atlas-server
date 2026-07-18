@@ -66,6 +66,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_MEASURE_FREEZE_RECORDED = 'measure.freeze.recorded';
     public const FIELD__P95_MS = '.p95_ms';
     public const FIELD__OPS = '.ops';
+    public const FIELD__SAMPLES = '.samples';
 
 
     /**
@@ -93,7 +94,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
 
         $insufficient = [];
         foreach (AtlasAobgLatencyLedger::OPS as $op) {
-            $samples = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($ops, $op.'.samples', 0)) ?? 0);
+            $samples = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($ops, $op.self::FIELD__SAMPLES, 0)) ?? 0);
             if ($samples < $denominatorMin || data_get($ops, $op.self::FIELD__P95_MS) === null) {
                 $insufficient[] = [
                     self::FIELD_OP => $op,

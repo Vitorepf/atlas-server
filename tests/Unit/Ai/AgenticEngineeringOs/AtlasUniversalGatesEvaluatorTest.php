@@ -11543,4 +11543,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b552_cognition_score_department_contract_measure_series_knowledge_item_floor_count']);
     }
 
+    public function test_b553_cognition_score_department_contract_measure_series_daily_canary_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b553CognitionScoreDepartmentContractMeasureSeriesDailyCanaryFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CONTEXT_INTELLIGENCE_ENGINE, $out['Context Intelligence Engine']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CONTEXT_OBSERVABILITY_PLANE, $out['Context Observability Plane']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CONTEXT_PARETO_FRONTIER_RUNTIME, $out['Context Pareto Frontier Runtime']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CONTEXT_QUALITY_CERTIFICATION_GATE, $out['Context Quality Certification Gate']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_R5, $out['R5']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RESEARCH_DEPARTMENT, $out['Research Department']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REVIEW_DEPARTMENT, $out['Review Department']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SECURITY_DEPARTMENT, $out['Security Department']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_MEMORY_TEMPORAL_QUALITY___JSON, $out['atlas:memory:temporal-quality --json']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_MISSION_E2E___JSON, $out['atlas:mission:e2e --json']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_OPERATOR_APPROVAL_HISTORY___JSON, $out['atlas:operator-approval-history --json']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_WINDOWS___JSON, $out['atlas:windows --json']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_V1, $out['v1']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD__GIT, $out['.git']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD__JSON, $out['.json']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_G7, $out['G7']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_LOWER_BOUND_KNOWN_MISS, $out['lower_bound_known_miss']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD__SAMPLES, $out['.samples']);
+        $this->assertSame(18, $out['b553_cognition_score_department_contract_measure_series_daily_canary_floor_count']);
+    }
+
 }

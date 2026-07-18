@@ -68,6 +68,7 @@ final class AtlasAcosWindowGatesService
     public const FIELD_D5_RATIONALE = 'D5_rationale';
     public const FIELD_D5_STRUCTURAL_HONESTY = 'D5_structural_honesty';
     public const FIELD_APP_ATLAS_EVIDENCE = 'app/atlas/evidence';
+    public const FIELD__JSON = '.json';
     public const INT_70 = 70;
 
     /** Receipt freshness before a certified gate is treated as stale (7 days). */
@@ -178,7 +179,7 @@ final class AtlasAcosWindowGatesService
      */
     private function receiptStatus(string $file): array
     {
-        $gate = basename($file, '.json');
+        $gate = basename($file, self::FIELD__JSON);
         try {
             $data = json_decode((string) file_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
         } catch (Throwable) {

@@ -437,6 +437,10 @@ final class DepartmentContractRuntime
     public const FIELD_R2 = 'R2';
     public const FIELD_R3 = 'R3';
     public const FIELD_R4 = 'R4';
+    public const FIELD_R5 = 'R5';
+    public const FIELD_RESEARCH_DEPARTMENT = 'Research Department';
+    public const FIELD_REVIEW_DEPARTMENT = 'Review Department';
+    public const FIELD_SECURITY_DEPARTMENT = 'Security Department';
     public const INT_11 = 11;
 
     /**
@@ -542,7 +546,7 @@ final class DepartmentContractRuntime
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
         ],
         self::DEPARTMENT_RESEARCH => [
-            self::FIELD_HUMAN_NAME => 'Research Department',
+            self::FIELD_HUMAN_NAME => self::FIELD_RESEARCH_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Investigates unknowns before commit; never modifies runtime.',
             self::FIELD_SCOPE => 'produz state-of-the-art source-backed para suportar Architect e Self-Construction',
             self::FIELD_TRIGGERS => ['self_construction.gap_detected=true', 'architect.research_needed=true'],
@@ -613,7 +617,7 @@ final class DepartmentContractRuntime
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_FORGE],
         ],
         self::DEPARTMENT_REVIEW => [
-            self::FIELD_HUMAN_NAME => 'Review Department',
+            self::FIELD_HUMAN_NAME => self::FIELD_REVIEW_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Code/spec review; bottleneck against weak claims.',
             self::FIELD_SCOPE => 'revisa patches/specs/migrations/release_packs com checklist canônico antes de cert',
             self::FIELD_TRIGGERS => ['delivery_pack_assembled=true', 'spec_pack_drafted=true'],
@@ -660,7 +664,7 @@ final class DepartmentContractRuntime
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_DELIVERY],
         ],
         self::DEPARTMENT_SECURITY => [
-            self::FIELD_HUMAN_NAME => 'Security Department',
+            self::FIELD_HUMAN_NAME => self::FIELD_SECURITY_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Security review; OWASP, secrets, dependency CVEs.',
             self::FIELD_SCOPE => 'enforce de policy, threat-modeling, secret scanning, dependency audit, sovereignty boundary',
             self::FIELD_TRIGGERS => ['security_path_touched=true', 'intent_class_in=[sensitive,secret,cyber]', 'release_pack_drafted=true'],
@@ -952,7 +956,7 @@ final class DepartmentContractRuntime
 
     private function riskScopeIndex(string $scope): int
     {
-        static $levels = [self::FIELD_R0, self::FIELD_R1, self::FIELD_R2, self::FIELD_R3, self::FIELD_R4, 'R5'];
+        static $levels = [self::FIELD_R0, self::FIELD_R1, self::FIELD_R2, self::FIELD_R3, self::FIELD_R4, self::FIELD_R5];
         $index = array_search(AiValueNormalizer::upperTrimmedString($scope), $levels, true);
 
         return $index === false ? -1 : (int) $index;

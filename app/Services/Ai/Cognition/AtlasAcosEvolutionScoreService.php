@@ -153,6 +153,7 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_ATLAS_ACOS_DELTA_SERIES = 'atlas:acos:delta-series';
     public const FIELD_ATLAS_COGNITION_MINT_PIPELINE_RECEIPTS = 'atlas:cognition:mint-pipeline-receipts';
     public const FIELD_ATLAS_ENGINEERING_REFACTOR_CENSUS = 'atlas:engineering:refactor-census';
+    public const FIELD__GIT = '.git';
     public const FLOAT_2_5 = 2.5;
     public const FLOAT_10_0 = 10.0;
 
@@ -540,7 +541,7 @@ class AtlasAcosEvolutionScoreService
     {
         // Reversibilidade viva (0.5): os DOIS trilhos que a Carta nomeia existem —
         // git revert (repo presente) e atlas:brain:replay (comando registrado).
-        $gitRepo = is_dir(base_path('.git'));
+        $gitRepo = is_dir(base_path(self::FIELD__GIT));
         $replayReady = class_exists(self::REVERSAL_COMMAND_CLASS);
         $reversible = $gitRepo && $replayReady;
 

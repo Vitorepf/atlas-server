@@ -288,6 +288,10 @@ class AtlasCognitionScoreCardService
     public const FIELD_CONTEXT_COMPILER_RUNTIME = 'Context Compiler Runtime';
     public const FIELD_CONTEXT_FRESHNESS_QUALITY_GATE = 'Context Freshness Quality Gate';
     public const FIELD_CONTEXT_GATE = 'Context Gate';
+    public const FIELD_CONTEXT_INTELLIGENCE_ENGINE = 'Context Intelligence Engine';
+    public const FIELD_CONTEXT_OBSERVABILITY_PLANE = 'Context Observability Plane';
+    public const FIELD_CONTEXT_PARETO_FRONTIER_RUNTIME = 'Context Pareto Frontier Runtime';
+    public const FIELD_CONTEXT_QUALITY_CERTIFICATION_GATE = 'Context Quality Certification Gate';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -364,13 +368,13 @@ class AtlasCognitionScoreCardService
         [self::FIELD_APDR,  'Python Data Retrieval Runtime',     self::FIELD_AUCRI, AtlasPythonDataRetrievalRuntimeService::class],
         [self::FIELD_AREBA, 'Retrieval Evaluation Arena',        self::FIELD_AUCRI, AtlasRetrievalEvaluationBenchmarkArenaService::class],
         [self::FIELD_ARCLG, 'Retrieval Cost Latency Governor',   self::FIELD_AUCRI, AtlasRetrievalCostLatencyGovernorService::class],
-        [self::FIELD_ACOP,  'Context Observability Plane',       self::FIELD_AUCRI, AtlasContextObservabilityPlaneService::class],
+        [self::FIELD_ACOP,  self::FIELD_CONTEXT_OBSERVABILITY_PLANE,       self::FIELD_AUCRI, AtlasContextObservabilityPlaneService::class],
         [self::FIELD_ARPTL, 'Retrieval Privacy Trust Layer',     self::FIELD_AUCRI, AtlasRetrievalPrivacyTrustLayerService::class],
         [self::FIELD_AKIF,  'Knowledge Ingestion Fabric',        self::FIELD_AUCRI, AtlasKnowledgeSourcePacketRegistryService::class],
         [self::FIELD_ACMF,  self::FIELD_COGNITIVE_MEMORY_FABRIC,           self::FIELD_AUCRI, AtlasCognitiveMemoryFabricService::class],
         [self::FIELD_ACCR,  self::FIELD_CONTEXT_COMPILER_RUNTIME,          self::FIELD_AUCRI, AtlasContextCompilerRuntimeService::class],
         [self::FIELD_ATER,  'Token Economy Runtime',             self::FIELD_AUCRI, AtlasTokenEconomyBudgetPolicyService::class],
-        [self::FIELD_ACPFR, 'Context Pareto Frontier Runtime',   self::FIELD_AUCRI, AtlasContextParetoFrontierRuntimeService::class],
+        [self::FIELD_ACPFR, self::FIELD_CONTEXT_PARETO_FRONTIER_RUNTIME,   self::FIELD_AUCRI, AtlasContextParetoFrontierRuntimeService::class],
 
         // Self-Improvement L7 (closed loop)
         [self::FIELD_ASI_L7, 'Self-Improvement Closed Loop L7', self::FIELD_SELF_IMPROVEMENT, AtlasSelfImprovementResultLedgerService::class],
@@ -438,12 +442,12 @@ class AtlasCognitionScoreCardService
      */
     public const V4_SUPPLEMENTAL_SUBSYSTEMS = [
         [self::FIELD_ACCCR, self::FIELD_CONTEXT_CACHE_COMPILER_RUNTIME, self::FIELD_CONTEXT_CACHE, AtlasContextCacheCompilerRuntimeService::class],
-        [self::FIELD_ACIE, 'Context Intelligence Engine', self::FIELD_CONTEXT_INTELLIGENCE, AtlasContextOperationsRuntimeService::class],
+        [self::FIELD_ACIE, self::FIELD_CONTEXT_INTELLIGENCE_ENGINE, self::FIELD_CONTEXT_INTELLIGENCE, AtlasContextOperationsRuntimeService::class],
         [self::FIELD_APCR, 'Persistent Context Runtime', self::FIELD_PERSISTENT_CONTEXT, AtlasPersistentContextRuntimeService::class],
         [self::FIELD_AEMOR_2, 'Execution Memory Outcome Runtime', self::FIELD_AEMOR, AtlasAemorCertificationService::class],
         [self::FIELD_TEOS_I1, 'Long-Horizon Intelligence Layer', self::FIELD_LONG_HORIZON, LongHorizonContinuityCertificationService::class],
         [self::FIELD_AVCEL, 'Verified Context Execution Loop', self::FIELD_VERIFIED_CONTEXT, AtlasVerifiedContextExecutionLoopService::class],
-        [self::FIELD_ACQCG, 'Context Quality Certification Gate', self::FIELD_CONTEXT_QUALITY, AtlasContextQualityCertificationService::class],
+        [self::FIELD_ACQCG, self::FIELD_CONTEXT_QUALITY_CERTIFICATION_GATE, self::FIELD_CONTEXT_QUALITY, AtlasContextQualityCertificationService::class],
         [self::FIELD_AOBG, 'Open Brain Gateway', self::FIELD_OPEN_BRAIN, AtlasOpenBrainMcpService::class],
         [self::FIELD_EVIDENCE_2, 'Evidence Ledger Memory Side', self::FIELD_EVIDENCE, AtlasEvidenceLedger::class],
     ];
