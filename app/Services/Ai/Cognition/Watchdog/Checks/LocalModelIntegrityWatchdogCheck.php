@@ -25,6 +25,8 @@ final readonly class LocalModelIntegrityWatchdogCheck implements AtlasWatchdogCh
     public const FIELD_GENERATED_AT = 'generated_at';
     public const FIELD_MODEL_ID = 'model_id';
     public const FIELD_TOTAL = 'total';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     public function __construct(
         private AtlasLocalModelIntegrityService $service,
@@ -42,7 +44,7 @@ final readonly class LocalModelIntegrityWatchdogCheck implements AtlasWatchdogCh
         $report = $this->service->verifyAll();
 
         $evidence = [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_GENERATED_AT => $now->toIso8601String(),
             self::FIELD_TOTAL => $report[self::FIELD_TOTAL],
             AtlasLocalModelIntegrityService::FIELD_VERIFIED => $report[AtlasLocalModelIntegrityService::FIELD_VERIFIED],
@@ -56,7 +58,7 @@ final readonly class LocalModelIntegrityWatchdogCheck implements AtlasWatchdogCh
             $offenders = array_values(array_filter(
                 $report[self::FIELD_ARTIFACTS],
                 static fn (array $row): bool => in_array(
-                    AiValueNormalizer::trimmedScalarStringOrNull($row['status'] ?? null) ?? '',
+                    AiValueNormalizer::trimmedScalarStringOrNull($row[self::FIELD_STATUS] ?? null) ?? '',
                     [AtlasLocalModelIntegrityService::STATUS_MISMATCHED, AtlasLocalModelIntegrityService::STATUS_MISSING],
                     true,
                 ),

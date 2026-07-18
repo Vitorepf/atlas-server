@@ -43,6 +43,8 @@ final class EvidenceVisionThesisLifecycle
     public const FIELD_EXPIRES_AT = 'expires_at';
     public const FIELD_SERIES_RECOVERY = 'series_recovery';
     public const FIELD_OUTCOME_PROVEN = 'outcome_proven';
+    public const FIELD_YIELD = 'yield';
+    public const FIELD_TARGET_PATH = 'target_path';
 
     /** @var array<string,array<string,mixed>> */
     private static array $active = [];
@@ -220,7 +222,7 @@ final class EvidenceVisionThesisLifecycle
         }
 
         foreach ($tail as $window) {
-            if ((AiValueNormalizer::finiteFloatOrNull($window['yield'] ?? null) ?? 0.0) < $threshold) {
+            if ((AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_YIELD] ?? null) ?? 0.0) < $threshold) {
                 return false;
             }
         }
@@ -269,7 +271,7 @@ final class EvidenceVisionThesisLifecycle
             if (! is_array($lead)) {
                 continue;
             }
-            if (ltrim(AiValueNormalizer::trimmedStringOrNull($lead['target_path'] ?? null) ?? '', '/') === $target) {
+            if (ltrim(AiValueNormalizer::trimmedStringOrNull($lead[self::FIELD_TARGET_PATH] ?? null) ?? '', '/') === $target) {
                 $remaining++;
             }
         }

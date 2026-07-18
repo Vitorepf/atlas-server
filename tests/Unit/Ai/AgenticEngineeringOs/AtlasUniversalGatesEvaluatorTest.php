@@ -6549,4 +6549,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['compaction_redaction_capture_provenance_impact_bets_maturity_claim_generated_floor_count']);
     }
 
+    public function test_promo_handoff_blocker_protocol_replay_thesis_integrity_budget_deriver_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->promoHandoffBlockerProtocolReplayThesisIntegrityBudgetDeriverFloorsContractObserve([]);
+
+        $this->assertSame('total', $payload['promo_elig_field_total']);
+        $this->assertSame('tier_thresholds', $payload['promo_elig_field_tier_thresholds']);
+        $this->assertSame('universal_15_gates_green_or_exception', $payload['handoff_field_universal_15_gates_green_or_exception']);
+        $this->assertSame('topology_plan_providers_min_1_available', $payload['handoff_field_topology_plan_providers_min_1_available']);
+        $this->assertSame('unknown_count', $payload['blocker_field_unknown_count']);
+        $this->assertSame('signal', $payload['blocker_field_signal']);
+        $this->assertSame('states', $payload['protocol_field_states']);
+        $this->assertSame('required_fields', $payload['protocol_field_required_fields']);
+        $this->assertSame('runs', $payload['replay_field_runs']);
+        $this->assertSame('provider_calls_made', $payload['replay_field_provider_calls_made']);
+        $this->assertSame('yield', $payload['thesis_field_yield']);
+        $this->assertSame('target_path', $payload['thesis_field_target_path']);
+        $this->assertSame('status', $payload['integrity_field_status']);
+        $this->assertSame('schema_version', $payload['integrity_field_schema_version']);
+        $this->assertSame('schema_version', $payload['budget_field_schema_version']);
+        $this->assertSame('message', $payload['budget_field_message']);
+        $this->assertSame('signature', $payload['deriver_field_signature']);
+        $this->assertSame('schema_version', $payload['deriver_field_schema_version']);
+        $this->assertSame(18, $payload['promo_handoff_blocker_protocol_replay_thesis_integrity_budget_deriver_floor_count']);
+    }
+
 }

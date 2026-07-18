@@ -53,6 +53,8 @@ final class AaeosPhaseHandoffService
     public const FIELD_AUTONOMY_LEVEL = 'autonomy_level';
     public const FIELD_SURFACE_CAPTURED_INTENT = 'surface_captured_intent';
     public const FIELD_INTENT_CLARITY_SCORE_MIN_0_8 = 'intent_clarity_score_min_0_8';
+    public const FIELD_UNIVERSAL_15_GATES_GREEN_OR_EXCEPTION = 'universal_15_gates_green_or_exception';
+    public const FIELD_TOPOLOGY_PLAN_PROVIDERS_MIN_1_AVAILABLE = 'topology_plan_providers_min_1_available';
 
     public static function requireIntentId(string $intentId): void
     {
@@ -133,13 +135,13 @@ final class AaeosPhaseHandoffService
         self::PHASE_PLACEMENT => ['placement_decision_feature_path_valid'],
         self::PHASE_CLASSIFICATION => ['intent_classification_target_department_declared'],
         self::PHASE_POLICY_GATE => ['policy_decision_allowed_true'],
-        self::PHASE_TOPOLOGY => ['topology_plan_providers_min_1_available'],
+        self::PHASE_TOPOLOGY => [self::FIELD_TOPOLOGY_PLAN_PROVIDERS_MIN_1_AVAILABLE],
         self::PHASE_ROUTING => ['department_route_owner_confirmed'],
         self::PHASE_SPEC => ['spec_pack_acceptance_criteria_min_3'],
         self::PHASE_TASKS => ['task_pack_atomic_true_for_each'],
         self::PHASE_RECEIPT => ['decision_receipt_v2_signed'],
         self::PHASE_EXECUTION => ['execution_log_watchdog_ok'],
-        self::PHASE_GATES => ['universal_15_gates_green_or_exception'],
+        self::PHASE_GATES => [self::FIELD_UNIVERSAL_15_GATES_GREEN_OR_EXCEPTION],
         self::PHASE_EVIDENCE => ['evidence_pack_completeness_min_0_95'],
         self::PHASE_DELIVERY => ['delivery_pack_hash_signed'],
         self::PHASE_HUMAN_REVIEW => ['operator_decision_receipt_approved'],

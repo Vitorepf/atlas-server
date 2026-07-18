@@ -90,6 +90,8 @@ final class PromotionProtocol
     public const DEFAULT_LEDGER_RELATIVE_PATH = 'app/atlas/evidence/acos-max-promotion-flips.jsonl';
     public const FIELD_RECORDED_AT = 'recorded_at';
     public const FIELD_PROTOCOL_RECEIPT = 'protocol_receipt';
+    public const FIELD_STATES = 'states';
+    public const FIELD_REQUIRED_FIELDS = 'required_fields';
 
     /** @var list<string> */
     public const STATES = [
@@ -267,7 +269,7 @@ final class PromotionProtocol
             self::FIELD_SCHEMA_VERSION => self::REPORT_SCHEMA,
             self::FIELD_STATUS => self::STATUS_OK,
             'protocol_schema_version' => self::SCHEMA,
-            'states' => self::STATES,
+            self::FIELD_STATES => self::STATES,
             'ledger_path' => $this->ledger->path(),
             'managed_flags_count' => count($managed),
             'legacy_unmanaged_flags_count' => count($legacy),
@@ -567,7 +569,7 @@ final class PromotionProtocol
             self::FIELD_CONFIG_KEY => $entry[self::FIELD_CONFIG_KEY] ?? null,
             self::FIELD_ENV_KEY => $entry[self::FIELD_ENV_KEY] ?? null,
             self::FIELD_OPERATOR_ONLY => (AiValueNormalizer::boolOrNull($entry[self::FIELD_OPERATOR_ONLY] ?? null) ?? false),
-            'required_fields' => $this->requiredFields($entry),
+            self::FIELD_REQUIRED_FIELDS => $this->requiredFields($entry),
             self::FIELD_SHADOW_MINIMUM_WINDOW => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SHADOW_MINIMUM_WINDOW] ?? null) ?? '',
             self::FIELD_FLIP_CRITERION => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_FLIP_CRITERION] ?? null) ?? '',
             self::FIELD_ROLLBACK_TRIGGER => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_ROLLBACK_TRIGGER] ?? null) ?? '',

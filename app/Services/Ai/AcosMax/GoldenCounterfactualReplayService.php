@@ -41,6 +41,8 @@ final class GoldenCounterfactualReplayService
     public const FIELD_READ_ONLY = 'read_only';
     public const FIELD_RECALL_AT_5_WITHOUT = 'recall_at_5_without';
     public const FIELD_RECALL_AT_5_WITH = 'recall_at_5_with';
+    public const FIELD_RUNS = 'runs';
+    public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
 
 
     /**
@@ -56,7 +58,7 @@ final class GoldenCounterfactualReplayService
             self::FIELD_DECISION_ID => $decisionId,
             self::FIELD_CLAIM_POLICY => [
                 self::FIELD_READ_ONLY => true,
-                'provider_calls_made' => false,
+                self::FIELD_PROVIDER_CALLS_MADE => false,
                 'git_checkout_performed' => false,
                 'extrapolation_allowed' => false,
                 'delta_requires_both_arms' => true,
@@ -76,7 +78,7 @@ final class GoldenCounterfactualReplayService
         }
 
         $payload = $this->readJson($runsPath);
-        $runs = array_values(AiValueNormalizer::arrayOrEmpty($payload['runs'] ?? null));
+        $runs = array_values(AiValueNormalizer::arrayOrEmpty($payload[self::FIELD_RUNS] ?? null));
         $without = $this->firstRun($runs, 'without', $decisionId);
         $with = $this->firstRun($runs, 'with', $decisionId);
 

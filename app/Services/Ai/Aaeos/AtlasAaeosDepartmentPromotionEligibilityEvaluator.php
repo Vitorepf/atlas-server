@@ -35,6 +35,8 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     public const FIELD_UNRESOLVED = 'unresolved';
     public const FIELD_QUALITY_BAR = 'quality_bar';
     public const FIELD_PROMOTION_ALLOWED = 'promotion_allowed';
+    public const FIELD_TOTAL = 'total';
+    public const FIELD_TIER_THRESHOLDS = 'tier_thresholds';
 
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department
@@ -157,7 +159,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
 
         return [
             self::FIELD_PASSED => $unresolved === [],
-            'total' => count($blockers),
+            self::FIELD_TOTAL => count($blockers),
             self::FIELD_UNRESOLVED => $unresolved,
         ];
     }
@@ -186,7 +188,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
      */
     private function resolveRequiredThreshold(array $metrics, int $targetTier): float
     {
-        $thresholds = $metrics['tier_thresholds'] ?? null;
+        $thresholds = $metrics[self::FIELD_TIER_THRESHOLDS] ?? null;
 
         if (is_array($thresholds) && array_key_exists($targetTier, $thresholds)) {
             return $this->floatValue($thresholds[$targetTier]);

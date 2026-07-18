@@ -378,6 +378,7 @@ final class AtlasAaeosCommand extends Command
         {--immune-freeze-outcome-window-flywheel-promo-calib-handoff-runbook-floors-contract= : JSON file (any object) to observe immune/outcome/window/flywheel/promo/calib/handoff/runbook residual floors}
         {--verdict-dept-debt-canary-asef-freshness-reality-list-schema-floors-contract= : JSON file (any object) to observe verdict/dept/debt/canary/asef/freshness/reality/list/schema residual floors}
         {--compaction-redaction-capture-provenance-impact-bets-maturity-claim-generated-floors-contract= : JSON file (any object) to observe compaction/redaction/capture/provenance/impact/bets/maturity/claim/generated residual floors}
+        {--promo-handoff-blocker-protocol-replay-thesis-integrity-budget-deriver-floors-contract= : JSON file (any object) to observe promo/handoff/blocker/protocol/replay/thesis/integrity/budget/deriver residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -912,6 +913,7 @@ final class AtlasAaeosCommand extends Command
             ['immune-freeze-outcome-window-flywheel-promo-calib-handoff-runbook-floors-contract', 'immune_freeze_outcome_window_flywheel_promo_calib_handoff_runbook_floors_contract', fn (array $p) => $gates->immuneFreezeOutcomeWindowFlywheelPromoCalibHandoffRunbookFloorsContractObserve($p)],
             ['verdict-dept-debt-canary-asef-freshness-reality-list-schema-floors-contract', 'verdict_dept_debt_canary_asef_freshness_reality_list_schema_floors_contract', fn (array $p) => $gates->verdictDeptDebtCanaryAsefFreshnessRealityListSchemaFloorsContractObserve($p)],
             ['compaction-redaction-capture-provenance-impact-bets-maturity-claim-generated-floors-contract', 'compaction_redaction_capture_provenance_impact_bets_maturity_claim_generated_floors_contract', fn (array $p) => $gates->compactionRedactionCaptureProvenanceImpactBetsMaturityClaimGeneratedFloorsContractObserve($p)],
+            ['promo-handoff-blocker-protocol-replay-thesis-integrity-budget-deriver-floors-contract', 'promo_handoff_blocker_protocol_replay_thesis_integrity_budget_deriver_floors_contract', fn (array $p) => $gates->promoHandoffBlockerProtocolReplayThesisIntegrityBudgetDeriverFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

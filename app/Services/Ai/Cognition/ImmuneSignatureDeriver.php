@@ -17,6 +17,8 @@ final class ImmuneSignatureDeriver
     public const SCHEMA_VERSION = 'atlas.cognition.immune_signature_family.v1';
     public const FIELD_CONTENT_HASH = 'content_hash';
     public const FIELD_MARKER_CENTROID = 'marker_centroid';
+    public const FIELD_SIGNATURE = 'signature';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     /** @var list<string> */
     public const HOSTILE_CLASSES = [
@@ -32,14 +34,14 @@ final class ImmuneSignatureDeriver
     public function derive(string $contentHash, string $hostileClass, array $matchedSignals): array
     {
         $family = [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_CONTENT_HASH => $this->normalizeHash($contentHash),
             self::FIELD_MARKER_CENTROID => $this->markerCentroid($matchedSignals),
             'hostile_class' => $this->normalizeClass($hostileClass),
         ];
 
         return [
-            'signature' => hash('sha256', json_encode($family, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
+            self::FIELD_SIGNATURE => hash('sha256', json_encode($family, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
             'family' => $family,
         ];
     }

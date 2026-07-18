@@ -8544,6 +8544,39 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors: promo eligibility / phase handoff / blocker severity /
+     * promotion protocol / golden replay / thesis lifecycle / local integrity / joint budget /
+     * immune signature deriver (B356).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function promoHandoffBlockerProtocolReplayThesisIntegrityBudgetDeriverFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'promo_elig_field_total' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_TOTAL,
+            'promo_elig_field_tier_thresholds' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_TIER_THRESHOLDS,
+            'handoff_field_universal_15_gates_green_or_exception' => AaeosPhaseHandoffService::FIELD_UNIVERSAL_15_GATES_GREEN_OR_EXCEPTION,
+            'handoff_field_topology_plan_providers_min_1_available' => AaeosPhaseHandoffService::FIELD_TOPOLOGY_PLAN_PROVIDERS_MIN_1_AVAILABLE,
+            'blocker_field_unknown_count' => AaeosBlockerSeverityGate::FIELD_UNKNOWN_COUNT,
+            'blocker_field_signal' => AaeosBlockerSeverityGate::FIELD_SIGNAL,
+            'protocol_field_states' => PromotionProtocol::FIELD_STATES,
+            'protocol_field_required_fields' => PromotionProtocol::FIELD_REQUIRED_FIELDS,
+            'replay_field_runs' => GoldenCounterfactualReplayService::FIELD_RUNS,
+            'replay_field_provider_calls_made' => GoldenCounterfactualReplayService::FIELD_PROVIDER_CALLS_MADE,
+            'thesis_field_yield' => EvidenceVisionThesisLifecycle::FIELD_YIELD,
+            'thesis_field_target_path' => EvidenceVisionThesisLifecycle::FIELD_TARGET_PATH,
+            'integrity_field_status' => LocalModelIntegrityWatchdogCheck::FIELD_STATUS,
+            'integrity_field_schema_version' => LocalModelIntegrityWatchdogCheck::FIELD_SCHEMA_VERSION,
+            'budget_field_schema_version' => JointResourceBudgetWatchdogCheck::FIELD_SCHEMA_VERSION,
+            'budget_field_message' => JointResourceBudgetWatchdogCheck::FIELD_MESSAGE,
+            'deriver_field_signature' => ImmuneSignatureDeriver::FIELD_SIGNATURE,
+            'deriver_field_schema_version' => ImmuneSignatureDeriver::FIELD_SCHEMA_VERSION,
+            'promo_handoff_blocker_protocol_replay_thesis_integrity_budget_deriver_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>
