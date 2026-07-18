@@ -172,6 +172,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_ATLAS_AI_COUNTERFACTUAL_LIFT___JSON = 'atlas:ai:counterfactual-lift --json';
     public const FIELD_ATLAS_AI_LESSON_DEDUP_CALIBRATION___JSON = 'atlas:ai:lesson-dedup-calibration --json';
     public const FIELD_ATLAS_AI_LESSON_HALF_LIFE___JSON = 'atlas:ai:lesson-half-life --json';
+    public const FIELD_ATLAS_AI_LESSON_QUALITY___JSON = 'atlas:ai:lesson-quality --json';
+    public const FIELD_ATLAS_AI_LESSON_TYPE_YIELD___JSON = 'atlas:ai:lesson-type-yield --json';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -350,7 +352,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MAXJ_01,
                 self::FIELD_SERIES => AtlasLessonQualityService::MEASURE_ID,
-                self::FIELD_PATH => 'atlas:ai:lesson-quality --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_AI_LESSON_QUALITY___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AtlasAcosFreezeCommand::lessonQualityFreezePayload()[self::FIELD_TTL_DAYS],
@@ -359,7 +361,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MAXJ_05,
                 self::FIELD_SERIES => AtlasLearningRecallUseLiftService::LESSON_TYPE_YIELD_MEASURE_ID,
-                self::FIELD_PATH => 'atlas:ai:lesson-type-yield --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_AI_LESSON_TYPE_YIELD___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AtlasAcosFreezeCommand::lessonTypeYieldFreezePayload()[self::FIELD_TTL_DAYS],

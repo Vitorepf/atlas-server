@@ -15,6 +15,8 @@ final class AtlasAaeosValueNormalizer
     public const FIELD_R1 = 'R1';
     public const FIELD_R2 = 'R2';
     public const FIELD_R3 = 'R3';
+    public const FIELD_R4 = 'R4';
+    public const FIELD_R5 = 'R5';
     public static function stringOrNull(mixed $value): ?string
     {
         return AiValueNormalizer::trimmedStringOrNull($value);
@@ -85,7 +87,7 @@ final class AtlasAaeosValueNormalizer
     {
         $risk = is_string($value) ? AiValueNormalizer::upperTrimmedString($value) : '';
 
-        return in_array($risk, [self::FIELD_R0, self::FIELD_R1, self::FIELD_R2, self::FIELD_R3, 'R4', 'R5'], true) ? $risk : $fallback;
+        return in_array($risk, [self::FIELD_R0, self::FIELD_R1, self::FIELD_R2, self::FIELD_R3, self::FIELD_R4, self::FIELD_R5], true) ? $risk : $fallback;
     }
 
     public static function lowMediumHighRisk(string $value, string $fallback = self::FIELD_MEDIUM): string

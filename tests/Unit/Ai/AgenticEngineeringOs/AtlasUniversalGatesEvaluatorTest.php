@@ -11443,4 +11443,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b548_cognition_score_department_contract_measure_series_immune_promotion_floor_count']);
     }
 
+    public function test_b549_cognition_score_department_contract_measure_series_immune_promotion_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b549CognitionScoreDepartmentContractMeasureSeriesImmunePromotionFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AUTONOMY_ADMISSION, $out['Autonomy Admission']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_BDD_ACCEPTANCE_RUNTIME, $out['BDD Acceptance Runtime']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EXECUTIVE_INTAKE, $out['Executive Intake']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_FORGE_DEPARTMENT, $out['Forge Department']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_AI_LESSON_QUALITY___JSON, $out['atlas:ai:lesson-quality --json']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_AI_LESSON_TYPE_YIELD___JSON, $out['atlas:ai:lesson-type-yield --json']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_QUALITY_CERTIFICATION_GATE, $out['Context Quality Certification Gate']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_EVIDENCE_LEDGER_MEMORY_SIDE, $out['Evidence Ledger Memory Side']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_G3, $out['G3']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_G4, $out['G4']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK___REGRET___JSON, $out['atlas:atlas-decide:live-feedback --regret --json']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_PROMOTIONS___JSON, $out['atlas:promotions --json']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_L1, $out['L1']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_L4, $out['L4']);
+        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R4, $out['R4']);
+        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_R5, $out['R5']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_L4, $out['L4']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_L5, $out['L5']);
+        $this->assertSame(18, $out['b549_cognition_score_department_contract_measure_series_immune_promotion_floor_count']);
+    }
+
 }

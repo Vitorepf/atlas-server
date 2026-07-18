@@ -425,6 +425,8 @@ final class DepartmentContractRuntime
     public const FIELD_DEBUG_DEPARTMENT = 'Debug Department';
     public const FIELD_DELIVERY_DEPARTMENT = 'Delivery Department';
     public const FIELD_DEV_DEPARTMENT = 'Dev Department';
+    public const FIELD_EXECUTIVE_INTAKE = 'Executive Intake';
+    public const FIELD_FORGE_DEPARTMENT = 'Forge Department';
     public const INT_11 = 11;
 
     /**
@@ -459,7 +461,7 @@ final class DepartmentContractRuntime
      */
     public const CATALOGUE = [
         self::DEPARTMENT_EXECUTIVE_INTAKE => [
-            self::FIELD_HUMAN_NAME => 'Executive Intake',
+            self::FIELD_HUMAN_NAME => self::FIELD_EXECUTIVE_INTAKE,
             self::FIELD_DESCRIPTION => 'Receives ambiguous human intent; emits canonical mission envelope.',
             self::FIELD_SCOPE => 'recebe pedido humano ambíguo e produz mission envelope canônica antes de product',
             self::FIELD_TRIGGERS => ['operator_intent_raw_received=true'],
@@ -671,7 +673,7 @@ final class DepartmentContractRuntime
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_DELIVERY],
         ],
         self::DEPARTMENT_FORGE => [
-            self::FIELD_HUMAN_NAME => 'Forge Department',
+            self::FIELD_HUMAN_NAME => self::FIELD_FORGE_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Heavy Obras with provider topology + multi-agent scheduler.',
             self::FIELD_SCOPE => 'executa Obras pesadas multi-módulo R3-R5 com paralelismo, durable reservation, multi-provider',
             self::FIELD_TRIGGERS => ['intent_classification.target_department=forge', 'scope>=R3', 'multi_module_detected=true'],

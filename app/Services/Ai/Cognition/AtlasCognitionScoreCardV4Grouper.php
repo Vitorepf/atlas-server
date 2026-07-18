@@ -88,6 +88,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_CONSTITUTIONAL_GOVERNANCE = 'Constitutional Governance';
     public const FIELD_CONTEXT_CACHE_COMPILER_RUNTIME = 'Context Cache Compiler Runtime';
     public const FIELD_CONTEXT_INTELLIGENCE_ENGINE = 'Context Intelligence Engine';
+    public const FIELD_CONTEXT_QUALITY_CERTIFICATION_GATE = 'Context Quality Certification Gate';
+    public const FIELD_EVIDENCE_LEDGER_MEMORY_SIDE = 'Evidence Ledger Memory Side';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -220,9 +222,9 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_AEMOR_2 => 'Execution Memory Outcome Runtime',
             self::FIELD_LONG_HORIZON_2 => 'TEOS-I1 Long-Horizon Intelligence',
             self::FIELD_VERIFIED_CONTEXT_2 => 'Verified Context Execution Loop',
-            self::FIELD_CONTEXT_QUALITY_2 => 'Context Quality Certification Gate',
+            self::FIELD_CONTEXT_QUALITY_2 => self::FIELD_CONTEXT_QUALITY_CERTIFICATION_GATE,
             self::FIELD_OPEN_BRAIN_2 => 'Open Brain Gateway',
-            self::FIELD_EVIDENCE_2 => 'Evidence Ledger Memory Side',
+            self::FIELD_EVIDENCE_2 => self::FIELD_EVIDENCE_LEDGER_MEMORY_SIDE,
             default => 'Other ACOS',
         };
     }

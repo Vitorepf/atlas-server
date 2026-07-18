@@ -275,6 +275,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_ATLAS_DECIDE_LIVE_OUTCOME_FEEDBACK = 'Atlas Decide Live Outcome Feedback';
     public const FIELD_ATLAS_SWARM_PARALLEL_DISPATCHER = 'Atlas Swarm Parallel Dispatcher';
     public const FIELD_AUTONOMOUS_RECONCILIATION_RUNTIME = 'Autonomous Reconciliation Runtime';
+    public const FIELD_AUTONOMY_ADMISSION = 'Autonomy Admission';
+    public const FIELD_BDD_ACCEPTANCE_RUNTIME = 'BDD Acceptance Runtime';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -371,7 +373,7 @@ class AtlasCognitionScoreCardService
 
         // Patamar 4 — Constitutional Kernel, Autonomy Admission, CognitiveFunctionAtlas, Reconciliation Runtime, TEOS-I4, Swarm Conductor, Temporary Domain Composition
         [self::FIELD_ACK,     'Constitutional Kernel',               self::FIELD_GOVERNANCE,        AtlasConstitutionalKernelService::class],
-        [self::FIELD_AAA,     'Autonomy Admission',                  self::FIELD_GOVERNANCE,        AtlasAutonomyAdmissionService::class],
+        [self::FIELD_AAA,     self::FIELD_AUTONOMY_ADMISSION,                  self::FIELD_GOVERNANCE,        AtlasAutonomyAdmissionService::class],
         [self::FIELD_ACFA,    'Cognitive Function Atlas',            self::FIELD_COGNITION,         AtlasCognitiveFunctionAtlasService::class],
         [self::FIELD_AARR,    self::FIELD_AUTONOMOUS_RECONCILIATION_RUNTIME,   self::FIELD_AUTONOMY,          AtlasAutonomousReconciliationRuntimeService::class],
         [self::FIELD_TEOS_I4, 'TEOS-I4 Counterfactual Tree',         self::FIELD_TEOS,              AtlasTeosI4CounterfactualTreeService::class],
@@ -413,7 +415,7 @@ class AtlasCognitionScoreCardService
 
         // Domain runtimes — Research (review-only, source-grounded)
         [self::FIELD_ARDR,  'Research Domain Runtime',               self::FIELD_RESEARCH_DOMAIN, ResearchRuntimeService::class],
-        [self::FIELD_ABDD,  'BDD Acceptance Runtime',                self::FIELD_PROGRAMMING,     AtlasBddAcceptanceRuntimeService::class],
+        [self::FIELD_ABDD,  self::FIELD_BDD_ACCEPTANCE_RUNTIME,                self::FIELD_PROGRAMMING,     AtlasBddAcceptanceRuntimeService::class],
         [self::FIELD_ALMR,  'Learning Mutation Runtime',             self::FIELD_COMPOUNDING,     AtlasLearningMutationRuntimeService::class],
         [self::FIELD_APCP,  'Programming Cartography Publisher',     self::FIELD_PROGRAMMING,     AtlasProgrammingCartographyPublisherService::class],
     ];

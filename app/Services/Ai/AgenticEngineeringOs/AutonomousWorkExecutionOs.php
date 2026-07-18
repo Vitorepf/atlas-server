@@ -73,6 +73,8 @@ final class AutonomousWorkExecutionOs
     public const FIELD_GOAL_RECORDED = 'goal_recorded';
     public const FIELD_L6 = 'L6';
     public const FIELD_L7 = 'L7';
+    public const FIELD_L4 = 'L4';
+    public const FIELD_L5 = 'L5';
 
     public const STAGE_STATUSES = [
         self::STATUS_PENDING,
@@ -115,7 +117,7 @@ final class AutonomousWorkExecutionOs
         }
 
         // L4+ requires explicit operator consent
-        $consentRequired = in_array($level, ['L4', 'L5', self::FIELD_L6, self::FIELD_L7], true);
+        $consentRequired = in_array($level, [self::FIELD_L4, self::FIELD_L5, self::FIELD_L6, self::FIELD_L7], true);
         if ($consentRequired && ($request[self::FIELD_OPERATOR_CONSENT_PRESENT] ?? null) !== true) {
             $blocking[] = sprintf('autonomy_level %s requires operator_consent_present=true', $level);
         }

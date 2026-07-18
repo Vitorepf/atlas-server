@@ -67,6 +67,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_QA = 'qa';
     public const FIELD_L2 = 'L2';
     public const FIELD_L3 = 'L3';
+    public const FIELD_L1 = 'L1';
+    public const FIELD_L4 = 'L4';
 
     public const DEPARTMENTS = [
         [
@@ -95,7 +97,7 @@ final class AtlasAaeosDepartmentMaturityService
         ],
         [
             self::FIELD_DEPARTMENT_ID => self::FIELD_DEV,
-            self::FIELD_CURRENT_LEVEL => 'L1',
+            self::FIELD_CURRENT_LEVEL => self::FIELD_L1,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#dev'],
             self::FIELD_BLOCKER_ID => self::FIELD_DEV_PLAN_VISIBLE_L2,
             self::FIELD_BLOCKER_SUMMARY => 'A2 Plan-Visible incompleto, HTTP path legado',
@@ -135,7 +137,7 @@ final class AtlasAaeosDepartmentMaturityService
         ],
         [
             self::FIELD_DEPARTMENT_ID => self::FIELD_FORGE,
-            self::FIELD_CURRENT_LEVEL => 'L4',
+            self::FIELD_CURRENT_LEVEL => self::FIELD_L4,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#forge'],
             self::FIELD_BLOCKER_ID => self::FIELD_FORGE_MERGE_REVIEW_PROMOTION_R5,
             self::FIELD_BLOCKER_SUMMARY => 'falta merge review promotion R5 governado',

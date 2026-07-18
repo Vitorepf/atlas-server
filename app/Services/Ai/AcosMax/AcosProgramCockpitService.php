@@ -71,6 +71,8 @@ final class AcosProgramCockpitService
     public const FIELD_ATLAS_ACOS_ROLLBACK_TRIGGERS___JSON = 'atlas:acos:rollback-triggers --json';
     public const FIELD_ATLAS_FLYWHEEL_LOOPS___JSON = 'atlas:flywheel:loops --json';
     public const FIELD_ATLAS_ACOS_M_SERIES___JSON = 'atlas:acos:m-series --json';
+    public const FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK___REGRET___JSON = 'atlas:atlas-decide:live-feedback --regret --json';
+    public const FIELD_ATLAS_PROMOTIONS___JSON = 'atlas:promotions --json';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -85,10 +87,10 @@ final class AcosProgramCockpitService
             self::FIELD_MUTATES_STATE => false,
             self::FIELD_SECTIONS => [
                 'm' => $this->commandSection(self::FIELD_ATLAS_ACOS_M_SERIES___JSON, self::FIELD_ATLAS_ACOS_M_SERIES, [self::FIELD___JSON => true]),
-                'r' => $this->commandSection('atlas:atlas-decide:live-feedback --regret --json', self::FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK, [self::FIELD___REGRET => true, self::FIELD___JSON => true]),
+                'r' => $this->commandSection(self::FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK___REGRET___JSON, self::FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK, [self::FIELD___REGRET => true, self::FIELD___JSON => true]),
                 self::FIELD_LOOPS_FUNNEL => $this->loopsFunnelSection(),
                 self::FIELD_WINDOWS => $this->commandSection('atlas:windows --json', self::FIELD_ATLAS_WINDOWS, [self::FIELD___JSON => true]),
-                self::FIELD_PENDING_FLIPS => $this->commandSection('atlas:promotions --json', self::FIELD_ATLAS_PROMOTIONS, [self::FIELD___JSON => true]),
+                self::FIELD_PENDING_FLIPS => $this->commandSection(self::FIELD_ATLAS_PROMOTIONS___JSON, self::FIELD_ATLAS_PROMOTIONS, [self::FIELD___JSON => true]),
                 self::FIELD_REVIEW_DEBT => $this->callbackSection(
                     'AtlasOperatorReviewDebtMeter::report(7)',
                     fn (): array => (new AtlasOperatorReviewDebtMeter)->report(7),

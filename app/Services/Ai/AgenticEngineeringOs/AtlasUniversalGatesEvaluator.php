@@ -14516,4 +14516,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B549).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b549CognitionScoreDepartmentContractMeasureSeriesImmunePromotionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'Autonomy Admission' => AtlasCognitionScoreCardService::FIELD_AUTONOMY_ADMISSION,
+            'BDD Acceptance Runtime' => AtlasCognitionScoreCardService::FIELD_BDD_ACCEPTANCE_RUNTIME,
+            'Executive Intake' => DepartmentContractRuntime::FIELD_EXECUTIVE_INTAKE,
+            'Forge Department' => DepartmentContractRuntime::FIELD_FORGE_DEPARTMENT,
+            'atlas:ai:lesson-quality --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_AI_LESSON_QUALITY___JSON,
+            'atlas:ai:lesson-type-yield --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_AI_LESSON_TYPE_YIELD___JSON,
+            'Context Quality Certification Gate' => AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_QUALITY_CERTIFICATION_GATE,
+            'Evidence Ledger Memory Side' => AtlasCognitionScoreCardV4Grouper::FIELD_EVIDENCE_LEDGER_MEMORY_SIDE,
+            'G3' => CognitiveImmunePromotionGateEvaluator::FIELD_G3,
+            'G4' => CognitiveImmunePromotionGateEvaluator::FIELD_G4,
+            'atlas:atlas-decide:live-feedback --regret --json' => AcosProgramCockpitService::FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK___REGRET___JSON,
+            'atlas:promotions --json' => AcosProgramCockpitService::FIELD_ATLAS_PROMOTIONS___JSON,
+            'L1' => AtlasAaeosDepartmentMaturityService::FIELD_L1,
+            'L4' => AtlasAaeosDepartmentMaturityService::FIELD_L4,
+            'R4' => AtlasAaeosValueNormalizer::FIELD_R4,
+            'R5' => AtlasAaeosValueNormalizer::FIELD_R5,
+            'L4' => AutonomousWorkExecutionOs::FIELD_L4,
+            'L5' => AutonomousWorkExecutionOs::FIELD_L5,
+            'b549_cognition_score_department_contract_measure_series_immune_promotion_floor_count' => 18,
+        ];
+    }
+
 }
