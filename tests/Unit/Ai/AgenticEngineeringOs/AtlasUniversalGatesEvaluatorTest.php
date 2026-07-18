@@ -16327,4 +16327,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b745_watchdog_check_health_report_floor_count']);
     }
 
+    public function test_b746_health_report_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b746HealthReportFloorsContractObserve([]);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_ID, $out['id']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_REPORT_METHOD, $out['report_method']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_ALERT_CODE, $out['alert_code']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_AURG_COVERAGE_GATE_FAILED, $out['aurg_coverage_gate_failed']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_COMPACTION_SOAK_NOT_READY, $out['compaction_soak_not_ready']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_CONTEXT_FEEDBACK_HEALTH_FAILED, $out['context_feedback_health_failed']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_ENGINEERING_ENFORCE_READINESS_NOT_READY, $out['engineering_enforce_readiness_not_ready']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_LEARNING_CADENCE_STALLED, $out['learning_cadence_stalled']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_LIFT_CYCLE_CLOSURE_STALLED, $out['lift_cycle_closure_stalled']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_MEMORY_QUALITY_CHECK_FAILED, $out['memory_quality_check_failed']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_RAG_DIMENSION_WATCHDOG_FAILED, $out['rag_dimension_watchdog_failed']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_FAILED, $out['scorecard_receipts_diagnosis_failed']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_SCORECARD_STABILITY_FAILED, $out['scorecard_stability_failed']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_AURG_COVERAGE_REPORT, $out['aurgCoverageReport']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_COMPACTION_SOAK_WATCH_REPORT, $out['compactionSoakWatchReport']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_CONTEXT_FEEDBACK_HEALTH_REPORT, $out['contextFeedbackHealthReport']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_ENGINEERING_ENFORCE_READINESS_REPORT, $out['engineeringEnforceReadinessReport']);
+        $this->assertSame(18, $out['b746_health_report_floor_count']);
+    }
+
 }

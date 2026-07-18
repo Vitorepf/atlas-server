@@ -20574,4 +20574,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B746).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b746HealthReportFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'id' => HealthReportWatchdogCheck::FIELD_ID,
+            'report_method' => HealthReportWatchdogCheck::FIELD_REPORT_METHOD,
+            'alert_code' => HealthReportWatchdogCheck::FIELD_ALERT_CODE,
+            'message' => HealthReportWatchdogCheck::FIELD_MESSAGE,
+            'aurg_coverage_gate_failed' => HealthReportWatchdogCheck::FIELD_AURG_COVERAGE_GATE_FAILED,
+            'compaction_soak_not_ready' => HealthReportWatchdogCheck::FIELD_COMPACTION_SOAK_NOT_READY,
+            'context_feedback_health_failed' => HealthReportWatchdogCheck::FIELD_CONTEXT_FEEDBACK_HEALTH_FAILED,
+            'engineering_enforce_readiness_not_ready' => HealthReportWatchdogCheck::FIELD_ENGINEERING_ENFORCE_READINESS_NOT_READY,
+            'learning_cadence_stalled' => HealthReportWatchdogCheck::FIELD_LEARNING_CADENCE_STALLED,
+            'lift_cycle_closure_stalled' => HealthReportWatchdogCheck::FIELD_LIFT_CYCLE_CLOSURE_STALLED,
+            'memory_quality_check_failed' => HealthReportWatchdogCheck::FIELD_MEMORY_QUALITY_CHECK_FAILED,
+            'rag_dimension_watchdog_failed' => HealthReportWatchdogCheck::FIELD_RAG_DIMENSION_WATCHDOG_FAILED,
+            'scorecard_receipts_diagnosis_failed' => HealthReportWatchdogCheck::FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_FAILED,
+            'scorecard_stability_failed' => HealthReportWatchdogCheck::FIELD_SCORECARD_STABILITY_FAILED,
+            'aurgCoverageReport' => HealthReportWatchdogCheck::FIELD_AURG_COVERAGE_REPORT,
+            'compactionSoakWatchReport' => HealthReportWatchdogCheck::FIELD_COMPACTION_SOAK_WATCH_REPORT,
+            'contextFeedbackHealthReport' => HealthReportWatchdogCheck::FIELD_CONTEXT_FEEDBACK_HEALTH_REPORT,
+            'engineeringEnforceReadinessReport' => HealthReportWatchdogCheck::FIELD_ENGINEERING_ENFORCE_READINESS_REPORT,
+            'b746_health_report_floor_count' => 18,
+        ];
+    }
+
 }
