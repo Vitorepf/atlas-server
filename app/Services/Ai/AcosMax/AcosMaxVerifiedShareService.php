@@ -68,6 +68,8 @@ final class AcosMaxVerifiedShareService
     public const FIELD_CONTENT_HASH = 'content_hash';
     public const FIELD_EVENT_NAME = 'event_name';
     public const FIELD_EXECUTORS = 'executors';
+    public const FIELD_TOTAL_COUNT = 'total_count';
+    public const FIELD_VERIFIED_SHARE = 'verified_share';
 
 
     /** @return array<string,mixed> */
@@ -168,11 +170,11 @@ final class AcosMaxVerifiedShareService
     /** @param array{verified_count:int,total_count:int,verified_share:?float} $aggregate */
     private function status(array $aggregate, int $denominatorMin, float $shareMin): string
     {
-        if ($aggregate['total_count'] < $denominatorMin) {
+        if ($aggregate[self::FIELD_TOTAL_COUNT] < $denominatorMin) {
             return self::STATUS_INSUFFICIENT_SIGNAL;
         }
 
-        return (AiValueNormalizer::finiteFloatOrNull($aggregate['verified_share'] ?? null) ?? 0.0) >= $shareMin ? self::STATUS_OK : self::STATUS_BELOW_THRESHOLD;
+        return (AiValueNormalizer::finiteFloatOrNull($aggregate[self::FIELD_VERIFIED_SHARE] ?? null) ?? 0.0) >= $shareMin ? self::STATUS_OK : self::STATUS_BELOW_THRESHOLD;
     }
 
     /** @return array<string,int> */
@@ -186,8 +188,8 @@ final class AcosMaxVerifiedShareService
     {
         return [
             'verified_count' => $verified,
-            'total_count' => $total,
-            'verified_share' => $total > 0 ? round($verified / $total, 4) : null,
+            self::FIELD_TOTAL_COUNT => $total,
+            self::FIELD_VERIFIED_SHARE => $total > 0 ? round($verified / $total, 4) : null,
         ];
     }
 

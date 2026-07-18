@@ -43,6 +43,8 @@ final class AtlasFlywheelFunnelService
     public const FIELD_DIAGNOSTIC_ONLY = 'diagnostic_only';
     public const FIELD_LEARNING_STATUS = 'learning_status';
     public const FIELD_LESSON_PROMOTED = 'lesson_promoted';
+    public const FIELD_PROMOTED_LESSON_CITED = 'promoted_lesson_cited';
+    public const FIELD_PROMOTED_LESSON_RECALLED = 'promoted_lesson_recalled';
 
     /** @var list<string> */
     public const STAGES = [
@@ -99,8 +101,8 @@ final class AtlasFlywheelFunnelService
     {
         $withLesson = array_values(array_filter($rows, fn (array $row): bool => $this->hasLesson($row)));
         $promoted = array_values(array_filter($withLesson, static fn (array $row): bool => ($row[self::FIELD_LESSON_PROMOTED] ?? false) === true));
-        $recalled = array_values(array_filter($promoted, static fn (array $row): bool => ($row['promoted_lesson_recalled'] ?? false) === true));
-        $cited = array_values(array_filter($recalled, static fn (array $row): bool => ($row['promoted_lesson_cited'] ?? false) === true));
+        $recalled = array_values(array_filter($promoted, static fn (array $row): bool => ($row[self::FIELD_PROMOTED_LESSON_RECALLED] ?? false) === true));
+        $cited = array_values(array_filter($recalled, static fn (array $row): bool => ($row[self::FIELD_PROMOTED_LESSON_CITED] ?? false) === true));
 
         return [
             self::FIELD_OUTCOMES_WITHOUT_LESSON => $this->stage(
@@ -114,12 +116,12 @@ final class AtlasFlywheelFunnelService
                 $denominatorMin,
             ),
             self::FIELD_PROMOTED_WITHOUT_RECALL => $this->stage(
-                count(array_filter($promoted, static fn (array $row): bool => ($row['promoted_lesson_recalled'] ?? false) !== true)),
+                count(array_filter($promoted, static fn (array $row): bool => ($row[self::FIELD_PROMOTED_LESSON_RECALLED] ?? false) !== true)),
                 count($promoted),
                 $denominatorMin,
             ),
             self::FIELD_RECALLS_WITHOUT_CITATION => $this->stage(
-                count(array_filter($recalled, static fn (array $row): bool => ($row['promoted_lesson_cited'] ?? false) !== true)),
+                count(array_filter($recalled, static fn (array $row): bool => ($row[self::FIELD_PROMOTED_LESSON_CITED] ?? false) !== true)),
                 count($recalled),
                 $denominatorMin,
             ),

@@ -346,6 +346,7 @@ final class AtlasAaeosCommand extends Command
         {--decomposer-evidence-teto-fact-ragx-golden-floors-contract= : JSON file (any object) to observe decomposer/evidence/teto/fact/ragx/golden residual floors}
         {--envelope-integrity-promoter-series-lote2-lexical-substrate-bets-floors-contract= : JSON file (any object) to observe envelope/integrity/promoter/series/lote2/lexical/substrate/bets residual floors}
         {--pareto-window-cockpit-obra-ambition-dead-scorecard-vision-esp09-floors-contract= : JSON file (any object) to observe pareto/window/cockpit/obra/ambition/dead/scorecard/vision/esp09 residual floors}
+        {--evolution-reality-freshness-nudge-immune-share-flywheel-aemor-quality-floors-contract= : JSON file (any object) to observe evolution/reality/freshness/nudge/immune/share/flywheel/aemor/quality residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -848,6 +849,7 @@ final class AtlasAaeosCommand extends Command
             ['decomposer-evidence-teto-fact-ragx-golden-floors-contract', 'decomposer_evidence_teto_fact_ragx_golden_floors_contract', fn (array $p) => $gates->decomposerEvidenceTetoFactRagxGoldenFloorsContractObserve($p)],
             ['envelope-integrity-promoter-series-lote2-lexical-substrate-bets-floors-contract', 'envelope_integrity_promoter_series_lote2_lexical_substrate_bets_floors_contract', fn (array $p) => $gates->envelopeIntegrityPromoterSeriesLote2LexicalSubstrateBetsFloorsContractObserve($p)],
             ['pareto-window-cockpit-obra-ambition-dead-scorecard-vision-esp09-floors-contract', 'pareto_window_cockpit_obra_ambition_dead_scorecard_vision_esp09_floors_contract', fn (array $p) => $gates->paretoWindowCockpitObraAmbitionDeadScorecardVisionEsp09FloorsContractObserve($p)],
+            ['evolution-reality-freshness-nudge-immune-share-flywheel-aemor-quality-floors-contract', 'evolution_reality_freshness_nudge_immune_share_flywheel_aemor_quality_floors_contract', fn (array $p) => $gates->evolutionRealityFreshnessNudgeImmuneShareFlywheelAemorQualityFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

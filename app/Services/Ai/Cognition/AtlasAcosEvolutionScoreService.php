@@ -62,6 +62,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     public const FIELD_STATUS = 'status';
+    public const FIELD_MAX = 'max';
+    public const FIELD_SIGNALS = 'signals';
 
     public const SCHEMA_VERSION = 'atlas.cognition.evolution_score.v1';
 
@@ -148,11 +150,11 @@ class AtlasAcosEvolutionScoreService
 
         return [
             self::FIELD_SCORE => round($pipeline, 2),
-            'max' => 10.0,
-            'signals' => [[
+            self::FIELD_MAX => 10.0,
+            self::FIELD_SIGNALS => [[
                 self::FIELD_SIGNAL => 'pipeline_green_run_receipts',
                 self::FIELD_POINTS => round($pipeline, 2),
-                'max' => 10.0,
+                self::FIELD_MAX => 10.0,
                 self::FIELD_EVIDENCE => 'scorecard v3 dimensão pipeline (green-run receipts reais, freshness-bound)',
             ]],
         ];
@@ -170,7 +172,7 @@ class AtlasAcosEvolutionScoreService
         $signals[] = [
             self::FIELD_SIGNAL => 'cadencia_viva',
             self::FIELD_POINTS => round(($heartbeatFresh ? 1.25 : 0.0) + 1.25 * ($organsScheduled / count(self::SCHEDULED_ORGANS)), 2),
-            'max' => 2.5,
+            self::FIELD_MAX => 2.5,
             self::FIELD_EVIDENCE => sprintf('heartbeat_fresh=%s organs_scheduled=%d/%d', $heartbeatFresh ? 'yes' : 'no', $organsScheduled, count(self::SCHEDULED_ORGANS)),
         ];
 
@@ -178,7 +180,7 @@ class AtlasAcosEvolutionScoreService
         $signals[] = [
             self::FIELD_SIGNAL => 'pack_anti_lixo',
             self::FIELD_POINTS => $unmarked === 0 ? 2.5 : 0.0,
-            'max' => 2.5,
+            self::FIELD_MAX => 2.5,
             self::FIELD_EVIDENCE => $unmarked === -1 ? 'store ausente (0 honesto)' : sprintf('unmarked_session_echo_nodes=%d', $unmarked),
         ];
 
@@ -198,7 +200,7 @@ class AtlasAcosEvolutionScoreService
         $signals[] = [
             self::FIELD_SIGNAL => 'feedback_loop_vivo',
             self::FIELD_POINTS => $newFeedbackPoints,
-            'max' => 2.5,
+            self::FIELD_MAX => 2.5,
             self::FIELD_EVIDENCE => sprintf(
                 'dual_read old_feedback=%.2f new_feedback=%.2f lift_status=%s with_cases=%d without_cases=%d measurement_ready=%s',
                 $oldFeedbackPoints,
@@ -218,7 +220,7 @@ class AtlasAcosEvolutionScoreService
         $signals[] = [
             self::FIELD_SIGNAL => 'licoes_geridas',
             self::FIELD_POINTS => $newLicoesPoints,
-            'max' => 2.5,
+            self::FIELD_MAX => 2.5,
             self::FIELD_EVIDENCE => sprintf(
                 'dual_read old_licoes=%.2f new_licoes=%.2f quarantine_held=%d promoted=%d active_compounding_served=%s',
                 $oldLicoesPoints,
@@ -243,7 +245,7 @@ class AtlasAcosEvolutionScoreService
         $signals[] = [
             self::FIELD_SIGNAL => 'motor_vivo',
             self::FIELD_POINTS => $heartbeatFresh ? 2.5 : 0.0,
-            'max' => 2.5,
+            self::FIELD_MAX => 2.5,
             self::FIELD_EVIDENCE => 'heartbeat do com.atlas.scheduler '.($heartbeatFresh ? 'fresco' : 'parado/ausente'),
         ];
 
@@ -252,7 +254,7 @@ class AtlasAcosEvolutionScoreService
         $signals[] = [
             self::FIELD_SIGNAL => 'gates_auditados',
             self::FIELD_POINTS => round(($gateFresh ? 1.25 : 0.0) + ($seriesFresh ? 1.25 : 0.0), 2),
-            'max' => 2.5,
+            self::FIELD_MAX => 2.5,
             self::FIELD_EVIDENCE => sprintf('long_horizon_receipt_fresh=%s delta_series_fresh=%s', $gateFresh ? 'yes' : 'no', $seriesFresh ? 'yes' : 'no'),
         ];
 
@@ -260,7 +262,7 @@ class AtlasAcosEvolutionScoreService
         $signals[] = [
             self::FIELD_SIGNAL => 'cadeia_tier_implementada',
             self::FIELD_POINTS => round(($chain[self::FIELD_IMPLEMENTED] ? 1.25 : 0.0) + ($chain[self::FIELD_AUDITED] ? 1.25 : 0.0), 2),
-            'max' => 2.5,
+            self::FIELD_MAX => 2.5,
             self::FIELD_EVIDENCE => $chain[self::FIELD_EVIDENCE],
         ];
 
@@ -274,7 +276,7 @@ class AtlasAcosEvolutionScoreService
         $signals[] = [
             self::FIELD_SIGNAL => 'execucao_governada',
             self::FIELD_POINTS => round(($switchReadable ? 0.5 : 0.0) + ($chain[self::FIELD_TIER_EXPOSED] ? 1.0 : 0.0) + $governance[self::FIELD_POINTS], 2),
-            'max' => 2.5,
+            self::FIELD_MAX => 2.5,
             self::FIELD_EVIDENCE => sprintf(
                 'master_switch=%s tier_exposed=%s governanca_autonoma=%s',
                 $switchReadable ? 'legível' : 'indisponível',
@@ -524,8 +526,8 @@ class AtlasAcosEvolutionScoreService
 
         return [
             self::FIELD_SCORE => round(min(10.0, $score), 2),
-            'max' => 10.0,
-            'signals' => $signals,
+            self::FIELD_MAX => 10.0,
+            self::FIELD_SIGNALS => $signals,
         ];
     }
 }

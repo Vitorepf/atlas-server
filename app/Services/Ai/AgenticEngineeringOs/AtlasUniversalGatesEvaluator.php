@@ -59,6 +59,7 @@ use App\Services\Ai\Cognition\Watchdog\Checks\SubstrateRestoreDrillWatchdogCheck
 use App\Services\Ai\Cognition\ImmuneCalibrationService;
 use App\Services\Ai\Cognition\CognitiveImmuneCheckContract;
 use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
+use App\Services\Ai\Cognition\CognitiveContextNudgeApplier;
 use App\Services\Ai\Cognition\AtlasConsolidationRerankGuard;
 use App\Services\Ai\Cognition\ImmuneSignatureDeriver;
 use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
@@ -7622,6 +7623,37 @@ final class AtlasUniversalGatesEvaluator
             'esp09_field_proposed_choice' => Esp09IndependentChallengerService::FIELD_PROPOSED_CHOICE,
             'esp09_field_refutation' => Esp09IndependentChallengerService::FIELD_REFUTATION,
             'pareto_window_cockpit_obra_ambition_dead_scorecard_vision_esp09_floor_count' => 18,
+        ];
+    }
+
+    /**
+     * Observe-only residual floors for evolution/reality/freshness/nudge/immune/share/flywheel/aemor/quality peels (B324).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function evolutionRealityFreshnessNudgeImmuneShareFlywheelAemorQualityFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'evolution_field_max' => AtlasAcosEvolutionScoreService::FIELD_MAX,
+            'evolution_field_signals' => AtlasAcosEvolutionScoreService::FIELD_SIGNALS,
+            'reality_field_phase' => RealityCompilerSlice::FIELD_PHASE,
+            'reality_field_status' => RealityCompilerSlice::FIELD_STATUS,
+            'freshness_field_timestamp_field' => AcosMeasureSeriesFreshnessReader::FIELD_TIMESTAMP_FIELD,
+            'freshness_field_table' => AcosMeasureSeriesFreshnessReader::FIELD_TABLE,
+            'nudge_field_audit' => CognitiveContextNudgeApplier::FIELD_AUDIT,
+            'nudge_field_retrieval' => CognitiveContextNudgeApplier::FIELD_RETRIEVAL,
+            'immune_field_recalls' => CognitiveImmunePromotionGateEvaluator::FIELD_RECALLS,
+            'immune_field_per_actor' => CognitiveImmunePromotionGateEvaluator::FIELD_PER_ACTOR,
+            'share_field_total_count' => AcosMaxVerifiedShareService::FIELD_TOTAL_COUNT,
+            'share_field_verified_share' => AcosMaxVerifiedShareService::FIELD_VERIFIED_SHARE,
+            'flywheel_field_promoted_lesson_cited' => AtlasFlywheelFunnelService::FIELD_PROMOTED_LESSON_CITED,
+            'flywheel_field_promoted_lesson_recalled' => AtlasFlywheelFunnelService::FIELD_PROMOTED_LESSON_RECALLED,
+            'aemor_field_objective' => AemorOutcomeEnvelopeAdapter::FIELD_OBJECTIVE,
+            'aemor_field_run_id' => AemorOutcomeEnvelopeAdapter::FIELD_RUN_ID,
+            'quality_field_evaluated_metrics' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_EVALUATED_METRICS,
+            'quality_field_thresholds' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_THRESHOLDS,
+            'evolution_reality_freshness_nudge_immune_share_flywheel_aemor_quality_floor_count' => 18,
         ];
     }
 

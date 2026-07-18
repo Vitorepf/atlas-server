@@ -23,6 +23,8 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
     public const FIELD_VALUE = 'value';
     public const FIELD_BINDING_BREACHES = 'binding_breaches';
     public const FIELD_EVALUATED_BANDS = 'evaluated_bands';
+    public const FIELD_EVALUATED_METRICS = 'evaluated_metrics';
+    public const FIELD_THRESHOLDS = 'thresholds';
 
     /**
      * Deterministically classify a department against a caller-supplied, lowest-first
@@ -71,7 +73,7 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
                 self::FIELD_PROMOTION_BLOCKED => false,
                 self::FIELD_BINDING_BREACHES => [],
                 self::FIELD_EVALUATED_BANDS => 0,
-                'evaluated_metrics' => $evaluatedMetrics,
+                self::FIELD_EVALUATED_METRICS => $evaluatedMetrics,
             ]);
         }
 
@@ -118,7 +120,7 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
             // Loop em 13/06 (eb14ed9000, pré-O-3/reprove) trocou a semântica
             // sem reconciliar o teste — 5 testes vermelhos por 3 semanas.
             self::FIELD_EVALUATED_BANDS => count($bands),
-            'evaluated_metrics' => $evaluatedMetrics,
+            self::FIELD_EVALUATED_METRICS => $evaluatedMetrics,
         ]);
     }
 
@@ -133,7 +135,7 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
      */
     private function bandSatisfied(array $band, array $measuredMetrics): bool
     {
-        foreach ($band['thresholds'] as $threshold) {
+        foreach ($band[self::FIELD_THRESHOLDS] as $threshold) {
             $observed = $this->observedValue($measuredMetrics, $threshold[self::FIELD_METRIC]);
 
             if ($observed === null) {
@@ -157,7 +159,7 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
     {
         $breaches = [];
 
-        foreach ($band['thresholds'] as $threshold) {
+        foreach ($band[self::FIELD_THRESHOLDS] as $threshold) {
             $observed = $this->observedValue($measuredMetrics, $threshold[self::FIELD_METRIC]);
             $missingMetric = $observed === null;
 

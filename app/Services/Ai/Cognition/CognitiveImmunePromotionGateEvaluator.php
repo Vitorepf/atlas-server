@@ -56,6 +56,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const TRUST_BAND_WATCH = 'watch';
 
     public const TRUST_BAND_CANDIDATE = 'candidate';
+    public const FIELD_RECALLS = 'recalls';
+    public const FIELD_PER_ACTOR = 'per_actor';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -323,7 +325,7 @@ final class CognitiveImmunePromotionGateEvaluator
             return [self::STATUS_PENDING, 'probation_recall_single_actor_inflated'];
         }
 
-        if ($recallEvidence['recalls'] < ImmuneCalibrationService::DENOMINATOR_MIN) {
+        if ($recallEvidence[self::FIELD_RECALLS] < ImmuneCalibrationService::DENOMINATOR_MIN) {
             return [self::STATUS_PENDING, 'probation_recall_below_calibrated_threshold'];
         }
 
@@ -491,7 +493,7 @@ final class CognitiveImmunePromotionGateEvaluator
         }
 
         return [
-            'recalls' => $recalls,
+            self::FIELD_RECALLS => $recalls,
             'positive_actor_count' => $positiveActorCount,
         ];
     }
@@ -529,7 +531,7 @@ final class CognitiveImmunePromotionGateEvaluator
         foreach ($value as $key => $entry) {
             if (is_array($entry)) {
                 $actor = $this->stringFromMixed($entry['actor'] ?? $key);
-                $count = $this->intFromMixed($entry['count'] ?? $entry['recalls'] ?? 0);
+                $count = $this->intFromMixed($entry['count'] ?? $entry[self::FIELD_RECALLS] ?? 0);
             } else {
                 $actor = $this->stringFromMixed($key);
                 $count = $this->intFromMixed($entry);
@@ -548,11 +550,11 @@ final class CognitiveImmunePromotionGateEvaluator
      */
     private function actorCountsFromConcentrationV2(mixed $value): array
     {
-        if (! is_array($value) || ! is_array($value['per_actor'] ?? null)) {
+        if (! is_array($value) || ! is_array($value[self::FIELD_PER_ACTOR] ?? null)) {
             return [];
         }
 
-        return $this->actorCountsFromValue($value['per_actor']);
+        return $this->actorCountsFromValue($value[self::FIELD_PER_ACTOR]);
     }
 
     private function stringFromMixed(mixed $value): string

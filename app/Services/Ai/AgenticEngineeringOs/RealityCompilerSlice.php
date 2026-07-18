@@ -24,6 +24,8 @@ final readonly class RealityCompilerSlice
     public const SCHEMA_VERSION = 'atlas.reality_compiler.slice.v1';
 
     public const STATUS_PENDING = 'pending';
+    public const FIELD_PHASE = 'phase';
+    public const FIELD_STATUS = 'status';
 
     /** @var list<string> */
     public const EXECUTION_PHASES = [
@@ -46,7 +48,7 @@ final readonly class RealityCompilerSlice
     public static function defaultShape(): self
     {
         $phases = array_map(
-            static fn (string $phase): array => ['phase' => $phase, 'status' => self::STATUS_PENDING],
+            static fn (string $phase): array => [self::FIELD_PHASE => $phase, self::FIELD_STATUS => self::STATUS_PENDING],
             self::EXECUTION_PHASES,
         );
 
@@ -83,12 +85,12 @@ final readonly class RealityCompilerSlice
             if (! is_array($row)) {
                 continue;
             }
-            $phase = AiValueNormalizer::trimmedStringOrNull($row['phase'] ?? null);
-            $status = AiValueNormalizer::trimmedStringOrNull($row['status'] ?? null);
+            $phase = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_PHASE] ?? null);
+            $status = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_STATUS] ?? null);
             if ($phase === null || $status === null) {
                 continue;
             }
-            $phases[] = ['phase' => $phase, 'status' => $status];
+            $phases[] = [self::FIELD_PHASE => $phase, self::FIELD_STATUS => $status];
         }
 
         return $phases;

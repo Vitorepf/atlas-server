@@ -5746,5 +5746,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['pareto_window_cockpit_obra_ambition_dead_scorecard_vision_esp09_floor_count']);
     }
 
+    public function test_evolution_reality_freshness_nudge_immune_share_flywheel_aemor_quality_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->evolutionRealityFreshnessNudgeImmuneShareFlywheelAemorQualityFloorsContractObserve([]);
+
+        $this->assertSame('max', $payload['evolution_field_max']);
+        $this->assertSame('signals', $payload['evolution_field_signals']);
+        $this->assertSame('phase', $payload['reality_field_phase']);
+        $this->assertSame('status', $payload['reality_field_status']);
+        $this->assertSame('timestamp_field', $payload['freshness_field_timestamp_field']);
+        $this->assertSame('table', $payload['freshness_field_table']);
+        $this->assertSame('audit', $payload['nudge_field_audit']);
+        $this->assertSame('retrieval', $payload['nudge_field_retrieval']);
+        $this->assertSame('recalls', $payload['immune_field_recalls']);
+        $this->assertSame('per_actor', $payload['immune_field_per_actor']);
+        $this->assertSame('total_count', $payload['share_field_total_count']);
+        $this->assertSame('verified_share', $payload['share_field_verified_share']);
+        $this->assertSame('promoted_lesson_cited', $payload['flywheel_field_promoted_lesson_cited']);
+        $this->assertSame('promoted_lesson_recalled', $payload['flywheel_field_promoted_lesson_recalled']);
+        $this->assertSame('objective', $payload['aemor_field_objective']);
+        $this->assertSame('run_id', $payload['aemor_field_run_id']);
+        $this->assertSame('evaluated_metrics', $payload['quality_field_evaluated_metrics']);
+        $this->assertSame('thresholds', $payload['quality_field_thresholds']);
+        $this->assertSame(18, $payload['evolution_reality_freshness_nudge_immune_share_flywheel_aemor_quality_floor_count']);
+    }
+
 
 }

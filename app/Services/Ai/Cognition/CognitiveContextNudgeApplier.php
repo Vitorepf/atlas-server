@@ -20,6 +20,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class CognitiveContextNudgeApplier
 {
+    public const FIELD_AUDIT = 'audit';
+    public const FIELD_RETRIEVAL = 'retrieval';
     /**
      * Apply framework + role nudges to the keyword-scored hits map.
      *
@@ -48,13 +50,13 @@ final class CognitiveContextNudgeApplier
     {
         if ($framework !== '') {
             if (str_starts_with($framework, 'cartography') || $framework === 'kernel_vault') {
-                $hits['audit'] += 2;
+                $hits[self::FIELD_AUDIT] += 2;
             } elseif (str_starts_with($framework, 'programming') || $framework === 'sdd' || $framework === 'bdd') {
                 $hits['code'] += 2;
-                $hits['audit'] += 1;
+                $hits[self::FIELD_AUDIT] += 1;
             } elseif ($framework === 'mission_mode' || $framework === 'hyperflow') {
                 $hits['reasoning'] += 1;
-                $hits['retrieval'] += 1;
+                $hits[self::FIELD_RETRIEVAL] += 1;
             } elseif ($framework === 'vision' || str_starts_with($framework, 'visual')) {
                 $hits['vision'] += 2;
             }
@@ -70,9 +72,9 @@ final class CognitiveContextNudgeApplier
     private function applyRoleNudge(array $hits, string $role): array
     {
         if ($role === 'auditor' || $role === 'reviewer') {
-            $hits['audit'] += 1;
+            $hits[self::FIELD_AUDIT] += 1;
         } elseif ($role === 'researcher' || $role === 'librarian') {
-            $hits['retrieval'] += 1;
+            $hits[self::FIELD_RETRIEVAL] += 1;
         } elseif ($role === 'writer' || $role === 'editor') {
             $hits['generation'] += 1;
         } elseif ($role === 'engineer' || $role === 'developer' || $role === 'programmer') {

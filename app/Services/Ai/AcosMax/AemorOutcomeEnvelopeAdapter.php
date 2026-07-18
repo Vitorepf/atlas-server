@@ -35,6 +35,8 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public const FIELD_EPISODE_ID = 'episode_id';
     public const FIELD_OUTCOME_CONTRACT_V2 = 'outcome_contract_v2';
     public const FIELD_EVIDENCE_REF_COUNT = 'evidence_ref_count';
+    public const FIELD_OBJECTIVE = 'objective';
+    public const FIELD_RUN_ID = 'run_id';
 
     public const STATUS_ABSENT = 'absent';
 
@@ -63,7 +65,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native['evidence_refs'] ?? null);
 
         $episodeId = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_EPISODE_ID] ?? $native[self::FIELD_EPISODE_ID] ?? null) ?? '';
-        $runId = AiValueNormalizer::trimmedStringOrNull($native['run_id'] ?? $native['scope_id'] ?? null) ?? '';
+        $runId = AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_RUN_ID] ?? $native['scope_id'] ?? null) ?? '';
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             self::FIELD_EXECUTOR => in_array($executor, ['dev', 'forge', 'autonomos'], true) ? $executor : 'engineering',
@@ -76,10 +78,10 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             self::FIELD_CERTIFIED_RECEIPT_ID => $contract[self::FIELD_CERTIFIED_RECEIPT_ID] ?? $native[self::FIELD_CERTIFIED_RECEIPT_ID] ?? null,
             self::FIELD_EVIDENCE_REF_COUNT => (int) ($contract[self::FIELD_EVIDENCE_REF_COUNT] ?? count($evidenceRefs)),
             self::FIELD_EPISODE_ID => $episodeId !== '' ? $episodeId : null,
-            'run_id' => $runId !== '' ? $runId : null,
+            self::FIELD_RUN_ID => $runId !== '' ? $runId : null,
         ], [
             self::FIELD_OUTCOME_TYPE => (AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_OUTCOME_TYPE] ?? null) ?? 'engineering_delivery'),
-            self::FIELD_SUMMARY => AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_SUMMARY] ?? $native['objective'] ?? null) ?? '',
+            self::FIELD_SUMMARY => AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_SUMMARY] ?? $native[self::FIELD_OBJECTIVE] ?? null) ?? '',
             self::FIELD_METRICS => AiValueNormalizer::arrayOrEmpty($native[self::FIELD_METRICS] ?? null),
             self::FIELD_BLOCKERS => AiValueNormalizer::arrayOrEmpty($native[self::FIELD_BLOCKERS] ?? null),
             self::FIELD_CONTEXT_UTILITY => AiValueNormalizer::arrayOrEmpty($native[self::FIELD_CONTEXT_UTILITY] ?? null),
@@ -96,7 +98,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         return [
             self::FIELD_EXECUTOR => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_EXECUTOR] ?? null) ?? 'engineering'),
             self::FIELD_STATUS => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_STATUS] ?? null) ?? OutcomeEnvelope::STATUS_BLOCKED),
-            'objective' => (AiValueNormalizer::trimmedStringOrNull($fields[self::FIELD_SUMMARY] ?? null) ?? ''),
+            self::FIELD_OBJECTIVE => (AiValueNormalizer::trimmedStringOrNull($fields[self::FIELD_SUMMARY] ?? null) ?? ''),
             self::FIELD_SUMMARY => (AiValueNormalizer::trimmedStringOrNull($fields[self::FIELD_SUMMARY] ?? null) ?? ''),
             self::FIELD_OUTCOME_TYPE => (AiValueNormalizer::trimmedStringOrNull($fields[self::FIELD_OUTCOME_TYPE] ?? null) ?? 'engineering_delivery'),
             self::FIELD_METRICS => AiValueNormalizer::arrayOrEmpty($fields[self::FIELD_METRICS] ?? null),

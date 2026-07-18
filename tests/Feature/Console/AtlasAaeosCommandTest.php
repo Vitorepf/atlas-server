@@ -6114,6 +6114,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_evolution_reality_freshness_nudge_immune_share_flywheel_aemor_quality_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-erfnisfaq-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-erfnisfaq',
+                '--evolution-reality-freshness-nudge-immune-share-flywheel-aemor-quality-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"evolution_reality_freshness_nudge_immune_share_flywheel_aemor_quality_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])
