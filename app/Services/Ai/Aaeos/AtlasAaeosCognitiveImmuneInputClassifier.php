@@ -129,6 +129,14 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_NULL_POINTER = 'null pointer';
     public const FIELD_OVERRIDE_INSTRUCTIONS = 'override instructions';
     public const FIELD_RACE_CONDITION = 'race condition';
+    public const FIELD_REVEAL_YOUR = 'reveal your';
+    public const FIELD_STACK_TRACE = 'stack trace';
+    public const FIELD_SYSTEM_PROMPT = 'system prompt';
+    public const FIELD_TESTES_PASSARAM = 'testes passaram';
+    public const FIELD_THANK_YOU = 'thank you';
+    public const FIELD_TUDO_BEM = 'tudo bem';
+    public const FIELD_VOCE_AGORA_E = 'voce agora e';
+    public const FIELD_YOU_ARE_NOW = 'you are now';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -174,10 +182,10 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         self::FIELD_IGNORE_AS_INSTRUCOES,
         self::FIELD_ESQUECA_AS_INSTRUCOES,
         self::FIELD_IGNORE_SUAS_INSTRUCOES,
-        'system prompt',
-        'you are now',
-        'voce agora e',
-        'reveal your',
+        self::FIELD_SYSTEM_PROMPT,
+        self::FIELD_YOU_ARE_NOW,
+        self::FIELD_VOCE_AGORA_E,
+        self::FIELD_REVEAL_YOUR,
         self::FIELD_OVERRIDE_INSTRUCTIONS,
         self::FIELD_JAILBREAK,
         self::FIELD_DO_ANYTHING_NOW,
@@ -211,7 +219,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         self::FIELD_RACE_CONDITION,
         self::FIELD_LATENCY,
         self::FIELD_REFACTOR,
-        'stack trace',
+        self::FIELD_STACK_TRACE,
         self::FIELD_NULL_POINTER,
         self::FIELD_MEMORY_LEAK,
         self::FIELD_ALGORITHM,
@@ -241,7 +249,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         ' esta ok',
         self::FIELD_DEPLOY_OK,
         self::FIELD_BUILD_PASSOU,
-        'testes passaram',
+        self::FIELD_TESTES_PASSARAM,
         self::FIELD_MERGED,
         self::FIELD_RELEASE,
         self::FIELD_SHIPPED,
@@ -255,11 +263,11 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         self::FIELD_OBRIGADO,
         self::FIELD_VALEU,
         self::FIELD_BELEZA,
-        'tudo bem',
+        self::FIELD_TUDO_BEM,
         self::FIELD_BOM_DIA,
         self::FIELD_BOA_TARDE,
         self::FIELD_THANKS,
-        'thank you',
+        self::FIELD_THANK_YOU,
         self::FIELD_GOOD_MORNING,
     ];
 

@@ -14848,4 +14848,25 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B560).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b560AaeosCognitiveFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'reveal your' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_REVEAL_YOUR,
+            'stack trace' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_STACK_TRACE,
+            'system prompt' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_SYSTEM_PROMPT,
+            'testes passaram' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TESTES_PASSARAM,
+            'thank you' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_THANK_YOU,
+            'tudo bem' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TUDO_BEM,
+            'voce agora e' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_VOCE_AGORA_E,
+            'you are now' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_YOU_ARE_NOW,
+            'b560_aaeos_cognitive_floor_count' => 8,
+        ];
+    }
+
 }

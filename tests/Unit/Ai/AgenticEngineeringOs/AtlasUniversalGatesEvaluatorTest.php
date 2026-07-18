@@ -11709,4 +11709,19 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b559_aaeos_cognitive_floor_count']);
     }
 
+    public function test_b560_aaeos_cognitive_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b560AaeosCognitiveFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_REVEAL_YOUR, $out['reveal your']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_STACK_TRACE, $out['stack trace']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_SYSTEM_PROMPT, $out['system prompt']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TESTES_PASSARAM, $out['testes passaram']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_THANK_YOU, $out['thank you']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TUDO_BEM, $out['tudo bem']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_VOCE_AGORA_E, $out['voce agora e']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_YOU_ARE_NOW, $out['you are now']);
+        $this->assertSame(8, $out['b560_aaeos_cognitive_floor_count']);
+    }
+
 }
