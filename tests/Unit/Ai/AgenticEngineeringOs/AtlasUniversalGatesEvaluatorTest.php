@@ -16652,4 +16652,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b758_evidence_ledger_floor_count']);
     }
 
+    public function test_b759_operator_review_aaeos_doc_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b759OperatorReviewAaeosDocFloorsContractObserve([]);
+        $this->assertSame(OperatorReviewDebtWatchdogCheck::SCHEMA_VERSION, $out['atlas.acos.operator_review_debt_watchdog.v1']);
+        $this->assertSame(OperatorReviewDebtWatchdogCheck::CHECK_ID, $out['elev-25.operator_review_debt']);
+        $this->assertSame(OperatorReviewDebtWatchdogCheck::FIELD_CADENCE, $out['cadence']);
+        $this->assertSame(OperatorReviewDebtWatchdogCheck::FIELD_OPERATOR_REVIEW_DEBT, $out['operator_review_debt']);
+        $this->assertSame(OperatorReviewDebtWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(OperatorReviewDebtWatchdogCheck::FIELD_CODE, $out['code']);
+        $this->assertSame(OperatorReviewDebtWatchdogCheck::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(OperatorReviewDebtWatchdogCheck::FIELD_STATUS, $out['status']);
+        $this->assertSame(OperatorReviewDebtWatchdogCheck::FIELD_ELEV_25_REVIEW_DEBT_UNAVAILABLE, $out['elev_25_review_debt_unavailable']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_LEVEL_ORDINAL, $out['level_ordinal']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_MISSING_FOR_NEXT, $out['missing_for_next']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::SCHEMA_VERSION, $out['atlas.aaeos.doc_maturity.v1']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L0, $out['DOC L0']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L1, $out['DOC L1']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L2, $out['DOC L2']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L3, $out['DOC L3']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::LEVEL_L4, $out['DOC L4']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::STRENGTH_NONE, $out['none']);
+        $this->assertSame(18, $out['b759_operator_review_aaeos_doc_floor_count']);
+    }
+
 }

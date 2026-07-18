@@ -20977,4 +20977,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B759).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b759OperatorReviewAaeosDocFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.acos.operator_review_debt_watchdog.v1' => OperatorReviewDebtWatchdogCheck::SCHEMA_VERSION,
+            'elev-25.operator_review_debt' => OperatorReviewDebtWatchdogCheck::CHECK_ID,
+            'cadence' => OperatorReviewDebtWatchdogCheck::FIELD_CADENCE,
+            'operator_review_debt' => OperatorReviewDebtWatchdogCheck::FIELD_OPERATOR_REVIEW_DEBT,
+            'message' => OperatorReviewDebtWatchdogCheck::FIELD_MESSAGE,
+            'code' => OperatorReviewDebtWatchdogCheck::FIELD_CODE,
+            'schema_version' => OperatorReviewDebtWatchdogCheck::FIELD_SCHEMA_VERSION,
+            'status' => OperatorReviewDebtWatchdogCheck::FIELD_STATUS,
+            'elev_25_review_debt_unavailable' => OperatorReviewDebtWatchdogCheck::FIELD_ELEV_25_REVIEW_DEBT_UNAVAILABLE,
+            'level_ordinal' => AtlasAaeosDocMaturityClassifier::FIELD_LEVEL_ORDINAL,
+            'missing_for_next' => AtlasAaeosDocMaturityClassifier::FIELD_MISSING_FOR_NEXT,
+            'atlas.aaeos.doc_maturity.v1' => AtlasAaeosDocMaturityClassifier::SCHEMA_VERSION,
+            'DOC L0' => AtlasAaeosDocMaturityClassifier::LEVEL_L0,
+            'DOC L1' => AtlasAaeosDocMaturityClassifier::LEVEL_L1,
+            'DOC L2' => AtlasAaeosDocMaturityClassifier::LEVEL_L2,
+            'DOC L3' => AtlasAaeosDocMaturityClassifier::LEVEL_L3,
+            'DOC L4' => AtlasAaeosDocMaturityClassifier::LEVEL_L4,
+            'none' => AtlasAaeosDocMaturityClassifier::STRENGTH_NONE,
+            'b759_operator_review_aaeos_doc_floor_count' => 18,
+        ];
+    }
+
 }
