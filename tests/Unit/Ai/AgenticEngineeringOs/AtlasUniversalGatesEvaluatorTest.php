@@ -15049,4 +15049,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b694_obra_retro_floor_count']);
     }
 
+    public function test_b695_verified_share_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b695VerifiedShareFloorsContractObserve([]);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_FREEZE, $out['freeze']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_FREEZE_REQUIRED, $out['freeze_required']);
+        $this->assertSame(AcosMaxVerifiedShareService::SCHEMA_VERSION, $out['atlas.acos_max.verified_share.v1']);
+        $this->assertSame(AcosMaxVerifiedShareService::MEASURE_ID, $out['acos.verified_share.v1']);
+        $this->assertSame(AcosMaxVerifiedShareService::FORMULA_VERSION, $out['verified_share.v1']);
+        $this->assertSame(AcosMaxVerifiedShareService::DEFAULT_VERIFIED_SHARE_MIN, $out['0.80']);
+        $this->assertSame(AcosMaxVerifiedShareService::DEFAULT_WINDOW_DAYS_MIN, $out['14']);
+        $this->assertSame(AcosMaxVerifiedShareService::DEFAULT_DENOMINATOR_MIN_EXECUTIONS, $out['50']);
+        $this->assertSame(AcosMaxVerifiedShareService::DEFAULT_TTL_DAYS, $out['30']);
+        $this->assertSame(AcosMaxVerifiedShareService::KIND_MEASURE_FREEZE, $out['measure_freeze']);
+        $this->assertSame(AcosMaxVerifiedShareService::STATUS_MISSING_FREEZE, $out['missing_freeze']);
+        $this->assertSame(AcosMaxVerifiedShareService::STATUS_INSUFFICIENT_SIGNAL, $out['insufficient_signal']);
+        $this->assertSame(AcosMaxVerifiedShareService::STATUS_OK, $out['ok']);
+        $this->assertSame(AcosMaxVerifiedShareService::STATUS_BELOW_THRESHOLD, $out['below_threshold']);
+        $this->assertSame(AcosMaxVerifiedShareService::REASON_MEASURE_FREEZE_NOT_RECORDED, $out['measure_freeze_not_recorded']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_REASON, $out['reason']);
+        $this->assertSame(18, $out['b695_verified_share_floor_count']);
+    }
+
 }

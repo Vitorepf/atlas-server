@@ -18993,4 +18993,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B695).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b695VerifiedShareFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'freeze' => AcosMaxVerifiedShareService::FIELD_FREEZE,
+            'freeze_required' => AcosMaxVerifiedShareService::FIELD_FREEZE_REQUIRED,
+            'atlas.acos_max.verified_share.v1' => AcosMaxVerifiedShareService::SCHEMA_VERSION,
+            'acos.verified_share.v1' => AcosMaxVerifiedShareService::MEASURE_ID,
+            'verified_share.v1' => AcosMaxVerifiedShareService::FORMULA_VERSION,
+            '0.80' => AcosMaxVerifiedShareService::DEFAULT_VERIFIED_SHARE_MIN,
+            '14' => AcosMaxVerifiedShareService::DEFAULT_WINDOW_DAYS_MIN,
+            '50' => AcosMaxVerifiedShareService::DEFAULT_DENOMINATOR_MIN_EXECUTIONS,
+            '30' => AcosMaxVerifiedShareService::DEFAULT_TTL_DAYS,
+            'measure_freeze' => AcosMaxVerifiedShareService::KIND_MEASURE_FREEZE,
+            'missing_freeze' => AcosMaxVerifiedShareService::STATUS_MISSING_FREEZE,
+            'insufficient_signal' => AcosMaxVerifiedShareService::STATUS_INSUFFICIENT_SIGNAL,
+            'ok' => AcosMaxVerifiedShareService::STATUS_OK,
+            'below_threshold' => AcosMaxVerifiedShareService::STATUS_BELOW_THRESHOLD,
+            'measure_freeze_not_recorded' => AcosMaxVerifiedShareService::REASON_MEASURE_FREEZE_NOT_RECORDED,
+            'schema_version' => AcosMaxVerifiedShareService::FIELD_SCHEMA_VERSION,
+            'status' => AcosMaxVerifiedShareService::FIELD_STATUS,
+            'reason' => AcosMaxVerifiedShareService::FIELD_REASON,
+            'b695_verified_share_floor_count' => 18,
+        ];
+    }
+
 }

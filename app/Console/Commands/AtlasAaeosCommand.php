@@ -717,6 +717,7 @@ final class AtlasAaeosCommand extends Command
                             {--b692-exploratory-bets-floors-contract= : JSON file (any object) to observe exploratory/bets floors}
                             {--b693-dogfooding-friction-floors-contract= : JSON file (any object) to observe dogfooding/friction floors}
                             {--b694-obra-retro-floors-contract= : JSON file (any object) to observe obra/retro floors}
+                            {--b695-verified-share-floors-contract= : JSON file (any object) to observe verified/share floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1590,6 +1591,7 @@ final class AtlasAaeosCommand extends Command
             ['b692-exploratory-bets-floors-contract', 'b692_exploratory_bets_floors_contract', fn (array $p) => $gates->b692ExploratoryBetsFloorsContractObserve($p)],
             ['b693-dogfooding-friction-floors-contract', 'b693_dogfooding_friction_floors_contract', fn (array $p) => $gates->b693DogfoodingFrictionFloorsContractObserve($p)],
             ['b694-obra-retro-floors-contract', 'b694_obra_retro_floors_contract', fn (array $p) => $gates->b694ObraRetroFloorsContractObserve($p)],
+            ['b695-verified-share-floors-contract', 'b695_verified_share_floors_contract', fn (array $p) => $gates->b695VerifiedShareFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
