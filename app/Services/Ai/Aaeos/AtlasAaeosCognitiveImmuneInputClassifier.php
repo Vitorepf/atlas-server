@@ -88,6 +88,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_TECHNICAL_LEARNING_SIGNAL = 'technical_learning_signal';
     public const FIELD_TESE = 'tese';
     public const FIELD_THANKS = 'thanks';
+    public const FIELD_THESIS = 'thesis';
+    public const FIELD_VALEU = 'valeu';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -155,7 +157,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         self::FIELD_PRINCIPIO,
         self::FIELD_STRATEGY,
         self::FIELD_STRATEGIC,
-        'thesis',
+        self::FIELD_THESIS,
         self::FIELD_HYPOTHESIS,
         self::FIELD_FRAMEWORK,
     ];
@@ -212,7 +214,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
      */
     public const CONVERSATION_MARKERS = [
         'obrigado',
-        'valeu',
+        self::FIELD_VALEU,
         'beleza',
         'tudo bem',
         'bom dia',

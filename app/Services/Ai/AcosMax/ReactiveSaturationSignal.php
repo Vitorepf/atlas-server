@@ -29,6 +29,8 @@ final class ReactiveSaturationSignal
     public const FIELD_INSUFFICIENT_N = 'insufficient_n';
     public const FIELD_BYTE_IDENTICAL_PICK = 'byte_identical_pick';
     public const FIELD_INSUFFICIENT_WINDOWS = 'insufficient_windows';
+    public const FIELD_PREFER_ORIGINATED = 'prefer_originated';
+    public const FIELD_STABLE_OR_RECOVERING_YIELD = 'stable_or_recovering_yield';
 
     /**
      * @param  list<array<string,mixed>>  $windows
@@ -56,8 +58,8 @@ final class ReactiveSaturationSignal
         $falling = $yields[0] > $yields[1] && $yields[1] > $yields[2];
 
         return $falling
-            ? self::result(true, self::FIELD_FALLING_YIELD_WITH_HYSTERESIS, 'prefer_originated', $tail, $context)
-            : self::result(false, 'stable_or_recovering_yield', self::FIELD_BYTE_IDENTICAL_PICK, $tail, $context);
+            ? self::result(true, self::FIELD_FALLING_YIELD_WITH_HYSTERESIS, self::FIELD_PREFER_ORIGINATED, $tail, $context)
+            : self::result(false, self::FIELD_STABLE_OR_RECOVERING_YIELD, self::FIELD_BYTE_IDENTICAL_PICK, $tail, $context);
     }
 
     /**

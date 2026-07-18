@@ -11630,4 +11630,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B455).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function cognitiveFunctionDepartmentContractAaeosImmunePromotionAcosFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'inspecione' => AtlasCognitiveFunctionDecomposerService::FIELD_INSPECIONE,
+            'integrity' => AtlasCognitiveFunctionDecomposerService::FIELD_INTEGRITY,
+            'quarantine_capsule' => DepartmentContractRuntime::FIELD_QUARANTINE_CAPSULE,
+            'regression_tests_added' => DepartmentContractRuntime::FIELD_REGRESSION_TESTS_ADDED,
+            'forge' => AtlasAaeosDepartmentRegistryService::FIELD_FORGE,
+            'strtolower' => AtlasAaeosDepartmentRegistryService::FIELD_STRTOLOWER,
+            'recurrence_count' => CognitiveImmunePromotionGateEvaluator::FIELD_RECURRENCE_COUNT,
+            'retention_ok' => CognitiveImmunePromotionGateEvaluator::FIELD_RETENTION_OK,
+            'surface_id' => AtlasAcosWatchdogHealthService::FIELD_SURFACE_ID,
+            'utility_real_share' => AtlasAcosWatchdogHealthService::FIELD_UTILITY_REAL_SHARE,
+            'thesis' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_THESIS,
+            'valeu' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_VALEU,
+            'term_weights_exposed' => AtlasModelCapabilitySpecService::FIELD_TERM_WEIGHTS_EXPOSED,
+            'token_embeddings_exposed' => AtlasModelCapabilitySpecService::FIELD_TOKEN_EMBEDDINGS_EXPOSED,
+            'sha256' => PromotionProtocol::FIELD_SHA256,
+            'unknown_flag' => PromotionProtocol::FIELD_UNKNOWN_FLAG,
+            'prefer_originated' => ReactiveSaturationSignal::FIELD_PREFER_ORIGINATED,
+            'stable_or_recovering_yield' => ReactiveSaturationSignal::FIELD_STABLE_OR_RECOVERING_YIELD,
+            'cognitive_function_department_contract_aaeos_immune_promotion_acos_floor_count' => 18,
+        ];
+    }
+
 }

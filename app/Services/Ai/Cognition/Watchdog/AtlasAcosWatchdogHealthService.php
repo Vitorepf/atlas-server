@@ -328,6 +328,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_RETRIEVAL_RECEIPT_ID = 'retrieval_receipt_id';
     public const FIELD_SCORE_REGRESSION = 'score_regression';
     public const FIELD_SNAPSHOT_FRESH = 'snapshot_fresh';
+    public const FIELD_SURFACE_ID = 'surface_id';
+    public const FIELD_UTILITY_REAL_SHARE = 'utility_real_share';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -609,7 +611,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_TOTAL_EVENT_COUNT => $total,
                 self::FIELD_MEASURED_COUNT => $measured,
                 self::FIELD_DELIVERED_REFS_COUNT => $delivered,
-                'utility_real_share' => $total > 0 ? round($measured / $total, 4) : 0.0,
+                self::FIELD_UTILITY_REAL_SHARE => $total > 0 ? round($measured / $total, 4) : 0.0,
                 self::FIELD_DELIVERED_REFS_SHARE => $total > 0 ? round($delivered / $total, 4) : 0.0,
                 self::FIELD_SYNTHETIC_SHARE => $syntheticShare,
                 self::FIELD_TRANSCRIPT_INFERRED_SHARE => $total > 0 ? round($transcript / $total, 4) : 0.0,
@@ -1009,7 +1011,7 @@ final class AtlasAcosWatchdogHealthService
         $raw = AtlasAemorExecutionEpisode::query()
             ->where(function ($query) use ($needle): void {
                 $query->where(self::FIELD_FLOW_ID, self::FIELD_LIKE, $needle)
-                    ->orWhere('surface_id', self::FIELD_LIKE, $needle)
+                    ->orWhere(self::FIELD_SURFACE_ID, self::FIELD_LIKE, $needle)
                     ->orWhere('scope_type', self::FIELD_LIKE, $needle);
             })
             ->max('created_at');

@@ -111,6 +111,8 @@ final class PromotionProtocol
     public const FIELD_INVALID_STATE = 'invalid_state';
     public const FIELD_MISSING_FLIP_RECEIPT = 'missing_flip_receipt';
     public const FIELD_MISSING_OBSERVATION_WINDOW_ID = 'missing_observation_window_id';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_UNKNOWN_FLAG = 'unknown_flag';
 
     /** @var list<string> */
     public const STATES = [
@@ -184,7 +186,7 @@ final class PromotionProtocol
         $toState = AiValueNormalizer::trimmedStringOrNull($toState) ?? '';
         $entry = $this->entryById($flagId);
         if ($entry === null) {
-            return $this->blocked('unknown_flag', $flagId, $toState);
+            return $this->blocked(self::FIELD_UNKNOWN_FLAG, $flagId, $toState);
         }
         if (! in_array($toState, self::STATES, true)) {
             return $this->blocked(self::FIELD_INVALID_STATE, $flagId, $toState, [self::FIELD_ALLOWED_STATES => self::STATES]);
@@ -226,7 +228,7 @@ final class PromotionProtocol
         $fromState = $this->stateForFlag($flagId);
         $event = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA,
-            self::FIELD_EVENT_ID => hash('sha256', implode('|', [
+            self::FIELD_EVENT_ID => hash(self::FIELD_SHA256, implode('|', [
                 $flagId,
                 $fromState,
                 $toState,

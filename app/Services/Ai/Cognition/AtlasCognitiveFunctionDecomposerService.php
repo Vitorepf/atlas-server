@@ -115,6 +115,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_IMAGE = 'image';
     public const FIELD_CONTROLLER = 'controller';
     public const FIELD_IMPLEMENTE = 'implemente';
+    public const FIELD_INSPECIONE = 'inspecione';
+    public const FIELD_INTEGRITY = 'integrity';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -162,9 +164,9 @@ final class AtlasCognitiveFunctionDecomposerService
         ],
         self::FIELD_AUDIT => [
             'audite', self::FIELD_AUDITA, 'audit', 'verifique', 'valide', 'cheque',
-            'inspecione', 'governance', 'invariant', 'kernel', self::FIELD_CARTOGRAFIA,
+            self::FIELD_INSPECIONE, 'governance', 'invariant', 'kernel', self::FIELD_CARTOGRAFIA,
             self::FIELD_DOC, self::FIELD_DOCUMENTO, self::FIELD_COMPLIANCE, self::FIELD_EVIDENCE, self::FIELD_EVIDENCIA,
-            'integrity', 'tamper', self::FIELD_SHA256, 'hash ', 'verify',
+            self::FIELD_INTEGRITY, 'tamper', self::FIELD_SHA256, 'hash ', 'verify',
         ],
     ];
 

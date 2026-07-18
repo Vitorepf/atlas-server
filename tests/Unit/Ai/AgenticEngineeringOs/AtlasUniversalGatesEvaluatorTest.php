@@ -9118,4 +9118,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['aaeos_test_cognitive_function_department_contract_implementation_memory_floor_count']);
     }
 
+    public function test_cognitive_function_department_contract_aaeos_immune_promotion_acos_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitiveFunctionDepartmentContractAaeosImmunePromotionAcosFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_INSPECIONE, $out['inspecione']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_INTEGRITY, $out['integrity']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_QUARANTINE_CAPSULE, $out['quarantine_capsule']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REGRESSION_TESTS_ADDED, $out['regression_tests_added']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_STRTOLOWER, $out['strtolower']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_RECURRENCE_COUNT, $out['recurrence_count']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_RETENTION_OK, $out['retention_ok']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SURFACE_ID, $out['surface_id']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_UTILITY_REAL_SHARE, $out['utility_real_share']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_THESIS, $out['thesis']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_VALEU, $out['valeu']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_TERM_WEIGHTS_EXPOSED, $out['term_weights_exposed']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_TOKEN_EMBEDDINGS_EXPOSED, $out['token_embeddings_exposed']);
+        $this->assertSame(PromotionProtocol::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(PromotionProtocol::FIELD_UNKNOWN_FLAG, $out['unknown_flag']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_PREFER_ORIGINATED, $out['prefer_originated']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_STABLE_OR_RECOVERING_YIELD, $out['stable_or_recovering_yield']);
+        $this->assertSame(18, $out['cognitive_function_department_contract_aaeos_immune_promotion_acos_floor_count']);
+    }
+
 }

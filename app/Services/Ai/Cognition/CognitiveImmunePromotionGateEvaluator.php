@@ -97,6 +97,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_RECALL_NEGATIVE_FEEDBACK = 'recall_negative_feedback';
     public const FIELD_ALL_TIME_RECALL_NEGATIVE_FEEDBACK = 'all_time_recall_negative_feedback';
     public const FIELD_RECALLS_BY_ACTOR = 'recalls_by_actor';
+    public const FIELD_RECURRENCE_COUNT = 'recurrence_count';
+    public const FIELD_RETENTION_OK = 'retention_ok';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -199,7 +201,7 @@ final class CognitiveImmunePromotionGateEvaluator
     private function captureGate(array $signals): array
     {
         $confirmed = $this->flag($signals, self::FIELD_CONSENT_GRANTED)
-            && $this->flag($signals, 'retention_ok')
+            && $this->flag($signals, self::FIELD_RETENTION_OK)
             && $this->nonEmptyString($signals, self::FIELD_PRIVACY_CLASS);
 
         return $confirmed
@@ -235,7 +237,7 @@ final class CognitiveImmunePromotionGateEvaluator
     {
         $confirmed = $this->flag($signals, self::FIELD_FUTURE_UTILITY)
             || $this->flag($signals, self::FIELD_NOVELTY)
-            || $this->intValue($signals, 'recurrence_count') >= 2;
+            || $this->intValue($signals, self::FIELD_RECURRENCE_COUNT) >= 2;
 
         return $confirmed
             ? [self::STATUS_PASS, '']

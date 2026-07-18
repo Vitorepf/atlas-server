@@ -277,6 +277,8 @@ final class DepartmentContractRuntime
     public const FIELD_PROPOSE_ACCEPTANCE_CRITERIA = 'propose_acceptance_criteria';
     public const FIELD_PROPOSE_MIGRATION_PLAN = 'propose_migration_plan';
     public const FIELD_PROVIDER_TOPOLOGY_GREEN = 'provider_topology_green';
+    public const FIELD_QUARANTINE_CAPSULE = 'quarantine_capsule';
+    public const FIELD_REGRESSION_TESTS_ADDED = 'regression_tests_added';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -486,7 +488,7 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_TEST_PACK, self::FIELD_SCHEMA => self::SCHEMA_TEST_PACK],
             ],
-            self::FIELD_GATES => ['regression_green', 'verification_complete', 'coverage_min_threshold', 'regression_tests_added', 'fixtures_versioned'],
+            self::FIELD_GATES => ['regression_green', 'verification_complete', 'coverage_min_threshold', self::FIELD_REGRESSION_TESTS_ADDED, 'fixtures_versioned'],
             self::FIELD_ALLOWED_ACTIONS => ['write_tests', 'request_test_data', 'block_on_coverage_drop'],
             self::FIELD_FORBIDDEN_ACTIONS => ['modify_production_code_outside_tests', 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW],
@@ -582,7 +584,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_CONTEXT_PACK, self::FIELD_SCHEMA => self::SCHEMA_CONTEXT_PACK],
             ],
             self::FIELD_GATES => ['evidence_persisted', self::FIELD_LEARNING_SIGNAL_EXTRACTED, self::FIELD_PROMOTION_GATE_PASSED, self::FIELD_NOISE_IMMUNITY_CHECK_OK, 'schema_versioned'],
-            self::FIELD_ALLOWED_ACTIONS => ['promote_to_memory', 'quarantine_capsule', 'emit_context_pack'],
+            self::FIELD_ALLOWED_ACTIONS => ['promote_to_memory', self::FIELD_QUARANTINE_CAPSULE, 'emit_context_pack'],
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_promotion_gate', self::FIELD_MODIFY_EVIDENCE_LEDGER, 'expose_secrets'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['promotion_evidence_hash', 'memory_record_hash'],

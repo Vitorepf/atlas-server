@@ -46,6 +46,8 @@ class AtlasAaeosDepartmentRegistryService
     public const FIELD_REVIEW = 'review';
     public const FIELD_SCOPE = 'scope';
     public const FIELD_SECURITY = 'security';
+    public const FIELD_FORGE = 'forge';
+    public const FIELD_STRTOLOWER = 'strtolower';
 
     /**
      * The 12 mandatory fields — a department missing any is a blocker.
@@ -70,7 +72,7 @@ class AtlasAaeosDepartmentRegistryService
      */
     public const CANONICAL_DEPARTMENTS = [
         'product', self::FIELD_ARCHITECT, self::FIELD_RESEARCH, self::FIELD_DEV, self::FIELD_DEBUG, self::FIELD_REVIEW,
-        'qa', self::FIELD_SECURITY, 'forge', self::FIELD_DELIVERY, self::FIELD_MEMORY,
+        'qa', self::FIELD_SECURITY, self::FIELD_FORGE, self::FIELD_DELIVERY, self::FIELD_MEMORY,
     ];
 
     /**
@@ -100,7 +102,7 @@ class AtlasAaeosDepartmentRegistryService
         if ($escalation !== '' && $escalation !== self::FIELD_OPERATOR) {
             if ($escalation === $id) {
                 $blockers[] = 'escalation_to must not point to the department itself';
-            } elseif (! in_array($escalation, array_map('strtolower', $knownDepartmentIds), true)) {
+            } elseif (! in_array($escalation, array_map(self::FIELD_STRTOLOWER, $knownDepartmentIds), true)) {
                 $blockers[] = "escalation_to [{$escalation}] is not a known department";
             }
         }
