@@ -49,6 +49,8 @@ final class AtlasCognitionRemintTouchedQueue
     public const FIELD_PATHS = 'paths';
     public const FIELD_JSON = 'json';
     public const FIELD_METADATA = 'metadata';
+    public const FIELD_PATH_COUNT = 'path_count';
+    public const FIELD_QUEUE_PATH = 'queue_path';
 
     /**
      * @param  list<string>  $paths
@@ -115,8 +117,8 @@ final class AtlasCognitionRemintTouchedQueue
             self::FIELD_QUEUED => true,
             self::FIELD_REASON => self::REASON_QUEUED,
             self::FIELD_MODE => self::MODE_DEFERRED_DISK_QUEUE,
-            'path_count' => count($paths),
-            'queue_path' => AiValueNormalizer::trimmedStringOrNull(config(self::QUEUE_PATH_CONFIG_KEY, self::DEFAULT_QUEUE_PATH)) ?? self::DEFAULT_QUEUE_PATH,
+            self::FIELD_PATH_COUNT => count($paths),
+            self::FIELD_QUEUE_PATH => AiValueNormalizer::trimmedStringOrNull(config(self::QUEUE_PATH_CONFIG_KEY, self::DEFAULT_QUEUE_PATH)) ?? self::DEFAULT_QUEUE_PATH,
         ];
     }
 

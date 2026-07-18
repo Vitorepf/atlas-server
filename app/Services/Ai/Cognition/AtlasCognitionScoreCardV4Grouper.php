@@ -44,6 +44,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_RESEARCH_DOMAIN = 'research_domain';
     public const FIELD_INTEGRATION = 'integration';
     public const FIELD_LONG_HORIZON = 'long_horizon';
+    public const FIELD_OPEN_BRAIN = 'open_brain';
+    public const FIELD_PERSISTENT_CONTEXT = 'persistent_context';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -144,12 +146,12 @@ final class AtlasCognitionScoreCardV4Grouper
             'patamar4', 'patamar_4', self::FIELD_INTEGRATION => 'PATAMAR4',
             self::FIELD_CONTEXT_CACHE => 'CONTEXT-CACHE',
             self::FIELD_CONTEXT_INTELLIGENCE => 'CONTEXT-INTELLIGENCE',
-            'persistent_context' => 'PERSISTENT-CONTEXT',
+            self::FIELD_PERSISTENT_CONTEXT => 'PERSISTENT-CONTEXT',
             self::FIELD_AEMOR => 'AEMOR',
             self::FIELD_LONG_HORIZON => 'LONG-HORIZON',
             'verified_context' => 'VERIFIED-CONTEXT',
             self::FIELD_CONTEXT_QUALITY => 'CONTEXT-QUALITY',
-            'open_brain' => 'OPEN-BRAIN',
+            self::FIELD_OPEN_BRAIN => 'OPEN-BRAIN',
             self::FIELD_EVIDENCE => 'EVIDENCE',
             default => 'OTHER',
         };

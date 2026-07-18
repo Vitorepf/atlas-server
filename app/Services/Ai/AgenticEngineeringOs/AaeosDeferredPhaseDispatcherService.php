@@ -55,6 +55,8 @@ final class AaeosDeferredPhaseDispatcherService
     public const FIELD_OUTCOME_CAUSALITY = 'outcome_causality';
     public const FIELD_ENQUEUED_COUNT = 'enqueued_count';
     public const FIELD_GATES = 'gates';
+    public const FIELD_OUTPUTS = 'outputs';
+    public const FIELD_QUEUE_PATH = 'queue_path';
 
     public function __construct(
         private readonly CacheRepository $cache,
@@ -102,7 +104,7 @@ final class AaeosDeferredPhaseDispatcherService
 
         return [
             self::FIELD_SCHEMA => self::SCHEMA_VERSION,
-            'queue_path' => $path,
+            self::FIELD_QUEUE_PATH => $path,
             self::FIELD_ENQUEUED_COUNT => count($enqueued),
             self::FIELD_ENQUEUED => $enqueued,
         ];
@@ -184,7 +186,7 @@ final class AaeosDeferredPhaseDispatcherService
      */
     private function isDeferred(array $envelope): bool
     {
-        $outputs = AiValueNormalizer::arrayOrEmpty($envelope['outputs'] ?? null);
+        $outputs = AiValueNormalizer::arrayOrEmpty($envelope[self::FIELD_OUTPUTS] ?? null);
         foreach ($outputs as $key => $value) {
             $value = AiValueNormalizer::trimmedStringOrNull($value);
             if ($value === null) {

@@ -111,6 +111,8 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_QUEUE = 'queue';
     public const FIELD_READ_ONLY = 'read_only';
     public const FIELD_RECEIPT_HASH = 'receipt_hash';
+    public const FIELD_RUN_OUTCOME_ID = 'run_outcome_id';
+    public const FIELD_SCOPE = 'scope';
 
 
     public function __construct(
@@ -263,11 +265,11 @@ final class AcosMaxProceduralSkillPromoterService
             [self::FIELD_CANDIDATE_HASH => $candidateHash],
             [
                 self::FIELD_SCHEMA_VERSION => AtlasLearningDistiller::SCHEMA_VERSION,
-                'run_outcome_id' => null,
+                self::FIELD_RUN_OUTCOME_ID => null,
                 self::FIELD_STATUS => self::STATUS_HELD_FOR_EVIDENCE,
                 self::FIELD_DECISION => self::STATUS_HOLD,
                 self::FIELD_MEMORY_TYPE => self::SKILL_SCHEMA_VERSION,
-                'scope' => 'global',
+                self::FIELD_SCOPE => 'global',
                 self::FIELD_CLAIM => sprintf(
                     'MULTJ-04 procedural-to-skill.v1 proposal for %s held under ASI-02 (case_count=%d).',
                     $taskCategory,

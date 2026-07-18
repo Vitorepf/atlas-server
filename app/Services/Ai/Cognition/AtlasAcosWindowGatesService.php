@@ -52,6 +52,8 @@ final class AtlasAcosWindowGatesService
     public const FIELD_TARGET = 'target';
     public const FIELD_LIVE_DIMENSIONS = 'live_dimensions';
     public const FIELD_NOTE = 'note';
+    public const FIELD_RECEIPT_STATUS = 'receipt_status';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     /** Receipt freshness before a certified gate is treated as stale (7 days). */
     public const RECEIPT_FRESH_SECONDS = 604800;
@@ -71,7 +73,7 @@ final class AtlasAcosWindowGatesService
     public function status(): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_GENERATED_AT => gmdate('c'),
             self::FIELD_LIVE_DIMENSIONS => $this->liveDimensions(),
             'window_receipts' => $this->windowReceipts(),
@@ -179,7 +181,7 @@ final class AtlasAcosWindowGatesService
             self::FIELD_STATUS => $certified && $fresh ? self::STATUS_CERTIFIED : self::STATUS_AGUARDANDO_JANELA,
             self::FIELD_CERTIFIED => $certified,
             self::FIELD_FRESH => $fresh,
-            'receipt_status' => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
+            self::FIELD_RECEIPT_STATUS => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
             self::FIELD_GENERATED_AT => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_GENERATED_AT] ?? null) ?? ''),
         ];
     }

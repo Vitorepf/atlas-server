@@ -82,6 +82,8 @@ final class AcosMaxVerifiedShareService
     public const FIELD_ROLE = 'role';
     public const FIELD_SOURCES = 'sources';
     public const FIELD_SURFACE = 'surface';
+    public const FIELD_TASK_CATEGORY = 'task_category';
+    public const FIELD_VERIFICATION_NUMERATOR = 'verification_numerator';
 
 
     /** @return array<string,mixed> */
@@ -174,7 +176,7 @@ final class AcosMaxVerifiedShareService
             self::FIELD_EXECUTORS => $executors,
             self::FIELD_SOURCES => [
                 self::FIELD_OUTCOME_DENOMINATOR => 'storage/atlas/atlas_decide/live_outcomes.jsonl',
-                'verification_numerator' => 'atlas_ledger_events engineering.execution.coverage.recorded mode=enforce',
+                self::FIELD_VERIFICATION_NUMERATOR => 'atlas_ledger_events engineering.execution.coverage.recorded mode=enforce',
             ],
         ];
     }
@@ -312,7 +314,7 @@ final class AcosMaxVerifiedShareService
             return $this->normalizeExecutor(substr($actor, strlen('engineering_outcome_spine:')));
         }
 
-        return $this->normalizeExecutor(AiValueNormalizer::trimmedStringOrNull($row['task_category'] ?? $row[self::FIELD_ROLE] ?? null) ?? '');
+        return $this->normalizeExecutor(AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_TASK_CATEGORY] ?? $row[self::FIELD_ROLE] ?? null) ?? '');
     }
 
     /** @param array<string,mixed> $row */

@@ -7123,6 +7123,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_deferred_phase_acos_window_cognition_remint_score_lote_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b385-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b385',
+                '--deferred-phase-acos-window-cognition-remint-score-lote-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"deferred_phase_acos_window_cognition_remint_score_lote_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

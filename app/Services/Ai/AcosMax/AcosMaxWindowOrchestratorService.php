@@ -58,6 +58,8 @@ final class AcosMaxWindowOrchestratorService
     public const FIELD_MINIMUM_WINDOW_RUNNING = 'minimum_window_running';
     public const FIELD_PARALLELIZABLE_GROUPS = 'parallelizable_groups';
     public const FIELD_RECORDED_AT = 'recorded_at';
+    public const FIELD_SCHEDULER = 'scheduler';
+    public const FIELD_SILENT_DAYS = 'silent_days';
 
 
     public function __construct(
@@ -102,7 +104,7 @@ final class AcosMaxWindowOrchestratorService
                 self::FIELD_PROMOTION_PROTOCOL_SCHEMA => PromotionProtocol::SCHEMA,
                 self::FIELD_READ_ONLY => true,
                 self::FIELD_STARTS_WINDOWS => false,
-                'scheduler' => false,
+                self::FIELD_SCHEDULER => false,
             ],
             self::FIELD_CRITICAL_PATH => $critical,
             self::FIELD_PARALLELIZABLE_GROUPS => $this->parallelizableGroups($active),
@@ -262,7 +264,7 @@ final class AcosMaxWindowOrchestratorService
             self::FIELD_FLAG_ID => $window[self::FIELD_FLAG_ID],
             self::FIELD_SLICE => $window[self::FIELD_SLICE],
             self::FIELD_SERIES => $series[self::FIELD_SERIES] ?? null,
-            'silent_days' => $silentDays,
+            self::FIELD_SILENT_DAYS => $silentDays,
             self::FIELD_LAST_DATA_AT => $lastDataAt?->format(DateTimeInterface::ATOM),
             self::FIELD_REASON => $lastDataAt === null ? 'no_series_data_since_window_start' : 'series_stale_during_window',
         ];

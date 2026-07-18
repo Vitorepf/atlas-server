@@ -7349,4 +7349,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['maxa_jina_immune_classifier_watchdog_runner_lote_measure_floor_count']);
     }
 
+    public function test_deferred_phase_acos_window_cognition_remint_score_lote_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->deferredPhaseAcosWindowCognitionRemintScoreLoteFloorsContractObserve([]);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_OUTPUTS, $out['outputs']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_QUEUE_PATH, $out['queue_path']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_RECEIPT_STATUS, $out['receipt_status']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::FIELD_PATH_COUNT, $out['path_count']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::FIELD_QUEUE_PATH, $out['queue_path']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_OPEN_BRAIN, $out['open_brain']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_PERSISTENT_CONTEXT, $out['persistent_context']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DISTINCT_SIGNATURE_K, $out['distinct_signature_k']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DUAL_READ_REQUIRED, $out['dual_read_required']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_RUN_OUTCOME_ID, $out['run_outcome_id']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_SCOPE, $out['scope']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_TASK_CATEGORY, $out['task_category']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_VERIFICATION_NUMERATOR, $out['verification_numerator']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_SCHEDULER, $out['scheduler']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_SILENT_DAYS, $out['silent_days']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_PENDING_FLIPS, $out['pending_flips']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_REVIEW_DEBT, $out['review_debt']);
+        $this->assertSame(18, $out['deferred_phase_acos_window_cognition_remint_score_lote_floor_count']);
+    }
+
 }

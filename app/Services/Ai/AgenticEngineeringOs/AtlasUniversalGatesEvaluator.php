@@ -9459,4 +9459,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B385).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function deferredPhaseAcosWindowCognitionRemintScoreLoteFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'outputs' => AaeosDeferredPhaseDispatcherService::FIELD_OUTPUTS,
+            'queue_path' => AaeosDeferredPhaseDispatcherService::FIELD_QUEUE_PATH,
+            'receipt_status' => AtlasAcosWindowGatesService::FIELD_RECEIPT_STATUS,
+            'schema_version' => AtlasAcosWindowGatesService::FIELD_SCHEMA_VERSION,
+            'path_count' => AtlasCognitionRemintTouchedQueue::FIELD_PATH_COUNT,
+            'queue_path' => AtlasCognitionRemintTouchedQueue::FIELD_QUEUE_PATH,
+            'open_brain' => AtlasCognitionScoreCardV4Grouper::FIELD_OPEN_BRAIN,
+            'persistent_context' => AtlasCognitionScoreCardV4Grouper::FIELD_PERSISTENT_CONTEXT,
+            'distinct_signature_k' => AcosMaxLote2MeasureService::FIELD_DISTINCT_SIGNATURE_K,
+            'dual_read_required' => AcosMaxLote2MeasureService::FIELD_DUAL_READ_REQUIRED,
+            'run_outcome_id' => AcosMaxProceduralSkillPromoterService::FIELD_RUN_OUTCOME_ID,
+            'scope' => AcosMaxProceduralSkillPromoterService::FIELD_SCOPE,
+            'task_category' => AcosMaxVerifiedShareService::FIELD_TASK_CATEGORY,
+            'verification_numerator' => AcosMaxVerifiedShareService::FIELD_VERIFICATION_NUMERATOR,
+            'scheduler' => AcosMaxWindowOrchestratorService::FIELD_SCHEDULER,
+            'silent_days' => AcosMaxWindowOrchestratorService::FIELD_SILENT_DAYS,
+            'pending_flips' => AcosProgramCockpitService::FIELD_PENDING_FLIPS,
+            'review_debt' => AcosProgramCockpitService::FIELD_REVIEW_DEBT,
+            'deferred_phase_acos_window_cognition_remint_score_lote_floor_count' => 18,
+        ];
+    }
+
 }

@@ -407,6 +407,7 @@ final class AtlasAaeosCommand extends Command
                             {--evidence-vision-golden-counterfactual-promotion-protocol-phase-handoff-floors-contract= : JSON file (any object) to observe evidence/vision/golden/counterfactual/promotion/protocol floors}
                             {--outcome-envelope-ragx-chain-teto-predicted-immune-hybrid-floors-contract= : JSON file (any object) to observe outcome/envelope/ragx/chain/teto/predicted floors}
                             {--maxa-jina-immune-classifier-watchdog-runner-lote-measure-floors-contract= : JSON file (any object) to observe maxa/jina/immune/classifier/watchdog/runner floors}
+                            {--deferred-phase-acos-window-cognition-remint-score-lote-floors-contract= : JSON file (any object) to observe deferred/phase/acos/window/cognition/remint floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -970,6 +971,7 @@ final class AtlasAaeosCommand extends Command
             ['evidence-vision-golden-counterfactual-promotion-protocol-phase-handoff-floors-contract', 'evidence_vision_golden_counterfactual_promotion_protocol_phase_handoff_floors_contract', fn (array $p) => $gates->evidenceVisionGoldenCounterfactualPromotionProtocolPhaseHandoffFloorsContractObserve($p)],
             ['outcome-envelope-ragx-chain-teto-predicted-immune-hybrid-floors-contract', 'outcome_envelope_ragx_chain_teto_predicted_immune_hybrid_floors_contract', fn (array $p) => $gates->outcomeEnvelopeRagxChainTetoPredictedImmuneHybridFloorsContractObserve($p)],
             ['maxa-jina-immune-classifier-watchdog-runner-lote-measure-floors-contract', 'maxa_jina_immune_classifier_watchdog_runner_lote_measure_floors_contract', fn (array $p) => $gates->maxaJinaImmuneClassifierWatchdogRunnerLoteMeasureFloorsContractObserve($p)],
+            ['deferred-phase-acos-window-cognition-remint-score-lote-floors-contract', 'deferred_phase_acos_window_cognition_remint_score_lote_floors_contract', fn (array $p) => $gates->deferredPhaseAcosWindowCognitionRemintScoreLoteFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
