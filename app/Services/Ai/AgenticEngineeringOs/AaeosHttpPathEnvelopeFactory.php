@@ -135,6 +135,11 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_ATLAS_AI_ROUTER_FLOW_ID = 'atlas_ai_router.flow_id';
     public const FIELD_PROGRAMMING_FORGE = 'programming.forge';
     public const FIELD_ROUTE_TARGET = 'route.target';
+    public const FIELD_RCPT_AAEOS_PHASE1_DISAMBIGUATION_OPTIONAL = 'rcpt:aaeos.phase1.disambiguation.optional';
+    public const FIELD_RCPT_AAEOS_PHASE3_ROUTING_R1_R2_FAST_PATH = 'rcpt:aaeos.phase3.routing.r1_r2_fast_path';
+    public const FIELD_RCPT_AAEOS_PHASE3_TOPOLOGY_R1_R2_FAST_PATH = 'rcpt:aaeos.phase3.topology.r1_r2_fast_path';
+    public const FIELD_RCPT_AAEOS_PHASE4_RECEIPT_R1_R2_FAST_PATH = 'rcpt:aaeos.phase4.receipt.r1_r2_fast_path';
+    public const FIELD_RCPT_AAEOS_PHASE4_SPEC_R1_R2_FAST_PATH = 'rcpt:aaeos.phase4.spec.r1_r2_fast_path';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -188,7 +193,7 @@ final class AaeosHttpPathEnvelopeFactory
         return $this->handoff->skip(
             intentId: $intentId,
             phase: AaeosPhaseHandoffService::PHASE_DISAMBIGUATION,
-            receiptId: 'rcpt:aaeos.phase1.disambiguation.optional',
+            receiptId: self::FIELD_RCPT_AAEOS_PHASE1_DISAMBIGUATION_OPTIONAL,
             reason: self::FIELD_MISSION_FOUNDATION_OPTIONAL_AT_PHASE_1,
         );
     }
@@ -313,7 +318,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_POLICY_GATE,
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_TOPOLOGY,
             self::FIELD_ACTOR_ID => self::FIELD_AAEOS_TOPOLOGY,
-            self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase3.topology.r1_r2_fast_path',
+            self::FIELD_SKIP_RECEIPT_ID => self::FIELD_RCPT_AAEOS_PHASE3_TOPOLOGY_R1_R2_FAST_PATH,
             self::FIELD_SKIP_REASON => self::FIELD_R1_R2_FAST_PATH_PRESERVED,
             self::FIELD_OUTPUTS => [
                 self::FIELD_TOPOLOGY_REQUIRED => self::FIELD_YES,
@@ -325,7 +330,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_TOPOLOGY,
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_ROUTING,
             self::FIELD_ACTOR_ID => self::FIELD_AAEOS_ROUTING,
-            self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase3.routing.r1_r2_fast_path',
+            self::FIELD_SKIP_RECEIPT_ID => self::FIELD_RCPT_AAEOS_PHASE3_ROUTING_R1_R2_FAST_PATH,
             self::FIELD_SKIP_REASON => self::FIELD_R1_R2_FAST_PATH_PRESERVED,
             self::FIELD_OUTPUTS => [
                 self::FIELD_DEPARTMENT_ROUTE => self::FIELD_ENGINEERING_OR_FORGE_PENDING_AAWR,
@@ -337,7 +342,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_ROUTING,
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_SPEC,
             self::FIELD_ACTOR_ID => self::FIELD_AAEOS_SPEC,
-            self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase4.spec.r1_r2_fast_path',
+            self::FIELD_SKIP_RECEIPT_ID => self::FIELD_RCPT_AAEOS_PHASE4_SPEC_R1_R2_FAST_PATH,
             self::FIELD_SKIP_REASON => self::FIELD_R1_R2_FAST_PATH_PRESERVED,
             self::FIELD_OUTPUTS => [
                 self::FIELD_SPEC_INVOCATION => self::FIELD_DEFERRED,
@@ -361,7 +366,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_TASKS,
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_RECEIPT,
             self::FIELD_ACTOR_ID => self::FIELD_AAEOS_RECEIPT,
-            self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase4.receipt.r1_r2_fast_path',
+            self::FIELD_SKIP_RECEIPT_ID => self::FIELD_RCPT_AAEOS_PHASE4_RECEIPT_R1_R2_FAST_PATH,
             self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved_legacy_trace_audit',
             self::FIELD_OUTPUTS => [
                 self::FIELD_DECISION_RECEIPT_V2_INVOCATION => self::FIELD_DEFERRED,

@@ -38,7 +38,7 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasSurpriseGateService
 {
-    /** Abaixo disto o candidato é "previsto" (o pack já sabia) ⇒ não grava. */
+    /** Abaixo disto o candidato é self::FIELD_PREVISTO (o pack já sabia) ⇒ não grava. */
     public const DEFAULT_THRESHOLD = 0.5;
 
     /** Acima disto o candidato é surpresa forte ⇒ prioridade alta. */
@@ -65,6 +65,7 @@ final class AtlasSurpriseGateService
     public const FIELD_HIGH = 'high';
     public const FIELD_LOW = 'low';
     public const FIELD_NORMAL = 'normal';
+    public const FIELD_PREVISTO = 'previsto';
     public const FLOAT_1_0 = 1.0;
 
     /**

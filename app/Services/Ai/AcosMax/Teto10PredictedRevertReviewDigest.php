@@ -105,6 +105,7 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_REVERSIBLE = 'reversible';
     public const FIELD_ROLLBACK_COMMAND = 'rollback_command';
     public const FIELD_TETO_10 = 'TETO-10';
+    public const FIELD_FAMILY_UNKNOWN = 'family:unknown';
     public const INT_3 = 3;
     public const INT_2 = 2;
 
@@ -180,7 +181,7 @@ final class Teto10PredictedRevertReviewDigest
                 $currentBand = $band;
             }
 
-            $lines[] = '### '.self::plain(self::string($group[self::FIELD_GROUP_KEY] ?? 'family:unknown') ?: 'family:unknown');
+            $lines[] = '### '.self::plain(self::string($group[self::FIELD_GROUP_KEY] ?? self::FIELD_FAMILY_UNKNOWN) ?: self::FIELD_FAMILY_UNKNOWN);
             $decisionId = self::string($group[self::FIELD_DECISION_ID] ?? '');
             $family = self::string($group[self::FIELD_FAMILY] ?? '');
             if ($decisionId !== '' || $family !== '') {

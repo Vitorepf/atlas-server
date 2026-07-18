@@ -13747,4 +13747,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B524).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b524MeasureSeriesHttpPathAcosProgramObraRetroFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'freeze:acos.flywheel.loops.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ACOS_FLYWHEEL_LOOPS_V1,
+            'freeze:acos.learning_latency.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ACOS_LEARNING_LATENCY_V1,
+            'freeze:acos.operator_review_debt.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ACOS_OPERATOR_REVIEW_DEBT_V1,
+            'freeze:acos.verified_share.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ACOS_VERIFIED_SHARE_V1,
+            'freeze:acos.windows_orchestrator.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ACOS_WINDOWS_ORCHESTRATOR_V1,
+            'rcpt:aaeos.phase1.disambiguation.optional' => AaeosHttpPathEnvelopeFactory::FIELD_RCPT_AAEOS_PHASE1_DISAMBIGUATION_OPTIONAL,
+            'rcpt:aaeos.phase3.routing.r1_r2_fast_path' => AaeosHttpPathEnvelopeFactory::FIELD_RCPT_AAEOS_PHASE3_ROUTING_R1_R2_FAST_PATH,
+            'rcpt:aaeos.phase3.topology.r1_r2_fast_path' => AaeosHttpPathEnvelopeFactory::FIELD_RCPT_AAEOS_PHASE3_TOPOLOGY_R1_R2_FAST_PATH,
+            'rcpt:aaeos.phase4.receipt.r1_r2_fast_path' => AaeosHttpPathEnvelopeFactory::FIELD_RCPT_AAEOS_PHASE4_RECEIPT_R1_R2_FAST_PATH,
+            'rcpt:aaeos.phase4.spec.r1_r2_fast_path' => AaeosHttpPathEnvelopeFactory::FIELD_RCPT_AAEOS_PHASE4_SPEC_R1_R2_FAST_PATH,
+            'atlas:promotions' => AcosProgramCockpitService::FIELD_ATLAS_PROMOTIONS,
+            'atlas:windows' => AcosProgramCockpitService::FIELD_ATLAS_WINDOWS,
+            'obra:acos-max_series_tag' => AcosMaxObraRetroService::FIELD_OBRA_ACOS_MAX_SERIES_TAG,
+            'atlas_ledger_events:watchdog_run_recorded' => AcosDeadSeriesWatchdogCheck::FIELD_ATLAS_LEDGER_EVENTS_WATCHDOG_RUN_RECORDED,
+            'family:unknown' => Teto10PredictedRevertReviewDigest::FIELD_FAMILY_UNKNOWN,
+            'maxa04:restore-current-semantic-rag-model' => Maxa04JinaV3DualReadService::FIELD_MAXA04_RESTORE_CURRENT_SEMANTIC_RAG_MODEL,
+            'previsto' => AtlasSurpriseGateService::FIELD_PREVISTO,
+            'broken_at:invalid_link' => CaptureHmacLineageService::FIELD_BROKEN_AT_INVALID_LINK,
+            'b524_measure_series_http_path_acos_program_obra_retro_floor_count' => 18,
+        ];
+    }
+
 }

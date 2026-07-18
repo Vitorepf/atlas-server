@@ -111,6 +111,7 @@ final class CaptureHmacLineageService
     public const FIELD_MAXI_07 = 'MAXI-07';
     public const FIELD_COGNITIVE_QUARANTINE_LINEAGE_HMAC_LINEAGE = 'cognitive_quarantine.lineage.hmac_lineage';
     public const FIELD_ACOS_MAX_MAXI_07_CAPTURE_HMAC_LINEAGE = 'acos_max.maxi_07.capture_hmac_lineage';
+    public const FIELD_BROKEN_AT_INVALID_LINK = 'broken_at:invalid_link';
 
     /**
      * @param  array<string,mixed>  $existingChain
@@ -163,7 +164,7 @@ final class CaptureHmacLineageService
         foreach ($stages as $link) {
             if (! is_array($link)) {
                 return [
-                    self::FIELD_STATUS => 'broken_at:invalid_link',
+                    self::FIELD_STATUS => self::FIELD_BROKEN_AT_INVALID_LINK,
                     self::FIELD_BROKEN_AT => self::FIELD_INVALID_LINK,
                     self::FIELD_STAGE_COUNT => count($stages),
                     self::FIELD_HEAD_RECEIPT_HASH => $this->headReceiptHash($chain),

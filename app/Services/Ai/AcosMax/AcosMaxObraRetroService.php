@@ -104,6 +104,7 @@ final class AcosMaxObraRetroService
     public const FIELD_SCOREBOARD_SLICE_REFS = 'scoreboard_slice_refs';
     public const FIELD_OUTCOME_OUTCOME_ID = 'outcome.outcome_id';
     public const FIELD_SPINE_AI_RUN_OUTCOME_ID = 'spine.ai_run_outcome.id';
+    public const FIELD_OBRA_ACOS_MAX_SERIES_TAG = 'obra:acos-max_series_tag';
 
     public function __construct(
         private readonly AtlasEngineeringOutcomeRecorder $outcomes,
@@ -285,7 +286,7 @@ final class AcosMaxObraRetroService
                 self::FIELD_FUTURE_LOTE_CLOSE_REQUIRES => [
                     self::FIELD_SCOREBOARD_SLICE_REFS,
                     self::FIELD_OUTC_01_OUTCOME_RECORDS,
-                    'obra:acos-max_series_tag',
+                    self::FIELD_OBRA_ACOS_MAX_SERIES_TAG,
                     self::FIELD_NORMAL_QUALITY_GATED_LESSON_CANDIDATES,
                 ],
             ],

@@ -10824,4 +10824,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(11, $out['b523_acos_evolution_cognition_score_aaeos_quality_spec_completeness_floor_count']);
     }
 
+    public function test_b524_measure_series_http_path_acos_program_obra_retro_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b524MeasureSeriesHttpPathAcosProgramObraRetroFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ACOS_FLYWHEEL_LOOPS_V1, $out['freeze:acos.flywheel.loops.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ACOS_LEARNING_LATENCY_V1, $out['freeze:acos.learning_latency.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ACOS_OPERATOR_REVIEW_DEBT_V1, $out['freeze:acos.operator_review_debt.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ACOS_VERIFIED_SHARE_V1, $out['freeze:acos.verified_share.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ACOS_WINDOWS_ORCHESTRATOR_V1, $out['freeze:acos.windows_orchestrator.v1']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_RCPT_AAEOS_PHASE1_DISAMBIGUATION_OPTIONAL, $out['rcpt:aaeos.phase1.disambiguation.optional']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_RCPT_AAEOS_PHASE3_ROUTING_R1_R2_FAST_PATH, $out['rcpt:aaeos.phase3.routing.r1_r2_fast_path']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_RCPT_AAEOS_PHASE3_TOPOLOGY_R1_R2_FAST_PATH, $out['rcpt:aaeos.phase3.topology.r1_r2_fast_path']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_RCPT_AAEOS_PHASE4_RECEIPT_R1_R2_FAST_PATH, $out['rcpt:aaeos.phase4.receipt.r1_r2_fast_path']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_RCPT_AAEOS_PHASE4_SPEC_R1_R2_FAST_PATH, $out['rcpt:aaeos.phase4.spec.r1_r2_fast_path']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_PROMOTIONS, $out['atlas:promotions']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_WINDOWS, $out['atlas:windows']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_OBRA_ACOS_MAX_SERIES_TAG, $out['obra:acos-max_series_tag']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_ATLAS_LEDGER_EVENTS_WATCHDOG_RUN_RECORDED, $out['atlas_ledger_events:watchdog_run_recorded']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_FAMILY_UNKNOWN, $out['family:unknown']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_MAXA04_RESTORE_CURRENT_SEMANTIC_RAG_MODEL, $out['maxa04:restore-current-semantic-rag-model']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_PREVISTO, $out['previsto']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_BROKEN_AT_INVALID_LINK, $out['broken_at:invalid_link']);
+        $this->assertSame(18, $out['b524_measure_series_http_path_acos_program_obra_retro_floor_count']);
+    }
+
 }

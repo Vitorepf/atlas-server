@@ -546,6 +546,7 @@ final class AtlasAaeosCommand extends Command
                             {--b521-measure-series-lote-aaeos-http-mission-control-delivery-floors-contract= : JSON file (any object) to observe measure/series/lote/aaeos/http/mission floors}
                             {--b522-measure-series-lote-capture-hmac-immune-promotion-watchdog-floors-contract= : JSON file (any object) to observe measure/series/lote/capture/hmac/immune floors}
                             {--b523-acos-evolution-cognition-score-aaeos-quality-spec-completeness-floors-contract= : JSON file (any object) to observe acos/evolution/cognition/score/aaeos/quality floors}
+                            {--b524-measure-series-http-path-acos-program-obra-retro-floors-contract= : JSON file (any object) to observe measure/series/http/path/acos/program floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1248,6 +1249,7 @@ final class AtlasAaeosCommand extends Command
             ['b521-measure-series-lote-aaeos-http-mission-control-delivery-floors-contract', 'b521_measure_series_lote_aaeos_http_mission_control_delivery_floors_contract', fn (array $p) => $gates->b521MeasureSeriesLoteAaeosHttpMissionControlDeliveryFloorsContractObserve($p)],
             ['b522-measure-series-lote-capture-hmac-immune-promotion-watchdog-floors-contract', 'b522_measure_series_lote_capture_hmac_immune_promotion_watchdog_floors_contract', fn (array $p) => $gates->b522MeasureSeriesLoteCaptureHmacImmunePromotionWatchdogFloorsContractObserve($p)],
             ['b523-acos-evolution-cognition-score-aaeos-quality-spec-completeness-floors-contract', 'b523_acos_evolution_cognition_score_aaeos_quality_spec_completeness_floors_contract', fn (array $p) => $gates->b523AcosEvolutionCognitionScoreAaeosQualitySpecCompletenessFloorsContractObserve($p)],
+            ['b524-measure-series-http-path-acos-program-obra-retro-floors-contract', 'b524_measure_series_http_path_acos_program_obra_retro_floors_contract', fn (array $p) => $gates->b524MeasureSeriesHttpPathAcosProgramObraRetroFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

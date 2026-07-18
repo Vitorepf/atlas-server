@@ -57,6 +57,8 @@ final class AcosProgramCockpitService
     public const FIELD_SOURCE_DID_NOT_EMIT_JSON = 'source_did_not_emit_json';
     public const FIELD_UTC = 'UTC';
     public const FIELD_MULTX_02 = 'MULTX-02';
+    public const FIELD_ATLAS_PROMOTIONS = 'atlas:promotions';
+    public const FIELD_ATLAS_WINDOWS = 'atlas:windows';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -73,8 +75,8 @@ final class AcosProgramCockpitService
                 'm' => $this->commandSection('atlas:acos:m-series --json', 'atlas:acos:m-series', ['--json' => true]),
                 'r' => $this->commandSection('atlas:atlas-decide:live-feedback --regret --json', 'atlas:atlas-decide:live-feedback', ['--regret' => true, '--json' => true]),
                 self::FIELD_LOOPS_FUNNEL => $this->loopsFunnelSection(),
-                self::FIELD_WINDOWS => $this->commandSection('atlas:windows --json', 'atlas:windows', ['--json' => true]),
-                self::FIELD_PENDING_FLIPS => $this->commandSection('atlas:promotions --json', 'atlas:promotions', ['--json' => true]),
+                self::FIELD_WINDOWS => $this->commandSection('atlas:windows --json', self::FIELD_ATLAS_WINDOWS, ['--json' => true]),
+                self::FIELD_PENDING_FLIPS => $this->commandSection('atlas:promotions --json', self::FIELD_ATLAS_PROMOTIONS, ['--json' => true]),
                 self::FIELD_REVIEW_DEBT => $this->callbackSection(
                     'AtlasOperatorReviewDebtMeter::report(7)',
                     fn (): array => (new AtlasOperatorReviewDebtMeter)->report(7),

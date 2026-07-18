@@ -91,6 +91,7 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_MAXA_04 = 'MAXA-04';
     public const FIELD_ATLAS_SEMANTIC_MEMORY_EMBEDDING_DIMENSIONS = 'atlas.semantic_memory.embedding_dimensions';
     public const FIELD_ATLAS_SEMANTIC_MEMORY_SEMANTIC_RAG_MODEL = 'atlas.semantic_memory.semantic_rag_model';
+    public const FIELD_MAXA04_RESTORE_CURRENT_SEMANTIC_RAG_MODEL = 'maxa04:restore-current-semantic-rag-model';
     public const INT_8192 = 8192;
 
 
@@ -142,7 +143,7 @@ final class Maxa04JinaV3DualReadService
                 self::FIELD_REQUIRES_DUAL_READ_LEDGER => true,
             ],
             self::FIELD_ROLLBACK => [
-                self::FIELD_HANDLE => 'maxa04:restore-current-semantic-rag-model',
+                self::FIELD_HANDLE => self::FIELD_MAXA04_RESTORE_CURRENT_SEMANTIC_RAG_MODEL,
                 self::FIELD_DESCRIPTION => 'Restore ATLAS_SEMANTIC_RAG_MODEL to the prior model and discard jina-v3 shadow rows before any operator promotion.',
                 self::FIELD_DEFAULT_MODEL_UNCHANGED => true,
             ],

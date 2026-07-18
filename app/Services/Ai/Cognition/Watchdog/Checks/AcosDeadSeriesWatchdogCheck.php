@@ -46,6 +46,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_RECORDED_AT = 'recorded_at';
     public const FIELD_JSONL = 'jsonl';
     public const FIELD_UTC = 'UTC';
+    public const FIELD_ATLAS_LEDGER_EVENTS_WATCHDOG_RUN_RECORDED = 'atlas_ledger_events:watchdog_run_recorded';
 
     public function __construct(
         private AcosMaxMeasureSeriesRegistry $registry,
@@ -81,7 +82,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
                 self::FIELD_CODE => self::FIELD_ACOS_DEAD_SERIES_STALE,
                 self::FIELD_MESSAGE => 'Registered ACOS measure series exceeded its frozen TTL or has no append.',
                 self::FIELD_SERIES => array_values(array_map(static fn (array $row): string => AiValueNormalizer::trimmedScalarStringOrNull($row[self::FIELD_SERIES] ?? null) ?? '', $dead)),
-                self::FIELD_LEDGER => 'atlas_ledger_events:watchdog_run_recorded',
+                self::FIELD_LEDGER => self::FIELD_ATLAS_LEDGER_EVENTS_WATCHDOG_RUN_RECORDED,
             ]);
         }
 

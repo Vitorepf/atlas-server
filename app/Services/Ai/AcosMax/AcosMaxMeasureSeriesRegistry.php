@@ -125,6 +125,11 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_MAXM_01_FROZEN_CORPUS_BASELINE = 'maxm-01-frozen-corpus-baseline';
     public const FIELD_RAGX_07_RECORDS_ONLY_AB_REGISTRATION = 'ragx-07-records-only-ab-registration';
     public const FIELD_REC_06_META_LOOP_BREAKER_READER = 'rec-06-meta-loop-breaker-reader';
+    public const FIELD_FREEZE_ACOS_FLYWHEEL_LOOPS_V1 = 'freeze:acos.flywheel.loops.v1';
+    public const FIELD_FREEZE_ACOS_LEARNING_LATENCY_V1 = 'freeze:acos.learning_latency.v1';
+    public const FIELD_FREEZE_ACOS_OPERATOR_REVIEW_DEBT_V1 = 'freeze:acos.operator_review_debt.v1';
+    public const FIELD_FREEZE_ACOS_VERIFIED_SHARE_V1 = 'freeze:acos.verified_share.v1';
+    public const FIELD_FREEZE_ACOS_WINDOWS_ORCHESTRATOR_V1 = 'freeze:acos.windows_orchestrator.v1';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -218,7 +223,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxVerifiedShareService::freezePayload()[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:acos.verified_share.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ACOS_VERIFIED_SHARE_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_ASI_05,
@@ -298,7 +303,7 @@ final class AcosMaxMeasureSeriesRegistry
                     self::FIELD_SCOPE_ID => self::FIELD_UNIFIED,
                 ],
                 self::FIELD_TTL_DAYS => AtlasOperatorReviewDebtMeter::TTL_DAYS,
-                self::FIELD_TTL_SOURCE => 'freeze:acos.operator_review_debt.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ACOS_OPERATOR_REVIEW_DEBT_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXJ_01,
@@ -433,7 +438,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTX_01)[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:acos.flywheel.loops.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ACOS_FLYWHEEL_LOOPS_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MULTX_02,
@@ -451,7 +456,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTX_06)[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:acos.learning_latency.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ACOS_LEARNING_LATENCY_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MULTX_09,
@@ -460,7 +465,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTX_09)[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:acos.windows_orchestrator.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ACOS_WINDOWS_ORCHESTRATOR_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MULTJ_01,

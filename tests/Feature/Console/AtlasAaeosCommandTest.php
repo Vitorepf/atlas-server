@@ -9069,6 +9069,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b524_measure_series_http_path_acos_program_obra_retro_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b524-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b524',
+                '--b524-measure-series-http-path-acos-program-obra-retro-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b524_measure_series_http_path_acos_program_obra_retro_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 
