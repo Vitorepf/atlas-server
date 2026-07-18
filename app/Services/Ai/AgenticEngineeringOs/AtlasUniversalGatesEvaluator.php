@@ -18249,4 +18249,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B671).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b671FlywheelFunnelFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'all' => AtlasFlywheelFunnelService::FIELD_ALL,
+            'memory_written' => AtlasFlywheelFunnelService::FIELD_MEMORY_WRITTEN,
+            'atlas.m.funnel.v1' => AtlasFlywheelFunnelService::MEASURE_ID,
+            'atlas.m.funnel.v1' => AtlasFlywheelFunnelService::MEASURE_ID,
+            'atlas_m_funnel_v1' => AtlasFlywheelFunnelService::FORMULA_VERSION,
+            'ok' => AtlasFlywheelFunnelService::STATUS_OK,
+            'no_signal' => AtlasFlywheelFunnelService::STATUS_NO_SIGNAL,
+            'insufficient' => AtlasFlywheelFunnelService::STATUS_INSUFFICIENT,
+            'status' => AtlasFlywheelFunnelService::FIELD_STATUS,
+            'stages' => AtlasFlywheelFunnelService::FIELD_STAGES,
+            'by_executor' => AtlasFlywheelFunnelService::FIELD_BY_EXECUTOR,
+            'outcome_count' => AtlasFlywheelFunnelService::FIELD_OUTCOME_COUNT,
+            'outcomes_without_lesson' => AtlasFlywheelFunnelService::FIELD_OUTCOMES_WITHOUT_LESSON,
+            'lessons_without_promotion' => AtlasFlywheelFunnelService::FIELD_LESSONS_WITHOUT_PROMOTION,
+            'promoted_without_recall' => AtlasFlywheelFunnelService::FIELD_PROMOTED_WITHOUT_RECALL,
+            'recalls_without_citation' => AtlasFlywheelFunnelService::FIELD_RECALLS_WITHOUT_CITATION,
+            'citations_without_better_outcome' => AtlasFlywheelFunnelService::FIELD_CITATIONS_WITHOUT_BETTER_OUTCOME,
+            'num' => AtlasFlywheelFunnelService::FIELD_NUM,
+            'b671_flywheel_funnel_floor_count' => 18,
+        ];
+    }
+
 }

@@ -14449,4 +14449,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b670_n_capture_floor_count']);
     }
 
+    public function test_b671_flywheel_funnel_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b671FlywheelFunnelFloorsContractObserve([]);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_ALL, $out['all']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_MEMORY_WRITTEN, $out['memory_written']);
+        $this->assertSame(AtlasFlywheelFunnelService::MEASURE_ID, $out['atlas.m.funnel.v1']);
+        $this->assertSame(AtlasFlywheelFunnelService::MEASURE_ID, $out['atlas.m.funnel.v1']);
+        $this->assertSame(AtlasFlywheelFunnelService::FORMULA_VERSION, $out['atlas_m_funnel_v1']);
+        $this->assertSame(AtlasFlywheelFunnelService::STATUS_OK, $out['ok']);
+        $this->assertSame(AtlasFlywheelFunnelService::STATUS_NO_SIGNAL, $out['no_signal']);
+        $this->assertSame(AtlasFlywheelFunnelService::STATUS_INSUFFICIENT, $out['insufficient']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_STAGES, $out['stages']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_BY_EXECUTOR, $out['by_executor']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_OUTCOME_COUNT, $out['outcome_count']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_OUTCOMES_WITHOUT_LESSON, $out['outcomes_without_lesson']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_LESSONS_WITHOUT_PROMOTION, $out['lessons_without_promotion']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_PROMOTED_WITHOUT_RECALL, $out['promoted_without_recall']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_RECALLS_WITHOUT_CITATION, $out['recalls_without_citation']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_CITATIONS_WITHOUT_BETTER_OUTCOME, $out['citations_without_better_outcome']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_NUM, $out['num']);
+        $this->assertSame(18, $out['b671_flywheel_funnel_floor_count']);
+    }
+
 }
