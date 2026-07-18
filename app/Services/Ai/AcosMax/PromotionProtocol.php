@@ -154,6 +154,7 @@ final class PromotionProtocol
     public const FIELD_DISABLE_AUTO_APPLY_WHEN_REVERSAL_RATE_OR_NEGATIVE_FEEDBACK_GUARD_BREACHES_SOAK_BOUNDS = 'disable auto-apply when reversal_rate or negative_feedback guard breaches soak bounds';
     public const FIELD_DISABLE_AUTONOMOUS_LAND_ENFORCEMENT_ON_FALSE_BLOCK_OR_RECEIPT_SEAL_REGRESSION = 'disable autonomous land enforcement on false block or receipt-seal regression';
     public const FIELD_DISABLE_REFLECTION_WRITER_IF_PATTERN_LEDGER_WRITES_FAIL_OR_NO_CONSUMER_TRAFFIC_IS_OBSERVED = 'disable reflection writer if pattern-ledger writes fail or no consumer traffic is observed';
+    public const FIELD_RETURN_TO_LEGACY_RANKING_FORMULA_ON_GOLDEN_V2_REGRESSION_OR_IMPROPER_FLOOR_DISCARD = 'return to legacy ranking formula on golden v2 regression or improper floor discard';
     public const FLOAT_0_05 = 0.05;
 
     /** @var list<string> */
@@ -397,7 +398,7 @@ final class PromotionProtocol
                 self::FIELD_CONFIG_KEY => self::FIELD_ATLAS_MEMORY_FUSION_V2_ENABLED,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '7d',
                 self::FIELD_FLIP_CRITERION => self::FIELD_GOLDEN_V2_SHOWS_RRF_CROSS_SOURCE_PRECISION_IMPROVEMENT_WITH_OFF_BYTE_IDENTICAL,
-                self::FIELD_ROLLBACK_TRIGGER => 'return to legacy ranking formula on golden v2 regression or improper floor discard',
+                self::FIELD_ROLLBACK_TRIGGER => self::FIELD_RETURN_TO_LEGACY_RANKING_FORMULA_ON_GOLDEN_V2_REGRESSION_OR_IMPROPER_FLOOR_DISCARD,
                 self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV26S_JUDGE,
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:330',
             ],

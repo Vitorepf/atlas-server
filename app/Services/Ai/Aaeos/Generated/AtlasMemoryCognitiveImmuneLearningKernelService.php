@@ -55,6 +55,15 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
 {
     /** Stable schema id for the verdict envelope this service emits. */
     public const SCHEMA = 'atlas.memory.cognitive_immune_learning_kernel.v1';
+    public const FIELD_G0 = 'G0';
+    public const FIELD_G1 = 'G1';
+    public const FIELD_G2 = 'G2';
+    public const FIELD_G3 = 'G3';
+    public const FIELD_G4 = 'G4';
+    public const FIELD_G5 = 'G5';
+    public const FIELD_G6 = 'G6';
+    public const FIELD_G7 = 'G7';
+    public const FIELD_G8 = 'G8';
 
     /**
      * Default cognitive-quarantine state. Every input is born here.
@@ -98,15 +107,15 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
      * @var array<int,array{id:string,signal:string,question:string}>
      */
     private const GATES = [
-        ['id' => 'G0', 'signal' => 'capture_consented', 'question' => 'pode capturar com consentimento, privacy e retention?'],
-        ['id' => 'G1', 'signal' => 'atomic_claim', 'question' => 'ha claim atomico, tipo, escopo e fonte?'],
-        ['id' => 'G2', 'signal' => 'future_signal', 'question' => 'ha utilidade futura, novidade ou recorrencia?'],
-        ['id' => 'G3', 'signal' => 'provider_safe', 'question' => 'e provider-safe, sem segredo e sem dado sensivel desnecessario?'],
-        ['id' => 'G4', 'signal' => 'no_contradiction', 'question' => 'conflita com memoria, codigo, docs ou decisao mais nova?'],
-        ['id' => 'G5', 'signal' => 'outcome_validated', 'question' => 'foi validado por feedback, teste, replay ou uso?'],
-        ['id' => 'G6', 'signal' => 'scope_resolved', 'question' => 'vale para global, workspace, projeto, tarefa, dominio ou sessao?'],
-        ['id' => 'G7', 'signal' => 'promotion_mode_set', 'question' => 'auto, review humano, proposal ou bloqueio?'],
-        ['id' => 'G8', 'signal' => 'probation_entered', 'question' => 'entra como watch antes de trusted?'],
+        ['id' => self::FIELD_G0, 'signal' => 'capture_consented', 'question' => 'pode capturar com consentimento, privacy e retention?'],
+        ['id' => self::FIELD_G1, 'signal' => 'atomic_claim', 'question' => 'ha claim atomico, tipo, escopo e fonte?'],
+        ['id' => self::FIELD_G2, 'signal' => 'future_signal', 'question' => 'ha utilidade futura, novidade ou recorrencia?'],
+        ['id' => self::FIELD_G3, 'signal' => 'provider_safe', 'question' => 'e provider-safe, sem segredo e sem dado sensivel desnecessario?'],
+        ['id' => self::FIELD_G4, 'signal' => 'no_contradiction', 'question' => 'conflita com memoria, codigo, docs ou decisao mais nova?'],
+        ['id' => self::FIELD_G5, 'signal' => 'outcome_validated', 'question' => 'foi validado por feedback, teste, replay ou uso?'],
+        ['id' => self::FIELD_G6, 'signal' => 'scope_resolved', 'question' => 'vale para global, workspace, projeto, tarefa, dominio ou sessao?'],
+        ['id' => self::FIELD_G7, 'signal' => 'promotion_mode_set', 'question' => 'auto, review humano, proposal ou bloqueio?'],
+        ['id' => self::FIELD_G8, 'signal' => 'probation_entered', 'question' => 'entra como watch antes de trusted?'],
     ];
 
     /** Categories the doc forbids from embedding by default. */

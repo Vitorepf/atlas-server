@@ -149,6 +149,9 @@ use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use App\Services\Ai\Cognition\BigramJaccardImmuneSemanticSimilarityPort;
 use App\Services\Ai\AcosMax\AttemptLifecycleLedger;
 use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
+use App\Services\Ai\Aaeos\Generated\AtlasMemoryCognitiveImmuneLearningKernelService;
+use App\Services\Ai\Aaeos\Generated\AtlasLearningProposalsService;
+use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -12823,6 +12826,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_A_MAXK_LADDER_ENVELOPE_FORGERY_WAS_NOT_REFUSED___REGRESSION_OPENS_THE_BOOLEAN_FORGEABLE_GATE_, $out['A MAXK ladder/envelope forgery was NOT refused — regression opens the boolean-forgeable gate.']);
         $this->assertSame(HealthReportWatchdogCheck::FIELD_HEALTH_REPORT_WATCHDOG_CHECK_REQUIRES_NON_EMPTY_ID_METHOD_ALERT_MESSAGE_, $out['HealthReportWatchdogCheck requires non-empty id/method/alert/message.']);
         $this->assertSame(18, $out['b605_promotion_protocol_phase_handoff_composed_obra_acos_watchdog_floor_count']);
+    }
+
+    public function test_b606_promotion_protocol_memory_cognitive_learning_proposals_watchdog_check_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b606PromotionProtocolMemoryCognitiveLearningProposalsWatchdogCheckFloorsContractObserve([]);
+        $this->assertSame(PromotionProtocol::FIELD_RETURN_TO_LEGACY_RANKING_FORMULA_ON_GOLDEN_V2_REGRESSION_OR_IMPROPER_FLOOR_DISCARD, $out['return to legacy ranking formula on golden v2 regression or improper floor discard']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G0, $out['G0']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G1, $out['G1']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G2, $out['G2']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G3, $out['G3']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G4, $out['G4']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G5, $out['G5']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G6, $out['G6']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G7, $out['G7']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G8, $out['G8']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_EVIDENCE_REFS, $out['evidence_refs']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_RISK, $out['risk']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_ROUTING, $out['routing']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_SAMPLE_SIZE, $out['sample_size']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_STRENGTH, $out['strength']);
+        $this->assertSame(AtlasWatchdogCheckRegistry::FIELD_WATCHDOG_CHECK_ID_CANNOT_BE_EMPTY_, $out['Watchdog check id cannot be empty.']);
+        $this->assertSame(18, $out['b606_promotion_protocol_memory_cognitive_learning_proposals_watchdog_check_floor_count']);
     }
 
 }

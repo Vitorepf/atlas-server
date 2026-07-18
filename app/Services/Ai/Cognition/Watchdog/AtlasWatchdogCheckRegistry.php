@@ -8,6 +8,7 @@ use InvalidArgumentException;
 
 final class AtlasWatchdogCheckRegistry
 {
+    public const FIELD_WATCHDOG_CHECK_ID_CANNOT_BE_EMPTY_ = 'Watchdog check id cannot be empty.';
     /** @var array<string,AtlasWatchdogCheck> */
     private array $checks = [];
 
@@ -21,7 +22,7 @@ final class AtlasWatchdogCheckRegistry
     {
         $id = trim($check->id());
         if ($id === '') {
-            throw new InvalidArgumentException('Watchdog check id cannot be empty.');
+            throw new InvalidArgumentException(self::FIELD_WATCHDOG_CHECK_ID_CANNOT_BE_EMPTY_);
         }
         if (isset($this->checks[$id])) {
             throw new InvalidArgumentException('Watchdog check already registered: '.$id);

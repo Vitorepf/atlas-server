@@ -147,6 +147,9 @@ use RuntimeException;
 use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
 use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
 use App\Services\Ai\Cognition\BigramJaccardImmuneSemanticSimilarityPort;
+use App\Services\Ai\Aaeos\Generated\AtlasMemoryCognitiveImmuneLearningKernelService;
+use App\Services\Ai\Aaeos\Generated\AtlasLearningProposalsService;
+use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry;
 
 /**
  * Atlas Universal Gates Evaluator — produces `atlas.aaeos.gate_report.v1`
@@ -16235,6 +16238,37 @@ final class AtlasUniversalGatesEvaluator
             'A MAXK ladder/envelope forgery was NOT refused — regression opens the boolean-forgeable gate.' => AutonomyLadderAdversarialWatchdogCheck::FIELD_A_MAXK_LADDER_ENVELOPE_FORGERY_WAS_NOT_REFUSED___REGRESSION_OPENS_THE_BOOLEAN_FORGEABLE_GATE_,
             'HealthReportWatchdogCheck requires non-empty id/method/alert/message.' => HealthReportWatchdogCheck::FIELD_HEALTH_REPORT_WATCHDOG_CHECK_REQUIRES_NON_EMPTY_ID_METHOD_ALERT_MESSAGE_,
             'b605_promotion_protocol_phase_handoff_composed_obra_acos_watchdog_floor_count' => 18,
+        ];
+    }
+
+    /**
+     * Observe-only floors contract (B606).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b606PromotionProtocolMemoryCognitiveLearningProposalsWatchdogCheckFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'return to legacy ranking formula on golden v2 regression or improper floor discard' => PromotionProtocol::FIELD_RETURN_TO_LEGACY_RANKING_FORMULA_ON_GOLDEN_V2_REGRESSION_OR_IMPROPER_FLOOR_DISCARD,
+            'G0' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G0,
+            'G1' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G1,
+            'G2' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G2,
+            'G3' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G3,
+            'G4' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G4,
+            'G5' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G5,
+            'G6' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G6,
+            'G7' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G7,
+            'G8' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_G8,
+            'status' => AtlasLearningProposalsService::FIELD_STATUS,
+            'evidence_refs' => AtlasLearningProposalsService::FIELD_EVIDENCE_REFS,
+            'kind' => AtlasLearningProposalsService::FIELD_KIND,
+            'risk' => AtlasLearningProposalsService::FIELD_RISK,
+            'routing' => AtlasLearningProposalsService::FIELD_ROUTING,
+            'sample_size' => AtlasLearningProposalsService::FIELD_SAMPLE_SIZE,
+            'strength' => AtlasLearningProposalsService::FIELD_STRENGTH,
+            'Watchdog check id cannot be empty.' => AtlasWatchdogCheckRegistry::FIELD_WATCHDOG_CHECK_ID_CANNOT_BE_EMPTY_,
+            'b606_promotion_protocol_memory_cognitive_learning_proposals_watchdog_check_floor_count' => 18,
         ];
     }
 
