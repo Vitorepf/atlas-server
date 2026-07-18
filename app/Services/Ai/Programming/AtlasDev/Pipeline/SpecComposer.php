@@ -481,11 +481,14 @@ class SpecComposer
 
     private function resolveMode(OperationEnvelope $envelope, TaskClassification $classification, string $riskLevel): string
     {
-        if (in_array($riskLevel, [RiskLevelScorer::R4, RiskLevelScorer::R5], true)
-            && $this->allowsRivalsIsolatedRuntimeExecution($envelope)) {
+        if ($this->allowsRivalsIsolatedRuntimeExecution($envelope)) {
+            // Benchmark isolado é SEMPRE tarefa de execução: o bridge manda
+            // "apply a production-quality patch". KIND_QUESTION aqui é misfire
+            // do classificador ("Fix the git repository" lido como pergunta →
+            // read_only_answer com referência de OUTRO workspace — visto ao
+            // vivo em tb_fix_git, run 20260718_181509) e matava a unidade.
+            // Vale para TODO risco, não só R4/R5: em R2 o misfire passava reto.
             return match ($classification->taskKind) {
-                TaskClassification::KIND_QUESTION => self::MODE_READ_ONLY,
-                TaskClassification::KIND_REVIEW => self::MODE_REVIEW,
                 TaskClassification::KIND_REPAIR => self::MODE_REPAIR,
                 TaskClassification::KIND_FRONTEND => self::MODE_FRONTEND_VISUAL,
                 default => self::MODE_PATCH,
