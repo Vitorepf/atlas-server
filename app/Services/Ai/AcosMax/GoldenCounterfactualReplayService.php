@@ -37,6 +37,8 @@ final class GoldenCounterfactualReplayService
     public const FIELD_COMMIT = 'commit';
     public const FIELD_EXECUTED_AT = 'executed_at';
     public const FIELD_RUN_ID = 'run_id';
+    public const FIELD_CLAIM_POLICY = 'claim_policy';
+    public const FIELD_READ_ONLY = 'read_only';
 
 
     /**
@@ -50,8 +52,8 @@ final class GoldenCounterfactualReplayService
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             'generated_at' => now()->toIso8601String(),
             self::FIELD_DECISION_ID => $decisionId,
-            'claim_policy' => [
-                'read_only' => true,
+            self::FIELD_CLAIM_POLICY => [
+                self::FIELD_READ_ONLY => true,
                 'provider_calls_made' => false,
                 'git_checkout_performed' => false,
                 'extrapolation_allowed' => false,

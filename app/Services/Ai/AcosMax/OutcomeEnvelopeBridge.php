@@ -34,6 +34,8 @@ final class OutcomeEnvelopeBridge
     public const FIELD_PRODUCERS = 'producers';
     public const FIELD_CONSUMERS = 'consumers';
     public const FIELD_FREEZE = 'freeze';
+    public const FIELD_ANTI_UNIFICATION_FENCE = 'anti_unification_fence';
+    public const FIELD_FORMULA_VERSION = 'formula_version';
 
     /** @var array<string, OutcomeEnvelopeAdapter> */
     private array $adapters;
@@ -91,7 +93,7 @@ final class OutcomeEnvelopeBridge
             self::FIELD_ENABLED => self::enabled(),
             self::FIELD_PRODUCERS => array_keys($this->adapters),
             self::FIELD_CONSUMERS => array_keys($this->adapters),
-            'anti_unification_fence' => [
+            self::FIELD_ANTI_UNIFICATION_FENCE => [
                 self::FIELD_DEV_PROCEDURAL => \App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevOutcomeMemoryService::class,
                 self::FIELD_AEMOR => \App\Services\Ai\Aemor\AtlasAemorRuntimeService::class,
                 self::FIELD_COMPOUNDING => \App\Services\Ai\Compounding\AtlasCompoundingOutcomeEvaluator::class,
@@ -106,7 +108,7 @@ final class OutcomeEnvelopeBridge
         return [
             'kind' => self::KIND_MEASURE_FREEZE,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
-            'formula_version' => OutcomeEnvelope::FORMULA_VERSION,
+            self::FIELD_FORMULA_VERSION => OutcomeEnvelope::FORMULA_VERSION,
             'formula' => 'Outcome envelope = MULTX-03 atlas.engineering_outcome.v2 contract projected through one thin adapter per native organ (dev_procedural, aemor, compounding). Divergent native fields remain in native_divergent.fields labeled by origin — never coerced or fused.',
             'thresholds' => [
                 'adapter_origins' => OutcomeEnvelope::ADAPTER_ORIGINS,

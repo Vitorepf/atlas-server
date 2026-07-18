@@ -6047,4 +6047,32 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     }
 
 
+    public function test_teto_ragx_promotion_envelope_golden_bets_thesis_attempt_cockpit_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->tetoRagxPromotionEnvelopeGoldenBetsThesisAttemptCockpitFloorsContractObserve([]);
+
+        $this->assertSame('slice', $payload['teto_field_slice']);
+        $this->assertSame('frontier_plan_section', $payload['teto_field_frontier_plan_section']);
+        $this->assertSame('stages', $payload['ragx_field_stages']);
+        $this->assertSame('node_count', $payload['ragx_field_node_count']);
+        $this->assertSame('event_id', $payload['promotion_field_event_id']);
+        $this->assertSame('from_state', $payload['promotion_field_from_state']);
+        $this->assertSame('anti_unification_fence', $payload['envelope_field_anti_unification_fence']);
+        $this->assertSame('formula_version', $payload['envelope_field_formula_version']);
+        $this->assertSame('claim_policy', $payload['golden_field_claim_policy']);
+        $this->assertSame('read_only', $payload['golden_field_read_only']);
+        $this->assertSame('objective_class', $payload['bets_field_objective_class']);
+        $this->assertSame('suspended_paths', $payload['bets_field_suspended_paths']);
+        $this->assertSame('theses', $payload['thesis_field_theses']);
+        $this->assertSame('expires_at', $payload['thesis_field_expires_at']);
+        $this->assertSame('unterminated_count', $payload['attempt_field_unterminated_count']);
+        $this->assertSame('outcome_without_attempt_allowed', $payload['attempt_field_outcome_without_attempt_allowed']);
+        $this->assertSame('external_provider_call', $payload['cockpit_field_external_provider_call']);
+        $this->assertSame('provider_tokens_spent', $payload['cockpit_field_provider_tokens_spent']);
+        $this->assertSame(18, $payload['teto_ragx_promotion_envelope_golden_bets_thesis_attempt_cockpit_floor_count']);
+    }
+
+
+
+
 }

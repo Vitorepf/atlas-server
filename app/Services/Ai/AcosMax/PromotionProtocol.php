@@ -84,6 +84,8 @@ final class PromotionProtocol
     public const FIELD_DECISION_KIND = 'decision_kind';
     public const FIELD_OPERATOR_ALIGNMENT = 'operator_alignment';
     public const FIELD_EVENT = 'event';
+    public const FIELD_EVENT_ID = 'event_id';
+    public const FIELD_FROM_STATE = 'from_state';
 
     public const DEFAULT_LEDGER_RELATIVE_PATH = 'app/atlas/evidence/acos-max-promotion-flips.jsonl';
 
@@ -201,7 +203,7 @@ final class PromotionProtocol
         $fromState = $this->stateForFlag($flagId);
         $event = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA,
-            'event_id' => hash('sha256', implode('|', [
+            self::FIELD_EVENT_ID => hash('sha256', implode('|', [
                 $flagId,
                 $fromState,
                 $toState,
@@ -213,7 +215,7 @@ final class PromotionProtocol
             self::FIELD_FLAG_ID => $flagId,
             self::FIELD_FAMILY => $family,
             self::FIELD_SLICE => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SLICE] ?? null) ?? ''),
-            'from_state' => $fromState,
+            self::FIELD_FROM_STATE => $fromState,
             self::FIELD_TO_STATE => $toState,
             self::FIELD_OBSERVATION_WINDOW_ID => $windowId,
             self::FIELD_ACTOR => AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_ACTOR] ?? null) ?? 'atlas',

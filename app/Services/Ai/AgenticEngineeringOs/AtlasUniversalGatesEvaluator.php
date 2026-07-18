@@ -7998,6 +7998,32 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+
+    public function tetoRagxPromotionEnvelopeGoldenBetsThesisAttemptCockpitFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'teto_field_slice' => Teto10PredictedRevertReviewDigest::FIELD_SLICE,
+            'teto_field_frontier_plan_section' => Teto10PredictedRevertReviewDigest::FIELD_FRONTIER_PLAN_SECTION,
+            'ragx_field_stages' => RagxChainMechanismService::FIELD_STAGES,
+            'ragx_field_node_count' => RagxChainMechanismService::FIELD_NODE_COUNT,
+            'promotion_field_event_id' => PromotionProtocol::FIELD_EVENT_ID,
+            'promotion_field_from_state' => PromotionProtocol::FIELD_FROM_STATE,
+            'envelope_field_anti_unification_fence' => OutcomeEnvelopeBridge::FIELD_ANTI_UNIFICATION_FENCE,
+            'envelope_field_formula_version' => OutcomeEnvelopeBridge::FIELD_FORMULA_VERSION,
+            'golden_field_claim_policy' => GoldenCounterfactualReplayService::FIELD_CLAIM_POLICY,
+            'golden_field_read_only' => GoldenCounterfactualReplayService::FIELD_READ_ONLY,
+            'bets_field_objective_class' => ExploratoryBetsPortfolio::FIELD_OBJECTIVE_CLASS,
+            'bets_field_suspended_paths' => ExploratoryBetsPortfolio::FIELD_SUSPENDED_PATHS,
+            'thesis_field_theses' => EvidenceVisionThesisLifecycle::FIELD_THESES,
+            'thesis_field_expires_at' => EvidenceVisionThesisLifecycle::FIELD_EXPIRES_AT,
+            'attempt_field_unterminated_count' => AttemptLifecycleLedger::FIELD_UNTERMINATED_COUNT,
+            'attempt_field_outcome_without_attempt_allowed' => AttemptLifecycleLedger::FIELD_OUTCOME_WITHOUT_ATTEMPT_ALLOWED,
+            'cockpit_field_external_provider_call' => AcosProgramCockpitService::FIELD_EXTERNAL_PROVIDER_CALL,
+            'cockpit_field_provider_tokens_spent' => AcosProgramCockpitService::FIELD_PROVIDER_TOKENS_SPENT,
+            'teto_ragx_promotion_envelope_golden_bets_thesis_attempt_cockpit_floor_count' => 18,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

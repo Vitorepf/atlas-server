@@ -45,6 +45,8 @@ final class AttemptLifecycleLedger
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_ATTEMPTS = 'attempts';
     public const FIELD_STARTED_AT = 'started_at';
+    public const FIELD_UNTERMINATED_COUNT = 'unterminated_count';
+    public const FIELD_OUTCOME_WITHOUT_ATTEMPT_ALLOWED = 'outcome_without_attempt_allowed';
 
     /** @var array<string,array<string,mixed>> */
     private array $attempts = [];
@@ -102,12 +104,12 @@ final class AttemptLifecycleLedger
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_ATTEMPTS => $this->attempts,
-            'unterminated_count' => count(array_filter(
+            self::FIELD_UNTERMINATED_COUNT => count(array_filter(
                 $this->attempts,
                 static fn (array $attempt): bool => $attempt[self::FIELD_STATE] === self::STATE_STARTED,
             )),
             'source' => [
-                'outcome_without_attempt_allowed' => false,
+                self::FIELD_OUTCOME_WITHOUT_ATTEMPT_ALLOWED => false,
                 'attempt_id_deduped' => true,
             ],
         ];

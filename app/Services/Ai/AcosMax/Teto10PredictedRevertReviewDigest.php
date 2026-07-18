@@ -79,6 +79,8 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_ASK_REF = 'ask_ref';
     public const FIELD_BATCHED_ASK = 'batched_ask';
     public const FIELD_FLIP_REF = 'flip_ref';
+    public const FIELD_SLICE = 'slice';
+    public const FIELD_FRONTIER_PLAN_SECTION = 'frontier_plan_section';
 
     /**
      * @param  list<array<string,mixed>>  $items
@@ -114,8 +116,8 @@ final class Teto10PredictedRevertReviewDigest
             self::FIELD_PENDING_FLIPS => self::flaggedSection($shown, 'pending_flip', 'flip_ref'),
             self::FIELD_BATCHED_ASKS => self::flaggedSection($shown, 'batched_ask', 'ask_ref'),
             'source' => [
-                'slice' => 'TETO-10',
-                'frontier_plan_section' => '3144-3147',
+                self::FIELD_SLICE => 'TETO-10',
+                self::FIELD_FRONTIER_PLAN_SECTION => '3144-3147',
                 'markdown_cli_only' => true,
                 'ui_created' => false,
                 'reorders_by_predicted_revert_band' => true,

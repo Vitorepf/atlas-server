@@ -174,6 +174,8 @@ final class RagxChainMechanismService
     public const FIELD_MATCHES = 'matches';
     public const FIELD_RESULT = 'result';
     public const FIELD_SOURCE = 'source';
+    public const FIELD_STAGES = 'stages';
+    public const FIELD_NODE_COUNT = 'node_count';
 
     public const REASON_LATE_CHUNK_INDEX_ERROR = 'late_chunk_index_error';
 
@@ -223,7 +225,7 @@ final class RagxChainMechanismService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             self::FIELD_MODE => $anyEnabled ? self::MODE_SHADOW : self::MODE_DEFAULT_OFF,
             self::FIELD_AB_GREEN_CLAIMED => false,
-            'stages' => $stages,
+            self::FIELD_STAGES => $stages,
         ];
     }
 
@@ -344,7 +346,7 @@ final class RagxChainMechanismService
             self::FIELD_SLICE => self::STAGE_MAXD_05,
             self::FIELD_STATUS => self::STATUS_OK,
             self::FIELD_ALGORITHM => 'louvain_deterministic_local',
-            'node_count' => count($nodes),
+            self::FIELD_NODE_COUNT => count($nodes),
             self::FIELD_EDGE_COUNT => count($edges),
             self::FIELD_COMMUNITIES => $communities,
             self::FIELD_AB_GREEN_CLAIMED => false,

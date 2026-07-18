@@ -57,6 +57,8 @@ final class ExploratoryBetsPortfolio
     public const FIELD_SUSPENSION_UPDATE = 'suspension_update';
     public const FIELD_WINDOW_ID = 'window_id';
     public const FIELD_DELETES_SUSPENDED_FAMILY = 'deletes_suspended_family';
+    public const FIELD_OBJECTIVE_CLASS = 'objective_class';
+    public const FIELD_SUSPENDED_PATHS = 'suspended_paths';
 
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
 
@@ -108,10 +110,10 @@ final class ExploratoryBetsPortfolio
         $k = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($context[self::FIELD_K] ?? null) ?? self::DEFAULT_K));
         $windowId = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_WINDOW_ID]  ?? null) ?? 'current_window';
         $windowDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($context[self::FIELD_WINDOW_DAYS] ?? null) ?? self::DEFAULT_WINDOW_DAYS));
-        $objectiveClass = AiValueNormalizer::trimmedStringOrNull($context['objective_class'] ?? null) ?? '';
+        $objectiveClass = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_OBJECTIVE_CLASS] ?? null) ?? '';
         /** @var array<string,string> $suspendedPaths */
         $suspendedPaths = array_filter(
-            AiValueNormalizer::arrayOrEmpty($context['suspended_paths'] ?? null),
+            AiValueNormalizer::arrayOrEmpty($context[self::FIELD_SUSPENDED_PATHS] ?? null),
             static fn ($state): bool => AiValueNormalizer::trimmedStringOrNull($state) !== null,
         );
 

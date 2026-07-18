@@ -39,6 +39,8 @@ final class EvidenceVisionThesisLifecycle
     public const FIELD_CONSECUTIVE_WINDOWS = 'consecutive_windows';
     public const FIELD_THRESHOLD = 'threshold';
     public const FIELD_WINDOW = 'window';
+    public const FIELD_THESES = 'theses';
+    public const FIELD_EXPIRES_AT = 'expires_at';
 
     /** @var array<string,array<string,mixed>> */
     private static array $active = [];
@@ -57,7 +59,7 @@ final class EvidenceVisionThesisLifecycle
      */
     public static function ingestComposed(array $composed): void
     {
-        foreach (AiValueNormalizer::arrayOrEmpty($composed['theses'] ?? null) as $thesis) {
+        foreach (AiValueNormalizer::arrayOrEmpty($composed[self::FIELD_THESES] ?? null) as $thesis) {
             if (! is_array($thesis)) {
                 continue;
             }
@@ -162,7 +164,7 @@ final class EvidenceVisionThesisLifecycle
         array $leads,
         int $nowTs,
     ): ?string {
-        $expiresAt = strtotime(AiValueNormalizer::trimmedStringOrNull($thesis['expires_at'] ?? null) ?? '');
+        $expiresAt = strtotime(AiValueNormalizer::trimmedStringOrNull($thesis[self::FIELD_EXPIRES_AT] ?? null) ?? '');
         if ($expiresAt !== false && $nowTs >= $expiresAt) {
             return self::DEATH_REASON_TTL_EXPIRED;
         }

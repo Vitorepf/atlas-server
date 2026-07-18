@@ -38,6 +38,8 @@ final class AcosProgramCockpitService
     public const FIELD_ROLLBACK_TRIGGERS = 'rollback_triggers';
     public const FIELD_OPERATIONAL_VOLUME = 'operational_volume';
     public const FIELD_HEADING = 'heading';
+    public const FIELD_EXTERNAL_PROVIDER_CALL = 'external_provider_call';
+    public const FIELD_PROVIDER_TOKENS_SPENT = 'provider_tokens_spent';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -47,8 +49,8 @@ final class AcosProgramCockpitService
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'generated_at' => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
-            'external_provider_call' => false,
-            'provider_tokens_spent' => false,
+            self::FIELD_EXTERNAL_PROVIDER_CALL => false,
+            self::FIELD_PROVIDER_TOKENS_SPENT => false,
             'mutates_state' => false,
             self::FIELD_SECTIONS => [
                 'm' => $this->commandSection('atlas:acos:m-series --json', 'atlas:acos:m-series', ['--json' => true]),

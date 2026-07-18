@@ -6342,6 +6342,26 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+
+    public function test_universal_gates_observe_teto_ragx_promotion_envelope_golden_bets_thesis_attempt_cockpit_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-trpegtbac-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-trpegtbac',
+                '--teto-ragx-promotion-envelope-golden-bets-thesis-attempt-cockpit-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"teto_ragx_promotion_envelope_golden_bets_thesis_attempt_cockpit_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])
