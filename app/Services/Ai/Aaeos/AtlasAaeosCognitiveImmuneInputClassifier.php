@@ -60,6 +60,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_STRATEGIC_INSIGHT_SIGNAL = 'strategic_insight_signal';
     public const FIELD_TASK_REMINDER_COLD_FILE = 'task_reminder_cold_file';
     public const FIELD_TASK_ROUTINE = 'task_routine';
+    public const FIELD_ALGORITHM = 'algorithm';
+    public const FIELD_ESTRATEGICA = 'estrategica';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -119,7 +121,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
      */
     public const STRATEGIC_MARKERS = [
         'estrategia',
-        'estrategica',
+        self::FIELD_ESTRATEGICA,
         'analogia',
         'insight',
         'tese',
@@ -145,7 +147,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         'stack trace',
         'null pointer',
         'memory leak',
-        'algorithm',
+        self::FIELD_ALGORITHM,
         'compiler',
     ];
 

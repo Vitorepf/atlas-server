@@ -81,6 +81,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_ARTISAN = 'artisan';
     public const FIELD_ANALISA = 'analisa';
     public const FIELD_AUDITA = 'audita';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_AVALIE = 'avalie';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -100,7 +102,7 @@ final class AtlasCognitiveFunctionDecomposerService
     public const RULES = [
         self::FIELD_REASONING => [
             'porque', 'por que', self::FIELD_ANALISE, self::FIELD_ANALISA, 'explique', 'pense', 'pondere',
-            'decida', 'decisao', 'compare', 'avalie', 'logica', 'estrategia',
+            'decida', 'decisao', 'compare', self::FIELD_AVALIE, 'logica', 'estrategia',
             'raciocine', 'investigue', 'why', 'reason',
         ],
         self::FIELD_RETRIEVAL => [
@@ -130,7 +132,7 @@ final class AtlasCognitiveFunctionDecomposerService
             'audite', self::FIELD_AUDITA, 'audit', 'verifique', 'valide', 'cheque',
             'inspecione', 'governance', 'invariant', 'kernel', 'cartografia',
             'doc', 'documento', 'compliance', 'evidence', 'evidencia',
-            'integrity', 'tamper', 'sha256', 'hash ', 'verify',
+            'integrity', 'tamper', self::FIELD_SHA256, 'hash ', 'verify',
         ],
     ];
 
@@ -284,7 +286,7 @@ final class AtlasCognitiveFunctionDecomposerService
             self::FIELD_DEBUG => $debug,
             self::FIELD_CLAIM_POLICY => $this->claimPolicy(),
         ];
-        $envelope[self::FIELD_DECOMPOSITION_HASH] = 'sha256:'.hash('sha256', json_encode([
+        $envelope[self::FIELD_DECOMPOSITION_HASH] = 'sha256:'.hash(self::FIELD_SHA256, json_encode([
             self::FIELD_SCHEMA => self::SCHEMA,
             self::FIELD_INPUT => $input,
             self::FIELD_WEIGHTS => $weights,

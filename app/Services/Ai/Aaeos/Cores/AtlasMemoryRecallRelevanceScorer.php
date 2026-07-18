@@ -42,6 +42,8 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_GLOBAL = 'global';
     public const FIELD_REGISTRY = 'registry';
     public const FIELD_SEMANTIC = 'semantic';
+    public const FIELD_HYBRID_SCORE = 'hybrid_score';
+    public const FIELD_CONFIDENCE = 'confidence';
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -67,15 +69,15 @@ final class AtlasMemoryRecallRelevanceScorer
 
         if ($source === 'verbatim') {
             return 82
-                + $this->floatField($row, 'hybrid_score', 0.0) * 24
+                + $this->floatField($row, self::FIELD_HYBRID_SCORE, 0.0) * 24
                 + $this->scopeWeight($scope)
                 + $this->typeWeight($type);
         }
 
         return $this->floatField($row, 'priority', 50.0)
             + $this->floatField($row, 'importance', 3.0) * 10
-            + $this->floatField($row, 'confidence', 0.7) * 10
-            + $this->floatField($row, 'hybrid_score', 0.0) * 30
+            + $this->floatField($row, self::FIELD_CONFIDENCE, 0.7) * 10
+            + $this->floatField($row, self::FIELD_HYBRID_SCORE, 0.0) * 30
             + $this->scopeWeight($scope)
             + $this->typeWeight($type);
     }

@@ -71,6 +71,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_PROBATION_WATCH_AGE_DAYS = 'probation_watch_age_days';
     public const FIELD_ATOMIC_CLAIM_PRESENT = 'atomic_claim_present';
+    public const FIELD_CONTRADICTS_NEWER = 'contradicts_newer';
+    public const FIELD_SCOPE = 'scope';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -192,7 +194,7 @@ final class CognitiveImmunePromotionGateEvaluator
         $confirmed = $this->flag($signals, self::FIELD_ATOMIC_CLAIM_PRESENT)
             && $this->nonEmptyString($signals, 'claim_type')
             && $this->flag($signals, 'claim_source_present')
-            && $this->nonEmptyString($signals, 'scope');
+            && $this->nonEmptyString($signals, self::FIELD_SCOPE);
 
         return $confirmed
             ? [self::STATUS_PASS, '']
@@ -245,7 +247,7 @@ final class CognitiveImmunePromotionGateEvaluator
      */
     private function contradictionGate(array $signals, bool $candidatePresent): array
     {
-        if ($this->flag($signals, 'contradicts_newer')) {
+        if ($this->flag($signals, self::FIELD_CONTRADICTS_NEWER)) {
             return [self::STATUS_BLOCK, 'contradicts_newer_authority'];
         }
 
@@ -283,7 +285,7 @@ final class CognitiveImmunePromotionGateEvaluator
      */
     private function scopeGate(array $signals): array
     {
-        $scope = $this->stringValue($signals, 'scope');
+        $scope = $this->stringValue($signals, self::FIELD_SCOPE);
 
         return in_array($scope, self::KNOWN_SCOPES, true)
             ? [self::STATUS_PASS, '']
@@ -442,7 +444,7 @@ final class CognitiveImmunePromotionGateEvaluator
      */
     private function hasProbationSuperveningContradiction(array $signals): bool
     {
-        return $this->flag($signals, 'contradicts_newer')
+        return $this->flag($signals, self::FIELD_CONTRADICTS_NEWER)
             || $this->flag($signals, 'probation_supervening_contradiction')
             || $this->intValue($signals, 'probation_supervening_contradiction_count') > 0;
     }

@@ -243,6 +243,8 @@ final class DepartmentContractRuntime
     public const FIELD_TOPOLOGY_PLAN = 'topology_plan';
     public const FIELD_APPROVE_RELEASE = 'approve_release';
     public const FIELD_ROLLBACK_PLAN_PRESENT = 'rollback_plan_present';
+    public const FIELD_APPROVE_FOR_CERT = 'approve_for_cert';
+    public const FIELD_APPROVE_RELEASE_WITHOUT_REVIEW = 'approve_release_without_review';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -429,7 +431,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_REVIEW_REPORT, self::FIELD_SCHEMA => self::SCHEMA_REVIEW_REPORT],
             ],
             self::FIELD_GATES => ['review_packet_signed', 'risk_acknowledged', 'review_checklist_complete', 'blockers_addressed', 'evidence_traceable'],
-            self::FIELD_ALLOWED_ACTIONS => ['request_changes', 'approve_for_cert', 'veto_release'],
+            self::FIELD_ALLOWED_ACTIONS => ['request_changes', self::FIELD_APPROVE_FOR_CERT, 'veto_release'],
             self::FIELD_FORBIDDEN_ACTIONS => ['edit_code', 'deploy_release', 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['review_report_hash', 'checklist_completion_hash'],
@@ -525,7 +527,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_GATES => ['release_authority_declared', self::FIELD_ROLLBACK_PLAN_PRESENT, 'delivery_pack_completeness_min_0_95', 'evidence_traceable'],
             self::FIELD_ALLOWED_ACTIONS => ['assemble_delivery_pack', 'sign_delivery_hash', 'request_human_review'],
-            self::FIELD_FORBIDDEN_ACTIONS => ['edit_code', 'approve_release_without_review', 'modify_security_policy'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['edit_code', self::FIELD_APPROVE_RELEASE_WITHOUT_REVIEW, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_REVIEW, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['delivery_pack_hash', 'completeness_report_hash'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_DELIVERY_PACKS, self::FIELD_LEDGER => self::FIELD_AAEOS_DELIVERY_LEDGER],

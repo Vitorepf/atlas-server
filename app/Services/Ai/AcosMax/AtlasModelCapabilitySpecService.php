@@ -49,6 +49,8 @@ final class AtlasModelCapabilitySpecService
     public const FIELD_LICENSE_ALLOWED = 'license_allowed';
     public const FIELD_LICENSE = 'license';
     public const FIELD_NON_EMPTY_STRING = 'non_empty_string';
+    public const FIELD_CONTEXT_BELOW_SPEC_FLOOR = 'context_below_spec_floor';
+    public const FIELD_DETERMINISTIC = 'deterministic';
     /** @var array<string, array<string, mixed>> */
     private array $functions;
 
@@ -103,7 +105,7 @@ final class AtlasModelCapabilitySpecService
         }
 
         $violations = array_merge($violations, $this->checkNumericFloor(
-            $spec, $model, 'min_ctx_tokens', 'ctx_tokens', 'context_below_spec_floor'
+            $spec, $model, 'min_ctx_tokens', 'ctx_tokens', self::FIELD_CONTEXT_BELOW_SPEC_FLOOR
         ));
 
         $violations = array_merge($violations, $this->checkEnum(
@@ -119,7 +121,7 @@ final class AtlasModelCapabilitySpecService
         ));
 
         $violations = array_merge($violations, $this->checkBooleanTrue(
-            $spec, $model, 'deterministic', 'non_deterministic_model_refused'
+            $spec, $model, self::FIELD_DETERMINISTIC, 'non_deterministic_model_refused'
         ));
 
         $violations = array_merge($violations, $this->checkBooleanTrue(

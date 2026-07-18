@@ -171,6 +171,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_SUPPLEMENTAL = 'supplemental';
     public const FIELD_AUCRI = 'aucri';
     public const FIELD_ATLAS_DECIDE = 'atlas_decide';
+    public const FIELD_COGNITIVE_IMMUNE = 'cognitive_immune';
+    public const FIELD_PATAMAR_4 = 'patamar_4';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -217,15 +219,15 @@ class AtlasCognitionScoreCardService
      */
     public const SUBSYSTEMS = [
         // Cognitive Immune G0-G8 (9)
-        ['G0',     'Raw Capture Layer',           'cognitive_immune', AtlasAemorRuntimeService::class],
-        ['G1',     'Evidence Promotion Gate',     'cognitive_immune', AtlasAemorRuntimeService::class],
-        ['G2',     'Learning Signal Extraction',  'cognitive_immune', AtlasLearningDistiller::class],
-        ['G3',     'Memory Promotion',            'cognitive_immune', AiMemoryDeltaProposer::class],
-        ['G4',     'Context Gate',                'cognitive_immune', AtlasContextFreshnessQualityGateService::class],
-        ['G5',     'Decision Gate',               'cognitive_immune', AiDecisionReceiptRefreshService::class],
-        ['G6',     'Outcome Replay',              'cognitive_immune', AtlasAemorJudgmentService::class],
-        ['G7',     'Self-Improvement Loop',       'cognitive_immune', AtlasSelfImprovementOrchestrator::class],
-        ['G8',     'Compounding Effect',          'cognitive_immune', AtlasCompoundingRuntimeService::class],
+        ['G0',     'Raw Capture Layer',           self::FIELD_COGNITIVE_IMMUNE, AtlasAemorRuntimeService::class],
+        ['G1',     'Evidence Promotion Gate',     self::FIELD_COGNITIVE_IMMUNE, AtlasAemorRuntimeService::class],
+        ['G2',     'Learning Signal Extraction',  self::FIELD_COGNITIVE_IMMUNE, AtlasLearningDistiller::class],
+        ['G3',     'Memory Promotion',            self::FIELD_COGNITIVE_IMMUNE, AiMemoryDeltaProposer::class],
+        ['G4',     'Context Gate',                self::FIELD_COGNITIVE_IMMUNE, AtlasContextFreshnessQualityGateService::class],
+        ['G5',     'Decision Gate',               self::FIELD_COGNITIVE_IMMUNE, AiDecisionReceiptRefreshService::class],
+        ['G6',     'Outcome Replay',              self::FIELD_COGNITIVE_IMMUNE, AtlasAemorJudgmentService::class],
+        ['G7',     'Self-Improvement Loop',       self::FIELD_COGNITIVE_IMMUNE, AtlasSelfImprovementOrchestrator::class],
+        ['G8',     'Compounding Effect',          self::FIELD_COGNITIVE_IMMUNE, AtlasCompoundingRuntimeService::class],
 
         // Memory Core (3)
         ['MEM-CORE',   'Memory Core (entries+relations)', 'memory_core', AtlasMemoryConflictResolutionService::class],
@@ -283,17 +285,17 @@ class AtlasCognitionScoreCardService
         ['AGPF',    'Atlas Gateway Preflight (TEOS-I4)',         self::FIELD_ATLAS_DECIDE,      AtlasGatewayPreflightService::class],
         ['ACVS',    'Constitutional Vault Service',              'governance',        AtlasConstitutionalVaultService::class],
         ['ATBS',    'Trust Budget Service',                      'governance',        AtlasTrustBudgetService::class],
-        ['ANCF',    'Nightly Counterfactuals',                   'patamar_4',         AtlasNightlyCounterfactualsService::class],
-        ['ASAR',    'Subsystem Auto-Rebalance',                  'patamar_4',         AtlasSubsystemAutoRebalanceService::class],
-        ['ASOS',    'Atlas Scheduler OS (Cron 24/7)',            'patamar_4',         AtlasSchedulerHealthService::class],
+        ['ANCF',    'Nightly Counterfactuals',                   self::FIELD_PATAMAR_4,         AtlasNightlyCounterfactualsService::class],
+        ['ASAR',    'Subsystem Auto-Rebalance',                  self::FIELD_PATAMAR_4,         AtlasSubsystemAutoRebalanceService::class],
+        ['ASOS',    'Atlas Scheduler OS (Cron 24/7)',            self::FIELD_PATAMAR_4,         AtlasSchedulerHealthService::class],
         ['ASPR',    'Swarm Production Resolver (real provider)', self::FIELD_ATLAS_DECIDE,      AtlasSwarmProductionResolverService::class],
         ['ACFD',    'Cognitive Function Decomposer (6-axis)',    'cognition',         AtlasCognitiveFunctionDecomposerService::class],
         ['ASPD',    'Atlas Swarm Parallel Dispatcher',           self::FIELD_ATLAS_DECIDE,      AtlasSwarmParallelDispatchService::class],
         ['ACSR',    'Cognitive Function Swarm Router (P6 closure)', self::FIELD_ATLAS_DECIDE,   AtlasCognitiveFunctionSwarmRouterService::class],
         ['ASAF',    'Swarm Auto-Failover (A4)',                  self::FIELD_ATLAS_DECIDE,      AtlasSwarmAutoFailoverService::class],
-        ['ARDS',    'Runtime Degradation Signal Ingress',        'patamar_4',         AtlasRuntimeDegradationSignalService::class],
+        ['ARDS',    'Runtime Degradation Signal Ingress',        self::FIELD_PATAMAR_4,         AtlasRuntimeDegradationSignalService::class],
         ['ASDM',    'Self-Divergence Model (target vs current)', 'self_construction', AtlasSelfDivergenceModelService::class],
-        ['AEMB',    'Embodiment Integration (P7 closure)',       'patamar_4',         AtlasEmbodimentIntegrationService::class],
+        ['AEMB',    'Embodiment Integration (P7 closure)',       self::FIELD_PATAMAR_4,         AtlasEmbodimentIntegrationService::class],
 
         // Patamar 1/2/3 closures — OCR confidence, Compounding L8/L9
         // COM-09: ACOP→ACRS bridge deleted — JSONL had 1 smoke signal (null value);

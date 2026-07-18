@@ -8693,4 +8693,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['acos_measure_local_model_composed_obra_pre_review_floor_count']);
     }
 
+    public function test_cognitive_function_department_contract_immune_promotion_cognition_score_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitiveFunctionDepartmentContractImmunePromotionCognitionScoreFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_AVALIE, $out['avalie']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_APPROVE_FOR_CERT, $out['approve_for_cert']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_APPROVE_RELEASE_WITHOUT_REVIEW, $out['approve_release_without_review']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_CONTRADICTS_NEWER, $out['contradicts_newer']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_SCOPE, $out['scope']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_COGNITIVE_IMMUNE, $out['cognitive_immune']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_PATAMAR_4, $out['patamar_4']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ALGORITHM, $out['algorithm']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ESTRATEGICA, $out['estrategica']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_FEEDBACK_RECORDED_AT, $out['feedback_recorded_at']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_FRESHNESS_FULL, $out['freshness_full']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_HYBRID_SCORE, $out['hybrid_score']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_CONFIDENCE, $out['confidence']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_CONTEXT_BELOW_SPEC_FLOOR, $out['context_below_spec_floor']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_DETERMINISTIC, $out['deterministic']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ATLAS_AI_ASSISTED_EXECUTION_QUALITY, $out['atlas_ai_assisted_execution_quality']);
+        $this->assertSame(18, $out['cognitive_function_department_contract_immune_promotion_cognition_score_floor_count']);
+    }
+
 }

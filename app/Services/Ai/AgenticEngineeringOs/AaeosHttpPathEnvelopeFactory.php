@@ -104,6 +104,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_SPEC_PACK_ACCEPTANCE_CRITERIA_MIN_3 = 'spec_pack_acceptance_criteria_min_3';
     public const FIELD_SYSTEM = 'system';
     public const FIELD_TASK_PACK_ATOMIC_TRUE_FOR_EACH = 'task_pack_atomic_true_for_each';
+    public const FIELD_FORGE = 'forge';
+    public const FIELD_ATLAS_AI_ASSISTED_EXECUTION_QUALITY = 'atlas_ai_assisted_execution_quality';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -253,7 +255,7 @@ final class AaeosHttpPathEnvelopeFactory
         $routingTask = AiValueNormalizer::trimmedStringOrNull($payload[self::FIELD_ROUTING_TASK] ?? null) ?? '';
         $flowId = AiValueNormalizer::trimmedStringOrNull(data_get($payload, 'atlas_ai_router.flow_id')) ?? '';
 
-        if (in_array($intent, ['plan', 'forge', 'obra'], true) || in_array($routingTask, ['plan', 'forge', 'obra'], true)) {
+        if (in_array($intent, ['plan', self::FIELD_FORGE, 'obra'], true) || in_array($routingTask, ['plan', self::FIELD_FORGE, 'obra'], true)) {
             return self::RISK_BAND_R3_PLUS;
         }
         if ($flowId === 'programming.forge' || $flowId === self::FIELD_ATLAS_FORGE) {
@@ -449,7 +451,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     private static function assistedExecutionQuality(array $data): array
     {
-        return self::arrayAt(self::requestPayload($data), 'atlas_ai_assisted_execution_quality');
+        return self::arrayAt(self::requestPayload($data), self::FIELD_ATLAS_AI_ASSISTED_EXECUTION_QUALITY);
     }
 
     /**

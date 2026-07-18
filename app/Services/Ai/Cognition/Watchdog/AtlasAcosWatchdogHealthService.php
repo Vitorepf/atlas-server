@@ -310,6 +310,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_FLOW_ID = 'flow_id';
     public const FIELD_INCLUDED_SOURCES = 'included_sources';
     public const FIELD_SYSTEM = 'system';
+    public const FIELD_FEEDBACK_RECORDED_AT = 'feedback_recorded_at';
+    public const FIELD_FRESHNESS_FULL = 'freshness_full';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -338,7 +340,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_CURRENT_DELTA_FROM_LATEST => $currentDelta,
                 self::FIELD_LATEST_DELTA_FROM_PREVIOUS => $latestDelta,
             ], 'memory_quality_score_regressed'),
-            $this->checkRow('freshness_full', $freshness >= 100, [
+            $this->checkRow(self::FIELD_FRESHNESS_FULL, $freshness >= 100, [
                 self::FIELD_FRESHNESS_COMPONENT => $freshness,
                 self::FIELD_REQUIRED => 100,
             ], 'memory_freshness_below_full'),
@@ -951,7 +953,7 @@ final class AtlasAcosWatchdogHealthService
         }
         $raw = AtlasMemoryEntryUsage::query()
             ->whereIn(self::FIELD_FEEDBACK_ACTION, $actions)
-            ->max('feedback_recorded_at');
+            ->max(self::FIELD_FEEDBACK_RECORDED_AT);
 
         return $this->parseDate($raw);
     }
