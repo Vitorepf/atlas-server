@@ -289,6 +289,9 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_TENANT_ID = 'tenant_id';
     public const FIELD_CREATED_AT = 'created_at';
     public const FIELD_CRITICAL = 'critical';
+    public const FIELD_HARNESS_CAPTURED = 'harness_captured';
+    public const FIELD_RECORDED_AT = 'recorded_at';
+    public const FIELD_SURFACE = 'surface';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -1048,7 +1051,7 @@ final class AtlasAcosWatchdogHealthService
         $since = CarbonImmutable::now('UTC')->subDays($days);
 
         return array_values(array_filter($rows, function (array $row) use ($since, $recordedAtPath): bool {
-            $at = $this->parseDate(data_get($row, $recordedAtPath) ?? data_get($row, 'recorded_at') ?? data_get($row, self::FIELD_CREATED_AT));
+            $at = $this->parseDate(data_get($row, $recordedAtPath) ?? data_get($row, self::FIELD_RECORDED_AT) ?? data_get($row, self::FIELD_CREATED_AT));
 
             return $at !== null && $at->greaterThanOrEqualTo($since);
         }));
@@ -1059,7 +1062,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $counts = [self::FIELD_DEV => 0, self::FIELD_FORGE => 0, self::FIELD_AUTONOMOS => 0];
         foreach ($rows as $row) {
-            $actor = AiValueNormalizer::lowerTrimmedString(data_get($row, 'context.executor', data_get($row, 'context.actor', data_get($row, 'surface', ''))));
+            $actor = AiValueNormalizer::lowerTrimmedString(data_get($row, 'context.executor', data_get($row, 'context.actor', data_get($row, self::FIELD_SURFACE, ''))));
             foreach (array_keys($counts) as $executor) {
                 if (str_contains($actor, $executor)) {
                     $counts[$executor]++;
@@ -1075,7 +1078,7 @@ final class AtlasAcosWatchdogHealthService
         $count = 0;
         foreach (AppendOnlyJsonlStore::read($this->forgeSovereignVerdictPath()) as $row) {
             if (($row[self::FIELD_PROMOTED] ?? false) === true
-                && ($row[self::FIELD_EVIDENCE_PROVENANCE] ?? null) === 'harness_captured'
+                && ($row[self::FIELD_EVIDENCE_PROVENANCE] ?? null) === self::FIELD_HARNESS_CAPTURED
                 && (int) (AiValueNormalizer::finiteFloatOrNull($row['tests_run'] ?? null) ?? 0) > 0
                 && count(AiValueNormalizer::arrayOrEmpty($row[self::FIELD_COMMANDS] ?? null)) > 0) {
                 $count++;

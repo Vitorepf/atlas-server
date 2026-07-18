@@ -247,6 +247,9 @@ final class AcosMaxLote2MeasureService
     public const FIELD_WOULD_MERGE_COUNT = 'would_merge_count';
     public const FIELD_COUNTERFACTUAL_LIFT_V2 = 'counterfactual_lift_v2';
     public const FIELD_DECISION_RECEIPT_ID = 'decision_receipt_id';
+    public const FIELD_FIXTURE_CHAIN = 'fixture_chain';
+    public const FIELD_IRRELEVANT = 'irrelevant';
+    public const FIELD_PEEK = 'peek';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -365,7 +368,7 @@ final class AcosMaxLote2MeasureService
                 $durations[] = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($assembled, 'loop.time_to_recall_seconds')) ?? 0);
             } else {
                 $partial[] = $assembled[self::FIELD_PARTIAL];
-                if (in_array('fixture_chain', AiValueNormalizer::arrayOrEmpty($assembled[self::FIELD_PARTIAL][self::FIELD_BLOCKED_BY] ?? null), true)) {
+                if (in_array(self::FIELD_FIXTURE_CHAIN, AiValueNormalizer::arrayOrEmpty($assembled[self::FIELD_PARTIAL][self::FIELD_BLOCKED_BY] ?? null), true)) {
                     $fixtureRejected++;
                 }
             }
@@ -878,7 +881,7 @@ final class AcosMaxLote2MeasureService
                 : $this->memoryTypeFromCounterfactualMeta($meta);
             $pairs[$pairId][self::FIELD_ROWS][$arm] = [
                 self::FIELD_SCORE => $this->counterfactualScore($row, $meta),
-                self::FIELD_POLICY_VALID => AiValueNormalizer::lowerTrimmedString($meta[self::FIELD_MODE] ?? 'peek') === 'peek'
+                self::FIELD_POLICY_VALID => AiValueNormalizer::lowerTrimmedString($meta[self::FIELD_MODE] ?? 'peek') === self::FIELD_PEEK
                     && ($meta[self::FIELD_RECORD_USAGE] ?? false) === false,
             ];
             if (! $pairs[$pairId][self::FIELD_ROWS][$arm][self::FIELD_POLICY_VALID]) {
@@ -922,7 +925,7 @@ final class AcosMaxLote2MeasureService
             $groups[$memoryType][self::FIELD_DELTA_SUM] += $delta;
             $validDeltas[] = $delta;
 
-            if ($memoryType === 'irrelevant' && $delta > 0.0001) {
+            if ($memoryType === self::FIELD_IRRELEVANT && $delta > 0.0001) {
                 $positiveLiftFabricated++;
             }
         }

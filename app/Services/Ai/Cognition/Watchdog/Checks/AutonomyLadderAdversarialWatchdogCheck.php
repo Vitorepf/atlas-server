@@ -31,7 +31,7 @@ use Throwable;
  * ceiling loosening, miner blocker mode) e ASSERTA que a promoção do estado
  * real é NEGADA. Se algum forjar-input passar, a check vira `alert` — a
  * mutação concreta é o `pass` gate do MAXK-05 no `AtlasAutonomousLearningApplier::decideCandidate()`
- * (linha :356 da era do plano, imediatamente após o cheque `promotion_gate.status==='pass'`).
+ * (linha :356 da era do plano, imediatamente após o cheque `promotion_gate.status===self::FIELD_PASS`).
  *
  * Provider-safe by construction: puro; nunca lê DB; usa um ledger temporário
  * por invocação. Fail-open em erros de bookkeeping para nunca quebrar o land.
@@ -92,6 +92,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_READ_ONLY = 'read_only';
     public const FIELD_BLOCKED = 'blocked';
     public const FIELD_METRICS_AUTHORITY_MISSING = 'metrics_authority_missing';
+    public const FIELD_METRICS_AUTHORITY_TAMPERED = 'metrics_authority_tampered';
+    public const FIELD_PASS = 'pass';
 
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
@@ -355,7 +357,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         return [
             self::FIELD_ID => 'maxk06.metrics_authority_tampered',
             self::FIELD_REFUSED => ($verdict[self::FIELD_ELIGIBLE] ?? true) === false
-                && ($verdict[self::FIELD_REFUSAL_REASON] ?? '') === 'metrics_authority_tampered'
+                && ($verdict[self::FIELD_REFUSAL_REASON] ?? '') === self::FIELD_METRICS_AUTHORITY_TAMPERED
                 && ($provenance[self::FIELD_SOURCE] ?? '') === AtlasAutonomyMetricsAuthorityPort::SOURCE_TAMPERED,
             self::FIELD_EXPECTED => 'blocked+metrics_authority_tampered',
             self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($verdict[self::FIELD_REFUSAL_REASON] ?? $verdict[self::FIELD_DECISION] ?? null) ?? self::PROBE_ID_UNKNOWN),

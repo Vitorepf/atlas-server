@@ -30,6 +30,9 @@ final class CognitiveContextNudgeApplier
     public const FIELD_ROLE = 'role';
     public const FIELD_AUDITOR = 'auditor';
     public const FIELD_BDD = 'bdd';
+    public const FIELD_CARTOGRAPHY = 'cartography';
+    public const FIELD_DEVELOPER = 'developer';
+    public const FIELD_EDITOR = 'editor';
     /**
      * Apply framework + role nudges to the keyword-scored hits map.
      *
@@ -57,7 +60,7 @@ final class CognitiveContextNudgeApplier
     private function applyFrameworkNudge(array $hits, string $framework): array
     {
         if ($framework !== '') {
-            if (str_starts_with($framework, 'cartography') || $framework === 'kernel_vault') {
+            if (str_starts_with($framework, self::FIELD_CARTOGRAPHY) || $framework === 'kernel_vault') {
                 $hits[self::FIELD_AUDIT] += 2;
             } elseif (str_starts_with($framework, 'programming') || $framework === 'sdd' || $framework === self::FIELD_BDD) {
                 $hits[self::FIELD_CODE] += 2;
@@ -83,9 +86,9 @@ final class CognitiveContextNudgeApplier
             $hits[self::FIELD_AUDIT] += 1;
         } elseif ($role === 'researcher' || $role === 'librarian') {
             $hits[self::FIELD_RETRIEVAL] += 1;
-        } elseif ($role === 'writer' || $role === 'editor') {
+        } elseif ($role === 'writer' || $role === self::FIELD_EDITOR) {
             $hits[self::FIELD_GENERATION] += 1;
-        } elseif ($role === 'engineer' || $role === 'developer' || $role === 'programmer') {
+        } elseif ($role === 'engineer' || $role === self::FIELD_DEVELOPER || $role === 'programmer') {
             $hits[self::FIELD_CODE] += 1;
         }
 

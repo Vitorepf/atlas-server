@@ -70,6 +70,8 @@ final class AtlasOperationalVolumeCheckService
     public const FIELD_PREREQUISITES = 'prerequisites';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_WINDOWS = 'windows';
+    public const FIELD_AI_RUN_OUTCOMES = 'ai_run_outcomes';
+    public const FIELD_ATLAS_AEMOR_EXECUTION_EPISODES = 'atlas_aemor_execution_episodes';
 
     /**
      * @return array<string,mixed>
@@ -207,7 +209,7 @@ final class AtlasOperationalVolumeCheckService
 
         if (DatabaseTableAvailability::has('ai_run_outcomes')) {
             $available = true;
-            if (! in_array('ai_run_outcomes', $sources, true)) {
+            if (! in_array(self::FIELD_AI_RUN_OUTCOMES, $sources, true)) {
                 $sources[] = 'ai_run_outcomes';
             }
             $total += (int) AiRunOutcome::query()
@@ -218,7 +220,7 @@ final class AtlasOperationalVolumeCheckService
 
         if (DatabaseTableAvailability::has('atlas_aemor_execution_episodes')) {
             $available = true;
-            if (! in_array('atlas_aemor_execution_episodes', $sources, true)) {
+            if (! in_array(self::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES, $sources, true)) {
                 $sources[] = 'atlas_aemor_execution_episodes';
             }
             $total += (int) AtlasAemorExecutionEpisode::query()

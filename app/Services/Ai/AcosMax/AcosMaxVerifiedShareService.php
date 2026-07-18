@@ -84,6 +84,7 @@ final class AcosMaxVerifiedShareService
     public const FIELD_SURFACE = 'surface';
     public const FIELD_TASK_CATEGORY = 'task_category';
     public const FIELD_VERIFICATION_NUMERATOR = 'verification_numerator';
+    public const FIELD_ENFORCE = 'enforce';
 
 
     /** @return array<string,mixed> */
@@ -301,7 +302,7 @@ final class AcosMaxVerifiedShareService
             ->get()
             ->map(static fn (AtlasLedgerEvent $event): array => (array) $event->payload)
             ->filter(static fn (array $payload): bool => ($payload[self::FIELD_EVENT_NAME] ?? null) === 'engineering.execution.coverage.recorded'
-                && ($payload[self::FIELD_MODE] ?? null) === 'enforce')
+                && ($payload[self::FIELD_MODE] ?? null) === self::FIELD_ENFORCE)
             ->values()
             ->all();
     }

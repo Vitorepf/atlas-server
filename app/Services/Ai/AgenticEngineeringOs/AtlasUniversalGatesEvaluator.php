@@ -10297,4 +10297,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B412).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function operationalVolumeContextNudgeAcosWatchdogLoteMeasureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ai_run_outcomes' => AtlasOperationalVolumeCheckService::FIELD_AI_RUN_OUTCOMES,
+            'atlas_aemor_execution_episodes' => AtlasOperationalVolumeCheckService::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES,
+            'cartography' => CognitiveContextNudgeApplier::FIELD_CARTOGRAPHY,
+            'developer' => CognitiveContextNudgeApplier::FIELD_DEVELOPER,
+            'editor' => CognitiveContextNudgeApplier::FIELD_EDITOR,
+            'harness_captured' => AtlasAcosWatchdogHealthService::FIELD_HARNESS_CAPTURED,
+            'recorded_at' => AtlasAcosWatchdogHealthService::FIELD_RECORDED_AT,
+            'surface' => AtlasAcosWatchdogHealthService::FIELD_SURFACE,
+            'fixture_chain' => AcosMaxLote2MeasureService::FIELD_FIXTURE_CHAIN,
+            'irrelevant' => AcosMaxLote2MeasureService::FIELD_IRRELEVANT,
+            'peek' => AcosMaxLote2MeasureService::FIELD_PEEK,
+            'metrics_authority_tampered' => AutonomyLadderAdversarialWatchdogCheck::FIELD_METRICS_AUTHORITY_TAMPERED,
+            'pass' => AutonomyLadderAdversarialWatchdogCheck::FIELD_PASS,
+            'evidence_traceable' => AtlasMissionControlCockpitService::FIELD_EVIDENCE_TRACEABLE,
+            'review_packet_signed' => AtlasMissionControlCockpitService::FIELD_REVIEW_PACKET_SIGNED,
+            'repair' => AtlasRepairLoopGuard::FIELD_REPAIR,
+            'succeeded' => OutcomeCausalityRanker::FIELD_SUCCEEDED,
+            'enforce' => AcosMaxVerifiedShareService::FIELD_ENFORCE,
+            'operational_volume_context_nudge_acos_watchdog_lote_measure_floor_count' => 18,
+        ];
+    }
+
 }

@@ -133,6 +133,7 @@ use App\Services\Ai\Cognition\Watchdog\Checks\DiskFreeWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\Checks\SubstrateRestoreDrillWatchdogCheck;
 use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
 use App\Services\Ai\AcosMax\CompoundingOutcomeEnvelopeAdapter;
+use App\Services\Ai\Aaeos\Cores\OutcomeCausalityRanker;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -8032,6 +8033,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_COMMAND, $out['command']);
         $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_JSONL_DIR, $out['jsonl_dir']);
         $this->assertSame(18, $out['context_nudge_autonomy_ladder_mission_control_compounding_outcome_floor_count']);
+    }
+
+    public function test_operational_volume_context_nudge_acos_watchdog_lote_measure_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->operationalVolumeContextNudgeAcosWatchdogLoteMeasureFloorsContractObserve([]);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_AI_RUN_OUTCOMES, $out['ai_run_outcomes']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES, $out['atlas_aemor_execution_episodes']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_CARTOGRAPHY, $out['cartography']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_DEVELOPER, $out['developer']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_EDITOR, $out['editor']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_HARNESS_CAPTURED, $out['harness_captured']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_RECORDED_AT, $out['recorded_at']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SURFACE, $out['surface']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_FIXTURE_CHAIN, $out['fixture_chain']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_IRRELEVANT, $out['irrelevant']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_PEEK, $out['peek']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_METRICS_AUTHORITY_TAMPERED, $out['metrics_authority_tampered']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_PASS, $out['pass']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_EVIDENCE_TRACEABLE, $out['evidence_traceable']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_REVIEW_PACKET_SIGNED, $out['review_packet_signed']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_REPAIR, $out['repair']);
+        $this->assertSame(OutcomeCausalityRanker::FIELD_SUCCEEDED, $out['succeeded']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_ENFORCE, $out['enforce']);
+        $this->assertSame(18, $out['operational_volume_context_nudge_acos_watchdog_lote_measure_floor_count']);
     }
 
 }

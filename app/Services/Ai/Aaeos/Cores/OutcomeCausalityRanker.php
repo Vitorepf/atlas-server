@@ -64,6 +64,7 @@ final class OutcomeCausalityRanker
     public const FIELD_TESTS_PASSED = 'tests_passed';
     public const FIELD_PACKET_QUALITY_FAILED = 'packet_quality_failed';
     public const FIELD_MISSING_REQUIRED_SOURCES = 'missing_required_sources';
+    public const FIELD_SUCCEEDED = 'succeeded';
 
     /** @var list<string> */
     public const PRIMARY_CAUSES = [
@@ -90,7 +91,7 @@ final class OutcomeCausalityRanker
      * Candidate build order (each added only when its scalar guard holds):
      *  - missing_evidence(0.95)                  when !$hasEvidenceRefs
      *  - tests_failed(0.85)                      when $testsPassed === false
-     *  - execution_failed_or_blocked(0.70)       when $status !== 'succeeded'
+     *  - execution_failed_or_blocked(0.70)       when $status !== self::FIELD_SUCCEEDED
      *  - context_missing_required_sources(0.65)  when $missingRequiredSources
      *  - execution_strategy_likely_succeeded(0.55) fallback when none of the above
      *

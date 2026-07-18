@@ -24,6 +24,7 @@ class AtlasRepairLoopGuard
     public const FIELD_ADMITTED = 'admitted';
     public const FIELD_ESCALATED = 'escalated';
     public const FIELD_DECISION = 'decision';
+    public const FIELD_REPAIR = 'repair';
     public function __construct(
         private readonly AtlasCrossDepartmentChoreographyService $choreography,
     ) {}
@@ -42,7 +43,7 @@ class AtlasRepairLoopGuard
         return [
             self::FIELD_SCHEMA_VERSION => AtlasCrossDepartmentChoreographyService::HANDOFF_SCHEMA,
             self::FIELD_ATTEMPT => $next,
-            self::FIELD_ADMITTED => ($decision[self::FIELD_DECISION] ?? null) === 'repair',
+            self::FIELD_ADMITTED => ($decision[self::FIELD_DECISION] ?? null) === self::FIELD_REPAIR,
             self::FIELD_ESCALATED => (AiValueNormalizer::boolOrNull($decision[self::FIELD_ESCALATE] ?? null) ?? false),
             self::FIELD_ESCALATE_TO => $decision[self::FIELD_ESCALATE_TO] ?? [],
             self::FIELD_REMAINING_REPAIRS => $decision[self::FIELD_REMAINING_REPAIRS] ?? 0,
