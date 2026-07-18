@@ -16802,4 +16802,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b764_cross_department_floor_count']);
     }
 
+    public function test_b765_docs_authority_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b765DocsAuthorityFloorsContractObserve([]);
+        $this->assertSame(AtlasDocsAuthorityGraphService::SCHEMA_VERSION, $out['atlas.docs.authority_graph.v1']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::LOCATE_SCHEMA, $out['atlas.docs.locate.v1']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::DEFAULT_LOCATE_LIMIT, $out['5']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_NEEDLE, $out['needle']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_OWNER_DOC_PATH, $out['owner_doc_path']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_CONFIDENCE, $out['confidence']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_KEYWORD_FALLBACK, $out['keyword_fallback']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_FRONTMATTER, $out['frontmatter']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_OWNER_BASIS, $out['owner_basis']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_PATH, $out['path']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_RESOLVED, $out['resolved']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_CANDIDATES, $out['candidates']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_OWNER_DOC_ID, $out['owner_doc_id']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_OWNER_IMPLEMENTATION_STATE, $out['owner_implementation_state']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_GOVERNS_FRONTMATTER, $out['governs_frontmatter']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_DOC_ID, $out['doc_id']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_CAPABILITY_FRONTMATTER, $out['capability_frontmatter']);
+        $this->assertSame(18, $out['b765_docs_authority_floor_count']);
+    }
+
 }

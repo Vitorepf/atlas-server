@@ -21163,4 +21163,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B765).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b765DocsAuthorityFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.docs.authority_graph.v1' => AtlasDocsAuthorityGraphService::SCHEMA_VERSION,
+            'atlas.docs.locate.v1' => AtlasDocsAuthorityGraphService::LOCATE_SCHEMA,
+            '5' => AtlasDocsAuthorityGraphService::DEFAULT_LOCATE_LIMIT,
+            'schema_version' => AtlasDocsAuthorityGraphService::FIELD_SCHEMA_VERSION,
+            'needle' => AtlasDocsAuthorityGraphService::FIELD_NEEDLE,
+            'owner_doc_path' => AtlasDocsAuthorityGraphService::FIELD_OWNER_DOC_PATH,
+            'confidence' => AtlasDocsAuthorityGraphService::FIELD_CONFIDENCE,
+            'keyword_fallback' => AtlasDocsAuthorityGraphService::FIELD_KEYWORD_FALLBACK,
+            'frontmatter' => AtlasDocsAuthorityGraphService::FIELD_FRONTMATTER,
+            'owner_basis' => AtlasDocsAuthorityGraphService::FIELD_OWNER_BASIS,
+            'path' => AtlasDocsAuthorityGraphService::FIELD_PATH,
+            'resolved' => AtlasDocsAuthorityGraphService::FIELD_RESOLVED,
+            'candidates' => AtlasDocsAuthorityGraphService::FIELD_CANDIDATES,
+            'owner_doc_id' => AtlasDocsAuthorityGraphService::FIELD_OWNER_DOC_ID,
+            'owner_implementation_state' => AtlasDocsAuthorityGraphService::FIELD_OWNER_IMPLEMENTATION_STATE,
+            'governs_frontmatter' => AtlasDocsAuthorityGraphService::FIELD_GOVERNS_FRONTMATTER,
+            'doc_id' => AtlasDocsAuthorityGraphService::FIELD_DOC_ID,
+            'capability_frontmatter' => AtlasDocsAuthorityGraphService::FIELD_CAPABILITY_FRONTMATTER,
+            'b765_docs_authority_floor_count' => 18,
+        ];
+    }
+
 }
