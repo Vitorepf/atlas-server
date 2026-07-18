@@ -78,6 +78,8 @@ final class AtlasImmuneHybridInputClassifier
     public const FIELD_MODE = 'mode';
     public const FIELD_PRIVATE_SENSITIVE = 'private_sensitive';
     public const FIELD_PROMPT_INJECTION = 'prompt_injection';
+    public const FIELD_BLOCKED_EPHEMERAL_EVIDENCE = 'blocked_ephemeral_evidence';
+    public const FIELD_OFF = 'off';
 
     private readonly AtlasAaeosCognitiveImmuneInputClassifier $base;
 
@@ -161,7 +163,7 @@ final class AtlasImmuneHybridInputClassifier
         $armBlock = [
             self::FIELD_SCHEMA_VERSION => AtlasImmuneClassifierHybridFreeze::MEASURE_ID,
             self::FIELD_ENABLED => $this->enabled,
-            self::FIELD_SOURCE => 'off',
+            self::FIELD_SOURCE => self::FIELD_OFF,
             self::FIELD_TAU => $this->tau,
             self::FIELD_MAX_SIMILARITY => null,
             self::FIELD_HOSTILE_CLASS_CANDIDATE => null,
@@ -235,7 +237,7 @@ final class AtlasImmuneHybridInputClassifier
         return [
             self::FIELD_SCHEMA_VERSION => AtlasImmuneClassifierHybridFreeze::MEASURE_ID,
             self::FIELD_ENABLED => false,
-            self::FIELD_SOURCE => 'off',
+            self::FIELD_SOURCE => self::FIELD_OFF,
             self::FIELD_TAU => $this->tau,
             self::FIELD_MAX_SIMILARITY => null,
             self::FIELD_HOSTILE_CLASS_CANDIDATE => null,
@@ -298,10 +300,10 @@ final class AtlasImmuneHybridInputClassifier
     private static function hostileDestination(string $class): string
     {
         return match ($class) {
-            self::FIELD_PROMPT_INJECTION => 'blocked_ephemeral_evidence',
+            self::FIELD_PROMPT_INJECTION => self::FIELD_BLOCKED_EPHEMERAL_EVIDENCE,
             self::FIELD_PRIVATE_SENSITIVE => 'redact_minimize',
             self::FIELD_UNTRUSTED_CONTENT => 'cited_data_not_instruction',
-            default => 'blocked_ephemeral_evidence',
+            default => self::FIELD_BLOCKED_EPHEMERAL_EVIDENCE,
         };
     }
 

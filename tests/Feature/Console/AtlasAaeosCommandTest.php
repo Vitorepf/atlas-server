@@ -7529,6 +7529,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_aaeos_department_cognitive_measure_series_health_report_code_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b414-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b414',
+                '--aaeos-department-cognitive-measure-series-health-report-code-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"aaeos_department_cognitive_measure_series_health_report_code_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

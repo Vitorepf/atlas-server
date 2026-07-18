@@ -97,6 +97,8 @@ final class CaptureHmacLineageService
     public const FIELD_MEMORY = 'memory';
     public const FIELD_PAYLOAD = 'payload';
     public const FIELD_ID = 'id';
+    public const FIELD_CAPTURES = 'captures';
+    public const FIELD_ATLAS_KNOWLEDGE_SOURCE_PACKETS = 'atlas_knowledge_source_packets';
 
     /**
      * @param  array<string,mixed>  $existingChain
@@ -198,7 +200,7 @@ final class CaptureHmacLineageService
      */
     public function coverageWindowReport(int $minCaptures = 10): array
     {
-        if (! DatabaseTableAvailability::has('captures')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_CAPTURES)) {
             return [
                 self::FIELD_STATUS => self::STATUS_PENDING_WINDOW,
                 self::FIELD_CHAINED_CAPTURES => 0,
@@ -368,7 +370,7 @@ final class CaptureHmacLineageService
      */
     private function chainFromCapture(string $id): ?array
     {
-        if (! DatabaseTableAvailability::has('captures')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_CAPTURES)) {
             return null;
         }
 
@@ -392,7 +394,7 @@ final class CaptureHmacLineageService
      */
     private function chainFromPacket(string $id): ?array
     {
-        if (! DatabaseTableAvailability::has('atlas_knowledge_source_packets')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_KNOWLEDGE_SOURCE_PACKETS)) {
             return null;
         }
 

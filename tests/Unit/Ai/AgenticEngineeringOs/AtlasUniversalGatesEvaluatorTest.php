@@ -135,6 +135,8 @@ use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
 use App\Services\Ai\AcosMax\CompoundingOutcomeEnvelopeAdapter;
 use App\Services\Ai\Aaeos\Cores\OutcomeCausalityRanker;
 use App\Services\Ai\AcosMax\AsefChunkIndexService;
+use App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry;
+use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -8084,6 +8086,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_PAPER_OVERSHOOT, $out['paper_overshoot']);
         $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_OPERATOR, $out['operator']);
         $this->assertSame(18, $out['context_nudge_acos_watchdog_lote_measure_autonomy_ladder_floor_count']);
+    }
+
+    public function test_aaeos_department_cognitive_measure_series_health_report_code_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->aaeosDepartmentCognitiveMeasureSeriesHealthReportCodeFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_MEDIUM, $out['medium']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_HIGH, $out['high']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_AUDIT_SESSION, $out['audit_session']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BLOCKED_EPHEMERAL_EVIDENCE, $out['blocked_ephemeral_evidence']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_RECORDED_AT, $out['recorded_at']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_AURG_COVERAGE_GATE_FAILED, $out['aurg_coverage_gate_failed']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_COMPACTION_SOAK_NOT_READY, $out['compaction_soak_not_ready']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_ACTIVE_SYMBOLS_ONLY, $out['active_symbols_only']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_ARCHIVED_AT, $out['archived_at']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_BLOCKED_EPHEMERAL_EVIDENCE, $out['blocked_ephemeral_evidence']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_OFF, $out['off']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_CAPTURES, $out['captures']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_ATLAS_KNOWLEDGE_SOURCE_PACKETS, $out['atlas_knowledge_source_packets']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_ACOS_WATCHDOG, $out['acos_watchdog']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_DEFAULT, $out['default']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_HYBRID_CLASSIFIER_CONSULT, $out['hybrid_classifier_consult']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_IMMUNE_VERDICT_LEDGER, $out['immune_verdict_ledger']);
+        $this->assertSame(18, $out['aaeos_department_cognitive_measure_series_health_report_code_floor_count']);
     }
 
 }

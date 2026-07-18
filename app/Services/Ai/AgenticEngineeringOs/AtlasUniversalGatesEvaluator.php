@@ -10359,4 +10359,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B414).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function aaeosDepartmentCognitiveMeasureSeriesHealthReportCodeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'medium' => AtlasAaeosDepartmentMaturityService::FIELD_MEDIUM,
+            'high' => AtlasAaeosDepartmentMaturityService::FIELD_HIGH,
+            'audit_session' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_AUDIT_SESSION,
+            'blocked_ephemeral_evidence' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BLOCKED_EPHEMERAL_EVIDENCE,
+            'generated_at' => AcosMaxMeasureSeriesRegistry::FIELD_GENERATED_AT,
+            'recorded_at' => AcosMaxMeasureSeriesRegistry::FIELD_RECORDED_AT,
+            'aurg_coverage_gate_failed' => HealthReportWatchdogCheck::FIELD_AURG_COVERAGE_GATE_FAILED,
+            'compaction_soak_not_ready' => HealthReportWatchdogCheck::FIELD_COMPACTION_SOAK_NOT_READY,
+            'active_symbols_only' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_ACTIVE_SYMBOLS_ONLY,
+            'archived_at' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_ARCHIVED_AT,
+            'blocked_ephemeral_evidence' => AtlasImmuneHybridInputClassifier::FIELD_BLOCKED_EPHEMERAL_EVIDENCE,
+            'off' => AtlasImmuneHybridInputClassifier::FIELD_OFF,
+            'captures' => CaptureHmacLineageService::FIELD_CAPTURES,
+            'atlas_knowledge_source_packets' => CaptureHmacLineageService::FIELD_ATLAS_KNOWLEDGE_SOURCE_PACKETS,
+            'acos_watchdog' => AtlasWatchdogRunner::FIELD_ACOS_WATCHDOG,
+            'default' => AtlasWatchdogRunner::FIELD_DEFAULT,
+            'hybrid_classifier_consult' => AtlasImmuneSignatureFreeze::FIELD_HYBRID_CLASSIFIER_CONSULT,
+            'immune_verdict_ledger' => AtlasImmuneSignatureFreeze::FIELD_IMMUNE_VERDICT_LEDGER,
+            'aaeos_department_cognitive_measure_series_health_report_code_floor_count' => 18,
+        ];
+    }
+
 }

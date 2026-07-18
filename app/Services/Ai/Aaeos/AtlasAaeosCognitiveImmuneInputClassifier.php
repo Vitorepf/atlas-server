@@ -44,6 +44,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_MEMORY_ELIGIBLE = 'memory_eligible';
     public const FIELD_REASON = 'reason';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_AUDIT_SESSION = 'audit_session';
+    public const FIELD_BLOCKED_EPHEMERAL_EVIDENCE = 'blocked_ephemeral_evidence';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -57,12 +59,12 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         self::CLASS_OPERATIONAL_EPHEMERAL => 'task_reminder_cold_file',
         self::CLASS_TASK_OR_REMINDER => 'task_routine',
         self::CLASS_PROJECT_EVIDENCE => 'project_evidence',
-        self::CLASS_CONVERSATION_TRACE => 'audit_session',
+        self::CLASS_CONVERSATION_TRACE => self::FIELD_AUDIT_SESSION,
         self::CLASS_PERSONAL_FACT_CANDIDATE => 'private_review',
         self::CLASS_TECHNICAL_LEARNING_CANDIDATE => 'learning_signal',
         self::CLASS_STRATEGIC_INSIGHT_CANDIDATE => 'memory_constellation_candidate',
         self::CLASS_UNTRUSTED_CONTENT => 'cited_data_not_instruction',
-        self::CLASS_PROMPT_INJECTION => 'blocked_ephemeral_evidence',
+        self::CLASS_PROMPT_INJECTION => self::FIELD_BLOCKED_EPHEMERAL_EVIDENCE,
         self::CLASS_PRIVATE_SENSITIVE => 'redact_minimize',
     ];
 

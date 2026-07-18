@@ -81,6 +81,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_STALE_DEFINITION = 'stale_definition';
     public const FIELD_TARGET_COVERAGE_RATIO = 'target_coverage_ratio';
     public const FIELD_TTL_DAYS = 'ttl_days';
+    public const FIELD_ACTIVE_SYMBOLS_ONLY = 'active_symbols_only';
+    public const FIELD_ARCHIVED_AT = 'archived_at';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -95,7 +97,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
                 self::FIELD_DENOMINATOR_MIN_ACTIVE_SYMBOLS => 1,
                 self::FIELD_STALE_DEFINITION => 'atlas_code_symbol_embeddings.embedded_content_hash != atlas_engineering_code_symbols.source_hash',
                 self::FIELD_MISSING_DEFINITION => 'no matching row in atlas_code_symbol_embeddings for symbol_id',
-                self::FIELD_SCOPE => 'active_symbols_only',
+                self::FIELD_SCOPE => self::FIELD_ACTIVE_SYMBOLS_ONLY,
                 self::FIELD_DEFAULT_SWITCH => 'off',
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
@@ -126,7 +128,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
 
         $active = DB::table('atlas_engineering_code_symbols')
             ->where('status', self::STATUS_ACTIVE)
-            ->whereNull('archived_at')
+            ->whereNull(self::FIELD_ARCHIVED_AT)
             ->count();
 
         if ($active === 0) {
