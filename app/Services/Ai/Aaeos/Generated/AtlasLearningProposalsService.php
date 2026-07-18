@@ -71,17 +71,17 @@ final class AtlasLearningProposalsService
     public const CRITICAL_KINDS = [
         'policy',
         self::FIELD_ROUTING,
-        'gate',
+        self::FIELD_GATE,
         'eval_gate',
         'heuristic',
     ];
 
     /** Kinds that are valid Learning outputs but do not gate critical behavior. */
     public const NON_CRITICAL_KINDS = [
-        'retrieval_hint',
+        self::FIELD_RETRIEVAL_HINT,
         'memory',
         'failure_pattern',
-        'documentation_health',
+        self::FIELD_DOCUMENTATION_HEALTH,
     ];
 
     /** Risk bands a proposal can carry. */
@@ -119,6 +119,15 @@ final class AtlasLearningProposalsService
     public const FIELD_MAY_AUTO_APPLY = 'may_auto_apply';
     public const FIELD_REQUIRES_REVIEW = 'requires_review';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_RETRIEVAL_HINT = 'retrieval_hint';
+    public const FIELD_TASK = 'task';
+    public const FIELD_APPLICATION = 'application';
+    public const FIELD_CANON_READY = 'canon_ready';
+    public const FIELD_CANON_READY_COUNT = 'canon_ready_count';
+    public const FIELD_CRITICAL = 'critical';
+    public const FIELD_DECISION = 'decision';
+    public const FIELD_DOCUMENTATION_HEALTH = 'documentation_health';
+    public const FIELD_GATE = 'gate';
 
     /**
      * Evaluate a single execution signal into a learning proposal verdict.
@@ -223,10 +232,10 @@ final class AtlasLearningProposalsService
 
         return [
             'suggestion' => 'learning_emits_proposal',
-            'decision' => 'human_or_policy_decides',
+            self::FIELD_DECISION => 'human_or_policy_decides',
             // Terminal stage is presentation, never direct mutation (Fluxo:
             // Output Renderer apresenta). Critical kinds force human review.
-            'application' => $critical ? self::APPLY_REVIEW : self::APPLY_AUTO,
+            self::FIELD_APPLICATION => $critical ? self::APPLY_REVIEW : self::APPLY_AUTO,
         ];
     }
 
@@ -272,8 +281,8 @@ final class AtlasLearningProposalsService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'total' => count($sorted),
             'ranked' => $sorted,
-            'canon_ready' => $canonReady,
-            'canon_ready_count' => count($canonReady),
+            self::FIELD_CANON_READY => $canonReady,
+            self::FIELD_CANON_READY_COUNT => count($canonReady),
         ];
     }
 
@@ -299,7 +308,7 @@ final class AtlasLearningProposalsService
             self::FIELD_KIND => self::FIELD_ROUTING,
             self::FIELD_SUMMARY => sprintf(
                 'route %s default to %s over %s',
-                AiValueNormalizer::trimmedString($comparison['task_class'] ?? 'task') ?: 'task',
+                AiValueNormalizer::trimmedString($comparison['task_class'] ?? self::FIELD_TASK) ?: self::FIELD_TASK,
                 AiValueNormalizer::trimmedString($comparison[self::FIELD_CHALLENGER] ?? self::FIELD_CHALLENGER) ?: self::FIELD_CHALLENGER,
                 AiValueNormalizer::trimmedString($comparison[self::FIELD_INCUMBENT] ?? self::FIELD_INCUMBENT) ?: self::FIELD_INCUMBENT,
             ),
@@ -357,7 +366,7 @@ final class AtlasLearningProposalsService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_STATUS => $status,
             self::FIELD_KIND => $kind,
-            'critical' => $critical,
+            self::FIELD_CRITICAL => $critical,
             self::FIELD_SUMMARY => $summary,
             // The doc's three required output fields:
             self::FIELD_JUSTIFICATION => $justification,
@@ -401,7 +410,7 @@ final class AtlasLearningProposalsService
         // A couple of documented aliases.
         return match ($kind) {
             'router' => self::FIELD_ROUTING,
-            'retrieval', 'retrieval_hints' => 'retrieval_hint',
+            'retrieval', 'retrieval_hints' => self::FIELD_RETRIEVAL_HINT,
             default => null,
         };
     }

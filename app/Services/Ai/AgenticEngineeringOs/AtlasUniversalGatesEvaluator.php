@@ -16303,4 +16303,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B608).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b608MemoryCognitiveLearningProposalsFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'embedding_allowed' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_EMBEDDING_ALLOWED,
+            'gate_statuses' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_GATE_STATUSES,
+            'outcome_validated' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_OUTCOME_VALIDATED,
+            'promotion_status' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PROMOTION_STATUS,
+            'provider_safe' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PROVIDER_SAFE,
+            'auto' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_AUTO,
+            'review' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_REVIEW,
+            'scope' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_SCOPE,
+            'blocking_gate_ids' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_BLOCKING_GATE_IDS,
+            'retrieval_hint' => AtlasLearningProposalsService::FIELD_RETRIEVAL_HINT,
+            'task' => AtlasLearningProposalsService::FIELD_TASK,
+            'application' => AtlasLearningProposalsService::FIELD_APPLICATION,
+            'canon_ready' => AtlasLearningProposalsService::FIELD_CANON_READY,
+            'canon_ready_count' => AtlasLearningProposalsService::FIELD_CANON_READY_COUNT,
+            'critical' => AtlasLearningProposalsService::FIELD_CRITICAL,
+            'decision' => AtlasLearningProposalsService::FIELD_DECISION,
+            'documentation_health' => AtlasLearningProposalsService::FIELD_DOCUMENTATION_HEALTH,
+            'gate' => AtlasLearningProposalsService::FIELD_GATE,
+            'b608_memory_cognitive_learning_proposals_floor_count' => 18,
+        ];
+    }
+
 }

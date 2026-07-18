@@ -10245,6 +10245,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b608_memory_cognitive_learning_proposals_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b608-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b608',
+                '--b608-memory-cognitive-learning-proposals-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b608_memory_cognitive_learning_proposals_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

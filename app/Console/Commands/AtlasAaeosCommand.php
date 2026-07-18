@@ -630,6 +630,7 @@ final class AtlasAaeosCommand extends Command
                             {--b605-promotion-protocol-phase-handoff-composed-obra-acos-watchdog-floors-contract= : JSON file (any object) to observe promotion/protocol/phase/handoff/composed/obra floors}
                             {--b606-promotion-protocol-memory-cognitive-learning-proposals-watchdog-check-floors-contract= : JSON file (any object) to observe promotion/protocol/memory/cognitive/learning/proposals floors}
                             {--b607-memory-cognitive-learning-proposals-floors-contract= : JSON file (any object) to observe memory/cognitive/learning/proposals floors}
+                            {--b608-memory-cognitive-learning-proposals-floors-contract= : JSON file (any object) to observe memory/cognitive/learning/proposals floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1416,6 +1417,7 @@ final class AtlasAaeosCommand extends Command
             ['b605-promotion-protocol-phase-handoff-composed-obra-acos-watchdog-floors-contract', 'b605_promotion_protocol_phase_handoff_composed_obra_acos_watchdog_floors_contract', fn (array $p) => $gates->b605PromotionProtocolPhaseHandoffComposedObraAcosWatchdogFloorsContractObserve($p)],
             ['b606-promotion-protocol-memory-cognitive-learning-proposals-watchdog-check-floors-contract', 'b606_promotion_protocol_memory_cognitive_learning_proposals_watchdog_check_floors_contract', fn (array $p) => $gates->b606PromotionProtocolMemoryCognitiveLearningProposalsWatchdogCheckFloorsContractObserve($p)],
             ['b607-memory-cognitive-learning-proposals-floors-contract', 'b607_memory_cognitive_learning_proposals_floors_contract', fn (array $p) => $gates->b607MemoryCognitiveLearningProposalsFloorsContractObserve($p)],
+            ['b608-memory-cognitive-learning-proposals-floors-contract', 'b608_memory_cognitive_learning_proposals_floors_contract', fn (array $p) => $gates->b608MemoryCognitiveLearningProposalsFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
