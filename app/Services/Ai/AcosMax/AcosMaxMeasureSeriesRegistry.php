@@ -130,6 +130,23 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_FREEZE_ACOS_OPERATOR_REVIEW_DEBT_V1 = 'freeze:acos.operator_review_debt.v1';
     public const FIELD_FREEZE_ACOS_VERIFIED_SHARE_V1 = 'freeze:acos.verified_share.v1';
     public const FIELD_FREEZE_ACOS_WINDOWS_ORCHESTRATOR_V1 = 'freeze:acos.windows_orchestrator.v1';
+    public const FIELD_FREEZE_AOBG_LATENCY_LEDGER_V1 = 'freeze:aobg.latency_ledger.v1';
+    public const FIELD_FREEZE_ASI_METRIC_M_V1 = 'freeze:asi.metric.m.v1';
+    public const FIELD_FREEZE_ATLAS_AI_ABSTRACTION_LADDER_V1 = 'freeze:atlas.ai.abstraction_ladder.v1';
+    public const FIELD_FREEZE_ATLAS_AI_COUNTERFACTUAL_LIFT_V2 = 'freeze:atlas.ai.counterfactual_lift.v2';
+    public const FIELD_FREEZE_ATLAS_AI_LESSON_HALF_LIFE_V2 = 'freeze:atlas.ai.lesson_half_life.v2';
+    public const FIELD_FREEZE_ATLAS_AI_LESSON_QUALITY_V2 = 'freeze:atlas.ai.lesson_quality.v2';
+    public const FIELD_FREEZE_ATLAS_AI_LESSON_SEMANTIC_DEDUP_V1 = 'freeze:atlas.ai.lesson_semantic_dedup.v1';
+    public const FIELD_FREEZE_ATLAS_AI_LESSON_TYPE_YIELD_V2 = 'freeze:atlas.ai.lesson_type_yield.v2';
+    public const FIELD_FREEZE_ATLAS_AI_PROCEDURAL_SKILL_PROMOTER_V1 = 'freeze:atlas.ai.procedural_skill_promoter.v1';
+    public const FIELD_FREEZE_ATLAS_CODE_SYMBOL_EMBEDDING_COVERAGE_V1 = 'freeze:atlas.code_symbol_embedding_coverage.v1';
+    public const FIELD_FREEZE_ATLAS_CONTEXT_EXECUTION_COOCCURRENCE_V1 = 'freeze:atlas.context.execution_cooccurrence.v1';
+    public const FIELD_FREEZE_ATLAS_CONTEXT_GOLDEN_COUNTERFACTUAL_V1 = 'freeze:atlas.context.golden_counterfactual.v1';
+    public const FIELD_FREEZE_ATLAS_DECIDE_CASCADE_COST_ROUTER_V1 = 'freeze:atlas.decide.cascade_cost_router.v1';
+    public const FIELD_FREEZE_ATLAS_DECIDE_COST_OUTCOME_UNCERTAINTY_V1 = 'freeze:atlas.decide.cost_outcome_uncertainty.v1';
+    public const FIELD_FREEZE_ATLAS_DECIDE_REPLAY_DIVERGENCE_V1 = 'freeze:atlas.decide.replay_divergence.v1';
+    public const FIELD_FREEZE_ATLAS_DECIDE_ROUTE_REGRET_V2 = 'freeze:atlas.decide.route_regret.v2';
+    public const FIELD_FREEZE_ATLAS_DECIDE_ZERO_WEIGHT_OUTCOMES_V1 = 'freeze:atlas.decide.zero_weight_outcomes.v1';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -205,7 +222,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL_DIR,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_TS,
                 self::FIELD_TTL_DAYS => (int) AtlasAcosFreezeCommand::defaultFreezePayload()[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:aobg.latency_ledger.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_AOBG_LATENCY_LEDGER_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_ELEV_02,
@@ -214,7 +231,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
                 self::FIELD_TTL_DAYS => (int) AtlasAcosFreezeCommand::asiMetricMFreezePayload()[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:asi.metric.m.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ASI_METRIC_M_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_ELEV_12,
@@ -312,7 +329,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AtlasAcosFreezeCommand::lessonQualityFreezePayload()[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.ai.lesson_quality.v2',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_AI_LESSON_QUALITY_V2,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXJ_05,
@@ -321,7 +338,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AtlasAcosFreezeCommand::lessonTypeYieldFreezePayload()[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.ai.lesson_type_yield.v2',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_AI_LESSON_TYPE_YIELD_V2,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXK_01,
@@ -330,7 +347,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => AtlasDecideRouteRegretService::TTL_DAYS,
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.decide.route_regret.v2',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_DECIDE_ROUTE_REGRET_V2,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MULTK_01,
@@ -339,7 +356,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AtlasDecideCostOutcomeRouter::multk01FreezePayload()[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.decide.cost_outcome_uncertainty.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_DECIDE_COST_OUTCOME_UNCERTAINTY_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MULTK_02,
@@ -348,7 +365,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => self::INT_30,
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.decide.cascade_cost_router.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_DECIDE_CASCADE_COST_ROUTER_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MULTK_03,
@@ -357,7 +374,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => self::INT_30,
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.decide.replay_divergence.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_DECIDE_REPLAY_DIVERGENCE_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_ESP_05,
@@ -366,7 +383,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AtlasDecideLiveOutcomeFeedbackService::zeroWeightFreezePayload()[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.decide.zero_weight_outcomes.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_DECIDE_ZERO_WEIGHT_OUTCOMES_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_ESP_06,
@@ -411,7 +428,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => self::INT_90,
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.context.golden_counterfactual.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_CONTEXT_GOLDEN_COUNTERFACTUAL_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXL_08,
@@ -420,7 +437,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => self::INT_90,
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.context.execution_cooccurrence.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_CONTEXT_EXECUTION_COOCCURRENCE_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MULTN17_04,
@@ -474,7 +491,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTJ_01)[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.ai.lesson_half_life.v2',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_AI_LESSON_HALF_LIFE_V2,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MULTJ_02,
@@ -483,7 +500,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTJ_02)[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.ai.lesson_semantic_dedup.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_AI_LESSON_SEMANTIC_DEDUP_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MULTJ_03,
@@ -492,7 +509,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTJ_03)[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.ai.counterfactual_lift.v2',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_AI_COUNTERFACTUAL_LIFT_V2,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MULTJ_04,
@@ -501,7 +518,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTJ_04)[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.ai.procedural_skill_promoter.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_AI_PROCEDURAL_SKILL_PROMOTER_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MULTJ_06,
@@ -510,7 +527,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTJ_06)[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.ai.abstraction_ladder.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_AI_ABSTRACTION_LADDER_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_TETO_02,
@@ -591,7 +608,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => self::INT_60,
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.code_symbol_embedding_coverage.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_CODE_SYMBOL_EMBEDDING_COVERAGE_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXD_04,

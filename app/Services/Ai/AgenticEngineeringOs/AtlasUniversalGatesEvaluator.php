@@ -13778,4 +13778,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B525).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b525MeasureSeriesHttpPathFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'freeze:aobg.latency_ledger.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_AOBG_LATENCY_LEDGER_V1,
+            'freeze:asi.metric.m.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ASI_METRIC_M_V1,
+            'freeze:atlas.ai.abstraction_ladder.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_AI_ABSTRACTION_LADDER_V1,
+            'freeze:atlas.ai.counterfactual_lift.v2' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_AI_COUNTERFACTUAL_LIFT_V2,
+            'freeze:atlas.ai.lesson_half_life.v2' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_AI_LESSON_HALF_LIFE_V2,
+            'freeze:atlas.ai.lesson_quality.v2' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_AI_LESSON_QUALITY_V2,
+            'freeze:atlas.ai.lesson_semantic_dedup.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_AI_LESSON_SEMANTIC_DEDUP_V1,
+            'freeze:atlas.ai.lesson_type_yield.v2' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_AI_LESSON_TYPE_YIELD_V2,
+            'freeze:atlas.ai.procedural_skill_promoter.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_AI_PROCEDURAL_SKILL_PROMOTER_V1,
+            'freeze:atlas.code_symbol_embedding_coverage.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_CODE_SYMBOL_EMBEDDING_COVERAGE_V1,
+            'freeze:atlas.context.execution_cooccurrence.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_CONTEXT_EXECUTION_COOCCURRENCE_V1,
+            'freeze:atlas.context.golden_counterfactual.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_CONTEXT_GOLDEN_COUNTERFACTUAL_V1,
+            'freeze:atlas.decide.cascade_cost_router.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_DECIDE_CASCADE_COST_ROUTER_V1,
+            'freeze:atlas.decide.cost_outcome_uncertainty.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_DECIDE_COST_OUTCOME_UNCERTAINTY_V1,
+            'freeze:atlas.decide.replay_divergence.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_DECIDE_REPLAY_DIVERGENCE_V1,
+            'freeze:atlas.decide.route_regret.v2' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_DECIDE_ROUTE_REGRET_V2,
+            'freeze:atlas.decide.zero_weight_outcomes.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_DECIDE_ZERO_WEIGHT_OUTCOMES_V1,
+            'rcpt:aaeos.phase4.tasks.r1_r2_fast_path' => AaeosHttpPathEnvelopeFactory::FIELD_RCPT_AAEOS_PHASE4_TASKS_R1_R2_FAST_PATH,
+            'b525_measure_series_http_path_floor_count' => 18,
+        ];
+    }
+
 }

@@ -140,6 +140,7 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_RCPT_AAEOS_PHASE3_TOPOLOGY_R1_R2_FAST_PATH = 'rcpt:aaeos.phase3.topology.r1_r2_fast_path';
     public const FIELD_RCPT_AAEOS_PHASE4_RECEIPT_R1_R2_FAST_PATH = 'rcpt:aaeos.phase4.receipt.r1_r2_fast_path';
     public const FIELD_RCPT_AAEOS_PHASE4_SPEC_R1_R2_FAST_PATH = 'rcpt:aaeos.phase4.spec.r1_r2_fast_path';
+    public const FIELD_RCPT_AAEOS_PHASE4_TASKS_R1_R2_FAST_PATH = 'rcpt:aaeos.phase4.tasks.r1_r2_fast_path';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -354,7 +355,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_SPEC,
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_TASKS,
             self::FIELD_ACTOR_ID => self::FIELD_AAEOS_TASKS,
-            self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase4.tasks.r1_r2_fast_path',
+            self::FIELD_SKIP_RECEIPT_ID => self::FIELD_RCPT_AAEOS_PHASE4_TASKS_R1_R2_FAST_PATH,
             self::FIELD_SKIP_REASON => self::FIELD_R1_R2_FAST_PATH_PRESERVED,
             self::FIELD_OUTPUTS => [
                 self::FIELD_TASK_PACK_INVOCATION => self::FIELD_DEFERRED,

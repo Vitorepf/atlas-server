@@ -10849,4 +10849,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b524_measure_series_http_path_acos_program_obra_retro_floor_count']);
     }
 
+    public function test_b525_measure_series_http_path_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b525MeasureSeriesHttpPathFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_AOBG_LATENCY_LEDGER_V1, $out['freeze:aobg.latency_ledger.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ASI_METRIC_M_V1, $out['freeze:asi.metric.m.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_AI_ABSTRACTION_LADDER_V1, $out['freeze:atlas.ai.abstraction_ladder.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_AI_COUNTERFACTUAL_LIFT_V2, $out['freeze:atlas.ai.counterfactual_lift.v2']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_AI_LESSON_HALF_LIFE_V2, $out['freeze:atlas.ai.lesson_half_life.v2']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_AI_LESSON_QUALITY_V2, $out['freeze:atlas.ai.lesson_quality.v2']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_AI_LESSON_SEMANTIC_DEDUP_V1, $out['freeze:atlas.ai.lesson_semantic_dedup.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_AI_LESSON_TYPE_YIELD_V2, $out['freeze:atlas.ai.lesson_type_yield.v2']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_AI_PROCEDURAL_SKILL_PROMOTER_V1, $out['freeze:atlas.ai.procedural_skill_promoter.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_CODE_SYMBOL_EMBEDDING_COVERAGE_V1, $out['freeze:atlas.code_symbol_embedding_coverage.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_CONTEXT_EXECUTION_COOCCURRENCE_V1, $out['freeze:atlas.context.execution_cooccurrence.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_CONTEXT_GOLDEN_COUNTERFACTUAL_V1, $out['freeze:atlas.context.golden_counterfactual.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_DECIDE_CASCADE_COST_ROUTER_V1, $out['freeze:atlas.decide.cascade_cost_router.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_DECIDE_COST_OUTCOME_UNCERTAINTY_V1, $out['freeze:atlas.decide.cost_outcome_uncertainty.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_DECIDE_REPLAY_DIVERGENCE_V1, $out['freeze:atlas.decide.replay_divergence.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_DECIDE_ROUTE_REGRET_V2, $out['freeze:atlas.decide.route_regret.v2']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_DECIDE_ZERO_WEIGHT_OUTCOMES_V1, $out['freeze:atlas.decide.zero_weight_outcomes.v1']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_RCPT_AAEOS_PHASE4_TASKS_R1_R2_FAST_PATH, $out['rcpt:aaeos.phase4.tasks.r1_r2_fast_path']);
+        $this->assertSame(18, $out['b525_measure_series_http_path_floor_count']);
+    }
+
 }
