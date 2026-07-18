@@ -95,6 +95,8 @@ final class ComposedObraArcComposer
     public const FIELD_ORGAN_DEPENDENCY_NEIGHBORS = 'organ_dependency_neighbors';
     public const FIELD_TASK_ = 'task_';
     public const FIELD_SHA256 = 'sha256';
+    public const FIELD_ARC_ = 'arc_';
+    public const FIELD_OBRA_ = 'obra_';
 
     /**
      * @param  list<array<string,mixed>>  $candidates  grounded origination candidates
@@ -270,8 +272,8 @@ final class ComposedObraArcComposer
         $targets = array_map(static fn (array $task): string => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_TARGET_PATH] ?? null) ?? '', $group);
         sort($targets);
         $arcSeed = implode('|', $targets);
-        $arcId = 'arc_'.substr(hash(self::FIELD_SHA256, $arcSeed), 0, 16);
-        $obraId = 'obra_'.substr(hash(self::FIELD_SHA256, 'obra:'.$arcSeed), 0, 16);
+        $arcId = self::FIELD_ARC_.substr(hash(self::FIELD_SHA256, $arcSeed), 0, 16);
+        $obraId = self::FIELD_OBRA_.substr(hash(self::FIELD_SHA256, 'obra:'.$arcSeed), 0, 16);
 
         $tasks = [];
         foreach ($group as $task) {

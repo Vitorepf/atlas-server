@@ -97,6 +97,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_ESTRATEGIA = 'estrategia';
     public const FIELD_IMPERATIVE_TASK = 'imperative_task';
     public const FIELD_OBRIGADO = 'obrigado';
+    public const FIELD_RECURRENT = 'recurrent';
+    public const FIELD_RECURRENT_EPHEMERAL = 'recurrent_ephemeral';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -350,7 +352,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         }
 
         if ($recurrenceCount >= self::RECURRENCE_MEMORY_THRESHOLD) {
-            return [self::CLASS_OPERATIONAL_EPHEMERAL, 'recurrent_ephemeral'];
+            return [self::CLASS_OPERATIONAL_EPHEMERAL, self::FIELD_RECURRENT_EPHEMERAL];
         }
 
         // 6. Ephemeral default.
@@ -452,7 +454,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
             $signals[] = 'privacy_hint';
         }
         if ($recurrenceCount >= self::RECURRENCE_MEMORY_THRESHOLD) {
-            $signals[] = 'recurrent';
+            $signals[] = self::FIELD_RECURRENT;
         }
         if ($hasInjectionText) {
             $signals[] = self::FIELD_INJECTION_MARKER;

@@ -337,6 +337,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_COMPACTION_VOLUME_BELOW_FLOOR = 'compaction_volume_below_floor';
     public const FIELD_CONCENTRATION_MASKED_BY_DELIVERY_FILTER = 'concentration_masked_by_delivery_filter';
     public const FIELD_CONTEXT_RETENTION_SCORE_BELOW_FLOOR = 'context_retention_score_below_floor';
+    public const FIELD_CRITICAL_MUST_KEEP_SHADOW_CUT = 'critical_must_keep_shadow_cut';
+    public const FIELD_CROSS_WEEK_RECALL_LIFT_NOT_CERTIFIED = 'cross_week_recall_lift_not_certified';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -675,13 +677,13 @@ final class AtlasAcosWatchdogHealthService
             $blocking[] = self::FIELD_COMPACTION_VOLUME_BELOW_FLOOR;
         }
         if ($criticalCuts > 0) {
-            $blocking[] = 'critical_must_keep_shadow_cut';
+            $blocking[] = self::FIELD_CRITICAL_MUST_KEEP_SHADOW_CUT;
         }
         if ($minRetention === null || $minRetention < self::COMPACTION_MIN_RETENTION_SCORE) {
             $blocking[] = self::FIELD_CONTEXT_RETENTION_SCORE_BELOW_FLOOR;
         }
         if (($crossWeek[self::FIELD_CERTIFIED] ?? false) !== true) {
-            $blocking[] = 'cross_week_recall_lift_not_certified';
+            $blocking[] = self::FIELD_CROSS_WEEK_RECALL_LIFT_NOT_CERTIFIED;
         }
 
         return [

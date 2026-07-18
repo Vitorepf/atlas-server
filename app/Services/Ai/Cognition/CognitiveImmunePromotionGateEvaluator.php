@@ -106,6 +106,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_CONTRADICTS_NEWER_AUTHORITY = 'contradicts_newer_authority';
     public const FIELD_FUTURE_SIGNAL_UNCONFIRMED = 'future_signal_unconfirmed';
     public const FIELD_GATE_UNKNOWN = 'gate_unknown';
+    public const FIELD_OUTCOME_NOT_VALIDATED = 'outcome_not_validated';
+    public const FIELD_PROBATION_NEGATIVE_FEEDBACK_COUNT = 'probation_negative_feedback_count';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -307,7 +309,7 @@ final class CognitiveImmunePromotionGateEvaluator
     {
         return $this->flag($signals, self::FIELD_OUTCOME_VALIDATED)
             ? [self::STATUS_PASS, '']
-            : [self::STATUS_PENDING, 'outcome_not_validated'];
+            : [self::STATUS_PENDING, self::FIELD_OUTCOME_NOT_VALIDATED];
     }
 
     /**
@@ -459,7 +461,7 @@ final class CognitiveImmunePromotionGateEvaluator
     private function hasProbationNegativeFeedback(array $signals): bool
     {
         foreach ([
-            'probation_negative_feedback_count',
+            self::FIELD_PROBATION_NEGATIVE_FEEDBACK_COUNT,
             self::FIELD_RECALL_NEGATIVE_FEEDBACK,
             self::FIELD_ALL_TIME_RECALL_NEGATIVE_FEEDBACK,
             self::FIELD_NEGATIVE_FEEDBACK_COUNT,

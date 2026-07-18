@@ -9494,4 +9494,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['aaeos_http_department_contract_acos_watchdog_immune_promotion_floor_count']);
     }
 
+    public function test_composed_obra_department_contract_acos_watchdog_immune_promotion_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->composedObraDepartmentContractAcosWatchdogImmunePromotionFloorsContractObserve([]);
+        $this->assertSame(ComposedObraArcComposer::FIELD_ARC_, $out['arc_']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_OBRA_, $out['obra_']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ACCEPTANCE_CRITERIA_PACK, $out['acceptance_criteria_pack']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ADR_PUBLISHED, $out['adr_published']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CRITICAL_MUST_KEEP_SHADOW_CUT, $out['critical_must_keep_shadow_cut']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CROSS_WEEK_RECALL_LIFT_NOT_CERTIFIED, $out['cross_week_recall_lift_not_certified']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_OUTCOME_NOT_VALIDATED, $out['outcome_not_validated']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_NEGATIVE_FEEDBACK_COUNT, $out['probation_negative_feedback_count']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_ESCREVA, $out['escreva']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_IMAGEM, $out['imagem']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_NO, $out['no']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RECURRENT, $out['recurrent']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RECURRENT_EPHEMERAL, $out['recurrent_ephemeral']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_OUTCOME_NOT_PROVEN_REAL, $out['outcome_not_proven_real']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_PAIRED_PEEK_FLOOR_BELOW_MINIMUM, $out['paired_peek_floor_below_minimum']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_FLIP_ID, $out['flip_id']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_NONE, $out['none']);
+        $this->assertSame(18, $out['composed_obra_department_contract_acos_watchdog_immune_promotion_floor_count']);
+    }
+
 }

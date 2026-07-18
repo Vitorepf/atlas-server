@@ -185,6 +185,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_AUDITE = 'audite';
     public const FIELD_BUSQUE = 'busque';
     public const FIELD_CODIGO = 'codigo';
+    public const FIELD_ESCREVA = 'escreva';
+    public const FIELD_IMAGEM = 'imagem';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -213,7 +215,7 @@ final class AtlasCognitiveFunctionDecomposerService
             self::FIELD_DOCUMENTA, self::FIELD_MEMORIA, self::FIELD_SEARCH, self::FIELD_FIND, self::FIELD_SHOW,
         ],
         self::FIELD_GENERATION => [
-            'escreva', self::FIELD_REDIJA, self::FIELD_CRIE, self::FIELD_COMPONHA, self::FIELD_RASCUNHE, self::FIELD_GERE,
+            self::FIELD_ESCREVA, self::FIELD_REDIJA, self::FIELD_CRIE, self::FIELD_COMPONHA, self::FIELD_RASCUNHE, self::FIELD_GERE,
             self::FIELD_SINTETIZE, self::FIELD_RESUMA, self::FIELD_TRANSFORME, self::FIELD_REESCREVA, self::FIELD_CONTINUE,
             self::FIELD_NARRE, self::FIELD_DESCREVA, self::FIELD_COMPOSE, self::FIELD_WRITE, self::FIELD_DRAFT, self::FIELD_SUMMARIZE,
         ],
@@ -226,7 +228,7 @@ final class AtlasCognitiveFunctionDecomposerService
             'code', 'function', 'class', 'service', self::FIELD_REFACTOR, self::FIELD_TEST, self::FIELD_BUILD,
         ],
         self::FIELD_VISION => [
-            'imagem', self::FIELD_FOTO, self::FIELD_SCREENSHOT, self::FIELD_VISUALIZE, self::FIELD_DESIGN, self::FIELD_LAYOUT,
+            self::FIELD_IMAGEM, self::FIELD_FOTO, self::FIELD_SCREENSHOT, self::FIELD_VISUALIZE, self::FIELD_DESIGN, self::FIELD_LAYOUT,
             self::FIELD_MOCKUP, self::FIELD_FIGMA, self::FIELD_PNG, self::FIELD_JPG, self::FIELD_SVG, self::FIELD_TELA, 'ui ', 'ux ',
             'cor ', self::FIELD_PALETA, self::FIELD_VISUAL, self::FIELD_SCREENSHOT, self::FIELD_IMAGE, self::FIELD_RENDER,
         ],

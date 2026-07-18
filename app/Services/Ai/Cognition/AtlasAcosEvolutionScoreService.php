@@ -139,6 +139,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_PROMOTE = 'promote';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_USED = 'used';
+    public const FIELD_NO = 'no';
+    public const FIELD_ID = 'id';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -213,7 +215,7 @@ class AtlasAcosEvolutionScoreService
             self::FIELD_SIGNAL => self::FIELD_CADENCIA_VIVA,
             self::FIELD_POINTS => round(($heartbeatFresh ? 1.25 : 0.0) + 1.25 * ($organsScheduled / count(self::SCHEDULED_ORGANS)), 2),
             self::FIELD_MAX => 2.5,
-            self::FIELD_EVIDENCE => sprintf('heartbeat_fresh=%s organs_scheduled=%d/%d', $heartbeatFresh ? self::FIELD_YES : 'no', $organsScheduled, count(self::SCHEDULED_ORGANS)),
+            self::FIELD_EVIDENCE => sprintf('heartbeat_fresh=%s organs_scheduled=%d/%d', $heartbeatFresh ? self::FIELD_YES : self::FIELD_NO, $organsScheduled, count(self::SCHEDULED_ORGANS)),
         ];
 
         $unmarked = $this->unmarkedSessionEchoCount();
@@ -267,7 +269,7 @@ class AtlasAcosEvolutionScoreService
                 $newLicoesPoints,
                 max(0, $held),
                 max(0, $promoted),
-                $servedCompounding ? self::FIELD_YES : 'no',
+                $servedCompounding ? self::FIELD_YES : self::FIELD_NO,
             ),
         ];
 
@@ -295,7 +297,7 @@ class AtlasAcosEvolutionScoreService
             self::FIELD_SIGNAL => self::FIELD_GATES_AUDITADOS,
             self::FIELD_POINTS => round(($gateFresh ? 1.25 : 0.0) + ($seriesFresh ? 1.25 : 0.0), 2),
             self::FIELD_MAX => 2.5,
-            self::FIELD_EVIDENCE => sprintf('long_horizon_receipt_fresh=%s delta_series_fresh=%s', $gateFresh ? self::FIELD_YES : 'no', $seriesFresh ? self::FIELD_YES : 'no'),
+            self::FIELD_EVIDENCE => sprintf('long_horizon_receipt_fresh=%s delta_series_fresh=%s', $gateFresh ? self::FIELD_YES : self::FIELD_NO, $seriesFresh ? self::FIELD_YES : self::FIELD_NO),
         ];
 
         $chain = $this->tierChainReadiness();
@@ -320,7 +322,7 @@ class AtlasAcosEvolutionScoreService
             self::FIELD_EVIDENCE => sprintf(
                 'master_switch=%s tier_exposed=%s governanca_autonoma=%s',
                 $switchReadable ? 'legível' : 'indisponível',
-                $chain[self::FIELD_TIER_EXPOSED] ? self::FIELD_YES : 'no',
+                $chain[self::FIELD_TIER_EXPOSED] ? self::FIELD_YES : self::FIELD_NO,
                 $governance[self::FIELD_EVIDENCE],
             ),
         ];
@@ -376,7 +378,7 @@ class AtlasAcosEvolutionScoreService
             $count = 0;
             DB::table(self::FIELD_ATLAS_AURG_NODES)
                 ->where(self::FIELD_SOURCE_KIND, self::FIELD_MISSION)
-                ->orderBy('id')
+                ->orderBy(self::FIELD_ID)
                 ->chunkById(500, function ($nodes) use (&$count): void {
                     foreach ($nodes as $node) {
                         $meta = AiValueNormalizer::arrayOrEmpty(json_decode((string) ($node->meta ?? ''), true));
@@ -420,7 +422,7 @@ class AtlasAcosEvolutionScoreService
             }
 
             $activeKeys = [];
-            foreach (AiCompoundingMemory::query()->active()->get(['id', 'memory_hash']) as $memory) {
+            foreach (AiCompoundingMemory::query()->active()->get([self::FIELD_ID, 'memory_hash']) as $memory) {
                 foreach ([$memory->id, $memory->memory_hash] as $value) {
                     $value = AiValueNormalizer::trimmedStringOrNull($value);
                     if ($value === null) {
@@ -484,10 +486,10 @@ class AtlasAcosEvolutionScoreService
                 self::FIELD_OPERATOR_SIGNED => (AiValueNormalizer::boolOrNull($readiness[self::FIELD_OPERATOR_SIGNED] ?? null) ?? false),
                 self::FIELD_EVIDENCE => sprintf(
                     'chain implemented=%s audited=%s tier=%s signed=%s',
-                    ($readiness[self::FIELD_IMPLEMENTED] ?? false) ? self::FIELD_YES : 'no',
-                    ($readiness[self::FIELD_AUDITED] ?? false) ? self::FIELD_YES : 'no',
+                    ($readiness[self::FIELD_IMPLEMENTED] ?? false) ? self::FIELD_YES : self::FIELD_NO,
+                    ($readiness[self::FIELD_AUDITED] ?? false) ? self::FIELD_YES : self::FIELD_NO,
                     (AiValueNormalizer::trimmedStringOrNull($readiness[self::FIELD_TIER] ?? null) ?? '?'),
-                    ($readiness[self::FIELD_OPERATOR_SIGNED] ?? false) ? self::FIELD_YES : 'no',
+                    ($readiness[self::FIELD_OPERATOR_SIGNED] ?? false) ? self::FIELD_YES : self::FIELD_NO,
                 ),
             ];
         } catch (Throwable $e) {
@@ -544,10 +546,10 @@ class AtlasAcosEvolutionScoreService
             self::FIELD_POINTS => round(($reversible ? 0.5 : 0.0) + ($diaryOk ? 0.5 : 0.0), 2),
             self::FIELD_EVIDENCE => sprintf(
                 'reversivel=%s(git=%s,replay=%s) diario_integro=%s(entradas=%d)',
-                $reversible ? self::FIELD_YES : 'no',
-                $gitRepo ? self::FIELD_YES : 'no',
-                $replayReady ? self::FIELD_YES : 'no',
-                $diaryOk ? self::FIELD_YES : 'no',
+                $reversible ? self::FIELD_YES : self::FIELD_NO,
+                $gitRepo ? self::FIELD_YES : self::FIELD_NO,
+                $replayReady ? self::FIELD_YES : self::FIELD_NO,
+                $diaryOk ? self::FIELD_YES : self::FIELD_NO,
                 $diaryCount,
             ),
         ];

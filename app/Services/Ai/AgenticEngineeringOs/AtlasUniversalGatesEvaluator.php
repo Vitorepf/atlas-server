@@ -12096,4 +12096,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B470).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function composedObraDepartmentContractAcosWatchdogImmunePromotionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'arc_' => ComposedObraArcComposer::FIELD_ARC_,
+            'obra_' => ComposedObraArcComposer::FIELD_OBRA_,
+            'acceptance_criteria_pack' => DepartmentContractRuntime::FIELD_ACCEPTANCE_CRITERIA_PACK,
+            'adr_published' => DepartmentContractRuntime::FIELD_ADR_PUBLISHED,
+            'critical_must_keep_shadow_cut' => AtlasAcosWatchdogHealthService::FIELD_CRITICAL_MUST_KEEP_SHADOW_CUT,
+            'cross_week_recall_lift_not_certified' => AtlasAcosWatchdogHealthService::FIELD_CROSS_WEEK_RECALL_LIFT_NOT_CERTIFIED,
+            'outcome_not_validated' => CognitiveImmunePromotionGateEvaluator::FIELD_OUTCOME_NOT_VALIDATED,
+            'probation_negative_feedback_count' => CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_NEGATIVE_FEEDBACK_COUNT,
+            'escreva' => AtlasCognitiveFunctionDecomposerService::FIELD_ESCREVA,
+            'imagem' => AtlasCognitiveFunctionDecomposerService::FIELD_IMAGEM,
+            'no' => AtlasAcosEvolutionScoreService::FIELD_NO,
+            'id' => AtlasAcosEvolutionScoreService::FIELD_ID,
+            'recurrent' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RECURRENT,
+            'recurrent_ephemeral' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RECURRENT_EPHEMERAL,
+            'outcome_not_proven_real' => AcosMaxLote2MeasureService::FIELD_OUTCOME_NOT_PROVEN_REAL,
+            'paired_peek_floor_below_minimum' => AcosMaxLote2MeasureService::FIELD_PAIRED_PEEK_FLOOR_BELOW_MINIMUM,
+            'flip_id' => Teto10PredictedRevertReviewDigest::FIELD_FLIP_ID,
+            'none' => Teto10PredictedRevertReviewDigest::FIELD_NONE,
+            'composed_obra_department_contract_acos_watchdog_immune_promotion_floor_count' => 18,
+        ];
+    }
+
 }

@@ -269,6 +269,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_DELIVERED_CONTEXT_MISSING = 'delivered_context_missing';
     public const FIELD_LEARNING_CANDIDATE_MISSING = 'learning_candidate_missing';
     public const FIELD_OPERATOR_REQUEST_WINDOW_BELOW_FLOOR = 'operator_request_window_below_floor';
+    public const FIELD_OUTCOME_NOT_PROVEN_REAL = 'outcome_not_proven_real';
+    public const FIELD_PAIRED_PEEK_FLOOR_BELOW_MINIMUM = 'paired_peek_floor_below_minimum';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -504,7 +506,7 @@ final class AcosMaxLote2MeasureService
 
         $blockedBy = [];
         if (! $provenReal) {
-            $blockedBy[] = 'outcome_not_proven_real';
+            $blockedBy[] = self::FIELD_OUTCOME_NOT_PROVEN_REAL;
         }
         if ($decisionId === '') {
             $blockedBy[] = self::FIELD_DECISION_RECEIPT_MISSING;
@@ -966,7 +968,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_SCHEMA_VERSION => self::REPORT_SCHEMA,
             self::FIELD_SLICE => 'MULTJ-03',
             self::FIELD_STATUS => $measuredPairs > 0 ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SIGNAL,
-            self::FIELD_REASON => $measuredPairs > 0 ? null : 'paired_peek_floor_below_minimum',
+            self::FIELD_REASON => $measuredPairs > 0 ? null : self::FIELD_PAIRED_PEEK_FLOOR_BELOW_MINIMUM,
             self::FIELD_FORMULA_VERSION => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload('MULTJ-03'), self::FIELD_FORMULA_VERSION)) ?? '',
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
             self::FIELD_FREEZE => self::freezePayload('MULTJ-03'),

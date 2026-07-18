@@ -315,6 +315,8 @@ final class DepartmentContractRuntime
     public const FIELD_EDIT_CODE = 'edit_code';
     public const FIELD_EVIDENCE_TRACEABLE = 'evidence_traceable';
     public const FIELD_ACCEPTANCE_CRITERIA_MIN_3 = 'acceptance_criteria_min_3';
+    public const FIELD_ACCEPTANCE_CRITERIA_PACK = 'acceptance_criteria_pack';
+    public const FIELD_ADR_PUBLISHED = 'adr_published';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -386,7 +388,7 @@ final class DepartmentContractRuntime
             self::FIELD_ALLOWED_ACTIONS => [self::FIELD_ASK_CLARIFYING_QUESTION, self::FIELD_PROPOSE_ACCEPTANCE_CRITERIA, 'split_intent'],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_WRITE_CODE, self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
-            self::FIELD_EVIDENCE_REQUIRED => ['clarification_log', 'acceptance_criteria_pack'],
+            self::FIELD_EVIDENCE_REQUIRED => ['clarification_log', self::FIELD_ACCEPTANCE_CRITERIA_PACK],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_ENGINEERING_GOALS, self::FIELD_LEDGER => self::FIELD_AAEOS_CLARIFICATION_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['product_clarity_score_avg', 'product_loop_count_avg'],
             self::FIELD_MATURITY_LEVEL => 'L3',
@@ -406,7 +408,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
                 [self::FIELD_NAME => self::FIELD_MIGRATION_PLAN, self::FIELD_SCHEMA => self::SCHEMA_MIGRATION_PLAN],
             ],
-            self::FIELD_GATES => ['adr_published', self::FIELD_BOUNDARY_VALIDATED, self::FIELD_SPEC_ACCEPTANCE_CRITERIA_COMPLETE, self::FIELD_BREAKING_CHANGE_DOCUMENTED, 'rollback_per_slice'],
+            self::FIELD_GATES => [self::FIELD_ADR_PUBLISHED, self::FIELD_BOUNDARY_VALIDATED, self::FIELD_SPEC_ACCEPTANCE_CRITERIA_COMPLETE, self::FIELD_BREAKING_CHANGE_DOCUMENTED, 'rollback_per_slice'],
             self::FIELD_ALLOWED_ACTIONS => ['draft_spec', self::FIELD_PROPOSE_MIGRATION_PLAN, self::FIELD_REQUEST_SECURITY_REVIEW, 'veto_execution'],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_WRITE_CODE, self::FIELD_EXECUTE_MIGRATION, 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
