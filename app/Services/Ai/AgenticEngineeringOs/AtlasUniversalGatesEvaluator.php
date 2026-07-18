@@ -17071,4 +17071,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B633).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b633AaeosImplementationFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'id' => AtlasAaeosImplementationTruthService::FIELD_ID,
+            'rank_computed' => AtlasAaeosImplementationTruthService::FIELD_RANK_COMPUTED,
+            'atlas.aaeos.implementation_state.v1' => AtlasAaeosImplementationTruthService::SCHEMA,
+            'atlas.aaeos.capability_truth_ledger.v1' => AtlasAaeosImplementationTruthService::LEDGER_SCHEMA,
+            'atlas.aaeos.impl_files_hash.v2' => AtlasAaeosImplementationTruthService::IMPL_FILES_HASH_FORMAT,
+            'atlas.aaeos.doc_runtime_coverage.v1' => AtlasAaeosImplementationTruthService::DOC_RUNTIME_COVERAGE_SCHEMA,
+            'spec' => AtlasAaeosImplementationTruthService::LEVEL_SPEC,
+            'partial' => AtlasAaeosImplementationTruthService::LEVEL_PARTIAL,
+            'verified' => AtlasAaeosImplementationTruthService::LEVEL_VERIFIED,
+            'existence_only' => AtlasAaeosImplementationTruthService::LEVEL_EXISTENCE_ONLY,
+            'active' => AtlasAaeosImplementationTruthService::STATUS_ACTIVE,
+            'building' => AtlasAaeosImplementationTruthService::STATUS_BUILDING,
+            'green' => AtlasAaeosImplementationTruthService::TEST_RESOLUTION_GREEN,
+            'mixed' => AtlasAaeosImplementationTruthService::TEST_RESOLUTION_MIXED,
+            'resolved' => AtlasAaeosImplementationTruthService::FIELD_RESOLVED,
+            'evidence_refs' => AtlasAaeosImplementationTruthService::FIELD_EVIDENCE_REFS,
+            'schema_version' => AtlasAaeosImplementationTruthService::FIELD_SCHEMA_VERSION,
+            'ref' => AtlasAaeosImplementationTruthService::FIELD_REF,
+            'b633_aaeos_implementation_floor_count' => 18,
+        ];
+    }
+
 }
