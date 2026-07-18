@@ -82,6 +82,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_METRICS_AUTHORITY = 'metrics_authority';
     public const FIELD_ELIGIBLE = 'eligible';
     public const FIELD_CODE = 'code';
+    public const FIELD_PROBE_COUNT = 'probe_count';
+    public const FIELD_REFUSED_COUNT = 'refused_count';
 
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
@@ -125,8 +127,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $evidence = [
             'schema_version' => self::SCHEMA,
             'probes' => $probes,
-            'probe_count' => count($probes),
-            'refused_count' => count(array_filter($probes, static fn (array $p): bool => ($p[self::FIELD_REFUSED] ?? false) === true)),
+            self::FIELD_PROBE_COUNT => count($probes),
+            self::FIELD_REFUSED_COUNT => count(array_filter($probes, static fn (array $p): bool => ($p[self::FIELD_REFUSED] ?? false) === true)),
             self::FIELD_VIOLATIONS => $violations,
             'errors' => $errors,
             self::FIELD_SOURCE => [

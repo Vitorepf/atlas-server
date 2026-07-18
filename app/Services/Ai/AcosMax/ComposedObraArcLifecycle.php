@@ -51,6 +51,8 @@ final class ComposedObraArcLifecycle
     public const FIELD_REMAINING_SERVABLE = 'remaining_servable';
     public const FIELD_TASK_ID = 'task_id';
     public const FIELD_TARGET_PATH = 'target_path';
+    public const FIELD_ARCHIVED_AT_BASIS = 'archived_at_basis';
+    public const FIELD_RECEIPT_HASH = 'receipt_hash';
 
     public const TASK_STATUS_FAILED = 'failed';
 
@@ -225,10 +227,10 @@ final class ComposedObraArcLifecycle
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_ARC_ID => $arcId,
             self::FIELD_OBRA_ID => AiValueNormalizer::trimmedStringOrNull($state[self::FIELD_OBRA_ID] ?? null) ?? '',
-            'archived_at_basis' => $reason,
+            self::FIELD_ARCHIVED_AT_BASIS => $reason,
             self::FIELD_CONSECUTIVE_FAILURES => (int) (AiValueNormalizer::finiteFloatOrNull($state[self::FIELD_CONSECUTIVE_FAILURES] ?? null) ?? 0),
             self::FIELD_KILL_GATE_K => (int) ($state[self::FIELD_KILL_GATE_K] ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES),
-            'receipt_hash' => hash('sha256', json_encode([$arcId, $reason, $state[self::FIELD_CONSECUTIVE_FAILURES] ?? 0], JSON_UNESCAPED_SLASHES)),
+            self::FIELD_RECEIPT_HASH => hash('sha256', json_encode([$arcId, $reason, $state[self::FIELD_CONSECUTIVE_FAILURES] ?? 0], JSON_UNESCAPED_SLASHES)),
         ];
 
         foreach (AiValueNormalizer::arrayOrEmpty($state[self::FIELD_TASKS] ?? null) as $taskId => $task) {

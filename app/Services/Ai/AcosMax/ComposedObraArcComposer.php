@@ -69,6 +69,8 @@ final class ComposedObraArcComposer
     public const FIELD_OBRA_CLUSTER_CANDIDATE = 'obra_cluster_candidate';
     public const FIELD_KILL_GATE = 'kill_gate';
     public const FIELD_MEMBER_PATHS = 'member_paths';
+    public const FIELD_TASK_ID = 'task_id';
+    public const FIELD_OBJECTIVE = 'objective';
 
     public const STATUS_FLAG_DISABLED = 'flag_disabled';
 
@@ -260,10 +262,10 @@ final class ComposedObraArcComposer
         $tasks = [];
         foreach ($group as $task) {
             $tasks[] = [
-                'task_id' => 'task_'.substr(hash('sha256', $arcId.':'.($task[self::FIELD_TARGET_PATH] ?? '')), 0, 12),
+                self::FIELD_TASK_ID => 'task_'.substr(hash('sha256', $arcId.':'.($task[self::FIELD_TARGET_PATH] ?? '')), 0, 12),
                 self::FIELD_ORDER => (int) (AiValueNormalizer::finiteFloatOrNull($task[self::FIELD_ORDER] ?? null) ?? 0),
                 self::FIELD_TARGET_PATH => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_TARGET_PATH] ?? null) ?? '',
-                'objective' => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_SUMMARY] ?? null) ?? '',
+                self::FIELD_OBJECTIVE => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_SUMMARY] ?? null) ?? '',
                 self::FIELD_INDIVIDUAL_GATE_REQUIRED => true,
                 self::FIELD_ARCHITECT_PHASE_GATE => true,
                 'seed_gate' => true,

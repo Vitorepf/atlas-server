@@ -40,6 +40,8 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
     public const FIELD_CERTIFIED_RECEIPT_ID = 'certified_receipt_id';
     public const FIELD_PROVIDER = 'provider';
     public const FIELD_TASK_CATEGORY = 'task_category';
+    public const FIELD_EXECUTOR = 'executor';
+    public const FIELD_VERIFIED_BASIS = 'verified_basis';
 
     /** @var list<string> */
     public const BOOL_FIELDS = [self::FIELD_PROVEN_REAL, self::FIELD_FAKE_GREEN, self::FIELD_SHOULD_PROMOTE_TO_AEMOR];
@@ -62,12 +64,12 @@ final class DevProceduralOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapte
         $runId = AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_RUN_ID] ?? null) ?? '';
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
-            'executor' => 'dev',
+            self::FIELD_EXECUTOR => 'dev',
             self::FIELD_TASK_CATEGORY => (AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_TASK_CATEGORY] ?? null) ?? 'dev'),
             self::FIELD_PROVIDER => AiValueNormalizer::lowerTrimmedString($context[self::FIELD_PROVIDER] ?? self::STATUS_ABSENT) ?: self::STATUS_ABSENT,
             self::FIELD_STATUS => $status,
             self::FIELD_VERIFIED => $verified,
-            'verified_basis' => $verifiedBasis,
+            self::FIELD_VERIFIED_BASIS => $verifiedBasis,
             'verified_source_present' => $verifiedSourcePresent,
             self::FIELD_CERTIFIED_RECEIPT_ID => $context[self::FIELD_CERTIFIED_RECEIPT_ID] ?? null,
             'evidence_ref_count' => count($evidenceKinds),

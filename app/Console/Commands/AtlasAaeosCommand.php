@@ -360,6 +360,7 @@ final class AtlasAaeosCommand extends Command
         {--esp09-dogfood-saturation-budget-ambition-lexical-corpus-fact-citation-floors-contract= : JSON file (any object) to observe esp09/dogfood/saturation/budget/ambition/lexical/corpus/fact/citation residual floors}
         {--teto-ragx-promotion-envelope-golden-bets-thesis-attempt-cockpit-floors-contract= : JSON file (any object) to observe teto/ragx/promotion/envelope/golden/bets/thesis/attempt/cockpit residual floors}
         {--veto-repair-phase-truth-ledger-canary-latency-dual-budget-floors-contract= : JSON file (any object) to observe veto/repair/phase/truth/ledger/canary/latency/dual/budget residual floors}
+        {--joint-autonomy-dead-runner-envelope-obra-docs-floors-contract= : JSON file (any object) to observe joint/autonomy/dead/runner/envelope/obra/docs residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -876,6 +877,7 @@ final class AtlasAaeosCommand extends Command
             ['esp09-dogfood-saturation-budget-ambition-lexical-corpus-fact-citation-floors-contract', 'esp09_dogfood_saturation_budget_ambition_lexical_corpus_fact_citation_floors_contract', fn (array $p) => $gates->esp09DogfoodSaturationBudgetAmbitionLexicalCorpusFactCitationFloorsContractObserve($p)],
             ['teto-ragx-promotion-envelope-golden-bets-thesis-attempt-cockpit-floors-contract', 'teto_ragx_promotion_envelope_golden_bets_thesis_attempt_cockpit_floors_contract', fn (array $p) => $gates->tetoRagxPromotionEnvelopeGoldenBetsThesisAttemptCockpitFloorsContractObserve($p)],
             ['veto-repair-phase-truth-ledger-canary-latency-dual-budget-floors-contract', 'veto_repair_phase_truth_ledger_canary_latency_dual_budget_floors_contract', fn (array $p) => $gates->vetoRepairPhaseTruthLedgerCanaryLatencyDualBudgetFloorsContractObserve($p)],
+            ['joint-autonomy-dead-runner-envelope-obra-docs-floors-contract', 'joint_autonomy_dead_runner_envelope_obra_docs_floors_contract', fn (array $p) => $gates->jointAutonomyDeadRunnerEnvelopeObraDocsFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

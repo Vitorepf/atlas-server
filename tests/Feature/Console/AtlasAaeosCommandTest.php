@@ -6382,6 +6382,26 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+
+    public function test_universal_gates_observe_joint_autonomy_dead_runner_envelope_obra_docs_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-jadreod-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-jadreod',
+                '--joint-autonomy-dead-runner-envelope-obra-docs-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"joint_autonomy_dead_runner_envelope_obra_docs_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

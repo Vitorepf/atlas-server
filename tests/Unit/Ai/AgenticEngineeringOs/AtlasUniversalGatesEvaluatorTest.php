@@ -6099,6 +6099,34 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     }
 
 
+    public function test_joint_autonomy_dead_runner_envelope_obra_docs_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->jointAutonomyDeadRunnerEnvelopeObraDocsFloorsContractObserve([]);
+
+        $this->assertSame('paper_status', $payload['joint_field_paper_status']);
+        $this->assertSame('reasons', $payload['joint_field_reasons']);
+        $this->assertSame('probe_count', $payload['autonomy_field_probe_count']);
+        $this->assertSame('refused_count', $payload['autonomy_field_refused_count']);
+        $this->assertSame('freshness_reader', $payload['dead_field_freshness_reader']);
+        $this->assertSame('last_append_at', $payload['dead_field_last_append_at']);
+        $this->assertSame('ledger_event_id', $payload['runner_field_ledger_event_id']);
+        $this->assertSame('check_id', $payload['runner_field_check_id']);
+        $this->assertSame('executor', $payload['dev_envelope_field_executor']);
+        $this->assertSame('verified_basis', $payload['dev_envelope_field_verified_basis']);
+        $this->assertSame('evidence_refs', $payload['compounding_field_evidence_refs']);
+        $this->assertSame('native_divergent', $payload['compounding_field_native_divergent']);
+        $this->assertSame('archived_at_basis', $payload['obra_life_field_archived_at_basis']);
+        $this->assertSame('receipt_hash', $payload['obra_life_field_receipt_hash']);
+        $this->assertSame('task_id', $payload['obra_compose_field_task_id']);
+        $this->assertSame('objective', $payload['obra_compose_field_objective']);
+        $this->assertSame('governs_frontmatter', $payload['docs_field_governs_frontmatter']);
+        $this->assertSame('doc_id', $payload['docs_field_doc_id']);
+        $this->assertSame(18, $payload['joint_autonomy_dead_runner_envelope_obra_docs_floor_count']);
+    }
+
+
+
+
 
 
 

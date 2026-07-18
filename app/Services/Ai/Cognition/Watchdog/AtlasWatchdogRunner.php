@@ -35,6 +35,8 @@ final readonly class AtlasWatchdogRunner
     public const FIELD_ENVELOPE_ID = 'envelope_id';
     public const FIELD_OPERATOR_ID = 'operator_id';
     public const FIELD_TENANT_ID = 'tenant_id';
+    public const FIELD_LEDGER_EVENT_ID = 'ledger_event_id';
+    public const FIELD_CHECK_ID = 'check_id';
 
     public function __construct(
         private AtlasWatchdogCheckRegistry $registry,
@@ -84,7 +86,7 @@ final readonly class AtlasWatchdogRunner
         ];
 
         $event = $this->recordLedger($payload, $context);
-        $payload['ledger_event_id'] = $event?->event_id;
+        $payload[self::FIELD_LEDGER_EVENT_ID] = $event?->event_id;
 
         return $payload;
     }
@@ -154,7 +156,7 @@ final readonly class AtlasWatchdogRunner
                 continue;
             }
 
-            $alerts[] = ['check_id' => AiValueNormalizer::trimmedStringOrNull($check['id'] ?? null) ?? self::CHECK_ID_UNKNOWN] + $check[AtlasWatchdogCheckResult::FIELD_ALERT];
+            $alerts[] = [self::FIELD_CHECK_ID => AiValueNormalizer::trimmedStringOrNull($check['id'] ?? null) ?? self::CHECK_ID_UNKNOWN] + $check[AtlasWatchdogCheckResult::FIELD_ALERT];
         }
 
         return $alerts;

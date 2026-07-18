@@ -38,6 +38,8 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_TTL_DAYS = 'ttl_days';
     public const FIELD_STATUS = 'status';
     public const FIELD_TTL_SOURCE = 'ttl_source';
+    public const FIELD_FRESHNESS_READER = 'freshness_reader';
+    public const FIELD_LAST_APPEND_AT = 'last_append_at';
 
     public function __construct(
         private AcosMaxMeasureSeriesRegistry $registry,
@@ -65,7 +67,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_REGISTRY_COUNT => count($series),
             self::FIELD_DEAD_COUNT => count($dead),
             self::FIELD_SERIES => $series,
-            'freshness_reader' => AcosMeasureSeriesFreshnessReader::SCHEMA,
+            self::FIELD_FRESHNESS_READER => AcosMeasureSeriesFreshnessReader::SCHEMA,
         ];
 
         if ($dead !== []) {
@@ -102,7 +104,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_TIMESTAMP_FIELD => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_TIMESTAMP_FIELD] ?? null) ?? 'recorded_at'),
             self::FIELD_TTL_DAYS => $ttlDays,
             self::FIELD_TTL_SOURCE => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_TTL_SOURCE] ?? null) ?? 'freeze'),
-            'last_append_at' => $lastAppendAt?->toIso8601String(),
+            self::FIELD_LAST_APPEND_AT => $lastAppendAt?->toIso8601String(),
             'age_days' => $ageDays,
             self::FIELD_STATUS => $status,
         ];

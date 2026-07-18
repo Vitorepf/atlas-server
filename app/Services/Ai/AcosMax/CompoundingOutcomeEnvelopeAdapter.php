@@ -43,6 +43,8 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public const FIELD_PAYLOAD = 'payload';
     public const FIELD_OUTCOME_CONTRACT_V2 = 'outcome_contract_v2';
     public const FIELD_EPISODE_ID = 'episode_id';
+    public const FIELD_EVIDENCE_REFS = 'evidence_refs';
+    public const FIELD_NATIVE_DIVERGENT = 'native_divergent';
 
     public function origin(): string
     {
@@ -77,7 +79,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
                 : AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT)
         );
         $verified = (AiValueNormalizer::boolOrNull($contract[self::FIELD_VERIFIED] ?? $native[self::FIELD_VERIFIED] ?? null) ?? false);
-        $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native['evidence_refs'] ?? null);
+        $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native[self::FIELD_EVIDENCE_REFS] ?? null);
         $runId = AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_RUN_ID] ?? null) ?? '';
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
@@ -107,7 +109,7 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public function fromEnvelope(OutcomeEnvelope $envelope): array
     {
         $data = $envelope->toArray();
-        $fields = AiValueNormalizer::arrayOrEmpty($data['native_divergent']['fields'] ?? null);
+        $fields = AiValueNormalizer::arrayOrEmpty($data[self::FIELD_NATIVE_DIVERGENT]['fields'] ?? null);
 
         return [
             self::FIELD_FLOW_ID => (AiValueNormalizer::trimmedStringOrNull($fields[self::FIELD_FLOW_ID] ?? null) ?? 'atlas_conversation'),

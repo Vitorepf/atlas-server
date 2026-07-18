@@ -30,8 +30,8 @@ class AtlasDocsAuthorityGraphService
      * @var array<string, int>
      */
     public const CONFIDENCE = [
-        'governs_frontmatter' => 100,
-        'doc_id' => 95,
+        self::FIELD_GOVERNS_FRONTMATTER => 100,
+        self::FIELD_DOC_ID => 95,
         'capability_frontmatter' => 80,
         self::FIELD_KEYWORD_FALLBACK => 40,
     ];
@@ -50,6 +50,8 @@ class AtlasDocsAuthorityGraphService
     public const FIELD_CANDIDATES = 'candidates';
     public const FIELD_OWNER_DOC_ID = 'owner_doc_id';
     public const FIELD_OWNER_IMPLEMENTATION_STATE = 'owner_implementation_state';
+    public const FIELD_GOVERNS_FRONTMATTER = 'governs_frontmatter';
+    public const FIELD_DOC_ID = 'doc_id';
 
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
