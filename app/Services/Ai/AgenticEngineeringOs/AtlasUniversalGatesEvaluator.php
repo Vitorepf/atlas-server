@@ -18032,4 +18032,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B664).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b664PredictedImpactFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.originator.predicted_impact_band.v1' => PredictedImpactBand::SCHEMA_VERSION,
+            '99' => PredictedImpactBand::DEFAULT_RANK_FALLBACK,
+            '3' => PredictedImpactBand::RANK_TOP_CUTOFF,
+            '0.5' => PredictedImpactBand::YIELD_SWEET_FLOOR,
+            '4' => PredictedImpactBand::HIGH_SCORE_FLOOR,
+            '2' => PredictedImpactBand::SWEET_SCORE_FLOOR,
+            'schema_version' => PredictedImpactBand::FIELD_SCHEMA_VERSION,
+            'source' => PredictedImpactBand::FIELD_SOURCE,
+            'task' => PredictedImpactBand::FIELD_TASK,
+            'slice' => PredictedImpactBand::FIELD_SLICE,
+            'obra' => PredictedImpactBand::FIELD_OBRA,
+            'salto' => PredictedImpactBand::FIELD_SALTO,
+            'band' => PredictedImpactBand::FIELD_BAND,
+            'components' => PredictedImpactBand::FIELD_COMPONENTS,
+            'rung' => PredictedImpactBand::FIELD_RUNG,
+            'rank' => PredictedImpactBand::FIELD_RANK,
+            'path_yield' => PredictedImpactBand::FIELD_PATH_YIELD,
+            'n_realized' => PredictedImpactBand::FIELD_N_REALIZED,
+            'b664_predicted_impact_floor_count' => 18,
+        ];
+    }
+
 }

@@ -14274,4 +14274,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b663_attempt_lifecycle_floor_count']);
     }
 
+    public function test_b664_predicted_impact_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b664PredictedImpactFloorsContractObserve([]);
+        $this->assertSame(PredictedImpactBand::SCHEMA_VERSION, $out['atlas.originator.predicted_impact_band.v1']);
+        $this->assertSame(PredictedImpactBand::DEFAULT_RANK_FALLBACK, $out['99']);
+        $this->assertSame(PredictedImpactBand::RANK_TOP_CUTOFF, $out['3']);
+        $this->assertSame(PredictedImpactBand::YIELD_SWEET_FLOOR, $out['0.5']);
+        $this->assertSame(PredictedImpactBand::HIGH_SCORE_FLOOR, $out['4']);
+        $this->assertSame(PredictedImpactBand::SWEET_SCORE_FLOOR, $out['2']);
+        $this->assertSame(PredictedImpactBand::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(PredictedImpactBand::FIELD_SOURCE, $out['source']);
+        $this->assertSame(PredictedImpactBand::FIELD_TASK, $out['task']);
+        $this->assertSame(PredictedImpactBand::FIELD_SLICE, $out['slice']);
+        $this->assertSame(PredictedImpactBand::FIELD_OBRA, $out['obra']);
+        $this->assertSame(PredictedImpactBand::FIELD_SALTO, $out['salto']);
+        $this->assertSame(PredictedImpactBand::FIELD_BAND, $out['band']);
+        $this->assertSame(PredictedImpactBand::FIELD_COMPONENTS, $out['components']);
+        $this->assertSame(PredictedImpactBand::FIELD_RUNG, $out['rung']);
+        $this->assertSame(PredictedImpactBand::FIELD_RANK, $out['rank']);
+        $this->assertSame(PredictedImpactBand::FIELD_PATH_YIELD, $out['path_yield']);
+        $this->assertSame(PredictedImpactBand::FIELD_N_REALIZED, $out['n_realized']);
+        $this->assertSame(18, $out['b664_predicted_impact_floor_count']);
+    }
+
 }
