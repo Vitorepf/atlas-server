@@ -14764,4 +14764,26 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B557).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b557CognitionScoreFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'Runtime Degradation Signal Ingress' => AtlasCognitionScoreCardService::FIELD_RUNTIME_DEGRADATION_SIGNAL_INGRESS,
+            'Semantic Embedding Foundation' => AtlasCognitionScoreCardService::FIELD_SEMANTIC_EMBEDDING_FOUNDATION,
+            'Swarm Conductor' => AtlasCognitionScoreCardService::FIELD_SWARM_CONDUCTOR,
+            'Swarm Executor' => AtlasCognitionScoreCardService::FIELD_SWARM_EXECUTOR,
+            'Temporary Domain Composition' => AtlasCognitionScoreCardService::FIELD_TEMPORARY_DOMAIN_COMPOSITION,
+            'Token Economy Runtime' => AtlasCognitionScoreCardService::FIELD_TOKEN_ECONOMY_RUNTIME,
+            'Trust Budget Service' => AtlasCognitionScoreCardService::FIELD_TRUST_BUDGET_SERVICE,
+            'Unified Reality Graph' => AtlasCognitionScoreCardService::FIELD_UNIFIED_REALITY_GRAPH,
+            'Verified Context Execution Loop' => AtlasCognitionScoreCardService::FIELD_VERIFIED_CONTEXT_EXECUTION_LOOP,
+            'b557_cognition_score_floor_count' => 9,
+        ];
+    }
+
 }

@@ -11643,4 +11643,20 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b556_cognition_score_department_contract_floor_count']);
     }
 
+    public function test_b557_cognition_score_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b557CognitionScoreFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_RUNTIME_DEGRADATION_SIGNAL_INGRESS, $out['Runtime Degradation Signal Ingress']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SEMANTIC_EMBEDDING_FOUNDATION, $out['Semantic Embedding Foundation']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SWARM_CONDUCTOR, $out['Swarm Conductor']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SWARM_EXECUTOR, $out['Swarm Executor']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_TEMPORARY_DOMAIN_COMPOSITION, $out['Temporary Domain Composition']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_TOKEN_ECONOMY_RUNTIME, $out['Token Economy Runtime']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_TRUST_BUDGET_SERVICE, $out['Trust Budget Service']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_UNIFIED_REALITY_GRAPH, $out['Unified Reality Graph']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_VERIFIED_CONTEXT_EXECUTION_LOOP, $out['Verified Context Execution Loop']);
+        $this->assertSame(9, $out['b557_cognition_score_floor_count']);
+    }
+
 }

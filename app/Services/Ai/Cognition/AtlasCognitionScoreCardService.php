@@ -325,6 +325,15 @@ class AtlasCognitionScoreCardService
     public const FIELD_RETRIEVAL_EVALUATION_ARENA = 'Retrieval Evaluation Arena';
     public const FIELD_RETRIEVAL_FEEDBACK_LOOP = 'Retrieval Feedback Loop';
     public const FIELD_RETRIEVAL_PRIVACY_TRUST_LAYER = 'Retrieval Privacy Trust Layer';
+    public const FIELD_RUNTIME_DEGRADATION_SIGNAL_INGRESS = 'Runtime Degradation Signal Ingress';
+    public const FIELD_SEMANTIC_EMBEDDING_FOUNDATION = 'Semantic Embedding Foundation';
+    public const FIELD_SWARM_CONDUCTOR = 'Swarm Conductor';
+    public const FIELD_SWARM_EXECUTOR = 'Swarm Executor';
+    public const FIELD_TEMPORARY_DOMAIN_COMPOSITION = 'Temporary Domain Composition';
+    public const FIELD_TOKEN_ECONOMY_RUNTIME = 'Token Economy Runtime';
+    public const FIELD_TRUST_BUDGET_SERVICE = 'Trust Budget Service';
+    public const FIELD_UNIFIED_REALITY_GRAPH = 'Unified Reality Graph';
+    public const FIELD_VERIFIED_CONTEXT_EXECUTION_LOOP = 'Verified Context Execution Loop';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -390,14 +399,14 @@ class AtlasCognitionScoreCardService
         [self::FIELD_MEM_RECALL, 'Memory Recall (hybrid)',          self::FIELD_MEMORY_CORE, AtlasHybridRetrievalInfrastructureService::class],
 
         // AUCRI 18 blocks
-        [self::FIELD_ASEF,  'Semantic Embedding Foundation',     self::FIELD_AUCRI, AtlasSemanticEmbeddingFoundationService::class],
+        [self::FIELD_ASEF,  self::FIELD_SEMANTIC_EMBEDDING_FOUNDATION,     self::FIELD_AUCRI, AtlasSemanticEmbeddingFoundationService::class],
         [self::FIELD_AHRI,  self::FIELD_HYBRID_RETRIEVAL_INFRASTRUCTURE,   self::FIELD_AUCRI, AtlasHybridRetrievalInfrastructureService::class],
         [self::FIELD_AARF,  self::FIELD_AGENTIC_RAG_FRAMEWORK,             self::FIELD_AUCRI, AtlasAgenticRagFrameworkService::class],
         [self::FIELD_ACRS,  self::FIELD_CONTEXT_RANKING_SYSTEM,            self::FIELD_AUCRI, AtlasContextRankingSystemService::class],
         [self::FIELD_ACFQ,  self::FIELD_CONTEXT_FRESHNESS_QUALITY_GATE,    self::FIELD_AUCRI, AtlasContextFreshnessQualityGateService::class],
         [self::FIELD_ARFL,  self::FIELD_RETRIEVAL_FEEDBACK_LOOP,           self::FIELD_AUCRI, AtlasRetrievalFeedbackLoopService::class],
         [self::FIELD_AGRN,  self::FIELD_GRAPH_RETRIEVAL_NETWORK,           self::FIELD_AUCRI, AtlasGraphRetrievalNetworkService::class],
-        [self::FIELD_AURG,  'Unified Reality Graph',             self::FIELD_AUCRI, AtlasUnifiedRealityGraphService::class],
+        [self::FIELD_AURG,  self::FIELD_UNIFIED_REALITY_GRAPH,             self::FIELD_AUCRI, AtlasUnifiedRealityGraphService::class],
         [self::FIELD_APDR,  self::FIELD_PYTHON_DATA_RETRIEVAL_RUNTIME,     self::FIELD_AUCRI, AtlasPythonDataRetrievalRuntimeService::class],
         [self::FIELD_AREBA, self::FIELD_RETRIEVAL_EVALUATION_ARENA,        self::FIELD_AUCRI, AtlasRetrievalEvaluationBenchmarkArenaService::class],
         [self::FIELD_ARCLG, self::FIELD_RETRIEVAL_COST_LATENCY_GOVERNOR,   self::FIELD_AUCRI, AtlasRetrievalCostLatencyGovernorService::class],
@@ -406,7 +415,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_AKIF,  self::FIELD_KNOWLEDGE_INGESTION_FABRIC,        self::FIELD_AUCRI, AtlasKnowledgeSourcePacketRegistryService::class],
         [self::FIELD_ACMF,  self::FIELD_COGNITIVE_MEMORY_FABRIC,           self::FIELD_AUCRI, AtlasCognitiveMemoryFabricService::class],
         [self::FIELD_ACCR,  self::FIELD_CONTEXT_COMPILER_RUNTIME,          self::FIELD_AUCRI, AtlasContextCompilerRuntimeService::class],
-        [self::FIELD_ATER,  'Token Economy Runtime',             self::FIELD_AUCRI, AtlasTokenEconomyBudgetPolicyService::class],
+        [self::FIELD_ATER,  self::FIELD_TOKEN_ECONOMY_RUNTIME,             self::FIELD_AUCRI, AtlasTokenEconomyBudgetPolicyService::class],
         [self::FIELD_ACPFR, self::FIELD_CONTEXT_PARETO_FRONTIER_RUNTIME,   self::FIELD_AUCRI, AtlasContextParetoFrontierRuntimeService::class],
 
         // Self-Improvement L7 (closed loop)
@@ -425,9 +434,9 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ACFA,    self::FIELD_COGNITIVE_FUNCTION_ATLAS,            self::FIELD_COGNITION,         AtlasCognitiveFunctionAtlasService::class],
         [self::FIELD_AARR,    self::FIELD_AUTONOMOUS_RECONCILIATION_RUNTIME,   self::FIELD_AUTONOMY,          AtlasAutonomousReconciliationRuntimeService::class],
         [self::FIELD_TEOS_I4, 'TEOS-I4 Counterfactual Tree',         self::FIELD_TEOS,              AtlasTeosI4CounterfactualTreeService::class],
-        [self::FIELD_ASWC,    'Swarm Conductor',                     self::FIELD_ATLAS_DECIDE,      AtlasSwarmConductorService::class],
-        [self::FIELD_ASWE,    'Swarm Executor',                      self::FIELD_ATLAS_DECIDE,      AtlasSwarmExecutorService::class],
-        [self::FIELD_ATDC,    'Temporary Domain Composition',        self::FIELD_CROSS_DOMAIN,      AtlasTemporaryDomainCompositionService::class],
+        [self::FIELD_ASWC,    self::FIELD_SWARM_CONDUCTOR,                     self::FIELD_ATLAS_DECIDE,      AtlasSwarmConductorService::class],
+        [self::FIELD_ASWE,    self::FIELD_SWARM_EXECUTOR,                      self::FIELD_ATLAS_DECIDE,      AtlasSwarmExecutorService::class],
+        [self::FIELD_ATDC,    self::FIELD_TEMPORARY_DOMAIN_COMPOSITION,        self::FIELD_CROSS_DOMAIN,      AtlasTemporaryDomainCompositionService::class],
 
         // Patamar 4 · integration layer
         [self::FIELD_ADGW,    self::FIELD_ATLAS_DECIDE_GATEWAY_CONSULTATION,   self::FIELD_ATLAS_DECIDE,      AtlasDecideGatewayConsultationService::class],
@@ -439,7 +448,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ACTG,    self::FIELD_CARTOGRAPHY_TRUTH_GUARD,                   self::FIELD_CARTOGRAPHY,       CartographyTruthGuardService::class],
         [self::FIELD_AGPF,    'Atlas Gateway Preflight (TEOS-I4)',         self::FIELD_ATLAS_DECIDE,      AtlasGatewayPreflightService::class],
         [self::FIELD_ACVS,    self::FIELD_CONSTITUTIONAL_VAULT_SERVICE,              self::FIELD_GOVERNANCE,        AtlasConstitutionalVaultService::class],
-        [self::FIELD_ATBS,    'Trust Budget Service',                      self::FIELD_GOVERNANCE,        AtlasTrustBudgetService::class],
+        [self::FIELD_ATBS,    self::FIELD_TRUST_BUDGET_SERVICE,                      self::FIELD_GOVERNANCE,        AtlasTrustBudgetService::class],
         [self::FIELD_ANCF,    self::FIELD_NIGHTLY_COUNTERFACTUALS,                   self::FIELD_PATAMAR_4,         AtlasNightlyCounterfactualsService::class],
         [self::FIELD_ASAR,    'Subsystem Auto-Rebalance',                  self::FIELD_PATAMAR_4,         AtlasSubsystemAutoRebalanceService::class],
         [self::FIELD_ASOS,    'Atlas Scheduler OS (Cron 24/7)',            self::FIELD_PATAMAR_4,         AtlasSchedulerHealthService::class],
@@ -448,7 +457,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ASPD,    self::FIELD_ATLAS_SWARM_PARALLEL_DISPATCHER,           self::FIELD_ATLAS_DECIDE,      AtlasSwarmParallelDispatchService::class],
         [self::FIELD_ACSR,    'Cognitive Function Swarm Router (P6 closure)', self::FIELD_ATLAS_DECIDE,   AtlasCognitiveFunctionSwarmRouterService::class],
         [self::FIELD_ASAF,    'Swarm Auto-Failover (A4)',                  self::FIELD_ATLAS_DECIDE,      AtlasSwarmAutoFailoverService::class],
-        [self::FIELD_ARDS,    'Runtime Degradation Signal Ingress',        self::FIELD_PATAMAR_4,         AtlasRuntimeDegradationSignalService::class],
+        [self::FIELD_ARDS,    self::FIELD_RUNTIME_DEGRADATION_SIGNAL_INGRESS,        self::FIELD_PATAMAR_4,         AtlasRuntimeDegradationSignalService::class],
         [self::FIELD_ASDM,    'Self-Divergence Model (target vs current)', self::FIELD_SELF_CONSTRUCTION, AtlasSelfDivergenceModelService::class],
         [self::FIELD_AEMB,    'Embodiment Integration (P7 closure)',       self::FIELD_PATAMAR_4,         AtlasEmbodimentIntegrationService::class],
 
@@ -479,7 +488,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_APCR, self::FIELD_PERSISTENT_CONTEXT_RUNTIME, self::FIELD_PERSISTENT_CONTEXT, AtlasPersistentContextRuntimeService::class],
         [self::FIELD_AEMOR_2, self::FIELD_EXECUTION_MEMORY_OUTCOME_RUNTIME, self::FIELD_AEMOR, AtlasAemorCertificationService::class],
         [self::FIELD_TEOS_I1, 'Long-Horizon Intelligence Layer', self::FIELD_LONG_HORIZON, LongHorizonContinuityCertificationService::class],
-        [self::FIELD_AVCEL, 'Verified Context Execution Loop', self::FIELD_VERIFIED_CONTEXT, AtlasVerifiedContextExecutionLoopService::class],
+        [self::FIELD_AVCEL, self::FIELD_VERIFIED_CONTEXT_EXECUTION_LOOP, self::FIELD_VERIFIED_CONTEXT, AtlasVerifiedContextExecutionLoopService::class],
         [self::FIELD_ACQCG, self::FIELD_CONTEXT_QUALITY_CERTIFICATION_GATE, self::FIELD_CONTEXT_QUALITY, AtlasContextQualityCertificationService::class],
         [self::FIELD_AOBG, self::FIELD_OPEN_BRAIN_GATEWAY, self::FIELD_OPEN_BRAIN, AtlasOpenBrainMcpService::class],
         [self::FIELD_EVIDENCE_2, self::FIELD_EVIDENCE_LEDGER_MEMORY_SIDE, self::FIELD_EVIDENCE, AtlasEvidenceLedger::class],
