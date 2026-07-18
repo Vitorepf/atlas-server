@@ -81,6 +81,8 @@ class AtlasCognitionEvidenceResolver
     public const FIELD_IMPL_FILES_HASH = 'impl_files_hash';
     public const FIELD_PATH = 'path';
     public const FIELD_SYMBOL_REF = 'symbol_ref';
+    public const FIELD_EXISTING_TEST_REFS = 'existing_test_refs';
+    public const FIELD_MATCHED = 'matched';
 
     /**
      * Memoized FQN-ownership index: short class name => list of owner-doc capabilities
@@ -359,7 +361,7 @@ class AtlasCognitionEvidenceResolver
             self::FIELD_REASON => $reason,
             self::FIELD_OWNER_CAPABILITY_IDS => $ownerIds,
             self::FIELD_CANDIDATE_TEST_REFS => $candidateTestRefs,
-            'existing_test_refs' => $existingTestRefs,
+            self::FIELD_EXISTING_TEST_REFS => $existingTestRefs,
             self::FIELD_LATEST_RECEIPT_AT => $latestAt?->toIso8601String(),
             self::FIELD_LATEST_RECEIPT_AGE_DAYS => $latestAt === null ? null : round($latestAt->diffInHours(CarbonImmutable::now('UTC')) / 24, 2),
             self::FIELD_GREEN_RECEIPT_COUNT => $greenCount,
@@ -384,7 +386,7 @@ class AtlasCognitionEvidenceResolver
             } catch (Throwable) {
                 continue;
             }
-            $matched = $resolution['matched'] ?? null;
+            $matched = $resolution[self::FIELD_MATCHED] ?? null;
             if ($matched === null) {
                 continue;
             }

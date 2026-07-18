@@ -8445,6 +8445,38 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+
+    /**
+     * Observe-only residual FIELD_* floors (B353).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function immuneFreezeOutcomeWindowFlywheelPromoCalibHandoffRunbookFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'imm_freeze_field_generated_at' => ImmuneSignatureStore::FIELD_GENERATED_AT,
+            'imm_freeze_field_ref' => ImmuneSignatureStore::FIELD_REF,
+            'outcome_env_field_path_declared' => AtlasLocalModelIntegrityService::FIELD_PATH_DECLARED,
+            'outcome_env_field_pin_present' => AtlasLocalModelIntegrityService::FIELD_PIN_PRESENT,
+            'win_gates_field_owner' => AaeosBlockerSeverity::FIELD_OWNER,
+            'win_gates_field_severity' => AaeosBlockerSeverity::FIELD_SEVERITY,
+            'flywheel_field_command' => AtlasAaeosImplementationEvidenceResolver::FIELD_COMMAND,
+            'flywheel_field_kind' => AtlasAaeosImplementationEvidenceResolver::FIELD_KIND,
+            'cog_promo_field_existing_test_refs' => AtlasCognitionEvidenceResolver::FIELD_EXISTING_TEST_REFS,
+            'cog_promo_field_matched' => AtlasCognitionEvidenceResolver::FIELD_MATCHED,
+            'imm_calib_field_consumer_of_maxn_04' => PortfolioBudgetAllocator::FIELD_CONSUMER_OF_MAXN_04,
+            'imm_calib_field_flag' => PortfolioBudgetAllocator::FIELD_FLAG,
+            'phase_hand_field_default_destination' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DEFAULT_DESTINATION,
+            'phase_hand_field_embedding_allowed' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EMBEDDING_ALLOWED,
+            'runbook_field_memory' => CaptureHmacLineageService::FIELD_MEMORY,
+            'runbook_field_payload' => CaptureHmacLineageService::FIELD_PAYLOAD,
+            'dept_reg_field_candidate_id' => AcosMaxLote2MeasureService::FIELD_CANDIDATE_ID,
+            'dept_reg_field_citation_latency_seconds' => AcosMaxLote2MeasureService::FIELD_CITATION_LATENCY_SECONDS,
+            'immune_freeze_outcome_window_flywheel_promo_calib_handoff_runbook_floor_count' => 18,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

@@ -85,6 +85,8 @@ final class PortfolioBudgetAllocator
     public const FIELD_CEILING_ABSOLUTE = 'ceiling_absolute';
     public const FIELD_CEILING_BANDS = 'ceiling_bands';
     public const FIELD_CONSUMER_OF_MAXK_07 = 'consumer_of_maxk_07';
+    public const FIELD_CONSUMER_OF_MAXN_04 = 'consumer_of_maxn_04';
+    public const FIELD_FLAG = 'flag';
 
     /**
      * @param  array<string,mixed>  $input keys:
@@ -148,9 +150,9 @@ final class PortfolioBudgetAllocator
                 'yield_recomputed_here' => false,
                 'starvation_floor_absolute' => self::HARD_FLOOR_SHARE,
                 self::FIELD_CEILING_ABSOLUTE => self::HARD_CEILING_SHARE,
-                'consumer_of_maxn_04' => true,
+                self::FIELD_CONSUMER_OF_MAXN_04 => true,
                 self::FIELD_CONSUMER_OF_MAXK_07 => true,
-                'flag' => 'atlas.multk_06.portfolio_allocation_enabled',
+                self::FIELD_FLAG => 'atlas.multk_06.portfolio_allocation_enabled',
                 'flag_default' => 'off',
             ],
         ];

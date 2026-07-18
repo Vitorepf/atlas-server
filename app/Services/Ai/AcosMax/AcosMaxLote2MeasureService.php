@@ -188,6 +188,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_ARM = 'arm';
     public const FIELD_ASKS_PER_REQUEST = 'asks_per_request';
     public const FIELD_BLOCKED_BY_TOP = 'blocked_by_top';
+    public const FIELD_CANDIDATE_ID = 'candidate_id';
+    public const FIELD_CITATION_LATENCY_SECONDS = 'citation_latency_seconds';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -668,13 +670,13 @@ final class AcosMaxLote2MeasureService
             }
 
             $rows[] = [
-                'candidate_id' => $candidateId,
+                self::FIELD_CANDIDATE_ID => $candidateId,
                 self::FIELD_OUTCOME_ID => AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? '',
                 self::FIELD_LESSON_CLASS => $lessonClass,
                 self::FIELD_DELIVERED => $deliverySeconds !== null,
                 self::FIELD_CITED => $citationSeconds !== null,
                 'delivery_latency_seconds' => $deliverySeconds,
-                'citation_latency_seconds' => $citationSeconds,
+                self::FIELD_CITATION_LATENCY_SECONDS => $citationSeconds,
             ];
         }
 

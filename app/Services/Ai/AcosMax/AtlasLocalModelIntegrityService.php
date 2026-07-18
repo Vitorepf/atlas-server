@@ -60,6 +60,8 @@ final class AtlasLocalModelIntegrityService
     public const FIELD_MODEL_VERIFIED = 'model_verified';
     public const FIELD_SHA256_COMPUTED = 'sha256_computed';
     public const FIELD_SHA256_PIN = 'sha256_pin';
+    public const FIELD_PATH_DECLARED = 'path_declared';
+    public const FIELD_PIN_PRESENT = 'pin_present';
 
     /** @var array<string, mixed> */
     private array $manifest;
@@ -116,9 +118,9 @@ final class AtlasLocalModelIntegrityService
             self::FIELD_FUNCTION => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_FUNCTION] ?? null) ?? ''),
             self::FIELD_LICENSE => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_LICENSE] ?? null) ?? ''),
             self::FIELD_SOURCE_URL => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SOURCE_URL] ?? null) ?? ''),
-            'path_declared' => $path,
+            self::FIELD_PATH_DECLARED => $path,
             self::FIELD_PATH_RESOLVED => null,
-            'pin_present' => $pin !== '',
+            self::FIELD_PIN_PRESENT => $pin !== '',
             self::FIELD_SHA256_PIN => $pin !== '' ? $pin : null,
             self::FIELD_SHA256_COMPUTED => null,
             self::FIELD_MODEL_VERIFIED => false,

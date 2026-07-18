@@ -6474,4 +6474,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['gate_signal_truth_router_veto_choreo_debug_docs_watchdog_pareto_floor_count']);
     }
 
+    public function test_immune_freeze_outcome_window_flywheel_promo_calib_handoff_runbook_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->immuneFreezeOutcomeWindowFlywheelPromoCalibHandoffRunbookFloorsContractObserve([]);
+
+        $this->assertSame('generated_at', $payload['imm_freeze_field_generated_at']);
+        $this->assertSame('ref', $payload['imm_freeze_field_ref']);
+        $this->assertSame('path_declared', $payload['outcome_env_field_path_declared']);
+        $this->assertSame('pin_present', $payload['outcome_env_field_pin_present']);
+        $this->assertSame('owner', $payload['win_gates_field_owner']);
+        $this->assertSame('severity', $payload['win_gates_field_severity']);
+        $this->assertSame('command', $payload['flywheel_field_command']);
+        $this->assertSame('kind', $payload['flywheel_field_kind']);
+        $this->assertSame('existing_test_refs', $payload['cog_promo_field_existing_test_refs']);
+        $this->assertSame('matched', $payload['cog_promo_field_matched']);
+        $this->assertSame('consumer_of_maxn_04', $payload['imm_calib_field_consumer_of_maxn_04']);
+        $this->assertSame('flag', $payload['imm_calib_field_flag']);
+        $this->assertSame('default_destination', $payload['phase_hand_field_default_destination']);
+        $this->assertSame('embedding_allowed', $payload['phase_hand_field_embedding_allowed']);
+        $this->assertSame('memory', $payload['runbook_field_memory']);
+        $this->assertSame('payload', $payload['runbook_field_payload']);
+        $this->assertSame('candidate_id', $payload['dept_reg_field_candidate_id']);
+        $this->assertSame('citation_latency_seconds', $payload['dept_reg_field_citation_latency_seconds']);
+        $this->assertSame(18, $payload['immune_freeze_outcome_window_flywheel_promo_calib_handoff_runbook_floor_count']);
+    }
+
 }

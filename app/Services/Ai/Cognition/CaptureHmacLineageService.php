@@ -94,6 +94,8 @@ final class CaptureHmacLineageService
     public const STATUS_NOT_FOUND = 'not_found';
 
     public const KIND_CAPTURE = 'capture';
+    public const FIELD_MEMORY = 'memory';
+    public const FIELD_PAYLOAD = 'payload';
 
     /**
      * @param  array<string,mixed>  $existingChain
@@ -272,7 +274,7 @@ final class CaptureHmacLineageService
         return hash('sha256', (string) json_encode([
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_STAGE => $stage,
-            'payload' => $this->sortKeysRecursive($payload),
+            self::FIELD_PAYLOAD => $this->sortKeysRecursive($payload),
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
@@ -355,7 +357,7 @@ final class CaptureHmacLineageService
     {
         return match ($kind) {
             'packet', self::FIELD_SOURCE_PACKET => $this->chainFromPacket($id),
-            'memory' => $this->chainFromMemory($id),
+            self::FIELD_MEMORY => $this->chainFromMemory($id),
             default => $this->chainFromCapture($id),
         };
     }

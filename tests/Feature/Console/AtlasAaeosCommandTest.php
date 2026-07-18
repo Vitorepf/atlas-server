@@ -6674,7 +6674,23 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+
+    public function test_universal_gates_observe_immune_freeze_outcome_window_flywheel_promo_calib_handoff_runbook_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b353-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b353',
+                '--immune-freeze-outcome-window-flywheel-promo-calib-handoff-runbook-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"immune_freeze_outcome_window_flywheel_promo_calib_handoff_runbook_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
+
 
 
     {

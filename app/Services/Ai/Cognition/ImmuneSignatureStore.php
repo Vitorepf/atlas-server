@@ -90,6 +90,8 @@ final class ImmuneSignatureStore
     public const MODE_ENFORCE = 'enforce';
 
     public const DEFAULT_MODE = self::MODE_OBSERVE;
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_REF = 'ref';
 
     private readonly ImmuneSignatureDeriver $deriver;
 
@@ -175,7 +177,7 @@ final class ImmuneSignatureStore
         $this->recordHit(AiValueNormalizer::trimmedScalarStringOrNull($cell[self::FIELD_ID] ?? null) ?? '');
 
         return [
-            'ref' => AiValueNormalizer::trimmedScalarStringOrNull($cell[self::FIELD_ID] ?? null) ?? '',
+            self::FIELD_REF => AiValueNormalizer::trimmedScalarStringOrNull($cell[self::FIELD_ID] ?? null) ?? '',
             self::FIELD_SIGNATURE => AiValueNormalizer::trimmedScalarStringOrNull($cell[self::FIELD_SIGNATURE] ?? null) ?? '',
             self::FIELD_HOSTILE_CLASS => AiValueNormalizer::trimmedScalarStringOrNull($cell[self::FIELD_HOSTILE_CLASS] ?? null) ?? '',
             self::FIELD_ORIGIN_REF => AiValueNormalizer::trimmedScalarStringOrNull($cell[self::FIELD_ORIGIN_REF] ?? null) ?? '',
@@ -269,7 +271,7 @@ final class ImmuneSignatureStore
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
             self::FIELD_MODE => $this->mode(),
             self::FIELD_STATUS => $soaked >= 3 ? self::STATUS_OK : self::STATUS_PENDING_WINDOW,
             self::FIELD_PENDING_REASON => $soaked >= 3 ? null : 'immune_signature_real_hits_soak',

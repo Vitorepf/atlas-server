@@ -375,6 +375,7 @@ final class AtlasAaeosCommand extends Command
         {--texec-obra-evo-window-rollback-maturity-embed-horizon-floors-contract= : JSON file (any object) to observe texec/obra/evo/window/rollback/maturity/embed/horizon residual floors}
         {--maturity-attempt-scorecard-http-qbar-compound-immune-phase-dept-floors-contract= : JSON file (any object) to observe maturity/attempt/scorecard/http/qbar/compound/immune/phase/dept residual floors}
         {--gate-signal-truth-router-veto-choreo-debug-docs-watchdog-pareto-floors-contract= : JSON file (any object) to observe gate/truth/router/veto/choreo/debug/docs/watchdog/pareto residual floors}
+        {--immune-freeze-outcome-window-flywheel-promo-calib-handoff-runbook-floors-contract= : JSON file (any object) to observe immune/outcome/window/flywheel/promo/calib/handoff/runbook residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -906,6 +907,7 @@ final class AtlasAaeosCommand extends Command
             ['texec-obra-evo-window-rollback-maturity-embed-horizon-floors-contract', 'texec_obra_evo_window_rollback_maturity_embed_horizon_floors_contract', fn (array $p) => $gates->texecObraEvoWindowRollbackMaturityEmbedHorizonFloorsContractObserve($p)],
             ['maturity-attempt-scorecard-http-qbar-compound-immune-phase-dept-floors-contract', 'maturity_attempt_scorecard_http_qbar_compound_immune_phase_dept_floors_contract', fn (array $p) => $gates->maturityAttemptScorecardHttpQbarCompoundImmunePhaseDeptFloorsContractObserve($p)],
             ['gate-signal-truth-router-veto-choreo-debug-docs-watchdog-pareto-floors-contract', 'gate_signal_truth_router_veto_choreo_debug_docs_watchdog_pareto_floors_contract', fn (array $p) => $gates->gateSignalTruthRouterVetoChoreoDebugDocsWatchdogParetoFloorsContractObserve($p)],
+            ['immune-freeze-outcome-window-flywheel-promo-calib-handoff-runbook-floors-contract', 'immune_freeze_outcome_window_flywheel_promo_calib_handoff_runbook_floors_contract', fn (array $p) => $gates->immuneFreezeOutcomeWindowFlywheelPromoCalibHandoffRunbookFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

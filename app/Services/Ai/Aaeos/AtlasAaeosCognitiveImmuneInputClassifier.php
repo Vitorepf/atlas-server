@@ -37,6 +37,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const CLASS_UNTRUSTED_CONTENT = 'untrusted_content';
     public const CLASS_PROMPT_INJECTION = 'prompt_injection';
     public const CLASS_PRIVATE_SENSITIVE = 'private_sensitive';
+    public const FIELD_DEFAULT_DESTINATION = 'default_destination';
+    public const FIELD_EMBEDDING_ALLOWED = 'embedding_allowed';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -231,9 +233,9 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'input_class' => $inputClass,
-            'default_destination' => self::DESTINATIONS[$inputClass],
+            self::FIELD_DEFAULT_DESTINATION => self::DESTINATIONS[$inputClass],
             'memory_eligible' => $memoryEligible,
-            'embedding_allowed' => $embeddingAllowed,
+            self::FIELD_EMBEDDING_ALLOWED => $embeddingAllowed,
             'reason' => $reason,
             'matched_signals' => $matchedSignals,
         ];
