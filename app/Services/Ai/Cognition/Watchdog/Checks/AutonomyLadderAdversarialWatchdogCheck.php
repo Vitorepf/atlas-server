@@ -114,6 +114,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_FORGED_BOOLEAN = 'forged-boolean';
     public const FIELD_MAXK05_SIGNATURE_FORGED_BOOLEAN = 'maxk05.signature_forged_boolean';
     public const FIELD_MAXK05_SIGNATURE_NONCE_REUSED = 'maxk05.signature_nonce_reused';
+    public const FIELD_MAXK05_SIGNATURE_RECEIPT_MISSING = 'maxk05.signature_receipt_missing';
+    public const FIELD_MAXK06_METRICS_AUTHORITY_MISSING = 'maxk06.metrics_authority_missing';
     public const INT_20 = 20;
     public const INT_999 = 999;
     public const INT_10 = 10;
@@ -243,7 +245,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $this->cleanup($path);
 
         return [
-            self::FIELD_ID => 'maxk05.signature_receipt_missing',
+            self::FIELD_ID => self::FIELD_MAXK05_SIGNATURE_RECEIPT_MISSING,
             self::FIELD_REFUSED => $verdict[self::FIELD_OK] === false && $verdict[self::FIELD_REASON] === self::FIELD_SIGNATURE_RECEIPT_MISSING,
             self::FIELD_EXPECTED => 'signature_receipt_missing',
             self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($verdict[self::FIELD_REASON] ?? null) ?? self::PROBE_ID_UNKNOWN),
@@ -314,7 +316,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             && ($provenance[self::FIELD_SOURCE] ?? '') === AtlasAutonomyMetricsAuthorityPort::SOURCE_MISSING;
 
         return [
-            self::FIELD_ID => 'maxk06.metrics_authority_missing',
+            self::FIELD_ID => self::FIELD_MAXK06_METRICS_AUTHORITY_MISSING,
             self::FIELD_REFUSED => $refused,
             self::FIELD_EXPECTED => 'blocked+metrics_authority_missing',
             self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($verdict[self::FIELD_REFUSAL_REASON] ?? $verdict[self::FIELD_DECISION] ?? null) ?? self::PROBE_ID_UNKNOWN),

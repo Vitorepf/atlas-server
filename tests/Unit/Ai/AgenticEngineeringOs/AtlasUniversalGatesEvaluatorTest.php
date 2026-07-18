@@ -10330,4 +10330,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b503_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floor_count']);
     }
 
+    public function test_b504_runbook_measure_series_lote_ledger_rotation_acos_watchdog_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b504RunbookMeasureSeriesLoteLedgerRotationAcosWatchdogFloorsContractObserve([]);
+        $this->assertSame(RunbookOrchestrator::FIELD_AAEOS_RUNBOOK_ORCHESTRATOR, $out['aaeos-runbook-orchestrator']);
+        $this->assertSame(RunbookOrchestrator::FIELD_ATLAS_AGENTIC_ENGINEERING_OS_RUNBOOK, $out['atlas-agentic-engineering-os-runbook']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MULTX_09, $out['MULTX-09']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_TETO_02, $out['TETO-02']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MAXL_04, $out['MAXL-04']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTJ_04, $out['MULTJ-04']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_ACOS_REC06_META_LOOP_BREAKERS_V1, $out['atlas.acos.rec06.meta_loop_breakers.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_AI_ABSTRACTION_LADDER_V1, $out['atlas.ai.abstraction_ladder.v1']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CONTEXT_EXECUTOR, $out['context.executor']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CONTEXT_RECORDED_AT, $out['context.recorded_at']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK05_SIGNATURE_RECEIPT_MISSING, $out['maxk05.signature_receipt_missing']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK06_METRICS_AUTHORITY_MISSING, $out['maxk06.metrics_authority_missing']);
+        $this->assertSame(PromotionProtocol::FIELD_ATLAS_AOBG_SEMANTIC_RETRIEVAL, $out['atlas.aobg.semantic_retrieval']);
+        $this->assertSame(PromotionProtocol::FIELD_ATLAS_MEMORY_CONTEXTUAL_BLURB_ENABLED, $out['atlas.memory.contextual_blurb_enabled']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_METRICS_SCORECARD_OVERALL, $out['metrics.scorecard_overall']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10, $out['score.dimensions.pipeline.score_out_of_10']);
+        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_74, $out['0.74']);
+        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_77, $out['0.77']);
+        $this->assertSame(18, $out['b504_runbook_measure_series_lote_ledger_rotation_acos_watchdog_floor_count']);
+    }
+
 }

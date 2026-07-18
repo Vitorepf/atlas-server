@@ -183,6 +183,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_UTC = 'UTC';
     public const FIELD_Y_M_D = 'Y-m-d';
     public const FIELD_RESOLVED_EVIDENCE_2 = 'resolved-evidence';
+    public const FIELD_METRICS_SCORECARD_OVERALL = 'metrics.scorecard_overall';
+    public const FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10 = 'score.dimensions.pipeline.score_out_of_10';
     public const INT_10 = 10;
 
     /**
@@ -427,7 +429,7 @@ final class AtlasAcosLongHorizonGateService
     private function assess(array $scorecard, array $series, int $minDays, float $minOverall, float $minPipeline, float $warningMargin, int $maxLatestStaleDays, int $maxGapDays, DateTimeImmutable $today, string $seriesPath): array
     {
         $overall = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'score.overall_out_of_10', 0.0)) ?? 0.0;
-        $pipeline = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'score.dimensions.pipeline.score_out_of_10', 0.0)) ?? 0.0;
+        $pipeline = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, self::FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10, 0.0)) ?? 0.0;
         $scorecardHash = AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'scorecard_hash')) ?? '';
 
         $window = $this->seriesWindowIntegrity($series, $minDays, $today);
@@ -858,7 +860,7 @@ final class AtlasAcosLongHorizonGateService
         foreach ($series as $row) {
             $date = (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_DATE] ?? null) ?? '');
             if ($date !== '' && isset($window[$date])) {
-                $scoresByDate[$date] = AiValueNormalizer::finiteFloatOrNull(data_get($row, 'metrics.scorecard_overall', 0.0)) ?? 0.0;
+                $scoresByDate[$date] = AiValueNormalizer::finiteFloatOrNull(data_get($row, self::FIELD_METRICS_SCORECARD_OVERALL, 0.0)) ?? 0.0;
             }
         }
 
@@ -893,7 +895,7 @@ final class AtlasAcosLongHorizonGateService
 
         foreach (array_reverse($series) as $row) {
             if ((AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_DATE] ?? null) ?? '') === $latestDate) {
-                return AiValueNormalizer::finiteFloatOrNull(data_get($row, 'metrics.scorecard_overall', 0.0)) ?? 0.0;
+                return AiValueNormalizer::finiteFloatOrNull(data_get($row, self::FIELD_METRICS_SCORECARD_OVERALL, 0.0)) ?? 0.0;
             }
         }
 

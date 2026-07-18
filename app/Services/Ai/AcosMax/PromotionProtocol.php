@@ -134,6 +134,8 @@ final class PromotionProtocol
     public const FIELD_MULTV_03 = 'MULTV-03';
     public const FIELD_RAGX_02 = 'RAGX-02';
     public const FIELD_CODEX_ELEV26S_JUDGE = 'codex-elev26s-judge';
+    public const FIELD_ATLAS_AOBG_SEMANTIC_RETRIEVAL = 'atlas.aobg.semantic_retrieval';
+    public const FIELD_ATLAS_MEMORY_CONTEXTUAL_BLURB_ENABLED = 'atlas.memory.contextual_blurb_enabled';
 
     /** @var list<string> */
     public const STATES = [
@@ -403,11 +405,11 @@ final class PromotionProtocol
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:2639',
             ],
             [
-                self::FIELD_ID => 'atlas.memory.contextual_blurb_enabled',
+                self::FIELD_ID => self::FIELD_ATLAS_MEMORY_CONTEXTUAL_BLURB_ENABLED,
                 self::FIELD_FAMILY => self::FIELD_RAGX,
                 self::FIELD_SLICE => self::FIELD_RAGX_02,
                 self::FIELD_STATE => self::STATE_OFF,
-                self::FIELD_CONFIG_KEY => 'atlas.memory.contextual_blurb_enabled',
+                self::FIELD_CONFIG_KEY => self::FIELD_ATLAS_MEMORY_CONTEXTUAL_BLURB_ENABLED,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '20 judged queries',
                 self::FIELD_FLIP_CRITERION => 'code/KB R8 precision@5 improves by >=0.05 with latency reported',
                 self::FIELD_ROLLBACK_TRIGGER => 'disable contextual blurbs on precision regression or hallucinated-blurb sample failure',
@@ -431,9 +433,9 @@ final class PromotionProtocol
                 self::FIELD_SOURCE => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:225',
             ],
             [
-                self::FIELD_ID => 'atlas.aobg.semantic_retrieval',
+                self::FIELD_ID => self::FIELD_ATLAS_AOBG_SEMANTIC_RETRIEVAL,
                 self::FIELD_FAMILY => self::FIELD_AOBG,
-                self::FIELD_CONFIG_KEY => 'atlas.aobg.semantic_retrieval',
+                self::FIELD_CONFIG_KEY => self::FIELD_ATLAS_AOBG_SEMANTIC_RETRIEVAL,
                 self::FIELD_SOURCE => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:252',
             ],
             [

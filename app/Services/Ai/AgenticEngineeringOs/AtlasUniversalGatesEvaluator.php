@@ -13133,4 +13133,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B504).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b504RunbookMeasureSeriesLoteLedgerRotationAcosWatchdogFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'aaeos-runbook-orchestrator' => RunbookOrchestrator::FIELD_AAEOS_RUNBOOK_ORCHESTRATOR,
+            'atlas-agentic-engineering-os-runbook' => RunbookOrchestrator::FIELD_ATLAS_AGENTIC_ENGINEERING_OS_RUNBOOK,
+            'MULTX-09' => AcosMaxMeasureSeriesRegistry::FIELD_MULTX_09,
+            'TETO-02' => AcosMaxMeasureSeriesRegistry::FIELD_TETO_02,
+            'MAXL-04' => AcosMaxLote2MeasureService::FIELD_MAXL_04,
+            'MULTJ-04' => AcosMaxLote2MeasureService::FIELD_MULTJ_04,
+            'atlas.acos.rec06.meta_loop_breakers.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_ACOS_REC06_META_LOOP_BREAKERS_V1,
+            'atlas.ai.abstraction_ladder.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_AI_ABSTRACTION_LADDER_V1,
+            'context.executor' => AtlasAcosWatchdogHealthService::FIELD_CONTEXT_EXECUTOR,
+            'context.recorded_at' => AtlasAcosWatchdogHealthService::FIELD_CONTEXT_RECORDED_AT,
+            'maxk05.signature_receipt_missing' => AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK05_SIGNATURE_RECEIPT_MISSING,
+            'maxk06.metrics_authority_missing' => AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK06_METRICS_AUTHORITY_MISSING,
+            'atlas.aobg.semantic_retrieval' => PromotionProtocol::FIELD_ATLAS_AOBG_SEMANTIC_RETRIEVAL,
+            'atlas.memory.contextual_blurb_enabled' => PromotionProtocol::FIELD_ATLAS_MEMORY_CONTEXTUAL_BLURB_ENABLED,
+            'metrics.scorecard_overall' => AtlasAcosLongHorizonGateService::FIELD_METRICS_SCORECARD_OVERALL,
+            'score.dimensions.pipeline.score_out_of_10' => AtlasAcosLongHorizonGateService::FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10,
+            '0.74' => AtlasAaeosQualityBarService::FLOAT_0_74,
+            '0.77' => AtlasAaeosQualityBarService::FLOAT_0_77,
+            'b504_runbook_measure_series_lote_ledger_rotation_acos_watchdog_floor_count' => 18,
+        ];
+    }
+
 }

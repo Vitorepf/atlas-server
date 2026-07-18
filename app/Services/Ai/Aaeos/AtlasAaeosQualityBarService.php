@@ -43,6 +43,8 @@ final class AtlasAaeosQualityBarService
     public const FIELD_PRODUCT = 'Product';
     public const FIELD_RESEARCH = 'Research';
     public const FIELD_SALES = 'Sales';
+    public const FLOAT_0_74 = 0.74;
+    public const FLOAT_0_77 = 0.77;
     public const FLOAT_0_70 = 0.70;
     public const FLOAT_0_72 = 0.72;
     public const FLOAT_0_85 = 0.85;
@@ -61,7 +63,7 @@ final class AtlasAaeosQualityBarService
         [self::FIELD_DEPARTMENT => 'Human Resources', self::FIELD_THRESHOLD => self::FLOAT_0_75, self::FIELD_CURRENT => self::FLOAT_0_68],
         [self::FIELD_DEPARTMENT => self::FIELD_LEGAL, self::FIELD_THRESHOLD => self::FLOAT_0_85, self::FIELD_CURRENT => 0.79],
         [self::FIELD_DEPARTMENT => 'Customer Success', self::FIELD_THRESHOLD => self::FLOAT_0_80, self::FIELD_CURRENT => 0.81],
-        [self::FIELD_DEPARTMENT => self::FIELD_RESEARCH, self::FIELD_THRESHOLD => 0.77, self::FIELD_CURRENT => 0.74],
+        [self::FIELD_DEPARTMENT => self::FIELD_RESEARCH, self::FIELD_THRESHOLD => self::FLOAT_0_77, self::FIELD_CURRENT => self::FLOAT_0_74],
     ];
 
     public function qualityBar(): array

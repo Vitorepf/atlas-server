@@ -54,6 +54,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ACOS_WINDOWS_ORCHESTRATOR_V1 = 'acos.windows_orchestrator.v1';
     public const FIELD_AOBG_LATENCY_LEDGER_V1 = 'aobg.latency_ledger.v1';
     public const FIELD_ASI_METRIC_M_V1 = 'asi.metric.m.v1';
+    public const FIELD_ATLAS_ACOS_REC06_META_LOOP_BREAKERS_V1 = 'atlas.acos.rec06.meta_loop_breakers.v1';
+    public const FIELD_ATLAS_AI_ABSTRACTION_LADDER_V1 = 'atlas.ai.abstraction_ladder.v1';
     public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
@@ -353,7 +355,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTJ-04 procedural skill promoter reports stay small until real case-count soak',
             ],
-            'atlas.ai.abstraction_ladder.v1' => [
+            self::FIELD_ATLAS_AI_ABSTRACTION_LADDER_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_16,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
@@ -377,7 +379,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXD-04 PPR shadow dual-read receipts before any query promotion',
             ],
-            'atlas.acos.rec06.meta_loop_breakers.v1' => [
+            self::FIELD_ATLAS_ACOS_REC06_META_LOOP_BREAKERS_V1 => [
                 self::FIELD_MAX_SIZE_MB => 8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,

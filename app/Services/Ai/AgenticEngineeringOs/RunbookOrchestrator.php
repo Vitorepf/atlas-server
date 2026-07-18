@@ -86,6 +86,8 @@ final class RunbookOrchestrator
     public const FIELD_PHASE = 'phase';
     public const FIELD_GATE = 'gate';
     public const FIELD_L13 = 'L13';
+    public const FIELD_AAEOS_RUNBOOK_ORCHESTRATOR = 'aaeos-runbook-orchestrator';
+    public const FIELD_ATLAS_AGENTIC_ENGINEERING_OS_RUNBOOK = 'atlas-agentic-engineering-os-runbook';
     public const INT_12 = 12;
 
     /**
@@ -210,7 +212,7 @@ final class RunbookOrchestrator
                 self::FIELD_TARGET => $target,
                 self::FIELD_CURRENT => $current,
                 self::FIELD_PROPOSED => $proposed,
-                self::FIELD_TARGET_DOC => AiValueNormalizer::trimmedStringOrNull($change[self::FIELD_TARGET_DOC] ?? null) ?? 'atlas-agentic-engineering-os-runbook',
+                self::FIELD_TARGET_DOC => AiValueNormalizer::trimmedStringOrNull($change[self::FIELD_TARGET_DOC] ?? null) ?? self::FIELD_ATLAS_AGENTIC_ENGINEERING_OS_RUNBOOK,
                 self::FIELD_CURRENT_STATE_SNAPSHOT_HASH => hash(self::FIELD_SHA256, $current),
             ];
         }
@@ -250,7 +252,7 @@ final class RunbookOrchestrator
             self::FIELD_REVIEW_STATUS => self::FIELD_PENDING_REPLAY,
             self::FIELD_PROPOSED_BY_ACTOR => AiValueNormalizer::arrayOrEmpty($request[self::FIELD_PROPOSED_BY_ACTOR] ?? [
                 self::FIELD_KIND => self::ACTOR_KIND_AGENT,
-                self::FIELD_ID => 'aaeos-runbook-orchestrator',
+                self::FIELD_ID => self::FIELD_AAEOS_RUNBOOK_ORCHESTRATOR,
                 self::FIELD_AUTONOMY_LEVEL => self::FIELD_L13,
             ]),
             self::FIELD_PROPOSED_AT => now()->toAtomString(),

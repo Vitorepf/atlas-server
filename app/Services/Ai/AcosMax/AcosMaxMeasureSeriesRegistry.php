@@ -70,6 +70,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_MULTN17_04 = 'MULTN17-04';
     public const FIELD_MULTX_01 = 'MULTX-01';
     public const FIELD_MULTX_06 = 'MULTX-06';
+    public const FIELD_MULTX_09 = 'MULTX-09';
+    public const FIELD_TETO_02 = 'TETO-02';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -399,12 +401,12 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:acos.learning_latency.v1',
             ],
             [
-                self::FIELD_SLICE => 'MULTX-09',
+                self::FIELD_SLICE => self::FIELD_MULTX_09,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::MULTX09_MEASURE_ID,
                 self::FIELD_PATH => 'atlas:windows --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload('MULTX-09')[self::FIELD_TTL_DAYS],
+                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTX_09)[self::FIELD_TTL_DAYS],
                 self::FIELD_TTL_SOURCE => 'freeze:acos.windows_orchestrator.v1',
             ],
             [
@@ -453,12 +455,12 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.ai.abstraction_ladder.v1',
             ],
             [
-                self::FIELD_SLICE => 'TETO-02',
+                self::FIELD_SLICE => self::FIELD_TETO_02,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::TETO02_MEASURE_ID,
                 self::FIELD_PATH => 'atlas:mission:e2e --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload('TETO-02')[self::FIELD_TTL_DAYS],
+                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_TETO_02)[self::FIELD_TTL_DAYS],
                 self::FIELD_TTL_SOURCE => 'freeze:mission_e2e.v1',
             ],
             [

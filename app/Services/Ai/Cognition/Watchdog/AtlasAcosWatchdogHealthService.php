@@ -370,6 +370,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_COMPONENTS_FRESHNESS = 'components.freshness';
     public const FIELD_COMPONENTS_RETRIEVAL_EVAL = 'components.retrieval_eval';
     public const FIELD_CONTEXT_ACTOR = 'context.actor';
+    public const FIELD_CONTEXT_EXECUTOR = 'context.executor';
+    public const FIELD_CONTEXT_RECORDED_AT = 'context.recorded_at';
     public const INT_100 = 100;
     public const FLOAT_10_0 = 10.0;
 
@@ -861,7 +863,7 @@ final class AtlasAcosWatchdogHealthService
         $coverage = app(ProviderGovernanceCoverageLedger::class);
         $live = app(AtlasDecideLiveOutcomeFeedbackService::class);
         $coverageRows = AppendOnlyJsonlStore::read($coverage->logPath());
-        $windowCoverageRows = $this->rowsInWindow($coverageRows, self::ENG_WINDOW_DAYS, 'context.recorded_at');
+        $windowCoverageRows = $this->rowsInWindow($coverageRows, self::ENG_WINDOW_DAYS, self::FIELD_CONTEXT_RECORDED_AT);
         $summary = $coverage->summary();
         $liveRows = $this->rowsInWindow($live->listOutcomes(), self::ENG_WINDOW_DAYS);
         $governanceByExecutor = $this->countExecutors($windowCoverageRows);
@@ -1142,7 +1144,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $counts = [self::FIELD_DEV => 0, self::FIELD_FORGE => 0, self::FIELD_AUTONOMOS => 0];
         foreach ($rows as $row) {
-            $actor = AiValueNormalizer::lowerTrimmedString(data_get($row, 'context.executor', data_get($row, self::FIELD_CONTEXT_ACTOR, data_get($row, self::FIELD_SURFACE, ''))));
+            $actor = AiValueNormalizer::lowerTrimmedString(data_get($row, self::FIELD_CONTEXT_EXECUTOR, data_get($row, self::FIELD_CONTEXT_ACTOR, data_get($row, self::FIELD_SURFACE, ''))));
             foreach (array_keys($counts) as $executor) {
                 if (str_contains($actor, $executor)) {
                     $counts[$executor]++;
