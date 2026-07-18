@@ -154,6 +154,9 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_RIVALS_CLAIM_ALLOWED = 'rivals_claim_allowed';
     public const FIELD_SCORE = 'score';
     public const FIELD_SCORECARD_RESOLVED_EVIDENCE_ONLY = 'scorecard_resolved_evidence_only';
+    public const FIELD_SCORECARD_SCHEMA = 'scorecard_schema';
+    public const FIELD_SERIES_ROWS_SAMPLED = 'series_rows_sampled';
+    public const FIELD_SERIES_V2_ROWS_SAMPLED = 'series_v2_rows_sampled';
 
     /**
      * @param  array<string,mixed>  $options
@@ -966,9 +969,9 @@ final class AtlasAcosLongHorizonGateService
             self::FIELD_WARNINGS => array_values(AiValueNormalizer::arrayOrEmpty($assessment[self::FIELD_WARNINGS] ?? null)),
             self::FIELD_CONFIG => $config,
             self::FIELD_EVIDENCE => [
-                'scorecard_schema' => AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'schema_version')) ?? '',
+                self::FIELD_SCORECARD_SCHEMA => AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'schema_version')) ?? '',
                 self::FIELD_SCORECARD_HASH => AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'scorecard_hash')) ?? '',
-                'series_rows_sampled' => count($series),
+                self::FIELD_SERIES_ROWS_SAMPLED => count($series),
             ],
             self::FIELD_CLAIM_POLICY => [
                 self::FIELD_SCORECARD_RESOLVED_EVIDENCE_ONLY => true,
@@ -985,7 +988,7 @@ final class AtlasAcosLongHorizonGateService
         ];
         if ($assessmentV2 !== null) {
             $payload[self::FIELD_ASSESSMENT_V2] = $assessmentV2;
-            $payload[self::FIELD_EVIDENCE]['series_v2_rows_sampled'] = (int) (AiValueNormalizer::finiteFloatOrNull($assessmentV2[self::FIELD_SERIES_DAY_COUNT] ?? null) ?? 0);
+            $payload[self::FIELD_EVIDENCE][self::FIELD_SERIES_V2_ROWS_SAMPLED] = (int) (AiValueNormalizer::finiteFloatOrNull($assessmentV2[self::FIELD_SERIES_DAY_COUNT] ?? null) ?? 0);
             $payload[self::FIELD_CLAIM_POLICY][self::FIELD_LONGITUDINAL_AREA_FLOOR_V2] = true;
             $payload[self::FIELD_CLAIM_POLICY][self::FIELD_GATE_V1_BYTE_IDENTICAL_WITHOUT_V2] = true;
         }

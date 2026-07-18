@@ -243,6 +243,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_TREATMENT_SCORE_MEAN = 'treatment_score_mean';
     public const FIELD_UNRESOLVED = 'unresolved';
     public const FIELD_WITH_LESSON = 'with_lesson';
+    public const FIELD_WITHOUT_LESSON = 'without_lesson';
+    public const FIELD_WOULD_MERGE_COUNT = 'would_merge_count';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -816,7 +818,7 @@ final class AcosMaxLote2MeasureService
         return $this->emptyReport('MULTJ-02', self::STATUS_PENDING_WINDOW, self::REASON_CALIBRATION_FREEZE_ONLY, [
             self::FIELD_MEASURE_ID => self::MULTJ02_MEASURE_ID,
             self::FIELD_MODE => self::MODE_OBSERVE,
-            'would_merge_count' => 0,
+            self::FIELD_WOULD_MERGE_COUNT => 0,
             self::FIELD_ACTUAL_MERGE_COUNT => 0,
             self::FIELD_THRESHOLD => data_get(self::freezePayload('MULTJ-02'), 'thresholds.cosine_merge_threshold'),
             self::FIELD_REVERSIBLE_RECEIPT_REQUIRED => true,
@@ -1027,7 +1029,7 @@ final class AcosMaxLote2MeasureService
         $arm = AiValueNormalizer::lowerTrimmedString($arm);
 
         return match ($arm) {
-            'control', 'without', 'without_lesson' => 'control',
+            'control', 'without', self::FIELD_WITHOUT_LESSON => 'control',
             'treatment', 'with', self::FIELD_WITH_LESSON => 'treatment',
             default => '',
         };

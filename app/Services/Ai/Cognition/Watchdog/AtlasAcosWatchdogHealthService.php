@@ -231,6 +231,9 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_DELIVERED_REFS_COUNT = 'delivered_refs_count';
     public const FIELD_DEMOTION_ENABLED = 'demotion_enabled';
     public const FIELD_DEV = 'dev';
+    public const FIELD_DIAGNOSES = 'diagnoses';
+    public const FIELD_DIAGNOSIS = 'diagnosis';
+    public const FIELD_EMITTER_STAGE = 'emitter_stage';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -686,7 +689,7 @@ final class AtlasAcosWatchdogHealthService
             $partials[] = [
                 self::FIELD_ACRONYM => (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_ACRONYM] ?? null) ?? ''),
                 self::FIELD_SERVICE_CLASS => (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_SERVICE_CLASS] ?? null) ?? ''),
-                'diagnosis' => $diagnosis,
+                self::FIELD_DIAGNOSIS => $diagnosis,
             ];
         }
         $stale = array_values(array_filter($partials, static function (array $row): bool {
@@ -708,7 +711,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_BLOCKING => $blocking,
             self::FIELD_PARTIAL_COUNT => count($partials),
             'stale_partial_count' => count($stale),
-            'diagnoses' => $partials,
+            self::FIELD_DIAGNOSES => $partials,
             self::FIELD_THRESHOLDS => ['partial_stale_days' => self::PIPELINE_PARTIAL_STALE_DAYS],
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
@@ -973,7 +976,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_CORRELATION_ID => 'acos:watchdog:'.$scopeId,
                 'scope_type' => 'acos_watchdog',
                 'scope_id' => $scopeId,
-                'emitter_stage' => 'atlas.acos.watchdog',
+                self::FIELD_EMITTER_STAGE => 'atlas.acos.watchdog',
                 'emitter_version' => self::ONDA4_EMITTER_VERSION,
             ]);
         } catch (Throwable) {

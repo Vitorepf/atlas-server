@@ -78,6 +78,9 @@ final class RunbookOrchestrator
     public const FIELD_RUNTIME_BASELINE = 'runtime_baseline';
     public const FIELD_SAFETY_SOVEREIGNTY_BLOCK_APPLIED = 'safety_sovereignty_block_applied';
     public const FIELD_SCHEMA = 'schema';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_STAGE_COUNT = 'stage_count';
+    public const FIELD_STAGES = 'stages';
 
     /**
      * Canonical default flow for a non-trivial intent. Trivial intents
@@ -141,11 +144,11 @@ final class RunbookOrchestrator
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_INTENT_HASH => hash('sha256', $intent),
             self::FIELD_INTENT_CLASS => $intentClass,
-            'stages' => $stages,
-            'stage_count' => count($stages),
+            self::FIELD_STAGES => $stages,
+            self::FIELD_STAGE_COUNT => count($stages),
             self::FIELD_DETAIL => sprintf(
                 'Runbook for %s intent: %d stages, %d gates total.',
                 $intentClass,

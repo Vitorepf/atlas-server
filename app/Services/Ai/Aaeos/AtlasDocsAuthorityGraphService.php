@@ -64,6 +64,7 @@ class AtlasDocsAuthorityGraphService
     public const FIELD_IMPLEMENTATION_STATE = 'implementation_state';
     public const FIELD_NEEDLE_KIND = 'needle_kind';
     public const FIELD_NEEDLE_NORMALIZED = 'needle_normalized';
+    public const FIELD_UPDATED_AT = 'updated_at';
 
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
@@ -82,7 +83,7 @@ class AtlasDocsAuthorityGraphService
         $rows = [];
         foreach ($docs as $doc) {
             foreach ($this->rowsForDoc($doc[self::FIELD_FRONTMATTER], $doc[self::FIELD_PATH]) as $row) {
-                $rows[] = $row + [self::FIELD_CREATED_AT => now(), 'updated_at' => now()];
+                $rows[] = $row + [self::FIELD_CREATED_AT => now(), self::FIELD_UPDATED_AT => now()];
             }
         }
 

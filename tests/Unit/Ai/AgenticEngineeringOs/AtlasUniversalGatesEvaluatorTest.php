@@ -124,6 +124,7 @@ use App\Services\Ai\Cognition\AtlasImmuneClassifierHybridFreeze;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogRunner;
 use App\Services\Ai\Cognition\Watchdog\Checks\AutonomyLadderAdversarialWatchdogCheck;
 use App\Services\Ai\Cognition\CaptureHmacLineageService;
+use App\Services\Ai\Aaeos\AtlasVetoPropagationWatchdog;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -7798,6 +7799,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_SECURITY, $out['security']);
         $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_VALID_KIND, $out['valid_kind']);
         $this->assertSame(18, $out['b402_acos_watchdog_immune_calibration_long_lote_measure_runbook_floor_count']);
+    }
+
+    public function test_acos_watchdog_immune_calibration_long_runbook_lote_measure_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->acosWatchdogImmuneCalibrationLongRunbookLoteMeasureFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_DIAGNOSES, $out['diagnoses']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_DIAGNOSIS, $out['diagnosis']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_EMITTER_STAGE, $out['emitter_stage']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_MISSED_POISON_RATE_BOUND, $out['missed_poison_rate_bound']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_NOVELTY, $out['novelty']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_ON_PROBATION, $out['on_probation']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SCORECARD_SCHEMA, $out['scorecard_schema']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SERIES_ROWS_SAMPLED, $out['series_rows_sampled']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_ROWS_SAMPLED, $out['series_v2_rows_sampled']);
+        $this->assertSame(RunbookOrchestrator::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(RunbookOrchestrator::FIELD_STAGE_COUNT, $out['stage_count']);
+        $this->assertSame(RunbookOrchestrator::FIELD_STAGES, $out['stages']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_WITHOUT_LESSON, $out['without_lesson']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_WOULD_MERGE_COUNT, $out['would_merge_count']);
+        $this->assertSame(AtlasDebugRootCauseService::FIELD_VERSION, $out['version']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_UPDATED_AT, $out['updated_at']);
+        $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_USER, $out['user']);
+        $this->assertSame(18, $out['acos_watchdog_immune_calibration_long_runbook_lote_measure_floor_count']);
     }
 
 }

@@ -19,6 +19,7 @@ final class AtlasDebugRootCauseService
     public const FIELD_ROOT_CAUSE = 'root_cause';
     public const FIELD_STATUS = 'status';
     public const FIELD_SUSPECTED_CAUSE = 'suspected_cause';
+    public const FIELD_VERSION = 'version';
 
 
     public function getVersion(): string
@@ -29,7 +30,7 @@ final class AtlasDebugRootCauseService
     public function analyzeRootCause(array $context = []): array
     {
         return [
-            'version' => self::SERVICE_VERSION,
+            self::FIELD_VERSION => self::SERVICE_VERSION,
             self::FIELD_STATUS => self::STATUS_ANALYZED,
             self::FIELD_CONTEXT => $context,
             self::FIELD_ROOT_CAUSE => $this->determineRootCause($context),

@@ -92,6 +92,9 @@ final class ImmuneCalibrationService
     public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
     public const FIELD_KIND = 'kind';
     public const FIELD_METADATA = 'metadata';
+    public const FIELD_MISSED_POISON_RATE_BOUND = 'missed_poison_rate_bound';
+    public const FIELD_NOVELTY = 'novelty';
+    public const FIELD_ON_PROBATION = 'on_probation';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -154,7 +157,7 @@ final class ImmuneCalibrationService
             'thresholds' => [
                 self::FIELD_DENOMINATOR_MIN_SAMPLES => self::DENOMINATOR_MIN,
                 self::FIELD_KNOWN_MISS_DENOMINATOR_MUST_BE_NON_ZERO => true,
-                'missed_poison_rate_bound' => 'lower_bound_known_miss',
+                self::FIELD_MISSED_POISON_RATE_BOUND => 'lower_bound_known_miss',
             ],
             self::FIELD_DENOMINATOR_MIN => self::DENOMINATOR_MIN,
             'ttl_days' => self::TTL_DAYS,
@@ -321,7 +324,7 @@ final class ImmuneCalibrationService
             self::FIELD_CLAIM_TYPE => 'technical_learning_candidate',
             self::FIELD_CLAIM_SOURCE_PRESENT => true,
             self::FIELD_FUTURE_UTILITY => true,
-            'novelty' => true,
+            self::FIELD_NOVELTY => true,
             'recurrence_count' => 1,
             'provider_safe' => true,
             self::FIELD_CONTAINS_SECRET => false,
@@ -330,7 +333,7 @@ final class ImmuneCalibrationService
             'outcome_validated' => false,
             'scope' => 'domain',
             'promotion_mode_hint' => 'proposal',
-            'on_probation' => true,
+            self::FIELD_ON_PROBATION => true,
         ];
 
         return $this->ledger->sampleFromVerdict(

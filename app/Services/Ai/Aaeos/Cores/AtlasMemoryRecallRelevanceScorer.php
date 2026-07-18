@@ -38,6 +38,7 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_TASK = 'task';
     public const FIELD_TITLE = 'title';
     public const FIELD_TYPE = 'type';
+    public const FIELD_USER = 'user';
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -87,7 +88,7 @@ final class AtlasMemoryRecallRelevanceScorer
             self::FIELD_PROJECT => 16,
             self::FIELD_WORKSPACE => 12,
             self::FIELD_SESSION => 10,
-            'user' => 8,
+            self::FIELD_USER => 8,
             default => 4,
         };
     }

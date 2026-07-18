@@ -10017,4 +10017,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B403).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function acosWatchdogImmuneCalibrationLongRunbookLoteMeasureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'diagnoses' => AtlasAcosWatchdogHealthService::FIELD_DIAGNOSES,
+            'diagnosis' => AtlasAcosWatchdogHealthService::FIELD_DIAGNOSIS,
+            'emitter_stage' => AtlasAcosWatchdogHealthService::FIELD_EMITTER_STAGE,
+            'missed_poison_rate_bound' => ImmuneCalibrationService::FIELD_MISSED_POISON_RATE_BOUND,
+            'novelty' => ImmuneCalibrationService::FIELD_NOVELTY,
+            'on_probation' => ImmuneCalibrationService::FIELD_ON_PROBATION,
+            'scorecard_schema' => AtlasAcosLongHorizonGateService::FIELD_SCORECARD_SCHEMA,
+            'series_rows_sampled' => AtlasAcosLongHorizonGateService::FIELD_SERIES_ROWS_SAMPLED,
+            'series_v2_rows_sampled' => AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_ROWS_SAMPLED,
+            'schema_version' => RunbookOrchestrator::FIELD_SCHEMA_VERSION,
+            'stage_count' => RunbookOrchestrator::FIELD_STAGE_COUNT,
+            'stages' => RunbookOrchestrator::FIELD_STAGES,
+            'without_lesson' => AcosMaxLote2MeasureService::FIELD_WITHOUT_LESSON,
+            'would_merge_count' => AcosMaxLote2MeasureService::FIELD_WOULD_MERGE_COUNT,
+            'version' => AtlasDebugRootCauseService::FIELD_VERSION,
+            'updated_at' => AtlasDocsAuthorityGraphService::FIELD_UPDATED_AT,
+            'schema_version' => AtlasVetoPropagationWatchdog::FIELD_SCHEMA_VERSION,
+            'user' => AtlasMemoryRecallRelevanceScorer::FIELD_USER,
+            'acos_watchdog_immune_calibration_long_runbook_lote_measure_floor_count' => 18,
+        ];
+    }
+
 }
