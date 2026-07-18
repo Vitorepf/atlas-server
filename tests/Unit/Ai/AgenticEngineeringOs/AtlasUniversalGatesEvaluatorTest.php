@@ -8491,4 +8491,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['department_contract_http_path_frontier_wave_operational_volume_floor_count']);
     }
 
+    public function test_obra_retro_department_contract_lote_measure_verified_share_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->obraRetroDepartmentContractLoteMeasureVerifiedShareFloorsContractObserve([]);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_NORMAL, $out['normal']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_OBRA_LOTE, $out['obra_lote']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_TEST_PACKS, $out['aaeos_test_packs']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ACCEPTANCE_CRITERIA, $out['acceptance_criteria']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CREATED_AT, $out['created_at']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_LEGACY_UNJOINED, $out['legacy_unjoined']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_OCCURRED_AT, $out['occurred_at']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_OFF, $out['off']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_SYMBOLS_AWAITING_BACKFILL_OR_RE_EMBED, $out['symbols_awaiting_backfill_or_re_embed']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_ITEMS_AWAITING_BACKFILL_OR_RE_EMBED, $out['items_awaiting_backfill_or_re_embed']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_NO_ITEMS_EMBEDDED_YET, $out['no_items_embedded_yet']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_ORGAN_DEPENDENCY_NEIGHBORS, $out['organ_dependency_neighbors']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_TASK_, $out['task_']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_DEFAULT, $out['default']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_OPEN_EVIDENCE, $out['open_evidence']);
+        $this->assertSame(PromotionProtocol::FIELD_ROLLBACK, $out['rollback']);
+        $this->assertSame(PromotionProtocol::FIELD_SUSPEND, $out['suspend']);
+        $this->assertSame(18, $out['obra_retro_department_contract_lote_measure_verified_share_floor_count']);
+    }
+
 }

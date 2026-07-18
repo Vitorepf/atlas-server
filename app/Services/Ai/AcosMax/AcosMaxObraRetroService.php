@@ -97,6 +97,8 @@ final class AcosMaxObraRetroService
     public const FIELD_VERIFIED = 'verified';
     public const FIELD_FORGE = 'forge';
     public const FIELD_LOCAL = 'local';
+    public const FIELD_NORMAL = 'normal';
+    public const FIELD_OBRA_LOTE = 'obra_lote';
 
     public function __construct(
         private readonly AtlasEngineeringOutcomeRecorder $outcomes,
@@ -179,7 +181,7 @@ final class AcosMaxObraRetroService
             self::FIELD_SCOPE => self::SERIES_TAG,
             self::FIELD_FLOW_ID => self::SERIES_TAG,
             self::FIELD_WORKSPACE => base_path(),
-            self::FIELD_PRIVACY_CLASS => 'normal',
+            self::FIELD_PRIVACY_CLASS => self::FIELD_NORMAL,
         ], $candidate, [
             self::FIELD_PAYLOAD => array_merge(AiValueNormalizer::arrayOrEmpty($candidate[self::FIELD_PAYLOAD] ?? null), [
                 self::FIELD_SOURCE => self::SOURCE_ACOS_MAX_OBRA_RETRO,
@@ -220,7 +222,7 @@ final class AcosMaxObraRetroService
             self::FIELD_STATUS => $status,
             self::FIELD_WORKSPACE => base_path(),
             self::FIELD_SURFACE_ID => self::SERIES_TAG,
-            self::FIELD_SCOPE_TYPE => 'obra_lote',
+            self::FIELD_SCOPE_TYPE => self::FIELD_OBRA_LOTE,
             self::FIELD_SCOPE_ID => sprintf('acos-max:lote-%d', $lote),
             self::FIELD_RUN_ID => sprintf('acos-max:lote-%d:%s:%s', $lote, $slice[self::FIELD_ID], $slice[self::FIELD_STATE]),
             self::FIELD_PROVIDER => self::FIELD_LOCAL,

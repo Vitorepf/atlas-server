@@ -219,6 +219,8 @@ final class DepartmentContractRuntime
     public const FIELD_AAEOS_SECURITY_LEDGER = 'aaeos_security_ledger';
     public const FIELD_AAEOS_SOURCE_LEDGER = 'aaeos_source_ledger';
     public const FIELD_AAEOS_SPEC_PACKS = 'aaeos_spec_packs';
+    public const FIELD_AAEOS_TEST_PACKS = 'aaeos_test_packs';
+    public const FIELD_ACCEPTANCE_CRITERIA = 'acceptance_criteria';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -284,7 +286,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_ENGINEERING_GOAL_DISAMBIGUATED, self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL_DISAMBIGUATED],
-                [self::FIELD_NAME => 'acceptance_criteria', self::FIELD_SCHEMA => self::SCHEMA_ACCEPTANCE_CRITERIA],
+                [self::FIELD_NAME => self::FIELD_ACCEPTANCE_CRITERIA, self::FIELD_SCHEMA => self::SCHEMA_ACCEPTANCE_CRITERIA],
             ],
             self::FIELD_GATES => ['intent_clarity_score_min', 'acceptance_criteria_min_3'],
             self::FIELD_ALLOWED_ACTIONS => ['ask_clarifying_question', 'propose_acceptance_criteria', 'split_intent'],
@@ -433,7 +435,7 @@ final class DepartmentContractRuntime
             self::FIELD_FORBIDDEN_ACTIONS => ['modify_production_code_outside_tests', 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW],
             self::FIELD_EVIDENCE_REQUIRED => ['test_pack_hash', 'coverage_report_hash'],
-            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_test_packs', self::FIELD_LEDGER => self::FIELD_AAEOS_QA_LEDGER],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_TEST_PACKS, self::FIELD_LEDGER => self::FIELD_AAEOS_QA_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['qa_coverage_p50', 'qa_regression_catch_rate'],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_TEST_SELECTION_RECEIPT,

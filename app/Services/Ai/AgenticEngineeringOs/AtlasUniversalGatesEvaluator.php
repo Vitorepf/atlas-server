@@ -10855,4 +10855,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B430).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function obraRetroDepartmentContractLoteMeasureVerifiedShareFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'normal' => AcosMaxObraRetroService::FIELD_NORMAL,
+            'obra_lote' => AcosMaxObraRetroService::FIELD_OBRA_LOTE,
+            'aaeos_test_packs' => DepartmentContractRuntime::FIELD_AAEOS_TEST_PACKS,
+            'acceptance_criteria' => DepartmentContractRuntime::FIELD_ACCEPTANCE_CRITERIA,
+            'created_at' => AcosMaxLote2MeasureService::FIELD_CREATED_AT,
+            'legacy_unjoined' => AcosMaxLote2MeasureService::FIELD_LEGACY_UNJOINED,
+            'forge' => AcosMaxVerifiedShareService::FIELD_FORGE,
+            'occurred_at' => AcosMaxVerifiedShareService::FIELD_OCCURRED_AT,
+            'off' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_OFF,
+            'symbols_awaiting_backfill_or_re_embed' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_SYMBOLS_AWAITING_BACKFILL_OR_RE_EMBED,
+            'items_awaiting_backfill_or_re_embed' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_ITEMS_AWAITING_BACKFILL_OR_RE_EMBED,
+            'no_items_embedded_yet' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_NO_ITEMS_EMBEDDED_YET,
+            'organ_dependency_neighbors' => ComposedObraArcComposer::FIELD_ORGAN_DEPENDENCY_NEIGHBORS,
+            'task_' => ComposedObraArcComposer::FIELD_TASK_,
+            'default' => EvidenceVisionThesisComposer::FIELD_DEFAULT,
+            'open_evidence' => EvidenceVisionThesisComposer::FIELD_OPEN_EVIDENCE,
+            'rollback' => PromotionProtocol::FIELD_ROLLBACK,
+            'suspend' => PromotionProtocol::FIELD_SUSPEND,
+            'obra_retro_department_contract_lote_measure_verified_share_floor_count' => 18,
+        ];
+    }
+
 }

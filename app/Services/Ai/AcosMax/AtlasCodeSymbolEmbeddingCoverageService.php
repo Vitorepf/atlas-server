@@ -87,6 +87,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS = 'atlas_engineering_code_symbols';
     public const FIELD_COMPUTED_READER_FIELD = 'computed_reader_field';
     public const FIELD_NO_SYMBOLS_EMBEDDED_YET = 'no_symbols_embedded_yet';
+    public const FIELD_OFF = 'off';
+    public const FIELD_SYMBOLS_AWAITING_BACKFILL_OR_RE_EMBED = 'symbols_awaiting_backfill_or_re_embed';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -102,7 +104,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
                 self::FIELD_STALE_DEFINITION => 'atlas_code_symbol_embeddings.embedded_content_hash != atlas_engineering_code_symbols.source_hash',
                 self::FIELD_MISSING_DEFINITION => 'no matching row in atlas_code_symbol_embeddings for symbol_id',
                 self::FIELD_SCOPE => self::FIELD_ACTIVE_SYMBOLS_ONLY,
-                self::FIELD_DEFAULT_SWITCH => 'off',
+                self::FIELD_DEFAULT_SWITCH => self::FIELD_OFF,
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
             self::FIELD_TTL_DAYS => 60,
@@ -173,7 +175,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
         $reason = match ($status) {
             self::STATUS_OK => null,
             self::STATUS_INSUFFICIENT_SIGNAL => self::FIELD_NO_SYMBOLS_EMBEDDED_YET,
-            self::STATUS_PARTIAL_COVERAGE => 'symbols_awaiting_backfill_or_re_embed',
+            self::STATUS_PARTIAL_COVERAGE => self::FIELD_SYMBOLS_AWAITING_BACKFILL_OR_RE_EMBED,
             default => null,
         };
 

@@ -112,6 +112,8 @@ final class EvidenceVisionThesisComposer
     public const FIELD_LEDGER = 'ledger';
     public const FIELD_REALIZED_RATE = 'realized_rate';
     public const FIELD_WEIGHT_ONLY_NEVER_VETO = 'weight_only_never_veto';
+    public const FIELD_DEFAULT = 'default';
+    public const FIELD_OPEN_EVIDENCE = 'open_evidence';
 
     /**
      * @param  array<string,mixed>  $context
@@ -276,7 +278,7 @@ final class EvidenceVisionThesisComposer
                 continue;
             }
             $series = AiValueNormalizer::trimmedStringOrNull($window[self::FIELD_SERIES] ?? null) ?? '';
-            $stage = AiValueNormalizer::trimmedStringOrNull($window[self::FIELD_STAGE] ?? null) ?? 'default';
+            $stage = AiValueNormalizer::trimmedStringOrNull($window[self::FIELD_STAGE] ?? null) ?? self::FIELD_DEFAULT;
             if ($series === '') {
                 continue;
             }
@@ -429,7 +431,7 @@ final class EvidenceVisionThesisComposer
                 static fn (array $row): array => [
                     self::FIELD_SOURCE => self::FIELD_LEDGER,
                     self::FIELD_REF => 'ledger:'.$row[self::FIELD_FILE].':'.$row[self::FIELD_LINE],
-                    self::FIELD_FIELD => 'open_evidence',
+                    self::FIELD_FIELD => self::FIELD_OPEN_EVIDENCE,
                     self::FIELD_VALUE => $row[self::FIELD_SOURCE],
                 ],
                 $rows,

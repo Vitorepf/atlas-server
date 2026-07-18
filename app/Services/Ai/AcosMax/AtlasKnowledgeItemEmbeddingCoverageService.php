@@ -88,6 +88,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const FIELD_ARCHIVED_AT = 'archived_at';
     public const FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS = 'atlas_engineering_knowledge_items';
     public const FIELD_COMPUTED_READER_FIELD = 'computed_reader_field';
+    public const FIELD_ITEMS_AWAITING_BACKFILL_OR_RE_EMBED = 'items_awaiting_backfill_or_re_embed';
+    public const FIELD_NO_ITEMS_EMBEDDED_YET = 'no_items_embedded_yet';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -171,8 +173,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
             : ($covered === 0 ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_PARTIAL_COVERAGE);
         $reason = match ($status) {
             self::STATUS_OK => null,
-            self::STATUS_INSUFFICIENT_SIGNAL => 'no_items_embedded_yet',
-            self::STATUS_PARTIAL_COVERAGE => 'items_awaiting_backfill_or_re_embed',
+            self::STATUS_INSUFFICIENT_SIGNAL => self::FIELD_NO_ITEMS_EMBEDDED_YET,
+            self::STATUS_PARTIAL_COVERAGE => self::FIELD_ITEMS_AWAITING_BACKFILL_OR_RE_EMBED,
             default => null,
         };
 

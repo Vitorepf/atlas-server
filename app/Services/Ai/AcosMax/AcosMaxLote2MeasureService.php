@@ -254,6 +254,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_RECEIPT_ID = 'receipt_id';
     public const FIELD_NONE = 'none';
     public const FIELD_CORRELATIONAL_ATTRIBUTION = 'correlational_attribution';
+    public const FIELD_CREATED_AT = 'created_at';
+    public const FIELD_LEGACY_UNJOINED = 'legacy_unjoined';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -456,7 +458,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_REQUIRES_LEARNING_CANDIDATE => true,
             self::FIELD_REQUIRES_SUBSEQUENT_MEASURED_RECALL => true,
             self::FIELD_REQUIRES_ZERO_FIXTURE => true,
-            self::FIELD_LEGACY_UNJOINED_ROWS => 'legacy_unjoined',
+            self::FIELD_LEGACY_UNJOINED_ROWS => self::FIELD_LEGACY_UNJOINED,
         ];
     }
 
@@ -1078,7 +1080,7 @@ final class AcosMaxLote2MeasureService
 
         $query = DB::table('atlas_mission_deliveries');
         if ($days !== null && $days > 0) {
-            $query->where('created_at', '>=', now()->subDays($days));
+            $query->where(self::FIELD_CREATED_AT, '>=', now()->subDays($days));
         }
         $rows = $query->get();
         $total = $rows->count();

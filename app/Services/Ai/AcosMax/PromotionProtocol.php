@@ -105,6 +105,8 @@ final class PromotionProtocol
     public const FIELD_MISSING_PREDECLARED_ROLLBACK_TRIGGER = 'missing_predeclared_rollback_trigger';
     public const FIELD_OPERATOR_PREFLIGHT_WINDOW = 'operator_preflight_window';
     public const FIELD_ORDINARY_ROUTE = 'ordinary_route';
+    public const FIELD_ROLLBACK = 'rollback';
+    public const FIELD_SUSPEND = 'suspend';
 
     /** @var list<string> */
     public const STATES = [
@@ -535,8 +537,8 @@ final class PromotionProtocol
     private function actionForState(string $state): string
     {
         return match ($state) {
-            self::STATE_ROLLED_BACK => 'rollback',
-            self::STATE_SUSPENDED_PENDING_EVIDENCE => 'suspend',
+            self::STATE_ROLLED_BACK => self::FIELD_ROLLBACK,
+            self::STATE_SUSPENDED_PENDING_EVIDENCE => self::FIELD_SUSPEND,
             default => self::FIELD_FLIP,
         };
     }

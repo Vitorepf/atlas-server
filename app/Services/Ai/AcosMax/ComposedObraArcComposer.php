@@ -92,6 +92,8 @@ final class ComposedObraArcComposer
     public const FIELD_ARCHIVE_WITH_RECEIPT = 'archive_with_receipt';
     public const FIELD_COMPOSED_OBRA = 'composed_obra';
     public const FIELD_ORGAN_DEPENDENCY_GRAPH = 'organ_dependency_graph';
+    public const FIELD_ORGAN_DEPENDENCY_NEIGHBORS = 'organ_dependency_neighbors';
+    public const FIELD_TASK_ = 'task_';
 
     /**
      * @param  list<array<string,mixed>>  $candidates  grounded origination candidates
@@ -131,7 +133,7 @@ final class ComposedObraArcComposer
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_COMPOSED => true,
-            self::FIELD_BASIS => 'organ_dependency_neighbors',
+            self::FIELD_BASIS => self::FIELD_ORGAN_DEPENDENCY_NEIGHBORS,
             self::FIELD_ARCS => [$arc],
             self::FIELD_ARC_COUNT => 1,
             // Observe-only ESP-09 advisory (composed_obra trigger); never vetoes compose.
@@ -273,7 +275,7 @@ final class ComposedObraArcComposer
         $tasks = [];
         foreach ($group as $task) {
             $tasks[] = [
-                self::FIELD_TASK_ID => 'task_'.substr(hash('sha256', $arcId.':'.($task[self::FIELD_TARGET_PATH] ?? '')), 0, 12),
+                self::FIELD_TASK_ID => self::FIELD_TASK_.substr(hash('sha256', $arcId.':'.($task[self::FIELD_TARGET_PATH] ?? '')), 0, 12),
                 self::FIELD_ORDER => (int) (AiValueNormalizer::finiteFloatOrNull($task[self::FIELD_ORDER] ?? null) ?? 0),
                 self::FIELD_TARGET_PATH => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_TARGET_PATH] ?? null) ?? '',
                 self::FIELD_OBJECTIVE => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_SUMMARY] ?? null) ?? '',
