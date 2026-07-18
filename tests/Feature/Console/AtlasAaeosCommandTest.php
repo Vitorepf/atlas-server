@@ -7949,6 +7949,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_cognitive_memory_teto_predicted_cognition_evidence_immune_hybrid_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b444-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b444',
+                '--cognitive-memory-teto-predicted-cognition-evidence-immune-hybrid-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"cognitive_memory_teto_predicted_cognition_evidence_immune_hybrid_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

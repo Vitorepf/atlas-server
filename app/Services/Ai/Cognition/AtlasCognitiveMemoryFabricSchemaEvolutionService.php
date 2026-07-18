@@ -90,6 +90,8 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_SCHEMA_EVOLUTION = 'schema_evolution';
     public const FIELD_EXECUTE_WITH_APPROVAL = 'execute_with_approval';
     public const FIELD_PHP = 'php';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_BASE_PATH = 'base_path';
 
     private ?string $proposalsLogOverride = null;
 
@@ -155,7 +157,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
             self::FIELD_REQUESTED_AUTONOMY => self::FIELD_EXECUTE_WITH_APPROVAL,
         ]);
 
-        $proposalId = 'acmf_'.substr(hash('sha256', $currentSchema.'|'.$nextSchema.'|'.$trigger), 0, 12);
+        $proposalId = 'acmf_'.substr(hash(self::FIELD_SHA256, $currentSchema.'|'.$nextSchema.'|'.$trigger), 0, 12);
         $generatedAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
 
         $proposal = [
@@ -174,7 +176,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
             self::FIELD_REQUIRES_HUMAN_APPROVAL => true,
             self::FIELD_IS_PROPOSAL => true,
         ];
-        $proposal[self::FIELD_PROPOSAL_HASH] = 'sha256:'.hash('sha256', json_encode([
+        $proposal[self::FIELD_PROPOSAL_HASH] = 'sha256:'.hash(self::FIELD_SHA256, json_encode([
             self::FIELD_SCHEMA => self::PROPOSAL_SCHEMA,
             self::FIELD_CURRENT_SCHEMA => $currentSchema,
             self::FIELD_PROPOSED_NEXT_SCHEMA => $nextSchema,
@@ -205,7 +207,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
      */
     public function detectExtensionPressure(string $schema, ?string $rootDir = null): array
     {
-        $rootDir ??= defined('base_path') && function_exists('base_path') ? base_path('app') : __DIR__.'/../../../..';
+        $rootDir ??= defined(self::FIELD_BASE_PATH) && function_exists(self::FIELD_BASE_PATH) ? base_path('app') : __DIR__.'/../../../..';
         $rootDir = rtrim((string) realpath($rootDir), '/\\').DIRECTORY_SEPARATOR;
 
         $threshold = self::EXTENSION_PRESSURE_THRESHOLD;
@@ -236,7 +238,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
 
         sort($matched, SORT_STRING);
         $referenceCount = count($matched);
-        $scanHash = hash('sha256', implode("\n", $matched));
+        $scanHash = hash(self::FIELD_SHA256, implode("\n", $matched));
 
         return [
             self::FIELD_SCHEMA => $schema,

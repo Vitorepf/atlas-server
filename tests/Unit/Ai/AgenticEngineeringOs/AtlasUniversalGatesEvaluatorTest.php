@@ -8843,4 +8843,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['lote_measure_promotion_protocol_knowledge_item_verified_share_floor_count']);
     }
 
+    public function test_cognitive_memory_teto_predicted_cognition_evidence_immune_hybrid_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitiveMemoryTetoPredictedCognitionEvidenceImmuneHybridFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_BASE_PATH, $out['base_path']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_DIFF, $out['diff']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_REVERSE_HANDLE, $out['reverse_handle']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_CREATED_AT, $out['created_at']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_RAN_AT, $out['ran_at']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_KNOWN_POISON_SIGNATURE, $out['known_poison_signature']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_SEMANTIC_ARM_HIT, $out['semantic_arm_hit']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_COMPONENTE, $out['componente']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CONTINUE, $out['continue']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DEPLOY_RELEASE, $out['deploy_release']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DEV_REPAIR_LOOP_COUNT, $out['dev_repair_loop_count']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_TEOS, $out['teos']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AEMOR, $out['aemor']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PRIVACY_CLASS, $out['privacy_class']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_ENTERED_AT, $out['probation_entered_at']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_INSIGHT, $out['insight']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IS_QUESTION, $out['is_question']);
+        $this->assertSame(18, $out['cognitive_memory_teto_predicted_cognition_evidence_immune_hybrid_floor_count']);
+    }
+
 }

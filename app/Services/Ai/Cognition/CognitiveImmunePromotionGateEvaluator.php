@@ -83,6 +83,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_NEGATIVE_FEEDBACK_COUNT = 'negative_feedback_count';
     public const FIELD_NOVELTY = 'novelty';
     public const FIELD_OUTCOME_VALIDATED = 'outcome_validated';
+    public const FIELD_PRIVACY_CLASS = 'privacy_class';
+    public const FIELD_PROBATION_ENTERED_AT = 'probation_entered_at';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -186,7 +188,7 @@ final class CognitiveImmunePromotionGateEvaluator
     {
         $confirmed = $this->flag($signals, self::FIELD_CONSENT_GRANTED)
             && $this->flag($signals, 'retention_ok')
-            && $this->nonEmptyString($signals, 'privacy_class');
+            && $this->nonEmptyString($signals, self::FIELD_PRIVACY_CLASS);
 
         return $confirmed
             ? [self::STATUS_PASS, '']
@@ -468,7 +470,7 @@ final class CognitiveImmunePromotionGateEvaluator
             return max(0, $this->intValue($signals, self::FIELD_PROBATION_WATCH_AGE_DAYS));
         }
 
-        $startedAt = $this->timestampValue($signals, 'probation_entered_at')
+        $startedAt = $this->timestampValue($signals, self::FIELD_PROBATION_ENTERED_AT)
             ?? $this->timestampValue($signals, 'watch_started_at')
             ?? $this->timestampValue($signals, 'probation_started_at');
         $evaluatedAt = $this->timestampValue($signals, 'probation_evaluated_at')

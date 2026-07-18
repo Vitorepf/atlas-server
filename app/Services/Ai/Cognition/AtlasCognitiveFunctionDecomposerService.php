@@ -93,6 +93,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_COMPLIANCE = 'compliance';
     public const FIELD_COMPILE = 'compile';
     public const FIELD_COMPONHA = 'componha';
+    public const FIELD_COMPONENTE = 'componente';
+    public const FIELD_CONTINUE = 'continue';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -122,13 +124,13 @@ final class AtlasCognitiveFunctionDecomposerService
         ],
         self::FIELD_GENERATION => [
             'escreva', 'redija', 'crie', self::FIELD_COMPONHA, 'rascunhe', 'gere',
-            'sintetize', 'resuma', 'transforme', 'reescreva', 'continue',
+            'sintetize', 'resuma', 'transforme', 'reescreva', self::FIELD_CONTINUE,
             'narre', 'descreva', 'compose', 'write', 'draft', 'summarize',
         ],
         self::FIELD_CODE => [
             'codigo', self::FIELD_CODIFIQUE, 'implemente', 'refatore', 'debug', 'teste',
             self::FIELD_COMPILE, 'execute', 'rode', 'rodar', 'php', 'typescript', 'react',
-            'componente', 'servico', self::FIELD_CLASSE, 'funcao', 'controller', self::FIELD_CLI,
+            self::FIELD_COMPONENTE, 'servico', self::FIELD_CLASSE, 'funcao', 'controller', self::FIELD_CLI,
             self::FIELD_ARTISAN, 'migration', 'composer', 'npm', 'phpunit', 'pest',
             'patch', 'pull request', 'pr ', ' pr,', 'merge', 'git ',
             'code', 'function', 'class', 'service', 'refactor', 'test', self::FIELD_BUILD,

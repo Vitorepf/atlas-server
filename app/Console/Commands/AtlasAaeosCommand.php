@@ -466,6 +466,7 @@ final class AtlasAaeosCommand extends Command
                             {--aaeos-test-maxa-jina-cognitive-function-department-contract-floors-contract= : JSON file (any object) to observe aaeos/test/maxa/jina/cognitive/function floors}
                             {--frontier-wave-immune-calibration-cognitive-function-department-contract-floors-contract= : JSON file (any object) to observe frontier/wave/immune/calibration/cognitive/function floors}
                             {--lote-measure-promotion-protocol-knowledge-item-verified-share-floors-contract= : JSON file (any object) to observe lote/measure/promotion/protocol/knowledge/item floors}
+                            {--cognitive-memory-teto-predicted-cognition-evidence-immune-hybrid-floors-contract= : JSON file (any object) to observe cognitive/memory/teto/predicted/cognition/evidence floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1088,6 +1089,7 @@ final class AtlasAaeosCommand extends Command
             ['aaeos-test-maxa-jina-cognitive-function-department-contract-floors-contract', 'aaeos_test_maxa_jina_cognitive_function_department_contract_floors_contract', fn (array $p) => $gates->aaeosTestMaxaJinaCognitiveFunctionDepartmentContractFloorsContractObserve($p)],
             ['frontier-wave-immune-calibration-cognitive-function-department-contract-floors-contract', 'frontier_wave_immune_calibration_cognitive_function_department_contract_floors_contract', fn (array $p) => $gates->frontierWaveImmuneCalibrationCognitiveFunctionDepartmentContractFloorsContractObserve($p)],
             ['lote-measure-promotion-protocol-knowledge-item-verified-share-floors-contract', 'lote_measure_promotion_protocol_knowledge_item_verified_share_floors_contract', fn (array $p) => $gates->loteMeasurePromotionProtocolKnowledgeItemVerifiedShareFloorsContractObserve($p)],
+            ['cognitive-memory-teto-predicted-cognition-evidence-immune-hybrid-floors-contract', 'cognitive_memory_teto_predicted_cognition_evidence_immune_hybrid_floors_contract', fn (array $p) => $gates->cognitiveMemoryTetoPredictedCognitionEvidenceImmuneHybridFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

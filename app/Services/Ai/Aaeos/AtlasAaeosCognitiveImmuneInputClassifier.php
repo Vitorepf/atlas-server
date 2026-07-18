@@ -70,6 +70,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_HIPOTESE = 'hipotese';
     public const FIELD_HYPOTHESIS = 'hypothesis';
     public const FIELD_IMPERATIVE_VERB = 'imperative_verb';
+    public const FIELD_INSIGHT = 'insight';
+    public const FIELD_IS_QUESTION = 'is_question';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -131,7 +133,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         'estrategia',
         self::FIELD_ESTRATEGICA,
         self::FIELD_ANALOGIA,
-        'insight',
+        self::FIELD_INSIGHT,
         'tese',
         self::FIELD_HIPOTESE,
         'principio',
@@ -220,7 +222,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     {
         $hasUrl = $this->flag($metadata, self::FIELD_HAS_URL);
         $hasSecretMarker = $this->flag($metadata, self::FIELD_HAS_SECRET_MARKER);
-        $isQuestion = $this->flag($metadata, 'is_question');
+        $isQuestion = $this->flag($metadata, self::FIELD_IS_QUESTION);
         $imperativeVerb = $this->flag($metadata, self::FIELD_IMPERATIVE_VERB);
         $privacyHint = $this->flag($metadata, 'privacy_hint');
         $recurrenceCount = $this->intFlag($metadata, 'recurrence_count');

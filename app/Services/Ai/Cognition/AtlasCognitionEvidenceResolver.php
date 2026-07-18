@@ -96,6 +96,8 @@ class AtlasCognitionEvidenceResolver
     public const FIELD_OWNER_DOC_MISSING = 'owner_doc_missing';
     public const FIELD_SERVICE_CLASS_MISSING = 'service_class_missing';
     public const FIELD_TEST_REF = 'test_ref';
+    public const FIELD_CREATED_AT = 'created_at';
+    public const FIELD_RAN_AT = 'ran_at';
 
     /**
      * Memoized FQN-ownership index: short class name => list of owner-doc capabilities
@@ -354,7 +356,7 @@ class AtlasCognitionEvidenceResolver
                 $query->whereIn(self::FIELD_TEST_REF, $candidateTestRefs);
             }
 
-            $latestReceipt = (clone $query)->orderByDesc('ran_at')->orderByDesc('created_at')->first();
+            $latestReceipt = (clone $query)->orderByDesc(self::FIELD_RAN_AT)->orderByDesc(self::FIELD_CREATED_AT)->first();
             $greenCount = (clone $query)->green()->count();
         }
 

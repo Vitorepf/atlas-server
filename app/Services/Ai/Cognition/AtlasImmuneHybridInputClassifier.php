@@ -84,6 +84,8 @@ final class AtlasImmuneHybridInputClassifier
     public const FIELD_CITED_DATA_NOT_INSTRUCTION = 'cited_data_not_instruction';
     public const FIELD_LEXICAL = 'lexical';
     public const FIELD_REDACT_MINIMIZE = 'redact_minimize';
+    public const FIELD_KNOWN_POISON_SIGNATURE = 'known_poison_signature';
+    public const FIELD_SEMANTIC_ARM_HIT = 'semantic_arm_hit';
 
     private readonly AtlasAaeosCognitiveImmuneInputClassifier $base;
 
@@ -150,7 +152,7 @@ final class AtlasImmuneHybridInputClassifier
             $baseResult[self::FIELD_REASON] = 'known_poison_signature:'.(AiValueNormalizer::trimmedScalarStringOrNull($knownSignature[self::FIELD_REF] ?? null) ?? '');
             $baseResult[self::FIELD_MATCHED_SIGNALS] = $this->augmentSignals(
                 $baseResult[self::FIELD_MATCHED_SIGNALS],
-                'known_poison_signature',
+                self::FIELD_KNOWN_POISON_SIGNATURE,
             );
             $baseResult[self::FIELD_MEMORY_ELIGIBLE] = false;
             $baseResult[self::FIELD_EMBEDDING_ALLOWED] = false;
@@ -218,7 +220,7 @@ final class AtlasImmuneHybridInputClassifier
             $armBlock[self::FIELD_OVERRIDE_APPLIED] = true;
             $baseResult[self::FIELD_INPUT_CLASS] = $winner;
             $baseResult[self::FIELD_REASON] = 'semantic_arm_similarity_'.number_format($bestScore, 3);
-            $baseResult[self::FIELD_MATCHED_SIGNALS] = $this->augmentSignals($baseResult[self::FIELD_MATCHED_SIGNALS], 'semantic_arm_hit');
+            $baseResult[self::FIELD_MATCHED_SIGNALS] = $this->augmentSignals($baseResult[self::FIELD_MATCHED_SIGNALS], self::FIELD_SEMANTIC_ARM_HIT);
             $baseResult[self::FIELD_MEMORY_ELIGIBLE] = false;
             $baseResult[self::FIELD_EMBEDDING_ALLOWED] = false;
             $baseResult[self::FIELD_DEFAULT_DESTINATION] = self::hostileDestination($winner);

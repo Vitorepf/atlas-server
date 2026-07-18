@@ -94,6 +94,8 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_ITEM = 'item';
     public const FIELD_UNLABELLED = 'unlabelled';
     public const FIELD_UNTITLED = 'untitled';
+    public const FIELD_DIFF = 'diff';
+    public const FIELD_REVERSE_HANDLE = 'reverse_handle';
 
     /**
      * @param  list<array<string,mixed>>  $items
@@ -216,7 +218,7 @@ final class Teto10PredictedRevertReviewDigest
             self::FIELD_PREDICTED_REVERT_BAND => $band,
             self::FIELD_BAND_RANK => self::BAND_RANK[$band],
             self::FIELD_EVIDENCE_REFS => self::evidenceRefs($item),
-            self::FIELD_DIFF_REF => self::firstString($item, ['diff_ref', 'diff', 'patch_ref'], 'manual_review'),
+            self::FIELD_DIFF_REF => self::firstString($item, ['diff_ref', self::FIELD_DIFF, 'patch_ref'], 'manual_review'),
             self::FIELD_REVERSE_COMMAND => $reverse,
             self::FIELD_REVIEW_MODE => $reverse === self::FIELD_MANUAL_REVIEW ? self::FIELD_MANUAL_REVIEW : 'reversible',
             self::FIELD_PENDING_FLIP => (AiValueNormalizer::boolOrNull($item[self::FIELD_PENDING_FLIP] ?? null) ?? false),
@@ -362,7 +364,7 @@ final class Teto10PredictedRevertReviewDigest
      */
     private static function reverseCommand(array $item): string
     {
-        $command = self::firstString($item, ['reverse_command', 'reverse_handle', 'rollback_command'], '');
+        $command = self::firstString($item, ['reverse_command', self::FIELD_REVERSE_HANDLE, 'rollback_command'], '');
         if ($command === '' || $command === self::FIELD_MANUAL_REVIEW) {
             return self::FIELD_MANUAL_REVIEW;
         }

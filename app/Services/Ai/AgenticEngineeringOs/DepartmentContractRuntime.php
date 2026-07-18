@@ -255,6 +255,8 @@ final class DepartmentContractRuntime
     public const FIELD_CVE_ACKNOWLEDGED = 'cve_acknowledged';
     public const FIELD_DELIVERY_PACK_COMPLETENESS_MIN_0_95 = 'delivery_pack_completeness_min_0_95';
     public const FIELD_DENY = 'deny';
+    public const FIELD_DEPLOY_RELEASE = 'deploy_release';
+    public const FIELD_DEV_REPAIR_LOOP_COUNT = 'dev_repair_loop_count';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -400,7 +402,7 @@ final class DepartmentContractRuntime
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_FORGE],
             self::FIELD_EVIDENCE_REQUIRED => ['patch_hash', 'test_output_hash', 'scope_guard_report'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_DEV_RUNS, self::FIELD_LEDGER => self::FIELD_AAEOS_DEV_EVIDENCE_LEDGER],
-            self::FIELD_OBSERVABILITY_SIGNALS => ['dev_run_duration_p95', 'dev_repair_loop_count', 'dev_scope_violation_count'],
+            self::FIELD_OBSERVABILITY_SIGNALS => ['dev_run_duration_p95', self::FIELD_DEV_REPAIR_LOOP_COUNT, 'dev_scope_violation_count'],
             self::FIELD_MATURITY_LEVEL => 'L1',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_PLAN_VISIBLE,
             self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_ARCHITECTURE],
@@ -442,7 +444,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_GATES => ['review_packet_signed', 'risk_acknowledged', 'review_checklist_complete', self::FIELD_BLOCKERS_ADDRESSED, 'evidence_traceable'],
             self::FIELD_ALLOWED_ACTIONS => ['request_changes', self::FIELD_APPROVE_FOR_CERT, 'veto_release'],
-            self::FIELD_FORBIDDEN_ACTIONS => ['edit_code', 'deploy_release', 'modify_security_policy'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['edit_code', self::FIELD_DEPLOY_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['review_report_hash', 'checklist_completion_hash'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_REVIEW_REPORTS, self::FIELD_LEDGER => self::FIELD_AAEOS_REVIEW_LEDGER],

@@ -181,6 +181,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_COGNITION = 'cognition';
     public const FIELD_CROSS_DOMAIN = 'cross_domain';
     public const FIELD_PROGRAMMING = 'programming';
+    public const FIELD_TEOS = 'teos';
+    public const FIELD_AEMOR = 'aemor';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -270,14 +272,14 @@ class AtlasCognitionScoreCardService
         ['ASCB',    'Self-Construction Subsystem Builder', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionSubsystemBuilderService::class],
         ['AURG-4D', 'Unified Reality Graph Temporal (4D)', 'reality',           AtlasUnifiedRealityGraphTemporalService::class],
         ['ACDM',    'Cross-Domain Mesh',                   self::FIELD_CROSS_DOMAIN,      AtlasCrossDomainMeshService::class],
-        ['TEOS-I3', 'TEOS-I3 Counterfactual Runtime',      'teos',              AtlasTeosI3CounterfactualService::class],
+        ['TEOS-I3', 'TEOS-I3 Counterfactual Runtime',      self::FIELD_TEOS,              AtlasTeosI3CounterfactualService::class],
 
         // Patamar 4 — Constitutional Kernel, Autonomy Admission, CognitiveFunctionAtlas, Reconciliation Runtime, TEOS-I4, Swarm Conductor, Temporary Domain Composition
         ['ACK',     'Constitutional Kernel',               self::FIELD_GOVERNANCE,        AtlasConstitutionalKernelService::class],
         ['AAA',     'Autonomy Admission',                  self::FIELD_GOVERNANCE,        AtlasAutonomyAdmissionService::class],
         ['ACFA',    'Cognitive Function Atlas',            self::FIELD_COGNITION,         AtlasCognitiveFunctionAtlasService::class],
         ['AARR',    'Autonomous Reconciliation Runtime',   'autonomy',          AtlasAutonomousReconciliationRuntimeService::class],
-        ['TEOS-I4', 'TEOS-I4 Counterfactual Tree',         'teos',              AtlasTeosI4CounterfactualTreeService::class],
+        ['TEOS-I4', 'TEOS-I4 Counterfactual Tree',         self::FIELD_TEOS,              AtlasTeosI4CounterfactualTreeService::class],
         ['ASWC',    'Swarm Conductor',                     self::FIELD_ATLAS_DECIDE,      AtlasSwarmConductorService::class],
         ['ASWE',    'Swarm Executor',                      self::FIELD_ATLAS_DECIDE,      AtlasSwarmExecutorService::class],
         ['ATDC',    'Temporary Domain Composition',        self::FIELD_CROSS_DOMAIN,      AtlasTemporaryDomainCompositionService::class],
@@ -330,7 +332,7 @@ class AtlasCognitionScoreCardService
         ['ACCCR', 'Context Cache Compiler Runtime', 'context_cache', AtlasContextCacheCompilerRuntimeService::class],
         ['ACIE', 'Context Intelligence Engine', 'context_intelligence', AtlasContextOperationsRuntimeService::class],
         ['APCR', 'Persistent Context Runtime', 'persistent_context', AtlasPersistentContextRuntimeService::class],
-        ['AEMOR', 'Execution Memory Outcome Runtime', 'aemor', AtlasAemorCertificationService::class],
+        ['AEMOR', 'Execution Memory Outcome Runtime', self::FIELD_AEMOR, AtlasAemorCertificationService::class],
         ['TEOS-I1', 'Long-Horizon Intelligence Layer', 'long_horizon', LongHorizonContinuityCertificationService::class],
         ['AVCEL', 'Verified Context Execution Loop', 'verified_context', AtlasVerifiedContextExecutionLoopService::class],
         ['ACQCG', 'Context Quality Certification Gate', 'context_quality', AtlasContextQualityCertificationService::class],
