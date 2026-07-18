@@ -5054,5 +5054,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['envelope_cockpit_facade_floor_count']);
     }
 
+    public function test_atlas_composed_ragx_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->atlasComposedRagxFloorsContractObserve([]);
+
+        $this->assertSame('code_ready', $payload['atlas_field_code_ready']);
+        $this->assertSame('code_status', $payload['atlas_field_code_status']);
+        $this->assertSame('cognition', $payload['atlas_field_cognition']);
+        $this->assertSame('cognitive_immune', $payload['atlas_field_cognitive_immune']);
+        $this->assertSame('compounding', $payload['atlas_field_compounding']);
+        $this->assertSame('cross_domain', $payload['atlas_field_cross_domain']);
+        $this->assertSame('allowed_files', $payload['composed_field_allowed_files']);
+        $this->assertSame('claim', $payload['composed_field_claim']);
+        $this->assertSame('completion_criterion', $payload['composed_field_completion_criterion']);
+        $this->assertSame('consecutive_failures', $payload['composed_field_consecutive_failures']);
+        $this->assertSame('consecutive_failures_k', $payload['composed_field_consecutive_failures_k']);
+        $this->assertSame('decision_kind', $payload['composed_field_decision_kind']);
+        $this->assertSame('chunk_id', $payload['ragx_field_chunk_id']);
+        $this->assertSame('edge_count', $payload['ragx_field_edge_count']);
+        $this->assertSame('error_class', $payload['ragx_field_error_class']);
+        $this->assertSame('experiment_id', $payload['ragx_field_experiment_id']);
+        $this->assertSame('flag', $payload['ragx_field_flag']);
+        $this->assertSame(17, $payload['atlas_composed_ragx_floor_count']);
+    }
+
 
 }

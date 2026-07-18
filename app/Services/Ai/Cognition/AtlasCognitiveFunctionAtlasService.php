@@ -78,6 +78,12 @@ class AtlasCognitiveFunctionAtlasService
     public const FIELD_AUCRI = 'aucri';
     public const FIELD_AURG = 'aurg';
     public const FIELD_AUTONOMY = 'autonomy';
+    public const FIELD_CODE_READY = 'code_ready';
+    public const FIELD_CODE_STATUS = 'code_status';
+    public const FIELD_COGNITION = 'cognition';
+    public const FIELD_COGNITIVE_IMMUNE = 'cognitive_immune';
+    public const FIELD_COMPOUNDING = 'compounding';
+    public const FIELD_CROSS_DOMAIN = 'cross_domain';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scoreCard,
@@ -210,19 +216,19 @@ class AtlasCognitiveFunctionAtlasService
         $base = $storageBase ?? (function_exists('storage_path') ? storage_path('atlas') : sys_get_temp_dir().'/atlas');
         // Heuristic mapping of group → expected JSONL roots under storage/atlas/.
         $groupRoots = [
-            'cognitive_immune' => ['aemor', 'cognitive_immune'],
+            self::FIELD_COGNITIVE_IMMUNE => ['aemor', 'cognitive_immune'],
             'memory_core' => ['memory'],
             self::FIELD_AUCRI => [self::FIELD_AKIF],
             'self_improvement' => ['self_improvement'],
             self::FIELD_ATLAS_DECIDE => ['atlas_decide', 'swarm'],
             'self_construction' => ['self_construction'],
             'reality' => [self::FIELD_AURG],
-            'cross_domain' => ['cross_domain'],
+            self::FIELD_CROSS_DOMAIN => [self::FIELD_CROSS_DOMAIN],
             'teos' => ['teos_i3', 'teos_i4'],
             'governance' => ['governance'],
             self::FIELD_AUTONOMY => ['reconciliation'],
-            'cognition' => [],
-            'compounding' => ['compounding'],
+            self::FIELD_COGNITION => [],
+            self::FIELD_COMPOUNDING => [self::FIELD_COMPOUNDING],
         ];
 
         $subs = AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()[self::FIELD_SUBSYSTEMS] ?? null);
@@ -317,7 +323,7 @@ class AtlasCognitiveFunctionAtlasService
                     continue;
                 }
                 $total++;
-                if (($s['code_status'] ?? '') === self::STATUS_READY) {
+                if (($s[self::FIELD_CODE_STATUS] ?? '') === self::STATUS_READY) {
                     $codeReady++;
                     $servicePresent++;
                 }
@@ -337,7 +343,7 @@ class AtlasCognitiveFunctionAtlasService
                 self::FIELD_SCHEMA_VERSION => self::GROUP_SUMMARY_SCHEMA,
                 self::FIELD_GROUP => $g,
                 'total' => $total,
-                'code_ready' => $codeReady,
+                self::FIELD_CODE_READY => $codeReady,
                 'doc_ready' => $docReady,
                 'pipeline_ready' => $pipelineReady,
                 'pipeline_partial' => $pipelinePartial,

@@ -6813,6 +6813,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function atlasComposedRagxFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas_field_code_ready' => AtlasCognitiveFunctionAtlasService::FIELD_CODE_READY,
+            'atlas_field_code_status' => AtlasCognitiveFunctionAtlasService::FIELD_CODE_STATUS,
+            'atlas_field_cognition' => AtlasCognitiveFunctionAtlasService::FIELD_COGNITION,
+            'atlas_field_cognitive_immune' => AtlasCognitiveFunctionAtlasService::FIELD_COGNITIVE_IMMUNE,
+            'atlas_field_compounding' => AtlasCognitiveFunctionAtlasService::FIELD_COMPOUNDING,
+            'atlas_field_cross_domain' => AtlasCognitiveFunctionAtlasService::FIELD_CROSS_DOMAIN,
+            'composed_field_allowed_files' => ComposedObraArcComposer::FIELD_ALLOWED_FILES,
+            'composed_field_claim' => ComposedObraArcComposer::FIELD_CLAIM,
+            'composed_field_completion_criterion' => ComposedObraArcComposer::FIELD_COMPLETION_CRITERION,
+            'composed_field_consecutive_failures' => ComposedObraArcComposer::FIELD_CONSECUTIVE_FAILURES,
+            'composed_field_consecutive_failures_k' => ComposedObraArcComposer::FIELD_CONSECUTIVE_FAILURES_K,
+            'composed_field_decision_kind' => ComposedObraArcComposer::FIELD_DECISION_KIND,
+            'ragx_field_chunk_id' => RagxChainMechanismService::FIELD_CHUNK_ID,
+            'ragx_field_edge_count' => RagxChainMechanismService::FIELD_EDGE_COUNT,
+            'ragx_field_error_class' => RagxChainMechanismService::FIELD_ERROR_CLASS,
+            'ragx_field_experiment_id' => RagxChainMechanismService::FIELD_EXPERIMENT_ID,
+            'ragx_field_flag' => RagxChainMechanismService::FIELD_FLAG,
+            'atlas_composed_ragx_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

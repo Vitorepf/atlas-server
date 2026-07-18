@@ -166,6 +166,11 @@ final class RagxChainMechanismService
     public const FIELD_CANDIDATE = 'candidate';
     public const FIELD_COMMUNITIES_SEEN = 'communities_seen';
     public const FIELD_COMMUNITY = 'community';
+    public const FIELD_CHUNK_ID = 'chunk_id';
+    public const FIELD_EDGE_COUNT = 'edge_count';
+    public const FIELD_ERROR_CLASS = 'error_class';
+    public const FIELD_EXPERIMENT_ID = 'experiment_id';
+    public const FIELD_FLAG = 'flag';
 
     public const REASON_LATE_CHUNK_INDEX_ERROR = 'late_chunk_index_error';
 
@@ -250,7 +255,7 @@ final class RagxChainMechanismService
                 self::FIELD_SLICE => self::STAGE_RAGX_01,
                 self::FIELD_STATUS => self::STATUS_DEGRADED,
                 self::FIELD_REASON => self::REASON_LATE_CHUNK_INDEX_ERROR,
-                'error_class' => $e::class,
+                self::FIELD_ERROR_CLASS => $e::class,
                 self::FIELD_DOCUMENTS => [],
                 self::FIELD_AB_GREEN_CLAIMED => false,
             ];
@@ -277,7 +282,7 @@ final class RagxChainMechanismService
             self::FIELD_SCHEMA_VERSION => self::AB_SCHEMA,
             self::FIELD_STATUS => self::STATUS_REGISTERED,
             'recorded_at' => Carbon::now()->toISOString(),
-            'experiment_id' => AiValueNormalizer::trimmedStringOrNull($experiment['experiment_id'] ?? null) ?? hash('sha256', json_encode($experiment, JSON_THROW_ON_ERROR)),
+            self::FIELD_EXPERIMENT_ID => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_EXPERIMENT_ID] ?? null) ?? hash('sha256', json_encode($experiment, JSON_THROW_ON_ERROR)),
             self::FIELD_SLICE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_SLICE]  ?? null) ?? 'RAGX',
             self::FIELD_BASELINE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_BASELINE]  ?? null) ?? self::STATUS_UNKNOWN,
             self::FIELD_CANDIDATE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_CANDIDATE]  ?? null) ?? self::STATUS_UNKNOWN,
@@ -337,7 +342,7 @@ final class RagxChainMechanismService
             self::FIELD_STATUS => self::STATUS_OK,
             self::FIELD_ALGORITHM => 'louvain_deterministic_local',
             'node_count' => count($nodes),
-            'edge_count' => count($edges),
+            self::FIELD_EDGE_COUNT => count($edges),
             self::FIELD_COMMUNITIES => $communities,
             self::FIELD_AB_GREEN_CLAIMED => false,
         ];
@@ -484,7 +489,7 @@ final class RagxChainMechanismService
 
         return [
             'mechanism' => $mechanism,
-            'flag' => $flag,
+            self::FIELD_FLAG => $flag,
             self::FIELD_ENABLED => $enabled,
             self::FIELD_STATUS => ! $enabled ? self::STATUS_DISABLED : ($blockedBy === [] ? self::STATUS_SHADOW : self::STATUS_BLOCKED),
             self::FIELD_BLOCKED_BY => $blockedBy,
@@ -500,7 +505,7 @@ final class RagxChainMechanismService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             self::FIELD_SLICE => $slice,
             self::FIELD_STATUS => self::STATUS_DISABLED,
-            'flag' => $flag,
+            self::FIELD_FLAG => $flag,
             self::FIELD_AB_GREEN_CLAIMED => false,
         ];
     }
@@ -536,7 +541,7 @@ final class RagxChainMechanismService
     {
         $ids = [];
         foreach ($chunks as $chunk) {
-            $id = AiValueNormalizer::trimmedStringOrNull($chunk[self::FIELD_ID] ?? $chunk['chunk_id'] ?? null) ?? '';
+            $id = AiValueNormalizer::trimmedStringOrNull($chunk[self::FIELD_ID] ?? $chunk[self::FIELD_CHUNK_ID] ?? null) ?? '';
             if ($id !== '') {
                 $ids[$id] = true;
             }

@@ -53,6 +53,12 @@ final class ComposedObraArcComposer
     public const FIELD_CERTIFIER_ENGINE_ID = 'certifier_engine_id';
     public const FIELD_CHALLENGER_ADVISORY = 'challenger_advisory';
     public const FIELD_CHALLENGER_ENGINE_ID = 'challenger_engine_id';
+    public const FIELD_ALLOWED_FILES = 'allowed_files';
+    public const FIELD_CLAIM = 'claim';
+    public const FIELD_COMPLETION_CRITERION = 'completion_criterion';
+    public const FIELD_CONSECUTIVE_FAILURES = 'consecutive_failures';
+    public const FIELD_CONSECUTIVE_FAILURES_K = 'consecutive_failures_k';
+    public const FIELD_DECISION_KIND = 'decision_kind';
 
     public const STATUS_FLAG_DISABLED = 'flag_disabled';
 
@@ -109,7 +115,7 @@ final class ComposedObraArcComposer
             self::FIELD_CHALLENGER_ADVISORY => Esp09IndependentChallengerService::evaluate([
                 self::FIELD_AUTHOR_ENGINE_ID => $author,
                 self::FIELD_CHALLENGER_ENGINE_ID => $judge,
-                'decision_kind' => 'composed_obra',
+                self::FIELD_DECISION_KIND => 'composed_obra',
             ]),
             self::FIELD_SOURCE => [
                 self::FIELD_ARC_BUYS_GATE_WHOLESALE => false,
@@ -259,18 +265,18 @@ final class ComposedObraArcComposer
             self::FIELD_ARC_ID => $arcId,
             'obra_id' => $obraId,
             'thesis' => [
-                'claim' => 'Wiring the neighbor organs '.implode(', ', array_map(static fn (array $t): string => basename(AiValueNormalizer::trimmedScalarStringOrNull($t[self::FIELD_TARGET_PATH] ?? null) ?? '', '.php'), $tasks)).' materially increases end-to-end leverage.',
+                self::FIELD_CLAIM => 'Wiring the neighbor organs '.implode(', ', array_map(static fn (array $t): string => basename(AiValueNormalizer::trimmedScalarStringOrNull($t[self::FIELD_TARGET_PATH] ?? null) ?? '', '.php'), $tasks)).' materially increases end-to-end leverage.',
                 'falsified_when' => 'No task in the arc reaches proven_real landing within the arc TTL.',
                 self::FIELD_AUTHOR_ENGINE_ID => $author,
             ],
             'tasks' => $tasks,
-            'completion_criterion' => [
+            self::FIELD_COMPLETION_CRITERION => [
                 'executable' => 'Every ordered arc task lands with proven_real outcome; partial completion leaves arc open.',
                 self::FIELD_CERTIFIER_ENGINE_ID => $judge,
             ],
             'kill_gate' => [
-                'consecutive_failures_k' => self::KILL_GATE_CONSECUTIVE_FAILURES,
-                'consecutive_failures' => 0,
+                self::FIELD_CONSECUTIVE_FAILURES_K => self::KILL_GATE_CONSECUTIVE_FAILURES,
+                self::FIELD_CONSECUTIVE_FAILURES => 0,
                 self::FIELD_ACTION_ON_TRIGGER => 'archive_with_receipt',
             ],
             self::FIELD_SOURCE => [
@@ -308,7 +314,7 @@ final class ComposedObraArcComposer
                 continue;
             }
             $block = is_array($lead['obra_cluster_candidate'] ?? null) ? $lead['obra_cluster_candidate'] : $lead;
-            foreach (AiValueNormalizer::arrayOrEmpty($block['allowed_files'] ?? $block['member_paths'] ?? null) as $path) {
+            foreach (AiValueNormalizer::arrayOrEmpty($block[self::FIELD_ALLOWED_FILES] ?? $block['member_paths'] ?? null) as $path) {
                 $normalized = ltrim(str_replace('\\', '/', AiValueNormalizer::trimmedStringOrNull($path) ?? ''), '/');
                 if ($normalized !== '') {
                     $paths[] = $normalized;
