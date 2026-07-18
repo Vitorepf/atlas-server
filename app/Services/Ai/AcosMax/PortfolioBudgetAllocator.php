@@ -94,6 +94,7 @@ final class PortfolioBudgetAllocator
     public const FIELD_OFF = 'off';
     public const FIELD_PORTFOLIO_ALLOCATION = 'portfolio_allocation';
     public const FIELD_ATLAS_MULTK_06_PORTFOLIO_ALLOCATION_ENABLED = 'atlas.multk_06.portfolio_allocation_enabled';
+    public const FIELD_WEIGHT_CHANGE_REFUSED_MISSING_AMENDMENT_RECEIPT = 'weight_change_refused_missing_amendment_receipt';
     public const FLOAT_1_0 = 1.0;
     public const FLOAT_0_0 = 0.0;
     public const INT_12 = 12;
@@ -124,7 +125,7 @@ final class PortfolioBudgetAllocator
         $usedWeights = $weights;
         if ($amendmentId === null && ! self::sharesEqual($weights, $default)) {
             $usedWeights = $default;
-            $reasons[] = 'weight_change_refused_missing_amendment_receipt';
+            $reasons[] = self::FIELD_WEIGHT_CHANGE_REFUSED_MISSING_AMENDMENT_RECEIPT;
             $status = self::STATUS_WEIGHTS_REVERTED;
         }
 

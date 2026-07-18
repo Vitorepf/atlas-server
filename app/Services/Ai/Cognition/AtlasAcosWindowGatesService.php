@@ -67,6 +67,7 @@ final class AtlasAcosWindowGatesService
     public const FIELD_D4_D5_FEEDBACK = 'D4_D5_feedback';
     public const FIELD_D5_RATIONALE = 'D5_rationale';
     public const FIELD_D5_STRUCTURAL_HONESTY = 'D5_structural_honesty';
+    public const FIELD_APP_ATLAS_EVIDENCE = 'app/atlas/evidence';
     public const INT_70 = 70;
 
     /** Receipt freshness before a certified gate is treated as stale (7 days). */
@@ -156,7 +157,7 @@ final class AtlasAcosWindowGatesService
     private function windowReceipts(): array
     {
         $dir = function_exists(self::FIELD_STORAGE_PATH)
-            ? storage_path('app/atlas/evidence')
+            ? storage_path(self::FIELD_APP_ATLAS_EVIDENCE)
             : sys_get_temp_dir().'/atlas/evidence';
 
         if (! is_dir($dir)) {

@@ -549,7 +549,7 @@ class AtlasAaeosImplementationTruthService
     {
         $paths = [];
         foreach ($evidenceRefs as $ref) {
-            if ($this->evidenceRefNormalizer->kind($ref[self::FIELD_KIND] ?? '') !== 'symbol') {
+            if ($this->evidenceRefNormalizer->kind($ref[self::FIELD_KIND] ?? '') !== self::FIELD_SYMBOL) {
                 continue;
             }
             $value = $this->evidenceRefNormalizer->ref($ref[self::FIELD_REF] ?? '');

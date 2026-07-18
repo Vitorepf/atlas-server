@@ -71,7 +71,7 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
 
         $reasons = [];
         if ($report[self::FIELD_DECLARED_PAPER_STATUS] === self::FIELD_PAPER_OVERSHOOT) {
-            $reasons[] = 'paper_overshoot';
+            $reasons[] = self::FIELD_PAPER_OVERSHOOT;
         }
         if ($report[self::FIELD_OVER_CAP_COMPONENTS] !== []) {
             $reasons[] = self::FIELD_COMPONENT_OVER_RAM_CAP;

@@ -102,6 +102,6 @@ final class ImmuneSignatureDeriver
 
         return in_array($hostileClass, self::HOSTILE_CLASSES, true)
             ? $hostileClass
-            : 'untrusted_content';
+            : self::FIELD_UNTRUSTED_CONTENT;
     }
 }

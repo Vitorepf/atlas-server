@@ -84,7 +84,7 @@ final class AtlasAaeosValueNormalizer
         return in_array($risk, ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'], true) ? $risk : $fallback;
     }
 
-    public static function lowMediumHighRisk(string $value, string $fallback = 'medium'): string
+    public static function lowMediumHighRisk(string $value, string $fallback = self::FIELD_MEDIUM): string
     {
         return self::lowercaseAllowed($value, [self::FIELD_LOW, self::FIELD_MEDIUM, self::FIELD_HIGH], $fallback);
     }

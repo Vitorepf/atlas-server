@@ -176,7 +176,7 @@ final class RunbookOrchestrator
      *   title: string,
      *   limitation: string,
      *   structural_changes?: list<array{
-     *     target: 'department'|'phase'|self::FIELD_GATE,
+     *     target: self::FIELD_DEPARTMENT|'phase'|self::FIELD_GATE,
      *     current: string,
      *     proposed: string,
      *     target_doc?: string,
@@ -201,7 +201,7 @@ final class RunbookOrchestrator
                 continue;
             }
             $target = AiValueNormalizer::trimmedStringOrNull($change[self::FIELD_TARGET] ?? null) ?? '';
-            if (! in_array($target, ['department', self::FIELD_PHASE, self::FIELD_GATE], true)) {
+            if (! in_array($target, [self::FIELD_DEPARTMENT, self::FIELD_PHASE, self::FIELD_GATE], true)) {
                 continue;
             }
             $current = AiValueNormalizer::trimmedStringOrNull($change[self::FIELD_CURRENT] ?? null) ?? '';

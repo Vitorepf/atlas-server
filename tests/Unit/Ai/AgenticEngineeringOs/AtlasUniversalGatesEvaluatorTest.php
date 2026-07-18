@@ -11318,4 +11318,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b543_aaeos_doc_gate_context_pareto_outcome_causality_summary_floor_count']);
     }
 
+    public function test_b544_aaeos_implementation_department_value_portfolio_budget_deferred_phase_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b544AaeosImplementationDepartmentValuePortfolioBudgetDeferredPhaseFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_SYMBOL, $out['symbol']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_MEDIUM, $out['medium']);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_WEIGHT_CHANGE_REFUSED_MISSING_AMENDMENT_RECEIPT, $out['weight_change_refused_missing_amendment_receipt']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_ATLAS_AAEOS_DEFERRED_JSONL, $out['atlas/aaeos/deferred.jsonl']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_SPEC_PACK_HASH, $out['spec_pack_hash']);
+        $this->assertSame(RunbookOrchestrator::FIELD_DEPARTMENT, $out['department']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_APP_ATLAS_EVIDENCE, $out['app/atlas/evidence']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_PIPELINE_STATUS, $out['pipeline_status']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_ATLAS_ACMF, $out['atlas/acmf']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_ATLAS_FRONTIER_EXTERNAL_EVENTS_JSONL, $out['atlas/frontier/external_events.jsonl']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_AI_FORGE_WORK_PACKET_EXECUTION_CYCLES, $out['ai_forge_work_packet_execution_cycles']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_NORMAL, $out['normal']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_AUTONOMOUS_ENGINEERING, $out['autonomous_engineering']);
+        $this->assertSame(ImmuneSignatureDeriver::FIELD_UNTRUSTED_CONTENT, $out['untrusted_content']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_UNTRUSTED_CONTENT, $out['untrusted_content']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_PAPER_OVERSHOOT, $out['paper_overshoot']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_WRONG_CONTEXT_COUNT, $out['wrong_context_count']);
+        $this->assertSame(18, $out['b544_aaeos_implementation_department_value_portfolio_budget_deferred_phase_floor_count']);
+    }
+
 }

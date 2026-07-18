@@ -100,7 +100,7 @@ final class AtlasSurpriseGateService
         $surprise = AiValueNormalizer::clampUnit(count($novel) / count($candidateTokens));
 
         $record = $surprise >= $threshold;
-        $priority = ! $record ? self::FIELD_LOW : ($surprise >= $highBand ? self::FIELD_HIGH : 'normal');
+        $priority = ! $record ? self::FIELD_LOW : ($surprise >= $highBand ? self::FIELD_HIGH : self::FIELD_NORMAL);
 
         return [
             self::FIELD_SURPRISE => round($surprise, 4),

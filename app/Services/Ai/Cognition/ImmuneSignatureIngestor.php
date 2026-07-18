@@ -144,7 +144,7 @@ final class ImmuneSignatureIngestor
     {
         $inputClass = AiValueNormalizer::lowerTrimmedString($classification[self::FIELD_INPUT_CLASS] ?? '');
 
-        return in_array($inputClass, [self::FIELD_PROMPT_INJECTION, self::FIELD_PRIVATE_SENSITIVE, 'untrusted_content'], true)
+        return in_array($inputClass, [self::FIELD_PROMPT_INJECTION, self::FIELD_PRIVATE_SENSITIVE, self::FIELD_UNTRUSTED_CONTENT], true)
             ? $inputClass
             : null;
     }

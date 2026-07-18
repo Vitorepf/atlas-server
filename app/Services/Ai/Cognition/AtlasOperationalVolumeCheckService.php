@@ -204,7 +204,7 @@ final class AtlasOperationalVolumeCheckService
 
         if (DatabaseTableAvailability::has(self::FIELD_AI_FORGE_WORK_PACKET_EXECUTION_CYCLES)) {
             $available = true;
-            $sources[] = 'ai_forge_work_packet_execution_cycles';
+            $sources[] = self::FIELD_AI_FORGE_WORK_PACKET_EXECUTION_CYCLES;
             try {
                 $total += (int) AiForgeWorkPacketExecutionCycle::query()
                     ->whereBetween(self::FIELD_CREATED_AT, [$start, $end])

@@ -76,6 +76,7 @@ final class AtlasFrontierWaveLadder
     public const FIELD_SIS5 = 'SIS5';
     public const FIELD_SIS6 = 'SIS6';
     public const FIELD_SIS7 = 'SIS7';
+    public const FIELD_ATLAS_FRONTIER_EXTERNAL_EVENTS_JSONL = 'atlas/frontier/external_events.jsonl';
 
     /**
      * Waves in activation order (obra20 §Fase-0 + contexto-mestre §5).
@@ -95,7 +96,7 @@ final class AtlasFrontierWaveLadder
     public function __construct(?string $path = null)
     {
         $this->path = $path ?? (function_exists(self::FIELD_STORAGE_PATH)
-            ? storage_path('atlas/frontier/external_events.jsonl')
+            ? storage_path(self::FIELD_ATLAS_FRONTIER_EXTERNAL_EVENTS_JSONL)
             : sys_get_temp_dir().'/atlas/frontier/external_events.jsonl');
     }
 

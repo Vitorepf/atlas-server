@@ -60,6 +60,7 @@ final class AaeosDeferredPhaseDispatcherService
     public const FIELD_DEFERRED = 'deferred';
     public const FIELD_ATLAS_AAEOS_DEFERRED_CLAIMED_ = 'atlas.aaeos.deferred.claimed.';
     public const FIELD_ATLAS_AAEOS_DEFERRED_ENQUEUED_ = 'atlas.aaeos.deferred.enqueued.';
+    public const FIELD_ATLAS_AAEOS_DEFERRED_JSONL = 'atlas/aaeos/deferred.jsonl';
 
     public function __construct(
         private readonly CacheRepository $cache,
@@ -245,7 +246,7 @@ final class AaeosDeferredPhaseDispatcherService
 
     private function defaultQueuePath(): string
     {
-        return storage_path('atlas/aaeos/deferred.jsonl');
+        return storage_path(self::FIELD_ATLAS_AAEOS_DEFERRED_JSONL);
     }
 
     private function incrementCounter(string $key): void

@@ -14361,4 +14361,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B544).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b544AaeosImplementationDepartmentValuePortfolioBudgetDeferredPhaseFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'symbol' => AtlasAaeosImplementationTruthService::FIELD_SYMBOL,
+            'id' => AtlasAaeosDepartmentRegistryService::FIELD_ID,
+            'medium' => AtlasAaeosValueNormalizer::FIELD_MEDIUM,
+            'weight_change_refused_missing_amendment_receipt' => PortfolioBudgetAllocator::FIELD_WEIGHT_CHANGE_REFUSED_MISSING_AMENDMENT_RECEIPT,
+            'atlas/aaeos/deferred.jsonl' => AaeosDeferredPhaseDispatcherService::FIELD_ATLAS_AAEOS_DEFERRED_JSONL,
+            'spec_pack_hash' => ArchitectAgentSpecPackGateContract::FIELD_SPEC_PACK_HASH,
+            'department' => RunbookOrchestrator::FIELD_DEPARTMENT,
+            'app/atlas/evidence' => AtlasAcosWindowGatesService::FIELD_APP_ATLAS_EVIDENCE,
+            'pipeline_status' => AtlasCognitionScoreCardService::FIELD_PIPELINE_STATUS,
+            'atlas/acmf' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_ATLAS_ACMF,
+            'atlas/frontier/external_events.jsonl' => AtlasFrontierWaveLadder::FIELD_ATLAS_FRONTIER_EXTERNAL_EVENTS_JSONL,
+            'ai_forge_work_packet_execution_cycles' => AtlasOperationalVolumeCheckService::FIELD_AI_FORGE_WORK_PACKET_EXECUTION_CYCLES,
+            'normal' => AtlasSurpriseGateService::FIELD_NORMAL,
+            'autonomous_engineering' => CognitiveImmuneCheckContract::FIELD_AUTONOMOUS_ENGINEERING,
+            'untrusted_content' => ImmuneSignatureDeriver::FIELD_UNTRUSTED_CONTENT,
+            'untrusted_content' => ImmuneSignatureIngestor::FIELD_UNTRUSTED_CONTENT,
+            'paper_overshoot' => JointResourceBudgetWatchdogCheck::FIELD_PAPER_OVERSHOOT,
+            'wrong_context_count' => MemoryFeedbackDecayScorer::FIELD_WRONG_CONTEXT_COUNT,
+            'b544_aaeos_implementation_department_value_portfolio_budget_deferred_phase_floor_count' => 18,
+        ];
+    }
+
 }

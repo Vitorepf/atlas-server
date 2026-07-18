@@ -78,7 +78,7 @@ final class CognitiveImmuneCheckContract
 
     public static function defaults(
         string $findingId = '',
-        string $decisionSurface = 'autonomous_engineering',
+        string $decisionSurface = self::FIELD_AUTONOMOUS_ENGINEERING,
     ): self {
         return new self(
             findingId: $findingId,

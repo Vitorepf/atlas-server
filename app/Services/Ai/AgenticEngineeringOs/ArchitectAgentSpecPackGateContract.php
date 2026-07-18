@@ -76,7 +76,7 @@ final class ArchitectAgentSpecPackGateContract
      * @var list<string>
      */
     public const EVIDENCE_REQUIRED = [
-        'spec_pack_hash',
+        self::FIELD_SPEC_PACK_HASH,
         self::FIELD_ARCHITECT_DECISION_RECEIPT,
     ];
 
