@@ -47,6 +47,8 @@ final class SpecCompletenessScorer
     public const FIELD_EARNED = 'earned';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_VERDICT = 'verdict';
+    public const FIELD_FIELDS = 'fields';
+    public const FIELD_MISSING_OR_WEAK = 'missing_or_weak';
 
 
     /**
@@ -138,8 +140,8 @@ final class SpecCompletenessScorer
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_TOTAL_SCORE => $totalScore,
             self::FIELD_VERDICT => $this->verdict($totalScore),
-            'fields' => $fields,
-            'missing_or_weak' => $missing,
+            self::FIELD_FIELDS => $fields,
+            self::FIELD_MISSING_OR_WEAK => $missing,
             'present_count' => $presentCount,
             'total_fields' => self::TOTAL_FIELDS,
         ];

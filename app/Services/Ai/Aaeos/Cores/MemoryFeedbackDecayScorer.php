@@ -47,6 +47,8 @@ final class MemoryFeedbackDecayScorer
     public const FIELD_INPUTS_ECHO = 'inputs_echo';
     public const FIELD_RECALL_EVAL_HIT_RATE = 'recall_eval_hit_rate';
     public const FIELD_BASE_PRIORITY = 'base_priority';
+    public const FIELD_LAST_USED_AT_AGE_DAYS = 'last_used_at_age_days';
+    public const FIELD_NEGATIVE_COUNT = 'negative_count';
 
     /**
      * @param  array<string, mixed>  $signals
@@ -125,12 +127,12 @@ final class MemoryFeedbackDecayScorer
             self::FIELD_THRESHOLD_REASONS => array_values($reasons),
             self::FIELD_INPUTS_ECHO => [
                 'positive_count' => $positive,
-                'negative_count' => $negative,
+                self::FIELD_NEGATIVE_COUNT => $negative,
                 'wrong_context_count' => $wrongContext,
                 'stale_count' => $stale,
                 self::FIELD_BASE_PRIORITY => $basePriority,
                 'recorded_at_age_days' => $recordedAge,
-                'last_used_at_age_days' => $lastUsedAge,
+                self::FIELD_LAST_USED_AT_AGE_DAYS => $lastUsedAge,
                 self::FIELD_RECALL_EVAL_HIT_RATE => $hitRate,
             ],
         ];

@@ -5896,5 +5896,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['lote2_health_horizon_promoter_capture_obra_dual_truth_vision_floor_count']);
     }
 
+    public function test_registry_spec_summary_memory_segment_pareto_recall_outcome_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->registrySpecSummaryMemorySegmentParetoRecallOutcomeFloorsContractObserve([]);
+
+        $this->assertSame('schema_version', $payload['registry_field_schema_version']);
+        $this->assertSame('department_count', $payload['registry_field_department_count']);
+        $this->assertSame('fields', $payload['spec_field_fields']);
+        $this->assertSame('missing_or_weak', $payload['spec_field_missing_or_weak']);
+        $this->assertSame('context_retention_score', $payload['summary_field_context_retention_score']);
+        $this->assertSame('decision_total', $payload['summary_field_decision_total']);
+        $this->assertSame('admitted', $payload['budget_field_admitted']);
+        $this->assertSame('admitted_count', $payload['budget_field_admitted_count']);
+        $this->assertSame('last_used_at_age_days', $payload['decay_field_last_used_at_age_days']);
+        $this->assertSame('negative_count', $payload['decay_field_negative_count']);
+        $this->assertSame('boundary_index', $payload['segment_field_boundary_index']);
+        $this->assertSame('dropped_count', $payload['segment_field_dropped_count']);
+        $this->assertSame('admitted', $payload['pareto_field_admitted']);
+        $this->assertSame('equals', $payload['pareto_field_equals']);
+        $this->assertSame('engineering_run', $payload['recall_field_engineering_run']);
+        $this->assertSame('feedback', $payload['recall_field_feedback']);
+        $this->assertSame('allowed_files_sufficient', $payload['outcome_field_allowed_files_sufficient']);
+        $this->assertSame('alternative_explanations', $payload['outcome_field_alternative_explanations']);
+        $this->assertSame(18, $payload['registry_spec_summary_memory_segment_pareto_recall_outcome_floor_count']);
+    }
+
 
 }

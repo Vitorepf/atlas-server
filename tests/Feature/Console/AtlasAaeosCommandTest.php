@@ -6228,6 +6228,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_registry_spec_summary_memory_segment_pareto_recall_outcome_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-rssmspro-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-rssmspro',
+                '--registry-spec-summary-memory-segment-pareto-recall-outcome-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"registry_spec_summary_memory_segment_pareto_recall_outcome_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

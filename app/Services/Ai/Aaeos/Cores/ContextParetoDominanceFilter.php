@@ -38,6 +38,8 @@ final class ContextParetoDominanceFilter
     public const FIELD_FRONTIER = 'frontier';
     public const FIELD_DOMINATED_BY = 'dominated_by';
     public const FIELD_STATUS = 'status';
+    public const FIELD_ADMITTED = 'admitted';
+    public const FIELD_EQUALS = 'equals';
 
 
     /**
@@ -120,7 +122,7 @@ final class ContextParetoDominanceFilter
             'evaluated' => $evaluated,
             'summary' => [
                 'total' => count($variants),
-                'admitted' => $admittedCount,
+                self::FIELD_ADMITTED => $admittedCount,
                 self::FIELD_BLOCKED => $blockedCount,
                 self::FIELD_FRONTIER => $frontierCount,
                 self::FIELD_DOMINATED => $dominatedCount,
@@ -231,7 +233,7 @@ final class ContextParetoDominanceFilter
         $value = $variant[$field] ?? null;
 
         if (array_key_exists('equals', $rule)) {
-            if ($value !== $rule['equals']) {
+            if ($value !== $rule[self::FIELD_EQUALS]) {
                 return false;
             }
         }

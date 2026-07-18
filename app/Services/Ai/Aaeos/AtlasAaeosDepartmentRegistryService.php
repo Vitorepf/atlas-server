@@ -22,6 +22,8 @@ class AtlasAaeosDepartmentRegistryService
     public const FIELD_VALID = 'valid';
     public const FIELD_ESCALATION_TO = 'escalation_to';
     public const FIELD_BLOCKERS = 'blockers';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_DEPARTMENT_COUNT = 'department_count';
 
     /**
      * The 12 mandatory fields — a department missing any is a blocker.
@@ -82,7 +84,7 @@ class AtlasAaeosDepartmentRegistryService
         }
 
         return [
-            'schema_version' => self::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             'id' => $id,
             self::FIELD_VALID => $blockers === [],
             self::FIELD_BLOCKERS => $blockers,
@@ -120,9 +122,9 @@ class AtlasAaeosDepartmentRegistryService
             && collect($results)->every(fn (array $r): bool => $r[self::FIELD_VALID] === true);
 
         return [
-            'schema_version' => self::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             self::FIELD_VALID => $allValid,
-            'department_count' => count($departments),
+            self::FIELD_DEPARTMENT_COUNT => count($departments),
             'duplicate_ids' => $duplicateIds,
             'escalation_cycles' => $cycles,
             'departments' => $results,

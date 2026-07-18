@@ -20,6 +20,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
 final class AtlasMemoryRecallRelevanceScorer
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.memory_recall_ranking.v1';
+    public const FIELD_ENGINEERING_RUN = 'engineering_run';
+    public const FIELD_FEEDBACK = 'feedback';
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -65,7 +67,7 @@ final class AtlasMemoryRecallRelevanceScorer
     {
         return match ($scope) {
             'task' => 22,
-            'engineering_run' => 20,
+            self::FIELD_ENGINEERING_RUN => 20,
             'project' => 16,
             'workspace' => 12,
             'session' => 10,
@@ -83,7 +85,7 @@ final class AtlasMemoryRecallRelevanceScorer
             'decision', 'resolution', 'requirement' => 16,
             'issue', 'failure' => 14,
             'technical_context', 'command', 'evidence', 'harness_learning' => 11,
-            'preference', 'feedback' => 8,
+            'preference', self::FIELD_FEEDBACK => 8,
             default => 5,
         };
     }

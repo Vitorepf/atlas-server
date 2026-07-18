@@ -27,6 +27,8 @@ final class SummaryFidelityCoverageScorer
     public const VERDICT_DEGRADED = 'degraded';
 
     public const VERDICT_FAILED = 'failed';
+    public const FIELD_CONTEXT_RETENTION_SCORE = 'context_retention_score';
+    public const FIELD_DECISION_TOTAL = 'decision_total';
 
 
     /**
@@ -131,12 +133,12 @@ final class SummaryFidelityCoverageScorer
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'verdict' => $verdict,
-            'context_retention_score' => $contextRetentionScore,
+            self::FIELD_CONTEXT_RETENTION_SCORE => $contextRetentionScore,
             'missed_decision_rate' => $missedDecisionRate,
             'required_total' => $requiredTotal,
             'present_total' => $presentTotal,
             'missing_total' => $missingTotal,
-            'decision_total' => $decisionTotal,
+            self::FIELD_DECISION_TOTAL => $decisionTotal,
             'missing_item_ids' => $missingItemIds,
             'present_item_ids' => $presentItemIds,
             'missing_decision_ids' => $missingDecisionIds,

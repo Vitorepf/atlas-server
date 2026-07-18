@@ -7813,6 +7813,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for registry/spec/summary/memory/segment/pareto/recall/outcome peels.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function registrySpecSummaryMemorySegmentParetoRecallOutcomeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'registry_field_schema_version' => AtlasAaeosDepartmentRegistryService::FIELD_SCHEMA_VERSION,
+            'registry_field_department_count' => AtlasAaeosDepartmentRegistryService::FIELD_DEPARTMENT_COUNT,
+            'spec_field_fields' => SpecCompletenessScorer::FIELD_FIELDS,
+            'spec_field_missing_or_weak' => SpecCompletenessScorer::FIELD_MISSING_OR_WEAK,
+            'summary_field_context_retention_score' => SummaryFidelityCoverageScorer::FIELD_CONTEXT_RETENTION_SCORE,
+            'summary_field_decision_total' => SummaryFidelityCoverageScorer::FIELD_DECISION_TOTAL,
+            'budget_field_admitted' => MemoryInjectionBudgetAllocator::FIELD_ADMITTED,
+            'budget_field_admitted_count' => MemoryInjectionBudgetAllocator::FIELD_ADMITTED_COUNT,
+            'decay_field_last_used_at_age_days' => MemoryFeedbackDecayScorer::FIELD_LAST_USED_AT_AGE_DAYS,
+            'decay_field_negative_count' => MemoryFeedbackDecayScorer::FIELD_NEGATIVE_COUNT,
+            'segment_field_boundary_index' => SegmentImportanceRanker::FIELD_BOUNDARY_INDEX,
+            'segment_field_dropped_count' => SegmentImportanceRanker::FIELD_DROPPED_COUNT,
+            'pareto_field_admitted' => ContextParetoDominanceFilter::FIELD_ADMITTED,
+            'pareto_field_equals' => ContextParetoDominanceFilter::FIELD_EQUALS,
+            'recall_field_engineering_run' => AtlasMemoryRecallRelevanceScorer::FIELD_ENGINEERING_RUN,
+            'recall_field_feedback' => AtlasMemoryRecallRelevanceScorer::FIELD_FEEDBACK,
+            'outcome_field_allowed_files_sufficient' => OutcomeCausalityRanker::FIELD_ALLOWED_FILES_SUFFICIENT,
+            'outcome_field_alternative_explanations' => OutcomeCausalityRanker::FIELD_ALTERNATIVE_EXPLANATIONS,
+            'registry_spec_summary_memory_segment_pareto_recall_outcome_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

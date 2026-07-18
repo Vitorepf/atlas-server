@@ -54,6 +54,8 @@ final class OutcomeCausalityRanker
     public const FIELD_OUTCOME = 'outcome';
     public const FIELD_CAUSES = 'causes';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_ALLOWED_FILES_SUFFICIENT = 'allowed_files_sufficient';
+    public const FIELD_ALTERNATIVE_EXPLANATIONS = 'alternative_explanations';
 
     /** @var list<string> */
     public const PRIMARY_CAUSES = [
@@ -140,7 +142,7 @@ final class OutcomeCausalityRanker
         $hasEvidenceRefs = (AiValueNormalizer::boolOrNull($envelope['has_evidence_refs'] ?? null) ?? false);
         $testsPassed = array_key_exists('tests_passed', $envelope) ? $envelope['tests_passed'] : null;
         $missingRequiredSources = (AiValueNormalizer::boolOrNull($envelope['missing_required_sources'] ?? null) ?? false);
-        $allowedFilesSufficient = (AiValueNormalizer::boolOrNull($envelope['allowed_files_sufficient'] ?? null) ?? true);
+        $allowedFilesSufficient = (AiValueNormalizer::boolOrNull($envelope[self::FIELD_ALLOWED_FILES_SUFFICIENT] ?? null) ?? true);
         $packetQualityFailed = (AiValueNormalizer::boolOrNull($envelope['packet_quality_failed'] ?? null) ?? false);
 
         $candidates = $this->buildCandidates(
@@ -208,7 +210,7 @@ final class OutcomeCausalityRanker
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'candidates' => $ranked,
             'primary_cause' => $primaryCause,
-            'alternative_explanations' => $alternativeExplanations,
+            self::FIELD_ALTERNATIVE_EXPLANATIONS => $alternativeExplanations,
             'attribution_confidence' => $this->attributionConfidence($primaryCause),
             'attribution_blocked' => ! $hasEvidenceRefs,
         ];
