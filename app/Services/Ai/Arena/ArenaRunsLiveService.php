@@ -32,6 +32,12 @@ final class ArenaRunsLiveService
             $state = $this->readJson(RunPaths::runDir($runId).'/state.json');
             $manifest = $this->readJson(RunPaths::nativeManifestPath($runId));
             $latest = $this->latestMeasurementForRun($runId);
+            // Run órfão (state sem manifest/medição = plan abortado) sai do
+            // feed: uma entrada sem `suite` derrubava o decode do app INTEIRO
+            // e a seção AGORA sumia da Arena (pego 2026-07-18, ar_1455cf…).
+            if (($manifest['suite_id'] ?? $latest['suite'] ?? null) === null) {
+                continue;
+            }
             $status = ($state['state'] ?? null) === RunStateMachine::NATIVE_RUNNING ? 'running' : 'queued';
             $runs[] = array_filter([
                 'run_id_public' => $this->store->publicRunId($runId),
