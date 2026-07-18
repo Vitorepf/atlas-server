@@ -14549,4 +14549,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b674_local_model_floor_count']);
     }
 
+    public function test_b675_ambition_rung_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b675AmbitionRungFloorsContractObserve([]);
+        $this->assertSame(AmbitionRungPolicy::FIELD_ID, $out['id']);
+        $this->assertSame(AmbitionRungPolicy::FIELD_RUNG_DISTRIBUTION, $out['rung_distribution']);
+        $this->assertSame(AmbitionRungPolicy::SCHEMA_VERSION, $out['atlas.originator.ambition_rung_policy.v1']);
+        $this->assertSame(AmbitionRungPolicy::RUNG_TASK, $out['task']);
+        $this->assertSame(AmbitionRungPolicy::RUNG_SLICE, $out['slice']);
+        $this->assertSame(AmbitionRungPolicy::RUNG_OBRA, $out['obra']);
+        $this->assertSame(AmbitionRungPolicy::RUNG_SALTO, $out['salto']);
+        $this->assertSame(AmbitionRungPolicy::FIELD_ENABLED, $out['enabled']);
+        $this->assertSame(AmbitionRungPolicy::FIELD_RUNG, $out['rung']);
+        $this->assertSame(AmbitionRungPolicy::FIELD_LEVERAGE, $out['leverage']);
+        $this->assertSame(AmbitionRungPolicy::FIELD_BASIS, $out['basis']);
+        $this->assertSame(AmbitionRungPolicy::FIELD_CURRENT_RUNG, $out['current_rung']);
+        $this->assertSame(AmbitionRungPolicy::FIELD_PROVIDER_CALLS_MADE, $out['provider_calls_made']);
+        $this->assertSame(AmbitionRungPolicy::FIELD_REACTIVE_SATURATED, $out['reactive_saturated']);
+        $this->assertSame(AmbitionRungPolicy::BASIS_FLAG_DISABLED, $out['flag_disabled']);
+        $this->assertSame(AmbitionRungPolicy::BASIS_NOT_SATURATED, $out['not_saturated']);
+        $this->assertSame(AmbitionRungPolicy::BASIS_RUNG_UP_AFTER_SATURATION, $out['rung_up_after_saturation']);
+        $this->assertSame(AmbitionRungPolicy::FIELD_SELECTED_RUNG, $out['selected_rung']);
+        $this->assertSame(18, $out['b675_ambition_rung_floor_count']);
+    }
+
 }

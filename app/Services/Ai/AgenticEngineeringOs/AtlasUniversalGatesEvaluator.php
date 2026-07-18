@@ -18373,4 +18373,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B675).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b675AmbitionRungFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'id' => AmbitionRungPolicy::FIELD_ID,
+            'rung_distribution' => AmbitionRungPolicy::FIELD_RUNG_DISTRIBUTION,
+            'atlas.originator.ambition_rung_policy.v1' => AmbitionRungPolicy::SCHEMA_VERSION,
+            'task' => AmbitionRungPolicy::RUNG_TASK,
+            'slice' => AmbitionRungPolicy::RUNG_SLICE,
+            'obra' => AmbitionRungPolicy::RUNG_OBRA,
+            'salto' => AmbitionRungPolicy::RUNG_SALTO,
+            'enabled' => AmbitionRungPolicy::FIELD_ENABLED,
+            'rung' => AmbitionRungPolicy::FIELD_RUNG,
+            'leverage' => AmbitionRungPolicy::FIELD_LEVERAGE,
+            'basis' => AmbitionRungPolicy::FIELD_BASIS,
+            'current_rung' => AmbitionRungPolicy::FIELD_CURRENT_RUNG,
+            'provider_calls_made' => AmbitionRungPolicy::FIELD_PROVIDER_CALLS_MADE,
+            'reactive_saturated' => AmbitionRungPolicy::FIELD_REACTIVE_SATURATED,
+            'flag_disabled' => AmbitionRungPolicy::BASIS_FLAG_DISABLED,
+            'not_saturated' => AmbitionRungPolicy::BASIS_NOT_SATURATED,
+            'rung_up_after_saturation' => AmbitionRungPolicy::BASIS_RUNG_UP_AFTER_SATURATION,
+            'selected_rung' => AmbitionRungPolicy::FIELD_SELECTED_RUNG,
+            'b675_ambition_rung_floor_count' => 18,
+        ];
+    }
+
 }
