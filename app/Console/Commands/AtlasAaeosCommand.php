@@ -755,6 +755,7 @@ final class AtlasAaeosCommand extends Command
                             {--b730-capture-hmac-floors-contract= : JSON file (any object) to observe capture/hmac floors}
                             {--b731-acos-window-floors-contract= : JSON file (any object) to observe acos/window floors}
                             {--b732-context-nudge-floors-contract= : JSON file (any object) to observe context/nudge floors}
+                            {--b733-operational-volume-floors-contract= : JSON file (any object) to observe operational/volume floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1666,6 +1667,7 @@ final class AtlasAaeosCommand extends Command
             ['b730-capture-hmac-floors-contract', 'b730_capture_hmac_floors_contract', fn (array $p) => $gates->b730CaptureHmacFloorsContractObserve($p)],
             ['b731-acos-window-floors-contract', 'b731_acos_window_floors_contract', fn (array $p) => $gates->b731AcosWindowFloorsContractObserve($p)],
             ['b732-context-nudge-floors-contract', 'b732_context_nudge_floors_contract', fn (array $p) => $gates->b732ContextNudgeFloorsContractObserve($p)],
+            ['b733-operational-volume-floors-contract', 'b733_operational_volume_floors_contract', fn (array $p) => $gates->b733OperationalVolumeFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

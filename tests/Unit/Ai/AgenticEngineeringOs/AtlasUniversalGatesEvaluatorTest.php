@@ -16000,4 +16000,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b732_context_nudge_floor_count']);
     }
 
+    public function test_b733_operational_volume_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b733OperationalVolumeFloorsContractObserve([]);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_DEV, $out['dev']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::SCHEMA_VERSION, $out['atlas.acos.operational_volume.v1']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::DEV_RUNS_PER_BUSINESS_DAY_MIN, $out['3']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FORGE_CYCLES_PER_WEEK_MIN, $out['5']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::PREREQUISITE_GAP_HERMES_01, $out['GAP-HERMES-01']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::STATUS_HEALTHY, $out['healthy']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::STATUS_SKIPPED, $out['skipped']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::STATUS_ALERT, $out['alert']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_AVAILABLE, $out['available']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_COUNT, $out['count']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_SOURCES, $out['sources']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_OK, $out['ok']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_VOLUME, $out['volume']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_END, $out['end']);
+        $this->assertSame(18, $out['b733_operational_volume_floor_count']);
+    }
+
 }

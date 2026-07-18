@@ -20171,4 +20171,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B733).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b733OperationalVolumeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'dev' => AtlasOperationalVolumeCheckService::FIELD_DEV,
+            'forge' => AtlasOperationalVolumeCheckService::FIELD_FORGE,
+            'atlas.acos.operational_volume.v1' => AtlasOperationalVolumeCheckService::SCHEMA_VERSION,
+            '3' => AtlasOperationalVolumeCheckService::DEV_RUNS_PER_BUSINESS_DAY_MIN,
+            '5' => AtlasOperationalVolumeCheckService::FORGE_CYCLES_PER_WEEK_MIN,
+            'GAP-HERMES-01' => AtlasOperationalVolumeCheckService::PREREQUISITE_GAP_HERMES_01,
+            'healthy' => AtlasOperationalVolumeCheckService::STATUS_HEALTHY,
+            'skipped' => AtlasOperationalVolumeCheckService::STATUS_SKIPPED,
+            'alert' => AtlasOperationalVolumeCheckService::STATUS_ALERT,
+            'available' => AtlasOperationalVolumeCheckService::FIELD_AVAILABLE,
+            'count' => AtlasOperationalVolumeCheckService::FIELD_COUNT,
+            'sources' => AtlasOperationalVolumeCheckService::FIELD_SOURCES,
+            'status' => AtlasOperationalVolumeCheckService::FIELD_STATUS,
+            'reason' => AtlasOperationalVolumeCheckService::FIELD_REASON,
+            'ok' => AtlasOperationalVolumeCheckService::FIELD_OK,
+            'volume' => AtlasOperationalVolumeCheckService::FIELD_VOLUME,
+            'threshold' => AtlasOperationalVolumeCheckService::FIELD_THRESHOLD,
+            'end' => AtlasOperationalVolumeCheckService::FIELD_END,
+            'b733_operational_volume_floor_count' => 18,
+        ];
+    }
+
 }
