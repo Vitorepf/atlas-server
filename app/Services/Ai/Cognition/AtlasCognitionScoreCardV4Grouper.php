@@ -48,6 +48,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_PERSISTENT_CONTEXT = 'persistent_context';
     public const FIELD_SERVICE_CLASS = 'service_class';
     public const FIELD_SUPPLEMENTAL = 'supplemental';
+    public const FIELD_TEOS = 'teos';
+    public const FIELD_VERIFIED_CONTEXT = 'verified_context';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -142,7 +144,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_ATLAS_DECIDE => 'DECIDE',
             self::FIELD_COMPOUNDING => 'COMPOUND',
             'reality', self::FIELD_CROSS_DOMAIN => 'REALITY',
-            'teos' => 'TEOS',
+            self::FIELD_TEOS => 'TEOS',
             self::FIELD_COGNITION => 'COGNITION',
             self::FIELD_AUTONOMY => 'AUTONOMY',
             'patamar4', 'patamar_4', self::FIELD_INTEGRATION => 'PATAMAR4',
@@ -151,7 +153,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_PERSISTENT_CONTEXT => 'PERSISTENT-CONTEXT',
             self::FIELD_AEMOR => 'AEMOR',
             self::FIELD_LONG_HORIZON => 'LONG-HORIZON',
-            'verified_context' => 'VERIFIED-CONTEXT',
+            self::FIELD_VERIFIED_CONTEXT => 'VERIFIED-CONTEXT',
             self::FIELD_CONTEXT_QUALITY => 'CONTEXT-QUALITY',
             self::FIELD_OPEN_BRAIN => 'OPEN-BRAIN',
             self::FIELD_EVIDENCE => 'EVIDENCE',

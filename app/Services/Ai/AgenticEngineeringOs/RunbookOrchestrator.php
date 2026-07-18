@@ -68,6 +68,8 @@ final class RunbookOrchestrator
     public const FIELD_LIMITATION = 'limitation';
     public const FIELD_LIMITATION_OBSERVED = 'limitation_observed';
     public const FIELD_MOTIVATING_EVIDENCE = 'motivating_evidence';
+    public const FIELD_PROMOTION_GATES = 'promotion_gates';
+    public const FIELD_PROPOSAL_ID = 'proposal_id';
 
     /**
      * Canonical default flow for a non-trivial intent. Trivial intents
@@ -205,7 +207,7 @@ final class RunbookOrchestrator
 
         $proposal = [
             'schema' => self::ARCHITECTURE_REDESIGN_PROPOSAL_SCHEMA,
-            'proposal_id' => 'arp-'.bin2hex(random_bytes(8)),
+            self::FIELD_PROPOSAL_ID => 'arp-'.bin2hex(random_bytes(8)),
             self::FIELD_TITLE => $title,
             self::FIELD_STRUCTURAL_CHANGES => $structuralChanges,
             'runtime_baseline' => [
@@ -221,7 +223,7 @@ final class RunbookOrchestrator
             ],
             self::FIELD_TOUCHES_SOVEREIGNTY_LAYER => $touchesSovereignty,
             'safety_sovereignty_block_applied' => $touchesSovereignty,
-            'promotion_gates' => [
+            self::FIELD_PROMOTION_GATES => [
                 'replay_obras_count_min' => self::REPLAY_OBRAS_COUNT_MIN,
                 'replay_regression_observed_count_max' => 0,
                 self::FIELD_DUAL_SIGNATURE_REQUIRED => true,

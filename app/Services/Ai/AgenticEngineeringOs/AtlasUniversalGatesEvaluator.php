@@ -9862,4 +9862,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B398).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function loteMeasureRunbookAcosLongCognitionScoreCognitiveFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'retrieval_policy_changed' => AcosMaxLote2MeasureService::FIELD_RETRIEVAL_POLICY_CHANGED,
+            'retrieval_receipt_id' => AcosMaxLote2MeasureService::FIELD_RETRIEVAL_RECEIPT_ID,
+            'promotion_gates' => RunbookOrchestrator::FIELD_PROMOTION_GATES,
+            'proposal_id' => RunbookOrchestrator::FIELD_PROPOSAL_ID,
+            'overall_out_of_10' => AtlasAcosLongHorizonGateService::FIELD_OVERALL_OUT_OF_10,
+            'overall_score' => AtlasAcosLongHorizonGateService::FIELD_OVERALL_SCORE,
+            'provider_safe_only_enforced' => AtlasCognitionScoreCardService::FIELD_PROVIDER_SAFE_ONLY_ENFORCED,
+            'readiness_definition' => AtlasCognitionScoreCardService::FIELD_READINESS_DEFINITION,
+            'teos' => AtlasCognitionScoreCardV4Grouper::FIELD_TEOS,
+            'verified_context' => AtlasCognitionScoreCardV4Grouper::FIELD_VERIFIED_CONTEXT,
+            'teos' => AtlasCognitiveFunctionAtlasService::FIELD_TEOS,
+            'total' => AtlasCognitiveFunctionAtlasService::FIELD_TOTAL,
+            'input' => AtlasCognitiveFunctionDecomposerService::FIELD_INPUT,
+            'schema' => AtlasCognitiveFunctionDecomposerService::FIELD_SCHEMA,
+            'reference_count' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_REFERENCE_COUNT,
+            'requires_human_approval' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_REQUIRES_HUMAN_APPROVAL,
+            'privacy_guarantees' => AtlasImmuneClassifierHybridFreeze::FIELD_PRIVACY_GUARANTEES,
+            'provider_calls_in_arm_path' => AtlasImmuneClassifierHybridFreeze::FIELD_PROVIDER_CALLS_IN_ARM_PATH,
+            'lote_measure_runbook_acos_long_cognition_score_cognitive_floor_count' => 18,
+        ];
+    }
+
 }

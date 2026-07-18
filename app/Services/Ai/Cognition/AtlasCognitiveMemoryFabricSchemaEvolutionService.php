@@ -81,6 +81,8 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_IS_PROPOSAL = 'is_proposal';
     public const FIELD_PRESSURE_DETECTED = 'pressure_detected';
     public const FIELD_PROPOSAL_HASH = 'proposal_hash';
+    public const FIELD_REFERENCE_COUNT = 'reference_count';
+    public const FIELD_REQUIRES_HUMAN_APPROVAL = 'requires_human_approval';
 
     private ?string $proposalsLogOverride = null;
 
@@ -162,7 +164,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
             self::FIELD_DOC_SKELETON => $this->docSkeleton($currentSchema, $nextSchema, $addedFields, $deprecatedFields),
             self::FIELD_KERNEL_DECISION => $kernelEnv[self::FIELD_DECISION],
             self::FIELD_ADMISSION_DECISION => $admissionEnv[self::FIELD_DECISION],
-            'requires_human_approval' => true,
+            self::FIELD_REQUIRES_HUMAN_APPROVAL => true,
             self::FIELD_IS_PROPOSAL => true,
         ];
         $proposal[self::FIELD_PROPOSAL_HASH] = 'sha256:'.hash('sha256', json_encode([
@@ -231,7 +233,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
 
         return [
             self::FIELD_SCHEMA => $schema,
-            'reference_count' => $referenceCount,
+            self::FIELD_REFERENCE_COUNT => $referenceCount,
             self::FIELD_FILES_MATCHING => $matched,
             self::FIELD_FILES_SCANNED => $scanned,
             'threshold' => $threshold,

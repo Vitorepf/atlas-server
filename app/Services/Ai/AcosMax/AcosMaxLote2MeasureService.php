@@ -232,6 +232,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_REQUIRES_PROVEN_REAL = 'requires_proven_real';
     public const FIELD_REQUIRES_SUBSEQUENT_MEASURED_RECALL = 'requires_subsequent_measured_recall';
     public const FIELD_RESOLVED_OUTCOMES = 'resolved_outcomes';
+    public const FIELD_RETRIEVAL_POLICY_CHANGED = 'retrieval_policy_changed';
+    public const FIELD_RETRIEVAL_RECEIPT_ID = 'retrieval_receipt_id';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -494,7 +496,7 @@ final class AcosMaxLote2MeasureService
             'task_id' => $taskId,
             self::FIELD_OUTCOME_ID => AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? '',
             self::FIELD_DECISION_ID => $decisionId,
-            'retrieval_receipt_id' => $delivery === null ? null : (AiValueNormalizer::trimmedScalarStringOrNull($delivery->retrieval_receipt_id ?? null) ?? ''),
+            self::FIELD_RETRIEVAL_RECEIPT_ID => $delivery === null ? null : (AiValueNormalizer::trimmedScalarStringOrNull($delivery->retrieval_receipt_id ?? null) ?? ''),
             self::FIELD_LEARNING_CANDIDATE_ID => $candidate === null ? null : (AiValueNormalizer::trimmedScalarStringOrNull($candidate->id ?? null) ?? ''),
             'subsequent_recall_feedback_id' => $recall === null ? null : (AiValueNormalizer::trimmedScalarStringOrNull($recall->id ?? null) ?? ''),
         ];
@@ -953,7 +955,7 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_READ_ONLY => true,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
                 self::FIELD_MEMORY_WRITTEN => false,
-                'retrieval_policy_changed' => false,
+                self::FIELD_RETRIEVAL_POLICY_CHANGED => false,
                 self::FIELD_RECORD_USAGE_FOR_PEEK => false,
                 self::FIELD_SYNTHETIC_FIXTURE_CLAIM_ALLOWED => false,
                 self::FIELD_COMPLETION_CLAIM_ALLOWED => false,

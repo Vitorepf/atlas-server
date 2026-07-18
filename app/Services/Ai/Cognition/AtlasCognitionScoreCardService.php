@@ -161,6 +161,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_MAX = 'max';
     public const FIELD_MUST_KEEP_COVERAGE_INVARIANT = 'must_keep_coverage_invariant';
     public const FIELD_PIPELINE = 'pipeline';
+    public const FIELD_PROVIDER_SAFE_ONLY_ENFORCED = 'provider_safe_only_enforced';
+    public const FIELD_READINESS_DEFINITION = 'readiness_definition';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -357,7 +359,7 @@ class AtlasCognitionScoreCardService
             self::FIELD_SCORE => $score,
             self::FIELD_CLAIM_POLICY => $this->claimPolicy(),
             self::FIELD_NOTES => [
-                'readiness_definition' => 'A unique service facet is ready when code, doc and pipeline are ready. Alias facets remain visible but are not scored twice. Real-world volume remains separate.',
+                self::FIELD_READINESS_DEFINITION => 'A unique service facet is ready when code, doc and pipeline are ready. Alias facets remain visible but are not scored twice. Real-world volume remains separate.',
             ],
         ];
         $envelope[self::FIELD_SCORECARD_HASH] = $this->hash($rows, $score);
@@ -477,7 +479,7 @@ class AtlasCognitionScoreCardService
             self::FIELD_EXTERNAL_RIVALS_CERTIFICATION_TOUCHED => false,
             self::FIELD_COGNITIVE_IMMUNE_LAW_ENFORCED => true,
             self::FIELD_MUST_KEEP_COVERAGE_INVARIANT => true,
-            'provider_safe_only_enforced' => true,
+            self::FIELD_PROVIDER_SAFE_ONLY_ENFORCED => true,
         ];
     }
 

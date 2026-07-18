@@ -74,6 +74,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_DOMINANT = 'dominant';
     public const FIELD_DOMINANT_FUNCTION = 'dominant_function';
     public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_INPUT = 'input';
+    public const FIELD_SCHEMA = 'schema';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -278,8 +280,8 @@ final class AtlasCognitiveFunctionDecomposerService
             self::FIELD_CLAIM_POLICY => $this->claimPolicy(),
         ];
         $envelope[self::FIELD_DECOMPOSITION_HASH] = 'sha256:'.hash('sha256', json_encode([
-            'schema' => self::SCHEMA,
-            'input' => $input,
+            self::FIELD_SCHEMA => self::SCHEMA,
+            self::FIELD_INPUT => $input,
             self::FIELD_WEIGHTS => $weights,
             self::FIELD_DOMINANT => $dominant,
             self::FIELD_CONTEXT => $envelope[self::FIELD_CONTEXT],

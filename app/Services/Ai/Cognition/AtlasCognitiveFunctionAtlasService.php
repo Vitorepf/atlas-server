@@ -100,6 +100,8 @@ class AtlasCognitiveFunctionAtlasService
     public const FIELD_REALITY = 'reality';
     public const FIELD_RECONCILIATION = 'reconciliation';
     public const FIELD_SCORE = 'score';
+    public const FIELD_TEOS = 'teos';
+    public const FIELD_TOTAL = 'total';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scoreCard,
@@ -240,7 +242,7 @@ class AtlasCognitiveFunctionAtlasService
             self::FIELD_SELF_CONSTRUCTION => [self::FIELD_SELF_CONSTRUCTION],
             self::FIELD_REALITY => [self::FIELD_AURG],
             self::FIELD_CROSS_DOMAIN => [self::FIELD_CROSS_DOMAIN],
-            'teos' => ['teos_i3', 'teos_i4'],
+            self::FIELD_TEOS => ['teos_i3', 'teos_i4'],
             self::FIELD_GOVERNANCE => [self::FIELD_GOVERNANCE],
             self::FIELD_AUTONOMY => [self::FIELD_RECONCILIATION],
             self::FIELD_COGNITION => [],
@@ -358,7 +360,7 @@ class AtlasCognitiveFunctionAtlasService
             $shape[] = [
                 self::FIELD_SCHEMA_VERSION => self::GROUP_SUMMARY_SCHEMA,
                 self::FIELD_GROUP => $g,
-                'total' => $total,
+                self::FIELD_TOTAL => $total,
                 self::FIELD_CODE_READY => $codeReady,
                 self::FIELD_DOC_READY => $docReady,
                 self::FIELD_PIPELINE_READY => $pipelineReady,

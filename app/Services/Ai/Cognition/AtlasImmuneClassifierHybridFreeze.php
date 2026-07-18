@@ -67,6 +67,8 @@ final class AtlasImmuneClassifierHybridFreeze
     public const FIELD_NOTE = 'note';
     public const FIELD_OFF_CONTRACT = 'off_contract';
     public const FIELD_OFF_SWITCH_BYTE_IDENTICAL = 'off_switch_byte_identical';
+    public const FIELD_PRIVACY_GUARANTEES = 'privacy_guarantees';
+    public const FIELD_PROVIDER_CALLS_IN_ARM_PATH = 'provider_calls_in_arm_path';
 
     /**
      * @return array<string,mixed>
@@ -124,10 +126,10 @@ final class AtlasImmuneClassifierHybridFreeze
                 'registry_status' => 'registered_elev_20s',
                 'source_type' => 'jsonl',
             ],
-            'privacy_guarantees' => [
+            self::FIELD_PRIVACY_GUARANTEES => [
                 self::FIELD_ANCHORS_LOCAL_ONLY => true,
                 self::FIELD_CANDIDATE_TEXT_LEAVES_MACHINE => false,
-                'provider_calls_in_arm_path' => 0,
+                self::FIELD_PROVIDER_CALLS_IN_ARM_PATH => 0,
             ],
             self::FIELD_OFF_SWITCH_BYTE_IDENTICAL => true,
         ];

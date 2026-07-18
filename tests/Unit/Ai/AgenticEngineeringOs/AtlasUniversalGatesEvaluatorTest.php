@@ -7674,4 +7674,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['immune_classifier_lote_measure_http_path_runbook_acos_floor_count']);
     }
 
+    public function test_lote_measure_runbook_acos_long_cognition_score_cognitive_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->loteMeasureRunbookAcosLongCognitionScoreCognitiveFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_RETRIEVAL_POLICY_CHANGED, $out['retrieval_policy_changed']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_RETRIEVAL_RECEIPT_ID, $out['retrieval_receipt_id']);
+        $this->assertSame(RunbookOrchestrator::FIELD_PROMOTION_GATES, $out['promotion_gates']);
+        $this->assertSame(RunbookOrchestrator::FIELD_PROPOSAL_ID, $out['proposal_id']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_OVERALL_OUT_OF_10, $out['overall_out_of_10']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_OVERALL_SCORE, $out['overall_score']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_PROVIDER_SAFE_ONLY_ENFORCED, $out['provider_safe_only_enforced']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_READINESS_DEFINITION, $out['readiness_definition']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_TEOS, $out['teos']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_VERIFIED_CONTEXT, $out['verified_context']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_TEOS, $out['teos']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_TOTAL, $out['total']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_INPUT, $out['input']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_SCHEMA, $out['schema']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_REFERENCE_COUNT, $out['reference_count']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_REQUIRES_HUMAN_APPROVAL, $out['requires_human_approval']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_PRIVACY_GUARANTEES, $out['privacy_guarantees']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_PROVIDER_CALLS_IN_ARM_PATH, $out['provider_calls_in_arm_path']);
+        $this->assertSame(18, $out['lote_measure_runbook_acos_long_cognition_score_cognitive_floor_count']);
+    }
+
 }

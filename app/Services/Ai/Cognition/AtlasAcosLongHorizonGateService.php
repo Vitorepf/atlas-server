@@ -143,6 +143,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_MIN_CERTIFICATION_WINDOW_OVERALL = 'min_certification_window_overall';
     public const FIELD_NOW = 'now';
     public const FIELD_OVERALL = 'overall';
+    public const FIELD_OVERALL_OUT_OF_10 = 'overall_out_of_10';
+    public const FIELD_OVERALL_SCORE = 'overall_score';
 
     /**
      * @param  array<string,mixed>  $options
@@ -437,7 +439,7 @@ final class AtlasAcosLongHorizonGateService
         }
 
         return array_merge($this->windowIntegrityProjection($window, $seriesPath, $resolvedEvidenceRows), [
-            'overall_score' => round($overall, 3),
+            self::FIELD_OVERALL_SCORE => round($overall, 3),
             'pipeline_score' => round($pipeline, 3),
             self::FIELD_SCORECARD_HASH => $scorecardHash,
             self::FIELD_LATEST_SERIES_OVERALL => round($latestSeriesOverall, 3),
@@ -883,7 +885,7 @@ final class AtlasAcosLongHorizonGateService
         $payload = [
             self::FIELD_SCHEMA_VERSION => AtlasCognitionScoreCardService::SCHEMA_VERSION,
             'score' => [
-                'overall_out_of_10' => $overall,
+                self::FIELD_OVERALL_OUT_OF_10 => $overall,
                 self::FIELD_DIMENSIONS => [
                     self::FIELD_CODE => [self::FIELD_SCORE_OUT_OF_10 => 10],
                     self::FIELD_DOC => [self::FIELD_SCORE_OUT_OF_10 => 9.5],
