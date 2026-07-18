@@ -96,6 +96,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_PASS = 'pass';
     public const FIELD_SIGNATURE_NONCE_REUSED = 'signature_nonce_reused';
     public const FIELD_SIGNATURE_RECEIPT_MISSING = 'signature_receipt_missing';
+    public const FIELD_NORMAL = 'normal';
+    public const FIELD_FORGERY_PASSED = 'forgery_passed';
 
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
@@ -131,7 +133,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             if (($probe[self::FIELD_REFUSED] ?? false) !== true) {
                 $violations[] = [
                     self::FIELD_PROBE => AiValueNormalizer::trimmedStringOrNull($probe[self::FIELD_ID] ?? null) ?? self::PROBE_ID_UNKNOWN,
-                    self::FIELD_REASON => AiValueNormalizer::trimmedStringOrNull($probe[self::FIELD_OBSERVED] ?? null) ?? 'forgery_passed',
+                    self::FIELD_REASON => AiValueNormalizer::trimmedStringOrNull($probe[self::FIELD_OBSERVED] ?? null) ?? self::FIELD_FORGERY_PASSED,
                 ];
             }
         }
@@ -399,7 +401,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     private function probeShrinkReversalRateHigh(): array
     {
         $derived = RequestedAutonomyDerivation::derive([
-            self::FIELD_PRIVACY_CLASS => 'normal',
+            self::FIELD_PRIVACY_CLASS => self::FIELD_NORMAL,
             self::FIELD_REVERSAL_RATE => 0.42,
             self::FIELD_N => 20,
             self::FIELD_CEILING => PolicyCanon::AUTONOMY_AUTONOMOUS,
@@ -425,7 +427,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     private function probeShrinkNeverExceedsCeiling(): array
     {
         $derived = RequestedAutonomyDerivation::derive([
-            self::FIELD_PRIVACY_CLASS => 'normal',
+            self::FIELD_PRIVACY_CLASS => self::FIELD_NORMAL,
             self::FIELD_REVERSAL_RATE => 0.0,
             self::FIELD_N => 100,
             self::FIELD_CEILING => PolicyCanon::AUTONOMY_DRAFT,

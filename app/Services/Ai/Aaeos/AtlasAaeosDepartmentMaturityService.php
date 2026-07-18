@@ -53,6 +53,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_DEV_PLAN_VISIBLE_L2 = 'dev_plan_visible_l2';
     public const FIELD_FORGE = 'forge';
     public const FIELD_FORGE_MERGE_REVIEW_PROMOTION_R5 = 'forge_merge_review_promotion_r5';
+    public const FIELD_MEMORY = 'memory';
+    public const FIELD_MEMORY_CROSS_SESSION_HANDOFF_L4 = 'memory_cross_session_handoff_l4';
 
     public const DEPARTMENTS = [
         [
@@ -136,10 +138,10 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_HIGH,
         ],
         [
-            self::FIELD_DEPARTMENT_ID => 'memory',
+            self::FIELD_DEPARTMENT_ID => self::FIELD_MEMORY,
             self::FIELD_CURRENT_LEVEL => 'L3',
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#memory'],
-            self::FIELD_BLOCKER_ID => 'memory_cross_session_handoff_l4',
+            self::FIELD_BLOCKER_ID => self::FIELD_MEMORY_CROSS_SESSION_HANDOFF_L4,
             self::FIELD_BLOCKER_SUMMARY => 'falta cross-session handoff pack L4',
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],

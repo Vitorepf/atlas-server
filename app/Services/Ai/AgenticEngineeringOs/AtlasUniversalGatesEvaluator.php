@@ -10576,4 +10576,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B421).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function frontierWaveAcosRollbackDepartmentContractAaeosLongFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'fase_0' => AtlasFrontierWaveLadder::FIELD_FASE_0,
+            'onda_1' => AtlasFrontierWaveLadder::FIELD_ONDA_1,
+            'watchdog_alert_operator_reverts' => AtlasAcosRollbackTriggerCheckService::FIELD_WATCHDOG_ALERT_OPERATOR_REVERTS,
+            'condition_not_met' => AtlasAcosRollbackTriggerCheckService::FIELD_CONDITION_NOT_MET,
+            'aaeos_delivery_packs' => DepartmentContractRuntime::FIELD_AAEOS_DELIVERY_PACKS,
+            'aaeos_dev_evidence_ledger' => DepartmentContractRuntime::FIELD_AAEOS_DEV_EVIDENCE_LEDGER,
+            'memory' => AtlasAaeosDepartmentMaturityService::FIELD_MEMORY,
+            'memory_cross_session_handoff_l4' => AtlasAaeosDepartmentMaturityService::FIELD_MEMORY_CROSS_SESSION_HANDOFF_L4,
+            'series_day_count_below_floor' => AtlasAcosLongHorizonGateService::FIELD_SERIES_DAY_COUNT_BELOW_FLOOR,
+            'series_gap_exceeds_floor' => AtlasAcosLongHorizonGateService::FIELD_SERIES_GAP_EXCEEDS_FLOOR,
+            'atlas_aaeos_test_run_receipts' => AtlasCognitionEvidenceResolver::FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS,
+            'candidate_test_ref_missing' => AtlasCognitionEvidenceResolver::FIELD_CANDIDATE_TEST_REF_MISSING,
+            'context_feedback_health_failed' => HealthReportWatchdogCheck::FIELD_CONTEXT_FEEDBACK_HEALTH_FAILED,
+            'engineering_enforce_readiness_not_ready' => HealthReportWatchdogCheck::FIELD_ENGINEERING_ENFORCE_READINESS_NOT_READY,
+            'created_at' => AtlasOperationalVolumeCheckService::FIELD_CREATED_AT,
+            'flow_id' => AtlasOperationalVolumeCheckService::FIELD_FLOW_ID,
+            'normal' => AutonomyLadderAdversarialWatchdogCheck::FIELD_NORMAL,
+            'forgery_passed' => AutonomyLadderAdversarialWatchdogCheck::FIELD_FORGERY_PASSED,
+            'frontier_wave_acos_rollback_department_contract_aaeos_long_floor_count' => 18,
+        ];
+    }
+
 }

@@ -88,6 +88,8 @@ class AtlasCognitionEvidenceResolver
     public const FIELD_RESOLVED = 'resolved';
     public const FIELD_SYMBOL = 'symbol';
     public const FIELD_TEST = 'test';
+    public const FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS = 'atlas_aaeos_test_run_receipts';
+    public const FIELD_CANDIDATE_TEST_REF_MISSING = 'candidate_test_ref_missing';
 
     /**
      * Memoized FQN-ownership index: short class name => list of owner-doc capabilities
@@ -339,7 +341,7 @@ class AtlasCognitionEvidenceResolver
 
         $latestReceipt = null;
         $greenCount = 0;
-        if ($ownerIds !== [] && DatabaseTableAvailability::has('atlas_aaeos_test_run_receipts')) {
+        if ($ownerIds !== [] && DatabaseTableAvailability::has(self::FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS)) {
             $query = AtlasAaeosTestRunReceipt::query()
                 ->whereIn('capability_id', $ownerIds);
             if ($candidateTestRefs !== []) {
@@ -354,7 +356,7 @@ class AtlasCognitionEvidenceResolver
         $pipelineStatus = $this->resolvePipelineStatus($fqn);
         $reason = match (true) {
             $owners === [] => 'owner_doc_missing',
-            $candidateTestRefs === [] => 'candidate_test_ref_missing',
+            $candidateTestRefs === [] => self::FIELD_CANDIDATE_TEST_REF_MISSING,
             $existingTestRefs === [] => 'candidate_test_symbol_missing',
             $greenCount === 0 => 'green_receipt_missing',
             $pipelineStatus !== self::STATUS_READY => 'green_receipt_stale_or_unmatched',

@@ -61,6 +61,8 @@ final class AtlasAcosRollbackTriggerCheckService
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_SIMULATED = 'simulated';
     public const FIELD_VALUE = 'value';
+    public const FIELD_WATCHDOG_ALERT_OPERATOR_REVERTS = 'watchdog_alert_operator_reverts';
+    public const FIELD_CONDITION_NOT_MET = 'condition_not_met';
 
 
     /**
@@ -96,7 +98,7 @@ final class AtlasAcosRollbackTriggerCheckService
                     self::FIELD_TRIGGER_ID => $id,
                     self::FIELD_SLICES => $flip[self::FIELD_SLICES] ?? [],
                     self::FIELD_ROLLBACK_ACTION => $flip[self::FIELD_ROLLBACK_ACTION] ?? [],
-                    self::FIELD_EXECUTOR => $flip[self::FIELD_EXECUTOR] ?? 'watchdog_alert_operator_reverts',
+                    self::FIELD_EXECUTOR => $flip[self::FIELD_EXECUTOR] ?? self::FIELD_WATCHDOG_ALERT_OPERATOR_REVERTS,
                     self::FIELD_CONDITION_KIND => data_get($flip, 'condition.kind'),
                     self::FIELD_SIMULATED => $simulated,
                 ];
@@ -139,7 +141,7 @@ final class AtlasAcosRollbackTriggerCheckService
             self::FIELD_REASON => self::REASON_SIMULATED_CONDITION,
             self::FIELD_CONDITION_KIND => data_get($flip, 'condition.kind'),
             self::FIELD_ROLLBACK_ACTION => $flip[self::FIELD_ROLLBACK_ACTION] ?? [],
-            self::FIELD_EXECUTOR => $flip[self::FIELD_EXECUTOR] ?? 'watchdog_alert_operator_reverts',
+            self::FIELD_EXECUTOR => $flip[self::FIELD_EXECUTOR] ?? self::FIELD_WATCHDOG_ALERT_OPERATOR_REVERTS,
             self::FIELD_CHECKED_AT => $asOf->toIso8601String(),
         ];
     }
@@ -160,10 +162,10 @@ final class AtlasAcosRollbackTriggerCheckService
             self::FIELD_ARMED => $armed,
             self::FIELD_FIRED => false,
             self::FIELD_STATUS => $armed ? 'monitoring' : 'pre_flip',
-            self::FIELD_REASON => $armed ? 'condition_not_met' : 'flip_not_armed',
+            self::FIELD_REASON => $armed ? self::FIELD_CONDITION_NOT_MET : 'flip_not_armed',
             self::FIELD_CONDITION_KIND => $condition[self::FIELD_KIND] ?? null,
             self::FIELD_ROLLBACK_ACTION => $flip[self::FIELD_ROLLBACK_ACTION] ?? [],
-            self::FIELD_EXECUTOR => $flip[self::FIELD_EXECUTOR] ?? 'watchdog_alert_operator_reverts',
+            self::FIELD_EXECUTOR => $flip[self::FIELD_EXECUTOR] ?? self::FIELD_WATCHDOG_ALERT_OPERATOR_REVERTS,
             self::FIELD_CHECKED_AT => $asOf->toIso8601String(),
         ];
     }

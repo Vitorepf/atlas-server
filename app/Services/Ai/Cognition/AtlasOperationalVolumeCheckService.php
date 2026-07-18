@@ -72,6 +72,8 @@ final class AtlasOperationalVolumeCheckService
     public const FIELD_WINDOWS = 'windows';
     public const FIELD_AI_RUN_OUTCOMES = 'ai_run_outcomes';
     public const FIELD_ATLAS_AEMOR_EXECUTION_EPISODES = 'atlas_aemor_execution_episodes';
+    public const FIELD_CREATED_AT = 'created_at';
+    public const FIELD_FLOW_ID = 'flow_id';
 
     /**
      * @return array<string,mixed>
@@ -165,8 +167,8 @@ final class AtlasOperationalVolumeCheckService
             $available = true;
             $sources[] = 'ai_run_outcomes';
             $total += (int) AiRunOutcome::query()
-                ->whereIn('flow_id', self::DEV_FLOW_IDS)
-                ->whereBetween('created_at', [$start, $end])
+                ->whereIn(self::FIELD_FLOW_ID, self::DEV_FLOW_IDS)
+                ->whereBetween(self::FIELD_CREATED_AT, [$start, $end])
                 ->count();
         }
 
@@ -174,8 +176,8 @@ final class AtlasOperationalVolumeCheckService
             $available = true;
             $sources[] = 'atlas_aemor_execution_episodes';
             $total += (int) AtlasAemorExecutionEpisode::query()
-                ->whereIn('flow_id', self::DEV_FLOW_IDS)
-                ->whereBetween('created_at', [$start, $end])
+                ->whereIn(self::FIELD_FLOW_ID, self::DEV_FLOW_IDS)
+                ->whereBetween(self::FIELD_CREATED_AT, [$start, $end])
                 ->count();
         }
 
@@ -200,7 +202,7 @@ final class AtlasOperationalVolumeCheckService
             $sources[] = 'ai_forge_work_packet_execution_cycles';
             try {
                 $total += (int) AiForgeWorkPacketExecutionCycle::query()
-                    ->whereBetween('created_at', [$start, $end])
+                    ->whereBetween(self::FIELD_CREATED_AT, [$start, $end])
                     ->count();
             } catch (Throwable) {
                 // fail-open: table declared but unreadable
@@ -213,8 +215,8 @@ final class AtlasOperationalVolumeCheckService
                 $sources[] = 'ai_run_outcomes';
             }
             $total += (int) AiRunOutcome::query()
-                ->whereIn('flow_id', self::FORGE_FLOW_IDS)
-                ->whereBetween('created_at', [$start, $end])
+                ->whereIn(self::FIELD_FLOW_ID, self::FORGE_FLOW_IDS)
+                ->whereBetween(self::FIELD_CREATED_AT, [$start, $end])
                 ->count();
         }
 
@@ -224,8 +226,8 @@ final class AtlasOperationalVolumeCheckService
                 $sources[] = 'atlas_aemor_execution_episodes';
             }
             $total += (int) AtlasAemorExecutionEpisode::query()
-                ->whereIn('flow_id', self::FORGE_FLOW_IDS)
-                ->whereBetween('created_at', [$start, $end])
+                ->whereIn(self::FIELD_FLOW_ID, self::FORGE_FLOW_IDS)
+                ->whereBetween(self::FIELD_CREATED_AT, [$start, $end])
                 ->count();
         }
 

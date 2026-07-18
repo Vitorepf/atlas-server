@@ -58,6 +58,8 @@ final class AtlasFrontierWaveLadder
     public const FIELD_GENERATED_AT = 'generated_at';
     public const FIELD_NOTE = 'note';
     public const FIELD_REF = 'ref';
+    public const FIELD_FASE_0 = 'fase_0';
+    public const FIELD_ONDA_1 = 'onda_1';
 
     /**
      * Waves in activation order (obra20 §Fase-0 + contexto-mestre §5).
@@ -65,8 +67,8 @@ final class AtlasFrontierWaveLadder
      * @var array<int,array{key:string,systems:list<string>,summary:string}>
      */
     public const WAVES = [
-        [self::FIELD_KEY => 'fase_0', self::FIELD_SYSTEMS => [self::FIELD_CONSTITUICAO], self::FIELD_SUMMARY => 'Constituição: scorecard 10× congelado por hash + quarentena de síntese + razão de transações + journal-first (Sistema 8) — o PORTÃO'],
-        [self::FIELD_KEY => 'onda_1', self::FIELD_SYSTEMS => ['SIS2'], self::FIELD_SUMMARY => 'SIS2 ALIS self-host (TETO: soberania + custo R$0, NÃO paridade; juiz assimétrico junto)'],
+        [self::FIELD_KEY => self::FIELD_FASE_0, self::FIELD_SYSTEMS => [self::FIELD_CONSTITUICAO], self::FIELD_SUMMARY => 'Constituição: scorecard 10× congelado por hash + quarentena de síntese + razão de transações + journal-first (Sistema 8) — o PORTÃO'],
+        [self::FIELD_KEY => self::FIELD_ONDA_1, self::FIELD_SYSTEMS => ['SIS2'], self::FIELD_SUMMARY => 'SIS2 ALIS self-host (TETO: soberania + custo R$0, NÃO paridade; juiz assimétrico junto)'],
         [self::FIELD_KEY => 'onda_2', self::FIELD_SYSTEMS => ['SIS3', 'SIS5'], self::FIELD_SUMMARY => 'SIS3 causal ∥ SIS5 curiosidade + auto-construção fechada'],
         [self::FIELD_KEY => 'onda_3', self::FIELD_SYSTEMS => ['SIS6', 'SIS7'], self::FIELD_SUMMARY => 'SIS6 fábrica de frotas ∥ SIS7 simbiose/multi-domínio (trading SHADOW-ONLY, execução real PROIBIDA)'],
         [self::FIELD_KEY => 'onda_4', self::FIELD_SYSTEMS => ['economia', 'depreciacao', 'graduacao'], self::FIELD_SUMMARY => 'Economia de arms + depreciação + graduação em regime'],

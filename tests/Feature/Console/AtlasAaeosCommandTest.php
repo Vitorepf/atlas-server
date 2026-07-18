@@ -7627,6 +7627,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_frontier_wave_acos_rollback_department_contract_aaeos_long_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b421-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b421',
+                '--frontier-wave-acos-rollback-department-contract-aaeos-long-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"frontier_wave_acos_rollback_department_contract_aaeos_long_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

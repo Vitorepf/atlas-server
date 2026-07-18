@@ -29,6 +29,8 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_MESSAGE = 'message';
     public const FIELD_AURG_COVERAGE_GATE_FAILED = 'aurg_coverage_gate_failed';
     public const FIELD_COMPACTION_SOAK_NOT_READY = 'compaction_soak_not_ready';
+    public const FIELD_CONTEXT_FEEDBACK_HEALTH_FAILED = 'context_feedback_health_failed';
+    public const FIELD_ENGINEERING_ENFORCE_READINESS_NOT_READY = 'engineering_enforce_readiness_not_ready';
 
     public const CATALOG = [
         [
@@ -58,7 +60,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
         [
             self::FIELD_ID => 'com-10.context_feedback_health',
             self::FIELD_REPORT_METHOD => 'contextFeedbackHealthReport',
-            self::FIELD_ALERT_CODE => 'context_feedback_health_failed',
+            self::FIELD_ALERT_CODE => self::FIELD_CONTEXT_FEEDBACK_HEALTH_FAILED,
             self::FIELD_MESSAGE => 'COM-10 context feedback health is below the pinned floor.',
         ],
         [
@@ -88,7 +90,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
         [
             self::FIELD_ID => 'eng-11.enforce_readiness',
             self::FIELD_REPORT_METHOD => 'engineeringEnforceReadinessReport',
-            self::FIELD_ALERT_CODE => 'engineering_enforce_readiness_not_ready',
+            self::FIELD_ALERT_CODE => self::FIELD_ENGINEERING_ENFORCE_READINESS_NOT_READY,
             self::FIELD_MESSAGE => 'ENG-11 enforcement flips are not ready for promotion.',
         ],
     ];

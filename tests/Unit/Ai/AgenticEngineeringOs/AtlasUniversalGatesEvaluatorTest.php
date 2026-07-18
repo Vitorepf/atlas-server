@@ -8266,4 +8266,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['promotion_protocol_immune_calibration_maxa_jina_teto_predicted_floor_count']);
     }
 
+    public function test_frontier_wave_acos_rollback_department_contract_aaeos_long_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->frontierWaveAcosRollbackDepartmentContractAaeosLongFloorsContractObserve([]);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_FASE_0, $out['fase_0']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_ONDA_1, $out['onda_1']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_WATCHDOG_ALERT_OPERATOR_REVERTS, $out['watchdog_alert_operator_reverts']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_CONDITION_NOT_MET, $out['condition_not_met']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_DELIVERY_PACKS, $out['aaeos_delivery_packs']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_DEV_EVIDENCE_LEDGER, $out['aaeos_dev_evidence_ledger']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_MEMORY, $out['memory']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_MEMORY_CROSS_SESSION_HANDOFF_L4, $out['memory_cross_session_handoff_l4']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SERIES_DAY_COUNT_BELOW_FLOOR, $out['series_day_count_below_floor']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SERIES_GAP_EXCEEDS_FLOOR, $out['series_gap_exceeds_floor']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS, $out['atlas_aaeos_test_run_receipts']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_CANDIDATE_TEST_REF_MISSING, $out['candidate_test_ref_missing']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_CONTEXT_FEEDBACK_HEALTH_FAILED, $out['context_feedback_health_failed']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_ENGINEERING_ENFORCE_READINESS_NOT_READY, $out['engineering_enforce_readiness_not_ready']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_CREATED_AT, $out['created_at']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_FLOW_ID, $out['flow_id']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_NORMAL, $out['normal']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_FORGERY_PASSED, $out['forgery_passed']);
+        $this->assertSame(18, $out['frontier_wave_acos_rollback_department_contract_aaeos_long_floor_count']);
+    }
+
 }
