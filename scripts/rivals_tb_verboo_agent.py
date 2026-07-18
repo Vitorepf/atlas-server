@@ -45,8 +45,13 @@ class VerbooAiderAgent(AbstractInstalledAgent):
                     f"--model {shlex.quote(self._model_name)}"
                 ),
                 min_timeout_sec=0.0,
-                max_timeout_sec=float("inf"),
-                block=False,
+                # block=True: com block=False o harness digitava o comando e
+                # corria para os testes SEM esperar o aider — o kimi leva >11s
+                # para responder, o arquivo nascia DEPOIS do veredito e TODA
+                # tarefa bare saía failure ("Applied edit" tarde demais no
+                # cast). O timeout da unidade continua governando o teto.
+                max_timeout_sec=1800.0,
+                block=True,
                 append_enter=True,
             )
         ]
