@@ -512,6 +512,7 @@ final class AtlasAaeosCommand extends Command
                             {--b487-cognition-score-promotion-protocol-ledger-rotation-health-report-floors-contract= : JSON file (any object) to observe cognition/score/promotion/protocol/ledger/rotation floors}
                             {--b488-acos-long-cognition-score-promotion-protocol-ledger-rotation-floors-contract= : JSON file (any object) to observe acos/long/cognition/score/promotion/protocol floors}
                             {--b489-cognition-score-promotion-protocol-health-report-measure-series-floors-contract= : JSON file (any object) to observe cognition/score/promotion/protocol/health/report floors}
+                            {--b490-aaeos-implementation-cognition-score-promotion-protocol-quality-frontier-floors-contract= : JSON file (any object) to observe aaeos/implementation/cognition/score/promotion/protocol floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1180,6 +1181,7 @@ final class AtlasAaeosCommand extends Command
             ['b487-cognition-score-promotion-protocol-ledger-rotation-health-report-floors-contract', 'b487_cognition_score_promotion_protocol_ledger_rotation_health_report_floors_contract', fn (array $p) => $gates->b487CognitionScorePromotionProtocolLedgerRotationHealthReportFloorsContractObserve($p)],
             ['b488-acos-long-cognition-score-promotion-protocol-ledger-rotation-floors-contract', 'b488_acos_long_cognition_score_promotion_protocol_ledger_rotation_floors_contract', fn (array $p) => $gates->b488AcosLongCognitionScorePromotionProtocolLedgerRotationFloorsContractObserve($p)],
             ['b489-cognition-score-promotion-protocol-health-report-measure-series-floors-contract', 'b489_cognition_score_promotion_protocol_health_report_measure_series_floors_contract', fn (array $p) => $gates->b489CognitionScorePromotionProtocolHealthReportMeasureSeriesFloorsContractObserve($p)],
+            ['b490-aaeos-implementation-cognition-score-promotion-protocol-quality-frontier-floors-contract', 'b490_aaeos_implementation_cognition_score_promotion_protocol_quality_frontier_floors_contract', fn (array $p) => $gates->b490AaeosImplementationCognitionScorePromotionProtocolQualityFrontierFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

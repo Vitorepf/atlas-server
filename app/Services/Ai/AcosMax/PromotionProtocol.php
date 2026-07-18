@@ -122,6 +122,8 @@ final class PromotionProtocol
     public const FIELD_ATLAS_BRAIN_REFLECTION_ENABLED = 'ATLAS_BRAIN_REFLECTION_ENABLED';
     public const FIELD_LEGACY = 'LEGACY';
     public const FIELD_ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED = 'ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED';
+    public const FIELD_FEE = 'FEE';
+    public const FIELD_MAXB = 'MAXB';
 
     /** @var list<string> */
     public const STATES = [
@@ -358,7 +360,7 @@ final class PromotionProtocol
             ],
             [
                 self::FIELD_ID => 'atlas.memory.fusion_v2_enabled',
-                self::FIELD_FAMILY => 'MAXB',
+                self::FIELD_FAMILY => self::FIELD_MAXB,
                 self::FIELD_SLICE => 'MAXB-03',
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_CONFIG_KEY => 'atlas.memory.fusion_v2_enabled',
@@ -413,7 +415,7 @@ final class PromotionProtocol
         return [
             [
                 self::FIELD_ID => 'atlas.memory.feedback_ranking_enabled',
-                self::FIELD_FAMILY => 'FEE',
+                self::FIELD_FAMILY => self::FIELD_FEE,
                 self::FIELD_CONFIG_KEY => 'atlas.memory.feedback_ranking_enabled',
                 self::FIELD_ENV_KEY => self::FIELD_ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED,
                 self::FIELD_SOURCE => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:225',

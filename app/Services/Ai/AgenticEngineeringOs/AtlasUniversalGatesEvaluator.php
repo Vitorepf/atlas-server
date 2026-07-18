@@ -12708,4 +12708,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B490).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b490AaeosImplementationCognitionScorePromotionProtocolQualityFrontierFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'byType' => AtlasAaeosImplementationEvidenceResolver::FIELD_BY_TYPE,
+            'Test' => AtlasAaeosImplementationEvidenceResolver::FIELD_TEST_2,
+            'ACFQ' => AtlasCognitionScoreCardService::FIELD_ACFQ,
+            'ACIE' => AtlasCognitionScoreCardService::FIELD_ACIE,
+            'GOVERNANCE' => AtlasCognitionScoreCardV4Grouper::FIELD_GOVERNANCE_2,
+            'IMMUNE' => AtlasCognitionScoreCardV4Grouper::FIELD_IMMUNE,
+            'FEE' => PromotionProtocol::FIELD_FEE,
+            'MAXB' => PromotionProtocol::FIELD_MAXB,
+            'Product' => AtlasAaeosQualityBarService::FIELD_PRODUCT,
+            'Research' => AtlasAaeosQualityBarService::FIELD_RESEARCH,
+            'SIS5' => AtlasFrontierWaveLadder::FIELD_SIS5,
+            'SIS6' => AtlasFrontierWaveLadder::FIELD_SIS6,
+            '20' => AcosMaxLote2MeasureService::INT_20,
+            '30' => AcosMaxLote2MeasureService::INT_30,
+            'UTC' => AtlasNCaptureDrillService::FIELD_UTC,
+            '365' => AtlasNCaptureDrillService::INT_365,
+            '80' => AtlasDocsAuthorityGraphService::INT_80,
+            '95' => AtlasDocsAuthorityGraphService::INT_95,
+            'b490_aaeos_implementation_cognition_score_promotion_protocol_quality_frontier_floor_count' => 18,
+        ];
+    }
+
 }

@@ -70,6 +70,8 @@ class AtlasAaeosImplementationEvidenceResolver
     public const FIELD_MIGRATION_TABLE = 'migration_table';
     public const FIELD_SIGNATURE = 'signature';
     public const FIELD_SYMBOL_NAME = 'symbol_name';
+    public const FIELD_BY_TYPE = 'byType';
+    public const FIELD_TEST_2 = 'Test';
 
     /**
      * The active Code Intelligence index, loaded ONCE per request and matched in PHP. Stored
@@ -89,7 +91,7 @@ class AtlasAaeosImplementationEvidenceResolver
      * Partition views, each a list of row offsets in the DB's natural (heap) load order:
      *   - 'symbol': offsets whose type is in SYMBOL_TYPES (matchSymbol, resolveSymbolFilePaths)
      *   - 'test':   offsets of type test_method|class      (matchTest, resolveTestFilePath)
-     *   - 'byType': [symbol_type => offsets]               (matchTyped, the FQN helpers)
+     *   - self::FIELD_BY_TYPE: [symbol_type => offsets]               (matchTyped, the FQN helpers)
      * EVERY view preserves heap load order, and the partition predicate is exactly the
      * symbol_type filter each matcher already applied (`whereIn(self::FIELD_SYMBOL_TYPE, …)` /
      * `where(self::FIELD_SYMBOL_TYPE, …)`). So iterating a view visits precisely the rows the old per-ref
@@ -276,7 +278,7 @@ class AtlasAaeosImplementationEvidenceResolver
             self::FIELD_SIG => $sig,
             self::FIELD_SYMBOL => $symbol,
             self::FIELD_TEST => $test,
-            'byType' => $byType,
+            self::FIELD_BY_TYPE => $byType,
         ];
     }
 
@@ -413,7 +415,7 @@ class AtlasAaeosImplementationEvidenceResolver
             if ($pathCol[$offset] === '') {
                 continue; // mirrors whereNotNull(self::FIELD_FILE_PATH)
             }
-            if (! str_contains($names[$offset], $lookup) || ! str_contains($names[$offset], 'Test')) {
+            if (! str_contains($names[$offset], $lookup) || ! str_contains($names[$offset], self::FIELD_TEST_2)) {
                 continue;
             }
             if ($typeCol[$offset] === 'class') {
@@ -503,7 +505,7 @@ class AtlasAaeosImplementationEvidenceResolver
         // boundary check already implies.
         $index = $this->index();
         $names = $index[self::FIELD_NAMES];
-        foreach ($index['byType'][self::FIELD_CLASS] ?? [] as $offset) {
+        foreach ($index[self::FIELD_BY_TYPE][self::FIELD_CLASS] ?? [] as $offset) {
             $name = $names[$offset];
             if ($name === $classRef || str_ends_with($name, '\\'.$classRef)) {
                 return $name;
@@ -511,7 +513,7 @@ class AtlasAaeosImplementationEvidenceResolver
         }
 
         // Fall back to the parent class of a test_method symbol carrying this class.
-        foreach ($index['byType'][self::FIELD_TEST_METHOD] ?? [] as $offset) {
+        foreach ($index[self::FIELD_BY_TYPE][self::FIELD_TEST_METHOD] ?? [] as $offset) {
             $name = $names[$offset];
             $classOnly = str_contains($name, '::') ? substr($name, 0, (int) strrpos($name, '::')) : $name;
             if ($classOnly === $classRef || str_ends_with($classOnly, '\\'.$classRef)) {
@@ -536,7 +538,7 @@ class AtlasAaeosImplementationEvidenceResolver
         $index = $this->index();
         $names = $index[self::FIELD_NAMES];
         foreach (['test_method', 'method'] as $type) {
-            foreach ($index['byType'][$type] ?? [] as $offset) {
+            foreach ($index[self::FIELD_BY_TYPE][$type] ?? [] as $offset) {
                 $name = $names[$offset];
                 if ($name === $classFqn.'::'.$method || str_ends_with($name, '\\'.$classFqn.'::'.$method)) {
                     return true;
@@ -560,7 +562,7 @@ class AtlasAaeosImplementationEvidenceResolver
         $index = $this->index();
         $names = $index[self::FIELD_NAMES];
         $sig = $index[self::FIELD_SIG];
-        foreach ($index['byType'][$symbolType] ?? [] as $offset) {
+        foreach ($index[self::FIELD_BY_TYPE][$symbolType] ?? [] as $offset) {
             if (str_contains($names[$offset], $ref) || str_contains($sig[$offset] ?? '', $ref)) {
                 return $names[$offset];
             }
@@ -583,7 +585,7 @@ class AtlasAaeosImplementationEvidenceResolver
         $index = $this->index();
         $names = $index[self::FIELD_NAMES];
         foreach ($index[self::FIELD_TEST] as $offset) {
-            if (str_contains($names[$offset], $ref) && str_contains($names[$offset], 'Test')) {
+            if (str_contains($names[$offset], $ref) && str_contains($names[$offset], self::FIELD_TEST_2)) {
                 return $names[$offset];
             }
         }

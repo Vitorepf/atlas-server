@@ -67,6 +67,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_CONTEXT = 'CONTEXT';
     public const FIELD_DECIDE = 'DECIDE';
     public const FIELD_EVIDENCE_2 = 'EVIDENCE';
+    public const FIELD_GOVERNANCE_2 = 'GOVERNANCE';
+    public const FIELD_IMMUNE = 'IMMUNE';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -153,11 +155,11 @@ final class AtlasCognitionScoreCardV4Grouper
     private function moduleKey(string $group): string
     {
         return match ($group) {
-            self::FIELD_COGNITIVE_IMMUNE => 'IMMUNE',
+            self::FIELD_COGNITIVE_IMMUNE => self::FIELD_IMMUNE,
             self::FIELD_MEMORY_CORE => 'MEMORY',
             self::FIELD_AUCRI => self::FIELD_CONTEXT,
             self::FIELD_SELF_IMPROVEMENT, self::FIELD_SELF_CONSTRUCTION, self::FIELD_CARTOGRAPHY, self::FIELD_PROGRAMMING, self::FIELD_RESEARCH_DOMAIN => self::FIELD_CONSUMERS,
-            self::FIELD_GOVERNANCE => 'GOVERNANCE',
+            self::FIELD_GOVERNANCE => self::FIELD_GOVERNANCE_2,
             self::FIELD_ATLAS_DECIDE => self::FIELD_DECIDE,
             self::FIELD_COMPOUNDING => self::FIELD_COMPOUND,
             self::FIELD_REALITY, self::FIELD_CROSS_DOMAIN => 'REALITY',
@@ -181,11 +183,11 @@ final class AtlasCognitionScoreCardV4Grouper
     private function moduleName(string $key): string
     {
         return match ($key) {
-            'IMMUNE' => 'Cognitive Immune G0-G8',
+            self::FIELD_IMMUNE => 'Cognitive Immune G0-G8',
             'MEMORY' => 'Memory Core',
             self::FIELD_CONTEXT => 'Context Runtime (AUCRI policies)',
             self::FIELD_CONSUMERS => 'ACOS Consumers and Legacy Projections',
-            'GOVERNANCE' => 'Constitutional Governance',
+            self::FIELD_GOVERNANCE_2 => 'Constitutional Governance',
             self::FIELD_DECIDE => 'Atlas Decide + Swarm',
             self::FIELD_COMPOUND => 'Compounding',
             'REALITY' => 'Reality Graph + Cross-Domain',

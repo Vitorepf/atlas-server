@@ -40,10 +40,12 @@ final class AtlasAaeosQualityBarService
     public const FIELD_LEGAL = 'Legal';
     public const FIELD_MARKETING = 'Marketing';
     public const FIELD_OPERATIONS = 'Operations';
+    public const FIELD_PRODUCT = 'Product';
+    public const FIELD_RESEARCH = 'Research';
 
     public const DEPARTMENT_DATA = [
         [self::FIELD_DEPARTMENT => self::FIELD_ENGINEERING, self::FIELD_THRESHOLD => 0.85, self::FIELD_CURRENT => 0.92],
-        [self::FIELD_DEPARTMENT => 'Product', self::FIELD_THRESHOLD => 0.80, self::FIELD_CURRENT => 0.75],
+        [self::FIELD_DEPARTMENT => self::FIELD_PRODUCT, self::FIELD_THRESHOLD => 0.80, self::FIELD_CURRENT => 0.75],
         [self::FIELD_DEPARTMENT => self::FIELD_DESIGN, self::FIELD_THRESHOLD => 0.80, self::FIELD_CURRENT => 0.88],
         [self::FIELD_DEPARTMENT => self::FIELD_MARKETING, self::FIELD_THRESHOLD => 0.75, self::FIELD_CURRENT => 0.70],
         [self::FIELD_DEPARTMENT => 'Sales', self::FIELD_THRESHOLD => 0.80, self::FIELD_CURRENT => 0.85],
@@ -52,7 +54,7 @@ final class AtlasAaeosQualityBarService
         [self::FIELD_DEPARTMENT => 'Human Resources', self::FIELD_THRESHOLD => 0.75, self::FIELD_CURRENT => 0.68],
         [self::FIELD_DEPARTMENT => self::FIELD_LEGAL, self::FIELD_THRESHOLD => 0.85, self::FIELD_CURRENT => 0.79],
         [self::FIELD_DEPARTMENT => 'Customer Success', self::FIELD_THRESHOLD => 0.80, self::FIELD_CURRENT => 0.81],
-        [self::FIELD_DEPARTMENT => 'Research', self::FIELD_THRESHOLD => 0.77, self::FIELD_CURRENT => 0.74],
+        [self::FIELD_DEPARTMENT => self::FIELD_RESEARCH, self::FIELD_THRESHOLD => 0.77, self::FIELD_CURRENT => 0.74],
     ];
 
     public function qualityBar(): array

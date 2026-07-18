@@ -9989,4 +9989,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b489_cognition_score_promotion_protocol_health_report_measure_series_floor_count']);
     }
 
+    public function test_b490_aaeos_implementation_cognition_score_promotion_protocol_quality_frontier_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b490AaeosImplementationCognitionScorePromotionProtocolQualityFrontierFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_BY_TYPE, $out['byType']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_TEST_2, $out['Test']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACFQ, $out['ACFQ']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACIE, $out['ACIE']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_GOVERNANCE_2, $out['GOVERNANCE']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_IMMUNE, $out['IMMUNE']);
+        $this->assertSame(PromotionProtocol::FIELD_FEE, $out['FEE']);
+        $this->assertSame(PromotionProtocol::FIELD_MAXB, $out['MAXB']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_PRODUCT, $out['Product']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_RESEARCH, $out['Research']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_SIS5, $out['SIS5']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_SIS6, $out['SIS6']);
+        $this->assertSame(AcosMaxLote2MeasureService::INT_20, $out['20']);
+        $this->assertSame(AcosMaxLote2MeasureService::INT_30, $out['30']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_UTC, $out['UTC']);
+        $this->assertSame(AtlasNCaptureDrillService::INT_365, $out['365']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::INT_80, $out['80']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::INT_95, $out['95']);
+        $this->assertSame(18, $out['b490_aaeos_implementation_cognition_score_promotion_protocol_quality_frontier_floor_count']);
+    }
+
 }

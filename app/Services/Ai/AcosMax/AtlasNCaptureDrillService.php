@@ -129,6 +129,8 @@ final class AtlasNCaptureDrillService
     public const FIELD_NO_DRILL_IN_WINDOW = 'no_drill_in_window';
     public const FIELD_TETO01_RECEIPT_ENCODE_FAILED = 'teto01_receipt_encode_failed';
     public const FIELD_GOLDEN_V2 = 'golden_v2';
+    public const FIELD_UTC = 'UTC';
+    public const INT_365 = 365;
 
     private readonly string $ledgerPath;
 
@@ -167,7 +169,7 @@ final class AtlasNCaptureDrillService
                 ],
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
-            self::FIELD_TTL_DAYS => 365,
+            self::FIELD_TTL_DAYS => self::INT_365,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-teto01',
             self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-teto01-judge',
             self::FIELD_DUAL_READ_REQUIRED => false,
@@ -227,7 +229,7 @@ final class AtlasNCaptureDrillService
                 self::FIELD_REASON => data_get($drill, 'admission.reason'),
             ],
             self::FIELD_TRIGGER => (AiValueNormalizer::trimmedStringOrNull($drill[self::FIELD_TRIGGER] ?? null) ?? self::TRIGGER_UNKNOWN),
-            self::FIELD_RECORDED_AT => now('UTC')->toIso8601String(),
+            self::FIELD_RECORDED_AT => now(self::FIELD_UTC)->toIso8601String(),
         ];
 
         $this->appendReceipt($receipt);
@@ -246,7 +248,7 @@ final class AtlasNCaptureDrillService
         $windowDays = ($days !== null && $days > 0) ? $days : (int) (AiValueNormalizer::finiteFloatOrNull(data_get($freeze, 'thresholds.days_between_drills_max')) ?? self::DEFAULT_DAYS_BETWEEN_DRILLS_MAX);
 
         $receipts = $this->readReceipts();
-        $since = now('UTC')->subDays($windowDays);
+        $since = now(self::FIELD_UTC)->subDays($windowDays);
         $inWindow = array_values(array_filter(
             $receipts,
             static function (array $r) use ($since): bool {
@@ -289,7 +291,7 @@ final class AtlasNCaptureDrillService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
-            self::FIELD_GENERATED_AT => now('UTC')->toIso8601String(),
+            self::FIELD_GENERATED_AT => now(self::FIELD_UTC)->toIso8601String(),
             self::FIELD_FREEZE => $freeze,
             self::FIELD_WINDOW_DAYS => $windowDays,
             self::FIELD_STATUS => $status,

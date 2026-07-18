@@ -207,6 +207,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_ACDM = 'ACDM';
     public const FIELD_ACFA = 'ACFA';
     public const FIELD_ACFD = 'ACFD';
+    public const FIELD_ACFQ = 'ACFQ';
+    public const FIELD_ACIE = 'ACIE';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -273,7 +275,7 @@ class AtlasCognitionScoreCardService
         ['AHRI',  'Hybrid Retrieval Infrastructure',   self::FIELD_AUCRI, AtlasHybridRetrievalInfrastructureService::class],
         [self::FIELD_AARF,  'Agentic RAG Framework',             self::FIELD_AUCRI, AtlasAgenticRagFrameworkService::class],
         ['ACRS',  'Context Ranking System',            self::FIELD_AUCRI, AtlasContextRankingSystemService::class],
-        ['ACFQ',  'Context Freshness Quality Gate',    self::FIELD_AUCRI, AtlasContextFreshnessQualityGateService::class],
+        [self::FIELD_ACFQ,  'Context Freshness Quality Gate',    self::FIELD_AUCRI, AtlasContextFreshnessQualityGateService::class],
         ['ARFL',  'Retrieval Feedback Loop',           self::FIELD_AUCRI, AtlasRetrievalFeedbackLoopService::class],
         ['AGRN',  'Graph Retrieval Network',           self::FIELD_AUCRI, AtlasGraphRetrievalNetworkService::class],
         ['AURG',  'Unified Reality Graph',             self::FIELD_AUCRI, AtlasUnifiedRealityGraphService::class],
@@ -354,7 +356,7 @@ class AtlasCognitionScoreCardService
      */
     public const V4_SUPPLEMENTAL_SUBSYSTEMS = [
         [self::FIELD_ACCCR, 'Context Cache Compiler Runtime', self::FIELD_CONTEXT_CACHE, AtlasContextCacheCompilerRuntimeService::class],
-        ['ACIE', 'Context Intelligence Engine', self::FIELD_CONTEXT_INTELLIGENCE, AtlasContextOperationsRuntimeService::class],
+        [self::FIELD_ACIE, 'Context Intelligence Engine', self::FIELD_CONTEXT_INTELLIGENCE, AtlasContextOperationsRuntimeService::class],
         ['APCR', 'Persistent Context Runtime', self::FIELD_PERSISTENT_CONTEXT, AtlasPersistentContextRuntimeService::class],
         ['AEMOR', 'Execution Memory Outcome Runtime', self::FIELD_AEMOR, AtlasAemorCertificationService::class],
         ['TEOS-I1', 'Long-Horizon Intelligence Layer', self::FIELD_LONG_HORIZON, LongHorizonContinuityCertificationService::class],

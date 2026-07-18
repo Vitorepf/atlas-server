@@ -31,8 +31,8 @@ class AtlasDocsAuthorityGraphService
      */
     public const CONFIDENCE = [
         self::FIELD_GOVERNS_FRONTMATTER => self::INT_100,
-        self::FIELD_DOC_ID => 95,
-        self::FIELD_CAPABILITY_FRONTMATTER => 80,
+        self::FIELD_DOC_ID => self::INT_95,
+        self::FIELD_CAPABILITY_FRONTMATTER => self::INT_80,
         self::FIELD_KEYWORD_FALLBACK => self::INT_40,
     ];
 
@@ -70,6 +70,8 @@ class AtlasDocsAuthorityGraphService
     public const FIELD_LIKE = 'like';
     public const FIELD_ARCHIVE = 'archive';
     public const FIELD_MD = 'md';
+    public const INT_80 = 80;
+    public const INT_95 = 95;
     public const INT_100 = 100;
     public const INT_40 = 40;
 
