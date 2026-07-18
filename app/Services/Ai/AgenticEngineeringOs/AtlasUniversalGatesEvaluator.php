@@ -16272,4 +16272,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B607).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b607MemoryCognitiveLearningProposalsFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'can_become_memory' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CAN_BECOME_MEMORY,
+            'destination' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_DESTINATION,
+            'id' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ID,
+            'question' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_QUESTION,
+            'signal' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_SIGNAL,
+            'untrusted_content' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_UNTRUSTED_CONTENT,
+            'reasons' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_REASONS,
+            'atomic_claim' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ATOMIC_CLAIM,
+            'capture_consented' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CAPTURE_CONSENTED,
+            'suggested_action' => AtlasLearningProposalsService::FIELD_SUGGESTED_ACTION,
+            'summary' => AtlasLearningProposalsService::FIELD_SUMMARY,
+            'challenger' => AtlasLearningProposalsService::FIELD_CHALLENGER,
+            'incumbent' => AtlasLearningProposalsService::FIELD_INCUMBENT,
+            'effect_size' => AtlasLearningProposalsService::FIELD_EFFECT_SIZE,
+            'justification' => AtlasLearningProposalsService::FIELD_JUSTIFICATION,
+            'may_auto_apply' => AtlasLearningProposalsService::FIELD_MAY_AUTO_APPLY,
+            'requires_review' => AtlasLearningProposalsService::FIELD_REQUIRES_REVIEW,
+            'schema_version' => AtlasLearningProposalsService::FIELD_SCHEMA_VERSION,
+            'b607_memory_cognitive_learning_proposals_floor_count' => 18,
+        ];
+    }
+
 }

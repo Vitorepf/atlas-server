@@ -64,6 +64,15 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
     public const FIELD_G6 = 'G6';
     public const FIELD_G7 = 'G7';
     public const FIELD_G8 = 'G8';
+    public const FIELD_CAN_BECOME_MEMORY = 'can_become_memory';
+    public const FIELD_DESTINATION = 'destination';
+    public const FIELD_ID = 'id';
+    public const FIELD_QUESTION = 'question';
+    public const FIELD_SIGNAL = 'signal';
+    public const FIELD_UNTRUSTED_CONTENT = 'untrusted_content';
+    public const FIELD_REASONS = 'reasons';
+    public const FIELD_ATOMIC_CLAIM = 'atomic_claim';
+    public const FIELD_CAPTURE_CONSENTED = 'capture_consented';
 
     /**
      * Default cognitive-quarantine state. Every input is born here.
@@ -81,23 +90,23 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
 
     /**
      * Input Classes table: class => [destination, can_become_memory].
-     * "can_become_memory" === false means the class can NEVER be auto-promoted
+     * self::FIELD_CAN_BECOME_MEMORY === false means the class can NEVER be auto-promoted
      * to knowledge (the doc "Nao" / "Nao como conhecimento" rows).
      *
      * @var array<string,array{destination:string,can_become_memory:bool}>
      */
     private const INPUT_CLASSES = [
-        'trivial_query' => ['destination' => 'answer_and_expire', 'can_become_memory' => false],
-        'operational_ephemeral' => ['destination' => 'task_reminder_cold_file', 'can_become_memory' => false],
-        'task_or_reminder' => ['destination' => 'task_routine', 'can_become_memory' => false],
-        'project_evidence' => ['destination' => 'project_evidence', 'can_become_memory' => true],
-        'conversation_trace' => ['destination' => 'audit_session', 'can_become_memory' => false],
-        'personal_fact_candidate' => ['destination' => 'private_review', 'can_become_memory' => true],
-        'technical_learning_candidate' => ['destination' => 'learning_signal', 'can_become_memory' => true],
-        'strategic_insight_candidate' => ['destination' => 'memory_constellation_candidate', 'can_become_memory' => true],
-        'untrusted_content' => ['destination' => 'cited_data_not_instruction', 'can_become_memory' => false],
-        'prompt_injection' => ['destination' => 'blocked_ephemeral_evidence', 'can_become_memory' => false],
-        'private_sensitive' => ['destination' => 'redact_minimize', 'can_become_memory' => true],
+        'trivial_query' => [self::FIELD_DESTINATION => 'answer_and_expire', self::FIELD_CAN_BECOME_MEMORY => false],
+        'operational_ephemeral' => [self::FIELD_DESTINATION => 'task_reminder_cold_file', self::FIELD_CAN_BECOME_MEMORY => false],
+        'task_or_reminder' => [self::FIELD_DESTINATION => 'task_routine', self::FIELD_CAN_BECOME_MEMORY => false],
+        'project_evidence' => [self::FIELD_DESTINATION => 'project_evidence', self::FIELD_CAN_BECOME_MEMORY => true],
+        'conversation_trace' => [self::FIELD_DESTINATION => 'audit_session', self::FIELD_CAN_BECOME_MEMORY => false],
+        'personal_fact_candidate' => [self::FIELD_DESTINATION => 'private_review', self::FIELD_CAN_BECOME_MEMORY => true],
+        'technical_learning_candidate' => [self::FIELD_DESTINATION => 'learning_signal', self::FIELD_CAN_BECOME_MEMORY => true],
+        'strategic_insight_candidate' => [self::FIELD_DESTINATION => 'memory_constellation_candidate', self::FIELD_CAN_BECOME_MEMORY => true],
+        self::FIELD_UNTRUSTED_CONTENT => [self::FIELD_DESTINATION => 'cited_data_not_instruction', self::FIELD_CAN_BECOME_MEMORY => false],
+        'prompt_injection' => [self::FIELD_DESTINATION => 'blocked_ephemeral_evidence', self::FIELD_CAN_BECOME_MEMORY => false],
+        'private_sensitive' => [self::FIELD_DESTINATION => 'redact_minimize', self::FIELD_CAN_BECOME_MEMORY => true],
     ];
 
     /**
@@ -107,15 +116,15 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
      * @var array<int,array{id:string,signal:string,question:string}>
      */
     private const GATES = [
-        ['id' => self::FIELD_G0, 'signal' => 'capture_consented', 'question' => 'pode capturar com consentimento, privacy e retention?'],
-        ['id' => self::FIELD_G1, 'signal' => 'atomic_claim', 'question' => 'ha claim atomico, tipo, escopo e fonte?'],
-        ['id' => self::FIELD_G2, 'signal' => 'future_signal', 'question' => 'ha utilidade futura, novidade ou recorrencia?'],
-        ['id' => self::FIELD_G3, 'signal' => 'provider_safe', 'question' => 'e provider-safe, sem segredo e sem dado sensivel desnecessario?'],
-        ['id' => self::FIELD_G4, 'signal' => 'no_contradiction', 'question' => 'conflita com memoria, codigo, docs ou decisao mais nova?'],
-        ['id' => self::FIELD_G5, 'signal' => 'outcome_validated', 'question' => 'foi validado por feedback, teste, replay ou uso?'],
-        ['id' => self::FIELD_G6, 'signal' => 'scope_resolved', 'question' => 'vale para global, workspace, projeto, tarefa, dominio ou sessao?'],
-        ['id' => self::FIELD_G7, 'signal' => 'promotion_mode_set', 'question' => 'auto, review humano, proposal ou bloqueio?'],
-        ['id' => self::FIELD_G8, 'signal' => 'probation_entered', 'question' => 'entra como watch antes de trusted?'],
+        [self::FIELD_ID => self::FIELD_G0, self::FIELD_SIGNAL => self::FIELD_CAPTURE_CONSENTED, self::FIELD_QUESTION => 'pode capturar com consentimento, privacy e retention?'],
+        [self::FIELD_ID => self::FIELD_G1, self::FIELD_SIGNAL => self::FIELD_ATOMIC_CLAIM, self::FIELD_QUESTION => 'ha claim atomico, tipo, escopo e fonte?'],
+        [self::FIELD_ID => self::FIELD_G2, self::FIELD_SIGNAL => 'future_signal', self::FIELD_QUESTION => 'ha utilidade futura, novidade ou recorrencia?'],
+        [self::FIELD_ID => self::FIELD_G3, self::FIELD_SIGNAL => 'provider_safe', self::FIELD_QUESTION => 'e provider-safe, sem segredo e sem dado sensivel desnecessario?'],
+        [self::FIELD_ID => self::FIELD_G4, self::FIELD_SIGNAL => 'no_contradiction', self::FIELD_QUESTION => 'conflita com memoria, codigo, docs ou decisao mais nova?'],
+        [self::FIELD_ID => self::FIELD_G5, self::FIELD_SIGNAL => 'outcome_validated', self::FIELD_QUESTION => 'foi validado por feedback, teste, replay ou uso?'],
+        [self::FIELD_ID => self::FIELD_G6, self::FIELD_SIGNAL => 'scope_resolved', self::FIELD_QUESTION => 'vale para global, workspace, projeto, tarefa, dominio ou sessao?'],
+        [self::FIELD_ID => self::FIELD_G7, self::FIELD_SIGNAL => 'promotion_mode_set', self::FIELD_QUESTION => 'auto, review humano, proposal ou bloqueio?'],
+        [self::FIELD_ID => self::FIELD_G8, self::FIELD_SIGNAL => 'probation_entered', self::FIELD_QUESTION => 'entra como watch antes de trusted?'],
     ];
 
     /** Categories the doc forbids from embedding by default. */
@@ -125,7 +134,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
         'private_sensitive',
         'prompt_injection',
         'raw_private_note',
-        'untrusted_content',
+        self::FIELD_UNTRUSTED_CONTENT,
     ];
 
     /** Required metadata on every vector before similarity is allowed to run. */
@@ -189,13 +198,13 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
     public function classify(string $inputClass): array
     {
         $key = $this->normalize($inputClass);
-        $row = self::INPUT_CLASSES[$key] ?? self::INPUT_CLASSES['untrusted_content'];
-        $resolved = isset(self::INPUT_CLASSES[$key]) ? $key : 'untrusted_content';
+        $row = self::INPUT_CLASSES[$key] ?? self::INPUT_CLASSES[self::FIELD_UNTRUSTED_CONTENT];
+        $resolved = isset(self::INPUT_CLASSES[$key]) ? $key : self::FIELD_UNTRUSTED_CONTENT;
 
         return [
             'class' => $resolved,
-            'destination' => $row['destination'],
-            'can_become_memory' => $row['can_become_memory'],
+            self::FIELD_DESTINATION => $row[self::FIELD_DESTINATION],
+            self::FIELD_CAN_BECOME_MEMORY => $row[self::FIELD_CAN_BECOME_MEMORY],
             // Classification alone never lifts quarantine.
             'state' => self::DEFAULT_STATE,
         ];
@@ -221,9 +230,9 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
      */
     public function evaluatePromotion(array $candidate): array
     {
-        $inputClass = $this->normalize((string) ($candidate['input_class'] ?? 'untrusted_content'));
-        $classRow = self::INPUT_CLASSES[$inputClass] ?? self::INPUT_CLASSES['untrusted_content'];
-        $canBecomeMemory = $classRow['can_become_memory'];
+        $inputClass = $this->normalize((string) ($candidate['input_class'] ?? self::FIELD_UNTRUSTED_CONTENT));
+        $classRow = self::INPUT_CLASSES[$inputClass] ?? self::INPUT_CLASSES[self::FIELD_UNTRUSTED_CONTENT];
+        $canBecomeMemory = $classRow[self::FIELD_CAN_BECOME_MEMORY];
         $scope = $this->normalize((string) ($candidate['scope'] ?? 'session'));
 
         $reasons = [];
@@ -258,8 +267,8 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
 
         return [
             'schema' => self::SCHEMA,
-            'input_class' => isset(self::INPUT_CLASSES[$inputClass]) ? $inputClass : 'untrusted_content',
-            'can_become_memory' => $canBecomeMemory,
+            'input_class' => isset(self::INPUT_CLASSES[$inputClass]) ? $inputClass : self::FIELD_UNTRUSTED_CONTENT,
+            self::FIELD_CAN_BECOME_MEMORY => $canBecomeMemory,
             'gate_results' => $gateResults,
             'passed_gates' => $passedGates,
             'failed_gate' => $failedGate,
@@ -271,7 +280,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
             'promote' => $promote,
             'promotion_mode' => $promotionMode,
             'resulting_state' => $resultingState,
-            'reasons' => array_values(array_unique($reasons)),
+            self::FIELD_REASONS => array_values(array_unique($reasons)),
         ];
     }
 
@@ -284,12 +293,12 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
         $scopeResolved = (bool) ($candidate['scope_resolved'] ?? false);
 
         return [
-            'consent_granted' => (bool) ($candidate['capture_consented'] ?? false),
+            'consent_granted' => (bool) ($candidate[self::FIELD_CAPTURE_CONSENTED] ?? false),
             'privacy_class' => (string) ($candidate['privacy_class'] ?? 'internal'),
-            'retention_ok' => (bool) ($candidate['capture_consented'] ?? false),
-            'atomic_claim_present' => (bool) ($candidate['atomic_claim'] ?? false),
+            'retention_ok' => (bool) ($candidate[self::FIELD_CAPTURE_CONSENTED] ?? false),
+            'atomic_claim_present' => (bool) ($candidate[self::FIELD_ATOMIC_CLAIM] ?? false),
             'claim_type' => $inputClass,
-            'claim_source_present' => (bool) ($candidate['atomic_claim'] ?? false),
+            'claim_source_present' => (bool) ($candidate[self::FIELD_ATOMIC_CLAIM] ?? false),
             'future_utility' => (bool) ($candidate['future_signal'] ?? false),
             'novelty' => (bool) ($candidate['novelty'] ?? false),
             'recurrence_count' => (int) ($candidate['recurrence_count'] ?? 0),
@@ -315,12 +324,12 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
         $failedGate = null;
 
         foreach (self::GATES as $gate) {
-            $gateId = $gate['id'];
+            $gateId = $gate[self::FIELD_ID];
             $passed = $failedGate === null && ($gateStatuses[$gateId] ?? 'pending') === 'pass';
             $gateResults[] = [
-                'id' => $gateId,
+                self::FIELD_ID => $gateId,
                 'passed' => $passed,
-                'question' => $gate['question'],
+                self::FIELD_QUESTION => $gate[self::FIELD_QUESTION],
             ];
 
             if ($passed) {
@@ -402,7 +411,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
 
         return [
             'allowed' => $allowed,
-            'reasons' => $allowed ? ['safety_filters_passed_before_similarity'] : $reasons,
+            self::FIELD_REASONS => $allowed ? ['safety_filters_passed_before_similarity'] : $reasons,
             'missing_meta' => $missing,
         ];
     }
@@ -439,7 +448,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
         return [
             'eligible' => $eligible,
             'missing_clearances' => $missing,
-            'reasons' => $eligible ? ['constellation_eligible_true'] : $reasons,
+            self::FIELD_REASONS => $eligible ? ['constellation_eligible_true'] : $reasons,
         ];
     }
 
@@ -473,7 +482,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
             'valid' => $errors === [],
             'kind' => $k,
             'reason' => $reason,
-            'reasons' => $errors === [] ? ['receipt_complete'] : $errors,
+            self::FIELD_REASONS => $errors === [] ? ['receipt_complete'] : $errors,
         ];
     }
 
