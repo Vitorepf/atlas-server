@@ -5496,5 +5496,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['runbook_immune_promoter_floor_count']);
     }
 
+    public function test_lexical_envelope_cockpit_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->lexicalEnvelopeCockpitFloorsContractObserve([]);
+
+        $this->assertSame('aprendizado', $payload['lexical_field_aprendizado']);
+        $this->assertSame('brain', $payload['lexical_field_brain']);
+        $this->assertSame('cerebro', $payload['lexical_field_cerebro']);
+        $this->assertSame('decisao', $payload['lexical_field_decisao']);
+        $this->assertSame('decision', $payload['lexical_field_decision']);
+        $this->assertSame('deterministic', $payload['lexical_field_deterministic']);
+        $this->assertSame('kind', $payload['envelope_field_kind']);
+        $this->assertSame('layer', $payload['envelope_field_layer']);
+        $this->assertSame('mission_should_activate', $payload['envelope_field_mission_should_activate']);
+        $this->assertSame('mission_signal_kind', $payload['envelope_field_mission_signal_kind']);
+        $this->assertSame('placement', $payload['envelope_field_placement']);
+        $this->assertSame('placement_domain', $payload['envelope_field_placement_domain']);
+        $this->assertSame('implementable_supply', $payload['cockpit_field_implementable_supply']);
+        $this->assertSame('intent_id', $payload['cockpit_field_intent_id']);
+        $this->assertSame('malformed', $payload['cockpit_field_malformed']);
+        $this->assertSame('malformed_count', $payload['cockpit_field_malformed_count']);
+        $this->assertSame('next_phase', $payload['cockpit_field_next_phase']);
+        $this->assertSame('operator_signature_required', $payload['cockpit_field_operator_signature_required']);
+        $this->assertSame(18, $payload['lexical_envelope_cockpit_floor_count']);
+    }
+
 
 }

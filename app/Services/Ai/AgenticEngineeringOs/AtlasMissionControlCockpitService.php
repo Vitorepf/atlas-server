@@ -70,6 +70,12 @@ final class AtlasMissionControlCockpitService
     public const FIELD_GATE_REPORT = 'gate_report';
     public const FIELD_GATES = 'gates';
     public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_IMPLEMENTABLE_SUPPLY = 'implementable_supply';
+    public const FIELD_INTENT_ID = 'intent_id';
+    public const FIELD_MALFORMED = 'malformed';
+    public const FIELD_MALFORMED_COUNT = 'malformed_count';
+    public const FIELD_NEXT_PHASE = 'next_phase';
+    public const FIELD_OPERATOR_SIGNATURE_REQUIRED = 'operator_signature_required';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
@@ -115,12 +121,12 @@ final class AtlasMissionControlCockpitService
 
         $payload = [
             'schema' => self::SCHEMA_VERSION,
-            'intent_id' => $intentId,
+            self::FIELD_INTENT_ID => $intentId,
             self::FIELD_AUTONOMY_LEVEL => $autonomyLevel,
             'phase_count' => count(AaeosPhaseHandoffService::PHASES),
             'phases' => $journey,
             self::FIELD_CURRENT_PHASE => $currentPhase,
-            'next_phase' => $currentPhase === null ? AaeosPhaseHandoffService::PHASES[0] : $this->phases->canonicalNextPhase($currentPhase),
+            self::FIELD_NEXT_PHASE => $currentPhase === null ? AaeosPhaseHandoffService::PHASES[0] : $this->phases->canonicalNextPhase($currentPhase),
             self::FIELD_GATE_REPORT => $gateReport,
             self::FIELD_DEPARTMENT_COUNT => $departmentsCount,
             self::FIELD_BLOCKERS => $blockers,
@@ -133,7 +139,7 @@ final class AtlasMissionControlCockpitService
             'phase_advance' => $this->latestPhaseAdvance($phaseEnvelopes),
             // Observe-only causality ranking when the journey is not clear green.
             'outcome_causality' => $this->outcomeCausalityFor($blockers, $gateReport),
-            'operator_signature_required' => $signatureRequired,
+            self::FIELD_OPERATOR_SIGNATURE_REQUIRED => $signatureRequired,
             'provider_safe' => true,
             self::FIELD_GENERATED_AT => gmdate('c'),
         ];
@@ -181,7 +187,7 @@ final class AtlasMissionControlCockpitService
         $blocked = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_BLOCKED] ?? 0) ?? 0));
         $quarantined = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['quarantined'] ?? 0) ?? 0));
         $recoverable = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['recoverable'] ?? 0) ?? 0));
-        $malformed = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['malformed'] ?? 0) ?? 0));
+        $malformed = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_MALFORMED] ?? 0) ?? 0));
 
         $recommendedAction = match (true) {
             $servableNow === 0 && $recoverable > 0 => 'recover_blocked_backlog',
@@ -195,8 +201,8 @@ final class AtlasMissionControlCockpitService
             self::FIELD_ACTIVE_LEASES => $activeLeases,
             self::FIELD_BLOCKED_OR_QUARANTINED_COUNT => $blocked + $quarantined,
             'recoverable_count' => $recoverable,
-            'malformed_count' => $malformed,
-            'implementable_supply' => $servableNow,
+            self::FIELD_MALFORMED_COUNT => $malformed,
+            self::FIELD_IMPLEMENTABLE_SUPPLY => $servableNow,
             'recommended_operator_action' => $recommendedAction,
         ];
     }

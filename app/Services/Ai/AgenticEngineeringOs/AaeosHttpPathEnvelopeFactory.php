@@ -59,6 +59,12 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_FLOW_ID = 'flow_id';
     public const FIELD_GATE_STATUS = 'gate_status';
     public const FIELD_INTENT_ID = 'intent_id';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_LAYER = 'layer';
+    public const FIELD_MISSION_SHOULD_ACTIVATE = 'mission_should_activate';
+    public const FIELD_MISSION_SIGNAL_KIND = 'mission_signal_kind';
+    public const FIELD_PLACEMENT = 'placement';
+    public const FIELD_PLACEMENT_DOMAIN = 'placement_domain';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -97,8 +103,8 @@ final class AaeosHttpPathEnvelopeFactory
             actor: self::systemActor('aaeos.mission_detection'),
             inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
-                'mission_signal_kind' => $suggestedMissionType,
-                'mission_should_activate' => $shouldActivateMissionMode ? 'yes' : 'no',
+                self::FIELD_MISSION_SIGNAL_KIND => $suggestedMissionType,
+                self::FIELD_MISSION_SHOULD_ACTIVATE => $shouldActivateMissionMode ? 'yes' : 'no',
             ],
             gates: self::binaryGate('intent_clarity_score_min_0_8', true),
         );
@@ -130,9 +136,9 @@ final class AaeosHttpPathEnvelopeFactory
             actor: self::systemActor('aaeos.placement'),
             inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
-                'placement_layer' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['layer'] ?? null) ?? self::STATUS_UNKNOWN,
-                'placement_domain' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement'][self::FIELD_DOMAIN] ?? null) ?? self::STATUS_UNKNOWN,
-                'placement_flow' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement'][self::FIELD_FLOW] ?? null) ?? self::STATUS_UNKNOWN,
+                'placement_layer' => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_LAYER] ?? null) ?? self::STATUS_UNKNOWN,
+                self::FIELD_PLACEMENT_DOMAIN => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_DOMAIN] ?? null) ?? self::STATUS_UNKNOWN,
+                'placement_flow' => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_FLOW] ?? null) ?? self::STATUS_UNKNOWN,
                 self::FIELD_GATE_STATUS => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_GATE_STATUS] ?? null) ?? self::STATUS_UNKNOWN,
             ],
             gates: self::binaryGate('placement_decision_feature_path_valid', $placementOk),
@@ -536,6 +542,6 @@ final class AaeosHttpPathEnvelopeFactory
      */
     private static function systemActor(string $id): array
     {
-        return ['kind' => 'system', 'id' => $id, 'provider' => null];
+        return [self::FIELD_KIND => 'system', 'id' => $id, 'provider' => null];
     }
 }

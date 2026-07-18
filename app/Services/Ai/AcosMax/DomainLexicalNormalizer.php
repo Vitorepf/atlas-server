@@ -12,6 +12,12 @@ final class DomainLexicalNormalizer
     public const SCHEMA_VERSION = 'atlas.memory.domain_lexical_normalizer.v1';
 
     public const FORMULA_VERSION = 'maxb10.domain_equivalence.v1';
+    public const FIELD_APRENDIZADO = 'aprendizado';
+    public const FIELD_BRAIN = 'brain';
+    public const FIELD_CEREBRO = 'cerebro';
+    public const FIELD_DECISAO = 'decisao';
+    public const FIELD_DECISION = 'decision';
+    public const FIELD_DETERMINISTIC = 'deterministic';
 
     public const MAX_EXPANDED_TOKENS = 32;
 
@@ -19,18 +25,18 @@ final class DomainLexicalNormalizer
     public const EQUIVALENCES = [
         'memoria' => ['memory'],
         'memória' => ['memory'],
-        'cerebro' => ['brain'],
-        'cérebro' => ['brain'],
+        self::FIELD_CEREBRO => [self::FIELD_BRAIN],
+        'cérebro' => [self::FIELD_BRAIN],
         'esteira' => ['pipeline'],
         'execucao' => ['execution'],
         'execução' => ['execution'],
-        'decisao' => ['decision'],
-        'decisão' => ['decision'],
+        self::FIELD_DECISAO => [self::FIELD_DECISION],
+        'decisão' => [self::FIELD_DECISION],
         'evidencia' => ['evidence'],
         'evidência' => ['evidence'],
         'verificacao' => ['verification'],
         'verificação' => ['verification'],
-        'aprendizado' => ['learning'],
+        self::FIELD_APRENDIZADO => ['learning'],
         'operador' => ['operator'],
     ];
 
@@ -90,7 +96,7 @@ final class DomainLexicalNormalizer
             'equivalences' => self::EQUIVALENCES,
             'max_expanded_tokens' => self::MAX_EXPANDED_TOKENS,
             'provider_calls_made' => false,
-            'deterministic' => true,
+            self::FIELD_DETERMINISTIC => true,
         ];
     }
 }

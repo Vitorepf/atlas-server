@@ -7316,6 +7316,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: residual FIELD_* floors for DomainLexicalNormalizer + HttpPathEnvelope + MissionControlCockpit.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, bool|int|string>
+     */
+    public function lexicalEnvelopeCockpitFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'lexical_field_aprendizado' => DomainLexicalNormalizer::FIELD_APRENDIZADO,
+            'lexical_field_brain' => DomainLexicalNormalizer::FIELD_BRAIN,
+            'lexical_field_cerebro' => DomainLexicalNormalizer::FIELD_CEREBRO,
+            'lexical_field_decisao' => DomainLexicalNormalizer::FIELD_DECISAO,
+            'lexical_field_decision' => DomainLexicalNormalizer::FIELD_DECISION,
+            'lexical_field_deterministic' => DomainLexicalNormalizer::FIELD_DETERMINISTIC,
+            'envelope_field_kind' => AaeosHttpPathEnvelopeFactory::FIELD_KIND,
+            'envelope_field_layer' => AaeosHttpPathEnvelopeFactory::FIELD_LAYER,
+            'envelope_field_mission_should_activate' => AaeosHttpPathEnvelopeFactory::FIELD_MISSION_SHOULD_ACTIVATE,
+            'envelope_field_mission_signal_kind' => AaeosHttpPathEnvelopeFactory::FIELD_MISSION_SIGNAL_KIND,
+            'envelope_field_placement' => AaeosHttpPathEnvelopeFactory::FIELD_PLACEMENT,
+            'envelope_field_placement_domain' => AaeosHttpPathEnvelopeFactory::FIELD_PLACEMENT_DOMAIN,
+            'cockpit_field_implementable_supply' => AtlasMissionControlCockpitService::FIELD_IMPLEMENTABLE_SUPPLY,
+            'cockpit_field_intent_id' => AtlasMissionControlCockpitService::FIELD_INTENT_ID,
+            'cockpit_field_malformed' => AtlasMissionControlCockpitService::FIELD_MALFORMED,
+            'cockpit_field_malformed_count' => AtlasMissionControlCockpitService::FIELD_MALFORMED_COUNT,
+            'cockpit_field_next_phase' => AtlasMissionControlCockpitService::FIELD_NEXT_PHASE,
+            'cockpit_field_operator_signature_required' => AtlasMissionControlCockpitService::FIELD_OPERATOR_SIGNATURE_REQUIRED,
+            'lexical_envelope_cockpit_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>
