@@ -157,6 +157,12 @@ final class AcosMaxLote2MeasureService
     public const FIELD_SATISFIED = 'satisfied';
     public const FIELD_VALID_LOOP_DEFINITION = 'valid_loop_definition';
     public const FIELD_REQUIRES_ZERO_FIXTURE = 'requires_zero_fixture';
+    public const FIELD_SYNTHETIC_FIXTURE_CLAIM_ALLOWED = 'synthetic_fixture_claim_allowed';
+    public const FIELD_REQUIRES_PROVEN_REAL_OUTCOME = 'requires_proven_real_outcome';
+    public const FIELD_OUTCOME_ID = 'outcome_id';
+    public const FIELD_LOOP_ID = 'loop_id';
+    public const FIELD_FIXTURE_FREE = 'fixture_free';
+    public const FIELD_BY_LESSON_CLASS = 'by_lesson_class';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -318,7 +324,7 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_READ_ONLY => true,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
                 self::FIELD_MEMORY_WRITTEN => false,
-                'synthetic_fixture_claim_allowed' => false,
+                self::FIELD_SYNTHETIC_FIXTURE_CLAIM_ALLOWED => false,
                 'completion_claim_allowed_without_proven_real' => false,
             ],
         ];
@@ -353,7 +359,7 @@ final class AcosMaxLote2MeasureService
     private function multx01ValidLoopDefinition(): array
     {
         return [
-            'requires_proven_real_outcome' => true,
+            self::FIELD_REQUIRES_PROVEN_REAL_OUTCOME => true,
             'requires_decision_receipt_id' => true,
             'requires_delivered_context_receipt' => true,
             'requires_learning_candidate' => true,
@@ -417,7 +423,7 @@ final class AcosMaxLote2MeasureService
 
         $chain = [
             'task_id' => $taskId,
-            'outcome_id' => AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? '',
+            self::FIELD_OUTCOME_ID => AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? '',
             'decision_id' => $decisionId,
             'retrieval_receipt_id' => $delivery === null ? null : (AiValueNormalizer::trimmedScalarStringOrNull($delivery->retrieval_receipt_id ?? null) ?? ''),
             'learning_candidate_id' => $candidate === null ? null : (AiValueNormalizer::trimmedScalarStringOrNull($candidate->id ?? null) ?? ''),
@@ -428,10 +434,10 @@ final class AcosMaxLote2MeasureService
             return [
                 self::FIELD_COMPLETE => false,
                 self::FIELD_PARTIAL => [
-                    'loop_id' => hash('sha256', implode('|', array_map(static fn ($value): string => AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '', $chain))),
+                    self::FIELD_LOOP_ID => hash('sha256', implode('|', array_map(static fn ($value): string => AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '', $chain))),
                     'chain' => $chain,
                     self::FIELD_PROVEN_REAL => $provenReal,
-                    'fixture_free' => ! $fixture,
+                    self::FIELD_FIXTURE_FREE => ! $fixture,
                     self::FIELD_BLOCKED_BY => array_values(array_unique($blockedBy)),
                 ],
             ];
@@ -440,10 +446,10 @@ final class AcosMaxLote2MeasureService
         return [
             self::FIELD_COMPLETE => true,
             'loop' => [
-                'loop_id' => hash('sha256', implode('|', array_map(static fn ($value): string => AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '', $chain))),
+                self::FIELD_LOOP_ID => hash('sha256', implode('|', array_map(static fn ($value): string => AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '', $chain))),
                 'chain' => $chain,
                 self::FIELD_PROVEN_REAL => true,
-                'fixture_free' => true,
+                self::FIELD_FIXTURE_FREE => true,
                 'time_to_recall_seconds' => $this->secondsBetween(
                     AiValueNormalizer::trimmedString($outcome->created_at ?? ''),
                     AiValueNormalizer::trimmedString($recall->created_at ?? ''),
@@ -546,7 +552,7 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_MEASURE_ID => self::MULTX06_MEASURE_ID,
                 self::FIELD_DENOMINATOR_MIN => $denominatorMin,
                 'n' => 0,
-                'by_lesson_class' => [],
+                self::FIELD_BY_LESSON_CLASS => [],
                 self::FIELD_NEVER_DELIVERED => 0,
                 self::FIELD_NEVER_CITED => 0,
                 self::FIELD_LATENCY_SECONDS => [
@@ -638,7 +644,7 @@ final class AcosMaxLote2MeasureService
 
             $rows[] = [
                 'candidate_id' => $candidateId,
-                'outcome_id' => AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? '',
+                self::FIELD_OUTCOME_ID => AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? '',
                 self::FIELD_LESSON_CLASS => $lessonClass,
                 self::FIELD_DELIVERED => $deliverySeconds !== null,
                 self::FIELD_CITED => $citationSeconds !== null,
@@ -661,7 +667,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_MEASURE_ID => self::MULTX06_MEASURE_ID,
             self::FIELD_DENOMINATOR_MIN => $denominatorMin,
             'n' => $n,
-            'by_lesson_class' => $this->learningLatencyByClass($byClass),
+            self::FIELD_BY_LESSON_CLASS => $this->learningLatencyByClass($byClass),
             self::FIELD_NEVER_DELIVERED => $neverDelivered,
             self::FIELD_NEVER_CITED => $neverCited,
             self::FIELD_LATENCY_SECONDS => [
@@ -880,7 +886,7 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_MEMORY_WRITTEN => false,
                 'retrieval_policy_changed' => false,
                 self::FIELD_RECORD_USAGE_FOR_PEEK => false,
-                'synthetic_fixture_claim_allowed' => false,
+                self::FIELD_SYNTHETIC_FIXTURE_CLAIM_ALLOWED => false,
                 'completion_claim_allowed' => false,
             ],
         ];
@@ -1021,7 +1027,7 @@ final class AcosMaxLote2MeasureService
         return [
             'MAXL-06' => self::payload(self::MAXL06_MEASURE_ID, 'maxl06.delta_attribution.v1', 'Report-only attribution joins daily measure deltas to lineage decision_ids/commits; when lineage is absent, basis must be labeled and causal language must use correlational_attribution.', 1, 30, 'cursor-acos-max-maxl06', 'codex-independent-maxl06-judge', [self::FIELD_ALLOWED_BASIS => ['lineage_ledger', 'git_log'], self::FIELD_COUNTERFACTUAL_BASIS => 'none']),
             'MULTN17-04' => self::payload(self::MULTN1704_MEASURE_ID, 'multn17.predicted_impact_calibration.v1', 'Derived predicted_impact band versus realized proven_real outcome curve for origination; report-only until at least 20 real originations resolve.', 20, 30, 'cursor-acos-max-multn17-04', 'codex-independent-multn17-04-judge', ['denominator_min_originations' => 20, 'max_abs_declared_realized_deviation' => 1]),
-            'MULTX-01' => self::payload(self::MULTX01_MEASURE_ID, 'multx.flywheel_loop_definition.v1', 'A valid loop chains task, decision receipt, delivered context, execution outcome, lesson, and subsequent measured recall; proven_real outcome is mandatory.', 1, 30, 'cursor-acos-max-multx01', 'codex-independent-multx01-judge', ['requires_proven_real_outcome' => true]),
+            'MULTX-01' => self::payload(self::MULTX01_MEASURE_ID, 'multx.flywheel_loop_definition.v1', 'A valid loop chains task, decision receipt, delivered context, execution outcome, lesson, and subsequent measured recall; proven_real outcome is mandatory.', 1, 30, 'cursor-acos-max-multx01', 'codex-independent-multx01-judge', [self::FIELD_REQUIRES_PROVEN_REAL_OUTCOME => true]),
             'MULTX-06' => self::payload(self::MULTX06_MEASURE_ID, 'multx.learning_latency.v1', 'Measure p50/p95 latency from outcome-created lesson to first delivered context and first measured citation; never_delivered remains in denominator.', 8, 30, 'cursor-acos-max-multx06', 'codex-independent-multx06-judge', ['denominator_min_promoted_lessons' => 8]),
             'MULTX-09' => self::payload(self::MULTX09_MEASURE_ID, 'multx.windows_orchestrator.v1', 'Read-only PromotionProtocol window DAG: started windows publish days_remaining and critical path; not-started windows never receive fabricated ETA; associated series silence beyond the watchdog floor emits dead_window.', 1, 30, 'cursor-acos-max-multx09', 'codex-independent-multx09-judge', ['dead_window_silent_days' => 3, 'not_started_eta_allowed' => false, self::FIELD_READ_ONLY => true]),
             'MULTJ-01' => self::payload(self::MULTJ01_MEASURE_ID, 'multj.lesson_half_life.v2', 'Bucket lesson lift by age since promotion using two-week buckets; buckets below n=8 publish insufficient instead of null.', 8, 30, 'cursor-acos-max-multj01', 'codex-independent-multj01-judge', ['bucket_width_weeks' => 2, 'denominator_min_per_bucket' => 8]),

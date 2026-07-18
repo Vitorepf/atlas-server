@@ -7223,6 +7223,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: residual FIELD_* floors for watchdog health + lote2 measure + long-horizon gate.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, bool|int|string>
+     */
+    public function healthLote2HorizonResidualFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'watchdog_health_field_with_recalled_memory' => AtlasAcosWatchdogHealthService::FIELD_WITH_RECALLED_MEMORY,
+            'watchdog_health_field_without_recalled_memory' => AtlasAcosWatchdogHealthService::FIELD_WITHOUT_RECALLED_MEMORY,
+            'watchdog_health_field_lift_status' => AtlasAcosWatchdogHealthService::FIELD_LIFT_STATUS,
+            'watchdog_health_field_coverage' => AtlasAcosWatchdogHealthService::FIELD_COVERAGE,
+            'watchdog_health_field_last_ingest_at' => AtlasAcosWatchdogHealthService::FIELD_LAST_INGEST_AT,
+            'watchdog_health_field_memory_cross_layer_coverage_ratio' => AtlasAcosWatchdogHealthService::FIELD_MEMORY_CROSS_LAYER_COVERAGE_RATIO,
+            'lote2_field_synthetic_fixture_claim_allowed' => AcosMaxLote2MeasureService::FIELD_SYNTHETIC_FIXTURE_CLAIM_ALLOWED,
+            'lote2_field_requires_proven_real_outcome' => AcosMaxLote2MeasureService::FIELD_REQUIRES_PROVEN_REAL_OUTCOME,
+            'lote2_field_outcome_id' => AcosMaxLote2MeasureService::FIELD_OUTCOME_ID,
+            'lote2_field_loop_id' => AcosMaxLote2MeasureService::FIELD_LOOP_ID,
+            'lote2_field_fixture_free' => AcosMaxLote2MeasureService::FIELD_FIXTURE_FREE,
+            'lote2_field_by_lesson_class' => AcosMaxLote2MeasureService::FIELD_BY_LESSON_CLASS,
+            'long_horizon_field_backfilled' => AtlasAcosLongHorizonGateService::FIELD_BACKFILLED,
+            'long_horizon_field_scorecard_hash' => AtlasAcosLongHorizonGateService::FIELD_SCORECARD_HASH,
+            'long_horizon_field_min_area_scores' => AtlasAcosLongHorizonGateService::FIELD_MIN_AREA_SCORES,
+            'long_horizon_field_area_days_below_floor' => AtlasAcosLongHorizonGateService::FIELD_AREA_DAYS_BELOW_FLOOR,
+            'long_horizon_field_days_below_floor' => AtlasAcosLongHorizonGateService::FIELD_DAYS_BELOW_FLOOR,
+            'long_horizon_field_benchmark_claim_allowed' => AtlasAcosLongHorizonGateService::FIELD_BENCHMARK_CLAIM_ALLOWED,
+            'health_lote2_horizon_residual_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

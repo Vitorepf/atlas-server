@@ -123,6 +123,12 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_CHECK_ID = 'check_id';
     public const FIELD_MESSAGE = 'message';
     public const FIELD_LAST_AT = 'last_at';
+    public const FIELD_WITH_RECALLED_MEMORY = 'with_recalled_memory';
+    public const FIELD_WITHOUT_RECALLED_MEMORY = 'without_recalled_memory';
+    public const FIELD_LIFT_STATUS = 'lift_status';
+    public const FIELD_COVERAGE = 'coverage';
+    public const FIELD_LAST_INGEST_AT = 'last_ingest_at';
+    public const FIELD_MEMORY_CROSS_LAYER_COVERAGE_RATIO = 'memory_cross_layer_coverage_ratio';
 
     public const STATUS_UNKNOWN = 'unknown';
 
@@ -272,8 +278,8 @@ final class AtlasAcosWatchdogHealthService
         }
         $checks[] = $this->checkRow('lift_case_count', (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.with_recalled_memory.case_count', 0)) ?? 0) > 0
             && (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.without_recalled_memory.case_count', 0)) ?? 0) > 0, [
-                'with_recalled_memory' => data_get($lift, 'measurement.with_recalled_memory.case_count', 0),
-                'without_recalled_memory' => data_get($lift, 'measurement.without_recalled_memory.case_count', 0),
+                self::FIELD_WITH_RECALLED_MEMORY => data_get($lift, 'measurement.with_recalled_memory.case_count', 0),
+                self::FIELD_WITHOUT_RECALLED_MEMORY => data_get($lift, 'measurement.without_recalled_memory.case_count', 0),
                 'measurement_ready' => data_get($lift, 'measurement.measurement_ready', false),
             ], 'learning_lift_cases_missing');
 
@@ -283,7 +289,7 @@ final class AtlasAcosWatchdogHealthService
                 'aemor_source_max_age_hours' => self::LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS,
                 'ai_run_outcome_max_age_hours' => self::LEARNING_AI_RUN_OUTCOME_MAX_AGE_HOURS,
             ],
-            'lift_status' => (AiValueNormalizer::trimmedStringOrNull($lift[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
+            self::FIELD_LIFT_STATUS => (AiValueNormalizer::trimmedStringOrNull($lift[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
         ], 'learning_cadence_stalled');
     }
 
@@ -291,10 +297,10 @@ final class AtlasAcosWatchdogHealthService
     public function aurgCoverageReport(): array
     {
         $status = app(AtlasRealityGraphStatusService::class)->status();
-        $coverage = AiValueNormalizer::arrayOrEmpty($status['coverage'] ?? null);
+        $coverage = AiValueNormalizer::arrayOrEmpty($status[self::FIELD_COVERAGE] ?? null);
         $store = AiValueNormalizer::arrayOrEmpty($status['store'] ?? null);
         $edgesBySource = AiValueNormalizer::arrayOrEmpty($store['edges_by_source'] ?? null);
-        $ratio = AiValueNormalizer::finiteFloatOrNull($coverage['memory_cross_layer_coverage_ratio'] ?? null) ?? 0.0;
+        $ratio = AiValueNormalizer::finiteFloatOrNull($coverage[self::FIELD_MEMORY_CROSS_LAYER_COVERAGE_RATIO] ?? null) ?? 0.0;
         $blocking = [];
         if (! (AiValueNormalizer::boolOrNull($coverage['available'] ?? null) ?? false)) {
             $blocking[] = (AiValueNormalizer::trimmedStringOrNull($coverage[self::FIELD_REASON] ?? null) ?? 'aurg_store_unavailable');
@@ -312,12 +318,12 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_SCHEMA_VERSION => self::AURG_COVERAGE_SCHEMA,
             self::FIELD_STATUS => $blocking === [] ? self::STATUS_OK : self::STATUS_ALERT,
             self::STATUS_ALERT => $blocking !== [],
-            'coverage' => $coverage,
+            self::FIELD_COVERAGE => $coverage,
             'store' => [
                 'edges_by_source' => $edgesBySource,
-                'last_ingest_at' => $store['last_ingest_at'] ?? null,
+                self::FIELD_LAST_INGEST_AT => $store[self::FIELD_LAST_INGEST_AT] ?? null,
             ],
-            self::FIELD_THRESHOLDS => ['memory_cross_layer_coverage_ratio' => self::RAG_COVERAGE_FLOOR],
+            self::FIELD_THRESHOLDS => [self::FIELD_MEMORY_CROSS_LAYER_COVERAGE_RATIO => self::RAG_COVERAGE_FLOOR],
             self::FIELD_BLOCKING => array_values(array_unique($blocking)),
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
@@ -601,11 +607,11 @@ final class AtlasAcosWatchdogHealthService
         $payload = [
             self::FIELD_SCHEMA_VERSION => self::OPE_LIFT_CYCLE_CLOSURE_SCHEMA,
             self::FIELD_STATUS => $blocking === [] && (AiValueNormalizer::boolOrNull(data_get($report, 'measurement.measurement_ready', false)) ?? false) ? self::STATUS_OK : self::STATUS_ALERT,
-            'lift_status' => $status,
+            self::FIELD_LIFT_STATUS => $status,
             self::FIELD_BLOCKING => array_values(array_unique($blocking)),
             self::FIELD_CASE_COUNTS => [
-                'with_recalled_memory' => (int) (AiValueNormalizer::finiteFloatOrNull(data_get($report, 'measurement.with_recalled_memory.case_count', 0)) ?? 0),
-                'without_recalled_memory' => (int) (AiValueNormalizer::finiteFloatOrNull(data_get($report, 'measurement.without_recalled_memory.case_count', 0)) ?? 0),
+                self::FIELD_WITH_RECALLED_MEMORY => (int) (AiValueNormalizer::finiteFloatOrNull(data_get($report, 'measurement.with_recalled_memory.case_count', 0)) ?? 0),
+                self::FIELD_WITHOUT_RECALLED_MEMORY => (int) (AiValueNormalizer::finiteFloatOrNull(data_get($report, 'measurement.without_recalled_memory.case_count', 0)) ?? 0),
             ],
             'blocker_series' => $series,
             self::FIELD_GENERATED_AT => now()->toIso8601String(),

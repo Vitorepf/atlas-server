@@ -105,6 +105,12 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_FUTURE_DATED = 'future_dated';
     public const FIELD_WINDOW_STALE = 'window_stale';
     public const FIELD_GAP = 'gap';
+    public const FIELD_BACKFILLED = 'backfilled';
+    public const FIELD_SCORECARD_HASH = 'scorecard_hash';
+    public const FIELD_MIN_AREA_SCORES = 'min_area_scores';
+    public const FIELD_AREA_DAYS_BELOW_FLOOR = 'area_days_below_floor';
+    public const FIELD_DAYS_BELOW_FLOOR = 'days_below_floor';
+    public const FIELD_BENCHMARK_CLAIM_ALLOWED = 'benchmark_claim_allowed';
 
     /**
      * @param  array<string,mixed>  $options
@@ -300,7 +306,7 @@ final class AtlasAcosLongHorizonGateService
             $blockers[] = $codes[self::FIELD_GAP];
         }
         if ($backfilledSamples > 0) {
-            $blockers[] = $codes['backfilled'];
+            $blockers[] = $codes[self::FIELD_BACKFILLED];
         }
 
         return $blockers;
@@ -357,7 +363,7 @@ final class AtlasAcosLongHorizonGateService
         $certificationWindowDates = $window[self::FIELD_CERTIFICATION_WINDOW_DATES];
         $windowOverallScan = $this->certificationWindowOverallScan($series, $certificationWindowDates, $minOverall);
         $minCertificationWindowOverall = $windowOverallScan[self::FIELD_MIN_OVERALL];
-        $certificationWindowDaysBelowFloor = $windowOverallScan['days_below_floor'];
+        $certificationWindowDaysBelowFloor = $windowOverallScan[self::FIELD_DAYS_BELOW_FLOOR];
         $latestSeriesOverall = $this->latestSeriesOverall($series, $latestDate);
 
         $blockers = [];
@@ -383,7 +389,7 @@ final class AtlasAcosLongHorizonGateService
                 self::FIELD_FUTURE_DATED => 'delta_series_future_dated_rows',
                 self::FIELD_WINDOW_STALE => 'delta_series_window_stale',
                 self::FIELD_GAP => 'series_gap_exceeds_floor',
-                'backfilled' => 'backfilled_sample_detected',
+                self::FIELD_BACKFILLED => 'backfilled_sample_detected',
             ],
         ));
         if ($certificationWindowDaysBelowFloor > 0) {
@@ -401,7 +407,7 @@ final class AtlasAcosLongHorizonGateService
         return array_merge($this->windowIntegrityProjection($window, $seriesPath, $resolvedEvidenceRows), [
             'overall_score' => round($overall, 3),
             'pipeline_score' => round($pipeline, 3),
-            'scorecard_hash' => $scorecardHash,
+            self::FIELD_SCORECARD_HASH => $scorecardHash,
             'latest_series_overall' => round($latestSeriesOverall, 3),
             'min_certification_window_overall' => round($minCertificationWindowOverall, 3),
             'certification_window_days_below_floor' => $certificationWindowDaysBelowFloor,
@@ -594,7 +600,7 @@ final class AtlasAcosLongHorizonGateService
                 self::FIELD_FUTURE_DATED => 'series_v2_future_dated_rows',
                 self::FIELD_WINDOW_STALE => 'series_v2_window_stale',
                 self::FIELD_GAP => 'series_v2_gap_exceeds_floor',
-                'backfilled' => 'series_v2_backfilled_sample_detected',
+                self::FIELD_BACKFILLED => 'series_v2_backfilled_sample_detected',
             ],
         );
 
@@ -605,8 +611,8 @@ final class AtlasAcosLongHorizonGateService
         return array_merge($this->windowIntegrityProjection($window, $seriesPath, $resolvedEvidenceRows), [
             self::FIELD_SCHEMA_VERSION => self::AREA_V2_SCHEMA,
             'floors' => $floors,
-            'min_area_scores' => $areaScan['min_area_scores'],
-            'area_days_below_floor' => $areaScan['area_days_below_floor'],
+            self::FIELD_MIN_AREA_SCORES => $areaScan[self::FIELD_MIN_AREA_SCORES],
+            self::FIELD_AREA_DAYS_BELOW_FLOOR => $areaScan[self::FIELD_AREA_DAYS_BELOW_FLOOR],
             self::FIELD_AREAS_BELOW_FLOOR => $areaScan[self::FIELD_AREAS_BELOW_FLOOR],
             self::FIELD_BLOCKERS => $blockers,
         ]);
@@ -676,8 +682,8 @@ final class AtlasAcosLongHorizonGateService
         ksort($areaDaysBelowFloor);
 
         return [
-            'min_area_scores' => $minAreaScores,
-            'area_days_below_floor' => $areaDaysBelowFloor,
+            self::FIELD_MIN_AREA_SCORES => $minAreaScores,
+            self::FIELD_AREA_DAYS_BELOW_FLOOR => $areaDaysBelowFloor,
             self::FIELD_AREAS_BELOW_FLOOR => array_values(array_keys(array_filter(
                 $areaDaysBelowFloor,
                 static fn (int $days): bool => $days > 0,
@@ -771,7 +777,7 @@ final class AtlasAcosLongHorizonGateService
     private function certificationWindowOverallScan(array $series, array $certificationWindowDates, float $minOverall): array
     {
         if ($certificationWindowDates === []) {
-            return [self::FIELD_MIN_OVERALL => 0.0, 'days_below_floor' => 0];
+            return [self::FIELD_MIN_OVERALL => 0.0, self::FIELD_DAYS_BELOW_FLOOR => 0];
         }
 
         $window = array_fill_keys($certificationWindowDates, true);
@@ -799,7 +805,7 @@ final class AtlasAcosLongHorizonGateService
 
         return [
             self::FIELD_MIN_OVERALL => $minScore ?? 0.0,
-            'days_below_floor' => $daysBelowFloor,
+            self::FIELD_DAYS_BELOW_FLOOR => $daysBelowFloor,
         ];
     }
 
@@ -853,12 +859,12 @@ final class AtlasAcosLongHorizonGateService
                 ],
             ],
             self::FIELD_CLAIM_POLICY => [
-                'benchmark_claim_allowed' => false,
+                self::FIELD_BENCHMARK_CLAIM_ALLOWED => false,
                 'rivals_claim_allowed' => false,
                 'superiority_claim_allowed' => false,
             ],
         ];
-        $payload['scorecard_hash'] = 'sha256:'.hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+        $payload[self::FIELD_SCORECARD_HASH] = 'sha256:'.hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
 
         return $payload;
     }
@@ -918,7 +924,7 @@ final class AtlasAcosLongHorizonGateService
             'config' => $config,
             'evidence' => [
                 'scorecard_schema' => AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'schema_version')) ?? '',
-                'scorecard_hash' => AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'scorecard_hash')) ?? '',
+                self::FIELD_SCORECARD_HASH => AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'scorecard_hash')) ?? '',
                 'series_rows_sampled' => count($series),
             ],
             self::FIELD_CLAIM_POLICY => [
@@ -930,7 +936,7 @@ final class AtlasAcosLongHorizonGateService
                 'provider_calls_made' => false,
                 'provider_tokens_spent' => false,
                 'workspace_mutated' => false,
-                'benchmark_claim_allowed' => false,
+                self::FIELD_BENCHMARK_CLAIM_ALLOWED => false,
                 'completion_requires_real_30d_window' => true,
             ],
         ];

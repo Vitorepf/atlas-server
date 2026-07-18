@@ -5421,5 +5421,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['execution_quality_immune_floor_count']);
     }
 
+    public function test_health_lote2_horizon_residual_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->healthLote2HorizonResidualFloorsContractObserve([]);
+
+        $this->assertSame('with_recalled_memory', $payload['watchdog_health_field_with_recalled_memory']);
+        $this->assertSame('without_recalled_memory', $payload['watchdog_health_field_without_recalled_memory']);
+        $this->assertSame('lift_status', $payload['watchdog_health_field_lift_status']);
+        $this->assertSame('coverage', $payload['watchdog_health_field_coverage']);
+        $this->assertSame('last_ingest_at', $payload['watchdog_health_field_last_ingest_at']);
+        $this->assertSame('memory_cross_layer_coverage_ratio', $payload['watchdog_health_field_memory_cross_layer_coverage_ratio']);
+        $this->assertSame('synthetic_fixture_claim_allowed', $payload['lote2_field_synthetic_fixture_claim_allowed']);
+        $this->assertSame('requires_proven_real_outcome', $payload['lote2_field_requires_proven_real_outcome']);
+        $this->assertSame('outcome_id', $payload['lote2_field_outcome_id']);
+        $this->assertSame('loop_id', $payload['lote2_field_loop_id']);
+        $this->assertSame('fixture_free', $payload['lote2_field_fixture_free']);
+        $this->assertSame('by_lesson_class', $payload['lote2_field_by_lesson_class']);
+        $this->assertSame('backfilled', $payload['long_horizon_field_backfilled']);
+        $this->assertSame('scorecard_hash', $payload['long_horizon_field_scorecard_hash']);
+        $this->assertSame('min_area_scores', $payload['long_horizon_field_min_area_scores']);
+        $this->assertSame('area_days_below_floor', $payload['long_horizon_field_area_days_below_floor']);
+        $this->assertSame('days_below_floor', $payload['long_horizon_field_days_below_floor']);
+        $this->assertSame('benchmark_claim_allowed', $payload['long_horizon_field_benchmark_claim_allowed']);
+        $this->assertSame(18, $payload['health_lote2_horizon_residual_floor_count']);
+    }
+
 
 }
