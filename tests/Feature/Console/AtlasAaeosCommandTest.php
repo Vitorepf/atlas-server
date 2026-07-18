@@ -7095,6 +7095,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_outcome_envelope_ragx_chain_teto_predicted_immune_hybrid_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b383-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b383',
+                '--outcome-envelope-ragx-chain-teto-predicted-immune-hybrid-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"outcome_envelope_ragx_chain_teto_predicted_immune_hybrid_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

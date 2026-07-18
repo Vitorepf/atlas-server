@@ -92,6 +92,8 @@ final class AcosMaxObraRetroService
     public const FIELD_SCOPE_TYPE = 'scope_type';
     public const FIELD_SOURCE = 'source';
     public const FIELD_SURFACE_ID = 'surface_id';
+    public const FIELD_TERMINAL_SLICE_COUNT = 'terminal_slice_count';
+    public const FIELD_TESTS_PASSED = 'tests_passed';
 
     public function __construct(
         private readonly AtlasEngineeringOutcomeRecorder $outcomes,
@@ -227,7 +229,7 @@ final class AcosMaxObraRetroService
             self::FIELD_SLICE_STATE => $slice[self::FIELD_STATE],
             self::FIELD_EVIDENCE_REFS => AiValueNormalizer::arrayOrEmpty($slice[self::FIELD_EVIDENCE_REFS] ?? null),
             self::FIELD_METRICS => [
-                'tests_passed' => $status === self::OUTCOME_STATUS_SUCCEEDED,
+                self::FIELD_TESTS_PASSED => $status === self::OUTCOME_STATUS_SUCCEEDED,
                 self::FIELD_OBRA_RETRO_LOTE => $lote,
             ],
         ]);
@@ -267,7 +269,7 @@ final class AcosMaxObraRetroService
             ))),
             self::FIELD_CURRENT_STATE => [
                 self::FIELD_LOTE => $lote,
-                'terminal_slice_count' => count($slices),
+                self::FIELD_TERMINAL_SLICE_COUNT => count($slices),
             ],
             self::FIELD_PROPOSED_STATE => [
                 self::FIELD_FUTURE_LOTE_CLOSE_REQUIRES => [

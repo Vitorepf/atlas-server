@@ -42,6 +42,8 @@ final class OutcomeEnvelopeBridge
     public const FIELD_KIND = 'kind';
     public const FIELD_ADAPTER_ORIGINS = 'adapter_origins';
     public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
+    public const FIELD_DENOMINATOR_MIN = 'denominator_min';
+    public const FIELD_DUAL_READ_REQUIRED = 'dual_read_required';
 
     /** @var array<string, OutcomeEnvelopeAdapter> */
     private array $adapters;
@@ -121,11 +123,11 @@ final class OutcomeEnvelopeBridge
                 'flag' => self::ADAPTERS_ENABLED_CONFIG_KEY,
                 'flag_default' => false,
             ],
-            'denominator_min' => 1,
+            self::FIELD_DENOMINATOR_MIN => 1,
             self::FIELD_TTL_DAYS => 90,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-esp06',
             'judge_engine_id' => 'codex-independent-esp06-judge',
-            'dual_read_required' => true,
+            self::FIELD_DUAL_READ_REQUIRED => true,
         ];
     }
 

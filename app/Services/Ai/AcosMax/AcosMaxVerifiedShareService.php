@@ -78,6 +78,8 @@ final class AcosMaxVerifiedShareService
     public const FIELD_MODE = 'mode';
     public const FIELD_OUTCOME_DENOMINATOR = 'outcome_denominator';
     public const FIELD_OWNER = 'owner';
+    public const FIELD_RECORDED_AT = 'recorded_at';
+    public const FIELD_ROLE = 'role';
 
 
     /** @return array<string,mixed> */
@@ -269,7 +271,7 @@ final class AcosMaxVerifiedShareService
                 if (! is_array($row)) {
                     continue;
                 }
-                $recordedAt = $this->parseDate($row['recorded_at'] ?? null);
+                $recordedAt = $this->parseDate($row[self::FIELD_RECORDED_AT] ?? null);
                 if ($recordedAt !== null && $recordedAt->greaterThanOrEqualTo($since)) {
                     $rows[] = $row;
                 }
@@ -308,7 +310,7 @@ final class AcosMaxVerifiedShareService
             return $this->normalizeExecutor(substr($actor, strlen('engineering_outcome_spine:')));
         }
 
-        return $this->normalizeExecutor(AiValueNormalizer::trimmedStringOrNull($row['task_category'] ?? $row['role'] ?? null) ?? '');
+        return $this->normalizeExecutor(AiValueNormalizer::trimmedStringOrNull($row['task_category'] ?? $row[self::FIELD_ROLE] ?? null) ?? '');
     }
 
     /** @param array<string,mixed> $row */

@@ -107,6 +107,8 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_PAYLOAD = 'payload';
     public const FIELD_POSTCONDITIONS = 'postconditions';
     public const FIELD_PRIOR_CORRECTIONS = 'prior_corrections';
+    public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
+    public const FIELD_QUEUE = 'queue';
 
 
     public function __construct(
@@ -181,12 +183,12 @@ final class AcosMaxProceduralSkillPromoterService
                 self::FIELD_ENQUEUE_ENABLED => $this->enqueueEnabled(),
                 self::FIELD_ENQUEUE_REQUESTED => $enqueue,
                 self::FIELD_ENQUEUE_EFFECTIVE => $enqueueRequested,
-                'queue' => self::QUEUE_AI_LEARNING_CANDIDATES,
+                self::FIELD_QUEUE => self::QUEUE_AI_LEARNING_CANDIDATES,
                 self::FIELD_ADMISSION_DOOR => self::ADMISSION_DOOR_ASI02,
                 self::FIELD_PROMOTION_ALLOWED => false,
                 self::FIELD_AUTO_PROMOTION_ALLOWED => false,
                 'skill_files_written' => false,
-                'provider_calls_made' => false,
+                self::FIELD_PROVIDER_CALLS_MADE => false,
             ],
         ];
     }

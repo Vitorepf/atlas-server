@@ -7299,4 +7299,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['evidence_vision_golden_counterfactual_promotion_protocol_phase_handoff_floor_count']);
     }
 
+    public function test_outcome_envelope_ragx_chain_teto_predicted_immune_hybrid_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->outcomeEnvelopeRagxChainTetoPredictedImmuneHybridFloorsContractObserve([]);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_DENOMINATOR_MIN, $out['denominator_min']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_DUAL_READ_REQUIRED, $out['dual_read_required']);
+        $this->assertSame(RagxChainMechanismService::FIELD_MAXF09_L2_SUMMARIES, $out['maxf09_l2_summaries']);
+        $this->assertSame(RagxChainMechanismService::FIELD_MECHANISM, $out['mechanism']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_MANUAL_REVIEW_WHEN_REVERSE_MISSING, $out['manual_review_when_reverse_missing']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_MISSING_EVIDENCE, $out['missing_evidence']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_PRIVATE_SENSITIVE, $out['private_sensitive']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_PROMPT_INJECTION, $out['prompt_injection']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_HOOK_P95_MS_ALERT, $out['hook_p95_ms_alert']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DENOMINATOR_MIN_PAIRS, $out['denominator_min_pairs']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DENOMINATOR_MIN_PER_BUCKET, $out['denominator_min_per_bucket']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_TERMINAL_SLICE_COUNT, $out['terminal_slice_count']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_TESTS_PASSED, $out['tests_passed']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_PROVIDER_CALLS_MADE, $out['provider_calls_made']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_QUEUE, $out['queue']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_RECORDED_AT, $out['recorded_at']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_ROLE, $out['role']);
+        $this->assertSame(18, $out['outcome_envelope_ragx_chain_teto_predicted_immune_hybrid_floor_count']);
+    }
+
 }

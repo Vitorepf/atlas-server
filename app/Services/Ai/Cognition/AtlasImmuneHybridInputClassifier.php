@@ -76,6 +76,8 @@ final class AtlasImmuneHybridInputClassifier
     public const FIELD_THRESHOLDS = 'thresholds';
     public const FIELD_CLASSES = 'classes';
     public const FIELD_MODE = 'mode';
+    public const FIELD_PRIVATE_SENSITIVE = 'private_sensitive';
+    public const FIELD_PROMPT_INJECTION = 'prompt_injection';
 
     private readonly AtlasAaeosCognitiveImmuneInputClassifier $base;
 
@@ -296,8 +298,8 @@ final class AtlasImmuneHybridInputClassifier
     private static function hostileDestination(string $class): string
     {
         return match ($class) {
-            'prompt_injection' => 'blocked_ephemeral_evidence',
-            'private_sensitive' => 'redact_minimize',
+            self::FIELD_PROMPT_INJECTION => 'blocked_ephemeral_evidence',
+            self::FIELD_PRIVATE_SENSITIVE => 'redact_minimize',
             self::FIELD_UNTRUSTED_CONTENT => 'cited_data_not_instruction',
             default => 'blocked_ephemeral_evidence',
         };

@@ -87,6 +87,8 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_SOURCE = 'source';
     public const FIELD_COUNT = 'count';
     public const FIELD_EVIDENCE_REF = 'evidence_ref';
+    public const FIELD_MANUAL_REVIEW_WHEN_REVERSE_MISSING = 'manual_review_when_reverse_missing';
+    public const FIELD_MISSING_EVIDENCE = 'missing_evidence';
 
     /**
      * @param  list<array<string,mixed>>  $items
@@ -127,7 +129,7 @@ final class Teto10PredictedRevertReviewDigest
                 self::FIELD_MARKDOWN_CLI_ONLY => true,
                 self::FIELD_UI_CREATED => false,
                 'reorders_by_predicted_revert_band' => true,
-                'manual_review_when_reverse_missing' => true,
+                self::FIELD_MANUAL_REVIEW_WHEN_REVERSE_MISSING => true,
             ],
         ];
     }
@@ -347,7 +349,7 @@ final class Teto10PredictedRevertReviewDigest
             $refs[] = $single;
         }
 
-        return array_values(array_unique($refs)) ?: ['missing_evidence'];
+        return array_values(array_unique($refs)) ?: [self::FIELD_MISSING_EVIDENCE];
     }
 
     /**

@@ -186,6 +186,8 @@ final class RagxChainMechanismService
     public const FIELD_WEIGHT = 'weight';
     public const FIELD_L2_SUMMARY_ID = 'l2_summary_id';
     public const FIELD_MAXD05_LOUVAIN = 'maxd05_louvain';
+    public const FIELD_MAXF09_L2_SUMMARIES = 'maxf09_l2_summaries';
+    public const FIELD_MECHANISM = 'mechanism';
 
     public function __construct(
         private readonly ?AsefChunkIndexService $asefChunks = null,
@@ -499,7 +501,7 @@ final class RagxChainMechanismService
         $enabled = $this->flag($flag);
 
         return [
-            'mechanism' => $mechanism,
+            self::FIELD_MECHANISM => $mechanism,
             self::FIELD_FLAG => $flag,
             self::FIELD_ENABLED => $enabled,
             self::FIELD_STATUS => ! $enabled ? self::STATUS_DISABLED : ($blockedBy === [] ? self::STATUS_SHADOW : self::STATUS_BLOCKED),
@@ -537,7 +539,7 @@ final class RagxChainMechanismService
         if (($deps[self::FIELD_MAXD05_LOUVAIN] ?? false) !== true) {
             $blockers[] = self::STAGE_MAXD_05;
         }
-        if (($deps['maxf09_l2_summaries'] ?? true) !== true) {
+        if (($deps[self::FIELD_MAXF09_L2_SUMMARIES] ?? true) !== true) {
             $blockers[] = self::BLOCKER_MAXF09;
         }
 

@@ -9397,4 +9397,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B383).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function outcomeEnvelopeRagxChainTetoPredictedImmuneHybridFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'denominator_min' => OutcomeEnvelopeBridge::FIELD_DENOMINATOR_MIN,
+            'dual_read_required' => OutcomeEnvelopeBridge::FIELD_DUAL_READ_REQUIRED,
+            'maxf09_l2_summaries' => RagxChainMechanismService::FIELD_MAXF09_L2_SUMMARIES,
+            'mechanism' => RagxChainMechanismService::FIELD_MECHANISM,
+            'manual_review_when_reverse_missing' => Teto10PredictedRevertReviewDigest::FIELD_MANUAL_REVIEW_WHEN_REVERSE_MISSING,
+            'missing_evidence' => Teto10PredictedRevertReviewDigest::FIELD_MISSING_EVIDENCE,
+            'private_sensitive' => AtlasImmuneHybridInputClassifier::FIELD_PRIVATE_SENSITIVE,
+            'prompt_injection' => AtlasImmuneHybridInputClassifier::FIELD_PROMPT_INJECTION,
+            'hook_p95_ms_alert' => AobgLatencyWatchdogCheck::FIELD_HOOK_P95_MS_ALERT,
+            'message' => AobgLatencyWatchdogCheck::FIELD_MESSAGE,
+            'denominator_min_pairs' => AcosMaxLote2MeasureService::FIELD_DENOMINATOR_MIN_PAIRS,
+            'denominator_min_per_bucket' => AcosMaxLote2MeasureService::FIELD_DENOMINATOR_MIN_PER_BUCKET,
+            'terminal_slice_count' => AcosMaxObraRetroService::FIELD_TERMINAL_SLICE_COUNT,
+            'tests_passed' => AcosMaxObraRetroService::FIELD_TESTS_PASSED,
+            'provider_calls_made' => AcosMaxProceduralSkillPromoterService::FIELD_PROVIDER_CALLS_MADE,
+            'queue' => AcosMaxProceduralSkillPromoterService::FIELD_QUEUE,
+            'recorded_at' => AcosMaxVerifiedShareService::FIELD_RECORDED_AT,
+            'role' => AcosMaxVerifiedShareService::FIELD_ROLE,
+            'outcome_envelope_ragx_chain_teto_predicted_immune_hybrid_floor_count' => 18,
+        ];
+    }
+
 }

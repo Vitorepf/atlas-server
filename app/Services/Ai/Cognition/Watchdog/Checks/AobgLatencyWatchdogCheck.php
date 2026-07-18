@@ -50,6 +50,8 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_VIOLATIONS = 'violations';
     public const FIELD_CODE = 'code';
     public const FIELD_FLOOR_MS = 'floor_ms';
+    public const FIELD_HOOK_P95_MS_ALERT = 'hook_p95_ms_alert';
+    public const FIELD_MESSAGE = 'message';
 
 
     /**
@@ -108,7 +110,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
         foreach ([
             AtlasAobgLatencyLedger::OP_PACK => AiValueNormalizer::finiteFloatOrNull($thresholds['pack_p95_ms_alert'] ?? null) ?? self::DEFAULT_PACK_P95_MS_ALERT,
             AtlasAobgLatencyLedger::OP_RECALL => AiValueNormalizer::finiteFloatOrNull($thresholds['recall_p95_ms_alert'] ?? null) ?? self::DEFAULT_RECALL_P95_MS_ALERT,
-            AtlasAobgLatencyLedger::OP_HOOK => AiValueNormalizer::finiteFloatOrNull($thresholds['hook_p95_ms_alert'] ?? null) ?? self::DEFAULT_HOOK_P95_MS_ALERT,
+            AtlasAobgLatencyLedger::OP_HOOK => AiValueNormalizer::finiteFloatOrNull($thresholds[self::FIELD_HOOK_P95_MS_ALERT] ?? null) ?? self::DEFAULT_HOOK_P95_MS_ALERT,
         ] as $op => $floor) {
             $p95 = AiValueNormalizer::finiteFloatOrNull(data_get($ops, $op.'.p95_ms', 0.0)) ?? 0.0;
             if ($p95 > $floor) {
@@ -119,7 +121,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
         if ($alerts !== []) {
             return AtlasWatchdogCheckResult::alert($evidence + [self::FIELD_REASON => self::REASON_LATENCY_FLOOR_EXCEEDED], [
                 self::FIELD_CODE => 'aobg_latency_p95_exceeded',
-                'message' => 'AOBG latency p95 exceeded frozen floors.',
+                self::FIELD_MESSAGE => 'AOBG latency p95 exceeded frozen floors.',
                 self::FIELD_VIOLATIONS => $alerts,
             ]);
         }
