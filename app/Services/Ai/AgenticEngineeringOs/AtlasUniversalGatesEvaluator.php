@@ -21039,4 +21039,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B761).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b761AaeosDepartmentFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'satisfied' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_SATISFIED,
+            'threshold' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_THRESHOLD,
+            'atlas.aaeos.quality_bar_level.v1' => AtlasAaeosDepartmentQualityBarLevelClassifier::SCHEMA_VERSION,
+            'schema_version' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_SCHEMA_VERSION,
+            'department_id' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_DEPARTMENT_ID,
+            'achieved_level' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_ACHIEVED_LEVEL,
+            'achieved_band_index' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_ACHIEVED_BAND_INDEX,
+            'highest_evaluable_level' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_HIGHEST_EVALUABLE_LEVEL,
+            'all_bands_satisfied' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_ALL_BANDS_SATISFIED,
+            'next_level' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_NEXT_LEVEL,
+            'promotion_blocked' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_PROMOTION_BLOCKED,
+            'level' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_LEVEL,
+            'metric' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_METRIC,
+            'comparator' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_COMPARATOR,
+            'value' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_VALUE,
+            'binding_breaches' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_BINDING_BREACHES,
+            'evaluated_bands' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_EVALUATED_BANDS,
+            'evaluated_metrics' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_EVALUATED_METRICS,
+            'b761_aaeos_department_floor_count' => 18,
+        ];
+    }
+
 }

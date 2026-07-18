@@ -16702,4 +16702,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b760_aaeos_doc_floor_count']);
     }
 
+    public function test_b761_aaeos_department_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b761AaeosDepartmentFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_SATISFIED, $out['satisfied']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::SCHEMA_VERSION, $out['atlas.aaeos.quality_bar_level.v1']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_DEPARTMENT_ID, $out['department_id']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_ACHIEVED_LEVEL, $out['achieved_level']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_ACHIEVED_BAND_INDEX, $out['achieved_band_index']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_HIGHEST_EVALUABLE_LEVEL, $out['highest_evaluable_level']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_ALL_BANDS_SATISFIED, $out['all_bands_satisfied']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_NEXT_LEVEL, $out['next_level']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_PROMOTION_BLOCKED, $out['promotion_blocked']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_LEVEL, $out['level']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_METRIC, $out['metric']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_COMPARATOR, $out['comparator']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_VALUE, $out['value']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_BINDING_BREACHES, $out['binding_breaches']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_EVALUATED_BANDS, $out['evaluated_bands']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_EVALUATED_METRICS, $out['evaluated_metrics']);
+        $this->assertSame(18, $out['b761_aaeos_department_floor_count']);
+    }
+
 }
