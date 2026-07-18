@@ -4980,4 +4980,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     }
 
 
+    public function test_freeze_scorecard_eligibility_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->freezeScorecardEligibilityFloorsContractObserve([]);
+
+        $this->assertSame('anchors_local_only', $payload['freeze_field_anchors_local_only']);
+        $this->assertSame('anchors_path', $payload['freeze_field_anchors_path']);
+        $this->assertSame('anchors_sha256', $payload['freeze_field_anchors_sha256']);
+        $this->assertSame('author_engine_id', $payload['freeze_field_author_engine_id']);
+        $this->assertSame('baseline_capacity_note', $payload['freeze_field_baseline_capacity_note']);
+        $this->assertSame('baseline_port', $payload['freeze_field_baseline_port']);
+        $this->assertSame('aemor', $payload['scorecard_field_aemor']);
+        $this->assertSame('atlas_decide', $payload['scorecard_field_atlas_decide']);
+        $this->assertSame('aucri', $payload['scorecard_field_aucri']);
+        $this->assertSame('autonomy', $payload['scorecard_field_autonomy']);
+        $this->assertSame('boundary', $payload['scorecard_field_boundary']);
+        $this->assertSame('cognition', $payload['scorecard_field_cognition']);
+        $this->assertSame('age_days', $payload['eligibility_field_age_days']);
+        $this->assertSame('as_of', $payload['eligibility_field_as_of']);
+        $this->assertSame('auto_promote_allowed', $payload['eligibility_field_auto_promote_allowed']);
+        $this->assertSame('blockers', $payload['eligibility_field_blockers']);
+        $this->assertSame('blockers_to_next', $payload['eligibility_field_blockers_to_next']);
+        $this->assertSame(17, $payload['freeze_scorecard_eligibility_floor_count']);
+    }
+
+
 }

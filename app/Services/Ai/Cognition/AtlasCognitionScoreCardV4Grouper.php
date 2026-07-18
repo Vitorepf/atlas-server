@@ -24,6 +24,12 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_PIPELINE_STATUS = 'pipeline_status';
     public const FIELD_MEMBERS = 'members';
     public const FIELD_SERVICE_CLASSES = 'service_classes';
+    public const FIELD_AEMOR = 'aemor';
+    public const FIELD_ATLAS_DECIDE = 'atlas_decide';
+    public const FIELD_AUCRI = 'aucri';
+    public const FIELD_AUTONOMY = 'autonomy';
+    public const FIELD_BOUNDARY = 'boundary';
+    public const FIELD_COGNITION = 'cognition';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -98,7 +104,7 @@ final class AtlasCognitionScoreCardV4Grouper
                 self::FIELD_MEMBERS => $bucket[self::FIELD_MEMBERS] ?? [],
                 self::FIELD_SERVICE_CLASSES => array_values(array_unique($bucket[self::FIELD_SERVICE_CLASSES] ?? [])),
                 'supplemental_count' => (int) (AiValueNormalizer::finiteFloatOrNull($bucket['supplemental_count'] ?? null) ?? 0),
-                'boundary' => $consumers ? 'consumer' : 'acos',
+                self::FIELD_BOUNDARY => $consumers ? 'consumer' : 'acos',
             ];
         }
 
@@ -112,20 +118,20 @@ final class AtlasCognitionScoreCardV4Grouper
         return match ($group) {
             'cognitive_immune' => 'IMMUNE',
             'memory_core' => 'MEMORY',
-            'aucri' => 'CONTEXT',
+            self::FIELD_AUCRI => 'CONTEXT',
             'self_improvement', 'self_construction', 'cartography', 'programming', 'research_domain' => 'CONSUMERS',
             'governance' => 'GOVERNANCE',
-            'atlas_decide' => 'DECIDE',
+            self::FIELD_ATLAS_DECIDE => 'DECIDE',
             'compounding' => 'COMPOUND',
             'reality', 'cross_domain' => 'REALITY',
             'teos' => 'TEOS',
-            'cognition' => 'COGNITION',
-            'autonomy' => 'AUTONOMY',
+            self::FIELD_COGNITION => 'COGNITION',
+            self::FIELD_AUTONOMY => 'AUTONOMY',
             'patamar4', 'patamar_4', 'integration' => 'PATAMAR4',
             'context_cache' => 'CONTEXT-CACHE',
             'context_intelligence' => 'CONTEXT-INTELLIGENCE',
             'persistent_context' => 'PERSISTENT-CONTEXT',
-            'aemor' => 'AEMOR',
+            self::FIELD_AEMOR => 'AEMOR',
             'long_horizon' => 'LONG-HORIZON',
             'verified_context' => 'VERIFIED-CONTEXT',
             'context_quality' => 'CONTEXT-QUALITY',

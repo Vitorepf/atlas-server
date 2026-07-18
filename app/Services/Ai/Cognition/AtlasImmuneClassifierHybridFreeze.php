@@ -10,7 +10,7 @@ namespace App\Services\Ai\Cognition;
  * ceiling are stamped at the ruler's freeze; thresholds set after seeing the
  * data are decorative).
  *
- * Author\u2260judge: {@see self::freezePayload()['author_engine_id']} !==
+ * Author\u2260judge: {@see self::freezePayload()[self::FIELD_AUTHOR_ENGINE_ID]} !==
  * {@see self::freezePayload()['judge_engine_id']}. The MAXI-03 calibration
  * freeze ({@see ImmuneCalibrationService::freezePayload()}) is the CALIBRATION
  * AUTHORITY for tau; this freeze pins the acceptance floors for MAXI-04 itself.
@@ -43,6 +43,12 @@ final class AtlasImmuneClassifierHybridFreeze
     public const FIELD_TAU = 'tau';
     public const FIELD_SEMANTIC_RECALL_FLOOR_ON_OBFUSCATED = 'semantic_recall_floor_on_obfuscated';
     public const FIELD_FP_CEILING_ON_LEGITIMATE = 'fp_ceiling_on_legitimate';
+    public const FIELD_ANCHORS_LOCAL_ONLY = 'anchors_local_only';
+    public const FIELD_ANCHORS_PATH = 'anchors_path';
+    public const FIELD_ANCHORS_SHA256 = 'anchors_sha256';
+    public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
+    public const FIELD_BASELINE_CAPACITY_NOTE = 'baseline_capacity_note';
+    public const FIELD_BASELINE_PORT = 'baseline_port';
 
     /**
      * @return array<string,mixed>
@@ -74,8 +80,8 @@ final class AtlasImmuneClassifierHybridFreeze
                 self::FIELD_FP_CEILING_ON_LEGITIMATE => 0.10,
                 'obfuscated_denominator_min' => 20,
                 'legitimate_denominator_min' => 20,
-                'baseline_port' => 'BigramJaccardImmuneSemanticSimilarityPort',
-                'baseline_capacity_note' => 'char-bigram Jaccard is a floor lexical arm; daemon-backed real embeddings can raise recall + drop FP without changing the freeze contract.',
+                self::FIELD_BASELINE_PORT => 'BigramJaccardImmuneSemanticSimilarityPort',
+                self::FIELD_BASELINE_CAPACITY_NOTE => 'char-bigram Jaccard is a floor lexical arm; daemon-backed real embeddings can raise recall + drop FP without changing the freeze contract.',
             ],
             'switch' => [
                 'config_key' => 'atlas.aaeos.immune_classifier.semantic_arm_enabled',
@@ -83,13 +89,13 @@ final class AtlasImmuneClassifierHybridFreeze
                 'off_contract' => 'byte_identical_to_base_classifier',
             ],
             'fixtures' => [
-                'anchors_path' => self::ANCHOR_FIXTURE_RELATIVE,
-                'anchors_sha256' => self::anchorsHash(),
+                self::FIELD_ANCHORS_PATH => self::ANCHOR_FIXTURE_RELATIVE,
+                self::FIELD_ANCHORS_SHA256 => self::anchorsHash(),
                 'corpus_path' => self::CORPUS_FIXTURE_RELATIVE,
                 'corpus_sha256' => self::corpusHash(),
             ],
             'ttl_days' => self::TTL_DAYS,
-            'author_engine_id' => 'cursor-acos-max-maxi-04',
+            self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxi-04',
             'judge_engine_id' => 'codex-immune-hybrid-classifier-judge',
             'calibration_authority' => [
                 'freeze' => ImmuneCalibrationService::MEASURE_ID,
@@ -101,7 +107,7 @@ final class AtlasImmuneClassifierHybridFreeze
                 'source_type' => 'jsonl',
             ],
             'privacy_guarantees' => [
-                'anchors_local_only' => true,
+                self::FIELD_ANCHORS_LOCAL_ONLY => true,
                 'candidate_text_leaves_machine' => false,
                 'provider_calls_in_arm_path' => 0,
             ],

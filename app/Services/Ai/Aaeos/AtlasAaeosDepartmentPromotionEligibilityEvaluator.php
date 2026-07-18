@@ -26,6 +26,11 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     public const FIELD_PRECONDITIONS = 'preconditions';
     public const FIELD_FAILED_PRECONDITIONS = 'failed_preconditions';
     public const FIELD_BLOCKING_REASONS = 'blocking_reasons';
+    public const FIELD_AGE_DAYS = 'age_days';
+    public const FIELD_AS_OF = 'as_of';
+    public const FIELD_AUTO_PROMOTE_ALLOWED = 'auto_promote_allowed';
+    public const FIELD_BLOCKERS = 'blockers';
+    public const FIELD_BLOCKERS_TO_NEXT = 'blockers_to_next';
 
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department
@@ -57,7 +62,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
         $atMaxTier = $currentTier >= $maxTier;
         $targetTier = $atMaxTier ? $maxTier : ($currentTier + 1);
 
-        $blockerPrecondition = $this->evaluateBlockers($department['blockers_to_next'] ?? []);
+        $blockerPrecondition = $this->evaluateBlockers($department[self::FIELD_BLOCKERS_TO_NEXT] ?? []);
         $qualityPrecondition = $this->evaluateQualityBar($metrics, $targetTier);
         $freshnessPrecondition = $this->evaluateFreshness($department, $options);
 
@@ -88,7 +93,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
         $eligible = $failedPreconditions === [] && ! $atMaxTier;
 
         $preconditions = [
-            'blockers' => $blockerPrecondition,
+            self::FIELD_BLOCKERS => $blockerPrecondition,
             'quality_bar' => $qualityPrecondition,
             'freshness' => $freshnessPrecondition,
         ];
@@ -111,7 +116,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
             ),
             'promotion_allowed' => false,
             'canonical_write_allowed' => false,
-            'auto_promote_allowed' => false,
+            self::FIELD_AUTO_PROMOTE_ALLOWED => false,
         ];
     }
 
@@ -200,14 +205,14 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     {
         $maxAgeDays = $this->intValue($options['max_evidence_age_days'] ?? self::DEFAULT_MAX_EVIDENCE_AGE_DAYS, self::DEFAULT_MAX_EVIDENCE_AGE_DAYS);
         $lastEvaluation = AiValueNormalizer::trimmedStringOrNull($department['last_evaluation'] ?? null) ?? '';
-        $asOf = AiValueNormalizer::trimmedStringOrNull($options['as_of'] ?? null) ?? date(DATE_ATOM);
+        $asOf = AiValueNormalizer::trimmedStringOrNull($options[self::FIELD_AS_OF] ?? null) ?? date(DATE_ATOM);
 
         $lastEvaluationTimestamp = $this->timestampFromIso($lastEvaluation);
         $ageDays = $this->ageInDays($lastEvaluation, $asOf);
 
         return [
             self::FIELD_PASSED => $lastEvaluationTimestamp !== null && $ageDays <= $maxAgeDays,
-            'age_days' => $ageDays,
+            self::FIELD_AGE_DAYS => $ageDays,
             'max_age_days' => $maxAgeDays,
         ];
     }
