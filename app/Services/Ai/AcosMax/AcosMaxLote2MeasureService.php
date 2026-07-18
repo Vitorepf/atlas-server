@@ -169,6 +169,12 @@ final class AcosMaxLote2MeasureService
     public const FIELD_BANDS = 'bands';
     public const FIELD_BASIS = 'basis';
     public const FIELD_BUCKETS = 'buckets';
+    public const FIELD_BUCKET_WIDTH_WEEKS = 'bucket_width_weeks';
+    public const FIELD_CHAIN = 'chain';
+    public const FIELD_CONTROL = 'control';
+    public const FIELD_INVALID_PAIRS = 'invalid_pairs';
+    public const FIELD_LOOP = 'loop';
+    public const FIELD_MODE = 'mode';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -283,7 +289,7 @@ final class AcosMaxLote2MeasureService
             );
 
             if ($assembled[self::FIELD_COMPLETE] === true) {
-                $loops[] = $assembled['loop'];
+                $loops[] = $assembled[self::FIELD_LOOP];
                 $durations[] = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($assembled, 'loop.time_to_recall_seconds')) ?? 0);
             } else {
                 $partial[] = $assembled[self::FIELD_PARTIAL];
@@ -441,7 +447,7 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_COMPLETE => false,
                 self::FIELD_PARTIAL => [
                     self::FIELD_LOOP_ID => hash('sha256', implode('|', array_map(static fn ($value): string => AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '', $chain))),
-                    'chain' => $chain,
+                    self::FIELD_CHAIN => $chain,
                     self::FIELD_PROVEN_REAL => $provenReal,
                     self::FIELD_FIXTURE_FREE => ! $fixture,
                     self::FIELD_BLOCKED_BY => array_values(array_unique($blockedBy)),
@@ -451,9 +457,9 @@ final class AcosMaxLote2MeasureService
 
         return [
             self::FIELD_COMPLETE => true,
-            'loop' => [
+            self::FIELD_LOOP => [
                 self::FIELD_LOOP_ID => hash('sha256', implode('|', array_map(static fn ($value): string => AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '', $chain))),
-                'chain' => $chain,
+                self::FIELD_CHAIN => $chain,
                 self::FIELD_PROVEN_REAL => true,
                 self::FIELD_FIXTURE_FREE => true,
                 'time_to_recall_seconds' => $this->secondsBetween(
@@ -730,7 +736,7 @@ final class AcosMaxLote2MeasureService
         return $this->emptyReport('MULTJ-01', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_NO_MEASURED_LESSON_USAGE_BUCKETS, [
             self::FIELD_MEASURE_ID => self::MULTJ01_MEASURE_ID,
             self::FIELD_DENOMINATOR_MIN => 8,
-            'bucket_width_weeks' => 2,
+            self::FIELD_BUCKET_WIDTH_WEEKS => 2,
             self::FIELD_MEMORY_TYPES => [],
             self::FIELD_BUCKETS => [],
         ]);
@@ -741,7 +747,7 @@ final class AcosMaxLote2MeasureService
     {
         return $this->emptyReport('MULTJ-02', self::STATUS_PENDING_WINDOW, self::REASON_CALIBRATION_FREEZE_ONLY, [
             self::FIELD_MEASURE_ID => self::MULTJ02_MEASURE_ID,
-            'mode' => self::MODE_OBSERVE,
+            self::FIELD_MODE => self::MODE_OBSERVE,
             'would_merge_count' => 0,
             self::FIELD_ACTUAL_MERGE_COUNT => 0,
             'threshold' => data_get(self::freezePayload('MULTJ-02'), 'thresholds.cosine_merge_threshold'),
@@ -768,7 +774,7 @@ final class AcosMaxLote2MeasureService
                     self::FIELD_RECORD_USAGE_FOR_PEEK => false,
                     'usage_rows_recorded' => 0,
                 ],
-                'invalid_pairs' => [
+                self::FIELD_INVALID_PAIRS => [
                     'peek_policy_violation' => 0,
                     self::FIELD_INCOMPLETE => 0,
                     'positive_lift_fabricated' => 0,
@@ -800,7 +806,7 @@ final class AcosMaxLote2MeasureService
                 : $this->memoryTypeFromCounterfactualMeta($meta);
             $pairs[$pairId][self::FIELD_ROWS][$arm] = [
                 self::FIELD_SCORE => $this->counterfactualScore($row, $meta),
-                'policy_valid' => AiValueNormalizer::lowerTrimmedString($meta['mode'] ?? 'peek') === 'peek'
+                'policy_valid' => AiValueNormalizer::lowerTrimmedString($meta[self::FIELD_MODE] ?? 'peek') === 'peek'
                     && ($meta['record_usage'] ?? false) === false,
             ];
             if (! $pairs[$pairId][self::FIELD_ROWS][$arm]['policy_valid']) {
@@ -822,13 +828,13 @@ final class AcosMaxLote2MeasureService
                 $invalidPolicyRows += count($rows);
                 continue;
             }
-            if (! isset($rows['control'], $rows['treatment'])) {
+            if (! isset($rows[self::FIELD_CONTROL], $rows['treatment'])) {
                 $incompletePairs++;
                 continue;
             }
 
             $memoryType = (AiValueNormalizer::trimmedStringOrNull($pair[self::FIELD_MEMORY_TYPE] ?? null) ?? self::MEMORY_TYPE_UNKNOWN);
-            $control = AiValueNormalizer::finiteFloatOrNull($rows['control'][self::FIELD_SCORE] ?? null) ?? 0.0;
+            $control = AiValueNormalizer::finiteFloatOrNull($rows[self::FIELD_CONTROL][self::FIELD_SCORE] ?? null) ?? 0.0;
             $treatment = AiValueNormalizer::finiteFloatOrNull($rows['treatment'][self::FIELD_SCORE] ?? null) ?? 0.0;
             $delta = round($treatment - $control, 4);
             $groups[$memoryType] ??= [
@@ -881,7 +887,7 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_RECORD_USAGE_FOR_PEEK => false,
                 'usage_rows_recorded' => $invalidPolicyRows,
             ],
-            'invalid_pairs' => [
+            self::FIELD_INVALID_PAIRS => [
                 'peek_policy_violation' => $invalidPolicyPairs,
                 self::FIELD_INCOMPLETE => $incompletePairs,
                 'positive_lift_fabricated' => $positiveLiftFabricated,
@@ -1036,7 +1042,7 @@ final class AcosMaxLote2MeasureService
             'MULTX-01' => self::payload(self::MULTX01_MEASURE_ID, 'multx.flywheel_loop_definition.v1', 'A valid loop chains task, decision receipt, delivered context, execution outcome, lesson, and subsequent measured recall; proven_real outcome is mandatory.', 1, 30, 'cursor-acos-max-multx01', 'codex-independent-multx01-judge', [self::FIELD_REQUIRES_PROVEN_REAL_OUTCOME => true]),
             'MULTX-06' => self::payload(self::MULTX06_MEASURE_ID, 'multx.learning_latency.v1', 'Measure p50/p95 latency from outcome-created lesson to first delivered context and first measured citation; never_delivered remains in denominator.', 8, 30, 'cursor-acos-max-multx06', 'codex-independent-multx06-judge', ['denominator_min_promoted_lessons' => 8]),
             'MULTX-09' => self::payload(self::MULTX09_MEASURE_ID, 'multx.windows_orchestrator.v1', 'Read-only PromotionProtocol window DAG: started windows publish days_remaining and critical path; not-started windows never receive fabricated ETA; associated series silence beyond the watchdog floor emits dead_window.', 1, 30, 'cursor-acos-max-multx09', 'codex-independent-multx09-judge', ['dead_window_silent_days' => 3, 'not_started_eta_allowed' => false, self::FIELD_READ_ONLY => true]),
-            'MULTJ-01' => self::payload(self::MULTJ01_MEASURE_ID, 'multj.lesson_half_life.v2', 'Bucket lesson lift by age since promotion using two-week buckets; buckets below n=8 publish insufficient instead of null.', 8, 30, 'cursor-acos-max-multj01', 'codex-independent-multj01-judge', ['bucket_width_weeks' => 2, 'denominator_min_per_bucket' => 8]),
+            'MULTJ-01' => self::payload(self::MULTJ01_MEASURE_ID, 'multj.lesson_half_life.v2', 'Bucket lesson lift by age since promotion using two-week buckets; buckets below n=8 publish insufficient instead of null.', 8, 30, 'cursor-acos-max-multj01', 'codex-independent-multj01-judge', [self::FIELD_BUCKET_WIDTH_WEEKS => 2, 'denominator_min_per_bucket' => 8]),
             'MULTJ-02' => self::payload(self::MULTJ02_MEASURE_ID, 'multj.semantic_dedup_freeze.v1', 'Semantic lesson dedup threshold freeze for observe-mode would-merge receipts; enforcement requires later calibrated promotion.', 1, 30, 'cursor-acos-max-multj02', 'codex-independent-multj02-judge', ['cosine_merge_threshold' => 0.88, 'observe_mode_actual_merges' => 0]),
             'MULTJ-03' => self::payload(self::MULTJ03_MEASURE_ID, 'multj.counterfactual_lift.v2', 'Paired peek evaluation of the same task with and without injected lesson; n_pairs below 8 publishes insufficient_signal and peek must not record usage.', 8, 30, 'cursor-acos-max-multj03', 'codex-independent-multj03-judge', [self::FIELD_SAMPLE_RATE => 0.05, 'denominator_min_pairs' => 8, self::FIELD_RECORD_USAGE_FOR_PEEK => false]),
             'MULTJ-04' => self::payload(self::MULTJ04_MEASURE_ID, 'multj.procedural_skill_promoter.v1', 'Procedural playbooks can propose skill.v1 candidates only after the real procedural case_count floor; output is default-OFF and ASI-02 holds promotion_allowed=false until gates pass.', AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR, 30, 'cursor-acos-max-multj04', 'codex-independent-multj04-judge', ['procedural_case_count_floor' => AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR, 'default_off' => true, self::FIELD_ADMISSION_DOOR => 'ASI-02']),

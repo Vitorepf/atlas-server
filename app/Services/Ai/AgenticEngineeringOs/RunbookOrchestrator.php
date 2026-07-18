@@ -37,6 +37,12 @@ final class RunbookOrchestrator
     public const FIELD_CURRENT_STATE_SNAPSHOT_HASH = 'current_state_snapshot_hash';
     public const FIELD_DEFAULT_FLOW = 'default_flow';
     public const FIELD_DEPARTMENT = 'department';
+    public const FIELD_GATES = 'gates';
+    public const FIELD_INTENT_CLASS = 'intent_class';
+    public const FIELD_PROPOSAL_HASH = 'proposal_hash';
+    public const FIELD_PROPOSED = 'proposed';
+    public const FIELD_PROPOSED_BY_ACTOR = 'proposed_by_actor';
+    public const FIELD_STRUCTURAL_CHANGES = 'structural_changes';
 
     /** Minimum replay count before a structural redesign may be promoted. */
     public const REPLAY_OBRAS_COUNT_MIN = 100;
@@ -86,7 +92,7 @@ final class RunbookOrchestrator
     public function plan(array $request): array
     {
         $intent = AiValueNormalizer::trimmedStringOrNull($request['intent'] ?? null) ?? '';
-        $intentClass = AiValueNormalizer::trimmedStringOrNull($request['intent_class'] ?? null) ?? $this->classify($intent);
+        $intentClass = AiValueNormalizer::trimmedStringOrNull($request[self::FIELD_INTENT_CLASS] ?? null) ?? $this->classify($intent);
         $needsResearch = (AiValueNormalizer::boolOrNull($request['needs_research'] ?? null) ?? false);
         $needsDebug = (AiValueNormalizer::boolOrNull($request['needs_debug'] ?? null) ?? false);
 
@@ -96,7 +102,7 @@ final class RunbookOrchestrator
             $stages[] = [
                 'order' => $i + 1,
                 self::FIELD_DEPARTMENT => $dept,
-                'gates' => $this->departments->gatesFor($dept),
+                self::FIELD_GATES => $this->departments->gatesFor($dept),
                 'evidence_schema' => $this->departments->evidenceSchemaFor($dept),
                 'handoff_to' => AiValueNormalizer::arrayOrEmpty(DepartmentContractRuntime::CATALOGUE[$dept]['emits_handoff_to'] ?? null),
             ];
@@ -105,14 +111,14 @@ final class RunbookOrchestrator
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'intent_hash' => hash('sha256', $intent),
-            'intent_class' => $intentClass,
+            self::FIELD_INTENT_CLASS => $intentClass,
             'stages' => $stages,
             'stage_count' => count($stages),
             'detail' => sprintf(
                 'Runbook for %s intent: %d stages, %d gates total.',
                 $intentClass,
                 count($stages),
-                array_sum(array_map(static fn ($s): int => count($s['gates']), $stages)),
+                array_sum(array_map(static fn ($s): int => count($s[self::FIELD_GATES]), $stages)),
             ),
         ];
     }
@@ -144,7 +150,7 @@ final class RunbookOrchestrator
             throw new \InvalidArgumentException('title and limitation are required for structural redesign proposals.');
         }
 
-        $rawChanges = AiValueNormalizer::arrayOrEmpty($request['structural_changes'] ?? null);
+        $rawChanges = AiValueNormalizer::arrayOrEmpty($request[self::FIELD_STRUCTURAL_CHANGES] ?? null);
         $structuralChanges = [];
         foreach ($rawChanges as $change) {
             if (! is_array($change)) {
@@ -155,14 +161,14 @@ final class RunbookOrchestrator
                 continue;
             }
             $current = AiValueNormalizer::trimmedStringOrNull($change[self::FIELD_CURRENT] ?? null) ?? '';
-            $proposed = AiValueNormalizer::trimmedStringOrNull($change['proposed'] ?? null) ?? '';
+            $proposed = AiValueNormalizer::trimmedStringOrNull($change[self::FIELD_PROPOSED] ?? null) ?? '';
             if ($current === '' || $proposed === '') {
                 continue;
             }
             $structuralChanges[] = [
                 'target' => $target,
                 self::FIELD_CURRENT => $current,
-                'proposed' => $proposed,
+                self::FIELD_PROPOSED => $proposed,
                 'target_doc' => AiValueNormalizer::trimmedStringOrNull($change['target_doc'] ?? null) ?? 'atlas-agentic-engineering-os-runbook',
                 self::FIELD_CURRENT_STATE_SNAPSHOT_HASH => hash('sha256', $current),
             ];
@@ -179,7 +185,7 @@ final class RunbookOrchestrator
             'schema' => self::ARCHITECTURE_REDESIGN_PROPOSAL_SCHEMA,
             'proposal_id' => 'arp-'.bin2hex(random_bytes(8)),
             'title' => $title,
-            'structural_changes' => $structuralChanges,
+            self::FIELD_STRUCTURAL_CHANGES => $structuralChanges,
             'runtime_baseline' => [
                 self::FIELD_DEFAULT_FLOW => $baselineFlow,
                 'department_count' => count(DepartmentContractRuntime::CATALOGUE),
@@ -201,15 +207,15 @@ final class RunbookOrchestrator
             ],
             'requires_replay_before_promotion' => true,
             'review_status' => 'pending_replay',
-            'proposed_by_actor' => AiValueNormalizer::arrayOrEmpty($request['proposed_by_actor'] ?? [
+            self::FIELD_PROPOSED_BY_ACTOR => AiValueNormalizer::arrayOrEmpty($request[self::FIELD_PROPOSED_BY_ACTOR] ?? [
                 'kind' => self::ACTOR_KIND_AGENT,
                 'id' => 'aaeos-runbook-orchestrator',
                 self::FIELD_AUTONOMY_LEVEL => 'L13',
             ]),
             'proposed_at' => now()->toAtomString(),
         ];
-        $proposal['proposal_hash'] = hash('sha256', json_encode(
-            array_diff_key($proposal, ['proposal_hash' => true]),
+        $proposal[self::FIELD_PROPOSAL_HASH] = hash('sha256', json_encode(
+            array_diff_key($proposal, [self::FIELD_PROPOSAL_HASH => true]),
             JSON_THROW_ON_ERROR,
         ));
 

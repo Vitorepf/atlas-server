@@ -7409,6 +7409,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: residual FIELD_* floors for WatchdogHealth + Lote2Measure + RunbookOrchestrator.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, bool|int|string>
+     */
+    public function healthLote2RunbookFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'health_field_blocker_series' => AtlasAcosWatchdogHealthService::FIELD_BLOCKER_SERIES,
+            'health_field_compaction_count' => AtlasAcosWatchdogHealthService::FIELD_COMPACTION_COUNT,
+            'health_field_days' => AtlasAcosWatchdogHealthService::FIELD_DAYS,
+            'health_field_delivered_refs_share' => AtlasAcosWatchdogHealthService::FIELD_DELIVERED_REFS_SHARE,
+            'health_field_edges_by_source' => AtlasAcosWatchdogHealthService::FIELD_EDGES_BY_SOURCE,
+            'health_field_first_seen_at' => AtlasAcosWatchdogHealthService::FIELD_FIRST_SEEN_AT,
+            'lote2_field_bucket_width_weeks' => AcosMaxLote2MeasureService::FIELD_BUCKET_WIDTH_WEEKS,
+            'lote2_field_chain' => AcosMaxLote2MeasureService::FIELD_CHAIN,
+            'lote2_field_control' => AcosMaxLote2MeasureService::FIELD_CONTROL,
+            'lote2_field_invalid_pairs' => AcosMaxLote2MeasureService::FIELD_INVALID_PAIRS,
+            'lote2_field_loop' => AcosMaxLote2MeasureService::FIELD_LOOP,
+            'lote2_field_mode' => AcosMaxLote2MeasureService::FIELD_MODE,
+            'runbook_field_gates' => RunbookOrchestrator::FIELD_GATES,
+            'runbook_field_intent_class' => RunbookOrchestrator::FIELD_INTENT_CLASS,
+            'runbook_field_proposal_hash' => RunbookOrchestrator::FIELD_PROPOSAL_HASH,
+            'runbook_field_proposed' => RunbookOrchestrator::FIELD_PROPOSED,
+            'runbook_field_proposed_by_actor' => RunbookOrchestrator::FIELD_PROPOSED_BY_ACTOR,
+            'runbook_field_structural_changes' => RunbookOrchestrator::FIELD_STRUCTURAL_CHANGES,
+            'health_lote2_runbook_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

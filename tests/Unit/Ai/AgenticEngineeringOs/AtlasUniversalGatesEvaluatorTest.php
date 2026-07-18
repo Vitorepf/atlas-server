@@ -5571,5 +5571,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['flywheel_immune_obra_floor_count']);
     }
 
+    public function test_health_lote2_runbook_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->healthLote2RunbookFloorsContractObserve([]);
+
+        $this->assertSame('blocker_series', $payload['health_field_blocker_series']);
+        $this->assertSame('compaction_count', $payload['health_field_compaction_count']);
+        $this->assertSame('days', $payload['health_field_days']);
+        $this->assertSame('delivered_refs_share', $payload['health_field_delivered_refs_share']);
+        $this->assertSame('edges_by_source', $payload['health_field_edges_by_source']);
+        $this->assertSame('first_seen_at', $payload['health_field_first_seen_at']);
+        $this->assertSame('bucket_width_weeks', $payload['lote2_field_bucket_width_weeks']);
+        $this->assertSame('chain', $payload['lote2_field_chain']);
+        $this->assertSame('control', $payload['lote2_field_control']);
+        $this->assertSame('invalid_pairs', $payload['lote2_field_invalid_pairs']);
+        $this->assertSame('loop', $payload['lote2_field_loop']);
+        $this->assertSame('mode', $payload['lote2_field_mode']);
+        $this->assertSame('gates', $payload['runbook_field_gates']);
+        $this->assertSame('intent_class', $payload['runbook_field_intent_class']);
+        $this->assertSame('proposal_hash', $payload['runbook_field_proposal_hash']);
+        $this->assertSame('proposed', $payload['runbook_field_proposed']);
+        $this->assertSame('proposed_by_actor', $payload['runbook_field_proposed_by_actor']);
+        $this->assertSame('structural_changes', $payload['runbook_field_structural_changes']);
+        $this->assertSame(18, $payload['health_lote2_runbook_floor_count']);
+    }
+
 
 }

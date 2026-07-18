@@ -135,6 +135,12 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_AUTONOMOS = 'autonomos';
     public const FIELD_AURG_CROSS_LAYER_COVERAGE_RATIO = 'aurg_cross_layer_coverage_ratio';
     public const FIELD_AEMOR_SOURCE_MAX_AGE_HOURS = 'aemor_source_max_age_hours';
+    public const FIELD_BLOCKER_SERIES = 'blocker_series';
+    public const FIELD_COMPACTION_COUNT = 'compaction_count';
+    public const FIELD_DAYS = 'days';
+    public const FIELD_DELIVERED_REFS_SHARE = 'delivered_refs_share';
+    public const FIELD_EDGES_BY_SOURCE = 'edges_by_source';
+    public const FIELD_FIRST_SEEN_AT = 'first_seen_at';
 
     public const STATUS_UNKNOWN = 'unknown';
 
@@ -305,7 +311,7 @@ final class AtlasAcosWatchdogHealthService
         $status = app(AtlasRealityGraphStatusService::class)->status();
         $coverage = AiValueNormalizer::arrayOrEmpty($status[self::FIELD_COVERAGE] ?? null);
         $store = AiValueNormalizer::arrayOrEmpty($status['store'] ?? null);
-        $edgesBySource = AiValueNormalizer::arrayOrEmpty($store['edges_by_source'] ?? null);
+        $edgesBySource = AiValueNormalizer::arrayOrEmpty($store[self::FIELD_EDGES_BY_SOURCE] ?? null);
         $ratio = AiValueNormalizer::finiteFloatOrNull($coverage[self::FIELD_MEMORY_CROSS_LAYER_COVERAGE_RATIO] ?? null) ?? 0.0;
         $blocking = [];
         if (! (AiValueNormalizer::boolOrNull($coverage[self::FIELD_AVAILABLE] ?? null) ?? false)) {
@@ -326,7 +332,7 @@ final class AtlasAcosWatchdogHealthService
             self::STATUS_ALERT => $blocking !== [],
             self::FIELD_COVERAGE => $coverage,
             'store' => [
-                'edges_by_source' => $edgesBySource,
+                self::FIELD_EDGES_BY_SOURCE => $edgesBySource,
                 self::FIELD_LAST_INGEST_AT => $store[self::FIELD_LAST_INGEST_AT] ?? null,
             ],
             self::FIELD_THRESHOLDS => [self::FIELD_MEMORY_CROSS_LAYER_COVERAGE_RATIO => self::RAG_COVERAGE_FLOOR],
@@ -448,7 +454,7 @@ final class AtlasAcosWatchdogHealthService
         }
         foreach ($byWriter as $writer => $row) {
             $byWriter[$writer][self::FIELD_MEASURED_SHARE] = $row[self::FIELD_TOTAL] > 0 ? round($row[self::FIELD_MEASURED] / $row[self::FIELD_TOTAL], 4) : 0.0;
-            $byWriter[$writer]['delivered_refs_share'] = $row[self::FIELD_TOTAL] > 0 ? round($row[self::FIELD_DELIVERED_REFS] / $row[self::FIELD_TOTAL], 4) : 0.0;
+            $byWriter[$writer][self::FIELD_DELIVERED_REFS_SHARE] = $row[self::FIELD_TOTAL] > 0 ? round($row[self::FIELD_DELIVERED_REFS] / $row[self::FIELD_TOTAL], 4) : 0.0;
         }
         $syntheticShare = $total > 0 ? round($synthetic / $total, 4) : 0.0;
         $blocking = [];
@@ -473,7 +479,7 @@ final class AtlasAcosWatchdogHealthService
                 'measured_count' => $measured,
                 'delivered_refs_count' => $delivered,
                 'utility_real_share' => $total > 0 ? round($measured / $total, 4) : 0.0,
-                'delivered_refs_share' => $total > 0 ? round($delivered / $total, 4) : 0.0,
+                self::FIELD_DELIVERED_REFS_SHARE => $total > 0 ? round($delivered / $total, 4) : 0.0,
                 'synthetic_share' => $syntheticShare,
                 'transcript_inferred_share' => $total > 0 ? round($transcript / $total, 4) : 0.0,
             ],
@@ -500,7 +506,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
                 self::FIELD_READY_TO_ENFORCE => false,
                 self::FIELD_BLOCKING => ['compaction_receipts_table_missing'],
-                self::FIELD_WINDOW => ['days' => self::COMPACTION_WINDOW_DAYS, 'compaction_count' => 0],
+                self::FIELD_WINDOW => [self::FIELD_DAYS => self::COMPACTION_WINDOW_DAYS, self::FIELD_COMPACTION_COUNT => 0],
                 self::FIELD_GENERATED_AT => now()->toIso8601String(),
             ];
         }
@@ -544,8 +550,8 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_READY_TO_ENFORCE => $blocking === [],
             self::FIELD_BLOCKING => array_values(array_unique($blocking)),
             self::FIELD_WINDOW => [
-                'days' => self::COMPACTION_WINDOW_DAYS,
-                'compaction_count' => $receipts->count(),
+                self::FIELD_DAYS => self::COMPACTION_WINDOW_DAYS,
+                self::FIELD_COMPACTION_COUNT => $receipts->count(),
                 'critical_must_keep_shadow_cuts' => $criticalCuts,
                 'context_retention_score_min' => $minRetention,
                 'context_retention_score_count' => count($retentionScores),
@@ -619,14 +625,14 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_WITH_RECALLED_MEMORY => (int) (AiValueNormalizer::finiteFloatOrNull(data_get($report, 'measurement.with_recalled_memory.case_count', 0)) ?? 0),
                 self::FIELD_WITHOUT_RECALLED_MEMORY => (int) (AiValueNormalizer::finiteFloatOrNull(data_get($report, 'measurement.without_recalled_memory.case_count', 0)) ?? 0),
             ],
-            'blocker_series' => $series,
+            self::FIELD_BLOCKER_SERIES => $series,
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
         $this->recordLedger($blocking === [] ? LedgerEventType::OperationCompleted : LedgerEventType::OperationBlocked, [
             self::FIELD_BLOCKERS => $blockers,
             self::FIELD_STATUS => $status,
             self::FIELD_CASE_COUNTS => $payload[self::FIELD_CASE_COUNTS],
-            'blocker_series' => $series,
+            self::FIELD_BLOCKER_SERIES => $series,
         ], 'ope-08.lift_cycle_closure');
 
         return $payload;
@@ -890,7 +896,7 @@ final class AtlasAcosWatchdogHealthService
             return array_map(static fn (string $blocker): array => [
                 self::FIELD_BLOCKER => $blocker,
                 self::FIELD_DAYS_IN_BLOCK => 0,
-                'first_seen_at' => null,
+                self::FIELD_FIRST_SEEN_AT => null,
             ], $blockers);
         }
         $hasScopeColumns = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')
@@ -912,7 +918,7 @@ final class AtlasAcosWatchdogHealthService
             $firstAt = $this->parseDate($first?->occurred_at) ?? CarbonImmutable::now('UTC');
             $series[] = [
                 self::FIELD_BLOCKER => $blocker,
-                'first_seen_at' => $first?->occurred_at?->toIso8601String(),
+                self::FIELD_FIRST_SEEN_AT => $first?->occurred_at?->toIso8601String(),
                 self::FIELD_DAYS_IN_BLOCK => (int) floor($firstAt->diffInHours(CarbonImmutable::now('UTC')) / 24),
             ];
         }
