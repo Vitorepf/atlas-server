@@ -83,6 +83,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_SPEC_REQUIRED = 'spec_required';
     public const FIELD_TARGET_DEPARTMENT_DECLARED = 'target_department_declared';
     public const FIELD_TASK_PACK_INVOCATION = 'task_pack_invocation';
+    public const FIELD_TASK_PACK_REQUIRED = 'task_pack_required';
+    public const FIELD_TASKS = 'tasks';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -293,7 +295,7 @@ final class AaeosHttpPathEnvelopeFactory
             ],
             self::FIELD_REQUIRED_GATE => 'spec_pack_acceptance_criteria_min_3',
         ],
-        'tasks' => [
+        self::FIELD_TASKS => [
             self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_SPEC,
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_TASKS,
             self::FIELD_ACTOR_ID => 'aaeos.tasks',
@@ -301,7 +303,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
             self::FIELD_OUTPUTS => [
                 self::FIELD_TASK_PACK_INVOCATION => 'deferred',
-                'task_pack_required' => 'yes',
+                self::FIELD_TASK_PACK_REQUIRED => 'yes',
             ],
             self::FIELD_REQUIRED_GATE => 'task_pack_atomic_true_for_each',
         ],

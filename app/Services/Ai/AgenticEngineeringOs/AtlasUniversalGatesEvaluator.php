@@ -9800,4 +9800,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B396).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function aobgLatencyLoteMeasureHttpPathMissionControlFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'p95_ms' => AobgLatencyWatchdogCheck::FIELD_P95_MS,
+            'pack_p95_ms_alert' => AobgLatencyWatchdogCheck::FIELD_PACK_P95_MS_ALERT,
+            'requires_loops_complete_min' => AcosMaxLote2MeasureService::FIELD_REQUIRES_LOOPS_COMPLETE_MIN,
+            'requires_proven_real' => AcosMaxLote2MeasureService::FIELD_REQUIRES_PROVEN_REAL,
+            'task_pack_required' => AaeosHttpPathEnvelopeFactory::FIELD_TASK_PACK_REQUIRED,
+            'tasks' => AaeosHttpPathEnvelopeFactory::FIELD_TASKS,
+            'skip_reason' => AtlasMissionControlCockpitService::FIELD_SKIP_REASON,
+            'snapshot_hash' => AtlasMissionControlCockpitService::FIELD_SNAPSHOT_HASH,
+            'schema_version' => DepartmentContractRuntime::FIELD_SCHEMA_VERSION,
+            'spec' => DepartmentContractRuntime::FIELD_SPEC,
+            'kind' => RunbookOrchestrator::FIELD_KIND,
+            'limitation' => RunbookOrchestrator::FIELD_LIMITATION,
+            'overall_out_of_10' => AtlasAcosEvolutionScoreService::FIELD_OVERALL_OUT_OF_10,
+            'provider' => AtlasAcosEvolutionScoreService::FIELD_PROVIDER,
+            'metrics' => AtlasAcosLongHorizonGateService::FIELD_METRICS,
+            'min_certification_window_overall' => AtlasAcosLongHorizonGateService::FIELD_MIN_CERTIFICATION_WINDOW_OVERALL,
+            'queued_at' => AtlasCognitionRemintTouchedQueue::FIELD_QUEUED_AT,
+            'schema_version' => AtlasCognitionRemintTouchedQueue::FIELD_SCHEMA_VERSION,
+            'aobg_latency_lote_measure_http_path_mission_control_floor_count' => 18,
+        ];
+    }
+
 }

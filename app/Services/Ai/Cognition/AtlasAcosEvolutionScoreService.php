@@ -111,6 +111,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_NOTES = 'notes';
     public const FIELD_OK = 'ok';
     public const FIELD_ORIGIN = 'origin';
+    public const FIELD_OVERALL_OUT_OF_10 = 'overall_out_of_10';
+    public const FIELD_PROVIDER = 'provider';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -133,7 +135,7 @@ class AtlasAcosEvolutionScoreService
         $envelope = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_GENERATED_AT => gmdate('c'),
-            'overall_out_of_10' => $overall,
+            self::FIELD_OVERALL_OUT_OF_10 => $overall,
             self::FIELD_DIMENSIONS => [
                 self::FIELD_EXECUCAO_PROVADA => $execucao,
                 self::FIELD_INTELIGENCIA_ENTREGUE => $inteligencia,
@@ -355,7 +357,7 @@ class AtlasAcosEvolutionScoreService
                         if (($meta[self::FIELD_ORIGIN] ?? '') === AtlasOpenBrainWriteBackService::MISSION_ORIGIN_SESSION_CAPTURE) {
                             continue;
                         }
-                        if (AiValueNormalizer::trimmedStringOrNull($meta['provider'] ?? null) !== null
+                        if (AiValueNormalizer::trimmedStringOrNull($meta[self::FIELD_PROVIDER] ?? null) !== null
                             && preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i', AiValueNormalizer::trimmedScalarStringOrNull($node->source_id ?? null) ?? '') === 1) {
                             $count++;
                         }

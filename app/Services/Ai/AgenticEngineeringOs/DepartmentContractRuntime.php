@@ -188,6 +188,8 @@ final class DepartmentContractRuntime
     public const FIELD_PASSED = 'passed';
     public const FIELD_RULE_ID = 'rule_id';
     public const FIELD_SCHEMA_FIELDS_12_PRESENT = 'schema_fields_12_present';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_SPEC = 'spec';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -526,7 +528,7 @@ final class DepartmentContractRuntime
     public function catalogue(): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_DEPARTMENT_COUNT => count(self::CATALOGUE),
             self::FIELD_CANON_DEPARTMENT_COUNT => 11,
             self::FIELD_DEPARTMENTS => self::CATALOGUE,
@@ -669,7 +671,7 @@ final class DepartmentContractRuntime
         }
 
         // Observe-only: when a compiled-spec map is supplied, stamp SpecCompletenessScorer.
-        $spec = AiValueNormalizer::arrayOrEmpty($input['spec'] ?? null);
+        $spec = AiValueNormalizer::arrayOrEmpty($input[self::FIELD_SPEC] ?? null);
         if ($spec !== []) {
             $result[self::FIELD_OBSERVE] = [
                 'spec_completeness' => $this->specCompleteness->score($spec),

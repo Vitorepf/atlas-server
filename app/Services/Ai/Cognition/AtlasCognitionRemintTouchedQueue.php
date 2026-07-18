@@ -51,6 +51,8 @@ final class AtlasCognitionRemintTouchedQueue
     public const FIELD_METADATA = 'metadata';
     public const FIELD_PATH_COUNT = 'path_count';
     public const FIELD_QUEUE_PATH = 'queue_path';
+    public const FIELD_QUEUED_AT = 'queued_at';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     /**
      * @param  list<string>  $paths
@@ -78,8 +80,8 @@ final class AtlasCognitionRemintTouchedQueue
 
         $command = 'php artisan atlas:cognition:remint-touched --paths='.implode(',', $paths).' --json';
         $payload = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'queued_at' => Carbon::now()->toIso8601String(),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_QUEUED_AT => Carbon::now()->toIso8601String(),
             'task_packet_id' => $taskPacketId,
             self::FIELD_PATHS => $paths,
             self::FIELD_COMMAND => $command,

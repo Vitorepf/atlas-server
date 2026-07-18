@@ -94,6 +94,8 @@ final class AtlasMissionControlCockpitService
     public const FIELD_REPORT_HASH = 'report_hash';
     public const FIELD_REQUIRED = 'required';
     public const FIELD_SCHEMA = 'schema';
+    public const FIELD_SKIP_REASON = 'skip_reason';
+    public const FIELD_SNAPSHOT_HASH = 'snapshot_hash';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
@@ -164,7 +166,7 @@ final class AtlasMissionControlCockpitService
         if ($queueHealth !== null) {
             $payload[self::FIELD_QUEUE_HEALTH] = $queueHealth;
         }
-        $payload['snapshot_hash'] = 'sha256:'.hash('sha256', json_encode([
+        $payload[self::FIELD_SNAPSHOT_HASH] = 'sha256:'.hash('sha256', json_encode([
             $intentId,
             array_column($journey, 'phase'),
             array_column($journey, 'status'),
@@ -327,7 +329,7 @@ final class AtlasMissionControlCockpitService
             $passed = AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_PASSED] ?? null);
             $required = AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_REQUIRED] ?? null);
             $actor = AiValueNormalizer::arrayOrEmpty($env[self::FIELD_ACTOR] ?? null);
-            $skipped = ! empty($env['skip_reason']);
+            $skipped = ! empty($env[self::FIELD_SKIP_REASON]);
             $status = $skipped ? self::STATUS_SKIPPED : (count($blocked) > 0 ? self::STATUS_BLOCKED : ($env[self::FIELD_ENDED_AT] ?? null ? self::STATUS_COMPLETE : self::STATUS_IN_PROGRESS));
             $out[] = [
                 self::FIELD_PHASE => $phase,

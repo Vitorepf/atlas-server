@@ -7624,4 +7624,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['lote_measure_http_path_mission_control_department_contract_floor_count']);
     }
 
+    public function test_aobg_latency_lote_measure_http_path_mission_control_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->aobgLatencyLoteMeasureHttpPathMissionControlFloorsContractObserve([]);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_P95_MS, $out['p95_ms']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_PACK_P95_MS_ALERT, $out['pack_p95_ms_alert']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_REQUIRES_LOOPS_COMPLETE_MIN, $out['requires_loops_complete_min']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_REQUIRES_PROVEN_REAL, $out['requires_proven_real']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_TASK_PACK_REQUIRED, $out['task_pack_required']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_TASKS, $out['tasks']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_SKIP_REASON, $out['skip_reason']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_SNAPSHOT_HASH, $out['snapshot_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SPEC, $out['spec']);
+        $this->assertSame(RunbookOrchestrator::FIELD_KIND, $out['kind']);
+        $this->assertSame(RunbookOrchestrator::FIELD_LIMITATION, $out['limitation']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_OVERALL_OUT_OF_10, $out['overall_out_of_10']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_PROVIDER, $out['provider']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_METRICS, $out['metrics']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_MIN_CERTIFICATION_WINDOW_OVERALL, $out['min_certification_window_overall']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::FIELD_QUEUED_AT, $out['queued_at']);
+        $this->assertSame(AtlasCognitionRemintTouchedQueue::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(18, $out['aobg_latency_lote_measure_http_path_mission_control_floor_count']);
+    }
+
 }

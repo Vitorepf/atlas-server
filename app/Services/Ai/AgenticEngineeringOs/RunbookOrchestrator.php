@@ -64,6 +64,8 @@ final class RunbookOrchestrator
     public const FIELD_ID = 'id';
     public const FIELD_INTENT = 'intent';
     public const FIELD_INTENT_HASH = 'intent_hash';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_LIMITATION = 'limitation';
 
     /**
      * Canonical default flow for a non-trivial intent. Trivial intents
@@ -163,7 +165,7 @@ final class RunbookOrchestrator
     public function proposeStructuralRedesign(array $request): array
     {
         $title = AiValueNormalizer::trimmedStringOrNull($request[self::FIELD_TITLE] ?? null) ?? '';
-        $limitation = AiValueNormalizer::trimmedStringOrNull($request['limitation'] ?? null) ?? '';
+        $limitation = AiValueNormalizer::trimmedStringOrNull($request[self::FIELD_LIMITATION] ?? null) ?? '';
         if ($title === '' || $limitation === '') {
             throw new \InvalidArgumentException('title and limitation are required for structural redesign proposals.');
         }
@@ -226,7 +228,7 @@ final class RunbookOrchestrator
             'requires_replay_before_promotion' => true,
             'review_status' => 'pending_replay',
             self::FIELD_PROPOSED_BY_ACTOR => AiValueNormalizer::arrayOrEmpty($request[self::FIELD_PROPOSED_BY_ACTOR] ?? [
-                'kind' => self::ACTOR_KIND_AGENT,
+                self::FIELD_KIND => self::ACTOR_KIND_AGENT,
                 self::FIELD_ID => 'aaeos-runbook-orchestrator',
                 self::FIELD_AUTONOMY_LEVEL => 'L13',
             ]),

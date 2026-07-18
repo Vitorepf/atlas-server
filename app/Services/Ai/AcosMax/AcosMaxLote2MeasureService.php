@@ -228,6 +228,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_REQUIRES_DECISION_RECEIPT_ID = 'requires_decision_receipt_id';
     public const FIELD_REQUIRES_DELIVERED_CONTEXT_RECEIPT = 'requires_delivered_context_receipt';
     public const FIELD_REQUIRES_LEARNING_CANDIDATE = 'requires_learning_candidate';
+    public const FIELD_REQUIRES_LOOPS_COMPLETE_MIN = 'requires_loops_complete_min';
+    public const FIELD_REQUIRES_PROVEN_REAL = 'requires_proven_real';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -379,8 +381,8 @@ final class AcosMaxLote2MeasureService
             self::FIELD_MARCO_ESP_V1 => [
                 self::FIELD_SATISFIED => $marcoSatisfied,
                 self::FIELD_BLOCKED_BY => $marcoSatisfied ? [] : [self::FIELD_NO_COMPLETE_PROVEN_REAL_LOOP_WINDOW],
-                'requires_loops_complete_min' => 1,
-                'requires_proven_real' => true,
+                self::FIELD_REQUIRES_LOOPS_COMPLETE_MIN => 1,
+                self::FIELD_REQUIRES_PROVEN_REAL => true,
                 self::FIELD_REQUIRES_CHAINED_IDS => true,
                 self::FIELD_REQUIRES_ZERO_FIXTURE => true,
             ],

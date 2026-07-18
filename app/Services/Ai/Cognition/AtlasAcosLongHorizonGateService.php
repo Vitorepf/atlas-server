@@ -139,6 +139,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_GATE_V1_BYTE_IDENTICAL_WITHOUT_V2 = 'gate_v1_byte_identical_without_v2';
     public const FIELD_LATEST_SERIES_OVERALL = 'latest_series_overall';
     public const FIELD_LONGITUDINAL_AREA_FLOOR_V2 = 'longitudinal_area_floor_v2';
+    public const FIELD_METRICS = 'metrics';
+    public const FIELD_MIN_CERTIFICATION_WINDOW_OVERALL = 'min_certification_window_overall';
 
     /**
      * @param  array<string,mixed>  $options
@@ -437,7 +439,7 @@ final class AtlasAcosLongHorizonGateService
             'pipeline_score' => round($pipeline, 3),
             self::FIELD_SCORECARD_HASH => $scorecardHash,
             self::FIELD_LATEST_SERIES_OVERALL => round($latestSeriesOverall, 3),
-            'min_certification_window_overall' => round($minCertificationWindowOverall, 3),
+            self::FIELD_MIN_CERTIFICATION_WINDOW_OVERALL => round($minCertificationWindowOverall, 3),
             self::FIELD_CERTIFICATION_WINDOW_DAYS_BELOW_FLOOR => $certificationWindowDaysBelowFloor,
             self::FIELD_FLOORS => [
                 self::FIELD_MIN_DAYS => $minDays,
@@ -912,7 +914,7 @@ final class AtlasAcosLongHorizonGateService
             $rows[] = [
                 self::FIELD_DATE => $date,
                 self::FIELD_RECORDED_AT => $date.'T00:00:00+00:00',
-                'metrics' => [self::FIELD_SCORECARD_OVERALL => $overall],
+                self::FIELD_METRICS => [self::FIELD_SCORECARD_OVERALL => $overall],
                 'sources' => [self::FIELD_SCORECARD_OVERALL => 'AtlasCognitionScoreCardService::build() (resolved-evidence)'],
             ];
         }
