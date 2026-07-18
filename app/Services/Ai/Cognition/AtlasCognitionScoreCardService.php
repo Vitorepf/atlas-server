@@ -195,6 +195,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_REALITY = 'reality';
     public const FIELD_RESEARCH_DOMAIN = 'research_domain';
     public const FIELD_SELF_IMPROVEMENT = 'self_improvement';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_VERIFIED_CONTEXT = 'verified_context';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -346,7 +348,7 @@ class AtlasCognitionScoreCardService
         ['APCR', 'Persistent Context Runtime', self::FIELD_PERSISTENT_CONTEXT, AtlasPersistentContextRuntimeService::class],
         ['AEMOR', 'Execution Memory Outcome Runtime', self::FIELD_AEMOR, AtlasAemorCertificationService::class],
         ['TEOS-I1', 'Long-Horizon Intelligence Layer', self::FIELD_LONG_HORIZON, LongHorizonContinuityCertificationService::class],
-        ['AVCEL', 'Verified Context Execution Loop', 'verified_context', AtlasVerifiedContextExecutionLoopService::class],
+        ['AVCEL', 'Verified Context Execution Loop', self::FIELD_VERIFIED_CONTEXT, AtlasVerifiedContextExecutionLoopService::class],
         ['ACQCG', 'Context Quality Certification Gate', self::FIELD_CONTEXT_QUALITY, AtlasContextQualityCertificationService::class],
         ['AOBG', 'Open Brain Gateway', self::FIELD_OPEN_BRAIN, AtlasOpenBrainMcpService::class],
         ['EVIDENCE', 'Evidence Ledger Memory Side', self::FIELD_EVIDENCE, AtlasEvidenceLedger::class],
@@ -531,7 +533,7 @@ class AtlasCognitionScoreCardService
         }, $rows);
         usort($canonical, static fn ($a, $b) => strcmp($a[self::FIELD_ACRONYM], $b[self::FIELD_ACRONYM]));
 
-        return 'sha256:'.hash('sha256', json_encode([
+        return 'sha256:'.hash(self::FIELD_SHA256, json_encode([
             self::FIELD_SCHEMA => self::SCHEMA_VERSION,
             self::FIELD_ROWS => $canonical,
             self::FIELD_OVERALL => $score[self::FIELD_OVERALL_OUT_OF_10],

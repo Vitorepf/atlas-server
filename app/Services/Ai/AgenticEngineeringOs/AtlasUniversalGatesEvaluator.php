@@ -11661,4 +11661,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B456).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function cognitiveFunctionDepartmentContractModelCapabilityHttpPathFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'governance' => AtlasCognitiveFunctionDecomposerService::FIELD_GOVERNANCE,
+            'kernel' => AtlasCognitiveFunctionDecomposerService::FIELD_KERNEL,
+            'repair_budget_respected' => DepartmentContractRuntime::FIELD_REPAIR_BUDGET_RESPECTED,
+            'request_mitigation' => DepartmentContractRuntime::FIELD_REQUEST_MITIGATION,
+            'term_weights_not_exposed' => AtlasModelCapabilitySpecService::FIELD_TERM_WEIGHTS_NOT_EXPOSED,
+            'token_embeddings_not_exposed' => AtlasModelCapabilitySpecService::FIELD_TOKEN_EMBEDDINGS_NOT_EXPOSED,
+            'surface_captured_intent' => AaeosHttpPathEnvelopeFactory::FIELD_SURFACE_CAPTURED_INTENT,
+            'topology_plan_providers_min_1_available' => AaeosHttpPathEnvelopeFactory::FIELD_TOPOLOGY_PLAN_PROVIDERS_MIN_1_AVAILABLE,
+            'breaking_change_matrix' => ArchitectAgentSpecPackGateContract::FIELD_BREAKING_CHANGE_MATRIX,
+            'spec_acceptance_criteria_complete' => ArchitectAgentSpecPackGateContract::FIELD_SPEC_ACCEPTANCE_CRITERIA_COMPLETE,
+            'legacy' => AtlasAaeosHttpPathFacadeService::FIELD_LEGACY,
+            'surface_id' => AtlasAaeosHttpPathFacadeService::FIELD_SURFACE_ID,
+            'storage_path' => AtlasAcosWindowGatesService::FIELD_STORAGE_PATH,
+            'structural_honesty' => AtlasAcosWindowGatesService::FIELD_STRUCTURAL_HONESTY,
+            'sha256' => AtlasCognitionScoreCardService::FIELD_SHA256,
+            'verified_context' => AtlasCognitionScoreCardService::FIELD_VERIFIED_CONTEXT,
+            'self_construction' => AtlasCognitionScoreCardV4Grouper::FIELD_SELF_CONSTRUCTION,
+            'self_improvement' => AtlasCognitionScoreCardV4Grouper::FIELD_SELF_IMPROVEMENT,
+            'cognitive_function_department_contract_model_capability_http_path_floor_count' => 18,
+        ];
+    }
+
 }

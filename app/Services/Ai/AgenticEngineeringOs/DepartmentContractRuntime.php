@@ -279,6 +279,8 @@ final class DepartmentContractRuntime
     public const FIELD_PROVIDER_TOPOLOGY_GREEN = 'provider_topology_green';
     public const FIELD_QUARANTINE_CAPSULE = 'quarantine_capsule';
     public const FIELD_REGRESSION_TESTS_ADDED = 'regression_tests_added';
+    public const FIELD_REPAIR_BUDGET_RESPECTED = 'repair_budget_respected';
+    public const FIELD_REQUEST_MITIGATION = 'request_mitigation';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -441,7 +443,7 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_ROOT_CAUSE_PACK, self::FIELD_SCHEMA => self::SCHEMA_ROOT_CAUSE_PACK],
             ],
-            self::FIELD_GATES => ['failure_capsule_emitted', 'repair_budget_respected', 'reproduction_confirmed', 'root_cause_evidence_present'],
+            self::FIELD_GATES => ['failure_capsule_emitted', self::FIELD_REPAIR_BUDGET_RESPECTED, 'reproduction_confirmed', 'root_cause_evidence_present'],
             self::FIELD_ALLOWED_ACTIONS => ['read_logs', 'run_repro', 'request_observability_query'],
             self::FIELD_FORBIDDEN_ACTIONS => ['modify_production_data', 'deploy_fix_without_review'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY],
@@ -512,7 +514,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_POLICY_DECISION, self::FIELD_SCHEMA => self::SCHEMA_POLICY_DECISION],
             ],
             self::FIELD_GATES => ['security_scan_clean', self::FIELD_CVE_ACKNOWLEDGED, 'secret_scan_clean', 'dependency_audit_clean', 'threat_model_present', 'sovereignty_boundary_respected'],
-            self::FIELD_ALLOWED_ACTIONS => ['allow', self::FIELD_DENY, 'request_mitigation', 'escalate_to_operator'],
+            self::FIELD_ALLOWED_ACTIONS => ['allow', self::FIELD_DENY, self::FIELD_REQUEST_MITIGATION, 'escalate_to_operator'],
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_sovereignty', self::FIELD_APPROVE_UNAUDITED_DEP, 'ship_without_evidence'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['policy_decision_hash', 'secret_scan_report_hash', 'dependency_audit_hash'],

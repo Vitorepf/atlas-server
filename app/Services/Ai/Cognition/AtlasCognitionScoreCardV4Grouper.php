@@ -56,11 +56,13 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_PATAMAR4 = 'patamar4';
     public const FIELD_PATAMAR_4 = 'patamar_4';
     public const FIELD_REALITY = 'reality';
+    public const FIELD_SELF_CONSTRUCTION = 'self_construction';
+    public const FIELD_SELF_IMPROVEMENT = 'self_improvement';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
         'self_improvement',
-        'self_construction',
+        self::FIELD_SELF_CONSTRUCTION,
         self::FIELD_CARTOGRAPHY,
         self::FIELD_PROGRAMMING,
         'research_domain',
@@ -145,7 +147,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_COGNITIVE_IMMUNE => 'IMMUNE',
             self::FIELD_MEMORY_CORE => 'MEMORY',
             self::FIELD_AUCRI => 'CONTEXT',
-            'self_improvement', 'self_construction', self::FIELD_CARTOGRAPHY, self::FIELD_PROGRAMMING, self::FIELD_RESEARCH_DOMAIN => 'CONSUMERS',
+            self::FIELD_SELF_IMPROVEMENT, self::FIELD_SELF_CONSTRUCTION, self::FIELD_CARTOGRAPHY, self::FIELD_PROGRAMMING, self::FIELD_RESEARCH_DOMAIN => 'CONSUMERS',
             self::FIELD_GOVERNANCE => 'GOVERNANCE',
             self::FIELD_ATLAS_DECIDE => 'DECIDE',
             self::FIELD_COMPOUNDING => 'COMPOUND',

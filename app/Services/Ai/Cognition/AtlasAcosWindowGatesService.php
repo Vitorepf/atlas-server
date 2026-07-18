@@ -60,6 +60,8 @@ final class AtlasAcosWindowGatesService
     public const FIELD_MEMORY_QUALITY = 'memory_quality';
     public const FIELD_RATIONALE = 'rationale';
     public const FIELD_RELATION_DENSITY = 'relation_density';
+    public const FIELD_STORAGE_PATH = 'storage_path';
+    public const FIELD_STRUCTURAL_HONESTY = 'structural_honesty';
 
     /** Receipt freshness before a certified gate is treated as stale (7 days). */
     public const RECEIPT_FRESH_SECONDS = 604800;
@@ -110,7 +112,7 @@ final class AtlasAcosWindowGatesService
 
         return [
             $this->dimension('D3_relation_density', $dims, self::FIELD_RELATION_DENSITY, '>=70', 70, true),
-            $this->dimension('D5_structural_honesty', $dims, 'structural_honesty', '>=70', 70, true),
+            $this->dimension('D5_structural_honesty', $dims, self::FIELD_STRUCTURAL_HONESTY, '>=70', 70, true),
             $this->dimension('D5_rationale', $dims, self::FIELD_RATIONALE, '>=70', 70, true),
             // D5 feedback / composite: the target direction is contested in the
             // docs (quality composite vs "<=50" marker) → report, never assert.
@@ -147,7 +149,7 @@ final class AtlasAcosWindowGatesService
      */
     private function windowReceipts(): array
     {
-        $dir = function_exists('storage_path')
+        $dir = function_exists(self::FIELD_STORAGE_PATH)
             ? storage_path('app/atlas/evidence')
             : sys_get_temp_dir().'/atlas/evidence';
 

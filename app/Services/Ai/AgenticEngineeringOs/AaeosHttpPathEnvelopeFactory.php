@@ -112,6 +112,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_PAYLOAD = 'payload';
     public const FIELD_PLACEMENT_DECISION_FEATURE_PATH_VALID = 'placement_decision_feature_path_valid';
     public const FIELD_POLICY_DECISION_ALLOWED_TRUE = 'policy_decision_allowed_true';
+    public const FIELD_SURFACE_CAPTURED_INTENT = 'surface_captured_intent';
+    public const FIELD_TOPOLOGY_PLAN_PROVIDERS_MIN_1_AVAILABLE = 'topology_plan_providers_min_1_available';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -130,7 +132,7 @@ final class AaeosHttpPathEnvelopeFactory
             actor: self::systemActor('aaeos.http_path_facade'),
             inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [self::FIELD_INTENT_HASH => $intentHash, self::FIELD_INTENT_ID => $intentId],
-            gates: self::binaryGate('surface_captured_intent', true),
+            gates: self::binaryGate(self::FIELD_SURFACE_CAPTURED_INTENT, true),
         );
     }
 
@@ -296,7 +298,7 @@ final class AaeosHttpPathEnvelopeFactory
                 self::FIELD_TOPOLOGY_REQUIRED => self::FIELD_YES,
                 self::FIELD_AAWR_INVOCATION => self::FIELD_DEFERRED,
             ],
-            self::FIELD_REQUIRED_GATE => 'topology_plan_providers_min_1_available',
+            self::FIELD_REQUIRED_GATE => self::FIELD_TOPOLOGY_PLAN_PROVIDERS_MIN_1_AVAILABLE,
         ],
         self::FIELD_ROUTING => [
             self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_TOPOLOGY,

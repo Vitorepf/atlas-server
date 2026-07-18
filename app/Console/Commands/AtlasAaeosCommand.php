@@ -478,6 +478,7 @@ final class AtlasAaeosCommand extends Command
                             {--b453-capture-hmac-cognitive-function-department-contract-immune-promotion-floors-contract= : JSON file (any object) to observe capture/hmac/cognitive/function/department/contract floors}
                             {--aaeos-test-cognitive-function-department-contract-implementation-memory-floors-contract= : JSON file (any object) to observe aaeos/test/cognitive/function/department/contract floors}
                             {--cognitive-function-department-contract-aaeos-immune-promotion-acos-floors-contract= : JSON file (any object) to observe cognitive/function/department/contract/aaeos/immune floors}
+                            {--cognitive-function-department-contract-model-capability-http-path-floors-contract= : JSON file (any object) to observe cognitive/function/department/contract/model/capability floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1112,6 +1113,7 @@ final class AtlasAaeosCommand extends Command
             ['b453-capture-hmac-cognitive-function-department-contract-immune-promotion-floors-contract', 'b453_capture_hmac_cognitive_function_department_contract_immune_promotion_floors_contract', fn (array $p) => $gates->b453CaptureHmacCognitiveFunctionDepartmentContractImmunePromotionFloorsContractObserve($p)],
             ['aaeos-test-cognitive-function-department-contract-implementation-memory-floors-contract', 'aaeos_test_cognitive_function_department_contract_implementation_memory_floors_contract', fn (array $p) => $gates->aaeosTestCognitiveFunctionDepartmentContractImplementationMemoryFloorsContractObserve($p)],
             ['cognitive-function-department-contract-aaeos-immune-promotion-acos-floors-contract', 'cognitive_function_department_contract_aaeos_immune_promotion_acos_floors_contract', fn (array $p) => $gates->cognitiveFunctionDepartmentContractAaeosImmunePromotionAcosFloorsContractObserve($p)],
+            ['cognitive-function-department-contract-model-capability-http-path-floors-contract', 'cognitive_function_department_contract_model_capability_http_path_floors_contract', fn (array $p) => $gates->cognitiveFunctionDepartmentContractModelCapabilityHttpPathFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

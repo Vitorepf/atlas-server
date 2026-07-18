@@ -63,6 +63,8 @@ final class AtlasModelCapabilitySpecService
     public const FIELD_POOLING = 'pooling';
     public const FIELD_TERM_WEIGHTS_EXPOSED = 'term_weights_exposed';
     public const FIELD_TOKEN_EMBEDDINGS_EXPOSED = 'token_embeddings_exposed';
+    public const FIELD_TERM_WEIGHTS_NOT_EXPOSED = 'term_weights_not_exposed';
+    public const FIELD_TOKEN_EMBEDDINGS_NOT_EXPOSED = 'token_embeddings_not_exposed';
     /** @var array<string, array<string, mixed>> */
     private array $functions;
 
@@ -141,11 +143,11 @@ final class AtlasModelCapabilitySpecService
         ));
 
         $violations = array_merge($violations, $this->checkBooleanTrue(
-            $spec, $model, self::FIELD_TOKEN_EMBEDDINGS_EXPOSED, 'token_embeddings_not_exposed'
+            $spec, $model, self::FIELD_TOKEN_EMBEDDINGS_EXPOSED, self::FIELD_TOKEN_EMBEDDINGS_NOT_EXPOSED
         ));
 
         $violations = array_merge($violations, $this->checkBooleanTrue(
-            $spec, $model, self::FIELD_TERM_WEIGHTS_EXPOSED, 'term_weights_not_exposed'
+            $spec, $model, self::FIELD_TERM_WEIGHTS_EXPOSED, self::FIELD_TERM_WEIGHTS_NOT_EXPOSED
         ));
 
         $violations = array_merge($violations, $this->checkLatency($spec, $model));

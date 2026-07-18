@@ -9143,4 +9143,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cognitive_function_department_contract_aaeos_immune_promotion_acos_floor_count']);
     }
 
+    public function test_cognitive_function_department_contract_model_capability_http_path_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitiveFunctionDepartmentContractModelCapabilityHttpPathFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_GOVERNANCE, $out['governance']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_KERNEL, $out['kernel']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REPAIR_BUDGET_RESPECTED, $out['repair_budget_respected']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REQUEST_MITIGATION, $out['request_mitigation']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_TERM_WEIGHTS_NOT_EXPOSED, $out['term_weights_not_exposed']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_TOKEN_EMBEDDINGS_NOT_EXPOSED, $out['token_embeddings_not_exposed']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_SURFACE_CAPTURED_INTENT, $out['surface_captured_intent']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_TOPOLOGY_PLAN_PROVIDERS_MIN_1_AVAILABLE, $out['topology_plan_providers_min_1_available']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_BREAKING_CHANGE_MATRIX, $out['breaking_change_matrix']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_SPEC_ACCEPTANCE_CRITERIA_COMPLETE, $out['spec_acceptance_criteria_complete']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_LEGACY, $out['legacy']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_SURFACE_ID, $out['surface_id']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_STORAGE_PATH, $out['storage_path']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_STRUCTURAL_HONESTY, $out['structural_honesty']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_VERIFIED_CONTEXT, $out['verified_context']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_SELF_CONSTRUCTION, $out['self_construction']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_SELF_IMPROVEMENT, $out['self_improvement']);
+        $this->assertSame(18, $out['cognitive_function_department_contract_model_capability_http_path_floor_count']);
+    }
+
 }
