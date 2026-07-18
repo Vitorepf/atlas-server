@@ -12426,4 +12426,15 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b588_obra_retro_local_model_capability_attempt_lifecycle_composed_floor_count']);
     }
 
+    public function test_b589_capture_hmac_acos_watchdog_autonomy_ladder_daily_canary_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b589CaptureHmacAcosWatchdogAutonomyLadderDailyCanaryFloorsContractObserve([]);
+        $this->assertSame(CaptureHmacLineageService::FIELD_PREV_RECEIPT_HASH, $out['prev_receipt_hash']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LAST_AT, $out['last_at']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_CEILING, $out['ceiling']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_REFS_BY_KIND, $out['refs_by_kind']);
+        $this->assertSame(4, $out['b589_capture_hmac_acos_watchdog_autonomy_ladder_daily_canary_floor_count']);
+    }
+
 }

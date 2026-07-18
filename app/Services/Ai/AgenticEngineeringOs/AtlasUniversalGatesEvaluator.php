@@ -15737,4 +15737,21 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B589).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b589CaptureHmacAcosWatchdogAutonomyLadderDailyCanaryFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'prev_receipt_hash' => CaptureHmacLineageService::FIELD_PREV_RECEIPT_HASH,
+            'last_at' => AtlasAcosWatchdogHealthService::FIELD_LAST_AT,
+            'ceiling' => AutonomyLadderAdversarialWatchdogCheck::FIELD_CEILING,
+            'refs_by_kind' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_REFS_BY_KIND,
+            'b589_capture_hmac_acos_watchdog_autonomy_ladder_daily_canary_floor_count' => 4,
+        ];
+    }
+
 }
