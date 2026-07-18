@@ -232,6 +232,15 @@ final class DepartmentContractRuntime
     public const FIELD_MISSION_ENVELOPE = 'mission_envelope';
     public const FIELD_OBRA_PACK = 'obra_pack';
     public const FIELD_POLICY_DECISION = 'policy_decision';
+    public const FIELD_POLICY_REQUEST = 'policy_request';
+    public const FIELD_RESEARCH_PACK = 'research_pack';
+    public const FIELD_RESEARCH_QUESTION = 'research_question';
+    public const FIELD_REVIEW_REPORT = 'review_report';
+    public const FIELD_RISK_SCOPE_BELOW_MIN_AUTONOMOUS = 'risk_scope_below_min_autonomous';
+    public const FIELD_ROOT_CAUSE_PACK = 'root_cause_pack';
+    public const FIELD_TASK_PACK = 'task_pack';
+    public const FIELD_TEST_PACK = 'test_pack';
+    public const FIELD_TOPOLOGY_PLAN = 'topology_plan';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -341,10 +350,10 @@ final class DepartmentContractRuntime
             self::FIELD_SCOPE => 'produz state-of-the-art source-backed para suportar Architect e Self-Construction',
             self::FIELD_TRIGGERS => ['self_construction.gap_detected=true', 'architect.research_needed=true'],
             self::FIELD_INPUTS => [
-                [self::FIELD_NAME => 'research_question', self::FIELD_SCHEMA => self::SCHEMA_RESEARCH_QUESTION],
+                [self::FIELD_NAME => self::FIELD_RESEARCH_QUESTION, self::FIELD_SCHEMA => self::SCHEMA_RESEARCH_QUESTION],
             ],
             self::FIELD_OUTPUTS => [
-                [self::FIELD_NAME => 'research_pack', self::FIELD_SCHEMA => self::SCHEMA_RESEARCH_PACK],
+                [self::FIELD_NAME => self::FIELD_RESEARCH_PACK, self::FIELD_SCHEMA => self::SCHEMA_RESEARCH_PACK],
             ],
             self::FIELD_GATES => ['research_findings_published', 'review_only_acknowledged', 'sources_min_3', 'source_dates_recent', 'no_hallucinated_links'],
             self::FIELD_ALLOWED_ACTIONS => ['fetch_sources', 'synthesize_findings', 'propose_doc_promotion'],
@@ -365,7 +374,7 @@ final class DepartmentContractRuntime
             self::FIELD_TRIGGERS => ['intent_classification.target_department=dev', 'scope<=R3'],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
-                [self::FIELD_NAME => 'task_pack', self::FIELD_SCHEMA => self::SCHEMA_TASK_PACK],
+                [self::FIELD_NAME => self::FIELD_TASK_PACK, self::FIELD_SCHEMA => self::SCHEMA_TASK_PACK],
             ],
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_EXECUTION_LOG, self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
@@ -392,7 +401,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_FAILURE_REPORT, self::FIELD_SCHEMA => self::SCHEMA_FAILURE_REPORT],
             ],
             self::FIELD_OUTPUTS => [
-                [self::FIELD_NAME => 'root_cause_pack', self::FIELD_SCHEMA => self::SCHEMA_ROOT_CAUSE_PACK],
+                [self::FIELD_NAME => self::FIELD_ROOT_CAUSE_PACK, self::FIELD_SCHEMA => self::SCHEMA_ROOT_CAUSE_PACK],
             ],
             self::FIELD_GATES => ['failure_capsule_emitted', 'repair_budget_respected', 'reproduction_confirmed', 'root_cause_evidence_present'],
             self::FIELD_ALLOWED_ACTIONS => ['read_logs', 'run_repro', 'request_observability_query'],
@@ -415,7 +424,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_DELIVERY_PACK, self::FIELD_SCHEMA => self::SCHEMA_DELIVERY_PACK],
             ],
             self::FIELD_OUTPUTS => [
-                [self::FIELD_NAME => 'review_report', self::FIELD_SCHEMA => self::SCHEMA_REVIEW_REPORT],
+                [self::FIELD_NAME => self::FIELD_REVIEW_REPORT, self::FIELD_SCHEMA => self::SCHEMA_REVIEW_REPORT],
             ],
             self::FIELD_GATES => ['review_packet_signed', 'risk_acknowledged', 'review_checklist_complete', 'blockers_addressed', 'evidence_traceable'],
             self::FIELD_ALLOWED_ACTIONS => ['request_changes', 'approve_for_cert', 'veto_release'],
@@ -439,7 +448,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_PATCH_PACK, self::FIELD_SCHEMA => self::SCHEMA_PATCH_PACK],
             ],
             self::FIELD_OUTPUTS => [
-                [self::FIELD_NAME => 'test_pack', self::FIELD_SCHEMA => self::SCHEMA_TEST_PACK],
+                [self::FIELD_NAME => self::FIELD_TEST_PACK, self::FIELD_SCHEMA => self::SCHEMA_TEST_PACK],
             ],
             self::FIELD_GATES => ['regression_green', 'verification_complete', 'coverage_min_threshold', 'regression_tests_added', 'fixtures_versioned'],
             self::FIELD_ALLOWED_ACTIONS => ['write_tests', 'request_test_data', 'block_on_coverage_drop'],
@@ -459,7 +468,7 @@ final class DepartmentContractRuntime
             self::FIELD_SCOPE => 'enforce de policy, threat-modeling, secret scanning, dependency audit, sovereignty boundary',
             self::FIELD_TRIGGERS => ['security_path_touched=true', 'intent_class_in=[sensitive,secret,cyber]', 'release_pack_drafted=true'],
             self::FIELD_INPUTS => [
-                [self::FIELD_NAME => 'policy_request', self::FIELD_SCHEMA => self::SCHEMA_POLICY_REQUEST],
+                [self::FIELD_NAME => self::FIELD_POLICY_REQUEST, self::FIELD_SCHEMA => self::SCHEMA_POLICY_REQUEST],
             ],
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_POLICY_DECISION, self::FIELD_SCHEMA => self::SCHEMA_POLICY_DECISION],
@@ -483,7 +492,7 @@ final class DepartmentContractRuntime
             self::FIELD_TRIGGERS => ['intent_classification.target_department=forge', 'scope>=R3', 'multi_module_detected=true'],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
-                [self::FIELD_NAME => 'topology_plan', self::FIELD_SCHEMA => self::SCHEMA_TOPOLOGY_PLAN],
+                [self::FIELD_NAME => self::FIELD_TOPOLOGY_PLAN, self::FIELD_SCHEMA => self::SCHEMA_TOPOLOGY_PLAN],
             ],
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_OBRA_PACK, self::FIELD_SCHEMA => self::SCHEMA_OBRA_PACK],
@@ -737,7 +746,7 @@ final class DepartmentContractRuntime
         }
 
         return [
-            self::FIELD_RULE_ID => 'risk_scope_below_min_autonomous',
+            self::FIELD_RULE_ID => self::FIELD_RISK_SCOPE_BELOW_MIN_AUTONOMOUS,
             self::FIELD_GATE_REQUIRED => false,
             self::FIELD_PASSED => true,
             self::FIELD_REASON => null,

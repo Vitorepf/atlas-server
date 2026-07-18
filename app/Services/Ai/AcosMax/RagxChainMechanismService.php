@@ -195,6 +195,7 @@ final class RagxChainMechanismService
     public const FIELD_TEXT = 'text';
     public const FIELD_LOUVAIN_DETERMINISTIC_LOCAL = 'louvain_deterministic_local';
     public const FIELD_LEXICAL_SPARSE_SHADOW = 'lexical_sparse_shadow';
+    public const FIELD_MAXF09_VERIFIED_L2_SUMMARY = 'maxf09_verified_l2_summary';
 
     public function __construct(
         private readonly ?AsefChunkIndexService $asefChunks = null,
@@ -417,7 +418,7 @@ final class RagxChainMechanismService
                 self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($summary[self::FIELD_ID] ?? null) ?? ('raptor_lite_'.($index + 1)),
                 self::FIELD_COMMUNITY => array_values(AiValueNormalizer::arrayOrEmpty($summary[self::FIELD_COMMUNITY] ?? ($communities[$index] ?? null))),
                 self::FIELD_SUMMARY_REF => AiValueNormalizer::trimmedStringOrNull($summary[self::FIELD_L2_SUMMARY_ID] ?? $summary[self::FIELD_ID] ?? null) ?? '',
-                self::FIELD_SOURCE => 'maxf09_verified_l2_summary',
+                self::FIELD_SOURCE => self::FIELD_MAXF09_VERIFIED_L2_SUMMARY,
             ];
         }
 

@@ -75,6 +75,7 @@ final class ExploratoryBetsPortfolio
     public const FIELD_SUSPENDS_ON_INSUFFICIENT_N = 'suspends_on_insufficient_n';
     public const FIELD_CURRENT_WINDOW = 'current_window';
     public const FIELD_OFF = 'off';
+    public const FIELD_ORIGINATED_SLICE_SUB_POLICY = 'originated_slice_sub_policy';
 
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
 
@@ -288,7 +289,7 @@ final class ExploratoryBetsPortfolio
     private static function source(): array
     {
         return [
-            self::FIELD_ALLOCATION_BOUNDARY => 'originated_slice_sub_policy',
+            self::FIELD_ALLOCATION_BOUNDARY => self::FIELD_ORIGINATED_SLICE_SUB_POLICY,
             self::FIELD_USES_ATLAS_BRAIN_CAUSAL_EFFECT_GATE => true,
             self::FIELD_RECOMPUTES_MULTK_06_ALLOCATION => false,
             self::FIELD_WRITES_CLASS_ALLOCATION_WEIGHTS => false,

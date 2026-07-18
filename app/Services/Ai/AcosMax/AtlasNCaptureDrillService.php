@@ -126,6 +126,7 @@ final class AtlasNCaptureDrillService
     public const FIELD_YARDSTICK = 'yardstick';
     public const FIELD_ENGINE = 'engine';
     public const FIELD_JSONL = 'jsonl';
+    public const FIELD_NO_DRILL_IN_WINDOW = 'no_drill_in_window';
 
     private readonly string $ledgerPath;
 
@@ -271,7 +272,7 @@ final class AtlasNCaptureDrillService
         ));
 
         $status = $inWindow === [] ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK;
-        $reason = $inWindow === [] ? 'no_drill_in_window' : null;
+        $reason = $inWindow === [] ? self::FIELD_NO_DRILL_IN_WINDOW : null;
 
         $engines = [];
         foreach ($inWindow as $r) {

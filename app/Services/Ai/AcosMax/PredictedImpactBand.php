@@ -49,6 +49,7 @@ final class PredictedImpactBand
     public const FIELD_REPORT_ONLY = 'report_only';
     public const FIELD_LOW = 'low';
     public const FIELD_HIGH = 'high';
+    public const FIELD_SWEET = 'sweet';
 
     /**
      * @param  array<string,mixed>  $candidate
@@ -62,7 +63,7 @@ final class PredictedImpactBand
         $score = (self::RUNG_WEIGHT[$rung] ?? 0) + ($rank <= self::RANK_TOP_CUTOFF ? 1 : 0) + ($yield >= self::YIELD_SWEET_FLOOR ? 1 : 0);
         $band = match (true) {
             $score >= self::HIGH_SCORE_FLOOR => self::FIELD_HIGH,
-            $score >= self::SWEET_SCORE_FLOOR => 'sweet',
+            $score >= self::SWEET_SCORE_FLOOR => self::FIELD_SWEET,
             default => self::FIELD_LOW,
         };
 

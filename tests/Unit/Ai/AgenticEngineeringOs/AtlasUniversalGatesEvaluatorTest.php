@@ -8566,4 +8566,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['department_contract_health_report_dev_procedural_execution_context_floor_count']);
     }
 
+    public function test_department_contract_window_orchestrator_model_capability_n_capture_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->departmentContractWindowOrchestratorModelCapabilityNCaptureFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_POLICY_REQUEST, $out['policy_request']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RESEARCH_PACK, $out['research_pack']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RESEARCH_QUESTION, $out['research_question']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REVIEW_REPORT, $out['review_report']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RISK_SCOPE_BELOW_MIN_AUTONOMOUS, $out['risk_scope_below_min_autonomous']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ROOT_CAUSE_PACK, $out['root_cause_pack']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TASK_PACK, $out['task_pack']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TEST_PACK, $out['test_pack']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TOPOLOGY_PLAN, $out['topology_plan']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_NO_SERIES_DATA_SINCE_WINDOW_START, $out['no_series_data_since_window_start']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_NON_EMPTY_STRING, $out['non_empty_string']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_NO_DRILL_IN_WINDOW, $out['no_drill_in_window']);
+        $this->assertSame(Esp09IndependentChallengerService::FIELD_DEFAULT, $out['default']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_DEFAULT, $out['default']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_ORIGINATED_SLICE_SUB_POLICY, $out['originated_slice_sub_policy']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_NORMAL, $out['normal']);
+        $this->assertSame(PredictedImpactBand::FIELD_SWEET, $out['sweet']);
+        $this->assertSame(RagxChainMechanismService::FIELD_MAXF09_VERIFIED_L2_SUMMARY, $out['maxf09_verified_l2_summary']);
+        $this->assertSame(18, $out['department_contract_window_orchestrator_model_capability_n_capture_floor_count']);
+    }
+
 }

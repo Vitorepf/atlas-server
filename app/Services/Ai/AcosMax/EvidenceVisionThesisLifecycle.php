@@ -57,6 +57,7 @@ final class EvidenceVisionThesisLifecycle
     public const FIELD_SERIES = 'series';
     public const FIELD_SOURCE = 'source';
     public const FIELD_STAGE = 'stage';
+    public const FIELD_DEFAULT = 'default';
 
     /** @var array<string,array<string,mixed>> */
     private static array $active = [];
@@ -225,7 +226,7 @@ final class EvidenceVisionThesisLifecycle
 
         $matching = array_values(array_filter($seriesWindows, static function (array $window) use ($series, $stage): bool {
             return (AiValueNormalizer::trimmedStringOrNull($window[self::FIELD_SERIES] ?? null) ?? '') === $series
-                && (AiValueNormalizer::trimmedStringOrNull($window[self::FIELD_STAGE] ?? null) ?? 'default') === $stage;
+                && (AiValueNormalizer::trimmedStringOrNull($window[self::FIELD_STAGE] ?? null) ?? self::FIELD_DEFAULT) === $stage;
         }));
         usort($matching, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($a[self::FIELD_WINDOW] ?? null) ?? 0)) <=> ((int) (AiValueNormalizer::finiteFloatOrNull($b[self::FIELD_WINDOW] ?? null) ?? 0)));
         $tail = array_slice($matching, -$need);

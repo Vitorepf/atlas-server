@@ -63,6 +63,7 @@ final class AcosMaxWindowOrchestratorService
     public const FIELD_TO_STATE = 'to_state';
     public const FIELD_WATCHDOG = 'watchdog';
     public const FIELD_WINDOWS = 'windows';
+    public const FIELD_NO_SERIES_DATA_SINCE_WINDOW_START = 'no_series_data_since_window_start';
 
 
     public function __construct(
@@ -269,7 +270,7 @@ final class AcosMaxWindowOrchestratorService
             self::FIELD_SERIES => $series[self::FIELD_SERIES] ?? null,
             self::FIELD_SILENT_DAYS => $silentDays,
             self::FIELD_LAST_DATA_AT => $lastDataAt?->format(DateTimeInterface::ATOM),
-            self::FIELD_REASON => $lastDataAt === null ? 'no_series_data_since_window_start' : 'series_stale_during_window',
+            self::FIELD_REASON => $lastDataAt === null ? self::FIELD_NO_SERIES_DATA_SINCE_WINDOW_START : 'series_stale_during_window',
         ];
     }
 

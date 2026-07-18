@@ -111,6 +111,7 @@ final class Esp09IndependentChallengerService
     public const FIELD_REQUIRES_CHALLENGER = 'requires_challenger';
     public const FIELD_SERIES = 'series';
     public const FIELD_TTL_DAYS = 'ttl_days';
+    public const FIELD_DEFAULT = 'default';
 
     /**
      * @param  array<string,mixed>  $context
@@ -221,7 +222,7 @@ final class Esp09IndependentChallengerService
 
         foreach ($events as $event) {
             $outcome = AiValueNormalizer::lowerTrimmedString($event[self::FIELD_OUTCOME] ?? '');
-            $window = AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_WINDOW] ?? null) ?? 'default';
+            $window = AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_WINDOW] ?? null) ?? self::FIELD_DEFAULT;
             $byWindow[$window] ??= [self::OUTCOME_ACCEPTED => 0, self::OUTCOME_IGNORED => 0];
 
             if ($outcome === self::OUTCOME_ACCEPTED) {

@@ -455,6 +455,7 @@ final class AtlasAaeosCommand extends Command
                             {--obra-retro-department-contract-lote-measure-verified-share-floors-contract= : JSON file (any object) to observe obra/retro/department/contract/lote/measure floors}
                             {--department-contract-teto-predicted-mission-control-acos-evolution-floors-contract= : JSON file (any object) to observe department/contract/teto/predicted/mission/control floors}
                             {--department-contract-health-report-dev-procedural-execution-context-floors-contract= : JSON file (any object) to observe department/contract/health/report/dev/procedural floors}
+                            {--department-contract-window-orchestrator-model-capability-n-capture-floors-contract= : JSON file (any object) to observe department/contract/window/orchestrator/model/capability floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1066,6 +1067,7 @@ final class AtlasAaeosCommand extends Command
             ['obra-retro-department-contract-lote-measure-verified-share-floors-contract', 'obra_retro_department_contract_lote_measure_verified_share_floors_contract', fn (array $p) => $gates->obraRetroDepartmentContractLoteMeasureVerifiedShareFloorsContractObserve($p)],
             ['department-contract-teto-predicted-mission-control-acos-evolution-floors-contract', 'department_contract_teto_predicted_mission_control_acos_evolution_floors_contract', fn (array $p) => $gates->departmentContractTetoPredictedMissionControlAcosEvolutionFloorsContractObserve($p)],
             ['department-contract-health-report-dev-procedural-execution-context-floors-contract', 'department_contract_health_report_dev_procedural_execution_context_floors_contract', fn (array $p) => $gates->departmentContractHealthReportDevProceduralExecutionContextFloorsContractObserve($p)],
+            ['department-contract-window-orchestrator-model-capability-n-capture-floors-contract', 'department_contract_window_orchestrator_model_capability_n_capture_floors_contract', fn (array $p) => $gates->departmentContractWindowOrchestratorModelCapabilityNCaptureFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

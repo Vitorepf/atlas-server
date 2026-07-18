@@ -48,6 +48,7 @@ final class AtlasModelCapabilitySpecService
     public const FIELD_FUNCTION = 'function';
     public const FIELD_LICENSE_ALLOWED = 'license_allowed';
     public const FIELD_LICENSE = 'license';
+    public const FIELD_NON_EMPTY_STRING = 'non_empty_string';
     /** @var array<string, array<string, mixed>> */
     private array $functions;
 
@@ -96,7 +97,7 @@ final class AtlasModelCapabilitySpecService
             $violations[] = [
                 self::FIELD_FIELD => 'model_id',
                 self::FIELD_REASON => self::REASON_MISSING_MODEL_ID,
-                self::FIELD_EXPECTED => 'non_empty_string',
+                self::FIELD_EXPECTED => self::FIELD_NON_EMPTY_STRING,
                 self::FIELD_ACTUAL => null,
             ];
         }

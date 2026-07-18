@@ -10948,4 +10948,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B433).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function departmentContractWindowOrchestratorModelCapabilityNCaptureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'policy_request' => DepartmentContractRuntime::FIELD_POLICY_REQUEST,
+            'research_pack' => DepartmentContractRuntime::FIELD_RESEARCH_PACK,
+            'research_question' => DepartmentContractRuntime::FIELD_RESEARCH_QUESTION,
+            'review_report' => DepartmentContractRuntime::FIELD_REVIEW_REPORT,
+            'risk_scope_below_min_autonomous' => DepartmentContractRuntime::FIELD_RISK_SCOPE_BELOW_MIN_AUTONOMOUS,
+            'root_cause_pack' => DepartmentContractRuntime::FIELD_ROOT_CAUSE_PACK,
+            'task_pack' => DepartmentContractRuntime::FIELD_TASK_PACK,
+            'test_pack' => DepartmentContractRuntime::FIELD_TEST_PACK,
+            'topology_plan' => DepartmentContractRuntime::FIELD_TOPOLOGY_PLAN,
+            'no_series_data_since_window_start' => AcosMaxWindowOrchestratorService::FIELD_NO_SERIES_DATA_SINCE_WINDOW_START,
+            'non_empty_string' => AtlasModelCapabilitySpecService::FIELD_NON_EMPTY_STRING,
+            'no_drill_in_window' => AtlasNCaptureDrillService::FIELD_NO_DRILL_IN_WINDOW,
+            'default' => Esp09IndependentChallengerService::FIELD_DEFAULT,
+            'default' => EvidenceVisionThesisLifecycle::FIELD_DEFAULT,
+            'originated_slice_sub_policy' => ExploratoryBetsPortfolio::FIELD_ORIGINATED_SLICE_SUB_POLICY,
+            'normal' => GatedCorpusCandidateMiner::FIELD_NORMAL,
+            'sweet' => PredictedImpactBand::FIELD_SWEET,
+            'maxf09_verified_l2_summary' => RagxChainMechanismService::FIELD_MAXF09_VERIFIED_L2_SUMMARY,
+            'department_contract_window_orchestrator_model_capability_n_capture_floor_count' => 18,
+        ];
+    }
+
 }
