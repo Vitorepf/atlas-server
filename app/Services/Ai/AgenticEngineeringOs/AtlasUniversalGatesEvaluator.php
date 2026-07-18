@@ -20822,4 +20822,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B754).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b754JointResourceFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.acos.joint_resource_budget_watchdog.v1' => JointResourceBudgetWatchdogCheck::SCHEMA_VERSION,
+            'elev-27.joint_resource_budget' => JointResourceBudgetWatchdogCheck::CHECK_ID,
+            'measured_headroom_mb' => JointResourceBudgetWatchdogCheck::FIELD_MEASURED_HEADROOM_MB,
+            'over_cap_components' => JointResourceBudgetWatchdogCheck::FIELD_OVER_CAP_COMPONENTS,
+            'host_ram_gib' => JointResourceBudgetWatchdogCheck::FIELD_HOST_RAM_GIB,
+            'engine_floor_gib' => JointResourceBudgetWatchdogCheck::FIELD_ENGINE_FLOOR_GIB,
+            'total_ram_cap_mb' => JointResourceBudgetWatchdogCheck::FIELD_TOTAL_RAM_CAP_MB,
+            'paper_headroom_mb' => JointResourceBudgetWatchdogCheck::FIELD_PAPER_HEADROOM_MB,
+            'components' => JointResourceBudgetWatchdogCheck::FIELD_COMPONENTS,
+            'declared_paper_status' => JointResourceBudgetWatchdogCheck::FIELD_DECLARED_PAPER_STATUS,
+            'measured_ram_mb' => JointResourceBudgetWatchdogCheck::FIELD_MEASURED_RAM_MB,
+            'paper_status' => JointResourceBudgetWatchdogCheck::FIELD_PAPER_STATUS,
+            'reasons' => JointResourceBudgetWatchdogCheck::FIELD_REASONS,
+            'schema_version' => JointResourceBudgetWatchdogCheck::FIELD_SCHEMA_VERSION,
+            'message' => JointResourceBudgetWatchdogCheck::FIELD_MESSAGE,
+            'code' => JointResourceBudgetWatchdogCheck::FIELD_CODE,
+            'generated_at' => JointResourceBudgetWatchdogCheck::FIELD_GENERATED_AT,
+            'paper_overshoot' => JointResourceBudgetWatchdogCheck::FIELD_PAPER_OVERSHOOT,
+            'b754_joint_resource_floor_count' => 18,
+        ];
+    }
+
 }

@@ -16527,4 +16527,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b753_disk_free_floor_count']);
     }
 
+    public function test_b754_joint_resource_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b754JointResourceFloorsContractObserve([]);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::SCHEMA_VERSION, $out['atlas.acos.joint_resource_budget_watchdog.v1']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::CHECK_ID, $out['elev-27.joint_resource_budget']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_MEASURED_HEADROOM_MB, $out['measured_headroom_mb']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_OVER_CAP_COMPONENTS, $out['over_cap_components']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_HOST_RAM_GIB, $out['host_ram_gib']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_ENGINE_FLOOR_GIB, $out['engine_floor_gib']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_TOTAL_RAM_CAP_MB, $out['total_ram_cap_mb']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_PAPER_HEADROOM_MB, $out['paper_headroom_mb']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_COMPONENTS, $out['components']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_DECLARED_PAPER_STATUS, $out['declared_paper_status']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_MEASURED_RAM_MB, $out['measured_ram_mb']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_PAPER_STATUS, $out['paper_status']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_REASONS, $out['reasons']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_CODE, $out['code']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_PAPER_OVERSHOOT, $out['paper_overshoot']);
+        $this->assertSame(18, $out['b754_joint_resource_floor_count']);
+    }
+
 }
