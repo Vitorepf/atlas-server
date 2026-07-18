@@ -20853,4 +20853,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B755).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b755ProviderBoundFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.provider_bound_redaction_drift.v1' => ProviderBoundRedactionDriftWatchdogCheck::SCHEMA_VERSION,
+            'maxm06.provider_bound_redaction_drift' => ProviderBoundRedactionDriftWatchdogCheck::CHECK_ID,
+            '200' => ProviderBoundRedactionDriftWatchdogCheck::SAMPLE_LIMIT,
+            'atlas_memory_entries_missing' => ProviderBoundRedactionDriftWatchdogCheck::REASON_ATLAS_MEMORY_ENTRIES_MISSING,
+            'no_provider_bound_redaction_drift' => ProviderBoundRedactionDriftWatchdogCheck::REASON_NO_PROVIDER_BOUND_REDACTION_DRIFT,
+            'schema' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_SCHEMA,
+            'reason' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_REASON,
+            'memory_ref' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_MEMORY_REF,
+            'signals' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_SIGNALS,
+            'verified_by' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_VERIFIED_BY,
+            'checked' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_CHECKED,
+            'drift_count' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_DRIFT_COUNT,
+            'drift' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_DRIFT,
+            'message' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_MESSAGE,
+            'code' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_CODE,
+            'redaction_status' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_REDACTION_STATUS,
+            'atlas_memory_entries' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_ATLAS_MEMORY_ENTRIES,
+            'redacted' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_REDACTED,
+            'b755_provider_bound_floor_count' => 18,
+        ];
+    }
+
 }

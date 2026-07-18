@@ -12303,6 +12303,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b755_provider_bound_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b755-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b755',
+                '--b755-provider-bound-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b755_provider_bound_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

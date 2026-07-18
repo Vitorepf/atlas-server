@@ -16552,4 +16552,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b754_joint_resource_floor_count']);
     }
 
+    public function test_b755_provider_bound_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b755ProviderBoundFloorsContractObserve([]);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::SCHEMA_VERSION, $out['atlas.provider_bound_redaction_drift.v1']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::CHECK_ID, $out['maxm06.provider_bound_redaction_drift']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::SAMPLE_LIMIT, $out['200']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::REASON_ATLAS_MEMORY_ENTRIES_MISSING, $out['atlas_memory_entries_missing']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::REASON_NO_PROVIDER_BOUND_REDACTION_DRIFT, $out['no_provider_bound_redaction_drift']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_SCHEMA, $out['schema']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_REASON, $out['reason']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_MEMORY_REF, $out['memory_ref']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_SIGNALS, $out['signals']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_VERIFIED_BY, $out['verified_by']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_CHECKED, $out['checked']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_DRIFT_COUNT, $out['drift_count']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_DRIFT, $out['drift']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_CODE, $out['code']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_REDACTION_STATUS, $out['redaction_status']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_ATLAS_MEMORY_ENTRIES, $out['atlas_memory_entries']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_REDACTED, $out['redacted']);
+        $this->assertSame(18, $out['b755_provider_bound_floor_count']);
+    }
+
 }

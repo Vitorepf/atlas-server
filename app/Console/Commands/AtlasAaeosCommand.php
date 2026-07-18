@@ -777,6 +777,7 @@ final class AtlasAaeosCommand extends Command
                             {--b752-compaction-recovery-disk-free-floors-contract= : JSON file (any object) to observe compaction/recovery/disk/free floors}
                             {--b753-disk-free-floors-contract= : JSON file (any object) to observe disk/free floors}
                             {--b754-joint-resource-floors-contract= : JSON file (any object) to observe joint/resource floors}
+                            {--b755-provider-bound-floors-contract= : JSON file (any object) to observe provider/bound floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1710,6 +1711,7 @@ final class AtlasAaeosCommand extends Command
             ['b752-compaction-recovery-disk-free-floors-contract', 'b752_compaction_recovery_disk_free_floors_contract', fn (array $p) => $gates->b752CompactionRecoveryDiskFreeFloorsContractObserve($p)],
             ['b753-disk-free-floors-contract', 'b753_disk_free_floors_contract', fn (array $p) => $gates->b753DiskFreeFloorsContractObserve($p)],
             ['b754-joint-resource-floors-contract', 'b754_joint_resource_floors_contract', fn (array $p) => $gates->b754JointResourceFloorsContractObserve($p)],
+            ['b755-provider-bound-floors-contract', 'b755_provider_bound_floors_contract', fn (array $p) => $gates->b755ProviderBoundFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
