@@ -15424,4 +15424,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b709_maxa_jina_floor_count']);
     }
 
+    public function test_b710_evidence_vision_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b710EvidenceVisionFloorsContractObserve([]);
+        $this->assertSame(EvidenceVisionThesisLifecycle::SCHEMA_VERSION, $out['atlas.originator.evidence_vision_thesis_lifecycle.v1']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::INT_2, $out['2']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::STATUS_ACTIVE, $out['active']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::STATUS_ARCHIVED, $out['archived']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::STATUS_REFUSED, $out['refused']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::REASON_THESIS_NOT_ACTIVE, $out['thesis_not_active']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::DEATH_REASON_TTL_EXPIRED, $out['ttl_expired']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_STATUS, $out['status']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_THESIS_ID, $out['thesis_id']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_ARCHIVE_RECEIPT, $out['archive_receipt']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_REASON, $out['reason']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_CLAIM, $out['claim']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_DEATH_CRITERION, $out['death_criterion']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_RECEIPT_HASH, $out['receipt_hash']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_ALIGNMENT_KEYS, $out['alignment_keys']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_ARCHIVED_AT_BASIS, $out['archived_at_basis']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_BANDS, $out['bands']);
+        $this->assertSame(18, $out['b710_evidence_vision_floor_count']);
+    }
+
 }

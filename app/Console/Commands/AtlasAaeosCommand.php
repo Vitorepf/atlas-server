@@ -732,6 +732,7 @@ final class AtlasAaeosCommand extends Command
                             {--b707-citation-grounding-maxa-jina-floors-contract= : JSON file (any object) to observe citation/grounding/maxa/jina floors}
                             {--b708-maxa-jina-floors-contract= : JSON file (any object) to observe maxa/jina floors}
                             {--b709-maxa-jina-floors-contract= : JSON file (any object) to observe maxa/jina floors}
+                            {--b710-evidence-vision-floors-contract= : JSON file (any object) to observe evidence/vision floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1620,6 +1621,7 @@ final class AtlasAaeosCommand extends Command
             ['b707-citation-grounding-maxa-jina-floors-contract', 'b707_citation_grounding_maxa_jina_floors_contract', fn (array $p) => $gates->b707CitationGroundingMaxaJinaFloorsContractObserve($p)],
             ['b708-maxa-jina-floors-contract', 'b708_maxa_jina_floors_contract', fn (array $p) => $gates->b708MaxaJinaFloorsContractObserve($p)],
             ['b709-maxa-jina-floors-contract', 'b709_maxa_jina_floors_contract', fn (array $p) => $gates->b709MaxaJinaFloorsContractObserve($p)],
+            ['b710-evidence-vision-floors-contract', 'b710_evidence_vision_floors_contract', fn (array $p) => $gates->b710EvidenceVisionFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

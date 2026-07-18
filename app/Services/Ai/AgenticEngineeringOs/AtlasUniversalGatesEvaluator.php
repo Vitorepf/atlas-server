@@ -19458,4 +19458,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B710).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b710EvidenceVisionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.originator.evidence_vision_thesis_lifecycle.v1' => EvidenceVisionThesisLifecycle::SCHEMA_VERSION,
+            '2' => EvidenceVisionThesisLifecycle::INT_2,
+            'active' => EvidenceVisionThesisLifecycle::STATUS_ACTIVE,
+            'archived' => EvidenceVisionThesisLifecycle::STATUS_ARCHIVED,
+            'refused' => EvidenceVisionThesisLifecycle::STATUS_REFUSED,
+            'thesis_not_active' => EvidenceVisionThesisLifecycle::REASON_THESIS_NOT_ACTIVE,
+            'ttl_expired' => EvidenceVisionThesisLifecycle::DEATH_REASON_TTL_EXPIRED,
+            'status' => EvidenceVisionThesisLifecycle::FIELD_STATUS,
+            'schema_version' => EvidenceVisionThesisLifecycle::FIELD_SCHEMA_VERSION,
+            'thesis_id' => EvidenceVisionThesisLifecycle::FIELD_THESIS_ID,
+            'archive_receipt' => EvidenceVisionThesisLifecycle::FIELD_ARCHIVE_RECEIPT,
+            'reason' => EvidenceVisionThesisLifecycle::FIELD_REASON,
+            'claim' => EvidenceVisionThesisLifecycle::FIELD_CLAIM,
+            'death_criterion' => EvidenceVisionThesisLifecycle::FIELD_DEATH_CRITERION,
+            'receipt_hash' => EvidenceVisionThesisLifecycle::FIELD_RECEIPT_HASH,
+            'alignment_keys' => EvidenceVisionThesisLifecycle::FIELD_ALIGNMENT_KEYS,
+            'archived_at_basis' => EvidenceVisionThesisLifecycle::FIELD_ARCHIVED_AT_BASIS,
+            'bands' => EvidenceVisionThesisLifecycle::FIELD_BANDS,
+            'b710_evidence_vision_floor_count' => 18,
+        ];
+    }
+
 }
