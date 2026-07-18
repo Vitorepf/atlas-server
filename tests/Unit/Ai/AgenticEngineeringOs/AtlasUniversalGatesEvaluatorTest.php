@@ -16101,4 +16101,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b736_cognitive_function_floor_count']);
     }
 
+    public function test_b737_immune_calibration_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b737ImmuneCalibrationFloorsContractObserve([]);
+        $this->assertSame(ImmuneCalibrationService::FIELD_CLAIM_TYPE, $out['claim_type']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_CLASSIFIER_BAND, $out['classifier_band']);
+        $this->assertSame(ImmuneCalibrationService::SCHEMA_VERSION, $out['atlas.cognition.immune_calibration.v1']);
+        $this->assertSame(ImmuneCalibrationService::MEASURE_ID, $out['atlas.immune.calibration.v1']);
+        $this->assertSame(ImmuneCalibrationService::FORMULA_VERSION, $out['immune_calibration_fp_fn_bands.v1']);
+        $this->assertSame(ImmuneCalibrationService::DENOMINATOR_MIN, $out['10']);
+        $this->assertSame(ImmuneCalibrationService::TTL_DAYS, $out['90']);
+        $this->assertSame(ImmuneCalibrationService::MODE_READ_ONLY, $out['read_only']);
+        $this->assertSame(ImmuneCalibrationService::KIND_MEASURE_FREEZE, $out['measure_freeze']);
+        $this->assertSame(ImmuneCalibrationService::STATUS_INSUFFICIENT_SAMPLE, $out['insufficient_sample']);
+        $this->assertSame(ImmuneCalibrationService::STATUS_INSUFFICIENT_SAMPLE, $out['insufficient_sample']);
+        $this->assertSame(ImmuneCalibrationService::STATUS_CALIBRATED, $out['calibrated']);
+        $this->assertSame(ImmuneCalibrationService::STATUS_OK, $out['ok']);
+        $this->assertSame(ImmuneCalibrationService::REASON_KNOWN_MISS_DENOMINATOR_ZERO, $out['known_miss_denominator_zero']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_STATUS, $out['status']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_MODE, $out['mode']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_MEASURE_ID, $out['measure_id']);
+        $this->assertSame(18, $out['b737_immune_calibration_floor_count']);
+    }
+
 }

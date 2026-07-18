@@ -20295,4 +20295,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B737).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b737ImmuneCalibrationFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'claim_type' => ImmuneCalibrationService::FIELD_CLAIM_TYPE,
+            'classifier_band' => ImmuneCalibrationService::FIELD_CLASSIFIER_BAND,
+            'atlas.cognition.immune_calibration.v1' => ImmuneCalibrationService::SCHEMA_VERSION,
+            'atlas.immune.calibration.v1' => ImmuneCalibrationService::MEASURE_ID,
+            'immune_calibration_fp_fn_bands.v1' => ImmuneCalibrationService::FORMULA_VERSION,
+            '10' => ImmuneCalibrationService::DENOMINATOR_MIN,
+            '90' => ImmuneCalibrationService::TTL_DAYS,
+            'read_only' => ImmuneCalibrationService::MODE_READ_ONLY,
+            'measure_freeze' => ImmuneCalibrationService::KIND_MEASURE_FREEZE,
+            'insufficient_sample' => ImmuneCalibrationService::STATUS_INSUFFICIENT_SAMPLE,
+            'insufficient_sample' => ImmuneCalibrationService::STATUS_INSUFFICIENT_SAMPLE,
+            'calibrated' => ImmuneCalibrationService::STATUS_CALIBRATED,
+            'ok' => ImmuneCalibrationService::STATUS_OK,
+            'known_miss_denominator_zero' => ImmuneCalibrationService::REASON_KNOWN_MISS_DENOMINATOR_ZERO,
+            'schema_version' => ImmuneCalibrationService::FIELD_SCHEMA_VERSION,
+            'status' => ImmuneCalibrationService::FIELD_STATUS,
+            'mode' => ImmuneCalibrationService::FIELD_MODE,
+            'measure_id' => ImmuneCalibrationService::FIELD_MEASURE_ID,
+            'b737_immune_calibration_floor_count' => 18,
+        ];
+    }
+
 }
