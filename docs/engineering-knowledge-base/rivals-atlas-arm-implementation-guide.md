@@ -74,6 +74,29 @@ Até lá: baseline mede, braço degrada dito.
 3. `mockllm` é BANIDO de payload público (regra pétrea do operador) — 4
    entradas expurgadas da fila em 2026-07-18 com motivo gravado.
 
+## Estado pós-fix do kernel (2026-07-18, tarde — commit 48ad9658d3)
+
+O assassino determinístico morreu: escopo vazio sob rivals isolado adota a
+proposta do provider (3 toques no kernel/adapter, flag-gated). Prova em
+benchmark REAL (run 20260718_175624, terminal_bench): unidade `tb_hello`
+braço atlas_dev com `atlas_runtime: true · patch_applied: 1` — primeira vez
+na história que o braço com-Atlas gera E aplica patch dentro do harness.
+
+Dois problemas REMANESCENTES, ambos fora do fix e com dono a definir:
+1. **Instabilidade do cli:dev sob o harness**: 3 de 4 unidades atlas do mesmo
+   run morrem em ~1,4s sem emitir JSON (`model_matches_request: false`,
+   provider_calls 0, stderr só em sha). Não é o gate de escopo (erros vazios).
+   Suspeitos: lock/bootstrap concorrente do artisan, estado do workspace
+   espelhado. Diagnóstico: rodar bridge com stderr persistido no recibo.
+2. **Verificação do terminal_bench quebrada SIMETRICAMENTE** desde ~15-16/jul:
+   o aider (bare) escreve `hello.txt` ("Applied edit") e o teste 0,03s depois
+   diz que `/app/hello.txt` não existe — mesmo container. TODAS as tabulações
+   recentes de tb saem failure nos dois braços (histórico: sem-Atlas 0.22 em
+   13/jul → 0 depois). Como é simétrico, não é braço — é harness/verificação.
+   Este é o campo ativo da lane Arena (árvore com mudanças não-commitadas em
+   ArenaRunController/ArenaCompositeService/ArenaReportService durante esta
+   sessão).
+
 ## Prova viva (2026-07-18)
 
 Run `20260718_172505_a31ca2f2` — terminal_bench × verboo_kimi_k2_7, 12
