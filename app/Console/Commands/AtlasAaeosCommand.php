@@ -450,6 +450,7 @@ final class AtlasAaeosCommand extends Command
                             {--mission-control-department-contract-measure-series-http-path-floors-contract= : JSON file (any object) to observe mission/control/department/contract/measure/series floors}
                             {--lote-measure-asef-chunk-resource-budget-department-contract-floors-contract= : JSON file (any object) to observe lote/measure/asef/chunk/resource/budget floors}
                             {--immune-hybrid-capture-hmac-watchdog-runner-signature-department-floors-contract= : JSON file (any object) to observe immune/hybrid/capture/hmac/watchdog/runner floors}
+                            {--aaeos-test-evidence-ledger-department-contract-cognition-health-floors-contract= : JSON file (any object) to observe aaeos/test/evidence/ledger/department/contract floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1056,6 +1057,7 @@ final class AtlasAaeosCommand extends Command
             ['mission-control-department-contract-measure-series-http-path-floors-contract', 'mission_control_department_contract_measure_series_http_path_floors_contract', fn (array $p) => $gates->missionControlDepartmentContractMeasureSeriesHttpPathFloorsContractObserve($p)],
             ['lote-measure-asef-chunk-resource-budget-department-contract-floors-contract', 'lote_measure_asef_chunk_resource_budget_department_contract_floors_contract', fn (array $p) => $gates->loteMeasureAsefChunkResourceBudgetDepartmentContractFloorsContractObserve($p)],
             ['immune-hybrid-capture-hmac-watchdog-runner-signature-department-floors-contract', 'immune_hybrid_capture_hmac_watchdog_runner_signature_department_floors_contract', fn (array $p) => $gates->immuneHybridCaptureHmacWatchdogRunnerSignatureDepartmentFloorsContractObserve($p)],
+            ['aaeos-test-evidence-ledger-department-contract-cognition-health-floors-contract', 'aaeos_test_evidence_ledger_department_contract_cognition_health_floors_contract', fn (array $p) => $gates->aaeosTestEvidenceLedgerDepartmentContractCognitionHealthFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

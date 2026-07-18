@@ -66,6 +66,8 @@ class AtlasAaeosTestExecutionService
     public const FIELD_VETO_PROPAGATION = 'veto_propagation';
     public const FIELD_AMBIGUOUS_TEST_REF = 'ambiguous_test_ref';
     public const FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS = 'atlas_aaeos_test_run_receipts';
+    public const FIELD_SQLITE = 'sqlite';
+    public const FIELD_TESTING = 'testing';
 
     public function __construct(
         private readonly float $timeout = 180.0,
@@ -415,7 +417,7 @@ class AtlasAaeosTestExecutionService
             base_path(),
             // Force a sqlite :memory: DB for the spawned suite so it never touches
             // the live pgsql runtime, mirroring the test harness env.
-            ['DB_CONNECTION' => 'sqlite', 'DB_DATABASE' => ':memory:'] + $this->inheritedEnv(),
+            ['DB_CONNECTION' => self::FIELD_SQLITE, 'DB_DATABASE' => ':memory:'] + $this->inheritedEnv(),
         );
         $process->setTimeout($this->timeout);
 
@@ -506,7 +508,7 @@ class AtlasAaeosTestExecutionService
             }
         }
         // Default the spawned suite to the testing env unless the operator set one.
-        $env['APP_ENV'] = $env['APP_ENV'] ?? 'testing';
+        $env['APP_ENV'] = $env['APP_ENV'] ?? self::FIELD_TESTING;
 
         return $env;
     }

@@ -64,6 +64,8 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_GAP_TOTAL = 'gap_total';
     public const FIELD_EVIDENCE_LEDGER_GAP = 'evidence_ledger_gap';
     public const FIELD_EVIDENCE_LEDGER_TAMPERED = 'evidence_ledger_tampered';
+    public const FIELD_EVIDENCE_LEDGER_VERIFIER_ERROR = 'evidence_ledger_verifier_error';
+    public const FIELD_NOW = 'now';
 
 
     public function __construct(
@@ -95,7 +97,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
                 self::FIELD_DATE => $date,
                 self::FIELD_REASON => self::REASON_VERIFIER_THREW,
             ], [
-                self::FIELD_CODE => 'evidence_ledger_verifier_error',
+                self::FIELD_CODE => self::FIELD_EVIDENCE_LEDGER_VERIFIER_ERROR,
                 self::FIELD_MESSAGE => 'Evidence ledger integrity verifier threw: '.$e->getMessage(),
             ]);
         }
@@ -196,6 +198,6 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
             return CarbonImmutable::instance($this->day);
         }
 
-        return CarbonImmutable::parse($this->day ?? 'now');
+        return CarbonImmutable::parse($this->day ?? self::FIELD_NOW);
     }
 }

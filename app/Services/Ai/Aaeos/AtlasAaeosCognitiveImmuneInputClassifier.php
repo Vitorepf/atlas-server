@@ -58,6 +58,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_REDACT_MINIMIZE = 'redact_minimize';
     public const FIELD_RESPOND_AND_EXPIRE = 'respond_and_expire';
     public const FIELD_STRATEGIC_INSIGHT_SIGNAL = 'strategic_insight_signal';
+    public const FIELD_TASK_REMINDER_COLD_FILE = 'task_reminder_cold_file';
+    public const FIELD_TASK_ROUTINE = 'task_routine';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -68,8 +70,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
      */
     public const DESTINATIONS = [
         self::CLASS_TRIVIAL_QUERY => self::FIELD_RESPOND_AND_EXPIRE,
-        self::CLASS_OPERATIONAL_EPHEMERAL => 'task_reminder_cold_file',
-        self::CLASS_TASK_OR_REMINDER => 'task_routine',
+        self::CLASS_OPERATIONAL_EPHEMERAL => self::FIELD_TASK_REMINDER_COLD_FILE,
+        self::CLASS_TASK_OR_REMINDER => self::FIELD_TASK_ROUTINE,
         self::CLASS_PROJECT_EVIDENCE => self::FIELD_PROJECT_EVIDENCE,
         self::CLASS_CONVERSATION_TRACE => self::FIELD_AUDIT_SESSION,
         self::CLASS_PERSONAL_FACT_CANDIDATE => self::FIELD_PRIVATE_REVIEW,

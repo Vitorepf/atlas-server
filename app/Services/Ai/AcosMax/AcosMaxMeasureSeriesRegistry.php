@@ -56,6 +56,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_CAPTURES = 'captures';
     public const FIELD_CREATED_AT = 'created_at';
     public const FIELD_DECIDED_AT = 'decided_at';
+    public const FIELD_FIRST_SEEN = 'first_seen';
+    public const FIELD_GROUND_TRUTH_RECEIPT = 'ground_truth_receipt';
 
     public const SOURCE_TYPE_JSONL = 'jsonl';
 
@@ -162,7 +164,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
                 self::FIELD_TTL_DAYS => 365,
-                self::FIELD_TTL_SOURCE => 'ground_truth_receipt',
+                self::FIELD_TTL_SOURCE => self::FIELD_GROUND_TRUTH_RECEIPT,
             ],
             [
                 self::FIELD_SLICE => 'MAXL-02',
@@ -483,7 +485,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SERIES => AtlasImmuneSignatureFreeze::MEASURE_ID,
                 self::FIELD_TABLE => ImmuneSignatureStore::TABLE,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
-                self::FIELD_TIMESTAMP_FIELD => 'first_seen',
+                self::FIELD_TIMESTAMP_FIELD => self::FIELD_FIRST_SEEN,
                 self::FIELD_TTL_DAYS => AtlasImmuneSignatureFreeze::TTL_DAYS,
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.immune.signature_store.v1',
             ],

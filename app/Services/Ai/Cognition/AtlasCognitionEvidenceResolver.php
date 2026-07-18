@@ -92,6 +92,8 @@ class AtlasCognitionEvidenceResolver
     public const FIELD_CANDIDATE_TEST_REF_MISSING = 'candidate_test_ref_missing';
     public const FIELD_CANDIDATE_TEST_SYMBOL_MISSING = 'candidate_test_symbol_missing';
     public const FIELD_GREEN_RECEIPT_MISSING = 'green_receipt_missing';
+    public const FIELD_GREEN_RECEIPT_STALE_OR_UNMATCHED = 'green_receipt_stale_or_unmatched';
+    public const FIELD_OWNER_DOC_MISSING = 'owner_doc_missing';
 
     /**
      * Memoized FQN-ownership index: short class name => list of owner-doc capabilities
@@ -357,11 +359,11 @@ class AtlasCognitionEvidenceResolver
         $latestAt = $this->parseDate($latestReceipt?->ran_at ?? $latestReceipt?->created_at);
         $pipelineStatus = $this->resolvePipelineStatus($fqn);
         $reason = match (true) {
-            $owners === [] => 'owner_doc_missing',
+            $owners === [] => self::FIELD_OWNER_DOC_MISSING,
             $candidateTestRefs === [] => self::FIELD_CANDIDATE_TEST_REF_MISSING,
             $existingTestRefs === [] => self::FIELD_CANDIDATE_TEST_SYMBOL_MISSING,
             $greenCount === 0 => self::FIELD_GREEN_RECEIPT_MISSING,
-            $pipelineStatus !== self::STATUS_READY => 'green_receipt_stale_or_unmatched',
+            $pipelineStatus !== self::STATUS_READY => self::FIELD_GREEN_RECEIPT_STALE_OR_UNMATCHED,
             default => self::STATUS_READY,
         };
 

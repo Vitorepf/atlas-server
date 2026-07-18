@@ -8441,4 +8441,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['immune_hybrid_capture_hmac_watchdog_runner_signature_department_floor_count']);
     }
 
+    public function test_aaeos_test_evidence_ledger_department_contract_cognition_health_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->aaeosTestEvidenceLedgerDepartmentContractCognitionHealthFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_SQLITE, $out['sqlite']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TESTING, $out['testing']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_EVIDENCE_LEDGER_VERIFIER_ERROR, $out['evidence_ledger_verifier_error']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_NOW, $out['now']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_REVIEW_REPORTS, $out['aaeos_review_reports']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_SECURITY_LEDGER, $out['aaeos_security_ledger']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_GREEN_RECEIPT_STALE_OR_UNMATCHED, $out['green_receipt_stale_or_unmatched']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_OWNER_DOC_MISSING, $out['owner_doc_missing']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_MEMORY_QUALITY_CHECK_FAILED, $out['memory_quality_check_failed']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_RAG_DIMENSION_WATCHDOG_FAILED, $out['rag_dimension_watchdog_failed']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TASK_REMINDER_COLD_FILE, $out['task_reminder_cold_file']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TASK_ROUTINE, $out['task_routine']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_REVIEW_CROSS_REVIEW_R4, $out['review_cross_review_r4']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SECURITY, $out['security']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FIRST_SEEN, $out['first_seen']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_GROUND_TRUTH_RECEIPT, $out['ground_truth_receipt']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_CURRENT_EMBEDDING_MODEL, $out['current_embedding_model']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_JINA_V3_REEMBEDDED_SHADOW_INDEX, $out['jina_v3_reembedded_shadow_index']);
+        $this->assertSame(18, $out['aaeos_test_evidence_ledger_department_contract_cognition_health_floor_count']);
+    }
+
 }

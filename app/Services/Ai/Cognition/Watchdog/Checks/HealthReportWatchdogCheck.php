@@ -33,12 +33,14 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_ENGINEERING_ENFORCE_READINESS_NOT_READY = 'engineering_enforce_readiness_not_ready';
     public const FIELD_LEARNING_CADENCE_STALLED = 'learning_cadence_stalled';
     public const FIELD_LIFT_CYCLE_CLOSURE_STALLED = 'lift_cycle_closure_stalled';
+    public const FIELD_MEMORY_QUALITY_CHECK_FAILED = 'memory_quality_check_failed';
+    public const FIELD_RAG_DIMENSION_WATCHDOG_FAILED = 'rag_dimension_watchdog_failed';
 
     public const CATALOG = [
         [
             self::FIELD_ID => 'mem-09.memory_quality',
             self::FIELD_REPORT_METHOD => 'memoryQualityCheck',
-            self::FIELD_ALERT_CODE => 'memory_quality_check_failed',
+            self::FIELD_ALERT_CODE => self::FIELD_MEMORY_QUALITY_CHECK_FAILED,
             self::FIELD_MESSAGE => 'MEM-09 memory quality watchdog is not green.',
         ],
         [
@@ -56,7 +58,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
         [
             self::FIELD_ID => 'rag-12.rag_dimension',
             self::FIELD_REPORT_METHOD => 'ragDimensionReport',
-            self::FIELD_ALERT_CODE => 'rag_dimension_watchdog_failed',
+            self::FIELD_ALERT_CODE => self::FIELD_RAG_DIMENSION_WATCHDOG_FAILED,
             self::FIELD_MESSAGE => 'RAG-12 retrieval dimension watchdog found a regression or masking issue.',
         ],
         [

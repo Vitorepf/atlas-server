@@ -10793,4 +10793,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B428).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function aaeosTestEvidenceLedgerDepartmentContractCognitionHealthFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'sqlite' => AtlasAaeosTestExecutionService::FIELD_SQLITE,
+            'testing' => AtlasAaeosTestExecutionService::FIELD_TESTING,
+            'evidence_ledger_verifier_error' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_EVIDENCE_LEDGER_VERIFIER_ERROR,
+            'now' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_NOW,
+            'aaeos_review_reports' => DepartmentContractRuntime::FIELD_AAEOS_REVIEW_REPORTS,
+            'aaeos_security_ledger' => DepartmentContractRuntime::FIELD_AAEOS_SECURITY_LEDGER,
+            'green_receipt_stale_or_unmatched' => AtlasCognitionEvidenceResolver::FIELD_GREEN_RECEIPT_STALE_OR_UNMATCHED,
+            'owner_doc_missing' => AtlasCognitionEvidenceResolver::FIELD_OWNER_DOC_MISSING,
+            'memory_quality_check_failed' => HealthReportWatchdogCheck::FIELD_MEMORY_QUALITY_CHECK_FAILED,
+            'rag_dimension_watchdog_failed' => HealthReportWatchdogCheck::FIELD_RAG_DIMENSION_WATCHDOG_FAILED,
+            'task_reminder_cold_file' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TASK_REMINDER_COLD_FILE,
+            'task_routine' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TASK_ROUTINE,
+            'review_cross_review_r4' => AtlasAaeosDepartmentMaturityService::FIELD_REVIEW_CROSS_REVIEW_R4,
+            'security' => AtlasAaeosDepartmentMaturityService::FIELD_SECURITY,
+            'first_seen' => AcosMaxMeasureSeriesRegistry::FIELD_FIRST_SEEN,
+            'ground_truth_receipt' => AcosMaxMeasureSeriesRegistry::FIELD_GROUND_TRUTH_RECEIPT,
+            'current_embedding_model' => Maxa04JinaV3DualReadService::FIELD_CURRENT_EMBEDDING_MODEL,
+            'jina_v3_reembedded_shadow_index' => Maxa04JinaV3DualReadService::FIELD_JINA_V3_REEMBEDDED_SHADOW_INDEX,
+            'aaeos_test_evidence_ledger_department_contract_cognition_health_floor_count' => 18,
+        ];
+    }
+
 }

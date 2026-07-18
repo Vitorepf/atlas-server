@@ -61,6 +61,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_RESEARCH = 'research';
     public const FIELD_RESEARCH_SOURCE_BACKED_SCORE_L3 = 'research_source_backed_score_l3';
     public const FIELD_REVIEW = 'review';
+    public const FIELD_REVIEW_CROSS_REVIEW_R4 = 'review_cross_review_r4';
+    public const FIELD_SECURITY = 'security';
 
     public const DEPARTMENTS = [
         [
@@ -107,7 +109,7 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_DEPARTMENT_ID => self::FIELD_REVIEW,
             self::FIELD_CURRENT_LEVEL => 'L2',
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#review'],
-            self::FIELD_BLOCKER_ID => 'review_cross_review_r4',
+            self::FIELD_BLOCKER_ID => self::FIELD_REVIEW_CROSS_REVIEW_R4,
             self::FIELD_BLOCKER_SUMMARY => 'falta cross-review automatico R4+',
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],
@@ -120,7 +122,7 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],
         [
-            self::FIELD_DEPARTMENT_ID => 'security',
+            self::FIELD_DEPARTMENT_ID => self::FIELD_SECURITY,
             self::FIELD_CURRENT_LEVEL => 'L3',
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#security'],
             self::FIELD_BLOCKER_ID => 'security_threat_modeling_l4',

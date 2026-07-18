@@ -83,6 +83,8 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_REEMBED_PATH = 'reembed_path';
     public const FIELD_SEMANTIC_RAG = 'semantic_rag';
     public const FIELD_CANDIDATE_NON_REGRESSION_OBSERVED = 'candidate_non_regression_observed';
+    public const FIELD_CURRENT_EMBEDDING_MODEL = 'current_embedding_model';
+    public const FIELD_JINA_V3_REEMBEDDED_SHADOW_INDEX = 'jina_v3_reembedded_shadow_index';
 
 
     /** @return array<string,mixed> */
@@ -121,8 +123,8 @@ final class Maxa04JinaV3DualReadService
             ],
             self::FIELD_DUAL_READ => [
                 self::FIELD_REQUIRED => true,
-                self::FIELD_BASELINE => 'current_embedding_model',
-                self::FIELD_CANDIDATE => 'jina_v3_reembedded_shadow_index',
+                self::FIELD_BASELINE => self::FIELD_CURRENT_EMBEDDING_MODEL,
+                self::FIELD_CANDIDATE => self::FIELD_JINA_V3_REEMBEDDED_SHADOW_INDEX,
                 self::FIELD_LEDGER_PATH => $this->storagePath(Maxa04JinaV3DualReadLedger::RELATIVE_PATH),
                 self::FIELD_AB_GREEN_CLAIM_ALLOWED => false,
             ],
