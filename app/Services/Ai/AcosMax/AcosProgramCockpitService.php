@@ -51,6 +51,8 @@ final class AcosProgramCockpitService
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_SOURCE_EXIT_CODE = 'source_exit_code';
     public const FIELD_WINDOWS = 'windows';
+    public const FIELD_CURRENT_LOTE_NOT_FOUND = 'current_lote_not_found';
+    public const FIELD_NOW = 'now';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -59,7 +61,7 @@ final class AcosProgramCockpitService
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            self::FIELD_GENERATED_AT => (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            self::FIELD_GENERATED_AT => (new DateTimeImmutable(self::FIELD_NOW, new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
             self::FIELD_EXTERNAL_PROVIDER_CALL => false,
             self::FIELD_PROVIDER_TOKENS_SPENT => false,
             self::FIELD_MUTATES_STATE => false,
@@ -203,7 +205,7 @@ final class AcosProgramCockpitService
         }
         $selected ??= $blocks[0] ?? null;
         if (! is_array($selected)) {
-            return $this->unavailable($path, 'current_lote_not_found');
+            return $this->unavailable($path, self::FIELD_CURRENT_LOTE_NOT_FOUND);
         }
 
         return [

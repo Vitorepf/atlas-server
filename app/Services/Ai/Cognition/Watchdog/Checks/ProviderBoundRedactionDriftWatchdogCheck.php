@@ -34,6 +34,8 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
     public const FIELD_CODE = 'code';
     public const FIELD_REDACTION_STATUS = 'redaction_status';
     public const FIELD_ATLAS_MEMORY_ENTRIES = 'atlas_memory_entries';
+    public const FIELD_REDACTED = 'redacted';
+    public const FIELD_PROVIDER_BOUND_REDACTION_DRIFT = 'provider_bound_redaction_drift';
 
 
     public function __construct(private AtlasMemoryPrivacyService $privacy) {}
@@ -54,7 +56,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
 
         $drift = [];
         AtlasMemoryEntry::query()
-            ->where(self::FIELD_REDACTION_STATUS, 'redacted')
+            ->where(self::FIELD_REDACTION_STATUS, self::FIELD_REDACTED)
             ->limit(self::SAMPLE_LIMIT)
             ->get()
             ->each(function (AtlasMemoryEntry $entry) use (&$drift): void {
@@ -74,14 +76,14 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
 
         $evidence = [
             self::FIELD_SCHEMA => self::SCHEMA_VERSION,
-            self::FIELD_CHECKED => min(self::SAMPLE_LIMIT, AtlasMemoryEntry::query()->where(self::FIELD_REDACTION_STATUS, 'redacted')->count()),
+            self::FIELD_CHECKED => min(self::SAMPLE_LIMIT, AtlasMemoryEntry::query()->where(self::FIELD_REDACTION_STATUS, self::FIELD_REDACTED)->count()),
             self::FIELD_DRIFT_COUNT => count($drift),
             self::FIELD_DRIFT => $drift,
         ];
 
         if ($drift !== []) {
             return AtlasWatchdogCheckResult::alert($evidence, [
-                self::FIELD_CODE => 'provider_bound_redaction_drift',
+                self::FIELD_CODE => self::FIELD_PROVIDER_BOUND_REDACTION_DRIFT,
                 self::FIELD_MESSAGE => 'Provider-bound redaction status drift detected.',
             ]);
         }

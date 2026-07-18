@@ -68,6 +68,8 @@ final class AaeosPhaseHandoffService
     public const FIELD_PROVIDER = 'provider';
     public const FIELD_SPEC_PACK_ACCEPTANCE_CRITERIA_MIN_3 = 'spec_pack_acceptance_criteria_min_3';
     public const FIELD_TASK_PACK_ATOMIC_TRUE_FOR_EACH = 'task_pack_atomic_true_for_each';
+    public const FIELD_OPERATOR = 'operator';
+    public const FIELD_PHASE = 'phase';
 
     public static function requireIntentId(string $intentId): void
     {
@@ -265,7 +267,7 @@ final class AaeosPhaseHandoffService
         }
         if (! isset($envelope[self::FIELD_ACTOR]) || ! is_array($envelope[self::FIELD_ACTOR]) || ! isset($envelope[self::FIELD_ACTOR][self::FIELD_KIND])) {
             $reasons[] = 'actor.kind required';
-        } elseif (! in_array($envelope[self::FIELD_ACTOR][self::FIELD_KIND], ['agent', 'operator', 'system'], true)) {
+        } elseif (! in_array($envelope[self::FIELD_ACTOR][self::FIELD_KIND], ['agent', self::FIELD_OPERATOR, 'system'], true)) {
             $reasons[] = 'actor.kind must be agent|operator|system';
         }
         if (! isset($envelope[self::FIELD_GATES]) || ! is_array($envelope[self::FIELD_GATES])) {
@@ -295,7 +297,7 @@ final class AaeosPhaseHandoffService
      */
     public function skip(string $intentId, string $phase, string $receiptId, string $reason, string $autonomyLevel = 'L1'): array
     {
-        $this->assertPhase($phase, 'phase');
+        $this->assertPhase($phase, self::FIELD_PHASE);
         if ($receiptId === '') {
             throw new InvalidArgumentException('skip requires receipt_id');
         }
@@ -326,7 +328,7 @@ final class AaeosPhaseHandoffService
     /** @return list<string> */
     public function gatesForPhase(string $phase): array
     {
-        $this->assertPhase($phase, 'phase');
+        $this->assertPhase($phase, self::FIELD_PHASE);
 
         return self::PHASE_GATES_MAP[$phase] ?? [];
     }
@@ -344,7 +346,7 @@ final class AaeosPhaseHandoffService
     /** @param array<string,mixed> $actor */
     private function assertActor(array $actor): void
     {
-        if (! isset($actor[self::FIELD_KIND]) || ! in_array($actor[self::FIELD_KIND], ['agent', 'operator', 'system'], true)) {
+        if (! isset($actor[self::FIELD_KIND]) || ! in_array($actor[self::FIELD_KIND], ['agent', self::FIELD_OPERATOR, 'system'], true)) {
             throw new InvalidArgumentException('actor.kind must be agent|operator|system');
         }
         if (! isset($actor[self::FIELD_ID]) || $actor[self::FIELD_ID] === '') {

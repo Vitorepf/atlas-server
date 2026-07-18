@@ -11010,4 +11010,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B435).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function immuneSignatureAcosProgramReactiveSaturationArchitectAgentFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'strval' => ImmuneSignatureIngestor::FIELD_STRVAL,
+            'is_string' => ImmuneSignatureIngestor::FIELD_IS_STRING,
+            'current_lote_not_found' => AcosProgramCockpitService::FIELD_CURRENT_LOTE_NOT_FOUND,
+            'now' => AcosProgramCockpitService::FIELD_NOW,
+            'falling_yield_with_hysteresis' => ReactiveSaturationSignal::FIELD_FALLING_YIELD_WITH_HYSTERESIS,
+            'insufficient_n' => ReactiveSaturationSignal::FIELD_INSUFFICIENT_N,
+            'architect_decision_receipt' => ArchitectAgentSpecPackGateContract::FIELD_ARCHITECT_DECISION_RECEIPT,
+            'boundary_validated' => ArchitectAgentSpecPackGateContract::FIELD_BOUNDARY_VALIDATED,
+            'cycle_planned' => AutonomousWorkExecutionOs::FIELD_CYCLE_PLANNED,
+            'learning_extracted' => AutonomousWorkExecutionOs::FIELD_LEARNING_EXTRACTED,
+            'sha256' => AtlasAaeosImplementationTruthService::FIELD_SHA256,
+            'implemented_partial' => AtlasAaeosImplementationTruthService::FIELD_IMPLEMENTED_PARTIAL,
+            'operator' => AaeosPhaseHandoffService::FIELD_OPERATOR,
+            'phase' => AaeosPhaseHandoffService::FIELD_PHASE,
+            'sha256' => RunbookOrchestrator::FIELD_SHA256,
+            'pending_replay' => RunbookOrchestrator::FIELD_PENDING_REPLAY,
+            'redacted' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_REDACTED,
+            'provider_bound_redaction_drift' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_PROVIDER_BOUND_REDACTION_DRIFT,
+            'immune_signature_acos_program_reactive_saturation_architect_agent_floor_count' => 18,
+        ];
+    }
+
 }

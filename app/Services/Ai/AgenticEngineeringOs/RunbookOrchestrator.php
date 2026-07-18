@@ -81,6 +81,8 @@ final class RunbookOrchestrator
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_STAGE_COUNT = 'stage_count';
     public const FIELD_STAGES = 'stages';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_PENDING_REPLAY = 'pending_replay';
 
     /**
      * Canonical default flow for a non-trivial intent. Trivial intents
@@ -145,7 +147,7 @@ final class RunbookOrchestrator
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            self::FIELD_INTENT_HASH => hash('sha256', $intent),
+            self::FIELD_INTENT_HASH => hash(self::FIELD_SHA256, $intent),
             self::FIELD_INTENT_CLASS => $intentClass,
             self::FIELD_STAGES => $stages,
             self::FIELD_STAGE_COUNT => count($stages),
@@ -205,7 +207,7 @@ final class RunbookOrchestrator
                 self::FIELD_CURRENT => $current,
                 self::FIELD_PROPOSED => $proposed,
                 self::FIELD_TARGET_DOC => AiValueNormalizer::trimmedStringOrNull($change[self::FIELD_TARGET_DOC] ?? null) ?? 'atlas-agentic-engineering-os-runbook',
-                self::FIELD_CURRENT_STATE_SNAPSHOT_HASH => hash('sha256', $current),
+                self::FIELD_CURRENT_STATE_SNAPSHOT_HASH => hash(self::FIELD_SHA256, $current),
             ];
         }
 
@@ -241,7 +243,7 @@ final class RunbookOrchestrator
                 self::FIELD_ARCHITECT_SIGNATURES_COUNT => 2,
             ],
             self::FIELD_REQUIRES_REPLAY_BEFORE_PROMOTION => true,
-            self::FIELD_REVIEW_STATUS => 'pending_replay',
+            self::FIELD_REVIEW_STATUS => self::FIELD_PENDING_REPLAY,
             self::FIELD_PROPOSED_BY_ACTOR => AiValueNormalizer::arrayOrEmpty($request[self::FIELD_PROPOSED_BY_ACTOR] ?? [
                 self::FIELD_KIND => self::ACTOR_KIND_AGENT,
                 self::FIELD_ID => 'aaeos-runbook-orchestrator',
@@ -249,7 +251,7 @@ final class RunbookOrchestrator
             ]),
             self::FIELD_PROPOSED_AT => now()->toAtomString(),
         ];
-        $proposal[self::FIELD_PROPOSAL_HASH] = hash('sha256', json_encode(
+        $proposal[self::FIELD_PROPOSAL_HASH] = hash(self::FIELD_SHA256, json_encode(
             array_diff_key($proposal, [self::FIELD_PROPOSAL_HASH => true]),
             JSON_THROW_ON_ERROR,
         ));

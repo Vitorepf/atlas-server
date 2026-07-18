@@ -29,6 +29,8 @@ final class ImmuneSignatureIngestor
     public const FIELD_REFUTATION_MEMORY = 'refutation_memory';
     public const FIELD_INPUT_CLASS = 'input_class';
     public const FIELD_MEMORY_REVERT = 'memory_revert';
+    public const FIELD_STRVAL = 'strval';
+    public const FIELD_IS_STRING = 'is_string';
 
     private readonly ImmuneSignatureStore $store;
 
@@ -64,7 +66,7 @@ final class ImmuneSignatureIngestor
         }
 
         /** @var list<string> $signals */
-        $signals = array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($classification[self::FIELD_MATCHED_SIGNALS] ?? null)));
+        $signals = array_values(array_map(self::FIELD_STRVAL, AiValueNormalizer::arrayOrEmpty($classification[self::FIELD_MATCHED_SIGNALS] ?? null)));
 
         return $this->store->recordFromIncident(
             (AiValueNormalizer::trimmedStringOrNull($verdictRow[self::FIELD_ID] ?? null) ?? $contentHash),
@@ -101,7 +103,7 @@ final class ImmuneSignatureIngestor
         }
 
         /** @var list<string> $signals */
-        $signals = array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($classification[self::FIELD_MATCHED_SIGNALS] ?? [self::FIELD_MEMORY_REVERT])));
+        $signals = array_values(array_map(self::FIELD_STRVAL, AiValueNormalizer::arrayOrEmpty($classification[self::FIELD_MATCHED_SIGNALS] ?? [self::FIELD_MEMORY_REVERT])));
 
         return $this->store->recordFromIncident(
             'decision:'.$decisionId.':memory:'.$entry->id,
@@ -124,7 +126,7 @@ final class ImmuneSignatureIngestor
     {
         $label = AiValueNormalizer::trimmedScalarStringOrNull($verdictRow[self::FIELD_SAMPLE_LABEL] ?? null) ?? '';
         $status = AiValueNormalizer::lowerTrimmedString($verdictRow[self::FIELD_PROMOTION_STATUS] ?? '');
-        $blocking = array_values(array_filter(AiValueNormalizer::arrayOrEmpty($verdictRow[self::FIELD_BLOCKING_GATE_IDS] ?? null), 'is_string'));
+        $blocking = array_values(array_filter(AiValueNormalizer::arrayOrEmpty($verdictRow[self::FIELD_BLOCKING_GATE_IDS] ?? null), self::FIELD_IS_STRING));
 
         return $label === ImmuneVerdictLedger::LABEL_TRUE_BLOCK
             && $status === self::STATUS_BLOCKED

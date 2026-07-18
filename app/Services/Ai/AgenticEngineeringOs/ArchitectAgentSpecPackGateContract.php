@@ -38,6 +38,8 @@ final class ArchitectAgentSpecPackGateContract
     public const FIELD_INPUTS = 'inputs';
     public const FIELD_REQUIRED_SPEC_PACK_ARTIFACTS = 'required_spec_pack_artifacts';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_ARCHITECT_DECISION_RECEIPT = 'architect_decision_receipt';
+    public const FIELD_BOUNDARY_VALIDATED = 'boundary_validated';
 
     /**
      * Required spec_pack sections before high-risk autonomous work may proceed.
@@ -57,7 +59,7 @@ final class ArchitectAgentSpecPackGateContract
      */
     public const GATES = [
         'adr_published',
-        'boundary_validated',
+        self::FIELD_BOUNDARY_VALIDATED,
         'spec_acceptance_criteria_complete',
         'breaking_change_documented',
         'rollback_per_slice',
@@ -68,7 +70,7 @@ final class ArchitectAgentSpecPackGateContract
      */
     public const EVIDENCE_REQUIRED = [
         'spec_pack_hash',
-        'architect_decision_receipt',
+        self::FIELD_ARCHITECT_DECISION_RECEIPT,
     ];
 
     private function __construct(

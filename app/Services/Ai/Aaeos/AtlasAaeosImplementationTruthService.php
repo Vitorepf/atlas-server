@@ -121,6 +121,8 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_WIRING = 'wiring';
     public const FIELD_GREEN_RUN = 'green_run';
     public const FIELD_NONE = 'none';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_IMPLEMENTED_PARTIAL = 'implemented_partial';
 
     public const RANK = [
         self::LEVEL_SPEC => 0,
@@ -573,7 +575,7 @@ class AtlasAaeosImplementationTruthService
             $parts[] = $path.'='.$contentHash;
         }
 
-        return hash('sha256', self::IMPL_FILES_HASH_FORMAT."\n".implode("\n", $parts));
+        return hash(self::FIELD_SHA256, self::IMPL_FILES_HASH_FORMAT."\n".implode("\n", $parts));
     }
 
     /**
@@ -600,15 +602,15 @@ class AtlasAaeosImplementationTruthService
     {
         $absolute = base_path($relativePath);
         if (! is_file($absolute) || ! is_readable($absolute)) {
-            return 'missing:'.hash('sha256', $relativePath);
+            return 'missing:'.hash(self::FIELD_SHA256, $relativePath);
         }
 
         $contents = @file_get_contents($absolute);
         if ($contents === false) {
-            return 'missing:'.hash('sha256', $relativePath);
+            return 'missing:'.hash(self::FIELD_SHA256, $relativePath);
         }
 
-        return hash('sha256', $contents);
+        return hash(self::FIELD_SHA256, $contents);
     }
 
     /**
@@ -761,7 +763,7 @@ class AtlasAaeosImplementationTruthService
             return self::LEVEL_VERIFIED;
         }
 
-        if (in_array($normalized, [self::LEVEL_PARTIAL, 'implemented_partial', 'partial_runtime'], true)) {
+        if (in_array($normalized, [self::LEVEL_PARTIAL, self::FIELD_IMPLEMENTED_PARTIAL, 'partial_runtime'], true)) {
             return self::LEVEL_PARTIAL;
         }
 

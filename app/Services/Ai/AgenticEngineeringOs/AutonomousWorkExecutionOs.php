@@ -29,11 +29,11 @@ final class AutonomousWorkExecutionOs
 
     public const CYCLE_STAGES = [
         'goal_recorded',
-        'cycle_planned',
+        self::FIELD_CYCLE_PLANNED,
         'steps_decomposed',
         'step_executed',
         'certification_evaluated',
-        'learning_extracted',
+        self::FIELD_LEARNING_EXTRACTED,
     ];
 
     public const STATUS_PENDING = 'pending';
@@ -64,6 +64,8 @@ final class AutonomousWorkExecutionOs
     public const FIELD_CYCLE_ID = 'cycle_id';
     public const FIELD_GOAL_HASH = 'goal_hash';
     public const FIELD_MAY_PROCEED = 'may_proceed';
+    public const FIELD_CYCLE_PLANNED = 'cycle_planned';
+    public const FIELD_LEARNING_EXTRACTED = 'learning_extracted';
 
     public const STAGE_STATUSES = [
         self::STATUS_PENDING,

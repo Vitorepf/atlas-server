@@ -8617,4 +8617,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cognitive_function_immune_promotion_cognition_score_aaeos_department_floor_count']);
     }
 
+    public function test_immune_signature_acos_program_reactive_saturation_architect_agent_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->immuneSignatureAcosProgramReactiveSaturationArchitectAgentFloorsContractObserve([]);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_STRVAL, $out['strval']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_IS_STRING, $out['is_string']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_CURRENT_LOTE_NOT_FOUND, $out['current_lote_not_found']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_NOW, $out['now']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_FALLING_YIELD_WITH_HYSTERESIS, $out['falling_yield_with_hysteresis']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_INSUFFICIENT_N, $out['insufficient_n']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_ARCHITECT_DECISION_RECEIPT, $out['architect_decision_receipt']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_BOUNDARY_VALIDATED, $out['boundary_validated']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_CYCLE_PLANNED, $out['cycle_planned']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_LEARNING_EXTRACTED, $out['learning_extracted']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_IMPLEMENTED_PARTIAL, $out['implemented_partial']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_OPERATOR, $out['operator']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_PHASE, $out['phase']);
+        $this->assertSame(RunbookOrchestrator::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(RunbookOrchestrator::FIELD_PENDING_REPLAY, $out['pending_replay']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_REDACTED, $out['redacted']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_PROVIDER_BOUND_REDACTION_DRIFT, $out['provider_bound_redaction_drift']);
+        $this->assertSame(18, $out['immune_signature_acos_program_reactive_saturation_architect_agent_floor_count']);
+    }
+
 }
