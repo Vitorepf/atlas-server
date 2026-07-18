@@ -24,8 +24,8 @@ final class SegmentImportanceRanker
         self::FIELD_EVIDENCE => 0.6,
         self::FIELD_DECISION_NOTE => 0.6,
         self::FIELD_FACT => 0.4,
-        'stale_query' => 0.1,
-        'low_score_ref' => 0.1,
+        self::FIELD_STALE_QUERY => 0.1,
+        self::FIELD_LOW_SCORE_REF => 0.1,
         self::FIELD_DUPLICATE => 0.1,
     ];
 
@@ -68,6 +68,8 @@ final class SegmentImportanceRanker
     public const FIELD_DUP_GROUP = 'dup_group';
     public const FIELD_DUPLICATE = 'duplicate';
     public const FIELD_HAS_EVIDENCE_REF = 'has_evidence_ref';
+    public const FIELD_STALE_QUERY = 'stale_query';
+    public const FIELD_LOW_SCORE_REF = 'low_score_ref';
 
     /**
      * Rank may-discard segments by composite signal and greedily fill a token budget.

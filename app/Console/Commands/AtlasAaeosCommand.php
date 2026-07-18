@@ -366,6 +366,7 @@ final class AtlasAaeosCommand extends Command
         {--volume-sig-hybrid-delivery-autowork-mission-http-impact-floors-contract= : JSON file (any object) to observe volume/sig/hybrid/delivery/autowork/mission/http/impact residual floors}
         {--frontier-rerank-fabric-decomp-specpack-handoff-envelope-blocker-advisory-floors-contract= : JSON file (any object) to observe frontier/rerank/fabric/decomp/specpack/handoff/envelope/blocker/advisory residual floors}
         {--integrity-promo-share-thesis-atlas-promo-flywheel-golden-ambition-floors-contract= : JSON file (any object) to observe integrity/promo/share/thesis/atlas/promo/flywheel/golden/ambition residual floors}
+        {--ledger-disk-latency-teto-ragx-envelope-fidelity-segment-causality-floors-contract= : JSON file (any object) to observe ledger/disk/latency/teto/ragx/envelope/fidelity/segment/causality residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -888,6 +889,7 @@ final class AtlasAaeosCommand extends Command
             ['volume-sig-hybrid-delivery-autowork-mission-http-impact-floors-contract', 'volume_sig_hybrid_delivery_autowork_mission_http_impact_floors_contract', fn (array $p) => $gates->volumeSigHybridDeliveryAutoworkMissionHttpImpactFloorsContractObserve($p)],
             ['frontier-rerank-fabric-decomp-specpack-handoff-envelope-blocker-advisory-floors-contract', 'frontier_rerank_fabric_decomp_specpack_handoff_envelope_blocker_advisory_floors_contract', fn (array $p) => $gates->frontierRerankFabricDecompSpecpackHandoffEnvelopeBlockerAdvisoryFloorsContractObserve($p)],
             ['integrity-promo-share-thesis-atlas-promo-flywheel-golden-ambition-floors-contract', 'integrity_promo_share_thesis_atlas_promo_flywheel_golden_ambition_floors_contract', fn (array $p) => $gates->integrityPromoShareThesisAtlasPromoFlywheelGoldenAmbitionFloorsContractObserve($p)],
+            ['ledger-disk-latency-teto-ragx-envelope-fidelity-segment-causality-floors-contract', 'ledger_disk_latency_teto_ragx_envelope_fidelity_segment_causality_floors_contract', fn (array $p) => $gates->ledgerDiskLatencyTetoRagxEnvelopeFidelitySegmentCausalityFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

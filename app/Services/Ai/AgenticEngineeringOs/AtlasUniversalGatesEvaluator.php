@@ -8201,6 +8201,31 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function ledgerDiskLatencyTetoRagxEnvelopeFidelitySegmentCausalityFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ledger_integrity_field_tampered_total' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_TAMPERED_TOTAL,
+            'ledger_integrity_field_gap_total' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_GAP_TOTAL,
+            'disk_free_field_generated_at' => DiskFreeWatchdogCheck::FIELD_GENERATED_AT,
+            'disk_free_field_background_should_pause' => DiskFreeWatchdogCheck::FIELD_BACKGROUND_SHOULD_PAUSE,
+            'aobg_latency_field_report' => AobgLatencyWatchdogCheck::FIELD_REPORT,
+            'aobg_latency_field_insufficient_ops' => AobgLatencyWatchdogCheck::FIELD_INSUFFICIENT_OPS,
+            'teto10_field_markdown_cli_only' => Teto10PredictedRevertReviewDigest::FIELD_MARKDOWN_CLI_ONLY,
+            'teto10_field_ui_created' => Teto10PredictedRevertReviewDigest::FIELD_UI_CREATED,
+            'ragx_chain_field_recorded_at' => RagxChainMechanismService::FIELD_RECORDED_AT,
+            'ragx_chain_field_summary_ref' => RagxChainMechanismService::FIELD_SUMMARY_REF,
+            'outcome_envelope_field_formula' => OutcomeEnvelopeBridge::FIELD_FORMULA,
+            'outcome_envelope_field_thresholds' => OutcomeEnvelopeBridge::FIELD_THRESHOLDS,
+            'fidelity_field_required_total' => SummaryFidelityCoverageScorer::FIELD_REQUIRED_TOTAL,
+            'fidelity_field_present_total' => SummaryFidelityCoverageScorer::FIELD_PRESENT_TOTAL,
+            'segment_rank_field_stale_query' => SegmentImportanceRanker::FIELD_STALE_QUERY,
+            'segment_rank_field_low_score_ref' => SegmentImportanceRanker::FIELD_LOW_SCORE_REF,
+            'causality_field_primary_cause' => OutcomeCausalityRanker::FIELD_PRIMARY_CAUSE,
+            'causality_field_tests_passed' => OutcomeCausalityRanker::FIELD_TESTS_PASSED,
+            'ledger_disk_latency_teto_ragx_envelope_fidelity_segment_causality_floor_count' => 18,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

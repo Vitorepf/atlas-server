@@ -60,6 +60,8 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_ARTIFACT = 'artifact';
     public const FIELD_TAMPERED_COUNT = 'tampered_count';
     public const FIELD_CHAIN_DETAILS = 'chain_details';
+    public const FIELD_TAMPERED_TOTAL = 'tampered_total';
+    public const FIELD_GAP_TOTAL = 'gap_total';
 
 
     public function __construct(
@@ -125,8 +127,8 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_DATE => $date,
             self::FIELD_CHAINS => count($safeChains),
             self::FIELD_CHAIN_DETAILS => $safeChains,
-            'tampered_total' => $tamperedTotal,
-            'gap_total' => $gapTotal,
+            self::FIELD_TAMPERED_TOTAL => $tamperedTotal,
+            self::FIELD_GAP_TOTAL => $gapTotal,
         ];
 
         try {

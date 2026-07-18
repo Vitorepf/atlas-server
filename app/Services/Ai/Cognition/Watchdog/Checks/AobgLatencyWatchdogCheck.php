@@ -44,6 +44,8 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_DENOMINATOR_MIN = 'denominator_min';
     public const FIELD_DENOMINATOR_MIN_SAMPLES = 'denominator_min_samples';
     public const FIELD_FREEZE_SOURCE = 'freeze_source';
+    public const FIELD_REPORT = 'report';
+    public const FIELD_INSUFFICIENT_OPS = 'insufficient_ops';
 
 
     /**
@@ -87,14 +89,14 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_DAY => $day,
             self::FIELD_THRESHOLDS => $thresholds,
             self::FIELD_DENOMINATOR_MIN => $denominatorMin,
-            'report' => $report,
+            self::FIELD_REPORT => $report,
             self::FIELD_FREEZE_SOURCE => $this->freezePayloadOverride !== null ? 'override' : ($this->latestFreezePayload() !== null ? 'evidence_ledger' : 'default_payload'),
         ];
 
         if ($insufficient !== []) {
             return AtlasWatchdogCheckResult::skipped($evidence + [
                 self::FIELD_REASON => self::REASON_INSUFFICIENT_SIGNAL,
-                'insufficient_ops' => $insufficient,
+                self::FIELD_INSUFFICIENT_OPS => $insufficient,
             ]);
         }
 

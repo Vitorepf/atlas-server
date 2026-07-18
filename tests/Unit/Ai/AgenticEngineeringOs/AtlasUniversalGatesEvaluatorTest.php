@@ -6249,6 +6249,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['integrity_promo_share_thesis_atlas_promo_flywheel_golden_ambition_floor_count']);
     }
 
+    public function test_ledger_disk_latency_teto_ragx_envelope_fidelity_segment_causality_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->ledgerDiskLatencyTetoRagxEnvelopeFidelitySegmentCausalityFloorsContractObserve([]);
+
+        $this->assertSame('tampered_total', $payload['ledger_integrity_field_tampered_total']);
+        $this->assertSame('gap_total', $payload['ledger_integrity_field_gap_total']);
+        $this->assertSame('generated_at', $payload['disk_free_field_generated_at']);
+        $this->assertSame('background_should_pause', $payload['disk_free_field_background_should_pause']);
+        $this->assertSame('report', $payload['aobg_latency_field_report']);
+        $this->assertSame('insufficient_ops', $payload['aobg_latency_field_insufficient_ops']);
+        $this->assertSame('markdown_cli_only', $payload['teto10_field_markdown_cli_only']);
+        $this->assertSame('ui_created', $payload['teto10_field_ui_created']);
+        $this->assertSame('recorded_at', $payload['ragx_chain_field_recorded_at']);
+        $this->assertSame('summary_ref', $payload['ragx_chain_field_summary_ref']);
+        $this->assertSame('formula', $payload['outcome_envelope_field_formula']);
+        $this->assertSame('thresholds', $payload['outcome_envelope_field_thresholds']);
+        $this->assertSame('required_total', $payload['fidelity_field_required_total']);
+        $this->assertSame('present_total', $payload['fidelity_field_present_total']);
+        $this->assertSame('stale_query', $payload['segment_rank_field_stale_query']);
+        $this->assertSame('low_score_ref', $payload['segment_rank_field_low_score_ref']);
+        $this->assertSame('primary_cause', $payload['causality_field_primary_cause']);
+        $this->assertSame('tests_passed', $payload['causality_field_tests_passed']);
+        $this->assertSame(18, $payload['ledger_disk_latency_teto_ragx_envelope_fidelity_segment_causality_floor_count']);
+    }
+
 
 
 

@@ -33,6 +33,8 @@ final class SummaryFidelityCoverageScorer
     public const FIELD_MISSED_DECISION_RATE = 'missed_decision_rate';
     public const FIELD_MISSING_DECISION_IDS = 'missing_decision_ids';
     public const FIELD_MISSING_ITEM_IDS = 'missing_item_ids';
+    public const FIELD_REQUIRED_TOTAL = 'required_total';
+    public const FIELD_PRESENT_TOTAL = 'present_total';
 
 
     /**
@@ -139,8 +141,8 @@ final class SummaryFidelityCoverageScorer
             'verdict' => $verdict,
             self::FIELD_CONTEXT_RETENTION_SCORE => $contextRetentionScore,
             self::FIELD_MISSED_DECISION_RATE => $missedDecisionRate,
-            'required_total' => $requiredTotal,
-            'present_total' => $presentTotal,
+            self::FIELD_REQUIRED_TOTAL => $requiredTotal,
+            self::FIELD_PRESENT_TOTAL => $presentTotal,
             'missing_total' => $missingTotal,
             self::FIELD_DECISION_TOTAL => $decisionTotal,
             self::FIELD_MISSING_ITEM_IDS => $missingItemIds,

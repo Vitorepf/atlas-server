@@ -81,6 +81,8 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_FLIP_REF = 'flip_ref';
     public const FIELD_SLICE = 'slice';
     public const FIELD_FRONTIER_PLAN_SECTION = 'frontier_plan_section';
+    public const FIELD_MARKDOWN_CLI_ONLY = 'markdown_cli_only';
+    public const FIELD_UI_CREATED = 'ui_created';
 
     /**
      * @param  list<array<string,mixed>>  $items
@@ -118,8 +120,8 @@ final class Teto10PredictedRevertReviewDigest
             'source' => [
                 self::FIELD_SLICE => 'TETO-10',
                 self::FIELD_FRONTIER_PLAN_SECTION => '3144-3147',
-                'markdown_cli_only' => true,
-                'ui_created' => false,
+                self::FIELD_MARKDOWN_CLI_ONLY => true,
+                self::FIELD_UI_CREATED => false,
                 'reorders_by_predicted_revert_band' => true,
                 'manual_review_when_reverse_missing' => true,
             ],

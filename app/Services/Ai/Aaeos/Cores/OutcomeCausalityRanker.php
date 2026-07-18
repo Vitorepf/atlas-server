@@ -60,6 +60,8 @@ final class OutcomeCausalityRanker
     public const FIELD_ATTRIBUTION_CONFIDENCE = 'attribution_confidence';
     public const FIELD_CANDIDATES = 'candidates';
     public const FIELD_HAS_EVIDENCE_REFS = 'has_evidence_refs';
+    public const FIELD_PRIMARY_CAUSE = 'primary_cause';
+    public const FIELD_TESTS_PASSED = 'tests_passed';
 
     /** @var list<string> */
     public const PRIMARY_CAUSES = [
@@ -144,7 +146,7 @@ final class OutcomeCausalityRanker
     {
         $outcome = AiValueNormalizer::lowerTrimmedString($envelope[self::FIELD_OUTCOME] ?? '');
         $hasEvidenceRefs = (AiValueNormalizer::boolOrNull($envelope[self::FIELD_HAS_EVIDENCE_REFS] ?? null) ?? false);
-        $testsPassed = array_key_exists('tests_passed', $envelope) ? $envelope['tests_passed'] : null;
+        $testsPassed = array_key_exists('tests_passed', $envelope) ? $envelope[self::FIELD_TESTS_PASSED] : null;
         $missingRequiredSources = (AiValueNormalizer::boolOrNull($envelope['missing_required_sources'] ?? null) ?? false);
         $allowedFilesSufficient = (AiValueNormalizer::boolOrNull($envelope[self::FIELD_ALLOWED_FILES_SUFFICIENT] ?? null) ?? true);
         $packetQualityFailed = (AiValueNormalizer::boolOrNull($envelope['packet_quality_failed'] ?? null) ?? false);
@@ -213,7 +215,7 @@ final class OutcomeCausalityRanker
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_CANDIDATES => $ranked,
-            'primary_cause' => $primaryCause,
+            self::FIELD_PRIMARY_CAUSE => $primaryCause,
             self::FIELD_ALTERNATIVE_EXPLANATIONS => $alternativeExplanations,
             self::FIELD_ATTRIBUTION_CONFIDENCE => $this->attributionConfidence($primaryCause),
             self::FIELD_ATTRIBUTION_BLOCKED => ! $hasEvidenceRefs,

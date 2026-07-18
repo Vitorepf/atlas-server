@@ -180,6 +180,8 @@ final class RagxChainMechanismService
     public const REASON_LATE_CHUNK_INDEX_ERROR = 'late_chunk_index_error';
 
     public const REASON_NO_VERIFIED_MAXF09_L2_SUMMARIES = 'no_verified_maxf09_l2_summaries';
+    public const FIELD_RECORDED_AT = 'recorded_at';
+    public const FIELD_SUMMARY_REF = 'summary_ref';
 
     public function __construct(
         private readonly ?AsefChunkIndexService $asefChunks = null,
@@ -286,7 +288,7 @@ final class RagxChainMechanismService
         $record = [
             self::FIELD_SCHEMA_VERSION => self::AB_SCHEMA,
             self::FIELD_STATUS => self::STATUS_REGISTERED,
-            'recorded_at' => Carbon::now()->toISOString(),
+            self::FIELD_RECORDED_AT => Carbon::now()->toISOString(),
             self::FIELD_EXPERIMENT_ID => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_EXPERIMENT_ID] ?? null) ?? hash('sha256', json_encode($experiment, JSON_THROW_ON_ERROR)),
             self::FIELD_SLICE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_SLICE]  ?? null) ?? 'RAGX',
             self::FIELD_BASELINE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_BASELINE]  ?? null) ?? self::STATUS_UNKNOWN,
@@ -401,7 +403,7 @@ final class RagxChainMechanismService
             $nodes[] = [
                 self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($summary[self::FIELD_ID] ?? null) ?? ('raptor_lite_'.($index + 1)),
                 self::FIELD_COMMUNITY => array_values(AiValueNormalizer::arrayOrEmpty($summary[self::FIELD_COMMUNITY] ?? ($communities[$index] ?? null))),
-                'summary_ref' => AiValueNormalizer::trimmedStringOrNull($summary['l2_summary_id'] ?? $summary[self::FIELD_ID] ?? null) ?? '',
+                self::FIELD_SUMMARY_REF => AiValueNormalizer::trimmedStringOrNull($summary['l2_summary_id'] ?? $summary[self::FIELD_ID] ?? null) ?? '',
                 self::FIELD_SOURCE => 'maxf09_verified_l2_summary',
             ];
         }

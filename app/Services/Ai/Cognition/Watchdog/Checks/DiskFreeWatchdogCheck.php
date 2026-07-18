@@ -37,6 +37,8 @@ final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_CODE = 'code';
     public const FIELD_TOTAL_GB = 'total_gb';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_BACKGROUND_SHOULD_PAUSE = 'background_should_pause';
 
     /** @var callable():array{path:string,free_bytes:int,total_bytes:int} */
     private $probe;
@@ -94,12 +96,12 @@ final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
 
         $evidence = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'generated_at' => $this->now->toIso8601String(),
+            self::FIELD_GENERATED_AT => $this->now->toIso8601String(),
             self::FIELD_PATH => (AiValueNormalizer::trimmedStringOrNull($probed[self::FIELD_PATH] ?? null) ?? ''),
             self::FIELD_FREE_GB => $freeGb,
             self::FIELD_TOTAL_GB => $totalGb,
             self::FIELD_FLOOR_GB => $this->floorGb,
-            'background_should_pause' => $freeGb < $this->floorGb,
+            self::FIELD_BACKGROUND_SHOULD_PAUSE => $freeGb < $this->floorGb,
         ];
 
         if ($freeGb < $this->floorGb) {
