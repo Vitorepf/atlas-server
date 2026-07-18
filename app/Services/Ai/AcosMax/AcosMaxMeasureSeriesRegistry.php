@@ -50,6 +50,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_RECORDED_AT = 'recorded_at';
     public const FIELD_ATLAS_LEDGER_EVENTS = 'atlas_ledger_events';
     public const FIELD_OCCURRED_AT = 'occurred_at';
+    public const FIELD_ACOS_WATCHDOG = 'acos_watchdog';
+    public const FIELD_UNIFIED = 'unified';
 
     public const SOURCE_TYPE_JSONL = 'jsonl';
 
@@ -201,8 +203,8 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_OCCURRED_AT,
                 self::FIELD_WHERE => [
-                    self::FIELD_SCOPE_TYPE => 'acos_watchdog',
-                    self::FIELD_SCOPE_ID => 'unified',
+                    self::FIELD_SCOPE_TYPE => self::FIELD_ACOS_WATCHDOG,
+                    self::FIELD_SCOPE_ID => self::FIELD_UNIFIED,
                 ],
                 self::FIELD_TTL_DAYS => 30,
                 self::FIELD_TTL_SOURCE => 'elev-20s-freeze-equivalent',
@@ -214,8 +216,8 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_OCCURRED_AT,
                 self::FIELD_WHERE => [
-                    self::FIELD_SCOPE_TYPE => 'acos_watchdog',
-                    self::FIELD_SCOPE_ID => 'unified',
+                    self::FIELD_SCOPE_TYPE => self::FIELD_ACOS_WATCHDOG,
+                    self::FIELD_SCOPE_ID => self::FIELD_UNIFIED,
                 ],
                 self::FIELD_TTL_DAYS => AtlasOperatorReviewDebtMeter::TTL_DAYS,
                 self::FIELD_TTL_SOURCE => 'freeze:acos.operator_review_debt.v1',

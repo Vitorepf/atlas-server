@@ -120,6 +120,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_CREATED_AT = 'created_at';
     public const FIELD_DECISION = 'decision';
     public const FIELD_CADEIA_TIER_IMPLEMENTADA = 'cadeia_tier_implementada';
+    public const FIELD_CADENCIA_VIVA = 'cadencia_viva';
+    public const FIELD_EXECUCAO_GOVERNADA = 'execucao_governada';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -191,7 +193,7 @@ class AtlasAcosEvolutionScoreService
         $heartbeatFresh = $this->heartbeatFresh();
         $organsScheduled = $this->scheduledOrganCount();
         $signals[] = [
-            self::FIELD_SIGNAL => 'cadencia_viva',
+            self::FIELD_SIGNAL => self::FIELD_CADENCIA_VIVA,
             self::FIELD_POINTS => round(($heartbeatFresh ? 1.25 : 0.0) + 1.25 * ($organsScheduled / count(self::SCHEDULED_ORGANS)), 2),
             self::FIELD_MAX => 2.5,
             self::FIELD_EVIDENCE => sprintf('heartbeat_fresh=%s organs_scheduled=%d/%d', $heartbeatFresh ? self::FIELD_YES : 'no', $organsScheduled, count(self::SCHEDULED_ORGANS)),
@@ -295,7 +297,7 @@ class AtlasAcosEvolutionScoreService
         // substitui a aprovação." Continua evidence-resolved e degrade-safe.
         $governance = $this->autonomousGovernance();
         $signals[] = [
-            self::FIELD_SIGNAL => 'execucao_governada',
+            self::FIELD_SIGNAL => self::FIELD_EXECUCAO_GOVERNADA,
             self::FIELD_POINTS => round(($switchReadable ? 0.5 : 0.0) + ($chain[self::FIELD_TIER_EXPOSED] ? 1.0 : 0.0) + $governance[self::FIELD_POINTS], 2),
             self::FIELD_MAX => 2.5,
             self::FIELD_EVIDENCE => sprintf(

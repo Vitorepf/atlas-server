@@ -88,6 +88,8 @@ final class ComposedObraArcComposer
     public const FIELD_TARGET_FQCN = 'target_fqcn';
     public const FIELD_TASKS = 'tasks';
     public const FIELD_THESIS = 'thesis';
+    public const FIELD_APP = 'app';
+    public const FIELD_ARCHIVE_WITH_RECEIPT = 'archive_with_receipt';
 
     /**
      * @param  list<array<string,mixed>>  $candidates  grounded origination candidates
@@ -296,7 +298,7 @@ final class ComposedObraArcComposer
             self::FIELD_KILL_GATE => [
                 self::FIELD_CONSECUTIVE_FAILURES_K => self::KILL_GATE_CONSECUTIVE_FAILURES,
                 self::FIELD_CONSECUTIVE_FAILURES => 0,
-                self::FIELD_ACTION_ON_TRIGGER => 'archive_with_receipt',
+                self::FIELD_ACTION_ON_TRIGGER => self::FIELD_ARCHIVE_WITH_RECEIPT,
             ],
             self::FIELD_SOURCE => [
                 self::FIELD_NEIGHBOR_BASIS => 'organ_dependency_graph',
@@ -408,7 +410,7 @@ final class ComposedObraArcComposer
         }
 
         $parts = explode('/', str_replace('\\', '/', $targetPath));
-        if (count($parts) >= 2 && $parts[0] === 'app') {
+        if (count($parts) >= 2 && $parts[0] === self::FIELD_APP) {
             $namespace = 'App\\'.implode('\\', array_slice($parts, 1, -1)).'\\'.$base;
 
             return str_replace('/', '\\', $namespace);

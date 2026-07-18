@@ -197,6 +197,8 @@ final class DepartmentContractRuntime
     public const FIELD_EXECUTION_LOG = 'execution_log';
     public const FIELD_PATCH_PACK = 'patch_pack';
     public const FIELD_AAEOS_ARCHITECT_DECISION_LEDGER = 'aaeos_architect_decision_ledger';
+    public const FIELD_AAEOS_CLARIFICATION_LEDGER = 'aaeos_clarification_ledger';
+    public const FIELD_AAEOS_DEBUG_INVESTIGATIONS = 'aaeos_debug_investigations';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -269,7 +271,7 @@ final class DepartmentContractRuntime
             self::FIELD_FORBIDDEN_ACTIONS => ['write_code', 'approve_release', 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['clarification_log', 'acceptance_criteria_pack'],
-            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_engineering_goals', self::FIELD_LEDGER => 'aaeos_clarification_ledger'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_engineering_goals', self::FIELD_LEDGER => self::FIELD_AAEOS_CLARIFICATION_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['product_clarity_score_avg', 'product_loop_count_avg'],
             self::FIELD_MATURITY_LEVEL => 'L3',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_MINI_PROGRAMMING_SPEC,
@@ -364,7 +366,7 @@ final class DepartmentContractRuntime
             self::FIELD_FORBIDDEN_ACTIONS => ['modify_production_data', 'deploy_fix_without_review'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY],
             self::FIELD_EVIDENCE_REQUIRED => ['repro_steps_hash', 'logs_hash', 'root_cause_pack_hash'],
-            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_debug_investigations', self::FIELD_LEDGER => 'aaeos_debug_ledger'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_DEBUG_INVESTIGATIONS, self::FIELD_LEDGER => 'aaeos_debug_ledger'],
             self::FIELD_OBSERVABILITY_SIGNALS => ['debug_mttr_p95', 'debug_repro_success_rate'],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_DEBUG_RECEIPT,

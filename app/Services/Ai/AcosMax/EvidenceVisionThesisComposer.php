@@ -108,6 +108,8 @@ final class EvidenceVisionThesisComposer
     public const FIELD_PATH = 'path';
     public const FIELD_SWEET = 'sweet';
     public const FIELD_TARGET_PATH = 'target_path';
+    public const FIELD_OUTCOME = 'outcome';
+    public const FIELD_LEDGER = 'ledger';
 
     /**
      * @param  array<string,mixed>  $context
@@ -369,13 +371,13 @@ final class EvidenceVisionThesisComposer
                 .' trails sweet_band '.round($sweetRate, 3),
             self::FIELD_EVIDENCE => [
                 [
-                    self::FIELD_SOURCE => 'outcome',
+                    self::FIELD_SOURCE => self::FIELD_OUTCOME,
                     self::FIELD_REF => 'outcome:predicted_impact_calibration:band=high:n_realized='.$highN,
                     self::FIELD_FIELD => 'realized_rate',
                     self::FIELD_VALUE => $highRate,
                 ],
                 [
-                    self::FIELD_SOURCE => 'outcome',
+                    self::FIELD_SOURCE => self::FIELD_OUTCOME,
                     self::FIELD_REF => 'outcome:predicted_impact_calibration:band=sweet:n_realized='.$sweetN,
                     self::FIELD_FIELD => 'realized_rate',
                     self::FIELD_VALUE => $sweetRate,
@@ -412,7 +414,7 @@ final class EvidenceVisionThesisComposer
             if ($target === '' || $file === '' || $line <= 0) {
                 continue;
             }
-            $byTarget[$target][] = [self::FIELD_FILE => $file, self::FIELD_LINE => $line, self::FIELD_SOURCE => AiValueNormalizer::trimmedStringOrNull($evidence[self::FIELD_SOURCE] ?? null) ?? 'ledger'];
+            $byTarget[$target][] = [self::FIELD_FILE => $file, self::FIELD_LINE => $line, self::FIELD_SOURCE => AiValueNormalizer::trimmedStringOrNull($evidence[self::FIELD_SOURCE] ?? null) ?? self::FIELD_LEDGER];
         }
 
         $theses = [];
@@ -423,7 +425,7 @@ final class EvidenceVisionThesisComposer
             $thesisId = hash('sha256', 'lead-cluster|'.$target.'|'.count($rows));
             $refs = array_map(
                 static fn (array $row): array => [
-                    self::FIELD_SOURCE => 'ledger',
+                    self::FIELD_SOURCE => self::FIELD_LEDGER,
                     self::FIELD_REF => 'ledger:'.$row[self::FIELD_FILE].':'.$row[self::FIELD_LINE],
                     self::FIELD_FIELD => 'open_evidence',
                     self::FIELD_VALUE => $row[self::FIELD_SOURCE],
@@ -483,7 +485,7 @@ final class EvidenceVisionThesisComposer
                 self::FIELD_CLAIM => 'outcome:path='.$path.' has '.count($failures).' consecutive non-proven_real results',
                 self::FIELD_EVIDENCE => array_map(
                     static fn (array $row, int $index): array => [
-                        self::FIELD_SOURCE => 'outcome',
+                        self::FIELD_SOURCE => self::FIELD_OUTCOME,
                         self::FIELD_REF => 'outcome:'.((AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_OUTCOME_ID] ?? null) ?? '') ?: ('stall-'.$index)),
                         self::FIELD_FIELD => self::FIELD_PROVEN_REAL,
                         self::FIELD_VALUE => false,

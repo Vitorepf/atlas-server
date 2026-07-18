@@ -49,6 +49,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_DEBUG_AUTOMATED_ROOT_CAUSE_L3 = 'debug_automated_root_cause_l3';
     public const FIELD_DELIVERY = 'delivery';
     public const FIELD_DELIVERY_ZERO_DOWNTIME_L3 = 'delivery_zero_downtime_l3';
+    public const FIELD_DEV = 'dev';
+    public const FIELD_DEV_PLAN_VISIBLE_L2 = 'dev_plan_visible_l2';
 
     public const DEPARTMENTS = [
         [
@@ -76,10 +78,10 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],
         [
-            self::FIELD_DEPARTMENT_ID => 'dev',
+            self::FIELD_DEPARTMENT_ID => self::FIELD_DEV,
             self::FIELD_CURRENT_LEVEL => 'L1',
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#dev'],
-            self::FIELD_BLOCKER_ID => 'dev_plan_visible_l2',
+            self::FIELD_BLOCKER_ID => self::FIELD_DEV_PLAN_VISIBLE_L2,
             self::FIELD_BLOCKER_SUMMARY => 'A2 Plan-Visible incompleto, HTTP path legado',
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_HIGH,
         ],

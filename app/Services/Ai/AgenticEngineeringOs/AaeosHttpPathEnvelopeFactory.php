@@ -96,6 +96,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_R1_R2_FAST_PATH_PRESERVED = 'r1_r2_fast_path_preserved';
     public const FIELD_ASSISTED_EXECUTION_NEEDS_CONTEXT = 'assisted_execution_needs_context';
     public const FIELD_CLASSIFICATION_TARGET_DEPARTMENT_MISSING = 'classification_target_department_missing';
+    public const FIELD_DECISION_RECEIPT_V2_SIGNED = 'decision_receipt_v2_signed';
+    public const FIELD_DEPARTMENT_ROUTE_OWNER_CONFIRMED = 'department_route_owner_confirmed';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -292,7 +294,7 @@ final class AaeosHttpPathEnvelopeFactory
                 self::FIELD_DEPARTMENT_ROUTE => 'engineering_or_forge_pending_aawr',
                 self::FIELD_COMPANY_RUNTIME_INVOCATION => self::FIELD_DEFERRED,
             ],
-            self::FIELD_REQUIRED_GATE => 'department_route_owner_confirmed',
+            self::FIELD_REQUIRED_GATE => self::FIELD_DEPARTMENT_ROUTE_OWNER_CONFIRMED,
         ],
         self::FIELD_SPEC => [
             self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_ROUTING,
@@ -328,7 +330,7 @@ final class AaeosHttpPathEnvelopeFactory
                 self::FIELD_DECISION_RECEIPT_V2_INVOCATION => self::FIELD_DEFERRED,
                 self::FIELD_RECEIPT_REQUIRED => self::FIELD_YES,
             ],
-            self::FIELD_REQUIRED_GATE => 'decision_receipt_v2_signed',
+            self::FIELD_REQUIRED_GATE => self::FIELD_DECISION_RECEIPT_V2_SIGNED,
         ],
     ];
 

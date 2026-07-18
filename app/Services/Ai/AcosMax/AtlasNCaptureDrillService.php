@@ -124,6 +124,8 @@ final class AtlasNCaptureDrillService
     public const FIELD_VIOLATIONS = 'violations';
     public const FIELD_WINDOW_DAYS = 'window_days';
     public const FIELD_YARDSTICK = 'yardstick';
+    public const FIELD_ENGINE = 'engine';
+    public const FIELD_JSONL = 'jsonl';
 
     private readonly string $ledgerPath;
 
@@ -169,7 +171,7 @@ final class AtlasNCaptureDrillService
             self::FIELD_SERIES_REGISTRY => [
                 self::FIELD_SERIES => self::MEASURE_ID,
                 self::FIELD_PATH => 'atlas:teto:n-capture-drill --json',
-                self::FIELD_SOURCE_TYPE => 'jsonl',
+                self::FIELD_SOURCE_TYPE => self::FIELD_JSONL,
             ],
         ];
     }
@@ -196,7 +198,7 @@ final class AtlasNCaptureDrillService
             self::FIELD_DRILL_ID => AiValueNormalizer::trimmedStringOrNull($drill[self::FIELD_DRILL_ID] ?? null) ?? (string) Str::uuid(),
             self::FIELD_ENGINE_ID => AiValueNormalizer::trimmedScalarStringOrNull($drill[self::FIELD_ENGINE_ID] ?? null) ?? '',
             self::FIELD_CAPABILITY_SPEC => [
-                self::FIELD_FUNCTION => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'capability_spec.function')) ?? 'engine',
+                self::FIELD_FUNCTION => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'capability_spec.function')) ?? self::FIELD_ENGINE,
                 self::FIELD_VERIFIED => (AiValueNormalizer::boolOrNull(data_get($drill, 'capability_spec.verified')) ?? false),
                 self::FIELD_VIOLATIONS => array_values(AiValueNormalizer::arrayOrEmpty(data_get($drill, 'capability_spec.violations', []))),
             ],

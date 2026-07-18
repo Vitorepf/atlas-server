@@ -52,6 +52,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_LEARNING_SIGNAL = 'learning_signal';
     public const FIELD_MEMORY_CONSTELLATION_CANDIDATE = 'memory_constellation_candidate';
     public const FIELD_PERSONAL_FACT_SIGNAL = 'personal_fact_signal';
+    public const FIELD_PRIVATE_REVIEW = 'private_review';
+    public const FIELD_PROJECT_EVIDENCE = 'project_evidence';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -64,9 +66,9 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         self::CLASS_TRIVIAL_QUERY => 'respond_and_expire',
         self::CLASS_OPERATIONAL_EPHEMERAL => 'task_reminder_cold_file',
         self::CLASS_TASK_OR_REMINDER => 'task_routine',
-        self::CLASS_PROJECT_EVIDENCE => 'project_evidence',
+        self::CLASS_PROJECT_EVIDENCE => self::FIELD_PROJECT_EVIDENCE,
         self::CLASS_CONVERSATION_TRACE => self::FIELD_AUDIT_SESSION,
-        self::CLASS_PERSONAL_FACT_CANDIDATE => 'private_review',
+        self::CLASS_PERSONAL_FACT_CANDIDATE => self::FIELD_PRIVATE_REVIEW,
         self::CLASS_TECHNICAL_LEARNING_CANDIDATE => self::FIELD_LEARNING_SIGNAL,
         self::CLASS_STRATEGIC_INSIGHT_CANDIDATE => self::FIELD_MEMORY_CONSTELLATION_CANDIDATE,
         self::CLASS_UNTRUSTED_CONTENT => self::FIELD_CITED_DATA_NOT_INSTRUCTION,

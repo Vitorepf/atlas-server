@@ -8216,4 +8216,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['knowledge_item_aemor_outcome_department_contract_aaeos_acos_floor_count']);
     }
 
+    public function test_evidence_vision_composed_obra_n_capture_department_contract_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->evidenceVisionComposedObraNCaptureDepartmentContractFloorsContractObserve([]);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_OUTCOME, $out['outcome']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_LEDGER, $out['ledger']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_APP, $out['app']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_ARCHIVE_WITH_RECEIPT, $out['archive_with_receipt']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_ENGINE, $out['engine']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_JSONL, $out['jsonl']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_CLARIFICATION_LEDGER, $out['aaeos_clarification_ledger']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_DEBUG_INVESTIGATIONS, $out['aaeos_debug_investigations']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEV, $out['dev']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEV_PLAN_VISIBLE_L2, $out['dev_plan_visible_l2']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_CADENCIA_VIVA, $out['cadencia_viva']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_EXECUCAO_GOVERNADA, $out['execucao_governada']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ACOS_WATCHDOG, $out['acos_watchdog']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_UNIFIED, $out['unified']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PRIVATE_REVIEW, $out['private_review']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PROJECT_EVIDENCE, $out['project_evidence']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_DECISION_RECEIPT_V2_SIGNED, $out['decision_receipt_v2_signed']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_DEPARTMENT_ROUTE_OWNER_CONFIRMED, $out['department_route_owner_confirmed']);
+        $this->assertSame(18, $out['evidence_vision_composed_obra_n_capture_department_contract_floor_count']);
+    }
+
 }
