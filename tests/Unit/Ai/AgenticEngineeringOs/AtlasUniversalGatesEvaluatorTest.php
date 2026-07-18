@@ -6274,6 +6274,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['ledger_disk_latency_teto_ragx_envelope_fidelity_segment_causality_floor_count']);
     }
 
+    public function test_autonomy_watchdog_scorecard_maxa_corpus_esp09_budget_recall_veto_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->autonomyWatchdogScorecardMaxaCorpusEsp09BudgetRecallVetoFloorsContractObserve([]);
+
+        $this->assertSame('probes', $payload['adversarial_field_probes']);
+        $this->assertSame('errors', $payload['adversarial_field_errors']);
+        $this->assertSame('checks', $payload['watchdog_runner_field_checks']);
+        $this->assertSame('alerts', $payload['watchdog_runner_field_alerts']);
+        $this->assertSame('memory_core', $payload['scorecard_v4_field_memory_core']);
+        $this->assertSame('research_domain', $payload['scorecard_v4_field_research_domain']);
+        $this->assertSame('required', $payload['maxa04_field_required']);
+        $this->assertSame('ledger_path', $payload['maxa04_field_ledger_path']);
+        $this->assertSame('via_asi_02', $payload['gated_corpus_field_via_asi_02']);
+        $this->assertSame('writes_memory_directly', $payload['gated_corpus_field_writes_memory_directly']);
+        $this->assertSame('trigger', $payload['esp09_field_trigger']);
+        $this->assertSame('trigger_kinds', $payload['esp09_field_trigger_kinds']);
+        $this->assertSame('per_item_cap_chars', $payload['budget_alloc_field_per_item_cap_chars']);
+        $this->assertSame('used_chars', $payload['budget_alloc_field_used_chars']);
+        $this->assertSame('session', $payload['recall_scorer_field_session']);
+        $this->assertSame('requirement', $payload['recall_scorer_field_requirement']);
+        $this->assertSame('final_override_active', $payload['veto_watchdog_field_final_override_active']);
+        $this->assertSame('pause_sla_seconds', $payload['veto_watchdog_field_pause_sla_seconds']);
+        $this->assertSame(18, $payload['autonomy_watchdog_scorecard_maxa_corpus_esp09_budget_recall_veto_floor_count']);
+    }
+
 
 
 

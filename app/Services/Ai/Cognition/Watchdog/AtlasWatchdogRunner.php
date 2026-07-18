@@ -37,6 +37,8 @@ final readonly class AtlasWatchdogRunner
     public const FIELD_TENANT_ID = 'tenant_id';
     public const FIELD_LEDGER_EVENT_ID = 'ledger_event_id';
     public const FIELD_CHECK_ID = 'check_id';
+    public const FIELD_CHECKS = 'checks';
+    public const FIELD_ALERTS = 'alerts';
 
     public function __construct(
         private AtlasWatchdogCheckRegistry $registry,
@@ -81,8 +83,8 @@ final readonly class AtlasWatchdogRunner
             self::FIELD_STATUS => $this->aggregateStatus($checks),
             AtlasWatchdogCheckResult::STATUS_ALERT => $this->hasAlert($checks),
             self::FIELD_COUNTS => $this->counts($checks),
-            'checks' => $checks,
-            'alerts' => $this->alerts($checks),
+            self::FIELD_CHECKS => $checks,
+            self::FIELD_ALERTS => $this->alerts($checks),
         ];
 
         $event = $this->recordLedger($payload, $context);

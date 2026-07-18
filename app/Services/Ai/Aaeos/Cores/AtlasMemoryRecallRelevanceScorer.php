@@ -26,6 +26,8 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_MEMORY_TYPE = 'memory_type';
     public const FIELD_PROJECT = 'project';
     public const FIELD_RANK = 'rank';
+    public const FIELD_SESSION = 'session';
+    public const FIELD_REQUIREMENT = 'requirement';
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -74,7 +76,7 @@ final class AtlasMemoryRecallRelevanceScorer
             self::FIELD_ENGINEERING_RUN => 20,
             self::FIELD_PROJECT => 16,
             'workspace' => 12,
-            'session' => 10,
+            self::FIELD_SESSION => 10,
             'user' => 8,
             default => 4,
         };
@@ -86,7 +88,7 @@ final class AtlasMemoryRecallRelevanceScorer
     public function typeWeight(string $type): int
     {
         return match ($type) {
-            'decision', 'resolution', 'requirement' => 16,
+            'decision', 'resolution', self::FIELD_REQUIREMENT => 16,
             'issue', 'failure' => 14,
             'technical_context', 'command', 'evidence', self::FIELD_HARNESS_LEARNING => 11,
             'preference', self::FIELD_FEEDBACK => 8,

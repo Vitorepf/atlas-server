@@ -8226,6 +8226,31 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function autonomyWatchdogScorecardMaxaCorpusEsp09BudgetRecallVetoFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'adversarial_field_probes' => AutonomyLadderAdversarialWatchdogCheck::FIELD_PROBES,
+            'adversarial_field_errors' => AutonomyLadderAdversarialWatchdogCheck::FIELD_ERRORS,
+            'watchdog_runner_field_checks' => AtlasWatchdogRunner::FIELD_CHECKS,
+            'watchdog_runner_field_alerts' => AtlasWatchdogRunner::FIELD_ALERTS,
+            'scorecard_v4_field_memory_core' => AtlasCognitionScoreCardV4Grouper::FIELD_MEMORY_CORE,
+            'scorecard_v4_field_research_domain' => AtlasCognitionScoreCardV4Grouper::FIELD_RESEARCH_DOMAIN,
+            'maxa04_field_required' => Maxa04JinaV3DualReadService::FIELD_REQUIRED,
+            'maxa04_field_ledger_path' => Maxa04JinaV3DualReadService::FIELD_LEDGER_PATH,
+            'gated_corpus_field_via_asi_02' => GatedCorpusCandidateMiner::FIELD_VIA_ASI_02,
+            'gated_corpus_field_writes_memory_directly' => GatedCorpusCandidateMiner::FIELD_WRITES_MEMORY_DIRECTLY,
+            'esp09_field_trigger' => Esp09IndependentChallengerService::FIELD_TRIGGER,
+            'esp09_field_trigger_kinds' => Esp09IndependentChallengerService::FIELD_TRIGGER_KINDS,
+            'budget_alloc_field_per_item_cap_chars' => MemoryInjectionBudgetAllocator::FIELD_PER_ITEM_CAP_CHARS,
+            'budget_alloc_field_used_chars' => MemoryInjectionBudgetAllocator::FIELD_USED_CHARS,
+            'recall_scorer_field_session' => AtlasMemoryRecallRelevanceScorer::FIELD_SESSION,
+            'recall_scorer_field_requirement' => AtlasMemoryRecallRelevanceScorer::FIELD_REQUIREMENT,
+            'veto_watchdog_field_final_override_active' => AtlasVetoPropagationWatchdog::FIELD_FINAL_OVERRIDE_ACTIVE,
+            'veto_watchdog_field_pause_sla_seconds' => AtlasVetoPropagationWatchdog::FIELD_PAUSE_SLA_SECONDS,
+            'autonomy_watchdog_scorecard_maxa_corpus_esp09_budget_recall_veto_floor_count' => 18,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

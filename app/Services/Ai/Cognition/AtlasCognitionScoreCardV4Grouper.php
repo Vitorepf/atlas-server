@@ -38,6 +38,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_CROSS_DOMAIN = 'cross_domain';
     public const FIELD_SUPPLEMENTAL_COUNT = 'supplemental_count';
     public const FIELD_EVIDENCE = 'evidence';
+    public const FIELD_MEMORY_CORE = 'memory_core';
+    public const FIELD_RESEARCH_DOMAIN = 'research_domain';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -125,9 +127,9 @@ final class AtlasCognitionScoreCardV4Grouper
     {
         return match ($group) {
             self::FIELD_COGNITIVE_IMMUNE => 'IMMUNE',
-            'memory_core' => 'MEMORY',
+            self::FIELD_MEMORY_CORE => 'MEMORY',
             self::FIELD_AUCRI => 'CONTEXT',
-            'self_improvement', 'self_construction', 'cartography', 'programming', 'research_domain' => 'CONSUMERS',
+            'self_improvement', 'self_construction', 'cartography', 'programming', self::FIELD_RESEARCH_DOMAIN => 'CONSUMERS',
             'governance' => 'GOVERNANCE',
             self::FIELD_ATLAS_DECIDE => 'DECIDE',
             self::FIELD_COMPOUNDING => 'COMPOUND',

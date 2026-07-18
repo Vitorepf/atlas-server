@@ -6520,6 +6520,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_autonomy_watchdog_scorecard_maxa_corpus_esp09_budget_recall_veto_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b345-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b345',
+                '--autonomy-watchdog-scorecard-maxa-corpus-esp09-budget-recall-veto-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"autonomy_watchdog_scorecard_maxa_corpus_esp09_budget_recall_veto_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

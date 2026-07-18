@@ -104,6 +104,8 @@ final class Esp09IndependentChallengerService
     public const DEATH_REVIEW_REASON_NEAR_ZERO_ACCEPTED = 'near_zero_accepted_rate_across_windows';
 
     public const PROMOTION_WITHOUT_BLOCK = 'delayed_not_vetoed';
+    public const FIELD_TRIGGER = 'trigger';
+    public const FIELD_TRIGGER_KINDS = 'trigger_kinds';
 
     /**
      * @param  array<string,mixed>  $context
@@ -159,7 +161,7 @@ final class Esp09IndependentChallengerService
         return array_merge($base, [
             self::FIELD_STATUS => self::STATUS_ADVISORY,
             self::FIELD_TRIGGERED => true,
-            'trigger' => $trigger,
+            self::FIELD_TRIGGER => $trigger,
             self::FIELD_OPERATOR_ALIGNMENT => $alignment,
             self::FIELD_DECISION_KIND => $kind,
             self::FIELD_CHALLENGER => [
@@ -271,7 +273,7 @@ final class Esp09IndependentChallengerService
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_MODE => self::MODE,
             self::FIELD_HIGH_ALIGNMENT_BAND => self::HIGH_ALIGNMENT_BAND,
-            'trigger_kinds' => self::TRIGGER_KINDS,
+            self::FIELD_TRIGGER_KINDS => self::TRIGGER_KINDS,
             'ttl_days' => 30,
             self::FIELD_GATES_OVERRIDE => false,
             self::FIELD_PROMOTION_WITHOUT_BLOCK => self::PROMOTION_WITHOUT_BLOCK,

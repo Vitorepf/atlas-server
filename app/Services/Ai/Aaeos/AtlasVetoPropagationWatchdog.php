@@ -18,6 +18,8 @@ class AtlasVetoPropagationWatchdog
     public const FIELD_DEPARTMENT = 'department';
     public const FIELD_RECOGNIZED = 'recognized';
     public const FIELD_LIFT = 'lift';
+    public const FIELD_FINAL_OVERRIDE_ACTIVE = 'final_override_active';
+    public const FIELD_PAUSE_SLA_SECONDS = 'pause_sla_seconds';
     public function __construct(
         private readonly AtlasCrossDepartmentChoreographyService $choreography,
     ) {}
@@ -71,8 +73,8 @@ class AtlasVetoPropagationWatchdog
         return [
             'schema_version' => AtlasCrossDepartmentChoreographyService::HANDOFF_SCHEMA,
             self::FIELD_PAUSED_DEPARTMENTS => array_values(array_keys($paused)),
-            'final_override_active' => $finalOverride,
-            'pause_sla_seconds' => AtlasCrossDepartmentChoreographyService::VETO_SLA_SECONDS,
+            self::FIELD_FINAL_OVERRIDE_ACTIVE => $finalOverride,
+            self::FIELD_PAUSE_SLA_SECONDS => AtlasCrossDepartmentChoreographyService::VETO_SLA_SECONDS,
             'veto_receipts' => $receipts,
         ];
     }

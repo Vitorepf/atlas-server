@@ -70,6 +70,8 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_DEFAULT_MODEL_UNCHANGED = 'default_model_unchanged';
     public const FIELD_MULTILINGUAL_PT = 'multilingual_pt';
     public const FIELD_DUAL_READ = 'dual_read';
+    public const FIELD_REQUIRED = 'required';
+    public const FIELD_LEDGER_PATH = 'ledger_path';
 
 
     /** @return array<string,mixed> */
@@ -107,10 +109,10 @@ final class Maxa04JinaV3DualReadService
                 self::FIELD_MULTILINGUAL_PT => true,
             ],
             self::FIELD_DUAL_READ => [
-                'required' => true,
+                self::FIELD_REQUIRED => true,
                 self::FIELD_BASELINE => 'current_embedding_model',
                 self::FIELD_CANDIDATE => 'jina_v3_reembedded_shadow_index',
-                'ledger_path' => $this->storagePath(Maxa04JinaV3DualReadLedger::RELATIVE_PATH),
+                self::FIELD_LEDGER_PATH => $this->storagePath(Maxa04JinaV3DualReadLedger::RELATIVE_PATH),
                 self::FIELD_AB_GREEN_CLAIM_ALLOWED => false,
             ],
             'reembed_path' => [
