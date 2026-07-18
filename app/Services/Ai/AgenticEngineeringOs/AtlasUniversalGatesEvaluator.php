@@ -17350,4 +17350,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B642).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b642LearningProposalsFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.aaeos.learning_proposals.v1' => AtlasLearningProposalsService::SCHEMA_VERSION,
+            'low' => AtlasLearningProposalsService::RISK_LOW,
+            'medium' => AtlasLearningProposalsService::RISK_MEDIUM,
+            'high' => AtlasLearningProposalsService::RISK_HIGH,
+            'admitted' => AtlasLearningProposalsService::STATUS_ADMITTED,
+            'needs_more_evidence' => AtlasLearningProposalsService::STATUS_NEEDS_MORE_EVIDENCE,
+            'rejected' => AtlasLearningProposalsService::STATUS_REJECTED,
+            'auto' => AtlasLearningProposalsService::APPLY_AUTO,
+            'human_review' => AtlasLearningProposalsService::APPLY_REVIEW,
+            '0.5' => AtlasLearningProposalsService::WEAK_SIGNAL_FLOOR,
+            'status' => AtlasLearningProposalsService::FIELD_STATUS,
+            'evidence_refs' => AtlasLearningProposalsService::FIELD_EVIDENCE_REFS,
+            'kind' => AtlasLearningProposalsService::FIELD_KIND,
+            'risk' => AtlasLearningProposalsService::FIELD_RISK,
+            'routing' => AtlasLearningProposalsService::FIELD_ROUTING,
+            'sample_size' => AtlasLearningProposalsService::FIELD_SAMPLE_SIZE,
+            'strength' => AtlasLearningProposalsService::FIELD_STRENGTH,
+            'suggested_action' => AtlasLearningProposalsService::FIELD_SUGGESTED_ACTION,
+            'b642_learning_proposals_floor_count' => 18,
+        ];
+    }
+
 }

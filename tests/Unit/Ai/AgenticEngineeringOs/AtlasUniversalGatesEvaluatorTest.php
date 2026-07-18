@@ -13722,4 +13722,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b641_memory_feedback_floor_count']);
     }
 
+    public function test_b642_learning_proposals_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b642LearningProposalsFloorsContractObserve([]);
+        $this->assertSame(AtlasLearningProposalsService::SCHEMA_VERSION, $out['atlas.aaeos.learning_proposals.v1']);
+        $this->assertSame(AtlasLearningProposalsService::RISK_LOW, $out['low']);
+        $this->assertSame(AtlasLearningProposalsService::RISK_MEDIUM, $out['medium']);
+        $this->assertSame(AtlasLearningProposalsService::RISK_HIGH, $out['high']);
+        $this->assertSame(AtlasLearningProposalsService::STATUS_ADMITTED, $out['admitted']);
+        $this->assertSame(AtlasLearningProposalsService::STATUS_NEEDS_MORE_EVIDENCE, $out['needs_more_evidence']);
+        $this->assertSame(AtlasLearningProposalsService::STATUS_REJECTED, $out['rejected']);
+        $this->assertSame(AtlasLearningProposalsService::APPLY_AUTO, $out['auto']);
+        $this->assertSame(AtlasLearningProposalsService::APPLY_REVIEW, $out['human_review']);
+        $this->assertSame(AtlasLearningProposalsService::WEAK_SIGNAL_FLOOR, $out['0.5']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_EVIDENCE_REFS, $out['evidence_refs']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_RISK, $out['risk']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_ROUTING, $out['routing']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_SAMPLE_SIZE, $out['sample_size']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_STRENGTH, $out['strength']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_SUGGESTED_ACTION, $out['suggested_action']);
+        $this->assertSame(18, $out['b642_learning_proposals_floor_count']);
+    }
+
 }
