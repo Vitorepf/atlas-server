@@ -11225,6 +11225,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b678_portfolio_budget_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b678-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b678',
+                '--b678-portfolio-budget-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b678_portfolio_budget_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

@@ -14624,4 +14624,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b677_outcome_envelope_floor_count']);
     }
 
+    public function test_b678_portfolio_budget_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b678PortfolioBudgetFloorsContractObserve([]);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_FLAG_DEFAULT, $out['flag_default']);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_OPERATOR_WEIGHTS, $out['operator_weights']);
+        $this->assertSame(PortfolioBudgetAllocator::SCHEMA_VERSION, $out['atlas.decide.portfolio_allocation.v1']);
+        $this->assertSame(PortfolioBudgetAllocator::FORMULA_VERSION, $out['atlas.multk_06.portfolio_allocation.v1']);
+        $this->assertSame(PortfolioBudgetAllocator::CLASS_REACTIVE, $out['reactive']);
+        $this->assertSame(PortfolioBudgetAllocator::CLASS_ORIGINATED, $out['originated']);
+        $this->assertSame(PortfolioBudgetAllocator::CLASS_MAINTENANCE, $out['maintenance']);
+        $this->assertSame(PortfolioBudgetAllocator::HARD_FLOOR_SHARE, $out['0.05']);
+        $this->assertSame(PortfolioBudgetAllocator::HARD_CEILING_SHARE, $out['0.80']);
+        $this->assertSame(PortfolioBudgetAllocator::MIN_N_PER_CLASS, $out['8']);
+        $this->assertSame(PortfolioBudgetAllocator::STATUS_OK, $out['ok']);
+        $this->assertSame(PortfolioBudgetAllocator::STATUS_WEIGHTS_REVERTED, $out['weights_reverted_to_default']);
+        $this->assertSame(PortfolioBudgetAllocator::BASIS_MEASURED, $out['measured']);
+        $this->assertSame(PortfolioBudgetAllocator::BASIS_INSUFFICIENT_N, $out['insufficient_n']);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_MEAN_PROVEN_YIELD, $out['mean_proven_yield']);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_MIN, $out['min']);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_MAX, $out['max']);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_BASIS, $out['basis']);
+        $this->assertSame(18, $out['b678_portfolio_budget_floor_count']);
+    }
+
 }

@@ -18466,4 +18466,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B678).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b678PortfolioBudgetFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'flag_default' => PortfolioBudgetAllocator::FIELD_FLAG_DEFAULT,
+            'operator_weights' => PortfolioBudgetAllocator::FIELD_OPERATOR_WEIGHTS,
+            'atlas.decide.portfolio_allocation.v1' => PortfolioBudgetAllocator::SCHEMA_VERSION,
+            'atlas.multk_06.portfolio_allocation.v1' => PortfolioBudgetAllocator::FORMULA_VERSION,
+            'reactive' => PortfolioBudgetAllocator::CLASS_REACTIVE,
+            'originated' => PortfolioBudgetAllocator::CLASS_ORIGINATED,
+            'maintenance' => PortfolioBudgetAllocator::CLASS_MAINTENANCE,
+            '0.05' => PortfolioBudgetAllocator::HARD_FLOOR_SHARE,
+            '0.80' => PortfolioBudgetAllocator::HARD_CEILING_SHARE,
+            '8' => PortfolioBudgetAllocator::MIN_N_PER_CLASS,
+            'ok' => PortfolioBudgetAllocator::STATUS_OK,
+            'weights_reverted_to_default' => PortfolioBudgetAllocator::STATUS_WEIGHTS_REVERTED,
+            'measured' => PortfolioBudgetAllocator::BASIS_MEASURED,
+            'insufficient_n' => PortfolioBudgetAllocator::BASIS_INSUFFICIENT_N,
+            'mean_proven_yield' => PortfolioBudgetAllocator::FIELD_MEAN_PROVEN_YIELD,
+            'min' => PortfolioBudgetAllocator::FIELD_MIN,
+            'max' => PortfolioBudgetAllocator::FIELD_MAX,
+            'basis' => PortfolioBudgetAllocator::FIELD_BASIS,
+            'b678_portfolio_budget_floor_count' => 18,
+        ];
+    }
+
 }
