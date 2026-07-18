@@ -17412,4 +17412,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B644).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b644AaeosValueHttpPathFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'medium' => AtlasAaeosValueNormalizer::FIELD_MEDIUM,
+            'high' => AtlasAaeosValueNormalizer::FIELD_HIGH,
+            'low' => AtlasAaeosValueNormalizer::FIELD_LOW,
+            'R0' => AtlasAaeosValueNormalizer::FIELD_R0,
+            'R1' => AtlasAaeosValueNormalizer::FIELD_R1,
+            'R2' => AtlasAaeosValueNormalizer::FIELD_R2,
+            'R3' => AtlasAaeosValueNormalizer::FIELD_R3,
+            'R4' => AtlasAaeosValueNormalizer::FIELD_R4,
+            'R5' => AtlasAaeosValueNormalizer::FIELD_R5,
+            'id' => AaeosHttpPathEnvelopeFactory::FIELD_ID,
+            'policy_status' => AaeosHttpPathEnvelopeFactory::FIELD_POLICY_STATUS,
+            'r1_r2_fast_path' => AaeosHttpPathEnvelopeFactory::RISK_BAND_FAST_PATH,
+            'r3_plus' => AaeosHttpPathEnvelopeFactory::RISK_BAND_R3_PLUS,
+            'unknown' => AaeosHttpPathEnvelopeFactory::STATUS_UNKNOWN,
+            'blocked' => AaeosHttpPathEnvelopeFactory::FIELD_BLOCKED,
+            'intent_hash' => AaeosHttpPathEnvelopeFactory::FIELD_INTENT_HASH,
+            'severity' => AaeosHttpPathEnvelopeFactory::FIELD_SEVERITY,
+            'owner' => AaeosHttpPathEnvelopeFactory::FIELD_OWNER,
+            'b644_aaeos_value_http_path_floor_count' => 18,
+        ];
+    }
+
 }
