@@ -16458,4 +16458,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B613).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b613MemoryCognitiveFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'blocked_private' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_BLOCKED_PRIVATE,
+            'context_eligible' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CONTEXT_ELIGIBLE,
+            'contradicts_newer' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CONTRADICTS_NEWER,
+            'conversation_trace' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CONVERSATION_TRACE,
+            'eligible' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ELIGIBLE,
+            'failed_gate' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_FAILED_GATE,
+            'future_utility' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_FUTURE_UTILITY,
+            'gate_results' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_GATE_RESULTS,
+            'hard_delete' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_HARD_DELETE,
+            'immune_signals' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_IMMUNE_SIGNALS,
+            'internal' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_INTERNAL,
+            'kind' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_KIND,
+            'learning_signal' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_LEARNING_SIGNAL,
+            'memory_constellation_candidate' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_MEMORY_CONSTELLATION_CANDIDATE,
+            'memory_eligible' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_MEMORY_ELIGIBLE,
+            'missing_clearances' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_MISSING_CLEARANCES,
+            'missing_meta' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_MISSING_META,
+            'on_probation' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ON_PROBATION,
+            'b613_memory_cognitive_floor_count' => 18,
+        ];
+    }
+
 }
