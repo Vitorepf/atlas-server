@@ -51,6 +51,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_DELIVERY_ZERO_DOWNTIME_L3 = 'delivery_zero_downtime_l3';
     public const FIELD_DEV = 'dev';
     public const FIELD_DEV_PLAN_VISIBLE_L2 = 'dev_plan_visible_l2';
+    public const FIELD_FORGE = 'forge';
+    public const FIELD_FORGE_MERGE_REVIEW_PROMOTION_R5 = 'forge_merge_review_promotion_r5';
 
     public const DEPARTMENTS = [
         [
@@ -118,10 +120,10 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],
         [
-            self::FIELD_DEPARTMENT_ID => 'forge',
+            self::FIELD_DEPARTMENT_ID => self::FIELD_FORGE,
             self::FIELD_CURRENT_LEVEL => 'L4',
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#forge'],
-            self::FIELD_BLOCKER_ID => 'forge_merge_review_promotion_r5',
+            self::FIELD_BLOCKER_ID => self::FIELD_FORGE_MERGE_REVIEW_PROMOTION_R5,
             self::FIELD_BLOCKER_SUMMARY => 'falta merge review promotion R5 governado',
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],

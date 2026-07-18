@@ -302,6 +302,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_ATLAS_LEDGER_EVENTS = 'atlas_ledger_events';
     public const FIELD_ATLAS_LONG_HORIZON_COMPACTION_RECEIPTS = 'atlas_long_horizon_compaction_receipts';
     public const FIELD_ATLAS_MEMORY_ENTRY_USAGES = 'atlas_memory_entry_usages';
+    public const FIELD_AURG_STORE_UNAVAILABLE = 'aurg_store_unavailable';
+    public const FIELD_CPT_09_COMPACTION_ENFORCE = 'cpt_09_compaction_enforce';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -420,7 +422,7 @@ final class AtlasAcosWatchdogHealthService
         $ratio = AiValueNormalizer::finiteFloatOrNull($coverage[self::FIELD_MEMORY_CROSS_LAYER_COVERAGE_RATIO] ?? null) ?? 0.0;
         $blocking = [];
         if (! (AiValueNormalizer::boolOrNull($coverage[self::FIELD_AVAILABLE] ?? null) ?? false)) {
-            $blocking[] = (AiValueNormalizer::trimmedStringOrNull($coverage[self::FIELD_REASON] ?? null) ?? 'aurg_store_unavailable');
+            $blocking[] = (AiValueNormalizer::trimmedStringOrNull($coverage[self::FIELD_REASON] ?? null) ?? self::FIELD_AURG_STORE_UNAVAILABLE);
         }
         if ($ratio < self::RAG_COVERAGE_FLOOR) {
             $blocking[] = 'memory_cross_layer_coverage_below_floor';
@@ -667,7 +669,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_BLOCKERS => AiValueNormalizer::arrayOrEmpty($crossWeek[self::FIELD_BLOCKERS] ?? null),
             ],
             self::FIELD_ROLLBACK_TRIGGER => [
-                self::FIELD_ID => 'cpt_09_compaction_enforce',
+                self::FIELD_ID => self::FIELD_CPT_09_COMPACTION_ENFORCE,
                 self::FIELD_CONDITION => '>=1 critical must_keep cut after enforcement flip',
                 self::FIELD_ROLLBACK_ENV => 'ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE=observe',
             ],

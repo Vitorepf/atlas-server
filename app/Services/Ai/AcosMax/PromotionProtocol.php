@@ -99,6 +99,8 @@ final class PromotionProtocol
     public const FIELD_MANAGED_FLAGS_COUNT = 'managed_flags_count';
     public const FIELD_MIGRATION_POLICY = 'migration_policy';
     public const FIELD_PROTOCOL_SCHEMA_VERSION = 'protocol_schema_version';
+    public const FIELD_FLIP = 'flip';
+    public const FIELD_ATLAS = 'atlas';
 
     /** @var list<string> */
     public const STATES = [
@@ -204,7 +206,7 @@ final class PromotionProtocol
 
         $family = AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_FAMILY] ?? null) ?? '';
         $action = $this->actionForState($toState);
-        if ($action === 'flip' && $this->familyAlreadyFlippedInWindow($family, $windowId)) {
+        if ($action === self::FIELD_FLIP && $this->familyAlreadyFlippedInWindow($family, $windowId)) {
             return $this->blocked('family_window_flip_already_recorded', $flagId, $toState, [
                 self::FIELD_FAMILY => $family,
                 self::FIELD_OBSERVATION_WINDOW_ID => $windowId,
@@ -229,7 +231,7 @@ final class PromotionProtocol
             self::FIELD_FROM_STATE => $fromState,
             self::FIELD_TO_STATE => $toState,
             self::FIELD_OBSERVATION_WINDOW_ID => $windowId,
-            self::FIELD_ACTOR => AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_ACTOR] ?? null) ?? 'atlas',
+            self::FIELD_ACTOR => AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_ACTOR] ?? null) ?? self::FIELD_ATLAS,
             self::FIELD_REASON => AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_REASON] ?? null) ?? '',
             self::FIELD_RECEIPT => $receipt,
             self::FIELD_ROLLBACK_TRIGGER => AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_ROLLBACK_TRIGGER] ?? null) ?? '',
@@ -514,7 +516,7 @@ final class PromotionProtocol
     private function familyAlreadyFlippedInWindow(string $family, string $windowId): bool
     {
         foreach ($this->ledgerEvents() as $event) {
-            if (($event[self::FIELD_ACTION] ?? null) !== 'flip') {
+            if (($event[self::FIELD_ACTION] ?? null) !== self::FIELD_FLIP) {
                 continue;
             }
             if ((AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_FAMILY] ?? null) ?? '') === $family
@@ -531,7 +533,7 @@ final class PromotionProtocol
         return match ($state) {
             self::STATE_ROLLED_BACK => 'rollback',
             self::STATE_SUSPENDED_PENDING_EVIDENCE => 'suspend',
-            default => 'flip',
+            default => self::FIELD_FLIP,
         };
     }
 

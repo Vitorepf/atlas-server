@@ -111,6 +111,8 @@ final class ImmuneCalibrationService
     public const FIELD_TABLE = 'table';
     public const FIELD_THRESHOLDS = 'thresholds';
     public const FIELD_TTL_DAYS = 'ttl_days';
+    public const FIELD_REGISTERED_ELEV_20S = 'registered_elev_20s';
+    public const FIELD_DENOMINATOR_MET = 'denominator_met';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -183,9 +185,9 @@ final class ImmuneCalibrationService
                 self::FIELD_ID => self::MEASURE_ID,
                 self::FIELD_READER_COMMAND => 'atlas:immune:calibration --json',
                 self::FIELD_TABLE => ImmuneVerdictLedger::TABLE,
-                self::FIELD_REGISTRY_STATUS => 'registered_elev_20s',
+                self::FIELD_REGISTRY_STATUS => self::FIELD_REGISTERED_ELEV_20S,
             ],
-            self::FIELD_REGISTRY_STATUS => 'registered_elev_20s',
+            self::FIELD_REGISTRY_STATUS => self::FIELD_REGISTERED_ELEV_20S,
             self::FIELD_DUAL_READ_REQUIRED => false,
         ];
         $payload[self::FIELD_CONTENT_HASH] = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
@@ -221,7 +223,7 @@ final class ImmuneCalibrationService
             self::FIELD_CLASSIFIER_BAND => $classified[self::FIELD_BAND],
             self::FIELD_CLASSIFIER_SCHEMA_VERSION => $classified[self::FIELD_SCHEMA_VERSION],
             self::FIELD_STATUS => $status,
-            self::FIELD_REASON => $status === self::STATUS_CALIBRATED ? 'denominator_met' : 'denominator_below_min',
+            self::FIELD_REASON => $status === self::STATUS_CALIBRATED ? self::FIELD_DENOMINATOR_MET : 'denominator_below_min',
         ];
     }
 

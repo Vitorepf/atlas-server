@@ -442,6 +442,7 @@ final class AtlasAaeosCommand extends Command
                             {--acos-long-obra-retro-department-contract-aaeos-evolution-floors-contract= : JSON file (any object) to observe acos/long/obra/retro/department/contract floors}
                             {--knowledge-item-aemor-outcome-department-contract-aaeos-acos-floors-contract= : JSON file (any object) to observe knowledge/item/aemor/outcome/department/contract floors}
                             {--evidence-vision-composed-obra-n-capture-department-contract-floors-contract= : JSON file (any object) to observe evidence/vision/composed/obra/n/capture floors}
+                            {--promotion-protocol-immune-calibration-maxa-jina-teto-predicted-floors-contract= : JSON file (any object) to observe promotion/protocol/immune/calibration/maxa/jina floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1040,6 +1041,7 @@ final class AtlasAaeosCommand extends Command
             ['acos-long-obra-retro-department-contract-aaeos-evolution-floors-contract', 'acos_long_obra_retro_department_contract_aaeos_evolution_floors_contract', fn (array $p) => $gates->acosLongObraRetroDepartmentContractAaeosEvolutionFloorsContractObserve($p)],
             ['knowledge-item-aemor-outcome-department-contract-aaeos-acos-floors-contract', 'knowledge_item_aemor_outcome_department_contract_aaeos_acos_floors_contract', fn (array $p) => $gates->knowledgeItemAemorOutcomeDepartmentContractAaeosAcosFloorsContractObserve($p)],
             ['evidence-vision-composed-obra-n-capture-department-contract-floors-contract', 'evidence_vision_composed_obra_n_capture_department_contract_floors_contract', fn (array $p) => $gates->evidenceVisionComposedObraNCaptureDepartmentContractFloorsContractObserve($p)],
+            ['promotion-protocol-immune-calibration-maxa-jina-teto-predicted-floors-contract', 'promotion_protocol_immune_calibration_maxa_jina_teto_predicted_floors_contract', fn (array $p) => $gates->promotionProtocolImmuneCalibrationMaxaJinaTetoPredictedFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

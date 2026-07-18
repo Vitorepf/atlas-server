@@ -122,6 +122,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_CADEIA_TIER_IMPLEMENTADA = 'cadeia_tier_implementada';
     public const FIELD_CADENCIA_VIVA = 'cadencia_viva';
     public const FIELD_EXECUCAO_GOVERNADA = 'execucao_governada';
+    public const FIELD_FEEDBACK_LOOP_VIVO = 'feedback_loop_vivo';
+    public const FIELD_FRESCO = 'fresco';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -221,7 +223,7 @@ class AtlasAcosEvolutionScoreService
             : round(min(2.5, max(0.0, $armProgress) * 2.5), 2);
 
         $signals[] = [
-            self::FIELD_SIGNAL => 'feedback_loop_vivo',
+            self::FIELD_SIGNAL => self::FIELD_FEEDBACK_LOOP_VIVO,
             self::FIELD_POINTS => $newFeedbackPoints,
             self::FIELD_MAX => 2.5,
             self::FIELD_EVIDENCE => sprintf(
@@ -269,7 +271,7 @@ class AtlasAcosEvolutionScoreService
             self::FIELD_SIGNAL => 'motor_vivo',
             self::FIELD_POINTS => $heartbeatFresh ? 2.5 : 0.0,
             self::FIELD_MAX => 2.5,
-            self::FIELD_EVIDENCE => 'heartbeat do com.atlas.scheduler '.($heartbeatFresh ? 'fresco' : 'parado/ausente'),
+            self::FIELD_EVIDENCE => 'heartbeat do com.atlas.scheduler '.($heartbeatFresh ? self::FIELD_FRESCO : 'parado/ausente'),
         ];
 
         $gateFresh = $this->fileFresh(storage_path(self::LONG_HORIZON_GATE_EVIDENCE_RELATIVE), self::GATE_FRESH_SECONDS);

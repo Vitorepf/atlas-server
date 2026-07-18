@@ -90,6 +90,8 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_MANUAL_REVIEW_WHEN_REVERSE_MISSING = 'manual_review_when_reverse_missing';
     public const FIELD_MISSING_EVIDENCE = 'missing_evidence';
     public const FIELD_REORDERS_BY_PREDICTED_REVERT_BAND = 'reorders_by_predicted_revert_band';
+    public const FIELD_MANUAL_REVIEW = 'manual_review';
+    public const FIELD_ITEM = 'item';
 
     /**
      * @param  list<array<string,mixed>>  $items
@@ -175,12 +177,12 @@ final class Teto10PredictedRevertReviewDigest
                 if (! is_array($item)) {
                     continue;
                 }
-                $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? 'item') ?: 'item').': '.self::plain(self::string($item[self::FIELD_TITLE] ?? 'untitled') ?: 'untitled');
+                $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? self::FIELD_ITEM) ?: 'item').': '.self::plain(self::string($item[self::FIELD_TITLE] ?? 'untitled') ?: 'untitled');
                 $lines[] = '  - band: '.self::plain(self::band($item[self::FIELD_PREDICTED_REVERT_BAND] ?? self::BAND_UNKNOWN));
                 $lines[] = '  - evidence: '.self::plain(implode(', ', array_map(self::string(...), AiValueNormalizer::arrayOrEmpty($item[self::FIELD_EVIDENCE_REFS] ?? null))));
-                $lines[] = '  - diff-ref: '.self::plain(self::string($item[self::FIELD_DIFF_REF] ?? 'manual_review') ?: 'manual_review');
-                $lines[] = '  - reverse: '.self::inline(self::string($item[self::FIELD_REVERSE_COMMAND] ?? 'manual_review') ?: 'manual_review');
-                $lines[] = '  - review-mode: '.self::plain(self::string($item[self::FIELD_REVIEW_MODE] ?? 'manual_review') ?: 'manual_review');
+                $lines[] = '  - diff-ref: '.self::plain(self::string($item[self::FIELD_DIFF_REF] ?? self::FIELD_MANUAL_REVIEW) ?: 'manual_review');
+                $lines[] = '  - reverse: '.self::inline(self::string($item[self::FIELD_REVERSE_COMMAND] ?? self::FIELD_MANUAL_REVIEW) ?: 'manual_review');
+                $lines[] = '  - review-mode: '.self::plain(self::string($item[self::FIELD_REVIEW_MODE] ?? self::FIELD_MANUAL_REVIEW) ?: 'manual_review');
             }
             $lines[] = '';
         }
@@ -214,7 +216,7 @@ final class Teto10PredictedRevertReviewDigest
             self::FIELD_EVIDENCE_REFS => self::evidenceRefs($item),
             self::FIELD_DIFF_REF => self::firstString($item, ['diff_ref', 'diff', 'patch_ref'], 'manual_review'),
             self::FIELD_REVERSE_COMMAND => $reverse,
-            self::FIELD_REVIEW_MODE => $reverse === 'manual_review' ? 'manual_review' : 'reversible',
+            self::FIELD_REVIEW_MODE => $reverse === self::FIELD_MANUAL_REVIEW ? self::FIELD_MANUAL_REVIEW : 'reversible',
             self::FIELD_PENDING_FLIP => (AiValueNormalizer::boolOrNull($item[self::FIELD_PENDING_FLIP] ?? null) ?? false),
             self::FIELD_FLIP_REF => self::firstString($item, ['flip_ref', 'flip_id'], ''),
             self::FIELD_BATCHED_ASK => (AiValueNormalizer::boolOrNull($item[self::FIELD_BATCHED_ASK] ?? null) ?? false),
@@ -313,8 +315,8 @@ final class Teto10PredictedRevertReviewDigest
                 continue;
             }
             $ref = self::string($item[self::FIELD_FLIP_REF] ?? $item[self::FIELD_ASK_REF] ?? 'unlabelled') ?: 'unlabelled';
-            $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? 'item') ?: 'item').' '.self::inline($ref)
-                .' reverse: '.self::inline(self::string($item[self::FIELD_REVERSE_COMMAND] ?? 'manual_review') ?: 'manual_review');
+            $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? self::FIELD_ITEM) ?: 'item').' '.self::inline($ref)
+                .' reverse: '.self::inline(self::string($item[self::FIELD_REVERSE_COMMAND] ?? self::FIELD_MANUAL_REVIEW) ?: 'manual_review');
         }
         $lines[] = '';
 
@@ -359,8 +361,8 @@ final class Teto10PredictedRevertReviewDigest
     private static function reverseCommand(array $item): string
     {
         $command = self::firstString($item, ['reverse_command', 'reverse_handle', 'rollback_command'], '');
-        if ($command === '' || $command === 'manual_review') {
-            return 'manual_review';
+        if ($command === '' || $command === self::FIELD_MANUAL_REVIEW) {
+            return self::FIELD_MANUAL_REVIEW;
         }
 
         return $command;

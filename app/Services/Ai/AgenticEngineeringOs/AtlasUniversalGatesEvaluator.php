@@ -10545,4 +10545,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B420).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function promotionProtocolImmuneCalibrationMaxaJinaTetoPredictedFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'flip' => PromotionProtocol::FIELD_FLIP,
+            'atlas' => PromotionProtocol::FIELD_ATLAS,
+            'registered_elev_20s' => ImmuneCalibrationService::FIELD_REGISTERED_ELEV_20S,
+            'denominator_met' => ImmuneCalibrationService::FIELD_DENOMINATOR_MET,
+            'semantic_rag' => Maxa04JinaV3DualReadService::FIELD_SEMANTIC_RAG,
+            'candidate_non_regression_observed' => Maxa04JinaV3DualReadService::FIELD_CANDIDATE_NON_REGRESSION_OBSERVED,
+            'manual_review' => Teto10PredictedRevertReviewDigest::FIELD_MANUAL_REVIEW,
+            'item' => Teto10PredictedRevertReviewDigest::FIELD_ITEM,
+            'louvain_deterministic_local' => RagxChainMechanismService::FIELD_LOUVAIN_DETERMINISTIC_LOCAL,
+            'lexical_sparse_shadow' => RagxChainMechanismService::FIELD_LEXICAL_SPARSE_SHADOW,
+            'aaeos_debug_ledger' => DepartmentContractRuntime::FIELD_AAEOS_DEBUG_LEDGER,
+            'aaeos_delivery_ledger' => DepartmentContractRuntime::FIELD_AAEOS_DELIVERY_LEDGER,
+            'forge' => AtlasAaeosDepartmentMaturityService::FIELD_FORGE,
+            'forge_merge_review_promotion_r5' => AtlasAaeosDepartmentMaturityService::FIELD_FORGE_MERGE_REVIEW_PROMOTION_R5,
+            'aurg_store_unavailable' => AtlasAcosWatchdogHealthService::FIELD_AURG_STORE_UNAVAILABLE,
+            'cpt_09_compaction_enforce' => AtlasAcosWatchdogHealthService::FIELD_CPT_09_COMPACTION_ENFORCE,
+            'feedback_loop_vivo' => AtlasAcosEvolutionScoreService::FIELD_FEEDBACK_LOOP_VIVO,
+            'fresco' => AtlasAcosEvolutionScoreService::FIELD_FRESCO,
+            'promotion_protocol_immune_calibration_maxa_jina_teto_predicted_floor_count' => 18,
+        ];
+    }
+
 }

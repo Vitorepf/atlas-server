@@ -81,6 +81,8 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_MODE = 'mode';
     public const FIELD_RECORDED_AT = 'recorded_at';
     public const FIELD_REEMBED_PATH = 'reembed_path';
+    public const FIELD_SEMANTIC_RAG = 'semantic_rag';
+    public const FIELD_CANDIDATE_NON_REGRESSION_OBSERVED = 'candidate_non_regression_observed';
 
 
     /** @return array<string,mixed> */
@@ -97,19 +99,19 @@ final class Maxa04JinaV3DualReadService
             self::FIELD_STATUS => self::STATUS_MECHANISM_READY,
             self::FIELD_SERIES => Maxa04JinaV3DualReadLedger::SCHEMA,
             self::FIELD_CURRENT_MODEL => [
-                self::FIELD_PROVIDER => 'semantic_rag',
+                self::FIELD_PROVIDER => self::FIELD_SEMANTIC_RAG,
                 self::FIELD_MODEL => $currentModel,
                 self::FIELD_MODEL_ID => EmbeddingProvenance::modelId([
-                    self::FIELD_PROVIDER => 'semantic_rag',
+                    self::FIELD_PROVIDER => self::FIELD_SEMANTIC_RAG,
                     self::FIELD_MODEL => $currentModel,
                 ]),
                 self::FIELD_DIMENSIONS => (int) $this->configValue('atlas.semantic_memory.embedding_dimensions', 384),
             ],
             self::FIELD_CANDIDATE_MODEL => [
-                self::FIELD_PROVIDER => 'semantic_rag',
+                self::FIELD_PROVIDER => self::FIELD_SEMANTIC_RAG,
                 self::FIELD_MODEL => self::CANDIDATE_MODEL,
                 self::FIELD_MODEL_ID => EmbeddingProvenance::modelId([
-                    self::FIELD_PROVIDER => 'semantic_rag',
+                    self::FIELD_PROVIDER => self::FIELD_SEMANTIC_RAG,
                     self::FIELD_MODEL => self::CANDIDATE_MODEL,
                 ]),
                 self::FIELD_DIMENSIONS => self::CANDIDATE_DIMENSIONS,
@@ -250,7 +252,7 @@ final class Maxa04JinaV3DualReadService
             && $candidatePrecision >= $currentPrecision;
 
         return $recallOk && $precisionOk
-            ? 'candidate_non_regression_observed'
+            ? self::FIELD_CANDIDATE_NON_REGRESSION_OBSERVED
             : 'candidate_regression_or_unmeasured';
     }
 

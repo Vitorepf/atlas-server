@@ -7613,6 +7613,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_promotion_protocol_immune_calibration_maxa_jina_teto_predicted_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b420-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b420',
+                '--promotion-protocol-immune-calibration-maxa-jina-teto-predicted-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"promotion_protocol_immune_calibration_maxa_jina_teto_predicted_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

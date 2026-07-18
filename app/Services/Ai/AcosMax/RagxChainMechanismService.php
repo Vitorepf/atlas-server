@@ -193,6 +193,8 @@ final class RagxChainMechanismService
     public const FIELD_SUMMARY = 'summary';
     public const FIELD_TARGET = 'target';
     public const FIELD_TEXT = 'text';
+    public const FIELD_LOUVAIN_DETERMINISTIC_LOCAL = 'louvain_deterministic_local';
+    public const FIELD_LEXICAL_SPARSE_SHADOW = 'lexical_sparse_shadow';
 
     public function __construct(
         private readonly ?AsefChunkIndexService $asefChunks = null,
@@ -346,7 +348,7 @@ final class RagxChainMechanismService
                 self::FIELD_SCHEMA_VERSION => self::LOUVAIN_SCHEMA,
                 self::FIELD_SLICE => self::STAGE_MAXD_05,
                 self::FIELD_STATUS => self::STATUS_EMPTY,
-                self::FIELD_ALGORITHM => 'louvain_deterministic_local',
+                self::FIELD_ALGORITHM => self::FIELD_LOUVAIN_DETERMINISTIC_LOCAL,
                 self::FIELD_COMMUNITIES => [],
             ];
         }
@@ -358,7 +360,7 @@ final class RagxChainMechanismService
             self::FIELD_SCHEMA_VERSION => self::LOUVAIN_SCHEMA,
             self::FIELD_SLICE => self::STAGE_MAXD_05,
             self::FIELD_STATUS => self::STATUS_OK,
-            self::FIELD_ALGORITHM => 'louvain_deterministic_local',
+            self::FIELD_ALGORITHM => self::FIELD_LOUVAIN_DETERMINISTIC_LOCAL,
             self::FIELD_NODE_COUNT => count($nodes),
             self::FIELD_EDGE_COUNT => count($edges),
             self::FIELD_COMMUNITIES => $communities,
@@ -452,7 +454,7 @@ final class RagxChainMechanismService
             $matches[] = [
                 self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($document[self::FIELD_ID] ?? null) ?? ('doc_'.$index),
                 self::FIELD_SCORE => $tokens === [] ? 0.0 : round($hits / count($tokens), 4),
-                self::FIELD_SCORE_ORIGIN => 'lexical_sparse_shadow',
+                self::FIELD_SCORE_ORIGIN => self::FIELD_LEXICAL_SPARSE_SHADOW,
             ];
         }
         usort($matches, static fn (array $a, array $b): int => $b[self::FIELD_SCORE] <=> $a[self::FIELD_SCORE] ?: strcmp($a[self::FIELD_ID], $b[self::FIELD_ID]));

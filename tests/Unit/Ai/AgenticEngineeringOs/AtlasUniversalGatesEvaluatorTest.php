@@ -8241,4 +8241,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['evidence_vision_composed_obra_n_capture_department_contract_floor_count']);
     }
 
+    public function test_promotion_protocol_immune_calibration_maxa_jina_teto_predicted_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->promotionProtocolImmuneCalibrationMaxaJinaTetoPredictedFloorsContractObserve([]);
+        $this->assertSame(PromotionProtocol::FIELD_FLIP, $out['flip']);
+        $this->assertSame(PromotionProtocol::FIELD_ATLAS, $out['atlas']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_REGISTERED_ELEV_20S, $out['registered_elev_20s']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_DENOMINATOR_MET, $out['denominator_met']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_SEMANTIC_RAG, $out['semantic_rag']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_CANDIDATE_NON_REGRESSION_OBSERVED, $out['candidate_non_regression_observed']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_MANUAL_REVIEW, $out['manual_review']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_ITEM, $out['item']);
+        $this->assertSame(RagxChainMechanismService::FIELD_LOUVAIN_DETERMINISTIC_LOCAL, $out['louvain_deterministic_local']);
+        $this->assertSame(RagxChainMechanismService::FIELD_LEXICAL_SPARSE_SHADOW, $out['lexical_sparse_shadow']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_DEBUG_LEDGER, $out['aaeos_debug_ledger']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_DELIVERY_LEDGER, $out['aaeos_delivery_ledger']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FORGE_MERGE_REVIEW_PROMOTION_R5, $out['forge_merge_review_promotion_r5']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_AURG_STORE_UNAVAILABLE, $out['aurg_store_unavailable']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CPT_09_COMPACTION_ENFORCE, $out['cpt_09_compaction_enforce']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_FEEDBACK_LOOP_VIVO, $out['feedback_loop_vivo']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_FRESCO, $out['fresco']);
+        $this->assertSame(18, $out['promotion_protocol_immune_calibration_maxa_jina_teto_predicted_floor_count']);
+    }
+
 }
