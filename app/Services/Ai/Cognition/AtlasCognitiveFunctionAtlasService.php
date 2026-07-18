@@ -90,6 +90,8 @@ class AtlasCognitiveFunctionAtlasService
     public const FIELD_GOVERNANCE = 'governance';
     public const FIELD_PIPELINE_PARTIAL = 'pipeline_partial';
     public const FIELD_PIPELINE_BUILDING = 'pipeline_building';
+    public const FIELD_SERVICE_PRESENT = 'service_present';
+    public const FIELD_PIPELINE_READY = 'pipeline_ready';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scoreCard,
@@ -351,10 +353,10 @@ class AtlasCognitiveFunctionAtlasService
                 'total' => $total,
                 self::FIELD_CODE_READY => $codeReady,
                 'doc_ready' => $docReady,
-                'pipeline_ready' => $pipelineReady,
+                self::FIELD_PIPELINE_READY => $pipelineReady,
                 self::FIELD_PIPELINE_PARTIAL => $pipelinePartial,
                 self::FIELD_PIPELINE_BUILDING => $pipelineBuilding,
-                'service_present' => $servicePresent,
+                self::FIELD_SERVICE_PRESENT => $servicePresent,
             ];
         }
 

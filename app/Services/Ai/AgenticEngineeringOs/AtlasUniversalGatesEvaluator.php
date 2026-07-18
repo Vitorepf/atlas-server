@@ -8176,6 +8176,31 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function integrityPromoShareThesisAtlasPromoFlywheelGoldenAmbitionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'integrity_field_model_id' => LocalModelIntegrityWatchdogCheck::FIELD_MODEL_ID,
+            'integrity_field_total' => LocalModelIntegrityWatchdogCheck::FIELD_TOTAL,
+            'promo_elig_field_quality_bar' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_QUALITY_BAR,
+            'promo_elig_field_promotion_allowed' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_PROMOTION_ALLOWED,
+            'share_field_window_days' => AcosMaxVerifiedShareService::FIELD_WINDOW_DAYS,
+            'share_field_verified_count' => AcosMaxVerifiedShareService::FIELD_VERIFIED_COUNT,
+            'thesis_field_series_recovery' => EvidenceVisionThesisLifecycle::FIELD_SERIES_RECOVERY,
+            'thesis_field_outcome_proven' => EvidenceVisionThesisLifecycle::FIELD_OUTCOME_PROVEN,
+            'fn_atlas_field_service_present' => AtlasCognitiveFunctionAtlasService::FIELD_SERVICE_PRESENT,
+            'fn_atlas_field_pipeline_ready' => AtlasCognitiveFunctionAtlasService::FIELD_PIPELINE_READY,
+            'promo_proto_field_recorded_at' => PromotionProtocol::FIELD_RECORDED_AT,
+            'promo_proto_field_protocol_receipt' => PromotionProtocol::FIELD_PROTOCOL_RECEIPT,
+            'flywheel_field_used_as_producer_target' => AtlasFlywheelFunnelService::FIELD_USED_AS_PRODUCER_TARGET,
+            'flywheel_field_subsequent_outcome_improved' => AtlasFlywheelFunnelService::FIELD_SUBSEQUENT_OUTCOME_IMPROVED,
+            'golden_field_recall_at_5_without' => GoldenCounterfactualReplayService::FIELD_RECALL_AT_5_WITHOUT,
+            'golden_field_recall_at_5_with' => GoldenCounterfactualReplayService::FIELD_RECALL_AT_5_WITH,
+            'ambition_field_selected_rung' => AmbitionRungPolicy::FIELD_SELECTED_RUNG,
+            'ambition_field_scope_has_ceiling' => AmbitionRungPolicy::FIELD_SCOPE_HAS_CEILING,
+            'integrity_promo_share_thesis_atlas_promo_flywheel_golden_ambition_floor_count' => 18,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

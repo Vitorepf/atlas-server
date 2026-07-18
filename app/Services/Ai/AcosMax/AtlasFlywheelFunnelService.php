@@ -45,6 +45,8 @@ final class AtlasFlywheelFunnelService
     public const FIELD_LESSON_PROMOTED = 'lesson_promoted';
     public const FIELD_PROMOTED_LESSON_CITED = 'promoted_lesson_cited';
     public const FIELD_PROMOTED_LESSON_RECALLED = 'promoted_lesson_recalled';
+    public const FIELD_USED_AS_PRODUCER_TARGET = 'used_as_producer_target';
+    public const FIELD_SUBSEQUENT_OUTCOME_IMPROVED = 'subsequent_outcome_improved';
 
     /** @var list<string> */
     public const STAGES = [
@@ -126,7 +128,7 @@ final class AtlasFlywheelFunnelService
                 $denominatorMin,
             ),
             self::FIELD_CITATIONS_WITHOUT_BETTER_OUTCOME => $this->stage(
-                count(array_filter($cited, static fn (array $row): bool => ($row['subsequent_outcome_improved'] ?? false) !== true)),
+                count(array_filter($cited, static fn (array $row): bool => ($row[self::FIELD_SUBSEQUENT_OUTCOME_IMPROVED] ?? false) !== true)),
                 count($cited),
                 $denominatorMin,
             ),
@@ -233,7 +235,7 @@ final class AtlasFlywheelFunnelService
                 'provider_calls_made' => false,
                 'memory_written' => false,
                 'single_scalar_score_emitted' => false,
-                'used_as_producer_target' => false,
+                self::FIELD_USED_AS_PRODUCER_TARGET => false,
                 self::FIELD_DIAGNOSTIC_ONLY => true,
             ],
         ];

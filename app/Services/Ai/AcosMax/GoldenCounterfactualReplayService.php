@@ -39,6 +39,8 @@ final class GoldenCounterfactualReplayService
     public const FIELD_RUN_ID = 'run_id';
     public const FIELD_CLAIM_POLICY = 'claim_policy';
     public const FIELD_READ_ONLY = 'read_only';
+    public const FIELD_RECALL_AT_5_WITHOUT = 'recall_at_5_without';
+    public const FIELD_RECALL_AT_5_WITH = 'recall_at_5_with';
 
 
     /**
@@ -98,8 +100,8 @@ final class GoldenCounterfactualReplayService
                 self::FIELD_WITHOUT => $without,
                 self::FIELD_WITH => $with,
                 'metric' => 'recall_at_5',
-                'recall_at_5_without' => $without[self::FIELD_RECALL_AT_5],
-                'recall_at_5_with' => $with[self::FIELD_RECALL_AT_5],
+                self::FIELD_RECALL_AT_5_WITHOUT => $without[self::FIELD_RECALL_AT_5],
+                self::FIELD_RECALL_AT_5_WITH => $with[self::FIELD_RECALL_AT_5],
                 'delta' => round(
                     (AiValueNormalizer::finiteFloatOrNull($with[self::FIELD_RECALL_AT_5] ?? null) ?? 0.0)
                     - (AiValueNormalizer::finiteFloatOrNull($without[self::FIELD_RECALL_AT_5] ?? null) ?? 0.0),

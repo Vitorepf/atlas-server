@@ -6224,6 +6224,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['frontier_rerank_fabric_decomp_specpack_handoff_envelope_blocker_advisory_floor_count']);
     }
 
+    public function test_integrity_promo_share_thesis_atlas_promo_flywheel_golden_ambition_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->integrityPromoShareThesisAtlasPromoFlywheelGoldenAmbitionFloorsContractObserve([]);
+
+        $this->assertSame('model_id', $payload['integrity_field_model_id']);
+        $this->assertSame('total', $payload['integrity_field_total']);
+        $this->assertSame('quality_bar', $payload['promo_elig_field_quality_bar']);
+        $this->assertSame('promotion_allowed', $payload['promo_elig_field_promotion_allowed']);
+        $this->assertSame('window_days', $payload['share_field_window_days']);
+        $this->assertSame('verified_count', $payload['share_field_verified_count']);
+        $this->assertSame('series_recovery', $payload['thesis_field_series_recovery']);
+        $this->assertSame('outcome_proven', $payload['thesis_field_outcome_proven']);
+        $this->assertSame('service_present', $payload['fn_atlas_field_service_present']);
+        $this->assertSame('pipeline_ready', $payload['fn_atlas_field_pipeline_ready']);
+        $this->assertSame('recorded_at', $payload['promo_proto_field_recorded_at']);
+        $this->assertSame('protocol_receipt', $payload['promo_proto_field_protocol_receipt']);
+        $this->assertSame('used_as_producer_target', $payload['flywheel_field_used_as_producer_target']);
+        $this->assertSame('subsequent_outcome_improved', $payload['flywheel_field_subsequent_outcome_improved']);
+        $this->assertSame('recall_at_5_without', $payload['golden_field_recall_at_5_without']);
+        $this->assertSame('recall_at_5_with', $payload['golden_field_recall_at_5_with']);
+        $this->assertSame('selected_rung', $payload['ambition_field_selected_rung']);
+        $this->assertSame('scope_has_ceiling', $payload['ambition_field_scope_has_ceiling']);
+        $this->assertSame(18, $payload['integrity_promo_share_thesis_atlas_promo_flywheel_golden_ambition_floor_count']);
+    }
+
 
 
 

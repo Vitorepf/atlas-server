@@ -33,6 +33,8 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     public const FIELD_BLOCKERS_TO_NEXT = 'blockers_to_next';
     public const FIELD_CURRENT_SCORE = 'current_score';
     public const FIELD_UNRESOLVED = 'unresolved';
+    public const FIELD_QUALITY_BAR = 'quality_bar';
+    public const FIELD_PROMOTION_ALLOWED = 'promotion_allowed';
 
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department
@@ -96,7 +98,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
 
         $preconditions = [
             self::FIELD_BLOCKERS => $blockerPrecondition,
-            'quality_bar' => $qualityPrecondition,
+            self::FIELD_QUALITY_BAR => $qualityPrecondition,
             'freshness' => $freshnessPrecondition,
         ];
 
@@ -116,7 +118,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
                 $failedPreconditions,
                 $blockingReasons,
             ),
-            'promotion_allowed' => false,
+            self::FIELD_PROMOTION_ALLOWED => false,
             'canonical_write_allowed' => false,
             self::FIELD_AUTO_PROMOTE_ALLOWED => false,
         ];

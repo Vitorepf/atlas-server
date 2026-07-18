@@ -70,6 +70,8 @@ final class AcosMaxVerifiedShareService
     public const FIELD_EXECUTORS = 'executors';
     public const FIELD_TOTAL_COUNT = 'total_count';
     public const FIELD_VERIFIED_SHARE = 'verified_share';
+    public const FIELD_WINDOW_DAYS = 'window_days';
+    public const FIELD_VERIFIED_COUNT = 'verified_count';
 
 
     /** @return array<string,mixed> */
@@ -147,7 +149,7 @@ final class AcosMaxVerifiedShareService
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_STATUS => $this->status($aggregate, $denominatorMin, $shareMin),
-            'window_days' => $windowDays,
+            self::FIELD_WINDOW_DAYS => $windowDays,
             'freeze' => [
                 self::FIELD_MEASURE_ID => AiValueNormalizer::trimmedStringOrNull($freeze[self::FIELD_MEASURE_ID] ?? null) ?? self::MEASURE_ID,
                 self::FIELD_CONTENT_HASH => AiValueNormalizer::trimmedStringOrNull($freeze[self::FIELD_CONTENT_HASH] ?? null) ?? '',
@@ -187,7 +189,7 @@ final class AcosMaxVerifiedShareService
     private function countPayload(int $verified, int $total): array
     {
         return [
-            'verified_count' => $verified,
+            self::FIELD_VERIFIED_COUNT => $verified,
             self::FIELD_TOTAL_COUNT => $total,
             self::FIELD_VERIFIED_SHARE => $total > 0 ? round($verified / $total, 4) : null,
         ];

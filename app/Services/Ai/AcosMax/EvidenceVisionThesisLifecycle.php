@@ -41,6 +41,8 @@ final class EvidenceVisionThesisLifecycle
     public const FIELD_WINDOW = 'window';
     public const FIELD_THESES = 'theses';
     public const FIELD_EXPIRES_AT = 'expires_at';
+    public const FIELD_SERIES_RECOVERY = 'series_recovery';
+    public const FIELD_OUTCOME_PROVEN = 'outcome_proven';
 
     /** @var array<string,array<string,mixed>> */
     private static array $active = [];
@@ -173,10 +175,10 @@ final class EvidenceVisionThesisLifecycle
         $kind = AiValueNormalizer::trimmedStringOrNull($criterion['kind'] ?? null) ?? '';
 
         return match ($kind) {
-            'series_recovery' => self::seriesRecoveryMet($thesis, $seriesWindows, $criterion) ? 'series_recovery' : null,
+            self::FIELD_SERIES_RECOVERY => self::seriesRecoveryMet($thesis, $seriesWindows, $criterion) ? 'series_recovery' : null,
             self::FIELD_CALIBRATION_RESOLVED => self::calibrationResolved($calibration, $criterion) ? 'calibration_resolved' : null,
             'lead_cluster_cleared' => self::leadClusterCleared($thesis, $leads, $criterion) ? 'lead_cluster_cleared' : null,
-            'outcome_proven' => self::outcomeProven($thesis, $outcomes) ? 'outcome_proven' : null,
+            self::FIELD_OUTCOME_PROVEN => self::outcomeProven($thesis, $outcomes) ? 'outcome_proven' : null,
             default => null,
         };
     }

@@ -88,6 +88,8 @@ final class PromotionProtocol
     public const FIELD_FROM_STATE = 'from_state';
 
     public const DEFAULT_LEDGER_RELATIVE_PATH = 'app/atlas/evidence/acos-max-promotion-flips.jsonl';
+    public const FIELD_RECORDED_AT = 'recorded_at';
+    public const FIELD_PROTOCOL_RECEIPT = 'protocol_receipt';
 
     /** @var list<string> */
     public const STATES = [
@@ -210,7 +212,7 @@ final class PromotionProtocol
                 $windowId,
                 (string) microtime(true),
             ])),
-            'recorded_at' => date('c'),
+            self::FIELD_RECORDED_AT => date('c'),
             self::FIELD_ACTION => $action,
             self::FIELD_FLAG_ID => $flagId,
             self::FIELD_FAMILY => $family,
@@ -223,7 +225,7 @@ final class PromotionProtocol
             self::FIELD_RECEIPT => $receipt,
             self::FIELD_ROLLBACK_TRIGGER => AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_ROLLBACK_TRIGGER] ?? null) ?? '',
             self::FIELD_JUDGE_ENGINE_ID => AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_JUDGE_ENGINE_ID] ?? null) ?? '',
-            'protocol_receipt' => AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_RECEIPT] ?? null) ?? '',
+            self::FIELD_PROTOCOL_RECEIPT => AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_RECEIPT] ?? null) ?? '',
         ];
 
         $challenger = $this->observeChallenger($context);

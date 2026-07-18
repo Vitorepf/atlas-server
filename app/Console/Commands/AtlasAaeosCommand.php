@@ -365,6 +365,7 @@ final class AtlasAaeosCommand extends Command
         {--promo-immune-nudge-hmac-runbook-qbar-phase-dept-ncapture-floors-contract= : JSON file (any object) to observe promo/immune/nudge/hmac/runbook/qbar/phase/dept/ncapture residual floors}
         {--volume-sig-hybrid-delivery-autowork-mission-http-impact-floors-contract= : JSON file (any object) to observe volume/sig/hybrid/delivery/autowork/mission/http/impact residual floors}
         {--frontier-rerank-fabric-decomp-specpack-handoff-envelope-blocker-advisory-floors-contract= : JSON file (any object) to observe frontier/rerank/fabric/decomp/specpack/handoff/envelope/blocker/advisory residual floors}
+        {--integrity-promo-share-thesis-atlas-promo-flywheel-golden-ambition-floors-contract= : JSON file (any object) to observe integrity/promo/share/thesis/atlas/promo/flywheel/golden/ambition residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -886,6 +887,7 @@ final class AtlasAaeosCommand extends Command
             ['promo-immune-nudge-hmac-runbook-qbar-phase-dept-ncapture-floors-contract', 'promo_immune_nudge_hmac_runbook_qbar_phase_dept_ncapture_floors_contract', fn (array $p) => $gates->promoImmuneNudgeHmacRunbookQbarPhaseDeptNcaptureFloorsContractObserve($p)],
             ['volume-sig-hybrid-delivery-autowork-mission-http-impact-floors-contract', 'volume_sig_hybrid_delivery_autowork_mission_http_impact_floors_contract', fn (array $p) => $gates->volumeSigHybridDeliveryAutoworkMissionHttpImpactFloorsContractObserve($p)],
             ['frontier-rerank-fabric-decomp-specpack-handoff-envelope-blocker-advisory-floors-contract', 'frontier_rerank_fabric_decomp_specpack_handoff_envelope_blocker_advisory_floors_contract', fn (array $p) => $gates->frontierRerankFabricDecompSpecpackHandoffEnvelopeBlockerAdvisoryFloorsContractObserve($p)],
+            ['integrity-promo-share-thesis-atlas-promo-flywheel-golden-ambition-floors-contract', 'integrity_promo_share_thesis_atlas_promo_flywheel_golden_ambition_floors_contract', fn (array $p) => $gates->integrityPromoShareThesisAtlasPromoFlywheelGoldenAmbitionFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -34,6 +34,8 @@ final class AmbitionRungPolicy
     public const BASIS_NOT_SATURATED = 'not_saturated';
 
     public const BASIS_RUNG_UP_AFTER_SATURATION = 'rung_up_after_saturation';
+    public const FIELD_SELECTED_RUNG = 'selected_rung';
+    public const FIELD_SCOPE_HAS_CEILING = 'scope_has_ceiling';
 
     /**
      * @param  list<array<string,mixed>>  $candidates
@@ -66,13 +68,13 @@ final class AmbitionRungPolicy
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'selected_id' => AiValueNormalizer::trimmedStringOrNull($selected['id'] ?? null) ?? '',
-            'selected_rung' => AiValueNormalizer::trimmedStringOrNull($selected[self::FIELD_RUNG] ?? null) ?? '',
+            self::FIELD_SELECTED_RUNG => AiValueNormalizer::trimmedStringOrNull($selected[self::FIELD_RUNG] ?? null) ?? '',
             self::FIELD_BASIS => $basis,
             'rung_distribution' => $distribution,
             'source' => [
                 'rung_series_informational' => true,
                 'rung_series_used_as_score' => false,
-                'scope_has_ceiling' => false,
+                self::FIELD_SCOPE_HAS_CEILING => false,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
             ],
         ];
