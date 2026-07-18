@@ -14099,4 +14099,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b656_mission_control_floor_count']);
     }
 
+    public function test_b657_autonomous_work_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b657AutonomousWorkFloorsContractObserve([]);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_EVALUATED_AT, $out['evaluated_at']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_GOAL, $out['goal']);
+        $this->assertSame(AutonomousWorkExecutionOs::SCHEMA_VERSION, $out['atlas.autonomous_work_execution_os.cycle.v1']);
+        $this->assertSame(AutonomousWorkExecutionOs::STATUS_PENDING, $out['pending']);
+        $this->assertSame(AutonomousWorkExecutionOs::STATUS_IN_PROGRESS, $out['in_progress']);
+        $this->assertSame(AutonomousWorkExecutionOs::STATUS_SUCCEEDED, $out['succeeded']);
+        $this->assertSame(AutonomousWorkExecutionOs::STATUS_FAILED, $out['failed']);
+        $this->assertSame(AutonomousWorkExecutionOs::STATUS_SKIPPED, $out['skipped']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_COMPLETE, $out['complete']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_BLOCKED, $out['blocked']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_NEXT_STAGE, $out['next_stage']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_CERTIFICATION_BLOCKED, $out['certification_blocked']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_LEARNING_BLOCKED, $out['learning_blocked']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_FAILURE_STAGE, $out['failure_stage']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_STAGE, $out['stage']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_STATUS, $out['status']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_STAGES, $out['stages']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(18, $out['b657_autonomous_work_floor_count']);
+    }
+
 }

@@ -17815,4 +17815,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B657).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b657AutonomousWorkFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'evaluated_at' => AutonomousWorkExecutionOs::FIELD_EVALUATED_AT,
+            'goal' => AutonomousWorkExecutionOs::FIELD_GOAL,
+            'atlas.autonomous_work_execution_os.cycle.v1' => AutonomousWorkExecutionOs::SCHEMA_VERSION,
+            'pending' => AutonomousWorkExecutionOs::STATUS_PENDING,
+            'in_progress' => AutonomousWorkExecutionOs::STATUS_IN_PROGRESS,
+            'succeeded' => AutonomousWorkExecutionOs::STATUS_SUCCEEDED,
+            'failed' => AutonomousWorkExecutionOs::STATUS_FAILED,
+            'skipped' => AutonomousWorkExecutionOs::STATUS_SKIPPED,
+            'complete' => AutonomousWorkExecutionOs::FIELD_COMPLETE,
+            'blocked' => AutonomousWorkExecutionOs::FIELD_BLOCKED,
+            'next_stage' => AutonomousWorkExecutionOs::FIELD_NEXT_STAGE,
+            'certification_blocked' => AutonomousWorkExecutionOs::FIELD_CERTIFICATION_BLOCKED,
+            'learning_blocked' => AutonomousWorkExecutionOs::FIELD_LEARNING_BLOCKED,
+            'failure_stage' => AutonomousWorkExecutionOs::FIELD_FAILURE_STAGE,
+            'stage' => AutonomousWorkExecutionOs::FIELD_STAGE,
+            'status' => AutonomousWorkExecutionOs::FIELD_STATUS,
+            'stages' => AutonomousWorkExecutionOs::FIELD_STAGES,
+            'schema_version' => AutonomousWorkExecutionOs::FIELD_SCHEMA_VERSION,
+            'b657_autonomous_work_floor_count' => 18,
+        ];
+    }
+
 }
