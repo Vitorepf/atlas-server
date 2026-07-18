@@ -52,6 +52,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ACOS_OPERATOR_REVIEW_DEBT_V1 = 'acos.operator_review_debt.v1';
     public const FIELD_ACOS_VERIFIED_SHARE_V1 = 'acos.verified_share.v1';
     public const FIELD_ACOS_WINDOWS_ORCHESTRATOR_V1 = 'acos.windows_orchestrator.v1';
+    public const FIELD_AOBG_LATENCY_LEDGER_V1 = 'aobg.latency_ledger.v1';
+    public const FIELD_ASI_METRIC_M_V1 = 'asi.metric.m.v1';
     public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
@@ -99,13 +101,13 @@ final class AcosMaxLedgerRotationRegistry
     public static function defaultPolicies(): array
     {
         return [
-            'aobg.latency_ledger.v1' => [
+            self::FIELD_AOBG_LATENCY_LEDGER_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_128,
                 self::FIELD_MAX_AGE_DAYS => self::INT_45,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'high-frequency append; MAXG-01 declares rotation contract',
             ],
-            'asi.metric.m.v1' => [
+            self::FIELD_ASI_METRIC_M_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_180,
                 self::FIELD_MODE => self::MODE_ROTATE_SIZE,

@@ -68,6 +68,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_MULTJ_04 = 'MULTJ-04';
     public const FIELD_MULTJ_06 = 'MULTJ-06';
     public const FIELD_MULTN17_04 = 'MULTN17-04';
+    public const FIELD_MULTX_01 = 'MULTX-01';
+    public const FIELD_MULTX_06 = 'MULTX-06';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -370,12 +372,12 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.originator.predicted_impact_calibration.v1',
             ],
             [
-                self::FIELD_SLICE => 'MULTX-01',
+                self::FIELD_SLICE => self::FIELD_MULTX_01,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::MULTX01_MEASURE_ID,
                 self::FIELD_PATH => 'atlas:flywheel:loops --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload('MULTX-01')[self::FIELD_TTL_DAYS],
+                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTX_01)[self::FIELD_TTL_DAYS],
                 self::FIELD_TTL_SOURCE => 'freeze:acos.flywheel.loops.v1',
             ],
             [
@@ -388,12 +390,12 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.m.funnel.v1',
             ],
             [
-                self::FIELD_SLICE => 'MULTX-06',
+                self::FIELD_SLICE => self::FIELD_MULTX_06,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::MULTX06_MEASURE_ID,
                 self::FIELD_PATH => 'atlas:flywheel:learning-latency --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload('MULTX-06')[self::FIELD_TTL_DAYS],
+                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTX_06)[self::FIELD_TTL_DAYS],
                 self::FIELD_TTL_SOURCE => 'freeze:acos.learning_latency.v1',
             ],
             [

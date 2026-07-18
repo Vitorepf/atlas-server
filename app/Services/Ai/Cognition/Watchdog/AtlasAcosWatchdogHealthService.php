@@ -368,6 +368,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_ATLAS_ACOS_WATCHDOG = 'atlas.acos.watchdog';
     public const FIELD_ATLAS_LEARNING_CADENCE_WATCHDOG_V1 = 'atlas.learning.cadence_watchdog.v1';
     public const FIELD_COMPONENTS_FRESHNESS = 'components.freshness';
+    public const FIELD_COMPONENTS_RETRIEVAL_EVAL = 'components.retrieval_eval';
+    public const FIELD_CONTEXT_ACTOR = 'context.actor';
     public const INT_100 = 100;
     public const FLOAT_10_0 = 10.0;
 
@@ -519,7 +521,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $quality = app(AtlasMemoryQualityService::class)->scorecard([]);
         $aurg = $this->aurgCoverageReport();
-        $retrievalEval = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($quality, 'components.retrieval_eval', 0)) ?? 0);
+        $retrievalEval = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($quality, self::FIELD_COMPONENTS_RETRIEVAL_EVAL, 0)) ?? 0);
         // Prefer the RAG-05 frozen golden surface; fall back to the older corpus metrics path.
         $recallAt5 = AiValueNormalizer::finiteFloatOrNull(
             data_get($quality, 'latest_snapshot.metadata.memory_recall_golden.recall_at_5')
@@ -1140,7 +1142,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $counts = [self::FIELD_DEV => 0, self::FIELD_FORGE => 0, self::FIELD_AUTONOMOS => 0];
         foreach ($rows as $row) {
-            $actor = AiValueNormalizer::lowerTrimmedString(data_get($row, 'context.executor', data_get($row, 'context.actor', data_get($row, self::FIELD_SURFACE, ''))));
+            $actor = AiValueNormalizer::lowerTrimmedString(data_get($row, 'context.executor', data_get($row, self::FIELD_CONTEXT_ACTOR, data_get($row, self::FIELD_SURFACE, ''))));
             foreach (array_keys($counts) as $executor) {
                 if (str_contains($actor, $executor)) {
                     $counts[$executor]++;

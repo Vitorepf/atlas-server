@@ -13102,4 +13102,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B503).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b503MeasureSeriesLoteLedgerRotationAcosWatchdogAutonomyFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'MULTX-01' => AcosMaxMeasureSeriesRegistry::FIELD_MULTX_01,
+            'MULTX-06' => AcosMaxMeasureSeriesRegistry::FIELD_MULTX_06,
+            'ASI-02' => AcosMaxLote2MeasureService::FIELD_ASI_02,
+            'ASI-11' => AcosMaxLote2MeasureService::FIELD_ASI_11,
+            'aobg.latency_ledger.v1' => AcosMaxLedgerRotationRegistry::FIELD_AOBG_LATENCY_LEDGER_V1,
+            'asi.metric.m.v1' => AcosMaxLedgerRotationRegistry::FIELD_ASI_METRIC_M_V1,
+            'components.retrieval_eval' => AtlasAcosWatchdogHealthService::FIELD_COMPONENTS_RETRIEVAL_EVAL,
+            'context.actor' => AtlasAcosWatchdogHealthService::FIELD_CONTEXT_ACTOR,
+            'maxk05.signature_forged_boolean' => AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK05_SIGNATURE_FORGED_BOOLEAN,
+            'maxk05.signature_nonce_reused' => AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK05_SIGNATURE_NONCE_REUSED,
+            'atlas.decide.route_regret.v2' => AtlasNCaptureDrillService::FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2,
+            'admission.reason' => AtlasNCaptureDrillService::FIELD_ADMISSION_REASON,
+            'atlas-autonomos' => AcosMaxVerifiedShareService::FIELD_ATLAS_AUTONOMOS_2,
+            'atlas-dev' => AcosMaxVerifiedShareService::FIELD_ATLAS_DEV_2,
+            'ASI-L7' => AtlasCognitionScoreCardService::FIELD_ASI_L7,
+            'AURG-4D' => AtlasCognitionScoreCardService::FIELD_AURG_4_D,
+            'com-10.context_feedback_health' => HealthReportWatchdogCheck::FIELD_COM_10_CONTEXT_FEEDBACK_HEALTH,
+            'cpt-09.compaction_soak' => HealthReportWatchdogCheck::FIELD_CPT_09_COMPACTION_SOAK,
+            'b503_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floor_count' => 18,
+        ];
+    }
+
 }

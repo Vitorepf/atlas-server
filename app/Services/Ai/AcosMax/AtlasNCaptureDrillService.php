@@ -138,6 +138,8 @@ final class AtlasNCaptureDrillService
     public const FIELD_TIMES_HOURS_OF_INTEGRATION = 'times.hours_of_integration';
     public const FIELD_TIMES_TIME_TO_FIRST_PROVEN_REAL_SECONDS = 'times.time_to_first_proven_real_seconds';
     public const FIELD_TIMES_TIME_TO_FIRST_ROUTED_TASK_SECONDS = 'times.time_to_first_routed_task_seconds';
+    public const FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2 = 'atlas.decide.route_regret.v2';
+    public const FIELD_ADMISSION_REASON = 'admission.reason';
     public const INT_365 = 365;
 
     private readonly string $ledgerPath;
@@ -161,7 +163,7 @@ final class AtlasNCaptureDrillService
                 self::FIELD_BYPASS_FORBIDDEN => true,
                 self::FIELD_YARDSTICK_REQUIRED_SERIES => [
                     self::FIELD_GOLDEN_V2,
-                    'atlas.decide.route_regret.v2',
+                    self::FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2,
                 ],
                 self::FIELD_PEEK_ONLY => true,
                 self::FIELD_REQUIRED_FIELDS => [
@@ -218,7 +220,7 @@ final class AtlasNCaptureDrillService
             self::FIELD_YARDSTICK => [
                 self::FIELD_GOLDEN_V2_PASSED => (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_YARDSTICK_GOLDEN_V2_PASSED)) ?? false),
                 self::FIELD_GOLDEN_V2_SCORE => data_get($drill, 'yardstick.golden_v2_score'),
-                self::FIELD_REGRET_MEASURE_ID => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'yardstick.regret_measure_id')) ?? 'atlas.decide.route_regret.v2',
+                self::FIELD_REGRET_MEASURE_ID => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'yardstick.regret_measure_id')) ?? self::FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2,
                 self::FIELD_PEEK_MODE => true,
             ],
             self::FIELD_TIMES => [
@@ -234,7 +236,7 @@ final class AtlasNCaptureDrillService
                 self::FIELD_ADMITTED => (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_ADMISSION_ADMITTED)) ?? false),
                 self::FIELD_COLD_START_VIA => data_get($drill, self::FIELD_ADMISSION_COLD_START_VIA),
                 self::FIELD_BYPASS => (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_ADMISSION_BYPASS)) ?? false),
-                self::FIELD_REASON => data_get($drill, 'admission.reason'),
+                self::FIELD_REASON => data_get($drill, self::FIELD_ADMISSION_REASON),
             ],
             self::FIELD_TRIGGER => (AiValueNormalizer::trimmedStringOrNull($drill[self::FIELD_TRIGGER] ?? null) ?? self::TRIGGER_UNKNOWN),
             self::FIELD_RECORDED_AT => now(self::FIELD_UTC)->toIso8601String(),

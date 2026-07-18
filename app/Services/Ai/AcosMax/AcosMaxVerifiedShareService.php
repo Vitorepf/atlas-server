@@ -97,6 +97,8 @@ final class AcosMaxVerifiedShareService
     public const FIELD_ATLAS_AUTONOMOS = 'atlas_autonomos';
     public const FIELD_RB = 'rb';
     public const FIELD_UTC = 'UTC';
+    public const FIELD_ATLAS_AUTONOMOS_2 = 'atlas-autonomos';
+    public const FIELD_ATLAS_DEV_2 = 'atlas-dev';
 
 
     /** @return array<string,mixed> */
@@ -344,9 +346,9 @@ final class AcosMaxVerifiedShareService
         $value = AiValueNormalizer::lowerTrimmedString($value);
 
         return match (true) {
-            in_array($value, ['dev', self::FIELD_ATLAS_DEV, 'atlas-dev'], true) => self::FIELD_DEV,
+            in_array($value, ['dev', self::FIELD_ATLAS_DEV, self::FIELD_ATLAS_DEV_2], true) => self::FIELD_DEV,
             in_array($value, ['forge', self::FIELD_ATLAS_FORGE, 'atlas-forge'], true) => self::FIELD_FORGE,
-            in_array($value, ['autonomos', self::FIELD_AUTONOMOUS, self::FIELD_ATLAS_AUTONOMOS, 'atlas-autonomos'], true) => self::FIELD_AUTONOMOS,
+            in_array($value, ['autonomos', self::FIELD_AUTONOMOUS, self::FIELD_ATLAS_AUTONOMOS, self::FIELD_ATLAS_AUTONOMOS_2], true) => self::FIELD_AUTONOMOS,
             default => null,
         };
     }

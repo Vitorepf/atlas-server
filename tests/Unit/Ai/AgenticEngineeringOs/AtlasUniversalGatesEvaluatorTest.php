@@ -10305,4 +10305,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b502_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floor_count']);
     }
 
+    public function test_b503_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b503MeasureSeriesLoteLedgerRotationAcosWatchdogAutonomyFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MULTX_01, $out['MULTX-01']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MULTX_06, $out['MULTX-06']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_ASI_02, $out['ASI-02']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_ASI_11, $out['ASI-11']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_AOBG_LATENCY_LEDGER_V1, $out['aobg.latency_ledger.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ASI_METRIC_M_V1, $out['asi.metric.m.v1']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_COMPONENTS_RETRIEVAL_EVAL, $out['components.retrieval_eval']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CONTEXT_ACTOR, $out['context.actor']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK05_SIGNATURE_FORGED_BOOLEAN, $out['maxk05.signature_forged_boolean']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK05_SIGNATURE_NONCE_REUSED, $out['maxk05.signature_nonce_reused']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2, $out['atlas.decide.route_regret.v2']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_ADMISSION_REASON, $out['admission.reason']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_ATLAS_AUTONOMOS_2, $out['atlas-autonomos']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_ATLAS_DEV_2, $out['atlas-dev']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ASI_L7, $out['ASI-L7']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AURG_4_D, $out['AURG-4D']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_COM_10_CONTEXT_FEEDBACK_HEALTH, $out['com-10.context_feedback_health']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_CPT_09_COMPACTION_SOAK, $out['cpt-09.compaction_soak']);
+        $this->assertSame(18, $out['b503_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floor_count']);
+    }
+
 }

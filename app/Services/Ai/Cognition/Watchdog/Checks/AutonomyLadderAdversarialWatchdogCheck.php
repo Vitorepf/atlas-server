@@ -112,6 +112,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_CAND_1 = 'cand-1';
     public const FIELD_CAND_2 = 'cand-2';
     public const FIELD_FORGED_BOOLEAN = 'forged-boolean';
+    public const FIELD_MAXK05_SIGNATURE_FORGED_BOOLEAN = 'maxk05.signature_forged_boolean';
+    public const FIELD_MAXK05_SIGNATURE_NONCE_REUSED = 'maxk05.signature_nonce_reused';
     public const INT_20 = 20;
     public const INT_999 = 999;
     public const INT_10 = 10;
@@ -215,7 +217,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $refused = $verdict[self::FIELD_OK] === false;
 
         return [
-            self::FIELD_ID => 'maxk05.signature_forged_boolean',
+            self::FIELD_ID => self::FIELD_MAXK05_SIGNATURE_FORGED_BOOLEAN,
             self::FIELD_REFUSED => $refused,
             self::FIELD_EXPECTED => 'ok=false',
             self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($verdict[self::FIELD_REASON] ?? null) ?? self::PROBE_ID_UNKNOWN),
@@ -285,7 +287,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $this->cleanup($path);
 
         return [
-            self::FIELD_ID => 'maxk05.signature_nonce_reused',
+            self::FIELD_ID => self::FIELD_MAXK05_SIGNATURE_NONCE_REUSED,
             self::FIELD_REFUSED => $first[self::FIELD_OK] === true && $second[self::FIELD_OK] === false && $second[self::FIELD_REASON] === self::FIELD_SIGNATURE_NONCE_REUSED,
             self::FIELD_EXPECTED => 'signature_nonce_reused after first spend',
             self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($second[self::FIELD_REASON] ?? null) ?? self::PROBE_ID_UNKNOWN),

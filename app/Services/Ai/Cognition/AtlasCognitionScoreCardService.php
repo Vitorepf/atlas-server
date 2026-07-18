@@ -261,6 +261,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_AKIF_OCR = 'AKIF-OCR';
     public const FIELD_ASCB_EX = 'ASCB-EX';
     public const FIELD_ASCB_PP = 'ASCB-PP';
+    public const FIELD_ASI_L7 = 'ASI-L7';
+    public const FIELD_AURG_4_D = 'AURG-4D';
     public const INT_10 = 10;
 
     /** Score points per status. */
@@ -344,12 +346,12 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ACPFR, 'Context Pareto Frontier Runtime',   self::FIELD_AUCRI, AtlasContextParetoFrontierRuntimeService::class],
 
         // Self-Improvement L7 (closed loop)
-        ['ASI-L7', 'Self-Improvement Closed Loop L7', self::FIELD_SELF_IMPROVEMENT, AtlasSelfImprovementResultLedgerService::class],
+        [self::FIELD_ASI_L7, 'Self-Improvement Closed Loop L7', self::FIELD_SELF_IMPROVEMENT, AtlasSelfImprovementResultLedgerService::class],
 
         // Patamar 2/3 — meta-learning, self-construction, AURG-4D, cross-domain mesh, TEOS-I3
         [self::FIELD_ADML,    'Atlas Decide Meta-Learning',          self::FIELD_ATLAS_DECIDE,      AtlasDecideMetaLearningService::class],
         [self::FIELD_ASCB,    'Self-Construction Subsystem Builder', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionSubsystemBuilderService::class],
-        ['AURG-4D', 'Unified Reality Graph Temporal (4D)', self::FIELD_REALITY,           AtlasUnifiedRealityGraphTemporalService::class],
+        [self::FIELD_AURG_4_D, 'Unified Reality Graph Temporal (4D)', self::FIELD_REALITY,           AtlasUnifiedRealityGraphTemporalService::class],
         [self::FIELD_ACDM,    'Cross-Domain Mesh',                   self::FIELD_CROSS_DOMAIN,      AtlasCrossDomainMeshService::class],
         ['TEOS-I3', 'TEOS-I3 Counterfactual Runtime',      self::FIELD_TEOS,              AtlasTeosI3CounterfactualService::class],
 

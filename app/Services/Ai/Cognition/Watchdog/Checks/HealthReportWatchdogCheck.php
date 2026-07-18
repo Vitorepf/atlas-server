@@ -47,6 +47,8 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_PIPELINE_STABILITY_REPORT = 'pipelineStabilityReport';
     public const FIELD_RAG_DIMENSION_REPORT = 'ragDimensionReport';
     public const FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_REPORT = 'scorecardReceiptsDiagnosisReport';
+    public const FIELD_COM_10_CONTEXT_FEEDBACK_HEALTH = 'com-10.context_feedback_health';
+    public const FIELD_CPT_09_COMPACTION_SOAK = 'cpt-09.compaction_soak';
 
     public const CATALOG = [
         [
@@ -74,13 +76,13 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_MESSAGE => 'RAG-12 retrieval dimension watchdog found a regression or masking issue.',
         ],
         [
-            self::FIELD_ID => 'com-10.context_feedback_health',
+            self::FIELD_ID => self::FIELD_COM_10_CONTEXT_FEEDBACK_HEALTH,
             self::FIELD_REPORT_METHOD => self::FIELD_CONTEXT_FEEDBACK_HEALTH_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_CONTEXT_FEEDBACK_HEALTH_FAILED,
             self::FIELD_MESSAGE => 'COM-10 context feedback health is below the pinned floor.',
         ],
         [
-            self::FIELD_ID => 'cpt-09.compaction_soak',
+            self::FIELD_ID => self::FIELD_CPT_09_COMPACTION_SOAK,
             self::FIELD_REPORT_METHOD => self::FIELD_COMPACTION_SOAK_WATCH_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_COMPACTION_SOAK_NOT_READY,
             self::FIELD_MESSAGE => 'CPT-09 compaction soak is not ready for enforce.',
