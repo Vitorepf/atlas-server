@@ -10452,4 +10452,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B417).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function acosLongObraRetroDepartmentContractAaeosEvolutionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'backfilled_sample_detected' => AtlasAcosLongHorizonGateService::FIELD_BACKFILLED_SAMPLE_DETECTED,
+            'calendar_span_below_floor' => AtlasAcosLongHorizonGateService::FIELD_CALENDAR_SPAN_BELOW_FLOOR,
+            'forge' => AcosMaxObraRetroService::FIELD_FORGE,
+            'local' => AcosMaxObraRetroService::FIELD_LOCAL,
+            'engineering_goal_disambiguated' => DepartmentContractRuntime::FIELD_ENGINEERING_GOAL_DISAMBIGUATED,
+            'execution_log' => DepartmentContractRuntime::FIELD_EXECUTION_LOG,
+            'debug' => AtlasAaeosDepartmentMaturityService::FIELD_DEBUG,
+            'debug_automated_root_cause_l3' => AtlasAaeosDepartmentMaturityService::FIELD_DEBUG_AUTOMATED_ROOT_CAUSE_L3,
+            'yes' => AtlasAcosEvolutionScoreService::FIELD_YES,
+            'created_at' => AtlasAcosEvolutionScoreService::FIELD_CREATED_AT,
+            'high' => AaeosHttpPathEnvelopeFactory::FIELD_HIGH,
+            'r1_r2_fast_path_preserved' => AaeosHttpPathEnvelopeFactory::FIELD_R1_R2_FAST_PATH_PRESERVED,
+            'conversation_trace_signal' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_CONVERSATION_TRACE_SIGNAL,
+            'learning_signal' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_LEARNING_SIGNAL,
+            'atlas_aemor_execution_episodes' => AtlasAcosWatchdogHealthService::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES,
+            'atlas_ledger_events' => AtlasAcosWatchdogHealthService::FIELD_ATLAS_LEDGER_EVENTS,
+            'atlas_ledger_events' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_LEDGER_EVENTS,
+            'occurred_at' => AcosMaxMeasureSeriesRegistry::FIELD_OCCURRED_AT,
+            'acos_long_obra_retro_department_contract_aaeos_evolution_floor_count' => 18,
+        ];
+    }
+
 }

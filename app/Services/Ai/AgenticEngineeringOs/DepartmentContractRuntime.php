@@ -193,6 +193,8 @@ final class DepartmentContractRuntime
     public const FIELD_SPEC_COMPLETENESS = 'spec_completeness';
     public const FIELD_SPEC_PACK = 'spec_pack';
     public const FIELD_DELIVERY_PACK = 'delivery_pack';
+    public const FIELD_ENGINEERING_GOAL_DISAMBIGUATED = 'engineering_goal_disambiguated';
+    public const FIELD_EXECUTION_LOG = 'execution_log';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -257,7 +259,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => 'engineering_goal_raw', self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL],
             ],
             self::FIELD_OUTPUTS => [
-                [self::FIELD_NAME => 'engineering_goal_disambiguated', self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL_DISAMBIGUATED],
+                [self::FIELD_NAME => self::FIELD_ENGINEERING_GOAL_DISAMBIGUATED, self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL_DISAMBIGUATED],
                 [self::FIELD_NAME => 'acceptance_criteria', self::FIELD_SCHEMA => self::SCHEMA_ACCEPTANCE_CRITERIA],
             ],
             self::FIELD_GATES => ['intent_clarity_score_min', 'acceptance_criteria_min_3'],
@@ -278,7 +280,7 @@ final class DepartmentContractRuntime
             self::FIELD_SCOPE => 'define spec_pack canônico, breaking_change_matrix e migration_plan antes de qualquer execução',
             self::FIELD_TRIGGERS => ['intent_classification.scope>=R3', 'breaking_change_detected=true'],
             self::FIELD_INPUTS => [
-                [self::FIELD_NAME => 'engineering_goal_disambiguated', self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL_DISAMBIGUATED],
+                [self::FIELD_NAME => self::FIELD_ENGINEERING_GOAL_DISAMBIGUATED, self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL_DISAMBIGUATED],
             ],
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
@@ -329,7 +331,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => 'task_pack', self::FIELD_SCHEMA => self::SCHEMA_TASK_PACK],
             ],
             self::FIELD_OUTPUTS => [
-                [self::FIELD_NAME => 'execution_log', self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
+                [self::FIELD_NAME => self::FIELD_EXECUTION_LOG, self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
                 [self::FIELD_NAME => 'patch_pack', self::FIELD_SCHEMA => self::SCHEMA_PATCH_PACK],
             ],
             self::FIELD_GATES => ['plan_approved', 'tests_focused', 'review_gate', 'lint_green', 'typecheck_green', 'tests_green', 'scope_guard_ok'],
@@ -448,7 +450,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => 'obra_pack', self::FIELD_SCHEMA => self::SCHEMA_OBRA_PACK],
-                [self::FIELD_NAME => 'execution_log', self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
+                [self::FIELD_NAME => self::FIELD_EXECUTION_LOG, self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
             ],
             self::FIELD_GATES => ['obra_intake_validated', 'provider_topology_green', 'all-15-universal-gates', 'long_horizon_state_persisted', 'reservation_ledger_consistent', 'merge_review_promotion_passed'],
             self::FIELD_ALLOWED_ACTIONS => ['spawn_agents', 'claim_reservations', 'request_provider_topology', 'merge_after_review'],

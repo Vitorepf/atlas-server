@@ -95,6 +95,8 @@ final class AcosMaxObraRetroService
     public const FIELD_TERMINAL_SLICE_COUNT = 'terminal_slice_count';
     public const FIELD_TESTS_PASSED = 'tests_passed';
     public const FIELD_VERIFIED = 'verified';
+    public const FIELD_FORGE = 'forge';
+    public const FIELD_LOCAL = 'local';
 
     public function __construct(
         private readonly AtlasEngineeringOutcomeRecorder $outcomes,
@@ -212,7 +214,7 @@ final class AcosMaxObraRetroService
         };
 
         $recorded = $this->outcomes->record([
-            self::FIELD_EXECUTOR => 'forge',
+            self::FIELD_EXECUTOR => self::FIELD_FORGE,
             self::FIELD_OBJECTIVE => sprintf('ACOS Max lote %d slice %s reached %s', $lote, $slice[self::FIELD_ID], $slice[self::FIELD_STATE]),
             self::FIELD_SUMMARY => AiValueNormalizer::trimmedScalarStringOrNull($slice[self::FIELD_LINE] ?? null) ?? '',
             self::FIELD_STATUS => $status,
@@ -221,7 +223,7 @@ final class AcosMaxObraRetroService
             self::FIELD_SCOPE_TYPE => 'obra_lote',
             self::FIELD_SCOPE_ID => sprintf('acos-max:lote-%d', $lote),
             self::FIELD_RUN_ID => sprintf('acos-max:lote-%d:%s:%s', $lote, $slice[self::FIELD_ID], $slice[self::FIELD_STATE]),
-            self::FIELD_PROVIDER => 'local',
+            self::FIELD_PROVIDER => self::FIELD_LOCAL,
             self::FIELD_VERIFIED => true,
             self::FIELD_ACTOR_TAG => self::SERIES_TAG,
             self::FIELD_OUTCOME_FLOW_ID => self::SERIES_TAG,

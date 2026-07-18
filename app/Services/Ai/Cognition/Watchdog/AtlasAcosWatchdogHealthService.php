@@ -298,6 +298,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_TRANSCRIPT_INFERRED_SHARE = 'transcript_inferred_share';
     public const FIELD_AI_RAG_FEEDBACK_EVENTS = 'ai_rag_feedback_events';
     public const FIELD_ACOS_WATCHDOG = 'acos_watchdog';
+    public const FIELD_ATLAS_AEMOR_EXECUTION_EPISODES = 'atlas_aemor_execution_episodes';
+    public const FIELD_ATLAS_LEDGER_EVENTS = 'atlas_ledger_events';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -972,7 +974,7 @@ final class AtlasAcosWatchdogHealthService
 
     private function latestAemorSourceAt(string $source): ?CarbonImmutable
     {
-        if (! DatabaseTableAvailability::has('atlas_aemor_execution_episodes')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES)) {
             return null;
         }
         $needle = '%'.$source.'%';
@@ -993,7 +995,7 @@ final class AtlasAcosWatchdogHealthService
      */
     private function blockerSeries(string $scopeId, array $blockers): array
     {
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_LEDGER_EVENTS)) {
             return array_map(static fn (string $blocker): array => [
                 self::FIELD_BLOCKER => $blocker,
                 self::FIELD_DAYS_IN_BLOCK => 0,

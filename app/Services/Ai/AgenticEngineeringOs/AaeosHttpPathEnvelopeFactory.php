@@ -92,6 +92,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_ATLAS_FORGE = 'atlas_forge';
     public const FIELD_YES = 'yes';
     public const FIELD_DEFERRED = 'deferred';
+    public const FIELD_HIGH = 'high';
+    public const FIELD_R1_R2_FAST_PATH_PRESERVED = 'r1_r2_fast_path_preserved';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -271,7 +273,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_TOPOLOGY,
             self::FIELD_ACTOR_ID => 'aaeos.topology',
             self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase3.topology.r1_r2_fast_path',
-            self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
+            self::FIELD_SKIP_REASON => self::FIELD_R1_R2_FAST_PATH_PRESERVED,
             self::FIELD_OUTPUTS => [
                 self::FIELD_TOPOLOGY_REQUIRED => self::FIELD_YES,
                 self::FIELD_AAWR_INVOCATION => self::FIELD_DEFERRED,
@@ -283,7 +285,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_ROUTING,
             self::FIELD_ACTOR_ID => 'aaeos.routing',
             self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase3.routing.r1_r2_fast_path',
-            self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
+            self::FIELD_SKIP_REASON => self::FIELD_R1_R2_FAST_PATH_PRESERVED,
             self::FIELD_OUTPUTS => [
                 self::FIELD_DEPARTMENT_ROUTE => 'engineering_or_forge_pending_aawr',
                 self::FIELD_COMPANY_RUNTIME_INVOCATION => self::FIELD_DEFERRED,
@@ -295,7 +297,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_SPEC,
             self::FIELD_ACTOR_ID => 'aaeos.spec',
             self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase4.spec.r1_r2_fast_path',
-            self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
+            self::FIELD_SKIP_REASON => self::FIELD_R1_R2_FAST_PATH_PRESERVED,
             self::FIELD_OUTPUTS => [
                 self::FIELD_SPEC_INVOCATION => self::FIELD_DEFERRED,
                 self::FIELD_SPEC_REQUIRED => self::FIELD_YES,
@@ -307,7 +309,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_TASKS,
             self::FIELD_ACTOR_ID => 'aaeos.tasks',
             self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase4.tasks.r1_r2_fast_path',
-            self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
+            self::FIELD_SKIP_REASON => self::FIELD_R1_R2_FAST_PATH_PRESERVED,
             self::FIELD_OUTPUTS => [
                 self::FIELD_TASK_PACK_INVOCATION => self::FIELD_DEFERRED,
                 self::FIELD_TASK_PACK_REQUIRED => self::FIELD_YES,
@@ -466,7 +468,7 @@ final class AaeosHttpPathEnvelopeFactory
                 if ($id === null) {
                     continue;
                 }
-                $severity = AiValueNormalizer::trimmedStringOrNull($blocker[self::FIELD_SEVERITY] ?? null) ?? 'high';
+                $severity = AiValueNormalizer::trimmedStringOrNull($blocker[self::FIELD_SEVERITY] ?? null) ?? self::FIELD_HIGH;
                 $owner = AiValueNormalizer::trimmedStringOrNull($blocker[self::FIELD_OWNER] ?? null) ?? 'atlas-ai';
                 $blockers[] = [
                     self::FIELD_ID => $id,
@@ -474,14 +476,14 @@ final class AaeosHttpPathEnvelopeFactory
                     self::FIELD_OWNER => $owner !== '' ? $owner : 'atlas-ai',
                 ];
             } elseif (($id = AiValueNormalizer::trimmedStringOrNull($blocker)) !== null) {
-                $blockers[] = [self::FIELD_ID => $id, self::FIELD_SEVERITY => 'high', self::FIELD_OWNER => 'atlas-ai'];
+                $blockers[] = [self::FIELD_ID => $id, self::FIELD_SEVERITY => self::FIELD_HIGH, self::FIELD_OWNER => 'atlas-ai'];
             }
         }
 
         if ($blockers === []) {
             $blockers[] = [
                 self::FIELD_ID => 'assisted_execution_needs_context',
-                self::FIELD_SEVERITY => 'high',
+                self::FIELD_SEVERITY => self::FIELD_HIGH,
                 self::FIELD_OWNER => 'atlas-ai',
             ];
         }
@@ -499,7 +501,7 @@ final class AaeosHttpPathEnvelopeFactory
 
         return array_values(array_map(static fn (string $reason): array => [
             self::FIELD_ID => $reason,
-            self::FIELD_SEVERITY => 'high',
+            self::FIELD_SEVERITY => self::FIELD_HIGH,
             self::FIELD_OWNER => 'atlas-ai',
         ], array_filter($blockedWhen, 'is_string')));
     }

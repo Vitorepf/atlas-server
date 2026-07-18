@@ -8166,4 +8166,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['memory_recall_dogfooding_friction_portfolio_budget_operator_learning_floor_count']);
     }
 
+    public function test_acos_long_obra_retro_department_contract_aaeos_evolution_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->acosLongObraRetroDepartmentContractAaeosEvolutionFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_BACKFILLED_SAMPLE_DETECTED, $out['backfilled_sample_detected']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_CALENDAR_SPAN_BELOW_FLOOR, $out['calendar_span_below_floor']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_LOCAL, $out['local']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ENGINEERING_GOAL_DISAMBIGUATED, $out['engineering_goal_disambiguated']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EXECUTION_LOG, $out['execution_log']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEBUG, $out['debug']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEBUG_AUTOMATED_ROOT_CAUSE_L3, $out['debug_automated_root_cause_l3']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_YES, $out['yes']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_CREATED_AT, $out['created_at']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_HIGH, $out['high']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_R1_R2_FAST_PATH_PRESERVED, $out['r1_r2_fast_path_preserved']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_CONVERSATION_TRACE_SIGNAL, $out['conversation_trace_signal']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_LEARNING_SIGNAL, $out['learning_signal']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES, $out['atlas_aemor_execution_episodes']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ATLAS_LEDGER_EVENTS, $out['atlas_ledger_events']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_LEDGER_EVENTS, $out['atlas_ledger_events']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_OCCURRED_AT, $out['occurred_at']);
+        $this->assertSame(18, $out['acos_long_obra_retro_department_contract_aaeos_evolution_floor_count']);
+    }
+
 }

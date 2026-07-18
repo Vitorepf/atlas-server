@@ -161,6 +161,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_SUPERIORITY_CLAIM_ALLOWED = 'superiority_claim_allowed';
     public const FIELD_UNSUPPORTED_FIXTURE = 'unsupported_fixture';
     public const FIELD_WORKSPACE_MUTATED = 'workspace_mutated';
+    public const FIELD_BACKFILLED_SAMPLE_DETECTED = 'backfilled_sample_detected';
+    public const FIELD_CALENDAR_SPAN_BELOW_FLOOR = 'calendar_span_below_floor';
 
     /**
      * @param  array<string,mixed>  $options
@@ -434,12 +436,12 @@ final class AtlasAcosLongHorizonGateService
             $maxGapDays,
             [
                 self::FIELD_DAY_COUNT => 'series_day_count_below_floor',
-                self::FIELD_CALENDAR_SPAN => 'calendar_span_below_floor',
+                self::FIELD_CALENDAR_SPAN => self::FIELD_CALENDAR_SPAN_BELOW_FLOOR,
                 self::FIELD_RESOLVED_EVIDENCE => 'delta_series_resolved_evidence_source_missing',
                 self::FIELD_FUTURE_DATED => 'delta_series_future_dated_rows',
                 self::FIELD_WINDOW_STALE => 'delta_series_window_stale',
                 self::FIELD_GAP => 'series_gap_exceeds_floor',
-                self::FIELD_BACKFILLED => 'backfilled_sample_detected',
+                self::FIELD_BACKFILLED => self::FIELD_BACKFILLED_SAMPLE_DETECTED,
             ],
         ));
         if ($certificationWindowDaysBelowFloor > 0) {

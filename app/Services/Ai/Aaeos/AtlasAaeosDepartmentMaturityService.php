@@ -45,6 +45,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_HIGH = 'high';
     public const FIELD_ARCHITECT = 'architect';
     public const FIELD_ARCHITECT_AUTONOMOUS_AGENT_L4 = 'architect_autonomous_agent_l4';
+    public const FIELD_DEBUG = 'debug';
+    public const FIELD_DEBUG_AUTOMATED_ROOT_CAUSE_L3 = 'debug_automated_root_cause_l3';
 
     public const DEPARTMENTS = [
         [
@@ -80,10 +82,10 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_HIGH,
         ],
         [
-            self::FIELD_DEPARTMENT_ID => 'debug',
+            self::FIELD_DEPARTMENT_ID => self::FIELD_DEBUG,
             self::FIELD_CURRENT_LEVEL => 'L2',
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#debug'],
-            self::FIELD_BLOCKER_ID => 'debug_automated_root_cause_l3',
+            self::FIELD_BLOCKER_ID => self::FIELD_DEBUG_AUTOMATED_ROOT_CAUSE_L3,
             self::FIELD_BLOCKER_SUMMARY => 'falta automated root-cause para L3',
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],

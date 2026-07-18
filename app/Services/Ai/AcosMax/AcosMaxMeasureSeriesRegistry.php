@@ -48,6 +48,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_WHERE = 'where';
     public const FIELD_GENERATED_AT = 'generated_at';
     public const FIELD_RECORDED_AT = 'recorded_at';
+    public const FIELD_ATLAS_LEDGER_EVENTS = 'atlas_ledger_events';
+    public const FIELD_OCCURRED_AT = 'occurred_at';
 
     public const SOURCE_TYPE_JSONL = 'jsonl';
 
@@ -159,9 +161,9 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => 'MAXL-02',
                 self::FIELD_SERIES => 'atlas.evidence_ledger.hash_chain.v1',
-                self::FIELD_TABLE => 'atlas_ledger_events',
+                self::FIELD_TABLE => self::FIELD_ATLAS_LEDGER_EVENTS,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
-                self::FIELD_TIMESTAMP_FIELD => 'occurred_at',
+                self::FIELD_TIMESTAMP_FIELD => self::FIELD_OCCURRED_AT,
                 self::FIELD_TTL_DAYS => 30,
                 self::FIELD_TTL_SOURCE => 'maxl-02-freeze-equivalent',
             ],
@@ -195,9 +197,9 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => 'ELEV-20s',
                 self::FIELD_SERIES => 'acos.dead_series_watchdog.v1',
-                self::FIELD_TABLE => 'atlas_ledger_events',
+                self::FIELD_TABLE => self::FIELD_ATLAS_LEDGER_EVENTS,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
-                self::FIELD_TIMESTAMP_FIELD => 'occurred_at',
+                self::FIELD_TIMESTAMP_FIELD => self::FIELD_OCCURRED_AT,
                 self::FIELD_WHERE => [
                     self::FIELD_SCOPE_TYPE => 'acos_watchdog',
                     self::FIELD_SCOPE_ID => 'unified',
@@ -208,9 +210,9 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => 'ELEV-25',
                 self::FIELD_SERIES => AtlasOperatorReviewDebtMeter::MEASURE_ID,
-                self::FIELD_TABLE => 'atlas_ledger_events',
+                self::FIELD_TABLE => self::FIELD_ATLAS_LEDGER_EVENTS,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
-                self::FIELD_TIMESTAMP_FIELD => 'occurred_at',
+                self::FIELD_TIMESTAMP_FIELD => self::FIELD_OCCURRED_AT,
                 self::FIELD_WHERE => [
                     self::FIELD_SCOPE_TYPE => 'acos_watchdog',
                     self::FIELD_SCOPE_ID => 'unified',
