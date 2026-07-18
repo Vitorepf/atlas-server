@@ -140,7 +140,7 @@ final class Teto10PredictedRevertReviewDigest
             self::FIELD_BAND_ORDER => [self::BAND_HIGH, self::BAND_SWEET, self::BAND_LOW, self::BAND_UNKNOWN],
             self::FIELD_BAND_COUNTS => $bandCounts,
             self::FIELD_GROUPS => $groups,
-            self::FIELD_PENDING_FLIPS => self::flaggedSection($shown, 'pending_flip', self::FIELD_FLIP_REF),
+            self::FIELD_PENDING_FLIPS => self::flaggedSection($shown, self::FIELD_PENDING_FLIP, self::FIELD_FLIP_REF),
             self::FIELD_BATCHED_ASKS => self::flaggedSection($shown, self::FIELD_BATCHED_ASK, self::FIELD_ASK_REF),
             self::FIELD_SOURCE => [
                 self::FIELD_SLICE => self::FIELD_TETO_10,
@@ -193,7 +193,7 @@ final class Teto10PredictedRevertReviewDigest
                 if (! is_array($item)) {
                     continue;
                 }
-                $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? self::FIELD_ITEM) ?: 'item').': '.self::plain(self::string($item[self::FIELD_TITLE] ?? self::FIELD_UNTITLED) ?: 'untitled');
+                $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? self::FIELD_ITEM) ?: self::FIELD_ITEM).': '.self::plain(self::string($item[self::FIELD_TITLE] ?? self::FIELD_UNTITLED) ?: 'untitled');
                 $lines[] = '  - band: '.self::plain(self::band($item[self::FIELD_PREDICTED_REVERT_BAND] ?? self::BAND_UNKNOWN));
                 $lines[] = '  - evidence: '.self::plain(implode(', ', array_map(self::string(...), AiValueNormalizer::arrayOrEmpty($item[self::FIELD_EVIDENCE_REFS] ?? null))));
                 $lines[] = '  - diff-ref: '.self::plain(self::string($item[self::FIELD_DIFF_REF] ?? self::FIELD_MANUAL_REVIEW) ?: self::FIELD_MANUAL_REVIEW);
@@ -331,7 +331,7 @@ final class Teto10PredictedRevertReviewDigest
                 continue;
             }
             $ref = self::string($item[self::FIELD_FLIP_REF] ?? $item[self::FIELD_ASK_REF] ?? self::FIELD_UNLABELLED) ?: 'unlabelled';
-            $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? self::FIELD_ITEM) ?: 'item').' '.self::inline($ref)
+            $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? self::FIELD_ITEM) ?: self::FIELD_ITEM).' '.self::inline($ref)
                 .' reverse: '.self::inline(self::string($item[self::FIELD_REVERSE_COMMAND] ?? self::FIELD_MANUAL_REVIEW) ?: self::FIELD_MANUAL_REVIEW);
         }
         $lines[] = '';

@@ -11043,4 +11043,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b532_knowledge_item_department_contract_lote_measure_acos_watchdog_floor_count']);
     }
 
+    public function test_b533_evidence_vision_memory_recall_department_contract_lote_measure_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b533EvidenceVisionMemoryRecallDepartmentContractLoteMeasureFloorsContractObserve([]);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_CALIBRATION_RESOLVED, $out['calibration_resolved']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_LEAD_CLUSTER_CLEARED, $out['lead_cluster_cleared']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_VERBATIM, $out['verbatim']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_SEMANTIC, $out['semantic']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_FORBIDDEN_ACTIONS, $out['forbidden_actions']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_GATES, $out['gates']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_FIXTURE, $out['fixture']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_TASK_ID, $out['task_id']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_SECURITY, $out['security']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_DELIVERY, $out['delivery']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_ITEM, $out['item']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_PENDING_FLIP, $out['pending_flip']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_ACTIVE_LEASES, $out['active_leases']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_PHASE, $out['phase']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DEBUG, $out['debug']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ACOS_WATCHDOG, $out['acos_watchdog']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_FORGE, $out['forge']);
+        $this->assertSame(18, $out['b533_evidence_vision_memory_recall_department_contract_lote_measure_floor_count']);
+    }
+
 }

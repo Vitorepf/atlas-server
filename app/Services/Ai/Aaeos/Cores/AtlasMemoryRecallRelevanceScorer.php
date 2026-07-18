@@ -87,9 +87,9 @@ final class AtlasMemoryRecallRelevanceScorer
         }
 
         $scope = $this->scopeOf($row);
-        $type = $this->typeOf($row, $source === 'verbatim' ? 'verbatim' : self::FIELD_MEMORY);
+        $type = $this->typeOf($row, $source === self::FIELD_VERBATIM ? self::FIELD_VERBATIM : self::FIELD_MEMORY);
 
-        if ($source === 'verbatim') {
+        if ($source === self::FIELD_VERBATIM) {
             return 82
                 + $this->floatField($row, self::FIELD_HYBRID_SCORE, 0.0) * 24
                 + $this->scopeWeight($scope)
@@ -198,7 +198,7 @@ final class AtlasMemoryRecallRelevanceScorer
         $source = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_SOURCE] ?? null) ?? '';
 
         return match ($source) {
-            'semantic', self::FIELD_VERBATIM => $source,
+            self::FIELD_SEMANTIC, self::FIELD_VERBATIM => $source,
             default => self::FIELD_REGISTRY,
         };
     }

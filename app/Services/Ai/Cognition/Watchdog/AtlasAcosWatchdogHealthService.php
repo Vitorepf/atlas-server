@@ -466,7 +466,7 @@ final class AtlasAcosWatchdogHealthService
         $lastOutcome = $this->latestModelAt(AiRunOutcome::class, self::FIELD_CREATED_AT, self::FIELD_AI_RUN_OUTCOMES);
         $lastDeliveredRefs = $this->latestRagDeliveredRefsAt();
         $aemor = [];
-        foreach (['dev', 'forge', self::FIELD_TASK] as $source) {
+        foreach (['dev', self::FIELD_FORGE, self::FIELD_TASK] as $source) {
             $aemor[$source] = $this->latestAemorSourceAt($source);
         }
 
@@ -1101,7 +1101,7 @@ final class AtlasAcosWatchdogHealthService
                 ->whereJsonContains('payload->blockers', $blocker)
                 ->orderBy(self::FIELD_OCCURRED_AT);
             if ($hasScopeColumns) {
-                $query->where(self::FIELD_SCOPE_TYPE, 'acos_watchdog')->where(self::FIELD_SCOPE_ID, $scopeId);
+                $query->where(self::FIELD_SCOPE_TYPE, self::FIELD_ACOS_WATCHDOG)->where(self::FIELD_SCOPE_ID, $scopeId);
             } else {
                 // Repair migrations may recreate the ledger without scope columns;
                 // correlation_id still scopes watchdog blocker history honestly.

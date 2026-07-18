@@ -14020,4 +14020,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B533).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b533EvidenceVisionMemoryRecallDepartmentContractLoteMeasureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'calibration_resolved' => EvidenceVisionThesisLifecycle::FIELD_CALIBRATION_RESOLVED,
+            'lead_cluster_cleared' => EvidenceVisionThesisLifecycle::FIELD_LEAD_CLUSTER_CLEARED,
+            'verbatim' => AtlasMemoryRecallRelevanceScorer::FIELD_VERBATIM,
+            'semantic' => AtlasMemoryRecallRelevanceScorer::FIELD_SEMANTIC,
+            'forbidden_actions' => DepartmentContractRuntime::FIELD_FORBIDDEN_ACTIONS,
+            'gates' => DepartmentContractRuntime::FIELD_GATES,
+            'fixture' => AcosMaxLote2MeasureService::FIELD_FIXTURE,
+            'task_id' => AcosMaxLote2MeasureService::FIELD_TASK_ID,
+            'security' => AtlasAaeosVetoPropagationResolver::FIELD_SECURITY,
+            'delivery' => AtlasAaeosVetoPropagationResolver::FIELD_DELIVERY,
+            'item' => Teto10PredictedRevertReviewDigest::FIELD_ITEM,
+            'pending_flip' => Teto10PredictedRevertReviewDigest::FIELD_PENDING_FLIP,
+            'active_leases' => AtlasMissionControlCockpitService::FIELD_ACTIVE_LEASES,
+            'phase' => AtlasMissionControlCockpitService::FIELD_PHASE,
+            'debug' => AtlasCognitiveFunctionDecomposerService::FIELD_DEBUG,
+            'reason' => AtlasCognitiveFunctionDecomposerService::FIELD_REASON,
+            'acos_watchdog' => AtlasAcosWatchdogHealthService::FIELD_ACOS_WATCHDOG,
+            'forge' => AtlasAcosWatchdogHealthService::FIELD_FORGE,
+            'b533_evidence_vision_memory_recall_department_contract_lote_measure_floor_count' => 18,
+        ];
+    }
+
 }

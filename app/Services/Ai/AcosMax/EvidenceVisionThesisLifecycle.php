@@ -193,8 +193,8 @@ final class EvidenceVisionThesisLifecycle
 
         return match ($kind) {
             self::FIELD_SERIES_RECOVERY => self::seriesRecoveryMet($thesis, $seriesWindows, $criterion) ? 'series_recovery' : null,
-            self::FIELD_CALIBRATION_RESOLVED => self::calibrationResolved($calibration, $criterion) ? 'calibration_resolved' : null,
-            self::FIELD_LEAD_CLUSTER_CLEARED => self::leadClusterCleared($thesis, $leads, $criterion) ? 'lead_cluster_cleared' : null,
+            self::FIELD_CALIBRATION_RESOLVED => self::calibrationResolved($calibration, $criterion) ? self::FIELD_CALIBRATION_RESOLVED : null,
+            self::FIELD_LEAD_CLUSTER_CLEARED => self::leadClusterCleared($thesis, $leads, $criterion) ? self::FIELD_LEAD_CLUSTER_CLEARED : null,
             self::FIELD_OUTCOME_PROVEN => self::outcomeProven($thesis, $outcomes) ? 'outcome_proven' : null,
             default => null,
         };

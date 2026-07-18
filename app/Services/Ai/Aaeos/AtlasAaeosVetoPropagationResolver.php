@@ -102,10 +102,10 @@ final class AtlasAaeosVetoPropagationResolver
     {
         return [
             self::FIELD_PRODUCT => [self::FIELD_ARCHITECT],
-            self::FIELD_ARCHITECT => ['security', self::FIELD_FORGE, 'dev'],
+            self::FIELD_ARCHITECT => [self::FIELD_SECURITY, self::FIELD_FORGE, 'dev'],
             self::FIELD_DEV => [self::FIELD_REVIEW],
             self::FIELD_FORGE => [self::FIELD_REVIEW],
-            self::FIELD_REVIEW => [self::FIELD_ARCHITECT, 'delivery'],
+            self::FIELD_REVIEW => [self::FIELD_ARCHITECT, self::FIELD_DELIVERY],
             self::FIELD_SECURITY => ['operator', self::FIELD_ARCHITECT],
             self::FIELD_DELIVERY => [self::FIELD_OPERATOR],
             self::FIELD_OPERATOR => [self::FIELD_MEMORY],
@@ -206,10 +206,10 @@ final class AtlasAaeosVetoPropagationResolver
         // Security veto -> propagates to Dev/Forge/Delivery (all pause),
         // escalates to Operator. pause_set is computed by keeping only the
         // rule-declared downstream targets that exist in the canonical graph.
-        if ($origin === 'security' && $kind === 'security') {
+        if ($origin === self::FIELD_SECURITY && $kind === self::FIELD_SECURITY) {
             return [
                 self::FIELD_RESOLUTION => self::RESOLUTION_PROPAGATE_PAUSE,
-                self::FIELD_PAUSE_SET => $this->reachableTargets(['dev', self::FIELD_FORGE, 'delivery']),
+                self::FIELD_PAUSE_SET => $this->reachableTargets(['dev', self::FIELD_FORGE, self::FIELD_DELIVERY]),
                 self::FIELD_REDIRECT_TO => [],
                 self::FIELD_ESCALATION_TARGET => $this->reachableTargets([self::FIELD_OPERATOR]),
                 self::FIELD_OVERRIDE => false,
@@ -232,7 +232,7 @@ final class AtlasAaeosVetoPropagationResolver
         }
 
         // Review veto on delivery -> back to Dev/Forge for repair.
-        if ($origin === 'review' && $kind === 'delivery') {
+        if ($origin === 'review' && $kind === self::FIELD_DELIVERY) {
             return [
                 self::FIELD_RESOLUTION => self::RESOLUTION_REDIRECT_UPSTREAM,
                 self::FIELD_PAUSE_SET => [],

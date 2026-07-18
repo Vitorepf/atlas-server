@@ -217,7 +217,7 @@ final class AtlasCognitiveFunctionDecomposerService
         self::FIELD_REASONING => [
             self::FIELD_PORQUE, 'por que', self::FIELD_ANALISE, self::FIELD_ANALISA, self::FIELD_EXPLIQUE, self::FIELD_PENSE, self::FIELD_PONDERE,
             self::FIELD_DECIDA, self::FIELD_DECISAO, self::FIELD_COMPARE, self::FIELD_AVALIE, self::FIELD_LOGICA, self::FIELD_ESTRATEGIA,
-            self::FIELD_RACIOCINE, self::FIELD_INVESTIGUE, self::FIELD_WHY, 'reason',
+            self::FIELD_RACIOCINE, self::FIELD_INVESTIGUE, self::FIELD_WHY, self::FIELD_REASON,
         ],
         self::FIELD_RETRIEVAL => [
             self::FIELD_BUSQUE, self::FIELD_PROCURE, self::FIELD_ENCONTRE, self::FIELD_PESQUISE, self::FIELD_MOSTRE, self::FIELD_LISTE,
@@ -230,7 +230,7 @@ final class AtlasCognitiveFunctionDecomposerService
             self::FIELD_NARRE, self::FIELD_DESCREVA, self::FIELD_COMPOSE, self::FIELD_WRITE, self::FIELD_DRAFT, self::FIELD_SUMMARIZE,
         ],
         self::FIELD_CODE => [
-            self::FIELD_CODIGO, self::FIELD_CODIFIQUE, self::FIELD_IMPLEMENTE, self::FIELD_REFATORE, 'debug', self::FIELD_TESTE,
+            self::FIELD_CODIGO, self::FIELD_CODIFIQUE, self::FIELD_IMPLEMENTE, self::FIELD_REFATORE, self::FIELD_DEBUG, self::FIELD_TESTE,
             self::FIELD_COMPILE, self::FIELD_EXECUTE, self::FIELD_RODE, self::FIELD_RODAR, self::FIELD_PHP, self::FIELD_TYPESCRIPT, self::FIELD_REACT,
             self::FIELD_COMPONENTE, self::FIELD_SERVICO, self::FIELD_CLASSE, self::FIELD_FUNCAO, self::FIELD_CONTROLLER, self::FIELD_CLI,
             self::FIELD_ARTISAN, self::FIELD_MIGRATION, self::FIELD_COMPOSER, self::FIELD_NPM, self::FIELD_PHPUNIT, self::FIELD_PEST,

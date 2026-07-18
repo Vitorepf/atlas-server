@@ -592,7 +592,7 @@ final class AcosMaxLote2MeasureService
         }
 
         $taskId = $this->firstNonEmpty([
-            data_get($outcomePayload, 'task_id'),
+            data_get($outcomePayload, self::FIELD_TASK_ID),
             $outcome->run_id ?? null,
         ]);
 
@@ -670,7 +670,7 @@ final class AcosMaxLote2MeasureService
             return true;
         }
 
-        return str_contains(AiValueNormalizer::lowerTrimmedString($row->source ?? ''), 'fixture');
+        return str_contains(AiValueNormalizer::lowerTrimmedString($row->source ?? ''), self::FIELD_FIXTURE);
     }
 
     /**
