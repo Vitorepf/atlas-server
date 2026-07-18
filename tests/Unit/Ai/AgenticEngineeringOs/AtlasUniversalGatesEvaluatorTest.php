@@ -13347,4 +13347,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b626_aaeos_string_veto_floor_count']);
     }
 
+    public function test_b627_aaeos_veto_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b627AaeosVetoFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_QA, $out['qa']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::SCHEMA_VERSION, $out['atlas.aaeos.veto_propagation.v1']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_RESOLUTION, $out['resolution']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_PAUSE_SET, $out['pause_set']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REDIRECT_TO, $out['redirect_to']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_OVERRIDE, $out['override']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_MATCHED_RULE, $out['matched_rule']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ORIGIN_DEPARTMENT, $out['origin_department']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_VETO_KIND, $out['veto_kind']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REPAIR_ITERATION, $out['repair_iteration']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REVIEW, $out['review']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_OPERATOR, $out['operator']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_PRODUCT, $out['product']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ARCHITECT, $out['architect']);
+        $this->assertSame(18, $out['b627_aaeos_veto_floor_count']);
+    }
+
 }
