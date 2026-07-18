@@ -15499,4 +15499,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b712_immune_promotion_floor_count']);
     }
 
+    public function test_b713_bigram_jaccard_cognition_score_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b713BigramJaccardCognitionScoreFloorsContractObserve([]);
+        $this->assertSame(BigramJaccardImmuneSemanticSimilarityPort::INT_2, $out['2']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_GOVERNANCE, $out['governance']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_GROUP, $out['group']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::SCHEMA_VERSION, $out['atlas.cognition.scorecard.v4']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::STATUS_UNKNOWN, $out['unknown']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::STATUS_BLOCKED, $out['blocked']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_ACRONYM, $out['acronym']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_NAME, $out['name']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_SUBSYSTEM_COUNT, $out['subsystem_count']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_CODE_STATUS, $out['code_status']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_DOC_STATUS, $out['doc_status']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_PIPELINE_STATUS, $out['pipeline_status']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_MEMBERS, $out['members']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_SERVICE_CLASSES, $out['service_classes']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_AEMOR, $out['aemor']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_ATLAS_DECIDE, $out['atlas_decide']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_AUCRI, $out['aucri']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_AUTONOMY, $out['autonomy']);
+        $this->assertSame(18, $out['b713_bigram_jaccard_cognition_score_floor_count']);
+    }
+
 }
