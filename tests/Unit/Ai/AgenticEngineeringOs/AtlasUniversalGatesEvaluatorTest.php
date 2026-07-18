@@ -13372,4 +13372,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b627_aaeos_veto_floor_count']);
     }
 
+    public function test_b628_aaeos_department_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b628AaeosDepartmentFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_NEXT_BAND, $out['next_band']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_NEXT_BAND_BREACHES, $out['next_band_breaches']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::SCHEMA_VERSION, $out['atlas.aaeos.department_maturity_band.v1']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_MISSING, $out['missing']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_BAND, $out['band']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_RANK, $out['rank']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_QUALIFIES, $out['qualifies']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_BREACHES, $out['breaches']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_QUALIFIED_BAND, $out['qualified_band']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_QUALIFIED_RANK, $out['qualified_rank']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_PROMOTION_BLOCKED, $out['promotion_blocked']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_COMPARATOR, $out['comparator']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_METRIC, $out['metric']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_VALUE, $out['value']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_ALL_BANDS_BREACHED, $out['all_bands_breached']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_DEPARTMENTS, $out['departments']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_OBSERVED, $out['observed']);
+        $this->assertSame(18, $out['b628_aaeos_department_floor_count']);
+    }
+
 }
