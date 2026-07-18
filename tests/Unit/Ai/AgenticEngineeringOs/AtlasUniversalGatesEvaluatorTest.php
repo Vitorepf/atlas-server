@@ -147,6 +147,7 @@ use App\Services\Ai\Cognition\ImmuneSignatureStore;
 use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 use App\Services\Ai\Cognition\BigramJaccardImmuneSemanticSimilarityPort;
+use App\Services\Ai\AcosMax\AttemptLifecycleLedger;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -12197,6 +12198,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosWindowGatesService::FIELD_WINDOWS, $out['windows']);
         $this->assertSame(AtlasAcosWindowGatesService::FIELD_DAYS, $out['days']);
         $this->assertSame(18, $out['b579_reactive_saturation_department_contract_acos_evolution_window_floor_count']);
+    }
+
+    public function test_b580_daily_canary_docs_authority_spec_completeness_local_model_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b580DailyCanaryDocsAuthoritySpecCompletenessLocalModelFloorsContractObserve([]);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_STATUS, $out['status']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_REFS_CANONICAL, $out['refs_canonical']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_REASON, $out['reason']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_OK, $out['ok']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_FRONTMATTER, $out['frontmatter']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_PATH, $out['path']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_RESOLVED, $out['resolved']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_PRODUCT_AREA, $out['product_area']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_TEST_STRATEGY, $out['test_strategy']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_PRESENT, $out['present']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_SATISFIED, $out['satisfied']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_OK, $out['ok']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_CHECKS, $out['checks']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_INTEGRITY, $out['integrity']);
+        $this->assertSame(AttemptLifecycleLedger::FIELD_TASK_ID, $out['task_id']);
+        $this->assertSame(AttemptLifecycleLedger::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AttemptLifecycleLedger::FIELD_ATTEMPTS, $out['attempts']);
+        $this->assertSame(18, $out['b580_daily_canary_docs_authority_spec_completeness_local_model_floor_count']);
     }
 
 }

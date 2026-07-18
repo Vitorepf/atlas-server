@@ -15458,4 +15458,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B580).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b580DailyCanaryDocsAuthoritySpecCompletenessLocalModelFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'status' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_STATUS,
+            'refs_canonical' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_REFS_CANONICAL,
+            'reason' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_REASON,
+            'ok' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_OK,
+            'schema_version' => AtlasDocsAuthorityGraphService::FIELD_SCHEMA_VERSION,
+            'frontmatter' => AtlasDocsAuthorityGraphService::FIELD_FRONTMATTER,
+            'path' => AtlasDocsAuthorityGraphService::FIELD_PATH,
+            'resolved' => AtlasDocsAuthorityGraphService::FIELD_RESOLVED,
+            'product_area' => SpecCompletenessScorer::FIELD_PRODUCT_AREA,
+            'test_strategy' => SpecCompletenessScorer::FIELD_TEST_STRATEGY,
+            'present' => SpecCompletenessScorer::FIELD_PRESENT,
+            'satisfied' => SpecCompletenessScorer::FIELD_SATISFIED,
+            'ok' => AtlasLocalModelIntegrityService::FIELD_OK,
+            'checks' => AtlasLocalModelIntegrityService::FIELD_CHECKS,
+            'integrity' => AtlasLocalModelIntegrityService::FIELD_INTEGRITY,
+            'task_id' => AttemptLifecycleLedger::FIELD_TASK_ID,
+            'schema_version' => AttemptLifecycleLedger::FIELD_SCHEMA_VERSION,
+            'attempts' => AttemptLifecycleLedger::FIELD_ATTEMPTS,
+            'b580_daily_canary_docs_authority_spec_completeness_local_model_floor_count' => 18,
+        ];
+    }
+
 }
