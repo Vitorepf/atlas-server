@@ -122,6 +122,8 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD_VERDICT = 'verdict';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_APP_SURFACE = 'app_surface';
+    public const FIELD_CURRENT_MODE = 'current_mode';
+    public const FIELD_DOMAIN_ID = 'domain_id';
 
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
 
@@ -390,7 +392,7 @@ final class AtlasAaeosHttpPathFacadeService
     {
         $payload = self::requestPayload($data);
         $hints = [];
-        foreach (['atlas_mode', 'current_mode', 'flow_id', 'domain_id', 'surface_id', self::FIELD_APP_SURFACE, 'routing_task'] as $key) {
+        foreach (['atlas_mode', self::FIELD_CURRENT_MODE, 'flow_id', self::FIELD_DOMAIN_ID, 'surface_id', self::FIELD_APP_SURFACE, 'routing_task'] as $key) {
             $value = AiValueNormalizer::trimmedStringOrNull($payload[$key] ?? null);
             if ($value !== null) {
                 $hints[] = $key.'='.$value;

@@ -187,6 +187,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_CARTOGRAPHY = 'cartography';
     public const FIELD_CONTEXT_CACHE = 'context_cache';
     public const FIELD_CONTEXT_INTELLIGENCE = 'context_intelligence';
+    public const FIELD_CONTEXT_QUALITY = 'context_quality';
+    public const FIELD_EVIDENCE = 'evidence';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -339,9 +341,9 @@ class AtlasCognitionScoreCardService
         ['AEMOR', 'Execution Memory Outcome Runtime', self::FIELD_AEMOR, AtlasAemorCertificationService::class],
         ['TEOS-I1', 'Long-Horizon Intelligence Layer', 'long_horizon', LongHorizonContinuityCertificationService::class],
         ['AVCEL', 'Verified Context Execution Loop', 'verified_context', AtlasVerifiedContextExecutionLoopService::class],
-        ['ACQCG', 'Context Quality Certification Gate', 'context_quality', AtlasContextQualityCertificationService::class],
+        ['ACQCG', 'Context Quality Certification Gate', self::FIELD_CONTEXT_QUALITY, AtlasContextQualityCertificationService::class],
         ['AOBG', 'Open Brain Gateway', 'open_brain', AtlasOpenBrainMcpService::class],
-        ['EVIDENCE', 'Evidence Ledger Memory Side', 'evidence', AtlasEvidenceLedger::class],
+        ['EVIDENCE', 'Evidence Ledger Memory Side', self::FIELD_EVIDENCE, AtlasEvidenceLedger::class],
     ];
 
     /**

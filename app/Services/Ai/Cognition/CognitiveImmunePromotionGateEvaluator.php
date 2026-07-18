@@ -89,6 +89,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_PROBATION_STARTED_AT = 'probation_started_at';
     public const FIELD_PROBATION_SUPERVENING_CONTRADICTION = 'probation_supervening_contradiction';
     public const FIELD_PROBATION_SUPERVENING_CONTRADICTION_COUNT = 'probation_supervening_contradiction_count';
+    public const FIELD_PROMOTION_MODE_HINT = 'promotion_mode_hint';
+    public const FIELD_PROVENANCE_CYCLE_DETECTED = 'provenance_cycle_detected';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -271,7 +273,7 @@ final class CognitiveImmunePromotionGateEvaluator
             return [self::STATUS_BLOCK, 'provenance_traces_to_reverted'];
         }
 
-        if ($this->flag($signals, 'provenance_cycle_detected')) {
+        if ($this->flag($signals, self::FIELD_PROVENANCE_CYCLE_DETECTED)) {
             return [self::STATUS_BLOCK, 'provenance_cycle_detected'];
         }
 
@@ -316,7 +318,7 @@ final class CognitiveImmunePromotionGateEvaluator
      */
     private function promotionModeGate(array $signals): array
     {
-        $mode = $this->stringValue($signals, 'promotion_mode_hint');
+        $mode = $this->stringValue($signals, self::FIELD_PROMOTION_MODE_HINT);
 
         if (in_array($mode, self::BLOCKED_PROMOTION_MODES, true)) {
             return [self::STATUS_BLOCK, 'promotion_blocked_by_policy'];

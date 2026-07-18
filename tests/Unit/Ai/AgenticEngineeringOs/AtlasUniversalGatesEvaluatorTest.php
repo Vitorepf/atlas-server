@@ -8918,4 +8918,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['window_orchestrator_ragx_chain_cognitive_function_department_contract_floor_count']);
     }
 
+    public function test_cognition_score_aaeos_http_acos_window_fact_pair_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitionScoreAaeosHttpAcosWindowFactPairFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_PROGRAMMING, $out['programming']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_PATAMAR4, $out['patamar4']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_CURRENT_MODE, $out['current_mode']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_DOMAIN_ID, $out['domain_id']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_RATIONALE, $out['rationale']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_RELATION_DENSITY, $out['relation_density']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_HARD_NEGATION_CONTRADICTION, $out['hard_negation_contradiction']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_NONE, $out['none']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DOCUMENTA, $out['documenta']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DOCUMENTO, $out['documento']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_FORGE_PARALLEL_AGENT_COUNT, $out['forge_parallel_agent_count']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_LEARNING_SIGNAL_EXTRACTED, $out['learning_signal_extracted']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PRINCIPIO, $out['principio']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PRIVACY_HINT, $out['privacy_hint']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CONTEXT_QUALITY, $out['context_quality']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROMOTION_MODE_HINT, $out['promotion_mode_hint']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROVENANCE_CYCLE_DETECTED, $out['provenance_cycle_detected']);
+        $this->assertSame(18, $out['cognition_score_aaeos_http_acos_window_fact_pair_floor_count']);
+    }
+
 }

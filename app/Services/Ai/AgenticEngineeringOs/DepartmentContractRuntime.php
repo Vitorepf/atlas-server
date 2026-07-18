@@ -261,6 +261,8 @@ final class DepartmentContractRuntime
     public const FIELD_EXECUTE_MIGRATION = 'execute_migration';
     public const FIELD_EVERY_DEPARTMENT_DECLARES_12_CANON_FIELDS = 'every_department_declares_12_canon_fields';
     public const FIELD_EXECUTION_LOG_HASH = 'execution_log_hash';
+    public const FIELD_FORGE_PARALLEL_AGENT_COUNT = 'forge_parallel_agent_count';
+    public const FIELD_LEARNING_SIGNAL_EXTRACTED = 'learning_signal_extracted';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -524,7 +526,7 @@ final class DepartmentContractRuntime
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['obra_pack_hash', self::FIELD_EXECUTION_LOG_HASH, 'merge_review_evidence_hash'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_OBRA_RUNS, self::FIELD_LEDGER => self::FIELD_AAEOS_FORGE_EVIDENCE_LEDGER],
-            self::FIELD_OBSERVABILITY_SIGNALS => ['forge_obra_duration_p95', 'forge_parallel_agent_count', 'forge_collision_count'],
+            self::FIELD_OBSERVABILITY_SIGNALS => ['forge_obra_duration_p95', self::FIELD_FORGE_PARALLEL_AGENT_COUNT, 'forge_collision_count'],
             self::FIELD_MATURITY_LEVEL => 'L4',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_PROGRAMMING_DURABLE_EXECUTION_HANDOFF,
             self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_ARCHITECTURE, self::DEPARTMENT_DEV],
@@ -565,7 +567,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_MEMORY_RECORD, self::FIELD_SCHEMA => self::SCHEMA_MEMORY_RECORD],
                 [self::FIELD_NAME => self::FIELD_CONTEXT_PACK, self::FIELD_SCHEMA => self::SCHEMA_CONTEXT_PACK],
             ],
-            self::FIELD_GATES => ['evidence_persisted', 'learning_signal_extracted', 'promotion_gate_passed', 'noise_immunity_check_ok', 'schema_versioned'],
+            self::FIELD_GATES => ['evidence_persisted', self::FIELD_LEARNING_SIGNAL_EXTRACTED, 'promotion_gate_passed', 'noise_immunity_check_ok', 'schema_versioned'],
             self::FIELD_ALLOWED_ACTIONS => ['promote_to_memory', 'quarantine_capsule', 'emit_context_pack'],
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_promotion_gate', 'modify_evidence_ledger', 'expose_secrets'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],

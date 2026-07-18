@@ -76,6 +76,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_LATENCY = 'latency';
     public const FIELD_MERGED = 'merged';
     public const FIELD_PATCH = 'patch';
+    public const FIELD_PRINCIPIO = 'principio';
+    public const FIELD_PRIVACY_HINT = 'privacy_hint';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -140,7 +142,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         self::FIELD_INSIGHT,
         'tese',
         self::FIELD_HIPOTESE,
-        'principio',
+        self::FIELD_PRINCIPIO,
         'strategy',
         'strategic',
         'thesis',
@@ -228,7 +230,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         $hasSecretMarker = $this->flag($metadata, self::FIELD_HAS_SECRET_MARKER);
         $isQuestion = $this->flag($metadata, self::FIELD_IS_QUESTION);
         $imperativeVerb = $this->flag($metadata, self::FIELD_IMPERATIVE_VERB);
-        $privacyHint = $this->flag($metadata, 'privacy_hint');
+        $privacyHint = $this->flag($metadata, self::FIELD_PRIVACY_HINT);
         $recurrenceCount = $this->intFlag($metadata, 'recurrence_count');
 
         $normalized = $this->normalizeText($text);

@@ -99,6 +99,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_DECISAO = 'decisao';
     public const FIELD_COMPARE = 'compare';
     public const FIELD_DOC = 'doc';
+    public const FIELD_DOCUMENTA = 'documenta';
+    public const FIELD_DOCUMENTO = 'documento';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -124,7 +126,7 @@ final class AtlasCognitiveFunctionDecomposerService
         self::FIELD_RETRIEVAL => [
             'busque', 'procure', 'encontre', 'pesquise', 'mostre', 'liste',
             'recupere', 'lookup', 'qual e', 'quais sao', self::FIELD_CITE, self::FIELD_CADASTR,
-            'documenta', 'memoria', 'search', 'find', 'show',
+            self::FIELD_DOCUMENTA, 'memoria', 'search', 'find', 'show',
         ],
         self::FIELD_GENERATION => [
             'escreva', 'redija', 'crie', self::FIELD_COMPONHA, 'rascunhe', 'gere',
@@ -147,7 +149,7 @@ final class AtlasCognitiveFunctionDecomposerService
         self::FIELD_AUDIT => [
             'audite', self::FIELD_AUDITA, 'audit', 'verifique', 'valide', 'cheque',
             'inspecione', 'governance', 'invariant', 'kernel', self::FIELD_CARTOGRAFIA,
-            self::FIELD_DOC, 'documento', self::FIELD_COMPLIANCE, 'evidence', 'evidencia',
+            self::FIELD_DOC, self::FIELD_DOCUMENTO, self::FIELD_COMPLIANCE, 'evidence', 'evidencia',
             'integrity', 'tamper', self::FIELD_SHA256, 'hash ', 'verify',
         ],
     ];

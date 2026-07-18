@@ -23,6 +23,8 @@ final class FactPairPolarityContradictionDetector
     public const FIELD_VALUE = 'value';
     public const FIELD_PREDICATE = 'predicate';
     public const FIELD_SUBJECT = 'subject';
+    public const FIELD_HARD_NEGATION_CONTRADICTION = 'hard_negation_contradiction';
+    public const FIELD_NONE = 'none';
     /**
      * @param  array{subject?:mixed, predicate?:mixed, negated?:mixed, value?:mixed}  $factA
      * @param  array{subject?:mixed, predicate?:mixed, negated?:mixed, value?:mixed}  $factB
@@ -43,7 +45,7 @@ final class FactPairPolarityContradictionDetector
 
         // (2) Same claim asserted with opposite polarity -> hard negation contradiction.
         if ($negatedA !== $negatedB) {
-            return $this->result(true, 'hard_negation_contradiction');
+            return $this->result(true, self::FIELD_HARD_NEGATION_CONTRADICTION);
         }
 
         $valueA = $this->value($factA);
@@ -55,7 +57,7 @@ final class FactPairPolarityContradictionDetector
         }
 
         // (4) Otherwise the pair is consistent.
-        return $this->result(false, 'none');
+        return $this->result(false, self::FIELD_NONE);
     }
 
     /**

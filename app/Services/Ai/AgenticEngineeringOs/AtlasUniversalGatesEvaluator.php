@@ -11382,4 +11382,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B447).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function cognitionScoreAaeosHttpAcosWindowFactPairFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'programming' => AtlasCognitionScoreCardV4Grouper::FIELD_PROGRAMMING,
+            'patamar4' => AtlasCognitionScoreCardV4Grouper::FIELD_PATAMAR4,
+            'current_mode' => AtlasAaeosHttpPathFacadeService::FIELD_CURRENT_MODE,
+            'domain_id' => AtlasAaeosHttpPathFacadeService::FIELD_DOMAIN_ID,
+            'rationale' => AtlasAcosWindowGatesService::FIELD_RATIONALE,
+            'relation_density' => AtlasAcosWindowGatesService::FIELD_RELATION_DENSITY,
+            'hard_negation_contradiction' => FactPairPolarityContradictionDetector::FIELD_HARD_NEGATION_CONTRADICTION,
+            'none' => FactPairPolarityContradictionDetector::FIELD_NONE,
+            'documenta' => AtlasCognitiveFunctionDecomposerService::FIELD_DOCUMENTA,
+            'documento' => AtlasCognitiveFunctionDecomposerService::FIELD_DOCUMENTO,
+            'forge_parallel_agent_count' => DepartmentContractRuntime::FIELD_FORGE_PARALLEL_AGENT_COUNT,
+            'learning_signal_extracted' => DepartmentContractRuntime::FIELD_LEARNING_SIGNAL_EXTRACTED,
+            'principio' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PRINCIPIO,
+            'privacy_hint' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PRIVACY_HINT,
+            'context_quality' => AtlasCognitionScoreCardService::FIELD_CONTEXT_QUALITY,
+            'evidence' => AtlasCognitionScoreCardService::FIELD_EVIDENCE,
+            'promotion_mode_hint' => CognitiveImmunePromotionGateEvaluator::FIELD_PROMOTION_MODE_HINT,
+            'provenance_cycle_detected' => CognitiveImmunePromotionGateEvaluator::FIELD_PROVENANCE_CYCLE_DETECTED,
+            'cognition_score_aaeos_http_acos_window_fact_pair_floor_count' => 18,
+        ];
+    }
+
 }
