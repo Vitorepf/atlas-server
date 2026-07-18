@@ -14399,4 +14399,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b668_golden_counterfactual_floor_count']);
     }
 
+    public function test_b669_dev_procedural_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b669DevProceduralFloorsContractObserve([]);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_EPISODE_ID, $out['episode_id']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_FIELDS, $out['fields']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::ADAPTER_KIND, $out['dev_procedural']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::NATIVE_SCHEMA_VERSION, $out['atlas.dev.outcome_memory.v1']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FALLBACK_RUN_ID, $out['unknown']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::NATIVE_NEEDS_REVIEW, $out['needs_review']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::STATUS_ABSENT, $out['absent']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_VERIFIED, $out['verified']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_PROVEN_REAL, $out['proven_real']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_FAKE_GREEN, $out['fake_green']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_SHOULD_PROMOTE_TO_AEMOR, $out['should_promote_to_aemor']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_OUTCOME_STATUS, $out['outcome_status']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_SELECTED_TESTS, $out['selected_tests']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_RUN_ID, $out['run_id']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_PROOF_REASON, $out['proof_reason']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_LEARNING_CANDIDATES, $out['learning_candidates']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_EVIDENCE_KINDS, $out['evidence_kinds']);
+        $this->assertSame(DevProceduralOutcomeEnvelopeAdapter::FIELD_CHANGED_FILES, $out['changed_files']);
+        $this->assertSame(18, $out['b669_dev_procedural_floor_count']);
+    }
+
 }

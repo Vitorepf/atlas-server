@@ -18187,4 +18187,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B669).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b669DevProceduralFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'episode_id' => DevProceduralOutcomeEnvelopeAdapter::FIELD_EPISODE_ID,
+            'fields' => DevProceduralOutcomeEnvelopeAdapter::FIELD_FIELDS,
+            'dev_procedural' => DevProceduralOutcomeEnvelopeAdapter::ADAPTER_KIND,
+            'atlas.dev.outcome_memory.v1' => DevProceduralOutcomeEnvelopeAdapter::NATIVE_SCHEMA_VERSION,
+            'unknown' => DevProceduralOutcomeEnvelopeAdapter::FALLBACK_RUN_ID,
+            'needs_review' => DevProceduralOutcomeEnvelopeAdapter::NATIVE_NEEDS_REVIEW,
+            'absent' => DevProceduralOutcomeEnvelopeAdapter::STATUS_ABSENT,
+            'verified' => DevProceduralOutcomeEnvelopeAdapter::FIELD_VERIFIED,
+            'proven_real' => DevProceduralOutcomeEnvelopeAdapter::FIELD_PROVEN_REAL,
+            'fake_green' => DevProceduralOutcomeEnvelopeAdapter::FIELD_FAKE_GREEN,
+            'should_promote_to_aemor' => DevProceduralOutcomeEnvelopeAdapter::FIELD_SHOULD_PROMOTE_TO_AEMOR,
+            'outcome_status' => DevProceduralOutcomeEnvelopeAdapter::FIELD_OUTCOME_STATUS,
+            'selected_tests' => DevProceduralOutcomeEnvelopeAdapter::FIELD_SELECTED_TESTS,
+            'run_id' => DevProceduralOutcomeEnvelopeAdapter::FIELD_RUN_ID,
+            'proof_reason' => DevProceduralOutcomeEnvelopeAdapter::FIELD_PROOF_REASON,
+            'learning_candidates' => DevProceduralOutcomeEnvelopeAdapter::FIELD_LEARNING_CANDIDATES,
+            'evidence_kinds' => DevProceduralOutcomeEnvelopeAdapter::FIELD_EVIDENCE_KINDS,
+            'changed_files' => DevProceduralOutcomeEnvelopeAdapter::FIELD_CHANGED_FILES,
+            'b669_dev_procedural_floor_count' => 18,
+        ];
+    }
+
 }
