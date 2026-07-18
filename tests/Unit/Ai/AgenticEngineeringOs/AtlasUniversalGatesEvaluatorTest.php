@@ -4905,4 +4905,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     }
 
 
+    public function test_ncapture_promoter_jina_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->ncapturePromoterJinaFloorsContractObserve([]);
+
+        $this->assertSame('admission', $payload['ncapture_field_admission']);
+        $this->assertSame('admitted', $payload['ncapture_field_admitted']);
+        $this->assertSame('admitted_count', $payload['ncapture_field_admitted_count']);
+        $this->assertSame('aggregate', $payload['ncapture_field_aggregate']);
+        $this->assertSame('author_engine_id', $payload['ncapture_field_author_engine_id']);
+        $this->assertSame('bypass', $payload['ncapture_field_bypass']);
+        $this->assertSame('attempts', $payload['promoter_field_attempts']);
+        $this->assertSame('author_engine', $payload['promoter_field_author_engine']);
+        $this->assertSame('auto_promotion_allowed', $payload['promoter_field_auto_promotion_allowed']);
+        $this->assertSame('body', $payload['promoter_field_body']);
+        $this->assertSame('candidate_id', $payload['promoter_field_candidate_id']);
+        $this->assertSame('candidates', $payload['promoter_field_candidates']);
+        $this->assertSame('ab_green_claim_allowed', $payload['jina_field_ab_green_claim_allowed']);
+        $this->assertSame('allowed', $payload['jina_field_allowed']);
+        $this->assertSame('applied_to_live', $payload['jina_field_applied_to_live']);
+        $this->assertSame('baseline', $payload['jina_field_baseline']);
+        $this->assertSame('basis', $payload['jina_field_basis']);
+        $this->assertSame(17, $payload['ncapture_promoter_jina_floor_count']);
+    }
+
+
 }

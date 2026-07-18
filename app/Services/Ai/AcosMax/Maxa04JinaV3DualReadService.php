@@ -50,6 +50,11 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_CANDIDATE_MODEL = 'candidate_model';
     public const FIELD_CTX_TOKENS = 'ctx_tokens';
     public const FIELD_POOLING = 'pooling';
+    public const FIELD_AB_GREEN_CLAIM_ALLOWED = 'ab_green_claim_allowed';
+    public const FIELD_ALLOWED = 'allowed';
+    public const FIELD_APPLIED_TO_LIVE = 'applied_to_live';
+    public const FIELD_BASELINE = 'baseline';
+    public const FIELD_BASIS = 'basis';
 
 
     /** @return array<string,mixed> */
@@ -88,10 +93,10 @@ final class Maxa04JinaV3DualReadService
             ],
             'dual_read' => [
                 'required' => true,
-                'baseline' => 'current_embedding_model',
+                self::FIELD_BASELINE => 'current_embedding_model',
                 'candidate' => 'jina_v3_reembedded_shadow_index',
                 'ledger_path' => $this->storagePath(Maxa04JinaV3DualReadLedger::RELATIVE_PATH),
-                'ab_green_claim_allowed' => false,
+                self::FIELD_AB_GREEN_CLAIM_ALLOWED => false,
             ],
             'reembed_path' => [
                 'mode' => self::MODE_SHADOW_ONLY,
@@ -105,7 +110,7 @@ final class Maxa04JinaV3DualReadService
                 'default_model_unchanged' => true,
             ],
             self::FIELD_DEFAULT_PROMOTED => false,
-            'applied_to_live' => false,
+            self::FIELD_APPLIED_TO_LIVE => false,
             self::STATUS_PENDING_WINDOW => self::PENDING_WINDOW,
         ];
     }
@@ -227,8 +232,8 @@ final class Maxa04JinaV3DualReadService
     private function promotionBlock(): array
     {
         return [
-            'allowed' => false,
-            'basis' => self::STATUS_PENDING_WINDOW,
+            self::FIELD_ALLOWED => false,
+            self::FIELD_BASIS => self::STATUS_PENDING_WINDOW,
             self::FIELD_DEFAULT_PROMOTED => false,
             'live_flip_performed' => false,
             self::FIELD_REASON => 'MAXA-04 only lands the dual-read/re-embed mechanism; promotion requires a later operator-reviewed benchmark window.',

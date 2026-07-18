@@ -81,6 +81,12 @@ final class AtlasNCaptureDrillService
     public const FIELD_BYPASS_FORBIDDEN = 'bypass_forbidden';
     public const FIELD_YARDSTICK_REQUIRED_SERIES = 'yardstick_required_series';
     public const FIELD_PEEK_ONLY = 'peek_only';
+    public const FIELD_ADMISSION = 'admission';
+    public const FIELD_ADMITTED = 'admitted';
+    public const FIELD_ADMITTED_COUNT = 'admitted_count';
+    public const FIELD_AGGREGATE = 'aggregate';
+    public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
+    public const FIELD_BYPASS = 'bypass';
 
     private readonly string $ledgerPath;
 
@@ -120,7 +126,7 @@ final class AtlasNCaptureDrillService
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
             'ttl_days' => 365,
-            'author_engine_id' => 'cursor-acos-max-teto01',
+            self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-teto01',
             'judge_engine_id' => 'codex-independent-teto01-judge',
             'dual_read_required' => false,
             'series_registry' => [
@@ -172,10 +178,10 @@ final class AtlasNCaptureDrillService
                 'routed_tasks_observed' => (int) data_get($drill, 'denominators.routed_tasks_observed', 0),
                 'proven_real_outcomes_observed' => (int) data_get($drill, 'denominators.proven_real_outcomes_observed', 0),
             ],
-            'admission' => [
-                'admitted' => (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.admitted')) ?? false),
+            self::FIELD_ADMISSION => [
+                self::FIELD_ADMITTED => (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.admitted')) ?? false),
                 'cold_start_via' => data_get($drill, 'admission.cold_start_via'),
-                'bypass' => (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.bypass')) ?? false),
+                self::FIELD_BYPASS => (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.bypass')) ?? false),
                 self::FIELD_REASON => data_get($drill, 'admission.reason'),
             ],
             'trigger' => (AiValueNormalizer::trimmedStringOrNull($drill['trigger'] ?? null) ?? self::TRIGGER_UNKNOWN),
@@ -247,9 +253,9 @@ final class AtlasNCaptureDrillService
             self::FIELD_STATUS => $status,
             self::FIELD_REASON => $reason,
             self::FIELD_DENOMINATOR_MIN => (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? 0),
-            'aggregate' => [
+            self::FIELD_AGGREGATE => [
                 'drills_in_window' => count($inWindow),
-                'admitted_count' => count($admitted),
+                self::FIELD_ADMITTED_COUNT => count($admitted),
                 'refused_count' => count($refused),
                 'engines' => $engines,
             ],

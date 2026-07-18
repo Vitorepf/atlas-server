@@ -6669,6 +6669,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function ncapturePromoterJinaFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ncapture_field_admission' => AtlasNCaptureDrillService::FIELD_ADMISSION,
+            'ncapture_field_admitted' => AtlasNCaptureDrillService::FIELD_ADMITTED,
+            'ncapture_field_admitted_count' => AtlasNCaptureDrillService::FIELD_ADMITTED_COUNT,
+            'ncapture_field_aggregate' => AtlasNCaptureDrillService::FIELD_AGGREGATE,
+            'ncapture_field_author_engine_id' => AtlasNCaptureDrillService::FIELD_AUTHOR_ENGINE_ID,
+            'ncapture_field_bypass' => AtlasNCaptureDrillService::FIELD_BYPASS,
+            'promoter_field_attempts' => AcosMaxProceduralSkillPromoterService::FIELD_ATTEMPTS,
+            'promoter_field_author_engine' => AcosMaxProceduralSkillPromoterService::FIELD_AUTHOR_ENGINE,
+            'promoter_field_auto_promotion_allowed' => AcosMaxProceduralSkillPromoterService::FIELD_AUTO_PROMOTION_ALLOWED,
+            'promoter_field_body' => AcosMaxProceduralSkillPromoterService::FIELD_BODY,
+            'promoter_field_candidate_id' => AcosMaxProceduralSkillPromoterService::FIELD_CANDIDATE_ID,
+            'promoter_field_candidates' => AcosMaxProceduralSkillPromoterService::FIELD_CANDIDATES,
+            'jina_field_ab_green_claim_allowed' => Maxa04JinaV3DualReadService::FIELD_AB_GREEN_CLAIM_ALLOWED,
+            'jina_field_allowed' => Maxa04JinaV3DualReadService::FIELD_ALLOWED,
+            'jina_field_applied_to_live' => Maxa04JinaV3DualReadService::FIELD_APPLIED_TO_LIVE,
+            'jina_field_baseline' => Maxa04JinaV3DualReadService::FIELD_BASELINE,
+            'jina_field_basis' => Maxa04JinaV3DualReadService::FIELD_BASIS,
+            'ncapture_promoter_jina_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

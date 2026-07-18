@@ -312,6 +312,7 @@ final class AtlasAaeosCommand extends Command
         {--decay-portfolio-spec-floors-contract= : JSON file (any object) to observe decay/portfolio/spec residual floors}
         {--composed-promotion-ragx-floors-contract= : JSON file (any object) to observe composed/promotion/ragx residual floors}
         {--http-cockpit-facade-floors-contract= : JSON file (any object) to observe http/cockpit/facade residual floors}
+        {--ncapture-promoter-jina-floors-contract= : JSON file (any object) to observe ncapture/promoter/jina residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -780,6 +781,7 @@ final class AtlasAaeosCommand extends Command
             ['decay-portfolio-spec-floors-contract', 'decay_portfolio_spec_floors_contract', fn (array $p) => $gates->decayPortfolioSpecFloorsContractObserve($p)],
             ['composed-promotion-ragx-floors-contract', 'composed_promotion_ragx_floors_contract', fn (array $p) => $gates->composedPromotionRagxFloorsContractObserve($p)],
             ['http-cockpit-facade-floors-contract', 'http_cockpit_facade_floors_contract', fn (array $p) => $gates->httpCockpitFacadeFloorsContractObserve($p)],
+            ['ncapture-promoter-jina-floors-contract', 'ncapture_promoter_jina_floors_contract', fn (array $p) => $gates->ncapturePromoterJinaFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

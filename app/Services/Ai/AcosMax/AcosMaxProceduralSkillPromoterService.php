@@ -74,6 +74,12 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_TOTALS = 'totals';
     public const FIELD_PROCEDURAL_PLAYBOOKS = 'procedural_playbooks';
     public const FIELD_FLOOR_MET = 'floor_met';
+    public const FIELD_ATTEMPTS = 'attempts';
+    public const FIELD_AUTHOR_ENGINE = 'author_engine';
+    public const FIELD_AUTO_PROMOTION_ALLOWED = 'auto_promotion_allowed';
+    public const FIELD_BODY = 'body';
+    public const FIELD_CANDIDATE_ID = 'candidate_id';
+    public const FIELD_CANDIDATES = 'candidates';
 
 
     public function __construct(
@@ -134,7 +140,7 @@ final class AcosMaxProceduralSkillPromoterService
                 'floor_pending' => count($candidates) - count($eligible),
                 self::FIELD_ENQUEUED => count($enqueued),
             ],
-            'candidates' => $candidates,
+            self::FIELD_CANDIDATES => $candidates,
             self::FIELD_ENQUEUED => $enqueued,
             self::FIELD_GATE => [
                 self::FIELD_ADMISSION_DOOR => self::ADMISSION_DOOR_ASI02,
@@ -151,7 +157,7 @@ final class AcosMaxProceduralSkillPromoterService
                 'queue' => self::QUEUE_AI_LEARNING_CANDIDATES,
                 self::FIELD_ADMISSION_DOOR => self::ADMISSION_DOOR_ASI02,
                 self::FIELD_PROMOTION_ALLOWED => false,
-                'auto_promotion_allowed' => false,
+                self::FIELD_AUTO_PROMOTION_ALLOWED => false,
                 'skill_files_written' => false,
                 'provider_calls_made' => false,
             ],
@@ -169,7 +175,7 @@ final class AcosMaxProceduralSkillPromoterService
      */
     private function candidatePayload(ProceduralPlaybook $playbook, array $row, int $floor): array
     {
-        $caseCount = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($row['attempts'] ?? null) ?? 0));
+        $caseCount = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_ATTEMPTS] ?? null) ?? 0));
         $skillName = $this->skillName($playbook->taskCategory);
         $candidateHash = hash('sha256', self::SCHEMA_VERSION.'|'.$playbook->key().'|'.self::SKILL_SCHEMA_VERSION);
 
@@ -201,7 +207,7 @@ final class AcosMaxProceduralSkillPromoterService
                     self::FIELD_TASK_CATEGORY => $playbook->taskCategory,
                     self::FIELD_CASE_COUNT => $caseCount,
                 ],
-                'body' => [
+                self::FIELD_BODY => [
                     'objective' => $playbook->objective,
                     'steps' => $playbook->steps,
                     'postconditions' => $playbook->postconditions,
@@ -243,7 +249,7 @@ final class AcosMaxProceduralSkillPromoterService
                     self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
                     self::FIELD_SOURCE => [
                         self::FIELD_SLICE => self::SLICE_MULTJ04,
-                        'author_engine' => 'procedural_skill_promoter',
+                        self::FIELD_AUTHOR_ENGINE => 'procedural_skill_promoter',
                         'frontier_promotes' => false,
                         self::FIELD_ADMISSION_DOOR => self::ADMISSION_DOOR_ASI02,
                     ],
@@ -258,7 +264,7 @@ final class AcosMaxProceduralSkillPromoterService
         );
 
         return [
-            'candidate_id' => AiValueNormalizer::trimmedStringOrNull($row->id) ?? '',
+            self::FIELD_CANDIDATE_ID => AiValueNormalizer::trimmedStringOrNull($row->id) ?? '',
             self::FIELD_CANDIDATE_HASH => $candidateHash,
             self::FIELD_SKILL_NAME => AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_SKILL_NAME] ?? null) ?? '',
             self::FIELD_PROMOTION_ALLOWED => false,
