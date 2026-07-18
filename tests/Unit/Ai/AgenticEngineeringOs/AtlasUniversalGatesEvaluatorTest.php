@@ -17078,4 +17078,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b775_aaeos_test_floor_count']);
     }
 
+    public function test_b776_aaeos_department_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b776AaeosDepartmentFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::SCHEMA_VERSION, $out['atlas.aaeos.department_maturity.v1']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::LAST_EVALUATION, $out['2026-05-26T00:00:00+00:00']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::NEXT_EVALUATION_DUE, $out['2026-06-26T00:00:00+00:00']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::OWNER, $out['atlas-ai']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENT_ID, $out['department_id']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_CURRENT_LEVEL, $out['current_level']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_BLOCKER_ID, $out['blocker_id']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_BLOCKER_SUMMARY, $out['blocker_summary']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_BLOCKER_SEVERITY, $out['blocker_severity']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_OWNER, $out['owner']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_BLOCKERS_TO_NEXT, $out['blockers_to_next']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SUMMARY, $out['summary']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SIGNALS, $out['signals']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENT, $out['department']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENTS, $out['departments']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_LAST_EVALUATION, $out['last_evaluation']);
+        $this->assertSame(18, $out['b776_aaeos_department_floor_count']);
+    }
+
 }

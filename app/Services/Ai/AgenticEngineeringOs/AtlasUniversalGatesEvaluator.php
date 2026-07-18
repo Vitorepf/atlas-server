@@ -21504,4 +21504,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B776).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b776AaeosDepartmentFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.aaeos.department_maturity.v1' => AtlasAaeosDepartmentMaturityService::SCHEMA_VERSION,
+            '2026-05-26T00:00:00+00:00' => AtlasAaeosDepartmentMaturityService::LAST_EVALUATION,
+            '2026-06-26T00:00:00+00:00' => AtlasAaeosDepartmentMaturityService::NEXT_EVALUATION_DUE,
+            'atlas-ai' => AtlasAaeosDepartmentMaturityService::OWNER,
+            'department_id' => AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENT_ID,
+            'current_level' => AtlasAaeosDepartmentMaturityService::FIELD_CURRENT_LEVEL,
+            'evidence' => AtlasAaeosDepartmentMaturityService::FIELD_EVIDENCE,
+            'blocker_id' => AtlasAaeosDepartmentMaturityService::FIELD_BLOCKER_ID,
+            'blocker_summary' => AtlasAaeosDepartmentMaturityService::FIELD_BLOCKER_SUMMARY,
+            'blocker_severity' => AtlasAaeosDepartmentMaturityService::FIELD_BLOCKER_SEVERITY,
+            'owner' => AtlasAaeosDepartmentMaturityService::FIELD_OWNER,
+            'blockers_to_next' => AtlasAaeosDepartmentMaturityService::FIELD_BLOCKERS_TO_NEXT,
+            'summary' => AtlasAaeosDepartmentMaturityService::FIELD_SUMMARY,
+            'signals' => AtlasAaeosDepartmentMaturityService::FIELD_SIGNALS,
+            'department' => AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENT,
+            'departments' => AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENTS,
+            'id' => AtlasAaeosDepartmentMaturityService::FIELD_ID,
+            'last_evaluation' => AtlasAaeosDepartmentMaturityService::FIELD_LAST_EVALUATION,
+            'b776_aaeos_department_floor_count' => 18,
+        ];
+    }
+
 }
