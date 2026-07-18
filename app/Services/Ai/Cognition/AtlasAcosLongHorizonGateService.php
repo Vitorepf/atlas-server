@@ -174,6 +174,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_SERIES_V2_GAP_EXCEEDS_FLOOR = 'series_v2_gap_exceeds_floor';
     public const FIELD_SERIES_V2_WINDOW_STALE = 'series_v2_window_stale';
     public const FIELD_SHA256 = 'sha256';
+    public const FIELD_PIPELINE_SCORE_BELOW_FLOOR = 'pipeline_score_below_floor';
+    public const FIELD_PIPELINE_SCORE_NEAR_FLOOR = 'pipeline_score_near_floor';
 
     /**
      * @param  array<string,mixed>  $options
@@ -434,7 +436,7 @@ final class AtlasAcosLongHorizonGateService
             $blockers[] = 'scorecard_overall_below_floor';
         }
         if ($pipeline < $minPipeline) {
-            $blockers[] = 'pipeline_score_below_floor';
+            $blockers[] = self::FIELD_PIPELINE_SCORE_BELOW_FLOOR;
         }
         if ($scorecardHash === '' || ! str_starts_with($scorecardHash, 'sha256:')) {
             $blockers[] = 'scorecard_hash_missing';
@@ -464,7 +466,7 @@ final class AtlasAcosLongHorizonGateService
             $warnings[] = 'scorecard_overall_near_floor';
         }
         if ($pipeline < ($minPipeline + $warningMargin)) {
-            $warnings[] = 'pipeline_score_near_floor';
+            $warnings[] = self::FIELD_PIPELINE_SCORE_NEAR_FLOOR;
         }
 
         return array_merge($this->windowIntegrityProjection($window, $seriesPath, $resolvedEvidenceRows), [

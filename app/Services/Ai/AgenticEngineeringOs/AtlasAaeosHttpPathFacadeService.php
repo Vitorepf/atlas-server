@@ -128,6 +128,8 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD_FLOW_ID = 'flow_id';
     public const FIELD_LEGACY = 'legacy';
     public const FIELD_SURFACE_ID = 'surface_id';
+    public const FIELD_AAEOS_HTTP_PATH_PHASE_1_EMPTY_INTENT = 'aaeos_http_path_phase_1_empty_intent';
+    public const FIELD_ATLAS_MODE = 'atlas_mode';
 
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
 
@@ -377,7 +379,7 @@ final class AtlasAaeosHttpPathFacadeService
             return [$cached, true];
         }
 
-        $feature = $intentText !== '' ? $intentText : 'aaeos_http_path_phase_1_empty_intent';
+        $feature = $intentText !== '' ? $intentText : self::FIELD_AAEOS_HTTP_PATH_PHASE_1_EMPTY_INTENT;
         $hints = $this->placementHintsForRequest($data);
         $result = $this->placement->place($feature, $hints);
 
@@ -396,7 +398,7 @@ final class AtlasAaeosHttpPathFacadeService
     {
         $payload = self::requestPayload($data);
         $hints = [];
-        foreach (['atlas_mode', self::FIELD_CURRENT_MODE, self::FIELD_FLOW_ID, self::FIELD_DOMAIN_ID, self::FIELD_SURFACE_ID, self::FIELD_APP_SURFACE, 'routing_task'] as $key) {
+        foreach ([self::FIELD_ATLAS_MODE, self::FIELD_CURRENT_MODE, self::FIELD_FLOW_ID, self::FIELD_DOMAIN_ID, self::FIELD_SURFACE_ID, self::FIELD_APP_SURFACE, 'routing_task'] as $key) {
             $value = AiValueNormalizer::trimmedStringOrNull($payload[$key] ?? null);
             if ($value !== null) {
                 $hints[] = $key.'='.$value;

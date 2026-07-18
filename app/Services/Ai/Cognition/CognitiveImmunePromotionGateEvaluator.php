@@ -104,6 +104,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_CONSENT_PRIVACY_RETENTION_UNCONFIRMED = 'consent_privacy_retention_unconfirmed';
     public const FIELD_CONTRADICTION_UNEVALUATED = 'contradiction_unevaluated';
     public const FIELD_CONTRADICTS_NEWER_AUTHORITY = 'contradicts_newer_authority';
+    public const FIELD_FUTURE_SIGNAL_UNCONFIRMED = 'future_signal_unconfirmed';
+    public const FIELD_GATE_UNKNOWN = 'gate_unknown';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -193,7 +195,7 @@ final class CognitiveImmunePromotionGateEvaluator
             'G6' => $this->scopeGate($signals),
             'G7' => $this->promotionModeGate($signals),
             'G8' => $this->probationGate($signals, $candidatePresent),
-            default => [self::STATUS_PENDING, 'gate_unknown'],
+            default => [self::STATUS_PENDING, self::FIELD_GATE_UNKNOWN],
         };
     }
 
@@ -246,7 +248,7 @@ final class CognitiveImmunePromotionGateEvaluator
 
         return $confirmed
             ? [self::STATUS_PASS, '']
-            : [self::STATUS_PENDING, 'future_signal_unconfirmed'];
+            : [self::STATUS_PENDING, self::FIELD_FUTURE_SIGNAL_UNCONFIRMED];
     }
 
     /**

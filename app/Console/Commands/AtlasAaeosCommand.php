@@ -491,6 +491,7 @@ final class AtlasAaeosCommand extends Command
                             {--memory-feedback-aaeos-gate-local-model-flywheel-funnel-floors-contract= : JSON file (any object) to observe memory/feedback/aaeos/gate/local/model floors}
                             {--ragx-chain-acos-rollback-immune-hybrid-signature-department-floors-contract= : JSON file (any object) to observe ragx/chain/acos/rollback/immune/hybrid floors}
                             {--department-contract-acos-watchdog-immune-promotion-cognitive-function-floors-contract= : JSON file (any object) to observe department/contract/acos/watchdog/immune/promotion floors}
+                            {--aaeos-http-department-contract-acos-watchdog-immune-promotion-floors-contract= : JSON file (any object) to observe aaeos/http/department/contract/acos/watchdog floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1138,6 +1139,7 @@ final class AtlasAaeosCommand extends Command
             ['memory-feedback-aaeos-gate-local-model-flywheel-funnel-floors-contract', 'memory_feedback_aaeos_gate_local_model_flywheel_funnel_floors_contract', fn (array $p) => $gates->memoryFeedbackAaeosGateLocalModelFlywheelFunnelFloorsContractObserve($p)],
             ['ragx-chain-acos-rollback-immune-hybrid-signature-department-floors-contract', 'ragx_chain_acos_rollback_immune_hybrid_signature_department_floors_contract', fn (array $p) => $gates->ragxChainAcosRollbackImmuneHybridSignatureDepartmentFloorsContractObserve($p)],
             ['department-contract-acos-watchdog-immune-promotion-cognitive-function-floors-contract', 'department_contract_acos_watchdog_immune_promotion_cognitive_function_floors_contract', fn (array $p) => $gates->departmentContractAcosWatchdogImmunePromotionCognitiveFunctionFloorsContractObserve($p)],
+            ['aaeos-http-department-contract-acos-watchdog-immune-promotion-floors-contract', 'aaeos_http_department_contract_acos_watchdog_immune_promotion_floors_contract', fn (array $p) => $gates->aaeosHttpDepartmentContractAcosWatchdogImmunePromotionFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

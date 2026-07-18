@@ -183,6 +183,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_WRITE = 'write';
     public const FIELD_DRAFT = 'draft';
     public const FIELD_AUDITE = 'audite';
+    public const FIELD_BUSQUE = 'busque';
+    public const FIELD_CODIGO = 'codigo';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -206,7 +208,7 @@ final class AtlasCognitiveFunctionDecomposerService
             self::FIELD_RACIOCINE, self::FIELD_INVESTIGUE, self::FIELD_WHY, 'reason',
         ],
         self::FIELD_RETRIEVAL => [
-            'busque', self::FIELD_PROCURE, self::FIELD_ENCONTRE, self::FIELD_PESQUISE, self::FIELD_MOSTRE, self::FIELD_LISTE,
+            self::FIELD_BUSQUE, self::FIELD_PROCURE, self::FIELD_ENCONTRE, self::FIELD_PESQUISE, self::FIELD_MOSTRE, self::FIELD_LISTE,
             self::FIELD_RECUPERE, self::FIELD_LOOKUP, 'qual e', 'quais sao', self::FIELD_CITE, self::FIELD_CADASTR,
             self::FIELD_DOCUMENTA, self::FIELD_MEMORIA, self::FIELD_SEARCH, self::FIELD_FIND, self::FIELD_SHOW,
         ],
@@ -216,7 +218,7 @@ final class AtlasCognitiveFunctionDecomposerService
             self::FIELD_NARRE, self::FIELD_DESCREVA, self::FIELD_COMPOSE, self::FIELD_WRITE, self::FIELD_DRAFT, self::FIELD_SUMMARIZE,
         ],
         self::FIELD_CODE => [
-            'codigo', self::FIELD_CODIFIQUE, self::FIELD_IMPLEMENTE, self::FIELD_REFATORE, 'debug', 'teste',
+            self::FIELD_CODIGO, self::FIELD_CODIFIQUE, self::FIELD_IMPLEMENTE, self::FIELD_REFATORE, 'debug', 'teste',
             self::FIELD_COMPILE, self::FIELD_EXECUTE, self::FIELD_RODE, self::FIELD_RODAR, self::FIELD_PHP, self::FIELD_TYPESCRIPT, self::FIELD_REACT,
             self::FIELD_COMPONENTE, self::FIELD_SERVICO, self::FIELD_CLASSE, self::FIELD_FUNCAO, self::FIELD_CONTROLLER, self::FIELD_CLI,
             self::FIELD_ARTISAN, self::FIELD_MIGRATION, self::FIELD_COMPOSER, self::FIELD_NPM, self::FIELD_PHPUNIT, self::FIELD_PEST,

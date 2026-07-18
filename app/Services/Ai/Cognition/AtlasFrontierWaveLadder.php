@@ -39,7 +39,7 @@ final class AtlasFrontierWaveLadder
     /** The three external-event kinds that count (obra20 §15). */
     public const EVENT_KINDS = [
         'pack_diff_merged',            // um pack que mudou um diff mergeado
-        'contradiction_prevented_error', // contradição que impediu erro real
+        self::FIELD_CONTRADICTION_PREVENTED_ERROR, // contradição que impediu erro real
         'memory_cited_by_foreign_session', // memória citada por sessão que não a gerou
     ];
 
@@ -65,6 +65,8 @@ final class AtlasFrontierWaveLadder
     public const FIELD_DEPRECIACAO = 'depreciacao';
     public const FIELD_ONDA_4 = 'onda_4';
     public const FIELD_STORAGE_PATH = 'storage_path';
+    public const FIELD_CONTRADICTION_PREVENTED_ERROR = 'contradiction_prevented_error';
+    public const FIELD_ECONOMIA = 'economia';
 
     /**
      * Waves in activation order (obra20 §Fase-0 + contexto-mestre §5).
@@ -76,7 +78,7 @@ final class AtlasFrontierWaveLadder
         [self::FIELD_KEY => self::FIELD_ONDA_1, self::FIELD_SYSTEMS => ['SIS2'], self::FIELD_SUMMARY => 'SIS2 ALIS self-host (TETO: soberania + custo R$0, NÃO paridade; juiz assimétrico junto)'],
         [self::FIELD_KEY => self::FIELD_ONDA_2, self::FIELD_SYSTEMS => ['SIS3', 'SIS5'], self::FIELD_SUMMARY => 'SIS3 causal ∥ SIS5 curiosidade + auto-construção fechada'],
         [self::FIELD_KEY => self::FIELD_ONDA_3, self::FIELD_SYSTEMS => ['SIS6', 'SIS7'], self::FIELD_SUMMARY => 'SIS6 fábrica de frotas ∥ SIS7 simbiose/multi-domínio (trading SHADOW-ONLY, execução real PROIBIDA)'],
-        [self::FIELD_KEY => self::FIELD_ONDA_4, self::FIELD_SYSTEMS => ['economia', self::FIELD_DEPRECIACAO, 'graduacao'], self::FIELD_SUMMARY => 'Economia de arms + depreciação + graduação em regime'],
+        [self::FIELD_KEY => self::FIELD_ONDA_4, self::FIELD_SYSTEMS => [self::FIELD_ECONOMIA, self::FIELD_DEPRECIACAO, 'graduacao'], self::FIELD_SUMMARY => 'Economia de arms + depreciação + graduação em regime'],
     ];
 
     private string $path;

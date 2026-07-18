@@ -335,6 +335,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_AI_RUN_OUTCOMES = 'ai_run_outcomes';
     public const FIELD_AURG_CROSS_LAYER_COVERAGE_BELOW_FLOOR = 'aurg_cross_layer_coverage_below_floor';
     public const FIELD_COMPACTION_VOLUME_BELOW_FLOOR = 'compaction_volume_below_floor';
+    public const FIELD_CONCENTRATION_MASKED_BY_DELIVERY_FILTER = 'concentration_masked_by_delivery_filter';
+    public const FIELD_CONTEXT_RETENTION_SCORE_BELOW_FLOOR = 'context_retention_score_below_floor';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -524,7 +526,7 @@ final class AtlasAcosWatchdogHealthService
         }
         if ($preFilterConcentration >= self::RAG_PRE_FILTER_CONCENTRATION_MASK_FLOOR
             && $retrievalEval >= self::RAG_RETRIEVAL_EVAL_FLOOR) {
-            $issues[] = 'concentration_masked_by_delivery_filter';
+            $issues[] = self::FIELD_CONCENTRATION_MASKED_BY_DELIVERY_FILTER;
         }
 
         return [
@@ -676,7 +678,7 @@ final class AtlasAcosWatchdogHealthService
             $blocking[] = 'critical_must_keep_shadow_cut';
         }
         if ($minRetention === null || $minRetention < self::COMPACTION_MIN_RETENTION_SCORE) {
-            $blocking[] = 'context_retention_score_below_floor';
+            $blocking[] = self::FIELD_CONTEXT_RETENTION_SCORE_BELOW_FLOOR;
         }
         if (($crossWeek[self::FIELD_CERTIFIED] ?? false) !== true) {
             $blocking[] = 'cross_week_recall_lift_not_certified';

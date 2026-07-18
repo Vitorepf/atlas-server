@@ -9469,4 +9469,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['department_contract_acos_watchdog_immune_promotion_cognitive_function_floor_count']);
     }
 
+    public function test_aaeos_http_department_contract_acos_watchdog_immune_promotion_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->aaeosHttpDepartmentContractAcosWatchdogImmunePromotionFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_AAEOS_HTTP_PATH_PHASE_1_EMPTY_INTENT, $out['aaeos_http_path_phase_1_empty_intent']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_ATLAS_MODE, $out['atlas_mode']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EVIDENCE_TRACEABLE, $out['evidence_traceable']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ACCEPTANCE_CRITERIA_MIN_3, $out['acceptance_criteria_min_3']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CONCENTRATION_MASKED_BY_DELIVERY_FILTER, $out['concentration_masked_by_delivery_filter']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CONTEXT_RETENTION_SCORE_BELOW_FLOOR, $out['context_retention_score_below_floor']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_FUTURE_SIGNAL_UNCONFIRMED, $out['future_signal_unconfirmed']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_GATE_UNKNOWN, $out['gate_unknown']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_BUSQUE, $out['busque']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CODIGO, $out['codigo']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IMPERATIVE_TASK, $out['imperative_task']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_OBRIGADO, $out['obrigado']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_LEARNING_CANDIDATE_MISSING, $out['learning_candidate_missing']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_OPERATOR_REQUEST_WINDOW_BELOW_FLOOR, $out['operator_request_window_below_floor']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_PIPELINE_SCORE_BELOW_FLOOR, $out['pipeline_score_below_floor']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_PIPELINE_SCORE_NEAR_FLOOR, $out['pipeline_score_near_floor']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_CONTRADICTION_PREVENTED_ERROR, $out['contradiction_prevented_error']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_ECONOMIA, $out['economia']);
+        $this->assertSame(18, $out['aaeos_http_department_contract_acos_watchdog_immune_promotion_floor_count']);
+    }
+
 }

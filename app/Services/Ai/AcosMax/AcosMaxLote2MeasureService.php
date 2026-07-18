@@ -267,6 +267,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_LINEAGE_LEDGER = 'lineage_ledger';
     public const FIELD_DECISION_RECEIPT_MISSING = 'decision_receipt_missing';
     public const FIELD_DELIVERED_CONTEXT_MISSING = 'delivered_context_missing';
+    public const FIELD_LEARNING_CANDIDATE_MISSING = 'learning_candidate_missing';
+    public const FIELD_OPERATOR_REQUEST_WINDOW_BELOW_FLOOR = 'operator_request_window_below_floor';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -511,7 +513,7 @@ final class AcosMaxLote2MeasureService
             $blockedBy[] = self::FIELD_DELIVERED_CONTEXT_MISSING;
         }
         if ($candidate === null) {
-            $blockedBy[] = 'learning_candidate_missing';
+            $blockedBy[] = self::FIELD_LEARNING_CANDIDATE_MISSING;
         }
         if ($recall === null) {
             $blockedBy[] = 'subsequent_measured_recall_missing';
@@ -1106,7 +1108,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_SCHEMA_VERSION => self::REPORT_SCHEMA,
             self::FIELD_SLICE => 'TETO-02',
             self::FIELD_STATUS => $total >= 20 ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SIGNAL,
-            self::FIELD_REASON => $total >= 20 ? null : 'operator_request_window_below_floor',
+            self::FIELD_REASON => $total >= 20 ? null : self::FIELD_OPERATOR_REQUEST_WINDOW_BELOW_FLOOR,
             self::FIELD_MEASURE_ID => self::TETO02_MEASURE_ID,
             self::FIELD_FORMULA_VERSION => 'mission_e2e_rate.v1',
             self::FIELD_GENERATED_AT => now()->toIso8601String(),

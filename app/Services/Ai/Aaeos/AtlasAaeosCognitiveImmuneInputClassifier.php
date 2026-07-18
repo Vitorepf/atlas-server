@@ -95,6 +95,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_BUG = 'bug';
     public const FIELD_EPHEMERAL_DEFAULT = 'ephemeral_default';
     public const FIELD_ESTRATEGIA = 'estrategia';
+    public const FIELD_IMPERATIVE_TASK = 'imperative_task';
+    public const FIELD_OBRIGADO = 'obrigado';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -218,7 +220,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
      * Markers for a low-value conversational trace.
      */
     public const CONVERSATION_MARKERS = [
-        'obrigado',
+        self::FIELD_OBRIGADO,
         self::FIELD_VALEU,
         self::FIELD_BELEZA,
         'tudo bem',
@@ -340,7 +342,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
 
         // 5. Recurrence / action / question shaping.
         if ($imperativeVerb) {
-            return [self::CLASS_TASK_OR_REMINDER, 'imperative_task'];
+            return [self::CLASS_TASK_OR_REMINDER, self::FIELD_IMPERATIVE_TASK];
         }
 
         if ($isQuestion) {

@@ -12065,4 +12065,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B469).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function aaeosHttpDepartmentContractAcosWatchdogImmunePromotionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'aaeos_http_path_phase_1_empty_intent' => AtlasAaeosHttpPathFacadeService::FIELD_AAEOS_HTTP_PATH_PHASE_1_EMPTY_INTENT,
+            'atlas_mode' => AtlasAaeosHttpPathFacadeService::FIELD_ATLAS_MODE,
+            'evidence_traceable' => DepartmentContractRuntime::FIELD_EVIDENCE_TRACEABLE,
+            'acceptance_criteria_min_3' => DepartmentContractRuntime::FIELD_ACCEPTANCE_CRITERIA_MIN_3,
+            'concentration_masked_by_delivery_filter' => AtlasAcosWatchdogHealthService::FIELD_CONCENTRATION_MASKED_BY_DELIVERY_FILTER,
+            'context_retention_score_below_floor' => AtlasAcosWatchdogHealthService::FIELD_CONTEXT_RETENTION_SCORE_BELOW_FLOOR,
+            'future_signal_unconfirmed' => CognitiveImmunePromotionGateEvaluator::FIELD_FUTURE_SIGNAL_UNCONFIRMED,
+            'gate_unknown' => CognitiveImmunePromotionGateEvaluator::FIELD_GATE_UNKNOWN,
+            'busque' => AtlasCognitiveFunctionDecomposerService::FIELD_BUSQUE,
+            'codigo' => AtlasCognitiveFunctionDecomposerService::FIELD_CODIGO,
+            'imperative_task' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IMPERATIVE_TASK,
+            'obrigado' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_OBRIGADO,
+            'learning_candidate_missing' => AcosMaxLote2MeasureService::FIELD_LEARNING_CANDIDATE_MISSING,
+            'operator_request_window_below_floor' => AcosMaxLote2MeasureService::FIELD_OPERATOR_REQUEST_WINDOW_BELOW_FLOOR,
+            'pipeline_score_below_floor' => AtlasAcosLongHorizonGateService::FIELD_PIPELINE_SCORE_BELOW_FLOOR,
+            'pipeline_score_near_floor' => AtlasAcosLongHorizonGateService::FIELD_PIPELINE_SCORE_NEAR_FLOOR,
+            'contradiction_prevented_error' => AtlasFrontierWaveLadder::FIELD_CONTRADICTION_PREVENTED_ERROR,
+            'economia' => AtlasFrontierWaveLadder::FIELD_ECONOMIA,
+            'aaeos_http_department_contract_acos_watchdog_immune_promotion_floor_count' => 18,
+        ];
+    }
+
 }

@@ -313,6 +313,8 @@ final class DepartmentContractRuntime
     public const FIELD_WRITE_CODE = 'write_code';
     public const FIELD_ASK_CLARIFYING_QUESTION = 'ask_clarifying_question';
     public const FIELD_EDIT_CODE = 'edit_code';
+    public const FIELD_EVIDENCE_TRACEABLE = 'evidence_traceable';
+    public const FIELD_ACCEPTANCE_CRITERIA_MIN_3 = 'acceptance_criteria_min_3';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -380,7 +382,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_ENGINEERING_GOAL_DISAMBIGUATED, self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL_DISAMBIGUATED],
                 [self::FIELD_NAME => self::FIELD_ACCEPTANCE_CRITERIA, self::FIELD_SCHEMA => self::SCHEMA_ACCEPTANCE_CRITERIA],
             ],
-            self::FIELD_GATES => ['intent_clarity_score_min', 'acceptance_criteria_min_3'],
+            self::FIELD_GATES => ['intent_clarity_score_min', self::FIELD_ACCEPTANCE_CRITERIA_MIN_3],
             self::FIELD_ALLOWED_ACTIONS => [self::FIELD_ASK_CLARIFYING_QUESTION, self::FIELD_PROPOSE_ACCEPTANCE_CRITERIA, 'split_intent'],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_WRITE_CODE, self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
@@ -498,7 +500,7 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_REVIEW_REPORT, self::FIELD_SCHEMA => self::SCHEMA_REVIEW_REPORT],
             ],
-            self::FIELD_GATES => ['review_packet_signed', self::FIELD_RISK_ACKNOWLEDGED, self::FIELD_REVIEW_CHECKLIST_COMPLETE, self::FIELD_BLOCKERS_ADDRESSED, 'evidence_traceable'],
+            self::FIELD_GATES => ['review_packet_signed', self::FIELD_RISK_ACKNOWLEDGED, self::FIELD_REVIEW_CHECKLIST_COMPLETE, self::FIELD_BLOCKERS_ADDRESSED, self::FIELD_EVIDENCE_TRACEABLE],
             self::FIELD_ALLOWED_ACTIONS => ['request_changes', self::FIELD_APPROVE_FOR_CERT, 'veto_release'],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_EDIT_CODE, self::FIELD_DEPLOY_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
@@ -593,7 +595,7 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_DELIVERY_PACK, self::FIELD_SCHEMA => self::SCHEMA_DELIVERY_PACK],
             ],
-            self::FIELD_GATES => ['release_authority_declared', self::FIELD_ROLLBACK_PLAN_PRESENT, self::FIELD_DELIVERY_PACK_COMPLETENESS_MIN_0_95, 'evidence_traceable'],
+            self::FIELD_GATES => ['release_authority_declared', self::FIELD_ROLLBACK_PLAN_PRESENT, self::FIELD_DELIVERY_PACK_COMPLETENESS_MIN_0_95, self::FIELD_EVIDENCE_TRACEABLE],
             self::FIELD_ALLOWED_ACTIONS => ['assemble_delivery_pack', self::FIELD_SIGN_DELIVERY_HASH, 'request_human_review'],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_EDIT_CODE, self::FIELD_APPROVE_RELEASE_WITHOUT_REVIEW, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_REVIEW, self::DEPARTMENT_OPERATOR],
