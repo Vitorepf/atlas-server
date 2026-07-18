@@ -1092,8 +1092,8 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_FIRST_SEEN_AT => null,
             ], $blockers);
         }
-        $hasScopeColumns = DatabaseTableAvailability::hasColumn('atlas_ledger_events', self::FIELD_SCOPE_TYPE)
-            && DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id');
+        $hasScopeColumns = DatabaseTableAvailability::hasColumn(self::FIELD_ATLAS_LEDGER_EVENTS, self::FIELD_SCOPE_TYPE)
+            && DatabaseTableAvailability::hasColumn(self::FIELD_ATLAS_LEDGER_EVENTS, self::FIELD_SCOPE_ID);
         $series = [];
         foreach ($blockers as $blocker) {
             $query = AtlasLedgerEvent::query()
@@ -1101,7 +1101,7 @@ final class AtlasAcosWatchdogHealthService
                 ->whereJsonContains('payload->blockers', $blocker)
                 ->orderBy(self::FIELD_OCCURRED_AT);
             if ($hasScopeColumns) {
-                $query->where(self::FIELD_SCOPE_TYPE, 'acos_watchdog')->where('scope_id', $scopeId);
+                $query->where(self::FIELD_SCOPE_TYPE, 'acos_watchdog')->where(self::FIELD_SCOPE_ID, $scopeId);
             } else {
                 // Repair migrations may recreate the ledger without scope columns;
                 // correlation_id still scopes watchdog blocker history honestly.

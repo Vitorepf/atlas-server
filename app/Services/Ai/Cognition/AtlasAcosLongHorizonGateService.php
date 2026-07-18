@@ -240,7 +240,7 @@ final class AtlasAcosLongHorizonGateService
 
         $assessment = $this->assess($scorecard, $series, $minDays, $minOverall, $minPipeline, $warningMargin, $maxLatestStaleDays, $maxGapDays, $today, $seriesPath);
         $assessmentV2 = null;
-        if (array_key_exists('series_v2', $options) || array_key_exists('series_v2_path', $options)) {
+        if (array_key_exists(self::FIELD_SERIES_V2, $options) || array_key_exists(self::FIELD_SERIES_V2_PATH, $options)) {
             $seriesV2 = is_array($options[self::FIELD_SERIES_V2] ?? null)
                 ? $options[self::FIELD_SERIES_V2]
                 : $this->readSeries($seriesV2Path);

@@ -10993,4 +10993,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b530_immune_signature_calibration_aemor_outcome_compounding_evidence_vision_floor_count']);
     }
 
+    public function test_b531_memory_feedback_aaeos_test_implementation_department_contract_lote_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b531MemoryFeedbackAaeosTestImplementationDepartmentContractLoteFloorsContractObserve([]);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_BASE_PRIORITY, $out['base_priority']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_LAST_USED_AT_AGE_DAYS, $out['last_used_at_age_days']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_CAPABILITY_ID, $out['capability_id']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TEST_REF, $out['test_ref']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_TEST, $out['test']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE, $out['docs/engineering-knowledge-base']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MODIFY_SECURITY_POLICY, $out['modify_security_policy']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_APPROVE_RELEASE, $out['approve_release']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CREATED_AT, $out['created_at']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_TREATMENT, $out['treatment']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ATLAS_LEDGER_EVENTS, $out['atlas_ledger_events']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SCOPE_ID, $out['scope_id']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_MANUAL_REVIEW, $out['manual_review']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_ASK_REF, $out['ask_ref']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SERIES_V2, $out['series_v2']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_PATH, $out['series_v2_path']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_AUDIT, $out['audit']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CODE, $out['code']);
+        $this->assertSame(18, $out['b531_memory_feedback_aaeos_test_implementation_department_contract_lote_floor_count']);
+    }
+
 }

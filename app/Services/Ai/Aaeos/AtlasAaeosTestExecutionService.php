@@ -131,10 +131,10 @@ class AtlasAaeosTestExecutionService
         try {
             $query = AtlasAaeosTestRunReceipt::query()
                 ->green()
-                ->where('capability_id', $capabilityId);
+                ->where(self::FIELD_CAPABILITY_ID, $capabilityId);
 
             if ($testRef !== null && (AiValueNormalizer::trimmedStringOrNull($testRef) ?? '') !== '') {
-                $query->where('test_ref', AiValueNormalizer::trimmedStringOrNull($testRef) ?? '');
+                $query->where(self::FIELD_TEST_REF, AiValueNormalizer::trimmedStringOrNull($testRef) ?? '');
             }
 
             // No freshness context at all -> the green scope alone decides.

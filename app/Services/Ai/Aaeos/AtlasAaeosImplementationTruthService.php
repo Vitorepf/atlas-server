@@ -128,6 +128,7 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_ARCHIVE = 'archive';
     public const FIELD_PARTIAL_RUNTIME = 'partial_runtime';
     public const FIELD_SOLID_RUNTIME = 'solid_runtime';
+    public const FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE = 'docs/engineering-knowledge-base';
     public const INT_2 = 2;
 
     public const RANK = [
@@ -242,7 +243,7 @@ class AtlasAaeosImplementationTruthService
      */
     public function coverage(): array
     {
-        $root = base_path('docs/engineering-knowledge-base');
+        $root = base_path(self::FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE);
         $total = 0;
         $claimsRuntime = 0;
         $withEvidence = 0;
@@ -327,14 +328,14 @@ class AtlasAaeosImplementationTruthService
         foreach ($docs as $doc) {
             $testRefs = [];
             foreach ($doc[self::FIELD_EVIDENCE_REFS] as $ref) {
-                if ($this->evidenceRefNormalizer->kind($ref[self::FIELD_KIND] ?? '') !== 'test') {
+                if ($this->evidenceRefNormalizer->kind($ref[self::FIELD_KIND] ?? '') !== self::FIELD_TEST) {
                     continue;
                 }
                 $value = $this->evidenceRefNormalizer->ref($ref[self::FIELD_REF] ?? '');
                 if ($value === '') {
                     continue;
                 }
-                $resolution = $this->resolver->resolve('test', $value);
+                $resolution = $this->resolver->resolve(self::FIELD_TEST, $value);
                 $testRefs[] = [
                     self::FIELD_REF => $value,
                     self::FIELD_INDEX_RESOLVED => ($resolution[self::FIELD_RESOLVED] ?? false) === true,
@@ -376,7 +377,7 @@ class AtlasAaeosImplementationTruthService
      */
     private function scanDocsWithEvidence(): array
     {
-        $root = base_path('docs/engineering-knowledge-base');
+        $root = base_path(self::FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE);
         if (! File::isDirectory($root)) {
             return [];
         }
@@ -442,7 +443,7 @@ class AtlasAaeosImplementationTruthService
             }
             $resolution = $this->resolver->resolve($kind, $value);
             $resolutions[] = $resolution;
-            if ($kind === 'test' && ($resolution[self::FIELD_RESOLVED] ?? false) === true) {
+            if ($kind === self::FIELD_TEST && ($resolution[self::FIELD_RESOLVED] ?? false) === true) {
                 $resolvedTestRefs[] = $value;
             }
         }

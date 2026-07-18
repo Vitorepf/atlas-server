@@ -418,7 +418,7 @@ final class AcosMaxLote2MeasureService
 
         $deliveriesByOutcome = [];
         $recallsByCandidate = [];
-        foreach (DB::table(self::FIELD_AI_RAG_FEEDBACK_EVENTS)->orderBy('created_at')->get() as $row) {
+        foreach (DB::table(self::FIELD_AI_RAG_FEEDBACK_EVENTS)->orderBy(self::FIELD_CREATED_AT)->get() as $row) {
             $outcomeId = AiValueNormalizer::trimmedStringOrNull($row->run_outcome_id ?? null) ?? '';
             if ($outcomeId !== '') {
                 $deliveriesByOutcome[$outcomeId][] = $row;
@@ -431,7 +431,7 @@ final class AcosMaxLote2MeasureService
         }
 
         $candidatesByOutcome = [];
-        foreach (DB::table(self::FIELD_AI_LEARNING_CANDIDATES)->orderBy('created_at')->get() as $candidate) {
+        foreach (DB::table(self::FIELD_AI_LEARNING_CANDIDATES)->orderBy(self::FIELD_CREATED_AT)->get() as $candidate) {
             $outcomeId = AiValueNormalizer::trimmedStringOrNull($candidate->run_outcome_id ?? null) ?? '';
             if ($outcomeId !== '') {
                 $candidatesByOutcome[$outcomeId][] = $candidate;
@@ -443,7 +443,7 @@ final class AcosMaxLote2MeasureService
         $durations = [];
         $fixtureRejected = 0;
 
-        foreach (DB::table(self::FIELD_AI_RUN_OUTCOMES)->orderBy('created_at')->get() as $outcome) {
+        foreach (DB::table(self::FIELD_AI_RUN_OUTCOMES)->orderBy(self::FIELD_CREATED_AT)->get() as $outcome) {
             $assembled = $this->assembleMultx01Loop(
                 $outcome,
                 $deliveriesByOutcome[AiValueNormalizer::trimmedScalarStringOrNull($outcome->id ?? null) ?? ''] ?? [],
@@ -747,7 +747,7 @@ final class AcosMaxLote2MeasureService
 
         $deliveriesByOutcome = [];
         $citationsByCandidate = [];
-        foreach (DB::table(self::FIELD_AI_RAG_FEEDBACK_EVENTS)->orderBy('created_at')->get() as $row) {
+        foreach (DB::table(self::FIELD_AI_RAG_FEEDBACK_EVENTS)->orderBy(self::FIELD_CREATED_AT)->get() as $row) {
             $outcomeId = AiValueNormalizer::trimmedStringOrNull($row->run_outcome_id ?? null) ?? '';
             if ($outcomeId !== '') {
                 $deliveriesByOutcome[$outcomeId][] = $row;
@@ -765,7 +765,7 @@ final class AcosMaxLote2MeasureService
         $neverCited = 0;
         $byClass = [];
 
-        foreach (DB::table(self::FIELD_AI_LEARNING_CANDIDATES)->orderBy('created_at')->get() as $candidate) {
+        foreach (DB::table(self::FIELD_AI_LEARNING_CANDIDATES)->orderBy(self::FIELD_CREATED_AT)->get() as $candidate) {
             if (! $this->isPromotedLearningCandidate($candidate)) {
                 continue;
             }
@@ -946,7 +946,7 @@ final class AcosMaxLote2MeasureService
         }
 
         $pairs = [];
-        foreach (DB::table(self::FIELD_AI_RAG_FEEDBACK_EVENTS)->orderBy('created_at')->get() as $row) {
+        foreach (DB::table(self::FIELD_AI_RAG_FEEDBACK_EVENTS)->orderBy(self::FIELD_CREATED_AT)->get() as $row) {
             $payload = $this->decodeJsonObject($row->payload ?? null);
             $meta = $this->counterfactualLiftMeta($payload);
             if ($meta === []) {
@@ -1123,7 +1123,7 @@ final class AcosMaxLote2MeasureService
 
         return match ($arm) {
             'control', self::FIELD_WITHOUT, self::FIELD_WITHOUT_LESSON => 'control',
-            'treatment', self::FIELD_WITH, self::FIELD_WITH_LESSON => 'treatment',
+            self::FIELD_TREATMENT, self::FIELD_WITH, self::FIELD_WITH_LESSON => self::FIELD_TREATMENT,
             default => '',
         };
     }

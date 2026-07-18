@@ -141,7 +141,7 @@ final class Teto10PredictedRevertReviewDigest
             self::FIELD_BAND_COUNTS => $bandCounts,
             self::FIELD_GROUPS => $groups,
             self::FIELD_PENDING_FLIPS => self::flaggedSection($shown, 'pending_flip', 'flip_ref'),
-            self::FIELD_BATCHED_ASKS => self::flaggedSection($shown, 'batched_ask', 'ask_ref'),
+            self::FIELD_BATCHED_ASKS => self::flaggedSection($shown, 'batched_ask', self::FIELD_ASK_REF),
             self::FIELD_SOURCE => [
                 self::FIELD_SLICE => self::FIELD_TETO_10,
                 self::FIELD_FRONTIER_PLAN_SECTION => '3144-3147',
@@ -196,9 +196,9 @@ final class Teto10PredictedRevertReviewDigest
                 $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? self::FIELD_ITEM) ?: 'item').': '.self::plain(self::string($item[self::FIELD_TITLE] ?? self::FIELD_UNTITLED) ?: 'untitled');
                 $lines[] = '  - band: '.self::plain(self::band($item[self::FIELD_PREDICTED_REVERT_BAND] ?? self::BAND_UNKNOWN));
                 $lines[] = '  - evidence: '.self::plain(implode(', ', array_map(self::string(...), AiValueNormalizer::arrayOrEmpty($item[self::FIELD_EVIDENCE_REFS] ?? null))));
-                $lines[] = '  - diff-ref: '.self::plain(self::string($item[self::FIELD_DIFF_REF] ?? self::FIELD_MANUAL_REVIEW) ?: 'manual_review');
-                $lines[] = '  - reverse: '.self::inline(self::string($item[self::FIELD_REVERSE_COMMAND] ?? self::FIELD_MANUAL_REVIEW) ?: 'manual_review');
-                $lines[] = '  - review-mode: '.self::plain(self::string($item[self::FIELD_REVIEW_MODE] ?? self::FIELD_MANUAL_REVIEW) ?: 'manual_review');
+                $lines[] = '  - diff-ref: '.self::plain(self::string($item[self::FIELD_DIFF_REF] ?? self::FIELD_MANUAL_REVIEW) ?: self::FIELD_MANUAL_REVIEW);
+                $lines[] = '  - reverse: '.self::inline(self::string($item[self::FIELD_REVERSE_COMMAND] ?? self::FIELD_MANUAL_REVIEW) ?: self::FIELD_MANUAL_REVIEW);
+                $lines[] = '  - review-mode: '.self::plain(self::string($item[self::FIELD_REVIEW_MODE] ?? self::FIELD_MANUAL_REVIEW) ?: self::FIELD_MANUAL_REVIEW);
             }
             $lines[] = '';
         }
@@ -230,13 +230,13 @@ final class Teto10PredictedRevertReviewDigest
             self::FIELD_PREDICTED_REVERT_BAND => $band,
             self::FIELD_BAND_RANK => self::BAND_RANK[$band],
             self::FIELD_EVIDENCE_REFS => self::evidenceRefs($item),
-            self::FIELD_DIFF_REF => self::firstString($item, ['diff_ref', self::FIELD_DIFF, self::FIELD_PATCH_REF], 'manual_review'),
+            self::FIELD_DIFF_REF => self::firstString($item, ['diff_ref', self::FIELD_DIFF, self::FIELD_PATCH_REF], self::FIELD_MANUAL_REVIEW),
             self::FIELD_REVERSE_COMMAND => $reverse,
             self::FIELD_REVIEW_MODE => $reverse === self::FIELD_MANUAL_REVIEW ? self::FIELD_MANUAL_REVIEW : self::FIELD_REVERSIBLE,
             self::FIELD_PENDING_FLIP => (AiValueNormalizer::boolOrNull($item[self::FIELD_PENDING_FLIP] ?? null) ?? false),
             self::FIELD_FLIP_REF => self::firstString($item, ['flip_ref', self::FIELD_FLIP_ID], ''),
             self::FIELD_BATCHED_ASK => (AiValueNormalizer::boolOrNull($item[self::FIELD_BATCHED_ASK] ?? null) ?? false),
-            self::FIELD_ASK_REF => self::firstString($item, ['ask_ref', self::FIELD_ASK_ID], ''),
+            self::FIELD_ASK_REF => self::firstString($item, [self::FIELD_ASK_REF, self::FIELD_ASK_ID], ''),
         ];
     }
 
@@ -332,7 +332,7 @@ final class Teto10PredictedRevertReviewDigest
             }
             $ref = self::string($item[self::FIELD_FLIP_REF] ?? $item[self::FIELD_ASK_REF] ?? self::FIELD_UNLABELLED) ?: 'unlabelled';
             $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? self::FIELD_ITEM) ?: 'item').' '.self::inline($ref)
-                .' reverse: '.self::inline(self::string($item[self::FIELD_REVERSE_COMMAND] ?? self::FIELD_MANUAL_REVIEW) ?: 'manual_review');
+                .' reverse: '.self::inline(self::string($item[self::FIELD_REVERSE_COMMAND] ?? self::FIELD_MANUAL_REVIEW) ?: self::FIELD_MANUAL_REVIEW);
         }
         $lines[] = '';
 
