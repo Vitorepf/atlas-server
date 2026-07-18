@@ -610,6 +610,7 @@ final class AtlasAaeosCommand extends Command
                             {--b585-aaeos-quality-memory-feedback-injection-lote-measure-series-floors-contract= : JSON file (any object) to observe aaeos/quality/memory/feedback/injection/lote floors}
                             {--b586-execution-context-outcome-envelope-predicted-impact-acos-rollback-floors-contract= : JSON file (any object) to observe execution/context/outcome/envelope/predicted/impact floors}
                             {--b587-immune-signature-verdict-acos-dead-disk-free-provider-floors-contract= : JSON file (any object) to observe immune/signature/verdict/acos/dead/disk floors}
+                            {--b588-obra-retro-local-model-capability-attempt-lifecycle-composed-floors-contract= : JSON file (any object) to observe obra/retro/local/model/capability/attempt floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1376,6 +1377,7 @@ final class AtlasAaeosCommand extends Command
             ['b585-aaeos-quality-memory-feedback-injection-lote-measure-series-floors-contract', 'b585_aaeos_quality_memory_feedback_injection_lote_measure_series_floors_contract', fn (array $p) => $gates->b585AaeosQualityMemoryFeedbackInjectionLoteMeasureSeriesFloorsContractObserve($p)],
             ['b586-execution-context-outcome-envelope-predicted-impact-acos-rollback-floors-contract', 'b586_execution_context_outcome_envelope_predicted_impact_acos_rollback_floors_contract', fn (array $p) => $gates->b586ExecutionContextOutcomeEnvelopePredictedImpactAcosRollbackFloorsContractObserve($p)],
             ['b587-immune-signature-verdict-acos-dead-disk-free-provider-floors-contract', 'b587_immune_signature_verdict_acos_dead_disk_free_provider_floors_contract', fn (array $p) => $gates->b587ImmuneSignatureVerdictAcosDeadDiskFreeProviderFloorsContractObserve($p)],
+            ['b588-obra-retro-local-model-capability-attempt-lifecycle-composed-floors-contract', 'b588_obra_retro_local_model_capability_attempt_lifecycle_composed_floors_contract', fn (array $p) => $gates->b588ObraRetroLocalModelCapabilityAttemptLifecycleComposedFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

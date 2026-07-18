@@ -12401,4 +12401,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b587_immune_signature_verdict_acos_dead_disk_free_provider_floor_count']);
     }
 
+    public function test_b588_obra_retro_local_model_capability_attempt_lifecycle_composed_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b588ObraRetroLocalModelCapabilityAttemptLifecycleComposedFloorsContractObserve([]);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_PRIVACY_CLASS, $out['privacy_class']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_HASH, $out['hash']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_VIOLATIONS, $out['violations']);
+        $this->assertSame(AttemptLifecycleLedger::FIELD_STARTED_AT, $out['started_at']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_ORDER, $out['order']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_CANDIDATE_ID, $out['candidate_id']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_POOLING, $out['pooling']);
+        $this->assertSame(RagxChainMechanismService::FIELD_REASON, $out['reason']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_PENDING_FLIPS, $out['pending_flips']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_STATUS, $out['status']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_AUTONOMY_LEVEL, $out['autonomy_level']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_OPERATOR_SIGNATURE, $out['operator_signature']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_FUTURE_DATED_ROWS, $out['future_dated_rows']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(18, $out['b588_obra_retro_local_model_capability_attempt_lifecycle_composed_floor_count']);
+    }
+
 }

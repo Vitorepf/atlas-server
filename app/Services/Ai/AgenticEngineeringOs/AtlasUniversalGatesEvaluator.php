@@ -15706,4 +15706,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B588).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b588ObraRetroLocalModelCapabilityAttemptLifecycleComposedFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'privacy_class' => AcosMaxObraRetroService::FIELD_PRIVACY_CLASS,
+            'hash' => AtlasLocalModelIntegrityService::FIELD_HASH,
+            'violations' => AtlasModelCapabilitySpecService::FIELD_VIOLATIONS,
+            'started_at' => AttemptLifecycleLedger::FIELD_STARTED_AT,
+            'order' => ComposedObraArcComposer::FIELD_ORDER,
+            'threshold' => EvidenceVisionThesisComposer::FIELD_THRESHOLD,
+            'candidate_id' => ExploratoryBetsPortfolio::FIELD_CANDIDATE_ID,
+            'pooling' => Maxa04JinaV3DualReadService::FIELD_POOLING,
+            'reason' => RagxChainMechanismService::FIELD_REASON,
+            'pending_flips' => Teto10PredictedRevertReviewDigest::FIELD_PENDING_FLIPS,
+            'status' => AaeosHttpPathEnvelopeFactory::FIELD_STATUS,
+            'autonomy_level' => AaeosPhaseHandoffService::FIELD_AUTONOMY_LEVEL,
+            'operator_signature' => AtlasMissionControlCockpitService::FIELD_OPERATOR_SIGNATURE,
+            'status' => AtlasAcosEvolutionScoreService::FIELD_STATUS,
+            'future_dated_rows' => AtlasAcosLongHorizonGateService::FIELD_FUTURE_DATED_ROWS,
+            'evidence' => AtlasAcosWindowGatesService::FIELD_EVIDENCE,
+            'kind' => AtlasFrontierWaveLadder::FIELD_KIND,
+            'threshold' => AtlasOperationalVolumeCheckService::FIELD_THRESHOLD,
+            'b588_obra_retro_local_model_capability_attempt_lifecycle_composed_floor_count' => 18,
+        ];
+    }
+
 }
