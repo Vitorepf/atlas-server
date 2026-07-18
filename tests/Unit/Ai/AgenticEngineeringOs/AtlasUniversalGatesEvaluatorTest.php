@@ -12687,4 +12687,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b599_ledger_rotation_cognition_score_watchdog_runner_acos_dead_floor_count']);
     }
 
+    public function test_b600_ledger_rotation_local_model_operator_learning_provider_bound_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b600LedgerRotationLocalModelOperatorLearningProviderBoundFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MULTJ_01_LESSON_HALF_LIFE, $out['MULTJ-01 lesson half-life']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MULTJ_02_DEDUP_CALIBRATION, $out['MULTJ-02 dedup calibration']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MULTJ_03_COUNTERFACTUAL_LIFT, $out['MULTJ-03 counterfactual lift']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MULTJ_04_PROCEDURAL_SKILL_PROMOTER_REPORTS_STAY_SMALL_UNTIL_REAL_CASE_COUNT_SOAK, $out['MULTJ-04 procedural skill promoter reports stay small until real case-count soak']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MULTJ_06_ABSTRACTION_LADDER_COMPUTED_READER_SNAPSHOTS, $out['MULTJ-06 abstraction ladder computed-reader snapshots']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MULTK_01_COST_OUTCOME, $out['MULTK-01 cost-outcome']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MULTK_02_CASCADE_COST_ROUTER_COMPUTED_READER_SNAPSHOTS, $out['MULTK-02 cascade cost router computed-reader snapshots']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MULTK_03_DECISION_REPLAY_DIVERGENCE, $out['MULTK-03 decision replay divergence']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MULTN15_02_APPROVAL_HISTORY, $out['MULTN15-02 approval history']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MULTN17_04_ORIGINATOR_IMPACT, $out['MULTN17-04 originator impact']);
+        $this->assertSame(LocalModelIntegrityWatchdogCheck::FIELD_LOCAL_MODEL_ARTIFACT_INTEGRITY_BROKEN_VS_MANIFEST_PIN_, $out['Local model artifact integrity broken vs manifest pin.']);
+        $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::FIELD_OPERATOR_CHAT_CAPTURE_IS_ENABLED_BUT_REQUIRED_OPERATOR___TABLES_ARE_MISSING_, $out['Operator chat capture is enabled but required operator_* tables are missing.']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_PROVIDER_BOUND_REDACTION_STATUS_DRIFT_DETECTED_, $out['Provider-bound redaction status drift detected.']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SOURCE_BACKED_SCORE_BAIXO_PARA_L3, $out['source-backed score baixo para L3']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_DOC_L3__MOTHER_DOC___CONTRACTS___STRONG_RUNBOOK__BUT_, $out['DOC L3: mother_doc + contracts + strong runbook, but ']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_NEEDS___1_RESOLVED_TEST_FOR_VERIFIED, $out['needs >=1 resolved test for verified']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_OUTCOME_PREDICTED_IMPACT_CALIBRATION_HIGH_BAND_REALIZED_RATE_, $out['outcome:predicted_impact_calibration high_band realized_rate ']);
+        $this->assertSame(PromotionProtocol::FIELD_DISABLE_CONTEXTUAL_BLURBS_ON_PRECISION_REGRESSION_OR_HALLUCINATED_BLURB_SAMPLE_FAILURE, $out['disable contextual blurbs on precision regression or hallucinated-blurb sample failure']);
+        $this->assertSame(18, $out['b600_ledger_rotation_local_model_operator_learning_provider_bound_floor_count']);
+    }
+
 }

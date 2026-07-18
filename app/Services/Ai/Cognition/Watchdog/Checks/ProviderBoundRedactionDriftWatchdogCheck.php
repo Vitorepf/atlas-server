@@ -42,6 +42,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
     public const FIELD_PROVIDER_SUMMARY_CONTAINS_RAW_SUMMARY = 'provider_summary_contains_raw_summary';
     public const FIELD_PRIVACY_PROVIDER_BODY_VERIFIED = 'privacy.provider_body_verified';
     public const FIELD_PROVIDER_PROJECTION_PROVIDER_BODY_VERIFIED = 'provider_projection.provider_body_verified';
+    public const FIELD_PROVIDER_BOUND_REDACTION_STATUS_DRIFT_DETECTED_ = 'Provider-bound redaction status drift detected.';
 
 
     public function __construct(private AtlasMemoryPrivacyService $privacy) {}
@@ -90,7 +91,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
         if ($drift !== []) {
             return AtlasWatchdogCheckResult::alert($evidence, [
                 self::FIELD_CODE => self::FIELD_PROVIDER_BOUND_REDACTION_DRIFT,
-                self::FIELD_MESSAGE => 'Provider-bound redaction status drift detected.',
+                self::FIELD_MESSAGE => self::FIELD_PROVIDER_BOUND_REDACTION_STATUS_DRIFT_DETECTED_,
             ]);
         }
 

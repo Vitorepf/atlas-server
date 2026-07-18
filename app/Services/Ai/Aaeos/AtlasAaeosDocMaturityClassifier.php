@@ -69,6 +69,7 @@ final class AtlasAaeosDocMaturityClassifier
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_DOC_L0__NO_MOTHER_DOC_AND_NO_CONTRACTS__IDEA_RESEARCH_SOURCE_MATERIAL_WITHOUT_CONTRACT__ = 'DOC L0: no mother_doc and no contracts (idea/research/source material without contract).';
     public const FIELD_DOC_L1__MOTHER_DOC_ONLY__CONTRACTS_ABSENT__FRAGMENTARY_MOTHER_NORTH_STAR_DOC__ = 'DOC L1: mother_doc only, contracts absent (fragmentary mother/north-star doc).';
+    public const FIELD_DOC_L3__MOTHER_DOC___CONTRACTS___STRONG_RUNBOOK__BUT_ = 'DOC L3: mother_doc + contracts + strong runbook, but ';
 
     /** @var list<string> */
     public const LEVELS = [
@@ -110,7 +111,7 @@ final class AtlasAaeosDocMaturityClassifier
         } elseif ($hasMother && $hasContracts && $runbook === self::STRENGTH_STRONG) {
             $level = self::LEVEL_L3;
             $ordinal = 3;
-            $rationale = 'DOC L3: mother_doc + contracts + strong runbook, but '
+            $rationale = self::FIELD_DOC_L3__MOTHER_DOC___CONTRACTS___STRONG_RUNBOOK__BUT_
                 . $this->joinList($this->weakSignals($signalStrengths)) . ' not yet strong.';
         } elseif ($hasMother && $hasContracts) {
             $level = self::LEVEL_L2;

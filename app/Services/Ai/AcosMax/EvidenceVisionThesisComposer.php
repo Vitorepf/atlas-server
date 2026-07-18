@@ -123,6 +123,7 @@ final class EvidenceVisionThesisComposer
     public const FIELD_ARCHIVE_WHEN_OPEN_EVIDENCE_ROWS_FOR_ = 'archive when open evidence rows for ';
     public const FIELD_ARCHIVE_WHEN_PATH_ = 'archive when path ';
     public const FIELD_LEDGER_CLUSTER_AT_ = 'ledger cluster at ';
+    public const FIELD_OUTCOME_PREDICTED_IMPACT_CALIBRATION_HIGH_BAND_REALIZED_RATE_ = 'outcome:predicted_impact_calibration high_band realized_rate ';
     public const INT_3 = 3;
     public const INT_2 = 2;
 
@@ -382,7 +383,7 @@ final class EvidenceVisionThesisComposer
         return [[
             self::FIELD_THESIS_ID => $thesisId,
             self::FIELD_STATUS => self::STATUS_ACTIVE,
-            self::FIELD_CLAIM => 'outcome:predicted_impact_calibration high_band realized_rate '.round($highRate, 3)
+            self::FIELD_CLAIM => self::FIELD_OUTCOME_PREDICTED_IMPACT_CALIBRATION_HIGH_BAND_REALIZED_RATE_.round($highRate, 3)
                 .' trails sweet_band '.round($sweetRate, 3),
             self::FIELD_EVIDENCE => [
                 [

@@ -117,6 +117,16 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_MAXL_07_PAIRED_GOLDEN_COUNTERFACTUAL_REPORT = 'MAXL-07 paired golden counterfactual report';
     public const FIELD_MAXL_08_REPORT_ONLY_CONTEXT_EXECUTION_CO_OCCURRENCE = 'MAXL-08 report-only context execution co-occurrence';
     public const FIELD_MAXM_01_FROZEN_CORPUS_BASELINE_RECEIPT__AUDIT_ANCHOR__SMALL_APPEND_CADENCE = 'MAXM-01 frozen-corpus baseline receipt; audit-anchor, small append cadence';
+    public const FIELD_MULTJ_01_LESSON_HALF_LIFE = 'MULTJ-01 lesson half-life';
+    public const FIELD_MULTJ_02_DEDUP_CALIBRATION = 'MULTJ-02 dedup calibration';
+    public const FIELD_MULTJ_03_COUNTERFACTUAL_LIFT = 'MULTJ-03 counterfactual lift';
+    public const FIELD_MULTJ_04_PROCEDURAL_SKILL_PROMOTER_REPORTS_STAY_SMALL_UNTIL_REAL_CASE_COUNT_SOAK = 'MULTJ-04 procedural skill promoter reports stay small until real case-count soak';
+    public const FIELD_MULTJ_06_ABSTRACTION_LADDER_COMPUTED_READER_SNAPSHOTS = 'MULTJ-06 abstraction ladder computed-reader snapshots';
+    public const FIELD_MULTK_01_COST_OUTCOME = 'MULTK-01 cost-outcome';
+    public const FIELD_MULTK_02_CASCADE_COST_ROUTER_COMPUTED_READER_SNAPSHOTS = 'MULTK-02 cascade cost router computed-reader snapshots';
+    public const FIELD_MULTK_03_DECISION_REPLAY_DIVERGENCE = 'MULTK-03 decision replay divergence';
+    public const FIELD_MULTN15_02_APPROVAL_HISTORY = 'MULTN15-02 approval history';
+    public const FIELD_MULTN17_04_ORIGINATOR_IMPACT = 'MULTN17-04 originator impact';
     public const INT_8 = 8;
     public const INT_64 = 64;
     public const INT_45 = 45;
@@ -253,13 +263,13 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MULTK-01 cost-outcome',
+                self::FIELD_RATIONALE => self::FIELD_MULTK_01_COST_OUTCOME,
             ],
             self::FIELD_ATLAS_DECIDE_REPLAY_DIVERGENCE_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MULTK-03 decision replay divergence',
+                self::FIELD_RATIONALE => self::FIELD_MULTK_03_DECISION_REPLAY_DIVERGENCE,
             ],
             self::FIELD_ATLAS_DECIDE_ZERO_WEIGHT_OUTCOMES_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
@@ -283,7 +293,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_180,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MULTN15-02 approval history',
+                self::FIELD_RATIONALE => self::FIELD_MULTN15_02_APPROVAL_HISTORY,
             ],
             self::FIELD_ATLAS_EVIDENCE_DELTA_ATTRIBUTION_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
@@ -307,7 +317,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MULTN17-04 originator impact',
+                self::FIELD_RATIONALE => self::FIELD_MULTN17_04_ORIGINATOR_IMPACT,
             ],
             self::FIELD_ACOS_FLYWHEEL_LOOPS_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
@@ -337,19 +347,19 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MULTJ-01 lesson half-life',
+                self::FIELD_RATIONALE => self::FIELD_MULTJ_01_LESSON_HALF_LIFE,
             ],
             self::FIELD_ATLAS_AI_LESSON_SEMANTIC_DEDUP_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MULTJ-02 dedup calibration',
+                self::FIELD_RATIONALE => self::FIELD_MULTJ_02_DEDUP_CALIBRATION,
             ],
             self::FIELD_ATLAS_AI_COUNTERFACTUAL_LIFT_V2 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MULTJ-03 counterfactual lift',
+                self::FIELD_RATIONALE => self::FIELD_MULTJ_03_COUNTERFACTUAL_LIFT,
             ],
             self::FIELD_MISSION_E2E_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
@@ -409,19 +419,19 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MULTK-02 cascade cost router computed-reader snapshots',
+                self::FIELD_RATIONALE => self::FIELD_MULTK_02_CASCADE_COST_ROUTER_COMPUTED_READER_SNAPSHOTS,
             ],
             self::FIELD_ATLAS_AI_PROCEDURAL_SKILL_PROMOTER_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_16,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MULTJ-04 procedural skill promoter reports stay small until real case-count soak',
+                self::FIELD_RATIONALE => self::FIELD_MULTJ_04_PROCEDURAL_SKILL_PROMOTER_REPORTS_STAY_SMALL_UNTIL_REAL_CASE_COUNT_SOAK,
             ],
             self::FIELD_ATLAS_AI_ABSTRACTION_LADDER_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_16,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MULTJ-06 abstraction ladder computed-reader snapshots',
+                self::FIELD_RATIONALE => self::FIELD_MULTJ_06_ABSTRACTION_LADDER_COMPUTED_READER_SNAPSHOTS,
             ],
             self::FIELD_ATLAS_IMMUNE_SIGNATURE_STORE_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_64,

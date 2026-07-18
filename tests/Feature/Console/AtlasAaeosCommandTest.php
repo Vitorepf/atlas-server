@@ -10133,6 +10133,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b600_ledger_rotation_local_model_operator_learning_provider_bound_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b600-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b600',
+                '--b600-ledger-rotation-local-model-operator-learning-provider-bound-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b600_ledger_rotation_local_model_operator_learning_provider_bound_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

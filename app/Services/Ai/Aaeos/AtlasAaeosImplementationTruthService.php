@@ -131,6 +131,7 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE = 'docs/engineering-knowledge-base';
     public const FIELD_NEEDS___1_RESOLVED_ROUTE_OR_COMMAND_FOR_PARTIAL = 'needs >=1 resolved route or command for partial';
     public const FIELD_NEEDS___1_RESOLVED_SYMBOL__CLASS_METHOD__FOR_PARTIAL = 'needs >=1 resolved symbol (class/method) for partial';
+    public const FIELD_NEEDS___1_RESOLVED_TEST_FOR_VERIFIED = 'needs >=1 resolved test for verified';
     public const INT_2 = 2;
 
     public const RANK = [
@@ -719,7 +720,7 @@ class AtlasAaeosImplementationTruthService
             }
         } elseif ($computed === self::LEVEL_PARTIAL) {
             if (! $hasTest) {
-                $unmet[] = 'needs >=1 resolved test for verified';
+                $unmet[] = self::FIELD_NEEDS___1_RESOLVED_TEST_FOR_VERIFIED;
             } elseif (! $hasGreenTest) {
                 // The test EXISTS but never ran green — the existence-only gap.
                 $unmet[] = 'needs >=1 test that RAN GREEN for verified — a test symbol resolves but has no green-run receipt (run atlas:aaeos:verify-tests)';

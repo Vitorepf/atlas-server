@@ -78,6 +78,7 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_FALTA_SURFACE_MOBILE_COMPLETA_PARA_L4 = 'falta surface mobile completa para L4';
     public const FIELD_FALTA_ZERO_DOWNTIME_GATE_L3 = 'falta zero-downtime gate L3';
     public const FIELD_PRECISA_ARCHITECT_AGENT_AUTONOMO_PARA_L4 = 'precisa Architect agent autonomo para L4';
+    public const FIELD_SOURCE_BACKED_SCORE_BAIXO_PARA_L3 = 'source-backed score baixo para L3';
 
     public const DEPARTMENTS = [
         [
@@ -101,7 +102,7 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_CURRENT_LEVEL => self::FIELD_L2,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#research'],
             self::FIELD_BLOCKER_ID => self::FIELD_RESEARCH_SOURCE_BACKED_SCORE_L3,
-            self::FIELD_BLOCKER_SUMMARY => 'source-backed score baixo para L3',
+            self::FIELD_BLOCKER_SUMMARY => self::FIELD_SOURCE_BACKED_SCORE_BAIXO_PARA_L3,
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],
         [

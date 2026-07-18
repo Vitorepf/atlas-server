@@ -16064,4 +16064,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B600).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b600LedgerRotationLocalModelOperatorLearningProviderBoundFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'MULTJ-01 lesson half-life' => AcosMaxLedgerRotationRegistry::FIELD_MULTJ_01_LESSON_HALF_LIFE,
+            'MULTJ-02 dedup calibration' => AcosMaxLedgerRotationRegistry::FIELD_MULTJ_02_DEDUP_CALIBRATION,
+            'MULTJ-03 counterfactual lift' => AcosMaxLedgerRotationRegistry::FIELD_MULTJ_03_COUNTERFACTUAL_LIFT,
+            'MULTJ-04 procedural skill promoter reports stay small until real case-count soak' => AcosMaxLedgerRotationRegistry::FIELD_MULTJ_04_PROCEDURAL_SKILL_PROMOTER_REPORTS_STAY_SMALL_UNTIL_REAL_CASE_COUNT_SOAK,
+            'MULTJ-06 abstraction ladder computed-reader snapshots' => AcosMaxLedgerRotationRegistry::FIELD_MULTJ_06_ABSTRACTION_LADDER_COMPUTED_READER_SNAPSHOTS,
+            'MULTK-01 cost-outcome' => AcosMaxLedgerRotationRegistry::FIELD_MULTK_01_COST_OUTCOME,
+            'MULTK-02 cascade cost router computed-reader snapshots' => AcosMaxLedgerRotationRegistry::FIELD_MULTK_02_CASCADE_COST_ROUTER_COMPUTED_READER_SNAPSHOTS,
+            'MULTK-03 decision replay divergence' => AcosMaxLedgerRotationRegistry::FIELD_MULTK_03_DECISION_REPLAY_DIVERGENCE,
+            'MULTN15-02 approval history' => AcosMaxLedgerRotationRegistry::FIELD_MULTN15_02_APPROVAL_HISTORY,
+            'MULTN17-04 originator impact' => AcosMaxLedgerRotationRegistry::FIELD_MULTN17_04_ORIGINATOR_IMPACT,
+            'Local model artifact integrity broken vs manifest pin.' => LocalModelIntegrityWatchdogCheck::FIELD_LOCAL_MODEL_ARTIFACT_INTEGRITY_BROKEN_VS_MANIFEST_PIN_,
+            'Operator chat capture is enabled but required operator_* tables are missing.' => OperatorLearningCaptureSchemaWatchdogCheck::FIELD_OPERATOR_CHAT_CAPTURE_IS_ENABLED_BUT_REQUIRED_OPERATOR___TABLES_ARE_MISSING_,
+            'Provider-bound redaction status drift detected.' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_PROVIDER_BOUND_REDACTION_STATUS_DRIFT_DETECTED_,
+            'source-backed score baixo para L3' => AtlasAaeosDepartmentMaturityService::FIELD_SOURCE_BACKED_SCORE_BAIXO_PARA_L3,
+            'DOC L3: mother_doc + contracts + strong runbook, but ' => AtlasAaeosDocMaturityClassifier::FIELD_DOC_L3__MOTHER_DOC___CONTRACTS___STRONG_RUNBOOK__BUT_,
+            'needs >=1 resolved test for verified' => AtlasAaeosImplementationTruthService::FIELD_NEEDS___1_RESOLVED_TEST_FOR_VERIFIED,
+            'outcome:predicted_impact_calibration high_band realized_rate ' => EvidenceVisionThesisComposer::FIELD_OUTCOME_PREDICTED_IMPACT_CALIBRATION_HIGH_BAND_REALIZED_RATE_,
+            'disable contextual blurbs on precision regression or hallucinated-blurb sample failure' => PromotionProtocol::FIELD_DISABLE_CONTEXTUAL_BLURBS_ON_PRECISION_REGRESSION_OR_HALLUCINATED_BLURB_SAMPLE_FAILURE,
+            'b600_ledger_rotation_local_model_operator_learning_provider_bound_floor_count' => 18,
+        ];
+    }
+
 }
