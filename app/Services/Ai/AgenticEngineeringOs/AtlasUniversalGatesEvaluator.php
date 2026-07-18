@@ -16947,4 +16947,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B629).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b629AaeosClaimFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.aaeos.claim_definition_of_done.v1' => AtlasAaeosClaimDefinitionOfDoneValidator::SCHEMA_VERSION,
+            'atlas-agentic-engineering-os-implementation-reality.md:244' => AtlasAaeosClaimDefinitionOfDoneValidator::EVALUATED_AGAINST,
+            'partial' => AtlasAaeosClaimDefinitionOfDoneValidator::STATE_PARTIAL,
+            'owner_doc' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_OWNER_DOC,
+            'documental_state' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_DOCUMENTAL_STATE,
+            'runtime_state' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_RUNTIME_STATE,
+            'code_command_path' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_CODE_COMMAND_PATH,
+            'proof' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_PROOF,
+            'caveat' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_CAVEAT,
+            'missing_fields' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_MISSING_FIELDS,
+            'subject' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_SUBJECT,
+            'code_command_applicable' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_CODE_COMMAND_APPLICABLE,
+            'verdict' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_VERDICT,
+            'schema_version' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_SCHEMA_VERSION,
+            'evaluated_against' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_EVALUATED_AGAINST,
+            'field_status' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_FIELD_STATUS,
+            'partial_claim' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_PARTIAL_CLAIM,
+            'passes' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_PASSES,
+            'b629_aaeos_claim_floor_count' => 18,
+        ];
+    }
+
 }

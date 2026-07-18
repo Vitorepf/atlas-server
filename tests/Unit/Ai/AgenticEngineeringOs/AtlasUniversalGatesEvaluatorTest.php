@@ -13397,4 +13397,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b628_aaeos_department_floor_count']);
     }
 
+    public function test_b629_aaeos_claim_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b629AaeosClaimFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::SCHEMA_VERSION, $out['atlas.aaeos.claim_definition_of_done.v1']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::EVALUATED_AGAINST, $out['atlas-agentic-engineering-os-implementation-reality.md:244']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::STATE_PARTIAL, $out['partial']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_OWNER_DOC, $out['owner_doc']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_DOCUMENTAL_STATE, $out['documental_state']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_RUNTIME_STATE, $out['runtime_state']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_CODE_COMMAND_PATH, $out['code_command_path']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_PROOF, $out['proof']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_CAVEAT, $out['caveat']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_MISSING_FIELDS, $out['missing_fields']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_SUBJECT, $out['subject']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_CODE_COMMAND_APPLICABLE, $out['code_command_applicable']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_VERDICT, $out['verdict']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_EVALUATED_AGAINST, $out['evaluated_against']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_FIELD_STATUS, $out['field_status']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_PARTIAL_CLAIM, $out['partial_claim']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_PASSES, $out['passes']);
+        $this->assertSame(18, $out['b629_aaeos_claim_floor_count']);
+    }
+
 }
