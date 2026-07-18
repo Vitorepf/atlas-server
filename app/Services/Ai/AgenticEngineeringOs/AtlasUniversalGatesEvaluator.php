@@ -19892,4 +19892,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B724).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b724ImmuneSignatureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'acceptance' => AtlasImmuneSignatureFreeze::FIELD_ACCEPTANCE,
+            'cells_with_hit_count_gte_2' => AtlasImmuneSignatureFreeze::FIELD_CELLS_WITH_HIT_COUNT_GTE_2,
+            '90' => AtlasImmuneSignatureFreeze::INT_90,
+            'measure_freeze' => AtlasImmuneSignatureFreeze::KIND_MEASURE_FREEZE,
+            'measure_id' => AtlasImmuneSignatureFreeze::FIELD_MEASURE_ID,
+            'family_schema_version' => AtlasImmuneSignatureFreeze::FIELD_FAMILY_SCHEMA_VERSION,
+            'author' => AtlasImmuneSignatureFreeze::FIELD_AUTHOR,
+            'judge' => AtlasImmuneSignatureFreeze::FIELD_JUDGE,
+            'decay_days' => AtlasImmuneSignatureFreeze::FIELD_DECAY_DAYS,
+            'default_mode' => AtlasImmuneSignatureFreeze::FIELD_DEFAULT_MODE,
+            'dependencies' => AtlasImmuneSignatureFreeze::FIELD_DEPENDENCIES,
+            'kind' => AtlasImmuneSignatureFreeze::FIELD_KIND,
+            'mode_config_key' => AtlasImmuneSignatureFreeze::FIELD_MODE_CONFIG_KEY,
+            'privacy' => AtlasImmuneSignatureFreeze::FIELD_PRIVACY,
+            'schema_version' => AtlasImmuneSignatureFreeze::FIELD_SCHEMA_VERSION,
+            'ttl_days' => AtlasImmuneSignatureFreeze::FIELD_TTL_DAYS,
+            'hybrid_classifier_consult' => AtlasImmuneSignatureFreeze::FIELD_HYBRID_CLASSIFIER_CONSULT,
+            'immune_verdict_ledger' => AtlasImmuneSignatureFreeze::FIELD_IMMUNE_VERDICT_LEDGER,
+            'b724_immune_signature_floor_count' => 18,
+        ];
+    }
+
 }

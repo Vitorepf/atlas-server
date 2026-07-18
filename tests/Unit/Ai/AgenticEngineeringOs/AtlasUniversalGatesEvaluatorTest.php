@@ -15775,4 +15775,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b723_acos_evolution_floor_count']);
     }
 
+    public function test_b724_immune_signature_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b724ImmuneSignatureFloorsContractObserve([]);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_ACCEPTANCE, $out['acceptance']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_CELLS_WITH_HIT_COUNT_GTE_2, $out['cells_with_hit_count_gte_2']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::INT_90, $out['90']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::KIND_MEASURE_FREEZE, $out['measure_freeze']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_MEASURE_ID, $out['measure_id']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_FAMILY_SCHEMA_VERSION, $out['family_schema_version']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_AUTHOR, $out['author']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_JUDGE, $out['judge']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_DECAY_DAYS, $out['decay_days']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_DEFAULT_MODE, $out['default_mode']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_DEPENDENCIES, $out['dependencies']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_MODE_CONFIG_KEY, $out['mode_config_key']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_PRIVACY, $out['privacy']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_TTL_DAYS, $out['ttl_days']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_HYBRID_CLASSIFIER_CONSULT, $out['hybrid_classifier_consult']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_IMMUNE_VERDICT_LEDGER, $out['immune_verdict_ledger']);
+        $this->assertSame(18, $out['b724_immune_signature_floor_count']);
+    }
+
 }
