@@ -11724,4 +11724,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(8, $out['b560_aaeos_cognitive_floor_count']);
     }
 
+    public function test_b561_evidence_vision_exploratory_bets_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b561EvidenceVisionExploratoryBetsFloorsContractObserve([]);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_STATUS, $out['status']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_BORN_AT, $out['born_at']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_TTL_DAYS, $out['ttl_days']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_DESCRIBED_AT_BIRTH, $out['described_at_birth']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_WINDOW, $out['window']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_FIELD, $out['field']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_VALUE, $out['value']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_ALIGNMENT_KEYS, $out['alignment_keys']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_PATH, $out['path']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_BASIS, $out['basis']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_STATE, $out['state']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_ACTION, $out['action']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_STATUS, $out['status']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_BETS, $out['bets']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_K, $out['k']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_WINDOW_DAYS, $out['window_days']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_RECEIPTS, $out['receipts']);
+        $this->assertSame(18, $out['b561_evidence_vision_exploratory_bets_floor_count']);
+    }
+
 }

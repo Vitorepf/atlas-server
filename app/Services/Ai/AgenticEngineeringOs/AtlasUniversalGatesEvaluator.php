@@ -14869,4 +14869,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B561).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b561EvidenceVisionExploratoryBetsFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'status' => EvidenceVisionThesisComposer::FIELD_STATUS,
+            'evidence' => EvidenceVisionThesisComposer::FIELD_EVIDENCE,
+            'born_at' => EvidenceVisionThesisComposer::FIELD_BORN_AT,
+            'ttl_days' => EvidenceVisionThesisComposer::FIELD_TTL_DAYS,
+            'described_at_birth' => EvidenceVisionThesisComposer::FIELD_DESCRIBED_AT_BIRTH,
+            'window' => EvidenceVisionThesisComposer::FIELD_WINDOW,
+            'field' => EvidenceVisionThesisComposer::FIELD_FIELD,
+            'value' => EvidenceVisionThesisComposer::FIELD_VALUE,
+            'alignment_keys' => EvidenceVisionThesisComposer::FIELD_ALIGNMENT_KEYS,
+            'path' => ExploratoryBetsPortfolio::FIELD_PATH,
+            'basis' => ExploratoryBetsPortfolio::FIELD_BASIS,
+            'state' => ExploratoryBetsPortfolio::FIELD_STATE,
+            'action' => ExploratoryBetsPortfolio::FIELD_ACTION,
+            'status' => ExploratoryBetsPortfolio::FIELD_STATUS,
+            'bets' => ExploratoryBetsPortfolio::FIELD_BETS,
+            'k' => ExploratoryBetsPortfolio::FIELD_K,
+            'window_days' => ExploratoryBetsPortfolio::FIELD_WINDOW_DAYS,
+            'receipts' => ExploratoryBetsPortfolio::FIELD_RECEIPTS,
+            'b561_evidence_vision_exploratory_bets_floor_count' => 18,
+        ];
+    }
+
 }
