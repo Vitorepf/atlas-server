@@ -23,12 +23,13 @@ final class ImmuneSignatureDeriver
     public const FIELD_HOSTILE_CLASS = 'hostile_class';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_PRIVATE_SENSITIVE = 'private_sensitive';
+    public const FIELD_UNTRUSTED_CONTENT = 'untrusted_content';
 
     /** @var list<string> */
     public const HOSTILE_CLASSES = [
         'prompt_injection',
         self::FIELD_PRIVATE_SENSITIVE,
-        'untrusted_content',
+        self::FIELD_UNTRUSTED_CONTENT,
     ];
 
     /**

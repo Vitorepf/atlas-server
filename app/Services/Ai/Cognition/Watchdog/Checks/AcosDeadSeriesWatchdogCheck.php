@@ -43,6 +43,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_AGE_DAYS = 'age_days';
     public const FIELD_ACOS_DEAD_SERIES_STALE = 'acos_dead_series_stale';
     public const FIELD_FREEZE = 'freeze';
+    public const FIELD_RECORDED_AT = 'recorded_at';
 
     public function __construct(
         private AcosMaxMeasureSeriesRegistry $registry,
@@ -104,7 +105,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_SOURCE_TYPE => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SOURCE_TYPE] ?? null) ?? (isset($entry[self::FIELD_TABLE]) ? 'table' : 'jsonl'),
             self::FIELD_PATH => isset($entry[self::FIELD_PATH]) ? $this->relativePath(AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_PATH] ?? null) ?? '') : null,
             self::FIELD_TABLE => AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_TABLE] ?? null),
-            self::FIELD_TIMESTAMP_FIELD => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_TIMESTAMP_FIELD] ?? null) ?? 'recorded_at'),
+            self::FIELD_TIMESTAMP_FIELD => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_TIMESTAMP_FIELD] ?? null) ?? self::FIELD_RECORDED_AT),
             self::FIELD_TTL_DAYS => $ttlDays,
             self::FIELD_TTL_SOURCE => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_TTL_SOURCE] ?? null) ?? self::FIELD_FREEZE),
             self::FIELD_LAST_APPEND_AT => $lastAppendAt?->toIso8601String(),

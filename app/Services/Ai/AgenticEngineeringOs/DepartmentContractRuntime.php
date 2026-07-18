@@ -305,6 +305,9 @@ final class DepartmentContractRuntime
     public const FIELD_TESTS_FOCUSED = 'tests_focused';
     public const FIELD_THREAT_MODEL_PRESENT = 'threat_model_present';
     public const FIELD_TYPECHECK_GREEN = 'typecheck_green';
+    public const FIELD_REVIEW_GATE = 'review_gate';
+    public const FIELD_TESTS_GREEN = 'tests_green';
+    public const FIELD_VERIFICATION_COMPLETE = 'verification_complete';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -444,7 +447,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_EXECUTION_LOG, self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
                 [self::FIELD_NAME => self::FIELD_PATCH_PACK, self::FIELD_SCHEMA => self::SCHEMA_PATCH_PACK],
             ],
-            self::FIELD_GATES => ['plan_approved', self::FIELD_TESTS_FOCUSED, 'review_gate', self::FIELD_LINT_GREEN, self::FIELD_TYPECHECK_GREEN, 'tests_green', 'scope_guard_ok'],
+            self::FIELD_GATES => ['plan_approved', self::FIELD_TESTS_FOCUSED, self::FIELD_REVIEW_GATE, self::FIELD_LINT_GREEN, self::FIELD_TYPECHECK_GREEN, self::FIELD_TESTS_GREEN, 'scope_guard_ok'],
             self::FIELD_ALLOWED_ACTIONS => ['edit_allowed_files', self::FIELD_RUN_TESTS, 'request_provider_call'],
             self::FIELD_FORBIDDEN_ACTIONS => ['edit_security_policy', self::FIELD_MODIFY_MIGRATIONS_WITHOUT_ARCHITECT, 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_FORGE],
@@ -514,7 +517,7 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_TEST_PACK, self::FIELD_SCHEMA => self::SCHEMA_TEST_PACK],
             ],
-            self::FIELD_GATES => ['regression_green', 'verification_complete', 'coverage_min_threshold', self::FIELD_REGRESSION_TESTS_ADDED, 'fixtures_versioned'],
+            self::FIELD_GATES => ['regression_green', self::FIELD_VERIFICATION_COMPLETE, 'coverage_min_threshold', self::FIELD_REGRESSION_TESTS_ADDED, 'fixtures_versioned'],
             self::FIELD_ALLOWED_ACTIONS => ['write_tests', self::FIELD_REQUEST_TEST_DATA, 'block_on_coverage_drop'],
             self::FIELD_FORBIDDEN_ACTIONS => ['modify_production_code_outside_tests', 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW],

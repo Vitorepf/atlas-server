@@ -11847,4 +11847,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B462).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function cognitiveFunctionDepartmentContractPhaseAdvanceImmuneCheckFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'encontre' => AtlasCognitiveFunctionDecomposerService::FIELD_ENCONTRE,
+            'rascunhe' => AtlasCognitiveFunctionDecomposerService::FIELD_RASCUNHE,
+            'recupere' => AtlasCognitiveFunctionDecomposerService::FIELD_RECUPERE,
+            'redija' => AtlasCognitiveFunctionDecomposerService::FIELD_REDIJA,
+            'refactor' => AtlasCognitiveFunctionDecomposerService::FIELD_REFACTOR,
+            'refatore' => AtlasCognitiveFunctionDecomposerService::FIELD_REFATORE,
+            'render' => AtlasCognitiveFunctionDecomposerService::FIELD_RENDER,
+            'rode' => AtlasCognitiveFunctionDecomposerService::FIELD_RODE,
+            'review_gate' => DepartmentContractRuntime::FIELD_REVIEW_GATE,
+            'tests_green' => DepartmentContractRuntime::FIELD_TESTS_GREEN,
+            'verification_complete' => DepartmentContractRuntime::FIELD_VERIFICATION_COMPLETE,
+            'policy_decision_not_allowed_halt' => PhaseAdvanceVerdictClassifier::FIELD_POLICY_DECISION_NOT_ALLOWED_HALT,
+            'hallucinated_authority' => CognitiveImmuneCheckContract::FIELD_HALLUCINATED_AUTHORITY,
+            'untrusted_content' => ImmuneSignatureDeriver::FIELD_UNTRUSTED_CONTENT,
+            'unclassified' => ImmuneVerdictLedger::FIELD_UNCLASSIFIED,
+            'watchdog_check_exception' => AtlasWatchdogRunner::FIELD_WATCHDOG_CHECK_EXCEPTION,
+            'recorded_at' => AcosDeadSeriesWatchdogCheck::FIELD_RECORDED_AT,
+            'override' => AobgLatencyWatchdogCheck::FIELD_OVERRIDE,
+            'cognitive_function_department_contract_phase_advance_immune_check_floor_count' => 18,
+        ];
+    }
+
 }

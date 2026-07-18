@@ -22,7 +22,7 @@ final class CognitiveImmuneCheckContract
         'drift',
         self::FIELD_CONTRADICTION,
         self::FIELD_BIAS,
-        'hallucinated_authority',
+        self::FIELD_HALLUCINATED_AUTHORITY,
         self::FIELD_SCOPE_CREEP,
     ];
 
@@ -50,6 +50,7 @@ final class CognitiveImmuneCheckContract
     public const FIELD_CONTRADICTION = 'contradiction';
     public const FIELD_BIAS = 'bias';
     public const FIELD_SCOPE_CREEP = 'scope_creep';
+    public const FIELD_HALLUCINATED_AUTHORITY = 'hallucinated_authority';
 
     public const ALLOWED_GATE_STATUSES = [
         self::GATE_STATUS_PENDING,

@@ -49,6 +49,7 @@ final readonly class AtlasWatchdogRunner
     public const FIELD_DEFAULT = 'default';
     public const FIELD_SYSTEM = 'system';
     public const FIELD_UNIFIED = 'unified';
+    public const FIELD_WATCHDOG_CHECK_EXCEPTION = 'watchdog_check_exception';
 
     public function __construct(
         private AtlasWatchdogCheckRegistry $registry,
@@ -77,7 +78,7 @@ final readonly class AtlasWatchdogRunner
                         self::FIELD_MESSAGE => $e->getMessage(),
                     ],
                     alert: [
-                        self::FIELD_CODE => 'watchdog_check_exception',
+                        self::FIELD_CODE => self::FIELD_WATCHDOG_CHECK_EXCEPTION,
                         self::FIELD_MESSAGE => 'Watchdog check threw; other checks continued.',
                     ],
                 )->toArray();

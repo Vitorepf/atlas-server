@@ -9293,4 +9293,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cognitive_function_department_contract_autonomous_work_runbook_consolidation_floor_count']);
     }
 
+    public function test_cognitive_function_department_contract_phase_advance_immune_check_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitiveFunctionDepartmentContractPhaseAdvanceImmuneCheckFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_ENCONTRE, $out['encontre']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_RASCUNHE, $out['rascunhe']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_RECUPERE, $out['recupere']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_REDIJA, $out['redija']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_REFACTOR, $out['refactor']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_REFATORE, $out['refatore']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_RENDER, $out['render']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_RODE, $out['rode']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REVIEW_GATE, $out['review_gate']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TESTS_GREEN, $out['tests_green']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_VERIFICATION_COMPLETE, $out['verification_complete']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_POLICY_DECISION_NOT_ALLOWED_HALT, $out['policy_decision_not_allowed_halt']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_HALLUCINATED_AUTHORITY, $out['hallucinated_authority']);
+        $this->assertSame(ImmuneSignatureDeriver::FIELD_UNTRUSTED_CONTENT, $out['untrusted_content']);
+        $this->assertSame(ImmuneVerdictLedger::FIELD_UNCLASSIFIED, $out['unclassified']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_WATCHDOG_CHECK_EXCEPTION, $out['watchdog_check_exception']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_RECORDED_AT, $out['recorded_at']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_OVERRIDE, $out['override']);
+        $this->assertSame(18, $out['cognitive_function_department_contract_phase_advance_immune_check_floor_count']);
+    }
+
 }

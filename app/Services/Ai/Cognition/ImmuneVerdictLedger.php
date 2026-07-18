@@ -54,6 +54,7 @@ final class ImmuneVerdictLedger
     public const FIELD_CREATED_AT = 'created_at';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_STRVAL = 'strval';
+    public const FIELD_UNCLASSIFIED = 'unclassified';
 
     /** @var list<string> */
     public const LABELS = [
@@ -108,7 +109,7 @@ final class ImmuneVerdictLedger
             self::FIELD_CANDIDATE_HASH => $this->candidateHash($candidateHash),
             self::FIELD_WRITER => trim($writer) !== '' ? trim($writer) : self::WRITER_UNKNOWN,
             self::FIELD_GATE_STATUSES => $gateStatuses,
-            self::FIELD_PROMOTION_STATUS => AiValueNormalizer::trimmedScalarStringOrNull($verdict[self::FIELD_PROMOTION_STATUS] ?? null) ?? 'unclassified',
+            self::FIELD_PROMOTION_STATUS => AiValueNormalizer::trimmedScalarStringOrNull($verdict[self::FIELD_PROMOTION_STATUS] ?? null) ?? self::FIELD_UNCLASSIFIED,
             self::FIELD_BLOCKING_GATE_IDS => $blockingGateIds,
             self::FIELD_PENDING_GATE_IDS => $this->normalizeGateIds(AiValueNormalizer::arrayOrEmpty($verdict[self::FIELD_PENDING_GATE_IDS] ?? null)),
             self::FIELD_EXPECTED_BLOCK_GATE_IDS => $expectedBlockGateIds,

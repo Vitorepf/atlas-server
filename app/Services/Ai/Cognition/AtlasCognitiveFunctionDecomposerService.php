@@ -148,6 +148,14 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_PONDERE = 'pondere';
     public const FIELD_PROCURE = 'procure';
     public const FIELD_RACIOCINE = 'raciocine';
+    public const FIELD_ENCONTRE = 'encontre';
+    public const FIELD_RASCUNHE = 'rascunhe';
+    public const FIELD_RECUPERE = 'recupere';
+    public const FIELD_REDIJA = 'redija';
+    public const FIELD_REFACTOR = 'refactor';
+    public const FIELD_REFATORE = 'refatore';
+    public const FIELD_RENDER = 'render';
+    public const FIELD_RODE = 'rode';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -171,27 +179,27 @@ final class AtlasCognitiveFunctionDecomposerService
             self::FIELD_RACIOCINE, self::FIELD_INVESTIGUE, 'why', 'reason',
         ],
         self::FIELD_RETRIEVAL => [
-            'busque', self::FIELD_PROCURE, 'encontre', self::FIELD_PESQUISE, self::FIELD_MOSTRE, self::FIELD_LISTE,
-            'recupere', self::FIELD_LOOKUP, 'qual e', 'quais sao', self::FIELD_CITE, self::FIELD_CADASTR,
+            'busque', self::FIELD_PROCURE, self::FIELD_ENCONTRE, self::FIELD_PESQUISE, self::FIELD_MOSTRE, self::FIELD_LISTE,
+            self::FIELD_RECUPERE, self::FIELD_LOOKUP, 'qual e', 'quais sao', self::FIELD_CITE, self::FIELD_CADASTR,
             self::FIELD_DOCUMENTA, self::FIELD_MEMORIA, 'search', self::FIELD_FIND, 'show',
         ],
         self::FIELD_GENERATION => [
-            'escreva', 'redija', 'crie', self::FIELD_COMPONHA, 'rascunhe', 'gere',
+            'escreva', self::FIELD_REDIJA, 'crie', self::FIELD_COMPONHA, self::FIELD_RASCUNHE, 'gere',
             'sintetize', 'resuma', 'transforme', 'reescreva', self::FIELD_CONTINUE,
             self::FIELD_NARRE, self::FIELD_DESCREVA, self::FIELD_COMPOSE, 'write', 'draft', 'summarize',
         ],
         self::FIELD_CODE => [
-            'codigo', self::FIELD_CODIFIQUE, self::FIELD_IMPLEMENTE, 'refatore', 'debug', 'teste',
-            self::FIELD_COMPILE, self::FIELD_EXECUTE, 'rode', 'rodar', self::FIELD_PHP, 'typescript', 'react',
+            'codigo', self::FIELD_CODIFIQUE, self::FIELD_IMPLEMENTE, self::FIELD_REFATORE, 'debug', 'teste',
+            self::FIELD_COMPILE, self::FIELD_EXECUTE, self::FIELD_RODE, 'rodar', self::FIELD_PHP, 'typescript', 'react',
             self::FIELD_COMPONENTE, 'servico', self::FIELD_CLASSE, self::FIELD_FUNCAO, self::FIELD_CONTROLLER, self::FIELD_CLI,
             self::FIELD_ARTISAN, self::FIELD_MIGRATION, self::FIELD_COMPOSER, self::FIELD_NPM, self::FIELD_PHPUNIT, self::FIELD_PEST,
             self::FIELD_PATCH, 'pull request', 'pr ', ' pr,', self::FIELD_MERGE, 'git ',
-            'code', 'function', 'class', 'service', 'refactor', 'test', self::FIELD_BUILD,
+            'code', 'function', 'class', 'service', self::FIELD_REFACTOR, 'test', self::FIELD_BUILD,
         ],
         self::FIELD_VISION => [
             'imagem', self::FIELD_FOTO, self::FIELD_SCREENSHOT, 'visualize', self::FIELD_DESIGN, self::FIELD_LAYOUT,
             self::FIELD_MOCKUP, self::FIELD_FIGMA, self::FIELD_PNG, self::FIELD_JPG, 'svg', 'tela', 'ui ', 'ux ',
-            'cor ', self::FIELD_PALETA, 'visual', self::FIELD_SCREENSHOT, self::FIELD_IMAGE, 'render',
+            'cor ', self::FIELD_PALETA, 'visual', self::FIELD_SCREENSHOT, self::FIELD_IMAGE, self::FIELD_RENDER,
         ],
         self::FIELD_AUDIT => [
             'audite', self::FIELD_AUDITA, 'audit', 'verifique', 'valide', 'cheque',
