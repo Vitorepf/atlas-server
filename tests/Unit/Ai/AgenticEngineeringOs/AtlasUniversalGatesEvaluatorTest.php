@@ -10874,4 +10874,23 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b525_measure_series_http_path_floor_count']);
     }
 
+    public function test_b526_measure_series_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b526MeasureSeriesFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_ESP_06_OUTCOME_ENVELOPE_V1, $out['freeze:atlas.esp_06.outcome_envelope.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_ESP_09_CHALLENGER_ADVISORY_V1, $out['freeze:atlas.esp_09.challenger_advisory.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_EVIDENCE_DELTA_ATTRIBUTION_V1, $out['freeze:atlas.evidence.delta_attribution.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_IMMUNE_CALIBRATION_V1, $out['freeze:atlas.immune.calibration.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_IMMUNE_CLASSIFIER_HYBRID_V1, $out['freeze:atlas.immune.classifier_hybrid.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_IMMUNE_SIGNATURE_STORE_V1, $out['freeze:atlas.immune.signature_store.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_KB_EMBEDDING_COVERAGE_V1, $out['freeze:atlas.kb_embedding_coverage.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_M_FUNNEL_V1, $out['freeze:atlas.m.funnel.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_MEMORY_TEMPORAL_TRUTH_V2, $out['freeze:atlas.memory.temporal_truth.v2']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_N_CAPTURE_DRILL_V1, $out['freeze:atlas.n_capture_drill.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_MISSION_E2E_V1, $out['freeze:mission_e2e.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_OPERATOR_APPROVAL_HISTORY_V1, $out['freeze:operator.approval_history.v1']);
+        $this->assertSame(12, $out['b526_measure_series_floor_count']);
+    }
+
 }

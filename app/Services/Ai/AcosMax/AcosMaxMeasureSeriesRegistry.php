@@ -147,6 +147,18 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_FREEZE_ATLAS_DECIDE_REPLAY_DIVERGENCE_V1 = 'freeze:atlas.decide.replay_divergence.v1';
     public const FIELD_FREEZE_ATLAS_DECIDE_ROUTE_REGRET_V2 = 'freeze:atlas.decide.route_regret.v2';
     public const FIELD_FREEZE_ATLAS_DECIDE_ZERO_WEIGHT_OUTCOMES_V1 = 'freeze:atlas.decide.zero_weight_outcomes.v1';
+    public const FIELD_FREEZE_ATLAS_ESP_06_OUTCOME_ENVELOPE_V1 = 'freeze:atlas.esp_06.outcome_envelope.v1';
+    public const FIELD_FREEZE_ATLAS_ESP_09_CHALLENGER_ADVISORY_V1 = 'freeze:atlas.esp_09.challenger_advisory.v1';
+    public const FIELD_FREEZE_ATLAS_EVIDENCE_DELTA_ATTRIBUTION_V1 = 'freeze:atlas.evidence.delta_attribution.v1';
+    public const FIELD_FREEZE_ATLAS_IMMUNE_CALIBRATION_V1 = 'freeze:atlas.immune.calibration.v1';
+    public const FIELD_FREEZE_ATLAS_IMMUNE_CLASSIFIER_HYBRID_V1 = 'freeze:atlas.immune.classifier_hybrid.v1';
+    public const FIELD_FREEZE_ATLAS_IMMUNE_SIGNATURE_STORE_V1 = 'freeze:atlas.immune.signature_store.v1';
+    public const FIELD_FREEZE_ATLAS_KB_EMBEDDING_COVERAGE_V1 = 'freeze:atlas.kb_embedding_coverage.v1';
+    public const FIELD_FREEZE_ATLAS_M_FUNNEL_V1 = 'freeze:atlas.m.funnel.v1';
+    public const FIELD_FREEZE_ATLAS_MEMORY_TEMPORAL_TRUTH_V2 = 'freeze:atlas.memory.temporal_truth.v2';
+    public const FIELD_FREEZE_ATLAS_N_CAPTURE_DRILL_V1 = 'freeze:atlas.n_capture_drill.v1';
+    public const FIELD_FREEZE_MISSION_E2E_V1 = 'freeze:mission_e2e.v1';
+    public const FIELD_FREEZE_OPERATOR_APPROVAL_HISTORY_V1 = 'freeze:operator.approval_history.v1';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -276,7 +288,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AtlasMemoryTemporalQualityService::freezePayload()[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.memory.temporal_truth.v2',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_MEMORY_TEMPORAL_TRUTH_V2,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXI_02,
@@ -294,7 +306,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_DECIDED_AT,
                 self::FIELD_TTL_DAYS => ImmuneCalibrationService::TTL_DAYS,
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.immune.calibration.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_IMMUNE_CALIBRATION_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_ELEV_20S,
@@ -392,7 +404,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) OutcomeEnvelopeBridge::freezePayload()[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.esp_06.outcome_envelope.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_ESP_06_OUTCOME_ENVELOPE_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_ESP_09,
@@ -401,7 +413,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) Esp09IndependentChallengerService::freezePayload()[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.esp_09.challenger_advisory.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_ESP_09_CHALLENGER_ADVISORY_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MULTN15_02,
@@ -410,7 +422,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => OperatorApprovalHistoryMeter::TTL_DAYS,
-                self::FIELD_TTL_SOURCE => 'freeze:operator.approval_history.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_OPERATOR_APPROVAL_HISTORY_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXL_06,
@@ -419,7 +431,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MAXL_06)[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.evidence.delta_attribution.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_EVIDENCE_DELTA_ATTRIBUTION_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXL_07,
@@ -464,7 +476,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => self::INT_30,
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.m.funnel.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_M_FUNNEL_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MULTX_06,
@@ -536,7 +548,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_TETO_02)[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:mission_e2e.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_MISSION_E2E_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_ELEV_27,
@@ -572,7 +584,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
                 self::FIELD_TTL_DAYS => AtlasImmuneClassifierHybridFreeze::TTL_DAYS,
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.immune.classifier_hybrid.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_IMMUNE_CLASSIFIER_HYBRID_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXI_05,
@@ -581,7 +593,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_FIRST_SEEN,
                 self::FIELD_TTL_DAYS => AtlasImmuneSignatureFreeze::TTL_DAYS,
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.immune.signature_store.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_IMMUNE_SIGNATURE_STORE_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_TETO_01,
@@ -590,7 +602,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
                 self::FIELD_TTL_DAYS => self::INT_365,
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.n_capture_drill.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_N_CAPTURE_DRILL_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXA_06,
@@ -599,7 +611,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => self::INT_60,
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.kb_embedding_coverage.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_KB_EMBEDDING_COVERAGE_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXA_06,
