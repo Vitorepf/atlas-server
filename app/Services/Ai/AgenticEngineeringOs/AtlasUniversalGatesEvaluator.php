@@ -6981,6 +6981,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function watchdogImpactBudgetFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'watchdog_field_measured_share' => AtlasAcosWatchdogHealthService::FIELD_MEASURED_SHARE,
+            'watchdog_field_delivered_refs' => AtlasAcosWatchdogHealthService::FIELD_DELIVERED_REFS,
+            'watchdog_field_blockers' => AtlasAcosWatchdogHealthService::FIELD_BLOCKERS,
+            'watchdog_field_window_days' => AtlasAcosWatchdogHealthService::FIELD_WINDOW_DAYS,
+            'watchdog_field_case_counts' => AtlasAcosWatchdogHealthService::FIELD_CASE_COUNTS,
+            'watchdog_field_acronym' => AtlasAcosWatchdogHealthService::FIELD_ACRONYM,
+            'impact_field_rung' => PredictedImpactBand::FIELD_RUNG,
+            'impact_field_rank' => PredictedImpactBand::FIELD_RANK,
+            'impact_field_path_yield' => PredictedImpactBand::FIELD_PATH_YIELD,
+            'impact_field_n_realized' => PredictedImpactBand::FIELD_N_REALIZED,
+            'impact_field_realized_true' => PredictedImpactBand::FIELD_REALIZED_TRUE,
+            'impact_field_unresolved' => PredictedImpactBand::FIELD_UNRESOLVED,
+            'budget_field_cpu_share' => AtlasResourceBudgetService::FIELD_CPU_SHARE,
+            'budget_field_probe_hint' => AtlasResourceBudgetService::FIELD_PROBE_HINT,
+            'budget_field_schema_version' => AtlasResourceBudgetService::FIELD_SCHEMA_VERSION,
+            'budget_field_host_ram_gib' => AtlasResourceBudgetService::FIELD_HOST_RAM_GIB,
+            'budget_field_engine_floor_gib' => AtlasResourceBudgetService::FIELD_ENGINE_FLOOR_GIB,
+            'watchdog_impact_budget_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

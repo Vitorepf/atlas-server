@@ -33,6 +33,12 @@ final class PredictedImpactBand
     public const FIELD_SALTO = 'salto';
     public const FIELD_BAND = 'band';
     public const FIELD_COMPONENTS = 'components';
+    public const FIELD_RUNG = 'rung';
+    public const FIELD_RANK = 'rank';
+    public const FIELD_PATH_YIELD = 'path_yield';
+    public const FIELD_N_REALIZED = 'n_realized';
+    public const FIELD_REALIZED_TRUE = 'realized_true';
+    public const FIELD_UNRESOLVED = 'unresolved';
 
     /**
      * @param  array<string,mixed>  $candidate
@@ -40,9 +46,9 @@ final class PredictedImpactBand
      */
     public static function classify(array $candidate): array
     {
-        $rung = AiValueNormalizer::lowerTrimmedString($candidate['rung'] ?? 'task');
-        $rank = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($candidate['rank'] ?? null) ?? self::DEFAULT_RANK_FALLBACK));
-        $yield = AiValueNormalizer::clampUnit(AiValueNormalizer::finiteFloatOrNull($candidate['path_yield'] ?? null) ?? 0.0);
+        $rung = AiValueNormalizer::lowerTrimmedString($candidate[self::FIELD_RUNG] ?? 'task');
+        $rank = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($candidate[self::FIELD_RANK] ?? null) ?? self::DEFAULT_RANK_FALLBACK));
+        $yield = AiValueNormalizer::clampUnit(AiValueNormalizer::finiteFloatOrNull($candidate[self::FIELD_PATH_YIELD] ?? null) ?? 0.0);
         $score = (self::RUNG_WEIGHT[$rung] ?? 0) + ($rank <= self::RANK_TOP_CUTOFF ? 1 : 0) + ($yield >= self::YIELD_SWEET_FLOOR ? 1 : 0);
         $band = match (true) {
             $score >= self::HIGH_SCORE_FLOOR => 'high',
@@ -53,7 +59,7 @@ final class PredictedImpactBand
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_BAND => $band,
-            self::FIELD_COMPONENTS => ['rung' => $rung, 'rank' => $rank, 'path_yield' => $yield],
+            self::FIELD_COMPONENTS => [self::FIELD_RUNG => $rung, self::FIELD_RANK => $rank, self::FIELD_PATH_YIELD => $yield],
             self::FIELD_SOURCE => [
                 'caller_declared_band_ignored' => true,
                 'influences_pick' => false,
@@ -70,7 +76,7 @@ final class PredictedImpactBand
     {
         $bands = [];
         foreach (self::BANDS as $band) {
-            $bands[$band] = ['n_realized' => 0, 'realized_true' => 0, 'unresolved' => 0];
+            $bands[$band] = [self::FIELD_N_REALIZED => 0, self::FIELD_REALIZED_TRUE => 0, self::FIELD_UNRESOLVED => 0];
         }
 
         foreach ($rows as $row) {
@@ -79,12 +85,12 @@ final class PredictedImpactBand
                 continue;
             }
             if (AiValueNormalizer::trimmedStringOrNull($row['status'] ?? null) === 'unresolved') {
-                $bands[$band]['unresolved']++;
+                $bands[$band][self::FIELD_UNRESOLVED]++;
                 continue;
             }
-            $bands[$band]['n_realized']++;
+            $bands[$band][self::FIELD_N_REALIZED]++;
             if (($row['realized'] ?? false) === true) {
-                $bands[$band]['realized_true']++;
+                $bands[$band][self::FIELD_REALIZED_TRUE]++;
             }
         }
 

@@ -105,6 +105,12 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_REASON = 'reason';
     public const FIELD_VALUE = 'value';
     public const FIELD_THRESHOLD = 'threshold';
+    public const FIELD_MEASURED_SHARE = 'measured_share';
+    public const FIELD_DELIVERED_REFS = 'delivered_refs';
+    public const FIELD_BLOCKERS = 'blockers';
+    public const FIELD_WINDOW_DAYS = 'window_days';
+    public const FIELD_CASE_COUNTS = 'case_counts';
+    public const FIELD_ACRONYM = 'acronym';
 
     public const STATUS_UNKNOWN = 'unknown';
 
@@ -386,7 +392,7 @@ final class AtlasAcosWatchdogHealthService
                 self::STATUS_ALERT => true,
                 self::FIELD_BLOCKING => ['ai_rag_feedback_events_table_missing'],
                 self::FIELD_TOTAL_EVENT_COUNT => 0,
-                'measured_share' => 0.0,
+                self::FIELD_MEASURED_SHARE => 0.0,
                 'writer_shares' => [],
                 self::FIELD_WINDOW => ['hours' => self::FEEDBACK_WINDOW_HOURS, self::FIELD_TOTAL_EVENT_COUNT => 0],
                 self::FIELD_GENERATED_AT => now()->toIso8601String(),
@@ -402,7 +408,7 @@ final class AtlasAcosWatchdogHealthService
         $byWriter = [];
         foreach ($events as $event) {
             $writer = AiValueNormalizer::trimmedScalarStringOrNull($event->flow_id ?: null) ?? self::STATUS_UNKNOWN;
-            $byWriter[$writer] ??= [self::FIELD_TOTAL => 0, self::FIELD_MEASURED => 0, 'delivered_refs' => 0];
+            $byWriter[$writer] ??= [self::FIELD_TOTAL => 0, self::FIELD_MEASURED => 0, self::FIELD_DELIVERED_REFS => 0];
             $byWriter[$writer][self::FIELD_TOTAL]++;
             $isMeasured = (int) $event->post_execution_utility > 0 || (int) $event->context_sufficiency > 0 || (int) $event->used_sources > 0;
             $hasDelivered = (int) $event->included_sources > 0 || (AiValueNormalizer::trimmedStringOrNull($event->retrieval_receipt_id) ?? '') !== '';
@@ -414,11 +420,11 @@ final class AtlasAcosWatchdogHealthService
             $synthetic += $isSynthetic ? 1 : 0;
             $transcript += $isTranscript ? 1 : 0;
             $byWriter[$writer][self::FIELD_MEASURED] += $isMeasured ? 1 : 0;
-            $byWriter[$writer]['delivered_refs'] += $hasDelivered ? 1 : 0;
+            $byWriter[$writer][self::FIELD_DELIVERED_REFS] += $hasDelivered ? 1 : 0;
         }
         foreach ($byWriter as $writer => $row) {
-            $byWriter[$writer]['measured_share'] = $row[self::FIELD_TOTAL] > 0 ? round($row[self::FIELD_MEASURED] / $row[self::FIELD_TOTAL], 4) : 0.0;
-            $byWriter[$writer]['delivered_refs_share'] = $row[self::FIELD_TOTAL] > 0 ? round($row['delivered_refs'] / $row[self::FIELD_TOTAL], 4) : 0.0;
+            $byWriter[$writer][self::FIELD_MEASURED_SHARE] = $row[self::FIELD_TOTAL] > 0 ? round($row[self::FIELD_MEASURED] / $row[self::FIELD_TOTAL], 4) : 0.0;
+            $byWriter[$writer]['delivered_refs_share'] = $row[self::FIELD_TOTAL] > 0 ? round($row[self::FIELD_DELIVERED_REFS] / $row[self::FIELD_TOTAL], 4) : 0.0;
         }
         $syntheticShare = $total > 0 ? round($synthetic / $total, 4) : 0.0;
         $blocking = [];
@@ -448,7 +454,7 @@ final class AtlasAcosWatchdogHealthService
                 'transcript_inferred_share' => $total > 0 ? round($transcript / $total, 4) : 0.0,
             ],
             self::FIELD_TOTAL_EVENT_COUNT => $total,
-            'measured_share' => $total > 0 ? round($measured / $total, 4) : 0.0,
+            self::FIELD_MEASURED_SHARE => $total > 0 ? round($measured / $total, 4) : 0.0,
             'writer_shares' => $byWriter,
             'by_writer' => $byWriter,
             self::FIELD_THRESHOLDS => [
@@ -523,7 +529,7 @@ final class AtlasAcosWatchdogHealthService
             'cross_week_recall_lift_gate' => [
                 self::FIELD_STATUS => $crossWeek[self::FIELD_STATUS] ?? self::STATUS_UNKNOWN,
                 self::FIELD_CERTIFIED => (AiValueNormalizer::boolOrNull($crossWeek[self::FIELD_CERTIFIED] ?? null) ?? false),
-                'blockers' => AiValueNormalizer::arrayOrEmpty($crossWeek['blockers'] ?? null),
+                self::FIELD_BLOCKERS => AiValueNormalizer::arrayOrEmpty($crossWeek[self::FIELD_BLOCKERS] ?? null),
             ],
             'rollback_trigger' => [
                 self::FIELD_ID => 'cpt_09_compaction_enforce',
@@ -531,7 +537,7 @@ final class AtlasAcosWatchdogHealthService
                 'rollback_env' => 'ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE=observe',
             ],
             self::FIELD_THRESHOLDS => [
-                'window_days' => self::COMPACTION_WINDOW_DAYS,
+                self::FIELD_WINDOW_DAYS => self::COMPACTION_WINDOW_DAYS,
                 'min_compactions' => self::COMPACTION_MIN_RECEIPTS,
                 'critical_must_keep_cuts' => 0,
                 'min_context_retention_score' => self::COMPACTION_MIN_RETENTION_SCORE,
@@ -560,7 +566,7 @@ final class AtlasAcosWatchdogHealthService
             'scorecard_hash' => $scorecard['scorecard_hash'] ?? null,
             'pipeline_score_out_of_10' => $pipeline,
             'partial_count' => count($partials),
-            'partial_acronyms' => array_values(array_map(static fn (array $row): string => (AiValueNormalizer::trimmedStringOrNull($row['acronym'] ?? null) ?? ''), array_slice($partials, 0, 10))),
+            'partial_acronyms' => array_values(array_map(static fn (array $row): string => (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_ACRONYM] ?? null) ?? ''), array_slice($partials, 0, 10))),
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
         $this->recordLedger($blocking === [] ? LedgerEventType::OperationCompleted : LedgerEventType::OperationBlocked, $payload, 'pip-08.scorecard_stability');
@@ -585,7 +591,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_STATUS => $blocking === [] && (AiValueNormalizer::boolOrNull(data_get($report, 'measurement.measurement_ready', false)) ?? false) ? self::STATUS_OK : self::STATUS_ALERT,
             'lift_status' => $status,
             self::FIELD_BLOCKING => array_values(array_unique($blocking)),
-            'case_counts' => [
+            self::FIELD_CASE_COUNTS => [
                 'with_recalled_memory' => (int) (AiValueNormalizer::finiteFloatOrNull(data_get($report, 'measurement.with_recalled_memory.case_count', 0)) ?? 0),
                 'without_recalled_memory' => (int) (AiValueNormalizer::finiteFloatOrNull(data_get($report, 'measurement.without_recalled_memory.case_count', 0)) ?? 0),
             ],
@@ -593,9 +599,9 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
         $this->recordLedger($blocking === [] ? LedgerEventType::OperationCompleted : LedgerEventType::OperationBlocked, [
-            'blockers' => $blockers,
+            self::FIELD_BLOCKERS => $blockers,
             self::FIELD_STATUS => $status,
-            'case_counts' => $payload['case_counts'],
+            self::FIELD_CASE_COUNTS => $payload[self::FIELD_CASE_COUNTS],
             'blocker_series' => $series,
         ], 'ope-08.lift_cycle_closure');
 
@@ -614,7 +620,7 @@ final class AtlasAcosWatchdogHealthService
             }
             $diagnosis = $resolver->resolvePipelineDiagnosis((AiValueNormalizer::trimmedStringOrNull($row['service_class'] ?? null) ?? ''));
             $partials[] = [
-                'acronym' => (AiValueNormalizer::trimmedStringOrNull($row['acronym'] ?? null) ?? ''),
+                self::FIELD_ACRONYM => (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_ACRONYM] ?? null) ?? ''),
                 'service_class' => (AiValueNormalizer::trimmedStringOrNull($row['service_class'] ?? null) ?? ''),
                 'diagnosis' => $diagnosis,
             ];
@@ -668,7 +674,7 @@ final class AtlasAcosWatchdogHealthService
                     (int) (AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_FALSE_POSITIVE_TOTAL] ?? null) ?? 0) === 0 ? null : 'governance_false_positive_nonzero',
                 ])),
                 self::FIELD_RAW => [
-                    'window_days' => self::ENG_WINDOW_DAYS,
+                    self::FIELD_WINDOW_DAYS => self::ENG_WINDOW_DAYS,
                     'by_executor' => $governanceByExecutor,
                     'bypass_rate' => AiValueNormalizer::finiteFloatOrNull($summary['bypass_rate'] ?? null) ?? 0.0,
                     self::FIELD_FALSE_POSITIVE_TOTAL => (int) (AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_FALSE_POSITIVE_TOTAL] ?? null) ?? 0),
@@ -703,7 +709,7 @@ final class AtlasAcosWatchdogHealthService
                 'forge_sovereign_verdict_jsonl' => $this->relativePath($this->forgeSovereignVerdictPath()),
             ],
             self::FIELD_THRESHOLDS => [
-                'window_days' => self::ENG_WINDOW_DAYS,
+                self::FIELD_WINDOW_DAYS => self::ENG_WINDOW_DAYS,
                 'real_executions_per_executor' => self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR,
                 'forge_promoted_cycles' => self::ENG_MIN_FORGE_PROMOTED_CYCLES,
                 'adml_proven_routes' => self::ENG_MIN_ADML_PROVEN_ROUTES,

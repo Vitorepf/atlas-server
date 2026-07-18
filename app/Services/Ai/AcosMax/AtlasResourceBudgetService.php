@@ -33,6 +33,11 @@ final class AtlasResourceBudgetService
     public const FIELD_RAM_ACTUAL_MB = 'ram_actual_mb';
     public const FIELD_DISK_CAP_MB = 'disk_cap_mb';
     public const FIELD_STATUS = 'status';
+    public const FIELD_CPU_SHARE = 'cpu_share';
+    public const FIELD_PROBE_HINT = 'probe_hint';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_HOST_RAM_GIB = 'host_ram_gib';
+    public const FIELD_ENGINE_FLOOR_GIB = 'engine_floor_gib';
 
     /** @var array<string,mixed> */
     private array $budget;
@@ -108,14 +113,14 @@ final class AtlasResourceBudgetService
                 self::FIELD_RAM_ACTUAL_MB => $ramActual,
                 self::FIELD_DISK_CAP_MB => $diskCap,
                 'disk_actual_mb' => $diskActual,
-                'cpu_share' => AiValueNormalizer::trimmedStringOrNull($component['cpu_share'] ?? null) ?? 'shared',
+                self::FIELD_CPU_SHARE => AiValueNormalizer::trimmedStringOrNull($component[self::FIELD_CPU_SHARE] ?? null) ?? 'shared',
                 self::FIELD_STATUS => $componentStatus,
-                'probe_hint' => AiValueNormalizer::trimmedStringOrNull($component['probe_hint'] ?? null) ?? '',
+                self::FIELD_PROBE_HINT => AiValueNormalizer::trimmedStringOrNull($component[self::FIELD_PROBE_HINT] ?? null) ?? '',
             ];
         }
 
-        $hostGib = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($this->budget['host_ram_gib'] ?? null) ?? self::DEFAULT_HOST_RAM_GIB));
-        $engineFloorGib = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($this->budget['engine_floor_gib'] ?? null) ?? self::DEFAULT_ENGINE_FLOOR_GIB));
+        $hostGib = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($this->budget[self::FIELD_HOST_RAM_GIB] ?? null) ?? self::DEFAULT_HOST_RAM_GIB));
+        $engineFloorGib = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($this->budget[self::FIELD_ENGINE_FLOOR_GIB] ?? null) ?? self::DEFAULT_ENGINE_FLOOR_GIB));
         $hostMb = $hostGib * 1024;
         $engineFloorMb = $engineFloorGib * 1024;
 
@@ -129,9 +134,9 @@ final class AtlasResourceBudgetService
         }
 
         return [
-            'schema_version' => AiValueNormalizer::trimmedStringOrNull($this->budget['schema_version'] ?? null) ?? self::SCHEMA,
-            'host_ram_gib' => $hostGib,
-            'engine_floor_gib' => $engineFloorGib,
+            self::FIELD_SCHEMA_VERSION => AiValueNormalizer::trimmedStringOrNull($this->budget[self::FIELD_SCHEMA_VERSION] ?? null) ?? self::SCHEMA,
+            self::FIELD_HOST_RAM_GIB => $hostGib,
+            self::FIELD_ENGINE_FLOOR_GIB => $engineFloorGib,
             'total_ram_cap_mb' => $totalRamCap,
             'engine_floor_mb' => $engineFloorMb,
             'host_ram_mb' => $hostMb,

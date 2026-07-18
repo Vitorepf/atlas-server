@@ -5222,5 +5222,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['teto_atlas_longhorizon_floor_count']);
     }
 
+    public function test_watchdog_impact_budget_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->watchdogImpactBudgetFloorsContractObserve([]);
+
+        $this->assertSame('measured_share', $payload['watchdog_field_measured_share']);
+        $this->assertSame('delivered_refs', $payload['watchdog_field_delivered_refs']);
+        $this->assertSame('blockers', $payload['watchdog_field_blockers']);
+        $this->assertSame('window_days', $payload['watchdog_field_window_days']);
+        $this->assertSame('case_counts', $payload['watchdog_field_case_counts']);
+        $this->assertSame('acronym', $payload['watchdog_field_acronym']);
+        $this->assertSame('rung', $payload['impact_field_rung']);
+        $this->assertSame('rank', $payload['impact_field_rank']);
+        $this->assertSame('path_yield', $payload['impact_field_path_yield']);
+        $this->assertSame('n_realized', $payload['impact_field_n_realized']);
+        $this->assertSame('realized_true', $payload['impact_field_realized_true']);
+        $this->assertSame('unresolved', $payload['impact_field_unresolved']);
+        $this->assertSame('cpu_share', $payload['budget_field_cpu_share']);
+        $this->assertSame('probe_hint', $payload['budget_field_probe_hint']);
+        $this->assertSame('schema_version', $payload['budget_field_schema_version']);
+        $this->assertSame('host_ram_gib', $payload['budget_field_host_ram_gib']);
+        $this->assertSame('engine_floor_gib', $payload['budget_field_engine_floor_gib']);
+        $this->assertSame(17, $payload['watchdog_impact_budget_floor_count']);
+    }
+
 
 }
