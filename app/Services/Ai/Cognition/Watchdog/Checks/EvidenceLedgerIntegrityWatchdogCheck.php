@@ -62,6 +62,8 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_CHAIN_DETAILS = 'chain_details';
     public const FIELD_TAMPERED_TOTAL = 'tampered_total';
     public const FIELD_GAP_TOTAL = 'gap_total';
+    public const FIELD_EVIDENCE_LEDGER_GAP = 'evidence_ledger_gap';
+    public const FIELD_EVIDENCE_LEDGER_TAMPERED = 'evidence_ledger_tampered';
 
 
     public function __construct(
@@ -154,7 +156,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
             return AtlasWatchdogCheckResult::alert(
                 $evidence + [self::FIELD_REASON => self::REASON_TAMPERED],
                 [
-                    self::FIELD_CODE => 'evidence_ledger_tampered',
+                    self::FIELD_CODE => self::FIELD_EVIDENCE_LEDGER_TAMPERED,
                     self::FIELD_MESSAGE => 'Evidence ledger chain integrity verifier detected tampered events.',
                     self::FIELD_TAMPERED_EVENT_IDS => $evidence[self::FIELD_TAMPERED_EVENT_IDS],
                 ],
@@ -165,7 +167,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
             return AtlasWatchdogCheckResult::alert(
                 $evidence + [self::FIELD_REASON => self::REASON_GAP],
                 [
-                    self::FIELD_CODE => 'evidence_ledger_gap',
+                    self::FIELD_CODE => self::FIELD_EVIDENCE_LEDGER_GAP,
                     self::FIELD_MESSAGE => 'Evidence ledger chain integrity verifier detected chain gaps.',
                     self::FIELD_GAP_COUNT => $gapTotal,
                 ],

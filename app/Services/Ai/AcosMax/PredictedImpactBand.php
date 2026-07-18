@@ -47,6 +47,8 @@ final class PredictedImpactBand
     public const FIELD_UNRESOLVED_COUNTS_AS_SUCCESS = 'unresolved_counts_as_success';
     public const FIELD_STATUS = 'status';
     public const FIELD_REPORT_ONLY = 'report_only';
+    public const FIELD_LOW = 'low';
+    public const FIELD_HIGH = 'high';
 
     /**
      * @param  array<string,mixed>  $candidate
@@ -59,9 +61,9 @@ final class PredictedImpactBand
         $yield = AiValueNormalizer::clampUnit(AiValueNormalizer::finiteFloatOrNull($candidate[self::FIELD_PATH_YIELD] ?? null) ?? 0.0);
         $score = (self::RUNG_WEIGHT[$rung] ?? 0) + ($rank <= self::RANK_TOP_CUTOFF ? 1 : 0) + ($yield >= self::YIELD_SWEET_FLOOR ? 1 : 0);
         $band = match (true) {
-            $score >= self::HIGH_SCORE_FLOOR => 'high',
+            $score >= self::HIGH_SCORE_FLOOR => self::FIELD_HIGH,
             $score >= self::SWEET_SCORE_FLOOR => 'sweet',
-            default => 'low',
+            default => self::FIELD_LOW,
         };
 
         return [
@@ -88,7 +90,7 @@ final class PredictedImpactBand
         }
 
         foreach ($rows as $row) {
-            $band = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_BAND] ?? null) ?? 'low';
+            $band = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_BAND] ?? null) ?? self::FIELD_LOW;
             if (! isset($bands[$band])) {
                 continue;
             }

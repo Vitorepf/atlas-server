@@ -119,6 +119,8 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_UNVERIFIABLE_CLAIMS = 'unverifiable_claims';
     public const FIELD_VERIFIABLY_BACKED = 'verifiably_backed';
     public const FIELD_WIRING = 'wiring';
+    public const FIELD_GREEN_RUN = 'green_run';
+    public const FIELD_NONE = 'none';
 
     public const RANK = [
         self::LEVEL_SPEC => 0,
@@ -690,10 +692,10 @@ class AtlasAaeosImplementationTruthService
 
         // Per-row test-resolution honesty stamp.
         $testResolution = match (true) {
-            $hasGreenTest => 'green_run',
+            $hasGreenTest => self::FIELD_GREEN_RUN,
             // A test symbol matched but no green run proves it — the lie this kills.
             $hasTest => self::TEST_RESOLUTION_EXISTENCE_ONLY_UNRUN,
-            default => 'none',
+            default => self::FIELD_NONE,
         };
 
         $unmet = [];

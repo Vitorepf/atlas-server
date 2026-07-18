@@ -137,6 +137,9 @@ use App\Services\Ai\Aaeos\Cores\OutcomeCausalityRanker;
 use App\Services\Ai\AcosMax\AsefChunkIndexService;
 use App\Services\Ai\AcosMax\AcosMaxMeasureSeriesRegistry;
 use App\Services\Ai\Cognition\Watchdog\Checks\HealthReportWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\EvidenceLedgerIntegrityWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\ProviderBoundRedactionDriftWatchdogCheck;
+use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -8111,6 +8114,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_HYBRID_CLASSIFIER_CONSULT, $out['hybrid_classifier_consult']);
         $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_IMMUNE_VERDICT_LEDGER, $out['immune_verdict_ledger']);
         $this->assertSame(18, $out['aaeos_department_cognitive_measure_series_health_report_code_floor_count']);
+    }
+
+    public function test_aaeos_veto_test_evidence_ledger_predicted_impact_provider_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->aaeosVetoTestEvidenceLedgerPredictedImpactProviderFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ARCHITECT_SPEC_VETO, $out['architect_spec_veto']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_NONE, $out['none']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_AMBIGUOUS_TEST_REF, $out['ambiguous_test_ref']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS, $out['atlas_aaeos_test_run_receipts']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_EVIDENCE_LEDGER_GAP, $out['evidence_ledger_gap']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_EVIDENCE_LEDGER_TAMPERED, $out['evidence_ledger_tampered']);
+        $this->assertSame(PredictedImpactBand::FIELD_LOW, $out['low']);
+        $this->assertSame(PredictedImpactBand::FIELD_HIGH, $out['high']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_REDACTION_STATUS, $out['redaction_status']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_ATLAS_MEMORY_ENTRIES, $out['atlas_memory_entries']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_CURRENT_WINDOW, $out['current_window']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_OFF, $out['off']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_HIGH, $out['high']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_LOW, $out['low']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_GREEN_RUN, $out['green_run']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_NONE, $out['none']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_GLOBAL, $out['global']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_PROCEDURAL_SKILL_PROMOTER, $out['procedural_skill_promoter']);
+        $this->assertSame(18, $out['aaeos_veto_test_evidence_ledger_predicted_impact_provider_floor_count']);
     }
 
 }

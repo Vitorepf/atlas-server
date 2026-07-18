@@ -62,6 +62,8 @@ final class AtlasSurpriseGateService
     public const FIELD_GATED = 'gated';
     public const FIELD_NOVEL_TOKENS = 'novel_tokens';
     public const FIELD_CANDIDATE_TOKENS = 'candidate_tokens';
+    public const FIELD_HIGH = 'high';
+    public const FIELD_LOW = 'low';
 
     /**
      * Julga um candidato contra a predição pré-sessão.
@@ -95,7 +97,7 @@ final class AtlasSurpriseGateService
         $surprise = AiValueNormalizer::clampUnit(count($novel) / count($candidateTokens));
 
         $record = $surprise >= $threshold;
-        $priority = ! $record ? 'low' : ($surprise >= $highBand ? 'high' : 'normal');
+        $priority = ! $record ? self::FIELD_LOW : ($surprise >= $highBand ? self::FIELD_HIGH : 'normal');
 
         return [
             self::FIELD_SURPRISE => round($surprise, 4),

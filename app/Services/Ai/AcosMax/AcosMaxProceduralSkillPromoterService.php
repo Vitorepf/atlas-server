@@ -115,6 +115,8 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_SCOPE = 'scope';
     public const FIELD_SKILL_FILES_WRITTEN = 'skill_files_written';
     public const FIELD_STEPS = 'steps';
+    public const FIELD_GLOBAL = 'global';
+    public const FIELD_PROCEDURAL_SKILL_PROMOTER = 'procedural_skill_promoter';
 
 
     public function __construct(
@@ -271,7 +273,7 @@ final class AcosMaxProceduralSkillPromoterService
                 self::FIELD_STATUS => self::STATUS_HELD_FOR_EVIDENCE,
                 self::FIELD_DECISION => self::STATUS_HOLD,
                 self::FIELD_MEMORY_TYPE => self::SKILL_SCHEMA_VERSION,
-                self::FIELD_SCOPE => 'global',
+                self::FIELD_SCOPE => self::FIELD_GLOBAL,
                 self::FIELD_CLAIM => sprintf(
                     'MULTJ-04 procedural-to-skill.v1 proposal for %s held under ASI-02 (case_count=%d).',
                     $taskCategory,
@@ -284,7 +286,7 @@ final class AcosMaxProceduralSkillPromoterService
                     self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
                     self::FIELD_SOURCE => [
                         self::FIELD_SLICE => self::SLICE_MULTJ04,
-                        self::FIELD_AUTHOR_ENGINE => 'procedural_skill_promoter',
+                        self::FIELD_AUTHOR_ENGINE => self::FIELD_PROCEDURAL_SKILL_PROMOTER,
                         self::FIELD_FRONTIER_PROMOTES => false,
                         self::FIELD_ADMISSION_DOOR => self::ADMISSION_DOOR_ASI02,
                     ],

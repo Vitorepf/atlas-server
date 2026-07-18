@@ -73,6 +73,8 @@ final class ExploratoryBetsPortfolio
     public const FIELD_RECOMPUTES_MULTK_06_ALLOCATION = 'recomputes_multk_06_allocation';
     public const FIELD_RUNG = 'rung';
     public const FIELD_SUSPENDS_ON_INSUFFICIENT_N = 'suspends_on_insufficient_n';
+    public const FIELD_CURRENT_WINDOW = 'current_window';
+    public const FIELD_OFF = 'off';
 
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
 
@@ -122,7 +124,7 @@ final class ExploratoryBetsPortfolio
         }
 
         $k = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($context[self::FIELD_K] ?? null) ?? self::DEFAULT_K));
-        $windowId = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_WINDOW_ID]  ?? null) ?? 'current_window';
+        $windowId = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_WINDOW_ID]  ?? null) ?? self::FIELD_CURRENT_WINDOW;
         $windowDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($context[self::FIELD_WINDOW_DAYS] ?? null) ?? self::DEFAULT_WINDOW_DAYS));
         $objectiveClass = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_OBJECTIVE_CLASS] ?? null) ?? '';
         /** @var array<string,string> $suspendedPaths */
@@ -295,7 +297,7 @@ final class ExploratoryBetsPortfolio
             self::FIELD_SUSPENDS_ON_INSUFFICIENT_N => false,
             self::FIELD_DELETES_SUSPENDED_FAMILY => false,
             self::FIELD_FLAG => 'atlas.loop.exploratory_bets_portfolio_enabled',
-            self::FIELD_FLAG_DEFAULT => 'off',
+            self::FIELD_FLAG_DEFAULT => self::FIELD_OFF,
         ];
     }
 }

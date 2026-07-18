@@ -64,6 +64,8 @@ class AtlasAaeosTestExecutionService
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_SEALED = 'sealed';
     public const FIELD_VETO_PROPAGATION = 'veto_propagation';
+    public const FIELD_AMBIGUOUS_TEST_REF = 'ambiguous_test_ref';
+    public const FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS = 'atlas_aaeos_test_run_receipts';
 
     public function __construct(
         private readonly float $timeout = 180.0,
@@ -253,7 +255,7 @@ class AtlasAaeosTestExecutionService
         // PIP-03 — ambiguous refs never ran PHPUnit; persisting them would pollute
         // atlas_aaeos_test_run_receipts with tests_run=0 / exit=-1 noise. Red runs where
         // the test EXISTS and actually failed still persist — honest signal that stays.
-        if (($run[self::FIELD_REASON] ?? null) !== 'ambiguous_test_ref') {
+        if (($run[self::FIELD_REASON] ?? null) !== self::FIELD_AMBIGUOUS_TEST_REF) {
             $this->persist($payload);
         }
 
@@ -558,8 +560,8 @@ class AtlasAaeosTestExecutionService
             self::FIELD_TESTS_RUN => 0,
             self::FIELD_EXIT_CODE => -1,
             self::FIELD_OUTPUT_TAIL => 'ambiguous_test_ref: "'.$testRef.'" does not resolve to an indexed Class or Class::method — refusing to run a broad filter',
-            self::FIELD_RUNNER => 'ambiguous_test_ref',
-            self::FIELD_REASON => 'ambiguous_test_ref',
+            self::FIELD_RUNNER => self::FIELD_AMBIGUOUS_TEST_REF,
+            self::FIELD_REASON => self::FIELD_AMBIGUOUS_TEST_REF,
         ];
     }
 
@@ -612,6 +614,6 @@ class AtlasAaeosTestExecutionService
 
     private function receiptsTableExists(): bool
     {
-        return DatabaseTableAvailability::has('atlas_aaeos_test_run_receipts');
+        return DatabaseTableAvailability::has(self::FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS);
     }
 }

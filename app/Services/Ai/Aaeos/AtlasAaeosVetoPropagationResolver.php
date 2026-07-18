@@ -83,6 +83,8 @@ final class AtlasAaeosVetoPropagationResolver
     public const FIELD_DEBUG = 'debug';
     public const FIELD_DELIVERY = 'delivery';
     public const FIELD_SECURITY = 'security';
+    public const FIELD_ARCHITECT_SPEC_VETO = 'architect_spec_veto';
+    public const FIELD_NONE = 'none';
 
     /**
      * Encoded canonical department adjacency (mermaid stateDiagram transitions).
@@ -219,7 +221,7 @@ final class AtlasAaeosVetoPropagationResolver
                 self::FIELD_REDIRECT_TO => $this->reachableTargets([self::FIELD_PRODUCT]),
                 self::FIELD_ESCALATION_TARGET => [],
                 self::FIELD_OVERRIDE => false,
-                self::FIELD_MATCHED_RULE => 'architect_spec_veto',
+                self::FIELD_MATCHED_RULE => self::FIELD_ARCHITECT_SPEC_VETO,
                 self::FIELD_REASON => self::REASON_ARCHITECT_SPEC_VETO_UPSTREAM,
             ];
         }
@@ -243,7 +245,7 @@ final class AtlasAaeosVetoPropagationResolver
             self::FIELD_REDIRECT_TO => [],
             self::FIELD_ESCALATION_TARGET => [],
             self::FIELD_OVERRIDE => false,
-            self::FIELD_MATCHED_RULE => 'none',
+            self::FIELD_MATCHED_RULE => self::FIELD_NONE,
             self::FIELD_REASON => self::REASON_NO_CANONICAL_VETO_RULE,
         ];
     }

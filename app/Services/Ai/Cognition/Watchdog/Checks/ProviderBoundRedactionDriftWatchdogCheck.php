@@ -32,6 +32,8 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
     public const FIELD_DRIFT = 'drift';
     public const FIELD_MESSAGE = 'message';
     public const FIELD_CODE = 'code';
+    public const FIELD_REDACTION_STATUS = 'redaction_status';
+    public const FIELD_ATLAS_MEMORY_ENTRIES = 'atlas_memory_entries';
 
 
     public function __construct(private AtlasMemoryPrivacyService $privacy) {}
@@ -43,7 +45,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
 
     public function run(): AtlasWatchdogCheckResult
     {
-        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_MEMORY_ENTRIES)) {
             return AtlasWatchdogCheckResult::skipped([
                 self::FIELD_SCHEMA => self::SCHEMA_VERSION,
                 self::FIELD_REASON => self::REASON_ATLAS_MEMORY_ENTRIES_MISSING,
@@ -52,7 +54,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
 
         $drift = [];
         AtlasMemoryEntry::query()
-            ->where('redaction_status', 'redacted')
+            ->where(self::FIELD_REDACTION_STATUS, 'redacted')
             ->limit(self::SAMPLE_LIMIT)
             ->get()
             ->each(function (AtlasMemoryEntry $entry) use (&$drift): void {
@@ -72,7 +74,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
 
         $evidence = [
             self::FIELD_SCHEMA => self::SCHEMA_VERSION,
-            self::FIELD_CHECKED => min(self::SAMPLE_LIMIT, AtlasMemoryEntry::query()->where('redaction_status', 'redacted')->count()),
+            self::FIELD_CHECKED => min(self::SAMPLE_LIMIT, AtlasMemoryEntry::query()->where(self::FIELD_REDACTION_STATUS, 'redacted')->count()),
             self::FIELD_DRIFT_COUNT => count($drift),
             self::FIELD_DRIFT => $drift,
         ];
