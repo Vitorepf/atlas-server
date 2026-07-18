@@ -85,6 +85,8 @@ final class AtlasAaeosGateSignalEvaluator
     public const FIELD_ALL_TASKS_ATOMIC = 'all_tasks_atomic';
     public const FIELD_INTENT_CLEAR = 'intent_clear';
     public const FIELD_RESOLVED_TARGET_MISSING = 'resolved_target_missing';
+    public const FIELD_SCOPE_UNBOUNDED = 'scope_unbounded';
+    public const FIELD_TASK_PACK_EMPTY = 'task_pack_empty';
 
     /**
      * P1 disambiguation gate: weighted + clamped 0..1 intent-clarity score.
@@ -114,7 +116,7 @@ final class AtlasAaeosGateSignalEvaluator
             $reasons[] = self::FIELD_RESOLVED_TARGET_MISSING;
         }
         if (! $scopeBounded) {
-            $reasons[] = 'scope_unbounded';
+            $reasons[] = self::FIELD_SCOPE_UNBOUNDED;
         }
         if ($ambiguityCount > 0) {
             $reasons[] = 'ambiguity_tokens_present:'.$ambiguityCount;
@@ -182,7 +184,7 @@ final class AtlasAaeosGateSignalEvaluator
 
         $reasons = [];
         if ($tasks === []) {
-            $reasons[] = 'task_pack_empty';
+            $reasons[] = self::FIELD_TASK_PACK_EMPTY;
 
             return $this->gateResult(self::GATE_TASK_PACK, false, false, $reasons);
         }

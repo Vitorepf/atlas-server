@@ -12220,4 +12220,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B474).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function departmentContractAcosWatchdogImmunePromotionAaeosGateFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'bypass_promotion_gate' => DepartmentContractRuntime::FIELD_BYPASS_PROMOTION_GATE,
+            'bypass_review' => DepartmentContractRuntime::FIELD_BYPASS_REVIEW,
+            'linker_evidence' => AtlasAcosWatchdogHealthService::FIELD_LINKER_EVIDENCE,
+            'linker_memory_code' => AtlasAcosWatchdogHealthService::FIELD_LINKER_MEMORY_CODE,
+            'safety_unevaluated' => CognitiveImmunePromotionGateEvaluator::FIELD_SAFETY_UNEVALUATED,
+            'scope_unresolved' => CognitiveImmunePromotionGateEvaluator::FIELD_SCOPE_UNRESOLVED,
+            'product' => AtlasAaeosDepartmentRegistryService::FIELD_PRODUCT,
+            'qa' => AtlasAaeosDepartmentRegistryService::FIELD_QA,
+            'scope_unbounded' => AtlasAaeosGateSignalEvaluator::FIELD_SCOPE_UNBOUNDED,
+            'task_pack_empty' => AtlasAaeosGateSignalEvaluator::FIELD_TASK_PACK_EMPTY,
+            'partial_runtime' => AtlasAaeosImplementationTruthService::FIELD_PARTIAL_RUNTIME,
+            'solid_runtime' => AtlasAaeosImplementationTruthService::FIELD_SOLID_RUNTIME,
+            'decision' => AtlasMemoryRecallRelevanceScorer::FIELD_DECISION,
+            'memory' => AtlasMemoryRecallRelevanceScorer::FIELD_MEMORY,
+            'soft_stale_age_exceeds_45d' => MemoryFeedbackDecayScorer::FIELD_SOFT_STALE_AGE_EXCEEDS_45D,
+            'stale_age_exceeds_180d' => MemoryFeedbackDecayScorer::FIELD_STALE_AGE_EXCEEDS_180D,
+            'high' => AtlasAaeosValueNormalizer::FIELD_HIGH,
+            'low' => AtlasAaeosValueNormalizer::FIELD_LOW,
+            'department_contract_acos_watchdog_immune_promotion_aaeos_gate_floor_count' => 18,
+        ];
+    }
+
 }

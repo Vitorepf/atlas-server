@@ -114,6 +114,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_PROBATION_UNEVALUATED = 'probation_unevaluated';
     public const FIELD_PROMOTION_BLOCKED_BY_POLICY = 'promotion_blocked_by_policy';
     public const FIELD_PROMOTION_MODE_UNRESOLVED = 'promotion_mode_unresolved';
+    public const FIELD_SAFETY_UNEVALUATED = 'safety_unevaluated';
+    public const FIELD_SCOPE_UNRESOLVED = 'scope_unresolved';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -277,7 +279,7 @@ final class CognitiveImmunePromotionGateEvaluator
 
         return $candidatePresent
             ? [self::STATUS_PASS, '']
-            : [self::STATUS_PENDING, 'safety_unevaluated'];
+            : [self::STATUS_PENDING, self::FIELD_SAFETY_UNEVALUATED];
     }
 
     /**
@@ -330,7 +332,7 @@ final class CognitiveImmunePromotionGateEvaluator
 
         return in_array($scope, self::KNOWN_SCOPES, true)
             ? [self::STATUS_PASS, '']
-            : [self::STATUS_PENDING, 'scope_unresolved'];
+            : [self::STATUS_PENDING, self::FIELD_SCOPE_UNRESOLVED];
     }
 
     /**

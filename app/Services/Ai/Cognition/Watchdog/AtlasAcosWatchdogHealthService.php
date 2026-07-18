@@ -345,6 +345,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_IMPROPER_FLOOR_DISCARDS_PRESENT = 'improper_floor_discards_present';
     public const FIELD_LAST_AEMOR_EPISODE_ = 'last_aemor_episode_';
     public const FIELD_LIFT_BLOCKER_STALLED = 'lift_blocker_stalled';
+    public const FIELD_LINKER_EVIDENCE = 'linker_evidence';
+    public const FIELD_LINKER_MEMORY_CODE = 'linker_memory_code';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -468,7 +470,7 @@ final class AtlasAcosWatchdogHealthService
         if ($ratio < self::RAG_COVERAGE_FLOOR) {
             $blocking[] = 'memory_cross_layer_coverage_below_floor';
         }
-        foreach (['linker_memory_code', self::FIELD_LINKER_MEMORY_DOMAIN, 'linker_evidence'] as $linker) {
+        foreach ([self::FIELD_LINKER_MEMORY_CODE, self::FIELD_LINKER_MEMORY_DOMAIN, self::FIELD_LINKER_EVIDENCE] as $linker) {
             if ((int) (AiValueNormalizer::finiteFloatOrNull($edgesBySource[$linker] ?? null) ?? 0) === 0) {
                 $blocking[] = 'cross_layer_linker_zero:'.$linker;
             }

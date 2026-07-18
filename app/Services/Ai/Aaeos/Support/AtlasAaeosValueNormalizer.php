@@ -9,6 +9,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
 final class AtlasAaeosValueNormalizer
 {
     public const FIELD_MEDIUM = 'medium';
+    public const FIELD_HIGH = 'high';
+    public const FIELD_LOW = 'low';
     public static function stringOrNull(mixed $value): ?string
     {
         return AiValueNormalizer::trimmedStringOrNull($value);
@@ -84,7 +86,7 @@ final class AtlasAaeosValueNormalizer
 
     public static function lowMediumHighRisk(string $value, string $fallback = 'medium'): string
     {
-        return self::lowercaseAllowed($value, ['low', self::FIELD_MEDIUM, 'high'], $fallback);
+        return self::lowercaseAllowed($value, [self::FIELD_LOW, self::FIELD_MEDIUM, self::FIELD_HIGH], $fallback);
     }
 
     /**

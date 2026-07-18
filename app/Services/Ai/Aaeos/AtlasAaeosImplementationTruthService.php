@@ -126,6 +126,8 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_RUNTIME_VERIFIED = 'runtime_verified';
     public const FIELD_MD = 'md';
     public const FIELD_ARCHIVE = 'archive';
+    public const FIELD_PARTIAL_RUNTIME = 'partial_runtime';
+    public const FIELD_SOLID_RUNTIME = 'solid_runtime';
 
     public const RANK = [
         self::LEVEL_SPEC => 0,
@@ -762,11 +764,11 @@ class AtlasAaeosImplementationTruthService
     {
         $normalized = AiValueNormalizer::lowerTrimmedString($state);
 
-        if (in_array($normalized, [self::LEVEL_VERIFIED, self::FIELD_RUNTIME_VERIFIED, 'solid_runtime'], true)) {
+        if (in_array($normalized, [self::LEVEL_VERIFIED, self::FIELD_RUNTIME_VERIFIED, self::FIELD_SOLID_RUNTIME], true)) {
             return self::LEVEL_VERIFIED;
         }
 
-        if (in_array($normalized, [self::LEVEL_PARTIAL, self::FIELD_IMPLEMENTED_PARTIAL, 'partial_runtime'], true)) {
+        if (in_array($normalized, [self::LEVEL_PARTIAL, self::FIELD_IMPLEMENTED_PARTIAL, self::FIELD_PARTIAL_RUNTIME], true)) {
             return self::LEVEL_PARTIAL;
         }
 

@@ -59,6 +59,8 @@ final class MemoryFeedbackDecayScorer
     public const FIELD_DEGRADED_BY_STALE_AGE = 'degraded_by_stale_age';
     public const FIELD_INACTIVATED_BY_NEGATIVE_FEEDBACK = 'inactivated_by_negative_feedback';
     public const FIELD_INACTIVATED_BY_STALE_AGE = 'inactivated_by_stale_age';
+    public const FIELD_SOFT_STALE_AGE_EXCEEDS_45D = 'soft_stale_age_exceeds_45d';
+    public const FIELD_STALE_AGE_EXCEEDS_180D = 'stale_age_exceeds_180d';
 
     /**
      * @param  array<string, mixed>  $signals
@@ -108,13 +110,13 @@ final class MemoryFeedbackDecayScorer
 
         if ($decayActive) {
             $effectivePriority = (int) intdiv($effectivePriority, 2);
-            $reasons[] = 'stale_age_exceeds_180d';
+            $reasons[] = self::FIELD_STALE_AGE_EXCEEDS_180D;
         }
 
         $staleness = $this->resolveStaleness($recordedAgeForDecay, $lastUsedAge, $recordedHardStale, $lastUsedHardStale);
 
         if ($this->softStale($recordedAgeForDecay) || $this->softStale($lastUsedAge)) {
-            $reasons[] = 'soft_stale_age_exceeds_45d';
+            $reasons[] = self::FIELD_SOFT_STALE_AGE_EXCEEDS_45D;
         }
 
         $lifecycleAction = $this->resolveLifecycleAction(

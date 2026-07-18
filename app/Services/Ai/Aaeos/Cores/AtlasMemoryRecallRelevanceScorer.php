@@ -54,6 +54,8 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_SEMANTIC_NOTE = 'semantic_note';
     public const FIELD_TECHNICAL_CONTEXT = 'technical_context';
     public const FIELD_COMMAND = 'command';
+    public const FIELD_DECISION = 'decision';
+    public const FIELD_MEMORY = 'memory';
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -75,7 +77,7 @@ final class AtlasMemoryRecallRelevanceScorer
         }
 
         $scope = $this->scopeOf($row);
-        $type = $this->typeOf($row, $source === 'verbatim' ? 'verbatim' : 'memory');
+        $type = $this->typeOf($row, $source === 'verbatim' ? 'verbatim' : self::FIELD_MEMORY);
 
         if ($source === 'verbatim') {
             return 82
@@ -114,7 +116,7 @@ final class AtlasMemoryRecallRelevanceScorer
     public function typeWeight(string $type): int
     {
         return match ($type) {
-            'decision', self::FIELD_RESOLUTION, self::FIELD_REQUIREMENT => 16,
+            self::FIELD_DECISION, self::FIELD_RESOLUTION, self::FIELD_REQUIREMENT => 16,
             self::FIELD_ISSUE, self::FIELD_FAILURE => 14,
             self::FIELD_TECHNICAL_CONTEXT, self::FIELD_COMMAND, self::FIELD_EVIDENCE, self::FIELD_HARNESS_LEARNING => 11,
             self::FIELD_PREFERENCE, self::FIELD_FEEDBACK => 8,

@@ -9594,4 +9594,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['department_contract_acos_watchdog_immune_promotion_aaeos_cognitive_floor_count']);
     }
 
+    public function test_department_contract_acos_watchdog_immune_promotion_aaeos_gate_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->departmentContractAcosWatchdogImmunePromotionAaeosGateFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_BYPASS_PROMOTION_GATE, $out['bypass_promotion_gate']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_BYPASS_REVIEW, $out['bypass_review']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LINKER_EVIDENCE, $out['linker_evidence']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LINKER_MEMORY_CODE, $out['linker_memory_code']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_SAFETY_UNEVALUATED, $out['safety_unevaluated']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_SCOPE_UNRESOLVED, $out['scope_unresolved']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_PRODUCT, $out['product']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_QA, $out['qa']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_SCOPE_UNBOUNDED, $out['scope_unbounded']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_TASK_PACK_EMPTY, $out['task_pack_empty']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_PARTIAL_RUNTIME, $out['partial_runtime']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_SOLID_RUNTIME, $out['solid_runtime']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_DECISION, $out['decision']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_MEMORY, $out['memory']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_SOFT_STALE_AGE_EXCEEDS_45D, $out['soft_stale_age_exceeds_45d']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_STALE_AGE_EXCEEDS_180D, $out['stale_age_exceeds_180d']);
+        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_HIGH, $out['high']);
+        $this->assertSame(AtlasAaeosValueNormalizer::FIELD_LOW, $out['low']);
+        $this->assertSame(18, $out['department_contract_acos_watchdog_immune_promotion_aaeos_gate_floor_count']);
+    }
+
 }
