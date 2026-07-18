@@ -96,6 +96,7 @@ final class CaptureHmacLineageService
     public const KIND_CAPTURE = 'capture';
     public const FIELD_MEMORY = 'memory';
     public const FIELD_PAYLOAD = 'payload';
+    public const FIELD_ID = 'id';
 
     /**
      * @param  array<string,mixed>  $existingChain
@@ -241,7 +242,7 @@ final class CaptureHmacLineageService
     public function verifyRef(string $ref): array
     {
         $parsed = $this->parseRef($ref);
-        $chain = $this->resolveChain($parsed[self::FIELD_KIND], $parsed['id']);
+        $chain = $this->resolveChain($parsed[self::FIELD_KIND], $parsed[self::FIELD_ID]);
 
         if ($chain === null) {
             return [
@@ -344,10 +345,10 @@ final class CaptureHmacLineageService
         if (str_contains($trimmed, ':')) {
             [$kind, $id] = explode(':', $trimmed, 2);
 
-            return [self::FIELD_KIND => AiValueNormalizer::lowerTrimmedString($kind), 'id' => $id];
+            return [self::FIELD_KIND => AiValueNormalizer::lowerTrimmedString($kind), self::FIELD_ID => $id];
         }
 
-        return [self::FIELD_KIND => self::KIND_CAPTURE, 'id' => $trimmed];
+        return [self::FIELD_KIND => self::KIND_CAPTURE, self::FIELD_ID => $trimmed];
     }
 
     /**

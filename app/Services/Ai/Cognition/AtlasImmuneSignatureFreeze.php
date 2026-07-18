@@ -26,6 +26,8 @@ final class AtlasImmuneSignatureFreeze
     public const FIELD_KIND = 'kind';
     public const FIELD_MODE_CONFIG_KEY = 'mode_config_key';
     public const FIELD_PRIVACY = 'privacy';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_TTL_DAYS = 'ttl_days';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -33,7 +35,7 @@ final class AtlasImmuneSignatureFreeze
         return [
             self::FIELD_KIND => self::KIND_MEASURE_FREEZE,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
-            'schema_version' => ImmuneSignatureStore::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => ImmuneSignatureStore::SCHEMA_VERSION,
             self::FIELD_FAMILY_SCHEMA_VERSION => ImmuneSignatureDeriver::SCHEMA_VERSION,
             self::FIELD_AUTHOR => 'cursor-acos-max-maxi-05',
             self::FIELD_JUDGE => 'codex-immune-signature-judge',
@@ -49,7 +51,7 @@ final class AtlasImmuneSignatureFreeze
                 'MAXI-04' => 'hybrid_classifier_consult',
                 'ASI-11' => 'memory_revert_ingest',
             ],
-            'ttl_days' => self::TTL_DAYS,
+            self::FIELD_TTL_DAYS => self::TTL_DAYS,
         ];
     }
 }

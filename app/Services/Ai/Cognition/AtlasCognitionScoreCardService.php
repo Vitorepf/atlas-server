@@ -165,6 +165,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_READINESS_DEFINITION = 'readiness_definition';
     public const FIELD_RIVALS_CLAIM_ALLOWED = 'rivals_claim_allowed';
     public const FIELD_ROWS = 'rows';
+    public const FIELD_SCHEMA = 'schema';
+    public const FIELD_SUM = 'sum';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -450,7 +452,7 @@ class AtlasCognitionScoreCardService
             }
             $key = str_replace('_status', '', $dim);
             $totals[$key] = [
-                'sum' => $sum,
+                self::FIELD_SUM => $sum,
                 self::FIELD_MAX => $max,
                 self::FIELD_SCORE_OUT_OF_10 => $max > 0 ? round(($sum / $max) * 10, 2) : 0.0,
             ];
@@ -502,7 +504,7 @@ class AtlasCognitionScoreCardService
         usort($canonical, static fn ($a, $b) => strcmp($a[self::FIELD_ACRONYM], $b[self::FIELD_ACRONYM]));
 
         return 'sha256:'.hash('sha256', json_encode([
-            'schema' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA => self::SCHEMA_VERSION,
             self::FIELD_ROWS => $canonical,
             self::FIELD_OVERALL => $score[self::FIELD_OVERALL_OUT_OF_10],
         ], JSON_THROW_ON_ERROR));

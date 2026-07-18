@@ -72,6 +72,8 @@ final class RunbookOrchestrator
     public const FIELD_PROPOSAL_ID = 'proposal_id';
     public const FIELD_PROPOSED_AT = 'proposed_at';
     public const FIELD_REPLAY_OBRAS_COUNT_MIN = 'replay_obras_count_min';
+    public const FIELD_REPLAY_REGRESSION_OBSERVED_COUNT_MAX = 'replay_regression_observed_count_max';
+    public const FIELD_REQUIRES_REPLAY_BEFORE_PROMOTION = 'requires_replay_before_promotion';
 
     /**
      * Canonical default flow for a non-trivial intent. Trivial intents
@@ -227,11 +229,11 @@ final class RunbookOrchestrator
             'safety_sovereignty_block_applied' => $touchesSovereignty,
             self::FIELD_PROMOTION_GATES => [
                 self::FIELD_REPLAY_OBRAS_COUNT_MIN => self::REPLAY_OBRAS_COUNT_MIN,
-                'replay_regression_observed_count_max' => 0,
+                self::FIELD_REPLAY_REGRESSION_OBSERVED_COUNT_MAX => 0,
                 self::FIELD_DUAL_SIGNATURE_REQUIRED => true,
                 self::FIELD_ARCHITECT_SIGNATURES_COUNT => 2,
             ],
-            'requires_replay_before_promotion' => true,
+            self::FIELD_REQUIRES_REPLAY_BEFORE_PROMOTION => true,
             'review_status' => 'pending_replay',
             self::FIELD_PROPOSED_BY_ACTOR => AiValueNormalizer::arrayOrEmpty($request[self::FIELD_PROPOSED_BY_ACTOR] ?? [
                 self::FIELD_KIND => self::ACTOR_KIND_AGENT,

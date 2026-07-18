@@ -123,6 +123,7 @@ use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadService;
 use App\Services\Ai\Cognition\AtlasImmuneClassifierHybridFreeze;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogRunner;
 use App\Services\Ai\Cognition\Watchdog\Checks\AutonomyLadderAdversarialWatchdogCheck;
+use App\Services\Ai\Cognition\CaptureHmacLineageService;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -7722,6 +7723,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(ImmuneCalibrationService::FIELD_CONTENT_HASH, $out['content_hash']);
         $this->assertSame(ImmuneCalibrationService::FIELD_CONTRADICTS_NEWER, $out['contradicts_newer']);
         $this->assertSame(18, $out['b399_lote_measure_runbook_acos_long_cognition_score_cognitive_floor_count']);
+    }
+
+    public function test_acos_watchdog_immune_calibration_long_lote_measure_runbook_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->acosWatchdogImmuneCalibrationLongLoteMeasureRunbookFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CONTEXT_RETENTION_SCORE_COUNT, $out['context_retention_score_count']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CONTEXT_RETENTION_SCORE_MIN, $out['context_retention_score_min']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CORRELATION_ID, $out['correlation_id']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_DUAL_READ_REQUIRED, $out['dual_read_required']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_FUTURE_UTILITY, $out['future_utility']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_PROVIDER_CALLS_MADE, $out['provider_calls_made']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_PROVIDER_TOKENS_SPENT, $out['provider_tokens_spent']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_TARGET_MISSION_E2E_RATE, $out['target_mission_e2e_rate']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_TASK_ID, $out['task_id']);
+        $this->assertSame(RunbookOrchestrator::FIELD_REPLAY_REGRESSION_OBSERVED_COUNT_MAX, $out['replay_regression_observed_count_max']);
+        $this->assertSame(RunbookOrchestrator::FIELD_REQUIRES_REPLAY_BEFORE_PROMOTION, $out['requires_replay_before_promotion']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SCHEMA, $out['schema']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SUM, $out['sum']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_MEMORY, $out['memory']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_TTL_DAYS, $out['ttl_days']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_ID, $out['id']);
+        $this->assertSame(18, $out['acos_watchdog_immune_calibration_long_lote_measure_runbook_floor_count']);
     }
 
 }

@@ -222,6 +222,9 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_COMMANDS = 'commands';
     public const FIELD_COMPACTION_RECEIPTS_TABLE_MISSING = 'compaction_receipts_table_missing';
     public const FIELD_CONDITION = 'condition';
+    public const FIELD_CONTEXT_RETENTION_SCORE_COUNT = 'context_retention_score_count';
+    public const FIELD_CONTEXT_RETENTION_SCORE_MIN = 'context_retention_score_min';
+    public const FIELD_CORRELATION_ID = 'correlation_id';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -578,8 +581,8 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_DAYS => self::COMPACTION_WINDOW_DAYS,
                 self::FIELD_COMPACTION_COUNT => $receipts->count(),
                 'critical_must_keep_shadow_cuts' => $criticalCuts,
-                'context_retention_score_min' => $minRetention,
-                'context_retention_score_count' => count($retentionScores),
+                self::FIELD_CONTEXT_RETENTION_SCORE_MIN => $minRetention,
+                self::FIELD_CONTEXT_RETENTION_SCORE_COUNT => count($retentionScores),
             ],
             'cross_week_recall_lift_gate' => [
                 self::FIELD_STATUS => $crossWeek[self::FIELD_STATUS] ?? self::STATUS_UNKNOWN,
@@ -961,7 +964,7 @@ final class AtlasAcosWatchdogHealthService
                 'tenant_id' => 'default',
                 'operator_id' => 'system',
                 'envelope_id' => 'acos:watchdog:'.$scopeId.':'.now()->format('YmdHis'),
-                'correlation_id' => 'acos:watchdog:'.$scopeId,
+                self::FIELD_CORRELATION_ID => 'acos:watchdog:'.$scopeId,
                 'scope_type' => 'acos_watchdog',
                 'scope_id' => $scopeId,
                 'emitter_stage' => 'atlas.acos.watchdog',

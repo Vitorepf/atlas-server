@@ -7333,6 +7333,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_acos_watchdog_immune_calibration_long_lote_measure_runbook_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b400-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b400',
+                '--acos-watchdog-immune-calibration-long-lote-measure-runbook-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"acos_watchdog_immune_calibration_long_lote_measure_runbook_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

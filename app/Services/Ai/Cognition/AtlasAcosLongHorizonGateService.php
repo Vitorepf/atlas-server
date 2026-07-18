@@ -147,6 +147,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_OVERALL_SCORE = 'overall_score';
     public const FIELD_PIPELINE_SCORE = 'pipeline_score';
     public const FIELD_PROVENANCE = 'provenance';
+    public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
+    public const FIELD_PROVIDER_TOKENS_SPENT = 'provider_tokens_spent';
 
     /**
      * @param  array<string,mixed>  $options
@@ -969,8 +971,8 @@ final class AtlasAcosLongHorizonGateService
                 self::FIELD_DOES_NOT_MINT_RECEIPTS => true,
                 self::FIELD_DOES_NOT_BACKFILL_TIME => true,
                 self::FIELD_DOES_NOT_INFLATE_SCORE => true,
-                'provider_calls_made' => false,
-                'provider_tokens_spent' => false,
+                self::FIELD_PROVIDER_CALLS_MADE => false,
+                self::FIELD_PROVIDER_TOKENS_SPENT => false,
                 'workspace_mutated' => false,
                 self::FIELD_BENCHMARK_CLAIM_ALLOWED => false,
                 self::FIELD_COMPLETION_REQUIRES_REAL_30D_WINDOW => true,

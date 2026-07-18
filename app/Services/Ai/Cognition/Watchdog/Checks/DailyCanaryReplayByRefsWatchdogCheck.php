@@ -98,6 +98,8 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_GOLDEN_RECALL_AT_5_FLOOR = 'golden_recall_at_5_floor';
     public const FIELD_GOLDEN_STATUS = 'golden_status';
     public const FIELD_GRAPH = 'graph';
+    public const FIELD_MEMORY = 'memory';
+    public const FIELD_MESSAGE = 'message';
 
 
     public function __construct(
@@ -161,7 +163,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
                 $evidence + [self::FIELD_REASON => self::REASON_CANARY_DRIFT],
                 [
                     self::FIELD_CODE => 'daily_canary_drift',
-                    'message' => 'MAXG-06 daily canary detected drift above frozen thresholds.',
+                    self::FIELD_MESSAGE => 'MAXG-06 daily canary detected drift above frozen thresholds.',
                     self::FIELD_VIOLATIONS => $violations,
                 ],
             );
@@ -200,7 +202,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     {
         $total = 0;
         $canonical = 0;
-        $byKind = [self::FIELD_CODE => 0, 'memory' => 0, self::FIELD_GRAPH => 0, self::FIELD_NON_CANONICAL => 0];
+        $byKind = [self::FIELD_CODE => 0, self::FIELD_MEMORY => 0, self::FIELD_GRAPH => 0, self::FIELD_NON_CANONICAL => 0];
 
         foreach ($entries as $entry) {
             foreach (AiValueNormalizer::arrayOrEmpty($entry[self::FIELD_DELIVERED_REFS] ?? null) as $ref) {

@@ -84,6 +84,8 @@ final class ImmuneCalibrationService
     public const FIELD_CONTAINS_SENSITIVE_UNNECESSARY = 'contains_sensitive_unnecessary';
     public const FIELD_CONTENT_HASH = 'content_hash';
     public const FIELD_CONTRADICTS_NEWER = 'contradicts_newer';
+    public const FIELD_DUAL_READ_REQUIRED = 'dual_read_required';
+    public const FIELD_FUTURE_UTILITY = 'future_utility';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -159,7 +161,7 @@ final class ImmuneCalibrationService
                 self::FIELD_REGISTRY_STATUS => 'registered_elev_20s',
             ],
             self::FIELD_REGISTRY_STATUS => 'registered_elev_20s',
-            'dual_read_required' => false,
+            self::FIELD_DUAL_READ_REQUIRED => false,
         ];
         $payload[self::FIELD_CONTENT_HASH] = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
@@ -312,7 +314,7 @@ final class ImmuneCalibrationService
             self::FIELD_ATOMIC_CLAIM_PRESENT => true,
             self::FIELD_CLAIM_TYPE => 'technical_learning_candidate',
             self::FIELD_CLAIM_SOURCE_PRESENT => true,
-            'future_utility' => true,
+            self::FIELD_FUTURE_UTILITY => true,
             'novelty' => true,
             'recurrence_count' => 1,
             'provider_safe' => true,

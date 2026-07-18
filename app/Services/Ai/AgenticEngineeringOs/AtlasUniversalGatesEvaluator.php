@@ -9924,4 +9924,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B400).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function acosWatchdogImmuneCalibrationLongLoteMeasureRunbookFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'context_retention_score_count' => AtlasAcosWatchdogHealthService::FIELD_CONTEXT_RETENTION_SCORE_COUNT,
+            'context_retention_score_min' => AtlasAcosWatchdogHealthService::FIELD_CONTEXT_RETENTION_SCORE_MIN,
+            'correlation_id' => AtlasAcosWatchdogHealthService::FIELD_CORRELATION_ID,
+            'dual_read_required' => ImmuneCalibrationService::FIELD_DUAL_READ_REQUIRED,
+            'future_utility' => ImmuneCalibrationService::FIELD_FUTURE_UTILITY,
+            'provider_calls_made' => AtlasAcosLongHorizonGateService::FIELD_PROVIDER_CALLS_MADE,
+            'provider_tokens_spent' => AtlasAcosLongHorizonGateService::FIELD_PROVIDER_TOKENS_SPENT,
+            'target_mission_e2e_rate' => AcosMaxLote2MeasureService::FIELD_TARGET_MISSION_E2E_RATE,
+            'task_id' => AcosMaxLote2MeasureService::FIELD_TASK_ID,
+            'replay_regression_observed_count_max' => RunbookOrchestrator::FIELD_REPLAY_REGRESSION_OBSERVED_COUNT_MAX,
+            'requires_replay_before_promotion' => RunbookOrchestrator::FIELD_REQUIRES_REPLAY_BEFORE_PROMOTION,
+            'schema' => AtlasCognitionScoreCardService::FIELD_SCHEMA,
+            'sum' => AtlasCognitionScoreCardService::FIELD_SUM,
+            'memory' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_MEMORY,
+            'message' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_MESSAGE,
+            'schema_version' => AtlasImmuneSignatureFreeze::FIELD_SCHEMA_VERSION,
+            'ttl_days' => AtlasImmuneSignatureFreeze::FIELD_TTL_DAYS,
+            'id' => CaptureHmacLineageService::FIELD_ID,
+            'acos_watchdog_immune_calibration_long_lote_measure_runbook_floor_count' => 18,
+        ];
+    }
+
 }
