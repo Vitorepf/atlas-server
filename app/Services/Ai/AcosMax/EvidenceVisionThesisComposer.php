@@ -119,6 +119,8 @@ final class EvidenceVisionThesisComposer
     public const FIELD_COMPREHENSION_DEEPENING = 'comprehension-deepening';
     public const FIELD_FRONTIER_HARVEST = 'frontier-harvest';
     public const FIELD_PREDICTED_IMPACT = 'predicted-impact';
+    public const INT_3 = 3;
+    public const INT_2 = 2;
 
     /**
      * @param  array<string,mixed>  $context
@@ -336,7 +338,7 @@ final class EvidenceVisionThesisComposer
                 self::FIELD_DEATH_CRITERION => [
                     self::FIELD_KIND => self::KIND_SERIES_RECOVERY,
                     self::FIELD_THRESHOLD => $recoveryFloor,
-                    self::FIELD_CONSECUTIVE_WINDOWS => 2,
+                    self::FIELD_CONSECUTIVE_WINDOWS => self::INT_2,
                     self::FIELD_DESCRIBED_AT_BIRTH => 'archive when series:'.$series.' stage '.$stage.' yield >= '.$recoveryFloor.' for 2 consecutive windows',
                 ],
                 self::FIELD_ALIGNMENT_KEYS => [$series, $stage, self::FIELD_PATTERN_DESIGN, self::FIELD_FRONTIER_HARVEST],
@@ -361,7 +363,7 @@ final class EvidenceVisionThesisComposer
         $sweet = AiValueNormalizer::arrayOrEmpty($bands[self::FIELD_SWEET] ?? null);
         $highN = (int) (AiValueNormalizer::finiteFloatOrNull($high[self::FIELD_N_REALIZED] ?? null) ?? 0);
         $sweetN = (int) (AiValueNormalizer::finiteFloatOrNull($sweet[self::FIELD_N_REALIZED] ?? null) ?? 0);
-        if ($highN < 3 || $sweetN < 3) {
+        if ($highN < self::INT_3 || $sweetN < self::INT_3) {
             return [];
         }
 
@@ -428,7 +430,7 @@ final class EvidenceVisionThesisComposer
 
         $theses = [];
         foreach ($byTarget as $target => $rows) {
-            if (count($rows) < 2) {
+            if (count($rows) < self::INT_2) {
                 continue;
             }
             $thesisId = hash(self::FIELD_SHA256, 'lead-cluster|'.$target.'|'.count($rows));
@@ -484,7 +486,7 @@ final class EvidenceVisionThesisComposer
         $theses = [];
         foreach ($byPath as $path => $rows) {
             $failures = array_values(array_filter($rows, static fn (array $row): bool => ($row[self::FIELD_PROVEN_REAL] ?? null) === false));
-            if (count($failures) < 3) {
+            if (count($failures) < self::INT_3) {
                 continue;
             }
             $thesisId = hash(self::FIELD_SHA256, 'outcome-stall|'.$path.'|'.count($failures));

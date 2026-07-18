@@ -140,6 +140,8 @@ final class PromotionProtocol
     public const FIELD_ATLAS_MEMORY_FUSION_V2_ENABLED = 'atlas.memory.fusion_v2_enabled';
     public const FIELD_ACOS_LAND_AUTONOMOUS_VERIFICATION_REQUIRED = 'acos.land.autonomous_verification_required';
     public const FIELD_ACOS_MUTATION_SCORE_ENFORCE_BY_EXECUTOR = 'acos.mutation_score.enforce_by_executor';
+    public const FIELD_ATLAS_AI_AUTONOMOUS_LEARNING_ENABLED = 'atlas.ai.autonomous_learning.enabled';
+    public const FIELD_ATLAS_BRAIN_REFLECTION_ENABLED_2 = 'atlas.brain.reflection_enabled';
 
     /** @var list<string> */
     public const STATES = [
@@ -352,7 +354,7 @@ final class PromotionProtocol
                 self::FIELD_FAMILY => self::FIELD_ASI,
                 self::FIELD_SLICE => self::FIELD_ASI_07,
                 self::FIELD_STATE => self::STATE_OFF,
-                self::FIELD_CONFIG_KEY => 'atlas.ai.autonomous_learning.enabled',
+                self::FIELD_CONFIG_KEY => self::FIELD_ATLAS_AI_AUTONOMOUS_LEARNING_ENABLED,
                 self::FIELD_ENV_KEY => self::FIELD_ATLAS_AUTONOMOUS_AUTO_APPLY,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '7d',
                 self::FIELD_FLIP_CRITERION => 'privacy fail-closed, reversal proven, and digest FEE-12 operational',
@@ -366,7 +368,7 @@ final class PromotionProtocol
                 self::FIELD_FAMILY => self::FIELD_ASI,
                 self::FIELD_SLICE => self::FIELD_ASI_08,
                 self::FIELD_STATE => self::STATE_OFF,
-                self::FIELD_CONFIG_KEY => 'atlas.brain.reflection_enabled',
+                self::FIELD_CONFIG_KEY => self::FIELD_ATLAS_BRAIN_REFLECTION_ENABLED_2,
                 self::FIELD_ENV_KEY => self::FIELD_ATLAS_BRAIN_REFLECTION_ENABLED,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '24h',
                 self::FIELD_FLIP_CRITERION => 'reflection stream writes real post-landing entries and consumer reads PathYieldEwma samples',

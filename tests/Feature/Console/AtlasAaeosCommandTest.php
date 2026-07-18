@@ -8943,6 +8943,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b515_measure_series_lote_ledger_rotation_n_capture_promotion_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b515-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b515',
+                '--b515-measure-series-lote-ledger-rotation-n-capture-promotion-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b515_measure_series_lote_ledger_rotation_n_capture_promotion_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

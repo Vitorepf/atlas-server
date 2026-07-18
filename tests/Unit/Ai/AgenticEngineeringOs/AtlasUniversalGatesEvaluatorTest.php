@@ -10605,4 +10605,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b514_measure_series_lote_ledger_rotation_immune_signature_health_floor_count']);
     }
 
+    public function test_b515_measure_series_lote_ledger_rotation_n_capture_promotion_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b515MeasureSeriesLoteLedgerRotationNCapturePromotionFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXJ_05, $out['MAXJ-05']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXK_01, $out['MAXK-01']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTJ04, $out['cursor-acos-max-multj04']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTJ06, $out['cursor-acos-max-multj06']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_IMMUNE_CALIBRATION_V1, $out['atlas.immune.calibration.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_IMMUNE_CLASSIFIER_HYBRID_V1, $out['atlas.immune.classifier_hybrid.v1']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_THRESHOLDS_DAYS_BETWEEN_DRILLS_MAX, $out['thresholds.days_between_drills_max']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_YARDSTICK_GOLDEN_V2_SCORE, $out['yardstick.golden_v2_score']);
+        $this->assertSame(PromotionProtocol::FIELD_ATLAS_AI_AUTONOMOUS_LEARNING_ENABLED, $out['atlas.ai.autonomous_learning.enabled']);
+        $this->assertSame(PromotionProtocol::FIELD_ATLAS_BRAIN_REFLECTION_ENABLED_2, $out['atlas.brain.reflection_enabled']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ATLAS_AI_ROUTER_FLOW_ID, $out['atlas_ai_router.flow_id']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_PROGRAMMING_FORGE, $out['programming.forge']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FLOAT_0_15, $out['0.15']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FLOAT_0_2, $out['0.2']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FLOAT_0_10, $out['0.10']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FLOAT_0_42, $out['0.42']);
+        $this->assertSame(EvidenceVisionThesisComposer::INT_3, $out['3']);
+        $this->assertSame(EvidenceVisionThesisComposer::INT_2, $out['2']);
+        $this->assertSame(18, $out['b515_measure_series_lote_ledger_rotation_n_capture_promotion_floor_count']);
+    }
+
 }

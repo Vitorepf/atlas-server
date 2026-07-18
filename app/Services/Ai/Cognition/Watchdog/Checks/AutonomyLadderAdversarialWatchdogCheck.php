@@ -125,6 +125,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_MAXK09_PROBE = 'maxk09-probe';
     public const FIELD_MAXK09_SIGLEDGER_ = 'maxk09-sigledger-';
     public const FIELD_NEVER_ISSUED = 'never-issued';
+    public const FLOAT_0_10 = 0.10;
+    public const FLOAT_0_42 = 0.42;
     public const FLOAT_0_0 = 0.0;
     public const INT_20 = 20;
     public const INT_999 = 999;
@@ -347,7 +349,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             level: 'L1',
             metrics: [
                 self::FIELD_ASSIST_SESSIONS => self::INT_10,
-                self::FIELD_ACCEPTANCE_RATE => 0.10,
+                self::FIELD_ACCEPTANCE_RATE => self::FLOAT_0_10,
                 self::FIELD_SEVERE_HALLUCINATION_COUNT => 5,
             ],
             sourceId: self::FIELD_MAXK09_PROBE,
@@ -434,7 +436,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     {
         $derived = RequestedAutonomyDerivation::derive([
             self::FIELD_PRIVACY_CLASS => self::FIELD_NORMAL,
-            self::FIELD_REVERSAL_RATE => 0.42,
+            self::FIELD_REVERSAL_RATE => self::FLOAT_0_42,
             self::FIELD_N => self::INT_20,
             self::FIELD_CEILING => PolicyCanon::AUTONOMY_AUTONOMOUS,
         ]);

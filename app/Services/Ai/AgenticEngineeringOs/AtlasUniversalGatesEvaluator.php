@@ -13474,4 +13474,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B515).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b515MeasureSeriesLoteLedgerRotationNCapturePromotionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'MAXJ-05' => AcosMaxMeasureSeriesRegistry::FIELD_MAXJ_05,
+            'MAXK-01' => AcosMaxMeasureSeriesRegistry::FIELD_MAXK_01,
+            'cursor-acos-max-multj04' => AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTJ04,
+            'cursor-acos-max-multj06' => AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTJ06,
+            'atlas.immune.calibration.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_IMMUNE_CALIBRATION_V1,
+            'atlas.immune.classifier_hybrid.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_IMMUNE_CLASSIFIER_HYBRID_V1,
+            'thresholds.days_between_drills_max' => AtlasNCaptureDrillService::FIELD_THRESHOLDS_DAYS_BETWEEN_DRILLS_MAX,
+            'yardstick.golden_v2_score' => AtlasNCaptureDrillService::FIELD_YARDSTICK_GOLDEN_V2_SCORE,
+            'atlas.ai.autonomous_learning.enabled' => PromotionProtocol::FIELD_ATLAS_AI_AUTONOMOUS_LEARNING_ENABLED,
+            'atlas.brain.reflection_enabled' => PromotionProtocol::FIELD_ATLAS_BRAIN_REFLECTION_ENABLED_2,
+            'atlas_ai_router.flow_id' => AaeosHttpPathEnvelopeFactory::FIELD_ATLAS_AI_ROUTER_FLOW_ID,
+            'programming.forge' => AaeosHttpPathEnvelopeFactory::FIELD_PROGRAMMING_FORGE,
+            '0.15' => AtlasCognitiveFunctionDecomposerService::FLOAT_0_15,
+            '0.2' => AtlasCognitiveFunctionDecomposerService::FLOAT_0_2,
+            '0.10' => AutonomyLadderAdversarialWatchdogCheck::FLOAT_0_10,
+            '0.42' => AutonomyLadderAdversarialWatchdogCheck::FLOAT_0_42,
+            '3' => EvidenceVisionThesisComposer::INT_3,
+            '2' => EvidenceVisionThesisComposer::INT_2,
+            'b515_measure_series_lote_ledger_rotation_n_capture_promotion_floor_count' => 18,
+        ];
+    }
+
 }

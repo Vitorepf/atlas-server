@@ -132,6 +132,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_AAEOS_TASKS = 'aaeos.tasks';
     public const FIELD_AAEOS_TOPOLOGY = 'aaeos.topology';
     public const FIELD_ATLAS_AI_ROUTER_COMMAND_INTENT = 'atlas_ai_router.command_intent';
+    public const FIELD_ATLAS_AI_ROUTER_FLOW_ID = 'atlas_ai_router.flow_id';
+    public const FIELD_PROGRAMMING_FORGE = 'programming.forge';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -279,12 +281,12 @@ final class AaeosHttpPathEnvelopeFactory
         $payload = self::requestPayload($data);
         $intent = AiValueNormalizer::trimmedStringOrNull(data_get($payload, self::FIELD_ATLAS_AI_ROUTER_COMMAND_INTENT)) ?? '';
         $routingTask = AiValueNormalizer::trimmedStringOrNull($payload[self::FIELD_ROUTING_TASK] ?? null) ?? '';
-        $flowId = AiValueNormalizer::trimmedStringOrNull(data_get($payload, 'atlas_ai_router.flow_id')) ?? '';
+        $flowId = AiValueNormalizer::trimmedStringOrNull(data_get($payload, self::FIELD_ATLAS_AI_ROUTER_FLOW_ID)) ?? '';
 
         if (in_array($intent, [self::FIELD_PLAN, self::FIELD_FORGE, self::FIELD_OBRA], true) || in_array($routingTask, [self::FIELD_PLAN, self::FIELD_FORGE, self::FIELD_OBRA], true)) {
             return self::RISK_BAND_R3_PLUS;
         }
-        if ($flowId === 'programming.forge' || $flowId === self::FIELD_ATLAS_FORGE) {
+        if ($flowId === self::FIELD_PROGRAMMING_FORGE || $flowId === self::FIELD_ATLAS_FORGE) {
             return self::RISK_BAND_R3_PLUS;
         }
 

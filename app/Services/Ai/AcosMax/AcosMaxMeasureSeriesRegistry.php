@@ -92,6 +92,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_MAXI_04 = 'MAXI-04';
     public const FIELD_MAXI_05 = 'MAXI-05';
     public const FIELD_MAXJ_01 = 'MAXJ-01';
+    public const FIELD_MAXJ_05 = 'MAXJ-05';
+    public const FIELD_MAXK_01 = 'MAXK-01';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -277,7 +279,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.ai.lesson_quality.v2',
             ],
             [
-                self::FIELD_SLICE => 'MAXJ-05',
+                self::FIELD_SLICE => self::FIELD_MAXJ_05,
                 self::FIELD_SERIES => AtlasLearningRecallUseLiftService::LESSON_TYPE_YIELD_MEASURE_ID,
                 self::FIELD_PATH => 'atlas:ai:lesson-type-yield --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
@@ -286,7 +288,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.ai.lesson_type_yield.v2',
             ],
             [
-                self::FIELD_SLICE => 'MAXK-01',
+                self::FIELD_SLICE => self::FIELD_MAXK_01,
                 self::FIELD_SERIES => AtlasDecideRouteRegretService::MEASURE_ID,
                 self::FIELD_PATH => 'atlas:atlas-decide:live-feedback --regret --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
