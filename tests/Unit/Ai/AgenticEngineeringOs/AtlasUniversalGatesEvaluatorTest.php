@@ -17128,4 +17128,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b777_aaeos_threshold_string_veto_floor_count']);
     }
 
+    public function test_b778_aaeos_string_veto_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b778AaeosStringVetoFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_TYPE, $out['type']);
+        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_NAME, $out['name']);
+        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_QA, $out['qa']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::SCHEMA_VERSION, $out['atlas.aaeos.veto_propagation.v1']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_RESOLUTION, $out['resolution']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_PAUSE_SET, $out['pause_set']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REDIRECT_TO, $out['redirect_to']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_OVERRIDE, $out['override']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_MATCHED_RULE, $out['matched_rule']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ORIGIN_DEPARTMENT, $out['origin_department']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_VETO_KIND, $out['veto_kind']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REPAIR_ITERATION, $out['repair_iteration']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(18, $out['b778_aaeos_string_veto_floor_count']);
+    }
+
 }
