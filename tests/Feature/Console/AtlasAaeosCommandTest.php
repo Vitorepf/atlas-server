@@ -12471,6 +12471,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b767_aaeos_evidence_veto_propagation_implementation_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b767-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b767',
+                '--b767-aaeos-evidence-veto-propagation-implementation-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b767_aaeos_evidence_veto_propagation_implementation_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 
