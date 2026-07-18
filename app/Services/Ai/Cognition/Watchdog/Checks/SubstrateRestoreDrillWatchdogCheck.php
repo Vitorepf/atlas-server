@@ -40,6 +40,7 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_CHECKED_AT = 'checked_at';
     public const FIELD_SNAPSHOT_PATH = 'snapshot_path';
     public const FIELD_RESTORED_OK = 'restored_ok';
+    public const FIELD_STATUS = 'status';
 
 
     public function id(): string
@@ -95,7 +96,7 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
         $rows = (new JsonlReceiptStore($receiptPath))->read();
         $successes = array_values(array_filter(
             $rows,
-            static fn (array $row): bool => ($row['status'] ?? null) === 'restored_ok'
+            static fn (array $row): bool => ($row[self::FIELD_STATUS] ?? null) === 'restored_ok'
                 && (AiValueNormalizer::boolOrNull($row[self::FIELD_RESTORED_OK] ?? null) ?? false)
                 && is_string($row[self::FIELD_CHECKED_AT] ?? null),
         ));

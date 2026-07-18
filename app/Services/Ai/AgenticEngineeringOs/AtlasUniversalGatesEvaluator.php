@@ -144,6 +144,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
 use App\Services\Semantic\CanonicalDocsFrontmatterParser;
 use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
+use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
 
 /**
  * Atlas Universal Gates Evaluator — produces `atlas.aaeos.gate_report.v1`
@@ -10231,6 +10232,37 @@ final class AtlasUniversalGatesEvaluator
             'tier' => AtlasAcosEvolutionScoreService::FIELD_TIER,
             'schema_version' => AtlasCognitiveFunctionDecomposerService::FIELD_SCHEMA_VERSION,
             'acos_watchdog_department_contract_cognition_remint_immune_check_floor_count' => 18,
+        ];
+    }
+
+    /**
+     * Observe-only floors contract (B410).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function acosWatchdogDeadAobgLatencyDiskFreeSubstrateFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'severity' => AtlasAcosWatchdogHealthService::FIELD_SEVERITY,
+            'sources' => AtlasAcosWatchdogHealthService::FIELD_SOURCES,
+            'stale_partial_count' => AtlasAcosWatchdogHealthService::FIELD_STALE_PARTIAL_COUNT,
+            'synthetic' => AtlasAcosWatchdogHealthService::FIELD_SYNTHETIC,
+            'synthetic_share' => AtlasAcosWatchdogHealthService::FIELD_SYNTHETIC_SHARE,
+            'synthetic_share_max' => AtlasAcosWatchdogHealthService::FIELD_SYNTHETIC_SHARE_MAX,
+            'task_category' => AtlasAcosWatchdogHealthService::FIELD_TASK_CATEGORY,
+            'tenant_id' => AtlasAcosWatchdogHealthService::FIELD_TENANT_ID,
+            'age_days' => AcosDeadSeriesWatchdogCheck::FIELD_AGE_DAYS,
+            'recall_p95_ms_alert' => AobgLatencyWatchdogCheck::FIELD_RECALL_P95_MS_ALERT,
+            'message' => DiskFreeWatchdogCheck::FIELD_MESSAGE,
+            'status' => SubstrateRestoreDrillWatchdogCheck::FIELD_STATUS,
+            'threshold' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_THRESHOLD,
+            'source_type' => AtlasImmuneClassifierHybridFreeze::FIELD_SOURCE_TYPE,
+            'contradicts' => FactPairPolarityContradictionDetector::FIELD_CONTRADICTS,
+            'kind' => FactPairPolarityContradictionDetector::FIELD_KIND,
+            'negated' => FactPairPolarityContradictionDetector::FIELD_NEGATED,
+            'value' => FactPairPolarityContradictionDetector::FIELD_VALUE,
+            'acos_watchdog_dead_aobg_latency_disk_free_substrate_floor_count' => 18,
         ];
     }
 

@@ -17,6 +17,10 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class FactPairPolarityContradictionDetector
 {
+    public const FIELD_CONTRADICTS = 'contradicts';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_NEGATED = 'negated';
+    public const FIELD_VALUE = 'value';
     /**
      * @param  array{subject?:mixed, predicate?:mixed, negated?:mixed, value?:mixed}  $factA
      * @param  array{subject?:mixed, predicate?:mixed, negated?:mixed, value?:mixed}  $factB
@@ -65,7 +69,7 @@ final class FactPairPolarityContradictionDetector
      */
     private function negated(array $fact): bool
     {
-        return ($fact['negated'] ?? false) === true;
+        return ($fact[self::FIELD_NEGATED] ?? false) === true;
     }
 
     /**
@@ -73,7 +77,7 @@ final class FactPairPolarityContradictionDetector
      */
     private function value(array $fact): int|float|string|bool|null
     {
-        $value = $fact['value'] ?? null;
+        $value = $fact[self::FIELD_VALUE] ?? null;
 
         return is_scalar($value) ? $value : null;
     }
@@ -89,8 +93,8 @@ final class FactPairPolarityContradictionDetector
     private function result(bool $contradicts, string $kind): array
     {
         return [
-            'contradicts' => $contradicts,
-            'kind' => $kind,
+            self::FIELD_CONTRADICTS => $contradicts,
+            self::FIELD_KIND => $kind,
         ];
     }
 }

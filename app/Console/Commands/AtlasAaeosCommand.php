@@ -432,6 +432,7 @@ final class AtlasAaeosCommand extends Command
                             {--acos-watchdog-immune-calibration-maxa-jina-outcome-envelope-floors-contract= : JSON file (any object) to observe acos/watchdog/immune/calibration/maxa/jina floors}
                             {--acos-watchdog-phase-handoff-architect-agent-autonomous-work-floors-contract= : JSON file (any object) to observe acos/watchdog/phase/handoff/architect/agent floors}
                             {--acos-watchdog-department-contract-cognition-remint-immune-check-floors-contract= : JSON file (any object) to observe acos/watchdog/department/contract/cognition/remint floors}
+                            {--acos-watchdog-dead-aobg-latency-disk-free-substrate-floors-contract= : JSON file (any object) to observe acos/watchdog/dead/aobg/latency/disk floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1020,6 +1021,7 @@ final class AtlasAaeosCommand extends Command
             ['acos-watchdog-immune-calibration-maxa-jina-outcome-envelope-floors-contract', 'acos_watchdog_immune_calibration_maxa_jina_outcome_envelope_floors_contract', fn (array $p) => $gates->acosWatchdogImmuneCalibrationMaxaJinaOutcomeEnvelopeFloorsContractObserve($p)],
             ['acos-watchdog-phase-handoff-architect-agent-autonomous-work-floors-contract', 'acos_watchdog_phase_handoff_architect_agent_autonomous_work_floors_contract', fn (array $p) => $gates->acosWatchdogPhaseHandoffArchitectAgentAutonomousWorkFloorsContractObserve($p)],
             ['acos-watchdog-department-contract-cognition-remint-immune-check-floors-contract', 'acos_watchdog_department_contract_cognition_remint_immune_check_floors_contract', fn (array $p) => $gates->acosWatchdogDepartmentContractCognitionRemintImmuneCheckFloorsContractObserve($p)],
+            ['acos-watchdog-dead-aobg-latency-disk-free-substrate-floors-contract', 'acos_watchdog_dead_aobg_latency_disk_free_substrate_floors_contract', fn (array $p) => $gates->acosWatchdogDeadAobgLatencyDiskFreeSubstrateFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

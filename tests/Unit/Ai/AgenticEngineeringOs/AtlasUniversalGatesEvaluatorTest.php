@@ -128,6 +128,10 @@ use App\Services\Ai\Aaeos\AtlasVetoPropagationWatchdog;
 use App\Services\Ai\AcosMax\AtlasModelCapabilitySpecService;
 use App\Services\Ai\Cognition\CognitiveImmuneCheckContract;
 use App\Services\Ai\Cognition\ImmuneVerdictLedger;
+use App\Services\Ai\Cognition\Watchdog\Checks\AcosDeadSeriesWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\DiskFreeWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\SubstrateRestoreDrillWatchdogCheck;
+use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -7977,6 +7981,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_TIER, $out['tier']);
         $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_SCHEMA_VERSION, $out['schema_version']);
         $this->assertSame(18, $out['acos_watchdog_department_contract_cognition_remint_immune_check_floor_count']);
+    }
+
+    public function test_acos_watchdog_dead_aobg_latency_disk_free_substrate_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->acosWatchdogDeadAobgLatencyDiskFreeSubstrateFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SEVERITY, $out['severity']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SOURCES, $out['sources']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_STALE_PARTIAL_COUNT, $out['stale_partial_count']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SYNTHETIC, $out['synthetic']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SYNTHETIC_SHARE, $out['synthetic_share']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SYNTHETIC_SHARE_MAX, $out['synthetic_share_max']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_TASK_CATEGORY, $out['task_category']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_TENANT_ID, $out['tenant_id']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_AGE_DAYS, $out['age_days']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_RECALL_P95_MS_ALERT, $out['recall_p95_ms_alert']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_SOURCE_TYPE, $out['source_type']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_CONTRADICTS, $out['contradicts']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_KIND, $out['kind']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_NEGATED, $out['negated']);
+        $this->assertSame(FactPairPolarityContradictionDetector::FIELD_VALUE, $out['value']);
+        $this->assertSame(18, $out['acos_watchdog_dead_aobg_latency_disk_free_substrate_floor_count']);
     }
 
 }

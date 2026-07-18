@@ -85,6 +85,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_REQUIRES_HUMAN_APPROVAL = 'requires_human_approval';
     public const FIELD_SCAN_HASH = 'scan_hash';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_THRESHOLD = 'threshold';
 
     private ?string $proposalsLogOverride = null;
 
@@ -238,7 +239,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
             self::FIELD_REFERENCE_COUNT => $referenceCount,
             self::FIELD_FILES_MATCHING => $matched,
             self::FIELD_FILES_SCANNED => $scanned,
-            'threshold' => $threshold,
+            self::FIELD_THRESHOLD => $threshold,
             self::FIELD_PRESSURE_DETECTED => $referenceCount > $threshold,
             self::FIELD_SCAN_HASH => $scanHash,
         ];

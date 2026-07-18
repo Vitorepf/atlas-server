@@ -71,6 +71,7 @@ final class AtlasImmuneClassifierHybridFreeze
     public const FIELD_PROVIDER_CALLS_IN_ARM_PATH = 'provider_calls_in_arm_path';
     public const FIELD_REGISTRY_STATUS = 'registry_status';
     public const FIELD_SERIES = 'series';
+    public const FIELD_SOURCE_TYPE = 'source_type';
 
     /**
      * @return array<string,mixed>
@@ -126,7 +127,7 @@ final class AtlasImmuneClassifierHybridFreeze
             self::FIELD_SERIES => [
                 self::FIELD_ID => self::MEASURE_ID,
                 self::FIELD_REGISTRY_STATUS => 'registered_elev_20s',
-                'source_type' => 'jsonl',
+                self::FIELD_SOURCE_TYPE => 'jsonl',
             ],
             self::FIELD_PRIVACY_GUARANTEES => [
                 self::FIELD_ANCHORS_LOCAL_ONLY => true,
