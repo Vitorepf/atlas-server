@@ -8391,4 +8391,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['mission_control_department_contract_measure_series_http_path_floor_count']);
     }
 
+    public function test_lote_measure_asef_chunk_resource_budget_department_contract_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->loteMeasureAsefChunkResourceBudgetDepartmentContractFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_NONE, $out['none']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CORRELATIONAL_ATTRIBUTION, $out['correlational_attribution']);
+        $this->assertSame(AsefChunkIndexService::FIELD_ASEF_CHUNKS, $out['asef_chunks']);
+        $this->assertSame(AsefChunkIndexService::FIELD_EMBEDDING, $out['embedding']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_PAPER_FITS, $out['paper_fits']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_SHARED, $out['shared']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_POLICY_DECISIONS, $out['aaeos_policy_decisions']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_QA_LEDGER, $out['aaeos_qa_ledger']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_REALIZED_RATE, $out['realized_rate']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_WEIGHT_ONLY_NEVER_VETO, $out['weight_only_never_veto']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_OPERATOR_OVERRIDE, $out['operator_override']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REVIEW_DELIVERY_VETO, $out['review_delivery_veto']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_DEV, $out['dev']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_EMITTER_STAGE, $out['emitter_stage']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_COMPUTED_READER_FIELD, $out['computed_reader_field']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_NO_SYMBOLS_EMBEDDED_YET, $out['no_symbols_embedded_yet']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS, $out['atlas_engineering_knowledge_items']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_COMPUTED_READER_FIELD, $out['computed_reader_field']);
+        $this->assertSame(18, $out['lote_measure_asef_chunk_resource_budget_department_contract_floor_count']);
+    }
+
 }

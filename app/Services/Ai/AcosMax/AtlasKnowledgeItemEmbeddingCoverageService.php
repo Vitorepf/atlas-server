@@ -86,6 +86,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const FIELD_EMBEDDED_CONTENT_HASH = 'embedded_content_hash';
     public const FIELD_ACTIVE_ITEMS_ONLY = 'active_items_only';
     public const FIELD_ARCHIVED_AT = 'archived_at';
+    public const FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS = 'atlas_engineering_knowledge_items';
+    public const FIELD_COMPUTED_READER_FIELD = 'computed_reader_field';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -110,7 +112,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
             self::FIELD_SERIES_REGISTRY => [
                 self::FIELD_SERIES => self::MEASURE_ID,
                 self::FIELD_PATH => 'atlas:memory:kb-embedding-coverage --json',
-                self::FIELD_SOURCE_TYPE => 'computed_reader_field',
+                self::FIELD_SOURCE_TYPE => self::FIELD_COMPUTED_READER_FIELD,
             ],
         ];
     }
@@ -120,7 +122,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     {
         $freeze = self::freezePayload();
 
-        if (! DatabaseTableAvailability::has('atlas_engineering_knowledge_items')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS)) {
             return $this->emptyReport(self::STATUS_TABLE_MISSING, 'atlas_engineering_knowledge_items_missing', $freeze);
         }
 

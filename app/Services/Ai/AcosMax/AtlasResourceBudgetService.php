@@ -49,6 +49,8 @@ final class AtlasResourceBudgetService
     public const FIELD_OVER_CAP_COMPONENTS = 'over_cap_components';
     public const FIELD_PAPER_HEADROOM_MB = 'paper_headroom_mb';
     public const FIELD_OVER_RAM_CAP = 'over_ram_cap';
+    public const FIELD_PAPER_FITS = 'paper_fits';
+    public const FIELD_SHARED = 'shared';
 
     /** @var array<string,mixed> */
     private array $budget;
@@ -124,7 +126,7 @@ final class AtlasResourceBudgetService
                 self::FIELD_RAM_ACTUAL_MB => $ramActual,
                 self::FIELD_DISK_CAP_MB => $diskCap,
                 self::FIELD_DISK_ACTUAL_MB => $diskActual,
-                self::FIELD_CPU_SHARE => AiValueNormalizer::trimmedStringOrNull($component[self::FIELD_CPU_SHARE] ?? null) ?? 'shared',
+                self::FIELD_CPU_SHARE => AiValueNormalizer::trimmedStringOrNull($component[self::FIELD_CPU_SHARE] ?? null) ?? self::FIELD_SHARED,
                 self::FIELD_STATUS => $componentStatus,
                 self::FIELD_PROBE_HINT => AiValueNormalizer::trimmedStringOrNull($component[self::FIELD_PROBE_HINT] ?? null) ?? '',
             ];
@@ -136,7 +138,7 @@ final class AtlasResourceBudgetService
         $engineFloorMb = $engineFloorGib * 1024;
 
         $paperSum = $totalRamCap + $engineFloorMb;
-        $paperStatus = $paperSum <= $hostMb ? 'paper_fits' : 'paper_overshoot';
+        $paperStatus = $paperSum <= $hostMb ? self::FIELD_PAPER_FITS : 'paper_overshoot';
         $paperHeadroom = $hostMb - $paperSum;
 
         $measuredHeadroom = null;

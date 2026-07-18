@@ -10731,4 +10731,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B426).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function loteMeasureAsefChunkResourceBudgetDepartmentContractFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'none' => AcosMaxLote2MeasureService::FIELD_NONE,
+            'correlational_attribution' => AcosMaxLote2MeasureService::FIELD_CORRELATIONAL_ATTRIBUTION,
+            'asef_chunks' => AsefChunkIndexService::FIELD_ASEF_CHUNKS,
+            'embedding' => AsefChunkIndexService::FIELD_EMBEDDING,
+            'paper_fits' => AtlasResourceBudgetService::FIELD_PAPER_FITS,
+            'shared' => AtlasResourceBudgetService::FIELD_SHARED,
+            'aaeos_policy_decisions' => DepartmentContractRuntime::FIELD_AAEOS_POLICY_DECISIONS,
+            'aaeos_qa_ledger' => DepartmentContractRuntime::FIELD_AAEOS_QA_LEDGER,
+            'realized_rate' => EvidenceVisionThesisComposer::FIELD_REALIZED_RATE,
+            'weight_only_never_veto' => EvidenceVisionThesisComposer::FIELD_WEIGHT_ONLY_NEVER_VETO,
+            'operator_override' => AtlasAaeosVetoPropagationResolver::FIELD_OPERATOR_OVERRIDE,
+            'review_delivery_veto' => AtlasAaeosVetoPropagationResolver::FIELD_REVIEW_DELIVERY_VETO,
+            'dev' => AcosMaxVerifiedShareService::FIELD_DEV,
+            'emitter_stage' => AcosMaxVerifiedShareService::FIELD_EMITTER_STAGE,
+            'computed_reader_field' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_COMPUTED_READER_FIELD,
+            'no_symbols_embedded_yet' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_NO_SYMBOLS_EMBEDDED_YET,
+            'atlas_engineering_knowledge_items' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS,
+            'computed_reader_field' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_COMPUTED_READER_FIELD,
+            'lote_measure_asef_chunk_resource_budget_department_contract_floor_count' => 18,
+        ];
+    }
+
 }

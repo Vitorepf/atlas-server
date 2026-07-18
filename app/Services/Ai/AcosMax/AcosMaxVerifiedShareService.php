@@ -87,6 +87,8 @@ final class AcosMaxVerifiedShareService
     public const FIELD_ENFORCE = 'enforce';
     public const FIELD_ATLAS_LEDGER_EVENTS = 'atlas_ledger_events';
     public const FIELD_AUTONOMOS = 'autonomos';
+    public const FIELD_DEV = 'dev';
+    public const FIELD_EMITTER_STAGE = 'emitter_stage';
 
 
     /** @return array<string,mixed> */
@@ -298,7 +300,7 @@ final class AcosMaxVerifiedShareService
         }
 
         return AtlasLedgerEvent::query()
-            ->where('emitter_stage', KernelEvidenceAuthority::EMITTER_STAGE)
+            ->where(self::FIELD_EMITTER_STAGE, KernelEvidenceAuthority::EMITTER_STAGE)
             ->where('occurred_at', '>=', $since)
             ->orderBy('occurred_at')
             ->get()
@@ -334,7 +336,7 @@ final class AcosMaxVerifiedShareService
         $value = AiValueNormalizer::lowerTrimmedString($value);
 
         return match (true) {
-            in_array($value, ['dev', 'atlas_dev', 'atlas-dev'], true) => 'dev',
+            in_array($value, ['dev', 'atlas_dev', 'atlas-dev'], true) => self::FIELD_DEV,
             in_array($value, ['forge', 'atlas_forge', 'atlas-forge'], true) => 'forge',
             in_array($value, ['autonomos', 'autonomous', 'atlas_autonomos', 'atlas-autonomos'], true) => self::FIELD_AUTONOMOS,
             default => null,

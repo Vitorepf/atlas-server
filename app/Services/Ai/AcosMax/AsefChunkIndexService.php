@@ -93,6 +93,8 @@ final class AsefChunkIndexService
     public const FIELD_ID = 'id';
     public const FIELD_CHUNK_HITS = 'chunk_hits';
     public const FIELD_PGSQL = 'pgsql';
+    public const FIELD_ASEF_CHUNKS = 'asef_chunks';
+    public const FIELD_EMBEDDING = 'embedding';
 
     public function __construct(
         private readonly AtlasSemanticEmbeddingFoundationService $asef,
@@ -114,7 +116,7 @@ final class AsefChunkIndexService
      */
     public function indexSource(array $source, bool $allowExternalProvider = false): array
     {
-        if (! DatabaseTableAvailability::has('asef_chunks')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ASEF_CHUNKS)) {
             return [
                 self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
                 self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
@@ -208,7 +210,7 @@ final class AsefChunkIndexService
     public function deleteCascade(string $deleteCascadeKey): int
     {
         $key = AiValueNormalizer::trimmedStringOrNull($deleteCascadeKey) ?? '';
-        if ($key === '' || ! DatabaseTableAvailability::has('asef_chunks')) {
+        if ($key === '' || ! DatabaseTableAvailability::has(self::FIELD_ASEF_CHUNKS)) {
             return 0;
         }
 
@@ -218,7 +220,7 @@ final class AsefChunkIndexService
     public function deleteBySourceRef(string $sourceRef): int
     {
         $ref = AiValueNormalizer::trimmedStringOrNull($sourceRef) ?? '';
-        if ($ref === '' || ! DatabaseTableAvailability::has('asef_chunks')) {
+        if ($ref === '' || ! DatabaseTableAvailability::has(self::FIELD_ASEF_CHUNKS)) {
             return 0;
         }
 
@@ -269,7 +271,7 @@ final class AsefChunkIndexService
     public function search(string $query, int $limit = 5, bool $allowExternalProvider = false): array
     {
         $limit = max(1, min(50, $limit));
-        if (! DatabaseTableAvailability::has('asef_chunks')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ASEF_CHUNKS)) {
             return [
                 self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
                 self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
@@ -292,7 +294,7 @@ final class AsefChunkIndexService
         $modelId = EmbeddingProvenance::modelId($this->embeddings->lastInfo());
 
         $builder = DB::table('asef_chunks')
-            ->whereNotNull('embedding')
+            ->whereNotNull(self::FIELD_EMBEDDING)
             ->select(['source_ref', 'chunk_hash', 'chunk_id'])
             ->selectRaw('(1 - (embedding <=> ?::vector)) AS similarity', [$literal]);
 

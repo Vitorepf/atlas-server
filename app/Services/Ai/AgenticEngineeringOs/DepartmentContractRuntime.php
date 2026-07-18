@@ -211,6 +211,8 @@ final class DepartmentContractRuntime
     public const FIELD_AAEOS_MEMORY_LEDGER = 'aaeos_memory_ledger';
     public const FIELD_AAEOS_MEMORY_RECORDS = 'aaeos_memory_records';
     public const FIELD_AAEOS_OBRA_RUNS = 'aaeos_obra_runs';
+    public const FIELD_AAEOS_POLICY_DECISIONS = 'aaeos_policy_decisions';
+    public const FIELD_AAEOS_QA_LEDGER = 'aaeos_qa_ledger';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -425,7 +427,7 @@ final class DepartmentContractRuntime
             self::FIELD_FORBIDDEN_ACTIONS => ['modify_production_code_outside_tests', 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW],
             self::FIELD_EVIDENCE_REQUIRED => ['test_pack_hash', 'coverage_report_hash'],
-            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_test_packs', self::FIELD_LEDGER => 'aaeos_qa_ledger'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_test_packs', self::FIELD_LEDGER => self::FIELD_AAEOS_QA_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['qa_coverage_p50', 'qa_regression_catch_rate'],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_TEST_SELECTION_RECEIPT,
@@ -448,7 +450,7 @@ final class DepartmentContractRuntime
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_sovereignty', 'approve_unaudited_dep', 'ship_without_evidence'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['policy_decision_hash', 'secret_scan_report_hash', 'dependency_audit_hash'],
-            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_policy_decisions', self::FIELD_LEDGER => 'aaeos_security_ledger'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_POLICY_DECISIONS, self::FIELD_LEDGER => 'aaeos_security_ledger'],
             self::FIELD_OBSERVABILITY_SIGNALS => ['security_deny_count', 'security_secret_finding_count'],
             self::FIELD_MATURITY_LEVEL => 'L3',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_SECURITY_FINDING,

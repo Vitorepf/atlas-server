@@ -85,6 +85,8 @@ final class AtlasAaeosVetoPropagationResolver
     public const FIELD_SECURITY = 'security';
     public const FIELD_ARCHITECT_SPEC_VETO = 'architect_spec_veto';
     public const FIELD_NONE = 'none';
+    public const FIELD_OPERATOR_OVERRIDE = 'operator_override';
+    public const FIELD_REVIEW_DELIVERY_VETO = 'review_delivery_veto';
 
     /**
      * Encoded canonical department adjacency (mermaid stateDiagram transitions).
@@ -193,7 +195,7 @@ final class AtlasAaeosVetoPropagationResolver
                 self::FIELD_REDIRECT_TO => [],
                 self::FIELD_ESCALATION_TARGET => [],
                 self::FIELD_OVERRIDE => true,
-                self::FIELD_MATCHED_RULE => 'operator_override',
+                self::FIELD_MATCHED_RULE => self::FIELD_OPERATOR_OVERRIDE,
                 self::FIELD_REASON => self::REASON_OPERATOR_VETO_FINAL_OVERRIDE,
             ];
         }
@@ -234,7 +236,7 @@ final class AtlasAaeosVetoPropagationResolver
                 self::FIELD_REDIRECT_TO => $this->reachableTargets(['dev', 'forge']),
                 self::FIELD_ESCALATION_TARGET => [],
                 self::FIELD_OVERRIDE => false,
-                self::FIELD_MATCHED_RULE => 'review_delivery_veto',
+                self::FIELD_MATCHED_RULE => self::FIELD_REVIEW_DELIVERY_VETO,
                 self::FIELD_REASON => self::REASON_REVIEW_DELIVERY_VETO_REPAIR,
             ];
         }

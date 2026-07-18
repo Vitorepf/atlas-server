@@ -110,6 +110,8 @@ final class EvidenceVisionThesisComposer
     public const FIELD_TARGET_PATH = 'target_path';
     public const FIELD_OUTCOME = 'outcome';
     public const FIELD_LEDGER = 'ledger';
+    public const FIELD_REALIZED_RATE = 'realized_rate';
+    public const FIELD_WEIGHT_ONLY_NEVER_VETO = 'weight_only_never_veto';
 
     /**
      * @param  array<string,mixed>  $context
@@ -176,7 +178,7 @@ final class EvidenceVisionThesisComposer
                 self::FIELD_MAX_THESES => self::MAX_THESES,
                 self::FIELD_HUMAN_AUTHORED_CLAIMS => false,
                 self::FIELD_INFLUENCES_PICK => true,
-                self::FIELD_INFLUENCES_PICK_MODE => 'weight_only_never_veto',
+                self::FIELD_INFLUENCES_PICK_MODE => self::FIELD_WEIGHT_ONLY_NEVER_VETO,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
             ],
         ];
@@ -373,13 +375,13 @@ final class EvidenceVisionThesisComposer
                 [
                     self::FIELD_SOURCE => self::FIELD_OUTCOME,
                     self::FIELD_REF => 'outcome:predicted_impact_calibration:band=high:n_realized='.$highN,
-                    self::FIELD_FIELD => 'realized_rate',
+                    self::FIELD_FIELD => self::FIELD_REALIZED_RATE,
                     self::FIELD_VALUE => $highRate,
                 ],
                 [
                     self::FIELD_SOURCE => self::FIELD_OUTCOME,
                     self::FIELD_REF => 'outcome:predicted_impact_calibration:band=sweet:n_realized='.$sweetN,
-                    self::FIELD_FIELD => 'realized_rate',
+                    self::FIELD_FIELD => self::FIELD_REALIZED_RATE,
                     self::FIELD_VALUE => $sweetRate,
                 ],
             ],
@@ -593,7 +595,7 @@ final class EvidenceVisionThesisComposer
                 self::FIELD_MAX_THESES => self::MAX_THESES,
                 self::FIELD_HUMAN_AUTHORED_CLAIMS => false,
                 self::FIELD_INFLUENCES_PICK => false,
-                self::FIELD_INFLUENCES_PICK_MODE => 'weight_only_never_veto',
+                self::FIELD_INFLUENCES_PICK_MODE => self::FIELD_WEIGHT_ONLY_NEVER_VETO,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
             ],
         ];
