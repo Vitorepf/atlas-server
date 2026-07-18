@@ -111,6 +111,8 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_WITH_EVIDENCE_REFS = 'with_evidence_refs';
     public const FIELD_PATHS = 'paths';
     public const FIELD_RANK_CLAIMED = 'rank_claimed';
+    public const FIELD_ROUTE = 'route';
+    public const FIELD_SCORE_OUT_OF_10 = 'score_out_of_10';
 
     public const RANK = [
         self::LEVEL_SPEC => 0,
@@ -278,7 +280,7 @@ class AtlasAaeosImplementationTruthService
             'verifiably_backed' => $backed,
             'unverifiable_claims' => $unverifiable,
             self::FIELD_COVERAGE_PCT => $coveragePct,
-            'score_out_of_10' => round($coveragePct / 10, 1),
+            self::FIELD_SCORE_OUT_OF_10 => round($coveragePct / 10, 1),
         ];
     }
 
@@ -668,7 +670,7 @@ class AtlasAaeosImplementationTruthService
         }
 
         $hasSymbol = $resolvedKinds[self::FIELD_SYMBOL] ?? false;
-        $hasWiring = ($resolvedKinds['route'] ?? false) || ($resolvedKinds[self::FIELD_COMMAND] ?? false);
+        $hasWiring = ($resolvedKinds[self::FIELD_ROUTE] ?? false) || ($resolvedKinds[self::FIELD_COMMAND] ?? false);
         $hasTest = $resolvedKinds[self::FIELD_TEST] ?? false;
         $hasReceipt = $resolvedKinds[self::FIELD_RECEIPT] ?? false;
 

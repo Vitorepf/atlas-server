@@ -35,6 +35,8 @@ final class AtlasAaeosPhaseRouterService
     public const FIELD_DISAMBIGUATION = 'disambiguation';
     public const FIELD_CLASSIFICATION = 'classification';
     public const FIELD_PLACEMENT = 'placement';
+    public const FIELD_ROUTING = 'routing';
+    public const FIELD_SPEC = 'spec';
 
     public const VALID_PHASES = [
         self::PHASE_LEGACY,
@@ -159,8 +161,8 @@ final class AtlasAaeosPhaseRouterService
                 self::FIELD_CLASSIFICATION => $this->atLeastPhase2(),
                 self::FIELD_POLICY_GATE => $this->atLeastPhase2(),
                 'topology' => $this->atLeastPhase3(),
-                'routing' => $this->atLeastPhase3(),
-                'spec' => $this->atLeastPhase4(),
+                self::FIELD_ROUTING => $this->atLeastPhase3(),
+                self::FIELD_SPEC => $this->atLeastPhase4(),
                 'tasks' => $this->atLeastPhase4(),
                 self::FIELD_RECEIPT => $this->atLeastPhase4(),
             ],

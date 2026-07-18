@@ -9242,4 +9242,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B378).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function aaeosImplementationPhaseImmuneCalibrationSignatureAcosWatchdogFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'route' => AtlasAaeosImplementationTruthService::FIELD_ROUTE,
+            'score_out_of_10' => AtlasAaeosImplementationTruthService::FIELD_SCORE_OUT_OF_10,
+            'routing' => AtlasAaeosPhaseRouterService::FIELD_ROUTING,
+            'spec' => AtlasAaeosPhaseRouterService::FIELD_SPEC,
+            'classifier_schema_version' => ImmuneCalibrationService::FIELD_CLASSIFIER_SCHEMA_VERSION,
+            'consent_granted' => ImmuneCalibrationService::FIELD_CONSENT_GRANTED,
+            'input_class' => ImmuneSignatureIngestor::FIELD_INPUT_CLASS,
+            'memory_revert' => ImmuneSignatureIngestor::FIELD_MEMORY_REVERT,
+            'by_writer' => AtlasAcosWatchdogHealthService::FIELD_BY_WRITER,
+            'commands' => AtlasAcosWatchdogHealthService::FIELD_COMMANDS,
+            'max_tier' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_MAX_TIER,
+            'required_threshold' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_REQUIRED_THRESHOLD,
+            'satisfied' => AtlasAaeosDocMaturityClassifier::FIELD_SATISFIED,
+            'schema_version' => AtlasAaeosDocMaturityClassifier::FIELD_SCHEMA_VERSION,
+            'resolved_target' => AtlasAaeosGateSignalEvaluator::FIELD_RESOLVED_TARGET,
+            'scope' => AtlasAaeosGateSignalEvaluator::FIELD_SCOPE,
+            'resolved' => AtlasAaeosImplementationEvidenceResolver::FIELD_RESOLVED,
+            'route' => AtlasAaeosImplementationEvidenceResolver::FIELD_ROUTE,
+            'aaeos_implementation_phase_immune_calibration_signature_acos_watchdog_floor_count' => 18,
+        ];
+    }
+
 }

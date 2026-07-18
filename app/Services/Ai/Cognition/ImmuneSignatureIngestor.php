@@ -27,6 +27,8 @@ final class ImmuneSignatureIngestor
     public const FIELD_IMMUNE_CLASSIFICATION = 'immune_classification';
     public const FIELD_MEMORY_TYPE = 'memory_type';
     public const FIELD_REFUTATION_MEMORY = 'refutation_memory';
+    public const FIELD_INPUT_CLASS = 'input_class';
+    public const FIELD_MEMORY_REVERT = 'memory_revert';
 
     private readonly ImmuneSignatureStore $store;
 
@@ -99,7 +101,7 @@ final class ImmuneSignatureIngestor
         }
 
         /** @var list<string> $signals */
-        $signals = array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($classification[self::FIELD_MATCHED_SIGNALS] ?? ['memory_revert'])));
+        $signals = array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($classification[self::FIELD_MATCHED_SIGNALS] ?? [self::FIELD_MEMORY_REVERT])));
 
         return $this->store->recordFromIncident(
             'decision:'.$decisionId.':memory:'.$entry->id,
@@ -134,7 +136,7 @@ final class ImmuneSignatureIngestor
      */
     private function hostileClassFromClassification(array $classification): ?string
     {
-        $inputClass = AiValueNormalizer::lowerTrimmedString($classification['input_class'] ?? '');
+        $inputClass = AiValueNormalizer::lowerTrimmedString($classification[self::FIELD_INPUT_CLASS] ?? '');
 
         return in_array($inputClass, ['prompt_injection', 'private_sensitive', 'untrusted_content'], true)
             ? $inputClass

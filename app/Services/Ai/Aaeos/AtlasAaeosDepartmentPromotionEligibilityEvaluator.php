@@ -45,6 +45,8 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     public const FIELD_LAST_EVALUATION = 'last_evaluation';
     public const FIELD_MAX_AGE_DAYS = 'max_age_days';
     public const FIELD_MAX_EVIDENCE_AGE_DAYS = 'max_evidence_age_days';
+    public const FIELD_MAX_TIER = 'max_tier';
+    public const FIELD_REQUIRED_THRESHOLD = 'required_threshold';
 
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department
@@ -72,7 +74,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     public function evaluate(array $department, array $metrics, array $options = []): array
     {
         $currentTier = $this->intValue($department[self::FIELD_CURRENT_TIER] ?? 0);
-        $maxTier = $this->intValue($options['max_tier'] ?? self::DEFAULT_MAX_TIER, self::DEFAULT_MAX_TIER);
+        $maxTier = $this->intValue($options[self::FIELD_MAX_TIER] ?? self::DEFAULT_MAX_TIER, self::DEFAULT_MAX_TIER);
         $atMaxTier = $currentTier >= $maxTier;
         $targetTier = $atMaxTier ? $maxTier : ($currentTier + 1);
 
@@ -186,7 +188,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
         return [
             self::FIELD_PASSED => $currentScore >= $requiredThreshold,
             self::FIELD_CURRENT_SCORE => $currentScore,
-            'required_threshold' => $requiredThreshold,
+            self::FIELD_REQUIRED_THRESHOLD => $requiredThreshold,
             self::FIELD_DEFICIT => $deficit,
         ];
     }

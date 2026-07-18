@@ -65,6 +65,8 @@ final class AtlasAaeosDocMaturityClassifier
     public const FIELD_RATIONALE = 'rationale';
     public const FIELD_RUNBOOK = 'runbook';
     public const FIELD_RUNTIME_READY = 'runtime_ready';
+    public const FIELD_SATISFIED = 'satisfied';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     /** @var list<string> */
     public const LEVELS = [
@@ -123,12 +125,12 @@ final class AtlasAaeosDocMaturityClassifier
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_LEVEL => $level,
             self::FIELD_LEVEL_ORDINAL => $ordinal,
             // Doc maturity never proves runtime: encodes the line 218 failure mode.
             self::FIELD_RUNTIME_READY => false,
-            'satisfied' => $this->satisfiedRequirements($hasMother, $hasContracts, $signalStrengths, $runbook),
+            self::FIELD_SATISFIED => $this->satisfiedRequirements($hasMother, $hasContracts, $signalStrengths, $runbook),
             self::FIELD_MISSING_FOR_NEXT => $this->missingForNext($ordinal, $hasMother, $hasContracts, $runbook, $signalStrengths),
             self::FIELD_RATIONALE => $rationale,
         ];

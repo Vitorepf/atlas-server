@@ -75,6 +75,8 @@ final class AtlasAaeosGateSignalEvaluator
     public const FIELD_COMPUTED_VALUE = 'computed_value';
     public const FIELD_MISSING_ANSWERS = 'missing_answers';
     public const FIELD_NO_PHASE_OUTPUTS = 'no_phase_outputs';
+    public const FIELD_RESOLVED_TARGET = 'resolved_target';
+    public const FIELD_SCOPE = 'scope';
 
     /**
      * P1 disambiguation gate: weighted + clamped 0..1 intent-clarity score.
@@ -84,7 +86,7 @@ final class AtlasAaeosGateSignalEvaluator
      */
     public function evaluateIntentClarity(array $disambiguationFeatures): array
     {
-        $resolvedTarget = $this->stringOrNull($disambiguationFeatures['resolved_target'] ?? null);
+        $resolvedTarget = $this->stringOrNull($disambiguationFeatures[self::FIELD_RESOLVED_TARGET] ?? null);
         $scopeBounded = ($disambiguationFeatures['scope_bounded'] ?? false) === true;
         $ambiguityTokens = AiStringListNormalizer::strings($disambiguationFeatures[self::FIELD_AMBIGUITY_TOKENS] ?? []);
         $missingCount = $this->missingAnswersCount($disambiguationFeatures[self::FIELD_MISSING_ANSWERS] ?? []);
@@ -179,7 +181,7 @@ final class AtlasAaeosGateSignalEvaluator
 
         $allAtomic = true;
         foreach ($tasks as $index => $task) {
-            $scope = $this->stringOrNull($task['scope'] ?? null) ?? '';
+            $scope = $this->stringOrNull($task[self::FIELD_SCOPE] ?? null) ?? '';
             if ($this->isCompoundScope($scope)) {
                 $reasons[] = 'task_'.$index.'_compound_scope';
                 $allAtomic = false;

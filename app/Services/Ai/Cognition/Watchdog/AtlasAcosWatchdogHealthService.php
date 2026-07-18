@@ -218,6 +218,8 @@ final class AtlasAcosWatchdogHealthService
     public const DEFAULT_ADML_COST_OUTCOME_ENABLED = false;
     public const FIELD_CURRENT_DELTA_FROM_LATEST = 'current_delta_from_latest';
     public const FIELD_LATEST_DELTA_FROM_PREVIOUS = 'latest_delta_from_previous';
+    public const FIELD_BY_WRITER = 'by_writer';
+    public const FIELD_COMMANDS = 'commands';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -507,7 +509,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_TOTAL_EVENT_COUNT => $total,
             self::FIELD_MEASURED_SHARE => $total > 0 ? round($measured / $total, 4) : 0.0,
             self::FIELD_WRITER_SHARES => $byWriter,
-            'by_writer' => $byWriter,
+            self::FIELD_BY_WRITER => $byWriter,
             self::FIELD_THRESHOLDS => [
                 'total_event_count_floor' => self::FEEDBACK_TOTAL_EVENT_FLOOR,
                 'measured_count_floor' => self::FEEDBACK_MEASURED_COUNT_FLOOR,
@@ -1006,7 +1008,7 @@ final class AtlasAcosWatchdogHealthService
             if (($row['promoted'] ?? false) === true
                 && ($row['evidence_provenance'] ?? null) === 'harness_captured'
                 && (int) (AiValueNormalizer::finiteFloatOrNull($row['tests_run'] ?? null) ?? 0) > 0
-                && count(AiValueNormalizer::arrayOrEmpty($row['commands'] ?? null)) > 0) {
+                && count(AiValueNormalizer::arrayOrEmpty($row[self::FIELD_COMMANDS] ?? null)) > 0) {
                 $count++;
             }
         }

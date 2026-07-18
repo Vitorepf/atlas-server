@@ -78,6 +78,8 @@ final class ImmuneCalibrationService
     public const FIELD_KNOWN_MISS_DENOMINATOR_MUST_BE_NON_ZERO = 'known_miss_denominator_must_be_non_zero';
     public const FIELD_CONTROL = 'control';
     public const FIELD_FORMULA = 'formula';
+    public const FIELD_CLASSIFIER_SCHEMA_VERSION = 'classifier_schema_version';
+    public const FIELD_CONSENT_GRANTED = 'consent_granted';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -186,7 +188,7 @@ final class ImmuneCalibrationService
             self::FIELD_DENOMINATOR => $denominator,
             self::FIELD_BAND => $status === self::STATUS_CALIBRATED ? $classified[self::FIELD_BAND] : self::BAND_INSUFFICIENT_SAMPLE,
             self::FIELD_CLASSIFIER_BAND => $classified[self::FIELD_BAND],
-            'classifier_schema_version' => $classified[self::FIELD_SCHEMA_VERSION],
+            self::FIELD_CLASSIFIER_SCHEMA_VERSION => $classified[self::FIELD_SCHEMA_VERSION],
             self::FIELD_STATUS => $status,
             self::FIELD_REASON => $status === self::STATUS_CALIBRATED ? 'denominator_met' : 'denominator_below_min',
         ];
@@ -300,7 +302,7 @@ final class ImmuneCalibrationService
     private function knownMissSeedSample(): array
     {
         $signals = [
-            'consent_granted' => true,
+            self::FIELD_CONSENT_GRANTED => true,
             'privacy_class' => 'normal',
             'retention_ok' => true,
             self::FIELD_ATOMIC_CLAIM_PRESENT => true,

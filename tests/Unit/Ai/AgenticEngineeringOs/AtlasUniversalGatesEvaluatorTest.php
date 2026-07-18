@@ -7174,4 +7174,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['pre_review_http_path_phase_advance_cognition_score_floor_count']);
     }
 
+    public function test_aaeos_implementation_phase_immune_calibration_signature_acos_watchdog_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->aaeosImplementationPhaseImmuneCalibrationSignatureAcosWatchdogFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_ROUTE, $out['route']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_SCORE_OUT_OF_10, $out['score_out_of_10']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_ROUTING, $out['routing']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_SPEC, $out['spec']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_CLASSIFIER_SCHEMA_VERSION, $out['classifier_schema_version']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_CONSENT_GRANTED, $out['consent_granted']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_INPUT_CLASS, $out['input_class']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_MEMORY_REVERT, $out['memory_revert']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_BY_WRITER, $out['by_writer']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_COMMANDS, $out['commands']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_MAX_TIER, $out['max_tier']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_REQUIRED_THRESHOLD, $out['required_threshold']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_SATISFIED, $out['satisfied']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_RESOLVED_TARGET, $out['resolved_target']);
+        $this->assertSame(AtlasAaeosGateSignalEvaluator::FIELD_SCOPE, $out['scope']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_RESOLVED, $out['resolved']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_ROUTE, $out['route']);
+        $this->assertSame(18, $out['aaeos_implementation_phase_immune_calibration_signature_acos_watchdog_floor_count']);
+    }
+
 }
