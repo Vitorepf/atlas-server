@@ -14474,4 +14474,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b671_flywheel_funnel_floor_count']);
     }
 
+    public function test_b672_composed_obra_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b672ComposedObraFloorsContractObserve([]);
+        $this->assertSame(ComposedObraArcLifecycle::SCHEMA_VERSION, $out['atlas.originator.composed_obra_arc_lifecycle.v1']);
+        $this->assertSame(ComposedObraArcLifecycle::STATUS_PENDING, $out['pending']);
+        $this->assertSame(ComposedObraArcLifecycle::STATUS_ACTIVE, $out['active']);
+        $this->assertSame(ComposedObraArcLifecycle::STATUS_ARCHIVED, $out['archived']);
+        $this->assertSame(ComposedObraArcLifecycle::STATUS_REFUSED, $out['refused']);
+        $this->assertSame(ComposedObraArcLifecycle::STATUS_UNKNOWN, $out['unknown']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_STATUS, $out['status']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_CONSECUTIVE_FAILURES, $out['consecutive_failures']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_KILL_GATE_K, $out['kill_gate_k']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_TASKS, $out['tasks']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_ARC_ID, $out['arc_id']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_ARCHIVE_RECEIPT, $out['archive_receipt']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_OPENED_AT, $out['opened_at']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_CLOSED_AT, $out['closed_at']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_REASON, $out['reason']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_ORDER, $out['order']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_OBRA_ID, $out['obra_id']);
+        $this->assertSame(18, $out['b672_composed_obra_floor_count']);
+    }
+
 }

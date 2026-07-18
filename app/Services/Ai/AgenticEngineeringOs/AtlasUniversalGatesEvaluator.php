@@ -18280,4 +18280,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B672).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b672ComposedObraFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.originator.composed_obra_arc_lifecycle.v1' => ComposedObraArcLifecycle::SCHEMA_VERSION,
+            'pending' => ComposedObraArcLifecycle::STATUS_PENDING,
+            'active' => ComposedObraArcLifecycle::STATUS_ACTIVE,
+            'archived' => ComposedObraArcLifecycle::STATUS_ARCHIVED,
+            'refused' => ComposedObraArcLifecycle::STATUS_REFUSED,
+            'unknown' => ComposedObraArcLifecycle::STATUS_UNKNOWN,
+            'status' => ComposedObraArcLifecycle::FIELD_STATUS,
+            'consecutive_failures' => ComposedObraArcLifecycle::FIELD_CONSECUTIVE_FAILURES,
+            'kill_gate_k' => ComposedObraArcLifecycle::FIELD_KILL_GATE_K,
+            'tasks' => ComposedObraArcLifecycle::FIELD_TASKS,
+            'arc_id' => ComposedObraArcLifecycle::FIELD_ARC_ID,
+            'schema_version' => ComposedObraArcLifecycle::FIELD_SCHEMA_VERSION,
+            'archive_receipt' => ComposedObraArcLifecycle::FIELD_ARCHIVE_RECEIPT,
+            'opened_at' => ComposedObraArcLifecycle::FIELD_OPENED_AT,
+            'closed_at' => ComposedObraArcLifecycle::FIELD_CLOSED_AT,
+            'reason' => ComposedObraArcLifecycle::FIELD_REASON,
+            'order' => ComposedObraArcLifecycle::FIELD_ORDER,
+            'obra_id' => ComposedObraArcLifecycle::FIELD_OBRA_ID,
+            'b672_composed_obra_floor_count' => 18,
+        ];
+    }
+
 }
