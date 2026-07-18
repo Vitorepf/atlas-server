@@ -318,6 +318,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_LEARNING_CADENCE_STALLED = 'learning_cadence_stalled';
     public const FIELD_LEARNING_LIFT_CASES_MISSING = 'learning_lift_cases_missing';
     public const FIELD_LIFT_CASE_COUNT = 'lift_case_count';
+    public const FIELD_LIKE = 'like';
+    public const FIELD_LINKER_MEMORY_DOMAIN = 'linker_memory_domain';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -441,7 +443,7 @@ final class AtlasAcosWatchdogHealthService
         if ($ratio < self::RAG_COVERAGE_FLOOR) {
             $blocking[] = 'memory_cross_layer_coverage_below_floor';
         }
-        foreach (['linker_memory_code', 'linker_memory_domain', 'linker_evidence'] as $linker) {
+        foreach (['linker_memory_code', self::FIELD_LINKER_MEMORY_DOMAIN, 'linker_evidence'] as $linker) {
             if ((int) (AiValueNormalizer::finiteFloatOrNull($edgesBySource[$linker] ?? null) ?? 0) === 0) {
                 $blocking[] = 'cross_layer_linker_zero:'.$linker;
             }
@@ -998,9 +1000,9 @@ final class AtlasAcosWatchdogHealthService
         $needle = '%'.$source.'%';
         $raw = AtlasAemorExecutionEpisode::query()
             ->where(function ($query) use ($needle): void {
-                $query->where(self::FIELD_FLOW_ID, 'like', $needle)
-                    ->orWhere('surface_id', 'like', $needle)
-                    ->orWhere('scope_type', 'like', $needle);
+                $query->where(self::FIELD_FLOW_ID, self::FIELD_LIKE, $needle)
+                    ->orWhere('surface_id', self::FIELD_LIKE, $needle)
+                    ->orWhere('scope_type', self::FIELD_LIKE, $needle);
             })
             ->max('created_at');
 

@@ -251,6 +251,8 @@ final class DepartmentContractRuntime
     public const FIELD_BREAKING_CHANGE_DOCUMENTED = 'breaking_change_documented';
     public const FIELD_BREAKING_CHANGE_MATRIX_PRESENT = 'breaking_change_matrix_present';
     public const FIELD_CLAIM_RESERVATIONS = 'claim_reservations';
+    public const FIELD_CLASSIFY_INTENT = 'classify_intent';
+    public const FIELD_CVE_ACKNOWLEDGED = 'cve_acknowledged';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -295,7 +297,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_MISSION_ENVELOPE, self::FIELD_SCHEMA => self::SCHEMA_AI_MISSION],
             ],
             self::FIELD_GATES => ['intent_clarified', 'mission_authority_declared'],
-            self::FIELD_ALLOWED_ACTIONS => ['ask_clarifying_question', 'classify_intent', 'route_to_department'],
+            self::FIELD_ALLOWED_ACTIONS => ['ask_clarifying_question', self::FIELD_CLASSIFY_INTENT, 'route_to_department'],
             self::FIELD_FORBIDDEN_ACTIONS => ['write_code', self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['intent_clarification_log', 'mission_envelope_hash'],
@@ -483,7 +485,7 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_POLICY_DECISION, self::FIELD_SCHEMA => self::SCHEMA_POLICY_DECISION],
             ],
-            self::FIELD_GATES => ['security_scan_clean', 'cve_acknowledged', 'secret_scan_clean', 'dependency_audit_clean', 'threat_model_present', 'sovereignty_boundary_respected'],
+            self::FIELD_GATES => ['security_scan_clean', self::FIELD_CVE_ACKNOWLEDGED, 'secret_scan_clean', 'dependency_audit_clean', 'threat_model_present', 'sovereignty_boundary_respected'],
             self::FIELD_ALLOWED_ACTIONS => ['allow', 'deny', 'request_mitigation', 'escalate_to_operator'],
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_sovereignty', self::FIELD_APPROVE_UNAUDITED_DEP, 'ship_without_evidence'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],

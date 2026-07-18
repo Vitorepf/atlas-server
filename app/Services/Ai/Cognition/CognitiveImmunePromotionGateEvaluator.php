@@ -79,6 +79,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_CONTAINS_SECRET = 'contains_secret';
     public const FIELD_CONTAINS_SENSITIVE_UNNECESSARY = 'contains_sensitive_unnecessary';
     public const FIELD_EVALUATED_AT = 'evaluated_at';
+    public const FIELD_FUTURE_UTILITY = 'future_utility';
+    public const FIELD_NEGATIVE_FEEDBACK_COUNT = 'negative_feedback_count';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -215,7 +217,7 @@ final class CognitiveImmunePromotionGateEvaluator
      */
     private function signalGate(array $signals): array
     {
-        $confirmed = $this->flag($signals, 'future_utility')
+        $confirmed = $this->flag($signals, self::FIELD_FUTURE_UTILITY)
             || $this->flag($signals, 'novelty')
             || $this->intValue($signals, 'recurrence_count') >= 2;
 
@@ -435,7 +437,7 @@ final class CognitiveImmunePromotionGateEvaluator
             'probation_negative_feedback_count',
             'recall_negative_feedback',
             'all_time_recall_negative_feedback',
-            'negative_feedback_count',
+            self::FIELD_NEGATIVE_FEEDBACK_COUNT,
         ] as $key) {
             if ($this->intValue($signals, $key) > 0) {
                 return true;

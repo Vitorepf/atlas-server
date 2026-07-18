@@ -89,6 +89,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_CLASSE = 'classe';
     public const FIELD_CADASTR = 'cadastr';
     public const FIELD_CLI = 'cli';
+    public const FIELD_CODIFIQUE = 'codifique';
+    public const FIELD_COMPLIANCE = 'compliance';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -122,7 +124,7 @@ final class AtlasCognitiveFunctionDecomposerService
             'narre', 'descreva', 'compose', 'write', 'draft', 'summarize',
         ],
         self::FIELD_CODE => [
-            'codigo', 'codifique', 'implemente', 'refatore', 'debug', 'teste',
+            'codigo', self::FIELD_CODIFIQUE, 'implemente', 'refatore', 'debug', 'teste',
             'compile', 'execute', 'rode', 'rodar', 'php', 'typescript', 'react',
             'componente', 'servico', self::FIELD_CLASSE, 'funcao', 'controller', self::FIELD_CLI,
             self::FIELD_ARTISAN, 'migration', 'composer', 'npm', 'phpunit', 'pest',
@@ -137,7 +139,7 @@ final class AtlasCognitiveFunctionDecomposerService
         self::FIELD_AUDIT => [
             'audite', self::FIELD_AUDITA, 'audit', 'verifique', 'valide', 'cheque',
             'inspecione', 'governance', 'invariant', 'kernel', self::FIELD_CARTOGRAFIA,
-            'doc', 'documento', 'compliance', 'evidence', 'evidencia',
+            'doc', 'documento', self::FIELD_COMPLIANCE, 'evidence', 'evidencia',
             'integrity', 'tamper', self::FIELD_SHA256, 'hash ', 'verify',
         ],
     ];

@@ -8793,4 +8793,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['aaeos_test_maxa_jina_cognitive_function_department_contract_floor_count']);
     }
 
+    public function test_frontier_wave_immune_calibration_cognitive_function_department_contract_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->frontierWaveImmuneCalibrationCognitiveFunctionDepartmentContractFloorsContractObserve([]);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_DEPRECIACAO, $out['depreciacao']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_ONDA_4, $out['onda_4']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_TECHNICAL_LEARNING_CANDIDATE, $out['technical_learning_candidate']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CODIFIQUE, $out['codifique']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_COMPLIANCE, $out['compliance']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_CLASSIFY_INTENT, $out['classify_intent']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_CVE_ACKNOWLEDGED, $out['cve_acknowledged']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_FUTURE_UTILITY, $out['future_utility']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_NEGATIVE_FEEDBACK_COUNT, $out['negative_feedback_count']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CROSS_DOMAIN, $out['cross_domain']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_PROGRAMMING, $out['programming']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HYPOTHESIS, $out['hypothesis']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IMPERATIVE_VERB, $out['imperative_verb']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LIKE, $out['like']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LINKER_MEMORY_DOMAIN, $out['linker_memory_domain']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_MIN_CTX_TOKENS, $out['min_ctx_tokens']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_MULTILINGUAL_PT, $out['multilingual_pt']);
+        $this->assertSame(18, $out['frontier_wave_immune_calibration_cognitive_function_department_contract_floor_count']);
+    }
+
 }

@@ -117,6 +117,8 @@ final class ImmuneCalibrationService
     public const FIELD_LOWER_BOUND_KNOWN_MISS = 'lower_bound_known_miss';
     public const FIELD_NORMAL = 'normal';
     public const FIELD_PROPOSAL = 'proposal';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_TECHNICAL_LEARNING_CANDIDATE = 'technical_learning_candidate';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -194,7 +196,7 @@ final class ImmuneCalibrationService
             self::FIELD_REGISTRY_STATUS => self::FIELD_REGISTERED_ELEV_20S,
             self::FIELD_DUAL_READ_REQUIRED => false,
         ];
-        $payload[self::FIELD_CONTENT_HASH] = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $payload[self::FIELD_CONTENT_HASH] = hash(self::FIELD_SHA256, json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return $payload;
     }
@@ -343,7 +345,7 @@ final class ImmuneCalibrationService
             self::FIELD_PRIVACY_CLASS => self::FIELD_NORMAL,
             self::FIELD_RETENTION_OK => true,
             self::FIELD_ATOMIC_CLAIM_PRESENT => true,
-            self::FIELD_CLAIM_TYPE => 'technical_learning_candidate',
+            self::FIELD_CLAIM_TYPE => self::FIELD_TECHNICAL_LEARNING_CANDIDATE,
             self::FIELD_CLAIM_SOURCE_PRESENT => true,
             self::FIELD_FUTURE_UTILITY => true,
             self::FIELD_NOVELTY => true,
@@ -359,7 +361,7 @@ final class ImmuneCalibrationService
         ];
 
         return $this->ledger->sampleFromVerdict(
-            hash('sha256', 'maxi-03-known-miss-g3-seed-v1'),
+            hash(self::FIELD_SHA256, 'maxi-03-known-miss-g3-seed-v1'),
             'known_miss_seed',
             $this->evaluator->evaluate($signals),
             [

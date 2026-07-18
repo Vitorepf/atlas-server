@@ -11227,4 +11227,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B442).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function frontierWaveImmuneCalibrationCognitiveFunctionDepartmentContractFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'depreciacao' => AtlasFrontierWaveLadder::FIELD_DEPRECIACAO,
+            'onda_4' => AtlasFrontierWaveLadder::FIELD_ONDA_4,
+            'sha256' => ImmuneCalibrationService::FIELD_SHA256,
+            'technical_learning_candidate' => ImmuneCalibrationService::FIELD_TECHNICAL_LEARNING_CANDIDATE,
+            'codifique' => AtlasCognitiveFunctionDecomposerService::FIELD_CODIFIQUE,
+            'compliance' => AtlasCognitiveFunctionDecomposerService::FIELD_COMPLIANCE,
+            'classify_intent' => DepartmentContractRuntime::FIELD_CLASSIFY_INTENT,
+            'cve_acknowledged' => DepartmentContractRuntime::FIELD_CVE_ACKNOWLEDGED,
+            'future_utility' => CognitiveImmunePromotionGateEvaluator::FIELD_FUTURE_UTILITY,
+            'negative_feedback_count' => CognitiveImmunePromotionGateEvaluator::FIELD_NEGATIVE_FEEDBACK_COUNT,
+            'cross_domain' => AtlasCognitionScoreCardService::FIELD_CROSS_DOMAIN,
+            'programming' => AtlasCognitionScoreCardService::FIELD_PROGRAMMING,
+            'hypothesis' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HYPOTHESIS,
+            'imperative_verb' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IMPERATIVE_VERB,
+            'like' => AtlasAcosWatchdogHealthService::FIELD_LIKE,
+            'linker_memory_domain' => AtlasAcosWatchdogHealthService::FIELD_LINKER_MEMORY_DOMAIN,
+            'min_ctx_tokens' => AtlasModelCapabilitySpecService::FIELD_MIN_CTX_TOKENS,
+            'multilingual_pt' => AtlasModelCapabilitySpecService::FIELD_MULTILINGUAL_PT,
+            'frontier_wave_immune_calibration_cognitive_function_department_contract_floor_count' => 18,
+        ];
+    }
+
 }

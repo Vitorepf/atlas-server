@@ -179,6 +179,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_MEMORY_CORE = 'memory_core';
     public const FIELD_APP = 'app';
     public const FIELD_COGNITION = 'cognition';
+    public const FIELD_CROSS_DOMAIN = 'cross_domain';
+    public const FIELD_PROGRAMMING = 'programming';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -267,7 +269,7 @@ class AtlasCognitionScoreCardService
         ['ADML',    'Atlas Decide Meta-Learning',          self::FIELD_ATLAS_DECIDE,      AtlasDecideMetaLearningService::class],
         ['ASCB',    'Self-Construction Subsystem Builder', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionSubsystemBuilderService::class],
         ['AURG-4D', 'Unified Reality Graph Temporal (4D)', 'reality',           AtlasUnifiedRealityGraphTemporalService::class],
-        ['ACDM',    'Cross-Domain Mesh',                   'cross_domain',      AtlasCrossDomainMeshService::class],
+        ['ACDM',    'Cross-Domain Mesh',                   self::FIELD_CROSS_DOMAIN,      AtlasCrossDomainMeshService::class],
         ['TEOS-I3', 'TEOS-I3 Counterfactual Runtime',      'teos',              AtlasTeosI3CounterfactualService::class],
 
         // Patamar 4 — Constitutional Kernel, Autonomy Admission, CognitiveFunctionAtlas, Reconciliation Runtime, TEOS-I4, Swarm Conductor, Temporary Domain Composition
@@ -278,7 +280,7 @@ class AtlasCognitionScoreCardService
         ['TEOS-I4', 'TEOS-I4 Counterfactual Tree',         'teos',              AtlasTeosI4CounterfactualTreeService::class],
         ['ASWC',    'Swarm Conductor',                     self::FIELD_ATLAS_DECIDE,      AtlasSwarmConductorService::class],
         ['ASWE',    'Swarm Executor',                      self::FIELD_ATLAS_DECIDE,      AtlasSwarmExecutorService::class],
-        ['ATDC',    'Temporary Domain Composition',        'cross_domain',      AtlasTemporaryDomainCompositionService::class],
+        ['ATDC',    'Temporary Domain Composition',        self::FIELD_CROSS_DOMAIN,      AtlasTemporaryDomainCompositionService::class],
 
         // Patamar 4 · integration layer
         ['ADGW',    'Atlas Decide Gateway Consultation',   self::FIELD_ATLAS_DECIDE,      AtlasDecideGatewayConsultationService::class],
@@ -314,9 +316,9 @@ class AtlasCognitionScoreCardService
 
         // Domain runtimes — Research (review-only, source-grounded)
         ['ARDR',  'Research Domain Runtime',               'research_domain', ResearchRuntimeService::class],
-        ['ABDD',  'BDD Acceptance Runtime',                'programming',     AtlasBddAcceptanceRuntimeService::class],
+        ['ABDD',  'BDD Acceptance Runtime',                self::FIELD_PROGRAMMING,     AtlasBddAcceptanceRuntimeService::class],
         ['ALMR',  'Learning Mutation Runtime',             self::FIELD_COMPOUNDING,     AtlasLearningMutationRuntimeService::class],
-        ['APCP',  'Programming Cartography Publisher',     'programming',     AtlasProgrammingCartographyPublisherService::class],
+        ['APCP',  'Programming Cartography Publisher',     self::FIELD_PROGRAMMING,     AtlasProgrammingCartographyPublisherService::class],
     ];
 
     /**

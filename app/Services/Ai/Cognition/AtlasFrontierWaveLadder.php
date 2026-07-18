@@ -62,6 +62,8 @@ final class AtlasFrontierWaveLadder
     public const FIELD_ONDA_1 = 'onda_1';
     public const FIELD_ONDA_2 = 'onda_2';
     public const FIELD_ONDA_3 = 'onda_3';
+    public const FIELD_DEPRECIACAO = 'depreciacao';
+    public const FIELD_ONDA_4 = 'onda_4';
 
     /**
      * Waves in activation order (obra20 §Fase-0 + contexto-mestre §5).
@@ -73,7 +75,7 @@ final class AtlasFrontierWaveLadder
         [self::FIELD_KEY => self::FIELD_ONDA_1, self::FIELD_SYSTEMS => ['SIS2'], self::FIELD_SUMMARY => 'SIS2 ALIS self-host (TETO: soberania + custo R$0, NÃO paridade; juiz assimétrico junto)'],
         [self::FIELD_KEY => self::FIELD_ONDA_2, self::FIELD_SYSTEMS => ['SIS3', 'SIS5'], self::FIELD_SUMMARY => 'SIS3 causal ∥ SIS5 curiosidade + auto-construção fechada'],
         [self::FIELD_KEY => self::FIELD_ONDA_3, self::FIELD_SYSTEMS => ['SIS6', 'SIS7'], self::FIELD_SUMMARY => 'SIS6 fábrica de frotas ∥ SIS7 simbiose/multi-domínio (trading SHADOW-ONLY, execução real PROIBIDA)'],
-        [self::FIELD_KEY => 'onda_4', self::FIELD_SYSTEMS => ['economia', 'depreciacao', 'graduacao'], self::FIELD_SUMMARY => 'Economia de arms + depreciação + graduação em regime'],
+        [self::FIELD_KEY => self::FIELD_ONDA_4, self::FIELD_SYSTEMS => ['economia', self::FIELD_DEPRECIACAO, 'graduacao'], self::FIELD_SUMMARY => 'Economia de arms + depreciação + graduação em regime'],
     ];
 
     private string $path;
