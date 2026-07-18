@@ -132,11 +132,11 @@ final class ImmuneVerdictLedger
         try {
             $query = DB::table(self::TABLE);
             if ($days !== null) {
-                $query->where('decided_at', '>=', CarbonImmutable::now(self::FIELD_UTC)->subDays(max(1, $days)));
+                $query->where(self::FIELD_DECIDED_AT, '>=', CarbonImmutable::now(self::FIELD_UTC)->subDays(max(1, $days)));
             }
 
             return $query
-                ->orderBy('decided_at')
+                ->orderBy(self::FIELD_DECIDED_AT)
                 ->get()
                 ->map(fn (object $row): array => $this->rowFromDatabase($row))
                 ->all();

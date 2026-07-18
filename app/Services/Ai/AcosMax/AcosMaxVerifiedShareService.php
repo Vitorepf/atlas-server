@@ -108,6 +108,7 @@ final class AcosMaxVerifiedShareService
     public const FIELD_THRESHOLDS_WINDOW_DAYS_MIN = 'thresholds.window_days_min';
     public const FIELD_WDG_01_ACOS_VERIFIED_SHARE = 'wdg-01.acos_verified_share';
     public const FIELD_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL = 'atlas/atlas_decide/live_outcomes.jsonl';
+    public const FIELD_STORAGE_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL = 'storage/atlas/atlas_decide/live_outcomes.jsonl';
 
 
     /** @return array<string,mixed> */
@@ -199,7 +200,7 @@ final class AcosMaxVerifiedShareService
             self::FIELD_AGGREGATE => $aggregate,
             self::FIELD_EXECUTORS => $executors,
             self::FIELD_SOURCES => [
-                self::FIELD_OUTCOME_DENOMINATOR => 'storage/atlas/atlas_decide/live_outcomes.jsonl',
+                self::FIELD_OUTCOME_DENOMINATOR => self::FIELD_STORAGE_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL,
                 self::FIELD_VERIFICATION_NUMERATOR => 'atlas_ledger_events engineering.execution.coverage.recorded mode=enforce',
             ],
         ];
@@ -356,7 +357,7 @@ final class AcosMaxVerifiedShareService
 
         return match (true) {
             in_array($value, [self::FIELD_DEV, self::FIELD_ATLAS_DEV, self::FIELD_ATLAS_DEV_2], true) => self::FIELD_DEV,
-            in_array($value, ['forge', self::FIELD_ATLAS_FORGE, self::FIELD_ATLAS_FORGE_2], true) => self::FIELD_FORGE,
+            in_array($value, [self::FIELD_FORGE, self::FIELD_ATLAS_FORGE, self::FIELD_ATLAS_FORGE_2], true) => self::FIELD_FORGE,
             in_array($value, [self::FIELD_AUTONOMOS, self::FIELD_AUTONOMOUS, self::FIELD_ATLAS_AUTONOMOS, self::FIELD_ATLAS_AUTONOMOS_2], true) => self::FIELD_AUTONOMOS,
             default => null,
         };

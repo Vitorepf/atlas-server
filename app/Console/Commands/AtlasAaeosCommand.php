@@ -564,6 +564,7 @@ final class AtlasAaeosCommand extends Command
                             {--b539-aaeos-veto-segment-importance-flywheel-funnel-pre-review-floors-contract= : JSON file (any object) to observe aaeos/veto/segment/importance/flywheel/funnel floors}
                             {--b540-immune-calibration-daily-canary-aaeos-cognitive-lote-measure-floors-contract= : JSON file (any object) to observe immune/calibration/daily/canary/aaeos/cognitive floors}
                             {--b541-acos-watchdog-immune-signature-knowledge-item-model-capability-floors-contract= : JSON file (any object) to observe acos/watchdog/immune/signature/knowledge/item floors}
+                            {--b542-aaeos-test-verified-share-acos-program-http-path-floors-contract= : JSON file (any object) to observe aaeos/test/verified/share/acos/program floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1284,6 +1285,7 @@ final class AtlasAaeosCommand extends Command
             ['b539-aaeos-veto-segment-importance-flywheel-funnel-pre-review-floors-contract', 'b539_aaeos_veto_segment_importance_flywheel_funnel_pre_review_floors_contract', fn (array $p) => $gates->b539AaeosVetoSegmentImportanceFlywheelFunnelPreReviewFloorsContractObserve($p)],
             ['b540-immune-calibration-daily-canary-aaeos-cognitive-lote-measure-floors-contract', 'b540_immune_calibration_daily_canary_aaeos_cognitive_lote_measure_floors_contract', fn (array $p) => $gates->b540ImmuneCalibrationDailyCanaryAaeosCognitiveLoteMeasureFloorsContractObserve($p)],
             ['b541-acos-watchdog-immune-signature-knowledge-item-model-capability-floors-contract', 'b541_acos_watchdog_immune_signature_knowledge_item_model_capability_floors_contract', fn (array $p) => $gates->b541AcosWatchdogImmuneSignatureKnowledgeItemModelCapabilityFloorsContractObserve($p)],
+            ['b542-aaeos-test-verified-share-acos-program-http-path-floors-contract', 'b542_aaeos_test_verified_share_acos_program_http_path_floors_contract', fn (array $p) => $gates->b542AaeosTestVerifiedShareAcosProgramHttpPathFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

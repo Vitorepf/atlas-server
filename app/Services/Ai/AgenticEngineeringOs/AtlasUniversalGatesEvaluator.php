@@ -14299,4 +14299,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B542).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b542AaeosTestVerifiedShareAcosProgramHttpPathFloorsContractObserve(array $input = []): array
+    {
+        return [
+            '--no-coverage' => AtlasAaeosTestExecutionService::FIELD___NO_COVERAGE,
+            '--porcelain' => AtlasAaeosTestExecutionService::FIELD___PORCELAIN,
+            'forge' => AcosMaxVerifiedShareService::FIELD_FORGE,
+            'storage/atlas/atlas_decide/live_outcomes.jsonl' => AcosMaxVerifiedShareService::FIELD_STORAGE_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL,
+            'atlas:flywheel:loops' => AcosProgramCockpitService::FIELD_ATLAS_FLYWHEEL_LOOPS,
+            'docs/engineering-knowledge-base/atlas-acos-max-execution-scoreboard-v1.md' => AcosProgramCockpitService::FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE_ATLAS_ACOS_MAX_EXECUTION_SCOREBOARD_V1_MD,
+            'intent_classification_target_department_declared' => AaeosHttpPathEnvelopeFactory::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DECLARED,
+            'r1_r2_fast_path_preserved_legacy_trace_audit' => AaeosHttpPathEnvelopeFactory::FIELD_R1_R2_FAST_PATH_PRESERVED_LEGACY_TRACE_AUDIT,
+            'intent_classification_target_department_declared' => AaeosPhaseHandoffService::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DECLARED,
+            'intent_id' => AaeosPhaseHandoffService::FIELD_INTENT_ID,
+            'phase_advance_ready' => PhaseAdvanceVerdictClassifier::FIELD_PHASE_ADVANCE_READY,
+            'policy_decision_not_allowed_halt' => PhaseAdvanceVerdictClassifier::FIELD_POLICY_DECISION_NOT_ALLOWED_HALT,
+            'atlas:cognition:mint-pipeline-receipts' => AtlasAcosEvolutionScoreService::FIELD_ATLAS_COGNITION_MINT_PIPELINE_RECEIPTS,
+            'atlas:engineering:refactor-census' => AtlasAcosEvolutionScoreService::FIELD_ATLAS_ENGINEERING_REFACTOR_CENSUS,
+            'pipeline' => AtlasAcosLongHorizonGateService::FIELD_PIPELINE,
+            'series_v2_resolved_evidence_source_missing' => AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_RESOLVED_EVIDENCE_SOURCE_MISSING,
+            'ref' => MemoryInjectionBudgetAllocator::FIELD_REF,
+            'decided_at' => ImmuneVerdictLedger::FIELD_DECIDED_AT,
+            'b542_aaeos_test_verified_share_acos_program_http_path_floor_count' => 18,
+        ];
+    }
+
 }

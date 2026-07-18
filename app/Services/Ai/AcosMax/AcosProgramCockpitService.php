@@ -65,11 +65,13 @@ final class AcosProgramCockpitService
     public const FIELD_ATLAS_ACOS_OPERATIONAL_VOLUME = 'atlas:acos:operational-volume';
     public const FIELD_ATLAS_ACOS_ROLLBACK_TRIGGERS = 'atlas:acos:rollback-triggers';
     public const FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK = 'atlas:atlas-decide:live-feedback';
+    public const FIELD_ATLAS_FLYWHEEL_LOOPS = 'atlas:flywheel:loops';
+    public const FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE_ATLAS_ACOS_MAX_EXECUTION_SCOREBOARD_V1_MD = 'docs/engineering-knowledge-base/atlas-acos-max-execution-scoreboard-v1.md';
 
 
     public function report(?string $scoreboardPath = null): array
     {
-        $scoreboardPath ??= base_path('docs/engineering-knowledge-base/atlas-acos-max-execution-scoreboard-v1.md');
+        $scoreboardPath ??= base_path(self::FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE_ATLAS_ACOS_MAX_EXECUTION_SCOREBOARD_V1_MD);
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
@@ -145,7 +147,7 @@ final class AcosProgramCockpitService
                 self::FIELD_FUNNEL => 'MULTX-02 future source',
             ],
             self::FIELD_PAYLOAD => [
-                self::FIELD_LOOPS => $this->commandSection('atlas:flywheel:loops --json', 'atlas:flywheel:loops', [self::FIELD___JSON => true]),
+                self::FIELD_LOOPS => $this->commandSection('atlas:flywheel:loops --json', self::FIELD_ATLAS_FLYWHEEL_LOOPS, [self::FIELD___JSON => true]),
                 self::FIELD_FUNNEL => [
                     self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
                     self::FIELD_SOURCE => self::FIELD_MULTX_02,

@@ -11268,4 +11268,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b541_acos_watchdog_immune_signature_knowledge_item_model_capability_floor_count']);
     }
 
+    public function test_b542_aaeos_test_verified_share_acos_program_http_path_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b542AaeosTestVerifiedShareAcosProgramHttpPathFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD___NO_COVERAGE, $out['--no-coverage']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD___PORCELAIN, $out['--porcelain']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_STORAGE_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL, $out['storage/atlas/atlas_decide/live_outcomes.jsonl']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_FLYWHEEL_LOOPS, $out['atlas:flywheel:loops']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE_ATLAS_ACOS_MAX_EXECUTION_SCOREBOARD_V1_MD, $out['docs/engineering-knowledge-base/atlas-acos-max-execution-scoreboard-v1.md']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DECLARED, $out['intent_classification_target_department_declared']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_R1_R2_FAST_PATH_PRESERVED_LEGACY_TRACE_AUDIT, $out['r1_r2_fast_path_preserved_legacy_trace_audit']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DECLARED, $out['intent_classification_target_department_declared']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_INTENT_ID, $out['intent_id']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_PHASE_ADVANCE_READY, $out['phase_advance_ready']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_POLICY_DECISION_NOT_ALLOWED_HALT, $out['policy_decision_not_allowed_halt']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_ATLAS_COGNITION_MINT_PIPELINE_RECEIPTS, $out['atlas:cognition:mint-pipeline-receipts']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_ATLAS_ENGINEERING_REFACTOR_CENSUS, $out['atlas:engineering:refactor-census']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_PIPELINE, $out['pipeline']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_RESOLVED_EVIDENCE_SOURCE_MISSING, $out['series_v2_resolved_evidence_source_missing']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_REF, $out['ref']);
+        $this->assertSame(ImmuneVerdictLedger::FIELD_DECIDED_AT, $out['decided_at']);
+        $this->assertSame(18, $out['b542_aaeos_test_verified_share_acos_program_http_path_floor_count']);
+    }
+
 }

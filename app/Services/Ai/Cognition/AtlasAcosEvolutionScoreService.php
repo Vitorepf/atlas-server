@@ -77,9 +77,9 @@ class AtlasAcosEvolutionScoreService
 
     /** Comandos-órgão cuja presença agendada é exigida pela cadência H2.1. */
     public const SCHEDULED_ORGANS = [
-        'atlas:cognition:mint-pipeline-receipts',
+        self::FIELD_ATLAS_COGNITION_MINT_PIPELINE_RECEIPTS,
         self::FIELD_ATLAS_ACOS_DELTA_SERIES,
-        'atlas:engineering:refactor-census',
+        self::FIELD_ATLAS_ENGINEERING_REFACTOR_CENSUS,
         self::FIELD_ACOS_HARVEST_OBRA_LESSONS,
     ];
 
@@ -151,6 +151,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10 = 'score.dimensions.pipeline.score_out_of_10';
     public const FIELD_SCORE_OVERALL_OUT_OF_10 = 'score.overall_out_of_10';
     public const FIELD_ATLAS_ACOS_DELTA_SERIES = 'atlas:acos:delta-series';
+    public const FIELD_ATLAS_COGNITION_MINT_PIPELINE_RECEIPTS = 'atlas:cognition:mint-pipeline-receipts';
+    public const FIELD_ATLAS_ENGINEERING_REFACTOR_CENSUS = 'atlas:engineering:refactor-census';
     public const FLOAT_2_5 = 2.5;
     public const FLOAT_10_0 = 10.0;
 

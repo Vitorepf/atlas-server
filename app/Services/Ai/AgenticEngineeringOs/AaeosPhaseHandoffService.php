@@ -73,6 +73,7 @@ final class AaeosPhaseHandoffService
     public const FIELD_SYSTEM = 'system';
     public const FIELD_AGENT = 'agent';
     public const FIELD_AAEOS_PHASE_SKIP = 'aaeos.phase_skip';
+    public const FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DECLARED = 'intent_classification_target_department_declared';
     public const INT_4 = 4;
     public const INT_256 = 256;
 
@@ -153,7 +154,7 @@ final class AaeosPhaseHandoffService
         self::PHASE_INTENT_CAPTURE => [self::FIELD_SURFACE_CAPTURED_INTENT],
         self::PHASE_DISAMBIGUATION => [self::FIELD_INTENT_CLARITY_SCORE_MIN_0_8],
         self::PHASE_PLACEMENT => [self::FIELD_PLACEMENT_DECISION_FEATURE_PATH_VALID],
-        self::PHASE_CLASSIFICATION => ['intent_classification_target_department_declared'],
+        self::PHASE_CLASSIFICATION => [self::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DECLARED],
         self::PHASE_POLICY_GATE => [self::FIELD_POLICY_DECISION_ALLOWED_TRUE],
         self::PHASE_TOPOLOGY => [self::FIELD_TOPOLOGY_PLAN_PROVIDERS_MIN_1_AVAILABLE],
         self::PHASE_ROUTING => [self::FIELD_DEPARTMENT_ROUTE_OWNER_CONFIRMED],
@@ -260,7 +261,7 @@ final class AaeosPhaseHandoffService
         if (($envelope[self::FIELD_SCHEMA] ?? null) !== self::SCHEMA_VERSION) {
             $reasons[] = 'schema must be '.self::SCHEMA_VERSION;
         }
-        foreach (['intent_id', self::FIELD_PHASE_IN, self::FIELD_PHASE_OUT] as $req) {
+        foreach ([self::FIELD_INTENT_ID, self::FIELD_PHASE_IN, self::FIELD_PHASE_OUT] as $req) {
             if (! isset($envelope[$req]) || $envelope[$req] === '') {
                 $reasons[] = "missing {$req}";
             }

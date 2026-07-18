@@ -141,6 +141,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_RCPT_AAEOS_PHASE4_RECEIPT_R1_R2_FAST_PATH = 'rcpt:aaeos.phase4.receipt.r1_r2_fast_path';
     public const FIELD_RCPT_AAEOS_PHASE4_SPEC_R1_R2_FAST_PATH = 'rcpt:aaeos.phase4.spec.r1_r2_fast_path';
     public const FIELD_RCPT_AAEOS_PHASE4_TASKS_R1_R2_FAST_PATH = 'rcpt:aaeos.phase4.tasks.r1_r2_fast_path';
+    public const FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DECLARED = 'intent_classification_target_department_declared';
+    public const FIELD_R1_R2_FAST_PATH_PRESERVED_LEGACY_TRACE_AUDIT = 'r1_r2_fast_path_preserved_legacy_trace_audit';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -244,7 +246,7 @@ final class AaeosHttpPathEnvelopeFactory
                 self::FIELD_COMMAND_INTENT => $commandIntent,
                 self::FIELD_TARGET_DEPARTMENT_DECLARED => $declared ? self::FIELD_YES : self::FIELD_NO,
             ],
-            gates: self::binaryGate('intent_classification_target_department_declared', $declared),
+            gates: self::binaryGate(self::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DECLARED, $declared),
             blockers: $declared
                 ? []
                 : [[self::FIELD_ID => self::FIELD_CLASSIFICATION_TARGET_DEPARTMENT_MISSING, self::FIELD_SEVERITY => self::FIELD_MEDIUM, self::FIELD_OWNER => self::FIELD_ATLAS_AI]],
@@ -368,7 +370,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_RECEIPT,
             self::FIELD_ACTOR_ID => self::FIELD_AAEOS_RECEIPT,
             self::FIELD_SKIP_RECEIPT_ID => self::FIELD_RCPT_AAEOS_PHASE4_RECEIPT_R1_R2_FAST_PATH,
-            self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved_legacy_trace_audit',
+            self::FIELD_SKIP_REASON => self::FIELD_R1_R2_FAST_PATH_PRESERVED_LEGACY_TRACE_AUDIT,
             self::FIELD_OUTPUTS => [
                 self::FIELD_DECISION_RECEIPT_V2_INVOCATION => self::FIELD_DEFERRED,
                 self::FIELD_RECEIPT_REQUIRED => self::FIELD_YES,

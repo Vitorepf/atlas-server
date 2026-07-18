@@ -156,7 +156,7 @@ final class PhaseAdvanceVerdictClassifier
 
         // Rule 2: a policy gate whose decision token is not passed halts (no high blocker).
         if ($phaseOut === self::PHASE_POLICY_GATE && ! in_array(self::POLICY_GATE_TOKEN, $passed, true)) {
-            return [self::VERDICT_HALT, 'policy_decision_not_allowed_halt'];
+            return [self::VERDICT_HALT, self::FIELD_POLICY_DECISION_NOT_ALLOWED_HALT];
         }
 
         // Rule 3: a receipt phase without an operator signature blocks decisively.
@@ -180,7 +180,7 @@ final class PhaseAdvanceVerdictClassifier
         }
 
         // Rule 7: nothing outstanding, the phase is clear to advance.
-        return [self::VERDICT_ADVANCE, 'phase_advance_ready'];
+        return [self::VERDICT_ADVANCE, self::FIELD_PHASE_ADVANCE_READY];
     }
 
     /**
