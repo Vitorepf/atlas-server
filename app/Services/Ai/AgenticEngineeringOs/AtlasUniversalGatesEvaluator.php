@@ -19582,4 +19582,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B714).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b714CognitionScoreFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'governance' => AtlasCognitionScoreCardV4Grouper::FIELD_GOVERNANCE,
+            'group' => AtlasCognitionScoreCardV4Grouper::FIELD_GROUP,
+            'atlas.cognition.scorecard.v4' => AtlasCognitionScoreCardV4Grouper::SCHEMA_VERSION,
+            'unknown' => AtlasCognitionScoreCardV4Grouper::STATUS_UNKNOWN,
+            'blocked' => AtlasCognitionScoreCardV4Grouper::STATUS_BLOCKED,
+            'acronym' => AtlasCognitionScoreCardV4Grouper::FIELD_ACRONYM,
+            'name' => AtlasCognitionScoreCardV4Grouper::FIELD_NAME,
+            'subsystem_count' => AtlasCognitionScoreCardV4Grouper::FIELD_SUBSYSTEM_COUNT,
+            'code_status' => AtlasCognitionScoreCardV4Grouper::FIELD_CODE_STATUS,
+            'doc_status' => AtlasCognitionScoreCardV4Grouper::FIELD_DOC_STATUS,
+            'pipeline_status' => AtlasCognitionScoreCardV4Grouper::FIELD_PIPELINE_STATUS,
+            'members' => AtlasCognitionScoreCardV4Grouper::FIELD_MEMBERS,
+            'service_classes' => AtlasCognitionScoreCardV4Grouper::FIELD_SERVICE_CLASSES,
+            'aemor' => AtlasCognitionScoreCardV4Grouper::FIELD_AEMOR,
+            'atlas_decide' => AtlasCognitionScoreCardV4Grouper::FIELD_ATLAS_DECIDE,
+            'aucri' => AtlasCognitionScoreCardV4Grouper::FIELD_AUCRI,
+            'autonomy' => AtlasCognitionScoreCardV4Grouper::FIELD_AUTONOMY,
+            'boundary' => AtlasCognitionScoreCardV4Grouper::FIELD_BOUNDARY,
+            'b714_cognition_score_floor_count' => 18,
+        ];
+    }
+
 }
