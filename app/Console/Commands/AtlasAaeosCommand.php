@@ -536,6 +536,7 @@ final class AtlasAaeosCommand extends Command
                             {--b511-immune-classifier-measure-series-lote-ledger-rotation-verified-floors-contract= : JSON file (any object) to observe immune/classifier/measure/series/lote/ledger floors}
                             {--b512-measure-series-lote-ledger-rotation-cognition-score-code-floors-contract= : JSON file (any object) to observe measure/series/lote/ledger/rotation/cognition floors}
                             {--b513-measure-series-lote-ledger-rotation-acos-long-autonomy-floors-contract= : JSON file (any object) to observe measure/series/lote/ledger/rotation/acos floors}
+                            {--b514-measure-series-lote-ledger-rotation-immune-signature-health-floors-contract= : JSON file (any object) to observe measure/series/lote/ledger/rotation/immune floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1228,6 +1229,7 @@ final class AtlasAaeosCommand extends Command
             ['b511-immune-classifier-measure-series-lote-ledger-rotation-verified-floors-contract', 'b511_immune_classifier_measure_series_lote_ledger_rotation_verified_floors_contract', fn (array $p) => $gates->b511ImmuneClassifierMeasureSeriesLoteLedgerRotationVerifiedFloorsContractObserve($p)],
             ['b512-measure-series-lote-ledger-rotation-cognition-score-code-floors-contract', 'b512_measure_series_lote_ledger_rotation_cognition_score_code_floors_contract', fn (array $p) => $gates->b512MeasureSeriesLoteLedgerRotationCognitionScoreCodeFloorsContractObserve($p)],
             ['b513-measure-series-lote-ledger-rotation-acos-long-autonomy-floors-contract', 'b513_measure_series_lote_ledger_rotation_acos_long_autonomy_floors_contract', fn (array $p) => $gates->b513MeasureSeriesLoteLedgerRotationAcosLongAutonomyFloorsContractObserve($p)],
+            ['b514-measure-series-lote-ledger-rotation-immune-signature-health-floors-contract', 'b514_measure_series_lote_ledger_rotation_immune_signature_health_floors_contract', fn (array $p) => $gates->b514MeasureSeriesLoteLedgerRotationImmuneSignatureHealthFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

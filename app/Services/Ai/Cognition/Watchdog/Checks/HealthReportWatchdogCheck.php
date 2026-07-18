@@ -53,6 +53,8 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_FEE_13_LEARNING_CADENCE = 'fee-13.learning_cadence';
     public const FIELD_MEM_09_MEMORY_QUALITY = 'mem-09.memory_quality';
     public const FIELD_OPE_08_LIFT_CYCLE_CLOSURE = 'ope-08.lift_cycle_closure';
+    public const FIELD_OPE_10_SCORECARD_RECEIPTS_DIAGNOSIS = 'ope-10.scorecard_receipts_diagnosis';
+    public const FIELD_PIP_08_SCORECARD_STABILITY = 'pip-08.scorecard_stability';
 
     public const CATALOG = [
         [
@@ -92,7 +94,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_MESSAGE => 'CPT-09 compaction soak is not ready for enforce.',
         ],
         [
-            self::FIELD_ID => 'pip-08.scorecard_stability',
+            self::FIELD_ID => self::FIELD_PIP_08_SCORECARD_STABILITY,
             self::FIELD_REPORT_METHOD => self::FIELD_PIPELINE_STABILITY_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_SCORECARD_STABILITY_FAILED,
             self::FIELD_MESSAGE => 'PIP-08 scorecard stability has not reached a green pipeline series.',
@@ -104,7 +106,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_MESSAGE => 'OPE-08 lift cycle blockers are not closing.',
         ],
         [
-            self::FIELD_ID => 'ope-10.scorecard_receipts_diagnosis',
+            self::FIELD_ID => self::FIELD_OPE_10_SCORECARD_RECEIPTS_DIAGNOSIS,
             self::FIELD_REPORT_METHOD => self::FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_FAILED,
             self::FIELD_MESSAGE => 'OPE-10 found persistent partial scorecard receipts.',

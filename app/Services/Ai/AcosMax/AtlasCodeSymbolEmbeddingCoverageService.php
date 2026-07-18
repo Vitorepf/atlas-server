@@ -99,6 +99,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_S_STATUS = 's.status';
     public const FIELD_E_EMBEDDED_CONTENT_HASH = 'e.embedded_content_hash';
     public const FIELD_S_SOURCE_HASH = 's.source_hash';
+    public const FIELD_CODEX_INDEPENDENT_MAXA06_FASE2_JUDGE = 'codex-independent-maxa06-fase2-judge';
+    public const FIELD_CURSOR_ACOS_MAX_MAXA06_FASE2 = 'cursor-acos-max-maxa06-fase2';
     public const INT_60 = 60;
 
     /** @return array<string,mixed> */
@@ -119,8 +121,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
             self::FIELD_TTL_DAYS => self::INT_60,
-            self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxa06-fase2',
-            self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-maxa06-fase2-judge',
+            self::FIELD_AUTHOR_ENGINE_ID => self::FIELD_CURSOR_ACOS_MAX_MAXA06_FASE2,
+            self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_INDEPENDENT_MAXA06_FASE2_JUDGE,
             self::FIELD_DUAL_READ_REQUIRED => false,
             self::FIELD_SERIES_REGISTRY => [
                 self::FIELD_SERIES => self::MEASURE_ID,

@@ -13443,4 +13443,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B514).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b514MeasureSeriesLoteLedgerRotationImmuneSignatureHealthFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'MAXI-05' => AcosMaxMeasureSeriesRegistry::FIELD_MAXI_05,
+            'MAXJ-01' => AcosMaxMeasureSeriesRegistry::FIELD_MAXJ_01,
+            'cursor-acos-max-multj02' => AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTJ02,
+            'cursor-acos-max-multj03' => AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTJ03,
+            'atlas.evidence.delta_attribution.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_EVIDENCE_DELTA_ATTRIBUTION_V1,
+            'atlas.evidence_ledger.hash_chain.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_EVIDENCE_LEDGER_HASH_CHAIN_V1,
+            'MAXI-04' => AtlasImmuneSignatureFreeze::FIELD_MAXI_04,
+            'codex-immune-signature-judge' => AtlasImmuneSignatureFreeze::FIELD_CODEX_IMMUNE_SIGNATURE_JUDGE,
+            'ope-10.scorecard_receipts_diagnosis' => HealthReportWatchdogCheck::FIELD_OPE_10_SCORECARD_RECEIPTS_DIAGNOSIS,
+            'pip-08.scorecard_stability' => HealthReportWatchdogCheck::FIELD_PIP_08_SCORECARD_STABILITY,
+            'OPEN-BRAIN' => AtlasCognitionScoreCardV4Grouper::FIELD_OPEN_BRAIN_2,
+            'PERSISTENT-CONTEXT' => AtlasCognitionScoreCardV4Grouper::FIELD_PERSISTENT_CONTEXT_2,
+            '0.88' => AtlasAaeosQualityBarService::FLOAT_0_88,
+            '0.90' => AtlasAaeosQualityBarService::FLOAT_0_90,
+            '6' => SpecCompletenessScorer::INT_6,
+            '7' => SpecCompletenessScorer::INT_7,
+            'codex-independent-maxa06-fase2-judge' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_CODEX_INDEPENDENT_MAXA06_FASE2_JUDGE,
+            'cursor-acos-max-maxa06-fase2' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_CURSOR_ACOS_MAX_MAXA06_FASE2,
+            'b514_measure_series_lote_ledger_rotation_immune_signature_health_floor_count' => 18,
+        ];
+    }
+
 }

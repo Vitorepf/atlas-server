@@ -74,6 +74,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ATLAS_DECIDE_ZERO_WEIGHT_OUTCOMES_V1 = 'atlas.decide.zero_weight_outcomes.v1';
     public const FIELD_ATLAS_ESP_06_OUTCOME_ENVELOPE_V1 = 'atlas.esp_06.outcome_envelope.v1';
     public const FIELD_ATLAS_ESP_09_CHALLENGER_ADVISORY_V1 = 'atlas.esp_09.challenger_advisory.v1';
+    public const FIELD_ATLAS_EVIDENCE_DELTA_ATTRIBUTION_V1 = 'atlas.evidence.delta_attribution.v1';
+    public const FIELD_ATLAS_EVIDENCE_LEDGER_HASH_CHAIN_V1 = 'atlas.evidence_ledger.hash_chain.v1';
     public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
@@ -151,7 +153,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
                 self::FIELD_RATIONALE => 'ESP-00 ground-truth receipt; audit forever',
             ],
-            'atlas.evidence_ledger.hash_chain.v1' => [
+            self::FIELD_ATLAS_EVIDENCE_LEDGER_HASH_CHAIN_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_512,
                 self::FIELD_MAX_AGE_DAYS => self::INT_365,
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
@@ -241,7 +243,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTN15-02 approval history',
             ],
-            'atlas.evidence.delta_attribution.v1' => [
+            self::FIELD_ATLAS_EVIDENCE_DELTA_ATTRIBUTION_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,

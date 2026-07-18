@@ -90,6 +90,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_MAXI_02 = 'MAXI-02';
     public const FIELD_MAXI_03 = 'MAXI-03';
     public const FIELD_MAXI_04 = 'MAXI-04';
+    public const FIELD_MAXI_05 = 'MAXI-05';
+    public const FIELD_MAXJ_01 = 'MAXJ-01';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -266,7 +268,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:acos.operator_review_debt.v1',
             ],
             [
-                self::FIELD_SLICE => 'MAXJ-01',
+                self::FIELD_SLICE => self::FIELD_MAXJ_01,
                 self::FIELD_SERIES => AtlasLessonQualityService::MEASURE_ID,
                 self::FIELD_PATH => 'atlas:ai:lesson-quality --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
@@ -518,7 +520,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.immune.classifier_hybrid.v1',
             ],
             [
-                self::FIELD_SLICE => 'MAXI-05',
+                self::FIELD_SLICE => self::FIELD_MAXI_05,
                 self::FIELD_SERIES => AtlasImmuneSignatureFreeze::MEASURE_ID,
                 self::FIELD_TABLE => ImmuneSignatureStore::TABLE,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,

@@ -10580,4 +10580,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b513_measure_series_lote_ledger_rotation_acos_long_autonomy_floor_count']);
     }
 
+    public function test_b514_measure_series_lote_ledger_rotation_immune_signature_health_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b514MeasureSeriesLoteLedgerRotationImmuneSignatureHealthFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXI_05, $out['MAXI-05']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXJ_01, $out['MAXJ-01']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTJ02, $out['cursor-acos-max-multj02']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTJ03, $out['cursor-acos-max-multj03']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_EVIDENCE_DELTA_ATTRIBUTION_V1, $out['atlas.evidence.delta_attribution.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_EVIDENCE_LEDGER_HASH_CHAIN_V1, $out['atlas.evidence_ledger.hash_chain.v1']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_MAXI_04, $out['MAXI-04']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_CODEX_IMMUNE_SIGNATURE_JUDGE, $out['codex-immune-signature-judge']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_OPE_10_SCORECARD_RECEIPTS_DIAGNOSIS, $out['ope-10.scorecard_receipts_diagnosis']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_PIP_08_SCORECARD_STABILITY, $out['pip-08.scorecard_stability']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_OPEN_BRAIN_2, $out['OPEN-BRAIN']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_PERSISTENT_CONTEXT_2, $out['PERSISTENT-CONTEXT']);
+        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_88, $out['0.88']);
+        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_90, $out['0.90']);
+        $this->assertSame(SpecCompletenessScorer::INT_6, $out['6']);
+        $this->assertSame(SpecCompletenessScorer::INT_7, $out['7']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_CODEX_INDEPENDENT_MAXA06_FASE2_JUDGE, $out['codex-independent-maxa06-fase2-judge']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_CURSOR_ACOS_MAX_MAXA06_FASE2, $out['cursor-acos-max-maxa06-fase2']);
+        $this->assertSame(18, $out['b514_measure_series_lote_ledger_rotation_immune_signature_health_floor_count']);
+    }
+
 }
