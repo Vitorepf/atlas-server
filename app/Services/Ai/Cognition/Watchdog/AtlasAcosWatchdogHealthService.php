@@ -152,6 +152,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_STORE = 'store';
     public const FIELD_SUBSYSTEMS = 'subsystems';
     public const FIELD_WRITER_SHARES = 'writer_shares';
+    public const FIELD_ADML_COST_OUTCOME = 'adml_cost_outcome';
+    public const FIELD_ADML_PROVEN_ROUTE_VOLUME_BELOW_FLOOR = 'adml_proven_route_volume_below_floor';
 
     public const STATUS_UNKNOWN = 'unknown';
 
@@ -727,9 +729,9 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_BLOCKING => $forgePromoted >= self::ENG_MIN_FORGE_PROMOTED_CYCLES ? [] : ['forge_promoted_cycle_volume_below_floor'],
                 self::FIELD_RAW => ['promoted_harness_captured_cycles' => $forgePromoted],
             ],
-            'adml_cost_outcome' => [
+            self::FIELD_ADML_COST_OUTCOME => [
                 self::STATUS_READY => count($admlRoutes) >= self::ENG_MIN_ADML_PROVEN_ROUTES,
-                self::FIELD_BLOCKING => count($admlRoutes) >= self::ENG_MIN_ADML_PROVEN_ROUTES ? [] : ['adml_proven_route_volume_below_floor'],
+                self::FIELD_BLOCKING => count($admlRoutes) >= self::ENG_MIN_ADML_PROVEN_ROUTES ? [] : [self::FIELD_ADML_PROVEN_ROUTE_VOLUME_BELOW_FLOOR],
                 self::FIELD_RAW => ['ready_routes' => count($admlRoutes), 'routes' => $admlRoutes],
             ],
         ];

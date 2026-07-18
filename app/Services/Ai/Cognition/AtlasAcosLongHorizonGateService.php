@@ -123,6 +123,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_SCORECARD_REPORT = 'scorecard_report';
     public const FIELD_SERIES = 'series';
     public const FIELD_SERIES_V2 = 'series_v2';
+    public const FIELD_ACOS_LONG_HORIZON_GATE_DISABLED = 'acos_long_horizon_gate_disabled';
+    public const FIELD_CERTIFICATION_WINDOW_DAYS_BELOW_FLOOR = 'certification_window_days_below_floor';
 
     /**
      * @param  array<string,mixed>  $options
@@ -139,7 +141,7 @@ final class AtlasAcosLongHorizonGateService
         }
 
         if (! $enabled) {
-            return $this->payload(self::STATUS_DISABLED, false, $fixture, [], [], [], ['acos_long_horizon_gate_disabled'], []);
+            return $this->payload(self::STATUS_DISABLED, false, $fixture, [], [], [], [self::FIELD_ACOS_LONG_HORIZON_GATE_DISABLED], []);
         }
 
         $minDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($options[self::FIELD_MIN_DAYS] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($cfg[self::FIELD_MIN_DAYS] ?? null) ?? self::DEFAULT_MIN_DAYS));
@@ -422,7 +424,7 @@ final class AtlasAcosLongHorizonGateService
             self::FIELD_SCORECARD_HASH => $scorecardHash,
             'latest_series_overall' => round($latestSeriesOverall, 3),
             'min_certification_window_overall' => round($minCertificationWindowOverall, 3),
-            'certification_window_days_below_floor' => $certificationWindowDaysBelowFloor,
+            self::FIELD_CERTIFICATION_WINDOW_DAYS_BELOW_FLOOR => $certificationWindowDaysBelowFloor,
             self::FIELD_FLOORS => [
                 self::FIELD_MIN_DAYS => $minDays,
                 self::FIELD_MIN_OVERALL => $minOverall,

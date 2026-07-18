@@ -184,6 +184,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_TREATMENT = 'treatment';
     public const FIELD_USAGE_ROWS_RECORDED = 'usage_rows_recorded';
     public const FIELD_WINDOW_DAYS = 'window_days';
+    public const FIELD_ABANDONED_COUNT_AS_NOT_COMPLETED = 'abandoned_count_as_not_completed';
+    public const FIELD_ARM = 'arm';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -800,7 +802,7 @@ final class AcosMaxLote2MeasureService
             }
 
             $pairId = AiValueNormalizer::trimmedStringOrNull($meta['pair_id'] ?? null) ?? '';
-            $arm = $this->counterfactualArm((AiValueNormalizer::trimmedStringOrNull($meta['arm'] ?? null) ?? ''));
+            $arm = $this->counterfactualArm((AiValueNormalizer::trimmedStringOrNull($meta[self::FIELD_ARM] ?? null) ?? ''));
             if ($pairId === '' || $arm === '') {
                 continue;
             }
@@ -1038,7 +1040,7 @@ final class AcosMaxLote2MeasureService
                 'request_to_delivery_p50_seconds' => null,
                 'request_to_delivery_p95_seconds' => null,
             ],
-            'abandoned_count_as_not_completed' => true,
+            self::FIELD_ABANDONED_COUNT_AS_NOT_COMPLETED => true,
         ];
     }
 

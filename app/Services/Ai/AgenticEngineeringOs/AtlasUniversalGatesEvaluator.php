@@ -7751,6 +7751,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for delivery/immune/registry/operator/lote2/health/horizon/promoter peels (B328).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function deliveryImmuneRegistryOperatorLote2HealthHorizonPromoterFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'delivery_field_risk_register_present' => DeliveryPackCompletenessScorer::FIELD_RISK_REGISTER_PRESENT,
+            'delivery_field_blockers' => DeliveryPackCompletenessScorer::FIELD_BLOCKERS,
+            'immune_field_positive_actor_count' => CognitiveImmunePromotionGateEvaluator::FIELD_POSITIVE_ACTOR_COUNT,
+            'immune_field_actor' => CognitiveImmunePromotionGateEvaluator::FIELD_ACTOR,
+            'registry_field_escalation_to' => AtlasAaeosDepartmentRegistryService::FIELD_ESCALATION_TO,
+            'registry_field_blockers' => AtlasAaeosDepartmentRegistryService::FIELD_BLOCKERS,
+            'operator_field_missing_tables' => OperatorLearningCaptureSchemaWatchdogCheck::FIELD_MISSING_TABLES,
+            'operator_field_chat_capture_enabled' => OperatorLearningCaptureSchemaWatchdogCheck::FIELD_CHAT_CAPTURE_ENABLED,
+            'debt_field_cadence' => OperatorReviewDebtWatchdogCheck::FIELD_CADENCE,
+            'debt_field_operator_review_debt' => OperatorReviewDebtWatchdogCheck::FIELD_OPERATOR_REVIEW_DEBT,
+            'lote2_field_abandoned_count_as_not_completed' => AcosMaxLote2MeasureService::FIELD_ABANDONED_COUNT_AS_NOT_COMPLETED,
+            'lote2_field_arm' => AcosMaxLote2MeasureService::FIELD_ARM,
+            'health_field_adml_cost_outcome' => AtlasAcosWatchdogHealthService::FIELD_ADML_COST_OUTCOME,
+            'health_field_adml_proven_route_volume_below_floor' => AtlasAcosWatchdogHealthService::FIELD_ADML_PROVEN_ROUTE_VOLUME_BELOW_FLOOR,
+            'horizon_field_acos_long_horizon_gate_disabled' => AtlasAcosLongHorizonGateService::FIELD_ACOS_LONG_HORIZON_GATE_DISABLED,
+            'horizon_field_certification_window_days_below_floor' => AtlasAcosLongHorizonGateService::FIELD_CERTIFICATION_WINDOW_DAYS_BELOW_FLOOR,
+            'promoter_field_enqueue_requested' => AcosMaxProceduralSkillPromoterService::FIELD_ENQUEUE_REQUESTED,
+            'promoter_field_evidence_refs' => AcosMaxProceduralSkillPromoterService::FIELD_EVIDENCE_REFS,
+            'delivery_immune_registry_operator_lote2_health_horizon_promoter_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

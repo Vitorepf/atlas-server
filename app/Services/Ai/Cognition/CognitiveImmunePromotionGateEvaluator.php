@@ -58,6 +58,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const TRUST_BAND_CANDIDATE = 'candidate';
     public const FIELD_RECALLS = 'recalls';
     public const FIELD_PER_ACTOR = 'per_actor';
+    public const FIELD_POSITIVE_ACTOR_COUNT = 'positive_actor_count';
+    public const FIELD_ACTOR = 'actor';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -321,7 +323,7 @@ final class CognitiveImmunePromotionGateEvaluator
         }
 
         $recallEvidence = $this->probationRecallEvidence($signals);
-        if ($recallEvidence['positive_actor_count'] < self::PROBATION_MIN_RECALL_ACTORS) {
+        if ($recallEvidence[self::FIELD_POSITIVE_ACTOR_COUNT] < self::PROBATION_MIN_RECALL_ACTORS) {
             return [self::STATUS_PENDING, 'probation_recall_single_actor_inflated'];
         }
 
@@ -494,7 +496,7 @@ final class CognitiveImmunePromotionGateEvaluator
 
         return [
             self::FIELD_RECALLS => $recalls,
-            'positive_actor_count' => $positiveActorCount,
+            self::FIELD_POSITIVE_ACTOR_COUNT => $positiveActorCount,
         ];
     }
 
@@ -530,7 +532,7 @@ final class CognitiveImmunePromotionGateEvaluator
         $counts = [];
         foreach ($value as $key => $entry) {
             if (is_array($entry)) {
-                $actor = $this->stringFromMixed($entry['actor'] ?? $key);
+                $actor = $this->stringFromMixed($entry[self::FIELD_ACTOR] ?? $key);
                 $count = $this->intFromMixed($entry['count'] ?? $entry[self::FIELD_RECALLS] ?? 0);
             } else {
                 $actor = $this->stringFromMixed($key);

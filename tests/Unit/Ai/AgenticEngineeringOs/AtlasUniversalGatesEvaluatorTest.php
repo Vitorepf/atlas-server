@@ -5846,5 +5846,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['architect_rollback_ledger_work_substrate_decay_dod_capability_maturity_floor_count']);
     }
 
+    public function test_delivery_immune_registry_operator_lote2_health_horizon_promoter_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->deliveryImmuneRegistryOperatorLote2HealthHorizonPromoterFloorsContractObserve([]);
+
+        $this->assertSame('risk_register_present', $payload['delivery_field_risk_register_present']);
+        $this->assertSame('blockers', $payload['delivery_field_blockers']);
+        $this->assertSame('positive_actor_count', $payload['immune_field_positive_actor_count']);
+        $this->assertSame('actor', $payload['immune_field_actor']);
+        $this->assertSame('escalation_to', $payload['registry_field_escalation_to']);
+        $this->assertSame('blockers', $payload['registry_field_blockers']);
+        $this->assertSame('missing_tables', $payload['operator_field_missing_tables']);
+        $this->assertSame('chat_capture_enabled', $payload['operator_field_chat_capture_enabled']);
+        $this->assertSame('cadence', $payload['debt_field_cadence']);
+        $this->assertSame('operator_review_debt', $payload['debt_field_operator_review_debt']);
+        $this->assertSame('abandoned_count_as_not_completed', $payload['lote2_field_abandoned_count_as_not_completed']);
+        $this->assertSame('arm', $payload['lote2_field_arm']);
+        $this->assertSame('adml_cost_outcome', $payload['health_field_adml_cost_outcome']);
+        $this->assertSame('adml_proven_route_volume_below_floor', $payload['health_field_adml_proven_route_volume_below_floor']);
+        $this->assertSame('acos_long_horizon_gate_disabled', $payload['horizon_field_acos_long_horizon_gate_disabled']);
+        $this->assertSame('certification_window_days_below_floor', $payload['horizon_field_certification_window_days_below_floor']);
+        $this->assertSame('enqueue_requested', $payload['promoter_field_enqueue_requested']);
+        $this->assertSame('evidence_refs', $payload['promoter_field_evidence_refs']);
+        $this->assertSame(18, $payload['delivery_immune_registry_operator_lote2_health_horizon_promoter_floor_count']);
+    }
+
 
 }

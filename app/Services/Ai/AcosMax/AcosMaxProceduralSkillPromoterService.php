@@ -95,6 +95,8 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_FAKE_GREEN_SUPPRESSED = 'fake_green_suppressed';
     public const FIELD_SUCCESS_RATE = 'success_rate';
     public const FIELD_SUCCESSES = 'successes';
+    public const FIELD_ENQUEUE_REQUESTED = 'enqueue_requested';
+    public const FIELD_EVIDENCE_REFS = 'evidence_refs';
 
 
     public function __construct(
@@ -167,7 +169,7 @@ final class AcosMaxProceduralSkillPromoterService
                 self::FIELD_DEFAULT_OFF => true,
                 'read_only' => ! $enqueueRequested,
                 self::FIELD_ENQUEUE_ENABLED => $this->enqueueEnabled(),
-                'enqueue_requested' => $enqueue,
+                self::FIELD_ENQUEUE_REQUESTED => $enqueue,
                 self::FIELD_ENQUEUE_EFFECTIVE => $enqueueRequested,
                 'queue' => self::QUEUE_AI_LEARNING_CANDIDATES,
                 self::FIELD_ADMISSION_DOOR => self::ADMISSION_DOOR_ASI02,
@@ -259,7 +261,7 @@ final class AcosMaxProceduralSkillPromoterService
                 ),
                 self::FIELD_CONFIDENCE => 40,
                 self::FIELD_PROMOTION_ALLOWED => false,
-                'evidence_refs' => $evidenceRefs,
+                self::FIELD_EVIDENCE_REFS => $evidenceRefs,
                 'payload' => [
                     self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
                     self::FIELD_SOURCE => [

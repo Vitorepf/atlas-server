@@ -20,6 +20,8 @@ class AtlasAaeosDepartmentRegistryService
     public const SCHEMA = 'atlas.aaeos.department.v1';
 
     public const FIELD_VALID = 'valid';
+    public const FIELD_ESCALATION_TO = 'escalation_to';
+    public const FIELD_BLOCKERS = 'blockers';
 
     /**
      * The 12 mandatory fields — a department missing any is a blocker.
@@ -70,7 +72,7 @@ class AtlasAaeosDepartmentRegistryService
             $blockers[] = "maturity_level [{$maturity}] is not in L0..L7";
         }
 
-        $escalation = $this->departmentId($contract['escalation_to'] ?? '');
+        $escalation = $this->departmentId($contract[self::FIELD_ESCALATION_TO] ?? '');
         if ($escalation !== '' && $escalation !== 'operator') {
             if ($escalation === $id) {
                 $blockers[] = 'escalation_to must not point to the department itself';
@@ -83,7 +85,7 @@ class AtlasAaeosDepartmentRegistryService
             'schema_version' => self::SCHEMA,
             'id' => $id,
             self::FIELD_VALID => $blockers === [],
-            'blockers' => $blockers,
+            self::FIELD_BLOCKERS => $blockers,
         ];
     }
 
@@ -107,7 +109,7 @@ class AtlasAaeosDepartmentRegistryService
             $result = $this->validateDepartment($dept, $knownIds);
             $results[] = $result;
             $id = $result['id'];
-            $escalation = $this->departmentId($dept['escalation_to'] ?? '');
+            $escalation = $this->departmentId($dept[self::FIELD_ESCALATION_TO] ?? '');
             if ($id !== '' && $escalation !== '' && $escalation !== 'operator') {
                 $escalationMap[$id] = $escalation;
             }

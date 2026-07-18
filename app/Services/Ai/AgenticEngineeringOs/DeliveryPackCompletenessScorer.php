@@ -28,6 +28,8 @@ final class DeliveryPackCompletenessScorer
     public const BLOCKER_EVIDENCE_REQUIRED = 'evidence_hashes_required_for_changes';
     public const FIELD_RATIO = 'ratio';
     public const FIELD_RECEIPT_PRESENT = 'receipt_present';
+    public const FIELD_RISK_REGISTER_PRESENT = 'risk_register_present';
+    public const FIELD_BLOCKERS = 'blockers';
 
     /** @var list<string> */
     public const REQUIRED_KEYS = [
@@ -85,7 +87,7 @@ final class DeliveryPackCompletenessScorer
         $changedFiles = max(0, $this->intValue($composition['changed_files']));
         $testEvidence = $this->arrayValue($composition['test_evidence']);
         $evidenceHashes = $this->arrayValue($composition['evidence_hashes']);
-        $riskRegisterPresent = $this->boolValue($composition['risk_register_present']);
+        $riskRegisterPresent = $this->boolValue($composition[self::FIELD_RISK_REGISTER_PRESENT]);
         $receiptPresent = $this->boolValue($composition[self::FIELD_RECEIPT_PRESENT]);
 
         $hashSigned = AiValueNormalizer::trimmedStringOrNull($composition['delivery_hash'] ?? null) !== null;
@@ -96,7 +98,7 @@ final class DeliveryPackCompletenessScorer
             'tests_present' => $testEvidence !== [],
             'evidence_present' => $hasEvidenceHashes,
             self::FIELD_RECEIPT_PRESENT => $receiptPresent,
-            'risk_register_present' => $riskRegisterPresent,
+            self::FIELD_RISK_REGISTER_PRESENT => $riskRegisterPresent,
         ];
 
         $ratio = $this->computeRatio($factors);
@@ -116,7 +118,7 @@ final class DeliveryPackCompletenessScorer
             self::FIELD_RATIO => $ratio,
             'status' => $this->resolveStatus($blockers, $ratio),
             'factors' => $factors,
-            'blockers' => $blockers,
+            self::FIELD_BLOCKERS => $blockers,
             'hash_signed' => $hashSigned,
         ];
     }
