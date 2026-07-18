@@ -67,6 +67,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_EVIDENCE_LEDGER_VERIFIER_ERROR = 'evidence_ledger_verifier_error';
     public const FIELD_NOW = 'now';
     public const FIELD_BASE_PATH = 'base_path';
+    public const FIELD_WDG_01_EVIDENCE_LEDGER_INTEGRITY = 'wdg-01.evidence_ledger_integrity';
 
 
     public function __construct(
@@ -82,7 +83,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
 
     public function id(): string
     {
-        return 'wdg-01.evidence_ledger_integrity';
+        return self::FIELD_WDG_01_EVIDENCE_LEDGER_INTEGRITY;
     }
 
     public function run(): AtlasWatchdogCheckResult

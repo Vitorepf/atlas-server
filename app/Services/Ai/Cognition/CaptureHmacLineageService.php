@@ -110,6 +110,7 @@ final class CaptureHmacLineageService
     public const FIELD_PACKET = 'packet';
     public const FIELD_MAXI_07 = 'MAXI-07';
     public const FIELD_COGNITIVE_QUARANTINE_LINEAGE_HMAC_LINEAGE = 'cognitive_quarantine.lineage.hmac_lineage';
+    public const FIELD_ACOS_MAX_MAXI_07_CAPTURE_HMAC_LINEAGE = 'acos_max.maxi_07.capture_hmac_lineage';
 
     /**
      * @param  array<string,mixed>  $existingChain
@@ -438,7 +439,7 @@ final class CaptureHmacLineageService
             return null;
         }
 
-        $chain = data_get($entry->metadata, 'acos_max.maxi_07.capture_hmac_lineage');
+        $chain = data_get($entry->metadata, self::FIELD_ACOS_MAX_MAXI_07_CAPTURE_HMAC_LINEAGE);
 
         return is_array($chain) ? $chain : null;
     }

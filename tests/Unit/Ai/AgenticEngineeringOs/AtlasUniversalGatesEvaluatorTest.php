@@ -10780,4 +10780,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b521_measure_series_lote_aaeos_http_mission_control_delivery_floor_count']);
     }
 
+    public function test_b522_measure_series_lote_capture_hmac_immune_promotion_watchdog_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b522MeasureSeriesLoteCaptureHmacImmunePromotionWatchdogFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXD_04_PPR_SHADOW_DUAL_READ_WINDOW, $out['maxd-04-ppr-shadow-dual-read-window']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXI_02_SHADOW_AUDIT_V2, $out['maxi-02-shadow-audit-v2']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXL_02_FREEZE_EQUIVALENT, $out['maxl-02-freeze-equivalent']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXM_01_FROZEN_CORPUS_BASELINE, $out['maxm-01-frozen-corpus-baseline']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_RAGX_07_RECORDS_ONLY_AB_REGISTRATION, $out['ragx-07-records-only-ab-registration']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_REC_06_META_LOOP_BREAKER_READER, $out['rec-06-meta-loop-breaker-reader']);
+        $this->assertSame(AcosMaxLote2MeasureService::INT_3, $out['3']);
+        $this->assertSame(AcosMaxLote2MeasureService::FLOAT_0_0001, $out['0.0001']);
+        $this->assertSame(AcosMaxLote2MeasureService::FLOAT_0_05, $out['0.05']);
+        $this->assertSame(AcosMaxLote2MeasureService::FLOAT_0_70, $out['0.70']);
+        $this->assertSame(AcosMaxLote2MeasureService::FLOAT_0_88, $out['0.88']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_ACOS_MAX_MAXI_07_CAPTURE_HMAC_LINEAGE, $out['acos_max.maxi_07.capture_hmac_lineage']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::INT_2, $out['2']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_ATLAS_ACOS_WATCHDOG, $out['atlas.acos.watchdog']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_MEASURE_FREEZE_RECORDED, $out['measure.freeze.recorded']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_WDG_01_DAILY_CANARY_REPLAY_BY_REFS, $out['wdg-01.daily_canary_replay_by_refs']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_WDG_01_EVIDENCE_LEDGER_INTEGRITY, $out['wdg-01.evidence_ledger_integrity']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::INT_8, $out['8']);
+        $this->assertSame(18, $out['b522_measure_series_lote_capture_hmac_immune_promotion_watchdog_floor_count']);
+    }
+
 }

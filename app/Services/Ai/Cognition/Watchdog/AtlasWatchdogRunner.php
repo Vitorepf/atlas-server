@@ -51,6 +51,7 @@ final readonly class AtlasWatchdogRunner
     public const FIELD_UNIFIED = 'unified';
     public const FIELD_WATCHDOG_CHECK_EXCEPTION = 'watchdog_check_exception';
     public const FIELD_UTC = 'UTC';
+    public const FIELD_ATLAS_ACOS_WATCHDOG = 'atlas.acos.watchdog';
 
     public function __construct(
         private AtlasWatchdogCheckRegistry $registry,
@@ -190,7 +191,7 @@ final readonly class AtlasWatchdogRunner
                 self::FIELD_CORRELATION_ID => $context[self::FIELD_CORRELATION_ID] ?? 'acos:watchdog:run:'.$payload[self::FIELD_RUN_ID],
                 self::FIELD_SCOPE_TYPE => self::FIELD_ACOS_WATCHDOG,
                 self::FIELD_SCOPE_ID => self::FIELD_UNIFIED,
-                self::FIELD_EMITTER_STAGE => 'atlas.acos.watchdog',
+                self::FIELD_EMITTER_STAGE => self::FIELD_ATLAS_ACOS_WATCHDOG,
                 self::FIELD_EMITTER_VERSION => self::SCHEMA_VERSION,
             ]);
         } catch (Throwable) {

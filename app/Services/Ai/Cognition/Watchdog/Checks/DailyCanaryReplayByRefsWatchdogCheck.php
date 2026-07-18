@@ -106,6 +106,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_V2 = 'v2';
     public const FIELD_V3 = 'v3';
     public const FIELD_V4 = 'v4';
+    public const FIELD_WDG_01_DAILY_CANARY_REPLAY_BY_REFS = 'wdg-01.daily_canary_replay_by_refs';
 
 
     public function __construct(
@@ -122,7 +123,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
 
     public function id(): string
     {
-        return 'wdg-01.daily_canary_replay_by_refs';
+        return self::FIELD_WDG_01_DAILY_CANARY_REPLAY_BY_REFS;
     }
 
     public function run(): AtlasWatchdogCheckResult

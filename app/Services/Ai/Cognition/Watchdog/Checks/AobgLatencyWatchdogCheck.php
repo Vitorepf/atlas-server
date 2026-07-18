@@ -63,6 +63,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_DEFAULT_PAYLOAD = 'default_payload';
     public const FIELD_Y_M_D = 'Y-m-d';
     public const FIELD_AOBG_LATENCY_LEDGER_V1 = 'aobg.latency_ledger.v1';
+    public const FIELD_MEASURE_FREEZE_RECORDED = 'measure.freeze.recorded';
 
 
     /**
@@ -149,7 +150,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
                 return null;
             }
 
-            $event = $ledger->latestForScope(self::FIELD_MEASURE, self::FIELD_AOBG_LATENCY_LEDGER_V1, 'measure.freeze.recorded');
+            $event = $ledger->latestForScope(self::FIELD_MEASURE, self::FIELD_AOBG_LATENCY_LEDGER_V1, self::FIELD_MEASURE_FREEZE_RECORDED);
 
             return $event instanceof AtlasLedgerEvent && is_array($event->payload) ? $event->payload : null;
         } catch (Throwable) {

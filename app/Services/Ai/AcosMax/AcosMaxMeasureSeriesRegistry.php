@@ -119,6 +119,12 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_ELEV_27_RESOURCE_BUDGET = 'elev-27-resource-budget';
     public const FIELD_ESP_03_TEST_ATTESTATION_SEAL = 'esp-03-test-attestation-seal';
     public const FIELD_MAXA_04_JINA_V3_DUAL_READ_WINDOW = 'maxa-04-jina-v3-dual-read-window';
+    public const FIELD_MAXD_04_PPR_SHADOW_DUAL_READ_WINDOW = 'maxd-04-ppr-shadow-dual-read-window';
+    public const FIELD_MAXI_02_SHADOW_AUDIT_V2 = 'maxi-02-shadow-audit-v2';
+    public const FIELD_MAXL_02_FREEZE_EQUIVALENT = 'maxl-02-freeze-equivalent';
+    public const FIELD_MAXM_01_FROZEN_CORPUS_BASELINE = 'maxm-01-frozen-corpus-baseline';
+    public const FIELD_RAGX_07_RECORDS_ONLY_AB_REGISTRATION = 'ragx-07-records-only-ab-registration';
+    public const FIELD_REC_06_META_LOOP_BREAKER_READER = 'rec-06-meta-loop-breaker-reader';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -239,7 +245,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_OCCURRED_AT,
                 self::FIELD_TTL_DAYS => self::INT_30,
-                self::FIELD_TTL_SOURCE => 'maxl-02-freeze-equivalent',
+                self::FIELD_TTL_SOURCE => self::FIELD_MAXL_02_FREEZE_EQUIVALENT,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXH_01,
@@ -257,7 +263,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_CREATED_AT,
                 self::FIELD_TTL_DAYS => ImmuneCalibrationService::TTL_DAYS,
-                self::FIELD_TTL_SOURCE => 'maxi-02-shadow-audit-v2',
+                self::FIELD_TTL_SOURCE => self::FIELD_MAXI_02_SHADOW_AUDIT_V2,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXI_03,
@@ -535,7 +541,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
                 self::FIELD_TTL_DAYS => self::INT_180,
-                self::FIELD_TTL_SOURCE => 'maxm-01-frozen-corpus-baseline',
+                self::FIELD_TTL_SOURCE => self::FIELD_MAXM_01_FROZEN_CORPUS_BASELINE,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXI_04,
@@ -589,7 +595,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
                 self::FIELD_TTL_DAYS => self::INT_90,
-                self::FIELD_TTL_SOURCE => 'maxd-04-ppr-shadow-dual-read-window',
+                self::FIELD_TTL_SOURCE => self::FIELD_MAXD_04_PPR_SHADOW_DUAL_READ_WINDOW,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXA_04,
@@ -607,7 +613,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
                 self::FIELD_TTL_DAYS => self::INT_90,
-                self::FIELD_TTL_SOURCE => 'ragx-07-records-only-ab-registration',
+                self::FIELD_TTL_SOURCE => self::FIELD_RAGX_07_RECORDS_ONLY_AB_REGISTRATION,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_REC_06,
@@ -616,7 +622,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => self::INT_30,
-                self::FIELD_TTL_SOURCE => 'rec-06-meta-loop-breaker-reader',
+                self::FIELD_TTL_SOURCE => self::FIELD_REC_06_META_LOOP_BREAKER_READER,
             ],
         ];
     }

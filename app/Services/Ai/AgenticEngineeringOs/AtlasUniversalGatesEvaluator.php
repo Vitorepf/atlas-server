@@ -13691,4 +13691,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B522).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b522MeasureSeriesLoteCaptureHmacImmunePromotionWatchdogFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'maxd-04-ppr-shadow-dual-read-window' => AcosMaxMeasureSeriesRegistry::FIELD_MAXD_04_PPR_SHADOW_DUAL_READ_WINDOW,
+            'maxi-02-shadow-audit-v2' => AcosMaxMeasureSeriesRegistry::FIELD_MAXI_02_SHADOW_AUDIT_V2,
+            'maxl-02-freeze-equivalent' => AcosMaxMeasureSeriesRegistry::FIELD_MAXL_02_FREEZE_EQUIVALENT,
+            'maxm-01-frozen-corpus-baseline' => AcosMaxMeasureSeriesRegistry::FIELD_MAXM_01_FROZEN_CORPUS_BASELINE,
+            'ragx-07-records-only-ab-registration' => AcosMaxMeasureSeriesRegistry::FIELD_RAGX_07_RECORDS_ONLY_AB_REGISTRATION,
+            'rec-06-meta-loop-breaker-reader' => AcosMaxMeasureSeriesRegistry::FIELD_REC_06_META_LOOP_BREAKER_READER,
+            '3' => AcosMaxLote2MeasureService::INT_3,
+            '0.0001' => AcosMaxLote2MeasureService::FLOAT_0_0001,
+            '0.05' => AcosMaxLote2MeasureService::FLOAT_0_05,
+            '0.70' => AcosMaxLote2MeasureService::FLOAT_0_70,
+            '0.88' => AcosMaxLote2MeasureService::FLOAT_0_88,
+            'acos_max.maxi_07.capture_hmac_lineage' => CaptureHmacLineageService::FIELD_ACOS_MAX_MAXI_07_CAPTURE_HMAC_LINEAGE,
+            '2' => CognitiveImmunePromotionGateEvaluator::INT_2,
+            'atlas.acos.watchdog' => AtlasWatchdogRunner::FIELD_ATLAS_ACOS_WATCHDOG,
+            'measure.freeze.recorded' => AobgLatencyWatchdogCheck::FIELD_MEASURE_FREEZE_RECORDED,
+            'wdg-01.daily_canary_replay_by_refs' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_WDG_01_DAILY_CANARY_REPLAY_BY_REFS,
+            'wdg-01.evidence_ledger_integrity' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_WDG_01_EVIDENCE_LEDGER_INTEGRITY,
+            '8' => AcosMaxLedgerRotationRegistry::INT_8,
+            'b522_measure_series_lote_capture_hmac_immune_promotion_watchdog_floor_count' => 18,
+        ];
+    }
+
 }

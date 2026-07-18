@@ -117,6 +117,7 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_SAFETY_UNEVALUATED = 'safety_unevaluated';
     public const FIELD_SCOPE_UNRESOLVED = 'scope_unresolved';
     public const FIELD_SECRET_OR_SENSITIVE_PRESENT = 'secret_or_sensitive_present';
+    public const INT_2 = 2;
 
     /**
      * @param  array<string,mixed>  $signals
@@ -255,7 +256,7 @@ final class CognitiveImmunePromotionGateEvaluator
     {
         $confirmed = $this->flag($signals, self::FIELD_FUTURE_UTILITY)
             || $this->flag($signals, self::FIELD_NOVELTY)
-            || $this->intValue($signals, self::FIELD_RECURRENCE_COUNT) >= 2;
+            || $this->intValue($signals, self::FIELD_RECURRENCE_COUNT) >= self::INT_2;
 
         return $confirmed
             ? [self::STATUS_PASS, '']

@@ -90,6 +90,7 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ATLAS_TEST_ATTESTATION_V1 = 'atlas.test_attestation.v1';
     public const FIELD_MISSION_E2E_V1 = 'mission_e2e.v1';
     public const FIELD_OPERATOR_APPROVAL_HISTORY_V1 = 'operator.approval_history.v1';
+    public const INT_8 = 8;
     public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
@@ -156,13 +157,13 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_RATIONALE => 'ELEV-12 verified-share observed daily',
             ],
             self::FIELD_ACOS_ASI05_LEDGER_CLEANUP_V1 => [
-                self::FIELD_MAX_SIZE_MB => 8,
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_365,
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
                 self::FIELD_RATIONALE => 'one-time cleanup receipt; audit forever',
             ],
             self::FIELD_ACOS_ESP00_GROUND_TRUTH_V1 => [
-                self::FIELD_MAX_SIZE_MB => 8,
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_365,
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
                 self::FIELD_RATIONALE => 'ESP-00 ground-truth receipt; audit forever',
@@ -330,19 +331,19 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_RATIONALE => 'TETO-02 mission e2e',
             ],
             self::FIELD_ATLAS_RESOURCE_BUDGET_V1 => [
-                self::FIELD_MAX_SIZE_MB => 8,
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'ELEV-27 joint budget reader; watchdog snapshot cadence',
             ],
             self::FIELD_ATLAS_TEST_ATTESTATION_V1 => [
-                self::FIELD_MAX_SIZE_MB => 8,
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'ESP-03 per-landing attestation seal; per-commit cadence',
             ],
             self::FIELD_ATLAS_PROVIDER_LEAK_CORPUS_V1 => [
-                self::FIELD_MAX_SIZE_MB => 8,
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_365,
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
                 self::FIELD_RATIONALE => 'MAXM-01 frozen-corpus baseline receipt; audit-anchor, small append cadence',
@@ -354,13 +355,13 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_RATIONALE => 'MAXI-04 hybrid-classifier switch receipt; measurement cadence tied to arm-ON runs',
             ],
             self::FIELD_ATLAS_N_CAPTURE_DRILL_V1 => [
-                self::FIELD_MAX_SIZE_MB => 8,
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_365,
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
                 self::FIELD_RATIONALE => 'TETO-01 N-Capture Drill receipt: quarterly-ish cadence, permanent audit anchor for N×M thesis proofs',
             ],
             self::FIELD_ATLAS_KB_EMBEDDING_COVERAGE_V1 => [
-                self::FIELD_MAX_SIZE_MB => 8,
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXA-06 fase 1 KB coverage reader; watchdog snapshot cadence tied to knowledge sync runs',
@@ -402,7 +403,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_RATIONALE => 'MAXI-05 immune signature DB-backed store; watchdog/table pruning cadence',
             ],
             self::FIELD_ATLAS_CODE_SYMBOL_EMBEDDING_COVERAGE_V1 => [
-                self::FIELD_MAX_SIZE_MB => 8,
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXA-06 fase 2 code-symbol embedding coverage reader',
@@ -414,7 +415,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_RATIONALE => 'MAXD-04 PPR shadow dual-read receipts before any query promotion',
             ],
             self::FIELD_ATLAS_ACOS_REC06_META_LOOP_BREAKERS_V1 => [
-                self::FIELD_MAX_SIZE_MB => 8,
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'REC-06 computed breaker report; stays small until real series arm it',
