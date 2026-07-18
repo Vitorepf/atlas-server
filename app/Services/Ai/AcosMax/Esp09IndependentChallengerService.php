@@ -108,6 +108,8 @@ final class Esp09IndependentChallengerService
     public const FIELD_TRIGGER_KINDS = 'trigger_kinds';
     public const FIELD_WINDOWS = 'windows';
     public const FIELD_WINDOW = 'window';
+    public const FIELD_REQUIRES_CHALLENGER = 'requires_challenger';
+    public const FIELD_SERIES = 'series';
 
     /**
      * @param  array<string,mixed>  $context
@@ -184,7 +186,7 @@ final class Esp09IndependentChallengerService
      */
     public static function promotionGate(array $context): array
     {
-        $requires = ($context['requires_challenger'] ?? false) === true;
+        $requires = ($context[self::FIELD_REQUIRES_CHALLENGER] ?? false) === true;
         $present = ($context[self::FIELD_CHALLENGER_BLOCK_PRESENT] ?? false) === true;
 
         if ($requires && ! $present) {
@@ -252,7 +254,7 @@ final class Esp09IndependentChallengerService
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'series' => self::MEASURE_ID,
+            self::FIELD_SERIES => self::MEASURE_ID,
             self::FIELD_DENOMINATOR => $denominator,
             self::OUTCOME_ACCEPTED => $accepted,
             self::OUTCOME_IGNORED => $ignored,

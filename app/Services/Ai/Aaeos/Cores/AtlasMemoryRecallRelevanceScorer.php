@@ -30,6 +30,8 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_REQUIREMENT = 'requirement';
     public const FIELD_WORKSPACE = 'workspace';
     public const FIELD_VERBATIM = 'verbatim';
+    public const FIELD_FAILURE = 'failure';
+    public const FIELD_RELEVANCE_SCORE = 'relevance_score';
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -91,7 +93,7 @@ final class AtlasMemoryRecallRelevanceScorer
     {
         return match ($type) {
             'decision', 'resolution', self::FIELD_REQUIREMENT => 16,
-            'issue', 'failure' => 14,
+            'issue', self::FIELD_FAILURE => 14,
             'technical_context', 'command', 'evidence', self::FIELD_HARNESS_LEARNING => 11,
             'preference', self::FIELD_FEEDBACK => 8,
             default => 5,
@@ -146,7 +148,7 @@ final class AtlasMemoryRecallRelevanceScorer
 
         foreach ($ordered as $row) {
             $position++;
-            $row['relevance_score'] = round($this->score($row), 3);
+            $row[self::FIELD_RELEVANCE_SCORE] = round($this->score($row), 3);
             $row[self::FIELD_RANK] = $position;
             $ranked[] = $row;
         }

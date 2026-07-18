@@ -74,6 +74,8 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_LEDGER_PATH = 'ledger_path';
     public const FIELD_WRITES_LIVE_DEFAULT_MODEL = 'writes_live_default_model';
     public const FIELD_REQUIRES_DUAL_READ_LEDGER = 'requires_dual_read_ledger';
+    public const FIELD_DESCRIPTION = 'description';
+    public const FIELD_HANDLE = 'handle';
 
 
     /** @return array<string,mixed> */
@@ -124,8 +126,8 @@ final class Maxa04JinaV3DualReadService
                 self::FIELD_REQUIRES_DUAL_READ_LEDGER => true,
             ],
             self::FIELD_ROLLBACK => [
-                'handle' => 'maxa04:restore-current-semantic-rag-model',
-                'description' => 'Restore ATLAS_SEMANTIC_RAG_MODEL to the prior model and discard jina-v3 shadow rows before any operator promotion.',
+                self::FIELD_HANDLE => 'maxa04:restore-current-semantic-rag-model',
+                self::FIELD_DESCRIPTION => 'Restore ATLAS_SEMANTIC_RAG_MODEL to the prior model and discard jina-v3 shadow rows before any operator promotion.',
                 self::FIELD_DEFAULT_MODEL_UNCHANGED => true,
             ],
             self::FIELD_DEFAULT_PROMOTED => false,

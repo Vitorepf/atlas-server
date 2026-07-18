@@ -46,6 +46,8 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
     public const FIELD_FIELD_STATUS = 'field_status';
     public const FIELD_PARTIAL_CLAIM = 'partial_claim';
     public const FIELD_PASSES = 'passes';
+    public const FIELD_PRESENT_FIELDS = 'present_fields';
+    public const FIELD_REASON = 'reason';
 
     public const STATUS_PRESENT = 'present';
 
@@ -139,11 +141,11 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
             self::FIELD_VERDICT => $verdict,
             self::FIELD_PASSES => $passes,
             self::FIELD_SUBJECT => $this->echoSubject($claim),
-            'present_fields' => $presentFields,
+            self::FIELD_PRESENT_FIELDS => $presentFields,
             self::FIELD_MISSING_FIELDS => $missingFields,
             self::FIELD_FIELD_STATUS => $fieldStatus,
             self::FIELD_PARTIAL_CLAIM => $partialClaim,
-            'reason' => $this->buildReason($verdict, $partialClaim, $missingFields),
+            self::FIELD_REASON => $this->buildReason($verdict, $partialClaim, $missingFields),
             self::FIELD_EVALUATED_AGAINST => self::EVALUATED_AGAINST,
         ];
     }

@@ -6927,6 +6927,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_memory_recall_esp_independent_maxa_jina_immune_classifier_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b371-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b371',
+                '--memory-recall-esp-independent-maxa-jina-immune-classifier-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"memory_recall_esp_independent_maxa_jina_immune_classifier_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

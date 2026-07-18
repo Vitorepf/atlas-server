@@ -61,6 +61,8 @@ final class AtlasImmuneClassifierHybridFreeze
     public const FIELD_LEGITIMATE_DENOMINATOR_MIN = 'legitimate_denominator_min';
     public const FIELD_TTL_DAYS = 'ttl_days';
     public const FIELD_SWITCH = 'switch';
+    public const FIELD_DEFAULT = 'default';
+    public const FIELD_FREEZE = 'freeze';
 
     /**
      * @return array<string,mixed>
@@ -97,7 +99,7 @@ final class AtlasImmuneClassifierHybridFreeze
             ],
             self::FIELD_SWITCH => [
                 self::FIELD_CONFIG_KEY => 'atlas.aaeos.immune_classifier.semantic_arm_enabled',
-                'default' => false,
+                self::FIELD_DEFAULT => false,
                 'off_contract' => 'byte_identical_to_base_classifier',
             ],
             self::FIELD_FIXTURES => [
@@ -110,7 +112,7 @@ final class AtlasImmuneClassifierHybridFreeze
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxi-04',
             self::FIELD_JUDGE_ENGINE_ID => 'codex-immune-hybrid-classifier-judge',
             self::FIELD_CALIBRATION_AUTHORITY => [
-                'freeze' => ImmuneCalibrationService::MEASURE_ID,
+                self::FIELD_FREEZE => ImmuneCalibrationService::MEASURE_ID,
                 'note' => 'tau is a MAXI-03 freeze-stamped input; recalibration flows through the MAXI-03 seam.',
             ],
             'series' => [

@@ -38,6 +38,8 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
     public const FIELD_DEPARTMENTS = 'departments';
     public const FIELD_OBSERVED = 'observed';
     public const FIELD_PER_BAND = 'per_band';
+    public const FIELD_THRESHOLD = 'threshold';
+    public const FIELD_THRESHOLDS = 'thresholds';
 
     /**
      * @param  list<array{band: string, rank: int, thresholds: list<array{metric: string, comparator: string, value: float}>}>  $bandLadder  ordered lowest-first
@@ -63,7 +65,7 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
         $hasQualified = false;
 
         foreach ($bands as $band) {
-            $breaches = $this->evaluateBand($band['thresholds'], $metricsSnapshot);
+            $breaches = $this->evaluateBand($band[self::FIELD_THRESHOLDS], $metricsSnapshot);
             $qualifies = $breaches === [];
 
             $perBand[] = [
@@ -144,7 +146,7 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
                 $breaches[] = [
                     self::FIELD_METRIC => $metric,
                     self::FIELD_COMPARATOR => $threshold[self::FIELD_COMPARATOR],
-                    'threshold' => $threshold[self::FIELD_VALUE],
+                    self::FIELD_THRESHOLD => $threshold[self::FIELD_VALUE],
                     self::FIELD_OBSERVED => $observed,
                     self::FIELD_MISSING => $missing || $observed === null,
                 ];

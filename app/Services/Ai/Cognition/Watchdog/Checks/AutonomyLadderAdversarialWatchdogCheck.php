@@ -88,6 +88,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_ERRORS = 'errors';
     public const FIELD_N = 'n';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_GATES_MUTATION = 'gates_mutation';
+    public const FIELD_READ_ONLY = 'read_only';
 
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
@@ -136,10 +138,10 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_VIOLATIONS => $violations,
             self::FIELD_ERRORS => $errors,
             self::FIELD_SOURCE => [
-                'read_only' => true,
+                self::FIELD_READ_ONLY => true,
                 self::FIELD_PROMOTES_SELECTION => false,
                 self::FIELD_BLOCKER => true,
-                'gates_mutation' => 'AtlasAutonomousLearningApplier::decideCandidate:pass',
+                self::FIELD_GATES_MUTATION => 'AtlasAutonomousLearningApplier::decideCandidate:pass',
             ],
         ];
 

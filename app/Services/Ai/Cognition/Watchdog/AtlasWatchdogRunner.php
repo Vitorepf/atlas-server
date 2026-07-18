@@ -41,6 +41,8 @@ final readonly class AtlasWatchdogRunner
     public const FIELD_ALERTS = 'alerts';
     public const FIELD_ID = 'id';
     public const FIELD_TOTAL = 'total';
+    public const FIELD_EMITTER_STAGE = 'emitter_stage';
+    public const FIELD_EMITTER_VERSION = 'emitter_version';
 
     public function __construct(
         private AtlasWatchdogCheckRegistry $registry,
@@ -180,8 +182,8 @@ final readonly class AtlasWatchdogRunner
                 self::FIELD_CORRELATION_ID => $context[self::FIELD_CORRELATION_ID] ?? 'acos:watchdog:run:'.$payload[self::FIELD_RUN_ID],
                 'scope_type' => 'acos_watchdog',
                 'scope_id' => 'unified',
-                'emitter_stage' => 'atlas.acos.watchdog',
-                'emitter_version' => self::SCHEMA_VERSION,
+                self::FIELD_EMITTER_STAGE => 'atlas.acos.watchdog',
+                self::FIELD_EMITTER_VERSION => self::SCHEMA_VERSION,
             ]);
         } catch (Throwable) {
             return null;

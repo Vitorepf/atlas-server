@@ -9025,4 +9025,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B371).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function memoryRecallEspIndependentMaxaJinaImmuneClassifierFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'failure' => AtlasMemoryRecallRelevanceScorer::FIELD_FAILURE,
+            'relevance_score' => AtlasMemoryRecallRelevanceScorer::FIELD_RELEVANCE_SCORE,
+            'requires_challenger' => Esp09IndependentChallengerService::FIELD_REQUIRES_CHALLENGER,
+            'series' => Esp09IndependentChallengerService::FIELD_SERIES,
+            'description' => Maxa04JinaV3DualReadService::FIELD_DESCRIPTION,
+            'handle' => Maxa04JinaV3DualReadService::FIELD_HANDLE,
+            'default' => AtlasImmuneClassifierHybridFreeze::FIELD_DEFAULT,
+            'freeze' => AtlasImmuneClassifierHybridFreeze::FIELD_FREEZE,
+            'emitter_stage' => AtlasWatchdogRunner::FIELD_EMITTER_STAGE,
+            'emitter_version' => AtlasWatchdogRunner::FIELD_EMITTER_VERSION,
+            'gates_mutation' => AutonomyLadderAdversarialWatchdogCheck::FIELD_GATES_MUTATION,
+            'read_only' => AutonomyLadderAdversarialWatchdogCheck::FIELD_READ_ONLY,
+            'present_fields' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_PRESENT_FIELDS,
+            'reason' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_REASON,
+            'threshold' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_THRESHOLD,
+            'thresholds' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_THRESHOLDS,
+            'id' => AtlasAaeosDepartmentMaturityService::FIELD_ID,
+            'last_evaluation' => AtlasAaeosDepartmentMaturityService::FIELD_LAST_EVALUATION,
+            'memory_recall_esp_independent_maxa_jina_immune_classifier_floor_count' => 18,
+        ];
+    }
+
 }

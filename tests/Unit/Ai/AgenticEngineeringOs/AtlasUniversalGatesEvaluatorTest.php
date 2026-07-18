@@ -119,6 +119,10 @@ use App\Services\Ai\Cognition\Watchdog\Checks\LocalModelIntegrityWatchdogCheck;
 use App\Services\Ai\AcosMax\OutcomeEnvelopeBridge;
 use App\Services\Ai\Cognition\AtlasImmuneHybridInputClassifier;
 use App\Services\Ai\Cognition\Watchdog\Checks\AobgLatencyWatchdogCheck;
+use App\Services\Ai\AcosMax\Maxa04JinaV3DualReadService;
+use App\Services\Ai\Cognition\AtlasImmuneClassifierHybridFreeze;
+use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogRunner;
+use App\Services\Ai\Cognition\Watchdog\Checks\AutonomyLadderAdversarialWatchdogCheck;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -6993,6 +6997,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_OBSERVED, $out['observed']);
         $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_PER_BAND, $out['per_band']);
         $this->assertSame(18, $out['segment_importance_summary_fidelity_outcome_envelope_ragx_chain_floor_count']);
+    }
+
+    public function test_memory_recall_esp_independent_maxa_jina_immune_classifier_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->memoryRecallEspIndependentMaxaJinaImmuneClassifierFloorsContractObserve([]);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_FAILURE, $out['failure']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_RELEVANCE_SCORE, $out['relevance_score']);
+        $this->assertSame(Esp09IndependentChallengerService::FIELD_REQUIRES_CHALLENGER, $out['requires_challenger']);
+        $this->assertSame(Esp09IndependentChallengerService::FIELD_SERIES, $out['series']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_DESCRIPTION, $out['description']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_HANDLE, $out['handle']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_DEFAULT, $out['default']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_FREEZE, $out['freeze']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_EMITTER_STAGE, $out['emitter_stage']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_EMITTER_VERSION, $out['emitter_version']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_GATES_MUTATION, $out['gates_mutation']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_READ_ONLY, $out['read_only']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_PRESENT_FIELDS, $out['present_fields']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_THRESHOLDS, $out['thresholds']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_LAST_EVALUATION, $out['last_evaluation']);
+        $this->assertSame(18, $out['memory_recall_esp_independent_maxa_jina_immune_classifier_floor_count']);
     }
 
 }
