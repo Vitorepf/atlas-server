@@ -100,6 +100,8 @@ final class AtlasMissionControlCockpitService
     public const FIELD_DECISION_RECEIPT_V2_SIGNED = 'decision_receipt_v2_signed';
     public const FIELD_EVIDENCE_TRACEABLE = 'evidence_traceable';
     public const FIELD_REVIEW_PACKET_SIGNED = 'review_packet_signed';
+    public const FIELD_MONITOR = 'monitor';
+    public const FIELD_ORIGINATE_MORE_WORK = 'originate_more_work';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
@@ -216,8 +218,8 @@ final class AtlasMissionControlCockpitService
         $recommendedAction = match (true) {
             $servableNow === 0 && $recoverable > 0 => 'recover_blocked_backlog',
             $malformed > 0 => 'repair_malformed_packets',
-            $servableNow === 0 && $activeLeases > 0 => 'originate_more_work',
-            default => 'monitor',
+            $servableNow === 0 && $activeLeases > 0 => self::FIELD_ORIGINATE_MORE_WORK,
+            default => self::FIELD_MONITOR,
         };
 
         return [

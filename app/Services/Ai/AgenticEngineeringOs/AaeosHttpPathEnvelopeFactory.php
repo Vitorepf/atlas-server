@@ -100,6 +100,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_DEPARTMENT_ROUTE_OWNER_CONFIRMED = 'department_route_owner_confirmed';
     public const FIELD_ENGINEERING_OR_FORGE_PENDING_AAWR = 'engineering_or_forge_pending_aawr';
     public const FIELD_MEDIUM = 'medium';
+    public const FIELD_READY_FOR_ASSISTED_EXECUTION = 'ready_for_assisted_execution';
+    public const FIELD_SPEC_PACK_ACCEPTANCE_CRITERIA_MIN_3 = 'spec_pack_acceptance_criteria_min_3';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -220,7 +222,7 @@ final class AaeosHttpPathEnvelopeFactory
         $target = AiValueNormalizer::trimmedStringOrNull(data_get($assisted, 'route.target', null)) ?? '';
         $isDevTarget = $target === self::FIELD_ATLAS_DEV;
         $status = AiValueNormalizer::trimmedStringOrNull($assisted[self::FIELD_STATUS] ?? null) ?? '';
-        $allowed = $isDevTarget ? ($status === 'ready_for_assisted_execution') : true;
+        $allowed = $isDevTarget ? ($status === self::FIELD_READY_FOR_ASSISTED_EXECUTION) : true;
 
         return $this->handoff->emit(
             intentId: $intentId,
@@ -308,7 +310,7 @@ final class AaeosHttpPathEnvelopeFactory
                 self::FIELD_SPEC_INVOCATION => self::FIELD_DEFERRED,
                 self::FIELD_SPEC_REQUIRED => self::FIELD_YES,
             ],
-            self::FIELD_REQUIRED_GATE => 'spec_pack_acceptance_criteria_min_3',
+            self::FIELD_REQUIRED_GATE => self::FIELD_SPEC_PACK_ACCEPTANCE_CRITERIA_MIN_3,
         ],
         self::FIELD_TASKS => [
             self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_SPEC,

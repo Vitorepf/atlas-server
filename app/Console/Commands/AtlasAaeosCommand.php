@@ -447,6 +447,7 @@ final class AtlasAaeosCommand extends Command
                             {--department-contract-aaeos-cognitive-measure-series-http-path-floors-contract= : JSON file (any object) to observe department/contract/aaeos/cognitive/measure/series floors}
                             {--cognitive-memory-immune-classifier-acos-dead-aobg-latency-floors-contract= : JSON file (any object) to observe cognitive/memory/immune/classifier/acos/dead floors}
                             {--compounding-outcome-acos-measure-department-contract-evolution-long-floors-contract= : JSON file (any object) to observe compounding/outcome/acos/measure/department/contract floors}
+                            {--mission-control-department-contract-measure-series-http-path-floors-contract= : JSON file (any object) to observe mission/control/department/contract/measure/series floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1050,6 +1051,7 @@ final class AtlasAaeosCommand extends Command
             ['department-contract-aaeos-cognitive-measure-series-http-path-floors-contract', 'department_contract_aaeos_cognitive_measure_series_http_path_floors_contract', fn (array $p) => $gates->departmentContractAaeosCognitiveMeasureSeriesHttpPathFloorsContractObserve($p)],
             ['cognitive-memory-immune-classifier-acos-dead-aobg-latency-floors-contract', 'cognitive_memory_immune_classifier_acos_dead_aobg_latency_floors_contract', fn (array $p) => $gates->cognitiveMemoryImmuneClassifierAcosDeadAobgLatencyFloorsContractObserve($p)],
             ['compounding-outcome-acos-measure-department-contract-evolution-long-floors-contract', 'compounding_outcome_acos_measure_department_contract_evolution_long_floors_contract', fn (array $p) => $gates->compoundingOutcomeAcosMeasureDepartmentContractEvolutionLongFloorsContractObserve($p)],
+            ['mission-control-department-contract-measure-series-http-path-floors-contract', 'mission_control_department_contract_measure_series_http_path_floors_contract', fn (array $p) => $gates->missionControlDepartmentContractMeasureSeriesHttpPathFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

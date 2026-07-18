@@ -113,6 +113,8 @@ final class ImmuneCalibrationService
     public const FIELD_TTL_DAYS = 'ttl_days';
     public const FIELD_REGISTERED_ELEV_20S = 'registered_elev_20s';
     public const FIELD_DENOMINATOR_MET = 'denominator_met';
+    public const FIELD_DOMAIN = 'domain';
+    public const FIELD_LOWER_BOUND_KNOWN_MISS = 'lower_bound_known_miss';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -175,7 +177,7 @@ final class ImmuneCalibrationService
             self::FIELD_THRESHOLDS => [
                 self::FIELD_DENOMINATOR_MIN_SAMPLES => self::DENOMINATOR_MIN,
                 self::FIELD_KNOWN_MISS_DENOMINATOR_MUST_BE_NON_ZERO => true,
-                self::FIELD_MISSED_POISON_RATE_BOUND => 'lower_bound_known_miss',
+                self::FIELD_MISSED_POISON_RATE_BOUND => self::FIELD_LOWER_BOUND_KNOWN_MISS,
             ],
             self::FIELD_DENOMINATOR_MIN => self::DENOMINATOR_MIN,
             self::FIELD_TTL_DAYS => self::TTL_DAYS,
@@ -349,7 +351,7 @@ final class ImmuneCalibrationService
             self::FIELD_CONTAINS_SENSITIVE_UNNECESSARY => false,
             self::FIELD_CONTRADICTS_NEWER => false,
             self::FIELD_OUTCOME_VALIDATED => false,
-            self::FIELD_SCOPE => 'domain',
+            self::FIELD_SCOPE => self::FIELD_DOMAIN,
             self::FIELD_PROMOTION_MODE_HINT => 'proposal',
             self::FIELD_ON_PROBATION => true,
         ];

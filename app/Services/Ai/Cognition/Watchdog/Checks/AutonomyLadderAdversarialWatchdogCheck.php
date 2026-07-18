@@ -98,6 +98,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_SIGNATURE_RECEIPT_MISSING = 'signature_receipt_missing';
     public const FIELD_NORMAL = 'normal';
     public const FIELD_FORGERY_PASSED = 'forgery_passed';
+    public const FIELD_MAXK09_ADVERSARIAL_PROBE_PASSED = 'maxk09_adversarial_probe_passed';
+    public const FIELD_MAXK09_PROBE_ORCHESTRATION_ERROR = 'maxk09_probe_orchestration_error';
 
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
@@ -155,13 +157,13 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
 
         if ($errors !== []) {
             return AtlasWatchdogCheckResult::error($evidence, [
-                self::FIELD_CODE => 'maxk09_probe_orchestration_error',
+                self::FIELD_CODE => self::FIELD_MAXK09_PROBE_ORCHESTRATION_ERROR,
                 self::FIELD_MESSAGE => 'Adversarial probe orchestration failed.',
             ]);
         }
         if ($violations !== []) {
             return AtlasWatchdogCheckResult::alert($evidence, [
-                self::FIELD_CODE => 'maxk09_adversarial_probe_passed',
+                self::FIELD_CODE => self::FIELD_MAXK09_ADVERSARIAL_PROBE_PASSED,
                 self::FIELD_MESSAGE => 'A MAXK ladder/envelope forgery was NOT refused — regression opens the boolean-forgeable gate.',
                 self::FIELD_VIOLATIONS => $violations,
             ]);

@@ -74,6 +74,8 @@ final class AtlasOperationalVolumeCheckService
     public const FIELD_ATLAS_AEMOR_EXECUTION_EPISODES = 'atlas_aemor_execution_episodes';
     public const FIELD_CREATED_AT = 'created_at';
     public const FIELD_FLOW_ID = 'flow_id';
+    public const FIELD_AI_FORGE_WORK_PACKET_EXECUTION_CYCLES = 'ai_forge_work_packet_execution_cycles';
+    public const FIELD_JANELA_FAMINTA = 'janela_faminta';
 
     /**
      * @return array<string,mixed>
@@ -107,7 +109,7 @@ final class AtlasOperationalVolumeCheckService
             self::FIELD_CHECKED_AT => $asOf->toIso8601String(),
             self::FIELD_STATUS => $status,
             self::STATUS_ALERT => $alert,
-            self::FIELD_ALERT_CODE => $alert ? 'janela_faminta' : null,
+            self::FIELD_ALERT_CODE => $alert ? self::FIELD_JANELA_FAMINTA : null,
             self::FIELD_THRESHOLDS => [
                 self::FIELD_DEV_RUNS_PER_BUSINESS_DAY_MIN => self::DEV_RUNS_PER_BUSINESS_DAY_MIN,
                 self::FIELD_FORGE_CYCLES_PER_WEEK_MIN => self::FORGE_CYCLES_PER_WEEK_MIN,
@@ -197,7 +199,7 @@ final class AtlasOperationalVolumeCheckService
         $total = 0;
         $available = false;
 
-        if (DatabaseTableAvailability::has('ai_forge_work_packet_execution_cycles')) {
+        if (DatabaseTableAvailability::has(self::FIELD_AI_FORGE_WORK_PACKET_EXECUTION_CYCLES)) {
             $available = true;
             $sources[] = 'ai_forge_work_packet_execution_cycles';
             try {

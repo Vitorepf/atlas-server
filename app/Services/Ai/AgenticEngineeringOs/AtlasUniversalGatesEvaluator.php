@@ -10700,4 +10700,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B425).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function missionControlDepartmentContractMeasureSeriesHttpPathFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'monitor' => AtlasMissionControlCockpitService::FIELD_MONITOR,
+            'originate_more_work' => AtlasMissionControlCockpitService::FIELD_ORIGINATE_MORE_WORK,
+            'aaeos_memory_records' => DepartmentContractRuntime::FIELD_AAEOS_MEMORY_RECORDS,
+            'aaeos_obra_runs' => DepartmentContractRuntime::FIELD_AAEOS_OBRA_RUNS,
+            'created_at' => AcosMaxMeasureSeriesRegistry::FIELD_CREATED_AT,
+            'decided_at' => AcosMaxMeasureSeriesRegistry::FIELD_DECIDED_AT,
+            'ready_for_assisted_execution' => AaeosHttpPathEnvelopeFactory::FIELD_READY_FOR_ASSISTED_EXECUTION,
+            'spec_pack_acceptance_criteria_min_3' => AaeosHttpPathEnvelopeFactory::FIELD_SPEC_PACK_ACCEPTANCE_CRITERIA_MIN_3,
+            'ai_forge_work_packet_execution_cycles' => AtlasOperationalVolumeCheckService::FIELD_AI_FORGE_WORK_PACKET_EXECUTION_CYCLES,
+            'janela_faminta' => AtlasOperationalVolumeCheckService::FIELD_JANELA_FAMINTA,
+            'researcher' => CognitiveContextNudgeApplier::FIELD_RESEARCHER,
+            'reviewer' => CognitiveContextNudgeApplier::FIELD_REVIEWER,
+            'domain' => ImmuneCalibrationService::FIELD_DOMAIN,
+            'lower_bound_known_miss' => ImmuneCalibrationService::FIELD_LOWER_BOUND_KNOWN_MISS,
+            'feedback_action' => AtlasAcosWatchdogHealthService::FIELD_FEEDBACK_ACTION,
+            'flow_id' => AtlasAcosWatchdogHealthService::FIELD_FLOW_ID,
+            'maxk09_adversarial_probe_passed' => AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK09_ADVERSARIAL_PROBE_PASSED,
+            'maxk09_probe_orchestration_error' => AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK09_PROBE_ORCHESTRATION_ERROR,
+            'mission_control_department_contract_measure_series_http_path_floor_count' => 18,
+        ];
+    }
+
 }

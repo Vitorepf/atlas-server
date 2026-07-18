@@ -8366,4 +8366,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['compounding_outcome_acos_measure_department_contract_evolution_long_floor_count']);
     }
 
+    public function test_mission_control_department_contract_measure_series_http_path_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->missionControlDepartmentContractMeasureSeriesHttpPathFloorsContractObserve([]);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_MONITOR, $out['monitor']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_ORIGINATE_MORE_WORK, $out['originate_more_work']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_MEMORY_RECORDS, $out['aaeos_memory_records']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_OBRA_RUNS, $out['aaeos_obra_runs']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_CREATED_AT, $out['created_at']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_DECIDED_AT, $out['decided_at']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_READY_FOR_ASSISTED_EXECUTION, $out['ready_for_assisted_execution']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_SPEC_PACK_ACCEPTANCE_CRITERIA_MIN_3, $out['spec_pack_acceptance_criteria_min_3']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_AI_FORGE_WORK_PACKET_EXECUTION_CYCLES, $out['ai_forge_work_packet_execution_cycles']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_JANELA_FAMINTA, $out['janela_faminta']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_RESEARCHER, $out['researcher']);
+        $this->assertSame(CognitiveContextNudgeApplier::FIELD_REVIEWER, $out['reviewer']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_DOMAIN, $out['domain']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_LOWER_BOUND_KNOWN_MISS, $out['lower_bound_known_miss']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_FEEDBACK_ACTION, $out['feedback_action']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_FLOW_ID, $out['flow_id']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK09_ADVERSARIAL_PROBE_PASSED, $out['maxk09_adversarial_probe_passed']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK09_PROBE_ORCHESTRATION_ERROR, $out['maxk09_probe_orchestration_error']);
+        $this->assertSame(18, $out['mission_control_department_contract_measure_series_http_path_floor_count']);
+    }
+
 }

@@ -209,6 +209,8 @@ final class DepartmentContractRuntime
     public const FIELD_AAEOS_FORGE_EVIDENCE_LEDGER = 'aaeos_forge_evidence_ledger';
     public const FIELD_AAEOS_INTAKE_LEDGER = 'aaeos_intake_ledger';
     public const FIELD_AAEOS_MEMORY_LEDGER = 'aaeos_memory_ledger';
+    public const FIELD_AAEOS_MEMORY_RECORDS = 'aaeos_memory_records';
+    public const FIELD_AAEOS_OBRA_RUNS = 'aaeos_obra_runs';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -471,7 +473,7 @@ final class DepartmentContractRuntime
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_review', 'modify_security_policy', 'ship_without_cert'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['obra_pack_hash', 'execution_log_hash', 'merge_review_evidence_hash'],
-            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_obra_runs', self::FIELD_LEDGER => self::FIELD_AAEOS_FORGE_EVIDENCE_LEDGER],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_OBRA_RUNS, self::FIELD_LEDGER => self::FIELD_AAEOS_FORGE_EVIDENCE_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['forge_obra_duration_p95', 'forge_parallel_agent_count', 'forge_collision_count'],
             self::FIELD_MATURITY_LEVEL => 'L4',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_PROGRAMMING_DURABLE_EXECUTION_HANDOFF,
@@ -518,7 +520,7 @@ final class DepartmentContractRuntime
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_promotion_gate', 'modify_evidence_ledger', 'expose_secrets'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['promotion_evidence_hash', 'memory_record_hash'],
-            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_memory_records', self::FIELD_LEDGER => self::FIELD_AAEOS_MEMORY_LEDGER],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_MEMORY_RECORDS, self::FIELD_LEDGER => self::FIELD_AAEOS_MEMORY_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['memory_promotion_rate', 'memory_quarantine_count'],
             self::FIELD_MATURITY_LEVEL => 'L3',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_LEARNING_COMPOUNDING_SIGNAL,

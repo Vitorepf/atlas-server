@@ -54,6 +54,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_UNIFIED = 'unified';
     public const FIELD_ATTESTED_AT = 'attested_at';
     public const FIELD_CAPTURES = 'captures';
+    public const FIELD_CREATED_AT = 'created_at';
+    public const FIELD_DECIDED_AT = 'decided_at';
 
     public const SOURCE_TYPE_JSONL = 'jsonl';
 
@@ -185,7 +187,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SERIES => 'atlas.capture.cognitive_immune_audit.v2',
                 self::FIELD_TABLE => self::FIELD_CAPTURES,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
-                self::FIELD_TIMESTAMP_FIELD => 'created_at',
+                self::FIELD_TIMESTAMP_FIELD => self::FIELD_CREATED_AT,
                 self::FIELD_TTL_DAYS => ImmuneCalibrationService::TTL_DAYS,
                 self::FIELD_TTL_SOURCE => 'maxi-02-shadow-audit-v2',
             ],
@@ -194,7 +196,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SERIES => ImmuneCalibrationService::MEASURE_ID,
                 self::FIELD_TABLE => ImmuneVerdictLedger::TABLE,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
-                self::FIELD_TIMESTAMP_FIELD => 'decided_at',
+                self::FIELD_TIMESTAMP_FIELD => self::FIELD_DECIDED_AT,
                 self::FIELD_TTL_DAYS => ImmuneCalibrationService::TTL_DAYS,
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.immune.calibration.v1',
             ],

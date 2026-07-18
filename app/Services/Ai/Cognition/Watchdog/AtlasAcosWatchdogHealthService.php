@@ -306,6 +306,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_CPT_09_COMPACTION_ENFORCE = 'cpt_09_compaction_enforce';
     public const FIELD_DEFAULT = 'default';
     public const FIELD_EVENT_TYPE = 'event_type';
+    public const FIELD_FEEDBACK_ACTION = 'feedback_action';
+    public const FIELD_FLOW_ID = 'flow_id';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -946,7 +948,7 @@ final class AtlasAcosWatchdogHealthService
             return null;
         }
         $raw = AtlasMemoryEntryUsage::query()
-            ->whereIn('feedback_action', $actions)
+            ->whereIn(self::FIELD_FEEDBACK_ACTION, $actions)
             ->max('feedback_recorded_at');
 
         return $this->parseDate($raw);
@@ -986,7 +988,7 @@ final class AtlasAcosWatchdogHealthService
         $needle = '%'.$source.'%';
         $raw = AtlasAemorExecutionEpisode::query()
             ->where(function ($query) use ($needle): void {
-                $query->where('flow_id', 'like', $needle)
+                $query->where(self::FIELD_FLOW_ID, 'like', $needle)
                     ->orWhere('surface_id', 'like', $needle)
                     ->orWhere('scope_type', 'like', $needle);
             })

@@ -40,6 +40,8 @@ final class CognitiveContextNudgeApplier
     public const FIELD_MISSION_MODE = 'mission_mode';
     public const FIELD_PROGRAMMER = 'programmer';
     public const FIELD_PROGRAMMING = 'programming';
+    public const FIELD_RESEARCHER = 'researcher';
+    public const FIELD_REVIEWER = 'reviewer';
     /**
      * Apply framework + role nudges to the keyword-scored hits map.
      *
@@ -89,9 +91,9 @@ final class CognitiveContextNudgeApplier
      */
     private function applyRoleNudge(array $hits, string $role): array
     {
-        if ($role === self::FIELD_AUDITOR || $role === 'reviewer') {
+        if ($role === self::FIELD_AUDITOR || $role === self::FIELD_REVIEWER) {
             $hits[self::FIELD_AUDIT] += 1;
-        } elseif ($role === 'researcher' || $role === self::FIELD_LIBRARIAN) {
+        } elseif ($role === self::FIELD_RESEARCHER || $role === self::FIELD_LIBRARIAN) {
             $hits[self::FIELD_RETRIEVAL] += 1;
         } elseif ($role === 'writer' || $role === self::FIELD_EDITOR) {
             $hits[self::FIELD_GENERATION] += 1;
