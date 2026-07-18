@@ -16627,4 +16627,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b757_local_model_evidence_ledger_floor_count']);
     }
 
+    public function test_b758_evidence_ledger_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b758EvidenceLedgerFloorsContractObserve([]);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::SCHEMA_VERSION, $out['atlas.acos.watchdog.evidence_ledger_integrity.v1']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::DEFAULT_LEDGER_RELATIVE_PATH, $out['storage/atlas/evidence-ledger-integrity/integrity.jsonl']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::REASON_CHAINS_INTACT, $out['chains_intact']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::STATUS_OK, $out['ok']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::REASON_GAP, $out['gap']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::REASON_TAMPERED, $out['tampered']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::REASON_VERIFIER_THREW, $out['verifier_threw']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_STATUS, $out['status']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_REASON, $out['reason']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_DATE, $out['date']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_CODE, $out['code']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_CHAIN_KEY, $out['chain_key']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_CHAIN_LENGTH, $out['chain_length']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_GAP_COUNT, $out['gap_count']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_TAMPERED_EVENT_IDS, $out['tampered_event_ids']);
+        $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_CHAINS, $out['chains']);
+        $this->assertSame(18, $out['b758_evidence_ledger_floor_count']);
+    }
+
 }

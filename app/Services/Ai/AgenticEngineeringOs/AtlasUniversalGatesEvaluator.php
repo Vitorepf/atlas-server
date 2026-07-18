@@ -20946,4 +20946,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B758).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b758EvidenceLedgerFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.acos.watchdog.evidence_ledger_integrity.v1' => EvidenceLedgerIntegrityWatchdogCheck::SCHEMA_VERSION,
+            'storage/atlas/evidence-ledger-integrity/integrity.jsonl' => EvidenceLedgerIntegrityWatchdogCheck::DEFAULT_LEDGER_RELATIVE_PATH,
+            'chains_intact' => EvidenceLedgerIntegrityWatchdogCheck::REASON_CHAINS_INTACT,
+            'ok' => EvidenceLedgerIntegrityWatchdogCheck::STATUS_OK,
+            'gap' => EvidenceLedgerIntegrityWatchdogCheck::REASON_GAP,
+            'tampered' => EvidenceLedgerIntegrityWatchdogCheck::REASON_TAMPERED,
+            'verifier_threw' => EvidenceLedgerIntegrityWatchdogCheck::REASON_VERIFIER_THREW,
+            'schema_version' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_SCHEMA_VERSION,
+            'status' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_STATUS,
+            'reason' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_REASON,
+            'date' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_DATE,
+            'code' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_CODE,
+            'message' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_MESSAGE,
+            'chain_key' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_CHAIN_KEY,
+            'chain_length' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_CHAIN_LENGTH,
+            'gap_count' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_GAP_COUNT,
+            'tampered_event_ids' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_TAMPERED_EVENT_IDS,
+            'chains' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_CHAINS,
+            'b758_evidence_ledger_floor_count' => 18,
+        ];
+    }
+
 }
