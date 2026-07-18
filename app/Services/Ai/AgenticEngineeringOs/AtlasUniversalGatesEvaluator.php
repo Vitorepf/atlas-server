@@ -19334,4 +19334,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B706).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b706TetoPredictedFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.acos.teto10.predicted_revert_review_digest.v1' => Teto10PredictedRevertReviewDigest::SCHEMA_VERSION,
+            'high' => Teto10PredictedRevertReviewDigest::BAND_HIGH,
+            'sweet' => Teto10PredictedRevertReviewDigest::BAND_SWEET,
+            'low' => Teto10PredictedRevertReviewDigest::BAND_LOW,
+            'unknown' => Teto10PredictedRevertReviewDigest::BAND_UNKNOWN,
+            'ok' => Teto10PredictedRevertReviewDigest::STATUS_OK,
+            'empty' => Teto10PredictedRevertReviewDigest::STATUS_EMPTY,
+            'group_key' => Teto10PredictedRevertReviewDigest::FIELD_GROUP_KEY,
+            'decision_id' => Teto10PredictedRevertReviewDigest::FIELD_DECISION_ID,
+            'family' => Teto10PredictedRevertReviewDigest::FIELD_FAMILY,
+            'predicted_revert_band' => Teto10PredictedRevertReviewDigest::FIELD_PREDICTED_REVERT_BAND,
+            'band_rank' => Teto10PredictedRevertReviewDigest::FIELD_BAND_RANK,
+            'highest_band_rank' => Teto10PredictedRevertReviewDigest::FIELD_HIGHEST_BAND_RANK,
+            'items' => Teto10PredictedRevertReviewDigest::FIELD_ITEMS,
+            'reverse_command' => Teto10PredictedRevertReviewDigest::FIELD_REVERSE_COMMAND,
+            'status' => Teto10PredictedRevertReviewDigest::FIELD_STATUS,
+            'schema_version' => Teto10PredictedRevertReviewDigest::FIELD_SCHEMA_VERSION,
+            'limit' => Teto10PredictedRevertReviewDigest::FIELD_LIMIT,
+            'b706_teto_predicted_floor_count' => 18,
+        ];
+    }
+
 }

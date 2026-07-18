@@ -15324,4 +15324,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b705_acos_measure_teto_predicted_floor_count']);
     }
 
+    public function test_b706_teto_predicted_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b706TetoPredictedFloorsContractObserve([]);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::SCHEMA_VERSION, $out['atlas.acos.teto10.predicted_revert_review_digest.v1']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::BAND_HIGH, $out['high']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::BAND_SWEET, $out['sweet']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::BAND_LOW, $out['low']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::BAND_UNKNOWN, $out['unknown']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::STATUS_OK, $out['ok']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::STATUS_EMPTY, $out['empty']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_GROUP_KEY, $out['group_key']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_DECISION_ID, $out['decision_id']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_FAMILY, $out['family']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_PREDICTED_REVERT_BAND, $out['predicted_revert_band']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_BAND_RANK, $out['band_rank']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_HIGHEST_BAND_RANK, $out['highest_band_rank']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_ITEMS, $out['items']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_REVERSE_COMMAND, $out['reverse_command']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_STATUS, $out['status']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_LIMIT, $out['limit']);
+        $this->assertSame(18, $out['b706_teto_predicted_floor_count']);
+    }
+
 }
