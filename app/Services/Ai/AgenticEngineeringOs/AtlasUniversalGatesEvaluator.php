@@ -20078,4 +20078,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B730).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b730CaptureHmacFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.capture.hmac_lineage.v1' => CaptureHmacLineageService::KEY_MATERIAL_LABEL,
+            'atlas.capture.hmac_lineage.genesis.v1' => CaptureHmacLineageService::GENESIS_RECEIPT,
+            'source' => CaptureHmacLineageService::STAGE_SOURCE,
+            'capture' => CaptureHmacLineageService::KIND_CAPTURE,
+            'memory' => CaptureHmacLineageService::FIELD_MEMORY,
+            'status' => CaptureHmacLineageService::FIELD_STATUS,
+            'head_receipt_hash' => CaptureHmacLineageService::FIELD_HEAD_RECEIPT_HASH,
+            'stages' => CaptureHmacLineageService::FIELD_STAGES,
+            'stage_count' => CaptureHmacLineageService::FIELD_STAGE_COUNT,
+            'schema_version' => CaptureHmacLineageService::FIELD_SCHEMA_VERSION,
+            'ok' => CaptureHmacLineageService::FIELD_OK,
+            'broken' => CaptureHmacLineageService::FIELD_BROKEN,
+            'lineage' => CaptureHmacLineageService::FIELD_LINEAGE,
+            'unknown' => CaptureHmacLineageService::STAGE_UNKNOWN,
+            'receipt_hash' => CaptureHmacLineageService::FIELD_RECEIPT_HASH,
+            'broken_at' => CaptureHmacLineageService::FIELD_BROKEN_AT,
+            'stage' => CaptureHmacLineageService::FIELD_STAGE,
+            'chained_captures' => CaptureHmacLineageService::FIELD_CHAINED_CAPTURES,
+            'b730_capture_hmac_floor_count' => 18,
+        ];
+    }
+
 }

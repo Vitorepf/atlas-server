@@ -15925,4 +15925,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b729_cognition_evidence_floor_count']);
     }
 
+    public function test_b730_capture_hmac_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b730CaptureHmacFloorsContractObserve([]);
+        $this->assertSame(CaptureHmacLineageService::KEY_MATERIAL_LABEL, $out['atlas.capture.hmac_lineage.v1']);
+        $this->assertSame(CaptureHmacLineageService::GENESIS_RECEIPT, $out['atlas.capture.hmac_lineage.genesis.v1']);
+        $this->assertSame(CaptureHmacLineageService::STAGE_SOURCE, $out['source']);
+        $this->assertSame(CaptureHmacLineageService::KIND_CAPTURE, $out['capture']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_MEMORY, $out['memory']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_STATUS, $out['status']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_HEAD_RECEIPT_HASH, $out['head_receipt_hash']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_STAGES, $out['stages']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_STAGE_COUNT, $out['stage_count']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_OK, $out['ok']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_BROKEN, $out['broken']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_LINEAGE, $out['lineage']);
+        $this->assertSame(CaptureHmacLineageService::STAGE_UNKNOWN, $out['unknown']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_RECEIPT_HASH, $out['receipt_hash']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_BROKEN_AT, $out['broken_at']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_STAGE, $out['stage']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_CHAINED_CAPTURES, $out['chained_captures']);
+        $this->assertSame(18, $out['b730_capture_hmac_floor_count']);
+    }
+
 }
