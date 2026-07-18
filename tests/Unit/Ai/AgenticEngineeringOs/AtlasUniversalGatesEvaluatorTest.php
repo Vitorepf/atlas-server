@@ -16903,4 +16903,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b768_veto_propagation_aaeos_implementation_floor_count']);
     }
 
+    public function test_b769_aaeos_implementation_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b769AaeosImplementationFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MATCHED, $out['matched']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MIGRATION, $out['migration']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::SHARED_INDEX_KEY, $out['atlas.aaeos.evidence_resolver.symbol_index']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::STATUS_ACTIVE, $out['active']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_SYMBOL, $out['symbol']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_TEST, $out['test']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_CLASS, $out['class']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_METHOD, $out['method']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_NAMES, $out['names']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_PATHS, $out['paths']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_TYPES, $out['types']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_SIG, $out['sig']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_COMMAND, $out['command']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_RECEIPT, $out['receipt']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_REF, $out['ref']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_RESOLVED, $out['resolved']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_ROUTE, $out['route']);
+        $this->assertSame(18, $out['b769_aaeos_implementation_floor_count']);
+    }
+
 }

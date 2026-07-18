@@ -791,6 +791,7 @@ final class AtlasAaeosCommand extends Command
                             {--b766-aaeos-gate-floors-contract= : JSON file (any object) to observe aaeos/gate floors}
                             {--b767-aaeos-evidence-veto-propagation-implementation-floors-contract= : JSON file (any object) to observe aaeos/evidence/veto/propagation/implementation floors}
                             {--b768-veto-propagation-aaeos-implementation-floors-contract= : JSON file (any object) to observe veto/propagation/aaeos/implementation floors}
+                            {--b769-aaeos-implementation-floors-contract= : JSON file (any object) to observe aaeos/implementation floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1738,6 +1739,7 @@ final class AtlasAaeosCommand extends Command
             ['b766-aaeos-gate-floors-contract', 'b766_aaeos_gate_floors_contract', fn (array $p) => $gates->b766AaeosGateFloorsContractObserve($p)],
             ['b767-aaeos-evidence-veto-propagation-implementation-floors-contract', 'b767_aaeos_evidence_veto_propagation_implementation_floors_contract', fn (array $p) => $gates->b767AaeosEvidenceVetoPropagationImplementationFloorsContractObserve($p)],
             ['b768-veto-propagation-aaeos-implementation-floors-contract', 'b768_veto_propagation_aaeos_implementation_floors_contract', fn (array $p) => $gates->b768VetoPropagationAaeosImplementationFloorsContractObserve($p)],
+            ['b769-aaeos-implementation-floors-contract', 'b769_aaeos_implementation_floors_contract', fn (array $p) => $gates->b769AaeosImplementationFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
