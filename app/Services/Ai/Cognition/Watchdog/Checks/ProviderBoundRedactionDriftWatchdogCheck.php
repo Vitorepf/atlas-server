@@ -39,6 +39,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_NONE = 'none';
     public const FIELD_PROVIDER_BODY_CONTAINS_RAW_BODY = 'provider_body_contains_raw_body';
+    public const FIELD_PROVIDER_SUMMARY_CONTAINS_RAW_SUMMARY = 'provider_summary_contains_raw_summary';
 
 
     public function __construct(private AtlasMemoryPrivacyService $privacy) {}
@@ -109,7 +110,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
             $signals[] = self::FIELD_PROVIDER_BODY_CONTAINS_RAW_BODY;
         }
         if ($summary !== '' && $providerSummary !== '' && str_contains($providerSummary, $summary)) {
-            $signals[] = 'provider_summary_contains_raw_summary';
+            $signals[] = self::FIELD_PROVIDER_SUMMARY_CONTAINS_RAW_SUMMARY;
         }
 
         return $signals;

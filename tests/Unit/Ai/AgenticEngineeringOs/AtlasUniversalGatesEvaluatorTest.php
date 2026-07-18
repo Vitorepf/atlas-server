@@ -9795,4 +9795,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['department_contract_acos_dead_aobg_latency_local_model_floor_count']);
     }
 
+    public function test_department_contract_aaeos_http_acos_evolution_immune_promotion_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->departmentContractAaeosHttpAcosEvolutionImmunePromotionFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PROMOTION_EVIDENCE_HASH, $out['promotion_evidence_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PROPOSE_DOC_PROMOTION, $out['propose_doc_promotion']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_QA_COVERAGE_P50, $out['qa_coverage_p50']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_QA_REGRESSION_CATCH_RATE, $out['qa_regression_catch_rate']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_READ_LOGS, $out['read_logs']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REGRESSION_GREEN, $out['regression_green']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RELEASE_AUTHORITY_DECLARED, $out['release_authority_declared']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REPRO_STEPS_HASH, $out['repro_steps_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REQUEST_CHANGES, $out['request_changes']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REQUEST_HUMAN_REVIEW, $out['request_human_review']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REQUEST_OBSERVABILITY_QUERY, $out['request_observability_query']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_REQUEST_PROVIDER_CALL, $out['request_provider_call']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RESEARCH_FINDINGS_PUBLISHED, $out['research_findings_published']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_ROUTING_TASK, $out['routing_task']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_USEFUL, $out['useful']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_SECRET_OR_SENSITIVE_PRESENT, $out['secret_or_sensitive_present']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_V4, $out['v4']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_PROVIDER_SUMMARY_CONTAINS_RAW_SUMMARY, $out['provider_summary_contains_raw_summary']);
+        $this->assertSame(18, $out['department_contract_aaeos_http_acos_evolution_immune_promotion_floor_count']);
+    }
+
 }

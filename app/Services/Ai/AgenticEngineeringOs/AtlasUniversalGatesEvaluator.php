@@ -12468,4 +12468,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B482).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function departmentContractAaeosHttpAcosEvolutionImmunePromotionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'promotion_evidence_hash' => DepartmentContractRuntime::FIELD_PROMOTION_EVIDENCE_HASH,
+            'propose_doc_promotion' => DepartmentContractRuntime::FIELD_PROPOSE_DOC_PROMOTION,
+            'qa_coverage_p50' => DepartmentContractRuntime::FIELD_QA_COVERAGE_P50,
+            'qa_regression_catch_rate' => DepartmentContractRuntime::FIELD_QA_REGRESSION_CATCH_RATE,
+            'read_logs' => DepartmentContractRuntime::FIELD_READ_LOGS,
+            'regression_green' => DepartmentContractRuntime::FIELD_REGRESSION_GREEN,
+            'release_authority_declared' => DepartmentContractRuntime::FIELD_RELEASE_AUTHORITY_DECLARED,
+            'repro_steps_hash' => DepartmentContractRuntime::FIELD_REPRO_STEPS_HASH,
+            'request_changes' => DepartmentContractRuntime::FIELD_REQUEST_CHANGES,
+            'request_human_review' => DepartmentContractRuntime::FIELD_REQUEST_HUMAN_REVIEW,
+            'request_observability_query' => DepartmentContractRuntime::FIELD_REQUEST_OBSERVABILITY_QUERY,
+            'request_provider_call' => DepartmentContractRuntime::FIELD_REQUEST_PROVIDER_CALL,
+            'research_findings_published' => DepartmentContractRuntime::FIELD_RESEARCH_FINDINGS_PUBLISHED,
+            'routing_task' => AtlasAaeosHttpPathFacadeService::FIELD_ROUTING_TASK,
+            'useful' => AtlasAcosEvolutionScoreService::FIELD_USEFUL,
+            'secret_or_sensitive_present' => CognitiveImmunePromotionGateEvaluator::FIELD_SECRET_OR_SENSITIVE_PRESENT,
+            'v4' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_V4,
+            'provider_summary_contains_raw_summary' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_PROVIDER_SUMMARY_CONTAINS_RAW_SUMMARY,
+            'department_contract_aaeos_http_acos_evolution_immune_promotion_floor_count' => 18,
+        ];
+    }
+
 }

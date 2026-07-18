@@ -116,6 +116,7 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_PROMOTION_MODE_UNRESOLVED = 'promotion_mode_unresolved';
     public const FIELD_SAFETY_UNEVALUATED = 'safety_unevaluated';
     public const FIELD_SCOPE_UNRESOLVED = 'scope_unresolved';
+    public const FIELD_SECRET_OR_SENSITIVE_PRESENT = 'secret_or_sensitive_present';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -274,7 +275,7 @@ final class CognitiveImmunePromotionGateEvaluator
             || $this->explicitlyFalse($signals, self::FIELD_PROVIDER_SAFE);
 
         if ($unsafe) {
-            return [self::STATUS_BLOCK, 'secret_or_sensitive_present'];
+            return [self::STATUS_BLOCK, self::FIELD_SECRET_OR_SENSITIVE_PRESENT];
         }
 
         return $candidatePresent

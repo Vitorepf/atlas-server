@@ -504,6 +504,7 @@ final class AtlasAaeosCommand extends Command
                             {--department-contract-spec-completeness-acos-measure-resource-budget-floors-contract= : JSON file (any object) to observe department/contract/spec/completeness/acos/measure floors}
                             {--department-contract-cognition-score-cognitive-memory-consolidation-rerank-floors-contract= : JSON file (any object) to observe department/contract/cognition/score/cognitive/memory floors}
                             {--department-contract-acos-dead-aobg-latency-local-model-floors-contract= : JSON file (any object) to observe department/contract/acos/dead/aobg/latency floors}
+                            {--department-contract-aaeos-http-acos-evolution-immune-promotion-floors-contract= : JSON file (any object) to observe department/contract/aaeos/http/acos/evolution floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1164,6 +1165,7 @@ final class AtlasAaeosCommand extends Command
             ['department-contract-spec-completeness-acos-measure-resource-budget-floors-contract', 'department_contract_spec_completeness_acos_measure_resource_budget_floors_contract', fn (array $p) => $gates->departmentContractSpecCompletenessAcosMeasureResourceBudgetFloorsContractObserve($p)],
             ['department-contract-cognition-score-cognitive-memory-consolidation-rerank-floors-contract', 'department_contract_cognition_score_cognitive_memory_consolidation_rerank_floors_contract', fn (array $p) => $gates->departmentContractCognitionScoreCognitiveMemoryConsolidationRerankFloorsContractObserve($p)],
             ['department-contract-acos-dead-aobg-latency-local-model-floors-contract', 'department_contract_acos_dead_aobg_latency_local_model_floors_contract', fn (array $p) => $gates->departmentContractAcosDeadAobgLatencyLocalModelFloorsContractObserve($p)],
+            ['department-contract-aaeos-http-acos-evolution-immune-promotion-floors-contract', 'department_contract_aaeos_http_acos_evolution_immune_promotion_floors_contract', fn (array $p) => $gates->departmentContractAaeosHttpAcosEvolutionImmunePromotionFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

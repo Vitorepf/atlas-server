@@ -143,6 +143,7 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_ID = 'id';
     public const FIELD_INCLUDED = 'included';
     public const FIELD_MEMORY_HASH = 'memory_hash';
+    public const FIELD_USEFUL = 'useful';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -451,7 +452,7 @@ class AtlasAcosEvolutionScoreService
                         $normalized = AiValueNormalizer::trimmedScalarStringOrNull($status) !== null
                             ? AiValueNormalizer::lowerTrimmedString($status)
                             : '';
-                        if (in_array($normalized, [self::FIELD_INCLUDED, self::FIELD_USED, 'useful'], true)) {
+                        if (in_array($normalized, [self::FIELD_INCLUDED, self::FIELD_USED, self::FIELD_USEFUL], true)) {
                             return true;
                         }
                     }
