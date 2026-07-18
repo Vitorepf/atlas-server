@@ -41,6 +41,8 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_FRESHNESS_READER = 'freshness_reader';
     public const FIELD_LAST_APPEND_AT = 'last_append_at';
     public const FIELD_AGE_DAYS = 'age_days';
+    public const FIELD_ACOS_DEAD_SERIES_STALE = 'acos_dead_series_stale';
+    public const FIELD_FREEZE = 'freeze';
 
     public function __construct(
         private AcosMaxMeasureSeriesRegistry $registry,
@@ -73,7 +75,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
 
         if ($dead !== []) {
             return AtlasWatchdogCheckResult::alert($evidence, [
-                self::FIELD_CODE => 'acos_dead_series_stale',
+                self::FIELD_CODE => self::FIELD_ACOS_DEAD_SERIES_STALE,
                 self::FIELD_MESSAGE => 'Registered ACOS measure series exceeded its frozen TTL or has no append.',
                 self::FIELD_SERIES => array_values(array_map(static fn (array $row): string => AiValueNormalizer::trimmedScalarStringOrNull($row[self::FIELD_SERIES] ?? null) ?? '', $dead)),
                 self::FIELD_LEDGER => 'atlas_ledger_events:watchdog_run_recorded',
@@ -104,7 +106,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_TABLE => AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_TABLE] ?? null),
             self::FIELD_TIMESTAMP_FIELD => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_TIMESTAMP_FIELD] ?? null) ?? 'recorded_at'),
             self::FIELD_TTL_DAYS => $ttlDays,
-            self::FIELD_TTL_SOURCE => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_TTL_SOURCE] ?? null) ?? 'freeze'),
+            self::FIELD_TTL_SOURCE => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_TTL_SOURCE] ?? null) ?? self::FIELD_FREEZE),
             self::FIELD_LAST_APPEND_AT => $lastAppendAt?->toIso8601String(),
             self::FIELD_AGE_DAYS => $ageDays,
             self::FIELD_STATUS => $status,

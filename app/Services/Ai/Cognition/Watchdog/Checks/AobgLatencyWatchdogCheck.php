@@ -55,6 +55,8 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_P95_MS = 'p95_ms';
     public const FIELD_PACK_P95_MS_ALERT = 'pack_p95_ms_alert';
     public const FIELD_RECALL_P95_MS_ALERT = 'recall_p95_ms_alert';
+    public const FIELD_AOBG_LATENCY_P95_EXCEEDED = 'aobg_latency_p95_exceeded';
+    public const FIELD_EVIDENCE_LEDGER = 'evidence_ledger';
 
 
     /**
@@ -99,7 +101,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_THRESHOLDS => $thresholds,
             self::FIELD_DENOMINATOR_MIN => $denominatorMin,
             self::FIELD_REPORT => $report,
-            self::FIELD_FREEZE_SOURCE => $this->freezePayloadOverride !== null ? 'override' : ($this->latestFreezePayload() !== null ? 'evidence_ledger' : 'default_payload'),
+            self::FIELD_FREEZE_SOURCE => $this->freezePayloadOverride !== null ? 'override' : ($this->latestFreezePayload() !== null ? self::FIELD_EVIDENCE_LEDGER : 'default_payload'),
         ];
 
         if ($insufficient !== []) {
@@ -123,7 +125,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
 
         if ($alerts !== []) {
             return AtlasWatchdogCheckResult::alert($evidence + [self::FIELD_REASON => self::REASON_LATENCY_FLOOR_EXCEEDED], [
-                self::FIELD_CODE => 'aobg_latency_p95_exceeded',
+                self::FIELD_CODE => self::FIELD_AOBG_LATENCY_P95_EXCEEDED,
                 self::FIELD_MESSAGE => 'AOBG latency p95 exceeded frozen floors.',
                 self::FIELD_VIOLATIONS => $alerts,
             ]);

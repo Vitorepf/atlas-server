@@ -84,6 +84,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const FIELD_TTL_DAYS = 'ttl_days';
     public const FIELD_EMBEDDING_MODEL = 'embedding_model';
     public const FIELD_EMBEDDED_CONTENT_HASH = 'embedded_content_hash';
+    public const FIELD_ACTIVE_ITEMS_ONLY = 'active_items_only';
+    public const FIELD_ARCHIVED_AT = 'archived_at';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -98,7 +100,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
                 self::FIELD_DENOMINATOR_MIN_ACTIVE_ITEMS => 1,
                 self::FIELD_STALE_DEFINITION => 'embedded_content_hash != content_hash',
                 self::FIELD_MISSING_DEFINITION => 'embedding_model IS NULL OR embedded_content_hash IS NULL',
-                self::FIELD_SCOPE => 'active_items_only',
+                self::FIELD_SCOPE => self::FIELD_ACTIVE_ITEMS_ONLY,
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
             self::FIELD_TTL_DAYS => 60,
@@ -131,7 +133,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
 
         $baseQuery = AtlasEngineeringKnowledgeItem::query()
             ->where('status', self::STATUS_ACTIVE)
-            ->whereNull('archived_at');
+            ->whereNull(self::FIELD_ARCHIVED_AT);
 
         $active = (clone $baseQuery)->count();
 

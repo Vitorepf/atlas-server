@@ -445,6 +445,7 @@ final class AtlasAaeosCommand extends Command
                             {--promotion-protocol-immune-calibration-maxa-jina-teto-predicted-floors-contract= : JSON file (any object) to observe promotion/protocol/immune/calibration/maxa/jina floors}
                             {--frontier-wave-acos-rollback-department-contract-aaeos-long-floors-contract= : JSON file (any object) to observe frontier/wave/acos/rollback/department/contract floors}
                             {--department-contract-aaeos-cognitive-measure-series-http-path-floors-contract= : JSON file (any object) to observe department/contract/aaeos/cognitive/measure/series floors}
+                            {--cognitive-memory-immune-classifier-acos-dead-aobg-latency-floors-contract= : JSON file (any object) to observe cognitive/memory/immune/classifier/acos/dead floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1046,6 +1047,7 @@ final class AtlasAaeosCommand extends Command
             ['promotion-protocol-immune-calibration-maxa-jina-teto-predicted-floors-contract', 'promotion_protocol_immune_calibration_maxa_jina_teto_predicted_floors_contract', fn (array $p) => $gates->promotionProtocolImmuneCalibrationMaxaJinaTetoPredictedFloorsContractObserve($p)],
             ['frontier-wave-acos-rollback-department-contract-aaeos-long-floors-contract', 'frontier_wave_acos_rollback_department_contract_aaeos_long_floors_contract', fn (array $p) => $gates->frontierWaveAcosRollbackDepartmentContractAaeosLongFloorsContractObserve($p)],
             ['department-contract-aaeos-cognitive-measure-series-http-path-floors-contract', 'department_contract_aaeos_cognitive_measure_series_http_path_floors_contract', fn (array $p) => $gates->departmentContractAaeosCognitiveMeasureSeriesHttpPathFloorsContractObserve($p)],
+            ['cognitive-memory-immune-classifier-acos-dead-aobg-latency-floors-contract', 'cognitive_memory_immune_classifier_acos_dead_aobg_latency_floors_contract', fn (array $p) => $gates->cognitiveMemoryImmuneClassifierAcosDeadAobgLatencyFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -72,6 +72,8 @@ final class AtlasImmuneClassifierHybridFreeze
     public const FIELD_REGISTRY_STATUS = 'registry_status';
     public const FIELD_SERIES = 'series';
     public const FIELD_SOURCE_TYPE = 'source_type';
+    public const FIELD_BYTE_IDENTICAL_TO_BASE_CLASSIFIER = 'byte_identical_to_base_classifier';
+    public const FIELD_JSONL = 'jsonl';
 
     /**
      * @return array<string,mixed>
@@ -109,7 +111,7 @@ final class AtlasImmuneClassifierHybridFreeze
             self::FIELD_SWITCH => [
                 self::FIELD_CONFIG_KEY => 'atlas.aaeos.immune_classifier.semantic_arm_enabled',
                 self::FIELD_DEFAULT => false,
-                self::FIELD_OFF_CONTRACT => 'byte_identical_to_base_classifier',
+                self::FIELD_OFF_CONTRACT => self::FIELD_BYTE_IDENTICAL_TO_BASE_CLASSIFIER,
             ],
             self::FIELD_FIXTURES => [
                 self::FIELD_ANCHORS_PATH => self::ANCHOR_FIXTURE_RELATIVE,
@@ -127,7 +129,7 @@ final class AtlasImmuneClassifierHybridFreeze
             self::FIELD_SERIES => [
                 self::FIELD_ID => self::MEASURE_ID,
                 self::FIELD_REGISTRY_STATUS => 'registered_elev_20s',
-                self::FIELD_SOURCE_TYPE => 'jsonl',
+                self::FIELD_SOURCE_TYPE => self::FIELD_JSONL,
             ],
             self::FIELD_PRIVACY_GUARANTEES => [
                 self::FIELD_ANCHORS_LOCAL_ONLY => true,

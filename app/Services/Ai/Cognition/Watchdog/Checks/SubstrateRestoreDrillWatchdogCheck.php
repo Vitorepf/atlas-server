@@ -41,6 +41,8 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_SNAPSHOT_PATH = 'snapshot_path';
     public const FIELD_RESTORED_OK = 'restored_ok';
     public const FIELD_STATUS = 'status';
+    public const FIELD_NOW = 'now';
+    public const FIELD_SUBSTRATE_RESTORE_DRILL_MISSING = 'substrate_restore_drill_missing';
 
 
     public function id(): string
@@ -62,12 +64,12 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
                 self::FIELD_MAX_SUCCESS_AGE_DAYS => $maxAgeDays,
                 self::FIELD_REASON => self::REASON_NO_SUCCESSFUL_DRILL,
             ], [
-                self::FIELD_CODE => 'substrate_restore_drill_missing',
+                self::FIELD_CODE => self::FIELD_SUBSTRATE_RESTORE_DRILL_MISSING,
                 self::FIELD_MESSAGE => 'No successful SUB-01 restore drill receipt found.',
             ]);
         }
 
-        $checkedAt = CarbonImmutable::parse((AiValueNormalizer::trimmedStringOrNull($latest[self::FIELD_CHECKED_AT] ?? null) ?? 'now'), 'UTC');
+        $checkedAt = CarbonImmutable::parse((AiValueNormalizer::trimmedStringOrNull($latest[self::FIELD_CHECKED_AT] ?? null) ?? self::FIELD_NOW), 'UTC');
         $ageDays = (int) $checkedAt->diffInDays(CarbonImmutable::now('UTC'));
         $evidence = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,

@@ -101,6 +101,8 @@ final class PromotionProtocol
     public const FIELD_PROTOCOL_SCHEMA_VERSION = 'protocol_schema_version';
     public const FIELD_FLIP = 'flip';
     public const FIELD_ATLAS = 'atlas';
+    public const FIELD_MIGRATE_ON_NEXT_TOUCH = 'migrate_on_next_touch';
+    public const FIELD_MISSING_PREDECLARED_ROLLBACK_TRIGGER = 'missing_predeclared_rollback_trigger';
 
     /** @var list<string> */
     public const STATES = [
@@ -186,7 +188,7 @@ final class PromotionProtocol
 
             return $this->blocked(
                 in_array('rollback_trigger', $missing, true)
-                    ? 'missing_predeclared_rollback_trigger'
+                    ? self::FIELD_MISSING_PREDECLARED_ROLLBACK_TRIGGER
                     : 'missing_required_fields',
                 $flagId,
                 $toState,
@@ -601,7 +603,7 @@ final class PromotionProtocol
             self::FIELD_CONFIG_KEY => $entry[self::FIELD_CONFIG_KEY] ?? null,
             self::FIELD_ENV_KEY => $entry[self::FIELD_ENV_KEY] ?? null,
             self::FIELD_SOURCE => $entry[self::FIELD_SOURCE] ?? null,
-            self::FIELD_MIGRATION_POLICY => 'migrate_on_next_touch',
+            self::FIELD_MIGRATION_POLICY => self::FIELD_MIGRATE_ON_NEXT_TOUCH,
         ];
     }
 }

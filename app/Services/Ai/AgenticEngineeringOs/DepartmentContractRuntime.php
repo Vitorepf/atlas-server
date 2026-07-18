@@ -205,6 +205,8 @@ final class DepartmentContractRuntime
     public const FIELD_AAEOS_DEV_EVIDENCE_LEDGER = 'aaeos_dev_evidence_ledger';
     public const FIELD_AAEOS_DEV_RUNS = 'aaeos_dev_runs';
     public const FIELD_AAEOS_ENGINEERING_GOALS = 'aaeos_engineering_goals';
+    public const FIELD_AAEOS_EXECUTIVE_INTAKE = 'aaeos_executive_intake';
+    public const FIELD_AAEOS_FORGE_EVIDENCE_LEDGER = 'aaeos_forge_evidence_ledger';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -253,7 +255,7 @@ final class DepartmentContractRuntime
             self::FIELD_FORBIDDEN_ACTIONS => ['write_code', 'approve_release', 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['intent_clarification_log', 'mission_envelope_hash'],
-            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_executive_intake', self::FIELD_LEDGER => 'aaeos_intake_ledger'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_EXECUTIVE_INTAKE, self::FIELD_LEDGER => 'aaeos_intake_ledger'],
             self::FIELD_OBSERVABILITY_SIGNALS => ['intake_clarity_loop_count', 'intake_classification_latency_p95'],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_AI_MISSION,
@@ -467,7 +469,7 @@ final class DepartmentContractRuntime
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_review', 'modify_security_policy', 'ship_without_cert'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['obra_pack_hash', 'execution_log_hash', 'merge_review_evidence_hash'],
-            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_obra_runs', self::FIELD_LEDGER => 'aaeos_forge_evidence_ledger'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_obra_runs', self::FIELD_LEDGER => self::FIELD_AAEOS_FORGE_EVIDENCE_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['forge_obra_duration_p95', 'forge_parallel_agent_count', 'forge_collision_count'],
             self::FIELD_MATURITY_LEVEL => 'L4',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_PROGRAMMING_DURABLE_EXECUTION_HANDOFF,

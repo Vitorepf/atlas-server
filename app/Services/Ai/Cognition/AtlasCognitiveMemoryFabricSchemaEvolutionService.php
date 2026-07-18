@@ -86,6 +86,8 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_SCAN_HASH = 'scan_hash';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_THRESHOLD = 'threshold';
+    public const FIELD_NORMAL = 'normal';
+    public const FIELD_SCHEMA_EVOLUTION = 'schema_evolution';
 
     private ?string $proposalsLogOverride = null;
 
@@ -136,17 +138,17 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
 
         // Constitutional Kernel gate.
         $kernelEnv = $this->kernel->validateChange([
-            self::FIELD_CHANGE_KIND => 'schema_evolution',
+            self::FIELD_CHANGE_KIND => self::FIELD_SCHEMA_EVOLUTION,
             self::FIELD_PROPOSED_EFFECT => "propose evolution {$currentSchema} -> {$nextSchema} (trigger={$trigger})",
-            self::FIELD_SCOPE => [self::FIELD_PRIVACY_CLASS => 'normal'],
+            self::FIELD_SCOPE => [self::FIELD_PRIVACY_CLASS => self::FIELD_NORMAL],
             self::FIELD_ACTOR => $actor,
         ]);
 
         // Autonomy admission.
         $admissionEnv = $this->admission->admit([
-            self::FIELD_CHANGE_KIND => 'schema_evolution',
+            self::FIELD_CHANGE_KIND => self::FIELD_SCHEMA_EVOLUTION,
             self::FIELD_PROPOSED_EFFECT => "propose evolution {$currentSchema} -> {$nextSchema}",
-            self::FIELD_SCOPE => [self::FIELD_PRIVACY_CLASS => 'normal'],
+            self::FIELD_SCOPE => [self::FIELD_PRIVACY_CLASS => self::FIELD_NORMAL],
             self::FIELD_ACTOR => $actor,
             self::FIELD_REQUESTED_AUTONOMY => 'execute_with_approval',
         ]);

@@ -8316,4 +8316,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['department_contract_aaeos_cognitive_measure_series_http_path_floor_count']);
     }
 
+    public function test_cognitive_memory_immune_classifier_acos_dead_aobg_latency_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitiveMemoryImmuneClassifierAcosDeadAobgLatencyFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_NORMAL, $out['normal']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_SCHEMA_EVOLUTION, $out['schema_evolution']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_BYTE_IDENTICAL_TO_BASE_CLASSIFIER, $out['byte_identical_to_base_classifier']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_JSONL, $out['jsonl']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_ACOS_DEAD_SERIES_STALE, $out['acos_dead_series_stale']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_FREEZE, $out['freeze']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_AOBG_LATENCY_P95_EXCEEDED, $out['aobg_latency_p95_exceeded']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_EVIDENCE_LEDGER, $out['evidence_ledger']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_NOW, $out['now']);
+        $this->assertSame(SubstrateRestoreDrillWatchdogCheck::FIELD_SUBSTRATE_RESTORE_DRILL_MISSING, $out['substrate_restore_drill_missing']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_EXECUTIVE_INTAKE, $out['aaeos_executive_intake']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_FORGE_EVIDENCE_LEDGER, $out['aaeos_forge_evidence_ledger']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_QA_CONTRACT_TESTING_E2E_L4, $out['qa_contract_testing_e2e_l4']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_RESEARCH, $out['research']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_ACTIVE_ITEMS_ONLY, $out['active_items_only']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_ARCHIVED_AT, $out['archived_at']);
+        $this->assertSame(PromotionProtocol::FIELD_MIGRATE_ON_NEXT_TOUCH, $out['migrate_on_next_touch']);
+        $this->assertSame(PromotionProtocol::FIELD_MISSING_PREDECLARED_ROLLBACK_TRIGGER, $out['missing_predeclared_rollback_trigger']);
+        $this->assertSame(18, $out['cognitive_memory_immune_classifier_acos_dead_aobg_latency_floor_count']);
+    }
+
 }

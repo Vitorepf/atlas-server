@@ -57,6 +57,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_MEMORY_CROSS_SESSION_HANDOFF_L4 = 'memory_cross_session_handoff_l4';
     public const FIELD_PRODUCT = 'product';
     public const FIELD_PRODUCT_MOBILE_SURFACE_L4 = 'product_mobile_surface_l4';
+    public const FIELD_QA_CONTRACT_TESTING_E2E_L4 = 'qa_contract_testing_e2e_l4';
+    public const FIELD_RESEARCH = 'research';
 
     public const DEPARTMENTS = [
         [
@@ -76,7 +78,7 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],
         [
-            self::FIELD_DEPARTMENT_ID => 'research',
+            self::FIELD_DEPARTMENT_ID => self::FIELD_RESEARCH,
             self::FIELD_CURRENT_LEVEL => 'L2',
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#research'],
             self::FIELD_BLOCKER_ID => 'research_source_backed_score_l3',
@@ -111,7 +113,7 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_DEPARTMENT_ID => 'qa',
             self::FIELD_CURRENT_LEVEL => 'L2',
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#qa'],
-            self::FIELD_BLOCKER_ID => 'qa_contract_testing_e2e_l4',
+            self::FIELD_BLOCKER_ID => self::FIELD_QA_CONTRACT_TESTING_E2E_L4,
             self::FIELD_BLOCKER_SUMMARY => 'falta contract testing E2E',
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],

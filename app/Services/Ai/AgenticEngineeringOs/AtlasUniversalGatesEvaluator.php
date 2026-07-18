@@ -10638,4 +10638,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B423).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function cognitiveMemoryImmuneClassifierAcosDeadAobgLatencyFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'normal' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_NORMAL,
+            'schema_evolution' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_SCHEMA_EVOLUTION,
+            'byte_identical_to_base_classifier' => AtlasImmuneClassifierHybridFreeze::FIELD_BYTE_IDENTICAL_TO_BASE_CLASSIFIER,
+            'jsonl' => AtlasImmuneClassifierHybridFreeze::FIELD_JSONL,
+            'acos_dead_series_stale' => AcosDeadSeriesWatchdogCheck::FIELD_ACOS_DEAD_SERIES_STALE,
+            'freeze' => AcosDeadSeriesWatchdogCheck::FIELD_FREEZE,
+            'aobg_latency_p95_exceeded' => AobgLatencyWatchdogCheck::FIELD_AOBG_LATENCY_P95_EXCEEDED,
+            'evidence_ledger' => AobgLatencyWatchdogCheck::FIELD_EVIDENCE_LEDGER,
+            'now' => SubstrateRestoreDrillWatchdogCheck::FIELD_NOW,
+            'substrate_restore_drill_missing' => SubstrateRestoreDrillWatchdogCheck::FIELD_SUBSTRATE_RESTORE_DRILL_MISSING,
+            'aaeos_executive_intake' => DepartmentContractRuntime::FIELD_AAEOS_EXECUTIVE_INTAKE,
+            'aaeos_forge_evidence_ledger' => DepartmentContractRuntime::FIELD_AAEOS_FORGE_EVIDENCE_LEDGER,
+            'qa_contract_testing_e2e_l4' => AtlasAaeosDepartmentMaturityService::FIELD_QA_CONTRACT_TESTING_E2E_L4,
+            'research' => AtlasAaeosDepartmentMaturityService::FIELD_RESEARCH,
+            'active_items_only' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_ACTIVE_ITEMS_ONLY,
+            'archived_at' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_ARCHIVED_AT,
+            'migrate_on_next_touch' => PromotionProtocol::FIELD_MIGRATE_ON_NEXT_TOUCH,
+            'missing_predeclared_rollback_trigger' => PromotionProtocol::FIELD_MISSING_PREDECLARED_ROLLBACK_TRIGGER,
+            'cognitive_memory_immune_classifier_acos_dead_aobg_latency_floor_count' => 18,
+        ];
+    }
+
 }
