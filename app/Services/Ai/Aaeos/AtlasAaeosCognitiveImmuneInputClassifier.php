@@ -66,6 +66,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_COMPILER = 'compiler';
     public const FIELD_FRAMEWORK = 'framework';
     public const FIELD_HAS_SECRET_MARKER = 'has_secret_marker';
+    public const FIELD_HAS_URL = 'has_url';
+    public const FIELD_HIPOTESE = 'hipotese';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -129,7 +131,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         self::FIELD_ANALOGIA,
         'insight',
         'tese',
-        'hipotese',
+        self::FIELD_HIPOTESE,
         'principio',
         'strategy',
         'strategic',
@@ -214,7 +216,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
      */
     public function classify(string $text, array $metadata = []): array
     {
-        $hasUrl = $this->flag($metadata, 'has_url');
+        $hasUrl = $this->flag($metadata, self::FIELD_HAS_URL);
         $hasSecretMarker = $this->flag($metadata, self::FIELD_HAS_SECRET_MARKER);
         $isQuestion = $this->flag($metadata, 'is_question');
         $imperativeVerb = $this->flag($metadata, 'imperative_verb');

@@ -463,6 +463,7 @@ final class AtlasAaeosCommand extends Command
                             {--cognitive-function-department-contract-immune-promotion-cognition-score-floors-contract= : JSON file (any object) to observe cognitive/function/department/contract/immune/promotion floors}
                             {--b439-cognitive-function-department-contract-immune-promotion-cognition-score-floors-contract= : JSON file (any object) to observe cognitive/function/department/contract/immune/promotion floors}
                             {--capture-hmac-cognitive-function-department-contract-immune-promotion-floors-contract= : JSON file (any object) to observe capture/hmac/cognitive/function/department/contract floors}
+                            {--aaeos-test-maxa-jina-cognitive-function-department-contract-floors-contract= : JSON file (any object) to observe aaeos/test/maxa/jina/cognitive/function floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1082,6 +1083,7 @@ final class AtlasAaeosCommand extends Command
             ['cognitive-function-department-contract-immune-promotion-cognition-score-floors-contract', 'cognitive_function_department_contract_immune_promotion_cognition_score_floors_contract', fn (array $p) => $gates->cognitiveFunctionDepartmentContractImmunePromotionCognitionScoreFloorsContractObserve($p)],
             ['b439-cognitive-function-department-contract-immune-promotion-cognition-score-floors-contract', 'b439_cognitive_function_department_contract_immune_promotion_cognition_score_floors_contract', fn (array $p) => $gates->b439CognitiveFunctionDepartmentContractImmunePromotionCognitionScoreFloorsContractObserve($p)],
             ['capture-hmac-cognitive-function-department-contract-immune-promotion-floors-contract', 'capture_hmac_cognitive_function_department_contract_immune_promotion_floors_contract', fn (array $p) => $gates->captureHmacCognitiveFunctionDepartmentContractImmunePromotionFloorsContractObserve($p)],
+            ['aaeos-test-maxa-jina-cognitive-function-department-contract-floors-contract', 'aaeos_test_maxa_jina_cognitive_function_department_contract_floors_contract', fn (array $p) => $gates->aaeosTestMaxaJinaCognitiveFunctionDepartmentContractFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

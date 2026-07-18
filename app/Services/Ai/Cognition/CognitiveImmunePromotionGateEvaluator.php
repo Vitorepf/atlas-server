@@ -77,6 +77,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_CLAIM_TYPE = 'claim_type';
     public const FIELD_CONSENT_GRANTED = 'consent_granted';
     public const FIELD_CONTAINS_SECRET = 'contains_secret';
+    public const FIELD_CONTAINS_SENSITIVE_UNNECESSARY = 'contains_sensitive_unnecessary';
+    public const FIELD_EVALUATED_AT = 'evaluated_at';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -231,7 +233,7 @@ final class CognitiveImmunePromotionGateEvaluator
     private function safetyGate(array $signals, bool $candidatePresent): array
     {
         $unsafe = $this->flag($signals, self::FIELD_CONTAINS_SECRET)
-            || $this->flag($signals, 'contains_sensitive_unnecessary')
+            || $this->flag($signals, self::FIELD_CONTAINS_SENSITIVE_UNNECESSARY)
             || $this->explicitlyFalse($signals, 'provider_safe');
 
         if ($unsafe) {
@@ -466,7 +468,7 @@ final class CognitiveImmunePromotionGateEvaluator
             ?? $this->timestampValue($signals, 'watch_started_at')
             ?? $this->timestampValue($signals, 'probation_started_at');
         $evaluatedAt = $this->timestampValue($signals, 'probation_evaluated_at')
-            ?? $this->timestampValue($signals, 'evaluated_at');
+            ?? $this->timestampValue($signals, self::FIELD_EVALUATED_AT);
 
         if ($startedAt === null || $evaluatedAt === null || $evaluatedAt < $startedAt) {
             return 0;

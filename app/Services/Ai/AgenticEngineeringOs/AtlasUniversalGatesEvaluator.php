@@ -11196,4 +11196,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B441).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function aaeosTestMaxaJinaCognitiveFunctionDepartmentContractFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'empty_filter' => AtlasAaeosTestExecutionService::FIELD_EMPTY_FILTER,
+            'phpunit_binary_missing' => AtlasAaeosTestExecutionService::FIELD_PHPUNIT_BINARY_MISSING,
+            'mean' => Maxa04JinaV3DualReadService::FIELD_MEAN,
+            'sha256' => Maxa04JinaV3DualReadService::FIELD_SHA256,
+            'cadastr' => AtlasCognitiveFunctionDecomposerService::FIELD_CADASTR,
+            'cli' => AtlasCognitiveFunctionDecomposerService::FIELD_CLI,
+            'breaking_change_matrix_present' => DepartmentContractRuntime::FIELD_BREAKING_CHANGE_MATRIX_PRESENT,
+            'claim_reservations' => DepartmentContractRuntime::FIELD_CLAIM_RESERVATIONS,
+            'contains_sensitive_unnecessary' => CognitiveImmunePromotionGateEvaluator::FIELD_CONTAINS_SENSITIVE_UNNECESSARY,
+            'evaluated_at' => CognitiveImmunePromotionGateEvaluator::FIELD_EVALUATED_AT,
+            'app' => AtlasCognitionScoreCardService::FIELD_APP,
+            'cognition' => AtlasCognitionScoreCardService::FIELD_COGNITION,
+            'has_url' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HAS_URL,
+            'hipotese' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HIPOTESE,
+            'learning_lift_cases_missing' => AtlasAcosWatchdogHealthService::FIELD_LEARNING_LIFT_CASES_MISSING,
+            'lift_case_count' => AtlasAcosWatchdogHealthService::FIELD_LIFT_CASE_COUNT,
+            'human_name' => AtlasAaeosDepartmentRegistryService::FIELD_HUMAN_NAME,
+            'memory' => AtlasAaeosDepartmentRegistryService::FIELD_MEMORY,
+            'aaeos_test_maxa_jina_cognitive_function_department_contract_floor_count' => 18,
+        ];
+    }
+
 }

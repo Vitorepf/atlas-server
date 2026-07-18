@@ -68,6 +68,8 @@ class AtlasAaeosTestExecutionService
     public const FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS = 'atlas_aaeos_test_run_receipts';
     public const FIELD_SQLITE = 'sqlite';
     public const FIELD_TESTING = 'testing';
+    public const FIELD_EMPTY_FILTER = 'empty_filter';
+    public const FIELD_PHPUNIT_BINARY_MISSING = 'phpunit_binary_missing';
 
     public function __construct(
         private readonly float $timeout = 180.0,
@@ -392,7 +394,7 @@ class AtlasAaeosTestExecutionService
     private function runFilter(string $filter, ?string $explicitPath = null): array
     {
         if ($filter === '') {
-            return $this->blockedRun('empty_filter');
+            return $this->blockedRun(self::FIELD_EMPTY_FILTER);
         }
 
         if (! class_exists(Process::class)) {
@@ -401,7 +403,7 @@ class AtlasAaeosTestExecutionService
 
         $binary = $this->phpunitBinary();
         if ($binary === null) {
-            return $this->blockedRun('phpunit_binary_missing');
+            return $this->blockedRun(self::FIELD_PHPUNIT_BINARY_MISSING);
         }
 
         $command = [$binary];

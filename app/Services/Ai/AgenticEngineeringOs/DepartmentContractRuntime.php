@@ -249,6 +249,8 @@ final class DepartmentContractRuntime
     public const FIELD_BLOCKERS_ADDRESSED = 'blockers_addressed';
     public const FIELD_BOUNDARY_VALIDATED = 'boundary_validated';
     public const FIELD_BREAKING_CHANGE_DOCUMENTED = 'breaking_change_documented';
+    public const FIELD_BREAKING_CHANGE_MATRIX_PRESENT = 'breaking_change_matrix_present';
+    public const FIELD_CLAIM_RESERVATIONS = 'claim_reservations';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -507,7 +509,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_EXECUTION_LOG, self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
             ],
             self::FIELD_GATES => ['obra_intake_validated', 'provider_topology_green', 'all-15-universal-gates', 'long_horizon_state_persisted', 'reservation_ledger_consistent', 'merge_review_promotion_passed'],
-            self::FIELD_ALLOWED_ACTIONS => ['spawn_agents', 'claim_reservations', 'request_provider_topology', 'merge_after_review'],
+            self::FIELD_ALLOWED_ACTIONS => ['spawn_agents', self::FIELD_CLAIM_RESERVATIONS, 'request_provider_topology', 'merge_after_review'],
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_review', 'modify_security_policy', 'ship_without_cert'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['obra_pack_hash', 'execution_log_hash', 'merge_review_evidence_hash'],
@@ -712,7 +714,7 @@ final class DepartmentContractRuntime
             'spec_pack_hash',
             'acceptance_criteria_present',
             self::FIELD_ROLLBACK_PLAN_PRESENT,
-            'breaking_change_matrix_present',
+            self::FIELD_BREAKING_CHANGE_MATRIX_PRESENT,
             'operator_signature_present',
         ];
         $normalized = [];

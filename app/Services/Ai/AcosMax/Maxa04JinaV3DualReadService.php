@@ -85,6 +85,8 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_CANDIDATE_NON_REGRESSION_OBSERVED = 'candidate_non_regression_observed';
     public const FIELD_CURRENT_EMBEDDING_MODEL = 'current_embedding_model';
     public const FIELD_JINA_V3_REEMBEDDED_SHADOW_INDEX = 'jina_v3_reembedded_shadow_index';
+    public const FIELD_MEAN = 'mean';
+    public const FIELD_SHA256 = 'sha256';
 
 
     /** @return array<string,mixed> */
@@ -118,7 +120,7 @@ final class Maxa04JinaV3DualReadService
                 ]),
                 self::FIELD_DIMENSIONS => self::CANDIDATE_DIMENSIONS,
                 self::FIELD_CTX_TOKENS => 8192,
-                self::FIELD_POOLING => 'mean',
+                self::FIELD_POOLING => self::FIELD_MEAN,
                 self::FIELD_MULTILINGUAL_PT => true,
             ],
             self::FIELD_DUAL_READ => [
@@ -187,7 +189,7 @@ final class Maxa04JinaV3DualReadService
             self::FIELD_SUMMARY => $report[self::FIELD_SUMMARY],
             self::FIELD_AB_GREEN_CLAIMED => false,
             self::FIELD_PROMOTION => $report[self::FIELD_PROMOTION],
-            self::FIELD_DUAL_READ_HASH => hash('sha256', (string) json_encode($report[self::FIELD_CASES], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION)),
+            self::FIELD_DUAL_READ_HASH => hash(self::FIELD_SHA256, (string) json_encode($report[self::FIELD_CASES], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION)),
         ];
 
         ($ledger ?? new Maxa04JinaV3DualReadLedger)->append($receipt);

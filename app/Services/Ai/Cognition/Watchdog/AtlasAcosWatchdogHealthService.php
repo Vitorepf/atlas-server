@@ -316,6 +316,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_LAST_DELIVERED_REFS_EVENT = 'last_delivered_refs_event';
     public const FIELD_LAST_NEGATIVE_FEEDBACK = 'last_negative_feedback';
     public const FIELD_LEARNING_CADENCE_STALLED = 'learning_cadence_stalled';
+    public const FIELD_LEARNING_LIFT_CASES_MISSING = 'learning_lift_cases_missing';
+    public const FIELD_LIFT_CASE_COUNT = 'lift_case_count';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -407,12 +409,12 @@ final class AtlasAcosWatchdogHealthService
         foreach ($aemor as $source => $at) {
             $checks[] = $this->ageCheck('last_aemor_episode_'.$source, $at, self::LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS, $now);
         }
-        $checks[] = $this->checkRow('lift_case_count', (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.with_recalled_memory.case_count', 0)) ?? 0) > 0
+        $checks[] = $this->checkRow(self::FIELD_LIFT_CASE_COUNT, (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.with_recalled_memory.case_count', 0)) ?? 0) > 0
             && (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.without_recalled_memory.case_count', 0)) ?? 0) > 0, [
                 self::FIELD_WITH_RECALLED_MEMORY => data_get($lift, 'measurement.with_recalled_memory.case_count', 0),
                 self::FIELD_WITHOUT_RECALLED_MEMORY => data_get($lift, 'measurement.without_recalled_memory.case_count', 0),
                 self::FIELD_MEASUREMENT_READY => data_get($lift, 'measurement.measurement_ready', false),
-            ], 'learning_lift_cases_missing');
+            ], self::FIELD_LEARNING_LIFT_CASES_MISSING);
 
         return $this->reportFromChecks('atlas.learning.cadence_watchdog.v1', $checks, [
             self::FIELD_THRESHOLDS => [

@@ -8768,4 +8768,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['capture_hmac_cognitive_function_department_contract_immune_promotion_floor_count']);
     }
 
+    public function test_aaeos_test_maxa_jina_cognitive_function_department_contract_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->aaeosTestMaxaJinaCognitiveFunctionDepartmentContractFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_EMPTY_FILTER, $out['empty_filter']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_PHPUNIT_BINARY_MISSING, $out['phpunit_binary_missing']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_MEAN, $out['mean']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CADASTR, $out['cadastr']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CLI, $out['cli']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_BREAKING_CHANGE_MATRIX_PRESENT, $out['breaking_change_matrix_present']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_CLAIM_RESERVATIONS, $out['claim_reservations']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_CONTAINS_SENSITIVE_UNNECESSARY, $out['contains_sensitive_unnecessary']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_EVALUATED_AT, $out['evaluated_at']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_APP, $out['app']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_COGNITION, $out['cognition']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HAS_URL, $out['has_url']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HIPOTESE, $out['hipotese']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LEARNING_LIFT_CASES_MISSING, $out['learning_lift_cases_missing']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LIFT_CASE_COUNT, $out['lift_case_count']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_HUMAN_NAME, $out['human_name']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_MEMORY, $out['memory']);
+        $this->assertSame(18, $out['aaeos_test_maxa_jina_cognitive_function_department_contract_floor_count']);
+    }
+
 }
