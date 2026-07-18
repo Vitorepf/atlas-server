@@ -7192,6 +7192,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for execution context / quality bar / immune check peels.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function executionQualityImmuneFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'execution_field_context_causal_binding' => ExecutionContextCooccurrenceService::FIELD_CONTEXT_CAUSAL_BINDING,
+            'execution_field_run_id' => ExecutionContextCooccurrenceService::FIELD_RUN_ID,
+            'execution_field_outcome_receipt_id' => ExecutionContextCooccurrenceService::FIELD_OUTCOME_RECEIPT_ID,
+            'execution_field_green_run' => ExecutionContextCooccurrenceService::FIELD_GREEN_RUN,
+            'execution_field_enforcement_allowed' => ExecutionContextCooccurrenceService::FIELD_ENFORCEMENT_ALLOWED,
+            'execution_field_claim_policy' => ExecutionContextCooccurrenceService::FIELD_CLAIM_POLICY,
+            'quality_field_evaluated_window_days' => QualityBarTelemetryContract::FIELD_EVALUATED_WINDOW_DAYS,
+            'quality_field_department_id' => QualityBarTelemetryContract::FIELD_DEPARTMENT_ID,
+            'quality_field_breach_count' => QualityBarTelemetryContract::FIELD_BREACH_COUNT,
+            'quality_field_evidence_hash' => QualityBarTelemetryContract::FIELD_EVIDENCE_HASH,
+            'quality_field_threshold_breaches' => QualityBarTelemetryContract::FIELD_THRESHOLD_BREACHES,
+            'quality_field_schema_version' => QualityBarTelemetryContract::FIELD_SCHEMA_VERSION,
+            'immune_check_field_finding_id' => CognitiveImmuneCheckContract::FIELD_FINDING_ID,
+            'immune_check_field_decision_surface' => CognitiveImmuneCheckContract::FIELD_DECISION_SURFACE,
+            'immune_check_field_target_paths' => CognitiveImmuneCheckContract::FIELD_TARGET_PATHS,
+            'immune_check_field_gate_statuses' => CognitiveImmuneCheckContract::FIELD_GATE_STATUSES,
+            'immune_check_field_autonomous_execution_allowed' => CognitiveImmuneCheckContract::FIELD_AUTONOMOUS_EXECUTION_ALLOWED,
+            'immune_check_field_blockers' => CognitiveImmuneCheckContract::FIELD_BLOCKERS,
+            'execution_quality_immune_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

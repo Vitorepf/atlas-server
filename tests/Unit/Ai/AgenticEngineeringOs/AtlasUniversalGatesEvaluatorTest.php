@@ -5396,5 +5396,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['ncapture_asef_spec_floor_count']);
     }
 
+    public function test_execution_quality_immune_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->executionQualityImmuneFloorsContractObserve([]);
+
+        $this->assertSame('context_causal_binding', $payload['execution_field_context_causal_binding']);
+        $this->assertSame('run_id', $payload['execution_field_run_id']);
+        $this->assertSame('outcome_receipt_id', $payload['execution_field_outcome_receipt_id']);
+        $this->assertSame('green_run', $payload['execution_field_green_run']);
+        $this->assertSame('enforcement_allowed', $payload['execution_field_enforcement_allowed']);
+        $this->assertSame('claim_policy', $payload['execution_field_claim_policy']);
+        $this->assertSame('evaluated_window_days', $payload['quality_field_evaluated_window_days']);
+        $this->assertSame('department_id', $payload['quality_field_department_id']);
+        $this->assertSame('breach_count', $payload['quality_field_breach_count']);
+        $this->assertSame('evidence_hash', $payload['quality_field_evidence_hash']);
+        $this->assertSame('threshold_breaches', $payload['quality_field_threshold_breaches']);
+        $this->assertSame('schema_version', $payload['quality_field_schema_version']);
+        $this->assertSame('finding_id', $payload['immune_check_field_finding_id']);
+        $this->assertSame('decision_surface', $payload['immune_check_field_decision_surface']);
+        $this->assertSame('target_paths', $payload['immune_check_field_target_paths']);
+        $this->assertSame('gate_statuses', $payload['immune_check_field_gate_statuses']);
+        $this->assertSame('autonomous_execution_allowed', $payload['immune_check_field_autonomous_execution_allowed']);
+        $this->assertSame('blockers', $payload['immune_check_field_blockers']);
+        $this->assertSame(18, $payload['execution_quality_immune_floor_count']);
+    }
+
 
 }

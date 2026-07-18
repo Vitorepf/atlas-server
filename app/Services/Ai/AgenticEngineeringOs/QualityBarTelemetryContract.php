@@ -28,6 +28,12 @@ final class QualityBarTelemetryContract
     public const EVALUATED_WINDOW_DAYS = 30;
 
     public const AUTO_BLOCK_ON_BREACH = true;
+    public const FIELD_EVALUATED_WINDOW_DAYS = 'evaluated_window_days';
+    public const FIELD_DEPARTMENT_ID = 'department_id';
+    public const FIELD_BREACH_COUNT = 'breach_count';
+    public const FIELD_EVIDENCE_HASH = 'evidence_hash';
+    public const FIELD_THRESHOLD_BREACHES = 'threshold_breaches';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     /**
      * Gate evidence required — not boolean-only pass/fail.
@@ -80,13 +86,13 @@ final class QualityBarTelemetryContract
      */
     public static function fromArray(array $input): self
     {
-        $breaches = AiValueNormalizer::arrayOrEmpty($input['threshold_breaches'] ?? null);
+        $breaches = AiValueNormalizer::arrayOrEmpty($input[self::FIELD_THRESHOLD_BREACHES] ?? null);
 
         return new self(
-            departmentId: AiValueNormalizer::trimmedStringOrNull($input['department_id'] ?? null) ?? '',
-            breachCount: max(0, (int) (AiValueNormalizer::finiteFloatOrNull($input['breach_count'] ?? null) ?? 0)),
-            evaluatedWindowDays: max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input['evaluated_window_days'] ?? null) ?? self::EVALUATED_WINDOW_DAYS)),
-            evidenceHash: AiValueNormalizer::trimmedStringOrNull($input['evidence_hash'] ?? null) ?? '',
+            departmentId: AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_DEPARTMENT_ID] ?? null) ?? '',
+            breachCount: max(0, (int) (AiValueNormalizer::finiteFloatOrNull($input[self::FIELD_BREACH_COUNT] ?? null) ?? 0)),
+            evaluatedWindowDays: max(1, (int) (AiValueNormalizer::finiteFloatOrNull($input[self::FIELD_EVALUATED_WINDOW_DAYS] ?? null) ?? self::EVALUATED_WINDOW_DAYS)),
+            evidenceHash: AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_EVIDENCE_HASH] ?? null) ?? '',
             thresholdBreaches: array_values($breaches),
         );
     }
@@ -97,21 +103,21 @@ final class QualityBarTelemetryContract
     public function toArray(): array
     {
         return [
-            'schema_version' => self::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             'quality_bar_schema' => self::QUALITY_BAR_SCHEMA,
             'immune_gate_id' => self::IMMUNE_GATE_ID,
             'breach_signal' => self::BREACH_SIGNAL,
             'canonical_source' => self::CANONICAL_SOURCE,
-            'evaluated_window_days' => self::EVALUATED_WINDOW_DAYS,
+            self::FIELD_EVALUATED_WINDOW_DAYS => self::EVALUATED_WINDOW_DAYS,
             'auto_block_on_breach' => self::AUTO_BLOCK_ON_BREACH,
             'evidence_required' => self::EVIDENCE_REQUIRED,
             'telemetry_fields' => self::TELEMETRY_FIELDS,
             'inputs' => [
-                'department_id' => $this->departmentId,
-                'breach_count' => $this->breachCount,
-                'evaluated_window_days' => $this->evaluatedWindowDays,
-                'evidence_hash' => $this->evidenceHash,
-                'threshold_breaches' => $this->thresholdBreaches,
+                self::FIELD_DEPARTMENT_ID => $this->departmentId,
+                self::FIELD_BREACH_COUNT => $this->breachCount,
+                self::FIELD_EVALUATED_WINDOW_DAYS => $this->evaluatedWindowDays,
+                self::FIELD_EVIDENCE_HASH => $this->evidenceHash,
+                self::FIELD_THRESHOLD_BREACHES => $this->thresholdBreaches,
             ],
         ];
     }

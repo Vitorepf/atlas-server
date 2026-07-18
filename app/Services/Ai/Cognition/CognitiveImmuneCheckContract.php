@@ -35,6 +35,12 @@ final class CognitiveImmuneCheckContract
     public const GATE_STATUS_UNKNOWN = 'unknown';
 
     public const DEFAULT_GATE_STATUS = self::GATE_STATUS_PENDING;
+    public const FIELD_FINDING_ID = 'finding_id';
+    public const FIELD_DECISION_SURFACE = 'decision_surface';
+    public const FIELD_TARGET_PATHS = 'target_paths';
+    public const FIELD_GATE_STATUSES = 'gate_statuses';
+    public const FIELD_AUTONOMOUS_EXECUTION_ALLOWED = 'autonomous_execution_allowed';
+    public const FIELD_BLOCKERS = 'blockers';
 
     public const ALLOWED_GATE_STATUSES = [
         self::GATE_STATUS_PENDING,
@@ -80,7 +86,7 @@ final class CognitiveImmuneCheckContract
     public static function fromArray(array $input): self
     {
         $gateStatuses = array_fill_keys(self::GATE_IDS, self::DEFAULT_GATE_STATUS);
-        foreach (AiValueNormalizer::arrayOrEmpty($input['gate_statuses'] ?? null) as $gateId => $status) {
+        foreach (AiValueNormalizer::arrayOrEmpty($input[self::FIELD_GATE_STATUSES] ?? null) as $gateId => $status) {
             $gateKey = AiValueNormalizer::trimmedStringOrNull($gateId);
             if ($gateKey === null || ! in_array($gateKey, self::GATE_IDS, true)) {
                 continue;
@@ -93,23 +99,23 @@ final class CognitiveImmuneCheckContract
         }
 
         $targetPaths = array_values(array_filter(
-            array_map(static fn ($path): string => AiValueNormalizer::trimmedStringOrNull($path) ?? '', AiValueNormalizer::arrayOrEmpty($input['target_paths'] ?? null)),
+            array_map(static fn ($path): string => AiValueNormalizer::trimmedStringOrNull($path) ?? '', AiValueNormalizer::arrayOrEmpty($input[self::FIELD_TARGET_PATHS] ?? null)),
             static fn (string $path): bool => $path !== '',
         ));
 
         $blockers = array_values(array_filter(
-            array_map(static fn ($blocker): string => AiValueNormalizer::trimmedStringOrNull($blocker) ?? '', AiValueNormalizer::arrayOrEmpty($input['blockers'] ?? null)),
+            array_map(static fn ($blocker): string => AiValueNormalizer::trimmedStringOrNull($blocker) ?? '', AiValueNormalizer::arrayOrEmpty($input[self::FIELD_BLOCKERS] ?? null)),
             static fn (string $blocker): bool => $blocker !== '',
         ));
 
         return new self(
-            findingId: AiValueNormalizer::trimmedStringOrNull($input['finding_id'] ?? null) ?? '',
-            decisionSurface: AiValueNormalizer::trimmedStringOrNull($input['decision_surface'] ?? null) ?? 'autonomous_engineering',
+            findingId: AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_FINDING_ID] ?? null) ?? '',
+            decisionSurface: AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_DECISION_SURFACE] ?? null) ?? 'autonomous_engineering',
             targetPaths: $targetPaths,
             gateStatuses: $gateStatuses,
             checkCategories: self::CHECK_CATEGORIES,
             blockers: $blockers,
-            autonomousExecutionAllowed: (AiValueNormalizer::boolOrNull($input['autonomous_execution_allowed'] ?? null) ?? false),
+            autonomousExecutionAllowed: (AiValueNormalizer::boolOrNull($input[self::FIELD_AUTONOMOUS_EXECUTION_ALLOWED] ?? null) ?? false),
         );
     }
 
@@ -120,16 +126,16 @@ final class CognitiveImmuneCheckContract
     {
         return [
             'schema_version' => self::SCHEMA,
-            'finding_id' => $this->findingId,
-            'decision_surface' => $this->decisionSurface,
+            self::FIELD_FINDING_ID => $this->findingId,
+            self::FIELD_DECISION_SURFACE => $this->decisionSurface,
             'inputs' => [
-                'target_paths' => $this->targetPaths,
-                'gate_statuses' => $this->gateStatuses,
+                self::FIELD_TARGET_PATHS => $this->targetPaths,
+                self::FIELD_GATE_STATUSES => $this->gateStatuses,
                 'check_categories' => $this->checkCategories,
             ],
             'outputs' => [
-                'autonomous_execution_allowed' => $this->autonomousExecutionAllowed,
-                'blockers' => $this->blockers,
+                self::FIELD_AUTONOMOUS_EXECUTION_ALLOWED => $this->autonomousExecutionAllowed,
+                self::FIELD_BLOCKERS => $this->blockers,
                 'pending_gates' => array_keys(array_filter(
                     $this->gateStatuses,
                     static fn (string $status): bool => $status === self::DEFAULT_GATE_STATUS,

@@ -30,6 +30,12 @@ final class ExecutionContextCooccurrenceService
     public const FIELD_MEASURED_RUNS = 'measured_runs';
     public const FIELD_MEASURED_SHARE = 'measured_share';
     public const FIELD_COOCCURRENCES = 'cooccurrences';
+    public const FIELD_CONTEXT_CAUSAL_BINDING = 'context_causal_binding';
+    public const FIELD_RUN_ID = 'run_id';
+    public const FIELD_OUTCOME_RECEIPT_ID = 'outcome_receipt_id';
+    public const FIELD_GREEN_RUN = 'green_run';
+    public const FIELD_ENFORCEMENT_ALLOWED = 'enforcement_allowed';
+    public const FIELD_CLAIM_POLICY = 'claim_policy';
 
 
     public const REASON_MEASURED_SHARE_ZERO = 'measured_share_zero';
@@ -47,10 +53,10 @@ final class ExecutionContextCooccurrenceService
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             'generated_at' => now()->toIso8601String(),
-            'context_causal_binding' => 'correlational_cooccurrence',
-            'enforcement_allowed' => false,
+            self::FIELD_CONTEXT_CAUSAL_BINDING => 'correlational_cooccurrence',
+            self::FIELD_ENFORCEMENT_ALLOWED => false,
             'requires_counterfactual_before_enforcement' => GoldenCounterfactualReplayService::MEASURE_ID,
-            'claim_policy' => [
+            self::FIELD_CLAIM_POLICY => [
                 'read_only' => true,
                 'provider_calls_made' => false,
                 'memory_written' => false,
@@ -108,13 +114,13 @@ final class ExecutionContextCooccurrenceService
                 continue;
             }
             $cooccurrences[] = [
-                'run_id' => (AiValueNormalizer::trimmedStringOrNull($run['run_id'] ?? null) ?? ''),
-                'outcome_receipt_id' => (AiValueNormalizer::trimmedStringOrNull($run['outcome_receipt_id'] ?? null) ?? ''),
-                'green_run' => ($run['green_run'] ?? false) === true,
+                self::FIELD_RUN_ID => (AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_RUN_ID] ?? null) ?? ''),
+                self::FIELD_OUTCOME_RECEIPT_ID => (AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_OUTCOME_RECEIPT_ID] ?? null) ?? ''),
+                self::FIELD_GREEN_RUN => ($run[self::FIELD_GREEN_RUN] ?? false) === true,
                 'delivered_ref_count' => count($delivered),
                 'used_ref_count' => count($used),
                 'intersection_refs' => $intersection,
-                'context_causal_binding' => 'correlational_cooccurrence',
+                self::FIELD_CONTEXT_CAUSAL_BINDING => 'correlational_cooccurrence',
             ];
         }
 
