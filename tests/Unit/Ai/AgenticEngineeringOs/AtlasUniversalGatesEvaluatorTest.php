@@ -15750,4 +15750,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b722_surprise_gate_floor_count']);
     }
 
+    public function test_b723_acos_evolution_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b723AcosEvolutionFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_AUTONOMY_GOVERNANCE, $out['autonomy_governance']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_COUNT, $out['count']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::STATUS_UNKNOWN, $out['unknown']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_POINTS, $out['points']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_SIGNAL, $out['signal']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_SCORE, $out['score']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_IMPLEMENTED, $out['implemented']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_AUDITED, $out['audited']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_TIER_EXPOSED, $out['tier_exposed']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_OPERATOR_SIGNED, $out['operator_signed']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_MAX, $out['max']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_SIGNALS, $out['signals']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::SCHEMA_VERSION, $out['atlas.cognition.evolution_score.v1']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::HEARTBEAT_FRESH_SECONDS, $out['7200']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::GATE_FRESH_SECONDS, $out['172800']);
+        $this->assertSame(18, $out['b723_acos_evolution_floor_count']);
+    }
+
 }

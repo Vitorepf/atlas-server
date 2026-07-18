@@ -19861,4 +19861,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B723).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b723AcosEvolutionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'autonomy_governance' => AtlasAcosEvolutionScoreService::FIELD_AUTONOMY_GOVERNANCE,
+            'count' => AtlasAcosEvolutionScoreService::FIELD_COUNT,
+            'unknown' => AtlasAcosEvolutionScoreService::STATUS_UNKNOWN,
+            'evidence' => AtlasAcosEvolutionScoreService::FIELD_EVIDENCE,
+            'points' => AtlasAcosEvolutionScoreService::FIELD_POINTS,
+            'signal' => AtlasAcosEvolutionScoreService::FIELD_SIGNAL,
+            'score' => AtlasAcosEvolutionScoreService::FIELD_SCORE,
+            'implemented' => AtlasAcosEvolutionScoreService::FIELD_IMPLEMENTED,
+            'audited' => AtlasAcosEvolutionScoreService::FIELD_AUDITED,
+            'tier_exposed' => AtlasAcosEvolutionScoreService::FIELD_TIER_EXPOSED,
+            'operator_signed' => AtlasAcosEvolutionScoreService::FIELD_OPERATOR_SIGNED,
+            'schema_version' => AtlasAcosEvolutionScoreService::FIELD_SCHEMA_VERSION,
+            'status' => AtlasAcosEvolutionScoreService::FIELD_STATUS,
+            'max' => AtlasAcosEvolutionScoreService::FIELD_MAX,
+            'signals' => AtlasAcosEvolutionScoreService::FIELD_SIGNALS,
+            'atlas.cognition.evolution_score.v1' => AtlasAcosEvolutionScoreService::SCHEMA_VERSION,
+            '7200' => AtlasAcosEvolutionScoreService::HEARTBEAT_FRESH_SECONDS,
+            '172800' => AtlasAcosEvolutionScoreService::GATE_FRESH_SECONDS,
+            'b723_acos_evolution_floor_count' => 18,
+        ];
+    }
+
 }
