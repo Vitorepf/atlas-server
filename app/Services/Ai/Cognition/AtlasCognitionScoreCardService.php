@@ -173,6 +173,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_ATLAS_DECIDE = 'atlas_decide';
     public const FIELD_COGNITIVE_IMMUNE = 'cognitive_immune';
     public const FIELD_PATAMAR_4 = 'patamar_4';
+    public const FIELD_GOVERNANCE = 'governance';
+    public const FIELD_SELF_CONSTRUCTION = 'self_construction';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -259,14 +261,14 @@ class AtlasCognitionScoreCardService
 
         // Patamar 2/3 — meta-learning, self-construction, AURG-4D, cross-domain mesh, TEOS-I3
         ['ADML',    'Atlas Decide Meta-Learning',          self::FIELD_ATLAS_DECIDE,      AtlasDecideMetaLearningService::class],
-        ['ASCB',    'Self-Construction Subsystem Builder', 'self_construction', AtlasSelfConstructionSubsystemBuilderService::class],
+        ['ASCB',    'Self-Construction Subsystem Builder', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionSubsystemBuilderService::class],
         ['AURG-4D', 'Unified Reality Graph Temporal (4D)', 'reality',           AtlasUnifiedRealityGraphTemporalService::class],
         ['ACDM',    'Cross-Domain Mesh',                   'cross_domain',      AtlasCrossDomainMeshService::class],
         ['TEOS-I3', 'TEOS-I3 Counterfactual Runtime',      'teos',              AtlasTeosI3CounterfactualService::class],
 
         // Patamar 4 — Constitutional Kernel, Autonomy Admission, CognitiveFunctionAtlas, Reconciliation Runtime, TEOS-I4, Swarm Conductor, Temporary Domain Composition
-        ['ACK',     'Constitutional Kernel',               'governance',        AtlasConstitutionalKernelService::class],
-        ['AAA',     'Autonomy Admission',                  'governance',        AtlasAutonomyAdmissionService::class],
+        ['ACK',     'Constitutional Kernel',               self::FIELD_GOVERNANCE,        AtlasConstitutionalKernelService::class],
+        ['AAA',     'Autonomy Admission',                  self::FIELD_GOVERNANCE,        AtlasAutonomyAdmissionService::class],
         ['ACFA',    'Cognitive Function Atlas',            'cognition',         AtlasCognitiveFunctionAtlasService::class],
         ['AARR',    'Autonomous Reconciliation Runtime',   'autonomy',          AtlasAutonomousReconciliationRuntimeService::class],
         ['TEOS-I4', 'TEOS-I4 Counterfactual Tree',         'teos',              AtlasTeosI4CounterfactualTreeService::class],
@@ -279,12 +281,12 @@ class AtlasCognitionScoreCardService
         ['ADLF',    'Atlas Decide Live Outcome Feedback',  self::FIELD_ATLAS_DECIDE,      AtlasDecideLiveOutcomeFeedbackService::class],
         ['AACM',    'Antifragility Composition Metric',    'compounding',       AtlasAntifragilityCompositionMetricService::class],
         ['ACMF-SE', 'Cognitive Memory Fabric Schema Evolution', self::FIELD_AUCRI,         AtlasCognitiveMemoryFabricSchemaEvolutionService::class],
-        ['ASCB-EX', 'Self-Construction Scaffold Staging Executor', 'self_construction', AtlasSelfConstructionScaffoldStagingExecutorService::class],
-        ['ASCB-PP', 'Self-Construction Promotion Plan',          'self_construction', AtlasSelfConstructionPromotionPlanService::class],
+        ['ASCB-EX', 'Self-Construction Scaffold Staging Executor', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionScaffoldStagingExecutorService::class],
+        ['ASCB-PP', 'Self-Construction Promotion Plan',          self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionPromotionPlanService::class],
         ['ACTG',    'Cartography Truth Guard',                   'cartography',       CartographyTruthGuardService::class],
         ['AGPF',    'Atlas Gateway Preflight (TEOS-I4)',         self::FIELD_ATLAS_DECIDE,      AtlasGatewayPreflightService::class],
-        ['ACVS',    'Constitutional Vault Service',              'governance',        AtlasConstitutionalVaultService::class],
-        ['ATBS',    'Trust Budget Service',                      'governance',        AtlasTrustBudgetService::class],
+        ['ACVS',    'Constitutional Vault Service',              self::FIELD_GOVERNANCE,        AtlasConstitutionalVaultService::class],
+        ['ATBS',    'Trust Budget Service',                      self::FIELD_GOVERNANCE,        AtlasTrustBudgetService::class],
         ['ANCF',    'Nightly Counterfactuals',                   self::FIELD_PATAMAR_4,         AtlasNightlyCounterfactualsService::class],
         ['ASAR',    'Subsystem Auto-Rebalance',                  self::FIELD_PATAMAR_4,         AtlasSubsystemAutoRebalanceService::class],
         ['ASOS',    'Atlas Scheduler OS (Cron 24/7)',            self::FIELD_PATAMAR_4,         AtlasSchedulerHealthService::class],
@@ -294,7 +296,7 @@ class AtlasCognitionScoreCardService
         ['ACSR',    'Cognitive Function Swarm Router (P6 closure)', self::FIELD_ATLAS_DECIDE,   AtlasCognitiveFunctionSwarmRouterService::class],
         ['ASAF',    'Swarm Auto-Failover (A4)',                  self::FIELD_ATLAS_DECIDE,      AtlasSwarmAutoFailoverService::class],
         ['ARDS',    'Runtime Degradation Signal Ingress',        self::FIELD_PATAMAR_4,         AtlasRuntimeDegradationSignalService::class],
-        ['ASDM',    'Self-Divergence Model (target vs current)', 'self_construction', AtlasSelfDivergenceModelService::class],
+        ['ASDM',    'Self-Divergence Model (target vs current)', self::FIELD_SELF_CONSTRUCTION, AtlasSelfDivergenceModelService::class],
         ['AEMB',    'Embodiment Integration (P7 closure)',       self::FIELD_PATAMAR_4,         AtlasEmbodimentIntegrationService::class],
 
         // Patamar 1/2/3 closures — OCR confidence, Compounding L8/L9

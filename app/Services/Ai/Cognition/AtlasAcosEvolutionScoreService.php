@@ -130,6 +130,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_PACK_ANTI_LIXO = 'pack_anti_lixo';
     public const FIELD_PIPELINE_GREEN_RUN_RECEIPTS = 'pipeline_green_run_receipts';
     public const FIELD_SOURCE_KIND = 'source_kind';
+    public const FIELD_AI_LEARNING_CANDIDATES = 'ai_learning_candidates';
+    public const FIELD_AI_RAG_FEEDBACK_EVENTS = 'ai_rag_feedback_events';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -215,7 +217,7 @@ class AtlasAcosEvolutionScoreService
             self::FIELD_EVIDENCE => $unmarked === -1 ? 'store ausente (0 honesto)' : sprintf('unmarked_session_echo_nodes=%d', $unmarked),
         ];
 
-        $feedback7d = $this->tableCount('ai_rag_feedback_events', fn ($q) => $q->where(self::FIELD_CREATED_AT, '>=', now()->subDays(7)));
+        $feedback7d = $this->tableCount(self::FIELD_AI_RAG_FEEDBACK_EVENTS, fn ($q) => $q->where(self::FIELD_CREATED_AT, '>=', now()->subDays(7)));
         $hintsOn = (AiValueNormalizer::boolOrNull(config(self::GLOBAL_HINTS_ENABLED_CONFIG_KEY, self::DEFAULT_GLOBAL_HINTS_ENABLED)) ?? self::DEFAULT_GLOBAL_HINTS_ENABLED);
         $oldFeedbackPoints = round(($feedback7d > 0 ? 1.25 : 0.0) + ($hintsOn ? 1.25 : 0.0), 2);
 
@@ -243,8 +245,8 @@ class AtlasAcosEvolutionScoreService
             ),
         ];
 
-        $held = $this->tableCount('ai_learning_candidates', fn ($q) => $q->where(self::FIELD_DECISION, 'hold'));
-        $promoted = $this->tableCount('ai_learning_candidates', fn ($q) => $q->where(self::FIELD_DECISION, 'promote'));
+        $held = $this->tableCount(self::FIELD_AI_LEARNING_CANDIDATES, fn ($q) => $q->where(self::FIELD_DECISION, 'hold'));
+        $promoted = $this->tableCount(self::FIELD_AI_LEARNING_CANDIDATES, fn ($q) => $q->where(self::FIELD_DECISION, 'promote'));
         $oldLicoesPoints = round(($held > 0 ? 1.25 : 0.0) + ($promoted > 0 ? 1.25 : 0.0), 2);
         $servedCompounding = $this->activeCompoundingMemoryServedByRecall();
         $newLicoesPoints = $servedCompounding ? 2.5 : 0.0;
@@ -406,7 +408,7 @@ class AtlasAcosEvolutionScoreService
     private function activeCompoundingMemoryServedByRecall(): bool
     {
         try {
-            if (! Schema::hasTable('ai_compounding_memories') || ! Schema::hasTable('ai_rag_feedback_events')) {
+            if (! Schema::hasTable('ai_compounding_memories') || ! Schema::hasTable(self::FIELD_AI_RAG_FEEDBACK_EVENTS)) {
                 return false;
             }
 

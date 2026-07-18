@@ -8718,4 +8718,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cognitive_function_department_contract_immune_promotion_cognition_score_floor_count']);
     }
 
+    public function test_b439_cognitive_function_department_contract_immune_promotion_cognition_score_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b439CognitiveFunctionDepartmentContractImmunePromotionCognitionScoreFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_BUILD, $out['build']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CARTOGRAFIA, $out['cartografia']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_APPROVE_UNAUDITED_DEP, $out['approve_unaudited_dep']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_BLOCKERS_ADDRESSED, $out['blockers_addressed']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_CLAIM_SOURCE_PRESENT, $out['claim_source_present']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_CLAIM_TYPE, $out['claim_type']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_GOVERNANCE, $out['governance']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SELF_CONSTRUCTION, $out['self_construction']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ANALOGIA, $out['analogia']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_COMPILER, $out['compiler']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LAST_AI_RUN_OUTCOME, $out['last_ai_run_outcome']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LAST_DELIVERED_REFS_EVENT, $out['last_delivered_refs_event']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DEBUG, $out['debug']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DELIVERY, $out['delivery']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_DIM, $out['dim']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_DIM_NOT_ALLOWED, $out['dim_not_allowed']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_AI_LEARNING_CANDIDATES, $out['ai_learning_candidates']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_AI_RAG_FEEDBACK_EVENTS, $out['ai_rag_feedback_events']);
+        $this->assertSame(18, $out['b439_cognitive_function_department_contract_immune_promotion_cognition_score_floor_count']);
+    }
+
 }

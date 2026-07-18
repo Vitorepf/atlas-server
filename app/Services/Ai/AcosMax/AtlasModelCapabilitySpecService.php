@@ -51,6 +51,8 @@ final class AtlasModelCapabilitySpecService
     public const FIELD_NON_EMPTY_STRING = 'non_empty_string';
     public const FIELD_CONTEXT_BELOW_SPEC_FLOOR = 'context_below_spec_floor';
     public const FIELD_DETERMINISTIC = 'deterministic';
+    public const FIELD_DIM = 'dim';
+    public const FIELD_DIM_NOT_ALLOWED = 'dim_not_allowed';
     /** @var array<string, array<string, mixed>> */
     private array $functions;
 
@@ -109,7 +111,7 @@ final class AtlasModelCapabilitySpecService
         ));
 
         $violations = array_merge($violations, $this->checkEnum(
-            $spec, $model, 'dim', 'dim', 'dim_not_allowed'
+            $spec, $model, self::FIELD_DIM, 'dim', self::FIELD_DIM_NOT_ALLOWED
         ));
 
         $violations = array_merge($violations, $this->checkEnum(

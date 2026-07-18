@@ -312,6 +312,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_SYSTEM = 'system';
     public const FIELD_FEEDBACK_RECORDED_AT = 'feedback_recorded_at';
     public const FIELD_FRESHNESS_FULL = 'freshness_full';
+    public const FIELD_LAST_AI_RUN_OUTCOME = 'last_ai_run_outcome';
+    public const FIELD_LAST_DELIVERED_REFS_EVENT = 'last_delivered_refs_event';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -395,8 +397,8 @@ final class AtlasAcosWatchdogHealthService
         $lift = app(AtlasLearningRecallUseLiftService::class)->report();
         $checks = [
             $this->ageCheck('last_negative_feedback', $lastNegative, self::LEARNING_NEGATIVE_MAX_AGE_HOURS, $now),
-            $this->ageCheck('last_ai_run_outcome', $lastOutcome, self::LEARNING_AI_RUN_OUTCOME_MAX_AGE_HOURS, $now),
-            $this->checkRow('last_delivered_refs_event', $lastDeliveredRefs !== null, [
+            $this->ageCheck(self::FIELD_LAST_AI_RUN_OUTCOME, $lastOutcome, self::LEARNING_AI_RUN_OUTCOME_MAX_AGE_HOURS, $now),
+            $this->checkRow(self::FIELD_LAST_DELIVERED_REFS_EVENT, $lastDeliveredRefs !== null, [
                 self::FIELD_LAST_AT => $lastDeliveredRefs?->toIso8601String(),
             ], 'no_recent_delivered_refs_event'),
         ];

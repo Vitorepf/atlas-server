@@ -7879,6 +7879,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b439_cognitive_function_department_contract_immune_promotion_cognition_score_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b439-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b439',
+                '--b439-cognitive-function-department-contract-immune-promotion-cognition-score-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b439_cognitive_function_department_contract_immune_promotion_cognition_score_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

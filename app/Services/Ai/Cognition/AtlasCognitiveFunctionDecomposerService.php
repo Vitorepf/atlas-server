@@ -83,6 +83,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_AUDITA = 'audita';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_AVALIE = 'avalie';
+    public const FIELD_BUILD = 'build';
+    public const FIELD_CARTOGRAFIA = 'cartografia';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -121,7 +123,7 @@ final class AtlasCognitiveFunctionDecomposerService
             'componente', 'servico', 'classe', 'funcao', 'controller', 'cli',
             self::FIELD_ARTISAN, 'migration', 'composer', 'npm', 'phpunit', 'pest',
             'patch', 'pull request', 'pr ', ' pr,', 'merge', 'git ',
-            'code', 'function', 'class', 'service', 'refactor', 'test', 'build',
+            'code', 'function', 'class', 'service', 'refactor', 'test', self::FIELD_BUILD,
         ],
         self::FIELD_VISION => [
             'imagem', 'foto', 'screenshot', 'visualize', 'design', 'layout',
@@ -130,7 +132,7 @@ final class AtlasCognitiveFunctionDecomposerService
         ],
         self::FIELD_AUDIT => [
             'audite', self::FIELD_AUDITA, 'audit', 'verifique', 'valide', 'cheque',
-            'inspecione', 'governance', 'invariant', 'kernel', 'cartografia',
+            'inspecione', 'governance', 'invariant', 'kernel', self::FIELD_CARTOGRAFIA,
             'doc', 'documento', 'compliance', 'evidence', 'evidencia',
             'integrity', 'tamper', self::FIELD_SHA256, 'hash ', 'verify',
         ],

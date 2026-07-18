@@ -245,6 +245,8 @@ final class DepartmentContractRuntime
     public const FIELD_ROLLBACK_PLAN_PRESENT = 'rollback_plan_present';
     public const FIELD_APPROVE_FOR_CERT = 'approve_for_cert';
     public const FIELD_APPROVE_RELEASE_WITHOUT_REVIEW = 'approve_release_without_review';
+    public const FIELD_APPROVE_UNAUDITED_DEP = 'approve_unaudited_dep';
+    public const FIELD_BLOCKERS_ADDRESSED = 'blockers_addressed';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -430,7 +432,7 @@ final class DepartmentContractRuntime
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_REVIEW_REPORT, self::FIELD_SCHEMA => self::SCHEMA_REVIEW_REPORT],
             ],
-            self::FIELD_GATES => ['review_packet_signed', 'risk_acknowledged', 'review_checklist_complete', 'blockers_addressed', 'evidence_traceable'],
+            self::FIELD_GATES => ['review_packet_signed', 'risk_acknowledged', 'review_checklist_complete', self::FIELD_BLOCKERS_ADDRESSED, 'evidence_traceable'],
             self::FIELD_ALLOWED_ACTIONS => ['request_changes', self::FIELD_APPROVE_FOR_CERT, 'veto_release'],
             self::FIELD_FORBIDDEN_ACTIONS => ['edit_code', 'deploy_release', 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
@@ -479,7 +481,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_GATES => ['security_scan_clean', 'cve_acknowledged', 'secret_scan_clean', 'dependency_audit_clean', 'threat_model_present', 'sovereignty_boundary_respected'],
             self::FIELD_ALLOWED_ACTIONS => ['allow', 'deny', 'request_mitigation', 'escalate_to_operator'],
-            self::FIELD_FORBIDDEN_ACTIONS => ['bypass_sovereignty', 'approve_unaudited_dep', 'ship_without_evidence'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['bypass_sovereignty', self::FIELD_APPROVE_UNAUDITED_DEP, 'ship_without_evidence'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['policy_decision_hash', 'secret_scan_report_hash', 'dependency_audit_hash'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_POLICY_DECISIONS, self::FIELD_LEDGER => self::FIELD_AAEOS_SECURITY_LEDGER],

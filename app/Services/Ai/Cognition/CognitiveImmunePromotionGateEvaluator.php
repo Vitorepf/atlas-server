@@ -73,6 +73,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_ATOMIC_CLAIM_PRESENT = 'atomic_claim_present';
     public const FIELD_CONTRADICTS_NEWER = 'contradicts_newer';
     public const FIELD_SCOPE = 'scope';
+    public const FIELD_CLAIM_SOURCE_PRESENT = 'claim_source_present';
+    public const FIELD_CLAIM_TYPE = 'claim_type';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -192,8 +194,8 @@ final class CognitiveImmunePromotionGateEvaluator
     private function extractionGate(array $signals): array
     {
         $confirmed = $this->flag($signals, self::FIELD_ATOMIC_CLAIM_PRESENT)
-            && $this->nonEmptyString($signals, 'claim_type')
-            && $this->flag($signals, 'claim_source_present')
+            && $this->nonEmptyString($signals, self::FIELD_CLAIM_TYPE)
+            && $this->flag($signals, self::FIELD_CLAIM_SOURCE_PRESENT)
             && $this->nonEmptyString($signals, self::FIELD_SCOPE);
 
         return $confirmed

@@ -11134,4 +11134,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B439).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b439CognitiveFunctionDepartmentContractImmunePromotionCognitionScoreFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'build' => AtlasCognitiveFunctionDecomposerService::FIELD_BUILD,
+            'cartografia' => AtlasCognitiveFunctionDecomposerService::FIELD_CARTOGRAFIA,
+            'approve_unaudited_dep' => DepartmentContractRuntime::FIELD_APPROVE_UNAUDITED_DEP,
+            'blockers_addressed' => DepartmentContractRuntime::FIELD_BLOCKERS_ADDRESSED,
+            'claim_source_present' => CognitiveImmunePromotionGateEvaluator::FIELD_CLAIM_SOURCE_PRESENT,
+            'claim_type' => CognitiveImmunePromotionGateEvaluator::FIELD_CLAIM_TYPE,
+            'governance' => AtlasCognitionScoreCardService::FIELD_GOVERNANCE,
+            'self_construction' => AtlasCognitionScoreCardService::FIELD_SELF_CONSTRUCTION,
+            'analogia' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ANALOGIA,
+            'compiler' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_COMPILER,
+            'last_ai_run_outcome' => AtlasAcosWatchdogHealthService::FIELD_LAST_AI_RUN_OUTCOME,
+            'last_delivered_refs_event' => AtlasAcosWatchdogHealthService::FIELD_LAST_DELIVERED_REFS_EVENT,
+            'debug' => AtlasAaeosDepartmentRegistryService::FIELD_DEBUG,
+            'delivery' => AtlasAaeosDepartmentRegistryService::FIELD_DELIVERY,
+            'dim' => AtlasModelCapabilitySpecService::FIELD_DIM,
+            'dim_not_allowed' => AtlasModelCapabilitySpecService::FIELD_DIM_NOT_ALLOWED,
+            'ai_learning_candidates' => AtlasAcosEvolutionScoreService::FIELD_AI_LEARNING_CANDIDATES,
+            'ai_rag_feedback_events' => AtlasAcosEvolutionScoreService::FIELD_AI_RAG_FEEDBACK_EVENTS,
+            'b439_cognitive_function_department_contract_immune_promotion_cognition_score_floor_count' => 18,
+        ];
+    }
+
 }
