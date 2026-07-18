@@ -7782,6 +7782,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for lote2/health/horizon/promoter/capture/obra/dual/truth/vision peels.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function lote2HealthHorizonPromoterCaptureObraDualTruthVisionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'lote2_field_asks_per_request' => AcosMaxLote2MeasureService::FIELD_ASKS_PER_REQUEST,
+            'lote2_field_blocked_by_top' => AcosMaxLote2MeasureService::FIELD_BLOCKED_BY_TOP,
+            'health_field_adml_proven_routes' => AtlasAcosWatchdogHealthService::FIELD_ADML_PROVEN_ROUTES,
+            'health_field_ai_rag_feedback_events_table_missing' => AtlasAcosWatchdogHealthService::FIELD_AI_RAG_FEEDBACK_EVENTS_TABLE_MISSING,
+            'horizon_field_certification_window_end' => AtlasAcosLongHorizonGateService::FIELD_CERTIFICATION_WINDOW_END,
+            'horizon_field_certification_window_sample_count' => AtlasAcosLongHorizonGateService::FIELD_CERTIFICATION_WINDOW_SAMPLE_COUNT,
+            'promoter_field_floor_pending' => AcosMaxProceduralSkillPromoterService::FIELD_FLOOR_PENDING,
+            'promoter_field_forbidden_actions' => AcosMaxProceduralSkillPromoterService::FIELD_FORBIDDEN_ACTIONS,
+            'capture_field_hours_of_integration' => AtlasNCaptureDrillService::FIELD_HOURS_OF_INTEGRATION,
+            'capture_field_latest' => AtlasNCaptureDrillService::FIELD_LATEST,
+            'obra_field_kill_gate' => ComposedObraArcComposer::FIELD_KILL_GATE,
+            'obra_field_member_paths' => ComposedObraArcComposer::FIELD_MEMBER_PATHS,
+            'dual_field_command' => Maxa04JinaV3DualReadService::FIELD_COMMAND,
+            'dual_field_default_model_unchanged' => Maxa04JinaV3DualReadService::FIELD_DEFAULT_MODEL_UNCHANGED,
+            'truth_field_graph_id' => AtlasAaeosImplementationTruthService::FIELD_GRAPH_ID,
+            'truth_field_index_resolved' => AtlasAaeosImplementationTruthService::FIELD_INDEX_RESOLVED,
+            'vision_field_bands' => EvidenceVisionThesisComposer::FIELD_BANDS,
+            'vision_field_calibration' => EvidenceVisionThesisComposer::FIELD_CALIBRATION,
+            'lote2_health_horizon_promoter_capture_obra_dual_truth_vision_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

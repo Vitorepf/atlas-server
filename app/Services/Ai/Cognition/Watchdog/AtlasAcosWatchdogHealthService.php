@@ -154,6 +154,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_WRITER_SHARES = 'writer_shares';
     public const FIELD_ADML_COST_OUTCOME = 'adml_cost_outcome';
     public const FIELD_ADML_PROVEN_ROUTE_VOLUME_BELOW_FLOOR = 'adml_proven_route_volume_below_floor';
+    public const FIELD_ADML_PROVEN_ROUTES = 'adml_proven_routes';
+    public const FIELD_AI_RAG_FEEDBACK_EVENTS_TABLE_MISSING = 'ai_rag_feedback_events_table_missing';
 
     public const STATUS_UNKNOWN = 'unknown';
 
@@ -433,7 +435,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_SCHEMA_VERSION => self::CONTEXT_FEEDBACK_SCHEMA,
                 self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
                 self::STATUS_ALERT => true,
-                self::FIELD_BLOCKING => ['ai_rag_feedback_events_table_missing'],
+                self::FIELD_BLOCKING => [self::FIELD_AI_RAG_FEEDBACK_EVENTS_TABLE_MISSING],
                 self::FIELD_TOTAL_EVENT_COUNT => 0,
                 self::FIELD_MEASURED_SHARE => 0.0,
                 self::FIELD_WRITER_SHARES => [],
@@ -755,7 +757,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_WINDOW_DAYS => self::ENG_WINDOW_DAYS,
                 'real_executions_per_executor' => self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR,
                 'forge_promoted_cycles' => self::ENG_MIN_FORGE_PROMOTED_CYCLES,
-                'adml_proven_routes' => self::ENG_MIN_ADML_PROVEN_ROUTES,
+                self::FIELD_ADML_PROVEN_ROUTES => self::ENG_MIN_ADML_PROVEN_ROUTES,
             ],
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];

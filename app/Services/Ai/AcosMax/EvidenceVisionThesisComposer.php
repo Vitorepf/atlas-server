@@ -95,6 +95,8 @@ final class EvidenceVisionThesisComposer
     public const FIELD_N_REALIZED = 'n_realized';
     public const FIELD_REALIZED_TRUE = 'realized_true';
     public const FIELD_CONSECUTIVE_WINDOWS = 'consecutive_windows';
+    public const FIELD_BANDS = 'bands';
+    public const FIELD_CALIBRATION = 'calibration';
 
     /**
      * @param  array<string,mixed>  $context
@@ -120,7 +122,7 @@ final class EvidenceVisionThesisComposer
             }
         }
 
-        foreach (self::calibrationDriftTheses(AiValueNormalizer::arrayOrEmpty($context['calibration'] ?? null), $bornAt, $ttlDays) as $thesis) {
+        foreach (self::calibrationDriftTheses(AiValueNormalizer::arrayOrEmpty($context[self::FIELD_CALIBRATION] ?? null), $bornAt, $ttlDays) as $thesis) {
             if (count($theses) >= self::MAX_THESES) {
                 break;
             }
@@ -332,7 +334,7 @@ final class EvidenceVisionThesisComposer
      */
     private static function calibrationDriftTheses(array $calibration, string $bornAt, int $ttlDays): array
     {
-        $bands = AiValueNormalizer::arrayOrEmpty($calibration['bands'] ?? null);
+        $bands = AiValueNormalizer::arrayOrEmpty($calibration[self::FIELD_BANDS] ?? null);
         $high = AiValueNormalizer::arrayOrEmpty($bands['high'] ?? null);
         $sweet = AiValueNormalizer::arrayOrEmpty($bands['sweet'] ?? null);
         $highN = (int) (AiValueNormalizer::finiteFloatOrNull($high[self::FIELD_N_REALIZED] ?? null) ?? 0);

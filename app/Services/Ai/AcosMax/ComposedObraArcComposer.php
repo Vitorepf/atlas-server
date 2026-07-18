@@ -67,6 +67,8 @@ final class ComposedObraArcComposer
     public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
     public const FIELD_SUMMARY = 'summary';
     public const FIELD_OBRA_CLUSTER_CANDIDATE = 'obra_cluster_candidate';
+    public const FIELD_KILL_GATE = 'kill_gate';
+    public const FIELD_MEMBER_PATHS = 'member_paths';
 
     public const STATUS_FLAG_DISABLED = 'flag_disabled';
 
@@ -282,7 +284,7 @@ final class ComposedObraArcComposer
                 self::FIELD_EXECUTABLE => 'Every ordered arc task lands with proven_real outcome; partial completion leaves arc open.',
                 self::FIELD_CERTIFIER_ENGINE_ID => $judge,
             ],
-            'kill_gate' => [
+            self::FIELD_KILL_GATE => [
                 self::FIELD_CONSECUTIVE_FAILURES_K => self::KILL_GATE_CONSECUTIVE_FAILURES,
                 self::FIELD_CONSECUTIVE_FAILURES => 0,
                 self::FIELD_ACTION_ON_TRIGGER => 'archive_with_receipt',
@@ -322,7 +324,7 @@ final class ComposedObraArcComposer
                 continue;
             }
             $block = is_array($lead[self::FIELD_OBRA_CLUSTER_CANDIDATE] ?? null) ? $lead[self::FIELD_OBRA_CLUSTER_CANDIDATE] : $lead;
-            foreach (AiValueNormalizer::arrayOrEmpty($block[self::FIELD_ALLOWED_FILES] ?? $block['member_paths'] ?? null) as $path) {
+            foreach (AiValueNormalizer::arrayOrEmpty($block[self::FIELD_ALLOWED_FILES] ?? $block[self::FIELD_MEMBER_PATHS] ?? null) as $path) {
                 $normalized = ltrim(str_replace('\\', '/', AiValueNormalizer::trimmedStringOrNull($path) ?? ''), '/');
                 if ($normalized !== '') {
                     $paths[] = $normalized;

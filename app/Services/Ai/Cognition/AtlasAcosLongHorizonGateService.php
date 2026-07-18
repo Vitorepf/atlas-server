@@ -125,6 +125,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_SERIES_V2 = 'series_v2';
     public const FIELD_ACOS_LONG_HORIZON_GATE_DISABLED = 'acos_long_horizon_gate_disabled';
     public const FIELD_CERTIFICATION_WINDOW_DAYS_BELOW_FLOOR = 'certification_window_days_below_floor';
+    public const FIELD_CERTIFICATION_WINDOW_END = 'certification_window_end';
+    public const FIELD_CERTIFICATION_WINDOW_SAMPLE_COUNT = 'certification_window_sample_count';
 
     /**
      * @param  array<string,mixed>  $options
@@ -352,8 +354,8 @@ final class AtlasAcosLongHorizonGateService
             self::FIELD_FUTURE_DATED_ROWS => (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_FUTURE_DATED_ROWS] ?? null) ?? 0),
             self::FIELD_LATEST_STALENESS_DAYS => (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_LATEST_STALENESS_DAYS] ?? null) ?? 0),
             'certification_window_start' => $certificationWindowDates[0] ?? null,
-            'certification_window_end' => $latestDate,
-            'certification_window_sample_count' => count($sampledDatesInWindow),
+            self::FIELD_CERTIFICATION_WINDOW_END => $latestDate,
+            self::FIELD_CERTIFICATION_WINDOW_SAMPLE_COUNT => count($sampledDatesInWindow),
             self::FIELD_MAX_CONSECUTIVE_GAP_DAYS => (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_MAX_CONSECUTIVE_GAP_DAYS] ?? null) ?? 0),
             self::FIELD_BACKFILLED_SAMPLES => (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_BACKFILLED_SAMPLES] ?? null) ?? 0),
             'resolved_evidence_rows' => $resolvedEvidenceRows,

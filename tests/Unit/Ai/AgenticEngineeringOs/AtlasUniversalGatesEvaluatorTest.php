@@ -5871,5 +5871,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['delivery_immune_registry_operator_lote2_health_horizon_promoter_floor_count']);
     }
 
+    public function test_lote2_health_horizon_promoter_capture_obra_dual_truth_vision_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->lote2HealthHorizonPromoterCaptureObraDualTruthVisionFloorsContractObserve([]);
+
+        $this->assertSame('asks_per_request', $payload['lote2_field_asks_per_request']);
+        $this->assertSame('blocked_by_top', $payload['lote2_field_blocked_by_top']);
+        $this->assertSame('adml_proven_routes', $payload['health_field_adml_proven_routes']);
+        $this->assertSame('ai_rag_feedback_events_table_missing', $payload['health_field_ai_rag_feedback_events_table_missing']);
+        $this->assertSame('certification_window_end', $payload['horizon_field_certification_window_end']);
+        $this->assertSame('certification_window_sample_count', $payload['horizon_field_certification_window_sample_count']);
+        $this->assertSame('floor_pending', $payload['promoter_field_floor_pending']);
+        $this->assertSame('forbidden_actions', $payload['promoter_field_forbidden_actions']);
+        $this->assertSame('hours_of_integration', $payload['capture_field_hours_of_integration']);
+        $this->assertSame('latest', $payload['capture_field_latest']);
+        $this->assertSame('kill_gate', $payload['obra_field_kill_gate']);
+        $this->assertSame('member_paths', $payload['obra_field_member_paths']);
+        $this->assertSame('command', $payload['dual_field_command']);
+        $this->assertSame('default_model_unchanged', $payload['dual_field_default_model_unchanged']);
+        $this->assertSame('graph_id', $payload['truth_field_graph_id']);
+        $this->assertSame('index_resolved', $payload['truth_field_index_resolved']);
+        $this->assertSame('bands', $payload['vision_field_bands']);
+        $this->assertSame('calibration', $payload['vision_field_calibration']);
+        $this->assertSame(18, $payload['lote2_health_horizon_promoter_capture_obra_dual_truth_vision_floor_count']);
+    }
+
 
 }

@@ -105,6 +105,8 @@ final class AtlasNCaptureDrillService
     public const FIELD_GENERATED_AT = 'generated_at';
     public const FIELD_GOLDEN_V2_PASSED = 'golden_v2_passed';
     public const FIELD_GOLDEN_V2_SCORE = 'golden_v2_score';
+    public const FIELD_HOURS_OF_INTEGRATION = 'hours_of_integration';
+    public const FIELD_LATEST = 'latest';
 
     private readonly string $ledgerPath;
 
@@ -190,7 +192,7 @@ final class AtlasNCaptureDrillService
             'times' => [
                 'time_to_first_routed_task_seconds' => (int) data_get($drill, 'times.time_to_first_routed_task_seconds'),
                 'time_to_first_proven_real_seconds' => (int) data_get($drill, 'times.time_to_first_proven_real_seconds'),
-                'hours_of_integration' => AiValueNormalizer::finiteFloatOrNull(data_get($drill, 'times.hours_of_integration')) ?? 0.0,
+                self::FIELD_HOURS_OF_INTEGRATION => AiValueNormalizer::finiteFloatOrNull(data_get($drill, 'times.hours_of_integration')) ?? 0.0,
             ],
             self::FIELD_DENOMINATORS => [
                 'routed_tasks_observed' => (int) data_get($drill, 'denominators.routed_tasks_observed', 0),
@@ -277,7 +279,7 @@ final class AtlasNCaptureDrillService
                 'refused_count' => count($refused),
                 self::FIELD_ENGINES => $engines,
             ],
-            'latest' => $inWindow === [] ? null : end($inWindow),
+            self::FIELD_LATEST => $inWindow === [] ? null : end($inWindow),
             self::FIELD_DRILLS => $inWindow,
         ];
     }

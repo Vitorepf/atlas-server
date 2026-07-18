@@ -186,6 +186,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_WINDOW_DAYS = 'window_days';
     public const FIELD_ABANDONED_COUNT_AS_NOT_COMPLETED = 'abandoned_count_as_not_completed';
     public const FIELD_ARM = 'arm';
+    public const FIELD_ASKS_PER_REQUEST = 'asks_per_request';
+    public const FIELD_BLOCKED_BY_TOP = 'blocked_by_top';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -327,7 +329,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_LOOPS_COMPLETE => $loopsComplete,
             self::FIELD_LOOPS => $loops,
             self::FIELD_LOOPS_PARTIAL => $partial,
-            'blocked_by_top' => $blockedByTop,
+            self::FIELD_BLOCKED_BY_TOP => $blockedByTop,
             self::FIELD_N_TOTAL => $loopsComplete + count($partial),
             self::FIELD_FIXTURE_REJECTED => $fixtureRejected,
             self::FIELD_TIME_PER_LOOP => [
@@ -1036,7 +1038,7 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_OPERATOR_REQUESTS => $total,
                 'completed_e2e' => $completed,
                 'mission_e2e_rate' => $total > 0 ? round($completed / $total, 4) : null,
-                'asks_per_request' => null,
+                self::FIELD_ASKS_PER_REQUEST => null,
                 'request_to_delivery_p50_seconds' => null,
                 'request_to_delivery_p95_seconds' => null,
             ],

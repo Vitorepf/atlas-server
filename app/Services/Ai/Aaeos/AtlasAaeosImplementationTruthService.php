@@ -103,6 +103,8 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_SYMBOL = 'symbol';
     public const FIELD_TEST_GREEN = 'test_green';
     public const FIELD_RECEIPT = 'receipt';
+    public const FIELD_GRAPH_ID = 'graph_id';
+    public const FIELD_INDEX_RESOLVED = 'index_resolved';
 
     public const RANK = [
         self::LEVEL_SPEC => 0,
@@ -311,7 +313,7 @@ class AtlasAaeosImplementationTruthService
                 $resolution = $this->resolver->resolve('test', $value);
                 $testRefs[] = [
                     self::FIELD_REF => $value,
-                    'index_resolved' => ($resolution[self::FIELD_RESOLVED] ?? false) === true,
+                    self::FIELD_INDEX_RESOLVED => ($resolution[self::FIELD_RESOLVED] ?? false) === true,
                     self::FIELD_MATCHED => $resolution[self::FIELD_MATCHED] ?? null,
                 ];
             }
@@ -369,7 +371,7 @@ class AtlasAaeosImplementationTruthService
             }
             $relativePath = str_replace(base_path().DIRECTORY_SEPARATOR, '', $file->getPathname());
             $docs[] = [
-                'id' => AiValueNormalizer::trimmedStringOrNull($fm['id'] ?? $fm['graph_id'] ?? $relativePath) ?? $relativePath,
+                'id' => AiValueNormalizer::trimmedStringOrNull($fm['id'] ?? $fm[self::FIELD_GRAPH_ID] ?? $relativePath) ?? $relativePath,
                 self::FIELD_PATH => $relativePath,
                 self::FIELD_IMPLEMENTATION_STATE => (AiValueNormalizer::trimmedStringOrNull($fm[self::FIELD_IMPLEMENTATION_STATE] ?? null) ?? self::LEVEL_SPEC),
                 self::FIELD_EVIDENCE_REFS => $evidenceRefs,

@@ -351,6 +351,7 @@ final class AtlasAaeosCommand extends Command
         {--integrity-architect-veto-bets-promotion-freeze-compounding-resolver-budget-floors-contract= : JSON file (any object) to observe integrity/architect/veto/bets/promotion/freeze/compounding/resolver/budget residual floors}
         {--architect-rollback-ledger-work-substrate-decay-dod-capability-maturity-floors-contract= : JSON file (any object) to observe architect/rollback/ledger/work/substrate/decay/dod/capability/maturity residual floors}
         {--delivery-immune-registry-operator-lote2-health-horizon-promoter-floors-contract= : JSON file (any object) to observe delivery/immune/registry/operator/lote2/health/horizon/promoter residual floors}
+        {--lote2-health-horizon-promoter-capture-obra-dual-truth-vision-floors-contract= : JSON file (any object) to observe lote2/health/horizon/promoter/capture/obra/dual/truth/vision residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -858,6 +859,7 @@ final class AtlasAaeosCommand extends Command
             ['integrity-architect-veto-bets-promotion-freeze-compounding-resolver-budget-floors-contract', 'integrity_architect_veto_bets_promotion_freeze_compounding_resolver_budget_floors_contract', fn (array $p) => $gates->integrityArchitectVetoBetsPromotionFreezeCompoundingResolverBudgetFloorsContractObserve($p)],
             ['architect-rollback-ledger-work-substrate-decay-dod-capability-maturity-floors-contract', 'architect_rollback_ledger_work_substrate_decay_dod_capability_maturity_floors_contract', fn (array $p) => $gates->architectRollbackLedgerWorkSubstrateDecayDodCapabilityMaturityFloorsContractObserve($p)],
             ['delivery-immune-registry-operator-lote2-health-horizon-promoter-floors-contract', 'delivery_immune_registry_operator_lote2_health_horizon_promoter_floors_contract', fn (array $p) => $gates->deliveryImmuneRegistryOperatorLote2HealthHorizonPromoterFloorsContractObserve($p)],
+            ['lote2-health-horizon-promoter-capture-obra-dual-truth-vision-floors-contract', 'lote2_health_horizon_promoter_capture_obra_dual_truth_vision_floors_contract', fn (array $p) => $gates->lote2HealthHorizonPromoterCaptureObraDualTruthVisionFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

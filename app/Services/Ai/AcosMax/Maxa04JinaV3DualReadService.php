@@ -66,6 +66,8 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_CURRENT_RECALL_AT_5_MEAN = 'current_recall_at_5_mean';
     public const FIELD_CURRENT_PRECISION_AT_5_MEAN = 'current_precision_at_5_mean';
     public const FIELD_LIVE_FLIP_PERFORMED = 'live_flip_performed';
+    public const FIELD_COMMAND = 'command';
+    public const FIELD_DEFAULT_MODEL_UNCHANGED = 'default_model_unchanged';
 
 
     /** @return array<string,mixed> */
@@ -111,14 +113,14 @@ final class Maxa04JinaV3DualReadService
             ],
             'reembed_path' => [
                 'mode' => self::MODE_SHADOW_ONLY,
-                'command' => 'ATLAS_SEMANTIC_RAG_MODEL=jinaai/jina-embeddings-v3 php artisan atlas:memory:embed-backfill --stale --json',
+                self::FIELD_COMMAND => 'ATLAS_SEMANTIC_RAG_MODEL=jinaai/jina-embeddings-v3 php artisan atlas:memory:embed-backfill --stale --json',
                 'writes_live_default_model' => false,
                 'requires_dual_read_ledger' => true,
             ],
             self::FIELD_ROLLBACK => [
                 'handle' => 'maxa04:restore-current-semantic-rag-model',
                 'description' => 'Restore ATLAS_SEMANTIC_RAG_MODEL to the prior model and discard jina-v3 shadow rows before any operator promotion.',
-                'default_model_unchanged' => true,
+                self::FIELD_DEFAULT_MODEL_UNCHANGED => true,
             ],
             self::FIELD_DEFAULT_PROMOTED => false,
             self::FIELD_APPLIED_TO_LIVE => false,

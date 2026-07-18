@@ -6209,6 +6209,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_lote2_health_horizon_promoter_capture_obra_dual_truth_vision_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-lhhpcodtv-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-lhhpcodtv',
+                '--lote2-health-horizon-promoter-capture-obra-dual-truth-vision-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"lote2_health_horizon_promoter_capture_obra_dual_truth_vision_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

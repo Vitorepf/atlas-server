@@ -97,6 +97,8 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_SUCCESSES = 'successes';
     public const FIELD_ENQUEUE_REQUESTED = 'enqueue_requested';
     public const FIELD_EVIDENCE_REFS = 'evidence_refs';
+    public const FIELD_FLOOR_PENDING = 'floor_pending';
+    public const FIELD_FORBIDDEN_ACTIONS = 'forbidden_actions';
 
 
     public function __construct(
@@ -154,7 +156,7 @@ final class AcosMaxProceduralSkillPromoterService
             self::FIELD_TOTALS => [
                 self::FIELD_PROCEDURAL_PLAYBOOKS => count($candidates),
                 self::FIELD_FLOOR_MET => count($eligible),
-                'floor_pending' => count($candidates) - count($eligible),
+                self::FIELD_FLOOR_PENDING => count($candidates) - count($eligible),
                 self::FIELD_ENQUEUED => count($enqueued),
             ],
             self::FIELD_CANDIDATES => $candidates,
@@ -228,7 +230,7 @@ final class AcosMaxProceduralSkillPromoterService
                     'objective' => $playbook->objective,
                     'steps' => $playbook->steps,
                     'postconditions' => $playbook->postconditions,
-                    'forbidden_actions' => $playbook->forbiddenActions,
+                    self::FIELD_FORBIDDEN_ACTIONS => $playbook->forbiddenActions,
                     'prior_corrections' => $playbook->priorCorrections,
                 ],
             ],
