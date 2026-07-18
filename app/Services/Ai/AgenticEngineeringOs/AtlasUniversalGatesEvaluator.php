@@ -6693,6 +6693,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function truthObraThesisFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'truth_field_claims_runtime' => AtlasAaeosImplementationTruthService::FIELD_CLAIMS_RUNTIME,
+            'truth_field_command' => AtlasAaeosImplementationTruthService::FIELD_COMMAND,
+            'truth_field_coverage_pct' => AtlasAaeosImplementationTruthService::FIELD_COVERAGE_PCT,
+            'truth_field_doc_schema' => AtlasAaeosImplementationTruthService::FIELD_DOC_SCHEMA,
+            'truth_field_format' => AtlasAaeosImplementationTruthService::FIELD_FORMAT,
+            'truth_field_frontmatter' => AtlasAaeosImplementationTruthService::FIELD_FRONTMATTER,
+            'obra_field_actor_tag' => AcosMaxObraRetroService::FIELD_ACTOR_TAG,
+            'obra_field_ai_run_outcome_id' => AcosMaxObraRetroService::FIELD_AI_RUN_OUTCOME_ID,
+            'obra_field_auto_promoted' => AcosMaxObraRetroService::FIELD_AUTO_PROMOTED,
+            'obra_field_current_state' => AcosMaxObraRetroService::FIELD_CURRENT_STATE,
+            'obra_field_executor' => AcosMaxObraRetroService::FIELD_EXECUTOR,
+            'obra_field_future_lote_close_requires' => AcosMaxObraRetroService::FIELD_FUTURE_LOTE_CLOSE_REQUIRES,
+            'thesis_field_alignment_keys' => EvidenceVisionThesisLifecycle::FIELD_ALIGNMENT_KEYS,
+            'thesis_field_archived_at_basis' => EvidenceVisionThesisLifecycle::FIELD_ARCHIVED_AT_BASIS,
+            'thesis_field_bands' => EvidenceVisionThesisLifecycle::FIELD_BANDS,
+            'thesis_field_calibration_resolved' => EvidenceVisionThesisLifecycle::FIELD_CALIBRATION_RESOLVED,
+            'thesis_field_consecutive_windows' => EvidenceVisionThesisLifecycle::FIELD_CONSECUTIVE_WINDOWS,
+            'truth_obra_thesis_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

@@ -91,6 +91,12 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_TEST_BEARING_ROWS = 'test_bearing_rows';
     public const FIELD_GREEN_RUN_ROWS = 'green_run_rows';
     public const FIELD_CAPABILITIES = 'capabilities';
+    public const FIELD_CLAIMS_RUNTIME = 'claims_runtime';
+    public const FIELD_COMMAND = 'command';
+    public const FIELD_COVERAGE_PCT = 'coverage_pct';
+    public const FIELD_DOC_SCHEMA = 'doc_schema';
+    public const FIELD_FORMAT = 'format';
+    public const FIELD_FRONTMATTER = 'frontmatter';
 
     public const RANK = [
         self::LEVEL_SPEC => 0,
@@ -219,8 +225,8 @@ class AtlasAaeosImplementationTruthService
                     continue;
                 }
                 $parsed = $this->frontmatter->parse(File::get($file->getPathname()));
-                $fm = AiValueNormalizer::arrayOrEmpty($parsed['frontmatter'] ?? null);
-                if (($fm['doc_schema'] ?? null) === null) {
+                $fm = AiValueNormalizer::arrayOrEmpty($parsed[self::FIELD_FRONTMATTER] ?? null);
+                if (($fm[self::FIELD_DOC_SCHEMA] ?? null) === null) {
                     continue; // only canonical module docs participate
                 }
                 $total++;
@@ -253,11 +259,11 @@ class AtlasAaeosImplementationTruthService
         return [
             self::FIELD_SCHEMA_VERSION => self::DOC_RUNTIME_COVERAGE_SCHEMA,
             'total_canonical_docs' => $total,
-            'claims_runtime' => $claimsRuntime,
+            self::FIELD_CLAIMS_RUNTIME => $claimsRuntime,
             'with_evidence_refs' => $withEvidence,
             'verifiably_backed' => $backed,
             'unverifiable_claims' => $unverifiable,
-            'coverage_pct' => $coveragePct,
+            self::FIELD_COVERAGE_PCT => $coveragePct,
             'score_out_of_10' => round($coveragePct / 10, 1),
         ];
     }
@@ -350,7 +356,7 @@ class AtlasAaeosImplementationTruthService
                 continue;
             }
             $parsed = $this->frontmatter->parse(File::get($file->getPathname()));
-            $fm = AiValueNormalizer::arrayOrEmpty($parsed['frontmatter'] ?? null);
+            $fm = AiValueNormalizer::arrayOrEmpty($parsed[self::FIELD_FRONTMATTER] ?? null);
             $evidenceRefs = $this->normalizeEvidenceRefs($fm[self::FIELD_EVIDENCE_REFS] ?? null);
             if ($evidenceRefs === []) {
                 continue;
@@ -470,7 +476,7 @@ class AtlasAaeosImplementationTruthService
         }
 
         return [
-            'format' => self::IMPL_FILES_HASH_FORMAT,
+            self::FIELD_FORMAT => self::IMPL_FILES_HASH_FORMAT,
             self::FIELD_IMPL_FILES_HASH => $this->combineImplFilesHash($breakdown),
             'paths' => $breakdown,
         ];
@@ -648,7 +654,7 @@ class AtlasAaeosImplementationTruthService
         }
 
         $hasSymbol = $resolvedKinds['symbol'] ?? false;
-        $hasWiring = ($resolvedKinds['route'] ?? false) || ($resolvedKinds['command'] ?? false);
+        $hasWiring = ($resolvedKinds['route'] ?? false) || ($resolvedKinds[self::FIELD_COMMAND] ?? false);
         $hasTest = $resolvedKinds['test'] ?? false;
         $hasReceipt = $resolvedKinds['receipt'] ?? false;
 

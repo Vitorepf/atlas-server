@@ -313,6 +313,7 @@ final class AtlasAaeosCommand extends Command
         {--composed-promotion-ragx-floors-contract= : JSON file (any object) to observe composed/promotion/ragx residual floors}
         {--http-cockpit-facade-floors-contract= : JSON file (any object) to observe http/cockpit/facade residual floors}
         {--ncapture-promoter-jina-floors-contract= : JSON file (any object) to observe ncapture/promoter/jina residual floors}
+        {--truth-obra-thesis-floors-contract= : JSON file (any object) to observe truth/obra/thesis residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -782,6 +783,7 @@ final class AtlasAaeosCommand extends Command
             ['composed-promotion-ragx-floors-contract', 'composed_promotion_ragx_floors_contract', fn (array $p) => $gates->composedPromotionRagxFloorsContractObserve($p)],
             ['http-cockpit-facade-floors-contract', 'http_cockpit_facade_floors_contract', fn (array $p) => $gates->httpCockpitFacadeFloorsContractObserve($p)],
             ['ncapture-promoter-jina-floors-contract', 'ncapture_promoter_jina_floors_contract', fn (array $p) => $gates->ncapturePromoterJinaFloorsContractObserve($p)],
+            ['truth-obra-thesis-floors-contract', 'truth_obra_thesis_floors_contract', fn (array $p) => $gates->truthObraThesisFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

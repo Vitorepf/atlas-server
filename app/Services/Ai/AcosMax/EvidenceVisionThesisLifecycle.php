@@ -32,6 +32,11 @@ final class EvidenceVisionThesisLifecycle
     public const FIELD_CLAIM = 'claim';
     public const FIELD_DEATH_CRITERION = 'death_criterion';
     public const FIELD_RECEIPT_HASH = 'receipt_hash';
+    public const FIELD_ALIGNMENT_KEYS = 'alignment_keys';
+    public const FIELD_ARCHIVED_AT_BASIS = 'archived_at_basis';
+    public const FIELD_BANDS = 'bands';
+    public const FIELD_CALIBRATION_RESOLVED = 'calibration_resolved';
+    public const FIELD_CONSECUTIVE_WINDOWS = 'consecutive_windows';
 
     /** @var array<string,array<string,mixed>> */
     private static array $active = [];
@@ -121,7 +126,7 @@ final class EvidenceVisionThesisLifecycle
         $receipt = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_THESIS_ID => $thesisId,
-            'archived_at_basis' => $reason,
+            self::FIELD_ARCHIVED_AT_BASIS => $reason,
             self::FIELD_CLAIM => AiValueNormalizer::trimmedStringOrNull($thesis[self::FIELD_CLAIM] ?? null) ?? '',
             self::FIELD_DEATH_CRITERION => AiValueNormalizer::arrayOrEmpty($thesis[self::FIELD_DEATH_CRITERION] ?? null),
             self::FIELD_RECEIPT_HASH => hash('sha256', json_encode([$thesisId, $reason, $thesis[self::FIELD_CLAIM] ?? ''], JSON_UNESCAPED_SLASHES)),
@@ -165,7 +170,7 @@ final class EvidenceVisionThesisLifecycle
 
         return match ($kind) {
             'series_recovery' => self::seriesRecoveryMet($thesis, $seriesWindows, $criterion) ? 'series_recovery' : null,
-            'calibration_resolved' => self::calibrationResolved($calibration, $criterion) ? 'calibration_resolved' : null,
+            self::FIELD_CALIBRATION_RESOLVED => self::calibrationResolved($calibration, $criterion) ? 'calibration_resolved' : null,
             'lead_cluster_cleared' => self::leadClusterCleared($thesis, $leads, $criterion) ? 'lead_cluster_cleared' : null,
             'outcome_proven' => self::outcomeProven($thesis, $outcomes) ? 'outcome_proven' : null,
             default => null,
@@ -180,7 +185,7 @@ final class EvidenceVisionThesisLifecycle
     private static function seriesRecoveryMet(array $thesis, array $seriesWindows, array $criterion): bool
     {
         $threshold = AiValueNormalizer::finiteFloatOrNull($criterion['threshold'] ?? null) ?? 0.0;
-        $need = max(self::DEFAULT_CONSECUTIVE_WINDOWS, (int) (AiValueNormalizer::finiteFloatOrNull($criterion['consecutive_windows'] ?? null) ?? self::DEFAULT_CONSECUTIVE_WINDOWS));
+        $need = max(self::DEFAULT_CONSECUTIVE_WINDOWS, (int) (AiValueNormalizer::finiteFloatOrNull($criterion[self::FIELD_CONSECUTIVE_WINDOWS] ?? null) ?? self::DEFAULT_CONSECUTIVE_WINDOWS));
         $refs = AiValueNormalizer::arrayOrEmpty($thesis['evidence'] ?? null);
         $series = '';
         $stage = 'default';
@@ -223,7 +228,7 @@ final class EvidenceVisionThesisLifecycle
      */
     private static function calibrationResolved(array $calibration, array $criterion): bool
     {
-        $bands = AiValueNormalizer::arrayOrEmpty($calibration['bands'] ?? null);
+        $bands = AiValueNormalizer::arrayOrEmpty($calibration[self::FIELD_BANDS] ?? null);
         $high = AiValueNormalizer::arrayOrEmpty($bands['high'] ?? null);
         $highN = (int) (AiValueNormalizer::finiteFloatOrNull($high['n_realized'] ?? null) ?? 0);
         if ($highN <= 0) {
@@ -242,7 +247,7 @@ final class EvidenceVisionThesisLifecycle
     private static function leadClusterCleared(array $thesis, array $leads, array $criterion): bool
     {
         $target = '';
-        foreach (AiValueNormalizer::arrayOrEmpty($thesis['alignment_keys'] ?? null) as $key) {
+        foreach (AiValueNormalizer::arrayOrEmpty($thesis[self::FIELD_ALIGNMENT_KEYS] ?? null) as $key) {
             $key = AiValueNormalizer::trimmedStringOrNull($key) ?? '';
             if (str_contains($key, '/')) {
                 $target = ltrim($key, '/');
@@ -273,7 +278,7 @@ final class EvidenceVisionThesisLifecycle
     private static function outcomeProven(array $thesis, array $outcomes): bool
     {
         $path = '';
-        foreach (AiValueNormalizer::arrayOrEmpty($thesis['alignment_keys'] ?? null) as $key) {
+        foreach (AiValueNormalizer::arrayOrEmpty($thesis[self::FIELD_ALIGNMENT_KEYS] ?? null) as $key) {
             $key = AiValueNormalizer::trimmedStringOrNull($key) ?? '';
             if (! str_contains($key, '/')) {
                 $path = $key;

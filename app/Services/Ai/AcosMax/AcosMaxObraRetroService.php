@@ -67,6 +67,12 @@ final class AcosMaxObraRetroService
     public const FIELD_SCOPE = 'scope';
     public const FIELD_FLOW_ID = 'flow_id';
     public const FIELD_PRIVACY_CLASS = 'privacy_class';
+    public const FIELD_ACTOR_TAG = 'actor_tag';
+    public const FIELD_AI_RUN_OUTCOME_ID = 'ai_run_outcome_id';
+    public const FIELD_AUTO_PROMOTED = 'auto_promoted';
+    public const FIELD_CURRENT_STATE = 'current_state';
+    public const FIELD_EXECUTOR = 'executor';
+    public const FIELD_FUTURE_LOTE_CLOSE_REQUIRES = 'future_lote_close_requires';
 
     public function __construct(
         private readonly AtlasEngineeringOutcomeRecorder $outcomes,
@@ -166,7 +172,7 @@ final class AcosMaxObraRetroService
             self::FIELD_KIND => AiValueNormalizer::trimmedStringOrNull($result[self::FIELD_KIND] ?? $payload[self::FIELD_KIND] ?? null) ?? '',
             'quality' => AiValueNormalizer::arrayOrEmpty($result['quality'] ?? null),
             'memory_admission' => AiValueNormalizer::arrayOrEmpty($result['memory_admission'] ?? null),
-            'auto_promoted' => (AiValueNormalizer::boolOrNull($result['auto_promoted'] ?? null) ?? false),
+            self::FIELD_AUTO_PROMOTED => (AiValueNormalizer::boolOrNull($result[self::FIELD_AUTO_PROMOTED] ?? null) ?? false),
             'requires_human_review' => (AiValueNormalizer::boolOrNull($result['requires_human_review'] ?? null) ?? true),
         ];
     }
@@ -184,7 +190,7 @@ final class AcosMaxObraRetroService
         };
 
         $recorded = $this->outcomes->record([
-            'executor' => 'forge',
+            self::FIELD_EXECUTOR => 'forge',
             'objective' => sprintf('ACOS Max lote %d slice %s reached %s', $lote, $slice['id'], $slice[self::FIELD_STATE]),
             self::FIELD_SUMMARY => AiValueNormalizer::trimmedScalarStringOrNull($slice['line'] ?? null) ?? '',
             self::FIELD_STATUS => $status,
@@ -195,7 +201,7 @@ final class AcosMaxObraRetroService
             'run_id' => sprintf('acos-max:lote-%d:%s:%s', $lote, $slice['id'], $slice[self::FIELD_STATE]),
             'provider' => 'local',
             'verified' => true,
-            'actor_tag' => self::SERIES_TAG,
+            self::FIELD_ACTOR_TAG => self::SERIES_TAG,
             'outcome_flow_id' => self::SERIES_TAG,
             self::FIELD_LOTE => $lote,
             self::FIELD_SLICE_ID => $slice['id'],
@@ -212,7 +218,7 @@ final class AcosMaxObraRetroService
             self::FIELD_SLICE_STATE => AiValueNormalizer::trimmedScalarStringOrNull($slice[self::FIELD_STATE] ?? null) ?? '',
             self::FIELD_STATUS => (AiValueNormalizer::trimmedStringOrNull($recorded[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
             'outcome_id' => data_get($recorded, 'outcome.outcome_id'),
-            'ai_run_outcome_id' => data_get($recorded, 'spine.ai_run_outcome.id'),
+            self::FIELD_AI_RUN_OUTCOME_ID => data_get($recorded, 'spine.ai_run_outcome.id'),
             self::FIELD_SERIES_TAG => self::SERIES_TAG,
         ];
     }
@@ -240,12 +246,12 @@ final class AcosMaxObraRetroService
                     $slices,
                 )), 0, 12),
             ))),
-            'current_state' => [
+            self::FIELD_CURRENT_STATE => [
                 self::FIELD_LOTE => $lote,
                 'terminal_slice_count' => count($slices),
             ],
             'proposed_state' => [
-                'future_lote_close_requires' => [
+                self::FIELD_FUTURE_LOTE_CLOSE_REQUIRES => [
                     'scoreboard_slice_refs',
                     'outc_01_outcome_records',
                     'obra:acos-max_series_tag',
