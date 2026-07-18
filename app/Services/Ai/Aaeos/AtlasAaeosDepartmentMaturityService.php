@@ -31,6 +31,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_BLOCKERS_TO_NEXT = 'blockers_to_next';
     public const FIELD_SUMMARY = 'summary';
     public const FIELD_SIGNALS = 'signals';
+    public const FIELD_DEPARTMENT = 'department';
+    public const FIELD_DEPARTMENTS = 'departments';
 
     public const DEPARTMENTS = [
         [
@@ -127,7 +129,7 @@ final class AtlasAaeosDepartmentMaturityService
     {
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'departments' => $this->buildDepartments(),
+            self::FIELD_DEPARTMENTS => $this->buildDepartments(),
         ];
     }
 
@@ -135,7 +137,7 @@ final class AtlasAaeosDepartmentMaturityService
     {
         return array_map(
             fn (array $department): array => [
-                'department' => AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_DEPARTMENT_ID]) ?? '',
+                self::FIELD_DEPARTMENT => AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_DEPARTMENT_ID]) ?? '',
                 'maturity_tier' => $this->parseLevel($department[self::FIELD_CURRENT_LEVEL]),
                 self::FIELD_SIGNALS => $this->buildSignals($department),
                 'schema' => self::SCHEMA_VERSION,

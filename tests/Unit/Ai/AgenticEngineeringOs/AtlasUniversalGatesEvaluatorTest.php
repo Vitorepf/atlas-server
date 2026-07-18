@@ -105,6 +105,10 @@ use App\Services\Ai\Aaeos\AtlasDebugRootCauseService;
 use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
 use App\Services\Ai\Cognition\Watchdog\Checks\DailyCanaryReplayByRefsWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\Checks\OperatorReviewDebtWatchdogCheck;
+use App\Services\Ai\Aaeos\AtlasAaeosClaimDefinitionOfDoneValidator;
+use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
+use App\Services\Ai\Cognition\Watchdog\Checks\CompactionRecoverySampleWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\OperatorLearningCaptureSchemaWatchdogCheck;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -6904,6 +6908,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_RELEASED, $out['released']);
         $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_RELEASED_COUNT, $out['released_count']);
         $this->assertSame(18, $out['aaeos_department_string_debug_root_docs_authority_daily_floor_count']);
+    }
+
+    public function test_generated_contract_aaeos_claim_department_exploratory_bets_provenance_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->generatedContractAaeosClaimDepartmentExploratoryBetsProvenanceFloorsContractObserve([]);
+        $this->assertSame(AaeosGeneratedContractGate::FIELD_QUARANTINE_NAMESPACE, $out['quarantine_namespace']);
+        $this->assertSame(AaeosGeneratedContractGate::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_EVALUATED_AGAINST, $out['evaluated_against']);
+        $this->assertSame(AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_FIELD_STATUS, $out['field_status']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENT, $out['department']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENTS, $out['departments']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_FLAG, $out['flag']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_FLAG_DEFAULT, $out['flag_default']);
+        $this->assertSame(ProvenanceWeightCalculator::FIELD_FLOOR, $out['floor']);
+        $this->assertSame(ProvenanceWeightCalculator::FIELD_HOT_PATH_LEDGER_LOOKUP, $out['hot_path_ledger_lookup']);
+        $this->assertSame(CompactionRecoverySampleWatchdogCheck::FIELD_CODE, $out['code']);
+        $this->assertSame(CompactionRecoverySampleWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::FIELD_CODE, $out['code']);
+        $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEMORY_ELIGIBLE, $out['memory_eligible']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_REASON, $out['reason']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_COSINE_MERGE_THRESHOLD, $out['cosine_merge_threshold']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_COUNT, $out['count']);
+        $this->assertSame(18, $out['generated_contract_aaeos_claim_department_exploratory_bets_provenance_floor_count']);
     }
 
 }

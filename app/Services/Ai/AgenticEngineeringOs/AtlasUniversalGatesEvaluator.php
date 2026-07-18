@@ -8932,4 +8932,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B368).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function generatedContractAaeosClaimDepartmentExploratoryBetsProvenanceFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'quarantine_namespace' => AaeosGeneratedContractGate::FIELD_QUARANTINE_NAMESPACE,
+            'schema_version' => AaeosGeneratedContractGate::FIELD_SCHEMA_VERSION,
+            'evaluated_against' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_EVALUATED_AGAINST,
+            'field_status' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_FIELD_STATUS,
+            'department' => AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENT,
+            'departments' => AtlasAaeosDepartmentMaturityService::FIELD_DEPARTMENTS,
+            'flag' => ExploratoryBetsPortfolio::FIELD_FLAG,
+            'flag_default' => ExploratoryBetsPortfolio::FIELD_FLAG_DEFAULT,
+            'floor' => ProvenanceWeightCalculator::FIELD_FLOOR,
+            'hot_path_ledger_lookup' => ProvenanceWeightCalculator::FIELD_HOT_PATH_LEDGER_LOOKUP,
+            'code' => CompactionRecoverySampleWatchdogCheck::FIELD_CODE,
+            'message' => CompactionRecoverySampleWatchdogCheck::FIELD_MESSAGE,
+            'code' => OperatorLearningCaptureSchemaWatchdogCheck::FIELD_CODE,
+            'message' => OperatorLearningCaptureSchemaWatchdogCheck::FIELD_MESSAGE,
+            'memory_eligible' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEMORY_ELIGIBLE,
+            'reason' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_REASON,
+            'cosine_merge_threshold' => AcosMaxLote2MeasureService::FIELD_COSINE_MERGE_THRESHOLD,
+            'count' => AcosMaxLote2MeasureService::FIELD_COUNT,
+            'generated_contract_aaeos_claim_department_exploratory_bets_provenance_floor_count' => 18,
+        ];
+    }
+
 }

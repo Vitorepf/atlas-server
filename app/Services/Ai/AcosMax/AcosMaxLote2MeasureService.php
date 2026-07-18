@@ -194,6 +194,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_CITATION_LATENCY_SECONDS = 'citation_latency_seconds';
     public const FIELD_CONTROL_SCORE_MEAN = 'control_score_mean';
     public const FIELD_CORRELATION_LABEL_REQUIRED = 'correlation_label_required';
+    public const FIELD_COSINE_MERGE_THRESHOLD = 'cosine_merge_threshold';
+    public const FIELD_COUNT = 'count';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -380,7 +382,7 @@ final class AcosMaxLote2MeasureService
         arsort($counts);
         $top = [];
         foreach (array_slice($counts, 0, max(1, $limit), true) as $reason => $count) {
-            $top[] = [self::FIELD_REASON => AiValueNormalizer::trimmedScalarStringOrNull($reason) ?? '', 'count' => (int) $count];
+            $top[] = [self::FIELD_REASON => AiValueNormalizer::trimmedScalarStringOrNull($reason) ?? '', self::FIELD_COUNT => (int) $count];
         }
 
         return $top;
@@ -1062,7 +1064,7 @@ final class AcosMaxLote2MeasureService
             'MULTX-06' => self::payload(self::MULTX06_MEASURE_ID, 'multx.learning_latency.v1', 'Measure p50/p95 latency from outcome-created lesson to first delivered context and first measured citation; never_delivered remains in denominator.', 8, 30, 'cursor-acos-max-multx06', 'codex-independent-multx06-judge', ['denominator_min_promoted_lessons' => 8]),
             'MULTX-09' => self::payload(self::MULTX09_MEASURE_ID, 'multx.windows_orchestrator.v1', 'Read-only PromotionProtocol window DAG: started windows publish days_remaining and critical path; not-started windows never receive fabricated ETA; associated series silence beyond the watchdog floor emits dead_window.', 1, 30, 'cursor-acos-max-multx09', 'codex-independent-multx09-judge', ['dead_window_silent_days' => 3, 'not_started_eta_allowed' => false, self::FIELD_READ_ONLY => true]),
             'MULTJ-01' => self::payload(self::MULTJ01_MEASURE_ID, 'multj.lesson_half_life.v2', 'Bucket lesson lift by age since promotion using two-week buckets; buckets below n=8 publish insufficient instead of null.', 8, 30, 'cursor-acos-max-multj01', 'codex-independent-multj01-judge', [self::FIELD_BUCKET_WIDTH_WEEKS => 2, 'denominator_min_per_bucket' => 8]),
-            'MULTJ-02' => self::payload(self::MULTJ02_MEASURE_ID, 'multj.semantic_dedup_freeze.v1', 'Semantic lesson dedup threshold freeze for observe-mode would-merge receipts; enforcement requires later calibrated promotion.', 1, 30, 'cursor-acos-max-multj02', 'codex-independent-multj02-judge', ['cosine_merge_threshold' => 0.88, 'observe_mode_actual_merges' => 0]),
+            'MULTJ-02' => self::payload(self::MULTJ02_MEASURE_ID, 'multj.semantic_dedup_freeze.v1', 'Semantic lesson dedup threshold freeze for observe-mode would-merge receipts; enforcement requires later calibrated promotion.', 1, 30, 'cursor-acos-max-multj02', 'codex-independent-multj02-judge', [self::FIELD_COSINE_MERGE_THRESHOLD => 0.88, 'observe_mode_actual_merges' => 0]),
             'MULTJ-03' => self::payload(self::MULTJ03_MEASURE_ID, 'multj.counterfactual_lift.v2', 'Paired peek evaluation of the same task with and without injected lesson; n_pairs below 8 publishes insufficient_signal and peek must not record usage.', 8, 30, 'cursor-acos-max-multj03', 'codex-independent-multj03-judge', [self::FIELD_SAMPLE_RATE => 0.05, 'denominator_min_pairs' => 8, self::FIELD_RECORD_USAGE_FOR_PEEK => false]),
             'MULTJ-04' => self::payload(self::MULTJ04_MEASURE_ID, 'multj.procedural_skill_promoter.v1', 'Procedural playbooks can propose skill.v1 candidates only after the real procedural case_count floor; output is default-OFF and ASI-02 holds promotion_allowed=false until gates pass.', AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR, 30, 'cursor-acos-max-multj04', 'codex-independent-multj04-judge', ['procedural_case_count_floor' => AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR, 'default_off' => true, self::FIELD_ADMISSION_DOOR => 'ASI-02']),
             'MULTJ-06' => self::payload(self::MULTJ06_MEASURE_ID, 'multj.abstraction_ladder.v1', 'Distinct-signature patterns sharing primary_cause aggregate to level-3 principles when distinct_signature_k is met; derived_from refs must resolve or gate rejects.', 3, 30, 'cursor-acos-max-multj06', 'codex-independent-multj06-judge', ['distinct_signature_k' => 3, 'pattern_floor' => 1]),

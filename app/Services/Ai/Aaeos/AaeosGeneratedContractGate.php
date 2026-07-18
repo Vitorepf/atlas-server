@@ -20,6 +20,8 @@ final class AaeosGeneratedContractGate
     public const QUARANTINE_NAMESPACE_CONFIG_KEY = 'atlas_elite_compaction.generated.quarantine_namespace';
     public const FIELD_HOT_PATH_ENABLED = 'hot_path_enabled';
     public const FIELD_GENERATED_FILE_COUNT = 'generated_file_count';
+    public const FIELD_QUARANTINE_NAMESPACE = 'quarantine_namespace';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     public function assertHotPathAllowed(string $class): void
     {
@@ -45,10 +47,10 @@ final class AaeosGeneratedContractGate
         $count = count(glob($root.'/*.php') ?: []);
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_HOT_PATH_ENABLED => (AiValueNormalizer::boolOrNull(config(self::HOT_PATH_ENABLED_CONFIG_KEY, self::DEFAULT_HOT_PATH_ENABLED)) ?? self::DEFAULT_HOT_PATH_ENABLED),
             self::FIELD_GENERATED_FILE_COUNT => $count,
-            'quarantine_namespace' => AiValueNormalizer::trimmedStringOrNull(
+            self::FIELD_QUARANTINE_NAMESPACE => AiValueNormalizer::trimmedStringOrNull(
                 config(self::QUARANTINE_NAMESPACE_CONFIG_KEY) ?? null
             ) ?? '',
         ];

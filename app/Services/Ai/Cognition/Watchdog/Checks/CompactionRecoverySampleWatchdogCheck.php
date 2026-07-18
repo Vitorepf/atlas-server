@@ -32,6 +32,8 @@ final readonly class CompactionRecoverySampleWatchdogCheck implements AtlasWatch
     public const STATUS_INSUFFICIENT_SAMPLE = 'insufficient_sample';
     public const FIELD_RECOVERY_RATE = 'recovery_rate';
     public const FIELD_STATUS = 'status';
+    public const FIELD_CODE = 'code';
+    public const FIELD_MESSAGE = 'message';
 
     public function __construct(private CompactionRecoverySampler $sampler) {}
 
@@ -59,8 +61,8 @@ final readonly class CompactionRecoverySampleWatchdogCheck implements AtlasWatch
         }
 
         return AtlasWatchdogCheckResult::alert($payload, [
-            'code' => 'compaction_recovery_rate_below_floor',
-            'message' => 'MAXF-02 recovery sample could not prove compaction fidelity.',
+            self::FIELD_CODE => 'compaction_recovery_rate_below_floor',
+            self::FIELD_MESSAGE => 'MAXF-02 recovery sample could not prove compaction fidelity.',
             self::FIELD_RECOVERY_RATE => $payload[self::FIELD_RECOVERY_RATE] ?? null,
         ]);
     }

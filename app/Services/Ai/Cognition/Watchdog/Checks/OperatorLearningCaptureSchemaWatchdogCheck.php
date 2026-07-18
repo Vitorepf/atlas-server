@@ -15,6 +15,8 @@ final readonly class OperatorLearningCaptureSchemaWatchdogCheck implements Atlas
     public const FIELD_CHAT_CAPTURE_ENABLED = 'chat_capture_enabled';
     public const FIELD_REASON = 'reason';
     public const FIELD_OPERATOR_SCHEMA_READY = 'operator_schema_ready';
+    public const FIELD_CODE = 'code';
+    public const FIELD_MESSAGE = 'message';
 
     public function __construct(private OperatorLearningRuntimeCaptureService $capture) {}
 
@@ -36,8 +38,8 @@ final readonly class OperatorLearningCaptureSchemaWatchdogCheck implements Atlas
 
         if ($missingTables !== []) {
             return AtlasWatchdogCheckResult::alert($report, [
-                'code' => 'operator_learning_schema_missing',
-                'message' => 'Operator chat capture is enabled but required operator_* tables are missing.',
+                self::FIELD_CODE => 'operator_learning_schema_missing',
+                self::FIELD_MESSAGE => 'Operator chat capture is enabled but required operator_* tables are missing.',
                 self::FIELD_MISSING_TABLES => $missingTables,
             ]);
         }

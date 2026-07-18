@@ -61,6 +61,8 @@ final class ExploratoryBetsPortfolio
     public const FIELD_SUSPENDED_PATHS = 'suspended_paths';
     public const FIELD_WRITES_CLASS_ALLOCATION_WEIGHTS = 'writes_class_allocation_weights';
     public const FIELD_USES_ATLAS_BRAIN_CAUSAL_EFFECT_GATE = 'uses_atlas_brain_causal_effect_gate';
+    public const FIELD_FLAG = 'flag';
+    public const FIELD_FLAG_DEFAULT = 'flag_default';
 
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
 
@@ -282,8 +284,8 @@ final class ExploratoryBetsPortfolio
             self::FIELD_COUNTS_PROVEN_REAL_ONLY => true,
             'suspends_on_insufficient_n' => false,
             self::FIELD_DELETES_SUSPENDED_FAMILY => false,
-            'flag' => 'atlas.loop.exploratory_bets_portfolio_enabled',
-            'flag_default' => 'off',
+            self::FIELD_FLAG => 'atlas.loop.exploratory_bets_portfolio_enabled',
+            self::FIELD_FLAG_DEFAULT => 'off',
         ];
     }
 }

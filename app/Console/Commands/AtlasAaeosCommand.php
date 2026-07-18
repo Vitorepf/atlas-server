@@ -390,6 +390,7 @@ final class AtlasAaeosCommand extends Command
                             {--aaeos-implementation-context-pareto-gate-phase-immune-calibration-floors-contract= : JSON file (any object) to observe aaeos/implementation/context/pareto/gate/phase floors}
                             {--aaeos-cognitive-implementation-veto-cross-department-lote-measure-floors-contract= : JSON file (any object) to observe aaeos/cognitive/implementation/veto/cross/department floors}
                             {--aaeos-department-string-debug-root-docs-authority-daily-floors-contract= : JSON file (any object) to observe aaeos/department/string/debug/root/docs floors}
+                            {--generated-contract-aaeos-claim-department-exploratory-bets-provenance-floors-contract= : JSON file (any object) to observe generated/contract/aaeos/claim/department/exploratory floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -936,6 +937,7 @@ final class AtlasAaeosCommand extends Command
             ['aaeos-implementation-context-pareto-gate-phase-immune-calibration-floors-contract', 'aaeos_implementation_context_pareto_gate_phase_immune_calibration_floors_contract', fn (array $p) => $gates->aaeosImplementationContextParetoGatePhaseImmuneCalibrationFloorsContractObserve($p)],
             ['aaeos-cognitive-implementation-veto-cross-department-lote-measure-floors-contract', 'aaeos_cognitive_implementation_veto_cross_department_lote_measure_floors_contract', fn (array $p) => $gates->aaeosCognitiveImplementationVetoCrossDepartmentLoteMeasureFloorsContractObserve($p)],
             ['aaeos-department-string-debug-root-docs-authority-daily-floors-contract', 'aaeos_department_string_debug_root_docs_authority_daily_floors_contract', fn (array $p) => $gates->aaeosDepartmentStringDebugRootDocsAuthorityDailyFloorsContractObserve($p)],
+            ['generated-contract-aaeos-claim-department-exploratory-bets-provenance-floors-contract', 'generated_contract_aaeos_claim_department_exploratory_bets_provenance_floors_contract', fn (array $p) => $gates->generatedContractAaeosClaimDepartmentExploratoryBetsProvenanceFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

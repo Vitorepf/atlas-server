@@ -42,6 +42,8 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
     public const FIELD_CODE_COMMAND_APPLICABLE = 'code_command_applicable';
     public const FIELD_VERDICT = 'verdict';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_EVALUATED_AGAINST = 'evaluated_against';
+    public const FIELD_FIELD_STATUS = 'field_status';
 
     public const STATUS_PRESENT = 'present';
 
@@ -137,10 +139,10 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
             self::FIELD_SUBJECT => $this->echoSubject($claim),
             'present_fields' => $presentFields,
             self::FIELD_MISSING_FIELDS => $missingFields,
-            'field_status' => $fieldStatus,
+            self::FIELD_FIELD_STATUS => $fieldStatus,
             'partial_claim' => $partialClaim,
             'reason' => $this->buildReason($verdict, $partialClaim, $missingFields),
-            'evaluated_against' => self::EVALUATED_AGAINST,
+            self::FIELD_EVALUATED_AGAINST => self::EVALUATED_AGAINST,
         ];
     }
 

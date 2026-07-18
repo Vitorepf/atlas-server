@@ -17,6 +17,8 @@ final class ProvenanceWeightCalculator
     public const FIELD_MULTIPLIER = 'multiplier';
     public const FIELD_SOURCE = 'source';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_FLOOR = 'floor';
+    public const FIELD_HOT_PATH_LEDGER_LOOKUP = 'hot_path_ledger_lookup';
 
     /**
      * @param  list<string>  $evidenceRefs
@@ -56,8 +58,8 @@ final class ProvenanceWeightCalculator
             self::FIELD_MULTIPLIER => round($multiplier, 2),
             self::FIELD_SOURCE => [
                 self::FIELD_DEAD_REF_COUNTS_AS_WEIGHT => false,
-                'floor' => self::FLOOR,
-                'hot_path_ledger_lookup' => false,
+                self::FIELD_FLOOR => self::FLOOR,
+                self::FIELD_HOT_PATH_LEDGER_LOOKUP => false,
             ],
         ];
     }
