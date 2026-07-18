@@ -10505,4 +10505,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b510_evidence_vision_outcome_causality_pre_review_segment_importance_floor_count']);
     }
 
+    public function test_b511_immune_classifier_measure_series_lote_ledger_rotation_verified_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b511ImmuneClassifierMeasureSeriesLoteLedgerRotationVerifiedFloorsContractObserve([]);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_CURSOR_ACOS_MAX_MAXI_04, $out['cursor-acos-max-maxi-04']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FLOAT_0_10, $out['0.10']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXD_04, $out['MAXD-04']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXG_01, $out['MAXG-01']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTX06_JUDGE, $out['codex-independent-multx06-judge']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTX09_JUDGE, $out['codex-independent-multx09-judge']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_DECIDE_COST_OUTCOME_UNCERTAINTY_V1, $out['atlas.decide.cost_outcome_uncertainty.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_DECIDE_REPLAY_DIVERGENCE_V1, $out['atlas.decide.replay_divergence.v1']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_CURSOR_ACOS_MAX_ELEV12, $out['cursor-acos-max-elev12']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_ENGINEERING_EXECUTION_COVERAGE_RECORDED, $out['engineering.execution.coverage.recorded']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_MEASUREMENT_WITH_RECALLED_MEMORY_CASE_COUNT, $out['measurement.with_recalled_memory.case_count']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_MEASUREMENT_WITHOUT_RECALLED_MEMORY_CASE_COUNT, $out['measurement.without_recalled_memory.case_count']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_MEM_RECALL, $out['MEM-RECALL']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_TEOS_I1, $out['TEOS-I1']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10, $out['score.dimensions.pipeline.score_out_of_10']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_TREND_CURRENT_DELTA_FROM_LATEST, $out['trend.current_delta_from_latest']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_MEM_09_MEMORY_QUALITY, $out['mem-09.memory_quality']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_OPE_08_LIFT_CYCLE_CLOSURE, $out['ope-08.lift_cycle_closure']);
+        $this->assertSame(18, $out['b511_immune_classifier_measure_series_lote_ledger_rotation_verified_floor_count']);
+    }
+
 }

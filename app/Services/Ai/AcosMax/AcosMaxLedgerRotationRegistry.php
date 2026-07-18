@@ -68,6 +68,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ATLAS_CONTEXT_EXECUTION_COOCCURRENCE_V1 = 'atlas.context.execution_cooccurrence.v1';
     public const FIELD_ATLAS_CONTEXT_GOLDEN_COUNTERFACTUAL_V1 = 'atlas.context.golden_counterfactual.v1';
     public const FIELD_ATLAS_DECIDE_CASCADE_COST_ROUTER_V1 = 'atlas.decide.cascade_cost_router.v1';
+    public const FIELD_ATLAS_DECIDE_COST_OUTCOME_UNCERTAINTY_V1 = 'atlas.decide.cost_outcome_uncertainty.v1';
+    public const FIELD_ATLAS_DECIDE_REPLAY_DIVERGENCE_V1 = 'atlas.decide.replay_divergence.v1';
     public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
@@ -199,13 +201,13 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXK-01 route regret',
             ],
-            'atlas.decide.cost_outcome_uncertainty.v1' => [
+            self::FIELD_ATLAS_DECIDE_COST_OUTCOME_UNCERTAINTY_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTK-01 cost-outcome',
             ],
-            'atlas.decide.replay_divergence.v1' => [
+            self::FIELD_ATLAS_DECIDE_REPLAY_DIVERGENCE_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,

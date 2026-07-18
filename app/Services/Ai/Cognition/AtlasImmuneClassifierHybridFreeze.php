@@ -79,6 +79,8 @@ final class AtlasImmuneClassifierHybridFreeze
     public const FIELD_BIGRAM_JACCARD_IMMUNE_SEMANTIC_SIMILARITY_PORT = 'BigramJaccardImmuneSemanticSimilarityPort';
     public const FIELD_ATLAS_AAEOS_IMMUNE_CLASSIFIER_SEMANTIC_ARM_ENABLED = 'atlas.aaeos.immune_classifier.semantic_arm_enabled';
     public const FIELD_CODEX_IMMUNE_HYBRID_CLASSIFIER_JUDGE = 'codex-immune-hybrid-classifier-judge';
+    public const FIELD_CURSOR_ACOS_MAX_MAXI_04 = 'cursor-acos-max-maxi-04';
+    public const FLOAT_0_10 = 0.10;
     public const INT_20 = 20;
 
     /**
@@ -108,7 +110,7 @@ final class AtlasImmuneClassifierHybridFreeze
                 // subsume both numbers without changing this contract.
                 self::FIELD_TAU => 0.30,
                 self::FIELD_SEMANTIC_RECALL_FLOOR_ON_OBFUSCATED => 0.80,
-                self::FIELD_FP_CEILING_ON_LEGITIMATE => 0.10,
+                self::FIELD_FP_CEILING_ON_LEGITIMATE => self::FLOAT_0_10,
                 self::FIELD_OBFUSCATED_DENOMINATOR_MIN => self::INT_20,
                 self::FIELD_LEGITIMATE_DENOMINATOR_MIN => self::INT_20,
                 self::FIELD_BASELINE_PORT => self::FIELD_BIGRAM_JACCARD_IMMUNE_SEMANTIC_SIMILARITY_PORT,
@@ -126,7 +128,7 @@ final class AtlasImmuneClassifierHybridFreeze
                 self::FIELD_CORPUS_SHA256 => self::corpusHash(),
             ],
             self::FIELD_TTL_DAYS => self::TTL_DAYS,
-            self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxi-04',
+            self::FIELD_AUTHOR_ENGINE_ID => self::FIELD_CURSOR_ACOS_MAX_MAXI_04,
             self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_IMMUNE_HYBRID_CLASSIFIER_JUDGE,
             self::FIELD_CALIBRATION_AUTHORITY => [
                 self::FIELD_FREEZE => ImmuneCalibrationService::MEASURE_ID,

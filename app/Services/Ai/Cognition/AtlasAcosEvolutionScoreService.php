@@ -146,6 +146,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_USEFUL = 'useful';
     public const FIELD_ACOS_HARVEST_OBRA_LESSONS = 'acos-harvest-obra-lessons';
     public const FIELD_MEASUREMENT_MEASUREMENT_READY = 'measurement.measurement_ready';
+    public const FIELD_MEASUREMENT_WITH_RECALLED_MEMORY_CASE_COUNT = 'measurement.with_recalled_memory.case_count';
+    public const FIELD_MEASUREMENT_WITHOUT_RECALLED_MEMORY_CASE_COUNT = 'measurement.without_recalled_memory.case_count';
     public const FLOAT_10_0 = 10.0;
 
     public function __construct(
@@ -237,8 +239,8 @@ class AtlasAcosEvolutionScoreService
         $oldFeedbackPoints = round(($feedback7d > 0 ? 1.25 : 0.0) + ($hintsOn ? 1.25 : 0.0), 2);
 
         $lift = $this->lift->report(minCases: self::LIFT_CASES_PER_ARM_REQUIRED, minPassingUse: 1);
-        $withCount = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.with_recalled_memory.case_count', 0)) ?? 0);
-        $withoutCount = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.without_recalled_memory.case_count', 0)) ?? 0);
+        $withCount = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, self::FIELD_MEASUREMENT_WITH_RECALLED_MEMORY_CASE_COUNT, 0)) ?? 0);
+        $withoutCount = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, self::FIELD_MEASUREMENT_WITHOUT_RECALLED_MEMORY_CASE_COUNT, 0)) ?? 0);
         $measurementReady = (AiValueNormalizer::boolOrNull(data_get($lift, self::FIELD_MEASUREMENT_MEASUREMENT_READY, false)) ?? false);
         $armProgress = min($withCount, $withoutCount) / self::LIFT_CASES_PER_ARM_REQUIRED;
         $newFeedbackPoints = ($measurementReady && $withCount >= self::LIFT_CASES_PER_ARM_REQUIRED && $withoutCount >= self::LIFT_CASES_PER_ARM_REQUIRED)

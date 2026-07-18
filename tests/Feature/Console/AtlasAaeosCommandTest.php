@@ -8887,6 +8887,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b511_immune_classifier_measure_series_lote_ledger_rotation_verified_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b511-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b511',
+                '--b511-immune-classifier-measure-series-lote-ledger-rotation-verified-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b511_immune_classifier_measure_series_lote_ledger_rotation_verified_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

@@ -382,6 +382,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_MEASUREMENT_BLOCKERS = 'measurement.blockers';
     public const FIELD_PIP_08_SCORECARD_STABILITY = 'pip-08.scorecard_stability';
     public const FIELD_RATIOS_PRE_FILTER_RECALL_CONCENTRATION_RATIO = 'ratios.pre_filter_recall_concentration_ratio';
+    public const FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10 = 'score.dimensions.pipeline.score_out_of_10';
+    public const FIELD_TREND_CURRENT_DELTA_FROM_LATEST = 'trend.current_delta_from_latest';
     public const INT_100 = 100;
     public const FLOAT_10_0 = 10.0;
 
@@ -399,7 +401,7 @@ final class AtlasAcosWatchdogHealthService
         $recallUsageTotal = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, self::FIELD_COUNTS_RETRIEVAL_EVAL_RECALL_USAGE_TOTAL, 0)) ?? 0);
         $demotionEnabled = (AiValueNormalizer::boolOrNull(config(self::RECALL_CONCENTRATION_DEMOTION_ENABLED_CONFIG_KEY, self::DEFAULT_RECALL_CONCENTRATION_DEMOTION_ENABLED)) ?? self::DEFAULT_RECALL_CONCENTRATION_DEMOTION_ENABLED);
         $trendStatus = AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'trend.status')) ?? self::STATUS_UNKNOWN;
-        $currentDelta = data_get($scorecard, 'trend.current_delta_from_latest');
+        $currentDelta = data_get($scorecard, self::FIELD_TREND_CURRENT_DELTA_FROM_LATEST);
         $latestDelta = data_get($scorecard, 'trend.latest_delta_from_previous');
         $scoreRegressed = in_array($trendStatus, [self::FIELD_REGRESSED, self::FIELD_WATCH_REGRESSED], true)
             || (is_numeric($currentDelta) && (int) $currentDelta < -self::MEMORY_SCORE_REGRESSION_TOLERANCE)
@@ -767,7 +769,7 @@ final class AtlasAcosWatchdogHealthService
     public function pipelineStabilityReport(): array
     {
         $scorecard = app(AtlasCognitionScoreCardService::class)->build();
-        $pipeline = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'score.dimensions.pipeline.score_out_of_10', 0.0)) ?? 0.0;
+        $pipeline = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, self::FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10, 0.0)) ?? 0.0;
         $partials = array_values(array_filter(AiValueNormalizer::arrayOrEmpty($scorecard[self::FIELD_SUBSYSTEMS] ?? null), static fn (array $row): bool => ($row[self::FIELD_PIPELINE_STATUS] ?? null) === AtlasCognitionScoreCardService::STATUS_PARTIAL));
         $blocking = [];
         if ($pipeline < self::FLOAT_10_0) {

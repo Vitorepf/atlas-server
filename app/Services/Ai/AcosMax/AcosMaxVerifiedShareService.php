@@ -101,6 +101,8 @@ final class AcosMaxVerifiedShareService
     public const FIELD_ATLAS_DEV_2 = 'atlas-dev';
     public const FIELD_ATLAS_FORGE_2 = 'atlas-forge';
     public const FIELD_CODEX_ELEV12_JUDGE = 'codex-elev12-judge';
+    public const FIELD_CURSOR_ACOS_MAX_ELEV12 = 'cursor-acos-max-elev12';
+    public const FIELD_ENGINEERING_EXECUTION_COVERAGE_RECORDED = 'engineering.execution.coverage.recorded';
 
 
     /** @return array<string,mixed> */
@@ -118,7 +120,7 @@ final class AcosMaxVerifiedShareService
             ],
             self::FIELD_DENOMINATOR_MIN => self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS,
             self::FIELD_TTL_DAYS => self::DEFAULT_TTL_DAYS,
-            self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-elev12',
+            self::FIELD_AUTHOR_ENGINE_ID => self::FIELD_CURSOR_ACOS_MAX_ELEV12,
             self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV12_JUDGE,
             self::FIELD_SERIES_REGISTRY => [
                 self::FIELD_SERIES => self::MEASURE_ID,
@@ -317,7 +319,7 @@ final class AcosMaxVerifiedShareService
             ->orderBy('occurred_at')
             ->get()
             ->map(static fn (AtlasLedgerEvent $event): array => (array) $event->payload)
-            ->filter(static fn (array $payload): bool => ($payload[self::FIELD_EVENT_NAME] ?? null) === 'engineering.execution.coverage.recorded'
+            ->filter(static fn (array $payload): bool => ($payload[self::FIELD_EVENT_NAME] ?? null) === self::FIELD_ENGINEERING_EXECUTION_COVERAGE_RECORDED
                 && ($payload[self::FIELD_MODE] ?? null) === self::FIELD_ENFORCE)
             ->values()
             ->all();

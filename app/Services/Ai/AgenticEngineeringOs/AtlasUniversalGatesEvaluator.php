@@ -13350,4 +13350,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B511).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b511ImmuneClassifierMeasureSeriesLoteLedgerRotationVerifiedFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'cursor-acos-max-maxi-04' => AtlasImmuneClassifierHybridFreeze::FIELD_CURSOR_ACOS_MAX_MAXI_04,
+            '0.10' => AtlasImmuneClassifierHybridFreeze::FLOAT_0_10,
+            'MAXD-04' => AcosMaxMeasureSeriesRegistry::FIELD_MAXD_04,
+            'MAXG-01' => AcosMaxMeasureSeriesRegistry::FIELD_MAXG_01,
+            'codex-independent-multx06-judge' => AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTX06_JUDGE,
+            'codex-independent-multx09-judge' => AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTX09_JUDGE,
+            'atlas.decide.cost_outcome_uncertainty.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_DECIDE_COST_OUTCOME_UNCERTAINTY_V1,
+            'atlas.decide.replay_divergence.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_DECIDE_REPLAY_DIVERGENCE_V1,
+            'cursor-acos-max-elev12' => AcosMaxVerifiedShareService::FIELD_CURSOR_ACOS_MAX_ELEV12,
+            'engineering.execution.coverage.recorded' => AcosMaxVerifiedShareService::FIELD_ENGINEERING_EXECUTION_COVERAGE_RECORDED,
+            'measurement.with_recalled_memory.case_count' => AtlasAcosEvolutionScoreService::FIELD_MEASUREMENT_WITH_RECALLED_MEMORY_CASE_COUNT,
+            'measurement.without_recalled_memory.case_count' => AtlasAcosEvolutionScoreService::FIELD_MEASUREMENT_WITHOUT_RECALLED_MEMORY_CASE_COUNT,
+            'MEM-RECALL' => AtlasCognitionScoreCardService::FIELD_MEM_RECALL,
+            'TEOS-I1' => AtlasCognitionScoreCardService::FIELD_TEOS_I1,
+            'score.dimensions.pipeline.score_out_of_10' => AtlasAcosWatchdogHealthService::FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10,
+            'trend.current_delta_from_latest' => AtlasAcosWatchdogHealthService::FIELD_TREND_CURRENT_DELTA_FROM_LATEST,
+            'mem-09.memory_quality' => HealthReportWatchdogCheck::FIELD_MEM_09_MEMORY_QUALITY,
+            'ope-08.lift_cycle_closure' => HealthReportWatchdogCheck::FIELD_OPE_08_LIFT_CYCLE_CLOSURE,
+            'b511_immune_classifier_measure_series_lote_ledger_rotation_verified_floor_count' => 18,
+        ];
+    }
+
 }

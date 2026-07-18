@@ -265,6 +265,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_AURG_4_D = 'AURG-4D';
     public const FIELD_MEM_CORE = 'MEM-CORE';
     public const FIELD_MEM_DELTA = 'MEM-DELTA';
+    public const FIELD_MEM_RECALL = 'MEM-RECALL';
+    public const FIELD_TEOS_I1 = 'TEOS-I1';
     public const INT_10 = 10;
 
     /** Score points per status. */
@@ -325,7 +327,7 @@ class AtlasCognitionScoreCardService
         // Memory Core (3)
         [self::FIELD_MEM_CORE,   'Memory Core (entries+relations)', self::FIELD_MEMORY_CORE, AtlasMemoryConflictResolutionService::class],
         [self::FIELD_MEM_DELTA,  'Memory Delta Proposer',           self::FIELD_MEMORY_CORE, AiMemoryDeltaProposer::class],
-        ['MEM-RECALL', 'Memory Recall (hybrid)',          self::FIELD_MEMORY_CORE, AtlasHybridRetrievalInfrastructureService::class],
+        [self::FIELD_MEM_RECALL, 'Memory Recall (hybrid)',          self::FIELD_MEMORY_CORE, AtlasHybridRetrievalInfrastructureService::class],
 
         // AUCRI 18 blocks
         [self::FIELD_ASEF,  'Semantic Embedding Foundation',     self::FIELD_AUCRI, AtlasSemanticEmbeddingFoundationService::class],
@@ -416,7 +418,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ACIE, 'Context Intelligence Engine', self::FIELD_CONTEXT_INTELLIGENCE, AtlasContextOperationsRuntimeService::class],
         [self::FIELD_APCR, 'Persistent Context Runtime', self::FIELD_PERSISTENT_CONTEXT, AtlasPersistentContextRuntimeService::class],
         [self::FIELD_AEMOR_2, 'Execution Memory Outcome Runtime', self::FIELD_AEMOR, AtlasAemorCertificationService::class],
-        ['TEOS-I1', 'Long-Horizon Intelligence Layer', self::FIELD_LONG_HORIZON, LongHorizonContinuityCertificationService::class],
+        [self::FIELD_TEOS_I1, 'Long-Horizon Intelligence Layer', self::FIELD_LONG_HORIZON, LongHorizonContinuityCertificationService::class],
         [self::FIELD_AVCEL, 'Verified Context Execution Loop', self::FIELD_VERIFIED_CONTEXT, AtlasVerifiedContextExecutionLoopService::class],
         [self::FIELD_ACQCG, 'Context Quality Certification Gate', self::FIELD_CONTEXT_QUALITY, AtlasContextQualityCertificationService::class],
         [self::FIELD_AOBG, 'Open Brain Gateway', self::FIELD_OPEN_BRAIN, AtlasOpenBrainMcpService::class],

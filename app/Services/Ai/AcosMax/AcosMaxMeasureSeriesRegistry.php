@@ -84,6 +84,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_ESP_06 = 'ESP-06';
     public const FIELD_ESP_09 = 'ESP-09';
     public const FIELD_MAXA_04 = 'MAXA-04';
+    public const FIELD_MAXD_04 = 'MAXD-04';
+    public const FIELD_MAXG_01 = 'MAXG-01';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -153,7 +155,7 @@ final class AcosMaxMeasureSeriesRegistry
     {
         return [
             [
-                self::FIELD_SLICE => 'MAXG-01',
+                self::FIELD_SLICE => self::FIELD_MAXG_01,
                 self::FIELD_SERIES => 'aobg.latency_ledger.v1',
                 self::FIELD_PATH => storage_path(AtlasAobgLatencyLedger::DEFAULT_RELATIVE_DIR),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL_DIR,
@@ -548,7 +550,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.code_symbol_embedding_coverage.v1',
             ],
             [
-                self::FIELD_SLICE => 'MAXD-04',
+                self::FIELD_SLICE => self::FIELD_MAXD_04,
                 self::FIELD_SERIES => AtlasAurgPprShadowDualReadLedger::SCHEMA,
                 self::FIELD_PATH => storage_path(AtlasAurgPprShadowDualReadLedger::RELATIVE_PATH),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,

@@ -51,10 +51,12 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_CPT_09_COMPACTION_SOAK = 'cpt-09.compaction_soak';
     public const FIELD_ENG_11_ENFORCE_READINESS = 'eng-11.enforce_readiness';
     public const FIELD_FEE_13_LEARNING_CADENCE = 'fee-13.learning_cadence';
+    public const FIELD_MEM_09_MEMORY_QUALITY = 'mem-09.memory_quality';
+    public const FIELD_OPE_08_LIFT_CYCLE_CLOSURE = 'ope-08.lift_cycle_closure';
 
     public const CATALOG = [
         [
-            self::FIELD_ID => 'mem-09.memory_quality',
+            self::FIELD_ID => self::FIELD_MEM_09_MEMORY_QUALITY,
             self::FIELD_REPORT_METHOD => self::FIELD_MEMORY_QUALITY_CHECK,
             self::FIELD_ALERT_CODE => self::FIELD_MEMORY_QUALITY_CHECK_FAILED,
             self::FIELD_MESSAGE => 'MEM-09 memory quality watchdog is not green.',
@@ -96,7 +98,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_MESSAGE => 'PIP-08 scorecard stability has not reached a green pipeline series.',
         ],
         [
-            self::FIELD_ID => 'ope-08.lift_cycle_closure',
+            self::FIELD_ID => self::FIELD_OPE_08_LIFT_CYCLE_CLOSURE,
             self::FIELD_REPORT_METHOD => self::FIELD_LIFT_CYCLE_CLOSURE_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_LIFT_CYCLE_CLOSURE_STALLED,
             self::FIELD_MESSAGE => 'OPE-08 lift cycle blockers are not closing.',
