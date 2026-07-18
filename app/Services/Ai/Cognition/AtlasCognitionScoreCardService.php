@@ -185,6 +185,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_AEMOR = 'aemor';
     public const FIELD_AUTONOMY = 'autonomy';
     public const FIELD_CARTOGRAPHY = 'cartography';
+    public const FIELD_CONTEXT_CACHE = 'context_cache';
+    public const FIELD_CONTEXT_INTELLIGENCE = 'context_intelligence';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -331,8 +333,8 @@ class AtlasCognitionScoreCardService
      * v3 remains a compatibility surface while v4 becomes the truthful boundary.
      */
     public const V4_SUPPLEMENTAL_SUBSYSTEMS = [
-        ['ACCCR', 'Context Cache Compiler Runtime', 'context_cache', AtlasContextCacheCompilerRuntimeService::class],
-        ['ACIE', 'Context Intelligence Engine', 'context_intelligence', AtlasContextOperationsRuntimeService::class],
+        ['ACCCR', 'Context Cache Compiler Runtime', self::FIELD_CONTEXT_CACHE, AtlasContextCacheCompilerRuntimeService::class],
+        ['ACIE', 'Context Intelligence Engine', self::FIELD_CONTEXT_INTELLIGENCE, AtlasContextOperationsRuntimeService::class],
         ['APCR', 'Persistent Context Runtime', 'persistent_context', AtlasPersistentContextRuntimeService::class],
         ['AEMOR', 'Execution Memory Outcome Runtime', self::FIELD_AEMOR, AtlasAemorCertificationService::class],
         ['TEOS-I1', 'Long-Horizon Intelligence Layer', 'long_horizon', LongHorizonContinuityCertificationService::class],

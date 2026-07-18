@@ -64,6 +64,8 @@ final class AcosMaxWindowOrchestratorService
     public const FIELD_WATCHDOG = 'watchdog';
     public const FIELD_WINDOWS = 'windows';
     public const FIELD_NO_SERIES_DATA_SINCE_WINDOW_START = 'no_series_data_since_window_start';
+    public const FIELD_NOW = 'now';
+    public const FIELD_STRVAL = 'strval';
 
 
     public function __construct(
@@ -82,7 +84,7 @@ final class AcosMaxWindowOrchestratorService
         ?DateTimeImmutable $now = null,
         int $deadAfterDays = 3,
     ): array {
-        $now = $now ?? new DateTimeImmutable('now', new DateTimeZone('UTC'));
+        $now = $now ?? new DateTimeImmutable(self::FIELD_NOW, new DateTimeZone('UTC'));
         $entries = $protocolEntries ?? $protocol->entries();
         $events = $protocol->ledgerEvents();
         $registry = $this->registryBySlice($registryEntries ?? (new AcosMaxMeasureSeriesRegistry)->entries());
@@ -179,7 +181,7 @@ final class AcosMaxWindowOrchestratorService
             self::FIELD_SLICE => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SLICE] ?? null) ?? ''),
             self::FIELD_MINIMUM_WINDOW => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SHADOW_MINIMUM_WINDOW] ?? null) ?? ''),
             self::FIELD_DURATION_DAYS => $durationDays,
-            self::FIELD_DEPENDS_ON => array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($entry[self::FIELD_DEPENDS_ON] ?? null))),
+            self::FIELD_DEPENDS_ON => array_values(array_map(self::FIELD_STRVAL, AiValueNormalizer::arrayOrEmpty($entry[self::FIELD_DEPENDS_ON] ?? null))),
             self::FIELD_SERIES => $series[self::FIELD_SERIES] ?? null,
         ];
 

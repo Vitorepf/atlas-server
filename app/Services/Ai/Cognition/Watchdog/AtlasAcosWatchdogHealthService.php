@@ -322,6 +322,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_LINKER_MEMORY_DOMAIN = 'linker_memory_domain';
     public const FIELD_MEMORY_FRESHNESS_BELOW_FULL = 'memory_freshness_below_full';
     public const FIELD_MEMORY_QUALITY_SCORE_REGRESSED = 'memory_quality_score_regressed';
+    public const FIELD_MEMORY_QUALITY_SNAPSHOT_STALE = 'memory_quality_snapshot_stale';
+    public const FIELD_NO_RECENT_DELIVERED_REFS_EVENT = 'no_recent_delivered_refs_event';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -364,7 +366,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_SNAPSHOT_AGE_HOURS => $snapshotAgeHours,
                 self::FIELD_MAX_AGE_HOURS => self::MEMORY_SNAPSHOT_MAX_AGE_HOURS,
                 self::FIELD_LATEST_SNAPSHOT_AT => $latestSnapshotAt?->toIso8601String(),
-            ], 'memory_quality_snapshot_stale'),
+            ], self::FIELD_MEMORY_QUALITY_SNAPSHOT_STALE),
         ];
         $failed = array_values(array_filter($checks, static fn (array $check): bool => ! (AiValueNormalizer::boolOrNull($check[self::FIELD_PASS] ?? null) ?? false)));
 
@@ -408,7 +410,7 @@ final class AtlasAcosWatchdogHealthService
             $this->ageCheck(self::FIELD_LAST_AI_RUN_OUTCOME, $lastOutcome, self::LEARNING_AI_RUN_OUTCOME_MAX_AGE_HOURS, $now),
             $this->checkRow(self::FIELD_LAST_DELIVERED_REFS_EVENT, $lastDeliveredRefs !== null, [
                 self::FIELD_LAST_AT => $lastDeliveredRefs?->toIso8601String(),
-            ], 'no_recent_delivered_refs_event'),
+            ], self::FIELD_NO_RECENT_DELIVERED_REFS_EVENT),
         ];
         foreach ($aemor as $source => $at) {
             $checks[] = $this->ageCheck('last_aemor_episode_'.$source, $at, self::LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS, $now);

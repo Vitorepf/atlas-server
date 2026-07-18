@@ -196,6 +196,8 @@ final class RagxChainMechanismService
     public const FIELD_LOUVAIN_DETERMINISTIC_LOCAL = 'louvain_deterministic_local';
     public const FIELD_LEXICAL_SPARSE_SHADOW = 'lexical_sparse_shadow';
     public const FIELD_MAXF09_VERIFIED_L2_SUMMARY = 'maxf09_verified_l2_summary';
+    public const FIELD_FLOATVAL = 'floatval';
+    public const FIELD_SHA256 = 'sha256';
 
     public function __construct(
         private readonly ?AsefChunkIndexService $asefChunks = null,
@@ -303,7 +305,7 @@ final class RagxChainMechanismService
             self::FIELD_SCHEMA_VERSION => self::AB_SCHEMA,
             self::FIELD_STATUS => self::STATUS_REGISTERED,
             self::FIELD_RECORDED_AT => Carbon::now()->toISOString(),
-            self::FIELD_EXPERIMENT_ID => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_EXPERIMENT_ID] ?? null) ?? hash('sha256', json_encode($experiment, JSON_THROW_ON_ERROR)),
+            self::FIELD_EXPERIMENT_ID => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_EXPERIMENT_ID] ?? null) ?? hash(self::FIELD_SHA256, json_encode($experiment, JSON_THROW_ON_ERROR)),
             self::FIELD_SLICE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_SLICE]  ?? null) ?? 'RAGX',
             self::FIELD_BASELINE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_BASELINE]  ?? null) ?? self::STATUS_UNKNOWN,
             self::FIELD_CANDIDATE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_CANDIDATE]  ?? null) ?? self::STATUS_UNKNOWN,
@@ -479,7 +481,7 @@ final class RagxChainMechanismService
             return $this->disabled(self::STAGE_RAGX_11, self::FLAG_ADAPTIVE_K) + [self::FIELD_K => max(1, $requestedK)];
         }
 
-        $scores = array_values(array_map('floatval', $scores));
+        $scores = array_values(array_map(self::FIELD_FLOATVAL, $scores));
         rsort($scores);
         $k = max(1, $requestedK);
         for ($i = 1; $i < count($scores); $i++) {

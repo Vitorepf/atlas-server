@@ -468,6 +468,7 @@ final class AtlasAaeosCommand extends Command
                             {--lote-measure-promotion-protocol-knowledge-item-verified-share-floors-contract= : JSON file (any object) to observe lote/measure/promotion/protocol/knowledge/item floors}
                             {--cognitive-memory-teto-predicted-cognition-evidence-immune-hybrid-floors-contract= : JSON file (any object) to observe cognitive/memory/teto/predicted/cognition/evidence floors}
                             {--aaeos-implementation-cognitive-function-department-contract-cognition-score-floors-contract= : JSON file (any object) to observe aaeos/implementation/cognitive/function/department/contract floors}
+                            {--window-orchestrator-ragx-chain-cognitive-function-department-contract-floors-contract= : JSON file (any object) to observe window/orchestrator/ragx/chain/cognitive/function floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1092,6 +1093,7 @@ final class AtlasAaeosCommand extends Command
             ['lote-measure-promotion-protocol-knowledge-item-verified-share-floors-contract', 'lote_measure_promotion_protocol_knowledge_item_verified_share_floors_contract', fn (array $p) => $gates->loteMeasurePromotionProtocolKnowledgeItemVerifiedShareFloorsContractObserve($p)],
             ['cognitive-memory-teto-predicted-cognition-evidence-immune-hybrid-floors-contract', 'cognitive_memory_teto_predicted_cognition_evidence_immune_hybrid_floors_contract', fn (array $p) => $gates->cognitiveMemoryTetoPredictedCognitionEvidenceImmuneHybridFloorsContractObserve($p)],
             ['aaeos-implementation-cognitive-function-department-contract-cognition-score-floors-contract', 'aaeos_implementation_cognitive_function_department_contract_cognition_score_floors_contract', fn (array $p) => $gates->aaeosImplementationCognitiveFunctionDepartmentContractCognitionScoreFloorsContractObserve($p)],
+            ['window-orchestrator-ragx-chain-cognitive-function-department-contract-floors-contract', 'window_orchestrator_ragx_chain_cognitive_function_department_contract_floors_contract', fn (array $p) => $gates->windowOrchestratorRagxChainCognitiveFunctionDepartmentContractFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

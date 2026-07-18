@@ -259,6 +259,8 @@ final class DepartmentContractRuntime
     public const FIELD_DEV_REPAIR_LOOP_COUNT = 'dev_repair_loop_count';
     public const FIELD_EVERY_DEPARTMENT_DECLARES_EVIDENCE_SCHEMA = 'every_department_declares_evidence_schema';
     public const FIELD_EXECUTE_MIGRATION = 'execute_migration';
+    public const FIELD_EVERY_DEPARTMENT_DECLARES_12_CANON_FIELDS = 'every_department_declares_12_canon_fields';
+    public const FIELD_EXECUTION_LOG_HASH = 'execution_log_hash';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -520,7 +522,7 @@ final class DepartmentContractRuntime
             self::FIELD_ALLOWED_ACTIONS => ['spawn_agents', self::FIELD_CLAIM_RESERVATIONS, 'request_provider_topology', 'merge_after_review'],
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_review', 'modify_security_policy', 'ship_without_cert'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
-            self::FIELD_EVIDENCE_REQUIRED => ['obra_pack_hash', 'execution_log_hash', 'merge_review_evidence_hash'],
+            self::FIELD_EVIDENCE_REQUIRED => ['obra_pack_hash', self::FIELD_EXECUTION_LOG_HASH, 'merge_review_evidence_hash'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_OBRA_RUNS, self::FIELD_LEDGER => self::FIELD_AAEOS_FORGE_EVIDENCE_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['forge_obra_duration_p95', 'forge_parallel_agent_count', 'forge_collision_count'],
             self::FIELD_MATURITY_LEVEL => 'L4',
@@ -606,7 +608,7 @@ final class DepartmentContractRuntime
                 'memory_has_no_downstream',
                 'every_department_declares_gates',
                 self::FIELD_EVERY_DEPARTMENT_DECLARES_EVIDENCE_SCHEMA,
-                'every_department_declares_12_canon_fields',
+                self::FIELD_EVERY_DEPARTMENT_DECLARES_12_CANON_FIELDS,
             ],
             self::FIELD_EVIDENCE_COUNT => count(array_unique(array_column(self::CATALOGUE, 'evidence_schema'))),
             self::FIELD_SCHEMA_FIELDS_12_PRESENT => $this->schemaFields12Present(),

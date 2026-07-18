@@ -8893,4 +8893,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['aaeos_implementation_cognitive_function_department_contract_cognition_score_floor_count']);
     }
 
+    public function test_window_orchestrator_ragx_chain_cognitive_function_department_contract_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->windowOrchestratorRagxChainCognitiveFunctionDepartmentContractFloorsContractObserve([]);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_NOW, $out['now']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_STRVAL, $out['strval']);
+        $this->assertSame(RagxChainMechanismService::FIELD_FLOATVAL, $out['floatval']);
+        $this->assertSame(RagxChainMechanismService::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_COMPARE, $out['compare']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DOC, $out['doc']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EVERY_DEPARTMENT_DECLARES_12_CANON_FIELDS, $out['every_department_declares_12_canon_fields']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EXECUTION_LOG_HASH, $out['execution_log_hash']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MERGED, $out['merged']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PATCH, $out['patch']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CONTEXT_CACHE, $out['context_cache']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CONTEXT_INTELLIGENCE, $out['context_intelligence']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_SUPERVENING_CONTRADICTION, $out['probation_supervening_contradiction']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_SUPERVENING_CONTRADICTION_COUNT, $out['probation_supervening_contradiction_count']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_MEMORY_QUALITY_SNAPSHOT_STALE, $out['memory_quality_snapshot_stale']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_NO_RECENT_DELIVERED_REFS_EVENT, $out['no_recent_delivered_refs_event']);
+        $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_FORMULA_INVALID, $out['outcome_envelope_formula_invalid']);
+        $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_IDENTITY_FIELDS_REQUIRED, $out['outcome_envelope_identity_fields_required']);
+        $this->assertSame(18, $out['window_orchestrator_ragx_chain_cognitive_function_department_contract_floor_count']);
+    }
+
 }

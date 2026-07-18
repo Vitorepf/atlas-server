@@ -87,6 +87,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_PROBATION_ENTERED_AT = 'probation_entered_at';
     public const FIELD_PROBATION_EVALUATED_AT = 'probation_evaluated_at';
     public const FIELD_PROBATION_STARTED_AT = 'probation_started_at';
+    public const FIELD_PROBATION_SUPERVENING_CONTRADICTION = 'probation_supervening_contradiction';
+    public const FIELD_PROBATION_SUPERVENING_CONTRADICTION_COUNT = 'probation_supervening_contradiction_count';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -459,8 +461,8 @@ final class CognitiveImmunePromotionGateEvaluator
     private function hasProbationSuperveningContradiction(array $signals): bool
     {
         return $this->flag($signals, self::FIELD_CONTRADICTS_NEWER)
-            || $this->flag($signals, 'probation_supervening_contradiction')
-            || $this->intValue($signals, 'probation_supervening_contradiction_count') > 0;
+            || $this->flag($signals, self::FIELD_PROBATION_SUPERVENING_CONTRADICTION)
+            || $this->intValue($signals, self::FIELD_PROBATION_SUPERVENING_CONTRADICTION_COUNT) > 0;
     }
 
     /**

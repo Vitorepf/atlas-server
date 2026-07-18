@@ -74,6 +74,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_IS_QUESTION = 'is_question';
     public const FIELD_JAILBREAK = 'jailbreak';
     public const FIELD_LATENCY = 'latency';
+    public const FIELD_MERGED = 'merged';
+    public const FIELD_PATCH = 'patch';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -151,7 +153,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
      */
     public const TECHNICAL_MARKERS = [
         'bug',
-        'patch',
+        self::FIELD_PATCH,
         'regression',
         'race condition',
         self::FIELD_LATENCY,
@@ -187,7 +189,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         'deploy ok',
         'build passou',
         'testes passaram',
-        'merged',
+        self::FIELD_MERGED,
         'release',
         'shipped',
         'em producao',

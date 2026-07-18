@@ -61,6 +61,8 @@ final class OutcomeEnvelope
     public const FIELD_RUN_ID = 'run_id';
     public const FIELD_OUTCOME_ENVELOPE_ADAPTER_ORIGIN_INVALID = 'outcome_envelope_adapter_origin_invalid';
     public const FIELD_OUTCOME_ENVELOPE_EPISODE_ID_INVALID = 'outcome_envelope_episode_id_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_FORMULA_INVALID = 'outcome_envelope_formula_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_IDENTITY_FIELDS_REQUIRED = 'outcome_envelope_identity_fields_required';
 
     /**
      * Map divergent native status labels onto the shared envelope statuses.
@@ -142,7 +144,7 @@ final class OutcomeEnvelope
 
         $formula = AiValueNormalizer::lowerTrimmedString($data[self::FIELD_FORMULA_VERSION] ?? '');
         if ($formula !== self::FORMULA_VERSION) {
-            throw new InvalidArgumentException('outcome_envelope_formula_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_FORMULA_INVALID);
         }
 
         $origin = AiValueNormalizer::lowerTrimmedString($data[self::FIELD_ADAPTER_ORIGIN] ?? '');
@@ -181,7 +183,7 @@ final class OutcomeEnvelope
         $taskCategory = AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_TASK_CATEGORY] ?? null) ?? '';
         $provider = AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_PROVIDER] ?? null) ?? '';
         if ($executor === '' || $taskCategory === '' || $provider === '') {
-            throw new InvalidArgumentException('outcome_envelope_identity_fields_required');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_IDENTITY_FIELDS_REQUIRED);
         }
 
         if (! is_bool($data[self::FIELD_VERIFIED] ?? null)) {

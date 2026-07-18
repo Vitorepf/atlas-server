@@ -11351,4 +11351,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B446).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function windowOrchestratorRagxChainCognitiveFunctionDepartmentContractFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'now' => AcosMaxWindowOrchestratorService::FIELD_NOW,
+            'strval' => AcosMaxWindowOrchestratorService::FIELD_STRVAL,
+            'floatval' => RagxChainMechanismService::FIELD_FLOATVAL,
+            'sha256' => RagxChainMechanismService::FIELD_SHA256,
+            'compare' => AtlasCognitiveFunctionDecomposerService::FIELD_COMPARE,
+            'doc' => AtlasCognitiveFunctionDecomposerService::FIELD_DOC,
+            'every_department_declares_12_canon_fields' => DepartmentContractRuntime::FIELD_EVERY_DEPARTMENT_DECLARES_12_CANON_FIELDS,
+            'execution_log_hash' => DepartmentContractRuntime::FIELD_EXECUTION_LOG_HASH,
+            'merged' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MERGED,
+            'patch' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_PATCH,
+            'context_cache' => AtlasCognitionScoreCardService::FIELD_CONTEXT_CACHE,
+            'context_intelligence' => AtlasCognitionScoreCardService::FIELD_CONTEXT_INTELLIGENCE,
+            'probation_supervening_contradiction' => CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_SUPERVENING_CONTRADICTION,
+            'probation_supervening_contradiction_count' => CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_SUPERVENING_CONTRADICTION_COUNT,
+            'memory_quality_snapshot_stale' => AtlasAcosWatchdogHealthService::FIELD_MEMORY_QUALITY_SNAPSHOT_STALE,
+            'no_recent_delivered_refs_event' => AtlasAcosWatchdogHealthService::FIELD_NO_RECENT_DELIVERED_REFS_EVENT,
+            'outcome_envelope_formula_invalid' => OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_FORMULA_INVALID,
+            'outcome_envelope_identity_fields_required' => OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_IDENTITY_FIELDS_REQUIRED,
+            'window_orchestrator_ragx_chain_cognitive_function_department_contract_floor_count' => 18,
+        ];
+    }
+
 }
