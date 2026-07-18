@@ -13998,4 +13998,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b652_aaeos_http_floor_count']);
     }
 
+    public function test_b653_delivery_pack_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b653DeliveryPackFloorsContractObserve([]);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_STATUS, $out['status']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_DELIVERY_HASH, $out['delivery_hash']);
+        $this->assertSame(DeliveryPackCompletenessScorer::SCHEMA, $out['atlas.aaeos.delivery_pack_completeness.v1']);
+        $this->assertSame(DeliveryPackCompletenessScorer::STATUS_PASSED, $out['passed']);
+        $this->assertSame(DeliveryPackCompletenessScorer::STATUS_NEEDS_REVIEW, $out['needs_review']);
+        $this->assertSame(DeliveryPackCompletenessScorer::STATUS_FAILED, $out['failed']);
+        $this->assertSame(DeliveryPackCompletenessScorer::BLOCKER_MISSING_HASH, $out['missing_signed_delivery_hash']);
+        $this->assertSame(DeliveryPackCompletenessScorer::BLOCKER_EVIDENCE_REQUIRED, $out['evidence_hashes_required_for_changes']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_RATIO, $out['ratio']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_RECEIPT_PRESENT, $out['receipt_present']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_RISK_REGISTER_PRESENT, $out['risk_register_present']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_BLOCKERS, $out['blockers']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_CHANGED_FILES, $out['changed_files']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_TEST_EVIDENCE, $out['test_evidence']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_FILES_HAVE_EVIDENCE, $out['files_have_evidence']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_TESTS_PRESENT, $out['tests_present']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_EVIDENCE_HASHES, $out['evidence_hashes']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_EVIDENCE_PRESENT, $out['evidence_present']);
+        $this->assertSame(18, $out['b653_delivery_pack_floor_count']);
+    }
+
 }

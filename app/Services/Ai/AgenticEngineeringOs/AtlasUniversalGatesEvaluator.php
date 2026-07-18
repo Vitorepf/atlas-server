@@ -17691,4 +17691,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B653).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b653DeliveryPackFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'status' => DeliveryPackCompletenessScorer::FIELD_STATUS,
+            'delivery_hash' => DeliveryPackCompletenessScorer::FIELD_DELIVERY_HASH,
+            'atlas.aaeos.delivery_pack_completeness.v1' => DeliveryPackCompletenessScorer::SCHEMA,
+            'passed' => DeliveryPackCompletenessScorer::STATUS_PASSED,
+            'needs_review' => DeliveryPackCompletenessScorer::STATUS_NEEDS_REVIEW,
+            'failed' => DeliveryPackCompletenessScorer::STATUS_FAILED,
+            'missing_signed_delivery_hash' => DeliveryPackCompletenessScorer::BLOCKER_MISSING_HASH,
+            'evidence_hashes_required_for_changes' => DeliveryPackCompletenessScorer::BLOCKER_EVIDENCE_REQUIRED,
+            'ratio' => DeliveryPackCompletenessScorer::FIELD_RATIO,
+            'receipt_present' => DeliveryPackCompletenessScorer::FIELD_RECEIPT_PRESENT,
+            'risk_register_present' => DeliveryPackCompletenessScorer::FIELD_RISK_REGISTER_PRESENT,
+            'blockers' => DeliveryPackCompletenessScorer::FIELD_BLOCKERS,
+            'changed_files' => DeliveryPackCompletenessScorer::FIELD_CHANGED_FILES,
+            'test_evidence' => DeliveryPackCompletenessScorer::FIELD_TEST_EVIDENCE,
+            'files_have_evidence' => DeliveryPackCompletenessScorer::FIELD_FILES_HAVE_EVIDENCE,
+            'tests_present' => DeliveryPackCompletenessScorer::FIELD_TESTS_PRESENT,
+            'evidence_hashes' => DeliveryPackCompletenessScorer::FIELD_EVIDENCE_HASHES,
+            'evidence_present' => DeliveryPackCompletenessScorer::FIELD_EVIDENCE_PRESENT,
+            'b653_delivery_pack_floor_count' => 18,
+        ];
+    }
+
 }
