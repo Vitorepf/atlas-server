@@ -84,6 +84,8 @@ final class PreReviewAdvisoryBand
     public const FIELD_MEDIUM = 'medium';
     public const FIELD_MIN_LIFT = 'min_lift';
     public const FIELD_MIN_N = 'min_n';
+    public const FIELD_MIN_N_FOR_BAND = 'min_n_for_band';
+    public const FIELD_SATISFIED_FOR_DEATH = 'satisfied_for_death';
 
     /**
      * @param  array<string,mixed>  $features required keys:
@@ -123,7 +125,7 @@ final class PreReviewAdvisoryBand
                 self::FIELD_MUTATES_PIPELINE => false,
                 self::FIELD_REORDERS_DIGEST_ONLY => true,
                 self::FIELD_REUSES_CALIBRATION_BAND_CLASSIFIER => true,
-                'min_n_for_band' => self::MIN_N_FOR_BAND,
+                self::FIELD_MIN_N_FOR_BAND => self::MIN_N_FOR_BAND,
             ],
         ];
 
@@ -204,7 +206,7 @@ final class PreReviewAdvisoryBand
             self::FIELD_DEATH_CRITERION => [
                 self::FIELD_MIN_N => self::DEATH_MIN_N,
                 self::FIELD_MIN_LIFT => self::DEATH_MIN_LIFT,
-                'satisfied_for_death' => $liftBasis === self::BASIS_MEASURED && $lift !== null && $lift < self::DEATH_MIN_LIFT,
+                self::FIELD_SATISFIED_FOR_DEATH => $liftBasis === self::BASIS_MEASURED && $lift !== null && $lift < self::DEATH_MIN_LIFT,
             ],
             self::FIELD_SOURCE => [
                 'single_scalar_forbidden' => true,

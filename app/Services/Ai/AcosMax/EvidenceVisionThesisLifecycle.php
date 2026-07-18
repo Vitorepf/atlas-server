@@ -55,6 +55,8 @@ final class EvidenceVisionThesisLifecycle
     public const FIELD_REALIZED_TRUE = 'realized_true';
     public const FIELD_REF = 'ref';
     public const FIELD_SERIES = 'series';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_STAGE = 'stage';
 
     /** @var array<string,array<string,mixed>> */
     private static array $active = [];
@@ -208,7 +210,7 @@ final class EvidenceVisionThesisLifecycle
         $series = '';
         $stage = 'default';
         foreach ($refs as $ref) {
-            if (! is_array($ref) || ($ref['source'] ?? '') !== 'series') {
+            if (! is_array($ref) || ($ref[self::FIELD_SOURCE] ?? '') !== 'series') {
                 continue;
             }
             if (preg_match('/series:([^:]+):stage=([^:]+):window=/', AiValueNormalizer::trimmedStringOrNull($ref[self::FIELD_REF] ?? null) ?? '', $matches) === 1) {
@@ -223,7 +225,7 @@ final class EvidenceVisionThesisLifecycle
 
         $matching = array_values(array_filter($seriesWindows, static function (array $window) use ($series, $stage): bool {
             return (AiValueNormalizer::trimmedStringOrNull($window[self::FIELD_SERIES] ?? null) ?? '') === $series
-                && (AiValueNormalizer::trimmedStringOrNull($window['stage'] ?? null) ?? 'default') === $stage;
+                && (AiValueNormalizer::trimmedStringOrNull($window[self::FIELD_STAGE] ?? null) ?? 'default') === $stage;
         }));
         usort($matching, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($a[self::FIELD_WINDOW] ?? null) ?? 0)) <=> ((int) (AiValueNormalizer::finiteFloatOrNull($b[self::FIELD_WINDOW] ?? null) ?? 0)));
         $tail = array_slice($matching, -$need);

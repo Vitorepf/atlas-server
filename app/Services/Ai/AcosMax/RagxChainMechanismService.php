@@ -188,6 +188,8 @@ final class RagxChainMechanismService
     public const FIELD_MAXD05_LOUVAIN = 'maxd05_louvain';
     public const FIELD_MAXF09_L2_SUMMARIES = 'maxf09_l2_summaries';
     public const FIELD_MECHANISM = 'mechanism';
+    public const FIELD_SCORE_COUNT = 'score_count';
+    public const FIELD_SCORE_ORIGIN = 'score_origin';
 
     public function __construct(
         private readonly ?AsefChunkIndexService $asefChunks = null,
@@ -447,7 +449,7 @@ final class RagxChainMechanismService
             $matches[] = [
                 self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($document[self::FIELD_ID] ?? null) ?? ('doc_'.$index),
                 self::FIELD_SCORE => $tokens === [] ? 0.0 : round($hits / count($tokens), 4),
-                'score_origin' => 'lexical_sparse_shadow',
+                self::FIELD_SCORE_ORIGIN => 'lexical_sparse_shadow',
             ];
         }
         usort($matches, static fn (array $a, array $b): int => $b[self::FIELD_SCORE] <=> $a[self::FIELD_SCORE] ?: strcmp($a[self::FIELD_ID], $b[self::FIELD_ID]));
@@ -486,7 +488,7 @@ final class RagxChainMechanismService
             self::FIELD_SLICE => self::STAGE_RAGX_11,
             self::FIELD_STATUS => self::STATUS_SHADOW,
             self::FIELD_K => $k,
-            'score_count' => count($scores),
+            self::FIELD_SCORE_COUNT => count($scores),
             self::FIELD_AB_GREEN_CLAIMED => false,
         ];
     }

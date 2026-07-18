@@ -220,6 +220,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_ORIGINATIONS = 'originations';
     public const FIELD_PAIR_ID = 'pair_id';
     public const FIELD_PATTERN_FLOOR = 'pattern_floor';
+    public const FIELD_PROCEDURAL_CASE_COUNT_FLOOR = 'procedural_case_count_floor';
+    public const FIELD_RECORD_USAGE = 'record_usage';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -852,7 +854,7 @@ final class AcosMaxLote2MeasureService
             $pairs[$pairId][self::FIELD_ROWS][$arm] = [
                 self::FIELD_SCORE => $this->counterfactualScore($row, $meta),
                 self::FIELD_POLICY_VALID => AiValueNormalizer::lowerTrimmedString($meta[self::FIELD_MODE] ?? 'peek') === 'peek'
-                    && ($meta['record_usage'] ?? false) === false,
+                    && ($meta[self::FIELD_RECORD_USAGE] ?? false) === false,
             ];
             if (! $pairs[$pairId][self::FIELD_ROWS][$arm][self::FIELD_POLICY_VALID]) {
                 $pairs[$pairId][self::FIELD_POLICY_VIOLATION_ROWS]++;
@@ -1090,7 +1092,7 @@ final class AcosMaxLote2MeasureService
             'MULTJ-01' => self::payload(self::MULTJ01_MEASURE_ID, 'multj.lesson_half_life.v2', 'Bucket lesson lift by age since promotion using two-week buckets; buckets below n=8 publish insufficient instead of null.', 8, 30, 'cursor-acos-max-multj01', 'codex-independent-multj01-judge', [self::FIELD_BUCKET_WIDTH_WEEKS => 2, self::FIELD_DENOMINATOR_MIN_PER_BUCKET => 8]),
             'MULTJ-02' => self::payload(self::MULTJ02_MEASURE_ID, 'multj.semantic_dedup_freeze.v1', 'Semantic lesson dedup threshold freeze for observe-mode would-merge receipts; enforcement requires later calibrated promotion.', 1, 30, 'cursor-acos-max-multj02', 'codex-independent-multj02-judge', [self::FIELD_COSINE_MERGE_THRESHOLD => 0.88, self::FIELD_OBSERVE_MODE_ACTUAL_MERGES => 0]),
             'MULTJ-03' => self::payload(self::MULTJ03_MEASURE_ID, 'multj.counterfactual_lift.v2', 'Paired peek evaluation of the same task with and without injected lesson; n_pairs below 8 publishes insufficient_signal and peek must not record usage.', 8, 30, 'cursor-acos-max-multj03', 'codex-independent-multj03-judge', [self::FIELD_SAMPLE_RATE => 0.05, self::FIELD_DENOMINATOR_MIN_PAIRS => 8, self::FIELD_RECORD_USAGE_FOR_PEEK => false]),
-            'MULTJ-04' => self::payload(self::MULTJ04_MEASURE_ID, 'multj.procedural_skill_promoter.v1', 'Procedural playbooks can propose skill.v1 candidates only after the real procedural case_count floor; output is default-OFF and ASI-02 holds promotion_allowed=false until gates pass.', AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR, 30, 'cursor-acos-max-multj04', 'codex-independent-multj04-judge', ['procedural_case_count_floor' => AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR, self::FIELD_DEFAULT_OFF => true, self::FIELD_ADMISSION_DOOR => 'ASI-02']),
+            'MULTJ-04' => self::payload(self::MULTJ04_MEASURE_ID, 'multj.procedural_skill_promoter.v1', 'Procedural playbooks can propose skill.v1 candidates only after the real procedural case_count floor; output is default-OFF and ASI-02 holds promotion_allowed=false until gates pass.', AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR, 30, 'cursor-acos-max-multj04', 'codex-independent-multj04-judge', [self::FIELD_PROCEDURAL_CASE_COUNT_FLOOR => AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR, self::FIELD_DEFAULT_OFF => true, self::FIELD_ADMISSION_DOOR => 'ASI-02']),
             'MULTJ-06' => self::payload(self::MULTJ06_MEASURE_ID, 'multj.abstraction_ladder.v1', 'Distinct-signature patterns sharing primary_cause aggregate to level-3 principles when distinct_signature_k is met; derived_from refs must resolve or gate rejects.', 3, 30, 'cursor-acos-max-multj06', 'codex-independent-multj06-judge', [self::FIELD_DISTINCT_SIGNATURE_K => 3, self::FIELD_PATTERN_FLOOR => 1]),
             'TETO-02' => self::payload(self::TETO02_MEASURE_ID, 'mission_e2e_rate.v1', 'Operator natural-language request to completed result rate, asks per request, and request-to-delivery latency; abandoned missions stay in the denominator.', 20, 30, 'cursor-acos-max-teto02', 'codex-independent-teto02-judge', ['target_mission_e2e_rate' => 0.70, self::FIELD_DENOMINATOR_MIN_OPERATOR_REQUESTS => 20]),
         ];

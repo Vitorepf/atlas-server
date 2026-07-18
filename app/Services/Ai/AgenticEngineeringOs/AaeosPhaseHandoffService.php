@@ -61,6 +61,8 @@ final class AaeosPhaseHandoffService
     public const FIELD_DEPARTMENT_ROUTE_OWNER_CONFIRMED = 'department_route_owner_confirmed';
     public const FIELD_EVIDENCE_PACK_COMPLETENESS_MIN_0_95 = 'evidence_pack_completeness_min_0_95';
     public const FIELD_EXECUTION_LOG_WATCHDOG_OK = 'execution_log_watchdog_ok';
+    public const FIELD_LEARNING_CAPSULE_REGISTERED_IN_ACOS = 'learning_capsule_registered_in_acos';
+    public const FIELD_OPERATOR_DECISION_RECEIPT_APPROVED = 'operator_decision_receipt_approved';
 
     public static function requireIntentId(string $intentId): void
     {
@@ -150,9 +152,9 @@ final class AaeosPhaseHandoffService
         self::PHASE_GATES => [self::FIELD_UNIVERSAL_15_GATES_GREEN_OR_EXCEPTION],
         self::PHASE_EVIDENCE => [self::FIELD_EVIDENCE_PACK_COMPLETENESS_MIN_0_95],
         self::PHASE_DELIVERY => [self::FIELD_DELIVERY_PACK_HASH_SIGNED],
-        self::PHASE_HUMAN_REVIEW => ['operator_decision_receipt_approved'],
+        self::PHASE_HUMAN_REVIEW => [self::FIELD_OPERATOR_DECISION_RECEIPT_APPROVED],
         self::PHASE_CERTIFICATION => [self::FIELD_CERTIFICATION_SEVERITY_ACCEPTABLE],
-        self::PHASE_LEARNING => ['learning_capsule_registered_in_acos'],
+        self::PHASE_LEARNING => [self::FIELD_LEARNING_CAPSULE_REGISTERED_IN_ACOS],
     ];
 
     /** Phases that require operator signature when autonomy_level >= L4. */

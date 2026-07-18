@@ -7524,4 +7524,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['immune_calibration_acos_watchdog_lote_measure_n_capture_floor_count']);
     }
 
+    public function test_lote_measure_evidence_vision_exploratory_bets_pre_review_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->loteMeasureEvidenceVisionExploratoryBetsPreReviewFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_PROCEDURAL_CASE_COUNT_FLOOR, $out['procedural_case_count_floor']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_RECORD_USAGE, $out['record_usage']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_SOURCE, $out['source']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_STAGE, $out['stage']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_REASON, $out['reason']);
+        $this->assertSame(ExploratoryBetsPortfolio::FIELD_RECOMPUTES_MULTK_06_ALLOCATION, $out['recomputes_multk_06_allocation']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_MIN_N_FOR_BAND, $out['min_n_for_band']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_SATISFIED_FOR_DEATH, $out['satisfied_for_death']);
+        $this->assertSame(PromotionProtocol::FIELD_MANAGED_FLAGS_COUNT, $out['managed_flags_count']);
+        $this->assertSame(PromotionProtocol::FIELD_MIGRATION_POLICY, $out['migration_policy']);
+        $this->assertSame(RagxChainMechanismService::FIELD_SCORE_COUNT, $out['score_count']);
+        $this->assertSame(RagxChainMechanismService::FIELD_SCORE_ORIGIN, $out['score_origin']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_REQUIRED, $out['required']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ROUTING, $out['routing']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_LEARNING_CAPSULE_REGISTERED_IN_ACOS, $out['learning_capsule_registered_in_acos']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_OPERATOR_DECISION_RECEIPT_APPROVED, $out['operator_decision_receipt_approved']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_PHASES_EXECUTED_COUNT, $out['phases_executed_count']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_PLACEMENT_CACHE_HIT, $out['placement_cache_hit']);
+        $this->assertSame(18, $out['lote_measure_evidence_vision_exploratory_bets_pre_review_floor_count']);
+    }
+
 }

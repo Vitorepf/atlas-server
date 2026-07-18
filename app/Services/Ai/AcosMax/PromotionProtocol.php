@@ -96,6 +96,8 @@ final class PromotionProtocol
     public const FIELD_LAST_FLIP = 'last_flip';
     public const FIELD_LEDGER_PATH = 'ledger_path';
     public const FIELD_LEGACY_UNMANAGED_FLAGS_COUNT = 'legacy_unmanaged_flags_count';
+    public const FIELD_MANAGED_FLAGS_COUNT = 'managed_flags_count';
+    public const FIELD_MIGRATION_POLICY = 'migration_policy';
 
     /** @var list<string> */
     public const STATES = [
@@ -275,7 +277,7 @@ final class PromotionProtocol
             'protocol_schema_version' => self::SCHEMA,
             self::FIELD_STATES => self::STATES,
             self::FIELD_LEDGER_PATH => $this->ledger->path(),
-            'managed_flags_count' => count($managed),
+            self::FIELD_MANAGED_FLAGS_COUNT => count($managed),
             self::FIELD_LEGACY_UNMANAGED_FLAGS_COUNT => count($legacy),
             self::FIELD_FLAGS => array_values(array_merge($managed, $legacy)),
         ];
@@ -596,7 +598,7 @@ final class PromotionProtocol
             self::FIELD_CONFIG_KEY => $entry[self::FIELD_CONFIG_KEY] ?? null,
             self::FIELD_ENV_KEY => $entry[self::FIELD_ENV_KEY] ?? null,
             self::FIELD_SOURCE => $entry[self::FIELD_SOURCE] ?? null,
-            'migration_policy' => 'migrate_on_next_touch',
+            self::FIELD_MIGRATION_POLICY => 'migrate_on_next_touch',
         ];
     }
 }

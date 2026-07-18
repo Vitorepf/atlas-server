@@ -75,6 +75,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_PROVIDER = 'provider';
     public const FIELD_RECEIPT = 'receipt';
     public const FIELD_RECEIPT_REQUIRED = 'receipt_required';
+    public const FIELD_REQUIRED = 'required';
+    public const FIELD_ROUTING = 'routing';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -261,7 +263,7 @@ final class AaeosHttpPathEnvelopeFactory
             ],
             self::FIELD_REQUIRED_GATE => 'topology_plan_providers_min_1_available',
         ],
-        'routing' => [
+        self::FIELD_ROUTING => [
             self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_TOPOLOGY,
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_ROUTING,
             self::FIELD_ACTOR_ID => 'aaeos.routing',
@@ -390,7 +392,7 @@ final class AaeosHttpPathEnvelopeFactory
     private static function binaryGate(string $gate, bool $ok): array
     {
         return [
-            'required' => [$gate],
+            self::FIELD_REQUIRED => [$gate],
             self::FIELD_PASSED => $ok ? [$gate] : [],
             self::FIELD_BLOCKED => $ok ? [] : [$gate],
         ];

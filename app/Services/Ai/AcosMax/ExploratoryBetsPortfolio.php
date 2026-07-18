@@ -69,6 +69,8 @@ final class ExploratoryBetsPortfolio
     public const FIELD_N_TREAT = 'n_treat';
     public const FIELD_PATH_ID = 'path_id';
     public const FIELD_PATH_YIELD = 'path_yield';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_RECOMPUTES_MULTK_06_ALLOCATION = 'recomputes_multk_06_allocation';
 
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
 
@@ -243,7 +245,7 @@ final class ExploratoryBetsPortfolio
             self::FIELD_STATE => $suspendedState === PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE
                 ? PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE
                 : self::STATE_EXPLORING,
-            self::FIELD_BASIS => AiValueNormalizer::trimmedStringOrNull($effect['reason'] ?? null) ?? self::BASIS_UNPROVEN_EFFECT,
+            self::FIELD_BASIS => AiValueNormalizer::trimmedStringOrNull($effect[self::FIELD_REASON] ?? null) ?? self::BASIS_UNPROVEN_EFFECT,
         ]);
     }
 
@@ -284,7 +286,7 @@ final class ExploratoryBetsPortfolio
         return [
             self::FIELD_ALLOCATION_BOUNDARY => 'originated_slice_sub_policy',
             self::FIELD_USES_ATLAS_BRAIN_CAUSAL_EFFECT_GATE => true,
-            'recomputes_multk_06_allocation' => false,
+            self::FIELD_RECOMPUTES_MULTK_06_ALLOCATION => false,
             self::FIELD_WRITES_CLASS_ALLOCATION_WEIGHTS => false,
             self::FIELD_COUNTS_LANDING_OR_ACCEPTANCE => false,
             self::FIELD_COUNTS_PROVEN_REAL_ONLY => true,

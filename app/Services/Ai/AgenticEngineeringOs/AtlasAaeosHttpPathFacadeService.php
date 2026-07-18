@@ -114,6 +114,8 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD_PHASE_ACTIVE = 'phase_active';
     public const FIELD_PHASE_OUT = 'phase_out';
     public const FIELD_PHASES_EXECUTED = 'phases_executed';
+    public const FIELD_PHASES_EXECUTED_COUNT = 'phases_executed_count';
+    public const FIELD_PLACEMENT_CACHE_HIT = 'placement_cache_hit';
 
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
 
@@ -408,7 +410,7 @@ final class AtlasAaeosHttpPathFacadeService
                 static fn (array $env): string => AiValueNormalizer::trimmedStringOrNull($env[self::FIELD_PHASE_OUT] ?? null) ?? self::RESULT_UNKNOWN,
                 $envelopes,
             )),
-            'phases_executed_count' => count($envelopes),
+            self::FIELD_PHASES_EXECUTED_COUNT => count($envelopes),
             'placement_decision' => [
                 self::FIELD_GATE_STATUS => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_GATE_STATUS] ?? null) ?? self::RESULT_UNKNOWN,
                 self::FIELD_LAYER => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_LAYER] ?? null) ?? self::RESULT_UNKNOWN,
@@ -465,7 +467,7 @@ final class AtlasAaeosHttpPathFacadeService
         return [
             self::FIELD_PHASE_ACTIVE => $phaseActive,
             self::FIELD_LATENCY_MS => $latencyMs,
-            'placement_cache_hit' => $placementCacheHit,
+            self::FIELD_PLACEMENT_CACHE_HIT => $placementCacheHit,
         ];
     }
 
