@@ -175,6 +175,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_PATAMAR_4 = 'patamar_4';
     public const FIELD_GOVERNANCE = 'governance';
     public const FIELD_SELF_CONSTRUCTION = 'self_construction';
+    public const FIELD_COMPOUNDING = 'compounding';
+    public const FIELD_MEMORY_CORE = 'memory_core';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -232,9 +234,9 @@ class AtlasCognitionScoreCardService
         ['G8',     'Compounding Effect',          self::FIELD_COGNITIVE_IMMUNE, AtlasCompoundingRuntimeService::class],
 
         // Memory Core (3)
-        ['MEM-CORE',   'Memory Core (entries+relations)', 'memory_core', AtlasMemoryConflictResolutionService::class],
-        ['MEM-DELTA',  'Memory Delta Proposer',           'memory_core', AiMemoryDeltaProposer::class],
-        ['MEM-RECALL', 'Memory Recall (hybrid)',          'memory_core', AtlasHybridRetrievalInfrastructureService::class],
+        ['MEM-CORE',   'Memory Core (entries+relations)', self::FIELD_MEMORY_CORE, AtlasMemoryConflictResolutionService::class],
+        ['MEM-DELTA',  'Memory Delta Proposer',           self::FIELD_MEMORY_CORE, AiMemoryDeltaProposer::class],
+        ['MEM-RECALL', 'Memory Recall (hybrid)',          self::FIELD_MEMORY_CORE, AtlasHybridRetrievalInfrastructureService::class],
 
         // AUCRI 18 blocks
         ['ASEF',  'Semantic Embedding Foundation',     self::FIELD_AUCRI, AtlasSemanticEmbeddingFoundationService::class],
@@ -279,7 +281,7 @@ class AtlasCognitionScoreCardService
         // Patamar 4 · integration layer
         ['ADGW',    'Atlas Decide Gateway Consultation',   self::FIELD_ATLAS_DECIDE,      AtlasDecideGatewayConsultationService::class],
         ['ADLF',    'Atlas Decide Live Outcome Feedback',  self::FIELD_ATLAS_DECIDE,      AtlasDecideLiveOutcomeFeedbackService::class],
-        ['AACM',    'Antifragility Composition Metric',    'compounding',       AtlasAntifragilityCompositionMetricService::class],
+        ['AACM',    'Antifragility Composition Metric',    self::FIELD_COMPOUNDING,       AtlasAntifragilityCompositionMetricService::class],
         ['ACMF-SE', 'Cognitive Memory Fabric Schema Evolution', self::FIELD_AUCRI,         AtlasCognitiveMemoryFabricSchemaEvolutionService::class],
         ['ASCB-EX', 'Self-Construction Scaffold Staging Executor', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionScaffoldStagingExecutorService::class],
         ['ASCB-PP', 'Self-Construction Promotion Plan',          self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionPromotionPlanService::class],
@@ -303,7 +305,7 @@ class AtlasCognitionScoreCardService
         // COM-09: ACOP→ACRS bridge deleted — JSONL had 1 smoke signal (null value);
         // ARFL feedbackHint in ACRS already closes observability→ranking.
         ['AKIF-OCR', 'AKIF OCR Confidence-Scored Ingestion', self::FIELD_AUCRI,           AtlasKnowledgeIngestionFabricOcrConfidenceService::class],
-        ['ACL8',    'Compounding Level 8/9 Distillation',   'compounding',     AtlasCompoundingLevel8DistillationService::class],
+        ['ACL8',    'Compounding Level 8/9 Distillation',   self::FIELD_COMPOUNDING,     AtlasCompoundingLevel8DistillationService::class],
 
         // Patamar 4 · intelligence boost
         ['ADTI4', 'Atlas Decide TEOS-I4 Lookahead',        self::FIELD_ATLAS_DECIDE,     AtlasDecideTeosI4LookaheadService::class],
@@ -311,7 +313,7 @@ class AtlasCognitionScoreCardService
         // Domain runtimes — Research (review-only, source-grounded)
         ['ARDR',  'Research Domain Runtime',               'research_domain', ResearchRuntimeService::class],
         ['ABDD',  'BDD Acceptance Runtime',                'programming',     AtlasBddAcceptanceRuntimeService::class],
-        ['ALMR',  'Learning Mutation Runtime',             'compounding',     AtlasLearningMutationRuntimeService::class],
+        ['ALMR',  'Learning Mutation Runtime',             self::FIELD_COMPOUNDING,     AtlasLearningMutationRuntimeService::class],
         ['APCP',  'Programming Cartography Publisher',     'programming',     AtlasProgrammingCartographyPublisherService::class],
     ];
 

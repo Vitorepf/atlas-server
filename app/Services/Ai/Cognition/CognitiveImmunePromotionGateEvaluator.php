@@ -75,6 +75,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_SCOPE = 'scope';
     public const FIELD_CLAIM_SOURCE_PRESENT = 'claim_source_present';
     public const FIELD_CLAIM_TYPE = 'claim_type';
+    public const FIELD_CONSENT_GRANTED = 'consent_granted';
+    public const FIELD_CONTAINS_SECRET = 'contains_secret';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -176,7 +178,7 @@ final class CognitiveImmunePromotionGateEvaluator
      */
     private function captureGate(array $signals): array
     {
-        $confirmed = $this->flag($signals, 'consent_granted')
+        $confirmed = $this->flag($signals, self::FIELD_CONSENT_GRANTED)
             && $this->flag($signals, 'retention_ok')
             && $this->nonEmptyString($signals, 'privacy_class');
 
@@ -228,7 +230,7 @@ final class CognitiveImmunePromotionGateEvaluator
      */
     private function safetyGate(array $signals, bool $candidatePresent): array
     {
-        $unsafe = $this->flag($signals, 'contains_secret')
+        $unsafe = $this->flag($signals, self::FIELD_CONTAINS_SECRET)
             || $this->flag($signals, 'contains_sensitive_unnecessary')
             || $this->explicitlyFalse($signals, 'provider_safe');
 

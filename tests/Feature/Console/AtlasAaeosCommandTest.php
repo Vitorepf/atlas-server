@@ -7893,6 +7893,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_capture_hmac_cognitive_function_department_contract_immune_promotion_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b440-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b440',
+                '--capture-hmac-cognitive-function-department-contract-immune-promotion-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"capture_hmac_cognitive_function_department_contract_immune_promotion_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

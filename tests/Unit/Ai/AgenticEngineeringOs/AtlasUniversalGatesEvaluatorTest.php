@@ -8743,4 +8743,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b439_cognitive_function_department_contract_immune_promotion_cognition_score_floor_count']);
     }
 
+    public function test_capture_hmac_cognitive_function_department_contract_immune_promotion_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->captureHmacCognitiveFunctionDepartmentContractImmunePromotionFloorsContractObserve([]);
+        $this->assertSame(CaptureHmacLineageService::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_CLIENT_ID, $out['client_id']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CITE, $out['cite']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_CLASSE, $out['classe']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_BOUNDARY_VALIDATED, $out['boundary_validated']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_BREAKING_CHANGE_DOCUMENTED, $out['breaking_change_documented']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_CONSENT_GRANTED, $out['consent_granted']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_CONTAINS_SECRET, $out['contains_secret']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_COMPOUNDING, $out['compounding']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_MEMORY_CORE, $out['memory_core']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_FRAMEWORK, $out['framework']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HAS_SECRET_MARKER, $out['has_secret_marker']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LAST_NEGATIVE_FEEDBACK, $out['last_negative_feedback']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LEARNING_CADENCE_STALLED, $out['learning_cadence_stalled']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_EVIDENCE_REQUIRED, $out['evidence_required']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_FORBIDDEN_ACTIONS, $out['forbidden_actions']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_IMPORTANCE, $out['importance']);
+        $this->assertSame(18, $out['capture_hmac_cognitive_function_department_contract_immune_promotion_floor_count']);
+    }
+
 }

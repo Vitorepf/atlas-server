@@ -11165,4 +11165,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B440).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function captureHmacCognitiveFunctionDepartmentContractImmunePromotionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'sha256' => CaptureHmacLineageService::FIELD_SHA256,
+            'client_id' => CaptureHmacLineageService::FIELD_CLIENT_ID,
+            'cite' => AtlasCognitiveFunctionDecomposerService::FIELD_CITE,
+            'classe' => AtlasCognitiveFunctionDecomposerService::FIELD_CLASSE,
+            'boundary_validated' => DepartmentContractRuntime::FIELD_BOUNDARY_VALIDATED,
+            'breaking_change_documented' => DepartmentContractRuntime::FIELD_BREAKING_CHANGE_DOCUMENTED,
+            'consent_granted' => CognitiveImmunePromotionGateEvaluator::FIELD_CONSENT_GRANTED,
+            'contains_secret' => CognitiveImmunePromotionGateEvaluator::FIELD_CONTAINS_SECRET,
+            'compounding' => AtlasCognitionScoreCardService::FIELD_COMPOUNDING,
+            'memory_core' => AtlasCognitionScoreCardService::FIELD_MEMORY_CORE,
+            'framework' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_FRAMEWORK,
+            'has_secret_marker' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_HAS_SECRET_MARKER,
+            'last_negative_feedback' => AtlasAcosWatchdogHealthService::FIELD_LAST_NEGATIVE_FEEDBACK,
+            'learning_cadence_stalled' => AtlasAcosWatchdogHealthService::FIELD_LEARNING_CADENCE_STALLED,
+            'evidence_required' => AtlasAaeosDepartmentRegistryService::FIELD_EVIDENCE_REQUIRED,
+            'forbidden_actions' => AtlasAaeosDepartmentRegistryService::FIELD_FORBIDDEN_ACTIONS,
+            'evidence' => AtlasMemoryRecallRelevanceScorer::FIELD_EVIDENCE,
+            'importance' => AtlasMemoryRecallRelevanceScorer::FIELD_IMPORTANCE,
+            'capture_hmac_cognitive_function_department_contract_immune_promotion_floor_count' => 18,
+        ];
+    }
+
 }

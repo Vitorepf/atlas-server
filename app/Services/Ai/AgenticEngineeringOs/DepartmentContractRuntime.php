@@ -247,6 +247,8 @@ final class DepartmentContractRuntime
     public const FIELD_APPROVE_RELEASE_WITHOUT_REVIEW = 'approve_release_without_review';
     public const FIELD_APPROVE_UNAUDITED_DEP = 'approve_unaudited_dep';
     public const FIELD_BLOCKERS_ADDRESSED = 'blockers_addressed';
+    public const FIELD_BOUNDARY_VALIDATED = 'boundary_validated';
+    public const FIELD_BREAKING_CHANGE_DOCUMENTED = 'breaking_change_documented';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -338,7 +340,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
                 [self::FIELD_NAME => self::FIELD_MIGRATION_PLAN, self::FIELD_SCHEMA => self::SCHEMA_MIGRATION_PLAN],
             ],
-            self::FIELD_GATES => ['adr_published', 'boundary_validated', 'spec_acceptance_criteria_complete', 'breaking_change_documented', 'rollback_per_slice'],
+            self::FIELD_GATES => ['adr_published', self::FIELD_BOUNDARY_VALIDATED, 'spec_acceptance_criteria_complete', self::FIELD_BREAKING_CHANGE_DOCUMENTED, 'rollback_per_slice'],
             self::FIELD_ALLOWED_ACTIONS => ['draft_spec', 'propose_migration_plan', 'request_security_review', 'veto_execution'],
             self::FIELD_FORBIDDEN_ACTIONS => ['write_code', 'execute_migration', 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],

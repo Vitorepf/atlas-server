@@ -101,6 +101,8 @@ final class CaptureHmacLineageService
     public const FIELD_ATLAS_KNOWLEDGE_SOURCE_PACKETS = 'atlas_knowledge_source_packets';
     public const FIELD_ATLAS_MEMORY_ENTRIES = 'atlas_memory_entries';
     public const FIELD_DELETED_AT = 'deleted_at';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_CLIENT_ID = 'client_id';
 
     /**
      * @param  array<string,mixed>  $existingChain
@@ -276,7 +278,7 @@ final class CaptureHmacLineageService
 
     public function stagePayloadHash(string $stage, array $payload): string
     {
-        return hash('sha256', (string) json_encode([
+        return hash(self::FIELD_SHA256, (string) json_encode([
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_STAGE => $stage,
             self::FIELD_PAYLOAD => $this->sortKeysRecursive($payload),
@@ -287,7 +289,7 @@ final class CaptureHmacLineageService
     {
         $prev = $prevReceiptHash ?? self::GENESIS_RECEIPT;
 
-        return hash_hmac('sha256', $prev.'|'.$stagePayloadHash, $this->keyMaterial(), false);
+        return hash_hmac(self::FIELD_SHA256, $prev.'|'.$stagePayloadHash, $this->keyMaterial(), false);
     }
 
     /**
@@ -378,7 +380,7 @@ final class CaptureHmacLineageService
 
         $capture = Capture::query()
             ->where(function ($query) use ($id): void {
-                $query->where('id', $id)->orWhere('client_id', $id);
+                $query->where('id', $id)->orWhere(self::FIELD_CLIENT_ID, $id);
             })
             ->first();
 
@@ -439,13 +441,13 @@ final class CaptureHmacLineageService
         $configured = config(self::SECRET_CONFIG_KEY);
         $configuredSecret = AiValueNormalizer::trimmedStringOrNull($configured);
         if ($configuredSecret !== null) {
-            return hash_hmac('sha256', self::KEY_MATERIAL_LABEL, $configuredSecret, true);
+            return hash_hmac(self::FIELD_SHA256, self::KEY_MATERIAL_LABEL, $configuredSecret, true);
         }
 
         $appKey = AiValueNormalizer::trimmedStringOrNull(config(self::APP_KEY_CONFIG_KEY, '')) ?? '';
 
         return hash_hmac(
-            'sha256',
+            self::FIELD_SHA256,
             self::KEY_MATERIAL_LABEL,
             $appKey !== '' ? $appKey : self::KEY_MATERIAL_FALLBACK,
             true,

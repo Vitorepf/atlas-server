@@ -44,6 +44,8 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_SEMANTIC = 'semantic';
     public const FIELD_HYBRID_SCORE = 'hybrid_score';
     public const FIELD_CONFIDENCE = 'confidence';
+    public const FIELD_EVIDENCE = 'evidence';
+    public const FIELD_IMPORTANCE = 'importance';
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -75,7 +77,7 @@ final class AtlasMemoryRecallRelevanceScorer
         }
 
         return $this->floatField($row, 'priority', 50.0)
-            + $this->floatField($row, 'importance', 3.0) * 10
+            + $this->floatField($row, self::FIELD_IMPORTANCE, 3.0) * 10
             + $this->floatField($row, self::FIELD_CONFIDENCE, 0.7) * 10
             + $this->floatField($row, self::FIELD_HYBRID_SCORE, 0.0) * 30
             + $this->scopeWeight($scope)
@@ -106,7 +108,7 @@ final class AtlasMemoryRecallRelevanceScorer
         return match ($type) {
             'decision', 'resolution', self::FIELD_REQUIREMENT => 16,
             'issue', self::FIELD_FAILURE => 14,
-            'technical_context', 'command', 'evidence', self::FIELD_HARNESS_LEARNING => 11,
+            'technical_context', 'command', self::FIELD_EVIDENCE, self::FIELD_HARNESS_LEARNING => 11,
             'preference', self::FIELD_FEEDBACK => 8,
             default => 5,
         };

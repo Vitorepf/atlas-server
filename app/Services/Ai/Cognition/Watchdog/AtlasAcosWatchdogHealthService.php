@@ -314,6 +314,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_FRESHNESS_FULL = 'freshness_full';
     public const FIELD_LAST_AI_RUN_OUTCOME = 'last_ai_run_outcome';
     public const FIELD_LAST_DELIVERED_REFS_EVENT = 'last_delivered_refs_event';
+    public const FIELD_LAST_NEGATIVE_FEEDBACK = 'last_negative_feedback';
+    public const FIELD_LEARNING_CADENCE_STALLED = 'learning_cadence_stalled';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -396,7 +398,7 @@ final class AtlasAcosWatchdogHealthService
 
         $lift = app(AtlasLearningRecallUseLiftService::class)->report();
         $checks = [
-            $this->ageCheck('last_negative_feedback', $lastNegative, self::LEARNING_NEGATIVE_MAX_AGE_HOURS, $now),
+            $this->ageCheck(self::FIELD_LAST_NEGATIVE_FEEDBACK, $lastNegative, self::LEARNING_NEGATIVE_MAX_AGE_HOURS, $now),
             $this->ageCheck(self::FIELD_LAST_AI_RUN_OUTCOME, $lastOutcome, self::LEARNING_AI_RUN_OUTCOME_MAX_AGE_HOURS, $now),
             $this->checkRow(self::FIELD_LAST_DELIVERED_REFS_EVENT, $lastDeliveredRefs !== null, [
                 self::FIELD_LAST_AT => $lastDeliveredRefs?->toIso8601String(),
@@ -419,7 +421,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_AI_RUN_OUTCOME_MAX_AGE_HOURS => self::LEARNING_AI_RUN_OUTCOME_MAX_AGE_HOURS,
             ],
             self::FIELD_LIFT_STATUS => (AiValueNormalizer::trimmedStringOrNull($lift[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
-        ], 'learning_cadence_stalled');
+        ], self::FIELD_LEARNING_CADENCE_STALLED);
     }
 
     /** @return array<string,mixed> */

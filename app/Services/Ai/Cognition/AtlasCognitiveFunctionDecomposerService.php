@@ -85,6 +85,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_AVALIE = 'avalie';
     public const FIELD_BUILD = 'build';
     public const FIELD_CARTOGRAFIA = 'cartografia';
+    public const FIELD_CITE = 'cite';
+    public const FIELD_CLASSE = 'classe';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -109,7 +111,7 @@ final class AtlasCognitiveFunctionDecomposerService
         ],
         self::FIELD_RETRIEVAL => [
             'busque', 'procure', 'encontre', 'pesquise', 'mostre', 'liste',
-            'recupere', 'lookup', 'qual e', 'quais sao', 'cite', 'cadastr',
+            'recupere', 'lookup', 'qual e', 'quais sao', self::FIELD_CITE, 'cadastr',
             'documenta', 'memoria', 'search', 'find', 'show',
         ],
         self::FIELD_GENERATION => [
@@ -120,7 +122,7 @@ final class AtlasCognitiveFunctionDecomposerService
         self::FIELD_CODE => [
             'codigo', 'codifique', 'implemente', 'refatore', 'debug', 'teste',
             'compile', 'execute', 'rode', 'rodar', 'php', 'typescript', 'react',
-            'componente', 'servico', 'classe', 'funcao', 'controller', 'cli',
+            'componente', 'servico', self::FIELD_CLASSE, 'funcao', 'controller', 'cli',
             self::FIELD_ARTISAN, 'migration', 'composer', 'npm', 'phpunit', 'pest',
             'patch', 'pull request', 'pr ', ' pr,', 'merge', 'git ',
             'code', 'function', 'class', 'service', 'refactor', 'test', self::FIELD_BUILD,
