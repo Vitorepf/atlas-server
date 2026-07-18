@@ -7099,4 +7099,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['resource_budget_belief_cascade_citation_grounding_dev_procedural_floor_count']);
     }
 
+    public function test_b375_n_capture_domain_lexical_evidence_vision_execution_context_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b375NCaptureDomainLexicalEvidenceVisionExecutionContextFloorsContractObserve([]);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_PROVEN_REAL_OUTCOMES_OBSERVED, $out['proven_real_outcomes_observed']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_REFUSED_COUNT, $out['refused_count']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_MAX_EXPANDED_TOKENS, $out['max_expanded_tokens']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_OPERADOR, $out['operador']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_PATH, $out['path']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_SWEET, $out['sweet']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_INTERSECTION_ALONE_IS_NOT_CAUSAL, $out['intersection_alone_is_not_causal']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_INTERSECTION_REFS, $out['intersection_refs']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_INPUTS, $out['inputs']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_REQUIRED_SPEC_PACK_ARTIFACTS, $out['required_spec_pack_artifacts']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_MAX, $out['max']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_PHASE_ACTIVE, $out['phase_active']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_OUTCOME, $out['outcome']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_PROVIDER_SAFE, $out['provider_safe']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_IS_PROPOSAL, $out['is_proposal']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_VERDICT, $out['verdict']);
+        $this->assertSame(18, $out['b375_n_capture_domain_lexical_evidence_vision_execution_context_floor_count']);
+    }
+
 }

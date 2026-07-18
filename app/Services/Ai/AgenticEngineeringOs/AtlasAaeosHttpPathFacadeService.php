@@ -110,6 +110,8 @@ final class AtlasAaeosHttpPathFacadeService
     public const DEFAULT_TELEMETRY_ENABLED = true;
     public const FIELD_REQUESTS = 'requests';
     public const FIELD_SAMPLES = 'samples';
+    public const FIELD_MAX = 'max';
+    public const FIELD_PHASE_ACTIVE = 'phase_active';
 
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
 
@@ -309,7 +311,7 @@ final class AtlasAaeosHttpPathFacadeService
             self::FIELD_LATENCY_MS => [
                 self::FIELD_SAMPLES => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.count', 0),
                 'sum' => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.sum', 0),
-                'max' => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.max', 0),
+                self::FIELD_MAX => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.max', 0),
             ],
         ];
     }
@@ -459,7 +461,7 @@ final class AtlasAaeosHttpPathFacadeService
     private function telemetry(string $phaseActive, int $latencyMs, bool $placementCacheHit): array
     {
         return [
-            'phase_active' => $phaseActive,
+            self::FIELD_PHASE_ACTIVE => $phaseActive,
             self::FIELD_LATENCY_MS => $latencyMs,
             'placement_cache_hit' => $placementCacheHit,
         ];

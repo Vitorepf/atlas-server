@@ -397,6 +397,7 @@ final class AtlasAaeosCommand extends Command
                             {--procedural-skill-verified-share-acos-program-deferred-phase-floors-contract= : JSON file (any object) to observe procedural/skill/verified/share/acos/program floors}
                             {--aemor-outcome-ambition-rung-flywheel-funnel-composed-obra-floors-contract= : JSON file (any object) to observe aemor/outcome/ambition/rung/flywheel/funnel floors}
                             {--resource-budget-belief-cascade-citation-grounding-dev-procedural-floors-contract= : JSON file (any object) to observe resource/budget/belief/cascade/citation/grounding floors}
+                            {--b375-n-capture-domain-lexical-evidence-vision-execution-context-floors-contract= : JSON file (any object) to observe n/capture/domain/lexical/evidence/vision floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -950,6 +951,7 @@ final class AtlasAaeosCommand extends Command
             ['procedural-skill-verified-share-acos-program-deferred-phase-floors-contract', 'procedural_skill_verified_share_acos_program_deferred_phase_floors_contract', fn (array $p) => $gates->proceduralSkillVerifiedShareAcosProgramDeferredPhaseFloorsContractObserve($p)],
             ['aemor-outcome-ambition-rung-flywheel-funnel-composed-obra-floors-contract', 'aemor_outcome_ambition_rung_flywheel_funnel_composed_obra_floors_contract', fn (array $p) => $gates->aemorOutcomeAmbitionRungFlywheelFunnelComposedObraFloorsContractObserve($p)],
             ['resource-budget-belief-cascade-citation-grounding-dev-procedural-floors-contract', 'resource_budget_belief_cascade_citation_grounding_dev_procedural_floors_contract', fn (array $p) => $gates->resourceBudgetBeliefCascadeCitationGroundingDevProceduralFloorsContractObserve($p)],
+            ['b375-n-capture-domain-lexical-evidence-vision-execution-context-floors-contract', 'b375_n_capture_domain_lexical_evidence_vision_execution_context_floors_contract', fn (array $p) => $gates->b375NCaptureDomainLexicalEvidenceVisionExecutionContextFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

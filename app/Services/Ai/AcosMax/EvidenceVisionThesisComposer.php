@@ -105,6 +105,8 @@ final class EvidenceVisionThesisComposer
     public const FIELD_LEADS = 'leads';
     public const FIELD_REMAINING_ROWS_MAX = 'remaining_rows_max';
     public const FIELD_OUTCOMES = 'outcomes';
+    public const FIELD_PATH = 'path';
+    public const FIELD_SWEET = 'sweet';
 
     /**
      * @param  array<string,mixed>  $context
@@ -344,7 +346,7 @@ final class EvidenceVisionThesisComposer
     {
         $bands = AiValueNormalizer::arrayOrEmpty($calibration[self::FIELD_BANDS] ?? null);
         $high = AiValueNormalizer::arrayOrEmpty($bands[self::FIELD_HIGH] ?? null);
-        $sweet = AiValueNormalizer::arrayOrEmpty($bands['sweet'] ?? null);
+        $sweet = AiValueNormalizer::arrayOrEmpty($bands[self::FIELD_SWEET] ?? null);
         $highN = (int) (AiValueNormalizer::finiteFloatOrNull($high[self::FIELD_N_REALIZED] ?? null) ?? 0);
         $sweetN = (int) (AiValueNormalizer::finiteFloatOrNull($sweet[self::FIELD_N_REALIZED] ?? null) ?? 0);
         if ($highN < 3 || $sweetN < 3) {
@@ -460,7 +462,7 @@ final class EvidenceVisionThesisComposer
             if (! is_array($row)) {
                 continue;
             }
-            $path = AiValueNormalizer::trimmedStringOrNull($row['path'] ?? null) ?? '';
+            $path = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_PATH] ?? null) ?? '';
             if ($path === '') {
                 continue;
             }

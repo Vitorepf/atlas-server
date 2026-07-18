@@ -77,6 +77,8 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_PROPOSAL_ID = 'proposal_id';
     public const FIELD_DOC_SKELETON = 'doc_skeleton';
     public const FIELD_ADMISSION_DECISION = 'admission_decision';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_IS_PROPOSAL = 'is_proposal';
 
     private ?string $proposalsLogOverride = null;
 
@@ -148,7 +150,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         $proposal = [
             'schema_version' => self::PROPOSAL_SCHEMA,
             self::FIELD_PROPOSAL_ID => $proposalId,
-            'generated_at' => $generatedAt,
+            self::FIELD_GENERATED_AT => $generatedAt,
             self::FIELD_CURRENT_SCHEMA => $currentSchema,
             self::FIELD_PROPOSED_NEXT_SCHEMA => $nextSchema,
             self::FIELD_TRIGGER => $trigger,
@@ -159,7 +161,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
             self::FIELD_KERNEL_DECISION => $kernelEnv[self::FIELD_DECISION],
             self::FIELD_ADMISSION_DECISION => $admissionEnv[self::FIELD_DECISION],
             'requires_human_approval' => true,
-            'is_proposal' => true,
+            self::FIELD_IS_PROPOSAL => true,
         ];
         $proposal['proposal_hash'] = 'sha256:'.hash('sha256', json_encode([
             self::FIELD_SCHEMA => self::PROPOSAL_SCHEMA,

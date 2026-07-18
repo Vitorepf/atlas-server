@@ -113,6 +113,8 @@ final class AtlasNCaptureDrillService
     public const FIELD_SOURCE_TYPE = 'source_type';
     public const FIELD_FUNCTION = 'function';
     public const FIELD_VERIFIED = 'verified';
+    public const FIELD_PROVEN_REAL_OUTCOMES_OBSERVED = 'proven_real_outcomes_observed';
+    public const FIELD_REFUSED_COUNT = 'refused_count';
 
     private readonly string $ledgerPath;
 
@@ -202,7 +204,7 @@ final class AtlasNCaptureDrillService
             ],
             self::FIELD_DENOMINATORS => [
                 'routed_tasks_observed' => (int) data_get($drill, 'denominators.routed_tasks_observed', 0),
-                'proven_real_outcomes_observed' => (int) data_get($drill, 'denominators.proven_real_outcomes_observed', 0),
+                self::FIELD_PROVEN_REAL_OUTCOMES_OBSERVED => (int) data_get($drill, 'denominators.proven_real_outcomes_observed', 0),
             ],
             self::FIELD_ADMISSION => [
                 self::FIELD_ADMITTED => (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.admitted')) ?? false),
@@ -282,7 +284,7 @@ final class AtlasNCaptureDrillService
             self::FIELD_AGGREGATE => [
                 self::FIELD_DRILLS_IN_WINDOW => count($inWindow),
                 self::FIELD_ADMITTED_COUNT => count($admitted),
-                'refused_count' => count($refused),
+                self::FIELD_REFUSED_COUNT => count($refused),
                 self::FIELD_ENGINES => $engines,
             ],
             self::FIELD_LATEST => $inWindow === [] ? null : end($inWindow),

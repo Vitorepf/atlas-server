@@ -48,6 +48,8 @@ final class AtlasConsolidationRerankGuard
     public const STATUS_HEALTHY = 'healthy';
     public const FIELD_FROZEN_AT = 'frozen_at';
     public const FIELD_PROMOTE_ALLOWED = 'promote_allowed';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_VERDICT = 'verdict';
 
 
     private string $baselinePath;
@@ -108,7 +110,7 @@ final class AtlasConsolidationRerankGuard
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'verdict' => $verdict,
+            self::FIELD_VERDICT => $verdict,
             self::FIELD_PROMOTE_ALLOWED => $verdict === 'promote_allowed',
             self::FIELD_CURRENT_PRECISION_AT_K => $current,
             self::FIELD_BASELINE_PRECISION_AT_K => $baseline,
@@ -138,7 +140,7 @@ final class AtlasConsolidationRerankGuard
         }
         try {
             $report = $this->corpus->report();
-            $status = (AiValueNormalizer::trimmedStringOrNull($report['status'] ?? null) ?? '');
+            $status = (AiValueNormalizer::trimmedStringOrNull($report[self::FIELD_STATUS] ?? null) ?? '');
             // The corpus degrades to a non-`ok` status when the engine is absent.
             if ($status !== '' && $status !== self::STATUS_OK && $status !== self::STATUS_HEALTHY) {
                 return null;

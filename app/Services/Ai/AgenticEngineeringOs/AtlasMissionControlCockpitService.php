@@ -84,6 +84,8 @@ final class AtlasMissionControlCockpitService
     public const FIELD_PHASE_ADVANCE = 'phase_advance';
     public const FIELD_PHASES = 'phases';
     public const FIELD_OUTCOME_CAUSALITY = 'outcome_causality';
+    public const FIELD_OUTCOME = 'outcome';
+    public const FIELD_PROVIDER_SAFE = 'provider_safe';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
@@ -148,7 +150,7 @@ final class AtlasMissionControlCockpitService
             // Observe-only causality ranking when the journey is not clear green.
             self::FIELD_OUTCOME_CAUSALITY => $this->outcomeCausalityFor($blockers, $gateReport),
             self::FIELD_OPERATOR_SIGNATURE_REQUIRED => $signatureRequired,
-            'provider_safe' => true,
+            self::FIELD_PROVIDER_SAFE => true,
             self::FIELD_GENERATED_AT => gmdate('c'),
         ];
         if ($queueHealth !== null) {
@@ -249,7 +251,7 @@ final class AtlasMissionControlCockpitService
      */
     private function outcomeCausalityFor(array $blockers, array $gateReport): ?array
     {
-        $outcome = AiValueNormalizer::trimmedStringOrNull($gateReport['outcome'] ?? null) ?? '';
+        $outcome = AiValueNormalizer::trimmedStringOrNull($gateReport[self::FIELD_OUTCOME] ?? null) ?? '';
         if ($blockers === [] && $outcome === self::OUTCOME_GREEN) {
             return null;
         }

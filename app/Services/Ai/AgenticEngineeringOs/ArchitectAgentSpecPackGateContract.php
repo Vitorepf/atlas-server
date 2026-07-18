@@ -35,6 +35,8 @@ final class ArchitectAgentSpecPackGateContract
     public const FIELD_MIN_AUTONOMOUS_RISK_SCOPE = 'min_autonomous_risk_scope';
     public const FIELD_OPERATOR_SIGNATURE_REQUIRED_FROM = 'operator_signature_required_from';
     public const FIELD_SPEC_PACK_SCHEMA = 'spec_pack_schema';
+    public const FIELD_INPUTS = 'inputs';
+    public const FIELD_REQUIRED_SPEC_PACK_ARTIFACTS = 'required_spec_pack_artifacts';
 
     /**
      * Required spec_pack sections before high-risk autonomous work may proceed.
@@ -115,10 +117,10 @@ final class ArchitectAgentSpecPackGateContract
             self::FIELD_MIN_AUTONOMOUS_RISK_SCOPE => self::MIN_AUTONOMOUS_RISK_SCOPE,
             self::FIELD_OPERATOR_SIGNATURE_REQUIRED_FROM => self::OPERATOR_SIGNATURE_REQUIRED_FROM,
             self::FIELD_SPEC_PACK_SCHEMA => self::SPEC_PACK_SCHEMA,
-            'required_spec_pack_artifacts' => self::REQUIRED_SPEC_PACK_ARTIFACTS,
+            self::FIELD_REQUIRED_SPEC_PACK_ARTIFACTS => self::REQUIRED_SPEC_PACK_ARTIFACTS,
             self::FIELD_GATES => self::GATES,
             self::FIELD_EVIDENCE_REQUIRED => self::EVIDENCE_REQUIRED,
-            'inputs' => [
+            self::FIELD_INPUTS => [
                 self::FIELD_RISK_SCOPE => $this->riskScope,
                 self::FIELD_SPEC_PACK_HASH => $this->specPackHash,
                 self::FIELD_ACCEPTANCE_CRITERIA_PRESENT => $this->acceptanceCriteriaPresent,

@@ -32,6 +32,8 @@ final class DomainLexicalNormalizer
     public const MAX_EXPANDED_TOKENS = 32;
     public const FIELD_MEMORIA = 'memoria';
     public const FIELD_VERIFICACAO = 'verificacao';
+    public const FIELD_MAX_EXPANDED_TOKENS = 'max_expanded_tokens';
+    public const FIELD_OPERADOR = 'operador';
 
     /** @var array<string,list<string>> */
     public const EQUIVALENCES = [
@@ -49,7 +51,7 @@ final class DomainLexicalNormalizer
         self::FIELD_VERIFICACAO => [self::FIELD_VERIFICATION],
         'verificação' => [self::FIELD_VERIFICATION],
         self::FIELD_APRENDIZADO => [self::FIELD_LEARNING],
-        'operador' => ['operator'],
+        self::FIELD_OPERADOR => ['operator'],
     ];
 
     /**
@@ -106,7 +108,7 @@ final class DomainLexicalNormalizer
             'schema_version' => self::SCHEMA_VERSION,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_EQUIVALENCES => self::EQUIVALENCES,
-            'max_expanded_tokens' => self::MAX_EXPANDED_TOKENS,
+            self::FIELD_MAX_EXPANDED_TOKENS => self::MAX_EXPANDED_TOKENS,
             'provider_calls_made' => false,
             self::FIELD_DETERMINISTIC => true,
         ];

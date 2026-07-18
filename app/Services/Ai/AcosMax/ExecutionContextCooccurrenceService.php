@@ -49,6 +49,8 @@ final class ExecutionContextCooccurrenceService
     public const REASON_RUN_ARTIFACT_UNAVAILABLE = 'run_artifact_unavailable';
     public const FIELD_GENERATED_AT = 'generated_at';
     public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
+    public const FIELD_INTERSECTION_ALONE_IS_NOT_CAUSAL = 'intersection_alone_is_not_causal';
+    public const FIELD_INTERSECTION_REFS = 'intersection_refs';
 
 
     /**
@@ -69,7 +71,7 @@ final class ExecutionContextCooccurrenceService
                 self::FIELD_PROVIDER_CALLS_MADE => false,
                 'memory_written' => false,
                 self::FIELD_FEEDS_ENFORCEMENT => false,
-                'intersection_alone_is_not_causal' => true,
+                self::FIELD_INTERSECTION_ALONE_IS_NOT_CAUSAL => true,
             ],
         ];
 
@@ -127,7 +129,7 @@ final class ExecutionContextCooccurrenceService
                 self::FIELD_GREEN_RUN => ($run[self::FIELD_GREEN_RUN] ?? false) === true,
                 self::FIELD_DELIVERED_REF_COUNT => count($delivered),
                 'used_ref_count' => count($used),
-                'intersection_refs' => $intersection,
+                self::FIELD_INTERSECTION_REFS => $intersection,
                 self::FIELD_CONTEXT_CAUSAL_BINDING => 'correlational_cooccurrence',
             ];
         }

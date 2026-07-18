@@ -9149,4 +9149,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B375).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b375NCaptureDomainLexicalEvidenceVisionExecutionContextFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'proven_real_outcomes_observed' => AtlasNCaptureDrillService::FIELD_PROVEN_REAL_OUTCOMES_OBSERVED,
+            'refused_count' => AtlasNCaptureDrillService::FIELD_REFUSED_COUNT,
+            'max_expanded_tokens' => DomainLexicalNormalizer::FIELD_MAX_EXPANDED_TOKENS,
+            'operador' => DomainLexicalNormalizer::FIELD_OPERADOR,
+            'path' => EvidenceVisionThesisComposer::FIELD_PATH,
+            'sweet' => EvidenceVisionThesisComposer::FIELD_SWEET,
+            'intersection_alone_is_not_causal' => ExecutionContextCooccurrenceService::FIELD_INTERSECTION_ALONE_IS_NOT_CAUSAL,
+            'intersection_refs' => ExecutionContextCooccurrenceService::FIELD_INTERSECTION_REFS,
+            'inputs' => ArchitectAgentSpecPackGateContract::FIELD_INPUTS,
+            'required_spec_pack_artifacts' => ArchitectAgentSpecPackGateContract::FIELD_REQUIRED_SPEC_PACK_ARTIFACTS,
+            'max' => AtlasAaeosHttpPathFacadeService::FIELD_MAX,
+            'phase_active' => AtlasAaeosHttpPathFacadeService::FIELD_PHASE_ACTIVE,
+            'outcome' => AtlasMissionControlCockpitService::FIELD_OUTCOME,
+            'provider_safe' => AtlasMissionControlCockpitService::FIELD_PROVIDER_SAFE,
+            'generated_at' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_GENERATED_AT,
+            'is_proposal' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_IS_PROPOSAL,
+            'status' => AtlasConsolidationRerankGuard::FIELD_STATUS,
+            'verdict' => AtlasConsolidationRerankGuard::FIELD_VERDICT,
+            'b375_n_capture_domain_lexical_evidence_vision_execution_context_floor_count' => 18,
+        ];
+    }
+
 }
