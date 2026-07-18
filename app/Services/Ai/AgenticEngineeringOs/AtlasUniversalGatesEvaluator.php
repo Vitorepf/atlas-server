@@ -11568,4 +11568,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B453).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b453CaptureHmacCognitiveFunctionDepartmentContractImmunePromotionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'created_at' => CaptureHmacLineageService::FIELD_CREATED_AT,
+            'invalid_link' => CaptureHmacLineageService::FIELD_INVALID_LINK,
+            'funcao' => AtlasCognitiveFunctionDecomposerService::FIELD_FUNCAO,
+            'image' => AtlasCognitiveFunctionDecomposerService::FIELD_IMAGE,
+            'noise_immunity_check_ok' => DepartmentContractRuntime::FIELD_NOISE_IMMUNITY_CHECK_OK,
+            'propose_acceptance_criteria' => DepartmentContractRuntime::FIELD_PROPOSE_ACCEPTANCE_CRITERIA,
+            'all_time_recall_negative_feedback' => CognitiveImmunePromotionGateEvaluator::FIELD_ALL_TIME_RECALL_NEGATIVE_FEEDBACK,
+            'recalls_by_actor' => CognitiveImmunePromotionGateEvaluator::FIELD_RECALLS_BY_ACTOR,
+            'empty_intent' => AtlasAaeosHttpPathFacadeService::FIELD_EMPTY_INTENT,
+            'flow_id' => AtlasAaeosHttpPathFacadeService::FIELD_FLOW_ID,
+            'research_domain' => AtlasCognitionScoreCardService::FIELD_RESEARCH_DOMAIN,
+            'self_improvement' => AtlasCognitionScoreCardService::FIELD_SELF_IMPROVEMENT,
+            'patamar_4' => AtlasCognitionScoreCardV4Grouper::FIELD_PATAMAR_4,
+            'reality' => AtlasCognitionScoreCardV4Grouper::FIELD_REALITY,
+            'outcome_envelope_status_invalid' => OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_STATUS_INVALID,
+            'outcome_envelope_verified_basis_invalid' => OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_VERIFIED_BASIS_INVALID,
+            'sha256' => AcosMaxLote2MeasureService::FIELD_SHA256,
+            'atlas_loop_origination_outcomes' => AcosMaxLote2MeasureService::FIELD_ATLAS_LOOP_ORIGINATION_OUTCOMES,
+            'b453_capture_hmac_cognitive_function_department_contract_immune_promotion_floor_count' => 18,
+        ];
+    }
+
 }

@@ -54,6 +54,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_CONSUMER = 'consumer';
     public const FIELD_PROGRAMMING = 'programming';
     public const FIELD_PATAMAR4 = 'patamar4';
+    public const FIELD_PATAMAR_4 = 'patamar_4';
+    public const FIELD_REALITY = 'reality';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -147,11 +149,11 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_GOVERNANCE => 'GOVERNANCE',
             self::FIELD_ATLAS_DECIDE => 'DECIDE',
             self::FIELD_COMPOUNDING => 'COMPOUND',
-            'reality', self::FIELD_CROSS_DOMAIN => 'REALITY',
+            self::FIELD_REALITY, self::FIELD_CROSS_DOMAIN => 'REALITY',
             self::FIELD_TEOS => 'TEOS',
             self::FIELD_COGNITION => 'COGNITION',
             self::FIELD_AUTONOMY => 'AUTONOMY',
-            self::FIELD_PATAMAR4, 'patamar_4', self::FIELD_INTEGRATION => 'PATAMAR4',
+            self::FIELD_PATAMAR4, self::FIELD_PATAMAR_4, self::FIELD_INTEGRATION => 'PATAMAR4',
             self::FIELD_CONTEXT_CACHE => 'CONTEXT-CACHE',
             self::FIELD_CONTEXT_INTELLIGENCE => 'CONTEXT-INTELLIGENCE',
             self::FIELD_PERSISTENT_CONTEXT => 'PERSISTENT-CONTEXT',

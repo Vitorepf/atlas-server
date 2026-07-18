@@ -95,6 +95,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_PROVIDER_SAFE = 'provider_safe';
     public const FIELD_RECALL_ACTOR_COUNTS = 'recall_actor_counts';
     public const FIELD_RECALL_NEGATIVE_FEEDBACK = 'recall_negative_feedback';
+    public const FIELD_ALL_TIME_RECALL_NEGATIVE_FEEDBACK = 'all_time_recall_negative_feedback';
+    public const FIELD_RECALLS_BY_ACTOR = 'recalls_by_actor';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -450,7 +452,7 @@ final class CognitiveImmunePromotionGateEvaluator
         foreach ([
             'probation_negative_feedback_count',
             self::FIELD_RECALL_NEGATIVE_FEEDBACK,
-            'all_time_recall_negative_feedback',
+            self::FIELD_ALL_TIME_RECALL_NEGATIVE_FEEDBACK,
             self::FIELD_NEGATIVE_FEEDBACK_COUNT,
         ] as $key) {
             if ($this->intValue($signals, $key) > 0) {
@@ -544,7 +546,7 @@ final class CognitiveImmunePromotionGateEvaluator
         foreach ([
             'probation_recall_actor_counts',
             self::FIELD_RECALL_ACTOR_COUNTS,
-            'recalls_by_actor',
+            self::FIELD_RECALLS_BY_ACTOR,
         ] as $key) {
             $counts = $this->actorCountsFromValue($signals[$key] ?? null);
             if ($counts !== []) {

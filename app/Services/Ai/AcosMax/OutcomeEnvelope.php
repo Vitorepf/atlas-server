@@ -65,6 +65,8 @@ final class OutcomeEnvelope
     public const FIELD_OUTCOME_ENVELOPE_IDENTITY_FIELDS_REQUIRED = 'outcome_envelope_identity_fields_required';
     public const FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_INVALID = 'outcome_envelope_native_divergent_invalid';
     public const FIELD_OUTCOME_ENVELOPE_SCHEMA_INVALID = 'outcome_envelope_schema_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_STATUS_INVALID = 'outcome_envelope_status_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_VERIFIED_BASIS_INVALID = 'outcome_envelope_verified_basis_invalid';
 
     /**
      * Map divergent native status labels onto the shared envelope statuses.
@@ -156,7 +158,7 @@ final class OutcomeEnvelope
 
         $status = AiValueNormalizer::lowerTrimmedString($data[self::FIELD_STATUS] ?? '');
         if (! in_array($status, self::STATUSES, true)) {
-            throw new InvalidArgumentException('outcome_envelope_status_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_STATUS_INVALID);
         }
 
         $basis = AiValueNormalizer::lowerTrimmedString($data[self::FIELD_VERIFIED_BASIS] ?? '');
@@ -166,7 +168,7 @@ final class OutcomeEnvelope
             AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_CLAIMED,
             AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT,
         ], true)) {
-            throw new InvalidArgumentException('outcome_envelope_verified_basis_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_VERIFIED_BASIS_INVALID);
         }
 
         $divergent = $data[self::FIELD_NATIVE_DIVERGENT] ?? null;

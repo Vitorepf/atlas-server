@@ -273,6 +273,8 @@ final class DepartmentContractRuntime
     public const FIELD_MODIFY_SECURITY_POLICY = 'modify_security_policy';
     public const FIELD_OPERATOR_SIGNATURE_PRESENT = 'operator_signature_present';
     public const FIELD_PROMOTION_GATE_PASSED = 'promotion_gate_passed';
+    public const FIELD_NOISE_IMMUNITY_CHECK_OK = 'noise_immunity_check_ok';
+    public const FIELD_PROPOSE_ACCEPTANCE_CRITERIA = 'propose_acceptance_criteria';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -341,7 +343,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_ACCEPTANCE_CRITERIA, self::FIELD_SCHEMA => self::SCHEMA_ACCEPTANCE_CRITERIA],
             ],
             self::FIELD_GATES => ['intent_clarity_score_min', 'acceptance_criteria_min_3'],
-            self::FIELD_ALLOWED_ACTIONS => ['ask_clarifying_question', 'propose_acceptance_criteria', 'split_intent'],
+            self::FIELD_ALLOWED_ACTIONS => ['ask_clarifying_question', self::FIELD_PROPOSE_ACCEPTANCE_CRITERIA, 'split_intent'],
             self::FIELD_FORBIDDEN_ACTIONS => ['write_code', self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['clarification_log', 'acceptance_criteria_pack'],
@@ -577,7 +579,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_MEMORY_RECORD, self::FIELD_SCHEMA => self::SCHEMA_MEMORY_RECORD],
                 [self::FIELD_NAME => self::FIELD_CONTEXT_PACK, self::FIELD_SCHEMA => self::SCHEMA_CONTEXT_PACK],
             ],
-            self::FIELD_GATES => ['evidence_persisted', self::FIELD_LEARNING_SIGNAL_EXTRACTED, self::FIELD_PROMOTION_GATE_PASSED, 'noise_immunity_check_ok', 'schema_versioned'],
+            self::FIELD_GATES => ['evidence_persisted', self::FIELD_LEARNING_SIGNAL_EXTRACTED, self::FIELD_PROMOTION_GATE_PASSED, self::FIELD_NOISE_IMMUNITY_CHECK_OK, 'schema_versioned'],
             self::FIELD_ALLOWED_ACTIONS => ['promote_to_memory', 'quarantine_capsule', 'emit_context_pack'],
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_promotion_gate', self::FIELD_MODIFY_EVIDENCE_LEDGER, 'expose_secrets'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],

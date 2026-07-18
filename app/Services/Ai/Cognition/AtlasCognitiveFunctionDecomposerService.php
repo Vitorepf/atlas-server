@@ -111,6 +111,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_FOTO = 'foto';
     public const FIELD_SCREENSHOT = 'screenshot';
     public const FIELD_DESIGN = 'design';
+    public const FIELD_FUNCAO = 'funcao';
+    public const FIELD_IMAGE = 'image';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -146,7 +148,7 @@ final class AtlasCognitiveFunctionDecomposerService
         self::FIELD_CODE => [
             'codigo', self::FIELD_CODIFIQUE, 'implemente', 'refatore', 'debug', 'teste',
             self::FIELD_COMPILE, self::FIELD_EXECUTE, 'rode', 'rodar', 'php', 'typescript', 'react',
-            self::FIELD_COMPONENTE, 'servico', self::FIELD_CLASSE, 'funcao', 'controller', self::FIELD_CLI,
+            self::FIELD_COMPONENTE, 'servico', self::FIELD_CLASSE, self::FIELD_FUNCAO, 'controller', self::FIELD_CLI,
             self::FIELD_ARTISAN, 'migration', 'composer', 'npm', 'phpunit', 'pest',
             'patch', 'pull request', 'pr ', ' pr,', 'merge', 'git ',
             'code', 'function', 'class', 'service', 'refactor', 'test', self::FIELD_BUILD,
@@ -154,7 +156,7 @@ final class AtlasCognitiveFunctionDecomposerService
         self::FIELD_VISION => [
             'imagem', self::FIELD_FOTO, self::FIELD_SCREENSHOT, 'visualize', self::FIELD_DESIGN, 'layout',
             'mockup', self::FIELD_FIGMA, 'png', 'jpg', 'svg', 'tela', 'ui ', 'ux ',
-            'cor ', 'paleta', 'visual', self::FIELD_SCREENSHOT, 'image', 'render',
+            'cor ', 'paleta', 'visual', self::FIELD_SCREENSHOT, self::FIELD_IMAGE, 'render',
         ],
         self::FIELD_AUDIT => [
             'audite', self::FIELD_AUDITA, 'audit', 'verifique', 'valide', 'cheque',

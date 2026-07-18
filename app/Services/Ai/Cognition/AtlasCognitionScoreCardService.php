@@ -193,6 +193,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_OPEN_BRAIN = 'open_brain';
     public const FIELD_PERSISTENT_CONTEXT = 'persistent_context';
     public const FIELD_REALITY = 'reality';
+    public const FIELD_RESEARCH_DOMAIN = 'research_domain';
+    public const FIELD_SELF_IMPROVEMENT = 'self_improvement';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -275,7 +277,7 @@ class AtlasCognitionScoreCardService
         ['ACPFR', 'Context Pareto Frontier Runtime',   self::FIELD_AUCRI, AtlasContextParetoFrontierRuntimeService::class],
 
         // Self-Improvement L7 (closed loop)
-        ['ASI-L7', 'Self-Improvement Closed Loop L7', 'self_improvement', AtlasSelfImprovementResultLedgerService::class],
+        ['ASI-L7', 'Self-Improvement Closed Loop L7', self::FIELD_SELF_IMPROVEMENT, AtlasSelfImprovementResultLedgerService::class],
 
         // Patamar 2/3 — meta-learning, self-construction, AURG-4D, cross-domain mesh, TEOS-I3
         ['ADML',    'Atlas Decide Meta-Learning',          self::FIELD_ATLAS_DECIDE,      AtlasDecideMetaLearningService::class],
@@ -327,7 +329,7 @@ class AtlasCognitionScoreCardService
         ['ADTI4', 'Atlas Decide TEOS-I4 Lookahead',        self::FIELD_ATLAS_DECIDE,     AtlasDecideTeosI4LookaheadService::class],
 
         // Domain runtimes — Research (review-only, source-grounded)
-        ['ARDR',  'Research Domain Runtime',               'research_domain', ResearchRuntimeService::class],
+        ['ARDR',  'Research Domain Runtime',               self::FIELD_RESEARCH_DOMAIN, ResearchRuntimeService::class],
         ['ABDD',  'BDD Acceptance Runtime',                self::FIELD_PROGRAMMING,     AtlasBddAcceptanceRuntimeService::class],
         ['ALMR',  'Learning Mutation Runtime',             self::FIELD_COMPOUNDING,     AtlasLearningMutationRuntimeService::class],
         ['APCP',  'Programming Cartography Publisher',     self::FIELD_PROGRAMMING,     AtlasProgrammingCartographyPublisherService::class],

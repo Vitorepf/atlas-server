@@ -9068,4 +9068,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cognitive_function_department_contract_model_capability_acos_evolution_floor_count']);
     }
 
+    public function test_b453_capture_hmac_cognitive_function_department_contract_immune_promotion_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b453CaptureHmacCognitiveFunctionDepartmentContractImmunePromotionFloorsContractObserve([]);
+        $this->assertSame(CaptureHmacLineageService::FIELD_CREATED_AT, $out['created_at']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_INVALID_LINK, $out['invalid_link']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_FUNCAO, $out['funcao']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_IMAGE, $out['image']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_NOISE_IMMUNITY_CHECK_OK, $out['noise_immunity_check_ok']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PROPOSE_ACCEPTANCE_CRITERIA, $out['propose_acceptance_criteria']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_ALL_TIME_RECALL_NEGATIVE_FEEDBACK, $out['all_time_recall_negative_feedback']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_RECALLS_BY_ACTOR, $out['recalls_by_actor']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_EMPTY_INTENT, $out['empty_intent']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_FLOW_ID, $out['flow_id']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_RESEARCH_DOMAIN, $out['research_domain']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SELF_IMPROVEMENT, $out['self_improvement']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_PATAMAR_4, $out['patamar_4']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_REALITY, $out['reality']);
+        $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_STATUS_INVALID, $out['outcome_envelope_status_invalid']);
+        $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_VERIFIED_BASIS_INVALID, $out['outcome_envelope_verified_basis_invalid']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_ATLAS_LOOP_ORIGINATION_OUTCOMES, $out['atlas_loop_origination_outcomes']);
+        $this->assertSame(18, $out['b453_capture_hmac_cognitive_function_department_contract_immune_promotion_floor_count']);
+    }
+
 }

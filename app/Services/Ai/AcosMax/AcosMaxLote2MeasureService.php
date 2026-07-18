@@ -260,6 +260,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_AI_LEARNING_CANDIDATES = 'ai_learning_candidates';
     public const FIELD_AI_RUN_OUTCOMES = 'ai_run_outcomes';
     public const FIELD_ATLAS_MISSION_DELIVERIES = 'atlas_mission_deliveries';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_ATLAS_LOOP_ORIGINATION_OUTCOMES = 'atlas_loop_origination_outcomes';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -297,7 +299,7 @@ final class AcosMaxLote2MeasureService
     /** @return array<string,mixed> */
     public function multn1704PredictedImpact(): array
     {
-        $originations = $this->countTableIfPresent('atlas_loop_origination_outcomes');
+        $originations = $this->countTableIfPresent(self::FIELD_ATLAS_LOOP_ORIGINATION_OUTCOMES);
 
         return $this->emptyReport('MULTN17-04', self::STATUS_INSUFFICIENT_SIGNAL, self::REASON_PENDING_REAL_ORIGINATOR_OUTCOME, [
             self::FIELD_MEASURE_ID => self::MULTN1704_MEASURE_ID,
@@ -531,7 +533,7 @@ final class AcosMaxLote2MeasureService
             return [
                 self::FIELD_COMPLETE => false,
                 self::FIELD_PARTIAL => [
-                    self::FIELD_LOOP_ID => hash('sha256', implode('|', array_map(static fn ($value): string => AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '', $chain))),
+                    self::FIELD_LOOP_ID => hash(self::FIELD_SHA256, implode('|', array_map(static fn ($value): string => AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '', $chain))),
                     self::FIELD_CHAIN => $chain,
                     self::FIELD_PROVEN_REAL => $provenReal,
                     self::FIELD_FIXTURE_FREE => ! $fixture,
@@ -543,7 +545,7 @@ final class AcosMaxLote2MeasureService
         return [
             self::FIELD_COMPLETE => true,
             self::FIELD_LOOP => [
-                self::FIELD_LOOP_ID => hash('sha256', implode('|', array_map(static fn ($value): string => AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '', $chain))),
+                self::FIELD_LOOP_ID => hash(self::FIELD_SHA256, implode('|', array_map(static fn ($value): string => AiValueNormalizer::trimmedScalarStringOrNull($value) ?? '', $chain))),
                 self::FIELD_CHAIN => $chain,
                 self::FIELD_PROVEN_REAL => true,
                 self::FIELD_FIXTURE_FREE => true,

@@ -103,6 +103,8 @@ final class CaptureHmacLineageService
     public const FIELD_DELETED_AT = 'deleted_at';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_CLIENT_ID = 'client_id';
+    public const FIELD_CREATED_AT = 'created_at';
+    public const FIELD_INVALID_LINK = 'invalid_link';
 
     /**
      * @param  array<string,mixed>  $existingChain
@@ -156,7 +158,7 @@ final class CaptureHmacLineageService
             if (! is_array($link)) {
                 return [
                     self::FIELD_STATUS => 'broken_at:invalid_link',
-                    self::FIELD_BROKEN_AT => 'invalid_link',
+                    self::FIELD_BROKEN_AT => self::FIELD_INVALID_LINK,
                     self::FIELD_STAGE_COUNT => count($stages),
                     self::FIELD_HEAD_RECEIPT_HASH => $this->headReceiptHash($chain),
                 ];
@@ -216,7 +218,7 @@ final class CaptureHmacLineageService
 
         $rows = DB::table('captures')
             ->whereNull(self::FIELD_DELETED_AT)
-            ->orderByDesc('created_at')
+            ->orderByDesc(self::FIELD_CREATED_AT)
             ->limit(max($minCaptures * 4, 40))
             ->get(['id', 'metadata', 'created_at']);
 

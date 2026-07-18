@@ -124,6 +124,8 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD_APP_SURFACE = 'app_surface';
     public const FIELD_CURRENT_MODE = 'current_mode';
     public const FIELD_DOMAIN_ID = 'domain_id';
+    public const FIELD_EMPTY_INTENT = 'empty_intent';
+    public const FIELD_FLOW_ID = 'flow_id';
 
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
 
@@ -354,7 +356,7 @@ final class AtlasAaeosHttpPathFacadeService
     private function hashIntent(string $intentText): string
     {
         if ($intentText === '') {
-            return 'sha256:'.hash(self::FIELD_SHA256, 'empty_intent');
+            return 'sha256:'.hash(self::FIELD_SHA256, self::FIELD_EMPTY_INTENT);
         }
 
         return 'sha256:'.hash(self::FIELD_SHA256, $intentText);
@@ -392,7 +394,7 @@ final class AtlasAaeosHttpPathFacadeService
     {
         $payload = self::requestPayload($data);
         $hints = [];
-        foreach (['atlas_mode', self::FIELD_CURRENT_MODE, 'flow_id', self::FIELD_DOMAIN_ID, 'surface_id', self::FIELD_APP_SURFACE, 'routing_task'] as $key) {
+        foreach (['atlas_mode', self::FIELD_CURRENT_MODE, self::FIELD_FLOW_ID, self::FIELD_DOMAIN_ID, 'surface_id', self::FIELD_APP_SURFACE, 'routing_task'] as $key) {
             $value = AiValueNormalizer::trimmedStringOrNull($payload[$key] ?? null);
             if ($value !== null) {
                 $hints[] = $key.'='.$value;
