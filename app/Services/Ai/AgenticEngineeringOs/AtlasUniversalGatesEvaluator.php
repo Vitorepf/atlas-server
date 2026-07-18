@@ -15086,4 +15086,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B568).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b568VerifiedShareEspIndependentFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AcosMaxVerifiedShareService::FIELD_SCHEMA_VERSION,
+            'formula_version' => AcosMaxVerifiedShareService::FIELD_FORMULA_VERSION,
+            'kind' => AcosMaxVerifiedShareService::FIELD_KIND,
+            'denominator_min' => AcosMaxVerifiedShareService::FIELD_DENOMINATOR_MIN,
+            'author_engine_id' => AcosMaxVerifiedShareService::FIELD_AUTHOR_ENGINE_ID,
+            'judge_engine_id' => AcosMaxVerifiedShareService::FIELD_JUDGE_ENGINE_ID,
+            'series_registry' => AcosMaxVerifiedShareService::FIELD_SERIES_REGISTRY,
+            'path' => AcosMaxVerifiedShareService::FIELD_PATH,
+            'watchdog_plugin' => AcosMaxVerifiedShareService::FIELD_WATCHDOG_PLUGIN,
+            'measure_id' => Esp09IndependentChallengerService::FIELD_MEASURE_ID,
+            'mode' => Esp09IndependentChallengerService::FIELD_MODE,
+            'gates_override' => Esp09IndependentChallengerService::FIELD_GATES_OVERRIDE,
+            'triggered' => Esp09IndependentChallengerService::FIELD_TRIGGERED,
+            'reason' => Esp09IndependentChallengerService::FIELD_REASON,
+            'advisory_only' => Esp09IndependentChallengerService::FIELD_ADVISORY_ONLY,
+            'skip_reason' => Esp09IndependentChallengerService::FIELD_SKIP_REASON,
+            'author_engine_id' => Esp09IndependentChallengerService::FIELD_AUTHOR_ENGINE_ID,
+            'challenger_engine_id' => Esp09IndependentChallengerService::FIELD_CHALLENGER_ENGINE_ID,
+            'b568_verified_share_esp_independent_floor_count' => 18,
+        ];
+    }
+
 }

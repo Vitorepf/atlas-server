@@ -11899,4 +11899,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b567_teto_predicted_autonomy_ladder_floor_count']);
     }
 
+    public function test_b568_verified_share_esp_independent_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b568VerifiedShareEspIndependentFloorsContractObserve([]);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_KIND, $out['kind']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_DENOMINATOR_MIN, $out['denominator_min']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_AUTHOR_ENGINE_ID, $out['author_engine_id']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_JUDGE_ENGINE_ID, $out['judge_engine_id']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_SERIES_REGISTRY, $out['series_registry']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_PATH, $out['path']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_WATCHDOG_PLUGIN, $out['watchdog_plugin']);
+        $this->assertSame(Esp09IndependentChallengerService::FIELD_MEASURE_ID, $out['measure_id']);
+        $this->assertSame(Esp09IndependentChallengerService::FIELD_MODE, $out['mode']);
+        $this->assertSame(Esp09IndependentChallengerService::FIELD_GATES_OVERRIDE, $out['gates_override']);
+        $this->assertSame(Esp09IndependentChallengerService::FIELD_TRIGGERED, $out['triggered']);
+        $this->assertSame(Esp09IndependentChallengerService::FIELD_REASON, $out['reason']);
+        $this->assertSame(Esp09IndependentChallengerService::FIELD_ADVISORY_ONLY, $out['advisory_only']);
+        $this->assertSame(Esp09IndependentChallengerService::FIELD_SKIP_REASON, $out['skip_reason']);
+        $this->assertSame(Esp09IndependentChallengerService::FIELD_AUTHOR_ENGINE_ID, $out['author_engine_id']);
+        $this->assertSame(Esp09IndependentChallengerService::FIELD_CHALLENGER_ENGINE_ID, $out['challenger_engine_id']);
+        $this->assertSame(18, $out['b568_verified_share_esp_independent_floor_count']);
+    }
+
 }
