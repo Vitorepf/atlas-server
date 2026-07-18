@@ -9669,4 +9669,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['joint_resource_department_contract_acos_watchdog_cognitive_function_floor_count']);
     }
 
+    public function test_department_contract_acos_watchdog_aaeos_test_implementation_summary_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->departmentContractAcosWatchdogAaeosTestImplementationSummaryFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DEBUG_REPRO_SUCCESS_RATE, $out['debug_repro_success_rate']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DELIVERY_COMPLETENESS_AVG, $out['delivery_completeness_avg']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DELIVERY_PACK_HASH, $out['delivery_pack_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DELIVERY_REVIEW_LOOP_COUNT, $out['delivery_review_loop_count']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DEPENDENCY_AUDIT_HASH, $out['dependency_audit_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DEPLOY_FIX_WITHOUT_REVIEW, $out['deploy_fix_without_review']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_RETRIEVAL_EVAL_BELOW_FLOOR, $out['retrieval_eval_below_floor']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SYNTHETIC_SHARE_ABOVE_FLOOR, $out['synthetic_share_above_floor']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_TASK, $out['task']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_TOTAL_EVENT_COUNT_BELOW_FLOOR, $out['total_event_count_below_floor']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_WATCH_REGRESSED, $out['watch_regressed']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_GIT, $out['git']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_SYMBOL_NAME, $out['symbol_name']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FIELD_ID, $out['id']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_TS, $out['ts']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_SCOREBOARD_SLICE_REFS, $out['scoreboard_slice_refs']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_SERIES_STALE_DURING_WINDOW, $out['series_stale_during_window']);
+        $this->assertSame(AsefChunkIndexService::FIELD_ASEF_, $out['asef_']);
+        $this->assertSame(18, $out['department_contract_acos_watchdog_aaeos_test_implementation_summary_floor_count']);
+    }
+
 }

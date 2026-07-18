@@ -41,6 +41,7 @@ final class SummaryFidelityCoverageScorer
     public const FIELD_PRESENT_ITEM_IDS = 'present_item_ids';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_KIND = 'kind';
+    public const FIELD_ID = 'id';
 
 
     /**
@@ -82,7 +83,7 @@ final class SummaryFidelityCoverageScorer
         foreach ($requiredItems as $item) {
             $requiredTotal++;
 
-            $id = $this->stringValue($item, 'id');
+            $id = $this->stringValue($item, self::FIELD_ID);
             $idToken = AiValueNormalizer::trimmedStringOrNull($id) ?? '';
             $kind = $this->normalize($this->stringValue($item, self::FIELD_KIND));
             $isDecision = $kind === self::DECISION_KIND;

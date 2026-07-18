@@ -353,6 +353,11 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_PIPELINE_SCORE_BELOW_PERFECT = 'pipeline_score_below_perfect';
     public const FIELD_RECALL_AT_5_BELOW_FLOOR_OR_UNMEASURED = 'recall_at_5_below_floor_or_unmeasured';
     public const FIELD_REGRESSED = 'regressed';
+    public const FIELD_RETRIEVAL_EVAL_BELOW_FLOOR = 'retrieval_eval_below_floor';
+    public const FIELD_SYNTHETIC_SHARE_ABOVE_FLOOR = 'synthetic_share_above_floor';
+    public const FIELD_TASK = 'task';
+    public const FIELD_TOTAL_EVENT_COUNT_BELOW_FLOOR = 'total_event_count_below_floor';
+    public const FIELD_WATCH_REGRESSED = 'watch_regressed';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -370,7 +375,7 @@ final class AtlasAcosWatchdogHealthService
         $trendStatus = AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'trend.status')) ?? self::STATUS_UNKNOWN;
         $currentDelta = data_get($scorecard, 'trend.current_delta_from_latest');
         $latestDelta = data_get($scorecard, 'trend.latest_delta_from_previous');
-        $scoreRegressed = in_array($trendStatus, [self::FIELD_REGRESSED, 'watch_regressed'], true)
+        $scoreRegressed = in_array($trendStatus, [self::FIELD_REGRESSED, self::FIELD_WATCH_REGRESSED], true)
             || (is_numeric($currentDelta) && (int) $currentDelta < -self::MEMORY_SCORE_REGRESSION_TOLERANCE)
             || (is_numeric($latestDelta) && (int) $latestDelta < -self::MEMORY_SCORE_REGRESSION_TOLERANCE);
 
@@ -429,7 +434,7 @@ final class AtlasAcosWatchdogHealthService
         $lastOutcome = $this->latestModelAt(AiRunOutcome::class, 'created_at', self::FIELD_AI_RUN_OUTCOMES);
         $lastDeliveredRefs = $this->latestRagDeliveredRefsAt();
         $aemor = [];
-        foreach (['dev', 'forge', 'task'] as $source) {
+        foreach (['dev', 'forge', self::FIELD_TASK] as $source) {
             $aemor[$source] = $this->latestAemorSourceAt($source);
         }
 
@@ -529,7 +534,7 @@ final class AtlasAcosWatchdogHealthService
         )) ?? 0.0;
         $issues = [];
         if ($retrievalEval < self::RAG_RETRIEVAL_EVAL_FLOOR) {
-            $issues[] = 'retrieval_eval_below_floor';
+            $issues[] = self::FIELD_RETRIEVAL_EVAL_BELOW_FLOOR;
         }
         if ($recallAt5 === null || $recallAt5 < self::RAG_RECALL_AT_5_FLOOR) {
             $issues[] = self::FIELD_RECALL_AT_5_BELOW_FLOOR_OR_UNMEASURED;
@@ -615,13 +620,13 @@ final class AtlasAcosWatchdogHealthService
         $syntheticShare = $total > 0 ? round($synthetic / $total, 4) : 0.0;
         $blocking = [];
         if ($total < self::FEEDBACK_TOTAL_EVENT_FLOOR) {
-            $blocking[] = 'total_event_count_below_floor';
+            $blocking[] = self::FIELD_TOTAL_EVENT_COUNT_BELOW_FLOOR;
         }
         if ($measured < self::FEEDBACK_MEASURED_COUNT_FLOOR) {
             $blocking[] = self::FIELD_MEASURED_COUNT_BELOW_FLOOR;
         }
         if ($syntheticShare > self::FEEDBACK_SYNTHETIC_SHARE_MAX) {
-            $blocking[] = 'synthetic_share_above_floor';
+            $blocking[] = self::FIELD_SYNTHETIC_SHARE_ABOVE_FLOOR;
         }
 
         return [

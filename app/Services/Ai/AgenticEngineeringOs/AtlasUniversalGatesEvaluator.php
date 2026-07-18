@@ -12313,4 +12313,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B477).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function departmentContractAcosWatchdogAaeosTestImplementationSummaryFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'debug_repro_success_rate' => DepartmentContractRuntime::FIELD_DEBUG_REPRO_SUCCESS_RATE,
+            'delivery_completeness_avg' => DepartmentContractRuntime::FIELD_DELIVERY_COMPLETENESS_AVG,
+            'delivery_pack_hash' => DepartmentContractRuntime::FIELD_DELIVERY_PACK_HASH,
+            'delivery_review_loop_count' => DepartmentContractRuntime::FIELD_DELIVERY_REVIEW_LOOP_COUNT,
+            'dependency_audit_hash' => DepartmentContractRuntime::FIELD_DEPENDENCY_AUDIT_HASH,
+            'deploy_fix_without_review' => DepartmentContractRuntime::FIELD_DEPLOY_FIX_WITHOUT_REVIEW,
+            'retrieval_eval_below_floor' => AtlasAcosWatchdogHealthService::FIELD_RETRIEVAL_EVAL_BELOW_FLOOR,
+            'synthetic_share_above_floor' => AtlasAcosWatchdogHealthService::FIELD_SYNTHETIC_SHARE_ABOVE_FLOOR,
+            'task' => AtlasAcosWatchdogHealthService::FIELD_TASK,
+            'total_event_count_below_floor' => AtlasAcosWatchdogHealthService::FIELD_TOTAL_EVENT_COUNT_BELOW_FLOOR,
+            'watch_regressed' => AtlasAcosWatchdogHealthService::FIELD_WATCH_REGRESSED,
+            'git' => AtlasAaeosTestExecutionService::FIELD_GIT,
+            'symbol_name' => AtlasAaeosImplementationEvidenceResolver::FIELD_SYMBOL_NAME,
+            'id' => SummaryFidelityCoverageScorer::FIELD_ID,
+            'ts' => AcosMaxMeasureSeriesRegistry::FIELD_TS,
+            'scoreboard_slice_refs' => AcosMaxObraRetroService::FIELD_SCOREBOARD_SLICE_REFS,
+            'series_stale_during_window' => AcosMaxWindowOrchestratorService::FIELD_SERIES_STALE_DURING_WINDOW,
+            'asef_' => AsefChunkIndexService::FIELD_ASEF_,
+            'department_contract_acos_watchdog_aaeos_test_implementation_summary_floor_count' => 18,
+        ];
+    }
+
 }

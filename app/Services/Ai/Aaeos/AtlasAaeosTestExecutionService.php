@@ -73,6 +73,7 @@ class AtlasAaeosTestExecutionService
     public const FIELD_PROCESS_UNAVAILABLE = 'process_unavailable';
     public const FIELD_REVIEW = 'review';
     public const FIELD_DELIVERY = 'delivery';
+    public const FIELD_GIT = 'git';
 
     public function __construct(
         private readonly float $timeout = 180.0,
@@ -317,7 +318,7 @@ class AtlasAaeosTestExecutionService
         }
 
         try {
-            $process = new Process(['git', '-C', base_path(), 'status', '--porcelain']);
+            $process = new Process([self::FIELD_GIT, '-C', base_path(), 'status', '--porcelain']);
             $process->setTimeout(10.0);
             $process->run();
             $out = AiValueNormalizer::trimmedStringOrNull($process->getOutput()) ?? '';
@@ -524,7 +525,7 @@ class AtlasAaeosTestExecutionService
             return null;
         }
         try {
-            $process = new Process(['git', '-C', base_path(), 'rev-parse', '--short=12', 'HEAD']);
+            $process = new Process([self::FIELD_GIT, '-C', base_path(), 'rev-parse', '--short=12', 'HEAD']);
             $process->setTimeout(10.0);
             $process->run();
             $stamp = AiValueNormalizer::trimmedStringOrNull($process->getOutput()) ?? '';

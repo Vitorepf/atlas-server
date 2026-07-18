@@ -96,6 +96,7 @@ final class AsefChunkIndexService
     public const FIELD_ASEF_CHUNKS = 'asef_chunks';
     public const FIELD_EMBEDDING = 'embedding';
     public const FIELD_NORMAL = 'normal';
+    public const FIELD_ASEF_ = 'asef_';
 
     public function __construct(
         private readonly AtlasSemanticEmbeddingFoundationService $asef,
@@ -168,7 +169,7 @@ final class AsefChunkIndexService
             $embeddedText = self::contextualizedText($title, $section, $chunkText);
             $row = [
                 self::FIELD_ID => (string) Str::uuid(),
-                self::FIELD_CHUNK_ID => AiValueNormalizer::trimmedStringOrNull($chunk[self::FIELD_CHUNK_ID] ?? null) ?? ('asef_'.substr($chunkHash, 0, 24)),
+                self::FIELD_CHUNK_ID => AiValueNormalizer::trimmedStringOrNull($chunk[self::FIELD_CHUNK_ID] ?? null) ?? (self::FIELD_ASEF_.substr($chunkHash, 0, 24)),
                 self::FIELD_SOURCE_REF => $sourceRef,
                 self::FIELD_SOURCE_HASH => AiValueNormalizer::trimmedStringOrNull($chunk[self::FIELD_SOURCE_HASH] ?? null) ?? MissionCanonicalHash::sha256($sourceRef),
                 self::FIELD_CHUNK_INDEX => (int) (AiValueNormalizer::finiteFloatOrNull($chunk[self::FIELD_CHUNK_INDEX] ?? null) ?? 0),

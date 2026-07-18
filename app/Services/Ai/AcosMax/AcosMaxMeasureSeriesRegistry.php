@@ -59,6 +59,7 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_FIRST_SEEN = 'first_seen';
     public const FIELD_GROUND_TRUTH_RECEIPT = 'ground_truth_receipt';
     public const FIELD_ONE_TIME_CLEANUP_RECEIPT = 'one_time_cleanup_receipt';
+    public const FIELD_TS = 'ts';
 
     public const SOURCE_TYPE_JSONL = 'jsonl';
 
@@ -127,7 +128,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SERIES => 'aobg.latency_ledger.v1',
                 self::FIELD_PATH => storage_path(AtlasAobgLatencyLedger::DEFAULT_RELATIVE_DIR),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL_DIR,
-                self::FIELD_TIMESTAMP_FIELD => 'ts',
+                self::FIELD_TIMESTAMP_FIELD => self::FIELD_TS,
                 self::FIELD_TTL_DAYS => (int) AtlasAcosFreezeCommand::defaultFreezePayload()[self::FIELD_TTL_DAYS],
                 self::FIELD_TTL_SOURCE => 'freeze:aobg.latency_ledger.v1',
             ],
