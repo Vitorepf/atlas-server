@@ -515,6 +515,7 @@ final class AtlasAaeosCommand extends Command
                             {--b490-aaeos-implementation-cognition-score-promotion-protocol-quality-frontier-floors-contract= : JSON file (any object) to observe aaeos/implementation/cognition/score/promotion/protocol floors}
                             {--b491-cognition-score-acos-watchdog-autonomy-ladder-aaeos-test-floors-contract= : JSON file (any object) to observe cognition/score/acos/watchdog/autonomy/ladder floors}
                             {--b492-cognition-score-procedural-skill-esp-independent-maxa-jina-floors-contract= : JSON file (any object) to observe cognition/score/procedural/skill/esp/independent floors}
+                            {--b493-cognition-score-immune-signature-verified-share-window-orchestrator-floors-contract= : JSON file (any object) to observe cognition/score/immune/signature/verified/share floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1186,6 +1187,7 @@ final class AtlasAaeosCommand extends Command
             ['b490-aaeos-implementation-cognition-score-promotion-protocol-quality-frontier-floors-contract', 'b490_aaeos_implementation_cognition_score_promotion_protocol_quality_frontier_floors_contract', fn (array $p) => $gates->b490AaeosImplementationCognitionScorePromotionProtocolQualityFrontierFloorsContractObserve($p)],
             ['b491-cognition-score-acos-watchdog-autonomy-ladder-aaeos-test-floors-contract', 'b491_cognition_score_acos_watchdog_autonomy_ladder_aaeos_test_floors_contract', fn (array $p) => $gates->b491CognitionScoreAcosWatchdogAutonomyLadderAaeosTestFloorsContractObserve($p)],
             ['b492-cognition-score-procedural-skill-esp-independent-maxa-jina-floors-contract', 'b492_cognition_score_procedural_skill_esp_independent_maxa_jina_floors_contract', fn (array $p) => $gates->b492CognitionScoreProceduralSkillEspIndependentMaxaJinaFloorsContractObserve($p)],
+            ['b493-cognition-score-immune-signature-verified-share-window-orchestrator-floors-contract', 'b493_cognition_score_immune_signature_verified_share_window_orchestrator_floors_contract', fn (array $p) => $gates->b493CognitionScoreImmuneSignatureVerifiedShareWindowOrchestratorFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

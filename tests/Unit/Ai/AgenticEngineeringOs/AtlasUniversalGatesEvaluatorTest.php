@@ -10064,4 +10064,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b492_cognition_score_procedural_skill_esp_independent_maxa_jina_floor_count']);
     }
 
+    public function test_b493_cognition_score_immune_signature_verified_share_window_orchestrator_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b493CognitionScoreImmuneSignatureVerifiedShareWindowOrchestratorFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACVS, $out['ACVS']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ADGW, $out['ADGW']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ADLF, $out['ADLF']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ADML, $out['ADML']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ADTI4, $out['ADTI4']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AEMB, $out['AEMB']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AEMOR_2, $out['AEMOR']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AGPF, $out['AGPF']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AGRN, $out['AGRN']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AHRI, $out['AHRI']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_UTC, $out['UTC']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_UTC, $out['UTC']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_UTC, $out['UTC']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_UTC, $out['UTC']);
+        $this->assertSame(PortfolioBudgetAllocator::INT_12, $out['12']);
+        $this->assertSame(AaeosPhaseHandoffService::INT_256, $out['256']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_UTC, $out['UTC']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_COGNITIVE_IMMUNE_PROMOTION_GATE_EVALUATOR, $out['CognitiveImmunePromotionGateEvaluator']);
+        $this->assertSame(18, $out['b493_cognition_score_immune_signature_verified_share_window_orchestrator_floor_count']);
+    }
+
 }

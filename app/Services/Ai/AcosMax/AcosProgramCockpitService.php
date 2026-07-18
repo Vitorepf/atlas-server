@@ -55,6 +55,7 @@ final class AcosProgramCockpitService
     public const FIELD_NOW = 'now';
     public const FIELD_SCOREBOARD_MISSING = 'scoreboard_missing';
     public const FIELD_SOURCE_DID_NOT_EMIT_JSON = 'source_did_not_emit_json';
+    public const FIELD_UTC = 'UTC';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -63,7 +64,7 @@ final class AcosProgramCockpitService
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            self::FIELD_GENERATED_AT => (new DateTimeImmutable(self::FIELD_NOW, new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM),
+            self::FIELD_GENERATED_AT => (new DateTimeImmutable(self::FIELD_NOW, new DateTimeZone(self::FIELD_UTC)))->format(DateTimeInterface::ATOM),
             self::FIELD_EXTERNAL_PROVIDER_CALL => false,
             self::FIELD_PROVIDER_TOKENS_SPENT => false,
             self::FIELD_MUTATES_STATE => false,

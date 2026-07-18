@@ -93,6 +93,7 @@ final class ImmuneSignatureStore
     public const FIELD_GENERATED_AT = 'generated_at';
     public const FIELD_REF = 'ref';
     public const FIELD_IMMUNE_SIGNATURE_REAL_HITS_SOAK = 'immune_signature_real_hits_soak';
+    public const FIELD_UTC = 'UTC';
 
     private readonly ImmuneSignatureDeriver $deriver;
 
@@ -130,7 +131,7 @@ final class ImmuneSignatureStore
             return $existing;
         }
 
-        $now = CarbonImmutable::now('UTC');
+        $now = CarbonImmutable::now(self::FIELD_UTC);
         $row = [
             self::FIELD_ID => (string) Str::uuid(),
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
@@ -224,7 +225,7 @@ final class ImmuneSignatureStore
         }
 
         $days = max(1, $days ?? (int) (AiValueNormalizer::finiteFloatOrNull(config(self::DECAY_DAYS_CONFIG_KEY, self::DEFAULT_DECAY_DAYS)) ?? self::DEFAULT_DECAY_DAYS));
-        $cutoff = CarbonImmutable::now('UTC')->subDays($days);
+        $cutoff = CarbonImmutable::now(self::FIELD_UTC)->subDays($days);
 
         try {
             return DB::table(self::TABLE)

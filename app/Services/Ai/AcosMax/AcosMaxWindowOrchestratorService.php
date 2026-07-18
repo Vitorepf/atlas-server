@@ -67,6 +67,7 @@ final class AcosMaxWindowOrchestratorService
     public const FIELD_NOW = 'now';
     public const FIELD_STRVAL = 'strval';
     public const FIELD_SERIES_STALE_DURING_WINDOW = 'series_stale_during_window';
+    public const FIELD_UTC = 'UTC';
 
 
     public function __construct(
@@ -85,7 +86,7 @@ final class AcosMaxWindowOrchestratorService
         ?DateTimeImmutable $now = null,
         int $deadAfterDays = 3,
     ): array {
-        $now = $now ?? new DateTimeImmutable(self::FIELD_NOW, new DateTimeZone('UTC'));
+        $now = $now ?? new DateTimeImmutable(self::FIELD_NOW, new DateTimeZone(self::FIELD_UTC));
         $entries = $protocolEntries ?? $protocol->entries();
         $events = $protocol->ledgerEvents();
         $registry = $this->registryBySlice($registryEntries ?? (new AcosMaxMeasureSeriesRegistry)->entries());

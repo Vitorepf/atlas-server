@@ -120,6 +120,7 @@ final class ImmuneCalibrationService
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_TECHNICAL_LEARNING_CANDIDATE = 'technical_learning_candidate';
     public const FIELD_DENOMINATOR_BELOW_MIN = 'denominator_below_min';
+    public const FIELD_COGNITIVE_IMMUNE_PROMOTION_GATE_EVALUATOR = 'CognitiveImmunePromotionGateEvaluator';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -369,7 +370,7 @@ final class ImmuneCalibrationService
                 self::FIELD_EXPECTED_BLOCK_GATE_IDS => ['G3'],
                 self::FIELD_METADATA => [
                     self::FIELD_SEED => 'maxi-03-known-should-catch-g3',
-                    self::FIELD_PIPELINE => 'CognitiveImmunePromotionGateEvaluator',
+                    self::FIELD_PIPELINE => self::FIELD_COGNITIVE_IMMUNE_PROMOTION_GATE_EVALUATOR,
                     self::FIELD_RAW_CONTENT_EXPOSED => false,
                 ],
             ],

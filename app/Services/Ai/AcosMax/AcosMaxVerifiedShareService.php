@@ -96,6 +96,7 @@ final class AcosMaxVerifiedShareService
     public const FIELD_AUTONOMOUS = 'autonomous';
     public const FIELD_ATLAS_AUTONOMOS = 'atlas_autonomos';
     public const FIELD_RB = 'rb';
+    public const FIELD_UTC = 'UTC';
 
 
     /** @return array<string,mixed> */
@@ -139,7 +140,7 @@ final class AcosMaxVerifiedShareService
         }
 
         $windowDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($days) ?? data_get($freeze, 'thresholds.window_days_min', self::DEFAULT_WINDOW_DAYS_MIN)));
-        $since = CarbonImmutable::now('UTC')->subDays($windowDays);
+        $since = CarbonImmutable::now(self::FIELD_UTC)->subDays($windowDays);
         $totals = $this->emptyCounts();
         $verified = $this->emptyCounts();
 

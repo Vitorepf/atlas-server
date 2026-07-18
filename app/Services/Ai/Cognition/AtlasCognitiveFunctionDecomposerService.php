@@ -191,6 +191,7 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_SERVICE = 'service';
     public const FIELD_TESTE = 'teste';
     public const FIELD_VERIFIQUE = 'verifique';
+    public const FIELD_UTC = 'UTC';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -378,7 +379,7 @@ final class AtlasCognitiveFunctionDecomposerService
             }
         }
 
-        $generatedAt = (new DateTimeImmutable(self::FIELD_NOW, new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+        $generatedAt = (new DateTimeImmutable(self::FIELD_NOW, new DateTimeZone(self::FIELD_UTC)))->format(DateTimeInterface::ATOM);
         $envelope = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             self::FIELD_GENERATED_AT => $generatedAt,

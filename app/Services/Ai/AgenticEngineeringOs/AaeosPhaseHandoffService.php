@@ -72,6 +72,7 @@ final class AaeosPhaseHandoffService
     public const FIELD_PHASE = 'phase';
     public const FIELD_SYSTEM = 'system';
     public const FIELD_AGENT = 'agent';
+    public const INT_256 = 256;
 
     public static function requireIntentId(string $intentId): void
     {
@@ -369,7 +370,7 @@ final class AaeosPhaseHandoffService
         foreach ($payload as $key => $value) {
             if (is_string($value)) {
                 $isHash = str_starts_with($value, 'sha256:') || str_starts_with($value, 'rcpt:') || str_starts_with($value, 'evidence:');
-                if (! $isHash && strlen($value) > 256) {
+                if (! $isHash && strlen($value) > self::INT_256) {
                     throw new InvalidArgumentException("{$label}.{$key} looks like raw operator input; pass sha256:* hash");
                 }
             }

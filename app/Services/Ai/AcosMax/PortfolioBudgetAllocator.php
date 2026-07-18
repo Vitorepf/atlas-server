@@ -93,6 +93,7 @@ final class PortfolioBudgetAllocator
     public const FIELD_YIELD_RECOMPUTED_HERE = 'yield_recomputed_here';
     public const FIELD_OFF = 'off';
     public const FIELD_PORTFOLIO_ALLOCATION = 'portfolio_allocation';
+    public const INT_12 = 12;
 
     /**
      * @param  array<string,mixed>  $input keys:
@@ -276,7 +277,7 @@ final class PortfolioBudgetAllocator
 
         // Water-filling projection.
         $frozen = [];
-        for ($iter = 0; $iter < 12; $iter++) {
+        for ($iter = 0; $iter < self::INT_12; $iter++) {
             $freeSum = 0.0;
             $freeInput = 0.0;
             foreach (self::CLASSES as $class) {

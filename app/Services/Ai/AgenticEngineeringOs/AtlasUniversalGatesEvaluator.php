@@ -12801,4 +12801,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B493).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b493CognitionScoreImmuneSignatureVerifiedShareWindowOrchestratorFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ACVS' => AtlasCognitionScoreCardService::FIELD_ACVS,
+            'ADGW' => AtlasCognitionScoreCardService::FIELD_ADGW,
+            'ADLF' => AtlasCognitionScoreCardService::FIELD_ADLF,
+            'ADML' => AtlasCognitionScoreCardService::FIELD_ADML,
+            'ADTI4' => AtlasCognitionScoreCardService::FIELD_ADTI4,
+            'AEMB' => AtlasCognitionScoreCardService::FIELD_AEMB,
+            'AEMOR' => AtlasCognitionScoreCardService::FIELD_AEMOR_2,
+            'AGPF' => AtlasCognitionScoreCardService::FIELD_AGPF,
+            'AGRN' => AtlasCognitionScoreCardService::FIELD_AGRN,
+            'AHRI' => AtlasCognitionScoreCardService::FIELD_AHRI,
+            'UTC' => ImmuneSignatureStore::FIELD_UTC,
+            'UTC' => AcosMaxVerifiedShareService::FIELD_UTC,
+            'UTC' => AcosMaxWindowOrchestratorService::FIELD_UTC,
+            'UTC' => AcosProgramCockpitService::FIELD_UTC,
+            '12' => PortfolioBudgetAllocator::INT_12,
+            '256' => AaeosPhaseHandoffService::INT_256,
+            'UTC' => AtlasCognitiveFunctionDecomposerService::FIELD_UTC,
+            'CognitiveImmunePromotionGateEvaluator' => ImmuneCalibrationService::FIELD_COGNITIVE_IMMUNE_PROMOTION_GATE_EVALUATOR,
+            'b493_cognition_score_immune_signature_verified_share_window_orchestrator_floor_count' => 18,
+        ];
+    }
+
 }
