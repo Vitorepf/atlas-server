@@ -14899,4 +14899,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b688_asef_chunk_floor_count']);
     }
 
+    public function test_b689_aemor_outcome_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b689AemorOutcomeFloorsContractObserve([]);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_EVIDENCE_REFS, $out['evidence_refs']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_FIELDS, $out['fields']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::ADAPTER_KIND, $out['aemor']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_VERIFIED, $out['verified']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_VERIFIED_BASIS, $out['verified_basis']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_EXECUTOR, $out['executor']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_SUMMARY, $out['summary']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_STATUS, $out['status']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_OUTCOME_TYPE, $out['outcome_type']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_METRICS, $out['metrics']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_BLOCKERS, $out['blockers']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_CONTEXT_UTILITY, $out['context_utility']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_PATCH_OUTCOME, $out['patch_outcome']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_LEARNING_CLAIM, $out['learning_claim']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_TASK_CATEGORY, $out['task_category']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_PROVIDER, $out['provider']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_CERTIFIED_RECEIPT_ID, $out['certified_receipt_id']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_EPISODE_ID, $out['episode_id']);
+        $this->assertSame(18, $out['b689_aemor_outcome_floor_count']);
+    }
+
 }

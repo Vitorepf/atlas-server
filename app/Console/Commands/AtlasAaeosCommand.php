@@ -711,6 +711,7 @@ final class AtlasAaeosCommand extends Command
                             {--b686-provenance-weight-composed-obra-floors-contract= : JSON file (any object) to observe provenance/weight/composed/obra floors}
                             {--b687-composed-obra-floors-contract= : JSON file (any object) to observe composed/obra floors}
                             {--b688-asef-chunk-floors-contract= : JSON file (any object) to observe asef/chunk floors}
+                            {--b689-aemor-outcome-floors-contract= : JSON file (any object) to observe aemor/outcome floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1578,6 +1579,7 @@ final class AtlasAaeosCommand extends Command
             ['b686-provenance-weight-composed-obra-floors-contract', 'b686_provenance_weight_composed_obra_floors_contract', fn (array $p) => $gates->b686ProvenanceWeightComposedObraFloorsContractObserve($p)],
             ['b687-composed-obra-floors-contract', 'b687_composed_obra_floors_contract', fn (array $p) => $gates->b687ComposedObraFloorsContractObserve($p)],
             ['b688-asef-chunk-floors-contract', 'b688_asef_chunk_floors_contract', fn (array $p) => $gates->b688AsefChunkFloorsContractObserve($p)],
+            ['b689-aemor-outcome-floors-contract', 'b689_aemor_outcome_floors_contract', fn (array $p) => $gates->b689AemorOutcomeFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

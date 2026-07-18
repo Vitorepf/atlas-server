@@ -18807,4 +18807,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B689).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b689AemorOutcomeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'evidence_refs' => AemorOutcomeEnvelopeAdapter::FIELD_EVIDENCE_REFS,
+            'fields' => AemorOutcomeEnvelopeAdapter::FIELD_FIELDS,
+            'aemor' => AemorOutcomeEnvelopeAdapter::ADAPTER_KIND,
+            'verified' => AemorOutcomeEnvelopeAdapter::FIELD_VERIFIED,
+            'verified_basis' => AemorOutcomeEnvelopeAdapter::FIELD_VERIFIED_BASIS,
+            'executor' => AemorOutcomeEnvelopeAdapter::FIELD_EXECUTOR,
+            'summary' => AemorOutcomeEnvelopeAdapter::FIELD_SUMMARY,
+            'status' => AemorOutcomeEnvelopeAdapter::FIELD_STATUS,
+            'outcome_type' => AemorOutcomeEnvelopeAdapter::FIELD_OUTCOME_TYPE,
+            'metrics' => AemorOutcomeEnvelopeAdapter::FIELD_METRICS,
+            'blockers' => AemorOutcomeEnvelopeAdapter::FIELD_BLOCKERS,
+            'context_utility' => AemorOutcomeEnvelopeAdapter::FIELD_CONTEXT_UTILITY,
+            'patch_outcome' => AemorOutcomeEnvelopeAdapter::FIELD_PATCH_OUTCOME,
+            'learning_claim' => AemorOutcomeEnvelopeAdapter::FIELD_LEARNING_CLAIM,
+            'task_category' => AemorOutcomeEnvelopeAdapter::FIELD_TASK_CATEGORY,
+            'provider' => AemorOutcomeEnvelopeAdapter::FIELD_PROVIDER,
+            'certified_receipt_id' => AemorOutcomeEnvelopeAdapter::FIELD_CERTIFIED_RECEIPT_ID,
+            'episode_id' => AemorOutcomeEnvelopeAdapter::FIELD_EPISODE_ID,
+            'b689_aemor_outcome_floor_count' => 18,
+        ];
+    }
+
 }
