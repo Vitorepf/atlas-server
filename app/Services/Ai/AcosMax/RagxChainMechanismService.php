@@ -171,6 +171,9 @@ final class RagxChainMechanismService
     public const FIELD_ERROR_CLASS = 'error_class';
     public const FIELD_EXPERIMENT_ID = 'experiment_id';
     public const FIELD_FLAG = 'flag';
+    public const FIELD_MATCHES = 'matches';
+    public const FIELD_RESULT = 'result';
+    public const FIELD_SOURCE = 'source';
 
     public const REASON_LATE_CHUNK_INDEX_ERROR = 'late_chunk_index_error';
 
@@ -266,7 +269,7 @@ final class RagxChainMechanismService
             self::FIELD_SLICE => self::STAGE_RAGX_01,
             self::FIELD_STATUS => AiValueNormalizer::trimmedStringOrNull($result[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN,
             self::FIELD_MODE => self::MODE_SHADOW,
-            'result' => $result,
+            self::FIELD_RESULT => $result,
             self::FIELD_DOCUMENTS => array_values(AiValueNormalizer::arrayOrEmpty($result[self::FIELD_DOCUMENTS] ?? null)),
             self::FIELD_AB_GREEN_CLAIMED => false,
         ];
@@ -286,7 +289,7 @@ final class RagxChainMechanismService
             self::FIELD_SLICE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_SLICE]  ?? null) ?? 'RAGX',
             self::FIELD_BASELINE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_BASELINE]  ?? null) ?? self::STATUS_UNKNOWN,
             self::FIELD_CANDIDATE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_CANDIDATE]  ?? null) ?? self::STATUS_UNKNOWN,
-            'result' => null,
+            self::FIELD_RESULT => null,
             self::FIELD_AB_GREEN_CLAIMED => false,
             self::FIELD_PENDING_WINDOW => [self::PENDING_GOLDEN_V2_OR_LIVE],
         ];
@@ -397,7 +400,7 @@ final class RagxChainMechanismService
                 self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($summary[self::FIELD_ID] ?? null) ?? ('raptor_lite_'.($index + 1)),
                 self::FIELD_COMMUNITY => array_values(AiValueNormalizer::arrayOrEmpty($summary[self::FIELD_COMMUNITY] ?? ($communities[$index] ?? null))),
                 'summary_ref' => AiValueNormalizer::trimmedStringOrNull($summary['l2_summary_id'] ?? $summary[self::FIELD_ID] ?? null) ?? '',
-                'source' => 'maxf09_verified_l2_summary',
+                self::FIELD_SOURCE => 'maxf09_verified_l2_summary',
             ];
         }
 
@@ -418,7 +421,7 @@ final class RagxChainMechanismService
     public function sparseShadow(string $query, array $documents, int $limit = 5): array
     {
         if (! $this->flag(self::FLAG_SPARSE_FALLBACK)) {
-            return $this->disabled(self::STAGE_RAGX_05, self::FLAG_SPARSE_FALLBACK) + ['matches' => []];
+            return $this->disabled(self::STAGE_RAGX_05, self::FLAG_SPARSE_FALLBACK) + [self::FIELD_MATCHES => []];
         }
 
         $tokens = $this->tokens($query);
@@ -443,7 +446,7 @@ final class RagxChainMechanismService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             self::FIELD_SLICE => self::STAGE_RAGX_05,
             self::FIELD_STATUS => self::STATUS_SHADOW,
-            'matches' => array_slice($matches, 0, max(1, $limit)),
+            self::FIELD_MATCHES => array_slice($matches, 0, max(1, $limit)),
             self::FIELD_AB_GREEN_CLAIMED => false,
         ];
     }
@@ -565,7 +568,7 @@ final class RagxChainMechanismService
             $adjacency[$node] = [];
         }
         foreach ($edges as $edge) {
-            $source = AiValueNormalizer::trimmedStringOrNull($edge['source'] ?? null) ?? '';
+            $source = AiValueNormalizer::trimmedStringOrNull($edge[self::FIELD_SOURCE] ?? null) ?? '';
             $target = AiValueNormalizer::trimmedStringOrNull($edge['target'] ?? null) ?? '';
             $weight = max(0.0, AiValueNormalizer::finiteFloatOrNull($edge['weight'] ?? null) ?? 1.0);
             if ($source === '' || $target === '' || $source === $target || $weight <= 0.0 || ! isset($known[$source], $known[$target])) {

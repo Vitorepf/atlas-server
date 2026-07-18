@@ -78,6 +78,9 @@ class AtlasCognitionEvidenceResolver
     public const FIELD_TEST_REFS = 'test_refs';
     public const FIELD_KIND = 'kind';
     public const FIELD_REF = 'ref';
+    public const FIELD_IMPL_FILES_HASH = 'impl_files_hash';
+    public const FIELD_PATH = 'path';
+    public const FIELD_SYMBOL_REF = 'symbol_ref';
 
     /**
      * Memoized FQN-ownership index: short class name => list of owner-doc capabilities
@@ -179,13 +182,13 @@ class AtlasCognitionEvidenceResolver
                 try {
                     $hashes = $this->truth->freshnessHashes($owner[self::FIELD_EVIDENCE_REFS], $testRef);
                 } catch (Throwable) {
-                    $hashes = [self::FIELD_TEST_FILE_HASH => null, 'impl_files_hash' => null];
+                    $hashes = [self::FIELD_TEST_FILE_HASH => null, self::FIELD_IMPL_FILES_HASH => null];
                 }
                 if ($this->testExecution->hasGreenReceipt(
                     $owner[self::FIELD_CAPABILITY_ID],
                     $testRef,
                     $hashes[self::FIELD_TEST_FILE_HASH],
-                    $hashes['impl_files_hash'],
+                    $hashes[self::FIELD_IMPL_FILES_HASH],
                 )) {
                     return self::STATUS_READY;
                 }
@@ -264,7 +267,7 @@ class AtlasCognitionEvidenceResolver
                 continue;
             }
 
-            $ownerDoc = $this->normalizePath((AiValueNormalizer::trimmedStringOrNull($doc['path'] ?? null) ?? ''));
+            $ownerDoc = $this->normalizePath((AiValueNormalizer::trimmedStringOrNull($doc[self::FIELD_PATH] ?? null) ?? ''));
             if ($ownerDoc !== '' && array_key_exists($ownerDoc, $targets)) {
                 $targets[$ownerDoc][] = $capabilityId;
             }
@@ -377,7 +380,7 @@ class AtlasCognitionEvidenceResolver
             // WITHHOLD ownership (-> doc not ready), never crash a scorecard read and
             // never fabricate a match. Mirrors the ADRS resolver's never-fabricate rule.
             try {
-                $resolution = $this->resolver->resolve('symbol', $candidate['symbol_ref']);
+                $resolution = $this->resolver->resolve('symbol', $candidate[self::FIELD_SYMBOL_REF]);
             } catch (Throwable) {
                 continue;
             }
@@ -502,8 +505,8 @@ class AtlasCognitionEvidenceResolver
                 $short = $this->classBasename($symbolRef);
                 $index[$short][] = [
                     self::FIELD_CAPABILITY_ID => AiValueNormalizer::trimmedScalarStringOrNull($doc['id'] ?? null) ?? '',
-                    'owner_doc' => AiValueNormalizer::trimmedScalarStringOrNull($doc['path'] ?? null) ?? '',
-                    'symbol_ref' => $symbolRef,
+                    'owner_doc' => AiValueNormalizer::trimmedScalarStringOrNull($doc[self::FIELD_PATH] ?? null) ?? '',
+                    self::FIELD_SYMBOL_REF => $symbolRef,
                     self::FIELD_EVIDENCE_REFS => $evidenceRefs,
                     self::FIELD_TEST_REFS => $testRefs,
                 ];

@@ -6057,6 +6057,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_decomposer_evidence_teto_fact_ragx_golden_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-detfrg-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-detfrg',
+                '--decomposer-evidence-teto-fact-ragx-golden-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"decomposer_evidence_teto_fact_ragx_golden_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

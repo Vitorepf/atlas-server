@@ -63,6 +63,9 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_EXTERNAL_RIVALS_CERTIFICATION_TOUCHED = 'external_rivals_certification_touched';
     public const FIELD_COGNITIVE_IMMUNE_LAW_ENFORCED = 'cognitive_immune_law_enforced';
     public const FIELD_PROVIDER_SAFE_ONLY_ENFORCED = 'provider_safe_only_enforced';
+    public const FIELD_FRAMEWORK = 'framework';
+    public const FIELD_PRIVACY_CLASS = 'privacy_class';
+    public const FIELD_ROLE = 'role';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -257,9 +260,9 @@ final class AtlasCognitiveFunctionDecomposerService
             'input_length' => mb_strlen($input),
             'input_preview' => mb_substr($input, 0, 120),
             self::FIELD_CONTEXT => [
-                'role' => $context['role'] ?? null,
-                'framework' => $context['framework'] ?? null,
-                'privacy_class' => $context['privacy_class'] ?? null,
+                self::FIELD_ROLE => $context[self::FIELD_ROLE] ?? null,
+                self::FIELD_FRAMEWORK => $context[self::FIELD_FRAMEWORK] ?? null,
+                self::FIELD_PRIVACY_CLASS => $context[self::FIELD_PRIVACY_CLASS] ?? null,
             ],
             self::FIELD_WEIGHTS => $weights,
             'dominant_function' => $dominant,

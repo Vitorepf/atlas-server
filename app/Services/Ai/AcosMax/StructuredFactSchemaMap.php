@@ -19,6 +19,9 @@ final class StructuredFactSchemaMap
     public const FIELD_MISSING = 'missing';
 
     public const FIELD_VALID = 'valid';
+    public const FIELD_FAIL_OPEN_ENTRY_ALLOWED = 'fail_open_entry_allowed';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_STATUS = 'status';
 
     /** @var array<string,list<string>> */
     public const REQUIRED = [
@@ -36,11 +39,11 @@ final class StructuredFactSchemaMap
         $required = self::REQUIRED[$memoryType] ?? null;
         if ($required === null) {
             return [
-                'schema_version' => self::SCHEMA_VERSION,
-                'status' => self::STATUS_UNSCHEMATIZED,
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+                self::FIELD_STATUS => self::STATUS_UNSCHEMATIZED,
                 self::FIELD_VALID => true,
                 self::FIELD_MISSING => [],
-                'fail_open_entry_allowed' => true,
+                self::FIELD_FAIL_OPEN_ENTRY_ALLOWED => true,
             ];
         }
 
@@ -50,11 +53,11 @@ final class StructuredFactSchemaMap
         ));
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => $missing === [] ? self::STATUS_VALID : self::STATUS_MISSING_FIELDS,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_STATUS => $missing === [] ? self::STATUS_VALID : self::STATUS_MISSING_FIELDS,
             self::FIELD_VALID => $missing === [],
             self::FIELD_MISSING => $missing,
-            'fail_open_entry_allowed' => true,
+            self::FIELD_FAIL_OPEN_ENTRY_ALLOWED => true,
             'source' => [
                 'required_on_write' => false,
                 'llm_extraction_hot_path' => false,

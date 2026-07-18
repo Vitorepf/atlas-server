@@ -34,6 +34,9 @@ final class GoldenCounterfactualReplayService
     public const FIELD_MEASURE_ID = 'measure_id';
     public const FIELD_FORMULA_VERSION = 'formula_version';
     public const FIELD_ARM = 'arm';
+    public const FIELD_COMMIT = 'commit';
+    public const FIELD_EXECUTED_AT = 'executed_at';
+    public const FIELD_RUN_ID = 'run_id';
 
 
     /**
@@ -135,8 +138,8 @@ final class GoldenCounterfactualReplayService
             if (AiValueNormalizer::finiteFloatOrNull($run[self::FIELD_RECALL_AT_5] ?? null) === null) {
                 continue;
             }
-            $commit = AiValueNormalizer::trimmedStringOrNull($run['commit'] ?? null) ?? '';
-            $runId = AiValueNormalizer::trimmedStringOrNull($run['run_id'] ?? null) ?? '';
+            $commit = AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_COMMIT] ?? null) ?? '';
+            $runId = AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_RUN_ID] ?? null) ?? '';
             if ($commit === '' || $runId === '') {
                 continue;
             }
@@ -144,12 +147,12 @@ final class GoldenCounterfactualReplayService
             return [
                 self::FIELD_ARM => $arm,
                 self::FIELD_DECISION_ID => (AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_DECISION_ID] ?? null) ?? ''),
-                'run_id' => $runId,
-                'commit' => $commit,
+                self::FIELD_RUN_ID => $runId,
+                self::FIELD_COMMIT => $commit,
                 self::FIELD_RECALL_AT_5 => round(AiValueNormalizer::clampUnit(
                     AiValueNormalizer::finiteFloatOrNull($run[self::FIELD_RECALL_AT_5]) ?? 0.0
                 ), 6),
-                'executed_at' => (AiValueNormalizer::trimmedStringOrNull($run['executed_at'] ?? null) ?? ''),
+                self::FIELD_EXECUTED_AT => (AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_EXECUTED_AT] ?? null) ?? ''),
             ];
         }
 

@@ -76,6 +76,9 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_DIFF_REF = 'diff_ref';
     public const FIELD_REVIEW_MODE = 'review_mode';
     public const FIELD_PENDING_FLIP = 'pending_flip';
+    public const FIELD_ASK_REF = 'ask_ref';
+    public const FIELD_BATCHED_ASK = 'batched_ask';
+    public const FIELD_FLIP_REF = 'flip_ref';
 
     /**
      * @param  list<array<string,mixed>>  $items
@@ -202,9 +205,9 @@ final class Teto10PredictedRevertReviewDigest
             self::FIELD_REVERSE_COMMAND => $reverse,
             self::FIELD_REVIEW_MODE => $reverse === 'manual_review' ? 'manual_review' : 'reversible',
             self::FIELD_PENDING_FLIP => (AiValueNormalizer::boolOrNull($item[self::FIELD_PENDING_FLIP] ?? null) ?? false),
-            'flip_ref' => self::firstString($item, ['flip_ref', 'flip_id'], ''),
-            'batched_ask' => (AiValueNormalizer::boolOrNull($item['batched_ask'] ?? null) ?? false),
-            'ask_ref' => self::firstString($item, ['ask_ref', 'ask_id'], ''),
+            self::FIELD_FLIP_REF => self::firstString($item, ['flip_ref', 'flip_id'], ''),
+            self::FIELD_BATCHED_ASK => (AiValueNormalizer::boolOrNull($item[self::FIELD_BATCHED_ASK] ?? null) ?? false),
+            self::FIELD_ASK_REF => self::firstString($item, ['ask_ref', 'ask_id'], ''),
         ];
     }
 
@@ -298,7 +301,7 @@ final class Teto10PredictedRevertReviewDigest
             if (! is_array($item)) {
                 continue;
             }
-            $ref = self::string($item['flip_ref'] ?? $item['ask_ref'] ?? 'unlabelled') ?: 'unlabelled';
+            $ref = self::string($item[self::FIELD_FLIP_REF] ?? $item[self::FIELD_ASK_REF] ?? 'unlabelled') ?: 'unlabelled';
             $lines[] = '- '.self::plain(self::string($item['id'] ?? 'item') ?: 'item').' '.self::inline($ref)
                 .' reverse: '.self::inline(self::string($item[self::FIELD_REVERSE_COMMAND] ?? 'manual_review') ?: 'manual_review');
         }

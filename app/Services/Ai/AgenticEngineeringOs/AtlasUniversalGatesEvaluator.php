@@ -7533,6 +7533,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: residual FIELD_* floors for decomposer/evidence/teto10/fact/ragx/golden.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, bool|int|string>
+     */
+    public function decomposerEvidenceTetoFactRagxGoldenFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'decomposer_field_framework' => AtlasCognitiveFunctionDecomposerService::FIELD_FRAMEWORK,
+            'decomposer_field_privacy_class' => AtlasCognitiveFunctionDecomposerService::FIELD_PRIVACY_CLASS,
+            'decomposer_field_role' => AtlasCognitiveFunctionDecomposerService::FIELD_ROLE,
+            'evidence_field_impl_files_hash' => AtlasCognitionEvidenceResolver::FIELD_IMPL_FILES_HASH,
+            'evidence_field_path' => AtlasCognitionEvidenceResolver::FIELD_PATH,
+            'evidence_field_symbol_ref' => AtlasCognitionEvidenceResolver::FIELD_SYMBOL_REF,
+            'teto10_field_ask_ref' => Teto10PredictedRevertReviewDigest::FIELD_ASK_REF,
+            'teto10_field_batched_ask' => Teto10PredictedRevertReviewDigest::FIELD_BATCHED_ASK,
+            'teto10_field_flip_ref' => Teto10PredictedRevertReviewDigest::FIELD_FLIP_REF,
+            'fact_field_fail_open_entry_allowed' => StructuredFactSchemaMap::FIELD_FAIL_OPEN_ENTRY_ALLOWED,
+            'fact_field_schema_version' => StructuredFactSchemaMap::FIELD_SCHEMA_VERSION,
+            'fact_field_status' => StructuredFactSchemaMap::FIELD_STATUS,
+            'ragx_field_matches' => RagxChainMechanismService::FIELD_MATCHES,
+            'ragx_field_result' => RagxChainMechanismService::FIELD_RESULT,
+            'ragx_field_source' => RagxChainMechanismService::FIELD_SOURCE,
+            'golden_field_commit' => GoldenCounterfactualReplayService::FIELD_COMMIT,
+            'golden_field_executed_at' => GoldenCounterfactualReplayService::FIELD_EXECUTED_AT,
+            'golden_field_run_id' => GoldenCounterfactualReplayService::FIELD_RUN_ID,
+            'decomposer_evidence_teto_fact_ragx_golden_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

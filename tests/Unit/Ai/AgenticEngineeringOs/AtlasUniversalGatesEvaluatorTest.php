@@ -5671,5 +5671,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['lexical_rerank_maturity_budget_volume_immune_floor_count']);
     }
 
+    public function test_decomposer_evidence_teto_fact_ragx_golden_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->decomposerEvidenceTetoFactRagxGoldenFloorsContractObserve([]);
+
+        $this->assertSame('framework', $payload['decomposer_field_framework']);
+        $this->assertSame('privacy_class', $payload['decomposer_field_privacy_class']);
+        $this->assertSame('role', $payload['decomposer_field_role']);
+        $this->assertSame('impl_files_hash', $payload['evidence_field_impl_files_hash']);
+        $this->assertSame('path', $payload['evidence_field_path']);
+        $this->assertSame('symbol_ref', $payload['evidence_field_symbol_ref']);
+        $this->assertSame('ask_ref', $payload['teto10_field_ask_ref']);
+        $this->assertSame('batched_ask', $payload['teto10_field_batched_ask']);
+        $this->assertSame('flip_ref', $payload['teto10_field_flip_ref']);
+        $this->assertSame('fail_open_entry_allowed', $payload['fact_field_fail_open_entry_allowed']);
+        $this->assertSame('schema_version', $payload['fact_field_schema_version']);
+        $this->assertSame('status', $payload['fact_field_status']);
+        $this->assertSame('matches', $payload['ragx_field_matches']);
+        $this->assertSame('result', $payload['ragx_field_result']);
+        $this->assertSame('source', $payload['ragx_field_source']);
+        $this->assertSame('commit', $payload['golden_field_commit']);
+        $this->assertSame('executed_at', $payload['golden_field_executed_at']);
+        $this->assertSame('run_id', $payload['golden_field_run_id']);
+        $this->assertSame(18, $payload['decomposer_evidence_teto_fact_ragx_golden_floor_count']);
+    }
+
 
 }
