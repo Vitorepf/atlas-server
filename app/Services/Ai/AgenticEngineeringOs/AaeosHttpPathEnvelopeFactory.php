@@ -130,6 +130,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_AAEOS_ROUTING = 'aaeos.routing';
     public const FIELD_AAEOS_SPEC = 'aaeos.spec';
     public const FIELD_AAEOS_TASKS = 'aaeos.tasks';
+    public const FIELD_AAEOS_TOPOLOGY = 'aaeos.topology';
+    public const FIELD_ATLAS_AI_ROUTER_COMMAND_INTENT = 'atlas_ai_router.command_intent';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -275,7 +277,7 @@ final class AaeosHttpPathEnvelopeFactory
     public function riskBand(array $data): string
     {
         $payload = self::requestPayload($data);
-        $intent = AiValueNormalizer::trimmedStringOrNull(data_get($payload, 'atlas_ai_router.command_intent')) ?? '';
+        $intent = AiValueNormalizer::trimmedStringOrNull(data_get($payload, self::FIELD_ATLAS_AI_ROUTER_COMMAND_INTENT)) ?? '';
         $routingTask = AiValueNormalizer::trimmedStringOrNull($payload[self::FIELD_ROUTING_TASK] ?? null) ?? '';
         $flowId = AiValueNormalizer::trimmedStringOrNull(data_get($payload, 'atlas_ai_router.flow_id')) ?? '';
 
@@ -307,7 +309,7 @@ final class AaeosHttpPathEnvelopeFactory
         self::FIELD_TOPOLOGY => [
             self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_POLICY_GATE,
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_TOPOLOGY,
-            self::FIELD_ACTOR_ID => 'aaeos.topology',
+            self::FIELD_ACTOR_ID => self::FIELD_AAEOS_TOPOLOGY,
             self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase3.topology.r1_r2_fast_path',
             self::FIELD_SKIP_REASON => self::FIELD_R1_R2_FAST_PATH_PRESERVED,
             self::FIELD_OUTPUTS => [

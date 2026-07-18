@@ -13381,4 +13381,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B512).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b512MeasureSeriesLoteLedgerRotationCognitionScoreCodeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'MAXH-01' => AcosMaxMeasureSeriesRegistry::FIELD_MAXH_01,
+            'MAXI-02' => AcosMaxMeasureSeriesRegistry::FIELD_MAXI_02,
+            'codex-independent-teto02-judge' => AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_TETO02_JUDGE,
+            'cursor-acos-max-lote2' => AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_LOTE2,
+            'atlas.decide.route_regret.v2' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2,
+            'atlas.decide.zero_weight_outcomes.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_DECIDE_ZERO_WEIGHT_OUTCOMES_V1,
+            'CONTEXT-QUALITY' => AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_QUALITY_2,
+            'LONG-HORIZON' => AtlasCognitionScoreCardV4Grouper::FIELD_LONG_HORIZON_2,
+            'e.embedded_content_hash' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_E_EMBEDDED_CONTENT_HASH,
+            's.source_hash' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_S_SOURCE_HASH,
+            '0.81' => AtlasAaeosQualityBarService::FLOAT_0_81,
+            '0.82' => AtlasAaeosQualityBarService::FLOAT_0_82,
+            'denominators.proven_real_outcomes_observed' => AtlasNCaptureDrillService::FIELD_DENOMINATORS_PROVEN_REAL_OUTCOMES_OBSERVED,
+            'denominators.routed_tasks_observed' => AtlasNCaptureDrillService::FIELD_DENOMINATORS_ROUTED_TASKS_OBSERVED,
+            'acos.land.autonomous_verification_required' => PromotionProtocol::FIELD_ACOS_LAND_AUTONOMOUS_VERIFICATION_REQUIRED,
+            'acos.mutation_score.enforce_by_executor' => PromotionProtocol::FIELD_ACOS_MUTATION_SCORE_ENFORCE_BY_EXECUTOR,
+            'aaeos.topology' => AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_TOPOLOGY,
+            'atlas_ai_router.command_intent' => AaeosHttpPathEnvelopeFactory::FIELD_ATLAS_AI_ROUTER_COMMAND_INTENT,
+            'b512_measure_series_lote_ledger_rotation_cognition_score_code_floor_count' => 18,
+        ];
+    }
+
 }

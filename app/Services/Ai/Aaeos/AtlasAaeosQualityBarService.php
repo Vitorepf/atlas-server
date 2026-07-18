@@ -43,6 +43,8 @@ final class AtlasAaeosQualityBarService
     public const FIELD_PRODUCT = 'Product';
     public const FIELD_RESEARCH = 'Research';
     public const FIELD_SALES = 'Sales';
+    public const FLOAT_0_81 = 0.81;
+    public const FLOAT_0_82 = 0.82;
     public const FLOAT_0_78 = 0.78;
     public const FLOAT_0_79 = 0.79;
     public const FLOAT_0_74 = 0.74;
@@ -61,10 +63,10 @@ final class AtlasAaeosQualityBarService
         [self::FIELD_DEPARTMENT => self::FIELD_MARKETING, self::FIELD_THRESHOLD => self::FLOAT_0_75, self::FIELD_CURRENT => self::FLOAT_0_70],
         [self::FIELD_DEPARTMENT => self::FIELD_SALES, self::FIELD_THRESHOLD => self::FLOAT_0_80, self::FIELD_CURRENT => self::FLOAT_0_85],
         [self::FIELD_DEPARTMENT => self::FIELD_OPERATIONS, self::FIELD_THRESHOLD => self::FLOAT_0_78, self::FIELD_CURRENT => self::FLOAT_0_72],
-        [self::FIELD_DEPARTMENT => self::FIELD_FINANCE, self::FIELD_THRESHOLD => 0.82, self::FIELD_CURRENT => 0.90],
+        [self::FIELD_DEPARTMENT => self::FIELD_FINANCE, self::FIELD_THRESHOLD => self::FLOAT_0_82, self::FIELD_CURRENT => 0.90],
         [self::FIELD_DEPARTMENT => 'Human Resources', self::FIELD_THRESHOLD => self::FLOAT_0_75, self::FIELD_CURRENT => self::FLOAT_0_68],
         [self::FIELD_DEPARTMENT => self::FIELD_LEGAL, self::FIELD_THRESHOLD => self::FLOAT_0_85, self::FIELD_CURRENT => self::FLOAT_0_79],
-        [self::FIELD_DEPARTMENT => 'Customer Success', self::FIELD_THRESHOLD => self::FLOAT_0_80, self::FIELD_CURRENT => 0.81],
+        [self::FIELD_DEPARTMENT => 'Customer Success', self::FIELD_THRESHOLD => self::FLOAT_0_80, self::FIELD_CURRENT => self::FLOAT_0_81],
         [self::FIELD_DEPARTMENT => self::FIELD_RESEARCH, self::FIELD_THRESHOLD => self::FLOAT_0_77, self::FIELD_CURRENT => self::FLOAT_0_74],
     ];
 

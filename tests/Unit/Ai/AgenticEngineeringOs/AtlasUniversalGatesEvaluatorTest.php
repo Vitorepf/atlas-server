@@ -10530,4 +10530,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b511_immune_classifier_measure_series_lote_ledger_rotation_verified_floor_count']);
     }
 
+    public function test_b512_measure_series_lote_ledger_rotation_cognition_score_code_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b512MeasureSeriesLoteLedgerRotationCognitionScoreCodeFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXH_01, $out['MAXH-01']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXI_02, $out['MAXI-02']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_TETO02_JUDGE, $out['codex-independent-teto02-judge']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_LOTE2, $out['cursor-acos-max-lote2']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2, $out['atlas.decide.route_regret.v2']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_DECIDE_ZERO_WEIGHT_OUTCOMES_V1, $out['atlas.decide.zero_weight_outcomes.v1']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_QUALITY_2, $out['CONTEXT-QUALITY']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_LONG_HORIZON_2, $out['LONG-HORIZON']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_E_EMBEDDED_CONTENT_HASH, $out['e.embedded_content_hash']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_S_SOURCE_HASH, $out['s.source_hash']);
+        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_81, $out['0.81']);
+        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_82, $out['0.82']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_DENOMINATORS_PROVEN_REAL_OUTCOMES_OBSERVED, $out['denominators.proven_real_outcomes_observed']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_DENOMINATORS_ROUTED_TASKS_OBSERVED, $out['denominators.routed_tasks_observed']);
+        $this->assertSame(PromotionProtocol::FIELD_ACOS_LAND_AUTONOMOUS_VERIFICATION_REQUIRED, $out['acos.land.autonomous_verification_required']);
+        $this->assertSame(PromotionProtocol::FIELD_ACOS_MUTATION_SCORE_ENFORCE_BY_EXECUTOR, $out['acos.mutation_score.enforce_by_executor']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_TOPOLOGY, $out['aaeos.topology']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ATLAS_AI_ROUTER_COMMAND_INTENT, $out['atlas_ai_router.command_intent']);
+        $this->assertSame(18, $out['b512_measure_series_lote_ledger_rotation_cognition_score_code_floor_count']);
+    }
+
 }

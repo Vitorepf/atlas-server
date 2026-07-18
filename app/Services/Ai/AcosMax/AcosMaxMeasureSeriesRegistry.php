@@ -86,6 +86,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_MAXA_04 = 'MAXA-04';
     public const FIELD_MAXD_04 = 'MAXD-04';
     public const FIELD_MAXG_01 = 'MAXG-01';
+    public const FIELD_MAXH_01 = 'MAXH-01';
+    public const FIELD_MAXI_02 = 'MAXI-02';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -209,7 +211,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'maxl-02-freeze-equivalent',
             ],
             [
-                self::FIELD_SLICE => 'MAXH-01',
+                self::FIELD_SLICE => self::FIELD_MAXH_01,
                 self::FIELD_SERIES => AtlasMemoryTemporalQualityService::MEASURE_ID,
                 self::FIELD_PATH => 'atlas:memory:temporal-quality --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
@@ -218,7 +220,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.memory.temporal_truth.v2',
             ],
             [
-                self::FIELD_SLICE => 'MAXI-02',
+                self::FIELD_SLICE => self::FIELD_MAXI_02,
                 self::FIELD_SERIES => 'atlas.capture.cognitive_immune_audit.v2',
                 self::FIELD_TABLE => self::FIELD_CAPTURES,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,

@@ -97,6 +97,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_E_SYMBOL_ID = 'e.symbol_id';
     public const FIELD_S_ARCHIVED_AT = 's.archived_at';
     public const FIELD_S_STATUS = 's.status';
+    public const FIELD_E_EMBEDDED_CONTENT_HASH = 'e.embedded_content_hash';
+    public const FIELD_S_SOURCE_HASH = 's.source_hash';
     public const INT_60 = 60;
 
     /** @return array<string,mixed> */
@@ -157,14 +159,14 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             ->join('atlas_code_symbol_embeddings as e', self::FIELD_S_ID, '=', self::FIELD_E_SYMBOL_ID)
             ->where(self::FIELD_S_STATUS, self::STATUS_ACTIVE)
             ->whereNull(self::FIELD_S_ARCHIVED_AT)
-            ->whereColumn('e.embedded_content_hash', 's.source_hash')
+            ->whereColumn(self::FIELD_E_EMBEDDED_CONTENT_HASH, self::FIELD_S_SOURCE_HASH)
             ->count();
 
         $stale = DB::table('atlas_engineering_code_symbols as s')
             ->join('atlas_code_symbol_embeddings as e', self::FIELD_S_ID, '=', self::FIELD_E_SYMBOL_ID)
             ->where(self::FIELD_S_STATUS, self::STATUS_ACTIVE)
             ->whereNull(self::FIELD_S_ARCHIVED_AT)
-            ->whereColumn('e.embedded_content_hash', '!=', 's.source_hash')
+            ->whereColumn(self::FIELD_E_EMBEDDED_CONTENT_HASH, '!=', self::FIELD_S_SOURCE_HASH)
             ->count();
 
         // Missing = active symbols without ANY embedding row.

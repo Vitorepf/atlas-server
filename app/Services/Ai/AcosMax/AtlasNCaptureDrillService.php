@@ -144,6 +144,8 @@ final class AtlasNCaptureDrillService
     public const FIELD_CAPABILITY_SPEC_VIOLATIONS = 'capability_spec.violations';
     public const FIELD_CODEX_INDEPENDENT_TETO01_JUDGE = 'codex-independent-teto01-judge';
     public const FIELD_CURSOR_ACOS_MAX_TETO01 = 'cursor-acos-max-teto01';
+    public const FIELD_DENOMINATORS_PROVEN_REAL_OUTCOMES_OBSERVED = 'denominators.proven_real_outcomes_observed';
+    public const FIELD_DENOMINATORS_ROUTED_TASKS_OBSERVED = 'denominators.routed_tasks_observed';
     public const INT_365 = 365;
 
     private readonly string $ledgerPath;
@@ -233,8 +235,8 @@ final class AtlasNCaptureDrillService
                 self::FIELD_HOURS_OF_INTEGRATION => AiValueNormalizer::finiteFloatOrNull(data_get($drill, self::FIELD_TIMES_HOURS_OF_INTEGRATION)) ?? 0.0,
             ],
             self::FIELD_DENOMINATORS => [
-                self::FIELD_ROUTED_TASKS_OBSERVED => (int) data_get($drill, 'denominators.routed_tasks_observed', 0),
-                self::FIELD_PROVEN_REAL_OUTCOMES_OBSERVED => (int) data_get($drill, 'denominators.proven_real_outcomes_observed', 0),
+                self::FIELD_ROUTED_TASKS_OBSERVED => (int) data_get($drill, self::FIELD_DENOMINATORS_ROUTED_TASKS_OBSERVED, 0),
+                self::FIELD_PROVEN_REAL_OUTCOMES_OBSERVED => (int) data_get($drill, self::FIELD_DENOMINATORS_PROVEN_REAL_OUTCOMES_OBSERVED, 0),
             ],
             self::FIELD_ADMISSION => [
                 self::FIELD_ADMITTED => (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_ADMISSION_ADMITTED)) ?? false),

@@ -138,6 +138,8 @@ final class PromotionProtocol
     public const FIELD_ATLAS_MEMORY_CONTEXTUAL_BLURB_ENABLED = 'atlas.memory.contextual_blurb_enabled';
     public const FIELD_ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED_2 = 'atlas.memory.feedback_ranking_enabled';
     public const FIELD_ATLAS_MEMORY_FUSION_V2_ENABLED = 'atlas.memory.fusion_v2_enabled';
+    public const FIELD_ACOS_LAND_AUTONOMOUS_VERIFICATION_REQUIRED = 'acos.land.autonomous_verification_required';
+    public const FIELD_ACOS_MUTATION_SCORE_ENFORCE_BY_EXECUTOR = 'acos.mutation_score.enforce_by_executor';
 
     /** @var list<string> */
     public const STATES = [
@@ -385,7 +387,7 @@ final class PromotionProtocol
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:330',
             ],
             [
-                self::FIELD_ID => 'acos.land.autonomous_verification_required',
+                self::FIELD_ID => self::FIELD_ACOS_LAND_AUTONOMOUS_VERIFICATION_REQUIRED,
                 self::FIELD_FAMILY => self::FIELD_ASI,
                 self::FIELD_SLICE => self::FIELD_ASI_10,
                 self::FIELD_STATE => self::STATE_OFF,
@@ -396,7 +398,7 @@ final class PromotionProtocol
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:2681',
             ],
             [
-                self::FIELD_ID => 'acos.mutation_score.enforce_by_executor',
+                self::FIELD_ID => self::FIELD_ACOS_MUTATION_SCORE_ENFORCE_BY_EXECUTOR,
                 self::FIELD_FAMILY => self::FIELD_MULTV,
                 self::FIELD_SLICE => self::FIELD_MULTV_03,
                 self::FIELD_STATE => self::STATE_OFF,

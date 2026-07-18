@@ -70,6 +70,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ATLAS_DECIDE_CASCADE_COST_ROUTER_V1 = 'atlas.decide.cascade_cost_router.v1';
     public const FIELD_ATLAS_DECIDE_COST_OUTCOME_UNCERTAINTY_V1 = 'atlas.decide.cost_outcome_uncertainty.v1';
     public const FIELD_ATLAS_DECIDE_REPLAY_DIVERGENCE_V1 = 'atlas.decide.replay_divergence.v1';
+    public const FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2 = 'atlas.decide.route_regret.v2';
+    public const FIELD_ATLAS_DECIDE_ZERO_WEIGHT_OUTCOMES_V1 = 'atlas.decide.zero_weight_outcomes.v1';
     public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
@@ -195,7 +197,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXJ-05 lesson type yield',
             ],
-            'atlas.decide.route_regret.v2' => [
+            self::FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
@@ -213,7 +215,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTK-03 decision replay divergence',
             ],
-            'atlas.decide.zero_weight_outcomes.v1' => [
+            self::FIELD_ATLAS_DECIDE_ZERO_WEIGHT_OUTCOMES_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,

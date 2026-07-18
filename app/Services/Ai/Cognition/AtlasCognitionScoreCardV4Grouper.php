@@ -77,6 +77,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_OTHER = 'OTHER';
     public const FIELD_CONTEXT_CACHE_2 = 'CONTEXT-CACHE';
     public const FIELD_CONTEXT_INTELLIGENCE_2 = 'CONTEXT-INTELLIGENCE';
+    public const FIELD_CONTEXT_QUALITY_2 = 'CONTEXT-QUALITY';
+    public const FIELD_LONG_HORIZON_2 = 'LONG-HORIZON';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -179,9 +181,9 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_CONTEXT_INTELLIGENCE => self::FIELD_CONTEXT_INTELLIGENCE_2,
             self::FIELD_PERSISTENT_CONTEXT => 'PERSISTENT-CONTEXT',
             self::FIELD_AEMOR => self::FIELD_AEMOR_2,
-            self::FIELD_LONG_HORIZON => 'LONG-HORIZON',
+            self::FIELD_LONG_HORIZON => self::FIELD_LONG_HORIZON_2,
             self::FIELD_VERIFIED_CONTEXT => 'VERIFIED-CONTEXT',
-            self::FIELD_CONTEXT_QUALITY => 'CONTEXT-QUALITY',
+            self::FIELD_CONTEXT_QUALITY => self::FIELD_CONTEXT_QUALITY_2,
             self::FIELD_OPEN_BRAIN => 'OPEN-BRAIN',
             self::FIELD_EVIDENCE => self::FIELD_EVIDENCE_2,
             default => self::FIELD_OTHER,
@@ -207,9 +209,9 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_CONTEXT_INTELLIGENCE_2 => 'Context Intelligence Engine',
             'PERSISTENT-CONTEXT' => 'Persistent Context Runtime',
             self::FIELD_AEMOR_2 => 'Execution Memory Outcome Runtime',
-            'LONG-HORIZON' => 'TEOS-I1 Long-Horizon Intelligence',
+            self::FIELD_LONG_HORIZON_2 => 'TEOS-I1 Long-Horizon Intelligence',
             'VERIFIED-CONTEXT' => 'Verified Context Execution Loop',
-            'CONTEXT-QUALITY' => 'Context Quality Certification Gate',
+            self::FIELD_CONTEXT_QUALITY_2 => 'Context Quality Certification Gate',
             'OPEN-BRAIN' => 'Open Brain Gateway',
             self::FIELD_EVIDENCE_2 => 'Evidence Ledger Memory Side',
             default => 'Other ACOS',
