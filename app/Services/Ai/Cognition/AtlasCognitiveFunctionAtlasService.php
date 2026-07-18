@@ -240,11 +240,11 @@ class AtlasCognitiveFunctionAtlasService
         $base = $storageBase ?? (function_exists(self::FIELD_STORAGE_PATH) ? storage_path(self::FIELD_ATLAS) : sys_get_temp_dir().'/atlas');
         // Heuristic mapping of group → expected JSONL roots under storage/atlas/.
         $groupRoots = [
-            self::FIELD_COGNITIVE_IMMUNE => [self::FIELD_AEMOR, 'cognitive_immune'],
+            self::FIELD_COGNITIVE_IMMUNE => [self::FIELD_AEMOR, self::FIELD_COGNITIVE_IMMUNE],
             self::FIELD_MEMORY_CORE => [self::FIELD_MEMORY],
             self::FIELD_AUCRI => [self::FIELD_AKIF],
             self::FIELD_SELF_IMPROVEMENT => [self::FIELD_SELF_IMPROVEMENT],
-            self::FIELD_ATLAS_DECIDE => ['atlas_decide', self::FIELD_SWARM],
+            self::FIELD_ATLAS_DECIDE => [self::FIELD_ATLAS_DECIDE, self::FIELD_SWARM],
             self::FIELD_SELF_CONSTRUCTION => [self::FIELD_SELF_CONSTRUCTION],
             self::FIELD_REALITY => [self::FIELD_AURG],
             self::FIELD_CROSS_DOMAIN => [self::FIELD_CROSS_DOMAIN],

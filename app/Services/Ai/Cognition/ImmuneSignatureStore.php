@@ -230,9 +230,9 @@ final class ImmuneSignatureStore
 
         try {
             return DB::table(self::TABLE)
-                ->where('status', self::STATUS_ACTIVE)
+                ->where(self::FIELD_STATUS, self::STATUS_ACTIVE)
                 ->where('hit_count', 0)
-                ->where('first_seen', '<', $cutoff)
+                ->where(self::FIELD_FIRST_SEEN, '<', $cutoff)
                 ->update([
                     self::FIELD_STATUS => self::STATUS_DECAYED,
                     self::FIELD_UPDATED_AT => now(),
@@ -256,9 +256,9 @@ final class ImmuneSignatureStore
         }
 
         try {
-            $active = (int) DB::table(self::TABLE)->where('status', self::STATUS_ACTIVE)->count();
+            $active = (int) DB::table(self::TABLE)->where(self::FIELD_STATUS, self::STATUS_ACTIVE)->count();
             $soaked = (int) DB::table(self::TABLE)
-                ->where('status', self::STATUS_ACTIVE)
+                ->where(self::FIELD_STATUS, self::STATUS_ACTIVE)
                 ->where('hit_count', '>=', 2)
                 ->count();
         } catch (Throwable) {
@@ -295,7 +295,7 @@ final class ImmuneSignatureStore
 
         try {
             return DB::table(self::TABLE)
-                ->orderBy('first_seen')
+                ->orderBy(self::FIELD_FIRST_SEEN)
                 ->get()
                 ->map(fn (object $row): array => $this->rowFromDatabase($row))
                 ->all();
@@ -321,7 +321,7 @@ final class ImmuneSignatureStore
         try {
             DB::table(self::TABLE)
                 ->where('id', $id)
-                ->where('status', self::STATUS_ACTIVE)
+                ->where(self::FIELD_STATUS, self::STATUS_ACTIVE)
                 ->update([
                     self::FIELD_HIT_COUNT => DB::raw('hit_count + 1'),
                     self::FIELD_LAST_HIT_AT => now(),
@@ -337,9 +337,9 @@ final class ImmuneSignatureStore
     {
         try {
             $row = DB::table(self::TABLE)
-                ->where('status', self::STATUS_ACTIVE)
+                ->where(self::FIELD_STATUS, self::STATUS_ACTIVE)
                 ->where('content_hash', $this->deriver->normalizeHash($contentHash))
-                ->orderByDesc('first_seen')
+                ->orderByDesc(self::FIELD_FIRST_SEEN)
                 ->first();
         } catch (Throwable) {
             return null;

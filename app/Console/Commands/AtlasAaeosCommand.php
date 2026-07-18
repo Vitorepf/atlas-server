@@ -552,6 +552,7 @@ final class AtlasAaeosCommand extends Command
                             {--b527-docs-authority-aaeos-veto-phase-handoff-asef-chunk-floors-contract= : JSON file (any object) to observe docs/authority/aaeos/veto/phase/handoff floors}
                             {--b528-quality-bar-aaeos-cognitive-outcome-envelope-operational-volume-floors-contract= : JSON file (any object) to observe quality/bar/aaeos/cognitive/outcome/envelope floors}
                             {--b529-acos-watchdog-long-verified-share-pre-review-golden-floors-contract= : JSON file (any object) to observe acos/watchdog/long/verified/share/pre floors}
+                            {--b530-immune-signature-calibration-aemor-outcome-compounding-evidence-vision-floors-contract= : JSON file (any object) to observe immune/signature/calibration/aemor/outcome/compounding floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1260,6 +1261,7 @@ final class AtlasAaeosCommand extends Command
             ['b527-docs-authority-aaeos-veto-phase-handoff-asef-chunk-floors-contract', 'b527_docs_authority_aaeos_veto_phase_handoff_asef_chunk_floors_contract', fn (array $p) => $gates->b527DocsAuthorityAaeosVetoPhaseHandoffAsefChunkFloorsContractObserve($p)],
             ['b528-quality-bar-aaeos-cognitive-outcome-envelope-operational-volume-floors-contract', 'b528_quality_bar_aaeos_cognitive_outcome_envelope_operational_volume_floors_contract', fn (array $p) => $gates->b528QualityBarAaeosCognitiveOutcomeEnvelopeOperationalVolumeFloorsContractObserve($p)],
             ['b529-acos-watchdog-long-verified-share-pre-review-golden-floors-contract', 'b529_acos_watchdog_long_verified_share_pre_review_golden_floors_contract', fn (array $p) => $gates->b529AcosWatchdogLongVerifiedSharePreReviewGoldenFloorsContractObserve($p)],
+            ['b530-immune-signature-calibration-aemor-outcome-compounding-evidence-vision-floors-contract', 'b530_immune_signature_calibration_aemor_outcome_compounding_evidence_vision_floors_contract', fn (array $p) => $gates->b530ImmuneSignatureCalibrationAemorOutcomeCompoundingEvidenceVisionFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

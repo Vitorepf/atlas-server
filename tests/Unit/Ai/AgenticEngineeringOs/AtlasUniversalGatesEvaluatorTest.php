@@ -10968,4 +10968,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b529_acos_watchdog_long_verified_share_pre_review_golden_floor_count']);
     }
 
+    public function test_b530_immune_signature_calibration_aemor_outcome_compounding_evidence_vision_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b530ImmuneSignatureCalibrationAemorOutcomeCompoundingEvidenceVisionFloorsContractObserve([]);
+        $this->assertSame(ImmuneSignatureStore::FIELD_STATUS, $out['status']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_FIRST_SEEN, $out['first_seen']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_MISSED_POISON_RATE, $out['missed_poison_rate']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_FALSE_BLOCK_RATE, $out['false_block_rate']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_VERIFIED_SOURCE_PRESENT, $out['verified_source_present']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_ENGINEERING, $out['engineering']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_AUTONOMOS, $out['autonomos']);
+        $this->assertSame(CompoundingOutcomeEnvelopeAdapter::FIELD_DEV, $out['dev']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_SERIES, $out['series']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_YIELD, $out['yield']);
+        $this->assertSame(PredictedImpactBand::FIELD_TASK, $out['task']);
+        $this->assertSame(PredictedImpactBand::FIELD_UNRESOLVED, $out['unresolved']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_ESCALATE, $out['escalate']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_IMMUNE_SIGNATURE, $out['immune_signature']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_LEXICAL, $out['lexical']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_ATLAS_DECIDE, $out['atlas_decide']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_COGNITIVE_IMMUNE, $out['cognitive_immune']);
+        $this->assertSame(18, $out['b530_immune_signature_calibration_aemor_outcome_compounding_evidence_vision_floor_count']);
+    }
+
 }

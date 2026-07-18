@@ -227,7 +227,7 @@ final class AtlasImmuneHybridInputClassifier
             $baseResult[self::FIELD_EMBEDDING_ALLOWED] = false;
             $baseResult[self::FIELD_DEFAULT_DESTINATION] = self::hostileDestination($winner);
         } elseif ($winner !== null && $winner === $lexicalHostile) {
-            $armBlock[self::FIELD_WINNER_SOURCE] = $semanticHostile === $lexicalHostile ? self::FIELD_AGREEMENT : 'lexical';
+            $armBlock[self::FIELD_WINNER_SOURCE] = $semanticHostile === $lexicalHostile ? self::FIELD_AGREEMENT : self::FIELD_LEXICAL;
         }
 
         $baseResult[self::FIELD_HYBRID_ARM] = $armBlock;
@@ -252,7 +252,7 @@ final class AtlasImmuneHybridInputClassifier
             self::FIELD_LEXICAL_HOSTILE_CLASS => in_array($baseResult[self::FIELD_INPUT_CLASS], self::HOSTILE_SEVERITY, true)
                 ? (AiValueNormalizer::trimmedScalarStringOrNull($baseResult[self::FIELD_INPUT_CLASS] ?? null) ?? '')
                 : null,
-            self::FIELD_WINNER_SOURCE => 'immune_signature',
+            self::FIELD_WINNER_SOURCE => self::FIELD_IMMUNE_SIGNATURE,
             self::FIELD_OVERRIDE_APPLIED => true,
         ];
     }

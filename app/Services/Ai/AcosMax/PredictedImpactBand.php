@@ -57,7 +57,7 @@ final class PredictedImpactBand
      */
     public static function classify(array $candidate): array
     {
-        $rung = AiValueNormalizer::lowerTrimmedString($candidate[self::FIELD_RUNG] ?? 'task');
+        $rung = AiValueNormalizer::lowerTrimmedString($candidate[self::FIELD_RUNG] ?? self::FIELD_TASK);
         $rank = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($candidate[self::FIELD_RANK] ?? null) ?? self::DEFAULT_RANK_FALLBACK));
         $yield = AiValueNormalizer::clampUnit(AiValueNormalizer::finiteFloatOrNull($candidate[self::FIELD_PATH_YIELD] ?? null) ?? 0.0);
         $score = (self::RUNG_WEIGHT[$rung] ?? 0) + ($rank <= self::RANK_TOP_CUTOFF ? 1 : 0) + ($yield >= self::YIELD_SWEET_FLOOR ? 1 : 0);
@@ -95,7 +95,7 @@ final class PredictedImpactBand
             if (! isset($bands[$band])) {
                 continue;
             }
-            if (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_STATUS] ?? null) === 'unresolved') {
+            if (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_STATUS] ?? null) === self::FIELD_UNRESOLVED) {
                 $bands[$band][self::FIELD_UNRESOLVED]++;
                 continue;
             }

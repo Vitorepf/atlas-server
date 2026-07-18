@@ -95,7 +95,7 @@ class AtlasCrossDepartmentChoreographyService
     public const VETO_RULES = [
         self::FIELD_SECURITY => [self::FIELD_PROPAGATES_TO => [self::FIELD_DEV, self::FIELD_FORGE, self::FIELD_DELIVERY], self::FIELD_ACTION => self::ACTION_PAUSE_DOWNSTREAM, self::FIELD_RETURN_TO => null, self::FIELD_FINAL => false],
         self::TARGET_ARCHITECT => [self::FIELD_PROPAGATES_TO => [self::TARGET_PRODUCT], self::FIELD_ACTION => self::ACTION_RETURN_UPSTREAM, self::FIELD_RETURN_TO => self::TARGET_PRODUCT, self::FIELD_FINAL => false],
-        self::FIELD_REVIEW => [self::FIELD_PROPAGATES_TO => [self::FIELD_DEV, 'forge'], self::FIELD_ACTION => self::ACTION_RETURN_UPSTREAM, self::FIELD_RETURN_TO => self::FIELD_DEV_OR_FORGE, self::FIELD_FINAL => false],
+        self::FIELD_REVIEW => [self::FIELD_PROPAGATES_TO => [self::FIELD_DEV, self::FIELD_FORGE], self::FIELD_ACTION => self::ACTION_RETURN_UPSTREAM, self::FIELD_RETURN_TO => self::FIELD_DEV_OR_FORGE, self::FIELD_FINAL => false],
         self::TARGET_OPERATOR => [self::FIELD_PROPAGATES_TO => ['*'], self::FIELD_ACTION => self::ACTION_OVERRIDE, self::FIELD_RETURN_TO => null, self::FIELD_FINAL => true],
     ];
 
@@ -151,7 +151,7 @@ class AtlasCrossDepartmentChoreographyService
             self::FIELD_KIND => $escalate ? self::HANDOFF_KIND_ESCALATION : self::HANDOFF_KIND_REPAIR,
             self::FIELD_ITERATION => $iteration,
             self::FIELD_MAX_ITERATIONS => $maxIterations,
-            self::FIELD_DECISION => $escalate ? 'escalate' : self::HANDOFF_KIND_REPAIR,
+            self::FIELD_DECISION => $escalate ? self::FIELD_ESCALATE : self::HANDOFF_KIND_REPAIR,
             self::FIELD_ESCALATE => $escalate,
             self::FIELD_ESCALATE_TO => $escalate ? [self::TARGET_ARCHITECT, self::TARGET_OPERATOR] : [],
             self::FIELD_REMAINING_REPAIRS => $escalate ? 0 : max(0, $maxIterations - $iteration),

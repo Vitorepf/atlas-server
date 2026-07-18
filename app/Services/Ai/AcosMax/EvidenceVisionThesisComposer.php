@@ -328,9 +328,9 @@ final class EvidenceVisionThesisComposer
                     .' ('.round($first, 3).'→'.round($last, 3).')',
                 self::FIELD_EVIDENCE => array_map(
                     static fn (array $row): array => [
-                        self::FIELD_SOURCE => 'series',
+                        self::FIELD_SOURCE => self::FIELD_SERIES,
                         self::FIELD_REF => 'series:'.(AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_SERIES] ?? null) ?? '').':stage='.(AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_STAGE] ?? null) ?? '').':window='.(int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_WINDOW] ?? null) ?? 0),
-                        self::FIELD_FIELD => 'yield',
+                        self::FIELD_FIELD => self::FIELD_YIELD,
                         self::FIELD_VALUE => AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_YIELD] ?? null) ?? 0.0,
                     ],
                     $tail,

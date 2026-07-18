@@ -13927,4 +13927,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B530).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b530ImmuneSignatureCalibrationAemorOutcomeCompoundingEvidenceVisionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'status' => ImmuneSignatureStore::FIELD_STATUS,
+            'first_seen' => ImmuneSignatureStore::FIELD_FIRST_SEEN,
+            'missed_poison_rate' => ImmuneCalibrationService::FIELD_MISSED_POISON_RATE,
+            'false_block_rate' => ImmuneCalibrationService::FIELD_FALSE_BLOCK_RATE,
+            'verified_source_present' => AemorOutcomeEnvelopeAdapter::FIELD_VERIFIED_SOURCE_PRESENT,
+            'engineering' => AemorOutcomeEnvelopeAdapter::FIELD_ENGINEERING,
+            'autonomos' => CompoundingOutcomeEnvelopeAdapter::FIELD_AUTONOMOS,
+            'dev' => CompoundingOutcomeEnvelopeAdapter::FIELD_DEV,
+            'series' => EvidenceVisionThesisComposer::FIELD_SERIES,
+            'yield' => EvidenceVisionThesisComposer::FIELD_YIELD,
+            'task' => PredictedImpactBand::FIELD_TASK,
+            'unresolved' => PredictedImpactBand::FIELD_UNRESOLVED,
+            'escalate' => AtlasCrossDepartmentChoreographyService::FIELD_ESCALATE,
+            'forge' => AtlasCrossDepartmentChoreographyService::FIELD_FORGE,
+            'immune_signature' => AtlasImmuneHybridInputClassifier::FIELD_IMMUNE_SIGNATURE,
+            'lexical' => AtlasImmuneHybridInputClassifier::FIELD_LEXICAL,
+            'atlas_decide' => AtlasCognitiveFunctionAtlasService::FIELD_ATLAS_DECIDE,
+            'cognitive_immune' => AtlasCognitiveFunctionAtlasService::FIELD_COGNITIVE_IMMUNE,
+            'b530_immune_signature_calibration_aemor_outcome_compounding_evidence_vision_floor_count' => 18,
+        ];
+    }
+
 }

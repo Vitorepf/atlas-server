@@ -9153,6 +9153,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b530_immune_signature_calibration_aemor_outcome_compounding_evidence_vision_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b530-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b530',
+                '--b530-immune-signature-calibration-aemor-outcome-compounding-evidence-vision-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b530_immune_signature_calibration_aemor_outcome_compounding_evidence_vision_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

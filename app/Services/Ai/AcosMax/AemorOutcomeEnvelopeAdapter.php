@@ -69,7 +69,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             : AiValueNormalizer::arrayOrEmpty($native[self::FIELD_OUTCOME_CONTRACT_V2] ?? null);
 
         $verifiedSourcePresent = array_key_exists(self::FIELD_VERIFIED, $native)
-            || array_key_exists('verified_source_present', $contract);
+            || array_key_exists(self::FIELD_VERIFIED_SOURCE_PRESENT, $contract);
         $verifiedBasis = AiValueNormalizer::lowerTrimmedString($contract[self::FIELD_VERIFIED_BASIS] ?? $native[self::FIELD_VERIFIED_BASIS] ?? AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT);
         $verified = (AiValueNormalizer::boolOrNull($contract[self::FIELD_VERIFIED] ?? $native[self::FIELD_VERIFIED] ?? null) ?? false);
         $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native[self::FIELD_EVIDENCE_REFS] ?? null);
@@ -78,7 +78,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $runId = AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_RUN_ID] ?? $native[self::FIELD_SCOPE_ID] ?? null) ?? '';
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
-            self::FIELD_EXECUTOR => in_array($executor, [self::FIELD_DEV, self::FIELD_FORGE, self::FIELD_AUTONOMOS], true) ? $executor : 'engineering',
+            self::FIELD_EXECUTOR => in_array($executor, [self::FIELD_DEV, self::FIELD_FORGE, self::FIELD_AUTONOMOS], true) ? $executor : self::FIELD_ENGINEERING,
             self::FIELD_TASK_CATEGORY => AiValueNormalizer::trimmedStringOrNull($contract[self::FIELD_TASK_CATEGORY] ?? $native[self::FIELD_TASK_CATEGORY] ?? $executor) ?? '',
             self::FIELD_PROVIDER => AiValueNormalizer::trimmedStringOrNull($contract[self::FIELD_PROVIDER] ?? $native[self::FIELD_PROVIDER] ?? null) ?? self::STATUS_ABSENT,
             self::FIELD_STATUS => $status,

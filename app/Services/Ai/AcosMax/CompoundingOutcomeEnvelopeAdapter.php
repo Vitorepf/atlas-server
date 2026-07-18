@@ -69,8 +69,8 @@ final class CompoundingOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $flowId = AiValueNormalizer::lowerTrimmedString($native[self::FIELD_FLOW_ID] ?? self::FIELD_ATLAS_CONVERSATION);
         $executor = match (true) {
             str_contains($flowId, self::FIELD_FORGE) => self::FIELD_FORGE,
-            str_contains($flowId, self::FIELD_AUTONOMOS) => 'autonomos',
-            str_contains($flowId, self::FIELD_DEV) => 'dev',
+            str_contains($flowId, self::FIELD_AUTONOMOS) => self::FIELD_AUTONOMOS,
+            str_contains($flowId, self::FIELD_DEV) => self::FIELD_DEV,
             default => self::FIELD_ENGINEERING,
         };
 

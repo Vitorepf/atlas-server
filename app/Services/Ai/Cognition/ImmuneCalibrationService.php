@@ -213,7 +213,7 @@ final class ImmuneCalibrationService
         $denominator = max(0, $denominator);
         $rate = round(AiValueNormalizer::clampUnit($rate), 6);
 
-        if ($metric === 'missed_poison_rate' && $denominator === 0) {
+        if ($metric === self::FIELD_MISSED_POISON_RATE && $denominator === 0) {
             return [
                 self::FIELD_METRIC => $metric,
                 self::FIELD_VALUE => $rate,
@@ -325,14 +325,14 @@ final class ImmuneCalibrationService
             $falseBlockRate,
             (int) (AiValueNormalizer::finiteFloatOrNull($group['n'] ?? null) ?? 0),
             self::DENOMINATOR_MIN,
-            'false_block_rate',
+            self::FIELD_FALSE_BLOCK_RATE,
         );
         $group[self::FIELD_FALSE_BLOCK_RATE][self::FIELD_BLOCKS_DENOMINATOR] = $blocks;
         $group[self::FIELD_MISSED_POISON_RATE] = $this->bandForRate(
             $missedPoisonRate,
             $knownMissDenominator,
             self::DENOMINATOR_MIN,
-            'missed_poison_rate',
+            self::FIELD_MISSED_POISON_RATE,
         );
         $group[self::FIELD_MISSED_POISON_RATE][self::FIELD_BOUND] = 'lower_bound_known_miss';
         $group[self::FIELD_CALIBRATION_STATUS] = $group[self::FIELD_FALSE_BLOCK_RATE][self::FIELD_STATUS] === self::STATUS_CALIBRATED
