@@ -18776,4 +18776,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B688).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b688AsefChunkFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.asef_chunks.index.v1' => AsefChunkIndexService::SCHEMA_VERSION,
+            'unavailable' => AsefChunkIndexService::STATUS_UNAVAILABLE,
+            'blocked' => AsefChunkIndexService::STATUS_BLOCKED,
+            'degraded' => AsefChunkIndexService::STATUS_DEGRADED,
+            'ok' => AsefChunkIndexService::STATUS_OK,
+            'failed' => AsefChunkIndexService::STATUS_FAILED,
+            'empty' => AsefChunkIndexService::STATUS_EMPTY,
+            'pending' => AsefChunkIndexService::EMBEDDING_STATUS_PENDING,
+            'persisted' => AsefChunkIndexService::EMBEDDING_STATUS_PERSISTED,
+            'asef_chunks_table_missing' => AsefChunkIndexService::REASON_ASEF_CHUNKS_TABLE_MISSING,
+            'empty_source_ref_or_text' => AsefChunkIndexService::REASON_EMPTY_SOURCE_REF_OR_TEXT,
+            'embedding_column_absent' => AsefChunkIndexService::REASON_EMBEDDING_COLUMN_ABSENT,
+            'chunks_written' => AsefChunkIndexService::FIELD_CHUNKS_WRITTEN,
+            'chunks_skipped' => AsefChunkIndexService::FIELD_CHUNKS_SKIPPED,
+            'status' => AsefChunkIndexService::FIELD_STATUS,
+            'source_ref' => AsefChunkIndexService::FIELD_SOURCE_REF,
+            'chunk_hash' => AsefChunkIndexService::FIELD_CHUNK_HASH,
+            'schema_version' => AsefChunkIndexService::FIELD_SCHEMA_VERSION,
+            'b688_asef_chunk_floor_count' => 18,
+        ];
+    }
+
 }

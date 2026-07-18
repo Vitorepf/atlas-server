@@ -14874,4 +14874,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b687_composed_obra_floor_count']);
     }
 
+    public function test_b688_asef_chunk_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b688AsefChunkFloorsContractObserve([]);
+        $this->assertSame(AsefChunkIndexService::SCHEMA_VERSION, $out['atlas.asef_chunks.index.v1']);
+        $this->assertSame(AsefChunkIndexService::STATUS_UNAVAILABLE, $out['unavailable']);
+        $this->assertSame(AsefChunkIndexService::STATUS_BLOCKED, $out['blocked']);
+        $this->assertSame(AsefChunkIndexService::STATUS_DEGRADED, $out['degraded']);
+        $this->assertSame(AsefChunkIndexService::STATUS_OK, $out['ok']);
+        $this->assertSame(AsefChunkIndexService::STATUS_FAILED, $out['failed']);
+        $this->assertSame(AsefChunkIndexService::STATUS_EMPTY, $out['empty']);
+        $this->assertSame(AsefChunkIndexService::EMBEDDING_STATUS_PENDING, $out['pending']);
+        $this->assertSame(AsefChunkIndexService::EMBEDDING_STATUS_PERSISTED, $out['persisted']);
+        $this->assertSame(AsefChunkIndexService::REASON_ASEF_CHUNKS_TABLE_MISSING, $out['asef_chunks_table_missing']);
+        $this->assertSame(AsefChunkIndexService::REASON_EMPTY_SOURCE_REF_OR_TEXT, $out['empty_source_ref_or_text']);
+        $this->assertSame(AsefChunkIndexService::REASON_EMBEDDING_COLUMN_ABSENT, $out['embedding_column_absent']);
+        $this->assertSame(AsefChunkIndexService::FIELD_CHUNKS_WRITTEN, $out['chunks_written']);
+        $this->assertSame(AsefChunkIndexService::FIELD_CHUNKS_SKIPPED, $out['chunks_skipped']);
+        $this->assertSame(AsefChunkIndexService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AsefChunkIndexService::FIELD_SOURCE_REF, $out['source_ref']);
+        $this->assertSame(AsefChunkIndexService::FIELD_CHUNK_HASH, $out['chunk_hash']);
+        $this->assertSame(AsefChunkIndexService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(18, $out['b688_asef_chunk_floor_count']);
+    }
+
 }
