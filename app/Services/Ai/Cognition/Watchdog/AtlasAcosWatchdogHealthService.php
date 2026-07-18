@@ -324,6 +324,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_MEMORY_QUALITY_SCORE_REGRESSED = 'memory_quality_score_regressed';
     public const FIELD_MEMORY_QUALITY_SNAPSHOT_STALE = 'memory_quality_snapshot_stale';
     public const FIELD_NO_RECENT_DELIVERED_REFS_EVENT = 'no_recent_delivered_refs_event';
+    public const FIELD_OCCURRED_AT = 'occurred_at';
+    public const FIELD_RETRIEVAL_RECEIPT_ID = 'retrieval_receipt_id';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -988,7 +990,7 @@ final class AtlasAcosWatchdogHealthService
         $row = AiRagFeedbackEvent::query()
             ->where(function ($query): void {
                 $query->where(self::FIELD_INCLUDED_SOURCES, '>', 0)
-                    ->orWhereNotNull('retrieval_receipt_id');
+                    ->orWhereNotNull(self::FIELD_RETRIEVAL_RECEIPT_ID);
             })
             ->latest('created_at')
             ->first();
@@ -1033,7 +1035,7 @@ final class AtlasAcosWatchdogHealthService
             $query = AtlasLedgerEvent::query()
                 ->where(self::FIELD_EVENT_TYPE, LedgerEventType::OperationBlocked->value)
                 ->whereJsonContains('payload->blockers', $blocker)
-                ->orderBy('occurred_at');
+                ->orderBy(self::FIELD_OCCURRED_AT);
             if ($hasScopeColumns) {
                 $query->where('scope_type', 'acos_watchdog')->where('scope_id', $scopeId);
             } else {

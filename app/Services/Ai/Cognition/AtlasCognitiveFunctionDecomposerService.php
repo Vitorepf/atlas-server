@@ -105,6 +105,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_EXECUTE = 'execute';
     public const FIELD_EVIDENCIA = 'evidencia';
     public const FIELD_EXPLIQUE = 'explique';
+    public const FIELD_DECIDA = 'decida';
+    public const FIELD_FIGMA = 'figma';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -124,7 +126,7 @@ final class AtlasCognitiveFunctionDecomposerService
     public const RULES = [
         self::FIELD_REASONING => [
             'porque', 'por que', self::FIELD_ANALISE, self::FIELD_ANALISA, self::FIELD_EXPLIQUE, 'pense', 'pondere',
-            'decida', self::FIELD_DECISAO, self::FIELD_COMPARE, self::FIELD_AVALIE, 'logica', 'estrategia',
+            self::FIELD_DECIDA, self::FIELD_DECISAO, self::FIELD_COMPARE, self::FIELD_AVALIE, 'logica', 'estrategia',
             'raciocine', 'investigue', 'why', 'reason',
         ],
         self::FIELD_RETRIEVAL => [
@@ -147,7 +149,7 @@ final class AtlasCognitiveFunctionDecomposerService
         ],
         self::FIELD_VISION => [
             'imagem', 'foto', 'screenshot', 'visualize', 'design', 'layout',
-            'mockup', 'figma', 'png', 'jpg', 'svg', 'tela', 'ui ', 'ux ',
+            'mockup', self::FIELD_FIGMA, 'png', 'jpg', 'svg', 'tela', 'ui ', 'ux ',
             'cor ', 'paleta', 'visual', 'screenshot', 'image', 'render',
         ],
         self::FIELD_AUDIT => [

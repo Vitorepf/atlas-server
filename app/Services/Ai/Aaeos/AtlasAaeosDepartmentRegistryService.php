@@ -40,6 +40,8 @@ class AtlasAaeosDepartmentRegistryService
     public const FIELD_MEMORY = 'memory';
     public const FIELD_GATES = 'gates';
     public const FIELD_INPUTS = 'inputs';
+    public const FIELD_OUTPUTS = 'outputs';
+    public const FIELD_RESEARCH = 'research';
 
     /**
      * The 12 mandatory fields — a department missing any is a blocker.
@@ -47,7 +49,7 @@ class AtlasAaeosDepartmentRegistryService
      * @var array<int,string>
      */
     public const REQUIRED_FIELDS = [
-        'id', self::FIELD_HUMAN_NAME, 'scope', 'triggers', self::FIELD_INPUTS, 'outputs',
+        'id', self::FIELD_HUMAN_NAME, 'scope', 'triggers', self::FIELD_INPUTS, self::FIELD_OUTPUTS,
         self::FIELD_GATES, self::FIELD_ALLOWED_ACTIONS, self::FIELD_FORBIDDEN_ACTIONS, 'escalation_to',
         self::FIELD_EVIDENCE_REQUIRED, 'maturity_level',
     ];
@@ -63,7 +65,7 @@ class AtlasAaeosDepartmentRegistryService
      * @var array<int,string>
      */
     public const CANONICAL_DEPARTMENTS = [
-        'product', self::FIELD_ARCHITECT, 'research', 'dev', self::FIELD_DEBUG, 'review',
+        'product', self::FIELD_ARCHITECT, self::FIELD_RESEARCH, 'dev', self::FIELD_DEBUG, 'review',
         'qa', 'security', 'forge', self::FIELD_DELIVERY, self::FIELD_MEMORY,
     ];
 

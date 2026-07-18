@@ -82,6 +82,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_REFACTOR = 'refactor';
     public const FIELD_REGRESSION = 'regression';
     public const FIELD_RELEASE = 'release';
+    public const FIELD_SHIPPED = 'shipped';
+    public const FIELD_STRATEGY = 'strategy';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -147,7 +149,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         'tese',
         self::FIELD_HIPOTESE,
         self::FIELD_PRINCIPIO,
-        'strategy',
+        self::FIELD_STRATEGY,
         'strategic',
         'thesis',
         self::FIELD_HYPOTHESIS,
@@ -197,7 +199,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         'testes passaram',
         self::FIELD_MERGED,
         self::FIELD_RELEASE,
-        'shipped',
+        self::FIELD_SHIPPED,
         'em producao',
     ];
 

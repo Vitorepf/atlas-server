@@ -267,6 +267,8 @@ final class DepartmentContractRuntime
     public const FIELD_LOGS_HASH = 'logs_hash';
     public const FIELD_LONG_HORIZON_STATE_PERSISTED = 'long_horizon_state_persisted';
     public const FIELD_MEMORY_HAS_NO_DOWNSTREAM = 'memory_has_no_downstream';
+    public const FIELD_EVERY_DEPARTMENT_DECLARES_GATES = 'every_department_declares_gates';
+    public const FIELD_MODIFY_EVIDENCE_LEDGER = 'modify_evidence_ledger';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -573,7 +575,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_GATES => ['evidence_persisted', self::FIELD_LEARNING_SIGNAL_EXTRACTED, 'promotion_gate_passed', 'noise_immunity_check_ok', 'schema_versioned'],
             self::FIELD_ALLOWED_ACTIONS => ['promote_to_memory', 'quarantine_capsule', 'emit_context_pack'],
-            self::FIELD_FORBIDDEN_ACTIONS => ['bypass_promotion_gate', 'modify_evidence_ledger', 'expose_secrets'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['bypass_promotion_gate', self::FIELD_MODIFY_EVIDENCE_LEDGER, 'expose_secrets'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['promotion_evidence_hash', 'memory_record_hash'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_MEMORY_RECORDS, self::FIELD_LEDGER => self::FIELD_AAEOS_MEMORY_LEDGER],
@@ -612,7 +614,7 @@ final class DepartmentContractRuntime
             self::FIELD_HANDOFF_INVARIANTS => [
                 'executive_intake_has_no_upstream',
                 self::FIELD_MEMORY_HAS_NO_DOWNSTREAM,
-                'every_department_declares_gates',
+                self::FIELD_EVERY_DEPARTMENT_DECLARES_GATES,
                 self::FIELD_EVERY_DEPARTMENT_DECLARES_EVIDENCE_SCHEMA,
                 self::FIELD_EVERY_DEPARTMENT_DECLARES_12_CANON_FIELDS,
             ],

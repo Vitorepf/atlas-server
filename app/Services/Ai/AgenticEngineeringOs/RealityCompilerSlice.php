@@ -32,14 +32,16 @@ final readonly class RealityCompilerSlice
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_EVIDENCE = 'evidence';
     public const FIELD_SIMULATION = 'simulation';
+    public const FIELD_REVIEW = 'review';
+    public const FIELD_SWARM = 'swarm';
 
     /** @var list<string> */
     public const EXECUTION_PHASES = [
         'spec',
         self::FIELD_SIMULATION,
-        'swarm',
+        self::FIELD_SWARM,
         self::FIELD_EVIDENCE,
-        'review',
+        self::FIELD_REVIEW,
     ];
 
     /**

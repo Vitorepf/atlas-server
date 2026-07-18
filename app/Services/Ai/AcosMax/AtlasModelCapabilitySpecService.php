@@ -57,6 +57,8 @@ final class AtlasModelCapabilitySpecService
     public const FIELD_MULTILINGUAL_PT = 'multilingual_pt';
     public const FIELD_CTX_TOKENS = 'ctx_tokens';
     public const FIELD_MULTILINGUAL_PT_REQUIRED = 'multilingual_pt_required';
+    public const FIELD_NON_DETERMINISTIC_MODEL_REFUSED = 'non_deterministic_model_refused';
+    public const FIELD_PAIR_SCORING = 'pair_scoring';
     /** @var array<string, array<string, mixed>> */
     private array $functions;
 
@@ -127,11 +129,11 @@ final class AtlasModelCapabilitySpecService
         ));
 
         $violations = array_merge($violations, $this->checkBooleanTrue(
-            $spec, $model, self::FIELD_DETERMINISTIC, 'non_deterministic_model_refused'
+            $spec, $model, self::FIELD_DETERMINISTIC, self::FIELD_NON_DETERMINISTIC_MODEL_REFUSED
         ));
 
         $violations = array_merge($violations, $this->checkBooleanTrue(
-            $spec, $model, 'pair_scoring', 'pair_scoring_missing'
+            $spec, $model, self::FIELD_PAIR_SCORING, 'pair_scoring_missing'
         ));
 
         $violations = array_merge($violations, $this->checkBooleanTrue(

@@ -91,6 +91,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_PROBATION_SUPERVENING_CONTRADICTION_COUNT = 'probation_supervening_contradiction_count';
     public const FIELD_PROMOTION_MODE_HINT = 'promotion_mode_hint';
     public const FIELD_PROVENANCE_CYCLE_DETECTED = 'provenance_cycle_detected';
+    public const FIELD_PROVENANCE_TRACES_TO_REVERTED = 'provenance_traces_to_reverted';
+    public const FIELD_PROVIDER_SAFE = 'provider_safe';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -246,7 +248,7 @@ final class CognitiveImmunePromotionGateEvaluator
     {
         $unsafe = $this->flag($signals, self::FIELD_CONTAINS_SECRET)
             || $this->flag($signals, self::FIELD_CONTAINS_SENSITIVE_UNNECESSARY)
-            || $this->explicitlyFalse($signals, 'provider_safe');
+            || $this->explicitlyFalse($signals, self::FIELD_PROVIDER_SAFE);
 
         if ($unsafe) {
             return [self::STATUS_BLOCK, 'secret_or_sensitive_present'];
@@ -269,7 +271,7 @@ final class CognitiveImmunePromotionGateEvaluator
             return [self::STATUS_BLOCK, 'contradicts_newer_authority'];
         }
 
-        if ($this->flag($signals, 'provenance_traces_to_reverted')) {
+        if ($this->flag($signals, self::FIELD_PROVENANCE_TRACES_TO_REVERTED)) {
             return [self::STATUS_BLOCK, 'provenance_traces_to_reverted'];
         }
 

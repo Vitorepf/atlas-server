@@ -8993,4 +8993,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['phase_advance_structured_fact_immune_check_cognitive_function_floor_count']);
     }
 
+    public function test_reality_compiler_cognitive_function_department_contract_aaeos_immune_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->realityCompilerCognitiveFunctionDepartmentContractAaeosImmuneFloorsContractObserve([]);
+        $this->assertSame(RealityCompilerSlice::FIELD_REVIEW, $out['review']);
+        $this->assertSame(RealityCompilerSlice::FIELD_SWARM, $out['swarm']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DECIDA, $out['decida']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_FIGMA, $out['figma']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EVERY_DEPARTMENT_DECLARES_GATES, $out['every_department_declares_gates']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MODIFY_EVIDENCE_LEDGER, $out['modify_evidence_ledger']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_SHIPPED, $out['shipped']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_STRATEGY, $out['strategy']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROVENANCE_TRACES_TO_REVERTED, $out['provenance_traces_to_reverted']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROVIDER_SAFE, $out['provider_safe']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_OCCURRED_AT, $out['occurred_at']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_RETRIEVAL_RECEIPT_ID, $out['retrieval_receipt_id']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_OUTPUTS, $out['outputs']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_RESEARCH, $out['research']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_NON_DETERMINISTIC_MODEL_REFUSED, $out['non_deterministic_model_refused']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_PAIR_SCORING, $out['pair_scoring']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_IS_STRING, $out['is_string']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_PAYLOAD, $out['payload']);
+        $this->assertSame(18, $out['reality_compiler_cognitive_function_department_contract_aaeos_immune_floor_count']);
+    }
+
 }

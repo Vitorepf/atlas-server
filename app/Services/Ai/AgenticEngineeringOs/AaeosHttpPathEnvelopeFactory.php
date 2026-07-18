@@ -108,6 +108,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_ATLAS_AI_ASSISTED_EXECUTION_QUALITY = 'atlas_ai_assisted_execution_quality';
     public const FIELD_ATLAS_AI_ROUTER = 'atlas_ai_router';
     public const FIELD_INTENT_CLARITY_SCORE_MIN_0_8 = 'intent_clarity_score_min_0_8';
+    public const FIELD_IS_STRING = 'is_string';
+    public const FIELD_PAYLOAD = 'payload';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -435,7 +437,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     private static function requestPayload(array $data): array
     {
-        return self::arrayAt($data, 'payload');
+        return self::arrayAt($data, self::FIELD_PAYLOAD);
     }
 
     /**
@@ -517,7 +519,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_ID => $reason,
             self::FIELD_SEVERITY => self::FIELD_HIGH,
             self::FIELD_OWNER => 'atlas-ai',
-        ], array_filter($blockedWhen, 'is_string')));
+        ], array_filter($blockedWhen, self::FIELD_IS_STRING)));
     }
 
     /**
