@@ -19737,4 +19737,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B719).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b719AcosLongFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'status' => AtlasAcosLongHorizonGateService::FIELD_STATUS,
+            'config' => AtlasAcosLongHorizonGateService::FIELD_CONFIG,
+            'atlas.cognition.acos_long_horizon_gate.v1' => AtlasAcosLongHorizonGateService::SCHEMA_VERSION,
+            'atlas.cognition.acos_long_horizon_gate.area_v2' => AtlasAcosLongHorizonGateService::AREA_V2_SCHEMA,
+            '30' => AtlasAcosLongHorizonGateService::DEFAULT_MIN_DAYS,
+            '9.5' => AtlasAcosLongHorizonGateService::FLOAT_9_5,
+            '9.5' => AtlasAcosLongHorizonGateService::FLOAT_9_5,
+            '0.15' => AtlasAcosLongHorizonGateService::DEFAULT_WARNING_MARGIN,
+            '2' => AtlasAcosLongHorizonGateService::INT_2,
+            '1' => AtlasAcosLongHorizonGateService::DEFAULT_MAX_GAP_DAYS,
+            'atlas.cognition.acos_long_horizon_gate' => AtlasAcosLongHorizonGateService::CONFIG_KEY,
+            'blocked' => AtlasAcosLongHorizonGateService::STATUS_BLOCKED,
+            'disabled' => AtlasAcosLongHorizonGateService::STATUS_DISABLED,
+            'acos_long_horizon_ready' => AtlasAcosLongHorizonGateService::STATUS_READY,
+            'insufficient_long_horizon_evidence' => AtlasAcosLongHorizonGateService::STATUS_INSUFFICIENT,
+            'enabled' => AtlasAcosLongHorizonGateService::FIELD_ENABLED,
+            'certified' => AtlasAcosLongHorizonGateService::FIELD_CERTIFIED,
+            'live' => AtlasAcosLongHorizonGateService::FIXTURE_LIVE,
+            'b719_acos_long_floor_count' => 18,
+        ];
+    }
+
 }

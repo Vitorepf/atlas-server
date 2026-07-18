@@ -15649,4 +15649,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b718_consolidation_rerank_floor_count']);
     }
 
+    public function test_b719_acos_long_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b719AcosLongFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_CONFIG, $out['config']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::SCHEMA_VERSION, $out['atlas.cognition.acos_long_horizon_gate.v1']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::AREA_V2_SCHEMA, $out['atlas.cognition.acos_long_horizon_gate.area_v2']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::DEFAULT_MIN_DAYS, $out['30']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FLOAT_9_5, $out['9.5']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FLOAT_9_5, $out['9.5']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::DEFAULT_WARNING_MARGIN, $out['0.15']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::INT_2, $out['2']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::DEFAULT_MAX_GAP_DAYS, $out['1']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::CONFIG_KEY, $out['atlas.cognition.acos_long_horizon_gate']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::STATUS_BLOCKED, $out['blocked']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::STATUS_DISABLED, $out['disabled']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::STATUS_READY, $out['acos_long_horizon_ready']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::STATUS_INSUFFICIENT, $out['insufficient_long_horizon_evidence']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_ENABLED, $out['enabled']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_CERTIFIED, $out['certified']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIXTURE_LIVE, $out['live']);
+        $this->assertSame(18, $out['b719_acos_long_floor_count']);
+    }
+
 }

@@ -741,6 +741,7 @@ final class AtlasAaeosCommand extends Command
                             {--b716-cognitive-memory-floors-contract= : JSON file (any object) to observe cognitive/memory floors}
                             {--b717-fact-pair-consolidation-rerank-floors-contract= : JSON file (any object) to observe fact/pair/consolidation/rerank floors}
                             {--b718-consolidation-rerank-floors-contract= : JSON file (any object) to observe consolidation/rerank floors}
+                            {--b719-acos-long-floors-contract= : JSON file (any object) to observe acos/long floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1638,6 +1639,7 @@ final class AtlasAaeosCommand extends Command
             ['b716-cognitive-memory-floors-contract', 'b716_cognitive_memory_floors_contract', fn (array $p) => $gates->b716CognitiveMemoryFloorsContractObserve($p)],
             ['b717-fact-pair-consolidation-rerank-floors-contract', 'b717_fact_pair_consolidation_rerank_floors_contract', fn (array $p) => $gates->b717FactPairConsolidationRerankFloorsContractObserve($p)],
             ['b718-consolidation-rerank-floors-contract', 'b718_consolidation_rerank_floors_contract', fn (array $p) => $gates->b718ConsolidationRerankFloorsContractObserve($p)],
+            ['b719-acos-long-floors-contract', 'b719_acos_long_floors_contract', fn (array $p) => $gates->b719AcosLongFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
