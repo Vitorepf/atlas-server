@@ -19985,4 +19985,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B727).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b727ImmuneCheckFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.cognition.cognitive_immune_check.v1' => CognitiveImmuneCheckContract::SCHEMA,
+            'pending' => CognitiveImmuneCheckContract::GATE_STATUS_PENDING,
+            'pass' => CognitiveImmuneCheckContract::GATE_STATUS_PASS,
+            'block' => CognitiveImmuneCheckContract::GATE_STATUS_BLOCK,
+            'unknown' => CognitiveImmuneCheckContract::GATE_STATUS_UNKNOWN,
+            'finding_id' => CognitiveImmuneCheckContract::FIELD_FINDING_ID,
+            'decision_surface' => CognitiveImmuneCheckContract::FIELD_DECISION_SURFACE,
+            'target_paths' => CognitiveImmuneCheckContract::FIELD_TARGET_PATHS,
+            'gate_statuses' => CognitiveImmuneCheckContract::FIELD_GATE_STATUSES,
+            'autonomous_execution_allowed' => CognitiveImmuneCheckContract::FIELD_AUTONOMOUS_EXECUTION_ALLOWED,
+            'blockers' => CognitiveImmuneCheckContract::FIELD_BLOCKERS,
+            'check_categories' => CognitiveImmuneCheckContract::FIELD_CHECK_CATEGORIES,
+            'pending_gates' => CognitiveImmuneCheckContract::FIELD_PENDING_GATES,
+            'inputs' => CognitiveImmuneCheckContract::FIELD_INPUTS,
+            'outputs' => CognitiveImmuneCheckContract::FIELD_OUTPUTS,
+            'schema_version' => CognitiveImmuneCheckContract::FIELD_SCHEMA_VERSION,
+            'autonomous_engineering' => CognitiveImmuneCheckContract::FIELD_AUTONOMOUS_ENGINEERING,
+            'contradiction' => CognitiveImmuneCheckContract::FIELD_CONTRADICTION,
+            'b727_immune_check_floor_count' => 18,
+        ];
+    }
+
 }

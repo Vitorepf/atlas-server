@@ -15850,4 +15850,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b726_acos_rollback_floor_count']);
     }
 
+    public function test_b727_immune_check_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b727ImmuneCheckFloorsContractObserve([]);
+        $this->assertSame(CognitiveImmuneCheckContract::SCHEMA, $out['atlas.cognition.cognitive_immune_check.v1']);
+        $this->assertSame(CognitiveImmuneCheckContract::GATE_STATUS_PENDING, $out['pending']);
+        $this->assertSame(CognitiveImmuneCheckContract::GATE_STATUS_PASS, $out['pass']);
+        $this->assertSame(CognitiveImmuneCheckContract::GATE_STATUS_BLOCK, $out['block']);
+        $this->assertSame(CognitiveImmuneCheckContract::GATE_STATUS_UNKNOWN, $out['unknown']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_FINDING_ID, $out['finding_id']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_DECISION_SURFACE, $out['decision_surface']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_TARGET_PATHS, $out['target_paths']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_GATE_STATUSES, $out['gate_statuses']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_AUTONOMOUS_EXECUTION_ALLOWED, $out['autonomous_execution_allowed']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_BLOCKERS, $out['blockers']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_CHECK_CATEGORIES, $out['check_categories']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_PENDING_GATES, $out['pending_gates']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_INPUTS, $out['inputs']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_OUTPUTS, $out['outputs']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_AUTONOMOUS_ENGINEERING, $out['autonomous_engineering']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_CONTRADICTION, $out['contradiction']);
+        $this->assertSame(18, $out['b727_immune_check_floor_count']);
+    }
+
 }
