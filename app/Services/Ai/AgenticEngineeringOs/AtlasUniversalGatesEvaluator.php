@@ -10172,4 +10172,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B408).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function acosWatchdogPhaseHandoffArchitectAgentAutonomousWorkFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'operator_id' => AtlasAcosWatchdogHealthService::FIELD_OPERATOR_ID,
+            'origin' => AtlasAcosWatchdogHealthService::FIELD_ORIGIN,
+            'partial_acronyms' => AtlasAcosWatchdogHealthService::FIELD_PARTIAL_ACRONYMS,
+            'partial_stale_days' => AtlasAcosWatchdogHealthService::FIELD_PARTIAL_STALE_DAYS,
+            'pipeline_score_out_of_10' => AtlasAcosWatchdogHealthService::FIELD_PIPELINE_SCORE_OUT_OF_10,
+            'pre_filter_concentration_mask_floor' => AtlasAcosWatchdogHealthService::FIELD_PRE_FILTER_CONCENTRATION_MASK_FLOOR,
+            'pre_filter_concentration_ratio' => AtlasAcosWatchdogHealthService::FIELD_PRE_FILTER_CONCENTRATION_RATIO,
+            'promoted' => AtlasAcosWatchdogHealthService::FIELD_PROMOTED,
+            'promoted_harness_captured_cycles' => AtlasAcosWatchdogHealthService::FIELD_PROMOTED_HARNESS_CAPTURED_CYCLES,
+            'proven_real' => AtlasAcosWatchdogHealthService::FIELD_PROVEN_REAL,
+            'task_pack_atomic_true_for_each' => AaeosPhaseHandoffService::FIELD_TASK_PACK_ATOMIC_TRUE_FOR_EACH,
+            'schema_version' => ArchitectAgentSpecPackGateContract::FIELD_SCHEMA_VERSION,
+            'may_proceed' => AutonomousWorkExecutionOs::FIELD_MAY_PROCEED,
+            'schema' => DeliveryPackCompletenessScorer::FIELD_SCHEMA,
+            'verdict' => PhaseAdvanceVerdictClassifier::FIELD_VERDICT,
+            'value' => AtlasAcosRollbackTriggerCheckService::FIELD_VALUE,
+            'resolved' => AtlasCognitionEvidenceResolver::FIELD_RESOLVED,
+            'ref' => AtlasFrontierWaveLadder::FIELD_REF,
+            'acos_watchdog_phase_handoff_architect_agent_autonomous_work_floor_count' => 18,
+        ];
+    }
+
 }

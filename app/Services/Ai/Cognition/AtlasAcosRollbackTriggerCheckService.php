@@ -60,6 +60,7 @@ final class AtlasAcosRollbackTriggerCheckService
     public const FIELD_REQUIRES_FLIP = 'requires_flip';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_SIMULATED = 'simulated';
+    public const FIELD_VALUE = 'value';
 
 
     /**
@@ -203,7 +204,7 @@ final class AtlasAcosRollbackTriggerCheckService
             return false;
         }
 
-        $expected = $entry['value'] ?? null;
+        $expected = $entry[self::FIELD_VALUE] ?? null;
         $actual = getenv($env);
         if ($actual === false) {
             return false;

@@ -44,6 +44,7 @@ final class PhaseAdvanceVerdictClassifier
     public const FIELD_REASON = 'reason';
     public const FIELD_REQUIRED = 'required';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_VERDICT = 'verdict';
 
     /** @var list<string> */
     public const VERDICTS = [
@@ -116,7 +117,7 @@ final class PhaseAdvanceVerdictClassifier
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'verdict' => $verdict,
+            self::FIELD_VERDICT => $verdict,
             self::FIELD_REASON => $reason,
             self::FIELD_MISSING_GATES => $missingGates,
             self::FIELD_BLOCKED_GATES => $blockedGates,

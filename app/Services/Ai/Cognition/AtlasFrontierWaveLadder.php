@@ -57,6 +57,7 @@ final class AtlasFrontierWaveLadder
     public const FIELD_THRESHOLD = 'threshold';
     public const FIELD_GENERATED_AT = 'generated_at';
     public const FIELD_NOTE = 'note';
+    public const FIELD_REF = 'ref';
 
     /**
      * Waves in activation order (obra20 §Fase-0 + contexto-mestre §5).
@@ -95,7 +96,7 @@ final class AtlasFrontierWaveLadder
             AppendOnlyJsonlStore::append($this->path, [
                 self::FIELD_WAVE => $wave,
                 self::FIELD_KIND => $kind,
-                'ref' => $ref,
+                self::FIELD_REF => $ref,
                 self::FIELD_AT => now()->toIso8601String(),
             ]);
         } catch (Throwable) {

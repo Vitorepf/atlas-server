@@ -85,6 +85,7 @@ class AtlasCognitionEvidenceResolver
     public const FIELD_SYMBOL_REF = 'symbol_ref';
     public const FIELD_EXISTING_TEST_REFS = 'existing_test_refs';
     public const FIELD_MATCHED = 'matched';
+    public const FIELD_RESOLVED = 'resolved';
 
     /**
      * Memoized FQN-ownership index: short class name => list of owner-doc capabilities
@@ -455,7 +456,7 @@ class AtlasCognitionEvidenceResolver
             return false;
         }
 
-        return ($resolution['resolved'] ?? false) === true;
+        return ($resolution[self::FIELD_RESOLVED] ?? false) === true;
     }
 
     /**

@@ -7927,4 +7927,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['acos_watchdog_immune_calibration_maxa_jina_outcome_envelope_floor_count']);
     }
 
+    public function test_acos_watchdog_phase_handoff_architect_agent_autonomous_work_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->acosWatchdogPhaseHandoffArchitectAgentAutonomousWorkFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_OPERATOR_ID, $out['operator_id']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ORIGIN, $out['origin']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_PARTIAL_ACRONYMS, $out['partial_acronyms']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_PARTIAL_STALE_DAYS, $out['partial_stale_days']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_PIPELINE_SCORE_OUT_OF_10, $out['pipeline_score_out_of_10']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_PRE_FILTER_CONCENTRATION_MASK_FLOOR, $out['pre_filter_concentration_mask_floor']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_PRE_FILTER_CONCENTRATION_RATIO, $out['pre_filter_concentration_ratio']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_PROMOTED, $out['promoted']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_PROMOTED_HARNESS_CAPTURED_CYCLES, $out['promoted_harness_captured_cycles']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_PROVEN_REAL, $out['proven_real']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_TASK_PACK_ATOMIC_TRUE_FOR_EACH, $out['task_pack_atomic_true_for_each']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_MAY_PROCEED, $out['may_proceed']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_SCHEMA, $out['schema']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_VERDICT, $out['verdict']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_VALUE, $out['value']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_RESOLVED, $out['resolved']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_REF, $out['ref']);
+        $this->assertSame(18, $out['acos_watchdog_phase_handoff_architect_agent_autonomous_work_floor_count']);
+    }
+
 }

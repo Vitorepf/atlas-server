@@ -37,6 +37,7 @@ final class ArchitectAgentSpecPackGateContract
     public const FIELD_SPEC_PACK_SCHEMA = 'spec_pack_schema';
     public const FIELD_INPUTS = 'inputs';
     public const FIELD_REQUIRED_SPEC_PACK_ARTIFACTS = 'required_spec_pack_artifacts';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
 
     /**
      * Required spec_pack sections before high-risk autonomous work may proceed.
@@ -112,7 +113,7 @@ final class ArchitectAgentSpecPackGateContract
     public function toArray(): array
     {
         return [
-            'schema_version' => self::SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
             self::FIELD_DEPARTMENT_ID => self::DEPARTMENT_ID,
             self::FIELD_MIN_AUTONOMOUS_RISK_SCOPE => self::MIN_AUTONOMOUS_RISK_SCOPE,
             self::FIELD_OPERATOR_SIGNATURE_REQUIRED_FROM => self::OPERATOR_SIGNATURE_REQUIRED_FROM,

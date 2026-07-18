@@ -67,6 +67,7 @@ final class AaeosPhaseHandoffService
     public const FIELD_POLICY_DECISION_ALLOWED_TRUE = 'policy_decision_allowed_true';
     public const FIELD_PROVIDER = 'provider';
     public const FIELD_SPEC_PACK_ACCEPTANCE_CRITERIA_MIN_3 = 'spec_pack_acceptance_criteria_min_3';
+    public const FIELD_TASK_PACK_ATOMIC_TRUE_FOR_EACH = 'task_pack_atomic_true_for_each';
 
     public static function requireIntentId(string $intentId): void
     {
@@ -150,7 +151,7 @@ final class AaeosPhaseHandoffService
         self::PHASE_TOPOLOGY => [self::FIELD_TOPOLOGY_PLAN_PROVIDERS_MIN_1_AVAILABLE],
         self::PHASE_ROUTING => [self::FIELD_DEPARTMENT_ROUTE_OWNER_CONFIRMED],
         self::PHASE_SPEC => [self::FIELD_SPEC_PACK_ACCEPTANCE_CRITERIA_MIN_3],
-        self::PHASE_TASKS => ['task_pack_atomic_true_for_each'],
+        self::PHASE_TASKS => [self::FIELD_TASK_PACK_ATOMIC_TRUE_FOR_EACH],
         self::PHASE_RECEIPT => [self::FIELD_DECISION_RECEIPT_V2_SIGNED],
         self::PHASE_EXECUTION => [self::FIELD_EXECUTION_LOG_WATCHDOG_OK],
         self::PHASE_GATES => [self::FIELD_UNIVERSAL_15_GATES_GREEN_OR_EXCEPTION],

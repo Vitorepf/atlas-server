@@ -259,6 +259,16 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_MIN_CONTEXT_RETENTION_SCORE = 'min_context_retention_score';
     public const FIELD_MIN_EVIDENCE = 'min_evidence';
     public const FIELD_NEGATIVE_FEEDBACK_MAX_AGE_HOURS = 'negative_feedback_max_age_hours';
+    public const FIELD_OPERATOR_ID = 'operator_id';
+    public const FIELD_ORIGIN = 'origin';
+    public const FIELD_PARTIAL_ACRONYMS = 'partial_acronyms';
+    public const FIELD_PARTIAL_STALE_DAYS = 'partial_stale_days';
+    public const FIELD_PIPELINE_SCORE_OUT_OF_10 = 'pipeline_score_out_of_10';
+    public const FIELD_PRE_FILTER_CONCENTRATION_MASK_FLOOR = 'pre_filter_concentration_mask_floor';
+    public const FIELD_PRE_FILTER_CONCENTRATION_RATIO = 'pre_filter_concentration_ratio';
+    public const FIELD_PROMOTED = 'promoted';
+    public const FIELD_PROMOTED_HARNESS_CAPTURED_CYCLES = 'promoted_harness_captured_cycles';
+    public const FIELD_PROVEN_REAL = 'proven_real';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -461,13 +471,13 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_RECALL_AT_5 => $recallAt5,
                 self::FIELD_IMPROPER_FLOOR_DISCARDS => $improperFloorDiscards,
                 self::FIELD_AURG_CROSS_LAYER_COVERAGE_RATIO => $coverageRatio,
-                'pre_filter_concentration_ratio' => $preFilterConcentration,
+                self::FIELD_PRE_FILTER_CONCENTRATION_RATIO => $preFilterConcentration,
             ],
             self::FIELD_THRESHOLDS => [
                 self::FIELD_RETRIEVAL_EVAL => self::RAG_RETRIEVAL_EVAL_FLOOR,
                 self::FIELD_RECALL_AT_5 => self::RAG_RECALL_AT_5_FLOOR,
                 self::FIELD_AURG_CROSS_LAYER_COVERAGE_RATIO => self::RAG_COVERAGE_FLOOR,
-                'pre_filter_concentration_mask_floor' => self::RAG_PRE_FILTER_CONCENTRATION_MASK_FLOOR,
+                self::FIELD_PRE_FILTER_CONCENTRATION_MASK_FLOOR => self::RAG_PRE_FILTER_CONCENTRATION_MASK_FLOOR,
             ],
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
@@ -506,7 +516,7 @@ final class AtlasAcosWatchdogHealthService
             $hasDelivered = (int) $event->included_sources > 0 || (AiValueNormalizer::trimmedStringOrNull($event->retrieval_receipt_id) ?? '') !== '';
             $payload = AiValueNormalizer::arrayOrEmpty($event->payload);
             $isSynthetic = ($payload['synthetic'] ?? false) === true || str_contains(AiValueNormalizer::lowerTrimmedString($payload[self::FIELD_SOURCE] ?? ''), 'synthetic');
-            $isTranscript = str_contains(AiValueNormalizer::lowerTrimmedString($payload[self::FIELD_SOURCE] ?? $payload['origin'] ?? ''), 'transcript_inferred');
+            $isTranscript = str_contains(AiValueNormalizer::lowerTrimmedString($payload[self::FIELD_SOURCE] ?? $payload[self::FIELD_ORIGIN] ?? ''), 'transcript_inferred');
             $measured += $isMeasured ? 1 : 0;
             $delivered += $hasDelivered ? 1 : 0;
             $synthetic += $isSynthetic ? 1 : 0;
@@ -656,9 +666,9 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_STATUS => $blocking === [] ? self::STATUS_OK : self::STATUS_ALERT,
             self::FIELD_BLOCKING => $blocking,
             self::FIELD_SCORECARD_HASH => $scorecard[self::FIELD_SCORECARD_HASH] ?? null,
-            'pipeline_score_out_of_10' => $pipeline,
+            self::FIELD_PIPELINE_SCORE_OUT_OF_10 => $pipeline,
             self::FIELD_PARTIAL_COUNT => count($partials),
-            'partial_acronyms' => array_values(array_map(static fn (array $row): string => (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_ACRONYM] ?? null) ?? ''), array_slice($partials, 0, 10))),
+            self::FIELD_PARTIAL_ACRONYMS => array_values(array_map(static fn (array $row): string => (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_ACRONYM] ?? null) ?? ''), array_slice($partials, 0, 10))),
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
         $this->recordLedger($blocking === [] ? LedgerEventType::OperationCompleted : LedgerEventType::OperationBlocked, $payload, 'pip-08.scorecard_stability');
@@ -737,7 +747,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_PARTIAL_COUNT => count($partials),
             'stale_partial_count' => count($stale),
             self::FIELD_DIAGNOSES => $partials,
-            self::FIELD_THRESHOLDS => ['partial_stale_days' => self::PIPELINE_PARTIAL_STALE_DAYS],
+            self::FIELD_THRESHOLDS => [self::FIELD_PARTIAL_STALE_DAYS => self::PIPELINE_PARTIAL_STALE_DAYS],
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
     }
@@ -776,7 +786,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_FORGE_GATE_ENFORCE => [
                 self::STATUS_READY => $forgePromoted >= self::ENG_MIN_FORGE_PROMOTED_CYCLES,
                 self::FIELD_BLOCKING => $forgePromoted >= self::ENG_MIN_FORGE_PROMOTED_CYCLES ? [] : [self::FIELD_FORGE_PROMOTED_CYCLE_VOLUME_BELOW_FLOOR],
-                self::FIELD_RAW => ['promoted_harness_captured_cycles' => $forgePromoted],
+                self::FIELD_RAW => [self::FIELD_PROMOTED_HARNESS_CAPTURED_CYCLES => $forgePromoted],
             ],
             self::FIELD_ADML_COST_OUTCOME => [
                 self::STATUS_READY => count($admlRoutes) >= self::ENG_MIN_ADML_PROVEN_ROUTES,
@@ -996,7 +1006,7 @@ final class AtlasAcosWatchdogHealthService
         try {
             app(AtlasEvidenceLedger::class)->record($type, $payload, [
                 'tenant_id' => 'default',
-                'operator_id' => 'system',
+                self::FIELD_OPERATOR_ID => 'system',
                 self::FIELD_ENVELOPE_ID => 'acos:watchdog:'.$scopeId.':'.now()->format('YmdHis'),
                 self::FIELD_CORRELATION_ID => 'acos:watchdog:'.$scopeId,
                 'scope_type' => 'acos_watchdog',
@@ -1044,7 +1054,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $count = 0;
         foreach (AppendOnlyJsonlStore::read($this->forgeSovereignVerdictPath()) as $row) {
-            if (($row['promoted'] ?? false) === true
+            if (($row[self::FIELD_PROMOTED] ?? false) === true
                 && ($row[self::FIELD_EVIDENCE_PROVENANCE] ?? null) === 'harness_captured'
                 && (int) (AiValueNormalizer::finiteFloatOrNull($row['tests_run'] ?? null) ?? 0) > 0
                 && count(AiValueNormalizer::arrayOrEmpty($row[self::FIELD_COMMANDS] ?? null)) > 0) {
@@ -1063,7 +1073,7 @@ final class AtlasAcosWatchdogHealthService
         )[self::FIELD_MIN_EVIDENCE];
         $routes = [];
         foreach ($rows as $row) {
-            if (($row['proven_real'] ?? false) !== true) {
+            if (($row[self::FIELD_PROVEN_REAL] ?? false) !== true) {
                 continue;
             }
             $route = (AiValueNormalizer::trimmedStringOrNull($row['task_category'] ?? null) ?? '').'|'.(AiValueNormalizer::trimmedStringOrNull($row['role'] ?? null) ?? '');
