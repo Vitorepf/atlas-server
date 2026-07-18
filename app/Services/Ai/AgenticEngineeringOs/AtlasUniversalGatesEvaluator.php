@@ -17195,4 +17195,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B637).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b637MemoryInjectionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.aaeos.memory_injection_budget_allocation.v1' => MemoryInjectionBudgetAllocator::SCHEMA_VERSION,
+            '80' => MemoryInjectionBudgetAllocator::DEFAULT_INTERNAL_FLOOR_CHARS,
+            'budget_exhausted' => MemoryInjectionBudgetAllocator::REASON_BUDGET_EXHAUSTED,
+            'below_min_excerpt' => MemoryInjectionBudgetAllocator::REASON_BELOW_MIN_EXCERPT,
+            'zero_estimated_chars' => MemoryInjectionBudgetAllocator::REASON_ZERO_ESTIMATED_CHARS,
+            'ref' => MemoryInjectionBudgetAllocator::FIELD_REF,
+            'priority' => MemoryInjectionBudgetAllocator::FIELD_PRIORITY,
+            'requested_chars' => MemoryInjectionBudgetAllocator::FIELD_REQUESTED_CHARS,
+            'allocated_chars' => MemoryInjectionBudgetAllocator::FIELD_ALLOCATED_CHARS,
+            'capped' => MemoryInjectionBudgetAllocator::FIELD_CAPPED,
+            'rank' => MemoryInjectionBudgetAllocator::FIELD_RANK,
+            'schema_version' => MemoryInjectionBudgetAllocator::FIELD_SCHEMA_VERSION,
+            'total_budget_chars' => MemoryInjectionBudgetAllocator::FIELD_TOTAL_BUDGET_CHARS,
+            'admitted' => MemoryInjectionBudgetAllocator::FIELD_ADMITTED,
+            'admitted_count' => MemoryInjectionBudgetAllocator::FIELD_ADMITTED_COUNT,
+            'dropped' => MemoryInjectionBudgetAllocator::FIELD_DROPPED,
+            'dropped_count' => MemoryInjectionBudgetAllocator::FIELD_DROPPED_COUNT,
+            'estimated_chars' => MemoryInjectionBudgetAllocator::FIELD_ESTIMATED_CHARS,
+            'b637_memory_injection_floor_count' => 18,
+        ];
+    }
+
 }

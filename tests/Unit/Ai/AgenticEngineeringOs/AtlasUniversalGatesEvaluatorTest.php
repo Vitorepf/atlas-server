@@ -13597,4 +13597,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b636_context_pareto_floor_count']);
     }
 
+    public function test_b637_memory_injection_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b637MemoryInjectionFloorsContractObserve([]);
+        $this->assertSame(MemoryInjectionBudgetAllocator::SCHEMA_VERSION, $out['atlas.aaeos.memory_injection_budget_allocation.v1']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::DEFAULT_INTERNAL_FLOOR_CHARS, $out['80']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::REASON_BUDGET_EXHAUSTED, $out['budget_exhausted']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::REASON_BELOW_MIN_EXCERPT, $out['below_min_excerpt']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::REASON_ZERO_ESTIMATED_CHARS, $out['zero_estimated_chars']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_REF, $out['ref']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_PRIORITY, $out['priority']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_REQUESTED_CHARS, $out['requested_chars']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_ALLOCATED_CHARS, $out['allocated_chars']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_CAPPED, $out['capped']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_RANK, $out['rank']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_TOTAL_BUDGET_CHARS, $out['total_budget_chars']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_ADMITTED, $out['admitted']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_ADMITTED_COUNT, $out['admitted_count']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_DROPPED, $out['dropped']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_DROPPED_COUNT, $out['dropped_count']);
+        $this->assertSame(MemoryInjectionBudgetAllocator::FIELD_ESTIMATED_CHARS, $out['estimated_chars']);
+        $this->assertSame(18, $out['b637_memory_injection_floor_count']);
+    }
+
 }
