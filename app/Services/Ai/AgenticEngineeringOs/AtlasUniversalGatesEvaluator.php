@@ -14786,4 +14786,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B558).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b558AaeosCognitiveFunctionConsolidationRerankCaptureHmacDepartmentFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'boa tarde' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BOA_TARDE,
+            'bom dia' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BOM_DIA,
+            'build passou' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BUILD_PASSOU,
+            'deploy ok' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DEPLOY_OK,
+            'disregard all' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DISREGARD_ALL,
+            'disregard previous' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DISREGARD_PREVIOUS,
+            'do anything now' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DO_ANYTHING_NOW,
+            'em producao' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EM_PRODUCAO,
+            'esqueca as instrucoes' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ESQUECA_AS_INSTRUCOES,
+            'por que' => AtlasCognitiveFunctionDecomposerService::FIELD_POR_QUE,
+            'pull request' => AtlasCognitiveFunctionDecomposerService::FIELD_PULL_REQUEST,
+            'quais sao' => AtlasCognitiveFunctionDecomposerService::FIELD_QUAIS_SAO,
+            'qual e' => AtlasCognitiveFunctionDecomposerService::FIELD_QUAL_E,
+            'falha ao gravar baseline' => AtlasConsolidationRerankGuard::FIELD_FALHA_AO_GRAVAR_BASELINE,
+            'captures table unavailable' => CaptureHmacLineageService::FIELD_CAPTURES_TABLE_UNAVAILABLE,
+            'falta threat modeling automatico' => AtlasAaeosDepartmentMaturityService::FIELD_FALTA_THREAT_MODELING_AUTOMATICO,
+            'gates required' => AaeosPhaseHandoffService::FIELD_GATES_REQUIRED,
+            'goal text required' => AutonomousWorkExecutionOs::FIELD_GOAL_TEXT_REQUIRED,
+            'b558_aaeos_cognitive_function_consolidation_rerank_capture_hmac_department_floor_count' => 18,
+        ];
+    }
+
 }

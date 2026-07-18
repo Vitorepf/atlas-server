@@ -11659,4 +11659,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(9, $out['b557_cognition_score_floor_count']);
     }
 
+    public function test_b558_aaeos_cognitive_function_consolidation_rerank_capture_hmac_department_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b558AaeosCognitiveFunctionConsolidationRerankCaptureHmacDepartmentFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BOA_TARDE, $out['boa tarde']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BOM_DIA, $out['bom dia']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_BUILD_PASSOU, $out['build passou']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DEPLOY_OK, $out['deploy ok']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DISREGARD_ALL, $out['disregard all']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DISREGARD_PREVIOUS, $out['disregard previous']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_DO_ANYTHING_NOW, $out['do anything now']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EM_PRODUCAO, $out['em producao']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ESQUECA_AS_INSTRUCOES, $out['esqueca as instrucoes']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_POR_QUE, $out['por que']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_PULL_REQUEST, $out['pull request']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_QUAIS_SAO, $out['quais sao']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_QUAL_E, $out['qual e']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_FALHA_AO_GRAVAR_BASELINE, $out['falha ao gravar baseline']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_CAPTURES_TABLE_UNAVAILABLE, $out['captures table unavailable']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FALTA_THREAT_MODELING_AUTOMATICO, $out['falta threat modeling automatico']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_GATES_REQUIRED, $out['gates required']);
+        $this->assertSame(AutonomousWorkExecutionOs::FIELD_GOAL_TEXT_REQUIRED, $out['goal text required']);
+        $this->assertSame(18, $out['b558_aaeos_cognitive_function_consolidation_rerank_capture_hmac_department_floor_count']);
+    }
+
 }

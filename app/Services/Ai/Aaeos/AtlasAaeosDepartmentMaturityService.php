@@ -69,6 +69,7 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_L3 = 'L3';
     public const FIELD_L1 = 'L1';
     public const FIELD_L4 = 'L4';
+    public const FIELD_FALTA_THREAT_MODELING_AUTOMATICO = 'falta threat modeling automatico';
 
     public const DEPARTMENTS = [
         [
@@ -132,7 +133,7 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_CURRENT_LEVEL => self::FIELD_L3,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#security'],
             self::FIELD_BLOCKER_ID => self::FIELD_SECURITY_THREAT_MODELING_L4,
-            self::FIELD_BLOCKER_SUMMARY => 'falta threat modeling automatico',
+            self::FIELD_BLOCKER_SUMMARY => self::FIELD_FALTA_THREAT_MODELING_AUTOMATICO,
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],
         [

@@ -75,6 +75,7 @@ final class AaeosPhaseHandoffService
     public const FIELD_AAEOS_PHASE_SKIP = 'aaeos.phase_skip';
     public const FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DECLARED = 'intent_classification_target_department_declared';
     public const FIELD_L1 = 'L1';
+    public const FIELD_GATES_REQUIRED = 'gates required';
     public const INT_4 = 4;
     public const INT_256 = 256;
 
@@ -278,7 +279,7 @@ final class AaeosPhaseHandoffService
             $reasons[] = 'actor.kind must be agent|operator|system';
         }
         if (! isset($envelope[self::FIELD_GATES]) || ! is_array($envelope[self::FIELD_GATES])) {
-            $reasons[] = 'gates required';
+            $reasons[] = self::FIELD_GATES_REQUIRED;
         }
 
         return $reasons;

@@ -112,6 +112,7 @@ final class CaptureHmacLineageService
     public const FIELD_COGNITIVE_QUARANTINE_LINEAGE_HMAC_LINEAGE = 'cognitive_quarantine.lineage.hmac_lineage';
     public const FIELD_ACOS_MAX_MAXI_07_CAPTURE_HMAC_LINEAGE = 'acos_max.maxi_07.capture_hmac_lineage';
     public const FIELD_BROKEN_AT_INVALID_LINK = 'broken_at:invalid_link';
+    public const FIELD_CAPTURES_TABLE_UNAVAILABLE = 'captures table unavailable';
 
     /**
      * @param  array<string,mixed>  $existingChain
@@ -219,7 +220,7 @@ final class CaptureHmacLineageService
                 self::FIELD_CHAINED_CAPTURES => 0,
                 self::FIELD_MIN_CAPTURES => $minCaptures,
                 self::FIELD_COVERAGE_RATE => null,
-                self::FIELD_NOTE => 'captures table unavailable',
+                self::FIELD_NOTE => self::FIELD_CAPTURES_TABLE_UNAVAILABLE,
             ];
         }
 

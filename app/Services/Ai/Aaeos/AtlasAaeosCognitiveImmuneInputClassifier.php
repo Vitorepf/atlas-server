@@ -102,6 +102,15 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_SECRET_MARKER_PRIVACY = 'secret_marker_privacy';
     public const FIELD_TRIVIAL_QUESTION = 'trivial_question';
     public const FIELD_UNTRUSTED_URL = 'untrusted_url';
+    public const FIELD_BOA_TARDE = 'boa tarde';
+    public const FIELD_BOM_DIA = 'bom dia';
+    public const FIELD_BUILD_PASSOU = 'build passou';
+    public const FIELD_DEPLOY_OK = 'deploy ok';
+    public const FIELD_DISREGARD_ALL = 'disregard all';
+    public const FIELD_DISREGARD_PREVIOUS = 'disregard previous';
+    public const FIELD_DO_ANYTHING_NOW = 'do anything now';
+    public const FIELD_EM_PRODUCAO = 'em producao';
+    public const FIELD_ESQUECA_AS_INSTRUCOES = 'esqueca as instrucoes';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -142,10 +151,10 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         'ignore previous',
         'ignore all previous',
         'ignore the previous',
-        'disregard previous',
-        'disregard all',
+        self::FIELD_DISREGARD_PREVIOUS,
+        self::FIELD_DISREGARD_ALL,
         'ignore as instrucoes',
-        'esqueca as instrucoes',
+        self::FIELD_ESQUECA_AS_INSTRUCOES,
         'ignore suas instrucoes',
         'system prompt',
         'you are now',
@@ -153,7 +162,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         'reveal your',
         'override instructions',
         self::FIELD_JAILBREAK,
-        'do anything now',
+        self::FIELD_DO_ANYTHING_NOW,
     ];
 
     /**
@@ -212,13 +221,13 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const PROJECT_EVIDENCE_MARKERS = [
         'esta funcionando',
         ' esta ok',
-        'deploy ok',
-        'build passou',
+        self::FIELD_DEPLOY_OK,
+        self::FIELD_BUILD_PASSOU,
         'testes passaram',
         self::FIELD_MERGED,
         self::FIELD_RELEASE,
         self::FIELD_SHIPPED,
-        'em producao',
+        self::FIELD_EM_PRODUCAO,
     ];
 
     /**
@@ -229,8 +238,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         self::FIELD_VALEU,
         self::FIELD_BELEZA,
         'tudo bem',
-        'bom dia',
-        'boa tarde',
+        self::FIELD_BOM_DIA,
+        self::FIELD_BOA_TARDE,
         self::FIELD_THANKS,
         'thank you',
         'good morning',

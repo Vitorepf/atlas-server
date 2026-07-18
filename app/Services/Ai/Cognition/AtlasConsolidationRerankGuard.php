@@ -57,6 +57,7 @@ final class AtlasConsolidationRerankGuard
     public const FIELD_METRICS_PRECISION_AT_K = 'metrics.precision_at_k';
     public const FIELD_METRICS_PRIMARY_K = 'metrics.primary_k';
     public const FIELD_ATLAS_CONSOLIDATION_RERANK_BASELINE_JSON = 'atlas/consolidation/rerank_baseline.json';
+    public const FIELD_FALHA_AO_GRAVAR_BASELINE = 'falha ao gravar baseline';
 
 
     private string $baselinePath;
@@ -96,7 +97,7 @@ final class AtlasConsolidationRerankGuard
             }
             file_put_contents($this->baselinePath, json_encode($baseline, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         } catch (Throwable) {
-            return [self::FIELD_OK => false, self::FIELD_REASON => 'falha ao gravar baseline'];
+            return [self::FIELD_OK => false, self::FIELD_REASON => self::FIELD_FALHA_AO_GRAVAR_BASELINE];
         }
 
         return [self::FIELD_OK => true] + $baseline;

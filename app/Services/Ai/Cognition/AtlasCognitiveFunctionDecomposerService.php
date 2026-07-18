@@ -194,6 +194,10 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_UTC = 'UTC';
     public const FIELD_FUNCTION_DECOMPOSITIONS_JSONL = 'function_decompositions.jsonl';
     public const FIELD_ATLAS_COGNITION = 'atlas/cognition';
+    public const FIELD_POR_QUE = 'por que';
+    public const FIELD_PULL_REQUEST = 'pull request';
+    public const FIELD_QUAIS_SAO = 'quais sao';
+    public const FIELD_QUAL_E = 'qual e';
     public const FLOAT_0_5 = 0.5;
     public const FLOAT_0_15 = 0.15;
     public const FLOAT_0_2 = 0.2;
@@ -216,13 +220,13 @@ final class AtlasCognitiveFunctionDecomposerService
      */
     public const RULES = [
         self::FIELD_REASONING => [
-            self::FIELD_PORQUE, 'por que', self::FIELD_ANALISE, self::FIELD_ANALISA, self::FIELD_EXPLIQUE, self::FIELD_PENSE, self::FIELD_PONDERE,
+            self::FIELD_PORQUE, self::FIELD_POR_QUE, self::FIELD_ANALISE, self::FIELD_ANALISA, self::FIELD_EXPLIQUE, self::FIELD_PENSE, self::FIELD_PONDERE,
             self::FIELD_DECIDA, self::FIELD_DECISAO, self::FIELD_COMPARE, self::FIELD_AVALIE, self::FIELD_LOGICA, self::FIELD_ESTRATEGIA,
             self::FIELD_RACIOCINE, self::FIELD_INVESTIGUE, self::FIELD_WHY, self::FIELD_REASON,
         ],
         self::FIELD_RETRIEVAL => [
             self::FIELD_BUSQUE, self::FIELD_PROCURE, self::FIELD_ENCONTRE, self::FIELD_PESQUISE, self::FIELD_MOSTRE, self::FIELD_LISTE,
-            self::FIELD_RECUPERE, self::FIELD_LOOKUP, 'qual e', 'quais sao', self::FIELD_CITE, self::FIELD_CADASTR,
+            self::FIELD_RECUPERE, self::FIELD_LOOKUP, self::FIELD_QUAL_E, self::FIELD_QUAIS_SAO, self::FIELD_CITE, self::FIELD_CADASTR,
             self::FIELD_DOCUMENTA, self::FIELD_MEMORIA, self::FIELD_SEARCH, self::FIELD_FIND, self::FIELD_SHOW,
         ],
         self::FIELD_GENERATION => [
@@ -235,7 +239,7 @@ final class AtlasCognitiveFunctionDecomposerService
             self::FIELD_COMPILE, self::FIELD_EXECUTE, self::FIELD_RODE, self::FIELD_RODAR, self::FIELD_PHP, self::FIELD_TYPESCRIPT, self::FIELD_REACT,
             self::FIELD_COMPONENTE, self::FIELD_SERVICO, self::FIELD_CLASSE, self::FIELD_FUNCAO, self::FIELD_CONTROLLER, self::FIELD_CLI,
             self::FIELD_ARTISAN, self::FIELD_MIGRATION, self::FIELD_COMPOSER, self::FIELD_NPM, self::FIELD_PHPUNIT, self::FIELD_PEST,
-            self::FIELD_PATCH, 'pull request', 'pr ', ' pr,', self::FIELD_MERGE, 'git ',
+            self::FIELD_PATCH, self::FIELD_PULL_REQUEST, 'pr ', ' pr,', self::FIELD_MERGE, 'git ',
             self::FIELD_CODE, 'function', 'class', self::FIELD_SERVICE, self::FIELD_REFACTOR, self::FIELD_TEST, self::FIELD_BUILD,
         ],
         self::FIELD_VISION => [

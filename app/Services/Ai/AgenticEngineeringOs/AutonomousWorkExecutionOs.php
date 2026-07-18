@@ -75,6 +75,7 @@ final class AutonomousWorkExecutionOs
     public const FIELD_L7 = 'L7';
     public const FIELD_L4 = 'L4';
     public const FIELD_L5 = 'L5';
+    public const FIELD_GOAL_TEXT_REQUIRED = 'goal text required';
 
     public const STAGE_STATUSES = [
         self::STATUS_PENDING,
@@ -113,7 +114,7 @@ final class AutonomousWorkExecutionOs
 
         $goal = AiValueNormalizer::trimmedStringOrNull($request[self::FIELD_GOAL] ?? null) ?? '';
         if ($goal === '') {
-            $blocking[] = 'goal text required';
+            $blocking[] = self::FIELD_GOAL_TEXT_REQUIRED;
         }
 
         // L4+ requires explicit operator consent
