@@ -16427,4 +16427,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B612).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b612MemoryCognitiveLearningProposalsFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'archived' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ARCHIVED,
+            'audit_session' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_AUDIT_SESSION,
+            'blocked_ephemeral_evidence' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_BLOCKED_EPHEMERAL_EVIDENCE,
+            'candidate' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CANDIDATE,
+            'cited_data_not_instruction' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CITED_DATA_NOT_INSTRUCTION,
+            'claim_source_present' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CLAIM_SOURCE_PRESENT,
+            'claim_type' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CLAIM_TYPE,
+            'confidence_decay' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CONFIDENCE_DECAY,
+            'consent_granted' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CONSENT_GRANTED,
+            'constellation_eligible' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CONSTELLATION_ELIGIBLE,
+            'constellation_eligible_true' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CONSTELLATION_ELIGIBLE_TRUE,
+            'signal_kind_not_recognised' => AtlasLearningProposalsService::FIELD_SIGNAL_KIND_NOT_RECOGNISED,
+            'sugestao, decisao, aplicacao' => AtlasLearningProposalsService::FIELD_SUGESTAO__DECISAO__APLICACAO,
+            'unknown' => AtlasLearningProposalsService::FIELD_UNKNOWN,
+            'weak_signal_below_floor' => AtlasLearningProposalsService::FIELD_WEAK_SIGNAL_BELOW_FLOOR,
+            '0.8' => AtlasLearningProposalsService::FLOAT_0_8,
+            '0.6' => AtlasLearningProposalsService::FLOAT_0_6,
+            '2' => AtlasLearningProposalsService::INT_2,
+            'b612_memory_cognitive_learning_proposals_floor_count' => 18,
+        ];
+    }
+
 }

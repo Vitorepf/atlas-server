@@ -94,7 +94,7 @@ final class AtlasLearningProposalsService
     public const STATUS_NEEDS_MORE_EVIDENCE = 'needs_more_evidence';
     public const STATUS_REJECTED = 'rejected';
 
-    /** Application stages — the doc's "sugestao, decisao, aplicacao" split. */
+    /** Application stages — the doc's self::FIELD_SUGESTAO__DECISAO__APLICACAO split. */
     public const APPLY_AUTO = 'auto';
     public const APPLY_REVIEW = 'human_review';
 
@@ -155,6 +155,13 @@ final class AtlasLearningProposalsService
     public const FIELD_POLICY = 'policy';
     public const FIELD_PROPOSE_CHANGE = 'propose_change';
     public const FIELD_ROUTE__S_DEFAULT_TO__S_OVER__S = 'route %s default to %s over %s';
+    public const FIELD_SIGNAL_KIND_NOT_RECOGNISED = 'signal_kind_not_recognised';
+    public const FIELD_SUGESTAO__DECISAO__APLICACAO = 'sugestao, decisao, aplicacao';
+    public const FIELD_UNKNOWN = 'unknown';
+    public const FIELD_WEAK_SIGNAL_BELOW_FLOOR = 'weak_signal_below_floor';
+    public const FLOAT_0_8 = 0.8;
+    public const FLOAT_0_6 = 0.6;
+    public const INT_2 = 2;
 
     /**
      * Evaluate a single execution signal into a learning proposal verdict.
@@ -189,9 +196,9 @@ final class AtlasLearningProposalsService
         if ($kind === null) {
             return $this->verdict(
                 status: self::STATUS_REJECTED,
-                kind: 'unknown',
+                kind: self::FIELD_UNKNOWN,
                 summary: $summary,
-                justification: 'signal_kind_not_recognised',
+                justification: self::FIELD_SIGNAL_KIND_NOT_RECOGNISED,
                 risk: self::RISK_HIGH,
                 strength: $strength,
                 critical: false,
@@ -221,7 +228,7 @@ final class AtlasLearningProposalsService
                 status: self::STATUS_NEEDS_MORE_EVIDENCE,
                 kind: $kind,
                 summary: $summary,
-                justification: 'weak_signal_below_floor',
+                justification: self::FIELD_WEAK_SIGNAL_BELOW_FLOOR,
                 risk: $critical ? self::RISK_HIGH : self::RISK_MEDIUM,
                 strength: $strength,
                 critical: $critical,
@@ -279,7 +286,7 @@ final class AtlasLearningProposalsService
      */
     public function rank(array $verdicts): array
     {
-        $riskOrder = [self::RISK_LOW => 0, self::RISK_MEDIUM => 1, self::RISK_HIGH => 2];
+        $riskOrder = [self::RISK_LOW => 0, self::RISK_MEDIUM => 1, self::RISK_HIGH => self::INT_2];
 
         $sorted = $verdicts;
         usort($sorted, function (array $a, array $b) use ($riskOrder): int {
@@ -412,14 +419,14 @@ final class AtlasLearningProposalsService
     {
         if ($critical) {
             // Critical changes are never low risk.
-            return $strength >= 0.8 ? self::RISK_MEDIUM : self::RISK_HIGH;
+            return $strength >= self::FLOAT_0_8 ? self::RISK_MEDIUM : self::RISK_HIGH;
         }
 
-        if ($strength >= 0.8) {
+        if ($strength >= self::FLOAT_0_8) {
             return self::RISK_LOW;
         }
 
-        return $strength >= 0.6 ? self::RISK_MEDIUM : self::RISK_HIGH;
+        return $strength >= self::FLOAT_0_6 ? self::RISK_MEDIUM : self::RISK_HIGH;
     }
 
     private function normalizeKind(mixed $value): ?string
