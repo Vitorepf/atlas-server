@@ -55,6 +55,11 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_APPLIED_TO_LIVE = 'applied_to_live';
     public const FIELD_BASELINE = 'baseline';
     public const FIELD_BASIS = 'basis';
+    public const FIELD_CANDIDATE = 'candidate';
+    public const FIELD_CANDIDATE_PRECISION_AT_5 = 'candidate_precision_at_5';
+    public const FIELD_CANDIDATE_PRECISION_AT_5_MEAN = 'candidate_precision_at_5_mean';
+    public const FIELD_CANDIDATE_RECALL_AT_5 = 'candidate_recall_at_5';
+    public const FIELD_CANDIDATE_RECALL_AT_5_MEAN = 'candidate_recall_at_5_mean';
 
 
     /** @return array<string,mixed> */
@@ -94,7 +99,7 @@ final class Maxa04JinaV3DualReadService
             'dual_read' => [
                 'required' => true,
                 self::FIELD_BASELINE => 'current_embedding_model',
-                'candidate' => 'jina_v3_reembedded_shadow_index',
+                self::FIELD_CANDIDATE => 'jina_v3_reembedded_shadow_index',
                 'ledger_path' => $this->storagePath(Maxa04JinaV3DualReadLedger::RELATIVE_PATH),
                 self::FIELD_AB_GREEN_CLAIM_ALLOWED => false,
             ],
@@ -178,9 +183,9 @@ final class Maxa04JinaV3DualReadService
             $normalized[] = [
                 'query_id' => $queryId,
                 'current_recall_at_5' => $this->unitOrNull($case['current_recall_at_5'] ?? null),
-                'candidate_recall_at_5' => $this->unitOrNull($case['candidate_recall_at_5'] ?? null),
+                self::FIELD_CANDIDATE_RECALL_AT_5 => $this->unitOrNull($case[self::FIELD_CANDIDATE_RECALL_AT_5] ?? null),
                 'current_precision_at_5' => $this->unitOrNull($case['current_precision_at_5'] ?? null),
-                'candidate_precision_at_5' => $this->unitOrNull($case['candidate_precision_at_5'] ?? null),
+                self::FIELD_CANDIDATE_PRECISION_AT_5 => $this->unitOrNull($case[self::FIELD_CANDIDATE_PRECISION_AT_5] ?? null),
                 self::FIELD_TARGETS_AVAILABLE => max(0, (int) (AiValueNormalizer::finiteFloatOrNull($case[self::FIELD_TARGETS_AVAILABLE] ?? null) ?? 0)),
             ];
         }
@@ -198,9 +203,9 @@ final class Maxa04JinaV3DualReadService
             self::FIELD_CASES => $count,
             self::FIELD_TARGETS_AVAILABLE => $targets,
             'current_recall_at_5_mean' => $this->mean($cases, 'current_recall_at_5'),
-            'candidate_recall_at_5_mean' => $this->mean($cases, 'candidate_recall_at_5'),
+            self::FIELD_CANDIDATE_RECALL_AT_5_MEAN => $this->mean($cases, 'candidate_recall_at_5'),
             'current_precision_at_5_mean' => $this->mean($cases, 'current_precision_at_5'),
-            'candidate_precision_at_5_mean' => $this->mean($cases, 'candidate_precision_at_5'),
+            self::FIELD_CANDIDATE_PRECISION_AT_5_MEAN => $this->mean($cases, 'candidate_precision_at_5'),
         ];
     }
 
@@ -211,9 +216,9 @@ final class Maxa04JinaV3DualReadService
             return self::STATUS_NO_DUAL_READ_CASES;
         }
 
-        $candidateRecall = AiValueNormalizer::finiteFloatOrNull($summary['candidate_recall_at_5_mean'] ?? null);
+        $candidateRecall = AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_CANDIDATE_RECALL_AT_5_MEAN] ?? null);
         $currentRecall = AiValueNormalizer::finiteFloatOrNull($summary['current_recall_at_5_mean'] ?? null);
-        $candidatePrecision = AiValueNormalizer::finiteFloatOrNull($summary['candidate_precision_at_5_mean'] ?? null);
+        $candidatePrecision = AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_CANDIDATE_PRECISION_AT_5_MEAN] ?? null);
         $currentPrecision = AiValueNormalizer::finiteFloatOrNull($summary['current_precision_at_5_mean'] ?? null);
 
         $recallOk = $candidateRecall !== null

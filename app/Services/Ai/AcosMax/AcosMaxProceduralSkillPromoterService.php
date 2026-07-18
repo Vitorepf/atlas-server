@@ -80,6 +80,12 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_BODY = 'body';
     public const FIELD_CANDIDATE_ID = 'candidate_id';
     public const FIELD_CANDIDATES = 'candidates';
+    public const FIELD_CASE_COUNT_FLOOR_MET = 'case_count_floor_met';
+    public const FIELD_CLAIM = 'claim';
+    public const FIELD_CLAIM_POLICY = 'claim_policy';
+    public const FIELD_CONFIDENCE = 'confidence';
+    public const FIELD_CORRECTIONS = 'corrections';
+    public const FIELD_CREATED = 'created';
 
 
     public function __construct(
@@ -107,7 +113,7 @@ final class AcosMaxProceduralSkillPromoterService
 
         $eligible = array_values(array_filter(
             $candidates,
-            static fn (array $candidate): bool => (AiValueNormalizer::boolOrNull($candidate['case_count_floor_met'] ?? null) ?? false),
+            static fn (array $candidate): bool => (AiValueNormalizer::boolOrNull($candidate[self::FIELD_CASE_COUNT_FLOOR_MET] ?? null) ?? false),
         ));
 
         $enqueued = [];
@@ -148,7 +154,7 @@ final class AcosMaxProceduralSkillPromoterService
                 self::FIELD_STATUS => self::STATUS_HOLD,
                 self::FIELD_REASON => $status === self::STATUS_OK ? self::REASON_AWAITING_ASI02_ADMISSION : self::REASON_PROCEDURAL_CASE_COUNT_SOAK,
             ],
-            'claim_policy' => [
+            self::FIELD_CLAIM_POLICY => [
                 'default_off' => true,
                 'read_only' => ! $enqueueRequested,
                 'enqueue_enabled' => $this->enqueueEnabled(),
@@ -186,11 +192,11 @@ final class AcosMaxProceduralSkillPromoterService
             self::FIELD_SKILL_SCHEMA_VERSION => self::SKILL_SCHEMA_VERSION,
             self::FIELD_CASE_COUNT => $caseCount,
             self::FIELD_CASE_COUNT_FLOOR => $floor,
-            'case_count_floor_met' => $caseCount >= $floor,
+            self::FIELD_CASE_COUNT_FLOOR_MET => $caseCount >= $floor,
             'successes' => (int) (AiValueNormalizer::finiteFloatOrNull($row['successes'] ?? null) ?? 0),
             'success_rate' => AiValueNormalizer::finiteFloatOrNull($row['success_rate'] ?? null) ?? 0.0,
             'fake_green_suppressed' => (int) (AiValueNormalizer::finiteFloatOrNull($row['fake_green_suppressed'] ?? null) ?? 0),
-            'corrections' => (int) (AiValueNormalizer::finiteFloatOrNull($row['corrections'] ?? null) ?? 0),
+            self::FIELD_CORRECTIONS => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_CORRECTIONS] ?? null) ?? 0),
             self::FIELD_PROMOTION_ALLOWED => false,
             self::FIELD_GATE => [
                 self::FIELD_ADMISSION_DOOR => self::ADMISSION_DOOR_ASI02,
@@ -237,12 +243,12 @@ final class AcosMaxProceduralSkillPromoterService
                 'decision' => self::STATUS_HOLD,
                 'memory_type' => self::SKILL_SCHEMA_VERSION,
                 'scope' => 'global',
-                'claim' => sprintf(
+                self::FIELD_CLAIM => sprintf(
                     'MULTJ-04 procedural-to-skill.v1 proposal for %s held under ASI-02 (case_count=%d).',
                     $taskCategory,
                     (int) (AiValueNormalizer::finiteFloatOrNull($candidate[self::FIELD_CASE_COUNT] ?? null) ?? 0),
                 ),
-                'confidence' => 40,
+                self::FIELD_CONFIDENCE => 40,
                 self::FIELD_PROMOTION_ALLOWED => false,
                 'evidence_refs' => $evidenceRefs,
                 'payload' => [
@@ -268,7 +274,7 @@ final class AcosMaxProceduralSkillPromoterService
             self::FIELD_CANDIDATE_HASH => $candidateHash,
             self::FIELD_SKILL_NAME => AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_SKILL_NAME] ?? null) ?? '',
             self::FIELD_PROMOTION_ALLOWED => false,
-            'created' => $row->wasRecentlyCreated,
+            self::FIELD_CREATED => $row->wasRecentlyCreated,
         ];
     }
 

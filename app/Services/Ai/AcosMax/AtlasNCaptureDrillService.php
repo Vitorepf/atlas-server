@@ -87,6 +87,12 @@ final class AtlasNCaptureDrillService
     public const FIELD_AGGREGATE = 'aggregate';
     public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
     public const FIELD_BYPASS = 'bypass';
+    public const FIELD_CAPABILITY_SPEC = 'capability_spec';
+    public const FIELD_COLD_START_VIA = 'cold_start_via';
+    public const FIELD_DENOMINATORS = 'denominators';
+    public const FIELD_DRILL_ID = 'drill_id';
+    public const FIELD_DRILLS = 'drills';
+    public const FIELD_DRILLS_IN_WINDOW = 'drills_in_window';
 
     private readonly string $ledgerPath;
 
@@ -156,9 +162,9 @@ final class AtlasNCaptureDrillService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
-            'drill_id' => AiValueNormalizer::trimmedStringOrNull($drill['drill_id'] ?? null) ?? (string) Str::uuid(),
+            self::FIELD_DRILL_ID => AiValueNormalizer::trimmedStringOrNull($drill[self::FIELD_DRILL_ID] ?? null) ?? (string) Str::uuid(),
             'engine_id' => AiValueNormalizer::trimmedScalarStringOrNull($drill['engine_id'] ?? null) ?? '',
-            'capability_spec' => [
+            self::FIELD_CAPABILITY_SPEC => [
                 'function' => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'capability_spec.function')) ?? 'engine',
                 'verified' => (AiValueNormalizer::boolOrNull(data_get($drill, 'capability_spec.verified')) ?? false),
                 'violations' => array_values(AiValueNormalizer::arrayOrEmpty(data_get($drill, 'capability_spec.violations', []))),
@@ -174,13 +180,13 @@ final class AtlasNCaptureDrillService
                 'time_to_first_proven_real_seconds' => (int) data_get($drill, 'times.time_to_first_proven_real_seconds'),
                 'hours_of_integration' => AiValueNormalizer::finiteFloatOrNull(data_get($drill, 'times.hours_of_integration')) ?? 0.0,
             ],
-            'denominators' => [
+            self::FIELD_DENOMINATORS => [
                 'routed_tasks_observed' => (int) data_get($drill, 'denominators.routed_tasks_observed', 0),
                 'proven_real_outcomes_observed' => (int) data_get($drill, 'denominators.proven_real_outcomes_observed', 0),
             ],
             self::FIELD_ADMISSION => [
                 self::FIELD_ADMITTED => (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.admitted')) ?? false),
-                'cold_start_via' => data_get($drill, 'admission.cold_start_via'),
+                self::FIELD_COLD_START_VIA => data_get($drill, 'admission.cold_start_via'),
                 self::FIELD_BYPASS => (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.bypass')) ?? false),
                 self::FIELD_REASON => data_get($drill, 'admission.reason'),
             ],
@@ -254,13 +260,13 @@ final class AtlasNCaptureDrillService
             self::FIELD_REASON => $reason,
             self::FIELD_DENOMINATOR_MIN => (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? 0),
             self::FIELD_AGGREGATE => [
-                'drills_in_window' => count($inWindow),
+                self::FIELD_DRILLS_IN_WINDOW => count($inWindow),
                 self::FIELD_ADMITTED_COUNT => count($admitted),
                 'refused_count' => count($refused),
                 'engines' => $engines,
             ],
             'latest' => $inWindow === [] ? null : end($inWindow),
-            'drills' => $inWindow,
+            self::FIELD_DRILLS => $inWindow,
         ];
     }
 

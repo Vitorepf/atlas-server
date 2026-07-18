@@ -5005,4 +5005,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     }
 
 
+    public function test_drill_skill_dualread_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->drillSkillDualreadFloorsContractObserve([]);
+
+        $this->assertSame('capability_spec', $payload['drill_field_capability_spec']);
+        $this->assertSame('cold_start_via', $payload['drill_field_cold_start_via']);
+        $this->assertSame('denominators', $payload['drill_field_denominators']);
+        $this->assertSame('drill_id', $payload['drill_field_drill_id']);
+        $this->assertSame('drills', $payload['drill_field_drills']);
+        $this->assertSame('drills_in_window', $payload['drill_field_drills_in_window']);
+        $this->assertSame('case_count_floor_met', $payload['skill_field_case_count_floor_met']);
+        $this->assertSame('claim', $payload['skill_field_claim']);
+        $this->assertSame('claim_policy', $payload['skill_field_claim_policy']);
+        $this->assertSame('confidence', $payload['skill_field_confidence']);
+        $this->assertSame('corrections', $payload['skill_field_corrections']);
+        $this->assertSame('created', $payload['skill_field_created']);
+        $this->assertSame('candidate', $payload['dualread_field_candidate']);
+        $this->assertSame('candidate_precision_at_5', $payload['dualread_field_candidate_precision_at_5']);
+        $this->assertSame('candidate_precision_at_5_mean', $payload['dualread_field_candidate_precision_at_5_mean']);
+        $this->assertSame('candidate_recall_at_5', $payload['dualread_field_candidate_recall_at_5']);
+        $this->assertSame('candidate_recall_at_5_mean', $payload['dualread_field_candidate_recall_at_5_mean']);
+        $this->assertSame(17, $payload['drill_skill_dualread_floor_count']);
+    }
+
+
 }

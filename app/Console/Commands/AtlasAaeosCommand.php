@@ -316,6 +316,7 @@ final class AtlasAaeosCommand extends Command
         {--truth-obra-thesis-floors-contract= : JSON file (any object) to observe truth/obra/thesis residual floors}
         {--atlas-bets-verified-floors-contract= : JSON file (any object) to observe atlas/bets/verified residual floors}
         {--freeze-scorecard-eligibility-floors-contract= : JSON file (any object) to observe freeze/scorecard/eligibility residual floors}
+        {--drill-skill-dualread-floors-contract= : JSON file (any object) to observe drill/skill/dualread residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -788,6 +789,7 @@ final class AtlasAaeosCommand extends Command
             ['truth-obra-thesis-floors-contract', 'truth_obra_thesis_floors_contract', fn (array $p) => $gates->truthObraThesisFloorsContractObserve($p)],
             ['atlas-bets-verified-floors-contract', 'atlas_bets_verified_floors_contract', fn (array $p) => $gates->atlasBetsVerifiedFloorsContractObserve($p)],
             ['freeze-scorecard-eligibility-floors-contract', 'freeze_scorecard_eligibility_floors_contract', fn (array $p) => $gates->freezeScorecardEligibilityFloorsContractObserve($p)],
+            ['drill-skill-dualread-floors-contract', 'drill_skill_dualread_floors_contract', fn (array $p) => $gates->drillSkillDualreadFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

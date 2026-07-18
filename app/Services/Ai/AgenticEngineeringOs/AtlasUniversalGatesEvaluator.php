@@ -6765,6 +6765,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function drillSkillDualreadFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'drill_field_capability_spec' => AtlasNCaptureDrillService::FIELD_CAPABILITY_SPEC,
+            'drill_field_cold_start_via' => AtlasNCaptureDrillService::FIELD_COLD_START_VIA,
+            'drill_field_denominators' => AtlasNCaptureDrillService::FIELD_DENOMINATORS,
+            'drill_field_drill_id' => AtlasNCaptureDrillService::FIELD_DRILL_ID,
+            'drill_field_drills' => AtlasNCaptureDrillService::FIELD_DRILLS,
+            'drill_field_drills_in_window' => AtlasNCaptureDrillService::FIELD_DRILLS_IN_WINDOW,
+            'skill_field_case_count_floor_met' => AcosMaxProceduralSkillPromoterService::FIELD_CASE_COUNT_FLOOR_MET,
+            'skill_field_claim' => AcosMaxProceduralSkillPromoterService::FIELD_CLAIM,
+            'skill_field_claim_policy' => AcosMaxProceduralSkillPromoterService::FIELD_CLAIM_POLICY,
+            'skill_field_confidence' => AcosMaxProceduralSkillPromoterService::FIELD_CONFIDENCE,
+            'skill_field_corrections' => AcosMaxProceduralSkillPromoterService::FIELD_CORRECTIONS,
+            'skill_field_created' => AcosMaxProceduralSkillPromoterService::FIELD_CREATED,
+            'dualread_field_candidate' => Maxa04JinaV3DualReadService::FIELD_CANDIDATE,
+            'dualread_field_candidate_precision_at_5' => Maxa04JinaV3DualReadService::FIELD_CANDIDATE_PRECISION_AT_5,
+            'dualread_field_candidate_precision_at_5_mean' => Maxa04JinaV3DualReadService::FIELD_CANDIDATE_PRECISION_AT_5_MEAN,
+            'dualread_field_candidate_recall_at_5' => Maxa04JinaV3DualReadService::FIELD_CANDIDATE_RECALL_AT_5,
+            'dualread_field_candidate_recall_at_5_mean' => Maxa04JinaV3DualReadService::FIELD_CANDIDATE_RECALL_AT_5_MEAN,
+            'drill_skill_dualread_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
