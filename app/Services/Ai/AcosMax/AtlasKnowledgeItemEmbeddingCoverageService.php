@@ -138,7 +138,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
             return $this->emptyReport(self::STATUS_TABLE_MISSING, self::FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS_MISSING, $freeze);
         }
 
-        $columnsReady = DatabaseTableAvailability::hasColumn(self::FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS, 'embedding_model')
+        $columnsReady = DatabaseTableAvailability::hasColumn(self::FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS, self::FIELD_EMBEDDING_MODEL)
             && DatabaseTableAvailability::hasColumn(self::FIELD_ATLAS_ENGINEERING_KNOWLEDGE_ITEMS, self::FIELD_EMBEDDED_CONTENT_HASH);
 
         if (! $columnsReady) {
@@ -146,7 +146,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
         }
 
         $baseQuery = AtlasEngineeringKnowledgeItem::query()
-            ->where('status', self::STATUS_ACTIVE)
+            ->where(self::FIELD_STATUS, self::STATUS_ACTIVE)
             ->whereNull(self::FIELD_ARCHIVED_AT);
 
         $active = (clone $baseQuery)->count();

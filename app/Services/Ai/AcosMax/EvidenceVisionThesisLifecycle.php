@@ -192,7 +192,7 @@ final class EvidenceVisionThesisLifecycle
         $kind = AiValueNormalizer::trimmedStringOrNull($criterion[self::FIELD_KIND] ?? null) ?? '';
 
         return match ($kind) {
-            self::FIELD_SERIES_RECOVERY => self::seriesRecoveryMet($thesis, $seriesWindows, $criterion) ? 'series_recovery' : null,
+            self::FIELD_SERIES_RECOVERY => self::seriesRecoveryMet($thesis, $seriesWindows, $criterion) ? self::FIELD_SERIES_RECOVERY : null,
             self::FIELD_CALIBRATION_RESOLVED => self::calibrationResolved($calibration, $criterion) ? self::FIELD_CALIBRATION_RESOLVED : null,
             self::FIELD_LEAD_CLUSTER_CLEARED => self::leadClusterCleared($thesis, $leads, $criterion) ? self::FIELD_LEAD_CLUSTER_CLEARED : null,
             self::FIELD_OUTCOME_PROVEN => self::outcomeProven($thesis, $outcomes) ? self::FIELD_OUTCOME_PROVEN : null,
@@ -211,7 +211,7 @@ final class EvidenceVisionThesisLifecycle
         $need = max(self::DEFAULT_CONSECUTIVE_WINDOWS, (int) (AiValueNormalizer::finiteFloatOrNull($criterion[self::FIELD_CONSECUTIVE_WINDOWS] ?? null) ?? self::DEFAULT_CONSECUTIVE_WINDOWS));
         $refs = AiValueNormalizer::arrayOrEmpty($thesis[self::FIELD_EVIDENCE] ?? null);
         $series = '';
-        $stage = 'default';
+        $stage = self::FIELD_DEFAULT;
         foreach ($refs as $ref) {
             if (! is_array($ref) || ($ref[self::FIELD_SOURCE] ?? '') !== self::FIELD_SERIES) {
                 continue;

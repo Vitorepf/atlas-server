@@ -338,7 +338,7 @@ final class ImmuneSignatureStore
         try {
             $row = DB::table(self::TABLE)
                 ->where(self::FIELD_STATUS, self::STATUS_ACTIVE)
-                ->where('content_hash', $this->deriver->normalizeHash($contentHash))
+                ->where(self::FIELD_CONTENT_HASH, $this->deriver->normalizeHash($contentHash))
                 ->orderByDesc(self::FIELD_FIRST_SEEN)
                 ->first();
         } catch (Throwable) {
@@ -352,7 +352,7 @@ final class ImmuneSignatureStore
     private function findBySignature(string $signature): ?array
     {
         try {
-            $row = DB::table(self::TABLE)->where('signature', AiValueNormalizer::lowerTrimmedString($signature))->first();
+            $row = DB::table(self::TABLE)->where(self::FIELD_SIGNATURE, AiValueNormalizer::lowerTrimmedString($signature))->first();
         } catch (Throwable) {
             return null;
         }

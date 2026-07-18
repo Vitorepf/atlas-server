@@ -430,7 +430,7 @@ final class DepartmentContractRuntime
     public const CANONICAL_FIELDS = [
         self::FIELD_HUMAN_NAME,
         self::FIELD_SCOPE,
-        'triggers',
+        self::FIELD_TRIGGERS,
         self::FIELD_INPUTS,
         self::FIELD_OUTPUTS,
         self::FIELD_GATES,
@@ -515,7 +515,7 @@ final class DepartmentContractRuntime
             self::FIELD_ALLOWED_ACTIONS => [self::FIELD_DRAFT_SPEC, self::FIELD_PROPOSE_MIGRATION_PLAN, self::FIELD_REQUEST_SECURITY_REVIEW, self::FIELD_VETO_EXECUTION],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_WRITE_CODE, self::FIELD_EXECUTE_MIGRATION, self::FIELD_APPROVE_RELEASE],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
-            self::FIELD_EVIDENCE_REQUIRED => ['spec_pack_hash', self::FIELD_ARCHITECT_DECISION_RECEIPT],
+            self::FIELD_EVIDENCE_REQUIRED => [self::FIELD_SPEC_PACK_HASH, self::FIELD_ARCHITECT_DECISION_RECEIPT],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_SPEC_PACKS, self::FIELD_LEDGER => self::FIELD_AAEOS_ARCHITECT_DECISION_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => [self::FIELD_ARCHITECT_SPEC_COMPLETENESS_SCORE, self::FIELD_ARCHITECT_VETO_COUNT],
             self::FIELD_MATURITY_LEVEL => 'L3',

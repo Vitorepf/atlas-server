@@ -70,6 +70,7 @@ class AtlasDocsAuthorityGraphService
     public const FIELD_LIKE = 'like';
     public const FIELD_ARCHIVE = 'archive';
     public const FIELD_MD = 'md';
+    public const FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE = 'docs/engineering-knowledge-base';
     public const INT_80 = 80;
     public const INT_95 = 95;
     public const INT_100 = 100;
@@ -194,7 +195,7 @@ class AtlasDocsAuthorityGraphService
             ->where(function ($w) use ($variants): void {
                 foreach ($variants as $variant) {
                     $w->orWhere(self::FIELD_NEEDLE_NORMALIZED, self::FIELD_LIKE, '%'.$variant.'%')
-                        ->orWhere('owner_doc_path', self::FIELD_LIKE, '%'.$variant.'%')
+                        ->orWhere(self::FIELD_OWNER_DOC_PATH, self::FIELD_LIKE, '%'.$variant.'%')
                         ->orWhere(self::FIELD_OWNER_DOC_ID, self::FIELD_LIKE, '%'.$variant.'%');
                 }
             })
@@ -263,7 +264,7 @@ class AtlasDocsAuthorityGraphService
      */
     private function scanDocs(): array
     {
-        $root = base_path('docs/engineering-knowledge-base');
+        $root = base_path(self::FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE);
         if (! File::isDirectory($root)) {
             return [];
         }

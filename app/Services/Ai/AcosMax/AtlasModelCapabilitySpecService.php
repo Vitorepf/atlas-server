@@ -112,7 +112,7 @@ final class AtlasModelCapabilitySpecService
         $modelId = AiValueNormalizer::trimmedStringOrNull($model[self::FIELD_MODEL_ID] ?? null) ?? '';
         if ($modelId === '') {
             $violations[] = [
-                self::FIELD_FIELD => 'model_id',
+                self::FIELD_FIELD => self::FIELD_MODEL_ID,
                 self::FIELD_REASON => self::REASON_MISSING_MODEL_ID,
                 self::FIELD_EXPECTED => self::FIELD_NON_EMPTY_STRING,
                 self::FIELD_ACTUAL => null,
@@ -128,7 +128,7 @@ final class AtlasModelCapabilitySpecService
         ));
 
         $violations = array_merge($violations, $this->checkEnum(
-            $spec, $model, self::FIELD_POOLING, 'pooling', self::FIELD_POOLING_NOT_ALLOWED
+            $spec, $model, self::FIELD_POOLING, self::FIELD_POOLING, self::FIELD_POOLING_NOT_ALLOWED
         ));
 
         $violations = array_merge($violations, $this->checkBooleanTrue(

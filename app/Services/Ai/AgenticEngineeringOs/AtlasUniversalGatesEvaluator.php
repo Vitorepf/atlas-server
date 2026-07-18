@@ -14268,4 +14268,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B541).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b541AcosWatchdogImmuneSignatureKnowledgeItemModelCapabilityFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'latest_snapshot.metadata.memory_recall_corpus.metrics.improper_floor_discards' => AtlasAcosWatchdogHealthService::FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_CORPUS_METRICS_IMPROPER_FLOOR_DISCARDS,
+            'recall_concentration_high_without_demotion' => AtlasAcosWatchdogHealthService::FIELD_RECALL_CONCENTRATION_HIGH_WITHOUT_DEMOTION,
+            'content_hash' => ImmuneSignatureStore::FIELD_CONTENT_HASH,
+            'signature' => ImmuneSignatureStore::FIELD_SIGNATURE,
+            'status' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_STATUS,
+            'embedding_model' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_EMBEDDING_MODEL,
+            'model_id' => AtlasModelCapabilitySpecService::FIELD_MODEL_ID,
+            'pooling' => AtlasModelCapabilitySpecService::FIELD_POOLING,
+            'current_precision_at_5' => Maxa04JinaV3DualReadService::FIELD_CURRENT_PRECISION_AT_5,
+            'current_recall_at_5' => Maxa04JinaV3DualReadService::FIELD_CURRENT_RECALL_AT_5,
+            'owner_doc_path' => AtlasDocsAuthorityGraphService::FIELD_OWNER_DOC_PATH,
+            'docs/engineering-knowledge-base' => AtlasDocsAuthorityGraphService::FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE,
+            'series_recovery' => EvidenceVisionThesisLifecycle::FIELD_SERIES_RECOVERY,
+            'default' => EvidenceVisionThesisLifecycle::FIELD_DEFAULT,
+            'test_evidence' => DeliveryPackCompletenessScorer::FIELD_TEST_EVIDENCE,
+            'changed_files' => DeliveryPackCompletenessScorer::FIELD_CHANGED_FILES,
+            'triggers' => DepartmentContractRuntime::FIELD_TRIGGERS,
+            'spec_pack_hash' => DepartmentContractRuntime::FIELD_SPEC_PACK_HASH,
+            'b541_acos_watchdog_immune_signature_knowledge_item_model_capability_floor_count' => 18,
+        ];
+    }
+
 }

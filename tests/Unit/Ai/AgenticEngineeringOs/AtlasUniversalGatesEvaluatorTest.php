@@ -11243,4 +11243,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b540_immune_calibration_daily_canary_aaeos_cognitive_lote_measure_floor_count']);
     }
 
+    public function test_b541_acos_watchdog_immune_signature_knowledge_item_model_capability_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b541AcosWatchdogImmuneSignatureKnowledgeItemModelCapabilityFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_CORPUS_METRICS_IMPROPER_FLOOR_DISCARDS, $out['latest_snapshot.metadata.memory_recall_corpus.metrics.improper_floor_discards']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_RECALL_CONCENTRATION_HIGH_WITHOUT_DEMOTION, $out['recall_concentration_high_without_demotion']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_CONTENT_HASH, $out['content_hash']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_SIGNATURE, $out['signature']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_EMBEDDING_MODEL, $out['embedding_model']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_MODEL_ID, $out['model_id']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_POOLING, $out['pooling']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_CURRENT_PRECISION_AT_5, $out['current_precision_at_5']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_CURRENT_RECALL_AT_5, $out['current_recall_at_5']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_OWNER_DOC_PATH, $out['owner_doc_path']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE, $out['docs/engineering-knowledge-base']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_SERIES_RECOVERY, $out['series_recovery']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_DEFAULT, $out['default']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_TEST_EVIDENCE, $out['test_evidence']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_CHANGED_FILES, $out['changed_files']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TRIGGERS, $out['triggers']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SPEC_PACK_HASH, $out['spec_pack_hash']);
+        $this->assertSame(18, $out['b541_acos_watchdog_immune_signature_knowledge_item_model_capability_floor_count']);
+    }
+
 }

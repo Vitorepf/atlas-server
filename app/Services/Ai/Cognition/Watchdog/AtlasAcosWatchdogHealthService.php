@@ -387,6 +387,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_TREND_LATEST_DELTA_FROM_PREVIOUS = 'trend.latest_delta_from_previous';
     public const FIELD_TREND_STATUS_2 = 'trend.status';
     public const FIELD_APP_ATLAS_ENGINEERING_KERNEL_FORGE_SOVEREIGN_VERDICTS_JSONL = 'app/atlas/engineering-kernel/forge-sovereign-verdicts.jsonl';
+    public const FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_CORPUS_METRICS_IMPROPER_FLOOR_DISCARDS = 'latest_snapshot.metadata.memory_recall_corpus.metrics.improper_floor_discards';
+    public const FIELD_RECALL_CONCENTRATION_HIGH_WITHOUT_DEMOTION = 'recall_concentration_high_without_demotion';
     public const FLOAT_0_0 = 0.0;
     public const INT_3 = 3;
     public const INT_100 = 100;
@@ -428,7 +430,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_THRESHOLD => self::MEMORY_CONCENTRATION_FLOOR,
                 self::FIELD_DEMOTION_ENABLED => $demotionEnabled,
                 self::FIELD_RECALL_USAGE_TOTAL => $recallUsageTotal,
-            ], 'recall_concentration_high_without_demotion'),
+            ], self::FIELD_RECALL_CONCENTRATION_HIGH_WITHOUT_DEMOTION),
             $this->checkRow(self::FIELD_SNAPSHOT_FRESH, $snapshotAgeHours !== null && $snapshotAgeHours <= self::MEMORY_SNAPSHOT_MAX_AGE_HOURS, [
                 self::FIELD_SNAPSHOT_AGE_HOURS => $snapshotAgeHours,
                 self::FIELD_MAX_AGE_HOURS => self::MEMORY_SNAPSHOT_MAX_AGE_HOURS,
@@ -555,7 +557,7 @@ final class AtlasAcosWatchdogHealthService
                 data_get($quality, self::FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_GOLDEN_IMPROPER_FLOOR_DISCARDS)
             )
             ?? AiValueNormalizer::finiteFloatOrNull(
-                data_get($quality, 'latest_snapshot.metadata.memory_recall_corpus.metrics.improper_floor_discards', 0)
+                data_get($quality, self::FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_CORPUS_METRICS_IMPROPER_FLOOR_DISCARDS, 0)
             )
             ?? 0
         );

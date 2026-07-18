@@ -46,8 +46,8 @@ final class DeliveryPackCompletenessScorer
 
     /** @var list<string> */
     public const REQUIRED_KEYS = [
-        'changed_files',
-        'test_evidence',
+        self::FIELD_CHANGED_FILES,
+        self::FIELD_TEST_EVIDENCE,
         self::FIELD_NO_TEST_REASON,
         self::FIELD_EVIDENCE_HASHES,
         self::FIELD_RISK_REGISTER_PRESENT,
