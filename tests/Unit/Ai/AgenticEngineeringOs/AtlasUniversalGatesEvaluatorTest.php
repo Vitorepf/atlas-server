@@ -12350,4 +12350,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b585_aaeos_quality_memory_feedback_injection_lote_measure_series_floor_count']);
     }
 
+    public function test_b586_execution_context_outcome_envelope_predicted_impact_acos_rollback_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b586ExecutionContextOutcomeEnvelopePredictedImpactAcosRollbackFloorsContractObserve([]);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_MEASURED_RUNS, $out['measured_runs']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_COOCCURRENCES, $out['cooccurrences']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_FREEZE, $out['freeze']);
+        $this->assertSame(PredictedImpactBand::FIELD_SALTO, $out['salto']);
+        $this->assertSame(PredictedImpactBand::FIELD_COMPONENTS, $out['components']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_OK, $out['ok']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_LATEST_RECEIPT_AGE_DAYS, $out['latest_receipt_age_days']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_TEST_FILE_HASH, $out['test_file_hash']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_MEMBERS, $out['members']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_SERVICE_CLASSES, $out['service_classes']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_PROPOSED_NEXT_SCHEMA, $out['proposed_next_schema']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_KERNEL_DECISION, $out['kernel_decision']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_SEMANTIC_RECALL_FLOOR_ON_OBFUSCATED, $out['semantic_recall_floor_on_obfuscated']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_FP_CEILING_ON_LEGITIMATE, $out['fp_ceiling_on_legitimate']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_NOVEL_TOKENS, $out['novel_tokens']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_CANDIDATE_TOKENS, $out['candidate_tokens']);
+        $this->assertSame(18, $out['b586_execution_context_outcome_envelope_predicted_impact_acos_rollback_floor_count']);
+    }
+
 }

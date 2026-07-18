@@ -608,6 +608,7 @@ final class AtlasAaeosCommand extends Command
                             {--b583-n-capture-compounding-outcome-dogfooding-friction-gated-corpus-floors-contract= : JSON file (any object) to observe n/capture/compounding/outcome/dogfooding/friction floors}
                             {--b584-cognitive-function-immune-hybrid-calibration-aobg-latency-department-floors-contract= : JSON file (any object) to observe cognitive/function/immune/hybrid/calibration/aobg floors}
                             {--b585-aaeos-quality-memory-feedback-injection-lote-measure-series-floors-contract= : JSON file (any object) to observe aaeos/quality/memory/feedback/injection/lote floors}
+                            {--b586-execution-context-outcome-envelope-predicted-impact-acos-rollback-floors-contract= : JSON file (any object) to observe execution/context/outcome/envelope/predicted/impact floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1372,6 +1373,7 @@ final class AtlasAaeosCommand extends Command
             ['b583-n-capture-compounding-outcome-dogfooding-friction-gated-corpus-floors-contract', 'b583_n_capture_compounding_outcome_dogfooding_friction_gated_corpus_floors_contract', fn (array $p) => $gates->b583NCaptureCompoundingOutcomeDogfoodingFrictionGatedCorpusFloorsContractObserve($p)],
             ['b584-cognitive-function-immune-hybrid-calibration-aobg-latency-department-floors-contract', 'b584_cognitive_function_immune_hybrid_calibration_aobg_latency_department_floors_contract', fn (array $p) => $gates->b584CognitiveFunctionImmuneHybridCalibrationAobgLatencyDepartmentFloorsContractObserve($p)],
             ['b585-aaeos-quality-memory-feedback-injection-lote-measure-series-floors-contract', 'b585_aaeos_quality_memory_feedback_injection_lote_measure_series_floors_contract', fn (array $p) => $gates->b585AaeosQualityMemoryFeedbackInjectionLoteMeasureSeriesFloorsContractObserve($p)],
+            ['b586-execution-context-outcome-envelope-predicted-impact-acos-rollback-floors-contract', 'b586_execution_context_outcome_envelope_predicted_impact_acos_rollback_floors_contract', fn (array $p) => $gates->b586ExecutionContextOutcomeEnvelopePredictedImpactAcosRollbackFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

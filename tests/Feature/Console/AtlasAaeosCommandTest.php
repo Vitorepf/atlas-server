@@ -9937,6 +9937,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b586_execution_context_outcome_envelope_predicted_impact_acos_rollback_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b586-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b586',
+                '--b586-execution-context-outcome-envelope-predicted-impact-acos-rollback-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b586_execution_context_outcome_envelope_predicted_impact_acos_rollback_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

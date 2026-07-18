@@ -15644,4 +15644,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B586).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b586ExecutionContextOutcomeEnvelopePredictedImpactAcosRollbackFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'measured_runs' => ExecutionContextCooccurrenceService::FIELD_MEASURED_RUNS,
+            'cooccurrences' => ExecutionContextCooccurrenceService::FIELD_COOCCURRENCES,
+            'schema_version' => OutcomeEnvelopeBridge::FIELD_SCHEMA_VERSION,
+            'freeze' => OutcomeEnvelopeBridge::FIELD_FREEZE,
+            'salto' => PredictedImpactBand::FIELD_SALTO,
+            'components' => PredictedImpactBand::FIELD_COMPONENTS,
+            'reason' => AtlasAcosRollbackTriggerCheckService::FIELD_REASON,
+            'ok' => AtlasAcosRollbackTriggerCheckService::FIELD_OK,
+            'latest_receipt_age_days' => AtlasCognitionEvidenceResolver::FIELD_LATEST_RECEIPT_AGE_DAYS,
+            'test_file_hash' => AtlasCognitionEvidenceResolver::FIELD_TEST_FILE_HASH,
+            'members' => AtlasCognitionScoreCardV4Grouper::FIELD_MEMBERS,
+            'service_classes' => AtlasCognitionScoreCardV4Grouper::FIELD_SERVICE_CLASSES,
+            'proposed_next_schema' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_PROPOSED_NEXT_SCHEMA,
+            'kernel_decision' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_KERNEL_DECISION,
+            'semantic_recall_floor_on_obfuscated' => AtlasImmuneClassifierHybridFreeze::FIELD_SEMANTIC_RECALL_FLOOR_ON_OBFUSCATED,
+            'fp_ceiling_on_legitimate' => AtlasImmuneClassifierHybridFreeze::FIELD_FP_CEILING_ON_LEGITIMATE,
+            'novel_tokens' => AtlasSurpriseGateService::FIELD_NOVEL_TOKENS,
+            'candidate_tokens' => AtlasSurpriseGateService::FIELD_CANDIDATE_TOKENS,
+            'b586_execution_context_outcome_envelope_predicted_impact_acos_rollback_floor_count' => 18,
+        ];
+    }
+
 }
