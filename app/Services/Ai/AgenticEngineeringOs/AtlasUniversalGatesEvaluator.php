@@ -17846,4 +17846,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B658).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b658DeferredPhaseFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'enqueued' => AaeosDeferredPhaseDispatcherService::FIELD_ENQUEUED,
+            'enqueued_at' => AaeosDeferredPhaseDispatcherService::FIELD_ENQUEUED_AT,
+            'atlas.aaeos.deferred_phase_dispatch.v1' => AaeosDeferredPhaseDispatcherService::SCHEMA_VERSION,
+            'unknown' => AaeosDeferredPhaseDispatcherService::PHASE_UNKNOWN,
+            'blocked' => AaeosDeferredPhaseDispatcherService::FIELD_BLOCKED,
+            'blocked' => AaeosDeferredPhaseDispatcherService::FIELD_BLOCKED,
+            'phase' => AaeosDeferredPhaseDispatcherService::FIELD_PHASE,
+            'blockers' => AaeosDeferredPhaseDispatcherService::FIELD_BLOCKERS,
+            'intent_id' => AaeosDeferredPhaseDispatcherService::FIELD_INTENT_ID,
+            'schema' => AaeosDeferredPhaseDispatcherService::FIELD_SCHEMA,
+            'blocker_signal' => AaeosDeferredPhaseDispatcherService::FIELD_BLOCKER_SIGNAL,
+            'dispatch_id' => AaeosDeferredPhaseDispatcherService::FIELD_DISPATCH_ID,
+            'phase_out' => AaeosDeferredPhaseDispatcherService::FIELD_PHASE_OUT,
+            'envelope' => AaeosDeferredPhaseDispatcherService::FIELD_ENVELOPE,
+            'phase_advance' => AaeosDeferredPhaseDispatcherService::FIELD_PHASE_ADVANCE,
+            'outcome_causality' => AaeosDeferredPhaseDispatcherService::FIELD_OUTCOME_CAUSALITY,
+            'enqueued_count' => AaeosDeferredPhaseDispatcherService::FIELD_ENQUEUED_COUNT,
+            'gates' => AaeosDeferredPhaseDispatcherService::FIELD_GATES,
+            'b658_deferred_phase_floor_count' => 18,
+        ];
+    }
+
 }

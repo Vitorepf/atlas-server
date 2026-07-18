@@ -14124,4 +14124,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b657_autonomous_work_floor_count']);
     }
 
+    public function test_b658_deferred_phase_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b658DeferredPhaseFloorsContractObserve([]);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_ENQUEUED, $out['enqueued']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_ENQUEUED_AT, $out['enqueued_at']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::SCHEMA_VERSION, $out['atlas.aaeos.deferred_phase_dispatch.v1']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::PHASE_UNKNOWN, $out['unknown']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_BLOCKED, $out['blocked']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_BLOCKED, $out['blocked']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_PHASE, $out['phase']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_BLOCKERS, $out['blockers']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_INTENT_ID, $out['intent_id']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_SCHEMA, $out['schema']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_BLOCKER_SIGNAL, $out['blocker_signal']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_DISPATCH_ID, $out['dispatch_id']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_PHASE_OUT, $out['phase_out']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_ENVELOPE, $out['envelope']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_PHASE_ADVANCE, $out['phase_advance']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_OUTCOME_CAUSALITY, $out['outcome_causality']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_ENQUEUED_COUNT, $out['enqueued_count']);
+        $this->assertSame(AaeosDeferredPhaseDispatcherService::FIELD_GATES, $out['gates']);
+        $this->assertSame(18, $out['b658_deferred_phase_floor_count']);
+    }
+
 }
