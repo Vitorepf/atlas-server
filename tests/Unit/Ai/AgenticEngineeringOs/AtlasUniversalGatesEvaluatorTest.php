@@ -15825,4 +15825,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b725_immune_classifier_floor_count']);
     }
 
+    public function test_b726_acos_rollback_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b726AcosRollbackFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_ENV, $out['env']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::SCHEMA_VERSION, $out['atlas.acos.rollback_triggers.v1']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::ENABLED_CONFIG_KEY, $out['atlas.acos.rollback_triggers.enabled']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FLIPS_CONFIG_KEY, $out['atlas.acos.rollback_triggers.flips']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::STATUS_SIMULATED_FIRE, $out['simulated_fire']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::STATUS_HEALTHY, $out['healthy']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::STATUS_DISABLED, $out['disabled']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::STATUS_ALERT, $out['alert']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_ENABLED, $out['enabled']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_SLICES, $out['slices']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_ROLLBACK_ACTION, $out['rollback_action']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_EXECUTOR, $out['executor']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_OK, $out['ok']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_TRIGGERS, $out['triggers']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_FIRED, $out['fired']);
+        $this->assertSame(18, $out['b726_acos_rollback_floor_count']);
+    }
+
 }

@@ -19954,4 +19954,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B726).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b726AcosRollbackFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'id' => AtlasAcosRollbackTriggerCheckService::FIELD_ID,
+            'env' => AtlasAcosRollbackTriggerCheckService::FIELD_ENV,
+            'atlas.acos.rollback_triggers.v1' => AtlasAcosRollbackTriggerCheckService::SCHEMA_VERSION,
+            'atlas.acos.rollback_triggers.enabled' => AtlasAcosRollbackTriggerCheckService::ENABLED_CONFIG_KEY,
+            'atlas.acos.rollback_triggers.flips' => AtlasAcosRollbackTriggerCheckService::FLIPS_CONFIG_KEY,
+            'simulated_fire' => AtlasAcosRollbackTriggerCheckService::STATUS_SIMULATED_FIRE,
+            'healthy' => AtlasAcosRollbackTriggerCheckService::STATUS_HEALTHY,
+            'disabled' => AtlasAcosRollbackTriggerCheckService::STATUS_DISABLED,
+            'alert' => AtlasAcosRollbackTriggerCheckService::STATUS_ALERT,
+            'enabled' => AtlasAcosRollbackTriggerCheckService::FIELD_ENABLED,
+            'slices' => AtlasAcosRollbackTriggerCheckService::FIELD_SLICES,
+            'rollback_action' => AtlasAcosRollbackTriggerCheckService::FIELD_ROLLBACK_ACTION,
+            'executor' => AtlasAcosRollbackTriggerCheckService::FIELD_EXECUTOR,
+            'status' => AtlasAcosRollbackTriggerCheckService::FIELD_STATUS,
+            'reason' => AtlasAcosRollbackTriggerCheckService::FIELD_REASON,
+            'ok' => AtlasAcosRollbackTriggerCheckService::FIELD_OK,
+            'triggers' => AtlasAcosRollbackTriggerCheckService::FIELD_TRIGGERS,
+            'fired' => AtlasAcosRollbackTriggerCheckService::FIELD_FIRED,
+            'b726_acos_rollback_floor_count' => 18,
+        ];
+    }
+
 }
