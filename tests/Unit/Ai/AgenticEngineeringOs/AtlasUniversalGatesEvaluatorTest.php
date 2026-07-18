@@ -14799,4 +14799,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b684_pre_review_floor_count']);
     }
 
+    public function test_b685_parallel_execution_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b685ParallelExecutionFloorsContractObserve([]);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_META, $out['meta']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_PROTOCOL, $out['protocol']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::SCHEMA, $out['acos_max.parallel_execution.v1']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::CLAIM_KIND, $out['task']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::DEFAULT_TTL_SECONDS, $out['3600']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::STATUS_ACTIVE, $out['active']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::STATUS_RENEWED, $out['renewed']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::STATUS_CONFLICT, $out['conflict']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::STATUS_ERROR, $out['error']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::ACTION_PROCEED, $out['proceed']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::ACTION_SKIP, $out['skip']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::ENGINE_UNKNOWN, $out['unknown']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_OK, $out['ok']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_LOTE, $out['lote']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_FAMILY, $out['family']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_SCHEMA, $out['schema']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_TARGET, $out['target']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_STATUS, $out['status']);
+        $this->assertSame(18, $out['b685_parallel_execution_floor_count']);
+    }
+
 }
