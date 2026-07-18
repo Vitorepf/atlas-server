@@ -29,6 +29,8 @@ final class AtlasAaeosPhaseRouterService
     public const FIELD_DESCRIPTION = 'description';
     public const FIELD_VALID_PHASES = 'valid_phases';
     public const FIELD_PHASE_CAPABILITIES = 'phase_capabilities';
+    public const FIELD_INTENT_CAPTURE = 'intent_capture';
+    public const FIELD_DISAMBIGUATION = 'disambiguation';
 
     public const VALID_PHASES = [
         self::PHASE_LEGACY,
@@ -147,8 +149,8 @@ final class AtlasAaeosPhaseRouterService
             self::FIELD_DESCRIPTION => $this->describePhase(),
             self::FIELD_VALID_PHASES => self::VALID_PHASES,
             self::FIELD_PHASE_CAPABILITIES => [
-                'intent_capture' => $this->isActive(),
-                'disambiguation' => $this->isActive(),
+                self::FIELD_INTENT_CAPTURE => $this->isActive(),
+                self::FIELD_DISAMBIGUATION => $this->isActive(),
                 'placement' => $this->atLeastPhase1(),
                 'classification' => $this->atLeastPhase2(),
                 'policy_gate' => $this->atLeastPhase2(),

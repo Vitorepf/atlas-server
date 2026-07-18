@@ -58,6 +58,8 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_CHAINS = 'chains';
     public const FIELD_LEGACY_UNCHAINED_COUNT = 'legacy_unchained_count';
     public const FIELD_ARTIFACT = 'artifact';
+    public const FIELD_TAMPERED_COUNT = 'tampered_count';
+    public const FIELD_CHAIN_DETAILS = 'chain_details';
 
 
     public function __construct(
@@ -112,7 +114,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
                 self::FIELD_CHAIN_LENGTH => $length,
                 self::FIELD_STATUS => $status,
                 self::FIELD_GAP_COUNT => $gap,
-                'tampered_count' => count($tampered),
+                self::FIELD_TAMPERED_COUNT => count($tampered),
                 self::FIELD_TAMPERED_EVENT_IDS => $tampered,
                 self::FIELD_LEGACY_UNCHAINED_COUNT => $legacy,
             ];
@@ -122,7 +124,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_DATE => $date,
             self::FIELD_CHAINS => count($safeChains),
-            'chain_details' => $safeChains,
+            self::FIELD_CHAIN_DETAILS => $safeChains,
             'tampered_total' => $tamperedTotal,
             'gap_total' => $gapTotal,
         ];

@@ -68,6 +68,8 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_LIVE_FLIP_PERFORMED = 'live_flip_performed';
     public const FIELD_COMMAND = 'command';
     public const FIELD_DEFAULT_MODEL_UNCHANGED = 'default_model_unchanged';
+    public const FIELD_MULTILINGUAL_PT = 'multilingual_pt';
+    public const FIELD_DUAL_READ = 'dual_read';
 
 
     /** @return array<string,mixed> */
@@ -102,9 +104,9 @@ final class Maxa04JinaV3DualReadService
                 self::FIELD_DIMENSIONS => self::CANDIDATE_DIMENSIONS,
                 self::FIELD_CTX_TOKENS => 8192,
                 self::FIELD_POOLING => 'mean',
-                'multilingual_pt' => true,
+                self::FIELD_MULTILINGUAL_PT => true,
             ],
-            'dual_read' => [
+            self::FIELD_DUAL_READ => [
                 'required' => true,
                 self::FIELD_BASELINE => 'current_embedding_model',
                 self::FIELD_CANDIDATE => 'jina_v3_reembedded_shadow_index',

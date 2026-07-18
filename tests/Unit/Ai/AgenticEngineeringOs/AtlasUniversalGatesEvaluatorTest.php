@@ -6073,6 +6073,34 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     }
 
 
+    public function test_veto_repair_phase_truth_ledger_canary_latency_dual_budget_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->vetoRepairPhaseTruthLedgerCanaryLatencyDualBudgetFloorsContractObserve([]);
+
+        $this->assertSame('recognized', $payload['veto_field_recognized']);
+        $this->assertSame('lift', $payload['veto_field_lift']);
+        $this->assertSame('attempt', $payload['repair_field_attempt']);
+        $this->assertSame('admitted', $payload['repair_field_admitted']);
+        $this->assertSame('intent_capture', $payload['phase_field_intent_capture']);
+        $this->assertSame('disambiguation', $payload['phase_field_disambiguation']);
+        $this->assertSame('total_canonical_docs', $payload['truth_field_total_canonical_docs']);
+        $this->assertSame('with_evidence_refs', $payload['truth_field_with_evidence_refs']);
+        $this->assertSame('tampered_count', $payload['ledger_field_tampered_count']);
+        $this->assertSame('chain_details', $payload['ledger_field_chain_details']);
+        $this->assertSame('golden_version', $payload['canary_field_golden_version']);
+        $this->assertSame('golden_recall_at_5', $payload['canary_field_golden_recall_at_5']);
+        $this->assertSame('denominator_min_samples', $payload['latency_field_denominator_min_samples']);
+        $this->assertSame('freeze_source', $payload['latency_field_freeze_source']);
+        $this->assertSame('multilingual_pt', $payload['dual_field_multilingual_pt']);
+        $this->assertSame('dual_read', $payload['dual_field_dual_read']);
+        $this->assertSame('disk_actual_mb', $payload['budget_field_disk_actual_mb']);
+        $this->assertSame('total_ram_cap_mb', $payload['budget_field_total_ram_cap_mb']);
+        $this->assertSame(18, $payload['veto_repair_phase_truth_ledger_canary_latency_dual_budget_floor_count']);
+    }
+
+
+
+
 
 
 }

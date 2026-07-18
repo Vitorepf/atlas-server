@@ -42,6 +42,8 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_DAY = 'day';
     public const FIELD_THRESHOLDS = 'thresholds';
     public const FIELD_DENOMINATOR_MIN = 'denominator_min';
+    public const FIELD_DENOMINATOR_MIN_SAMPLES = 'denominator_min_samples';
+    public const FIELD_FREEZE_SOURCE = 'freeze_source';
 
 
     /**
@@ -62,7 +64,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
     {
         $freeze = $this->freezePayloadOverride ?? $this->latestFreezePayload() ?? AtlasAcosFreezeCommand::defaultFreezePayload();
         $thresholds = AiValueNormalizer::arrayOrEmpty($freeze[self::FIELD_THRESHOLDS] ?? null);
-        $denominatorMin = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($thresholds['denominator_min_samples'] ?? null) ?? self::DEFAULT_DENOMINATOR_MIN));
+        $denominatorMin = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? AiValueNormalizer::finiteFloatOrNull($thresholds[self::FIELD_DENOMINATOR_MIN_SAMPLES] ?? null) ?? self::DEFAULT_DENOMINATOR_MIN));
         $day = gmdate('Y-m-d');
         $report = $this->ledger->report(day: $day);
         $ops = AiValueNormalizer::arrayOrEmpty(data_get($report, 'days.'.$day.'.ops', []));
@@ -86,7 +88,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_THRESHOLDS => $thresholds,
             self::FIELD_DENOMINATOR_MIN => $denominatorMin,
             'report' => $report,
-            'freeze_source' => $this->freezePayloadOverride !== null ? 'override' : ($this->latestFreezePayload() !== null ? 'evidence_ledger' : 'default_payload'),
+            self::FIELD_FREEZE_SOURCE => $this->freezePayloadOverride !== null ? 'override' : ($this->latestFreezePayload() !== null ? 'evidence_ledger' : 'default_payload'),
         ];
 
         if ($insufficient !== []) {

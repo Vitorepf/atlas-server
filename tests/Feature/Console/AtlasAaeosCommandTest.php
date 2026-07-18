@@ -6362,6 +6362,26 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+
+    public function test_universal_gates_observe_veto_repair_phase_truth_ledger_canary_latency_dual_budget_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-vrptcldb-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-vrptcldb',
+                '--veto-repair-phase-truth-ledger-canary-latency-dual-budget-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"veto_repair_phase_truth_ledger_canary_latency_dual_budget_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

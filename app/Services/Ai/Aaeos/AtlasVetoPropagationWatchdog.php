@@ -16,6 +16,8 @@ class AtlasVetoPropagationWatchdog
 {
     public const FIELD_PAUSED_DEPARTMENTS = 'paused_departments';
     public const FIELD_DEPARTMENT = 'department';
+    public const FIELD_RECOGNIZED = 'recognized';
+    public const FIELD_LIFT = 'lift';
     public function __construct(
         private readonly AtlasCrossDepartmentChoreographyService $choreography,
     ) {}
@@ -39,11 +41,11 @@ class AtlasVetoPropagationWatchdog
             }
             $dept = AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_DEPARTMENT] ?? null) ?? '';
             $veto = $this->choreography->evaluateVeto($dept);
-            if (($veto['recognized'] ?? false) !== true) {
+            if (($veto[self::FIELD_RECOGNIZED] ?? false) !== true) {
                 continue;
             }
 
-            if (($event['lift'] ?? false) === true) {
+            if (($event[self::FIELD_LIFT] ?? false) === true) {
                 foreach (AiValueNormalizer::arrayOrEmpty($veto[self::FIELD_PAUSED_DEPARTMENTS] ?? null) as $p) {
                     $pausedKey = AiValueNormalizer::trimmedStringOrNull($p);
                     if ($pausedKey === null) {

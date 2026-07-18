@@ -105,6 +105,8 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_RECEIPT = 'receipt';
     public const FIELD_GRAPH_ID = 'graph_id';
     public const FIELD_INDEX_RESOLVED = 'index_resolved';
+    public const FIELD_TOTAL_CANONICAL_DOCS = 'total_canonical_docs';
+    public const FIELD_WITH_EVIDENCE_REFS = 'with_evidence_refs';
 
     public const RANK = [
         self::LEVEL_SPEC => 0,
@@ -266,9 +268,9 @@ class AtlasAaeosImplementationTruthService
 
         return [
             self::FIELD_SCHEMA_VERSION => self::DOC_RUNTIME_COVERAGE_SCHEMA,
-            'total_canonical_docs' => $total,
+            self::FIELD_TOTAL_CANONICAL_DOCS => $total,
             self::FIELD_CLAIMS_RUNTIME => $claimsRuntime,
-            'with_evidence_refs' => $withEvidence,
+            self::FIELD_WITH_EVIDENCE_REFS => $withEvidence,
             'verifiably_backed' => $backed,
             'unverifiable_claims' => $unverifiable,
             self::FIELD_COVERAGE_PCT => $coveragePct,

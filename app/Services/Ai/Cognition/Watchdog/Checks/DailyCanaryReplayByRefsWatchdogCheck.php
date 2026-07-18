@@ -88,6 +88,8 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_BY_KIND = 'by_kind';
     public const FIELD_MEMORY_RECALL_GOLDEN_VERSIONS = 'memory_recall_golden_versions';
     public const FIELD_REF_STABILITY_FLOOR = 'ref_stability_floor';
+    public const FIELD_GOLDEN_VERSION = 'golden_version';
+    public const FIELD_GOLDEN_RECALL_AT_5 = 'golden_recall_at_5';
 
 
     public function __construct(
@@ -131,8 +133,8 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_REFS_BY_KIND => $refCounts[self::FIELD_BY_KIND],
             self::FIELD_REF_STABILITY => $refStability,
             self::FIELD_REF_STABILITY_FLOOR => self::REF_STABILITY_ALERT_FLOOR,
-            'golden_version' => $golden[self::FIELD_VERSION],
-            'golden_recall_at_5' => $golden[self::FIELD_RECALL_AT_5],
+            self::FIELD_GOLDEN_VERSION => $golden[self::FIELD_VERSION],
+            self::FIELD_GOLDEN_RECALL_AT_5 => $golden[self::FIELD_RECALL_AT_5],
             self::FIELD_IMPROPER_FLOOR_DISCARDS => $golden[self::FIELD_IMPROPER_FLOOR_DISCARDS],
             'golden_status' => $golden[self::FIELD_STATUS],
             'golden_recall_at_5_floor' => self::GOLDEN_RECALL_AT_5_ALERT_FLOOR,

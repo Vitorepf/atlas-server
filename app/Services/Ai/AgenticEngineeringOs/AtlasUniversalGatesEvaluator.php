@@ -8024,6 +8024,32 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+
+    public function vetoRepairPhaseTruthLedgerCanaryLatencyDualBudgetFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'veto_field_recognized' => AtlasVetoPropagationWatchdog::FIELD_RECOGNIZED,
+            'veto_field_lift' => AtlasVetoPropagationWatchdog::FIELD_LIFT,
+            'repair_field_attempt' => AtlasRepairLoopGuard::FIELD_ATTEMPT,
+            'repair_field_admitted' => AtlasRepairLoopGuard::FIELD_ADMITTED,
+            'phase_field_intent_capture' => AtlasAaeosPhaseRouterService::FIELD_INTENT_CAPTURE,
+            'phase_field_disambiguation' => AtlasAaeosPhaseRouterService::FIELD_DISAMBIGUATION,
+            'truth_field_total_canonical_docs' => AtlasAaeosImplementationTruthService::FIELD_TOTAL_CANONICAL_DOCS,
+            'truth_field_with_evidence_refs' => AtlasAaeosImplementationTruthService::FIELD_WITH_EVIDENCE_REFS,
+            'ledger_field_tampered_count' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_TAMPERED_COUNT,
+            'ledger_field_chain_details' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_CHAIN_DETAILS,
+            'canary_field_golden_version' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_GOLDEN_VERSION,
+            'canary_field_golden_recall_at_5' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_GOLDEN_RECALL_AT_5,
+            'latency_field_denominator_min_samples' => AobgLatencyWatchdogCheck::FIELD_DENOMINATOR_MIN_SAMPLES,
+            'latency_field_freeze_source' => AobgLatencyWatchdogCheck::FIELD_FREEZE_SOURCE,
+            'dual_field_multilingual_pt' => Maxa04JinaV3DualReadService::FIELD_MULTILINGUAL_PT,
+            'dual_field_dual_read' => Maxa04JinaV3DualReadService::FIELD_DUAL_READ,
+            'budget_field_disk_actual_mb' => AtlasResourceBudgetService::FIELD_DISK_ACTUAL_MB,
+            'budget_field_total_ram_cap_mb' => AtlasResourceBudgetService::FIELD_TOTAL_RAM_CAP_MB,
+            'veto_repair_phase_truth_ledger_canary_latency_dual_budget_floor_count' => 18,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
