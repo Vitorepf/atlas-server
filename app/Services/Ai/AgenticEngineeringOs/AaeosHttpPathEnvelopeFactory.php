@@ -114,6 +114,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_POLICY_DECISION_ALLOWED_TRUE = 'policy_decision_allowed_true';
     public const FIELD_SURFACE_CAPTURED_INTENT = 'surface_captured_intent';
     public const FIELD_TOPOLOGY_PLAN_PROVIDERS_MIN_1_AVAILABLE = 'topology_plan_providers_min_1_available';
+    public const FIELD_NO = 'no';
+    public const FIELD_OBRA = 'obra';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -153,7 +155,7 @@ final class AaeosHttpPathEnvelopeFactory
             inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
                 self::FIELD_MISSION_SIGNAL_KIND => $suggestedMissionType,
-                self::FIELD_MISSION_SHOULD_ACTIVATE => $shouldActivateMissionMode ? self::FIELD_YES : 'no',
+                self::FIELD_MISSION_SHOULD_ACTIVATE => $shouldActivateMissionMode ? self::FIELD_YES : self::FIELD_NO,
             ],
             gates: self::binaryGate(self::FIELD_INTENT_CLARITY_SCORE_MIN_0_8, true),
         );
@@ -215,7 +217,7 @@ final class AaeosHttpPathEnvelopeFactory
             outputs: [
                 self::FIELD_FLOW_ID => $flowId,
                 self::FIELD_COMMAND_INTENT => $commandIntent,
-                self::FIELD_TARGET_DEPARTMENT_DECLARED => $declared ? self::FIELD_YES : 'no',
+                self::FIELD_TARGET_DEPARTMENT_DECLARED => $declared ? self::FIELD_YES : self::FIELD_NO,
             ],
             gates: self::binaryGate('intent_classification_target_department_declared', $declared),
             blockers: $declared
@@ -245,7 +247,7 @@ final class AaeosHttpPathEnvelopeFactory
             outputs: [
                 self::FIELD_POLICY_TARGET => $target !== '' ? $target : 'none',
                 self::FIELD_POLICY_STATUS => $status !== '' ? $status : 'not_required',
-                self::FIELD_POLICY_ALLOWED => $allowed ? self::FIELD_YES : 'no',
+                self::FIELD_POLICY_ALLOWED => $allowed ? self::FIELD_YES : self::FIELD_NO,
             ],
             gates: self::binaryGate(self::FIELD_POLICY_DECISION_ALLOWED_TRUE, $allowed),
             blockers: self::assistedExecutionBlockers($assisted, $isDevTarget, $allowed),
@@ -263,7 +265,7 @@ final class AaeosHttpPathEnvelopeFactory
         $routingTask = AiValueNormalizer::trimmedStringOrNull($payload[self::FIELD_ROUTING_TASK] ?? null) ?? '';
         $flowId = AiValueNormalizer::trimmedStringOrNull(data_get($payload, 'atlas_ai_router.flow_id')) ?? '';
 
-        if (in_array($intent, ['plan', self::FIELD_FORGE, 'obra'], true) || in_array($routingTask, ['plan', self::FIELD_FORGE, 'obra'], true)) {
+        if (in_array($intent, ['plan', self::FIELD_FORGE, self::FIELD_OBRA], true) || in_array($routingTask, ['plan', self::FIELD_FORGE, self::FIELD_OBRA], true)) {
             return self::RISK_BAND_R3_PLUS;
         }
         if ($flowId === 'programming.forge' || $flowId === self::FIELD_ATLAS_FORGE) {

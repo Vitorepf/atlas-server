@@ -9444,4 +9444,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['ragx_chain_acos_rollback_immune_hybrid_signature_department_floor_count']);
     }
 
+    public function test_department_contract_acos_watchdog_immune_promotion_cognitive_function_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->departmentContractAcosWatchdogImmunePromotionCognitiveFunctionFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ASK_CLARIFYING_QUESTION, $out['ask_clarifying_question']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EDIT_CODE, $out['edit_code']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_AURG_CROSS_LAYER_COVERAGE_BELOW_FLOOR, $out['aurg_cross_layer_coverage_below_floor']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_COMPACTION_VOLUME_BELOW_FLOOR, $out['compaction_volume_below_floor']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_CONTRADICTION_UNEVALUATED, $out['contradiction_unevaluated']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_CONTRADICTS_NEWER_AUTHORITY, $out['contradicts_newer_authority']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DRAFT, $out['draft']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_AUDITE, $out['audite']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EPHEMERAL_DEFAULT, $out['ephemeral_default']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ESTRATEGIA, $out['estrategia']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DECISION_RECEIPT_MISSING, $out['decision_receipt_missing']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DELIVERED_CONTEXT_MISSING, $out['delivered_context_missing']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_ASK_ID, $out['ask_id']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_DESCRIPTION, $out['description']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_NO, $out['no']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_OBRA, $out['obra']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_DEGRADED_BY_LOW_RECALL_HIT_RATE, $out['degraded_by_low_recall_hit_rate']);
+        $this->assertSame(MemoryFeedbackDecayScorer::FIELD_DEGRADED_BY_STALE_AGE, $out['degraded_by_stale_age']);
+        $this->assertSame(18, $out['department_contract_acos_watchdog_immune_promotion_cognitive_function_floor_count']);
+    }
+
 }

@@ -93,6 +93,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_BELEZA = 'beleza';
     public const FIELD_INJECTION_MARKER = 'injection_marker';
     public const FIELD_BUG = 'bug';
+    public const FIELD_EPHEMERAL_DEFAULT = 'ephemeral_default';
+    public const FIELD_ESTRATEGIA = 'estrategia';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -151,7 +153,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
      * Strong markers for a strategic insight candidate.
      */
     public const STRATEGIC_MARKERS = [
-        'estrategia',
+        self::FIELD_ESTRATEGIA,
         self::FIELD_ESTRATEGICA,
         self::FIELD_ANALOGIA,
         self::FIELD_INSIGHT,
@@ -350,7 +352,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         }
 
         // 6. Ephemeral default.
-        return [self::CLASS_OPERATIONAL_EPHEMERAL, 'ephemeral_default'];
+        return [self::CLASS_OPERATIONAL_EPHEMERAL, self::FIELD_EPHEMERAL_DEFAULT];
     }
 
     private function deriveMemoryEligible(string $inputClass, int $recurrenceCount, bool $hasSecretMarker): bool

@@ -55,6 +55,8 @@ final class MemoryFeedbackDecayScorer
     public const FIELD_WRONG_CONTEXT_COUNT = 'wrong_context_count';
     public const FIELD_ARCHIVED_BY_STALE_FEEDBACK = 'archived_by_stale_feedback';
     public const FIELD_DEGRADED_BY_FEEDBACK_PRESSURE = 'degraded_by_feedback_pressure';
+    public const FIELD_DEGRADED_BY_LOW_RECALL_HIT_RATE = 'degraded_by_low_recall_hit_rate';
+    public const FIELD_DEGRADED_BY_STALE_AGE = 'degraded_by_stale_age';
 
     /**
      * @param  array<string, mixed>  $signals
@@ -187,13 +189,13 @@ final class MemoryFeedbackDecayScorer
         }
 
         if ($staleness === self::DECISION_STALE_REVIEW_RECOMMENDED) {
-            $reasons[] = 'degraded_by_stale_age';
+            $reasons[] = self::FIELD_DEGRADED_BY_STALE_AGE;
 
             return self::DECISION_DEGRADE;
         }
 
         if ($staleness === self::DECISION_FRESH && $hitRate === 0.0) {
-            $reasons[] = 'degraded_by_low_recall_hit_rate';
+            $reasons[] = self::FIELD_DEGRADED_BY_LOW_RECALL_HIT_RATE;
 
             return self::DECISION_DEGRADE;
         }

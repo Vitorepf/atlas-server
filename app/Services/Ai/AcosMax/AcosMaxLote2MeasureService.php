@@ -265,6 +265,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_WITHOUT = 'without';
     public const FIELD_GIT_LOG = 'git_log';
     public const FIELD_LINEAGE_LEDGER = 'lineage_ledger';
+    public const FIELD_DECISION_RECEIPT_MISSING = 'decision_receipt_missing';
+    public const FIELD_DELIVERED_CONTEXT_MISSING = 'delivered_context_missing';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -503,10 +505,10 @@ final class AcosMaxLote2MeasureService
             $blockedBy[] = 'outcome_not_proven_real';
         }
         if ($decisionId === '') {
-            $blockedBy[] = 'decision_receipt_missing';
+            $blockedBy[] = self::FIELD_DECISION_RECEIPT_MISSING;
         }
         if ($delivery === null || (AiValueNormalizer::trimmedStringOrNull($delivery->retrieval_receipt_id ?? null) ?? '') === '') {
-            $blockedBy[] = 'delivered_context_missing';
+            $blockedBy[] = self::FIELD_DELIVERED_CONTEXT_MISSING;
         }
         if ($candidate === null) {
             $blockedBy[] = 'learning_candidate_missing';

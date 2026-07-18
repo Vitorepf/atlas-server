@@ -12034,4 +12034,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B468).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function departmentContractAcosWatchdogImmunePromotionCognitiveFunctionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ask_clarifying_question' => DepartmentContractRuntime::FIELD_ASK_CLARIFYING_QUESTION,
+            'edit_code' => DepartmentContractRuntime::FIELD_EDIT_CODE,
+            'aurg_cross_layer_coverage_below_floor' => AtlasAcosWatchdogHealthService::FIELD_AURG_CROSS_LAYER_COVERAGE_BELOW_FLOOR,
+            'compaction_volume_below_floor' => AtlasAcosWatchdogHealthService::FIELD_COMPACTION_VOLUME_BELOW_FLOOR,
+            'contradiction_unevaluated' => CognitiveImmunePromotionGateEvaluator::FIELD_CONTRADICTION_UNEVALUATED,
+            'contradicts_newer_authority' => CognitiveImmunePromotionGateEvaluator::FIELD_CONTRADICTS_NEWER_AUTHORITY,
+            'draft' => AtlasCognitiveFunctionDecomposerService::FIELD_DRAFT,
+            'audite' => AtlasCognitiveFunctionDecomposerService::FIELD_AUDITE,
+            'ephemeral_default' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EPHEMERAL_DEFAULT,
+            'estrategia' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ESTRATEGIA,
+            'decision_receipt_missing' => AcosMaxLote2MeasureService::FIELD_DECISION_RECEIPT_MISSING,
+            'delivered_context_missing' => AcosMaxLote2MeasureService::FIELD_DELIVERED_CONTEXT_MISSING,
+            'ask_id' => Teto10PredictedRevertReviewDigest::FIELD_ASK_ID,
+            'description' => Teto10PredictedRevertReviewDigest::FIELD_DESCRIPTION,
+            'no' => AaeosHttpPathEnvelopeFactory::FIELD_NO,
+            'obra' => AaeosHttpPathEnvelopeFactory::FIELD_OBRA,
+            'degraded_by_low_recall_hit_rate' => MemoryFeedbackDecayScorer::FIELD_DEGRADED_BY_LOW_RECALL_HIT_RATE,
+            'degraded_by_stale_age' => MemoryFeedbackDecayScorer::FIELD_DEGRADED_BY_STALE_AGE,
+            'department_contract_acos_watchdog_immune_promotion_cognitive_function_floor_count' => 18,
+        ];
+    }
+
 }

@@ -311,6 +311,8 @@ final class DepartmentContractRuntime
     public const FIELD_COVERAGE_MIN_THRESHOLD = 'coverage_min_threshold';
     public const FIELD_QA = 'qa';
     public const FIELD_WRITE_CODE = 'write_code';
+    public const FIELD_ASK_CLARIFYING_QUESTION = 'ask_clarifying_question';
+    public const FIELD_EDIT_CODE = 'edit_code';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -355,7 +357,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_MISSION_ENVELOPE, self::FIELD_SCHEMA => self::SCHEMA_AI_MISSION],
             ],
             self::FIELD_GATES => ['intent_clarified', 'mission_authority_declared'],
-            self::FIELD_ALLOWED_ACTIONS => ['ask_clarifying_question', self::FIELD_CLASSIFY_INTENT, 'route_to_department'],
+            self::FIELD_ALLOWED_ACTIONS => [self::FIELD_ASK_CLARIFYING_QUESTION, self::FIELD_CLASSIFY_INTENT, 'route_to_department'],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_WRITE_CODE, self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['intent_clarification_log', 'mission_envelope_hash'],
@@ -379,7 +381,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_ACCEPTANCE_CRITERIA, self::FIELD_SCHEMA => self::SCHEMA_ACCEPTANCE_CRITERIA],
             ],
             self::FIELD_GATES => ['intent_clarity_score_min', 'acceptance_criteria_min_3'],
-            self::FIELD_ALLOWED_ACTIONS => ['ask_clarifying_question', self::FIELD_PROPOSE_ACCEPTANCE_CRITERIA, 'split_intent'],
+            self::FIELD_ALLOWED_ACTIONS => [self::FIELD_ASK_CLARIFYING_QUESTION, self::FIELD_PROPOSE_ACCEPTANCE_CRITERIA, 'split_intent'],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_WRITE_CODE, self::FIELD_APPROVE_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['clarification_log', 'acceptance_criteria_pack'],
@@ -498,7 +500,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_GATES => ['review_packet_signed', self::FIELD_RISK_ACKNOWLEDGED, self::FIELD_REVIEW_CHECKLIST_COMPLETE, self::FIELD_BLOCKERS_ADDRESSED, 'evidence_traceable'],
             self::FIELD_ALLOWED_ACTIONS => ['request_changes', self::FIELD_APPROVE_FOR_CERT, 'veto_release'],
-            self::FIELD_FORBIDDEN_ACTIONS => ['edit_code', self::FIELD_DEPLOY_RELEASE, 'modify_security_policy'],
+            self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_EDIT_CODE, self::FIELD_DEPLOY_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['review_report_hash', 'checklist_completion_hash'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_REVIEW_REPORTS, self::FIELD_LEDGER => self::FIELD_AAEOS_REVIEW_LEDGER],
@@ -593,7 +595,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_GATES => ['release_authority_declared', self::FIELD_ROLLBACK_PLAN_PRESENT, self::FIELD_DELIVERY_PACK_COMPLETENESS_MIN_0_95, 'evidence_traceable'],
             self::FIELD_ALLOWED_ACTIONS => ['assemble_delivery_pack', self::FIELD_SIGN_DELIVERY_HASH, 'request_human_review'],
-            self::FIELD_FORBIDDEN_ACTIONS => ['edit_code', self::FIELD_APPROVE_RELEASE_WITHOUT_REVIEW, 'modify_security_policy'],
+            self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_EDIT_CODE, self::FIELD_APPROVE_RELEASE_WITHOUT_REVIEW, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_REVIEW, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['delivery_pack_hash', 'completeness_report_hash'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_DELIVERY_PACKS, self::FIELD_LEDGER => self::FIELD_AAEOS_DELIVERY_LEDGER],

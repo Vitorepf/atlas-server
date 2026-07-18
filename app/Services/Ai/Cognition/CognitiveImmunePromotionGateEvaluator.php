@@ -102,6 +102,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_WATCH_STARTED_AT = 'watch_started_at';
     public const FIELD_ATOMIC_CLAIM_INCOMPLETE = 'atomic_claim_incomplete';
     public const FIELD_CONSENT_PRIVACY_RETENTION_UNCONFIRMED = 'consent_privacy_retention_unconfirmed';
+    public const FIELD_CONTRADICTION_UNEVALUATED = 'contradiction_unevaluated';
+    public const FIELD_CONTRADICTS_NEWER_AUTHORITY = 'contradicts_newer_authority';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -277,7 +279,7 @@ final class CognitiveImmunePromotionGateEvaluator
     private function contradictionGate(array $signals, bool $candidatePresent): array
     {
         if ($this->flag($signals, self::FIELD_CONTRADICTS_NEWER)) {
-            return [self::STATUS_BLOCK, 'contradicts_newer_authority'];
+            return [self::STATUS_BLOCK, self::FIELD_CONTRADICTS_NEWER_AUTHORITY];
         }
 
         if ($this->flag($signals, self::FIELD_PROVENANCE_TRACES_TO_REVERTED)) {
@@ -290,7 +292,7 @@ final class CognitiveImmunePromotionGateEvaluator
 
         return $candidatePresent
             ? [self::STATUS_PASS, '']
-            : [self::STATUS_PENDING, 'contradiction_unevaluated'];
+            : [self::STATUS_PENDING, self::FIELD_CONTRADICTION_UNEVALUATED];
     }
 
     /**

@@ -181,6 +181,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_TELA = 'tela';
     public const FIELD_WHY = 'why';
     public const FIELD_WRITE = 'write';
+    public const FIELD_DRAFT = 'draft';
+    public const FIELD_AUDITE = 'audite';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -211,7 +213,7 @@ final class AtlasCognitiveFunctionDecomposerService
         self::FIELD_GENERATION => [
             'escreva', self::FIELD_REDIJA, self::FIELD_CRIE, self::FIELD_COMPONHA, self::FIELD_RASCUNHE, self::FIELD_GERE,
             self::FIELD_SINTETIZE, self::FIELD_RESUMA, self::FIELD_TRANSFORME, self::FIELD_REESCREVA, self::FIELD_CONTINUE,
-            self::FIELD_NARRE, self::FIELD_DESCREVA, self::FIELD_COMPOSE, self::FIELD_WRITE, 'draft', self::FIELD_SUMMARIZE,
+            self::FIELD_NARRE, self::FIELD_DESCREVA, self::FIELD_COMPOSE, self::FIELD_WRITE, self::FIELD_DRAFT, self::FIELD_SUMMARIZE,
         ],
         self::FIELD_CODE => [
             'codigo', self::FIELD_CODIFIQUE, self::FIELD_IMPLEMENTE, self::FIELD_REFATORE, 'debug', 'teste',
@@ -227,7 +229,7 @@ final class AtlasCognitiveFunctionDecomposerService
             'cor ', self::FIELD_PALETA, self::FIELD_VISUAL, self::FIELD_SCREENSHOT, self::FIELD_IMAGE, self::FIELD_RENDER,
         ],
         self::FIELD_AUDIT => [
-            'audite', self::FIELD_AUDITA, 'audit', 'verifique', self::FIELD_VALIDE, self::FIELD_CHEQUE,
+            self::FIELD_AUDITE, self::FIELD_AUDITA, 'audit', 'verifique', self::FIELD_VALIDE, self::FIELD_CHEQUE,
             self::FIELD_INSPECIONE, self::FIELD_GOVERNANCE, self::FIELD_INVARIANT, self::FIELD_KERNEL, self::FIELD_CARTOGRAFIA,
             self::FIELD_DOC, self::FIELD_DOCUMENTO, self::FIELD_COMPLIANCE, self::FIELD_EVIDENCE, self::FIELD_EVIDENCIA,
             self::FIELD_INTEGRITY, self::FIELD_TAMPER, self::FIELD_SHA256, 'hash ', self::FIELD_VERIFY,

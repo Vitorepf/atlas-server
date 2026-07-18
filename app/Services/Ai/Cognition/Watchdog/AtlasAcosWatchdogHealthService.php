@@ -333,6 +333,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_WINDOWED_CONCENTRATION_GUARDED = 'windowed_concentration_guarded';
     public const FIELD_PIPELINE_PARTIALS_PRESENT = 'pipeline_partials_present';
     public const FIELD_AI_RUN_OUTCOMES = 'ai_run_outcomes';
+    public const FIELD_AURG_CROSS_LAYER_COVERAGE_BELOW_FLOOR = 'aurg_cross_layer_coverage_below_floor';
+    public const FIELD_COMPACTION_VOLUME_BELOW_FLOOR = 'compaction_volume_below_floor';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -518,7 +520,7 @@ final class AtlasAcosWatchdogHealthService
             $issues[] = 'improper_floor_discards_present';
         }
         if ($coverageRatio < self::RAG_COVERAGE_FLOOR) {
-            $issues[] = 'aurg_cross_layer_coverage_below_floor';
+            $issues[] = self::FIELD_AURG_CROSS_LAYER_COVERAGE_BELOW_FLOOR;
         }
         if ($preFilterConcentration >= self::RAG_PRE_FILTER_CONCENTRATION_MASK_FLOOR
             && $retrievalEval >= self::RAG_RETRIEVAL_EVAL_FLOOR) {
@@ -668,7 +670,7 @@ final class AtlasAcosWatchdogHealthService
         $minRetention = $retentionScores === [] ? null : min($retentionScores);
         $blocking = [];
         if ($receipts->count() < self::COMPACTION_MIN_RECEIPTS) {
-            $blocking[] = 'compaction_volume_below_floor';
+            $blocking[] = self::FIELD_COMPACTION_VOLUME_BELOW_FLOOR;
         }
         if ($criticalCuts > 0) {
             $blocking[] = 'critical_must_keep_shadow_cut';

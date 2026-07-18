@@ -97,6 +97,8 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_DIFF = 'diff';
     public const FIELD_REVERSE_HANDLE = 'reverse_handle';
     public const FIELD_SUMMARY = 'summary';
+    public const FIELD_ASK_ID = 'ask_id';
+    public const FIELD_DESCRIPTION = 'description';
 
     /**
      * @param  list<array<string,mixed>>  $items
@@ -212,7 +214,7 @@ final class Teto10PredictedRevertReviewDigest
 
         return [
             self::FIELD_ID => $id !== '' ? $id : 'item-'.($index + 1),
-            self::FIELD_TITLE => self::firstString($item, ['title', self::FIELD_SUMMARY, 'description'], 'Untitled review item'),
+            self::FIELD_TITLE => self::firstString($item, ['title', self::FIELD_SUMMARY, self::FIELD_DESCRIPTION], 'Untitled review item'),
             self::FIELD_DECISION_ID => $decisionId !== '' ? $decisionId : null,
             self::FIELD_FAMILY => $family !== '' ? $family : self::BAND_UNKNOWN,
             self::FIELD_GROUP_KEY => $decisionId !== '' ? 'decision:'.$decisionId : 'family:'.($family !== '' ? $family : self::BAND_UNKNOWN),
@@ -225,7 +227,7 @@ final class Teto10PredictedRevertReviewDigest
             self::FIELD_PENDING_FLIP => (AiValueNormalizer::boolOrNull($item[self::FIELD_PENDING_FLIP] ?? null) ?? false),
             self::FIELD_FLIP_REF => self::firstString($item, ['flip_ref', 'flip_id'], ''),
             self::FIELD_BATCHED_ASK => (AiValueNormalizer::boolOrNull($item[self::FIELD_BATCHED_ASK] ?? null) ?? false),
-            self::FIELD_ASK_REF => self::firstString($item, ['ask_ref', 'ask_id'], ''),
+            self::FIELD_ASK_REF => self::firstString($item, ['ask_ref', self::FIELD_ASK_ID], ''),
         ];
     }
 
