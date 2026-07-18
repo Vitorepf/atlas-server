@@ -15,6 +15,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AaeosHttpPathEnvelopeFactory
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_POLICY_STATUS = 'policy_status';
     public const RISK_BAND_FAST_PATH = 'r1_r2_fast_path';
 
     public const RISK_BAND_R3_PLUS = 'r3_plus';
@@ -175,7 +177,7 @@ final class AaeosHttpPathEnvelopeFactory
             gates: self::binaryGate('intent_classification_target_department_declared', $declared),
             blockers: $declared
                 ? []
-                : [['id' => 'classification_target_department_missing', self::FIELD_SEVERITY => 'medium', self::FIELD_OWNER => 'atlas-ai']],
+                : [[self::FIELD_ID => 'classification_target_department_missing', self::FIELD_SEVERITY => 'medium', self::FIELD_OWNER => 'atlas-ai']],
         );
     }
 
@@ -199,7 +201,7 @@ final class AaeosHttpPathEnvelopeFactory
             inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
                 'policy_target' => $target !== '' ? $target : 'none',
-                'policy_status' => $status !== '' ? $status : 'not_required',
+                self::FIELD_POLICY_STATUS => $status !== '' ? $status : 'not_required',
                 self::FIELD_POLICY_ALLOWED => $allowed ? 'yes' : 'no',
             ],
             gates: self::binaryGate('policy_decision_allowed_true', $allowed),
@@ -439,25 +441,25 @@ final class AaeosHttpPathEnvelopeFactory
         $blockers = [];
         foreach (AiValueNormalizer::arrayOrEmpty($assisted[self::FIELD_BLOCKERS] ?? null) as $blocker) {
             if (is_array($blocker)) {
-                $id = AiValueNormalizer::trimmedStringOrNull($blocker['id'] ?? null);
+                $id = AiValueNormalizer::trimmedStringOrNull($blocker[self::FIELD_ID] ?? null);
                 if ($id === null) {
                     continue;
                 }
                 $severity = AiValueNormalizer::trimmedStringOrNull($blocker[self::FIELD_SEVERITY] ?? null) ?? 'high';
                 $owner = AiValueNormalizer::trimmedStringOrNull($blocker[self::FIELD_OWNER] ?? null) ?? 'atlas-ai';
                 $blockers[] = [
-                    'id' => $id,
+                    self::FIELD_ID => $id,
                     self::FIELD_SEVERITY => $severity !== '' ? $severity : 'high',
                     self::FIELD_OWNER => $owner !== '' ? $owner : 'atlas-ai',
                 ];
             } elseif (($id = AiValueNormalizer::trimmedStringOrNull($blocker)) !== null) {
-                $blockers[] = ['id' => $id, self::FIELD_SEVERITY => 'high', self::FIELD_OWNER => 'atlas-ai'];
+                $blockers[] = [self::FIELD_ID => $id, self::FIELD_SEVERITY => 'high', self::FIELD_OWNER => 'atlas-ai'];
             }
         }
 
         if ($blockers === []) {
             $blockers[] = [
-                'id' => 'assisted_execution_needs_context',
+                self::FIELD_ID => 'assisted_execution_needs_context',
                 self::FIELD_SEVERITY => 'high',
                 self::FIELD_OWNER => 'atlas-ai',
             ];
@@ -475,7 +477,7 @@ final class AaeosHttpPathEnvelopeFactory
         $blockedWhen = AiValueNormalizer::arrayOrEmpty($placementResult[self::FIELD_BLOCKED_WHEN] ?? null);
 
         return array_values(array_map(static fn (string $reason): array => [
-            'id' => $reason,
+            self::FIELD_ID => $reason,
             self::FIELD_SEVERITY => 'high',
             self::FIELD_OWNER => 'atlas-ai',
         ], array_filter($blockedWhen, 'is_string')));
@@ -546,6 +548,6 @@ final class AaeosHttpPathEnvelopeFactory
      */
     private static function systemActor(string $id): array
     {
-        return [self::FIELD_KIND => 'system', 'id' => $id, 'provider' => null];
+        return [self::FIELD_KIND => 'system', self::FIELD_ID => $id, 'provider' => null];
     }
 }

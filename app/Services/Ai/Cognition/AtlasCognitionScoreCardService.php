@@ -112,6 +112,8 @@ use Throwable;
  */
 class AtlasCognitionScoreCardService
 {
+    public const FIELD_V4 = 'v4';
+    public const FIELD_CODE = 'code';
     public const SCHEMA_VERSION = 'atlas.cognition.scorecard.v3';
 
     public const DUAL_EMIT_V3_CONFIG_KEY = 'atlas_elite_compaction.scorecard.dual_emit_v3';
@@ -359,7 +361,7 @@ class AtlasCognitionScoreCardService
             $supplemental = $this->v4SupplementalRows();
             $modules = $grouper->group(array_merge($rows, $supplemental));
             $consumerModules = $grouper->groupConsumers($rows);
-            $envelope['v4'] = [
+            $envelope[self::FIELD_V4] = [
                 self::FIELD_SCHEMA_VERSION => AtlasCognitionScoreCardV4Grouper::SCHEMA_VERSION,
                 self::FIELD_MODULE_COUNT => count($modules),
                 self::FIELD_MODULES => $modules,
@@ -384,11 +386,11 @@ class AtlasCognitionScoreCardService
         return [
             self::FIELD_SCHEMA_VERSION => AtlasCognitionScoreCardV4Grouper::SCHEMA_VERSION,
             self::FIELD_GENERATED_AT => $v3[self::FIELD_GENERATED_AT] ?? gmdate('c'),
-            self::FIELD_MODULE_COUNT => $v3['v4'][self::FIELD_MODULE_COUNT] ?? 0,
-            self::FIELD_MODULES => $v3['v4'][self::FIELD_MODULES] ?? [],
-            self::FIELD_CONSUMER_MODULE_COUNT => $v3['v4'][self::FIELD_CONSUMER_MODULE_COUNT] ?? 0,
-            self::FIELD_CONSUMER_MODULES => $v3['v4'][self::FIELD_CONSUMER_MODULES] ?? [],
-            self::FIELD_SUPPLEMENTAL_SUBSYSTEM_COUNT => $v3['v4'][self::FIELD_SUPPLEMENTAL_SUBSYSTEM_COUNT] ?? 0,
+            self::FIELD_MODULE_COUNT => $v3[self::FIELD_V4][self::FIELD_MODULE_COUNT] ?? 0,
+            self::FIELD_MODULES => $v3[self::FIELD_V4][self::FIELD_MODULES] ?? [],
+            self::FIELD_CONSUMER_MODULE_COUNT => $v3[self::FIELD_V4][self::FIELD_CONSUMER_MODULE_COUNT] ?? 0,
+            self::FIELD_CONSUMER_MODULES => $v3[self::FIELD_V4][self::FIELD_CONSUMER_MODULES] ?? [],
+            self::FIELD_SUPPLEMENTAL_SUBSYSTEM_COUNT => $v3[self::FIELD_V4][self::FIELD_SUPPLEMENTAL_SUBSYSTEM_COUNT] ?? 0,
             self::FIELD_SUBSYSTEM_COUNT => $v3[self::FIELD_SUBSYSTEM_COUNT] ?? 0,
             self::FIELD_SCORED_SUBSYSTEM_COUNT => $v3[self::FIELD_SCORED_SUBSYSTEM_COUNT] ?? 0,
             self::FIELD_SCORE => $v3[self::FIELD_SCORE] ?? [],
@@ -445,7 +447,7 @@ class AtlasCognitionScoreCardService
         }
 
         $overall = round(
-            ($totals['code'][self::FIELD_SCORE_OUT_OF_10]
+            ($totals[self::FIELD_CODE][self::FIELD_SCORE_OUT_OF_10]
                 + $totals['doc'][self::FIELD_SCORE_OUT_OF_10]
                 + $totals['pipeline'][self::FIELD_SCORE_OUT_OF_10]) / 3,
             2

@@ -18,6 +18,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasAaeosDocMaturityClassifier
 {
+    public const FIELD_LEVEL_ORDINAL = 'level_ordinal';
+    public const FIELD_MISSING_FOR_NEXT = 'missing_for_next';
     public const SCHEMA_VERSION = 'atlas.aaeos.doc_maturity.v1';
 
     public const LEVEL_L0 = 'DOC L0';
@@ -119,11 +121,11 @@ final class AtlasAaeosDocMaturityClassifier
         return [
             'schema_version' => self::SCHEMA_VERSION,
             self::FIELD_LEVEL => $level,
-            'level_ordinal' => $ordinal,
+            self::FIELD_LEVEL_ORDINAL => $ordinal,
             // Doc maturity never proves runtime: encodes the line 218 failure mode.
             'runtime_ready' => false,
             'satisfied' => $this->satisfiedRequirements($hasMother, $hasContracts, $signalStrengths, $runbook),
-            'missing_for_next' => $this->missingForNext($ordinal, $hasMother, $hasContracts, $runbook, $signalStrengths),
+            self::FIELD_MISSING_FOR_NEXT => $this->missingForNext($ordinal, $hasMother, $hasContracts, $runbook, $signalStrengths),
             'rationale' => $rationale,
         ];
     }

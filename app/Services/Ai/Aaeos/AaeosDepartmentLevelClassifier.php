@@ -8,6 +8,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AaeosDepartmentLevelClassifier
 {
+    public const FIELD_VALUE = 'value';
+    public const FIELD_THRESHOLDS = 'thresholds';
     public const SCHEMA_VERSION = 'atlas.aaeos.department_level_classification.v1';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_DEPARTMENT_ID = 'department_id';
@@ -76,7 +78,7 @@ final class AaeosDepartmentLevelClassifier
         foreach ($bands as $index => $band) {
             $failedThresholds = [];
 
-            foreach ($band['thresholds'] as $threshold) {
+            foreach ($band[self::FIELD_THRESHOLDS] as $threshold) {
                 $metric = $threshold[self::FIELD_METRIC];
                 $observed = $this->observedValue($metricsSnapshot, $metric);
 
@@ -84,11 +86,11 @@ final class AaeosDepartmentLevelClassifier
                     $missingMetrics[] = $metric;
                 }
 
-                if ($observed === null || ! AtlasAaeosThresholdComparator::binarySatisfied($threshold[self::FIELD_COMPARATOR], $observed, $threshold['value'])) {
+                if ($observed === null || ! AtlasAaeosThresholdComparator::binarySatisfied($threshold[self::FIELD_COMPARATOR], $observed, $threshold[self::FIELD_VALUE])) {
                     $failedThresholds[] = [
                         self::FIELD_METRIC => $metric,
                         self::FIELD_COMPARATOR => $threshold[self::FIELD_COMPARATOR],
-                        self::FIELD_THRESHOLD => $threshold['value'],
+                        self::FIELD_THRESHOLD => $threshold[self::FIELD_VALUE],
                         self::FIELD_OBSERVED => $observed,
                     ];
                 }

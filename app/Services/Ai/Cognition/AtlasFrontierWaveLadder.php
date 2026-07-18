@@ -25,6 +25,8 @@ use Throwable;
  */
 final class AtlasFrontierWaveLadder
 {
+    public const FIELD_AT = 'at';
+    public const FIELD_EVENT_THRESHOLD = 'event_threshold';
     public const SCHEMA_VERSION = 'atlas.cognition.frontier_ladder.v1';
 
     /** ~5 external events on wave N before wave N+1 may activate (obra20 §15). */
@@ -92,7 +94,7 @@ final class AtlasFrontierWaveLadder
                 self::FIELD_WAVE => $wave,
                 self::FIELD_KIND => $kind,
                 'ref' => $ref,
-                'at' => now()->toIso8601String(),
+                self::FIELD_AT => now()->toIso8601String(),
             ]);
         } catch (Throwable) {
             // fail-open
@@ -134,7 +136,7 @@ final class AtlasFrontierWaveLadder
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'generated_at' => gmdate('c'),
-            'event_threshold' => self::EVENT_THRESHOLD,
+            self::FIELD_EVENT_THRESHOLD => self::EVENT_THRESHOLD,
             self::FIELD_WAVES => $waves,
             'note' => 'Ativação sequencial por eventos externos REAIS no ledger — nenhuma frente declara sucesso sobre si mesma (obra20 §15). Desenho/spec paralelos; ativação gated.',
         ];

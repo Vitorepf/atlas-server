@@ -80,6 +80,14 @@ use App\Services\Ai\Cognition\AtlasAcosLongHorizonGateService;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
 use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
 use App\Services\Ai\Cognition\AtlasAcosEvolutionScoreService;
+use App\Services\Ai\AgenticEngineeringOs\AaeosHttpPathEnvelopeFactory;
+use App\Services\Ai\Cognition\AtlasCognitionScoreCardService;
+use App\Services\Ai\Aaeos\AaeosDepartmentLevelClassifier;
+use App\Services\Ai\Aaeos\AtlasAaeosDepartmentQualityBarLevelClassifier;
+use App\Services\Ai\Aaeos\AtlasAaeosDocMaturityClassifier;
+use App\Services\Ai\AgenticEngineeringOs\PhaseAdvanceVerdictClassifier;
+use App\Services\Ai\Cognition\AtlasFrontierWaveLadder;
+use App\Services\Ai\Cognition\CognitiveImmunePromotionGateEvaluator;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -6779,6 +6787,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_AUTONOMY_GOVERNANCE, $out['autonomy_governance']);
         $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_COUNT, $out['count']);
         $this->assertSame(18, $out['obra_retro_acos_rollback_window_orchestrator_long_aaeos_floor_count']);
+    }
+
+    public function test_http_path_cognition_score_department_level_aaeos_doc_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->httpPathCognitionScoreDepartmentLevelAaeosDocFloorsContractObserve([]);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ID, $out['id']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_POLICY_STATUS, $out['policy_status']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_V4, $out['v4']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CODE, $out['code']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_VALUE, $out['value']);
+        $this->assertSame(AaeosDepartmentLevelClassifier::FIELD_THRESHOLDS, $out['thresholds']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_SATISFIED, $out['satisfied']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_THRESHOLD, $out['threshold']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_LEVEL_ORDINAL, $out['level_ordinal']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_MISSING_FOR_NEXT, $out['missing_for_next']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_FABRICATES_RATE_ON_ZERO_N, $out['fabricates_rate_on_zero_n']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_LIFT_BASIS, $out['lift_basis']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_ID, $out['id']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_OPERATOR_SIGNATURE, $out['operator_signature']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_AT, $out['at']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_EVENT_THRESHOLD, $out['event_threshold']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_COUNT, $out['count']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_RECALL_CONCENTRATION_V2, $out['recall_concentration_v2']);
+        $this->assertSame(18, $out['http_path_cognition_score_department_level_aaeos_doc_floor_count']);
     }
 
 }

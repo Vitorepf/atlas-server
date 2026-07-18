@@ -15,6 +15,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class PhaseAdvanceVerdictClassifier
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_OPERATOR_SIGNATURE = 'operator_signature';
     public const SCHEMA_VERSION = 'atlas.aaeos.phase_advance_verdict.v1';
 
     public const PHASE_POLICY_GATE = 'policy_gate';
@@ -215,7 +217,7 @@ final class PhaseAdvanceVerdictClassifier
                 continue;
             }
 
-            $id = AiValueNormalizer::trimmedStringOrNull($blocker['id'] ?? null);
+            $id = AiValueNormalizer::trimmedStringOrNull($blocker[self::FIELD_ID] ?? null);
             if ($id === null) {
                 continue;
             }
@@ -245,6 +247,6 @@ final class PhaseAdvanceVerdictClassifier
      */
     private function operatorSignature(array $envelope): ?string
     {
-        return AiValueNormalizer::trimmedStringOrNull($envelope['operator_signature'] ?? null);
+        return AiValueNormalizer::trimmedStringOrNull($envelope[self::FIELD_OPERATOR_SIGNATURE] ?? null);
     }
 }

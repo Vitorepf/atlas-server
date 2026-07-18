@@ -8,6 +8,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AtlasAaeosDepartmentQualityBarLevelClassifier
 {
+    public const FIELD_SATISFIED = 'satisfied';
+    public const FIELD_THRESHOLD = 'threshold';
     public const SCHEMA_VERSION = 'atlas.aaeos.quality_bar_level.v1';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_DEPARTMENT_ID = 'department_id';
@@ -173,9 +175,9 @@ final class AtlasAaeosDepartmentQualityBarLevelClassifier
                 self::FIELD_LEVEL => $band[self::FIELD_LEVEL],
                 self::FIELD_METRIC => $threshold[self::FIELD_METRIC],
                 self::FIELD_COMPARATOR => $threshold[self::FIELD_COMPARATOR],
-                'threshold' => $threshold[self::FIELD_VALUE],
+                self::FIELD_THRESHOLD => $threshold[self::FIELD_VALUE],
                 self::FIELD_OBSERVED => $observed,
-                'satisfied' => false,
+                self::FIELD_SATISFIED => false,
                 self::FIELD_MISSING_METRIC => $missingMetric,
             ];
         }

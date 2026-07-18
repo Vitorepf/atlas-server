@@ -386,6 +386,7 @@ final class AtlasAaeosCommand extends Command
                             {--delivery-pack-resource-budget-belief-cascade-citation-grounding-floors-contract= : JSON file (any object) to observe delivery/pack/resource/budget/belief/cascade floors}
                             {--n-capture-domain-lexical-evidence-vision-execution-context-floors-contract= : JSON file (any object) to observe n/capture/domain/lexical/evidence/vision floors}
                             {--obra-retro-acos-rollback-window-orchestrator-long-aaeos-floors-contract= : JSON file (any object) to observe obra/retro/acos/rollback/window/orchestrator floors}
+                            {--http-path-cognition-score-department-level-aaeos-doc-floors-contract= : JSON file (any object) to observe http/path/cognition/score/department/level floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -928,6 +929,7 @@ final class AtlasAaeosCommand extends Command
             ['delivery-pack-resource-budget-belief-cascade-citation-grounding-floors-contract', 'delivery_pack_resource_budget_belief_cascade_citation_grounding_floors_contract', fn (array $p) => $gates->deliveryPackResourceBudgetBeliefCascadeCitationGroundingFloorsContractObserve($p)],
             ['n-capture-domain-lexical-evidence-vision-execution-context-floors-contract', 'n_capture_domain_lexical_evidence_vision_execution_context_floors_contract', fn (array $p) => $gates->nCaptureDomainLexicalEvidenceVisionExecutionContextFloorsContractObserve($p)],
             ['obra-retro-acos-rollback-window-orchestrator-long-aaeos-floors-contract', 'obra_retro_acos_rollback_window_orchestrator_long_aaeos_floors_contract', fn (array $p) => $gates->obraRetroAcosRollbackWindowOrchestratorLongAaeosFloorsContractObserve($p)],
+            ['http-path-cognition-score-department-level-aaeos-doc-floors-contract', 'http_path_cognition_score_department_level_aaeos_doc_floors_contract', fn (array $p) => $gates->httpPathCognitionScoreDepartmentLevelAaeosDocFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

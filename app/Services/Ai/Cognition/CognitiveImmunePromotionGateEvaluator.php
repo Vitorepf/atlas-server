@@ -24,6 +24,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class CognitiveImmunePromotionGateEvaluator
 {
+    public const FIELD_COUNT = 'count';
+    public const FIELD_RECALL_CONCENTRATION_V2 = 'recall_concentration_v2';
     public const SCHEMA_VERSION = 'atlas.cognition.cognitive_immune_promotion_gate.v1';
 
     /** Canonical gate ids, ordered G0..G8. */
@@ -523,7 +525,7 @@ final class CognitiveImmunePromotionGateEvaluator
             }
         }
 
-        return $this->actorCountsFromConcentrationV2($signals['recall_concentration_v2'] ?? null);
+        return $this->actorCountsFromConcentrationV2($signals[self::FIELD_RECALL_CONCENTRATION_V2] ?? null);
     }
 
     /**
@@ -539,7 +541,7 @@ final class CognitiveImmunePromotionGateEvaluator
         foreach ($value as $key => $entry) {
             if (is_array($entry)) {
                 $actor = $this->stringFromMixed($entry[self::FIELD_ACTOR] ?? $key);
-                $count = $this->intFromMixed($entry['count'] ?? $entry[self::FIELD_RECALLS] ?? 0);
+                $count = $this->intFromMixed($entry[self::FIELD_COUNT] ?? $entry[self::FIELD_RECALLS] ?? 0);
             } else {
                 $actor = $this->stringFromMixed($key);
                 $count = $this->intFromMixed($entry);

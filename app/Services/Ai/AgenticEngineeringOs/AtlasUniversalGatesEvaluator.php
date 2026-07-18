@@ -8804,4 +8804,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B364).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function httpPathCognitionScoreDepartmentLevelAaeosDocFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'id' => AaeosHttpPathEnvelopeFactory::FIELD_ID,
+            'policy_status' => AaeosHttpPathEnvelopeFactory::FIELD_POLICY_STATUS,
+            'v4' => AtlasCognitionScoreCardService::FIELD_V4,
+            'code' => AtlasCognitionScoreCardService::FIELD_CODE,
+            'value' => AaeosDepartmentLevelClassifier::FIELD_VALUE,
+            'thresholds' => AaeosDepartmentLevelClassifier::FIELD_THRESHOLDS,
+            'satisfied' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_SATISFIED,
+            'threshold' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_THRESHOLD,
+            'level_ordinal' => AtlasAaeosDocMaturityClassifier::FIELD_LEVEL_ORDINAL,
+            'missing_for_next' => AtlasAaeosDocMaturityClassifier::FIELD_MISSING_FOR_NEXT,
+            'fabricates_rate_on_zero_n' => PreReviewAdvisoryBand::FIELD_FABRICATES_RATE_ON_ZERO_N,
+            'lift_basis' => PreReviewAdvisoryBand::FIELD_LIFT_BASIS,
+            'id' => PhaseAdvanceVerdictClassifier::FIELD_ID,
+            'operator_signature' => PhaseAdvanceVerdictClassifier::FIELD_OPERATOR_SIGNATURE,
+            'at' => AtlasFrontierWaveLadder::FIELD_AT,
+            'event_threshold' => AtlasFrontierWaveLadder::FIELD_EVENT_THRESHOLD,
+            'count' => CognitiveImmunePromotionGateEvaluator::FIELD_COUNT,
+            'recall_concentration_v2' => CognitiveImmunePromotionGateEvaluator::FIELD_RECALL_CONCENTRATION_V2,
+            'http_path_cognition_score_department_level_aaeos_doc_floor_count' => 18,
+        ];
+    }
+
 }

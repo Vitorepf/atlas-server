@@ -30,6 +30,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class PreReviewAdvisoryBand
 {
+    public const FIELD_FABRICATES_RATE_ON_ZERO_N = 'fabricates_rate_on_zero_n';
+    public const FIELD_LIFT_BASIS = 'lift_basis';
     public const SCHEMA_VERSION = 'atlas.operator.pre_review_advisory_band.v1';
 
     public const FORMULA_VERSION = 'atlas.multn15_08.pre_review_band.v1';
@@ -194,7 +196,7 @@ final class PreReviewAdvisoryBand
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_CURVE => $curve,
             'lift_high_over_low' => $lift,
-            'lift_basis' => $liftBasis,
+            self::FIELD_LIFT_BASIS => $liftBasis,
             self::FIELD_DEATH_CRITERION => [
                 'min_n' => self::DEATH_MIN_N,
                 'min_lift' => self::DEATH_MIN_LIFT,
@@ -202,7 +204,7 @@ final class PreReviewAdvisoryBand
             ],
             self::FIELD_SOURCE => [
                 'single_scalar_forbidden' => true,
-                'fabricates_rate_on_zero_n' => false,
+                self::FIELD_FABRICATES_RATE_ON_ZERO_N => false,
             ],
         ];
     }
