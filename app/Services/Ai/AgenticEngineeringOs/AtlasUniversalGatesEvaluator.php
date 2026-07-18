@@ -6789,6 +6789,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function envelopeCockpitFacadeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'envelope_field_department_route' => AaeosHttpPathEnvelopeFactory::FIELD_DEPARTMENT_ROUTE,
+            'envelope_field_domain' => AaeosHttpPathEnvelopeFactory::FIELD_DOMAIN,
+            'envelope_field_flow' => AaeosHttpPathEnvelopeFactory::FIELD_FLOW,
+            'envelope_field_flow_id' => AaeosHttpPathEnvelopeFactory::FIELD_FLOW_ID,
+            'envelope_field_gate_status' => AaeosHttpPathEnvelopeFactory::FIELD_GATE_STATUS,
+            'envelope_field_intent_id' => AaeosHttpPathEnvelopeFactory::FIELD_INTENT_ID,
+            'cockpit_field_current_phase' => AtlasMissionControlCockpitService::FIELD_CURRENT_PHASE,
+            'cockpit_field_department_count' => AtlasMissionControlCockpitService::FIELD_DEPARTMENT_COUNT,
+            'cockpit_field_ended_at' => AtlasMissionControlCockpitService::FIELD_ENDED_AT,
+            'cockpit_field_gate_report' => AtlasMissionControlCockpitService::FIELD_GATE_REPORT,
+            'cockpit_field_gates' => AtlasMissionControlCockpitService::FIELD_GATES,
+            'cockpit_field_generated_at' => AtlasMissionControlCockpitService::FIELD_GENERATED_AT,
+            'facade_field_configured_phase' => AtlasAaeosHttpPathFacadeService::FIELD_CONFIGURED_PHASE,
+            'facade_field_counters' => AtlasAaeosHttpPathFacadeService::FIELD_COUNTERS,
+            'facade_field_domain' => AtlasAaeosHttpPathFacadeService::FIELD_DOMAIN,
+            'facade_field_facade_active' => AtlasAaeosHttpPathFacadeService::FIELD_FACADE_ACTIVE,
+            'facade_field_flow' => AtlasAaeosHttpPathFacadeService::FIELD_FLOW,
+            'envelope_cockpit_facade_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

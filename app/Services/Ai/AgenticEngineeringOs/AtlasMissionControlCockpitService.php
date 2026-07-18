@@ -64,6 +64,12 @@ final class AtlasMissionControlCockpitService
     public const FIELD_BLOCKED_OR_QUARANTINED_COUNT = 'blocked_or_quarantined_count';
     public const FIELD_BLOCKER_SIGNAL = 'blocker_signal';
     public const FIELD_BLOCKERS = 'blockers';
+    public const FIELD_CURRENT_PHASE = 'current_phase';
+    public const FIELD_DEPARTMENT_COUNT = 'department_count';
+    public const FIELD_ENDED_AT = 'ended_at';
+    public const FIELD_GATE_REPORT = 'gate_report';
+    public const FIELD_GATES = 'gates';
+    public const FIELD_GENERATED_AT = 'generated_at';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
@@ -101,7 +107,7 @@ final class AtlasMissionControlCockpitService
 
         $journey = $this->buildJourney($phaseEnvelopes);
         $gateReport = $this->gates->evaluate($intentId, $gateSignals, $exceptionReceipts);
-        $departmentsCount = $this->departments->catalogue()['department_count'];
+        $departmentsCount = $this->departments->catalogue()[self::FIELD_DEPARTMENT_COUNT];
         $currentPhase = $this->currentPhase($journey);
         $blockers = $this->collectBlockers($phaseEnvelopes);
         $signatureRequired = $this->signatureRequired($currentPhase, $autonomyLevel);
@@ -113,10 +119,10 @@ final class AtlasMissionControlCockpitService
             self::FIELD_AUTONOMY_LEVEL => $autonomyLevel,
             'phase_count' => count(AaeosPhaseHandoffService::PHASES),
             'phases' => $journey,
-            'current_phase' => $currentPhase,
+            self::FIELD_CURRENT_PHASE => $currentPhase,
             'next_phase' => $currentPhase === null ? AaeosPhaseHandoffService::PHASES[0] : $this->phases->canonicalNextPhase($currentPhase),
-            'gate_report' => $gateReport,
-            'department_count' => $departmentsCount,
+            self::FIELD_GATE_REPORT => $gateReport,
+            self::FIELD_DEPARTMENT_COUNT => $departmentsCount,
             self::FIELD_BLOCKERS => $blockers,
             // WIRE-OBSERVE (Obra #7): severity reduction over the raw blocker
             // list — tells the operator whether the intent is blocked/warning/
@@ -129,7 +135,7 @@ final class AtlasMissionControlCockpitService
             'outcome_causality' => $this->outcomeCausalityFor($blockers, $gateReport),
             'operator_signature_required' => $signatureRequired,
             'provider_safe' => true,
-            'generated_at' => gmdate('c'),
+            self::FIELD_GENERATED_AT => gmdate('c'),
         ];
         if ($queueHealth !== null) {
             $payload['queue_health'] = $queueHealth;
@@ -292,13 +298,13 @@ final class AtlasMissionControlCockpitService
                 ];
                 continue;
             }
-            $gates = AiValueNormalizer::arrayOrEmpty($env['gates'] ?? null);
+            $gates = AiValueNormalizer::arrayOrEmpty($env[self::FIELD_GATES] ?? null);
             $blocked = AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_BLOCKED] ?? null);
             $passed = AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_PASSED] ?? null);
             $required = AiValueNormalizer::arrayOrEmpty($gates['required'] ?? null);
             $actor = AiValueNormalizer::arrayOrEmpty($env[self::FIELD_ACTOR] ?? null);
             $skipped = ! empty($env['skip_reason']);
-            $status = $skipped ? self::STATUS_SKIPPED : (count($blocked) > 0 ? self::STATUS_BLOCKED : ($env['ended_at'] ?? null ? self::STATUS_COMPLETE : self::STATUS_IN_PROGRESS));
+            $status = $skipped ? self::STATUS_SKIPPED : (count($blocked) > 0 ? self::STATUS_BLOCKED : ($env[self::FIELD_ENDED_AT] ?? null ? self::STATUS_COMPLETE : self::STATUS_IN_PROGRESS));
             $out[] = [
                 self::FIELD_PHASE => $phase,
                 self::FIELD_INDEX => $idx,

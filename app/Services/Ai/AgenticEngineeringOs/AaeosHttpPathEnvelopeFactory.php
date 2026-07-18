@@ -53,6 +53,12 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_COMMAND_INTENT = 'command_intent';
     public const FIELD_COMPANY_RUNTIME_INVOCATION = 'company_runtime_invocation';
     public const FIELD_DECISION_RECEIPT_V2_INVOCATION = 'decision_receipt_v2_invocation';
+    public const FIELD_DEPARTMENT_ROUTE = 'department_route';
+    public const FIELD_DOMAIN = 'domain';
+    public const FIELD_FLOW = 'flow';
+    public const FIELD_FLOW_ID = 'flow_id';
+    public const FIELD_GATE_STATUS = 'gate_status';
+    public const FIELD_INTENT_ID = 'intent_id';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -70,7 +76,7 @@ final class AaeosHttpPathEnvelopeFactory
             phaseOut: AaeosPhaseHandoffService::PHASE_INTENT_CAPTURE,
             actor: self::systemActor('aaeos.http_path_facade'),
             inputs: [self::FIELD_INTENT_HASH => $intentHash],
-            outputs: [self::FIELD_INTENT_HASH => $intentHash, 'intent_id' => $intentId],
+            outputs: [self::FIELD_INTENT_HASH => $intentHash, self::FIELD_INTENT_ID => $intentId],
             gates: self::binaryGate('surface_captured_intent', true),
         );
     }
@@ -125,9 +131,9 @@ final class AaeosHttpPathEnvelopeFactory
             inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
                 'placement_layer' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['layer'] ?? null) ?? self::STATUS_UNKNOWN,
-                'placement_domain' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['domain'] ?? null) ?? self::STATUS_UNKNOWN,
-                'placement_flow' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['flow'] ?? null) ?? self::STATUS_UNKNOWN,
-                'gate_status' => AiValueNormalizer::trimmedStringOrNull($placementResult['gate_status'] ?? null) ?? self::STATUS_UNKNOWN,
+                'placement_domain' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement'][self::FIELD_DOMAIN] ?? null) ?? self::STATUS_UNKNOWN,
+                'placement_flow' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement'][self::FIELD_FLOW] ?? null) ?? self::STATUS_UNKNOWN,
+                self::FIELD_GATE_STATUS => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_GATE_STATUS] ?? null) ?? self::STATUS_UNKNOWN,
             ],
             gates: self::binaryGate('placement_decision_feature_path_valid', $placementOk),
             blockers: $placementOk ? [] : self::blockedWhenAsBlockers($placementResult),
@@ -141,7 +147,7 @@ final class AaeosHttpPathEnvelopeFactory
     public function classification(string $intentId, string $intentHash, array $data): array
     {
         $router = self::routerFromData($data);
-        $flowId = AiValueNormalizer::trimmedStringOrNull($router['flow_id'] ?? null) ?? self::STATUS_UNKNOWN;
+        $flowId = AiValueNormalizer::trimmedStringOrNull($router[self::FIELD_FLOW_ID] ?? null) ?? self::STATUS_UNKNOWN;
         $commandIntent = AiValueNormalizer::trimmedStringOrNull($router[self::FIELD_COMMAND_INTENT] ?? null) ?? self::STATUS_UNKNOWN;
         $declared = $flowId !== self::STATUS_UNKNOWN;
 
@@ -152,7 +158,7 @@ final class AaeosHttpPathEnvelopeFactory
             actor: self::systemActor('aaeos.classification'),
             inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
-                'flow_id' => $flowId,
+                self::FIELD_FLOW_ID => $flowId,
                 self::FIELD_COMMAND_INTENT => $commandIntent,
                 'target_department_declared' => $declared ? 'yes' : 'no',
             ],
@@ -246,7 +252,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase3.routing.r1_r2_fast_path',
             self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
             self::FIELD_OUTPUTS => [
-                'department_route' => 'engineering_or_forge_pending_aawr',
+                self::FIELD_DEPARTMENT_ROUTE => 'engineering_or_forge_pending_aawr',
                 self::FIELD_COMPANY_RUNTIME_INVOCATION => 'deferred',
             ],
             self::FIELD_REQUIRED_GATE => 'department_route_owner_confirmed',

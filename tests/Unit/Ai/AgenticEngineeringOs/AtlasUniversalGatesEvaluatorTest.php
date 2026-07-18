@@ -5030,4 +5030,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     }
 
 
+    public function test_envelope_cockpit_facade_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->envelopeCockpitFacadeFloorsContractObserve([]);
+
+        $this->assertSame('department_route', $payload['envelope_field_department_route']);
+        $this->assertSame('domain', $payload['envelope_field_domain']);
+        $this->assertSame('flow', $payload['envelope_field_flow']);
+        $this->assertSame('flow_id', $payload['envelope_field_flow_id']);
+        $this->assertSame('gate_status', $payload['envelope_field_gate_status']);
+        $this->assertSame('intent_id', $payload['envelope_field_intent_id']);
+        $this->assertSame('current_phase', $payload['cockpit_field_current_phase']);
+        $this->assertSame('department_count', $payload['cockpit_field_department_count']);
+        $this->assertSame('ended_at', $payload['cockpit_field_ended_at']);
+        $this->assertSame('gate_report', $payload['cockpit_field_gate_report']);
+        $this->assertSame('gates', $payload['cockpit_field_gates']);
+        $this->assertSame('generated_at', $payload['cockpit_field_generated_at']);
+        $this->assertSame('configured_phase', $payload['facade_field_configured_phase']);
+        $this->assertSame('counters', $payload['facade_field_counters']);
+        $this->assertSame('domain', $payload['facade_field_domain']);
+        $this->assertSame('facade_active', $payload['facade_field_facade_active']);
+        $this->assertSame('flow', $payload['facade_field_flow']);
+        $this->assertSame(17, $payload['envelope_cockpit_facade_floor_count']);
+    }
+
+
 }

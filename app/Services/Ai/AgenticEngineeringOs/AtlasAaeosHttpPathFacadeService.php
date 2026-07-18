@@ -67,6 +67,11 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD_BLOCKERS = 'blockers';
     public const FIELD_CANONICAL_CALLS = 'canonical_calls';
     public const FIELD_CODE = 'code';
+    public const FIELD_CONFIGURED_PHASE = 'configured_phase';
+    public const FIELD_COUNTERS = 'counters';
+    public const FIELD_DOMAIN = 'domain';
+    public const FIELD_FACADE_ACTIVE = 'facade_active';
+    public const FIELD_FLOW = 'flow';
 
     public const BLOCK_PLACEMENT_GATE_BLOCKED = 'placement_gate_blocked';
 
@@ -280,10 +285,10 @@ final class AtlasAaeosHttpPathFacadeService
     {
         return [
             'schema' => self::STATUS_SCHEMA,
-            'configured_phase' => $configuredPhase,
-            'facade_active' => self::isActive($configuredPhase),
+            self::FIELD_CONFIGURED_PHASE => $configuredPhase,
+            self::FIELD_FACADE_ACTIVE => self::isActive($configuredPhase),
             'phase_router' => (new AtlasAaeosPhaseRouterService($configuredPhase))->statusSnapshot(),
-            'counters' => [
+            self::FIELD_COUNTERS => [
                 'requests' => (int) $this->cache->get(self::TELEMETRY_KEY_REQUESTS, 0),
                 self::FIELD_CANONICAL_CALLS => (int) $this->cache->get(self::TELEMETRY_KEY_CANONICAL, 0),
                 'legacy_fallback' => (int) $this->cache->get(self::TELEMETRY_KEY_LEGACY_FALLBACK, 0),
@@ -391,8 +396,8 @@ final class AtlasAaeosHttpPathFacadeService
             'placement_decision' => [
                 self::FIELD_GATE_STATUS => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_GATE_STATUS] ?? null) ?? self::RESULT_UNKNOWN,
                 'layer' => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT]['layer'] ?? null) ?? self::RESULT_UNKNOWN,
-                'domain' => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT]['domain'] ?? null) ?? self::RESULT_UNKNOWN,
-                'flow' => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT]['flow'] ?? null) ?? self::RESULT_UNKNOWN,
+                self::FIELD_DOMAIN => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_DOMAIN] ?? null) ?? self::RESULT_UNKNOWN,
+                self::FIELD_FLOW => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_FLOW] ?? null) ?? self::RESULT_UNKNOWN,
                 'requires_ap' => (AiValueNormalizer::boolOrNull($placementResult[self::FIELD_PLACEMENT]['requires_ap'] ?? null) ?? false),
             ],
             self::FIELD_ENVELOPES => $envelopes,
