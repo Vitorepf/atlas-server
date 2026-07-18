@@ -18218,4 +18218,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B670).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b670NCaptureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'path' => AtlasNCaptureDrillService::FIELD_PATH,
+            'peek_mode' => AtlasNCaptureDrillService::FIELD_PEEK_MODE,
+            'atlas.acos_max.n_capture_drill.v1' => AtlasNCaptureDrillService::SCHEMA_VERSION,
+            'atlas.n_capture_drill.v1' => AtlasNCaptureDrillService::MEASURE_ID,
+            'n_capture_drill.v1' => AtlasNCaptureDrillService::FORMULA_VERSION,
+            'app/atlas/evidence/acos-max-teto-01-n-capture-drill.jsonl' => AtlasNCaptureDrillService::RELATIVE_LEDGER_PATH,
+            '180' => AtlasNCaptureDrillService::DEFAULT_DAYS_BETWEEN_DRILLS_MAX,
+            'measure_freeze' => AtlasNCaptureDrillService::KIND_MEASURE_FREEZE,
+            'maxk02' => AtlasNCaptureDrillService::COLD_START_CHANNEL_MAXK02,
+            'drill_receipt_incomplete' => AtlasNCaptureDrillService::REASON_DRILL_RECEIPT_INCOMPLETE,
+            'admission_via_bypass_forbidden' => AtlasNCaptureDrillService::REASON_ADMISSION_VIA_BYPASS_FORBIDDEN,
+            'cold_start_channel_invalid' => AtlasNCaptureDrillService::REASON_COLD_START_CHANNEL_INVALID,
+            'capability_spec_violation' => AtlasNCaptureDrillService::REASON_CAPABILITY_SPEC_VIOLATION,
+            'yardstick_failed_but_admitted' => AtlasNCaptureDrillService::REASON_YARDSTICK_FAILED_BUT_ADMITTED,
+            'unknown' => AtlasNCaptureDrillService::TRIGGER_UNKNOWN,
+            'ok' => AtlasNCaptureDrillService::FIELD_OK,
+            'insufficient_signal' => AtlasNCaptureDrillService::STATUS_INSUFFICIENT_SIGNAL,
+            'reason' => AtlasNCaptureDrillService::FIELD_REASON,
+            'b670_n_capture_floor_count' => 18,
+        ];
+    }
+
 }

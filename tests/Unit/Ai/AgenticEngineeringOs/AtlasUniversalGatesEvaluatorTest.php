@@ -14424,4 +14424,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b669_dev_procedural_floor_count']);
     }
 
+    public function test_b670_n_capture_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b670NCaptureFloorsContractObserve([]);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_PATH, $out['path']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_PEEK_MODE, $out['peek_mode']);
+        $this->assertSame(AtlasNCaptureDrillService::SCHEMA_VERSION, $out['atlas.acos_max.n_capture_drill.v1']);
+        $this->assertSame(AtlasNCaptureDrillService::MEASURE_ID, $out['atlas.n_capture_drill.v1']);
+        $this->assertSame(AtlasNCaptureDrillService::FORMULA_VERSION, $out['n_capture_drill.v1']);
+        $this->assertSame(AtlasNCaptureDrillService::RELATIVE_LEDGER_PATH, $out['app/atlas/evidence/acos-max-teto-01-n-capture-drill.jsonl']);
+        $this->assertSame(AtlasNCaptureDrillService::DEFAULT_DAYS_BETWEEN_DRILLS_MAX, $out['180']);
+        $this->assertSame(AtlasNCaptureDrillService::KIND_MEASURE_FREEZE, $out['measure_freeze']);
+        $this->assertSame(AtlasNCaptureDrillService::COLD_START_CHANNEL_MAXK02, $out['maxk02']);
+        $this->assertSame(AtlasNCaptureDrillService::REASON_DRILL_RECEIPT_INCOMPLETE, $out['drill_receipt_incomplete']);
+        $this->assertSame(AtlasNCaptureDrillService::REASON_ADMISSION_VIA_BYPASS_FORBIDDEN, $out['admission_via_bypass_forbidden']);
+        $this->assertSame(AtlasNCaptureDrillService::REASON_COLD_START_CHANNEL_INVALID, $out['cold_start_channel_invalid']);
+        $this->assertSame(AtlasNCaptureDrillService::REASON_CAPABILITY_SPEC_VIOLATION, $out['capability_spec_violation']);
+        $this->assertSame(AtlasNCaptureDrillService::REASON_YARDSTICK_FAILED_BUT_ADMITTED, $out['yardstick_failed_but_admitted']);
+        $this->assertSame(AtlasNCaptureDrillService::TRIGGER_UNKNOWN, $out['unknown']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_OK, $out['ok']);
+        $this->assertSame(AtlasNCaptureDrillService::STATUS_INSUFFICIENT_SIGNAL, $out['insufficient_signal']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_REASON, $out['reason']);
+        $this->assertSame(18, $out['b670_n_capture_floor_count']);
+    }
+
 }
