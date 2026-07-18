@@ -77,6 +77,7 @@ final class ExploratoryBetsPortfolio
     public const FIELD_OFF = 'off';
     public const FIELD_ORIGINATED_SLICE_SUB_POLICY = 'originated_slice_sub_policy';
     public const FIELD_ATLAS_LOOP_EXPLORATORY_BETS_PORTFOLIO_ENABLED = 'atlas.loop.exploratory_bets_portfolio_enabled';
+    public const FLOAT_1_0 = 1.0;
     public const FLOAT_0_0 = 0.0;
 
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
@@ -208,7 +209,7 @@ final class ExploratoryBetsPortfolio
             self::FIELD_PATH => $path,
             self::FIELD_CANDIDATE_ID => AiValueNormalizer::trimmedStringOrNull($bet[self::FIELD_ID] ?? null) ?? $path,
             self::FIELD_CAUSAL_EFFECT => $effect,
-            self::FIELD_PATH_WEIGHT_MULTIPLIER => 1.0,
+            self::FIELD_PATH_WEIGHT_MULTIPLIER => self::FLOAT_1_0,
         ];
 
         if (($effect[self::FIELD_ADMIT_COMPOUNDING] ?? false) === true) {

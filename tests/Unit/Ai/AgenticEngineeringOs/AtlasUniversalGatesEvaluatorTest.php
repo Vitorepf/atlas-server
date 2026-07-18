@@ -10730,4 +10730,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b519_measure_series_lote_ledger_rotation_window_orchestrator_acos_floor_count']);
     }
 
+    public function test_b520_measure_series_lote_memory_recall_evidence_vision_execution_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b520MeasureSeriesLoteMemoryRecallEvidenceVisionExecutionFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ACOS_DEAD_SERIES_WATCHDOG_V1, $out['acos.dead_series_watchdog.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ACOS_ESP00_GROUND_TRUTH_V1, $out['acos.esp00.ground_truth.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_AOBG_LATENCY_LEDGER_V1, $out['aobg.latency_ledger.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_CAPTURE_COGNITIVE_IMMUNE_AUDIT_V2, $out['atlas.capture.cognitive_immune_audit.v2']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_EVIDENCE_LEDGER_HASH_CHAIN_V1, $out['atlas.evidence_ledger.hash_chain.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_PROVIDER_LEAK_CORPUS_V1, $out['atlas.provider_leak_corpus.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTX_FLYWHEEL_LOOP_DEFINITION_V1, $out['multx.flywheel_loop_definition.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTX_LEARNING_LATENCY_V1, $out['multx.learning_latency.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTX_WINDOWS_ORCHESTRATOR_V1, $out['multx.windows_orchestrator.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_THRESHOLDS_COSINE_MERGE_THRESHOLD, $out['thresholds.cosine_merge_threshold']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_THRESHOLDS_DENOMINATOR_MIN_PAIRS, $out['thresholds.denominator_min_pairs']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::INT_5, $out['5']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::INT_2, $out['2']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FLOAT_0_0, $out['0.0']);
+        $this->assertSame(ExploratoryBetsPortfolio::FLOAT_1_0, $out['1.0']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_ATLAS_SEMANTIC_MEMORY_SEMANTIC_RAG_MODEL, $out['atlas.semantic_memory.semantic_rag_model']);
+        $this->assertSame(PortfolioBudgetAllocator::FLOAT_1_0, $out['1.0']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::INT_3, $out['3']);
+        $this->assertSame(18, $out['b520_measure_series_lote_memory_recall_evidence_vision_execution_floor_count']);
+    }
+
 }

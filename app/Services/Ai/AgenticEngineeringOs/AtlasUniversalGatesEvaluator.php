@@ -13629,4 +13629,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B520).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b520MeasureSeriesLoteMemoryRecallEvidenceVisionExecutionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'acos.dead_series_watchdog.v1' => AcosMaxMeasureSeriesRegistry::FIELD_ACOS_DEAD_SERIES_WATCHDOG_V1,
+            'acos.esp00.ground_truth.v1' => AcosMaxMeasureSeriesRegistry::FIELD_ACOS_ESP00_GROUND_TRUTH_V1,
+            'aobg.latency_ledger.v1' => AcosMaxMeasureSeriesRegistry::FIELD_AOBG_LATENCY_LEDGER_V1,
+            'atlas.capture.cognitive_immune_audit.v2' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_CAPTURE_COGNITIVE_IMMUNE_AUDIT_V2,
+            'atlas.evidence_ledger.hash_chain.v1' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_EVIDENCE_LEDGER_HASH_CHAIN_V1,
+            'atlas.provider_leak_corpus.v1' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_PROVIDER_LEAK_CORPUS_V1,
+            'multx.flywheel_loop_definition.v1' => AcosMaxLote2MeasureService::FIELD_MULTX_FLYWHEEL_LOOP_DEFINITION_V1,
+            'multx.learning_latency.v1' => AcosMaxLote2MeasureService::FIELD_MULTX_LEARNING_LATENCY_V1,
+            'multx.windows_orchestrator.v1' => AcosMaxLote2MeasureService::FIELD_MULTX_WINDOWS_ORCHESTRATOR_V1,
+            'thresholds.cosine_merge_threshold' => AcosMaxLote2MeasureService::FIELD_THRESHOLDS_COSINE_MERGE_THRESHOLD,
+            'thresholds.denominator_min_pairs' => AcosMaxLote2MeasureService::FIELD_THRESHOLDS_DENOMINATOR_MIN_PAIRS,
+            '5' => AtlasMemoryRecallRelevanceScorer::INT_5,
+            '2' => EvidenceVisionThesisLifecycle::INT_2,
+            '0.0' => ExecutionContextCooccurrenceService::FLOAT_0_0,
+            '1.0' => ExploratoryBetsPortfolio::FLOAT_1_0,
+            'atlas.semantic_memory.semantic_rag_model' => Maxa04JinaV3DualReadService::FIELD_ATLAS_SEMANTIC_MEMORY_SEMANTIC_RAG_MODEL,
+            '1.0' => PortfolioBudgetAllocator::FLOAT_1_0,
+            '3' => Teto10PredictedRevertReviewDigest::INT_3,
+            'b520_measure_series_lote_memory_recall_evidence_vision_execution_floor_count' => 18,
+        ];
+    }
+
 }

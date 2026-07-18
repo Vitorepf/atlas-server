@@ -55,6 +55,7 @@ final class ExecutionContextCooccurrenceService
     public const FIELD_USED_REF_COUNT = 'used_ref_count';
     public const FIELD_USED_REFS = 'used_refs';
     public const FIELD_CORRELATIONAL_COOCCURRENCE = 'correlational_cooccurrence';
+    public const FLOAT_0_0 = 0.0;
 
 
     /**
@@ -87,7 +88,7 @@ final class ExecutionContextCooccurrenceService
                 self::FIELD_DENOMINATOR => [
                     self::FIELD_RUNS => 0,
                     self::FIELD_MEASURED_RUNS => 0,
-                    self::FIELD_MEASURED_SHARE => 0.0,
+                    self::FIELD_MEASURED_SHARE => self::FLOAT_0_0,
                 ],
                 self::FIELD_COOCCURRENCES => [],
             ]);

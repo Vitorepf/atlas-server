@@ -107,6 +107,12 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_REC_06 = 'REC-06';
     public const FIELD_TETO_01 = 'TETO-01';
     public const FIELD_ACOS_ASI05_LEDGER_CLEANUP_V1 = 'acos.asi05.ledger_cleanup.v1';
+    public const FIELD_ACOS_DEAD_SERIES_WATCHDOG_V1 = 'acos.dead_series_watchdog.v1';
+    public const FIELD_ACOS_ESP00_GROUND_TRUTH_V1 = 'acos.esp00.ground_truth.v1';
+    public const FIELD_AOBG_LATENCY_LEDGER_V1 = 'aobg.latency_ledger.v1';
+    public const FIELD_ATLAS_CAPTURE_COGNITIVE_IMMUNE_AUDIT_V2 = 'atlas.capture.cognitive_immune_audit.v2';
+    public const FIELD_ATLAS_EVIDENCE_LEDGER_HASH_CHAIN_V1 = 'atlas.evidence_ledger.hash_chain.v1';
+    public const FIELD_ATLAS_PROVIDER_LEAK_CORPUS_V1 = 'atlas.provider_leak_corpus.v1';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -177,7 +183,7 @@ final class AcosMaxMeasureSeriesRegistry
         return [
             [
                 self::FIELD_SLICE => self::FIELD_MAXG_01,
-                self::FIELD_SERIES => 'aobg.latency_ledger.v1',
+                self::FIELD_SERIES => self::FIELD_AOBG_LATENCY_LEDGER_V1,
                 self::FIELD_PATH => storage_path(AtlasAobgLatencyLedger::DEFAULT_RELATIVE_DIR),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL_DIR,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_TS,
@@ -213,7 +219,7 @@ final class AcosMaxMeasureSeriesRegistry
             ],
             [
                 self::FIELD_SLICE => self::FIELD_ESP_00,
-                self::FIELD_SERIES => 'acos.esp00.ground_truth.v1',
+                self::FIELD_SERIES => self::FIELD_ACOS_ESP00_GROUND_TRUTH_V1,
                 self::FIELD_PATH => storage_path('app/atlas/evidence/acos-max-esp-00-ground-truth.jsonl'),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
@@ -222,7 +228,7 @@ final class AcosMaxMeasureSeriesRegistry
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXL_02,
-                self::FIELD_SERIES => 'atlas.evidence_ledger.hash_chain.v1',
+                self::FIELD_SERIES => self::FIELD_ATLAS_EVIDENCE_LEDGER_HASH_CHAIN_V1,
                 self::FIELD_TABLE => self::FIELD_ATLAS_LEDGER_EVENTS,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_OCCURRED_AT,
@@ -240,7 +246,7 @@ final class AcosMaxMeasureSeriesRegistry
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXI_02,
-                self::FIELD_SERIES => 'atlas.capture.cognitive_immune_audit.v2',
+                self::FIELD_SERIES => self::FIELD_ATLAS_CAPTURE_COGNITIVE_IMMUNE_AUDIT_V2,
                 self::FIELD_TABLE => self::FIELD_CAPTURES,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_CREATED_AT,
@@ -258,7 +264,7 @@ final class AcosMaxMeasureSeriesRegistry
             ],
             [
                 self::FIELD_SLICE => self::FIELD_ELEV_20S,
-                self::FIELD_SERIES => 'acos.dead_series_watchdog.v1',
+                self::FIELD_SERIES => self::FIELD_ACOS_DEAD_SERIES_WATCHDOG_V1,
                 self::FIELD_TABLE => self::FIELD_ATLAS_LEDGER_EVENTS,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_OCCURRED_AT,
@@ -518,7 +524,7 @@ final class AcosMaxMeasureSeriesRegistry
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXM_01,
-                self::FIELD_SERIES => 'atlas.provider_leak_corpus.v1',
+                self::FIELD_SERIES => self::FIELD_ATLAS_PROVIDER_LEAK_CORPUS_V1,
                 self::FIELD_PATH => storage_path('app/atlas/evidence/acos-max-maxm01-provider-leak-corpus.jsonl'),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,

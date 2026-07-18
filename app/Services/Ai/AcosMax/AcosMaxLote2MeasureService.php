@@ -321,6 +321,11 @@ final class AcosMaxLote2MeasureService
     public const FIELD_MULTJ_PROCEDURAL_SKILL_PROMOTER_V1 = 'multj.procedural_skill_promoter.v1';
     public const FIELD_MULTJ_SEMANTIC_DEDUP_FREEZE_V1 = 'multj.semantic_dedup_freeze.v1';
     public const FIELD_MULTN17_PREDICTED_IMPACT_CALIBRATION_V1 = 'multn17.predicted_impact_calibration.v1';
+    public const FIELD_MULTX_FLYWHEEL_LOOP_DEFINITION_V1 = 'multx.flywheel_loop_definition.v1';
+    public const FIELD_MULTX_LEARNING_LATENCY_V1 = 'multx.learning_latency.v1';
+    public const FIELD_MULTX_WINDOWS_ORCHESTRATOR_V1 = 'multx.windows_orchestrator.v1';
+    public const FIELD_THRESHOLDS_COSINE_MERGE_THRESHOLD = 'thresholds.cosine_merge_threshold';
+    public const FIELD_THRESHOLDS_DENOMINATOR_MIN_PAIRS = 'thresholds.denominator_min_pairs';
     public const INT_20 = 20;
     public const INT_30 = 30;
 
@@ -898,7 +903,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_MODE => self::MODE_OBSERVE,
             self::FIELD_WOULD_MERGE_COUNT => 0,
             self::FIELD_ACTUAL_MERGE_COUNT => 0,
-            self::FIELD_THRESHOLD => data_get(self::freezePayload(self::FIELD_MULTJ_02), 'thresholds.cosine_merge_threshold'),
+            self::FIELD_THRESHOLD => data_get(self::freezePayload(self::FIELD_MULTJ_02), self::FIELD_THRESHOLDS_COSINE_MERGE_THRESHOLD),
             self::FIELD_REVERSIBLE_RECEIPT_REQUIRED => true,
         ]);
     }
@@ -906,7 +911,7 @@ final class AcosMaxLote2MeasureService
     /** @return array<string,mixed> */
     public function multj03CounterfactualLift(): array
     {
-        $denominatorMin = (int) data_get(self::freezePayload(self::FIELD_MULTJ_03), 'thresholds.denominator_min_pairs', 8);
+        $denominatorMin = (int) data_get(self::freezePayload(self::FIELD_MULTJ_03), self::FIELD_THRESHOLDS_DENOMINATOR_MIN_PAIRS, 8);
         $sampleRate = AiValueNormalizer::finiteFloatOrNull(data_get(self::freezePayload(self::FIELD_MULTJ_03), 'thresholds.sample_rate', 0.05)) ?? 0.05;
 
         if (! Schema::hasTable(self::FIELD_AI_RAG_FEEDBACK_EVENTS)) {
@@ -1187,9 +1192,9 @@ final class AcosMaxLote2MeasureService
         return [
             self::FIELD_MAXL_06 => self::payload(self::MAXL06_MEASURE_ID, self::FIELD_MAXL06_DELTA_ATTRIBUTION_V1, 'Report-only attribution joins daily measure deltas to lineage decision_ids/commits; when lineage is absent, basis must be labeled and causal language must use correlational_attribution.', 1, 30, self::FIELD_CURSOR_ACOS_MAX_MAXL06, self::FIELD_CODEX_INDEPENDENT_MAXL06_JUDGE, [self::FIELD_ALLOWED_BASIS => [self::FIELD_LINEAGE_LEDGER, self::FIELD_GIT_LOG], self::FIELD_COUNTERFACTUAL_BASIS => self::FIELD_NONE]),
             self::FIELD_MULTN17_04 => self::payload(self::MULTN1704_MEASURE_ID, self::FIELD_MULTN17_PREDICTED_IMPACT_CALIBRATION_V1, 'Derived predicted_impact band versus realized proven_real outcome curve for origination; report-only until at least 20 real originations resolve.', 20, 30, self::FIELD_CURSOR_ACOS_MAX_MULTN17_04, self::FIELD_CODEX_INDEPENDENT_MULTN17_04_JUDGE, [self::FIELD_DENOMINATOR_MIN_ORIGINATIONS => self::INT_20, self::FIELD_MAX_ABS_DECLARED_REALIZED_DEVIATION => 1]),
-            self::FIELD_MULTX_01 => self::payload(self::MULTX01_MEASURE_ID, 'multx.flywheel_loop_definition.v1', 'A valid loop chains task, decision receipt, delivered context, execution outcome, lesson, and subsequent measured recall; proven_real outcome is mandatory.', 1, 30, self::FIELD_CURSOR_ACOS_MAX_MULTX01, self::FIELD_CODEX_INDEPENDENT_MULTX01_JUDGE, [self::FIELD_REQUIRES_PROVEN_REAL_OUTCOME => true]),
-            self::FIELD_MULTX_06 => self::payload(self::MULTX06_MEASURE_ID, 'multx.learning_latency.v1', 'Measure p50/p95 latency from outcome-created lesson to first delivered context and first measured citation; never_delivered remains in denominator.', 8, 30, self::FIELD_CURSOR_ACOS_MAX_MULTX06, self::FIELD_CODEX_INDEPENDENT_MULTX06_JUDGE, [self::FIELD_DENOMINATOR_MIN_PROMOTED_LESSONS => 8]),
-            self::FIELD_MULTX_09 => self::payload(self::MULTX09_MEASURE_ID, 'multx.windows_orchestrator.v1', 'Read-only PromotionProtocol window DAG: started windows publish days_remaining and critical path; not-started windows never receive fabricated ETA; associated series silence beyond the watchdog floor emits dead_window.', 1, 30, self::FIELD_CURSOR_ACOS_MAX_MULTX09, self::FIELD_CODEX_INDEPENDENT_MULTX09_JUDGE, [self::FIELD_DEAD_WINDOW_SILENT_DAYS => 3, self::FIELD_NOT_STARTED_ETA_ALLOWED => false, self::FIELD_READ_ONLY => true]),
+            self::FIELD_MULTX_01 => self::payload(self::MULTX01_MEASURE_ID, self::FIELD_MULTX_FLYWHEEL_LOOP_DEFINITION_V1, 'A valid loop chains task, decision receipt, delivered context, execution outcome, lesson, and subsequent measured recall; proven_real outcome is mandatory.', 1, 30, self::FIELD_CURSOR_ACOS_MAX_MULTX01, self::FIELD_CODEX_INDEPENDENT_MULTX01_JUDGE, [self::FIELD_REQUIRES_PROVEN_REAL_OUTCOME => true]),
+            self::FIELD_MULTX_06 => self::payload(self::MULTX06_MEASURE_ID, self::FIELD_MULTX_LEARNING_LATENCY_V1, 'Measure p50/p95 latency from outcome-created lesson to first delivered context and first measured citation; never_delivered remains in denominator.', 8, 30, self::FIELD_CURSOR_ACOS_MAX_MULTX06, self::FIELD_CODEX_INDEPENDENT_MULTX06_JUDGE, [self::FIELD_DENOMINATOR_MIN_PROMOTED_LESSONS => 8]),
+            self::FIELD_MULTX_09 => self::payload(self::MULTX09_MEASURE_ID, self::FIELD_MULTX_WINDOWS_ORCHESTRATOR_V1, 'Read-only PromotionProtocol window DAG: started windows publish days_remaining and critical path; not-started windows never receive fabricated ETA; associated series silence beyond the watchdog floor emits dead_window.', 1, 30, self::FIELD_CURSOR_ACOS_MAX_MULTX09, self::FIELD_CODEX_INDEPENDENT_MULTX09_JUDGE, [self::FIELD_DEAD_WINDOW_SILENT_DAYS => 3, self::FIELD_NOT_STARTED_ETA_ALLOWED => false, self::FIELD_READ_ONLY => true]),
             self::FIELD_MULTJ_01 => self::payload(self::MULTJ01_MEASURE_ID, self::FIELD_MULTJ_LESSON_HALF_LIFE_V2, 'Bucket lesson lift by age since promotion using two-week buckets; buckets below n=8 publish insufficient instead of null.', 8, 30, self::FIELD_CURSOR_ACOS_MAX_MULTJ01, self::FIELD_CODEX_INDEPENDENT_MULTJ01_JUDGE, [self::FIELD_BUCKET_WIDTH_WEEKS => 2, self::FIELD_DENOMINATOR_MIN_PER_BUCKET => 8]),
             self::FIELD_MULTJ_02 => self::payload(self::MULTJ02_MEASURE_ID, self::FIELD_MULTJ_SEMANTIC_DEDUP_FREEZE_V1, 'Semantic lesson dedup threshold freeze for observe-mode would-merge receipts; enforcement requires later calibrated promotion.', 1, 30, self::FIELD_CURSOR_ACOS_MAX_MULTJ02, self::FIELD_CODEX_INDEPENDENT_MULTJ02_JUDGE, [self::FIELD_COSINE_MERGE_THRESHOLD => 0.88, self::FIELD_OBSERVE_MODE_ACTUAL_MERGES => 0]),
             self::FIELD_MULTJ_03 => self::payload(self::MULTJ03_MEASURE_ID, self::FIELD_MULTJ_COUNTERFACTUAL_LIFT_V2, 'Paired peek evaluation of the same task with and without injected lesson; n_pairs below 8 publishes insufficient_signal and peek must not record usage.', 8, 30, self::FIELD_CURSOR_ACOS_MAX_MULTJ03, self::FIELD_CODEX_INDEPENDENT_MULTJ03_JUDGE, [self::FIELD_SAMPLE_RATE => 0.05, self::FIELD_DENOMINATOR_MIN_PAIRS => 8, self::FIELD_RECORD_USAGE_FOR_PEEK => false]),

@@ -59,6 +59,7 @@ final class EvidenceVisionThesisLifecycle
     public const FIELD_STAGE = 'stage';
     public const FIELD_DEFAULT = 'default';
     public const FIELD_SHA256 = 'sha256';
+    public const INT_2 = 2;
 
     /** @var array<string,array<string,mixed>> */
     private static array $active = [];
@@ -290,7 +291,7 @@ final class EvidenceVisionThesisLifecycle
             }
         }
 
-        return $remaining < 2;
+        return $remaining < self::INT_2;
     }
 
     /**

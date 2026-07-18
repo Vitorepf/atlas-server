@@ -56,6 +56,7 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_COMMAND = 'command';
     public const FIELD_DECISION = 'decision';
     public const FIELD_MEMORY = 'memory';
+    public const INT_5 = 5;
     public const INT_8 = 8;
     public const INT_4 = 4;
     public const INT_22 = 22;
@@ -129,7 +130,7 @@ final class AtlasMemoryRecallRelevanceScorer
             self::FIELD_ISSUE, self::FIELD_FAILURE => self::INT_14,
             self::FIELD_TECHNICAL_CONTEXT, self::FIELD_COMMAND, self::FIELD_EVIDENCE, self::FIELD_HARNESS_LEARNING => self::INT_11,
             self::FIELD_PREFERENCE, self::FIELD_FEEDBACK => self::INT_8,
-            default => 5,
+            default => self::INT_5,
         };
     }
 

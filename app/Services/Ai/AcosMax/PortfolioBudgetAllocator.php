@@ -94,6 +94,7 @@ final class PortfolioBudgetAllocator
     public const FIELD_OFF = 'off';
     public const FIELD_PORTFOLIO_ALLOCATION = 'portfolio_allocation';
     public const FIELD_ATLAS_MULTK_06_PORTFOLIO_ALLOCATION_ENABLED = 'atlas.multk_06.portfolio_allocation_enabled';
+    public const FLOAT_1_0 = 1.0;
     public const FLOAT_0_0 = 0.0;
     public const INT_12 = 12;
 
@@ -255,7 +256,7 @@ final class PortfolioBudgetAllocator
         $floors = [];
         $caps = [];
         foreach (self::CLASSES as $class) {
-            $band = $ceilings[$class] ?? [self::FIELD_MIN => self::FLOAT_0_0, self::FIELD_MAX => 1.0];
+            $band = $ceilings[$class] ?? [self::FIELD_MIN => self::FLOAT_0_0, self::FIELD_MAX => self::FLOAT_1_0];
             $floors[$class] = max(self::HARD_FLOOR_SHARE, $band[self::FIELD_MIN]);
             $cap = min(self::HARD_CEILING_SHARE, $band[self::FIELD_MAX]);
             $caps[$class] = max($cap, $floors[$class]);
@@ -284,7 +285,7 @@ final class PortfolioBudgetAllocator
             $freeInput = self::FLOAT_0_0;
             foreach (self::CLASSES as $class) {
                 if (! isset($frozen[$class])) {
-                    $freeSum += 1.0;
+                    $freeSum += self::FLOAT_1_0;
                     $freeInput += $out[$class];
                 }
             }

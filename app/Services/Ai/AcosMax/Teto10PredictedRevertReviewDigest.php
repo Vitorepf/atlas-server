@@ -56,7 +56,7 @@ final class Teto10PredictedRevertReviewDigest
         self::BAND_HIGH => 0,
         self::BAND_SWEET => 1,
         self::BAND_LOW => self::INT_2,
-        self::BAND_UNKNOWN => 3,
+        self::BAND_UNKNOWN => self::INT_3,
     ];
 
     public const DEFAULT_LIMIT = 50;
@@ -105,6 +105,7 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_REVERSIBLE = 'reversible';
     public const FIELD_ROLLBACK_COMMAND = 'rollback_command';
     public const FIELD_TETO_10 = 'TETO-10';
+    public const INT_3 = 3;
     public const INT_2 = 2;
 
     /**

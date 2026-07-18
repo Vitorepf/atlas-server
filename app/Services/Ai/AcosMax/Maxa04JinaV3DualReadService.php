@@ -90,6 +90,7 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_CANDIDATE_REGRESSION_OR_UNMEASURED = 'candidate_regression_or_unmeasured';
     public const FIELD_MAXA_04 = 'MAXA-04';
     public const FIELD_ATLAS_SEMANTIC_MEMORY_EMBEDDING_DIMENSIONS = 'atlas.semantic_memory.embedding_dimensions';
+    public const FIELD_ATLAS_SEMANTIC_MEMORY_SEMANTIC_RAG_MODEL = 'atlas.semantic_memory.semantic_rag_model';
     public const INT_8192 = 8192;
 
 
@@ -97,7 +98,7 @@ final class Maxa04JinaV3DualReadService
     public function plan(): array
     {
         $currentModel = AiValueNormalizer::trimmedScalarStringOrNull($this->configValue(
-            'atlas.semantic_memory.semantic_rag_model',
+            self::FIELD_ATLAS_SEMANTIC_MEMORY_SEMANTIC_RAG_MODEL,
             self::CURRENT_MODEL_FALLBACK,
         )) ?? self::CURRENT_MODEL_FALLBACK;
 
