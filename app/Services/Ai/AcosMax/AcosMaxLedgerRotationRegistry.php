@@ -46,6 +46,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_RATIONALE = 'rationale';
     public const FIELD_ACOS_ASI05_LEDGER_CLEANUP_V1 = 'acos.asi05.ledger_cleanup.v1';
     public const FIELD_ACOS_DEAD_SERIES_WATCHDOG_V1 = 'acos.dead_series_watchdog.v1';
+    public const FIELD_ACOS_ESP00_GROUND_TRUTH_V1 = 'acos.esp00.ground_truth.v1';
+    public const FIELD_ACOS_FLYWHEEL_LOOPS_V1 = 'acos.flywheel.loops.v1';
     public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
@@ -117,7 +119,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
                 self::FIELD_RATIONALE => 'one-time cleanup receipt; audit forever',
             ],
-            'acos.esp00.ground_truth.v1' => [
+            self::FIELD_ACOS_ESP00_GROUND_TRUTH_V1 => [
                 self::FIELD_MAX_SIZE_MB => 8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_365,
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
@@ -237,7 +239,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTN17-04 originator impact',
             ],
-            'acos.flywheel.loops.v1' => [
+            self::FIELD_ACOS_FLYWHEEL_LOOPS_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,

@@ -132,6 +132,8 @@ final class AtlasNCaptureDrillService
     public const FIELD_UTC = 'UTC';
     public const FIELD_ADMISSION_ADMITTED = 'admission.admitted';
     public const FIELD_ADMISSION_BYPASS = 'admission.bypass';
+    public const FIELD_ADMISSION_COLD_START_VIA = 'admission.cold_start_via';
+    public const FIELD_CAPABILITY_SPEC_VERIFIED = 'capability_spec.verified';
     public const INT_365 = 365;
 
     private readonly string $ledgerPath;
@@ -160,13 +162,13 @@ final class AtlasNCaptureDrillService
                 self::FIELD_PEEK_ONLY => true,
                 self::FIELD_REQUIRED_FIELDS => [
                     'engine_id',
-                    'capability_spec.verified',
+                    self::FIELD_CAPABILITY_SPEC_VERIFIED,
                     'yardstick.golden_v2_passed',
                     'times.time_to_first_routed_task_seconds',
                     'times.time_to_first_proven_real_seconds',
                     'times.hours_of_integration',
                     self::FIELD_ADMISSION_ADMITTED,
-                    'admission.cold_start_via',
+                    self::FIELD_ADMISSION_COLD_START_VIA,
                     self::FIELD_ADMISSION_BYPASS,
                 ],
             ],
@@ -206,7 +208,7 @@ final class AtlasNCaptureDrillService
             self::FIELD_ENGINE_ID => AiValueNormalizer::trimmedScalarStringOrNull($drill[self::FIELD_ENGINE_ID] ?? null) ?? '',
             self::FIELD_CAPABILITY_SPEC => [
                 self::FIELD_FUNCTION => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'capability_spec.function')) ?? self::FIELD_ENGINE,
-                self::FIELD_VERIFIED => (AiValueNormalizer::boolOrNull(data_get($drill, 'capability_spec.verified')) ?? false),
+                self::FIELD_VERIFIED => (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_CAPABILITY_SPEC_VERIFIED)) ?? false),
                 self::FIELD_VIOLATIONS => array_values(AiValueNormalizer::arrayOrEmpty(data_get($drill, 'capability_spec.violations', []))),
             ],
             self::FIELD_YARDSTICK => [
@@ -226,7 +228,7 @@ final class AtlasNCaptureDrillService
             ],
             self::FIELD_ADMISSION => [
                 self::FIELD_ADMITTED => (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_ADMISSION_ADMITTED)) ?? false),
-                self::FIELD_COLD_START_VIA => data_get($drill, 'admission.cold_start_via'),
+                self::FIELD_COLD_START_VIA => data_get($drill, self::FIELD_ADMISSION_COLD_START_VIA),
                 self::FIELD_BYPASS => (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_ADMISSION_BYPASS)) ?? false),
                 self::FIELD_REASON => data_get($drill, 'admission.reason'),
             ],
@@ -331,13 +333,13 @@ final class AtlasNCaptureDrillService
         }
 
         foreach ([
-            'capability_spec.verified',
+            self::FIELD_CAPABILITY_SPEC_VERIFIED,
             'yardstick.golden_v2_passed',
             'times.time_to_first_routed_task_seconds',
             'times.time_to_first_proven_real_seconds',
             'times.hours_of_integration',
             self::FIELD_ADMISSION_ADMITTED,
-            'admission.cold_start_via',
+            self::FIELD_ADMISSION_COLD_START_VIA,
             self::FIELD_ADMISSION_BYPASS,
         ] as $requiredField) {
             if (data_get($drill, $requiredField, '__missing__') === '__missing__') {
@@ -351,18 +353,18 @@ final class AtlasNCaptureDrillService
 
         $admitted = (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_ADMISSION_ADMITTED)) ?? false);
         $bypass = (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_ADMISSION_BYPASS)) ?? false);
-        $coldStartVia = (string) (data_get($drill, 'admission.cold_start_via') ?? '');
-        $capabilityVerified = (AiValueNormalizer::boolOrNull(data_get($drill, 'capability_spec.verified')) ?? false);
+        $coldStartVia = (string) (data_get($drill, self::FIELD_ADMISSION_COLD_START_VIA) ?? '');
+        $capabilityVerified = (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_CAPABILITY_SPEC_VERIFIED)) ?? false);
         $yardstickPassed = (AiValueNormalizer::boolOrNull(data_get($drill, 'yardstick.golden_v2_passed')) ?? false);
 
         if ($admitted && $bypass) {
             $violations[] = [self::FIELD_FIELD => self::FIELD_ADMISSION_BYPASS, self::FIELD_REASON => self::REASON_ADMISSION_VIA_BYPASS_FORBIDDEN];
         }
         if ($admitted && $coldStartVia !== self::COLD_START_CHANNEL_MAXK02) {
-            $violations[] = [self::FIELD_FIELD => 'admission.cold_start_via', self::FIELD_REASON => self::REASON_COLD_START_CHANNEL_INVALID];
+            $violations[] = [self::FIELD_FIELD => self::FIELD_ADMISSION_COLD_START_VIA, self::FIELD_REASON => self::REASON_COLD_START_CHANNEL_INVALID];
         }
         if ($admitted && ! $capabilityVerified) {
-            $violations[] = [self::FIELD_FIELD => 'capability_spec.verified', self::FIELD_REASON => self::REASON_CAPABILITY_SPEC_VIOLATION];
+            $violations[] = [self::FIELD_FIELD => self::FIELD_CAPABILITY_SPEC_VERIFIED, self::FIELD_REASON => self::REASON_CAPABILITY_SPEC_VIOLATION];
         }
         if ($admitted && ! $yardstickPassed) {
             $violations[] = [self::FIELD_FIELD => 'yardstick.golden_v2_passed', self::FIELD_REASON => self::REASON_YARDSTICK_FAILED_BUT_ADMITTED];

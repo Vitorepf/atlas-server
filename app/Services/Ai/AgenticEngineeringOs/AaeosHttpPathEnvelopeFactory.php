@@ -122,6 +122,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_NOT_REQUIRED = 'not_required';
     public const FIELD_ATLAS_AI = 'atlas-ai';
     public const FIELD_AAEOS_CLASSIFICATION = 'aaeos.classification';
+    public const FIELD_AAEOS_HTTP_PATH_FACADE = 'aaeos.http_path_facade';
+    public const FIELD_AAEOS_MISSION_DETECTION = 'aaeos.mission_detection';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -137,7 +139,7 @@ final class AaeosHttpPathEnvelopeFactory
             intentId: $intentId,
             phaseIn: AaeosPhaseHandoffService::PHASE_INTENT_CAPTURE,
             phaseOut: AaeosPhaseHandoffService::PHASE_INTENT_CAPTURE,
-            actor: self::systemActor('aaeos.http_path_facade'),
+            actor: self::systemActor(self::FIELD_AAEOS_HTTP_PATH_FACADE),
             inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [self::FIELD_INTENT_HASH => $intentHash, self::FIELD_INTENT_ID => $intentId],
             gates: self::binaryGate(self::FIELD_SURFACE_CAPTURED_INTENT, true),
@@ -157,7 +159,7 @@ final class AaeosHttpPathEnvelopeFactory
             intentId: $intentId,
             phaseIn: AaeosPhaseHandoffService::PHASE_INTENT_CAPTURE,
             phaseOut: AaeosPhaseHandoffService::PHASE_DISAMBIGUATION,
-            actor: self::systemActor('aaeos.mission_detection'),
+            actor: self::systemActor(self::FIELD_AAEOS_MISSION_DETECTION),
             inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
                 self::FIELD_MISSION_SIGNAL_KIND => $suggestedMissionType,

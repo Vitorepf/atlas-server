@@ -522,6 +522,7 @@ final class AtlasAaeosCommand extends Command
                             {--b497-http-path-evidence-vision-pre-review-outcome-causality-floors-contract= : JSON file (any object) to observe http/path/evidence/vision/pre/review floors}
                             {--b498-code-symbol-immune-classifier-knowledge-item-aobg-latency-floors-contract= : JSON file (any object) to observe code/symbol/immune/classifier/knowledge/item floors}
                             {--b499-measure-series-lote-ledger-rotation-acos-watchdog-autonomy-floors-contract= : JSON file (any object) to observe measure/series/lote/ledger/rotation/acos floors}
+                            {--b500-measure-series-lote-ledger-rotation-acos-watchdog-autonomy-floors-contract= : JSON file (any object) to observe measure/series/lote/ledger/rotation/acos floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1200,6 +1201,7 @@ final class AtlasAaeosCommand extends Command
             ['b497-http-path-evidence-vision-pre-review-outcome-causality-floors-contract', 'b497_http_path_evidence_vision_pre_review_outcome_causality_floors_contract', fn (array $p) => $gates->b497HttpPathEvidenceVisionPreReviewOutcomeCausalityFloorsContractObserve($p)],
             ['b498-code-symbol-immune-classifier-knowledge-item-aobg-latency-floors-contract', 'b498_code_symbol_immune_classifier_knowledge_item_aobg_latency_floors_contract', fn (array $p) => $gates->b498CodeSymbolImmuneClassifierKnowledgeItemAobgLatencyFloorsContractObserve($p)],
             ['b499-measure-series-lote-ledger-rotation-acos-watchdog-autonomy-floors-contract', 'b499_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floors_contract', fn (array $p) => $gates->b499MeasureSeriesLoteLedgerRotationAcosWatchdogAutonomyFloorsContractObserve($p)],
+            ['b500-measure-series-lote-ledger-rotation-acos-watchdog-autonomy-floors-contract', 'b500_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floors_contract', fn (array $p) => $gates->b500MeasureSeriesLoteLedgerRotationAcosWatchdogAutonomyFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

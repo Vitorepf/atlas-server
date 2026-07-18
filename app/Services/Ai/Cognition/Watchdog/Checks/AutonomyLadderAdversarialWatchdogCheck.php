@@ -106,6 +106,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE = 'atlas_aemor_memory_candidate';
     public const FIELD_ATLAS_OPERATOR = 'atlas-operator';
     public const FIELD_POLICY_H = 'policy-h';
+    public const FIELD_CAND_3 = 'cand-3';
+    public const FIELD_NONCE_REUSED_PROBE = 'nonce-reused-probe';
     public const INT_20 = 20;
     public const INT_999 = 999;
     public const INT_10 = 10;
@@ -254,27 +256,27 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $ledger->record(
             signature: 'operator',
             actor: self::FIELD_ATLAS_OPERATOR,
-            nonce: 'nonce-reused-probe',
+            nonce: self::FIELD_NONCE_REUSED_PROBE,
             policyHash: self::FIELD_POLICY_H,
             targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
-            targetId: 'cand-3',
+            targetId: self::FIELD_CAND_3,
         );
         $first = $ledger->verify(
             signature: 'operator',
             actor: self::FIELD_ATLAS_OPERATOR,
-            nonce: 'nonce-reused-probe',
+            nonce: self::FIELD_NONCE_REUSED_PROBE,
             policyHash: self::FIELD_POLICY_H,
             targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
-            targetId: 'cand-3',
+            targetId: self::FIELD_CAND_3,
         );
         // Second verify — must fail because nonce is now spent.
         $second = $ledger->verify(
             signature: 'operator',
             actor: self::FIELD_ATLAS_OPERATOR,
-            nonce: 'nonce-reused-probe',
+            nonce: self::FIELD_NONCE_REUSED_PROBE,
             policyHash: self::FIELD_POLICY_H,
             targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
-            targetId: 'cand-3',
+            targetId: self::FIELD_CAND_3,
         );
         $this->cleanup($path);
 

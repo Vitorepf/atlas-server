@@ -362,6 +362,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_YMD_HIS = 'YmdHis';
     public const FIELD_MEASUREMENT_WITH_RECALLED_MEMORY_CASE_COUNT = 'measurement.with_recalled_memory.case_count';
     public const FIELD_MEASUREMENT_WITHOUT_RECALLED_MEMORY_CASE_COUNT = 'measurement.without_recalled_memory.case_count';
+    public const FIELD_MEASUREMENT_MEASUREMENT_READY = 'measurement.measurement_ready';
+    public const FIELD_OPE_08_LIFT_CYCLE_CLOSURE = 'ope-08.lift_cycle_closure';
     public const INT_100 = 100;
     public const FLOAT_10_0 = 10.0;
 
@@ -459,7 +461,7 @@ final class AtlasAcosWatchdogHealthService
             && (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, self::FIELD_MEASUREMENT_WITHOUT_RECALLED_MEMORY_CASE_COUNT, 0)) ?? 0) > 0, [
                 self::FIELD_WITH_RECALLED_MEMORY => data_get($lift, self::FIELD_MEASUREMENT_WITH_RECALLED_MEMORY_CASE_COUNT, 0),
                 self::FIELD_WITHOUT_RECALLED_MEMORY => data_get($lift, self::FIELD_MEASUREMENT_WITHOUT_RECALLED_MEMORY_CASE_COUNT, 0),
-                self::FIELD_MEASUREMENT_READY => data_get($lift, 'measurement.measurement_ready', false),
+                self::FIELD_MEASUREMENT_READY => data_get($lift, self::FIELD_MEASUREMENT_MEASUREMENT_READY, false),
             ], self::FIELD_LEARNING_LIFT_CASES_MISSING);
 
         return $this->reportFromChecks('atlas.learning.cadence_watchdog.v1', $checks, [
@@ -777,7 +779,7 @@ final class AtlasAcosWatchdogHealthService
         $report = app(AtlasLearningRecallUseLiftService::class)->report();
         $blockers = array_values(AiValueNormalizer::arrayOrEmpty(data_get($report, 'measurement.blockers', [])));
         $status = (AiValueNormalizer::trimmedStringOrNull($report[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN);
-        $series = $this->blockerSeries('ope-08.lift_cycle_closure', $blockers);
+        $series = $this->blockerSeries(self::FIELD_OPE_08_LIFT_CYCLE_CLOSURE, $blockers);
         $stalled = array_values(array_filter($series, static fn (array $row): bool => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_DAYS_IN_BLOCK] ?? null) ?? 0) > self::LIFT_STALLED_DAYS));
         $blocking = $blockers;
         if ($stalled !== []) {
@@ -785,7 +787,7 @@ final class AtlasAcosWatchdogHealthService
         }
         $payload = [
             self::FIELD_SCHEMA_VERSION => self::OPE_LIFT_CYCLE_CLOSURE_SCHEMA,
-            self::FIELD_STATUS => $blocking === [] && (AiValueNormalizer::boolOrNull(data_get($report, 'measurement.measurement_ready', false)) ?? false) ? self::STATUS_OK : self::STATUS_ALERT,
+            self::FIELD_STATUS => $blocking === [] && (AiValueNormalizer::boolOrNull(data_get($report, self::FIELD_MEASUREMENT_MEASUREMENT_READY, false)) ?? false) ? self::STATUS_OK : self::STATUS_ALERT,
             self::FIELD_LIFT_STATUS => $status,
             self::FIELD_BLOCKING => array_values(array_unique($blocking)),
             self::FIELD_CASE_COUNTS => [
@@ -800,7 +802,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_STATUS => $status,
             self::FIELD_CASE_COUNTS => $payload[self::FIELD_CASE_COUNTS],
             self::FIELD_BLOCKER_SERIES => $series,
-        ], 'ope-08.lift_cycle_closure');
+        ], self::FIELD_OPE_08_LIFT_CYCLE_CLOSURE);
 
         return $payload;
     }

@@ -62,6 +62,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_TS = 'ts';
     public const FIELD_MAXA_06 = 'MAXA-06';
     public const FIELD_MAXL_06 = 'MAXL-06';
+    public const FIELD_MULTJ_01 = 'MULTJ-01';
+    public const FIELD_MULTJ_02 = 'MULTJ-02';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -400,21 +402,21 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:acos.windows_orchestrator.v1',
             ],
             [
-                self::FIELD_SLICE => 'MULTJ-01',
+                self::FIELD_SLICE => self::FIELD_MULTJ_01,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::MULTJ01_MEASURE_ID,
                 self::FIELD_PATH => 'atlas:ai:lesson-half-life --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload('MULTJ-01')[self::FIELD_TTL_DAYS],
+                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTJ_01)[self::FIELD_TTL_DAYS],
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.ai.lesson_half_life.v2',
             ],
             [
-                self::FIELD_SLICE => 'MULTJ-02',
+                self::FIELD_SLICE => self::FIELD_MULTJ_02,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::MULTJ02_MEASURE_ID,
                 self::FIELD_PATH => 'atlas:ai:lesson-dedup-calibration --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload('MULTJ-02')[self::FIELD_TTL_DAYS],
+                self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTJ_02)[self::FIELD_TTL_DAYS],
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.ai.lesson_semantic_dedup.v1',
             ],
             [

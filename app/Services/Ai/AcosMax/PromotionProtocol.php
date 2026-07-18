@@ -128,6 +128,8 @@ final class PromotionProtocol
     public const FIELD_RAGX = 'RAGX';
     public const FIELD_ASI_06 = 'ASI-06';
     public const FIELD_ASI_07 = 'ASI-07';
+    public const FIELD_ASI_08 = 'ASI-08';
+    public const FIELD_ASI_10 = 'ASI-10';
 
     /** @var list<string> */
     public const STATES = [
@@ -352,7 +354,7 @@ final class PromotionProtocol
             [
                 self::FIELD_ID => self::FIELD_ATLAS_BRAIN_REFLECTION_ENABLED,
                 self::FIELD_FAMILY => self::FIELD_ASI,
-                self::FIELD_SLICE => 'ASI-08',
+                self::FIELD_SLICE => self::FIELD_ASI_08,
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_CONFIG_KEY => 'atlas.brain.reflection_enabled',
                 self::FIELD_ENV_KEY => self::FIELD_ATLAS_BRAIN_REFLECTION_ENABLED,
@@ -377,7 +379,7 @@ final class PromotionProtocol
             [
                 self::FIELD_ID => 'acos.land.autonomous_verification_required',
                 self::FIELD_FAMILY => self::FIELD_ASI,
-                self::FIELD_SLICE => 'ASI-10',
+                self::FIELD_SLICE => self::FIELD_ASI_10,
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '7d',
                 self::FIELD_FLIP_CRITERION => 'MULTV-01/02 receipts cover derived tier and verified_share floor is green',

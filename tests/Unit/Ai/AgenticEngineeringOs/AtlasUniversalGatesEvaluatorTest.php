@@ -10230,4 +10230,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b499_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floor_count']);
     }
 
+    public function test_b500_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b500MeasureSeriesLoteLedgerRotationAcosWatchdogAutonomyFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MULTJ_01, $out['MULTJ-01']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MULTJ_02, $out['MULTJ-02']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTX_01, $out['MULTX-01']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_TETO_02, $out['TETO-02']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ACOS_ESP00_GROUND_TRUTH_V1, $out['acos.esp00.ground_truth.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ACOS_FLYWHEEL_LOOPS_V1, $out['acos.flywheel.loops.v1']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_MEASUREMENT_MEASUREMENT_READY, $out['measurement.measurement_ready']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_OPE_08_LIFT_CYCLE_CLOSURE, $out['ope-08.lift_cycle_closure']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_CAND_3, $out['cand-3']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_NONCE_REUSED_PROBE, $out['nonce-reused-probe']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_ADMISSION_COLD_START_VIA, $out['admission.cold_start_via']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_CAPABILITY_SPEC_VERIFIED, $out['capability_spec.verified']);
+        $this->assertSame(PromotionProtocol::FIELD_ASI_08, $out['ASI-08']);
+        $this->assertSame(PromotionProtocol::FIELD_ASI_10, $out['ASI-10']);
+        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_85, $out['0.85']);
+        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_68, $out['0.68']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_HTTP_PATH_FACADE, $out['aaeos.http_path_facade']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_MISSION_DETECTION, $out['aaeos.mission_detection']);
+        $this->assertSame(18, $out['b500_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floor_count']);
+    }
+
 }
