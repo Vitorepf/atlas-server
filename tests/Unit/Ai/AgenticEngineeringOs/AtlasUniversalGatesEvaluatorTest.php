@@ -12074,4 +12074,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b574_http_path_cross_department_segment_importance_floor_count']);
     }
 
+    public function test_b575_parallel_execution_aemor_outcome_knowledge_item_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b575ParallelExecutionAemorOutcomeKnowledgeItemFloorsContractObserve([]);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_STATUS, $out['status']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_ACTION, $out['action']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_ENGINE, $out['engine']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_CLAIM, $out['claim']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_SKIP_REASON, $out['skip_reason']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_TTL, $out['ttl']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_STATUS, $out['status']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_METRICS, $out['metrics']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_BLOCKERS, $out['blockers']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_CONTEXT_UTILITY, $out['context_utility']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_PATCH_OUTCOME, $out['patch_outcome']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_LEARNING_CLAIM, $out['learning_claim']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_DENOMINATOR_MIN, $out['denominator_min']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_FREEZE, $out['freeze']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_FORMULA, $out['formula']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_THRESHOLDS, $out['thresholds']);
+        $this->assertSame(18, $out['b575_parallel_execution_aemor_outcome_knowledge_item_floor_count']);
+    }
+
 }

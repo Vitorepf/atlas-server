@@ -15303,4 +15303,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B575).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b575ParallelExecutionAemorOutcomeKnowledgeItemFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'status' => AcosMaxParallelExecutionProtocol::FIELD_STATUS,
+            'action' => AcosMaxParallelExecutionProtocol::FIELD_ACTION,
+            'engine' => AcosMaxParallelExecutionProtocol::FIELD_ENGINE,
+            'claim' => AcosMaxParallelExecutionProtocol::FIELD_CLAIM,
+            'skip_reason' => AcosMaxParallelExecutionProtocol::FIELD_SKIP_REASON,
+            'ttl' => AcosMaxParallelExecutionProtocol::FIELD_TTL,
+            'status' => AemorOutcomeEnvelopeAdapter::FIELD_STATUS,
+            'metrics' => AemorOutcomeEnvelopeAdapter::FIELD_METRICS,
+            'blockers' => AemorOutcomeEnvelopeAdapter::FIELD_BLOCKERS,
+            'context_utility' => AemorOutcomeEnvelopeAdapter::FIELD_CONTEXT_UTILITY,
+            'patch_outcome' => AemorOutcomeEnvelopeAdapter::FIELD_PATCH_OUTCOME,
+            'learning_claim' => AemorOutcomeEnvelopeAdapter::FIELD_LEARNING_CLAIM,
+            'denominator_min' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_DENOMINATOR_MIN,
+            'schema_version' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_SCHEMA_VERSION,
+            'generated_at' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_GENERATED_AT,
+            'freeze' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_FREEZE,
+            'formula' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_FORMULA,
+            'thresholds' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_THRESHOLDS,
+            'b575_parallel_execution_aemor_outcome_knowledge_item_floor_count' => 18,
+        ];
+    }
+
 }
