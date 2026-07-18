@@ -203,8 +203,8 @@ final class AaeosPhaseHandoffService
         ?string $skipReason = null,
         string $autonomyLevel = 'L1',
     ): array {
-        $this->assertPhase($phaseIn, 'phase_in');
-        $this->assertPhase($phaseOut, 'phase_out');
+        $this->assertPhase($phaseIn, self::FIELD_PHASE_IN);
+        $this->assertPhase($phaseOut, self::FIELD_PHASE_OUT);
         if ($nextPhase !== null) {
             $this->assertPhase($nextPhase, 'next_phase');
         }
@@ -260,12 +260,12 @@ final class AaeosPhaseHandoffService
         if (($envelope[self::FIELD_SCHEMA] ?? null) !== self::SCHEMA_VERSION) {
             $reasons[] = 'schema must be '.self::SCHEMA_VERSION;
         }
-        foreach (['intent_id', 'phase_in', 'phase_out'] as $req) {
+        foreach (['intent_id', self::FIELD_PHASE_IN, self::FIELD_PHASE_OUT] as $req) {
             if (! isset($envelope[$req]) || $envelope[$req] === '') {
                 $reasons[] = "missing {$req}";
             }
         }
-        foreach (['phase_in', 'phase_out'] as $f) {
+        foreach ([self::FIELD_PHASE_IN, self::FIELD_PHASE_OUT] as $f) {
             if (isset($envelope[$f]) && ! in_array($envelope[$f], self::PHASES, true)) {
                 $reasons[] = "{$f} '{$envelope[$f]}' is not canonical";
             }

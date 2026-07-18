@@ -252,7 +252,7 @@ final class AtlasModelCapabilitySpecService
      */
     private function checkLatency(array $spec, array $model): array
     {
-        if (! array_key_exists('latency_per_pair_ms_p95', $spec)) {
+        if (! array_key_exists(self::FIELD_LATENCY_PER_PAIR_MS_P95, $spec)) {
             return [];
         }
         $ceiling = AiValueNormalizer::finiteFloatOrNull($spec[self::FIELD_LATENCY_PER_PAIR_MS_P95] ?? null);
@@ -265,7 +265,7 @@ final class AtlasModelCapabilitySpecService
         }
         if ($actual > $ceiling) {
             return [[
-                self::FIELD_FIELD => 'latency_per_pair_ms_p95',
+                self::FIELD_FIELD => self::FIELD_LATENCY_PER_PAIR_MS_P95,
                 self::FIELD_REASON => self::REASON_LATENCY_ABOVE_SPEC_CEILING,
                 self::FIELD_EXPECTED => '<='.$ceiling,
                 self::FIELD_ACTUAL => $actual,
@@ -295,7 +295,7 @@ final class AtlasModelCapabilitySpecService
         $license = AiValueNormalizer::lowerTrimmedString($model[self::FIELD_LICENSE] ?? '');
         if ($license === '') {
             return [[
-                self::FIELD_FIELD => 'license',
+                self::FIELD_FIELD => self::FIELD_LICENSE,
                 self::FIELD_REASON => self::REASON_LICENSE_MISSING,
                 self::FIELD_EXPECTED => $allowed,
                 self::FIELD_ACTUAL => null,
@@ -303,7 +303,7 @@ final class AtlasModelCapabilitySpecService
         }
         if (! in_array($license, $allowed, true)) {
             return [[
-                self::FIELD_FIELD => 'license',
+                self::FIELD_FIELD => self::FIELD_LICENSE,
                 self::FIELD_REASON => self::REASON_LICENSE_NOT_ALLOWED,
                 self::FIELD_EXPECTED => $allowed,
                 self::FIELD_ACTUAL => $license,

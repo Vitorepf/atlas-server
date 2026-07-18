@@ -13834,4 +13834,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B527).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b527DocsAuthorityAaeosVetoPhaseHandoffAsefChunkFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'keyword_fallback' => AtlasDocsAuthorityGraphService::FIELD_KEYWORD_FALLBACK,
+            'needle_normalized' => AtlasDocsAuthorityGraphService::FIELD_NEEDLE_NORMALIZED,
+            'forge' => AtlasAaeosVetoPropagationResolver::FIELD_FORGE,
+            'architect' => AtlasAaeosVetoPropagationResolver::FIELD_ARCHITECT,
+            'phase_in' => AaeosPhaseHandoffService::FIELD_PHASE_IN,
+            'phase_out' => AaeosPhaseHandoffService::FIELD_PHASE_OUT,
+            'asef_chunks' => AsefChunkIndexService::FIELD_ASEF_CHUNKS,
+            'source_ref' => AsefChunkIndexService::FIELD_SOURCE_REF,
+            'dup_group' => SegmentImportanceRanker::FIELD_DUP_GROUP,
+            'has_evidence_ref' => SegmentImportanceRanker::FIELD_HAS_EVIDENCE_REF,
+            'latency_per_pair_ms_p95' => AtlasModelCapabilitySpecService::FIELD_LATENCY_PER_PAIR_MS_P95,
+            'license' => AtlasModelCapabilitySpecService::FIELD_LICENSE,
+            'blocked_gates_repair' => PhaseAdvanceVerdictClassifier::FIELD_BLOCKED_GATES_REPAIR,
+            'missing_required_gates_repair' => PhaseAdvanceVerdictClassifier::FIELD_MISSING_REQUIRED_GATES_REPAIR,
+            'test' => AtlasAaeosImplementationEvidenceResolver::FIELD_TEST,
+            'test_method' => AtlasAaeosImplementationEvidenceResolver::FIELD_TEST_METHOD,
+            'lessons_without_promotion' => AtlasFlywheelFunnelService::FIELD_LESSONS_WITHOUT_PROMOTION,
+            'recalls_without_citation' => AtlasFlywheelFunnelService::FIELD_RECALLS_WITHOUT_CITATION,
+            'b527_docs_authority_aaeos_veto_phase_handoff_asef_chunk_floor_count' => 18,
+        ];
+    }
+
 }

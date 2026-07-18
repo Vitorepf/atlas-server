@@ -90,7 +90,7 @@ class AtlasAaeosImplementationEvidenceResolver
      *              signature matchTyped ever reads; absent offsets are treated as '')
      * Partition views, each a list of row offsets in the DB's natural (heap) load order:
      *   - 'symbol': offsets whose type is in SYMBOL_TYPES (matchSymbol, resolveSymbolFilePaths)
-     *   - 'test':   offsets of type test_method|class      (matchTest, resolveTestFilePath)
+     *   - self::FIELD_TEST:   offsets of type test_method|class      (matchTest, resolveTestFilePath)
      *   - self::FIELD_BY_TYPE: [symbol_type => offsets]               (matchTyped, the FQN helpers)
      * EVERY view preserves heap load order, and the partition predicate is exactly the
      * symbol_type filter each matcher already applied (`whereIn(self::FIELD_SYMBOL_TYPE, …)` /
@@ -259,7 +259,7 @@ class AtlasAaeosImplementationEvidenceResolver
             if (in_array($type, self::SYMBOL_TYPES, true)) {
                 $symbol[] = $offset;
             }
-            if ($type === 'test_method' || $type === 'class') {
+            if ($type === self::FIELD_TEST_METHOD || $type === 'class') {
                 $test[] = $offset;
             }
             // Only SIGNATURE_MATCH_TYPES rows are ever matched on their signature, so only they
@@ -496,7 +496,7 @@ class AtlasAaeosImplementationEvidenceResolver
     private function matchTestClassFqn(string $classRef): ?string
     {
         $classRef = AiValueNormalizer::trimmedStringOrNull($classRef) ?? '';
-        if ($classRef === '' || ! str_contains(AiValueNormalizer::lowerTrimmedString($classRef), 'test')) {
+        if ($classRef === '' || ! str_contains(AiValueNormalizer::lowerTrimmedString($classRef), self::FIELD_TEST)) {
             return null;
         }
 
@@ -537,7 +537,7 @@ class AtlasAaeosImplementationEvidenceResolver
         $shortClass = str_contains($classFqn, '\\') ? substr($classFqn, (int) strrpos($classFqn, '\\') + 1) : $classFqn;
         $index = $this->index();
         $names = $index[self::FIELD_NAMES];
-        foreach (['test_method', 'method'] as $type) {
+        foreach ([self::FIELD_TEST_METHOD, 'method'] as $type) {
             foreach ($index[self::FIELD_BY_TYPE][$type] ?? [] as $offset) {
                 $name = $names[$offset];
                 if ($name === $classFqn.'::'.$method || str_ends_with($name, '\\'.$classFqn.'::'.$method)) {

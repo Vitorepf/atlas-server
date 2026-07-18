@@ -10893,4 +10893,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(12, $out['b526_measure_series_floor_count']);
     }
 
+    public function test_b527_docs_authority_aaeos_veto_phase_handoff_asef_chunk_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b527DocsAuthorityAaeosVetoPhaseHandoffAsefChunkFloorsContractObserve([]);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_KEYWORD_FALLBACK, $out['keyword_fallback']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_NEEDLE_NORMALIZED, $out['needle_normalized']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ARCHITECT, $out['architect']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_PHASE_IN, $out['phase_in']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_PHASE_OUT, $out['phase_out']);
+        $this->assertSame(AsefChunkIndexService::FIELD_ASEF_CHUNKS, $out['asef_chunks']);
+        $this->assertSame(AsefChunkIndexService::FIELD_SOURCE_REF, $out['source_ref']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_DUP_GROUP, $out['dup_group']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_HAS_EVIDENCE_REF, $out['has_evidence_ref']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_LATENCY_PER_PAIR_MS_P95, $out['latency_per_pair_ms_p95']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_LICENSE, $out['license']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_BLOCKED_GATES_REPAIR, $out['blocked_gates_repair']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_MISSING_REQUIRED_GATES_REPAIR, $out['missing_required_gates_repair']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_TEST, $out['test']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_TEST_METHOD, $out['test_method']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_LESSONS_WITHOUT_PROMOTION, $out['lessons_without_promotion']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_RECALLS_WITHOUT_CITATION, $out['recalls_without_citation']);
+        $this->assertSame(18, $out['b527_docs_authority_aaeos_veto_phase_handoff_asef_chunk_floor_count']);
+    }
+
 }

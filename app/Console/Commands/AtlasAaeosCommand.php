@@ -549,6 +549,7 @@ final class AtlasAaeosCommand extends Command
                             {--b524-measure-series-http-path-acos-program-obra-retro-floors-contract= : JSON file (any object) to observe measure/series/http/path/acos/program floors}
                             {--b525-measure-series-http-path-floors-contract= : JSON file (any object) to observe measure/series/http/path floors}
                             {--b526-measure-series-floors-contract= : JSON file (any object) to observe measure/series floors}
+                            {--b527-docs-authority-aaeos-veto-phase-handoff-asef-chunk-floors-contract= : JSON file (any object) to observe docs/authority/aaeos/veto/phase/handoff floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1254,6 +1255,7 @@ final class AtlasAaeosCommand extends Command
             ['b524-measure-series-http-path-acos-program-obra-retro-floors-contract', 'b524_measure_series_http_path_acos_program_obra_retro_floors_contract', fn (array $p) => $gates->b524MeasureSeriesHttpPathAcosProgramObraRetroFloorsContractObserve($p)],
             ['b525-measure-series-http-path-floors-contract', 'b525_measure_series_http_path_floors_contract', fn (array $p) => $gates->b525MeasureSeriesHttpPathFloorsContractObserve($p)],
             ['b526-measure-series-floors-contract', 'b526_measure_series_floors_contract', fn (array $p) => $gates->b526MeasureSeriesFloorsContractObserve($p)],
+            ['b527-docs-authority-aaeos-veto-phase-handoff-asef-chunk-floors-contract', 'b527_docs_authority_aaeos_veto_phase_handoff_asef_chunk_floors_contract', fn (array $p) => $gates->b527DocsAuthorityAaeosVetoPhaseHandoffAsefChunkFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -216,7 +216,7 @@ final class AsefChunkIndexService
             return 0;
         }
 
-        return (int) DB::table('asef_chunks')->where('delete_cascade_key', $key)->delete();
+        return (int) DB::table(self::FIELD_ASEF_CHUNKS)->where('delete_cascade_key', $key)->delete();
     }
 
     public function deleteBySourceRef(string $sourceRef): int
@@ -226,7 +226,7 @@ final class AsefChunkIndexService
             return 0;
         }
 
-        return (int) DB::table('asef_chunks')->where('source_ref', $ref)->delete();
+        return (int) DB::table(self::FIELD_ASEF_CHUNKS)->where(self::FIELD_SOURCE_REF, $ref)->delete();
     }
 
     /**
@@ -282,7 +282,7 @@ final class AsefChunkIndexService
             ];
         }
 
-        if (! DatabaseTableAvailability::hasColumn('asef_chunks', 'embedding')) {
+        if (! DatabaseTableAvailability::hasColumn(self::FIELD_ASEF_CHUNKS, 'embedding')) {
             return [
                 self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
                 self::FIELD_STATUS => self::STATUS_DEGRADED,
@@ -295,12 +295,12 @@ final class AsefChunkIndexService
         $literal = $this->embeddings->vectorLiteral($vector);
         $modelId = EmbeddingProvenance::modelId($this->embeddings->lastInfo());
 
-        $builder = DB::table('asef_chunks')
+        $builder = DB::table(self::FIELD_ASEF_CHUNKS)
             ->whereNotNull(self::FIELD_EMBEDDING)
-            ->select(['source_ref', 'chunk_hash', 'chunk_id'])
+            ->select([self::FIELD_SOURCE_REF, 'chunk_hash', 'chunk_id'])
             ->selectRaw('(1 - (embedding <=> ?::vector)) AS similarity', [$literal]);
 
-        EmbeddingProvenance::scopeCurrentModel($builder, 'asef_chunks', $modelId);
+        EmbeddingProvenance::scopeCurrentModel($builder, self::FIELD_ASEF_CHUNKS, $modelId);
 
         $rows = $builder
             ->orderByRaw('embedding <=> ?::vector', [$literal])
@@ -339,8 +339,8 @@ final class AsefChunkIndexService
         $row[self::FIELD_EMBEDDED_AT] = Carbon::now();
         $row[self::FIELD_EMBEDDING_STATUS] = self::EMBEDDING_STATUS_PERSISTED;
 
-        $existing = DB::table('asef_chunks')
-            ->where('source_ref', $row[self::FIELD_SOURCE_REF])
+        $existing = DB::table(self::FIELD_ASEF_CHUNKS)
+            ->where(self::FIELD_SOURCE_REF, $row[self::FIELD_SOURCE_REF])
             ->where('chunk_hash', $row[self::FIELD_CHUNK_HASH])
             ->first();
 
@@ -359,13 +359,13 @@ final class AsefChunkIndexService
                 self::FIELD_EMBEDDING_STATUS => self::EMBEDDING_STATUS_PERSISTED,
                 self::FIELD_UPDATED_AT => Carbon::now(),
             ];
-            DB::table('asef_chunks')->where('id', $existing->id)->update($update);
+            DB::table(self::FIELD_ASEF_CHUNKS)->where('id', $existing->id)->update($update);
             $this->writeVector(AiValueNormalizer::trimmedScalarStringOrNull($existing->id ?? null) ?? '', $vector);
 
             return;
         }
 
-        DB::table('asef_chunks')->insert($row);
+        DB::table(self::FIELD_ASEF_CHUNKS)->insert($row);
         $this->writeVector(AiValueNormalizer::trimmedScalarStringOrNull($row[self::FIELD_ID] ?? null) ?? '', $vector);
     }
 
@@ -374,7 +374,7 @@ final class AsefChunkIndexService
      */
     private function writeVector(string $id, array $vector): void
     {
-        if (! DatabaseTableAvailability::hasColumn('asef_chunks', 'embedding')) {
+        if (! DatabaseTableAvailability::hasColumn(self::FIELD_ASEF_CHUNKS, 'embedding')) {
             return;
         }
 

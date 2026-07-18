@@ -171,12 +171,12 @@ final class PhaseAdvanceVerdictClassifier
 
         // Rule 5: any missing required gate requires repair.
         if ($missingGates !== []) {
-            return [self::VERDICT_REPAIR, 'missing_required_gates_repair'];
+            return [self::VERDICT_REPAIR, self::FIELD_MISSING_REQUIRED_GATES_REPAIR];
         }
 
         // Rule 6: explicitly blocked gates require repair.
         if ($blockedGates !== []) {
-            return [self::VERDICT_REPAIR, 'blocked_gates_repair'];
+            return [self::VERDICT_REPAIR, self::FIELD_BLOCKED_GATES_REPAIR];
         }
 
         // Rule 7: nothing outstanding, the phase is clear to advance.

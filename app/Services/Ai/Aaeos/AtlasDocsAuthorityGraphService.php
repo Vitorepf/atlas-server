@@ -176,7 +176,7 @@ class AtlasDocsAuthorityGraphService
         }
 
         $exact = AtlasDocsAuthorityGraph::query()
-            ->where('needle_normalized', $normalized)
+            ->where(self::FIELD_NEEDLE_NORMALIZED, $normalized)
             ->orderByDesc('confidence')
             ->limit($limit)
             ->get();
@@ -193,7 +193,7 @@ class AtlasDocsAuthorityGraphService
         $fallback = AtlasDocsAuthorityGraph::query()
             ->where(function ($w) use ($variants): void {
                 foreach ($variants as $variant) {
-                    $w->orWhere('needle_normalized', self::FIELD_LIKE, '%'.$variant.'%')
+                    $w->orWhere(self::FIELD_NEEDLE_NORMALIZED, self::FIELD_LIKE, '%'.$variant.'%')
                         ->orWhere('owner_doc_path', self::FIELD_LIKE, '%'.$variant.'%')
                         ->orWhere('owner_doc_id', self::FIELD_LIKE, '%'.$variant.'%');
                 }
@@ -230,14 +230,14 @@ class AtlasDocsAuthorityGraphService
                 self::FIELD_NEEDLE => $needle,
                 self::FIELD_RESOLVED => false,
                 self::FIELD_OWNER_DOC_PATH => null,
-                self::FIELD_OWNER_BASIS => 'keyword_fallback',
+                self::FIELD_OWNER_BASIS => self::FIELD_KEYWORD_FALLBACK,
                 self::FIELD_CONFIDENCE => 0,
                 self::FIELD_CANDIDATES => [],
             ];
         }
 
         $best = $matches->first();
-        $basis = $fallback ? 'keyword_fallback' : (AiValueNormalizer::trimmedScalarStringOrNull($best->owner_basis ?? null) ?? '');
+        $basis = $fallback ? self::FIELD_KEYWORD_FALLBACK : (AiValueNormalizer::trimmedScalarStringOrNull($best->owner_basis ?? null) ?? '');
         $confidence = $fallback ? self::CONFIDENCE[self::FIELD_KEYWORD_FALLBACK] : (int) $best->confidence;
 
         return [
@@ -252,7 +252,7 @@ class AtlasDocsAuthorityGraphService
             self::FIELD_CANDIDATES => $matches->map(fn (AtlasDocsAuthorityGraph $row): array => [
                 self::FIELD_OWNER_DOC_PATH => AiValueNormalizer::trimmedScalarStringOrNull($row->owner_doc_path ?? null) ?? '',
                 self::FIELD_NEEDLE => AiValueNormalizer::trimmedScalarStringOrNull($row->needle ?? null) ?? '',
-                self::FIELD_BASIS => $fallback ? 'keyword_fallback' : (AiValueNormalizer::trimmedScalarStringOrNull($row->owner_basis ?? null) ?? ''),
+                self::FIELD_BASIS => $fallback ? self::FIELD_KEYWORD_FALLBACK : (AiValueNormalizer::trimmedScalarStringOrNull($row->owner_basis ?? null) ?? ''),
                 self::FIELD_CONFIDENCE => $fallback ? self::CONFIDENCE[self::FIELD_KEYWORD_FALLBACK] : (int) $row->confidence,
             ])->all(),
         ];
