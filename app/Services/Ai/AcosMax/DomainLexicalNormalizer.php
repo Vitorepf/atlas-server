@@ -24,6 +24,8 @@ final class DomainLexicalNormalizer
     public const FIELD_VERIFICATION = 'verification';
     public const FIELD_EQUIVALENCES = 'equivalences';
     public const FIELD_ESTEIRA = 'esteira';
+    public const FIELD_EVIDENCIA = 'evidencia';
+    public const FIELD_EXECUCAO = 'execucao';
 
     public const MAX_EXPANDED_TOKENS = 32;
 
@@ -34,11 +36,11 @@ final class DomainLexicalNormalizer
         self::FIELD_CEREBRO => [self::FIELD_BRAIN],
         'cérebro' => [self::FIELD_BRAIN],
         self::FIELD_ESTEIRA => ['pipeline'],
-        'execucao' => [self::FIELD_EXECUTION],
+        self::FIELD_EXECUCAO => [self::FIELD_EXECUTION],
         'execução' => [self::FIELD_EXECUTION],
         self::FIELD_DECISAO => [self::FIELD_DECISION],
         'decisão' => [self::FIELD_DECISION],
-        'evidencia' => [self::FIELD_EVIDENCE],
+        self::FIELD_EVIDENCIA => [self::FIELD_EVIDENCE],
         'evidência' => [self::FIELD_EVIDENCE],
         'verificacao' => [self::FIELD_VERIFICATION],
         'verificação' => [self::FIELD_VERIFICATION],

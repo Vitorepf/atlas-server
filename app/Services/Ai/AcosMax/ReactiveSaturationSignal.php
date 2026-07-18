@@ -23,6 +23,8 @@ final class ReactiveSaturationSignal
     public const FIELD_REPORT_ONLY = 'report_only';
     public const FIELD_DISABLES_REACTIVE_LANE = 'disables_reactive_lane';
     public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
+    public const FIELD_USES_QUEUE_EMPTY_AS_SOLE_SIGNAL = 'uses_queue_empty_as_sole_signal';
+    public const FIELD_YIELD = 'yield';
 
     /**
      * @param  list<array<string,mixed>>  $windows
@@ -44,7 +46,7 @@ final class ReactiveSaturationSignal
         }
 
         $yields = array_map(
-            static fn (array $window): float => AiValueNormalizer::finiteFloatOrNull($window['yield'] ?? null) ?? 0.0,
+            static fn (array $window): float => AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_YIELD] ?? null) ?? 0.0,
             $tail,
         );
         $falling = $yields[0] > $yields[1] && $yields[1] > $yields[2];
@@ -71,7 +73,7 @@ final class ReactiveSaturationSignal
             self::FIELD_SOURCE => [
                 self::FIELD_REPORT_ONLY => true,
                 self::FIELD_DISABLES_REACTIVE_LANE => false,
-                'uses_queue_empty_as_sole_signal' => false,
+                self::FIELD_USES_QUEUE_EMPTY_AS_SOLE_SIGNAL => false,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
             ],
         ];

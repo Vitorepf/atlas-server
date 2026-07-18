@@ -28,6 +28,8 @@ final class GatedCorpusCandidateMiner
     public const FIELD_DIRECT_WRITE = 'direct_write';
     public const FIELD_CANDIDATE_ONLY = 'candidate_only';
     public const FIELD_COUNT_IS_ACCEPTANCE = 'count_is_acceptance';
+    public const FIELD_IMMUNE_GATES_APPLY = 'immune_gates_apply';
+    public const FIELD_OMITTED = 'omitted';
 
     /**
      * @param  list<array<string,mixed>>  $sources
@@ -55,7 +57,7 @@ final class GatedCorpusCandidateMiner
                 self::FIELD_CANDIDATE_HASH => sha1($ref."\n".$text),
                 self::FIELD_ADMISSION => [
                     'via_asi_02' => true,
-                    'immune_gates_apply' => true,
+                    self::FIELD_IMMUNE_GATES_APPLY => true,
                     self::FIELD_DIRECT_WRITE => false,
                 ],
             ];
@@ -65,7 +67,7 @@ final class GatedCorpusCandidateMiner
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_STATUS => $candidates === [] ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK,
             self::FIELD_CANDIDATES => $candidates,
-            'omitted' => array_values(array_unique($omitted)),
+            self::FIELD_OMITTED => array_values(array_unique($omitted)),
             self::FIELD_SOURCE => [
                 self::FIELD_CANDIDATE_ONLY => true,
                 'writes_memory_directly' => false,

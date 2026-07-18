@@ -6021,5 +6021,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['summary_budget_decay_segment_pareto_recall_outcome_impact_advisory_floor_count']);
     }
 
+    public function test_esp09_dogfood_saturation_budget_ambition_lexical_corpus_fact_citation_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->esp09DogfoodSaturationBudgetAmbitionLexicalCorpusFactCitationFloorsContractObserve([]);
+
+        $this->assertSame('outcome', $payload['esp09_field_outcome']);
+        $this->assertSame('promotion_without_block', $payload['esp09_field_promotion_without_block']);
+        $this->assertSame('operator_text_in_objective', $payload['dogfood_field_operator_text_in_objective']);
+        $this->assertSame('provider_calls_made', $payload['dogfood_field_provider_calls_made']);
+        $this->assertSame('uses_queue_empty_as_sole_signal', $payload['saturation_field_uses_queue_empty_as_sole_signal']);
+        $this->assertSame('yield', $payload['saturation_field_yield']);
+        $this->assertSame('ceiling_bands', $payload['budget_field_ceiling_bands']);
+        $this->assertSame('consumer_of_maxk_07', $payload['budget_field_consumer_of_maxk_07']);
+        $this->assertSame('provider_calls_made', $payload['ambition_field_provider_calls_made']);
+        $this->assertSame('reactive_saturated', $payload['ambition_field_reactive_saturated']);
+        $this->assertSame('evidencia', $payload['lexical_field_evidencia']);
+        $this->assertSame('execucao', $payload['lexical_field_execucao']);
+        $this->assertSame('immune_gates_apply', $payload['corpus_field_immune_gates_apply']);
+        $this->assertSame('omitted', $payload['corpus_field_omitted']);
+        $this->assertSame('harness_learning', $payload['fact_field_harness_learning']);
+        $this->assertSame('llm_extraction_hot_path', $payload['fact_field_llm_extraction_hot_path']);
+        $this->assertSame('fuses_grounding_and_coverage', $payload['citation_field_fuses_grounding_and_coverage']);
+        $this->assertSame('grounding_rate', $payload['citation_field_grounding_rate']);
+        $this->assertSame(18, $payload['esp09_dogfood_saturation_budget_ambition_lexical_corpus_fact_citation_floor_count']);
+    }
+
 
 }

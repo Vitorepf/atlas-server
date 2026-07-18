@@ -7968,6 +7968,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for esp09/dogfood/saturation/budget/ambition/lexical/corpus/fact/citation peels.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function esp09DogfoodSaturationBudgetAmbitionLexicalCorpusFactCitationFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'esp09_field_outcome' => Esp09IndependentChallengerService::FIELD_OUTCOME,
+            'esp09_field_promotion_without_block' => Esp09IndependentChallengerService::FIELD_PROMOTION_WITHOUT_BLOCK,
+            'dogfood_field_operator_text_in_objective' => DogfoodingFrictionLeadMiner::FIELD_OPERATOR_TEXT_IN_OBJECTIVE,
+            'dogfood_field_provider_calls_made' => DogfoodingFrictionLeadMiner::FIELD_PROVIDER_CALLS_MADE,
+            'saturation_field_uses_queue_empty_as_sole_signal' => ReactiveSaturationSignal::FIELD_USES_QUEUE_EMPTY_AS_SOLE_SIGNAL,
+            'saturation_field_yield' => ReactiveSaturationSignal::FIELD_YIELD,
+            'budget_field_ceiling_bands' => PortfolioBudgetAllocator::FIELD_CEILING_BANDS,
+            'budget_field_consumer_of_maxk_07' => PortfolioBudgetAllocator::FIELD_CONSUMER_OF_MAXK_07,
+            'ambition_field_provider_calls_made' => AmbitionRungPolicy::FIELD_PROVIDER_CALLS_MADE,
+            'ambition_field_reactive_saturated' => AmbitionRungPolicy::FIELD_REACTIVE_SATURATED,
+            'lexical_field_evidencia' => DomainLexicalNormalizer::FIELD_EVIDENCIA,
+            'lexical_field_execucao' => DomainLexicalNormalizer::FIELD_EXECUCAO,
+            'corpus_field_immune_gates_apply' => GatedCorpusCandidateMiner::FIELD_IMMUNE_GATES_APPLY,
+            'corpus_field_omitted' => GatedCorpusCandidateMiner::FIELD_OMITTED,
+            'fact_field_harness_learning' => StructuredFactSchemaMap::FIELD_HARNESS_LEARNING,
+            'fact_field_llm_extraction_hot_path' => StructuredFactSchemaMap::FIELD_LLM_EXTRACTION_HOT_PATH,
+            'citation_field_fuses_grounding_and_coverage' => CitationGroundingMeter::FIELD_FUSES_GROUNDING_AND_COVERAGE,
+            'citation_field_grounding_rate' => CitationGroundingMeter::FIELD_GROUNDING_RATE,
+            'esp09_dogfood_saturation_budget_ambition_lexical_corpus_fact_citation_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

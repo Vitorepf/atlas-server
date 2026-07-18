@@ -24,11 +24,13 @@ final class StructuredFactSchemaMap
     public const FIELD_STATUS = 'status';
     public const FIELD_DECISION = 'decision';
     public const FIELD_GOTCHA = 'gotcha';
+    public const FIELD_HARNESS_LEARNING = 'harness_learning';
+    public const FIELD_LLM_EXTRACTION_HOT_PATH = 'llm_extraction_hot_path';
 
     /** @var array<string,list<string>> */
     public const REQUIRED = [
         self::FIELD_DECISION => ['contexto', 'alternativas', 'porque', 'expiry'],
-        'harness_learning' => ['sintoma', 'causa', 'fix', 'versao'],
+        self::FIELD_HARNESS_LEARNING => ['sintoma', 'causa', 'fix', 'versao'],
         self::FIELD_GOTCHA => ['sintoma', 'causa', 'fix', 'versao'],
     ];
 
@@ -62,7 +64,7 @@ final class StructuredFactSchemaMap
             self::FIELD_FAIL_OPEN_ENTRY_ALLOWED => true,
             'source' => [
                 'required_on_write' => false,
-                'llm_extraction_hot_path' => false,
+                self::FIELD_LLM_EXTRACTION_HOT_PATH => false,
             ],
         ];
     }

@@ -83,6 +83,8 @@ final class PortfolioBudgetAllocator
     public const FIELD_WEIGHTS_ARE_OPERATOR_AUTHORED = 'weights_are_operator_authored';
     public const FIELD_ALLOCATOR_WRITES_OWN_WEIGHTS = 'allocator_writes_own_weights';
     public const FIELD_CEILING_ABSOLUTE = 'ceiling_absolute';
+    public const FIELD_CEILING_BANDS = 'ceiling_bands';
+    public const FIELD_CONSUMER_OF_MAXK_07 = 'consumer_of_maxk_07';
 
     /**
      * @param  array<string,mixed>  $input keys:
@@ -98,7 +100,7 @@ final class PortfolioBudgetAllocator
     {
         $default = self::normalizeShares($input[self::FIELD_DEFAULT_MIX] ?? [], self::equalDefault());
         $weights = self::normalizeShares($input['operator_weights'] ?? [], $default);
-        $ceilings = self::normalizeCeilings($input['ceiling_bands'] ?? []);
+        $ceilings = self::normalizeCeilings($input[self::FIELD_CEILING_BANDS] ?? []);
         $yields = self::normalizeYields($input[self::FIELD_YIELD_BY_CLASS] ?? []);
         $amendmentId = AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_AMENDMENT_RECEIPT_ID] ?? null);
 
@@ -147,7 +149,7 @@ final class PortfolioBudgetAllocator
                 'starvation_floor_absolute' => self::HARD_FLOOR_SHARE,
                 self::FIELD_CEILING_ABSOLUTE => self::HARD_CEILING_SHARE,
                 'consumer_of_maxn_04' => true,
-                'consumer_of_maxk_07' => true,
+                self::FIELD_CONSUMER_OF_MAXK_07 => true,
                 'flag' => 'atlas.multk_06.portfolio_allocation_enabled',
                 'flag_default' => 'off',
             ],

@@ -82,6 +82,8 @@ final class Esp09IndependentChallengerService
     public const FIELD_REFUTATION = 'refutation';
     public const FIELD_ELEV18_ENGINE_IDS_DISTINCT = 'elev18_engine_ids_distinct';
     public const FIELD_HIGH_ALIGNMENT_BAND = 'high_alignment_band';
+    public const FIELD_OUTCOME = 'outcome';
+    public const FIELD_PROMOTION_WITHOUT_BLOCK = 'promotion_without_block';
 
     public const SKIP_REASON_LOW_AFFINITY = 'low_affinity';
 
@@ -211,7 +213,7 @@ final class Esp09IndependentChallengerService
         $byWindow = [];
 
         foreach ($events as $event) {
-            $outcome = AiValueNormalizer::lowerTrimmedString($event['outcome'] ?? '');
+            $outcome = AiValueNormalizer::lowerTrimmedString($event[self::FIELD_OUTCOME] ?? '');
             $window = AiValueNormalizer::trimmedStringOrNull($event['window'] ?? null) ?? 'default';
             $byWindow[$window] ??= [self::OUTCOME_ACCEPTED => 0, self::OUTCOME_IGNORED => 0];
 
@@ -272,7 +274,7 @@ final class Esp09IndependentChallengerService
             'trigger_kinds' => self::TRIGGER_KINDS,
             'ttl_days' => 30,
             self::FIELD_GATES_OVERRIDE => false,
-            'promotion_without_block' => self::PROMOTION_WITHOUT_BLOCK,
+            self::FIELD_PROMOTION_WITHOUT_BLOCK => self::PROMOTION_WITHOUT_BLOCK,
         ];
     }
 

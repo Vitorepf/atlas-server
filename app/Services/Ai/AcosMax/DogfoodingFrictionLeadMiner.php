@@ -25,6 +25,8 @@ final class DogfoodingFrictionLeadMiner
     public const FIELD_SOURCE = 'source';
     public const FIELD_LEAD_ONLY_NOT_SEED = 'lead_only_not_seed';
     public const FIELD_LEADS = 'leads';
+    public const FIELD_OPERATOR_TEXT_IN_OBJECTIVE = 'operator_text_in_objective';
+    public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
 
     /**
      * @param  list<array<string,mixed>>  $events
@@ -63,9 +65,9 @@ final class DogfoodingFrictionLeadMiner
                     $group,
                 )),
                 self::FIELD_SOURCE => [
-                    'operator_text_in_objective' => false,
+                    self::FIELD_OPERATOR_TEXT_IN_OBJECTIVE => false,
                     self::FIELD_LEAD_ONLY_NOT_SEED => true,
-                    'provider_calls_made' => false,
+                    self::FIELD_PROVIDER_CALLS_MADE => false,
                 ],
             ];
         }
