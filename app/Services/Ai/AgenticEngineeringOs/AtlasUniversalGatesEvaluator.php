@@ -20543,4 +20543,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B745).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b745WatchdogCheckHealthReportFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ok' => AtlasWatchdogCheckResult::STATUS_OK,
+            'warning' => AtlasWatchdogCheckResult::STATUS_WARNING,
+            'alert' => AtlasWatchdogCheckResult::FIELD_ALERT,
+            'skipped' => AtlasWatchdogCheckResult::STATUS_SKIPPED,
+            'error' => AtlasWatchdogCheckResult::STATUS_ERROR,
+            'alert' => AtlasWatchdogCheckResult::FIELD_ALERT,
+            'status' => AtlasWatchdogCheckResult::FIELD_STATUS,
+            'evidence' => AtlasWatchdogCheckResult::FIELD_EVIDENCE,
+            'id' => HealthReportWatchdogCheck::FIELD_ID,
+            'report_method' => HealthReportWatchdogCheck::FIELD_REPORT_METHOD,
+            'alert_code' => HealthReportWatchdogCheck::FIELD_ALERT_CODE,
+            'message' => HealthReportWatchdogCheck::FIELD_MESSAGE,
+            'aurg_coverage_gate_failed' => HealthReportWatchdogCheck::FIELD_AURG_COVERAGE_GATE_FAILED,
+            'compaction_soak_not_ready' => HealthReportWatchdogCheck::FIELD_COMPACTION_SOAK_NOT_READY,
+            'context_feedback_health_failed' => HealthReportWatchdogCheck::FIELD_CONTEXT_FEEDBACK_HEALTH_FAILED,
+            'engineering_enforce_readiness_not_ready' => HealthReportWatchdogCheck::FIELD_ENGINEERING_ENFORCE_READINESS_NOT_READY,
+            'learning_cadence_stalled' => HealthReportWatchdogCheck::FIELD_LEARNING_CADENCE_STALLED,
+            'lift_cycle_closure_stalled' => HealthReportWatchdogCheck::FIELD_LIFT_CYCLE_CLOSURE_STALLED,
+            'b745_watchdog_check_health_report_floor_count' => 18,
+        ];
+    }
+
 }

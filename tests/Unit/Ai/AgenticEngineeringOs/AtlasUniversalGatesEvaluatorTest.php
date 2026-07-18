@@ -157,6 +157,7 @@ use App\Services\Ai\AgenticEngineeringOs\AaeosRequiredGateCoverageChecker;
 use App\Services\Ai\AgenticEngineeringOs\AaeosBlockerSeverity;
 use App\Services\Ai\Cognition\TemporalSupersessionClassifier;
 use App\Services\Ai\Cognition\NumericRangeOverlapContradictionDetector;
+use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckResult;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -16299,6 +16300,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_RED, $out['red']);
         $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_YELLOW, $out['yellow']);
         $this->assertSame(18, $out['b744_acos_watchdog_floor_count']);
+    }
+
+    public function test_b745_watchdog_check_health_report_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b745WatchdogCheckHealthReportFloorsContractObserve([]);
+        $this->assertSame(AtlasWatchdogCheckResult::STATUS_OK, $out['ok']);
+        $this->assertSame(AtlasWatchdogCheckResult::STATUS_WARNING, $out['warning']);
+        $this->assertSame(AtlasWatchdogCheckResult::FIELD_ALERT, $out['alert']);
+        $this->assertSame(AtlasWatchdogCheckResult::STATUS_SKIPPED, $out['skipped']);
+        $this->assertSame(AtlasWatchdogCheckResult::STATUS_ERROR, $out['error']);
+        $this->assertSame(AtlasWatchdogCheckResult::FIELD_ALERT, $out['alert']);
+        $this->assertSame(AtlasWatchdogCheckResult::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasWatchdogCheckResult::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_ID, $out['id']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_REPORT_METHOD, $out['report_method']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_ALERT_CODE, $out['alert_code']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_AURG_COVERAGE_GATE_FAILED, $out['aurg_coverage_gate_failed']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_COMPACTION_SOAK_NOT_READY, $out['compaction_soak_not_ready']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_CONTEXT_FEEDBACK_HEALTH_FAILED, $out['context_feedback_health_failed']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_ENGINEERING_ENFORCE_READINESS_NOT_READY, $out['engineering_enforce_readiness_not_ready']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_LEARNING_CADENCE_STALLED, $out['learning_cadence_stalled']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_LIFT_CYCLE_CLOSURE_STALLED, $out['lift_cycle_closure_stalled']);
+        $this->assertSame(18, $out['b745_watchdog_check_health_report_floor_count']);
     }
 
 }
