@@ -150,6 +150,7 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_MEASUREMENT_WITHOUT_RECALLED_MEMORY_CASE_COUNT = 'measurement.without_recalled_memory.case_count';
     public const FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10 = 'score.dimensions.pipeline.score_out_of_10';
     public const FIELD_SCORE_OVERALL_OUT_OF_10 = 'score.overall_out_of_10';
+    public const FLOAT_2_5 = 2.5;
     public const FLOAT_10_0 = 10.0;
 
     public function __construct(
@@ -224,7 +225,7 @@ class AtlasAcosEvolutionScoreService
         $signals[] = [
             self::FIELD_SIGNAL => self::FIELD_CADENCIA_VIVA,
             self::FIELD_POINTS => round(($heartbeatFresh ? 1.25 : 0.0) + 1.25 * ($organsScheduled / count(self::SCHEDULED_ORGANS)), 2),
-            self::FIELD_MAX => 2.5,
+            self::FIELD_MAX => self::FLOAT_2_5,
             self::FIELD_EVIDENCE => sprintf('heartbeat_fresh=%s organs_scheduled=%d/%d', $heartbeatFresh ? self::FIELD_YES : self::FIELD_NO, $organsScheduled, count(self::SCHEDULED_ORGANS)),
         ];
 
@@ -232,7 +233,7 @@ class AtlasAcosEvolutionScoreService
         $signals[] = [
             self::FIELD_SIGNAL => self::FIELD_PACK_ANTI_LIXO,
             self::FIELD_POINTS => $unmarked === 0 ? 2.5 : 0.0,
-            self::FIELD_MAX => 2.5,
+            self::FIELD_MAX => self::FLOAT_2_5,
             self::FIELD_EVIDENCE => $unmarked === -1 ? 'store ausente (0 honesto)' : sprintf('unmarked_session_echo_nodes=%d', $unmarked),
         ];
 
@@ -252,7 +253,7 @@ class AtlasAcosEvolutionScoreService
         $signals[] = [
             self::FIELD_SIGNAL => self::FIELD_FEEDBACK_LOOP_VIVO,
             self::FIELD_POINTS => $newFeedbackPoints,
-            self::FIELD_MAX => 2.5,
+            self::FIELD_MAX => self::FLOAT_2_5,
             self::FIELD_EVIDENCE => sprintf(
                 'dual_read old_feedback=%.2f new_feedback=%.2f lift_status=%s with_cases=%d without_cases=%d measurement_ready=%s',
                 $oldFeedbackPoints,
@@ -272,7 +273,7 @@ class AtlasAcosEvolutionScoreService
         $signals[] = [
             self::FIELD_SIGNAL => self::FIELD_LICOES_GERIDAS,
             self::FIELD_POINTS => $newLicoesPoints,
-            self::FIELD_MAX => 2.5,
+            self::FIELD_MAX => self::FLOAT_2_5,
             self::FIELD_EVIDENCE => sprintf(
                 'dual_read old_licoes=%.2f new_licoes=%.2f quarantine_held=%d promoted=%d active_compounding_served=%s',
                 $oldLicoesPoints,
@@ -297,7 +298,7 @@ class AtlasAcosEvolutionScoreService
         $signals[] = [
             self::FIELD_SIGNAL => self::FIELD_MOTOR_VIVO,
             self::FIELD_POINTS => $heartbeatFresh ? 2.5 : 0.0,
-            self::FIELD_MAX => 2.5,
+            self::FIELD_MAX => self::FLOAT_2_5,
             self::FIELD_EVIDENCE => 'heartbeat do com.atlas.scheduler '.($heartbeatFresh ? self::FIELD_FRESCO : 'parado/ausente'),
         ];
 
@@ -306,7 +307,7 @@ class AtlasAcosEvolutionScoreService
         $signals[] = [
             self::FIELD_SIGNAL => self::FIELD_GATES_AUDITADOS,
             self::FIELD_POINTS => round(($gateFresh ? 1.25 : 0.0) + ($seriesFresh ? 1.25 : 0.0), 2),
-            self::FIELD_MAX => 2.5,
+            self::FIELD_MAX => self::FLOAT_2_5,
             self::FIELD_EVIDENCE => sprintf('long_horizon_receipt_fresh=%s delta_series_fresh=%s', $gateFresh ? self::FIELD_YES : self::FIELD_NO, $seriesFresh ? self::FIELD_YES : self::FIELD_NO),
         ];
 
@@ -314,7 +315,7 @@ class AtlasAcosEvolutionScoreService
         $signals[] = [
             self::FIELD_SIGNAL => self::FIELD_CADEIA_TIER_IMPLEMENTADA,
             self::FIELD_POINTS => round(($chain[self::FIELD_IMPLEMENTED] ? 1.25 : 0.0) + ($chain[self::FIELD_AUDITED] ? 1.25 : 0.0), 2),
-            self::FIELD_MAX => 2.5,
+            self::FIELD_MAX => self::FLOAT_2_5,
             self::FIELD_EVIDENCE => $chain[self::FIELD_EVIDENCE],
         ];
 
@@ -328,7 +329,7 @@ class AtlasAcosEvolutionScoreService
         $signals[] = [
             self::FIELD_SIGNAL => self::FIELD_EXECUCAO_GOVERNADA,
             self::FIELD_POINTS => round(($switchReadable ? 0.5 : 0.0) + ($chain[self::FIELD_TIER_EXPOSED] ? 1.0 : 0.0) + $governance[self::FIELD_POINTS], 2),
-            self::FIELD_MAX => 2.5,
+            self::FIELD_MAX => self::FLOAT_2_5,
             self::FIELD_EVIDENCE => sprintf(
                 'master_switch=%s tier_exposed=%s governanca_autonoma=%s',
                 $switchReadable ? 'legível' : 'indisponível',

@@ -81,6 +81,7 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_LONG_HORIZON_2 = 'LONG-HORIZON';
     public const FIELD_OPEN_BRAIN_2 = 'OPEN-BRAIN';
     public const FIELD_PERSISTENT_CONTEXT_2 = 'PERSISTENT-CONTEXT';
+    public const FIELD_VERIFIED_CONTEXT_2 = 'VERIFIED-CONTEXT';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -184,7 +185,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_PERSISTENT_CONTEXT => self::FIELD_PERSISTENT_CONTEXT_2,
             self::FIELD_AEMOR => self::FIELD_AEMOR_2,
             self::FIELD_LONG_HORIZON => self::FIELD_LONG_HORIZON_2,
-            self::FIELD_VERIFIED_CONTEXT => 'VERIFIED-CONTEXT',
+            self::FIELD_VERIFIED_CONTEXT => self::FIELD_VERIFIED_CONTEXT_2,
             self::FIELD_CONTEXT_QUALITY => self::FIELD_CONTEXT_QUALITY_2,
             self::FIELD_OPEN_BRAIN => self::FIELD_OPEN_BRAIN_2,
             self::FIELD_EVIDENCE => self::FIELD_EVIDENCE_2,
@@ -212,7 +213,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_PERSISTENT_CONTEXT_2 => 'Persistent Context Runtime',
             self::FIELD_AEMOR_2 => 'Execution Memory Outcome Runtime',
             self::FIELD_LONG_HORIZON_2 => 'TEOS-I1 Long-Horizon Intelligence',
-            'VERIFIED-CONTEXT' => 'Verified Context Execution Loop',
+            self::FIELD_VERIFIED_CONTEXT_2 => 'Verified Context Execution Loop',
             self::FIELD_CONTEXT_QUALITY_2 => 'Context Quality Certification Gate',
             self::FIELD_OPEN_BRAIN_2 => 'Open Brain Gateway',
             self::FIELD_EVIDENCE_2 => 'Evidence Ledger Memory Side',

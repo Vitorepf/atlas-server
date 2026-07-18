@@ -134,6 +134,7 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_ATLAS_AI_ROUTER_COMMAND_INTENT = 'atlas_ai_router.command_intent';
     public const FIELD_ATLAS_AI_ROUTER_FLOW_ID = 'atlas_ai_router.flow_id';
     public const FIELD_PROGRAMMING_FORGE = 'programming.forge';
+    public const FIELD_ROUTE_TARGET = 'route.target';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -251,7 +252,7 @@ final class AaeosHttpPathEnvelopeFactory
     public function policyGate(string $intentId, string $intentHash, array $data): array
     {
         $assisted = self::assistedExecutionQuality($data);
-        $target = AiValueNormalizer::trimmedStringOrNull(data_get($assisted, 'route.target', null)) ?? '';
+        $target = AiValueNormalizer::trimmedStringOrNull(data_get($assisted, self::FIELD_ROUTE_TARGET, null)) ?? '';
         $isDevTarget = $target === self::FIELD_ATLAS_DEV;
         $status = AiValueNormalizer::trimmedStringOrNull($assisted[self::FIELD_STATUS] ?? null) ?? '';
         $allowed = $isDevTarget ? ($status === self::FIELD_READY_FOR_ASSISTED_EXECUTION) : true;

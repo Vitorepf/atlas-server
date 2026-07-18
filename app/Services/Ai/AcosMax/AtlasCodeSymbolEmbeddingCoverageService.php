@@ -101,6 +101,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_S_SOURCE_HASH = 's.source_hash';
     public const FIELD_CODEX_INDEPENDENT_MAXA06_FASE2_JUDGE = 'codex-independent-maxa06-fase2-judge';
     public const FIELD_CURSOR_ACOS_MAX_MAXA06_FASE2 = 'cursor-acos-max-maxa06-fase2';
+    public const FLOAT_1_0 = 1.0;
     public const INT_60 = 60;
 
     /** @return array<string,mixed> */
@@ -112,7 +113,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             self::FIELD_FORMULA => 'MAXA-06 fase 2: coverage_ratio = active code symbols whose provenance in atlas_code_symbol_embeddings (embedding_model + embedded_content_hash) matches current source_hash, over active code symbols. Stale = provenance stamped but source_hash drifted (incremental re-embed target). Missing = no embedding row for the symbol.',
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_THRESHOLDS => [
-                self::FIELD_TARGET_COVERAGE_RATIO => 1.0,
+                self::FIELD_TARGET_COVERAGE_RATIO => self::FLOAT_1_0,
                 self::FIELD_DENOMINATOR_MIN_ACTIVE_SYMBOLS => 1,
                 self::FIELD_STALE_DEFINITION => 'atlas_code_symbol_embeddings.embedded_content_hash != atlas_engineering_code_symbols.source_hash',
                 self::FIELD_MISSING_DEFINITION => 'no matching row in atlas_code_symbol_embeddings for symbol_id',

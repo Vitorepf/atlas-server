@@ -146,6 +146,7 @@ use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
 use App\Services\Ai\Cognition\ImmuneSignatureStore;
 use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
 use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
+use App\Services\Ai\Cognition\BigramJaccardImmuneSemanticSimilarityPort;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -10803,6 +10804,24 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(EvidenceLedgerIntegrityWatchdogCheck::FIELD_WDG_01_EVIDENCE_LEDGER_INTEGRITY, $out['wdg-01.evidence_ledger_integrity']);
         $this->assertSame(AcosMaxLedgerRotationRegistry::INT_8, $out['8']);
         $this->assertSame(18, $out['b522_measure_series_lote_capture_hmac_immune_promotion_watchdog_floor_count']);
+    }
+
+    public function test_b523_acos_evolution_cognition_score_aaeos_quality_spec_completeness_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b523AcosEvolutionCognitionScoreAaeosQualitySpecCompletenessFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FLOAT_2_5, $out['2.5']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_VERIFIED_CONTEXT_2, $out['VERIFIED-CONTEXT']);
+        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_92, $out['0.92']);
+        $this->assertSame(SpecCompletenessScorer::INT_9, $out['9']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FLOAT_1_0, $out['1.0']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_YARDSTICK_REGRET_MEASURE_ID, $out['yardstick.regret_measure_id']);
+        $this->assertSame(PromotionProtocol::FLOAT_0_05, $out['0.05']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ROUTE_TARGET, $out['route.target']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FLOAT_0_5, $out['0.5']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::INT_5, $out['5']);
+        $this->assertSame(BigramJaccardImmuneSemanticSimilarityPort::INT_2, $out['2']);
+        $this->assertSame(11, $out['b523_acos_evolution_cognition_score_aaeos_quality_spec_completeness_floor_count']);
     }
 
 }

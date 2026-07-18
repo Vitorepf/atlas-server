@@ -125,6 +125,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_MAXK09_PROBE = 'maxk09-probe';
     public const FIELD_MAXK09_SIGLEDGER_ = 'maxk09-sigledger-';
     public const FIELD_NEVER_ISSUED = 'never-issued';
+    public const INT_5 = 5;
     public const FLOAT_0_10 = 0.10;
     public const FLOAT_0_42 = 0.42;
     public const FLOAT_0_0 = 0.0;
@@ -350,7 +351,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             metrics: [
                 self::FIELD_ASSIST_SESSIONS => self::INT_10,
                 self::FIELD_ACCEPTANCE_RATE => self::FLOAT_0_10,
-                self::FIELD_SEVERE_HALLUCINATION_COUNT => 5,
+                self::FIELD_SEVERE_HALLUCINATION_COUNT => self::INT_5,
             ],
             sourceId: self::FIELD_MAXK09_PROBE,
         );

@@ -146,6 +146,7 @@ use App\Services\Ai\Support\AiValueNormalizer;
 use RuntimeException;
 use App\Services\Ai\Cognition\FactPairPolarityContradictionDetector;
 use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+use App\Services\Ai\Cognition\BigramJaccardImmuneSemanticSimilarityPort;
 
 /**
  * Atlas Universal Gates Evaluator — produces `atlas.aaeos.gate_report.v1`
@@ -13719,6 +13720,30 @@ final class AtlasUniversalGatesEvaluator
             'wdg-01.evidence_ledger_integrity' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_WDG_01_EVIDENCE_LEDGER_INTEGRITY,
             '8' => AcosMaxLedgerRotationRegistry::INT_8,
             'b522_measure_series_lote_capture_hmac_immune_promotion_watchdog_floor_count' => 18,
+        ];
+    }
+
+    /**
+     * Observe-only floors contract (B523).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b523AcosEvolutionCognitionScoreAaeosQualitySpecCompletenessFloorsContractObserve(array $input = []): array
+    {
+        return [
+            '2.5' => AtlasAcosEvolutionScoreService::FLOAT_2_5,
+            'VERIFIED-CONTEXT' => AtlasCognitionScoreCardV4Grouper::FIELD_VERIFIED_CONTEXT_2,
+            '0.92' => AtlasAaeosQualityBarService::FLOAT_0_92,
+            '9' => SpecCompletenessScorer::INT_9,
+            '1.0' => AtlasCodeSymbolEmbeddingCoverageService::FLOAT_1_0,
+            'yardstick.regret_measure_id' => AtlasNCaptureDrillService::FIELD_YARDSTICK_REGRET_MEASURE_ID,
+            '0.05' => PromotionProtocol::FLOAT_0_05,
+            'route.target' => AaeosHttpPathEnvelopeFactory::FIELD_ROUTE_TARGET,
+            '0.5' => AtlasCognitiveFunctionDecomposerService::FLOAT_0_5,
+            '5' => AutonomyLadderAdversarialWatchdogCheck::INT_5,
+            '2' => BigramJaccardImmuneSemanticSimilarityPort::INT_2,
+            'b523_acos_evolution_cognition_score_aaeos_quality_spec_completeness_floor_count' => 11,
         ];
     }
 

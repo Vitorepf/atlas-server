@@ -142,6 +142,7 @@ final class PromotionProtocol
     public const FIELD_ACOS_MUTATION_SCORE_ENFORCE_BY_EXECUTOR = 'acos.mutation_score.enforce_by_executor';
     public const FIELD_ATLAS_AI_AUTONOMOUS_LEARNING_ENABLED = 'atlas.ai.autonomous_learning.enabled';
     public const FIELD_ATLAS_BRAIN_REFLECTION_ENABLED_2 = 'atlas.brain.reflection_enabled';
+    public const FLOAT_0_05 = 0.05;
 
     /** @var list<string> */
     public const STATES = [
@@ -417,7 +418,7 @@ final class PromotionProtocol
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_CONFIG_KEY => self::FIELD_ATLAS_MEMORY_CONTEXTUAL_BLURB_ENABLED,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '20 judged queries',
-                self::FIELD_FLIP_CRITERION => 'code/KB R8 precision@5 improves by >=0.05 with latency reported',
+                self::FIELD_FLIP_CRITERION => 'code/KB R8 precision@5 improves by >=self::FLOAT_0_05 with latency reported',
                 self::FIELD_ROLLBACK_TRIGGER => 'disable contextual blurbs on precision regression or hallucinated-blurb sample failure',
                 self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV26S_JUDGE,
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:2022',

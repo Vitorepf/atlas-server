@@ -148,6 +148,7 @@ final class AtlasNCaptureDrillService
     public const FIELD_DENOMINATORS_ROUTED_TASKS_OBSERVED = 'denominators.routed_tasks_observed';
     public const FIELD_THRESHOLDS_DAYS_BETWEEN_DRILLS_MAX = 'thresholds.days_between_drills_max';
     public const FIELD_YARDSTICK_GOLDEN_V2_SCORE = 'yardstick.golden_v2_score';
+    public const FIELD_YARDSTICK_REGRET_MEASURE_ID = 'yardstick.regret_measure_id';
     public const INT_365 = 365;
 
     private readonly string $ledgerPath;
@@ -228,7 +229,7 @@ final class AtlasNCaptureDrillService
             self::FIELD_YARDSTICK => [
                 self::FIELD_GOLDEN_V2_PASSED => (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_YARDSTICK_GOLDEN_V2_PASSED)) ?? false),
                 self::FIELD_GOLDEN_V2_SCORE => data_get($drill, self::FIELD_YARDSTICK_GOLDEN_V2_SCORE),
-                self::FIELD_REGRET_MEASURE_ID => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'yardstick.regret_measure_id')) ?? self::FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2,
+                self::FIELD_REGRET_MEASURE_ID => AiValueNormalizer::trimmedStringOrNull(data_get($drill, self::FIELD_YARDSTICK_REGRET_MEASURE_ID)) ?? self::FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2,
                 self::FIELD_PEEK_MODE => true,
             ],
             self::FIELD_TIMES => [
