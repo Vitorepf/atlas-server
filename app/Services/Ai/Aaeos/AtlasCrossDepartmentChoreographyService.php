@@ -15,6 +15,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 class AtlasCrossDepartmentChoreographyService
 {
+    public const FIELD_ESCALATE_TO = 'escalate_to';
+    public const FIELD_FROM_DEPARTMENT = 'from_department';
     public const HANDOFF_SCHEMA = 'atlas.aaeos.cross_dept.handoff.v1';
 
     public const VETO_SLA_SECONDS = 10;
@@ -140,7 +142,7 @@ class AtlasCrossDepartmentChoreographyService
             'max_iterations' => $maxIterations,
             self::FIELD_DECISION => $escalate ? 'escalate' : self::HANDOFF_KIND_REPAIR,
             self::FIELD_ESCALATE => $escalate,
-            'escalate_to' => $escalate ? [self::TARGET_ARCHITECT, self::TARGET_OPERATOR] : [],
+            self::FIELD_ESCALATE_TO => $escalate ? [self::TARGET_ARCHITECT, self::TARGET_OPERATOR] : [],
             'remaining_repairs' => $escalate ? 0 : max(0, $maxIterations - $iteration),
         ];
     }
@@ -156,7 +158,7 @@ class AtlasCrossDepartmentChoreographyService
         return [
             self::FIELD_SCHEMA_VERSION => self::HANDOFF_SCHEMA,
             self::FIELD_KIND => in_array($kind, self::HANDOFF_KINDS, true) ? $kind : self::HANDOFF_KIND_DELEGATION,
-            'from_department' => $this->departmentId($from),
+            self::FIELD_FROM_DEPARTMENT => $this->departmentId($from),
             'to_department' => $this->departmentId($to),
             'valid_kind' => in_array($kind, self::HANDOFF_KINDS, true),
             'payload' => $payload,

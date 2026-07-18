@@ -23,6 +23,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasAaeosVetoPropagationResolver
 {
+    public const FIELD_FORGE = 'forge';
+    public const FIELD_QA = 'qa';
     public const SCHEMA_VERSION = 'atlas.aaeos.veto_propagation.v1';
 
 
@@ -94,12 +96,12 @@ final class AtlasAaeosVetoPropagationResolver
             self::FIELD_PRODUCT => [self::FIELD_ARCHITECT],
             self::FIELD_ARCHITECT => ['security', 'forge', 'dev'],
             self::FIELD_DEV => [self::FIELD_REVIEW],
-            'forge' => [self::FIELD_REVIEW],
+            self::FIELD_FORGE => [self::FIELD_REVIEW],
             self::FIELD_REVIEW => ['architect', 'delivery'],
             'security' => ['operator', 'architect'],
             self::FIELD_DELIVERY => [self::FIELD_OPERATOR],
             self::FIELD_OPERATOR => [self::FIELD_MEMORY],
-            'qa' => ['dev', 'forge'],
+            self::FIELD_QA => ['dev', 'forge'],
             self::FIELD_DEBUG => [self::FIELD_DEV],
             self::FIELD_MEMORY => [],
         ];

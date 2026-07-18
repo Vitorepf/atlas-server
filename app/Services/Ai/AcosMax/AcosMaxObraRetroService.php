@@ -10,6 +10,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AcosMaxObraRetroService
 {
+    public const FIELD_OBRA_RETRO_LOTE = 'obra_retro_lote';
+    public const FIELD_OUTCOME_FLOW_ID = 'outcome_flow_id';
     public const FIELD_ID = 'id';
     public const FIELD_OBJECTIVE = 'objective';
     public const SCHEMA_VERSION = 'atlas.acos_max.obra_retro.v1';
@@ -211,14 +213,14 @@ final class AcosMaxObraRetroService
             'provider' => 'local',
             'verified' => true,
             self::FIELD_ACTOR_TAG => self::SERIES_TAG,
-            'outcome_flow_id' => self::SERIES_TAG,
+            self::FIELD_OUTCOME_FLOW_ID => self::SERIES_TAG,
             self::FIELD_LOTE => $lote,
             self::FIELD_SLICE_ID => $slice[self::FIELD_ID],
             self::FIELD_SLICE_STATE => $slice[self::FIELD_STATE],
             self::FIELD_EVIDENCE_REFS => AiValueNormalizer::arrayOrEmpty($slice[self::FIELD_EVIDENCE_REFS] ?? null),
             self::FIELD_METRICS => [
                 'tests_passed' => $status === self::OUTCOME_STATUS_SUCCEEDED,
-                'obra_retro_lote' => $lote,
+                self::FIELD_OBRA_RETRO_LOTE => $lote,
             ],
         ]);
 

@@ -19,6 +19,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasLocalModelIntegrityService
 {
+    public const FIELD_PATH = 'path';
+    public const FIELD_TOTAL = 'total';
     public const MANIFEST_SCHEMA = 'atlas.model_integrity_manifest.v1';
 
     public const MANIFEST_CONFIG_KEY = 'atlas_model_manifest';
@@ -94,7 +96,7 @@ final class AtlasLocalModelIntegrityService
 
         return [
             self::FIELD_SCHEMA_VERSION => AiValueNormalizer::trimmedStringOrNull($this->manifest[self::FIELD_SCHEMA_VERSION] ?? null) ?? self::MANIFEST_SCHEMA,
-            'total' => count($rows),
+            self::FIELD_TOTAL => count($rows),
             self::FIELD_VERIFIED => $status[self::STATUS_VERIFIED] ?? 0,
             self::FIELD_MISMATCHED => $status[self::STATUS_MISMATCHED] ?? 0,
             self::FIELD_MISSING => $status[self::STATUS_MISSING] ?? 0,
@@ -110,7 +112,7 @@ final class AtlasLocalModelIntegrityService
     public function verifyOne(array $entry): array
     {
         $modelId = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_MODEL_ID] ?? null) ?? '';
-        $path = AiValueNormalizer::trimmedStringOrNull($entry['path'] ?? null) ?? '';
+        $path = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_PATH] ?? null) ?? '';
         $pin = AiValueNormalizer::lowerTrimmedString($entry[self::FIELD_SHA256_PIN] ?? '');
 
         $row = [

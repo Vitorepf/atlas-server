@@ -388,6 +388,7 @@ final class AtlasAaeosCommand extends Command
                             {--obra-retro-acos-rollback-window-orchestrator-long-aaeos-floors-contract= : JSON file (any object) to observe obra/retro/acos/rollback/window/orchestrator floors}
                             {--http-path-cognition-score-department-level-aaeos-doc-floors-contract= : JSON file (any object) to observe http/path/cognition/score/department/level floors}
                             {--aaeos-implementation-context-pareto-gate-phase-immune-calibration-floors-contract= : JSON file (any object) to observe aaeos/implementation/context/pareto/gate/phase floors}
+                            {--aaeos-cognitive-implementation-veto-cross-department-lote-measure-floors-contract= : JSON file (any object) to observe aaeos/cognitive/implementation/veto/cross/department floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -932,6 +933,7 @@ final class AtlasAaeosCommand extends Command
             ['obra-retro-acos-rollback-window-orchestrator-long-aaeos-floors-contract', 'obra_retro_acos_rollback_window_orchestrator_long_aaeos_floors_contract', fn (array $p) => $gates->obraRetroAcosRollbackWindowOrchestratorLongAaeosFloorsContractObserve($p)],
             ['http-path-cognition-score-department-level-aaeos-doc-floors-contract', 'http_path_cognition_score_department_level_aaeos_doc_floors_contract', fn (array $p) => $gates->httpPathCognitionScoreDepartmentLevelAaeosDocFloorsContractObserve($p)],
             ['aaeos-implementation-context-pareto-gate-phase-immune-calibration-floors-contract', 'aaeos_implementation_context_pareto_gate_phase_immune_calibration_floors_contract', fn (array $p) => $gates->aaeosImplementationContextParetoGatePhaseImmuneCalibrationFloorsContractObserve($p)],
+            ['aaeos-cognitive-implementation-veto-cross-department-lote-measure-floors-contract', 'aaeos_cognitive_implementation_veto_cross_department_lote_measure_floors_contract', fn (array $p) => $gates->aaeosCognitiveImplementationVetoCrossDepartmentLoteMeasureFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

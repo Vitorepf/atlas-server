@@ -163,6 +163,8 @@ use RuntimeException;
  */
 final class AtlasUniversalGatesEvaluator
 {
+    public const FIELD_COUNT = 'count';
+    public const FIELD_DESCRIPTION = 'description';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_CANONICAL_SOURCE = 'canonical_source';
     public const SCHEMA_VERSION = 'atlas.aaeos.gate_report.v1';
@@ -220,63 +222,63 @@ final class AtlasUniversalGatesEvaluator
      */
     public const UNIVERSAL_GATES = [
         'lint_green' => [
-            'description' => 'Linter passes on all changed files.',
+            self::FIELD_DESCRIPTION => 'Linter passes on all changed files.',
             self::FIELD_CANONICAL_SOURCE => 'tools.lint_runner',
         ],
         'typecheck_green' => [
-            'description' => 'Static type check passes (PHPStan/tsc/mypy).',
+            self::FIELD_DESCRIPTION => 'Static type check passes (PHPStan/tsc/mypy).',
             self::FIELD_CANONICAL_SOURCE => 'tools.typecheck_runner',
         ],
         'tests_green' => [
-            'description' => 'Selected + regression test suite is green.',
+            self::FIELD_DESCRIPTION => 'Selected + regression test suite is green.',
             self::FIELD_CANONICAL_SOURCE => 'tools.test_runner',
         ],
         'coverage_min_threshold' => [
-            'description' => 'Coverage meets the project floor for the touched scope.',
+            self::FIELD_DESCRIPTION => 'Coverage meets the project floor for the touched scope.',
             self::FIELD_CANONICAL_SOURCE => 'tools.coverage_reporter',
         ],
         'scope_guard_ok' => [
-            'description' => 'No file outside declared scope was modified.',
+            self::FIELD_DESCRIPTION => 'No file outside declared scope was modified.',
             self::FIELD_CANONICAL_SOURCE => 'governance.scope_guard',
         ],
         'security_scan_clean' => [
-            'description' => 'Security scanner (SAST / OWASP) reports no findings above threshold.',
+            self::FIELD_DESCRIPTION => 'Security scanner (SAST / OWASP) reports no findings above threshold.',
             self::FIELD_CANONICAL_SOURCE => 'security.scan_runner',
         ],
         'dependency_audit_clean' => [
-            'description' => 'Dependency CVE audit reports no unacknowledged vulns.',
+            self::FIELD_DESCRIPTION => 'Dependency CVE audit reports no unacknowledged vulns.',
             self::FIELD_CANONICAL_SOURCE => 'security.dependency_audit',
         ],
         'secret_scan_clean' => [
-            'description' => 'No new secrets committed; existing secrets remain quarantined.',
+            self::FIELD_DESCRIPTION => 'No new secrets committed; existing secrets remain quarantined.',
             self::FIELD_CANONICAL_SOURCE => 'security.secret_scan',
         ],
         'sovereignty_boundary_respected' => [
-            'description' => 'No sensitive/secret/cyber payload crossed local-first boundary.',
+            self::FIELD_DESCRIPTION => 'No sensitive/secret/cyber payload crossed local-first boundary.',
             self::FIELD_CANONICAL_SOURCE => 'security.sovereignty_gate',
         ],
         'decision_receipt_v2_signed' => [
-            'description' => 'Decision Receipt v2 is signed and persisted before execution.',
+            self::FIELD_DESCRIPTION => 'Decision Receipt v2 is signed and persisted before execution.',
             self::FIELD_CANONICAL_SOURCE => 'governance.decision_receipt_v2',
         ],
         'evidence_traceable' => [
-            'description' => 'Every claim links to a hash-addressable evidence artifact.',
+            self::FIELD_DESCRIPTION => 'Every claim links to a hash-addressable evidence artifact.',
             self::FIELD_CANONICAL_SOURCE => 'evidence.ledger',
         ],
         'rollback_plan_present' => [
-            'description' => 'Rollback plan exists for every breaking change.',
+            self::FIELD_DESCRIPTION => 'Rollback plan exists for every breaking change.',
             self::FIELD_CANONICAL_SOURCE => 'delivery.rollback_planner',
         ],
         'review_packet_signed' => [
-            'description' => 'Review department signed the review packet for this delivery.',
+            self::FIELD_DESCRIPTION => 'Review department signed the review packet for this delivery.',
             self::FIELD_CANONICAL_SOURCE => 'review.packet_signer',
         ],
         'delivery_pack_completeness_min_0_95' => [
-            'description' => 'Delivery pack completeness score >= 0.95.',
+            self::FIELD_DESCRIPTION => 'Delivery pack completeness score >= 0.95.',
             self::FIELD_CANONICAL_SOURCE => DeliveryPackCompletenessScorer::class,
         ],
         'learning_capsule_registered' => [
-            'description' => 'A learning_capsule was registered with ACOS for compounding.',
+            self::FIELD_DESCRIPTION => 'A learning_capsule was registered with ACOS for compounding.',
             self::FIELD_CANONICAL_SOURCE => 'memory.learning_capsule_registry',
         ],
     ];
@@ -761,7 +763,7 @@ final class AtlasUniversalGatesEvaluator
         return [
             self::FIELD_SCHEMA_VERSION => AtlasMemoryRecallRelevanceScorer::SCHEMA_VERSION,
             'ranked' => $ranked,
-            'count' => count($ranked),
+            self::FIELD_COUNT => count($ranked),
         ];
     }
 
@@ -1612,7 +1614,7 @@ final class AtlasUniversalGatesEvaluator
 
         return [
             self::FIELD_SCHEMA_VERSION => self::OBSERVE_EVIDENCE_REF_NORMALIZE_SCHEMA,
-            'count' => count($refs),
+            self::FIELD_COUNT => count($refs),
             'evidence_refs' => $refs,
         ];
     }
@@ -1727,7 +1729,7 @@ final class AtlasUniversalGatesEvaluator
         return [
             self::FIELD_SCHEMA_VERSION => AtlasAaeosDepartmentRegistryService::SCHEMA,
             'canonical_departments' => AtlasAaeosDepartmentRegistryService::CANONICAL_DEPARTMENTS,
-            'count' => count(AtlasAaeosDepartmentRegistryService::CANONICAL_DEPARTMENTS),
+            self::FIELD_COUNT => count(AtlasAaeosDepartmentRegistryService::CANONICAL_DEPARTMENTS),
             'required_fields' => AtlasAaeosDepartmentRegistryService::REQUIRED_FIELDS,
             'required_field_count' => count(AtlasAaeosDepartmentRegistryService::REQUIRED_FIELDS),
             'valid_maturity' => AtlasAaeosDepartmentRegistryService::VALID_MATURITY,
@@ -1748,7 +1750,7 @@ final class AtlasUniversalGatesEvaluator
 
         return [
             self::FIELD_SCHEMA_VERSION => self::OBSERVE_UNIVERSAL_GATES_CATALOGUE_SCHEMA,
-            'count' => count($gates),
+            self::FIELD_COUNT => count($gates),
             'gates' => $gates,
         ];
     }
@@ -1765,7 +1767,7 @@ final class AtlasUniversalGatesEvaluator
         return [
             self::FIELD_SCHEMA_VERSION => self::OBSERVE_OUTCOME_ATTRIBUTION_TYPES_SCHEMA,
             'outcome_types' => AiOutcomeAttributionService::OUTCOME_TYPES,
-            'count' => count(AiOutcomeAttributionService::OUTCOME_TYPES),
+            self::FIELD_COUNT => count(AiOutcomeAttributionService::OUTCOME_TYPES),
         ];
     }
 
@@ -1781,7 +1783,7 @@ final class AtlasUniversalGatesEvaluator
         return [
             self::FIELD_SCHEMA_VERSION => AtlasAaeosPhaseRouterService::SCHEMA_VERSION,
             'valid_phases' => AtlasAaeosPhaseRouterService::VALID_PHASES,
-            'count' => count(AtlasAaeosPhaseRouterService::VALID_PHASES),
+            self::FIELD_COUNT => count(AtlasAaeosPhaseRouterService::VALID_PHASES),
             'active_phase_ranks' => AtlasAaeosPhaseRouterService::ACTIVE_PHASE_RANKS,
             'active_phase_count' => count(AtlasAaeosPhaseRouterService::ACTIVE_PHASE_RANKS),
             'phase_descriptions' => AtlasAaeosPhaseRouterService::PHASE_DESCRIPTIONS,
@@ -1800,7 +1802,7 @@ final class AtlasUniversalGatesEvaluator
         return [
             self::FIELD_SCHEMA_VERSION => AtlasCrossDepartmentChoreographyService::HANDOFF_SCHEMA,
             'handoff_kinds' => AtlasCrossDepartmentChoreographyService::HANDOFF_KINDS,
-            'count' => count(AtlasCrossDepartmentChoreographyService::HANDOFF_KINDS),
+            self::FIELD_COUNT => count(AtlasCrossDepartmentChoreographyService::HANDOFF_KINDS),
             'veto_sla_seconds' => AtlasCrossDepartmentChoreographyService::VETO_SLA_SECONDS,
             'repair_max_iterations' => AtlasCrossDepartmentChoreographyService::REPAIR_MAX_ITERATIONS,
         ];
@@ -1818,7 +1820,7 @@ final class AtlasUniversalGatesEvaluator
         return [
             self::FIELD_SCHEMA_VERSION => RealityCompilerSlice::SCHEMA_VERSION,
             'execution_phases' => RealityCompilerSlice::EXECUTION_PHASES,
-            'count' => count(RealityCompilerSlice::EXECUTION_PHASES),
+            self::FIELD_COUNT => count(RealityCompilerSlice::EXECUTION_PHASES),
         ];
     }
 
@@ -1834,7 +1836,7 @@ final class AtlasUniversalGatesEvaluator
         return [
             self::FIELD_SCHEMA_VERSION => AtlasSelfConstructionScopeRiskBudgetGate::SCHEMA,
             'risk_classes' => AtlasSelfConstructionScopeRiskBudgetGate::RISKS,
-            'count' => count(AtlasSelfConstructionScopeRiskBudgetGate::RISKS),
+            self::FIELD_COUNT => count(AtlasSelfConstructionScopeRiskBudgetGate::RISKS),
             'risk_floor_default' => AtlasSelfConstructionScopeRiskBudgetGate::RISK_FLOOR_DEFAULT,
         ];
     }
@@ -1851,7 +1853,7 @@ final class AtlasUniversalGatesEvaluator
         return [
             self::FIELD_SCHEMA_VERSION => AtlasExternalBrainOrganMeshOrchestrator::SCHEMA,
             'phases' => AtlasExternalBrainOrganMeshOrchestrator::PHASES,
-            'count' => count(AtlasExternalBrainOrganMeshOrchestrator::PHASES),
+            self::FIELD_COUNT => count(AtlasExternalBrainOrganMeshOrchestrator::PHASES),
         ];
     }
 
@@ -1885,7 +1887,7 @@ final class AtlasUniversalGatesEvaluator
         return [
             self::FIELD_SCHEMA_VERSION => AaeosPhaseHandoffService::SCHEMA_VERSION,
             'phases_requiring_signature_at_l4' => AaeosPhaseHandoffService::PHASES_REQUIRING_SIGNATURE_AT_L4,
-            'count' => count(AaeosPhaseHandoffService::PHASES_REQUIRING_SIGNATURE_AT_L4),
+            self::FIELD_COUNT => count(AaeosPhaseHandoffService::PHASES_REQUIRING_SIGNATURE_AT_L4),
         ];
     }
 
@@ -1908,7 +1910,7 @@ final class AtlasUniversalGatesEvaluator
         return [
             self::FIELD_SCHEMA_VERSION => self::OBSERVE_BLOCKER_SEVERITY_SCHEMA,
             'levels' => $levels,
-            'count' => count($levels),
+            self::FIELD_COUNT => count($levels),
             'decisive_levels' => [AaeosBlockerSeverity::CRITICAL, AaeosBlockerSeverity::HIGH],
         ];
     }
@@ -1925,7 +1927,7 @@ final class AtlasUniversalGatesEvaluator
         return [
             self::FIELD_SCHEMA_VERSION => AtlasSelfConstructionScopeRiskBudgetGate::SCHEMA,
             'high_risks' => AtlasSelfConstructionScopeRiskBudgetGate::HIGH_RISKS,
-            'count' => count(AtlasSelfConstructionScopeRiskBudgetGate::HIGH_RISKS),
+            self::FIELD_COUNT => count(AtlasSelfConstructionScopeRiskBudgetGate::HIGH_RISKS),
             'max_failure_rate' => AtlasSelfConstructionScopeRiskBudgetGate::MAX_FAILURE_RATE,
             'max_give_back_rate' => AtlasSelfConstructionScopeRiskBudgetGate::MAX_GIVE_BACK_RATE,
         ];
@@ -8801,7 +8803,7 @@ final class AtlasUniversalGatesEvaluator
             'dual_read_required' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_DUAL_READ_REQUIRED,
             'judge_engine_id' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_JUDGE_ENGINE_ID,
             'autonomy_governance' => AtlasAcosEvolutionScoreService::FIELD_AUTONOMY_GOVERNANCE,
-            'count' => AtlasAcosEvolutionScoreService::FIELD_COUNT,
+            self::FIELD_COUNT => AtlasAcosEvolutionScoreService::FIELD_COUNT,
             'obra_retro_acos_rollback_window_orchestrator_long_aaeos_floor_count' => 18,
         ];
     }
@@ -8831,7 +8833,7 @@ final class AtlasUniversalGatesEvaluator
             'operator_signature' => PhaseAdvanceVerdictClassifier::FIELD_OPERATOR_SIGNATURE,
             'at' => AtlasFrontierWaveLadder::FIELD_AT,
             'event_threshold' => AtlasFrontierWaveLadder::FIELD_EVENT_THRESHOLD,
-            'count' => CognitiveImmunePromotionGateEvaluator::FIELD_COUNT,
+            self::FIELD_COUNT => CognitiveImmunePromotionGateEvaluator::FIELD_COUNT,
             'recall_concentration_v2' => CognitiveImmunePromotionGateEvaluator::FIELD_RECALL_CONCENTRATION_V2,
             'http_path_cognition_score_department_level_aaeos_doc_floor_count' => 18,
         ];
@@ -8865,6 +8867,37 @@ final class AtlasUniversalGatesEvaluator
             'id' => AtlasCognitionEvidenceResolver::FIELD_ID,
             'owner_doc' => AtlasCognitionEvidenceResolver::FIELD_OWNER_DOC,
             'aaeos_implementation_context_pareto_gate_phase_immune_calibration_floor_count' => 18,
+        ];
+    }
+
+    /**
+     * Observe-only floors contract (B366).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function aaeosCognitiveImplementationVetoCrossDepartmentLoteMeasureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'input_class' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_INPUT_CLASS,
+            'matched_signals' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MATCHED_SIGNALS,
+            'matched' => AtlasAaeosImplementationEvidenceResolver::FIELD_MATCHED,
+            'migration' => AtlasAaeosImplementationEvidenceResolver::FIELD_MIGRATION,
+            'forge' => AtlasAaeosVetoPropagationResolver::FIELD_FORGE,
+            'qa' => AtlasAaeosVetoPropagationResolver::FIELD_QA,
+            'escalate_to' => AtlasCrossDepartmentChoreographyService::FIELD_ESCALATE_TO,
+            'from_department' => AtlasCrossDepartmentChoreographyService::FIELD_FROM_DEPARTMENT,
+            'completed_e2e' => AcosMaxLote2MeasureService::FIELD_COMPLETED_E2E,
+            'completion_claim_allowed' => AcosMaxLote2MeasureService::FIELD_COMPLETION_CLAIM_ALLOWED,
+            'path' => AtlasLocalModelIntegrityService::FIELD_PATH,
+            'total' => AtlasLocalModelIntegrityService::FIELD_TOTAL,
+            'flag_default' => PortfolioBudgetAllocator::FIELD_FLAG_DEFAULT,
+            'operator_weights' => PortfolioBudgetAllocator::FIELD_OPERATOR_WEIGHTS,
+            'count' => AtlasUniversalGatesEvaluator::FIELD_COUNT,
+            'description' => AtlasUniversalGatesEvaluator::FIELD_DESCRIPTION,
+            'obra_retro_lote' => AcosMaxObraRetroService::FIELD_OBRA_RETRO_LOTE,
+            'outcome_flow_id' => AcosMaxObraRetroService::FIELD_OUTCOME_FLOW_ID,
+            'aaeos_cognitive_implementation_veto_cross_department_lote_measure_floor_count' => 18,
         ];
     }
 

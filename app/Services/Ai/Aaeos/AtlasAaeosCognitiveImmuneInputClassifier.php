@@ -18,6 +18,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasAaeosCognitiveImmuneInputClassifier
 {
+    public const FIELD_INPUT_CLASS = 'input_class';
+    public const FIELD_MATCHED_SIGNALS = 'matched_signals';
     public const SCHEMA_VERSION = 'atlas.aaeos.cognitive_immune_input_classifier.v1';
 
     /**
@@ -232,12 +234,12 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'input_class' => $inputClass,
+            self::FIELD_INPUT_CLASS => $inputClass,
             self::FIELD_DEFAULT_DESTINATION => self::DESTINATIONS[$inputClass],
             'memory_eligible' => $memoryEligible,
             self::FIELD_EMBEDDING_ALLOWED => $embeddingAllowed,
             'reason' => $reason,
-            'matched_signals' => $matchedSignals,
+            self::FIELD_MATCHED_SIGNALS => $matchedSignals,
         ];
     }
 

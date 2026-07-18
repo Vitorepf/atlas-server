@@ -26,6 +26,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class PortfolioBudgetAllocator
 {
+    public const FIELD_FLAG_DEFAULT = 'flag_default';
+    public const FIELD_OPERATOR_WEIGHTS = 'operator_weights';
     public const SCHEMA_VERSION = 'atlas.decide.portfolio_allocation.v1';
 
     public const FORMULA_VERSION = 'atlas.multk_06.portfolio_allocation.v1';
@@ -101,7 +103,7 @@ final class PortfolioBudgetAllocator
     public static function derive(array $input): array
     {
         $default = self::normalizeShares($input[self::FIELD_DEFAULT_MIX] ?? [], self::equalDefault());
-        $weights = self::normalizeShares($input['operator_weights'] ?? [], $default);
+        $weights = self::normalizeShares($input[self::FIELD_OPERATOR_WEIGHTS] ?? [], $default);
         $ceilings = self::normalizeCeilings($input[self::FIELD_CEILING_BANDS] ?? []);
         $yields = self::normalizeYields($input[self::FIELD_YIELD_BY_CLASS] ?? []);
         $amendmentId = AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_AMENDMENT_RECEIPT_ID] ?? null);
@@ -153,7 +155,7 @@ final class PortfolioBudgetAllocator
                 self::FIELD_CONSUMER_OF_MAXN_04 => true,
                 self::FIELD_CONSUMER_OF_MAXK_07 => true,
                 self::FIELD_FLAG => 'atlas.multk_06.portfolio_allocation_enabled',
-                'flag_default' => 'off',
+                self::FIELD_FLAG_DEFAULT => 'off',
             ],
         ];
     }

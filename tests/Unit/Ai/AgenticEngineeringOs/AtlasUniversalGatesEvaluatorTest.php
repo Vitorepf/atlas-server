@@ -94,6 +94,11 @@ use App\Services\Ai\Cognition\ImmuneCalibrationService;
 use App\Services\Ai\Cognition\ImmuneSignatureIngestor;
 use App\Services\Ai\Cognition\Watchdog\AtlasAcosWatchdogHealthService;
 use App\Services\Ai\Cognition\AtlasCognitionEvidenceResolver;
+use App\Services\Ai\Aaeos\AtlasAaeosCognitiveImmuneInputClassifier;
+use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
+use App\Services\Ai\Aaeos\AtlasAaeosVetoPropagationResolver;
+use App\Services\Ai\Aaeos\AtlasCrossDepartmentChoreographyService;
+use App\Services\Ai\AcosMax\AtlasLocalModelIntegrityService;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -6843,6 +6848,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_ID, $out['id']);
         $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_OWNER_DOC, $out['owner_doc']);
         $this->assertSame(18, $out['aaeos_implementation_context_pareto_gate_phase_immune_calibration_floor_count']);
+    }
+
+    public function test_aaeos_cognitive_implementation_veto_cross_department_lote_measure_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->aaeosCognitiveImplementationVetoCrossDepartmentLoteMeasureFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_INPUT_CLASS, $out['input_class']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MATCHED_SIGNALS, $out['matched_signals']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MATCHED, $out['matched']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MIGRATION, $out['migration']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_QA, $out['qa']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_ESCALATE_TO, $out['escalate_to']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_FROM_DEPARTMENT, $out['from_department']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_COMPLETED_E2E, $out['completed_e2e']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_COMPLETION_CLAIM_ALLOWED, $out['completion_claim_allowed']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_PATH, $out['path']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_TOTAL, $out['total']);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_FLAG_DEFAULT, $out['flag_default']);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_OPERATOR_WEIGHTS, $out['operator_weights']);
+        $this->assertSame(AtlasUniversalGatesEvaluator::FIELD_COUNT, $out['count']);
+        $this->assertSame(AtlasUniversalGatesEvaluator::FIELD_DESCRIPTION, $out['description']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_OBRA_RETRO_LOTE, $out['obra_retro_lote']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_OUTCOME_FLOW_ID, $out['outcome_flow_id']);
+        $this->assertSame(18, $out['aaeos_cognitive_implementation_veto_cross_department_lote_measure_floor_count']);
     }
 
 }

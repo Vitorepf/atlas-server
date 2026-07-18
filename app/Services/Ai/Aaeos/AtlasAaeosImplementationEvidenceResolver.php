@@ -19,6 +19,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 class AtlasAaeosImplementationEvidenceResolver
 {
+    public const FIELD_MATCHED = 'matched';
+    public const FIELD_MIGRATION = 'migration';
     /**
      * Code symbol types that count as "a symbol exists" for a {kind: symbol} ref.
      *
@@ -278,7 +280,7 @@ class AtlasAaeosImplementationEvidenceResolver
             self::FIELD_COMMAND => $this->matchTyped('cli_command', $ref),
             self::FIELD_TEST => $this->matchTest($ref),
             'receipt' => $this->matchReceipt($ref),
-            'migration' => $this->matchTyped('migration_table', $ref),
+            self::FIELD_MIGRATION => $this->matchTyped('migration_table', $ref),
             default => null,
         };
 
@@ -286,7 +288,7 @@ class AtlasAaeosImplementationEvidenceResolver
             self::FIELD_KIND => $kind,
             'ref' => $ref,
             'resolved' => $matched !== null,
-            'matched' => $matched,
+            self::FIELD_MATCHED => $matched,
         ];
     }
 

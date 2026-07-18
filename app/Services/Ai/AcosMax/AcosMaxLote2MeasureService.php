@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Schema;
 
 final class AcosMaxLote2MeasureService
 {
+    public const FIELD_COMPLETED_E2E = 'completed_e2e';
+    public const FIELD_COMPLETION_CLAIM_ALLOWED = 'completion_claim_allowed';
     public const MAXL06_MEASURE_ID = 'atlas.evidence.delta_attribution.v1';
 
     public const MULTN1704_MEASURE_ID = 'atlas.originator.predicted_impact_calibration.v1';
@@ -914,7 +916,7 @@ final class AcosMaxLote2MeasureService
                 'retrieval_policy_changed' => false,
                 self::FIELD_RECORD_USAGE_FOR_PEEK => false,
                 self::FIELD_SYNTHETIC_FIXTURE_CLAIM_ALLOWED => false,
-                'completion_claim_allowed' => false,
+                self::FIELD_COMPLETION_CLAIM_ALLOWED => false,
             ],
         ];
     }
@@ -1038,7 +1040,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_WINDOW_DAYS => $days,
             'metrics' => [
                 self::FIELD_OPERATOR_REQUESTS => $total,
-                'completed_e2e' => $completed,
+                self::FIELD_COMPLETED_E2E => $completed,
                 'mission_e2e_rate' => $total > 0 ? round($completed / $total, 4) : null,
                 self::FIELD_ASKS_PER_REQUEST => null,
                 'request_to_delivery_p50_seconds' => null,
