@@ -93,6 +93,12 @@ final class AtlasNCaptureDrillService
     public const FIELD_DRILL_ID = 'drill_id';
     public const FIELD_DRILLS = 'drills';
     public const FIELD_DRILLS_IN_WINDOW = 'drills_in_window';
+    public const FIELD_ENGINE_ID = 'engine_id';
+    public const FIELD_TRIGGER = 'trigger';
+    public const FIELD_RECORDED_AT = 'recorded_at';
+    public const FIELD_REQUIRED_FIELDS = 'required_fields';
+    public const FIELD_TTL_DAYS = 'ttl_days';
+    public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
 
     private readonly string $ledgerPath;
 
@@ -118,7 +124,7 @@ final class AtlasNCaptureDrillService
                     'atlas.decide.route_regret.v2',
                 ],
                 self::FIELD_PEEK_ONLY => true,
-                'required_fields' => [
+                self::FIELD_REQUIRED_FIELDS => [
                     'engine_id',
                     'capability_spec.verified',
                     'yardstick.golden_v2_passed',
@@ -131,9 +137,9 @@ final class AtlasNCaptureDrillService
                 ],
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
-            'ttl_days' => 365,
+            self::FIELD_TTL_DAYS => 365,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-teto01',
-            'judge_engine_id' => 'codex-independent-teto01-judge',
+            self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-teto01-judge',
             'dual_read_required' => false,
             'series_registry' => [
                 'series' => self::MEASURE_ID,
@@ -163,7 +169,7 @@ final class AtlasNCaptureDrillService
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_DRILL_ID => AiValueNormalizer::trimmedStringOrNull($drill[self::FIELD_DRILL_ID] ?? null) ?? (string) Str::uuid(),
-            'engine_id' => AiValueNormalizer::trimmedScalarStringOrNull($drill['engine_id'] ?? null) ?? '',
+            self::FIELD_ENGINE_ID => AiValueNormalizer::trimmedScalarStringOrNull($drill[self::FIELD_ENGINE_ID] ?? null) ?? '',
             self::FIELD_CAPABILITY_SPEC => [
                 'function' => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'capability_spec.function')) ?? 'engine',
                 'verified' => (AiValueNormalizer::boolOrNull(data_get($drill, 'capability_spec.verified')) ?? false),
@@ -190,8 +196,8 @@ final class AtlasNCaptureDrillService
                 self::FIELD_BYPASS => (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.bypass')) ?? false),
                 self::FIELD_REASON => data_get($drill, 'admission.reason'),
             ],
-            'trigger' => (AiValueNormalizer::trimmedStringOrNull($drill['trigger'] ?? null) ?? self::TRIGGER_UNKNOWN),
-            'recorded_at' => now('UTC')->toIso8601String(),
+            self::FIELD_TRIGGER => (AiValueNormalizer::trimmedStringOrNull($drill[self::FIELD_TRIGGER] ?? null) ?? self::TRIGGER_UNKNOWN),
+            self::FIELD_RECORDED_AT => now('UTC')->toIso8601String(),
         ];
 
         $this->appendReceipt($receipt);
@@ -214,7 +220,7 @@ final class AtlasNCaptureDrillService
         $inWindow = array_values(array_filter(
             $receipts,
             static function (array $r) use ($since): bool {
-                $ts = (AiValueNormalizer::trimmedStringOrNull($r['recorded_at'] ?? null) ?? '');
+                $ts = (AiValueNormalizer::trimmedStringOrNull($r[self::FIELD_RECORDED_AT] ?? null) ?? '');
                 if ($ts === '') {
                     return false;
                 }
@@ -242,7 +248,7 @@ final class AtlasNCaptureDrillService
 
         $engines = [];
         foreach ($inWindow as $r) {
-            $engineId = (AiValueNormalizer::trimmedStringOrNull($r['engine_id'] ?? null) ?? '');
+            $engineId = (AiValueNormalizer::trimmedStringOrNull($r[self::FIELD_ENGINE_ID] ?? null) ?? '');
             if ($engineId === '') {
                 continue;
             }
@@ -285,7 +291,7 @@ final class AtlasNCaptureDrillService
     {
         $violations = [];
 
-        $engineId = AiValueNormalizer::trimmedStringOrNull($drill['engine_id'] ?? null) ?? '';
+        $engineId = AiValueNormalizer::trimmedStringOrNull($drill[self::FIELD_ENGINE_ID] ?? null) ?? '';
         if ($engineId === '') {
             $violations[] = [self::FIELD_FIELD => 'engine_id', self::FIELD_REASON => self::REASON_DRILL_RECEIPT_INCOMPLETE];
         }

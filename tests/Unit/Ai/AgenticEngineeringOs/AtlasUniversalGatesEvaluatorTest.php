@@ -5371,5 +5371,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['threshold_http_immune_floor_count']);
     }
 
+    public function test_ncapture_asef_spec_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->ncaptureAsefSpecFloorsContractObserve([]);
+
+        $this->assertSame('engine_id', $payload['ncapture_field_engine_id']);
+        $this->assertSame('trigger', $payload['ncapture_field_trigger']);
+        $this->assertSame('recorded_at', $payload['ncapture_field_recorded_at']);
+        $this->assertSame('required_fields', $payload['ncapture_field_required_fields']);
+        $this->assertSame('ttl_days', $payload['ncapture_field_ttl_days']);
+        $this->assertSame('judge_engine_id', $payload['ncapture_field_judge_engine_id']);
+        $this->assertSame('source_hash', $payload['asef_field_source_hash']);
+        $this->assertSame('chunk_index', $payload['asef_field_chunk_index']);
+        $this->assertSame('updated_at', $payload['asef_field_updated_at']);
+        $this->assertSame('embedded_content_hash', $payload['asef_field_embedded_content_hash']);
+        $this->assertSame('created_at', $payload['asef_field_created_at']);
+        $this->assertSame('manifest_status', $payload['asef_field_manifest_status']);
+        $this->assertSame('field', $payload['spec_field_field']);
+        $this->assertSame('weight_loss', $payload['spec_field_weight_loss']);
+        $this->assertSame('total_score', $payload['spec_field_total_score']);
+        $this->assertSame('earned', $payload['spec_field_earned']);
+        $this->assertSame('schema_version', $payload['spec_field_schema_version']);
+        $this->assertSame('verdict', $payload['spec_field_verdict']);
+        $this->assertSame(18, $payload['ncapture_asef_spec_floor_count']);
+    }
+
 
 }

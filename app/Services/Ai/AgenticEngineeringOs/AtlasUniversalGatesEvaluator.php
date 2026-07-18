@@ -7161,6 +7161,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for ncapture / asef / spec-completeness peels.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function ncaptureAsefSpecFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ncapture_field_engine_id' => AtlasNCaptureDrillService::FIELD_ENGINE_ID,
+            'ncapture_field_trigger' => AtlasNCaptureDrillService::FIELD_TRIGGER,
+            'ncapture_field_recorded_at' => AtlasNCaptureDrillService::FIELD_RECORDED_AT,
+            'ncapture_field_required_fields' => AtlasNCaptureDrillService::FIELD_REQUIRED_FIELDS,
+            'ncapture_field_ttl_days' => AtlasNCaptureDrillService::FIELD_TTL_DAYS,
+            'ncapture_field_judge_engine_id' => AtlasNCaptureDrillService::FIELD_JUDGE_ENGINE_ID,
+            'asef_field_source_hash' => AsefChunkIndexService::FIELD_SOURCE_HASH,
+            'asef_field_chunk_index' => AsefChunkIndexService::FIELD_CHUNK_INDEX,
+            'asef_field_updated_at' => AsefChunkIndexService::FIELD_UPDATED_AT,
+            'asef_field_embedded_content_hash' => AsefChunkIndexService::FIELD_EMBEDDED_CONTENT_HASH,
+            'asef_field_created_at' => AsefChunkIndexService::FIELD_CREATED_AT,
+            'asef_field_manifest_status' => AsefChunkIndexService::FIELD_MANIFEST_STATUS,
+            'spec_field_field' => SpecCompletenessScorer::FIELD_FIELD,
+            'spec_field_weight_loss' => SpecCompletenessScorer::FIELD_WEIGHT_LOSS,
+            'spec_field_total_score' => SpecCompletenessScorer::FIELD_TOTAL_SCORE,
+            'spec_field_earned' => SpecCompletenessScorer::FIELD_EARNED,
+            'spec_field_schema_version' => SpecCompletenessScorer::FIELD_SCHEMA_VERSION,
+            'spec_field_verdict' => SpecCompletenessScorer::FIELD_VERDICT,
+            'ncapture_asef_spec_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

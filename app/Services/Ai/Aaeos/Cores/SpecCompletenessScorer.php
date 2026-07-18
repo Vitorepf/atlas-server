@@ -41,6 +41,12 @@ final class SpecCompletenessScorer
     public const FIELD_TEST_STRATEGY = 'test_strategy';
     public const FIELD_PRESENT = 'present';
     public const FIELD_SATISFIED = 'satisfied';
+    public const FIELD_FIELD = 'field';
+    public const FIELD_WEIGHT_LOSS = 'weight_loss';
+    public const FIELD_TOTAL_SCORE = 'total_score';
+    public const FIELD_EARNED = 'earned';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_VERDICT = 'verdict';
 
 
     /**
@@ -107,31 +113,31 @@ final class SpecCompletenessScorer
                 self::FIELD_PRESENT => $present,
                 self::FIELD_SATISFIED => $satisfied,
                 self::FIELD_WEIGHT => $weight,
-                'earned' => $earned,
+                self::FIELD_EARNED => $earned,
                 self::FIELD_REASON => $reason,
             ];
 
             if (! $satisfied) {
                 $missing[] = [
-                    'field' => $field,
+                    self::FIELD_FIELD => $field,
                     self::FIELD_WEIGHT => $weight,
-                    'weight_loss' => (AiValueNormalizer::finiteFloatOrNull($weight) ?? 0.0) - $earned,
+                    self::FIELD_WEIGHT_LOSS => (AiValueNormalizer::finiteFloatOrNull($weight) ?? 0.0) - $earned,
                     self::FIELD_REASON => $reason,
                 ];
             }
         }
 
         usort($missing, static function (array $a, array $b): int {
-            return $b['weight_loss'] <=> $a['weight_loss']
-                ?: strcmp($a['field'], $b['field']);
+            return $b[self::FIELD_WEIGHT_LOSS] <=> $a[self::FIELD_WEIGHT_LOSS]
+                ?: strcmp($a[self::FIELD_FIELD], $b[self::FIELD_FIELD]);
         });
 
         $totalScore = (int) round($earnedTotal);
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'total_score' => $totalScore,
-            'verdict' => $this->verdict($totalScore),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_TOTAL_SCORE => $totalScore,
+            self::FIELD_VERDICT => $this->verdict($totalScore),
             'fields' => $fields,
             'missing_or_weak' => $missing,
             'present_count' => $presentCount,
@@ -146,7 +152,7 @@ final class SpecCompletenessScorer
      */
     public function passesMin(array $spec, int $minScore = self::COMPLETE_THRESHOLD): bool
     {
-        return ($this->score($spec)['total_score'] ?? 0) >= $minScore;
+        return ($this->score($spec)[self::FIELD_TOTAL_SCORE] ?? 0) >= $minScore;
     }
 
     /**

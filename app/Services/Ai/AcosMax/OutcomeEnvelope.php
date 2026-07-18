@@ -55,6 +55,10 @@ final class OutcomeEnvelope
     public const FIELD_PROVIDER = 'provider';
     public const FIELD_STATUS = 'status';
     public const FIELD_VERIFIED_BASIS = 'verified_basis';
+    public const FIELD_CERTIFIED_RECEIPT_ID = 'certified_receipt_id';
+    public const FIELD_EVIDENCE_REF_COUNT = 'evidence_ref_count';
+    public const FIELD_EPISODE_ID = 'episode_id';
+    public const FIELD_RUN_ID = 'run_id';
 
     /**
      * Map divergent native status labels onto the shared envelope statuses.
@@ -185,17 +189,17 @@ final class OutcomeEnvelope
             throw new InvalidArgumentException('outcome_envelope_verified_source_present_invalid');
         }
 
-        $evidenceRefCount = $data['evidence_ref_count'] ?? null;
+        $evidenceRefCount = $data[self::FIELD_EVIDENCE_REF_COUNT] ?? null;
         if (! is_int($evidenceRefCount) || $evidenceRefCount < 0) {
             throw new InvalidArgumentException('outcome_envelope_evidence_ref_count_invalid');
         }
 
-        $certifiedReceiptId = $data['certified_receipt_id'] ?? null;
+        $certifiedReceiptId = $data[self::FIELD_CERTIFIED_RECEIPT_ID] ?? null;
         if ($certifiedReceiptId !== null && AiValueNormalizer::trimmedStringOrNull($certifiedReceiptId) === null) {
             throw new InvalidArgumentException('outcome_envelope_certified_receipt_id_invalid');
         }
 
-        $episodeId = $data['episode_id'] ?? null;
+        $episodeId = $data[self::FIELD_EPISODE_ID] ?? null;
         if ($episodeId !== null && AiValueNormalizer::trimmedStringOrNull($episodeId) === null) {
             throw new InvalidArgumentException('outcome_envelope_episode_id_invalid');
         }
@@ -211,10 +215,10 @@ final class OutcomeEnvelope
             self::FIELD_VERIFIED => (AiValueNormalizer::boolOrNull($data[self::FIELD_VERIFIED] ?? null) ?? false),
             self::FIELD_VERIFIED_BASIS => $basis,
             self::FIELD_VERIFIED_SOURCE_PRESENT => (AiValueNormalizer::boolOrNull($data[self::FIELD_VERIFIED_SOURCE_PRESENT] ?? null) ?? false),
-            'certified_receipt_id' => $certifiedReceiptId !== null ? AiValueNormalizer::trimmedStringOrNull($certifiedReceiptId) ?? '' : null,
-            'evidence_ref_count' => $evidenceRefCount,
-            'episode_id' => $episodeId !== null ? AiValueNormalizer::trimmedStringOrNull($episodeId) ?? '' : null,
-            'run_id' => AiValueNormalizer::trimmedStringOrNull($data['run_id'] ?? null),
+            self::FIELD_CERTIFIED_RECEIPT_ID => $certifiedReceiptId !== null ? AiValueNormalizer::trimmedStringOrNull($certifiedReceiptId) ?? '' : null,
+            self::FIELD_EVIDENCE_REF_COUNT => $evidenceRefCount,
+            self::FIELD_EPISODE_ID => $episodeId !== null ? AiValueNormalizer::trimmedStringOrNull($episodeId) ?? '' : null,
+            self::FIELD_RUN_ID => AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_RUN_ID] ?? null),
             self::FIELD_NATIVE_DIVERGENT => [
                 self::FIELD_ORIGIN => $divergentOrigin,
                 self::FIELD_FIELDS => $divergent[self::FIELD_FIELDS],
