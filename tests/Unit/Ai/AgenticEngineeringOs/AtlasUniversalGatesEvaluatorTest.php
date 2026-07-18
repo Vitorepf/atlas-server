@@ -13078,4 +13078,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b615_memory_cognitive_floor_count']);
     }
 
+    public function test_b616_memory_cognitive_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b616MemoryCognitiveFloorsContractObserve([]);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CONFLICTED, $out['conflicted']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_DEPRECATED, $out['deprecated']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PRIVACY, $out['privacy']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_VALID, $out['valid']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ALL_GATES_PASSED, $out['all_gates_passed']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ATLAS_COGNITIVE_IMMUNE_PROMOTION_GATE_EVALUATOR_ENABLED, $out['atlas.cognitive_immune.promotion_gate_evaluator_enabled']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_AUTO__REVIEW_HUMANO__PROPOSAL_OU_BLOQUEIO_, $out['auto, review humano, proposal ou bloqueio?']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CHAT_TRANSCRIPT_NEVER_BECOMES_MEMORY_SILENTLY, $out['chat_transcript_never_becomes_memory_silently']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CLASS_CANNOT_BECOME_MEMORY, $out['class_cannot_become_memory']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CLASS_INELIGIBLE, $out['class_ineligible']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CLASS_NOT_CONSTELLATION_GRADE, $out['class_not_constellation_grade']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CONFLITA_COM_MEMORIA__CODIGO__DOCS_OU_DECISAO_MAIS_NOVA_, $out['conflita com memoria, codigo, docs ou decisao mais nova?']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CRITICAL_SCOPE_FORCED_REVIEW, $out['critical_scope_forced_review']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_DELETE_PROPAGATES_TO_MEMORY_EMBEDDINGS_CACHES_CONSTELLATION, $out['delete_propagates_to_memory_embeddings_caches_constellation']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_E_PROVIDER_SAFE__SEM_SEGREDO_E_SEM_DADO_SENSIVEL_DESNECESSARIO_, $out['e provider-safe, sem segredo e sem dado sensivel desnecessario?']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_EMBEDDING_ALLOWED_FLAG_FALSE, $out['embedding_allowed_flag_false']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ENTRA_COMO_WATCH_ANTES_DE_TRUSTED_, $out['entra como watch antes de trusted?']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_EVERY_MEMORY_HAS_SCOPE_SOURCE_STATE_USE_REASON, $out['every_memory_has_scope_source_state_use_reason']);
+        $this->assertSame(18, $out['b616_memory_cognitive_floor_count']);
+    }
+
 }

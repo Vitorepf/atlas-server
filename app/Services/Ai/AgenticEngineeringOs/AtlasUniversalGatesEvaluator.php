@@ -16551,4 +16551,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B616).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b616MemoryCognitiveFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'conflicted' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CONFLICTED,
+            'deprecated' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_DEPRECATED,
+            'privacy' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PRIVACY,
+            'valid' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_VALID,
+            'all_gates_passed' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ALL_GATES_PASSED,
+            'atlas.cognitive_immune.promotion_gate_evaluator_enabled' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ATLAS_COGNITIVE_IMMUNE_PROMOTION_GATE_EVALUATOR_ENABLED,
+            'auto, review humano, proposal ou bloqueio?' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_AUTO__REVIEW_HUMANO__PROPOSAL_OU_BLOQUEIO_,
+            'chat_transcript_never_becomes_memory_silently' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CHAT_TRANSCRIPT_NEVER_BECOMES_MEMORY_SILENTLY,
+            'class_cannot_become_memory' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CLASS_CANNOT_BECOME_MEMORY,
+            'class_ineligible' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CLASS_INELIGIBLE,
+            'class_not_constellation_grade' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CLASS_NOT_CONSTELLATION_GRADE,
+            'conflita com memoria, codigo, docs ou decisao mais nova?' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CONFLITA_COM_MEMORIA__CODIGO__DOCS_OU_DECISAO_MAIS_NOVA_,
+            'critical_scope_forced_review' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CRITICAL_SCOPE_FORCED_REVIEW,
+            'delete_propagates_to_memory_embeddings_caches_constellation' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_DELETE_PROPAGATES_TO_MEMORY_EMBEDDINGS_CACHES_CONSTELLATION,
+            'e provider-safe, sem segredo e sem dado sensivel desnecessario?' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_E_PROVIDER_SAFE__SEM_SEGREDO_E_SEM_DADO_SENSIVEL_DESNECESSARIO_,
+            'embedding_allowed_flag_false' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_EMBEDDING_ALLOWED_FLAG_FALSE,
+            'entra como watch antes de trusted?' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ENTRA_COMO_WATCH_ANTES_DE_TRUSTED_,
+            'every_memory_has_scope_source_state_use_reason' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_EVERY_MEMORY_HAS_SCOPE_SOURCE_STATE_USE_REASON,
+            'b616_memory_cognitive_floor_count' => 18,
+        ];
+    }
+
 }
