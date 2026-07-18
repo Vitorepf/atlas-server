@@ -97,6 +97,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_PERSISTENT_CONTEXT_RUNTIME = 'Persistent Context Runtime';
     public const FIELD_TEOS_COUNTERFACTUALS = 'TEOS Counterfactuals';
     public const FIELD_VERIFIED_CONTEXT_EXECUTION_LOOP = 'Verified Context Execution Loop';
+    public const FIELD_ATLAS_DECIDE___SWARM = 'Atlas Decide + Swarm';
+    public const FIELD_COGNITIVE_IMMUNE_G0_G8 = 'Cognitive Immune G0-G8';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -211,12 +213,12 @@ final class AtlasCognitionScoreCardV4Grouper
     private function moduleName(string $key): string
     {
         return match ($key) {
-            self::FIELD_IMMUNE => 'Cognitive Immune G0-G8',
+            self::FIELD_IMMUNE => self::FIELD_COGNITIVE_IMMUNE_G0_G8,
             self::FIELD_MEMORY => self::FIELD_MEMORY_CORE_2,
             self::FIELD_CONTEXT => 'Context Runtime (AUCRI policies)',
             self::FIELD_CONSUMERS => self::FIELD_ACOS_CONSUMERS_AND_LEGACY_PROJECTIONS,
             self::FIELD_GOVERNANCE_2 => self::FIELD_CONSTITUTIONAL_GOVERNANCE,
-            self::FIELD_DECIDE => 'Atlas Decide + Swarm',
+            self::FIELD_DECIDE => self::FIELD_ATLAS_DECIDE___SWARM,
             self::FIELD_COMPOUND => self::FIELD_COMPOUNDING_2,
             self::FIELD_REALITY_2 => 'Reality Graph + Cross-Domain',
             self::FIELD_TEOS_2 => self::FIELD_TEOS_COUNTERFACTUALS,

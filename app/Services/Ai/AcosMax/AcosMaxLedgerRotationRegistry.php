@@ -90,6 +90,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ATLAS_TEST_ATTESTATION_V1 = 'atlas.test_attestation.v1';
     public const FIELD_MISSION_E2E_V1 = 'mission_e2e.v1';
     public const FIELD_OPERATOR_APPROVAL_HISTORY_V1 = 'operator.approval_history.v1';
+    public const FIELD_ELEV_02_METRIC_M_SERIES__MONTHLY_APPEND_CADENCE = 'ELEV-02 metric M series; monthly append cadence';
+    public const FIELD_ELEV_12_VERIFIED_SHARE_OBSERVED_DAILY = 'ELEV-12 verified-share observed daily';
     public const INT_8 = 8;
     public const INT_64 = 64;
     public const INT_45 = 45;
@@ -148,13 +150,13 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_180,
                 self::FIELD_MODE => self::MODE_ROTATE_SIZE,
-                self::FIELD_RATIONALE => 'ELEV-02 metric M series; monthly append cadence',
+                self::FIELD_RATIONALE => self::FIELD_ELEV_02_METRIC_M_SERIES__MONTHLY_APPEND_CADENCE,
             ],
             self::FIELD_ACOS_VERIFIED_SHARE_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'ELEV-12 verified-share observed daily',
+                self::FIELD_RATIONALE => self::FIELD_ELEV_12_VERIFIED_SHARE_OBSERVED_DAILY,
             ],
             self::FIELD_ACOS_ASI05_LEDGER_CLEANUP_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_8,

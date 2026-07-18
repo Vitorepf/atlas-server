@@ -15754,4 +15754,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B590).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b590LedgerRotationCognitionScoreDepartmentContractAcosEvolutionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ELEV-02 metric M series; monthly append cadence' => AcosMaxLedgerRotationRegistry::FIELD_ELEV_02_METRIC_M_SERIES__MONTHLY_APPEND_CADENCE,
+            'ELEV-12 verified-share observed daily' => AcosMaxLedgerRotationRegistry::FIELD_ELEV_12_VERIFIED_SHARE_OBSERVED_DAILY,
+            'AKIF OCR Confidence-Scored Ingestion' => AtlasCognitionScoreCardService::FIELD_AKIF_OCR_CONFIDENCE_SCORED_INGESTION,
+            'Atlas Decide Meta-Learning' => AtlasCognitionScoreCardService::FIELD_ATLAS_DECIDE_META_LEARNING,
+            'Atlas Dev fast-lane; small/medium changes with plan + gates.' => DepartmentContractRuntime::FIELD_ATLAS_DEV_FAST_LANE__SMALL_MEDIUM_CHANGES_WITH_PLAN___GATES_,
+            'Code/spec review; bottleneck against weak claims.' => DepartmentContractRuntime::FIELD_CODE_SPEC_REVIEW__BOTTLENECK_AGAINST_WEAK_CLAIMS_,
+            'cadeia S49→S55 não implementada (classe ausente)' => AtlasAcosEvolutionScoreService::FIELD_CADEIA_S49_S55_N_O_IMPLEMENTADA__CLASSE_AUSENTE_,
+            'chain implemented=%s audited=%s tier=%s signed=%s' => AtlasAcosEvolutionScoreService::FIELD_CHAIN_IMPLEMENTED__S_AUDITED__S_TIER__S_SIGNED__S,
+            'COM-10 context feedback health is below the pinned floor.' => HealthReportWatchdogCheck::FIELD_COM_10_CONTEXT_FEEDBACK_HEALTH_IS_BELOW_THE_PINNED_FLOOR_,
+            'CPT-09 compaction soak is not ready for enforce.' => HealthReportWatchdogCheck::FIELD_CPT_09_COMPACTION_SOAK_IS_NOT_READY_FOR_ENFORCE_,
+            'A2 Plan-Visible incompleto, HTTP path legado' => AtlasAaeosDepartmentMaturityService::FIELD_A2_PLAN_VISIBLE_INCOMPLETO__HTTP_PATH_LEGADO,
+            'falta automated root-cause para L3' => AtlasAaeosDepartmentMaturityService::FIELD_FALTA_AUTOMATED_ROOT_CAUSE_PARA_L3,
+            'Invalid AAEOS HTTP path phase.' => AtlasAaeosPhaseRouterService::FIELD_INVALID_AAEOS_HTTP_PATH_PHASE_,
+            'Legacy HTTP path; AAEOS facade inactive.' => AtlasAaeosPhaseRouterService::FIELD_LEGACY_HTTP_PATH__AAEOS_FACADE_INACTIVE_,
+            'cérebro' => DomainLexicalNormalizer::FIELD_C_REBRO,
+            'decisão' => DomainLexicalNormalizer::FIELD_DECIS_O,
+            'Atlas Decide + Swarm' => AtlasCognitionScoreCardV4Grouper::FIELD_ATLAS_DECIDE___SWARM,
+            'Cognitive Immune G0-G8' => AtlasCognitionScoreCardV4Grouper::FIELD_COGNITIVE_IMMUNE_G0_G8,
+            'b590_ledger_rotation_cognition_score_department_contract_acos_evolution_floor_count' => 18,
+        ];
+    }
+
 }

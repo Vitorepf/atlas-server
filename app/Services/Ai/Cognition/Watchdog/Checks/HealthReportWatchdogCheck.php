@@ -57,6 +57,8 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_PIP_08_SCORECARD_STABILITY = 'pip-08.scorecard_stability';
     public const FIELD_RAG_10_AURG_COVERAGE = 'rag-10.aurg_coverage';
     public const FIELD_RAG_12_RAG_DIMENSION = 'rag-12.rag_dimension';
+    public const FIELD_COM_10_CONTEXT_FEEDBACK_HEALTH_IS_BELOW_THE_PINNED_FLOOR_ = 'COM-10 context feedback health is below the pinned floor.';
+    public const FIELD_CPT_09_COMPACTION_SOAK_IS_NOT_READY_FOR_ENFORCE_ = 'CPT-09 compaction soak is not ready for enforce.';
 
     public const CATALOG = [
         [
@@ -87,13 +89,13 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_ID => self::FIELD_COM_10_CONTEXT_FEEDBACK_HEALTH,
             self::FIELD_REPORT_METHOD => self::FIELD_CONTEXT_FEEDBACK_HEALTH_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_CONTEXT_FEEDBACK_HEALTH_FAILED,
-            self::FIELD_MESSAGE => 'COM-10 context feedback health is below the pinned floor.',
+            self::FIELD_MESSAGE => self::FIELD_COM_10_CONTEXT_FEEDBACK_HEALTH_IS_BELOW_THE_PINNED_FLOOR_,
         ],
         [
             self::FIELD_ID => self::FIELD_CPT_09_COMPACTION_SOAK,
             self::FIELD_REPORT_METHOD => self::FIELD_COMPACTION_SOAK_WATCH_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_COMPACTION_SOAK_NOT_READY,
-            self::FIELD_MESSAGE => 'CPT-09 compaction soak is not ready for enforce.',
+            self::FIELD_MESSAGE => self::FIELD_CPT_09_COMPACTION_SOAK_IS_NOT_READY_FOR_ENFORCE_,
         ],
         [
             self::FIELD_ID => self::FIELD_PIP_08_SCORECARD_STABILITY,

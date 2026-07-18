@@ -70,6 +70,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_L1 = 'L1';
     public const FIELD_L4 = 'L4';
     public const FIELD_FALTA_THREAT_MODELING_AUTOMATICO = 'falta threat modeling automatico';
+    public const FIELD_A2_PLAN_VISIBLE_INCOMPLETO__HTTP_PATH_LEGADO = 'A2 Plan-Visible incompleto, HTTP path legado';
+    public const FIELD_FALTA_AUTOMATED_ROOT_CAUSE_PARA_L3 = 'falta automated root-cause para L3';
 
     public const DEPARTMENTS = [
         [
@@ -101,7 +103,7 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_CURRENT_LEVEL => self::FIELD_L1,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#dev'],
             self::FIELD_BLOCKER_ID => self::FIELD_DEV_PLAN_VISIBLE_L2,
-            self::FIELD_BLOCKER_SUMMARY => 'A2 Plan-Visible incompleto, HTTP path legado',
+            self::FIELD_BLOCKER_SUMMARY => self::FIELD_A2_PLAN_VISIBLE_INCOMPLETO__HTTP_PATH_LEGADO,
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_HIGH,
         ],
         [
@@ -109,7 +111,7 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_CURRENT_LEVEL => self::FIELD_L2,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#debug'],
             self::FIELD_BLOCKER_ID => self::FIELD_DEBUG_AUTOMATED_ROOT_CAUSE_L3,
-            self::FIELD_BLOCKER_SUMMARY => 'falta automated root-cause para L3',
+            self::FIELD_BLOCKER_SUMMARY => self::FIELD_FALTA_AUTOMATED_ROOT_CAUSE_PARA_L3,
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],
         [

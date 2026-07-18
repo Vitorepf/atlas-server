@@ -12437,4 +12437,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(4, $out['b589_capture_hmac_acos_watchdog_autonomy_ladder_daily_canary_floor_count']);
     }
 
+    public function test_b590_ledger_rotation_cognition_score_department_contract_acos_evolution_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b590LedgerRotationCognitionScoreDepartmentContractAcosEvolutionFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ELEV_02_METRIC_M_SERIES__MONTHLY_APPEND_CADENCE, $out['ELEV-02 metric M series; monthly append cadence']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ELEV_12_VERIFIED_SHARE_OBSERVED_DAILY, $out['ELEV-12 verified-share observed daily']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AKIF_OCR_CONFIDENCE_SCORED_INGESTION, $out['AKIF OCR Confidence-Scored Ingestion']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ATLAS_DECIDE_META_LEARNING, $out['Atlas Decide Meta-Learning']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ATLAS_DEV_FAST_LANE__SMALL_MEDIUM_CHANGES_WITH_PLAN___GATES_, $out['Atlas Dev fast-lane; small/medium changes with plan + gates.']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_CODE_SPEC_REVIEW__BOTTLENECK_AGAINST_WEAK_CLAIMS_, $out['Code/spec review; bottleneck against weak claims.']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_CADEIA_S49_S55_N_O_IMPLEMENTADA__CLASSE_AUSENTE_, $out['cadeia S49→S55 não implementada (classe ausente)']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_CHAIN_IMPLEMENTED__S_AUDITED__S_TIER__S_SIGNED__S, $out['chain implemented=%s audited=%s tier=%s signed=%s']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_COM_10_CONTEXT_FEEDBACK_HEALTH_IS_BELOW_THE_PINNED_FLOOR_, $out['COM-10 context feedback health is below the pinned floor.']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_CPT_09_COMPACTION_SOAK_IS_NOT_READY_FOR_ENFORCE_, $out['CPT-09 compaction soak is not ready for enforce.']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_A2_PLAN_VISIBLE_INCOMPLETO__HTTP_PATH_LEGADO, $out['A2 Plan-Visible incompleto, HTTP path legado']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FALTA_AUTOMATED_ROOT_CAUSE_PARA_L3, $out['falta automated root-cause para L3']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_INVALID_AAEOS_HTTP_PATH_PHASE_, $out['Invalid AAEOS HTTP path phase.']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_LEGACY_HTTP_PATH__AAEOS_FACADE_INACTIVE_, $out['Legacy HTTP path; AAEOS facade inactive.']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_C_REBRO, $out['cérebro']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_DECIS_O, $out['decisão']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_ATLAS_DECIDE___SWARM, $out['Atlas Decide + Swarm']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_COGNITIVE_IMMUNE_G0_G8, $out['Cognitive Immune G0-G8']);
+        $this->assertSame(18, $out['b590_ledger_rotation_cognition_score_department_contract_acos_evolution_floor_count']);
+    }
+
 }

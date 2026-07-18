@@ -334,6 +334,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_TRUST_BUDGET_SERVICE = 'Trust Budget Service';
     public const FIELD_UNIFIED_REALITY_GRAPH = 'Unified Reality Graph';
     public const FIELD_VERIFIED_CONTEXT_EXECUTION_LOOP = 'Verified Context Execution Loop';
+    public const FIELD_AKIF_OCR_CONFIDENCE_SCORED_INGESTION = 'AKIF OCR Confidence-Scored Ingestion';
+    public const FIELD_ATLAS_DECIDE_META_LEARNING = 'Atlas Decide Meta-Learning';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -422,7 +424,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ASI_L7, 'Self-Improvement Closed Loop L7', self::FIELD_SELF_IMPROVEMENT, AtlasSelfImprovementResultLedgerService::class],
 
         // Patamar 2/3 — meta-learning, self-construction, AURG-4D, cross-domain mesh, TEOS-I3
-        [self::FIELD_ADML,    'Atlas Decide Meta-Learning',          self::FIELD_ATLAS_DECIDE,      AtlasDecideMetaLearningService::class],
+        [self::FIELD_ADML,    self::FIELD_ATLAS_DECIDE_META_LEARNING,          self::FIELD_ATLAS_DECIDE,      AtlasDecideMetaLearningService::class],
         [self::FIELD_ASCB,    'Self-Construction Subsystem Builder', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionSubsystemBuilderService::class],
         [self::FIELD_AURG_4_D, 'Unified Reality Graph Temporal (4D)', self::FIELD_REALITY,           AtlasUnifiedRealityGraphTemporalService::class],
         [self::FIELD_ACDM,    'Cross-Domain Mesh',                   self::FIELD_CROSS_DOMAIN,      AtlasCrossDomainMeshService::class],
@@ -464,7 +466,7 @@ class AtlasCognitionScoreCardService
         // Patamar 1/2/3 closures — OCR confidence, Compounding L8/L9
         // COM-09: ACOP→ACRS bridge deleted — JSONL had 1 smoke signal (null value);
         // ARFL feedbackHint in ACRS already closes observability→ranking.
-        [self::FIELD_AKIF_OCR, 'AKIF OCR Confidence-Scored Ingestion', self::FIELD_AUCRI,           AtlasKnowledgeIngestionFabricOcrConfidenceService::class],
+        [self::FIELD_AKIF_OCR, self::FIELD_AKIF_OCR_CONFIDENCE_SCORED_INGESTION, self::FIELD_AUCRI,           AtlasKnowledgeIngestionFabricOcrConfidenceService::class],
         [self::FIELD_ACL8,    'Compounding Level 8/9 Distillation',   self::FIELD_COMPOUNDING,     AtlasCompoundingLevel8DistillationService::class],
 
         // Patamar 4 · intelligence boost

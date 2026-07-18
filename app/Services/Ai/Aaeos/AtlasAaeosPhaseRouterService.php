@@ -39,6 +39,8 @@ final class AtlasAaeosPhaseRouterService
     public const FIELD_SPEC = 'spec';
     public const FIELD_TASKS = 'tasks';
     public const FIELD_TOPOLOGY = 'topology';
+    public const FIELD_INVALID_AAEOS_HTTP_PATH_PHASE_ = 'Invalid AAEOS HTTP path phase.';
+    public const FIELD_LEGACY_HTTP_PATH__AAEOS_FACADE_INACTIVE_ = 'Legacy HTTP path; AAEOS facade inactive.';
     public const INT_4 = 4;
     public const INT_2 = 2;
     public const INT_3 = 3;
@@ -59,7 +61,7 @@ final class AtlasAaeosPhaseRouterService
     ];
 
     public const PHASE_DESCRIPTIONS = [
-        self::PHASE_LEGACY => 'Legacy HTTP path; AAEOS facade inactive.',
+        self::PHASE_LEGACY => self::FIELD_LEGACY_HTTP_PATH__AAEOS_FACADE_INACTIVE_,
         self::PHASE_1 => 'Phase 1; placement gate active.',
         self::PHASE_2 => 'Phase 2; classification and policy gates active.',
         self::PHASE_3 => 'Phase 3; topology and routing envelopes active.',
@@ -143,7 +145,7 @@ final class AtlasAaeosPhaseRouterService
 
     public function describePhase(): string
     {
-        return self::PHASE_DESCRIPTIONS[$this->configuredPhase] ?? 'Invalid AAEOS HTTP path phase.';
+        return self::PHASE_DESCRIPTIONS[$this->configuredPhase] ?? self::FIELD_INVALID_AAEOS_HTTP_PATH_PHASE_;
     }
 
     /**

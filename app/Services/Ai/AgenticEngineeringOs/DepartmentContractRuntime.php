@@ -462,6 +462,8 @@ final class DepartmentContractRuntime
     public const FIELD_SPEC_PACK_DRAFTED_TRUE = 'spec_pack_drafted=true';
     public const FIELD_TASK_PACK_DECOMPOSED_TRUE = 'task_pack_decomposed=true';
     public const FIELD_TEST_RED_AFTER_GREEN_TRUE = 'test_red_after_green=true';
+    public const FIELD_ATLAS_DEV_FAST_LANE__SMALL_MEDIUM_CHANGES_WITH_PLAN___GATES_ = 'Atlas Dev fast-lane; small/medium changes with plan + gates.';
+    public const FIELD_CODE_SPEC_REVIEW__BOTTLENECK_AGAINST_WEAK_CLAIMS_ = 'Code/spec review; bottleneck against weak claims.';
     public const INT_11 = 11;
 
     /**
@@ -591,7 +593,7 @@ final class DepartmentContractRuntime
         ],
         self::DEPARTMENT_DEV => [
             self::FIELD_HUMAN_NAME => self::FIELD_DEV_DEPARTMENT,
-            self::FIELD_DESCRIPTION => 'Atlas Dev fast-lane; small/medium changes with plan + gates.',
+            self::FIELD_DESCRIPTION => self::FIELD_ATLAS_DEV_FAST_LANE__SMALL_MEDIUM_CHANGES_WITH_PLAN___GATES_,
             self::FIELD_SCOPE => 'executa fast-path para intents R1-R3 (1-5 arquivos, baixo-médio risco) com governance leve',
             self::FIELD_TRIGGERS => [self::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DEV, 'scope<=R3'],
             self::FIELD_INPUTS => [
@@ -639,7 +641,7 @@ final class DepartmentContractRuntime
         ],
         self::DEPARTMENT_REVIEW => [
             self::FIELD_HUMAN_NAME => self::FIELD_REVIEW_DEPARTMENT,
-            self::FIELD_DESCRIPTION => 'Code/spec review; bottleneck against weak claims.',
+            self::FIELD_DESCRIPTION => self::FIELD_CODE_SPEC_REVIEW__BOTTLENECK_AGAINST_WEAK_CLAIMS_,
             self::FIELD_SCOPE => 'revisa patches/specs/migrations/release_packs com checklist canônico antes de cert',
             self::FIELD_TRIGGERS => [self::FIELD_DELIVERY_PACK_ASSEMBLED_TRUE, self::FIELD_SPEC_PACK_DRAFTED_TRUE],
             self::FIELD_INPUTS => [

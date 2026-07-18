@@ -38,18 +38,20 @@ final class DomainLexicalNormalizer
     public const FIELD_PIPELINE = 'pipeline';
     public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_C_REBRO = 'cérebro';
+    public const FIELD_DECIS_O = 'decisão';
 
     /** @var array<string,list<string>> */
     public const EQUIVALENCES = [
         self::FIELD_MEMORIA => [self::FIELD_MEMORY],
         'memória' => [self::FIELD_MEMORY],
         self::FIELD_CEREBRO => [self::FIELD_BRAIN],
-        'cérebro' => [self::FIELD_BRAIN],
+        self::FIELD_C_REBRO => [self::FIELD_BRAIN],
         self::FIELD_ESTEIRA => [self::FIELD_PIPELINE],
         self::FIELD_EXECUCAO => [self::FIELD_EXECUTION],
         'execução' => [self::FIELD_EXECUTION],
         self::FIELD_DECISAO => [self::FIELD_DECISION],
-        'decisão' => [self::FIELD_DECISION],
+        self::FIELD_DECIS_O => [self::FIELD_DECISION],
         self::FIELD_EVIDENCIA => [self::FIELD_EVIDENCE],
         'evidência' => [self::FIELD_EVIDENCE],
         self::FIELD_VERIFICACAO => [self::FIELD_VERIFICATION],

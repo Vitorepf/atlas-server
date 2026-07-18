@@ -154,6 +154,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_ATLAS_COGNITION_MINT_PIPELINE_RECEIPTS = 'atlas:cognition:mint-pipeline-receipts';
     public const FIELD_ATLAS_ENGINEERING_REFACTOR_CENSUS = 'atlas:engineering:refactor-census';
     public const FIELD__GIT = '.git';
+    public const FIELD_CADEIA_S49_S55_N_O_IMPLEMENTADA__CLASSE_AUSENTE_ = 'cadeia S49→S55 não implementada (classe ausente)';
+    public const FIELD_CHAIN_IMPLEMENTED__S_AUDITED__S_TIER__S_SIGNED__S = 'chain implemented=%s audited=%s tier=%s signed=%s';
     public const FLOAT_2_5 = 2.5;
     public const FLOAT_10_0 = 10.0;
 
@@ -487,7 +489,7 @@ class AtlasAcosEvolutionScoreService
                 self::FIELD_AUDITED => false,
                 self::FIELD_TIER_EXPOSED => false,
                 self::FIELD_OPERATOR_SIGNED => false,
-                self::FIELD_EVIDENCE => 'cadeia S49→S55 não implementada (classe ausente)',
+                self::FIELD_EVIDENCE => self::FIELD_CADEIA_S49_S55_N_O_IMPLEMENTADA__CLASSE_AUSENTE_,
             ];
         }
 
@@ -500,7 +502,7 @@ class AtlasAcosEvolutionScoreService
                 self::FIELD_TIER_EXPOSED => array_key_exists(self::FIELD_TIER, $readiness),
                 self::FIELD_OPERATOR_SIGNED => (AiValueNormalizer::boolOrNull($readiness[self::FIELD_OPERATOR_SIGNED] ?? null) ?? false),
                 self::FIELD_EVIDENCE => sprintf(
-                    'chain implemented=%s audited=%s tier=%s signed=%s',
+                    self::FIELD_CHAIN_IMPLEMENTED__S_AUDITED__S_TIER__S_SIGNED__S,
                     ($readiness[self::FIELD_IMPLEMENTED] ?? false) ? self::FIELD_YES : self::FIELD_NO,
                     ($readiness[self::FIELD_AUDITED] ?? false) ? self::FIELD_YES : self::FIELD_NO,
                     (AiValueNormalizer::trimmedStringOrNull($readiness[self::FIELD_TIER] ?? null) ?? '?'),
