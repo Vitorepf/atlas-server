@@ -95,6 +95,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_COMPONHA = 'componha';
     public const FIELD_COMPONENTE = 'componente';
     public const FIELD_CONTINUE = 'continue';
+    public const FIELD_COMPOSE = 'compose';
+    public const FIELD_DECISAO = 'decisao';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -114,7 +116,7 @@ final class AtlasCognitiveFunctionDecomposerService
     public const RULES = [
         self::FIELD_REASONING => [
             'porque', 'por que', self::FIELD_ANALISE, self::FIELD_ANALISA, 'explique', 'pense', 'pondere',
-            'decida', 'decisao', 'compare', self::FIELD_AVALIE, 'logica', 'estrategia',
+            'decida', self::FIELD_DECISAO, 'compare', self::FIELD_AVALIE, 'logica', 'estrategia',
             'raciocine', 'investigue', 'why', 'reason',
         ],
         self::FIELD_RETRIEVAL => [
@@ -125,7 +127,7 @@ final class AtlasCognitiveFunctionDecomposerService
         self::FIELD_GENERATION => [
             'escreva', 'redija', 'crie', self::FIELD_COMPONHA, 'rascunhe', 'gere',
             'sintetize', 'resuma', 'transforme', 'reescreva', self::FIELD_CONTINUE,
-            'narre', 'descreva', 'compose', 'write', 'draft', 'summarize',
+            'narre', 'descreva', self::FIELD_COMPOSE, 'write', 'draft', 'summarize',
         ],
         self::FIELD_CODE => [
             'codigo', self::FIELD_CODIFIQUE, 'implemente', 'refatore', 'debug', 'teste',

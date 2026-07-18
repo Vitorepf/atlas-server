@@ -11320,4 +11320,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B445).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function aaeosImplementationCognitiveFunctionDepartmentContractCognitionScoreFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'app' => AtlasAaeosImplementationEvidenceResolver::FIELD_APP,
+            'file_path' => AtlasAaeosImplementationEvidenceResolver::FIELD_FILE_PATH,
+            'compose' => AtlasCognitiveFunctionDecomposerService::FIELD_COMPOSE,
+            'decisao' => AtlasCognitiveFunctionDecomposerService::FIELD_DECISAO,
+            'every_department_declares_evidence_schema' => DepartmentContractRuntime::FIELD_EVERY_DEPARTMENT_DECLARES_EVIDENCE_SCHEMA,
+            'execute_migration' => DepartmentContractRuntime::FIELD_EXECUTE_MIGRATION,
+            'autonomy' => AtlasCognitionScoreCardService::FIELD_AUTONOMY,
+            'cartography' => AtlasCognitionScoreCardService::FIELD_CARTOGRAPHY,
+            'jailbreak' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_JAILBREAK,
+            'latency' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_LATENCY,
+            'probation_evaluated_at' => CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_EVALUATED_AT,
+            'probation_started_at' => CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_STARTED_AT,
+            'memory_freshness_below_full' => AtlasAcosWatchdogHealthService::FIELD_MEMORY_FRESHNESS_BELOW_FULL,
+            'memory_quality_score_regressed' => AtlasAcosWatchdogHealthService::FIELD_MEMORY_QUALITY_SCORE_REGRESSED,
+            'ctx_tokens' => AtlasModelCapabilitySpecService::FIELD_CTX_TOKENS,
+            'multilingual_pt_required' => AtlasModelCapabilitySpecService::FIELD_MULTILINGUAL_PT_REQUIRED,
+            'atlas_ai_router' => AaeosHttpPathEnvelopeFactory::FIELD_ATLAS_AI_ROUTER,
+            'intent_clarity_score_min_0_8' => AaeosHttpPathEnvelopeFactory::FIELD_INTENT_CLARITY_SCORE_MIN_0_8,
+            'aaeos_implementation_cognitive_function_department_contract_cognition_score_floor_count' => 18,
+        ];
+    }
+
 }

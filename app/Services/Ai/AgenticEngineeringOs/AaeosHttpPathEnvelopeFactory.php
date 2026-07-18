@@ -106,6 +106,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_TASK_PACK_ATOMIC_TRUE_FOR_EACH = 'task_pack_atomic_true_for_each';
     public const FIELD_FORGE = 'forge';
     public const FIELD_ATLAS_AI_ASSISTED_EXECUTION_QUALITY = 'atlas_ai_assisted_execution_quality';
+    public const FIELD_ATLAS_AI_ROUTER = 'atlas_ai_router';
+    public const FIELD_INTENT_CLARITY_SCORE_MIN_0_8 = 'intent_clarity_score_min_0_8';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -147,7 +149,7 @@ final class AaeosHttpPathEnvelopeFactory
                 self::FIELD_MISSION_SIGNAL_KIND => $suggestedMissionType,
                 self::FIELD_MISSION_SHOULD_ACTIVATE => $shouldActivateMissionMode ? self::FIELD_YES : 'no',
             ],
-            gates: self::binaryGate('intent_clarity_score_min_0_8', true),
+            gates: self::binaryGate(self::FIELD_INTENT_CLARITY_SCORE_MIN_0_8, true),
         );
     }
 
@@ -442,7 +444,7 @@ final class AaeosHttpPathEnvelopeFactory
      */
     private static function routerFromData(array $data): array
     {
-        return self::arrayAt(self::requestPayload($data), 'atlas_ai_router');
+        return self::arrayAt(self::requestPayload($data), self::FIELD_ATLAS_AI_ROUTER);
     }
 
     /**

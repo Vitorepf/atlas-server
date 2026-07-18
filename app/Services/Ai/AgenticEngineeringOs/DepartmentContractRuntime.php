@@ -257,6 +257,8 @@ final class DepartmentContractRuntime
     public const FIELD_DENY = 'deny';
     public const FIELD_DEPLOY_RELEASE = 'deploy_release';
     public const FIELD_DEV_REPAIR_LOOP_COUNT = 'dev_repair_loop_count';
+    public const FIELD_EVERY_DEPARTMENT_DECLARES_EVIDENCE_SCHEMA = 'every_department_declares_evidence_schema';
+    public const FIELD_EXECUTE_MIGRATION = 'execute_migration';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -350,7 +352,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_GATES => ['adr_published', self::FIELD_BOUNDARY_VALIDATED, 'spec_acceptance_criteria_complete', self::FIELD_BREAKING_CHANGE_DOCUMENTED, 'rollback_per_slice'],
             self::FIELD_ALLOWED_ACTIONS => ['draft_spec', 'propose_migration_plan', 'request_security_review', 'veto_execution'],
-            self::FIELD_FORBIDDEN_ACTIONS => ['write_code', 'execute_migration', 'approve_release'],
+            self::FIELD_FORBIDDEN_ACTIONS => ['write_code', self::FIELD_EXECUTE_MIGRATION, 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['spec_pack_hash', 'architect_decision_receipt'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_SPEC_PACKS, self::FIELD_LEDGER => self::FIELD_AAEOS_ARCHITECT_DECISION_LEDGER],
@@ -603,7 +605,7 @@ final class DepartmentContractRuntime
                 'executive_intake_has_no_upstream',
                 'memory_has_no_downstream',
                 'every_department_declares_gates',
-                'every_department_declares_evidence_schema',
+                self::FIELD_EVERY_DEPARTMENT_DECLARES_EVIDENCE_SCHEMA,
                 'every_department_declares_12_canon_fields',
             ],
             self::FIELD_EVIDENCE_COUNT => count(array_unique(array_column(self::CATALOGUE, 'evidence_schema'))),

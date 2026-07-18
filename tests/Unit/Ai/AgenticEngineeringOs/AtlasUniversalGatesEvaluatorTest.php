@@ -8868,4 +8868,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cognitive_memory_teto_predicted_cognition_evidence_immune_hybrid_floor_count']);
     }
 
+    public function test_aaeos_implementation_cognitive_function_department_contract_cognition_score_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->aaeosImplementationCognitiveFunctionDepartmentContractCognitionScoreFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_APP, $out['app']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_FILE_PATH, $out['file_path']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_COMPOSE, $out['compose']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DECISAO, $out['decisao']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EVERY_DEPARTMENT_DECLARES_EVIDENCE_SCHEMA, $out['every_department_declares_evidence_schema']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EXECUTE_MIGRATION, $out['execute_migration']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AUTONOMY, $out['autonomy']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CARTOGRAPHY, $out['cartography']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_JAILBREAK, $out['jailbreak']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_LATENCY, $out['latency']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_EVALUATED_AT, $out['probation_evaluated_at']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROBATION_STARTED_AT, $out['probation_started_at']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_MEMORY_FRESHNESS_BELOW_FULL, $out['memory_freshness_below_full']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_MEMORY_QUALITY_SCORE_REGRESSED, $out['memory_quality_score_regressed']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_CTX_TOKENS, $out['ctx_tokens']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_MULTILINGUAL_PT_REQUIRED, $out['multilingual_pt_required']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ATLAS_AI_ROUTER, $out['atlas_ai_router']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_INTENT_CLARITY_SCORE_MIN_0_8, $out['intent_clarity_score_min_0_8']);
+        $this->assertSame(18, $out['aaeos_implementation_cognitive_function_department_contract_cognition_score_floor_count']);
+    }
+
 }

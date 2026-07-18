@@ -183,6 +183,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_PROGRAMMING = 'programming';
     public const FIELD_TEOS = 'teos';
     public const FIELD_AEMOR = 'aemor';
+    public const FIELD_AUTONOMY = 'autonomy';
+    public const FIELD_CARTOGRAPHY = 'cartography';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -278,7 +280,7 @@ class AtlasCognitionScoreCardService
         ['ACK',     'Constitutional Kernel',               self::FIELD_GOVERNANCE,        AtlasConstitutionalKernelService::class],
         ['AAA',     'Autonomy Admission',                  self::FIELD_GOVERNANCE,        AtlasAutonomyAdmissionService::class],
         ['ACFA',    'Cognitive Function Atlas',            self::FIELD_COGNITION,         AtlasCognitiveFunctionAtlasService::class],
-        ['AARR',    'Autonomous Reconciliation Runtime',   'autonomy',          AtlasAutonomousReconciliationRuntimeService::class],
+        ['AARR',    'Autonomous Reconciliation Runtime',   self::FIELD_AUTONOMY,          AtlasAutonomousReconciliationRuntimeService::class],
         ['TEOS-I4', 'TEOS-I4 Counterfactual Tree',         self::FIELD_TEOS,              AtlasTeosI4CounterfactualTreeService::class],
         ['ASWC',    'Swarm Conductor',                     self::FIELD_ATLAS_DECIDE,      AtlasSwarmConductorService::class],
         ['ASWE',    'Swarm Executor',                      self::FIELD_ATLAS_DECIDE,      AtlasSwarmExecutorService::class],
@@ -291,7 +293,7 @@ class AtlasCognitionScoreCardService
         ['ACMF-SE', 'Cognitive Memory Fabric Schema Evolution', self::FIELD_AUCRI,         AtlasCognitiveMemoryFabricSchemaEvolutionService::class],
         ['ASCB-EX', 'Self-Construction Scaffold Staging Executor', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionScaffoldStagingExecutorService::class],
         ['ASCB-PP', 'Self-Construction Promotion Plan',          self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionPromotionPlanService::class],
-        ['ACTG',    'Cartography Truth Guard',                   'cartography',       CartographyTruthGuardService::class],
+        ['ACTG',    'Cartography Truth Guard',                   self::FIELD_CARTOGRAPHY,       CartographyTruthGuardService::class],
         ['AGPF',    'Atlas Gateway Preflight (TEOS-I4)',         self::FIELD_ATLAS_DECIDE,      AtlasGatewayPreflightService::class],
         ['ACVS',    'Constitutional Vault Service',              self::FIELD_GOVERNANCE,        AtlasConstitutionalVaultService::class],
         ['ATBS',    'Trust Budget Service',                      self::FIELD_GOVERNANCE,        AtlasTrustBudgetService::class],

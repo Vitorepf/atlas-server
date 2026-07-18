@@ -72,6 +72,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_IMPERATIVE_VERB = 'imperative_verb';
     public const FIELD_INSIGHT = 'insight';
     public const FIELD_IS_QUESTION = 'is_question';
+    public const FIELD_JAILBREAK = 'jailbreak';
+    public const FIELD_LATENCY = 'latency';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -122,7 +124,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         'voce agora e',
         'reveal your',
         'override instructions',
-        'jailbreak',
+        self::FIELD_JAILBREAK,
         'do anything now',
     ];
 
@@ -152,7 +154,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         'patch',
         'regression',
         'race condition',
-        'latency',
+        self::FIELD_LATENCY,
         'refactor',
         'stack trace',
         'null pointer',

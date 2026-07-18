@@ -320,6 +320,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_LIFT_CASE_COUNT = 'lift_case_count';
     public const FIELD_LIKE = 'like';
     public const FIELD_LINKER_MEMORY_DOMAIN = 'linker_memory_domain';
+    public const FIELD_MEMORY_FRESHNESS_BELOW_FULL = 'memory_freshness_below_full';
+    public const FIELD_MEMORY_QUALITY_SCORE_REGRESSED = 'memory_quality_score_regressed';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -347,11 +349,11 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_TOLERANCE_POINTS => self::MEMORY_SCORE_REGRESSION_TOLERANCE,
                 self::FIELD_CURRENT_DELTA_FROM_LATEST => $currentDelta,
                 self::FIELD_LATEST_DELTA_FROM_PREVIOUS => $latestDelta,
-            ], 'memory_quality_score_regressed'),
+            ], self::FIELD_MEMORY_QUALITY_SCORE_REGRESSED),
             $this->checkRow(self::FIELD_FRESHNESS_FULL, $freshness >= 100, [
                 self::FIELD_FRESHNESS_COMPONENT => $freshness,
                 self::FIELD_REQUIRED => 100,
-            ], 'memory_freshness_below_full'),
+            ], self::FIELD_MEMORY_FRESHNESS_BELOW_FULL),
             $this->checkRow('windowed_concentration_guarded', $concentration <= self::MEMORY_CONCENTRATION_FLOOR || $demotionEnabled || $recallUsageTotal === 0, [
                 self::FIELD_WINDOWED_CONCENTRATION_RATIO => $concentration,
                 self::FIELD_THRESHOLD => self::MEMORY_CONCENTRATION_FLOOR,

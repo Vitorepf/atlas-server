@@ -85,6 +85,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_OUTCOME_VALIDATED = 'outcome_validated';
     public const FIELD_PRIVACY_CLASS = 'privacy_class';
     public const FIELD_PROBATION_ENTERED_AT = 'probation_entered_at';
+    public const FIELD_PROBATION_EVALUATED_AT = 'probation_evaluated_at';
+    public const FIELD_PROBATION_STARTED_AT = 'probation_started_at';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -472,8 +474,8 @@ final class CognitiveImmunePromotionGateEvaluator
 
         $startedAt = $this->timestampValue($signals, self::FIELD_PROBATION_ENTERED_AT)
             ?? $this->timestampValue($signals, 'watch_started_at')
-            ?? $this->timestampValue($signals, 'probation_started_at');
-        $evaluatedAt = $this->timestampValue($signals, 'probation_evaluated_at')
+            ?? $this->timestampValue($signals, self::FIELD_PROBATION_STARTED_AT);
+        $evaluatedAt = $this->timestampValue($signals, self::FIELD_PROBATION_EVALUATED_AT)
             ?? $this->timestampValue($signals, self::FIELD_EVALUATED_AT);
 
         if ($startedAt === null || $evaluatedAt === null || $evaluatedAt < $startedAt) {

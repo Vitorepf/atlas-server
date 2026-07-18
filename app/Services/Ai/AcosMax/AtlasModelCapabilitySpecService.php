@@ -55,6 +55,8 @@ final class AtlasModelCapabilitySpecService
     public const FIELD_DIM_NOT_ALLOWED = 'dim_not_allowed';
     public const FIELD_MIN_CTX_TOKENS = 'min_ctx_tokens';
     public const FIELD_MULTILINGUAL_PT = 'multilingual_pt';
+    public const FIELD_CTX_TOKENS = 'ctx_tokens';
+    public const FIELD_MULTILINGUAL_PT_REQUIRED = 'multilingual_pt_required';
     /** @var array<string, array<string, mixed>> */
     private array $functions;
 
@@ -109,7 +111,7 @@ final class AtlasModelCapabilitySpecService
         }
 
         $violations = array_merge($violations, $this->checkNumericFloor(
-            $spec, $model, self::FIELD_MIN_CTX_TOKENS, 'ctx_tokens', self::FIELD_CONTEXT_BELOW_SPEC_FLOOR
+            $spec, $model, self::FIELD_MIN_CTX_TOKENS, self::FIELD_CTX_TOKENS, self::FIELD_CONTEXT_BELOW_SPEC_FLOOR
         ));
 
         $violations = array_merge($violations, $this->checkEnum(
@@ -121,7 +123,7 @@ final class AtlasModelCapabilitySpecService
         ));
 
         $violations = array_merge($violations, $this->checkBooleanTrue(
-            $spec, $model, self::FIELD_MULTILINGUAL_PT, 'multilingual_pt_required'
+            $spec, $model, self::FIELD_MULTILINGUAL_PT, self::FIELD_MULTILINGUAL_PT_REQUIRED
         ));
 
         $violations = array_merge($violations, $this->checkBooleanTrue(

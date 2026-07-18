@@ -62,6 +62,8 @@ class AtlasAaeosImplementationEvidenceResolver
     public const FIELD_ROUTE = 'route';
     public const FIELD_TEST_METHOD = 'test_method';
     public const FIELD_STATUS = 'status';
+    public const FIELD_APP = 'app';
+    public const FIELD_FILE_PATH = 'file_path';
 
     /**
      * The active Code Intelligence index, loaded ONCE per request and matched in PHP. Stored
@@ -129,7 +131,7 @@ class AtlasAaeosImplementationEvidenceResolver
         // to the 512MB in-process floor commands already use, before the build.
         $this->ensureIndexMemoryFloor();
 
-        if (! function_exists('app') || ! app()->bound('app')) {
+        if (! function_exists(self::FIELD_APP) || ! app()->bound(self::FIELD_APP)) {
             return $this->symbolIndex = $this->buildIndex();
         }
 
@@ -229,7 +231,7 @@ class AtlasAaeosImplementationEvidenceResolver
         $rows = AtlasEngineeringCodeSymbol::query()
             ->toBase()
             ->where(self::FIELD_STATUS, self::STATUS_ACTIVE)
-            ->select(['symbol_name', 'file_path', 'signature', 'symbol_type'])
+            ->select(['symbol_name', self::FIELD_FILE_PATH, 'signature', 'symbol_type'])
             ->distinct()
             ->cursor();
 
@@ -403,7 +405,7 @@ class AtlasAaeosImplementationEvidenceResolver
         $methodPath = null;
         foreach ($index[self::FIELD_TEST] as $offset) {
             if ($pathCol[$offset] === '') {
-                continue; // mirrors whereNotNull('file_path')
+                continue; // mirrors whereNotNull(self::FIELD_FILE_PATH)
             }
             if (! str_contains($names[$offset], $lookup) || ! str_contains($names[$offset], 'Test')) {
                 continue;
