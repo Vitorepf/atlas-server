@@ -15274,4 +15274,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b703_resource_budget_floor_count']);
     }
 
+    public function test_b704_model_capability_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b704ModelCapabilityFloorsContractObserve([]);
+        $this->assertSame(AtlasModelCapabilitySpecService::SPEC_CONFIG_KEY, $out['atlas_model_capability_spec']);
+        $this->assertSame(AtlasModelCapabilitySpecService::REASON_MISSING_MODEL_ID, $out['missing_model_id']);
+        $this->assertSame(AtlasModelCapabilitySpecService::REASON_LATENCY_ABOVE_SPEC_CEILING, $out['latency_above_spec_ceiling']);
+        $this->assertSame(AtlasModelCapabilitySpecService::REASON_LICENSE_MISSING, $out['license_missing']);
+        $this->assertSame(AtlasModelCapabilitySpecService::REASON_LICENSE_NOT_ALLOWED, $out['license_not_allowed']);
+        $this->assertSame(AtlasModelCapabilitySpecService::STATUS_OK, $out['ok']);
+        $this->assertSame(AtlasModelCapabilitySpecService::STATUS_VIOLATES_SPEC, $out['violates_spec']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FALLBACK_MODEL_ID, $out['unknown']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_FIELD, $out['field']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_EXPECTED, $out['expected']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_ACTUAL, $out['actual']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_MODEL_ID, $out['model_id']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_VIOLATIONS, $out['violations']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_LATENCY_PER_PAIR_MS_P95, $out['latency_per_pair_ms_p95']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_FUNCTIONS, $out['functions']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_FUNCTION, $out['function']);
+        $this->assertSame(18, $out['b704_model_capability_floor_count']);
+    }
+
 }

@@ -19272,4 +19272,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B704).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b704ModelCapabilityFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas_model_capability_spec' => AtlasModelCapabilitySpecService::SPEC_CONFIG_KEY,
+            'missing_model_id' => AtlasModelCapabilitySpecService::REASON_MISSING_MODEL_ID,
+            'latency_above_spec_ceiling' => AtlasModelCapabilitySpecService::REASON_LATENCY_ABOVE_SPEC_CEILING,
+            'license_missing' => AtlasModelCapabilitySpecService::REASON_LICENSE_MISSING,
+            'license_not_allowed' => AtlasModelCapabilitySpecService::REASON_LICENSE_NOT_ALLOWED,
+            'ok' => AtlasModelCapabilitySpecService::STATUS_OK,
+            'violates_spec' => AtlasModelCapabilitySpecService::STATUS_VIOLATES_SPEC,
+            'unknown' => AtlasModelCapabilitySpecService::FALLBACK_MODEL_ID,
+            'reason' => AtlasModelCapabilitySpecService::FIELD_REASON,
+            'field' => AtlasModelCapabilitySpecService::FIELD_FIELD,
+            'expected' => AtlasModelCapabilitySpecService::FIELD_EXPECTED,
+            'actual' => AtlasModelCapabilitySpecService::FIELD_ACTUAL,
+            'status' => AtlasModelCapabilitySpecService::FIELD_STATUS,
+            'model_id' => AtlasModelCapabilitySpecService::FIELD_MODEL_ID,
+            'violations' => AtlasModelCapabilitySpecService::FIELD_VIOLATIONS,
+            'latency_per_pair_ms_p95' => AtlasModelCapabilitySpecService::FIELD_LATENCY_PER_PAIR_MS_P95,
+            'functions' => AtlasModelCapabilitySpecService::FIELD_FUNCTIONS,
+            'function' => AtlasModelCapabilitySpecService::FIELD_FUNCTION,
+            'b704_model_capability_floor_count' => 18,
+        ];
+    }
+
 }
