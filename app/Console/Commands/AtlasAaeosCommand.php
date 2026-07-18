@@ -319,6 +319,7 @@ final class AtlasAaeosCommand extends Command
         {--drill-skill-dualread-floors-contract= : JSON file (any object) to observe drill/skill/dualread residual floors}
         {--envelope-cockpit-facade-floors-contract= : JSON file (any object) to observe envelope/cockpit/facade residual floors}
         {--atlas-composed-ragx-floors-contract= : JSON file (any object) to observe atlas/composed/ragx residual floors}
+        {--schema-aemor-lifecycle-floors-contract= : JSON file (any object) to observe schema/aemor/lifecycle residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -794,6 +795,7 @@ final class AtlasAaeosCommand extends Command
             ['drill-skill-dualread-floors-contract', 'drill_skill_dualread_floors_contract', fn (array $p) => $gates->drillSkillDualreadFloorsContractObserve($p)],
             ['envelope-cockpit-facade-floors-contract', 'envelope_cockpit_facade_floors_contract', fn (array $p) => $gates->envelopeCockpitFacadeFloorsContractObserve($p)],
             ['atlas-composed-ragx-floors-contract', 'atlas_composed_ragx_floors_contract', fn (array $p) => $gates->atlasComposedRagxFloorsContractObserve($p)],
+            ['schema-aemor-lifecycle-floors-contract', 'schema_aemor_lifecycle_floors_contract', fn (array $p) => $gates->schemaAemorLifecycleFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

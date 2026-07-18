@@ -65,6 +65,12 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_CURRENT_SCHEMA = 'current_schema';
     public const FIELD_PROPOSED_NEXT_SCHEMA = 'proposed_next_schema';
     public const FIELD_KERNEL_DECISION = 'kernel_decision';
+    public const FIELD_ADDED_FIELDS = 'added_fields';
+    public const FIELD_DEPRECATED_FIELDS = 'deprecated_fields';
+    public const FIELD_TRIGGER = 'trigger';
+    public const FIELD_RATIONALE = 'rationale';
+    public const FIELD_SCHEMA = 'schema';
+    public const FIELD_DECISION = 'decision';
 
     private ?string $proposalsLogOverride = null;
 
@@ -102,13 +108,13 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         if ($currentSchema === '' || ! preg_match('/^atlas\.[a-z0-9_\.]+\.v\d+$/', $currentSchema)) {
             throw new InvalidArgumentException("current_schema must match 'atlas.*.v<n>' canon (got '{$currentSchema}').");
         }
-        $trigger = AiValueNormalizer::trimmedStringOrNull($input['trigger'] ?? null) ?? self::TRIGGER_OPERATOR;
+        $trigger = AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_TRIGGER] ?? null) ?? self::TRIGGER_OPERATOR;
         if (! in_array($trigger, self::VALID_TRIGGERS, true)) {
             throw new InvalidArgumentException("Unknown trigger '{$trigger}'.");
         }
-        $rationale = (AiValueNormalizer::trimmedStringOrNull($input['rationale'] ?? null) ?? 'Operator-supplied schema evolution.');
-        $addedFields = array_values(AiValueNormalizer::arrayOrEmpty($input['added_fields'] ?? null));
-        $deprecatedFields = array_values(AiValueNormalizer::arrayOrEmpty($input['deprecated_fields'] ?? null));
+        $rationale = (AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_RATIONALE] ?? null) ?? 'Operator-supplied schema evolution.');
+        $addedFields = array_values(AiValueNormalizer::arrayOrEmpty($input[self::FIELD_ADDED_FIELDS] ?? null));
+        $deprecatedFields = array_values(AiValueNormalizer::arrayOrEmpty($input[self::FIELD_DEPRECATED_FIELDS] ?? null));
         $actor = (AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_ACTOR] ?? null) ?? 'ACMF');
 
         $nextSchema = $this->bumpVersion($currentSchema);
@@ -139,22 +145,22 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
             'generated_at' => $generatedAt,
             self::FIELD_CURRENT_SCHEMA => $currentSchema,
             self::FIELD_PROPOSED_NEXT_SCHEMA => $nextSchema,
-            'trigger' => $trigger,
-            'rationale' => $rationale,
-            'added_fields' => $addedFields,
-            'deprecated_fields' => $deprecatedFields,
+            self::FIELD_TRIGGER => $trigger,
+            self::FIELD_RATIONALE => $rationale,
+            self::FIELD_ADDED_FIELDS => $addedFields,
+            self::FIELD_DEPRECATED_FIELDS => $deprecatedFields,
             'doc_skeleton' => $this->docSkeleton($currentSchema, $nextSchema, $addedFields, $deprecatedFields),
-            self::FIELD_KERNEL_DECISION => $kernelEnv['decision'],
-            'admission_decision' => $admissionEnv['decision'],
+            self::FIELD_KERNEL_DECISION => $kernelEnv[self::FIELD_DECISION],
+            'admission_decision' => $admissionEnv[self::FIELD_DECISION],
             'requires_human_approval' => true,
             'is_proposal' => true,
         ];
         $proposal['proposal_hash'] = 'sha256:'.hash('sha256', json_encode([
-            'schema' => self::PROPOSAL_SCHEMA,
+            self::FIELD_SCHEMA => self::PROPOSAL_SCHEMA,
             self::FIELD_CURRENT_SCHEMA => $currentSchema,
             self::FIELD_PROPOSED_NEXT_SCHEMA => $nextSchema,
-            'added_fields' => $addedFields,
-            'deprecated_fields' => $deprecatedFields,
+            self::FIELD_ADDED_FIELDS => $addedFields,
+            self::FIELD_DEPRECATED_FIELDS => $deprecatedFields,
             self::FIELD_KERNEL_DECISION => $proposal[self::FIELD_KERNEL_DECISION],
         ], JSON_THROW_ON_ERROR));
 
@@ -214,7 +220,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         $scanHash = hash('sha256', implode("\n", $matched));
 
         return [
-            'schema' => $schema,
+            self::FIELD_SCHEMA => $schema,
             'reference_count' => $referenceCount,
             'files_matching' => $matched,
             'files_scanned' => $scanned,

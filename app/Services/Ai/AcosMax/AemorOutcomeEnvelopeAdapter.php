@@ -29,6 +29,12 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public const FIELD_CONTEXT_UTILITY = 'context_utility';
     public const FIELD_PATCH_OUTCOME = 'patch_outcome';
     public const FIELD_LEARNING_CLAIM = 'learning_claim';
+    public const FIELD_TASK_CATEGORY = 'task_category';
+    public const FIELD_PROVIDER = 'provider';
+    public const FIELD_CERTIFIED_RECEIPT_ID = 'certified_receipt_id';
+    public const FIELD_EPISODE_ID = 'episode_id';
+    public const FIELD_OUTCOME_CONTRACT_V2 = 'outcome_contract_v2';
+    public const FIELD_EVIDENCE_REF_COUNT = 'evidence_ref_count';
 
     public const STATUS_ABSENT = 'absent';
 
@@ -46,9 +52,9 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $executor = AiValueNormalizer::lowerTrimmedString($native[self::FIELD_EXECUTOR] ?? $context[self::FIELD_EXECUTOR] ?? 'engineering');
         $status = OutcomeEnvelope::normalizeStatus((AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_STATUS] ?? null) ?? OutcomeEnvelope::STATUS_BLOCKED));
 
-        $contract = is_array($context['outcome_contract_v2'] ?? null)
-            ? $context['outcome_contract_v2']
-            : AiValueNormalizer::arrayOrEmpty($native['outcome_contract_v2'] ?? null);
+        $contract = is_array($context[self::FIELD_OUTCOME_CONTRACT_V2] ?? null)
+            ? $context[self::FIELD_OUTCOME_CONTRACT_V2]
+            : AiValueNormalizer::arrayOrEmpty($native[self::FIELD_OUTCOME_CONTRACT_V2] ?? null);
 
         $verifiedSourcePresent = array_key_exists(self::FIELD_VERIFIED, $native)
             || array_key_exists('verified_source_present', $contract);
@@ -56,20 +62,20 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $verified = (AiValueNormalizer::boolOrNull($contract[self::FIELD_VERIFIED] ?? $native[self::FIELD_VERIFIED] ?? null) ?? false);
         $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native['evidence_refs'] ?? null);
 
-        $episodeId = AiValueNormalizer::trimmedStringOrNull($context['episode_id'] ?? $native['episode_id'] ?? null) ?? '';
+        $episodeId = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_EPISODE_ID] ?? $native[self::FIELD_EPISODE_ID] ?? null) ?? '';
         $runId = AiValueNormalizer::trimmedStringOrNull($native['run_id'] ?? $native['scope_id'] ?? null) ?? '';
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             self::FIELD_EXECUTOR => in_array($executor, ['dev', 'forge', 'autonomos'], true) ? $executor : 'engineering',
-            'task_category' => AiValueNormalizer::trimmedStringOrNull($contract['task_category'] ?? $native['task_category'] ?? $executor) ?? '',
-            'provider' => AiValueNormalizer::trimmedStringOrNull($contract['provider'] ?? $native['provider'] ?? null) ?? self::STATUS_ABSENT,
+            self::FIELD_TASK_CATEGORY => AiValueNormalizer::trimmedStringOrNull($contract[self::FIELD_TASK_CATEGORY] ?? $native[self::FIELD_TASK_CATEGORY] ?? $executor) ?? '',
+            self::FIELD_PROVIDER => AiValueNormalizer::trimmedStringOrNull($contract[self::FIELD_PROVIDER] ?? $native[self::FIELD_PROVIDER] ?? null) ?? self::STATUS_ABSENT,
             self::FIELD_STATUS => $status,
             self::FIELD_VERIFIED => $verified,
             self::FIELD_VERIFIED_BASIS => $verifiedBasis,
             'verified_source_present' => $verifiedSourcePresent,
-            'certified_receipt_id' => $contract['certified_receipt_id'] ?? $native['certified_receipt_id'] ?? null,
-            'evidence_ref_count' => (int) ($contract['evidence_ref_count'] ?? count($evidenceRefs)),
-            'episode_id' => $episodeId !== '' ? $episodeId : null,
+            self::FIELD_CERTIFIED_RECEIPT_ID => $contract[self::FIELD_CERTIFIED_RECEIPT_ID] ?? $native[self::FIELD_CERTIFIED_RECEIPT_ID] ?? null,
+            self::FIELD_EVIDENCE_REF_COUNT => (int) ($contract[self::FIELD_EVIDENCE_REF_COUNT] ?? count($evidenceRefs)),
+            self::FIELD_EPISODE_ID => $episodeId !== '' ? $episodeId : null,
             'run_id' => $runId !== '' ? $runId : null,
         ], [
             self::FIELD_OUTCOME_TYPE => (AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_OUTCOME_TYPE] ?? null) ?? 'engineering_delivery'),

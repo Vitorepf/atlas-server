@@ -46,6 +46,11 @@ final class ComposedObraArcLifecycle
     public const FIELD_CLOSED_AT = 'closed_at';
 
     public const FIELD_REASON = 'reason';
+    public const FIELD_ORDER = 'order';
+    public const FIELD_OBRA_ID = 'obra_id';
+    public const FIELD_REMAINING_SERVABLE = 'remaining_servable';
+    public const FIELD_TASK_ID = 'task_id';
+    public const FIELD_TARGET_PATH = 'target_path';
 
     public const TASK_STATUS_FAILED = 'failed';
 
@@ -82,14 +87,14 @@ final class ComposedObraArcLifecycle
             if (! is_array($task)) {
                 continue;
             }
-            $taskId = AiValueNormalizer::trimmedStringOrNull($task['task_id'] ?? null) ?? '';
+            $taskId = AiValueNormalizer::trimmedStringOrNull($task[self::FIELD_TASK_ID] ?? null) ?? '';
             if ($taskId === '') {
                 continue;
             }
             $tasks[$taskId] = [
-                'task_id' => $taskId,
-                'order' => (int) (AiValueNormalizer::finiteFloatOrNull($task['order'] ?? null) ?? 0),
-                'target_path' => AiValueNormalizer::trimmedStringOrNull($task['target_path'] ?? null) ?? '',
+                self::FIELD_TASK_ID => $taskId,
+                self::FIELD_ORDER => (int) (AiValueNormalizer::finiteFloatOrNull($task[self::FIELD_ORDER] ?? null) ?? 0),
+                self::FIELD_TARGET_PATH => AiValueNormalizer::trimmedStringOrNull($task[self::FIELD_TARGET_PATH] ?? null) ?? '',
                 self::FIELD_STATUS => self::STATUS_PENDING,
             ];
         }
@@ -97,7 +102,7 @@ final class ComposedObraArcLifecycle
         self::$state[$arcId] = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_ARC_ID => $arcId,
-            'obra_id' => AiValueNormalizer::trimmedStringOrNull($arc['obra_id'] ?? null) ?? '',
+            self::FIELD_OBRA_ID => AiValueNormalizer::trimmedStringOrNull($arc[self::FIELD_OBRA_ID] ?? null) ?? '',
             self::FIELD_STATUS => self::STATUS_ACTIVE,
             self::FIELD_CONSECUTIVE_FAILURES => 0,
             self::FIELD_KILL_GATE_K => max(1, (int) (AiValueNormalizer::finiteFloatOrNull(data_get($arc, 'kill_gate.consecutive_failures_k')) ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES)),
@@ -173,7 +178,7 @@ final class ComposedObraArcLifecycle
         }
 
         $tasks = array_values(AiValueNormalizer::arrayOrEmpty($state[self::FIELD_TASKS] ?? null));
-        usort($tasks, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($a['order'] ?? null) ?? 0)) <=> ((int) (AiValueNormalizer::finiteFloatOrNull($b['order'] ?? null) ?? 0)));
+        usort($tasks, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($a[self::FIELD_ORDER] ?? null) ?? 0)) <=> ((int) (AiValueNormalizer::finiteFloatOrNull($b[self::FIELD_ORDER] ?? null) ?? 0)));
 
         foreach ($tasks as $task) {
             $status = AiValueNormalizer::trimmedStringOrNull($task[self::FIELD_STATUS] ?? null) ?? '';
@@ -202,7 +207,7 @@ final class ComposedObraArcLifecycle
             self::FIELD_CONSECUTIVE_FAILURES => (int) (AiValueNormalizer::finiteFloatOrNull($state[self::FIELD_CONSECUTIVE_FAILURES] ?? null) ?? 0),
             self::FIELD_KILL_GATE_K => (int) ($state[self::FIELD_KILL_GATE_K] ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES),
             self::FIELD_ARCHIVE_RECEIPT => $state[self::FIELD_ARCHIVE_RECEIPT] ?? null,
-            'remaining_servable' => self::nextServableTask($arcId) !== null,
+            self::FIELD_REMAINING_SERVABLE => self::nextServableTask($arcId) !== null,
         ];
     }
 
@@ -219,7 +224,7 @@ final class ComposedObraArcLifecycle
         $receipt = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_ARC_ID => $arcId,
-            'obra_id' => AiValueNormalizer::trimmedStringOrNull($state['obra_id'] ?? null) ?? '',
+            self::FIELD_OBRA_ID => AiValueNormalizer::trimmedStringOrNull($state[self::FIELD_OBRA_ID] ?? null) ?? '',
             'archived_at_basis' => $reason,
             self::FIELD_CONSECUTIVE_FAILURES => (int) (AiValueNormalizer::finiteFloatOrNull($state[self::FIELD_CONSECUTIVE_FAILURES] ?? null) ?? 0),
             self::FIELD_KILL_GATE_K => (int) ($state[self::FIELD_KILL_GATE_K] ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES),
@@ -246,7 +251,7 @@ final class ComposedObraArcLifecycle
             self::FIELD_CONSECUTIVE_FAILURES => (int) (AiValueNormalizer::finiteFloatOrNull($state[self::FIELD_CONSECUTIVE_FAILURES] ?? null) ?? 0),
             self::FIELD_KILL_GATE_K => (int) ($state[self::FIELD_KILL_GATE_K] ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES),
             self::FIELD_ARCHIVE_RECEIPT => $receipt,
-            'remaining_servable' => false,
+            self::FIELD_REMAINING_SERVABLE => false,
         ];
     }
 
@@ -281,7 +286,7 @@ final class ComposedObraArcLifecycle
             self::FIELD_ARC_ID => $arcId,
             self::FIELD_STATUS => self::STATUS_REFUSED,
             self::FIELD_REASON => $reason,
-            'remaining_servable' => false,
+            self::FIELD_REMAINING_SERVABLE => false,
         ];
     }
 }

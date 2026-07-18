@@ -6837,6 +6837,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function schemaAemorLifecycleFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'schema_field_added_fields' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_ADDED_FIELDS,
+            'schema_field_deprecated_fields' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_DEPRECATED_FIELDS,
+            'schema_field_trigger' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_TRIGGER,
+            'schema_field_rationale' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_RATIONALE,
+            'schema_field_schema' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_SCHEMA,
+            'schema_field_decision' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_DECISION,
+            'aemor_field_task_category' => AemorOutcomeEnvelopeAdapter::FIELD_TASK_CATEGORY,
+            'aemor_field_provider' => AemorOutcomeEnvelopeAdapter::FIELD_PROVIDER,
+            'aemor_field_certified_receipt_id' => AemorOutcomeEnvelopeAdapter::FIELD_CERTIFIED_RECEIPT_ID,
+            'aemor_field_episode_id' => AemorOutcomeEnvelopeAdapter::FIELD_EPISODE_ID,
+            'aemor_field_outcome_contract_v2' => AemorOutcomeEnvelopeAdapter::FIELD_OUTCOME_CONTRACT_V2,
+            'aemor_field_evidence_ref_count' => AemorOutcomeEnvelopeAdapter::FIELD_EVIDENCE_REF_COUNT,
+            'lifecycle_field_order' => ComposedObraArcLifecycle::FIELD_ORDER,
+            'lifecycle_field_obra_id' => ComposedObraArcLifecycle::FIELD_OBRA_ID,
+            'lifecycle_field_remaining_servable' => ComposedObraArcLifecycle::FIELD_REMAINING_SERVABLE,
+            'lifecycle_field_task_id' => ComposedObraArcLifecycle::FIELD_TASK_ID,
+            'lifecycle_field_target_path' => ComposedObraArcLifecycle::FIELD_TARGET_PATH,
+            'schema_aemor_lifecycle_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

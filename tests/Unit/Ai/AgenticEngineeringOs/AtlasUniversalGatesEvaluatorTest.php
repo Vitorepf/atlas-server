@@ -5078,5 +5078,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['atlas_composed_ragx_floor_count']);
     }
 
+    public function test_schema_aemor_lifecycle_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->schemaAemorLifecycleFloorsContractObserve([]);
+
+        $this->assertSame('added_fields', $payload['schema_field_added_fields']);
+        $this->assertSame('deprecated_fields', $payload['schema_field_deprecated_fields']);
+        $this->assertSame('trigger', $payload['schema_field_trigger']);
+        $this->assertSame('rationale', $payload['schema_field_rationale']);
+        $this->assertSame('schema', $payload['schema_field_schema']);
+        $this->assertSame('decision', $payload['schema_field_decision']);
+        $this->assertSame('task_category', $payload['aemor_field_task_category']);
+        $this->assertSame('provider', $payload['aemor_field_provider']);
+        $this->assertSame('certified_receipt_id', $payload['aemor_field_certified_receipt_id']);
+        $this->assertSame('episode_id', $payload['aemor_field_episode_id']);
+        $this->assertSame('outcome_contract_v2', $payload['aemor_field_outcome_contract_v2']);
+        $this->assertSame('evidence_ref_count', $payload['aemor_field_evidence_ref_count']);
+        $this->assertSame('order', $payload['lifecycle_field_order']);
+        $this->assertSame('obra_id', $payload['lifecycle_field_obra_id']);
+        $this->assertSame('remaining_servable', $payload['lifecycle_field_remaining_servable']);
+        $this->assertSame('task_id', $payload['lifecycle_field_task_id']);
+        $this->assertSame('target_path', $payload['lifecycle_field_target_path']);
+        $this->assertSame(17, $payload['schema_aemor_lifecycle_floor_count']);
+    }
+
 
 }
