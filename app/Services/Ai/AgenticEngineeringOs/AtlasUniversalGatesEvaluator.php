@@ -19613,4 +19613,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B715).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b715ImmuneSignatureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'blocking_gate_ids' => ImmuneSignatureIngestor::FIELD_BLOCKING_GATE_IDS,
+            'id' => ImmuneSignatureIngestor::FIELD_ID,
+            'blocked' => ImmuneSignatureIngestor::STATUS_BLOCKED,
+            'unknown' => ImmuneSignatureIngestor::WRITER_UNKNOWN,
+            'sample_label' => ImmuneSignatureIngestor::FIELD_SAMPLE_LABEL,
+            'promotion_status' => ImmuneSignatureIngestor::FIELD_PROMOTION_STATUS,
+            'writer' => ImmuneSignatureIngestor::FIELD_WRITER,
+            'matched_signals' => ImmuneSignatureIngestor::FIELD_MATCHED_SIGNALS,
+            'memory_id' => ImmuneSignatureIngestor::FIELD_MEMORY_ID,
+            'decision_id' => ImmuneSignatureIngestor::FIELD_DECISION_ID,
+            'candidate_hash' => ImmuneSignatureIngestor::FIELD_CANDIDATE_HASH,
+            'immune_classification' => ImmuneSignatureIngestor::FIELD_IMMUNE_CLASSIFICATION,
+            'memory_type' => ImmuneSignatureIngestor::FIELD_MEMORY_TYPE,
+            'refutation_memory' => ImmuneSignatureIngestor::FIELD_REFUTATION_MEMORY,
+            'input_class' => ImmuneSignatureIngestor::FIELD_INPUT_CLASS,
+            'memory_revert' => ImmuneSignatureIngestor::FIELD_MEMORY_REVERT,
+            'strval' => ImmuneSignatureIngestor::FIELD_STRVAL,
+            'is_string' => ImmuneSignatureIngestor::FIELD_IS_STRING,
+            'b715_immune_signature_floor_count' => 18,
+        ];
+    }
+
 }

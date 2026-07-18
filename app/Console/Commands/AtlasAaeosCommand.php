@@ -737,6 +737,7 @@ final class AtlasAaeosCommand extends Command
                             {--b712-immune-promotion-floors-contract= : JSON file (any object) to observe immune/promotion floors}
                             {--b713-bigram-jaccard-cognition-score-floors-contract= : JSON file (any object) to observe bigram/jaccard/cognition/score floors}
                             {--b714-cognition-score-floors-contract= : JSON file (any object) to observe cognition/score floors}
+                            {--b715-immune-signature-floors-contract= : JSON file (any object) to observe immune/signature floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1630,6 +1631,7 @@ final class AtlasAaeosCommand extends Command
             ['b712-immune-promotion-floors-contract', 'b712_immune_promotion_floors_contract', fn (array $p) => $gates->b712ImmunePromotionFloorsContractObserve($p)],
             ['b713-bigram-jaccard-cognition-score-floors-contract', 'b713_bigram_jaccard_cognition_score_floors_contract', fn (array $p) => $gates->b713BigramJaccardCognitionScoreFloorsContractObserve($p)],
             ['b714-cognition-score-floors-contract', 'b714_cognition_score_floors_contract', fn (array $p) => $gates->b714CognitionScoreFloorsContractObserve($p)],
+            ['b715-immune-signature-floors-contract', 'b715_immune_signature_floors_contract', fn (array $p) => $gates->b715ImmuneSignatureFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

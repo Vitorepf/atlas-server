@@ -15549,4 +15549,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b714_cognition_score_floor_count']);
     }
 
+    public function test_b715_immune_signature_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b715ImmuneSignatureFloorsContractObserve([]);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_BLOCKING_GATE_IDS, $out['blocking_gate_ids']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_ID, $out['id']);
+        $this->assertSame(ImmuneSignatureIngestor::STATUS_BLOCKED, $out['blocked']);
+        $this->assertSame(ImmuneSignatureIngestor::WRITER_UNKNOWN, $out['unknown']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_SAMPLE_LABEL, $out['sample_label']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_PROMOTION_STATUS, $out['promotion_status']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_WRITER, $out['writer']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_MATCHED_SIGNALS, $out['matched_signals']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_MEMORY_ID, $out['memory_id']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_DECISION_ID, $out['decision_id']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_CANDIDATE_HASH, $out['candidate_hash']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_IMMUNE_CLASSIFICATION, $out['immune_classification']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_MEMORY_TYPE, $out['memory_type']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_REFUTATION_MEMORY, $out['refutation_memory']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_INPUT_CLASS, $out['input_class']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_MEMORY_REVERT, $out['memory_revert']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_STRVAL, $out['strval']);
+        $this->assertSame(ImmuneSignatureIngestor::FIELD_IS_STRING, $out['is_string']);
+        $this->assertSame(18, $out['b715_immune_signature_floor_count']);
+    }
+
 }
