@@ -280,6 +280,10 @@ class AtlasCognitionScoreCardService
     public const FIELD_CARTOGRAPHY_TRUTH_GUARD = 'Cartography Truth Guard';
     public const FIELD_COGNITIVE_FUNCTION_ATLAS = 'Cognitive Function Atlas';
     public const FIELD_COGNITIVE_MEMORY_FABRIC = 'Cognitive Memory Fabric';
+    public const FIELD_COGNITIVE_MEMORY_FABRIC_SCHEMA_EVOLUTION = 'Cognitive Memory Fabric Schema Evolution';
+    public const FIELD_COMPOUNDING_EFFECT = 'Compounding Effect';
+    public const FIELD_CONSTITUTIONAL_KERNEL = 'Constitutional Kernel';
+    public const FIELD_CONSTITUTIONAL_VAULT_SERVICE = 'Constitutional Vault Service';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -337,7 +341,7 @@ class AtlasCognitionScoreCardService
         ['G5',     'Decision Gate',               self::FIELD_COGNITIVE_IMMUNE, AiDecisionReceiptRefreshService::class],
         ['G6',     'Outcome Replay',              self::FIELD_COGNITIVE_IMMUNE, AtlasAemorJudgmentService::class],
         ['G7',     'Self-Improvement Loop',       self::FIELD_COGNITIVE_IMMUNE, AtlasSelfImprovementOrchestrator::class],
-        ['G8',     'Compounding Effect',          self::FIELD_COGNITIVE_IMMUNE, AtlasCompoundingRuntimeService::class],
+        ['G8',     self::FIELD_COMPOUNDING_EFFECT,          self::FIELD_COGNITIVE_IMMUNE, AtlasCompoundingRuntimeService::class],
 
         // Memory Core (3)
         [self::FIELD_MEM_CORE,   'Memory Core (entries+relations)', self::FIELD_MEMORY_CORE, AtlasMemoryConflictResolutionService::class],
@@ -375,7 +379,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_TEOS_I3, 'TEOS-I3 Counterfactual Runtime',      self::FIELD_TEOS,              AtlasTeosI3CounterfactualService::class],
 
         // Patamar 4 — Constitutional Kernel, Autonomy Admission, CognitiveFunctionAtlas, Reconciliation Runtime, TEOS-I4, Swarm Conductor, Temporary Domain Composition
-        [self::FIELD_ACK,     'Constitutional Kernel',               self::FIELD_GOVERNANCE,        AtlasConstitutionalKernelService::class],
+        [self::FIELD_ACK,     self::FIELD_CONSTITUTIONAL_KERNEL,               self::FIELD_GOVERNANCE,        AtlasConstitutionalKernelService::class],
         [self::FIELD_AAA,     self::FIELD_AUTONOMY_ADMISSION,                  self::FIELD_GOVERNANCE,        AtlasAutonomyAdmissionService::class],
         [self::FIELD_ACFA,    self::FIELD_COGNITIVE_FUNCTION_ATLAS,            self::FIELD_COGNITION,         AtlasCognitiveFunctionAtlasService::class],
         [self::FIELD_AARR,    self::FIELD_AUTONOMOUS_RECONCILIATION_RUNTIME,   self::FIELD_AUTONOMY,          AtlasAutonomousReconciliationRuntimeService::class],
@@ -388,12 +392,12 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ADGW,    self::FIELD_ATLAS_DECIDE_GATEWAY_CONSULTATION,   self::FIELD_ATLAS_DECIDE,      AtlasDecideGatewayConsultationService::class],
         [self::FIELD_ADLF,    self::FIELD_ATLAS_DECIDE_LIVE_OUTCOME_FEEDBACK,  self::FIELD_ATLAS_DECIDE,      AtlasDecideLiveOutcomeFeedbackService::class],
         [self::FIELD_AACM,    self::FIELD_ANTIFRAGILITY_COMPOSITION_METRIC,    self::FIELD_COMPOUNDING,       AtlasAntifragilityCompositionMetricService::class],
-        [self::FIELD_ACMF_SE, 'Cognitive Memory Fabric Schema Evolution', self::FIELD_AUCRI,         AtlasCognitiveMemoryFabricSchemaEvolutionService::class],
+        [self::FIELD_ACMF_SE, self::FIELD_COGNITIVE_MEMORY_FABRIC_SCHEMA_EVOLUTION, self::FIELD_AUCRI,         AtlasCognitiveMemoryFabricSchemaEvolutionService::class],
         [self::FIELD_ASCB_EX, 'Self-Construction Scaffold Staging Executor', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionScaffoldStagingExecutorService::class],
         [self::FIELD_ASCB_PP, 'Self-Construction Promotion Plan',          self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionPromotionPlanService::class],
         [self::FIELD_ACTG,    self::FIELD_CARTOGRAPHY_TRUTH_GUARD,                   self::FIELD_CARTOGRAPHY,       CartographyTruthGuardService::class],
         [self::FIELD_AGPF,    'Atlas Gateway Preflight (TEOS-I4)',         self::FIELD_ATLAS_DECIDE,      AtlasGatewayPreflightService::class],
-        [self::FIELD_ACVS,    'Constitutional Vault Service',              self::FIELD_GOVERNANCE,        AtlasConstitutionalVaultService::class],
+        [self::FIELD_ACVS,    self::FIELD_CONSTITUTIONAL_VAULT_SERVICE,              self::FIELD_GOVERNANCE,        AtlasConstitutionalVaultService::class],
         [self::FIELD_ATBS,    'Trust Budget Service',                      self::FIELD_GOVERNANCE,        AtlasTrustBudgetService::class],
         [self::FIELD_ANCF,    'Nightly Counterfactuals',                   self::FIELD_PATAMAR_4,         AtlasNightlyCounterfactualsService::class],
         [self::FIELD_ASAR,    'Subsystem Auto-Rebalance',                  self::FIELD_PATAMAR_4,         AtlasSubsystemAutoRebalanceService::class],

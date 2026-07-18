@@ -14578,4 +14578,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B551).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b551CognitionScoreDepartmentContractMeasureSeriesLotePhaseFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'Cognitive Memory Fabric Schema Evolution' => AtlasCognitionScoreCardService::FIELD_COGNITIVE_MEMORY_FABRIC_SCHEMA_EVOLUTION,
+            'Compounding Effect' => AtlasCognitionScoreCardService::FIELD_COMPOUNDING_EFFECT,
+            'Constitutional Kernel' => AtlasCognitionScoreCardService::FIELD_CONSTITUTIONAL_KERNEL,
+            'Constitutional Vault Service' => AtlasCognitionScoreCardService::FIELD_CONSTITUTIONAL_VAULT_SERVICE,
+            'Product Department' => DepartmentContractRuntime::FIELD_PRODUCT_DEPARTMENT,
+            'QA Department' => DepartmentContractRuntime::FIELD_QA_DEPARTMENT,
+            'R0' => DepartmentContractRuntime::FIELD_R0,
+            'atlas:context:execution-cooccurrence --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_CONTEXT_EXECUTION_COOCCURRENCE___JSON,
+            'atlas:context:golden-counterfactual --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_CONTEXT_GOLDEN_COUNTERFACTUAL___JSON,
+            'atlas:decide:replay-divergence --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_DECIDE_REPLAY_DIVERGENCE___JSON,
+            'Open Brain Gateway' => AtlasCognitionScoreCardV4Grouper::FIELD_OPEN_BRAIN_GATEWAY,
+            'Other ACOS' => AtlasCognitionScoreCardV4Grouper::FIELD_OTHER_ACOS,
+            'Persistent Context Runtime' => AtlasCognitionScoreCardV4Grouper::FIELD_PERSISTENT_CONTEXT_RUNTIME,
+            '.unknown' => AcosMaxLote2MeasureService::FIELD__UNKNOWN,
+            'L1' => AaeosPhaseHandoffService::FIELD_L1,
+            '.sum' => AtlasAaeosHttpPathFacadeService::FIELD__SUM,
+            'atlas:acos:verified-share --json' => AcosMaxVerifiedShareService::FIELD_ATLAS_ACOS_VERIFIED_SHARE___JSON,
+            'atlas:windows --json' => AcosProgramCockpitService::FIELD_ATLAS_WINDOWS___JSON,
+            'b551_cognition_score_department_contract_measure_series_lote_phase_floor_count' => 18,
+        ];
+    }
+
 }

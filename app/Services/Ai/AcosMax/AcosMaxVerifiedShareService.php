@@ -109,6 +109,7 @@ final class AcosMaxVerifiedShareService
     public const FIELD_WDG_01_ACOS_VERIFIED_SHARE = 'wdg-01.acos_verified_share';
     public const FIELD_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL = 'atlas/atlas_decide/live_outcomes.jsonl';
     public const FIELD_STORAGE_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL = 'storage/atlas/atlas_decide/live_outcomes.jsonl';
+    public const FIELD_ATLAS_ACOS_VERIFIED_SHARE___JSON = 'atlas:acos:verified-share --json';
 
 
     /** @return array<string,mixed> */
@@ -130,7 +131,7 @@ final class AcosMaxVerifiedShareService
             self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV12_JUDGE,
             self::FIELD_SERIES_REGISTRY => [
                 self::FIELD_SERIES => self::MEASURE_ID,
-                self::FIELD_PATH => 'atlas:acos:verified-share --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_ACOS_VERIFIED_SHARE___JSON,
                 self::FIELD_WATCHDOG_PLUGIN => self::FIELD_WDG_01_ACOS_VERIFIED_SHARE,
             ],
         ];

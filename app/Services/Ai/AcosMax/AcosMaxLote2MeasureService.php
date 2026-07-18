@@ -329,6 +329,7 @@ final class AcosMaxLote2MeasureService
     public const FIELD_THRESHOLDS_DENOMINATOR_MIN_PROMOTED_LESSONS = 'thresholds.denominator_min_promoted_lessons';
     public const FIELD_THRESHOLDS_SAMPLE_RATE = 'thresholds.sample_rate';
     public const FIELD_COMPLETION_CLAIM_ALLOWED_WITHOUT_PROVEN_REAL = 'completion_claim_allowed_without_proven_real';
+    public const FIELD__UNKNOWN = '.unknown';
     public const INT_3 = 3;
     public const FLOAT_0_0001 = 0.0001;
     public const FLOAT_0_05 = 0.05;
@@ -348,8 +349,8 @@ final class AcosMaxLote2MeasureService
 
         return $payloads[$slice] ?? [
             self::FIELD_KIND => self::KIND_MEASURE_FREEZE,
-            self::FIELD_MEASURE_ID => AiValueNormalizer::lowerTrimmedString($slice).'.unknown',
-            self::FIELD_FORMULA_VERSION => AiValueNormalizer::lowerTrimmedString($slice).'.unknown',
+            self::FIELD_MEASURE_ID => AiValueNormalizer::lowerTrimmedString($slice).self::FIELD__UNKNOWN,
+            self::FIELD_FORMULA_VERSION => AiValueNormalizer::lowerTrimmedString($slice).self::FIELD__UNKNOWN,
             self::FIELD_FORMULA => 'Unknown LOTE 2 measure freeze.',
             self::FIELD_THRESHOLDS => [],
             self::FIELD_DENOMINATOR_MIN => 1,

@@ -74,6 +74,7 @@ final class AaeosPhaseHandoffService
     public const FIELD_AGENT = 'agent';
     public const FIELD_AAEOS_PHASE_SKIP = 'aaeos.phase_skip';
     public const FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DECLARED = 'intent_classification_target_department_declared';
+    public const FIELD_L1 = 'L1';
     public const INT_4 = 4;
     public const INT_256 = 256;
 
@@ -202,7 +203,7 @@ final class AaeosPhaseHandoffService
         ?string $endedAt = null,
         ?string $nextPhase = null,
         ?string $skipReason = null,
-        string $autonomyLevel = 'L1',
+        string $autonomyLevel = self::FIELD_L1,
     ): array {
         $this->assertPhase($phaseIn, self::FIELD_PHASE_IN);
         $this->assertPhase($phaseOut, self::FIELD_PHASE_OUT);
@@ -301,7 +302,7 @@ final class AaeosPhaseHandoffService
      *
      * @return array<string,mixed>
      */
-    public function skip(string $intentId, string $phase, string $receiptId, string $reason, string $autonomyLevel = 'L1'): array
+    public function skip(string $intentId, string $phase, string $receiptId, string $reason, string $autonomyLevel = self::FIELD_L1): array
     {
         $this->assertPhase($phase, self::FIELD_PHASE);
         if ($receiptId === '') {

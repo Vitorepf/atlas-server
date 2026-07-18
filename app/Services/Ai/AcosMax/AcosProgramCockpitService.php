@@ -73,6 +73,7 @@ final class AcosProgramCockpitService
     public const FIELD_ATLAS_ACOS_M_SERIES___JSON = 'atlas:acos:m-series --json';
     public const FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK___REGRET___JSON = 'atlas:atlas-decide:live-feedback --regret --json';
     public const FIELD_ATLAS_PROMOTIONS___JSON = 'atlas:promotions --json';
+    public const FIELD_ATLAS_WINDOWS___JSON = 'atlas:windows --json';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -89,7 +90,7 @@ final class AcosProgramCockpitService
                 'm' => $this->commandSection(self::FIELD_ATLAS_ACOS_M_SERIES___JSON, self::FIELD_ATLAS_ACOS_M_SERIES, [self::FIELD___JSON => true]),
                 'r' => $this->commandSection(self::FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK___REGRET___JSON, self::FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK, [self::FIELD___REGRET => true, self::FIELD___JSON => true]),
                 self::FIELD_LOOPS_FUNNEL => $this->loopsFunnelSection(),
-                self::FIELD_WINDOWS => $this->commandSection('atlas:windows --json', self::FIELD_ATLAS_WINDOWS, [self::FIELD___JSON => true]),
+                self::FIELD_WINDOWS => $this->commandSection(self::FIELD_ATLAS_WINDOWS___JSON, self::FIELD_ATLAS_WINDOWS, [self::FIELD___JSON => true]),
                 self::FIELD_PENDING_FLIPS => $this->commandSection(self::FIELD_ATLAS_PROMOTIONS___JSON, self::FIELD_ATLAS_PROMOTIONS, [self::FIELD___JSON => true]),
                 self::FIELD_REVIEW_DEBT => $this->callbackSection(
                     'AtlasOperatorReviewDebtMeter::report(7)',

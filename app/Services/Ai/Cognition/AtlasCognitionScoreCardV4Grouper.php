@@ -92,6 +92,9 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_EVIDENCE_LEDGER_MEMORY_SIDE = 'Evidence Ledger Memory Side';
     public const FIELD_EXECUTION_MEMORY_OUTCOME_RUNTIME = 'Execution Memory Outcome Runtime';
     public const FIELD_MEMORY_CORE_2 = 'Memory Core';
+    public const FIELD_OPEN_BRAIN_GATEWAY = 'Open Brain Gateway';
+    public const FIELD_OTHER_ACOS = 'Other ACOS';
+    public const FIELD_PERSISTENT_CONTEXT_RUNTIME = 'Persistent Context Runtime';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -220,14 +223,14 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_PATAMAR4_2 => 'Patamar 4 Integration',
             self::FIELD_CONTEXT_CACHE_2 => self::FIELD_CONTEXT_CACHE_COMPILER_RUNTIME,
             self::FIELD_CONTEXT_INTELLIGENCE_2 => self::FIELD_CONTEXT_INTELLIGENCE_ENGINE,
-            self::FIELD_PERSISTENT_CONTEXT_2 => 'Persistent Context Runtime',
+            self::FIELD_PERSISTENT_CONTEXT_2 => self::FIELD_PERSISTENT_CONTEXT_RUNTIME,
             self::FIELD_AEMOR_2 => self::FIELD_EXECUTION_MEMORY_OUTCOME_RUNTIME,
             self::FIELD_LONG_HORIZON_2 => 'TEOS-I1 Long-Horizon Intelligence',
             self::FIELD_VERIFIED_CONTEXT_2 => 'Verified Context Execution Loop',
             self::FIELD_CONTEXT_QUALITY_2 => self::FIELD_CONTEXT_QUALITY_CERTIFICATION_GATE,
-            self::FIELD_OPEN_BRAIN_2 => 'Open Brain Gateway',
+            self::FIELD_OPEN_BRAIN_2 => self::FIELD_OPEN_BRAIN_GATEWAY,
             self::FIELD_EVIDENCE_2 => self::FIELD_EVIDENCE_LEDGER_MEMORY_SIDE,
-            default => 'Other ACOS',
+            default => self::FIELD_OTHER_ACOS,
         };
     }
 

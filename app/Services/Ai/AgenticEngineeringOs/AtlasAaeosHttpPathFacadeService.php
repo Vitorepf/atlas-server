@@ -136,6 +136,7 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD_PAYLOAD_PROMPT = 'payload.prompt';
     public const FIELD__COUNT = '.count';
     public const FIELD__MAX = '.max';
+    public const FIELD__SUM = '.sum';
     public const INT_422 = 422;
 
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
@@ -335,7 +336,7 @@ final class AtlasAaeosHttpPathFacadeService
             ],
             self::FIELD_LATENCY_MS => [
                 self::FIELD_SAMPLES => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.self::FIELD__COUNT, 0),
-                self::FIELD_SUM => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.sum', 0),
+                self::FIELD_SUM => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.self::FIELD__SUM, 0),
                 self::FIELD_MAX => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.self::FIELD__MAX, 0),
             ],
         ];
@@ -521,7 +522,7 @@ final class AtlasAaeosHttpPathFacadeService
             return;
         }
         $countKey = self::TELEMETRY_KEY_LATENCY.self::FIELD__COUNT;
-        $sumKey = self::TELEMETRY_KEY_LATENCY.'.sum';
+        $sumKey = self::TELEMETRY_KEY_LATENCY.self::FIELD__SUM;
         $maxKey = self::TELEMETRY_KEY_LATENCY.self::FIELD__MAX;
         $count = (int) $this->cache->get($countKey, 0);
         $sum = (int) $this->cache->get($sumKey, 0);

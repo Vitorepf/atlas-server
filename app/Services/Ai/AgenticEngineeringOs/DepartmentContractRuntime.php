@@ -430,6 +430,9 @@ final class DepartmentContractRuntime
     public const FIELD_L1 = 'L1';
     public const FIELD_L4 = 'L4';
     public const FIELD_MEMORY_DEPARTMENT = 'Memory Department';
+    public const FIELD_PRODUCT_DEPARTMENT = 'Product Department';
+    public const FIELD_QA_DEPARTMENT = 'QA Department';
+    public const FIELD_R0 = 'R0';
     public const INT_11 = 11;
 
     /**
@@ -487,7 +490,7 @@ final class DepartmentContractRuntime
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_PRODUCT, self::DEPARTMENT_ARCHITECTURE],
         ],
         self::DEPARTMENT_PRODUCT => [
-            self::FIELD_HUMAN_NAME => 'Product Department',
+            self::FIELD_HUMAN_NAME => self::FIELD_PRODUCT_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Turns intent into product spec + acceptance criteria.',
             self::FIELD_SCOPE => 'traduz intenção humana ambígua em engineering_goal disambiguado com critérios de aceitação mensuráveis',
             self::FIELD_TRIGGERS => ['intent_classification.target_department=product'],
@@ -629,7 +632,7 @@ final class DepartmentContractRuntime
             self::FIELD_EMITS_HANDOFF_TO => [self::FIELD_QA, self::DEPARTMENT_DELIVERY],
         ],
         self::DEPARTMENT_QA => [
-            self::FIELD_HUMAN_NAME => 'QA Department',
+            self::FIELD_HUMAN_NAME => self::FIELD_QA_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Test selection, regression, verification.',
             self::FIELD_SCOPE => 'garante testabilidade, cobertura, regressão, contract tests e fixtures',
             self::FIELD_TRIGGERS => ['task_pack_decomposed=true', 'delivery_pack_assembled=true'],
@@ -945,7 +948,7 @@ final class DepartmentContractRuntime
 
     private function riskScopeIndex(string $scope): int
     {
-        static $levels = ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'];
+        static $levels = [self::FIELD_R0, 'R1', 'R2', 'R3', 'R4', 'R5'];
         $index = array_search(AiValueNormalizer::upperTrimmedString($scope), $levels, true);
 
         return $index === false ? -1 : (int) $index;

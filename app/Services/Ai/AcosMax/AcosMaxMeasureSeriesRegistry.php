@@ -177,6 +177,9 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_ATLAS_AI_PROCEDURAL_SKILL_PROMOTER___JSON = 'atlas:ai:procedural-skill-promoter --json';
     public const FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK___REGRET___JSON = 'atlas:atlas-decide:live-feedback --regret --json';
     public const FIELD_ATLAS_BRAIN_PREDICTED_IMPACT___JSON = 'atlas:brain:predicted-impact --json';
+    public const FIELD_ATLAS_CONTEXT_EXECUTION_COOCCURRENCE___JSON = 'atlas:context:execution-cooccurrence --json';
+    public const FIELD_ATLAS_CONTEXT_GOLDEN_COUNTERFACTUAL___JSON = 'atlas:context:golden-counterfactual --json';
+    public const FIELD_ATLAS_DECIDE_REPLAY_DIVERGENCE___JSON = 'atlas:decide:replay-divergence --json';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -400,7 +403,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MULTK_03,
                 self::FIELD_SERIES => AtlasDecideReplayDivergenceService::MEASURE_ID,
-                self::FIELD_PATH => 'atlas:decide:replay-divergence --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_DECIDE_REPLAY_DIVERGENCE___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => self::INT_30,
@@ -454,7 +457,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MAXL_07,
                 self::FIELD_SERIES => GoldenCounterfactualReplayService::MEASURE_ID,
-                self::FIELD_PATH => 'atlas:context:golden-counterfactual --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_CONTEXT_GOLDEN_COUNTERFACTUAL___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => self::INT_90,
@@ -463,7 +466,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MAXL_08,
                 self::FIELD_SERIES => ExecutionContextCooccurrenceService::MEASURE_ID,
-                self::FIELD_PATH => 'atlas:context:execution-cooccurrence --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_CONTEXT_EXECUTION_COOCCURRENCE___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => self::INT_90,

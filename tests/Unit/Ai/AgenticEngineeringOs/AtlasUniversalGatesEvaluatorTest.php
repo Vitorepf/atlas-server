@@ -11493,4 +11493,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b550_cognition_score_department_contract_measure_series_immune_promotion_floor_count']);
     }
 
+    public function test_b551_cognition_score_department_contract_measure_series_lote_phase_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b551CognitionScoreDepartmentContractMeasureSeriesLotePhaseFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_COGNITIVE_MEMORY_FABRIC_SCHEMA_EVOLUTION, $out['Cognitive Memory Fabric Schema Evolution']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_COMPOUNDING_EFFECT, $out['Compounding Effect']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CONSTITUTIONAL_KERNEL, $out['Constitutional Kernel']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CONSTITUTIONAL_VAULT_SERVICE, $out['Constitutional Vault Service']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PRODUCT_DEPARTMENT, $out['Product Department']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_QA_DEPARTMENT, $out['QA Department']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_R0, $out['R0']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_CONTEXT_EXECUTION_COOCCURRENCE___JSON, $out['atlas:context:execution-cooccurrence --json']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_CONTEXT_GOLDEN_COUNTERFACTUAL___JSON, $out['atlas:context:golden-counterfactual --json']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_DECIDE_REPLAY_DIVERGENCE___JSON, $out['atlas:decide:replay-divergence --json']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_OPEN_BRAIN_GATEWAY, $out['Open Brain Gateway']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_OTHER_ACOS, $out['Other ACOS']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_PERSISTENT_CONTEXT_RUNTIME, $out['Persistent Context Runtime']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD__UNKNOWN, $out['.unknown']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_L1, $out['L1']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD__SUM, $out['.sum']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_ATLAS_ACOS_VERIFIED_SHARE___JSON, $out['atlas:acos:verified-share --json']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_ATLAS_WINDOWS___JSON, $out['atlas:windows --json']);
+        $this->assertSame(18, $out['b551_cognition_score_department_contract_measure_series_lote_phase_floor_count']);
+    }
+
 }
