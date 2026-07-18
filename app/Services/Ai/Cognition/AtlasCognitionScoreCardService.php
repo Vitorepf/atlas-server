@@ -349,6 +349,10 @@ class AtlasCognitionScoreCardService
     public const FIELD_MEMORY_RECALL__HYBRID_ = 'Memory Recall (hybrid)';
     public const FIELD_SELF_CONSTRUCTION_PROMOTION_PLAN = 'Self-Construction Promotion Plan';
     public const FIELD_SELF_CONSTRUCTION_SCAFFOLD_STAGING_EXECUTOR = 'Self-Construction Scaffold Staging Executor';
+    public const FIELD_SELF_CONSTRUCTION_SUBSYSTEM_BUILDER = 'Self-Construction Subsystem Builder';
+    public const FIELD_SELF_DIVERGENCE_MODEL__TARGET_VS_CURRENT_ = 'Self-Divergence Model (target vs current)';
+    public const FIELD_SELF_IMPROVEMENT_CLOSED_LOOP_L7 = 'Self-Improvement Closed Loop L7';
+    public const FIELD_SELF_IMPROVEMENT_LOOP = 'Self-Improvement Loop';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -405,7 +409,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_G4,     self::FIELD_CONTEXT_GATE,                self::FIELD_COGNITIVE_IMMUNE, AtlasContextFreshnessQualityGateService::class],
         [self::FIELD_G5,     self::FIELD_DECISION_GATE,               self::FIELD_COGNITIVE_IMMUNE, AiDecisionReceiptRefreshService::class],
         [self::FIELD_G6,     self::FIELD_OUTCOME_REPLAY,              self::FIELD_COGNITIVE_IMMUNE, AtlasAemorJudgmentService::class],
-        [self::FIELD_G7,     'Self-Improvement Loop',       self::FIELD_COGNITIVE_IMMUNE, AtlasSelfImprovementOrchestrator::class],
+        [self::FIELD_G7,     self::FIELD_SELF_IMPROVEMENT_LOOP,       self::FIELD_COGNITIVE_IMMUNE, AtlasSelfImprovementOrchestrator::class],
         [self::FIELD_G8,     self::FIELD_COMPOUNDING_EFFECT,          self::FIELD_COGNITIVE_IMMUNE, AtlasCompoundingRuntimeService::class],
 
         // Memory Core (3)
@@ -434,11 +438,11 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ACPFR, self::FIELD_CONTEXT_PARETO_FRONTIER_RUNTIME,   self::FIELD_AUCRI, AtlasContextParetoFrontierRuntimeService::class],
 
         // Self-Improvement L7 (closed loop)
-        [self::FIELD_ASI_L7, 'Self-Improvement Closed Loop L7', self::FIELD_SELF_IMPROVEMENT, AtlasSelfImprovementResultLedgerService::class],
+        [self::FIELD_ASI_L7, self::FIELD_SELF_IMPROVEMENT_CLOSED_LOOP_L7, self::FIELD_SELF_IMPROVEMENT, AtlasSelfImprovementResultLedgerService::class],
 
         // Patamar 2/3 — meta-learning, self-construction, AURG-4D, cross-domain mesh, TEOS-I3
         [self::FIELD_ADML,    self::FIELD_ATLAS_DECIDE_META_LEARNING,          self::FIELD_ATLAS_DECIDE,      AtlasDecideMetaLearningService::class],
-        [self::FIELD_ASCB,    'Self-Construction Subsystem Builder', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionSubsystemBuilderService::class],
+        [self::FIELD_ASCB,    self::FIELD_SELF_CONSTRUCTION_SUBSYSTEM_BUILDER, self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionSubsystemBuilderService::class],
         [self::FIELD_AURG_4_D, 'Unified Reality Graph Temporal (4D)', self::FIELD_REALITY,           AtlasUnifiedRealityGraphTemporalService::class],
         [self::FIELD_ACDM,    self::FIELD_CROSS_DOMAIN_MESH,                   self::FIELD_CROSS_DOMAIN,      AtlasCrossDomainMeshService::class],
         [self::FIELD_TEOS_I3, 'TEOS-I3 Counterfactual Runtime',      self::FIELD_TEOS,              AtlasTeosI3CounterfactualService::class],
@@ -473,7 +477,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ACSR,    self::FIELD_COGNITIVE_FUNCTION_SWARM_ROUTER__P6_CLOSURE_, self::FIELD_ATLAS_DECIDE,   AtlasCognitiveFunctionSwarmRouterService::class],
         [self::FIELD_ASAF,    'Swarm Auto-Failover (A4)',                  self::FIELD_ATLAS_DECIDE,      AtlasSwarmAutoFailoverService::class],
         [self::FIELD_ARDS,    self::FIELD_RUNTIME_DEGRADATION_SIGNAL_INGRESS,        self::FIELD_PATAMAR_4,         AtlasRuntimeDegradationSignalService::class],
-        [self::FIELD_ASDM,    'Self-Divergence Model (target vs current)', self::FIELD_SELF_CONSTRUCTION, AtlasSelfDivergenceModelService::class],
+        [self::FIELD_ASDM,    self::FIELD_SELF_DIVERGENCE_MODEL__TARGET_VS_CURRENT_, self::FIELD_SELF_CONSTRUCTION, AtlasSelfDivergenceModelService::class],
         [self::FIELD_AEMB,    self::FIELD_EMBODIMENT_INTEGRATION__P7_CLOSURE_,       self::FIELD_PATAMAR_4,         AtlasEmbodimentIntegrationService::class],
 
         // Patamar 1/2/3 closures — OCR confidence, Compounding L8/L9

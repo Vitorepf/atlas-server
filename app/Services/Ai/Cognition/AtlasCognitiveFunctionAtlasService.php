@@ -108,6 +108,7 @@ class AtlasCognitiveFunctionAtlasService
     public const FIELD_SWARM = 'swarm';
     public const FIELD_TEOS_I3 = 'teos_i3';
     public const FIELD_TEOS_I4 = 'teos_i4';
+    public const FIELD_THRESHOLD_MUST_BE____1_ = 'threshold must be >= 1.';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scoreCard,
@@ -220,7 +221,7 @@ class AtlasCognitiveFunctionAtlasService
     public function isGroupOverloaded(string $group, int $threshold = self::OVERLOAD_DEFAULT_THRESHOLD): bool
     {
         if ($threshold < 1) {
-            throw new InvalidArgumentException('threshold must be >= 1.');
+            throw new InvalidArgumentException(self::FIELD_THRESHOLD_MUST_BE____1_);
         }
         $count = count($this->subsystemsByGroup($group));
 

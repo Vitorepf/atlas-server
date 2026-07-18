@@ -100,6 +100,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_UTC = 'UTC';
     public const FIELD_SCHEMA_PROPOSALS_JSONL = 'schema_proposals.jsonl';
     public const FIELD_ATLAS_ACMF = 'atlas/acmf';
+    public const FIELD_OPERATOR_SUPPLIED_SCHEMA_EVOLUTION_ = 'Operator-supplied schema evolution.';
 
     private ?string $proposalsLogOverride = null;
 
@@ -141,7 +142,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         if (! in_array($trigger, self::VALID_TRIGGERS, true)) {
             throw new InvalidArgumentException("Unknown trigger '{$trigger}'.");
         }
-        $rationale = (AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_RATIONALE] ?? null) ?? 'Operator-supplied schema evolution.');
+        $rationale = (AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_RATIONALE] ?? null) ?? self::FIELD_OPERATOR_SUPPLIED_SCHEMA_EVOLUTION_);
         $addedFields = array_values(AiValueNormalizer::arrayOrEmpty($input[self::FIELD_ADDED_FIELDS] ?? null));
         $deprecatedFields = array_values(AiValueNormalizer::arrayOrEmpty($input[self::FIELD_DEPRECATED_FIELDS] ?? null));
         $actor = (AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_ACTOR] ?? null) ?? self::FIELD_ACMF);

@@ -58,6 +58,7 @@ final class AtlasConsolidationRerankGuard
     public const FIELD_METRICS_PRIMARY_K = 'metrics.primary_k';
     public const FIELD_ATLAS_CONSOLIDATION_RERANK_BASELINE_JSON = 'atlas/consolidation/rerank_baseline.json';
     public const FIELD_FALHA_AO_GRAVAR_BASELINE = 'falha ao gravar baseline';
+    public const FIELD_UNMEASURED__SEMANTIC_ENGINE_VENV_AUSENTE____NADA_A_CONGELAR = 'unmeasured (semantic engine/venv ausente) — nada a congelar';
 
 
     private string $baselinePath;
@@ -80,7 +81,7 @@ final class AtlasConsolidationRerankGuard
     {
         $precision = $precisionOverride ?? $this->currentPrecision();
         if ($precision === null) {
-            return [self::FIELD_OK => false, self::FIELD_REASON => 'unmeasured (semantic engine/venv ausente) — nada a congelar'];
+            return [self::FIELD_OK => false, self::FIELD_REASON => self::FIELD_UNMEASURED__SEMANTIC_ENGINE_VENV_AUSENTE____NADA_A_CONGELAR];
         }
 
         $baseline = [

@@ -113,6 +113,7 @@ final class CaptureHmacLineageService
     public const FIELD_ACOS_MAX_MAXI_07_CAPTURE_HMAC_LINEAGE = 'acos_max.maxi_07.capture_hmac_lineage';
     public const FIELD_BROKEN_AT_INVALID_LINK = 'broken_at:invalid_link';
     public const FIELD_CAPTURES_TABLE_UNAVAILABLE = 'captures table unavailable';
+    public const FIELD_MAXI_07_ACEITE_PLENO_AWAITS__ = 'MAXI-07 aceite pleno awaits ≥';
 
     /**
      * @param  array<string,mixed>  $existingChain
@@ -248,7 +249,7 @@ final class CaptureHmacLineageService
             self::FIELD_COVERAGE_RATE => $denominator > 0 ? round($chainedCount / $denominator, 4) : null,
             self::FIELD_NOTE => $fullCoverage
                 ? '100% of recent captures carry hmac_lineage'
-                : 'MAXI-07 aceite pleno awaits ≥'.$minCaptures.' new captures with chained lineage',
+                : self::FIELD_MAXI_07_ACEITE_PLENO_AWAITS__.$minCaptures.' new captures with chained lineage',
         ];
     }
 

@@ -477,6 +477,10 @@ final class DepartmentContractRuntime
     public const FIELD_EXECUTA_FAST_PATH_PARA_INTENTS_R1_R3__1_5_ARQUIVOS__BAIXO_M_DIO_RISCO__COM_GOVERNANCE_LEVE = 'executa fast-path para intents R1-R3 (1-5 arquivos, baixo-médio risco) com governance leve';
     public const FIELD_PRODUZ_STATE_OF_THE_ART_SOURCE_BACKED_PARA_SUPORTAR_ARCHITECT_E_SELF_CONSTRUCTION = 'produz state-of-the-art source-backed para suportar Architect e Self-Construction';
     public const FIELD_DEPARTMENT___S__DOES_NOT_EMIT_HANDOFF_TO___S___ALLOWED___S_ = 'department "%s" does not emit handoff to "%s" (allowed: %s)';
+    public const FIELD_GARANTE_TESTABILIDADE__COBERTURA__REGRESS_O__CONTRACT_TESTS_E_FIXTURES = 'garante testabilidade, cobertura, regressão, contract tests e fixtures';
+    public const FIELD_INVESTIGA_FALHAS_RUNTIME__GERA_HIP_TESES__REPRODUZ__ISOLA_E_PROP_E_FIX = 'investiga falhas runtime, gera hipóteses, reproduz, isola e propõe fix';
+    public const FIELD_MONTA_DELIVERY_PACK_CAN_NICO__VALIDA_COMPLETENESS__ENCAMINHA_PARA_HUMAN_REVIEW_E_CERT = 'monta delivery_pack canônico, valida completeness, encaminha para human review e cert';
+    public const FIELD_RECEBE_PEDIDO_HUMANO_AMB_GUO_E_PRODUZ_MISSION_ENVELOPE_CAN_NICA_ANTES_DE_PRODUCT = 'recebe pedido humano ambíguo e produz mission envelope canônica antes de product';
     public const INT_11 = 11;
 
     /**
@@ -513,7 +517,7 @@ final class DepartmentContractRuntime
         self::DEPARTMENT_EXECUTIVE_INTAKE => [
             self::FIELD_HUMAN_NAME => self::FIELD_EXECUTIVE_INTAKE,
             self::FIELD_DESCRIPTION => self::FIELD_RECEIVES_AMBIGUOUS_HUMAN_INTENT__EMITS_CANONICAL_MISSION_ENVELOPE_,
-            self::FIELD_SCOPE => 'recebe pedido humano ambíguo e produz mission envelope canônica antes de product',
+            self::FIELD_SCOPE => self::FIELD_RECEBE_PEDIDO_HUMANO_AMB_GUO_E_PRODUZ_MISSION_ENVELOPE_CAN_NICA_ANTES_DE_PRODUCT,
             self::FIELD_TRIGGERS => [self::FIELD_OPERATOR_INTENT_RAW_RECEIVED_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_INTENT_RAW, self::FIELD_SCHEMA => self::SCHEMA_INTENT_RAW],
@@ -632,7 +636,7 @@ final class DepartmentContractRuntime
         self::DEPARTMENT_DEBUG => [
             self::FIELD_HUMAN_NAME => self::FIELD_DEBUG_DEPARTMENT,
             self::FIELD_DESCRIPTION => self::FIELD_FAILURE_INVESTIGATION__REPAIR_ORCHESTRATION__ESCALATION_TRIGGERS_,
-            self::FIELD_SCOPE => 'investiga falhas runtime, gera hipóteses, reproduz, isola e propõe fix',
+            self::FIELD_SCOPE => self::FIELD_INVESTIGA_FALHAS_RUNTIME__GERA_HIP_TESES__REPRODUZ__ISOLA_E_PROP_E_FIX,
             self::FIELD_TRIGGERS => [self::FIELD_INCIDENT_DETECTED_TRUE, self::FIELD_TEST_RED_AFTER_GREEN_TRUE, self::FIELD_PRODUCTION_ALERT_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_FAILURE_REPORT, self::FIELD_SCHEMA => self::SCHEMA_FAILURE_REPORT],
@@ -678,7 +682,7 @@ final class DepartmentContractRuntime
         self::DEPARTMENT_QA => [
             self::FIELD_HUMAN_NAME => self::FIELD_QA_DEPARTMENT,
             self::FIELD_DESCRIPTION => self::FIELD_TEST_SELECTION__REGRESSION__VERIFICATION_,
-            self::FIELD_SCOPE => 'garante testabilidade, cobertura, regressão, contract tests e fixtures',
+            self::FIELD_SCOPE => self::FIELD_GARANTE_TESTABILIDADE__COBERTURA__REGRESS_O__CONTRACT_TESTS_E_FIXTURES,
             self::FIELD_TRIGGERS => [self::FIELD_TASK_PACK_DECOMPOSED_TRUE, self::FIELD_DELIVERY_PACK_ASSEMBLED_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
@@ -750,7 +754,7 @@ final class DepartmentContractRuntime
         self::DEPARTMENT_DELIVERY => [
             self::FIELD_HUMAN_NAME => self::FIELD_DELIVERY_DEPARTMENT,
             self::FIELD_DESCRIPTION => self::FIELD_RELEASE__ROLLBACK_DECISION__DEPLOYMENT_EVIDENCE_,
-            self::FIELD_SCOPE => 'monta delivery_pack canônico, valida completeness, encaminha para human review e cert',
+            self::FIELD_SCOPE => self::FIELD_MONTA_DELIVERY_PACK_CAN_NICO__VALIDA_COMPLETENESS__ENCAMINHA_PARA_HUMAN_REVIEW_E_CERT,
             self::FIELD_TRIGGERS => [self::FIELD_EXECUTION_COMPLETE_TRUE, self::FIELD_EVIDENCE_PACK_READY_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_EVIDENCE_PACK, self::FIELD_SCHEMA => self::SCHEMA_EVIDENCE_PACK],

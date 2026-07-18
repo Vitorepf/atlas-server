@@ -620,6 +620,7 @@ final class AtlasAaeosCommand extends Command
                             {--b595-ledger-rotation-cognition-score-department-contract-acos-evolution-floors-contract= : JSON file (any object) to observe ledger/rotation/cognition/score/department/contract floors}
                             {--b596-ledger-rotation-cognition-score-department-contract-acos-evolution-floors-contract= : JSON file (any object) to observe ledger/rotation/cognition/score/department/contract floors}
                             {--b597-ledger-rotation-cognition-score-department-contract-procedural-skill-floors-contract= : JSON file (any object) to observe ledger/rotation/cognition/score/department/contract floors}
+                            {--b598-ledger-rotation-cognition-score-department-contract-cognitive-function-floors-contract= : JSON file (any object) to observe ledger/rotation/cognition/score/department/contract floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1396,6 +1397,7 @@ final class AtlasAaeosCommand extends Command
             ['b595-ledger-rotation-cognition-score-department-contract-acos-evolution-floors-contract', 'b595_ledger_rotation_cognition_score_department_contract_acos_evolution_floors_contract', fn (array $p) => $gates->b595LedgerRotationCognitionScoreDepartmentContractAcosEvolutionFloorsContractObserve($p)],
             ['b596-ledger-rotation-cognition-score-department-contract-acos-evolution-floors-contract', 'b596_ledger_rotation_cognition_score_department_contract_acos_evolution_floors_contract', fn (array $p) => $gates->b596LedgerRotationCognitionScoreDepartmentContractAcosEvolutionFloorsContractObserve($p)],
             ['b597-ledger-rotation-cognition-score-department-contract-procedural-skill-floors-contract', 'b597_ledger_rotation_cognition_score_department_contract_procedural_skill_floors_contract', fn (array $p) => $gates->b597LedgerRotationCognitionScoreDepartmentContractProceduralSkillFloorsContractObserve($p)],
+            ['b598-ledger-rotation-cognition-score-department-contract-cognitive-function-floors-contract', 'b598_ledger_rotation_cognition_score_department_contract_cognitive_function_floors_contract', fn (array $p) => $gates->b598LedgerRotationCognitionScoreDepartmentContractCognitiveFunctionFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

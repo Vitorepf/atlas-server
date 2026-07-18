@@ -94,6 +94,7 @@ final class ImmuneSignatureStore
     public const FIELD_REF = 'ref';
     public const FIELD_IMMUNE_SIGNATURE_REAL_HITS_SOAK = 'immune_signature_real_hits_soak';
     public const FIELD_UTC = 'UTC';
+    public const FIELD_HIT_COUNT___1 = 'hit_count + 1';
     public const INT_3 = 3;
 
     private readonly ImmuneSignatureDeriver $deriver;
@@ -323,7 +324,7 @@ final class ImmuneSignatureStore
                 ->where(self::FIELD_ID, $id)
                 ->where(self::FIELD_STATUS, self::STATUS_ACTIVE)
                 ->update([
-                    self::FIELD_HIT_COUNT => DB::raw('hit_count + 1'),
+                    self::FIELD_HIT_COUNT => DB::raw(self::FIELD_HIT_COUNT___1),
                     self::FIELD_LAST_HIT_AT => now(),
                     self::FIELD_UPDATED_AT => now(),
                 ]);

@@ -107,6 +107,10 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_MAXH_01_COMPUTED_READER = 'MAXH-01 computed reader';
     public const FIELD_MAXI_02_CAPTURE_AUDIT__DB_TABLE_PRUNING = 'MAXI-02 capture audit; DB table pruning';
     public const FIELD_MAXI_03_VERDICT_LEDGER_TABLE = 'MAXI-03 verdict ledger table';
+    public const FIELD_MAXI_04_HYBRID_CLASSIFIER_SWITCH_RECEIPT__MEASUREMENT_CADENCE_TIED_TO_ARM_ON_RUNS = 'MAXI-04 hybrid-classifier switch receipt; measurement cadence tied to arm-ON runs';
+    public const FIELD_MAXI_05_IMMUNE_SIGNATURE_DB_BACKED_STORE__WATCHDOG_TABLE_PRUNING_CADENCE = 'MAXI-05 immune signature DB-backed store; watchdog/table pruning cadence';
+    public const FIELD_MAXJ_01_LESSON_QUALITY_READER = 'MAXJ-01 lesson quality reader';
+    public const FIELD_MAXJ_05_LESSON_TYPE_YIELD = 'MAXJ-05 lesson type yield';
     public const INT_8 = 8;
     public const INT_64 = 64;
     public const INT_45 = 45;
@@ -225,13 +229,13 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MAXJ-01 lesson quality reader',
+                self::FIELD_RATIONALE => self::FIELD_MAXJ_01_LESSON_QUALITY_READER,
             ],
             self::FIELD_ATLAS_AI_LESSON_TYPE_YIELD_V2 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MAXJ-05 lesson type yield',
+                self::FIELD_RATIONALE => self::FIELD_MAXJ_05_LESSON_TYPE_YIELD,
             ],
             self::FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
@@ -369,7 +373,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_16,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MAXI-04 hybrid-classifier switch receipt; measurement cadence tied to arm-ON runs',
+                self::FIELD_RATIONALE => self::FIELD_MAXI_04_HYBRID_CLASSIFIER_SWITCH_RECEIPT__MEASUREMENT_CADENCE_TIED_TO_ARM_ON_RUNS,
             ],
             self::FIELD_ATLAS_N_CAPTURE_DRILL_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_8,
@@ -417,7 +421,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_64,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MAXI-05 immune signature DB-backed store; watchdog/table pruning cadence',
+                self::FIELD_RATIONALE => self::FIELD_MAXI_05_IMMUNE_SIGNATURE_DB_BACKED_STORE__WATCHDOG_TABLE_PRUNING_CADENCE,
             ],
             self::FIELD_ATLAS_CODE_SYMBOL_EMBEDDING_COVERAGE_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_8,

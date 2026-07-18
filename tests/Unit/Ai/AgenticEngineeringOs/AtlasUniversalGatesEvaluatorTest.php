@@ -12637,4 +12637,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b597_ledger_rotation_cognition_score_department_contract_procedural_skill_floor_count']);
     }
 
+    public function test_b598_ledger_rotation_cognition_score_department_contract_cognitive_function_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b598LedgerRotationCognitionScoreDepartmentContractCognitiveFunctionFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAXI_04_HYBRID_CLASSIFIER_SWITCH_RECEIPT__MEASUREMENT_CADENCE_TIED_TO_ARM_ON_RUNS, $out['MAXI-04 hybrid-classifier switch receipt; measurement cadence tied to arm-ON runs']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAXI_05_IMMUNE_SIGNATURE_DB_BACKED_STORE__WATCHDOG_TABLE_PRUNING_CADENCE, $out['MAXI-05 immune signature DB-backed store; watchdog/table pruning cadence']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAXJ_01_LESSON_QUALITY_READER, $out['MAXJ-01 lesson quality reader']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAXJ_05_LESSON_TYPE_YIELD, $out['MAXJ-05 lesson type yield']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SELF_CONSTRUCTION_SUBSYSTEM_BUILDER, $out['Self-Construction Subsystem Builder']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SELF_DIVERGENCE_MODEL__TARGET_VS_CURRENT_, $out['Self-Divergence Model (target vs current)']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SELF_IMPROVEMENT_CLOSED_LOOP_L7, $out['Self-Improvement Closed Loop L7']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SELF_IMPROVEMENT_LOOP, $out['Self-Improvement Loop']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_GARANTE_TESTABILIDADE__COBERTURA__REGRESS_O__CONTRACT_TESTS_E_FIXTURES, $out['garante testabilidade, cobertura, regressão, contract tests e fixtures']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_INVESTIGA_FALHAS_RUNTIME__GERA_HIP_TESES__REPRODUZ__ISOLA_E_PROP_E_FIX, $out['investiga falhas runtime, gera hipóteses, reproduz, isola e propõe fix']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MONTA_DELIVERY_PACK_CAN_NICO__VALIDA_COMPLETENESS__ENCAMINHA_PARA_HUMAN_REVIEW_E_CERT, $out['monta delivery_pack canônico, valida completeness, encaminha para human review e cert']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RECEBE_PEDIDO_HUMANO_AMB_GUO_E_PRODUZ_MISSION_ENVELOPE_CAN_NICA_ANTES_DE_PRODUCT, $out['recebe pedido humano ambíguo e produz mission envelope canônica antes de product']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_THRESHOLD_MUST_BE____1_, $out['threshold must be >= 1.']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_OPERATOR_SUPPLIED_SCHEMA_EVOLUTION_, $out['Operator-supplied schema evolution.']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_UNMEASURED__SEMANTIC_ENGINE_VENV_AUSENTE____NADA_A_CONGELAR, $out['unmeasured (semantic engine/venv ausente) — nada a congelar']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_TAU_IS_A_MAXI_03_FREEZE_STAMPED_INPUT__RECALIBRATION_FLOWS_THROUGH_THE_MAXI_03_SEAM_, $out['tau is a MAXI-03 freeze-stamped input; recalibration flows through the MAXI-03 seam.']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_MAXI_07_ACEITE_PLENO_AWAITS__, $out['MAXI-07 aceite pleno awaits ≥']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_HIT_COUNT___1, $out['hit_count + 1']);
+        $this->assertSame(18, $out['b598_ledger_rotation_cognition_score_department_contract_cognitive_function_floor_count']);
+    }
+
 }

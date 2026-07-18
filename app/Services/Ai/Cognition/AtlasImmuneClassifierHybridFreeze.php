@@ -80,6 +80,7 @@ final class AtlasImmuneClassifierHybridFreeze
     public const FIELD_ATLAS_AAEOS_IMMUNE_CLASSIFIER_SEMANTIC_ARM_ENABLED = 'atlas.aaeos.immune_classifier.semantic_arm_enabled';
     public const FIELD_CODEX_IMMUNE_HYBRID_CLASSIFIER_JUDGE = 'codex-immune-hybrid-classifier-judge';
     public const FIELD_CURSOR_ACOS_MAX_MAXI_04 = 'cursor-acos-max-maxi-04';
+    public const FIELD_TAU_IS_A_MAXI_03_FREEZE_STAMPED_INPUT__RECALIBRATION_FLOWS_THROUGH_THE_MAXI_03_SEAM_ = 'tau is a MAXI-03 freeze-stamped input; recalibration flows through the MAXI-03 seam.';
     public const FLOAT_0_30 = 0.30;
     public const FLOAT_0_80 = 0.80;
     public const FLOAT_0_10 = 0.10;
@@ -134,7 +135,7 @@ final class AtlasImmuneClassifierHybridFreeze
             self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_IMMUNE_HYBRID_CLASSIFIER_JUDGE,
             self::FIELD_CALIBRATION_AUTHORITY => [
                 self::FIELD_FREEZE => ImmuneCalibrationService::MEASURE_ID,
-                self::FIELD_NOTE => 'tau is a MAXI-03 freeze-stamped input; recalibration flows through the MAXI-03 seam.',
+                self::FIELD_NOTE => self::FIELD_TAU_IS_A_MAXI_03_FREEZE_STAMPED_INPUT__RECALIBRATION_FLOWS_THROUGH_THE_MAXI_03_SEAM_,
             ],
             self::FIELD_SERIES => [
                 self::FIELD_ID => self::MEASURE_ID,
