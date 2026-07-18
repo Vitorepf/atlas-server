@@ -56,6 +56,8 @@ final class AtlasFlywheelFunnelService
     public const FIELD_ROLE = 'role';
     public const FIELD_SINGLE_SCALAR_SCORE_EMITTED = 'single_scalar_score_emitted';
     public const FIELD_WINDOWS = 'windows';
+    public const FIELD_FORGE = 'forge';
+    public const FIELD_PROMOTED = 'promoted';
 
     /** @var list<string> */
     public const STAGES = [
@@ -161,7 +163,7 @@ final class AtlasFlywheelFunnelService
      */
     private function hasLesson(array $row): bool
     {
-        return in_array((AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_LEARNING_STATUS] ?? null) ?? ''), ['candidate', 'promoted', 'applied'], true)
+        return in_array((AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_LEARNING_STATUS] ?? null) ?? ''), ['candidate', self::FIELD_PROMOTED, 'applied'], true)
             || ($row[self::FIELD_LESSON_PROMOTED] ?? false) === true;
     }
 
@@ -171,12 +173,12 @@ final class AtlasFlywheelFunnelService
     private function executor(array $row): string
     {
         $role = AiValueNormalizer::lowerTrimmedString($row[self::FIELD_ROLE] ?? '');
-        if (in_array($role, ['dev', 'forge', 'autonomos'], true)) {
+        if (in_array($role, ['dev', self::FIELD_FORGE, 'autonomos'], true)) {
             return $role;
         }
 
         $actor = AiValueNormalizer::lowerTrimmedString($row[self::FIELD_ACTOR] ?? '');
-        foreach (['dev', 'forge', 'autonomos'] as $executor) {
+        foreach (['dev', self::FIELD_FORGE, 'autonomos'] as $executor) {
             if (str_contains($actor, $executor)) {
                 return $executor;
             }

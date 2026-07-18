@@ -57,6 +57,8 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_RECALL_P95_MS_ALERT = 'recall_p95_ms_alert';
     public const FIELD_AOBG_LATENCY_P95_EXCEEDED = 'aobg_latency_p95_exceeded';
     public const FIELD_EVIDENCE_LEDGER = 'evidence_ledger';
+    public const FIELD_APP = 'app';
+    public const FIELD_MEASURE = 'measure';
 
 
     /**
@@ -138,12 +140,12 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
     private function latestFreezePayload(): ?array
     {
         try {
-            $ledger = $this->evidenceLedger ?? (function_exists('app') ? app(AtlasEvidenceLedger::class) : null);
+            $ledger = $this->evidenceLedger ?? (function_exists(self::FIELD_APP) ? app(AtlasEvidenceLedger::class) : null);
             if (! $ledger instanceof AtlasEvidenceLedger) {
                 return null;
             }
 
-            $event = $ledger->latestForScope('measure', 'aobg.latency_ledger.v1', 'measure.freeze.recorded');
+            $event = $ledger->latestForScope(self::FIELD_MEASURE, 'aobg.latency_ledger.v1', 'measure.freeze.recorded');
 
             return $event instanceof AtlasLedgerEvent && is_array($event->payload) ? $event->payload : null;
         } catch (Throwable) {

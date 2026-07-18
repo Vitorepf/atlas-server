@@ -21,11 +21,13 @@ final class ImmuneSignatureDeriver
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_FAMILY = 'family';
     public const FIELD_HOSTILE_CLASS = 'hostile_class';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_PRIVATE_SENSITIVE = 'private_sensitive';
 
     /** @var list<string> */
     public const HOSTILE_CLASSES = [
         'prompt_injection',
-        'private_sensitive',
+        self::FIELD_PRIVATE_SENSITIVE,
         'untrusted_content',
     ];
 
@@ -43,14 +45,14 @@ final class ImmuneSignatureDeriver
         ];
 
         return [
-            self::FIELD_SIGNATURE => hash('sha256', json_encode($family, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
+            self::FIELD_SIGNATURE => hash(self::FIELD_SHA256, json_encode($family, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
             self::FIELD_FAMILY => $family,
         ];
     }
 
     public function contentHashFromText(string $text): string
     {
-        return hash('sha256', $text);
+        return hash(self::FIELD_SHA256, $text);
     }
 
     /**
@@ -60,7 +62,7 @@ final class ImmuneSignatureDeriver
     {
         $signals = $this->normalizeSignals($matchedSignals);
 
-        return hash('sha256', implode('|', $signals));
+        return hash(self::FIELD_SHA256, implode('|', $signals));
     }
 
     /**
@@ -89,7 +91,7 @@ final class ImmuneSignatureDeriver
 
         return preg_match('/^[a-f0-9]{64}$/', $contentHash) === 1
             ? $contentHash
-            : hash('sha256', $contentHash);
+            : hash(self::FIELD_SHA256, $contentHash);
     }
 
     public function normalizeClass(string $hostileClass): string

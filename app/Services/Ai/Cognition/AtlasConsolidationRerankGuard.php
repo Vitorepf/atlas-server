@@ -50,6 +50,8 @@ final class AtlasConsolidationRerankGuard
     public const FIELD_PROMOTE_ALLOWED = 'promote_allowed';
     public const FIELD_STATUS = 'status';
     public const FIELD_VERDICT = 'verdict';
+    public const FIELD_REFATORACAO = 'refatoracao';
+    public const FIELD_SHA256 = 'sha256';
 
 
     private string $baselinePath;
@@ -80,7 +82,7 @@ final class AtlasConsolidationRerankGuard
             self::FIELD_PRECISION_AT_K => round($precision, 4),
             self::FIELD_FROZEN_AT => gmdate('c'),
         ];
-        $baseline[self::FIELD_HASH] = 'sha256:'.hash('sha256', (string) json_encode(['p' => $baseline[self::FIELD_PRECISION_AT_K]]));
+        $baseline[self::FIELD_HASH] = 'sha256:'.hash(self::FIELD_SHA256, (string) json_encode(['p' => $baseline[self::FIELD_PRECISION_AT_K]]));
 
         try {
             $dir = dirname($this->baselinePath);
@@ -114,7 +116,7 @@ final class AtlasConsolidationRerankGuard
             self::FIELD_PROMOTE_ALLOWED => $verdict === 'promote_allowed',
             self::FIELD_CURRENT_PRECISION_AT_K => $current,
             self::FIELD_BASELINE_PRECISION_AT_K => $baseline,
-            self::FIELD_LABEL => 'refatoracao',
+            self::FIELD_LABEL => self::FIELD_REFATORACAO,
         ];
     }
 

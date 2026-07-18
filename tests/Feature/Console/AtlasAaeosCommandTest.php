@@ -7837,6 +7837,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_phase_advance_consolidation_rerank_immune_check_verdict_aobg_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b436-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b436',
+                '--phase-advance-consolidation-rerank-immune-check-verdict-aobg-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"phase_advance_consolidation_rerank_immune_check_verdict_aobg_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

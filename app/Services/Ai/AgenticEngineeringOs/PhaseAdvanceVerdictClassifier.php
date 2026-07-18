@@ -45,6 +45,8 @@ final class PhaseAdvanceVerdictClassifier
     public const FIELD_REQUIRED = 'required';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_VERDICT = 'verdict';
+    public const FIELD_BLOCKED_GATES_REPAIR = 'blocked_gates_repair';
+    public const FIELD_OPEN_BLOCKERS_REPAIR = 'open_blockers_repair';
 
     /** @var list<string> */
     public const VERDICTS = [
@@ -65,9 +67,9 @@ final class PhaseAdvanceVerdictClassifier
         'high_severity_blocker_block',
         'policy_decision_not_allowed_halt',
         'operator_signature_required',
-        'open_blockers_repair',
+        self::FIELD_OPEN_BLOCKERS_REPAIR,
         'missing_required_gates_repair',
-        'blocked_gates_repair',
+        self::FIELD_BLOCKED_GATES_REPAIR,
         'phase_advance_ready',
     ];
 

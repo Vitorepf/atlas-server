@@ -8642,4 +8642,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['immune_signature_acos_program_reactive_saturation_architect_agent_floor_count']);
     }
 
+    public function test_phase_advance_consolidation_rerank_immune_check_verdict_aobg_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->phaseAdvanceConsolidationRerankImmuneCheckVerdictAobgFloorsContractObserve([]);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_BLOCKED_GATES_REPAIR, $out['blocked_gates_repair']);
+        $this->assertSame(PhaseAdvanceVerdictClassifier::FIELD_OPEN_BLOCKERS_REPAIR, $out['open_blockers_repair']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_REFATORACAO, $out['refatoracao']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_AUTONOMOUS_ENGINEERING, $out['autonomous_engineering']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_CONTRADICTION, $out['contradiction']);
+        $this->assertSame(ImmuneVerdictLedger::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(ImmuneVerdictLedger::FIELD_STRVAL, $out['strval']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_APP, $out['app']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_MEASURE, $out['measure']);
+        $this->assertSame(ImmuneSignatureDeriver::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(ImmuneSignatureDeriver::FIELD_PRIVATE_SENSITIVE, $out['private_sensitive']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_REGISTERED_ELEV_20S, $out['registered_elev_20s']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_PROMOTED, $out['promoted']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_CAUSA, $out['causa']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_ALTERNATIVAS, $out['alternativas']);
+        $this->assertSame(18, $out['phase_advance_consolidation_rerank_immune_check_verdict_aobg_floor_count']);
+    }
+
 }

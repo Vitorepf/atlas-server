@@ -52,6 +52,8 @@ final class ImmuneVerdictLedger
     public const FIELD_ID = 'id';
     public const FIELD_UPDATED_AT = 'updated_at';
     public const FIELD_CREATED_AT = 'created_at';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_STRVAL = 'strval';
 
     /** @var list<string> */
     public const LABELS = [
@@ -246,7 +248,7 @@ final class ImmuneVerdictLedger
 
         return preg_match('/^[a-f0-9]{64}$/', $candidateHash) === 1
             ? $candidateHash
-            : hash('sha256', $candidateHash);
+            : hash(self::FIELD_SHA256, $candidateHash);
     }
 
     /** @return array<string,mixed> */
@@ -268,7 +270,7 @@ final class ImmuneVerdictLedger
     /** @return list<string> */
     private function jsonList(mixed $value): array
     {
-        return array_values(array_map('strval', $this->jsonArray($value)));
+        return array_values(array_map(self::FIELD_STRVAL, $this->jsonArray($value)));
     }
 
     private function parseDate(mixed $value): ?CarbonImmutable

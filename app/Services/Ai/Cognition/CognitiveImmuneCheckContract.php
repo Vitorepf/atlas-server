@@ -20,7 +20,7 @@ final class CognitiveImmuneCheckContract
     /** Finding detail categories for autonomous engineering decision checks. */
     public const CHECK_CATEGORIES = [
         'drift',
-        'contradiction',
+        self::FIELD_CONTRADICTION,
         'bias',
         'hallucinated_authority',
         'scope_creep',
@@ -46,6 +46,8 @@ final class CognitiveImmuneCheckContract
     public const FIELD_INPUTS = 'inputs';
     public const FIELD_OUTPUTS = 'outputs';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_AUTONOMOUS_ENGINEERING = 'autonomous_engineering';
+    public const FIELD_CONTRADICTION = 'contradiction';
 
     public const ALLOWED_GATE_STATUSES = [
         self::GATE_STATUS_PENDING,
@@ -115,7 +117,7 @@ final class CognitiveImmuneCheckContract
 
         return new self(
             findingId: AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_FINDING_ID] ?? null) ?? '',
-            decisionSurface: AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_DECISION_SURFACE] ?? null) ?? 'autonomous_engineering',
+            decisionSurface: AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_DECISION_SURFACE] ?? null) ?? self::FIELD_AUTONOMOUS_ENGINEERING,
             targetPaths: $targetPaths,
             gateStatuses: $gateStatuses,
             checkCategories: self::CHECK_CATEGORIES,

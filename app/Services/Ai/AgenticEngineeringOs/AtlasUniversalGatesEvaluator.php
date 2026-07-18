@@ -11041,4 +11041,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B436).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function phaseAdvanceConsolidationRerankImmuneCheckVerdictAobgFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'blocked_gates_repair' => PhaseAdvanceVerdictClassifier::FIELD_BLOCKED_GATES_REPAIR,
+            'open_blockers_repair' => PhaseAdvanceVerdictClassifier::FIELD_OPEN_BLOCKERS_REPAIR,
+            'refatoracao' => AtlasConsolidationRerankGuard::FIELD_REFATORACAO,
+            'sha256' => AtlasConsolidationRerankGuard::FIELD_SHA256,
+            'autonomous_engineering' => CognitiveImmuneCheckContract::FIELD_AUTONOMOUS_ENGINEERING,
+            'contradiction' => CognitiveImmuneCheckContract::FIELD_CONTRADICTION,
+            'sha256' => ImmuneVerdictLedger::FIELD_SHA256,
+            'strval' => ImmuneVerdictLedger::FIELD_STRVAL,
+            'app' => AobgLatencyWatchdogCheck::FIELD_APP,
+            'measure' => AobgLatencyWatchdogCheck::FIELD_MEASURE,
+            'sha256' => ImmuneSignatureDeriver::FIELD_SHA256,
+            'private_sensitive' => ImmuneSignatureDeriver::FIELD_PRIVATE_SENSITIVE,
+            'sha256' => AtlasImmuneClassifierHybridFreeze::FIELD_SHA256,
+            'registered_elev_20s' => AtlasImmuneClassifierHybridFreeze::FIELD_REGISTERED_ELEV_20S,
+            'forge' => AtlasFlywheelFunnelService::FIELD_FORGE,
+            'promoted' => AtlasFlywheelFunnelService::FIELD_PROMOTED,
+            'causa' => StructuredFactSchemaMap::FIELD_CAUSA,
+            'alternativas' => StructuredFactSchemaMap::FIELD_ALTERNATIVAS,
+            'phase_advance_consolidation_rerank_immune_check_verdict_aobg_floor_count' => 18,
+        ];
+    }
+
 }

@@ -28,12 +28,14 @@ final class StructuredFactSchemaMap
     public const FIELD_LLM_EXTRACTION_HOT_PATH = 'llm_extraction_hot_path';
     public const FIELD_SOURCE = 'source';
     public const FIELD_REQUIRED_ON_WRITE = 'required_on_write';
+    public const FIELD_CAUSA = 'causa';
+    public const FIELD_ALTERNATIVAS = 'alternativas';
 
     /** @var array<string,list<string>> */
     public const REQUIRED = [
-        self::FIELD_DECISION => ['contexto', 'alternativas', 'porque', 'expiry'],
-        self::FIELD_HARNESS_LEARNING => ['sintoma', 'causa', 'fix', 'versao'],
-        self::FIELD_GOTCHA => ['sintoma', 'causa', 'fix', 'versao'],
+        self::FIELD_DECISION => ['contexto', self::FIELD_ALTERNATIVAS, 'porque', 'expiry'],
+        self::FIELD_HARNESS_LEARNING => ['sintoma', self::FIELD_CAUSA, 'fix', 'versao'],
+        self::FIELD_GOTCHA => ['sintoma', self::FIELD_CAUSA, 'fix', 'versao'],
     ];
 
     /**

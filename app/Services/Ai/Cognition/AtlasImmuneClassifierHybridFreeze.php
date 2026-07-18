@@ -74,6 +74,8 @@ final class AtlasImmuneClassifierHybridFreeze
     public const FIELD_SOURCE_TYPE = 'source_type';
     public const FIELD_BYTE_IDENTICAL_TO_BASE_CLASSIFIER = 'byte_identical_to_base_classifier';
     public const FIELD_JSONL = 'jsonl';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_REGISTERED_ELEV_20S = 'registered_elev_20s';
 
     /**
      * @return array<string,mixed>
@@ -128,7 +130,7 @@ final class AtlasImmuneClassifierHybridFreeze
             ],
             self::FIELD_SERIES => [
                 self::FIELD_ID => self::MEASURE_ID,
-                self::FIELD_REGISTRY_STATUS => 'registered_elev_20s',
+                self::FIELD_REGISTRY_STATUS => self::FIELD_REGISTERED_ELEV_20S,
                 self::FIELD_SOURCE_TYPE => self::FIELD_JSONL,
             ],
             self::FIELD_PRIVACY_GUARANTEES => [
@@ -138,18 +140,18 @@ final class AtlasImmuneClassifierHybridFreeze
             ],
             self::FIELD_OFF_SWITCH_BYTE_IDENTICAL => true,
         ];
-        $payload[self::FIELD_CONTENT_HASH] = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        $payload[self::FIELD_CONTENT_HASH] = hash(self::FIELD_SHA256, json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
 
         return $payload;
     }
 
     public static function anchorsHash(): string
     {
-        return hash_file('sha256', base_path(self::ANCHOR_FIXTURE_RELATIVE));
+        return hash_file(self::FIELD_SHA256, base_path(self::ANCHOR_FIXTURE_RELATIVE));
     }
 
     public static function corpusHash(): string
     {
-        return hash_file('sha256', base_path(self::CORPUS_FIXTURE_RELATIVE));
+        return hash_file(self::FIELD_SHA256, base_path(self::CORPUS_FIXTURE_RELATIVE));
     }
 }
