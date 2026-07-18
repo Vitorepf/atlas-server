@@ -74,6 +74,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_TETO_02 = 'TETO-02';
     public const FIELD_ASI_05 = 'ASI-05';
     public const FIELD_ELEV_02 = 'ELEV-02';
+    public const FIELD_ELEV_12 = 'ELEV-12';
+    public const FIELD_ELEV_20S = 'ELEV-20s';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -161,7 +163,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:asi.metric.m.v1',
             ],
             [
-                self::FIELD_SLICE => 'ELEV-12',
+                self::FIELD_SLICE => self::FIELD_ELEV_12,
                 self::FIELD_SERIES => AcosMaxVerifiedShareService::MEASURE_ID,
                 self::FIELD_PATH => storage_path('atlas/atlas_decide/live_outcomes.jsonl'),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
@@ -224,7 +226,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.immune.calibration.v1',
             ],
             [
-                self::FIELD_SLICE => 'ELEV-20s',
+                self::FIELD_SLICE => self::FIELD_ELEV_20S,
                 self::FIELD_SERIES => 'acos.dead_series_watchdog.v1',
                 self::FIELD_TABLE => self::FIELD_ATLAS_LEDGER_EVENTS,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,

@@ -93,6 +93,8 @@ final class PortfolioBudgetAllocator
     public const FIELD_YIELD_RECOMPUTED_HERE = 'yield_recomputed_here';
     public const FIELD_OFF = 'off';
     public const FIELD_PORTFOLIO_ALLOCATION = 'portfolio_allocation';
+    public const FIELD_ATLAS_MULTK_06_PORTFOLIO_ALLOCATION_ENABLED = 'atlas.multk_06.portfolio_allocation_enabled';
+    public const FLOAT_0_0 = 0.0;
     public const INT_12 = 12;
 
     /**
@@ -132,7 +134,7 @@ final class PortfolioBudgetAllocator
 
         $yieldReport = [];
         foreach (self::CLASSES as $class) {
-            $y = $yields[$class] ?? ['n' => 0, self::FIELD_MEAN_PROVEN_YIELD => 0.0];
+            $y = $yields[$class] ?? ['n' => 0, self::FIELD_MEAN_PROVEN_YIELD => self::FLOAT_0_0];
             $yieldReport[$class] = [
                 'n' => $y['n'],
                 self::FIELD_MEAN_PROVEN_YIELD => $y['n'] >= self::MIN_N_PER_CLASS ? $y[self::FIELD_MEAN_PROVEN_YIELD] : null,
@@ -159,7 +161,7 @@ final class PortfolioBudgetAllocator
                 self::FIELD_CEILING_ABSOLUTE => self::HARD_CEILING_SHARE,
                 self::FIELD_CONSUMER_OF_MAXN_04 => true,
                 self::FIELD_CONSUMER_OF_MAXK_07 => true,
-                self::FIELD_FLAG => 'atlas.multk_06.portfolio_allocation_enabled',
+                self::FIELD_FLAG => self::FIELD_ATLAS_MULTK_06_PORTFOLIO_ALLOCATION_ENABLED,
                 self::FIELD_FLAG_DEFAULT => self::FIELD_OFF,
             ],
         ];
@@ -179,7 +181,7 @@ final class PortfolioBudgetAllocator
             $out[$class] = $float === null ? $fallback[$class] : AiValueNormalizer::clampUnit($float);
         }
         // If everything zeroed to 0, use fallback wholesale to avoid degeneracy.
-        if (array_sum($out) <= 0.0) {
+        if (array_sum($out) <= self::FLOAT_0_0) {
             return $fallback;
         }
 
@@ -253,7 +255,7 @@ final class PortfolioBudgetAllocator
         $floors = [];
         $caps = [];
         foreach (self::CLASSES as $class) {
-            $band = $ceilings[$class] ?? [self::FIELD_MIN => 0.0, self::FIELD_MAX => 1.0];
+            $band = $ceilings[$class] ?? [self::FIELD_MIN => self::FLOAT_0_0, self::FIELD_MAX => 1.0];
             $floors[$class] = max(self::HARD_FLOOR_SHARE, $band[self::FIELD_MIN]);
             $cap = min(self::HARD_CEILING_SHARE, $band[self::FIELD_MAX]);
             $caps[$class] = max($cap, $floors[$class]);
@@ -278,29 +280,29 @@ final class PortfolioBudgetAllocator
         // Water-filling projection.
         $frozen = [];
         for ($iter = 0; $iter < self::INT_12; $iter++) {
-            $freeSum = 0.0;
-            $freeInput = 0.0;
+            $freeSum = self::FLOAT_0_0;
+            $freeInput = self::FLOAT_0_0;
             foreach (self::CLASSES as $class) {
                 if (! isset($frozen[$class])) {
                     $freeSum += 1.0;
                     $freeInput += $out[$class];
                 }
             }
-            if ($freeSum <= 0.0) {
+            if ($freeSum <= self::FLOAT_0_0) {
                 break;
             }
-            $frozenTotal = 0.0;
+            $frozenTotal = self::FLOAT_0_0;
             foreach ($frozen as $class => $_) {
                 $frozenTotal += $out[$class];
             }
             $target = max(0.0, 1.0 - $frozenTotal);
-            $scale = $freeInput > 0.0 ? $target / $freeInput : $target / $freeSum;
+            $scale = $freeInput > self::FLOAT_0_0 ? $target / $freeInput : $target / $freeSum;
             $changed = false;
             foreach (self::CLASSES as $class) {
                 if (isset($frozen[$class])) {
                     continue;
                 }
-                $candidate = $freeInput > 0.0 ? $out[$class] * $scale : $target / $freeSum;
+                $candidate = $freeInput > self::FLOAT_0_0 ? $out[$class] * $scale : $target / $freeSum;
                 if ($candidate < $floors[$class] - 1e-12) {
                     $out[$class] = $floors[$class];
                     $frozen[$class] = true;
@@ -328,7 +330,7 @@ final class PortfolioBudgetAllocator
     private static function renormalize(array $shares): array
     {
         $sum = array_sum($shares);
-        if ($sum <= 0.0) {
+        if ($sum <= self::FLOAT_0_0) {
             return self::equalDefault();
         }
         $out = [];

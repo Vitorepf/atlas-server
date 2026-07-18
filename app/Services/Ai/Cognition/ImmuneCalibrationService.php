@@ -121,6 +121,8 @@ final class ImmuneCalibrationService
     public const FIELD_TECHNICAL_LEARNING_CANDIDATE = 'technical_learning_candidate';
     public const FIELD_DENOMINATOR_BELOW_MIN = 'denominator_below_min';
     public const FIELD_COGNITIVE_IMMUNE_PROMOTION_GATE_EVALUATOR = 'CognitiveImmunePromotionGateEvaluator';
+    public const FIELD_CODEX_INDEPENDENT_IMMUNE_CALIBRATION_JUDGE = 'codex-independent-immune-calibration-judge';
+    public const FIELD_CURSOR_ACOS_MAX_MAXI_03 = 'cursor-acos-max-maxi-03';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -187,8 +189,8 @@ final class ImmuneCalibrationService
             ],
             self::FIELD_DENOMINATOR_MIN => self::DENOMINATOR_MIN,
             self::FIELD_TTL_DAYS => self::TTL_DAYS,
-            self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxi-03',
-            self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-immune-calibration-judge',
+            self::FIELD_AUTHOR_ENGINE_ID => self::FIELD_CURSOR_ACOS_MAX_MAXI_03,
+            self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_INDEPENDENT_IMMUNE_CALIBRATION_JUDGE,
             self::FIELD_SERIES => [
                 self::FIELD_ID => self::MEASURE_ID,
                 self::FIELD_READER_COMMAND => 'atlas:immune:calibration --json',

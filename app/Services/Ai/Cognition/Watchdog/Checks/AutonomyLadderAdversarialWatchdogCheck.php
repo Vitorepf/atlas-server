@@ -118,6 +118,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_MAXK06_METRICS_AUTHORITY_MISSING = 'maxk06.metrics_authority_missing';
     public const FIELD_MAXK07_NEVER_EXCEEDS_CEILING = 'maxk07.never_exceeds_ceiling';
     public const FIELD_MAXK07_PRIVACY_SENSITIVE_SHRINKS = 'maxk07.privacy_sensitive_shrinks';
+    public const FIELD_MAXK07_REVERSAL_RATE_HIGH_SHRINKS_TO_DRAFT = 'maxk07.reversal_rate_high_shrinks_to_draft';
+    public const FIELD_MAXK08_MINER_REPORT_ONLY = 'maxk08.miner_report_only';
     public const INT_20 = 20;
     public const INT_999 = 999;
     public const INT_10 = 10;
@@ -435,7 +437,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             || $level === PolicyCanon::AUTONOMY_SUGGEST;
 
         return [
-            self::FIELD_ID => 'maxk07.reversal_rate_high_shrinks_to_draft',
+            self::FIELD_ID => self::FIELD_MAXK07_REVERSAL_RATE_HIGH_SHRINKS_TO_DRAFT,
             self::FIELD_REFUSED => $refused,
             self::FIELD_EXPECTED => '≤ draft',
             self::FIELD_OBSERVED => $level,
@@ -482,7 +484,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             && ($source[self::FIELD_BLOCKER] ?? true) === false;
 
         return [
-            self::FIELD_ID => 'maxk08.miner_report_only',
+            self::FIELD_ID => self::FIELD_MAXK08_MINER_REPORT_ONLY,
             self::FIELD_REFUSED => $refused,
             self::FIELD_EXPECTED => 'promotes_selection=false AND blocker=false',
             self::FIELD_OBSERVED => 'promotes_selection='.$this->exportBool($source[self::FIELD_PROMOTES_SELECTION] ?? null)

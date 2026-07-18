@@ -8817,6 +8817,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b506_cognitive_function_immune_calibration_portfolio_budget_phase_handoff_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b506-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b506',
+                '--b506-cognitive-function-immune-calibration-portfolio-budget-phase-handoff-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b506_cognitive_function_immune_calibration_portfolio_budget_phase_handoff_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

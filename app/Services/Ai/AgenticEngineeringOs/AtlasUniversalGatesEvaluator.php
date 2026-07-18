@@ -13195,4 +13195,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B506).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b506CognitiveFunctionImmuneCalibrationPortfolioBudgetPhaseHandoffFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'function_decompositions.jsonl' => AtlasCognitiveFunctionDecomposerService::FIELD_FUNCTION_DECOMPOSITIONS_JSONL,
+            '0.05' => AtlasCognitiveFunctionDecomposerService::FLOAT_0_05,
+            'codex-independent-immune-calibration-judge' => ImmuneCalibrationService::FIELD_CODEX_INDEPENDENT_IMMUNE_CALIBRATION_JUDGE,
+            'cursor-acos-max-maxi-03' => ImmuneCalibrationService::FIELD_CURSOR_ACOS_MAX_MAXI_03,
+            'atlas.multk_06.portfolio_allocation_enabled' => PortfolioBudgetAllocator::FIELD_ATLAS_MULTK_06_PORTFOLIO_ALLOCATION_ENABLED,
+            '0.0' => PortfolioBudgetAllocator::FLOAT_0_0,
+            'aaeos.phase_skip' => AaeosPhaseHandoffService::FIELD_AAEOS_PHASE_SKIP,
+            '4' => AaeosPhaseHandoffService::INT_4,
+            'ELEV-12' => AcosMaxMeasureSeriesRegistry::FIELD_ELEV_12,
+            'ELEV-20s' => AcosMaxMeasureSeriesRegistry::FIELD_ELEV_20S,
+            'mission_e2e_rate.v1' => AcosMaxLote2MeasureService::FIELD_MISSION_E2E_RATE_V1,
+            'codex-independent-lote2-judge' => AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_LOTE2_JUDGE,
+            'atlas.ai.lesson_quality.v2' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_AI_LESSON_QUALITY_V2,
+            'atlas.ai.lesson_semantic_dedup.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_AI_LESSON_SEMANTIC_DEDUP_V1,
+            'diagnosis.latest_receipt_age_days' => AtlasAcosWatchdogHealthService::FIELD_DIAGNOSIS_LATEST_RECEIPT_AGE_DAYS,
+            'latest_snapshot.metadata.memory_recall_corpus.metrics.recall_at_5' => AtlasAcosWatchdogHealthService::FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_CORPUS_METRICS_RECALL_AT_5,
+            'maxk07.reversal_rate_high_shrinks_to_draft' => AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK07_REVERSAL_RATE_HIGH_SHRINKS_TO_DRAFT,
+            'maxk08.miner_report_only' => AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK08_MINER_REPORT_ONLY,
+            'b506_cognitive_function_immune_calibration_portfolio_budget_phase_handoff_floor_count' => 18,
+        ];
+    }
+
 }

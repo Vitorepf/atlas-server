@@ -374,6 +374,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_CONTEXT_RECORDED_AT = 'context.recorded_at';
     public const FIELD_COUNTS_RETRIEVAL_EVAL_RECALL_USAGE_TOTAL = 'counts.retrieval_eval.recall_usage_total';
     public const FIELD_COVERAGE_MEMORY_CROSS_LAYER_COVERAGE_RATIO = 'coverage.memory_cross_layer_coverage_ratio';
+    public const FIELD_DIAGNOSIS_LATEST_RECEIPT_AGE_DAYS = 'diagnosis.latest_receipt_age_days';
+    public const FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_CORPUS_METRICS_RECALL_AT_5 = 'latest_snapshot.metadata.memory_recall_corpus.metrics.recall_at_5';
     public const INT_100 = 100;
     public const FLOAT_10_0 = 10.0;
 
@@ -532,7 +534,7 @@ final class AtlasAcosWatchdogHealthService
         );
         if ($recallAt5 === null) {
             $recallAt5 = AiValueNormalizer::finiteFloatOrNull(
-                data_get($quality, 'latest_snapshot.metadata.memory_recall_corpus.metrics.recall_at_5')
+                data_get($quality, self::FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_CORPUS_METRICS_RECALL_AT_5)
             );
         }
         $improperFloorDiscards = (int) (
@@ -835,7 +837,7 @@ final class AtlasAcosWatchdogHealthService
             ];
         }
         $stale = array_values(array_filter($partials, static function (array $row): bool {
-            $age = AiValueNormalizer::finiteFloatOrNull(data_get($row, 'diagnosis.latest_receipt_age_days'));
+            $age = AiValueNormalizer::finiteFloatOrNull(data_get($row, self::FIELD_DIAGNOSIS_LATEST_RECEIPT_AGE_DAYS));
 
             return $age !== null && $age > self::PIPELINE_PARTIAL_STALE_DAYS;
         }));

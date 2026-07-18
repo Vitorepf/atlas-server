@@ -528,6 +528,7 @@ final class AtlasAaeosCommand extends Command
                             {--b503-measure-series-lote-ledger-rotation-acos-watchdog-autonomy-floors-contract= : JSON file (any object) to observe measure/series/lote/ledger/rotation/acos floors}
                             {--b504-runbook-measure-series-lote-ledger-rotation-acos-watchdog-floors-contract= : JSON file (any object) to observe runbook/measure/series/lote/ledger/rotation floors}
                             {--b505-cognition-score-immune-signature-maxa-jina-outcome-envelope-floors-contract= : JSON file (any object) to observe cognition/score/immune/signature/maxa/jina floors}
+                            {--b506-cognitive-function-immune-calibration-portfolio-budget-phase-handoff-floors-contract= : JSON file (any object) to observe cognitive/function/immune/calibration/portfolio/budget floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1212,6 +1213,7 @@ final class AtlasAaeosCommand extends Command
             ['b503-measure-series-lote-ledger-rotation-acos-watchdog-autonomy-floors-contract', 'b503_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floors_contract', fn (array $p) => $gates->b503MeasureSeriesLoteLedgerRotationAcosWatchdogAutonomyFloorsContractObserve($p)],
             ['b504-runbook-measure-series-lote-ledger-rotation-acos-watchdog-floors-contract', 'b504_runbook_measure_series_lote_ledger_rotation_acos_watchdog_floors_contract', fn (array $p) => $gates->b504RunbookMeasureSeriesLoteLedgerRotationAcosWatchdogFloorsContractObserve($p)],
             ['b505-cognition-score-immune-signature-maxa-jina-outcome-envelope-floors-contract', 'b505_cognition_score_immune_signature_maxa_jina_outcome_envelope_floors_contract', fn (array $p) => $gates->b505CognitionScoreImmuneSignatureMaxaJinaOutcomeEnvelopeFloorsContractObserve($p)],
+            ['b506-cognitive-function-immune-calibration-portfolio-budget-phase-handoff-floors-contract', 'b506_cognitive_function_immune_calibration_portfolio_budget_phase_handoff_floors_contract', fn (array $p) => $gates->b506CognitiveFunctionImmuneCalibrationPortfolioBudgetPhaseHandoffFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

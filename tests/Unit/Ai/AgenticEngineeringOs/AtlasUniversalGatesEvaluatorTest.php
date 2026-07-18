@@ -10380,4 +10380,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b505_cognition_score_immune_signature_maxa_jina_outcome_envelope_floor_count']);
     }
 
+    public function test_b506_cognitive_function_immune_calibration_portfolio_budget_phase_handoff_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b506CognitiveFunctionImmuneCalibrationPortfolioBudgetPhaseHandoffFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_FUNCTION_DECOMPOSITIONS_JSONL, $out['function_decompositions.jsonl']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FLOAT_0_05, $out['0.05']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_CODEX_INDEPENDENT_IMMUNE_CALIBRATION_JUDGE, $out['codex-independent-immune-calibration-judge']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_CURSOR_ACOS_MAX_MAXI_03, $out['cursor-acos-max-maxi-03']);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_ATLAS_MULTK_06_PORTFOLIO_ALLOCATION_ENABLED, $out['atlas.multk_06.portfolio_allocation_enabled']);
+        $this->assertSame(PortfolioBudgetAllocator::FLOAT_0_0, $out['0.0']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_AAEOS_PHASE_SKIP, $out['aaeos.phase_skip']);
+        $this->assertSame(AaeosPhaseHandoffService::INT_4, $out['4']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ELEV_12, $out['ELEV-12']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ELEV_20S, $out['ELEV-20s']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MISSION_E2E_RATE_V1, $out['mission_e2e_rate.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_LOTE2_JUDGE, $out['codex-independent-lote2-judge']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_AI_LESSON_QUALITY_V2, $out['atlas.ai.lesson_quality.v2']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_AI_LESSON_SEMANTIC_DEDUP_V1, $out['atlas.ai.lesson_semantic_dedup.v1']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_DIAGNOSIS_LATEST_RECEIPT_AGE_DAYS, $out['diagnosis.latest_receipt_age_days']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_CORPUS_METRICS_RECALL_AT_5, $out['latest_snapshot.metadata.memory_recall_corpus.metrics.recall_at_5']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK07_REVERSAL_RATE_HIGH_SHRINKS_TO_DRAFT, $out['maxk07.reversal_rate_high_shrinks_to_draft']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK08_MINER_REPORT_ONLY, $out['maxk08.miner_report_only']);
+        $this->assertSame(18, $out['b506_cognitive_function_immune_calibration_portfolio_budget_phase_handoff_floor_count']);
+    }
+
 }

@@ -192,6 +192,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_TESTE = 'teste';
     public const FIELD_VERIFIQUE = 'verifique';
     public const FIELD_UTC = 'UTC';
+    public const FIELD_FUNCTION_DECOMPOSITIONS_JSONL = 'function_decompositions.jsonl';
+    public const FLOAT_0_05 = 0.05;
 
     public const FUNCTIONS = [
         'reasoning',
@@ -271,7 +273,7 @@ final class AtlasCognitiveFunctionDecomposerService
             ? storage_path('atlas/cognition')
             : sys_get_temp_dir().'/atlas/cognition';
 
-        return $base.DIRECTORY_SEPARATOR.'function_decompositions.jsonl';
+        return $base.DIRECTORY_SEPARATOR.self::FIELD_FUNCTION_DECOMPOSITIONS_JSONL;
     }
 
     /**
@@ -305,7 +307,7 @@ final class AtlasCognitiveFunctionDecomposerService
         $totalHits = array_sum($hits);
         if ($totalHits === 0) {
             // No signals — neutral but lean toward reasoning (default cognitive default).
-            $weights = [self::FIELD_REASONING => 0.5, self::FIELD_RETRIEVAL => 0.2, self::FIELD_GENERATION => 0.15, self::FIELD_CODE => 0.05, self::FIELD_VISION => 0.05, self::FIELD_AUDIT => 0.05];
+            $weights = [self::FIELD_REASONING => 0.5, self::FIELD_RETRIEVAL => 0.2, self::FIELD_GENERATION => 0.15, self::FIELD_CODE => self::FLOAT_0_05, self::FIELD_VISION => self::FLOAT_0_05, self::FIELD_AUDIT => self::FLOAT_0_05];
 
             return $this->envelope($input, $context, $weights, [self::FIELD_REASON => self::REASON_NO_KEYWORD_SIGNAL, self::FIELD_HITS => $hits]);
         }

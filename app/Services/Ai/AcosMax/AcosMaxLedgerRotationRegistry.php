@@ -58,6 +58,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ATLAS_AI_ABSTRACTION_LADDER_V1 = 'atlas.ai.abstraction_ladder.v1';
     public const FIELD_ATLAS_AI_COUNTERFACTUAL_LIFT_V2 = 'atlas.ai.counterfactual_lift.v2';
     public const FIELD_ATLAS_AI_LESSON_HALF_LIFE_V2 = 'atlas.ai.lesson_half_life.v2';
+    public const FIELD_ATLAS_AI_LESSON_QUALITY_V2 = 'atlas.ai.lesson_quality.v2';
+    public const FIELD_ATLAS_AI_LESSON_SEMANTIC_DEDUP_V1 = 'atlas.ai.lesson_semantic_dedup.v1';
     public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
@@ -171,7 +173,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'ELEV-25 review-debt watchdog trail',
             ],
-            'atlas.ai.lesson_quality.v2' => [
+            self::FIELD_ATLAS_AI_LESSON_QUALITY_V2 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
@@ -279,7 +281,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTJ-01 lesson half-life',
             ],
-            'atlas.ai.lesson_semantic_dedup.v1' => [
+            self::FIELD_ATLAS_AI_LESSON_SEMANTIC_DEDUP_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,

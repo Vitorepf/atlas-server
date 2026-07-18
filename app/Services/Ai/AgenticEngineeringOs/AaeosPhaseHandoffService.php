@@ -72,6 +72,8 @@ final class AaeosPhaseHandoffService
     public const FIELD_PHASE = 'phase';
     public const FIELD_SYSTEM = 'system';
     public const FIELD_AGENT = 'agent';
+    public const FIELD_AAEOS_PHASE_SKIP = 'aaeos.phase_skip';
+    public const INT_4 = 4;
     public const INT_256 = 256;
 
     public static function requireIntentId(string $intentId): void
@@ -313,7 +315,7 @@ final class AaeosPhaseHandoffService
             self::FIELD_INTENT_ID => $intentId,
             self::FIELD_PHASE_IN => $phase,
             self::FIELD_PHASE_OUT => $phase,
-            self::FIELD_ACTOR => [self::FIELD_KIND => self::FIELD_SYSTEM, self::FIELD_ID => 'aaeos.phase_skip', self::FIELD_PROVIDER => null],
+            self::FIELD_ACTOR => [self::FIELD_KIND => self::FIELD_SYSTEM, self::FIELD_ID => self::FIELD_AAEOS_PHASE_SKIP, self::FIELD_PROVIDER => null],
             self::FIELD_INPUTS => [],
             self::FIELD_OUTPUTS => [],
             self::FIELD_EVIDENCE_HASHES => [],
@@ -380,7 +382,7 @@ final class AaeosPhaseHandoffService
     private function assertSignatureRequired(string $phase, string $autonomyLevel, ?string $signature): void
     {
         $level = self::autonomyLevelInt($autonomyLevel);
-        if ($level < 4) {
+        if ($level < self::INT_4) {
             return;
         }
         if (! in_array($phase, self::PHASES_REQUIRING_SIGNATURE_AT_L4, true)) {
