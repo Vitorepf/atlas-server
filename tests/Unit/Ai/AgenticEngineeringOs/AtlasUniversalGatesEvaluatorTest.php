@@ -11874,4 +11874,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b566_immune_calibration_composed_obra_floor_count']);
     }
 
+    public function test_b567_teto_predicted_autonomy_ladder_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b567TetoPredictedAutonomyLadderFloorsContractObserve([]);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_FAMILY, $out['family']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_BAND_RANK, $out['band_rank']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_HIGHEST_BAND_RANK, $out['highest_band_rank']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_ITEMS, $out['items']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_STATUS, $out['status']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_LIMIT, $out['limit']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_GROUPS, $out['groups']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_BAND_COUNTS, $out['band_counts']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_CHECK, $out['check']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_DETAILS, $out['details']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_ID, $out['id']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_SOURCE, $out['source']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_PROMOTES_SELECTION, $out['promotes_selection']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_BLOCKER, $out['blocker']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_DECISION, $out['decision']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_PRIVACY_CLASS, $out['privacy_class']);
+        $this->assertSame(18, $out['b567_teto_predicted_autonomy_ladder_floor_count']);
+    }
+
 }

@@ -15055,4 +15055,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B567).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b567TetoPredictedAutonomyLadderFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'family' => Teto10PredictedRevertReviewDigest::FIELD_FAMILY,
+            'band_rank' => Teto10PredictedRevertReviewDigest::FIELD_BAND_RANK,
+            'highest_band_rank' => Teto10PredictedRevertReviewDigest::FIELD_HIGHEST_BAND_RANK,
+            'items' => Teto10PredictedRevertReviewDigest::FIELD_ITEMS,
+            'status' => Teto10PredictedRevertReviewDigest::FIELD_STATUS,
+            'schema_version' => Teto10PredictedRevertReviewDigest::FIELD_SCHEMA_VERSION,
+            'limit' => Teto10PredictedRevertReviewDigest::FIELD_LIMIT,
+            'groups' => Teto10PredictedRevertReviewDigest::FIELD_GROUPS,
+            'band_counts' => Teto10PredictedRevertReviewDigest::FIELD_BAND_COUNTS,
+            'check' => AutonomyLadderAdversarialWatchdogCheck::FIELD_CHECK,
+            'details' => AutonomyLadderAdversarialWatchdogCheck::FIELD_DETAILS,
+            'id' => AutonomyLadderAdversarialWatchdogCheck::FIELD_ID,
+            'source' => AutonomyLadderAdversarialWatchdogCheck::FIELD_SOURCE,
+            'message' => AutonomyLadderAdversarialWatchdogCheck::FIELD_MESSAGE,
+            'promotes_selection' => AutonomyLadderAdversarialWatchdogCheck::FIELD_PROMOTES_SELECTION,
+            'blocker' => AutonomyLadderAdversarialWatchdogCheck::FIELD_BLOCKER,
+            'decision' => AutonomyLadderAdversarialWatchdogCheck::FIELD_DECISION,
+            'privacy_class' => AutonomyLadderAdversarialWatchdogCheck::FIELD_PRIVACY_CLASS,
+            'b567_teto_predicted_autonomy_ladder_floor_count' => 18,
+        ];
+    }
+
 }
