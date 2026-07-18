@@ -708,6 +708,7 @@ final class AtlasAaeosCommand extends Command
                             {--b683-execution-context-floors-contract= : JSON file (any object) to observe execution/context floors}
                             {--b684-pre-review-floors-contract= : JSON file (any object) to observe pre/review floors}
                             {--b685-parallel-execution-floors-contract= : JSON file (any object) to observe parallel/execution floors}
+                            {--b686-provenance-weight-composed-obra-floors-contract= : JSON file (any object) to observe provenance/weight/composed/obra floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1572,6 +1573,7 @@ final class AtlasAaeosCommand extends Command
             ['b683-execution-context-floors-contract', 'b683_execution_context_floors_contract', fn (array $p) => $gates->b683ExecutionContextFloorsContractObserve($p)],
             ['b684-pre-review-floors-contract', 'b684_pre_review_floors_contract', fn (array $p) => $gates->b684PreReviewFloorsContractObserve($p)],
             ['b685-parallel-execution-floors-contract', 'b685_parallel_execution_floors_contract', fn (array $p) => $gates->b685ParallelExecutionFloorsContractObserve($p)],
+            ['b686-provenance-weight-composed-obra-floors-contract', 'b686_provenance_weight_composed_obra_floors_contract', fn (array $p) => $gates->b686ProvenanceWeightComposedObraFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

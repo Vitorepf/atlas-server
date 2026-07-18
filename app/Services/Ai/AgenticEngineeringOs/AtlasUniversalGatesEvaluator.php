@@ -18714,4 +18714,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B686).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b686ProvenanceWeightComposedObraFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.memory.provenance_weight.v1' => ProvenanceWeightCalculator::SCHEMA_VERSION,
+            '0.5' => ProvenanceWeightCalculator::FLOOR,
+            'dead_ref_counts_as_weight' => ProvenanceWeightCalculator::FIELD_DEAD_REF_COUNTS_AS_WEIGHT,
+            'dead_refs' => ProvenanceWeightCalculator::FIELD_DEAD_REFS,
+            'resolved_count' => ProvenanceWeightCalculator::FIELD_RESOLVED_COUNT,
+            'multiplier' => ProvenanceWeightCalculator::FIELD_MULTIPLIER,
+            'source' => ProvenanceWeightCalculator::FIELD_SOURCE,
+            'schema_version' => ProvenanceWeightCalculator::FIELD_SCHEMA_VERSION,
+            'floor' => ProvenanceWeightCalculator::FIELD_FLOOR,
+            'id' => ComposedObraArcComposer::FIELD_ID,
+            'neighbor_basis' => ComposedObraArcComposer::FIELD_NEIGHBOR_BASIS,
+            'atlas.originator.composed_obra_arc.v1' => ComposedObraArcComposer::SCHEMA_VERSION,
+            '3' => ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES,
+            '3' => ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES,
+            'cursor-acos-max-multn1702' => ComposedObraArcComposer::DEFAULT_AUTHOR_ENGINE_ID,
+            'codex-independent-multn1702-judge' => ComposedObraArcComposer::DEFAULT_JUDGE_ENGINE_ID,
+            'enabled' => ComposedObraArcComposer::FIELD_ENABLED,
+            'target_path' => ComposedObraArcComposer::FIELD_TARGET_PATH,
+            'b686_provenance_weight_composed_obra_floor_count' => 18,
+        ];
+    }
+
 }

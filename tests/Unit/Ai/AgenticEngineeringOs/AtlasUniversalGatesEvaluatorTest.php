@@ -14824,4 +14824,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b685_parallel_execution_floor_count']);
     }
 
+    public function test_b686_provenance_weight_composed_obra_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b686ProvenanceWeightComposedObraFloorsContractObserve([]);
+        $this->assertSame(ProvenanceWeightCalculator::SCHEMA_VERSION, $out['atlas.memory.provenance_weight.v1']);
+        $this->assertSame(ProvenanceWeightCalculator::FLOOR, $out['0.5']);
+        $this->assertSame(ProvenanceWeightCalculator::FIELD_DEAD_REF_COUNTS_AS_WEIGHT, $out['dead_ref_counts_as_weight']);
+        $this->assertSame(ProvenanceWeightCalculator::FIELD_DEAD_REFS, $out['dead_refs']);
+        $this->assertSame(ProvenanceWeightCalculator::FIELD_RESOLVED_COUNT, $out['resolved_count']);
+        $this->assertSame(ProvenanceWeightCalculator::FIELD_MULTIPLIER, $out['multiplier']);
+        $this->assertSame(ProvenanceWeightCalculator::FIELD_SOURCE, $out['source']);
+        $this->assertSame(ProvenanceWeightCalculator::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(ProvenanceWeightCalculator::FIELD_FLOOR, $out['floor']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_ID, $out['id']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_NEIGHBOR_BASIS, $out['neighbor_basis']);
+        $this->assertSame(ComposedObraArcComposer::SCHEMA_VERSION, $out['atlas.originator.composed_obra_arc.v1']);
+        $this->assertSame(ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES, $out['3']);
+        $this->assertSame(ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES, $out['3']);
+        $this->assertSame(ComposedObraArcComposer::DEFAULT_AUTHOR_ENGINE_ID, $out['cursor-acos-max-multn1702']);
+        $this->assertSame(ComposedObraArcComposer::DEFAULT_JUDGE_ENGINE_ID, $out['codex-independent-multn1702-judge']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_ENABLED, $out['enabled']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_TARGET_PATH, $out['target_path']);
+        $this->assertSame(18, $out['b686_provenance_weight_composed_obra_floor_count']);
+    }
+
 }
