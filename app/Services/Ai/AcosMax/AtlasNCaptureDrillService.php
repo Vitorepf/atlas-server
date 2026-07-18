@@ -115,6 +115,8 @@ final class AtlasNCaptureDrillService
     public const FIELD_VERIFIED = 'verified';
     public const FIELD_PROVEN_REAL_OUTCOMES_OBSERVED = 'proven_real_outcomes_observed';
     public const FIELD_REFUSED_COUNT = 'refused_count';
+    public const FIELD_REGRET_MEASURE_ID = 'regret_measure_id';
+    public const FIELD_ROUTED_TASKS_OBSERVED = 'routed_tasks_observed';
 
     private readonly string $ledgerPath;
 
@@ -194,7 +196,7 @@ final class AtlasNCaptureDrillService
             'yardstick' => [
                 self::FIELD_GOLDEN_V2_PASSED => (AiValueNormalizer::boolOrNull(data_get($drill, 'yardstick.golden_v2_passed')) ?? false),
                 self::FIELD_GOLDEN_V2_SCORE => data_get($drill, 'yardstick.golden_v2_score'),
-                'regret_measure_id' => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'yardstick.regret_measure_id')) ?? 'atlas.decide.route_regret.v2',
+                self::FIELD_REGRET_MEASURE_ID => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'yardstick.regret_measure_id')) ?? 'atlas.decide.route_regret.v2',
                 self::FIELD_PEEK_MODE => true,
             ],
             'times' => [
@@ -203,7 +205,7 @@ final class AtlasNCaptureDrillService
                 self::FIELD_HOURS_OF_INTEGRATION => AiValueNormalizer::finiteFloatOrNull(data_get($drill, 'times.hours_of_integration')) ?? 0.0,
             ],
             self::FIELD_DENOMINATORS => [
-                'routed_tasks_observed' => (int) data_get($drill, 'denominators.routed_tasks_observed', 0),
+                self::FIELD_ROUTED_TASKS_OBSERVED => (int) data_get($drill, 'denominators.routed_tasks_observed', 0),
                 self::FIELD_PROVEN_REAL_OUTCOMES_OBSERVED => (int) data_get($drill, 'denominators.proven_real_outcomes_observed', 0),
             ],
             self::FIELD_ADMISSION => [

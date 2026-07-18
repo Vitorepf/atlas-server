@@ -7424,4 +7424,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['citation_grounding_delivery_pack_cognitive_function_immune_signature_floor_count']);
     }
 
+    public function test_n_capture_domain_lexical_execution_context_aaeos_http_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->nCaptureDomainLexicalExecutionContextAaeosHttpFloorsContractObserve([]);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_REGRET_MEASURE_ID, $out['regret_measure_id']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_ROUTED_TASKS_OBSERVED, $out['routed_tasks_observed']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_OPERATOR, $out['operator']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_PIPELINE, $out['pipeline']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_MEMORY_WRITTEN, $out['memory_written']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_USED_REF_COUNT, $out['used_ref_count']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_PHASE_OUT, $out['phase_out']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_PHASES_EXECUTED, $out['phases_executed']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_QUARANTINED, $out['quarantined']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_QUEUE_HEALTH, $out['queue_health']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_PRESSURE_DETECTED, $out['pressure_detected']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_PROPOSAL_HASH, $out['proposal_hash']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MISSION_E2E_RATE, $out['mission_e2e_rate']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_NEVER_DELIVERED_IN_DENOMINATOR, $out['never_delivered_in_denominator']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_RECEIPT, $out['receipt']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_RECEIPT_REQUIRED, $out['receipt_required']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_EVIDENCE_PACK_COMPLETENESS_MIN_0_95, $out['evidence_pack_completeness_min_0_95']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_EXECUTION_LOG_WATCHDOG_OK, $out['execution_log_watchdog_ok']);
+        $this->assertSame(18, $out['n_capture_domain_lexical_execution_context_aaeos_http_floor_count']);
+    }
+
 }

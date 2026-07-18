@@ -212,6 +212,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_LEGACY_UNJOINED_ROWS = 'legacy_unjoined_rows';
     public const FIELD_MAX_ABS_DECLARED_REALIZED_DEVIATION = 'max_abs_declared_realized_deviation';
     public const FIELD_METRICS = 'metrics';
+    public const FIELD_MISSION_E2E_RATE = 'mission_e2e_rate';
+    public const FIELD_NEVER_DELIVERED_IN_DENOMINATOR = 'never_delivered_in_denominator';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -730,7 +732,7 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_READ_ONLY => true,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
                 self::FIELD_MEMORY_WRITTEN => false,
-                'never_delivered_in_denominator' => true,
+                self::FIELD_NEVER_DELIVERED_IN_DENOMINATOR => true,
             ],
         ];
     }
@@ -1061,7 +1063,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_METRICS => [
                 self::FIELD_OPERATOR_REQUESTS => $total,
                 self::FIELD_COMPLETED_E2E => $completed,
-                'mission_e2e_rate' => $total > 0 ? round($completed / $total, 4) : null,
+                self::FIELD_MISSION_E2E_RATE => $total > 0 ? round($completed / $total, 4) : null,
                 self::FIELD_ASKS_PER_REQUEST => null,
                 'request_to_delivery_p50_seconds' => null,
                 'request_to_delivery_p95_seconds' => null,

@@ -51,6 +51,8 @@ final class ExecutionContextCooccurrenceService
     public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
     public const FIELD_INTERSECTION_ALONE_IS_NOT_CAUSAL = 'intersection_alone_is_not_causal';
     public const FIELD_INTERSECTION_REFS = 'intersection_refs';
+    public const FIELD_MEMORY_WRITTEN = 'memory_written';
+    public const FIELD_USED_REF_COUNT = 'used_ref_count';
 
 
     /**
@@ -69,7 +71,7 @@ final class ExecutionContextCooccurrenceService
             self::FIELD_CLAIM_POLICY => [
                 self::FIELD_READ_ONLY => true,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
-                'memory_written' => false,
+                self::FIELD_MEMORY_WRITTEN => false,
                 self::FIELD_FEEDS_ENFORCEMENT => false,
                 self::FIELD_INTERSECTION_ALONE_IS_NOT_CAUSAL => true,
             ],
@@ -128,7 +130,7 @@ final class ExecutionContextCooccurrenceService
                 self::FIELD_OUTCOME_RECEIPT_ID => (AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_OUTCOME_RECEIPT_ID] ?? null) ?? ''),
                 self::FIELD_GREEN_RUN => ($run[self::FIELD_GREEN_RUN] ?? false) === true,
                 self::FIELD_DELIVERED_REF_COUNT => count($delivered),
-                'used_ref_count' => count($used),
+                self::FIELD_USED_REF_COUNT => count($used),
                 self::FIELD_INTERSECTION_REFS => $intersection,
                 self::FIELD_CONTEXT_CAUSAL_BINDING => 'correlational_cooccurrence',
             ];

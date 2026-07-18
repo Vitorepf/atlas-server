@@ -86,6 +86,8 @@ final class AtlasMissionControlCockpitService
     public const FIELD_OUTCOME_CAUSALITY = 'outcome_causality';
     public const FIELD_OUTCOME = 'outcome';
     public const FIELD_PROVIDER_SAFE = 'provider_safe';
+    public const FIELD_QUARANTINED = 'quarantined';
+    public const FIELD_QUEUE_HEALTH = 'queue_health';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
@@ -154,7 +156,7 @@ final class AtlasMissionControlCockpitService
             self::FIELD_GENERATED_AT => gmdate('c'),
         ];
         if ($queueHealth !== null) {
-            $payload['queue_health'] = $queueHealth;
+            $payload[self::FIELD_QUEUE_HEALTH] = $queueHealth;
         }
         $payload['snapshot_hash'] = 'sha256:'.hash('sha256', json_encode([
             $intentId,
@@ -195,7 +197,7 @@ final class AtlasMissionControlCockpitService
         $servableNow = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_SERVABLE_NOW] ?? 0) ?? 0));
         $activeLeases = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_ACTIVE_LEASES] ?? 0) ?? 0));
         $blocked = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_BLOCKED] ?? 0) ?? 0));
-        $quarantined = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['quarantined'] ?? 0) ?? 0));
+        $quarantined = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_QUARANTINED] ?? 0) ?? 0));
         $recoverable = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['recoverable'] ?? 0) ?? 0));
         $malformed = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_MALFORMED] ?? 0) ?? 0));
 

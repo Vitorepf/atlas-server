@@ -9552,4 +9552,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B388).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function nCaptureDomainLexicalExecutionContextAaeosHttpFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'regret_measure_id' => AtlasNCaptureDrillService::FIELD_REGRET_MEASURE_ID,
+            'routed_tasks_observed' => AtlasNCaptureDrillService::FIELD_ROUTED_TASKS_OBSERVED,
+            'operator' => DomainLexicalNormalizer::FIELD_OPERATOR,
+            'pipeline' => DomainLexicalNormalizer::FIELD_PIPELINE,
+            'memory_written' => ExecutionContextCooccurrenceService::FIELD_MEMORY_WRITTEN,
+            'used_ref_count' => ExecutionContextCooccurrenceService::FIELD_USED_REF_COUNT,
+            'phase_out' => AtlasAaeosHttpPathFacadeService::FIELD_PHASE_OUT,
+            'phases_executed' => AtlasAaeosHttpPathFacadeService::FIELD_PHASES_EXECUTED,
+            'quarantined' => AtlasMissionControlCockpitService::FIELD_QUARANTINED,
+            'queue_health' => AtlasMissionControlCockpitService::FIELD_QUEUE_HEALTH,
+            'pressure_detected' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_PRESSURE_DETECTED,
+            'proposal_hash' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_PROPOSAL_HASH,
+            'mission_e2e_rate' => AcosMaxLote2MeasureService::FIELD_MISSION_E2E_RATE,
+            'never_delivered_in_denominator' => AcosMaxLote2MeasureService::FIELD_NEVER_DELIVERED_IN_DENOMINATOR,
+            'receipt' => AaeosHttpPathEnvelopeFactory::FIELD_RECEIPT,
+            'receipt_required' => AaeosHttpPathEnvelopeFactory::FIELD_RECEIPT_REQUIRED,
+            'evidence_pack_completeness_min_0_95' => AaeosPhaseHandoffService::FIELD_EVIDENCE_PACK_COMPLETENESS_MIN_0_95,
+            'execution_log_watchdog_ok' => AaeosPhaseHandoffService::FIELD_EXECUTION_LOG_WATCHDOG_OK,
+            'n_capture_domain_lexical_execution_context_aaeos_http_floor_count' => 18,
+        ];
+    }
+
 }

@@ -112,6 +112,8 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD_SAMPLES = 'samples';
     public const FIELD_MAX = 'max';
     public const FIELD_PHASE_ACTIVE = 'phase_active';
+    public const FIELD_PHASE_OUT = 'phase_out';
+    public const FIELD_PHASES_EXECUTED = 'phases_executed';
 
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
 
@@ -402,8 +404,8 @@ final class AtlasAaeosHttpPathFacadeService
         $payload[self::FIELD_AAEOS_HTTP_PATH] = [
             self::FIELD_SCHEMA => self::REQUEST_SCHEMA,
             self::FIELD_INTENT_ID => $intentId,
-            'phases_executed' => array_values(array_map(
-                static fn (array $env): string => AiValueNormalizer::trimmedStringOrNull($env['phase_out'] ?? null) ?? self::RESULT_UNKNOWN,
+            self::FIELD_PHASES_EXECUTED => array_values(array_map(
+                static fn (array $env): string => AiValueNormalizer::trimmedStringOrNull($env[self::FIELD_PHASE_OUT] ?? null) ?? self::RESULT_UNKNOWN,
                 $envelopes,
             )),
             'phases_executed_count' => count($envelopes),

@@ -79,6 +79,8 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_ADMISSION_DECISION = 'admission_decision';
     public const FIELD_GENERATED_AT = 'generated_at';
     public const FIELD_IS_PROPOSAL = 'is_proposal';
+    public const FIELD_PRESSURE_DETECTED = 'pressure_detected';
+    public const FIELD_PROPOSAL_HASH = 'proposal_hash';
 
     private ?string $proposalsLogOverride = null;
 
@@ -163,7 +165,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
             'requires_human_approval' => true,
             self::FIELD_IS_PROPOSAL => true,
         ];
-        $proposal['proposal_hash'] = 'sha256:'.hash('sha256', json_encode([
+        $proposal[self::FIELD_PROPOSAL_HASH] = 'sha256:'.hash('sha256', json_encode([
             self::FIELD_SCHEMA => self::PROPOSAL_SCHEMA,
             self::FIELD_CURRENT_SCHEMA => $currentSchema,
             self::FIELD_PROPOSED_NEXT_SCHEMA => $nextSchema,
@@ -233,7 +235,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
             self::FIELD_FILES_MATCHING => $matched,
             self::FIELD_FILES_SCANNED => $scanned,
             'threshold' => $threshold,
-            'pressure_detected' => $referenceCount > $threshold,
+            self::FIELD_PRESSURE_DETECTED => $referenceCount > $threshold,
             'scan_hash' => $scanHash,
         ];
     }

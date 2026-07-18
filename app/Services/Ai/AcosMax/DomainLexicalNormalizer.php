@@ -34,6 +34,8 @@ final class DomainLexicalNormalizer
     public const FIELD_VERIFICACAO = 'verificacao';
     public const FIELD_MAX_EXPANDED_TOKENS = 'max_expanded_tokens';
     public const FIELD_OPERADOR = 'operador';
+    public const FIELD_OPERATOR = 'operator';
+    public const FIELD_PIPELINE = 'pipeline';
 
     /** @var array<string,list<string>> */
     public const EQUIVALENCES = [
@@ -41,7 +43,7 @@ final class DomainLexicalNormalizer
         'memória' => [self::FIELD_MEMORY],
         self::FIELD_CEREBRO => [self::FIELD_BRAIN],
         'cérebro' => [self::FIELD_BRAIN],
-        self::FIELD_ESTEIRA => ['pipeline'],
+        self::FIELD_ESTEIRA => [self::FIELD_PIPELINE],
         self::FIELD_EXECUCAO => [self::FIELD_EXECUTION],
         'execução' => [self::FIELD_EXECUTION],
         self::FIELD_DECISAO => [self::FIELD_DECISION],
@@ -51,7 +53,7 @@ final class DomainLexicalNormalizer
         self::FIELD_VERIFICACAO => [self::FIELD_VERIFICATION],
         'verificação' => [self::FIELD_VERIFICATION],
         self::FIELD_APRENDIZADO => [self::FIELD_LEARNING],
-        self::FIELD_OPERADOR => ['operator'],
+        self::FIELD_OPERADOR => [self::FIELD_OPERATOR],
     ];
 
     /**

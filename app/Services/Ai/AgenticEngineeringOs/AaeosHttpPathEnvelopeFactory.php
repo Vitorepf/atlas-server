@@ -73,6 +73,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_POLICY_ALLOWED = 'policy_allowed';
     public const FIELD_POLICY_TARGET = 'policy_target';
     public const FIELD_PROVIDER = 'provider';
+    public const FIELD_RECEIPT = 'receipt';
+    public const FIELD_RECEIPT_REQUIRED = 'receipt_required';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -295,7 +297,7 @@ final class AaeosHttpPathEnvelopeFactory
             ],
             self::FIELD_REQUIRED_GATE => 'task_pack_atomic_true_for_each',
         ],
-        'receipt' => [
+        self::FIELD_RECEIPT => [
             self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_TASKS,
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_RECEIPT,
             self::FIELD_ACTOR_ID => 'aaeos.receipt',
@@ -303,7 +305,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved_legacy_trace_audit',
             self::FIELD_OUTPUTS => [
                 self::FIELD_DECISION_RECEIPT_V2_INVOCATION => 'deferred',
-                'receipt_required' => 'yes',
+                self::FIELD_RECEIPT_REQUIRED => 'yes',
             ],
             self::FIELD_REQUIRED_GATE => 'decision_receipt_v2_signed',
         ],

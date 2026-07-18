@@ -7165,6 +7165,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_n_capture_domain_lexical_execution_context_aaeos_http_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b388-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b388',
+                '--n-capture-domain-lexical-execution-context-aaeos-http-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"n_capture_domain_lexical_execution_context_aaeos_http_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

@@ -59,6 +59,8 @@ final class AaeosPhaseHandoffService
     public const FIELD_DECISION_RECEIPT_V2_SIGNED = 'decision_receipt_v2_signed';
     public const FIELD_DELIVERY_PACK_HASH_SIGNED = 'delivery_pack_hash_signed';
     public const FIELD_DEPARTMENT_ROUTE_OWNER_CONFIRMED = 'department_route_owner_confirmed';
+    public const FIELD_EVIDENCE_PACK_COMPLETENESS_MIN_0_95 = 'evidence_pack_completeness_min_0_95';
+    public const FIELD_EXECUTION_LOG_WATCHDOG_OK = 'execution_log_watchdog_ok';
 
     public static function requireIntentId(string $intentId): void
     {
@@ -144,9 +146,9 @@ final class AaeosPhaseHandoffService
         self::PHASE_SPEC => ['spec_pack_acceptance_criteria_min_3'],
         self::PHASE_TASKS => ['task_pack_atomic_true_for_each'],
         self::PHASE_RECEIPT => [self::FIELD_DECISION_RECEIPT_V2_SIGNED],
-        self::PHASE_EXECUTION => ['execution_log_watchdog_ok'],
+        self::PHASE_EXECUTION => [self::FIELD_EXECUTION_LOG_WATCHDOG_OK],
         self::PHASE_GATES => [self::FIELD_UNIVERSAL_15_GATES_GREEN_OR_EXCEPTION],
-        self::PHASE_EVIDENCE => ['evidence_pack_completeness_min_0_95'],
+        self::PHASE_EVIDENCE => [self::FIELD_EVIDENCE_PACK_COMPLETENESS_MIN_0_95],
         self::PHASE_DELIVERY => [self::FIELD_DELIVERY_PACK_HASH_SIGNED],
         self::PHASE_HUMAN_REVIEW => ['operator_decision_receipt_approved'],
         self::PHASE_CERTIFICATION => [self::FIELD_CERTIFICATION_SEVERITY_ACCEPTABLE],
