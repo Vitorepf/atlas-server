@@ -131,6 +131,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_OK_FALSE = 'ok=false';
     public const FIELD_ADVERSARIAL_PROBE_ORCHESTRATION_FAILED_ = 'Adversarial probe orchestration failed.';
     public const FIELD_PROMOTES_SELECTION_FALSE_AND_BLOCKER_FALSE = 'promotes_selection=false AND blocker=false';
+    public const FIELD_DERIVED___CEILING_DRAFT = 'derived ≤ ceiling=draft';
+    public const FIELD_SIGNATURE_NONCE_REUSED_AFTER_FIRST_SPEND = 'signature_nonce_reused after first spend';
     public const INT_5 = 5;
     public const FLOAT_0_10 = 0.10;
     public const FLOAT_0_42 = 0.42;
@@ -310,7 +312,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         return [
             self::FIELD_ID => self::FIELD_MAXK05_SIGNATURE_NONCE_REUSED,
             self::FIELD_REFUSED => $first[self::FIELD_OK] === true && $second[self::FIELD_OK] === false && $second[self::FIELD_REASON] === self::FIELD_SIGNATURE_NONCE_REUSED,
-            self::FIELD_EXPECTED => 'signature_nonce_reused after first spend',
+            self::FIELD_EXPECTED => self::FIELD_SIGNATURE_NONCE_REUSED_AFTER_FIRST_SPEND,
             self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($second[self::FIELD_REASON] ?? null) ?? self::PROBE_ID_UNKNOWN),
         ];
     }
@@ -479,7 +481,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         return [
             self::FIELD_ID => self::FIELD_MAXK07_NEVER_EXCEEDS_CEILING,
             self::FIELD_REFUSED => $refused,
-            self::FIELD_EXPECTED => 'derived ≤ ceiling=draft',
+            self::FIELD_EXPECTED => self::FIELD_DERIVED___CEILING_DRAFT,
             self::FIELD_OBSERVED => $level,
         ];
     }

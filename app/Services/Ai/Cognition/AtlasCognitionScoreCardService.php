@@ -340,6 +340,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_ATLAS_GATEWAY_PREFLIGHT__TEOS_I4_ = 'Atlas Gateway Preflight (TEOS-I4)';
     public const FIELD_ATLAS_SCHEDULER_OS__CRON_24_7_ = 'Atlas Scheduler OS (Cron 24/7)';
     public const FIELD_COGNITIVE_FUNCTION_DECOMPOSER__6_AXIS_ = 'Cognitive Function Decomposer (6-axis)';
+    public const FIELD_COGNITIVE_FUNCTION_SWARM_ROUTER__P6_CLOSURE_ = 'Cognitive Function Swarm Router (P6 closure)';
+    public const FIELD_COMPOUNDING_LEVEL_8_9_DISTILLATION = 'Compounding Level 8/9 Distillation';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -461,7 +463,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ASPR,    'Swarm Production Resolver (real provider)', self::FIELD_ATLAS_DECIDE,      AtlasSwarmProductionResolverService::class],
         [self::FIELD_ACFD,    self::FIELD_COGNITIVE_FUNCTION_DECOMPOSER__6_AXIS_,    self::FIELD_COGNITION,         AtlasCognitiveFunctionDecomposerService::class],
         [self::FIELD_ASPD,    self::FIELD_ATLAS_SWARM_PARALLEL_DISPATCHER,           self::FIELD_ATLAS_DECIDE,      AtlasSwarmParallelDispatchService::class],
-        [self::FIELD_ACSR,    'Cognitive Function Swarm Router (P6 closure)', self::FIELD_ATLAS_DECIDE,   AtlasCognitiveFunctionSwarmRouterService::class],
+        [self::FIELD_ACSR,    self::FIELD_COGNITIVE_FUNCTION_SWARM_ROUTER__P6_CLOSURE_, self::FIELD_ATLAS_DECIDE,   AtlasCognitiveFunctionSwarmRouterService::class],
         [self::FIELD_ASAF,    'Swarm Auto-Failover (A4)',                  self::FIELD_ATLAS_DECIDE,      AtlasSwarmAutoFailoverService::class],
         [self::FIELD_ARDS,    self::FIELD_RUNTIME_DEGRADATION_SIGNAL_INGRESS,        self::FIELD_PATAMAR_4,         AtlasRuntimeDegradationSignalService::class],
         [self::FIELD_ASDM,    'Self-Divergence Model (target vs current)', self::FIELD_SELF_CONSTRUCTION, AtlasSelfDivergenceModelService::class],
@@ -471,7 +473,7 @@ class AtlasCognitionScoreCardService
         // COM-09: ACOP→ACRS bridge deleted — JSONL had 1 smoke signal (null value);
         // ARFL feedbackHint in ACRS already closes observability→ranking.
         [self::FIELD_AKIF_OCR, self::FIELD_AKIF_OCR_CONFIDENCE_SCORED_INGESTION, self::FIELD_AUCRI,           AtlasKnowledgeIngestionFabricOcrConfidenceService::class],
-        [self::FIELD_ACL8,    'Compounding Level 8/9 Distillation',   self::FIELD_COMPOUNDING,     AtlasCompoundingLevel8DistillationService::class],
+        [self::FIELD_ACL8,    self::FIELD_COMPOUNDING_LEVEL_8_9_DISTILLATION,   self::FIELD_COMPOUNDING,     AtlasCompoundingLevel8DistillationService::class],
 
         // Patamar 4 · intelligence boost
         [self::FIELD_ADTI4, self::FIELD_ATLAS_DECIDE_TEOS_I4_LOOKAHEAD,        self::FIELD_ATLAS_DECIDE,     AtlasDecideTeosI4LookaheadService::class],

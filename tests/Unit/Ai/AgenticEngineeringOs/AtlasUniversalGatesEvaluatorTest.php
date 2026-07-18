@@ -12562,4 +12562,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b594_ledger_rotation_cognition_score_department_contract_acos_evolution_floor_count']);
     }
 
+    public function test_b595_ledger_rotation_cognition_score_department_contract_acos_evolution_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b595LedgerRotationCognitionScoreDepartmentContractAcosEvolutionFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ESP_06_OUTCOME_ENVELOPE_ADAPTERS, $out['ESP-06 outcome envelope adapters']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ESP_09_INDEPENDENT_CHALLENGER_ADVISORY_SERIES, $out['ESP-09 independent challenger advisory series']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_COGNITIVE_FUNCTION_SWARM_ROUTER__P6_CLOSURE_, $out['Cognitive Function Swarm Router (P6 closure)']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_COMPOUNDING_LEVEL_8_9_DISTILLATION, $out['Compounding Level 8/9 Distillation']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_INVESTIGATES_UNKNOWNS_BEFORE_COMMIT__NEVER_MODIFIES_RUNTIME_, $out['Investigates unknowns before commit; never modifies runtime.']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_RECEIVES_AMBIGUOUS_HUMAN_INTENT__EMITS_CANONICAL_MISSION_ENVELOPE_, $out['Receives ambiguous human intent; emits canonical mission envelope.']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_LONG_HORIZON_RECEIPT_FRESH__S_DELTA_SERIES_FRESH__S, $out['long_horizon_receipt_fresh=%s delta_series_fresh=%s']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_MASTER_SWITCH__S_TIER_EXPOSED__S_GOVERNANCA_AUTONOMA__S, $out['master_switch=%s tier_exposed=%s governanca_autonoma=%s']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_OPE_10_FOUND_PERSISTENT_PARTIAL_SCORECARD_RECEIPTS_, $out['OPE-10 found persistent partial scorecard receipts.']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_PIP_08_SCORECARD_STABILITY_HAS_NOT_REACHED_A_GREEN_PIPELINE_SERIES_, $out['PIP-08 scorecard stability has not reached a green pipeline series.']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FALTA_ZERO_DOWNTIME_GATE_L3, $out['falta zero-downtime gate L3']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_PRECISA_ARCHITECT_AGENT_AUTONOMO_PARA_L4, $out['precisa Architect agent autonomo para L4']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_EVIDENCE_HASHES_MUST_BE_SHA256___STRINGS, $out['evidence_hashes must be sha256:* strings']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_SCHEMA_MUST_BE_, $out['schema must be ']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_REALITY_GRAPH___CROSS_DOMAIN, $out['Reality Graph + Cross-Domain']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_TEOS_I1_LONG_HORIZON_INTELLIGENCE, $out['TEOS-I1 Long-Horizon Intelligence']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_DERIVED___CEILING_DRAFT, $out['derived ≤ ceiling=draft']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_SIGNATURE_NONCE_REUSED_AFTER_FIRST_SPEND, $out['signature_nonce_reused after first spend']);
+        $this->assertSame(18, $out['b595_ledger_rotation_cognition_score_department_contract_acos_evolution_floor_count']);
+    }
+
 }

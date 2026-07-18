@@ -63,6 +63,8 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_FEE_13_LEARNING_CADENCE_IS_STALLED_OR_UNDER_EVIDENCED_ = 'FEE-13 learning cadence is stalled or under-evidenced.';
     public const FIELD_MEM_09_MEMORY_QUALITY_WATCHDOG_IS_NOT_GREEN_ = 'MEM-09 memory quality watchdog is not green.';
     public const FIELD_OPE_08_LIFT_CYCLE_BLOCKERS_ARE_NOT_CLOSING_ = 'OPE-08 lift cycle blockers are not closing.';
+    public const FIELD_OPE_10_FOUND_PERSISTENT_PARTIAL_SCORECARD_RECEIPTS_ = 'OPE-10 found persistent partial scorecard receipts.';
+    public const FIELD_PIP_08_SCORECARD_STABILITY_HAS_NOT_REACHED_A_GREEN_PIPELINE_SERIES_ = 'PIP-08 scorecard stability has not reached a green pipeline series.';
 
     public const CATALOG = [
         [
@@ -105,7 +107,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_ID => self::FIELD_PIP_08_SCORECARD_STABILITY,
             self::FIELD_REPORT_METHOD => self::FIELD_PIPELINE_STABILITY_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_SCORECARD_STABILITY_FAILED,
-            self::FIELD_MESSAGE => 'PIP-08 scorecard stability has not reached a green pipeline series.',
+            self::FIELD_MESSAGE => self::FIELD_PIP_08_SCORECARD_STABILITY_HAS_NOT_REACHED_A_GREEN_PIPELINE_SERIES_,
         ],
         [
             self::FIELD_ID => self::FIELD_OPE_08_LIFT_CYCLE_CLOSURE,
@@ -117,7 +119,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_ID => self::FIELD_OPE_10_SCORECARD_RECEIPTS_DIAGNOSIS,
             self::FIELD_REPORT_METHOD => self::FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_FAILED,
-            self::FIELD_MESSAGE => 'OPE-10 found persistent partial scorecard receipts.',
+            self::FIELD_MESSAGE => self::FIELD_OPE_10_FOUND_PERSISTENT_PARTIAL_SCORECARD_RECEIPTS_,
         ],
         [
             self::FIELD_ID => self::FIELD_ENG_11_ENFORCE_READINESS,

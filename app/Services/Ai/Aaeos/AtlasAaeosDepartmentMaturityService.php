@@ -76,6 +76,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_FALTA_CROSS_SESSION_HANDOFF_PACK_L4 = 'falta cross-session handoff pack L4';
     public const FIELD_FALTA_MERGE_REVIEW_PROMOTION_R5_GOVERNADO = 'falta merge review promotion R5 governado';
     public const FIELD_FALTA_SURFACE_MOBILE_COMPLETA_PARA_L4 = 'falta surface mobile completa para L4';
+    public const FIELD_FALTA_ZERO_DOWNTIME_GATE_L3 = 'falta zero-downtime gate L3';
+    public const FIELD_PRECISA_ARCHITECT_AGENT_AUTONOMO_PARA_L4 = 'precisa Architect agent autonomo para L4';
 
     public const DEPARTMENTS = [
         [
@@ -91,7 +93,7 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_CURRENT_LEVEL => self::FIELD_L3,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#architect'],
             self::FIELD_BLOCKER_ID => self::FIELD_ARCHITECT_AUTONOMOUS_AGENT_L4,
-            self::FIELD_BLOCKER_SUMMARY => 'precisa Architect agent autonomo para L4',
+            self::FIELD_BLOCKER_SUMMARY => self::FIELD_PRECISA_ARCHITECT_AGENT_AUTONOMO_PARA_L4,
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],
         [
@@ -155,7 +157,7 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_CURRENT_LEVEL => self::FIELD_L2,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#delivery'],
             self::FIELD_BLOCKER_ID => self::FIELD_DELIVERY_ZERO_DOWNTIME_L3,
-            self::FIELD_BLOCKER_SUMMARY => 'falta zero-downtime gate L3',
+            self::FIELD_BLOCKER_SUMMARY => self::FIELD_FALTA_ZERO_DOWNTIME_GATE_L3,
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_HIGH,
         ],
         [

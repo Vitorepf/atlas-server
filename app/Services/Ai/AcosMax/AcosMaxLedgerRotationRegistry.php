@@ -98,6 +98,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ESP_00_GROUND_TRUTH_RECEIPT__AUDIT_FOREVER = 'ESP-00 ground-truth receipt; audit forever';
     public const FIELD_ESP_03_PER_LANDING_ATTESTATION_SEAL__PER_COMMIT_CADENCE = 'ESP-03 per-landing attestation seal; per-commit cadence';
     public const FIELD_ESP_05_ZERO_WEIGHT_OUTCOMES = 'ESP-05 zero-weight outcomes';
+    public const FIELD_ESP_06_OUTCOME_ENVELOPE_ADAPTERS = 'ESP-06 outcome envelope adapters';
+    public const FIELD_ESP_09_INDEPENDENT_CHALLENGER_ADVISORY_SERIES = 'ESP-09 independent challenger advisory series';
     public const INT_8 = 8;
     public const INT_64 = 64;
     public const INT_45 = 45;
@@ -252,13 +254,13 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'ESP-06 outcome envelope adapters',
+                self::FIELD_RATIONALE => self::FIELD_ESP_06_OUTCOME_ENVELOPE_ADAPTERS,
             ],
             self::FIELD_ATLAS_ESP_09_CHALLENGER_ADVISORY_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_16,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'ESP-09 independent challenger advisory series',
+                self::FIELD_RATIONALE => self::FIELD_ESP_09_INDEPENDENT_CHALLENGER_ADVISORY_SERIES,
             ],
             self::FIELD_OPERATOR_APPROVAL_HISTORY_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,

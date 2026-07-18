@@ -468,6 +468,8 @@ final class DepartmentContractRuntime
     public const FIELD_EVIDENCE_LEDGER__LEARNING__COMPOUNDING_SIGNAL_EXTRACTION_ = 'Evidence ledger, learning, compounding signal extraction.';
     public const FIELD_FAILURE_INVESTIGATION__REPAIR_ORCHESTRATION__ESCALATION_TRIGGERS_ = 'Failure investigation, repair orchestration, escalation triggers.';
     public const FIELD_HEAVY_OBRAS_WITH_PROVIDER_TOPOLOGY___MULTI_AGENT_SCHEDULER_ = 'Heavy Obras with provider topology + multi-agent scheduler.';
+    public const FIELD_INVESTIGATES_UNKNOWNS_BEFORE_COMMIT__NEVER_MODIFIES_RUNTIME_ = 'Investigates unknowns before commit; never modifies runtime.';
+    public const FIELD_RECEIVES_AMBIGUOUS_HUMAN_INTENT__EMITS_CANONICAL_MISSION_ENVELOPE_ = 'Receives ambiguous human intent; emits canonical mission envelope.';
     public const INT_11 = 11;
 
     /**
@@ -503,7 +505,7 @@ final class DepartmentContractRuntime
     public const CATALOGUE = [
         self::DEPARTMENT_EXECUTIVE_INTAKE => [
             self::FIELD_HUMAN_NAME => self::FIELD_EXECUTIVE_INTAKE,
-            self::FIELD_DESCRIPTION => 'Receives ambiguous human intent; emits canonical mission envelope.',
+            self::FIELD_DESCRIPTION => self::FIELD_RECEIVES_AMBIGUOUS_HUMAN_INTENT__EMITS_CANONICAL_MISSION_ENVELOPE_,
             self::FIELD_SCOPE => 'recebe pedido humano ambíguo e produz mission envelope canônica antes de product',
             self::FIELD_TRIGGERS => [self::FIELD_OPERATOR_INTENT_RAW_RECEIVED_TRUE],
             self::FIELD_INPUTS => [
@@ -574,7 +576,7 @@ final class DepartmentContractRuntime
         ],
         self::DEPARTMENT_RESEARCH => [
             self::FIELD_HUMAN_NAME => self::FIELD_RESEARCH_DEPARTMENT,
-            self::FIELD_DESCRIPTION => 'Investigates unknowns before commit; never modifies runtime.',
+            self::FIELD_DESCRIPTION => self::FIELD_INVESTIGATES_UNKNOWNS_BEFORE_COMMIT__NEVER_MODIFIES_RUNTIME_,
             self::FIELD_SCOPE => 'produz state-of-the-art source-backed para suportar Architect e Self-Construction',
             self::FIELD_TRIGGERS => [self::FIELD_SELF_CONSTRUCTION_GAP_DETECTED_TRUE, self::FIELD_ARCHITECT_RESEARCH_NEEDED_TRUE],
             self::FIELD_INPUTS => [

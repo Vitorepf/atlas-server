@@ -101,6 +101,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_COGNITIVE_IMMUNE_G0_G8 = 'Cognitive Immune G0-G8';
     public const FIELD_CONTEXT_RUNTIME__AUCRI_POLICIES_ = 'Context Runtime (AUCRI policies)';
     public const FIELD_PATAMAR_4_INTEGRATION = 'Patamar 4 Integration';
+    public const FIELD_REALITY_GRAPH___CROSS_DOMAIN = 'Reality Graph + Cross-Domain';
+    public const FIELD_TEOS_I1_LONG_HORIZON_INTELLIGENCE = 'TEOS-I1 Long-Horizon Intelligence';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -222,7 +224,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_GOVERNANCE_2 => self::FIELD_CONSTITUTIONAL_GOVERNANCE,
             self::FIELD_DECIDE => self::FIELD_ATLAS_DECIDE___SWARM,
             self::FIELD_COMPOUND => self::FIELD_COMPOUNDING_2,
-            self::FIELD_REALITY_2 => 'Reality Graph + Cross-Domain',
+            self::FIELD_REALITY_2 => self::FIELD_REALITY_GRAPH___CROSS_DOMAIN,
             self::FIELD_TEOS_2 => self::FIELD_TEOS_COUNTERFACTUALS,
             self::FIELD_COGNITION_2 => self::FIELD_COGNITIVE_FUNCTION_ATLAS,
             self::FIELD_AUTONOMY_2 => self::FIELD_AUTONOMOUS_RECONCILIATION,
@@ -231,7 +233,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_CONTEXT_INTELLIGENCE_2 => self::FIELD_CONTEXT_INTELLIGENCE_ENGINE,
             self::FIELD_PERSISTENT_CONTEXT_2 => self::FIELD_PERSISTENT_CONTEXT_RUNTIME,
             self::FIELD_AEMOR_2 => self::FIELD_EXECUTION_MEMORY_OUTCOME_RUNTIME,
-            self::FIELD_LONG_HORIZON_2 => 'TEOS-I1 Long-Horizon Intelligence',
+            self::FIELD_LONG_HORIZON_2 => self::FIELD_TEOS_I1_LONG_HORIZON_INTELLIGENCE,
             self::FIELD_VERIFIED_CONTEXT_2 => self::FIELD_VERIFIED_CONTEXT_EXECUTION_LOOP,
             self::FIELD_CONTEXT_QUALITY_2 => self::FIELD_CONTEXT_QUALITY_CERTIFICATION_GATE,
             self::FIELD_OPEN_BRAIN_2 => self::FIELD_OPEN_BRAIN_GATEWAY,

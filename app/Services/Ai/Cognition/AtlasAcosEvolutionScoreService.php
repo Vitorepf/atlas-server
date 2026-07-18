@@ -160,6 +160,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_HEARTBEAT_FRESH__S_ORGANS_SCHEDULED__D__D = 'heartbeat_fresh=%s organs_scheduled=%d/%d';
     public const FIELD_INDISPON_VEL = 'indisponível';
     public const FIELD_LEG_VEL = 'legível';
+    public const FIELD_LONG_HORIZON_RECEIPT_FRESH__S_DELTA_SERIES_FRESH__S = 'long_horizon_receipt_fresh=%s delta_series_fresh=%s';
+    public const FIELD_MASTER_SWITCH__S_TIER_EXPOSED__S_GOVERNANCA_AUTONOMA__S = 'master_switch=%s tier_exposed=%s governanca_autonoma=%s';
     public const FLOAT_2_5 = 2.5;
     public const FLOAT_10_0 = 10.0;
 
@@ -318,7 +320,7 @@ class AtlasAcosEvolutionScoreService
             self::FIELD_SIGNAL => self::FIELD_GATES_AUDITADOS,
             self::FIELD_POINTS => round(($gateFresh ? 1.25 : 0.0) + ($seriesFresh ? 1.25 : 0.0), 2),
             self::FIELD_MAX => self::FLOAT_2_5,
-            self::FIELD_EVIDENCE => sprintf('long_horizon_receipt_fresh=%s delta_series_fresh=%s', $gateFresh ? self::FIELD_YES : self::FIELD_NO, $seriesFresh ? self::FIELD_YES : self::FIELD_NO),
+            self::FIELD_EVIDENCE => sprintf(self::FIELD_LONG_HORIZON_RECEIPT_FRESH__S_DELTA_SERIES_FRESH__S, $gateFresh ? self::FIELD_YES : self::FIELD_NO, $seriesFresh ? self::FIELD_YES : self::FIELD_NO),
         ];
 
         $chain = $this->tierChainReadiness();
@@ -341,7 +343,7 @@ class AtlasAcosEvolutionScoreService
             self::FIELD_POINTS => round(($switchReadable ? 0.5 : 0.0) + ($chain[self::FIELD_TIER_EXPOSED] ? 1.0 : 0.0) + $governance[self::FIELD_POINTS], 2),
             self::FIELD_MAX => self::FLOAT_2_5,
             self::FIELD_EVIDENCE => sprintf(
-                'master_switch=%s tier_exposed=%s governanca_autonoma=%s',
+                self::FIELD_MASTER_SWITCH__S_TIER_EXPOSED__S_GOVERNANCA_AUTONOMA__S,
                 $switchReadable ? self::FIELD_LEG_VEL : self::FIELD_INDISPON_VEL,
                 $chain[self::FIELD_TIER_EXPOSED] ? self::FIELD_YES : self::FIELD_NO,
                 $governance[self::FIELD_EVIDENCE],

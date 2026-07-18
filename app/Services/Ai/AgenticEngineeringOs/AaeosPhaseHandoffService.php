@@ -78,6 +78,8 @@ final class AaeosPhaseHandoffService
     public const FIELD_GATES_REQUIRED = 'gates required';
     public const FIELD_ACTOR_KIND_MUST_BE_AGENT_OPERATOR_SYSTEM = 'actor.kind must be agent|operator|system';
     public const FIELD_ACTOR_KIND_REQUIRED = 'actor.kind required';
+    public const FIELD_EVIDENCE_HASHES_MUST_BE_SHA256___STRINGS = 'evidence_hashes must be sha256:* strings';
+    public const FIELD_SCHEMA_MUST_BE_ = 'schema must be ';
     public const INT_4 = 4;
     public const INT_256 = 256;
 
@@ -219,7 +221,7 @@ final class AaeosPhaseHandoffService
         foreach ($evidenceHashes as $hash) {
             $hash = AiValueNormalizer::trimmedStringOrNull($hash);
             if ($hash === null || ! str_starts_with($hash, 'sha256:')) {
-                throw new InvalidArgumentException('evidence_hashes must be sha256:* strings');
+                throw new InvalidArgumentException(self::FIELD_EVIDENCE_HASHES_MUST_BE_SHA256___STRINGS);
             }
         }
         $this->assertSignatureRequired($phaseOut, $autonomyLevel, $operatorSignature);
@@ -263,7 +265,7 @@ final class AaeosPhaseHandoffService
     {
         $reasons = [];
         if (($envelope[self::FIELD_SCHEMA] ?? null) !== self::SCHEMA_VERSION) {
-            $reasons[] = 'schema must be '.self::SCHEMA_VERSION;
+            $reasons[] = self::FIELD_SCHEMA_MUST_BE_.self::SCHEMA_VERSION;
         }
         foreach ([self::FIELD_INTENT_ID, self::FIELD_PHASE_IN, self::FIELD_PHASE_OUT] as $req) {
             if (! isset($envelope[$req]) || $envelope[$req] === '') {

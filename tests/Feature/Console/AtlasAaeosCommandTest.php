@@ -10063,6 +10063,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b595_ledger_rotation_cognition_score_department_contract_acos_evolution_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b595-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b595',
+                '--b595-ledger-rotation-cognition-score-department-contract-acos-evolution-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b595_ledger_rotation_cognition_score_department_contract_acos_evolution_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

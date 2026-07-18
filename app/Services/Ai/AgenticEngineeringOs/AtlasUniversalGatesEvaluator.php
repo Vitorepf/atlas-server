@@ -15909,4 +15909,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B595).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b595LedgerRotationCognitionScoreDepartmentContractAcosEvolutionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ESP-06 outcome envelope adapters' => AcosMaxLedgerRotationRegistry::FIELD_ESP_06_OUTCOME_ENVELOPE_ADAPTERS,
+            'ESP-09 independent challenger advisory series' => AcosMaxLedgerRotationRegistry::FIELD_ESP_09_INDEPENDENT_CHALLENGER_ADVISORY_SERIES,
+            'Cognitive Function Swarm Router (P6 closure)' => AtlasCognitionScoreCardService::FIELD_COGNITIVE_FUNCTION_SWARM_ROUTER__P6_CLOSURE_,
+            'Compounding Level 8/9 Distillation' => AtlasCognitionScoreCardService::FIELD_COMPOUNDING_LEVEL_8_9_DISTILLATION,
+            'Investigates unknowns before commit; never modifies runtime.' => DepartmentContractRuntime::FIELD_INVESTIGATES_UNKNOWNS_BEFORE_COMMIT__NEVER_MODIFIES_RUNTIME_,
+            'Receives ambiguous human intent; emits canonical mission envelope.' => DepartmentContractRuntime::FIELD_RECEIVES_AMBIGUOUS_HUMAN_INTENT__EMITS_CANONICAL_MISSION_ENVELOPE_,
+            'long_horizon_receipt_fresh=%s delta_series_fresh=%s' => AtlasAcosEvolutionScoreService::FIELD_LONG_HORIZON_RECEIPT_FRESH__S_DELTA_SERIES_FRESH__S,
+            'master_switch=%s tier_exposed=%s governanca_autonoma=%s' => AtlasAcosEvolutionScoreService::FIELD_MASTER_SWITCH__S_TIER_EXPOSED__S_GOVERNANCA_AUTONOMA__S,
+            'OPE-10 found persistent partial scorecard receipts.' => HealthReportWatchdogCheck::FIELD_OPE_10_FOUND_PERSISTENT_PARTIAL_SCORECARD_RECEIPTS_,
+            'PIP-08 scorecard stability has not reached a green pipeline series.' => HealthReportWatchdogCheck::FIELD_PIP_08_SCORECARD_STABILITY_HAS_NOT_REACHED_A_GREEN_PIPELINE_SERIES_,
+            'falta zero-downtime gate L3' => AtlasAaeosDepartmentMaturityService::FIELD_FALTA_ZERO_DOWNTIME_GATE_L3,
+            'precisa Architect agent autonomo para L4' => AtlasAaeosDepartmentMaturityService::FIELD_PRECISA_ARCHITECT_AGENT_AUTONOMO_PARA_L4,
+            'evidence_hashes must be sha256:* strings' => AaeosPhaseHandoffService::FIELD_EVIDENCE_HASHES_MUST_BE_SHA256___STRINGS,
+            'schema must be ' => AaeosPhaseHandoffService::FIELD_SCHEMA_MUST_BE_,
+            'Reality Graph + Cross-Domain' => AtlasCognitionScoreCardV4Grouper::FIELD_REALITY_GRAPH___CROSS_DOMAIN,
+            'TEOS-I1 Long-Horizon Intelligence' => AtlasCognitionScoreCardV4Grouper::FIELD_TEOS_I1_LONG_HORIZON_INTELLIGENCE,
+            'derived ≤ ceiling=draft' => AutonomyLadderAdversarialWatchdogCheck::FIELD_DERIVED___CEILING_DRAFT,
+            'signature_nonce_reused after first spend' => AutonomyLadderAdversarialWatchdogCheck::FIELD_SIGNATURE_NONCE_REUSED_AFTER_FIRST_SPEND,
+            'b595_ledger_rotation_cognition_score_department_contract_acos_evolution_floor_count' => 18,
+        ];
+    }
+
 }
