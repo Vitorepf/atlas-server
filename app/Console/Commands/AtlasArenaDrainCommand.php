@@ -58,7 +58,7 @@ class AtlasArenaDrainCommand extends Command
      * Agrupa entradas queued por suite×motor: os braços enfileirados juntos
      * viram UM plan com múltiplos arms (pareamento na mesma janela → N×M).
      *
-     * @return list<array{suite:string, engine:string, arms:list<string>, ids:list<string>}>
+     * @return list<array{suite:string, engine:string, arms:list<string>, ids:list<string>, ids_by_arm:array<string, list<string>>}>
      */
     private function queuedGroups(ArenaMeasurementStore $store): array
     {
@@ -75,11 +75,12 @@ class AtlasArenaDrainCommand extends Command
                 continue;
             }
             $key = $suite.'|'.$engine;
-            $groups[$key] ??= ['suite' => $suite, 'engine' => $engine, 'arms' => [], 'ids' => []];
+            $groups[$key] ??= ['suite' => $suite, 'engine' => $engine, 'arms' => [], 'ids' => [], 'ids_by_arm' => []];
             if (! in_array($arm, $groups[$key]['arms'], true)) {
                 $groups[$key]['arms'][] = $arm;
             }
             $groups[$key]['ids'][] = $id;
+            $groups[$key]['ids_by_arm'][$arm][] = $id;
         }
 
         return array_values($groups);
@@ -95,7 +96,29 @@ class AtlasArenaDrainCommand extends Command
         ]);
 
         try {
-            $runId = $this->plan($group);
+            try {
+                $runId = $this->plan($group);
+            } catch (RuntimeException $e) {
+                // Suíte sem braço com-Atlas implementado: degradar DITO, nunca
+                // matar o grupo — o braço vira failed com motivo humano e o
+                // baseline mede. Sem isso, 1 braço faltante zerava a suíte
+                // inteira (era a "Rivals não funciona" do operador).
+                if (! str_contains($e->getMessage(), '_runtime_unsupported')
+                    || ! in_array('with_atlas', $group['arms'], true)
+                    || $group['arms'] === ['with_atlas']) {
+                    throw $e;
+                }
+                $atlasIds = $group['ids_by_arm']['with_atlas'] ?? [];
+                $store->updateQueuedRequests($atlasIds, [
+                    'status' => 'failed',
+                    'failure_reason' => 'braço com-Atlas ainda não implementado nesta suíte — baseline segue medindo',
+                    'drained_at' => now()->toIso8601String(),
+                ]);
+                $this->warn(sprintf('%s: braço com-Atlas não implementado — degradando para baseline', $group['suite']));
+                $group['arms'] = ['baseline'];
+                $group['ids'] = $group['ids_by_arm']['baseline'] ?? [];
+                $runId = $this->plan($group);
+            }
             $store->updateQueuedRequests($group['ids'], ['native_run_id_public' => $store->publicRunId($runId)]);
             $this->executeUnits($group['suite'], $runId);
             $this->finishPipeline($runId);
