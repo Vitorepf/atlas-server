@@ -18528,4 +18528,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B680).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b680DomainLexicalFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'formula_version' => DomainLexicalNormalizer::FIELD_FORMULA_VERSION,
+            'learning' => DomainLexicalNormalizer::FIELD_LEARNING,
+            'atlas.memory.domain_lexical_normalizer.v1' => DomainLexicalNormalizer::SCHEMA_VERSION,
+            'maxb10.domain_equivalence.v1' => DomainLexicalNormalizer::FORMULA_VERSION,
+            'aprendizado' => DomainLexicalNormalizer::FIELD_APRENDIZADO,
+            'brain' => DomainLexicalNormalizer::FIELD_BRAIN,
+            'cerebro' => DomainLexicalNormalizer::FIELD_CEREBRO,
+            'decisao' => DomainLexicalNormalizer::FIELD_DECISAO,
+            'decision' => DomainLexicalNormalizer::FIELD_DECISION,
+            'deterministic' => DomainLexicalNormalizer::FIELD_DETERMINISTIC,
+            'evidence' => DomainLexicalNormalizer::FIELD_EVIDENCE,
+            'execution' => DomainLexicalNormalizer::FIELD_EXECUTION,
+            'memory' => DomainLexicalNormalizer::FIELD_MEMORY,
+            'verification' => DomainLexicalNormalizer::FIELD_VERIFICATION,
+            'equivalences' => DomainLexicalNormalizer::FIELD_EQUIVALENCES,
+            'esteira' => DomainLexicalNormalizer::FIELD_ESTEIRA,
+            'evidencia' => DomainLexicalNormalizer::FIELD_EVIDENCIA,
+            'execucao' => DomainLexicalNormalizer::FIELD_EXECUCAO,
+            'b680_domain_lexical_floor_count' => 18,
+        ];
+    }
+
 }

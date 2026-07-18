@@ -702,6 +702,7 @@ final class AtlasAaeosCommand extends Command
                             {--b677-outcome-envelope-floors-contract= : JSON file (any object) to observe outcome/envelope floors}
                             {--b678-portfolio-budget-floors-contract= : JSON file (any object) to observe portfolio/budget floors}
                             {--b679-belief-cascade-domain-lexical-floors-contract= : JSON file (any object) to observe belief/cascade/domain/lexical floors}
+                            {--b680-domain-lexical-floors-contract= : JSON file (any object) to observe domain/lexical floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1560,6 +1561,7 @@ final class AtlasAaeosCommand extends Command
             ['b677-outcome-envelope-floors-contract', 'b677_outcome_envelope_floors_contract', fn (array $p) => $gates->b677OutcomeEnvelopeFloorsContractObserve($p)],
             ['b678-portfolio-budget-floors-contract', 'b678_portfolio_budget_floors_contract', fn (array $p) => $gates->b678PortfolioBudgetFloorsContractObserve($p)],
             ['b679-belief-cascade-domain-lexical-floors-contract', 'b679_belief_cascade_domain_lexical_floors_contract', fn (array $p) => $gates->b679BeliefCascadeDomainLexicalFloorsContractObserve($p)],
+            ['b680-domain-lexical-floors-contract', 'b680_domain_lexical_floors_contract', fn (array $p) => $gates->b680DomainLexicalFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -14674,4 +14674,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b679_belief_cascade_domain_lexical_floor_count']);
     }
 
+    public function test_b680_domain_lexical_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b680DomainLexicalFloorsContractObserve([]);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_LEARNING, $out['learning']);
+        $this->assertSame(DomainLexicalNormalizer::SCHEMA_VERSION, $out['atlas.memory.domain_lexical_normalizer.v1']);
+        $this->assertSame(DomainLexicalNormalizer::FORMULA_VERSION, $out['maxb10.domain_equivalence.v1']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_APRENDIZADO, $out['aprendizado']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_BRAIN, $out['brain']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_CEREBRO, $out['cerebro']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_DECISAO, $out['decisao']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_DECISION, $out['decision']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_DETERMINISTIC, $out['deterministic']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_EXECUTION, $out['execution']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_MEMORY, $out['memory']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_VERIFICATION, $out['verification']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_EQUIVALENCES, $out['equivalences']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_ESTEIRA, $out['esteira']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_EVIDENCIA, $out['evidencia']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_EXECUCAO, $out['execucao']);
+        $this->assertSame(18, $out['b680_domain_lexical_floor_count']);
+    }
+
 }
