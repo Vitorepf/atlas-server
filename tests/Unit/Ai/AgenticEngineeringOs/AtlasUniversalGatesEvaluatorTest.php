@@ -99,6 +99,12 @@ use App\Services\Ai\Aaeos\AtlasAaeosImplementationEvidenceResolver;
 use App\Services\Ai\Aaeos\AtlasAaeosVetoPropagationResolver;
 use App\Services\Ai\Aaeos\AtlasCrossDepartmentChoreographyService;
 use App\Services\Ai\AcosMax\AtlasLocalModelIntegrityService;
+use App\Services\Ai\Aaeos\AtlasAaeosDepartmentRegistryService;
+use App\Services\Ai\Aaeos\AtlasAaeosStringListNormalizer;
+use App\Services\Ai\Aaeos\AtlasDebugRootCauseService;
+use App\Services\Ai\Aaeos\AtlasDocsAuthorityGraphService;
+use App\Services\Ai\Cognition\Watchdog\Checks\DailyCanaryReplayByRefsWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\OperatorReviewDebtWatchdogCheck;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -6873,6 +6879,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AcosMaxObraRetroService::FIELD_OBRA_RETRO_LOTE, $out['obra_retro_lote']);
         $this->assertSame(AcosMaxObraRetroService::FIELD_OUTCOME_FLOW_ID, $out['outcome_flow_id']);
         $this->assertSame(18, $out['aaeos_cognitive_implementation_veto_cross_department_lote_measure_floor_count']);
+    }
+
+    public function test_aaeos_department_string_debug_root_docs_authority_daily_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->aaeosDepartmentStringDebugRootDocsAuthorityDailyFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DEPARTMENTS, $out['departments']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_DUPLICATE_IDS, $out['duplicate_ids']);
+        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAaeosStringListNormalizer::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasDebugRootCauseService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasDebugRootCauseService::FIELD_SUSPECTED_CAUSE, $out['suspected_cause']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_CREATED_AT, $out['created_at']);
+        $this->assertSame(AtlasDocsAuthorityGraphService::FIELD_DOCS, $out['docs']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_CEILING, $out['ceiling']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_DELIVERED_REFS, $out['delivered_refs']);
+        $this->assertSame(OperatorReviewDebtWatchdogCheck::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(OperatorReviewDebtWatchdogCheck::FIELD_STATUS, $out['status']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CONTROL_SCORE_MEAN, $out['control_score_mean']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CORRELATION_LABEL_REQUIRED, $out['correlation_label_required']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_OUTCOME_ID, $out['outcome_id']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_PROPOSED_STATE, $out['proposed_state']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_RELEASED, $out['released']);
+        $this->assertSame(AcosMaxParallelExecutionProtocol::FIELD_RELEASED_COUNT, $out['released_count']);
+        $this->assertSame(18, $out['aaeos_department_string_debug_root_docs_authority_daily_floor_count']);
     }
 
 }

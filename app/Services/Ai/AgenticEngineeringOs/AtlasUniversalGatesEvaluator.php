@@ -8901,4 +8901,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B367).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function aaeosDepartmentStringDebugRootDocsAuthorityDailyFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'departments' => AtlasAaeosDepartmentRegistryService::FIELD_DEPARTMENTS,
+            'duplicate_ids' => AtlasAaeosDepartmentRegistryService::FIELD_DUPLICATE_IDS,
+            'id' => AtlasAaeosStringListNormalizer::FIELD_ID,
+            'kind' => AtlasAaeosStringListNormalizer::FIELD_KIND,
+            'status' => AtlasDebugRootCauseService::FIELD_STATUS,
+            'suspected_cause' => AtlasDebugRootCauseService::FIELD_SUSPECTED_CAUSE,
+            'created_at' => AtlasDocsAuthorityGraphService::FIELD_CREATED_AT,
+            'docs' => AtlasDocsAuthorityGraphService::FIELD_DOCS,
+            'ceiling' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_CEILING,
+            'delivered_refs' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_DELIVERED_REFS,
+            'schema_version' => OperatorReviewDebtWatchdogCheck::FIELD_SCHEMA_VERSION,
+            'status' => OperatorReviewDebtWatchdogCheck::FIELD_STATUS,
+            'control_score_mean' => AcosMaxLote2MeasureService::FIELD_CONTROL_SCORE_MEAN,
+            'correlation_label_required' => AcosMaxLote2MeasureService::FIELD_CORRELATION_LABEL_REQUIRED,
+            'outcome_id' => AcosMaxObraRetroService::FIELD_OUTCOME_ID,
+            'proposed_state' => AcosMaxObraRetroService::FIELD_PROPOSED_STATE,
+            'released' => AcosMaxParallelExecutionProtocol::FIELD_RELEASED,
+            'released_count' => AcosMaxParallelExecutionProtocol::FIELD_RELEASED_COUNT,
+            'aaeos_department_string_debug_root_docs_authority_daily_floor_count' => 18,
+        ];
+    }
+
 }

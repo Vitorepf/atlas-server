@@ -84,6 +84,8 @@ final class AcosMaxObraRetroService
     public const FIELD_REQUIRES_HUMAN_REVIEW = 'requires_human_review';
     public const FIELD_LINE = 'line';
     public const FIELD_METRICS = 'metrics';
+    public const FIELD_OUTCOME_ID = 'outcome_id';
+    public const FIELD_PROPOSED_STATE = 'proposed_state';
 
     public function __construct(
         private readonly AtlasEngineeringOutcomeRecorder $outcomes,
@@ -228,7 +230,7 @@ final class AcosMaxObraRetroService
             self::FIELD_SLICE_ID => AiValueNormalizer::trimmedScalarStringOrNull($slice[self::FIELD_ID] ?? null) ?? '',
             self::FIELD_SLICE_STATE => AiValueNormalizer::trimmedScalarStringOrNull($slice[self::FIELD_STATE] ?? null) ?? '',
             self::FIELD_STATUS => (AiValueNormalizer::trimmedStringOrNull($recorded[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
-            'outcome_id' => data_get($recorded, 'outcome.outcome_id'),
+            self::FIELD_OUTCOME_ID => data_get($recorded, 'outcome.outcome_id'),
             self::FIELD_AI_RUN_OUTCOME_ID => data_get($recorded, 'spine.ai_run_outcome.id'),
             self::FIELD_SERIES_TAG => self::SERIES_TAG,
         ];
@@ -261,7 +263,7 @@ final class AcosMaxObraRetroService
                 self::FIELD_LOTE => $lote,
                 'terminal_slice_count' => count($slices),
             ],
-            'proposed_state' => [
+            self::FIELD_PROPOSED_STATE => [
                 self::FIELD_FUTURE_LOTE_CLOSE_REQUIRES => [
                     'scoreboard_slice_refs',
                     'outc_01_outcome_records',

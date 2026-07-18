@@ -56,6 +56,8 @@ class AtlasDocsAuthorityGraphService
     public const FIELD_ROWS = 'rows';
     public const FIELD_BASIS = 'basis';
     public const FIELD_CAPABILITIES = 'capabilities';
+    public const FIELD_CREATED_AT = 'created_at';
+    public const FIELD_DOCS = 'docs';
 
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
@@ -74,7 +76,7 @@ class AtlasDocsAuthorityGraphService
         $rows = [];
         foreach ($docs as $doc) {
             foreach ($this->rowsForDoc($doc[self::FIELD_FRONTMATTER], $doc[self::FIELD_PATH]) as $row) {
-                $rows[] = $row + ['created_at' => now(), 'updated_at' => now()];
+                $rows[] = $row + [self::FIELD_CREATED_AT => now(), 'updated_at' => now()];
             }
         }
 
@@ -88,7 +90,7 @@ class AtlasDocsAuthorityGraphService
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_ROWS => count($rows),
-            'docs' => count($docs),
+            self::FIELD_DOCS => count($docs),
         ];
     }
 

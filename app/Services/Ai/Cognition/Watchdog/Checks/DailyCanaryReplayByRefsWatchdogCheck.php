@@ -92,6 +92,8 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_GOLDEN_RECALL_AT_5 = 'golden_recall_at_5';
     public const FIELD_V1 = 'v1';
     public const FIELD_VIOLATIONS = 'violations';
+    public const FIELD_CEILING = 'ceiling';
+    public const FIELD_DELIVERED_REFS = 'delivered_refs';
 
 
     public function __construct(
@@ -197,7 +199,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
         $byKind = [self::FIELD_CODE => 0, 'memory' => 0, 'graph' => 0, self::FIELD_NON_CANONICAL => 0];
 
         foreach ($entries as $entry) {
-            foreach (AiValueNormalizer::arrayOrEmpty($entry['delivered_refs'] ?? null) as $ref) {
+            foreach (AiValueNormalizer::arrayOrEmpty($entry[self::FIELD_DELIVERED_REFS] ?? null) as $ref) {
                 $ref = AiValueNormalizer::trimmedStringOrNull($ref);
                 if ($ref === null) {
                     continue;
@@ -335,7 +337,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
             $violations[] = [
                 self::FIELD_METRIC => 'improper_floor_discards',
                 self::FIELD_VALUE => $golden[self::FIELD_IMPROPER_FLOOR_DISCARDS],
-                'ceiling' => self::IMPROPER_FLOOR_DISCARD_ALERT_CEILING,
+                self::FIELD_CEILING => self::IMPROPER_FLOOR_DISCARD_ALERT_CEILING,
                 self::FIELD_VERSION => $golden[self::FIELD_VERSION],
             ];
         }

@@ -17,6 +17,8 @@ final class AtlasDebugRootCauseService
     public const STATUS_UNKNOWN = 'unknown';
     public const FIELD_CONTEXT = 'context';
     public const FIELD_ROOT_CAUSE = 'root_cause';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_SUSPECTED_CAUSE = 'suspected_cause';
 
 
     public function getVersion(): string
@@ -28,7 +30,7 @@ final class AtlasDebugRootCauseService
     {
         return [
             'version' => self::SERVICE_VERSION,
-            'status' => self::STATUS_ANALYZED,
+            self::FIELD_STATUS => self::STATUS_ANALYZED,
             self::FIELD_CONTEXT => $context,
             self::FIELD_ROOT_CAUSE => $this->determineRootCause($context),
         ];
@@ -40,6 +42,6 @@ final class AtlasDebugRootCauseService
             return self::STATUS_NO_DATA;
         }
 
-        return AiValueNormalizer::trimmedStringOrNull($context['suspected_cause'] ?? null) ?? self::STATUS_UNKNOWN;
+        return AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_SUSPECTED_CAUSE] ?? null) ?? self::STATUS_UNKNOWN;
     }
 }

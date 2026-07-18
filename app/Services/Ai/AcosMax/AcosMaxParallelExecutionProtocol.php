@@ -53,6 +53,8 @@ final class AcosMaxParallelExecutionProtocol
     public const FIELD_TTL = 'ttl';
     public const FIELD_CWD = 'cwd';
     public const FIELD_WORKSPACE = 'workspace';
+    public const FIELD_RELEASED = 'released';
+    public const FIELD_RELEASED_COUNT = 'released_count';
 
 
     public function __construct(
@@ -163,7 +165,7 @@ final class AcosMaxParallelExecutionProtocol
         return [
             self::FIELD_SCHEMA => self::SCHEMA,
             self::FIELD_OK => true,
-            'released' => ((int) (AiValueNormalizer::finiteFloatOrNull($released['released_count'] ?? null) ?? 0)) > 0,
+            self::FIELD_RELEASED => ((int) (AiValueNormalizer::finiteFloatOrNull($released[self::FIELD_RELEASED_COUNT] ?? null) ?? 0)) > 0,
             self::FIELD_TARGET => $target,
         ];
     }

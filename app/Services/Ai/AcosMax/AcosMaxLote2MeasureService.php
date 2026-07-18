@@ -192,6 +192,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_BLOCKED_BY_TOP = 'blocked_by_top';
     public const FIELD_CANDIDATE_ID = 'candidate_id';
     public const FIELD_CITATION_LATENCY_SECONDS = 'citation_latency_seconds';
+    public const FIELD_CONTROL_SCORE_MEAN = 'control_score_mean';
+    public const FIELD_CORRELATION_LABEL_REQUIRED = 'correlation_label_required';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -220,7 +222,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_BASIS => self::BASIS_UNAVAILABLE,
             self::FIELD_ALLOWED_BASIS => ['lineage_ledger', 'git_log'],
             self::FIELD_COUNTERFACTUAL_BASIS => 'none',
-            'correlation_label_required' => 'correlational_attribution',
+            self::FIELD_CORRELATION_LABEL_REQUIRED => 'correlational_attribution',
             self::FIELD_ATTRIBUTED_DELTA => [],
             'dependencies' => ['ASI-11', 'MAXL-04'],
         ]);
@@ -939,7 +941,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_MEMORY_TYPE => AiValueNormalizer::trimmedScalarStringOrNull($group[self::FIELD_MEMORY_TYPE] ?? null) ?? '',
             self::FIELD_STATUS => $n >= $denominatorMin ? self::STATUS_MEASURED : self::STATUS_INSUFFICIENT_SIGNAL,
             self::FIELD_N_PAIRS => $n,
-            'control_score_mean' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_CONTROL_SCORE_SUM] ?? null) ?? 0.0) / $n, 4) : null,
+            self::FIELD_CONTROL_SCORE_MEAN => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_CONTROL_SCORE_SUM] ?? null) ?? 0.0) / $n, 4) : null,
             'treatment_score_mean' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_TREATMENT_SCORE_SUM] ?? null) ?? 0.0) / $n, 4) : null,
             self::FIELD_PAIRED_DELTA => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_DELTA_SUM] ?? null) ?? 0.0) / $n, 4) : null,
         ];
