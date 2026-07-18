@@ -91,6 +91,26 @@ class ArenaCompositeServiceTest extends TestCase
         (new ArenaCompositeService)->composite();
     }
 
+    public function test_harness_only_engines_never_appear_in_public_payloads(): void
+    {
+        $this->writeRun('20260717_010000_terminal', 'terminal_bench', [
+            $this->receipt('codex_cli@bare', 'c1', 'success', '2026-07-17T01:01:00Z'),
+            $this->receipt('mockllm@bare', 'c1', 'success', '2026-07-17T01:02:00Z'),
+            $this->receipt('mockllm@atlas_dev', 'c1', 'success', '2026-07-17T01:03:00Z'),
+            $this->receipt('local_fake_model@bare', 'c1', 'success', '2026-07-17T01:04:00Z'),
+        ]);
+
+        $service = new ArenaCompositeService;
+        $composite = json_encode($service->composite());
+        $scoreboard = json_encode($service->scoreboard());
+
+        $this->assertStringNotContainsString('mockllm', $composite);
+        $this->assertStringNotContainsString('local_fake_model', $composite);
+        $this->assertStringNotContainsString('mockllm', $scoreboard);
+        $this->assertStringNotContainsString('local_fake_model', $scoreboard);
+        $this->assertSame('codex_cli', json_decode($composite, true)['engines'][0]['engine']);
+    }
+
     /** @param list<array<string, mixed>> $receipts */
     private function writeRun(string $runId, string $suiteId, array $receipts): void
     {

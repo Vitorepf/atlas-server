@@ -2,11 +2,20 @@
 
 namespace App\Services\Ai\Arena;
 
+use App\Services\Ai\Rivals\Core\ModelRegistry;
 use App\Services\Ai\Rivals\Support\RunPaths;
 use RuntimeException;
 
 final class ArenaMeasurementStore
 {
+    public function __construct(private readonly ModelRegistry $models = new ModelRegistry) {}
+
+    /** Motores harness-only (mockllm etc.) nunca aparecem em payload público. */
+    public function isPublicEngine(string $engine): bool
+    {
+        return $engine !== '' && ! $this->models->isHarnessOnly($engine);
+    }
+
     /** @return list<string> */
     public function suites(): array
     {
@@ -136,10 +145,13 @@ final class ArenaMeasurementStore
             return [];
         }
 
-        return array_values(array_filter(array_map(
-            fn (string $line): mixed => json_decode($line, true),
-            array_filter(explode(PHP_EOL, (string) file_get_contents($path))),
-        ), 'is_array'));
+        return array_values(array_filter(
+            array_filter(array_map(
+                fn (string $line): mixed => json_decode($line, true),
+                array_filter(explode(PHP_EOL, (string) file_get_contents($path))),
+            ), 'is_array'),
+            fn (array $entry): bool => $this->isPublicEngine((string) ($entry['engine'] ?? ''))
+        ));
     }
 
     public function appendQueuedRequest(array $entry): void
@@ -210,7 +222,7 @@ final class ArenaMeasurementStore
             'atlas_dev', 'with_atlas' => 'with_atlas',
             default => null,
         };
-        if ($engine === '' || $arm === null) {
+        if ($engine === '' || $arm === null || ! $this->isPublicEngine($engine)) {
             return null;
         }
 

@@ -120,6 +120,48 @@ class ArenaRunControllerTest extends TestCase
             ->assertJsonPath('suite', 'not_installed');
     }
 
+    public function test_start_rejects_harness_only_engine(): void
+    {
+        $this->postJson('/arena/runs', [
+            'suites' => ['terminal_bench'],
+            'engine' => 'mockllm',
+            'arms' => ['baseline'],
+            'operator_actor' => 'vitor',
+            'operator_reason' => 'medir terminal',
+        ], $this->headers)
+            ->assertStatus(422)
+            ->assertJsonPath('reason', 'engine_harness_only')
+            ->assertJsonPath('engine', 'mockllm');
+    }
+
+    public function test_live_hides_previously_queued_harness_only_runs(): void
+    {
+        $store = new \App\Services\Ai\Arena\ArenaMeasurementStore;
+        $store->appendQueuedRequest([
+            'schema_version' => 'atlas.arena.queued_run.v1',
+            'status' => 'queued',
+            'run_id_public' => 'arq_mock000000000000000',
+            'suite' => 'terminal_bench',
+            'engine' => 'mockllm',
+            'arm' => 'baseline',
+            'queued_at' => '2026-07-17T04:23:44Z',
+        ]);
+        $store->appendQueuedRequest([
+            'schema_version' => 'atlas.arena.queued_run.v1',
+            'status' => 'queued',
+            'run_id_public' => 'arq_real000000000000000',
+            'suite' => 'terminal_bench',
+            'engine' => 'codex_cli',
+            'arm' => 'baseline',
+            'queued_at' => '2026-07-17T04:25:00Z',
+        ]);
+
+        $this->getJson('/arena/runs/live', $this->headers)
+            ->assertOk()
+            ->assertJsonCount(1, 'runs')
+            ->assertJsonPath('runs.0.engine', 'codex_cli');
+    }
+
     public function test_start_enqueues_honestly_without_faking_progress(): void
     {
         $response = $this->postJson('/arena/runs', [
@@ -160,7 +202,8 @@ class ArenaRunControllerTest extends TestCase
             'schema_version' => 'atlas.rivals2.run_state.v2',
             'run_id' => $runId,
             'state' => $state,
-            'updated_at' => '2026-07-17T01:05:00Z',
+            // updated_at dinâmico: data fixa vira bomba-relógio com o filtro live_stale_minutes
+            'updated_at' => gmdate(DATE_ATOM),
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         file_put_contents(
             RunPaths::receiptsPath($runId),

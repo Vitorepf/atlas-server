@@ -75,6 +75,9 @@ final class ArenaRunsLiveService
         if ($engine === '') {
             return $this->error('engine_required');
         }
+        if (! $this->store->isPublicEngine($engine)) {
+            return $this->error('engine_harness_only', ['engine' => $engine]);
+        }
 
         $suites = $this->requestedSuites($input['suites'] ?? []);
         if ($suites === []) {
