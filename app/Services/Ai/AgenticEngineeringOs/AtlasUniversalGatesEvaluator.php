@@ -19923,4 +19923,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B725).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b725ImmuneClassifierFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.immune.classifier_hybrid.v1' => AtlasImmuneClassifierHybridFreeze::MEASURE_ID,
+            'immune_classifier_hybrid.v1.jaccard_baseline' => AtlasImmuneClassifierHybridFreeze::FORMULA_VERSION,
+            '60' => AtlasImmuneClassifierHybridFreeze::TTL_DAYS,
+            'resources/atlas/immune/anchors.v1.json' => AtlasImmuneClassifierHybridFreeze::ANCHOR_FIXTURE_RELATIVE,
+            'resources/atlas/immune/red_team.v1.json' => AtlasImmuneClassifierHybridFreeze::CORPUS_FIXTURE_RELATIVE,
+            'measure_freeze' => AtlasImmuneClassifierHybridFreeze::KIND_MEASURE_FREEZE,
+            'kind' => AtlasImmuneClassifierHybridFreeze::FIELD_KIND,
+            'measure_id' => AtlasImmuneClassifierHybridFreeze::FIELD_MEASURE_ID,
+            'formula_version' => AtlasImmuneClassifierHybridFreeze::FIELD_FORMULA_VERSION,
+            'formula' => AtlasImmuneClassifierHybridFreeze::FIELD_FORMULA,
+            'thresholds' => AtlasImmuneClassifierHybridFreeze::FIELD_THRESHOLDS,
+            'tau' => AtlasImmuneClassifierHybridFreeze::FIELD_TAU,
+            'semantic_recall_floor_on_obfuscated' => AtlasImmuneClassifierHybridFreeze::FIELD_SEMANTIC_RECALL_FLOOR_ON_OBFUSCATED,
+            'fp_ceiling_on_legitimate' => AtlasImmuneClassifierHybridFreeze::FIELD_FP_CEILING_ON_LEGITIMATE,
+            'anchors_local_only' => AtlasImmuneClassifierHybridFreeze::FIELD_ANCHORS_LOCAL_ONLY,
+            'anchors_path' => AtlasImmuneClassifierHybridFreeze::FIELD_ANCHORS_PATH,
+            'anchors_sha256' => AtlasImmuneClassifierHybridFreeze::FIELD_ANCHORS_SHA256,
+            'author_engine_id' => AtlasImmuneClassifierHybridFreeze::FIELD_AUTHOR_ENGINE_ID,
+            'b725_immune_classifier_floor_count' => 18,
+        ];
+    }
+
 }

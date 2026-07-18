@@ -15800,4 +15800,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b724_immune_signature_floor_count']);
     }
 
+    public function test_b725_immune_classifier_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b725ImmuneClassifierFloorsContractObserve([]);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::MEASURE_ID, $out['atlas.immune.classifier_hybrid.v1']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FORMULA_VERSION, $out['immune_classifier_hybrid.v1.jaccard_baseline']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::TTL_DAYS, $out['60']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::ANCHOR_FIXTURE_RELATIVE, $out['resources/atlas/immune/anchors.v1.json']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::CORPUS_FIXTURE_RELATIVE, $out['resources/atlas/immune/red_team.v1.json']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::KIND_MEASURE_FREEZE, $out['measure_freeze']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_MEASURE_ID, $out['measure_id']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_FORMULA, $out['formula']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_THRESHOLDS, $out['thresholds']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_TAU, $out['tau']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_SEMANTIC_RECALL_FLOOR_ON_OBFUSCATED, $out['semantic_recall_floor_on_obfuscated']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_FP_CEILING_ON_LEGITIMATE, $out['fp_ceiling_on_legitimate']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_ANCHORS_LOCAL_ONLY, $out['anchors_local_only']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_ANCHORS_PATH, $out['anchors_path']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_ANCHORS_SHA256, $out['anchors_sha256']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_AUTHOR_ENGINE_ID, $out['author_engine_id']);
+        $this->assertSame(18, $out['b725_immune_classifier_floor_count']);
+    }
+
 }

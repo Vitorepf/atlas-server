@@ -11883,6 +11883,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b725_immune_classifier_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b725-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b725',
+                '--b725-immune-classifier-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b725_immune_classifier_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 
