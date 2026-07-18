@@ -108,6 +108,7 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_FAMILY_UNKNOWN = 'family:unknown';
     public const FIELD_BATCHED_ASKS_2 = 'Batched asks';
     public const FIELD_PENDING_FLIPS_2 = 'Pending flips';
+    public const FIELD_UNTITLED_REVIEW_ITEM = 'Untitled review item';
     public const INT_3 = 3;
     public const INT_2 = 2;
 
@@ -225,7 +226,7 @@ final class Teto10PredictedRevertReviewDigest
 
         return [
             self::FIELD_ID => $id !== '' ? $id : 'item-'.($index + 1),
-            self::FIELD_TITLE => self::firstString($item, [self::FIELD_TITLE, self::FIELD_SUMMARY, self::FIELD_DESCRIPTION], 'Untitled review item'),
+            self::FIELD_TITLE => self::firstString($item, [self::FIELD_TITLE, self::FIELD_SUMMARY, self::FIELD_DESCRIPTION], self::FIELD_UNTITLED_REVIEW_ITEM),
             self::FIELD_DECISION_ID => $decisionId !== '' ? $decisionId : null,
             self::FIELD_FAMILY => $family !== '' ? $family : self::BAND_UNKNOWN,
             self::FIELD_GROUP_KEY => $decisionId !== '' ? 'decision:'.$decisionId : 'family:'.($family !== '' ? $family : self::BAND_UNKNOWN),

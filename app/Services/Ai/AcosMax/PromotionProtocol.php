@@ -142,6 +142,7 @@ final class PromotionProtocol
     public const FIELD_ACOS_MUTATION_SCORE_ENFORCE_BY_EXECUTOR = 'acos.mutation_score.enforce_by_executor';
     public const FIELD_ATLAS_AI_AUTONOMOUS_LEARNING_ENABLED = 'atlas.ai.autonomous_learning.enabled';
     public const FIELD_ATLAS_BRAIN_REFLECTION_ENABLED_2 = 'atlas.brain.reflection_enabled';
+    public const FIELD_ATLAS_AUTONOMOS_PREFLIGHT___JSON_RETURNS_8_8_GREEN_WITH_ASI_01_02_05_EVIDENCE = 'atlas:autonomos:preflight --json returns 8/8 green with ASI-01/02/05 evidence';
     public const FLOAT_0_05 = 0.05;
 
     /** @var list<string> */
@@ -344,7 +345,7 @@ final class PromotionProtocol
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_ENV_KEY => self::FIELD_ATLAS_AUTONOMOS_MASTER_ENABLED,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => self::FIELD_OPERATOR_PREFLIGHT_WINDOW,
-                self::FIELD_FLIP_CRITERION => 'atlas:autonomos:preflight --json returns 8/8 green with ASI-01/02/05 evidence',
+                self::FIELD_FLIP_CRITERION => self::FIELD_ATLAS_AUTONOMOS_PREFLIGHT___JSON_RETURNS_8_8_GREEN_WITH_ASI_01_02_05_EVIDENCE,
                 self::FIELD_ROLLBACK_TRIGGER => 'operator disables autonomos master on failed preflight regression or scoped-committer violation',
                 self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV26S_JUDGE,
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:1412',

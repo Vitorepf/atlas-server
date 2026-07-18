@@ -105,6 +105,7 @@ final class AtlasMissionControlCockpitService
     public const FIELD_RECOVER_BLOCKED_BACKLOG = 'recover_blocked_backlog';
     public const FIELD_REPAIR_MALFORMED_PACKETS = 'repair_malformed_packets';
     public const FIELD_SHA256 = 'sha256';
+    public const FIELD_L1 = 'L1';
     public const INT_4 = 4;
 
     public function __construct(
@@ -136,7 +137,7 @@ final class AtlasMissionControlCockpitService
         array $phaseEnvelopes,
         array $gateSignals = [],
         array $exceptionReceipts = [],
-        string $autonomyLevel = 'L1',
+        string $autonomyLevel = self::FIELD_L1,
         array $queueSignals = [],
     ): array {
         AaeosPhaseHandoffService::requireIntentId($intentId);

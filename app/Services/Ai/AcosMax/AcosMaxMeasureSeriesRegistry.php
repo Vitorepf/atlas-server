@@ -180,6 +180,9 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_ATLAS_CONTEXT_EXECUTION_COOCCURRENCE___JSON = 'atlas:context:execution-cooccurrence --json';
     public const FIELD_ATLAS_CONTEXT_GOLDEN_COUNTERFACTUAL___JSON = 'atlas:context:golden-counterfactual --json';
     public const FIELD_ATLAS_DECIDE_REPLAY_DIVERGENCE___JSON = 'atlas:decide:replay-divergence --json';
+    public const FIELD_ATLAS_FLYWHEEL_FUNNEL___JSON = 'atlas:flywheel:funnel --json';
+    public const FIELD_ATLAS_FLYWHEEL_LEARNING_LATENCY___JSON = 'atlas:flywheel:learning-latency --json';
+    public const FIELD_ATLAS_FLYWHEEL_LOOPS___JSON = 'atlas:flywheel:loops --json';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -484,7 +487,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MULTX_01,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::MULTX01_MEASURE_ID,
-                self::FIELD_PATH => 'atlas:flywheel:loops --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_FLYWHEEL_LOOPS___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTX_01)[self::FIELD_TTL_DAYS],
@@ -493,7 +496,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MULTX_02,
                 self::FIELD_SERIES => AtlasFlywheelFunnelService::MEASURE_ID,
-                self::FIELD_PATH => 'atlas:flywheel:funnel --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_FLYWHEEL_FUNNEL___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => self::INT_30,
@@ -502,7 +505,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MULTX_06,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::MULTX06_MEASURE_ID,
-                self::FIELD_PATH => 'atlas:flywheel:learning-latency --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_FLYWHEEL_LEARNING_LATENCY___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTX_06)[self::FIELD_TTL_DAYS],

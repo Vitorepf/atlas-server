@@ -98,6 +98,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const FIELD_UTC = 'UTC';
     public const FIELD_CODEX_INDEPENDENT_MAXA06_FASE1_JUDGE = 'codex-independent-maxa06-fase1-judge';
     public const FIELD_CURSOR_ACOS_MAX_MAXA06_FASE1 = 'cursor-acos-max-maxa06-fase1';
+    public const FIELD_ATLAS_MEMORY_KB_EMBEDDING_COVERAGE___JSON = 'atlas:memory:kb-embedding-coverage --json';
     public const FLOAT_1_0 = 1.0;
     public const INT_60 = 60;
 
@@ -123,7 +124,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
             self::FIELD_DUAL_READ_REQUIRED => false,
             self::FIELD_SERIES_REGISTRY => [
                 self::FIELD_SERIES => self::MEASURE_ID,
-                self::FIELD_PATH => 'atlas:memory:kb-embedding-coverage --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_MEMORY_KB_EMBEDDING_COVERAGE___JSON,
                 self::FIELD_SOURCE_TYPE => self::FIELD_COMPUTED_READER_FIELD,
             ],
         ];

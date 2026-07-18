@@ -11518,4 +11518,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b551_cognition_score_department_contract_measure_series_lote_phase_floor_count']);
     }
 
+    public function test_b552_cognition_score_department_contract_measure_series_knowledge_item_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b552CognitionScoreDepartmentContractMeasureSeriesKnowledgeItemFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CONTEXT_CACHE_COMPILER_RUNTIME, $out['Context Cache Compiler Runtime']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CONTEXT_COMPILER_RUNTIME, $out['Context Compiler Runtime']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CONTEXT_FRESHNESS_QUALITY_GATE, $out['Context Freshness Quality Gate']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CONTEXT_GATE, $out['Context Gate']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_R1, $out['R1']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_R2, $out['R2']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_R3, $out['R3']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_R4, $out['R4']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_FLYWHEEL_FUNNEL___JSON, $out['atlas:flywheel:funnel --json']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_FLYWHEEL_LEARNING_LATENCY___JSON, $out['atlas:flywheel:learning-latency --json']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_FLYWHEEL_LOOPS___JSON, $out['atlas:flywheel:loops --json']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_TEOS_COUNTERFACTUALS, $out['TEOS Counterfactuals']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_VERIFIED_CONTEXT_EXECUTION_LOOP, $out['Verified Context Execution Loop']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_ATLAS_MEMORY_KB_EMBEDDING_COVERAGE___JSON, $out['atlas:memory:kb-embedding-coverage --json']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_ATLAS_TETO_N_CAPTURE_DRILL___JSON, $out['atlas:teto:n-capture-drill --json']);
+        $this->assertSame(PromotionProtocol::FIELD_ATLAS_AUTONOMOS_PREFLIGHT___JSON_RETURNS_8_8_GREEN_WITH_ASI_01_02_05_EVIDENCE, $out['atlas:autonomos:preflight --json returns 8/8 green with ASI-01/02/05 evidence']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_UNTITLED_REVIEW_ITEM, $out['Untitled review item']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_L1, $out['L1']);
+        $this->assertSame(18, $out['b552_cognition_score_department_contract_measure_series_knowledge_item_floor_count']);
+    }
+
 }

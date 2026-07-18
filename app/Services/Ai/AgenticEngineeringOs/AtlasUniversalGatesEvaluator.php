@@ -14609,4 +14609,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B552).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b552CognitionScoreDepartmentContractMeasureSeriesKnowledgeItemFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'Context Cache Compiler Runtime' => AtlasCognitionScoreCardService::FIELD_CONTEXT_CACHE_COMPILER_RUNTIME,
+            'Context Compiler Runtime' => AtlasCognitionScoreCardService::FIELD_CONTEXT_COMPILER_RUNTIME,
+            'Context Freshness Quality Gate' => AtlasCognitionScoreCardService::FIELD_CONTEXT_FRESHNESS_QUALITY_GATE,
+            'Context Gate' => AtlasCognitionScoreCardService::FIELD_CONTEXT_GATE,
+            'R1' => DepartmentContractRuntime::FIELD_R1,
+            'R2' => DepartmentContractRuntime::FIELD_R2,
+            'R3' => DepartmentContractRuntime::FIELD_R3,
+            'R4' => DepartmentContractRuntime::FIELD_R4,
+            'atlas:flywheel:funnel --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_FLYWHEEL_FUNNEL___JSON,
+            'atlas:flywheel:learning-latency --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_FLYWHEEL_LEARNING_LATENCY___JSON,
+            'atlas:flywheel:loops --json' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_FLYWHEEL_LOOPS___JSON,
+            'TEOS Counterfactuals' => AtlasCognitionScoreCardV4Grouper::FIELD_TEOS_COUNTERFACTUALS,
+            'Verified Context Execution Loop' => AtlasCognitionScoreCardV4Grouper::FIELD_VERIFIED_CONTEXT_EXECUTION_LOOP,
+            'atlas:memory:kb-embedding-coverage --json' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_ATLAS_MEMORY_KB_EMBEDDING_COVERAGE___JSON,
+            'atlas:teto:n-capture-drill --json' => AtlasNCaptureDrillService::FIELD_ATLAS_TETO_N_CAPTURE_DRILL___JSON,
+            'atlas:autonomos:preflight --json returns 8/8 green with ASI-01/02/05 evidence' => PromotionProtocol::FIELD_ATLAS_AUTONOMOS_PREFLIGHT___JSON_RETURNS_8_8_GREEN_WITH_ASI_01_02_05_EVIDENCE,
+            'Untitled review item' => Teto10PredictedRevertReviewDigest::FIELD_UNTITLED_REVIEW_ITEM,
+            'L1' => AtlasMissionControlCockpitService::FIELD_L1,
+            'b552_cognition_score_department_contract_measure_series_knowledge_item_floor_count' => 18,
+        ];
+    }
+
 }

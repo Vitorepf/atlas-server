@@ -149,6 +149,7 @@ final class AtlasNCaptureDrillService
     public const FIELD_THRESHOLDS_DAYS_BETWEEN_DRILLS_MAX = 'thresholds.days_between_drills_max';
     public const FIELD_YARDSTICK_GOLDEN_V2_SCORE = 'yardstick.golden_v2_score';
     public const FIELD_YARDSTICK_REGRET_MEASURE_ID = 'yardstick.regret_measure_id';
+    public const FIELD_ATLAS_TETO_N_CAPTURE_DRILL___JSON = 'atlas:teto:n-capture-drill --json';
     public const INT_365 = 365;
 
     private readonly string $ledgerPath;
@@ -194,7 +195,7 @@ final class AtlasNCaptureDrillService
             self::FIELD_DUAL_READ_REQUIRED => false,
             self::FIELD_SERIES_REGISTRY => [
                 self::FIELD_SERIES => self::MEASURE_ID,
-                self::FIELD_PATH => 'atlas:teto:n-capture-drill --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_TETO_N_CAPTURE_DRILL___JSON,
                 self::FIELD_SOURCE_TYPE => self::FIELD_JSONL,
             ],
         ];

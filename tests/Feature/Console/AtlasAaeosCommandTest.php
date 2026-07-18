@@ -9461,6 +9461,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b552_cognition_score_department_contract_measure_series_knowledge_item_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b552-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b552',
+                '--b552-cognition-score-department-contract-measure-series-knowledge-item-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b552_cognition_score_department_contract_measure_series_knowledge_item_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

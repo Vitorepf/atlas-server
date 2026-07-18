@@ -284,6 +284,10 @@ class AtlasCognitionScoreCardService
     public const FIELD_COMPOUNDING_EFFECT = 'Compounding Effect';
     public const FIELD_CONSTITUTIONAL_KERNEL = 'Constitutional Kernel';
     public const FIELD_CONSTITUTIONAL_VAULT_SERVICE = 'Constitutional Vault Service';
+    public const FIELD_CONTEXT_CACHE_COMPILER_RUNTIME = 'Context Cache Compiler Runtime';
+    public const FIELD_CONTEXT_COMPILER_RUNTIME = 'Context Compiler Runtime';
+    public const FIELD_CONTEXT_FRESHNESS_QUALITY_GATE = 'Context Freshness Quality Gate';
+    public const FIELD_CONTEXT_GATE = 'Context Gate';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -337,7 +341,7 @@ class AtlasCognitionScoreCardService
         ['G1',     'Evidence Promotion Gate',     self::FIELD_COGNITIVE_IMMUNE, AtlasAemorRuntimeService::class],
         ['G2',     'Learning Signal Extraction',  self::FIELD_COGNITIVE_IMMUNE, AtlasLearningDistiller::class],
         ['G3',     'Memory Promotion',            self::FIELD_COGNITIVE_IMMUNE, AiMemoryDeltaProposer::class],
-        ['G4',     'Context Gate',                self::FIELD_COGNITIVE_IMMUNE, AtlasContextFreshnessQualityGateService::class],
+        ['G4',     self::FIELD_CONTEXT_GATE,                self::FIELD_COGNITIVE_IMMUNE, AtlasContextFreshnessQualityGateService::class],
         ['G5',     'Decision Gate',               self::FIELD_COGNITIVE_IMMUNE, AiDecisionReceiptRefreshService::class],
         ['G6',     'Outcome Replay',              self::FIELD_COGNITIVE_IMMUNE, AtlasAemorJudgmentService::class],
         ['G7',     'Self-Improvement Loop',       self::FIELD_COGNITIVE_IMMUNE, AtlasSelfImprovementOrchestrator::class],
@@ -353,7 +357,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_AHRI,  'Hybrid Retrieval Infrastructure',   self::FIELD_AUCRI, AtlasHybridRetrievalInfrastructureService::class],
         [self::FIELD_AARF,  self::FIELD_AGENTIC_RAG_FRAMEWORK,             self::FIELD_AUCRI, AtlasAgenticRagFrameworkService::class],
         [self::FIELD_ACRS,  'Context Ranking System',            self::FIELD_AUCRI, AtlasContextRankingSystemService::class],
-        [self::FIELD_ACFQ,  'Context Freshness Quality Gate',    self::FIELD_AUCRI, AtlasContextFreshnessQualityGateService::class],
+        [self::FIELD_ACFQ,  self::FIELD_CONTEXT_FRESHNESS_QUALITY_GATE,    self::FIELD_AUCRI, AtlasContextFreshnessQualityGateService::class],
         [self::FIELD_ARFL,  'Retrieval Feedback Loop',           self::FIELD_AUCRI, AtlasRetrievalFeedbackLoopService::class],
         [self::FIELD_AGRN,  'Graph Retrieval Network',           self::FIELD_AUCRI, AtlasGraphRetrievalNetworkService::class],
         [self::FIELD_AURG,  'Unified Reality Graph',             self::FIELD_AUCRI, AtlasUnifiedRealityGraphService::class],
@@ -364,7 +368,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ARPTL, 'Retrieval Privacy Trust Layer',     self::FIELD_AUCRI, AtlasRetrievalPrivacyTrustLayerService::class],
         [self::FIELD_AKIF,  'Knowledge Ingestion Fabric',        self::FIELD_AUCRI, AtlasKnowledgeSourcePacketRegistryService::class],
         [self::FIELD_ACMF,  self::FIELD_COGNITIVE_MEMORY_FABRIC,           self::FIELD_AUCRI, AtlasCognitiveMemoryFabricService::class],
-        [self::FIELD_ACCR,  'Context Compiler Runtime',          self::FIELD_AUCRI, AtlasContextCompilerRuntimeService::class],
+        [self::FIELD_ACCR,  self::FIELD_CONTEXT_COMPILER_RUNTIME,          self::FIELD_AUCRI, AtlasContextCompilerRuntimeService::class],
         [self::FIELD_ATER,  'Token Economy Runtime',             self::FIELD_AUCRI, AtlasTokenEconomyBudgetPolicyService::class],
         [self::FIELD_ACPFR, 'Context Pareto Frontier Runtime',   self::FIELD_AUCRI, AtlasContextParetoFrontierRuntimeService::class],
 
@@ -433,7 +437,7 @@ class AtlasCognitionScoreCardService
      * v3 remains a compatibility surface while v4 becomes the truthful boundary.
      */
     public const V4_SUPPLEMENTAL_SUBSYSTEMS = [
-        [self::FIELD_ACCCR, 'Context Cache Compiler Runtime', self::FIELD_CONTEXT_CACHE, AtlasContextCacheCompilerRuntimeService::class],
+        [self::FIELD_ACCCR, self::FIELD_CONTEXT_CACHE_COMPILER_RUNTIME, self::FIELD_CONTEXT_CACHE, AtlasContextCacheCompilerRuntimeService::class],
         [self::FIELD_ACIE, 'Context Intelligence Engine', self::FIELD_CONTEXT_INTELLIGENCE, AtlasContextOperationsRuntimeService::class],
         [self::FIELD_APCR, 'Persistent Context Runtime', self::FIELD_PERSISTENT_CONTEXT, AtlasPersistentContextRuntimeService::class],
         [self::FIELD_AEMOR_2, 'Execution Memory Outcome Runtime', self::FIELD_AEMOR, AtlasAemorCertificationService::class],

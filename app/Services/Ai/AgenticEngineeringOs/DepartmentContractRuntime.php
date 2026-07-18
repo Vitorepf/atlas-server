@@ -433,6 +433,10 @@ final class DepartmentContractRuntime
     public const FIELD_PRODUCT_DEPARTMENT = 'Product Department';
     public const FIELD_QA_DEPARTMENT = 'QA Department';
     public const FIELD_R0 = 'R0';
+    public const FIELD_R1 = 'R1';
+    public const FIELD_R2 = 'R2';
+    public const FIELD_R3 = 'R3';
+    public const FIELD_R4 = 'R4';
     public const INT_11 = 11;
 
     /**
@@ -948,7 +952,7 @@ final class DepartmentContractRuntime
 
     private function riskScopeIndex(string $scope): int
     {
-        static $levels = [self::FIELD_R0, 'R1', 'R2', 'R3', 'R4', 'R5'];
+        static $levels = [self::FIELD_R0, self::FIELD_R1, self::FIELD_R2, self::FIELD_R3, self::FIELD_R4, 'R5'];
         $index = array_search(AiValueNormalizer::upperTrimmedString($scope), $levels, true);
 
         return $index === false ? -1 : (int) $index;

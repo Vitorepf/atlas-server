@@ -95,6 +95,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_OPEN_BRAIN_GATEWAY = 'Open Brain Gateway';
     public const FIELD_OTHER_ACOS = 'Other ACOS';
     public const FIELD_PERSISTENT_CONTEXT_RUNTIME = 'Persistent Context Runtime';
+    public const FIELD_TEOS_COUNTERFACTUALS = 'TEOS Counterfactuals';
+    public const FIELD_VERIFIED_CONTEXT_EXECUTION_LOOP = 'Verified Context Execution Loop';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -217,7 +219,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_DECIDE => 'Atlas Decide + Swarm',
             self::FIELD_COMPOUND => self::FIELD_COMPOUNDING_2,
             self::FIELD_REALITY_2 => 'Reality Graph + Cross-Domain',
-            self::FIELD_TEOS_2 => 'TEOS Counterfactuals',
+            self::FIELD_TEOS_2 => self::FIELD_TEOS_COUNTERFACTUALS,
             self::FIELD_COGNITION_2 => self::FIELD_COGNITIVE_FUNCTION_ATLAS,
             self::FIELD_AUTONOMY_2 => self::FIELD_AUTONOMOUS_RECONCILIATION,
             self::FIELD_PATAMAR4_2 => 'Patamar 4 Integration',
@@ -226,7 +228,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_PERSISTENT_CONTEXT_2 => self::FIELD_PERSISTENT_CONTEXT_RUNTIME,
             self::FIELD_AEMOR_2 => self::FIELD_EXECUTION_MEMORY_OUTCOME_RUNTIME,
             self::FIELD_LONG_HORIZON_2 => 'TEOS-I1 Long-Horizon Intelligence',
-            self::FIELD_VERIFIED_CONTEXT_2 => 'Verified Context Execution Loop',
+            self::FIELD_VERIFIED_CONTEXT_2 => self::FIELD_VERIFIED_CONTEXT_EXECUTION_LOOP,
             self::FIELD_CONTEXT_QUALITY_2 => self::FIELD_CONTEXT_QUALITY_CERTIFICATION_GATE,
             self::FIELD_OPEN_BRAIN_2 => self::FIELD_OPEN_BRAIN_GATEWAY,
             self::FIELD_EVIDENCE_2 => self::FIELD_EVIDENCE_LEDGER_MEMORY_SIDE,
