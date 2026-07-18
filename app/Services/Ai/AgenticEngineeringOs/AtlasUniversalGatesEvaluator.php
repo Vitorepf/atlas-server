@@ -17257,4 +17257,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B639).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b639SummaryFidelityFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.aaeos.summary_fidelity_coverage.v1' => SummaryFidelityCoverageScorer::SCHEMA_VERSION,
+            'decision' => SummaryFidelityCoverageScorer::DECISION_KIND,
+            '4' => SummaryFidelityCoverageScorer::SCORE_PRECISION,
+            '0.6' => SummaryFidelityCoverageScorer::RETENTION_FAIL_FLOOR,
+            'passed' => SummaryFidelityCoverageScorer::VERDICT_PASSED,
+            'degraded' => SummaryFidelityCoverageScorer::VERDICT_DEGRADED,
+            'failed' => SummaryFidelityCoverageScorer::VERDICT_FAILED,
+            'context_retention_score' => SummaryFidelityCoverageScorer::FIELD_CONTEXT_RETENTION_SCORE,
+            'decision_total' => SummaryFidelityCoverageScorer::FIELD_DECISION_TOTAL,
+            'digest' => SummaryFidelityCoverageScorer::FIELD_DIGEST,
+            'missed_decision_rate' => SummaryFidelityCoverageScorer::FIELD_MISSED_DECISION_RATE,
+            'missing_decision_ids' => SummaryFidelityCoverageScorer::FIELD_MISSING_DECISION_IDS,
+            'missing_item_ids' => SummaryFidelityCoverageScorer::FIELD_MISSING_ITEM_IDS,
+            'required_total' => SummaryFidelityCoverageScorer::FIELD_REQUIRED_TOTAL,
+            'present_total' => SummaryFidelityCoverageScorer::FIELD_PRESENT_TOTAL,
+            'verdict' => SummaryFidelityCoverageScorer::FIELD_VERDICT,
+            'unverifiable_item_ids' => SummaryFidelityCoverageScorer::FIELD_UNVERIFIABLE_ITEM_IDS,
+            'missing_total' => SummaryFidelityCoverageScorer::FIELD_MISSING_TOTAL,
+            'b639_summary_fidelity_floor_count' => 18,
+        ];
+    }
+
 }

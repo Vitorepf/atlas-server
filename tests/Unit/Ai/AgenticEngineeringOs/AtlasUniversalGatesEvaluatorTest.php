@@ -13647,4 +13647,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b638_segment_importance_floor_count']);
     }
 
+    public function test_b639_summary_fidelity_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b639SummaryFidelityFloorsContractObserve([]);
+        $this->assertSame(SummaryFidelityCoverageScorer::SCHEMA_VERSION, $out['atlas.aaeos.summary_fidelity_coverage.v1']);
+        $this->assertSame(SummaryFidelityCoverageScorer::DECISION_KIND, $out['decision']);
+        $this->assertSame(SummaryFidelityCoverageScorer::SCORE_PRECISION, $out['4']);
+        $this->assertSame(SummaryFidelityCoverageScorer::RETENTION_FAIL_FLOOR, $out['0.6']);
+        $this->assertSame(SummaryFidelityCoverageScorer::VERDICT_PASSED, $out['passed']);
+        $this->assertSame(SummaryFidelityCoverageScorer::VERDICT_DEGRADED, $out['degraded']);
+        $this->assertSame(SummaryFidelityCoverageScorer::VERDICT_FAILED, $out['failed']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FIELD_CONTEXT_RETENTION_SCORE, $out['context_retention_score']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FIELD_DECISION_TOTAL, $out['decision_total']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FIELD_DIGEST, $out['digest']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FIELD_MISSED_DECISION_RATE, $out['missed_decision_rate']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FIELD_MISSING_DECISION_IDS, $out['missing_decision_ids']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FIELD_MISSING_ITEM_IDS, $out['missing_item_ids']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FIELD_REQUIRED_TOTAL, $out['required_total']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FIELD_PRESENT_TOTAL, $out['present_total']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FIELD_VERDICT, $out['verdict']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FIELD_UNVERIFIABLE_ITEM_IDS, $out['unverifiable_item_ids']);
+        $this->assertSame(SummaryFidelityCoverageScorer::FIELD_MISSING_TOTAL, $out['missing_total']);
+        $this->assertSame(18, $out['b639_summary_fidelity_floor_count']);
+    }
+
 }
