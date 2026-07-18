@@ -59,6 +59,8 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_RAG_12_RAG_DIMENSION = 'rag-12.rag_dimension';
     public const FIELD_COM_10_CONTEXT_FEEDBACK_HEALTH_IS_BELOW_THE_PINNED_FLOOR_ = 'COM-10 context feedback health is below the pinned floor.';
     public const FIELD_CPT_09_COMPACTION_SOAK_IS_NOT_READY_FOR_ENFORCE_ = 'CPT-09 compaction soak is not ready for enforce.';
+    public const FIELD_ENG_11_ENFORCEMENT_FLIPS_ARE_NOT_READY_FOR_PROMOTION_ = 'ENG-11 enforcement flips are not ready for promotion.';
+    public const FIELD_FEE_13_LEARNING_CADENCE_IS_STALLED_OR_UNDER_EVIDENCED_ = 'FEE-13 learning cadence is stalled or under-evidenced.';
 
     public const CATALOG = [
         [
@@ -71,7 +73,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_ID => self::FIELD_FEE_13_LEARNING_CADENCE,
             self::FIELD_REPORT_METHOD => self::FIELD_LEARNING_CADENCE_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_LEARNING_CADENCE_STALLED,
-            self::FIELD_MESSAGE => 'FEE-13 learning cadence is stalled or under-evidenced.',
+            self::FIELD_MESSAGE => self::FIELD_FEE_13_LEARNING_CADENCE_IS_STALLED_OR_UNDER_EVIDENCED_,
         ],
         [
             self::FIELD_ID => self::FIELD_RAG_10_AURG_COVERAGE,
@@ -119,7 +121,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_ID => self::FIELD_ENG_11_ENFORCE_READINESS,
             self::FIELD_REPORT_METHOD => self::FIELD_ENGINEERING_ENFORCE_READINESS_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_ENGINEERING_ENFORCE_READINESS_NOT_READY,
-            self::FIELD_MESSAGE => 'ENG-11 enforcement flips are not ready for promotion.',
+            self::FIELD_MESSAGE => self::FIELD_ENG_11_ENFORCEMENT_FLIPS_ARE_NOT_READY_FOR_PROMOTION_,
         ],
     ];
 

@@ -12512,4 +12512,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b592_knowledge_item_composed_obra_aaeos_http_autonomous_work_floor_count']);
     }
 
+    public function test_b593_ledger_rotation_cognition_score_department_contract_acos_evolution_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b593LedgerRotationCognitionScoreDepartmentContractAcosEvolutionFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ELEV_27_JOINT_BUDGET_READER__WATCHDOG_SNAPSHOT_CADENCE, $out['ELEV-27 joint budget reader; watchdog snapshot cadence']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ESP_00_GROUND_TRUTH_RECEIPT__AUDIT_FOREVER, $out['ESP-00 ground-truth receipt; audit forever']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ATLAS_DECIDE_TEOS_I4_LOOKAHEAD, $out['Atlas Decide TEOS-I4 Lookahead']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ATLAS_GATEWAY_PREFLIGHT__TEOS_I4_, $out['Atlas Gateway Preflight (TEOS-I4)']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DECIDES_SYSTEM_DESIGN__ADRS__TECHNICAL_BOUNDARIES_, $out['Decides system design, ADRs, technical boundaries.']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EVIDENCE_LEDGER__LEARNING__COMPOUNDING_SIGNAL_EXTRACTION_, $out['Evidence ledger, learning, compounding signal extraction.']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_HEARTBEAT_DO_COM_ATLAS_SCHEDULER_, $out['heartbeat do com.atlas.scheduler ']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_HEARTBEAT_FRESH__S_ORGANS_SCHEDULED__D__D, $out['heartbeat_fresh=%s organs_scheduled=%d/%d']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_ENG_11_ENFORCEMENT_FLIPS_ARE_NOT_READY_FOR_PROMOTION_, $out['ENG-11 enforcement flips are not ready for promotion.']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_FEE_13_LEARNING_CADENCE_IS_STALLED_OR_UNDER_EVIDENCED_, $out['FEE-13 learning cadence is stalled or under-evidenced.']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FALTA_CONTRACT_TESTING_E2_E, $out['falta contract testing E2E']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FALTA_CROSS_SESSION_HANDOFF_PACK_L4, $out['falta cross-session handoff pack L4']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_PHASE_1__PLACEMENT_GATE_ACTIVE_, $out['Phase 1; placement gate active.']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_PHASE_2__CLASSIFICATION_AND_POLICY_GATES_ACTIVE_, $out['Phase 2; classification and policy gates active.']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_EVID_NCIA, $out['evidência']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_EXECU__O, $out['execução']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_RUNTIME__AUCRI_POLICIES_, $out['Context Runtime (AUCRI policies)']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_PATAMAR_4_INTEGRATION, $out['Patamar 4 Integration']);
+        $this->assertSame(18, $out['b593_ledger_rotation_cognition_score_department_contract_acos_evolution_floor_count']);
+    }
+
 }

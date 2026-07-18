@@ -464,6 +464,8 @@ final class DepartmentContractRuntime
     public const FIELD_TEST_RED_AFTER_GREEN_TRUE = 'test_red_after_green=true';
     public const FIELD_ATLAS_DEV_FAST_LANE__SMALL_MEDIUM_CHANGES_WITH_PLAN___GATES_ = 'Atlas Dev fast-lane; small/medium changes with plan + gates.';
     public const FIELD_CODE_SPEC_REVIEW__BOTTLENECK_AGAINST_WEAK_CLAIMS_ = 'Code/spec review; bottleneck against weak claims.';
+    public const FIELD_DECIDES_SYSTEM_DESIGN__ADRS__TECHNICAL_BOUNDARIES_ = 'Decides system design, ADRs, technical boundaries.';
+    public const FIELD_EVIDENCE_LEDGER__LEARNING__COMPOUNDING_SIGNAL_EXTRACTION_ = 'Evidence ledger, learning, compounding signal extraction.';
     public const INT_11 = 11;
 
     /**
@@ -546,7 +548,7 @@ final class DepartmentContractRuntime
         ],
         self::DEPARTMENT_ARCHITECTURE => [
             self::FIELD_HUMAN_NAME => self::FIELD_ARCHITECT_DEPARTMENT,
-            self::FIELD_DESCRIPTION => 'Decides system design, ADRs, technical boundaries.',
+            self::FIELD_DESCRIPTION => self::FIELD_DECIDES_SYSTEM_DESIGN__ADRS__TECHNICAL_BOUNDARIES_,
             self::FIELD_SCOPE => 'define spec_pack canônico, breaking_change_matrix e migration_plan antes de qualquer execução',
             self::FIELD_TRIGGERS => ['intent_classification.scope>=R3', self::FIELD_BREAKING_CHANGE_DETECTED_TRUE],
             self::FIELD_INPUTS => [
@@ -759,7 +761,7 @@ final class DepartmentContractRuntime
         ],
         self::DEPARTMENT_MEMORY => [
             self::FIELD_HUMAN_NAME => self::FIELD_MEMORY_DEPARTMENT,
-            self::FIELD_DESCRIPTION => 'Evidence ledger, learning, compounding signal extraction.',
+            self::FIELD_DESCRIPTION => self::FIELD_EVIDENCE_LEDGER__LEARNING__COMPOUNDING_SIGNAL_EXTRACTION_,
             self::FIELD_SCOPE => 'persistência governada de learnings, context packs, decisões, falhas, cross-session continuity',
             self::FIELD_TRIGGERS => [self::FIELD_LEARNING_CAPSULE_EMITTED_TRUE, self::FIELD_SESSION_HANDOFF_REQUESTED_TRUE, self::FIELD_CONTEXT_PACK_REQUEST_TRUE],
             self::FIELD_INPUTS => [

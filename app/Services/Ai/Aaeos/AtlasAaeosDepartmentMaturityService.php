@@ -72,6 +72,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_FALTA_THREAT_MODELING_AUTOMATICO = 'falta threat modeling automatico';
     public const FIELD_A2_PLAN_VISIBLE_INCOMPLETO__HTTP_PATH_LEGADO = 'A2 Plan-Visible incompleto, HTTP path legado';
     public const FIELD_FALTA_AUTOMATED_ROOT_CAUSE_PARA_L3 = 'falta automated root-cause para L3';
+    public const FIELD_FALTA_CONTRACT_TESTING_E2_E = 'falta contract testing E2E';
+    public const FIELD_FALTA_CROSS_SESSION_HANDOFF_PACK_L4 = 'falta cross-session handoff pack L4';
 
     public const DEPARTMENTS = [
         [
@@ -127,7 +129,7 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_CURRENT_LEVEL => self::FIELD_L2,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#qa'],
             self::FIELD_BLOCKER_ID => self::FIELD_QA_CONTRACT_TESTING_E2E_L4,
-            self::FIELD_BLOCKER_SUMMARY => 'falta contract testing E2E',
+            self::FIELD_BLOCKER_SUMMARY => self::FIELD_FALTA_CONTRACT_TESTING_E2_E,
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],
         [
@@ -159,7 +161,7 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_CURRENT_LEVEL => self::FIELD_L3,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#memory'],
             self::FIELD_BLOCKER_ID => self::FIELD_MEMORY_CROSS_SESSION_HANDOFF_L4,
-            self::FIELD_BLOCKER_SUMMARY => 'falta cross-session handoff pack L4',
+            self::FIELD_BLOCKER_SUMMARY => self::FIELD_FALTA_CROSS_SESSION_HANDOFF_PACK_L4,
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],
     ];

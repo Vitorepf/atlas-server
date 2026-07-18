@@ -156,6 +156,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD__GIT = '.git';
     public const FIELD_CADEIA_S49_S55_N_O_IMPLEMENTADA__CLASSE_AUSENTE_ = 'cadeia S49→S55 não implementada (classe ausente)';
     public const FIELD_CHAIN_IMPLEMENTED__S_AUDITED__S_TIER__S_SIGNED__S = 'chain implemented=%s audited=%s tier=%s signed=%s';
+    public const FIELD_HEARTBEAT_DO_COM_ATLAS_SCHEDULER_ = 'heartbeat do com.atlas.scheduler ';
+    public const FIELD_HEARTBEAT_FRESH__S_ORGANS_SCHEDULED__D__D = 'heartbeat_fresh=%s organs_scheduled=%d/%d';
     public const FLOAT_2_5 = 2.5;
     public const FLOAT_10_0 = 10.0;
 
@@ -232,7 +234,7 @@ class AtlasAcosEvolutionScoreService
             self::FIELD_SIGNAL => self::FIELD_CADENCIA_VIVA,
             self::FIELD_POINTS => round(($heartbeatFresh ? 1.25 : 0.0) + 1.25 * ($organsScheduled / count(self::SCHEDULED_ORGANS)), 2),
             self::FIELD_MAX => self::FLOAT_2_5,
-            self::FIELD_EVIDENCE => sprintf('heartbeat_fresh=%s organs_scheduled=%d/%d', $heartbeatFresh ? self::FIELD_YES : self::FIELD_NO, $organsScheduled, count(self::SCHEDULED_ORGANS)),
+            self::FIELD_EVIDENCE => sprintf(self::FIELD_HEARTBEAT_FRESH__S_ORGANS_SCHEDULED__D__D, $heartbeatFresh ? self::FIELD_YES : self::FIELD_NO, $organsScheduled, count(self::SCHEDULED_ORGANS)),
         ];
 
         $unmarked = $this->unmarkedSessionEchoCount();
@@ -305,7 +307,7 @@ class AtlasAcosEvolutionScoreService
             self::FIELD_SIGNAL => self::FIELD_MOTOR_VIVO,
             self::FIELD_POINTS => $heartbeatFresh ? 2.5 : 0.0,
             self::FIELD_MAX => self::FLOAT_2_5,
-            self::FIELD_EVIDENCE => 'heartbeat do com.atlas.scheduler '.($heartbeatFresh ? self::FIELD_FRESCO : 'parado/ausente'),
+            self::FIELD_EVIDENCE => self::FIELD_HEARTBEAT_DO_COM_ATLAS_SCHEDULER_.($heartbeatFresh ? self::FIELD_FRESCO : 'parado/ausente'),
         ];
 
         $gateFresh = $this->fileFresh(storage_path(self::LONG_HORIZON_GATE_EVIDENCE_RELATIVE), self::GATE_FRESH_SECONDS);

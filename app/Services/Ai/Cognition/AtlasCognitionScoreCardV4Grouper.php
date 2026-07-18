@@ -99,6 +99,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_VERIFIED_CONTEXT_EXECUTION_LOOP = 'Verified Context Execution Loop';
     public const FIELD_ATLAS_DECIDE___SWARM = 'Atlas Decide + Swarm';
     public const FIELD_COGNITIVE_IMMUNE_G0_G8 = 'Cognitive Immune G0-G8';
+    public const FIELD_CONTEXT_RUNTIME__AUCRI_POLICIES_ = 'Context Runtime (AUCRI policies)';
+    public const FIELD_PATAMAR_4_INTEGRATION = 'Patamar 4 Integration';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -215,7 +217,7 @@ final class AtlasCognitionScoreCardV4Grouper
         return match ($key) {
             self::FIELD_IMMUNE => self::FIELD_COGNITIVE_IMMUNE_G0_G8,
             self::FIELD_MEMORY => self::FIELD_MEMORY_CORE_2,
-            self::FIELD_CONTEXT => 'Context Runtime (AUCRI policies)',
+            self::FIELD_CONTEXT => self::FIELD_CONTEXT_RUNTIME__AUCRI_POLICIES_,
             self::FIELD_CONSUMERS => self::FIELD_ACOS_CONSUMERS_AND_LEGACY_PROJECTIONS,
             self::FIELD_GOVERNANCE_2 => self::FIELD_CONSTITUTIONAL_GOVERNANCE,
             self::FIELD_DECIDE => self::FIELD_ATLAS_DECIDE___SWARM,
@@ -224,7 +226,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_TEOS_2 => self::FIELD_TEOS_COUNTERFACTUALS,
             self::FIELD_COGNITION_2 => self::FIELD_COGNITIVE_FUNCTION_ATLAS,
             self::FIELD_AUTONOMY_2 => self::FIELD_AUTONOMOUS_RECONCILIATION,
-            self::FIELD_PATAMAR4_2 => 'Patamar 4 Integration',
+            self::FIELD_PATAMAR4_2 => self::FIELD_PATAMAR_4_INTEGRATION,
             self::FIELD_CONTEXT_CACHE_2 => self::FIELD_CONTEXT_CACHE_COMPILER_RUNTIME,
             self::FIELD_CONTEXT_INTELLIGENCE_2 => self::FIELD_CONTEXT_INTELLIGENCE_ENGINE,
             self::FIELD_PERSISTENT_CONTEXT_2 => self::FIELD_PERSISTENT_CONTEXT_RUNTIME,

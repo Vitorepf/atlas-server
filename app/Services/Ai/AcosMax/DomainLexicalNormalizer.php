@@ -40,6 +40,8 @@ final class DomainLexicalNormalizer
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_C_REBRO = 'cérebro';
     public const FIELD_DECIS_O = 'decisão';
+    public const FIELD_EVID_NCIA = 'evidência';
+    public const FIELD_EXECU__O = 'execução';
 
     /** @var array<string,list<string>> */
     public const EQUIVALENCES = [
@@ -49,11 +51,11 @@ final class DomainLexicalNormalizer
         self::FIELD_C_REBRO => [self::FIELD_BRAIN],
         self::FIELD_ESTEIRA => [self::FIELD_PIPELINE],
         self::FIELD_EXECUCAO => [self::FIELD_EXECUTION],
-        'execução' => [self::FIELD_EXECUTION],
+        self::FIELD_EXECU__O => [self::FIELD_EXECUTION],
         self::FIELD_DECISAO => [self::FIELD_DECISION],
         self::FIELD_DECIS_O => [self::FIELD_DECISION],
         self::FIELD_EVIDENCIA => [self::FIELD_EVIDENCE],
-        'evidência' => [self::FIELD_EVIDENCE],
+        self::FIELD_EVID_NCIA => [self::FIELD_EVIDENCE],
         self::FIELD_VERIFICACAO => [self::FIELD_VERIFICATION],
         'verificação' => [self::FIELD_VERIFICATION],
         self::FIELD_APRENDIZADO => [self::FIELD_LEARNING],

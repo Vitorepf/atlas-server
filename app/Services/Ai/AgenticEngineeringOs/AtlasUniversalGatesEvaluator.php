@@ -15847,4 +15847,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B593).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b593LedgerRotationCognitionScoreDepartmentContractAcosEvolutionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ELEV-27 joint budget reader; watchdog snapshot cadence' => AcosMaxLedgerRotationRegistry::FIELD_ELEV_27_JOINT_BUDGET_READER__WATCHDOG_SNAPSHOT_CADENCE,
+            'ESP-00 ground-truth receipt; audit forever' => AcosMaxLedgerRotationRegistry::FIELD_ESP_00_GROUND_TRUTH_RECEIPT__AUDIT_FOREVER,
+            'Atlas Decide TEOS-I4 Lookahead' => AtlasCognitionScoreCardService::FIELD_ATLAS_DECIDE_TEOS_I4_LOOKAHEAD,
+            'Atlas Gateway Preflight (TEOS-I4)' => AtlasCognitionScoreCardService::FIELD_ATLAS_GATEWAY_PREFLIGHT__TEOS_I4_,
+            'Decides system design, ADRs, technical boundaries.' => DepartmentContractRuntime::FIELD_DECIDES_SYSTEM_DESIGN__ADRS__TECHNICAL_BOUNDARIES_,
+            'Evidence ledger, learning, compounding signal extraction.' => DepartmentContractRuntime::FIELD_EVIDENCE_LEDGER__LEARNING__COMPOUNDING_SIGNAL_EXTRACTION_,
+            'heartbeat do com.atlas.scheduler ' => AtlasAcosEvolutionScoreService::FIELD_HEARTBEAT_DO_COM_ATLAS_SCHEDULER_,
+            'heartbeat_fresh=%s organs_scheduled=%d/%d' => AtlasAcosEvolutionScoreService::FIELD_HEARTBEAT_FRESH__S_ORGANS_SCHEDULED__D__D,
+            'ENG-11 enforcement flips are not ready for promotion.' => HealthReportWatchdogCheck::FIELD_ENG_11_ENFORCEMENT_FLIPS_ARE_NOT_READY_FOR_PROMOTION_,
+            'FEE-13 learning cadence is stalled or under-evidenced.' => HealthReportWatchdogCheck::FIELD_FEE_13_LEARNING_CADENCE_IS_STALLED_OR_UNDER_EVIDENCED_,
+            'falta contract testing E2E' => AtlasAaeosDepartmentMaturityService::FIELD_FALTA_CONTRACT_TESTING_E2_E,
+            'falta cross-session handoff pack L4' => AtlasAaeosDepartmentMaturityService::FIELD_FALTA_CROSS_SESSION_HANDOFF_PACK_L4,
+            'Phase 1; placement gate active.' => AtlasAaeosPhaseRouterService::FIELD_PHASE_1__PLACEMENT_GATE_ACTIVE_,
+            'Phase 2; classification and policy gates active.' => AtlasAaeosPhaseRouterService::FIELD_PHASE_2__CLASSIFICATION_AND_POLICY_GATES_ACTIVE_,
+            'evidência' => DomainLexicalNormalizer::FIELD_EVID_NCIA,
+            'execução' => DomainLexicalNormalizer::FIELD_EXECU__O,
+            'Context Runtime (AUCRI policies)' => AtlasCognitionScoreCardV4Grouper::FIELD_CONTEXT_RUNTIME__AUCRI_POLICIES_,
+            'Patamar 4 Integration' => AtlasCognitionScoreCardV4Grouper::FIELD_PATAMAR_4_INTEGRATION,
+            'b593_ledger_rotation_cognition_score_department_contract_acos_evolution_floor_count' => 18,
+        ];
+    }
+
 }

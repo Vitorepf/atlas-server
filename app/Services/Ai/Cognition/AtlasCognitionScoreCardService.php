@@ -336,6 +336,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_VERIFIED_CONTEXT_EXECUTION_LOOP = 'Verified Context Execution Loop';
     public const FIELD_AKIF_OCR_CONFIDENCE_SCORED_INGESTION = 'AKIF OCR Confidence-Scored Ingestion';
     public const FIELD_ATLAS_DECIDE_META_LEARNING = 'Atlas Decide Meta-Learning';
+    public const FIELD_ATLAS_DECIDE_TEOS_I4_LOOKAHEAD = 'Atlas Decide TEOS-I4 Lookahead';
+    public const FIELD_ATLAS_GATEWAY_PREFLIGHT__TEOS_I4_ = 'Atlas Gateway Preflight (TEOS-I4)';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -448,7 +450,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ASCB_EX, 'Self-Construction Scaffold Staging Executor', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionScaffoldStagingExecutorService::class],
         [self::FIELD_ASCB_PP, 'Self-Construction Promotion Plan',          self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionPromotionPlanService::class],
         [self::FIELD_ACTG,    self::FIELD_CARTOGRAPHY_TRUTH_GUARD,                   self::FIELD_CARTOGRAPHY,       CartographyTruthGuardService::class],
-        [self::FIELD_AGPF,    'Atlas Gateway Preflight (TEOS-I4)',         self::FIELD_ATLAS_DECIDE,      AtlasGatewayPreflightService::class],
+        [self::FIELD_AGPF,    self::FIELD_ATLAS_GATEWAY_PREFLIGHT__TEOS_I4_,         self::FIELD_ATLAS_DECIDE,      AtlasGatewayPreflightService::class],
         [self::FIELD_ACVS,    self::FIELD_CONSTITUTIONAL_VAULT_SERVICE,              self::FIELD_GOVERNANCE,        AtlasConstitutionalVaultService::class],
         [self::FIELD_ATBS,    self::FIELD_TRUST_BUDGET_SERVICE,                      self::FIELD_GOVERNANCE,        AtlasTrustBudgetService::class],
         [self::FIELD_ANCF,    self::FIELD_NIGHTLY_COUNTERFACTUALS,                   self::FIELD_PATAMAR_4,         AtlasNightlyCounterfactualsService::class],
@@ -470,7 +472,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ACL8,    'Compounding Level 8/9 Distillation',   self::FIELD_COMPOUNDING,     AtlasCompoundingLevel8DistillationService::class],
 
         // Patamar 4 · intelligence boost
-        [self::FIELD_ADTI4, 'Atlas Decide TEOS-I4 Lookahead',        self::FIELD_ATLAS_DECIDE,     AtlasDecideTeosI4LookaheadService::class],
+        [self::FIELD_ADTI4, self::FIELD_ATLAS_DECIDE_TEOS_I4_LOOKAHEAD,        self::FIELD_ATLAS_DECIDE,     AtlasDecideTeosI4LookaheadService::class],
 
         // Domain runtimes — Research (review-only, source-grounded)
         [self::FIELD_ARDR,  self::FIELD_RESEARCH_DOMAIN_RUNTIME,               self::FIELD_RESEARCH_DOMAIN, ResearchRuntimeService::class],
