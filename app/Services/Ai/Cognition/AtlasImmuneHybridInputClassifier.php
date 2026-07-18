@@ -61,6 +61,12 @@ final class AtlasImmuneHybridInputClassifier
     public const FIELD_MAX_SIMILARITY = 'max_similarity';
     public const FIELD_LEXICAL_HOSTILE_CLASS = 'lexical_hostile_class';
     public const FIELD_OVERRIDE_APPLIED = 'override_applied';
+    public const FIELD_MATCHED = 'matched';
+    public const FIELD_ENFORCE_APPLIED = 'enforce_applied';
+    public const FIELD_SIGNATURE = 'signature';
+    public const FIELD_ORIGIN_REF = 'origin_ref';
+    public const FIELD_HIT_COUNT_AFTER = 'hit_count_after';
+    public const FIELD_REASON = 'reason';
 
     private readonly AtlasAaeosCognitiveImmuneInputClassifier $base;
 
@@ -106,25 +112,25 @@ final class AtlasImmuneHybridInputClassifier
         $signatureBlock = [
             self::FIELD_SCHEMA_VERSION => AtlasImmuneSignatureFreeze::MEASURE_ID,
             'mode' => $this->signatureStore->mode(),
-            'matched' => false,
+            self::FIELD_MATCHED => false,
             self::FIELD_REF => null,
-            'enforce_applied' => false,
+            self::FIELD_ENFORCE_APPLIED => false,
         ];
 
         $knownSignature = $this->signatureStore->consult($text, $metadata);
         if ($knownSignature !== null) {
-            $signatureBlock['matched'] = true;
+            $signatureBlock[self::FIELD_MATCHED] = true;
             $signatureBlock[self::FIELD_REF] = $knownSignature[self::FIELD_REF];
-            $signatureBlock['signature'] = $knownSignature['signature'];
-            $signatureBlock['origin_ref'] = $knownSignature['origin_ref'];
-            $signatureBlock['hit_count_after'] = $knownSignature['hit_count_after'];
+            $signatureBlock[self::FIELD_SIGNATURE] = $knownSignature[self::FIELD_SIGNATURE];
+            $signatureBlock[self::FIELD_ORIGIN_REF] = $knownSignature[self::FIELD_ORIGIN_REF];
+            $signatureBlock[self::FIELD_HIT_COUNT_AFTER] = $knownSignature[self::FIELD_HIT_COUNT_AFTER];
         }
 
         if ($knownSignature !== null && $this->signatureStore->enforceEnabled()) {
             $hostileClass = AiValueNormalizer::trimmedScalarStringOrNull($knownSignature['hostile_class'] ?? null) ?? '';
             $baseResult = $this->base->classify($text, $metadata);
             $baseResult[self::FIELD_INPUT_CLASS] = $hostileClass;
-            $baseResult['reason'] = 'known_poison_signature:'.(AiValueNormalizer::trimmedScalarStringOrNull($knownSignature[self::FIELD_REF] ?? null) ?? '');
+            $baseResult[self::FIELD_REASON] = 'known_poison_signature:'.(AiValueNormalizer::trimmedScalarStringOrNull($knownSignature[self::FIELD_REF] ?? null) ?? '');
             $baseResult[self::FIELD_MATCHED_SIGNALS] = $this->augmentSignals(
                 $baseResult[self::FIELD_MATCHED_SIGNALS],
                 'known_poison_signature',
@@ -132,7 +138,7 @@ final class AtlasImmuneHybridInputClassifier
             $baseResult['memory_eligible'] = false;
             $baseResult['embedding_allowed'] = false;
             $baseResult['default_destination'] = self::hostileDestination($hostileClass);
-            $signatureBlock['enforce_applied'] = true;
+            $signatureBlock[self::FIELD_ENFORCE_APPLIED] = true;
             $baseResult[self::FIELD_IMMUNE_SIGNATURE] = $signatureBlock;
             $baseResult[self::FIELD_HYBRID_ARM] = $this->offHybridArm($baseResult);
 
@@ -194,7 +200,7 @@ final class AtlasImmuneHybridInputClassifier
             $armBlock[self::FIELD_WINNER_SOURCE] = 'semantic';
             $armBlock[self::FIELD_OVERRIDE_APPLIED] = true;
             $baseResult[self::FIELD_INPUT_CLASS] = $winner;
-            $baseResult['reason'] = 'semantic_arm_similarity_'.number_format($bestScore, 3);
+            $baseResult[self::FIELD_REASON] = 'semantic_arm_similarity_'.number_format($bestScore, 3);
             $baseResult[self::FIELD_MATCHED_SIGNALS] = $this->augmentSignals($baseResult[self::FIELD_MATCHED_SIGNALS], 'semantic_arm_hit');
             $baseResult['memory_eligible'] = false;
             $baseResult['embedding_allowed'] = false;

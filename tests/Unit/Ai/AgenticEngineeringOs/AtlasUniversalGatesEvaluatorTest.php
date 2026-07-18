@@ -5126,5 +5126,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['dept_quality_evidence_floor_count']);
     }
 
+    public function test_truth_immune_veto_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->truthImmuneVetoFloorsContractObserve([]);
+
+        $this->assertSame('path', $payload['truth_field_path']);
+        $this->assertSame('test', $payload['truth_field_test']);
+        $this->assertSame('matched', $payload['truth_field_matched']);
+        $this->assertSame('symbol', $payload['truth_field_symbol']);
+        $this->assertSame('test_green', $payload['truth_field_test_green']);
+        $this->assertSame('receipt', $payload['truth_field_receipt']);
+        $this->assertSame('matched', $payload['immune_field_matched']);
+        $this->assertSame('enforce_applied', $payload['immune_field_enforce_applied']);
+        $this->assertSame('signature', $payload['immune_field_signature']);
+        $this->assertSame('origin_ref', $payload['immune_field_origin_ref']);
+        $this->assertSame('hit_count_after', $payload['immune_field_hit_count_after']);
+        $this->assertSame('reason', $payload['immune_field_reason']);
+        $this->assertSame('review', $payload['veto_field_review']);
+        $this->assertSame('operator', $payload['veto_field_operator']);
+        $this->assertSame('product', $payload['veto_field_product']);
+        $this->assertSame('architect', $payload['veto_field_architect']);
+        $this->assertSame('dev', $payload['veto_field_dev']);
+        $this->assertSame(17, $payload['truth_immune_veto_floor_count']);
+    }
+
 
 }

@@ -97,6 +97,12 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_DOC_SCHEMA = 'doc_schema';
     public const FIELD_FORMAT = 'format';
     public const FIELD_FRONTMATTER = 'frontmatter';
+    public const FIELD_PATH = 'path';
+    public const FIELD_TEST = 'test';
+    public const FIELD_MATCHED = 'matched';
+    public const FIELD_SYMBOL = 'symbol';
+    public const FIELD_TEST_GREEN = 'test_green';
+    public const FIELD_RECEIPT = 'receipt';
 
     public const RANK = [
         self::LEVEL_SPEC => 0,
@@ -124,7 +130,7 @@ class AtlasAaeosImplementationTruthService
         if ($capability !== null && AiValueNormalizer::trimmedStringOrNull($capability) !== null) {
             $docs = array_values(array_filter(
                 $docs,
-                fn (array $doc): bool => $doc['id'] === $capability || str_contains($doc['path'], $capability),
+                fn (array $doc): bool => $doc['id'] === $capability || str_contains($doc[self::FIELD_PATH], $capability),
             ));
         }
 
@@ -141,16 +147,16 @@ class AtlasAaeosImplementationTruthService
             if ($result[self::FIELD_DRIFT] === true) {
                 $driftCount++;
             }
-            if (($result[self::FIELD_RESOLVED]['test'] ?? false) === true) {
+            if (($result[self::FIELD_RESOLVED][self::FIELD_TEST] ?? false) === true) {
                 $testBearingRows++;
-                if (($result[self::FIELD_RESOLVED]['test_green'] ?? false) === true) {
+                if (($result[self::FIELD_RESOLVED][self::FIELD_TEST_GREEN] ?? false) === true) {
                     $greenRows++;
                 }
             }
             $rows[] = [
                 self::FIELD_SCHEMA_VERSION => self::LEDGER_SCHEMA,
                 self::FIELD_CAPABILITY_ID => $doc['id'],
-                self::FIELD_OWNER_DOC => $doc['path'],
+                self::FIELD_OWNER_DOC => $doc[self::FIELD_PATH],
                 self::FIELD_CLAIMED_STATE => $result[self::FIELD_CLAIMED_STATE],
                 self::FIELD_CLAIMED_STATE_RAW => $result[self::FIELD_CLAIMED_STATE_RAW],
                 self::FIELD_COMPUTED_STATE => $result[self::FIELD_COMPUTED_STATE],
@@ -287,7 +293,7 @@ class AtlasAaeosImplementationTruthService
         if ($capability !== null && AiValueNormalizer::trimmedStringOrNull($capability) !== null) {
             $docs = array_values(array_filter(
                 $docs,
-                fn (array $doc): bool => $doc['id'] === $capability || str_contains($doc['path'], $capability),
+                fn (array $doc): bool => $doc['id'] === $capability || str_contains($doc[self::FIELD_PATH], $capability),
             ));
         }
 
@@ -306,7 +312,7 @@ class AtlasAaeosImplementationTruthService
                 $testRefs[] = [
                     self::FIELD_REF => $value,
                     'index_resolved' => ($resolution[self::FIELD_RESOLVED] ?? false) === true,
-                    'matched' => $resolution['matched'] ?? null,
+                    self::FIELD_MATCHED => $resolution[self::FIELD_MATCHED] ?? null,
                 ];
             }
             if ($testRefs === []) {
@@ -314,7 +320,7 @@ class AtlasAaeosImplementationTruthService
             }
             $out[] = [
                 self::FIELD_CAPABILITY_ID => $doc['id'],
-                self::FIELD_OWNER_DOC => $doc['path'],
+                self::FIELD_OWNER_DOC => $doc[self::FIELD_PATH],
                 self::FIELD_EVIDENCE_REFS => $doc[self::FIELD_EVIDENCE_REFS],
                 'test_refs' => $testRefs,
             ];
@@ -364,7 +370,7 @@ class AtlasAaeosImplementationTruthService
             $relativePath = str_replace(base_path().DIRECTORY_SEPARATOR, '', $file->getPathname());
             $docs[] = [
                 'id' => AiValueNormalizer::trimmedStringOrNull($fm['id'] ?? $fm['graph_id'] ?? $relativePath) ?? $relativePath,
-                'path' => $relativePath,
+                self::FIELD_PATH => $relativePath,
                 self::FIELD_IMPLEMENTATION_STATE => (AiValueNormalizer::trimmedStringOrNull($fm[self::FIELD_IMPLEMENTATION_STATE] ?? null) ?? self::LEVEL_SPEC),
                 self::FIELD_EVIDENCE_REFS => $evidenceRefs,
             ];
@@ -653,10 +659,10 @@ class AtlasAaeosImplementationTruthService
             }
         }
 
-        $hasSymbol = $resolvedKinds['symbol'] ?? false;
+        $hasSymbol = $resolvedKinds[self::FIELD_SYMBOL] ?? false;
         $hasWiring = ($resolvedKinds['route'] ?? false) || ($resolvedKinds[self::FIELD_COMMAND] ?? false);
-        $hasTest = $resolvedKinds['test'] ?? false;
-        $hasReceipt = $resolvedKinds['receipt'] ?? false;
+        $hasTest = $resolvedKinds[self::FIELD_TEST] ?? false;
+        $hasReceipt = $resolvedKinds[self::FIELD_RECEIPT] ?? false;
 
         // A test counts toward verified ONLY when it resolved AND a green run backs it.
         // $greenTestRun null/false => not green => existence-only never reaches verified.
@@ -710,13 +716,13 @@ class AtlasAaeosImplementationTruthService
             self::FIELD_DRIFT => $rankClaimed > $rankComputed,
             self::FIELD_UNDER_CLAIM => $rankComputed > $rankClaimed,
             self::FIELD_RESOLVED => [
-                'symbol' => $hasSymbol,
+                self::FIELD_SYMBOL => $hasSymbol,
                 'wiring' => $hasWiring,
-                'test' => $hasTest,
+                self::FIELD_TEST => $hasTest,
                 // test_green is the load-bearing new signal: a resolved test that is
                 // NOT green-backed (existence-only) reports test=true, test_green=false.
-                'test_green' => $hasGreenTest,
-                'receipt' => $hasReceipt,
+                self::FIELD_TEST_GREEN => $hasGreenTest,
+                self::FIELD_RECEIPT => $hasReceipt,
             ],
             self::FIELD_UNMET_EVIDENCE => $unmet,
             self::FIELD_EVIDENCE => array_values($resolutions),

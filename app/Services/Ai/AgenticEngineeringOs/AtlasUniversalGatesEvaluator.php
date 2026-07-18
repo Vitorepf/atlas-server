@@ -6885,6 +6885,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function truthImmuneVetoFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'truth_field_path' => AtlasAaeosImplementationTruthService::FIELD_PATH,
+            'truth_field_test' => AtlasAaeosImplementationTruthService::FIELD_TEST,
+            'truth_field_matched' => AtlasAaeosImplementationTruthService::FIELD_MATCHED,
+            'truth_field_symbol' => AtlasAaeosImplementationTruthService::FIELD_SYMBOL,
+            'truth_field_test_green' => AtlasAaeosImplementationTruthService::FIELD_TEST_GREEN,
+            'truth_field_receipt' => AtlasAaeosImplementationTruthService::FIELD_RECEIPT,
+            'immune_field_matched' => AtlasImmuneHybridInputClassifier::FIELD_MATCHED,
+            'immune_field_enforce_applied' => AtlasImmuneHybridInputClassifier::FIELD_ENFORCE_APPLIED,
+            'immune_field_signature' => AtlasImmuneHybridInputClassifier::FIELD_SIGNATURE,
+            'immune_field_origin_ref' => AtlasImmuneHybridInputClassifier::FIELD_ORIGIN_REF,
+            'immune_field_hit_count_after' => AtlasImmuneHybridInputClassifier::FIELD_HIT_COUNT_AFTER,
+            'immune_field_reason' => AtlasImmuneHybridInputClassifier::FIELD_REASON,
+            'veto_field_review' => AtlasAaeosVetoPropagationResolver::FIELD_REVIEW,
+            'veto_field_operator' => AtlasAaeosVetoPropagationResolver::FIELD_OPERATOR,
+            'veto_field_product' => AtlasAaeosVetoPropagationResolver::FIELD_PRODUCT,
+            'veto_field_architect' => AtlasAaeosVetoPropagationResolver::FIELD_ARCHITECT,
+            'veto_field_dev' => AtlasAaeosVetoPropagationResolver::FIELD_DEV,
+            'truth_immune_veto_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

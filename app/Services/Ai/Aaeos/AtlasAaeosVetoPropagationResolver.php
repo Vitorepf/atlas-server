@@ -47,6 +47,11 @@ final class AtlasAaeosVetoPropagationResolver
     public const FIELD_REPAIR_ITERATION = 'repair_iteration';
 
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_REVIEW = 'review';
+    public const FIELD_OPERATOR = 'operator';
+    public const FIELD_PRODUCT = 'product';
+    public const FIELD_ARCHITECT = 'architect';
+    public const FIELD_DEV = 'dev';
 
     public const RESOLUTION_PROPAGATE_PAUSE = 'propagate_pause';
 
@@ -82,16 +87,16 @@ final class AtlasAaeosVetoPropagationResolver
     public function canonicalTransitions(): array
     {
         return [
-            'product' => ['architect'],
-            'architect' => ['security', 'forge', 'dev'],
-            'dev' => ['review'],
-            'forge' => ['review'],
-            'review' => ['architect', 'delivery'],
+            self::FIELD_PRODUCT => [self::FIELD_ARCHITECT],
+            self::FIELD_ARCHITECT => ['security', 'forge', 'dev'],
+            self::FIELD_DEV => [self::FIELD_REVIEW],
+            'forge' => [self::FIELD_REVIEW],
+            self::FIELD_REVIEW => ['architect', 'delivery'],
             'security' => ['operator', 'architect'],
-            'delivery' => ['operator'],
-            'operator' => ['memory'],
+            'delivery' => [self::FIELD_OPERATOR],
+            self::FIELD_OPERATOR => ['memory'],
             'qa' => ['dev', 'forge'],
-            'debug' => ['dev'],
+            'debug' => [self::FIELD_DEV],
             'memory' => [],
         ];
     }
@@ -192,7 +197,7 @@ final class AtlasAaeosVetoPropagationResolver
                 self::FIELD_RESOLUTION => self::RESOLUTION_PROPAGATE_PAUSE,
                 self::FIELD_PAUSE_SET => $this->reachableTargets(['dev', 'forge', 'delivery']),
                 self::FIELD_REDIRECT_TO => [],
-                self::FIELD_ESCALATION_TARGET => $this->reachableTargets(['operator']),
+                self::FIELD_ESCALATION_TARGET => $this->reachableTargets([self::FIELD_OPERATOR]),
                 self::FIELD_OVERRIDE => false,
                 self::FIELD_MATCHED_RULE => 'security_veto',
                 self::FIELD_REASON => self::REASON_SECURITY_VETO_PAUSE_DOWNSTREAM,
@@ -204,7 +209,7 @@ final class AtlasAaeosVetoPropagationResolver
             return [
                 self::FIELD_RESOLUTION => self::RESOLUTION_REDIRECT_UPSTREAM,
                 self::FIELD_PAUSE_SET => [],
-                self::FIELD_REDIRECT_TO => $this->reachableTargets(['product']),
+                self::FIELD_REDIRECT_TO => $this->reachableTargets([self::FIELD_PRODUCT]),
                 self::FIELD_ESCALATION_TARGET => [],
                 self::FIELD_OVERRIDE => false,
                 self::FIELD_MATCHED_RULE => 'architect_spec_veto',
