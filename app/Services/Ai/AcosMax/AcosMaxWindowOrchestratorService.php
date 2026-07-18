@@ -48,6 +48,8 @@ final class AcosMaxWindowOrchestratorService
     public const FIELD_SHADOW_MINIMUM_WINDOW = 'shadow_minimum_window';
     public const FIELD_STARTS_WINDOWS = 'starts_windows';
     public const FIELD_CRITICAL_PATH = 'critical_path';
+    public const FIELD_ALERTS = 'alerts';
+    public const FIELD_DAYS_ELAPSED = 'days_elapsed';
 
 
     public function __construct(
@@ -98,7 +100,7 @@ final class AcosMaxWindowOrchestratorService
             'parallelizable_groups' => $this->parallelizableGroups($active),
             'watchdog' => [
                 'dead_after_days' => max(1, $deadAfterDays),
-                'alerts' => array_values(array_filter(
+                self::FIELD_ALERTS => array_values(array_filter(
                     array_map(static fn (array $window): ?array => $window[self::FIELD_WATCHDOG_ALERT] ?? null, $windows)
                 )),
             ],
@@ -187,7 +189,7 @@ final class AcosMaxWindowOrchestratorService
             self::FIELD_STATE => (AiValueNormalizer::trimmedStringOrNull($lastEvent['to_state'] ?? null) ?? self::STATE_UNKNOWN),
             self::FIELD_OBSERVATION_WINDOW_ID => (AiValueNormalizer::trimmedStringOrNull($lastEvent[self::FIELD_OBSERVATION_WINDOW_ID] ?? null) ?? ''),
             self::FIELD_STARTED_AT => $startedAt?->format(DateTimeInterface::ATOM),
-            'days_elapsed' => $elapsed,
+            self::FIELD_DAYS_ELAPSED => $elapsed,
             self::FIELD_DAYS_REMAINING => $remaining,
             self::FIELD_BLOCKING => $remaining === 0 ? [] : ['minimum_window_running'],
         ]);

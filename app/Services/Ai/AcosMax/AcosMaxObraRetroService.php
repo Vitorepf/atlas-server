@@ -78,6 +78,8 @@ final class AcosMaxObraRetroService
     public const FIELD_QUALITY = 'quality';
     public const FIELD_MEMORY_ADMISSION = 'memory_admission';
     public const FIELD_REQUIRES_HUMAN_REVIEW = 'requires_human_review';
+    public const FIELD_LINE = 'line';
+    public const FIELD_METRICS = 'metrics';
 
     public function __construct(
         private readonly AtlasEngineeringOutcomeRecorder $outcomes,
@@ -197,7 +199,7 @@ final class AcosMaxObraRetroService
         $recorded = $this->outcomes->record([
             self::FIELD_EXECUTOR => 'forge',
             'objective' => sprintf('ACOS Max lote %d slice %s reached %s', $lote, $slice['id'], $slice[self::FIELD_STATE]),
-            self::FIELD_SUMMARY => AiValueNormalizer::trimmedScalarStringOrNull($slice['line'] ?? null) ?? '',
+            self::FIELD_SUMMARY => AiValueNormalizer::trimmedScalarStringOrNull($slice[self::FIELD_LINE] ?? null) ?? '',
             self::FIELD_STATUS => $status,
             self::FIELD_WORKSPACE => base_path(),
             'surface_id' => self::SERIES_TAG,
@@ -212,7 +214,7 @@ final class AcosMaxObraRetroService
             self::FIELD_SLICE_ID => $slice['id'],
             self::FIELD_SLICE_STATE => $slice[self::FIELD_STATE],
             self::FIELD_EVIDENCE_REFS => AiValueNormalizer::arrayOrEmpty($slice[self::FIELD_EVIDENCE_REFS] ?? null),
-            'metrics' => [
+            self::FIELD_METRICS => [
                 'tests_passed' => $status === self::OUTCOME_STATUS_SUCCEEDED,
                 'obra_retro_lote' => $lote,
             ],
@@ -308,7 +310,7 @@ final class AcosMaxObraRetroService
             $slices[] = [
                 'id' => $sliceId,
                 self::FIELD_STATE => $state,
-                'line' => $line,
+                self::FIELD_LINE => $line,
                 self::FIELD_EVIDENCE_REFS => [
                     sprintf('scoreboard:lote-%d:%s', $lote, $sliceId),
                     self::SCOREBOARD_RELATIVE_PATH.':'.($index + 1),

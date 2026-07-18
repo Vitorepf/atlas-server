@@ -99,6 +99,8 @@ class AtlasAcosEvolutionScoreService
     public const DELTA_SERIES_EVIDENCE_RELATIVE = 'app/atlas/evidence/acos-delta-series.jsonl';
 
     public const SCHEDULER_HEARTBEAT_RELATIVE = 'atlas/scheduler/heartbeat.jsonl';
+    public const FIELD_ACOS_SCORECARD_OVERALL = 'acos_scorecard_overall';
+    public const FIELD_AUTONOMIA = 'autonomia';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -125,9 +127,9 @@ class AtlasAcosEvolutionScoreService
             'dimensions' => [
                 'execucao_provada' => $execucao,
                 'inteligencia_entregue' => $inteligencia,
-                'autonomia' => $autonomia,
+                self::FIELD_AUTONOMIA => $autonomia,
             ],
-            'acos_scorecard_overall' => AiValueNormalizer::finiteFloatOrNull(data_get($card, 'score.overall_out_of_10', 0.0)) ?? 0.0,
+            self::FIELD_ACOS_SCORECARD_OVERALL => AiValueNormalizer::finiteFloatOrNull(data_get($card, 'score.overall_out_of_10', 0.0)) ?? 0.0,
             'notes' => [
                 'method' => 'Toda parcela é função de evidência resolvida em runtime (probe de DB/arquivo/agenda/classe); nenhum literal auto-declarado.',
                 'autonomy_governance' => 'Carta de Autonomia (Regra 4): a assinatura do operador foi revogada; a parcela antes presa a ela agora mede o substituto REAL — reversibilidade viva (git revert + atlas:brain:replay) + Diário de Evolução íntegro. Degrade-safe: sem esse substrato, pontua 0, nunca fabricado.',

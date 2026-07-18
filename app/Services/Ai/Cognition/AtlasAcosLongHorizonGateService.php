@@ -127,6 +127,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_CERTIFICATION_WINDOW_DAYS_BELOW_FLOOR = 'certification_window_days_below_floor';
     public const FIELD_CERTIFICATION_WINDOW_END = 'certification_window_end';
     public const FIELD_CERTIFICATION_WINDOW_SAMPLE_COUNT = 'certification_window_sample_count';
+    public const FIELD_CERTIFICATION_WINDOW_START = 'certification_window_start';
+    public const FIELD_COMPLETION_REQUIRES_REAL_30D_WINDOW = 'completion_requires_real_30d_window';
 
     /**
      * @param  array<string,mixed>  $options
@@ -353,7 +355,7 @@ final class AtlasAcosLongHorizonGateService
             self::FIELD_TODAY => $window[self::FIELD_TODAY] ?? null,
             self::FIELD_FUTURE_DATED_ROWS => (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_FUTURE_DATED_ROWS] ?? null) ?? 0),
             self::FIELD_LATEST_STALENESS_DAYS => (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_LATEST_STALENESS_DAYS] ?? null) ?? 0),
-            'certification_window_start' => $certificationWindowDates[0] ?? null,
+            self::FIELD_CERTIFICATION_WINDOW_START => $certificationWindowDates[0] ?? null,
             self::FIELD_CERTIFICATION_WINDOW_END => $latestDate,
             self::FIELD_CERTIFICATION_WINDOW_SAMPLE_COUNT => count($sampledDatesInWindow),
             self::FIELD_MAX_CONSECUTIVE_GAP_DAYS => (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_MAX_CONSECUTIVE_GAP_DAYS] ?? null) ?? 0),
@@ -953,7 +955,7 @@ final class AtlasAcosLongHorizonGateService
                 'provider_tokens_spent' => false,
                 'workspace_mutated' => false,
                 self::FIELD_BENCHMARK_CLAIM_ALLOWED => false,
-                'completion_requires_real_30d_window' => true,
+                self::FIELD_COMPLETION_REQUIRES_REAL_30D_WINDOW => true,
             ],
         ];
         if ($assessmentV2 !== null) {

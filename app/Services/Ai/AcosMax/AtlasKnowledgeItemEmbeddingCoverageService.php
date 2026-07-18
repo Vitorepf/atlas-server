@@ -69,6 +69,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const FIELD_KIND = 'kind';
     public const FIELD_FORMULA = 'formula';
     public const FIELD_THRESHOLDS = 'thresholds';
+    public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
+    public const FIELD_DENOMINATOR_MIN_ACTIVE_ITEMS = 'denominator_min_active_items';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -80,14 +82,14 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_THRESHOLDS => [
                 'target_coverage_ratio' => 1.0,
-                'denominator_min_active_items' => 1,
+                self::FIELD_DENOMINATOR_MIN_ACTIVE_ITEMS => 1,
                 'stale_definition' => 'embedded_content_hash != content_hash',
                 'missing_definition' => 'embedding_model IS NULL OR embedded_content_hash IS NULL',
                 'scope' => 'active_items_only',
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
             'ttl_days' => 60,
-            'author_engine_id' => 'cursor-acos-max-maxa06-fase1',
+            self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxa06-fase1',
             'judge_engine_id' => 'codex-independent-maxa06-fase1-judge',
             'dual_read_required' => false,
             'series_registry' => [

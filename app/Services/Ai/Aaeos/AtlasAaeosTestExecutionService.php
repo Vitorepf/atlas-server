@@ -55,6 +55,8 @@ class AtlasAaeosTestExecutionService
     public const FIELD_FILTER = 'filter';
     public const FIELD_COMMIT_STAMP = 'commit_stamp';
     public const FIELD_RAN_AT = 'ran_at';
+    public const FIELD_METHOD = 'method';
+    public const FIELD_BORN_STALE = 'born_stale';
 
     public function __construct(
         private readonly float $timeout = 180.0,
@@ -282,7 +284,7 @@ class AtlasAaeosTestExecutionService
 
         return [
             'sealed' => $sealed,
-            'born_stale' => ! $sealed,
+            self::FIELD_BORN_STALE => ! $sealed,
             'fresh_hashes' => $freshHashes,
             'explain' => $sealed ? null : $truth->explainImplFilesHash($evidenceRefs),
             'git_porcelain' => $this->gitPorcelainForensics(),
@@ -362,9 +364,9 @@ class AtlasAaeosTestExecutionService
         $class = ltrim(AiValueNormalizer::trimmedStringOrNull($fqn['class']) ?? '', '\\');
         $classPattern = preg_quote($class, '/');
 
-        if (($fqn['method'] ?? null) !== null && $fqn['method'] !== '') {
+        if (($fqn[self::FIELD_METHOD] ?? null) !== null && $fqn[self::FIELD_METHOD] !== '') {
             // Bind to the exact class::method end of the FQN.
-            return '/'.$classPattern.'::'.preg_quote($fqn['method'], '/').'$/';
+            return '/'.$classPattern.'::'.preg_quote($fqn[self::FIELD_METHOD], '/').'$/';
         }
 
         // Whole class: bind the class boundary so "FooTest" does not match "BarFooTest".

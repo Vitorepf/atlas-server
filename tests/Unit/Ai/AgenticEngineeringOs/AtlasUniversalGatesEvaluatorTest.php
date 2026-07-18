@@ -6399,19 +6399,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['frontier_rerank_fabric_cockpit_http_specpack_advisory_ncapture_model_floor_count']);
     }
 
+    public function test_texec_obra_evo_window_rollback_maturity_embed_horizon_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->texecObraEvoWindowRollbackMaturityEmbedHorizonFloorsContractObserve([]);
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+        $this->assertSame('method', $payload['texec_field_method']);
+        $this->assertSame('born_stale', $payload['texec_field_born_stale']);
+        $this->assertSame('line', $payload['obra_retro_field_line']);
+        $this->assertSame('metrics', $payload['obra_retro_field_metrics']);
+        $this->assertSame('acos_scorecard_overall', $payload['evo_score_field_acos_scorecard_overall']);
+        $this->assertSame('autonomia', $payload['evo_score_field_autonomia']);
+        $this->assertSame('alerts', $payload['window_orch_field_alerts']);
+        $this->assertSame('days_elapsed', $payload['window_orch_field_days_elapsed']);
+        $this->assertSame('alerts', $payload['rollback_field_alerts']);
+        $this->assertSame('condition', $payload['rollback_field_condition']);
+        $this->assertSame('all_bands_breached', $payload['maturity_field_all_bands_breached']);
+        $this->assertSame('departments', $payload['maturity_field_departments']);
+        $this->assertSame('author_engine_id', $payload['embed_item_field_author_engine_id']);
+        $this->assertSame('denominator_min_active_items', $payload['embed_item_field_denominator_min_active_items']);
+        $this->assertSame('author_engine_id', $payload['embed_symbol_field_author_engine_id']);
+        $this->assertSame('default_switch', $payload['embed_symbol_field_default_switch']);
+        $this->assertSame('certification_window_start', $payload['longhorizon_field_certification_window_start']);
+        $this->assertSame('completion_requires_real_30d_window', $payload['longhorizon_field_completion_requires_real_30d_window']);
+        $this->assertSame(18, $payload['texec_obra_evo_window_rollback_maturity_embed_horizon_floor_count']);
+    }
 
 }

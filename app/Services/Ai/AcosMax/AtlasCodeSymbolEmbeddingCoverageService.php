@@ -67,6 +67,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_KIND = 'kind';
     public const FIELD_FORMULA = 'formula';
     public const FIELD_THRESHOLDS = 'thresholds';
+    public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
+    public const FIELD_DEFAULT_SWITCH = 'default_switch';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -82,11 +84,11 @@ final class AtlasCodeSymbolEmbeddingCoverageService
                 'stale_definition' => 'atlas_code_symbol_embeddings.embedded_content_hash != atlas_engineering_code_symbols.source_hash',
                 'missing_definition' => 'no matching row in atlas_code_symbol_embeddings for symbol_id',
                 'scope' => 'active_symbols_only',
-                'default_switch' => 'off',
+                self::FIELD_DEFAULT_SWITCH => 'off',
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
             'ttl_days' => 60,
-            'author_engine_id' => 'cursor-acos-max-maxa06-fase2',
+            self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxa06-fase2',
             'judge_engine_id' => 'codex-independent-maxa06-fase2-judge',
             'dual_read_required' => false,
             'series_registry' => [

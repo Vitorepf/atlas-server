@@ -8352,6 +8352,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual FIELD_* floors: testexec/obra/evo-score/window/rollback/maturity/embed/longhorizon.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function texecObraEvoWindowRollbackMaturityEmbedHorizonFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'texec_field_method' => AtlasAaeosTestExecutionService::FIELD_METHOD,
+            'texec_field_born_stale' => AtlasAaeosTestExecutionService::FIELD_BORN_STALE,
+            'obra_retro_field_line' => AcosMaxObraRetroService::FIELD_LINE,
+            'obra_retro_field_metrics' => AcosMaxObraRetroService::FIELD_METRICS,
+            'evo_score_field_acos_scorecard_overall' => AtlasAcosEvolutionScoreService::FIELD_ACOS_SCORECARD_OVERALL,
+            'evo_score_field_autonomia' => AtlasAcosEvolutionScoreService::FIELD_AUTONOMIA,
+            'window_orch_field_alerts' => AcosMaxWindowOrchestratorService::FIELD_ALERTS,
+            'window_orch_field_days_elapsed' => AcosMaxWindowOrchestratorService::FIELD_DAYS_ELAPSED,
+            'rollback_field_alerts' => AtlasAcosRollbackTriggerCheckService::FIELD_ALERTS,
+            'rollback_field_condition' => AtlasAcosRollbackTriggerCheckService::FIELD_CONDITION,
+            'maturity_field_all_bands_breached' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_ALL_BANDS_BREACHED,
+            'maturity_field_departments' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_DEPARTMENTS,
+            'embed_item_field_author_engine_id' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_AUTHOR_ENGINE_ID,
+            'embed_item_field_denominator_min_active_items' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_DENOMINATOR_MIN_ACTIVE_ITEMS,
+            'embed_symbol_field_author_engine_id' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_AUTHOR_ENGINE_ID,
+            'embed_symbol_field_default_switch' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_DEFAULT_SWITCH,
+            'longhorizon_field_certification_window_start' => AtlasAcosLongHorizonGateService::FIELD_CERTIFICATION_WINDOW_START,
+            'longhorizon_field_completion_requires_real_30d_window' => AtlasAcosLongHorizonGateService::FIELD_COMPLETION_REQUIRES_REAL_30D_WINDOW,
+            'texec_obra_evo_window_rollback_maturity_embed_horizon_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

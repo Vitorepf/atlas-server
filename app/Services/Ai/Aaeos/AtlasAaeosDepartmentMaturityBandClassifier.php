@@ -32,6 +32,8 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
     public const FIELD_COMPARATOR = 'comparator';
     public const FIELD_METRIC = 'metric';
     public const FIELD_VALUE = 'value';
+    public const FIELD_ALL_BANDS_BREACHED = 'all_bands_breached';
+    public const FIELD_DEPARTMENTS = 'departments';
 
     /**
      * @param  list<array{band: string, rank: int, thresholds: list<array{metric: string, comparator: string, value: float}>}>  $bandLadder  ordered lowest-first
@@ -87,7 +89,7 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_QUALIFIED_BAND => $qualifiedBand,
             self::FIELD_QUALIFIED_RANK => $qualifiedRank,
-            'all_bands_breached' => $allBandsBreached,
+            self::FIELD_ALL_BANDS_BREACHED => $allBandsBreached,
             'per_band' => $perBand,
             'next_band' => $nextBand,
             'next_band_breaches' => $nextBandBreaches,
@@ -116,7 +118,7 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'departments' => $departments,
+            self::FIELD_DEPARTMENTS => $departments,
         ];
     }
 

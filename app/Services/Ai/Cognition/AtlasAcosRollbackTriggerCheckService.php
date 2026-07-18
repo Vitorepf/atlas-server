@@ -50,6 +50,8 @@ final class AtlasAcosRollbackTriggerCheckService
     public const FIELD_ALERT_CODE = 'alert_code';
 
     public const REASON_SIMULATED_CONDITION = 'simulated_condition';
+    public const FIELD_ALERTS = 'alerts';
+    public const FIELD_CONDITION = 'condition';
 
 
     /**
@@ -109,7 +111,7 @@ final class AtlasAcosRollbackTriggerCheckService
             self::FIELD_ENABLED => $enabled,
             'flip_count' => count($evaluations),
             'evaluations' => $evaluations,
-            'alerts' => $alerts,
+            self::FIELD_ALERTS => $alerts,
         ];
     }
 
@@ -140,7 +142,7 @@ final class AtlasAcosRollbackTriggerCheckService
     private function evaluateFlip(array $flip, CarbonImmutable $asOf): array
     {
         $id = (AiValueNormalizer::trimmedStringOrNull($flip['id'] ?? null) ?? '');
-        $condition = AiValueNormalizer::arrayOrEmpty($flip['condition'] ?? null);
+        $condition = AiValueNormalizer::arrayOrEmpty($flip[self::FIELD_CONDITION] ?? null);
         $armed = $this->flipIsArmed($condition);
 
         return [
