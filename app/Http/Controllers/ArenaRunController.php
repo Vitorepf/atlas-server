@@ -32,6 +32,11 @@ class ArenaRunController extends Controller
         return response()->json($service->live());
     }
 
+    public function engines(ArenaRunsLiveService $service): JsonResponse
+    {
+        return response()->json($service->engines());
+    }
+
     public function store(Request $request, ArenaRunsLiveService $service): JsonResponse
     {
         $result = $service->start($request->all());

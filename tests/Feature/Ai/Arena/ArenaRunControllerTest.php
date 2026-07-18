@@ -120,6 +120,21 @@ class ArenaRunControllerTest extends TestCase
             ->assertJsonPath('suite', 'not_installed');
     }
 
+    public function test_engines_catalog_lists_enabled_and_never_harness_only(): void
+    {
+        $this->getJson('/arena/engines')->assertStatus(401);
+
+        $response = $this->getJson('/arena/engines', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('schema_version', 'atlas.arena.engines.v1');
+
+        $engines = array_column($response->json('engines'), 'engine');
+        $this->assertContains('codex_gpt_5_5', $engines);
+        $this->assertNotContains('mockllm', $engines);
+        $this->assertNotContains('local_fake_model', $engines);
+        $this->assertNotContains('kimi', $engines); // disabled não roda
+    }
+
     public function test_start_records_origin_and_live_projects_it(): void
     {
         $this->postJson('/arena/runs', [

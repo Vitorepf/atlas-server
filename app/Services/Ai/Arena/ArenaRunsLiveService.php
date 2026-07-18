@@ -60,6 +60,36 @@ final class ArenaRunsLiveService
         ];
     }
 
+    /**
+     * Catálogo público de motores rodáveis: enabled e nunca harness-only.
+     *
+     * @return array<string, mixed>
+     */
+    public function engines(): array
+    {
+        $engines = [];
+        foreach ((array) config('atlas_rivals.models', []) as $engine => $model) {
+            if (! is_string($engine) || ! is_array($model)) {
+                continue;
+            }
+            if (($model['enabled'] ?? false) !== true || ! $this->store->isPublicEngine($engine)) {
+                continue;
+            }
+            $engines[] = [
+                'engine' => $engine,
+                'access_type' => (string) ($model['access_type'] ?? ''),
+                'local' => ($model['local'] ?? false) === true,
+            ];
+        }
+        usort($engines, static fn (array $a, array $b): int => strcmp($a['engine'], $b['engine']));
+
+        return [
+            'schema_version' => 'atlas.arena.engines.v1',
+            'generated_at' => now()->toIso8601String(),
+            'engines' => $engines,
+        ];
+    }
+
     /** @return array<string, mixed> */
     public function start(array $input): array
     {

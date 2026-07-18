@@ -266,6 +266,7 @@ Route::middleware('atlas.token')->group(function () use ($registerAtlasVoiceRout
     Route::get('/arena/scoreboard', [ArenaRunController::class, 'scoreboard']);
     Route::get('/arena/capabilities', [ArenaRunController::class, 'capabilities']);
     Route::get('/arena/runs/live', [ArenaRunController::class, 'live']);
+    Route::get('/arena/engines', [ArenaRunController::class, 'engines']);
     Route::post('/arena/runs', [ArenaRunController::class, 'store']);
 
     // Atlas Código C22 · local-first, read-only Git topology for the native app.
