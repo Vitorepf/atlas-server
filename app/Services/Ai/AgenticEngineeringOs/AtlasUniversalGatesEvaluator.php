@@ -19799,4 +19799,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B721).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b721ImmuneSignatureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'immune_signature_store' => ImmuneSignatureStore::TABLE,
+            'atlas.cognition.immune_signature_store.v1' => ImmuneSignatureStore::SCHEMA_VERSION,
+            'atlas.immune.signature_store.v1' => ImmuneSignatureStore::MEASURE_ID,
+            'active' => ImmuneSignatureStore::STATUS_ACTIVE,
+            'revoked' => ImmuneSignatureStore::STATUS_REVOKED,
+            'decayed' => ImmuneSignatureStore::STATUS_DECAYED,
+            'unavailable' => ImmuneSignatureStore::STATUS_UNAVAILABLE,
+            'ok' => ImmuneSignatureStore::STATUS_OK,
+            'pending_window' => ImmuneSignatureStore::STATUS_PENDING_WINDOW,
+            'status' => ImmuneSignatureStore::FIELD_STATUS,
+            'signature' => ImmuneSignatureStore::FIELD_SIGNATURE,
+            'schema_version' => ImmuneSignatureStore::FIELD_SCHEMA_VERSION,
+            'hostile_class' => ImmuneSignatureStore::FIELD_HOSTILE_CLASS,
+            'origin_ref' => ImmuneSignatureStore::FIELD_ORIGIN_REF,
+            'hit_count' => ImmuneSignatureStore::FIELD_HIT_COUNT,
+            'content_hash' => ImmuneSignatureStore::FIELD_CONTENT_HASH,
+            'last_hit_at' => ImmuneSignatureStore::FIELD_LAST_HIT_AT,
+            'mode' => ImmuneSignatureStore::FIELD_MODE,
+            'b721_immune_signature_floor_count' => 18,
+        ];
+    }
+
 }
