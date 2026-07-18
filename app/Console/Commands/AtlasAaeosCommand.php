@@ -721,6 +721,7 @@ final class AtlasAaeosCommand extends Command
                             {--b696-reactive-saturation-floors-contract= : JSON file (any object) to observe reactive/saturation floors}
                             {--b697-structured-fact-floors-contract= : JSON file (any object) to observe structured/fact floors}
                             {--b698-gated-corpus-floors-contract= : JSON file (any object) to observe gated/corpus floors}
+                            {--b699-procedural-skill-floors-contract= : JSON file (any object) to observe procedural/skill floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1598,6 +1599,7 @@ final class AtlasAaeosCommand extends Command
             ['b696-reactive-saturation-floors-contract', 'b696_reactive_saturation_floors_contract', fn (array $p) => $gates->b696ReactiveSaturationFloorsContractObserve($p)],
             ['b697-structured-fact-floors-contract', 'b697_structured_fact_floors_contract', fn (array $p) => $gates->b697StructuredFactFloorsContractObserve($p)],
             ['b698-gated-corpus-floors-contract', 'b698_gated_corpus_floors_contract', fn (array $p) => $gates->b698GatedCorpusFloorsContractObserve($p)],
+            ['b699-procedural-skill-floors-contract', 'b699_procedural_skill_floors_contract', fn (array $p) => $gates->b699ProceduralSkillFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

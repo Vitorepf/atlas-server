@@ -15149,4 +15149,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b698_gated_corpus_floor_count']);
     }
 
+    public function test_b699_procedural_skill_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b699ProceduralSkillFloorsContractObserve([]);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_FRONTIER_PROMOTES, $out['frontier_promotes']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_KIND, $out['kind']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::SCHEMA_VERSION, $out['atlas.ai.procedural_skill_promoter.v1']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::SKILL_SCHEMA_VERSION, $out['skill.v1']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR, $out['8']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::ENQUEUE_ENABLED_CONFIG_KEY, $out['atlas.ai.procedural_skill_promoter.enqueue_enabled']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::SLICE_MULTJ04, $out['MULTJ-04']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::STATUS_OK, $out['ok']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_PENDING_WINDOW, $out['pending_window']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_PENDING_WINDOW, $out['pending_window']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_PROMOTION_ALLOWED, $out['promotion_allowed']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_CASE_COUNT, $out['case_count']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_TASK_CATEGORY, $out['task_category']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_CASE_COUNT_FLOOR, $out['case_count_floor']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_CANDIDATE_HASH, $out['candidate_hash']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_ADMISSION_DOOR, $out['admission_door']);
+        $this->assertSame(18, $out['b699_procedural_skill_floor_count']);
+    }
+
 }

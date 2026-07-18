@@ -19117,4 +19117,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B699).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b699ProceduralSkillFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'frontier_promotes' => AcosMaxProceduralSkillPromoterService::FIELD_FRONTIER_PROMOTES,
+            'kind' => AcosMaxProceduralSkillPromoterService::FIELD_KIND,
+            'atlas.ai.procedural_skill_promoter.v1' => AcosMaxProceduralSkillPromoterService::SCHEMA_VERSION,
+            'skill.v1' => AcosMaxProceduralSkillPromoterService::SKILL_SCHEMA_VERSION,
+            '8' => AcosMaxProceduralSkillPromoterService::DEFAULT_CASE_COUNT_FLOOR,
+            'atlas.ai.procedural_skill_promoter.enqueue_enabled' => AcosMaxProceduralSkillPromoterService::ENQUEUE_ENABLED_CONFIG_KEY,
+            'MULTJ-04' => AcosMaxProceduralSkillPromoterService::SLICE_MULTJ04,
+            'ok' => AcosMaxProceduralSkillPromoterService::STATUS_OK,
+            'pending_window' => AcosMaxProceduralSkillPromoterService::FIELD_PENDING_WINDOW,
+            'pending_window' => AcosMaxProceduralSkillPromoterService::FIELD_PENDING_WINDOW,
+            'promotion_allowed' => AcosMaxProceduralSkillPromoterService::FIELD_PROMOTION_ALLOWED,
+            'case_count' => AcosMaxProceduralSkillPromoterService::FIELD_CASE_COUNT,
+            'task_category' => AcosMaxProceduralSkillPromoterService::FIELD_TASK_CATEGORY,
+            'status' => AcosMaxProceduralSkillPromoterService::FIELD_STATUS,
+            'schema_version' => AcosMaxProceduralSkillPromoterService::FIELD_SCHEMA_VERSION,
+            'case_count_floor' => AcosMaxProceduralSkillPromoterService::FIELD_CASE_COUNT_FLOOR,
+            'candidate_hash' => AcosMaxProceduralSkillPromoterService::FIELD_CANDIDATE_HASH,
+            'admission_door' => AcosMaxProceduralSkillPromoterService::FIELD_ADMISSION_DOOR,
+            'b699_procedural_skill_floor_count' => 18,
+        ];
+    }
+
 }
