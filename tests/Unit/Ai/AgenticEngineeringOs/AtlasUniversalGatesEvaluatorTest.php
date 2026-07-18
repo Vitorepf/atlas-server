@@ -15124,4 +15124,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b697_structured_fact_floor_count']);
     }
 
+    public function test_b698_gated_corpus_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b698GatedCorpusFloorsContractObserve([]);
+        $this->assertSame(GatedCorpusCandidateMiner::SCHEMA_VERSION, $out['atlas.corpus.gated_candidate_miner.v1']);
+        $this->assertSame(GatedCorpusCandidateMiner::SOURCE_UNKNOWN, $out['unknown']);
+        $this->assertSame(GatedCorpusCandidateMiner::STATUS_OK, $out['ok']);
+        $this->assertSame(GatedCorpusCandidateMiner::STATUS_INSUFFICIENT_SIGNAL, $out['insufficient_signal']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_SOURCE, $out['source']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_ORIGIN_REF, $out['origin_ref']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_CANDIDATE_HASH, $out['candidate_hash']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_ADMISSION, $out['admission']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_STATUS, $out['status']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_CANDIDATES, $out['candidates']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_DIRECT_WRITE, $out['direct_write']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_CANDIDATE_ONLY, $out['candidate_only']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_COUNT_IS_ACCEPTANCE, $out['count_is_acceptance']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_IMMUNE_GATES_APPLY, $out['immune_gates_apply']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_OMITTED, $out['omitted']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_VIA_ASI_02, $out['via_asi_02']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_WRITES_MEMORY_DIRECTLY, $out['writes_memory_directly']);
+        $this->assertSame(18, $out['b698_gated_corpus_floor_count']);
+    }
+
 }

@@ -19086,4 +19086,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B698).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b698GatedCorpusFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.corpus.gated_candidate_miner.v1' => GatedCorpusCandidateMiner::SCHEMA_VERSION,
+            'unknown' => GatedCorpusCandidateMiner::SOURCE_UNKNOWN,
+            'ok' => GatedCorpusCandidateMiner::STATUS_OK,
+            'insufficient_signal' => GatedCorpusCandidateMiner::STATUS_INSUFFICIENT_SIGNAL,
+            'schema_version' => GatedCorpusCandidateMiner::FIELD_SCHEMA_VERSION,
+            'source' => GatedCorpusCandidateMiner::FIELD_SOURCE,
+            'origin_ref' => GatedCorpusCandidateMiner::FIELD_ORIGIN_REF,
+            'candidate_hash' => GatedCorpusCandidateMiner::FIELD_CANDIDATE_HASH,
+            'admission' => GatedCorpusCandidateMiner::FIELD_ADMISSION,
+            'status' => GatedCorpusCandidateMiner::FIELD_STATUS,
+            'candidates' => GatedCorpusCandidateMiner::FIELD_CANDIDATES,
+            'direct_write' => GatedCorpusCandidateMiner::FIELD_DIRECT_WRITE,
+            'candidate_only' => GatedCorpusCandidateMiner::FIELD_CANDIDATE_ONLY,
+            'count_is_acceptance' => GatedCorpusCandidateMiner::FIELD_COUNT_IS_ACCEPTANCE,
+            'immune_gates_apply' => GatedCorpusCandidateMiner::FIELD_IMMUNE_GATES_APPLY,
+            'omitted' => GatedCorpusCandidateMiner::FIELD_OMITTED,
+            'via_asi_02' => GatedCorpusCandidateMiner::FIELD_VIA_ASI_02,
+            'writes_memory_directly' => GatedCorpusCandidateMiner::FIELD_WRITES_MEMORY_DIRECTLY,
+            'b698_gated_corpus_floor_count' => 18,
+        ];
+    }
+
 }
