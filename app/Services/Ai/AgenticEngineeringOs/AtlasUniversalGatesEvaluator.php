@@ -11537,4 +11537,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B452).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function cognitiveFunctionDepartmentContractModelCapabilityAcosEvolutionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'screenshot' => AtlasCognitiveFunctionDecomposerService::FIELD_SCREENSHOT,
+            'design' => AtlasCognitiveFunctionDecomposerService::FIELD_DESIGN,
+            'operator_signature_present' => DepartmentContractRuntime::FIELD_OPERATOR_SIGNATURE_PRESENT,
+            'promotion_gate_passed' => DepartmentContractRuntime::FIELD_PROMOTION_GATE_PASSED,
+            'pair_scoring_missing' => AtlasModelCapabilitySpecService::FIELD_PAIR_SCORING_MISSING,
+            'pooling' => AtlasModelCapabilitySpecService::FIELD_POOLING,
+            'hold' => AtlasAcosEvolutionScoreService::FIELD_HOLD,
+            'mission' => AtlasAcosEvolutionScoreService::FIELD_MISSION,
+            'recall_actor_counts' => CognitiveImmunePromotionGateEvaluator::FIELD_RECALL_ACTOR_COUNTS,
+            'recall_negative_feedback' => CognitiveImmunePromotionGateEvaluator::FIELD_RECALL_NEGATIVE_FEEDBACK,
+            'score_regression' => AtlasAcosWatchdogHealthService::FIELD_SCORE_REGRESSION,
+            'snapshot_fresh' => AtlasAcosWatchdogHealthService::FIELD_SNAPSHOT_FRESH,
+            'tese' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TESE,
+            'thanks' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_THANKS,
+            'missing_flip_receipt' => PromotionProtocol::FIELD_MISSING_FLIP_RECEIPT,
+            'missing_observation_window_id' => PromotionProtocol::FIELD_MISSING_OBSERVATION_WINDOW_ID,
+            'placement_decision_feature_path_valid' => AaeosHttpPathEnvelopeFactory::FIELD_PLACEMENT_DECISION_FEATURE_PATH_VALID,
+            'policy_decision_allowed_true' => AaeosHttpPathEnvelopeFactory::FIELD_POLICY_DECISION_ALLOWED_TRUE,
+            'cognitive_function_department_contract_model_capability_acos_evolution_floor_count' => 18,
+        ];
+    }
+
 }

@@ -271,6 +271,8 @@ final class DepartmentContractRuntime
     public const FIELD_MODIFY_EVIDENCE_LEDGER = 'modify_evidence_ledger';
     public const FIELD_MODIFY_MIGRATIONS_WITHOUT_ARCHITECT = 'modify_migrations_without_architect';
     public const FIELD_MODIFY_SECURITY_POLICY = 'modify_security_policy';
+    public const FIELD_OPERATOR_SIGNATURE_PRESENT = 'operator_signature_present';
+    public const FIELD_PROMOTION_GATE_PASSED = 'promotion_gate_passed';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -575,7 +577,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_MEMORY_RECORD, self::FIELD_SCHEMA => self::SCHEMA_MEMORY_RECORD],
                 [self::FIELD_NAME => self::FIELD_CONTEXT_PACK, self::FIELD_SCHEMA => self::SCHEMA_CONTEXT_PACK],
             ],
-            self::FIELD_GATES => ['evidence_persisted', self::FIELD_LEARNING_SIGNAL_EXTRACTED, 'promotion_gate_passed', 'noise_immunity_check_ok', 'schema_versioned'],
+            self::FIELD_GATES => ['evidence_persisted', self::FIELD_LEARNING_SIGNAL_EXTRACTED, self::FIELD_PROMOTION_GATE_PASSED, 'noise_immunity_check_ok', 'schema_versioned'],
             self::FIELD_ALLOWED_ACTIONS => ['promote_to_memory', 'quarantine_capsule', 'emit_context_pack'],
             self::FIELD_FORBIDDEN_ACTIONS => ['bypass_promotion_gate', self::FIELD_MODIFY_EVIDENCE_LEDGER, 'expose_secrets'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
@@ -735,7 +737,7 @@ final class DepartmentContractRuntime
             'acceptance_criteria_present',
             self::FIELD_ROLLBACK_PLAN_PRESENT,
             self::FIELD_BREAKING_CHANGE_MATRIX_PRESENT,
-            'operator_signature_present',
+            self::FIELD_OPERATOR_SIGNATURE_PRESENT,
         ];
         $normalized = [];
         foreach ($allowedKeys as $key) {

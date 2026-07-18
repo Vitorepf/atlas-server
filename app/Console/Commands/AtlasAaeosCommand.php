@@ -474,6 +474,7 @@ final class AtlasAaeosCommand extends Command
                             {--phase-advance-structured-fact-immune-check-cognitive-function-floors-contract= : JSON file (any object) to observe phase/advance/structured/fact/immune/check floors}
                             {--reality-compiler-cognitive-function-department-contract-aaeos-immune-floors-contract= : JSON file (any object) to observe reality/compiler/cognitive/function/department/contract floors}
                             {--cognitive-function-department-contract-cognition-score-lote-measure-floors-contract= : JSON file (any object) to observe cognitive/function/department/contract/cognition/score floors}
+                            {--cognitive-function-department-contract-model-capability-acos-evolution-floors-contract= : JSON file (any object) to observe cognitive/function/department/contract/model/capability floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1104,6 +1105,7 @@ final class AtlasAaeosCommand extends Command
             ['phase-advance-structured-fact-immune-check-cognitive-function-floors-contract', 'phase_advance_structured_fact_immune_check_cognitive_function_floors_contract', fn (array $p) => $gates->phaseAdvanceStructuredFactImmuneCheckCognitiveFunctionFloorsContractObserve($p)],
             ['reality-compiler-cognitive-function-department-contract-aaeos-immune-floors-contract', 'reality_compiler_cognitive_function_department_contract_aaeos_immune_floors_contract', fn (array $p) => $gates->realityCompilerCognitiveFunctionDepartmentContractAaeosImmuneFloorsContractObserve($p)],
             ['cognitive-function-department-contract-cognition-score-lote-measure-floors-contract', 'cognitive_function_department_contract_cognition_score_lote_measure_floors_contract', fn (array $p) => $gates->cognitiveFunctionDepartmentContractCognitionScoreLoteMeasureFloorsContractObserve($p)],
+            ['cognitive-function-department-contract-model-capability-acos-evolution-floors-contract', 'cognitive_function_department_contract_model_capability_acos_evolution_floors_contract', fn (array $p) => $gates->cognitiveFunctionDepartmentContractModelCapabilityAcosEvolutionFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

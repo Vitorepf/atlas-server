@@ -134,6 +134,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_AI_RAG_FEEDBACK_EVENTS = 'ai_rag_feedback_events';
     public const FIELD_ATLAS_AURG_NODES = 'atlas_aurg_nodes';
     public const FIELD_AI_COMPOUNDING_MEMORIES = 'ai_compounding_memories';
+    public const FIELD_HOLD = 'hold';
+    public const FIELD_MISSION = 'mission';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -247,7 +249,7 @@ class AtlasAcosEvolutionScoreService
             ),
         ];
 
-        $held = $this->tableCount(self::FIELD_AI_LEARNING_CANDIDATES, fn ($q) => $q->where(self::FIELD_DECISION, 'hold'));
+        $held = $this->tableCount(self::FIELD_AI_LEARNING_CANDIDATES, fn ($q) => $q->where(self::FIELD_DECISION, self::FIELD_HOLD));
         $promoted = $this->tableCount(self::FIELD_AI_LEARNING_CANDIDATES, fn ($q) => $q->where(self::FIELD_DECISION, 'promote'));
         $oldLicoesPoints = round(($held > 0 ? 1.25 : 0.0) + ($promoted > 0 ? 1.25 : 0.0), 2);
         $servedCompounding = $this->activeCompoundingMemoryServedByRecall();
@@ -370,7 +372,7 @@ class AtlasAcosEvolutionScoreService
             }
             $count = 0;
             DB::table(self::FIELD_ATLAS_AURG_NODES)
-                ->where(self::FIELD_SOURCE_KIND, 'mission')
+                ->where(self::FIELD_SOURCE_KIND, self::FIELD_MISSION)
                 ->orderBy('id')
                 ->chunkById(500, function ($nodes) use (&$count): void {
                     foreach ($nodes as $node) {

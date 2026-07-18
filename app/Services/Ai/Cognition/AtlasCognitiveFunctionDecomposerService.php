@@ -109,6 +109,8 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_FIGMA = 'figma';
     public const FIELD_FIND = 'find';
     public const FIELD_FOTO = 'foto';
+    public const FIELD_SCREENSHOT = 'screenshot';
+    public const FIELD_DESIGN = 'design';
 
     public const FUNCTIONS = [
         'reasoning',
@@ -150,9 +152,9 @@ final class AtlasCognitiveFunctionDecomposerService
             'code', 'function', 'class', 'service', 'refactor', 'test', self::FIELD_BUILD,
         ],
         self::FIELD_VISION => [
-            'imagem', self::FIELD_FOTO, 'screenshot', 'visualize', 'design', 'layout',
+            'imagem', self::FIELD_FOTO, self::FIELD_SCREENSHOT, 'visualize', self::FIELD_DESIGN, 'layout',
             'mockup', self::FIELD_FIGMA, 'png', 'jpg', 'svg', 'tela', 'ui ', 'ux ',
-            'cor ', 'paleta', 'visual', 'screenshot', 'image', 'render',
+            'cor ', 'paleta', 'visual', self::FIELD_SCREENSHOT, 'image', 'render',
         ],
         self::FIELD_AUDIT => [
             'audite', self::FIELD_AUDITA, 'audit', 'verifique', 'valide', 'cheque',

@@ -109,6 +109,8 @@ final class PromotionProtocol
     public const FIELD_SUSPEND = 'suspend';
     public const FIELD_FAMILY_WINDOW_FLIP_ALREADY_RECORDED = 'family_window_flip_already_recorded';
     public const FIELD_INVALID_STATE = 'invalid_state';
+    public const FIELD_MISSING_FLIP_RECEIPT = 'missing_flip_receipt';
+    public const FIELD_MISSING_OBSERVATION_WINDOW_ID = 'missing_observation_window_id';
 
     /** @var list<string> */
     public const STATES = [
@@ -204,12 +206,12 @@ final class PromotionProtocol
 
         $windowId = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_OBSERVATION_WINDOW_ID] ?? null) ?? '';
         if ($windowId === '') {
-            return $this->blocked('missing_observation_window_id', $flagId, $toState);
+            return $this->blocked(self::FIELD_MISSING_OBSERVATION_WINDOW_ID, $flagId, $toState);
         }
 
         $receipt = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_RECEIPT] ?? null) ?? '';
         if ($receipt === '') {
-            return $this->blocked('missing_flip_receipt', $flagId, $toState);
+            return $this->blocked(self::FIELD_MISSING_FLIP_RECEIPT, $flagId, $toState);
         }
 
         $family = AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_FAMILY] ?? null) ?? '';

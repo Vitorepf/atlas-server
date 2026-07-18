@@ -9043,4 +9043,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['cognitive_function_department_contract_cognition_score_lote_measure_floor_count']);
     }
 
+    public function test_cognitive_function_department_contract_model_capability_acos_evolution_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->cognitiveFunctionDepartmentContractModelCapabilityAcosEvolutionFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_SCREENSHOT, $out['screenshot']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_DESIGN, $out['design']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_OPERATOR_SIGNATURE_PRESENT, $out['operator_signature_present']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_PROMOTION_GATE_PASSED, $out['promotion_gate_passed']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_PAIR_SCORING_MISSING, $out['pair_scoring_missing']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_POOLING, $out['pooling']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_HOLD, $out['hold']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_MISSION, $out['mission']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_RECALL_ACTOR_COUNTS, $out['recall_actor_counts']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_RECALL_NEGATIVE_FEEDBACK, $out['recall_negative_feedback']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SCORE_REGRESSION, $out['score_regression']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SNAPSHOT_FRESH, $out['snapshot_fresh']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TESE, $out['tese']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_THANKS, $out['thanks']);
+        $this->assertSame(PromotionProtocol::FIELD_MISSING_FLIP_RECEIPT, $out['missing_flip_receipt']);
+        $this->assertSame(PromotionProtocol::FIELD_MISSING_OBSERVATION_WINDOW_ID, $out['missing_observation_window_id']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_PLACEMENT_DECISION_FEATURE_PATH_VALID, $out['placement_decision_feature_path_valid']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_POLICY_DECISION_ALLOWED_TRUE, $out['policy_decision_allowed_true']);
+        $this->assertSame(18, $out['cognitive_function_department_contract_model_capability_acos_evolution_floor_count']);
+    }
+
 }

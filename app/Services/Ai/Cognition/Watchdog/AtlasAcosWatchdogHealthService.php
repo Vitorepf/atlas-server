@@ -326,6 +326,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_NO_RECENT_DELIVERED_REFS_EVENT = 'no_recent_delivered_refs_event';
     public const FIELD_OCCURRED_AT = 'occurred_at';
     public const FIELD_RETRIEVAL_RECEIPT_ID = 'retrieval_receipt_id';
+    public const FIELD_SCORE_REGRESSION = 'score_regression';
+    public const FIELD_SNAPSHOT_FRESH = 'snapshot_fresh';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -348,7 +350,7 @@ final class AtlasAcosWatchdogHealthService
             || (is_numeric($latestDelta) && (int) $latestDelta < -self::MEMORY_SCORE_REGRESSION_TOLERANCE);
 
         $checks = [
-            $this->checkRow('score_regression', ! $scoreRegressed, [
+            $this->checkRow(self::FIELD_SCORE_REGRESSION, ! $scoreRegressed, [
                 self::FIELD_TREND_STATUS => $trendStatus,
                 self::FIELD_TOLERANCE_POINTS => self::MEMORY_SCORE_REGRESSION_TOLERANCE,
                 self::FIELD_CURRENT_DELTA_FROM_LATEST => $currentDelta,
@@ -364,7 +366,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_DEMOTION_ENABLED => $demotionEnabled,
                 self::FIELD_RECALL_USAGE_TOTAL => $recallUsageTotal,
             ], 'recall_concentration_high_without_demotion'),
-            $this->checkRow('snapshot_fresh', $snapshotAgeHours !== null && $snapshotAgeHours <= self::MEMORY_SNAPSHOT_MAX_AGE_HOURS, [
+            $this->checkRow(self::FIELD_SNAPSHOT_FRESH, $snapshotAgeHours !== null && $snapshotAgeHours <= self::MEMORY_SNAPSHOT_MAX_AGE_HOURS, [
                 self::FIELD_SNAPSHOT_AGE_HOURS => $snapshotAgeHours,
                 self::FIELD_MAX_AGE_HOURS => self::MEMORY_SNAPSHOT_MAX_AGE_HOURS,
                 self::FIELD_LATEST_SNAPSHOT_AT => $latestSnapshotAt?->toIso8601String(),

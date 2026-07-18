@@ -110,6 +110,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_INTENT_CLARITY_SCORE_MIN_0_8 = 'intent_clarity_score_min_0_8';
     public const FIELD_IS_STRING = 'is_string';
     public const FIELD_PAYLOAD = 'payload';
+    public const FIELD_PLACEMENT_DECISION_FEATURE_PATH_VALID = 'placement_decision_feature_path_valid';
+    public const FIELD_POLICY_DECISION_ALLOWED_TRUE = 'policy_decision_allowed_true';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -186,7 +188,7 @@ final class AaeosHttpPathEnvelopeFactory
                 self::FIELD_PLACEMENT_FLOW => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_FLOW] ?? null) ?? self::STATUS_UNKNOWN,
                 self::FIELD_GATE_STATUS => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_GATE_STATUS] ?? null) ?? self::STATUS_UNKNOWN,
             ],
-            gates: self::binaryGate('placement_decision_feature_path_valid', $placementOk),
+            gates: self::binaryGate(self::FIELD_PLACEMENT_DECISION_FEATURE_PATH_VALID, $placementOk),
             blockers: $placementOk ? [] : self::blockedWhenAsBlockers($placementResult),
         );
     }
@@ -243,7 +245,7 @@ final class AaeosHttpPathEnvelopeFactory
                 self::FIELD_POLICY_STATUS => $status !== '' ? $status : 'not_required',
                 self::FIELD_POLICY_ALLOWED => $allowed ? self::FIELD_YES : 'no',
             ],
-            gates: self::binaryGate('policy_decision_allowed_true', $allowed),
+            gates: self::binaryGate(self::FIELD_POLICY_DECISION_ALLOWED_TRUE, $allowed),
             blockers: self::assistedExecutionBlockers($assisted, $isDevTarget, $allowed),
         );
     }
