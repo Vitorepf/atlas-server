@@ -9964,4 +9964,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b488_acos_long_cognition_score_promotion_protocol_ledger_rotation_floor_count']);
     }
 
+    public function test_b489_cognition_score_promotion_protocol_health_report_measure_series_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b489CognitionScorePromotionProtocolHealthReportMeasureSeriesFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACFA, $out['ACFA']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACFD, $out['ACFD']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_DECIDE, $out['DECIDE']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_EVIDENCE_2, $out['EVIDENCE']);
+        $this->assertSame(PromotionProtocol::FIELD_LEGACY, $out['LEGACY']);
+        $this->assertSame(PromotionProtocol::FIELD_ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED, $out['ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_MEMORY_QUALITY_CHECK, $out['memoryQualityCheck']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_PIPELINE_STABILITY_REPORT, $out['pipelineStabilityReport']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::INT_365, $out['365']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::INT_60, $out['60']);
+        $this->assertSame(SpecCompletenessScorer::INT_12, $out['12']);
+        $this->assertSame(SpecCompletenessScorer::INT_10, $out['10']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::INT_45, $out['45']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::INT_512, $out['512']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::INT_14, $out['14']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::INT_20, $out['20']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_D5_RATIONALE, $out['D5_rationale']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_D5_STRUCTURAL_HONESTY, $out['D5_structural_honesty']);
+        $this->assertSame(18, $out['b489_cognition_score_promotion_protocol_health_report_measure_series_floor_count']);
+    }
+
 }

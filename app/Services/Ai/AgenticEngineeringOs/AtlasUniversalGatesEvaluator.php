@@ -12677,4 +12677,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B489).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b489CognitionScorePromotionProtocolHealthReportMeasureSeriesFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ACFA' => AtlasCognitionScoreCardService::FIELD_ACFA,
+            'ACFD' => AtlasCognitionScoreCardService::FIELD_ACFD,
+            'DECIDE' => AtlasCognitionScoreCardV4Grouper::FIELD_DECIDE,
+            'EVIDENCE' => AtlasCognitionScoreCardV4Grouper::FIELD_EVIDENCE_2,
+            'LEGACY' => PromotionProtocol::FIELD_LEGACY,
+            'ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED' => PromotionProtocol::FIELD_ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED,
+            'memoryQualityCheck' => HealthReportWatchdogCheck::FIELD_MEMORY_QUALITY_CHECK,
+            'pipelineStabilityReport' => HealthReportWatchdogCheck::FIELD_PIPELINE_STABILITY_REPORT,
+            '365' => AcosMaxMeasureSeriesRegistry::INT_365,
+            '60' => AcosMaxMeasureSeriesRegistry::INT_60,
+            '12' => SpecCompletenessScorer::INT_12,
+            '10' => SpecCompletenessScorer::INT_10,
+            '45' => AcosMaxLedgerRotationRegistry::INT_45,
+            '512' => AcosMaxLedgerRotationRegistry::INT_512,
+            '14' => AtlasMemoryRecallRelevanceScorer::INT_14,
+            '20' => AtlasMemoryRecallRelevanceScorer::INT_20,
+            'D5_rationale' => AtlasAcosWindowGatesService::FIELD_D5_RATIONALE,
+            'D5_structural_honesty' => AtlasAcosWindowGatesService::FIELD_D5_STRUCTURAL_HONESTY,
+            'b489_cognition_score_promotion_protocol_health_report_measure_series_floor_count' => 18,
+        ];
+    }
+
 }

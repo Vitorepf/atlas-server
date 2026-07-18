@@ -205,6 +205,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_ACCCR = 'ACCCR';
     public const FIELD_ACCR = 'ACCR';
     public const FIELD_ACDM = 'ACDM';
+    public const FIELD_ACFA = 'ACFA';
+    public const FIELD_ACFD = 'ACFD';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -299,7 +301,7 @@ class AtlasCognitionScoreCardService
         // Patamar 4 — Constitutional Kernel, Autonomy Admission, CognitiveFunctionAtlas, Reconciliation Runtime, TEOS-I4, Swarm Conductor, Temporary Domain Composition
         ['ACK',     'Constitutional Kernel',               self::FIELD_GOVERNANCE,        AtlasConstitutionalKernelService::class],
         [self::FIELD_AAA,     'Autonomy Admission',                  self::FIELD_GOVERNANCE,        AtlasAutonomyAdmissionService::class],
-        ['ACFA',    'Cognitive Function Atlas',            self::FIELD_COGNITION,         AtlasCognitiveFunctionAtlasService::class],
+        [self::FIELD_ACFA,    'Cognitive Function Atlas',            self::FIELD_COGNITION,         AtlasCognitiveFunctionAtlasService::class],
         [self::FIELD_AARR,    'Autonomous Reconciliation Runtime',   self::FIELD_AUTONOMY,          AtlasAutonomousReconciliationRuntimeService::class],
         ['TEOS-I4', 'TEOS-I4 Counterfactual Tree',         self::FIELD_TEOS,              AtlasTeosI4CounterfactualTreeService::class],
         ['ASWC',    'Swarm Conductor',                     self::FIELD_ATLAS_DECIDE,      AtlasSwarmConductorService::class],
@@ -321,7 +323,7 @@ class AtlasCognitionScoreCardService
         ['ASAR',    'Subsystem Auto-Rebalance',                  self::FIELD_PATAMAR_4,         AtlasSubsystemAutoRebalanceService::class],
         ['ASOS',    'Atlas Scheduler OS (Cron 24/7)',            self::FIELD_PATAMAR_4,         AtlasSchedulerHealthService::class],
         ['ASPR',    'Swarm Production Resolver (real provider)', self::FIELD_ATLAS_DECIDE,      AtlasSwarmProductionResolverService::class],
-        ['ACFD',    'Cognitive Function Decomposer (6-axis)',    self::FIELD_COGNITION,         AtlasCognitiveFunctionDecomposerService::class],
+        [self::FIELD_ACFD,    'Cognitive Function Decomposer (6-axis)',    self::FIELD_COGNITION,         AtlasCognitiveFunctionDecomposerService::class],
         ['ASPD',    'Atlas Swarm Parallel Dispatcher',           self::FIELD_ATLAS_DECIDE,      AtlasSwarmParallelDispatchService::class],
         ['ACSR',    'Cognitive Function Swarm Router (P6 closure)', self::FIELD_ATLAS_DECIDE,   AtlasCognitiveFunctionSwarmRouterService::class],
         ['ASAF',    'Swarm Auto-Failover (A4)',                  self::FIELD_ATLAS_DECIDE,      AtlasSwarmAutoFailoverService::class],

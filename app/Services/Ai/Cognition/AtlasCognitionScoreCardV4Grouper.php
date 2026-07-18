@@ -65,6 +65,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_COMPOUND = 'COMPOUND';
     public const FIELD_CONSUMERS = 'CONSUMERS';
     public const FIELD_CONTEXT = 'CONTEXT';
+    public const FIELD_DECIDE = 'DECIDE';
+    public const FIELD_EVIDENCE_2 = 'EVIDENCE';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -156,7 +158,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_AUCRI => self::FIELD_CONTEXT,
             self::FIELD_SELF_IMPROVEMENT, self::FIELD_SELF_CONSTRUCTION, self::FIELD_CARTOGRAPHY, self::FIELD_PROGRAMMING, self::FIELD_RESEARCH_DOMAIN => self::FIELD_CONSUMERS,
             self::FIELD_GOVERNANCE => 'GOVERNANCE',
-            self::FIELD_ATLAS_DECIDE => 'DECIDE',
+            self::FIELD_ATLAS_DECIDE => self::FIELD_DECIDE,
             self::FIELD_COMPOUNDING => self::FIELD_COMPOUND,
             self::FIELD_REALITY, self::FIELD_CROSS_DOMAIN => 'REALITY',
             self::FIELD_TEOS => 'TEOS',
@@ -171,7 +173,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_VERIFIED_CONTEXT => 'VERIFIED-CONTEXT',
             self::FIELD_CONTEXT_QUALITY => 'CONTEXT-QUALITY',
             self::FIELD_OPEN_BRAIN => 'OPEN-BRAIN',
-            self::FIELD_EVIDENCE => 'EVIDENCE',
+            self::FIELD_EVIDENCE => self::FIELD_EVIDENCE_2,
             default => 'OTHER',
         };
     }
@@ -184,7 +186,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_CONTEXT => 'Context Runtime (AUCRI policies)',
             self::FIELD_CONSUMERS => 'ACOS Consumers and Legacy Projections',
             'GOVERNANCE' => 'Constitutional Governance',
-            'DECIDE' => 'Atlas Decide + Swarm',
+            self::FIELD_DECIDE => 'Atlas Decide + Swarm',
             self::FIELD_COMPOUND => 'Compounding',
             'REALITY' => 'Reality Graph + Cross-Domain',
             'TEOS' => 'TEOS Counterfactuals',
@@ -199,7 +201,7 @@ final class AtlasCognitionScoreCardV4Grouper
             'VERIFIED-CONTEXT' => 'Verified Context Execution Loop',
             'CONTEXT-QUALITY' => 'Context Quality Certification Gate',
             'OPEN-BRAIN' => 'Open Brain Gateway',
-            'EVIDENCE' => 'Evidence Ledger Memory Side',
+            self::FIELD_EVIDENCE_2 => 'Evidence Ledger Memory Side',
             default => 'Other ACOS',
         };
     }

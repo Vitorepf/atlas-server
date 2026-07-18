@@ -120,6 +120,8 @@ final class PromotionProtocol
     public const FIELD_ATLAS_AUTONOMOS_MASTER_ENABLED = 'ATLAS_AUTONOMOS_MASTER_ENABLED';
     public const FIELD_ATLAS_AUTONOMOUS_AUTO_APPLY = 'ATLAS_AUTONOMOUS_AUTO_APPLY';
     public const FIELD_ATLAS_BRAIN_REFLECTION_ENABLED = 'ATLAS_BRAIN_REFLECTION_ENABLED';
+    public const FIELD_LEGACY = 'LEGACY';
+    public const FIELD_ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED = 'ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED';
 
     /** @var list<string> */
     public const STATES = [
@@ -413,7 +415,7 @@ final class PromotionProtocol
                 self::FIELD_ID => 'atlas.memory.feedback_ranking_enabled',
                 self::FIELD_FAMILY => 'FEE',
                 self::FIELD_CONFIG_KEY => 'atlas.memory.feedback_ranking_enabled',
-                self::FIELD_ENV_KEY => 'ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED',
+                self::FIELD_ENV_KEY => self::FIELD_ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED,
                 self::FIELD_SOURCE => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:225',
             ],
             [
@@ -473,7 +475,7 @@ final class PromotionProtocol
 
         return array_merge($payload, [
             self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($payload[self::FIELD_ID] ?? null) ?? '',
-            self::FIELD_FAMILY => strtoupper(AiValueNormalizer::trimmedStringOrNull($payload[self::FIELD_FAMILY] ?? null) ?? 'LEGACY'),
+            self::FIELD_FAMILY => strtoupper(AiValueNormalizer::trimmedStringOrNull($payload[self::FIELD_FAMILY] ?? null) ?? self::FIELD_LEGACY),
             self::FIELD_STATUS => self::STATUS_LEGACY_UNMANAGED,
         ]);
     }
@@ -615,7 +617,7 @@ final class PromotionProtocol
         return [
             self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_ID] ?? null) ?? '',
             self::FIELD_STATUS => self::STATUS_LEGACY_UNMANAGED,
-            self::FIELD_FAMILY => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_FAMILY] ?? null) ?? 'LEGACY',
+            self::FIELD_FAMILY => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_FAMILY] ?? null) ?? self::FIELD_LEGACY,
             self::FIELD_STATE => self::STATE_LEGACY_UNMANAGED,
             self::FIELD_CONFIG_KEY => $entry[self::FIELD_CONFIG_KEY] ?? null,
             self::FIELD_ENV_KEY => $entry[self::FIELD_ENV_KEY] ?? null,

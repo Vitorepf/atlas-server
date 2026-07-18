@@ -60,6 +60,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_GROUND_TRUTH_RECEIPT = 'ground_truth_receipt';
     public const FIELD_ONE_TIME_CLEANUP_RECEIPT = 'one_time_cleanup_receipt';
     public const FIELD_TS = 'ts';
+    public const INT_365 = 365;
+    public const INT_60 = 60;
     public const INT_30 = 30;
     public const INT_90 = 90;
 
@@ -158,7 +160,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_PATH => storage_path('app/atlas/evidence/acos-max-asi-05-ledger-cleanup.jsonl'),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
-                self::FIELD_TTL_DAYS => 365,
+                self::FIELD_TTL_DAYS => self::INT_365,
                 self::FIELD_TTL_SOURCE => self::FIELD_ONE_TIME_CLEANUP_RECEIPT,
             ],
             [
@@ -167,7 +169,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_PATH => storage_path('app/atlas/evidence/acos-max-esp-00-ground-truth.jsonl'),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
-                self::FIELD_TTL_DAYS => 365,
+                self::FIELD_TTL_DAYS => self::INT_365,
                 self::FIELD_TTL_SOURCE => self::FIELD_GROUND_TRUTH_RECEIPT,
             ],
             [
@@ -499,7 +501,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_PATH => storage_path(AtlasNCaptureDrillService::RELATIVE_LEDGER_PATH),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
-                self::FIELD_TTL_DAYS => 365,
+                self::FIELD_TTL_DAYS => self::INT_365,
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.n_capture_drill.v1',
             ],
             [
@@ -508,7 +510,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_PATH => 'AtlasKnowledgeItemEmbeddingCoverageService::report',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => 60,
+                self::FIELD_TTL_DAYS => self::INT_60,
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.kb_embedding_coverage.v1',
             ],
             [
@@ -517,7 +519,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_PATH => 'AtlasCodeSymbolEmbeddingCoverageService::report',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
-                self::FIELD_TTL_DAYS => 60,
+                self::FIELD_TTL_DAYS => self::INT_60,
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.code_symbol_embedding_coverage.v1',
             ],
             [

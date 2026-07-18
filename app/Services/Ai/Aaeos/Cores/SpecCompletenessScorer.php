@@ -54,6 +54,8 @@ final class SpecCompletenessScorer
     public const FIELD_TOO_SHORT = 'too_short';
     public const FIELD_ABSENT = 'absent';
     public const FIELD_EMPTY_LIST = 'empty_list';
+    public const INT_12 = 12;
+    public const INT_10 = 10;
 
 
     /**
@@ -61,11 +63,11 @@ final class SpecCompletenessScorer
      */
     public const WEIGHTS = [
         self::FIELD_RAW_REQUEST => 8,
-        self::FIELD_INTERPRETED_GOAL => 12,
+        self::FIELD_INTERPRETED_GOAL => self::INT_12,
         self::FIELD_NON_GOALS => 5,
         self::FIELD_PRODUCT_AREA => 7,
-        self::FIELD_BUSINESS_ACTOR_OBJECT_ACTION => 10,
-        self::FIELD_REQUIREMENTS => 12,
+        self::FIELD_BUSINESS_ACTOR_OBJECT_ACTION => self::INT_10,
+        self::FIELD_REQUIREMENTS => self::INT_12,
         self::FIELD_ACCEPTANCE_CRITERIA => 14,
         self::FIELD_DESIGN_SYSTEM_CONSTRAINTS => 6,
         self::FIELD_SECURITY_CONSTRAINTS => 8,

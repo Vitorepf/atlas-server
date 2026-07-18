@@ -43,11 +43,13 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_ENGINEERING_ENFORCE_READINESS_REPORT = 'engineeringEnforceReadinessReport';
     public const FIELD_LEARNING_CADENCE_REPORT = 'learningCadenceReport';
     public const FIELD_LIFT_CYCLE_CLOSURE_REPORT = 'liftCycleClosureReport';
+    public const FIELD_MEMORY_QUALITY_CHECK = 'memoryQualityCheck';
+    public const FIELD_PIPELINE_STABILITY_REPORT = 'pipelineStabilityReport';
 
     public const CATALOG = [
         [
             self::FIELD_ID => 'mem-09.memory_quality',
-            self::FIELD_REPORT_METHOD => 'memoryQualityCheck',
+            self::FIELD_REPORT_METHOD => self::FIELD_MEMORY_QUALITY_CHECK,
             self::FIELD_ALERT_CODE => self::FIELD_MEMORY_QUALITY_CHECK_FAILED,
             self::FIELD_MESSAGE => 'MEM-09 memory quality watchdog is not green.',
         ],
@@ -83,7 +85,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
         ],
         [
             self::FIELD_ID => 'pip-08.scorecard_stability',
-            self::FIELD_REPORT_METHOD => 'pipelineStabilityReport',
+            self::FIELD_REPORT_METHOD => self::FIELD_PIPELINE_STABILITY_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_SCORECARD_STABILITY_FAILED,
             self::FIELD_MESSAGE => 'PIP-08 scorecard stability has not reached a green pipeline series.',
         ],

@@ -56,6 +56,8 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_COMMAND = 'command';
     public const FIELD_DECISION = 'decision';
     public const FIELD_MEMORY = 'memory';
+    public const INT_14 = 14;
+    public const INT_20 = 20;
     public const INT_11 = 11;
     public const INT_12 = 12;
     public const INT_16 = 16;
@@ -105,7 +107,7 @@ final class AtlasMemoryRecallRelevanceScorer
     {
         return match ($scope) {
             self::FIELD_TASK => 22,
-            self::FIELD_ENGINEERING_RUN => 20,
+            self::FIELD_ENGINEERING_RUN => self::INT_20,
             self::FIELD_PROJECT => self::INT_16,
             self::FIELD_WORKSPACE => self::INT_12,
             self::FIELD_SESSION => self::INT_10,
@@ -121,7 +123,7 @@ final class AtlasMemoryRecallRelevanceScorer
     {
         return match ($type) {
             self::FIELD_DECISION, self::FIELD_RESOLUTION, self::FIELD_REQUIREMENT => self::INT_16,
-            self::FIELD_ISSUE, self::FIELD_FAILURE => 14,
+            self::FIELD_ISSUE, self::FIELD_FAILURE => self::INT_14,
             self::FIELD_TECHNICAL_CONTEXT, self::FIELD_COMMAND, self::FIELD_EVIDENCE, self::FIELD_HARNESS_LEARNING => self::INT_11,
             self::FIELD_PREFERENCE, self::FIELD_FEEDBACK => 8,
             default => 5,
