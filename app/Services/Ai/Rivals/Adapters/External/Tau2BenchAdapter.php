@@ -17,6 +17,21 @@ class Tau2BenchAdapter extends AbstractExternalSuiteAdapter
         return 'tau2 run --domain {native_domain} --agent-llm {cli_model} --user-llm {cli_model} --task-ids {native_task_id} --num-trials 1 --seed {seed} --save-to {run_name} --auto-resume';
     }
 
+    protected function commandTemplateForArm(array $binding): string
+    {
+        // Braço com-Atlas: o litellm resolve a base pelo env, então a unidade
+        // roda sob OPENAI_BASE_URL do endpoint governado local (launchd 8791).
+        // ponytail: o user-sim TAMBÉM passa pelo runtime (simétrico) — separar
+        // exigiria binding de modelo por-braço no plano; promover se o ruído
+        // do user-sim governado aparecer nas medições.
+        if (($binding['runtime'] ?? 'bare') === 'atlas_dev') {
+            return 'env OPENAI_BASE_URL=http://127.0.0.1:8791/v1 OPENAI_API_BASE=http://127.0.0.1:8791/v1 '
+                .$this->commandTemplate();
+        }
+
+        return parent::commandTemplateForArm($binding);
+    }
+
     protected function mapResults(array $native): array
     {
         $model = $native['agent_llm']

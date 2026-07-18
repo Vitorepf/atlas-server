@@ -22,6 +22,21 @@ class SeniorSweBenchAdapter extends AbstractExternalSuiteAdapter
         return 'harbor run --path tasks --include-task-name {native_task_id} --agent-import-path rivals_harbor_hermes_agent:VerbooHermes --model {cli_model} --allow-agent-host code.verboo.ai --verifier-env OPENAI_BASE_URL=https://code.verboo.ai/router/v1 --verifier-env OPENAI_API_BASE=https://code.verboo.ai/router/v1 --n-attempts 1 --n-concurrent 1 --jobs-dir {jobs_dir} --job-name {run_name} --yes';
     }
 
+    protected function commandTemplateForArm(array $binding): string
+    {
+        // Braço com-Atlas: mesmo harbor, agente espelho host↔ambiente que roda
+        // o bridge governado (scripts/rivals_harbor_atlas_agent.py).
+        if (($binding['runtime'] ?? 'bare') === 'atlas_dev') {
+            return str_replace(
+                'rivals_harbor_hermes_agent:VerbooHermes',
+                'rivals_harbor_atlas_agent:AtlasDev',
+                $this->commandTemplate(),
+            );
+        }
+
+        return parent::commandTemplateForArm($binding);
+    }
+
     protected function mapResults(array $native): array
     {
         $judge = $native['judge_config'] ?? null;

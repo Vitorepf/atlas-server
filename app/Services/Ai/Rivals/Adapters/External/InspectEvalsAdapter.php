@@ -132,6 +132,22 @@ class InspectEvalsAdapter extends AbstractExternalSuiteAdapter
         return 'inspect eval {task_ref} --model {cli_model} --model-base-url https://code.verboo.ai/router/v1 --reasoning-tokens 2048 --max-tokens 16384 --sample-id {sample_id} --epochs 1 --log-dir {log_dir} --log-format eval';
     }
 
+    protected function commandTemplateForArm(array $binding): string
+    {
+        // Braço com-Atlas: mesmo inspect, base-url aponta para o endpoint
+        // OpenAI-compatível local na frente do runtime governado
+        // (scripts/rivals-atlas-openai-endpoint.php, launchd 8791).
+        if (($binding['runtime'] ?? 'bare') === 'atlas_dev') {
+            return str_replace(
+                '--model-base-url https://code.verboo.ai/router/v1',
+                '--model-base-url http://127.0.0.1:8791/v1',
+                $this->commandTemplate(),
+            );
+        }
+
+        return parent::commandTemplateForArm($binding);
+    }
+
     /**
      * @param  array<string, mixed>  $case
      * @param  array<string, mixed>  $binding

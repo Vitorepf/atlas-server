@@ -17,6 +17,21 @@ class LiveCodeBenchAdapter extends AbstractExternalSuiteAdapter
         return 'python {atlas_root}/scripts/rivals_lcb_verboo.py --rivals-question-id={native_task_id} --rivals-usage-file={eval_scratch_dir}/provider_usage.json --model {cli_model} --scenario codegeneration --release_version release_v6 --evaluate --continue_existing_with_eval --n 1 --temperature {temperature} --multiprocess 1 --num_process_evaluate 1';
     }
 
+    protected function commandTemplateForArm(array $binding): string
+    {
+        // Braço com-Atlas: mesmo harness/avaliador, geração via bridge
+        // governado (scripts/rivals_lcb_atlas.py).
+        if (($binding['runtime'] ?? 'bare') === 'atlas_dev') {
+            return str_replace(
+                'rivals_lcb_verboo.py',
+                'rivals_lcb_atlas.py',
+                $this->commandTemplate(),
+            );
+        }
+
+        return parent::commandTemplateForArm($binding);
+    }
+
     protected function mapResults(array $native): array
     {
         $model = $native['model'] ?? throw new RuntimeException('live_code_bench_model_missing');
