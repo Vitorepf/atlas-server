@@ -12375,4 +12375,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B479).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function departmentContractSpecCompletenessAcosMeasureResourceBudgetFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'failure_capsule_emitted' => DepartmentContractRuntime::FIELD_FAILURE_CAPSULE_EMITTED,
+            'fetch_sources' => DepartmentContractRuntime::FIELD_FETCH_SOURCES,
+            'fixtures_versioned' => DepartmentContractRuntime::FIELD_FIXTURES_VERSIONED,
+            'forge_collision_count' => DepartmentContractRuntime::FIELD_FORGE_COLLISION_COUNT,
+            'forge_obra_duration_p95' => DepartmentContractRuntime::FIELD_FORGE_OBRA_DURATION_P95,
+            'intake_clarity_loop_count' => DepartmentContractRuntime::FIELD_INTAKE_CLARITY_LOOP_COUNT,
+            'intake_classification_latency_p95' => DepartmentContractRuntime::FIELD_INTAKE_CLASSIFICATION_LATENCY_P95,
+            'intent_clarification_log' => DepartmentContractRuntime::FIELD_INTENT_CLARIFICATION_LOG,
+            'intent_clarified' => DepartmentContractRuntime::FIELD_INTENT_CLARIFIED,
+            'intent_clarity_score_min' => DepartmentContractRuntime::FIELD_INTENT_CLARITY_SCORE_MIN,
+            'empty_list' => SpecCompletenessScorer::FIELD_EMPTY_LIST,
+            'ts' => AcosMeasureSeriesFreshnessReader::FIELD_TS,
+            'within_ram_cap' => AtlasResourceBudgetService::FIELD_WITHIN_RAM_CAP,
+            'no_test_reason' => DeliveryPackCompletenessScorer::FIELD_NO_TEST_REASON,
+            'quality_bar_report_hash' => QualityBarTelemetryContract::FIELD_QUALITY_BAR_REPORT_HASH,
+            'spec' => RealityCompilerSlice::FIELD_SPEC,
+            'gate' => RunbookOrchestrator::FIELD_GATE,
+            'reported' => AtlasAcosWindowGatesService::FIELD_REPORTED,
+            'department_contract_spec_completeness_acos_measure_resource_budget_floor_count' => 18,
+        ];
+    }
+
 }

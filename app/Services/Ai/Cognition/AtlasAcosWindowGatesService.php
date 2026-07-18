@@ -62,6 +62,7 @@ final class AtlasAcosWindowGatesService
     public const FIELD_RELATION_DENSITY = 'relation_density';
     public const FIELD_STORAGE_PATH = 'storage_path';
     public const FIELD_STRUCTURAL_HONESTY = 'structural_honesty';
+    public const FIELD_REPORTED = 'reported';
 
     /** Receipt freshness before a certified gate is treated as stale (7 days). */
     public const RECEIPT_FRESH_SECONDS = 604800;
@@ -136,7 +137,7 @@ final class AtlasAcosWindowGatesService
         if ($assert && $threshold !== null && $numeric !== null) {
             $out[self::FIELD_STATUS] = $numeric >= $threshold ? self::STATUS_MET : self::STATUS_AGUARDANDO_JANELA;
         } else {
-            $out[self::FIELD_STATUS] = 'reported';
+            $out[self::FIELD_STATUS] = self::FIELD_REPORTED;
         }
 
         return $out;

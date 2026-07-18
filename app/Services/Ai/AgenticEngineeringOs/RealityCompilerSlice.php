@@ -34,10 +34,11 @@ final readonly class RealityCompilerSlice
     public const FIELD_SIMULATION = 'simulation';
     public const FIELD_REVIEW = 'review';
     public const FIELD_SWARM = 'swarm';
+    public const FIELD_SPEC = 'spec';
 
     /** @var list<string> */
     public const EXECUTION_PHASES = [
-        'spec',
+        self::FIELD_SPEC,
         self::FIELD_SIMULATION,
         self::FIELD_SWARM,
         self::FIELD_EVIDENCE,

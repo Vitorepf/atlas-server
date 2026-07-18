@@ -53,6 +53,7 @@ final class AtlasResourceBudgetService
     public const FIELD_SHARED = 'shared';
     public const FIELD_PAPER_OVERSHOOT = 'paper_overshoot';
     public const FIELD_UNMEASURED = 'unmeasured';
+    public const FIELD_WITHIN_RAM_CAP = 'within_ram_cap';
 
     /** @var array<string,mixed> */
     private array $budget;
@@ -115,7 +116,7 @@ final class AtlasResourceBudgetService
             if (is_int($ramActual)) {
                 $anyMeasured = true;
                 $measuredSum += $ramActual;
-                $componentStatus = $ramActual > $ramCap ? 'over_ram_cap' : 'within_ram_cap';
+                $componentStatus = $ramActual > $ramCap ? 'over_ram_cap' : self::FIELD_WITHIN_RAM_CAP;
                 if ($componentStatus === self::FIELD_OVER_RAM_CAP) {
                     $overCap[] = $name;
                 }

@@ -41,12 +41,13 @@ final class DeliveryPackCompletenessScorer
     public const FIELD_FACTORS = 'factors';
     public const FIELD_HASH_SIGNED = 'hash_signed';
     public const FIELD_SCHEMA = 'schema';
+    public const FIELD_NO_TEST_REASON = 'no_test_reason';
 
     /** @var list<string> */
     public const REQUIRED_KEYS = [
         'changed_files',
         'test_evidence',
-        'no_test_reason',
+        self::FIELD_NO_TEST_REASON,
         'evidence_hashes',
         'risk_register_present',
         'receipt_present',

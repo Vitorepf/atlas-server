@@ -9719,4 +9719,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['department_contract_verified_share_phase_advance_model_capability_floor_count']);
     }
 
+    public function test_department_contract_spec_completeness_acos_measure_resource_budget_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->departmentContractSpecCompletenessAcosMeasureResourceBudgetFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_FAILURE_CAPSULE_EMITTED, $out['failure_capsule_emitted']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_FETCH_SOURCES, $out['fetch_sources']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_FIXTURES_VERSIONED, $out['fixtures_versioned']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_FORGE_COLLISION_COUNT, $out['forge_collision_count']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_FORGE_OBRA_DURATION_P95, $out['forge_obra_duration_p95']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_INTAKE_CLARITY_LOOP_COUNT, $out['intake_clarity_loop_count']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_INTAKE_CLASSIFICATION_LATENCY_P95, $out['intake_classification_latency_p95']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_INTENT_CLARIFICATION_LOG, $out['intent_clarification_log']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_INTENT_CLARIFIED, $out['intent_clarified']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_INTENT_CLARITY_SCORE_MIN, $out['intent_clarity_score_min']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_EMPTY_LIST, $out['empty_list']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_TS, $out['ts']);
+        $this->assertSame(AtlasResourceBudgetService::FIELD_WITHIN_RAM_CAP, $out['within_ram_cap']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FIELD_NO_TEST_REASON, $out['no_test_reason']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_QUALITY_BAR_REPORT_HASH, $out['quality_bar_report_hash']);
+        $this->assertSame(RealityCompilerSlice::FIELD_SPEC, $out['spec']);
+        $this->assertSame(RunbookOrchestrator::FIELD_GATE, $out['gate']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_REPORTED, $out['reported']);
+        $this->assertSame(18, $out['department_contract_spec_completeness_acos_measure_resource_budget_floor_count']);
+    }
+
 }

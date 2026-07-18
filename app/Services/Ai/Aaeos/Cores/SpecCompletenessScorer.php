@@ -53,6 +53,7 @@ final class SpecCompletenessScorer
     public const FIELD_TOTAL_FIELDS = 'total_fields';
     public const FIELD_TOO_SHORT = 'too_short';
     public const FIELD_ABSENT = 'absent';
+    public const FIELD_EMPTY_LIST = 'empty_list';
 
 
     /**
@@ -200,7 +201,7 @@ final class SpecCompletenessScorer
     private function evaluateListField(mixed $value): array
     {
         if (! is_array($value) || $this->countNonEmptyItems($value) === 0) {
-            return [false, false, 'empty_list'];
+            return [false, false, self::FIELD_EMPTY_LIST];
         }
 
         if (! $this->hasMeaningfulItem($value)) {

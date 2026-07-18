@@ -37,6 +37,7 @@ final class AcosMeasureSeriesFreshnessReader
     public const FIELD_CREATED_AT = 'created_at';
     public const FIELD_RB = 'rb';
     public const FIELD_TIMESTAMP = 'timestamp';
+    public const FIELD_TS = 'ts';
 
     /**
      * @param  array<string,mixed>  $entry  registry entry
@@ -164,7 +165,7 @@ final class AcosMeasureSeriesFreshnessReader
     /** @param array<string,mixed> $row */
     private function rowTimestamp(array $row, string $preferredField): ?CarbonImmutable
     {
-        foreach (array_values(array_unique([$preferredField, self::FIELD_RECORDED_AT, 'ts', self::FIELD_CREATED_AT, 'occurred_at', self::FIELD_TIMESTAMP])) as $field) {
+        foreach (array_values(array_unique([$preferredField, self::FIELD_RECORDED_AT, self::FIELD_TS, self::FIELD_CREATED_AT, 'occurred_at', self::FIELD_TIMESTAMP])) as $field) {
             $parsed = $this->parseDate($row[$field] ?? null);
             if ($parsed instanceof CarbonImmutable) {
                 return $parsed;
