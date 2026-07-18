@@ -17474,4 +17474,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B646).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b646ArchitectAgentFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'evidence_required' => ArchitectAgentSpecPackGateContract::FIELD_EVIDENCE_REQUIRED,
+            'gates' => ArchitectAgentSpecPackGateContract::FIELD_GATES,
+            'atlas.aaeos.architect_agent_spec_pack_gate.v1' => ArchitectAgentSpecPackGateContract::SCHEMA,
+            'R4' => ArchitectAgentSpecPackGateContract::MIN_AUTONOMOUS_RISK_SCOPE,
+            'R5' => ArchitectAgentSpecPackGateContract::OPERATOR_SIGNATURE_REQUIRED_FROM,
+            'atlas.spec_pack.v1' => ArchitectAgentSpecPackGateContract::SPEC_PACK_SCHEMA,
+            'acceptance_criteria_present' => ArchitectAgentSpecPackGateContract::FIELD_ACCEPTANCE_CRITERIA_PRESENT,
+            'breaking_change_matrix_present' => ArchitectAgentSpecPackGateContract::FIELD_BREAKING_CHANGE_MATRIX_PRESENT,
+            'operator_signature_present' => ArchitectAgentSpecPackGateContract::FIELD_OPERATOR_SIGNATURE_PRESENT,
+            'risk_scope' => ArchitectAgentSpecPackGateContract::FIELD_RISK_SCOPE,
+            'rollback_plan_present' => ArchitectAgentSpecPackGateContract::FIELD_ROLLBACK_PLAN_PRESENT,
+            'spec_pack_hash' => ArchitectAgentSpecPackGateContract::FIELD_SPEC_PACK_HASH,
+            'department_id' => ArchitectAgentSpecPackGateContract::FIELD_DEPARTMENT_ID,
+            'min_autonomous_risk_scope' => ArchitectAgentSpecPackGateContract::FIELD_MIN_AUTONOMOUS_RISK_SCOPE,
+            'operator_signature_required_from' => ArchitectAgentSpecPackGateContract::FIELD_OPERATOR_SIGNATURE_REQUIRED_FROM,
+            'spec_pack_schema' => ArchitectAgentSpecPackGateContract::FIELD_SPEC_PACK_SCHEMA,
+            'inputs' => ArchitectAgentSpecPackGateContract::FIELD_INPUTS,
+            'required_spec_pack_artifacts' => ArchitectAgentSpecPackGateContract::FIELD_REQUIRED_SPEC_PACK_ARTIFACTS,
+            'b646_architect_agent_floor_count' => 18,
+        ];
+    }
+
 }

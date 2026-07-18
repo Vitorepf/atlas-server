@@ -13822,4 +13822,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b645_http_path_floor_count']);
     }
 
+    public function test_b646_architect_agent_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b646ArchitectAgentFloorsContractObserve([]);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_EVIDENCE_REQUIRED, $out['evidence_required']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_GATES, $out['gates']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::SCHEMA, $out['atlas.aaeos.architect_agent_spec_pack_gate.v1']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::MIN_AUTONOMOUS_RISK_SCOPE, $out['R4']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::OPERATOR_SIGNATURE_REQUIRED_FROM, $out['R5']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::SPEC_PACK_SCHEMA, $out['atlas.spec_pack.v1']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_ACCEPTANCE_CRITERIA_PRESENT, $out['acceptance_criteria_present']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_BREAKING_CHANGE_MATRIX_PRESENT, $out['breaking_change_matrix_present']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_OPERATOR_SIGNATURE_PRESENT, $out['operator_signature_present']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_RISK_SCOPE, $out['risk_scope']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_ROLLBACK_PLAN_PRESENT, $out['rollback_plan_present']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_SPEC_PACK_HASH, $out['spec_pack_hash']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_DEPARTMENT_ID, $out['department_id']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_MIN_AUTONOMOUS_RISK_SCOPE, $out['min_autonomous_risk_scope']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_OPERATOR_SIGNATURE_REQUIRED_FROM, $out['operator_signature_required_from']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_SPEC_PACK_SCHEMA, $out['spec_pack_schema']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_INPUTS, $out['inputs']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_REQUIRED_SPEC_PACK_ARTIFACTS, $out['required_spec_pack_artifacts']);
+        $this->assertSame(18, $out['b646_architect_agent_floor_count']);
+    }
+
 }
