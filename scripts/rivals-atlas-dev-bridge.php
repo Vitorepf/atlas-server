@@ -368,6 +368,9 @@ $receipt = [
     ],
     // O resultado, como DADO. Quem pontua é a suíte; isto é evidência de apoio.
     'task_ok' => $taskOk,
+    // Quantos patches o bridge escreveu no workspace do harness — sem isto,
+    // "patch gerado mas workspace intocado" era indiagnosticável no recibo.
+    'patch_applied' => $patchApplied,
     'completion_state' => $completionState,
     'provider_call' => [
         'provider_calls' => $providerCalls,

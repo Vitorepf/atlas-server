@@ -362,6 +362,20 @@ final class EliteExecutorKernel
             $files .= $chunk;
         }
         $allowedJson = json_encode(array_values($order->allowedScope), JSON_UNESCAPED_SLASHES);
+        // Escopo vazio sob rivals isolado: o provider PROPÕE os arquivos (o
+        // adapter adota a proposta com sanidade). Sem isto o contrato pedia
+        // "exatamente a lista acima" com lista vazia — impossível por definição.
+        if ($order->allowedScope === []
+            && filter_var(getenv('ATLAS_RIVALS_RUNTIME_EXECUTION') ?: false, FILTER_VALIDATE_BOOLEAN)) {
+            return "# Task\n{$goal}\n\n# Files in scope\n(nenhum arquivo pré-selecionado: proponha você o conjunto mínimo)\n"
+                ."# Output contract (mandatory)\n"
+                ."You are NOT editing files and need no write permission: you only OUTPUT a JSON "
+                ."plan; Atlas applies it in a hermetic sandbox. Emitting this JSON is always allowed.\n"
+                ."Reply with ONLY this JSON object — no prose, no markdown fences:\n"
+                .'{"patch_plan":{"allowed_files":["<relative path>", "..."],"patches":[{"path":"<one of allowed_files>","mode":"create|modify","next":"<the complete new file content>"}]}}'."\n"
+                .'"allowed_files" is the minimal set of relative file paths you will create or modify (max 8, no "..", no leading "/"). '
+                .'Every patch path must be one of allowed_files. "next" is the full resulting file content. Do not claim verification.';
+        }
 
         return "# Task\n{$goal}\n\n# Files in scope (current content)\n{$files}\n"
             ."# Output contract (mandatory)\n"
@@ -403,6 +417,20 @@ final class EliteExecutorKernel
         sort($providerFiles, SORT_STRING);
         $allowed = $order->allowedScope;
         sort($allowed, SORT_STRING);
+        // Rivals isolado com escopo vazio: adota a proposta do provider (já
+        // sanada pelo adapter) — inclusive contra forbidden/self-target, que
+        // o loop de entrada pulou por estar vazio. Espelha o adapter.
+        if ($allowed === []
+            && $providerFiles !== []
+            && filter_var(getenv('ATLAS_RIVALS_RUNTIME_EXECUTION') ?: false, FILTER_VALIDATE_BOOLEAN)) {
+            $guard = new AtlasLoopHarnessGuard;
+            foreach ($providerFiles as $file) {
+                if ($guard->isForbiddenSelfTarget($file)) {
+                    return VerifiedMutativeCandidate::blocked($order, ['forbidden_self_target:'.$file], $provider);
+                }
+            }
+            $allowed = $providerFiles;
+        }
         if ($providerFiles !== $allowed || array_intersect($providerFiles, $order->forbiddenScope) !== []) {
             return VerifiedMutativeCandidate::blocked($order, ['provider_scope_mismatch'], $provider);
         }

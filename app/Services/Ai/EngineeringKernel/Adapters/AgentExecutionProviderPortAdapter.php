@@ -84,6 +84,23 @@ final class AgentExecutionProviderPortAdapter implements ProviderPort
         }
         $claimAllowed = array_values(array_map('strval', (array) ($request['claim']['allowed_files'] ?? [])));
         $patchAllowed = array_values(array_map('strval', (array) ($decoded['patch_plan']['allowed_files'] ?? [])));
+        // Rivals runtime isolado (worktree descartável de benchmark): tarefa de
+        // CRIAÇÃO nasce com claim vazio (CodeDiscoveryEngine só enxerga arquivo
+        // existente) e o contrato exato vira insatisfazível por definição —
+        // matava 100% do braço com-Atlas. Sob a flag explícita, claim vazio
+        // adota a proposta do provider, com sanidade de caminho; a checagem
+        // exata permanece intacta para TODA operação normal (claim não-vazio).
+        $rivalsIsolated = filter_var(getenv('ATLAS_RIVALS_RUNTIME_EXECUTION') ?: false, FILTER_VALIDATE_BOOLEAN);
+        if ($claimAllowed === [] && $rivalsIsolated) {
+            $sane = $patchAllowed !== [] && count($patchAllowed) <= 8
+                && array_all($patchAllowed, static fn (string $p): bool => $p !== ''
+                    && ! str_starts_with($p, '/')
+                    && ! str_contains($p, '..'));
+            if (! $sane) {
+                return ['status' => 'invalid_provider_scope', 'provider_invoked' => true, 'executes_provider' => true, 'exhausted' => true];
+            }
+            $claimAllowed = $patchAllowed;
+        }
         if ($claimAllowed === [] || $patchAllowed !== $claimAllowed) {
             return ['status' => 'invalid_provider_scope', 'provider_invoked' => true, 'executes_provider' => true, 'exhausted' => true];
         }
