@@ -13288,4 +13288,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B509).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b509MeasureSeriesLoteLedgerRotationAcosWatchdogCodeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ESP-05' => AcosMaxMeasureSeriesRegistry::FIELD_ESP_05,
+            'ESP-06' => AcosMaxMeasureSeriesRegistry::FIELD_ESP_06,
+            'codex-independent-multj04-judge' => AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTJ04_JUDGE,
+            'codex-independent-multj06-judge' => AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTJ06_JUDGE,
+            'atlas.code_symbol_embedding_coverage.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_CODE_SYMBOL_EMBEDDING_COVERAGE_V1,
+            'atlas.context.execution_cooccurrence.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_CONTEXT_EXECUTION_COOCCURRENCE_V1,
+            'pip-08.scorecard_stability' => AtlasAcosWatchdogHealthService::FIELD_PIP_08_SCORECARD_STABILITY,
+            'ratios.pre_filter_recall_concentration_ratio' => AtlasAcosWatchdogHealthService::FIELD_RATIOS_PRE_FILTER_RECALL_CONCENTRATION_RATIO,
+            's.archived_at' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_S_ARCHIVED_AT,
+            's.status' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_S_STATUS,
+            'atlas.memory.feedback_ranking_enabled' => PromotionProtocol::FIELD_ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED_2,
+            'atlas.memory.fusion_v2_enabled' => PromotionProtocol::FIELD_ATLAS_MEMORY_FUSION_V2_ENABLED,
+            '0.78' => AtlasAaeosQualityBarService::FLOAT_0_78,
+            '0.79' => AtlasAaeosQualityBarService::FLOAT_0_79,
+            'codex-independent-teto01-judge' => AtlasNCaptureDrillService::FIELD_CODEX_INDEPENDENT_TETO01_JUDGE,
+            'cursor-acos-max-teto01' => AtlasNCaptureDrillService::FIELD_CURSOR_ACOS_MAX_TETO01,
+            'aaeos.spec' => AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_SPEC,
+            'aaeos.tasks' => AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_TASKS,
+            'b509_measure_series_lote_ledger_rotation_acos_watchdog_code_floor_count' => 18,
+        ];
+    }
+
 }

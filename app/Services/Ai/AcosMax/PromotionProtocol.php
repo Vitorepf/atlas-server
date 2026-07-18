@@ -136,6 +136,8 @@ final class PromotionProtocol
     public const FIELD_CODEX_ELEV26S_JUDGE = 'codex-elev26s-judge';
     public const FIELD_ATLAS_AOBG_SEMANTIC_RETRIEVAL = 'atlas.aobg.semantic_retrieval';
     public const FIELD_ATLAS_MEMORY_CONTEXTUAL_BLURB_ENABLED = 'atlas.memory.contextual_blurb_enabled';
+    public const FIELD_ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED_2 = 'atlas.memory.feedback_ranking_enabled';
+    public const FIELD_ATLAS_MEMORY_FUSION_V2_ENABLED = 'atlas.memory.fusion_v2_enabled';
 
     /** @var list<string> */
     public const STATES = [
@@ -371,11 +373,11 @@ final class PromotionProtocol
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:1311',
             ],
             [
-                self::FIELD_ID => 'atlas.memory.fusion_v2_enabled',
+                self::FIELD_ID => self::FIELD_ATLAS_MEMORY_FUSION_V2_ENABLED,
                 self::FIELD_FAMILY => self::FIELD_MAXB,
                 self::FIELD_SLICE => self::FIELD_MAXB_03,
                 self::FIELD_STATE => self::STATE_OFF,
-                self::FIELD_CONFIG_KEY => 'atlas.memory.fusion_v2_enabled',
+                self::FIELD_CONFIG_KEY => self::FIELD_ATLAS_MEMORY_FUSION_V2_ENABLED,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '7d',
                 self::FIELD_FLIP_CRITERION => 'golden v2 shows RRF cross-source precision improvement with OFF byte-identical',
                 self::FIELD_ROLLBACK_TRIGGER => 'return to legacy ranking formula on golden v2 regression or improper floor discard',
@@ -426,9 +428,9 @@ final class PromotionProtocol
     {
         return [
             [
-                self::FIELD_ID => 'atlas.memory.feedback_ranking_enabled',
+                self::FIELD_ID => self::FIELD_ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED_2,
                 self::FIELD_FAMILY => self::FIELD_FEE,
-                self::FIELD_CONFIG_KEY => 'atlas.memory.feedback_ranking_enabled',
+                self::FIELD_CONFIG_KEY => self::FIELD_ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED_2,
                 self::FIELD_ENV_KEY => self::FIELD_ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED,
                 self::FIELD_SOURCE => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:225',
             ],

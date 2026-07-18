@@ -10455,4 +10455,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b508_spec_completeness_aaeos_http_measure_series_lote_ledger_floor_count']);
     }
 
+    public function test_b509_measure_series_lote_ledger_rotation_acos_watchdog_code_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b509MeasureSeriesLoteLedgerRotationAcosWatchdogCodeFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ESP_05, $out['ESP-05']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ESP_06, $out['ESP-06']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTJ04_JUDGE, $out['codex-independent-multj04-judge']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTJ06_JUDGE, $out['codex-independent-multj06-judge']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_CODE_SYMBOL_EMBEDDING_COVERAGE_V1, $out['atlas.code_symbol_embedding_coverage.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_CONTEXT_EXECUTION_COOCCURRENCE_V1, $out['atlas.context.execution_cooccurrence.v1']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_PIP_08_SCORECARD_STABILITY, $out['pip-08.scorecard_stability']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_RATIOS_PRE_FILTER_RECALL_CONCENTRATION_RATIO, $out['ratios.pre_filter_recall_concentration_ratio']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_S_ARCHIVED_AT, $out['s.archived_at']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_S_STATUS, $out['s.status']);
+        $this->assertSame(PromotionProtocol::FIELD_ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED_2, $out['atlas.memory.feedback_ranking_enabled']);
+        $this->assertSame(PromotionProtocol::FIELD_ATLAS_MEMORY_FUSION_V2_ENABLED, $out['atlas.memory.fusion_v2_enabled']);
+        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_78, $out['0.78']);
+        $this->assertSame(AtlasAaeosQualityBarService::FLOAT_0_79, $out['0.79']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_CODEX_INDEPENDENT_TETO01_JUDGE, $out['codex-independent-teto01-judge']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_CURSOR_ACOS_MAX_TETO01, $out['cursor-acos-max-teto01']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_SPEC, $out['aaeos.spec']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_TASKS, $out['aaeos.tasks']);
+        $this->assertSame(18, $out['b509_measure_series_lote_ledger_rotation_acos_watchdog_code_floor_count']);
+    }
+
 }

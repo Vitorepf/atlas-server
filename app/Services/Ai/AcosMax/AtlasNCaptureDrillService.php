@@ -142,6 +142,8 @@ final class AtlasNCaptureDrillService
     public const FIELD_ADMISSION_REASON = 'admission.reason';
     public const FIELD_CAPABILITY_SPEC_FUNCTION = 'capability_spec.function';
     public const FIELD_CAPABILITY_SPEC_VIOLATIONS = 'capability_spec.violations';
+    public const FIELD_CODEX_INDEPENDENT_TETO01_JUDGE = 'codex-independent-teto01-judge';
+    public const FIELD_CURSOR_ACOS_MAX_TETO01 = 'cursor-acos-max-teto01';
     public const INT_365 = 365;
 
     private readonly string $ledgerPath;
@@ -182,8 +184,8 @@ final class AtlasNCaptureDrillService
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
             self::FIELD_TTL_DAYS => self::INT_365,
-            self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-teto01',
-            self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-teto01-judge',
+            self::FIELD_AUTHOR_ENGINE_ID => self::FIELD_CURSOR_ACOS_MAX_TETO01,
+            self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_INDEPENDENT_TETO01_JUDGE,
             self::FIELD_DUAL_READ_REQUIRED => false,
             self::FIELD_SERIES_REGISTRY => [
                 self::FIELD_SERIES => self::MEASURE_ID,

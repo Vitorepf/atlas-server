@@ -80,6 +80,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_ELEV_27 = 'ELEV-27';
     public const FIELD_ESP_00 = 'ESP-00';
     public const FIELD_ESP_03 = 'ESP-03';
+    public const FIELD_ESP_05 = 'ESP-05';
+    public const FIELD_ESP_06 = 'ESP-06';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -310,7 +312,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.decide.replay_divergence.v1',
             ],
             [
-                self::FIELD_SLICE => 'ESP-05',
+                self::FIELD_SLICE => self::FIELD_ESP_05,
                 self::FIELD_SERIES => AtlasDecideLiveOutcomeFeedbackService::ZERO_WEIGHT_MEASURE_ID,
                 self::FIELD_PATH => 'AtlasDecideLiveOutcomeFeedbackService::routeStats.providers.*.zero_weight_success_rate',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
@@ -319,7 +321,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.decide.zero_weight_outcomes.v1',
             ],
             [
-                self::FIELD_SLICE => 'ESP-06',
+                self::FIELD_SLICE => self::FIELD_ESP_06,
                 self::FIELD_SERIES => OutcomeEnvelopeBridge::MEASURE_ID,
                 self::FIELD_PATH => 'OutcomeEnvelopeBridge::producerConsumerMeta',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,

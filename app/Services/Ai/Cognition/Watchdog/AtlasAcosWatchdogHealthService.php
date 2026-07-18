@@ -380,6 +380,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_GOLDEN_RECALL_AT_5 = 'latest_snapshot.metadata.memory_recall_golden.recall_at_5';
     public const FIELD_LATEST_SNAPSHOT_SNAPSHOT_AT = 'latest_snapshot.snapshot_at';
     public const FIELD_MEASUREMENT_BLOCKERS = 'measurement.blockers';
+    public const FIELD_PIP_08_SCORECARD_STABILITY = 'pip-08.scorecard_stability';
+    public const FIELD_RATIOS_PRE_FILTER_RECALL_CONCENTRATION_RATIO = 'ratios.pre_filter_recall_concentration_ratio';
     public const INT_100 = 100;
     public const FLOAT_10_0 = 10.0;
 
@@ -553,7 +555,7 @@ final class AtlasAcosWatchdogHealthService
         $coverageRatio = AiValueNormalizer::finiteFloatOrNull(data_get($aurg, self::FIELD_COVERAGE_MEMORY_CROSS_LAYER_COVERAGE_RATIO, 0.0)) ?? 0.0;
         $preFilterConcentration = AiValueNormalizer::finiteFloatOrNull(data_get(
             $quality,
-            'ratios.pre_filter_recall_concentration_ratio',
+            self::FIELD_RATIOS_PRE_FILTER_RECALL_CONCENTRATION_RATIO,
             data_get($quality, self::FIELD_RATIOS_RECALL_CONCENTRATION_RATIO, 0.0),
         )) ?? 0.0;
         $issues = [];
@@ -784,7 +786,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_PARTIAL_ACRONYMS => array_values(array_map(static fn (array $row): string => (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_ACRONYM] ?? null) ?? ''), array_slice($partials, 0, 10))),
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
-        $this->recordLedger($blocking === [] ? LedgerEventType::OperationCompleted : LedgerEventType::OperationBlocked, $payload, 'pip-08.scorecard_stability');
+        $this->recordLedger($blocking === [] ? LedgerEventType::OperationCompleted : LedgerEventType::OperationBlocked, $payload, self::FIELD_PIP_08_SCORECARD_STABILITY);
 
         return $payload;
     }
