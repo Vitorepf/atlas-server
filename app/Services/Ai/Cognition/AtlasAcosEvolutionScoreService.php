@@ -128,6 +128,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_LICOES_GERIDAS = 'licoes_geridas';
     public const FIELD_MOTOR_VIVO = 'motor_vivo';
     public const FIELD_PACK_ANTI_LIXO = 'pack_anti_lixo';
+    public const FIELD_PIPELINE_GREEN_RUN_RECEIPTS = 'pipeline_green_run_receipts';
+    public const FIELD_SOURCE_KIND = 'source_kind';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -181,7 +183,7 @@ class AtlasAcosEvolutionScoreService
             self::FIELD_SCORE => round($pipeline, 2),
             self::FIELD_MAX => 10.0,
             self::FIELD_SIGNALS => [[
-                self::FIELD_SIGNAL => 'pipeline_green_run_receipts',
+                self::FIELD_SIGNAL => self::FIELD_PIPELINE_GREEN_RUN_RECEIPTS,
                 self::FIELD_POINTS => round($pipeline, 2),
                 self::FIELD_MAX => 10.0,
                 self::FIELD_EVIDENCE => 'scorecard v3 dimensão pipeline (green-run receipts reais, freshness-bound)',
@@ -364,7 +366,7 @@ class AtlasAcosEvolutionScoreService
             }
             $count = 0;
             DB::table('atlas_aurg_nodes')
-                ->where('source_kind', 'mission')
+                ->where(self::FIELD_SOURCE_KIND, 'mission')
                 ->orderBy('id')
                 ->chunkById(500, function ($nodes) use (&$count): void {
                     foreach ($nodes as $node) {

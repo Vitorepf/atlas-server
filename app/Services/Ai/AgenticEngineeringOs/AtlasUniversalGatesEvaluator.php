@@ -10886,4 +10886,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B431).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function departmentContractTetoPredictedMissionControlAcosEvolutionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'context_pack' => DepartmentContractRuntime::FIELD_CONTEXT_PACK,
+            'engineering_goal_raw' => DepartmentContractRuntime::FIELD_ENGINEERING_GOAL_RAW,
+            'unlabelled' => Teto10PredictedRevertReviewDigest::FIELD_UNLABELLED,
+            'untitled' => Teto10PredictedRevertReviewDigest::FIELD_UNTITLED,
+            'recover_blocked_backlog' => AtlasMissionControlCockpitService::FIELD_RECOVER_BLOCKED_BACKLOG,
+            'repair_malformed_packets' => AtlasMissionControlCockpitService::FIELD_REPAIR_MALFORMED_PACKETS,
+            'pipeline_green_run_receipts' => AtlasAcosEvolutionScoreService::FIELD_PIPELINE_GREEN_RUN_RECEIPTS,
+            'source_kind' => AtlasAcosEvolutionScoreService::FIELD_SOURCE_KIND,
+            'series_v2_gap_exceeds_floor' => AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_GAP_EXCEEDS_FLOOR,
+            'series_v2_window_stale' => AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_WINDOW_STALE,
+            'monitoring' => AtlasAcosRollbackTriggerCheckService::FIELD_MONITORING,
+            'rollback_trigger_fired' => AtlasAcosRollbackTriggerCheckService::FIELD_ROLLBACK_TRIGGER_FIRED,
+            'service_class_missing' => AtlasCognitionEvidenceResolver::FIELD_SERVICE_CLASS_MISSING,
+            'test_ref' => AtlasCognitionEvidenceResolver::FIELD_TEST_REF,
+            'execute_with_approval' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_EXECUTE_WITH_APPROVAL,
+            'php' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_PHP,
+            'lexical' => AtlasImmuneHybridInputClassifier::FIELD_LEXICAL,
+            'redact_minimize' => AtlasImmuneHybridInputClassifier::FIELD_REDACT_MINIMIZE,
+            'department_contract_teto_predicted_mission_control_acos_evolution_floor_count' => 18,
+        ];
+    }
+
 }

@@ -94,6 +94,8 @@ class AtlasCognitionEvidenceResolver
     public const FIELD_GREEN_RECEIPT_MISSING = 'green_receipt_missing';
     public const FIELD_GREEN_RECEIPT_STALE_OR_UNMATCHED = 'green_receipt_stale_or_unmatched';
     public const FIELD_OWNER_DOC_MISSING = 'owner_doc_missing';
+    public const FIELD_SERVICE_CLASS_MISSING = 'service_class_missing';
+    public const FIELD_TEST_REF = 'test_ref';
 
     /**
      * Memoized FQN-ownership index: short class name => list of owner-doc capabilities
@@ -323,7 +325,7 @@ class AtlasCognitionEvidenceResolver
         if ($fqn === null) {
             return [
                 self::FIELD_STATUS => self::STATUS_BLOCKED,
-                self::FIELD_REASON => 'service_class_missing',
+                self::FIELD_REASON => self::FIELD_SERVICE_CLASS_MISSING,
                 self::FIELD_OWNER_CAPABILITY_IDS => [],
                 self::FIELD_CANDIDATE_TEST_REFS => [],
                 self::FIELD_LATEST_RECEIPT_AT => null,
@@ -349,7 +351,7 @@ class AtlasCognitionEvidenceResolver
             $query = AtlasAaeosTestRunReceipt::query()
                 ->whereIn('capability_id', $ownerIds);
             if ($candidateTestRefs !== []) {
-                $query->whereIn('test_ref', $candidateTestRefs);
+                $query->whereIn(self::FIELD_TEST_REF, $candidateTestRefs);
             }
 
             $latestReceipt = (clone $query)->orderByDesc('ran_at')->orderByDesc('created_at')->first();

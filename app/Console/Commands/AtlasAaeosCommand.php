@@ -453,6 +453,7 @@ final class AtlasAaeosCommand extends Command
                             {--aaeos-test-evidence-ledger-department-contract-cognition-health-floors-contract= : JSON file (any object) to observe aaeos/test/evidence/ledger/department/contract floors}
                             {--department-contract-http-path-frontier-wave-operational-volume-floors-contract= : JSON file (any object) to observe department/contract/http/path/frontier/wave floors}
                             {--obra-retro-department-contract-lote-measure-verified-share-floors-contract= : JSON file (any object) to observe obra/retro/department/contract/lote/measure floors}
+                            {--department-contract-teto-predicted-mission-control-acos-evolution-floors-contract= : JSON file (any object) to observe department/contract/teto/predicted/mission/control floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1062,6 +1063,7 @@ final class AtlasAaeosCommand extends Command
             ['aaeos-test-evidence-ledger-department-contract-cognition-health-floors-contract', 'aaeos_test_evidence_ledger_department_contract_cognition_health_floors_contract', fn (array $p) => $gates->aaeosTestEvidenceLedgerDepartmentContractCognitionHealthFloorsContractObserve($p)],
             ['department-contract-http-path-frontier-wave-operational-volume-floors-contract', 'department_contract_http_path_frontier_wave_operational_volume_floors_contract', fn (array $p) => $gates->departmentContractHttpPathFrontierWaveOperationalVolumeFloorsContractObserve($p)],
             ['obra-retro-department-contract-lote-measure-verified-share-floors-contract', 'obra_retro_department_contract_lote_measure_verified_share_floors_contract', fn (array $p) => $gates->obraRetroDepartmentContractLoteMeasureVerifiedShareFloorsContractObserve($p)],
+            ['department-contract-teto-predicted-mission-control-acos-evolution-floors-contract', 'department_contract_teto_predicted_mission_control_acos_evolution_floors_contract', fn (array $p) => $gates->departmentContractTetoPredictedMissionControlAcosEvolutionFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

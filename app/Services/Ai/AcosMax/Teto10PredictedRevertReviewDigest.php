@@ -92,6 +92,8 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_REORDERS_BY_PREDICTED_REVERT_BAND = 'reorders_by_predicted_revert_band';
     public const FIELD_MANUAL_REVIEW = 'manual_review';
     public const FIELD_ITEM = 'item';
+    public const FIELD_UNLABELLED = 'unlabelled';
+    public const FIELD_UNTITLED = 'untitled';
 
     /**
      * @param  list<array<string,mixed>>  $items
@@ -177,7 +179,7 @@ final class Teto10PredictedRevertReviewDigest
                 if (! is_array($item)) {
                     continue;
                 }
-                $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? self::FIELD_ITEM) ?: 'item').': '.self::plain(self::string($item[self::FIELD_TITLE] ?? 'untitled') ?: 'untitled');
+                $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? self::FIELD_ITEM) ?: 'item').': '.self::plain(self::string($item[self::FIELD_TITLE] ?? self::FIELD_UNTITLED) ?: 'untitled');
                 $lines[] = '  - band: '.self::plain(self::band($item[self::FIELD_PREDICTED_REVERT_BAND] ?? self::BAND_UNKNOWN));
                 $lines[] = '  - evidence: '.self::plain(implode(', ', array_map(self::string(...), AiValueNormalizer::arrayOrEmpty($item[self::FIELD_EVIDENCE_REFS] ?? null))));
                 $lines[] = '  - diff-ref: '.self::plain(self::string($item[self::FIELD_DIFF_REF] ?? self::FIELD_MANUAL_REVIEW) ?: 'manual_review');
@@ -314,7 +316,7 @@ final class Teto10PredictedRevertReviewDigest
             if (! is_array($item)) {
                 continue;
             }
-            $ref = self::string($item[self::FIELD_FLIP_REF] ?? $item[self::FIELD_ASK_REF] ?? 'unlabelled') ?: 'unlabelled';
+            $ref = self::string($item[self::FIELD_FLIP_REF] ?? $item[self::FIELD_ASK_REF] ?? self::FIELD_UNLABELLED) ?: 'unlabelled';
             $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? self::FIELD_ITEM) ?: 'item').' '.self::inline($ref)
                 .' reverse: '.self::inline(self::string($item[self::FIELD_REVERSE_COMMAND] ?? self::FIELD_MANUAL_REVIEW) ?: 'manual_review');
         }

@@ -8516,4 +8516,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['obra_retro_department_contract_lote_measure_verified_share_floor_count']);
     }
 
+    public function test_department_contract_teto_predicted_mission_control_acos_evolution_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->departmentContractTetoPredictedMissionControlAcosEvolutionFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_CONTEXT_PACK, $out['context_pack']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ENGINEERING_GOAL_RAW, $out['engineering_goal_raw']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_UNLABELLED, $out['unlabelled']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_UNTITLED, $out['untitled']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_RECOVER_BLOCKED_BACKLOG, $out['recover_blocked_backlog']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_REPAIR_MALFORMED_PACKETS, $out['repair_malformed_packets']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_PIPELINE_GREEN_RUN_RECEIPTS, $out['pipeline_green_run_receipts']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_SOURCE_KIND, $out['source_kind']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_GAP_EXCEEDS_FLOOR, $out['series_v2_gap_exceeds_floor']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_WINDOW_STALE, $out['series_v2_window_stale']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_MONITORING, $out['monitoring']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_ROLLBACK_TRIGGER_FIRED, $out['rollback_trigger_fired']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_SERVICE_CLASS_MISSING, $out['service_class_missing']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_TEST_REF, $out['test_ref']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_EXECUTE_WITH_APPROVAL, $out['execute_with_approval']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_PHP, $out['php']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_LEXICAL, $out['lexical']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_REDACT_MINIMIZE, $out['redact_minimize']);
+        $this->assertSame(18, $out['department_contract_teto_predicted_mission_control_acos_evolution_floor_count']);
+    }
+
 }

@@ -221,6 +221,8 @@ final class DepartmentContractRuntime
     public const FIELD_AAEOS_SPEC_PACKS = 'aaeos_spec_packs';
     public const FIELD_AAEOS_TEST_PACKS = 'aaeos_test_packs';
     public const FIELD_ACCEPTANCE_CRITERIA = 'acceptance_criteria';
+    public const FIELD_CONTEXT_PACK = 'context_pack';
+    public const FIELD_ENGINEERING_GOAL_RAW = 'engineering_goal_raw';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -282,7 +284,7 @@ final class DepartmentContractRuntime
             self::FIELD_SCOPE => 'traduz intenção humana ambígua em engineering_goal disambiguado com critérios de aceitação mensuráveis',
             self::FIELD_TRIGGERS => ['intent_classification.target_department=product'],
             self::FIELD_INPUTS => [
-                [self::FIELD_NAME => 'engineering_goal_raw', self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL],
+                [self::FIELD_NAME => self::FIELD_ENGINEERING_GOAL_RAW, self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL],
             ],
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => self::FIELD_ENGINEERING_GOAL_DISAMBIGUATED, self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL_DISAMBIGUATED],
@@ -523,7 +525,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => 'memory_record', self::FIELD_SCHEMA => self::SCHEMA_MEMORY_RECORD],
-                [self::FIELD_NAME => 'context_pack', self::FIELD_SCHEMA => self::SCHEMA_CONTEXT_PACK],
+                [self::FIELD_NAME => self::FIELD_CONTEXT_PACK, self::FIELD_SCHEMA => self::SCHEMA_CONTEXT_PACK],
             ],
             self::FIELD_GATES => ['evidence_persisted', 'learning_signal_extracted', 'promotion_gate_passed', 'noise_immunity_check_ok', 'schema_versioned'],
             self::FIELD_ALLOWED_ACTIONS => ['promote_to_memory', 'quarantine_capsule', 'emit_context_pack'],

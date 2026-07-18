@@ -171,6 +171,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_SERIES_V2_CALENDAR_SPAN_BELOW_FLOOR = 'series_v2_calendar_span_below_floor';
     public const FIELD_SERIES_V2_DAY_COUNT_BELOW_FLOOR = 'series_v2_day_count_below_floor';
     public const FIELD_SERIES_V2_FUTURE_DATED_ROWS = 'series_v2_future_dated_rows';
+    public const FIELD_SERIES_V2_GAP_EXCEEDS_FLOOR = 'series_v2_gap_exceeds_floor';
+    public const FIELD_SERIES_V2_WINDOW_STALE = 'series_v2_window_stale';
 
     /**
      * @param  array<string,mixed>  $options
@@ -658,8 +660,8 @@ final class AtlasAcosLongHorizonGateService
                 self::FIELD_CALENDAR_SPAN => self::FIELD_SERIES_V2_CALENDAR_SPAN_BELOW_FLOOR,
                 self::FIELD_RESOLVED_EVIDENCE => 'series_v2_resolved_evidence_source_missing',
                 self::FIELD_FUTURE_DATED => self::FIELD_SERIES_V2_FUTURE_DATED_ROWS,
-                self::FIELD_WINDOW_STALE => 'series_v2_window_stale',
-                self::FIELD_GAP => 'series_v2_gap_exceeds_floor',
+                self::FIELD_WINDOW_STALE => self::FIELD_SERIES_V2_WINDOW_STALE,
+                self::FIELD_GAP => self::FIELD_SERIES_V2_GAP_EXCEEDS_FLOOR,
                 self::FIELD_BACKFILLED => self::FIELD_SERIES_V2_BACKFILLED_SAMPLE_DETECTED,
             ],
         );

@@ -63,6 +63,8 @@ final class AtlasAcosRollbackTriggerCheckService
     public const FIELD_VALUE = 'value';
     public const FIELD_WATCHDOG_ALERT_OPERATOR_REVERTS = 'watchdog_alert_operator_reverts';
     public const FIELD_CONDITION_NOT_MET = 'condition_not_met';
+    public const FIELD_MONITORING = 'monitoring';
+    public const FIELD_ROLLBACK_TRIGGER_FIRED = 'rollback_trigger_fired';
 
 
     /**
@@ -118,7 +120,7 @@ final class AtlasAcosRollbackTriggerCheckService
             self::FIELD_CHECKED_AT => $asOf->toIso8601String(),
             self::FIELD_STATUS => $status,
             self::STATUS_ALERT => $alert,
-            self::FIELD_ALERT_CODE => $alert ? 'rollback_trigger_fired' : null,
+            self::FIELD_ALERT_CODE => $alert ? self::FIELD_ROLLBACK_TRIGGER_FIRED : null,
             self::FIELD_ENABLED => $enabled,
             self::FIELD_FLIP_COUNT => count($evaluations),
             self::FIELD_EVALUATIONS => $evaluations,
@@ -161,7 +163,7 @@ final class AtlasAcosRollbackTriggerCheckService
             self::FIELD_SLICES => $flip[self::FIELD_SLICES] ?? [],
             self::FIELD_ARMED => $armed,
             self::FIELD_FIRED => false,
-            self::FIELD_STATUS => $armed ? 'monitoring' : 'pre_flip',
+            self::FIELD_STATUS => $armed ? self::FIELD_MONITORING : 'pre_flip',
             self::FIELD_REASON => $armed ? self::FIELD_CONDITION_NOT_MET : 'flip_not_armed',
             self::FIELD_CONDITION_KIND => $condition[self::FIELD_KIND] ?? null,
             self::FIELD_ROLLBACK_ACTION => $flip[self::FIELD_ROLLBACK_ACTION] ?? [],

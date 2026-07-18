@@ -82,6 +82,8 @@ final class AtlasImmuneHybridInputClassifier
     public const FIELD_OFF = 'off';
     public const FIELD_AGREEMENT = 'agreement';
     public const FIELD_CITED_DATA_NOT_INSTRUCTION = 'cited_data_not_instruction';
+    public const FIELD_LEXICAL = 'lexical';
+    public const FIELD_REDACT_MINIMIZE = 'redact_minimize';
 
     private readonly AtlasAaeosCognitiveImmuneInputClassifier $base;
 
@@ -172,7 +174,7 @@ final class AtlasImmuneHybridInputClassifier
             self::FIELD_LEXICAL_HOSTILE_CLASS => in_array($baseResult[self::FIELD_INPUT_CLASS], self::HOSTILE_SEVERITY, true)
                 ? (AiValueNormalizer::trimmedScalarStringOrNull($baseResult[self::FIELD_INPUT_CLASS] ?? null) ?? '')
                 : null,
-            self::FIELD_WINNER_SOURCE => 'lexical',
+            self::FIELD_WINNER_SOURCE => self::FIELD_LEXICAL,
             self::FIELD_OVERRIDE_APPLIED => false,
         ];
 
@@ -303,7 +305,7 @@ final class AtlasImmuneHybridInputClassifier
     {
         return match ($class) {
             self::FIELD_PROMPT_INJECTION => self::FIELD_BLOCKED_EPHEMERAL_EVIDENCE,
-            self::FIELD_PRIVATE_SENSITIVE => 'redact_minimize',
+            self::FIELD_PRIVATE_SENSITIVE => self::FIELD_REDACT_MINIMIZE,
             self::FIELD_UNTRUSTED_CONTENT => self::FIELD_CITED_DATA_NOT_INSTRUCTION,
             default => self::FIELD_BLOCKED_EPHEMERAL_EVIDENCE,
         };

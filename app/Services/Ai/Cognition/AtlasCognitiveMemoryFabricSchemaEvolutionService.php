@@ -88,6 +88,8 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_THRESHOLD = 'threshold';
     public const FIELD_NORMAL = 'normal';
     public const FIELD_SCHEMA_EVOLUTION = 'schema_evolution';
+    public const FIELD_EXECUTE_WITH_APPROVAL = 'execute_with_approval';
+    public const FIELD_PHP = 'php';
 
     private ?string $proposalsLogOverride = null;
 
@@ -150,7 +152,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
             self::FIELD_PROPOSED_EFFECT => "propose evolution {$currentSchema} -> {$nextSchema}",
             self::FIELD_SCOPE => [self::FIELD_PRIVACY_CLASS => self::FIELD_NORMAL],
             self::FIELD_ACTOR => $actor,
-            self::FIELD_REQUESTED_AUTONOMY => 'execute_with_approval',
+            self::FIELD_REQUESTED_AUTONOMY => self::FIELD_EXECUTE_WITH_APPROVAL,
         ]);
 
         $proposalId = 'acmf_'.substr(hash('sha256', $currentSchema.'|'.$nextSchema.'|'.$trigger), 0, 12);
@@ -217,7 +219,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
 
         foreach ($it as $splFileInfo) {
             /** @var \SplFileInfo $splFileInfo */
-            if ($splFileInfo->getExtension() !== 'php') {
+            if ($splFileInfo->getExtension() !== self::FIELD_PHP) {
                 continue;
             }
             $realPath = $splFileInfo->getRealPath();

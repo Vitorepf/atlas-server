@@ -102,6 +102,8 @@ final class AtlasMissionControlCockpitService
     public const FIELD_REVIEW_PACKET_SIGNED = 'review_packet_signed';
     public const FIELD_MONITOR = 'monitor';
     public const FIELD_ORIGINATE_MORE_WORK = 'originate_more_work';
+    public const FIELD_RECOVER_BLOCKED_BACKLOG = 'recover_blocked_backlog';
+    public const FIELD_REPAIR_MALFORMED_PACKETS = 'repair_malformed_packets';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
@@ -216,8 +218,8 @@ final class AtlasMissionControlCockpitService
         $malformed = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_MALFORMED] ?? 0) ?? 0));
 
         $recommendedAction = match (true) {
-            $servableNow === 0 && $recoverable > 0 => 'recover_blocked_backlog',
-            $malformed > 0 => 'repair_malformed_packets',
+            $servableNow === 0 && $recoverable > 0 => self::FIELD_RECOVER_BLOCKED_BACKLOG,
+            $malformed > 0 => self::FIELD_REPAIR_MALFORMED_PACKETS,
             $servableNow === 0 && $activeLeases > 0 => self::FIELD_ORIGINATE_MORE_WORK,
             default => self::FIELD_MONITOR,
         };
