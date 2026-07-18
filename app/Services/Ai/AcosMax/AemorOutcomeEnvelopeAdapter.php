@@ -41,6 +41,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public const FIELD_RUN_ID = 'run_id';
     public const FIELD_NATIVE_DIVERGENT = 'native_divergent';
     public const FIELD_SCOPE_ID = 'scope_id';
+    public const FIELD_VERIFIED_SOURCE_PRESENT = 'verified_source_present';
 
     public const STATUS_ABSENT = 'absent';
 
@@ -78,7 +79,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
             self::FIELD_STATUS => $status,
             self::FIELD_VERIFIED => $verified,
             self::FIELD_VERIFIED_BASIS => $verifiedBasis,
-            'verified_source_present' => $verifiedSourcePresent,
+            self::FIELD_VERIFIED_SOURCE_PRESENT => $verifiedSourcePresent,
             self::FIELD_CERTIFIED_RECEIPT_ID => $contract[self::FIELD_CERTIFIED_RECEIPT_ID] ?? $native[self::FIELD_CERTIFIED_RECEIPT_ID] ?? null,
             self::FIELD_EVIDENCE_REF_COUNT => (int) ($contract[self::FIELD_EVIDENCE_REF_COUNT] ?? count($evidenceRefs)),
             self::FIELD_EPISODE_ID => $episodeId !== '' ? $episodeId : null,

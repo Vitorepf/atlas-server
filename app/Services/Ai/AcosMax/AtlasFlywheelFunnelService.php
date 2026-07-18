@@ -55,6 +55,7 @@ final class AtlasFlywheelFunnelService
     public const FIELD_READ_ONLY = 'read_only';
     public const FIELD_ROLE = 'role';
     public const FIELD_SINGLE_SCALAR_SCORE_EMITTED = 'single_scalar_score_emitted';
+    public const FIELD_WINDOWS = 'windows';
 
     /** @var list<string> */
     public const STAGES = [
@@ -232,7 +233,7 @@ final class AtlasFlywheelFunnelService
             self::FIELD_DENOMINATOR_MIN => $denominatorMin,
             self::FIELD_STAGES => self::STAGES,
             self::FIELD_BY_EXECUTOR => $byExecutor,
-            'windows' => [
+            self::FIELD_WINDOWS => [
                 self::FIELD_ALL => [
                     self::FIELD_STATUS => $status,
                     self::FIELD_BY_EXECUTOR => $byExecutor,

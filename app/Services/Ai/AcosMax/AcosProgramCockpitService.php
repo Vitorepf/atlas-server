@@ -50,6 +50,7 @@ final class AcosProgramCockpitService
     public const FIELD_REVIEW_DEBT = 'review_debt';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_SOURCE_EXIT_CODE = 'source_exit_code';
+    public const FIELD_WINDOWS = 'windows';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -66,7 +67,7 @@ final class AcosProgramCockpitService
                 'm' => $this->commandSection('atlas:acos:m-series --json', 'atlas:acos:m-series', ['--json' => true]),
                 'r' => $this->commandSection('atlas:atlas-decide:live-feedback --regret --json', 'atlas:atlas-decide:live-feedback', ['--regret' => true, '--json' => true]),
                 self::FIELD_LOOPS_FUNNEL => $this->loopsFunnelSection(),
-                'windows' => $this->commandSection('atlas:windows --json', 'atlas:windows', ['--json' => true]),
+                self::FIELD_WINDOWS => $this->commandSection('atlas:windows --json', 'atlas:windows', ['--json' => true]),
                 self::FIELD_PENDING_FLIPS => $this->commandSection('atlas:promotions --json', 'atlas:promotions', ['--json' => true]),
                 self::FIELD_REVIEW_DEBT => $this->callbackSection(
                     'AtlasOperatorReviewDebtMeter::report(7)',

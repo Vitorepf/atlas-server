@@ -47,6 +47,7 @@ final class AtlasModelCapabilitySpecService
     public const FIELD_FUNCTIONS = 'functions';
     public const FIELD_FUNCTION = 'function';
     public const FIELD_LICENSE_ALLOWED = 'license_allowed';
+    public const FIELD_LICENSE = 'license';
     /** @var array<string, array<string, mixed>> */
     private array $functions;
 
@@ -273,7 +274,7 @@ final class AtlasModelCapabilitySpecService
         if ($allowed === []) {
             return [];
         }
-        $license = AiValueNormalizer::lowerTrimmedString($model['license'] ?? '');
+        $license = AiValueNormalizer::lowerTrimmedString($model[self::FIELD_LICENSE] ?? '');
         if ($license === '') {
             return [[
                 self::FIELD_FIELD => 'license',

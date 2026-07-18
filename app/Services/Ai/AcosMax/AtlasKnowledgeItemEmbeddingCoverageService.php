@@ -81,6 +81,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const FIELD_SOURCE_TYPE = 'source_type';
     public const FIELD_STALE_DEFINITION = 'stale_definition';
     public const FIELD_TARGET_COVERAGE_RATIO = 'target_coverage_ratio';
+    public const FIELD_TTL_DAYS = 'ttl_days';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -98,7 +99,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
                 self::FIELD_SCOPE => 'active_items_only',
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
-            'ttl_days' => 60,
+            self::FIELD_TTL_DAYS => 60,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxa06-fase1',
             self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-maxa06-fase1-judge',
             self::FIELD_DUAL_READ_REQUIRED => false,

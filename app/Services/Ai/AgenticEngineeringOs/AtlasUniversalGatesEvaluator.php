@@ -10079,4 +10079,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B405).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function acosWatchdogImmuneCalibrationMeasureProgramAemorOutcomeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'forge' => AtlasAcosWatchdogHealthService::FIELD_FORGE,
+            'forge_gate_enforce' => AtlasAcosWatchdogHealthService::FIELD_FORGE_GATE_ENFORCE,
+            'forge_promoted_cycle_volume_below_floor' => AtlasAcosWatchdogHealthService::FIELD_FORGE_PROMOTED_CYCLE_VOLUME_BELOW_FLOOR,
+            'forge_promoted_cycles' => AtlasAcosWatchdogHealthService::FIELD_FORGE_PROMOTED_CYCLES,
+            'forge_sovereign_verdict_jsonl' => AtlasAcosWatchdogHealthService::FIELD_FORGE_SOVEREIGN_VERDICT_JSONL,
+            'freshness' => AtlasAcosWatchdogHealthService::FIELD_FRESHNESS,
+            'provider_safe' => ImmuneCalibrationService::FIELD_PROVIDER_SAFE,
+            'raw_content_exposed' => ImmuneCalibrationService::FIELD_RAW_CONTENT_EXPOSED,
+            'reader_command' => ImmuneCalibrationService::FIELD_READER_COMMAND,
+            'recurrence_count' => ImmuneCalibrationService::FIELD_RECURRENCE_COUNT,
+            'retention_ok' => ImmuneCalibrationService::FIELD_RETENTION_OK,
+            'source_type' => AcosMeasureSeriesFreshnessReader::FIELD_SOURCE_TYPE,
+            'windows' => AcosProgramCockpitService::FIELD_WINDOWS,
+            'verified_source_present' => AemorOutcomeEnvelopeAdapter::FIELD_VERIFIED_SOURCE_PRESENT,
+            'source' => AmbitionRungPolicy::FIELD_SOURCE,
+            'windows' => AtlasFlywheelFunnelService::FIELD_WINDOWS,
+            'ttl_days' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_TTL_DAYS,
+            'license' => AtlasModelCapabilitySpecService::FIELD_LICENSE,
+            'acos_watchdog_immune_calibration_measure_program_aemor_outcome_floor_count' => 18,
+        ];
+    }
+
 }

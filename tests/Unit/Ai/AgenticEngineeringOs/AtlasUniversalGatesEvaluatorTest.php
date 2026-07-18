@@ -125,6 +125,7 @@ use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogRunner;
 use App\Services\Ai\Cognition\Watchdog\Checks\AutonomyLadderAdversarialWatchdogCheck;
 use App\Services\Ai\Cognition\CaptureHmacLineageService;
 use App\Services\Ai\Aaeos\AtlasVetoPropagationWatchdog;
+use App\Services\Ai\AcosMax\AtlasModelCapabilitySpecService;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -7849,6 +7850,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AcosMaxObraRetroService::FIELD_VERIFIED, $out['verified']);
         $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_WINDOWS, $out['windows']);
         $this->assertSame(18, $out['acos_watchdog_immune_calibration_long_context_pareto_memory_floor_count']);
+    }
+
+    public function test_acos_watchdog_immune_calibration_measure_program_aemor_outcome_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->acosWatchdogImmuneCalibrationMeasureProgramAemorOutcomeFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_FORGE, $out['forge']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_FORGE_GATE_ENFORCE, $out['forge_gate_enforce']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_FORGE_PROMOTED_CYCLE_VOLUME_BELOW_FLOOR, $out['forge_promoted_cycle_volume_below_floor']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_FORGE_PROMOTED_CYCLES, $out['forge_promoted_cycles']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_FORGE_SOVEREIGN_VERDICT_JSONL, $out['forge_sovereign_verdict_jsonl']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_FRESHNESS, $out['freshness']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_PROVIDER_SAFE, $out['provider_safe']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_RAW_CONTENT_EXPOSED, $out['raw_content_exposed']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_READER_COMMAND, $out['reader_command']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_RECURRENCE_COUNT, $out['recurrence_count']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_RETENTION_OK, $out['retention_ok']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_SOURCE_TYPE, $out['source_type']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_WINDOWS, $out['windows']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_VERIFIED_SOURCE_PRESENT, $out['verified_source_present']);
+        $this->assertSame(AmbitionRungPolicy::FIELD_SOURCE, $out['source']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_WINDOWS, $out['windows']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_TTL_DAYS, $out['ttl_days']);
+        $this->assertSame(AtlasModelCapabilitySpecService::FIELD_LICENSE, $out['license']);
+        $this->assertSame(18, $out['acos_watchdog_immune_calibration_measure_program_aemor_outcome_floor_count']);
     }
 
 }

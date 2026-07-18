@@ -99,6 +99,11 @@ final class ImmuneCalibrationService
     public const FIELD_PIPELINE = 'pipeline';
     public const FIELD_PRIVACY_CLASS = 'privacy_class';
     public const FIELD_PROMOTION_MODE_HINT = 'promotion_mode_hint';
+    public const FIELD_PROVIDER_SAFE = 'provider_safe';
+    public const FIELD_RAW_CONTENT_EXPOSED = 'raw_content_exposed';
+    public const FIELD_READER_COMMAND = 'reader_command';
+    public const FIELD_RECURRENCE_COUNT = 'recurrence_count';
+    public const FIELD_RETENTION_OK = 'retention_ok';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -169,7 +174,7 @@ final class ImmuneCalibrationService
             self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-immune-calibration-judge',
             'series' => [
                 self::FIELD_ID => self::MEASURE_ID,
-                'reader_command' => 'atlas:immune:calibration --json',
+                self::FIELD_READER_COMMAND => 'atlas:immune:calibration --json',
                 'table' => ImmuneVerdictLedger::TABLE,
                 self::FIELD_REGISTRY_STATUS => 'registered_elev_20s',
             ],
@@ -323,14 +328,14 @@ final class ImmuneCalibrationService
         $signals = [
             self::FIELD_CONSENT_GRANTED => true,
             self::FIELD_PRIVACY_CLASS => 'normal',
-            'retention_ok' => true,
+            self::FIELD_RETENTION_OK => true,
             self::FIELD_ATOMIC_CLAIM_PRESENT => true,
             self::FIELD_CLAIM_TYPE => 'technical_learning_candidate',
             self::FIELD_CLAIM_SOURCE_PRESENT => true,
             self::FIELD_FUTURE_UTILITY => true,
             self::FIELD_NOVELTY => true,
-            'recurrence_count' => 1,
-            'provider_safe' => true,
+            self::FIELD_RECURRENCE_COUNT => 1,
+            self::FIELD_PROVIDER_SAFE => true,
             self::FIELD_CONTAINS_SECRET => false,
             self::FIELD_CONTAINS_SENSITIVE_UNNECESSARY => false,
             self::FIELD_CONTRADICTS_NEWER => false,
@@ -349,7 +354,7 @@ final class ImmuneCalibrationService
                 self::FIELD_METADATA => [
                     'seed' => 'maxi-03-known-should-catch-g3',
                     self::FIELD_PIPELINE => 'CognitiveImmunePromotionGateEvaluator',
-                    'raw_content_exposed' => false,
+                    self::FIELD_RAW_CONTENT_EXPOSED => false,
                 ],
             ],
         );

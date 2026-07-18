@@ -42,6 +42,7 @@ final class AmbitionRungPolicy
     public const FIELD_RUNG_SERIES_USED_AS_SCORE = 'rung_series_used_as_score';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_SELECTED_ID = 'selected_id';
+    public const FIELD_SOURCE = 'source';
 
     /**
      * @param  list<array<string,mixed>>  $candidates
@@ -77,7 +78,7 @@ final class AmbitionRungPolicy
             self::FIELD_SELECTED_RUNG => AiValueNormalizer::trimmedStringOrNull($selected[self::FIELD_RUNG] ?? null) ?? '',
             self::FIELD_BASIS => $basis,
             self::FIELD_RUNG_DISTRIBUTION => $distribution,
-            'source' => [
+            self::FIELD_SOURCE => [
                 self::FIELD_RUNG_SERIES_INFORMATIONAL => true,
                 self::FIELD_RUNG_SERIES_USED_AS_SCORE => false,
                 self::FIELD_SCOPE_HAS_CEILING => false,

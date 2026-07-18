@@ -28,13 +28,14 @@ final class AcosMeasureSeriesFreshnessReader
     public const FIELD_TABLE = 'table';
     public const FIELD_PATH = 'path';
     public const FIELD_WHERE = 'where';
+    public const FIELD_SOURCE_TYPE = 'source_type';
 
     /**
      * @param  array<string,mixed>  $entry  registry entry
      */
     public function lastAppendAt(array $entry): ?CarbonImmutable
     {
-        $sourceType = AiValueNormalizer::trimmedStringOrNull($entry['source_type'] ?? null) ?? '';
+        $sourceType = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SOURCE_TYPE] ?? null) ?? '';
         if (($entry[self::FIELD_TABLE] ?? null) !== null || $sourceType === 'table') {
             return $this->tableLastAppendAt($entry);
         }

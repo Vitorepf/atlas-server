@@ -238,6 +238,12 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_ENVELOPE_ID = 'envelope_id';
     public const FIELD_EVIDENCE_PROVENANCE = 'evidence_provenance';
     public const FIELD_FLIPS = 'flips';
+    public const FIELD_FORGE = 'forge';
+    public const FIELD_FORGE_GATE_ENFORCE = 'forge_gate_enforce';
+    public const FIELD_FORGE_PROMOTED_CYCLE_VOLUME_BELOW_FLOOR = 'forge_promoted_cycle_volume_below_floor';
+    public const FIELD_FORGE_PROMOTED_CYCLES = 'forge_promoted_cycles';
+    public const FIELD_FORGE_SOVEREIGN_VERDICT_JSONL = 'forge_sovereign_verdict_jsonl';
+    public const FIELD_FRESHNESS = 'freshness';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -292,7 +298,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_RAW => [
                 self::FIELD_SCORE => (int) (AiValueNormalizer::finiteFloatOrNull($scorecard[self::FIELD_SCORE] ?? null) ?? 0),
                 self::FIELD_STATUS => (AiValueNormalizer::trimmedStringOrNull($scorecard[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
-                'freshness' => $freshness,
+                self::FIELD_FRESHNESS => $freshness,
                 self::FIELD_WINDOWED_CONCENTRATION_RATIO => $concentration,
                 self::FIELD_SNAPSHOT_AGE_HOURS => $snapshotAgeHours,
                 self::FIELD_RECALL_USAGE_TOTAL => $recallUsageTotal,
@@ -752,9 +758,9 @@ final class AtlasAcosWatchdogHealthService
                     self::FIELD_FP_DEFINITION => (AiValueNormalizer::trimmedStringOrNull($summary[self::FIELD_FP_DEFINITION] ?? null) ?? ''),
                 ],
             ],
-            'forge_gate_enforce' => [
+            self::FIELD_FORGE_GATE_ENFORCE => [
                 self::STATUS_READY => $forgePromoted >= self::ENG_MIN_FORGE_PROMOTED_CYCLES,
-                self::FIELD_BLOCKING => $forgePromoted >= self::ENG_MIN_FORGE_PROMOTED_CYCLES ? [] : ['forge_promoted_cycle_volume_below_floor'],
+                self::FIELD_BLOCKING => $forgePromoted >= self::ENG_MIN_FORGE_PROMOTED_CYCLES ? [] : [self::FIELD_FORGE_PROMOTED_CYCLE_VOLUME_BELOW_FLOOR],
                 self::FIELD_RAW => ['promoted_harness_captured_cycles' => $forgePromoted],
             ],
             self::FIELD_ADML_COST_OUTCOME => [
@@ -777,12 +783,12 @@ final class AtlasAcosWatchdogHealthService
             'sources' => [
                 'provider_governance_coverage_ledger' => $this->relativePath($coverage->logPath()),
                 'live_outcomes_jsonl' => $this->relativePath($live->logPath()),
-                'forge_sovereign_verdict_jsonl' => $this->relativePath($this->forgeSovereignVerdictPath()),
+                self::FIELD_FORGE_SOVEREIGN_VERDICT_JSONL => $this->relativePath($this->forgeSovereignVerdictPath()),
             ],
             self::FIELD_THRESHOLDS => [
                 self::FIELD_WINDOW_DAYS => self::ENG_WINDOW_DAYS,
                 'real_executions_per_executor' => self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR,
-                'forge_promoted_cycles' => self::ENG_MIN_FORGE_PROMOTED_CYCLES,
+                self::FIELD_FORGE_PROMOTED_CYCLES => self::ENG_MIN_FORGE_PROMOTED_CYCLES,
                 self::FIELD_ADML_PROVEN_ROUTES => self::ENG_MIN_ADML_PROVEN_ROUTES,
             ],
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
@@ -1006,7 +1012,7 @@ final class AtlasAcosWatchdogHealthService
     /** @param list<array<string,mixed>> $rows @return array<string,int> */
     private function countExecutors(array $rows): array
     {
-        $counts = [self::FIELD_DEV => 0, 'forge' => 0, self::FIELD_AUTONOMOS => 0];
+        $counts = [self::FIELD_DEV => 0, self::FIELD_FORGE => 0, self::FIELD_AUTONOMOS => 0];
         foreach ($rows as $row) {
             $actor = AiValueNormalizer::lowerTrimmedString(data_get($row, 'context.executor', data_get($row, 'context.actor', data_get($row, 'surface', ''))));
             foreach (array_keys($counts) as $executor) {
