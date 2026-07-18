@@ -343,6 +343,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_GOVERNANCE_FALSE_POSITIVE_NONZERO = 'governance_false_positive_nonzero';
     public const FIELD_GOVERNANCE_SOAK_VOLUME_BELOW_FLOOR = 'governance_soak_volume_below_floor';
     public const FIELD_IMPROPER_FLOOR_DISCARDS_PRESENT = 'improper_floor_discards_present';
+    public const FIELD_LAST_AEMOR_EPISODE_ = 'last_aemor_episode_';
+    public const FIELD_LIFT_BLOCKER_STALLED = 'lift_blocker_stalled';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -432,7 +434,7 @@ final class AtlasAcosWatchdogHealthService
             ], self::FIELD_NO_RECENT_DELIVERED_REFS_EVENT),
         ];
         foreach ($aemor as $source => $at) {
-            $checks[] = $this->ageCheck('last_aemor_episode_'.$source, $at, self::LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS, $now);
+            $checks[] = $this->ageCheck(self::FIELD_LAST_AEMOR_EPISODE_.$source, $at, self::LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS, $now);
         }
         $checks[] = $this->checkRow(self::FIELD_LIFT_CASE_COUNT, (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.with_recalled_memory.case_count', 0)) ?? 0) > 0
             && (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.without_recalled_memory.case_count', 0)) ?? 0) > 0, [
@@ -760,7 +762,7 @@ final class AtlasAcosWatchdogHealthService
         $stalled = array_values(array_filter($series, static fn (array $row): bool => (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_DAYS_IN_BLOCK] ?? null) ?? 0) > self::LIFT_STALLED_DAYS));
         $blocking = $blockers;
         if ($stalled !== []) {
-            $blocking[] = 'lift_blocker_stalled';
+            $blocking[] = self::FIELD_LIFT_BLOCKER_STALLED;
         }
         $payload = [
             self::FIELD_SCHEMA_VERSION => self::OPE_LIFT_CYCLE_CLOSURE_SCHEMA,

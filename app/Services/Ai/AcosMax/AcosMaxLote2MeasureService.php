@@ -271,6 +271,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_OPERATOR_REQUEST_WINDOW_BELOW_FLOOR = 'operator_request_window_below_floor';
     public const FIELD_OUTCOME_NOT_PROVEN_REAL = 'outcome_not_proven_real';
     public const FIELD_PAIRED_PEEK_FLOOR_BELOW_MINIMUM = 'paired_peek_floor_below_minimum';
+    public const FIELD_PROMOTED_LESSON_DENOMINATOR_BELOW_MIN = 'promoted_lesson_denominator_below_min';
+    public const FIELD_SUBSEQUENT_MEASURED_RECALL_MISSING = 'subsequent_measured_recall_missing';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -518,7 +520,7 @@ final class AcosMaxLote2MeasureService
             $blockedBy[] = self::FIELD_LEARNING_CANDIDATE_MISSING;
         }
         if ($recall === null) {
-            $blockedBy[] = 'subsequent_measured_recall_missing';
+            $blockedBy[] = self::FIELD_SUBSEQUENT_MEASURED_RECALL_MISSING;
         }
         if ($fixture) {
             $blockedBy[] = 'fixture_chain';
@@ -768,7 +770,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_SCHEMA_VERSION => self::REPORT_SCHEMA,
             self::FIELD_SLICE => 'MULTX-06',
             self::FIELD_STATUS => $status,
-            self::FIELD_REASON => $status === self::STATUS_OK ? null : 'promoted_lesson_denominator_below_min',
+            self::FIELD_REASON => $status === self::STATUS_OK ? null : self::FIELD_PROMOTED_LESSON_DENOMINATOR_BELOW_MIN,
             self::FIELD_FORMULA_VERSION => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload('MULTX-06'), self::FIELD_FORMULA_VERSION)) ?? '',
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
             self::FIELD_FREEZE => self::freezePayload('MULTX-06'),

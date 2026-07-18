@@ -101,6 +101,8 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_DESCRIPTION = 'description';
     public const FIELD_FLIP_ID = 'flip_id';
     public const FIELD_NONE = 'none';
+    public const FIELD_PATCH_REF = 'patch_ref';
+    public const FIELD_REVERSIBLE = 'reversible';
 
     /**
      * @param  list<array<string,mixed>>  $items
@@ -223,9 +225,9 @@ final class Teto10PredictedRevertReviewDigest
             self::FIELD_PREDICTED_REVERT_BAND => $band,
             self::FIELD_BAND_RANK => self::BAND_RANK[$band],
             self::FIELD_EVIDENCE_REFS => self::evidenceRefs($item),
-            self::FIELD_DIFF_REF => self::firstString($item, ['diff_ref', self::FIELD_DIFF, 'patch_ref'], 'manual_review'),
+            self::FIELD_DIFF_REF => self::firstString($item, ['diff_ref', self::FIELD_DIFF, self::FIELD_PATCH_REF], 'manual_review'),
             self::FIELD_REVERSE_COMMAND => $reverse,
-            self::FIELD_REVIEW_MODE => $reverse === self::FIELD_MANUAL_REVIEW ? self::FIELD_MANUAL_REVIEW : 'reversible',
+            self::FIELD_REVIEW_MODE => $reverse === self::FIELD_MANUAL_REVIEW ? self::FIELD_MANUAL_REVIEW : self::FIELD_REVERSIBLE,
             self::FIELD_PENDING_FLIP => (AiValueNormalizer::boolOrNull($item[self::FIELD_PENDING_FLIP] ?? null) ?? false),
             self::FIELD_FLIP_REF => self::firstString($item, ['flip_ref', self::FIELD_FLIP_ID], ''),
             self::FIELD_BATCHED_ASK => (AiValueNormalizer::boolOrNull($item[self::FIELD_BATCHED_ASK] ?? null) ?? false),

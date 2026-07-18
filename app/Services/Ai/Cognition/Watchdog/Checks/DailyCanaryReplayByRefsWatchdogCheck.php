@@ -103,6 +103,8 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_PROVIDER_SAFE_INVARIANT = 'provider_safe_invariant';
     public const FIELD_R5 = 'r5';
     public const FIELD_DAILY_CANARY_DRIFT = 'daily_canary_drift';
+    public const FIELD_V2 = 'v2';
+    public const FIELD_V3 = 'v3';
 
 
     public function __construct(
@@ -265,7 +267,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
 
         // Prefer the highest version available (v2 > v1); fall back to v1 for legacy.
         $chosenKey = null;
-        foreach (['v2', 'v3', 'v4'] as $candidate) {
+        foreach ([self::FIELD_V2, self::FIELD_V3, 'v4'] as $candidate) {
             if (isset($versions[$candidate]) && is_array($versions[$candidate])) {
                 $chosenKey = $candidate;
                 break;

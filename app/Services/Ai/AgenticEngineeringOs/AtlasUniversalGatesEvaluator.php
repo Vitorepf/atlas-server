@@ -12189,4 +12189,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B473).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function departmentContractAcosWatchdogImmunePromotionAaeosCognitiveFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'assemble_delivery_pack' => DepartmentContractRuntime::FIELD_ASSEMBLE_DELIVERY_PACK,
+            'block_on_coverage_drop' => DepartmentContractRuntime::FIELD_BLOCK_ON_COVERAGE_DROP,
+            'last_aemor_episode_' => AtlasAcosWatchdogHealthService::FIELD_LAST_AEMOR_EPISODE_,
+            'lift_blocker_stalled' => AtlasAcosWatchdogHealthService::FIELD_LIFT_BLOCKER_STALLED,
+            'promotion_blocked_by_policy' => CognitiveImmunePromotionGateEvaluator::FIELD_PROMOTION_BLOCKED_BY_POLICY,
+            'promotion_mode_unresolved' => CognitiveImmunePromotionGateEvaluator::FIELD_PROMOTION_MODE_UNRESOLVED,
+            'secret_marker_privacy' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_SECRET_MARKER_PRIVACY,
+            'trivial_question' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TRIVIAL_QUESTION,
+            'promoted_lesson_denominator_below_min' => AcosMaxLote2MeasureService::FIELD_PROMOTED_LESSON_DENOMINATOR_BELOW_MIN,
+            'subsequent_measured_recall_missing' => AcosMaxLote2MeasureService::FIELD_SUBSEQUENT_MEASURED_RECALL_MISSING,
+            'patch_ref' => Teto10PredictedRevertReviewDigest::FIELD_PATCH_REF,
+            'reversible' => Teto10PredictedRevertReviewDigest::FIELD_REVERSIBLE,
+            'included' => AtlasAcosEvolutionScoreService::FIELD_INCLUDED,
+            'memory_hash' => AtlasAcosEvolutionScoreService::FIELD_MEMORY_HASH,
+            'v2' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_V2,
+            'v3' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_V3,
+            'none' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_NONE,
+            'provider_body_contains_raw_body' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_PROVIDER_BODY_CONTAINS_RAW_BODY,
+            'department_contract_acos_watchdog_immune_promotion_aaeos_cognitive_floor_count' => 18,
+        ];
+    }
+
 }

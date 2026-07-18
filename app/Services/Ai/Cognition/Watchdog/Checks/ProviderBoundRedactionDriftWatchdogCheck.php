@@ -37,6 +37,8 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
     public const FIELD_REDACTED = 'redacted';
     public const FIELD_PROVIDER_BOUND_REDACTION_DRIFT = 'provider_bound_redaction_drift';
     public const FIELD_SHA256 = 'sha256';
+    public const FIELD_NONE = 'none';
+    public const FIELD_PROVIDER_BODY_CONTAINS_RAW_BODY = 'provider_body_contains_raw_body';
 
 
     public function __construct(private AtlasMemoryPrivacyService $privacy) {}
@@ -70,7 +72,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
                             ? 'privacy.provider_body_verified'
                             : (data_get($entry->metadata, 'provider_projection.provider_body_verified') === true
                                 ? 'provider_projection.provider_body_verified'
-                                : 'none'),
+                                : self::FIELD_NONE),
                     ];
                 }
             });
@@ -104,7 +106,7 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
         $providerSummary = AiValueNormalizer::trimmedStringOrNull($this->privacy->providerSummary($entry) ?? null) ?? '';
 
         if ($body !== '' && $providerBody !== '' && str_contains($providerBody, $body)) {
-            $signals[] = 'provider_body_contains_raw_body';
+            $signals[] = self::FIELD_PROVIDER_BODY_CONTAINS_RAW_BODY;
         }
         if ($summary !== '' && $providerSummary !== '' && str_contains($providerSummary, $summary)) {
             $signals[] = 'provider_summary_contains_raw_summary';

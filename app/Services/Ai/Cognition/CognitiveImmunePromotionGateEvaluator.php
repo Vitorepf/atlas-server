@@ -112,6 +112,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_PROBATION_RECALL_ACTOR_COUNTS = 'probation_recall_actor_counts';
     public const FIELD_PROBATION_RECALL_SINGLE_ACTOR_INFLATED = 'probation_recall_single_actor_inflated';
     public const FIELD_PROBATION_UNEVALUATED = 'probation_unevaluated';
+    public const FIELD_PROMOTION_BLOCKED_BY_POLICY = 'promotion_blocked_by_policy';
+    public const FIELD_PROMOTION_MODE_UNRESOLVED = 'promotion_mode_unresolved';
 
     /**
      * @param  array<string,mixed>  $signals
@@ -342,12 +344,12 @@ final class CognitiveImmunePromotionGateEvaluator
         $mode = $this->stringValue($signals, self::FIELD_PROMOTION_MODE_HINT);
 
         if (in_array($mode, self::BLOCKED_PROMOTION_MODES, true)) {
-            return [self::STATUS_BLOCK, 'promotion_blocked_by_policy'];
+            return [self::STATUS_BLOCK, self::FIELD_PROMOTION_BLOCKED_BY_POLICY];
         }
 
         return in_array($mode, self::ALLOWED_PROMOTION_MODES, true)
             ? [self::STATUS_PASS, '']
-            : [self::STATUS_PENDING, 'promotion_mode_unresolved'];
+            : [self::STATUS_PENDING, self::FIELD_PROMOTION_MODE_UNRESOLVED];
     }
 
     /**

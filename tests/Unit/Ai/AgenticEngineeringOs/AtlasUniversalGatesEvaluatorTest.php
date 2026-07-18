@@ -9569,4 +9569,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['aemor_outcome_department_contract_acos_watchdog_immune_promotion_floor_count']);
     }
 
+    public function test_department_contract_acos_watchdog_immune_promotion_aaeos_cognitive_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->departmentContractAcosWatchdogImmunePromotionAaeosCognitiveFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ASSEMBLE_DELIVERY_PACK, $out['assemble_delivery_pack']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_BLOCK_ON_COVERAGE_DROP, $out['block_on_coverage_drop']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LAST_AEMOR_EPISODE_, $out['last_aemor_episode_']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LIFT_BLOCKER_STALLED, $out['lift_blocker_stalled']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROMOTION_BLOCKED_BY_POLICY, $out['promotion_blocked_by_policy']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROMOTION_MODE_UNRESOLVED, $out['promotion_mode_unresolved']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_SECRET_MARKER_PRIVACY, $out['secret_marker_privacy']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_TRIVIAL_QUESTION, $out['trivial_question']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_PROMOTED_LESSON_DENOMINATOR_BELOW_MIN, $out['promoted_lesson_denominator_below_min']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_SUBSEQUENT_MEASURED_RECALL_MISSING, $out['subsequent_measured_recall_missing']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_PATCH_REF, $out['patch_ref']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_REVERSIBLE, $out['reversible']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_INCLUDED, $out['included']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_MEMORY_HASH, $out['memory_hash']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_V2, $out['v2']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_V3, $out['v3']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_NONE, $out['none']);
+        $this->assertSame(ProviderBoundRedactionDriftWatchdogCheck::FIELD_PROVIDER_BODY_CONTAINS_RAW_BODY, $out['provider_body_contains_raw_body']);
+        $this->assertSame(18, $out['department_contract_acos_watchdog_immune_promotion_aaeos_cognitive_floor_count']);
+    }
+
 }

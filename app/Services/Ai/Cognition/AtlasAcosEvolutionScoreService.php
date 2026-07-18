@@ -141,6 +141,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_USED = 'used';
     public const FIELD_NO = 'no';
     public const FIELD_ID = 'id';
+    public const FIELD_INCLUDED = 'included';
+    public const FIELD_MEMORY_HASH = 'memory_hash';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -422,7 +424,7 @@ class AtlasAcosEvolutionScoreService
             }
 
             $activeKeys = [];
-            foreach (AiCompoundingMemory::query()->active()->get([self::FIELD_ID, 'memory_hash']) as $memory) {
+            foreach (AiCompoundingMemory::query()->active()->get([self::FIELD_ID, self::FIELD_MEMORY_HASH]) as $memory) {
                 foreach ([$memory->id, $memory->memory_hash] as $value) {
                     $value = AiValueNormalizer::trimmedStringOrNull($value);
                     if ($value === null) {
@@ -449,7 +451,7 @@ class AtlasAcosEvolutionScoreService
                         $normalized = AiValueNormalizer::trimmedScalarStringOrNull($status) !== null
                             ? AiValueNormalizer::lowerTrimmedString($status)
                             : '';
-                        if (in_array($normalized, ['included', self::FIELD_USED, 'useful'], true)) {
+                        if (in_array($normalized, [self::FIELD_INCLUDED, self::FIELD_USED, 'useful'], true)) {
                             return true;
                         }
                     }

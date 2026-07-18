@@ -99,6 +99,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_OBRIGADO = 'obrigado';
     public const FIELD_RECURRENT = 'recurrent';
     public const FIELD_RECURRENT_EPHEMERAL = 'recurrent_ephemeral';
+    public const FIELD_SECRET_MARKER_PRIVACY = 'secret_marker_privacy';
+    public const FIELD_TRIVIAL_QUESTION = 'trivial_question';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -324,7 +326,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
 
         // 2. Privacy: secret markers / privacy hints redact to sensitive.
         if ($hasSecretMarker) {
-            return [self::CLASS_PRIVATE_SENSITIVE, 'secret_marker_privacy'];
+            return [self::CLASS_PRIVATE_SENSITIVE, self::FIELD_SECRET_MARKER_PRIVACY];
         }
 
         if ($privacyHint) {
@@ -348,7 +350,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         }
 
         if ($isQuestion) {
-            return [self::CLASS_TRIVIAL_QUERY, 'trivial_question'];
+            return [self::CLASS_TRIVIAL_QUERY, self::FIELD_TRIVIAL_QUESTION];
         }
 
         if ($recurrenceCount >= self::RECURRENCE_MEMORY_THRESHOLD) {

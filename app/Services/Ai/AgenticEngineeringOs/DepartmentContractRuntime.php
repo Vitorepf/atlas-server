@@ -321,6 +321,8 @@ final class DepartmentContractRuntime
     public const FIELD_ARCHITECT_DECISION_RECEIPT = 'architect_decision_receipt';
     public const FIELD_ARCHITECT_SPEC_COMPLETENESS_SCORE = 'architect_spec_completeness_score';
     public const FIELD_ARCHITECT_VETO_COUNT = 'architect_veto_count';
+    public const FIELD_ASSEMBLE_DELIVERY_PACK = 'assemble_delivery_pack';
+    public const FIELD_BLOCK_ON_COVERAGE_DROP = 'block_on_coverage_drop';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -531,7 +533,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_TEST_PACK, self::FIELD_SCHEMA => self::SCHEMA_TEST_PACK],
             ],
             self::FIELD_GATES => ['regression_green', self::FIELD_VERIFICATION_COMPLETE, self::FIELD_COVERAGE_MIN_THRESHOLD, self::FIELD_REGRESSION_TESTS_ADDED, 'fixtures_versioned'],
-            self::FIELD_ALLOWED_ACTIONS => ['write_tests', self::FIELD_REQUEST_TEST_DATA, 'block_on_coverage_drop'],
+            self::FIELD_ALLOWED_ACTIONS => ['write_tests', self::FIELD_REQUEST_TEST_DATA, self::FIELD_BLOCK_ON_COVERAGE_DROP],
             self::FIELD_FORBIDDEN_ACTIONS => ['modify_production_code_outside_tests', 'approve_release'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_DEV, self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW],
             self::FIELD_EVIDENCE_REQUIRED => ['test_pack_hash', 'coverage_report_hash'],
@@ -602,7 +604,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_DELIVERY_PACK, self::FIELD_SCHEMA => self::SCHEMA_DELIVERY_PACK],
             ],
             self::FIELD_GATES => ['release_authority_declared', self::FIELD_ROLLBACK_PLAN_PRESENT, self::FIELD_DELIVERY_PACK_COMPLETENESS_MIN_0_95, self::FIELD_EVIDENCE_TRACEABLE],
-            self::FIELD_ALLOWED_ACTIONS => ['assemble_delivery_pack', self::FIELD_SIGN_DELIVERY_HASH, 'request_human_review'],
+            self::FIELD_ALLOWED_ACTIONS => [self::FIELD_ASSEMBLE_DELIVERY_PACK, self::FIELD_SIGN_DELIVERY_HASH, 'request_human_review'],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_EDIT_CODE, self::FIELD_APPROVE_RELEASE_WITHOUT_REVIEW, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_REVIEW, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['delivery_pack_hash', 'completeness_report_hash'],
