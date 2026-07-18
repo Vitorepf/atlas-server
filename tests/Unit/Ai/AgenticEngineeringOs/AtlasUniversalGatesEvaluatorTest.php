@@ -7775,4 +7775,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b401_acos_watchdog_immune_calibration_long_lote_measure_runbook_floor_count']);
     }
 
+    public function test_b402_acos_watchdog_immune_calibration_long_lote_measure_runbook_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b402AcosWatchdogImmuneCalibrationLongLoteMeasureRunbookFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_DELIVERED_REFS_COUNT, $out['delivered_refs_count']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_DEMOTION_ENABLED, $out['demotion_enabled']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_DEV, $out['dev']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_JUDGE_ENGINE_ID, $out['judge_engine_id']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_KIND, $out['kind']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_METADATA, $out['metadata']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_RIVALS_CLAIM_ALLOWED, $out['rivals_claim_allowed']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SCORE, $out['score']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SCORECARD_RESOLVED_EVIDENCE_ONLY, $out['scorecard_resolved_evidence_only']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_TREATMENT_SCORE_MEAN, $out['treatment_score_mean']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_UNRESOLVED, $out['unresolved']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_WITH_LESSON, $out['with_lesson']);
+        $this->assertSame(RunbookOrchestrator::FIELD_SAFETY_SOVEREIGNTY_BLOCK_APPLIED, $out['safety_sovereignty_block_applied']);
+        $this->assertSame(RunbookOrchestrator::FIELD_SCHEMA, $out['schema']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_TEST_METHOD, $out['test_method']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_VETO_PROPAGATION, $out['veto_propagation']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_SECURITY, $out['security']);
+        $this->assertSame(AtlasCrossDepartmentChoreographyService::FIELD_VALID_KIND, $out['valid_kind']);
+        $this->assertSame(18, $out['b402_acos_watchdog_immune_calibration_long_lote_measure_runbook_floor_count']);
+    }
+
 }

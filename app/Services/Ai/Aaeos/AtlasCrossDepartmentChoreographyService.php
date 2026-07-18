@@ -81,6 +81,7 @@ class AtlasCrossDepartmentChoreographyService
     public const FIELD_REMAINING_REPAIRS = 'remaining_repairs';
     public const FIELD_REQUIRES_OPERATOR_RECEIPT = 'requires_operator_receipt';
     public const FIELD_TO_DEPARTMENT = 'to_department';
+    public const FIELD_VALID_KIND = 'valid_kind';
 
     /**
      * Veto propagation rules keyed by the vetoing department.
@@ -166,7 +167,7 @@ class AtlasCrossDepartmentChoreographyService
             self::FIELD_KIND => in_array($kind, self::HANDOFF_KINDS, true) ? $kind : self::HANDOFF_KIND_DELEGATION,
             self::FIELD_FROM_DEPARTMENT => $this->departmentId($from),
             self::FIELD_TO_DEPARTMENT => $this->departmentId($to),
-            'valid_kind' => in_array($kind, self::HANDOFF_KINDS, true),
+            self::FIELD_VALID_KIND => in_array($kind, self::HANDOFF_KINDS, true),
             self::FIELD_PAYLOAD => $payload,
         ];
     }

@@ -151,6 +151,9 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_PROVIDER_TOKENS_SPENT = 'provider_tokens_spent';
     public const FIELD_RECEIPT_HASH = 'receipt_hash';
     public const FIELD_RESOLVED_EVIDENCE_ROWS = 'resolved_evidence_rows';
+    public const FIELD_RIVALS_CLAIM_ALLOWED = 'rivals_claim_allowed';
+    public const FIELD_SCORE = 'score';
+    public const FIELD_SCORECARD_RESOLVED_EVIDENCE_ONLY = 'scorecard_resolved_evidence_only';
 
     /**
      * @param  array<string,mixed>  $options
@@ -890,7 +893,7 @@ final class AtlasAcosLongHorizonGateService
     {
         $payload = [
             self::FIELD_SCHEMA_VERSION => AtlasCognitionScoreCardService::SCHEMA_VERSION,
-            'score' => [
+            self::FIELD_SCORE => [
                 self::FIELD_OVERALL_OUT_OF_10 => $overall,
                 self::FIELD_DIMENSIONS => [
                     self::FIELD_CODE => [self::FIELD_SCORE_OUT_OF_10 => 10],
@@ -900,7 +903,7 @@ final class AtlasAcosLongHorizonGateService
             ],
             self::FIELD_CLAIM_POLICY => [
                 self::FIELD_BENCHMARK_CLAIM_ALLOWED => false,
-                'rivals_claim_allowed' => false,
+                self::FIELD_RIVALS_CLAIM_ALLOWED => false,
                 'superiority_claim_allowed' => false,
             ],
         ];
@@ -968,7 +971,7 @@ final class AtlasAcosLongHorizonGateService
                 'series_rows_sampled' => count($series),
             ],
             self::FIELD_CLAIM_POLICY => [
-                'scorecard_resolved_evidence_only' => true,
+                self::FIELD_SCORECARD_RESOLVED_EVIDENCE_ONLY => true,
                 self::FIELD_DELTA_SERIES_APPEND_ONLY_INPUT => true,
                 self::FIELD_DOES_NOT_MINT_RECEIPTS => true,
                 self::FIELD_DOES_NOT_BACKFILL_TIME => true,

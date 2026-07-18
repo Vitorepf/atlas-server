@@ -76,6 +76,8 @@ final class RunbookOrchestrator
     public const FIELD_REQUIRES_REPLAY_BEFORE_PROMOTION = 'requires_replay_before_promotion';
     public const FIELD_REVIEW_STATUS = 'review_status';
     public const FIELD_RUNTIME_BASELINE = 'runtime_baseline';
+    public const FIELD_SAFETY_SOVEREIGNTY_BLOCK_APPLIED = 'safety_sovereignty_block_applied';
+    public const FIELD_SCHEMA = 'schema';
 
     /**
      * Canonical default flow for a non-trivial intent. Trivial intents
@@ -212,7 +214,7 @@ final class RunbookOrchestrator
         ));
 
         $proposal = [
-            'schema' => self::ARCHITECTURE_REDESIGN_PROPOSAL_SCHEMA,
+            self::FIELD_SCHEMA => self::ARCHITECTURE_REDESIGN_PROPOSAL_SCHEMA,
             self::FIELD_PROPOSAL_ID => 'arp-'.bin2hex(random_bytes(8)),
             self::FIELD_TITLE => $title,
             self::FIELD_STRUCTURAL_CHANGES => $structuralChanges,
@@ -228,7 +230,7 @@ final class RunbookOrchestrator
                 ],
             ],
             self::FIELD_TOUCHES_SOVEREIGNTY_LAYER => $touchesSovereignty,
-            'safety_sovereignty_block_applied' => $touchesSovereignty,
+            self::FIELD_SAFETY_SOVEREIGNTY_BLOCK_APPLIED => $touchesSovereignty,
             self::FIELD_PROMOTION_GATES => [
                 self::FIELD_REPLAY_OBRAS_COUNT_MIN => self::REPLAY_OBRAS_COUNT_MIN,
                 self::FIELD_REPLAY_REGRESSION_OBSERVED_COUNT_MAX => 0,

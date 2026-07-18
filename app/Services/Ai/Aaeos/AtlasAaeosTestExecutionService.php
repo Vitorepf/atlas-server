@@ -63,6 +63,7 @@ class AtlasAaeosTestExecutionService
     public const FIELD_GIT_PORCELAIN = 'git_porcelain';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_SEALED = 'sealed';
+    public const FIELD_VETO_PROPAGATION = 'veto_propagation';
 
     public function __construct(
         private readonly float $timeout = 180.0,
@@ -246,7 +247,7 @@ class AtlasAaeosTestExecutionService
         // A red run is a delivery-stage veto: resolve where it must propagate via the
         // canonical department transition graph, same as any other cross-department veto.
         if (! $run[self::FIELD_PASSED]) {
-            $payload['veto_propagation'] = $this->vetoResolver->resolve('review', 'delivery');
+            $payload[self::FIELD_VETO_PROPAGATION] = $this->vetoResolver->resolve('review', 'delivery');
         }
 
         // PIP-03 — ambiguous refs never ran PHPUnit; persisting them would pollute

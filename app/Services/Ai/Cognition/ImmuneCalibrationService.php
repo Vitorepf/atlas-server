@@ -89,6 +89,9 @@ final class ImmuneCalibrationService
     public const FIELD_GATE = 'gate';
     public const FIELD_GATE_STATUSES = 'gate_statuses';
     public const FIELD_ID = 'id';
+    public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_METADATA = 'metadata';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -144,7 +147,7 @@ final class ImmuneCalibrationService
     public static function freezePayload(): array
     {
         $payload = [
-            'kind' => self::KIND_MEASURE_FREEZE,
+            self::FIELD_KIND => self::KIND_MEASURE_FREEZE,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_FORMULA => 'Per gate+writer: false_block_rate=false_block/blocks; missed_poison_rate=missed_poison/known_should_catch_denominator (lower_bound_known_miss); band is pure CalibrationBandClassifier over the rate, but status is insufficient_sample until denominator_min is met.',
@@ -156,7 +159,7 @@ final class ImmuneCalibrationService
             self::FIELD_DENOMINATOR_MIN => self::DENOMINATOR_MIN,
             'ttl_days' => self::TTL_DAYS,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxi-03',
-            'judge_engine_id' => 'codex-independent-immune-calibration-judge',
+            self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-immune-calibration-judge',
             'series' => [
                 self::FIELD_ID => self::MEASURE_ID,
                 'reader_command' => 'atlas:immune:calibration --json',
@@ -336,7 +339,7 @@ final class ImmuneCalibrationService
             $this->evaluator->evaluate($signals),
             [
                 self::FIELD_EXPECTED_BLOCK_GATE_IDS => ['G3'],
-                'metadata' => [
+                self::FIELD_METADATA => [
                     'seed' => 'maxi-03-known-should-catch-g3',
                     'pipeline' => 'CognitiveImmunePromotionGateEvaluator',
                     'raw_content_exposed' => false,

@@ -424,6 +424,7 @@ final class AtlasAaeosCommand extends Command
                             {--b399-lote-measure-runbook-acos-long-cognition-score-cognitive-floors-contract= : JSON file (any object) to observe lote/measure/runbook/acos/long/cognition floors}
                             {--acos-watchdog-immune-calibration-long-lote-measure-runbook-floors-contract= : JSON file (any object) to observe acos/watchdog/immune/calibration/long/lote floors}
                             {--b401-acos-watchdog-immune-calibration-long-lote-measure-runbook-floors-contract= : JSON file (any object) to observe acos/watchdog/immune/calibration/long/lote floors}
+                            {--b402-acos-watchdog-immune-calibration-long-lote-measure-runbook-floors-contract= : JSON file (any object) to observe acos/watchdog/immune/calibration/long/lote floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1004,6 +1005,7 @@ final class AtlasAaeosCommand extends Command
             ['b399-lote-measure-runbook-acos-long-cognition-score-cognitive-floors-contract', 'b399_lote_measure_runbook_acos_long_cognition_score_cognitive_floors_contract', fn (array $p) => $gates->b399LoteMeasureRunbookAcosLongCognitionScoreCognitiveFloorsContractObserve($p)],
             ['acos-watchdog-immune-calibration-long-lote-measure-runbook-floors-contract', 'acos_watchdog_immune_calibration_long_lote_measure_runbook_floors_contract', fn (array $p) => $gates->acosWatchdogImmuneCalibrationLongLoteMeasureRunbookFloorsContractObserve($p)],
             ['b401-acos-watchdog-immune-calibration-long-lote-measure-runbook-floors-contract', 'b401_acos_watchdog_immune_calibration_long_lote_measure_runbook_floors_contract', fn (array $p) => $gates->b401AcosWatchdogImmuneCalibrationLongLoteMeasureRunbookFloorsContractObserve($p)],
+            ['b402-acos-watchdog-immune-calibration-long-lote-measure-runbook-floors-contract', 'b402_acos_watchdog_immune_calibration_long_lote_measure_runbook_floors_contract', fn (array $p) => $gates->b402AcosWatchdogImmuneCalibrationLongLoteMeasureRunbookFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

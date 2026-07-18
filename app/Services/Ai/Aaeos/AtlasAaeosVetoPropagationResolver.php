@@ -82,6 +82,7 @@ final class AtlasAaeosVetoPropagationResolver
     public const REASON_NO_CANONICAL_VETO_RULE = 'no_canonical_veto_rule_matched_origin_and_kind';
     public const FIELD_DEBUG = 'debug';
     public const FIELD_DELIVERY = 'delivery';
+    public const FIELD_SECURITY = 'security';
 
     /**
      * Encoded canonical department adjacency (mermaid stateDiagram transitions).
@@ -98,7 +99,7 @@ final class AtlasAaeosVetoPropagationResolver
             self::FIELD_DEV => [self::FIELD_REVIEW],
             self::FIELD_FORGE => [self::FIELD_REVIEW],
             self::FIELD_REVIEW => ['architect', 'delivery'],
-            'security' => ['operator', 'architect'],
+            self::FIELD_SECURITY => ['operator', 'architect'],
             self::FIELD_DELIVERY => [self::FIELD_OPERATOR],
             self::FIELD_OPERATOR => [self::FIELD_MEMORY],
             self::FIELD_QA => ['dev', 'forge'],

@@ -228,6 +228,9 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_CRITICAL_MUST_KEEP_CUTS = 'critical_must_keep_cuts';
     public const FIELD_CRITICAL_MUST_KEEP_SHADOW_CUTS = 'critical_must_keep_shadow_cuts';
     public const FIELD_CROSS_WEEK_RECALL_LIFT_GATE = 'cross_week_recall_lift_gate';
+    public const FIELD_DELIVERED_REFS_COUNT = 'delivered_refs_count';
+    public const FIELD_DEMOTION_ENABLED = 'demotion_enabled';
+    public const FIELD_DEV = 'dev';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -263,7 +266,7 @@ final class AtlasAcosWatchdogHealthService
             $this->checkRow('windowed_concentration_guarded', $concentration <= self::MEMORY_CONCENTRATION_FLOOR || $demotionEnabled || $recallUsageTotal === 0, [
                 self::FIELD_WINDOWED_CONCENTRATION_RATIO => $concentration,
                 self::FIELD_THRESHOLD => self::MEMORY_CONCENTRATION_FLOOR,
-                'demotion_enabled' => $demotionEnabled,
+                self::FIELD_DEMOTION_ENABLED => $demotionEnabled,
                 self::FIELD_RECALL_USAGE_TOTAL => $recallUsageTotal,
             ], 'recall_concentration_high_without_demotion'),
             $this->checkRow('snapshot_fresh', $snapshotAgeHours !== null && $snapshotAgeHours <= self::MEMORY_SNAPSHOT_MAX_AGE_HOURS, [
@@ -508,7 +511,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_HOURS => self::FEEDBACK_WINDOW_HOURS,
                 self::FIELD_TOTAL_EVENT_COUNT => $total,
                 'measured_count' => $measured,
-                'delivered_refs_count' => $delivered,
+                self::FIELD_DELIVERED_REFS_COUNT => $delivered,
                 'utility_real_share' => $total > 0 ? round($measured / $total, 4) : 0.0,
                 self::FIELD_DELIVERED_REFS_SHARE => $total > 0 ? round($delivered / $total, 4) : 0.0,
                 'synthetic_share' => $syntheticShare,
@@ -996,7 +999,7 @@ final class AtlasAcosWatchdogHealthService
     /** @param list<array<string,mixed>> $rows @return array<string,int> */
     private function countExecutors(array $rows): array
     {
-        $counts = ['dev' => 0, 'forge' => 0, self::FIELD_AUTONOMOS => 0];
+        $counts = [self::FIELD_DEV => 0, 'forge' => 0, self::FIELD_AUTONOMOS => 0];
         foreach ($rows as $row) {
             $actor = AiValueNormalizer::lowerTrimmedString(data_get($row, 'context.executor', data_get($row, 'context.actor', data_get($row, 'surface', ''))));
             foreach (array_keys($counts) as $executor) {

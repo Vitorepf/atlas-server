@@ -60,6 +60,7 @@ class AtlasAaeosImplementationEvidenceResolver
     public const FIELD_REF = 'ref';
     public const FIELD_RESOLVED = 'resolved';
     public const FIELD_ROUTE = 'route';
+    public const FIELD_TEST_METHOD = 'test_method';
 
     /**
      * The active Code Intelligence index, loaded ONCE per request and matched in PHP. Stored
@@ -501,7 +502,7 @@ class AtlasAaeosImplementationEvidenceResolver
         }
 
         // Fall back to the parent class of a test_method symbol carrying this class.
-        foreach ($index['byType']['test_method'] ?? [] as $offset) {
+        foreach ($index['byType'][self::FIELD_TEST_METHOD] ?? [] as $offset) {
             $name = $names[$offset];
             $classOnly = str_contains($name, '::') ? substr($name, 0, (int) strrpos($name, '::')) : $name;
             if ($classOnly === $classRef || str_ends_with($classOnly, '\\'.$classRef)) {

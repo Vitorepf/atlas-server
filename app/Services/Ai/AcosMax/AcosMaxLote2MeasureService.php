@@ -240,6 +240,9 @@ final class AcosMaxLote2MeasureService
     public const FIELD_TASK_ID = 'task_id';
     public const FIELD_THRESHOLD = 'threshold';
     public const FIELD_TIME_TO_RECALL_SECONDS = 'time_to_recall_seconds';
+    public const FIELD_TREATMENT_SCORE_MEAN = 'treatment_score_mean';
+    public const FIELD_UNRESOLVED = 'unresolved';
+    public const FIELD_WITH_LESSON = 'with_lesson';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -287,7 +290,7 @@ final class AcosMaxLote2MeasureService
                 self::FIELD_RESOLVED_OUTCOMES => 0,
             ],
             self::FIELD_BANDS => [],
-            'unresolved' => $originations,
+            self::FIELD_UNRESOLVED => $originations,
         ]);
     }
 
@@ -988,7 +991,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_STATUS => $n >= $denominatorMin ? self::STATUS_MEASURED : self::STATUS_INSUFFICIENT_SIGNAL,
             self::FIELD_N_PAIRS => $n,
             self::FIELD_CONTROL_SCORE_MEAN => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_CONTROL_SCORE_SUM] ?? null) ?? 0.0) / $n, 4) : null,
-            'treatment_score_mean' => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_TREATMENT_SCORE_SUM] ?? null) ?? 0.0) / $n, 4) : null,
+            self::FIELD_TREATMENT_SCORE_MEAN => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_TREATMENT_SCORE_SUM] ?? null) ?? 0.0) / $n, 4) : null,
             self::FIELD_PAIRED_DELTA => $n > 0 ? round((AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_DELTA_SUM] ?? null) ?? 0.0) / $n, 4) : null,
         ];
     }
@@ -1025,7 +1028,7 @@ final class AcosMaxLote2MeasureService
 
         return match ($arm) {
             'control', 'without', 'without_lesson' => 'control',
-            'treatment', 'with', 'with_lesson' => 'treatment',
+            'treatment', 'with', self::FIELD_WITH_LESSON => 'treatment',
             default => '',
         };
     }
