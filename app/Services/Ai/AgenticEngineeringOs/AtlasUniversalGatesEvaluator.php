@@ -20450,4 +20450,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B742).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b742WatchdogRunnerFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.acos.watchdog_run.v1' => AtlasWatchdogRunner::SCHEMA_VERSION,
+            'alert' => AtlasWatchdogRunner::AGGREGATE_STATUS_ALERT,
+            'warning' => AtlasWatchdogRunner::AGGREGATE_STATUS_WARNING,
+            'healthy' => AtlasWatchdogRunner::AGGREGATE_STATUS_HEALTHY,
+            'unknown' => AtlasWatchdogRunner::CHECK_ID_UNKNOWN,
+            'message' => AtlasWatchdogRunner::FIELD_MESSAGE,
+            'exception_class' => AtlasWatchdogRunner::FIELD_EXCEPTION_CLASS,
+            'code' => AtlasWatchdogRunner::FIELD_CODE,
+            'schema_version' => AtlasWatchdogRunner::FIELD_SCHEMA_VERSION,
+            'run_id' => AtlasWatchdogRunner::FIELD_RUN_ID,
+            'checked_at' => AtlasWatchdogRunner::FIELD_CHECKED_AT,
+            'status' => AtlasWatchdogRunner::FIELD_STATUS,
+            'counts' => AtlasWatchdogRunner::FIELD_COUNTS,
+            'correlation_id' => AtlasWatchdogRunner::FIELD_CORRELATION_ID,
+            'envelope_id' => AtlasWatchdogRunner::FIELD_ENVELOPE_ID,
+            'operator_id' => AtlasWatchdogRunner::FIELD_OPERATOR_ID,
+            'tenant_id' => AtlasWatchdogRunner::FIELD_TENANT_ID,
+            'ledger_event_id' => AtlasWatchdogRunner::FIELD_LEDGER_EVENT_ID,
+            'b742_watchdog_runner_floor_count' => 18,
+        ];
+    }
+
 }

@@ -16226,4 +16226,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b741_cognitive_function_floor_count']);
     }
 
+    public function test_b742_watchdog_runner_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b742WatchdogRunnerFloorsContractObserve([]);
+        $this->assertSame(AtlasWatchdogRunner::SCHEMA_VERSION, $out['atlas.acos.watchdog_run.v1']);
+        $this->assertSame(AtlasWatchdogRunner::AGGREGATE_STATUS_ALERT, $out['alert']);
+        $this->assertSame(AtlasWatchdogRunner::AGGREGATE_STATUS_WARNING, $out['warning']);
+        $this->assertSame(AtlasWatchdogRunner::AGGREGATE_STATUS_HEALTHY, $out['healthy']);
+        $this->assertSame(AtlasWatchdogRunner::CHECK_ID_UNKNOWN, $out['unknown']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_EXCEPTION_CLASS, $out['exception_class']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_CODE, $out['code']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_RUN_ID, $out['run_id']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_CHECKED_AT, $out['checked_at']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_COUNTS, $out['counts']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_CORRELATION_ID, $out['correlation_id']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_ENVELOPE_ID, $out['envelope_id']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_OPERATOR_ID, $out['operator_id']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_TENANT_ID, $out['tenant_id']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_LEDGER_EVENT_ID, $out['ledger_event_id']);
+        $this->assertSame(18, $out['b742_watchdog_runner_floor_count']);
+    }
+
 }
