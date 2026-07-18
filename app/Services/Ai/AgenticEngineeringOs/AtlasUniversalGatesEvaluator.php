@@ -20388,4 +20388,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B740).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b740ImmuneSignatureCognitiveFunctionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.cognition.immune_signature_family.v1' => ImmuneSignatureDeriver::SCHEMA_VERSION,
+            'content_hash' => ImmuneSignatureDeriver::FIELD_CONTENT_HASH,
+            'marker_centroid' => ImmuneSignatureDeriver::FIELD_MARKER_CENTROID,
+            'signature' => ImmuneSignatureDeriver::FIELD_SIGNATURE,
+            'schema_version' => ImmuneSignatureDeriver::FIELD_SCHEMA_VERSION,
+            'family' => ImmuneSignatureDeriver::FIELD_FAMILY,
+            'hostile_class' => ImmuneSignatureDeriver::FIELD_HOSTILE_CLASS,
+            'sha256' => ImmuneSignatureDeriver::FIELD_SHA256,
+            'private_sensitive' => ImmuneSignatureDeriver::FIELD_PRIVATE_SENSITIVE,
+            'doc_ready' => AtlasCognitiveFunctionAtlasService::FIELD_DOC_READY,
+            'doc_status' => AtlasCognitiveFunctionAtlasService::FIELD_DOC_STATUS,
+            'group' => AtlasCognitiveFunctionAtlasService::FIELD_GROUP,
+            'subsystems' => AtlasCognitiveFunctionAtlasService::FIELD_SUBSYSTEMS,
+            'non_ready_pipeline' => AtlasCognitiveFunctionAtlasService::FIELD_NON_READY_PIPELINE,
+            'declared_ready' => AtlasCognitiveFunctionAtlasService::FIELD_DECLARED_READY,
+            'evidence_files_seen' => AtlasCognitiveFunctionAtlasService::FIELD_EVIDENCE_FILES_SEEN,
+            'status' => AtlasCognitiveFunctionAtlasService::FIELD_STATUS,
+            'schema_version' => AtlasCognitiveFunctionAtlasService::FIELD_SCHEMA_VERSION,
+            'b740_immune_signature_cognitive_function_floor_count' => 18,
+        ];
+    }
+
 }

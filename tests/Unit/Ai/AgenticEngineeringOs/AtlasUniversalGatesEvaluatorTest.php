@@ -16176,4 +16176,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b739_immune_hybrid_floor_count']);
     }
 
+    public function test_b740_immune_signature_cognitive_function_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b740ImmuneSignatureCognitiveFunctionFloorsContractObserve([]);
+        $this->assertSame(ImmuneSignatureDeriver::SCHEMA_VERSION, $out['atlas.cognition.immune_signature_family.v1']);
+        $this->assertSame(ImmuneSignatureDeriver::FIELD_CONTENT_HASH, $out['content_hash']);
+        $this->assertSame(ImmuneSignatureDeriver::FIELD_MARKER_CENTROID, $out['marker_centroid']);
+        $this->assertSame(ImmuneSignatureDeriver::FIELD_SIGNATURE, $out['signature']);
+        $this->assertSame(ImmuneSignatureDeriver::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(ImmuneSignatureDeriver::FIELD_FAMILY, $out['family']);
+        $this->assertSame(ImmuneSignatureDeriver::FIELD_HOSTILE_CLASS, $out['hostile_class']);
+        $this->assertSame(ImmuneSignatureDeriver::FIELD_SHA256, $out['sha256']);
+        $this->assertSame(ImmuneSignatureDeriver::FIELD_PRIVATE_SENSITIVE, $out['private_sensitive']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_DOC_READY, $out['doc_ready']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_DOC_STATUS, $out['doc_status']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_GROUP, $out['group']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_SUBSYSTEMS, $out['subsystems']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_NON_READY_PIPELINE, $out['non_ready_pipeline']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_DECLARED_READY, $out['declared_ready']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_EVIDENCE_FILES_SEEN, $out['evidence_files_seen']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(18, $out['b740_immune_signature_cognitive_function_floor_count']);
+    }
+
 }
