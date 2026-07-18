@@ -13,6 +13,8 @@ final class ProvenanceWeightCalculator
     public const FLOOR = 0.5;
     public const FIELD_DEAD_REF_COUNTS_AS_WEIGHT = 'dead_ref_counts_as_weight';
     public const FIELD_DEAD_REFS = 'dead_refs';
+    public const FIELD_RESOLVED_COUNT = 'resolved_count';
+    public const FIELD_MULTIPLIER = 'multiplier';
 
     /**
      * @param  list<string>  $evidenceRefs
@@ -47,9 +49,9 @@ final class ProvenanceWeightCalculator
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'resolved_count' => count($resolved),
+            self::FIELD_RESOLVED_COUNT => count($resolved),
             self::FIELD_DEAD_REFS => $dead,
-            'multiplier' => round($multiplier, 2),
+            self::FIELD_MULTIPLIER => round($multiplier, 2),
             'source' => [
                 self::FIELD_DEAD_REF_COUNTS_AS_WEIGHT => false,
                 'floor' => self::FLOOR,

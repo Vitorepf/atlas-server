@@ -21,6 +21,8 @@ final class ImmuneSignatureIngestor
     public const FIELD_MATCHED_SIGNALS = 'matched_signals';
     public const FIELD_MEMORY_ID = 'memory_id';
     public const FIELD_DECISION_ID = 'decision_id';
+    public const FIELD_CANDIDATE_HASH = 'candidate_hash';
+    public const FIELD_IMMUNE_CLASSIFICATION = 'immune_classification';
 
     private readonly ImmuneSignatureStore $store;
 
@@ -45,7 +47,7 @@ final class ImmuneSignatureIngestor
             return null;
         }
 
-        $contentHash = (AiValueNormalizer::trimmedStringOrNull($verdictRow['candidate_hash'] ?? null) ?? '');
+        $contentHash = (AiValueNormalizer::trimmedStringOrNull($verdictRow[self::FIELD_CANDIDATE_HASH] ?? null) ?? '');
         if ($contentHash === '') {
             return null;
         }
@@ -82,7 +84,7 @@ final class ImmuneSignatureIngestor
             : $this->deriver->contentHashFromText(AiValueNormalizer::trimmedString($entry->body ?? $entry->redacted_body ?? ''));
 
         $metadata = AiValueNormalizer::arrayOrEmpty($entry->metadata);
-        $classification = AiValueNormalizer::arrayOrEmpty($metadata['immune_classification'] ?? null);
+        $classification = AiValueNormalizer::arrayOrEmpty($metadata[self::FIELD_IMMUNE_CLASSIFICATION] ?? null);
 
         $memoryType = AiValueNormalizer::trimmedScalarStringOrNull($entry->memory_type ?? null) ?? '';
         $hostileClass = $this->hostileClassFromClassification($classification)

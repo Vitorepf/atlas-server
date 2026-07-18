@@ -8076,6 +8076,31 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function healthIngestDeriveCalibDispatchProvCooccurVisionCascadeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'health_field_trend_status' => AtlasAcosWatchdogHealthService::FIELD_TREND_STATUS,
+            'health_field_tolerance_points' => AtlasAcosWatchdogHealthService::FIELD_TOLERANCE_POINTS,
+            'ingest_field_candidate_hash' => ImmuneSignatureIngestor::FIELD_CANDIDATE_HASH,
+            'ingest_field_immune_classification' => ImmuneSignatureIngestor::FIELD_IMMUNE_CLASSIFICATION,
+            'derive_field_content_hash' => ImmuneSignatureDeriver::FIELD_CONTENT_HASH,
+            'derive_field_marker_centroid' => ImmuneSignatureDeriver::FIELD_MARKER_CENTROID,
+            'calib_field_denominator_min_samples' => ImmuneCalibrationService::FIELD_DENOMINATOR_MIN_SAMPLES,
+            'calib_field_known_miss_denominator_must_be_non_zero' => ImmuneCalibrationService::FIELD_KNOWN_MISS_DENOMINATOR_MUST_BE_NON_ZERO,
+            'dispatch_field_phase_out' => AaeosDeferredPhaseDispatcherService::FIELD_PHASE_OUT,
+            'dispatch_field_envelope' => AaeosDeferredPhaseDispatcherService::FIELD_ENVELOPE,
+            'prov_field_resolved_count' => ProvenanceWeightCalculator::FIELD_RESOLVED_COUNT,
+            'prov_field_multiplier' => ProvenanceWeightCalculator::FIELD_MULTIPLIER,
+            'cooccur_field_requires_counterfactual_before_enforcement' => ExecutionContextCooccurrenceService::FIELD_REQUIRES_COUNTERFACTUAL_BEFORE_ENFORCEMENT,
+            'cooccur_field_read_only' => ExecutionContextCooccurrenceService::FIELD_READ_ONLY,
+            'vision_field_series_windows' => EvidenceVisionThesisComposer::FIELD_SERIES_WINDOWS,
+            'vision_field_leads' => EvidenceVisionThesisComposer::FIELD_LEADS,
+            'cascade_field_needs_reverification' => BeliefCascadeReverificationPlanner::FIELD_NEEDS_REVERIFICATION,
+            'cascade_field_marked' => BeliefCascadeReverificationPlanner::FIELD_MARKED,
+            'health_ingest_derive_calib_dispatch_prov_cooccur_vision_cascade_floor_count' => 18,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

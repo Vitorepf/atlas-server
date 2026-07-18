@@ -13,6 +13,8 @@ final class BeliefCascadeReverificationPlanner
     public const DEFAULT_DEPTH_CAP = 3;
     public const FIELD_CAPS_HIT = 'caps_hit';
     public const FIELD_CASCADE_ORIGIN = 'cascade_origin';
+    public const FIELD_NEEDS_REVERIFICATION = 'needs_reverification';
+    public const FIELD_MARKED = 'marked';
 
     /**
      * @param  array<string,list<string>>  $graph
@@ -41,14 +43,14 @@ final class BeliefCascadeReverificationPlanner
                     continue;
                 }
                 $seen[$child] = true;
-                $marked[] = ['id' => $child, 'needs_reverification' => true, self::FIELD_CASCADE_ORIGIN => $origin];
+                $marked[] = ['id' => $child, self::FIELD_NEEDS_REVERIFICATION => true, self::FIELD_CASCADE_ORIGIN => $origin];
                 $queue[] = [$child, $depth + 1];
             }
         }
 
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'marked' => $marked,
+            self::FIELD_MARKED => $marked,
             self::FIELD_CAPS_HIT => ['depth' => $depthHit],
             'source' => [
                 'deletes_descendants' => false,

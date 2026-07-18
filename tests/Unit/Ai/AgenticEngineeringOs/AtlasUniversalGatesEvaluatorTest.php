@@ -6124,6 +6124,33 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['joint_autonomy_dead_runner_envelope_obra_docs_floor_count']);
     }
 
+    public function test_health_ingest_derive_calib_dispatch_prov_cooccur_vision_cascade_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->healthIngestDeriveCalibDispatchProvCooccurVisionCascadeFloorsContractObserve([]);
+
+        $this->assertSame('trend_status', $payload['health_field_trend_status']);
+        $this->assertSame('tolerance_points', $payload['health_field_tolerance_points']);
+        $this->assertSame('candidate_hash', $payload['ingest_field_candidate_hash']);
+        $this->assertSame('immune_classification', $payload['ingest_field_immune_classification']);
+        $this->assertSame('content_hash', $payload['derive_field_content_hash']);
+        $this->assertSame('marker_centroid', $payload['derive_field_marker_centroid']);
+        $this->assertSame('denominator_min_samples', $payload['calib_field_denominator_min_samples']);
+        $this->assertSame('known_miss_denominator_must_be_non_zero', $payload['calib_field_known_miss_denominator_must_be_non_zero']);
+        $this->assertSame('phase_out', $payload['dispatch_field_phase_out']);
+        $this->assertSame('envelope', $payload['dispatch_field_envelope']);
+        $this->assertSame('resolved_count', $payload['prov_field_resolved_count']);
+        $this->assertSame('multiplier', $payload['prov_field_multiplier']);
+        $this->assertSame('requires_counterfactual_before_enforcement', $payload['cooccur_field_requires_counterfactual_before_enforcement']);
+        $this->assertSame('read_only', $payload['cooccur_field_read_only']);
+        $this->assertSame('series_windows', $payload['vision_field_series_windows']);
+        $this->assertSame('leads', $payload['vision_field_leads']);
+        $this->assertSame('needs_reverification', $payload['cascade_field_needs_reverification']);
+        $this->assertSame('marked', $payload['cascade_field_marked']);
+        $this->assertSame(18, $payload['health_ingest_derive_calib_dispatch_prov_cooccur_vision_cascade_floor_count']);
+    }
+
+
+
 
 
 

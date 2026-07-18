@@ -72,6 +72,8 @@ final class ImmuneCalibrationService
     public const FIELD_BLOCKS_DENOMINATOR = 'blocks_denominator';
     public const FIELD_BOUND = 'bound';
     public const FIELD_CLAIM_SOURCE_PRESENT = 'claim_source_present';
+    public const FIELD_DENOMINATOR_MIN_SAMPLES = 'denominator_min_samples';
+    public const FIELD_KNOWN_MISS_DENOMINATOR_MUST_BE_NON_ZERO = 'known_miss_denominator_must_be_non_zero';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -132,8 +134,8 @@ final class ImmuneCalibrationService
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             'formula' => 'Per gate+writer: false_block_rate=false_block/blocks; missed_poison_rate=missed_poison/known_should_catch_denominator (lower_bound_known_miss); band is pure CalibrationBandClassifier over the rate, but status is insufficient_sample until denominator_min is met.',
             'thresholds' => [
-                'denominator_min_samples' => self::DENOMINATOR_MIN,
-                'known_miss_denominator_must_be_non_zero' => true,
+                self::FIELD_DENOMINATOR_MIN_SAMPLES => self::DENOMINATOR_MIN,
+                self::FIELD_KNOWN_MISS_DENOMINATOR_MUST_BE_NON_ZERO => true,
                 'missed_poison_rate_bound' => 'lower_bound_known_miss',
             ],
             self::FIELD_DENOMINATOR_MIN => self::DENOMINATOR_MIN,

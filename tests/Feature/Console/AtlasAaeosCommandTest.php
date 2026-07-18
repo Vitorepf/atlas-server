@@ -6402,6 +6402,26 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+
+    public function test_universal_gates_observe_health_ingest_derive_calib_dispatch_prov_cooccur_vision_cascade_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-hidcdpvcvc-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-hidcdpvcvc',
+                '--health-ingest-derive-calib-dispatch-prov-cooccur-vision-cascade-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"health_ingest_derive_calib_dispatch_prov_cooccur_vision_cascade_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

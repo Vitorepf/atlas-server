@@ -38,6 +38,8 @@ final class ExecutionContextCooccurrenceService
     public const FIELD_CLAIM_POLICY = 'claim_policy';
     public const FIELD_COOCCURRENCE_COUNT = 'cooccurrence_count';
     public const FIELD_DELIVERED_REF_COUNT = 'delivered_ref_count';
+    public const FIELD_REQUIRES_COUNTERFACTUAL_BEFORE_ENFORCEMENT = 'requires_counterfactual_before_enforcement';
+    public const FIELD_READ_ONLY = 'read_only';
 
 
     public const REASON_MEASURED_SHARE_ZERO = 'measured_share_zero';
@@ -57,9 +59,9 @@ final class ExecutionContextCooccurrenceService
             'generated_at' => now()->toIso8601String(),
             self::FIELD_CONTEXT_CAUSAL_BINDING => 'correlational_cooccurrence',
             self::FIELD_ENFORCEMENT_ALLOWED => false,
-            'requires_counterfactual_before_enforcement' => GoldenCounterfactualReplayService::MEASURE_ID,
+            self::FIELD_REQUIRES_COUNTERFACTUAL_BEFORE_ENFORCEMENT => GoldenCounterfactualReplayService::MEASURE_ID,
             self::FIELD_CLAIM_POLICY => [
-                'read_only' => true,
+                self::FIELD_READ_ONLY => true,
                 'provider_calls_made' => false,
                 'memory_written' => false,
                 'feeds_enforcement' => false,

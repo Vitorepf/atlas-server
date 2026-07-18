@@ -15,6 +15,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
 final class ImmuneSignatureDeriver
 {
     public const SCHEMA_VERSION = 'atlas.cognition.immune_signature_family.v1';
+    public const FIELD_CONTENT_HASH = 'content_hash';
+    public const FIELD_MARKER_CENTROID = 'marker_centroid';
 
     /** @var list<string> */
     public const HOSTILE_CLASSES = [
@@ -31,8 +33,8 @@ final class ImmuneSignatureDeriver
     {
         $family = [
             'schema_version' => self::SCHEMA_VERSION,
-            'content_hash' => $this->normalizeHash($contentHash),
-            'marker_centroid' => $this->markerCentroid($matchedSignals),
+            self::FIELD_CONTENT_HASH => $this->normalizeHash($contentHash),
+            self::FIELD_MARKER_CENTROID => $this->markerCentroid($matchedSignals),
             'hostile_class' => $this->normalizeClass($hostileClass),
         ];
 

@@ -47,6 +47,8 @@ final class AaeosDeferredPhaseDispatcherService
     public const FIELD_SCHEMA = 'schema';
     public const FIELD_BLOCKER_SIGNAL = 'blocker_signal';
     public const FIELD_DISPATCH_ID = 'dispatch_id';
+    public const FIELD_PHASE_OUT = 'phase_out';
+    public const FIELD_ENVELOPE = 'envelope';
 
     public function __construct(
         private readonly CacheRepository $cache,
@@ -72,9 +74,9 @@ final class AaeosDeferredPhaseDispatcherService
             $record = [
                 self::FIELD_SCHEMA => self::SCHEMA_VERSION,
                 self::FIELD_DISPATCH_ID => 'disp-'.Str::ulid()->toBase32(),
-                self::FIELD_PHASE => AiValueNormalizer::trimmedStringOrNull($env['phase_out'] ?? null) ?? '',
+                self::FIELD_PHASE => AiValueNormalizer::trimmedStringOrNull($env[self::FIELD_PHASE_OUT] ?? null) ?? '',
                 self::FIELD_INTENT_ID => AiValueNormalizer::trimmedStringOrNull($env[self::FIELD_INTENT_ID] ?? null) ?? '',
-                'envelope' => $env,
+                self::FIELD_ENVELOPE => $env,
                 // Observe-only: same advance classifier as HTTP path / cockpit.
                 'phase_advance' => $this->phaseAdvance->classify($env),
                 // Observe-only causality when the deferred envelope already

@@ -156,6 +156,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_ADML_PROVEN_ROUTE_VOLUME_BELOW_FLOOR = 'adml_proven_route_volume_below_floor';
     public const FIELD_ADML_PROVEN_ROUTES = 'adml_proven_routes';
     public const FIELD_AI_RAG_FEEDBACK_EVENTS_TABLE_MISSING = 'ai_rag_feedback_events_table_missing';
+    public const FIELD_TREND_STATUS = 'trend_status';
+    public const FIELD_TOLERANCE_POINTS = 'tolerance_points';
 
     public const STATUS_UNKNOWN = 'unknown';
 
@@ -235,8 +237,8 @@ final class AtlasAcosWatchdogHealthService
 
         $checks = [
             $this->checkRow('score_regression', ! $scoreRegressed, [
-                'trend_status' => $trendStatus,
-                'tolerance_points' => self::MEMORY_SCORE_REGRESSION_TOLERANCE,
+                self::FIELD_TREND_STATUS => $trendStatus,
+                self::FIELD_TOLERANCE_POINTS => self::MEMORY_SCORE_REGRESSION_TOLERANCE,
                 'current_delta_from_latest' => $currentDelta,
                 'latest_delta_from_previous' => $latestDelta,
             ], 'memory_quality_score_regressed'),

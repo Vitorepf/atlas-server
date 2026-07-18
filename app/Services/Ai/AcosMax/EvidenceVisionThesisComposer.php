@@ -99,6 +99,8 @@ final class EvidenceVisionThesisComposer
     public const FIELD_CALIBRATION = 'calibration';
     public const FIELD_FORBIDDEN_STRINGS = 'forbidden_strings';
     public const FIELD_HIGH = 'high';
+    public const FIELD_SERIES_WINDOWS = 'series_windows';
+    public const FIELD_LEADS = 'leads';
 
     /**
      * @param  array<string,mixed>  $context
@@ -115,7 +117,7 @@ final class EvidenceVisionThesisComposer
         $forbidden = self::forbiddenStrings($context);
         $theses = [];
 
-        foreach (self::seriesRegressionTheses(AiValueNormalizer::arrayOrEmpty($context['series_windows'] ?? null), $bornAt, $ttlDays) as $thesis) {
+        foreach (self::seriesRegressionTheses(AiValueNormalizer::arrayOrEmpty($context[self::FIELD_SERIES_WINDOWS] ?? null), $bornAt, $ttlDays) as $thesis) {
             if (count($theses) >= self::MAX_THESES) {
                 break;
             }
@@ -133,7 +135,7 @@ final class EvidenceVisionThesisComposer
             }
         }
 
-        foreach (self::leadClusterTheses(AiValueNormalizer::arrayOrEmpty($context['leads'] ?? null), $bornAt, $ttlDays) as $thesis) {
+        foreach (self::leadClusterTheses(AiValueNormalizer::arrayOrEmpty($context[self::FIELD_LEADS] ?? null), $bornAt, $ttlDays) as $thesis) {
             if (count($theses) >= self::MAX_THESES) {
                 break;
             }
