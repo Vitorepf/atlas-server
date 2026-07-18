@@ -68,6 +68,7 @@ final class AcosMaxWindowOrchestratorService
     public const FIELD_STRVAL = 'strval';
     public const FIELD_SERIES_STALE_DURING_WINDOW = 'series_stale_during_window';
     public const FIELD_UTC = 'UTC';
+    public const INT_2 = 2;
 
 
     public function __construct(
@@ -329,7 +330,7 @@ final class AcosMaxWindowOrchestratorService
             $active,
             static fn (array $window): bool => ($window[self::FIELD_DEPENDS_ON] ?? []) === []
         ));
-        if (count($independent) < 2) {
+        if (count($independent) < self::INT_2) {
             return [];
         }
 

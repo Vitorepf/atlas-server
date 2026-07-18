@@ -55,6 +55,7 @@ final class ComposedObraArcLifecycle
     public const FIELD_RECEIPT_HASH = 'receipt_hash';
     public const FIELD_SEED_GATE_REJECTED = 'seed_gate_rejected';
     public const FIELD_SHA256 = 'sha256';
+    public const FIELD_KILL_GATE_CONSECUTIVE_FAILURES_K = 'kill_gate.consecutive_failures_k';
 
     public const TASK_STATUS_FAILED = 'failed';
 
@@ -109,7 +110,7 @@ final class ComposedObraArcLifecycle
             self::FIELD_OBRA_ID => AiValueNormalizer::trimmedStringOrNull($arc[self::FIELD_OBRA_ID] ?? null) ?? '',
             self::FIELD_STATUS => self::STATUS_ACTIVE,
             self::FIELD_CONSECUTIVE_FAILURES => 0,
-            self::FIELD_KILL_GATE_K => max(1, (int) (AiValueNormalizer::finiteFloatOrNull(data_get($arc, 'kill_gate.consecutive_failures_k')) ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES)),
+            self::FIELD_KILL_GATE_K => max(1, (int) (AiValueNormalizer::finiteFloatOrNull(data_get($arc, self::FIELD_KILL_GATE_CONSECUTIVE_FAILURES_K)) ?? ComposedObraArcComposer::KILL_GATE_CONSECUTIVE_FAILURES)),
             self::FIELD_TASKS => $tasks,
             self::FIELD_ARCHIVE_RECEIPT => null,
         ];

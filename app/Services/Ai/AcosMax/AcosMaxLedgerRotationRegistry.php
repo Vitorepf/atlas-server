@@ -86,6 +86,10 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ATLAS_ORIGINATOR_PREDICTED_IMPACT_CALIBRATION_V1 = 'atlas.originator.predicted_impact_calibration.v1';
     public const FIELD_ATLAS_PROVIDER_LEAK_CORPUS_V1 = 'atlas.provider_leak_corpus.v1';
     public const FIELD_ATLAS_RESOURCE_BUDGET_V1 = 'atlas.resource_budget.v1';
+    public const FIELD_ATLAS_SEMANTIC_JINA_V3_DUAL_READ_V1 = 'atlas.semantic.jina_v3_dual_read.v1';
+    public const FIELD_ATLAS_TEST_ATTESTATION_V1 = 'atlas.test_attestation.v1';
+    public const FIELD_MISSION_E2E_V1 = 'mission_e2e.v1';
+    public const FIELD_OPERATOR_APPROVAL_HISTORY_V1 = 'operator.approval_history.v1';
     public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
@@ -247,7 +251,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'ESP-09 independent challenger advisory series',
             ],
-            'operator.approval_history.v1' => [
+            self::FIELD_OPERATOR_APPROVAL_HISTORY_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_180,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
@@ -319,7 +323,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTJ-03 counterfactual lift',
             ],
-            'mission_e2e.v1' => [
+            self::FIELD_MISSION_E2E_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
@@ -331,7 +335,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'ELEV-27 joint budget reader; watchdog snapshot cadence',
             ],
-            'atlas.test_attestation.v1' => [
+            self::FIELD_ATLAS_TEST_ATTESTATION_V1 => [
                 self::FIELD_MAX_SIZE_MB => 8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
@@ -361,7 +365,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXA-06 fase 1 KB coverage reader; watchdog snapshot cadence tied to knowledge sync runs',
             ],
-            'atlas.semantic.jina_v3_dual_read.v1' => [
+            self::FIELD_ATLAS_SEMANTIC_JINA_V3_DUAL_READ_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,

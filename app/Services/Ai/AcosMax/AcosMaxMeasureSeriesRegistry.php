@@ -103,6 +103,10 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_MULTK_03 = 'MULTK-03';
     public const FIELD_MULTN15_02 = 'MULTN15-02';
     public const FIELD_MULTX_02 = 'MULTX-02';
+    public const FIELD_RAGX_07 = 'RAGX-07';
+    public const FIELD_REC_06 = 'REC-06';
+    public const FIELD_TETO_01 = 'TETO-01';
+    public const FIELD_ACOS_ASI05_LEDGER_CLEANUP_V1 = 'acos.asi05.ledger_cleanup.v1';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -200,7 +204,7 @@ final class AcosMaxMeasureSeriesRegistry
             ],
             [
                 self::FIELD_SLICE => self::FIELD_ASI_05,
-                self::FIELD_SERIES => 'acos.asi05.ledger_cleanup.v1',
+                self::FIELD_SERIES => self::FIELD_ACOS_ASI05_LEDGER_CLEANUP_V1,
                 self::FIELD_PATH => storage_path('app/atlas/evidence/acos-max-asi-05-ledger-cleanup.jsonl'),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
@@ -540,7 +544,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.immune.signature_store.v1',
             ],
             [
-                self::FIELD_SLICE => 'TETO-01',
+                self::FIELD_SLICE => self::FIELD_TETO_01,
                 self::FIELD_SERIES => AtlasNCaptureDrillService::MEASURE_ID,
                 self::FIELD_PATH => storage_path(AtlasNCaptureDrillService::RELATIVE_LEDGER_PATH),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
@@ -585,7 +589,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'maxa-04-jina-v3-dual-read-window',
             ],
             [
-                self::FIELD_SLICE => 'RAGX-07',
+                self::FIELD_SLICE => self::FIELD_RAGX_07,
                 self::FIELD_SERIES => RagxChainMechanismService::AB_SCHEMA,
                 self::FIELD_PATH => storage_path('app/atlas/evidence/ragx-ab-registrations.jsonl'),
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
@@ -594,7 +598,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'ragx-07-records-only-ab-registration',
             ],
             [
-                self::FIELD_SLICE => 'REC-06',
+                self::FIELD_SLICE => self::FIELD_REC_06,
                 self::FIELD_SERIES => MetaLoopBreakerService::SCHEMA_VERSION,
                 self::FIELD_PATH => 'atlas:acos:rec06-breakers --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,

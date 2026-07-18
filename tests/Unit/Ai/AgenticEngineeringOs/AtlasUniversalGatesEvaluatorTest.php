@@ -10705,4 +10705,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b518_measure_series_lote_ledger_rotation_acos_rollback_aaeos_floor_count']);
     }
 
+    public function test_b519_measure_series_lote_ledger_rotation_window_orchestrator_acos_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b519MeasureSeriesLoteLedgerRotationWindowOrchestratorAcosFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_RAGX_07, $out['RAGX-07']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_REC_06, $out['REC-06']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_TETO_01, $out['TETO-01']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ACOS_ASI05_LEDGER_CLEANUP_V1, $out['acos.asi05.ledger_cleanup.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTJ_LESSON_HALF_LIFE_V2, $out['multj.lesson_half_life.v2']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTJ_PROCEDURAL_SKILL_PROMOTER_V1, $out['multj.procedural_skill_promoter.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTJ_SEMANTIC_DEDUP_FREEZE_V1, $out['multj.semantic_dedup_freeze.v1']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTN17_PREDICTED_IMPACT_CALIBRATION_V1, $out['multn17.predicted_impact_calibration.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_SEMANTIC_JINA_V3_DUAL_READ_V1, $out['atlas.semantic.jina_v3_dual_read.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_TEST_ATTESTATION_V1, $out['atlas.test_attestation.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MISSION_E2E_V1, $out['mission_e2e.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_OPERATOR_APPROVAL_HISTORY_V1, $out['operator.approval_history.v1']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::INT_2, $out['2']);
+        $this->assertSame(AcosProgramCockpitService::FIELD_MULTX_02, $out['MULTX-02']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FLOAT_1_0, $out['1.0']);
+        $this->assertSame(ComposedObraArcComposer::INT_2, $out['2']);
+        $this->assertSame(ComposedObraArcLifecycle::FIELD_KILL_GATE_CONSECUTIVE_FAILURES_K, $out['kill_gate.consecutive_failures_k']);
+        $this->assertSame(Esp09IndependentChallengerService::FLOAT_0_0, $out['0.0']);
+        $this->assertSame(18, $out['b519_measure_series_lote_ledger_rotation_window_orchestrator_acos_floor_count']);
+    }
+
 }

@@ -56,6 +56,7 @@ final class AcosProgramCockpitService
     public const FIELD_SCOREBOARD_MISSING = 'scoreboard_missing';
     public const FIELD_SOURCE_DID_NOT_EMIT_JSON = 'source_did_not_emit_json';
     public const FIELD_UTC = 'UTC';
+    public const FIELD_MULTX_02 = 'MULTX-02';
 
 
     public function report(?string $scoreboardPath = null): array
@@ -139,7 +140,7 @@ final class AcosProgramCockpitService
                 self::FIELD_LOOPS => $this->commandSection('atlas:flywheel:loops --json', 'atlas:flywheel:loops', ['--json' => true]),
                 self::FIELD_FUNNEL => [
                     self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
-                    self::FIELD_SOURCE => 'MULTX-02',
+                    self::FIELD_SOURCE => self::FIELD_MULTX_02,
                     self::FIELD_REASON => self::REASON_SOURCE_NOT_LANDED_YET,
                 ],
             ],

@@ -112,6 +112,7 @@ final class Esp09IndependentChallengerService
     public const FIELD_SERIES = 'series';
     public const FIELD_TTL_DAYS = 'ttl_days';
     public const FIELD_DEFAULT = 'default';
+    public const FLOAT_0_0 = 0.0;
     public const INT_30 = 30;
 
     /**
@@ -253,7 +254,7 @@ final class Esp09IndependentChallengerService
 
         $deathReview = $qualifyingWindows >= $minWindows
             && $zeroAcceptedWindows >= $minWindows
-            && $acceptedRate <= 0.0;
+            && $acceptedRate <= self::FLOAT_0_0;
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,

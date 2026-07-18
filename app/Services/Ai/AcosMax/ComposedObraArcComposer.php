@@ -97,6 +97,7 @@ final class ComposedObraArcComposer
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_ARC_ = 'arc_';
     public const FIELD_OBRA_ = 'obra_';
+    public const INT_2 = 2;
 
     /**
      * @param  list<array<string,mixed>>  $candidates  grounded origination candidates
@@ -417,7 +418,7 @@ final class ComposedObraArcComposer
         }
 
         $parts = explode('/', str_replace('\\', '/', $targetPath));
-        if (count($parts) >= 2 && $parts[0] === self::FIELD_APP) {
+        if (count($parts) >= self::INT_2 && $parts[0] === self::FIELD_APP) {
             $namespace = 'App\\'.implode('\\', array_slice($parts, 1, -1)).'\\'.$base;
 
             return str_replace('/', '\\', $namespace);

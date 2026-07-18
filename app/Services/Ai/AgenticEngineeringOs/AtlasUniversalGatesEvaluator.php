@@ -13598,4 +13598,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B519).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b519MeasureSeriesLoteLedgerRotationWindowOrchestratorAcosFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'RAGX-07' => AcosMaxMeasureSeriesRegistry::FIELD_RAGX_07,
+            'REC-06' => AcosMaxMeasureSeriesRegistry::FIELD_REC_06,
+            'TETO-01' => AcosMaxMeasureSeriesRegistry::FIELD_TETO_01,
+            'acos.asi05.ledger_cleanup.v1' => AcosMaxMeasureSeriesRegistry::FIELD_ACOS_ASI05_LEDGER_CLEANUP_V1,
+            'multj.lesson_half_life.v2' => AcosMaxLote2MeasureService::FIELD_MULTJ_LESSON_HALF_LIFE_V2,
+            'multj.procedural_skill_promoter.v1' => AcosMaxLote2MeasureService::FIELD_MULTJ_PROCEDURAL_SKILL_PROMOTER_V1,
+            'multj.semantic_dedup_freeze.v1' => AcosMaxLote2MeasureService::FIELD_MULTJ_SEMANTIC_DEDUP_FREEZE_V1,
+            'multn17.predicted_impact_calibration.v1' => AcosMaxLote2MeasureService::FIELD_MULTN17_PREDICTED_IMPACT_CALIBRATION_V1,
+            'atlas.semantic.jina_v3_dual_read.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_SEMANTIC_JINA_V3_DUAL_READ_V1,
+            'atlas.test_attestation.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_TEST_ATTESTATION_V1,
+            'mission_e2e.v1' => AcosMaxLedgerRotationRegistry::FIELD_MISSION_E2E_V1,
+            'operator.approval_history.v1' => AcosMaxLedgerRotationRegistry::FIELD_OPERATOR_APPROVAL_HISTORY_V1,
+            '2' => AcosMaxWindowOrchestratorService::INT_2,
+            'MULTX-02' => AcosProgramCockpitService::FIELD_MULTX_02,
+            '1.0' => AtlasKnowledgeItemEmbeddingCoverageService::FLOAT_1_0,
+            '2' => ComposedObraArcComposer::INT_2,
+            'kill_gate.consecutive_failures_k' => ComposedObraArcLifecycle::FIELD_KILL_GATE_CONSECUTIVE_FAILURES_K,
+            '0.0' => Esp09IndependentChallengerService::FLOAT_0_0,
+            'b519_measure_series_lote_ledger_rotation_window_orchestrator_acos_floor_count' => 18,
+        ];
+    }
+
 }

@@ -98,6 +98,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const FIELD_UTC = 'UTC';
     public const FIELD_CODEX_INDEPENDENT_MAXA06_FASE1_JUDGE = 'codex-independent-maxa06-fase1-judge';
     public const FIELD_CURSOR_ACOS_MAX_MAXA06_FASE1 = 'cursor-acos-max-maxa06-fase1';
+    public const FLOAT_1_0 = 1.0;
     public const INT_60 = 60;
 
     /** @return array<string,mixed> */
@@ -109,7 +110,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
             self::FIELD_FORMULA => 'MAXA-06 fase 1: coverage_ratio = active items whose MAXA-03 provenance (embedding_model + embedded_content_hash) matches current content_hash, over active items. Stale = provenance stamped but hash drifted. Missing = no provenance.',
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_THRESHOLDS => [
-                self::FIELD_TARGET_COVERAGE_RATIO => 1.0,
+                self::FIELD_TARGET_COVERAGE_RATIO => self::FLOAT_1_0,
                 self::FIELD_DENOMINATOR_MIN_ACTIVE_ITEMS => 1,
                 self::FIELD_STALE_DEFINITION => 'embedded_content_hash != content_hash',
                 self::FIELD_MISSING_DEFINITION => 'embedding_model IS NULL OR embedded_content_hash IS NULL',
