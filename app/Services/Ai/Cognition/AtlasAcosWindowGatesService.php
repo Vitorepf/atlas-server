@@ -63,6 +63,8 @@ final class AtlasAcosWindowGatesService
     public const FIELD_STORAGE_PATH = 'storage_path';
     public const FIELD_STRUCTURAL_HONESTY = 'structural_honesty';
     public const FIELD_REPORTED = 'reported';
+    public const FIELD_D3_RELATION_DENSITY = 'D3_relation_density';
+    public const FIELD_D4_D5_FEEDBACK = 'D4_D5_feedback';
 
     /** Receipt freshness before a certified gate is treated as stale (7 days). */
     public const RECEIPT_FRESH_SECONDS = 604800;
@@ -112,12 +114,12 @@ final class AtlasAcosWindowGatesService
         $dims = AiValueNormalizer::arrayOrEmpty($card[self::FIELD_COMPONENTS] ?? null);
 
         return [
-            $this->dimension('D3_relation_density', $dims, self::FIELD_RELATION_DENSITY, '>=70', 70, true),
+            $this->dimension(self::FIELD_D3_RELATION_DENSITY, $dims, self::FIELD_RELATION_DENSITY, '>=70', 70, true),
             $this->dimension('D5_structural_honesty', $dims, self::FIELD_STRUCTURAL_HONESTY, '>=70', 70, true),
             $this->dimension('D5_rationale', $dims, self::FIELD_RATIONALE, '>=70', 70, true),
             // D5 feedback / composite: the target direction is contested in the
             // docs (quality composite vs "<=50" marker) → report, never assert.
-            $this->dimension('D4_D5_feedback', $dims, self::FIELD_FEEDBACK, 'ver doc (janela)', null, false),
+            $this->dimension(self::FIELD_D4_D5_FEEDBACK, $dims, self::FIELD_FEEDBACK, 'ver doc (janela)', null, false),
         ];
     }
 

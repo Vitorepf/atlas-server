@@ -201,6 +201,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_AACM = 'AACM';
     public const FIELD_AARF = 'AARF';
     public const FIELD_AARR = 'AARR';
+    public const FIELD_ABDD = 'ABDD';
+    public const FIELD_ACCCR = 'ACCCR';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -336,7 +338,7 @@ class AtlasCognitionScoreCardService
 
         // Domain runtimes — Research (review-only, source-grounded)
         ['ARDR',  'Research Domain Runtime',               self::FIELD_RESEARCH_DOMAIN, ResearchRuntimeService::class],
-        ['ABDD',  'BDD Acceptance Runtime',                self::FIELD_PROGRAMMING,     AtlasBddAcceptanceRuntimeService::class],
+        [self::FIELD_ABDD,  'BDD Acceptance Runtime',                self::FIELD_PROGRAMMING,     AtlasBddAcceptanceRuntimeService::class],
         ['ALMR',  'Learning Mutation Runtime',             self::FIELD_COMPOUNDING,     AtlasLearningMutationRuntimeService::class],
         ['APCP',  'Programming Cartography Publisher',     self::FIELD_PROGRAMMING,     AtlasProgrammingCartographyPublisherService::class],
     ];
@@ -347,7 +349,7 @@ class AtlasCognitionScoreCardService
      * v3 remains a compatibility surface while v4 becomes the truthful boundary.
      */
     public const V4_SUPPLEMENTAL_SUBSYSTEMS = [
-        ['ACCCR', 'Context Cache Compiler Runtime', self::FIELD_CONTEXT_CACHE, AtlasContextCacheCompilerRuntimeService::class],
+        [self::FIELD_ACCCR, 'Context Cache Compiler Runtime', self::FIELD_CONTEXT_CACHE, AtlasContextCacheCompilerRuntimeService::class],
         ['ACIE', 'Context Intelligence Engine', self::FIELD_CONTEXT_INTELLIGENCE, AtlasContextOperationsRuntimeService::class],
         ['APCR', 'Persistent Context Runtime', self::FIELD_PERSISTENT_CONTEXT, AtlasPersistentContextRuntimeService::class],
         ['AEMOR', 'Execution Memory Outcome Runtime', self::FIELD_AEMOR, AtlasAemorCertificationService::class],

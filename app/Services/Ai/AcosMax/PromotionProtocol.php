@@ -116,6 +116,8 @@ final class PromotionProtocol
     public const FIELD_MISSING_REQUIRED_FIELDS = 'missing_required_fields';
     public const FIELD_ASI = 'ASI';
     public const FIELD_AOBG = 'AOBG';
+    public const FIELD_ATLAS_AOBG_FUSION_ENABLED = 'ATLAS_AOBG_FUSION_ENABLED';
+    public const FIELD_ATLAS_AUTONOMOS_MASTER_ENABLED = 'ATLAS_AUTONOMOS_MASTER_ENABLED';
 
     /** @var list<string> */
     public const STATES = [
@@ -311,11 +313,11 @@ final class PromotionProtocol
     {
         return [
             [
-                self::FIELD_ID => 'ATLAS_AUTONOMOS_MASTER_ENABLED',
+                self::FIELD_ID => self::FIELD_ATLAS_AUTONOMOS_MASTER_ENABLED,
                 self::FIELD_FAMILY => self::FIELD_ASI,
                 self::FIELD_SLICE => 'ASI-06',
                 self::FIELD_STATE => self::STATE_OFF,
-                self::FIELD_ENV_KEY => 'ATLAS_AUTONOMOS_MASTER_ENABLED',
+                self::FIELD_ENV_KEY => self::FIELD_ATLAS_AUTONOMOS_MASTER_ENABLED,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => self::FIELD_OPERATOR_PREFLIGHT_WINDOW,
                 self::FIELD_FLIP_CRITERION => 'atlas:autonomos:preflight --json returns 8/8 green with ASI-01/02/05 evidence',
                 self::FIELD_ROLLBACK_TRIGGER => 'operator disables autonomos master on failed preflight regression or scoped-committer violation',
@@ -419,9 +421,9 @@ final class PromotionProtocol
                 self::FIELD_SOURCE => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:252',
             ],
             [
-                self::FIELD_ID => 'ATLAS_AOBG_FUSION_ENABLED',
+                self::FIELD_ID => self::FIELD_ATLAS_AOBG_FUSION_ENABLED,
                 self::FIELD_FAMILY => self::FIELD_AOBG,
-                self::FIELD_ENV_KEY => 'ATLAS_AOBG_FUSION_ENABLED',
+                self::FIELD_ENV_KEY => self::FIELD_ATLAS_AOBG_FUSION_ENABLED,
                 self::FIELD_SOURCE => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:743',
             ],
         ];

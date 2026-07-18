@@ -44,6 +44,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_MODE = 'mode';
 
     public const FIELD_RATIONALE = 'rationale';
+    public const INT_16 = 16;
+    public const INT_365 = 365;
     public const INT_60 = 60;
     public const INT_30 = 30;
     public const INT_32 = 32;
@@ -104,19 +106,19 @@ final class AcosMaxLedgerRotationRegistry
             ],
             'acos.asi05.ledger_cleanup.v1' => [
                 self::FIELD_MAX_SIZE_MB => 8,
-                self::FIELD_MAX_AGE_DAYS => 365,
+                self::FIELD_MAX_AGE_DAYS => self::INT_365,
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
                 self::FIELD_RATIONALE => 'one-time cleanup receipt; audit forever',
             ],
             'acos.esp00.ground_truth.v1' => [
                 self::FIELD_MAX_SIZE_MB => 8,
-                self::FIELD_MAX_AGE_DAYS => 365,
+                self::FIELD_MAX_AGE_DAYS => self::INT_365,
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
                 self::FIELD_RATIONALE => 'ESP-00 ground-truth receipt; audit forever',
             ],
             'atlas.evidence_ledger.hash_chain.v1' => [
                 self::FIELD_MAX_SIZE_MB => 512,
-                self::FIELD_MAX_AGE_DAYS => 365,
+                self::FIELD_MAX_AGE_DAYS => self::INT_365,
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
                 self::FIELD_RATIONALE => 'MAXL-02 hash chain: never rotate, integrity backbone',
             ],
@@ -193,7 +195,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_RATIONALE => 'ESP-06 outcome envelope adapters',
             ],
             'atlas.esp_09.challenger_advisory.v1' => [
-                self::FIELD_MAX_SIZE_MB => 16,
+                self::FIELD_MAX_SIZE_MB => self::INT_16,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'ESP-09 independent challenger advisory series',
@@ -290,19 +292,19 @@ final class AcosMaxLedgerRotationRegistry
             ],
             'atlas.provider_leak_corpus.v1' => [
                 self::FIELD_MAX_SIZE_MB => 8,
-                self::FIELD_MAX_AGE_DAYS => 365,
+                self::FIELD_MAX_AGE_DAYS => self::INT_365,
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
                 self::FIELD_RATIONALE => 'MAXM-01 frozen-corpus baseline receipt; audit-anchor, small append cadence',
             ],
             'atlas.immune.classifier_hybrid.v1' => [
-                self::FIELD_MAX_SIZE_MB => 16,
+                self::FIELD_MAX_SIZE_MB => self::INT_16,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXI-04 hybrid-classifier switch receipt; measurement cadence tied to arm-ON runs',
             ],
             'atlas.n_capture_drill.v1' => [
                 self::FIELD_MAX_SIZE_MB => 8,
-                self::FIELD_MAX_AGE_DAYS => 365,
+                self::FIELD_MAX_AGE_DAYS => self::INT_365,
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
                 self::FIELD_RATIONALE => 'TETO-01 N-Capture Drill receipt: quarterly-ish cadence, permanent audit anchor for N×M thesis proofs',
             ],
@@ -319,7 +321,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_RATIONALE => 'MAXA-04 shadow dual-read receipts before any model promotion',
             ],
             RagxChainMechanismService::AB_SCHEMA => [
-                self::FIELD_MAX_SIZE_MB => 16,
+                self::FIELD_MAX_SIZE_MB => self::INT_16,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'RAGX-07 records A/B registrations only; results remain null until a real window runs',
@@ -331,13 +333,13 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_RATIONALE => 'MULTK-02 cascade cost router computed-reader snapshots',
             ],
             'atlas.ai.procedural_skill_promoter.v1' => [
-                self::FIELD_MAX_SIZE_MB => 16,
+                self::FIELD_MAX_SIZE_MB => self::INT_16,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTJ-04 procedural skill promoter reports stay small until real case-count soak',
             ],
             'atlas.ai.abstraction_ladder.v1' => [
-                self::FIELD_MAX_SIZE_MB => 16,
+                self::FIELD_MAX_SIZE_MB => self::INT_16,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTJ-06 abstraction ladder computed-reader snapshots',

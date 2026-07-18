@@ -41,6 +41,8 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_COMPACTION_SOAK_WATCH_REPORT = 'compactionSoakWatchReport';
     public const FIELD_CONTEXT_FEEDBACK_HEALTH_REPORT = 'contextFeedbackHealthReport';
     public const FIELD_ENGINEERING_ENFORCE_READINESS_REPORT = 'engineeringEnforceReadinessReport';
+    public const FIELD_LEARNING_CADENCE_REPORT = 'learningCadenceReport';
+    public const FIELD_LIFT_CYCLE_CLOSURE_REPORT = 'liftCycleClosureReport';
 
     public const CATALOG = [
         [
@@ -51,7 +53,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
         ],
         [
             self::FIELD_ID => 'fee-13.learning_cadence',
-            self::FIELD_REPORT_METHOD => 'learningCadenceReport',
+            self::FIELD_REPORT_METHOD => self::FIELD_LEARNING_CADENCE_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_LEARNING_CADENCE_STALLED,
             self::FIELD_MESSAGE => 'FEE-13 learning cadence is stalled or under-evidenced.',
         ],
@@ -87,7 +89,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
         ],
         [
             self::FIELD_ID => 'ope-08.lift_cycle_closure',
-            self::FIELD_REPORT_METHOD => 'liftCycleClosureReport',
+            self::FIELD_REPORT_METHOD => self::FIELD_LIFT_CYCLE_CLOSURE_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_LIFT_CYCLE_CLOSURE_STALLED,
             self::FIELD_MESSAGE => 'OPE-08 lift cycle blockers are not closing.',
         ],

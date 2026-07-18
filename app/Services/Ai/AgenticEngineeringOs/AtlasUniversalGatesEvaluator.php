@@ -12615,4 +12615,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B487).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b487CognitionScorePromotionProtocolLedgerRotationHealthReportFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ABDD' => AtlasCognitionScoreCardService::FIELD_ABDD,
+            'ACCCR' => AtlasCognitionScoreCardService::FIELD_ACCCR,
+            'COGNITION' => AtlasCognitionScoreCardV4Grouper::FIELD_COGNITION_2,
+            'COMPOUND' => AtlasCognitionScoreCardV4Grouper::FIELD_COMPOUND,
+            'ATLAS_AOBG_FUSION_ENABLED' => PromotionProtocol::FIELD_ATLAS_AOBG_FUSION_ENABLED,
+            'ATLAS_AUTONOMOS_MASTER_ENABLED' => PromotionProtocol::FIELD_ATLAS_AUTONOMOS_MASTER_ENABLED,
+            '16' => AcosMaxLedgerRotationRegistry::INT_16,
+            '365' => AcosMaxLedgerRotationRegistry::INT_365,
+            'learningCadenceReport' => HealthReportWatchdogCheck::FIELD_LEARNING_CADENCE_REPORT,
+            'liftCycleClosureReport' => HealthReportWatchdogCheck::FIELD_LIFT_CYCLE_CLOSURE_REPORT,
+            '11' => AtlasMemoryRecallRelevanceScorer::INT_11,
+            '12' => AtlasMemoryRecallRelevanceScorer::INT_12,
+            'Marketing' => AtlasAaeosQualityBarService::FIELD_MARKETING,
+            'Operations' => AtlasAaeosQualityBarService::FIELD_OPERATIONS,
+            'D3_relation_density' => AtlasAcosWindowGatesService::FIELD_D3_RELATION_DENSITY,
+            'D4_D5_feedback' => AtlasAcosWindowGatesService::FIELD_D4_D5_FEEDBACK,
+            'SIS2' => AtlasFrontierWaveLadder::FIELD_SIS2,
+            'SIS3' => AtlasFrontierWaveLadder::FIELD_SIS3,
+            'b487_cognition_score_promotion_protocol_ledger_rotation_health_report_floor_count' => 18,
+        ];
+    }
+
 }

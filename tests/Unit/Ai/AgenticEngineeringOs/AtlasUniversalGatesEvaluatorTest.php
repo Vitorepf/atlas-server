@@ -9914,4 +9914,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b486_cognition_score_promotion_protocol_ledger_rotation_health_report_floor_count']);
     }
 
+    public function test_b487_cognition_score_promotion_protocol_ledger_rotation_health_report_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b487CognitionScorePromotionProtocolLedgerRotationHealthReportFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ABDD, $out['ABDD']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACCCR, $out['ACCCR']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_COGNITION_2, $out['COGNITION']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_COMPOUND, $out['COMPOUND']);
+        $this->assertSame(PromotionProtocol::FIELD_ATLAS_AOBG_FUSION_ENABLED, $out['ATLAS_AOBG_FUSION_ENABLED']);
+        $this->assertSame(PromotionProtocol::FIELD_ATLAS_AUTONOMOS_MASTER_ENABLED, $out['ATLAS_AUTONOMOS_MASTER_ENABLED']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::INT_16, $out['16']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::INT_365, $out['365']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_LEARNING_CADENCE_REPORT, $out['learningCadenceReport']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_LIFT_CYCLE_CLOSURE_REPORT, $out['liftCycleClosureReport']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::INT_11, $out['11']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::INT_12, $out['12']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_MARKETING, $out['Marketing']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_OPERATIONS, $out['Operations']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_D3_RELATION_DENSITY, $out['D3_relation_density']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_D4_D5_FEEDBACK, $out['D4_D5_feedback']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_SIS2, $out['SIS2']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_SIS3, $out['SIS3']);
+        $this->assertSame(18, $out['b487_cognition_score_promotion_protocol_ledger_rotation_health_report_floor_count']);
+    }
+
 }

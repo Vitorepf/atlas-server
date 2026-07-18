@@ -61,6 +61,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_ACOS = 'acos';
     public const FIELD_AEMOR_2 = 'AEMOR';
     public const FIELD_AUTONOMY_2 = 'AUTONOMY';
+    public const FIELD_COGNITION_2 = 'COGNITION';
+    public const FIELD_COMPOUND = 'COMPOUND';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -153,10 +155,10 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_SELF_IMPROVEMENT, self::FIELD_SELF_CONSTRUCTION, self::FIELD_CARTOGRAPHY, self::FIELD_PROGRAMMING, self::FIELD_RESEARCH_DOMAIN => 'CONSUMERS',
             self::FIELD_GOVERNANCE => 'GOVERNANCE',
             self::FIELD_ATLAS_DECIDE => 'DECIDE',
-            self::FIELD_COMPOUNDING => 'COMPOUND',
+            self::FIELD_COMPOUNDING => self::FIELD_COMPOUND,
             self::FIELD_REALITY, self::FIELD_CROSS_DOMAIN => 'REALITY',
             self::FIELD_TEOS => 'TEOS',
-            self::FIELD_COGNITION => 'COGNITION',
+            self::FIELD_COGNITION => self::FIELD_COGNITION_2,
             self::FIELD_AUTONOMY => self::FIELD_AUTONOMY_2,
             self::FIELD_PATAMAR4, self::FIELD_PATAMAR_4, self::FIELD_INTEGRATION => 'PATAMAR4',
             self::FIELD_CONTEXT_CACHE => 'CONTEXT-CACHE',
@@ -181,10 +183,10 @@ final class AtlasCognitionScoreCardV4Grouper
             'CONSUMERS' => 'ACOS Consumers and Legacy Projections',
             'GOVERNANCE' => 'Constitutional Governance',
             'DECIDE' => 'Atlas Decide + Swarm',
-            'COMPOUND' => 'Compounding',
+            self::FIELD_COMPOUND => 'Compounding',
             'REALITY' => 'Reality Graph + Cross-Domain',
             'TEOS' => 'TEOS Counterfactuals',
-            'COGNITION' => 'Cognitive Function Atlas',
+            self::FIELD_COGNITION_2 => 'Cognitive Function Atlas',
             self::FIELD_AUTONOMY_2 => 'Autonomous Reconciliation',
             'PATAMAR4' => 'Patamar 4 Integration',
             'CONTEXT-CACHE' => 'Context Cache Compiler Runtime',
