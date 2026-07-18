@@ -13196,4 +13196,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b620_aaeos_phase_floor_count']);
     }
 
+    public function test_b621_aaeos_department_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b621AaeosDepartmentFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::SCHEMA_VERSION, $out['atlas.aaeos.department_promotion_eligibility.v1']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_EVIDENCE_AGE_DAYS, $out['30']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::DEFAULT_MAX_TIER, $out['5']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::VERDICT_ELIGIBLE, $out['eligible']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::VERDICT_BLOCKED, $out['blocked']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_PASSED, $out['passed']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_VERDICT, $out['verdict']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_CURRENT_TIER, $out['current_tier']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_TARGET_TIER, $out['target_tier']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_PRECONDITIONS, $out['preconditions']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_FAILED_PRECONDITIONS, $out['failed_preconditions']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKING_REASONS, $out['blocking_reasons']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_AGE_DAYS, $out['age_days']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_AS_OF, $out['as_of']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_AUTO_PROMOTE_ALLOWED, $out['auto_promote_allowed']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS, $out['blockers']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS_TO_NEXT, $out['blockers_to_next']);
+        $this->assertSame(18, $out['b621_aaeos_department_floor_count']);
+    }
+
 }
