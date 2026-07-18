@@ -482,6 +482,8 @@ final class DepartmentContractRuntime
     public const FIELD_MONTA_DELIVERY_PACK_CAN_NICO__VALIDA_COMPLETENESS__ENCAMINHA_PARA_HUMAN_REVIEW_E_CERT = 'monta delivery_pack canônico, valida completeness, encaminha para human review e cert';
     public const FIELD_RECEBE_PEDIDO_HUMANO_AMB_GUO_E_PRODUZ_MISSION_ENVELOPE_CAN_NICA_ANTES_DE_PRODUCT = 'recebe pedido humano ambíguo e produz mission envelope canônica antes de product';
     public const FIELD_REVISA_PATCHES_SPECS_MIGRATIONS_RELEASE_PACKS_COM_CHECKLIST_CAN_NICO_ANTES_DE_CERT = 'revisa patches/specs/migrations/release_packs com checklist canônico antes de cert';
+    public const FIELD_EXECUTA_OBRAS_PESADAS_MULTI_M_DULO_R3_R5_COM_PARALELISMO__DURABLE_RESERVATION__MULTI_PROVIDER = 'executa Obras pesadas multi-módulo R3-R5 com paralelismo, durable reservation, multi-provider';
+    public const FIELD_DEFINE_SPEC_PACK_CAN_NICO__BREAKING_CHANGE_MATRIX_E_MIGRATION_PLAN_ANTES_DE_QUALQUER_EXECU__O = 'define spec_pack canônico, breaking_change_matrix e migration_plan antes de qualquer execução';
     public const INT_11 = 11;
 
     /**
@@ -565,7 +567,7 @@ final class DepartmentContractRuntime
         self::DEPARTMENT_ARCHITECTURE => [
             self::FIELD_HUMAN_NAME => self::FIELD_ARCHITECT_DEPARTMENT,
             self::FIELD_DESCRIPTION => self::FIELD_DECIDES_SYSTEM_DESIGN__ADRS__TECHNICAL_BOUNDARIES_,
-            self::FIELD_SCOPE => 'define spec_pack canônico, breaking_change_matrix e migration_plan antes de qualquer execução',
+            self::FIELD_SCOPE => self::FIELD_DEFINE_SPEC_PACK_CAN_NICO__BREAKING_CHANGE_MATRIX_E_MIGRATION_PLAN_ANTES_DE_QUALQUER_EXECU__O,
             self::FIELD_TRIGGERS => ['intent_classification.scope>=R3', self::FIELD_BREAKING_CHANGE_DETECTED_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_ENGINEERING_GOAL_DISAMBIGUATED, self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL_DISAMBIGUATED],
@@ -730,7 +732,7 @@ final class DepartmentContractRuntime
         self::DEPARTMENT_FORGE => [
             self::FIELD_HUMAN_NAME => self::FIELD_FORGE_DEPARTMENT,
             self::FIELD_DESCRIPTION => self::FIELD_HEAVY_OBRAS_WITH_PROVIDER_TOPOLOGY___MULTI_AGENT_SCHEDULER_,
-            self::FIELD_SCOPE => 'executa Obras pesadas multi-módulo R3-R5 com paralelismo, durable reservation, multi-provider',
+            self::FIELD_SCOPE => self::FIELD_EXECUTA_OBRAS_PESADAS_MULTI_M_DULO_R3_R5_COM_PARALELISMO__DURABLE_RESERVATION__MULTI_PROVIDER,
             self::FIELD_TRIGGERS => [self::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_FORGE, 'scope>=R3', self::FIELD_MULTI_MODULE_DETECTED_TRUE],
             self::FIELD_INPUTS => [
                 [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],

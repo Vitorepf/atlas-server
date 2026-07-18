@@ -10175,6 +10175,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b603_maxa_jina_generated_contract_lote_measure_department_acos_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b603-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b603',
+                '--b603-maxa-jina-generated-contract-lote-measure-department-acos-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b603_maxa_jina_generated_contract_lote_measure_department_acos_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

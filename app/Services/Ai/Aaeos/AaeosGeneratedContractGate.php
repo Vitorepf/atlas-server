@@ -23,6 +23,8 @@ final class AaeosGeneratedContractGate
     public const FIELD_QUARANTINE_NAMESPACE = 'quarantine_namespace';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_APP_SERVICES_AI_AAEOS_GENERATED = 'app/Services/Ai/Aaeos/Generated';
+    public const FIELD_AAEOS_GENERATED_ = 'Aaeos/Generated/';
+    public const FIELD_USE_LIVE_ACOS_SERVICES_OR_ENABLE_ATLAS_ELITE_COMPACTION_GENERATED_HOT_PATH_ENABLED_EXPLICITLY_ = 'Use live ACOS services or enable atlas_elite_compaction.generated.hot_path_enabled explicitly.';
 
     public function assertHotPathAllowed(string $class): void
     {
@@ -30,12 +32,12 @@ final class AaeosGeneratedContractGate
             return;
         }
         $class = AiValueNormalizer::trimmedStringOrNull($class) ?? '';
-        if (! str_contains($class, 'Aaeos\\Generated\\') && ! str_contains($class, 'Aaeos/Generated/')) {
+        if (! str_contains($class, 'Aaeos\\Generated\\') && ! str_contains($class, self::FIELD_AAEOS_GENERATED_)) {
             return;
         }
         throw new \RuntimeException(
             'Aaeos/Generated is quarantined off the runtime hot path. '
-            .'Use live ACOS services or enable atlas_elite_compaction.generated.hot_path_enabled explicitly.'
+            .self::FIELD_USE_LIVE_ACOS_SERVICES_OR_ENABLE_ATLAS_ELITE_COMPACTION_GENERATED_HOT_PATH_ENABLED_EXPLICITLY_
         );
     }
 

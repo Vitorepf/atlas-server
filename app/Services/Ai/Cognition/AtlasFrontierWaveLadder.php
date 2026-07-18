@@ -79,6 +79,8 @@ final class AtlasFrontierWaveLadder
     public const FIELD_ATLAS_FRONTIER_EXTERNAL_EVENTS_JSONL = 'atlas/frontier/external_events.jsonl';
     public const FIELD_ECONOMIA_DE_ARMS___DEPRECIA__O___GRADUA__O_EM_REGIME = 'Economia de arms + depreciação + graduação em regime';
     public const FIELD_SIS3_CAUSAL___SIS5_CURIOSIDADE___AUTO_CONSTRU__O_FECHADA = 'SIS3 causal ∥ SIS5 curiosidade + auto-construção fechada';
+    public const FIELD_CONSTITUI__O__SCORECARD_10__CONGELADO_POR_HASH___QUARENTENA_DE_S_NTESE___RAZ_O_DE_TRANSA__ES___JOURNAL_FIRST__SISTEMA_8____O_PORT_O = 'Constituição: scorecard 10× congelado por hash + quarentena de síntese + razão de transações + journal-first (Sistema 8) — o PORTÃO';
+    public const FIELD_SIS6_F_BRICA_DE_FROTAS___SIS7_SIMBIOSE_MULTI_DOM_NIO__TRADING_SHADOW_ONLY__EXECU__O_REAL_PROIBIDA_ = 'SIS6 fábrica de frotas ∥ SIS7 simbiose/multi-domínio (trading SHADOW-ONLY, execução real PROIBIDA)';
 
     /**
      * Waves in activation order (obra20 §Fase-0 + contexto-mestre §5).
@@ -86,10 +88,10 @@ final class AtlasFrontierWaveLadder
      * @var array<int,array{key:string,systems:list<string>,summary:string}>
      */
     public const WAVES = [
-        [self::FIELD_KEY => self::FIELD_FASE_0, self::FIELD_SYSTEMS => [self::FIELD_CONSTITUICAO], self::FIELD_SUMMARY => 'Constituição: scorecard 10× congelado por hash + quarentena de síntese + razão de transações + journal-first (Sistema 8) — o PORTÃO'],
+        [self::FIELD_KEY => self::FIELD_FASE_0, self::FIELD_SYSTEMS => [self::FIELD_CONSTITUICAO], self::FIELD_SUMMARY => self::FIELD_CONSTITUI__O__SCORECARD_10__CONGELADO_POR_HASH___QUARENTENA_DE_S_NTESE___RAZ_O_DE_TRANSA__ES___JOURNAL_FIRST__SISTEMA_8____O_PORT_O],
         [self::FIELD_KEY => self::FIELD_ONDA_1, self::FIELD_SYSTEMS => [self::FIELD_SIS2], self::FIELD_SUMMARY => 'SIS2 ALIS self-host (TETO: soberania + custo R$0, NÃO paridade; juiz assimétrico junto)'],
         [self::FIELD_KEY => self::FIELD_ONDA_2, self::FIELD_SYSTEMS => [self::FIELD_SIS3, self::FIELD_SIS5], self::FIELD_SUMMARY => self::FIELD_SIS3_CAUSAL___SIS5_CURIOSIDADE___AUTO_CONSTRU__O_FECHADA],
-        [self::FIELD_KEY => self::FIELD_ONDA_3, self::FIELD_SYSTEMS => [self::FIELD_SIS6, self::FIELD_SIS7], self::FIELD_SUMMARY => 'SIS6 fábrica de frotas ∥ SIS7 simbiose/multi-domínio (trading SHADOW-ONLY, execução real PROIBIDA)'],
+        [self::FIELD_KEY => self::FIELD_ONDA_3, self::FIELD_SYSTEMS => [self::FIELD_SIS6, self::FIELD_SIS7], self::FIELD_SUMMARY => self::FIELD_SIS6_F_BRICA_DE_FROTAS___SIS7_SIMBIOSE_MULTI_DOM_NIO__TRADING_SHADOW_ONLY__EXECU__O_REAL_PROIBIDA_],
         [self::FIELD_KEY => self::FIELD_ONDA_4, self::FIELD_SYSTEMS => [self::FIELD_ECONOMIA, self::FIELD_DEPRECIACAO, self::FIELD_GRADUACAO], self::FIELD_SUMMARY => self::FIELD_ECONOMIA_DE_ARMS___DEPRECIA__O___GRADUA__O_EM_REGIME],
     ];
 

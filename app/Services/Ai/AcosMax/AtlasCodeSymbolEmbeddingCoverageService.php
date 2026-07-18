@@ -104,6 +104,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_ATLAS_CODE_SYMBOL_EMBEDDING_COVERAGE___JSON = 'atlas:code:symbol-embedding-coverage --json';
     public const FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS_AS_E = 'atlas_code_symbol_embeddings as e';
     public const FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS_AS_S = 'atlas_engineering_code_symbols as s';
+    public const FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS_EMBEDDED_CONTENT_HASH____ATLAS_ENGINEERING_CODE_SYMBOLS_SOURCE_HASH = 'atlas_code_symbol_embeddings.embedded_content_hash != atlas_engineering_code_symbols.source_hash';
+    public const FIELD_NO_MATCHING_ROW_IN_ATLAS_CODE_SYMBOL_EMBEDDINGS_FOR_SYMBOL_ID = 'no matching row in atlas_code_symbol_embeddings for symbol_id';
     public const FLOAT_1_0 = 1.0;
     public const INT_60 = 60;
 
@@ -118,8 +120,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             self::FIELD_THRESHOLDS => [
                 self::FIELD_TARGET_COVERAGE_RATIO => self::FLOAT_1_0,
                 self::FIELD_DENOMINATOR_MIN_ACTIVE_SYMBOLS => 1,
-                self::FIELD_STALE_DEFINITION => 'atlas_code_symbol_embeddings.embedded_content_hash != atlas_engineering_code_symbols.source_hash',
-                self::FIELD_MISSING_DEFINITION => 'no matching row in atlas_code_symbol_embeddings for symbol_id',
+                self::FIELD_STALE_DEFINITION => self::FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS_EMBEDDED_CONTENT_HASH____ATLAS_ENGINEERING_CODE_SYMBOLS_SOURCE_HASH,
+                self::FIELD_MISSING_DEFINITION => self::FIELD_NO_MATCHING_ROW_IN_ATLAS_CODE_SYMBOL_EMBEDDINGS_FOR_SYMBOL_ID,
                 self::FIELD_SCOPE => self::FIELD_ACTIVE_SYMBOLS_ONLY,
                 self::FIELD_DEFAULT_SWITCH => self::FIELD_OFF,
             ],

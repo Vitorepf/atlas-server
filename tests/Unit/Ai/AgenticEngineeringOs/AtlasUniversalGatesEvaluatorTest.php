@@ -12750,4 +12750,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(12, $out['b602_aaeos_veto_citation_grounding_gated_corpus_cognitive_lote_floor_count']);
     }
 
+    public function test_b603_maxa_jina_generated_contract_lote_measure_department_acos_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b603MaxaJinaGeneratedContractLoteMeasureDepartmentAcosFloorsContractObserve([]);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_ATLAS_SEMANTIC_RAG_MODEL_JINAAI_JINA_EMBEDDINGS_V3_PHP_ARTISAN_ATLAS_MEMORY_EMBED_BACKFILL___STALE___JSON, $out['ATLAS_SEMANTIC_RAG_MODEL=jinaai/jina-embeddings-v3 php artisan atlas:memory:embed-backfill --stale --json']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_MAXA_04_ONLY_LANDS_THE_DUAL_READ_RE_EMBED_MECHANISM__PROMOTION_REQUIRES_A_LATER_OPERATOR_REVIEWED_BENCHMARK_WINDOW_, $out['MAXA-04 only lands the dual-read/re-embed mechanism; promotion requires a later operator-reviewed benchmark window.']);
+        $this->assertSame(AaeosGeneratedContractGate::FIELD_AAEOS_GENERATED_, $out['Aaeos/Generated/']);
+        $this->assertSame(AaeosGeneratedContractGate::FIELD_USE_LIVE_ACOS_SERVICES_OR_ENABLE_ATLAS_ELITE_COMPACTION_GENERATED_HOT_PATH_ENABLED_EXPLICITLY_, $out['Use live ACOS services or enable atlas_elite_compaction.generated.hot_path_enabled explicitly.']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_A_VALID_LOOP_CHAINS_TASK__DECISION_RECEIPT__DELIVERED_CONTEXT__EXECUTION_OUTCOME__LESSON__AND_SUBSEQUENT_MEASURED_RECALL__PROVEN_REAL_OUTCOME_IS_MANDATORY_, $out['A valid loop chains task, decision receipt, delivered context, execution outcome, lesson, and subsequent measured recall; proven_real outcome is mandatory.']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_BUCKET_LESSON_LIFT_BY_AGE_SINCE_PROMOTION_USING_TWO_WEEK_BUCKETS__BUCKETS_BELOW_N_8_PUBLISH_INSUFFICIENT_INSTEAD_OF_NULL_, $out['Bucket lesson lift by age since promotion using two-week buckets; buckets below n=8 publish insufficient instead of null.']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EXECUTA_OBRAS_PESADAS_MULTI_M_DULO_R3_R5_COM_PARALELISMO__DURABLE_RESERVATION__MULTI_PROVIDER, $out['executa Obras pesadas multi-módulo R3-R5 com paralelismo, durable reservation, multi-provider']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DEFINE_SPEC_PACK_CAN_NICO__BREAKING_CHANGE_MATRIX_E_MIGRATION_PLAN_ANTES_DE_QUALQUER_EXECU__O, $out['define spec_pack canônico, breaking_change_matrix e migration_plan antes de qualquer execução']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_TODA_PARCELA___FUN__O_DE_EVID_NCIA_RESOLVIDA_EM_RUNTIME__PROBE_DE_DB_ARQUIVO_AGENDA_CLASSE___NENHUM_LITERAL_AUTO_DECLARADO_, $out['Toda parcela é função de evidência resolvida em runtime (probe de DB/arquivo/agenda/classe); nenhum literal auto-declarado.']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_DUAL_READ_OLD_FEEDBACK___2F_NEW_FEEDBACK___2F_LIFT_STATUS__S_WITH_CASES__D_WITHOUT_CASES__D_MEASUREMENT_READY__S, $out['dual_read old_feedback=%.2f new_feedback=%.2f lift_status=%s with_cases=%d without_cases=%d measurement_ready=%s']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_NEEDS___1_TEST_THAT_RAN_GREEN_FOR_VERIFIED___A_TEST_SYMBOL_RESOLVES_BUT_HAS_NO_GREEN_RUN_RECEIPT__RUN_ATLAS_AAEOS_VERIFY_TESTS_, $out['needs >=1 test that RAN GREEN for verified — a test symbol resolves but has no green-run receipt (run atlas:aaeos:verify-tests)']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_NEEDS___1_RESOLVED_RECEIPT__EVIDENCE_FILE__FOR_VERIFIED, $out['needs >=1 resolved receipt (evidence file) for verified']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS_EMBEDDED_CONTENT_HASH____ATLAS_ENGINEERING_CODE_SYMBOLS_SOURCE_HASH, $out['atlas_code_symbol_embeddings.embedded_content_hash != atlas_engineering_code_symbols.source_hash']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_NO_MATCHING_ROW_IN_ATLAS_CODE_SYMBOL_EMBEDDINGS_FOR_SYMBOL_ID, $out['no matching row in atlas_code_symbol_embeddings for symbol_id']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_CONSTITUI__O__SCORECARD_10__CONGELADO_POR_HASH___QUARENTENA_DE_S_NTESE___RAZ_O_DE_TRANSA__ES___JOURNAL_FIRST__SISTEMA_8____O_PORT_O, $out['Constituição: scorecard 10× congelado por hash + quarentena de síntese + razão de transações + journal-first (Sistema 8) — o PORTÃO']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_SIS6_F_BRICA_DE_FROTAS___SIS7_SIMBIOSE_MULTI_DOM_NIO__TRADING_SHADOW_ONLY__EXECU__O_REAL_PROIBIDA_, $out['SIS6 fábrica de frotas ∥ SIS7 simbiose/multi-domínio (trading SHADOW-ONLY, execução real PROIBIDA)']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_CHAR_BIGRAM_JACCARD_IS_A_FLOOR_LEXICAL_ARM__DAEMON_BACKED_REAL_EMBEDDINGS_CAN_RAISE_RECALL___DROP_FP_WITHOUT_CHANGING_THE_FREEZE_CONTRACT_, $out['char-bigram Jaccard is a floor lexical arm; daemon-backed real embeddings can raise recall + drop FP without changing the freeze contract.']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_LEXICAL_SCORE___1_0_IFF_THE_BASE_ATLAS_AAEOS_COGNITIVE_IMMUNE_INPUT_CLASSIFIER_ROUTES_TO_A_HOSTILE_CLASS_, $out['lexical_score = 1.0 iff the base AtlasAaeosCognitiveImmuneInputClassifier routes to a hostile class ']);
+        $this->assertSame(18, $out['b603_maxa_jina_generated_contract_lote_measure_department_acos_floor_count']);
+    }
+
 }

@@ -132,6 +132,8 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_NEEDS___1_RESOLVED_ROUTE_OR_COMMAND_FOR_PARTIAL = 'needs >=1 resolved route or command for partial';
     public const FIELD_NEEDS___1_RESOLVED_SYMBOL__CLASS_METHOD__FOR_PARTIAL = 'needs >=1 resolved symbol (class/method) for partial';
     public const FIELD_NEEDS___1_RESOLVED_TEST_FOR_VERIFIED = 'needs >=1 resolved test for verified';
+    public const FIELD_NEEDS___1_TEST_THAT_RAN_GREEN_FOR_VERIFIED___A_TEST_SYMBOL_RESOLVES_BUT_HAS_NO_GREEN_RUN_RECEIPT__RUN_ATLAS_AAEOS_VERIFY_TESTS_ = 'needs >=1 test that RAN GREEN for verified — a test symbol resolves but has no green-run receipt (run atlas:aaeos:verify-tests)';
+    public const FIELD_NEEDS___1_RESOLVED_RECEIPT__EVIDENCE_FILE__FOR_VERIFIED = 'needs >=1 resolved receipt (evidence file) for verified';
     public const INT_2 = 2;
 
     public const RANK = [
@@ -723,10 +725,10 @@ class AtlasAaeosImplementationTruthService
                 $unmet[] = self::FIELD_NEEDS___1_RESOLVED_TEST_FOR_VERIFIED;
             } elseif (! $hasGreenTest) {
                 // The test EXISTS but never ran green — the existence-only gap.
-                $unmet[] = 'needs >=1 test that RAN GREEN for verified — a test symbol resolves but has no green-run receipt (run atlas:aaeos:verify-tests)';
+                $unmet[] = self::FIELD_NEEDS___1_TEST_THAT_RAN_GREEN_FOR_VERIFIED___A_TEST_SYMBOL_RESOLVES_BUT_HAS_NO_GREEN_RUN_RECEIPT__RUN_ATLAS_AAEOS_VERIFY_TESTS_;
             }
             if (! $hasReceipt) {
-                $unmet[] = 'needs >=1 resolved receipt (evidence file) for verified';
+                $unmet[] = self::FIELD_NEEDS___1_RESOLVED_RECEIPT__EVIDENCE_FILE__FOR_VERIFIED;
             }
         }
 

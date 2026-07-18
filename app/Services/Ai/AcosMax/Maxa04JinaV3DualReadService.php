@@ -92,6 +92,8 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_ATLAS_SEMANTIC_MEMORY_EMBEDDING_DIMENSIONS = 'atlas.semantic_memory.embedding_dimensions';
     public const FIELD_ATLAS_SEMANTIC_MEMORY_SEMANTIC_RAG_MODEL = 'atlas.semantic_memory.semantic_rag_model';
     public const FIELD_MAXA04_RESTORE_CURRENT_SEMANTIC_RAG_MODEL = 'maxa04:restore-current-semantic-rag-model';
+    public const FIELD_ATLAS_SEMANTIC_RAG_MODEL_JINAAI_JINA_EMBEDDINGS_V3_PHP_ARTISAN_ATLAS_MEMORY_EMBED_BACKFILL___STALE___JSON = 'ATLAS_SEMANTIC_RAG_MODEL=jinaai/jina-embeddings-v3 php artisan atlas:memory:embed-backfill --stale --json';
+    public const FIELD_MAXA_04_ONLY_LANDS_THE_DUAL_READ_RE_EMBED_MECHANISM__PROMOTION_REQUIRES_A_LATER_OPERATOR_REVIEWED_BENCHMARK_WINDOW_ = 'MAXA-04 only lands the dual-read/re-embed mechanism; promotion requires a later operator-reviewed benchmark window.';
     public const INT_8192 = 8192;
 
 
@@ -138,7 +140,7 @@ final class Maxa04JinaV3DualReadService
             ],
             self::FIELD_REEMBED_PATH => [
                 self::FIELD_MODE => self::MODE_SHADOW_ONLY,
-                self::FIELD_COMMAND => 'ATLAS_SEMANTIC_RAG_MODEL=jinaai/jina-embeddings-v3 php artisan atlas:memory:embed-backfill --stale --json',
+                self::FIELD_COMMAND => self::FIELD_ATLAS_SEMANTIC_RAG_MODEL_JINAAI_JINA_EMBEDDINGS_V3_PHP_ARTISAN_ATLAS_MEMORY_EMBED_BACKFILL___STALE___JSON,
                 self::FIELD_WRITES_LIVE_DEFAULT_MODEL => false,
                 self::FIELD_REQUIRES_DUAL_READ_LEDGER => true,
             ],
@@ -274,7 +276,7 @@ final class Maxa04JinaV3DualReadService
             self::FIELD_BASIS => self::STATUS_PENDING_WINDOW,
             self::FIELD_DEFAULT_PROMOTED => false,
             self::FIELD_LIVE_FLIP_PERFORMED => false,
-            self::FIELD_REASON => 'MAXA-04 only lands the dual-read/re-embed mechanism; promotion requires a later operator-reviewed benchmark window.',
+            self::FIELD_REASON => self::FIELD_MAXA_04_ONLY_LANDS_THE_DUAL_READ_RE_EMBED_MECHANISM__PROMOTION_REQUIRES_A_LATER_OPERATOR_REVIEWED_BENCHMARK_WINDOW_,
         ];
     }
 

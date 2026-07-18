@@ -165,6 +165,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_REVERSIVEL__S_GIT__S_REPLAY__S__DIARIO_INTEGRO__S_ENTRADAS__D_ = 'reversivel=%s(git=%s,replay=%s) diario_integro=%s(entradas=%d)';
     public const FIELD_SCORECARD_V3_DIMENS_O_PIPELINE__GREEN_RUN_RECEIPTS_REAIS__FRESHNESS_BOUND_ = 'scorecard v3 dimensão pipeline (green-run receipts reais, freshness-bound)';
     public const FIELD_STORE_AUSENTE__0_HONESTO_ = 'store ausente (0 honesto)';
+    public const FIELD_TODA_PARCELA___FUN__O_DE_EVID_NCIA_RESOLVIDA_EM_RUNTIME__PROBE_DE_DB_ARQUIVO_AGENDA_CLASSE___NENHUM_LITERAL_AUTO_DECLARADO_ = 'Toda parcela é função de evidência resolvida em runtime (probe de DB/arquivo/agenda/classe); nenhum literal auto-declarado.';
+    public const FIELD_DUAL_READ_OLD_FEEDBACK___2F_NEW_FEEDBACK___2F_LIFT_STATUS__S_WITH_CASES__D_WITHOUT_CASES__D_MEASUREMENT_READY__S = 'dual_read old_feedback=%.2f new_feedback=%.2f lift_status=%s with_cases=%d without_cases=%d measurement_ready=%s';
     public const FLOAT_2_5 = 2.5;
     public const FLOAT_10_0 = 10.0;
 
@@ -197,7 +199,7 @@ class AtlasAcosEvolutionScoreService
             ],
             self::FIELD_ACOS_SCORECARD_OVERALL => AiValueNormalizer::finiteFloatOrNull(data_get($card, self::FIELD_SCORE_OVERALL_OUT_OF_10, 0.0)) ?? 0.0,
             self::FIELD_NOTES => [
-                self::FIELD_METHOD => 'Toda parcela é função de evidência resolvida em runtime (probe de DB/arquivo/agenda/classe); nenhum literal auto-declarado.',
+                self::FIELD_METHOD => self::FIELD_TODA_PARCELA___FUN__O_DE_EVID_NCIA_RESOLVIDA_EM_RUNTIME__PROBE_DE_DB_ARQUIVO_AGENDA_CLASSE___NENHUM_LITERAL_AUTO_DECLARADO_,
                 self::FIELD_AUTONOMY_GOVERNANCE => 'Carta de Autonomia (Regra 4): a assinatura do operador foi revogada; a parcela antes presa a ela agora mede o substituto REAL — reversibilidade viva (git revert + atlas:brain:replay) + Diário de Evolução íntegro. Degrade-safe: sem esse substrato, pontua 0, nunca fabricado.',
             ],
         ];
@@ -270,7 +272,7 @@ class AtlasAcosEvolutionScoreService
             self::FIELD_POINTS => $newFeedbackPoints,
             self::FIELD_MAX => self::FLOAT_2_5,
             self::FIELD_EVIDENCE => sprintf(
-                'dual_read old_feedback=%.2f new_feedback=%.2f lift_status=%s with_cases=%d without_cases=%d measurement_ready=%s',
+                self::FIELD_DUAL_READ_OLD_FEEDBACK___2F_NEW_FEEDBACK___2F_LIFT_STATUS__S_WITH_CASES__D_WITHOUT_CASES__D_MEASUREMENT_READY__S,
                 $oldFeedbackPoints,
                 $newFeedbackPoints,
                 (AiValueNormalizer::trimmedStringOrNull($lift[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),

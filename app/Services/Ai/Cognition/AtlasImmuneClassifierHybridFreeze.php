@@ -81,6 +81,8 @@ final class AtlasImmuneClassifierHybridFreeze
     public const FIELD_CODEX_IMMUNE_HYBRID_CLASSIFIER_JUDGE = 'codex-immune-hybrid-classifier-judge';
     public const FIELD_CURSOR_ACOS_MAX_MAXI_04 = 'cursor-acos-max-maxi-04';
     public const FIELD_TAU_IS_A_MAXI_03_FREEZE_STAMPED_INPUT__RECALIBRATION_FLOWS_THROUGH_THE_MAXI_03_SEAM_ = 'tau is a MAXI-03 freeze-stamped input; recalibration flows through the MAXI-03 seam.';
+    public const FIELD_CHAR_BIGRAM_JACCARD_IS_A_FLOOR_LEXICAL_ARM__DAEMON_BACKED_REAL_EMBEDDINGS_CAN_RAISE_RECALL___DROP_FP_WITHOUT_CHANGING_THE_FREEZE_CONTRACT_ = 'char-bigram Jaccard is a floor lexical arm; daemon-backed real embeddings can raise recall + drop FP without changing the freeze contract.';
+    public const FIELD_LEXICAL_SCORE___1_0_IFF_THE_BASE_ATLAS_AAEOS_COGNITIVE_IMMUNE_INPUT_CLASSIFIER_ROUTES_TO_A_HOSTILE_CLASS_ = 'lexical_score = 1.0 iff the base AtlasAaeosCognitiveImmuneInputClassifier routes to a hostile class ';
     public const FLOAT_0_30 = 0.30;
     public const FLOAT_0_80 = 0.80;
     public const FLOAT_0_10 = 0.10;
@@ -96,7 +98,7 @@ final class AtlasImmuneClassifierHybridFreeze
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_FORMULA => 'Per candidate: hostile_class wins by max(lexical_score, semantic_score(tau)). '
-                .'lexical_score = 1.0 iff the base AtlasAaeosCognitiveImmuneInputClassifier routes to a hostile class '
+                .self::FIELD_LEXICAL_SCORE___1_0_IFF_THE_BASE_ATLAS_AAEOS_COGNITIVE_IMMUNE_INPUT_CLASSIFIER_ROUTES_TO_A_HOSTILE_CLASS_
                 .'(prompt_injection|private_sensitive|untrusted_content), else 0.0. '
                 .'semantic_score = 1.0 iff max_j ImmuneSemanticSimilarityPort::similarity(candidate, exemplar_j) >= tau, else 0.0.',
             self::FIELD_THRESHOLDS => [
@@ -117,7 +119,7 @@ final class AtlasImmuneClassifierHybridFreeze
                 self::FIELD_OBFUSCATED_DENOMINATOR_MIN => self::INT_20,
                 self::FIELD_LEGITIMATE_DENOMINATOR_MIN => self::INT_20,
                 self::FIELD_BASELINE_PORT => self::FIELD_BIGRAM_JACCARD_IMMUNE_SEMANTIC_SIMILARITY_PORT,
-                self::FIELD_BASELINE_CAPACITY_NOTE => 'char-bigram Jaccard is a floor lexical arm; daemon-backed real embeddings can raise recall + drop FP without changing the freeze contract.',
+                self::FIELD_BASELINE_CAPACITY_NOTE => self::FIELD_CHAR_BIGRAM_JACCARD_IS_A_FLOOR_LEXICAL_ARM__DAEMON_BACKED_REAL_EMBEDDINGS_CAN_RAISE_RECALL___DROP_FP_WITHOUT_CHANGING_THE_FREEZE_CONTRACT_,
             ],
             self::FIELD_SWITCH => [
                 self::FIELD_CONFIG_KEY => self::FIELD_ATLAS_AAEOS_IMMUNE_CLASSIFIER_SEMANTIC_ARM_ENABLED,
