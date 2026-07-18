@@ -277,6 +277,9 @@ class AtlasCognitionScoreCardService
     public const FIELD_AUTONOMOUS_RECONCILIATION_RUNTIME = 'Autonomous Reconciliation Runtime';
     public const FIELD_AUTONOMY_ADMISSION = 'Autonomy Admission';
     public const FIELD_BDD_ACCEPTANCE_RUNTIME = 'BDD Acceptance Runtime';
+    public const FIELD_CARTOGRAPHY_TRUTH_GUARD = 'Cartography Truth Guard';
+    public const FIELD_COGNITIVE_FUNCTION_ATLAS = 'Cognitive Function Atlas';
+    public const FIELD_COGNITIVE_MEMORY_FABRIC = 'Cognitive Memory Fabric';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -356,7 +359,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ACOP,  'Context Observability Plane',       self::FIELD_AUCRI, AtlasContextObservabilityPlaneService::class],
         [self::FIELD_ARPTL, 'Retrieval Privacy Trust Layer',     self::FIELD_AUCRI, AtlasRetrievalPrivacyTrustLayerService::class],
         [self::FIELD_AKIF,  'Knowledge Ingestion Fabric',        self::FIELD_AUCRI, AtlasKnowledgeSourcePacketRegistryService::class],
-        [self::FIELD_ACMF,  'Cognitive Memory Fabric',           self::FIELD_AUCRI, AtlasCognitiveMemoryFabricService::class],
+        [self::FIELD_ACMF,  self::FIELD_COGNITIVE_MEMORY_FABRIC,           self::FIELD_AUCRI, AtlasCognitiveMemoryFabricService::class],
         [self::FIELD_ACCR,  'Context Compiler Runtime',          self::FIELD_AUCRI, AtlasContextCompilerRuntimeService::class],
         [self::FIELD_ATER,  'Token Economy Runtime',             self::FIELD_AUCRI, AtlasTokenEconomyBudgetPolicyService::class],
         [self::FIELD_ACPFR, 'Context Pareto Frontier Runtime',   self::FIELD_AUCRI, AtlasContextParetoFrontierRuntimeService::class],
@@ -374,7 +377,7 @@ class AtlasCognitionScoreCardService
         // Patamar 4 — Constitutional Kernel, Autonomy Admission, CognitiveFunctionAtlas, Reconciliation Runtime, TEOS-I4, Swarm Conductor, Temporary Domain Composition
         [self::FIELD_ACK,     'Constitutional Kernel',               self::FIELD_GOVERNANCE,        AtlasConstitutionalKernelService::class],
         [self::FIELD_AAA,     self::FIELD_AUTONOMY_ADMISSION,                  self::FIELD_GOVERNANCE,        AtlasAutonomyAdmissionService::class],
-        [self::FIELD_ACFA,    'Cognitive Function Atlas',            self::FIELD_COGNITION,         AtlasCognitiveFunctionAtlasService::class],
+        [self::FIELD_ACFA,    self::FIELD_COGNITIVE_FUNCTION_ATLAS,            self::FIELD_COGNITION,         AtlasCognitiveFunctionAtlasService::class],
         [self::FIELD_AARR,    self::FIELD_AUTONOMOUS_RECONCILIATION_RUNTIME,   self::FIELD_AUTONOMY,          AtlasAutonomousReconciliationRuntimeService::class],
         [self::FIELD_TEOS_I4, 'TEOS-I4 Counterfactual Tree',         self::FIELD_TEOS,              AtlasTeosI4CounterfactualTreeService::class],
         [self::FIELD_ASWC,    'Swarm Conductor',                     self::FIELD_ATLAS_DECIDE,      AtlasSwarmConductorService::class],
@@ -388,7 +391,7 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ACMF_SE, 'Cognitive Memory Fabric Schema Evolution', self::FIELD_AUCRI,         AtlasCognitiveMemoryFabricSchemaEvolutionService::class],
         [self::FIELD_ASCB_EX, 'Self-Construction Scaffold Staging Executor', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionScaffoldStagingExecutorService::class],
         [self::FIELD_ASCB_PP, 'Self-Construction Promotion Plan',          self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionPromotionPlanService::class],
-        [self::FIELD_ACTG,    'Cartography Truth Guard',                   self::FIELD_CARTOGRAPHY,       CartographyTruthGuardService::class],
+        [self::FIELD_ACTG,    self::FIELD_CARTOGRAPHY_TRUTH_GUARD,                   self::FIELD_CARTOGRAPHY,       CartographyTruthGuardService::class],
         [self::FIELD_AGPF,    'Atlas Gateway Preflight (TEOS-I4)',         self::FIELD_ATLAS_DECIDE,      AtlasGatewayPreflightService::class],
         [self::FIELD_ACVS,    'Constitutional Vault Service',              self::FIELD_GOVERNANCE,        AtlasConstitutionalVaultService::class],
         [self::FIELD_ATBS,    'Trust Budget Service',                      self::FIELD_GOVERNANCE,        AtlasTrustBudgetService::class],

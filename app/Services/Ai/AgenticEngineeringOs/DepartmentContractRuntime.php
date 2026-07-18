@@ -427,6 +427,9 @@ final class DepartmentContractRuntime
     public const FIELD_DEV_DEPARTMENT = 'Dev Department';
     public const FIELD_EXECUTIVE_INTAKE = 'Executive Intake';
     public const FIELD_FORGE_DEPARTMENT = 'Forge Department';
+    public const FIELD_L1 = 'L1';
+    public const FIELD_L4 = 'L4';
+    public const FIELD_MEMORY_DEPARTMENT = 'Memory Department';
     public const INT_11 = 11;
 
     /**
@@ -574,7 +577,7 @@ final class DepartmentContractRuntime
             self::FIELD_EVIDENCE_REQUIRED => [self::FIELD_PATCH_HASH, self::FIELD_TEST_OUTPUT_HASH, self::FIELD_SCOPE_GUARD_REPORT],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_DEV_RUNS, self::FIELD_LEDGER => self::FIELD_AAEOS_DEV_EVIDENCE_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => [self::FIELD_DEV_RUN_DURATION_P95, self::FIELD_DEV_REPAIR_LOOP_COUNT, self::FIELD_DEV_SCOPE_VIOLATION_COUNT],
-            self::FIELD_MATURITY_LEVEL => 'L1',
+            self::FIELD_MATURITY_LEVEL => self::FIELD_L1,
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_PLAN_VISIBLE,
             self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_ARCHITECTURE],
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_REVIEW, self::FIELD_QA, self::DEPARTMENT_FORGE],
@@ -692,7 +695,7 @@ final class DepartmentContractRuntime
             self::FIELD_EVIDENCE_REQUIRED => [self::FIELD_OBRA_PACK_HASH, self::FIELD_EXECUTION_LOG_HASH, self::FIELD_MERGE_REVIEW_EVIDENCE_HASH],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_OBRA_RUNS, self::FIELD_LEDGER => self::FIELD_AAEOS_FORGE_EVIDENCE_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => [self::FIELD_FORGE_OBRA_DURATION_P95, self::FIELD_FORGE_PARALLEL_AGENT_COUNT, self::FIELD_FORGE_COLLISION_COUNT],
-            self::FIELD_MATURITY_LEVEL => 'L4',
+            self::FIELD_MATURITY_LEVEL => self::FIELD_L4,
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_PROGRAMMING_DURABLE_EXECUTION_HANDOFF,
             self::FIELD_ACCEPTS_HANDOFF_FROM => [self::DEPARTMENT_ARCHITECTURE, self::DEPARTMENT_DEV],
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_REVIEW, self::FIELD_QA, self::DEPARTMENT_DELIVERY],
@@ -721,7 +724,7 @@ final class DepartmentContractRuntime
             self::FIELD_EMITS_HANDOFF_TO => [self::DEPARTMENT_MEMORY],
         ],
         self::DEPARTMENT_MEMORY => [
-            self::FIELD_HUMAN_NAME => 'Memory Department',
+            self::FIELD_HUMAN_NAME => self::FIELD_MEMORY_DEPARTMENT,
             self::FIELD_DESCRIPTION => 'Evidence ledger, learning, compounding signal extraction.',
             self::FIELD_SCOPE => 'persistência governada de learnings, context packs, decisões, falhas, cross-session continuity',
             self::FIELD_TRIGGERS => ['learning_capsule_emitted=true', 'session_handoff_requested=true', 'context_pack_request=true'],

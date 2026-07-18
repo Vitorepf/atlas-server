@@ -35,6 +35,7 @@ final readonly class RealityCompilerSlice
     public const FIELD_REVIEW = 'review';
     public const FIELD_SWARM = 'swarm';
     public const FIELD_SPEC = 'spec';
+    public const FIELD_L0 = 'L0';
 
     /** @var list<string> */
     public const EXECUTION_PHASES = [
@@ -61,7 +62,7 @@ final readonly class RealityCompilerSlice
             self::EXECUTION_PHASES,
         );
 
-        return new self('', 'L0', $phases);
+        return new self('', self::FIELD_L0, $phases);
     }
 
     /**

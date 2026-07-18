@@ -126,6 +126,8 @@ final class CognitiveImmunePromotionGateEvaluator
     public const FIELD_G2 = 'G2';
     public const FIELD_G3 = 'G3';
     public const FIELD_G4 = 'G4';
+    public const FIELD_G5 = 'G5';
+    public const FIELD_G6 = 'G6';
     public const INT_2 = 2;
 
     /**
@@ -212,8 +214,8 @@ final class CognitiveImmunePromotionGateEvaluator
             self::FIELD_G2 => $this->signalGate($signals),
             self::FIELD_G3 => $this->safetyGate($signals, $candidatePresent),
             self::FIELD_G4 => $this->contradictionGate($signals, $candidatePresent),
-            'G5' => $this->outcomeGate($signals),
-            'G6' => $this->scopeGate($signals),
+            self::FIELD_G5 => $this->outcomeGate($signals),
+            self::FIELD_G6 => $this->scopeGate($signals),
             'G7' => $this->promotionModeGate($signals),
             self::FIELD_G8 => $this->probationGate($signals, $candidatePresent),
             default => [self::STATUS_PENDING, self::FIELD_GATE_UNKNOWN],

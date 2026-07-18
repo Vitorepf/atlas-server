@@ -389,6 +389,7 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_APP_ATLAS_ENGINEERING_KERNEL_FORGE_SOVEREIGN_VERDICTS_JSONL = 'app/atlas/engineering-kernel/forge-sovereign-verdicts.jsonl';
     public const FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_CORPUS_METRICS_IMPROPER_FLOOR_DISCARDS = 'latest_snapshot.metadata.memory_recall_corpus.metrics.improper_floor_discards';
     public const FIELD_RECALL_CONCENTRATION_HIGH_WITHOUT_DEMOTION = 'recall_concentration_high_without_demotion';
+    public const FIELD_ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE_OBSERVE = 'ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE=observe';
     public const FLOAT_0_0 = 0.0;
     public const INT_3 = 3;
     public const INT_100 = 100;
@@ -760,7 +761,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_ROLLBACK_TRIGGER => [
                 self::FIELD_ID => self::FIELD_CPT_09_COMPACTION_ENFORCE,
                 self::FIELD_CONDITION => '>=1 critical must_keep cut after enforcement flip',
-                self::FIELD_ROLLBACK_ENV => 'ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE=observe',
+                self::FIELD_ROLLBACK_ENV => self::FIELD_ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE_OBSERVE,
             ],
             self::FIELD_THRESHOLDS => [
                 self::FIELD_WINDOW_DAYS => self::COMPACTION_WINDOW_DAYS,
@@ -1147,7 +1148,7 @@ final class AtlasAcosWatchdogHealthService
      * @param  list<array<string,mixed>>  $rows
      * @return list<array<string,mixed>>
      */
-    private function rowsInWindow(array $rows, int $days, string $recordedAtPath = 'recorded_at'): array
+    private function rowsInWindow(array $rows, int $days, string $recordedAtPath = self::FIELD_RECORDED_AT): array
     {
         $since = CarbonImmutable::now(self::FIELD_UTC)->subDays($days);
 

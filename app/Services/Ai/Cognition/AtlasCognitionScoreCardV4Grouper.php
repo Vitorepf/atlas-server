@@ -90,6 +90,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_CONTEXT_INTELLIGENCE_ENGINE = 'Context Intelligence Engine';
     public const FIELD_CONTEXT_QUALITY_CERTIFICATION_GATE = 'Context Quality Certification Gate';
     public const FIELD_EVIDENCE_LEDGER_MEMORY_SIDE = 'Evidence Ledger Memory Side';
+    public const FIELD_EXECUTION_MEMORY_OUTCOME_RUNTIME = 'Execution Memory Outcome Runtime';
+    public const FIELD_MEMORY_CORE_2 = 'Memory Core';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -205,7 +207,7 @@ final class AtlasCognitionScoreCardV4Grouper
     {
         return match ($key) {
             self::FIELD_IMMUNE => 'Cognitive Immune G0-G8',
-            self::FIELD_MEMORY => 'Memory Core',
+            self::FIELD_MEMORY => self::FIELD_MEMORY_CORE_2,
             self::FIELD_CONTEXT => 'Context Runtime (AUCRI policies)',
             self::FIELD_CONSUMERS => self::FIELD_ACOS_CONSUMERS_AND_LEGACY_PROJECTIONS,
             self::FIELD_GOVERNANCE_2 => self::FIELD_CONSTITUTIONAL_GOVERNANCE,
@@ -219,7 +221,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_CONTEXT_CACHE_2 => self::FIELD_CONTEXT_CACHE_COMPILER_RUNTIME,
             self::FIELD_CONTEXT_INTELLIGENCE_2 => self::FIELD_CONTEXT_INTELLIGENCE_ENGINE,
             self::FIELD_PERSISTENT_CONTEXT_2 => 'Persistent Context Runtime',
-            self::FIELD_AEMOR_2 => 'Execution Memory Outcome Runtime',
+            self::FIELD_AEMOR_2 => self::FIELD_EXECUTION_MEMORY_OUTCOME_RUNTIME,
             self::FIELD_LONG_HORIZON_2 => 'TEOS-I1 Long-Horizon Intelligence',
             self::FIELD_VERIFIED_CONTEXT_2 => 'Verified Context Execution Loop',
             self::FIELD_CONTEXT_QUALITY_2 => self::FIELD_CONTEXT_QUALITY_CERTIFICATION_GATE,

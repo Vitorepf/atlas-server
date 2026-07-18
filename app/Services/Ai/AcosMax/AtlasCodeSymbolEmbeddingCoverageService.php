@@ -101,6 +101,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_S_SOURCE_HASH = 's.source_hash';
     public const FIELD_CODEX_INDEPENDENT_MAXA06_FASE2_JUDGE = 'codex-independent-maxa06-fase2-judge';
     public const FIELD_CURSOR_ACOS_MAX_MAXA06_FASE2 = 'cursor-acos-max-maxa06-fase2';
+    public const FIELD_ATLAS_CODE_SYMBOL_EMBEDDING_COVERAGE___JSON = 'atlas:code:symbol-embedding-coverage --json';
     public const FLOAT_1_0 = 1.0;
     public const INT_60 = 60;
 
@@ -127,7 +128,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             self::FIELD_DUAL_READ_REQUIRED => false,
             self::FIELD_SERIES_REGISTRY => [
                 self::FIELD_SERIES => self::MEASURE_ID,
-                self::FIELD_PATH => 'atlas:code:symbol-embedding-coverage --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_CODE_SYMBOL_EMBEDDING_COVERAGE___JSON,
                 self::FIELD_SOURCE_TYPE => self::FIELD_COMPUTED_READER_FIELD,
             ],
         ];

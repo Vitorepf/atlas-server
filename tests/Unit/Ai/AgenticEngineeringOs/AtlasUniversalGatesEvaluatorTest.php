@@ -11468,4 +11468,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b549_cognition_score_department_contract_measure_series_immune_promotion_floor_count']);
     }
 
+    public function test_b550_cognition_score_department_contract_measure_series_immune_promotion_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b550CognitionScoreDepartmentContractMeasureSeriesImmunePromotionFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CARTOGRAPHY_TRUTH_GUARD, $out['Cartography Truth Guard']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_COGNITIVE_FUNCTION_ATLAS, $out['Cognitive Function Atlas']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_COGNITIVE_MEMORY_FABRIC, $out['Cognitive Memory Fabric']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_L1, $out['L1']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_L4, $out['L4']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MEMORY_DEPARTMENT, $out['Memory Department']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_AI_PROCEDURAL_SKILL_PROMOTER___JSON, $out['atlas:ai:procedural-skill-promoter --json']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK___REGRET___JSON, $out['atlas:atlas-decide:live-feedback --regret --json']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_BRAIN_PREDICTED_IMPACT___JSON, $out['atlas:brain:predicted-impact --json']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_EXECUTION_MEMORY_OUTCOME_RUNTIME, $out['Execution Memory Outcome Runtime']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_MEMORY_CORE_2, $out['Memory Core']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_G5, $out['G5']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_G6, $out['G6']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE_OBSERVE, $out['ATLAS_TOKEN_ECONOMY_ENFORCEMENT_MODE=observe']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_RECORDED_AT, $out['recorded_at']);
+        $this->assertSame(ComposedObraArcComposer::FIELD__PHP, $out['.php']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_CODE_SYMBOL_EMBEDDING_COVERAGE___JSON, $out['atlas:code:symbol-embedding-coverage --json']);
+        $this->assertSame(RealityCompilerSlice::FIELD_L0, $out['L0']);
+        $this->assertSame(18, $out['b550_cognition_score_department_contract_measure_series_immune_promotion_floor_count']);
+    }
+
 }

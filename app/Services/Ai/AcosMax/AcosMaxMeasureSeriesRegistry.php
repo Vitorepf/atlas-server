@@ -174,6 +174,9 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_ATLAS_AI_LESSON_HALF_LIFE___JSON = 'atlas:ai:lesson-half-life --json';
     public const FIELD_ATLAS_AI_LESSON_QUALITY___JSON = 'atlas:ai:lesson-quality --json';
     public const FIELD_ATLAS_AI_LESSON_TYPE_YIELD___JSON = 'atlas:ai:lesson-type-yield --json';
+    public const FIELD_ATLAS_AI_PROCEDURAL_SKILL_PROMOTER___JSON = 'atlas:ai:procedural-skill-promoter --json';
+    public const FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK___REGRET___JSON = 'atlas:atlas-decide:live-feedback --regret --json';
+    public const FIELD_ATLAS_BRAIN_PREDICTED_IMPACT___JSON = 'atlas:brain:predicted-impact --json';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -370,7 +373,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MAXK_01,
                 self::FIELD_SERIES => AtlasDecideRouteRegretService::MEASURE_ID,
-                self::FIELD_PATH => 'atlas:atlas-decide:live-feedback --regret --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_ATLAS_DECIDE_LIVE_FEEDBACK___REGRET___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => AtlasDecideRouteRegretService::TTL_DAYS,
@@ -469,7 +472,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MULTN17_04,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::MULTN1704_MEASURE_ID,
-                self::FIELD_PATH => 'atlas:brain:predicted-impact --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_BRAIN_PREDICTED_IMPACT___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTN17_04)[self::FIELD_TTL_DAYS],
@@ -541,7 +544,7 @@ final class AcosMaxMeasureSeriesRegistry
             [
                 self::FIELD_SLICE => self::FIELD_MULTJ_04,
                 self::FIELD_SERIES => AcosMaxLote2MeasureService::MULTJ04_MEASURE_ID,
-                self::FIELD_PATH => 'atlas:ai:procedural-skill-promoter --json',
+                self::FIELD_PATH => self::FIELD_ATLAS_AI_PROCEDURAL_SKILL_PROMOTER___JSON,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTJ_04)[self::FIELD_TTL_DAYS],

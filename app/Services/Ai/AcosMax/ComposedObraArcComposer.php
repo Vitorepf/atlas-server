@@ -97,6 +97,7 @@ final class ComposedObraArcComposer
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_ARC_ = 'arc_';
     public const FIELD_OBRA_ = 'obra_';
+    public const FIELD__PHP = '.php';
     public const INT_2 = 2;
 
     /**
@@ -294,7 +295,7 @@ final class ComposedObraArcComposer
             self::FIELD_ARC_ID => $arcId,
             self::FIELD_OBRA_ID => $obraId,
             self::FIELD_THESIS => [
-                self::FIELD_CLAIM => 'Wiring the neighbor organs '.implode(', ', array_map(static fn (array $t): string => basename(AiValueNormalizer::trimmedScalarStringOrNull($t[self::FIELD_TARGET_PATH] ?? null) ?? '', '.php'), $tasks)).' materially increases end-to-end leverage.',
+                self::FIELD_CLAIM => 'Wiring the neighbor organs '.implode(', ', array_map(static fn (array $t): string => basename(AiValueNormalizer::trimmedScalarStringOrNull($t[self::FIELD_TARGET_PATH] ?? null) ?? '', self::FIELD__PHP), $tasks)).' materially increases end-to-end leverage.',
                 self::FIELD_FALSIFIED_WHEN => 'No task in the arc reaches proven_real landing within the arc TTL.',
                 self::FIELD_AUTHOR_ENGINE_ID => $author,
             ],
@@ -412,7 +413,7 @@ final class ComposedObraArcComposer
             return ltrim(AiValueNormalizer::trimmedStringOrNull($fqcn) ?? '', '\\');
         }
 
-        $base = basename($targetPath, '.php');
+        $base = basename($targetPath, self::FIELD__PHP);
         if ($base === '') {
             return '';
         }
