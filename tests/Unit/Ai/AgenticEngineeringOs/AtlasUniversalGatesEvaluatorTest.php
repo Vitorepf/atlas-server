@@ -5721,5 +5721,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['envelope_integrity_promoter_series_lote2_lexical_substrate_bets_floor_count']);
     }
 
+    public function test_pareto_window_cockpit_obra_ambition_dead_scorecard_vision_esp09_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->paretoWindowCockpitObraAmbitionDeadScorecardVisionEsp09FloorsContractObserve([]);
+
+        $this->assertSame('dominated_by', $payload['pareto_field_dominated_by']);
+        $this->assertSame('status', $payload['pareto_field_status']);
+        $this->assertSame('generated_at', $payload['window_field_generated_at']);
+        $this->assertSame('target', $payload['window_field_target']);
+        $this->assertSame('phase_out', $payload['cockpit_field_phase_out']);
+        $this->assertSame('servable_now', $payload['cockpit_field_servable_now']);
+        $this->assertSame('summary', $payload['obra_field_summary']);
+        $this->assertSame('obra_cluster_candidate', $payload['obra_field_obra_cluster_candidate']);
+        $this->assertSame('rung', $payload['ambition_field_rung']);
+        $this->assertSame('leverage', $payload['ambition_field_leverage']);
+        $this->assertSame('status', $payload['dead_field_status']);
+        $this->assertSame('ttl_source', $payload['dead_field_ttl_source']);
+        $this->assertSame('name', $payload['scorecard_field_name']);
+        $this->assertSame('overall_out_of_10', $payload['scorecard_field_overall_out_of_10']);
+        $this->assertSame('threshold', $payload['vision_field_threshold']);
+        $this->assertSame('window', $payload['vision_field_window']);
+        $this->assertSame('proposed_choice', $payload['esp09_field_proposed_choice']);
+        $this->assertSame('refutation', $payload['esp09_field_refutation']);
+        $this->assertSame(18, $payload['pareto_window_cockpit_obra_ambition_dead_scorecard_vision_esp09_floor_count']);
+    }
+
 
 }

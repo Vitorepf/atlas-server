@@ -36,6 +36,8 @@ final class ContextParetoDominanceFilter
     public const FIELD_DOMINATED = 'dominated';
 
     public const FIELD_FRONTIER = 'frontier';
+    public const FIELD_DOMINATED_BY = 'dominated_by';
+    public const FIELD_STATUS = 'status';
 
 
     /**
@@ -78,8 +80,8 @@ final class ContextParetoDominanceFilter
             if (array_key_exists($id, $blockedById)) {
                 $evaluated[] = [
                     'id' => $id,
-                    'status' => self::STATUS_BLOCKED,
-                    'dominated_by' => [],
+                    self::FIELD_STATUS => self::STATUS_BLOCKED,
+                    self::FIELD_DOMINATED_BY => [],
                 ];
 
                 continue;
@@ -91,8 +93,8 @@ final class ContextParetoDominanceFilter
                 $frontier[] = $id;
                 $evaluated[] = [
                     'id' => $id,
-                    'status' => self::STATUS_FRONTIER,
-                    'dominated_by' => [],
+                    self::FIELD_STATUS => self::STATUS_FRONTIER,
+                    self::FIELD_DOMINATED_BY => [],
                 ];
 
                 continue;
@@ -100,8 +102,8 @@ final class ContextParetoDominanceFilter
 
             $evaluated[] = [
                 'id' => $id,
-                'status' => self::STATUS_DOMINATED,
-                'dominated_by' => $dominatedBy,
+                self::FIELD_STATUS => self::STATUS_DOMINATED,
+                self::FIELD_DOMINATED_BY => $dominatedBy,
             ];
         }
 

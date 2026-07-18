@@ -78,6 +78,8 @@ final class Esp09IndependentChallengerService
     public const FIELD_DEATH_REVIEW_CANDIDATE = 'death_review_candidate';
     public const FIELD_DEATH_REVIEW_REASON = 'death_review_reason';
     public const FIELD_DENOMINATOR = 'denominator';
+    public const FIELD_PROPOSED_CHOICE = 'proposed_choice';
+    public const FIELD_REFUTATION = 'refutation';
 
     public const SKIP_REASON_LOW_AFFINITY = 'low_affinity';
 
@@ -160,9 +162,9 @@ final class Esp09IndependentChallengerService
                 self::FIELD_AUTHOR_ENGINE_ID => $author,
                 self::FIELD_CHALLENGER_ENGINE_ID => $challengerEngine,
                 self::FIELD_DECISION_KIND => $kind,
-                'proposed_choice' => (AiValueNormalizer::trimmedStringOrNull($context['proposed_choice'] ?? null) ?? ''),
+                self::FIELD_PROPOSED_CHOICE => (AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_PROPOSED_CHOICE] ?? null) ?? ''),
                 self::FIELD_ALTERNATIVE => (AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_ALTERNATIVE] ?? null) ?? ''),
-                'refutation' => (AiValueNormalizer::trimmedStringOrNull($context['refutation'] ?? null) ?? ''),
+                self::FIELD_REFUTATION => (AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_REFUTATION] ?? null) ?? ''),
                 'elev18_engine_ids_distinct' => true,
             ],
         ]);

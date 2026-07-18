@@ -46,6 +46,8 @@ final class AtlasAcosWindowGatesService
     public const FIELD_WINDOWS = 'windows';
     public const FIELD_DAYS = 'days';
     public const FIELD_EVIDENCE = 'evidence';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_TARGET = 'target';
 
     /** Receipt freshness before a certified gate is treated as stale (7 days). */
     public const RECEIPT_FRESH_SECONDS = 604800;
@@ -66,7 +68,7 @@ final class AtlasAcosWindowGatesService
     {
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'generated_at' => gmdate('c'),
+            self::FIELD_GENERATED_AT => gmdate('c'),
             'live_dimensions' => $this->liveDimensions(),
             'window_receipts' => $this->windowReceipts(),
             'note' => 'Gates de valor/janela são código-completo, prova pendente: a certificação enche na cadência de dados reais. Nada aqui é fabricado — valores medidos + veredito da própria fonte.',
@@ -111,11 +113,11 @@ final class AtlasAcosWindowGatesService
     private function dimension(string $gate, array $dims, string $key, string $target, ?int $threshold, bool $assert): array
     {
         if (! array_key_exists($key, $dims)) {
-            return [self::FIELD_GATE => $gate, self::FIELD_STATUS => self::STATUS_SEM_DADOS, 'target' => $target, self::FIELD_EVIDENCE => "dimensão '{$key}' ausente no scorecard"];
+            return [self::FIELD_GATE => $gate, self::FIELD_STATUS => self::STATUS_SEM_DADOS, self::FIELD_TARGET => $target, self::FIELD_EVIDENCE => "dimensão '{$key}' ausente no scorecard"];
         }
         $value = $dims[$key];
 
-        $out = [self::FIELD_GATE => $gate, 'target' => $target, 'value' => $value];
+        $out = [self::FIELD_GATE => $gate, self::FIELD_TARGET => $target, 'value' => $value];
         $numeric = AiValueNormalizer::finiteFloatOrNull($value);
         if ($assert && $threshold !== null && $numeric !== null) {
             $out[self::FIELD_STATUS] = $numeric >= $threshold ? self::STATUS_MET : self::STATUS_AGUARDANDO_JANELA;
@@ -174,7 +176,7 @@ final class AtlasAcosWindowGatesService
             self::FIELD_CERTIFIED => $certified,
             'fresh' => $fresh,
             'receipt_status' => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
-            'generated_at' => (AiValueNormalizer::trimmedStringOrNull($data['generated_at'] ?? null) ?? ''),
+            self::FIELD_GENERATED_AT => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_GENERATED_AT] ?? null) ?? ''),
         ];
     }
 }

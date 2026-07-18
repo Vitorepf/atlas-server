@@ -36,6 +36,8 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_SOURCE_TYPE = 'source_type';
     public const FIELD_TIMESTAMP_FIELD = 'timestamp_field';
     public const FIELD_TTL_DAYS = 'ttl_days';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_TTL_SOURCE = 'ttl_source';
 
     public function __construct(
         private AcosMaxMeasureSeriesRegistry $registry,
@@ -54,7 +56,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
         $series = array_map(fn (array $entry): array => $this->seriesRow($entry, $now), $this->registry->entries());
         $dead = array_values(array_filter(
             $series,
-            static fn (array $row): bool => in_array(AiValueNormalizer::trimmedScalarStringOrNull($row['status'] ?? null) ?? '', [self::STATUS_STALE, self::STATUS_MISSING], true),
+            static fn (array $row): bool => in_array(AiValueNormalizer::trimmedScalarStringOrNull($row[self::FIELD_STATUS] ?? null) ?? '', [self::STATUS_STALE, self::STATUS_MISSING], true),
         ));
 
         $evidence = [
@@ -99,10 +101,10 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_TABLE => AiValueNormalizer::trimmedScalarStringOrNull($entry[self::FIELD_TABLE] ?? null),
             self::FIELD_TIMESTAMP_FIELD => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_TIMESTAMP_FIELD] ?? null) ?? 'recorded_at'),
             self::FIELD_TTL_DAYS => $ttlDays,
-            'ttl_source' => (AiValueNormalizer::trimmedStringOrNull($entry['ttl_source'] ?? null) ?? 'freeze'),
+            self::FIELD_TTL_SOURCE => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_TTL_SOURCE] ?? null) ?? 'freeze'),
             'last_append_at' => $lastAppendAt?->toIso8601String(),
             'age_days' => $ageDays,
-            'status' => $status,
+            self::FIELD_STATUS => $status,
         ];
     }
 

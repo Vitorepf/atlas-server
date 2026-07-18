@@ -7595,6 +7595,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for pareto/window/cockpit/obra/ambition/dead/scorecard/vision/esp09 peels (B323).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function paretoWindowCockpitObraAmbitionDeadScorecardVisionEsp09FloorsContractObserve(array $input = []): array
+    {
+        return [
+            'pareto_field_dominated_by' => ContextParetoDominanceFilter::FIELD_DOMINATED_BY,
+            'pareto_field_status' => ContextParetoDominanceFilter::FIELD_STATUS,
+            'window_field_generated_at' => AtlasAcosWindowGatesService::FIELD_GENERATED_AT,
+            'window_field_target' => AtlasAcosWindowGatesService::FIELD_TARGET,
+            'cockpit_field_phase_out' => AtlasMissionControlCockpitService::FIELD_PHASE_OUT,
+            'cockpit_field_servable_now' => AtlasMissionControlCockpitService::FIELD_SERVABLE_NOW,
+            'obra_field_summary' => ComposedObraArcComposer::FIELD_SUMMARY,
+            'obra_field_obra_cluster_candidate' => ComposedObraArcComposer::FIELD_OBRA_CLUSTER_CANDIDATE,
+            'ambition_field_rung' => AmbitionRungPolicy::FIELD_RUNG,
+            'ambition_field_leverage' => AmbitionRungPolicy::FIELD_LEVERAGE,
+            'dead_field_status' => AcosDeadSeriesWatchdogCheck::FIELD_STATUS,
+            'dead_field_ttl_source' => AcosDeadSeriesWatchdogCheck::FIELD_TTL_SOURCE,
+            'scorecard_field_name' => AtlasCognitionScoreCardService::FIELD_NAME,
+            'scorecard_field_overall_out_of_10' => AtlasCognitionScoreCardService::FIELD_OVERALL_OUT_OF_10,
+            'vision_field_threshold' => EvidenceVisionThesisLifecycle::FIELD_THRESHOLD,
+            'vision_field_window' => EvidenceVisionThesisLifecycle::FIELD_WINDOW,
+            'esp09_field_proposed_choice' => Esp09IndependentChallengerService::FIELD_PROPOSED_CHOICE,
+            'esp09_field_refutation' => Esp09IndependentChallengerService::FIELD_REFUTATION,
+            'pareto_window_cockpit_obra_ambition_dead_scorecard_vision_esp09_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

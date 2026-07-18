@@ -22,6 +22,8 @@ final class AmbitionRungPolicy
     public const RUNGS = [self::RUNG_TASK, self::RUNG_SLICE, self::RUNG_OBRA, self::RUNG_SALTO];
 
     public const FIELD_ENABLED = 'enabled';
+    public const FIELD_RUNG = 'rung';
+    public const FIELD_LEVERAGE = 'leverage';
 
     public const BASIS_FLAG_DISABLED = 'flag_disabled';
 
@@ -47,8 +49,8 @@ final class AmbitionRungPolicy
                 $target = self::nextRung($current);
                 $currentBest = self::bestLeverage($candidates);
                 foreach ($candidates as $candidate) {
-                    $rung = AiValueNormalizer::trimmedStringOrNull($candidate['rung'] ?? null) ?? '';
-                    if ($rung === $target && (AiValueNormalizer::finiteFloatOrNull($candidate['leverage'] ?? null) ?? 0.0) >= $currentBest) {
+                    $rung = AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_RUNG] ?? null) ?? '';
+                    if ($rung === $target && (AiValueNormalizer::finiteFloatOrNull($candidate[self::FIELD_LEVERAGE] ?? null) ?? 0.0) >= $currentBest) {
                         $selected = $candidate;
                         $basis = self::BASIS_RUNG_UP_AFTER_SATURATION;
                         break;
@@ -60,7 +62,7 @@ final class AmbitionRungPolicy
         return [
             'schema_version' => self::SCHEMA_VERSION,
             'selected_id' => AiValueNormalizer::trimmedStringOrNull($selected['id'] ?? null) ?? '',
-            'selected_rung' => AiValueNormalizer::trimmedStringOrNull($selected['rung'] ?? null) ?? '',
+            'selected_rung' => AiValueNormalizer::trimmedStringOrNull($selected[self::FIELD_RUNG] ?? null) ?? '',
             'basis' => $basis,
             'rung_distribution' => $distribution,
             'source' => [
@@ -89,7 +91,7 @@ final class AmbitionRungPolicy
     {
         $best = 0.0;
         foreach ($candidates as $candidate) {
-            $best = max($best, AiValueNormalizer::finiteFloatOrNull($candidate['leverage'] ?? null) ?? 0.0);
+            $best = max($best, AiValueNormalizer::finiteFloatOrNull($candidate[self::FIELD_LEVERAGE] ?? null) ?? 0.0);
         }
 
         return $best;
@@ -103,7 +105,7 @@ final class AmbitionRungPolicy
     {
         $counts = [];
         foreach ($candidates as $candidate) {
-            $rung = AiValueNormalizer::trimmedStringOrNull($candidate['rung'] ?? null);
+            $rung = AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_RUNG] ?? null);
             if ($rung !== null) {
                 $counts[$rung] = ($counts[$rung] ?? 0) + 1;
             }

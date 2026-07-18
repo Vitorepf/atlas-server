@@ -37,6 +37,8 @@ final class EvidenceVisionThesisLifecycle
     public const FIELD_BANDS = 'bands';
     public const FIELD_CALIBRATION_RESOLVED = 'calibration_resolved';
     public const FIELD_CONSECUTIVE_WINDOWS = 'consecutive_windows';
+    public const FIELD_THRESHOLD = 'threshold';
+    public const FIELD_WINDOW = 'window';
 
     /** @var array<string,array<string,mixed>> */
     private static array $active = [];
@@ -184,7 +186,7 @@ final class EvidenceVisionThesisLifecycle
      */
     private static function seriesRecoveryMet(array $thesis, array $seriesWindows, array $criterion): bool
     {
-        $threshold = AiValueNormalizer::finiteFloatOrNull($criterion['threshold'] ?? null) ?? 0.0;
+        $threshold = AiValueNormalizer::finiteFloatOrNull($criterion[self::FIELD_THRESHOLD] ?? null) ?? 0.0;
         $need = max(self::DEFAULT_CONSECUTIVE_WINDOWS, (int) (AiValueNormalizer::finiteFloatOrNull($criterion[self::FIELD_CONSECUTIVE_WINDOWS] ?? null) ?? self::DEFAULT_CONSECUTIVE_WINDOWS));
         $refs = AiValueNormalizer::arrayOrEmpty($thesis['evidence'] ?? null);
         $series = '';
@@ -207,7 +209,7 @@ final class EvidenceVisionThesisLifecycle
             return (AiValueNormalizer::trimmedStringOrNull($window['series'] ?? null) ?? '') === $series
                 && (AiValueNormalizer::trimmedStringOrNull($window['stage'] ?? null) ?? 'default') === $stage;
         }));
-        usort($matching, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($a['window'] ?? null) ?? 0)) <=> ((int) (AiValueNormalizer::finiteFloatOrNull($b['window'] ?? null) ?? 0)));
+        usort($matching, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($a[self::FIELD_WINDOW] ?? null) ?? 0)) <=> ((int) (AiValueNormalizer::finiteFloatOrNull($b[self::FIELD_WINDOW] ?? null) ?? 0)));
         $tail = array_slice($matching, -$need);
         if (count($tail) < $need) {
             return false;
@@ -236,7 +238,7 @@ final class EvidenceVisionThesisLifecycle
         }
         $highRate = ((int) (AiValueNormalizer::finiteFloatOrNull($high['realized_true'] ?? null) ?? 0)) / $highN;
 
-        return $highRate >= (AiValueNormalizer::finiteFloatOrNull($criterion['threshold'] ?? null) ?? 0.0);
+        return $highRate >= (AiValueNormalizer::finiteFloatOrNull($criterion[self::FIELD_THRESHOLD] ?? null) ?? 0.0);
     }
 
     /**

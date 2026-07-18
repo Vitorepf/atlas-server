@@ -65,6 +65,8 @@ final class ComposedObraArcComposer
     public const FIELD_GRAPH = 'graph';
     public const FIELD_INDIVIDUAL_GATE_REQUIRED = 'individual_gate_required';
     public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
+    public const FIELD_SUMMARY = 'summary';
+    public const FIELD_OBRA_CLUSTER_CANDIDATE = 'obra_cluster_candidate';
 
     public const STATUS_FLAG_DISABLED = 'flag_disabled';
 
@@ -144,7 +146,7 @@ final class ComposedObraArcComposer
                 continue;
             }
             $target = ltrim(AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_TARGET_PATH] ?? null) ?? '', '/');
-            $summary = AiValueNormalizer::trimmedStringOrNull($candidate['summary'] ?? null) ?? '';
+            $summary = AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_SUMMARY] ?? null) ?? '';
             if ($target === '' || $summary === '') {
                 continue;
             }
@@ -155,7 +157,7 @@ final class ComposedObraArcComposer
             $out[] = [
                 'id' => AiValueNormalizer::trimmedStringOrNull($candidate['id'] ?? null) ?? 'cand-'.$index,
                 self::FIELD_TARGET_PATH => $target,
-                'summary' => $summary,
+                self::FIELD_SUMMARY => $summary,
                 self::FIELD_ORGAN_CLASS => $organ,
                 self::FIELD_LEVERAGE => AiValueNormalizer::finiteFloatOrNull($candidate[self::FIELD_LEVERAGE] ?? null) ?? 0.0,
             ];
@@ -259,7 +261,7 @@ final class ComposedObraArcComposer
                 'task_id' => 'task_'.substr(hash('sha256', $arcId.':'.($task[self::FIELD_TARGET_PATH] ?? '')), 0, 12),
                 self::FIELD_ORDER => (int) (AiValueNormalizer::finiteFloatOrNull($task[self::FIELD_ORDER] ?? null) ?? 0),
                 self::FIELD_TARGET_PATH => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_TARGET_PATH] ?? null) ?? '',
-                'objective' => AiValueNormalizer::trimmedScalarStringOrNull($task['summary'] ?? null) ?? '',
+                'objective' => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_SUMMARY] ?? null) ?? '',
                 self::FIELD_INDIVIDUAL_GATE_REQUIRED => true,
                 self::FIELD_ARCHITECT_PHASE_GATE => true,
                 'seed_gate' => true,
@@ -319,7 +321,7 @@ final class ComposedObraArcComposer
             if (! is_array($lead)) {
                 continue;
             }
-            $block = is_array($lead['obra_cluster_candidate'] ?? null) ? $lead['obra_cluster_candidate'] : $lead;
+            $block = is_array($lead[self::FIELD_OBRA_CLUSTER_CANDIDATE] ?? null) ? $lead[self::FIELD_OBRA_CLUSTER_CANDIDATE] : $lead;
             foreach (AiValueNormalizer::arrayOrEmpty($block[self::FIELD_ALLOWED_FILES] ?? $block['member_paths'] ?? null) as $path) {
                 $normalized = ltrim(str_replace('\\', '/', AiValueNormalizer::trimmedStringOrNull($path) ?? ''), '/');
                 if ($normalized !== '') {

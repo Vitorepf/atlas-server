@@ -6095,6 +6095,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_pareto_window_cockpit_obra_ambition_dead_scorecard_vision_esp09_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-pwcoadsve-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-pwcoadsve',
+                '--pareto-window-cockpit-obra-ambition-dead-scorecard-vision-esp09-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"pareto_window_cockpit_obra_ambition_dead_scorecard_vision_esp09_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

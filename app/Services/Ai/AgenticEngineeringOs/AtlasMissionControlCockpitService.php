@@ -76,6 +76,8 @@ final class AtlasMissionControlCockpitService
     public const FIELD_MALFORMED_COUNT = 'malformed_count';
     public const FIELD_NEXT_PHASE = 'next_phase';
     public const FIELD_OPERATOR_SIGNATURE_REQUIRED = 'operator_signature_required';
+    public const FIELD_PHASE_OUT = 'phase_out';
+    public const FIELD_SERVABLE_NOW = 'servable_now';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
@@ -182,7 +184,7 @@ final class AtlasMissionControlCockpitService
             return null;
         }
 
-        $servableNow = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['servable_now'] ?? 0) ?? 0));
+        $servableNow = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_SERVABLE_NOW] ?? 0) ?? 0));
         $activeLeases = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_ACTIVE_LEASES] ?? 0) ?? 0));
         $blocked = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_BLOCKED] ?? 0) ?? 0));
         $quarantined = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($signals['quarantined'] ?? 0) ?? 0));
@@ -197,7 +199,7 @@ final class AtlasMissionControlCockpitService
         };
 
         return [
-            'servable_now' => $servableNow,
+            self::FIELD_SERVABLE_NOW => $servableNow,
             self::FIELD_ACTIVE_LEASES => $activeLeases,
             self::FIELD_BLOCKED_OR_QUARANTINED_COUNT => $blocked + $quarantined,
             'recoverable_count' => $recoverable,
@@ -222,7 +224,7 @@ final class AtlasMissionControlCockpitService
     {
         for ($i = count($envelopes) - 1; $i >= 0; $i--) {
             $env = $envelopes[$i];
-            if (! is_array($env) || ! isset($env['phase_out'])) {
+            if (! is_array($env) || ! isset($env[self::FIELD_PHASE_OUT])) {
                 continue;
             }
 
@@ -278,10 +280,10 @@ final class AtlasMissionControlCockpitService
     {
         $byPhase = [];
         foreach ($envelopes as $env) {
-            if (! is_array($env) || ! isset($env['phase_out'])) {
+            if (! is_array($env) || ! isset($env[self::FIELD_PHASE_OUT])) {
                 continue;
             }
-            $byPhase[$env['phase_out']] = $env;
+            $byPhase[$env[self::FIELD_PHASE_OUT]] = $env;
         }
 
         // WIRE-OBSERVE (Obra #7): required-vs-passed gate diff per emitted phase

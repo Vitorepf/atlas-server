@@ -147,6 +147,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_CONSUMER_MODULE_COUNT = 'consumer_module_count';
     public const FIELD_CONSUMER_MODULES = 'consumer_modules';
     public const FIELD_SUPPLEMENTAL_SUBSYSTEM_COUNT = 'supplemental_subsystem_count';
+    public const FIELD_NAME = 'name';
+    public const FIELD_OVERALL_OUT_OF_10 = 'overall_out_of_10';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -316,7 +318,7 @@ class AtlasCognitionScoreCardService
             $firstFacetByService[$serviceClass] ??= $acronym;
             $rows[] = [
                 self::FIELD_ACRONYM => $acronym,
-                'name' => $name,
+                self::FIELD_NAME => $name,
                 self::FIELD_GROUP => $group,
                 self::FIELD_SERVICE_CLASS => $serviceClass,
                 self::FIELD_EVIDENCE_ALIAS_OF => $evidenceAlias,
@@ -446,7 +448,7 @@ class AtlasCognitionScoreCardService
         );
 
         return [
-            'overall_out_of_10' => $overall,
+            self::FIELD_OVERALL_OUT_OF_10 => $overall,
             'dimensions' => $totals,
         ];
     }
@@ -486,7 +488,7 @@ class AtlasCognitionScoreCardService
         return 'sha256:'.hash('sha256', json_encode([
             'schema' => self::SCHEMA_VERSION,
             'rows' => $canonical,
-            self::FIELD_OVERALL => $score['overall_out_of_10'],
+            self::FIELD_OVERALL => $score[self::FIELD_OVERALL_OUT_OF_10],
         ], JSON_THROW_ON_ERROR));
     }
 
@@ -512,7 +514,7 @@ class AtlasCognitionScoreCardService
         foreach (self::V4_SUPPLEMENTAL_SUBSYSTEMS as [$acronym, $name, $group, $serviceClass]) {
             $rows[] = [
                 self::FIELD_ACRONYM => $acronym,
-                'name' => $name,
+                self::FIELD_NAME => $name,
                 self::FIELD_GROUP => $group,
                 self::FIELD_SERVICE_CLASS => $serviceClass,
                 self::FIELD_EVIDENCE_ALIAS_OF => null,
