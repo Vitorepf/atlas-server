@@ -95,6 +95,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_APP = 'app';
     public const FIELD_NOW = 'now';
     public const FIELD_STORAGE_PATH = 'storage_path';
+    public const FIELD_ACMF_ = 'acmf_';
 
     private ?string $proposalsLogOverride = null;
 
@@ -160,7 +161,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
             self::FIELD_REQUESTED_AUTONOMY => self::FIELD_EXECUTE_WITH_APPROVAL,
         ]);
 
-        $proposalId = 'acmf_'.substr(hash(self::FIELD_SHA256, $currentSchema.'|'.$nextSchema.'|'.$trigger), 0, 12);
+        $proposalId = self::FIELD_ACMF_.substr(hash(self::FIELD_SHA256, $currentSchema.'|'.$nextSchema.'|'.$trigger), 0, 12);
         $generatedAt = (new DateTimeImmutable(self::FIELD_NOW, new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
 
         $proposal = [

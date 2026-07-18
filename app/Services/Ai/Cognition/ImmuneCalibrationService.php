@@ -119,6 +119,7 @@ final class ImmuneCalibrationService
     public const FIELD_PROPOSAL = 'proposal';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_TECHNICAL_LEARNING_CANDIDATE = 'technical_learning_candidate';
+    public const FIELD_DENOMINATOR_BELOW_MIN = 'denominator_below_min';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -229,7 +230,7 @@ final class ImmuneCalibrationService
             self::FIELD_CLASSIFIER_BAND => $classified[self::FIELD_BAND],
             self::FIELD_CLASSIFIER_SCHEMA_VERSION => $classified[self::FIELD_SCHEMA_VERSION],
             self::FIELD_STATUS => $status,
-            self::FIELD_REASON => $status === self::STATUS_CALIBRATED ? self::FIELD_DENOMINATOR_MET : 'denominator_below_min',
+            self::FIELD_REASON => $status === self::STATUS_CALIBRATED ? self::FIELD_DENOMINATOR_MET : self::FIELD_DENOMINATOR_BELOW_MIN,
         ];
     }
 

@@ -12406,4 +12406,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B480).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function departmentContractCognitionScoreCognitiveMemoryConsolidationRerankFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'memory_promotion_rate' => DepartmentContractRuntime::FIELD_MEMORY_PROMOTION_RATE,
+            'memory_quarantine_count' => DepartmentContractRuntime::FIELD_MEMORY_QUARANTINE_COUNT,
+            'memory_record_hash' => DepartmentContractRuntime::FIELD_MEMORY_RECORD_HASH,
+            'merge_after_review' => DepartmentContractRuntime::FIELD_MERGE_AFTER_REVIEW,
+            'merge_review_evidence_hash' => DepartmentContractRuntime::FIELD_MERGE_REVIEW_EVIDENCE_HASH,
+            'merge_review_promotion_passed' => DepartmentContractRuntime::FIELD_MERGE_REVIEW_PROMOTION_PASSED,
+            'mission_authority_declared' => DepartmentContractRuntime::FIELD_MISSION_AUTHORITY_DECLARED,
+            'mission_envelope_hash' => DepartmentContractRuntime::FIELD_MISSION_ENVELOPE_HASH,
+            'modify_production_code_outside_tests' => DepartmentContractRuntime::FIELD_MODIFY_PRODUCTION_CODE_OUTSIDE_TESTS,
+            'modify_production_data' => DepartmentContractRuntime::FIELD_MODIFY_PRODUCTION_DATA,
+            'acos' => AtlasCognitionScoreCardV4Grouper::FIELD_ACOS,
+            'acmf_' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_ACMF_,
+            'blocked_regression' => AtlasConsolidationRerankGuard::FIELD_BLOCKED_REGRESSION,
+            'packet' => CaptureHmacLineageService::FIELD_PACKET,
+            'drift' => CognitiveImmuneCheckContract::FIELD_DRIFT,
+            'denominator_below_min' => ImmuneCalibrationService::FIELD_DENOMINATOR_BELOW_MIN,
+            'prompt_injection' => ImmuneSignatureDeriver::FIELD_PROMPT_INJECTION,
+            'immune_signature_real_hits_soak' => ImmuneSignatureStore::FIELD_IMMUNE_SIGNATURE_REAL_HITS_SOAK,
+            'department_contract_cognition_score_cognitive_memory_consolidation_rerank_floor_count' => 18,
+        ];
+    }
+
 }

@@ -19,7 +19,7 @@ final class CognitiveImmuneCheckContract
 
     /** Finding detail categories for autonomous engineering decision checks. */
     public const CHECK_CATEGORIES = [
-        'drift',
+        self::FIELD_DRIFT,
         self::FIELD_CONTRADICTION,
         self::FIELD_BIAS,
         self::FIELD_HALLUCINATED_AUTHORITY,
@@ -51,6 +51,7 @@ final class CognitiveImmuneCheckContract
     public const FIELD_BIAS = 'bias';
     public const FIELD_SCOPE_CREEP = 'scope_creep';
     public const FIELD_HALLUCINATED_AUTHORITY = 'hallucinated_authority';
+    public const FIELD_DRIFT = 'drift';
 
     public const ALLOWED_GATE_STATUSES = [
         self::GATE_STATUS_PENDING,

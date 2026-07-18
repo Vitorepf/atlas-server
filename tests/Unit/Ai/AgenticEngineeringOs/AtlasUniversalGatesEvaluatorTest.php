@@ -143,6 +143,7 @@ use App\Services\Ai\Cognition\AtlasSurpriseGateService;
 use App\Services\Ai\AcosMax\OutcomeEnvelope;
 use App\Services\Ai\AcosMax\ComposedObraArcLifecycle;
 use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
+use App\Services\Ai\Cognition\ImmuneSignatureStore;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -9742,6 +9743,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(RunbookOrchestrator::FIELD_GATE, $out['gate']);
         $this->assertSame(AtlasAcosWindowGatesService::FIELD_REPORTED, $out['reported']);
         $this->assertSame(18, $out['department_contract_spec_completeness_acos_measure_resource_budget_floor_count']);
+    }
+
+    public function test_department_contract_cognition_score_cognitive_memory_consolidation_rerank_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->departmentContractCognitionScoreCognitiveMemoryConsolidationRerankFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MEMORY_PROMOTION_RATE, $out['memory_promotion_rate']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MEMORY_QUARANTINE_COUNT, $out['memory_quarantine_count']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MEMORY_RECORD_HASH, $out['memory_record_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MERGE_AFTER_REVIEW, $out['merge_after_review']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MERGE_REVIEW_EVIDENCE_HASH, $out['merge_review_evidence_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MERGE_REVIEW_PROMOTION_PASSED, $out['merge_review_promotion_passed']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MISSION_AUTHORITY_DECLARED, $out['mission_authority_declared']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MISSION_ENVELOPE_HASH, $out['mission_envelope_hash']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MODIFY_PRODUCTION_CODE_OUTSIDE_TESTS, $out['modify_production_code_outside_tests']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MODIFY_PRODUCTION_DATA, $out['modify_production_data']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_ACOS, $out['acos']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_ACMF_, $out['acmf_']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_BLOCKED_REGRESSION, $out['blocked_regression']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_PACKET, $out['packet']);
+        $this->assertSame(CognitiveImmuneCheckContract::FIELD_DRIFT, $out['drift']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_DENOMINATOR_BELOW_MIN, $out['denominator_below_min']);
+        $this->assertSame(ImmuneSignatureDeriver::FIELD_PROMPT_INJECTION, $out['prompt_injection']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_IMMUNE_SIGNATURE_REAL_HITS_SOAK, $out['immune_signature_real_hits_soak']);
+        $this->assertSame(18, $out['department_contract_cognition_score_cognitive_memory_consolidation_rerank_floor_count']);
     }
 
 }

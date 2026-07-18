@@ -107,6 +107,7 @@ final class CaptureHmacLineageService
     public const FIELD_INVALID_LINK = 'invalid_link';
     public const FIELD_METADATA = 'metadata';
     public const FIELD_SOURCE_HASH = 'source_hash';
+    public const FIELD_PACKET = 'packet';
 
     /**
      * @param  array<string,mixed>  $existingChain
@@ -367,7 +368,7 @@ final class CaptureHmacLineageService
     private function resolveChain(string $kind, string $id): ?array
     {
         return match ($kind) {
-            'packet', self::FIELD_SOURCE_PACKET => $this->chainFromPacket($id),
+            self::FIELD_PACKET, self::FIELD_SOURCE_PACKET => $this->chainFromPacket($id),
             self::FIELD_MEMORY => $this->chainFromMemory($id),
             default => $this->chainFromCapture($id),
         };

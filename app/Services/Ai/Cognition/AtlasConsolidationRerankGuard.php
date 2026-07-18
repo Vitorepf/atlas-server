@@ -53,6 +53,7 @@ final class AtlasConsolidationRerankGuard
     public const FIELD_REFATORACAO = 'refatoracao';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_STORAGE_PATH = 'storage_path';
+    public const FIELD_BLOCKED_REGRESSION = 'blocked_regression';
 
 
     private string $baselinePath;
@@ -133,7 +134,7 @@ final class AtlasConsolidationRerankGuard
             return self::STATUS_UNMEASURED;
         }
 
-        return $current + self::EPSILON >= $baseline ? 'promote_allowed' : 'blocked_regression';
+        return $current + self::EPSILON >= $baseline ? 'promote_allowed' : self::FIELD_BLOCKED_REGRESSION;
     }
 
     private function currentPrecision(): ?float

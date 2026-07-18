@@ -58,6 +58,7 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_REALITY = 'reality';
     public const FIELD_SELF_CONSTRUCTION = 'self_construction';
     public const FIELD_SELF_IMPROVEMENT = 'self_improvement';
+    public const FIELD_ACOS = 'acos';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -132,7 +133,7 @@ final class AtlasCognitionScoreCardV4Grouper
                 self::FIELD_MEMBERS => $bucket[self::FIELD_MEMBERS] ?? [],
                 self::FIELD_SERVICE_CLASSES => array_values(array_unique($bucket[self::FIELD_SERVICE_CLASSES] ?? [])),
                 self::FIELD_SUPPLEMENTAL_COUNT => (int) (AiValueNormalizer::finiteFloatOrNull($bucket[self::FIELD_SUPPLEMENTAL_COUNT] ?? null) ?? 0),
-                self::FIELD_BOUNDARY => $consumers ? self::FIELD_CONSUMER : 'acos',
+                self::FIELD_BOUNDARY => $consumers ? self::FIELD_CONSUMER : self::FIELD_ACOS,
             ];
         }
 

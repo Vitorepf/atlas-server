@@ -92,6 +92,7 @@ final class ImmuneSignatureStore
     public const DEFAULT_MODE = self::MODE_OBSERVE;
     public const FIELD_GENERATED_AT = 'generated_at';
     public const FIELD_REF = 'ref';
+    public const FIELD_IMMUNE_SIGNATURE_REAL_HITS_SOAK = 'immune_signature_real_hits_soak';
 
     private readonly ImmuneSignatureDeriver $deriver;
 
@@ -274,7 +275,7 @@ final class ImmuneSignatureStore
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
             self::FIELD_MODE => $this->mode(),
             self::FIELD_STATUS => $soaked >= 3 ? self::STATUS_OK : self::STATUS_PENDING_WINDOW,
-            self::FIELD_PENDING_REASON => $soaked >= 3 ? null : 'immune_signature_real_hits_soak',
+            self::FIELD_PENDING_REASON => $soaked >= 3 ? null : self::FIELD_IMMUNE_SIGNATURE_REAL_HITS_SOAK,
             self::FIELD_ACTIVE_CELLS => $active,
             self::FIELD_CELLS_WITH_HIT_COUNT_GTE_2 => $soaked,
             self::FIELD_ACCEPTANCE_FLOOR => [
