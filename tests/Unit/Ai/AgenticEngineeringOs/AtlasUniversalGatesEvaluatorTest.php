@@ -144,6 +144,8 @@ use App\Services\Ai\AcosMax\OutcomeEnvelope;
 use App\Services\Ai\AcosMax\ComposedObraArcLifecycle;
 use App\Services\Ai\Aaeos\Support\AtlasAaeosValueNormalizer;
 use App\Services\Ai\Cognition\ImmuneSignatureStore;
+use App\Services\Ai\AcosMax\AcosMaxLedgerRotationRegistry;
+use App\Services\Ai\Aaeos\AtlasAaeosQualityBarService;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -9860,6 +9862,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(DepartmentContractRuntime::FIELD_VETO_RELEASE, $out['veto_release']);
         $this->assertSame(DepartmentContractRuntime::FIELD_WRITE_TESTS, $out['write_tests']);
         $this->assertSame(10, $out['b484_department_contract_floor_count']);
+    }
+
+    public function test_b485_cognition_score_ledger_rotation_health_report_aaeos_quality_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b485CognitionScoreLedgerRotationHealthReportAaeosQualityFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AAA, $out['AAA']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AACM, $out['AACM']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::INT_32, $out['32']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::INT_90, $out['90']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_AURG_COVERAGE_REPORT, $out['aurgCoverageReport']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_COMPACTION_SOAK_WATCH_REPORT, $out['compactionSoakWatchReport']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_DESIGN, $out['Design']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_ENGINEERING, $out['Engineering']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::FIELD_BIGRAM_JACCARD_IMMUNE_SEMANTIC_SIMILARITY_PORT, $out['BigramJaccardImmuneSemanticSimilarityPort']);
+        $this->assertSame(AtlasImmuneClassifierHybridFreeze::INT_20, $out['20']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_UTC, $out['UTC']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::INT_60, $out['60']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_UTC, $out['UTC']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::INT_60, $out['60']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_TEST_2, $out['Test']);
+        $this->assertSame(AtlasCognitionEvidenceResolver::FIELD_UTC, $out['UTC']);
+        $this->assertSame(RagxChainMechanismService::FIELD_RAGX, $out['RAGX']);
+        $this->assertSame(RagxChainMechanismService::INT_10, $out['10']);
+        $this->assertSame(18, $out['b485_cognition_score_ledger_rotation_health_report_aaeos_quality_floor_count']);
     }
 
 }

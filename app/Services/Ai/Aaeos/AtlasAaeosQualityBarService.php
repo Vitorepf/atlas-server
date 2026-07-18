@@ -34,11 +34,13 @@ final class AtlasAaeosQualityBarService
     public const FIELD_WORST_BREACH = 'worst_breach';
 
     public const FIELD_EMITTED_AT = 'emitted_at';
+    public const FIELD_DESIGN = 'Design';
+    public const FIELD_ENGINEERING = 'Engineering';
 
     public const DEPARTMENT_DATA = [
-        [self::FIELD_DEPARTMENT => 'Engineering', self::FIELD_THRESHOLD => 0.85, self::FIELD_CURRENT => 0.92],
+        [self::FIELD_DEPARTMENT => self::FIELD_ENGINEERING, self::FIELD_THRESHOLD => 0.85, self::FIELD_CURRENT => 0.92],
         [self::FIELD_DEPARTMENT => 'Product', self::FIELD_THRESHOLD => 0.80, self::FIELD_CURRENT => 0.75],
-        [self::FIELD_DEPARTMENT => 'Design', self::FIELD_THRESHOLD => 0.80, self::FIELD_CURRENT => 0.88],
+        [self::FIELD_DEPARTMENT => self::FIELD_DESIGN, self::FIELD_THRESHOLD => 0.80, self::FIELD_CURRENT => 0.88],
         [self::FIELD_DEPARTMENT => 'Marketing', self::FIELD_THRESHOLD => 0.75, self::FIELD_CURRENT => 0.70],
         [self::FIELD_DEPARTMENT => 'Sales', self::FIELD_THRESHOLD => 0.80, self::FIELD_CURRENT => 0.85],
         [self::FIELD_DEPARTMENT => 'Operations', self::FIELD_THRESHOLD => 0.78, self::FIELD_CURRENT => 0.72],

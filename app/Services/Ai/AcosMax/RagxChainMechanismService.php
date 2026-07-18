@@ -200,6 +200,8 @@ final class RagxChainMechanismService
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_DOC_ = 'doc_';
     public const FIELD_RAPTOR_LITE_ = 'raptor_lite_';
+    public const FIELD_RAGX = 'RAGX';
+    public const INT_10 = 10;
 
     public function __construct(
         private readonly ?AsefChunkIndexService $asefChunks = null,
@@ -308,7 +310,7 @@ final class RagxChainMechanismService
             self::FIELD_STATUS => self::STATUS_REGISTERED,
             self::FIELD_RECORDED_AT => Carbon::now()->toISOString(),
             self::FIELD_EXPERIMENT_ID => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_EXPERIMENT_ID] ?? null) ?? hash(self::FIELD_SHA256, json_encode($experiment, JSON_THROW_ON_ERROR)),
-            self::FIELD_SLICE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_SLICE]  ?? null) ?? 'RAGX',
+            self::FIELD_SLICE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_SLICE]  ?? null) ?? self::FIELD_RAGX,
             self::FIELD_BASELINE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_BASELINE]  ?? null) ?? self::STATUS_UNKNOWN,
             self::FIELD_CANDIDATE => AiValueNormalizer::trimmedStringOrNull($experiment[self::FIELD_CANDIDATE]  ?? null) ?? self::STATUS_UNKNOWN,
             self::FIELD_RESULT => null,
@@ -616,7 +618,7 @@ final class RagxChainMechanismService
         }
 
         $currentQ = $this->modularity($communities, $adjacency);
-        for ($pass = 0; $pass < 10; $pass++) {
+        for ($pass = 0; $pass < self::INT_10; $pass++) {
             $moved = false;
             foreach ($nodes as $node) {
                 $bestCommunity = $communities[$node];

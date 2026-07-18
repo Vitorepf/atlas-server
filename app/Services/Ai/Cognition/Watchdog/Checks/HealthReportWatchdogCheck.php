@@ -37,6 +37,8 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_RAG_DIMENSION_WATCHDOG_FAILED = 'rag_dimension_watchdog_failed';
     public const FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_FAILED = 'scorecard_receipts_diagnosis_failed';
     public const FIELD_SCORECARD_STABILITY_FAILED = 'scorecard_stability_failed';
+    public const FIELD_AURG_COVERAGE_REPORT = 'aurgCoverageReport';
+    public const FIELD_COMPACTION_SOAK_WATCH_REPORT = 'compactionSoakWatchReport';
 
     public const CATALOG = [
         [
@@ -53,7 +55,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
         ],
         [
             self::FIELD_ID => 'rag-10.aurg_coverage',
-            self::FIELD_REPORT_METHOD => 'aurgCoverageReport',
+            self::FIELD_REPORT_METHOD => self::FIELD_AURG_COVERAGE_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_AURG_COVERAGE_GATE_FAILED,
             self::FIELD_MESSAGE => 'RAG-10 AURG cross-layer coverage is below floor.',
         ],
@@ -71,7 +73,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
         ],
         [
             self::FIELD_ID => 'cpt-09.compaction_soak',
-            self::FIELD_REPORT_METHOD => 'compactionSoakWatchReport',
+            self::FIELD_REPORT_METHOD => self::FIELD_COMPACTION_SOAK_WATCH_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_COMPACTION_SOAK_NOT_READY,
             self::FIELD_MESSAGE => 'CPT-09 compaction soak is not ready for enforce.',
         ],

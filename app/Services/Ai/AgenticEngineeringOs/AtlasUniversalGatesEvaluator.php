@@ -12553,4 +12553,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B485).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b485CognitionScoreLedgerRotationHealthReportAaeosQualityFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'AAA' => AtlasCognitionScoreCardService::FIELD_AAA,
+            'AACM' => AtlasCognitionScoreCardService::FIELD_AACM,
+            '32' => AcosMaxLedgerRotationRegistry::INT_32,
+            '90' => AcosMaxLedgerRotationRegistry::INT_90,
+            'aurgCoverageReport' => HealthReportWatchdogCheck::FIELD_AURG_COVERAGE_REPORT,
+            'compactionSoakWatchReport' => HealthReportWatchdogCheck::FIELD_COMPACTION_SOAK_WATCH_REPORT,
+            'Design' => AtlasAaeosQualityBarService::FIELD_DESIGN,
+            'Engineering' => AtlasAaeosQualityBarService::FIELD_ENGINEERING,
+            'BigramJaccardImmuneSemanticSimilarityPort' => AtlasImmuneClassifierHybridFreeze::FIELD_BIGRAM_JACCARD_IMMUNE_SEMANTIC_SIMILARITY_PORT,
+            '20' => AtlasImmuneClassifierHybridFreeze::INT_20,
+            'UTC' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_UTC,
+            '60' => AtlasCodeSymbolEmbeddingCoverageService::INT_60,
+            'UTC' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_UTC,
+            '60' => AtlasKnowledgeItemEmbeddingCoverageService::INT_60,
+            'Test' => AtlasCognitionEvidenceResolver::FIELD_TEST_2,
+            'UTC' => AtlasCognitionEvidenceResolver::FIELD_UTC,
+            'RAGX' => RagxChainMechanismService::FIELD_RAGX,
+            '10' => RagxChainMechanismService::INT_10,
+            'b485_cognition_score_ledger_rotation_health_report_aaeos_quality_floor_count' => 18,
+        ];
+    }
+
 }

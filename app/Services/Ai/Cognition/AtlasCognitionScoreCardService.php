@@ -197,6 +197,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_SELF_IMPROVEMENT = 'self_improvement';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_VERIFIED_CONTEXT = 'verified_context';
+    public const FIELD_AAA = 'AAA';
+    public const FIELD_AACM = 'AACM';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -290,7 +292,7 @@ class AtlasCognitionScoreCardService
 
         // Patamar 4 — Constitutional Kernel, Autonomy Admission, CognitiveFunctionAtlas, Reconciliation Runtime, TEOS-I4, Swarm Conductor, Temporary Domain Composition
         ['ACK',     'Constitutional Kernel',               self::FIELD_GOVERNANCE,        AtlasConstitutionalKernelService::class],
-        ['AAA',     'Autonomy Admission',                  self::FIELD_GOVERNANCE,        AtlasAutonomyAdmissionService::class],
+        [self::FIELD_AAA,     'Autonomy Admission',                  self::FIELD_GOVERNANCE,        AtlasAutonomyAdmissionService::class],
         ['ACFA',    'Cognitive Function Atlas',            self::FIELD_COGNITION,         AtlasCognitiveFunctionAtlasService::class],
         ['AARR',    'Autonomous Reconciliation Runtime',   self::FIELD_AUTONOMY,          AtlasAutonomousReconciliationRuntimeService::class],
         ['TEOS-I4', 'TEOS-I4 Counterfactual Tree',         self::FIELD_TEOS,              AtlasTeosI4CounterfactualTreeService::class],
@@ -301,7 +303,7 @@ class AtlasCognitionScoreCardService
         // Patamar 4 · integration layer
         ['ADGW',    'Atlas Decide Gateway Consultation',   self::FIELD_ATLAS_DECIDE,      AtlasDecideGatewayConsultationService::class],
         ['ADLF',    'Atlas Decide Live Outcome Feedback',  self::FIELD_ATLAS_DECIDE,      AtlasDecideLiveOutcomeFeedbackService::class],
-        ['AACM',    'Antifragility Composition Metric',    self::FIELD_COMPOUNDING,       AtlasAntifragilityCompositionMetricService::class],
+        [self::FIELD_AACM,    'Antifragility Composition Metric',    self::FIELD_COMPOUNDING,       AtlasAntifragilityCompositionMetricService::class],
         ['ACMF-SE', 'Cognitive Memory Fabric Schema Evolution', self::FIELD_AUCRI,         AtlasCognitiveMemoryFabricSchemaEvolutionService::class],
         ['ASCB-EX', 'Self-Construction Scaffold Staging Executor', self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionScaffoldStagingExecutorService::class],
         ['ASCB-PP', 'Self-Construction Promotion Plan',          self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionPromotionPlanService::class],

@@ -507,6 +507,7 @@ final class AtlasAaeosCommand extends Command
                             {--department-contract-aaeos-http-acos-evolution-immune-promotion-floors-contract= : JSON file (any object) to observe department/contract/aaeos/http/acos/evolution floors}
                             {--b483-department-contract-floors-contract= : JSON file (any object) to observe department/contract floors}
                             {--b484-department-contract-floors-contract= : JSON file (any object) to observe department/contract floors}
+                            {--b485-cognition-score-ledger-rotation-health-report-aaeos-quality-floors-contract= : JSON file (any object) to observe cognition/score/ledger/rotation/health/report floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1170,6 +1171,7 @@ final class AtlasAaeosCommand extends Command
             ['department-contract-aaeos-http-acos-evolution-immune-promotion-floors-contract', 'department_contract_aaeos_http_acos_evolution_immune_promotion_floors_contract', fn (array $p) => $gates->departmentContractAaeosHttpAcosEvolutionImmunePromotionFloorsContractObserve($p)],
             ['b483-department-contract-floors-contract', 'b483_department_contract_floors_contract', fn (array $p) => $gates->b483DepartmentContractFloorsContractObserve($p)],
             ['b484-department-contract-floors-contract', 'b484_department_contract_floors_contract', fn (array $p) => $gates->b484DepartmentContractFloorsContractObserve($p)],
+            ['b485-cognition-score-ledger-rotation-health-report-aaeos-quality-floors-contract', 'b485_cognition_score_ledger_rotation_health_report_aaeos_quality_floors_contract', fn (array $p) => $gates->b485CognitionScoreLedgerRotationHealthReportAaeosQualityFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

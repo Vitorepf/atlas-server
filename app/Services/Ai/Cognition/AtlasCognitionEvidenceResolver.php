@@ -98,6 +98,8 @@ class AtlasCognitionEvidenceResolver
     public const FIELD_TEST_REF = 'test_ref';
     public const FIELD_CREATED_AT = 'created_at';
     public const FIELD_RAN_AT = 'ran_at';
+    public const FIELD_TEST_2 = 'Test';
+    public const FIELD_UTC = 'UTC';
 
     /**
      * Memoized FQN-ownership index: short class name => list of owner-doc capabilities
@@ -170,7 +172,7 @@ class AtlasCognitionEvidenceResolver
         // The test refs to consider: every owner doc's declared `test:` refs, plus the
         // <Short>Test naming-convention fallback. resolveTestFqn() refuses an ambiguous
         // ref, so a non-resolving fallback simply does not count.
-        $candidateTestRefs = [$short.'Test'];
+        $candidateTestRefs = [$short.self::FIELD_TEST_2];
         foreach ($owners as $owner) {
             foreach ($owner[self::FIELD_TEST_REFS] as $testRef) {
                 $candidateTestRefs[] = $testRef;
@@ -378,7 +380,7 @@ class AtlasCognitionEvidenceResolver
             self::FIELD_CANDIDATE_TEST_REFS => $candidateTestRefs,
             self::FIELD_EXISTING_TEST_REFS => $existingTestRefs,
             self::FIELD_LATEST_RECEIPT_AT => $latestAt?->toIso8601String(),
-            self::FIELD_LATEST_RECEIPT_AGE_DAYS => $latestAt === null ? null : round($latestAt->diffInHours(CarbonImmutable::now('UTC')) / 24, 2),
+            self::FIELD_LATEST_RECEIPT_AGE_DAYS => $latestAt === null ? null : round($latestAt->diffInHours(CarbonImmutable::now(self::FIELD_UTC)) / 24, 2),
             self::FIELD_GREEN_RECEIPT_COUNT => $greenCount,
         ];
     }
@@ -419,7 +421,7 @@ class AtlasCognitionEvidenceResolver
      */
     private function candidateTestRefsFor(string $fqn, array $owners): array
     {
-        $candidateTestRefs = [$this->classBasename($fqn).'Test'];
+        $candidateTestRefs = [$this->classBasename($fqn).self::FIELD_TEST_2];
         foreach ($owners as $owner) {
             foreach ($owner[self::FIELD_TEST_REFS] as $testRef) {
                 $candidateTestRefs[] = $testRef;

@@ -76,6 +76,8 @@ final class AtlasImmuneClassifierHybridFreeze
     public const FIELD_JSONL = 'jsonl';
     public const FIELD_SHA256 = 'sha256';
     public const FIELD_REGISTERED_ELEV_20S = 'registered_elev_20s';
+    public const FIELD_BIGRAM_JACCARD_IMMUNE_SEMANTIC_SIMILARITY_PORT = 'BigramJaccardImmuneSemanticSimilarityPort';
+    public const INT_20 = 20;
 
     /**
      * @return array<string,mixed>
@@ -105,9 +107,9 @@ final class AtlasImmuneClassifierHybridFreeze
                 self::FIELD_TAU => 0.30,
                 self::FIELD_SEMANTIC_RECALL_FLOOR_ON_OBFUSCATED => 0.80,
                 self::FIELD_FP_CEILING_ON_LEGITIMATE => 0.10,
-                self::FIELD_OBFUSCATED_DENOMINATOR_MIN => 20,
-                self::FIELD_LEGITIMATE_DENOMINATOR_MIN => 20,
-                self::FIELD_BASELINE_PORT => 'BigramJaccardImmuneSemanticSimilarityPort',
+                self::FIELD_OBFUSCATED_DENOMINATOR_MIN => self::INT_20,
+                self::FIELD_LEGITIMATE_DENOMINATOR_MIN => self::INT_20,
+                self::FIELD_BASELINE_PORT => self::FIELD_BIGRAM_JACCARD_IMMUNE_SEMANTIC_SIMILARITY_PORT,
                 self::FIELD_BASELINE_CAPACITY_NOTE => 'char-bigram Jaccard is a floor lexical arm; daemon-backed real embeddings can raise recall + drop FP without changing the freeze contract.',
             ],
             self::FIELD_SWITCH => [

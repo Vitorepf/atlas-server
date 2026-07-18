@@ -92,6 +92,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS_MISSING = 'atlas_code_symbol_embeddings_missing';
     public const FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS_MISSING = 'atlas_engineering_code_symbols_missing';
     public const FIELD_NO_ACTIVE_CODE_SYMBOLS = 'no_active_code_symbols';
+    public const FIELD_UTC = 'UTC';
+    public const INT_60 = 60;
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -110,7 +112,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
                 self::FIELD_DEFAULT_SWITCH => self::FIELD_OFF,
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
-            self::FIELD_TTL_DAYS => 60,
+            self::FIELD_TTL_DAYS => self::INT_60,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxa06-fase2',
             self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-maxa06-fase2-judge',
             self::FIELD_DUAL_READ_REQUIRED => false,
@@ -186,7 +188,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
-            self::FIELD_GENERATED_AT => now('UTC')->toIso8601String(),
+            self::FIELD_GENERATED_AT => now(self::FIELD_UTC)->toIso8601String(),
             self::FIELD_FREEZE => $freeze,
             self::FIELD_STATUS => $status,
             self::FIELD_REASON => $reason,
@@ -211,7 +213,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
-            self::FIELD_GENERATED_AT => now('UTC')->toIso8601String(),
+            self::FIELD_GENERATED_AT => now(self::FIELD_UTC)->toIso8601String(),
             self::FIELD_FREEZE => $freeze,
             self::FIELD_STATUS => AiValueNormalizer::trimmedStringOrNull($status) ?? '',
             self::FIELD_REASON => AiValueNormalizer::trimmedStringOrNull($reason) ?? '',
