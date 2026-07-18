@@ -15725,4 +15725,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b721_immune_signature_floor_count']);
     }
 
+    public function test_b722_surprise_gate_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b722SurpriseGateFloorsContractObserve([]);
+        $this->assertSame(AtlasSurpriseGateService::DEFAULT_THRESHOLD, $out['0.5']);
+        $this->assertSame(AtlasSurpriseGateService::DEFAULT_HIGH_BAND, $out['0.75']);
+        $this->assertSame(AtlasSurpriseGateService::DEFAULT_MIN_PREDICTION_TOKENS, $out['8']);
+        $this->assertSame(AtlasSurpriseGateService::THRESHOLD_CONFIG_KEY, $out['atlas.aobg.surprise_gate.threshold']);
+        $this->assertSame(AtlasSurpriseGateService::HIGH_BAND_CONFIG_KEY, $out['atlas.aobg.surprise_gate.high_band']);
+        $this->assertSame(AtlasSurpriseGateService::MIN_PREDICTION_TOKENS_CONFIG_KEY, $out['atlas.aobg.surprise_gate.min_prediction_tokens']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_SURPRISE, $out['surprise']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_RECORD, $out['record']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_PRIORITY, $out['priority']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_PREDICTED, $out['predicted']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_GATED, $out['gated']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_NOVEL_TOKENS, $out['novel_tokens']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_CANDIDATE_TOKENS, $out['candidate_tokens']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_HIGH, $out['high']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_LOW, $out['low']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_NORMAL, $out['normal']);
+        $this->assertSame(AtlasSurpriseGateService::FIELD_PREVISTO, $out['previsto']);
+        $this->assertSame(AtlasSurpriseGateService::FLOAT_1_0, $out['1.0']);
+        $this->assertSame(18, $out['b722_surprise_gate_floor_count']);
+    }
+
 }

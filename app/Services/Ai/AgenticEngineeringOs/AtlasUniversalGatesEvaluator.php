@@ -19830,4 +19830,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B722).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b722SurpriseGateFloorsContractObserve(array $input = []): array
+    {
+        return [
+            '0.5' => AtlasSurpriseGateService::DEFAULT_THRESHOLD,
+            '0.75' => AtlasSurpriseGateService::DEFAULT_HIGH_BAND,
+            '8' => AtlasSurpriseGateService::DEFAULT_MIN_PREDICTION_TOKENS,
+            'atlas.aobg.surprise_gate.threshold' => AtlasSurpriseGateService::THRESHOLD_CONFIG_KEY,
+            'atlas.aobg.surprise_gate.high_band' => AtlasSurpriseGateService::HIGH_BAND_CONFIG_KEY,
+            'atlas.aobg.surprise_gate.min_prediction_tokens' => AtlasSurpriseGateService::MIN_PREDICTION_TOKENS_CONFIG_KEY,
+            'surprise' => AtlasSurpriseGateService::FIELD_SURPRISE,
+            'record' => AtlasSurpriseGateService::FIELD_RECORD,
+            'priority' => AtlasSurpriseGateService::FIELD_PRIORITY,
+            'predicted' => AtlasSurpriseGateService::FIELD_PREDICTED,
+            'gated' => AtlasSurpriseGateService::FIELD_GATED,
+            'novel_tokens' => AtlasSurpriseGateService::FIELD_NOVEL_TOKENS,
+            'candidate_tokens' => AtlasSurpriseGateService::FIELD_CANDIDATE_TOKENS,
+            'high' => AtlasSurpriseGateService::FIELD_HIGH,
+            'low' => AtlasSurpriseGateService::FIELD_LOW,
+            'normal' => AtlasSurpriseGateService::FIELD_NORMAL,
+            'previsto' => AtlasSurpriseGateService::FIELD_PREVISTO,
+            '1.0' => AtlasSurpriseGateService::FLOAT_1_0,
+            'b722_surprise_gate_floor_count' => 18,
+        ];
+    }
+
 }
