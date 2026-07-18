@@ -364,6 +364,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_MEASUREMENT_WITHOUT_RECALLED_MEMORY_CASE_COUNT = 'measurement.without_recalled_memory.case_count';
     public const FIELD_MEASUREMENT_MEASUREMENT_READY = 'measurement.measurement_ready';
     public const FIELD_OPE_08_LIFT_CYCLE_CLOSURE = 'ope-08.lift_cycle_closure';
+    public const FIELD_RATIOS_RECALL_CONCENTRATION_RATIO = 'ratios.recall_concentration_ratio';
+    public const FIELD_ATLAS_ACOS_WATCHDOG = 'atlas.acos.watchdog';
     public const INT_100 = 100;
     public const FLOAT_10_0 = 10.0;
 
@@ -377,7 +379,7 @@ final class AtlasAcosWatchdogHealthService
         $latestSnapshotAt = $this->parseDate(data_get($scorecard, 'latest_snapshot.snapshot_at'));
         $snapshotAgeHours = $latestSnapshotAt ? round($latestSnapshotAt->diffInMinutes(CarbonImmutable::now(self::FIELD_UTC)) / 60, 2) : null;
         $freshness = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'components.freshness', 0)) ?? 0);
-        $concentration = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'ratios.recall_concentration_ratio', 0.0)) ?? 0.0;
+        $concentration = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, self::FIELD_RATIOS_RECALL_CONCENTRATION_RATIO, 0.0)) ?? 0.0;
         $recallUsageTotal = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'counts.retrieval_eval.recall_usage_total', 0)) ?? 0);
         $demotionEnabled = (AiValueNormalizer::boolOrNull(config(self::RECALL_CONCENTRATION_DEMOTION_ENABLED_CONFIG_KEY, self::DEFAULT_RECALL_CONCENTRATION_DEMOTION_ENABLED)) ?? self::DEFAULT_RECALL_CONCENTRATION_DEMOTION_ENABLED);
         $trendStatus = AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'trend.status')) ?? self::STATUS_UNKNOWN;
@@ -538,7 +540,7 @@ final class AtlasAcosWatchdogHealthService
         $preFilterConcentration = AiValueNormalizer::finiteFloatOrNull(data_get(
             $quality,
             'ratios.pre_filter_recall_concentration_ratio',
-            data_get($quality, 'ratios.recall_concentration_ratio', 0.0),
+            data_get($quality, self::FIELD_RATIOS_RECALL_CONCENTRATION_RATIO, 0.0),
         )) ?? 0.0;
         $issues = [];
         if ($retrievalEval < self::RAG_RETRIEVAL_EVAL_FLOOR) {
@@ -1108,7 +1110,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_CORRELATION_ID => 'acos:watchdog:'.$scopeId,
                 self::FIELD_SCOPE_TYPE => self::FIELD_ACOS_WATCHDOG,
                 self::FIELD_SCOPE_ID => $scopeId,
-                self::FIELD_EMITTER_STAGE => 'atlas.acos.watchdog',
+                self::FIELD_EMITTER_STAGE => self::FIELD_ATLAS_ACOS_WATCHDOG,
                 self::FIELD_EMITTER_VERSION => self::ONDA4_EMITTER_VERSION,
             ]);
         } catch (Throwable) {

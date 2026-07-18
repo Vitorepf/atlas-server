@@ -13040,4 +13040,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B501).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b501AcosLongMeasureSeriesLoteLedgerRotationWatchdogFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'Y-m-d' => AtlasAcosLongHorizonGateService::FIELD_Y_M_D,
+            'resolved-evidence' => AtlasAcosLongHorizonGateService::FIELD_RESOLVED_EVIDENCE_2,
+            'MULTJ-03' => AcosMaxMeasureSeriesRegistry::FIELD_MULTJ_03,
+            'MULTJ-04' => AcosMaxMeasureSeriesRegistry::FIELD_MULTJ_04,
+            'MULTJ-02' => AcosMaxLote2MeasureService::FIELD_MULTJ_02,
+            'MAXL-06' => AcosMaxLote2MeasureService::FIELD_MAXL_06,
+            'acos.learning_latency.v1' => AcosMaxLedgerRotationRegistry::FIELD_ACOS_LEARNING_LATENCY_V1,
+            'acos.operator_review_debt.v1' => AcosMaxLedgerRotationRegistry::FIELD_ACOS_OPERATOR_REVIEW_DEBT_V1,
+            'ratios.recall_concentration_ratio' => AtlasAcosWatchdogHealthService::FIELD_RATIOS_RECALL_CONCENTRATION_RATIO,
+            'atlas.acos.watchdog' => AtlasAcosWatchdogHealthService::FIELD_ATLAS_ACOS_WATCHDOG,
+            'maxk06.metrics_authority_tampered' => AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK06_METRICS_AUTHORITY_TAMPERED,
+            'cand-1' => AutonomyLadderAdversarialWatchdogCheck::FIELD_CAND_1,
+            'yardstick.golden_v2_passed' => AtlasNCaptureDrillService::FIELD_YARDSTICK_GOLDEN_V2_PASSED,
+            'times.hours_of_integration' => AtlasNCaptureDrillService::FIELD_TIMES_HOURS_OF_INTEGRATION,
+            'MAXB-03' => PromotionProtocol::FIELD_MAXB_03,
+            'MULTV-03' => PromotionProtocol::FIELD_MULTV_03,
+            'ASCB-EX' => AtlasCognitionScoreCardService::FIELD_ASCB_EX,
+            'ASCB-PP' => AtlasCognitionScoreCardService::FIELD_ASCB_PP,
+            'b501_acos_long_measure_series_lote_ledger_rotation_watchdog_floor_count' => 18,
+        ];
+    }
+
 }

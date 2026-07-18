@@ -108,6 +108,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_POLICY_H = 'policy-h';
     public const FIELD_CAND_3 = 'cand-3';
     public const FIELD_NONCE_REUSED_PROBE = 'nonce-reused-probe';
+    public const FIELD_MAXK06_METRICS_AUTHORITY_TAMPERED = 'maxk06.metrics_authority_tampered';
+    public const FIELD_CAND_1 = 'cand-1';
     public const INT_20 = 20;
     public const INT_999 = 999;
     public const INT_10 = 10;
@@ -200,7 +202,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             nonce: 'forged-boolean',
             policyHash: self::FIELD_POLICY_H,
             targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
-            targetId: 'cand-1',
+            targetId: self::FIELD_CAND_1,
         );
         $this->cleanup($path);
 
@@ -363,7 +365,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
 
         if (! $tamperOk) {
             return [
-                self::FIELD_ID => 'maxk06.metrics_authority_tampered',
+                self::FIELD_ID => self::FIELD_MAXK06_METRICS_AUTHORITY_TAMPERED,
                 self::FIELD_REFUSED => false,
                 self::FIELD_EXPECTED => 'blocked+metrics_authority_tampered',
                 self::FIELD_OBSERVED => self::FIELD_PROBE_SETUP_FAILED,
@@ -373,7 +375,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $provenance = AiValueNormalizer::arrayOrEmpty($verdict[self::FIELD_METRICS_AUTHORITY] ?? null);
 
         return [
-            self::FIELD_ID => 'maxk06.metrics_authority_tampered',
+            self::FIELD_ID => self::FIELD_MAXK06_METRICS_AUTHORITY_TAMPERED,
             self::FIELD_REFUSED => ($verdict[self::FIELD_ELIGIBLE] ?? true) === false
                 && ($verdict[self::FIELD_REFUSAL_REASON] ?? '') === self::FIELD_METRICS_AUTHORITY_TAMPERED
                 && ($provenance[self::FIELD_SOURCE] ?? '') === AtlasAutonomyMetricsAuthorityPort::SOURCE_TAMPERED,

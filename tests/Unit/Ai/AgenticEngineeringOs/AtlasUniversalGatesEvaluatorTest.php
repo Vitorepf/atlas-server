@@ -10255,4 +10255,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b500_measure_series_lote_ledger_rotation_acos_watchdog_autonomy_floor_count']);
     }
 
+    public function test_b501_acos_long_measure_series_lote_ledger_rotation_watchdog_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b501AcosLongMeasureSeriesLoteLedgerRotationWatchdogFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_Y_M_D, $out['Y-m-d']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_RESOLVED_EVIDENCE_2, $out['resolved-evidence']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MULTJ_03, $out['MULTJ-03']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MULTJ_04, $out['MULTJ-04']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MULTJ_02, $out['MULTJ-02']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_MAXL_06, $out['MAXL-06']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ACOS_LEARNING_LATENCY_V1, $out['acos.learning_latency.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ACOS_OPERATOR_REVIEW_DEBT_V1, $out['acos.operator_review_debt.v1']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_RATIOS_RECALL_CONCENTRATION_RATIO, $out['ratios.recall_concentration_ratio']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ATLAS_ACOS_WATCHDOG, $out['atlas.acos.watchdog']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK06_METRICS_AUTHORITY_TAMPERED, $out['maxk06.metrics_authority_tampered']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_CAND_1, $out['cand-1']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_YARDSTICK_GOLDEN_V2_PASSED, $out['yardstick.golden_v2_passed']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_TIMES_HOURS_OF_INTEGRATION, $out['times.hours_of_integration']);
+        $this->assertSame(PromotionProtocol::FIELD_MAXB_03, $out['MAXB-03']);
+        $this->assertSame(PromotionProtocol::FIELD_MULTV_03, $out['MULTV-03']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ASCB_EX, $out['ASCB-EX']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ASCB_PP, $out['ASCB-PP']);
+        $this->assertSame(18, $out['b501_acos_long_measure_series_lote_ledger_rotation_watchdog_floor_count']);
+    }
+
 }

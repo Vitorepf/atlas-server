@@ -130,6 +130,8 @@ final class PromotionProtocol
     public const FIELD_ASI_07 = 'ASI-07';
     public const FIELD_ASI_08 = 'ASI-08';
     public const FIELD_ASI_10 = 'ASI-10';
+    public const FIELD_MAXB_03 = 'MAXB-03';
+    public const FIELD_MULTV_03 = 'MULTV-03';
 
     /** @var list<string> */
     public const STATES = [
@@ -367,7 +369,7 @@ final class PromotionProtocol
             [
                 self::FIELD_ID => 'atlas.memory.fusion_v2_enabled',
                 self::FIELD_FAMILY => self::FIELD_MAXB,
-                self::FIELD_SLICE => 'MAXB-03',
+                self::FIELD_SLICE => self::FIELD_MAXB_03,
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_CONFIG_KEY => 'atlas.memory.fusion_v2_enabled',
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '7d',
@@ -390,7 +392,7 @@ final class PromotionProtocol
             [
                 self::FIELD_ID => 'acos.mutation_score.enforce_by_executor',
                 self::FIELD_FAMILY => self::FIELD_MULTV,
-                self::FIELD_SLICE => 'MULTV-03',
+                self::FIELD_SLICE => self::FIELD_MULTV_03,
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '8 samples per executor',
                 self::FIELD_FLIP_CRITERION => 'mutation MSI low advisory correlates with later real failure for the executor',

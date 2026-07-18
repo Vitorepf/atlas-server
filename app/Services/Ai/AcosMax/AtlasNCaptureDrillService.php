@@ -134,6 +134,8 @@ final class AtlasNCaptureDrillService
     public const FIELD_ADMISSION_BYPASS = 'admission.bypass';
     public const FIELD_ADMISSION_COLD_START_VIA = 'admission.cold_start_via';
     public const FIELD_CAPABILITY_SPEC_VERIFIED = 'capability_spec.verified';
+    public const FIELD_YARDSTICK_GOLDEN_V2_PASSED = 'yardstick.golden_v2_passed';
+    public const FIELD_TIMES_HOURS_OF_INTEGRATION = 'times.hours_of_integration';
     public const INT_365 = 365;
 
     private readonly string $ledgerPath;
@@ -163,10 +165,10 @@ final class AtlasNCaptureDrillService
                 self::FIELD_REQUIRED_FIELDS => [
                     'engine_id',
                     self::FIELD_CAPABILITY_SPEC_VERIFIED,
-                    'yardstick.golden_v2_passed',
+                    self::FIELD_YARDSTICK_GOLDEN_V2_PASSED,
                     'times.time_to_first_routed_task_seconds',
                     'times.time_to_first_proven_real_seconds',
-                    'times.hours_of_integration',
+                    self::FIELD_TIMES_HOURS_OF_INTEGRATION,
                     self::FIELD_ADMISSION_ADMITTED,
                     self::FIELD_ADMISSION_COLD_START_VIA,
                     self::FIELD_ADMISSION_BYPASS,
@@ -212,7 +214,7 @@ final class AtlasNCaptureDrillService
                 self::FIELD_VIOLATIONS => array_values(AiValueNormalizer::arrayOrEmpty(data_get($drill, 'capability_spec.violations', []))),
             ],
             self::FIELD_YARDSTICK => [
-                self::FIELD_GOLDEN_V2_PASSED => (AiValueNormalizer::boolOrNull(data_get($drill, 'yardstick.golden_v2_passed')) ?? false),
+                self::FIELD_GOLDEN_V2_PASSED => (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_YARDSTICK_GOLDEN_V2_PASSED)) ?? false),
                 self::FIELD_GOLDEN_V2_SCORE => data_get($drill, 'yardstick.golden_v2_score'),
                 self::FIELD_REGRET_MEASURE_ID => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'yardstick.regret_measure_id')) ?? 'atlas.decide.route_regret.v2',
                 self::FIELD_PEEK_MODE => true,
@@ -220,7 +222,7 @@ final class AtlasNCaptureDrillService
             self::FIELD_TIMES => [
                 self::FIELD_TIME_TO_FIRST_ROUTED_TASK_SECONDS => (int) data_get($drill, 'times.time_to_first_routed_task_seconds'),
                 self::FIELD_TIME_TO_FIRST_PROVEN_REAL_SECONDS => (int) data_get($drill, 'times.time_to_first_proven_real_seconds'),
-                self::FIELD_HOURS_OF_INTEGRATION => AiValueNormalizer::finiteFloatOrNull(data_get($drill, 'times.hours_of_integration')) ?? 0.0,
+                self::FIELD_HOURS_OF_INTEGRATION => AiValueNormalizer::finiteFloatOrNull(data_get($drill, self::FIELD_TIMES_HOURS_OF_INTEGRATION)) ?? 0.0,
             ],
             self::FIELD_DENOMINATORS => [
                 self::FIELD_ROUTED_TASKS_OBSERVED => (int) data_get($drill, 'denominators.routed_tasks_observed', 0),
@@ -334,10 +336,10 @@ final class AtlasNCaptureDrillService
 
         foreach ([
             self::FIELD_CAPABILITY_SPEC_VERIFIED,
-            'yardstick.golden_v2_passed',
+            self::FIELD_YARDSTICK_GOLDEN_V2_PASSED,
             'times.time_to_first_routed_task_seconds',
             'times.time_to_first_proven_real_seconds',
-            'times.hours_of_integration',
+            self::FIELD_TIMES_HOURS_OF_INTEGRATION,
             self::FIELD_ADMISSION_ADMITTED,
             self::FIELD_ADMISSION_COLD_START_VIA,
             self::FIELD_ADMISSION_BYPASS,
@@ -355,7 +357,7 @@ final class AtlasNCaptureDrillService
         $bypass = (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_ADMISSION_BYPASS)) ?? false);
         $coldStartVia = (string) (data_get($drill, self::FIELD_ADMISSION_COLD_START_VIA) ?? '');
         $capabilityVerified = (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_CAPABILITY_SPEC_VERIFIED)) ?? false);
-        $yardstickPassed = (AiValueNormalizer::boolOrNull(data_get($drill, 'yardstick.golden_v2_passed')) ?? false);
+        $yardstickPassed = (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_YARDSTICK_GOLDEN_V2_PASSED)) ?? false);
 
         if ($admitted && $bypass) {
             $violations[] = [self::FIELD_FIELD => self::FIELD_ADMISSION_BYPASS, self::FIELD_REASON => self::REASON_ADMISSION_VIA_BYPASS_FORBIDDEN];
@@ -367,7 +369,7 @@ final class AtlasNCaptureDrillService
             $violations[] = [self::FIELD_FIELD => self::FIELD_CAPABILITY_SPEC_VERIFIED, self::FIELD_REASON => self::REASON_CAPABILITY_SPEC_VIOLATION];
         }
         if ($admitted && ! $yardstickPassed) {
-            $violations[] = [self::FIELD_FIELD => 'yardstick.golden_v2_passed', self::FIELD_REASON => self::REASON_YARDSTICK_FAILED_BUT_ADMITTED];
+            $violations[] = [self::FIELD_FIELD => self::FIELD_YARDSTICK_GOLDEN_V2_PASSED, self::FIELD_REASON => self::REASON_YARDSTICK_FAILED_BUT_ADMITTED];
         }
 
         return $violations;

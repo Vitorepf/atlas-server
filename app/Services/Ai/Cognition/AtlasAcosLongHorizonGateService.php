@@ -181,6 +181,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_SCORECARD_OVERALL_NEAR_FLOOR = 'scorecard_overall_near_floor';
     public const FIELD_SERIES_DAY_BELOW_FLOOR = 'series_day_below_floor';
     public const FIELD_UTC = 'UTC';
+    public const FIELD_Y_M_D = 'Y-m-d';
+    public const FIELD_RESOLVED_EVIDENCE_2 = 'resolved-evidence';
     public const INT_10 = 10;
 
     /**
@@ -300,7 +302,7 @@ final class AtlasAcosLongHorizonGateService
 
         $firstDate = $dates[0] ?? null;
         $latestDate = $dates[count($dates) - 1] ?? null;
-        $todayKey = $today->format('Y-m-d');
+        $todayKey = $today->format(self::FIELD_Y_M_D);
         $uniqueDates = array_values(array_unique($dates));
         $futureDatedRows = count(array_filter(
             $uniqueDates,
@@ -549,7 +551,7 @@ final class AtlasAcosLongHorizonGateService
             $latest = new DateTimeImmutable($latestDate.' 00:00:00 UTC');
             $dates = [];
             for ($i = $minDays - 1; $i >= 0; $i--) {
-                $dates[] = $latest->modify("-$i days")->format('Y-m-d');
+                $dates[] = $latest->modify("-$i days")->format(self::FIELD_Y_M_D);
             }
 
             return $dates;
@@ -698,7 +700,7 @@ final class AtlasAcosLongHorizonGateService
         foreach ($series as $row) {
             $provenance = (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_PROVENANCE] ?? null) ?? '');
             $source = AiValueNormalizer::trimmedStringOrNull(data_get($row, 'sources.scorecard')) ?? '';
-            if ($provenance === 'resolved-evidence' || str_contains($source, 'resolved-evidence')) {
+            if ($provenance === self::FIELD_RESOLVED_EVIDENCE_2 || str_contains($source, self::FIELD_RESOLVED_EVIDENCE_2)) {
                 $count++;
             }
         }
@@ -771,7 +773,7 @@ final class AtlasAcosLongHorizonGateService
         try {
             return (new DateTimeImmutable($recordedAt))
                 ->setTimezone(new \DateTimeZone(self::FIELD_UTC))
-                ->format('Y-m-d');
+                ->format(self::FIELD_Y_M_D);
         } catch (Throwable) {
             return null;
         }
@@ -803,14 +805,14 @@ final class AtlasAcosLongHorizonGateService
     private function today(mixed $now, string $fixture): DateTimeImmutable
     {
         if ($now instanceof DateTimeImmutable) {
-            return new DateTimeImmutable($now->format('Y-m-d').' 00:00:00 UTC');
+            return new DateTimeImmutable($now->format(self::FIELD_Y_M_D).' 00:00:00 UTC');
         }
         if (is_string($now) && preg_match('/^\d{4}-\d{2}-\d{2}$/', trim($now)) === 1) {
             return new DateTimeImmutable(trim($now).' 00:00:00 UTC');
         }
 
         try {
-            return new DateTimeImmutable(Carbon::now(self::FIELD_UTC)->format('Y-m-d').' 00:00:00 UTC');
+            return new DateTimeImmutable(Carbon::now(self::FIELD_UTC)->format(self::FIELD_Y_M_D).' 00:00:00 UTC');
         } catch (Throwable) {
             return new DateTimeImmutable('today 00:00:00 UTC');
         }
@@ -906,7 +908,7 @@ final class AtlasAcosLongHorizonGateService
         $count = 0;
         foreach ($series as $row) {
             $source = AiValueNormalizer::trimmedStringOrNull(data_get($row, 'sources.scorecard_overall')) ?? '';
-            if (str_contains($source, 'resolved-evidence')) {
+            if (str_contains($source, self::FIELD_RESOLVED_EVIDENCE_2)) {
                 $count++;
             }
         }
@@ -951,7 +953,7 @@ final class AtlasAcosLongHorizonGateService
         // greens on a real recent window — not a frozen historical block.
         $rows = [];
         for ($i = $days - 1; $i >= 0; $i--) {
-            $date = $today->modify("-$i days")->format('Y-m-d');
+            $date = $today->modify("-$i days")->format(self::FIELD_Y_M_D);
             $rows[] = [
                 self::FIELD_DATE => $date,
                 self::FIELD_RECORDED_AT => $date.'T00:00:00+00:00',

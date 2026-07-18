@@ -48,6 +48,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ACOS_DEAD_SERIES_WATCHDOG_V1 = 'acos.dead_series_watchdog.v1';
     public const FIELD_ACOS_ESP00_GROUND_TRUTH_V1 = 'acos.esp00.ground_truth.v1';
     public const FIELD_ACOS_FLYWHEEL_LOOPS_V1 = 'acos.flywheel.loops.v1';
+    public const FIELD_ACOS_LEARNING_LATENCY_V1 = 'acos.learning_latency.v1';
+    public const FIELD_ACOS_OPERATOR_REVIEW_DEBT_V1 = 'acos.operator_review_debt.v1';
     public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
@@ -155,7 +157,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'ELEV-20s DB-backed watchdog run trail',
             ],
-            'acos.operator_review_debt.v1' => [
+            self::FIELD_ACOS_OPERATOR_REVIEW_DEBT_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_30,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
@@ -251,7 +253,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTX-02 diagnostic funnel by executor',
             ],
-            'acos.learning_latency.v1' => [
+            self::FIELD_ACOS_LEARNING_LATENCY_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
