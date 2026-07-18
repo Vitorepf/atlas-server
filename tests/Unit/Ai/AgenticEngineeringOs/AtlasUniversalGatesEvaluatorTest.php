@@ -16427,4 +16427,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b749_operator_learning_aobg_latency_floor_count']);
     }
 
+    public function test_b750_aobg_latency_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b750AobgLatencyFloorsContractObserve([]);
+        $this->assertSame(AobgLatencyWatchdogCheck::SCHEMA_VERSION, $out['atlas.acos.watchdog.aobg_latency.v1']);
+        $this->assertSame(AobgLatencyWatchdogCheck::CHECK_ID, $out['wdg-01.aobg_latency']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_AOBG_LATENCY_LEDGER_V1, $out['aobg.latency_ledger.v1']);
+        $this->assertSame(AobgLatencyWatchdogCheck::DEFAULT_DENOMINATOR_MIN, $out['5']);
+        $this->assertSame(AobgLatencyWatchdogCheck::DEFAULT_PACK_P95_MS_ALERT, $out['18000.0']);
+        $this->assertSame(AobgLatencyWatchdogCheck::DEFAULT_RECALL_P95_MS_ALERT, $out['15000.0']);
+        $this->assertSame(AobgLatencyWatchdogCheck::DEFAULT_HOOK_P95_MS_ALERT, $out['20000.0']);
+        $this->assertSame(AobgLatencyWatchdogCheck::REASON_INSUFFICIENT_SIGNAL, $out['insufficient_signal']);
+        $this->assertSame(AobgLatencyWatchdogCheck::REASON_LATENCY_FLOOR_EXCEEDED, $out['latency_floor_exceeded']);
+        $this->assertSame(AobgLatencyWatchdogCheck::REASON_SUFFICIENT_SIGNAL_WITHIN_FLOORS, $out['sufficient_signal_within_floors']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_REASON, $out['reason']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_SAMPLES, $out['samples']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_REQUIRED, $out['required']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_MEASURE_ID, $out['measure_id']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_DAY, $out['day']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_THRESHOLDS, $out['thresholds']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_DENOMINATOR_MIN, $out['denominator_min']);
+        $this->assertSame(18, $out['b750_aobg_latency_floor_count']);
+    }
+
 }

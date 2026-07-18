@@ -772,6 +772,7 @@ final class AtlasAaeosCommand extends Command
                             {--b747-daily-canary-floors-contract= : JSON file (any object) to observe daily/canary floors}
                             {--b748-acos-dead-floors-contract= : JSON file (any object) to observe acos/dead floors}
                             {--b749-operator-learning-aobg-latency-floors-contract= : JSON file (any object) to observe operator/learning/aobg/latency floors}
+                            {--b750-aobg-latency-floors-contract= : JSON file (any object) to observe aobg/latency floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1700,6 +1701,7 @@ final class AtlasAaeosCommand extends Command
             ['b747-daily-canary-floors-contract', 'b747_daily_canary_floors_contract', fn (array $p) => $gates->b747DailyCanaryFloorsContractObserve($p)],
             ['b748-acos-dead-floors-contract', 'b748_acos_dead_floors_contract', fn (array $p) => $gates->b748AcosDeadFloorsContractObserve($p)],
             ['b749-operator-learning-aobg-latency-floors-contract', 'b749_operator_learning_aobg_latency_floors_contract', fn (array $p) => $gates->b749OperatorLearningAobgLatencyFloorsContractObserve($p)],
+            ['b750-aobg-latency-floors-contract', 'b750_aobg_latency_floors_contract', fn (array $p) => $gates->b750AobgLatencyFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

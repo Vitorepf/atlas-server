@@ -20698,4 +20698,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B750).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b750AobgLatencyFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.acos.watchdog.aobg_latency.v1' => AobgLatencyWatchdogCheck::SCHEMA_VERSION,
+            'wdg-01.aobg_latency' => AobgLatencyWatchdogCheck::CHECK_ID,
+            'aobg.latency_ledger.v1' => AobgLatencyWatchdogCheck::FIELD_AOBG_LATENCY_LEDGER_V1,
+            '5' => AobgLatencyWatchdogCheck::DEFAULT_DENOMINATOR_MIN,
+            '18000.0' => AobgLatencyWatchdogCheck::DEFAULT_PACK_P95_MS_ALERT,
+            '15000.0' => AobgLatencyWatchdogCheck::DEFAULT_RECALL_P95_MS_ALERT,
+            '20000.0' => AobgLatencyWatchdogCheck::DEFAULT_HOOK_P95_MS_ALERT,
+            'insufficient_signal' => AobgLatencyWatchdogCheck::REASON_INSUFFICIENT_SIGNAL,
+            'latency_floor_exceeded' => AobgLatencyWatchdogCheck::REASON_LATENCY_FLOOR_EXCEEDED,
+            'sufficient_signal_within_floors' => AobgLatencyWatchdogCheck::REASON_SUFFICIENT_SIGNAL_WITHIN_FLOORS,
+            'reason' => AobgLatencyWatchdogCheck::FIELD_REASON,
+            'samples' => AobgLatencyWatchdogCheck::FIELD_SAMPLES,
+            'required' => AobgLatencyWatchdogCheck::FIELD_REQUIRED,
+            'schema_version' => AobgLatencyWatchdogCheck::FIELD_SCHEMA_VERSION,
+            'measure_id' => AobgLatencyWatchdogCheck::FIELD_MEASURE_ID,
+            'day' => AobgLatencyWatchdogCheck::FIELD_DAY,
+            'thresholds' => AobgLatencyWatchdogCheck::FIELD_THRESHOLDS,
+            'denominator_min' => AobgLatencyWatchdogCheck::FIELD_DENOMINATOR_MIN,
+            'b750_aobg_latency_floor_count' => 18,
+        ];
+    }
+
 }
