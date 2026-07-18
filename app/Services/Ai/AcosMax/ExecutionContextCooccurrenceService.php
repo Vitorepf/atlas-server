@@ -53,6 +53,7 @@ final class ExecutionContextCooccurrenceService
     public const FIELD_INTERSECTION_REFS = 'intersection_refs';
     public const FIELD_MEMORY_WRITTEN = 'memory_written';
     public const FIELD_USED_REF_COUNT = 'used_ref_count';
+    public const FIELD_USED_REFS = 'used_refs';
 
 
     /**
@@ -120,7 +121,7 @@ final class ExecutionContextCooccurrenceService
         $cooccurrences = [];
         foreach ($measured as $run) {
             $delivered = $this->stringList(AiValueNormalizer::arrayOrEmpty($run[self::FIELD_DELIVERED_REFS] ?? null));
-            $used = $this->stringList(AiValueNormalizer::arrayOrEmpty($run['used_refs'] ?? null));
+            $used = $this->stringList(AiValueNormalizer::arrayOrEmpty($run[self::FIELD_USED_REFS] ?? null));
             $intersection = array_values(array_intersect($delivered, $used));
             if ($intersection === []) {
                 continue;

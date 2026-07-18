@@ -34,6 +34,7 @@ final class GatedCorpusCandidateMiner
     public const FIELD_WRITES_MEMORY_DIRECTLY = 'writes_memory_directly';
     public const FIELD_TEXT = 'text';
     public const FIELD_REF = 'ref';
+    public const FIELD_PRIVACY_CLASS = 'privacy_class';
 
     /**
      * @param  list<array<string,mixed>>  $sources
@@ -44,7 +45,7 @@ final class GatedCorpusCandidateMiner
         $candidates = [];
         $omitted = [];
         foreach ($sources as $source) {
-            $privacy = AiValueNormalizer::lowerTrimmedString($source['privacy_class'] ?? 'normal');
+            $privacy = AiValueNormalizer::lowerTrimmedString($source[self::FIELD_PRIVACY_CLASS] ?? 'normal');
             if (in_array($privacy, self::PROTECTED, true)) {
                 $omitted[] = 'protected_class_omitted';
                 continue;

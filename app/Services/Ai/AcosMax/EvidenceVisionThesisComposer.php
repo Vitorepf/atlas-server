@@ -107,6 +107,7 @@ final class EvidenceVisionThesisComposer
     public const FIELD_OUTCOMES = 'outcomes';
     public const FIELD_PATH = 'path';
     public const FIELD_SWEET = 'sweet';
+    public const FIELD_TARGET_PATH = 'target_path';
 
     /**
      * @param  array<string,mixed>  $context
@@ -404,7 +405,7 @@ final class EvidenceVisionThesisComposer
             if (! is_array($lead)) {
                 continue;
             }
-            $target = ltrim(AiValueNormalizer::trimmedStringOrNull($lead['target_path'] ?? null) ?? '', '/');
+            $target = ltrim(AiValueNormalizer::trimmedStringOrNull($lead[self::FIELD_TARGET_PATH] ?? null) ?? '', '/');
             $evidence = AiValueNormalizer::arrayOrEmpty($lead[self::FIELD_EVIDENCE] ?? null);
             $file = AiValueNormalizer::trimmedStringOrNull($evidence[self::FIELD_FILE] ?? null) ?? '';
             $line = (int) (AiValueNormalizer::finiteFloatOrNull($evidence[self::FIELD_LINE] ?? null) ?? 0);

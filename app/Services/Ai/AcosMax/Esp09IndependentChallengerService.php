@@ -110,6 +110,7 @@ final class Esp09IndependentChallengerService
     public const FIELD_WINDOW = 'window';
     public const FIELD_REQUIRES_CHALLENGER = 'requires_challenger';
     public const FIELD_SERIES = 'series';
+    public const FIELD_TTL_DAYS = 'ttl_days';
 
     /**
      * @param  array<string,mixed>  $context
@@ -278,7 +279,7 @@ final class Esp09IndependentChallengerService
             self::FIELD_MODE => self::MODE,
             self::FIELD_HIGH_ALIGNMENT_BAND => self::HIGH_ALIGNMENT_BAND,
             self::FIELD_TRIGGER_KINDS => self::TRIGGER_KINDS,
-            'ttl_days' => 30,
+            self::FIELD_TTL_DAYS => 30,
             self::FIELD_GATES_OVERRIDE => false,
             self::FIELD_PROMOTION_WITHOUT_BLOCK => self::PROMOTION_WITHOUT_BLOCK,
         ];

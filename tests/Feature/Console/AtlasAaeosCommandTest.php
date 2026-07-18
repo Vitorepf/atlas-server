@@ -7417,6 +7417,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_acos_watchdog_immune_calibration_n_capture_belief_cascade_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b406-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b406',
+                '--acos-watchdog-immune-calibration-n-capture-belief-cascade-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"acos_watchdog_immune_calibration_n_capture_belief_cascade_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

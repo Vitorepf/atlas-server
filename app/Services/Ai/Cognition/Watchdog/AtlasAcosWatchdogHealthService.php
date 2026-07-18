@@ -244,6 +244,12 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_FORGE_PROMOTED_CYCLES = 'forge_promoted_cycles';
     public const FIELD_FORGE_SOVEREIGN_VERDICT_JSONL = 'forge_sovereign_verdict_jsonl';
     public const FIELD_FRESHNESS = 'freshness';
+    public const FIELD_FRESHNESS_COMPONENT = 'freshness_component';
+    public const FIELD_GOVERNANCE_ENFORCE = 'governance_enforce';
+    public const FIELD_IMPROPER_FLOOR_DISCARDS = 'improper_floor_discards';
+    public const FIELD_ISSUES = 'issues';
+    public const FIELD_KEEP_KIND = 'keep_kind';
+    public const FIELD_KIND = 'kind';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -273,7 +279,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_LATEST_DELTA_FROM_PREVIOUS => $latestDelta,
             ], 'memory_quality_score_regressed'),
             $this->checkRow('freshness_full', $freshness >= 100, [
-                'freshness_component' => $freshness,
+                self::FIELD_FRESHNESS_COMPONENT => $freshness,
                 'required' => 100,
             ], 'memory_freshness_below_full'),
             $this->checkRow('windowed_concentration_guarded', $concentration <= self::MEMORY_CONCENTRATION_FLOOR || $demotionEnabled || $recallUsageTotal === 0, [
@@ -440,11 +446,11 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_SCHEMA_VERSION => self::RAG_DIMENSION_SCHEMA,
             self::FIELD_STATUS => $issues === [] ? self::STATUS_OK : self::STATUS_ALERT,
             self::STATUS_ALERT => $issues !== [],
-            'issues' => array_values(array_unique($issues)),
+            self::FIELD_ISSUES => array_values(array_unique($issues)),
             self::FIELD_RAW => [
                 self::FIELD_RETRIEVAL_EVAL => $retrievalEval,
                 self::FIELD_RECALL_AT_5 => $recallAt5,
-                'improper_floor_discards' => $improperFloorDiscards,
+                self::FIELD_IMPROPER_FLOOR_DISCARDS => $improperFloorDiscards,
                 self::FIELD_AURG_CROSS_LAYER_COVERAGE_RATIO => $coverageRatio,
                 'pre_filter_concentration_ratio' => $preFilterConcentration,
             ],
@@ -569,7 +575,7 @@ final class AtlasAcosWatchdogHealthService
                 if (! is_array($loss)) {
                     continue;
                 }
-                $kind = AiValueNormalizer::lowerTrimmedString($loss['kind'] ?? $loss['severity'] ?? $loss['keep_kind'] ?? '');
+                $kind = AiValueNormalizer::lowerTrimmedString($loss[self::FIELD_KIND] ?? $loss['severity'] ?? $loss[self::FIELD_KEEP_KIND] ?? '');
                 if (str_contains($kind, 'critical')) {
                     $criticalCuts++;
                 }
@@ -741,7 +747,7 @@ final class AtlasAcosWatchdogHealthService
         $admlRoutes = $this->admlReadyRoutes($liveRows);
         $bypassRate = AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_BYPASS_RATE] ?? null) ?? 1.0;
         $flips = [
-            'governance_enforce' => [
+            self::FIELD_GOVERNANCE_ENFORCE => [
                 self::STATUS_READY => count(array_filter($governanceByExecutor, static fn (int $count): bool => $count >= self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR)) >= 3
                     && $bypassRate === 0.0
                     && (int) (AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_FALSE_POSITIVE_TOTAL] ?? null) ?? 0) === 0,

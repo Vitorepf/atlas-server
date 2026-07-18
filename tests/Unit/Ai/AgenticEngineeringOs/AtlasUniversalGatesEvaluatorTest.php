@@ -7877,4 +7877,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['acos_watchdog_immune_calibration_measure_program_aemor_outcome_floor_count']);
     }
 
+    public function test_acos_watchdog_immune_calibration_n_capture_belief_cascade_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->acosWatchdogImmuneCalibrationNCaptureBeliefCascadeFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_FRESHNESS_COMPONENT, $out['freshness_component']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_GOVERNANCE_ENFORCE, $out['governance_enforce']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_IMPROPER_FLOOR_DISCARDS, $out['improper_floor_discards']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ISSUES, $out['issues']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_KEEP_KIND, $out['keep_kind']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_KIND, $out['kind']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_SAMPLE_LABEL, $out['sample_label']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_SCOPE, $out['scope']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_SEED, $out['seed']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_SERIES, $out['series']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_TABLE, $out['table']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_YARDSTICK, $out['yardstick']);
+        $this->assertSame(BeliefCascadeReverificationPlanner::FIELD_SYNC_WRITE_PATH, $out['sync_write_path']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_THESIS, $out['thesis']);
+        $this->assertSame(Esp09IndependentChallengerService::FIELD_TTL_DAYS, $out['ttl_days']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_TARGET_PATH, $out['target_path']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_USED_REFS, $out['used_refs']);
+        $this->assertSame(GatedCorpusCandidateMiner::FIELD_PRIVACY_CLASS, $out['privacy_class']);
+        $this->assertSame(18, $out['acos_watchdog_immune_calibration_n_capture_belief_cascade_floor_count']);
+    }
+
 }

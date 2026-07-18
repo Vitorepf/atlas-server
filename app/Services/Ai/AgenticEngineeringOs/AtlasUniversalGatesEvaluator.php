@@ -10110,4 +10110,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B406).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function acosWatchdogImmuneCalibrationNCaptureBeliefCascadeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'freshness_component' => AtlasAcosWatchdogHealthService::FIELD_FRESHNESS_COMPONENT,
+            'governance_enforce' => AtlasAcosWatchdogHealthService::FIELD_GOVERNANCE_ENFORCE,
+            'improper_floor_discards' => AtlasAcosWatchdogHealthService::FIELD_IMPROPER_FLOOR_DISCARDS,
+            'issues' => AtlasAcosWatchdogHealthService::FIELD_ISSUES,
+            'keep_kind' => AtlasAcosWatchdogHealthService::FIELD_KEEP_KIND,
+            'kind' => AtlasAcosWatchdogHealthService::FIELD_KIND,
+            'sample_label' => ImmuneCalibrationService::FIELD_SAMPLE_LABEL,
+            'scope' => ImmuneCalibrationService::FIELD_SCOPE,
+            'seed' => ImmuneCalibrationService::FIELD_SEED,
+            'series' => ImmuneCalibrationService::FIELD_SERIES,
+            'table' => ImmuneCalibrationService::FIELD_TABLE,
+            'yardstick' => AtlasNCaptureDrillService::FIELD_YARDSTICK,
+            'sync_write_path' => BeliefCascadeReverificationPlanner::FIELD_SYNC_WRITE_PATH,
+            'thesis' => ComposedObraArcComposer::FIELD_THESIS,
+            'ttl_days' => Esp09IndependentChallengerService::FIELD_TTL_DAYS,
+            'target_path' => EvidenceVisionThesisComposer::FIELD_TARGET_PATH,
+            'used_refs' => ExecutionContextCooccurrenceService::FIELD_USED_REFS,
+            'privacy_class' => GatedCorpusCandidateMiner::FIELD_PRIVACY_CLASS,
+            'acos_watchdog_immune_calibration_n_capture_belief_cascade_floor_count' => 18,
+        ];
+    }
+
 }

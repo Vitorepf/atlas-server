@@ -104,6 +104,11 @@ final class ImmuneCalibrationService
     public const FIELD_READER_COMMAND = 'reader_command';
     public const FIELD_RECURRENCE_COUNT = 'recurrence_count';
     public const FIELD_RETENTION_OK = 'retention_ok';
+    public const FIELD_SAMPLE_LABEL = 'sample_label';
+    public const FIELD_SCOPE = 'scope';
+    public const FIELD_SEED = 'seed';
+    public const FIELD_SERIES = 'series';
+    public const FIELD_TABLE = 'table';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -172,10 +177,10 @@ final class ImmuneCalibrationService
             'ttl_days' => self::TTL_DAYS,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxi-03',
             self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-immune-calibration-judge',
-            'series' => [
+            self::FIELD_SERIES => [
                 self::FIELD_ID => self::MEASURE_ID,
                 self::FIELD_READER_COMMAND => 'atlas:immune:calibration --json',
-                'table' => ImmuneVerdictLedger::TABLE,
+                self::FIELD_TABLE => ImmuneVerdictLedger::TABLE,
                 self::FIELD_REGISTRY_STATUS => 'registered_elev_20s',
             ],
             self::FIELD_REGISTRY_STATUS => 'registered_elev_20s',
@@ -232,7 +237,7 @@ final class ImmuneCalibrationService
                 $key = $writer.'::'.$gateId;
                 $groups[$key] ??= $this->emptyGroup($writer, $gateId);
                 $status = (AiValueNormalizer::trimmedStringOrNull($gateStatuses[$gateId] ?? null) ?? ImmuneVerdictLedger::GATE_STATUS_PENDING);
-                $label = (AiValueNormalizer::trimmedStringOrNull($sample['sample_label'] ?? null) ?? '');
+                $label = (AiValueNormalizer::trimmedStringOrNull($sample[self::FIELD_SAMPLE_LABEL] ?? null) ?? '');
                 $expectedGateIds = array_fill_keys(AiValueNormalizer::arrayOrEmpty($sample[self::FIELD_EXPECTED_BLOCK_GATE_IDS] ?? null), true);
 
                 $groups[$key]['n']++;
@@ -340,7 +345,7 @@ final class ImmuneCalibrationService
             self::FIELD_CONTAINS_SENSITIVE_UNNECESSARY => false,
             self::FIELD_CONTRADICTS_NEWER => false,
             self::FIELD_OUTCOME_VALIDATED => false,
-            'scope' => 'domain',
+            self::FIELD_SCOPE => 'domain',
             self::FIELD_PROMOTION_MODE_HINT => 'proposal',
             self::FIELD_ON_PROBATION => true,
         ];
@@ -352,7 +357,7 @@ final class ImmuneCalibrationService
             [
                 self::FIELD_EXPECTED_BLOCK_GATE_IDS => ['G3'],
                 self::FIELD_METADATA => [
-                    'seed' => 'maxi-03-known-should-catch-g3',
+                    self::FIELD_SEED => 'maxi-03-known-should-catch-g3',
                     self::FIELD_PIPELINE => 'CognitiveImmunePromotionGateEvaluator',
                     self::FIELD_RAW_CONTENT_EXPOSED => false,
                 ],

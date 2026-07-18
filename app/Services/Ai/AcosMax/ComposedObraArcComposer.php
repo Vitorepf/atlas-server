@@ -87,6 +87,7 @@ final class ComposedObraArcComposer
     public const FIELD_OBRA_ID = 'obra_id';
     public const FIELD_TARGET_FQCN = 'target_fqcn';
     public const FIELD_TASKS = 'tasks';
+    public const FIELD_THESIS = 'thesis';
 
     /**
      * @param  list<array<string,mixed>>  $candidates  grounded origination candidates
@@ -282,7 +283,7 @@ final class ComposedObraArcComposer
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_ARC_ID => $arcId,
             self::FIELD_OBRA_ID => $obraId,
-            'thesis' => [
+            self::FIELD_THESIS => [
                 self::FIELD_CLAIM => 'Wiring the neighbor organs '.implode(', ', array_map(static fn (array $t): string => basename(AiValueNormalizer::trimmedScalarStringOrNull($t[self::FIELD_TARGET_PATH] ?? null) ?? '', '.php'), $tasks)).' materially increases end-to-end leverage.',
                 self::FIELD_FALSIFIED_WHEN => 'No task in the arc reaches proven_real landing within the arc TTL.',
                 self::FIELD_AUTHOR_ENGINE_ID => $author,

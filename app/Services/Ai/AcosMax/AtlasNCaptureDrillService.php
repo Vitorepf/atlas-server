@@ -123,6 +123,7 @@ final class AtlasNCaptureDrillService
     public const FIELD_TIMES = 'times';
     public const FIELD_VIOLATIONS = 'violations';
     public const FIELD_WINDOW_DAYS = 'window_days';
+    public const FIELD_YARDSTICK = 'yardstick';
 
     private readonly string $ledgerPath;
 
@@ -199,7 +200,7 @@ final class AtlasNCaptureDrillService
                 self::FIELD_VERIFIED => (AiValueNormalizer::boolOrNull(data_get($drill, 'capability_spec.verified')) ?? false),
                 self::FIELD_VIOLATIONS => array_values(AiValueNormalizer::arrayOrEmpty(data_get($drill, 'capability_spec.violations', []))),
             ],
-            'yardstick' => [
+            self::FIELD_YARDSTICK => [
                 self::FIELD_GOLDEN_V2_PASSED => (AiValueNormalizer::boolOrNull(data_get($drill, 'yardstick.golden_v2_passed')) ?? false),
                 self::FIELD_GOLDEN_V2_SCORE => data_get($drill, 'yardstick.golden_v2_score'),
                 self::FIELD_REGRET_MEASURE_ID => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'yardstick.regret_measure_id')) ?? 'atlas.decide.route_regret.v2',
