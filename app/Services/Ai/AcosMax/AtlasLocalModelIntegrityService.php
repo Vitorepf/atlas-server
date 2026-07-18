@@ -70,6 +70,8 @@ final class AtlasLocalModelIntegrityService
     public const FIELD_HASH_FAILED = 'hash_failed';
     public const FIELD_MODEL_ID_MISSING = 'model_id_missing';
     public const FIELD_PATH_NOT_CONFIGURED = 'path_not_configured';
+    public const FIELD_SHA256_MISMATCH = 'sha256_mismatch';
+    public const FIELD_SHA256_PIN_ABSENT = 'sha256_pin_absent';
 
     /** @var array<string, mixed> */
     private array $manifest;
@@ -145,7 +147,7 @@ final class AtlasLocalModelIntegrityService
 
         if ($pin === '') {
             $row[self::FIELD_STATUS] = self::STATUS_UNPINNED;
-            $row[self::FIELD_REASON] = 'sha256_pin_absent';
+            $row[self::FIELD_REASON] = self::FIELD_SHA256_PIN_ABSENT;
 
             return $row;
         }
@@ -181,7 +183,7 @@ final class AtlasLocalModelIntegrityService
             $row[self::FIELD_STATUS] = self::STATUS_VERIFIED;
         } else {
             $row[self::FIELD_STATUS] = self::STATUS_MISMATCHED;
-            $row[self::FIELD_REASON] = 'sha256_mismatch';
+            $row[self::FIELD_REASON] = self::FIELD_SHA256_MISMATCH;
         }
 
         return $row;

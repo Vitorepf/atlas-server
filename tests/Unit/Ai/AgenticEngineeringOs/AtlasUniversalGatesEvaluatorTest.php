@@ -9619,4 +9619,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['department_contract_acos_watchdog_immune_promotion_aaeos_gate_floor_count']);
     }
 
+    public function test_department_contract_acos_watchdog_flywheel_funnel_local_model_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->departmentContractAcosWatchdogFlywheelFunnelLocalModelFloorsContractObserve([]);
+        $this->assertSame(DepartmentContractRuntime::FIELD_BYPASS_SOVEREIGNTY, $out['bypass_sovereignty']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_CHECKLIST_COMPLETION_HASH, $out['checklist_completion_hash']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_MEASURED_COUNT_BELOW_FLOOR, $out['measured_count_below_floor']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_MEMORY_CROSS_LAYER_COVERAGE_BELOW_FLOOR, $out['memory_cross_layer_coverage_below_floor']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_APPLIED, $out['applied']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_CANDIDATE, $out['candidate']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_SHA256_MISMATCH, $out['sha256_mismatch']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_SHA256_PIN_ABSENT, $out['sha256_pin_absent']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_CONTEXTO, $out['contexto']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_EXPIRY, $out['expiry']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_NONE, $out['none']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_NOT_REQUIRED, $out['not_required']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_ACCEPTANCE_CRITERIA, $out['acceptance_criteria']);
+        $this->assertSame(ArchitectAgentSpecPackGateContract::FIELD_ADR_PUBLISHED, $out['adr_published']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SCORECARD_OVERALL_NEAR_FLOOR, $out['scorecard_overall_near_floor']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SERIES_DAY_BELOW_FLOOR, $out['series_day_below_floor']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_TEOS_I3, $out['teos_i3']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_TEOS_I4, $out['teos_i4']);
+        $this->assertSame(18, $out['department_contract_acos_watchdog_flywheel_funnel_local_model_floor_count']);
+    }
+
 }

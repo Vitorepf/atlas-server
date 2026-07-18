@@ -34,10 +34,12 @@ final class StructuredFactSchemaMap
     public const FIELD_PORQUE = 'porque';
     public const FIELD_SINTOMA = 'sintoma';
     public const FIELD_VERSAO = 'versao';
+    public const FIELD_CONTEXTO = 'contexto';
+    public const FIELD_EXPIRY = 'expiry';
 
     /** @var array<string,list<string>> */
     public const REQUIRED = [
-        self::FIELD_DECISION => ['contexto', self::FIELD_ALTERNATIVAS, self::FIELD_PORQUE, 'expiry'],
+        self::FIELD_DECISION => [self::FIELD_CONTEXTO, self::FIELD_ALTERNATIVAS, self::FIELD_PORQUE, self::FIELD_EXPIRY],
         self::FIELD_HARNESS_LEARNING => [self::FIELD_SINTOMA, self::FIELD_CAUSA, self::FIELD_FIX, self::FIELD_VERSAO],
         self::FIELD_GOTCHA => [self::FIELD_SINTOMA, self::FIELD_CAUSA, self::FIELD_FIX, self::FIELD_VERSAO],
     ];

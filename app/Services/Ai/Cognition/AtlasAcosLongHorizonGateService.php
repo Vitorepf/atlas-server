@@ -178,6 +178,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_PIPELINE_SCORE_NEAR_FLOOR = 'pipeline_score_near_floor';
     public const FIELD_SCORECARD_HASH_MISSING = 'scorecard_hash_missing';
     public const FIELD_SCORECARD_OVERALL_BELOW_FLOOR = 'scorecard_overall_below_floor';
+    public const FIELD_SCORECARD_OVERALL_NEAR_FLOOR = 'scorecard_overall_near_floor';
+    public const FIELD_SERIES_DAY_BELOW_FLOOR = 'series_day_below_floor';
 
     /**
      * @param  array<string,mixed>  $options
@@ -460,12 +462,12 @@ final class AtlasAcosLongHorizonGateService
             ],
         ));
         if ($certificationWindowDaysBelowFloor > 0) {
-            $blockers[] = 'series_day_below_floor';
+            $blockers[] = self::FIELD_SERIES_DAY_BELOW_FLOOR;
         }
 
         $warnings = [];
         if ($overall < ($minOverall + $warningMargin)) {
-            $warnings[] = 'scorecard_overall_near_floor';
+            $warnings[] = self::FIELD_SCORECARD_OVERALL_NEAR_FLOOR;
         }
         if ($pipeline < ($minPipeline + $warningMargin)) {
             $warnings[] = self::FIELD_PIPELINE_SCORE_NEAR_FLOOR;

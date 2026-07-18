@@ -12251,4 +12251,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B475).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function departmentContractAcosWatchdogFlywheelFunnelLocalModelFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'bypass_sovereignty' => DepartmentContractRuntime::FIELD_BYPASS_SOVEREIGNTY,
+            'checklist_completion_hash' => DepartmentContractRuntime::FIELD_CHECKLIST_COMPLETION_HASH,
+            'measured_count_below_floor' => AtlasAcosWatchdogHealthService::FIELD_MEASURED_COUNT_BELOW_FLOOR,
+            'memory_cross_layer_coverage_below_floor' => AtlasAcosWatchdogHealthService::FIELD_MEMORY_CROSS_LAYER_COVERAGE_BELOW_FLOOR,
+            'applied' => AtlasFlywheelFunnelService::FIELD_APPLIED,
+            'candidate' => AtlasFlywheelFunnelService::FIELD_CANDIDATE,
+            'sha256_mismatch' => AtlasLocalModelIntegrityService::FIELD_SHA256_MISMATCH,
+            'sha256_pin_absent' => AtlasLocalModelIntegrityService::FIELD_SHA256_PIN_ABSENT,
+            'contexto' => StructuredFactSchemaMap::FIELD_CONTEXTO,
+            'expiry' => StructuredFactSchemaMap::FIELD_EXPIRY,
+            'none' => AaeosHttpPathEnvelopeFactory::FIELD_NONE,
+            'not_required' => AaeosHttpPathEnvelopeFactory::FIELD_NOT_REQUIRED,
+            'acceptance_criteria' => ArchitectAgentSpecPackGateContract::FIELD_ACCEPTANCE_CRITERIA,
+            'adr_published' => ArchitectAgentSpecPackGateContract::FIELD_ADR_PUBLISHED,
+            'scorecard_overall_near_floor' => AtlasAcosLongHorizonGateService::FIELD_SCORECARD_OVERALL_NEAR_FLOOR,
+            'series_day_below_floor' => AtlasAcosLongHorizonGateService::FIELD_SERIES_DAY_BELOW_FLOOR,
+            'teos_i3' => AtlasCognitiveFunctionAtlasService::FIELD_TEOS_I3,
+            'teos_i4' => AtlasCognitiveFunctionAtlasService::FIELD_TEOS_I4,
+            'department_contract_acos_watchdog_flywheel_funnel_local_model_floor_count' => 18,
+        ];
+    }
+
 }

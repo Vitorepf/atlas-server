@@ -118,6 +118,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_OBRA = 'obra';
     public const FIELD_PLAN = 'plan';
     public const FIELD_MISSION_FOUNDATION_OPTIONAL_AT_PHASE_1 = 'mission_foundation_optional_at_phase_1';
+    public const FIELD_NONE = 'none';
+    public const FIELD_NOT_REQUIRED = 'not_required';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -247,8 +249,8 @@ final class AaeosHttpPathEnvelopeFactory
             actor: self::systemActor('aaeos.policy_gate'),
             inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
-                self::FIELD_POLICY_TARGET => $target !== '' ? $target : 'none',
-                self::FIELD_POLICY_STATUS => $status !== '' ? $status : 'not_required',
+                self::FIELD_POLICY_TARGET => $target !== '' ? $target : self::FIELD_NONE,
+                self::FIELD_POLICY_STATUS => $status !== '' ? $status : self::FIELD_NOT_REQUIRED,
                 self::FIELD_POLICY_ALLOWED => $allowed ? self::FIELD_YES : self::FIELD_NO,
             ],
             gates: self::binaryGate(self::FIELD_POLICY_DECISION_ALLOWED_TRUE, $allowed),

@@ -347,6 +347,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_LIFT_BLOCKER_STALLED = 'lift_blocker_stalled';
     public const FIELD_LINKER_EVIDENCE = 'linker_evidence';
     public const FIELD_LINKER_MEMORY_CODE = 'linker_memory_code';
+    public const FIELD_MEASURED_COUNT_BELOW_FLOOR = 'measured_count_below_floor';
+    public const FIELD_MEMORY_CROSS_LAYER_COVERAGE_BELOW_FLOOR = 'memory_cross_layer_coverage_below_floor';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -468,7 +470,7 @@ final class AtlasAcosWatchdogHealthService
             $blocking[] = (AiValueNormalizer::trimmedStringOrNull($coverage[self::FIELD_REASON] ?? null) ?? self::FIELD_AURG_STORE_UNAVAILABLE);
         }
         if ($ratio < self::RAG_COVERAGE_FLOOR) {
-            $blocking[] = 'memory_cross_layer_coverage_below_floor';
+            $blocking[] = self::FIELD_MEMORY_CROSS_LAYER_COVERAGE_BELOW_FLOOR;
         }
         foreach ([self::FIELD_LINKER_MEMORY_CODE, self::FIELD_LINKER_MEMORY_DOMAIN, self::FIELD_LINKER_EVIDENCE] as $linker) {
             if ((int) (AiValueNormalizer::finiteFloatOrNull($edgesBySource[$linker] ?? null) ?? 0) === 0) {
@@ -612,7 +614,7 @@ final class AtlasAcosWatchdogHealthService
             $blocking[] = 'total_event_count_below_floor';
         }
         if ($measured < self::FEEDBACK_MEASURED_COUNT_FLOOR) {
-            $blocking[] = 'measured_count_below_floor';
+            $blocking[] = self::FIELD_MEASURED_COUNT_BELOW_FLOOR;
         }
         if ($syntheticShare > self::FEEDBACK_SYNTHETIC_SHARE_MAX) {
             $blocking[] = 'synthetic_share_above_floor';

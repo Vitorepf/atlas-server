@@ -45,6 +45,8 @@ final class ArchitectAgentSpecPackGateContract
     public const FIELD_BREAKING_CHANGE_MATRIX = 'breaking_change_matrix';
     public const FIELD_SPEC_ACCEPTANCE_CRITERIA_COMPLETE = 'spec_acceptance_criteria_complete';
     public const FIELD_BREAKING_CHANGE_DOCUMENTED = 'breaking_change_documented';
+    public const FIELD_ACCEPTANCE_CRITERIA = 'acceptance_criteria';
+    public const FIELD_ADR_PUBLISHED = 'adr_published';
 
     /**
      * Required spec_pack sections before high-risk autonomous work may proceed.
@@ -52,7 +54,7 @@ final class ArchitectAgentSpecPackGateContract
      * @var list<string>
      */
     public const REQUIRED_SPEC_PACK_ARTIFACTS = [
-        'acceptance_criteria',
+        self::FIELD_ACCEPTANCE_CRITERIA,
         self::FIELD_ROLLBACK_PLAN,
         self::FIELD_BREAKING_CHANGE_MATRIX,
     ];
@@ -63,7 +65,7 @@ final class ArchitectAgentSpecPackGateContract
      * @var list<string>
      */
     public const GATES = [
-        'adr_published',
+        self::FIELD_ADR_PUBLISHED,
         self::FIELD_BOUNDARY_VALIDATED,
         self::FIELD_SPEC_ACCEPTANCE_CRITERIA_COMPLETE,
         self::FIELD_BREAKING_CHANGE_DOCUMENTED,

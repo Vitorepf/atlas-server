@@ -106,6 +106,8 @@ class AtlasCognitiveFunctionAtlasService
     public const FIELD_STORAGE_PATH = 'storage_path';
     public const FIELD_AEMOR = 'aemor';
     public const FIELD_SWARM = 'swarm';
+    public const FIELD_TEOS_I3 = 'teos_i3';
+    public const FIELD_TEOS_I4 = 'teos_i4';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scoreCard,
@@ -246,7 +248,7 @@ class AtlasCognitiveFunctionAtlasService
             self::FIELD_SELF_CONSTRUCTION => [self::FIELD_SELF_CONSTRUCTION],
             self::FIELD_REALITY => [self::FIELD_AURG],
             self::FIELD_CROSS_DOMAIN => [self::FIELD_CROSS_DOMAIN],
-            self::FIELD_TEOS => ['teos_i3', 'teos_i4'],
+            self::FIELD_TEOS => [self::FIELD_TEOS_I3, self::FIELD_TEOS_I4],
             self::FIELD_GOVERNANCE => [self::FIELD_GOVERNANCE],
             self::FIELD_AUTONOMY => [self::FIELD_RECONCILIATION],
             self::FIELD_COGNITION => [],

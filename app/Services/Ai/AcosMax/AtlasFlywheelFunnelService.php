@@ -60,6 +60,8 @@ final class AtlasFlywheelFunnelService
     public const FIELD_PROMOTED = 'promoted';
     public const FIELD_AUTONOMOS = 'autonomos';
     public const FIELD_DEV = 'dev';
+    public const FIELD_APPLIED = 'applied';
+    public const FIELD_CANDIDATE = 'candidate';
 
     /** @var list<string> */
     public const STAGES = [
@@ -165,7 +167,7 @@ final class AtlasFlywheelFunnelService
      */
     private function hasLesson(array $row): bool
     {
-        return in_array((AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_LEARNING_STATUS] ?? null) ?? ''), ['candidate', self::FIELD_PROMOTED, 'applied'], true)
+        return in_array((AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_LEARNING_STATUS] ?? null) ?? ''), [self::FIELD_CANDIDATE, self::FIELD_PROMOTED, self::FIELD_APPLIED], true)
             || ($row[self::FIELD_LESSON_PROMOTED] ?? false) === true;
     }
 

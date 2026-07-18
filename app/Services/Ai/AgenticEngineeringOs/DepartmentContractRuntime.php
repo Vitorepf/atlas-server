@@ -325,6 +325,8 @@ final class DepartmentContractRuntime
     public const FIELD_BLOCK_ON_COVERAGE_DROP = 'block_on_coverage_drop';
     public const FIELD_BYPASS_PROMOTION_GATE = 'bypass_promotion_gate';
     public const FIELD_BYPASS_REVIEW = 'bypass_review';
+    public const FIELD_BYPASS_SOVEREIGNTY = 'bypass_sovereignty';
+    public const FIELD_CHECKLIST_COMPLETION_HASH = 'checklist_completion_hash';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -514,7 +516,7 @@ final class DepartmentContractRuntime
             self::FIELD_ALLOWED_ACTIONS => ['request_changes', self::FIELD_APPROVE_FOR_CERT, 'veto_release'],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_EDIT_CODE, self::FIELD_DEPLOY_RELEASE, 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
-            self::FIELD_EVIDENCE_REQUIRED => ['review_report_hash', 'checklist_completion_hash'],
+            self::FIELD_EVIDENCE_REQUIRED => ['review_report_hash', self::FIELD_CHECKLIST_COMPLETION_HASH],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_REVIEW_REPORTS, self::FIELD_LEDGER => self::FIELD_AAEOS_REVIEW_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['review_findings_severity_avg', 'review_veto_count'],
             self::FIELD_MATURITY_LEVEL => 'L2',
@@ -559,7 +561,7 @@ final class DepartmentContractRuntime
             ],
             self::FIELD_GATES => ['security_scan_clean', self::FIELD_CVE_ACKNOWLEDGED, self::FIELD_SECRET_SCAN_CLEAN, self::FIELD_DEPENDENCY_AUDIT_CLEAN, self::FIELD_THREAT_MODEL_PRESENT, 'sovereignty_boundary_respected'],
             self::FIELD_ALLOWED_ACTIONS => [self::FIELD_ALLOW, self::FIELD_DENY, self::FIELD_REQUEST_MITIGATION, 'escalate_to_operator'],
-            self::FIELD_FORBIDDEN_ACTIONS => ['bypass_sovereignty', self::FIELD_APPROVE_UNAUDITED_DEP, 'ship_without_evidence'],
+            self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_BYPASS_SOVEREIGNTY, self::FIELD_APPROVE_UNAUDITED_DEP, 'ship_without_evidence'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['policy_decision_hash', self::FIELD_SECRET_SCAN_REPORT_HASH, 'dependency_audit_hash'],
             self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_POLICY_DECISIONS, self::FIELD_LEDGER => self::FIELD_AAEOS_SECURITY_LEDGER],
