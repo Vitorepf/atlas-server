@@ -15210,4 +15210,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B572).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b572ExecutionContextImmuneSignatureAaeosVetoFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => ExecutionContextCooccurrenceService::FIELD_SCHEMA_VERSION,
+            'measure_id' => ExecutionContextCooccurrenceService::FIELD_MEASURE_ID,
+            'formula_version' => ExecutionContextCooccurrenceService::FIELD_FORMULA_VERSION,
+            'runs_path' => ExecutionContextCooccurrenceService::FIELD_RUNS_PATH,
+            'denominator' => ExecutionContextCooccurrenceService::FIELD_DENOMINATOR,
+            'runs' => ExecutionContextCooccurrenceService::FIELD_RUNS,
+            'schema_version' => ImmuneSignatureStore::FIELD_SCHEMA_VERSION,
+            'origin_ref' => ImmuneSignatureStore::FIELD_ORIGIN_REF,
+            'last_hit_at' => ImmuneSignatureStore::FIELD_LAST_HIT_AT,
+            'mode' => ImmuneSignatureStore::FIELD_MODE,
+            'decay_days' => ImmuneSignatureStore::FIELD_DECAY_DAYS,
+            'created_at' => ImmuneSignatureStore::FIELD_CREATED_AT,
+            'escalation_target' => AtlasAaeosVetoPropagationResolver::FIELD_ESCALATION_TARGET,
+            'matched_rule' => AtlasAaeosVetoPropagationResolver::FIELD_MATCHED_RULE,
+            'reason' => AtlasAaeosVetoPropagationResolver::FIELD_REASON,
+            'origin_department' => AtlasAaeosVetoPropagationResolver::FIELD_ORIGIN_DEPARTMENT,
+            'veto_kind' => AtlasAaeosVetoPropagationResolver::FIELD_VETO_KIND,
+            'repair_iteration' => AtlasAaeosVetoPropagationResolver::FIELD_REPAIR_ITERATION,
+            'b572_execution_context_immune_signature_aaeos_veto_floor_count' => 18,
+        ];
+    }
+
 }

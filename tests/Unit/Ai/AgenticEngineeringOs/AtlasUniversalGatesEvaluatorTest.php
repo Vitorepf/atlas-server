@@ -11999,4 +11999,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b571_capture_hmac_phase_handoff_floor_count']);
     }
 
+    public function test_b572_execution_context_immune_signature_aaeos_veto_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b572ExecutionContextImmuneSignatureAaeosVetoFloorsContractObserve([]);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_MEASURE_ID, $out['measure_id']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_RUNS_PATH, $out['runs_path']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_DENOMINATOR, $out['denominator']);
+        $this->assertSame(ExecutionContextCooccurrenceService::FIELD_RUNS, $out['runs']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_ORIGIN_REF, $out['origin_ref']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_LAST_HIT_AT, $out['last_hit_at']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_MODE, $out['mode']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_DECAY_DAYS, $out['decay_days']);
+        $this->assertSame(ImmuneSignatureStore::FIELD_CREATED_AT, $out['created_at']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ESCALATION_TARGET, $out['escalation_target']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_MATCHED_RULE, $out['matched_rule']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_ORIGIN_DEPARTMENT, $out['origin_department']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_VETO_KIND, $out['veto_kind']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REPAIR_ITERATION, $out['repair_iteration']);
+        $this->assertSame(18, $out['b572_execution_context_immune_signature_aaeos_veto_floor_count']);
+    }
+
 }

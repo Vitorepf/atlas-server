@@ -594,6 +594,7 @@ final class AtlasAaeosCommand extends Command
                             {--b569-pre-review-cognitive-function-floors-contract= : JSON file (any object) to observe pre/review/cognitive/function floors}
                             {--b570-aaeos-quality-lote-measure-procedural-skill-floors-contract= : JSON file (any object) to observe aaeos/quality/lote/measure/procedural/skill floors}
                             {--b571-capture-hmac-phase-handoff-floors-contract= : JSON file (any object) to observe capture/hmac/phase/handoff floors}
+                            {--b572-execution-context-immune-signature-aaeos-veto-floors-contract= : JSON file (any object) to observe execution/context/immune/signature/aaeos/veto floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1344,6 +1345,7 @@ final class AtlasAaeosCommand extends Command
             ['b569-pre-review-cognitive-function-floors-contract', 'b569_pre_review_cognitive_function_floors_contract', fn (array $p) => $gates->b569PreReviewCognitiveFunctionFloorsContractObserve($p)],
             ['b570-aaeos-quality-lote-measure-procedural-skill-floors-contract', 'b570_aaeos_quality_lote_measure_procedural_skill_floors_contract', fn (array $p) => $gates->b570AaeosQualityLoteMeasureProceduralSkillFloorsContractObserve($p)],
             ['b571-capture-hmac-phase-handoff-floors-contract', 'b571_capture_hmac_phase_handoff_floors_contract', fn (array $p) => $gates->b571CaptureHmacPhaseHandoffFloorsContractObserve($p)],
+            ['b572-execution-context-immune-signature-aaeos-veto-floors-contract', 'b572_execution_context_immune_signature_aaeos_veto_floors_contract', fn (array $p) => $gates->b572ExecutionContextImmuneSignatureAaeosVetoFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
