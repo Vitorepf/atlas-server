@@ -19210,4 +19210,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B702).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b702EvidenceVisionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'operator_forbidden_strings' => EvidenceVisionThesisComposer::FIELD_OPERATOR_FORBIDDEN_STRINGS,
+            'outcome_id' => EvidenceVisionThesisComposer::FIELD_OUTCOME_ID,
+            'atlas.originator.evidence_vision_thesis.v1' => EvidenceVisionThesisComposer::SCHEMA_VERSION,
+            '3' => EvidenceVisionThesisComposer::INT_3,
+            '4' => EvidenceVisionThesisComposer::MIN_REGRESSION_WINDOWS,
+            '30' => EvidenceVisionThesisComposer::DEFAULT_TTL_DAYS,
+            'cursor-acos-max-multn1706' => EvidenceVisionThesisComposer::DEFAULT_AUTHOR_ENGINE_ID,
+            'source' => EvidenceVisionThesisComposer::FIELD_SOURCE,
+            'status' => EvidenceVisionThesisComposer::FIELD_STATUS,
+            'evidence' => EvidenceVisionThesisComposer::FIELD_EVIDENCE,
+            'claim' => EvidenceVisionThesisComposer::FIELD_CLAIM,
+            'death_criterion' => EvidenceVisionThesisComposer::FIELD_DEATH_CRITERION,
+            'born_at' => EvidenceVisionThesisComposer::FIELD_BORN_AT,
+            'ttl_days' => EvidenceVisionThesisComposer::FIELD_TTL_DAYS,
+            'described_at_birth' => EvidenceVisionThesisComposer::FIELD_DESCRIBED_AT_BIRTH,
+            'window' => EvidenceVisionThesisComposer::FIELD_WINDOW,
+            'field' => EvidenceVisionThesisComposer::FIELD_FIELD,
+            'value' => EvidenceVisionThesisComposer::FIELD_VALUE,
+            'b702_evidence_vision_floor_count' => 18,
+        ];
+    }
+
 }

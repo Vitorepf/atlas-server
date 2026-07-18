@@ -15224,4 +15224,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b701_ragx_chain_floor_count']);
     }
 
+    public function test_b702_evidence_vision_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b702EvidenceVisionFloorsContractObserve([]);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_OPERATOR_FORBIDDEN_STRINGS, $out['operator_forbidden_strings']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_OUTCOME_ID, $out['outcome_id']);
+        $this->assertSame(EvidenceVisionThesisComposer::SCHEMA_VERSION, $out['atlas.originator.evidence_vision_thesis.v1']);
+        $this->assertSame(EvidenceVisionThesisComposer::INT_3, $out['3']);
+        $this->assertSame(EvidenceVisionThesisComposer::MIN_REGRESSION_WINDOWS, $out['4']);
+        $this->assertSame(EvidenceVisionThesisComposer::DEFAULT_TTL_DAYS, $out['30']);
+        $this->assertSame(EvidenceVisionThesisComposer::DEFAULT_AUTHOR_ENGINE_ID, $out['cursor-acos-max-multn1706']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_SOURCE, $out['source']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_STATUS, $out['status']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_CLAIM, $out['claim']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_DEATH_CRITERION, $out['death_criterion']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_BORN_AT, $out['born_at']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_TTL_DAYS, $out['ttl_days']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_DESCRIBED_AT_BIRTH, $out['described_at_birth']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_WINDOW, $out['window']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_FIELD, $out['field']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_VALUE, $out['value']);
+        $this->assertSame(18, $out['b702_evidence_vision_floor_count']);
+    }
+
 }
