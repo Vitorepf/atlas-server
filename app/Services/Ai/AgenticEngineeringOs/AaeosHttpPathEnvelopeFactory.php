@@ -90,6 +90,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_VERDICT = 'verdict';
     public const FIELD_ATLAS_DEV = 'atlas_dev';
     public const FIELD_ATLAS_FORGE = 'atlas_forge';
+    public const FIELD_YES = 'yes';
+    public const FIELD_DEFERRED = 'deferred';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -129,7 +131,7 @@ final class AaeosHttpPathEnvelopeFactory
             inputs: [self::FIELD_INTENT_HASH => $intentHash],
             outputs: [
                 self::FIELD_MISSION_SIGNAL_KIND => $suggestedMissionType,
-                self::FIELD_MISSION_SHOULD_ACTIVATE => $shouldActivateMissionMode ? 'yes' : 'no',
+                self::FIELD_MISSION_SHOULD_ACTIVATE => $shouldActivateMissionMode ? self::FIELD_YES : 'no',
             ],
             gates: self::binaryGate('intent_clarity_score_min_0_8', true),
         );
@@ -191,7 +193,7 @@ final class AaeosHttpPathEnvelopeFactory
             outputs: [
                 self::FIELD_FLOW_ID => $flowId,
                 self::FIELD_COMMAND_INTENT => $commandIntent,
-                self::FIELD_TARGET_DEPARTMENT_DECLARED => $declared ? 'yes' : 'no',
+                self::FIELD_TARGET_DEPARTMENT_DECLARED => $declared ? self::FIELD_YES : 'no',
             ],
             gates: self::binaryGate('intent_classification_target_department_declared', $declared),
             blockers: $declared
@@ -221,7 +223,7 @@ final class AaeosHttpPathEnvelopeFactory
             outputs: [
                 self::FIELD_POLICY_TARGET => $target !== '' ? $target : 'none',
                 self::FIELD_POLICY_STATUS => $status !== '' ? $status : 'not_required',
-                self::FIELD_POLICY_ALLOWED => $allowed ? 'yes' : 'no',
+                self::FIELD_POLICY_ALLOWED => $allowed ? self::FIELD_YES : 'no',
             ],
             gates: self::binaryGate('policy_decision_allowed_true', $allowed),
             blockers: self::assistedExecutionBlockers($assisted, $isDevTarget, $allowed),
@@ -271,8 +273,8 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase3.topology.r1_r2_fast_path',
             self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
             self::FIELD_OUTPUTS => [
-                self::FIELD_TOPOLOGY_REQUIRED => 'yes',
-                self::FIELD_AAWR_INVOCATION => 'deferred',
+                self::FIELD_TOPOLOGY_REQUIRED => self::FIELD_YES,
+                self::FIELD_AAWR_INVOCATION => self::FIELD_DEFERRED,
             ],
             self::FIELD_REQUIRED_GATE => 'topology_plan_providers_min_1_available',
         ],
@@ -284,7 +286,7 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
             self::FIELD_OUTPUTS => [
                 self::FIELD_DEPARTMENT_ROUTE => 'engineering_or_forge_pending_aawr',
-                self::FIELD_COMPANY_RUNTIME_INVOCATION => 'deferred',
+                self::FIELD_COMPANY_RUNTIME_INVOCATION => self::FIELD_DEFERRED,
             ],
             self::FIELD_REQUIRED_GATE => 'department_route_owner_confirmed',
         ],
@@ -295,8 +297,8 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase4.spec.r1_r2_fast_path',
             self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
             self::FIELD_OUTPUTS => [
-                self::FIELD_SPEC_INVOCATION => 'deferred',
-                self::FIELD_SPEC_REQUIRED => 'yes',
+                self::FIELD_SPEC_INVOCATION => self::FIELD_DEFERRED,
+                self::FIELD_SPEC_REQUIRED => self::FIELD_YES,
             ],
             self::FIELD_REQUIRED_GATE => 'spec_pack_acceptance_criteria_min_3',
         ],
@@ -307,8 +309,8 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase4.tasks.r1_r2_fast_path',
             self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved',
             self::FIELD_OUTPUTS => [
-                self::FIELD_TASK_PACK_INVOCATION => 'deferred',
-                self::FIELD_TASK_PACK_REQUIRED => 'yes',
+                self::FIELD_TASK_PACK_INVOCATION => self::FIELD_DEFERRED,
+                self::FIELD_TASK_PACK_REQUIRED => self::FIELD_YES,
             ],
             self::FIELD_REQUIRED_GATE => 'task_pack_atomic_true_for_each',
         ],
@@ -319,8 +321,8 @@ final class AaeosHttpPathEnvelopeFactory
             self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase4.receipt.r1_r2_fast_path',
             self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved_legacy_trace_audit',
             self::FIELD_OUTPUTS => [
-                self::FIELD_DECISION_RECEIPT_V2_INVOCATION => 'deferred',
-                self::FIELD_RECEIPT_REQUIRED => 'yes',
+                self::FIELD_DECISION_RECEIPT_V2_INVOCATION => self::FIELD_DEFERRED,
+                self::FIELD_RECEIPT_REQUIRED => self::FIELD_YES,
             ],
             self::FIELD_REQUIRED_GATE => 'decision_receipt_v2_signed',
         ],

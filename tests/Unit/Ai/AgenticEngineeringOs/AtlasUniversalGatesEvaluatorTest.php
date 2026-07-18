@@ -8141,4 +8141,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['aaeos_veto_test_evidence_ledger_predicted_impact_provider_floor_count']);
     }
 
+    public function test_memory_recall_dogfooding_friction_portfolio_budget_operator_learning_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->memoryRecallDogfoodingFrictionPortfolioBudgetOperatorLearningFloorsContractObserve([]);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_GLOBAL, $out['global']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::FIELD_REGISTRY, $out['registry']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_DOGFOODING, $out['dogfooding']);
+        $this->assertSame(DogfoodingFrictionLeadMiner::FIELD_UNKNOWN_TARGET, $out['unknown_target']);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_OFF, $out['off']);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_PORTFOLIO_ALLOCATION, $out['portfolio_allocation']);
+        $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::FIELD_OPERATOR_LEARNING_CAPTURE_DISABLED, $out['operator_learning_capture_disabled']);
+        $this->assertSame(OperatorLearningCaptureSchemaWatchdogCheck::FIELD_OPERATOR_LEARNING_SCHEMA_MISSING, $out['operator_learning_schema_missing']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SPEC_PACK, $out['spec_pack']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DELIVERY_PACK, $out['delivery_pack']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_ARCHITECT, $out['architect']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_ARCHITECT_AUTONOMOUS_AGENT_L4, $out['architect_autonomous_agent_l4']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_YES, $out['yes']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_DEFERRED, $out['deferred']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_AI_RAG_FEEDBACK_EVENTS, $out['ai_rag_feedback_events']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_ACOS_WATCHDOG, $out['acos_watchdog']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_CANDIDATE_SIGNAL, $out['candidate_signal']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_CITED_DATA_NOT_INSTRUCTION, $out['cited_data_not_instruction']);
+        $this->assertSame(18, $out['memory_recall_dogfooding_friction_portfolio_budget_operator_learning_floor_count']);
+    }
+
 }

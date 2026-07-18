@@ -296,6 +296,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_TOTAL_EVENT_COUNT_FLOOR = 'total_event_count_floor';
     public const FIELD_TRANSCRIPT_INFERRED = 'transcript_inferred';
     public const FIELD_TRANSCRIPT_INFERRED_SHARE = 'transcript_inferred_share';
+    public const FIELD_AI_RAG_FEEDBACK_EVENTS = 'ai_rag_feedback_events';
+    public const FIELD_ACOS_WATCHDOG = 'acos_watchdog';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -514,7 +516,7 @@ final class AtlasAcosWatchdogHealthService
     public function contextFeedbackHealthReport(): array
     {
         $since = CarbonImmutable::now('UTC')->subHours(self::FEEDBACK_WINDOW_HOURS);
-        if (! DatabaseTableAvailability::has('ai_rag_feedback_events')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_AI_RAG_FEEDBACK_EVENTS)) {
             return [
                 self::FIELD_SCHEMA_VERSION => self::CONTEXT_FEEDBACK_SCHEMA,
                 self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
@@ -954,7 +956,7 @@ final class AtlasAcosWatchdogHealthService
 
     private function latestRagDeliveredRefsAt(): ?CarbonImmutable
     {
-        if (! DatabaseTableAvailability::has('ai_rag_feedback_events')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_AI_RAG_FEEDBACK_EVENTS)) {
             return null;
         }
         $row = AiRagFeedbackEvent::query()
@@ -1036,7 +1038,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_OPERATOR_ID => 'system',
                 self::FIELD_ENVELOPE_ID => 'acos:watchdog:'.$scopeId.':'.now()->format('YmdHis'),
                 self::FIELD_CORRELATION_ID => 'acos:watchdog:'.$scopeId,
-                self::FIELD_SCOPE_TYPE => 'acos_watchdog',
+                self::FIELD_SCOPE_TYPE => self::FIELD_ACOS_WATCHDOG,
                 self::FIELD_SCOPE_ID => $scopeId,
                 self::FIELD_EMITTER_STAGE => 'atlas.acos.watchdog',
                 self::FIELD_EMITTER_VERSION => self::ONDA4_EMITTER_VERSION,

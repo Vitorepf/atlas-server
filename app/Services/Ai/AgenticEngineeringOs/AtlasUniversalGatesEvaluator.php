@@ -10421,4 +10421,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B416).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function memoryRecallDogfoodingFrictionPortfolioBudgetOperatorLearningFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'global' => AtlasMemoryRecallRelevanceScorer::FIELD_GLOBAL,
+            'registry' => AtlasMemoryRecallRelevanceScorer::FIELD_REGISTRY,
+            'dogfooding' => DogfoodingFrictionLeadMiner::FIELD_DOGFOODING,
+            'unknown_target' => DogfoodingFrictionLeadMiner::FIELD_UNKNOWN_TARGET,
+            'off' => PortfolioBudgetAllocator::FIELD_OFF,
+            'portfolio_allocation' => PortfolioBudgetAllocator::FIELD_PORTFOLIO_ALLOCATION,
+            'operator_learning_capture_disabled' => OperatorLearningCaptureSchemaWatchdogCheck::FIELD_OPERATOR_LEARNING_CAPTURE_DISABLED,
+            'operator_learning_schema_missing' => OperatorLearningCaptureSchemaWatchdogCheck::FIELD_OPERATOR_LEARNING_SCHEMA_MISSING,
+            'spec_pack' => DepartmentContractRuntime::FIELD_SPEC_PACK,
+            'delivery_pack' => DepartmentContractRuntime::FIELD_DELIVERY_PACK,
+            'architect' => AtlasAaeosDepartmentMaturityService::FIELD_ARCHITECT,
+            'architect_autonomous_agent_l4' => AtlasAaeosDepartmentMaturityService::FIELD_ARCHITECT_AUTONOMOUS_AGENT_L4,
+            'yes' => AaeosHttpPathEnvelopeFactory::FIELD_YES,
+            'deferred' => AaeosHttpPathEnvelopeFactory::FIELD_DEFERRED,
+            'ai_rag_feedback_events' => AtlasAcosWatchdogHealthService::FIELD_AI_RAG_FEEDBACK_EVENTS,
+            'acos_watchdog' => AtlasAcosWatchdogHealthService::FIELD_ACOS_WATCHDOG,
+            'candidate_signal' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_CANDIDATE_SIGNAL,
+            'cited_data_not_instruction' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_CITED_DATA_NOT_INSTRUCTION,
+            'memory_recall_dogfooding_friction_portfolio_budget_operator_learning_floor_count' => 18,
+        ];
+    }
+
 }

@@ -91,6 +91,8 @@ final class PortfolioBudgetAllocator
     public const FIELD_FLAG = 'flag';
     public const FIELD_STARVATION_FLOOR_ABSOLUTE = 'starvation_floor_absolute';
     public const FIELD_YIELD_RECOMPUTED_HERE = 'yield_recomputed_here';
+    public const FIELD_OFF = 'off';
+    public const FIELD_PORTFOLIO_ALLOCATION = 'portfolio_allocation';
 
     /**
      * @param  array<string,mixed>  $input keys:
@@ -141,7 +143,7 @@ final class PortfolioBudgetAllocator
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
-            self::FIELD_DECISION_KIND => 'portfolio_allocation',
+            self::FIELD_DECISION_KIND => self::FIELD_PORTFOLIO_ALLOCATION,
             self::FIELD_STATUS => $status,
             self::FIELD_ALLOCATION => $usedWeights,
             self::FIELD_DEFAULT_MIX => $default,
@@ -157,7 +159,7 @@ final class PortfolioBudgetAllocator
                 self::FIELD_CONSUMER_OF_MAXN_04 => true,
                 self::FIELD_CONSUMER_OF_MAXK_07 => true,
                 self::FIELD_FLAG => 'atlas.multk_06.portfolio_allocation_enabled',
-                self::FIELD_FLAG_DEFAULT => 'off',
+                self::FIELD_FLAG_DEFAULT => self::FIELD_OFF,
             ],
         ];
     }

@@ -438,6 +438,7 @@ final class AtlasAaeosCommand extends Command
                             {--context-nudge-acos-watchdog-lote-measure-autonomy-ladder-floors-contract= : JSON file (any object) to observe context/nudge/acos/watchdog/lote/measure floors}
                             {--aaeos-department-cognitive-measure-series-health-report-code-floors-contract= : JSON file (any object) to observe aaeos/department/cognitive/measure/series/health floors}
                             {--aaeos-veto-test-evidence-ledger-predicted-impact-provider-floors-contract= : JSON file (any object) to observe aaeos/veto/test/evidence/ledger/predicted floors}
+                            {--memory-recall-dogfooding-friction-portfolio-budget-operator-learning-floors-contract= : JSON file (any object) to observe memory/recall/dogfooding/friction/portfolio/budget floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1032,6 +1033,7 @@ final class AtlasAaeosCommand extends Command
             ['context-nudge-acos-watchdog-lote-measure-autonomy-ladder-floors-contract', 'context_nudge_acos_watchdog_lote_measure_autonomy_ladder_floors_contract', fn (array $p) => $gates->contextNudgeAcosWatchdogLoteMeasureAutonomyLadderFloorsContractObserve($p)],
             ['aaeos-department-cognitive-measure-series-health-report-code-floors-contract', 'aaeos_department_cognitive_measure_series_health_report_code_floors_contract', fn (array $p) => $gates->aaeosDepartmentCognitiveMeasureSeriesHealthReportCodeFloorsContractObserve($p)],
             ['aaeos-veto-test-evidence-ledger-predicted-impact-provider-floors-contract', 'aaeos_veto_test_evidence_ledger_predicted_impact_provider_floors_contract', fn (array $p) => $gates->aaeosVetoTestEvidenceLedgerPredictedImpactProviderFloorsContractObserve($p)],
+            ['memory-recall-dogfooding-friction-portfolio-budget-operator-learning-floors-contract', 'memory_recall_dogfooding_friction_portfolio_budget_operator_learning_floors_contract', fn (array $p) => $gates->memoryRecallDogfoodingFrictionPortfolioBudgetOperatorLearningFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

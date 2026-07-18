@@ -43,6 +43,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_SEVERITY = 'severity';
     public const FIELD_MEDIUM = 'medium';
     public const FIELD_HIGH = 'high';
+    public const FIELD_ARCHITECT = 'architect';
+    public const FIELD_ARCHITECT_AUTONOMOUS_AGENT_L4 = 'architect_autonomous_agent_l4';
 
     public const DEPARTMENTS = [
         [
@@ -54,10 +56,10 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],
         [
-            self::FIELD_DEPARTMENT_ID => 'architect',
+            self::FIELD_DEPARTMENT_ID => self::FIELD_ARCHITECT,
             self::FIELD_CURRENT_LEVEL => 'L3',
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#architect'],
-            self::FIELD_BLOCKER_ID => 'architect_autonomous_agent_l4',
+            self::FIELD_BLOCKER_ID => self::FIELD_ARCHITECT_AUTONOMOUS_AGENT_L4,
             self::FIELD_BLOCKER_SUMMARY => 'precisa Architect agent autonomo para L4',
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],

@@ -191,6 +191,8 @@ final class DepartmentContractRuntime
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_SPEC = 'spec';
     public const FIELD_SPEC_COMPLETENESS = 'spec_completeness';
+    public const FIELD_SPEC_PACK = 'spec_pack';
+    public const FIELD_DELIVERY_PACK = 'delivery_pack';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -279,7 +281,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => 'engineering_goal_disambiguated', self::FIELD_SCHEMA => self::SCHEMA_ENGINEERING_GOAL_DISAMBIGUATED],
             ],
             self::FIELD_OUTPUTS => [
-                [self::FIELD_NAME => 'spec_pack', self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
+                [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
                 [self::FIELD_NAME => 'migration_plan', self::FIELD_SCHEMA => self::SCHEMA_MIGRATION_PLAN],
             ],
             self::FIELD_GATES => ['adr_published', 'boundary_validated', 'spec_acceptance_criteria_complete', 'breaking_change_documented', 'rollback_per_slice'],
@@ -323,7 +325,7 @@ final class DepartmentContractRuntime
             self::FIELD_SCOPE => 'executa fast-path para intents R1-R3 (1-5 arquivos, baixo-médio risco) com governance leve',
             self::FIELD_TRIGGERS => ['intent_classification.target_department=dev', 'scope<=R3'],
             self::FIELD_INPUTS => [
-                [self::FIELD_NAME => 'spec_pack', self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
+                [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
                 [self::FIELD_NAME => 'task_pack', self::FIELD_SCHEMA => self::SCHEMA_TASK_PACK],
             ],
             self::FIELD_OUTPUTS => [
@@ -371,7 +373,7 @@ final class DepartmentContractRuntime
             self::FIELD_SCOPE => 'revisa patches/specs/migrations/release_packs com checklist canônico antes de cert',
             self::FIELD_TRIGGERS => ['delivery_pack_assembled=true', 'spec_pack_drafted=true'],
             self::FIELD_INPUTS => [
-                [self::FIELD_NAME => 'delivery_pack', self::FIELD_SCHEMA => self::SCHEMA_DELIVERY_PACK],
+                [self::FIELD_NAME => self::FIELD_DELIVERY_PACK, self::FIELD_SCHEMA => self::SCHEMA_DELIVERY_PACK],
             ],
             self::FIELD_OUTPUTS => [
                 [self::FIELD_NAME => 'review_report', self::FIELD_SCHEMA => self::SCHEMA_REVIEW_REPORT],
@@ -394,7 +396,7 @@ final class DepartmentContractRuntime
             self::FIELD_SCOPE => 'garante testabilidade, cobertura, regressão, contract tests e fixtures',
             self::FIELD_TRIGGERS => ['task_pack_decomposed=true', 'delivery_pack_assembled=true'],
             self::FIELD_INPUTS => [
-                [self::FIELD_NAME => 'spec_pack', self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
+                [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
                 [self::FIELD_NAME => 'patch_pack', self::FIELD_SCHEMA => self::SCHEMA_PATCH_PACK],
             ],
             self::FIELD_OUTPUTS => [
@@ -441,7 +443,7 @@ final class DepartmentContractRuntime
             self::FIELD_SCOPE => 'executa Obras pesadas multi-módulo R3-R5 com paralelismo, durable reservation, multi-provider',
             self::FIELD_TRIGGERS => ['intent_classification.target_department=forge', 'scope>=R3', 'multi_module_detected=true'],
             self::FIELD_INPUTS => [
-                [self::FIELD_NAME => 'spec_pack', self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
+                [self::FIELD_NAME => self::FIELD_SPEC_PACK, self::FIELD_SCHEMA => self::SCHEMA_SPEC_PACK],
                 [self::FIELD_NAME => 'topology_plan', self::FIELD_SCHEMA => self::SCHEMA_TOPOLOGY_PLAN],
             ],
             self::FIELD_OUTPUTS => [
@@ -469,7 +471,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => 'evidence_pack', self::FIELD_SCHEMA => self::SCHEMA_EVIDENCE_PACK],
             ],
             self::FIELD_OUTPUTS => [
-                [self::FIELD_NAME => 'delivery_pack', self::FIELD_SCHEMA => self::SCHEMA_DELIVERY_PACK],
+                [self::FIELD_NAME => self::FIELD_DELIVERY_PACK, self::FIELD_SCHEMA => self::SCHEMA_DELIVERY_PACK],
             ],
             self::FIELD_GATES => ['release_authority_declared', 'rollback_plan_present', 'delivery_pack_completeness_min_0_95', 'evidence_traceable'],
             self::FIELD_ALLOWED_ACTIONS => ['assemble_delivery_pack', 'sign_delivery_hash', 'request_human_review'],

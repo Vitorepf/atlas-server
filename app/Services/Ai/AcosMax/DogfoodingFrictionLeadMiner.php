@@ -29,6 +29,8 @@ final class DogfoodingFrictionLeadMiner
     public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
     public const FIELD_STATUS = 'status';
     public const FIELD_KIND = 'kind';
+    public const FIELD_DOGFOODING = 'dogfooding';
+    public const FIELD_UNKNOWN_TARGET = 'unknown_target';
 
     /**
      * @param  list<array<string,mixed>>  $events
@@ -53,7 +55,7 @@ final class DogfoodingFrictionLeadMiner
             $target = self::target($group);
             $leads[] = [
                 self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-                self::FIELD_CLASS => 'dogfooding',
+                self::FIELD_CLASS => self::FIELD_DOGFOODING,
                 self::FIELD_SIGNATURE => $signature,
                 self::FIELD_OCCURRENCES => count($group),
                 self::FIELD_TARGET => $target,
@@ -93,6 +95,6 @@ final class DogfoodingFrictionLeadMiner
             }
         }
 
-        return 'unknown_target';
+        return self::FIELD_UNKNOWN_TARGET;
     }
 }

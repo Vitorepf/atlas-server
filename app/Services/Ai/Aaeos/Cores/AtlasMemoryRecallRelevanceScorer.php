@@ -39,6 +39,8 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_TITLE = 'title';
     public const FIELD_TYPE = 'type';
     public const FIELD_USER = 'user';
+    public const FIELD_GLOBAL = 'global';
+    public const FIELD_REGISTRY = 'registry';
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -172,7 +174,7 @@ final class AtlasMemoryRecallRelevanceScorer
 
         return match ($source) {
             'semantic', self::FIELD_VERBATIM => $source,
-            default => 'registry',
+            default => self::FIELD_REGISTRY,
         };
     }
 
@@ -181,7 +183,7 @@ final class AtlasMemoryRecallRelevanceScorer
      */
     private function scopeOf(array $row): string
     {
-        return AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_SCOPE_TYPE] ?? $row[self::FIELD_SCOPE] ?? null) ?? 'global';
+        return AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_SCOPE_TYPE] ?? $row[self::FIELD_SCOPE] ?? null) ?? self::FIELD_GLOBAL;
     }
 
     /**

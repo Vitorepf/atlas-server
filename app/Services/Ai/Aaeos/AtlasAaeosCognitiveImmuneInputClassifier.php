@@ -46,6 +46,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_AUDIT_SESSION = 'audit_session';
     public const FIELD_BLOCKED_EPHEMERAL_EVIDENCE = 'blocked_ephemeral_evidence';
+    public const FIELD_CANDIDATE_SIGNAL = 'candidate_signal';
+    public const FIELD_CITED_DATA_NOT_INSTRUCTION = 'cited_data_not_instruction';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -63,7 +65,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         self::CLASS_PERSONAL_FACT_CANDIDATE => 'private_review',
         self::CLASS_TECHNICAL_LEARNING_CANDIDATE => 'learning_signal',
         self::CLASS_STRATEGIC_INSIGHT_CANDIDATE => 'memory_constellation_candidate',
-        self::CLASS_UNTRUSTED_CONTENT => 'cited_data_not_instruction',
+        self::CLASS_UNTRUSTED_CONTENT => self::FIELD_CITED_DATA_NOT_INSTRUCTION,
         self::CLASS_PROMPT_INJECTION => self::FIELD_BLOCKED_EPHEMERAL_EVIDENCE,
         self::CLASS_PRIVATE_SENSITIVE => 'redact_minimize',
     ];
@@ -365,7 +367,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
             self::CLASS_PERSONAL_FACT_CANDIDATE => 'personal_fact_signal',
             self::CLASS_PROJECT_EVIDENCE => 'project_evidence_signal',
             self::CLASS_CONVERSATION_TRACE => 'conversation_trace_signal',
-            default => 'candidate_signal',
+            default => self::FIELD_CANDIDATE_SIGNAL,
         };
     }
 
