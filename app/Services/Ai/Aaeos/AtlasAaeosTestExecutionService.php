@@ -59,6 +59,8 @@ class AtlasAaeosTestExecutionService
     public const FIELD_RAN_AT = 'ran_at';
     public const FIELD_METHOD = 'method';
     public const FIELD_BORN_STALE = 'born_stale';
+    public const FIELD_FRESH_HASHES = 'fresh_hashes';
+    public const FIELD_GIT_PORCELAIN = 'git_porcelain';
 
     public function __construct(
         private readonly float $timeout = 180.0,
@@ -287,9 +289,9 @@ class AtlasAaeosTestExecutionService
         return [
             'sealed' => $sealed,
             self::FIELD_BORN_STALE => ! $sealed,
-            'fresh_hashes' => $freshHashes,
+            self::FIELD_FRESH_HASHES => $freshHashes,
             self::FIELD_EXPLAIN => $sealed ? null : $truth->explainImplFilesHash($evidenceRefs),
-            'git_porcelain' => $this->gitPorcelainForensics(),
+            self::FIELD_GIT_PORCELAIN => $this->gitPorcelainForensics(),
         ];
     }
 

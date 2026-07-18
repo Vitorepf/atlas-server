@@ -73,6 +73,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
     public const FIELD_THRESHOLDS = 'thresholds';
     public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
     public const FIELD_DENOMINATOR_MIN_ACTIVE_ITEMS = 'denominator_min_active_items';
+    public const FIELD_MISSING_DEFINITION = 'missing_definition';
+    public const FIELD_PATH = 'path';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -86,7 +88,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
                 'target_coverage_ratio' => 1.0,
                 self::FIELD_DENOMINATOR_MIN_ACTIVE_ITEMS => 1,
                 'stale_definition' => 'embedded_content_hash != content_hash',
-                'missing_definition' => 'embedding_model IS NULL OR embedded_content_hash IS NULL',
+                self::FIELD_MISSING_DEFINITION => 'embedding_model IS NULL OR embedded_content_hash IS NULL',
                 'scope' => 'active_items_only',
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
@@ -96,7 +98,7 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
             self::FIELD_DUAL_READ_REQUIRED => false,
             'series_registry' => [
                 'series' => self::MEASURE_ID,
-                'path' => 'atlas:memory:kb-embedding-coverage --json',
+                self::FIELD_PATH => 'atlas:memory:kb-embedding-coverage --json',
                 'source_type' => 'computed_reader_field',
             ],
         ];

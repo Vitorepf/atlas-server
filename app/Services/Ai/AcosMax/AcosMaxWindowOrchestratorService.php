@@ -52,6 +52,8 @@ final class AcosMaxWindowOrchestratorService
     public const FIELD_CRITICAL_PATH = 'critical_path';
     public const FIELD_ALERTS = 'alerts';
     public const FIELD_DAYS_ELAPSED = 'days_elapsed';
+    public const FIELD_DURATION_DAYS = 'duration_days';
+    public const FIELD_LAST_DATA_AT = 'last_data_at';
 
 
     public function __construct(
@@ -166,7 +168,7 @@ final class AcosMaxWindowOrchestratorService
             self::FIELD_FAMILY => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_FAMILY] ?? null) ?? ''),
             self::FIELD_SLICE => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SLICE] ?? null) ?? ''),
             'minimum_window' => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SHADOW_MINIMUM_WINDOW] ?? null) ?? ''),
-            'duration_days' => $durationDays,
+            self::FIELD_DURATION_DAYS => $durationDays,
             self::FIELD_DEPENDS_ON => array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($entry[self::FIELD_DEPENDS_ON] ?? null))),
             self::FIELD_SERIES => $series[self::FIELD_SERIES] ?? null,
         ];
@@ -257,7 +259,7 @@ final class AcosMaxWindowOrchestratorService
             self::FIELD_SLICE => $window[self::FIELD_SLICE],
             self::FIELD_SERIES => $series[self::FIELD_SERIES] ?? null,
             'silent_days' => $silentDays,
-            'last_data_at' => $lastDataAt?->format(DateTimeInterface::ATOM),
+            self::FIELD_LAST_DATA_AT => $lastDataAt?->format(DateTimeInterface::ATOM),
             self::FIELD_REASON => $lastDataAt === null ? 'no_series_data_since_window_start' : 'series_stale_during_window',
         ];
     }

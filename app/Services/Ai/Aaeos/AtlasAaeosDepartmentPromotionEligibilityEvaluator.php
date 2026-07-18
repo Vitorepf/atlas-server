@@ -41,6 +41,8 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     public const FIELD_DEFICIT = 'deficit';
     public const FIELD_ELIGIBILITY_HASH = 'eligibility_hash';
     public const FIELD_FRESHNESS = 'freshness';
+    public const FIELD_ID = 'id';
+    public const FIELD_LAST_EVALUATION = 'last_evaluation';
 
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department
@@ -156,7 +158,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
                 continue;
             }
 
-            $unresolved[] = $this->stringValue($blocker['id'] ?? '');
+            $unresolved[] = $this->stringValue($blocker[self::FIELD_ID] ?? '');
         }
 
         $unresolved = $this->uniqueSortedStrings($unresolved);
@@ -214,7 +216,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     private function evaluateFreshness(array $department, array $options): array
     {
         $maxAgeDays = $this->intValue($options['max_evidence_age_days'] ?? self::DEFAULT_MAX_EVIDENCE_AGE_DAYS, self::DEFAULT_MAX_EVIDENCE_AGE_DAYS);
-        $lastEvaluation = AiValueNormalizer::trimmedStringOrNull($department['last_evaluation'] ?? null) ?? '';
+        $lastEvaluation = AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_LAST_EVALUATION] ?? null) ?? '';
         $asOf = AiValueNormalizer::trimmedStringOrNull($options[self::FIELD_AS_OF] ?? null) ?? date(DATE_ATOM);
 
         $lastEvaluationTimestamp = $this->timestampFromIso($lastEvaluation);

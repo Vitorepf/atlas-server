@@ -7124,4 +7124,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b375_n_capture_domain_lexical_evidence_vision_execution_context_floor_count']);
     }
 
+    public function test_aaeos_test_window_orchestrator_code_symbol_knowledge_item_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->aaeosTestWindowOrchestratorCodeSymbolKnowledgeItemFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_FRESH_HASHES, $out['fresh_hashes']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_GIT_PORCELAIN, $out['git_porcelain']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_DURATION_DAYS, $out['duration_days']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_LAST_DATA_AT, $out['last_data_at']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_JUDGE_ENGINE_ID, $out['judge_engine_id']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_MISSING_DEFINITION, $out['missing_definition']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_MISSING_DEFINITION, $out['missing_definition']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_PATH, $out['path']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_DIMENSIONS, $out['dimensions']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_EXECUCAO_PROVADA, $out['execucao_provada']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_DELTA_SERIES_APPEND_ONLY_INPUT, $out['delta_series_append_only_input']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_DIMENSIONS, $out['dimensions']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_EVALUATIONS, $out['evaluations']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_FLIP_COUNT, $out['flip_count']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_LAST_EVALUATION, $out['last_evaluation']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_MOTHER_DOC, $out['mother_doc']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_RATIONALE, $out['rationale']);
+        $this->assertSame(18, $out['aaeos_test_window_orchestrator_code_symbol_knowledge_item_floor_count']);
+    }
+
 }

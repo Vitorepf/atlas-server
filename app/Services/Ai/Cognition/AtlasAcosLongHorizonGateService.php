@@ -131,6 +131,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_CERTIFICATION_WINDOW_SAMPLE_COUNT = 'certification_window_sample_count';
     public const FIELD_CERTIFICATION_WINDOW_START = 'certification_window_start';
     public const FIELD_COMPLETION_REQUIRES_REAL_30D_WINDOW = 'completion_requires_real_30d_window';
+    public const FIELD_DELTA_SERIES_APPEND_ONLY_INPUT = 'delta_series_append_only_input';
+    public const FIELD_DIMENSIONS = 'dimensions';
 
     /**
      * @param  array<string,mixed>  $options
@@ -872,7 +874,7 @@ final class AtlasAcosLongHorizonGateService
             self::FIELD_SCHEMA_VERSION => AtlasCognitionScoreCardService::SCHEMA_VERSION,
             'score' => [
                 'overall_out_of_10' => $overall,
-                'dimensions' => [
+                self::FIELD_DIMENSIONS => [
                     self::FIELD_CODE => [self::FIELD_SCORE_OUT_OF_10 => 10],
                     self::FIELD_DOC => [self::FIELD_SCORE_OUT_OF_10 => 9.5],
                     self::FIELD_PIPELINE => [self::FIELD_SCORE_OUT_OF_10 => $pipeline],
@@ -949,7 +951,7 @@ final class AtlasAcosLongHorizonGateService
             ],
             self::FIELD_CLAIM_POLICY => [
                 'scorecard_resolved_evidence_only' => true,
-                'delta_series_append_only_input' => true,
+                self::FIELD_DELTA_SERIES_APPEND_ONLY_INPUT => true,
                 'does_not_mint_receipts' => true,
                 'does_not_backfill_time' => true,
                 'does_not_inflate_score' => true,

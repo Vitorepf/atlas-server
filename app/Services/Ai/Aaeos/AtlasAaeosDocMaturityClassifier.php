@@ -61,6 +61,8 @@ final class AtlasAaeosDocMaturityClassifier
     public const STRENGTH_STRONG = 'strong';
     public const FIELD_CONTRACTS = 'contracts';
     public const FIELD_LEVEL = 'level';
+    public const FIELD_MOTHER_DOC = 'mother_doc';
+    public const FIELD_RATIONALE = 'rationale';
 
     /** @var list<string> */
     public const LEVELS = [
@@ -126,7 +128,7 @@ final class AtlasAaeosDocMaturityClassifier
             'runtime_ready' => false,
             'satisfied' => $this->satisfiedRequirements($hasMother, $hasContracts, $signalStrengths, $runbook),
             self::FIELD_MISSING_FOR_NEXT => $this->missingForNext($ordinal, $hasMother, $hasContracts, $runbook, $signalStrengths),
-            'rationale' => $rationale,
+            self::FIELD_RATIONALE => $rationale,
         ];
     }
 
@@ -231,7 +233,7 @@ final class AtlasAaeosDocMaturityClassifier
     private function missingForNext(int $ordinal, bool $hasMother, bool $hasContracts, string $runbook, array $signalStrengths): array
     {
         return match ($ordinal) {
-            0 => $hasMother ? [] : ['mother_doc'],
+            0 => $hasMother ? [] : [self::FIELD_MOTHER_DOC],
             1 => $hasContracts ? [] : [self::FIELD_CONTRACTS],
             2 => $runbook === self::STRENGTH_STRONG ? [] : ['runbook'],
             3 => $this->weakSignals($signalStrengths),

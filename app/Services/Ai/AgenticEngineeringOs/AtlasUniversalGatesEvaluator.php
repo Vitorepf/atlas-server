@@ -9180,4 +9180,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B376).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function aaeosTestWindowOrchestratorCodeSymbolKnowledgeItemFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'fresh_hashes' => AtlasAaeosTestExecutionService::FIELD_FRESH_HASHES,
+            'git_porcelain' => AtlasAaeosTestExecutionService::FIELD_GIT_PORCELAIN,
+            'duration_days' => AcosMaxWindowOrchestratorService::FIELD_DURATION_DAYS,
+            'last_data_at' => AcosMaxWindowOrchestratorService::FIELD_LAST_DATA_AT,
+            'judge_engine_id' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_JUDGE_ENGINE_ID,
+            'missing_definition' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_MISSING_DEFINITION,
+            'missing_definition' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_MISSING_DEFINITION,
+            'path' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_PATH,
+            'dimensions' => AtlasAcosEvolutionScoreService::FIELD_DIMENSIONS,
+            'execucao_provada' => AtlasAcosEvolutionScoreService::FIELD_EXECUCAO_PROVADA,
+            'delta_series_append_only_input' => AtlasAcosLongHorizonGateService::FIELD_DELTA_SERIES_APPEND_ONLY_INPUT,
+            'dimensions' => AtlasAcosLongHorizonGateService::FIELD_DIMENSIONS,
+            'evaluations' => AtlasAcosRollbackTriggerCheckService::FIELD_EVALUATIONS,
+            'flip_count' => AtlasAcosRollbackTriggerCheckService::FIELD_FLIP_COUNT,
+            'id' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_ID,
+            'last_evaluation' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_LAST_EVALUATION,
+            'mother_doc' => AtlasAaeosDocMaturityClassifier::FIELD_MOTHER_DOC,
+            'rationale' => AtlasAaeosDocMaturityClassifier::FIELD_RATIONALE,
+            'aaeos_test_window_orchestrator_code_symbol_knowledge_item_floor_count' => 18,
+        ];
+    }
+
 }

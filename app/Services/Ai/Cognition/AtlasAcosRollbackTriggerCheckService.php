@@ -54,6 +54,8 @@ final class AtlasAcosRollbackTriggerCheckService
     public const REASON_SIMULATED_CONDITION = 'simulated_condition';
     public const FIELD_ALERTS = 'alerts';
     public const FIELD_CONDITION = 'condition';
+    public const FIELD_EVALUATIONS = 'evaluations';
+    public const FIELD_FLIP_COUNT = 'flip_count';
 
 
     /**
@@ -111,8 +113,8 @@ final class AtlasAcosRollbackTriggerCheckService
             self::STATUS_ALERT => $alert,
             self::FIELD_ALERT_CODE => $alert ? 'rollback_trigger_fired' : null,
             self::FIELD_ENABLED => $enabled,
-            'flip_count' => count($evaluations),
-            'evaluations' => $evaluations,
+            self::FIELD_FLIP_COUNT => count($evaluations),
+            self::FIELD_EVALUATIONS => $evaluations,
             self::FIELD_ALERTS => $alerts,
         ];
     }

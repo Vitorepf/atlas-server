@@ -71,6 +71,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_THRESHOLDS = 'thresholds';
     public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
     public const FIELD_DEFAULT_SWITCH = 'default_switch';
+    public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
+    public const FIELD_MISSING_DEFINITION = 'missing_definition';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
@@ -84,14 +86,14 @@ final class AtlasCodeSymbolEmbeddingCoverageService
                 'target_coverage_ratio' => 1.0,
                 self::FIELD_DENOMINATOR_MIN_ACTIVE_SYMBOLS => 1,
                 'stale_definition' => 'atlas_code_symbol_embeddings.embedded_content_hash != atlas_engineering_code_symbols.source_hash',
-                'missing_definition' => 'no matching row in atlas_code_symbol_embeddings for symbol_id',
+                self::FIELD_MISSING_DEFINITION => 'no matching row in atlas_code_symbol_embeddings for symbol_id',
                 'scope' => 'active_symbols_only',
                 self::FIELD_DEFAULT_SWITCH => 'off',
             ],
             self::FIELD_DENOMINATOR_MIN => 1,
             'ttl_days' => 60,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxa06-fase2',
-            'judge_engine_id' => 'codex-independent-maxa06-fase2-judge',
+            self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-maxa06-fase2-judge',
             self::FIELD_DUAL_READ_REQUIRED => false,
             'series_registry' => [
                 'series' => self::MEASURE_ID,
