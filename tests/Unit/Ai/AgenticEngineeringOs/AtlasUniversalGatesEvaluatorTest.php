@@ -14074,4 +14074,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b655_blocker_severity_mission_control_floor_count']);
     }
 
+    public function test_b656_mission_control_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b656MissionControlFloorsContractObserve([]);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasMissionControlCockpitService::SCHEMA_VERSION, $out['atlas.aaeos.mission_control_cockpit.v1']);
+        $this->assertSame(AtlasMissionControlCockpitService::STATUS_PENDING, $out['pending']);
+        $this->assertSame(AtlasMissionControlCockpitService::STATUS_SKIPPED, $out['skipped']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_BLOCKED, $out['blocked']);
+        $this->assertSame(AtlasMissionControlCockpitService::STATUS_COMPLETE, $out['complete']);
+        $this->assertSame(AtlasMissionControlCockpitService::STATUS_IN_PROGRESS, $out['in_progress']);
+        $this->assertSame(AtlasMissionControlCockpitService::STATUS_SUCCEEDED, $out['succeeded']);
+        $this->assertSame(AtlasMissionControlCockpitService::STATUS_FAILED, $out['failed']);
+        $this->assertSame(AtlasMissionControlCockpitService::OUTCOME_GREEN, $out['green']);
+        $this->assertSame(AtlasMissionControlCockpitService::OUTCOME_RED, $out['red']);
+        $this->assertSame(AtlasMissionControlCockpitService::OUTCOME_EXCEPTION, $out['exception']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_BLOCKED, $out['blocked']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_PASSED, $out['passed']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_MISSING, $out['missing']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_PHASE, $out['phase']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_INDEX, $out['index']);
+        $this->assertSame(18, $out['b656_mission_control_floor_count']);
+    }
+
 }
