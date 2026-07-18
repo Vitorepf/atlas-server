@@ -43,6 +43,8 @@ final class AtlasAaeosPhaseRouterService
     public const FIELD_LEGACY_HTTP_PATH__AAEOS_FACADE_INACTIVE_ = 'Legacy HTTP path; AAEOS facade inactive.';
     public const FIELD_PHASE_1__PLACEMENT_GATE_ACTIVE_ = 'Phase 1; placement gate active.';
     public const FIELD_PHASE_2__CLASSIFICATION_AND_POLICY_GATES_ACTIVE_ = 'Phase 2; classification and policy gates active.';
+    public const FIELD_PHASE_3__TOPOLOGY_AND_ROUTING_ENVELOPES_ACTIVE_ = 'Phase 3; topology and routing envelopes active.';
+    public const FIELD_PHASE_4__SPEC__TASKS_AND_RECEIPT_ENVELOPES_ACTIVE_ = 'Phase 4; spec, tasks and receipt envelopes active.';
     public const INT_4 = 4;
     public const INT_2 = 2;
     public const INT_3 = 3;
@@ -66,8 +68,8 @@ final class AtlasAaeosPhaseRouterService
         self::PHASE_LEGACY => self::FIELD_LEGACY_HTTP_PATH__AAEOS_FACADE_INACTIVE_,
         self::PHASE_1 => self::FIELD_PHASE_1__PLACEMENT_GATE_ACTIVE_,
         self::PHASE_2 => self::FIELD_PHASE_2__CLASSIFICATION_AND_POLICY_GATES_ACTIVE_,
-        self::PHASE_3 => 'Phase 3; topology and routing envelopes active.',
-        self::PHASE_4 => 'Phase 4; spec, tasks and receipt envelopes active.',
+        self::PHASE_3 => self::FIELD_PHASE_3__TOPOLOGY_AND_ROUTING_ENVELOPES_ACTIVE_,
+        self::PHASE_4 => self::FIELD_PHASE_4__SPEC__TASKS_AND_RECEIPT_ENVELOPES_ACTIVE_,
     ];
 
     private readonly string $configuredPhase;

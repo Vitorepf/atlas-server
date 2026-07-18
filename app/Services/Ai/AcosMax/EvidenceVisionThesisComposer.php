@@ -121,6 +121,8 @@ final class EvidenceVisionThesisComposer
     public const FIELD_PREDICTED_IMPACT = 'predicted-impact';
     public const FIELD_ARCHIVE_WHEN_HIGH_BAND_REALIZED_RATE____SWEET_BAND___0_15 = 'archive when high_band realized_rate >= sweet_band - 0.15';
     public const FIELD_ARCHIVE_WHEN_OPEN_EVIDENCE_ROWS_FOR_ = 'archive when open evidence rows for ';
+    public const FIELD_ARCHIVE_WHEN_PATH_ = 'archive when path ';
+    public const FIELD_LEDGER_CLUSTER_AT_ = 'ledger cluster at ';
     public const INT_3 = 3;
     public const INT_2 = 2;
 
@@ -449,7 +451,7 @@ final class EvidenceVisionThesisComposer
             $theses[] = [
                 self::FIELD_THESIS_ID => $thesisId,
                 self::FIELD_STATUS => self::STATUS_ACTIVE,
-                self::FIELD_CLAIM => 'ledger cluster at '.$target.' with '.count($rows).' independent evidence rows',
+                self::FIELD_CLAIM => self::FIELD_LEDGER_CLUSTER_AT_.$target.' with '.count($rows).' independent evidence rows',
                 self::FIELD_EVIDENCE => $refs,
                 self::FIELD_DEATH_CRITERION => [
                     self::FIELD_KIND => self::KIND_LEAD_CLUSTER_CLEARED,
@@ -508,7 +510,7 @@ final class EvidenceVisionThesisComposer
                 ),
                 self::FIELD_DEATH_CRITERION => [
                     self::FIELD_KIND => self::KIND_OUTCOME_PROVEN,
-                    self::FIELD_DESCRIBED_AT_BIRTH => 'archive when path '.$path.' records proven_real=true',
+                    self::FIELD_DESCRIBED_AT_BIRTH => self::FIELD_ARCHIVE_WHEN_PATH_.$path.' records proven_real=true',
                 ],
                 self::FIELD_ALIGNMENT_KEYS => [$path],
                 self::FIELD_BORN_AT => $bornAt,

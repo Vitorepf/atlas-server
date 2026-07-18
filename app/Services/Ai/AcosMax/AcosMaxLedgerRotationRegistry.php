@@ -96,6 +96,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ELEV_25_REVIEW_DEBT_WATCHDOG_TRAIL = 'ELEV-25 review-debt watchdog trail';
     public const FIELD_ELEV_27_JOINT_BUDGET_READER__WATCHDOG_SNAPSHOT_CADENCE = 'ELEV-27 joint budget reader; watchdog snapshot cadence';
     public const FIELD_ESP_00_GROUND_TRUTH_RECEIPT__AUDIT_FOREVER = 'ESP-00 ground-truth receipt; audit forever';
+    public const FIELD_ESP_03_PER_LANDING_ATTESTATION_SEAL__PER_COMMIT_CADENCE = 'ESP-03 per-landing attestation seal; per-commit cadence';
+    public const FIELD_ESP_05_ZERO_WEIGHT_OUTCOMES = 'ESP-05 zero-weight outcomes';
     public const INT_8 = 8;
     public const INT_64 = 64;
     public const INT_45 = 45;
@@ -244,7 +246,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'ESP-05 zero-weight outcomes',
+                self::FIELD_RATIONALE => self::FIELD_ESP_05_ZERO_WEIGHT_OUTCOMES,
             ],
             self::FIELD_ATLAS_ESP_06_OUTCOME_ENVELOPE_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
@@ -346,7 +348,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'ESP-03 per-landing attestation seal; per-commit cadence',
+                self::FIELD_RATIONALE => self::FIELD_ESP_03_PER_LANDING_ATTESTATION_SEAL__PER_COMMIT_CADENCE,
             ],
             self::FIELD_ATLAS_PROVIDER_LEAK_CORPUS_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_8,

@@ -158,6 +158,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_CHAIN_IMPLEMENTED__S_AUDITED__S_TIER__S_SIGNED__S = 'chain implemented=%s audited=%s tier=%s signed=%s';
     public const FIELD_HEARTBEAT_DO_COM_ATLAS_SCHEDULER_ = 'heartbeat do com.atlas.scheduler ';
     public const FIELD_HEARTBEAT_FRESH__S_ORGANS_SCHEDULED__D__D = 'heartbeat_fresh=%s organs_scheduled=%d/%d';
+    public const FIELD_INDISPON_VEL = 'indisponível';
+    public const FIELD_LEG_VEL = 'legível';
     public const FLOAT_2_5 = 2.5;
     public const FLOAT_10_0 = 10.0;
 
@@ -340,7 +342,7 @@ class AtlasAcosEvolutionScoreService
             self::FIELD_MAX => self::FLOAT_2_5,
             self::FIELD_EVIDENCE => sprintf(
                 'master_switch=%s tier_exposed=%s governanca_autonoma=%s',
-                $switchReadable ? 'legível' : 'indisponível',
+                $switchReadable ? self::FIELD_LEG_VEL : self::FIELD_INDISPON_VEL,
                 $chain[self::FIELD_TIER_EXPOSED] ? self::FIELD_YES : self::FIELD_NO,
                 $governance[self::FIELD_EVIDENCE],
             ),

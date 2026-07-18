@@ -12537,4 +12537,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b593_ledger_rotation_cognition_score_department_contract_acos_evolution_floor_count']);
     }
 
+    public function test_b594_ledger_rotation_cognition_score_department_contract_acos_evolution_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b594LedgerRotationCognitionScoreDepartmentContractAcosEvolutionFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ESP_03_PER_LANDING_ATTESTATION_SEAL__PER_COMMIT_CADENCE, $out['ESP-03 per-landing attestation seal; per-commit cadence']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ESP_05_ZERO_WEIGHT_OUTCOMES, $out['ESP-05 zero-weight outcomes']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ATLAS_SCHEDULER_OS__CRON_24_7_, $out['Atlas Scheduler OS (Cron 24/7)']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_COGNITIVE_FUNCTION_DECOMPOSER__6_AXIS_, $out['Cognitive Function Decomposer (6-axis)']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_FAILURE_INVESTIGATION__REPAIR_ORCHESTRATION__ESCALATION_TRIGGERS_, $out['Failure investigation, repair orchestration, escalation triggers.']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_HEAVY_OBRAS_WITH_PROVIDER_TOPOLOGY___MULTI_AGENT_SCHEDULER_, $out['Heavy Obras with provider topology + multi-agent scheduler.']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_INDISPON_VEL, $out['indisponível']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_LEG_VEL, $out['legível']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_MEM_09_MEMORY_QUALITY_WATCHDOG_IS_NOT_GREEN_, $out['MEM-09 memory quality watchdog is not green.']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_OPE_08_LIFT_CYCLE_BLOCKERS_ARE_NOT_CLOSING_, $out['OPE-08 lift cycle blockers are not closing.']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FALTA_MERGE_REVIEW_PROMOTION_R5_GOVERNADO, $out['falta merge review promotion R5 governado']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_FALTA_SURFACE_MOBILE_COMPLETA_PARA_L4, $out['falta surface mobile completa para L4']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_ARCHIVE_WHEN_PATH_, $out['archive when path ']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_LEDGER_CLUSTER_AT_, $out['ledger cluster at ']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_PHASE_3__TOPOLOGY_AND_ROUTING_ENVELOPES_ACTIVE_, $out['Phase 3; topology and routing envelopes active.']);
+        $this->assertSame(AtlasAaeosPhaseRouterService::FIELD_PHASE_4__SPEC__TASKS_AND_RECEIPT_ENVELOPES_ACTIVE_, $out['Phase 4; spec, tasks and receipt envelopes active.']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_MEM_RIA, $out['memória']);
+        $this->assertSame(DomainLexicalNormalizer::FIELD_VERIFICA__O, $out['verificação']);
+        $this->assertSame(18, $out['b594_ledger_rotation_cognition_score_department_contract_acos_evolution_floor_count']);
+    }
+
 }

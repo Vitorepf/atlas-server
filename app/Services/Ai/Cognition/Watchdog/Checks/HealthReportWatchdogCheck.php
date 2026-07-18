@@ -61,13 +61,15 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_CPT_09_COMPACTION_SOAK_IS_NOT_READY_FOR_ENFORCE_ = 'CPT-09 compaction soak is not ready for enforce.';
     public const FIELD_ENG_11_ENFORCEMENT_FLIPS_ARE_NOT_READY_FOR_PROMOTION_ = 'ENG-11 enforcement flips are not ready for promotion.';
     public const FIELD_FEE_13_LEARNING_CADENCE_IS_STALLED_OR_UNDER_EVIDENCED_ = 'FEE-13 learning cadence is stalled or under-evidenced.';
+    public const FIELD_MEM_09_MEMORY_QUALITY_WATCHDOG_IS_NOT_GREEN_ = 'MEM-09 memory quality watchdog is not green.';
+    public const FIELD_OPE_08_LIFT_CYCLE_BLOCKERS_ARE_NOT_CLOSING_ = 'OPE-08 lift cycle blockers are not closing.';
 
     public const CATALOG = [
         [
             self::FIELD_ID => self::FIELD_MEM_09_MEMORY_QUALITY,
             self::FIELD_REPORT_METHOD => self::FIELD_MEMORY_QUALITY_CHECK,
             self::FIELD_ALERT_CODE => self::FIELD_MEMORY_QUALITY_CHECK_FAILED,
-            self::FIELD_MESSAGE => 'MEM-09 memory quality watchdog is not green.',
+            self::FIELD_MESSAGE => self::FIELD_MEM_09_MEMORY_QUALITY_WATCHDOG_IS_NOT_GREEN_,
         ],
         [
             self::FIELD_ID => self::FIELD_FEE_13_LEARNING_CADENCE,
@@ -109,7 +111,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_ID => self::FIELD_OPE_08_LIFT_CYCLE_CLOSURE,
             self::FIELD_REPORT_METHOD => self::FIELD_LIFT_CYCLE_CLOSURE_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_LIFT_CYCLE_CLOSURE_STALLED,
-            self::FIELD_MESSAGE => 'OPE-08 lift cycle blockers are not closing.',
+            self::FIELD_MESSAGE => self::FIELD_OPE_08_LIFT_CYCLE_BLOCKERS_ARE_NOT_CLOSING_,
         ],
         [
             self::FIELD_ID => self::FIELD_OPE_10_SCORECARD_RECEIPTS_DIAGNOSIS,

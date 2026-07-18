@@ -15878,4 +15878,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B594).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b594LedgerRotationCognitionScoreDepartmentContractAcosEvolutionFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ESP-03 per-landing attestation seal; per-commit cadence' => AcosMaxLedgerRotationRegistry::FIELD_ESP_03_PER_LANDING_ATTESTATION_SEAL__PER_COMMIT_CADENCE,
+            'ESP-05 zero-weight outcomes' => AcosMaxLedgerRotationRegistry::FIELD_ESP_05_ZERO_WEIGHT_OUTCOMES,
+            'Atlas Scheduler OS (Cron 24/7)' => AtlasCognitionScoreCardService::FIELD_ATLAS_SCHEDULER_OS__CRON_24_7_,
+            'Cognitive Function Decomposer (6-axis)' => AtlasCognitionScoreCardService::FIELD_COGNITIVE_FUNCTION_DECOMPOSER__6_AXIS_,
+            'Failure investigation, repair orchestration, escalation triggers.' => DepartmentContractRuntime::FIELD_FAILURE_INVESTIGATION__REPAIR_ORCHESTRATION__ESCALATION_TRIGGERS_,
+            'Heavy Obras with provider topology + multi-agent scheduler.' => DepartmentContractRuntime::FIELD_HEAVY_OBRAS_WITH_PROVIDER_TOPOLOGY___MULTI_AGENT_SCHEDULER_,
+            'indisponível' => AtlasAcosEvolutionScoreService::FIELD_INDISPON_VEL,
+            'legível' => AtlasAcosEvolutionScoreService::FIELD_LEG_VEL,
+            'MEM-09 memory quality watchdog is not green.' => HealthReportWatchdogCheck::FIELD_MEM_09_MEMORY_QUALITY_WATCHDOG_IS_NOT_GREEN_,
+            'OPE-08 lift cycle blockers are not closing.' => HealthReportWatchdogCheck::FIELD_OPE_08_LIFT_CYCLE_BLOCKERS_ARE_NOT_CLOSING_,
+            'falta merge review promotion R5 governado' => AtlasAaeosDepartmentMaturityService::FIELD_FALTA_MERGE_REVIEW_PROMOTION_R5_GOVERNADO,
+            'falta surface mobile completa para L4' => AtlasAaeosDepartmentMaturityService::FIELD_FALTA_SURFACE_MOBILE_COMPLETA_PARA_L4,
+            'archive when path ' => EvidenceVisionThesisComposer::FIELD_ARCHIVE_WHEN_PATH_,
+            'ledger cluster at ' => EvidenceVisionThesisComposer::FIELD_LEDGER_CLUSTER_AT_,
+            'Phase 3; topology and routing envelopes active.' => AtlasAaeosPhaseRouterService::FIELD_PHASE_3__TOPOLOGY_AND_ROUTING_ENVELOPES_ACTIVE_,
+            'Phase 4; spec, tasks and receipt envelopes active.' => AtlasAaeosPhaseRouterService::FIELD_PHASE_4__SPEC__TASKS_AND_RECEIPT_ENVELOPES_ACTIVE_,
+            'memória' => DomainLexicalNormalizer::FIELD_MEM_RIA,
+            'verificação' => DomainLexicalNormalizer::FIELD_VERIFICA__O,
+            'b594_ledger_rotation_cognition_score_department_contract_acos_evolution_floor_count' => 18,
+        ];
+    }
+
 }

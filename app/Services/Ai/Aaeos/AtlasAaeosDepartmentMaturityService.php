@@ -74,6 +74,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_FALTA_AUTOMATED_ROOT_CAUSE_PARA_L3 = 'falta automated root-cause para L3';
     public const FIELD_FALTA_CONTRACT_TESTING_E2_E = 'falta contract testing E2E';
     public const FIELD_FALTA_CROSS_SESSION_HANDOFF_PACK_L4 = 'falta cross-session handoff pack L4';
+    public const FIELD_FALTA_MERGE_REVIEW_PROMOTION_R5_GOVERNADO = 'falta merge review promotion R5 governado';
+    public const FIELD_FALTA_SURFACE_MOBILE_COMPLETA_PARA_L4 = 'falta surface mobile completa para L4';
 
     public const DEPARTMENTS = [
         [
@@ -81,7 +83,7 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_CURRENT_LEVEL => self::FIELD_L3,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#product'],
             self::FIELD_BLOCKER_ID => self::FIELD_PRODUCT_MOBILE_SURFACE_L4,
-            self::FIELD_BLOCKER_SUMMARY => 'falta surface mobile completa para L4',
+            self::FIELD_BLOCKER_SUMMARY => self::FIELD_FALTA_SURFACE_MOBILE_COMPLETA_PARA_L4,
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],
         [
@@ -145,7 +147,7 @@ final class AtlasAaeosDepartmentMaturityService
             self::FIELD_CURRENT_LEVEL => self::FIELD_L4,
             self::FIELD_EVIDENCE => ['docs/engineering-knowledge-base/atlas-aaeos-department-maturity-matrix.md#forge'],
             self::FIELD_BLOCKER_ID => self::FIELD_FORGE_MERGE_REVIEW_PROMOTION_R5,
-            self::FIELD_BLOCKER_SUMMARY => 'falta merge review promotion R5 governado',
+            self::FIELD_BLOCKER_SUMMARY => self::FIELD_FALTA_MERGE_REVIEW_PROMOTION_R5_GOVERNADO,
             self::FIELD_BLOCKER_SEVERITY => self::FIELD_MEDIUM,
         ],
         [

@@ -466,6 +466,8 @@ final class DepartmentContractRuntime
     public const FIELD_CODE_SPEC_REVIEW__BOTTLENECK_AGAINST_WEAK_CLAIMS_ = 'Code/spec review; bottleneck against weak claims.';
     public const FIELD_DECIDES_SYSTEM_DESIGN__ADRS__TECHNICAL_BOUNDARIES_ = 'Decides system design, ADRs, technical boundaries.';
     public const FIELD_EVIDENCE_LEDGER__LEARNING__COMPOUNDING_SIGNAL_EXTRACTION_ = 'Evidence ledger, learning, compounding signal extraction.';
+    public const FIELD_FAILURE_INVESTIGATION__REPAIR_ORCHESTRATION__ESCALATION_TRIGGERS_ = 'Failure investigation, repair orchestration, escalation triggers.';
+    public const FIELD_HEAVY_OBRAS_WITH_PROVIDER_TOPOLOGY___MULTI_AGENT_SCHEDULER_ = 'Heavy Obras with provider topology + multi-agent scheduler.';
     public const INT_11 = 11;
 
     /**
@@ -620,7 +622,7 @@ final class DepartmentContractRuntime
         ],
         self::DEPARTMENT_DEBUG => [
             self::FIELD_HUMAN_NAME => self::FIELD_DEBUG_DEPARTMENT,
-            self::FIELD_DESCRIPTION => 'Failure investigation, repair orchestration, escalation triggers.',
+            self::FIELD_DESCRIPTION => self::FIELD_FAILURE_INVESTIGATION__REPAIR_ORCHESTRATION__ESCALATION_TRIGGERS_,
             self::FIELD_SCOPE => 'investiga falhas runtime, gera hipóteses, reproduz, isola e propõe fix',
             self::FIELD_TRIGGERS => [self::FIELD_INCIDENT_DETECTED_TRUE, self::FIELD_TEST_RED_AFTER_GREEN_TRUE, self::FIELD_PRODUCTION_ALERT_TRUE],
             self::FIELD_INPUTS => [
@@ -713,7 +715,7 @@ final class DepartmentContractRuntime
         ],
         self::DEPARTMENT_FORGE => [
             self::FIELD_HUMAN_NAME => self::FIELD_FORGE_DEPARTMENT,
-            self::FIELD_DESCRIPTION => 'Heavy Obras with provider topology + multi-agent scheduler.',
+            self::FIELD_DESCRIPTION => self::FIELD_HEAVY_OBRAS_WITH_PROVIDER_TOPOLOGY___MULTI_AGENT_SCHEDULER_,
             self::FIELD_SCOPE => 'executa Obras pesadas multi-módulo R3-R5 com paralelismo, durable reservation, multi-provider',
             self::FIELD_TRIGGERS => [self::FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_FORGE, 'scope>=R3', self::FIELD_MULTI_MODULE_DETECTED_TRUE],
             self::FIELD_INPUTS => [
