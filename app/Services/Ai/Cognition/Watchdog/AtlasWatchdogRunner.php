@@ -31,6 +31,10 @@ final readonly class AtlasWatchdogRunner
     public const FIELD_CHECKED_AT = 'checked_at';
     public const FIELD_STATUS = 'status';
     public const FIELD_COUNTS = 'counts';
+    public const FIELD_CORRELATION_ID = 'correlation_id';
+    public const FIELD_ENVELOPE_ID = 'envelope_id';
+    public const FIELD_OPERATOR_ID = 'operator_id';
+    public const FIELD_TENANT_ID = 'tenant_id';
 
     public function __construct(
         private AtlasWatchdogCheckRegistry $registry,
@@ -164,10 +168,10 @@ final readonly class AtlasWatchdogRunner
     {
         try {
             return $this->ledger->record(LedgerEventType::WatchdogRunRecorded, $payload, [
-                'tenant_id' => $context['tenant_id'] ?? 'default',
-                'operator_id' => $context['operator_id'] ?? 'system',
-                'envelope_id' => $context['envelope_id'] ?? 'acos:watchdog:run:'.$payload[self::FIELD_RUN_ID],
-                'correlation_id' => $context['correlation_id'] ?? 'acos:watchdog:run:'.$payload[self::FIELD_RUN_ID],
+                self::FIELD_TENANT_ID => $context[self::FIELD_TENANT_ID] ?? 'default',
+                self::FIELD_OPERATOR_ID => $context[self::FIELD_OPERATOR_ID] ?? 'system',
+                self::FIELD_ENVELOPE_ID => $context[self::FIELD_ENVELOPE_ID] ?? 'acos:watchdog:run:'.$payload[self::FIELD_RUN_ID],
+                self::FIELD_CORRELATION_ID => $context[self::FIELD_CORRELATION_ID] ?? 'acos:watchdog:run:'.$payload[self::FIELD_RUN_ID],
                 'scope_type' => 'acos_watchdog',
                 'scope_id' => 'unified',
                 'emitter_stage' => 'atlas.acos.watchdog',

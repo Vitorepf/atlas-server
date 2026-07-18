@@ -147,6 +147,11 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_PIPELINE_STATUS = 'pipeline_status';
     public const FIELD_RECALL_AT_5 = 'recall_at_5';
     public const FIELD_RETRIEVAL_EVAL = 'retrieval_eval';
+    public const FIELD_SCORECARD_HASH = 'scorecard_hash';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_STORE = 'store';
+    public const FIELD_SUBSYSTEMS = 'subsystems';
+    public const FIELD_WRITER_SHARES = 'writer_shares';
 
     public const STATUS_UNKNOWN = 'unknown';
 
@@ -316,7 +321,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $status = app(AtlasRealityGraphStatusService::class)->status();
         $coverage = AiValueNormalizer::arrayOrEmpty($status[self::FIELD_COVERAGE] ?? null);
-        $store = AiValueNormalizer::arrayOrEmpty($status['store'] ?? null);
+        $store = AiValueNormalizer::arrayOrEmpty($status[self::FIELD_STORE] ?? null);
         $edgesBySource = AiValueNormalizer::arrayOrEmpty($store[self::FIELD_EDGES_BY_SOURCE] ?? null);
         $ratio = AiValueNormalizer::finiteFloatOrNull($coverage[self::FIELD_MEMORY_CROSS_LAYER_COVERAGE_RATIO] ?? null) ?? 0.0;
         $blocking = [];
@@ -337,7 +342,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_STATUS => $blocking === [] ? self::STATUS_OK : self::STATUS_ALERT,
             self::STATUS_ALERT => $blocking !== [],
             self::FIELD_COVERAGE => $coverage,
-            'store' => [
+            self::FIELD_STORE => [
                 self::FIELD_EDGES_BY_SOURCE => $edgesBySource,
                 self::FIELD_LAST_INGEST_AT => $store[self::FIELD_LAST_INGEST_AT] ?? null,
             ],
@@ -429,7 +434,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_BLOCKING => ['ai_rag_feedback_events_table_missing'],
                 self::FIELD_TOTAL_EVENT_COUNT => 0,
                 self::FIELD_MEASURED_SHARE => 0.0,
-                'writer_shares' => [],
+                self::FIELD_WRITER_SHARES => [],
                 self::FIELD_WINDOW => [self::FIELD_HOURS => self::FEEDBACK_WINDOW_HOURS, self::FIELD_TOTAL_EVENT_COUNT => 0],
                 self::FIELD_GENERATED_AT => now()->toIso8601String(),
             ];
@@ -449,8 +454,8 @@ final class AtlasAcosWatchdogHealthService
             $isMeasured = (int) $event->post_execution_utility > 0 || (int) $event->context_sufficiency > 0 || (int) $event->used_sources > 0;
             $hasDelivered = (int) $event->included_sources > 0 || (AiValueNormalizer::trimmedStringOrNull($event->retrieval_receipt_id) ?? '') !== '';
             $payload = AiValueNormalizer::arrayOrEmpty($event->payload);
-            $isSynthetic = ($payload['synthetic'] ?? false) === true || str_contains(AiValueNormalizer::lowerTrimmedString($payload['source'] ?? ''), 'synthetic');
-            $isTranscript = str_contains(AiValueNormalizer::lowerTrimmedString($payload['source'] ?? $payload['origin'] ?? ''), 'transcript_inferred');
+            $isSynthetic = ($payload['synthetic'] ?? false) === true || str_contains(AiValueNormalizer::lowerTrimmedString($payload[self::FIELD_SOURCE] ?? ''), 'synthetic');
+            $isTranscript = str_contains(AiValueNormalizer::lowerTrimmedString($payload[self::FIELD_SOURCE] ?? $payload['origin'] ?? ''), 'transcript_inferred');
             $measured += $isMeasured ? 1 : 0;
             $delivered += $hasDelivered ? 1 : 0;
             $synthetic += $isSynthetic ? 1 : 0;
@@ -491,7 +496,7 @@ final class AtlasAcosWatchdogHealthService
             ],
             self::FIELD_TOTAL_EVENT_COUNT => $total,
             self::FIELD_MEASURED_SHARE => $total > 0 ? round($measured / $total, 4) : 0.0,
-            'writer_shares' => $byWriter,
+            self::FIELD_WRITER_SHARES => $byWriter,
             'by_writer' => $byWriter,
             self::FIELD_THRESHOLDS => [
                 'total_event_count_floor' => self::FEEDBACK_TOTAL_EVENT_FLOOR,
@@ -587,7 +592,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $scorecard = app(AtlasCognitionScoreCardService::class)->build();
         $pipeline = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'score.dimensions.pipeline.score_out_of_10', 0.0)) ?? 0.0;
-        $partials = array_values(array_filter(AiValueNormalizer::arrayOrEmpty($scorecard['subsystems'] ?? null), static fn (array $row): bool => ($row[self::FIELD_PIPELINE_STATUS] ?? null) === AtlasCognitionScoreCardService::STATUS_PARTIAL));
+        $partials = array_values(array_filter(AiValueNormalizer::arrayOrEmpty($scorecard[self::FIELD_SUBSYSTEMS] ?? null), static fn (array $row): bool => ($row[self::FIELD_PIPELINE_STATUS] ?? null) === AtlasCognitionScoreCardService::STATUS_PARTIAL));
         $blocking = [];
         if ($pipeline < 10.0) {
             $blocking[] = 'pipeline_score_below_perfect';
@@ -599,7 +604,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_SCHEMA_VERSION => self::PIPELINE_SCORECARD_STABILITY_SCHEMA,
             self::FIELD_STATUS => $blocking === [] ? self::STATUS_OK : self::STATUS_ALERT,
             self::FIELD_BLOCKING => $blocking,
-            'scorecard_hash' => $scorecard['scorecard_hash'] ?? null,
+            self::FIELD_SCORECARD_HASH => $scorecard[self::FIELD_SCORECARD_HASH] ?? null,
             'pipeline_score_out_of_10' => $pipeline,
             self::FIELD_PARTIAL_COUNT => count($partials),
             'partial_acronyms' => array_values(array_map(static fn (array $row): string => (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_ACRONYM] ?? null) ?? ''), array_slice($partials, 0, 10))),
@@ -650,7 +655,7 @@ final class AtlasAcosWatchdogHealthService
         $scorecard = app(AtlasCognitionScoreCardService::class)->build();
         $resolver = app(AtlasCognitionEvidenceResolver::class);
         $partials = [];
-        foreach (AiValueNormalizer::arrayOrEmpty($scorecard['subsystems'] ?? null) as $row) {
+        foreach (AiValueNormalizer::arrayOrEmpty($scorecard[self::FIELD_SUBSYSTEMS] ?? null) as $row) {
             if (($row[self::FIELD_PIPELINE_STATUS] ?? null) !== AtlasCognitionScoreCardService::STATUS_PARTIAL) {
                 continue;
             }

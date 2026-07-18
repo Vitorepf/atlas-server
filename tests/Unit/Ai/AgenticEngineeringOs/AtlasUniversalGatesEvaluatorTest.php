@@ -5621,5 +5621,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['health_lote2_horizon_more_floor_count']);
     }
 
+    public function test_health_deferred_runner_runbook_golden_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->healthDeferredRunnerRunbookGoldenFloorsContractObserve([]);
+
+        $this->assertSame('scorecard_hash', $payload['health_field_scorecard_hash']);
+        $this->assertSame('source', $payload['health_field_source']);
+        $this->assertSame('store', $payload['health_field_store']);
+        $this->assertSame('subsystems', $payload['health_field_subsystems']);
+        $this->assertSame('writer_shares', $payload['health_field_writer_shares']);
+        $this->assertSame('phase', $payload['deferred_field_phase']);
+        $this->assertSame('blockers', $payload['deferred_field_blockers']);
+        $this->assertSame('intent_id', $payload['deferred_field_intent_id']);
+        $this->assertSame('schema', $payload['deferred_field_schema']);
+        $this->assertSame('correlation_id', $payload['runner_field_correlation_id']);
+        $this->assertSame('envelope_id', $payload['runner_field_envelope_id']);
+        $this->assertSame('operator_id', $payload['runner_field_operator_id']);
+        $this->assertSame('tenant_id', $payload['runner_field_tenant_id']);
+        $this->assertSame('target', $payload['runbook_field_target']);
+        $this->assertSame('target_doc', $payload['runbook_field_target_doc']);
+        $this->assertSame('title', $payload['runbook_field_title']);
+        $this->assertSame('touches_sovereignty_layer', $payload['runbook_field_touches_sovereignty_layer']);
+        $this->assertSame('arm', $payload['golden_field_arm']);
+        $this->assertSame(18, $payload['health_deferred_runner_runbook_golden_floor_count']);
+    }
+
 
 }

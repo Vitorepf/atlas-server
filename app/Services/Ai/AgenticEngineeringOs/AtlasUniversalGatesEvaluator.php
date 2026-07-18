@@ -7471,6 +7471,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: residual FIELD_* floors for health/deferred/runner/runbook/golden.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, bool|int|string>
+     */
+    public function healthDeferredRunnerRunbookGoldenFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'health_field_scorecard_hash' => AtlasAcosWatchdogHealthService::FIELD_SCORECARD_HASH,
+            'health_field_source' => AtlasAcosWatchdogHealthService::FIELD_SOURCE,
+            'health_field_store' => AtlasAcosWatchdogHealthService::FIELD_STORE,
+            'health_field_subsystems' => AtlasAcosWatchdogHealthService::FIELD_SUBSYSTEMS,
+            'health_field_writer_shares' => AtlasAcosWatchdogHealthService::FIELD_WRITER_SHARES,
+            'deferred_field_phase' => AaeosDeferredPhaseDispatcherService::FIELD_PHASE,
+            'deferred_field_blockers' => AaeosDeferredPhaseDispatcherService::FIELD_BLOCKERS,
+            'deferred_field_intent_id' => AaeosDeferredPhaseDispatcherService::FIELD_INTENT_ID,
+            'deferred_field_schema' => AaeosDeferredPhaseDispatcherService::FIELD_SCHEMA,
+            'runner_field_correlation_id' => AtlasWatchdogRunner::FIELD_CORRELATION_ID,
+            'runner_field_envelope_id' => AtlasWatchdogRunner::FIELD_ENVELOPE_ID,
+            'runner_field_operator_id' => AtlasWatchdogRunner::FIELD_OPERATOR_ID,
+            'runner_field_tenant_id' => AtlasWatchdogRunner::FIELD_TENANT_ID,
+            'runbook_field_target' => RunbookOrchestrator::FIELD_TARGET,
+            'runbook_field_target_doc' => RunbookOrchestrator::FIELD_TARGET_DOC,
+            'runbook_field_title' => RunbookOrchestrator::FIELD_TITLE,
+            'runbook_field_touches_sovereignty_layer' => RunbookOrchestrator::FIELD_TOUCHES_SOVEREIGNTY_LAYER,
+            'golden_field_arm' => GoldenCounterfactualReplayService::FIELD_ARM,
+            'health_deferred_runner_runbook_golden_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -341,6 +341,7 @@ final class AtlasAaeosCommand extends Command
         {--flywheel-immune-obra-floors-contract= : JSON file (any object) to observe flywheel/immune/obra residual floors}
         {--health-lote2-runbook-floors-contract= : JSON file (any object) to observe health/lote2/runbook residual floors}
         {--health-lote2-horizon-more-floors-contract= : JSON file (any object) to observe health/lote2/horizon more residual floors}
+        {--health-deferred-runner-runbook-golden-floors-contract= : JSON file (any object) to observe health/deferred/runner/runbook/golden residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -838,6 +839,7 @@ final class AtlasAaeosCommand extends Command
             ['flywheel-immune-obra-floors-contract', 'flywheel_immune_obra_floors_contract', fn (array $p) => $gates->flywheelImmuneObraFloorsContractObserve($p)],
             ['health-lote2-runbook-floors-contract', 'health_lote2_runbook_floors_contract', fn (array $p) => $gates->healthLote2RunbookFloorsContractObserve($p)],
             ['health-lote2-horizon-more-floors-contract', 'health_lote2_horizon_more_floors_contract', fn (array $p) => $gates->healthLote2HorizonMoreFloorsContractObserve($p)],
+            ['health-deferred-runner-runbook-golden-floors-contract', 'health_deferred_runner_runbook_golden_floors_contract', fn (array $p) => $gates->healthDeferredRunnerRunbookGoldenFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

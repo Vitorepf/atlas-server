@@ -43,6 +43,10 @@ final class RunbookOrchestrator
     public const FIELD_PROPOSED = 'proposed';
     public const FIELD_PROPOSED_BY_ACTOR = 'proposed_by_actor';
     public const FIELD_STRUCTURAL_CHANGES = 'structural_changes';
+    public const FIELD_TARGET = 'target';
+    public const FIELD_TARGET_DOC = 'target_doc';
+    public const FIELD_TITLE = 'title';
+    public const FIELD_TOUCHES_SOVEREIGNTY_LAYER = 'touches_sovereignty_layer';
 
     /** Minimum replay count before a structural redesign may be promoted. */
     public const REPLAY_OBRAS_COUNT_MIN = 100;
@@ -144,7 +148,7 @@ final class RunbookOrchestrator
      */
     public function proposeStructuralRedesign(array $request): array
     {
-        $title = AiValueNormalizer::trimmedStringOrNull($request['title'] ?? null) ?? '';
+        $title = AiValueNormalizer::trimmedStringOrNull($request[self::FIELD_TITLE] ?? null) ?? '';
         $limitation = AiValueNormalizer::trimmedStringOrNull($request['limitation'] ?? null) ?? '';
         if ($title === '' || $limitation === '') {
             throw new \InvalidArgumentException('title and limitation are required for structural redesign proposals.');
@@ -156,7 +160,7 @@ final class RunbookOrchestrator
             if (! is_array($change)) {
                 continue;
             }
-            $target = AiValueNormalizer::trimmedStringOrNull($change['target'] ?? null) ?? '';
+            $target = AiValueNormalizer::trimmedStringOrNull($change[self::FIELD_TARGET] ?? null) ?? '';
             if (! in_array($target, ['department', 'phase', 'gate'], true)) {
                 continue;
             }
@@ -166,15 +170,15 @@ final class RunbookOrchestrator
                 continue;
             }
             $structuralChanges[] = [
-                'target' => $target,
+                self::FIELD_TARGET => $target,
                 self::FIELD_CURRENT => $current,
                 self::FIELD_PROPOSED => $proposed,
-                'target_doc' => AiValueNormalizer::trimmedStringOrNull($change['target_doc'] ?? null) ?? 'atlas-agentic-engineering-os-runbook',
+                self::FIELD_TARGET_DOC => AiValueNormalizer::trimmedStringOrNull($change[self::FIELD_TARGET_DOC] ?? null) ?? 'atlas-agentic-engineering-os-runbook',
                 self::FIELD_CURRENT_STATE_SNAPSHOT_HASH => hash('sha256', $current),
             ];
         }
 
-        $touchesSovereignty = (AiValueNormalizer::boolOrNull($request['touches_sovereignty_layer'] ?? null) ?? false);
+        $touchesSovereignty = (AiValueNormalizer::boolOrNull($request[self::FIELD_TOUCHES_SOVEREIGNTY_LAYER] ?? null) ?? false);
         $baselineFlow = self::DEFAULT_FLOW;
         $baselineGatesTotal = array_sum(array_map(
             fn (string $dept): int => count($this->departments->gatesFor($dept)),
@@ -184,7 +188,7 @@ final class RunbookOrchestrator
         $proposal = [
             'schema' => self::ARCHITECTURE_REDESIGN_PROPOSAL_SCHEMA,
             'proposal_id' => 'arp-'.bin2hex(random_bytes(8)),
-            'title' => $title,
+            self::FIELD_TITLE => $title,
             self::FIELD_STRUCTURAL_CHANGES => $structuralChanges,
             'runtime_baseline' => [
                 self::FIELD_DEFAULT_FLOW => $baselineFlow,
@@ -197,7 +201,7 @@ final class RunbookOrchestrator
                     'frequency' => 1,
                 ],
             ],
-            'touches_sovereignty_layer' => $touchesSovereignty,
+            self::FIELD_TOUCHES_SOVEREIGNTY_LAYER => $touchesSovereignty,
             'safety_sovereignty_block_applied' => $touchesSovereignty,
             'promotion_gates' => [
                 'replay_obras_count_min' => self::REPLAY_OBRAS_COUNT_MIN,

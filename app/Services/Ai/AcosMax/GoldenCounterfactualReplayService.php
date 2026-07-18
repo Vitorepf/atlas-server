@@ -33,6 +33,7 @@ final class GoldenCounterfactualReplayService
     public const FIELD_RECALL_AT_5 = 'recall_at_5';
     public const FIELD_MEASURE_ID = 'measure_id';
     public const FIELD_FORMULA_VERSION = 'formula_version';
+    public const FIELD_ARM = 'arm';
 
 
     /**
@@ -125,7 +126,7 @@ final class GoldenCounterfactualReplayService
     private function firstRun(array $runs, string $arm, ?string $decisionId): ?array
     {
         foreach ($runs as $run) {
-            if (! is_array($run) || (AiValueNormalizer::trimmedStringOrNull($run['arm'] ?? null) ?? '') !== $arm) {
+            if (! is_array($run) || (AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_ARM] ?? null) ?? '') !== $arm) {
                 continue;
             }
             if ($decisionId !== null && $decisionId !== '' && (AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_DECISION_ID] ?? null) ?? '') !== $decisionId) {
@@ -141,7 +142,7 @@ final class GoldenCounterfactualReplayService
             }
 
             return [
-                'arm' => $arm,
+                self::FIELD_ARM => $arm,
                 self::FIELD_DECISION_ID => (AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_DECISION_ID] ?? null) ?? ''),
                 'run_id' => $runId,
                 'commit' => $commit,

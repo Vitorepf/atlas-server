@@ -6019,6 +6019,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_health_deferred_runner_runbook_golden_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-hdrg-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-hdrg',
+                '--health-deferred-runner-runbook-golden-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"health_deferred_runner_runbook_golden_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

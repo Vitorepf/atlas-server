@@ -41,6 +41,10 @@ final class AaeosDeferredPhaseDispatcherService
     public const STATUS_BLOCKED = 'blocked';
 
     public const FIELD_BLOCKED = 'blocked';
+    public const FIELD_PHASE = 'phase';
+    public const FIELD_BLOCKERS = 'blockers';
+    public const FIELD_INTENT_ID = 'intent_id';
+    public const FIELD_SCHEMA = 'schema';
 
     public function __construct(
         private readonly CacheRepository $cache,
@@ -64,10 +68,10 @@ final class AaeosDeferredPhaseDispatcherService
                 continue;
             }
             $record = [
-                'schema' => self::SCHEMA_VERSION,
+                self::FIELD_SCHEMA => self::SCHEMA_VERSION,
                 'dispatch_id' => 'disp-'.Str::ulid()->toBase32(),
-                'phase' => AiValueNormalizer::trimmedStringOrNull($env['phase_out'] ?? null) ?? '',
-                'intent_id' => AiValueNormalizer::trimmedStringOrNull($env['intent_id'] ?? null) ?? '',
+                self::FIELD_PHASE => AiValueNormalizer::trimmedStringOrNull($env['phase_out'] ?? null) ?? '',
+                self::FIELD_INTENT_ID => AiValueNormalizer::trimmedStringOrNull($env[self::FIELD_INTENT_ID] ?? null) ?? '',
                 'envelope' => $env,
                 // Observe-only: same advance classifier as HTTP path / cockpit.
                 'phase_advance' => $this->phaseAdvance->classify($env),
@@ -83,11 +87,11 @@ final class AaeosDeferredPhaseDispatcherService
                 AppendOnlyJsonlStore::appendEncodedLineSilently($path, $line, FILE_APPEND | LOCK_EX, 0o755);
             }
             $enqueued[] = $record;
-            $this->incrementCounter('atlas.aaeos.deferred.enqueued.'.$record['phase']);
+            $this->incrementCounter('atlas.aaeos.deferred.enqueued.'.$record[self::FIELD_PHASE]);
         }
 
         return [
-            'schema' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA => self::SCHEMA_VERSION,
             'queue_path' => $path,
             'enqueued_count' => count($enqueued),
             'enqueued' => $enqueued,
@@ -144,7 +148,7 @@ final class AaeosDeferredPhaseDispatcherService
         fclose($fh);
 
         foreach ($claimed as $record) {
-            $phase = (AiValueNormalizer::trimmedStringOrNull($record['phase'] ?? null) ?? self::PHASE_UNKNOWN);
+            $phase = (AiValueNormalizer::trimmedStringOrNull($record[self::FIELD_PHASE] ?? null) ?? self::PHASE_UNKNOWN);
             $this->incrementCounter('atlas.aaeos.deferred.claimed.'.$phase);
         }
 
@@ -192,7 +196,7 @@ final class AaeosDeferredPhaseDispatcherService
     {
         $gates = AiValueNormalizer::arrayOrEmpty($envelope['gates'] ?? null);
         $blockedGates = AiValueNormalizer::arrayOrEmpty($gates[self::FIELD_BLOCKED] ?? null);
-        $blockers = AiValueNormalizer::arrayOrEmpty($envelope['blockers'] ?? null);
+        $blockers = AiValueNormalizer::arrayOrEmpty($envelope[self::FIELD_BLOCKERS] ?? null);
         if ($blockedGates === [] && $blockers === []) {
             return null;
         }
@@ -211,7 +215,7 @@ final class AaeosDeferredPhaseDispatcherService
      */
     private function observeBlockerSignal(array $envelope): ?array
     {
-        $blockers = AiValueNormalizer::arrayOrEmpty($envelope['blockers'] ?? null);
+        $blockers = AiValueNormalizer::arrayOrEmpty($envelope[self::FIELD_BLOCKERS] ?? null);
         if ($blockers === []) {
             return null;
         }
