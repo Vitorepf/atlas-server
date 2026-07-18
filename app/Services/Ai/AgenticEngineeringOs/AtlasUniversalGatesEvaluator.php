@@ -14817,4 +14817,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B559).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b559AaeosCognitiveFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'esta funcionando' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ESTA_FUNCIONANDO,
+            'eu moro' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EU_MORO,
+            'eu prefiro' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EU_PREFIRO,
+            'good morning' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_GOOD_MORNING,
+            'ignore all previous' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_ALL_PREVIOUS,
+            'ignore as instrucoes' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_AS_INSTRUCOES,
+            'ignore previous' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_PREVIOUS,
+            'ignore suas instrucoes' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_SUAS_INSTRUCOES,
+            'ignore the previous' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_THE_PREVIOUS,
+            'memory leak' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEMORY_LEAK,
+            'meu aniversario' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEU_ANIVERSARIO,
+            'meu nome e' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEU_NOME_E,
+            'minha esposa' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MINHA_ESPOSA,
+            'my birthday' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MY_BIRTHDAY,
+            'my favorite' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MY_FAVORITE,
+            'null pointer' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_NULL_POINTER,
+            'override instructions' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_OVERRIDE_INSTRUCTIONS,
+            'race condition' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RACE_CONDITION,
+            'b559_aaeos_cognitive_floor_count' => 18,
+        ];
+    }
+
 }

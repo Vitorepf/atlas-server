@@ -581,6 +581,7 @@ final class AtlasAaeosCommand extends Command
                             {--b556-cognition-score-department-contract-floors-contract= : JSON file (any object) to observe cognition/score/department/contract floors}
                             {--b557-cognition-score-floors-contract= : JSON file (any object) to observe cognition/score floors}
                             {--b558-aaeos-cognitive-function-consolidation-rerank-capture-hmac-department-floors-contract= : JSON file (any object) to observe aaeos/cognitive/function/consolidation/rerank/capture floors}
+                            {--b559-aaeos-cognitive-floors-contract= : JSON file (any object) to observe aaeos/cognitive floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1318,6 +1319,7 @@ final class AtlasAaeosCommand extends Command
             ['b556-cognition-score-department-contract-floors-contract', 'b556_cognition_score_department_contract_floors_contract', fn (array $p) => $gates->b556CognitionScoreDepartmentContractFloorsContractObserve($p)],
             ['b557-cognition-score-floors-contract', 'b557_cognition_score_floors_contract', fn (array $p) => $gates->b557CognitionScoreFloorsContractObserve($p)],
             ['b558-aaeos-cognitive-function-consolidation-rerank-capture-hmac-department-floors-contract', 'b558_aaeos_cognitive_function_consolidation_rerank_capture_hmac_department_floors_contract', fn (array $p) => $gates->b558AaeosCognitiveFunctionConsolidationRerankCaptureHmacDepartmentFloorsContractObserve($p)],
+            ['b559-aaeos-cognitive-floors-contract', 'b559_aaeos_cognitive_floors_contract', fn (array $p) => $gates->b559AaeosCognitiveFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

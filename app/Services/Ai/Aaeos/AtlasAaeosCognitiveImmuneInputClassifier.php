@@ -111,6 +111,24 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_DO_ANYTHING_NOW = 'do anything now';
     public const FIELD_EM_PRODUCAO = 'em producao';
     public const FIELD_ESQUECA_AS_INSTRUCOES = 'esqueca as instrucoes';
+    public const FIELD_ESTA_FUNCIONANDO = 'esta funcionando';
+    public const FIELD_EU_MORO = 'eu moro';
+    public const FIELD_EU_PREFIRO = 'eu prefiro';
+    public const FIELD_GOOD_MORNING = 'good morning';
+    public const FIELD_IGNORE_ALL_PREVIOUS = 'ignore all previous';
+    public const FIELD_IGNORE_AS_INSTRUCOES = 'ignore as instrucoes';
+    public const FIELD_IGNORE_PREVIOUS = 'ignore previous';
+    public const FIELD_IGNORE_SUAS_INSTRUCOES = 'ignore suas instrucoes';
+    public const FIELD_IGNORE_THE_PREVIOUS = 'ignore the previous';
+    public const FIELD_MEMORY_LEAK = 'memory leak';
+    public const FIELD_MEU_ANIVERSARIO = 'meu aniversario';
+    public const FIELD_MEU_NOME_E = 'meu nome e';
+    public const FIELD_MINHA_ESPOSA = 'minha esposa';
+    public const FIELD_MY_BIRTHDAY = 'my birthday';
+    public const FIELD_MY_FAVORITE = 'my favorite';
+    public const FIELD_NULL_POINTER = 'null pointer';
+    public const FIELD_OVERRIDE_INSTRUCTIONS = 'override instructions';
+    public const FIELD_RACE_CONDITION = 'race condition';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -148,19 +166,19 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
      * Text markers that signal an instruction-override / injection attempt.
      */
     public const INJECTION_MARKERS = [
-        'ignore previous',
-        'ignore all previous',
-        'ignore the previous',
+        self::FIELD_IGNORE_PREVIOUS,
+        self::FIELD_IGNORE_ALL_PREVIOUS,
+        self::FIELD_IGNORE_THE_PREVIOUS,
         self::FIELD_DISREGARD_PREVIOUS,
         self::FIELD_DISREGARD_ALL,
-        'ignore as instrucoes',
+        self::FIELD_IGNORE_AS_INSTRUCOES,
         self::FIELD_ESQUECA_AS_INSTRUCOES,
-        'ignore suas instrucoes',
+        self::FIELD_IGNORE_SUAS_INSTRUCOES,
         'system prompt',
         'you are now',
         'voce agora e',
         'reveal your',
-        'override instructions',
+        self::FIELD_OVERRIDE_INSTRUCTIONS,
         self::FIELD_JAILBREAK,
         self::FIELD_DO_ANYTHING_NOW,
     ];
@@ -190,12 +208,12 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         self::FIELD_BUG,
         self::FIELD_PATCH,
         self::FIELD_REGRESSION,
-        'race condition',
+        self::FIELD_RACE_CONDITION,
         self::FIELD_LATENCY,
         self::FIELD_REFACTOR,
         'stack trace',
-        'null pointer',
-        'memory leak',
+        self::FIELD_NULL_POINTER,
+        self::FIELD_MEMORY_LEAK,
         self::FIELD_ALGORITHM,
         self::FIELD_COMPILER,
     ];
@@ -204,22 +222,22 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
      * Strong markers for a personal fact candidate.
      */
     public const PERSONAL_MARKERS = [
-        'eu prefiro',
-        'eu moro',
-        'meu aniversario',
-        'minha esposa',
-        'meu nome e',
+        self::FIELD_EU_PREFIRO,
+        self::FIELD_EU_MORO,
+        self::FIELD_MEU_ANIVERSARIO,
+        self::FIELD_MINHA_ESPOSA,
+        self::FIELD_MEU_NOME_E,
         'i prefer',
-        'my birthday',
+        self::FIELD_MY_BIRTHDAY,
         'i live in',
-        'my favorite',
+        self::FIELD_MY_FAVORITE,
     ];
 
     /**
      * Strong markers for project evidence (e.g. "pausar esta funcionando").
      */
     public const PROJECT_EVIDENCE_MARKERS = [
-        'esta funcionando',
+        self::FIELD_ESTA_FUNCIONANDO,
         ' esta ok',
         self::FIELD_DEPLOY_OK,
         self::FIELD_BUILD_PASSOU,
@@ -242,7 +260,7 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         self::FIELD_BOA_TARDE,
         self::FIELD_THANKS,
         'thank you',
-        'good morning',
+        self::FIELD_GOOD_MORNING,
     ];
 
     /**

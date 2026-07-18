@@ -11684,4 +11684,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b558_aaeos_cognitive_function_consolidation_rerank_capture_hmac_department_floor_count']);
     }
 
+    public function test_b559_aaeos_cognitive_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b559AaeosCognitiveFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_ESTA_FUNCIONANDO, $out['esta funcionando']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EU_MORO, $out['eu moro']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_EU_PREFIRO, $out['eu prefiro']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_GOOD_MORNING, $out['good morning']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_ALL_PREVIOUS, $out['ignore all previous']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_AS_INSTRUCOES, $out['ignore as instrucoes']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_PREVIOUS, $out['ignore previous']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_SUAS_INSTRUCOES, $out['ignore suas instrucoes']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IGNORE_THE_PREVIOUS, $out['ignore the previous']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEMORY_LEAK, $out['memory leak']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEU_ANIVERSARIO, $out['meu aniversario']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MEU_NOME_E, $out['meu nome e']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MINHA_ESPOSA, $out['minha esposa']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MY_BIRTHDAY, $out['my birthday']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_MY_FAVORITE, $out['my favorite']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_NULL_POINTER, $out['null pointer']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_OVERRIDE_INSTRUCTIONS, $out['override instructions']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_RACE_CONDITION, $out['race condition']);
+        $this->assertSame(18, $out['b559_aaeos_cognitive_floor_count']);
+    }
+
 }
