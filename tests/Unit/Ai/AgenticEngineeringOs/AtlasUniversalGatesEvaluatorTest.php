@@ -15024,4 +15024,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b693_dogfooding_friction_floor_count']);
     }
 
+    public function test_b694_obra_retro_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b694ObraRetroFloorsContractObserve([]);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_OBRA_RETRO_LOTE, $out['obra_retro_lote']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_OUTCOME_FLOW_ID, $out['outcome_flow_id']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_ID, $out['id']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_OBJECTIVE, $out['objective']);
+        $this->assertSame(AcosMaxObraRetroService::SCHEMA_VERSION, $out['atlas.acos_max.obra_retro.v1']);
+        $this->assertSame(AcosMaxObraRetroService::SERIES_TAG, $out['obra:acos-max']);
+        $this->assertSame(AcosMaxObraRetroService::SCOREBOARD_RELATIVE_PATH, $out['docs/engineering-knowledge-base/atlas-acos-max-execution-scoreboard-v1.md']);
+        $this->assertSame(AcosMaxObraRetroService::STATUS_BLOCKED, $out['blocked']);
+        $this->assertSame(AcosMaxObraRetroService::STATUS_RECORDED, $out['recorded']);
+        $this->assertSame(AcosMaxObraRetroService::STATUS_UNKNOWN, $out['unknown']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_QUEUED, $out['queued']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_STATE, $out['state']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_KIND, $out['kind']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_EVIDENCE_REFS, $out['evidence_refs']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_SERIES_TAG, $out['series_tag']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_LOTE, $out['lote']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_REASON, $out['reason']);
+        $this->assertSame(18, $out['b694_obra_retro_floor_count']);
+    }
+
 }

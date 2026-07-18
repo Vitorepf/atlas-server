@@ -18962,4 +18962,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B694).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b694ObraRetroFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'obra_retro_lote' => AcosMaxObraRetroService::FIELD_OBRA_RETRO_LOTE,
+            'outcome_flow_id' => AcosMaxObraRetroService::FIELD_OUTCOME_FLOW_ID,
+            'id' => AcosMaxObraRetroService::FIELD_ID,
+            'objective' => AcosMaxObraRetroService::FIELD_OBJECTIVE,
+            'atlas.acos_max.obra_retro.v1' => AcosMaxObraRetroService::SCHEMA_VERSION,
+            'obra:acos-max' => AcosMaxObraRetroService::SERIES_TAG,
+            'docs/engineering-knowledge-base/atlas-acos-max-execution-scoreboard-v1.md' => AcosMaxObraRetroService::SCOREBOARD_RELATIVE_PATH,
+            'blocked' => AcosMaxObraRetroService::STATUS_BLOCKED,
+            'recorded' => AcosMaxObraRetroService::STATUS_RECORDED,
+            'unknown' => AcosMaxObraRetroService::STATUS_UNKNOWN,
+            'queued' => AcosMaxObraRetroService::FIELD_QUEUED,
+            'status' => AcosMaxObraRetroService::FIELD_STATUS,
+            'state' => AcosMaxObraRetroService::FIELD_STATE,
+            'kind' => AcosMaxObraRetroService::FIELD_KIND,
+            'evidence_refs' => AcosMaxObraRetroService::FIELD_EVIDENCE_REFS,
+            'series_tag' => AcosMaxObraRetroService::FIELD_SERIES_TAG,
+            'lote' => AcosMaxObraRetroService::FIELD_LOTE,
+            'reason' => AcosMaxObraRetroService::FIELD_REASON,
+            'b694_obra_retro_floor_count' => 18,
+        ];
+    }
+
 }
