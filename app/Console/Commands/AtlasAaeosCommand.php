@@ -561,6 +561,7 @@ final class AtlasAaeosCommand extends Command
                             {--b536-cognition-score-acos-evolution-autonomy-ladder-code-symbol-floors-contract= : JSON file (any object) to observe cognition/score/acos/evolution/autonomy/ladder floors}
                             {--b537-maxa-jina-capture-hmac-acos-watchdog-immune-signature-floors-contract= : JSON file (any object) to observe maxa/jina/capture/hmac/acos/watchdog floors}
                             {--b538-aaeos-test-http-path-department-contract-verified-share-floors-contract= : JSON file (any object) to observe aaeos/test/http/path/department/contract floors}
+                            {--b539-aaeos-veto-segment-importance-flywheel-funnel-pre-review-floors-contract= : JSON file (any object) to observe aaeos/veto/segment/importance/flywheel/funnel floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1278,6 +1279,7 @@ final class AtlasAaeosCommand extends Command
             ['b536-cognition-score-acos-evolution-autonomy-ladder-code-symbol-floors-contract', 'b536_cognition_score_acos_evolution_autonomy_ladder_code_symbol_floors_contract', fn (array $p) => $gates->b536CognitionScoreAcosEvolutionAutonomyLadderCodeSymbolFloorsContractObserve($p)],
             ['b537-maxa-jina-capture-hmac-acos-watchdog-immune-signature-floors-contract', 'b537_maxa_jina_capture_hmac_acos_watchdog_immune_signature_floors_contract', fn (array $p) => $gates->b537MaxaJinaCaptureHmacAcosWatchdogImmuneSignatureFloorsContractObserve($p)],
             ['b538-aaeos-test-http-path-department-contract-verified-share-floors-contract', 'b538_aaeos_test_http_path_department_contract_verified_share_floors_contract', fn (array $p) => $gates->b538AaeosTestHttpPathDepartmentContractVerifiedShareFloorsContractObserve($p)],
+            ['b539-aaeos-veto-segment-importance-flywheel-funnel-pre-review-floors-contract', 'b539_aaeos_veto_segment_importance_flywheel_funnel_pre_review_floors_contract', fn (array $p) => $gates->b539AaeosVetoSegmentImportanceFlywheelFunnelPreReviewFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

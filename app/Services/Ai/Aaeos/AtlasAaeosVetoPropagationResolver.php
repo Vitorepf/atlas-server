@@ -191,7 +191,7 @@ final class AtlasAaeosVetoPropagationResolver
     private function matchRule(string $origin, string $kind): array
     {
         // Operator veto -> override final (always passes).
-        if ($origin === self::FIELD_OPERATOR && $kind === 'override') {
+        if ($origin === self::FIELD_OPERATOR && $kind === self::FIELD_OVERRIDE) {
             return [
                 self::FIELD_RESOLUTION => self::RESOLUTION_OVERRIDE_PASS,
                 self::FIELD_PAUSE_SET => [],
@@ -232,7 +232,7 @@ final class AtlasAaeosVetoPropagationResolver
         }
 
         // Review veto on delivery -> back to Dev/Forge for repair.
-        if ($origin === 'review' && $kind === self::FIELD_DELIVERY) {
+        if ($origin === self::FIELD_REVIEW && $kind === self::FIELD_DELIVERY) {
             return [
                 self::FIELD_RESOLUTION => self::RESOLUTION_REDIRECT_UPSTREAM,
                 self::FIELD_PAUSE_SET => [],

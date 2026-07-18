@@ -224,7 +224,7 @@ final class SegmentImportanceRanker
 
         foreach (array_values($maybeDiscard) as $row) {
             $kind = AtlasAaeosArrayFieldReader::stringField($row, self::FIELD_KIND);
-            $recencyRank = $this->intField($row, 'recency_rank');
+            $recencyRank = $this->intField($row, self::FIELD_RECENCY_RANK);
             $hasEvidenceRef = $this->boolField($row, self::FIELD_HAS_EVIDENCE_REF);
             $linksDecisionOrBlocker = $this->boolField($row, self::FIELD_LINKS_DECISION_OR_BLOCKER);
             $dupGroup = $this->nullableStringField($row, self::FIELD_DUP_GROUP);
@@ -249,7 +249,7 @@ final class SegmentImportanceRanker
                 self::FIELD_ID => AtlasAaeosArrayFieldReader::stringField($row, 'id'),
                 self::FIELD_KIND => $kind,
                 self::FIELD_RECENCY_RANK => $recencyRank,
-                self::FIELD_TOKEN_ESTIMATE => max($this->intField($row, 'token_estimate'), 0),
+                self::FIELD_TOKEN_ESTIMATE => max($this->intField($row, self::FIELD_TOKEN_ESTIMATE), 0),
                 self::FIELD_HAS_EVIDENCE_REF => $hasEvidenceRef,
                 self::FIELD_LINKS_DECISION_OR_BLOCKER => $linksDecisionOrBlocker,
                 self::FIELD_DUP_GROUP => $dupGroup,

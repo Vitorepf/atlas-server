@@ -292,7 +292,7 @@ class AtlasAaeosImplementationEvidenceResolver
 
         $matched = $ref === '' ? null : match ($kind) {
             self::FIELD_SYMBOL => $this->matchSymbol($ref),
-            self::FIELD_ROUTE => $this->matchTyped('route', $ref),
+            self::FIELD_ROUTE => $this->matchTyped(self::FIELD_ROUTE, $ref),
             self::FIELD_COMMAND => $this->matchTyped(self::FIELD_CLI_COMMAND, $ref),
             self::FIELD_TEST => $this->matchTest($ref),
             self::FIELD_RECEIPT => $this->matchReceipt($ref),
@@ -537,7 +537,7 @@ class AtlasAaeosImplementationEvidenceResolver
         $shortClass = str_contains($classFqn, '\\') ? substr($classFqn, (int) strrpos($classFqn, '\\') + 1) : $classFqn;
         $index = $this->index();
         $names = $index[self::FIELD_NAMES];
-        foreach ([self::FIELD_TEST_METHOD, 'method'] as $type) {
+        foreach ([self::FIELD_TEST_METHOD, self::FIELD_METHOD] as $type) {
             foreach ($index[self::FIELD_BY_TYPE][$type] ?? [] as $offset) {
                 $name = $names[$offset];
                 if ($name === $classFqn.'::'.$method || str_ends_with($name, '\\'.$classFqn.'::'.$method)) {

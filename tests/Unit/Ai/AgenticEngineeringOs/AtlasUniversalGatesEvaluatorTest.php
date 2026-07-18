@@ -11193,4 +11193,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b538_aaeos_test_http_path_department_contract_verified_share_floor_count']);
     }
 
+    public function test_b539_aaeos_veto_segment_importance_flywheel_funnel_pre_review_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b539AaeosVetoSegmentImportanceFlywheelFunnelPreReviewFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_OVERRIDE, $out['override']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REVIEW, $out['review']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_RECENCY_RANK, $out['recency_rank']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_TOKEN_ESTIMATE, $out['token_estimate']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_CITATIONS_WITHOUT_BETTER_OUTCOME, $out['citations_without_better_outcome']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_PROMOTED_WITHOUT_RECALL, $out['promoted_without_recall']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_MEDIUM, $out['medium']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_SWEET, $out['sweet']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_EVIDENCE_HASH, $out['evidence_hash']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_THRESHOLD_BREACHES, $out['threshold_breaches']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_GENERATION, $out['generation']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_VISION, $out['vision']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_ROUTE, $out['route']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_METHOD, $out['method']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_REQUIREMENTS, $out['requirements']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_ACCEPTANCE_CRITERIA, $out['acceptance_criteria']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_RECOVERABLE, $out['recoverable']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_MALFORMED, $out['malformed']);
+        $this->assertSame(18, $out['b539_aaeos_veto_segment_importance_flywheel_funnel_pre_review_floor_count']);
+    }
+
 }

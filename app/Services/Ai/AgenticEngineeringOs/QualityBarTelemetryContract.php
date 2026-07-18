@@ -65,9 +65,9 @@ final class QualityBarTelemetryContract
     public const TELEMETRY_FIELDS = [
         'department_id',
         self::FIELD_BREACH_COUNT,
-        'threshold_breaches',
+        self::FIELD_THRESHOLD_BREACHES,
         self::FIELD_EVALUATED_WINDOW_DAYS,
-        'evidence_hash',
+        self::FIELD_EVIDENCE_HASH,
     ];
 
     /**

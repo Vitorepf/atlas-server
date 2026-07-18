@@ -9279,6 +9279,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b539_aaeos_veto_segment_importance_flywheel_funnel_pre_review_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b539-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b539',
+                '--b539-aaeos-veto-segment-importance-flywheel-funnel-pre-review-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b539_aaeos_veto_segment_importance_flywheel_funnel_pre_review_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

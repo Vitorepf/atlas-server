@@ -201,9 +201,9 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FUNCTIONS = [
         self::FIELD_REASONING,
         self::FIELD_RETRIEVAL,
-        'generation',
+        self::FIELD_GENERATION,
         self::FIELD_CODE,
-        'vision',
+        self::FIELD_VISION,
         self::FIELD_AUDIT,
     ];
 
