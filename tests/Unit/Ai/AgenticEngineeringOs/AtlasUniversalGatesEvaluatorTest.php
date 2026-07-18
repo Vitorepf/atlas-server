@@ -8416,4 +8416,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['lote_measure_asef_chunk_resource_budget_department_contract_floor_count']);
     }
 
+    public function test_immune_hybrid_capture_hmac_watchdog_runner_signature_department_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->immuneHybridCaptureHmacWatchdogRunnerSignatureDepartmentFloorsContractObserve([]);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_AGREEMENT, $out['agreement']);
+        $this->assertSame(AtlasImmuneHybridInputClassifier::FIELD_CITED_DATA_NOT_INSTRUCTION, $out['cited_data_not_instruction']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_ATLAS_MEMORY_ENTRIES, $out['atlas_memory_entries']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_DELETED_AT, $out['deleted_at']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_SYSTEM, $out['system']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_UNIFIED, $out['unified']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_MEMORY_REVERT_INGEST, $out['memory_revert_ingest']);
+        $this->assertSame(AtlasImmuneSignatureFreeze::FIELD_NO_RAW_POISON_TEXT_IN_STORE, $out['no_raw_poison_text_in_store']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_RESEARCH_PACKS, $out['aaeos_research_packs']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_AAEOS_REVIEW_LEDGER, $out['aaeos_review_ledger']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_COMPOSED_OBRA, $out['composed_obra']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_ORGAN_DEPENDENCY_GRAPH, $out['organ_dependency_graph']);
+        $this->assertSame(PromotionProtocol::FIELD_OPERATOR_PREFLIGHT_WINDOW, $out['operator_preflight_window']);
+        $this->assertSame(PromotionProtocol::FIELD_ORDINARY_ROUTE, $out['ordinary_route']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_MOTOR_VIVO, $out['motor_vivo']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_PACK_ANTI_LIXO, $out['pack_anti_lixo']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_DAY_COUNT_BELOW_FLOOR, $out['series_v2_day_count_below_floor']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_FUTURE_DATED_ROWS, $out['series_v2_future_dated_rows']);
+        $this->assertSame(18, $out['immune_hybrid_capture_hmac_watchdog_runner_signature_department_floor_count']);
+    }
+
 }

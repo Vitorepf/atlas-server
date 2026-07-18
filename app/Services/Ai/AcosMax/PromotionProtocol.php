@@ -103,6 +103,8 @@ final class PromotionProtocol
     public const FIELD_ATLAS = 'atlas';
     public const FIELD_MIGRATE_ON_NEXT_TOUCH = 'migrate_on_next_touch';
     public const FIELD_MISSING_PREDECLARED_ROLLBACK_TRIGGER = 'missing_predeclared_rollback_trigger';
+    public const FIELD_OPERATOR_PREFLIGHT_WINDOW = 'operator_preflight_window';
+    public const FIELD_ORDINARY_ROUTE = 'ordinary_route';
 
     /** @var list<string> */
     public const STATES = [
@@ -303,7 +305,7 @@ final class PromotionProtocol
                 self::FIELD_SLICE => 'ASI-06',
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_ENV_KEY => 'ATLAS_AUTONOMOS_MASTER_ENABLED',
-                self::FIELD_SHADOW_MINIMUM_WINDOW => 'operator_preflight_window',
+                self::FIELD_SHADOW_MINIMUM_WINDOW => self::FIELD_OPERATOR_PREFLIGHT_WINDOW,
                 self::FIELD_FLIP_CRITERION => 'atlas:autonomos:preflight --json returns 8/8 green with ASI-01/02/05 evidence',
                 self::FIELD_ROLLBACK_TRIGGER => 'operator disables autonomos master on failed preflight regression or scoped-committer violation',
                 self::FIELD_JUDGE_ENGINE_ID => 'codex-elev26s-judge',
@@ -492,7 +494,7 @@ final class PromotionProtocol
             self::FIELD_AUTHOR_ENGINE_ID => $author,
             self::FIELD_CHALLENGER_ENGINE_ID => $challenger,
             self::FIELD_OPERATOR_ALIGNMENT => $context[self::FIELD_OPERATOR_ALIGNMENT] ?? null,
-            self::FIELD_DECISION_KIND => $context[self::FIELD_DECISION_KIND] ?? 'ordinary_route',
+            self::FIELD_DECISION_KIND => $context[self::FIELD_DECISION_KIND] ?? self::FIELD_ORDINARY_ROUTE,
         ]);
     }
 

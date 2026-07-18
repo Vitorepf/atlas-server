@@ -213,6 +213,8 @@ final class DepartmentContractRuntime
     public const FIELD_AAEOS_OBRA_RUNS = 'aaeos_obra_runs';
     public const FIELD_AAEOS_POLICY_DECISIONS = 'aaeos_policy_decisions';
     public const FIELD_AAEOS_QA_LEDGER = 'aaeos_qa_ledger';
+    public const FIELD_AAEOS_RESEARCH_PACKS = 'aaeos_research_packs';
+    public const FIELD_AAEOS_REVIEW_LEDGER = 'aaeos_review_ledger';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -332,7 +334,7 @@ final class DepartmentContractRuntime
             self::FIELD_FORBIDDEN_ACTIONS => ['write_code', 'approve_release', 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['sources_list_hash', 'research_pack_hash'],
-            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_research_packs', self::FIELD_LEDGER => 'aaeos_source_ledger'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => self::FIELD_AAEOS_RESEARCH_PACKS, self::FIELD_LEDGER => 'aaeos_source_ledger'],
             self::FIELD_OBSERVABILITY_SIGNALS => ['research_source_freshness_avg', 'research_hallucination_count'],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_RESEARCH_FINDINGS,
@@ -403,7 +405,7 @@ final class DepartmentContractRuntime
             self::FIELD_FORBIDDEN_ACTIONS => ['edit_code', 'deploy_release', 'modify_security_policy'],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],
             self::FIELD_EVIDENCE_REQUIRED => ['review_report_hash', 'checklist_completion_hash'],
-            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_review_reports', self::FIELD_LEDGER => 'aaeos_review_ledger'],
+            self::FIELD_PERSISTENCE => [self::FIELD_PRIMARY_TABLE => 'aaeos_review_reports', self::FIELD_LEDGER => self::FIELD_AAEOS_REVIEW_LEDGER],
             self::FIELD_OBSERVABILITY_SIGNALS => ['review_findings_severity_avg', 'review_veto_count'],
             self::FIELD_MATURITY_LEVEL => 'L2',
             self::FIELD_EVIDENCE_SCHEMA => self::SCHEMA_DEV_REVIEW_RECEIPT,

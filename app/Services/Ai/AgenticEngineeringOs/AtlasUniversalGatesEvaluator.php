@@ -10762,4 +10762,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B427).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function immuneHybridCaptureHmacWatchdogRunnerSignatureDepartmentFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'agreement' => AtlasImmuneHybridInputClassifier::FIELD_AGREEMENT,
+            'cited_data_not_instruction' => AtlasImmuneHybridInputClassifier::FIELD_CITED_DATA_NOT_INSTRUCTION,
+            'atlas_memory_entries' => CaptureHmacLineageService::FIELD_ATLAS_MEMORY_ENTRIES,
+            'deleted_at' => CaptureHmacLineageService::FIELD_DELETED_AT,
+            'system' => AtlasWatchdogRunner::FIELD_SYSTEM,
+            'unified' => AtlasWatchdogRunner::FIELD_UNIFIED,
+            'memory_revert_ingest' => AtlasImmuneSignatureFreeze::FIELD_MEMORY_REVERT_INGEST,
+            'no_raw_poison_text_in_store' => AtlasImmuneSignatureFreeze::FIELD_NO_RAW_POISON_TEXT_IN_STORE,
+            'aaeos_research_packs' => DepartmentContractRuntime::FIELD_AAEOS_RESEARCH_PACKS,
+            'aaeos_review_ledger' => DepartmentContractRuntime::FIELD_AAEOS_REVIEW_LEDGER,
+            'composed_obra' => ComposedObraArcComposer::FIELD_COMPOSED_OBRA,
+            'organ_dependency_graph' => ComposedObraArcComposer::FIELD_ORGAN_DEPENDENCY_GRAPH,
+            'operator_preflight_window' => PromotionProtocol::FIELD_OPERATOR_PREFLIGHT_WINDOW,
+            'ordinary_route' => PromotionProtocol::FIELD_ORDINARY_ROUTE,
+            'motor_vivo' => AtlasAcosEvolutionScoreService::FIELD_MOTOR_VIVO,
+            'pack_anti_lixo' => AtlasAcosEvolutionScoreService::FIELD_PACK_ANTI_LIXO,
+            'series_v2_day_count_below_floor' => AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_DAY_COUNT_BELOW_FLOOR,
+            'series_v2_future_dated_rows' => AtlasAcosLongHorizonGateService::FIELD_SERIES_V2_FUTURE_DATED_ROWS,
+            'immune_hybrid_capture_hmac_watchdog_runner_signature_department_floor_count' => 18,
+        ];
+    }
+
 }

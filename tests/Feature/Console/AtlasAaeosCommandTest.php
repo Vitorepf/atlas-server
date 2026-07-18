@@ -7711,6 +7711,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_immune_hybrid_capture_hmac_watchdog_runner_signature_department_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b427-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b427',
+                '--immune-hybrid-capture-hmac-watchdog-runner-signature-department-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"immune_hybrid_capture_hmac_watchdog_runner_signature_department_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

@@ -80,6 +80,8 @@ final class AtlasImmuneHybridInputClassifier
     public const FIELD_PROMPT_INJECTION = 'prompt_injection';
     public const FIELD_BLOCKED_EPHEMERAL_EVIDENCE = 'blocked_ephemeral_evidence';
     public const FIELD_OFF = 'off';
+    public const FIELD_AGREEMENT = 'agreement';
+    public const FIELD_CITED_DATA_NOT_INSTRUCTION = 'cited_data_not_instruction';
 
     private readonly AtlasAaeosCognitiveImmuneInputClassifier $base;
 
@@ -219,7 +221,7 @@ final class AtlasImmuneHybridInputClassifier
             $baseResult[self::FIELD_EMBEDDING_ALLOWED] = false;
             $baseResult[self::FIELD_DEFAULT_DESTINATION] = self::hostileDestination($winner);
         } elseif ($winner !== null && $winner === $lexicalHostile) {
-            $armBlock[self::FIELD_WINNER_SOURCE] = $semanticHostile === $lexicalHostile ? 'agreement' : 'lexical';
+            $armBlock[self::FIELD_WINNER_SOURCE] = $semanticHostile === $lexicalHostile ? self::FIELD_AGREEMENT : 'lexical';
         }
 
         $baseResult[self::FIELD_HYBRID_ARM] = $armBlock;
@@ -302,7 +304,7 @@ final class AtlasImmuneHybridInputClassifier
         return match ($class) {
             self::FIELD_PROMPT_INJECTION => self::FIELD_BLOCKED_EPHEMERAL_EVIDENCE,
             self::FIELD_PRIVATE_SENSITIVE => 'redact_minimize',
-            self::FIELD_UNTRUSTED_CONTENT => 'cited_data_not_instruction',
+            self::FIELD_UNTRUSTED_CONTENT => self::FIELD_CITED_DATA_NOT_INSTRUCTION,
             default => self::FIELD_BLOCKED_EPHEMERAL_EVIDENCE,
         };
     }

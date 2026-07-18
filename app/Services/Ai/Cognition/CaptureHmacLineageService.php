@@ -99,6 +99,8 @@ final class CaptureHmacLineageService
     public const FIELD_ID = 'id';
     public const FIELD_CAPTURES = 'captures';
     public const FIELD_ATLAS_KNOWLEDGE_SOURCE_PACKETS = 'atlas_knowledge_source_packets';
+    public const FIELD_ATLAS_MEMORY_ENTRIES = 'atlas_memory_entries';
+    public const FIELD_DELETED_AT = 'deleted_at';
 
     /**
      * @param  array<string,mixed>  $existingChain
@@ -211,7 +213,7 @@ final class CaptureHmacLineageService
         }
 
         $rows = DB::table('captures')
-            ->whereNull('deleted_at')
+            ->whereNull(self::FIELD_DELETED_AT)
             ->orderByDesc('created_at')
             ->limit(max($minCaptures * 4, 40))
             ->get(['id', 'metadata', 'created_at']);
@@ -418,7 +420,7 @@ final class CaptureHmacLineageService
      */
     private function chainFromMemory(string $id): ?array
     {
-        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_MEMORY_ENTRIES)) {
             return null;
         }
 

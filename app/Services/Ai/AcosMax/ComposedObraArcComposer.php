@@ -90,6 +90,8 @@ final class ComposedObraArcComposer
     public const FIELD_THESIS = 'thesis';
     public const FIELD_APP = 'app';
     public const FIELD_ARCHIVE_WITH_RECEIPT = 'archive_with_receipt';
+    public const FIELD_COMPOSED_OBRA = 'composed_obra';
+    public const FIELD_ORGAN_DEPENDENCY_GRAPH = 'organ_dependency_graph';
 
     /**
      * @param  list<array<string,mixed>>  $candidates  grounded origination candidates
@@ -136,7 +138,7 @@ final class ComposedObraArcComposer
             self::FIELD_CHALLENGER_ADVISORY => Esp09IndependentChallengerService::evaluate([
                 self::FIELD_AUTHOR_ENGINE_ID => $author,
                 self::FIELD_CHALLENGER_ENGINE_ID => $judge,
-                self::FIELD_DECISION_KIND => 'composed_obra',
+                self::FIELD_DECISION_KIND => self::FIELD_COMPOSED_OBRA,
             ]),
             self::FIELD_SOURCE => [
                 self::FIELD_ARC_BUYS_GATE_WHOLESALE => false,
@@ -301,7 +303,7 @@ final class ComposedObraArcComposer
                 self::FIELD_ACTION_ON_TRIGGER => self::FIELD_ARCHIVE_WITH_RECEIPT,
             ],
             self::FIELD_SOURCE => [
-                self::FIELD_NEIGHBOR_BASIS => 'organ_dependency_graph',
+                self::FIELD_NEIGHBOR_BASIS => self::FIELD_ORGAN_DEPENDENCY_GRAPH,
                 self::FIELD_AUTHOR_NEQ_JUDGE => $author !== $judge,
             ],
         ];

@@ -126,6 +126,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_FRESCO = 'fresco';
     public const FIELD_GATES_AUDITADOS = 'gates_auditados';
     public const FIELD_LICOES_GERIDAS = 'licoes_geridas';
+    public const FIELD_MOTOR_VIVO = 'motor_vivo';
+    public const FIELD_PACK_ANTI_LIXO = 'pack_anti_lixo';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -205,7 +207,7 @@ class AtlasAcosEvolutionScoreService
 
         $unmarked = $this->unmarkedSessionEchoCount();
         $signals[] = [
-            self::FIELD_SIGNAL => 'pack_anti_lixo',
+            self::FIELD_SIGNAL => self::FIELD_PACK_ANTI_LIXO,
             self::FIELD_POINTS => $unmarked === 0 ? 2.5 : 0.0,
             self::FIELD_MAX => 2.5,
             self::FIELD_EVIDENCE => $unmarked === -1 ? 'store ausente (0 honesto)' : sprintf('unmarked_session_echo_nodes=%d', $unmarked),
@@ -270,7 +272,7 @@ class AtlasAcosEvolutionScoreService
 
         $heartbeatFresh = $this->heartbeatFresh();
         $signals[] = [
-            self::FIELD_SIGNAL => 'motor_vivo',
+            self::FIELD_SIGNAL => self::FIELD_MOTOR_VIVO,
             self::FIELD_POINTS => $heartbeatFresh ? 2.5 : 0.0,
             self::FIELD_MAX => 2.5,
             self::FIELD_EVIDENCE => 'heartbeat do com.atlas.scheduler '.($heartbeatFresh ? self::FIELD_FRESCO : 'parado/ausente'),
