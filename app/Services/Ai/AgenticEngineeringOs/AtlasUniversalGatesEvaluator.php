@@ -17102,4 +17102,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B634).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b634OutcomeCausalityFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.aaeos.outcome_causality_ranking.v1' => OutcomeCausalityRanker::SCHEMA_VERSION,
+            'missing_evidence' => OutcomeCausalityRanker::CAUSE_MISSING_EVIDENCE,
+            'tests_failed' => OutcomeCausalityRanker::CAUSE_TESTS_FAILED,
+            'execution_failed_or_blocked' => OutcomeCausalityRanker::CAUSE_EXECUTION_FAILED_OR_BLOCKED,
+            'context_missing_required_sources' => OutcomeCausalityRanker::CAUSE_CONTEXT_MISSING_REQUIRED_SOURCES,
+            'execution_strategy_likely_succeeded' => OutcomeCausalityRanker::CAUSE_EXECUTION_STRATEGY_LIKELY_SUCCEEDED,
+            '0.95' => OutcomeCausalityRanker::WEIGHT_MISSING_EVIDENCE,
+            '0.85' => OutcomeCausalityRanker::WEIGHT_TESTS_FAILED,
+            '0.70' => OutcomeCausalityRanker::WEIGHT_EXECUTION_FAILED_OR_BLOCKED,
+            '0.65' => OutcomeCausalityRanker::WEIGHT_CONTEXT_MISSING_REQUIRED_SOURCES,
+            '0.55' => OutcomeCausalityRanker::WEIGHT_EXECUTION_STRATEGY_LIKELY_SUCCEEDED,
+            'succeeded' => OutcomeCausalityRanker::FIELD_SUCCEEDED,
+            'scope_or_contract_mismatch' => OutcomeCausalityRanker::CAUSE_SCOPE_OR_CONTRACT_MISMATCH,
+            'packet_quality_failure' => OutcomeCausalityRanker::CAUSE_PACKET_QUALITY_FAILURE,
+            '0.80' => OutcomeCausalityRanker::WEIGHT_SCOPE_OR_CONTRACT_MISMATCH,
+            '0.72' => OutcomeCausalityRanker::WEIGHT_PACKET_QUALITY_FAILURE,
+            'success' => OutcomeCausalityRanker::OUTCOME_SUCCESS,
+            'give_back' => OutcomeCausalityRanker::OUTCOME_GIVE_BACK,
+            'b634_outcome_causality_floor_count' => 18,
+        ];
+    }
+
 }

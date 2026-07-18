@@ -13522,4 +13522,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b633_aaeos_implementation_floor_count']);
     }
 
+    public function test_b634_outcome_causality_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b634OutcomeCausalityFloorsContractObserve([]);
+        $this->assertSame(OutcomeCausalityRanker::SCHEMA_VERSION, $out['atlas.aaeos.outcome_causality_ranking.v1']);
+        $this->assertSame(OutcomeCausalityRanker::CAUSE_MISSING_EVIDENCE, $out['missing_evidence']);
+        $this->assertSame(OutcomeCausalityRanker::CAUSE_TESTS_FAILED, $out['tests_failed']);
+        $this->assertSame(OutcomeCausalityRanker::CAUSE_EXECUTION_FAILED_OR_BLOCKED, $out['execution_failed_or_blocked']);
+        $this->assertSame(OutcomeCausalityRanker::CAUSE_CONTEXT_MISSING_REQUIRED_SOURCES, $out['context_missing_required_sources']);
+        $this->assertSame(OutcomeCausalityRanker::CAUSE_EXECUTION_STRATEGY_LIKELY_SUCCEEDED, $out['execution_strategy_likely_succeeded']);
+        $this->assertSame(OutcomeCausalityRanker::WEIGHT_MISSING_EVIDENCE, $out['0.95']);
+        $this->assertSame(OutcomeCausalityRanker::WEIGHT_TESTS_FAILED, $out['0.85']);
+        $this->assertSame(OutcomeCausalityRanker::WEIGHT_EXECUTION_FAILED_OR_BLOCKED, $out['0.70']);
+        $this->assertSame(OutcomeCausalityRanker::WEIGHT_CONTEXT_MISSING_REQUIRED_SOURCES, $out['0.65']);
+        $this->assertSame(OutcomeCausalityRanker::WEIGHT_EXECUTION_STRATEGY_LIKELY_SUCCEEDED, $out['0.55']);
+        $this->assertSame(OutcomeCausalityRanker::FIELD_SUCCEEDED, $out['succeeded']);
+        $this->assertSame(OutcomeCausalityRanker::CAUSE_SCOPE_OR_CONTRACT_MISMATCH, $out['scope_or_contract_mismatch']);
+        $this->assertSame(OutcomeCausalityRanker::CAUSE_PACKET_QUALITY_FAILURE, $out['packet_quality_failure']);
+        $this->assertSame(OutcomeCausalityRanker::WEIGHT_SCOPE_OR_CONTRACT_MISMATCH, $out['0.80']);
+        $this->assertSame(OutcomeCausalityRanker::WEIGHT_PACKET_QUALITY_FAILURE, $out['0.72']);
+        $this->assertSame(OutcomeCausalityRanker::OUTCOME_SUCCESS, $out['success']);
+        $this->assertSame(OutcomeCausalityRanker::OUTCOME_GIVE_BACK, $out['give_back']);
+        $this->assertSame(18, $out['b634_outcome_causality_floor_count']);
+    }
+
 }
