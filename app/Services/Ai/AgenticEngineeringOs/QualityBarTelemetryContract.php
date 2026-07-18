@@ -63,7 +63,7 @@ final class QualityBarTelemetryContract
      * @var list<string>
      */
     public const TELEMETRY_FIELDS = [
-        'department_id',
+        self::FIELD_DEPARTMENT_ID,
         self::FIELD_BREACH_COUNT,
         self::FIELD_THRESHOLD_BREACHES,
         self::FIELD_EVALUATED_WINDOW_DAYS,

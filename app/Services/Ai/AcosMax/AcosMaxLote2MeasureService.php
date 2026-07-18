@@ -471,7 +471,7 @@ final class AcosMaxLote2MeasureService
             self::FIELD_SCHEMA_VERSION => self::REPORT_SCHEMA,
             self::FIELD_SLICE => self::FIELD_MULTX_01,
             self::FIELD_STATUS => $marcoSatisfied ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SIGNAL,
-            self::FIELD_REASON => $marcoSatisfied ? null : 'no_complete_proven_real_loop_window',
+            self::FIELD_REASON => $marcoSatisfied ? null : self::FIELD_NO_COMPLETE_PROVEN_REAL_LOOP_WINDOW,
             self::FIELD_FORMULA_VERSION => AiValueNormalizer::trimmedStringOrNull(data_get(self::freezePayload(self::FIELD_MULTX_01), self::FIELD_FORMULA_VERSION)) ?? '',
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
             self::FIELD_FREEZE => self::freezePayload(self::FIELD_MULTX_01),

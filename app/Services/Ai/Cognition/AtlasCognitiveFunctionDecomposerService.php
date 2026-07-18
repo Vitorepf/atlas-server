@@ -193,6 +193,7 @@ final class AtlasCognitiveFunctionDecomposerService
     public const FIELD_VERIFIQUE = 'verifique';
     public const FIELD_UTC = 'UTC';
     public const FIELD_FUNCTION_DECOMPOSITIONS_JSONL = 'function_decompositions.jsonl';
+    public const FIELD_ATLAS_COGNITION = 'atlas/cognition';
     public const FLOAT_0_5 = 0.5;
     public const FLOAT_0_15 = 0.15;
     public const FLOAT_0_2 = 0.2;
@@ -273,7 +274,7 @@ final class AtlasCognitiveFunctionDecomposerService
             return $this->logPathOverride;
         }
         $base = function_exists(self::FIELD_STORAGE_PATH)
-            ? storage_path('atlas/cognition')
+            ? storage_path(self::FIELD_ATLAS_COGNITION)
             : sys_get_temp_dir().'/atlas/cognition';
 
         return $base.DIRECTORY_SEPARATOR.self::FIELD_FUNCTION_DECOMPOSITIONS_JSONL;

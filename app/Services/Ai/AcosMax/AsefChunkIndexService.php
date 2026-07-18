@@ -297,7 +297,7 @@ final class AsefChunkIndexService
 
         $builder = DB::table(self::FIELD_ASEF_CHUNKS)
             ->whereNotNull(self::FIELD_EMBEDDING)
-            ->select([self::FIELD_SOURCE_REF, self::FIELD_CHUNK_HASH, 'chunk_id'])
+            ->select([self::FIELD_SOURCE_REF, self::FIELD_CHUNK_HASH, self::FIELD_CHUNK_ID])
             ->selectRaw('(1 - (embedding <=> ?::vector)) AS similarity', [$literal]);
 
         EmbeddingProvenance::scopeCurrentModel($builder, self::FIELD_ASEF_CHUNKS, $modelId);

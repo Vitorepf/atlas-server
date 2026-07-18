@@ -11343,4 +11343,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b544_aaeos_implementation_department_value_portfolio_budget_deferred_phase_floor_count']);
     }
 
+    public function test_b545_aaeos_cognitive_implementation_veto_segment_importance_spec_completeness_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b545AaeosCognitiveImplementationVetoSegmentImportanceSpecCompletenessFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IS_QUESTION, $out['is_question']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_SYMBOL_TYPE, $out['symbol_type']);
+        $this->assertSame(AtlasAaeosVetoPropagationResolver::FIELD_REPAIR_LOOP_REACHED_4TH_ITERATION_AUTO_ESCALATED_TO_ARCHITECT_AND_OPERATOR, $out['repair_loop_reached_4th_iteration_auto_escalated_to_architect_and_operator']);
+        $this->assertSame(SegmentImportanceRanker::FIELD_ID, $out['id']);
+        $this->assertSame(SpecCompletenessScorer::FIELD_NON_GOALS, $out['non_goals']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_NO_COMPLETE_PROVEN_REAL_LOOP_WINDOW, $out['no_complete_proven_real_loop_window']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_ORIGINATOR_PREDICTED_IMPACT_CALIBRATION_V1, $out['freeze:atlas.originator.predicted_impact_calibration.v1']);
+        $this->assertSame(AsefChunkIndexService::FIELD_CHUNK_ID, $out['chunk_id']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_OUTCOMES_WITHOUT_LESSON, $out['outcomes_without_lesson']);
+        $this->assertSame(OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_VERIFIED_SOURCE_PRESENT_INVALID, $out['outcome_envelope_verified_source_present_invalid']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_CRITICAL, $out['critical']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_UNTITLED, $out['untitled']);
+        $this->assertSame(AtlasMissionControlCockpitService::FIELD_SERVABLE_NOW, $out['servable_now']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_DEPARTMENT_ID, $out['department_id']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_SELF_IMPROVEMENT, $out['self_improvement']);
+        $this->assertSame(AtlasCognitiveFunctionDecomposerService::FIELD_ATLAS_COGNITION, $out['atlas/cognition']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_CREATED_AT, $out['created_at']);
+        $this->assertSame(CognitiveImmunePromotionGateEvaluator::FIELD_PROVENANCE_TRACES_TO_REVERTED, $out['provenance_traces_to_reverted']);
+        $this->assertSame(18, $out['b545_aaeos_cognitive_implementation_veto_segment_importance_spec_completeness_floor_count']);
+    }
+
 }

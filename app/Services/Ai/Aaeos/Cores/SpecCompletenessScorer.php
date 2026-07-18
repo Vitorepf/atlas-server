@@ -88,7 +88,7 @@ final class SpecCompletenessScorer
      * @var list<string>
      */
     public const LIST_FIELDS = [
-        'non_goals',
+        self::FIELD_NON_GOALS,
         self::FIELD_REQUIREMENTS,
         self::FIELD_ACCEPTANCE_CRITERIA,
         self::FIELD_ASSUMPTIONS,

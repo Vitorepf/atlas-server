@@ -567,6 +567,7 @@ final class AtlasAaeosCommand extends Command
                             {--b542-aaeos-test-verified-share-acos-program-http-path-floors-contract= : JSON file (any object) to observe aaeos/test/verified/share/acos/program floors}
                             {--b543-aaeos-doc-gate-context-pareto-outcome-causality-summary-floors-contract= : JSON file (any object) to observe aaeos/doc/gate/context/pareto/outcome floors}
                             {--b544-aaeos-implementation-department-value-portfolio-budget-deferred-phase-floors-contract= : JSON file (any object) to observe aaeos/implementation/department/value/portfolio/budget floors}
+                            {--b545-aaeos-cognitive-implementation-veto-segment-importance-spec-completeness-floors-contract= : JSON file (any object) to observe aaeos/cognitive/implementation/veto/segment/importance floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1290,6 +1291,7 @@ final class AtlasAaeosCommand extends Command
             ['b542-aaeos-test-verified-share-acos-program-http-path-floors-contract', 'b542_aaeos_test_verified_share_acos_program_http_path_floors_contract', fn (array $p) => $gates->b542AaeosTestVerifiedShareAcosProgramHttpPathFloorsContractObserve($p)],
             ['b543-aaeos-doc-gate-context-pareto-outcome-causality-summary-floors-contract', 'b543_aaeos_doc_gate_context_pareto_outcome_causality_summary_floors_contract', fn (array $p) => $gates->b543AaeosDocGateContextParetoOutcomeCausalitySummaryFloorsContractObserve($p)],
             ['b544-aaeos-implementation-department-value-portfolio-budget-deferred-phase-floors-contract', 'b544_aaeos_implementation_department_value_portfolio_budget_deferred_phase_floors_contract', fn (array $p) => $gates->b544AaeosImplementationDepartmentValuePortfolioBudgetDeferredPhaseFloorsContractObserve($p)],
+            ['b545-aaeos-cognitive-implementation-veto-segment-importance-spec-completeness-floors-contract', 'b545_aaeos_cognitive_implementation_veto_segment_importance_spec_completeness_floors_contract', fn (array $p) => $gates->b545AaeosCognitiveImplementationVetoSegmentImportanceSpecCompletenessFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

@@ -239,7 +239,7 @@ class AtlasAaeosImplementationEvidenceResolver
         $rows = AtlasEngineeringCodeSymbol::query()
             ->toBase()
             ->where(self::FIELD_STATUS, self::STATUS_ACTIVE)
-            ->select([self::FIELD_SYMBOL_NAME, self::FIELD_FILE_PATH, self::FIELD_SIGNATURE, 'symbol_type'])
+            ->select([self::FIELD_SYMBOL_NAME, self::FIELD_FILE_PATH, self::FIELD_SIGNATURE, self::FIELD_SYMBOL_TYPE])
             ->distinct()
             ->cursor();
 

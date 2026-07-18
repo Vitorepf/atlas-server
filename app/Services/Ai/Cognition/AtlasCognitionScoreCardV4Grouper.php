@@ -85,7 +85,7 @@ final class AtlasCognitionScoreCardV4Grouper
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
-        'self_improvement',
+        self::FIELD_SELF_IMPROVEMENT,
         self::FIELD_SELF_CONSTRUCTION,
         self::FIELD_CARTOGRAPHY,
         self::FIELD_PROGRAMMING,

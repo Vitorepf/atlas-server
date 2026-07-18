@@ -90,6 +90,7 @@ final class AtlasAaeosVetoPropagationResolver
     public const FIELD_SECURITY_VETO = 'security_veto';
     public const FIELD_SPEC = 'spec';
     public const FIELD_REPAIR_LOOP_4TH_ITERATION = 'repair_loop_4th_iteration';
+    public const FIELD_REPAIR_LOOP_REACHED_4TH_ITERATION_AUTO_ESCALATED_TO_ARCHITECT_AND_OPERATOR = 'repair_loop_reached_4th_iteration_auto_escalated_to_architect_and_operator';
 
     /**
      * Encoded canonical department adjacency (mermaid stateDiagram transitions).
@@ -156,7 +157,7 @@ final class AtlasAaeosVetoPropagationResolver
         if ($autoEscalated && $resolution !== self::RESOLUTION_NO_MATCH) {
             $escalationTarget = $this->reachableTargets([self::FIELD_ARCHITECT, self::FIELD_OPERATOR]);
             $matchedRule = self::FIELD_REPAIR_LOOP_4TH_ITERATION;
-            $reason = 'repair_loop_reached_4th_iteration_auto_escalated_to_architect_and_operator';
+            $reason = self::FIELD_REPAIR_LOOP_REACHED_4TH_ITERATION_AUTO_ESCALATED_TO_ARCHITECT_AND_OPERATOR;
         }
 
         return [

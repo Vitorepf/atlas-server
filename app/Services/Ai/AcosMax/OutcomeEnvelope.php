@@ -72,6 +72,7 @@ final class OutcomeEnvelope
     public const FIELD_OUTCOME_ENVELOPE_EVIDENCE_REF_COUNT_INVALID = 'outcome_envelope_evidence_ref_count_invalid';
     public const FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_FIELDS_INVALID = 'outcome_envelope_native_divergent_fields_invalid';
     public const FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_ORIGIN_MISMATCH = 'outcome_envelope_native_divergent_origin_mismatch';
+    public const FIELD_OUTCOME_ENVELOPE_VERIFIED_SOURCE_PRESENT_INVALID = 'outcome_envelope_verified_source_present_invalid';
 
     /**
      * Map divergent native status labels onto the shared envelope statuses.
@@ -199,7 +200,7 @@ final class OutcomeEnvelope
             throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_VERIFIED_INVALID);
         }
         if (! is_bool($data[self::FIELD_VERIFIED_SOURCE_PRESENT] ?? null)) {
-            throw new InvalidArgumentException('outcome_envelope_verified_source_present_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_VERIFIED_SOURCE_PRESENT_INVALID);
         }
 
         $evidenceRefCount = $data[self::FIELD_EVIDENCE_REF_COUNT] ?? null;

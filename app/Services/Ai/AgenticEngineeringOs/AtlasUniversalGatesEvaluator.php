@@ -14392,4 +14392,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B545).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b545AaeosCognitiveImplementationVetoSegmentImportanceSpecCompletenessFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'is_question' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_IS_QUESTION,
+            'symbol_type' => AtlasAaeosImplementationEvidenceResolver::FIELD_SYMBOL_TYPE,
+            'repair_loop_reached_4th_iteration_auto_escalated_to_architect_and_operator' => AtlasAaeosVetoPropagationResolver::FIELD_REPAIR_LOOP_REACHED_4TH_ITERATION_AUTO_ESCALATED_TO_ARCHITECT_AND_OPERATOR,
+            'id' => SegmentImportanceRanker::FIELD_ID,
+            'non_goals' => SpecCompletenessScorer::FIELD_NON_GOALS,
+            'no_complete_proven_real_loop_window' => AcosMaxLote2MeasureService::FIELD_NO_COMPLETE_PROVEN_REAL_LOOP_WINDOW,
+            'freeze:atlas.originator.predicted_impact_calibration.v1' => AcosMaxMeasureSeriesRegistry::FIELD_FREEZE_ATLAS_ORIGINATOR_PREDICTED_IMPACT_CALIBRATION_V1,
+            'chunk_id' => AsefChunkIndexService::FIELD_CHUNK_ID,
+            'outcomes_without_lesson' => AtlasFlywheelFunnelService::FIELD_OUTCOMES_WITHOUT_LESSON,
+            'outcome_envelope_verified_source_present_invalid' => OutcomeEnvelope::FIELD_OUTCOME_ENVELOPE_VERIFIED_SOURCE_PRESENT_INVALID,
+            'critical' => PreReviewAdvisoryBand::FIELD_CRITICAL,
+            'untitled' => Teto10PredictedRevertReviewDigest::FIELD_UNTITLED,
+            'servable_now' => AtlasMissionControlCockpitService::FIELD_SERVABLE_NOW,
+            'department_id' => QualityBarTelemetryContract::FIELD_DEPARTMENT_ID,
+            'self_improvement' => AtlasCognitionScoreCardV4Grouper::FIELD_SELF_IMPROVEMENT,
+            'atlas/cognition' => AtlasCognitiveFunctionDecomposerService::FIELD_ATLAS_COGNITION,
+            'created_at' => CaptureHmacLineageService::FIELD_CREATED_AT,
+            'provenance_traces_to_reverted' => CognitiveImmunePromotionGateEvaluator::FIELD_PROVENANCE_TRACES_TO_REVERTED,
+            'b545_aaeos_cognitive_implementation_veto_segment_importance_spec_completeness_floor_count' => 18,
+        ];
+    }
+
 }

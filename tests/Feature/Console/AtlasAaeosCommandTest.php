@@ -9363,6 +9363,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b545_aaeos_cognitive_implementation_veto_segment_importance_spec_completeness_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b545-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b545',
+                '--b545-aaeos-cognitive-implementation-veto-segment-importance-spec-completeness-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b545_aaeos_cognitive_implementation_veto_segment_importance_spec_completeness_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

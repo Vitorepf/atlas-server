@@ -165,6 +165,7 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_APP_ATLAS_EVIDENCE_ACOS_MAX_MAXM01_PROVIDER_LEAK_CORPUS_JSONL = 'app/atlas/evidence/acos-max-maxm01-provider-leak-corpus.jsonl';
     public const FIELD_APP_ATLAS_EVIDENCE_RAGX_AB_REGISTRATIONS_JSONL = 'app/atlas/evidence/ragx-ab-registrations.jsonl';
     public const FIELD_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL = 'atlas/atlas_decide/live_outcomes.jsonl';
+    public const FIELD_FREEZE_ATLAS_ORIGINATOR_PREDICTED_IMPACT_CALIBRATION_V1 = 'freeze:atlas.originator.predicted_impact_calibration.v1';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -464,7 +465,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => (int) AcosMaxLote2MeasureService::freezePayload(self::FIELD_MULTN17_04)[self::FIELD_TTL_DAYS],
-                self::FIELD_TTL_SOURCE => 'freeze:atlas.originator.predicted_impact_calibration.v1',
+                self::FIELD_TTL_SOURCE => self::FIELD_FREEZE_ATLAS_ORIGINATOR_PREDICTED_IMPACT_CALIBRATION_V1,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MULTX_01,

@@ -65,7 +65,7 @@ final class AtlasFlywheelFunnelService
 
     /** @var list<string> */
     public const STAGES = [
-        'outcomes_without_lesson',
+        self::FIELD_OUTCOMES_WITHOUT_LESSON,
         self::FIELD_LESSONS_WITHOUT_PROMOTION,
         self::FIELD_PROMOTED_WITHOUT_RECALL,
         self::FIELD_RECALLS_WITHOUT_CITATION,

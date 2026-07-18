@@ -101,7 +101,7 @@ final class PreReviewAdvisoryBand
     /**
      * @param  array<string,mixed>  $features required keys:
      *   target_class: string (e.g. 'migrations', self::FIELD_OPS, self::FIELD_DEBUG, self::FIELD_UNKNOWN)
-     *   risk_band: self::FIELD_LOW|self::FIELD_MEDIUM|self::FIELD_HIGH|'critical'|null
+     *   risk_band: self::FIELD_LOW|self::FIELD_MEDIUM|self::FIELD_HIGH|self::FIELD_CRITICAL|null
      *   confidence_band: self::FIELD_LOW|self::FIELD_SWEET|self::FIELD_HIGH|null (declared self-model band)
      *   similar_revert_rate: float [0..1] (from MAXN-03)
      *   n_similar: int (from MAXN-03)
@@ -238,7 +238,7 @@ final class PreReviewAdvisoryBand
 
     private static function normalizeRiskBand(mixed $value): ?string
     {
-        return self::normalizeAllowlistedBand($value, [self::FIELD_LOW, self::FIELD_MEDIUM, self::FIELD_HIGH, 'critical']);
+        return self::normalizeAllowlistedBand($value, [self::FIELD_LOW, self::FIELD_MEDIUM, self::FIELD_HIGH, self::FIELD_CRITICAL]);
     }
 
     private static function normalizeConfBand(mixed $value): ?string

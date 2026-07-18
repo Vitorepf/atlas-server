@@ -300,7 +300,7 @@ final class CognitiveImmunePromotionGateEvaluator
         }
 
         if ($this->flag($signals, self::FIELD_PROVENANCE_TRACES_TO_REVERTED)) {
-            return [self::STATUS_BLOCK, 'provenance_traces_to_reverted'];
+            return [self::STATUS_BLOCK, self::FIELD_PROVENANCE_TRACES_TO_REVERTED];
         }
 
         if ($this->flag($signals, self::FIELD_PROVENANCE_CYCLE_DETECTED)) {

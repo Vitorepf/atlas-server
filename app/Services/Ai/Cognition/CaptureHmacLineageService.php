@@ -227,7 +227,7 @@ final class CaptureHmacLineageService
             ->whereNull(self::FIELD_DELETED_AT)
             ->orderByDesc(self::FIELD_CREATED_AT)
             ->limit(max($minCaptures * 4, 40))
-            ->get([self::FIELD_ID, self::FIELD_METADATA, 'created_at']);
+            ->get([self::FIELD_ID, self::FIELD_METADATA, self::FIELD_CREATED_AT]);
 
         $recent = $rows->take($minCaptures);
         $chained = $recent->filter(function (object $row): bool {

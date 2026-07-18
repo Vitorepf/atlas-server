@@ -246,7 +246,7 @@ final class SegmentImportanceRanker
             $score = round($base + $dedupPenalty, 4);
 
             $scored[] = [
-                self::FIELD_ID => AtlasAaeosArrayFieldReader::stringField($row, 'id'),
+                self::FIELD_ID => AtlasAaeosArrayFieldReader::stringField($row, self::FIELD_ID),
                 self::FIELD_KIND => $kind,
                 self::FIELD_RECENCY_RANK => $recencyRank,
                 self::FIELD_TOKEN_ESTIMATE => max($this->intField($row, self::FIELD_TOKEN_ESTIMATE), 0),

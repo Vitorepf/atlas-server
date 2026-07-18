@@ -193,7 +193,7 @@ final class Teto10PredictedRevertReviewDigest
                 if (! is_array($item)) {
                     continue;
                 }
-                $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? self::FIELD_ITEM) ?: self::FIELD_ITEM).': '.self::plain(self::string($item[self::FIELD_TITLE] ?? self::FIELD_UNTITLED) ?: 'untitled');
+                $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? self::FIELD_ITEM) ?: self::FIELD_ITEM).': '.self::plain(self::string($item[self::FIELD_TITLE] ?? self::FIELD_UNTITLED) ?: self::FIELD_UNTITLED);
                 $lines[] = '  - band: '.self::plain(self::band($item[self::FIELD_PREDICTED_REVERT_BAND] ?? self::BAND_UNKNOWN));
                 $lines[] = '  - evidence: '.self::plain(implode(', ', array_map(self::string(...), AiValueNormalizer::arrayOrEmpty($item[self::FIELD_EVIDENCE_REFS] ?? null))));
                 $lines[] = '  - diff-ref: '.self::plain(self::string($item[self::FIELD_DIFF_REF] ?? self::FIELD_MANUAL_REVIEW) ?: self::FIELD_MANUAL_REVIEW);
