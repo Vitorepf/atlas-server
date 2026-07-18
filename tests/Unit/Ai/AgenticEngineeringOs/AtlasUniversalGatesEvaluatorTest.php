@@ -15074,4 +15074,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b695_verified_share_floor_count']);
     }
 
+    public function test_b696_reactive_saturation_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b696ReactiveSaturationFloorsContractObserve([]);
+        $this->assertSame(ReactiveSaturationSignal::SCHEMA_VERSION, $out['atlas.originator.reactive_saturation.v1']);
+        $this->assertSame(ReactiveSaturationSignal::MIN_N_PER_WINDOW, $out['8']);
+        $this->assertSame(ReactiveSaturationSignal::MIN_WINDOWS, $out['3']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_REACTIVE_SATURATED, $out['reactive_saturated']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_BASIS, $out['basis']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_PICK_HINT, $out['pick_hint']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_QUEUE_DEPTH, $out['queue_depth']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_TAIL, $out['tail']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_SOURCE, $out['source']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_REPORT_ONLY, $out['report_only']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_DISABLES_REACTIVE_LANE, $out['disables_reactive_lane']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_PROVIDER_CALLS_MADE, $out['provider_calls_made']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_USES_QUEUE_EMPTY_AS_SOLE_SIGNAL, $out['uses_queue_empty_as_sole_signal']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_YIELD, $out['yield']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_FALLING_YIELD_WITH_HYSTERESIS, $out['falling_yield_with_hysteresis']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_INSUFFICIENT_N, $out['insufficient_n']);
+        $this->assertSame(ReactiveSaturationSignal::FIELD_BYTE_IDENTICAL_PICK, $out['byte_identical_pick']);
+        $this->assertSame(18, $out['b696_reactive_saturation_floor_count']);
+    }
+
 }

@@ -19024,4 +19024,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B696).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b696ReactiveSaturationFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.originator.reactive_saturation.v1' => ReactiveSaturationSignal::SCHEMA_VERSION,
+            '8' => ReactiveSaturationSignal::MIN_N_PER_WINDOW,
+            '3' => ReactiveSaturationSignal::MIN_WINDOWS,
+            'schema_version' => ReactiveSaturationSignal::FIELD_SCHEMA_VERSION,
+            'reactive_saturated' => ReactiveSaturationSignal::FIELD_REACTIVE_SATURATED,
+            'basis' => ReactiveSaturationSignal::FIELD_BASIS,
+            'pick_hint' => ReactiveSaturationSignal::FIELD_PICK_HINT,
+            'queue_depth' => ReactiveSaturationSignal::FIELD_QUEUE_DEPTH,
+            'tail' => ReactiveSaturationSignal::FIELD_TAIL,
+            'source' => ReactiveSaturationSignal::FIELD_SOURCE,
+            'report_only' => ReactiveSaturationSignal::FIELD_REPORT_ONLY,
+            'disables_reactive_lane' => ReactiveSaturationSignal::FIELD_DISABLES_REACTIVE_LANE,
+            'provider_calls_made' => ReactiveSaturationSignal::FIELD_PROVIDER_CALLS_MADE,
+            'uses_queue_empty_as_sole_signal' => ReactiveSaturationSignal::FIELD_USES_QUEUE_EMPTY_AS_SOLE_SIGNAL,
+            'yield' => ReactiveSaturationSignal::FIELD_YIELD,
+            'falling_yield_with_hysteresis' => ReactiveSaturationSignal::FIELD_FALLING_YIELD_WITH_HYSTERESIS,
+            'insufficient_n' => ReactiveSaturationSignal::FIELD_INSUFFICIENT_N,
+            'byte_identical_pick' => ReactiveSaturationSignal::FIELD_BYTE_IDENTICAL_PICK,
+            'b696_reactive_saturation_floor_count' => 18,
+        ];
+    }
+
 }
