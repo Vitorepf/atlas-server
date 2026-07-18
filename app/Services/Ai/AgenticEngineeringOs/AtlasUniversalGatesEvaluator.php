@@ -19179,4 +19179,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B701).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b701RagxChainFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.acos_max.ragx_chain_mechanisms.v1' => RagxChainMechanismService::SCHEMA,
+            'status' => RagxChainMechanismService::FIELD_STATUS,
+            'schema_version' => RagxChainMechanismService::FIELD_SCHEMA_VERSION,
+            'slice' => RagxChainMechanismService::FIELD_SLICE,
+            'ab_green_claimed' => RagxChainMechanismService::FIELD_AB_GREEN_CLAIMED,
+            'documents' => RagxChainMechanismService::FIELD_DOCUMENTS,
+            'mechanisms' => RagxChainMechanismService::FIELD_MECHANISMS,
+            'flags' => RagxChainMechanismService::FIELD_FLAGS,
+            'registered' => RagxChainMechanismService::STATUS_REGISTERED,
+            'atlas.acos_max.ragx_ab_registration.v1' => RagxChainMechanismService::AB_SCHEMA,
+            'atlas.acos_max.ragx10_raptor_lite.v1' => RagxChainMechanismService::RAPTOR_SCHEMA,
+            'atlas.acos_max.maxd05_louvain_chunks.v1' => RagxChainMechanismService::LOUVAIN_SCHEMA,
+            'atlas.aobg.ragx_late_chunk_index' => RagxChainMechanismService::FLAG_LATE_CHUNK_INDEX,
+            'atlas.aobg.ragx_late_chunk_maxa04_promoted' => RagxChainMechanismService::FLAG_LATE_CHUNK_MAXA04_PROMOTED,
+            'atlas.aobg.ragx_adaptive_k' => RagxChainMechanismService::FLAG_ADAPTIVE_K,
+            'atlas.aobg.ragx_sparse_fallback' => RagxChainMechanismService::FLAG_SPARSE_FALLBACK,
+            'atlas.aobg.ragx_ab_registrar' => RagxChainMechanismService::FLAG_AB_REGISTRAR,
+            'atlas.aobg.ragx_louvain_chunks' => RagxChainMechanismService::FLAG_LOUVAIN_CHUNKS,
+            'b701_ragx_chain_floor_count' => 18,
+        ];
+    }
+
 }

@@ -15199,4 +15199,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b700_acos_program_floor_count']);
     }
 
+    public function test_b701_ragx_chain_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b701RagxChainFloorsContractObserve([]);
+        $this->assertSame(RagxChainMechanismService::SCHEMA, $out['atlas.acos_max.ragx_chain_mechanisms.v1']);
+        $this->assertSame(RagxChainMechanismService::FIELD_STATUS, $out['status']);
+        $this->assertSame(RagxChainMechanismService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(RagxChainMechanismService::FIELD_SLICE, $out['slice']);
+        $this->assertSame(RagxChainMechanismService::FIELD_AB_GREEN_CLAIMED, $out['ab_green_claimed']);
+        $this->assertSame(RagxChainMechanismService::FIELD_DOCUMENTS, $out['documents']);
+        $this->assertSame(RagxChainMechanismService::FIELD_MECHANISMS, $out['mechanisms']);
+        $this->assertSame(RagxChainMechanismService::FIELD_FLAGS, $out['flags']);
+        $this->assertSame(RagxChainMechanismService::STATUS_REGISTERED, $out['registered']);
+        $this->assertSame(RagxChainMechanismService::AB_SCHEMA, $out['atlas.acos_max.ragx_ab_registration.v1']);
+        $this->assertSame(RagxChainMechanismService::RAPTOR_SCHEMA, $out['atlas.acos_max.ragx10_raptor_lite.v1']);
+        $this->assertSame(RagxChainMechanismService::LOUVAIN_SCHEMA, $out['atlas.acos_max.maxd05_louvain_chunks.v1']);
+        $this->assertSame(RagxChainMechanismService::FLAG_LATE_CHUNK_INDEX, $out['atlas.aobg.ragx_late_chunk_index']);
+        $this->assertSame(RagxChainMechanismService::FLAG_LATE_CHUNK_MAXA04_PROMOTED, $out['atlas.aobg.ragx_late_chunk_maxa04_promoted']);
+        $this->assertSame(RagxChainMechanismService::FLAG_ADAPTIVE_K, $out['atlas.aobg.ragx_adaptive_k']);
+        $this->assertSame(RagxChainMechanismService::FLAG_SPARSE_FALLBACK, $out['atlas.aobg.ragx_sparse_fallback']);
+        $this->assertSame(RagxChainMechanismService::FLAG_AB_REGISTRAR, $out['atlas.aobg.ragx_ab_registrar']);
+        $this->assertSame(RagxChainMechanismService::FLAG_LOUVAIN_CHUNKS, $out['atlas.aobg.ragx_louvain_chunks']);
+        $this->assertSame(18, $out['b701_ragx_chain_floor_count']);
+    }
+
 }

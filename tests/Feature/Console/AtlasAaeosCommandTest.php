@@ -11547,6 +11547,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b701_ragx_chain_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b701-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b701',
+                '--b701-ragx-chain-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b701_ragx_chain_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 
