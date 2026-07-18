@@ -72,6 +72,12 @@ class AtlasCognitiveFunctionAtlasService
     public const FIELD_SHAPE = 'shape';
     public const FIELD_GAPS = 'gaps';
     public const FIELD_OVERALL_SCORE = 'overall_score';
+    public const FIELD_ACRONYM = 'acronym';
+    public const FIELD_AKIF = 'akif';
+    public const FIELD_ATLAS_DECIDE = 'atlas_decide';
+    public const FIELD_AUCRI = 'aucri';
+    public const FIELD_AURG = 'aurg';
+    public const FIELD_AUTONOMY = 'autonomy';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scoreCard,
@@ -162,7 +168,7 @@ class AtlasCognitiveFunctionAtlasService
             return null;
         }
         foreach (AiValueNormalizer::arrayOrEmpty($this->scoreCard->build()[self::FIELD_SUBSYSTEMS] ?? null) as $s) {
-            if (($s['acronym'] ?? null) === $acronym) {
+            if (($s[self::FIELD_ACRONYM] ?? null) === $acronym) {
                 return (AiValueNormalizer::trimmedStringOrNull($s[self::FIELD_GROUP] ?? null) ?? '');
             }
         }
@@ -206,15 +212,15 @@ class AtlasCognitiveFunctionAtlasService
         $groupRoots = [
             'cognitive_immune' => ['aemor', 'cognitive_immune'],
             'memory_core' => ['memory'],
-            'aucri' => ['akif'],
+            self::FIELD_AUCRI => [self::FIELD_AKIF],
             'self_improvement' => ['self_improvement'],
-            'atlas_decide' => ['atlas_decide', 'swarm'],
+            self::FIELD_ATLAS_DECIDE => ['atlas_decide', 'swarm'],
             'self_construction' => ['self_construction'],
-            'reality' => ['aurg'],
+            'reality' => [self::FIELD_AURG],
             'cross_domain' => ['cross_domain'],
             'teos' => ['teos_i3', 'teos_i4'],
             'governance' => ['governance'],
-            'autonomy' => ['reconciliation'],
+            self::FIELD_AUTONOMY => ['reconciliation'],
             'cognition' => [],
             'compounding' => ['compounding'],
         ];

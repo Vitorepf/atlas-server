@@ -63,6 +63,11 @@ final class AcosMaxVerifiedShareService
     public const FIELD_SERIES = 'series';
     public const FIELD_PATH = 'path';
     public const FIELD_WATCHDOG_PLUGIN = 'watchdog_plugin';
+    public const FIELD_ACTOR = 'actor';
+    public const FIELD_AGGREGATE = 'aggregate';
+    public const FIELD_CONTENT_HASH = 'content_hash';
+    public const FIELD_EVENT_NAME = 'event_name';
+    public const FIELD_EXECUTORS = 'executors';
 
 
     /** @return array<string,mixed> */
@@ -143,7 +148,7 @@ final class AcosMaxVerifiedShareService
             'window_days' => $windowDays,
             'freeze' => [
                 self::FIELD_MEASURE_ID => AiValueNormalizer::trimmedStringOrNull($freeze[self::FIELD_MEASURE_ID] ?? null) ?? self::MEASURE_ID,
-                'content_hash' => AiValueNormalizer::trimmedStringOrNull($freeze['content_hash'] ?? null) ?? '',
+                self::FIELD_CONTENT_HASH => AiValueNormalizer::trimmedStringOrNull($freeze[self::FIELD_CONTENT_HASH] ?? null) ?? '',
                 self::FIELD_DENOMINATOR_MIN => $denominatorMin,
                 self::FIELD_THRESHOLDS => AiValueNormalizer::arrayOrEmpty($freeze[self::FIELD_THRESHOLDS] ?? null),
                 self::FIELD_AUTHOR_ENGINE_ID => $authorEngineId,
@@ -151,8 +156,8 @@ final class AcosMaxVerifiedShareService
                 'judge_author_distinct' => $authorEngineId !== '' && $authorEngineId !== $judgeEngineId,
                 self::FIELD_SERIES_REGISTRY => AiValueNormalizer::arrayOrEmpty($freeze[self::FIELD_SERIES_REGISTRY] ?? null),
             ],
-            'aggregate' => $aggregate,
-            'executors' => $executors,
+            self::FIELD_AGGREGATE => $aggregate,
+            self::FIELD_EXECUTORS => $executors,
             'sources' => [
                 'outcome_denominator' => 'storage/atlas/atlas_decide/live_outcomes.jsonl',
                 'verification_numerator' => 'atlas_ledger_events engineering.execution.coverage.recorded mode=enforce',
@@ -279,7 +284,7 @@ final class AcosMaxVerifiedShareService
             ->orderBy('occurred_at')
             ->get()
             ->map(static fn (AtlasLedgerEvent $event): array => (array) $event->payload)
-            ->filter(static fn (array $payload): bool => ($payload['event_name'] ?? null) === 'engineering.execution.coverage.recorded'
+            ->filter(static fn (array $payload): bool => ($payload[self::FIELD_EVENT_NAME] ?? null) === 'engineering.execution.coverage.recorded'
                 && ($payload['mode'] ?? null) === 'enforce')
             ->values()
             ->all();
@@ -288,7 +293,7 @@ final class AcosMaxVerifiedShareService
     /** @param array<string,mixed> $row */
     private function executorFromOutcome(array $row): ?string
     {
-        $actor = AiValueNormalizer::lowerTrimmedString($row['actor'] ?? '');
+        $actor = AiValueNormalizer::lowerTrimmedString($row[self::FIELD_ACTOR] ?? '');
         if (str_starts_with($actor, 'engineering_outcome_spine:')) {
             return $this->normalizeExecutor(substr($actor, strlen('engineering_outcome_spine:')));
         }

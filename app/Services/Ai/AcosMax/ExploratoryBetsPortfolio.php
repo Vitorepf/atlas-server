@@ -48,6 +48,12 @@ final class ExploratoryBetsPortfolio
     public const FIELD_FROM_STATE = 'from_state';
     public const FIELD_TO_STATE = 'to_state';
     public const FIELD_CANDIDATE_ID = 'candidate_id';
+    public const FIELD_ADMIT_COMPOUNDING = 'admit_compounding';
+    public const FIELD_ALLOCATION_BOUNDARY = 'allocation_boundary';
+    public const FIELD_CI_HIGH = 'ci_high';
+    public const FIELD_COUNTS_LANDING_OR_ACCEPTANCE = 'counts_landing_or_acceptance';
+    public const FIELD_COUNTS_PROVEN_REAL_ONLY = 'counts_proven_real_only';
+    public const FIELD_DECISION_KIND = 'decision_kind';
 
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
 
@@ -181,7 +187,7 @@ final class ExploratoryBetsPortfolio
             self::FIELD_PATH_WEIGHT_MULTIPLIER => 1.0,
         ];
 
-        if (($effect['admit_compounding'] ?? false) === true) {
+        if (($effect[self::FIELD_ADMIT_COMPOUNDING] ?? false) === true) {
             $action = $suspendedState === PromotionProtocol::STATE_SUSPENDED_PENDING_EVIDENCE
                 ? self::ACTION_RESUME_AND_DOUBLE_DOWN
                 : self::ACTION_DOUBLE_DOWN;
@@ -231,7 +237,7 @@ final class ExploratoryBetsPortfolio
     {
         return (int) (AiValueNormalizer::finiteFloatOrNull($effect['n_treat'] ?? null) ?? 0) >= self::MIN_N
             && (int) (AiValueNormalizer::finiteFloatOrNull($effect['n_base'] ?? null) ?? 0) >= self::MIN_N
-            && (AiValueNormalizer::finiteFloatOrNull($effect['ci_high'] ?? null) ?? 0.0) < 0.0;
+            && (AiValueNormalizer::finiteFloatOrNull($effect[self::FIELD_CI_HIGH] ?? null) ?? 0.0) < 0.0;
     }
 
     /**
@@ -243,7 +249,7 @@ final class ExploratoryBetsPortfolio
     {
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'decision_kind' => self::DECISION_KIND_CONTINUATION_GATE,
+            self::FIELD_DECISION_KIND => self::DECISION_KIND_CONTINUATION_GATE,
             self::FIELD_PATH => AiValueNormalizer::trimmedStringOrNull($decision[self::FIELD_PATH] ?? null) ?? '',
             self::FIELD_ACTION => AiValueNormalizer::trimmedStringOrNull($decision[self::FIELD_ACTION] ?? null) ?? '',
             self::FIELD_STATE => AiValueNormalizer::trimmedStringOrNull($decision[self::FIELD_STATE] ?? null) ?? '',
@@ -261,12 +267,12 @@ final class ExploratoryBetsPortfolio
     private static function source(): array
     {
         return [
-            'allocation_boundary' => 'originated_slice_sub_policy',
+            self::FIELD_ALLOCATION_BOUNDARY => 'originated_slice_sub_policy',
             'uses_atlas_brain_causal_effect_gate' => true,
             'recomputes_multk_06_allocation' => false,
             'writes_class_allocation_weights' => false,
-            'counts_landing_or_acceptance' => false,
-            'counts_proven_real_only' => true,
+            self::FIELD_COUNTS_LANDING_OR_ACCEPTANCE => false,
+            self::FIELD_COUNTS_PROVEN_REAL_ONLY => true,
             'suspends_on_insufficient_n' => false,
             'deletes_suspended_family' => false,
             'flag' => 'atlas.loop.exploratory_bets_portfolio_enabled',

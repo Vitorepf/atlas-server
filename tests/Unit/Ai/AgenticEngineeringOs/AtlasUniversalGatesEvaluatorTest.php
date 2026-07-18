@@ -4955,4 +4955,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     }
 
 
+    public function test_atlas_bets_verified_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->atlasBetsVerifiedFloorsContractObserve([]);
+
+        $this->assertSame('acronym', $payload['atlas_field_acronym']);
+        $this->assertSame('akif', $payload['atlas_field_akif']);
+        $this->assertSame('atlas_decide', $payload['atlas_field_atlas_decide']);
+        $this->assertSame('aucri', $payload['atlas_field_aucri']);
+        $this->assertSame('aurg', $payload['atlas_field_aurg']);
+        $this->assertSame('autonomy', $payload['atlas_field_autonomy']);
+        $this->assertSame('admit_compounding', $payload['bets_field_admit_compounding']);
+        $this->assertSame('allocation_boundary', $payload['bets_field_allocation_boundary']);
+        $this->assertSame('ci_high', $payload['bets_field_ci_high']);
+        $this->assertSame('counts_landing_or_acceptance', $payload['bets_field_counts_landing_or_acceptance']);
+        $this->assertSame('counts_proven_real_only', $payload['bets_field_counts_proven_real_only']);
+        $this->assertSame('decision_kind', $payload['bets_field_decision_kind']);
+        $this->assertSame('actor', $payload['verified_field_actor']);
+        $this->assertSame('aggregate', $payload['verified_field_aggregate']);
+        $this->assertSame('content_hash', $payload['verified_field_content_hash']);
+        $this->assertSame('event_name', $payload['verified_field_event_name']);
+        $this->assertSame('executors', $payload['verified_field_executors']);
+        $this->assertSame(17, $payload['atlas_bets_verified_floor_count']);
+    }
+
+
 }

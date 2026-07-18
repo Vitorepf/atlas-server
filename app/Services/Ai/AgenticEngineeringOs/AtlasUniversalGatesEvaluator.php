@@ -6717,6 +6717,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function atlasBetsVerifiedFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas_field_acronym' => AtlasCognitiveFunctionAtlasService::FIELD_ACRONYM,
+            'atlas_field_akif' => AtlasCognitiveFunctionAtlasService::FIELD_AKIF,
+            'atlas_field_atlas_decide' => AtlasCognitiveFunctionAtlasService::FIELD_ATLAS_DECIDE,
+            'atlas_field_aucri' => AtlasCognitiveFunctionAtlasService::FIELD_AUCRI,
+            'atlas_field_aurg' => AtlasCognitiveFunctionAtlasService::FIELD_AURG,
+            'atlas_field_autonomy' => AtlasCognitiveFunctionAtlasService::FIELD_AUTONOMY,
+            'bets_field_admit_compounding' => ExploratoryBetsPortfolio::FIELD_ADMIT_COMPOUNDING,
+            'bets_field_allocation_boundary' => ExploratoryBetsPortfolio::FIELD_ALLOCATION_BOUNDARY,
+            'bets_field_ci_high' => ExploratoryBetsPortfolio::FIELD_CI_HIGH,
+            'bets_field_counts_landing_or_acceptance' => ExploratoryBetsPortfolio::FIELD_COUNTS_LANDING_OR_ACCEPTANCE,
+            'bets_field_counts_proven_real_only' => ExploratoryBetsPortfolio::FIELD_COUNTS_PROVEN_REAL_ONLY,
+            'bets_field_decision_kind' => ExploratoryBetsPortfolio::FIELD_DECISION_KIND,
+            'verified_field_actor' => AcosMaxVerifiedShareService::FIELD_ACTOR,
+            'verified_field_aggregate' => AcosMaxVerifiedShareService::FIELD_AGGREGATE,
+            'verified_field_content_hash' => AcosMaxVerifiedShareService::FIELD_CONTENT_HASH,
+            'verified_field_event_name' => AcosMaxVerifiedShareService::FIELD_EVENT_NAME,
+            'verified_field_executors' => AcosMaxVerifiedShareService::FIELD_EXECUTORS,
+            'atlas_bets_verified_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
