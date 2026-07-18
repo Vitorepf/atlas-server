@@ -404,6 +404,7 @@ final class AtlasAaeosCommand extends Command
                             {--cross-department-portfolio-budget-aaeos-gate-implementation-phase-floors-contract= : JSON file (any object) to observe cross/department/portfolio/budget/aaeos/gate floors}
                             {--obra-retro-daily-canary-aaeos-gate-implementation-cross-floors-contract= : JSON file (any object) to observe obra/retro/daily/canary/aaeos/gate floors}
                             {--exploratory-bets-aaeos-implementation-cross-department-docs-authority-floors-contract= : JSON file (any object) to observe exploratory/bets/aaeos/implementation/cross/department floors}
+                            {--evidence-vision-golden-counterfactual-promotion-protocol-phase-handoff-floors-contract= : JSON file (any object) to observe evidence/vision/golden/counterfactual/promotion/protocol floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -964,6 +965,7 @@ final class AtlasAaeosCommand extends Command
             ['cross-department-portfolio-budget-aaeos-gate-implementation-phase-floors-contract', 'cross_department_portfolio_budget_aaeos_gate_implementation_phase_floors_contract', fn (array $p) => $gates->crossDepartmentPortfolioBudgetAaeosGateImplementationPhaseFloorsContractObserve($p)],
             ['obra-retro-daily-canary-aaeos-gate-implementation-cross-floors-contract', 'obra_retro_daily_canary_aaeos_gate_implementation_cross_floors_contract', fn (array $p) => $gates->obraRetroDailyCanaryAaeosGateImplementationCrossFloorsContractObserve($p)],
             ['exploratory-bets-aaeos-implementation-cross-department-docs-authority-floors-contract', 'exploratory_bets_aaeos_implementation_cross_department_docs_authority_floors_contract', fn (array $p) => $gates->exploratoryBetsAaeosImplementationCrossDepartmentDocsAuthorityFloorsContractObserve($p)],
+            ['evidence-vision-golden-counterfactual-promotion-protocol-phase-handoff-floors-contract', 'evidence_vision_golden_counterfactual_promotion_protocol_phase_handoff_floors_contract', fn (array $p) => $gates->evidenceVisionGoldenCounterfactualPromotionProtocolPhaseHandoffFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

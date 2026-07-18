@@ -54,6 +54,8 @@ final class AcosMaxWindowOrchestratorService
     public const FIELD_DAYS_ELAPSED = 'days_elapsed';
     public const FIELD_DURATION_DAYS = 'duration_days';
     public const FIELD_LAST_DATA_AT = 'last_data_at';
+    public const FIELD_MINIMUM_WINDOW = 'minimum_window';
+    public const FIELD_MINIMUM_WINDOW_RUNNING = 'minimum_window_running';
 
 
     public function __construct(
@@ -167,7 +169,7 @@ final class AcosMaxWindowOrchestratorService
             self::FIELD_FLAG_ID => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_ID] ?? null) ?? ''),
             self::FIELD_FAMILY => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_FAMILY] ?? null) ?? ''),
             self::FIELD_SLICE => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SLICE] ?? null) ?? ''),
-            'minimum_window' => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SHADOW_MINIMUM_WINDOW] ?? null) ?? ''),
+            self::FIELD_MINIMUM_WINDOW => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SHADOW_MINIMUM_WINDOW] ?? null) ?? ''),
             self::FIELD_DURATION_DAYS => $durationDays,
             self::FIELD_DEPENDS_ON => array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($entry[self::FIELD_DEPENDS_ON] ?? null))),
             self::FIELD_SERIES => $series[self::FIELD_SERIES] ?? null,
@@ -195,7 +197,7 @@ final class AcosMaxWindowOrchestratorService
             self::FIELD_STARTED_AT => $startedAt?->format(DateTimeInterface::ATOM),
             self::FIELD_DAYS_ELAPSED => $elapsed,
             self::FIELD_DAYS_REMAINING => $remaining,
-            self::FIELD_BLOCKING => $remaining === 0 ? [] : ['minimum_window_running'],
+            self::FIELD_BLOCKING => $remaining === 0 ? [] : [self::FIELD_MINIMUM_WINDOW_RUNNING],
         ]);
 
         $alert = $this->deadWindowAlert($window, $series, $now, $deadAfterDays);

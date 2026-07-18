@@ -9366,4 +9366,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B382).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function evidenceVisionGoldenCounterfactualPromotionProtocolPhaseHandoffFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'kind' => EvidenceVisionThesisLifecycle::FIELD_KIND,
+            'lead_cluster_cleared' => EvidenceVisionThesisLifecycle::FIELD_LEAD_CLUSTER_CLEARED,
+            'extrapolation_allowed' => GoldenCounterfactualReplayService::FIELD_EXTRAPOLATION_ALLOWED,
+            'generated_at' => GoldenCounterfactualReplayService::FIELD_GENERATED_AT,
+            'ledger_path' => PromotionProtocol::FIELD_LEDGER_PATH,
+            'legacy_unmanaged_flags_count' => PromotionProtocol::FIELD_LEGACY_UNMANAGED_FLAGS_COUNT,
+            'delivery_pack_hash_signed' => AaeosPhaseHandoffService::FIELD_DELIVERY_PACK_HASH_SIGNED,
+            'department_route_owner_confirmed' => AaeosPhaseHandoffService::FIELD_DEPARTMENT_ROUTE_OWNER_CONFIRMED,
+            'denominator_min_operator_requests' => AcosMaxLote2MeasureService::FIELD_DENOMINATOR_MIN_OPERATOR_REQUESTS,
+            'denominator_min_originations' => AcosMaxLote2MeasureService::FIELD_DENOMINATOR_MIN_ORIGINATIONS,
+            'source' => AcosMaxObraRetroService::FIELD_SOURCE,
+            'surface_id' => AcosMaxObraRetroService::FIELD_SURFACE_ID,
+            'postconditions' => AcosMaxProceduralSkillPromoterService::FIELD_POSTCONDITIONS,
+            'prior_corrections' => AcosMaxProceduralSkillPromoterService::FIELD_PRIOR_CORRECTIONS,
+            'outcome_denominator' => AcosMaxVerifiedShareService::FIELD_OUTCOME_DENOMINATOR,
+            'owner' => AcosMaxVerifiedShareService::FIELD_OWNER,
+            'minimum_window' => AcosMaxWindowOrchestratorService::FIELD_MINIMUM_WINDOW,
+            'minimum_window_running' => AcosMaxWindowOrchestratorService::FIELD_MINIMUM_WINDOW_RUNNING,
+            'evidence_vision_golden_counterfactual_promotion_protocol_phase_handoff_floor_count' => 18,
+        ];
+    }
+
 }

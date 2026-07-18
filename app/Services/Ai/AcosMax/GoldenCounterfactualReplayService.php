@@ -45,6 +45,8 @@ final class GoldenCounterfactualReplayService
     public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
     public const FIELD_DELTA = 'delta';
     public const FIELD_DELTA_REQUIRES_BOTH_ARMS = 'delta_requires_both_arms';
+    public const FIELD_EXTRAPOLATION_ALLOWED = 'extrapolation_allowed';
+    public const FIELD_GENERATED_AT = 'generated_at';
 
 
     /**
@@ -56,13 +58,13 @@ final class GoldenCounterfactualReplayService
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
             self::FIELD_DECISION_ID => $decisionId,
             self::FIELD_CLAIM_POLICY => [
                 self::FIELD_READ_ONLY => true,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
                 'git_checkout_performed' => false,
-                'extrapolation_allowed' => false,
+                self::FIELD_EXTRAPOLATION_ALLOWED => false,
                 self::FIELD_DELTA_REQUIRES_BOTH_ARMS => true,
             ],
         ];

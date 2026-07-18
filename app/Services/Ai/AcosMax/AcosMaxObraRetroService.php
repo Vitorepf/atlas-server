@@ -90,6 +90,8 @@ final class AcosMaxObraRetroService
     public const FIELD_RUN_ID = 'run_id';
     public const FIELD_SCOPE_ID = 'scope_id';
     public const FIELD_SCOPE_TYPE = 'scope_type';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_SURFACE_ID = 'surface_id';
 
     public function __construct(
         private readonly AtlasEngineeringOutcomeRecorder $outcomes,
@@ -175,7 +177,7 @@ final class AcosMaxObraRetroService
             self::FIELD_PRIVACY_CLASS => 'normal',
         ], $candidate, [
             self::FIELD_PAYLOAD => array_merge(AiValueNormalizer::arrayOrEmpty($candidate[self::FIELD_PAYLOAD] ?? null), [
-                'source' => self::SOURCE_ACOS_MAX_OBRA_RETRO,
+                self::FIELD_SOURCE => self::SOURCE_ACOS_MAX_OBRA_RETRO,
                 self::FIELD_SERIES_TAG => self::SERIES_TAG,
             ]),
         ]);
@@ -212,7 +214,7 @@ final class AcosMaxObraRetroService
             self::FIELD_SUMMARY => AiValueNormalizer::trimmedScalarStringOrNull($slice[self::FIELD_LINE] ?? null) ?? '',
             self::FIELD_STATUS => $status,
             self::FIELD_WORKSPACE => base_path(),
-            'surface_id' => self::SERIES_TAG,
+            self::FIELD_SURFACE_ID => self::SERIES_TAG,
             self::FIELD_SCOPE_TYPE => 'obra_lote',
             self::FIELD_SCOPE_ID => sprintf('acos-max:lote-%d', $lote),
             self::FIELD_RUN_ID => sprintf('acos-max:lote-%d:%s:%s', $lote, $slice[self::FIELD_ID], $slice[self::FIELD_STATE]),

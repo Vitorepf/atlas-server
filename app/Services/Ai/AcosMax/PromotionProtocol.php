@@ -94,6 +94,8 @@ final class PromotionProtocol
     public const FIELD_REQUIRED_FIELDS = 'required_fields';
     public const FIELD_FLAGS = 'flags';
     public const FIELD_LAST_FLIP = 'last_flip';
+    public const FIELD_LEDGER_PATH = 'ledger_path';
+    public const FIELD_LEGACY_UNMANAGED_FLAGS_COUNT = 'legacy_unmanaged_flags_count';
 
     /** @var list<string> */
     public const STATES = [
@@ -272,9 +274,9 @@ final class PromotionProtocol
             self::FIELD_STATUS => self::STATUS_OK,
             'protocol_schema_version' => self::SCHEMA,
             self::FIELD_STATES => self::STATES,
-            'ledger_path' => $this->ledger->path(),
+            self::FIELD_LEDGER_PATH => $this->ledger->path(),
             'managed_flags_count' => count($managed),
-            'legacy_unmanaged_flags_count' => count($legacy),
+            self::FIELD_LEGACY_UNMANAGED_FLAGS_COUNT => count($legacy),
             self::FIELD_FLAGS => array_values(array_merge($managed, $legacy)),
         ];
     }

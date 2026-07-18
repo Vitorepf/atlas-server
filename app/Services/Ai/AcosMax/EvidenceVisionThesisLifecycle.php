@@ -47,6 +47,8 @@ final class EvidenceVisionThesisLifecycle
     public const FIELD_TARGET_PATH = 'target_path';
     public const FIELD_EVIDENCE = 'evidence';
     public const FIELD_HIGH = 'high';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_LEAD_CLUSTER_CLEARED = 'lead_cluster_cleared';
 
     /** @var array<string,array<string,mixed>> */
     private static array $active = [];
@@ -176,12 +178,12 @@ final class EvidenceVisionThesisLifecycle
         }
 
         $criterion = AiValueNormalizer::arrayOrEmpty($thesis[self::FIELD_DEATH_CRITERION] ?? null);
-        $kind = AiValueNormalizer::trimmedStringOrNull($criterion['kind'] ?? null) ?? '';
+        $kind = AiValueNormalizer::trimmedStringOrNull($criterion[self::FIELD_KIND] ?? null) ?? '';
 
         return match ($kind) {
             self::FIELD_SERIES_RECOVERY => self::seriesRecoveryMet($thesis, $seriesWindows, $criterion) ? 'series_recovery' : null,
             self::FIELD_CALIBRATION_RESOLVED => self::calibrationResolved($calibration, $criterion) ? 'calibration_resolved' : null,
-            'lead_cluster_cleared' => self::leadClusterCleared($thesis, $leads, $criterion) ? 'lead_cluster_cleared' : null,
+            self::FIELD_LEAD_CLUSTER_CLEARED => self::leadClusterCleared($thesis, $leads, $criterion) ? 'lead_cluster_cleared' : null,
             self::FIELD_OUTCOME_PROVEN => self::outcomeProven($thesis, $outcomes) ? 'outcome_proven' : null,
             default => null,
         };

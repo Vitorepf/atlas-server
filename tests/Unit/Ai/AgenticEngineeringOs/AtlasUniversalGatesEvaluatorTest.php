@@ -7274,4 +7274,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['exploratory_bets_aaeos_implementation_cross_department_docs_authority_floor_count']);
     }
 
+    public function test_evidence_vision_golden_counterfactual_promotion_protocol_phase_handoff_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->evidenceVisionGoldenCounterfactualPromotionProtocolPhaseHandoffFloorsContractObserve([]);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_KIND, $out['kind']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_LEAD_CLUSTER_CLEARED, $out['lead_cluster_cleared']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_EXTRAPOLATION_ALLOWED, $out['extrapolation_allowed']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(PromotionProtocol::FIELD_LEDGER_PATH, $out['ledger_path']);
+        $this->assertSame(PromotionProtocol::FIELD_LEGACY_UNMANAGED_FLAGS_COUNT, $out['legacy_unmanaged_flags_count']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_DELIVERY_PACK_HASH_SIGNED, $out['delivery_pack_hash_signed']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_DEPARTMENT_ROUTE_OWNER_CONFIRMED, $out['department_route_owner_confirmed']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DENOMINATOR_MIN_OPERATOR_REQUESTS, $out['denominator_min_operator_requests']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DENOMINATOR_MIN_ORIGINATIONS, $out['denominator_min_originations']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_SOURCE, $out['source']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_SURFACE_ID, $out['surface_id']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_POSTCONDITIONS, $out['postconditions']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_PRIOR_CORRECTIONS, $out['prior_corrections']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_OUTCOME_DENOMINATOR, $out['outcome_denominator']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_OWNER, $out['owner']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_MINIMUM_WINDOW, $out['minimum_window']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_MINIMUM_WINDOW_RUNNING, $out['minimum_window_running']);
+        $this->assertSame(18, $out['evidence_vision_golden_counterfactual_promotion_protocol_phase_handoff_floor_count']);
+    }
+
 }

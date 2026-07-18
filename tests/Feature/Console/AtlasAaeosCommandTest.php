@@ -7081,6 +7081,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_evidence_vision_golden_counterfactual_promotion_protocol_phase_handoff_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b382-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b382',
+                '--evidence-vision-golden-counterfactual-promotion-protocol-phase-handoff-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"evidence_vision_golden_counterfactual_promotion_protocol_phase_handoff_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

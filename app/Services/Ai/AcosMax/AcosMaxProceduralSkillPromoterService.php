@@ -105,6 +105,8 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_NAME = 'name';
     public const FIELD_OBJECTIVE = 'objective';
     public const FIELD_PAYLOAD = 'payload';
+    public const FIELD_POSTCONDITIONS = 'postconditions';
+    public const FIELD_PRIOR_CORRECTIONS = 'prior_corrections';
 
 
     public function __construct(
@@ -235,9 +237,9 @@ final class AcosMaxProceduralSkillPromoterService
                 self::FIELD_BODY => [
                     self::FIELD_OBJECTIVE => $playbook->objective,
                     'steps' => $playbook->steps,
-                    'postconditions' => $playbook->postconditions,
+                    self::FIELD_POSTCONDITIONS => $playbook->postconditions,
                     self::FIELD_FORBIDDEN_ACTIONS => $playbook->forbiddenActions,
-                    'prior_corrections' => $playbook->priorCorrections,
+                    self::FIELD_PRIOR_CORRECTIONS => $playbook->priorCorrections,
                 ],
             ],
         ];
