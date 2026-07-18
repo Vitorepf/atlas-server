@@ -105,6 +105,8 @@ final class AcosMaxVerifiedShareService
     public const FIELD_ENGINEERING_EXECUTION_COVERAGE_RECORDED = 'engineering.execution.coverage.recorded';
     public const FIELD_THRESHOLDS_DENOMINATOR_MIN_EXECUTIONS = 'thresholds.denominator_min_executions';
     public const FIELD_THRESHOLDS_VERIFIED_SHARE_MIN = 'thresholds.verified_share_min';
+    public const FIELD_THRESHOLDS_WINDOW_DAYS_MIN = 'thresholds.window_days_min';
+    public const FIELD_WDG_01_ACOS_VERIFIED_SHARE = 'wdg-01.acos_verified_share';
 
 
     /** @return array<string,mixed> */
@@ -127,7 +129,7 @@ final class AcosMaxVerifiedShareService
             self::FIELD_SERIES_REGISTRY => [
                 self::FIELD_SERIES => self::MEASURE_ID,
                 self::FIELD_PATH => 'atlas:acos:verified-share --json',
-                self::FIELD_WATCHDOG_PLUGIN => 'wdg-01.acos_verified_share',
+                self::FIELD_WATCHDOG_PLUGIN => self::FIELD_WDG_01_ACOS_VERIFIED_SHARE,
             ],
         ];
     }
@@ -147,7 +149,7 @@ final class AcosMaxVerifiedShareService
             ];
         }
 
-        $windowDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($days) ?? data_get($freeze, 'thresholds.window_days_min', self::DEFAULT_WINDOW_DAYS_MIN)));
+        $windowDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($days) ?? data_get($freeze, self::FIELD_THRESHOLDS_WINDOW_DAYS_MIN, self::DEFAULT_WINDOW_DAYS_MIN)));
         $since = CarbonImmutable::now(self::FIELD_UTC)->subDays($windowDays);
         $totals = $this->emptyCounts();
         $verified = $this->emptyCounts();

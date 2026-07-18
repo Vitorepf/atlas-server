@@ -269,13 +269,15 @@ class AtlasCognitionScoreCardService
     public const FIELD_TEOS_I1 = 'TEOS-I1';
     public const FIELD_TEOS_I3 = 'TEOS-I3';
     public const FIELD_TEOS_I4 = 'TEOS-I4';
+    public const INT_3 = 3;
+    public const INT_6 = 6;
     public const INT_10 = 10;
 
     /** Score points per status. */
     public const STATUS_POINTS = [
         self::STATUS_READY => self::INT_10,
-        self::STATUS_PARTIAL => 6,
-        self::STATUS_BUILDING => 3,
+        self::STATUS_PARTIAL => self::INT_6,
+        self::STATUS_BUILDING => self::INT_3,
         self::STATUS_BLOCKED => 0,
     ];
 

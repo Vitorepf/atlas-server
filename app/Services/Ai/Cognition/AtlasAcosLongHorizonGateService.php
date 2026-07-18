@@ -188,6 +188,8 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_SCORE_OVERALL_OUT_OF_10 = 'score.overall_out_of_10';
     public const FIELD_SOURCES_SCORECARD = 'sources.scorecard';
     public const FIELD_SOURCES_SCORECARD_OVERALL = 'sources.scorecard_overall';
+    public const INT_2 = 2;
+    public const FLOAT_9_5 = 9.5;
     public const FLOAT_0_0 = 0.0;
     public const INT_10 = 10;
 
@@ -597,7 +599,7 @@ final class AtlasAcosLongHorizonGateService
      */
     private function maxConsecutiveGapDays(array $sampledDates): int
     {
-        if (count($sampledDates) < 2) {
+        if (count($sampledDates) < self::INT_2) {
             return 0;
         }
 
@@ -933,7 +935,7 @@ final class AtlasAcosLongHorizonGateService
                 self::FIELD_OVERALL_OUT_OF_10 => $overall,
                 self::FIELD_DIMENSIONS => [
                     self::FIELD_CODE => [self::FIELD_SCORE_OUT_OF_10 => self::INT_10],
-                    self::FIELD_DOC => [self::FIELD_SCORE_OUT_OF_10 => 9.5],
+                    self::FIELD_DOC => [self::FIELD_SCORE_OUT_OF_10 => self::FLOAT_9_5],
                     self::FIELD_PIPELINE => [self::FIELD_SCORE_OUT_OF_10 => $pipeline],
                 ],
             ],

@@ -386,6 +386,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_TREND_CURRENT_DELTA_FROM_LATEST = 'trend.current_delta_from_latest';
     public const FIELD_TREND_LATEST_DELTA_FROM_PREVIOUS = 'trend.latest_delta_from_previous';
     public const FIELD_TREND_STATUS_2 = 'trend.status';
+    public const FLOAT_0_0 = 0.0;
+    public const INT_3 = 3;
     public const INT_100 = 100;
     public const FLOAT_10_0 = 10.0;
 
@@ -613,7 +615,7 @@ final class AtlasAcosWatchdogHealthService
                 self::STATUS_ALERT => true,
                 self::FIELD_BLOCKING => [self::FIELD_AI_RAG_FEEDBACK_EVENTS_TABLE_MISSING],
                 self::FIELD_TOTAL_EVENT_COUNT => 0,
-                self::FIELD_MEASURED_SHARE => 0.0,
+                self::FIELD_MEASURED_SHARE => self::FLOAT_0_0,
                 self::FIELD_WRITER_SHARES => [],
                 self::FIELD_WINDOW => [self::FIELD_HOURS => self::FEEDBACK_WINDOW_HOURS, self::FIELD_TOTAL_EVENT_COUNT => 0],
                 self::FIELD_GENERATED_AT => now()->toIso8601String(),
@@ -886,12 +888,12 @@ final class AtlasAcosWatchdogHealthService
         $bypassRate = AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_BYPASS_RATE] ?? null) ?? 1.0;
         $flips = [
             self::FIELD_GOVERNANCE_ENFORCE => [
-                self::STATUS_READY => count(array_filter($governanceByExecutor, static fn (int $count): bool => $count >= self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR)) >= 3
-                    && $bypassRate === 0.0
+                self::STATUS_READY => count(array_filter($governanceByExecutor, static fn (int $count): bool => $count >= self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR)) >= self::INT_3
+                    && $bypassRate === self::FLOAT_0_0
                     && (int) (AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_FALSE_POSITIVE_TOTAL] ?? null) ?? 0) === 0,
                 self::FIELD_BLOCKING => array_values(array_filter([
-                    count(array_filter($governanceByExecutor, static fn (int $count): bool => $count >= self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR)) >= 3 ? null : self::FIELD_GOVERNANCE_SOAK_VOLUME_BELOW_FLOOR,
-                    $bypassRate === 0.0 ? null : self::FIELD_GOVERNANCE_BYPASS_RATE_NONZERO,
+                    count(array_filter($governanceByExecutor, static fn (int $count): bool => $count >= self::ENG_MIN_REAL_EXECUTIONS_PER_EXECUTOR)) >= self::INT_3 ? null : self::FIELD_GOVERNANCE_SOAK_VOLUME_BELOW_FLOOR,
+                    $bypassRate === self::FLOAT_0_0 ? null : self::FIELD_GOVERNANCE_BYPASS_RATE_NONZERO,
                     (int) (AiValueNormalizer::finiteFloatOrNull($summary[self::FIELD_FALSE_POSITIVE_TOTAL] ?? null) ?? 0) === 0 ? null : self::FIELD_GOVERNANCE_FALSE_POSITIVE_NONZERO,
                 ])),
                 self::FIELD_RAW => [

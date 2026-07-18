@@ -10630,4 +10630,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b515_measure_series_lote_ledger_rotation_n_capture_promotion_floor_count']);
     }
 
+    public function test_b516_measure_series_lote_ledger_rotation_acos_watchdog_outcome_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b516MeasureSeriesLoteLedgerRotationAcosWatchdogOutcomeFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXL_02, $out['MAXL-02']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXL_07, $out['MAXL-07']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTN17_04, $out['cursor-acos-max-multn17-04']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTX01, $out['cursor-acos-max-multx01']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_IMMUNE_SIGNATURE_STORE_V1, $out['atlas.immune.signature_store.v1']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_KB_EMBEDDING_COVERAGE_V1, $out['atlas.kb_embedding_coverage.v1']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FLOAT_0_0, $out['0.0']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::INT_3, $out['3']);
+        $this->assertSame(OutcomeCausalityRanker::FLOAT_0_84, $out['0.84']);
+        $this->assertSame(OutcomeCausalityRanker::FLOAT_0_90, $out['0.90']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_THRESHOLDS_WINDOW_DAYS_MIN, $out['thresholds.window_days_min']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_WDG_01_ACOS_VERIFIED_SHARE, $out['wdg-01.acos_verified_share']);
+        $this->assertSame(PreReviewAdvisoryBand::FLOAT_0_08, $out['0.08']);
+        $this->assertSame(PreReviewAdvisoryBand::FLOAT_0_15, $out['0.15']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::INT_2, $out['2']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FLOAT_9_5, $out['9.5']);
+        $this->assertSame(AtlasCognitionScoreCardService::INT_3, $out['3']);
+        $this->assertSame(AtlasCognitionScoreCardService::INT_6, $out['6']);
+        $this->assertSame(18, $out['b516_measure_series_lote_ledger_rotation_acos_watchdog_outcome_floor_count']);
+    }
+
 }

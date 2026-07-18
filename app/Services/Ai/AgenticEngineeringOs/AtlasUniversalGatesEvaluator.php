@@ -13505,4 +13505,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B516).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b516MeasureSeriesLoteLedgerRotationAcosWatchdogOutcomeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'MAXL-02' => AcosMaxMeasureSeriesRegistry::FIELD_MAXL_02,
+            'MAXL-07' => AcosMaxMeasureSeriesRegistry::FIELD_MAXL_07,
+            'cursor-acos-max-multn17-04' => AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTN17_04,
+            'cursor-acos-max-multx01' => AcosMaxLote2MeasureService::FIELD_CURSOR_ACOS_MAX_MULTX01,
+            'atlas.immune.signature_store.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_IMMUNE_SIGNATURE_STORE_V1,
+            'atlas.kb_embedding_coverage.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_KB_EMBEDDING_COVERAGE_V1,
+            '0.0' => AtlasAcosWatchdogHealthService::FLOAT_0_0,
+            '3' => AtlasAcosWatchdogHealthService::INT_3,
+            '0.84' => OutcomeCausalityRanker::FLOAT_0_84,
+            '0.90' => OutcomeCausalityRanker::FLOAT_0_90,
+            'thresholds.window_days_min' => AcosMaxVerifiedShareService::FIELD_THRESHOLDS_WINDOW_DAYS_MIN,
+            'wdg-01.acos_verified_share' => AcosMaxVerifiedShareService::FIELD_WDG_01_ACOS_VERIFIED_SHARE,
+            '0.08' => PreReviewAdvisoryBand::FLOAT_0_08,
+            '0.15' => PreReviewAdvisoryBand::FLOAT_0_15,
+            '2' => AtlasAcosLongHorizonGateService::INT_2,
+            '9.5' => AtlasAcosLongHorizonGateService::FLOAT_9_5,
+            '3' => AtlasCognitionScoreCardService::INT_3,
+            '6' => AtlasCognitionScoreCardService::INT_6,
+            'b516_measure_series_lote_ledger_rotation_acos_watchdog_outcome_floor_count' => 18,
+        ];
+    }
+
 }

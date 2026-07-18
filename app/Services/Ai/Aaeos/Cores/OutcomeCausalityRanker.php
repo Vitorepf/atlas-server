@@ -65,6 +65,8 @@ final class OutcomeCausalityRanker
     public const FIELD_PACKET_QUALITY_FAILED = 'packet_quality_failed';
     public const FIELD_MISSING_REQUIRED_SOURCES = 'missing_required_sources';
     public const FIELD_SUCCEEDED = 'succeeded';
+    public const FLOAT_0_84 = 0.84;
+    public const FLOAT_0_90 = 0.90;
     public const FLOAT_0_76 = 0.76;
     public const FLOAT_0_78 = 0.78;
     public const FLOAT_0_45 = 0.45;
@@ -287,8 +289,8 @@ final class OutcomeCausalityRanker
     private function attributionConfidence(string $primaryCause): float
     {
         return match ($primaryCause) {
-            self::CAUSE_MISSING_EVIDENCE, self::CAUSE_TESTS_FAILED => 0.90,
-            self::CAUSE_SCOPE_OR_CONTRACT_MISMATCH => 0.84,
+            self::CAUSE_MISSING_EVIDENCE, self::CAUSE_TESTS_FAILED => self::FLOAT_0_90,
+            self::CAUSE_SCOPE_OR_CONTRACT_MISMATCH => self::FLOAT_0_84,
             self::CAUSE_EXECUTION_FAILED_OR_BLOCKED, self::CAUSE_CONTEXT_MISSING_REQUIRED_SOURCES => self::FLOAT_0_78,
             self::CAUSE_PACKET_QUALITY_FAILURE => self::FLOAT_0_76,
             self::CAUSE_EXECUTION_STRATEGY_LIKELY_SUCCEEDED => self::FLOAT_0_62,

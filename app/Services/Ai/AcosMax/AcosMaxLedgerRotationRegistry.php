@@ -78,6 +78,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ATLAS_EVIDENCE_LEDGER_HASH_CHAIN_V1 = 'atlas.evidence_ledger.hash_chain.v1';
     public const FIELD_ATLAS_IMMUNE_CALIBRATION_V1 = 'atlas.immune.calibration.v1';
     public const FIELD_ATLAS_IMMUNE_CLASSIFIER_HYBRID_V1 = 'atlas.immune.classifier_hybrid.v1';
+    public const FIELD_ATLAS_IMMUNE_SIGNATURE_STORE_V1 = 'atlas.immune.signature_store.v1';
+    public const FIELD_ATLAS_KB_EMBEDDING_COVERAGE_V1 = 'atlas.kb_embedding_coverage.v1';
     public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
@@ -347,7 +349,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
                 self::FIELD_RATIONALE => 'TETO-01 N-Capture Drill receipt: quarterly-ish cadence, permanent audit anchor for N×M thesis proofs',
             ],
-            'atlas.kb_embedding_coverage.v1' => [
+            self::FIELD_ATLAS_KB_EMBEDDING_COVERAGE_V1 => [
                 self::FIELD_MAX_SIZE_MB => 8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
@@ -383,7 +385,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTJ-06 abstraction ladder computed-reader snapshots',
             ],
-            'atlas.immune.signature_store.v1' => [
+            self::FIELD_ATLAS_IMMUNE_SIGNATURE_STORE_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_64,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,

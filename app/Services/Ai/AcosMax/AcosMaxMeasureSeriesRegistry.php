@@ -94,6 +94,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_MAXJ_01 = 'MAXJ-01';
     public const FIELD_MAXJ_05 = 'MAXJ-05';
     public const FIELD_MAXK_01 = 'MAXK-01';
+    public const FIELD_MAXL_02 = 'MAXL-02';
+    public const FIELD_MAXL_07 = 'MAXL-07';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -208,7 +210,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => self::FIELD_GROUND_TRUTH_RECEIPT,
             ],
             [
-                self::FIELD_SLICE => 'MAXL-02',
+                self::FIELD_SLICE => self::FIELD_MAXL_02,
                 self::FIELD_SERIES => 'atlas.evidence_ledger.hash_chain.v1',
                 self::FIELD_TABLE => self::FIELD_ATLAS_LEDGER_EVENTS,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
@@ -369,7 +371,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:atlas.evidence.delta_attribution.v1',
             ],
             [
-                self::FIELD_SLICE => 'MAXL-07',
+                self::FIELD_SLICE => self::FIELD_MAXL_07,
                 self::FIELD_SERIES => GoldenCounterfactualReplayService::MEASURE_ID,
                 self::FIELD_PATH => 'atlas:context:golden-counterfactual --json',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMMAND,

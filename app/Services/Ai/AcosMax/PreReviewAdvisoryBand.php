@@ -91,6 +91,8 @@ final class PreReviewAdvisoryBand
     public const FIELD_OPS = 'ops';
     public const FIELD_UNKNOWN = 'unknown';
     public const FIELD_DEBUG = 'debug';
+    public const FLOAT_0_08 = 0.08;
+    public const FLOAT_0_15 = 0.15;
     public const FLOAT_0_02 = 0.02;
     public const FLOAT_0_05 = 0.05;
     public const FLOAT_0_0 = 0.0;
@@ -147,8 +149,8 @@ final class PreReviewAdvisoryBand
         $probability = $rate;
         // Risk nudge: higher risk band ⇒ higher predicted-revert probability.
         $probability += match ($riskBand) {
-            self::FIELD_CRITICAL => 0.15,
-            self::FIELD_HIGH => 0.08,
+            self::FIELD_CRITICAL => self::FLOAT_0_15,
+            self::FIELD_HIGH => self::FLOAT_0_08,
             self::FIELD_MEDIUM => self::FLOAT_0_02,
             default => self::FLOAT_0_0,
         };
