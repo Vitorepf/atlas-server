@@ -40,6 +40,8 @@ final class ContextParetoDominanceFilter
     public const FIELD_STATUS = 'status';
     public const FIELD_ADMITTED = 'admitted';
     public const FIELD_EQUALS = 'equals';
+    public const FIELD_EVALUATED = 'evaluated';
+    public const FIELD_FAILED_CONSTRAINTS = 'failed_constraints';
 
 
     /**
@@ -63,7 +65,7 @@ final class ContextParetoDominanceFilter
             if ($failed !== []) {
                 $blocked[] = [
                     'id' => $id,
-                    'failed_constraints' => $failed,
+                    self::FIELD_FAILED_CONSTRAINTS => $failed,
                 ];
                 $blockedById[$id] = $failed;
 
@@ -119,7 +121,7 @@ final class ContextParetoDominanceFilter
             'objective_direction' => $direction,
             self::FIELD_FRONTIER => $frontier,
             self::FIELD_BLOCKED => $blocked,
-            'evaluated' => $evaluated,
+            self::FIELD_EVALUATED => $evaluated,
             'summary' => [
                 'total' => count($variants),
                 self::FIELD_ADMITTED => $admittedCount,

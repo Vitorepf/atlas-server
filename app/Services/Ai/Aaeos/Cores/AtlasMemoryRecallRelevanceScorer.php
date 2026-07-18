@@ -22,6 +22,8 @@ final class AtlasMemoryRecallRelevanceScorer
     public const SCHEMA_VERSION = 'atlas.aaeos.memory_recall_ranking.v1';
     public const FIELD_ENGINEERING_RUN = 'engineering_run';
     public const FIELD_FEEDBACK = 'feedback';
+    public const FIELD_HARNESS_LEARNING = 'harness_learning';
+    public const FIELD_MEMORY_TYPE = 'memory_type';
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -84,7 +86,7 @@ final class AtlasMemoryRecallRelevanceScorer
         return match ($type) {
             'decision', 'resolution', 'requirement' => 16,
             'issue', 'failure' => 14,
-            'technical_context', 'command', 'evidence', 'harness_learning' => 11,
+            'technical_context', 'command', 'evidence', self::FIELD_HARNESS_LEARNING => 11,
             'preference', self::FIELD_FEEDBACK => 8,
             default => 5,
         };
@@ -172,7 +174,7 @@ final class AtlasMemoryRecallRelevanceScorer
      */
     private function typeOf(array $row, string $default): string
     {
-        return AiValueNormalizer::trimmedStringOrNull($row['memory_type'] ?? $row['type'] ?? null) ?? $default;
+        return AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_MEMORY_TYPE] ?? $row['type'] ?? null) ?? $default;
     }
 
     /**

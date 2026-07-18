@@ -26,6 +26,8 @@ final class GatedCorpusCandidateMiner
     public const FIELD_STATUS = 'status';
     public const FIELD_CANDIDATES = 'candidates';
     public const FIELD_DIRECT_WRITE = 'direct_write';
+    public const FIELD_CANDIDATE_ONLY = 'candidate_only';
+    public const FIELD_COUNT_IS_ACCEPTANCE = 'count_is_acceptance';
 
     /**
      * @param  list<array<string,mixed>>  $sources
@@ -65,9 +67,9 @@ final class GatedCorpusCandidateMiner
             self::FIELD_CANDIDATES => $candidates,
             'omitted' => array_values(array_unique($omitted)),
             self::FIELD_SOURCE => [
-                'candidate_only' => true,
+                self::FIELD_CANDIDATE_ONLY => true,
                 'writes_memory_directly' => false,
-                'count_is_acceptance' => false,
+                self::FIELD_COUNT_IS_ACCEPTANCE => false,
             ],
         ];
     }

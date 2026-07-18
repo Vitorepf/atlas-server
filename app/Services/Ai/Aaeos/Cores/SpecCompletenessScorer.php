@@ -49,6 +49,8 @@ final class SpecCompletenessScorer
     public const FIELD_VERDICT = 'verdict';
     public const FIELD_FIELDS = 'fields';
     public const FIELD_MISSING_OR_WEAK = 'missing_or_weak';
+    public const FIELD_PRESENT_COUNT = 'present_count';
+    public const FIELD_TOTAL_FIELDS = 'total_fields';
 
 
     /**
@@ -142,8 +144,8 @@ final class SpecCompletenessScorer
             self::FIELD_VERDICT => $this->verdict($totalScore),
             self::FIELD_FIELDS => $fields,
             self::FIELD_MISSING_OR_WEAK => $missing,
-            'present_count' => $presentCount,
-            'total_fields' => self::TOTAL_FIELDS,
+            self::FIELD_PRESENT_COUNT => $presentCount,
+            self::FIELD_TOTAL_FIELDS => self::TOTAL_FIELDS,
         ];
     }
 

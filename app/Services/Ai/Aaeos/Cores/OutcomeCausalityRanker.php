@@ -56,6 +56,8 @@ final class OutcomeCausalityRanker
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_ALLOWED_FILES_SUFFICIENT = 'allowed_files_sufficient';
     public const FIELD_ALTERNATIVE_EXPLANATIONS = 'alternative_explanations';
+    public const FIELD_ATTRIBUTION_BLOCKED = 'attribution_blocked';
+    public const FIELD_ATTRIBUTION_CONFIDENCE = 'attribution_confidence';
 
     /** @var list<string> */
     public const PRIMARY_CAUSES = [
@@ -211,8 +213,8 @@ final class OutcomeCausalityRanker
             'candidates' => $ranked,
             'primary_cause' => $primaryCause,
             self::FIELD_ALTERNATIVE_EXPLANATIONS => $alternativeExplanations,
-            'attribution_confidence' => $this->attributionConfidence($primaryCause),
-            'attribution_blocked' => ! $hasEvidenceRefs,
+            self::FIELD_ATTRIBUTION_CONFIDENCE => $this->attributionConfidence($primaryCause),
+            self::FIELD_ATTRIBUTION_BLOCKED => ! $hasEvidenceRefs,
         ];
     }
 

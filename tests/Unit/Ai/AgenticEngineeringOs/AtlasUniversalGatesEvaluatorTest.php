@@ -5946,5 +5946,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['impact_advisory_esp09_dogfood_saturation_budget_ambition_asef_lexical_floor_count']);
     }
 
+    public function test_spec_summary_budget_decay_segment_pareto_recall_outcome_corpus_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->specSummaryBudgetDecaySegmentParetoRecallOutcomeCorpusFloorsContractObserve([]);
+
+        $this->assertSame('present_count', $payload['spec_field_present_count']);
+        $this->assertSame('total_fields', $payload['spec_field_total_fields']);
+        $this->assertSame('digest', $payload['summary_field_digest']);
+        $this->assertSame('missed_decision_rate', $payload['summary_field_missed_decision_rate']);
+        $this->assertSame('dropped', $payload['budget_field_dropped']);
+        $this->assertSame('dropped_count', $payload['budget_field_dropped_count']);
+        $this->assertSame('positive_count', $payload['decay_field_positive_count']);
+        $this->assertSame('recorded_at_age_days', $payload['decay_field_recorded_at_age_days']);
+        $this->assertSame('dropped_ids', $payload['segment_field_dropped_ids']);
+        $this->assertSame('dup_group', $payload['segment_field_dup_group']);
+        $this->assertSame('evaluated', $payload['pareto_field_evaluated']);
+        $this->assertSame('failed_constraints', $payload['pareto_field_failed_constraints']);
+        $this->assertSame('harness_learning', $payload['recall_field_harness_learning']);
+        $this->assertSame('memory_type', $payload['recall_field_memory_type']);
+        $this->assertSame('attribution_blocked', $payload['outcome_field_attribution_blocked']);
+        $this->assertSame('attribution_confidence', $payload['outcome_field_attribution_confidence']);
+        $this->assertSame('candidate_only', $payload['corpus_field_candidate_only']);
+        $this->assertSame('count_is_acceptance', $payload['corpus_field_count_is_acceptance']);
+        $this->assertSame(18, $payload['spec_summary_budget_decay_segment_pareto_recall_outcome_corpus_floor_count']);
+    }
+
 
 }

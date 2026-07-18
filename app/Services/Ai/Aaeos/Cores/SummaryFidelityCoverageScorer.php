@@ -29,6 +29,8 @@ final class SummaryFidelityCoverageScorer
     public const VERDICT_FAILED = 'failed';
     public const FIELD_CONTEXT_RETENTION_SCORE = 'context_retention_score';
     public const FIELD_DECISION_TOTAL = 'decision_total';
+    public const FIELD_DIGEST = 'digest';
+    public const FIELD_MISSED_DECISION_RATE = 'missed_decision_rate';
 
 
     /**
@@ -134,7 +136,7 @@ final class SummaryFidelityCoverageScorer
             'schema_version' => self::SCHEMA_VERSION,
             'verdict' => $verdict,
             self::FIELD_CONTEXT_RETENTION_SCORE => $contextRetentionScore,
-            'missed_decision_rate' => $missedDecisionRate,
+            self::FIELD_MISSED_DECISION_RATE => $missedDecisionRate,
             'required_total' => $requiredTotal,
             'present_total' => $presentTotal,
             'missing_total' => $missingTotal,
@@ -193,7 +195,7 @@ final class SummaryFidelityCoverageScorer
             return null;
         }
 
-        $digest = $item['digest'];
+        $digest = $item[self::FIELD_DIGEST];
 
         return AiValueNormalizer::trimmedStringOrNull($digest);
     }

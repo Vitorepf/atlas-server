@@ -64,6 +64,8 @@ final class SegmentImportanceRanker
     public const FIELD_FACT = 'fact';
     public const FIELD_BOUNDARY_INDEX = 'boundary_index';
     public const FIELD_DROPPED_COUNT = 'dropped_count';
+    public const FIELD_DROPPED_IDS = 'dropped_ids';
+    public const FIELD_DUP_GROUP = 'dup_group';
 
     /**
      * Rank may-discard segments by composite signal and greedily fill a token budget.
@@ -162,7 +164,7 @@ final class SegmentImportanceRanker
             'token_budget' => $budget,
             'ranked' => $ranked,
             'kept_ids' => $keptIds,
-            'dropped_ids' => $droppedIds,
+            self::FIELD_DROPPED_IDS => $droppedIds,
             self::FIELD_BOUNDARY_INDEX => $boundaryIndex ?? count($ranked),
             'tokens_kept' => $tokensKept,
             'tokens_available' => max($budget - $tokensKept, 0),
@@ -232,7 +234,7 @@ final class SegmentImportanceRanker
                 self::FIELD_TOKEN_ESTIMATE => max($this->intField($row, 'token_estimate'), 0),
                 'has_evidence_ref' => $hasEvidenceRef,
                 'links_decision_or_blocker' => $linksDecisionOrBlocker,
-                'dup_group' => $dupGroup,
+                self::FIELD_DUP_GROUP => $dupGroup,
                 self::FIELD_KIND_WEIGHT => $kindWeight,
                 self::FIELD_DEDUP_PENALTY => $dedupPenalty,
                 self::FIELD_SCORE => $score,

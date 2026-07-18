@@ -33,6 +33,8 @@ final class MemoryInjectionBudgetAllocator
     public const FIELD_TOTAL_BUDGET_CHARS = 'total_budget_chars';
     public const FIELD_ADMITTED = 'admitted';
     public const FIELD_ADMITTED_COUNT = 'admitted_count';
+    public const FIELD_DROPPED = 'dropped';
+    public const FIELD_DROPPED_COUNT = 'dropped_count';
 
     /**
      * Pure char-budget packer. Sorts a copy of the ranked items by
@@ -122,11 +124,11 @@ final class MemoryInjectionBudgetAllocator
             'per_item_cap_chars' => $perItemCap,
             'min_excerpt_chars' => $minExcerpt,
             self::FIELD_ADMITTED => $admitted,
-            'dropped' => $dropped,
+            self::FIELD_DROPPED => $dropped,
             'used_chars' => $usedChars,
             'remaining_chars' => $remaining,
             self::FIELD_ADMITTED_COUNT => count($admitted),
-            'dropped_count' => $droppedCount,
+            self::FIELD_DROPPED_COUNT => $droppedCount,
             'truncated' => $droppedCount > 0,
         ];
     }

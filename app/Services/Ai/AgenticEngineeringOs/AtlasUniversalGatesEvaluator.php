@@ -7875,6 +7875,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for spec/summary/budget/decay/segment/pareto/recall/outcome/corpus peels.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function specSummaryBudgetDecaySegmentParetoRecallOutcomeCorpusFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'spec_field_present_count' => SpecCompletenessScorer::FIELD_PRESENT_COUNT,
+            'spec_field_total_fields' => SpecCompletenessScorer::FIELD_TOTAL_FIELDS,
+            'summary_field_digest' => SummaryFidelityCoverageScorer::FIELD_DIGEST,
+            'summary_field_missed_decision_rate' => SummaryFidelityCoverageScorer::FIELD_MISSED_DECISION_RATE,
+            'budget_field_dropped' => MemoryInjectionBudgetAllocator::FIELD_DROPPED,
+            'budget_field_dropped_count' => MemoryInjectionBudgetAllocator::FIELD_DROPPED_COUNT,
+            'decay_field_positive_count' => MemoryFeedbackDecayScorer::FIELD_POSITIVE_COUNT,
+            'decay_field_recorded_at_age_days' => MemoryFeedbackDecayScorer::FIELD_RECORDED_AT_AGE_DAYS,
+            'segment_field_dropped_ids' => SegmentImportanceRanker::FIELD_DROPPED_IDS,
+            'segment_field_dup_group' => SegmentImportanceRanker::FIELD_DUP_GROUP,
+            'pareto_field_evaluated' => ContextParetoDominanceFilter::FIELD_EVALUATED,
+            'pareto_field_failed_constraints' => ContextParetoDominanceFilter::FIELD_FAILED_CONSTRAINTS,
+            'recall_field_harness_learning' => AtlasMemoryRecallRelevanceScorer::FIELD_HARNESS_LEARNING,
+            'recall_field_memory_type' => AtlasMemoryRecallRelevanceScorer::FIELD_MEMORY_TYPE,
+            'outcome_field_attribution_blocked' => OutcomeCausalityRanker::FIELD_ATTRIBUTION_BLOCKED,
+            'outcome_field_attribution_confidence' => OutcomeCausalityRanker::FIELD_ATTRIBUTION_CONFIDENCE,
+            'corpus_field_candidate_only' => GatedCorpusCandidateMiner::FIELD_CANDIDATE_ONLY,
+            'corpus_field_count_is_acceptance' => GatedCorpusCandidateMiner::FIELD_COUNT_IS_ACCEPTANCE,
+            'spec_summary_budget_decay_segment_pareto_recall_outcome_corpus_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>
