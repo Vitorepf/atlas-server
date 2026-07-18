@@ -126,6 +126,8 @@ final class AaeosHttpPathEnvelopeFactory
     public const FIELD_AAEOS_MISSION_DETECTION = 'aaeos.mission_detection';
     public const FIELD_AAEOS_PLACEMENT = 'aaeos.placement';
     public const FIELD_AAEOS_POLICY_GATE = 'aaeos.policy_gate';
+    public const FIELD_AAEOS_RECEIPT = 'aaeos.receipt';
+    public const FIELD_AAEOS_ROUTING = 'aaeos.routing';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $handoff,
@@ -315,7 +317,7 @@ final class AaeosHttpPathEnvelopeFactory
         self::FIELD_ROUTING => [
             self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_TOPOLOGY,
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_ROUTING,
-            self::FIELD_ACTOR_ID => 'aaeos.routing',
+            self::FIELD_ACTOR_ID => self::FIELD_AAEOS_ROUTING,
             self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase3.routing.r1_r2_fast_path',
             self::FIELD_SKIP_REASON => self::FIELD_R1_R2_FAST_PATH_PRESERVED,
             self::FIELD_OUTPUTS => [
@@ -351,7 +353,7 @@ final class AaeosHttpPathEnvelopeFactory
         self::FIELD_RECEIPT => [
             self::FIELD_PHASE_IN => AaeosPhaseHandoffService::PHASE_TASKS,
             self::FIELD_PHASE_OUT => AaeosPhaseHandoffService::PHASE_RECEIPT,
-            self::FIELD_ACTOR_ID => 'aaeos.receipt',
+            self::FIELD_ACTOR_ID => self::FIELD_AAEOS_RECEIPT,
             self::FIELD_SKIP_RECEIPT_ID => 'rcpt:aaeos.phase4.receipt.r1_r2_fast_path',
             self::FIELD_SKIP_REASON => 'r1_r2_fast_path_preserved_legacy_trace_audit',
             self::FIELD_OUTPUTS => [

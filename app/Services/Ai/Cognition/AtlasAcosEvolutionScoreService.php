@@ -80,7 +80,7 @@ class AtlasAcosEvolutionScoreService
         'atlas:cognition:mint-pipeline-receipts',
         'atlas:acos:delta-series',
         'atlas:engineering:refactor-census',
-        'acos-harvest-obra-lessons',
+        self::FIELD_ACOS_HARVEST_OBRA_LESSONS,
     ];
 
     /** FQN da cadeia de promoção de tier (H3.2); probe por class_exists. */
@@ -144,6 +144,8 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_INCLUDED = 'included';
     public const FIELD_MEMORY_HASH = 'memory_hash';
     public const FIELD_USEFUL = 'useful';
+    public const FIELD_ACOS_HARVEST_OBRA_LESSONS = 'acos-harvest-obra-lessons';
+    public const FIELD_MEASUREMENT_MEASUREMENT_READY = 'measurement.measurement_ready';
     public const FLOAT_10_0 = 10.0;
 
     public function __construct(
@@ -237,7 +239,7 @@ class AtlasAcosEvolutionScoreService
         $lift = $this->lift->report(minCases: self::LIFT_CASES_PER_ARM_REQUIRED, minPassingUse: 1);
         $withCount = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.with_recalled_memory.case_count', 0)) ?? 0);
         $withoutCount = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.without_recalled_memory.case_count', 0)) ?? 0);
-        $measurementReady = (AiValueNormalizer::boolOrNull(data_get($lift, 'measurement.measurement_ready', false)) ?? false);
+        $measurementReady = (AiValueNormalizer::boolOrNull(data_get($lift, self::FIELD_MEASUREMENT_MEASUREMENT_READY, false)) ?? false);
         $armProgress = min($withCount, $withoutCount) / self::LIFT_CASES_PER_ARM_REQUIRED;
         $newFeedbackPoints = ($measurementReady && $withCount >= self::LIFT_CASES_PER_ARM_REQUIRED && $withoutCount >= self::LIFT_CASES_PER_ARM_REQUIRED)
             ? 2.5

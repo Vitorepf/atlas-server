@@ -376,6 +376,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_COVERAGE_MEMORY_CROSS_LAYER_COVERAGE_RATIO = 'coverage.memory_cross_layer_coverage_ratio';
     public const FIELD_DIAGNOSIS_LATEST_RECEIPT_AGE_DAYS = 'diagnosis.latest_receipt_age_days';
     public const FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_CORPUS_METRICS_RECALL_AT_5 = 'latest_snapshot.metadata.memory_recall_corpus.metrics.recall_at_5';
+    public const FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_GOLDEN_IMPROPER_FLOOR_DISCARDS = 'latest_snapshot.metadata.memory_recall_golden.improper_floor_discards';
+    public const FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_GOLDEN_RECALL_AT_5 = 'latest_snapshot.metadata.memory_recall_golden.recall_at_5';
     public const INT_100 = 100;
     public const FLOAT_10_0 = 10.0;
 
@@ -530,7 +532,7 @@ final class AtlasAcosWatchdogHealthService
         $retrievalEval = (int) (AiValueNormalizer::finiteFloatOrNull(data_get($quality, self::FIELD_COMPONENTS_RETRIEVAL_EVAL, 0)) ?? 0);
         // Prefer the RAG-05 frozen golden surface; fall back to the older corpus metrics path.
         $recallAt5 = AiValueNormalizer::finiteFloatOrNull(
-            data_get($quality, 'latest_snapshot.metadata.memory_recall_golden.recall_at_5')
+            data_get($quality, self::FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_GOLDEN_RECALL_AT_5)
         );
         if ($recallAt5 === null) {
             $recallAt5 = AiValueNormalizer::finiteFloatOrNull(
@@ -539,7 +541,7 @@ final class AtlasAcosWatchdogHealthService
         }
         $improperFloorDiscards = (int) (
             AiValueNormalizer::finiteFloatOrNull(
-                data_get($quality, 'latest_snapshot.metadata.memory_recall_golden.improper_floor_discards')
+                data_get($quality, self::FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_GOLDEN_IMPROPER_FLOOR_DISCARDS)
             )
             ?? AiValueNormalizer::finiteFloatOrNull(
                 data_get($quality, 'latest_snapshot.metadata.memory_recall_corpus.metrics.improper_floor_discards', 0)

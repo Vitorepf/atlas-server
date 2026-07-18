@@ -120,6 +120,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_MAXK07_PRIVACY_SENSITIVE_SHRINKS = 'maxk07.privacy_sensitive_shrinks';
     public const FIELD_MAXK07_REVERSAL_RATE_HIGH_SHRINKS_TO_DRAFT = 'maxk07.reversal_rate_high_shrinks_to_draft';
     public const FIELD_MAXK08_MINER_REPORT_ONLY = 'maxk08.miner_report_only';
+    public const FIELD_MAXK09_AUTH_MISSING_ = 'maxk09-auth-missing-';
+    public const FIELD_MAXK09_AUTH_TAMPERED_ = 'maxk09-auth-tampered-';
     public const INT_20 = 20;
     public const INT_999 = 999;
     public const INT_10 = 10;
@@ -308,7 +310,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
      */
     private function probeMetricsAuthorityMissing(): array
     {
-        $path = $this->tempFile('maxk09-auth-missing-');
+        $path = $this->tempFile(self::FIELD_MAXK09_AUTH_MISSING_);
         $authority = new SealedLedgerAutonomyMetricsAuthority($path);
         $verdict = $this->ladder->evaluatePromotionAuthoritative('L0', $authority, [self::FIELD_OPERATOR => true]);
         $this->cleanup($path);
@@ -335,7 +337,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
      */
     private function probeMetricsAuthorityTampered(): array
     {
-        $path = $this->tempFile('maxk09-auth-tampered-');
+        $path = $this->tempFile(self::FIELD_MAXK09_AUTH_TAMPERED_);
         $authority = new SealedLedgerAutonomyMetricsAuthority($path);
         $authority->seal(
             level: 'L1',

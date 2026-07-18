@@ -10405,4 +10405,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b506_cognitive_function_immune_calibration_portfolio_budget_phase_handoff_floor_count']);
     }
 
+    public function test_b507_acos_evolution_memory_recall_measure_series_lote_ledger_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b507AcosEvolutionMemoryRecallMeasureSeriesLoteLedgerFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_ACOS_HARVEST_OBRA_LESSONS, $out['acos-harvest-obra-lessons']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_MEASUREMENT_MEASUREMENT_READY, $out['measurement.measurement_ready']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::INT_8, $out['8']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::INT_4, $out['4']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ELEV_25, $out['ELEV-25']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ELEV_27, $out['ELEV-27']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MAXL06_JUDGE, $out['codex-independent-maxl06-judge']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTJ01_JUDGE, $out['codex-independent-multj01-judge']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_AI_LESSON_TYPE_YIELD_V2, $out['atlas.ai.lesson_type_yield.v2']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_ATLAS_AI_PROCEDURAL_SKILL_PROMOTER_V1, $out['atlas.ai.procedural_skill_promoter.v1']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_GOLDEN_IMPROPER_FLOOR_DISCARDS, $out['latest_snapshot.metadata.memory_recall_golden.improper_floor_discards']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_GOLDEN_RECALL_AT_5, $out['latest_snapshot.metadata.memory_recall_golden.recall_at_5']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_CAPABILITY_SPEC_FUNCTION, $out['capability_spec.function']);
+        $this->assertSame(AtlasNCaptureDrillService::FIELD_CAPABILITY_SPEC_VIOLATIONS, $out['capability_spec.violations']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_RECEIPT, $out['aaeos.receipt']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_ROUTING, $out['aaeos.routing']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK09_AUTH_MISSING_, $out['maxk09-auth-missing-']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK09_AUTH_TAMPERED_, $out['maxk09-auth-tampered-']);
+        $this->assertSame(18, $out['b507_acos_evolution_memory_recall_measure_series_lote_ledger_floor_count']);
+    }
+
 }

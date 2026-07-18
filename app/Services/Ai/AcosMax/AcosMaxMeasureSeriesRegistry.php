@@ -76,6 +76,8 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_ELEV_02 = 'ELEV-02';
     public const FIELD_ELEV_12 = 'ELEV-12';
     public const FIELD_ELEV_20S = 'ELEV-20s';
+    public const FIELD_ELEV_25 = 'ELEV-25';
+    public const FIELD_ELEV_27 = 'ELEV-27';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -239,7 +241,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'elev-20s-freeze-equivalent',
             ],
             [
-                self::FIELD_SLICE => 'ELEV-25',
+                self::FIELD_SLICE => self::FIELD_ELEV_25,
                 self::FIELD_SERIES => AtlasOperatorReviewDebtMeter::MEASURE_ID,
                 self::FIELD_TABLE => self::FIELD_ATLAS_LEDGER_EVENTS,
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_TABLE,
@@ -468,7 +470,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_TTL_SOURCE => 'freeze:mission_e2e.v1',
             ],
             [
-                self::FIELD_SLICE => 'ELEV-27',
+                self::FIELD_SLICE => self::FIELD_ELEV_27,
                 self::FIELD_SERIES => 'atlas.resource_budget.v1',
                 self::FIELD_PATH => 'AtlasResourceBudgetService::report',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,

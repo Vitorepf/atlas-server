@@ -60,6 +60,8 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_ATLAS_AI_LESSON_HALF_LIFE_V2 = 'atlas.ai.lesson_half_life.v2';
     public const FIELD_ATLAS_AI_LESSON_QUALITY_V2 = 'atlas.ai.lesson_quality.v2';
     public const FIELD_ATLAS_AI_LESSON_SEMANTIC_DEDUP_V1 = 'atlas.ai.lesson_semantic_dedup.v1';
+    public const FIELD_ATLAS_AI_LESSON_TYPE_YIELD_V2 = 'atlas.ai.lesson_type_yield.v2';
+    public const FIELD_ATLAS_AI_PROCEDURAL_SKILL_PROMOTER_V1 = 'atlas.ai.procedural_skill_promoter.v1';
     public const INT_64 = 64;
     public const INT_45 = 45;
     public const INT_512 = 512;
@@ -179,7 +181,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MAXJ-01 lesson quality reader',
             ],
-            'atlas.ai.lesson_type_yield.v2' => [
+            self::FIELD_ATLAS_AI_LESSON_TYPE_YIELD_V2 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
@@ -353,7 +355,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
                 self::FIELD_RATIONALE => 'MULTK-02 cascade cost router computed-reader snapshots',
             ],
-            'atlas.ai.procedural_skill_promoter.v1' => [
+            self::FIELD_ATLAS_AI_PROCEDURAL_SKILL_PROMOTER_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_16,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,

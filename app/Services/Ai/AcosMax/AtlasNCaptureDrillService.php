@@ -140,6 +140,8 @@ final class AtlasNCaptureDrillService
     public const FIELD_TIMES_TIME_TO_FIRST_ROUTED_TASK_SECONDS = 'times.time_to_first_routed_task_seconds';
     public const FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2 = 'atlas.decide.route_regret.v2';
     public const FIELD_ADMISSION_REASON = 'admission.reason';
+    public const FIELD_CAPABILITY_SPEC_FUNCTION = 'capability_spec.function';
+    public const FIELD_CAPABILITY_SPEC_VIOLATIONS = 'capability_spec.violations';
     public const INT_365 = 365;
 
     private readonly string $ledgerPath;
@@ -213,9 +215,9 @@ final class AtlasNCaptureDrillService
             self::FIELD_DRILL_ID => AiValueNormalizer::trimmedStringOrNull($drill[self::FIELD_DRILL_ID] ?? null) ?? (string) Str::uuid(),
             self::FIELD_ENGINE_ID => AiValueNormalizer::trimmedScalarStringOrNull($drill[self::FIELD_ENGINE_ID] ?? null) ?? '',
             self::FIELD_CAPABILITY_SPEC => [
-                self::FIELD_FUNCTION => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'capability_spec.function')) ?? self::FIELD_ENGINE,
+                self::FIELD_FUNCTION => AiValueNormalizer::trimmedStringOrNull(data_get($drill, self::FIELD_CAPABILITY_SPEC_FUNCTION)) ?? self::FIELD_ENGINE,
                 self::FIELD_VERIFIED => (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_CAPABILITY_SPEC_VERIFIED)) ?? false),
-                self::FIELD_VIOLATIONS => array_values(AiValueNormalizer::arrayOrEmpty(data_get($drill, 'capability_spec.violations', []))),
+                self::FIELD_VIOLATIONS => array_values(AiValueNormalizer::arrayOrEmpty(data_get($drill, self::FIELD_CAPABILITY_SPEC_VIOLATIONS, []))),
             ],
             self::FIELD_YARDSTICK => [
                 self::FIELD_GOLDEN_V2_PASSED => (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_YARDSTICK_GOLDEN_V2_PASSED)) ?? false),

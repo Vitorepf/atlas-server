@@ -13226,4 +13226,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B507).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b507AcosEvolutionMemoryRecallMeasureSeriesLoteLedgerFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'acos-harvest-obra-lessons' => AtlasAcosEvolutionScoreService::FIELD_ACOS_HARVEST_OBRA_LESSONS,
+            'measurement.measurement_ready' => AtlasAcosEvolutionScoreService::FIELD_MEASUREMENT_MEASUREMENT_READY,
+            '8' => AtlasMemoryRecallRelevanceScorer::INT_8,
+            '4' => AtlasMemoryRecallRelevanceScorer::INT_4,
+            'ELEV-25' => AcosMaxMeasureSeriesRegistry::FIELD_ELEV_25,
+            'ELEV-27' => AcosMaxMeasureSeriesRegistry::FIELD_ELEV_27,
+            'codex-independent-maxl06-judge' => AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MAXL06_JUDGE,
+            'codex-independent-multj01-judge' => AcosMaxLote2MeasureService::FIELD_CODEX_INDEPENDENT_MULTJ01_JUDGE,
+            'atlas.ai.lesson_type_yield.v2' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_AI_LESSON_TYPE_YIELD_V2,
+            'atlas.ai.procedural_skill_promoter.v1' => AcosMaxLedgerRotationRegistry::FIELD_ATLAS_AI_PROCEDURAL_SKILL_PROMOTER_V1,
+            'latest_snapshot.metadata.memory_recall_golden.improper_floor_discards' => AtlasAcosWatchdogHealthService::FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_GOLDEN_IMPROPER_FLOOR_DISCARDS,
+            'latest_snapshot.metadata.memory_recall_golden.recall_at_5' => AtlasAcosWatchdogHealthService::FIELD_LATEST_SNAPSHOT_METADATA_MEMORY_RECALL_GOLDEN_RECALL_AT_5,
+            'capability_spec.function' => AtlasNCaptureDrillService::FIELD_CAPABILITY_SPEC_FUNCTION,
+            'capability_spec.violations' => AtlasNCaptureDrillService::FIELD_CAPABILITY_SPEC_VIOLATIONS,
+            'aaeos.receipt' => AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_RECEIPT,
+            'aaeos.routing' => AaeosHttpPathEnvelopeFactory::FIELD_AAEOS_ROUTING,
+            'maxk09-auth-missing-' => AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK09_AUTH_MISSING_,
+            'maxk09-auth-tampered-' => AutonomyLadderAdversarialWatchdogCheck::FIELD_MAXK09_AUTH_TAMPERED_,
+            'b507_acos_evolution_memory_recall_measure_series_lote_ledger_floor_count' => 18,
+        ];
+    }
+
 }
