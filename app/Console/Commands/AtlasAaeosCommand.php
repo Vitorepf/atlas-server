@@ -671,6 +671,7 @@ final class AtlasAaeosCommand extends Command
                             {--b646-architect-agent-floors-contract= : JSON file (any object) to observe architect/agent floors}
                             {--b647-phase-advance-floors-contract= : JSON file (any object) to observe phase/advance floors}
                             {--b648-reality-compiler-required-gate-floors-contract= : JSON file (any object) to observe reality/compiler/required/gate floors}
+                            {--b649-required-gate-department-contract-floors-contract= : JSON file (any object) to observe required/gate/department/contract floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1498,6 +1499,7 @@ final class AtlasAaeosCommand extends Command
             ['b646-architect-agent-floors-contract', 'b646_architect_agent_floors_contract', fn (array $p) => $gates->b646ArchitectAgentFloorsContractObserve($p)],
             ['b647-phase-advance-floors-contract', 'b647_phase_advance_floors_contract', fn (array $p) => $gates->b647PhaseAdvanceFloorsContractObserve($p)],
             ['b648-reality-compiler-required-gate-floors-contract', 'b648_reality_compiler_required_gate_floors_contract', fn (array $p) => $gates->b648RealityCompilerRequiredGateFloorsContractObserve($p)],
+            ['b649-required-gate-department-contract-floors-contract', 'b649_required_gate_department_contract_floors_contract', fn (array $p) => $gates->b649RequiredGateDepartmentContractFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

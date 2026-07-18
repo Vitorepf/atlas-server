@@ -13898,4 +13898,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b648_reality_compiler_required_gate_floor_count']);
     }
 
+    public function test_b649_required_gate_department_contract_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b649RequiredGateDepartmentContractFloorsContractObserve([]);
+        $this->assertSame(AaeosRequiredGateCoverageChecker::SCHEMA_VERSION, $out['atlas.aaeos.phase.v1']);
+        $this->assertSame(AaeosRequiredGateCoverageChecker::COVERAGE_NO_GATE, $out['no_gate']);
+        $this->assertSame(AaeosRequiredGateCoverageChecker::COVERAGE_INCOMPLETE, $out['incomplete']);
+        $this->assertSame(AaeosRequiredGateCoverageChecker::COVERAGE_COMPLETE, $out['complete']);
+        $this->assertSame(AaeosRequiredGateCoverageChecker::FIELD_MISSING, $out['missing']);
+        $this->assertSame(AaeosRequiredGateCoverageChecker::FIELD_COVERAGE, $out['coverage']);
+        $this->assertSame(AaeosRequiredGateCoverageChecker::FIELD_SATISFIED, $out['satisfied']);
+        $this->assertSame(AaeosRequiredGateCoverageChecker::FIELD_EXTRA_PASSED_GATES, $out['extra_passed_gates']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TO, $out['to']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DEPARTMENT, $out['department']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_MISSING, $out['missing']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ACCEPTED, $out['accepted']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_NAME, $out['name']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SCHEMA, $out['schema']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_HUMAN_NAME, $out['human_name']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_DESCRIPTION, $out['description']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_SCOPE, $out['scope']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_TRIGGERS, $out['triggers']);
+        $this->assertSame(18, $out['b649_required_gate_department_contract_floor_count']);
+    }
+
 }
