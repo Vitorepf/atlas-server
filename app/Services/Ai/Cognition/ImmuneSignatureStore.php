@@ -66,6 +66,12 @@ final class ImmuneSignatureStore
     public const FIELD_ACTIVE_CELLS = 'active_cells';
     public const FIELD_METADATA = 'metadata';
     public const FIELD_CELLS_WITH_HIT_COUNT_GTE_2 = 'cells_with_hit_count_gte_2';
+    public const FIELD_SIGNATURE_FAMILY = 'signature_family';
+    public const FIELD_FIRST_SEEN = 'first_seen';
+    public const FIELD_FAMILY = 'family';
+    public const FIELD_HIT_COUNT_AFTER = 'hit_count_after';
+    public const FIELD_PENDING_REASON = 'pending_reason';
+    public const FIELD_ACCEPTANCE_FLOOR = 'acceptance_floor';
 
     public const ORIGIN_VERDICT = 'immune_verdict';
 
@@ -126,13 +132,13 @@ final class ImmuneSignatureStore
             self::FIELD_ID => (string) Str::uuid(),
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_SIGNATURE => $derived[self::FIELD_SIGNATURE],
-            self::FIELD_CONTENT_HASH => $derived['family'][self::FIELD_CONTENT_HASH],
-            'signature_family' => $derived['family'],
+            self::FIELD_CONTENT_HASH => $derived[self::FIELD_FAMILY][self::FIELD_CONTENT_HASH],
+            self::FIELD_SIGNATURE_FAMILY => $derived[self::FIELD_FAMILY],
             self::FIELD_ORIGIN_REF => $originRef,
             self::FIELD_ORIGIN_KIND => $originKind,
-            self::FIELD_HOSTILE_CLASS => $derived['family'][self::FIELD_HOSTILE_CLASS],
+            self::FIELD_HOSTILE_CLASS => $derived[self::FIELD_FAMILY][self::FIELD_HOSTILE_CLASS],
             self::FIELD_HIT_COUNT => 0,
-            'first_seen' => $now->toIso8601String(),
+            self::FIELD_FIRST_SEEN => $now->toIso8601String(),
             self::FIELD_LAST_HIT_AT => null,
             self::FIELD_STATUS => self::STATUS_ACTIVE,
             self::FIELD_REVERSE_HANDLE => 'atlas:immune:signature-revoke --ref='.$derived[self::FIELD_SIGNATURE],
@@ -173,7 +179,7 @@ final class ImmuneSignatureStore
             self::FIELD_SIGNATURE => AiValueNormalizer::trimmedScalarStringOrNull($cell[self::FIELD_SIGNATURE] ?? null) ?? '',
             self::FIELD_HOSTILE_CLASS => AiValueNormalizer::trimmedScalarStringOrNull($cell[self::FIELD_HOSTILE_CLASS] ?? null) ?? '',
             self::FIELD_ORIGIN_REF => AiValueNormalizer::trimmedScalarStringOrNull($cell[self::FIELD_ORIGIN_REF] ?? null) ?? '',
-            'hit_count_after' => ((int) (AiValueNormalizer::finiteFloatOrNull($cell[self::FIELD_HIT_COUNT] ?? null) ?? 0)) + 1,
+            self::FIELD_HIT_COUNT_AFTER => ((int) (AiValueNormalizer::finiteFloatOrNull($cell[self::FIELD_HIT_COUNT] ?? null) ?? 0)) + 1,
             self::FIELD_MODE => $this->mode(),
         ];
     }
@@ -266,10 +272,10 @@ final class ImmuneSignatureStore
             'generated_at' => now()->toIso8601String(),
             self::FIELD_MODE => $this->mode(),
             self::FIELD_STATUS => $soaked >= 3 ? self::STATUS_OK : self::STATUS_PENDING_WINDOW,
-            'pending_reason' => $soaked >= 3 ? null : 'immune_signature_real_hits_soak',
+            self::FIELD_PENDING_REASON => $soaked >= 3 ? null : 'immune_signature_real_hits_soak',
             self::FIELD_ACTIVE_CELLS => $active,
             self::FIELD_CELLS_WITH_HIT_COUNT_GTE_2 => $soaked,
-            'acceptance_floor' => [
+            self::FIELD_ACCEPTANCE_FLOOR => [
                 self::FIELD_CELLS_WITH_HIT_COUNT_GTE_2 => 3,
             ],
         ];
@@ -372,12 +378,12 @@ final class ImmuneSignatureStore
             self::FIELD_SCHEMA_VERSION => $row[self::FIELD_SCHEMA_VERSION],
             self::FIELD_SIGNATURE => $row[self::FIELD_SIGNATURE],
             self::FIELD_CONTENT_HASH => $row[self::FIELD_CONTENT_HASH],
-            'signature_family' => json_encode($row['signature_family'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+            self::FIELD_SIGNATURE_FAMILY => json_encode($row[self::FIELD_SIGNATURE_FAMILY], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
             self::FIELD_ORIGIN_REF => $row[self::FIELD_ORIGIN_REF],
             self::FIELD_ORIGIN_KIND => $row[self::FIELD_ORIGIN_KIND],
             self::FIELD_HOSTILE_CLASS => $row[self::FIELD_HOSTILE_CLASS],
             self::FIELD_HIT_COUNT => $row[self::FIELD_HIT_COUNT],
-            'first_seen' => $this->parseDate($row['first_seen'] ?? null) ?? $now,
+            self::FIELD_FIRST_SEEN => $this->parseDate($row[self::FIELD_FIRST_SEEN] ?? null) ?? $now,
             self::FIELD_LAST_HIT_AT => $this->parseDate($row[self::FIELD_LAST_HIT_AT] ?? null),
             self::FIELD_STATUS => $row[self::FIELD_STATUS],
             self::FIELD_REVERSE_HANDLE => $row[self::FIELD_REVERSE_HANDLE],
@@ -395,12 +401,12 @@ final class ImmuneSignatureStore
             self::FIELD_SCHEMA_VERSION => AiValueNormalizer::trimmedScalarStringOrNull($row->schema_version ?? null) ?? '',
             self::FIELD_SIGNATURE => AiValueNormalizer::trimmedScalarStringOrNull($row->signature ?? null) ?? '',
             self::FIELD_CONTENT_HASH => AiValueNormalizer::trimmedScalarStringOrNull($row->content_hash ?? null) ?? '',
-            'signature_family' => $this->jsonArray($row->signature_family ?? []),
+            self::FIELD_SIGNATURE_FAMILY => $this->jsonArray($row->signature_family ?? []),
             self::FIELD_ORIGIN_REF => AiValueNormalizer::trimmedScalarStringOrNull($row->origin_ref ?? null) ?? '',
             self::FIELD_ORIGIN_KIND => AiValueNormalizer::trimmedScalarStringOrNull($row->origin_kind ?? null) ?? '',
             self::FIELD_HOSTILE_CLASS => AiValueNormalizer::trimmedScalarStringOrNull($row->hostile_class ?? null) ?? '',
             self::FIELD_HIT_COUNT => (int) $row->hit_count,
-            'first_seen' => AiValueNormalizer::trimmedString($row->first_seen ?? ''),
+            self::FIELD_FIRST_SEEN => AiValueNormalizer::trimmedString($row->first_seen ?? ''),
             self::FIELD_LAST_HIT_AT => AiValueNormalizer::trimmedStringOrNull($row->last_hit_at ?? null),
             self::FIELD_STATUS => AiValueNormalizer::trimmedScalarStringOrNull($row->status ?? null) ?? '',
             self::FIELD_REVERSE_HANDLE => AiValueNormalizer::trimmedStringOrNull($row->reverse_handle ?? null),

@@ -42,6 +42,12 @@ final class AcosMaxWindowOrchestratorService
     public const FIELD_SOURCE = 'source';
     public const FIELD_READ_ONLY = 'read_only';
     public const FIELD_PROMOTION_PROTOCOL_SCHEMA = 'promotion_protocol_schema';
+    public const FIELD_DEPENDS_ON = 'depends_on';
+    public const FIELD_WATCHDOG_ALERT = 'watchdog_alert';
+    public const FIELD_STARTED_AT = 'started_at';
+    public const FIELD_SHADOW_MINIMUM_WINDOW = 'shadow_minimum_window';
+    public const FIELD_STARTS_WINDOWS = 'starts_windows';
+    public const FIELD_CRITICAL_PATH = 'critical_path';
 
 
     public function __construct(
@@ -85,19 +91,19 @@ final class AcosMaxWindowOrchestratorService
             self::FIELD_SOURCE => [
                 self::FIELD_PROMOTION_PROTOCOL_SCHEMA => PromotionProtocol::SCHEMA,
                 self::FIELD_READ_ONLY => true,
-                'starts_windows' => false,
+                self::FIELD_STARTS_WINDOWS => false,
                 'scheduler' => false,
             ],
-            'critical_path' => $critical,
+            self::FIELD_CRITICAL_PATH => $critical,
             'parallelizable_groups' => $this->parallelizableGroups($active),
             'watchdog' => [
                 'dead_after_days' => max(1, $deadAfterDays),
                 'alerts' => array_values(array_filter(
-                    array_map(static fn (array $window): ?array => $window['watchdog_alert'] ?? null, $windows)
+                    array_map(static fn (array $window): ?array => $window[self::FIELD_WATCHDOG_ALERT] ?? null, $windows)
                 )),
             ],
             'windows' => array_map(static function (array $window): array {
-                unset($window['watchdog_alert']);
+                unset($window[self::FIELD_WATCHDOG_ALERT]);
 
                 return $window;
             }, $windows),
@@ -150,14 +156,14 @@ final class AcosMaxWindowOrchestratorService
         DateTimeImmutable $now,
         int $deadAfterDays,
     ): array {
-        $durationDays = $this->durationDays((AiValueNormalizer::trimmedStringOrNull($entry['shadow_minimum_window'] ?? null) ?? ''));
+        $durationDays = $this->durationDays((AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SHADOW_MINIMUM_WINDOW] ?? null) ?? ''));
         $base = [
             self::FIELD_FLAG_ID => (AiValueNormalizer::trimmedStringOrNull($entry['id'] ?? null) ?? ''),
             self::FIELD_FAMILY => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_FAMILY] ?? null) ?? ''),
             self::FIELD_SLICE => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SLICE] ?? null) ?? ''),
-            'minimum_window' => (AiValueNormalizer::trimmedStringOrNull($entry['shadow_minimum_window'] ?? null) ?? ''),
+            'minimum_window' => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SHADOW_MINIMUM_WINDOW] ?? null) ?? ''),
             'duration_days' => $durationDays,
-            'depends_on' => array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($entry['depends_on'] ?? null))),
+            self::FIELD_DEPENDS_ON => array_values(array_map('strval', AiValueNormalizer::arrayOrEmpty($entry[self::FIELD_DEPENDS_ON] ?? null))),
             self::FIELD_SERIES => $series[self::FIELD_SERIES] ?? null,
         ];
 
@@ -180,7 +186,7 @@ final class AcosMaxWindowOrchestratorService
         $window = array_merge($base, [
             self::FIELD_STATE => (AiValueNormalizer::trimmedStringOrNull($lastEvent['to_state'] ?? null) ?? self::STATE_UNKNOWN),
             self::FIELD_OBSERVATION_WINDOW_ID => (AiValueNormalizer::trimmedStringOrNull($lastEvent[self::FIELD_OBSERVATION_WINDOW_ID] ?? null) ?? ''),
-            'started_at' => $startedAt?->format(DateTimeInterface::ATOM),
+            self::FIELD_STARTED_AT => $startedAt?->format(DateTimeInterface::ATOM),
             'days_elapsed' => $elapsed,
             self::FIELD_DAYS_REMAINING => $remaining,
             self::FIELD_BLOCKING => $remaining === 0 ? [] : ['minimum_window_running'],
@@ -188,7 +194,7 @@ final class AcosMaxWindowOrchestratorService
 
         $alert = $this->deadWindowAlert($window, $series, $now, $deadAfterDays);
         if ($alert !== null) {
-            $window['watchdog_alert'] = $alert;
+            $window[self::FIELD_WATCHDOG_ALERT] = $alert;
         }
 
         return $window;
@@ -232,7 +238,7 @@ final class AcosMaxWindowOrchestratorService
         }
 
         $lastDataAt = $this->latestSeriesTimestamp($series);
-        $reference = $lastDataAt ?? $this->dateOrNull($window['started_at'] ?? null);
+        $reference = $lastDataAt ?? $this->dateOrNull($window[self::FIELD_STARTED_AT] ?? null);
         if (! $reference instanceof DateTimeImmutable) {
             return null;
         }
@@ -301,7 +307,7 @@ final class AcosMaxWindowOrchestratorService
     {
         $independent = array_values(array_filter(
             $active,
-            static fn (array $window): bool => ($window['depends_on'] ?? []) === []
+            static fn (array $window): bool => ($window[self::FIELD_DEPENDS_ON] ?? []) === []
         ));
         if (count($independent) < 2) {
             return [];

@@ -5271,5 +5271,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['longhorizon_lote2_adversarial_floor_count']);
     }
 
+    public function test_immune_window_evidence_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->immuneWindowEvidenceFloorsContractObserve([]);
+
+        $this->assertSame('signature_family', $payload['immune_field_signature_family']);
+        $this->assertSame('first_seen', $payload['immune_field_first_seen']);
+        $this->assertSame('family', $payload['immune_field_family']);
+        $this->assertSame('hit_count_after', $payload['immune_field_hit_count_after']);
+        $this->assertSame('pending_reason', $payload['immune_field_pending_reason']);
+        $this->assertSame('acceptance_floor', $payload['immune_field_acceptance_floor']);
+        $this->assertSame('depends_on', $payload['window_field_depends_on']);
+        $this->assertSame('watchdog_alert', $payload['window_field_watchdog_alert']);
+        $this->assertSame('started_at', $payload['window_field_started_at']);
+        $this->assertSame('shadow_minimum_window', $payload['window_field_shadow_minimum_window']);
+        $this->assertSame('starts_windows', $payload['window_field_starts_windows']);
+        $this->assertSame('critical_path', $payload['window_field_critical_path']);
+        $this->assertSame('series', $payload['evidence_field_series']);
+        $this->assertSame('stage', $payload['evidence_field_stage']);
+        $this->assertSame('yield', $payload['evidence_field_yield']);
+        $this->assertSame('n_realized', $payload['evidence_field_n_realized']);
+        $this->assertSame('realized_true', $payload['evidence_field_realized_true']);
+        $this->assertSame('consecutive_windows', $payload['evidence_field_consecutive_windows']);
+        $this->assertSame(18, $payload['immune_window_evidence_floor_count']);
+    }
+
 
 }

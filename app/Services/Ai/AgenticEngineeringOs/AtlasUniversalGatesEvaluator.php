@@ -7037,6 +7037,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for immune store / window orchestrator / evidence thesis peels.
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function immuneWindowEvidenceFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'immune_field_signature_family' => ImmuneSignatureStore::FIELD_SIGNATURE_FAMILY,
+            'immune_field_first_seen' => ImmuneSignatureStore::FIELD_FIRST_SEEN,
+            'immune_field_family' => ImmuneSignatureStore::FIELD_FAMILY,
+            'immune_field_hit_count_after' => ImmuneSignatureStore::FIELD_HIT_COUNT_AFTER,
+            'immune_field_pending_reason' => ImmuneSignatureStore::FIELD_PENDING_REASON,
+            'immune_field_acceptance_floor' => ImmuneSignatureStore::FIELD_ACCEPTANCE_FLOOR,
+            'window_field_depends_on' => AcosMaxWindowOrchestratorService::FIELD_DEPENDS_ON,
+            'window_field_watchdog_alert' => AcosMaxWindowOrchestratorService::FIELD_WATCHDOG_ALERT,
+            'window_field_started_at' => AcosMaxWindowOrchestratorService::FIELD_STARTED_AT,
+            'window_field_shadow_minimum_window' => AcosMaxWindowOrchestratorService::FIELD_SHADOW_MINIMUM_WINDOW,
+            'window_field_starts_windows' => AcosMaxWindowOrchestratorService::FIELD_STARTS_WINDOWS,
+            'window_field_critical_path' => AcosMaxWindowOrchestratorService::FIELD_CRITICAL_PATH,
+            'evidence_field_series' => EvidenceVisionThesisComposer::FIELD_SERIES,
+            'evidence_field_stage' => EvidenceVisionThesisComposer::FIELD_STAGE,
+            'evidence_field_yield' => EvidenceVisionThesisComposer::FIELD_YIELD,
+            'evidence_field_n_realized' => EvidenceVisionThesisComposer::FIELD_N_REALIZED,
+            'evidence_field_realized_true' => EvidenceVisionThesisComposer::FIELD_REALIZED_TRUE,
+            'evidence_field_consecutive_windows' => EvidenceVisionThesisComposer::FIELD_CONSECUTIVE_WINDOWS,
+            'immune_window_evidence_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

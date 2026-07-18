@@ -89,6 +89,12 @@ final class EvidenceVisionThesisComposer
     public const FIELD_INFLUENCES_PICK_MODE = 'influences_pick_mode';
     public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
     public const FIELD_THRESHOLD = 'threshold';
+    public const FIELD_SERIES = 'series';
+    public const FIELD_STAGE = 'stage';
+    public const FIELD_YIELD = 'yield';
+    public const FIELD_N_REALIZED = 'n_realized';
+    public const FIELD_REALIZED_TRUE = 'realized_true';
+    public const FIELD_CONSECUTIVE_WINDOWS = 'consecutive_windows';
 
     /**
      * @param  array<string,mixed>  $context
@@ -252,8 +258,8 @@ final class EvidenceVisionThesisComposer
             if (! is_array($window)) {
                 continue;
             }
-            $series = AiValueNormalizer::trimmedStringOrNull($window['series'] ?? null) ?? '';
-            $stage = AiValueNormalizer::trimmedStringOrNull($window['stage'] ?? null) ?? 'default';
+            $series = AiValueNormalizer::trimmedStringOrNull($window[self::FIELD_SERIES] ?? null) ?? '';
+            $stage = AiValueNormalizer::trimmedStringOrNull($window[self::FIELD_STAGE] ?? null) ?? 'default';
             if ($series === '') {
                 continue;
             }
@@ -268,7 +274,7 @@ final class EvidenceVisionThesisComposer
             usort($group, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($a[self::FIELD_WINDOW] ?? null) ?? 0)) <=> ((int) (AiValueNormalizer::finiteFloatOrNull($b[self::FIELD_WINDOW] ?? null) ?? 0)));
             $tail = array_slice($group, -self::MIN_REGRESSION_WINDOWS);
             $yields = array_map(
-                static fn (array $row): float => AiValueNormalizer::finiteFloatOrNull($row['yield'] ?? null) ?? 0.0,
+                static fn (array $row): float => AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_YIELD] ?? null) ?? 0.0,
                 $tail,
             );
             $regressing = true;
@@ -297,16 +303,16 @@ final class EvidenceVisionThesisComposer
                 self::FIELD_EVIDENCE => array_map(
                     static fn (array $row): array => [
                         self::FIELD_SOURCE => 'series',
-                        self::FIELD_REF => 'series:'.(AiValueNormalizer::trimmedStringOrNull($row['series'] ?? null) ?? '').':stage='.(AiValueNormalizer::trimmedStringOrNull($row['stage'] ?? null) ?? '').':window='.(int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_WINDOW] ?? null) ?? 0),
+                        self::FIELD_REF => 'series:'.(AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_SERIES] ?? null) ?? '').':stage='.(AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_STAGE] ?? null) ?? '').':window='.(int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_WINDOW] ?? null) ?? 0),
                         self::FIELD_FIELD => 'yield',
-                        self::FIELD_VALUE => AiValueNormalizer::finiteFloatOrNull($row['yield'] ?? null) ?? 0.0,
+                        self::FIELD_VALUE => AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_YIELD] ?? null) ?? 0.0,
                     ],
                     $tail,
                 ),
                 self::FIELD_DEATH_CRITERION => [
                     self::FIELD_KIND => self::KIND_SERIES_RECOVERY,
                     self::FIELD_THRESHOLD => $recoveryFloor,
-                    'consecutive_windows' => 2,
+                    self::FIELD_CONSECUTIVE_WINDOWS => 2,
                     self::FIELD_DESCRIBED_AT_BIRTH => 'archive when series:'.$series.' stage '.$stage.' yield >= '.$recoveryFloor.' for 2 consecutive windows',
                 ],
                 self::FIELD_ALIGNMENT_KEYS => [$series, $stage, 'pattern-design', 'frontier-harvest'],
@@ -329,14 +335,14 @@ final class EvidenceVisionThesisComposer
         $bands = AiValueNormalizer::arrayOrEmpty($calibration['bands'] ?? null);
         $high = AiValueNormalizer::arrayOrEmpty($bands['high'] ?? null);
         $sweet = AiValueNormalizer::arrayOrEmpty($bands['sweet'] ?? null);
-        $highN = (int) (AiValueNormalizer::finiteFloatOrNull($high['n_realized'] ?? null) ?? 0);
-        $sweetN = (int) (AiValueNormalizer::finiteFloatOrNull($sweet['n_realized'] ?? null) ?? 0);
+        $highN = (int) (AiValueNormalizer::finiteFloatOrNull($high[self::FIELD_N_REALIZED] ?? null) ?? 0);
+        $sweetN = (int) (AiValueNormalizer::finiteFloatOrNull($sweet[self::FIELD_N_REALIZED] ?? null) ?? 0);
         if ($highN < 3 || $sweetN < 3) {
             return [];
         }
 
-        $highRate = ((int) (AiValueNormalizer::finiteFloatOrNull($high['realized_true'] ?? null) ?? 0)) / max(1, $highN);
-        $sweetRate = ((int) (AiValueNormalizer::finiteFloatOrNull($sweet['realized_true'] ?? null) ?? 0)) / max(1, $sweetN);
+        $highRate = ((int) (AiValueNormalizer::finiteFloatOrNull($high[self::FIELD_REALIZED_TRUE] ?? null) ?? 0)) / max(1, $highN);
+        $sweetRate = ((int) (AiValueNormalizer::finiteFloatOrNull($sweet[self::FIELD_REALIZED_TRUE] ?? null) ?? 0)) / max(1, $sweetN);
         if ($highRate >= $sweetRate - 0.15) {
             return [];
         }
