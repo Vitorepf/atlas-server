@@ -24,6 +24,7 @@ final class ArenaRunsLiveService
                 'arm' => $entry['arm'] ?? null,
                 'status' => 'queued',
                 'queued_at' => $entry['queued_at'] ?? null,
+                'origin' => $entry['origin'] ?? null,
             ];
         }
 
@@ -100,18 +101,23 @@ final class ArenaRunsLiveService
             }
         }
 
+        // Origem do disparo (iphone|ipad|mac|cli) — allowlist; fora dela, omitida.
+        $origin = trim((string) ($input['origin'] ?? ''));
+        $origin = in_array($origin, ['iphone', 'ipad', 'mac', 'cli'], true) ? $origin : null;
+
         $queuedAt = now()->toIso8601String();
         $planned = [];
         foreach ($suites as $suite) {
             foreach ($arms as $arm) {
-                $seed = [
+                $seed = array_filter([
                     'suite' => $suite,
                     'engine' => $engine,
                     'arm' => $arm,
+                    'origin' => $origin,
                     'queued_at' => $queuedAt,
                     'actor_hash' => hash('sha256', $actor),
                     'reason_hash' => hash('sha256', $reason),
-                ];
+                ], static fn ($value): bool => $value !== null);
                 $entry = [
                     'schema_version' => 'atlas.arena.queued_run.v1',
                     'status' => 'queued',

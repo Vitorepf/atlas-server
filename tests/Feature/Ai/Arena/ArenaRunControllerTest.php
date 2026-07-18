@@ -120,6 +120,38 @@ class ArenaRunControllerTest extends TestCase
             ->assertJsonPath('suite', 'not_installed');
     }
 
+    public function test_start_records_origin_and_live_projects_it(): void
+    {
+        $this->postJson('/arena/runs', [
+            'suites' => ['terminal_bench'],
+            'engine' => 'codex_cli',
+            'arms' => ['baseline'],
+            'operator_actor' => 'vitor',
+            'operator_reason' => 'medição do iPhone',
+            'origin' => 'iphone',
+        ], $this->headers)->assertStatus(202);
+
+        $this->getJson('/arena/runs/live', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('runs.0.origin', 'iphone');
+    }
+
+    public function test_start_omits_origin_outside_allowlist(): void
+    {
+        $this->postJson('/arena/runs', [
+            'suites' => ['terminal_bench'],
+            'engine' => 'codex_cli',
+            'arms' => ['baseline'],
+            'operator_actor' => 'vitor',
+            'operator_reason' => 'medição',
+            'origin' => 'smartwatch<script>',
+        ], $this->headers)->assertStatus(202);
+
+        $this->getJson('/arena/runs/live', $this->headers)
+            ->assertOk()
+            ->assertJsonPath('runs.0.origin', null);
+    }
+
     public function test_start_rejects_harness_only_engine(): void
     {
         $this->postJson('/arena/runs', [
