@@ -10943,4 +10943,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b528_quality_bar_aaeos_cognitive_outcome_envelope_operational_volume_floor_count']);
     }
 
+    public function test_b529_acos_watchdog_long_verified_share_pre_review_golden_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b529AcosWatchdogLongVerifiedSharePreReviewGoldenFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_CREATED_AT, $out['created_at']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_SCOPE_TYPE, $out['scope_type']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SCORECARD_HASH, $out['scorecard_hash']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_OCCURRED_AT, $out['occurred_at']);
+        $this->assertSame(AcosMaxVerifiedShareService::FIELD_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL, $out['atlas/atlas_decide/live_outcomes.jsonl']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_HIGH, $out['high']);
+        $this->assertSame(PreReviewAdvisoryBand::FIELD_LOW, $out['low']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_RECALL_AT_5, $out['recall_at_5']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_WITH, $out['with']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_ESCALATION_TO, $out['escalation_to']);
+        $this->assertSame(AtlasAaeosDepartmentRegistryService::FIELD_MATURITY_LEVEL, $out['maturity_level']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_DOC_STATUS, $out['doc_status']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_CODE_STATUS, $out['code_status']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_PROMOTE_ALLOWED, $out['promote_allowed']);
+        $this->assertSame(AtlasConsolidationRerankGuard::FIELD_ATLAS_CONSOLIDATION_RERANK_BASELINE_JSON, $out['atlas/consolidation/rerank_baseline.json']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_OCCURRED_AT, $out['occurred_at']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_TABLE, $out['table']);
+        $this->assertSame(18, $out['b529_acos_watchdog_long_verified_share_pre_review_golden_floor_count']);
+    }
+
 }

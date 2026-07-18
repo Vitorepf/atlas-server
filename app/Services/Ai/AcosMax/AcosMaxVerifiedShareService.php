@@ -107,6 +107,7 @@ final class AcosMaxVerifiedShareService
     public const FIELD_THRESHOLDS_VERIFIED_SHARE_MIN = 'thresholds.verified_share_min';
     public const FIELD_THRESHOLDS_WINDOW_DAYS_MIN = 'thresholds.window_days_min';
     public const FIELD_WDG_01_ACOS_VERIFIED_SHARE = 'wdg-01.acos_verified_share';
+    public const FIELD_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL = 'atlas/atlas_decide/live_outcomes.jsonl';
 
 
     /** @return array<string,mixed> */
@@ -277,7 +278,7 @@ final class AcosMaxVerifiedShareService
     /** @return list<array<string,mixed>> */
     private function liveOutcomeRows(CarbonImmutable $since): array
     {
-        $path = storage_path('atlas/atlas_decide/live_outcomes.jsonl');
+        $path = storage_path(self::FIELD_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL);
         if (! is_file($path)) {
             return [];
         }
@@ -320,7 +321,7 @@ final class AcosMaxVerifiedShareService
         return AtlasLedgerEvent::query()
             ->where(self::FIELD_EMITTER_STAGE, KernelEvidenceAuthority::EMITTER_STAGE)
             ->where(self::FIELD_OCCURRED_AT, '>=', $since)
-            ->orderBy('occurred_at')
+            ->orderBy(self::FIELD_OCCURRED_AT)
             ->get()
             ->map(static fn (AtlasLedgerEvent $event): array => (array) $event->payload)
             ->filter(static fn (array $payload): bool => ($payload[self::FIELD_EVENT_NAME] ?? null) === self::FIELD_ENGINEERING_EXECUTION_COVERAGE_RECORDED

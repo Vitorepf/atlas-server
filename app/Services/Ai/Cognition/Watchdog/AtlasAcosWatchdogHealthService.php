@@ -463,7 +463,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $now = CarbonImmutable::now(self::FIELD_UTC);
         $lastNegative = $this->latestMemoryFeedbackAt(AtlasMemoryEntryUsage::negativeFeedbackActions());
-        $lastOutcome = $this->latestModelAt(AiRunOutcome::class, 'created_at', self::FIELD_AI_RUN_OUTCOMES);
+        $lastOutcome = $this->latestModelAt(AiRunOutcome::class, self::FIELD_CREATED_AT, self::FIELD_AI_RUN_OUTCOMES);
         $lastDeliveredRefs = $this->latestRagDeliveredRefsAt();
         $aemor = [];
         foreach (['dev', 'forge', self::FIELD_TASK] as $source) {
@@ -622,7 +622,7 @@ final class AtlasAcosWatchdogHealthService
             ];
         }
 
-        $events = AiRagFeedbackEvent::query()->where('created_at', '>=', $since)->get();
+        $events = AiRagFeedbackEvent::query()->where(self::FIELD_CREATED_AT, '>=', $since)->get();
         $total = $events->count();
         $measured = 0;
         $delivered = 0;
@@ -703,7 +703,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_GENERATED_AT => now()->toIso8601String(),
             ];
         }
-        $receipts = AtlasLongHorizonCompactionReceipt::query()->where('created_at', '>=', $since)->get();
+        $receipts = AtlasLongHorizonCompactionReceipt::query()->where(self::FIELD_CREATED_AT, '>=', $since)->get();
         $criticalCuts = 0;
         $retentionScores = [];
         foreach ($receipts as $receipt) {
@@ -1056,7 +1056,7 @@ final class AtlasAcosWatchdogHealthService
                 $query->where(self::FIELD_INCLUDED_SOURCES, '>', 0)
                     ->orWhereNotNull(self::FIELD_RETRIEVAL_RECEIPT_ID);
             })
-            ->latest('created_at')
+            ->latest(self::FIELD_CREATED_AT)
             ->first();
 
         return $this->parseDate($row?->created_at);
@@ -1072,9 +1072,9 @@ final class AtlasAcosWatchdogHealthService
             ->where(function ($query) use ($needle): void {
                 $query->where(self::FIELD_FLOW_ID, self::FIELD_LIKE, $needle)
                     ->orWhere(self::FIELD_SURFACE_ID, self::FIELD_LIKE, $needle)
-                    ->orWhere('scope_type', self::FIELD_LIKE, $needle);
+                    ->orWhere(self::FIELD_SCOPE_TYPE, self::FIELD_LIKE, $needle);
             })
-            ->max('created_at');
+            ->max(self::FIELD_CREATED_AT);
 
         return $this->parseDate($raw);
     }
@@ -1092,7 +1092,7 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_FIRST_SEEN_AT => null,
             ], $blockers);
         }
-        $hasScopeColumns = DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_type')
+        $hasScopeColumns = DatabaseTableAvailability::hasColumn('atlas_ledger_events', self::FIELD_SCOPE_TYPE)
             && DatabaseTableAvailability::hasColumn('atlas_ledger_events', 'scope_id');
         $series = [];
         foreach ($blockers as $blocker) {
@@ -1101,7 +1101,7 @@ final class AtlasAcosWatchdogHealthService
                 ->whereJsonContains('payload->blockers', $blocker)
                 ->orderBy(self::FIELD_OCCURRED_AT);
             if ($hasScopeColumns) {
-                $query->where('scope_type', 'acos_watchdog')->where('scope_id', $scopeId);
+                $query->where(self::FIELD_SCOPE_TYPE, 'acos_watchdog')->where('scope_id', $scopeId);
             } else {
                 // Repair migrations may recreate the ledger without scope columns;
                 // correlation_id still scopes watchdog blocker history honestly.

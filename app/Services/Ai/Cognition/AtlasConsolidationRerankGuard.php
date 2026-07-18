@@ -56,6 +56,7 @@ final class AtlasConsolidationRerankGuard
     public const FIELD_BLOCKED_REGRESSION = 'blocked_regression';
     public const FIELD_METRICS_PRECISION_AT_K = 'metrics.precision_at_k';
     public const FIELD_METRICS_PRIMARY_K = 'metrics.primary_k';
+    public const FIELD_ATLAS_CONSOLIDATION_RERANK_BASELINE_JSON = 'atlas/consolidation/rerank_baseline.json';
 
 
     private string $baselinePath;
@@ -65,7 +66,7 @@ final class AtlasConsolidationRerankGuard
         ?string $baselinePath = null,
     ) {
         $this->baselinePath = $baselinePath ?? (function_exists(self::FIELD_STORAGE_PATH)
-            ? storage_path('atlas/consolidation/rerank_baseline.json')
+            ? storage_path(self::FIELD_ATLAS_CONSOLIDATION_RERANK_BASELINE_JSON)
             : sys_get_temp_dir().'/atlas/consolidation/rerank_baseline.json');
     }
 
@@ -117,7 +118,7 @@ final class AtlasConsolidationRerankGuard
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_VERDICT => $verdict,
-            self::FIELD_PROMOTE_ALLOWED => $verdict === 'promote_allowed',
+            self::FIELD_PROMOTE_ALLOWED => $verdict === self::FIELD_PROMOTE_ALLOWED,
             self::FIELD_CURRENT_PRECISION_AT_K => $current,
             self::FIELD_BASELINE_PRECISION_AT_K => $baseline,
             self::FIELD_LABEL => self::FIELD_REFATORACAO,
@@ -136,7 +137,7 @@ final class AtlasConsolidationRerankGuard
             return self::STATUS_UNMEASURED;
         }
 
-        return $current + self::EPSILON >= $baseline ? 'promote_allowed' : self::FIELD_BLOCKED_REGRESSION;
+        return $current + self::EPSILON >= $baseline ? self::FIELD_PROMOTE_ALLOWED : self::FIELD_BLOCKED_REGRESSION;
     }
 
     private function currentPrecision(): ?float

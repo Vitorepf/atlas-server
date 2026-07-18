@@ -436,7 +436,7 @@ final class AtlasAcosLongHorizonGateService
     {
         $overall = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, self::FIELD_SCORE_OVERALL_OUT_OF_10, 0.0)) ?? 0.0;
         $pipeline = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, self::FIELD_SCORE_DIMENSIONS_PIPELINE_SCORE_OUT_OF_10, 0.0)) ?? 0.0;
-        $scorecardHash = AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'scorecard_hash')) ?? '';
+        $scorecardHash = AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, self::FIELD_SCORECARD_HASH)) ?? '';
 
         $window = $this->seriesWindowIntegrity($series, $minDays, $today);
         $latestDate = $window[self::FIELD_LATEST_DATE];
@@ -1004,8 +1004,8 @@ final class AtlasAcosLongHorizonGateService
             self::FIELD_WARNINGS => array_values(AiValueNormalizer::arrayOrEmpty($assessment[self::FIELD_WARNINGS] ?? null)),
             self::FIELD_CONFIG => $config,
             self::FIELD_EVIDENCE => [
-                self::FIELD_SCORECARD_SCHEMA => AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'schema_version')) ?? '',
-                self::FIELD_SCORECARD_HASH => AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'scorecard_hash')) ?? '',
+                self::FIELD_SCORECARD_SCHEMA => AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, self::FIELD_SCHEMA_VERSION)) ?? '',
+                self::FIELD_SCORECARD_HASH => AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, self::FIELD_SCORECARD_HASH)) ?? '',
                 self::FIELD_SERIES_ROWS_SAMPLED => count($series),
             ],
             self::FIELD_CLAIM_POLICY => [

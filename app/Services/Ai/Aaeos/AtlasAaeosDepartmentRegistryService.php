@@ -59,8 +59,8 @@ class AtlasAaeosDepartmentRegistryService
      */
     public const REQUIRED_FIELDS = [
         'id', self::FIELD_HUMAN_NAME, self::FIELD_SCOPE, self::FIELD_TRIGGERS, self::FIELD_INPUTS, self::FIELD_OUTPUTS,
-        self::FIELD_GATES, self::FIELD_ALLOWED_ACTIONS, self::FIELD_FORBIDDEN_ACTIONS, 'escalation_to',
-        self::FIELD_EVIDENCE_REQUIRED, 'maturity_level',
+        self::FIELD_GATES, self::FIELD_ALLOWED_ACTIONS, self::FIELD_FORBIDDEN_ACTIONS, self::FIELD_ESCALATION_TO,
+        self::FIELD_EVIDENCE_REQUIRED, self::FIELD_MATURITY_LEVEL,
     ];
 
     /**

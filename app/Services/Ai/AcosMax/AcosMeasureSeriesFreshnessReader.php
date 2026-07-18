@@ -45,7 +45,7 @@ final class AcosMeasureSeriesFreshnessReader
     public function lastAppendAt(array $entry): ?CarbonImmutable
     {
         $sourceType = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SOURCE_TYPE] ?? null) ?? '';
-        if (($entry[self::FIELD_TABLE] ?? null) !== null || $sourceType === 'table') {
+        if (($entry[self::FIELD_TABLE] ?? null) !== null || $sourceType === self::FIELD_TABLE) {
             return $this->tableLastAppendAt($entry);
         }
         if ($sourceType === self::FIELD_COMMAND) {
@@ -165,7 +165,7 @@ final class AcosMeasureSeriesFreshnessReader
     /** @param array<string,mixed> $row */
     private function rowTimestamp(array $row, string $preferredField): ?CarbonImmutable
     {
-        foreach (array_values(array_unique([$preferredField, self::FIELD_RECORDED_AT, self::FIELD_TS, self::FIELD_CREATED_AT, 'occurred_at', self::FIELD_TIMESTAMP])) as $field) {
+        foreach (array_values(array_unique([$preferredField, self::FIELD_RECORDED_AT, self::FIELD_TS, self::FIELD_CREATED_AT, self::FIELD_OCCURRED_AT, self::FIELD_TIMESTAMP])) as $field) {
             $parsed = $this->parseDate($row[$field] ?? null);
             if ($parsed instanceof CarbonImmutable) {
                 return $parsed;

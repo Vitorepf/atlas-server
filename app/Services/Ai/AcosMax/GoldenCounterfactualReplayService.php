@@ -86,7 +86,7 @@ final class GoldenCounterfactualReplayService
         $payload = $this->readJson($runsPath);
         $runs = array_values(AiValueNormalizer::arrayOrEmpty($payload[self::FIELD_RUNS] ?? null));
         $without = $this->firstRun($runs, 'without', $decisionId);
-        $with = $this->firstRun($runs, 'with', $decisionId);
+        $with = $this->firstRun($runs, self::FIELD_WITH, $decisionId);
 
         if ($without === null || $with === null) {
             return array_replace($base, [
@@ -107,7 +107,7 @@ final class GoldenCounterfactualReplayService
             self::FIELD_COUNTERFACTUAL => [
                 self::FIELD_WITHOUT => $without,
                 self::FIELD_WITH => $with,
-                self::FIELD_METRIC => 'recall_at_5',
+                self::FIELD_METRIC => self::FIELD_RECALL_AT_5,
                 self::FIELD_RECALL_AT_5_WITHOUT => $without[self::FIELD_RECALL_AT_5],
                 self::FIELD_RECALL_AT_5_WITH => $with[self::FIELD_RECALL_AT_5],
                 self::FIELD_DELTA => round(

@@ -9139,6 +9139,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b529_acos_watchdog_long_verified_share_pre_review_golden_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b529-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b529',
+                '--b529-acos-watchdog-long-verified-share-pre-review-golden-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b529_acos_watchdog_long_verified_share_pre_review_golden_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

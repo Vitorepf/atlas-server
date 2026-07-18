@@ -13896,4 +13896,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B529).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b529AcosWatchdogLongVerifiedSharePreReviewGoldenFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'created_at' => AtlasAcosWatchdogHealthService::FIELD_CREATED_AT,
+            'scope_type' => AtlasAcosWatchdogHealthService::FIELD_SCOPE_TYPE,
+            'scorecard_hash' => AtlasAcosLongHorizonGateService::FIELD_SCORECARD_HASH,
+            'schema_version' => AtlasAcosLongHorizonGateService::FIELD_SCHEMA_VERSION,
+            'occurred_at' => AcosMaxVerifiedShareService::FIELD_OCCURRED_AT,
+            'atlas/atlas_decide/live_outcomes.jsonl' => AcosMaxVerifiedShareService::FIELD_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL,
+            'high' => PreReviewAdvisoryBand::FIELD_HIGH,
+            'low' => PreReviewAdvisoryBand::FIELD_LOW,
+            'recall_at_5' => GoldenCounterfactualReplayService::FIELD_RECALL_AT_5,
+            'with' => GoldenCounterfactualReplayService::FIELD_WITH,
+            'escalation_to' => AtlasAaeosDepartmentRegistryService::FIELD_ESCALATION_TO,
+            'maturity_level' => AtlasAaeosDepartmentRegistryService::FIELD_MATURITY_LEVEL,
+            'doc_status' => AtlasCognitionScoreCardService::FIELD_DOC_STATUS,
+            'code_status' => AtlasCognitionScoreCardService::FIELD_CODE_STATUS,
+            'promote_allowed' => AtlasConsolidationRerankGuard::FIELD_PROMOTE_ALLOWED,
+            'atlas/consolidation/rerank_baseline.json' => AtlasConsolidationRerankGuard::FIELD_ATLAS_CONSOLIDATION_RERANK_BASELINE_JSON,
+            'occurred_at' => AcosMeasureSeriesFreshnessReader::FIELD_OCCURRED_AT,
+            'table' => AcosMeasureSeriesFreshnessReader::FIELD_TABLE,
+            'b529_acos_watchdog_long_verified_share_pre_review_golden_floor_count' => 18,
+        ];
+    }
+
 }

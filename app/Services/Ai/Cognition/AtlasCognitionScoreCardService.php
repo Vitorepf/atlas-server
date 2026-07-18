@@ -547,7 +547,7 @@ class AtlasCognitionScoreCardService
             $rows,
             static fn (array $row): bool => ($row[self::FIELD_EVIDENCE_ALIAS_OF] ?? null) === null,
         ));
-        $dimensions = ['code_status', 'doc_status', 'pipeline_status'];
+        $dimensions = [self::FIELD_CODE_STATUS, self::FIELD_DOC_STATUS, 'pipeline_status'];
         $totals = [];
         foreach ($dimensions as $dim) {
             $sum = 0;
