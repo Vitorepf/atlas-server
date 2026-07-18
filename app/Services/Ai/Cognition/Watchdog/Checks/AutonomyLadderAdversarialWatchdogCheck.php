@@ -104,6 +104,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_PROBE_SETUP_FAILED = 'probe_setup_failed';
     public const FIELD_SENSITIVE = 'sensitive';
     public const FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE = 'atlas_aemor_memory_candidate';
+    public const INT_20 = 20;
+    public const INT_999 = 999;
     public const INT_10 = 10;
     public const INT_100 = 100;
 
@@ -337,7 +339,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
                 $entry = json_decode($lines[0], true);
                 if (is_array($entry)) {
                     // Adversary overwrites metrics but leaves entry_hash alone.
-                    $entry[self::FIELD_METRICS][self::FIELD_ASSIST_SESSIONS] = 999;
+                    $entry[self::FIELD_METRICS][self::FIELD_ASSIST_SESSIONS] = self::INT_999;
                     $entry[self::FIELD_METRICS][self::FIELD_ACCEPTANCE_RATE] = 1.0;
                     $entry[self::FIELD_METRICS][self::FIELD_SEVERE_HALLUCINATION_COUNT] = 0;
                     file_put_contents($path, json_encode($entry)."\n");
@@ -411,7 +413,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         $derived = RequestedAutonomyDerivation::derive([
             self::FIELD_PRIVACY_CLASS => self::FIELD_NORMAL,
             self::FIELD_REVERSAL_RATE => 0.42,
-            self::FIELD_N => 20,
+            self::FIELD_N => self::INT_20,
             self::FIELD_CEILING => PolicyCanon::AUTONOMY_AUTONOMOUS,
         ]);
         $level = AiValueNormalizer::trimmedScalarStringOrNull($derived[self::FIELD_REQUESTED_AUTONOMY] ?? null) ?? '';

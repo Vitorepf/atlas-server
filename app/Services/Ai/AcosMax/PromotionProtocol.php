@@ -124,6 +124,8 @@ final class PromotionProtocol
     public const FIELD_ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED = 'ATLAS_MEMORY_FEEDBACK_RANKING_ENABLED';
     public const FIELD_FEE = 'FEE';
     public const FIELD_MAXB = 'MAXB';
+    public const FIELD_MULTV = 'MULTV';
+    public const FIELD_RAGX = 'RAGX';
 
     /** @var list<string> */
     public const STATES = [
@@ -383,7 +385,7 @@ final class PromotionProtocol
             ],
             [
                 self::FIELD_ID => 'acos.mutation_score.enforce_by_executor',
-                self::FIELD_FAMILY => 'MULTV',
+                self::FIELD_FAMILY => self::FIELD_MULTV,
                 self::FIELD_SLICE => 'MULTV-03',
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '8 samples per executor',
@@ -394,7 +396,7 @@ final class PromotionProtocol
             ],
             [
                 self::FIELD_ID => 'atlas.memory.contextual_blurb_enabled',
-                self::FIELD_FAMILY => 'RAGX',
+                self::FIELD_FAMILY => self::FIELD_RAGX,
                 self::FIELD_SLICE => 'RAGX-02',
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_CONFIG_KEY => 'atlas.memory.contextual_blurb_enabled',

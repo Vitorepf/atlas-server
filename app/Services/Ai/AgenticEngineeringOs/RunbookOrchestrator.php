@@ -85,6 +85,8 @@ final class RunbookOrchestrator
     public const FIELD_PENDING_REPLAY = 'pending_replay';
     public const FIELD_PHASE = 'phase';
     public const FIELD_GATE = 'gate';
+    public const FIELD_L13 = 'L13';
+    public const INT_12 = 12;
 
     /**
      * Canonical default flow for a non-trivial intent. Trivial intents
@@ -249,7 +251,7 @@ final class RunbookOrchestrator
             self::FIELD_PROPOSED_BY_ACTOR => AiValueNormalizer::arrayOrEmpty($request[self::FIELD_PROPOSED_BY_ACTOR] ?? [
                 self::FIELD_KIND => self::ACTOR_KIND_AGENT,
                 self::FIELD_ID => 'aaeos-runbook-orchestrator',
-                self::FIELD_AUTONOMY_LEVEL => 'L13',
+                self::FIELD_AUTONOMY_LEVEL => self::FIELD_L13,
             ]),
             self::FIELD_PROPOSED_AT => now()->toAtomString(),
         ];
@@ -304,7 +306,7 @@ final class RunbookOrchestrator
     private function classify(string $intent): string
     {
         $lower = AiValueNormalizer::lowerTrimmedString($intent);
-        if ($lower === '' || mb_strlen($lower) < 12) {
+        if ($lower === '' || mb_strlen($lower) < self::INT_12) {
             return self::AMBITION_TRIVIAL;
         }
         if (preg_match('/\b(refactor|rewrite|migrate|consolida|nova area|nova surface|enterprise)\b/u', $lower)) {

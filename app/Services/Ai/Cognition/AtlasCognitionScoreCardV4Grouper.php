@@ -69,6 +69,8 @@ final class AtlasCognitionScoreCardV4Grouper
     public const FIELD_EVIDENCE_2 = 'EVIDENCE';
     public const FIELD_GOVERNANCE_2 = 'GOVERNANCE';
     public const FIELD_IMMUNE = 'IMMUNE';
+    public const FIELD_MEMORY = 'MEMORY';
+    public const FIELD_PATAMAR4_2 = 'PATAMAR4';
 
     /** @var list<string> */
     public const CONSUMER_GROUPS = [
@@ -156,7 +158,7 @@ final class AtlasCognitionScoreCardV4Grouper
     {
         return match ($group) {
             self::FIELD_COGNITIVE_IMMUNE => self::FIELD_IMMUNE,
-            self::FIELD_MEMORY_CORE => 'MEMORY',
+            self::FIELD_MEMORY_CORE => self::FIELD_MEMORY,
             self::FIELD_AUCRI => self::FIELD_CONTEXT,
             self::FIELD_SELF_IMPROVEMENT, self::FIELD_SELF_CONSTRUCTION, self::FIELD_CARTOGRAPHY, self::FIELD_PROGRAMMING, self::FIELD_RESEARCH_DOMAIN => self::FIELD_CONSUMERS,
             self::FIELD_GOVERNANCE => self::FIELD_GOVERNANCE_2,
@@ -166,7 +168,7 @@ final class AtlasCognitionScoreCardV4Grouper
             self::FIELD_TEOS => 'TEOS',
             self::FIELD_COGNITION => self::FIELD_COGNITION_2,
             self::FIELD_AUTONOMY => self::FIELD_AUTONOMY_2,
-            self::FIELD_PATAMAR4, self::FIELD_PATAMAR_4, self::FIELD_INTEGRATION => 'PATAMAR4',
+            self::FIELD_PATAMAR4, self::FIELD_PATAMAR_4, self::FIELD_INTEGRATION => self::FIELD_PATAMAR4_2,
             self::FIELD_CONTEXT_CACHE => 'CONTEXT-CACHE',
             self::FIELD_CONTEXT_INTELLIGENCE => 'CONTEXT-INTELLIGENCE',
             self::FIELD_PERSISTENT_CONTEXT => 'PERSISTENT-CONTEXT',
@@ -184,7 +186,7 @@ final class AtlasCognitionScoreCardV4Grouper
     {
         return match ($key) {
             self::FIELD_IMMUNE => 'Cognitive Immune G0-G8',
-            'MEMORY' => 'Memory Core',
+            self::FIELD_MEMORY => 'Memory Core',
             self::FIELD_CONTEXT => 'Context Runtime (AUCRI policies)',
             self::FIELD_CONSUMERS => 'ACOS Consumers and Legacy Projections',
             self::FIELD_GOVERNANCE_2 => 'Constitutional Governance',
@@ -194,7 +196,7 @@ final class AtlasCognitionScoreCardV4Grouper
             'TEOS' => 'TEOS Counterfactuals',
             self::FIELD_COGNITION_2 => 'Cognitive Function Atlas',
             self::FIELD_AUTONOMY_2 => 'Autonomous Reconciliation',
-            'PATAMAR4' => 'Patamar 4 Integration',
+            self::FIELD_PATAMAR4_2 => 'Patamar 4 Integration',
             'CONTEXT-CACHE' => 'Context Cache Compiler Runtime',
             'CONTEXT-INTELLIGENCE' => 'Context Intelligence Engine',
             'PERSISTENT-CONTEXT' => 'Persistent Context Runtime',

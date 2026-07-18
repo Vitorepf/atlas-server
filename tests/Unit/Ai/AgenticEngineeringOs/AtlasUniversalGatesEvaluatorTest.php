@@ -10014,4 +10014,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b490_aaeos_implementation_cognition_score_promotion_protocol_quality_frontier_floor_count']);
     }
 
+    public function test_b491_cognition_score_acos_watchdog_autonomy_ladder_aaeos_test_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b491CognitionScoreAcosWatchdogAutonomyLadderAaeosTestFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACK, $out['ACK']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ACL8, $out['ACL8']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_MEMORY, $out['MEMORY']);
+        $this->assertSame(AtlasCognitionScoreCardV4Grouper::FIELD_PATAMAR4_2, $out['PATAMAR4']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::INT_100, $out['100']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FLOAT_10_0, $out['10.0']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::INT_20, $out['20']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::INT_999, $out['999']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_HOME, $out['HOME']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_PATH, $out['PATH']);
+        $this->assertSame(PromotionProtocol::FIELD_MULTV, $out['MULTV']);
+        $this->assertSame(PromotionProtocol::FIELD_RAGX, $out['RAGX']);
+        $this->assertSame(RunbookOrchestrator::FIELD_L13, $out['L13']);
+        $this->assertSame(RunbookOrchestrator::INT_12, $out['12']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_ACMF, $out['ACMF']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_UTC, $out['UTC']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_RAG_DIMENSION_REPORT, $out['ragDimensionReport']);
+        $this->assertSame(HealthReportWatchdogCheck::FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_REPORT, $out['scorecardReceiptsDiagnosisReport']);
+        $this->assertSame(18, $out['b491_cognition_score_acos_watchdog_autonomy_ladder_aaeos_test_floor_count']);
+    }
+
 }

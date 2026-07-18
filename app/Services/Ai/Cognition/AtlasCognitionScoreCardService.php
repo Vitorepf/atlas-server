@@ -209,6 +209,8 @@ class AtlasCognitionScoreCardService
     public const FIELD_ACFD = 'ACFD';
     public const FIELD_ACFQ = 'ACFQ';
     public const FIELD_ACIE = 'ACIE';
+    public const FIELD_ACK = 'ACK';
+    public const FIELD_ACL8 = 'ACL8';
 
     /** Score points per status. */
     public const STATUS_POINTS = [
@@ -301,7 +303,7 @@ class AtlasCognitionScoreCardService
         ['TEOS-I3', 'TEOS-I3 Counterfactual Runtime',      self::FIELD_TEOS,              AtlasTeosI3CounterfactualService::class],
 
         // Patamar 4 — Constitutional Kernel, Autonomy Admission, CognitiveFunctionAtlas, Reconciliation Runtime, TEOS-I4, Swarm Conductor, Temporary Domain Composition
-        ['ACK',     'Constitutional Kernel',               self::FIELD_GOVERNANCE,        AtlasConstitutionalKernelService::class],
+        [self::FIELD_ACK,     'Constitutional Kernel',               self::FIELD_GOVERNANCE,        AtlasConstitutionalKernelService::class],
         [self::FIELD_AAA,     'Autonomy Admission',                  self::FIELD_GOVERNANCE,        AtlasAutonomyAdmissionService::class],
         [self::FIELD_ACFA,    'Cognitive Function Atlas',            self::FIELD_COGNITION,         AtlasCognitiveFunctionAtlasService::class],
         [self::FIELD_AARR,    'Autonomous Reconciliation Runtime',   self::FIELD_AUTONOMY,          AtlasAutonomousReconciliationRuntimeService::class],
@@ -337,7 +339,7 @@ class AtlasCognitionScoreCardService
         // COM-09: ACOP→ACRS bridge deleted — JSONL had 1 smoke signal (null value);
         // ARFL feedbackHint in ACRS already closes observability→ranking.
         ['AKIF-OCR', 'AKIF OCR Confidence-Scored Ingestion', self::FIELD_AUCRI,           AtlasKnowledgeIngestionFabricOcrConfidenceService::class],
-        ['ACL8',    'Compounding Level 8/9 Distillation',   self::FIELD_COMPOUNDING,     AtlasCompoundingLevel8DistillationService::class],
+        [self::FIELD_ACL8,    'Compounding Level 8/9 Distillation',   self::FIELD_COMPOUNDING,     AtlasCompoundingLevel8DistillationService::class],
 
         // Patamar 4 · intelligence boost
         ['ADTI4', 'Atlas Decide TEOS-I4 Lookahead',        self::FIELD_ATLAS_DECIDE,     AtlasDecideTeosI4LookaheadService::class],

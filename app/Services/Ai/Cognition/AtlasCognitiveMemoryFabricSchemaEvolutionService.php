@@ -96,6 +96,8 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_NOW = 'now';
     public const FIELD_STORAGE_PATH = 'storage_path';
     public const FIELD_ACMF_ = 'acmf_';
+    public const FIELD_ACMF = 'ACMF';
+    public const FIELD_UTC = 'UTC';
 
     private ?string $proposalsLogOverride = null;
 
@@ -140,7 +142,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         $rationale = (AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_RATIONALE] ?? null) ?? 'Operator-supplied schema evolution.');
         $addedFields = array_values(AiValueNormalizer::arrayOrEmpty($input[self::FIELD_ADDED_FIELDS] ?? null));
         $deprecatedFields = array_values(AiValueNormalizer::arrayOrEmpty($input[self::FIELD_DEPRECATED_FIELDS] ?? null));
-        $actor = (AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_ACTOR] ?? null) ?? 'ACMF');
+        $actor = (AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_ACTOR] ?? null) ?? self::FIELD_ACMF);
 
         $nextSchema = $this->bumpVersion($currentSchema);
 
@@ -162,7 +164,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         ]);
 
         $proposalId = self::FIELD_ACMF_.substr(hash(self::FIELD_SHA256, $currentSchema.'|'.$nextSchema.'|'.$trigger), 0, 12);
-        $generatedAt = (new DateTimeImmutable(self::FIELD_NOW, new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+        $generatedAt = (new DateTimeImmutable(self::FIELD_NOW, new DateTimeZone(self::FIELD_UTC)))->format(DateTimeInterface::ATOM);
 
         $proposal = [
             self::FIELD_SCHEMA_VERSION => self::PROPOSAL_SCHEMA,

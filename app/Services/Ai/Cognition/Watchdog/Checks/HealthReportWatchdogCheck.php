@@ -45,6 +45,8 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_LIFT_CYCLE_CLOSURE_REPORT = 'liftCycleClosureReport';
     public const FIELD_MEMORY_QUALITY_CHECK = 'memoryQualityCheck';
     public const FIELD_PIPELINE_STABILITY_REPORT = 'pipelineStabilityReport';
+    public const FIELD_RAG_DIMENSION_REPORT = 'ragDimensionReport';
+    public const FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_REPORT = 'scorecardReceiptsDiagnosisReport';
 
     public const CATALOG = [
         [
@@ -67,7 +69,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
         ],
         [
             self::FIELD_ID => 'rag-12.rag_dimension',
-            self::FIELD_REPORT_METHOD => 'ragDimensionReport',
+            self::FIELD_REPORT_METHOD => self::FIELD_RAG_DIMENSION_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_RAG_DIMENSION_WATCHDOG_FAILED,
             self::FIELD_MESSAGE => 'RAG-12 retrieval dimension watchdog found a regression or masking issue.',
         ],
@@ -97,7 +99,7 @@ final readonly class HealthReportWatchdogCheck implements AtlasWatchdogCheck
         ],
         [
             self::FIELD_ID => 'ope-10.scorecard_receipts_diagnosis',
-            self::FIELD_REPORT_METHOD => 'scorecardReceiptsDiagnosisReport',
+            self::FIELD_REPORT_METHOD => self::FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_REPORT,
             self::FIELD_ALERT_CODE => self::FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_FAILED,
             self::FIELD_MESSAGE => 'OPE-10 found persistent partial scorecard receipts.',
         ],

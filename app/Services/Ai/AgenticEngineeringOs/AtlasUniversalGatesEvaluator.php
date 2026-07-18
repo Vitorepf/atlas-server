@@ -12739,4 +12739,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B491).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b491CognitionScoreAcosWatchdogAutonomyLadderAaeosTestFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'ACK' => AtlasCognitionScoreCardService::FIELD_ACK,
+            'ACL8' => AtlasCognitionScoreCardService::FIELD_ACL8,
+            'MEMORY' => AtlasCognitionScoreCardV4Grouper::FIELD_MEMORY,
+            'PATAMAR4' => AtlasCognitionScoreCardV4Grouper::FIELD_PATAMAR4_2,
+            '100' => AtlasAcosWatchdogHealthService::INT_100,
+            '10.0' => AtlasAcosWatchdogHealthService::FLOAT_10_0,
+            '20' => AutonomyLadderAdversarialWatchdogCheck::INT_20,
+            '999' => AutonomyLadderAdversarialWatchdogCheck::INT_999,
+            'HOME' => AtlasAaeosTestExecutionService::FIELD_HOME,
+            'PATH' => AtlasAaeosTestExecutionService::FIELD_PATH,
+            'MULTV' => PromotionProtocol::FIELD_MULTV,
+            'RAGX' => PromotionProtocol::FIELD_RAGX,
+            'L13' => RunbookOrchestrator::FIELD_L13,
+            '12' => RunbookOrchestrator::INT_12,
+            'ACMF' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_ACMF,
+            'UTC' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_UTC,
+            'ragDimensionReport' => HealthReportWatchdogCheck::FIELD_RAG_DIMENSION_REPORT,
+            'scorecardReceiptsDiagnosisReport' => HealthReportWatchdogCheck::FIELD_SCORECARD_RECEIPTS_DIAGNOSIS_REPORT,
+            'b491_cognition_score_acos_watchdog_autonomy_ladder_aaeos_test_floor_count' => 18,
+        ];
+    }
+
 }

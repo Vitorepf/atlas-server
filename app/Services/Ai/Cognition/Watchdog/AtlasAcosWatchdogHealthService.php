@@ -360,6 +360,8 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_WATCH_REGRESSED = 'watch_regressed';
     public const FIELD_UTC = 'UTC';
     public const FIELD_YMD_HIS = 'YmdHis';
+    public const INT_100 = 100;
+    public const FLOAT_10_0 = 10.0;
 
     /**
      * @param  array<string,mixed>  $filters
@@ -388,9 +390,9 @@ final class AtlasAcosWatchdogHealthService
                 self::FIELD_CURRENT_DELTA_FROM_LATEST => $currentDelta,
                 self::FIELD_LATEST_DELTA_FROM_PREVIOUS => $latestDelta,
             ], self::FIELD_MEMORY_QUALITY_SCORE_REGRESSED),
-            $this->checkRow(self::FIELD_FRESHNESS_FULL, $freshness >= 100, [
+            $this->checkRow(self::FIELD_FRESHNESS_FULL, $freshness >= self::INT_100, [
                 self::FIELD_FRESHNESS_COMPONENT => $freshness,
-                self::FIELD_REQUIRED => 100,
+                self::FIELD_REQUIRED => self::INT_100,
             ], self::FIELD_MEMORY_FRESHNESS_BELOW_FULL),
             $this->checkRow(self::FIELD_WINDOWED_CONCENTRATION_GUARDED, $concentration <= self::MEMORY_CONCENTRATION_FLOOR || $demotionEnabled || $recallUsageTotal === 0, [
                 self::FIELD_WINDOWED_CONCENTRATION_RATIO => $concentration,
@@ -746,7 +748,7 @@ final class AtlasAcosWatchdogHealthService
         $pipeline = AiValueNormalizer::finiteFloatOrNull(data_get($scorecard, 'score.dimensions.pipeline.score_out_of_10', 0.0)) ?? 0.0;
         $partials = array_values(array_filter(AiValueNormalizer::arrayOrEmpty($scorecard[self::FIELD_SUBSYSTEMS] ?? null), static fn (array $row): bool => ($row[self::FIELD_PIPELINE_STATUS] ?? null) === AtlasCognitionScoreCardService::STATUS_PARTIAL));
         $blocking = [];
-        if ($pipeline < 10.0) {
+        if ($pipeline < self::FLOAT_10_0) {
             $blocking[] = self::FIELD_PIPELINE_SCORE_BELOW_PERFECT;
         }
         if ($partials !== []) {

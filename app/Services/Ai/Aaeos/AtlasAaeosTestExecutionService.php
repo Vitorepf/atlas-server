@@ -78,6 +78,8 @@ class AtlasAaeosTestExecutionService
     public const FIELD_DB_CONNECTION = 'DB_CONNECTION';
     public const FIELD_DB_DATABASE = 'DB_DATABASE';
     public const FIELD_HEAD = 'HEAD';
+    public const FIELD_HOME = 'HOME';
+    public const FIELD_PATH = 'PATH';
 
     public function __construct(
         private readonly float $timeout = 180.0,
@@ -511,7 +513,7 @@ class AtlasAaeosTestExecutionService
     private function inheritedEnv(): array
     {
         $env = [];
-        foreach (['PATH', 'HOME', self::FIELD_APP_ENV] as $key) {
+        foreach ([self::FIELD_PATH, self::FIELD_HOME, self::FIELD_APP_ENV] as $key) {
             $value = getenv($key);
             if (is_string($value) && $value !== '') {
                 $env[$key] = $value;
