@@ -6422,6 +6422,26 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+
+    public function test_universal_gates_observe_promo_immune_nudge_hmac_runbook_qbar_phase_dept_ncapture_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b340-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b340',
+                '--promo-immune-nudge-hmac-runbook-qbar-phase-dept-ncapture-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"promo_immune_nudge_hmac_runbook_qbar_phase_dept_ncapture_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

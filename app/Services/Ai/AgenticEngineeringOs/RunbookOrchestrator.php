@@ -47,6 +47,8 @@ final class RunbookOrchestrator
     public const FIELD_TARGET_DOC = 'target_doc';
     public const FIELD_TITLE = 'title';
     public const FIELD_TOUCHES_SOVEREIGNTY_LAYER = 'touches_sovereignty_layer';
+    public const FIELD_NEEDS_RESEARCH = 'needs_research';
+    public const FIELD_NEEDS_DEBUG = 'needs_debug';
 
     /** Minimum replay count before a structural redesign may be promoted. */
     public const REPLAY_OBRAS_COUNT_MIN = 100;
@@ -97,8 +99,8 @@ final class RunbookOrchestrator
     {
         $intent = AiValueNormalizer::trimmedStringOrNull($request['intent'] ?? null) ?? '';
         $intentClass = AiValueNormalizer::trimmedStringOrNull($request[self::FIELD_INTENT_CLASS] ?? null) ?? $this->classify($intent);
-        $needsResearch = (AiValueNormalizer::boolOrNull($request['needs_research'] ?? null) ?? false);
-        $needsDebug = (AiValueNormalizer::boolOrNull($request['needs_debug'] ?? null) ?? false);
+        $needsResearch = (AiValueNormalizer::boolOrNull($request[self::FIELD_NEEDS_RESEARCH] ?? null) ?? false);
+        $needsDebug = (AiValueNormalizer::boolOrNull($request[self::FIELD_NEEDS_DEBUG] ?? null) ?? false);
 
         $flow = $this->flowFor($intentClass, $needsResearch, $needsDebug);
         $stages = [];

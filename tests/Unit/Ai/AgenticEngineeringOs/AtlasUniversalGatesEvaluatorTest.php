@@ -6149,6 +6149,33 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['health_ingest_derive_calib_dispatch_prov_cooccur_vision_cascade_floor_count']);
     }
 
+    public function test_promo_immune_nudge_hmac_runbook_qbar_phase_dept_ncapture_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->promoImmuneNudgeHmacRunbookQbarPhaseDeptNcaptureFloorsContractObserve([]);
+
+        $this->assertSame('gate_statuses', $payload['promo_field_gate_statuses']);
+        $this->assertSame('promotion_status', $payload['promo_field_promotion_status']);
+        $this->assertSame('check_categories', $payload['immune_contract_field_check_categories']);
+        $this->assertSame('pending_gates', $payload['immune_contract_field_pending_gates']);
+        $this->assertSame('vision', $payload['nudge_field_vision']);
+        $this->assertSame('generation', $payload['nudge_field_generation']);
+        $this->assertSame('source_packet', $payload['hmac_field_source_packet']);
+        $this->assertSame('hmac_lineage', $payload['hmac_field_hmac_lineage']);
+        $this->assertSame('needs_research', $payload['runbook_field_needs_research']);
+        $this->assertSame('needs_debug', $payload['runbook_field_needs_debug']);
+        $this->assertSame('quality_bar_schema', $payload['qbar_field_quality_bar_schema']);
+        $this->assertSame('immune_gate_id', $payload['qbar_field_immune_gate_id']);
+        $this->assertSame('phase_out', $payload['phase_adv_field_phase_out']);
+        $this->assertSame('blockers', $payload['phase_adv_field_blockers']);
+        $this->assertSame('department_count', $payload['dept_field_department_count']);
+        $this->assertSame('canon_department_count', $payload['dept_field_canon_department_count']);
+        $this->assertSame('series_registry', $payload['ncapture_field_series_registry']);
+        $this->assertSame('source_type', $payload['ncapture_field_source_type']);
+        $this->assertSame(18, $payload['promo_immune_nudge_hmac_runbook_qbar_phase_dept_ncapture_floor_count']);
+    }
+
+
+
 
 
 

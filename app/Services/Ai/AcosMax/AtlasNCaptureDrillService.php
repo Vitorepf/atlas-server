@@ -107,6 +107,8 @@ final class AtlasNCaptureDrillService
     public const FIELD_GOLDEN_V2_SCORE = 'golden_v2_score';
     public const FIELD_HOURS_OF_INTEGRATION = 'hours_of_integration';
     public const FIELD_LATEST = 'latest';
+    public const FIELD_SERIES_REGISTRY = 'series_registry';
+    public const FIELD_SOURCE_TYPE = 'source_type';
 
     private readonly string $ledgerPath;
 
@@ -149,10 +151,10 @@ final class AtlasNCaptureDrillService
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-teto01',
             self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-teto01-judge',
             self::FIELD_DUAL_READ_REQUIRED => false,
-            'series_registry' => [
+            self::FIELD_SERIES_REGISTRY => [
                 'series' => self::MEASURE_ID,
                 'path' => 'atlas:teto:n-capture-drill --json',
-                'source_type' => 'jsonl',
+                self::FIELD_SOURCE_TYPE => 'jsonl',
             ],
         ];
     }

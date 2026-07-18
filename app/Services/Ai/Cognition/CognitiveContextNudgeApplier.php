@@ -22,6 +22,8 @@ final class CognitiveContextNudgeApplier
 {
     public const FIELD_AUDIT = 'audit';
     public const FIELD_RETRIEVAL = 'retrieval';
+    public const FIELD_VISION = 'vision';
+    public const FIELD_GENERATION = 'generation';
     /**
      * Apply framework + role nudges to the keyword-scored hits map.
      *
@@ -58,7 +60,7 @@ final class CognitiveContextNudgeApplier
                 $hits['reasoning'] += 1;
                 $hits[self::FIELD_RETRIEVAL] += 1;
             } elseif ($framework === 'vision' || str_starts_with($framework, 'visual')) {
-                $hits['vision'] += 2;
+                $hits[self::FIELD_VISION] += 2;
             }
         }
 
@@ -76,7 +78,7 @@ final class CognitiveContextNudgeApplier
         } elseif ($role === 'researcher' || $role === 'librarian') {
             $hits[self::FIELD_RETRIEVAL] += 1;
         } elseif ($role === 'writer' || $role === 'editor') {
-            $hits['generation'] += 1;
+            $hits[self::FIELD_GENERATION] += 1;
         } elseif ($role === 'engineer' || $role === 'developer' || $role === 'programmer') {
             $hits['code'] += 1;
         }

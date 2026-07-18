@@ -70,6 +70,8 @@ final class CaptureHmacLineageService
     public const FIELD_KIND = 'kind';
     public const FIELD_STAGE_PAYLOAD_HASH = 'stage_payload_hash';
     public const FIELD_PREV_RECEIPT_HASH = 'prev_receipt_hash';
+    public const FIELD_SOURCE_PACKET = 'source_packet';
+    public const FIELD_HMAC_LINEAGE = 'hmac_lineage';
 
     public const THREAT_MODEL = 'tamper_between_capture_stages_not_db_adversary';
 
@@ -352,7 +354,7 @@ final class CaptureHmacLineageService
     private function resolveChain(string $kind, string $id): ?array
     {
         return match ($kind) {
-            'packet', 'source_packet' => $this->chainFromPacket($id),
+            'packet', self::FIELD_SOURCE_PACKET => $this->chainFromPacket($id),
             'memory' => $this->chainFromMemory($id),
             default => $this->chainFromCapture($id),
         };
@@ -401,7 +403,7 @@ final class CaptureHmacLineageService
         }
 
         $lineage = AiValueNormalizer::arrayOrEmpty($packet->lineage);
-        $chain = $lineage['hmac_lineage'] ?? null;
+        $chain = $lineage[self::FIELD_HMAC_LINEAGE] ?? null;
 
         return is_array($chain) ? $chain : null;
     }

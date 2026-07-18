@@ -362,6 +362,7 @@ final class AtlasAaeosCommand extends Command
         {--veto-repair-phase-truth-ledger-canary-latency-dual-budget-floors-contract= : JSON file (any object) to observe veto/repair/phase/truth/ledger/canary/latency/dual/budget residual floors}
         {--joint-autonomy-dead-runner-envelope-obra-docs-floors-contract= : JSON file (any object) to observe joint/autonomy/dead/runner/envelope/obra/docs residual floors}
         {--health-ingest-derive-calib-dispatch-prov-cooccur-vision-cascade-floors-contract= : JSON file (any object) to observe health/ingest/derive/calib/dispatch/prov/cooccur/vision/cascade residual floors}
+        {--promo-immune-nudge-hmac-runbook-qbar-phase-dept-ncapture-floors-contract= : JSON file (any object) to observe promo/immune/nudge/hmac/runbook/qbar/phase/dept/ncapture residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -880,6 +881,7 @@ final class AtlasAaeosCommand extends Command
             ['veto-repair-phase-truth-ledger-canary-latency-dual-budget-floors-contract', 'veto_repair_phase_truth_ledger_canary_latency_dual_budget_floors_contract', fn (array $p) => $gates->vetoRepairPhaseTruthLedgerCanaryLatencyDualBudgetFloorsContractObserve($p)],
             ['joint-autonomy-dead-runner-envelope-obra-docs-floors-contract', 'joint_autonomy_dead_runner_envelope_obra_docs_floors_contract', fn (array $p) => $gates->jointAutonomyDeadRunnerEnvelopeObraDocsFloorsContractObserve($p)],
             ['health-ingest-derive-calib-dispatch-prov-cooccur-vision-cascade-floors-contract', 'health_ingest_derive_calib_dispatch_prov_cooccur_vision_cascade_floors_contract', fn (array $p) => $gates->healthIngestDeriveCalibDispatchProvCooccurVisionCascadeFloorsContractObserve($p)],
+            ['promo-immune-nudge-hmac-runbook-qbar-phase-dept-ncapture-floors-contract', 'promo_immune_nudge_hmac_runbook_qbar_phase_dept_ncapture_floors_contract', fn (array $p) => $gates->promoImmuneNudgeHmacRunbookQbarPhaseDeptNcaptureFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

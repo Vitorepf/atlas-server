@@ -34,6 +34,8 @@ final class QualityBarTelemetryContract
     public const FIELD_EVIDENCE_HASH = 'evidence_hash';
     public const FIELD_THRESHOLD_BREACHES = 'threshold_breaches';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_QUALITY_BAR_SCHEMA = 'quality_bar_schema';
+    public const FIELD_IMMUNE_GATE_ID = 'immune_gate_id';
 
     /**
      * Gate evidence required — not boolean-only pass/fail.
@@ -104,8 +106,8 @@ final class QualityBarTelemetryContract
     {
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA,
-            'quality_bar_schema' => self::QUALITY_BAR_SCHEMA,
-            'immune_gate_id' => self::IMMUNE_GATE_ID,
+            self::FIELD_QUALITY_BAR_SCHEMA => self::QUALITY_BAR_SCHEMA,
+            self::FIELD_IMMUNE_GATE_ID => self::IMMUNE_GATE_ID,
             'breach_signal' => self::BREACH_SIGNAL,
             'canonical_source' => self::CANONICAL_SOURCE,
             self::FIELD_EVALUATED_WINDOW_DAYS => self::EVALUATED_WINDOW_DAYS,

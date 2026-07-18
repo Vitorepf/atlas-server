@@ -41,6 +41,8 @@ final class CognitiveImmuneCheckContract
     public const FIELD_GATE_STATUSES = 'gate_statuses';
     public const FIELD_AUTONOMOUS_EXECUTION_ALLOWED = 'autonomous_execution_allowed';
     public const FIELD_BLOCKERS = 'blockers';
+    public const FIELD_CHECK_CATEGORIES = 'check_categories';
+    public const FIELD_PENDING_GATES = 'pending_gates';
 
     public const ALLOWED_GATE_STATUSES = [
         self::GATE_STATUS_PENDING,
@@ -131,12 +133,12 @@ final class CognitiveImmuneCheckContract
             'inputs' => [
                 self::FIELD_TARGET_PATHS => $this->targetPaths,
                 self::FIELD_GATE_STATUSES => $this->gateStatuses,
-                'check_categories' => $this->checkCategories,
+                self::FIELD_CHECK_CATEGORIES => $this->checkCategories,
             ],
             'outputs' => [
                 self::FIELD_AUTONOMOUS_EXECUTION_ALLOWED => $this->autonomousExecutionAllowed,
                 self::FIELD_BLOCKERS => $this->blockers,
-                'pending_gates' => array_keys(array_filter(
+                self::FIELD_PENDING_GATES => array_keys(array_filter(
                     $this->gateStatuses,
                     static fn (string $status): bool => $status === self::DEFAULT_GATE_STATUS,
                 )),

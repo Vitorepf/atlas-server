@@ -8101,6 +8101,31 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function promoImmuneNudgeHmacRunbookQbarPhaseDeptNcaptureFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'promo_field_gate_statuses' => CognitiveImmunePromotionGateEvaluator::FIELD_GATE_STATUSES,
+            'promo_field_promotion_status' => CognitiveImmunePromotionGateEvaluator::FIELD_PROMOTION_STATUS,
+            'immune_contract_field_check_categories' => CognitiveImmuneCheckContract::FIELD_CHECK_CATEGORIES,
+            'immune_contract_field_pending_gates' => CognitiveImmuneCheckContract::FIELD_PENDING_GATES,
+            'nudge_field_vision' => CognitiveContextNudgeApplier::FIELD_VISION,
+            'nudge_field_generation' => CognitiveContextNudgeApplier::FIELD_GENERATION,
+            'hmac_field_source_packet' => CaptureHmacLineageService::FIELD_SOURCE_PACKET,
+            'hmac_field_hmac_lineage' => CaptureHmacLineageService::FIELD_HMAC_LINEAGE,
+            'runbook_field_needs_research' => RunbookOrchestrator::FIELD_NEEDS_RESEARCH,
+            'runbook_field_needs_debug' => RunbookOrchestrator::FIELD_NEEDS_DEBUG,
+            'qbar_field_quality_bar_schema' => QualityBarTelemetryContract::FIELD_QUALITY_BAR_SCHEMA,
+            'qbar_field_immune_gate_id' => QualityBarTelemetryContract::FIELD_IMMUNE_GATE_ID,
+            'phase_adv_field_phase_out' => PhaseAdvanceVerdictClassifier::FIELD_PHASE_OUT,
+            'phase_adv_field_blockers' => PhaseAdvanceVerdictClassifier::FIELD_BLOCKERS,
+            'dept_field_department_count' => DepartmentContractRuntime::FIELD_DEPARTMENT_COUNT,
+            'dept_field_canon_department_count' => DepartmentContractRuntime::FIELD_CANON_DEPARTMENT_COUNT,
+            'ncapture_field_series_registry' => AtlasNCaptureDrillService::FIELD_SERIES_REGISTRY,
+            'ncapture_field_source_type' => AtlasNCaptureDrillService::FIELD_SOURCE_TYPE,
+            'promo_immune_nudge_hmac_runbook_qbar_phase_dept_ncapture_floor_count' => 18,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

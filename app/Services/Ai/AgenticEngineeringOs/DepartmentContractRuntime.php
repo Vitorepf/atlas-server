@@ -68,6 +68,8 @@ final class DepartmentContractRuntime
     public const FIELD_EVIDENCE_SCHEMA = 'evidence_schema';
 
     public const FIELD_EMITS_HANDOFF_TO = 'emits_handoff_to';
+    public const FIELD_DEPARTMENT_COUNT = 'department_count';
+    public const FIELD_CANON_DEPARTMENT_COUNT = 'canon_department_count';
 
     public const SCHEMA_VERSION = 'atlas.aaeos.department.v1';
 
@@ -513,8 +515,8 @@ final class DepartmentContractRuntime
     {
         return [
             'schema_version' => self::SCHEMA_VERSION,
-            'department_count' => count(self::CATALOGUE),
-            'canon_department_count' => 11,
+            self::FIELD_DEPARTMENT_COUNT => count(self::CATALOGUE),
+            self::FIELD_CANON_DEPARTMENT_COUNT => 11,
             'departments' => self::CATALOGUE,
             'handoff_invariants' => [
                 'executive_intake_has_no_upstream',
