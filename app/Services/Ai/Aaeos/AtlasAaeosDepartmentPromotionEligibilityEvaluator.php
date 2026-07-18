@@ -37,6 +37,8 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
     public const FIELD_PROMOTION_ALLOWED = 'promotion_allowed';
     public const FIELD_TOTAL = 'total';
     public const FIELD_TIER_THRESHOLDS = 'tier_thresholds';
+    public const FIELD_CANONICAL_WRITE_ALLOWED = 'canonical_write_allowed';
+    public const FIELD_DEFICIT = 'deficit';
 
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department
@@ -121,7 +123,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
                 $blockingReasons,
             ),
             self::FIELD_PROMOTION_ALLOWED => false,
-            'canonical_write_allowed' => false,
+            self::FIELD_CANONICAL_WRITE_ALLOWED => false,
             self::FIELD_AUTO_PROMOTE_ALLOWED => false,
         ];
     }
@@ -179,7 +181,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
             self::FIELD_PASSED => $currentScore >= $requiredThreshold,
             self::FIELD_CURRENT_SCORE => $currentScore,
             'required_threshold' => $requiredThreshold,
-            'deficit' => $deficit,
+            self::FIELD_DEFICIT => $deficit,
         ];
     }
 

@@ -92,6 +92,8 @@ final class PromotionProtocol
     public const FIELD_PROTOCOL_RECEIPT = 'protocol_receipt';
     public const FIELD_STATES = 'states';
     public const FIELD_REQUIRED_FIELDS = 'required_fields';
+    public const FIELD_FLAGS = 'flags';
+    public const FIELD_LAST_FLIP = 'last_flip';
 
     /** @var list<string> */
     public const STATES = [
@@ -273,7 +275,7 @@ final class PromotionProtocol
             'ledger_path' => $this->ledger->path(),
             'managed_flags_count' => count($managed),
             'legacy_unmanaged_flags_count' => count($legacy),
-            'flags' => array_values(array_merge($managed, $legacy)),
+            self::FIELD_FLAGS => array_values(array_merge($managed, $legacy)),
         ];
     }
 
@@ -575,7 +577,7 @@ final class PromotionProtocol
             self::FIELD_ROLLBACK_TRIGGER => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_ROLLBACK_TRIGGER] ?? null) ?? '',
             self::FIELD_JUDGE_ENGINE_ID => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_JUDGE_ENGINE_ID] ?? null) ?? '',
             self::FIELD_RECEIPT => AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_RECEIPT] ?? null) ?? '',
-            'last_flip' => $last,
+            self::FIELD_LAST_FLIP => $last,
         ];
     }
 

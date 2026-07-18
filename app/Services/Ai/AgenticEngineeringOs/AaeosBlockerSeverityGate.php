@@ -15,6 +15,8 @@ final class AaeosBlockerSeverityGate
     public const FIELD_HIGH_COUNT = 'high_count';
     public const FIELD_UNKNOWN_COUNT = 'unknown_count';
     public const FIELD_SIGNAL = 'signal';
+    public const FIELD_LOW_COUNT = 'low_count';
+    public const FIELD_MEDIUM_COUNT = 'medium_count';
 
     /** @var list<string> */
     public const SIGNALS = [
@@ -64,8 +66,8 @@ final class AaeosBlockerSeverityGate
             self::FIELD_SIGNAL => $this->resolveSignal($criticalCount, $highCount, $mediumCount),
             self::FIELD_CRITICAL_COUNT => $criticalCount,
             self::FIELD_HIGH_COUNT => $highCount,
-            'medium_count' => $mediumCount,
-            'low_count' => $lowCount,
+            self::FIELD_MEDIUM_COUNT => $mediumCount,
+            self::FIELD_LOW_COUNT => $lowCount,
             self::FIELD_UNKNOWN_COUNT => $unknownCount,
             'ownerless_blockers' => $ownerlessBlockers,
         ];

@@ -43,6 +43,8 @@ final class GoldenCounterfactualReplayService
     public const FIELD_RECALL_AT_5_WITH = 'recall_at_5_with';
     public const FIELD_RUNS = 'runs';
     public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
+    public const FIELD_DELTA = 'delta';
+    public const FIELD_DELTA_REQUIRES_BOTH_ARMS = 'delta_requires_both_arms';
 
 
     /**
@@ -61,7 +63,7 @@ final class GoldenCounterfactualReplayService
                 self::FIELD_PROVIDER_CALLS_MADE => false,
                 'git_checkout_performed' => false,
                 'extrapolation_allowed' => false,
-                'delta_requires_both_arms' => true,
+                self::FIELD_DELTA_REQUIRES_BOTH_ARMS => true,
             ],
         ];
 
@@ -104,7 +106,7 @@ final class GoldenCounterfactualReplayService
                 'metric' => 'recall_at_5',
                 self::FIELD_RECALL_AT_5_WITHOUT => $without[self::FIELD_RECALL_AT_5],
                 self::FIELD_RECALL_AT_5_WITH => $with[self::FIELD_RECALL_AT_5],
-                'delta' => round(
+                self::FIELD_DELTA => round(
                     (AiValueNormalizer::finiteFloatOrNull($with[self::FIELD_RECALL_AT_5] ?? null) ?? 0.0)
                     - (AiValueNormalizer::finiteFloatOrNull($without[self::FIELD_RECALL_AT_5] ?? null) ?? 0.0),
                     6

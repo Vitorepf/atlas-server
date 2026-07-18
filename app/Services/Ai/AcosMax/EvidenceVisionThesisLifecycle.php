@@ -45,6 +45,8 @@ final class EvidenceVisionThesisLifecycle
     public const FIELD_OUTCOME_PROVEN = 'outcome_proven';
     public const FIELD_YIELD = 'yield';
     public const FIELD_TARGET_PATH = 'target_path';
+    public const FIELD_EVIDENCE = 'evidence';
+    public const FIELD_HIGH = 'high';
 
     /** @var array<string,array<string,mixed>> */
     private static array $active = [];
@@ -194,7 +196,7 @@ final class EvidenceVisionThesisLifecycle
     {
         $threshold = AiValueNormalizer::finiteFloatOrNull($criterion[self::FIELD_THRESHOLD] ?? null) ?? 0.0;
         $need = max(self::DEFAULT_CONSECUTIVE_WINDOWS, (int) (AiValueNormalizer::finiteFloatOrNull($criterion[self::FIELD_CONSECUTIVE_WINDOWS] ?? null) ?? self::DEFAULT_CONSECUTIVE_WINDOWS));
-        $refs = AiValueNormalizer::arrayOrEmpty($thesis['evidence'] ?? null);
+        $refs = AiValueNormalizer::arrayOrEmpty($thesis[self::FIELD_EVIDENCE] ?? null);
         $series = '';
         $stage = 'default';
         foreach ($refs as $ref) {
@@ -237,7 +239,7 @@ final class EvidenceVisionThesisLifecycle
     private static function calibrationResolved(array $calibration, array $criterion): bool
     {
         $bands = AiValueNormalizer::arrayOrEmpty($calibration[self::FIELD_BANDS] ?? null);
-        $high = AiValueNormalizer::arrayOrEmpty($bands['high'] ?? null);
+        $high = AiValueNormalizer::arrayOrEmpty($bands[self::FIELD_HIGH] ?? null);
         $highN = (int) (AiValueNormalizer::finiteFloatOrNull($high['n_realized'] ?? null) ?? 0);
         if ($highN <= 0) {
             return false;

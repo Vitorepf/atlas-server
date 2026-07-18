@@ -109,6 +109,13 @@ use App\Services\Ai\Aaeos\AtlasAaeosClaimDefinitionOfDoneValidator;
 use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityService;
 use App\Services\Ai\Cognition\Watchdog\Checks\CompactionRecoverySampleWatchdogCheck;
 use App\Services\Ai\Cognition\Watchdog\Checks\OperatorLearningCaptureSchemaWatchdogCheck;
+use App\Services\Ai\Aaeos\AtlasAaeosDepartmentPromotionEligibilityEvaluator;
+use App\Services\Ai\AcosMax\EvidenceVisionThesisLifecycle;
+use App\Services\Ai\AcosMax\PromotionProtocol;
+use App\Services\Ai\AgenticEngineeringOs\AaeosBlockerSeverityGate;
+use App\Services\Ai\Cognition\ImmuneSignatureDeriver;
+use App\Services\Ai\Cognition\Watchdog\Checks\JointResourceBudgetWatchdogCheck;
+use App\Services\Ai\Cognition\Watchdog\Checks\LocalModelIntegrityWatchdogCheck;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -6933,6 +6940,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_COSINE_MERGE_THRESHOLD, $out['cosine_merge_threshold']);
         $this->assertSame(AcosMaxLote2MeasureService::FIELD_COUNT, $out['count']);
         $this->assertSame(18, $out['generated_contract_aaeos_claim_department_exploratory_bets_provenance_floor_count']);
+    }
+
+    public function test_aaeos_department_evidence_vision_golden_counterfactual_promotion_protocol_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->aaeosDepartmentEvidenceVisionGoldenCounterfactualPromotionProtocolFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_CANONICAL_WRITE_ALLOWED, $out['canonical_write_allowed']);
+        $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_DEFICIT, $out['deficit']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(EvidenceVisionThesisLifecycle::FIELD_HIGH, $out['high']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_DELTA, $out['delta']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_DELTA_REQUIRES_BOTH_ARMS, $out['delta_requires_both_arms']);
+        $this->assertSame(PromotionProtocol::FIELD_FLAGS, $out['flags']);
+        $this->assertSame(PromotionProtocol::FIELD_LAST_FLIP, $out['last_flip']);
+        $this->assertSame(AaeosBlockerSeverityGate::FIELD_LOW_COUNT, $out['low_count']);
+        $this->assertSame(AaeosBlockerSeverityGate::FIELD_MEDIUM_COUNT, $out['medium_count']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_CERTIFICATION_SEVERITY_ACCEPTABLE, $out['certification_severity_acceptable']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_DECISION_RECEIPT_V2_SIGNED, $out['decision_receipt_v2_signed']);
+        $this->assertSame(ImmuneSignatureDeriver::FIELD_FAMILY, $out['family']);
+        $this->assertSame(ImmuneSignatureDeriver::FIELD_HOSTILE_CLASS, $out['hostile_class']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_CODE, $out['code']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(LocalModelIntegrityWatchdogCheck::FIELD_CODE, $out['code']);
+        $this->assertSame(LocalModelIntegrityWatchdogCheck::FIELD_MESSAGE, $out['message']);
+        $this->assertSame(18, $out['aaeos_department_evidence_vision_golden_counterfactual_promotion_protocol_floor_count']);
     }
 
 }

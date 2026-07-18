@@ -32,6 +32,8 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
     public const FIELD_REASONS = 'reasons';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_MESSAGE = 'message';
+    public const FIELD_CODE = 'code';
+    public const FIELD_GENERATED_AT = 'generated_at';
 
     public function __construct(
         private AtlasResourceBudgetService $service,
@@ -50,7 +52,7 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
 
         $evidence = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'generated_at' => $now->toIso8601String(),
+            self::FIELD_GENERATED_AT => $now->toIso8601String(),
             self::FIELD_HOST_RAM_GIB => $report[self::FIELD_HOST_RAM_GIB],
             self::FIELD_ENGINE_FLOOR_GIB => $report[self::FIELD_ENGINE_FLOOR_GIB],
             self::FIELD_TOTAL_RAM_CAP_MB => $report[self::FIELD_TOTAL_RAM_CAP_MB],
@@ -75,7 +77,7 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
 
         if ($reasons !== []) {
             return AtlasWatchdogCheckResult::alert($evidence, [
-                'code' => 'joint_resource_budget_breach',
+                self::FIELD_CODE => 'joint_resource_budget_breach',
                 self::FIELD_REASONS => $reasons,
                 self::FIELD_MESSAGE => 'Joint resource budget breached vs declared cap and/or host ceiling.',
             ]);

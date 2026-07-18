@@ -19,6 +19,8 @@ final class ImmuneSignatureDeriver
     public const FIELD_MARKER_CENTROID = 'marker_centroid';
     public const FIELD_SIGNATURE = 'signature';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_FAMILY = 'family';
+    public const FIELD_HOSTILE_CLASS = 'hostile_class';
 
     /** @var list<string> */
     public const HOSTILE_CLASSES = [
@@ -37,12 +39,12 @@ final class ImmuneSignatureDeriver
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             self::FIELD_CONTENT_HASH => $this->normalizeHash($contentHash),
             self::FIELD_MARKER_CENTROID => $this->markerCentroid($matchedSignals),
-            'hostile_class' => $this->normalizeClass($hostileClass),
+            self::FIELD_HOSTILE_CLASS => $this->normalizeClass($hostileClass),
         ];
 
         return [
             self::FIELD_SIGNATURE => hash('sha256', json_encode($family, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
-            'family' => $family,
+            self::FIELD_FAMILY => $family,
         ];
     }
 

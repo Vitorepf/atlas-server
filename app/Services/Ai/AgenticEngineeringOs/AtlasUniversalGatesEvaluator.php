@@ -8963,4 +8963,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B369).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function aaeosDepartmentEvidenceVisionGoldenCounterfactualPromotionProtocolFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'canonical_write_allowed' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_CANONICAL_WRITE_ALLOWED,
+            'deficit' => AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_DEFICIT,
+            'evidence' => EvidenceVisionThesisLifecycle::FIELD_EVIDENCE,
+            'high' => EvidenceVisionThesisLifecycle::FIELD_HIGH,
+            'delta' => GoldenCounterfactualReplayService::FIELD_DELTA,
+            'delta_requires_both_arms' => GoldenCounterfactualReplayService::FIELD_DELTA_REQUIRES_BOTH_ARMS,
+            'flags' => PromotionProtocol::FIELD_FLAGS,
+            'last_flip' => PromotionProtocol::FIELD_LAST_FLIP,
+            'low_count' => AaeosBlockerSeverityGate::FIELD_LOW_COUNT,
+            'medium_count' => AaeosBlockerSeverityGate::FIELD_MEDIUM_COUNT,
+            'certification_severity_acceptable' => AaeosPhaseHandoffService::FIELD_CERTIFICATION_SEVERITY_ACCEPTABLE,
+            'decision_receipt_v2_signed' => AaeosPhaseHandoffService::FIELD_DECISION_RECEIPT_V2_SIGNED,
+            'family' => ImmuneSignatureDeriver::FIELD_FAMILY,
+            'hostile_class' => ImmuneSignatureDeriver::FIELD_HOSTILE_CLASS,
+            'code' => JointResourceBudgetWatchdogCheck::FIELD_CODE,
+            'generated_at' => JointResourceBudgetWatchdogCheck::FIELD_GENERATED_AT,
+            'code' => LocalModelIntegrityWatchdogCheck::FIELD_CODE,
+            'message' => LocalModelIntegrityWatchdogCheck::FIELD_MESSAGE,
+            'aaeos_department_evidence_vision_golden_counterfactual_promotion_protocol_floor_count' => 18,
+        ];
+    }
+
 }
