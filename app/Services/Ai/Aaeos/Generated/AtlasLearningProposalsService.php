@@ -72,14 +72,14 @@ final class AtlasLearningProposalsService
         'policy',
         self::FIELD_ROUTING,
         self::FIELD_GATE,
-        'eval_gate',
+        self::FIELD_EVAL_GATE,
         'heuristic',
     ];
 
     /** Kinds that are valid Learning outputs but do not gate critical behavior. */
     public const NON_CRITICAL_KINDS = [
         self::FIELD_RETRIEVAL_HINT,
-        'memory',
+        self::FIELD_MEMORY,
         'failure_pattern',
         self::FIELD_DOCUMENTATION_HEALTH,
     ];
@@ -128,6 +128,15 @@ final class AtlasLearningProposalsService
     public const FIELD_DECISION = 'decision';
     public const FIELD_DOCUMENTATION_HEALTH = 'documentation_health';
     public const FIELD_GATE = 'gate';
+    public const FIELD_EVAL_GATE = 'eval_gate';
+    public const FIELD_HUMAN_OR_POLICY_DECIDES = 'human_or_policy_decides';
+    public const FIELD_LEARNING_EMITS_PROPOSAL = 'learning_emits_proposal';
+    public const FIELD_MEMORY = 'memory';
+    public const FIELD_PROPOSE_CHANGE_FOR_REVIEW = 'propose_change_for_review';
+    public const FIELD_PROPOSE_DEFAULT_ROUTE_CHANGE = 'propose_default_route_change';
+    public const FIELD_RANKED = 'ranked';
+    public const FIELD_RENDER_TO_HUMAN = 'render_to_human';
+    public const FIELD_RETRIEVAL = 'retrieval';
 
     /**
      * Evaluate a single execution signal into a learning proposal verdict.
@@ -213,7 +222,7 @@ final class AtlasLearningProposalsService
             strength: $strength,
             critical: $critical,
             suggestedAction: $this->string($signal[self::FIELD_SUGGESTED_ACTION] ?? null)
-                ?? ($critical ? 'propose_change_for_review' : 'propose_change'),
+                ?? ($critical ? self::FIELD_PROPOSE_CHANGE_FOR_REVIEW : 'propose_change'),
         );
     }
 
@@ -231,8 +240,8 @@ final class AtlasLearningProposalsService
         $critical = $normalized !== null && $this->isCriticalKind($normalized);
 
         return [
-            'suggestion' => 'learning_emits_proposal',
-            self::FIELD_DECISION => 'human_or_policy_decides',
+            'suggestion' => self::FIELD_LEARNING_EMITS_PROPOSAL,
+            self::FIELD_DECISION => self::FIELD_HUMAN_OR_POLICY_DECIDES,
             // Terminal stage is presentation, never direct mutation (Fluxo:
             // Output Renderer apresenta). Critical kinds force human review.
             self::FIELD_APPLICATION => $critical ? self::APPLY_REVIEW : self::APPLY_AUTO,
@@ -280,7 +289,7 @@ final class AtlasLearningProposalsService
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'total' => count($sorted),
-            'ranked' => $sorted,
+            self::FIELD_RANKED => $sorted,
             self::FIELD_CANON_READY => $canonReady,
             self::FIELD_CANON_READY_COUNT => count($canonReady),
         ];
@@ -315,7 +324,7 @@ final class AtlasLearningProposalsService
             self::FIELD_EVIDENCE_REFS => $comparison[self::FIELD_EVIDENCE_REFS] ?? [],
             self::FIELD_SAMPLE_SIZE => $comparison[self::FIELD_SAMPLE_SIZE] ?? 0,
             self::FIELD_EFFECT_SIZE => $effect,
-            self::FIELD_SUGGESTED_ACTION => 'propose_default_route_change',
+            self::FIELD_SUGGESTED_ACTION => self::FIELD_PROPOSE_DEFAULT_ROUTE_CHANGE,
         ]);
 
         // Routing is critical: assert the invariant regardless of strength.
@@ -377,7 +386,7 @@ final class AtlasLearningProposalsService
             // Critical kinds can never auto-apply even once admitted.
             self::FIELD_MAY_AUTO_APPLY => $admitted && ! $critical,
             self::FIELD_REQUIRES_REVIEW => $critical || ! $admitted,
-            'terminal_stage' => 'render_to_human',
+            'terminal_stage' => self::FIELD_RENDER_TO_HUMAN,
         ];
     }
 
@@ -410,7 +419,7 @@ final class AtlasLearningProposalsService
         // A couple of documented aliases.
         return match ($kind) {
             'router' => self::FIELD_ROUTING,
-            'retrieval', 'retrieval_hints' => self::FIELD_RETRIEVAL_HINT,
+            self::FIELD_RETRIEVAL, 'retrieval_hints' => self::FIELD_RETRIEVAL_HINT,
             default => null,
         };
     }

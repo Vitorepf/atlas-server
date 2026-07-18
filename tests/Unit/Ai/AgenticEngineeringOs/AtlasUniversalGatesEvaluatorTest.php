@@ -12903,4 +12903,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b608_memory_cognitive_learning_proposals_floor_count']);
     }
 
+    public function test_b609_memory_cognitive_learning_proposals_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b609MemoryCognitiveLearningProposalsFloorsContractObserve([]);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CONTAINS_SECRET, $out['contains_secret']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_CONTAINS_SENSITIVE_UNNECESSARY, $out['contains_sensitive_unnecessary']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_FUTURE_SIGNAL, $out['future_signal']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_INPUT_CLASS, $out['input_class']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_NO_CONTRADICTION, $out['no_contradiction']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_NOVELTY, $out['novelty']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_OPERATIONAL_EPHEMERAL, $out['operational_ephemeral']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PENDING_GATE_IDS, $out['pending_gate_ids']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PRIVACY_CLASS, $out['privacy_class']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_EVAL_GATE, $out['eval_gate']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_HUMAN_OR_POLICY_DECIDES, $out['human_or_policy_decides']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_LEARNING_EMITS_PROPOSAL, $out['learning_emits_proposal']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_MEMORY, $out['memory']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_PROPOSE_CHANGE_FOR_REVIEW, $out['propose_change_for_review']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_PROPOSE_DEFAULT_ROUTE_CHANGE, $out['propose_default_route_change']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_RANKED, $out['ranked']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_RENDER_TO_HUMAN, $out['render_to_human']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_RETRIEVAL, $out['retrieval']);
+        $this->assertSame(18, $out['b609_memory_cognitive_learning_proposals_floor_count']);
+    }
+
 }
