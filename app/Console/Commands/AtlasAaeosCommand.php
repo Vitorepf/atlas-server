@@ -681,6 +681,7 @@ final class AtlasAaeosCommand extends Command
                             {--b656-mission-control-floors-contract= : JSON file (any object) to observe mission/control floors}
                             {--b657-autonomous-work-floors-contract= : JSON file (any object) to observe autonomous/work floors}
                             {--b658-deferred-phase-floors-contract= : JSON file (any object) to observe deferred/phase floors}
+                            {--b659-blocker-severity-phase-handoff-floors-contract= : JSON file (any object) to observe blocker/severity/phase/handoff floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1518,6 +1519,7 @@ final class AtlasAaeosCommand extends Command
             ['b656-mission-control-floors-contract', 'b656_mission_control_floors_contract', fn (array $p) => $gates->b656MissionControlFloorsContractObserve($p)],
             ['b657-autonomous-work-floors-contract', 'b657_autonomous_work_floors_contract', fn (array $p) => $gates->b657AutonomousWorkFloorsContractObserve($p)],
             ['b658-deferred-phase-floors-contract', 'b658_deferred_phase_floors_contract', fn (array $p) => $gates->b658DeferredPhaseFloorsContractObserve($p)],
+            ['b659-blocker-severity-phase-handoff-floors-contract', 'b659_blocker_severity_phase_handoff_floors_contract', fn (array $p) => $gates->b659BlockerSeverityPhaseHandoffFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

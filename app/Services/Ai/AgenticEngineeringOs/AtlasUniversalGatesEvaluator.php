@@ -17877,4 +17877,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B659).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b659BlockerSeverityPhaseHandoffFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'blocked' => AaeosBlockerSeverityGate::SIGNAL_BLOCKED,
+            'warning' => AaeosBlockerSeverityGate::SIGNAL_WARNING,
+            'clear' => AaeosBlockerSeverityGate::SIGNAL_CLEAR,
+            'critical_count' => AaeosBlockerSeverityGate::FIELD_CRITICAL_COUNT,
+            'high_count' => AaeosBlockerSeverityGate::FIELD_HIGH_COUNT,
+            'unknown_count' => AaeosBlockerSeverityGate::FIELD_UNKNOWN_COUNT,
+            'signal' => AaeosBlockerSeverityGate::FIELD_SIGNAL,
+            'low_count' => AaeosBlockerSeverityGate::FIELD_LOW_COUNT,
+            'medium_count' => AaeosBlockerSeverityGate::FIELD_MEDIUM_COUNT,
+            'atlas.aaeos.phase.v1' => AaeosPhaseHandoffService::SCHEMA_VERSION,
+            'blocked' => AaeosPhaseHandoffService::FIELD_BLOCKED,
+            'passed' => AaeosPhaseHandoffService::FIELD_PASSED,
+            'actor' => AaeosPhaseHandoffService::FIELD_ACTOR,
+            'kind' => AaeosPhaseHandoffService::FIELD_KIND,
+            'gates' => AaeosPhaseHandoffService::PHASE_GATES,
+            'schema' => AaeosPhaseHandoffService::FIELD_SCHEMA,
+            'required' => AaeosPhaseHandoffService::FIELD_REQUIRED,
+            'id' => AaeosPhaseHandoffService::FIELD_ID,
+            'b659_blocker_severity_phase_handoff_floor_count' => 18,
+        ];
+    }
+
 }

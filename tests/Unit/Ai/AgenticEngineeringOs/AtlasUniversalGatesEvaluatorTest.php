@@ -14149,4 +14149,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b658_deferred_phase_floor_count']);
     }
 
+    public function test_b659_blocker_severity_phase_handoff_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b659BlockerSeverityPhaseHandoffFloorsContractObserve([]);
+        $this->assertSame(AaeosBlockerSeverityGate::SIGNAL_BLOCKED, $out['blocked']);
+        $this->assertSame(AaeosBlockerSeverityGate::SIGNAL_WARNING, $out['warning']);
+        $this->assertSame(AaeosBlockerSeverityGate::SIGNAL_CLEAR, $out['clear']);
+        $this->assertSame(AaeosBlockerSeverityGate::FIELD_CRITICAL_COUNT, $out['critical_count']);
+        $this->assertSame(AaeosBlockerSeverityGate::FIELD_HIGH_COUNT, $out['high_count']);
+        $this->assertSame(AaeosBlockerSeverityGate::FIELD_UNKNOWN_COUNT, $out['unknown_count']);
+        $this->assertSame(AaeosBlockerSeverityGate::FIELD_SIGNAL, $out['signal']);
+        $this->assertSame(AaeosBlockerSeverityGate::FIELD_LOW_COUNT, $out['low_count']);
+        $this->assertSame(AaeosBlockerSeverityGate::FIELD_MEDIUM_COUNT, $out['medium_count']);
+        $this->assertSame(AaeosPhaseHandoffService::SCHEMA_VERSION, $out['atlas.aaeos.phase.v1']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_BLOCKED, $out['blocked']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_PASSED, $out['passed']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_ACTOR, $out['actor']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_KIND, $out['kind']);
+        $this->assertSame(AaeosPhaseHandoffService::PHASE_GATES, $out['gates']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_SCHEMA, $out['schema']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_REQUIRED, $out['required']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_ID, $out['id']);
+        $this->assertSame(18, $out['b659_blocker_severity_phase_handoff_floor_count']);
+    }
+
 }
