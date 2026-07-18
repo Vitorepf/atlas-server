@@ -12250,4 +12250,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b581_golden_counterfactual_portfolio_budget_aaeos_http_acos_long_floor_count']);
     }
 
+    public function test_b582_operational_volume_capture_hmac_aaeos_department_outcome_causality_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b582OperationalVolumeCaptureHmacAaeosDepartmentOutcomeCausalityFloorsContractObserve([]);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_OK, $out['ok']);
+        $this->assertSame(AtlasOperationalVolumeCheckService::FIELD_VOLUME, $out['volume']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_STAMPED_AT, $out['stamped_at']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_KIND, $out['kind']);
+        $this->assertSame(CaptureHmacLineageService::FIELD_STAGE_PAYLOAD_HASH, $out['stage_payload_hash']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_DEPARTMENT_ID, $out['department_id']);
+        $this->assertSame(AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_ALL_BANDS_SATISFIED, $out['all_bands_satisfied']);
+        $this->assertSame(OutcomeCausalityRanker::FIELD_STATUS, $out['status']);
+        $this->assertSame(OutcomeCausalityRanker::FIELD_CAUSES, $out['causes']);
+        $this->assertSame(OutcomeCausalityRanker::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AsefChunkIndexService::FIELD_EMBEDDING_MODEL, $out['embedding_model']);
+        $this->assertSame(AsefChunkIndexService::FIELD_ERRORS, $out['errors']);
+        $this->assertSame(AsefChunkIndexService::FIELD_EMBEDDED_AT, $out['embedded_at']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_SOURCE, $out['source']);
+        $this->assertSame(18, $out['b582_operational_volume_capture_hmac_aaeos_department_outcome_causality_floor_count']);
+    }
+
 }

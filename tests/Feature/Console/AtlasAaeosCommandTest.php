@@ -9881,6 +9881,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_b582_operational_volume_capture_hmac_aaeos_department_outcome_causality_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b582-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b582',
+                '--b582-operational-volume-capture-hmac-aaeos-department-outcome-causality-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"b582_operational_volume_capture_hmac_aaeos_department_outcome_causality_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

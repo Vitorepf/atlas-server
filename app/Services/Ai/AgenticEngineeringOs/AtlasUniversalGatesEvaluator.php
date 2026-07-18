@@ -15520,4 +15520,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B582).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b582OperationalVolumeCaptureHmacAaeosDepartmentOutcomeCausalityFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'reason' => AtlasOperationalVolumeCheckService::FIELD_REASON,
+            'ok' => AtlasOperationalVolumeCheckService::FIELD_OK,
+            'volume' => AtlasOperationalVolumeCheckService::FIELD_VOLUME,
+            'stamped_at' => CaptureHmacLineageService::FIELD_STAMPED_AT,
+            'kind' => CaptureHmacLineageService::FIELD_KIND,
+            'stage_payload_hash' => CaptureHmacLineageService::FIELD_STAGE_PAYLOAD_HASH,
+            'schema_version' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_SCHEMA_VERSION,
+            'department_id' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_DEPARTMENT_ID,
+            'all_bands_satisfied' => AtlasAaeosDepartmentQualityBarLevelClassifier::FIELD_ALL_BANDS_SATISFIED,
+            'status' => OutcomeCausalityRanker::FIELD_STATUS,
+            'causes' => OutcomeCausalityRanker::FIELD_CAUSES,
+            'schema_version' => OutcomeCausalityRanker::FIELD_SCHEMA_VERSION,
+            'embedding_model' => AsefChunkIndexService::FIELD_EMBEDDING_MODEL,
+            'errors' => AsefChunkIndexService::FIELD_ERRORS,
+            'embedded_at' => AsefChunkIndexService::FIELD_EMBEDDED_AT,
+            'formula_version' => AtlasFlywheelFunnelService::FIELD_FORMULA_VERSION,
+            'generated_at' => AtlasFlywheelFunnelService::FIELD_GENERATED_AT,
+            'source' => AtlasFlywheelFunnelService::FIELD_SOURCE,
+            'b582_operational_volume_capture_hmac_aaeos_department_outcome_causality_floor_count' => 18,
+        ];
+    }
+
 }
