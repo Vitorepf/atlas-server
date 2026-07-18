@@ -13,6 +13,8 @@ final readonly class OperatorLearningCaptureSchemaWatchdogCheck implements Atlas
     public const CHECK_ID = 'maxn-01.operator_learning_capture_schema';
     public const FIELD_MISSING_TABLES = 'missing_tables';
     public const FIELD_CHAT_CAPTURE_ENABLED = 'chat_capture_enabled';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_OPERATOR_SCHEMA_READY = 'operator_schema_ready';
 
     public function __construct(private OperatorLearningRuntimeCaptureService $capture) {}
 
@@ -28,7 +30,7 @@ final readonly class OperatorLearningCaptureSchemaWatchdogCheck implements Atlas
 
         if (! $report[self::FIELD_CHAT_CAPTURE_ENABLED]) {
             return AtlasWatchdogCheckResult::skipped(array_merge($report, [
-                'reason' => 'operator_learning_capture_disabled',
+                self::FIELD_REASON => 'operator_learning_capture_disabled',
             ]));
         }
 
@@ -41,7 +43,7 @@ final readonly class OperatorLearningCaptureSchemaWatchdogCheck implements Atlas
         }
 
         return AtlasWatchdogCheckResult::ok(array_merge($report, [
-            'operator_schema_ready' => true,
+            self::FIELD_OPERATOR_SCHEMA_READY => true,
         ]));
     }
 }

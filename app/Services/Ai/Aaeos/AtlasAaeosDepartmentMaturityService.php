@@ -29,6 +29,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_BLOCKER_SEVERITY = 'blocker_severity';
     public const FIELD_OWNER = 'owner';
     public const FIELD_BLOCKERS_TO_NEXT = 'blockers_to_next';
+    public const FIELD_SUMMARY = 'summary';
+    public const FIELD_SIGNALS = 'signals';
 
     public const DEPARTMENTS = [
         [
@@ -135,7 +137,7 @@ final class AtlasAaeosDepartmentMaturityService
             fn (array $department): array => [
                 'department' => AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_DEPARTMENT_ID]) ?? '',
                 'maturity_tier' => $this->parseLevel($department[self::FIELD_CURRENT_LEVEL]),
-                'signals' => $this->buildSignals($department),
+                self::FIELD_SIGNALS => $this->buildSignals($department),
                 'schema' => self::SCHEMA_VERSION,
                 self::FIELD_EVIDENCE => $department[self::FIELD_EVIDENCE],
                 self::FIELD_BLOCKERS_TO_NEXT => [
@@ -143,7 +145,7 @@ final class AtlasAaeosDepartmentMaturityService
                         'id' => AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_BLOCKER_ID]) ?? '',
                         'severity' => AiValueNormalizer::lowerTrimmedString($department[self::FIELD_BLOCKER_SEVERITY]),
                         self::FIELD_OWNER => self::OWNER,
-                        'summary' => AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_BLOCKER_SUMMARY]) ?? '',
+                        self::FIELD_SUMMARY => AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_BLOCKER_SUMMARY]) ?? '',
                     ],
                 ],
                 'last_evaluation' => self::LAST_EVALUATION,

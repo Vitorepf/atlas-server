@@ -30,6 +30,8 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
     public const FIELD_CHECKED = 'checked';
     public const FIELD_DRIFT_COUNT = 'drift_count';
     public const FIELD_DRIFT = 'drift';
+    public const FIELD_MESSAGE = 'message';
+    public const FIELD_CODE = 'code';
 
 
     public function __construct(private AtlasMemoryPrivacyService $privacy) {}
@@ -77,8 +79,8 @@ final readonly class ProviderBoundRedactionDriftWatchdogCheck implements AtlasWa
 
         if ($drift !== []) {
             return AtlasWatchdogCheckResult::alert($evidence, [
-                'code' => 'provider_bound_redaction_drift',
-                'message' => 'Provider-bound redaction status drift detected.',
+                self::FIELD_CODE => 'provider_bound_redaction_drift',
+                self::FIELD_MESSAGE => 'Provider-bound redaction status drift detected.',
             ]);
         }
 

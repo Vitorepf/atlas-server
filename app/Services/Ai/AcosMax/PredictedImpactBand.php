@@ -45,6 +45,8 @@ final class PredictedImpactBand
     public const FIELD_REALIZED = 'realized';
     public const FIELD_SINGLE_SCALAR_SCORE_EMITTED = 'single_scalar_score_emitted';
     public const FIELD_UNRESOLVED_COUNTS_AS_SUCCESS = 'unresolved_counts_as_success';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_REPORT_ONLY = 'report_only';
 
     /**
      * @param  array<string,mixed>  $candidate
@@ -90,7 +92,7 @@ final class PredictedImpactBand
             if (! isset($bands[$band])) {
                 continue;
             }
-            if (AiValueNormalizer::trimmedStringOrNull($row['status'] ?? null) === 'unresolved') {
+            if (AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_STATUS] ?? null) === 'unresolved') {
                 $bands[$band][self::FIELD_UNRESOLVED]++;
                 continue;
             }
@@ -105,7 +107,7 @@ final class PredictedImpactBand
             self::FIELD_BANDS => $bands,
             self::FIELD_SOURCE => [
                 self::FIELD_UNRESOLVED_COUNTS_AS_SUCCESS => false,
-                'report_only' => true,
+                self::FIELD_REPORT_ONLY => true,
             ],
         ];
     }

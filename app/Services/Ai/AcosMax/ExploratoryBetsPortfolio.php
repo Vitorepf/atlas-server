@@ -59,6 +59,8 @@ final class ExploratoryBetsPortfolio
     public const FIELD_DELETES_SUSPENDED_FAMILY = 'deletes_suspended_family';
     public const FIELD_OBJECTIVE_CLASS = 'objective_class';
     public const FIELD_SUSPENDED_PATHS = 'suspended_paths';
+    public const FIELD_WRITES_CLASS_ALLOCATION_WEIGHTS = 'writes_class_allocation_weights';
+    public const FIELD_USES_ATLAS_BRAIN_CAUSAL_EFFECT_GATE = 'uses_atlas_brain_causal_effect_gate';
 
     public const STATUS_NO_ELIGIBLE_BETS = 'no_eligible_bets';
 
@@ -273,9 +275,9 @@ final class ExploratoryBetsPortfolio
     {
         return [
             self::FIELD_ALLOCATION_BOUNDARY => 'originated_slice_sub_policy',
-            'uses_atlas_brain_causal_effect_gate' => true,
+            self::FIELD_USES_ATLAS_BRAIN_CAUSAL_EFFECT_GATE => true,
             'recomputes_multk_06_allocation' => false,
-            'writes_class_allocation_weights' => false,
+            self::FIELD_WRITES_CLASS_ALLOCATION_WEIGHTS => false,
             self::FIELD_COUNTS_LANDING_OR_ACCEPTANCE => false,
             self::FIELD_COUNTS_PROVEN_REAL_ONLY => true,
             'suspends_on_insufficient_n' => false,

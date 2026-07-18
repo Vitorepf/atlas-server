@@ -6524,4 +6524,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['verdict_dept_debt_canary_asef_freshness_reality_list_schema_floor_count']);
     }
 
+    public function test_compaction_redaction_capture_provenance_impact_bets_maturity_claim_generated_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->compactionRedactionCaptureProvenanceImpactBetsMaturityClaimGeneratedFloorsContractObserve([]);
+
+        $this->assertSame('recovery_rate', $payload['compaction_field_recovery_rate']);
+        $this->assertSame('status', $payload['compaction_field_status']);
+        $this->assertSame('message', $payload['redaction_field_message']);
+        $this->assertSame('code', $payload['redaction_field_code']);
+        $this->assertSame('reason', $payload['capture_field_reason']);
+        $this->assertSame('operator_schema_ready', $payload['capture_field_operator_schema_ready']);
+        $this->assertSame('source', $payload['provenance_field_source']);
+        $this->assertSame('schema_version', $payload['provenance_field_schema_version']);
+        $this->assertSame('status', $payload['impact_field_status']);
+        $this->assertSame('report_only', $payload['impact_field_report_only']);
+        $this->assertSame('writes_class_allocation_weights', $payload['bets_field_writes_class_allocation_weights']);
+        $this->assertSame('uses_atlas_brain_causal_effect_gate', $payload['bets_field_uses_atlas_brain_causal_effect_gate']);
+        $this->assertSame('summary', $payload['maturity_field_summary']);
+        $this->assertSame('signals', $payload['maturity_field_signals']);
+        $this->assertSame('verdict', $payload['claim_field_verdict']);
+        $this->assertSame('schema_version', $payload['claim_field_schema_version']);
+        $this->assertSame('hot_path_enabled', $payload['generated_field_hot_path_enabled']);
+        $this->assertSame('generated_file_count', $payload['generated_field_generated_file_count']);
+        $this->assertSame(18, $payload['compaction_redaction_capture_provenance_impact_bets_maturity_claim_generated_floor_count']);
+    }
+
 }

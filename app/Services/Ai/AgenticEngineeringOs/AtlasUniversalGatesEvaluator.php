@@ -8511,6 +8511,39 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors: compaction recovery / redaction drift / capture schema /
+     * provenance / predicted impact / exploratory bets / dept maturity / claim DoD /
+     * generated contract (B355).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function compactionRedactionCaptureProvenanceImpactBetsMaturityClaimGeneratedFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'compaction_field_recovery_rate' => CompactionRecoverySampleWatchdogCheck::FIELD_RECOVERY_RATE,
+            'compaction_field_status' => CompactionRecoverySampleWatchdogCheck::FIELD_STATUS,
+            'redaction_field_message' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_MESSAGE,
+            'redaction_field_code' => ProviderBoundRedactionDriftWatchdogCheck::FIELD_CODE,
+            'capture_field_reason' => OperatorLearningCaptureSchemaWatchdogCheck::FIELD_REASON,
+            'capture_field_operator_schema_ready' => OperatorLearningCaptureSchemaWatchdogCheck::FIELD_OPERATOR_SCHEMA_READY,
+            'provenance_field_source' => ProvenanceWeightCalculator::FIELD_SOURCE,
+            'provenance_field_schema_version' => ProvenanceWeightCalculator::FIELD_SCHEMA_VERSION,
+            'impact_field_status' => PredictedImpactBand::FIELD_STATUS,
+            'impact_field_report_only' => PredictedImpactBand::FIELD_REPORT_ONLY,
+            'bets_field_writes_class_allocation_weights' => ExploratoryBetsPortfolio::FIELD_WRITES_CLASS_ALLOCATION_WEIGHTS,
+            'bets_field_uses_atlas_brain_causal_effect_gate' => ExploratoryBetsPortfolio::FIELD_USES_ATLAS_BRAIN_CAUSAL_EFFECT_GATE,
+            'maturity_field_summary' => AtlasAaeosDepartmentMaturityService::FIELD_SUMMARY,
+            'maturity_field_signals' => AtlasAaeosDepartmentMaturityService::FIELD_SIGNALS,
+            'claim_field_verdict' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_VERDICT,
+            'claim_field_schema_version' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_SCHEMA_VERSION,
+            'generated_field_hot_path_enabled' => AaeosGeneratedContractGate::FIELD_HOT_PATH_ENABLED,
+            'generated_field_generated_file_count' => AaeosGeneratedContractGate::FIELD_GENERATED_FILE_COUNT,
+            'compaction_redaction_capture_provenance_impact_bets_maturity_claim_generated_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

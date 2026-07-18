@@ -6703,6 +6703,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_compaction_redaction_capture_provenance_impact_bets_maturity_claim_generated_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b355-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b355',
+                '--compaction-redaction-capture-provenance-impact-bets-maturity-claim-generated-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"compaction_redaction_capture_provenance_impact_bets_maturity_claim_generated_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 
