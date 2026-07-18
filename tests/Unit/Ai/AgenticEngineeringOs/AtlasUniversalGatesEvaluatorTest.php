@@ -11824,4 +11824,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b564_lote_measure_floor_count']);
     }
 
+    public function test_b565_asef_chunk_aaeos_implementation_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b565AsefChunkAaeosImplementationFloorsContractObserve([]);
+        $this->assertSame(AsefChunkIndexService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AsefChunkIndexService::FIELD_CHUNKS, $out['chunks']);
+        $this->assertSame(AsefChunkIndexService::FIELD_QUERY, $out['query']);
+        $this->assertSame(AsefChunkIndexService::FIELD_TEXT, $out['text']);
+        $this->assertSame(AsefChunkIndexService::FIELD_PRIVACY_CLASS, $out['privacy_class']);
+        $this->assertSame(AsefChunkIndexService::FIELD_PROVIDER_SAFE, $out['provider_safe']);
+        $this->assertSame(AsefChunkIndexService::FIELD_CHUNK_TEXT, $out['chunk_text']);
+        $this->assertSame(AsefChunkIndexService::FIELD_EMBEDDED_TEXT, $out['embedded_text']);
+        $this->assertSame(AsefChunkIndexService::FIELD_EMBEDDING_STATUS, $out['embedding_status']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_REF, $out['ref']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_KIND, $out['kind']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_EVIDENCE, $out['evidence']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_CLAIMED_STATE_RAW, $out['claimed_state_raw']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_TEST_RESOLUTION, $out['test_resolution']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_IMPL_FILES_HASH, $out['impl_files_hash']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_BY_COMPUTED_STATE, $out['by_computed_state']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_TEST_BEARING_ROWS, $out['test_bearing_rows']);
+        $this->assertSame(18, $out['b565_asef_chunk_aaeos_implementation_floor_count']);
+    }
+
 }

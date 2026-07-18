@@ -587,6 +587,7 @@ final class AtlasAaeosCommand extends Command
                             {--b562-maxa-jina-acos-long-floors-contract= : JSON file (any object) to observe maxa/jina/acos/long floors}
                             {--b563-acos-watchdog-floors-contract= : JSON file (any object) to observe acos/watchdog floors}
                             {--b564-lote-measure-floors-contract= : JSON file (any object) to observe lote/measure floors}
+                            {--b565-asef-chunk-aaeos-implementation-floors-contract= : JSON file (any object) to observe asef/chunk/aaeos/implementation floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1330,6 +1331,7 @@ final class AtlasAaeosCommand extends Command
             ['b562-maxa-jina-acos-long-floors-contract', 'b562_maxa_jina_acos_long_floors_contract', fn (array $p) => $gates->b562MaxaJinaAcosLongFloorsContractObserve($p)],
             ['b563-acos-watchdog-floors-contract', 'b563_acos_watchdog_floors_contract', fn (array $p) => $gates->b563AcosWatchdogFloorsContractObserve($p)],
             ['b564-lote-measure-floors-contract', 'b564_lote_measure_floors_contract', fn (array $p) => $gates->b564LoteMeasureFloorsContractObserve($p)],
+            ['b565-asef-chunk-aaeos-implementation-floors-contract', 'b565_asef_chunk_aaeos_implementation_floors_contract', fn (array $p) => $gates->b565AsefChunkAaeosImplementationFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

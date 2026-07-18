@@ -14993,4 +14993,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B565).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b565AsefChunkAaeosImplementationFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => AsefChunkIndexService::FIELD_SCHEMA_VERSION,
+            'chunks' => AsefChunkIndexService::FIELD_CHUNKS,
+            'query' => AsefChunkIndexService::FIELD_QUERY,
+            'text' => AsefChunkIndexService::FIELD_TEXT,
+            'privacy_class' => AsefChunkIndexService::FIELD_PRIVACY_CLASS,
+            'provider_safe' => AsefChunkIndexService::FIELD_PROVIDER_SAFE,
+            'chunk_text' => AsefChunkIndexService::FIELD_CHUNK_TEXT,
+            'embedded_text' => AsefChunkIndexService::FIELD_EMBEDDED_TEXT,
+            'embedding_status' => AsefChunkIndexService::FIELD_EMBEDDING_STATUS,
+            'schema_version' => AtlasAaeosImplementationTruthService::FIELD_SCHEMA_VERSION,
+            'ref' => AtlasAaeosImplementationTruthService::FIELD_REF,
+            'kind' => AtlasAaeosImplementationTruthService::FIELD_KIND,
+            'evidence' => AtlasAaeosImplementationTruthService::FIELD_EVIDENCE,
+            'claimed_state_raw' => AtlasAaeosImplementationTruthService::FIELD_CLAIMED_STATE_RAW,
+            'test_resolution' => AtlasAaeosImplementationTruthService::FIELD_TEST_RESOLUTION,
+            'impl_files_hash' => AtlasAaeosImplementationTruthService::FIELD_IMPL_FILES_HASH,
+            'by_computed_state' => AtlasAaeosImplementationTruthService::FIELD_BY_COMPUTED_STATE,
+            'test_bearing_rows' => AtlasAaeosImplementationTruthService::FIELD_TEST_BEARING_ROWS,
+            'b565_asef_chunk_aaeos_implementation_floor_count' => 18,
+        ];
+    }
+
 }
