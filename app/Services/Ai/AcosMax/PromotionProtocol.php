@@ -143,6 +143,8 @@ final class PromotionProtocol
     public const FIELD_ATLAS_AI_AUTONOMOUS_LEARNING_ENABLED = 'atlas.ai.autonomous_learning.enabled';
     public const FIELD_ATLAS_BRAIN_REFLECTION_ENABLED_2 = 'atlas.brain.reflection_enabled';
     public const FIELD_ATLAS_AUTONOMOS_PREFLIGHT___JSON_RETURNS_8_8_GREEN_WITH_ASI_01_02_05_EVIDENCE = 'atlas:autonomos:preflight --json returns 8/8 green with ASI-01/02/05 evidence';
+    public const FIELD_MUTATION_MSI_LOW_ADVISORY_CORRELATES_WITH_LATER_REAL_FAILURE_FOR_THE_EXECUTOR = 'mutation MSI low advisory correlates with later real failure for the executor';
+    public const FIELD_SUSPEND_EXECUTOR_FAMILY_ON_NEGATIVE_ROOT_A_B_OR_COST_BREACH = 'suspend executor family on negative root A/B or cost breach';
     public const FLOAT_0_05 = 0.05;
 
     /** @var list<string> */
@@ -407,8 +409,8 @@ final class PromotionProtocol
                 self::FIELD_SLICE => self::FIELD_MULTV_03,
                 self::FIELD_STATE => self::STATE_OFF,
                 self::FIELD_SHADOW_MINIMUM_WINDOW => '8 samples per executor',
-                self::FIELD_FLIP_CRITERION => 'mutation MSI low advisory correlates with later real failure for the executor',
-                self::FIELD_ROLLBACK_TRIGGER => 'suspend executor family on negative root A/B or cost breach',
+                self::FIELD_FLIP_CRITERION => self::FIELD_MUTATION_MSI_LOW_ADVISORY_CORRELATES_WITH_LATER_REAL_FAILURE_FOR_THE_EXECUTOR,
+                self::FIELD_ROLLBACK_TRIGGER => self::FIELD_SUSPEND_EXECUTOR_FAMILY_ON_NEGATIVE_ROOT_A_B_OR_COST_BREACH,
                 self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV26S_JUDGE,
                 self::FIELD_RECEIPT => 'docs/engineering-knowledge-base/atlas-acos-max-frontier-plan-v1.md:2639',
             ],

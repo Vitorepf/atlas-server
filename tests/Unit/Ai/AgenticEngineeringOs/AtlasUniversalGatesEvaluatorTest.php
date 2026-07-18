@@ -12462,4 +12462,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b590_ledger_rotation_cognition_score_department_contract_acos_evolution_floor_count']);
     }
 
+    public function test_b591_evidence_vision_phase_handoff_autonomy_ladder_aaeos_doc_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b591EvidenceVisionPhaseHandoffAutonomyLadderAaeosDocFloorsContractObserve([]);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_ARCHIVE_WHEN_HIGH_BAND_REALIZED_RATE____SWEET_BAND___0_15, $out['archive when high_band realized_rate >= sweet_band - 0.15']);
+        $this->assertSame(EvidenceVisionThesisComposer::FIELD_ARCHIVE_WHEN_OPEN_EVIDENCE_ROWS_FOR_, $out['archive when open evidence rows for ']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_ACTOR_KIND_MUST_BE_AGENT_OPERATOR_SYSTEM, $out['actor.kind must be agent|operator|system']);
+        $this->assertSame(AaeosPhaseHandoffService::FIELD_ACTOR_KIND_REQUIRED, $out['actor.kind required']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_ADVERSARIAL_PROBE_ORCHESTRATION_FAILED_, $out['Adversarial probe orchestration failed.']);
+        $this->assertSame(AutonomyLadderAdversarialWatchdogCheck::FIELD_PROMOTES_SELECTION_FALSE_AND_BLOCKER_FALSE, $out['promotes_selection=false AND blocker=false']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_DOC_L0__NO_MOTHER_DOC_AND_NO_CONTRACTS__IDEA_RESEARCH_SOURCE_MATERIAL_WITHOUT_CONTRACT__, $out['DOC L0: no mother_doc and no contracts (idea/research/source material without contract).']);
+        $this->assertSame(AtlasAaeosDocMaturityClassifier::FIELD_DOC_L1__MOTHER_DOC_ONLY__CONTRACTS_ABSENT__FRAGMENTARY_MOTHER_NORTH_STAR_DOC__, $out['DOC L1: mother_doc only, contracts absent (fragmentary mother/north-star doc).']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_NEEDS___1_RESOLVED_ROUTE_OR_COMMAND_FOR_PARTIAL, $out['needs >=1 resolved route or command for partial']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_NEEDS___1_RESOLVED_SYMBOL__CLASS_METHOD__FOR_PARTIAL, $out['needs >=1 resolved symbol (class/method) for partial']);
+        $this->assertSame(PromotionProtocol::FIELD_MUTATION_MSI_LOW_ADVISORY_CORRELATES_WITH_LATER_REAL_FAILURE_FOR_THE_EXECUTOR, $out['mutation MSI low advisory correlates with later real failure for the executor']);
+        $this->assertSame(PromotionProtocol::FIELD_SUSPEND_EXECUTOR_FAMILY_ON_NEGATIVE_ROOT_A_B_OR_COST_BREACH, $out['suspend executor family on negative root A/B or cost breach']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_RECEIPT_ILEG_VEL, $out['receipt ilegível']);
+        $this->assertSame(AtlasAcosWindowGatesService::FIELD_RECEIPT_N_O_OBJETO, $out['receipt não-objeto']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS_AS_E, $out['atlas_code_symbol_embeddings as e']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS_AS_S, $out['atlas_engineering_code_symbols as s']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_I_LIVE_IN, $out['i live in']);
+        $this->assertSame(AtlasAaeosCognitiveImmuneInputClassifier::FIELD_I_PREFER, $out['i prefer']);
+        $this->assertSame(18, $out['b591_evidence_vision_phase_handoff_autonomy_ladder_aaeos_doc_floor_count']);
+    }
+
 }

@@ -137,6 +137,8 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
     public const FIELD_TUDO_BEM = 'tudo bem';
     public const FIELD_VOCE_AGORA_E = 'voce agora e';
     public const FIELD_YOU_ARE_NOW = 'you are now';
+    public const FIELD_I_LIVE_IN = 'i live in';
+    public const FIELD_I_PREFER = 'i prefer';
 
     /**
      * Canonical class => default destination. Mirrors the existing immune
@@ -235,9 +237,9 @@ final class AtlasAaeosCognitiveImmuneInputClassifier
         self::FIELD_MEU_ANIVERSARIO,
         self::FIELD_MINHA_ESPOSA,
         self::FIELD_MEU_NOME_E,
-        'i prefer',
+        self::FIELD_I_PREFER,
         self::FIELD_MY_BIRTHDAY,
-        'i live in',
+        self::FIELD_I_LIVE_IN,
         self::FIELD_MY_FAVORITE,
     ];
 

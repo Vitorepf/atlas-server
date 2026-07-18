@@ -613,6 +613,7 @@ final class AtlasAaeosCommand extends Command
                             {--b588-obra-retro-local-model-capability-attempt-lifecycle-composed-floors-contract= : JSON file (any object) to observe obra/retro/local/model/capability/attempt floors}
                             {--b589-capture-hmac-acos-watchdog-autonomy-ladder-daily-canary-floors-contract= : JSON file (any object) to observe capture/hmac/acos/watchdog/autonomy/ladder floors}
                             {--b590-ledger-rotation-cognition-score-department-contract-acos-evolution-floors-contract= : JSON file (any object) to observe ledger/rotation/cognition/score/department/contract floors}
+                            {--b591-evidence-vision-phase-handoff-autonomy-ladder-aaeos-doc-floors-contract= : JSON file (any object) to observe evidence/vision/phase/handoff/autonomy/ladder floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1382,6 +1383,7 @@ final class AtlasAaeosCommand extends Command
             ['b588-obra-retro-local-model-capability-attempt-lifecycle-composed-floors-contract', 'b588_obra_retro_local_model_capability_attempt_lifecycle_composed_floors_contract', fn (array $p) => $gates->b588ObraRetroLocalModelCapabilityAttemptLifecycleComposedFloorsContractObserve($p)],
             ['b589-capture-hmac-acos-watchdog-autonomy-ladder-daily-canary-floors-contract', 'b589_capture_hmac_acos_watchdog_autonomy_ladder_daily_canary_floors_contract', fn (array $p) => $gates->b589CaptureHmacAcosWatchdogAutonomyLadderDailyCanaryFloorsContractObserve($p)],
             ['b590-ledger-rotation-cognition-score-department-contract-acos-evolution-floors-contract', 'b590_ledger_rotation_cognition_score_department_contract_acos_evolution_floors_contract', fn (array $p) => $gates->b590LedgerRotationCognitionScoreDepartmentContractAcosEvolutionFloorsContractObserve($p)],
+            ['b591-evidence-vision-phase-handoff-autonomy-ladder-aaeos-doc-floors-contract', 'b591_evidence_vision_phase_handoff_autonomy_ladder_aaeos_doc_floors_contract', fn (array $p) => $gates->b591EvidenceVisionPhaseHandoffAutonomyLadderAaeosDocFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

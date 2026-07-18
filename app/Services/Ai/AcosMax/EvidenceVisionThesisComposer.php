@@ -119,6 +119,8 @@ final class EvidenceVisionThesisComposer
     public const FIELD_COMPREHENSION_DEEPENING = 'comprehension-deepening';
     public const FIELD_FRONTIER_HARVEST = 'frontier-harvest';
     public const FIELD_PREDICTED_IMPACT = 'predicted-impact';
+    public const FIELD_ARCHIVE_WHEN_HIGH_BAND_REALIZED_RATE____SWEET_BAND___0_15 = 'archive when high_band realized_rate >= sweet_band - 0.15';
+    public const FIELD_ARCHIVE_WHEN_OPEN_EVIDENCE_ROWS_FOR_ = 'archive when open evidence rows for ';
     public const INT_3 = 3;
     public const INT_2 = 2;
 
@@ -397,7 +399,7 @@ final class EvidenceVisionThesisComposer
             self::FIELD_DEATH_CRITERION => [
                 self::FIELD_KIND => self::KIND_CALIBRATION_RESOLVED,
                 self::FIELD_THRESHOLD => $sweetRate - 0.15,
-                self::FIELD_DESCRIBED_AT_BIRTH => 'archive when high_band realized_rate >= sweet_band - 0.15',
+                self::FIELD_DESCRIBED_AT_BIRTH => self::FIELD_ARCHIVE_WHEN_HIGH_BAND_REALIZED_RATE____SWEET_BAND___0_15,
             ],
             self::FIELD_ALIGNMENT_KEYS => [self::FIELD_PREDICTED_IMPACT, self::FIELD_PATTERN_DESIGN, self::FIELD_COMPREHENSION_DEEPENING],
             self::FIELD_BORN_AT => $bornAt,
@@ -452,7 +454,7 @@ final class EvidenceVisionThesisComposer
                 self::FIELD_DEATH_CRITERION => [
                     self::FIELD_KIND => self::KIND_LEAD_CLUSTER_CLEARED,
                     self::FIELD_REMAINING_ROWS_MAX => 0,
-                    self::FIELD_DESCRIBED_AT_BIRTH => 'archive when open evidence rows for '.$target.' drop below 2',
+                    self::FIELD_DESCRIBED_AT_BIRTH => self::FIELD_ARCHIVE_WHEN_OPEN_EVIDENCE_ROWS_FOR_.$target.' drop below 2',
                 ],
                 self::FIELD_ALIGNMENT_KEYS => [$target, dirname($target)],
                 self::FIELD_BORN_AT => $bornAt,

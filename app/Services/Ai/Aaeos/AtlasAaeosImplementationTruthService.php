@@ -129,6 +129,8 @@ class AtlasAaeosImplementationTruthService
     public const FIELD_PARTIAL_RUNTIME = 'partial_runtime';
     public const FIELD_SOLID_RUNTIME = 'solid_runtime';
     public const FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE = 'docs/engineering-knowledge-base';
+    public const FIELD_NEEDS___1_RESOLVED_ROUTE_OR_COMMAND_FOR_PARTIAL = 'needs >=1 resolved route or command for partial';
+    public const FIELD_NEEDS___1_RESOLVED_SYMBOL__CLASS_METHOD__FOR_PARTIAL = 'needs >=1 resolved symbol (class/method) for partial';
     public const INT_2 = 2;
 
     public const RANK = [
@@ -710,10 +712,10 @@ class AtlasAaeosImplementationTruthService
         $unmet = [];
         if ($computed === self::LEVEL_SPEC) {
             if (! $hasSymbol) {
-                $unmet[] = 'needs >=1 resolved symbol (class/method) for partial';
+                $unmet[] = self::FIELD_NEEDS___1_RESOLVED_SYMBOL__CLASS_METHOD__FOR_PARTIAL;
             }
             if (! $hasWiring) {
-                $unmet[] = 'needs >=1 resolved route or command for partial';
+                $unmet[] = self::FIELD_NEEDS___1_RESOLVED_ROUTE_OR_COMMAND_FOR_PARTIAL;
             }
         } elseif ($computed === self::LEVEL_PARTIAL) {
             if (! $hasTest) {

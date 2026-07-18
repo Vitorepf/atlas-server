@@ -69,6 +69,8 @@ final class AtlasAcosWindowGatesService
     public const FIELD_D5_STRUCTURAL_HONESTY = 'D5_structural_honesty';
     public const FIELD_APP_ATLAS_EVIDENCE = 'app/atlas/evidence';
     public const FIELD__JSON = '.json';
+    public const FIELD_RECEIPT_ILEG_VEL = 'receipt ilegível';
+    public const FIELD_RECEIPT_N_O_OBJETO = 'receipt não-objeto';
     public const INT_70 = 70;
 
     /** Receipt freshness before a certified gate is treated as stale (7 days). */
@@ -183,10 +185,10 @@ final class AtlasAcosWindowGatesService
         try {
             $data = json_decode((string) file_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
         } catch (Throwable) {
-            return [self::FIELD_GATE => $gate, self::FIELD_STATUS => self::STATUS_SEM_DADOS, self::FIELD_EVIDENCE => 'receipt ilegível'];
+            return [self::FIELD_GATE => $gate, self::FIELD_STATUS => self::STATUS_SEM_DADOS, self::FIELD_EVIDENCE => self::FIELD_RECEIPT_ILEG_VEL];
         }
         if (! is_array($data)) {
-            return [self::FIELD_GATE => $gate, self::FIELD_STATUS => self::STATUS_SEM_DADOS, self::FIELD_EVIDENCE => 'receipt não-objeto'];
+            return [self::FIELD_GATE => $gate, self::FIELD_STATUS => self::STATUS_SEM_DADOS, self::FIELD_EVIDENCE => self::FIELD_RECEIPT_N_O_OBJETO];
         }
 
         $certified = ($data[self::FIELD_CERTIFIED] ?? false) === true;

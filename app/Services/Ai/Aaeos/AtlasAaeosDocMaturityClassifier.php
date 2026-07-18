@@ -67,6 +67,8 @@ final class AtlasAaeosDocMaturityClassifier
     public const FIELD_RUNTIME_READY = 'runtime_ready';
     public const FIELD_SATISFIED = 'satisfied';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_DOC_L0__NO_MOTHER_DOC_AND_NO_CONTRACTS__IDEA_RESEARCH_SOURCE_MATERIAL_WITHOUT_CONTRACT__ = 'DOC L0: no mother_doc and no contracts (idea/research/source material without contract).';
+    public const FIELD_DOC_L1__MOTHER_DOC_ONLY__CONTRACTS_ABSENT__FRAGMENTARY_MOTHER_NORTH_STAR_DOC__ = 'DOC L1: mother_doc only, contracts absent (fragmentary mother/north-star doc).';
 
     /** @var list<string> */
     public const LEVELS = [
@@ -117,11 +119,11 @@ final class AtlasAaeosDocMaturityClassifier
         } elseif ($hasMother) {
             $level = self::LEVEL_L1;
             $ordinal = 1;
-            $rationale = 'DOC L1: mother_doc only, contracts absent (fragmentary mother/north-star doc).';
+            $rationale = self::FIELD_DOC_L1__MOTHER_DOC_ONLY__CONTRACTS_ABSENT__FRAGMENTARY_MOTHER_NORTH_STAR_DOC__;
         } else {
             $level = self::LEVEL_L0;
             $ordinal = 0;
-            $rationale = 'DOC L0: no mother_doc and no contracts (idea/research/source material without contract).';
+            $rationale = self::FIELD_DOC_L0__NO_MOTHER_DOC_AND_NO_CONTRACTS__IDEA_RESEARCH_SOURCE_MATERIAL_WITHOUT_CONTRACT__;
         }
 
         return [

@@ -15785,4 +15785,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B591).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b591EvidenceVisionPhaseHandoffAutonomyLadderAaeosDocFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'archive when high_band realized_rate >= sweet_band - 0.15' => EvidenceVisionThesisComposer::FIELD_ARCHIVE_WHEN_HIGH_BAND_REALIZED_RATE____SWEET_BAND___0_15,
+            'archive when open evidence rows for ' => EvidenceVisionThesisComposer::FIELD_ARCHIVE_WHEN_OPEN_EVIDENCE_ROWS_FOR_,
+            'actor.kind must be agent|operator|system' => AaeosPhaseHandoffService::FIELD_ACTOR_KIND_MUST_BE_AGENT_OPERATOR_SYSTEM,
+            'actor.kind required' => AaeosPhaseHandoffService::FIELD_ACTOR_KIND_REQUIRED,
+            'Adversarial probe orchestration failed.' => AutonomyLadderAdversarialWatchdogCheck::FIELD_ADVERSARIAL_PROBE_ORCHESTRATION_FAILED_,
+            'promotes_selection=false AND blocker=false' => AutonomyLadderAdversarialWatchdogCheck::FIELD_PROMOTES_SELECTION_FALSE_AND_BLOCKER_FALSE,
+            'DOC L0: no mother_doc and no contracts (idea/research/source material without contract).' => AtlasAaeosDocMaturityClassifier::FIELD_DOC_L0__NO_MOTHER_DOC_AND_NO_CONTRACTS__IDEA_RESEARCH_SOURCE_MATERIAL_WITHOUT_CONTRACT__,
+            'DOC L1: mother_doc only, contracts absent (fragmentary mother/north-star doc).' => AtlasAaeosDocMaturityClassifier::FIELD_DOC_L1__MOTHER_DOC_ONLY__CONTRACTS_ABSENT__FRAGMENTARY_MOTHER_NORTH_STAR_DOC__,
+            'needs >=1 resolved route or command for partial' => AtlasAaeosImplementationTruthService::FIELD_NEEDS___1_RESOLVED_ROUTE_OR_COMMAND_FOR_PARTIAL,
+            'needs >=1 resolved symbol (class/method) for partial' => AtlasAaeosImplementationTruthService::FIELD_NEEDS___1_RESOLVED_SYMBOL__CLASS_METHOD__FOR_PARTIAL,
+            'mutation MSI low advisory correlates with later real failure for the executor' => PromotionProtocol::FIELD_MUTATION_MSI_LOW_ADVISORY_CORRELATES_WITH_LATER_REAL_FAILURE_FOR_THE_EXECUTOR,
+            'suspend executor family on negative root A/B or cost breach' => PromotionProtocol::FIELD_SUSPEND_EXECUTOR_FAMILY_ON_NEGATIVE_ROOT_A_B_OR_COST_BREACH,
+            'receipt ilegível' => AtlasAcosWindowGatesService::FIELD_RECEIPT_ILEG_VEL,
+            'receipt não-objeto' => AtlasAcosWindowGatesService::FIELD_RECEIPT_N_O_OBJETO,
+            'atlas_code_symbol_embeddings as e' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS_AS_E,
+            'atlas_engineering_code_symbols as s' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS_AS_S,
+            'i live in' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_I_LIVE_IN,
+            'i prefer' => AtlasAaeosCognitiveImmuneInputClassifier::FIELD_I_PREFER,
+            'b591_evidence_vision_phase_handoff_autonomy_ladder_aaeos_doc_floor_count' => 18,
+        ];
+    }
+
 }

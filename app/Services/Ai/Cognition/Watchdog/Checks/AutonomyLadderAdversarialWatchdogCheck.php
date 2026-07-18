@@ -129,6 +129,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_L1 = 'L1';
     public const FIELD__JSONL = '.jsonl';
     public const FIELD_OK_FALSE = 'ok=false';
+    public const FIELD_ADVERSARIAL_PROBE_ORCHESTRATION_FAILED_ = 'Adversarial probe orchestration failed.';
+    public const FIELD_PROMOTES_SELECTION_FALSE_AND_BLOCKER_FALSE = 'promotes_selection=false AND blocker=false';
     public const INT_5 = 5;
     public const FLOAT_0_10 = 0.10;
     public const FLOAT_0_42 = 0.42;
@@ -195,7 +197,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         if ($errors !== []) {
             return AtlasWatchdogCheckResult::error($evidence, [
                 self::FIELD_CODE => self::FIELD_MAXK09_PROBE_ORCHESTRATION_ERROR,
-                self::FIELD_MESSAGE => 'Adversarial probe orchestration failed.',
+                self::FIELD_MESSAGE => self::FIELD_ADVERSARIAL_PROBE_ORCHESTRATION_FAILED_,
             ]);
         }
         if ($violations !== []) {
@@ -499,7 +501,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         return [
             self::FIELD_ID => self::FIELD_MAXK08_MINER_REPORT_ONLY,
             self::FIELD_REFUSED => $refused,
-            self::FIELD_EXPECTED => 'promotes_selection=false AND blocker=false',
+            self::FIELD_EXPECTED => self::FIELD_PROMOTES_SELECTION_FALSE_AND_BLOCKER_FALSE,
             self::FIELD_OBSERVED => 'promotes_selection='.$this->exportBool($source[self::FIELD_PROMOTES_SELECTION] ?? null)
                 .' blocker='.$this->exportBool($source[self::FIELD_BLOCKER] ?? null),
         ];

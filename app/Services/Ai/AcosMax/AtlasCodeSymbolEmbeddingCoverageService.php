@@ -102,6 +102,8 @@ final class AtlasCodeSymbolEmbeddingCoverageService
     public const FIELD_CODEX_INDEPENDENT_MAXA06_FASE2_JUDGE = 'codex-independent-maxa06-fase2-judge';
     public const FIELD_CURSOR_ACOS_MAX_MAXA06_FASE2 = 'cursor-acos-max-maxa06-fase2';
     public const FIELD_ATLAS_CODE_SYMBOL_EMBEDDING_COVERAGE___JSON = 'atlas:code:symbol-embedding-coverage --json';
+    public const FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS_AS_E = 'atlas_code_symbol_embeddings as e';
+    public const FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS_AS_S = 'atlas_engineering_code_symbols as s';
     public const FLOAT_1_0 = 1.0;
     public const INT_60 = 60;
 
@@ -159,23 +161,23 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             );
         }
 
-        $covered = DB::table('atlas_engineering_code_symbols as s')
-            ->join('atlas_code_symbol_embeddings as e', self::FIELD_S_ID, '=', self::FIELD_E_SYMBOL_ID)
+        $covered = DB::table(self::FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS_AS_S)
+            ->join(self::FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS_AS_E, self::FIELD_S_ID, '=', self::FIELD_E_SYMBOL_ID)
             ->where(self::FIELD_S_STATUS, self::STATUS_ACTIVE)
             ->whereNull(self::FIELD_S_ARCHIVED_AT)
             ->whereColumn(self::FIELD_E_EMBEDDED_CONTENT_HASH, self::FIELD_S_SOURCE_HASH)
             ->count();
 
-        $stale = DB::table('atlas_engineering_code_symbols as s')
-            ->join('atlas_code_symbol_embeddings as e', self::FIELD_S_ID, '=', self::FIELD_E_SYMBOL_ID)
+        $stale = DB::table(self::FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS_AS_S)
+            ->join(self::FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS_AS_E, self::FIELD_S_ID, '=', self::FIELD_E_SYMBOL_ID)
             ->where(self::FIELD_S_STATUS, self::STATUS_ACTIVE)
             ->whereNull(self::FIELD_S_ARCHIVED_AT)
             ->whereColumn(self::FIELD_E_EMBEDDED_CONTENT_HASH, '!=', self::FIELD_S_SOURCE_HASH)
             ->count();
 
         // Missing = active symbols without ANY embedding row.
-        $withEmbedding = DB::table('atlas_engineering_code_symbols as s')
-            ->join('atlas_code_symbol_embeddings as e', self::FIELD_S_ID, '=', self::FIELD_E_SYMBOL_ID)
+        $withEmbedding = DB::table(self::FIELD_ATLAS_ENGINEERING_CODE_SYMBOLS_AS_S)
+            ->join(self::FIELD_ATLAS_CODE_SYMBOL_EMBEDDINGS_AS_E, self::FIELD_S_ID, '=', self::FIELD_E_SYMBOL_ID)
             ->where(self::FIELD_S_STATUS, self::STATUS_ACTIVE)
             ->whereNull(self::FIELD_S_ARCHIVED_AT)
             ->distinct()

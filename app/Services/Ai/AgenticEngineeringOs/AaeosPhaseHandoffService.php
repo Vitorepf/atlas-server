@@ -76,6 +76,8 @@ final class AaeosPhaseHandoffService
     public const FIELD_INTENT_CLASSIFICATION_TARGET_DEPARTMENT_DECLARED = 'intent_classification_target_department_declared';
     public const FIELD_L1 = 'L1';
     public const FIELD_GATES_REQUIRED = 'gates required';
+    public const FIELD_ACTOR_KIND_MUST_BE_AGENT_OPERATOR_SYSTEM = 'actor.kind must be agent|operator|system';
+    public const FIELD_ACTOR_KIND_REQUIRED = 'actor.kind required';
     public const INT_4 = 4;
     public const INT_256 = 256;
 
@@ -274,9 +276,9 @@ final class AaeosPhaseHandoffService
             }
         }
         if (! isset($envelope[self::FIELD_ACTOR]) || ! is_array($envelope[self::FIELD_ACTOR]) || ! isset($envelope[self::FIELD_ACTOR][self::FIELD_KIND])) {
-            $reasons[] = 'actor.kind required';
+            $reasons[] = self::FIELD_ACTOR_KIND_REQUIRED;
         } elseif (! in_array($envelope[self::FIELD_ACTOR][self::FIELD_KIND], [self::FIELD_AGENT, self::FIELD_OPERATOR, self::FIELD_SYSTEM], true)) {
-            $reasons[] = 'actor.kind must be agent|operator|system';
+            $reasons[] = self::FIELD_ACTOR_KIND_MUST_BE_AGENT_OPERATOR_SYSTEM;
         }
         if (! isset($envelope[self::FIELD_GATES]) || ! is_array($envelope[self::FIELD_GATES])) {
             $reasons[] = self::FIELD_GATES_REQUIRED;
@@ -355,7 +357,7 @@ final class AaeosPhaseHandoffService
     private function assertActor(array $actor): void
     {
         if (! isset($actor[self::FIELD_KIND]) || ! in_array($actor[self::FIELD_KIND], [self::FIELD_AGENT, self::FIELD_OPERATOR, self::FIELD_SYSTEM], true)) {
-            throw new InvalidArgumentException('actor.kind must be agent|operator|system');
+            throw new InvalidArgumentException(self::FIELD_ACTOR_KIND_MUST_BE_AGENT_OPERATOR_SYSTEM);
         }
         if (! isset($actor[self::FIELD_ID]) || $actor[self::FIELD_ID] === '') {
             throw new InvalidArgumentException('actor.id required');
