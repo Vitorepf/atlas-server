@@ -56,6 +56,8 @@ final class RunbookOrchestrator
     public const REPLAY_OBRAS_COUNT_MIN = 100;
     public const FIELD_ORDER = 'order';
     public const FIELD_EVIDENCE_SCHEMA = 'evidence_schema';
+    public const FIELD_DETAIL = 'detail';
+    public const FIELD_DUAL_SIGNATURE_REQUIRED = 'dual_signature_required';
 
     /**
      * Canonical default flow for a non-trivial intent. Trivial intents
@@ -124,7 +126,7 @@ final class RunbookOrchestrator
             self::FIELD_INTENT_CLASS => $intentClass,
             'stages' => $stages,
             'stage_count' => count($stages),
-            'detail' => sprintf(
+            self::FIELD_DETAIL => sprintf(
                 'Runbook for %s intent: %d stages, %d gates total.',
                 $intentClass,
                 count($stages),
@@ -212,7 +214,7 @@ final class RunbookOrchestrator
             'promotion_gates' => [
                 'replay_obras_count_min' => self::REPLAY_OBRAS_COUNT_MIN,
                 'replay_regression_observed_count_max' => 0,
-                'dual_signature_required' => true,
+                self::FIELD_DUAL_SIGNATURE_REQUIRED => true,
                 self::FIELD_ARCHITECT_SIGNATURES_COUNT => 2,
             ],
             'requires_replay_before_promotion' => true,

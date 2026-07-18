@@ -6955,6 +6955,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_aemor_outcome_ambition_rung_flywheel_funnel_composed_obra_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b373-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b373',
+                '--aemor-outcome-ambition-rung-flywheel-funnel-composed-obra-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"aemor_outcome_ambition_rung_flywheel_funnel_composed_obra_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

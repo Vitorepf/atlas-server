@@ -49,6 +49,8 @@ final class AtlasFlywheelFunnelService
     public const FIELD_PROMOTED_LESSON_RECALLED = 'promoted_lesson_recalled';
     public const FIELD_USED_AS_PRODUCER_TARGET = 'used_as_producer_target';
     public const FIELD_SUBSEQUENT_OUTCOME_IMPROVED = 'subsequent_outcome_improved';
+    public const FIELD_OUTCOME_ROWS = 'outcome_rows';
+    public const FIELD_OUTCOMES_PATH = 'outcomes_path';
 
     /** @var list<string> */
     public const STAGES = [
@@ -220,8 +222,8 @@ final class AtlasFlywheelFunnelService
             self::FIELD_STATUS => $status,
             self::FIELD_GENERATED_AT => Carbon::now()->toIso8601String(),
             self::FIELD_SOURCE => [
-                'outcomes_path' => $path,
-                'outcome_rows' => $rowCount,
+                self::FIELD_OUTCOMES_PATH => $path,
+                self::FIELD_OUTCOME_ROWS => $rowCount,
             ],
             self::FIELD_DENOMINATOR_MIN => $denominatorMin,
             self::FIELD_STAGES => self::STAGES,

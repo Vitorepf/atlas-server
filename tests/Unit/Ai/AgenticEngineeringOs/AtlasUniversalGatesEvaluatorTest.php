@@ -7049,4 +7049,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['procedural_skill_verified_share_acos_program_deferred_phase_floor_count']);
     }
 
+    public function test_aemor_outcome_ambition_rung_flywheel_funnel_composed_obra_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->aemorOutcomeAmbitionRungFlywheelFunnelComposedObraFloorsContractObserve([]);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_NATIVE_DIVERGENT, $out['native_divergent']);
+        $this->assertSame(AemorOutcomeEnvelopeAdapter::FIELD_SCOPE_ID, $out['scope_id']);
+        $this->assertSame(AmbitionRungPolicy::FIELD_RUNG_SERIES_INFORMATIONAL, $out['rung_series_informational']);
+        $this->assertSame(AmbitionRungPolicy::FIELD_RUNG_SERIES_USED_AS_SCORE, $out['rung_series_used_as_score']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_OUTCOME_ROWS, $out['outcome_rows']);
+        $this->assertSame(AtlasFlywheelFunnelService::FIELD_OUTCOMES_PATH, $out['outcomes_path']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_TARGET_FQCN, $out['target_fqcn']);
+        $this->assertSame(ComposedObraArcComposer::FIELD_TASKS, $out['tasks']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EVALUATION, $out['evaluation']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_EVIDENCE_COUNT, $out['evidence_count']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_INPUTS, $out['inputs']);
+        $this->assertSame(QualityBarTelemetryContract::FIELD_TELEMETRY_FIELDS, $out['telemetry_fields']);
+        $this->assertSame(RunbookOrchestrator::FIELD_DETAIL, $out['detail']);
+        $this->assertSame(RunbookOrchestrator::FIELD_DUAL_SIGNATURE_REQUIRED, $out['dual_signature_required']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_KERNEL_HASH, $out['kernel_hash']);
+        $this->assertSame(AtlasCognitiveFunctionAtlasService::FIELD_MEMORY, $out['memory']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_PRIMARY_BLOCKER, $out['primary_blocker']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityService::FIELD_SCHEMA, $out['schema']);
+        $this->assertSame(18, $out['aemor_outcome_ambition_rung_flywheel_funnel_composed_obra_floor_count']);
+    }
+
 }

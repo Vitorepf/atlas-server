@@ -180,6 +180,8 @@ final class DepartmentContractRuntime
     public const DEPARTMENT_OPERATOR = 'operator';
     public const FIELD_FROM = 'from';
     public const FIELD_DEPARTMENTS = 'departments';
+    public const FIELD_EVALUATION = 'evaluation';
+    public const FIELD_EVIDENCE_COUNT = 'evidence_count';
 
     /**
      * The 12 canonical fields every department must declare. Used by the
@@ -529,7 +531,7 @@ final class DepartmentContractRuntime
                 'every_department_declares_evidence_schema',
                 'every_department_declares_12_canon_fields',
             ],
-            'evidence_count' => count(array_unique(array_column(self::CATALOGUE, 'evidence_schema'))),
+            self::FIELD_EVIDENCE_COUNT => count(array_unique(array_column(self::CATALOGUE, 'evidence_schema'))),
             'schema_fields_12_present' => $this->schemaFields12Present(),
         ];
     }
@@ -657,7 +659,7 @@ final class DepartmentContractRuntime
         $result = $contract->toArray();
         $evaluation = $this->evaluateArchitectSpecPackGateRuleRiskScopeBelowMin($contract);
         if ($evaluation !== null) {
-            $result['evaluation'] = $evaluation;
+            $result[self::FIELD_EVALUATION] = $evaluation;
         }
 
         // Observe-only: when a compiled-spec map is supplied, stamp SpecCompletenessScorer.

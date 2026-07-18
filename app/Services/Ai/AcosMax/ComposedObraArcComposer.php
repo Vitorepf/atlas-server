@@ -85,6 +85,8 @@ final class ComposedObraArcComposer
     public const STATUS_NO_NEIGHBOR_CLUSTER = 'no_neighbor_cluster';
     public const FIELD_SEED_GATE = 'seed_gate';
     public const FIELD_OBRA_ID = 'obra_id';
+    public const FIELD_TARGET_FQCN = 'target_fqcn';
+    public const FIELD_TASKS = 'tasks';
 
     /**
      * @param  list<array<string,mixed>>  $candidates  grounded origination candidates
@@ -285,7 +287,7 @@ final class ComposedObraArcComposer
                 self::FIELD_FALSIFIED_WHEN => 'No task in the arc reaches proven_real landing within the arc TTL.',
                 self::FIELD_AUTHOR_ENGINE_ID => $author,
             ],
-            'tasks' => $tasks,
+            self::FIELD_TASKS => $tasks,
             self::FIELD_COMPLETION_CRITERION => [
                 self::FIELD_EXECUTABLE => 'Every ordered arc task lands with proven_real outcome; partial completion leaves arc open.',
                 self::FIELD_CERTIFIER_ENGINE_ID => $judge,
@@ -394,7 +396,7 @@ final class ComposedObraArcComposer
      */
     private static function organClass(array $candidate, string $targetPath): string
     {
-        $fqcn = AiValueNormalizer::trimmedStringOrNull($candidate['target_fqcn'] ?? $candidate[self::FIELD_FQCN] ?? null) ?? '';
+        $fqcn = AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_TARGET_FQCN] ?? $candidate[self::FIELD_FQCN] ?? null) ?? '';
         if ($fqcn !== '') {
             return ltrim(AiValueNormalizer::trimmedStringOrNull($fqcn) ?? '', '\\');
         }

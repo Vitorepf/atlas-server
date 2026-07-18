@@ -395,6 +395,7 @@ final class AtlasAaeosCommand extends Command
                             {--segment-importance-summary-fidelity-outcome-envelope-ragx-chain-floors-contract= : JSON file (any object) to observe segment/importance/summary/fidelity/outcome/envelope floors}
                             {--memory-recall-esp-independent-maxa-jina-immune-classifier-floors-contract= : JSON file (any object) to observe memory/recall/esp/independent/maxa/jina floors}
                             {--procedural-skill-verified-share-acos-program-deferred-phase-floors-contract= : JSON file (any object) to observe procedural/skill/verified/share/acos/program floors}
+                            {--aemor-outcome-ambition-rung-flywheel-funnel-composed-obra-floors-contract= : JSON file (any object) to observe aemor/outcome/ambition/rung/flywheel/funnel floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -946,6 +947,7 @@ final class AtlasAaeosCommand extends Command
             ['segment-importance-summary-fidelity-outcome-envelope-ragx-chain-floors-contract', 'segment_importance_summary_fidelity_outcome_envelope_ragx_chain_floors_contract', fn (array $p) => $gates->segmentImportanceSummaryFidelityOutcomeEnvelopeRagxChainFloorsContractObserve($p)],
             ['memory-recall-esp-independent-maxa-jina-immune-classifier-floors-contract', 'memory_recall_esp_independent_maxa_jina_immune_classifier_floors_contract', fn (array $p) => $gates->memoryRecallEspIndependentMaxaJinaImmuneClassifierFloorsContractObserve($p)],
             ['procedural-skill-verified-share-acos-program-deferred-phase-floors-contract', 'procedural_skill_verified_share_acos_program_deferred_phase_floors_contract', fn (array $p) => $gates->proceduralSkillVerifiedShareAcosProgramDeferredPhaseFloorsContractObserve($p)],
+            ['aemor-outcome-ambition-rung-flywheel-funnel-composed-obra-floors-contract', 'aemor_outcome_ambition_rung_flywheel_funnel_composed_obra_floors_contract', fn (array $p) => $gates->aemorOutcomeAmbitionRungFlywheelFunnelComposedObraFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

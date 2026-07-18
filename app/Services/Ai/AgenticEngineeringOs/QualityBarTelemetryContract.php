@@ -40,6 +40,8 @@ final class QualityBarTelemetryContract
     public const FIELD_IMMUNE_GATE_ID = 'immune_gate_id';
     public const FIELD_BREACH_SIGNAL = 'breach_signal';
     public const FIELD_CANONICAL_SOURCE = 'canonical_source';
+    public const FIELD_INPUTS = 'inputs';
+    public const FIELD_TELEMETRY_FIELDS = 'telemetry_fields';
 
     /**
      * Gate evidence required — not boolean-only pass/fail.
@@ -117,8 +119,8 @@ final class QualityBarTelemetryContract
             self::FIELD_EVALUATED_WINDOW_DAYS => self::EVALUATED_WINDOW_DAYS,
             self::FIELD_AUTO_BLOCK_ON_BREACH => self::AUTO_BLOCK_ON_BREACH,
             self::FIELD_EVIDENCE_REQUIRED => self::EVIDENCE_REQUIRED,
-            'telemetry_fields' => self::TELEMETRY_FIELDS,
-            'inputs' => [
+            self::FIELD_TELEMETRY_FIELDS => self::TELEMETRY_FIELDS,
+            self::FIELD_INPUTS => [
                 self::FIELD_DEPARTMENT_ID => $this->departmentId,
                 self::FIELD_BREACH_COUNT => $this->breachCount,
                 self::FIELD_EVALUATED_WINDOW_DAYS => $this->evaluatedWindowDays,

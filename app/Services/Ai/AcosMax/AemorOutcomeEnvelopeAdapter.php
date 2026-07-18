@@ -39,6 +39,8 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public const FIELD_EVIDENCE_REF_COUNT = 'evidence_ref_count';
     public const FIELD_OBJECTIVE = 'objective';
     public const FIELD_RUN_ID = 'run_id';
+    public const FIELD_NATIVE_DIVERGENT = 'native_divergent';
+    public const FIELD_SCOPE_ID = 'scope_id';
 
     public const STATUS_ABSENT = 'absent';
 
@@ -67,7 +69,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
         $evidenceRefs = AiValueNormalizer::arrayOrEmpty($native[self::FIELD_EVIDENCE_REFS] ?? null);
 
         $episodeId = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_EPISODE_ID] ?? $native[self::FIELD_EPISODE_ID] ?? null) ?? '';
-        $runId = AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_RUN_ID] ?? $native['scope_id'] ?? null) ?? '';
+        $runId = AiValueNormalizer::trimmedStringOrNull($native[self::FIELD_RUN_ID] ?? $native[self::FIELD_SCOPE_ID] ?? null) ?? '';
 
         return OutcomeEnvelope::fromAdapter($this->origin(), [
             self::FIELD_EXECUTOR => in_array($executor, ['dev', 'forge', 'autonomos'], true) ? $executor : 'engineering',
@@ -95,7 +97,7 @@ final class AemorOutcomeEnvelopeAdapter implements OutcomeEnvelopeAdapter
     public function fromEnvelope(OutcomeEnvelope $envelope): array
     {
         $data = $envelope->toArray();
-        $fields = AiValueNormalizer::arrayOrEmpty($data['native_divergent'][self::FIELD_FIELDS] ?? null);
+        $fields = AiValueNormalizer::arrayOrEmpty($data[self::FIELD_NATIVE_DIVERGENT][self::FIELD_FIELDS] ?? null);
 
         return [
             self::FIELD_EXECUTOR => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_EXECUTOR] ?? null) ?? 'engineering'),

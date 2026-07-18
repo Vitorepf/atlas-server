@@ -38,6 +38,8 @@ final class AmbitionRungPolicy
     public const BASIS_RUNG_UP_AFTER_SATURATION = 'rung_up_after_saturation';
     public const FIELD_SELECTED_RUNG = 'selected_rung';
     public const FIELD_SCOPE_HAS_CEILING = 'scope_has_ceiling';
+    public const FIELD_RUNG_SERIES_INFORMATIONAL = 'rung_series_informational';
+    public const FIELD_RUNG_SERIES_USED_AS_SCORE = 'rung_series_used_as_score';
 
     /**
      * @param  list<array<string,mixed>>  $candidates
@@ -74,8 +76,8 @@ final class AmbitionRungPolicy
             self::FIELD_BASIS => $basis,
             self::FIELD_RUNG_DISTRIBUTION => $distribution,
             'source' => [
-                'rung_series_informational' => true,
-                'rung_series_used_as_score' => false,
+                self::FIELD_RUNG_SERIES_INFORMATIONAL => true,
+                self::FIELD_RUNG_SERIES_USED_AS_SCORE => false,
                 self::FIELD_SCOPE_HAS_CEILING => false,
                 self::FIELD_PROVIDER_CALLS_MADE => false,
             ],

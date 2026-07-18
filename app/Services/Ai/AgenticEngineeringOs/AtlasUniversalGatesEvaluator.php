@@ -9087,4 +9087,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B373).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function aemorOutcomeAmbitionRungFlywheelFunnelComposedObraFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'native_divergent' => AemorOutcomeEnvelopeAdapter::FIELD_NATIVE_DIVERGENT,
+            'scope_id' => AemorOutcomeEnvelopeAdapter::FIELD_SCOPE_ID,
+            'rung_series_informational' => AmbitionRungPolicy::FIELD_RUNG_SERIES_INFORMATIONAL,
+            'rung_series_used_as_score' => AmbitionRungPolicy::FIELD_RUNG_SERIES_USED_AS_SCORE,
+            'outcome_rows' => AtlasFlywheelFunnelService::FIELD_OUTCOME_ROWS,
+            'outcomes_path' => AtlasFlywheelFunnelService::FIELD_OUTCOMES_PATH,
+            'target_fqcn' => ComposedObraArcComposer::FIELD_TARGET_FQCN,
+            'tasks' => ComposedObraArcComposer::FIELD_TASKS,
+            'evaluation' => DepartmentContractRuntime::FIELD_EVALUATION,
+            'evidence_count' => DepartmentContractRuntime::FIELD_EVIDENCE_COUNT,
+            'inputs' => QualityBarTelemetryContract::FIELD_INPUTS,
+            'telemetry_fields' => QualityBarTelemetryContract::FIELD_TELEMETRY_FIELDS,
+            'detail' => RunbookOrchestrator::FIELD_DETAIL,
+            'dual_signature_required' => RunbookOrchestrator::FIELD_DUAL_SIGNATURE_REQUIRED,
+            'kernel_hash' => AtlasCognitiveFunctionAtlasService::FIELD_KERNEL_HASH,
+            'memory' => AtlasCognitiveFunctionAtlasService::FIELD_MEMORY,
+            'primary_blocker' => AtlasAaeosDepartmentMaturityService::FIELD_PRIMARY_BLOCKER,
+            'schema' => AtlasAaeosDepartmentMaturityService::FIELD_SCHEMA,
+            'aemor_outcome_ambition_rung_flywheel_funnel_composed_obra_floor_count' => 18,
+        ];
+    }
+
 }
