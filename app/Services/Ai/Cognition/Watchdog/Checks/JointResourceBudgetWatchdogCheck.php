@@ -39,6 +39,7 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
     public const FIELD_COMPONENT_OVER_RAM_CAP = 'component_over_ram_cap';
     public const FIELD_MEASURED_OVERSHOOT = 'measured_overshoot';
     public const FIELD_UTC = 'UTC';
+    public const FIELD_JOINT_RESOURCE_BUDGET_BREACHED_VS_DECLARED_CAP_AND_OR_HOST_CEILING_ = 'Joint resource budget breached vs declared cap and/or host ceiling.';
 
     public function __construct(
         private AtlasResourceBudgetService $service,
@@ -84,7 +85,7 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
             return AtlasWatchdogCheckResult::alert($evidence, [
                 self::FIELD_CODE => self::FIELD_JOINT_RESOURCE_BUDGET_BREACH,
                 self::FIELD_REASONS => $reasons,
-                self::FIELD_MESSAGE => 'Joint resource budget breached vs declared cap and/or host ceiling.',
+                self::FIELD_MESSAGE => self::FIELD_JOINT_RESOURCE_BUDGET_BREACHED_VS_DECLARED_CAP_AND_OR_HOST_CEILING_,
             ]);
         }
 

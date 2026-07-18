@@ -43,6 +43,7 @@ final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_ATLAS = 'atlas';
     public const FIELD_DISK_BELOW_FLOOR = 'disk_below_floor';
     public const FIELD_UTC = 'UTC';
+    public const FIELD_FREE_DISK_BELOW_DECLARED_FLOOR__BACKGROUND_PRODUCERS_SHOULD_PAUSE_ = 'Free disk below declared floor; background producers should pause.';
 
     /** @var callable():array{path:string,free_bytes:int,total_bytes:int} */
     private $probe;
@@ -111,7 +112,7 @@ final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
         if ($freeGb < $this->floorGb) {
             return AtlasWatchdogCheckResult::alert($evidence, [
                 self::FIELD_CODE => self::FIELD_DISK_BELOW_FLOOR,
-                self::FIELD_MESSAGE => 'Free disk below declared floor; background producers should pause.',
+                self::FIELD_MESSAGE => self::FIELD_FREE_DISK_BELOW_DECLARED_FLOOR__BACKGROUND_PRODUCERS_SHOULD_PAUSE_,
                 self::FIELD_FREE_GB => $freeGb,
                 self::FIELD_FLOOR_GB => $this->floorGb,
             ]);

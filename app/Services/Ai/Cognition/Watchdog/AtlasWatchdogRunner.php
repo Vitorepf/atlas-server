@@ -52,6 +52,7 @@ final readonly class AtlasWatchdogRunner
     public const FIELD_WATCHDOG_CHECK_EXCEPTION = 'watchdog_check_exception';
     public const FIELD_UTC = 'UTC';
     public const FIELD_ATLAS_ACOS_WATCHDOG = 'atlas.acos.watchdog';
+    public const FIELD_WATCHDOG_CHECK_THREW__OTHER_CHECKS_CONTINUED_ = 'Watchdog check threw; other checks continued.';
 
     public function __construct(
         private AtlasWatchdogCheckRegistry $registry,
@@ -81,7 +82,7 @@ final readonly class AtlasWatchdogRunner
                     ],
                     alert: [
                         self::FIELD_CODE => self::FIELD_WATCHDOG_CHECK_EXCEPTION,
-                        self::FIELD_MESSAGE => 'Watchdog check threw; other checks continued.',
+                        self::FIELD_MESSAGE => self::FIELD_WATCHDOG_CHECK_THREW__OTHER_CHECKS_CONTINUED_,
                     ],
                 )->toArray();
             }

@@ -353,6 +353,11 @@ class AtlasCognitionScoreCardService
     public const FIELD_SELF_DIVERGENCE_MODEL__TARGET_VS_CURRENT_ = 'Self-Divergence Model (target vs current)';
     public const FIELD_SELF_IMPROVEMENT_CLOSED_LOOP_L7 = 'Self-Improvement Closed Loop L7';
     public const FIELD_SELF_IMPROVEMENT_LOOP = 'Self-Improvement Loop';
+    public const FIELD_SUBSYSTEM_AUTO_REBALANCE = 'Subsystem Auto-Rebalance';
+    public const FIELD_SWARM_AUTO_FAILOVER__A4_ = 'Swarm Auto-Failover (A4)';
+    public const FIELD_SWARM_PRODUCTION_RESOLVER__REAL_PROVIDER_ = 'Swarm Production Resolver (real provider)';
+    public const FIELD_TEOS_I3_COUNTERFACTUAL_RUNTIME = 'TEOS-I3 Counterfactual Runtime';
+    public const FIELD_TEOS_I4_COUNTERFACTUAL_TREE = 'TEOS-I4 Counterfactual Tree';
     public const INT_3 = 3;
     public const INT_6 = 6;
     public const INT_10 = 10;
@@ -445,14 +450,14 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ASCB,    self::FIELD_SELF_CONSTRUCTION_SUBSYSTEM_BUILDER, self::FIELD_SELF_CONSTRUCTION, AtlasSelfConstructionSubsystemBuilderService::class],
         [self::FIELD_AURG_4_D, 'Unified Reality Graph Temporal (4D)', self::FIELD_REALITY,           AtlasUnifiedRealityGraphTemporalService::class],
         [self::FIELD_ACDM,    self::FIELD_CROSS_DOMAIN_MESH,                   self::FIELD_CROSS_DOMAIN,      AtlasCrossDomainMeshService::class],
-        [self::FIELD_TEOS_I3, 'TEOS-I3 Counterfactual Runtime',      self::FIELD_TEOS,              AtlasTeosI3CounterfactualService::class],
+        [self::FIELD_TEOS_I3, self::FIELD_TEOS_I3_COUNTERFACTUAL_RUNTIME,      self::FIELD_TEOS,              AtlasTeosI3CounterfactualService::class],
 
         // Patamar 4 — Constitutional Kernel, Autonomy Admission, CognitiveFunctionAtlas, Reconciliation Runtime, TEOS-I4, Swarm Conductor, Temporary Domain Composition
         [self::FIELD_ACK,     self::FIELD_CONSTITUTIONAL_KERNEL,               self::FIELD_GOVERNANCE,        AtlasConstitutionalKernelService::class],
         [self::FIELD_AAA,     self::FIELD_AUTONOMY_ADMISSION,                  self::FIELD_GOVERNANCE,        AtlasAutonomyAdmissionService::class],
         [self::FIELD_ACFA,    self::FIELD_COGNITIVE_FUNCTION_ATLAS,            self::FIELD_COGNITION,         AtlasCognitiveFunctionAtlasService::class],
         [self::FIELD_AARR,    self::FIELD_AUTONOMOUS_RECONCILIATION_RUNTIME,   self::FIELD_AUTONOMY,          AtlasAutonomousReconciliationRuntimeService::class],
-        [self::FIELD_TEOS_I4, 'TEOS-I4 Counterfactual Tree',         self::FIELD_TEOS,              AtlasTeosI4CounterfactualTreeService::class],
+        [self::FIELD_TEOS_I4, self::FIELD_TEOS_I4_COUNTERFACTUAL_TREE,         self::FIELD_TEOS,              AtlasTeosI4CounterfactualTreeService::class],
         [self::FIELD_ASWC,    self::FIELD_SWARM_CONDUCTOR,                     self::FIELD_ATLAS_DECIDE,      AtlasSwarmConductorService::class],
         [self::FIELD_ASWE,    self::FIELD_SWARM_EXECUTOR,                      self::FIELD_ATLAS_DECIDE,      AtlasSwarmExecutorService::class],
         [self::FIELD_ATDC,    self::FIELD_TEMPORARY_DOMAIN_COMPOSITION,        self::FIELD_CROSS_DOMAIN,      AtlasTemporaryDomainCompositionService::class],
@@ -469,13 +474,13 @@ class AtlasCognitionScoreCardService
         [self::FIELD_ACVS,    self::FIELD_CONSTITUTIONAL_VAULT_SERVICE,              self::FIELD_GOVERNANCE,        AtlasConstitutionalVaultService::class],
         [self::FIELD_ATBS,    self::FIELD_TRUST_BUDGET_SERVICE,                      self::FIELD_GOVERNANCE,        AtlasTrustBudgetService::class],
         [self::FIELD_ANCF,    self::FIELD_NIGHTLY_COUNTERFACTUALS,                   self::FIELD_PATAMAR_4,         AtlasNightlyCounterfactualsService::class],
-        [self::FIELD_ASAR,    'Subsystem Auto-Rebalance',                  self::FIELD_PATAMAR_4,         AtlasSubsystemAutoRebalanceService::class],
+        [self::FIELD_ASAR,    self::FIELD_SUBSYSTEM_AUTO_REBALANCE,                  self::FIELD_PATAMAR_4,         AtlasSubsystemAutoRebalanceService::class],
         [self::FIELD_ASOS,    self::FIELD_ATLAS_SCHEDULER_OS__CRON_24_7_,            self::FIELD_PATAMAR_4,         AtlasSchedulerHealthService::class],
-        [self::FIELD_ASPR,    'Swarm Production Resolver (real provider)', self::FIELD_ATLAS_DECIDE,      AtlasSwarmProductionResolverService::class],
+        [self::FIELD_ASPR,    self::FIELD_SWARM_PRODUCTION_RESOLVER__REAL_PROVIDER_, self::FIELD_ATLAS_DECIDE,      AtlasSwarmProductionResolverService::class],
         [self::FIELD_ACFD,    self::FIELD_COGNITIVE_FUNCTION_DECOMPOSER__6_AXIS_,    self::FIELD_COGNITION,         AtlasCognitiveFunctionDecomposerService::class],
         [self::FIELD_ASPD,    self::FIELD_ATLAS_SWARM_PARALLEL_DISPATCHER,           self::FIELD_ATLAS_DECIDE,      AtlasSwarmParallelDispatchService::class],
         [self::FIELD_ACSR,    self::FIELD_COGNITIVE_FUNCTION_SWARM_ROUTER__P6_CLOSURE_, self::FIELD_ATLAS_DECIDE,   AtlasCognitiveFunctionSwarmRouterService::class],
-        [self::FIELD_ASAF,    'Swarm Auto-Failover (A4)',                  self::FIELD_ATLAS_DECIDE,      AtlasSwarmAutoFailoverService::class],
+        [self::FIELD_ASAF,    self::FIELD_SWARM_AUTO_FAILOVER__A4_,                  self::FIELD_ATLAS_DECIDE,      AtlasSwarmAutoFailoverService::class],
         [self::FIELD_ARDS,    self::FIELD_RUNTIME_DEGRADATION_SIGNAL_INGRESS,        self::FIELD_PATAMAR_4,         AtlasRuntimeDegradationSignalService::class],
         [self::FIELD_ASDM,    self::FIELD_SELF_DIVERGENCE_MODEL__TARGET_VS_CURRENT_, self::FIELD_SELF_CONSTRUCTION, AtlasSelfDivergenceModelService::class],
         [self::FIELD_AEMB,    self::FIELD_EMBODIMENT_INTEGRATION__P7_CLOSURE_,       self::FIELD_PATAMAR_4,         AtlasEmbodimentIntegrationService::class],

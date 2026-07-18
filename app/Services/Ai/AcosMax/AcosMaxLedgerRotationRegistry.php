@@ -111,6 +111,12 @@ final class AcosMaxLedgerRotationRegistry
     public const FIELD_MAXI_05_IMMUNE_SIGNATURE_DB_BACKED_STORE__WATCHDOG_TABLE_PRUNING_CADENCE = 'MAXI-05 immune signature DB-backed store; watchdog/table pruning cadence';
     public const FIELD_MAXJ_01_LESSON_QUALITY_READER = 'MAXJ-01 lesson quality reader';
     public const FIELD_MAXJ_05_LESSON_TYPE_YIELD = 'MAXJ-05 lesson type yield';
+    public const FIELD_MAXK_01_ROUTE_REGRET = 'MAXK-01 route regret';
+    public const FIELD_MAXL_02_HASH_CHAIN__NEVER_ROTATE__INTEGRITY_BACKBONE = 'MAXL-02 hash chain: never rotate, integrity backbone';
+    public const FIELD_MAXL_06_DELTA_ATTRIBUTION_READER = 'MAXL-06 delta attribution reader';
+    public const FIELD_MAXL_07_PAIRED_GOLDEN_COUNTERFACTUAL_REPORT = 'MAXL-07 paired golden counterfactual report';
+    public const FIELD_MAXL_08_REPORT_ONLY_CONTEXT_EXECUTION_CO_OCCURRENCE = 'MAXL-08 report-only context execution co-occurrence';
+    public const FIELD_MAXM_01_FROZEN_CORPUS_BASELINE_RECEIPT__AUDIT_ANCHOR__SMALL_APPEND_CADENCE = 'MAXM-01 frozen-corpus baseline receipt; audit-anchor, small append cadence';
     public const INT_8 = 8;
     public const INT_64 = 64;
     public const INT_45 = 45;
@@ -193,7 +199,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_512,
                 self::FIELD_MAX_AGE_DAYS => self::INT_365,
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
-                self::FIELD_RATIONALE => 'MAXL-02 hash chain: never rotate, integrity backbone',
+                self::FIELD_RATIONALE => self::FIELD_MAXL_02_HASH_CHAIN__NEVER_ROTATE__INTEGRITY_BACKBONE,
             ],
             self::FIELD_ATLAS_MEMORY_TEMPORAL_TRUTH_V2 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
@@ -241,7 +247,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_60,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MAXK-01 route regret',
+                self::FIELD_RATIONALE => self::FIELD_MAXK_01_ROUTE_REGRET,
             ],
             self::FIELD_ATLAS_DECIDE_COST_OUTCOME_UNCERTAINTY_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
@@ -283,19 +289,19 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MAXL-06 delta attribution reader',
+                self::FIELD_RATIONALE => self::FIELD_MAXL_06_DELTA_ATTRIBUTION_READER,
             ],
             self::FIELD_ATLAS_CONTEXT_GOLDEN_COUNTERFACTUAL_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MAXL-07 paired golden counterfactual report',
+                self::FIELD_RATIONALE => self::FIELD_MAXL_07_PAIRED_GOLDEN_COUNTERFACTUAL_REPORT,
             ],
             self::FIELD_ATLAS_CONTEXT_EXECUTION_COOCCURRENCE_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
                 self::FIELD_MAX_AGE_DAYS => self::INT_90,
                 self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
-                self::FIELD_RATIONALE => 'MAXL-08 report-only context execution co-occurrence',
+                self::FIELD_RATIONALE => self::FIELD_MAXL_08_REPORT_ONLY_CONTEXT_EXECUTION_CO_OCCURRENCE,
             ],
             self::FIELD_ATLAS_ORIGINATOR_PREDICTED_IMPACT_CALIBRATION_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_32,
@@ -367,7 +373,7 @@ final class AcosMaxLedgerRotationRegistry
                 self::FIELD_MAX_SIZE_MB => self::INT_8,
                 self::FIELD_MAX_AGE_DAYS => self::INT_365,
                 self::FIELD_MODE => self::MODE_APPEND_FOREVER,
-                self::FIELD_RATIONALE => 'MAXM-01 frozen-corpus baseline receipt; audit-anchor, small append cadence',
+                self::FIELD_RATIONALE => self::FIELD_MAXM_01_FROZEN_CORPUS_BASELINE_RECEIPT__AUDIT_ANCHOR__SMALL_APPEND_CADENCE,
             ],
             self::FIELD_ATLAS_IMMUNE_CLASSIFIER_HYBRID_V1 => [
                 self::FIELD_MAX_SIZE_MB => self::INT_16,

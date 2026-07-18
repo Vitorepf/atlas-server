@@ -16033,4 +16033,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B599).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b599LedgerRotationCognitionScoreWatchdogRunnerAcosDeadFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'MAXK-01 route regret' => AcosMaxLedgerRotationRegistry::FIELD_MAXK_01_ROUTE_REGRET,
+            'MAXL-02 hash chain: never rotate, integrity backbone' => AcosMaxLedgerRotationRegistry::FIELD_MAXL_02_HASH_CHAIN__NEVER_ROTATE__INTEGRITY_BACKBONE,
+            'MAXL-06 delta attribution reader' => AcosMaxLedgerRotationRegistry::FIELD_MAXL_06_DELTA_ATTRIBUTION_READER,
+            'MAXL-07 paired golden counterfactual report' => AcosMaxLedgerRotationRegistry::FIELD_MAXL_07_PAIRED_GOLDEN_COUNTERFACTUAL_REPORT,
+            'MAXL-08 report-only context execution co-occurrence' => AcosMaxLedgerRotationRegistry::FIELD_MAXL_08_REPORT_ONLY_CONTEXT_EXECUTION_CO_OCCURRENCE,
+            'MAXM-01 frozen-corpus baseline receipt; audit-anchor, small append cadence' => AcosMaxLedgerRotationRegistry::FIELD_MAXM_01_FROZEN_CORPUS_BASELINE_RECEIPT__AUDIT_ANCHOR__SMALL_APPEND_CADENCE,
+            'Subsystem Auto-Rebalance' => AtlasCognitionScoreCardService::FIELD_SUBSYSTEM_AUTO_REBALANCE,
+            'Swarm Auto-Failover (A4)' => AtlasCognitionScoreCardService::FIELD_SWARM_AUTO_FAILOVER__A4_,
+            'Swarm Production Resolver (real provider)' => AtlasCognitionScoreCardService::FIELD_SWARM_PRODUCTION_RESOLVER__REAL_PROVIDER_,
+            'TEOS-I3 Counterfactual Runtime' => AtlasCognitionScoreCardService::FIELD_TEOS_I3_COUNTERFACTUAL_RUNTIME,
+            'TEOS-I4 Counterfactual Tree' => AtlasCognitionScoreCardService::FIELD_TEOS_I4_COUNTERFACTUAL_TREE,
+            'Watchdog check threw; other checks continued.' => AtlasWatchdogRunner::FIELD_WATCHDOG_CHECK_THREW__OTHER_CHECKS_CONTINUED_,
+            'Registered ACOS measure series exceeded its frozen TTL or has no append.' => AcosDeadSeriesWatchdogCheck::FIELD_REGISTERED_ACOS_MEASURE_SERIES_EXCEEDED_ITS_FROZEN_TTL_OR_HAS_NO_APPEND_,
+            'AOBG latency p95 exceeded frozen floors.' => AobgLatencyWatchdogCheck::FIELD_AOBG_LATENCY_P95_EXCEEDED_FROZEN_FLOORS_,
+            'MAXF-02 recovery sample could not prove compaction fidelity.' => CompactionRecoverySampleWatchdogCheck::FIELD_MAXF_02_RECOVERY_SAMPLE_COULD_NOT_PROVE_COMPACTION_FIDELITY_,
+            'MAXG-06 daily canary detected drift above frozen thresholds.' => DailyCanaryReplayByRefsWatchdogCheck::FIELD_MAXG_06_DAILY_CANARY_DETECTED_DRIFT_ABOVE_FROZEN_THRESHOLDS_,
+            'Free disk below declared floor; background producers should pause.' => DiskFreeWatchdogCheck::FIELD_FREE_DISK_BELOW_DECLARED_FLOOR__BACKGROUND_PRODUCERS_SHOULD_PAUSE_,
+            'Joint resource budget breached vs declared cap and/or host ceiling.' => JointResourceBudgetWatchdogCheck::FIELD_JOINT_RESOURCE_BUDGET_BREACHED_VS_DECLARED_CAP_AND_OR_HOST_CEILING_,
+            'b599_ledger_rotation_cognition_score_watchdog_runner_acos_dead_floor_count' => 18,
+        ];
+    }
+
 }

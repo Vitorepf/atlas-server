@@ -47,6 +47,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_JSONL = 'jsonl';
     public const FIELD_UTC = 'UTC';
     public const FIELD_ATLAS_LEDGER_EVENTS_WATCHDOG_RUN_RECORDED = 'atlas_ledger_events:watchdog_run_recorded';
+    public const FIELD_REGISTERED_ACOS_MEASURE_SERIES_EXCEEDED_ITS_FROZEN_TTL_OR_HAS_NO_APPEND_ = 'Registered ACOS measure series exceeded its frozen TTL or has no append.';
 
     public function __construct(
         private AcosMaxMeasureSeriesRegistry $registry,
@@ -80,7 +81,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
         if ($dead !== []) {
             return AtlasWatchdogCheckResult::alert($evidence, [
                 self::FIELD_CODE => self::FIELD_ACOS_DEAD_SERIES_STALE,
-                self::FIELD_MESSAGE => 'Registered ACOS measure series exceeded its frozen TTL or has no append.',
+                self::FIELD_MESSAGE => self::FIELD_REGISTERED_ACOS_MEASURE_SERIES_EXCEEDED_ITS_FROZEN_TTL_OR_HAS_NO_APPEND_,
                 self::FIELD_SERIES => array_values(array_map(static fn (array $row): string => AiValueNormalizer::trimmedScalarStringOrNull($row[self::FIELD_SERIES] ?? null) ?? '', $dead)),
                 self::FIELD_LEDGER => self::FIELD_ATLAS_LEDGER_EVENTS_WATCHDOG_RUN_RECORDED,
             ]);

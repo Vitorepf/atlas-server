@@ -12662,4 +12662,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b598_ledger_rotation_cognition_score_department_contract_cognitive_function_floor_count']);
     }
 
+    public function test_b599_ledger_rotation_cognition_score_watchdog_runner_acos_dead_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b599LedgerRotationCognitionScoreWatchdogRunnerAcosDeadFloorsContractObserve([]);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAXK_01_ROUTE_REGRET, $out['MAXK-01 route regret']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAXL_02_HASH_CHAIN__NEVER_ROTATE__INTEGRITY_BACKBONE, $out['MAXL-02 hash chain: never rotate, integrity backbone']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAXL_06_DELTA_ATTRIBUTION_READER, $out['MAXL-06 delta attribution reader']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAXL_07_PAIRED_GOLDEN_COUNTERFACTUAL_REPORT, $out['MAXL-07 paired golden counterfactual report']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAXL_08_REPORT_ONLY_CONTEXT_EXECUTION_CO_OCCURRENCE, $out['MAXL-08 report-only context execution co-occurrence']);
+        $this->assertSame(AcosMaxLedgerRotationRegistry::FIELD_MAXM_01_FROZEN_CORPUS_BASELINE_RECEIPT__AUDIT_ANCHOR__SMALL_APPEND_CADENCE, $out['MAXM-01 frozen-corpus baseline receipt; audit-anchor, small append cadence']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SUBSYSTEM_AUTO_REBALANCE, $out['Subsystem Auto-Rebalance']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SWARM_AUTO_FAILOVER__A4_, $out['Swarm Auto-Failover (A4)']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_SWARM_PRODUCTION_RESOLVER__REAL_PROVIDER_, $out['Swarm Production Resolver (real provider)']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_TEOS_I3_COUNTERFACTUAL_RUNTIME, $out['TEOS-I3 Counterfactual Runtime']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_TEOS_I4_COUNTERFACTUAL_TREE, $out['TEOS-I4 Counterfactual Tree']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_WATCHDOG_CHECK_THREW__OTHER_CHECKS_CONTINUED_, $out['Watchdog check threw; other checks continued.']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_REGISTERED_ACOS_MEASURE_SERIES_EXCEEDED_ITS_FROZEN_TTL_OR_HAS_NO_APPEND_, $out['Registered ACOS measure series exceeded its frozen TTL or has no append.']);
+        $this->assertSame(AobgLatencyWatchdogCheck::FIELD_AOBG_LATENCY_P95_EXCEEDED_FROZEN_FLOORS_, $out['AOBG latency p95 exceeded frozen floors.']);
+        $this->assertSame(CompactionRecoverySampleWatchdogCheck::FIELD_MAXF_02_RECOVERY_SAMPLE_COULD_NOT_PROVE_COMPACTION_FIDELITY_, $out['MAXF-02 recovery sample could not prove compaction fidelity.']);
+        $this->assertSame(DailyCanaryReplayByRefsWatchdogCheck::FIELD_MAXG_06_DAILY_CANARY_DETECTED_DRIFT_ABOVE_FROZEN_THRESHOLDS_, $out['MAXG-06 daily canary detected drift above frozen thresholds.']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_FREE_DISK_BELOW_DECLARED_FLOOR__BACKGROUND_PRODUCERS_SHOULD_PAUSE_, $out['Free disk below declared floor; background producers should pause.']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_JOINT_RESOURCE_BUDGET_BREACHED_VS_DECLARED_CAP_AND_OR_HOST_CEILING_, $out['Joint resource budget breached vs declared cap and/or host ceiling.']);
+        $this->assertSame(18, $out['b599_ledger_rotation_cognition_score_watchdog_runner_acos_dead_floor_count']);
+    }
+
 }

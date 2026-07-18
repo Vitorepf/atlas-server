@@ -67,6 +67,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD__P95_MS = '.p95_ms';
     public const FIELD__OPS = '.ops';
     public const FIELD__SAMPLES = '.samples';
+    public const FIELD_AOBG_LATENCY_P95_EXCEEDED_FROZEN_FLOORS_ = 'AOBG latency p95 exceeded frozen floors.';
 
 
     /**
@@ -136,7 +137,7 @@ final readonly class AobgLatencyWatchdogCheck implements AtlasWatchdogCheck
         if ($alerts !== []) {
             return AtlasWatchdogCheckResult::alert($evidence + [self::FIELD_REASON => self::REASON_LATENCY_FLOOR_EXCEEDED], [
                 self::FIELD_CODE => self::FIELD_AOBG_LATENCY_P95_EXCEEDED,
-                self::FIELD_MESSAGE => 'AOBG latency p95 exceeded frozen floors.',
+                self::FIELD_MESSAGE => self::FIELD_AOBG_LATENCY_P95_EXCEEDED_FROZEN_FLOORS_,
                 self::FIELD_VIOLATIONS => $alerts,
             ]);
         }
