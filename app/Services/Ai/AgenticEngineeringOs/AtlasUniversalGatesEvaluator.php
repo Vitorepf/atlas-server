@@ -19055,4 +19055,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B697).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b697StructuredFactFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.memory.structured_facts.v1' => StructuredFactSchemaMap::SCHEMA_VERSION,
+            'unschematized' => StructuredFactSchemaMap::STATUS_UNSCHEMATIZED,
+            'valid' => StructuredFactSchemaMap::FIELD_VALID,
+            'missing_fields' => StructuredFactSchemaMap::STATUS_MISSING_FIELDS,
+            'missing' => StructuredFactSchemaMap::FIELD_MISSING,
+            'valid' => StructuredFactSchemaMap::FIELD_VALID,
+            'fail_open_entry_allowed' => StructuredFactSchemaMap::FIELD_FAIL_OPEN_ENTRY_ALLOWED,
+            'schema_version' => StructuredFactSchemaMap::FIELD_SCHEMA_VERSION,
+            'status' => StructuredFactSchemaMap::FIELD_STATUS,
+            'decision' => StructuredFactSchemaMap::FIELD_DECISION,
+            'gotcha' => StructuredFactSchemaMap::FIELD_GOTCHA,
+            'harness_learning' => StructuredFactSchemaMap::FIELD_HARNESS_LEARNING,
+            'llm_extraction_hot_path' => StructuredFactSchemaMap::FIELD_LLM_EXTRACTION_HOT_PATH,
+            'source' => StructuredFactSchemaMap::FIELD_SOURCE,
+            'required_on_write' => StructuredFactSchemaMap::FIELD_REQUIRED_ON_WRITE,
+            'causa' => StructuredFactSchemaMap::FIELD_CAUSA,
+            'alternativas' => StructuredFactSchemaMap::FIELD_ALTERNATIVAS,
+            'fix' => StructuredFactSchemaMap::FIELD_FIX,
+            'b697_structured_fact_floor_count' => 18,
+        ];
+    }
+
 }

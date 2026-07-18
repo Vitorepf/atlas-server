@@ -15099,4 +15099,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b696_reactive_saturation_floor_count']);
     }
 
+    public function test_b697_structured_fact_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b697StructuredFactFloorsContractObserve([]);
+        $this->assertSame(StructuredFactSchemaMap::SCHEMA_VERSION, $out['atlas.memory.structured_facts.v1']);
+        $this->assertSame(StructuredFactSchemaMap::STATUS_UNSCHEMATIZED, $out['unschematized']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_VALID, $out['valid']);
+        $this->assertSame(StructuredFactSchemaMap::STATUS_MISSING_FIELDS, $out['missing_fields']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_MISSING, $out['missing']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_VALID, $out['valid']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_FAIL_OPEN_ENTRY_ALLOWED, $out['fail_open_entry_allowed']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_STATUS, $out['status']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_DECISION, $out['decision']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_GOTCHA, $out['gotcha']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_HARNESS_LEARNING, $out['harness_learning']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_LLM_EXTRACTION_HOT_PATH, $out['llm_extraction_hot_path']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_SOURCE, $out['source']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_REQUIRED_ON_WRITE, $out['required_on_write']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_CAUSA, $out['causa']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_ALTERNATIVAS, $out['alternativas']);
+        $this->assertSame(StructuredFactSchemaMap::FIELD_FIX, $out['fix']);
+        $this->assertSame(18, $out['b697_structured_fact_floor_count']);
+    }
+
 }
