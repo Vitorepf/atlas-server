@@ -51,6 +51,12 @@ final class AtlasLocalModelIntegrityService
     public const FIELD_MODEL_ID = 'model_id';
     public const FIELD_INTEGRITY = 'integrity';
     public const FIELD_HASH = 'hash';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_ARTIFACTS = 'artifacts';
+    public const FIELD_FUNCTION = 'function';
+    public const FIELD_LICENSE = 'license';
+    public const FIELD_SOURCE_URL = 'source_url';
+    public const FIELD_PATH_RESOLVED = 'path_resolved';
 
     /** @var array<string, mixed> */
     private array $manifest;
@@ -74,7 +80,7 @@ final class AtlasLocalModelIntegrityService
      */
     public function verifyAll(): array
     {
-        $artifacts = AiValueNormalizer::arrayOrEmpty($this->manifest['artifacts'] ?? null);
+        $artifacts = AiValueNormalizer::arrayOrEmpty($this->manifest[self::FIELD_ARTIFACTS] ?? null);
         $rows = array_values(array_map(function ($entry): array {
             return $this->verifyOne(AiValueNormalizer::arrayOrEmpty($entry));
         }, $artifacts));
@@ -82,13 +88,13 @@ final class AtlasLocalModelIntegrityService
         $status = array_count_values(array_map(static fn (array $row): string => AiValueNormalizer::trimmedScalarStringOrNull($row[self::FIELD_STATUS] ?? null) ?? '', $rows));
 
         return [
-            'schema_version' => AiValueNormalizer::trimmedStringOrNull($this->manifest['schema_version'] ?? null) ?? self::MANIFEST_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => AiValueNormalizer::trimmedStringOrNull($this->manifest[self::FIELD_SCHEMA_VERSION] ?? null) ?? self::MANIFEST_SCHEMA,
             'total' => count($rows),
             self::FIELD_VERIFIED => $status[self::STATUS_VERIFIED] ?? 0,
             self::FIELD_MISMATCHED => $status[self::STATUS_MISMATCHED] ?? 0,
             self::FIELD_MISSING => $status[self::STATUS_MISSING] ?? 0,
             self::FIELD_UNPINNED => $status[self::STATUS_UNPINNED] ?? 0,
-            'artifacts' => $rows,
+            self::FIELD_ARTIFACTS => $rows,
         ];
     }
 
@@ -104,11 +110,11 @@ final class AtlasLocalModelIntegrityService
 
         $row = [
             self::FIELD_MODEL_ID => $modelId !== '' ? $modelId : self::FALLBACK_MODEL_ID,
-            'function' => (AiValueNormalizer::trimmedStringOrNull($entry['function'] ?? null) ?? ''),
-            'license' => (AiValueNormalizer::trimmedStringOrNull($entry['license'] ?? null) ?? ''),
-            'source_url' => (AiValueNormalizer::trimmedStringOrNull($entry['source_url'] ?? null) ?? ''),
+            self::FIELD_FUNCTION => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_FUNCTION] ?? null) ?? ''),
+            self::FIELD_LICENSE => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_LICENSE] ?? null) ?? ''),
+            self::FIELD_SOURCE_URL => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SOURCE_URL] ?? null) ?? ''),
             'path_declared' => $path,
-            'path_resolved' => null,
+            self::FIELD_PATH_RESOLVED => null,
             'pin_present' => $pin !== '',
             'sha256_pin' => $pin !== '' ? $pin : null,
             'sha256_computed' => null,
@@ -139,7 +145,7 @@ final class AtlasLocalModelIntegrityService
         }
 
         $resolved = AiValueNormalizer::trimmedStringOrNull($this->resolvePath($path));
-        $row['path_resolved'] = $resolved;
+        $row[self::FIELD_PATH_RESOLVED] = $resolved;
 
         if ($resolved === null || ! is_file($resolved) || ! is_readable($resolved)) {
             $row[self::FIELD_STATUS] = self::STATUS_MISSING;

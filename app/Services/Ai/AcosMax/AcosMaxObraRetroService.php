@@ -73,6 +73,11 @@ final class AcosMaxObraRetroService
     public const FIELD_CURRENT_STATE = 'current_state';
     public const FIELD_EXECUTOR = 'executor';
     public const FIELD_FUTURE_LOTE_CLOSE_REQUIRES = 'future_lote_close_requires';
+    public const FIELD_PAYLOAD = 'payload';
+    public const FIELD_PROPOSAL_ID = 'proposal_id';
+    public const FIELD_QUALITY = 'quality';
+    public const FIELD_MEMORY_ADMISSION = 'memory_admission';
+    public const FIELD_REQUIRES_HUMAN_REVIEW = 'requires_human_review';
 
     public function __construct(
         private readonly AtlasEngineeringOutcomeRecorder $outcomes,
@@ -157,7 +162,7 @@ final class AcosMaxObraRetroService
             self::FIELD_WORKSPACE => base_path(),
             self::FIELD_PRIVACY_CLASS => 'normal',
         ], $candidate, [
-            'payload' => array_merge(AiValueNormalizer::arrayOrEmpty($candidate['payload'] ?? null), [
+            self::FIELD_PAYLOAD => array_merge(AiValueNormalizer::arrayOrEmpty($candidate[self::FIELD_PAYLOAD] ?? null), [
                 'source' => self::SOURCE_ACOS_MAX_OBRA_RETRO,
                 self::FIELD_SERIES_TAG => self::SERIES_TAG,
             ]),
@@ -168,12 +173,12 @@ final class AcosMaxObraRetroService
         return [
             self::FIELD_STATUS => (AiValueNormalizer::trimmedStringOrNull($result[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
             self::FIELD_REASON => (AiValueNormalizer::trimmedStringOrNull($result[self::FIELD_REASON] ?? null) ?? ''),
-            'proposal_id' => $result['proposal_id'] ?? null,
+            self::FIELD_PROPOSAL_ID => $result[self::FIELD_PROPOSAL_ID] ?? null,
             self::FIELD_KIND => AiValueNormalizer::trimmedStringOrNull($result[self::FIELD_KIND] ?? $payload[self::FIELD_KIND] ?? null) ?? '',
-            'quality' => AiValueNormalizer::arrayOrEmpty($result['quality'] ?? null),
-            'memory_admission' => AiValueNormalizer::arrayOrEmpty($result['memory_admission'] ?? null),
+            self::FIELD_QUALITY => AiValueNormalizer::arrayOrEmpty($result[self::FIELD_QUALITY] ?? null),
+            self::FIELD_MEMORY_ADMISSION => AiValueNormalizer::arrayOrEmpty($result[self::FIELD_MEMORY_ADMISSION] ?? null),
             self::FIELD_AUTO_PROMOTED => (AiValueNormalizer::boolOrNull($result[self::FIELD_AUTO_PROMOTED] ?? null) ?? false),
-            'requires_human_review' => (AiValueNormalizer::boolOrNull($result['requires_human_review'] ?? null) ?? true),
+            self::FIELD_REQUIRES_HUMAN_REVIEW => (AiValueNormalizer::boolOrNull($result[self::FIELD_REQUIRES_HUMAN_REVIEW] ?? null) ?? true),
         ];
     }
 

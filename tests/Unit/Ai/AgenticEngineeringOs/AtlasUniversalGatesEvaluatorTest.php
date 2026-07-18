@@ -5174,5 +5174,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(17, $payload['dead_series_outcome_compounding_floor_count']);
     }
 
+    public function test_immune_integrity_obra_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->immuneIntegrityObraFloorsContractObserve([]);
+
+        $this->assertSame('false_blocks', $payload['immune_cal_field_false_blocks']);
+        $this->assertSame('missed_poison', $payload['immune_cal_field_missed_poison']);
+        $this->assertSame('known_miss_denominator', $payload['immune_cal_field_known_miss_denominator']);
+        $this->assertSame('expected_block_gate_ids', $payload['immune_cal_field_expected_block_gate_ids']);
+        $this->assertSame('true_blocks', $payload['immune_cal_field_true_blocks']);
+        $this->assertSame('writer', $payload['immune_cal_field_writer']);
+        $this->assertSame('schema_version', $payload['integrity_field_schema_version']);
+        $this->assertSame('artifacts', $payload['integrity_field_artifacts']);
+        $this->assertSame('function', $payload['integrity_field_function']);
+        $this->assertSame('license', $payload['integrity_field_license']);
+        $this->assertSame('source_url', $payload['integrity_field_source_url']);
+        $this->assertSame('path_resolved', $payload['integrity_field_path_resolved']);
+        $this->assertSame('payload', $payload['obra_retro_field_payload']);
+        $this->assertSame('proposal_id', $payload['obra_retro_field_proposal_id']);
+        $this->assertSame('quality', $payload['obra_retro_field_quality']);
+        $this->assertSame('memory_admission', $payload['obra_retro_field_memory_admission']);
+        $this->assertSame('requires_human_review', $payload['obra_retro_field_requires_human_review']);
+        $this->assertSame(17, $payload['immune_integrity_obra_floor_count']);
+    }
+
 
 }

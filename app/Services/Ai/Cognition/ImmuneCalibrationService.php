@@ -60,6 +60,12 @@ final class ImmuneCalibrationService
     public const FIELD_KNOWN_MISS_SEED = 'known_miss_seed';
     public const FIELD_TOTAL = 'total';
     public const FIELD_CAVEATS = 'caveats';
+    public const FIELD_FALSE_BLOCKS = 'false_blocks';
+    public const FIELD_MISSED_POISON = 'missed_poison';
+    public const FIELD_KNOWN_MISS_DENOMINATOR = 'known_miss_denominator';
+    public const FIELD_EXPECTED_BLOCK_GATE_IDS = 'expected_block_gate_ids';
+    public const FIELD_TRUE_BLOCKS = 'true_blocks';
+    public const FIELD_WRITER = 'writer';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -182,28 +188,28 @@ final class ImmuneCalibrationService
     {
         $groups = [];
         foreach ($samples as $sample) {
-            $writer = AiValueNormalizer::trimmedStringOrNull($sample['writer'] ?? null) ?? ImmuneVerdictLedger::WRITER_UNKNOWN;
+            $writer = AiValueNormalizer::trimmedStringOrNull($sample[self::FIELD_WRITER] ?? null) ?? ImmuneVerdictLedger::WRITER_UNKNOWN;
             $gateStatuses = AiValueNormalizer::arrayOrEmpty($sample['gate_statuses'] ?? null);
             foreach ($this->sampleGateIds($sample) as $gateId) {
                 $key = $writer.'::'.$gateId;
                 $groups[$key] ??= $this->emptyGroup($writer, $gateId);
                 $status = (AiValueNormalizer::trimmedStringOrNull($gateStatuses[$gateId] ?? null) ?? ImmuneVerdictLedger::GATE_STATUS_PENDING);
                 $label = (AiValueNormalizer::trimmedStringOrNull($sample['sample_label'] ?? null) ?? '');
-                $expectedGateIds = array_fill_keys(AiValueNormalizer::arrayOrEmpty($sample['expected_block_gate_ids'] ?? null), true);
+                $expectedGateIds = array_fill_keys(AiValueNormalizer::arrayOrEmpty($sample[self::FIELD_EXPECTED_BLOCK_GATE_IDS] ?? null), true);
 
                 $groups[$key]['n']++;
                 if ($status === ImmuneVerdictLedger::GATE_STATUS_BLOCK) {
                     $groups[$key][self::FIELD_BLOCKS]++;
                 }
                 if ($label === ImmuneVerdictLedger::LABEL_FALSE_BLOCK && $status === ImmuneVerdictLedger::GATE_STATUS_BLOCK) {
-                    $groups[$key]['false_blocks']++;
+                    $groups[$key][self::FIELD_FALSE_BLOCKS]++;
                 }
                 if (isset($expectedGateIds[$gateId])) {
-                    $groups[$key]['known_miss_denominator']++;
+                    $groups[$key][self::FIELD_KNOWN_MISS_DENOMINATOR]++;
                     if ($status !== ImmuneVerdictLedger::GATE_STATUS_BLOCK) {
-                        $groups[$key]['missed_poison']++;
+                        $groups[$key][self::FIELD_MISSED_POISON]++;
                     } else {
-                        $groups[$key]['true_blocks']++;
+                        $groups[$key][self::FIELD_TRUE_BLOCKS]++;
                     }
                 }
             }
@@ -219,7 +225,7 @@ final class ImmuneCalibrationService
     {
         $gateIds = [];
         foreach ([
-            ...AiValueNormalizer::arrayOrEmpty($sample['expected_block_gate_ids'] ?? null),
+            ...AiValueNormalizer::arrayOrEmpty($sample[self::FIELD_EXPECTED_BLOCK_GATE_IDS] ?? null),
             ...AiValueNormalizer::arrayOrEmpty($sample['blocking_gate_ids'] ?? null),
         ] as $gateId) {
             $gateId = AiValueNormalizer::upperTrimmedString($gateId);
@@ -236,13 +242,13 @@ final class ImmuneCalibrationService
     {
         return [
             'gate' => $gateId,
-            'writer' => $writer,
+            self::FIELD_WRITER => $writer,
             'n' => 0,
             self::FIELD_BLOCKS => 0,
-            'true_blocks' => 0,
-            'false_blocks' => 0,
-            'missed_poison' => 0,
-            'known_miss_denominator' => 0,
+            self::FIELD_TRUE_BLOCKS => 0,
+            self::FIELD_FALSE_BLOCKS => 0,
+            self::FIELD_MISSED_POISON => 0,
+            self::FIELD_KNOWN_MISS_DENOMINATOR => 0,
         ];
     }
 
@@ -250,10 +256,10 @@ final class ImmuneCalibrationService
     private function finalizeGroup(array $group): array
     {
         $blocks = (int) (AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_BLOCKS] ?? null) ?? 0);
-        $knownMissDenominator = (int) (AiValueNormalizer::finiteFloatOrNull($group['known_miss_denominator'] ?? null) ?? 0);
-        $falseBlockRate = $blocks > 0 ? (int) (AiValueNormalizer::finiteFloatOrNull($group['false_blocks'] ?? null) ?? 0) / $blocks : 0.0;
+        $knownMissDenominator = (int) (AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_KNOWN_MISS_DENOMINATOR] ?? null) ?? 0);
+        $falseBlockRate = $blocks > 0 ? (int) (AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_FALSE_BLOCKS] ?? null) ?? 0) / $blocks : 0.0;
         $missedPoisonRate = $knownMissDenominator > 0
-            ? (int) (AiValueNormalizer::finiteFloatOrNull($group['missed_poison'] ?? null) ?? 0) / $knownMissDenominator
+            ? (int) (AiValueNormalizer::finiteFloatOrNull($group[self::FIELD_MISSED_POISON] ?? null) ?? 0) / $knownMissDenominator
             : 0.0;
 
         $group[self::FIELD_FALSE_BLOCK_RATE] = $this->bandForRate(
@@ -306,7 +312,7 @@ final class ImmuneCalibrationService
             'known_miss_seed',
             $this->evaluator->evaluate($signals),
             [
-                'expected_block_gate_ids' => ['G3'],
+                self::FIELD_EXPECTED_BLOCK_GATE_IDS => ['G3'],
                 'metadata' => [
                     'seed' => 'maxi-03-known-should-catch-g3',
                     'pipeline' => 'CognitiveImmunePromotionGateEvaluator',

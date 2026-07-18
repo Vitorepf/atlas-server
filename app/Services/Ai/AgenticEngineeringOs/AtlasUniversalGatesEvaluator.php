@@ -6933,6 +6933,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function immuneIntegrityObraFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'immune_cal_field_false_blocks' => ImmuneCalibrationService::FIELD_FALSE_BLOCKS,
+            'immune_cal_field_missed_poison' => ImmuneCalibrationService::FIELD_MISSED_POISON,
+            'immune_cal_field_known_miss_denominator' => ImmuneCalibrationService::FIELD_KNOWN_MISS_DENOMINATOR,
+            'immune_cal_field_expected_block_gate_ids' => ImmuneCalibrationService::FIELD_EXPECTED_BLOCK_GATE_IDS,
+            'immune_cal_field_true_blocks' => ImmuneCalibrationService::FIELD_TRUE_BLOCKS,
+            'immune_cal_field_writer' => ImmuneCalibrationService::FIELD_WRITER,
+            'integrity_field_schema_version' => AtlasLocalModelIntegrityService::FIELD_SCHEMA_VERSION,
+            'integrity_field_artifacts' => AtlasLocalModelIntegrityService::FIELD_ARTIFACTS,
+            'integrity_field_function' => AtlasLocalModelIntegrityService::FIELD_FUNCTION,
+            'integrity_field_license' => AtlasLocalModelIntegrityService::FIELD_LICENSE,
+            'integrity_field_source_url' => AtlasLocalModelIntegrityService::FIELD_SOURCE_URL,
+            'integrity_field_path_resolved' => AtlasLocalModelIntegrityService::FIELD_PATH_RESOLVED,
+            'obra_retro_field_payload' => AcosMaxObraRetroService::FIELD_PAYLOAD,
+            'obra_retro_field_proposal_id' => AcosMaxObraRetroService::FIELD_PROPOSAL_ID,
+            'obra_retro_field_quality' => AcosMaxObraRetroService::FIELD_QUALITY,
+            'obra_retro_field_memory_admission' => AcosMaxObraRetroService::FIELD_MEMORY_ADMISSION,
+            'obra_retro_field_requires_human_review' => AcosMaxObraRetroService::FIELD_REQUIRES_HUMAN_REVIEW,
+            'immune_integrity_obra_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
