@@ -16,9 +16,39 @@ final class GoldenCounterfactualReplayService
 
     public const STATUS_SKIPPED = 'skipped';
 
+    public const STATUS_OK = 'ok';
+
     public const REASON_PAIRED_ARMS_MISSING = 'paired_arms_missing';
 
     public const REASON_PAIRED_GOLDEN_RUNS_UNAVAILABLE = 'paired_golden_runs_unavailable';
+
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_DECISION_ID = 'decision_id';
+    public const FIELD_RUNS_PATH = 'runs_path';
+    public const FIELD_COUNTERFACTUAL = 'counterfactual';
+    public const FIELD_WITHOUT = 'without';
+    public const FIELD_WITH = 'with';
+    public const FIELD_RECALL_AT_5 = 'recall_at_5';
+    public const FIELD_MEASURE_ID = 'measure_id';
+    public const FIELD_FORMULA_VERSION = 'formula_version';
+    public const FIELD_ARM = 'arm';
+    public const FIELD_COMMIT = 'commit';
+    public const FIELD_EXECUTED_AT = 'executed_at';
+    public const FIELD_RUN_ID = 'run_id';
+    public const FIELD_CLAIM_POLICY = 'claim_policy';
+    public const FIELD_READ_ONLY = 'read_only';
+    public const FIELD_RECALL_AT_5_WITHOUT = 'recall_at_5_without';
+    public const FIELD_RECALL_AT_5_WITH = 'recall_at_5_with';
+    public const FIELD_RUNS = 'runs';
+    public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
+    public const FIELD_DELTA = 'delta';
+    public const FIELD_DELTA_REQUIRES_BOTH_ARMS = 'delta_requires_both_arms';
+    public const FIELD_EXTRAPOLATION_ALLOWED = 'extrapolation_allowed';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_GIT_CHECKOUT_PERFORMED = 'git_checkout_performed';
+    public const FIELD_METRIC = 'metric';
 
 
     /**
@@ -27,62 +57,62 @@ final class GoldenCounterfactualReplayService
     public function report(?string $runsPath = null, ?string $decisionId = null): array
     {
         $base = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'measure_id' => self::MEASURE_ID,
-            'formula_version' => self::FORMULA_VERSION,
-            'generated_at' => now()->toIso8601String(),
-            'decision_id' => $decisionId,
-            'claim_policy' => [
-                'read_only' => true,
-                'provider_calls_made' => false,
-                'git_checkout_performed' => false,
-                'extrapolation_allowed' => false,
-                'delta_requires_both_arms' => true,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
+            self::FIELD_DECISION_ID => $decisionId,
+            self::FIELD_CLAIM_POLICY => [
+                self::FIELD_READ_ONLY => true,
+                self::FIELD_PROVIDER_CALLS_MADE => false,
+                self::FIELD_GIT_CHECKOUT_PERFORMED => false,
+                self::FIELD_EXTRAPOLATION_ALLOWED => false,
+                self::FIELD_DELTA_REQUIRES_BOTH_ARMS => true,
             ],
         ];
 
         if ($runsPath === null || (AiValueNormalizer::trimmedStringOrNull($runsPath) ?? '') === '' || ! is_file($runsPath)) {
             return array_replace($base, [
-                'status' => self::STATUS_SKIPPED,
-                'reason' => self::REASON_PAIRED_GOLDEN_RUNS_UNAVAILABLE,
-                'runs_path' => $runsPath,
-                'counterfactual' => [
-                    'without' => null,
-                    'with' => null,
+                self::FIELD_STATUS => self::STATUS_SKIPPED,
+                self::FIELD_REASON => self::REASON_PAIRED_GOLDEN_RUNS_UNAVAILABLE,
+                self::FIELD_RUNS_PATH => $runsPath,
+                self::FIELD_COUNTERFACTUAL => [
+                    self::FIELD_WITHOUT => null,
+                    self::FIELD_WITH => null,
                 ],
             ]);
         }
 
         $payload = $this->readJson($runsPath);
-        $runs = array_values(AiValueNormalizer::arrayOrEmpty($payload['runs'] ?? null));
-        $without = $this->firstRun($runs, 'without', $decisionId);
-        $with = $this->firstRun($runs, 'with', $decisionId);
+        $runs = array_values(AiValueNormalizer::arrayOrEmpty($payload[self::FIELD_RUNS] ?? null));
+        $without = $this->firstRun($runs, self::FIELD_WITHOUT, $decisionId);
+        $with = $this->firstRun($runs, self::FIELD_WITH, $decisionId);
 
         if ($without === null || $with === null) {
             return array_replace($base, [
-                'status' => self::STATUS_SKIPPED,
-                'reason' => self::REASON_PAIRED_ARMS_MISSING,
-                'runs_path' => $runsPath,
-                'counterfactual' => [
-                    'without' => $without,
-                    'with' => $with,
+                self::FIELD_STATUS => self::STATUS_SKIPPED,
+                self::FIELD_REASON => self::REASON_PAIRED_ARMS_MISSING,
+                self::FIELD_RUNS_PATH => $runsPath,
+                self::FIELD_COUNTERFACTUAL => [
+                    self::FIELD_WITHOUT => $without,
+                    self::FIELD_WITH => $with,
                 ],
             ]);
         }
 
         return array_replace($base, [
-            'status' => 'ok',
-            'reason' => null,
-            'runs_path' => $runsPath,
-            'counterfactual' => [
-                'without' => $without,
-                'with' => $with,
-                'metric' => 'recall_at_5',
-                'recall_at_5_without' => $without['recall_at_5'],
-                'recall_at_5_with' => $with['recall_at_5'],
-                'delta' => round(
-                    (AiValueNormalizer::finiteFloatOrNull($with['recall_at_5'] ?? null) ?? 0.0)
-                    - (AiValueNormalizer::finiteFloatOrNull($without['recall_at_5'] ?? null) ?? 0.0),
+            self::FIELD_STATUS => self::STATUS_OK,
+            self::FIELD_REASON => null,
+            self::FIELD_RUNS_PATH => $runsPath,
+            self::FIELD_COUNTERFACTUAL => [
+                self::FIELD_WITHOUT => $without,
+                self::FIELD_WITH => $with,
+                self::FIELD_METRIC => self::FIELD_RECALL_AT_5,
+                self::FIELD_RECALL_AT_5_WITHOUT => $without[self::FIELD_RECALL_AT_5],
+                self::FIELD_RECALL_AT_5_WITH => $with[self::FIELD_RECALL_AT_5],
+                self::FIELD_DELTA => round(
+                    (AiValueNormalizer::finiteFloatOrNull($with[self::FIELD_RECALL_AT_5] ?? null) ?? 0.0)
+                    - (AiValueNormalizer::finiteFloatOrNull($without[self::FIELD_RECALL_AT_5] ?? null) ?? 0.0),
                     6
                 ),
             ],
@@ -111,30 +141,30 @@ final class GoldenCounterfactualReplayService
     private function firstRun(array $runs, string $arm, ?string $decisionId): ?array
     {
         foreach ($runs as $run) {
-            if (! is_array($run) || (AiValueNormalizer::trimmedStringOrNull($run['arm'] ?? null) ?? '') !== $arm) {
+            if (! is_array($run) || (AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_ARM] ?? null) ?? '') !== $arm) {
                 continue;
             }
-            if ($decisionId !== null && $decisionId !== '' && (AiValueNormalizer::trimmedStringOrNull($run['decision_id'] ?? null) ?? '') !== $decisionId) {
+            if ($decisionId !== null && $decisionId !== '' && (AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_DECISION_ID] ?? null) ?? '') !== $decisionId) {
                 continue;
             }
-            if (AiValueNormalizer::finiteFloatOrNull($run['recall_at_5'] ?? null) === null) {
+            if (AiValueNormalizer::finiteFloatOrNull($run[self::FIELD_RECALL_AT_5] ?? null) === null) {
                 continue;
             }
-            $commit = AiValueNormalizer::trimmedStringOrNull($run['commit'] ?? null) ?? '';
-            $runId = AiValueNormalizer::trimmedStringOrNull($run['run_id'] ?? null) ?? '';
+            $commit = AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_COMMIT] ?? null) ?? '';
+            $runId = AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_RUN_ID] ?? null) ?? '';
             if ($commit === '' || $runId === '') {
                 continue;
             }
 
             return [
-                'arm' => $arm,
-                'decision_id' => (AiValueNormalizer::trimmedStringOrNull($run['decision_id'] ?? null) ?? ''),
-                'run_id' => $runId,
-                'commit' => $commit,
-                'recall_at_5' => round(AiValueNormalizer::clampUnit(
-                    AiValueNormalizer::finiteFloatOrNull($run['recall_at_5']) ?? 0.0
+                self::FIELD_ARM => $arm,
+                self::FIELD_DECISION_ID => (AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_DECISION_ID] ?? null) ?? ''),
+                self::FIELD_RUN_ID => $runId,
+                self::FIELD_COMMIT => $commit,
+                self::FIELD_RECALL_AT_5 => round(AiValueNormalizer::clampUnit(
+                    AiValueNormalizer::finiteFloatOrNull($run[self::FIELD_RECALL_AT_5]) ?? 0.0
                 ), 6),
-                'executed_at' => (AiValueNormalizer::trimmedStringOrNull($run['executed_at'] ?? null) ?? ''),
+                self::FIELD_EXECUTED_AT => (AiValueNormalizer::trimmedStringOrNull($run[self::FIELD_EXECUTED_AT] ?? null) ?? ''),
             ];
         }
 

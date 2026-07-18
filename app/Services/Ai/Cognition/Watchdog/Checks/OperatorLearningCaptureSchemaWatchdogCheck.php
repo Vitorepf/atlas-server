@@ -11,6 +11,15 @@ use App\Services\Ai\OperatorIntelligence\OperatorLearningRuntimeCaptureService;
 final readonly class OperatorLearningCaptureSchemaWatchdogCheck implements AtlasWatchdogCheck
 {
     public const CHECK_ID = 'maxn-01.operator_learning_capture_schema';
+    public const FIELD_MISSING_TABLES = 'missing_tables';
+    public const FIELD_CHAT_CAPTURE_ENABLED = 'chat_capture_enabled';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_OPERATOR_SCHEMA_READY = 'operator_schema_ready';
+    public const FIELD_CODE = 'code';
+    public const FIELD_MESSAGE = 'message';
+    public const FIELD_OPERATOR_LEARNING_CAPTURE_DISABLED = 'operator_learning_capture_disabled';
+    public const FIELD_OPERATOR_LEARNING_SCHEMA_MISSING = 'operator_learning_schema_missing';
+    public const FIELD_OPERATOR_CHAT_CAPTURE_IS_ENABLED_BUT_REQUIRED_OPERATOR___TABLES_ARE_MISSING_ = 'Operator chat capture is enabled but required operator_* tables are missing.';
 
     public function __construct(private OperatorLearningRuntimeCaptureService $capture) {}
 
@@ -22,24 +31,24 @@ final readonly class OperatorLearningCaptureSchemaWatchdogCheck implements Atlas
     public function run(): AtlasWatchdogCheckResult
     {
         $report = $this->capture->captureFailureReport();
-        $missingTables = $report['missing_tables'];
+        $missingTables = $report[self::FIELD_MISSING_TABLES];
 
-        if (! $report['chat_capture_enabled']) {
+        if (! $report[self::FIELD_CHAT_CAPTURE_ENABLED]) {
             return AtlasWatchdogCheckResult::skipped(array_merge($report, [
-                'reason' => 'operator_learning_capture_disabled',
+                self::FIELD_REASON => self::FIELD_OPERATOR_LEARNING_CAPTURE_DISABLED,
             ]));
         }
 
         if ($missingTables !== []) {
             return AtlasWatchdogCheckResult::alert($report, [
-                'code' => 'operator_learning_schema_missing',
-                'message' => 'Operator chat capture is enabled but required operator_* tables are missing.',
-                'missing_tables' => $missingTables,
+                self::FIELD_CODE => self::FIELD_OPERATOR_LEARNING_SCHEMA_MISSING,
+                self::FIELD_MESSAGE => self::FIELD_OPERATOR_CHAT_CAPTURE_IS_ENABLED_BUT_REQUIRED_OPERATOR___TABLES_ARE_MISSING_,
+                self::FIELD_MISSING_TABLES => $missingTables,
             ]);
         }
 
         return AtlasWatchdogCheckResult::ok(array_merge($report, [
-            'operator_schema_ready' => true,
+            self::FIELD_OPERATOR_SCHEMA_READY => true,
         ]));
     }
 }

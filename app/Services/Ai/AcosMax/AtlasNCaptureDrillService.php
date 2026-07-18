@@ -33,6 +33,8 @@ use RuntimeException;
  */
 final class AtlasNCaptureDrillService
 {
+    public const FIELD_PATH = 'path';
+    public const FIELD_PEEK_MODE = 'peek_mode';
     public const SCHEMA_VERSION = 'atlas.acos_max.n_capture_drill.v1';
 
     public const MEASURE_ID = 'atlas.n_capture_drill.v1';
@@ -59,6 +61,97 @@ final class AtlasNCaptureDrillService
 
     public const TRIGGER_UNKNOWN = 'unknown';
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_FIELD = 'field';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_OK = 'ok';
+    public const FIELD_DRILL = 'drill';
+    public const FIELD_EXPECTED = 'expected';
+    public const FIELD_ACTUAL = 'actual';
+    public const FIELD_MEASURE_ID = 'measure_id';
+    public const FIELD_FORMULA_VERSION = 'formula_version';
+    public const FIELD_DENOMINATOR_MIN = 'denominator_min';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_FORMULA = 'formula';
+    public const FIELD_THRESHOLDS = 'thresholds';
+    public const FIELD_DAYS_BETWEEN_DRILLS_MAX = 'days_between_drills_max';
+    public const FIELD_COLD_START_CHANNELS_ALLOWED = 'cold_start_channels_allowed';
+    public const FIELD_BYPASS_FORBIDDEN = 'bypass_forbidden';
+    public const FIELD_YARDSTICK_REQUIRED_SERIES = 'yardstick_required_series';
+    public const FIELD_PEEK_ONLY = 'peek_only';
+    public const FIELD_ADMISSION = 'admission';
+    public const FIELD_ADMITTED = 'admitted';
+    public const FIELD_ADMITTED_COUNT = 'admitted_count';
+    public const FIELD_AGGREGATE = 'aggregate';
+    public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
+    public const FIELD_BYPASS = 'bypass';
+    public const FIELD_CAPABILITY_SPEC = 'capability_spec';
+    public const FIELD_COLD_START_VIA = 'cold_start_via';
+    public const FIELD_DENOMINATORS = 'denominators';
+    public const FIELD_DRILL_ID = 'drill_id';
+    public const FIELD_DRILLS = 'drills';
+    public const FIELD_DRILLS_IN_WINDOW = 'drills_in_window';
+    public const FIELD_ENGINE_ID = 'engine_id';
+    public const FIELD_TRIGGER = 'trigger';
+    public const FIELD_RECORDED_AT = 'recorded_at';
+    public const FIELD_REQUIRED_FIELDS = 'required_fields';
+    public const FIELD_TTL_DAYS = 'ttl_days';
+    public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
+    public const FIELD_DUAL_READ_REQUIRED = 'dual_read_required';
+    public const FIELD_ENGINES = 'engines';
+    public const FIELD_FREEZE = 'freeze';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_GOLDEN_V2_PASSED = 'golden_v2_passed';
+    public const FIELD_GOLDEN_V2_SCORE = 'golden_v2_score';
+    public const FIELD_HOURS_OF_INTEGRATION = 'hours_of_integration';
+    public const FIELD_LATEST = 'latest';
+    public const FIELD_SERIES_REGISTRY = 'series_registry';
+    public const FIELD_SOURCE_TYPE = 'source_type';
+    public const FIELD_FUNCTION = 'function';
+    public const FIELD_VERIFIED = 'verified';
+    public const FIELD_PROVEN_REAL_OUTCOMES_OBSERVED = 'proven_real_outcomes_observed';
+    public const FIELD_REFUSED_COUNT = 'refused_count';
+    public const FIELD_REGRET_MEASURE_ID = 'regret_measure_id';
+    public const FIELD_ROUTED_TASKS_OBSERVED = 'routed_tasks_observed';
+    public const FIELD_SERIES = 'series';
+    public const FIELD_TIME_TO_FIRST_PROVEN_REAL_SECONDS = 'time_to_first_proven_real_seconds';
+    public const FIELD_TIME_TO_FIRST_ROUTED_TASK_SECONDS = 'time_to_first_routed_task_seconds';
+    public const FIELD_TIMES = 'times';
+    public const FIELD_VIOLATIONS = 'violations';
+    public const FIELD_WINDOW_DAYS = 'window_days';
+    public const FIELD_YARDSTICK = 'yardstick';
+    public const FIELD_ENGINE = 'engine';
+    public const FIELD_JSONL = 'jsonl';
+    public const FIELD_NO_DRILL_IN_WINDOW = 'no_drill_in_window';
+    public const FIELD_TETO01_RECEIPT_ENCODE_FAILED = 'teto01_receipt_encode_failed';
+    public const FIELD_GOLDEN_V2 = 'golden_v2';
+    public const FIELD_UTC = 'UTC';
+    public const FIELD_ADMISSION_ADMITTED = 'admission.admitted';
+    public const FIELD_ADMISSION_BYPASS = 'admission.bypass';
+    public const FIELD_ADMISSION_COLD_START_VIA = 'admission.cold_start_via';
+    public const FIELD_CAPABILITY_SPEC_VERIFIED = 'capability_spec.verified';
+    public const FIELD_YARDSTICK_GOLDEN_V2_PASSED = 'yardstick.golden_v2_passed';
+    public const FIELD_TIMES_HOURS_OF_INTEGRATION = 'times.hours_of_integration';
+    public const FIELD_TIMES_TIME_TO_FIRST_PROVEN_REAL_SECONDS = 'times.time_to_first_proven_real_seconds';
+    public const FIELD_TIMES_TIME_TO_FIRST_ROUTED_TASK_SECONDS = 'times.time_to_first_routed_task_seconds';
+    public const FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2 = 'atlas.decide.route_regret.v2';
+    public const FIELD_ADMISSION_REASON = 'admission.reason';
+    public const FIELD_CAPABILITY_SPEC_FUNCTION = 'capability_spec.function';
+    public const FIELD_CAPABILITY_SPEC_VIOLATIONS = 'capability_spec.violations';
+    public const FIELD_CODEX_INDEPENDENT_TETO01_JUDGE = 'codex-independent-teto01-judge';
+    public const FIELD_CURSOR_ACOS_MAX_TETO01 = 'cursor-acos-max-teto01';
+    public const FIELD_DENOMINATORS_PROVEN_REAL_OUTCOMES_OBSERVED = 'denominators.proven_real_outcomes_observed';
+    public const FIELD_DENOMINATORS_ROUTED_TASKS_OBSERVED = 'denominators.routed_tasks_observed';
+    public const FIELD_THRESHOLDS_DAYS_BETWEEN_DRILLS_MAX = 'thresholds.days_between_drills_max';
+    public const FIELD_YARDSTICK_GOLDEN_V2_SCORE = 'yardstick.golden_v2_score';
+    public const FIELD_YARDSTICK_REGRET_MEASURE_ID = 'yardstick.regret_measure_id';
+    public const FIELD_ATLAS_TETO_N_CAPTURE_DRILL___JSON = 'atlas:teto:n-capture-drill --json';
+    public const INT_365 = 365;
+
     private readonly string $ledgerPath;
 
     public function __construct(?string $ledgerPath = null)
@@ -70,40 +163,40 @@ final class AtlasNCaptureDrillService
     public static function freezePayload(): array
     {
         return [
-            'kind' => self::KIND_MEASURE_FREEZE,
-            'measure_id' => self::MEASURE_ID,
-            'formula' => 'N-Capture Drill: for each installed-but-not-routed engine, publish {time_to_first_routed_task_seconds, time_to_first_proven_real_seconds, hours_of_integration} with denominators; admission only via MAXK-02 cold-start; capability spec ELEV-29s must verify; yardstick = golden v2 + MAXK-01 regret in peek mode.',
-            'formula_version' => self::FORMULA_VERSION,
-            'thresholds' => [
-                'days_between_drills_max' => self::DEFAULT_DAYS_BETWEEN_DRILLS_MAX,
-                'cold_start_channels_allowed' => [self::COLD_START_CHANNEL_MAXK02],
-                'bypass_forbidden' => true,
-                'yardstick_required_series' => [
-                    'golden_v2',
-                    'atlas.decide.route_regret.v2',
+            self::FIELD_KIND => self::KIND_MEASURE_FREEZE,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_FORMULA => 'N-Capture Drill: for each installed-but-not-routed engine, publish {time_to_first_routed_task_seconds, time_to_first_proven_real_seconds, hours_of_integration} with denominators; admission only via MAXK-02 cold-start; capability spec ELEV-29s must verify; yardstick = golden v2 + MAXK-01 regret in peek mode.',
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+            self::FIELD_THRESHOLDS => [
+                self::FIELD_DAYS_BETWEEN_DRILLS_MAX => self::DEFAULT_DAYS_BETWEEN_DRILLS_MAX,
+                self::FIELD_COLD_START_CHANNELS_ALLOWED => [self::COLD_START_CHANNEL_MAXK02],
+                self::FIELD_BYPASS_FORBIDDEN => true,
+                self::FIELD_YARDSTICK_REQUIRED_SERIES => [
+                    self::FIELD_GOLDEN_V2,
+                    self::FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2,
                 ],
-                'peek_only' => true,
-                'required_fields' => [
-                    'engine_id',
-                    'capability_spec.verified',
-                    'yardstick.golden_v2_passed',
-                    'times.time_to_first_routed_task_seconds',
-                    'times.time_to_first_proven_real_seconds',
-                    'times.hours_of_integration',
-                    'admission.admitted',
-                    'admission.cold_start_via',
-                    'admission.bypass',
+                self::FIELD_PEEK_ONLY => true,
+                self::FIELD_REQUIRED_FIELDS => [
+                    self::FIELD_ENGINE_ID,
+                    self::FIELD_CAPABILITY_SPEC_VERIFIED,
+                    self::FIELD_YARDSTICK_GOLDEN_V2_PASSED,
+                    self::FIELD_TIMES_TIME_TO_FIRST_ROUTED_TASK_SECONDS,
+                    self::FIELD_TIMES_TIME_TO_FIRST_PROVEN_REAL_SECONDS,
+                    self::FIELD_TIMES_HOURS_OF_INTEGRATION,
+                    self::FIELD_ADMISSION_ADMITTED,
+                    self::FIELD_ADMISSION_COLD_START_VIA,
+                    self::FIELD_ADMISSION_BYPASS,
                 ],
             ],
-            'denominator_min' => 1,
-            'ttl_days' => 365,
-            'author_engine_id' => 'cursor-acos-max-teto01',
-            'judge_engine_id' => 'codex-independent-teto01-judge',
-            'dual_read_required' => false,
-            'series_registry' => [
-                'series' => self::MEASURE_ID,
-                'path' => 'atlas:teto:n-capture-drill --json',
-                'source_type' => 'jsonl',
+            self::FIELD_DENOMINATOR_MIN => 1,
+            self::FIELD_TTL_DAYS => self::INT_365,
+            self::FIELD_AUTHOR_ENGINE_ID => self::FIELD_CURSOR_ACOS_MAX_TETO01,
+            self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_INDEPENDENT_TETO01_JUDGE,
+            self::FIELD_DUAL_READ_REQUIRED => false,
+            self::FIELD_SERIES_REGISTRY => [
+                self::FIELD_SERIES => self::MEASURE_ID,
+                self::FIELD_PATH => self::FIELD_ATLAS_TETO_N_CAPTURE_DRILL___JSON,
+                self::FIELD_SOURCE_TYPE => self::FIELD_JSONL,
             ],
         ];
     }
@@ -120,43 +213,43 @@ final class AtlasNCaptureDrillService
     {
         $violations = $this->validate($drill);
         if ($violations !== []) {
-            throw new RuntimeException('teto01_drill_refused:'.$violations[0]['reason']);
+            throw new RuntimeException('teto01_drill_refused:'.$violations[0][self::FIELD_REASON]);
         }
 
         $receipt = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'measure_id' => self::MEASURE_ID,
-            'formula_version' => self::FORMULA_VERSION,
-            'drill_id' => AiValueNormalizer::trimmedStringOrNull($drill['drill_id'] ?? null) ?? (string) Str::uuid(),
-            'engine_id' => AiValueNormalizer::trimmedScalarStringOrNull($drill['engine_id'] ?? null) ?? '',
-            'capability_spec' => [
-                'function' => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'capability_spec.function')) ?? 'engine',
-                'verified' => (AiValueNormalizer::boolOrNull(data_get($drill, 'capability_spec.verified')) ?? false),
-                'violations' => array_values(AiValueNormalizer::arrayOrEmpty(data_get($drill, 'capability_spec.violations', []))),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+            self::FIELD_DRILL_ID => AiValueNormalizer::trimmedStringOrNull($drill[self::FIELD_DRILL_ID] ?? null) ?? (string) Str::uuid(),
+            self::FIELD_ENGINE_ID => AiValueNormalizer::trimmedScalarStringOrNull($drill[self::FIELD_ENGINE_ID] ?? null) ?? '',
+            self::FIELD_CAPABILITY_SPEC => [
+                self::FIELD_FUNCTION => AiValueNormalizer::trimmedStringOrNull(data_get($drill, self::FIELD_CAPABILITY_SPEC_FUNCTION)) ?? self::FIELD_ENGINE,
+                self::FIELD_VERIFIED => (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_CAPABILITY_SPEC_VERIFIED)) ?? false),
+                self::FIELD_VIOLATIONS => array_values(AiValueNormalizer::arrayOrEmpty(data_get($drill, self::FIELD_CAPABILITY_SPEC_VIOLATIONS, []))),
             ],
-            'yardstick' => [
-                'golden_v2_passed' => (AiValueNormalizer::boolOrNull(data_get($drill, 'yardstick.golden_v2_passed')) ?? false),
-                'golden_v2_score' => data_get($drill, 'yardstick.golden_v2_score'),
-                'regret_measure_id' => AiValueNormalizer::trimmedStringOrNull(data_get($drill, 'yardstick.regret_measure_id')) ?? 'atlas.decide.route_regret.v2',
-                'peek_mode' => true,
+            self::FIELD_YARDSTICK => [
+                self::FIELD_GOLDEN_V2_PASSED => (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_YARDSTICK_GOLDEN_V2_PASSED)) ?? false),
+                self::FIELD_GOLDEN_V2_SCORE => data_get($drill, self::FIELD_YARDSTICK_GOLDEN_V2_SCORE),
+                self::FIELD_REGRET_MEASURE_ID => AiValueNormalizer::trimmedStringOrNull(data_get($drill, self::FIELD_YARDSTICK_REGRET_MEASURE_ID)) ?? self::FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2,
+                self::FIELD_PEEK_MODE => true,
             ],
-            'times' => [
-                'time_to_first_routed_task_seconds' => (int) data_get($drill, 'times.time_to_first_routed_task_seconds'),
-                'time_to_first_proven_real_seconds' => (int) data_get($drill, 'times.time_to_first_proven_real_seconds'),
-                'hours_of_integration' => AiValueNormalizer::finiteFloatOrNull(data_get($drill, 'times.hours_of_integration')) ?? 0.0,
+            self::FIELD_TIMES => [
+                self::FIELD_TIME_TO_FIRST_ROUTED_TASK_SECONDS => (int) data_get($drill, self::FIELD_TIMES_TIME_TO_FIRST_ROUTED_TASK_SECONDS),
+                self::FIELD_TIME_TO_FIRST_PROVEN_REAL_SECONDS => (int) data_get($drill, self::FIELD_TIMES_TIME_TO_FIRST_PROVEN_REAL_SECONDS),
+                self::FIELD_HOURS_OF_INTEGRATION => AiValueNormalizer::finiteFloatOrNull(data_get($drill, self::FIELD_TIMES_HOURS_OF_INTEGRATION)) ?? 0.0,
             ],
-            'denominators' => [
-                'routed_tasks_observed' => (int) data_get($drill, 'denominators.routed_tasks_observed', 0),
-                'proven_real_outcomes_observed' => (int) data_get($drill, 'denominators.proven_real_outcomes_observed', 0),
+            self::FIELD_DENOMINATORS => [
+                self::FIELD_ROUTED_TASKS_OBSERVED => (int) data_get($drill, self::FIELD_DENOMINATORS_ROUTED_TASKS_OBSERVED, 0),
+                self::FIELD_PROVEN_REAL_OUTCOMES_OBSERVED => (int) data_get($drill, self::FIELD_DENOMINATORS_PROVEN_REAL_OUTCOMES_OBSERVED, 0),
             ],
-            'admission' => [
-                'admitted' => (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.admitted')) ?? false),
-                'cold_start_via' => data_get($drill, 'admission.cold_start_via'),
-                'bypass' => (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.bypass')) ?? false),
-                'reason' => data_get($drill, 'admission.reason'),
+            self::FIELD_ADMISSION => [
+                self::FIELD_ADMITTED => (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_ADMISSION_ADMITTED)) ?? false),
+                self::FIELD_COLD_START_VIA => data_get($drill, self::FIELD_ADMISSION_COLD_START_VIA),
+                self::FIELD_BYPASS => (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_ADMISSION_BYPASS)) ?? false),
+                self::FIELD_REASON => data_get($drill, self::FIELD_ADMISSION_REASON),
             ],
-            'trigger' => (AiValueNormalizer::trimmedStringOrNull($drill['trigger'] ?? null) ?? self::TRIGGER_UNKNOWN),
-            'recorded_at' => now('UTC')->toIso8601String(),
+            self::FIELD_TRIGGER => (AiValueNormalizer::trimmedStringOrNull($drill[self::FIELD_TRIGGER] ?? null) ?? self::TRIGGER_UNKNOWN),
+            self::FIELD_RECORDED_AT => now(self::FIELD_UTC)->toIso8601String(),
         ];
 
         $this->appendReceipt($receipt);
@@ -172,14 +265,14 @@ final class AtlasNCaptureDrillService
     public function report(?int $days = null): array
     {
         $freeze = self::freezePayload();
-        $windowDays = ($days !== null && $days > 0) ? $days : (int) (AiValueNormalizer::finiteFloatOrNull(data_get($freeze, 'thresholds.days_between_drills_max')) ?? self::DEFAULT_DAYS_BETWEEN_DRILLS_MAX);
+        $windowDays = ($days !== null && $days > 0) ? $days : (int) (AiValueNormalizer::finiteFloatOrNull(data_get($freeze, self::FIELD_THRESHOLDS_DAYS_BETWEEN_DRILLS_MAX)) ?? self::DEFAULT_DAYS_BETWEEN_DRILLS_MAX);
 
         $receipts = $this->readReceipts();
-        $since = now('UTC')->subDays($windowDays);
+        $since = now(self::FIELD_UTC)->subDays($windowDays);
         $inWindow = array_values(array_filter(
             $receipts,
             static function (array $r) use ($since): bool {
-                $ts = (AiValueNormalizer::trimmedStringOrNull($r['recorded_at'] ?? null) ?? '');
+                $ts = (AiValueNormalizer::trimmedStringOrNull($r[self::FIELD_RECORDED_AT] ?? null) ?? '');
                 if ($ts === '') {
                     return false;
                 }
@@ -194,20 +287,20 @@ final class AtlasNCaptureDrillService
 
         $admitted = array_values(array_filter(
             $inWindow,
-            static fn (array $r): bool => (AiValueNormalizer::boolOrNull(data_get($r, 'admission.admitted')) ?? false) === true
+            static fn (array $r): bool => (AiValueNormalizer::boolOrNull(data_get($r, self::FIELD_ADMISSION_ADMITTED)) ?? false) === true
         ));
 
         $refused = array_values(array_filter(
             $inWindow,
-            static fn (array $r): bool => (AiValueNormalizer::boolOrNull(data_get($r, 'admission.admitted')) ?? false) === false
+            static fn (array $r): bool => (AiValueNormalizer::boolOrNull(data_get($r, self::FIELD_ADMISSION_ADMITTED)) ?? false) === false
         ));
 
-        $status = $inWindow === [] ? 'insufficient_signal' : 'ok';
-        $reason = $inWindow === [] ? 'no_drill_in_window' : null;
+        $status = $inWindow === [] ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK;
+        $reason = $inWindow === [] ? self::FIELD_NO_DRILL_IN_WINDOW : null;
 
         $engines = [];
         foreach ($inWindow as $r) {
-            $engineId = (AiValueNormalizer::trimmedStringOrNull($r['engine_id'] ?? null) ?? '');
+            $engineId = (AiValueNormalizer::trimmedStringOrNull($r[self::FIELD_ENGINE_ID] ?? null) ?? '');
             if ($engineId === '') {
                 continue;
             }
@@ -215,23 +308,23 @@ final class AtlasNCaptureDrillService
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'measure_id' => self::MEASURE_ID,
-            'formula_version' => self::FORMULA_VERSION,
-            'generated_at' => now('UTC')->toIso8601String(),
-            'freeze' => $freeze,
-            'window_days' => $windowDays,
-            'status' => $status,
-            'reason' => $reason,
-            'denominator_min' => (int) (AiValueNormalizer::finiteFloatOrNull($freeze['denominator_min'] ?? null) ?? 0),
-            'aggregate' => [
-                'drills_in_window' => count($inWindow),
-                'admitted_count' => count($admitted),
-                'refused_count' => count($refused),
-                'engines' => $engines,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+            self::FIELD_GENERATED_AT => now(self::FIELD_UTC)->toIso8601String(),
+            self::FIELD_FREEZE => $freeze,
+            self::FIELD_WINDOW_DAYS => $windowDays,
+            self::FIELD_STATUS => $status,
+            self::FIELD_REASON => $reason,
+            self::FIELD_DENOMINATOR_MIN => (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? 0),
+            self::FIELD_AGGREGATE => [
+                self::FIELD_DRILLS_IN_WINDOW => count($inWindow),
+                self::FIELD_ADMITTED_COUNT => count($admitted),
+                self::FIELD_REFUSED_COUNT => count($refused),
+                self::FIELD_ENGINES => $engines,
             ],
-            'latest' => $inWindow === [] ? null : end($inWindow),
-            'drills' => $inWindow,
+            self::FIELD_LATEST => $inWindow === [] ? null : end($inWindow),
+            self::FIELD_DRILLS => $inWindow,
         ];
     }
 
@@ -250,23 +343,23 @@ final class AtlasNCaptureDrillService
     {
         $violations = [];
 
-        $engineId = AiValueNormalizer::trimmedStringOrNull($drill['engine_id'] ?? null) ?? '';
+        $engineId = AiValueNormalizer::trimmedStringOrNull($drill[self::FIELD_ENGINE_ID] ?? null) ?? '';
         if ($engineId === '') {
-            $violations[] = ['field' => 'engine_id', 'reason' => self::REASON_DRILL_RECEIPT_INCOMPLETE];
+            $violations[] = [self::FIELD_FIELD => self::FIELD_ENGINE_ID, self::FIELD_REASON => self::REASON_DRILL_RECEIPT_INCOMPLETE];
         }
 
         foreach ([
-            'capability_spec.verified',
-            'yardstick.golden_v2_passed',
-            'times.time_to_first_routed_task_seconds',
-            'times.time_to_first_proven_real_seconds',
-            'times.hours_of_integration',
-            'admission.admitted',
-            'admission.cold_start_via',
-            'admission.bypass',
+            self::FIELD_CAPABILITY_SPEC_VERIFIED,
+            self::FIELD_YARDSTICK_GOLDEN_V2_PASSED,
+            self::FIELD_TIMES_TIME_TO_FIRST_ROUTED_TASK_SECONDS,
+            self::FIELD_TIMES_TIME_TO_FIRST_PROVEN_REAL_SECONDS,
+            self::FIELD_TIMES_HOURS_OF_INTEGRATION,
+            self::FIELD_ADMISSION_ADMITTED,
+            self::FIELD_ADMISSION_COLD_START_VIA,
+            self::FIELD_ADMISSION_BYPASS,
         ] as $requiredField) {
             if (data_get($drill, $requiredField, '__missing__') === '__missing__') {
-                $violations[] = ['field' => $requiredField, 'reason' => self::REASON_DRILL_RECEIPT_INCOMPLETE];
+                $violations[] = [self::FIELD_FIELD => $requiredField, self::FIELD_REASON => self::REASON_DRILL_RECEIPT_INCOMPLETE];
             }
         }
 
@@ -274,23 +367,23 @@ final class AtlasNCaptureDrillService
             return $violations;
         }
 
-        $admitted = (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.admitted')) ?? false);
-        $bypass = (AiValueNormalizer::boolOrNull(data_get($drill, 'admission.bypass')) ?? false);
-        $coldStartVia = (string) (data_get($drill, 'admission.cold_start_via') ?? '');
-        $capabilityVerified = (AiValueNormalizer::boolOrNull(data_get($drill, 'capability_spec.verified')) ?? false);
-        $yardstickPassed = (AiValueNormalizer::boolOrNull(data_get($drill, 'yardstick.golden_v2_passed')) ?? false);
+        $admitted = (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_ADMISSION_ADMITTED)) ?? false);
+        $bypass = (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_ADMISSION_BYPASS)) ?? false);
+        $coldStartVia = (string) (data_get($drill, self::FIELD_ADMISSION_COLD_START_VIA) ?? '');
+        $capabilityVerified = (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_CAPABILITY_SPEC_VERIFIED)) ?? false);
+        $yardstickPassed = (AiValueNormalizer::boolOrNull(data_get($drill, self::FIELD_YARDSTICK_GOLDEN_V2_PASSED)) ?? false);
 
         if ($admitted && $bypass) {
-            $violations[] = ['field' => 'admission.bypass', 'reason' => self::REASON_ADMISSION_VIA_BYPASS_FORBIDDEN];
+            $violations[] = [self::FIELD_FIELD => self::FIELD_ADMISSION_BYPASS, self::FIELD_REASON => self::REASON_ADMISSION_VIA_BYPASS_FORBIDDEN];
         }
         if ($admitted && $coldStartVia !== self::COLD_START_CHANNEL_MAXK02) {
-            $violations[] = ['field' => 'admission.cold_start_via', 'reason' => self::REASON_COLD_START_CHANNEL_INVALID];
+            $violations[] = [self::FIELD_FIELD => self::FIELD_ADMISSION_COLD_START_VIA, self::FIELD_REASON => self::REASON_COLD_START_CHANNEL_INVALID];
         }
         if ($admitted && ! $capabilityVerified) {
-            $violations[] = ['field' => 'capability_spec.verified', 'reason' => self::REASON_CAPABILITY_SPEC_VIOLATION];
+            $violations[] = [self::FIELD_FIELD => self::FIELD_CAPABILITY_SPEC_VERIFIED, self::FIELD_REASON => self::REASON_CAPABILITY_SPEC_VIOLATION];
         }
         if ($admitted && ! $yardstickPassed) {
-            $violations[] = ['field' => 'yardstick.golden_v2_passed', 'reason' => self::REASON_YARDSTICK_FAILED_BUT_ADMITTED];
+            $violations[] = [self::FIELD_FIELD => self::FIELD_YARDSTICK_GOLDEN_V2_PASSED, self::FIELD_REASON => self::REASON_YARDSTICK_FAILED_BUT_ADMITTED];
         }
 
         return $violations;
@@ -305,7 +398,7 @@ final class AtlasNCaptureDrillService
         }
         $encoded = json_encode($receipt, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
         if ($encoded === false) {
-            throw new RuntimeException('teto01_receipt_encode_failed');
+            throw new RuntimeException(self::FIELD_TETO01_RECEIPT_ENCODE_FAILED);
         }
         file_put_contents($this->ledgerPath, $encoded.PHP_EOL, FILE_APPEND | LOCK_EX);
     }

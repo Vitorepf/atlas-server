@@ -28,7 +28,7 @@ use Throwable;
  *
  *   - doc_status=ready (per service_class FQN): some canonical doc declares a
  *     `symbol: <ref>` evidence_ref AND
- *     AtlasAaeosImplementationEvidenceResolver::resolve('symbol', <ref>) matches
+ *     AtlasAaeosImplementationEvidenceResolver::resolve(self::FIELD_SYMBOL, <ref>) matches
  *     the scorecard FQN EXACTLY (or by the FQN suffix '\<FQN>'). This FQN-BIND is
  *     mandatory: a doc declaring `symbol: AtlasTokenEconomyRuntimeService` (which
  *     resolves to App\Services\Ai\Context\AtlasTokenEconomyRuntimeService) must NOT
@@ -58,6 +58,8 @@ use Throwable;
  */
 class AtlasCognitionEvidenceResolver
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_OWNER_DOC = 'owner_doc';
     public const STATUS_READY = 'ready';
 
     public const STATUS_PARTIAL = 'partial';
@@ -65,6 +67,39 @@ class AtlasCognitionEvidenceResolver
     public const STATUS_BUILDING = 'building';
 
     public const STATUS_BLOCKED = 'blocked';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_OWNER_CAPABILITY_IDS = 'owner_capability_ids';
+    public const FIELD_CANDIDATE_TEST_REFS = 'candidate_test_refs';
+    public const FIELD_LATEST_RECEIPT_AT = 'latest_receipt_at';
+    public const FIELD_LATEST_RECEIPT_AGE_DAYS = 'latest_receipt_age_days';
+    public const FIELD_GREEN_RECEIPT_COUNT = 'green_receipt_count';
+    public const FIELD_TEST_FILE_HASH = 'test_file_hash';
+    public const FIELD_CAPABILITY_ID = 'capability_id';
+    public const FIELD_EVIDENCE_REFS = 'evidence_refs';
+    public const FIELD_TEST_REFS = 'test_refs';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_REF = 'ref';
+    public const FIELD_IMPL_FILES_HASH = 'impl_files_hash';
+    public const FIELD_PATH = 'path';
+    public const FIELD_SYMBOL_REF = 'symbol_ref';
+    public const FIELD_EXISTING_TEST_REFS = 'existing_test_refs';
+    public const FIELD_MATCHED = 'matched';
+    public const FIELD_RESOLVED = 'resolved';
+    public const FIELD_SYMBOL = 'symbol';
+    public const FIELD_TEST = 'test';
+    public const FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS = 'atlas_aaeos_test_run_receipts';
+    public const FIELD_CANDIDATE_TEST_REF_MISSING = 'candidate_test_ref_missing';
+    public const FIELD_CANDIDATE_TEST_SYMBOL_MISSING = 'candidate_test_symbol_missing';
+    public const FIELD_GREEN_RECEIPT_MISSING = 'green_receipt_missing';
+    public const FIELD_GREEN_RECEIPT_STALE_OR_UNMATCHED = 'green_receipt_stale_or_unmatched';
+    public const FIELD_OWNER_DOC_MISSING = 'owner_doc_missing';
+    public const FIELD_SERVICE_CLASS_MISSING = 'service_class_missing';
+    public const FIELD_TEST_REF = 'test_ref';
+    public const FIELD_CREATED_AT = 'created_at';
+    public const FIELD_RAN_AT = 'ran_at';
+    public const FIELD_TEST_2 = 'Test';
+    public const FIELD_UTC = 'UTC';
 
     /**
      * Memoized FQN-ownership index: short class name => list of owner-doc capabilities
@@ -88,7 +123,7 @@ class AtlasCognitionEvidenceResolver
     /**
      * Resolve doc_status for a scorecard service_class FQN from REAL doc ownership.
      *
-     * ready    -> >=1 owner doc declares `symbol: <ref>` AND resolve('symbol',<ref>)
+     * ready    -> >=1 owner doc declares `symbol: <ref>` AND resolve(self::FIELD_SYMBOL,<ref>)
      *             matches THIS FQN exactly (FQN-bound; an alias short-name collision
      *             cannot mis-credit).
      * blocked  -> a null/blank service_class can never own a doc.
@@ -137,9 +172,9 @@ class AtlasCognitionEvidenceResolver
         // The test refs to consider: every owner doc's declared `test:` refs, plus the
         // <Short>Test naming-convention fallback. resolveTestFqn() refuses an ambiguous
         // ref, so a non-resolving fallback simply does not count.
-        $candidateTestRefs = [$short.'Test'];
+        $candidateTestRefs = [$short.self::FIELD_TEST_2];
         foreach ($owners as $owner) {
-            foreach ($owner['test_refs'] as $testRef) {
+            foreach ($owner[self::FIELD_TEST_REFS] as $testRef) {
                 $candidateTestRefs[] = $testRef;
             }
         }
@@ -164,15 +199,15 @@ class AtlasCognitionEvidenceResolver
                 // decides) rather than crashing — hasGreenReceipt itself is degrade-safe
                 // (false when the receipts table is absent), so this never fabricates ready.
                 try {
-                    $hashes = $this->truth->freshnessHashes($owner['evidence_refs'], $testRef);
+                    $hashes = $this->truth->freshnessHashes($owner[self::FIELD_EVIDENCE_REFS], $testRef);
                 } catch (Throwable) {
-                    $hashes = ['test_file_hash' => null, 'impl_files_hash' => null];
+                    $hashes = [self::FIELD_TEST_FILE_HASH => null, self::FIELD_IMPL_FILES_HASH => null];
                 }
                 if ($this->testExecution->hasGreenReceipt(
-                    $owner['capability_id'],
+                    $owner[self::FIELD_CAPABILITY_ID],
                     $testRef,
-                    $hashes['test_file_hash'],
-                    $hashes['impl_files_hash'],
+                    $hashes[self::FIELD_TEST_FILE_HASH],
+                    $hashes[self::FIELD_IMPL_FILES_HASH],
                 )) {
                     return self::STATUS_READY;
                 }
@@ -187,7 +222,7 @@ class AtlasCognitionEvidenceResolver
 
     /**
      * The owner-doc capabilities that OWN this FQN: a doc declares `symbol: <ref>` AND
-     * resolve('symbol',<ref>) matches the FQN exactly (or by the '\<FQN>' suffix). Reads
+     * resolve(self::FIELD_SYMBOL,<ref>) matches the FQN exactly (or by the '\<FQN>' suffix). Reads
      * the memoized ownership index; degrade-safe (empty on a blind index/no docs).
      *
      * @return array<int,array{capability_id:string, owner_doc:string, symbol_ref:string, evidence_refs:array<int,array{kind:string,ref:string}>, test_refs:array<int,string>}>
@@ -209,7 +244,7 @@ class AtlasCognitionEvidenceResolver
 
         $ids = [];
         foreach ($this->ownerDocsForFqn($fqn) as $owner) {
-            $id = AiValueNormalizer::trimmedStringOrNull($owner['capability_id'] ?? null) ?? '';
+            $id = AiValueNormalizer::trimmedStringOrNull($owner[self::FIELD_CAPABILITY_ID] ?? null) ?? '';
             if ($id !== '') {
                 $ids[] = $id;
             }
@@ -246,23 +281,23 @@ class AtlasCognitionEvidenceResolver
         }
 
         foreach ($docs as $doc) {
-            $capabilityId = AiValueNormalizer::trimmedStringOrNull($doc['id'] ?? null) ?? '';
+            $capabilityId = AiValueNormalizer::trimmedStringOrNull($doc[self::FIELD_ID] ?? null) ?? '';
             if ($capabilityId === '') {
                 continue;
             }
 
-            $ownerDoc = $this->normalizePath((AiValueNormalizer::trimmedStringOrNull($doc['path'] ?? null) ?? ''));
+            $ownerDoc = $this->normalizePath((AiValueNormalizer::trimmedStringOrNull($doc[self::FIELD_PATH] ?? null) ?? ''));
             if ($ownerDoc !== '' && array_key_exists($ownerDoc, $targets)) {
                 $targets[$ownerDoc][] = $capabilityId;
             }
 
-            foreach (AiValueNormalizer::arrayOrEmpty($doc['evidence_refs'] ?? null) as $ref) {
-                if (AiValueNormalizer::lowerTrimmedString($ref['kind'] ?? '') !== 'symbol') {
+            foreach (AiValueNormalizer::arrayOrEmpty($doc[self::FIELD_EVIDENCE_REFS] ?? null) as $ref) {
+                if (AiValueNormalizer::lowerTrimmedString($ref[self::FIELD_KIND] ?? '') !== self::FIELD_SYMBOL) {
                     continue;
                 }
 
                 try {
-                    $filePaths = $this->resolver->resolveSymbolFilePaths((AiValueNormalizer::trimmedStringOrNull($ref['ref'] ?? null) ?? ''));
+                    $filePaths = $this->resolver->resolveSymbolFilePaths((AiValueNormalizer::trimmedStringOrNull($ref[self::FIELD_REF] ?? null) ?? ''));
                 } catch (Throwable) {
                     $filePaths = [];
                 }
@@ -293,13 +328,13 @@ class AtlasCognitionEvidenceResolver
         $fqn = $this->normalizeFqn($serviceClass);
         if ($fqn === null) {
             return [
-                'status' => self::STATUS_BLOCKED,
-                'reason' => 'service_class_missing',
-                'owner_capability_ids' => [],
-                'candidate_test_refs' => [],
-                'latest_receipt_at' => null,
-                'latest_receipt_age_days' => null,
-                'green_receipt_count' => 0,
+                self::FIELD_STATUS => self::STATUS_BLOCKED,
+                self::FIELD_REASON => self::FIELD_SERVICE_CLASS_MISSING,
+                self::FIELD_OWNER_CAPABILITY_IDS => [],
+                self::FIELD_CANDIDATE_TEST_REFS => [],
+                self::FIELD_LATEST_RECEIPT_AT => null,
+                self::FIELD_LATEST_RECEIPT_AGE_DAYS => null,
+                self::FIELD_GREEN_RECEIPT_COUNT => 0,
             ];
         }
 
@@ -310,43 +345,43 @@ class AtlasCognitionEvidenceResolver
             fn (string $testRef): bool => $this->testSymbolExists($testRef),
         ));
         $ownerIds = array_values(array_unique(array_filter(array_map(
-            static fn (array $owner): string => AiValueNormalizer::trimmedStringOrNull($owner['capability_id'] ?? null) ?? '',
+            static fn (array $owner): string => AiValueNormalizer::trimmedStringOrNull($owner[self::FIELD_CAPABILITY_ID] ?? null) ?? '',
             $owners,
         ))));
 
         $latestReceipt = null;
         $greenCount = 0;
-        if ($ownerIds !== [] && DatabaseTableAvailability::has('atlas_aaeos_test_run_receipts')) {
+        if ($ownerIds !== [] && DatabaseTableAvailability::has(self::FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS)) {
             $query = AtlasAaeosTestRunReceipt::query()
-                ->whereIn('capability_id', $ownerIds);
+                ->whereIn(self::FIELD_CAPABILITY_ID, $ownerIds);
             if ($candidateTestRefs !== []) {
-                $query->whereIn('test_ref', $candidateTestRefs);
+                $query->whereIn(self::FIELD_TEST_REF, $candidateTestRefs);
             }
 
-            $latestReceipt = (clone $query)->orderByDesc('ran_at')->orderByDesc('created_at')->first();
+            $latestReceipt = (clone $query)->orderByDesc(self::FIELD_RAN_AT)->orderByDesc(self::FIELD_CREATED_AT)->first();
             $greenCount = (clone $query)->green()->count();
         }
 
         $latestAt = $this->parseDate($latestReceipt?->ran_at ?? $latestReceipt?->created_at);
         $pipelineStatus = $this->resolvePipelineStatus($fqn);
         $reason = match (true) {
-            $owners === [] => 'owner_doc_missing',
-            $candidateTestRefs === [] => 'candidate_test_ref_missing',
-            $existingTestRefs === [] => 'candidate_test_symbol_missing',
-            $greenCount === 0 => 'green_receipt_missing',
-            $pipelineStatus !== self::STATUS_READY => 'green_receipt_stale_or_unmatched',
+            $owners === [] => self::FIELD_OWNER_DOC_MISSING,
+            $candidateTestRefs === [] => self::FIELD_CANDIDATE_TEST_REF_MISSING,
+            $existingTestRefs === [] => self::FIELD_CANDIDATE_TEST_SYMBOL_MISSING,
+            $greenCount === 0 => self::FIELD_GREEN_RECEIPT_MISSING,
+            $pipelineStatus !== self::STATUS_READY => self::FIELD_GREEN_RECEIPT_STALE_OR_UNMATCHED,
             default => self::STATUS_READY,
         };
 
         return [
-            'status' => $pipelineStatus,
-            'reason' => $reason,
-            'owner_capability_ids' => $ownerIds,
-            'candidate_test_refs' => $candidateTestRefs,
-            'existing_test_refs' => $existingTestRefs,
-            'latest_receipt_at' => $latestAt?->toIso8601String(),
-            'latest_receipt_age_days' => $latestAt === null ? null : round($latestAt->diffInHours(CarbonImmutable::now('UTC')) / 24, 2),
-            'green_receipt_count' => $greenCount,
+            self::FIELD_STATUS => $pipelineStatus,
+            self::FIELD_REASON => $reason,
+            self::FIELD_OWNER_CAPABILITY_IDS => $ownerIds,
+            self::FIELD_CANDIDATE_TEST_REFS => $candidateTestRefs,
+            self::FIELD_EXISTING_TEST_REFS => $existingTestRefs,
+            self::FIELD_LATEST_RECEIPT_AT => $latestAt?->toIso8601String(),
+            self::FIELD_LATEST_RECEIPT_AGE_DAYS => $latestAt === null ? null : round($latestAt->diffInHours(CarbonImmutable::now(self::FIELD_UTC)) / 24, 2),
+            self::FIELD_GREEN_RECEIPT_COUNT => $greenCount,
         ];
     }
 
@@ -364,11 +399,11 @@ class AtlasCognitionEvidenceResolver
             // WITHHOLD ownership (-> doc not ready), never crash a scorecard read and
             // never fabricate a match. Mirrors the ADRS resolver's never-fabricate rule.
             try {
-                $resolution = $this->resolver->resolve('symbol', $candidate['symbol_ref']);
+                $resolution = $this->resolver->resolve(self::FIELD_SYMBOL, $candidate[self::FIELD_SYMBOL_REF]);
             } catch (Throwable) {
                 continue;
             }
-            $matched = $resolution['matched'] ?? null;
+            $matched = $resolution[self::FIELD_MATCHED] ?? null;
             if ($matched === null) {
                 continue;
             }
@@ -386,9 +421,9 @@ class AtlasCognitionEvidenceResolver
      */
     private function candidateTestRefsFor(string $fqn, array $owners): array
     {
-        $candidateTestRefs = [$this->classBasename($fqn).'Test'];
+        $candidateTestRefs = [$this->classBasename($fqn).self::FIELD_TEST_2];
         foreach ($owners as $owner) {
-            foreach ($owner['test_refs'] as $testRef) {
+            foreach ($owner[self::FIELD_TEST_REFS] as $testRef) {
                 $candidateTestRefs[] = $testRef;
             }
         }
@@ -415,7 +450,7 @@ class AtlasCognitionEvidenceResolver
     /**
      * Does a *Test* symbol for this ref exist in the code-intel index? FQN-anchored via
      * resolveTestFqn (refuses an ambiguous bare fragment); falls back to the existence
-     * match resolve('test',...) for a bare-but-resolvable <Short>Test class. EXISTENCE
+     * match resolve(self::FIELD_TEST,...) for a bare-but-resolvable <Short>Test class. EXISTENCE
      * only — never green-ness.
      */
     private function testSymbolExists(string $testRef): bool
@@ -430,12 +465,12 @@ class AtlasCognitionEvidenceResolver
             if ($this->resolver->resolveTestFqn($testRef) !== null) {
                 return true;
             }
-            $resolution = $this->resolver->resolve('test', $testRef);
+            $resolution = $this->resolver->resolve(self::FIELD_TEST, $testRef);
         } catch (Throwable) {
             return false;
         }
 
-        return ($resolution['resolved'] ?? false) === true;
+        return ($resolution[self::FIELD_RESOLVED] ?? false) === true;
     }
 
     /**
@@ -464,11 +499,11 @@ class AtlasCognitionEvidenceResolver
         }
 
         foreach ($docs as $doc) {
-            $evidenceRefs = $doc['evidence_refs'];
+            $evidenceRefs = $doc[self::FIELD_EVIDENCE_REFS];
             $testRefs = [];
             foreach ($evidenceRefs as $ref) {
-                if (AiValueNormalizer::lowerTrimmedString($ref['kind'] ?? '') === 'test') {
-                    $value = AiValueNormalizer::trimmedStringOrNull($ref['ref'] ?? null) ?? '';
+                if (AiValueNormalizer::lowerTrimmedString($ref[self::FIELD_KIND] ?? '') === self::FIELD_TEST) {
+                    $value = AiValueNormalizer::trimmedStringOrNull($ref[self::FIELD_REF] ?? null) ?? '';
                     if ($value !== '') {
                         $testRefs[] = $value;
                     }
@@ -476,10 +511,10 @@ class AtlasCognitionEvidenceResolver
             }
 
             foreach ($evidenceRefs as $ref) {
-                if (AiValueNormalizer::lowerTrimmedString($ref['kind'] ?? '') !== 'symbol') {
+                if (AiValueNormalizer::lowerTrimmedString($ref[self::FIELD_KIND] ?? '') !== self::FIELD_SYMBOL) {
                     continue;
                 }
-                $symbolRef = AiValueNormalizer::trimmedStringOrNull($ref['ref'] ?? null) ?? '';
+                $symbolRef = AiValueNormalizer::trimmedStringOrNull($ref[self::FIELD_REF] ?? null) ?? '';
                 if ($symbolRef === '') {
                     continue;
                 }
@@ -488,11 +523,11 @@ class AtlasCognitionEvidenceResolver
                 // a coarse bucket, never the ownership decision.
                 $short = $this->classBasename($symbolRef);
                 $index[$short][] = [
-                    'capability_id' => AiValueNormalizer::trimmedScalarStringOrNull($doc['id'] ?? null) ?? '',
-                    'owner_doc' => AiValueNormalizer::trimmedScalarStringOrNull($doc['path'] ?? null) ?? '',
-                    'symbol_ref' => $symbolRef,
-                    'evidence_refs' => $evidenceRefs,
-                    'test_refs' => $testRefs,
+                    self::FIELD_CAPABILITY_ID => AiValueNormalizer::trimmedScalarStringOrNull($doc[self::FIELD_ID] ?? null) ?? '',
+                    self::FIELD_OWNER_DOC => AiValueNormalizer::trimmedScalarStringOrNull($doc[self::FIELD_PATH] ?? null) ?? '',
+                    self::FIELD_SYMBOL_REF => $symbolRef,
+                    self::FIELD_EVIDENCE_REFS => $evidenceRefs,
+                    self::FIELD_TEST_REFS => $testRefs,
                 ];
             }
         }

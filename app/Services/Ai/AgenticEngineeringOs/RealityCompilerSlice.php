@@ -24,14 +24,26 @@ final readonly class RealityCompilerSlice
     public const SCHEMA_VERSION = 'atlas.reality_compiler.slice.v1';
 
     public const STATUS_PENDING = 'pending';
+    public const FIELD_PHASE = 'phase';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_AUTONOMY_LEVEL = 'autonomy_level';
+    public const FIELD_INTENT = 'intent';
+    public const FIELD_OUTPUT_PHASES = 'output_phases';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_EVIDENCE = 'evidence';
+    public const FIELD_SIMULATION = 'simulation';
+    public const FIELD_REVIEW = 'review';
+    public const FIELD_SWARM = 'swarm';
+    public const FIELD_SPEC = 'spec';
+    public const FIELD_L0 = 'L0';
 
     /** @var list<string> */
     public const EXECUTION_PHASES = [
-        'spec',
-        'simulation',
-        'swarm',
-        'evidence',
-        'review',
+        self::FIELD_SPEC,
+        self::FIELD_SIMULATION,
+        self::FIELD_SWARM,
+        self::FIELD_EVIDENCE,
+        self::FIELD_REVIEW,
     ];
 
     /**
@@ -46,11 +58,11 @@ final readonly class RealityCompilerSlice
     public static function defaultShape(): self
     {
         $phases = array_map(
-            static fn (string $phase): array => ['phase' => $phase, 'status' => self::STATUS_PENDING],
+            static fn (string $phase): array => [self::FIELD_PHASE => $phase, self::FIELD_STATUS => self::STATUS_PENDING],
             self::EXECUTION_PHASES,
         );
 
-        return new self('', 'L0', $phases);
+        return new self('', self::FIELD_L0, $phases);
     }
 
     /**
@@ -62,11 +74,11 @@ final readonly class RealityCompilerSlice
     public static function fromArray(array $input): self
     {
         $default = self::defaultShape();
-        $autonomy = AiValueNormalizer::trimmedStringOrNull($input['autonomy_level'] ?? null) ?? '';
-        $phases = self::normalizePhases(AiValueNormalizer::arrayOrEmpty($input['output_phases'] ?? null));
+        $autonomy = AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_AUTONOMY_LEVEL] ?? null) ?? '';
+        $phases = self::normalizePhases(AiValueNormalizer::arrayOrEmpty($input[self::FIELD_OUTPUT_PHASES] ?? null));
 
         return new self(
-            AiValueNormalizer::trimmedStringOrNull($input['intent'] ?? null) ?? '',
+            AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_INTENT] ?? null) ?? '',
             $autonomy !== '' ? $autonomy : $default->autonomyLevel,
             $phases !== [] ? $phases : $default->outputPhases,
         );
@@ -83,12 +95,12 @@ final readonly class RealityCompilerSlice
             if (! is_array($row)) {
                 continue;
             }
-            $phase = AiValueNormalizer::trimmedStringOrNull($row['phase'] ?? null);
-            $status = AiValueNormalizer::trimmedStringOrNull($row['status'] ?? null);
+            $phase = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_PHASE] ?? null);
+            $status = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_STATUS] ?? null);
             if ($phase === null || $status === null) {
                 continue;
             }
-            $phases[] = ['phase' => $phase, 'status' => $status];
+            $phases[] = [self::FIELD_PHASE => $phase, self::FIELD_STATUS => $status];
         }
 
         return $phases;
@@ -105,10 +117,10 @@ final readonly class RealityCompilerSlice
     public function toArray(): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'intent' => $this->intent,
-            'autonomy_level' => $this->autonomyLevel,
-            'output_phases' => $this->outputPhases,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_INTENT => $this->intent,
+            self::FIELD_AUTONOMY_LEVEL => $this->autonomyLevel,
+            self::FIELD_OUTPUT_PHASES => $this->outputPhases,
         ];
     }
 }

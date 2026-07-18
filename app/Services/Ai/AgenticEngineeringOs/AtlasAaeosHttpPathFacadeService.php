@@ -42,6 +42,8 @@ use Illuminate\Support\Str;
  */
 final class AtlasAaeosHttpPathFacadeService
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_INPUT_TEXT = 'input_text';
     public const STATUS_SCHEMA = 'atlas.aaeos.http_path_status.v1';
 
     public const REQUEST_SCHEMA = 'atlas.aaeos.http_path_request.v1';
@@ -51,6 +53,35 @@ final class AtlasAaeosHttpPathFacadeService
     public const RESULT_BLOCKED = 'blocked';
 
     public const RESULT_UNKNOWN = 'unknown';
+
+    public const FIELD_BLOCKED = 'blocked';
+    public const FIELD_INTENT_ID = 'intent_id';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_ENVELOPES = 'envelopes';
+    public const FIELD_PLACEMENT = 'placement';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_DATA = 'data';
+    public const FIELD_BLOCKER = 'blocker';
+    public const FIELD_TELEMETRY = 'telemetry';
+    public const FIELD_GATE_STATUS = 'gate_status';
+    public const FIELD_AAEOS_HTTP_PATH = 'aaeos_http_path';
+    public const FIELD_BLOCKED_WHEN = 'blocked_when';
+    public const FIELD_BLOCKERS = 'blockers';
+    public const FIELD_CANONICAL_CALLS = 'canonical_calls';
+    public const FIELD_CODE = 'code';
+    public const FIELD_CONFIGURED_PHASE = 'configured_phase';
+    public const FIELD_COUNTERS = 'counters';
+    public const FIELD_DOMAIN = 'domain';
+    public const FIELD_FACADE_ACTIVE = 'facade_active';
+    public const FIELD_FLOW = 'flow';
+    public const FIELD_SCHEMA = 'schema';
+    public const FIELD_LATENCY_MS = 'latency_ms';
+    public const FIELD_LAYER = 'layer';
+    public const FIELD_REQUIRES_AP = 'requires_ap';
+    public const FIELD_PAYLOAD = 'payload';
+    public const FIELD_HTTP_STATUS = 'http_status';
+    public const FIELD_PHASE_ROUTER = 'phase_router';
+    public const FIELD_LEGACY_FALLBACK = 'legacy_fallback';
 
     public const BLOCK_PLACEMENT_GATE_BLOCKED = 'placement_gate_blocked';
 
@@ -77,6 +108,38 @@ final class AtlasAaeosHttpPathFacadeService
     public const TELEMETRY_ENABLED_CONFIG_KEY = 'atlas.aaeos.telemetry_enabled';
 
     public const DEFAULT_TELEMETRY_ENABLED = true;
+    public const FIELD_REQUESTS = 'requests';
+    public const FIELD_SAMPLES = 'samples';
+    public const FIELD_MAX = 'max';
+    public const FIELD_PHASE_ACTIVE = 'phase_active';
+    public const FIELD_PHASE_OUT = 'phase_out';
+    public const FIELD_PHASES_EXECUTED = 'phases_executed';
+    public const FIELD_PHASES_EXECUTED_COUNT = 'phases_executed_count';
+    public const FIELD_PLACEMENT_CACHE_HIT = 'placement_cache_hit';
+    public const FIELD_PLACEMENT_DECISION = 'placement_decision';
+    public const FIELD_SOURCE_TYPE = 'source_type';
+    public const FIELD_SUM = 'sum';
+    public const FIELD_VERDICT = 'verdict';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_APP_SURFACE = 'app_surface';
+    public const FIELD_CURRENT_MODE = 'current_mode';
+    public const FIELD_DOMAIN_ID = 'domain_id';
+    public const FIELD_EMPTY_INTENT = 'empty_intent';
+    public const FIELD_FLOW_ID = 'flow_id';
+    public const FIELD_LEGACY = 'legacy';
+    public const FIELD_SURFACE_ID = 'surface_id';
+    public const FIELD_AAEOS_HTTP_PATH_PHASE_1_EMPTY_INTENT = 'aaeos_http_path_phase_1_empty_intent';
+    public const FIELD_ATLAS_MODE = 'atlas_mode';
+    public const FIELD_ROUTING_TASK = 'routing_task';
+    public const FIELD_ATLAS_AAEOS_PLACEMENT_ = 'atlas.aaeos.placement.';
+    public const FIELD_PAYLOAD_INTENT_ID = 'payload.intent_id';
+    public const FIELD_PAYLOAD_PROMPT = 'payload.prompt';
+    public const FIELD__COUNT = '.count';
+    public const FIELD__MAX = '.max';
+    public const FIELD__SUM = '.sum';
+    public const FIELD_ATLAS_PLACEMENT_GATE_BLOCKED_THIS_INTENT_BEFORE_PROVIDER_EXECUTION_ = 'Atlas placement gate blocked this intent before provider execution.';
+    public const FIELD_ATLAS_POLICY_GATE_BLOCKED_THIS_INTENT_BEFORE_PROVIDER_EXECUTION = 'Atlas policy gate blocked this intent before provider execution';
+    public const INT_422 = 422;
 
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
 
@@ -124,12 +187,12 @@ final class AtlasAaeosHttpPathFacadeService
             $this->incrementCounter(self::TELEMETRY_KEY_LEGACY_FALLBACK);
 
             return [
-                'status' => self::RESULT_OK,
-                'intent_id' => $this->newIntentId($data),
-                'data' => $data,
-                'envelopes' => [],
-                'blocker' => null,
-                'telemetry' => $this->telemetry('legacy', $this->elapsedMs($startedAtNs), false),
+                self::FIELD_STATUS => self::RESULT_OK,
+                self::FIELD_INTENT_ID => $this->newIntentId($data),
+                self::FIELD_DATA => $data,
+                self::FIELD_ENVELOPES => [],
+                self::FIELD_BLOCKER => null,
+                self::FIELD_TELEMETRY => $this->telemetry(self::FIELD_LEGACY, $this->elapsedMs($startedAtNs), false),
             ];
         }
 
@@ -158,7 +221,7 @@ final class AtlasAaeosHttpPathFacadeService
 
         // ---- P2 placement (MANDATORY at Phase 1) --------------------------
         [$placementResult, $cacheHit] = $this->placeOrCache($intentText, $intentHash, $data);
-        $placementOk = ($placementResult['gate_status'] ?? self::RESULT_UNKNOWN) !== self::RESULT_BLOCKED;
+        $placementOk = ($placementResult[self::FIELD_GATE_STATUS] ?? self::RESULT_UNKNOWN) !== self::RESULT_BLOCKED;
 
         $envelopes[] = $factory->placement($intentId, $intentHash, $placementResult, $placementOk);
 
@@ -171,8 +234,8 @@ final class AtlasAaeosHttpPathFacadeService
                 envelopes: $envelopes,
                 placementResult: $placementResult,
                 blockerCode: self::BLOCK_PLACEMENT_GATE_BLOCKED,
-                reason: 'Atlas placement gate blocked this intent before provider execution.',
-                blockedWhen: array_values(AiValueNormalizer::arrayOrEmpty($placementResult['blocked_when'] ?? null)),
+                reason: self::FIELD_ATLAS_PLACEMENT_GATE_BLOCKED_THIS_INTENT_BEFORE_PROVIDER_EXECUTION_,
+                blockedWhen: array_values(AiValueNormalizer::arrayOrEmpty($placementResult[self::FIELD_BLOCKED_WHEN] ?? null)),
                 configuredPhase: $configuredPhase,
                 startedAtNs: $startedAtNs,
                 placementCacheHit: $cacheHit,
@@ -186,15 +249,15 @@ final class AtlasAaeosHttpPathFacadeService
             $envelopes[] = $policyEnv;
 
             $advance = $factory->phaseAdvanceVerdict($policyEnv);
-            if (in_array($advance['verdict'] ?? '', [PhaseAdvanceVerdictClassifier::VERDICT_HALT, PhaseAdvanceVerdictClassifier::VERDICT_BLOCK], true)) {
+            if (in_array($advance[self::FIELD_VERDICT] ?? '', [PhaseAdvanceVerdictClassifier::VERDICT_HALT, PhaseAdvanceVerdictClassifier::VERDICT_BLOCK], true)) {
                 $this->incrementCounter(self::TELEMETRY_KEY_BLOCKED);
 
                 $blockedWhen = array_values(array_map(
-                    static fn (array $b): string => AiValueNormalizer::trimmedStringOrNull($b['id'] ?? null) ?? '',
-                    AiValueNormalizer::arrayOrEmpty($policyEnv['blockers'] ?? null),
+                    static fn (array $b): string => AiValueNormalizer::trimmedStringOrNull($b[self::FIELD_ID] ?? null) ?? '',
+                    AiValueNormalizer::arrayOrEmpty($policyEnv[self::FIELD_BLOCKERS] ?? null),
                 ));
-                if ($blockedWhen === [] && ($advance['reason'] ?? '') !== '') {
-                    $blockedWhen = [AiValueNormalizer::trimmedStringOrNull($advance['reason'] ?? null) ?? ''];
+                if ($blockedWhen === [] && ($advance[self::FIELD_REASON] ?? '') !== '') {
+                    $blockedWhen = [AiValueNormalizer::trimmedStringOrNull($advance[self::FIELD_REASON] ?? null) ?? ''];
                 }
 
                 return $this->blockedResult(
@@ -203,8 +266,8 @@ final class AtlasAaeosHttpPathFacadeService
                     envelopes: $envelopes,
                     placementResult: $placementResult,
                     blockerCode: self::BLOCK_POLICY_GATE_BLOCKED,
-                    reason: 'Atlas policy gate blocked this intent before provider execution'
-                        .(($advance['reason'] ?? '') !== '' ? ' ('.$advance['reason'].').' : '.'),
+                    reason: self::FIELD_ATLAS_POLICY_GATE_BLOCKED_THIS_INTENT_BEFORE_PROVIDER_EXECUTION
+                        .(($advance[self::FIELD_REASON] ?? '') !== '' ? ' ('.$advance[self::FIELD_REASON].').' : '.'),
                     blockedWhen: $blockedWhen,
                     configuredPhase: $configuredPhase,
                     startedAtNs: $startedAtNs,
@@ -235,7 +298,7 @@ final class AtlasAaeosHttpPathFacadeService
         if ($this->deferredDispatcher !== null) {
             $this->deferredDispatcher->enqueueFromFacadeResult(
                 envelopes: array_map(
-                    static fn (array $e) => array_merge($e, ['intent_id' => $envelopes[0]['intent_id'] ?? '']),
+                    static fn (array $e) => array_merge($e, [self::FIELD_INTENT_ID => $envelopes[0][self::FIELD_INTENT_ID] ?? '']),
                     $envelopes,
                 ),
             );
@@ -246,12 +309,12 @@ final class AtlasAaeosHttpPathFacadeService
         $this->recordLatency($elapsed);
 
         return [
-            'status' => self::RESULT_OK,
-            'intent_id' => $intentId,
-            'data' => $this->mergeFacadeMetadata($data, $intentId, $envelopes, $placementResult),
-            'envelopes' => $envelopes,
-            'blocker' => null,
-            'telemetry' => $this->telemetry($configuredPhase, $elapsed, $cacheHit),
+            self::FIELD_STATUS => self::RESULT_OK,
+            self::FIELD_INTENT_ID => $intentId,
+            self::FIELD_DATA => $this->mergeFacadeMetadata($data, $intentId, $envelopes, $placementResult),
+            self::FIELD_ENVELOPES => $envelopes,
+            self::FIELD_BLOCKER => null,
+            self::FIELD_TELEMETRY => $this->telemetry($configuredPhase, $elapsed, $cacheHit),
         ];
     }
 
@@ -263,20 +326,20 @@ final class AtlasAaeosHttpPathFacadeService
     public function telemetrySnapshot(string $configuredPhase): array
     {
         return [
-            'schema' => self::STATUS_SCHEMA,
-            'configured_phase' => $configuredPhase,
-            'facade_active' => self::isActive($configuredPhase),
-            'phase_router' => (new AtlasAaeosPhaseRouterService($configuredPhase))->statusSnapshot(),
-            'counters' => [
-                'requests' => (int) $this->cache->get(self::TELEMETRY_KEY_REQUESTS, 0),
-                'canonical_calls' => (int) $this->cache->get(self::TELEMETRY_KEY_CANONICAL, 0),
-                'legacy_fallback' => (int) $this->cache->get(self::TELEMETRY_KEY_LEGACY_FALLBACK, 0),
-                'blocked' => (int) $this->cache->get(self::TELEMETRY_KEY_BLOCKED, 0),
+            self::FIELD_SCHEMA => self::STATUS_SCHEMA,
+            self::FIELD_CONFIGURED_PHASE => $configuredPhase,
+            self::FIELD_FACADE_ACTIVE => self::isActive($configuredPhase),
+            self::FIELD_PHASE_ROUTER => (new AtlasAaeosPhaseRouterService($configuredPhase))->statusSnapshot(),
+            self::FIELD_COUNTERS => [
+                self::FIELD_REQUESTS => (int) $this->cache->get(self::TELEMETRY_KEY_REQUESTS, 0),
+                self::FIELD_CANONICAL_CALLS => (int) $this->cache->get(self::TELEMETRY_KEY_CANONICAL, 0),
+                self::FIELD_LEGACY_FALLBACK => (int) $this->cache->get(self::TELEMETRY_KEY_LEGACY_FALLBACK, 0),
+                self::FIELD_BLOCKED => (int) $this->cache->get(self::TELEMETRY_KEY_BLOCKED, 0),
             ],
-            'latency_ms' => [
-                'samples' => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.count', 0),
-                'sum' => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.sum', 0),
-                'max' => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.'.max', 0),
+            self::FIELD_LATENCY_MS => [
+                self::FIELD_SAMPLES => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.self::FIELD__COUNT, 0),
+                self::FIELD_SUM => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.self::FIELD__SUM, 0),
+                self::FIELD_MAX => (int) $this->cache->get(self::TELEMETRY_KEY_LATENCY.self::FIELD__MAX, 0),
             ],
         ];
     }
@@ -286,7 +349,7 @@ final class AtlasAaeosHttpPathFacadeService
      */
     private function newIntentId(array $data): string
     {
-        $existing = AiValueNormalizer::trimmedStringOrNull(data_get($data, 'payload.intent_id'));
+        $existing = AiValueNormalizer::trimmedStringOrNull(data_get($data, self::FIELD_PAYLOAD_INTENT_ID));
         if ($existing !== null) {
             return $existing;
         }
@@ -299,7 +362,7 @@ final class AtlasAaeosHttpPathFacadeService
      */
     private function extractIntentText(array $data): string
     {
-        $text = $data['input_text'] ?? data_get($data, 'payload.prompt') ?? '';
+        $text = $data[self::FIELD_INPUT_TEXT] ?? data_get($data, self::FIELD_PAYLOAD_PROMPT) ?? '';
 
         return is_string($text) ? AiValueNormalizer::trimmedStringOrNull($text) ?? '' : '';
     }
@@ -307,10 +370,10 @@ final class AtlasAaeosHttpPathFacadeService
     private function hashIntent(string $intentText): string
     {
         if ($intentText === '') {
-            return 'sha256:'.hash('sha256', 'empty_intent');
+            return 'sha256:'.hash(self::FIELD_SHA256, self::FIELD_EMPTY_INTENT);
         }
 
-        return 'sha256:'.hash('sha256', $intentText);
+        return 'sha256:'.hash(self::FIELD_SHA256, $intentText);
     }
 
     /**
@@ -320,13 +383,13 @@ final class AtlasAaeosHttpPathFacadeService
     private function placeOrCache(string $intentText, string $intentHash, array $data): array
     {
         $ttl = (int) (AiValueNormalizer::finiteFloatOrNull(config(self::PLACEMENT_CACHE_TTL_CONFIG_KEY, self::DEFAULT_PLACEMENT_CACHE_TTL_SECONDS)) ?? self::DEFAULT_PLACEMENT_CACHE_TTL_SECONDS);
-        $cacheKey = 'atlas.aaeos.placement.'.hash('sha256', $intentHash.'|'.($data['source_type'] ?? ''));
+        $cacheKey = self::FIELD_ATLAS_AAEOS_PLACEMENT_.hash(self::FIELD_SHA256, $intentHash.'|'.($data[self::FIELD_SOURCE_TYPE] ?? ''));
         $cached = $ttl > 0 ? $this->cache->get($cacheKey) : null;
         if (is_array($cached)) {
             return [$cached, true];
         }
 
-        $feature = $intentText !== '' ? $intentText : 'aaeos_http_path_phase_1_empty_intent';
+        $feature = $intentText !== '' ? $intentText : self::FIELD_AAEOS_HTTP_PATH_PHASE_1_EMPTY_INTENT;
         $hints = $this->placementHintsForRequest($data);
         $result = $this->placement->place($feature, $hints);
 
@@ -345,7 +408,7 @@ final class AtlasAaeosHttpPathFacadeService
     {
         $payload = self::requestPayload($data);
         $hints = [];
-        foreach (['atlas_mode', 'current_mode', 'flow_id', 'domain_id', 'surface_id', 'app_surface', 'routing_task'] as $key) {
+        foreach ([self::FIELD_ATLAS_MODE, self::FIELD_CURRENT_MODE, self::FIELD_FLOW_ID, self::FIELD_DOMAIN_ID, self::FIELD_SURFACE_ID, self::FIELD_APP_SURFACE, self::FIELD_ROUTING_TASK] as $key) {
             $value = AiValueNormalizer::trimmedStringOrNull($payload[$key] ?? null);
             if ($value !== null) {
                 $hints[] = $key.'='.$value;
@@ -364,24 +427,24 @@ final class AtlasAaeosHttpPathFacadeService
     private function mergeFacadeMetadata(array $data, string $intentId, array $envelopes, array $placementResult): array
     {
         $payload = self::requestPayload($data);
-        $payload['aaeos_http_path'] = [
-            'schema' => self::REQUEST_SCHEMA,
-            'intent_id' => $intentId,
-            'phases_executed' => array_values(array_map(
-                static fn (array $env): string => AiValueNormalizer::trimmedStringOrNull($env['phase_out'] ?? null) ?? self::RESULT_UNKNOWN,
+        $payload[self::FIELD_AAEOS_HTTP_PATH] = [
+            self::FIELD_SCHEMA => self::REQUEST_SCHEMA,
+            self::FIELD_INTENT_ID => $intentId,
+            self::FIELD_PHASES_EXECUTED => array_values(array_map(
+                static fn (array $env): string => AiValueNormalizer::trimmedStringOrNull($env[self::FIELD_PHASE_OUT] ?? null) ?? self::RESULT_UNKNOWN,
                 $envelopes,
             )),
-            'phases_executed_count' => count($envelopes),
-            'placement_decision' => [
-                'gate_status' => AiValueNormalizer::trimmedStringOrNull($placementResult['gate_status'] ?? null) ?? self::RESULT_UNKNOWN,
-                'layer' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['layer'] ?? null) ?? self::RESULT_UNKNOWN,
-                'domain' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['domain'] ?? null) ?? self::RESULT_UNKNOWN,
-                'flow' => AiValueNormalizer::trimmedStringOrNull($placementResult['placement']['flow'] ?? null) ?? self::RESULT_UNKNOWN,
-                'requires_ap' => (AiValueNormalizer::boolOrNull($placementResult['placement']['requires_ap'] ?? null) ?? false),
+            self::FIELD_PHASES_EXECUTED_COUNT => count($envelopes),
+            self::FIELD_PLACEMENT_DECISION => [
+                self::FIELD_GATE_STATUS => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_GATE_STATUS] ?? null) ?? self::RESULT_UNKNOWN,
+                self::FIELD_LAYER => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_LAYER] ?? null) ?? self::RESULT_UNKNOWN,
+                self::FIELD_DOMAIN => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_DOMAIN] ?? null) ?? self::RESULT_UNKNOWN,
+                self::FIELD_FLOW => AiValueNormalizer::trimmedStringOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_FLOW] ?? null) ?? self::RESULT_UNKNOWN,
+                self::FIELD_REQUIRES_AP => (AiValueNormalizer::boolOrNull($placementResult[self::FIELD_PLACEMENT][self::FIELD_REQUIRES_AP] ?? null) ?? false),
             ],
-            'envelopes' => $envelopes,
+            self::FIELD_ENVELOPES => $envelopes,
         ];
-        $data['payload'] = $payload;
+        $data[self::FIELD_PAYLOAD] = $payload;
 
         return $data;
     }
@@ -406,17 +469,17 @@ final class AtlasAaeosHttpPathFacadeService
         bool $placementCacheHit,
     ): array {
         return [
-            'status' => self::RESULT_BLOCKED,
-            'intent_id' => $intentId,
-            'data' => $this->mergeFacadeMetadata($data, $intentId, $envelopes, $placementResult),
-            'envelopes' => $envelopes,
-            'blocker' => [
-                'code' => $blockerCode,
-                'reason' => $reason,
-                'blocked_when' => array_values($blockedWhen),
-                'http_status' => 422,
+            self::FIELD_STATUS => self::RESULT_BLOCKED,
+            self::FIELD_INTENT_ID => $intentId,
+            self::FIELD_DATA => $this->mergeFacadeMetadata($data, $intentId, $envelopes, $placementResult),
+            self::FIELD_ENVELOPES => $envelopes,
+            self::FIELD_BLOCKER => [
+                self::FIELD_CODE => $blockerCode,
+                self::FIELD_REASON => $reason,
+                self::FIELD_BLOCKED_WHEN => array_values($blockedWhen),
+                self::FIELD_HTTP_STATUS => self::INT_422,
             ],
-            'telemetry' => $this->telemetry($configuredPhase, $this->elapsedMs($startedAtNs), $placementCacheHit),
+            self::FIELD_TELEMETRY => $this->telemetry($configuredPhase, $this->elapsedMs($startedAtNs), $placementCacheHit),
         ];
     }
 
@@ -426,9 +489,9 @@ final class AtlasAaeosHttpPathFacadeService
     private function telemetry(string $phaseActive, int $latencyMs, bool $placementCacheHit): array
     {
         return [
-            'phase_active' => $phaseActive,
-            'latency_ms' => $latencyMs,
-            'placement_cache_hit' => $placementCacheHit,
+            self::FIELD_PHASE_ACTIVE => $phaseActive,
+            self::FIELD_LATENCY_MS => $latencyMs,
+            self::FIELD_PLACEMENT_CACHE_HIT => $placementCacheHit,
         ];
     }
 
@@ -460,9 +523,9 @@ final class AtlasAaeosHttpPathFacadeService
         if (! (AiValueNormalizer::boolOrNull(config(self::TELEMETRY_ENABLED_CONFIG_KEY, self::DEFAULT_TELEMETRY_ENABLED)) ?? self::DEFAULT_TELEMETRY_ENABLED)) {
             return;
         }
-        $countKey = self::TELEMETRY_KEY_LATENCY.'.count';
-        $sumKey = self::TELEMETRY_KEY_LATENCY.'.sum';
-        $maxKey = self::TELEMETRY_KEY_LATENCY.'.max';
+        $countKey = self::TELEMETRY_KEY_LATENCY.self::FIELD__COUNT;
+        $sumKey = self::TELEMETRY_KEY_LATENCY.self::FIELD__SUM;
+        $maxKey = self::TELEMETRY_KEY_LATENCY.self::FIELD__MAX;
         $count = (int) $this->cache->get($countKey, 0);
         $sum = (int) $this->cache->get($sumKey, 0);
         $max = (int) $this->cache->get($maxKey, 0);
@@ -479,6 +542,6 @@ final class AtlasAaeosHttpPathFacadeService
      */
     private static function requestPayload(array $data): array
     {
-        return AiValueNormalizer::arrayOrEmpty($data['payload'] ?? null);
+        return AiValueNormalizer::arrayOrEmpty($data[self::FIELD_PAYLOAD] ?? null);
     }
 }

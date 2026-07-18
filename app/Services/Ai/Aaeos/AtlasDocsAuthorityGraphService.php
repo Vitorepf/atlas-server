@@ -30,13 +30,51 @@ class AtlasDocsAuthorityGraphService
      * @var array<string, int>
      */
     public const CONFIDENCE = [
-        'governs_frontmatter' => 100,
-        'doc_id' => 95,
-        'capability_frontmatter' => 80,
-        'keyword_fallback' => 40,
+        self::FIELD_GOVERNS_FRONTMATTER => self::INT_100,
+        self::FIELD_DOC_ID => self::INT_95,
+        self::FIELD_CAPABILITY_FRONTMATTER => self::INT_80,
+        self::FIELD_KEYWORD_FALLBACK => self::INT_40,
     ];
 
     public const DEFAULT_LOCATE_LIMIT = 5;
+
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_NEEDLE = 'needle';
+    public const FIELD_OWNER_DOC_PATH = 'owner_doc_path';
+    public const FIELD_CONFIDENCE = 'confidence';
+    public const FIELD_KEYWORD_FALLBACK = 'keyword_fallback';
+    public const FIELD_FRONTMATTER = 'frontmatter';
+    public const FIELD_OWNER_BASIS = 'owner_basis';
+    public const FIELD_PATH = 'path';
+    public const FIELD_RESOLVED = 'resolved';
+    public const FIELD_CANDIDATES = 'candidates';
+    public const FIELD_OWNER_DOC_ID = 'owner_doc_id';
+    public const FIELD_OWNER_IMPLEMENTATION_STATE = 'owner_implementation_state';
+    public const FIELD_GOVERNS_FRONTMATTER = 'governs_frontmatter';
+    public const FIELD_DOC_ID = 'doc_id';
+    public const FIELD_CAPABILITY_FRONTMATTER = 'capability_frontmatter';
+    public const FIELD_ROWS = 'rows';
+    public const FIELD_BASIS = 'basis';
+    public const FIELD_CAPABILITIES = 'capabilities';
+    public const FIELD_CREATED_AT = 'created_at';
+    public const FIELD_DOCS = 'docs';
+    public const FIELD_GOVERNS = 'governs';
+    public const FIELD_GRAPH_ID = 'graph_id';
+    public const FIELD_ID = 'id';
+    public const FIELD_IMPLEMENTATION_STATE = 'implementation_state';
+    public const FIELD_NEEDLE_KIND = 'needle_kind';
+    public const FIELD_NEEDLE_NORMALIZED = 'needle_normalized';
+    public const FIELD_UPDATED_AT = 'updated_at';
+    public const FIELD_ATLAS_DOCS_AUTHORITY_GRAPH = 'atlas_docs_authority_graph';
+    public const FIELD_CAPABILITY = 'capability';
+    public const FIELD_LIKE = 'like';
+    public const FIELD_ARCHIVE = 'archive';
+    public const FIELD_MD = 'md';
+    public const FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE = 'docs/engineering-knowledge-base';
+    public const INT_80 = 80;
+    public const INT_95 = 95;
+    public const INT_100 = 100;
+    public const INT_40 = 40;
 
     public function __construct(
         private readonly CanonicalDocsFrontmatterParser $frontmatter,
@@ -54,8 +92,8 @@ class AtlasDocsAuthorityGraphService
         $docs = $this->scanDocs();
         $rows = [];
         foreach ($docs as $doc) {
-            foreach ($this->rowsForDoc($doc['frontmatter'], $doc['path']) as $row) {
-                $rows[] = $row + ['created_at' => now(), 'updated_at' => now()];
+            foreach ($this->rowsForDoc($doc[self::FIELD_FRONTMATTER], $doc[self::FIELD_PATH]) as $row) {
+                $rows[] = $row + [self::FIELD_CREATED_AT => now(), self::FIELD_UPDATED_AT => now()];
             }
         }
 
@@ -67,9 +105,9 @@ class AtlasDocsAuthorityGraphService
         });
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'rows' => count($rows),
-            'docs' => count($docs),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_ROWS => count($rows),
+            self::FIELD_DOCS => count($docs),
         ];
     }
 
@@ -83,8 +121,8 @@ class AtlasDocsAuthorityGraphService
      */
     public function rowsForDoc(array $frontmatter, string $path): array
     {
-        $ownerId = AiValueNormalizer::trimmedStringOrNull($frontmatter['id'] ?? $frontmatter['graph_id'] ?? null) ?? '';
-        $state = AiValueNormalizer::trimmedStringOrNull($frontmatter['implementation_state'] ?? null) ?? '';
+        $ownerId = AiValueNormalizer::trimmedStringOrNull($frontmatter[self::FIELD_ID] ?? $frontmatter[self::FIELD_GRAPH_ID] ?? null) ?? '';
+        $state = AiValueNormalizer::trimmedStringOrNull($frontmatter[self::FIELD_IMPLEMENTATION_STATE] ?? null) ?? '';
         $rows = [];
 
         $add = function (string $kind, mixed $needle, string $basis) use (&$rows, $path, $ownerId, $state): void {
@@ -96,25 +134,25 @@ class AtlasDocsAuthorityGraphService
             // arbitrary, and pgsql (unlike sqlite) enforces varchar lengths.
             $needle = mb_substr($needle, 0, 300);
             $rows[] = [
-                'needle_kind' => mb_substr($kind, 0, 40),
-                'needle' => $needle,
-                'needle_normalized' => mb_substr(AiValueNormalizer::lowerTrimmedString($needle), 0, 300),
-                'owner_doc_path' => mb_substr($path, 0, 500),
-                'owner_doc_id' => $ownerId !== '' ? mb_substr($ownerId, 0, 200) : null,
-                'owner_basis' => $basis,
-                'confidence' => self::CONFIDENCE[$basis] ?? 0,
-                'owner_implementation_state' => $state !== '' ? mb_substr($state, 0, 60) : null,
+                self::FIELD_NEEDLE_KIND => mb_substr($kind, 0, 40),
+                self::FIELD_NEEDLE => $needle,
+                self::FIELD_NEEDLE_NORMALIZED => mb_substr(AiValueNormalizer::lowerTrimmedString($needle), 0, 300),
+                self::FIELD_OWNER_DOC_PATH => mb_substr($path, 0, 500),
+                self::FIELD_OWNER_DOC_ID => $ownerId !== '' ? mb_substr($ownerId, 0, 200) : null,
+                self::FIELD_OWNER_BASIS => $basis,
+                self::FIELD_CONFIDENCE => self::CONFIDENCE[$basis] ?? 0,
+                self::FIELD_OWNER_IMPLEMENTATION_STATE => $state !== '' ? mb_substr($state, 0, 60) : null,
             ];
         };
 
         if ($ownerId !== '') {
-            $add('doc_id', $ownerId, 'doc_id');
+            $add(self::FIELD_DOC_ID, $ownerId, self::FIELD_DOC_ID);
         }
-        foreach (AiValueNormalizer::arrayOrEmpty($frontmatter['governs'] ?? null) as $governs) {
-            $add('governs', $governs, 'governs_frontmatter');
+        foreach (AiValueNormalizer::arrayOrEmpty($frontmatter[self::FIELD_GOVERNS] ?? null) as $governs) {
+            $add(self::FIELD_GOVERNS, $governs, self::FIELD_GOVERNS_FRONTMATTER);
         }
-        foreach (AiValueNormalizer::arrayOrEmpty($frontmatter['capabilities'] ?? null) as $capability) {
-            $add('capability', $capability, 'capability_frontmatter');
+        foreach (AiValueNormalizer::arrayOrEmpty($frontmatter[self::FIELD_CAPABILITIES] ?? null) as $capability) {
+            $add(self::FIELD_CAPABILITY, $capability, self::FIELD_CAPABILITY_FRONTMATTER);
         }
 
         return $rows;
@@ -134,13 +172,13 @@ class AtlasDocsAuthorityGraphService
         // Read-model fail-open: when the table was never materialized (fresh
         // env, test sqlite without migrations), resolve to "not found" instead
         // of a QueryException. Guard here, once, for every caller.
-        if (! DatabaseTableAvailability::has('atlas_docs_authority_graph')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_DOCS_AUTHORITY_GRAPH)) {
             return $this->result($needle, collect(), fallback: true);
         }
 
         $exact = AtlasDocsAuthorityGraph::query()
-            ->where('needle_normalized', $normalized)
-            ->orderByDesc('confidence')
+            ->where(self::FIELD_NEEDLE_NORMALIZED, $normalized)
+            ->orderByDesc(self::FIELD_CONFIDENCE)
             ->limit($limit)
             ->get();
 
@@ -156,12 +194,12 @@ class AtlasDocsAuthorityGraphService
         $fallback = AtlasDocsAuthorityGraph::query()
             ->where(function ($w) use ($variants): void {
                 foreach ($variants as $variant) {
-                    $w->orWhere('needle_normalized', 'like', '%'.$variant.'%')
-                        ->orWhere('owner_doc_path', 'like', '%'.$variant.'%')
-                        ->orWhere('owner_doc_id', 'like', '%'.$variant.'%');
+                    $w->orWhere(self::FIELD_NEEDLE_NORMALIZED, self::FIELD_LIKE, '%'.$variant.'%')
+                        ->orWhere(self::FIELD_OWNER_DOC_PATH, self::FIELD_LIKE, '%'.$variant.'%')
+                        ->orWhere(self::FIELD_OWNER_DOC_ID, self::FIELD_LIKE, '%'.$variant.'%');
                 }
             })
-            ->orderByDesc('confidence')
+            ->orderByDesc(self::FIELD_CONFIDENCE)
             ->limit($limit)
             ->get();
 
@@ -189,34 +227,34 @@ class AtlasDocsAuthorityGraphService
     {
         if ($matches->isEmpty()) {
             return [
-                'schema_version' => self::LOCATE_SCHEMA,
-                'needle' => $needle,
-                'resolved' => false,
-                'owner_doc_path' => null,
-                'owner_basis' => 'keyword_fallback',
-                'confidence' => 0,
-                'candidates' => [],
+                self::FIELD_SCHEMA_VERSION => self::LOCATE_SCHEMA,
+                self::FIELD_NEEDLE => $needle,
+                self::FIELD_RESOLVED => false,
+                self::FIELD_OWNER_DOC_PATH => null,
+                self::FIELD_OWNER_BASIS => self::FIELD_KEYWORD_FALLBACK,
+                self::FIELD_CONFIDENCE => 0,
+                self::FIELD_CANDIDATES => [],
             ];
         }
 
         $best = $matches->first();
-        $basis = $fallback ? 'keyword_fallback' : (AiValueNormalizer::trimmedScalarStringOrNull($best->owner_basis ?? null) ?? '');
-        $confidence = $fallback ? self::CONFIDENCE['keyword_fallback'] : (int) $best->confidence;
+        $basis = $fallback ? self::FIELD_KEYWORD_FALLBACK : (AiValueNormalizer::trimmedScalarStringOrNull($best->owner_basis ?? null) ?? '');
+        $confidence = $fallback ? self::CONFIDENCE[self::FIELD_KEYWORD_FALLBACK] : (int) $best->confidence;
 
         return [
-            'schema_version' => self::LOCATE_SCHEMA,
-            'needle' => $needle,
-            'resolved' => true,
-            'owner_doc_path' => AiValueNormalizer::trimmedScalarStringOrNull($best->owner_doc_path ?? null) ?? '',
-            'owner_doc_id' => $best->owner_doc_id,
-            'owner_basis' => $basis,
-            'confidence' => $confidence,
-            'owner_implementation_state' => $best->owner_implementation_state,
-            'candidates' => $matches->map(fn (AtlasDocsAuthorityGraph $row): array => [
-                'owner_doc_path' => AiValueNormalizer::trimmedScalarStringOrNull($row->owner_doc_path ?? null) ?? '',
-                'needle' => AiValueNormalizer::trimmedScalarStringOrNull($row->needle ?? null) ?? '',
-                'basis' => $fallback ? 'keyword_fallback' : (AiValueNormalizer::trimmedScalarStringOrNull($row->owner_basis ?? null) ?? ''),
-                'confidence' => $fallback ? self::CONFIDENCE['keyword_fallback'] : (int) $row->confidence,
+            self::FIELD_SCHEMA_VERSION => self::LOCATE_SCHEMA,
+            self::FIELD_NEEDLE => $needle,
+            self::FIELD_RESOLVED => true,
+            self::FIELD_OWNER_DOC_PATH => AiValueNormalizer::trimmedScalarStringOrNull($best->owner_doc_path ?? null) ?? '',
+            self::FIELD_OWNER_DOC_ID => $best->owner_doc_id,
+            self::FIELD_OWNER_BASIS => $basis,
+            self::FIELD_CONFIDENCE => $confidence,
+            self::FIELD_OWNER_IMPLEMENTATION_STATE => $best->owner_implementation_state,
+            self::FIELD_CANDIDATES => $matches->map(fn (AtlasDocsAuthorityGraph $row): array => [
+                self::FIELD_OWNER_DOC_PATH => AiValueNormalizer::trimmedScalarStringOrNull($row->owner_doc_path ?? null) ?? '',
+                self::FIELD_NEEDLE => AiValueNormalizer::trimmedScalarStringOrNull($row->needle ?? null) ?? '',
+                self::FIELD_BASIS => $fallback ? self::FIELD_KEYWORD_FALLBACK : (AiValueNormalizer::trimmedScalarStringOrNull($row->owner_basis ?? null) ?? ''),
+                self::FIELD_CONFIDENCE => $fallback ? self::CONFIDENCE[self::FIELD_KEYWORD_FALLBACK] : (int) $row->confidence,
             ])->all(),
         ];
     }
@@ -226,7 +264,7 @@ class AtlasDocsAuthorityGraphService
      */
     private function scanDocs(): array
     {
-        $root = base_path('docs/engineering-knowledge-base');
+        $root = base_path(self::FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE);
         if (! File::isDirectory($root)) {
             return [];
         }
@@ -234,17 +272,17 @@ class AtlasDocsAuthorityGraphService
         $docs = [];
         foreach (File::allFiles($root) as $file) {
             /** @var SplFileInfo $file */
-            if (AiValueNormalizer::lowerTrimmedString($file->getExtension()) !== 'md') {
+            if (AiValueNormalizer::lowerTrimmedString($file->getExtension()) !== self::FIELD_MD) {
                 continue;
             }
             $parsed = $this->frontmatter->parse(File::get($file->getPathname()));
-            $frontmatter = AiValueNormalizer::arrayOrEmpty($parsed['frontmatter'] ?? null);
-            if (str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'archive'.DIRECTORY_SEPARATOR)) {
+            $frontmatter = AiValueNormalizer::arrayOrEmpty($parsed[self::FIELD_FRONTMATTER] ?? null);
+            if (str_contains($file->getPathname(), DIRECTORY_SEPARATOR.self::FIELD_ARCHIVE.DIRECTORY_SEPARATOR)) {
                 continue;
             }
             $docs[] = [
-                'path' => str_replace(base_path().DIRECTORY_SEPARATOR, '', $file->getPathname()),
-                'frontmatter' => $frontmatter,
+                self::FIELD_PATH => str_replace(base_path().DIRECTORY_SEPARATOR, '', $file->getPathname()),
+                self::FIELD_FRONTMATTER => $frontmatter,
             ];
         }
 

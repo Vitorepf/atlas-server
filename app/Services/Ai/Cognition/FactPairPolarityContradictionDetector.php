@@ -17,6 +17,16 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class FactPairPolarityContradictionDetector
 {
+    public const FIELD_CONTRADICTS = 'contradicts';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_NEGATED = 'negated';
+    public const FIELD_VALUE = 'value';
+    public const FIELD_PREDICATE = 'predicate';
+    public const FIELD_SUBJECT = 'subject';
+    public const FIELD_HARD_NEGATION_CONTRADICTION = 'hard_negation_contradiction';
+    public const FIELD_NONE = 'none';
+    public const FIELD_UNRELATED = 'unrelated';
+    public const FIELD_VALUE_CONFLICT = 'value_conflict';
     /**
      * @param  array{subject?:mixed, predicate?:mixed, negated?:mixed, value?:mixed}  $factA
      * @param  array{subject?:mixed, predicate?:mixed, negated?:mixed, value?:mixed}  $factB
@@ -24,12 +34,12 @@ final class FactPairPolarityContradictionDetector
      */
     public function detect(array $factA, array $factB): array
     {
-        $sameSubject = $this->normalizeKey($factA, 'subject') === $this->normalizeKey($factB, 'subject');
-        $samePredicate = $this->normalizeKey($factA, 'predicate') === $this->normalizeKey($factB, 'predicate');
+        $sameSubject = $this->normalizeKey($factA, self::FIELD_SUBJECT) === $this->normalizeKey($factB, self::FIELD_SUBJECT);
+        $samePredicate = $this->normalizeKey($factA, self::FIELD_PREDICATE) === $this->normalizeKey($factB, self::FIELD_PREDICATE);
 
         // (1) Different subject OR predicate -> the facts are not about the same claim.
         if (! $sameSubject || ! $samePredicate) {
-            return $this->result(false, 'unrelated');
+            return $this->result(false, self::FIELD_UNRELATED);
         }
 
         $negatedA = $this->negated($factA);
@@ -37,7 +47,7 @@ final class FactPairPolarityContradictionDetector
 
         // (2) Same claim asserted with opposite polarity -> hard negation contradiction.
         if ($negatedA !== $negatedB) {
-            return $this->result(true, 'hard_negation_contradiction');
+            return $this->result(true, self::FIELD_HARD_NEGATION_CONTRADICTION);
         }
 
         $valueA = $this->value($factA);
@@ -45,11 +55,11 @@ final class FactPairPolarityContradictionDetector
 
         // (3) Same claim, same polarity, both values present but not loosely equal -> value conflict.
         if ($valueA !== null && $valueB !== null && ! $this->looselyEqual($valueA, $valueB)) {
-            return $this->result(true, 'value_conflict');
+            return $this->result(true, self::FIELD_VALUE_CONFLICT);
         }
 
         // (4) Otherwise the pair is consistent.
-        return $this->result(false, 'none');
+        return $this->result(false, self::FIELD_NONE);
     }
 
     /**
@@ -65,7 +75,7 @@ final class FactPairPolarityContradictionDetector
      */
     private function negated(array $fact): bool
     {
-        return ($fact['negated'] ?? false) === true;
+        return ($fact[self::FIELD_NEGATED] ?? false) === true;
     }
 
     /**
@@ -73,7 +83,7 @@ final class FactPairPolarityContradictionDetector
      */
     private function value(array $fact): int|float|string|bool|null
     {
-        $value = $fact['value'] ?? null;
+        $value = $fact[self::FIELD_VALUE] ?? null;
 
         return is_scalar($value) ? $value : null;
     }
@@ -89,8 +99,8 @@ final class FactPairPolarityContradictionDetector
     private function result(bool $contradicts, string $kind): array
     {
         return [
-            'contradicts' => $contradicts,
-            'kind' => $kind,
+            self::FIELD_CONTRADICTS => $contradicts,
+            self::FIELD_KIND => $kind,
         ];
     }
 }

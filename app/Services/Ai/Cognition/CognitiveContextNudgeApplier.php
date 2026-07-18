@@ -20,6 +20,31 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class CognitiveContextNudgeApplier
 {
+    public const FIELD_CODE = 'code';
+    public const FIELD_REASONING = 'reasoning';
+    public const FIELD_AUDIT = 'audit';
+    public const FIELD_RETRIEVAL = 'retrieval';
+    public const FIELD_VISION = 'vision';
+    public const FIELD_GENERATION = 'generation';
+    public const FIELD_FRAMEWORK = 'framework';
+    public const FIELD_ROLE = 'role';
+    public const FIELD_AUDITOR = 'auditor';
+    public const FIELD_BDD = 'bdd';
+    public const FIELD_CARTOGRAPHY = 'cartography';
+    public const FIELD_DEVELOPER = 'developer';
+    public const FIELD_EDITOR = 'editor';
+    public const FIELD_ENGINEER = 'engineer';
+    public const FIELD_HYPERFLOW = 'hyperflow';
+    public const FIELD_KERNEL_VAULT = 'kernel_vault';
+    public const FIELD_LIBRARIAN = 'librarian';
+    public const FIELD_MISSION_MODE = 'mission_mode';
+    public const FIELD_PROGRAMMER = 'programmer';
+    public const FIELD_PROGRAMMING = 'programming';
+    public const FIELD_RESEARCHER = 'researcher';
+    public const FIELD_REVIEWER = 'reviewer';
+    public const FIELD_SDD = 'sdd';
+    public const FIELD_VISUAL = 'visual';
+    public const FIELD_WRITER = 'writer';
     /**
      * Apply framework + role nudges to the keyword-scored hits map.
      *
@@ -30,11 +55,11 @@ final class CognitiveContextNudgeApplier
     public function applyNudges(array $hits, array $context): array
     {
         // Framework nudges.
-        $framework = AiValueNormalizer::lowerTrimmedString($context['framework'] ?? '');
+        $framework = AiValueNormalizer::lowerTrimmedString($context[self::FIELD_FRAMEWORK] ?? '');
         $hits = $this->applyFrameworkNudge($hits, $framework);
 
         // Role nudges.
-        $role = AiValueNormalizer::lowerTrimmedString($context['role'] ?? '');
+        $role = AiValueNormalizer::lowerTrimmedString($context[self::FIELD_ROLE] ?? '');
         $hits = $this->applyRoleNudge($hits, $role);
 
         return $hits;
@@ -47,16 +72,16 @@ final class CognitiveContextNudgeApplier
     private function applyFrameworkNudge(array $hits, string $framework): array
     {
         if ($framework !== '') {
-            if (str_starts_with($framework, 'cartography') || $framework === 'kernel_vault') {
-                $hits['audit'] += 2;
-            } elseif (str_starts_with($framework, 'programming') || $framework === 'sdd' || $framework === 'bdd') {
-                $hits['code'] += 2;
-                $hits['audit'] += 1;
-            } elseif ($framework === 'mission_mode' || $framework === 'hyperflow') {
-                $hits['reasoning'] += 1;
-                $hits['retrieval'] += 1;
-            } elseif ($framework === 'vision' || str_starts_with($framework, 'visual')) {
-                $hits['vision'] += 2;
+            if (str_starts_with($framework, self::FIELD_CARTOGRAPHY) || $framework === self::FIELD_KERNEL_VAULT) {
+                $hits[self::FIELD_AUDIT] += 2;
+            } elseif (str_starts_with($framework, self::FIELD_PROGRAMMING) || $framework === self::FIELD_SDD || $framework === self::FIELD_BDD) {
+                $hits[self::FIELD_CODE] += 2;
+                $hits[self::FIELD_AUDIT] += 1;
+            } elseif ($framework === self::FIELD_MISSION_MODE || $framework === self::FIELD_HYPERFLOW) {
+                $hits[self::FIELD_REASONING] += 1;
+                $hits[self::FIELD_RETRIEVAL] += 1;
+            } elseif ($framework === self::FIELD_VISION || str_starts_with($framework, self::FIELD_VISUAL)) {
+                $hits[self::FIELD_VISION] += 2;
             }
         }
 
@@ -69,14 +94,14 @@ final class CognitiveContextNudgeApplier
      */
     private function applyRoleNudge(array $hits, string $role): array
     {
-        if ($role === 'auditor' || $role === 'reviewer') {
-            $hits['audit'] += 1;
-        } elseif ($role === 'researcher' || $role === 'librarian') {
-            $hits['retrieval'] += 1;
-        } elseif ($role === 'writer' || $role === 'editor') {
-            $hits['generation'] += 1;
-        } elseif ($role === 'engineer' || $role === 'developer' || $role === 'programmer') {
-            $hits['code'] += 1;
+        if ($role === self::FIELD_AUDITOR || $role === self::FIELD_REVIEWER) {
+            $hits[self::FIELD_AUDIT] += 1;
+        } elseif ($role === self::FIELD_RESEARCHER || $role === self::FIELD_LIBRARIAN) {
+            $hits[self::FIELD_RETRIEVAL] += 1;
+        } elseif ($role === self::FIELD_WRITER || $role === self::FIELD_EDITOR) {
+            $hits[self::FIELD_GENERATION] += 1;
+        } elseif ($role === self::FIELD_ENGINEER || $role === self::FIELD_DEVELOPER || $role === self::FIELD_PROGRAMMER) {
+            $hits[self::FIELD_CODE] += 1;
         }
 
         return $hits;

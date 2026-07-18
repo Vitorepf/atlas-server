@@ -8,6 +8,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AmbitionRungPolicy
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_RUNG_DISTRIBUTION = 'rung_distribution';
     public const SCHEMA_VERSION = 'atlas.originator.ambition_rung_policy.v1';
 
     /** @var list<string> */
@@ -21,6 +23,27 @@ final class AmbitionRungPolicy
 
     public const RUNGS = [self::RUNG_TASK, self::RUNG_SLICE, self::RUNG_OBRA, self::RUNG_SALTO];
 
+    public const FIELD_ENABLED = 'enabled';
+    public const FIELD_RUNG = 'rung';
+    public const FIELD_LEVERAGE = 'leverage';
+    public const FIELD_BASIS = 'basis';
+    public const FIELD_CURRENT_RUNG = 'current_rung';
+    public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
+    public const FIELD_REACTIVE_SATURATED = 'reactive_saturated';
+
+    public const BASIS_FLAG_DISABLED = 'flag_disabled';
+
+    public const BASIS_NOT_SATURATED = 'not_saturated';
+
+    public const BASIS_RUNG_UP_AFTER_SATURATION = 'rung_up_after_saturation';
+    public const FIELD_SELECTED_RUNG = 'selected_rung';
+    public const FIELD_SCOPE_HAS_CEILING = 'scope_has_ceiling';
+    public const FIELD_RUNG_SERIES_INFORMATIONAL = 'rung_series_informational';
+    public const FIELD_RUNG_SERIES_USED_AS_SCORE = 'rung_series_used_as_score';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_SELECTED_ID = 'selected_id';
+    public const FIELD_SOURCE = 'source';
+
     /**
      * @param  list<array<string,mixed>>  $candidates
      * @param  array<string,mixed>  $context
@@ -30,19 +53,19 @@ final class AmbitionRungPolicy
     {
         $distribution = self::distribution($candidates);
         $selected = $candidates[0] ?? [];
-        $basis = 'flag_disabled';
+        $basis = self::BASIS_FLAG_DISABLED;
 
-        if (($context['enabled'] ?? false) === true) {
-            $basis = 'not_saturated';
-            if (($context['reactive_saturated'] ?? false) === true) {
-                $current = AiValueNormalizer::trimmedStringOrNull($context['current_rung'] ?? null) ?? self::RUNG_TASK;
+        if (($context[self::FIELD_ENABLED] ?? false) === true) {
+            $basis = self::BASIS_NOT_SATURATED;
+            if (($context[self::FIELD_REACTIVE_SATURATED] ?? false) === true) {
+                $current = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_CURRENT_RUNG] ?? null) ?? self::RUNG_TASK;
                 $target = self::nextRung($current);
                 $currentBest = self::bestLeverage($candidates);
                 foreach ($candidates as $candidate) {
-                    $rung = AiValueNormalizer::trimmedStringOrNull($candidate['rung'] ?? null) ?? '';
-                    if ($rung === $target && (AiValueNormalizer::finiteFloatOrNull($candidate['leverage'] ?? null) ?? 0.0) >= $currentBest) {
+                    $rung = AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_RUNG] ?? null) ?? '';
+                    if ($rung === $target && (AiValueNormalizer::finiteFloatOrNull($candidate[self::FIELD_LEVERAGE] ?? null) ?? 0.0) >= $currentBest) {
                         $selected = $candidate;
-                        $basis = 'rung_up_after_saturation';
+                        $basis = self::BASIS_RUNG_UP_AFTER_SATURATION;
                         break;
                     }
                 }
@@ -50,16 +73,16 @@ final class AmbitionRungPolicy
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'selected_id' => AiValueNormalizer::trimmedStringOrNull($selected['id'] ?? null) ?? '',
-            'selected_rung' => AiValueNormalizer::trimmedStringOrNull($selected['rung'] ?? null) ?? '',
-            'basis' => $basis,
-            'rung_distribution' => $distribution,
-            'source' => [
-                'rung_series_informational' => true,
-                'rung_series_used_as_score' => false,
-                'scope_has_ceiling' => false,
-                'provider_calls_made' => false,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_SELECTED_ID => AiValueNormalizer::trimmedStringOrNull($selected[self::FIELD_ID] ?? null) ?? '',
+            self::FIELD_SELECTED_RUNG => AiValueNormalizer::trimmedStringOrNull($selected[self::FIELD_RUNG] ?? null) ?? '',
+            self::FIELD_BASIS => $basis,
+            self::FIELD_RUNG_DISTRIBUTION => $distribution,
+            self::FIELD_SOURCE => [
+                self::FIELD_RUNG_SERIES_INFORMATIONAL => true,
+                self::FIELD_RUNG_SERIES_USED_AS_SCORE => false,
+                self::FIELD_SCOPE_HAS_CEILING => false,
+                self::FIELD_PROVIDER_CALLS_MADE => false,
             ],
         ];
     }
@@ -81,7 +104,7 @@ final class AmbitionRungPolicy
     {
         $best = 0.0;
         foreach ($candidates as $candidate) {
-            $best = max($best, AiValueNormalizer::finiteFloatOrNull($candidate['leverage'] ?? null) ?? 0.0);
+            $best = max($best, AiValueNormalizer::finiteFloatOrNull($candidate[self::FIELD_LEVERAGE] ?? null) ?? 0.0);
         }
 
         return $best;
@@ -95,7 +118,7 @@ final class AmbitionRungPolicy
     {
         $counts = [];
         foreach ($candidates as $candidate) {
-            $rung = AiValueNormalizer::trimmedStringOrNull($candidate['rung'] ?? null);
+            $rung = AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_RUNG] ?? null);
             if ($rung !== null) {
                 $counts[$rung] = ($counts[$rung] ?? 0) + 1;
             }

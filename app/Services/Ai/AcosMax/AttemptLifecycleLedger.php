@@ -36,6 +36,20 @@ final class AttemptLifecycleLedger
 
     public const REASON_INVALID_TERMINAL_STATE = 'invalid_terminal_state';
 
+    public const FIELD_ACCEPTED = 'accepted';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_ATTEMPT = 'attempt';
+    public const FIELD_ATTEMPT_ID = 'attempt_id';
+    public const FIELD_TASK_ID = 'task_id';
+    public const FIELD_STATE = 'state';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_ATTEMPTS = 'attempts';
+    public const FIELD_STARTED_AT = 'started_at';
+    public const FIELD_UNTERMINATED_COUNT = 'unterminated_count';
+    public const FIELD_OUTCOME_WITHOUT_ATTEMPT_ALLOWED = 'outcome_without_attempt_allowed';
+    public const FIELD_ATTEMPT_ID_DEDUPED = 'attempt_id_deduped';
+    public const FIELD_SOURCE = 'source';
+
     /** @var array<string,array<string,mixed>> */
     private array $attempts = [];
 
@@ -45,20 +59,20 @@ final class AttemptLifecycleLedger
     public function start(string $attemptId, string $taskId, ?int $startedAt = null): array
     {
         if (AiValueNormalizer::trimmedStringOrNull($attemptId) === null || AiValueNormalizer::trimmedStringOrNull($taskId) === null) {
-            return ['accepted' => false, 'reason' => self::REASON_TASK_OR_ATTEMPT_UNRESOLVABLE];
+            return [self::FIELD_ACCEPTED => false, self::FIELD_REASON => self::REASON_TASK_OR_ATTEMPT_UNRESOLVABLE];
         }
         if (isset($this->attempts[$attemptId])) {
-            return ['accepted' => false, 'reason' => self::REASON_DUPLICATE_ATTEMPT];
+            return [self::FIELD_ACCEPTED => false, self::FIELD_REASON => self::REASON_DUPLICATE_ATTEMPT];
         }
 
         $this->attempts[$attemptId] = [
-            'attempt_id' => $attemptId,
-            'task_id' => $taskId,
-            'state' => self::STATE_STARTED,
-            'started_at' => $startedAt ?? time(),
+            self::FIELD_ATTEMPT_ID => $attemptId,
+            self::FIELD_TASK_ID => $taskId,
+            self::FIELD_STATE => self::STATE_STARTED,
+            self::FIELD_STARTED_AT => $startedAt ?? time(),
         ];
 
-        return ['accepted' => true, 'attempt' => $this->attempts[$attemptId]];
+        return [self::FIELD_ACCEPTED => true, self::FIELD_ATTEMPT => $this->attempts[$attemptId]];
     }
 
     /**
@@ -67,15 +81,15 @@ final class AttemptLifecycleLedger
     public function terminal(string $attemptId, string $state): array
     {
         if (! isset($this->attempts[$attemptId])) {
-            return ['accepted' => false, 'reason' => self::REASON_ATTEMPT_MISSING];
+            return [self::FIELD_ACCEPTED => false, self::FIELD_REASON => self::REASON_ATTEMPT_MISSING];
         }
         if (! in_array($state, self::TERMINAL_STATES, true)) {
-            return ['accepted' => false, 'reason' => self::REASON_INVALID_TERMINAL_STATE];
+            return [self::FIELD_ACCEPTED => false, self::FIELD_REASON => self::REASON_INVALID_TERMINAL_STATE];
         }
 
-        $this->attempts[$attemptId]['state'] = $state;
+        $this->attempts[$attemptId][self::FIELD_STATE] = $state;
 
-        return ['accepted' => true, 'attempt' => $this->attempts[$attemptId]];
+        return [self::FIELD_ACCEPTED => true, self::FIELD_ATTEMPT => $this->attempts[$attemptId]];
     }
 
     /**
@@ -84,21 +98,21 @@ final class AttemptLifecycleLedger
     public function census(int $now, int $ttlSeconds): array
     {
         foreach ($this->attempts as $id => $attempt) {
-            if ($attempt['state'] === self::STATE_STARTED && ($now - (int) (AiValueNormalizer::finiteFloatOrNull($attempt['started_at'] ?? null) ?? 0)) > $ttlSeconds) {
-                $this->attempts[$id]['state'] = self::STATE_ABANDONED;
+            if ($attempt[self::FIELD_STATE] === self::STATE_STARTED && ($now - (int) (AiValueNormalizer::finiteFloatOrNull($attempt[self::FIELD_STARTED_AT] ?? null) ?? 0)) > $ttlSeconds) {
+                $this->attempts[$id][self::FIELD_STATE] = self::STATE_ABANDONED;
             }
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'attempts' => $this->attempts,
-            'unterminated_count' => count(array_filter(
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_ATTEMPTS => $this->attempts,
+            self::FIELD_UNTERMINATED_COUNT => count(array_filter(
                 $this->attempts,
-                static fn (array $attempt): bool => $attempt['state'] === self::STATE_STARTED,
+                static fn (array $attempt): bool => $attempt[self::FIELD_STATE] === self::STATE_STARTED,
             )),
-            'source' => [
-                'outcome_without_attempt_allowed' => false,
-                'attempt_id_deduped' => true,
+            self::FIELD_SOURCE => [
+                self::FIELD_OUTCOME_WITHOUT_ATTEMPT_ALLOWED => false,
+                self::FIELD_ATTEMPT_ID_DEDUPED => true,
             ],
         ];
     }

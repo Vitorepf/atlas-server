@@ -15,6 +15,14 @@ final readonly class OperatorReviewDebtWatchdogCheck implements AtlasWatchdogChe
     public const SCHEMA_VERSION = 'atlas.acos.operator_review_debt_watchdog.v1';
 
     public const CHECK_ID = 'elev-25.operator_review_debt';
+    public const FIELD_CADENCE = 'cadence';
+    public const FIELD_OPERATOR_REVIEW_DEBT = 'operator_review_debt';
+    public const FIELD_MESSAGE = 'message';
+    public const FIELD_CODE = 'code';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_ELEV_25_REVIEW_DEBT_UNAVAILABLE = 'elev_25_review_debt_unavailable';
+    public const FIELD_OPERATOR_REVIEW_DEBT_IDADE_MAX_DA_FILA_EXCEEDED_THE_FROZEN_CAP__NEXT_AUTO_APPLY_CYCLE_IS_SLOWED_EPHEMERALLY_ = 'Operator review-debt idade_max_da_fila exceeded the frozen cap; next auto-apply cycle is slowed ephemerally.';
 
     public function __construct(
         private AtlasWeeklyMemoryDigestService $digest,
@@ -28,21 +36,21 @@ final readonly class OperatorReviewDebtWatchdogCheck implements AtlasWatchdogChe
     public function run(): AtlasWatchdogCheckResult
     {
         try {
-            $evidence = AiValueNormalizer::arrayOrEmpty(($this->digest->digest(7))['operator_review_debt'] ?? null);
+            $evidence = AiValueNormalizer::arrayOrEmpty(($this->digest->digest(7))[self::FIELD_OPERATOR_REVIEW_DEBT] ?? null);
         } catch (Throwable $e) {
             return AtlasWatchdogCheckResult::error([
-                'schema_version' => self::SCHEMA_VERSION,
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             ], [
-                'code' => 'elev_25_review_debt_unavailable',
-                'message' => $e->getMessage(),
+                self::FIELD_CODE => self::FIELD_ELEV_25_REVIEW_DEBT_UNAVAILABLE,
+                self::FIELD_MESSAGE => $e->getMessage(),
             ]);
         }
 
-        if (($evidence['status'] ?? null) === 'alert') {
+        if (($evidence[self::FIELD_STATUS] ?? null) === AtlasWatchdogCheckResult::STATUS_ALERT) {
             return AtlasWatchdogCheckResult::alert($evidence, [
-                'code' => self::CHECK_ID,
-                'message' => 'Operator review-debt idade_max_da_fila exceeded the frozen cap; next auto-apply cycle is slowed ephemerally.',
-                'cadence' => $evidence['cadence'] ?? [],
+                self::FIELD_CODE => self::CHECK_ID,
+                self::FIELD_MESSAGE => self::FIELD_OPERATOR_REVIEW_DEBT_IDADE_MAX_DA_FILA_EXCEEDED_THE_FROZEN_CAP__NEXT_AUTO_APPLY_CYCLE_IS_SLOWED_EPHEMERALLY_,
+                self::FIELD_CADENCE => $evidence[self::FIELD_CADENCE] ?? [],
             ]);
         }
 

@@ -18,6 +18,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasAaeosDocMaturityClassifier
 {
+    public const FIELD_LEVEL_ORDINAL = 'level_ordinal';
+    public const FIELD_MISSING_FOR_NEXT = 'missing_for_next';
     public const SCHEMA_VERSION = 'atlas.aaeos.doc_maturity.v1';
 
     public const LEVEL_L0 = 'DOC L0';
@@ -57,6 +59,18 @@ final class AtlasAaeosDocMaturityClassifier
     public const STRENGTH_PARTIAL = 'partial';
 
     public const STRENGTH_STRONG = 'strong';
+    public const FIELD_CONTRACTS = 'contracts';
+    public const FIELD_LEVEL = 'level';
+    public const FIELD_MOTHER_DOC = 'mother_doc';
+    public const FIELD_RATIONALE = 'rationale';
+    public const FIELD_RUNBOOK = 'runbook';
+    public const FIELD_RUNTIME_READY = 'runtime_ready';
+    public const FIELD_SATISFIED = 'satisfied';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_DOC_L0__NO_MOTHER_DOC_AND_NO_CONTRACTS__IDEA_RESEARCH_SOURCE_MATERIAL_WITHOUT_CONTRACT__ = 'DOC L0: no mother_doc and no contracts (idea/research/source material without contract).';
+    public const FIELD_DOC_L1__MOTHER_DOC_ONLY__CONTRACTS_ABSENT__FRAGMENTARY_MOTHER_NORTH_STAR_DOC__ = 'DOC L1: mother_doc only, contracts absent (fragmentary mother/north-star doc).';
+    public const FIELD_DOC_L3__MOTHER_DOC___CONTRACTS___STRONG_RUNBOOK__BUT_ = 'DOC L3: mother_doc + contracts + strong runbook, but ';
+    public const FIELD_DOC_L4__MOTHER_DOC___CONTRACTS___STRONG_RUNBOOK___MATRIX_QUALITY_BAR_EVIDENCE_GATES_ALL_STRONG_ = 'DOC L4: mother_doc + contracts + strong runbook + matrix/quality_bar/evidence/gates all strong.';
 
     /** @var list<string> */
     public const LEVELS = [
@@ -81,9 +95,9 @@ final class AtlasAaeosDocMaturityClassifier
      */
     public function classify(array $sections): array
     {
-        $hasMother = $this->boolPart($sections, 'mother_doc');
-        $hasContracts = $this->boolPart($sections, 'contracts');
-        $runbook = $this->strength($sections, 'runbook');
+        $hasMother = $this->boolPart($sections, self::FIELD_MOTHER_DOC);
+        $hasContracts = $this->boolPart($sections, self::FIELD_CONTRACTS);
+        $runbook = $this->strength($sections, self::FIELD_RUNBOOK);
 
         $signalStrengths = [];
         foreach (self::L4_SIGNALS as $signal) {
@@ -94,11 +108,11 @@ final class AtlasAaeosDocMaturityClassifier
         if ($hasMother && $hasContracts && $runbook === self::STRENGTH_STRONG && $allSignalsStrong) {
             $level = self::LEVEL_L4;
             $ordinal = 4;
-            $rationale = 'DOC L4: mother_doc + contracts + strong runbook + matrix/quality_bar/evidence/gates all strong.';
+            $rationale = self::FIELD_DOC_L4__MOTHER_DOC___CONTRACTS___STRONG_RUNBOOK___MATRIX_QUALITY_BAR_EVIDENCE_GATES_ALL_STRONG_;
         } elseif ($hasMother && $hasContracts && $runbook === self::STRENGTH_STRONG) {
             $level = self::LEVEL_L3;
             $ordinal = 3;
-            $rationale = 'DOC L3: mother_doc + contracts + strong runbook, but '
+            $rationale = self::FIELD_DOC_L3__MOTHER_DOC___CONTRACTS___STRONG_RUNBOOK__BUT_
                 . $this->joinList($this->weakSignals($signalStrengths)) . ' not yet strong.';
         } elseif ($hasMother && $hasContracts) {
             $level = self::LEVEL_L2;
@@ -107,22 +121,22 @@ final class AtlasAaeosDocMaturityClassifier
         } elseif ($hasMother) {
             $level = self::LEVEL_L1;
             $ordinal = 1;
-            $rationale = 'DOC L1: mother_doc only, contracts absent (fragmentary mother/north-star doc).';
+            $rationale = self::FIELD_DOC_L1__MOTHER_DOC_ONLY__CONTRACTS_ABSENT__FRAGMENTARY_MOTHER_NORTH_STAR_DOC__;
         } else {
             $level = self::LEVEL_L0;
             $ordinal = 0;
-            $rationale = 'DOC L0: no mother_doc and no contracts (idea/research/source material without contract).';
+            $rationale = self::FIELD_DOC_L0__NO_MOTHER_DOC_AND_NO_CONTRACTS__IDEA_RESEARCH_SOURCE_MATERIAL_WITHOUT_CONTRACT__;
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'level' => $level,
-            'level_ordinal' => $ordinal,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_LEVEL => $level,
+            self::FIELD_LEVEL_ORDINAL => $ordinal,
             // Doc maturity never proves runtime: encodes the line 218 failure mode.
-            'runtime_ready' => false,
-            'satisfied' => $this->satisfiedRequirements($hasMother, $hasContracts, $signalStrengths, $runbook),
-            'missing_for_next' => $this->missingForNext($ordinal, $hasMother, $hasContracts, $runbook, $signalStrengths),
-            'rationale' => $rationale,
+            self::FIELD_RUNTIME_READY => false,
+            self::FIELD_SATISFIED => $this->satisfiedRequirements($hasMother, $hasContracts, $signalStrengths, $runbook),
+            self::FIELD_MISSING_FOR_NEXT => $this->missingForNext($ordinal, $hasMother, $hasContracts, $runbook, $signalStrengths),
+            self::FIELD_RATIONALE => $rationale,
         ];
     }
 
@@ -200,15 +214,15 @@ final class AtlasAaeosDocMaturityClassifier
         $satisfied = [];
 
         if ($hasMother) {
-            $satisfied[] = 'mother_doc';
+            $satisfied[] = self::FIELD_MOTHER_DOC;
         }
 
         if ($hasContracts) {
-            $satisfied[] = 'contracts';
+            $satisfied[] = self::FIELD_CONTRACTS;
         }
 
         if ($runbook === self::STRENGTH_STRONG) {
-            $satisfied[] = 'runbook';
+            $satisfied[] = self::FIELD_RUNBOOK;
         }
 
         foreach (self::L4_SIGNALS as $signal) {
@@ -227,9 +241,9 @@ final class AtlasAaeosDocMaturityClassifier
     private function missingForNext(int $ordinal, bool $hasMother, bool $hasContracts, string $runbook, array $signalStrengths): array
     {
         return match ($ordinal) {
-            0 => $hasMother ? [] : ['mother_doc'],
-            1 => $hasContracts ? [] : ['contracts'],
-            2 => $runbook === self::STRENGTH_STRONG ? [] : ['runbook'],
+            0 => $hasMother ? [] : [self::FIELD_MOTHER_DOC],
+            1 => $hasContracts ? [] : [self::FIELD_CONTRACTS],
+            2 => $runbook === self::STRENGTH_STRONG ? [] : [self::FIELD_RUNBOOK],
             3 => $this->weakSignals($signalStrengths),
             default => [],
         };

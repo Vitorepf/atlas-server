@@ -18,6 +18,42 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
 
     public const VERDICT_BLOCKED = 'blocked';
 
+    public const FIELD_PASSED = 'passed';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_VERDICT = 'verdict';
+    public const FIELD_CURRENT_TIER = 'current_tier';
+    public const FIELD_TARGET_TIER = 'target_tier';
+    public const FIELD_PRECONDITIONS = 'preconditions';
+    public const FIELD_FAILED_PRECONDITIONS = 'failed_preconditions';
+    public const FIELD_BLOCKING_REASONS = 'blocking_reasons';
+    public const FIELD_AGE_DAYS = 'age_days';
+    public const FIELD_AS_OF = 'as_of';
+    public const FIELD_AUTO_PROMOTE_ALLOWED = 'auto_promote_allowed';
+    public const FIELD_BLOCKERS = 'blockers';
+    public const FIELD_BLOCKERS_TO_NEXT = 'blockers_to_next';
+    public const FIELD_CURRENT_SCORE = 'current_score';
+    public const FIELD_UNRESOLVED = 'unresolved';
+    public const FIELD_QUALITY_BAR = 'quality_bar';
+    public const FIELD_PROMOTION_ALLOWED = 'promotion_allowed';
+    public const FIELD_TOTAL = 'total';
+    public const FIELD_TIER_THRESHOLDS = 'tier_thresholds';
+    public const FIELD_CANONICAL_WRITE_ALLOWED = 'canonical_write_allowed';
+    public const FIELD_DEFICIT = 'deficit';
+    public const FIELD_ELIGIBILITY_HASH = 'eligibility_hash';
+    public const FIELD_FRESHNESS = 'freshness';
+    public const FIELD_ID = 'id';
+    public const FIELD_LAST_EVALUATION = 'last_evaluation';
+    public const FIELD_MAX_AGE_DAYS = 'max_age_days';
+    public const FIELD_MAX_EVIDENCE_AGE_DAYS = 'max_evidence_age_days';
+    public const FIELD_MAX_TIER = 'max_tier';
+    public const FIELD_REQUIRED_THRESHOLD = 'required_threshold';
+    public const FIELD_RESOLVED = 'resolved';
+    public const FIELD_TARGET_THRESHOLD = 'target_threshold';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_ALREADY_AT_MAX_TIER = 'already_at_max_tier';
+    public const FIELD_EVIDENCE_STALE = 'evidence_stale';
+    public const FIELD_QUALITY_BAR_NOT_MET = 'quality_bar_not_met';
+
     /**
      * @param array{current_tier?: int|float|string, blockers_to_next?: list<array{id?: mixed, resolved?: bool, severity?: string}>, last_evaluation?: string} $department
      * @param array{current_score?: int|float|string, tier_thresholds?: array<int|string, int|float|string>, target_threshold?: int|float|string} $metrics
@@ -43,56 +79,56 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
      */
     public function evaluate(array $department, array $metrics, array $options = []): array
     {
-        $currentTier = $this->intValue($department['current_tier'] ?? 0);
-        $maxTier = $this->intValue($options['max_tier'] ?? self::DEFAULT_MAX_TIER, self::DEFAULT_MAX_TIER);
+        $currentTier = $this->intValue($department[self::FIELD_CURRENT_TIER] ?? 0);
+        $maxTier = $this->intValue($options[self::FIELD_MAX_TIER] ?? self::DEFAULT_MAX_TIER, self::DEFAULT_MAX_TIER);
         $atMaxTier = $currentTier >= $maxTier;
         $targetTier = $atMaxTier ? $maxTier : ($currentTier + 1);
 
-        $blockerPrecondition = $this->evaluateBlockers($department['blockers_to_next'] ?? []);
+        $blockerPrecondition = $this->evaluateBlockers($department[self::FIELD_BLOCKERS_TO_NEXT] ?? []);
         $qualityPrecondition = $this->evaluateQualityBar($metrics, $targetTier);
         $freshnessPrecondition = $this->evaluateFreshness($department, $options);
 
         $failedPreconditions = [];
         $blockingReasons = [];
 
-        if (! $blockerPrecondition['passed']) {
-            $failedPreconditions[] = 'blockers';
-            foreach ($blockerPrecondition['unresolved'] as $unresolvedId) {
+        if (! $blockerPrecondition[self::FIELD_PASSED]) {
+            $failedPreconditions[] = self::FIELD_BLOCKERS;
+            foreach ($blockerPrecondition[self::FIELD_UNRESOLVED] as $unresolvedId) {
                 $blockingReasons[] = 'blocked_by_unresolved_blockers:' . $unresolvedId;
             }
         }
 
-        if (! $qualityPrecondition['passed']) {
-            $failedPreconditions[] = 'quality_bar';
-            $blockingReasons[] = 'quality_bar_not_met';
+        if (! $qualityPrecondition[self::FIELD_PASSED]) {
+            $failedPreconditions[] = self::FIELD_QUALITY_BAR;
+            $blockingReasons[] = self::FIELD_QUALITY_BAR_NOT_MET;
         }
 
-        if (! $freshnessPrecondition['passed']) {
-            $failedPreconditions[] = 'freshness';
-            $blockingReasons[] = 'evidence_stale';
+        if (! $freshnessPrecondition[self::FIELD_PASSED]) {
+            $failedPreconditions[] = self::FIELD_FRESHNESS;
+            $blockingReasons[] = self::FIELD_EVIDENCE_STALE;
         }
 
         if ($atMaxTier) {
-            $blockingReasons[] = 'already_at_max_tier';
+            $blockingReasons[] = self::FIELD_ALREADY_AT_MAX_TIER;
         }
 
         $eligible = $failedPreconditions === [] && ! $atMaxTier;
 
         $preconditions = [
-            'blockers' => $blockerPrecondition,
-            'quality_bar' => $qualityPrecondition,
-            'freshness' => $freshnessPrecondition,
+            self::FIELD_BLOCKERS => $blockerPrecondition,
+            self::FIELD_QUALITY_BAR => $qualityPrecondition,
+            self::FIELD_FRESHNESS => $freshnessPrecondition,
         ];
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'verdict' => $eligible ? self::VERDICT_ELIGIBLE : self::VERDICT_BLOCKED,
-            'current_tier' => $currentTier,
-            'target_tier' => $targetTier,
-            'preconditions' => $preconditions,
-            'failed_preconditions' => $failedPreconditions,
-            'blocking_reasons' => $blockingReasons,
-            'eligibility_hash' => $this->eligibilityHash(
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_VERDICT => $eligible ? self::VERDICT_ELIGIBLE : self::VERDICT_BLOCKED,
+            self::FIELD_CURRENT_TIER => $currentTier,
+            self::FIELD_TARGET_TIER => $targetTier,
+            self::FIELD_PRECONDITIONS => $preconditions,
+            self::FIELD_FAILED_PRECONDITIONS => $failedPreconditions,
+            self::FIELD_BLOCKING_REASONS => $blockingReasons,
+            self::FIELD_ELIGIBILITY_HASH => $this->eligibilityHash(
                 $currentTier,
                 $targetTier,
                 $eligible,
@@ -100,9 +136,9 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
                 $failedPreconditions,
                 $blockingReasons,
             ),
-            'promotion_allowed' => false,
-            'canonical_write_allowed' => false,
-            'auto_promote_allowed' => false,
+            self::FIELD_PROMOTION_ALLOWED => false,
+            self::FIELD_CANONICAL_WRITE_ALLOWED => false,
+            self::FIELD_AUTO_PROMOTE_ALLOWED => false,
         ];
     }
 
@@ -111,7 +147,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
      */
     public function preconditionKeys(): array
     {
-        return ['blockers', 'quality_bar', 'freshness'];
+        return [self::FIELD_BLOCKERS, self::FIELD_QUALITY_BAR, self::FIELD_FRESHNESS];
     }
 
     /**
@@ -128,19 +164,19 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
                 continue;
             }
 
-            if (($blocker['resolved'] ?? false) === true) {
+            if (($blocker[self::FIELD_RESOLVED] ?? false) === true) {
                 continue;
             }
 
-            $unresolved[] = $this->stringValue($blocker['id'] ?? '');
+            $unresolved[] = $this->stringValue($blocker[self::FIELD_ID] ?? '');
         }
 
         $unresolved = $this->uniqueSortedStrings($unresolved);
 
         return [
-            'passed' => $unresolved === [],
-            'total' => count($blockers),
-            'unresolved' => $unresolved,
+            self::FIELD_PASSED => $unresolved === [],
+            self::FIELD_TOTAL => count($blockers),
+            self::FIELD_UNRESOLVED => $unresolved,
         ];
     }
 
@@ -151,15 +187,15 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
      */
     private function evaluateQualityBar(array $metrics, int $targetTier): array
     {
-        $currentScore = $this->floatValue($metrics['current_score'] ?? 0.0);
+        $currentScore = $this->floatValue($metrics[self::FIELD_CURRENT_SCORE] ?? 0.0);
         $requiredThreshold = $this->resolveRequiredThreshold($metrics, $targetTier);
         $deficit = max(0.0, round($requiredThreshold - $currentScore, 4));
 
         return [
-            'passed' => $currentScore >= $requiredThreshold,
-            'current_score' => $currentScore,
-            'required_threshold' => $requiredThreshold,
-            'deficit' => $deficit,
+            self::FIELD_PASSED => $currentScore >= $requiredThreshold,
+            self::FIELD_CURRENT_SCORE => $currentScore,
+            self::FIELD_REQUIRED_THRESHOLD => $requiredThreshold,
+            self::FIELD_DEFICIT => $deficit,
         ];
     }
 
@@ -168,7 +204,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
      */
     private function resolveRequiredThreshold(array $metrics, int $targetTier): float
     {
-        $thresholds = $metrics['tier_thresholds'] ?? null;
+        $thresholds = $metrics[self::FIELD_TIER_THRESHOLDS] ?? null;
 
         if (is_array($thresholds) && array_key_exists($targetTier, $thresholds)) {
             return $this->floatValue($thresholds[$targetTier]);
@@ -178,7 +214,7 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
             return $this->floatValue($thresholds[AiValueNormalizer::trimmedScalarStringOrNull($targetTier) ?? '']);
         }
 
-        return $this->floatValue($metrics['target_threshold'] ?? 0.0);
+        return $this->floatValue($metrics[self::FIELD_TARGET_THRESHOLD] ?? 0.0);
     }
 
     /**
@@ -189,17 +225,17 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
      */
     private function evaluateFreshness(array $department, array $options): array
     {
-        $maxAgeDays = $this->intValue($options['max_evidence_age_days'] ?? self::DEFAULT_MAX_EVIDENCE_AGE_DAYS, self::DEFAULT_MAX_EVIDENCE_AGE_DAYS);
-        $lastEvaluation = AiValueNormalizer::trimmedStringOrNull($department['last_evaluation'] ?? null) ?? '';
-        $asOf = AiValueNormalizer::trimmedStringOrNull($options['as_of'] ?? null) ?? date(DATE_ATOM);
+        $maxAgeDays = $this->intValue($options[self::FIELD_MAX_EVIDENCE_AGE_DAYS] ?? self::DEFAULT_MAX_EVIDENCE_AGE_DAYS, self::DEFAULT_MAX_EVIDENCE_AGE_DAYS);
+        $lastEvaluation = AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_LAST_EVALUATION] ?? null) ?? '';
+        $asOf = AiValueNormalizer::trimmedStringOrNull($options[self::FIELD_AS_OF] ?? null) ?? date(DATE_ATOM);
 
         $lastEvaluationTimestamp = $this->timestampFromIso($lastEvaluation);
         $ageDays = $this->ageInDays($lastEvaluation, $asOf);
 
         return [
-            'passed' => $lastEvaluationTimestamp !== null && $ageDays <= $maxAgeDays,
-            'age_days' => $ageDays,
-            'max_age_days' => $maxAgeDays,
+            self::FIELD_PASSED => $lastEvaluationTimestamp !== null && $ageDays <= $maxAgeDays,
+            self::FIELD_AGE_DAYS => $ageDays,
+            self::FIELD_MAX_AGE_DAYS => $maxAgeDays,
         ];
     }
 
@@ -246,16 +282,16 @@ final class AtlasAaeosDepartmentPromotionEligibilityEvaluator
         array $blockingReasons,
     ): string {
         $payload = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'current_tier' => $currentTier,
-            'target_tier' => $targetTier,
-            'verdict' => $eligible ? self::VERDICT_ELIGIBLE : self::VERDICT_BLOCKED,
-            'preconditions' => $preconditions,
-            'failed_preconditions' => $failedPreconditions,
-            'blocking_reasons' => $blockingReasons,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_CURRENT_TIER => $currentTier,
+            self::FIELD_TARGET_TIER => $targetTier,
+            self::FIELD_VERDICT => $eligible ? self::VERDICT_ELIGIBLE : self::VERDICT_BLOCKED,
+            self::FIELD_PRECONDITIONS => $preconditions,
+            self::FIELD_FAILED_PRECONDITIONS => $failedPreconditions,
+            self::FIELD_BLOCKING_REASONS => $blockingReasons,
         ];
 
-        return hash('sha256', (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        return hash(self::FIELD_SHA256, (string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
     private function intValue(mixed $value, int $default = 0): int

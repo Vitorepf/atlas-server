@@ -19,6 +19,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class ContextParetoDominanceFilter
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const SCHEMA_VERSION = 'atlas.aaeos.context_pareto_dominance.v1';
 
     public const DIRECTION_MAXIMIZE = 'maximize';
@@ -30,6 +32,23 @@ final class ContextParetoDominanceFilter
     public const STATUS_DOMINATED = 'dominated';
 
     public const STATUS_FRONTIER = 'frontier';
+
+    public const FIELD_BLOCKED = 'blocked';
+
+    public const FIELD_DOMINATED = 'dominated';
+
+    public const FIELD_FRONTIER = 'frontier';
+    public const FIELD_DOMINATED_BY = 'dominated_by';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_ADMITTED = 'admitted';
+    public const FIELD_EQUALS = 'equals';
+    public const FIELD_EVALUATED = 'evaluated';
+    public const FIELD_FAILED_CONSTRAINTS = 'failed_constraints';
+    public const FIELD_MAX = 'max';
+    public const FIELD_MIN = 'min';
+    public const FIELD_OBJECTIVE_DIRECTION = 'objective_direction';
+    public const FIELD_SUMMARY = 'summary';
+    public const FIELD_TOTAL = 'total';
 
 
     /**
@@ -52,8 +71,8 @@ final class ContextParetoDominanceFilter
 
             if ($failed !== []) {
                 $blocked[] = [
-                    'id' => $id,
-                    'failed_constraints' => $failed,
+                    self::FIELD_ID => $id,
+                    self::FIELD_FAILED_CONSTRAINTS => $failed,
                 ];
                 $blockedById[$id] = $failed;
 
@@ -71,9 +90,9 @@ final class ContextParetoDominanceFilter
 
             if (array_key_exists($id, $blockedById)) {
                 $evaluated[] = [
-                    'id' => $id,
-                    'status' => self::STATUS_BLOCKED,
-                    'dominated_by' => [],
+                    self::FIELD_ID => $id,
+                    self::FIELD_STATUS => self::STATUS_BLOCKED,
+                    self::FIELD_DOMINATED_BY => [],
                 ];
 
                 continue;
@@ -84,18 +103,18 @@ final class ContextParetoDominanceFilter
             if ($dominatedBy === []) {
                 $frontier[] = $id;
                 $evaluated[] = [
-                    'id' => $id,
-                    'status' => self::STATUS_FRONTIER,
-                    'dominated_by' => [],
+                    self::FIELD_ID => $id,
+                    self::FIELD_STATUS => self::STATUS_FRONTIER,
+                    self::FIELD_DOMINATED_BY => [],
                 ];
 
                 continue;
             }
 
             $evaluated[] = [
-                'id' => $id,
-                'status' => self::STATUS_DOMINATED,
-                'dominated_by' => $dominatedBy,
+                self::FIELD_ID => $id,
+                self::FIELD_STATUS => self::STATUS_DOMINATED,
+                self::FIELD_DOMINATED_BY => $dominatedBy,
             ];
         }
 
@@ -105,17 +124,17 @@ final class ContextParetoDominanceFilter
         $dominatedCount = $admittedCount - $frontierCount;
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'objective_direction' => $direction,
-            'frontier' => $frontier,
-            'blocked' => $blocked,
-            'evaluated' => $evaluated,
-            'summary' => [
-                'total' => count($variants),
-                'admitted' => $admittedCount,
-                'blocked' => $blockedCount,
-                'frontier' => $frontierCount,
-                'dominated' => $dominatedCount,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_OBJECTIVE_DIRECTION => $direction,
+            self::FIELD_FRONTIER => $frontier,
+            self::FIELD_BLOCKED => $blocked,
+            self::FIELD_EVALUATED => $evaluated,
+            self::FIELD_SUMMARY => [
+                self::FIELD_TOTAL => count($variants),
+                self::FIELD_ADMITTED => $admittedCount,
+                self::FIELD_BLOCKED => $blockedCount,
+                self::FIELD_FRONTIER => $frontierCount,
+                self::FIELD_DOMINATED => $dominatedCount,
             ],
         ];
     }
@@ -222,22 +241,22 @@ final class ContextParetoDominanceFilter
     {
         $value = $variant[$field] ?? null;
 
-        if (array_key_exists('equals', $rule)) {
-            if ($value !== $rule['equals']) {
+        if (array_key_exists(self::FIELD_EQUALS, $rule)) {
+            if ($value !== $rule[self::FIELD_EQUALS]) {
                 return false;
             }
         }
 
-        if (array_key_exists('min', $rule)) {
+        if (array_key_exists(self::FIELD_MIN, $rule)) {
             $numeric = AiValueNormalizer::finiteFloatOrNull($value);
-            if ($numeric === null || $numeric < (AiValueNormalizer::finiteFloatOrNull($rule['min'] ?? null) ?? 0.0)) {
+            if ($numeric === null || $numeric < (AiValueNormalizer::finiteFloatOrNull($rule[self::FIELD_MIN] ?? null) ?? 0.0)) {
                 return false;
             }
         }
 
-        if (array_key_exists('max', $rule)) {
+        if (array_key_exists(self::FIELD_MAX, $rule)) {
             $numeric = AiValueNormalizer::finiteFloatOrNull($value);
-            if ($numeric === null || $numeric > (AiValueNormalizer::finiteFloatOrNull($rule['max'] ?? null) ?? 0.0)) {
+            if ($numeric === null || $numeric > (AiValueNormalizer::finiteFloatOrNull($rule[self::FIELD_MAX] ?? null) ?? 0.0)) {
                 return false;
             }
         }
@@ -275,6 +294,6 @@ final class ContextParetoDominanceFilter
      */
     private function variantId(array $variant): string
     {
-        return AiValueNormalizer::trimmedStringOrNull($variant['id'] ?? null) ?? '';
+        return AiValueNormalizer::trimmedStringOrNull($variant[self::FIELD_ID] ?? null) ?? '';
     }
 }

@@ -38,6 +38,24 @@ final class ImmuneVerdictLedger
     ];
 
     public const WRITER_UNKNOWN = 'unknown';
+    public const FIELD_SAMPLE_LABEL = 'sample_label';
+    public const FIELD_PROMOTION_STATUS = 'promotion_status';
+    public const FIELD_PENDING_GATE_IDS = 'pending_gate_ids';
+    public const FIELD_METADATA = 'metadata';
+    public const FIELD_GATE_STATUSES = 'gate_statuses';
+    public const FIELD_EXPECTED_BLOCK_GATE_IDS = 'expected_block_gate_ids';
+    public const FIELD_DECIDED_AT = 'decided_at';
+    public const FIELD_BLOCKING_GATE_IDS = 'blocking_gate_ids';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_CANDIDATE_HASH = 'candidate_hash';
+    public const FIELD_WRITER = 'writer';
+    public const FIELD_ID = 'id';
+    public const FIELD_UPDATED_AT = 'updated_at';
+    public const FIELD_CREATED_AT = 'created_at';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_STRVAL = 'strval';
+    public const FIELD_UNCLASSIFIED = 'unclassified';
+    public const FIELD_UTC = 'UTC';
 
     /** @var list<string> */
     public const LABELS = [
@@ -75,30 +93,30 @@ final class ImmuneVerdictLedger
      */
     public function sampleFromVerdict(string $candidateHash, string $writer, array $verdict, array $context = []): array
     {
-        $gateStatuses = $this->normalizeGateStatuses(AiValueNormalizer::arrayOrEmpty($verdict['gate_statuses'] ?? null));
-        $expectedBlockGateIds = $this->normalizeGateIds(AiValueNormalizer::arrayOrEmpty($context['expected_block_gate_ids'] ?? null));
-        $blockingGateIds = $this->normalizeGateIds(AiValueNormalizer::arrayOrEmpty($verdict['blocking_gate_ids'] ?? null));
+        $gateStatuses = $this->normalizeGateStatuses(AiValueNormalizer::arrayOrEmpty($verdict[self::FIELD_GATE_STATUSES] ?? null));
+        $expectedBlockGateIds = $this->normalizeGateIds(AiValueNormalizer::arrayOrEmpty($context[self::FIELD_EXPECTED_BLOCK_GATE_IDS] ?? null));
+        $blockingGateIds = $this->normalizeGateIds(AiValueNormalizer::arrayOrEmpty($verdict[self::FIELD_BLOCKING_GATE_IDS] ?? null));
         $sampleLabel = $this->sampleLabel(
-            AiValueNormalizer::trimmedScalarStringOrNull($context['sample_label'] ?? null) ?? '',
+            AiValueNormalizer::trimmedScalarStringOrNull($context[self::FIELD_SAMPLE_LABEL] ?? null) ?? '',
             $gateStatuses,
             $expectedBlockGateIds,
             $blockingGateIds,
         );
-        $decidedAt = $this->parseDate($context['decided_at'] ?? null) ?? CarbonImmutable::now('UTC');
+        $decidedAt = $this->parseDate($context[self::FIELD_DECIDED_AT] ?? null) ?? CarbonImmutable::now(self::FIELD_UTC);
 
         return [
-            'id' => (string) Str::uuid(),
-            'schema_version' => self::SCHEMA_VERSION,
-            'candidate_hash' => $this->candidateHash($candidateHash),
-            'writer' => trim($writer) !== '' ? trim($writer) : self::WRITER_UNKNOWN,
-            'gate_statuses' => $gateStatuses,
-            'promotion_status' => AiValueNormalizer::trimmedScalarStringOrNull($verdict['promotion_status'] ?? null) ?? 'unclassified',
-            'blocking_gate_ids' => $blockingGateIds,
-            'pending_gate_ids' => $this->normalizeGateIds(AiValueNormalizer::arrayOrEmpty($verdict['pending_gate_ids'] ?? null)),
-            'expected_block_gate_ids' => $expectedBlockGateIds,
-            'sample_label' => $sampleLabel,
-            'decided_at' => $decidedAt->toIso8601String(),
-            'metadata' => AiValueNormalizer::arrayOrEmpty($context['metadata'] ?? null),
+            self::FIELD_ID => (string) Str::uuid(),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_CANDIDATE_HASH => $this->candidateHash($candidateHash),
+            self::FIELD_WRITER => trim($writer) !== '' ? trim($writer) : self::WRITER_UNKNOWN,
+            self::FIELD_GATE_STATUSES => $gateStatuses,
+            self::FIELD_PROMOTION_STATUS => AiValueNormalizer::trimmedScalarStringOrNull($verdict[self::FIELD_PROMOTION_STATUS] ?? null) ?? self::FIELD_UNCLASSIFIED,
+            self::FIELD_BLOCKING_GATE_IDS => $blockingGateIds,
+            self::FIELD_PENDING_GATE_IDS => $this->normalizeGateIds(AiValueNormalizer::arrayOrEmpty($verdict[self::FIELD_PENDING_GATE_IDS] ?? null)),
+            self::FIELD_EXPECTED_BLOCK_GATE_IDS => $expectedBlockGateIds,
+            self::FIELD_SAMPLE_LABEL => $sampleLabel,
+            self::FIELD_DECIDED_AT => $decidedAt->toIso8601String(),
+            self::FIELD_METADATA => AiValueNormalizer::arrayOrEmpty($context[self::FIELD_METADATA] ?? null),
         ];
     }
 
@@ -114,11 +132,11 @@ final class ImmuneVerdictLedger
         try {
             $query = DB::table(self::TABLE);
             if ($days !== null) {
-                $query->where('decided_at', '>=', CarbonImmutable::now('UTC')->subDays(max(1, $days)));
+                $query->where(self::FIELD_DECIDED_AT, '>=', CarbonImmutable::now(self::FIELD_UTC)->subDays(max(1, $days)));
             }
 
             return $query
-                ->orderBy('decided_at')
+                ->orderBy(self::FIELD_DECIDED_AT)
                 ->get()
                 ->map(fn (object $row): array => $this->rowFromDatabase($row))
                 ->all();
@@ -159,20 +177,20 @@ final class ImmuneVerdictLedger
     private function databaseRow(array $row): array
     {
         return [
-            'id' => $row['id'],
-            'schema_version' => $row['schema_version'],
-            'candidate_hash' => $row['candidate_hash'],
-            'writer' => $row['writer'],
-            'gate_statuses' => json_encode($row['gate_statuses'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
-            'promotion_status' => $row['promotion_status'],
-            'blocking_gate_ids' => json_encode($row['blocking_gate_ids'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
-            'pending_gate_ids' => json_encode($row['pending_gate_ids'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
-            'expected_block_gate_ids' => json_encode($row['expected_block_gate_ids'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
-            'sample_label' => $row['sample_label'],
-            'metadata' => json_encode($row['metadata'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
-            'decided_at' => $row['decided_at'],
-            'created_at' => now(),
-            'updated_at' => now(),
+            self::FIELD_ID => $row[self::FIELD_ID],
+            self::FIELD_SCHEMA_VERSION => $row[self::FIELD_SCHEMA_VERSION],
+            self::FIELD_CANDIDATE_HASH => $row[self::FIELD_CANDIDATE_HASH],
+            self::FIELD_WRITER => $row[self::FIELD_WRITER],
+            self::FIELD_GATE_STATUSES => json_encode($row[self::FIELD_GATE_STATUSES], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+            self::FIELD_PROMOTION_STATUS => $row[self::FIELD_PROMOTION_STATUS],
+            self::FIELD_BLOCKING_GATE_IDS => json_encode($row[self::FIELD_BLOCKING_GATE_IDS], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+            self::FIELD_PENDING_GATE_IDS => json_encode($row[self::FIELD_PENDING_GATE_IDS], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+            self::FIELD_EXPECTED_BLOCK_GATE_IDS => json_encode($row[self::FIELD_EXPECTED_BLOCK_GATE_IDS], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+            self::FIELD_SAMPLE_LABEL => $row[self::FIELD_SAMPLE_LABEL],
+            self::FIELD_METADATA => json_encode($row[self::FIELD_METADATA], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES),
+            self::FIELD_DECIDED_AT => $row[self::FIELD_DECIDED_AT],
+            self::FIELD_CREATED_AT => now(),
+            self::FIELD_UPDATED_AT => now(),
         ];
     }
 
@@ -180,18 +198,18 @@ final class ImmuneVerdictLedger
     private function rowFromDatabase(object $row): array
     {
         return [
-            'id' => AiValueNormalizer::trimmedScalarStringOrNull($row->id ?? null) ?? '',
-            'schema_version' => AiValueNormalizer::trimmedScalarStringOrNull($row->schema_version ?? null) ?? '',
-            'candidate_hash' => AiValueNormalizer::trimmedScalarStringOrNull($row->candidate_hash ?? null) ?? '',
-            'writer' => AiValueNormalizer::trimmedScalarStringOrNull($row->writer ?? null) ?? '',
-            'gate_statuses' => $this->jsonArray($row->gate_statuses ?? []),
-            'promotion_status' => AiValueNormalizer::trimmedScalarStringOrNull($row->promotion_status ?? null) ?? '',
-            'blocking_gate_ids' => $this->jsonList($row->blocking_gate_ids ?? []),
-            'pending_gate_ids' => $this->jsonList($row->pending_gate_ids ?? []),
-            'expected_block_gate_ids' => $this->jsonList($row->expected_block_gate_ids ?? []),
-            'sample_label' => AiValueNormalizer::trimmedStringOrNull($row->sample_label ?? null),
-            'metadata' => $this->jsonArray($row->metadata ?? []),
-            'decided_at' => AiValueNormalizer::trimmedString($row->decided_at ?? ''),
+            self::FIELD_ID => AiValueNormalizer::trimmedScalarStringOrNull($row->id ?? null) ?? '',
+            self::FIELD_SCHEMA_VERSION => AiValueNormalizer::trimmedScalarStringOrNull($row->schema_version ?? null) ?? '',
+            self::FIELD_CANDIDATE_HASH => AiValueNormalizer::trimmedScalarStringOrNull($row->candidate_hash ?? null) ?? '',
+            self::FIELD_WRITER => AiValueNormalizer::trimmedScalarStringOrNull($row->writer ?? null) ?? '',
+            self::FIELD_GATE_STATUSES => $this->jsonArray($row->gate_statuses ?? []),
+            self::FIELD_PROMOTION_STATUS => AiValueNormalizer::trimmedScalarStringOrNull($row->promotion_status ?? null) ?? '',
+            self::FIELD_BLOCKING_GATE_IDS => $this->jsonList($row->blocking_gate_ids ?? []),
+            self::FIELD_PENDING_GATE_IDS => $this->jsonList($row->pending_gate_ids ?? []),
+            self::FIELD_EXPECTED_BLOCK_GATE_IDS => $this->jsonList($row->expected_block_gate_ids ?? []),
+            self::FIELD_SAMPLE_LABEL => AiValueNormalizer::trimmedStringOrNull($row->sample_label ?? null),
+            self::FIELD_METADATA => $this->jsonArray($row->metadata ?? []),
+            self::FIELD_DECIDED_AT => AiValueNormalizer::trimmedString($row->decided_at ?? ''),
         ];
     }
 
@@ -232,7 +250,7 @@ final class ImmuneVerdictLedger
 
         return preg_match('/^[a-f0-9]{64}$/', $candidateHash) === 1
             ? $candidateHash
-            : hash('sha256', $candidateHash);
+            : hash(self::FIELD_SHA256, $candidateHash);
     }
 
     /** @return array<string,mixed> */
@@ -254,7 +272,7 @@ final class ImmuneVerdictLedger
     /** @return list<string> */
     private function jsonList(mixed $value): array
     {
-        return array_values(array_map('strval', $this->jsonArray($value)));
+        return array_values(array_map(self::FIELD_STRVAL, $this->jsonArray($value)));
     }
 
     private function parseDate(mixed $value): ?CarbonImmutable

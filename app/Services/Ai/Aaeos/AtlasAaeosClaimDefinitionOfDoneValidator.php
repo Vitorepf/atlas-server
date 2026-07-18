@@ -37,6 +37,20 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
 
     public const FIELD_CAVEAT = 'caveat';
 
+    public const FIELD_MISSING_FIELDS = 'missing_fields';
+    public const FIELD_SUBJECT = 'subject';
+    public const FIELD_CODE_COMMAND_APPLICABLE = 'code_command_applicable';
+    public const FIELD_VERDICT = 'verdict';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_EVALUATED_AGAINST = 'evaluated_against';
+    public const FIELD_FIELD_STATUS = 'field_status';
+    public const FIELD_PARTIAL_CLAIM = 'partial_claim';
+    public const FIELD_PASSES = 'passes';
+    public const FIELD_PRESENT_FIELDS = 'present_fields';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_EVIDENCE_COMPLETE_PARTIAL_STATE_CAVEATED = 'evidence_complete_partial_state_caveated';
+    public const FIELD_EVIDENCE_COMPLETE_ALL_REQUIRED_FIELDS_PRESENT = 'evidence_complete_all_required_fields_present';
+
     public const STATUS_PRESENT = 'present';
 
     public const STATUS_MISSING = 'missing';
@@ -94,7 +108,7 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
         $partialClaim = $this->isPartial($claim, self::FIELD_DOCUMENTAL_STATE)
             || $this->isPartial($claim, self::FIELD_RUNTIME_STATE);
 
-        $codePathApplicable = ($claim['code_command_applicable'] ?? null) !== false;
+        $codePathApplicable = ($claim[self::FIELD_CODE_COMMAND_APPLICABLE] ?? null) !== false;
 
         $presentFields = [];
         $missingFields = [];
@@ -125,16 +139,16 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
         $passes = $verdict === self::VERDICT_EVIDENCE;
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'verdict' => $verdict,
-            'passes' => $passes,
-            'subject' => $this->echoSubject($claim),
-            'present_fields' => $presentFields,
-            'missing_fields' => $missingFields,
-            'field_status' => $fieldStatus,
-            'partial_claim' => $partialClaim,
-            'reason' => $this->buildReason($verdict, $partialClaim, $missingFields),
-            'evaluated_against' => self::EVALUATED_AGAINST,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_VERDICT => $verdict,
+            self::FIELD_PASSES => $passes,
+            self::FIELD_SUBJECT => $this->echoSubject($claim),
+            self::FIELD_PRESENT_FIELDS => $presentFields,
+            self::FIELD_MISSING_FIELDS => $missingFields,
+            self::FIELD_FIELD_STATUS => $fieldStatus,
+            self::FIELD_PARTIAL_CLAIM => $partialClaim,
+            self::FIELD_REASON => $this->buildReason($verdict, $partialClaim, $missingFields),
+            self::FIELD_EVALUATED_AGAINST => self::EVALUATED_AGAINST,
         ];
     }
 
@@ -186,7 +200,7 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
      */
     private function echoSubject(array $claim): string
     {
-        return AiValueNormalizer::trimmedStringOrNull($claim['subject'] ?? null) ?? '';
+        return AiValueNormalizer::trimmedStringOrNull($claim[self::FIELD_SUBJECT] ?? null) ?? '';
     }
 
     /**
@@ -196,8 +210,8 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
     {
         if ($verdict === self::VERDICT_EVIDENCE) {
             return $partialClaim
-                ? 'evidence_complete_partial_state_caveated'
-                : 'evidence_complete_all_required_fields_present';
+                ? self::FIELD_EVIDENCE_COMPLETE_PARTIAL_STATE_CAVEATED
+                : self::FIELD_EVIDENCE_COMPLETE_ALL_REQUIRED_FIELDS_PRESENT;
         }
 
         return 'narrative_missing_required_fields:'.implode(',', $missingFields);

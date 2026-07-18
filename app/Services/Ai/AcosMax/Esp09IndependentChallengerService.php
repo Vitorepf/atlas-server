@@ -21,7 +21,7 @@ final class Esp09IndependentChallengerService
 
     public const MEASURE_ID = 'atlas.esp_09.challenger_advisory.v1';
 
-    public const MODE = 'advisory';
+    public const MODE = self::STATUS_ADVISORY;
 
     public const HIGH_ALIGNMENT_BAND = 0.80;
 
@@ -55,6 +55,36 @@ final class Esp09IndependentChallengerService
 
     public const ERROR_CHALLENGER_ENGINE_MUST_DIFFER = 'challenger_engine_must_differ';
 
+    public const FIELD_ERROR = 'error';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_PROMOTION_DELAYED = 'promotion_delayed';
+    public const FIELD_DECISION_KIND = 'decision_kind';
+    public const FIELD_MEASURE_ID = 'measure_id';
+    public const FIELD_MODE = 'mode';
+    public const FIELD_GATES_OVERRIDE = 'gates_override';
+    public const FIELD_TRIGGERED = 'triggered';
+    public const FIELD_CHALLENGER = 'challenger';
+    public const FIELD_OPERATOR_ALIGNMENT = 'operator_alignment';
+    public const FIELD_VETOED = 'vetoed';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_ADVISORY_ONLY = 'advisory_only';
+    public const FIELD_SKIP_REASON = 'skip_reason';
+    public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
+    public const FIELD_CHALLENGER_ENGINE_ID = 'challenger_engine_id';
+    public const FIELD_ACCEPTED_RATE = 'accepted_rate';
+    public const FIELD_ALTERNATIVE = 'alternative';
+    public const FIELD_CHALLENGER_BLOCK_PRESENT = 'challenger_block_present';
+    public const FIELD_DEATH_REVIEW_CANDIDATE = 'death_review_candidate';
+    public const FIELD_DEATH_REVIEW_REASON = 'death_review_reason';
+    public const FIELD_DENOMINATOR = 'denominator';
+    public const FIELD_PROPOSED_CHOICE = 'proposed_choice';
+    public const FIELD_REFUTATION = 'refutation';
+    public const FIELD_ELEV18_ENGINE_IDS_DISTINCT = 'elev18_engine_ids_distinct';
+    public const FIELD_HIGH_ALIGNMENT_BAND = 'high_alignment_band';
+    public const FIELD_OUTCOME = 'outcome';
+    public const FIELD_PROMOTION_WITHOUT_BLOCK = 'promotion_without_block';
+
     public const SKIP_REASON_LOW_AFFINITY = 'low_affinity';
 
     public const TRIGGER_DECISION_KIND = 'decision_kind';
@@ -74,6 +104,16 @@ final class Esp09IndependentChallengerService
     public const DEATH_REVIEW_REASON_NEAR_ZERO_ACCEPTED = 'near_zero_accepted_rate_across_windows';
 
     public const PROMOTION_WITHOUT_BLOCK = 'delayed_not_vetoed';
+    public const FIELD_TRIGGER = 'trigger';
+    public const FIELD_TRIGGER_KINDS = 'trigger_kinds';
+    public const FIELD_WINDOWS = 'windows';
+    public const FIELD_WINDOW = 'window';
+    public const FIELD_REQUIRES_CHALLENGER = 'requires_challenger';
+    public const FIELD_SERIES = 'series';
+    public const FIELD_TTL_DAYS = 'ttl_days';
+    public const FIELD_DEFAULT = 'default';
+    public const FLOAT_0_0 = 0.0;
+    public const INT_30 = 30;
 
     /**
      * @param  array<string,mixed>  $context
@@ -81,34 +121,34 @@ final class Esp09IndependentChallengerService
      */
     public static function evaluate(array $context): array
     {
-        $author = AiValueNormalizer::trimmedStringOrNull($context['author_engine_id'] ?? null) ?? '';
-        $challengerEngine = AiValueNormalizer::trimmedStringOrNull($context['challenger_engine_id'] ?? null) ?? '';
-        $alignmentRaw = AiValueNormalizer::finiteFloatOrNull($context['operator_alignment'] ?? null);
+        $author = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_AUTHOR_ENGINE_ID] ?? null) ?? '';
+        $challengerEngine = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_CHALLENGER_ENGINE_ID] ?? null) ?? '';
+        $alignmentRaw = AiValueNormalizer::finiteFloatOrNull($context[self::FIELD_OPERATOR_ALIGNMENT] ?? null);
         $alignment = $alignmentRaw === null ? null : AiValueNormalizer::clampUnit($alignmentRaw);
-        $kind = AiValueNormalizer::trimmedStringOrNull($context['decision_kind'] ?? null) ?? self::DECISION_KIND_ORDINARY_ROUTE;
+        $kind = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_DECISION_KIND] ?? null) ?? self::DECISION_KIND_ORDINARY_ROUTE;
 
         $base = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'measure_id' => self::MEASURE_ID,
-            'mode' => self::MODE,
-            'advisory_only' => true,
-            'gates_override' => false,
-            'triggered' => false,
-            'promotion_delayed' => false,
-            'challenger' => null,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_MODE => self::MODE,
+            self::FIELD_ADVISORY_ONLY => true,
+            self::FIELD_GATES_OVERRIDE => false,
+            self::FIELD_TRIGGERED => false,
+            self::FIELD_PROMOTION_DELAYED => false,
+            self::FIELD_CHALLENGER => null,
         ];
 
         if ($author === '' || $challengerEngine === '') {
             return array_merge($base, [
-                'status' => self::STATUS_INVALID,
-                'error' => self::ERROR_ENGINE_IDS_REQUIRED,
+                self::FIELD_STATUS => self::STATUS_INVALID,
+                self::FIELD_ERROR => self::ERROR_ENGINE_IDS_REQUIRED,
             ]);
         }
 
         if ($author === $challengerEngine) {
             return array_merge($base, [
-                'status' => self::STATUS_INVALID,
-                'error' => self::ERROR_CHALLENGER_ENGINE_MUST_DIFFER,
+                self::FIELD_STATUS => self::STATUS_INVALID,
+                self::FIELD_ERROR => self::ERROR_CHALLENGER_ENGINE_MUST_DIFFER,
             ]);
         }
 
@@ -117,29 +157,29 @@ final class Esp09IndependentChallengerService
 
         if (! $kindTriggered && ! $highAlignment) {
             return array_merge($base, [
-                'status' => self::STATUS_SKIPPED,
-                'skip_reason' => self::SKIP_REASON_LOW_AFFINITY,
-                'operator_alignment' => $alignment,
-                'decision_kind' => $kind,
+                self::FIELD_STATUS => self::STATUS_SKIPPED,
+                self::FIELD_SKIP_REASON => self::SKIP_REASON_LOW_AFFINITY,
+                self::FIELD_OPERATOR_ALIGNMENT => $alignment,
+                self::FIELD_DECISION_KIND => $kind,
             ]);
         }
 
         $trigger = $kindTriggered ? self::TRIGGER_DECISION_KIND : self::TRIGGER_HIGH_OPERATOR_ALIGNMENT;
 
         return array_merge($base, [
-            'status' => self::STATUS_ADVISORY,
-            'triggered' => true,
-            'trigger' => $trigger,
-            'operator_alignment' => $alignment,
-            'decision_kind' => $kind,
-            'challenger' => [
-                'author_engine_id' => $author,
-                'challenger_engine_id' => $challengerEngine,
-                'decision_kind' => $kind,
-                'proposed_choice' => (AiValueNormalizer::trimmedStringOrNull($context['proposed_choice'] ?? null) ?? ''),
-                'alternative' => (AiValueNormalizer::trimmedStringOrNull($context['alternative'] ?? null) ?? ''),
-                'refutation' => (AiValueNormalizer::trimmedStringOrNull($context['refutation'] ?? null) ?? ''),
-                'elev18_engine_ids_distinct' => true,
+            self::FIELD_STATUS => self::STATUS_ADVISORY,
+            self::FIELD_TRIGGERED => true,
+            self::FIELD_TRIGGER => $trigger,
+            self::FIELD_OPERATOR_ALIGNMENT => $alignment,
+            self::FIELD_DECISION_KIND => $kind,
+            self::FIELD_CHALLENGER => [
+                self::FIELD_AUTHOR_ENGINE_ID => $author,
+                self::FIELD_CHALLENGER_ENGINE_ID => $challengerEngine,
+                self::FIELD_DECISION_KIND => $kind,
+                self::FIELD_PROPOSED_CHOICE => (AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_PROPOSED_CHOICE] ?? null) ?? ''),
+                self::FIELD_ALTERNATIVE => (AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_ALTERNATIVE] ?? null) ?? ''),
+                self::FIELD_REFUTATION => (AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_REFUTATION] ?? null) ?? ''),
+                self::FIELD_ELEV18_ENGINE_IDS_DISTINCT => true,
             ],
         ]);
     }
@@ -150,25 +190,25 @@ final class Esp09IndependentChallengerService
      */
     public static function promotionGate(array $context): array
     {
-        $requires = ($context['requires_challenger'] ?? false) === true;
-        $present = ($context['challenger_block_present'] ?? false) === true;
+        $requires = ($context[self::FIELD_REQUIRES_CHALLENGER] ?? false) === true;
+        $present = ($context[self::FIELD_CHALLENGER_BLOCK_PRESENT] ?? false) === true;
 
         if ($requires && ! $present) {
             return [
-                'schema_version' => self::SCHEMA_VERSION,
-                'status' => self::STATUS_DELAYED,
-                'vetoed' => false,
-                'promotion_delayed' => true,
-                'reason' => self::REASON_AWAITING_CHALLENGER_BLOCK,
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+                self::FIELD_STATUS => self::STATUS_DELAYED,
+                self::FIELD_VETOED => false,
+                self::FIELD_PROMOTION_DELAYED => true,
+                self::FIELD_REASON => self::REASON_AWAITING_CHALLENGER_BLOCK,
             ];
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => self::STATUS_CLEAR,
-            'vetoed' => false,
-            'promotion_delayed' => false,
-            'reason' => $requires ? self::REASON_CHALLENGER_BLOCK_PRESENT : self::REASON_CHALLENGER_NOT_REQUIRED,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_STATUS => self::STATUS_CLEAR,
+            self::FIELD_VETOED => false,
+            self::FIELD_PROMOTION_DELAYED => false,
+            self::FIELD_REASON => $requires ? self::REASON_CHALLENGER_BLOCK_PRESENT : self::REASON_CHALLENGER_NOT_REQUIRED,
         ];
     }
 
@@ -183,8 +223,8 @@ final class Esp09IndependentChallengerService
         $byWindow = [];
 
         foreach ($events as $event) {
-            $outcome = AiValueNormalizer::lowerTrimmedString($event['outcome'] ?? '');
-            $window = AiValueNormalizer::trimmedStringOrNull($event['window'] ?? null) ?? 'default';
+            $outcome = AiValueNormalizer::lowerTrimmedString($event[self::FIELD_OUTCOME] ?? '');
+            $window = AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_WINDOW] ?? null) ?? self::FIELD_DEFAULT;
             $byWindow[$window] ??= [self::OUTCOME_ACCEPTED => 0, self::OUTCOME_IGNORED => 0];
 
             if ($outcome === self::OUTCOME_ACCEPTED) {
@@ -214,18 +254,18 @@ final class Esp09IndependentChallengerService
 
         $deathReview = $qualifyingWindows >= $minWindows
             && $zeroAcceptedWindows >= $minWindows
-            && $acceptedRate <= 0.0;
+            && $acceptedRate <= self::FLOAT_0_0;
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'series' => self::MEASURE_ID,
-            'denominator' => $denominator,
-            'accepted' => $accepted,
-            'ignored' => $ignored,
-            'accepted_rate' => $acceptedRate,
-            'windows' => $byWindow,
-            'death_review_candidate' => $deathReview,
-            'death_review_reason' => $deathReview
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_SERIES => self::MEASURE_ID,
+            self::FIELD_DENOMINATOR => $denominator,
+            self::OUTCOME_ACCEPTED => $accepted,
+            self::OUTCOME_IGNORED => $ignored,
+            self::FIELD_ACCEPTED_RATE => $acceptedRate,
+            self::FIELD_WINDOWS => $byWindow,
+            self::FIELD_DEATH_REVIEW_CANDIDATE => $deathReview,
+            self::FIELD_DEATH_REVIEW_REASON => $deathReview
                 ? self::DEATH_REVIEW_REASON_NEAR_ZERO_ACCEPTED
                 : null,
         ];
@@ -237,14 +277,14 @@ final class Esp09IndependentChallengerService
     public static function freezePayload(): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'measure_id' => self::MEASURE_ID,
-            'mode' => self::MODE,
-            'high_alignment_band' => self::HIGH_ALIGNMENT_BAND,
-            'trigger_kinds' => self::TRIGGER_KINDS,
-            'ttl_days' => 30,
-            'gates_override' => false,
-            'promotion_without_block' => self::PROMOTION_WITHOUT_BLOCK,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_MODE => self::MODE,
+            self::FIELD_HIGH_ALIGNMENT_BAND => self::HIGH_ALIGNMENT_BAND,
+            self::FIELD_TRIGGER_KINDS => self::TRIGGER_KINDS,
+            self::FIELD_TTL_DAYS => self::INT_30,
+            self::FIELD_GATES_OVERRIDE => false,
+            self::FIELD_PROMOTION_WITHOUT_BLOCK => self::PROMOTION_WITHOUT_BLOCK,
         ];
     }
 

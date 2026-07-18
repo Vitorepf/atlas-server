@@ -37,6 +37,31 @@ final class MemoryFeedbackDecayScorer
     public const DECISION_STALE_REVIEW_RECOMMENDED = 'stale_review_recommended';
 
     public const DECISION_FRESH = 'fresh';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_HEALTH_SCORE = 'health_score';
+    public const FIELD_EFFECTIVE_PRIORITY = 'effective_priority';
+    public const FIELD_LIFECYCLE_ACTION = 'lifecycle_action';
+    public const FIELD_STALENESS = 'staleness';
+    public const FIELD_AGE_DAYS = 'age_days';
+    public const FIELD_THRESHOLD_REASONS = 'threshold_reasons';
+    public const FIELD_INPUTS_ECHO = 'inputs_echo';
+    public const FIELD_RECALL_EVAL_HIT_RATE = 'recall_eval_hit_rate';
+    public const FIELD_BASE_PRIORITY = 'base_priority';
+    public const FIELD_LAST_USED_AT_AGE_DAYS = 'last_used_at_age_days';
+    public const FIELD_NEGATIVE_COUNT = 'negative_count';
+    public const FIELD_POSITIVE_COUNT = 'positive_count';
+    public const FIELD_RECORDED_AT_AGE_DAYS = 'recorded_at_age_days';
+    public const FIELD_STALE_COUNT = 'stale_count';
+    public const FIELD_WRONG_CONTEXT_COUNT = 'wrong_context_count';
+    public const FIELD_ARCHIVED_BY_STALE_FEEDBACK = 'archived_by_stale_feedback';
+    public const FIELD_DEGRADED_BY_FEEDBACK_PRESSURE = 'degraded_by_feedback_pressure';
+    public const FIELD_DEGRADED_BY_LOW_RECALL_HIT_RATE = 'degraded_by_low_recall_hit_rate';
+    public const FIELD_DEGRADED_BY_STALE_AGE = 'degraded_by_stale_age';
+    public const FIELD_INACTIVATED_BY_NEGATIVE_FEEDBACK = 'inactivated_by_negative_feedback';
+    public const FIELD_INACTIVATED_BY_STALE_AGE = 'inactivated_by_stale_age';
+    public const FIELD_SOFT_STALE_AGE_EXCEEDS_45D = 'soft_stale_age_exceeds_45d';
+    public const FIELD_STALE_AGE_EXCEEDS_180D = 'stale_age_exceeds_180d';
+    public const FLOAT_0_0 = 0.0;
 
     /**
      * @param  array<string, mixed>  $signals
@@ -53,14 +78,14 @@ final class MemoryFeedbackDecayScorer
      */
     public function score(array $signals): array
     {
-        $positive = $this->nonNegativeInt($signals, 'positive_count');
-        $negative = $this->nonNegativeInt($signals, 'negative_count');
-        $wrongContext = $this->nonNegativeInt($signals, 'wrong_context_count');
-        $stale = $this->nonNegativeInt($signals, 'stale_count');
-        $basePriority = $this->clamp(0, 100, $this->intOrDefault($signals, 'base_priority', self::DEFAULT_BASE_PRIORITY));
+        $positive = $this->nonNegativeInt($signals, self::FIELD_POSITIVE_COUNT);
+        $negative = $this->nonNegativeInt($signals, self::FIELD_NEGATIVE_COUNT);
+        $wrongContext = $this->nonNegativeInt($signals, self::FIELD_WRONG_CONTEXT_COUNT);
+        $stale = $this->nonNegativeInt($signals, self::FIELD_STALE_COUNT);
+        $basePriority = $this->clamp(0, 100, $this->intOrDefault($signals, self::FIELD_BASE_PRIORITY, self::DEFAULT_BASE_PRIORITY));
 
-        $recordedAge = $this->ageOrNull($signals, 'recorded_at_age_days');
-        $lastUsedAge = $this->ageOrNull($signals, 'last_used_at_age_days');
+        $recordedAge = $this->ageOrNull($signals, self::FIELD_RECORDED_AT_AGE_DAYS);
+        $lastUsedAge = $this->ageOrNull($signals, self::FIELD_LAST_USED_AT_AGE_DAYS);
         $hitRate = $this->hitRateOrNull($signals);
 
         $healthScore = $this->clamp(
@@ -86,13 +111,13 @@ final class MemoryFeedbackDecayScorer
 
         if ($decayActive) {
             $effectivePriority = (int) intdiv($effectivePriority, 2);
-            $reasons[] = 'stale_age_exceeds_180d';
+            $reasons[] = self::FIELD_STALE_AGE_EXCEEDS_180D;
         }
 
         $staleness = $this->resolveStaleness($recordedAgeForDecay, $lastUsedAge, $recordedHardStale, $lastUsedHardStale);
 
         if ($this->softStale($recordedAgeForDecay) || $this->softStale($lastUsedAge)) {
-            $reasons[] = 'soft_stale_age_exceeds_45d';
+            $reasons[] = self::FIELD_SOFT_STALE_AGE_EXCEEDS_45D;
         }
 
         $lifecycleAction = $this->resolveLifecycleAction(
@@ -106,22 +131,22 @@ final class MemoryFeedbackDecayScorer
         );
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'health_score' => $healthScore,
-            'effective_priority' => $effectivePriority,
-            'lifecycle_action' => $lifecycleAction,
-            'staleness' => $staleness,
-            'age_days' => $recordedAge,
-            'threshold_reasons' => array_values($reasons),
-            'inputs_echo' => [
-                'positive_count' => $positive,
-                'negative_count' => $negative,
-                'wrong_context_count' => $wrongContext,
-                'stale_count' => $stale,
-                'base_priority' => $basePriority,
-                'recorded_at_age_days' => $recordedAge,
-                'last_used_at_age_days' => $lastUsedAge,
-                'recall_eval_hit_rate' => $hitRate,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_HEALTH_SCORE => $healthScore,
+            self::FIELD_EFFECTIVE_PRIORITY => $effectivePriority,
+            self::FIELD_LIFECYCLE_ACTION => $lifecycleAction,
+            self::FIELD_STALENESS => $staleness,
+            self::FIELD_AGE_DAYS => $recordedAge,
+            self::FIELD_THRESHOLD_REASONS => array_values($reasons),
+            self::FIELD_INPUTS_ECHO => [
+                self::FIELD_POSITIVE_COUNT => $positive,
+                self::FIELD_NEGATIVE_COUNT => $negative,
+                self::FIELD_WRONG_CONTEXT_COUNT => $wrongContext,
+                self::FIELD_STALE_COUNT => $stale,
+                self::FIELD_BASE_PRIORITY => $basePriority,
+                self::FIELD_RECORDED_AT_AGE_DAYS => $recordedAge,
+                self::FIELD_LAST_USED_AT_AGE_DAYS => $lastUsedAge,
+                self::FIELD_RECALL_EVAL_HIT_RATE => $hitRate,
             ],
         ];
     }
@@ -139,19 +164,19 @@ final class MemoryFeedbackDecayScorer
         array &$reasons,
     ): string {
         if ($stale >= self::ARCHIVE_STALE_FEEDBACK_THRESHOLD) {
-            $reasons[] = 'archived_by_stale_feedback';
+            $reasons[] = self::FIELD_ARCHIVED_BY_STALE_FEEDBACK;
 
             return self::DECISION_ARCHIVE;
         }
 
         if ($negative >= self::INACTIVATE_NEGATIVE_THRESHOLD && $healthScore <= self::INACTIVATE_HEALTH_CEILING) {
-            $reasons[] = 'inactivated_by_negative_feedback';
+            $reasons[] = self::FIELD_INACTIVATED_BY_NEGATIVE_FEEDBACK;
 
             return self::DECISION_INACTIVATE;
         }
 
         if ($staleness === self::DECISION_STALE_INACTIVE_CANDIDATE) {
-            $reasons[] = 'inactivated_by_stale_age';
+            $reasons[] = self::FIELD_INACTIVATED_BY_STALE_AGE;
 
             return self::DECISION_INACTIVATE;
         }
@@ -163,19 +188,19 @@ final class MemoryFeedbackDecayScorer
         // enxertou aqui uma regra que inativava memórias agressivamente e
         // quebrou o teste congelado por 3 semanas — removido em 03/07.
         if ($negative >= self::INACTIVATE_NEGATIVE_THRESHOLD || $wrongContext > 0 || $healthScore <= self::DEGRADE_HEALTH_CEILING) {
-            $reasons[] = 'degraded_by_feedback_pressure';
+            $reasons[] = self::FIELD_DEGRADED_BY_FEEDBACK_PRESSURE;
 
             return self::DECISION_DEGRADE;
         }
 
         if ($staleness === self::DECISION_STALE_REVIEW_RECOMMENDED) {
-            $reasons[] = 'degraded_by_stale_age';
+            $reasons[] = self::FIELD_DEGRADED_BY_STALE_AGE;
 
             return self::DECISION_DEGRADE;
         }
 
-        if ($staleness === self::DECISION_FRESH && $hitRate === 0.0) {
-            $reasons[] = 'degraded_by_low_recall_hit_rate';
+        if ($staleness === self::DECISION_FRESH && $hitRate === self::FLOAT_0_0) {
+            $reasons[] = self::FIELD_DEGRADED_BY_LOW_RECALL_HIT_RATE;
 
             return self::DECISION_DEGRADE;
         }
@@ -263,7 +288,7 @@ final class MemoryFeedbackDecayScorer
      */
     private function hitRateOrNull(array $signals): ?float
     {
-        $value = AiValueNormalizer::finiteFloatOrNull($signals['recall_eval_hit_rate'] ?? null);
+        $value = AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_RECALL_EVAL_HIT_RATE] ?? null);
 
         return $value === null ? null : AiValueNormalizer::clampUnit($value);
     }

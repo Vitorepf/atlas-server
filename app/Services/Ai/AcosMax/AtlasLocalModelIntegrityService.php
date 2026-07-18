@@ -19,6 +19,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasLocalModelIntegrityService
 {
+    public const FIELD_PATH = 'path';
+    public const FIELD_TOTAL = 'total';
     public const MANIFEST_SCHEMA = 'atlas.model_integrity_manifest.v1';
 
     public const MANIFEST_CONFIG_KEY = 'atlas_model_manifest';
@@ -36,6 +38,40 @@ final class AtlasLocalModelIntegrityService
     public const STATUS_VERIFIED = 'verified';
 
     public const STATUS_MISMATCHED = 'mismatched';
+
+    public const FIELD_VERIFIED = 'verified';
+
+    public const FIELD_MISMATCHED = 'mismatched';
+
+    public const FIELD_MISSING = 'missing';
+
+    public const FIELD_UNPINNED = 'unpinned';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_OK = 'ok';
+    public const FIELD_CHECKS = 'checks';
+    public const FIELD_MODEL_ID = 'model_id';
+    public const FIELD_INTEGRITY = 'integrity';
+    public const FIELD_HASH = 'hash';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_ARTIFACTS = 'artifacts';
+    public const FIELD_FUNCTION = 'function';
+    public const FIELD_LICENSE = 'license';
+    public const FIELD_SOURCE_URL = 'source_url';
+    public const FIELD_PATH_RESOLVED = 'path_resolved';
+    public const FIELD_MODEL_VERIFIED = 'model_verified';
+    public const FIELD_SHA256_COMPUTED = 'sha256_computed';
+    public const FIELD_SHA256_PIN = 'sha256_pin';
+    public const FIELD_PATH_DECLARED = 'path_declared';
+    public const FIELD_PIN_PRESENT = 'pin_present';
+    public const FIELD_BASE_PATH = 'base_path';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_ARTIFACT_UNREADABLE = 'artifact_unreadable';
+    public const FIELD_HASH_FAILED = 'hash_failed';
+    public const FIELD_MODEL_ID_MISSING = 'model_id_missing';
+    public const FIELD_PATH_NOT_CONFIGURED = 'path_not_configured';
+    public const FIELD_SHA256_MISMATCH = 'sha256_mismatch';
+    public const FIELD_SHA256_PIN_ABSENT = 'sha256_pin_absent';
 
     /** @var array<string, mixed> */
     private array $manifest;
@@ -59,21 +95,21 @@ final class AtlasLocalModelIntegrityService
      */
     public function verifyAll(): array
     {
-        $artifacts = AiValueNormalizer::arrayOrEmpty($this->manifest['artifacts'] ?? null);
+        $artifacts = AiValueNormalizer::arrayOrEmpty($this->manifest[self::FIELD_ARTIFACTS] ?? null);
         $rows = array_values(array_map(function ($entry): array {
             return $this->verifyOne(AiValueNormalizer::arrayOrEmpty($entry));
         }, $artifacts));
 
-        $status = array_count_values(array_map(static fn (array $row): string => AiValueNormalizer::trimmedScalarStringOrNull($row['status'] ?? null) ?? '', $rows));
+        $status = array_count_values(array_map(static fn (array $row): string => AiValueNormalizer::trimmedScalarStringOrNull($row[self::FIELD_STATUS] ?? null) ?? '', $rows));
 
         return [
-            'schema_version' => AiValueNormalizer::trimmedStringOrNull($this->manifest['schema_version'] ?? null) ?? self::MANIFEST_SCHEMA,
-            'total' => count($rows),
-            'verified' => $status['verified'] ?? 0,
-            'mismatched' => $status['mismatched'] ?? 0,
-            'missing' => $status['missing'] ?? 0,
-            'unpinned' => $status['unpinned'] ?? 0,
-            'artifacts' => $rows,
+            self::FIELD_SCHEMA_VERSION => AiValueNormalizer::trimmedStringOrNull($this->manifest[self::FIELD_SCHEMA_VERSION] ?? null) ?? self::MANIFEST_SCHEMA,
+            self::FIELD_TOTAL => count($rows),
+            self::FIELD_VERIFIED => $status[self::STATUS_VERIFIED] ?? 0,
+            self::FIELD_MISMATCHED => $status[self::STATUS_MISMATCHED] ?? 0,
+            self::FIELD_MISSING => $status[self::STATUS_MISSING] ?? 0,
+            self::FIELD_UNPINNED => $status[self::STATUS_UNPINNED] ?? 0,
+            self::FIELD_ARTIFACTS => $rows,
         ];
     }
 
@@ -83,71 +119,71 @@ final class AtlasLocalModelIntegrityService
      */
     public function verifyOne(array $entry): array
     {
-        $modelId = AiValueNormalizer::trimmedStringOrNull($entry['model_id'] ?? null) ?? '';
-        $path = AiValueNormalizer::trimmedStringOrNull($entry['path'] ?? null) ?? '';
-        $pin = AiValueNormalizer::lowerTrimmedString($entry['sha256_pin'] ?? '');
+        $modelId = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_MODEL_ID] ?? null) ?? '';
+        $path = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_PATH] ?? null) ?? '';
+        $pin = AiValueNormalizer::lowerTrimmedString($entry[self::FIELD_SHA256_PIN] ?? '');
 
         $row = [
-            'model_id' => $modelId !== '' ? $modelId : self::FALLBACK_MODEL_ID,
-            'function' => (AiValueNormalizer::trimmedStringOrNull($entry['function'] ?? null) ?? ''),
-            'license' => (AiValueNormalizer::trimmedStringOrNull($entry['license'] ?? null) ?? ''),
-            'source_url' => (AiValueNormalizer::trimmedStringOrNull($entry['source_url'] ?? null) ?? ''),
-            'path_declared' => $path,
-            'path_resolved' => null,
-            'pin_present' => $pin !== '',
-            'sha256_pin' => $pin !== '' ? $pin : null,
-            'sha256_computed' => null,
-            'model_verified' => false,
-            'status' => self::STATUS_UNKNOWN,
-            'reason' => null,
+            self::FIELD_MODEL_ID => $modelId !== '' ? $modelId : self::FALLBACK_MODEL_ID,
+            self::FIELD_FUNCTION => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_FUNCTION] ?? null) ?? ''),
+            self::FIELD_LICENSE => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_LICENSE] ?? null) ?? ''),
+            self::FIELD_SOURCE_URL => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SOURCE_URL] ?? null) ?? ''),
+            self::FIELD_PATH_DECLARED => $path,
+            self::FIELD_PATH_RESOLVED => null,
+            self::FIELD_PIN_PRESENT => $pin !== '',
+            self::FIELD_SHA256_PIN => $pin !== '' ? $pin : null,
+            self::FIELD_SHA256_COMPUTED => null,
+            self::FIELD_MODEL_VERIFIED => false,
+            self::FIELD_STATUS => self::STATUS_UNKNOWN,
+            self::FIELD_REASON => null,
         ];
 
         if ($modelId === '') {
-            $row['status'] = self::STATUS_INVALID;
-            $row['reason'] = 'model_id_missing';
+            $row[self::FIELD_STATUS] = self::STATUS_INVALID;
+            $row[self::FIELD_REASON] = self::FIELD_MODEL_ID_MISSING;
 
             return $row;
         }
 
         if ($pin === '') {
-            $row['status'] = self::STATUS_UNPINNED;
-            $row['reason'] = 'sha256_pin_absent';
+            $row[self::FIELD_STATUS] = self::STATUS_UNPINNED;
+            $row[self::FIELD_REASON] = self::FIELD_SHA256_PIN_ABSENT;
 
             return $row;
         }
 
         if ($path === '') {
-            $row['status'] = self::STATUS_MISSING;
-            $row['reason'] = 'path_not_configured';
+            $row[self::FIELD_STATUS] = self::STATUS_MISSING;
+            $row[self::FIELD_REASON] = self::FIELD_PATH_NOT_CONFIGURED;
 
             return $row;
         }
 
         $resolved = AiValueNormalizer::trimmedStringOrNull($this->resolvePath($path));
-        $row['path_resolved'] = $resolved;
+        $row[self::FIELD_PATH_RESOLVED] = $resolved;
 
         if ($resolved === null || ! is_file($resolved) || ! is_readable($resolved)) {
-            $row['status'] = self::STATUS_MISSING;
-            $row['reason'] = 'artifact_unreadable';
+            $row[self::FIELD_STATUS] = self::STATUS_MISSING;
+            $row[self::FIELD_REASON] = self::FIELD_ARTIFACT_UNREADABLE;
 
             return $row;
         }
 
-        $computed = @hash_file('sha256', $resolved);
+        $computed = @hash_file(self::FIELD_SHA256, $resolved);
         if (AiValueNormalizer::trimmedStringOrNull($computed) === null) {
-            $row['status'] = self::STATUS_MISSING;
-            $row['reason'] = 'hash_failed';
+            $row[self::FIELD_STATUS] = self::STATUS_MISSING;
+            $row[self::FIELD_REASON] = self::FIELD_HASH_FAILED;
 
             return $row;
         }
 
-        $row['sha256_computed'] = $computed;
+        $row[self::FIELD_SHA256_COMPUTED] = $computed;
         if (hash_equals($pin, $computed)) {
-            $row['model_verified'] = true;
-            $row['status'] = self::STATUS_VERIFIED;
+            $row[self::FIELD_MODEL_VERIFIED] = true;
+            $row[self::FIELD_STATUS] = self::STATUS_VERIFIED;
         } else {
-            $row['status'] = self::STATUS_MISMATCHED;
-            $row['reason'] = 'sha256_mismatch';
+            $row[self::FIELD_STATUS] = self::STATUS_MISMATCHED;
+            $row[self::FIELD_REASON] = self::FIELD_SHA256_MISMATCH;
         }
 
         return $row;
@@ -163,7 +199,7 @@ final class AtlasLocalModelIntegrityService
             return $path;
         }
 
-        if (function_exists('base_path')) {
+        if (function_exists(self::FIELD_BASE_PATH)) {
             return base_path($path);
         }
 

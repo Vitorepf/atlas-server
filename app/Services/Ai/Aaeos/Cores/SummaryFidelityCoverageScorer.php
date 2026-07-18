@@ -27,6 +27,23 @@ final class SummaryFidelityCoverageScorer
     public const VERDICT_DEGRADED = 'degraded';
 
     public const VERDICT_FAILED = 'failed';
+    public const FIELD_CONTEXT_RETENTION_SCORE = 'context_retention_score';
+    public const FIELD_DECISION_TOTAL = 'decision_total';
+    public const FIELD_DIGEST = 'digest';
+    public const FIELD_MISSED_DECISION_RATE = 'missed_decision_rate';
+    public const FIELD_MISSING_DECISION_IDS = 'missing_decision_ids';
+    public const FIELD_MISSING_ITEM_IDS = 'missing_item_ids';
+    public const FIELD_REQUIRED_TOTAL = 'required_total';
+    public const FIELD_PRESENT_TOTAL = 'present_total';
+    public const FIELD_VERDICT = 'verdict';
+    public const FIELD_UNVERIFIABLE_ITEM_IDS = 'unverifiable_item_ids';
+    public const FIELD_MISSING_TOTAL = 'missing_total';
+    public const FIELD_PRESENT_ITEM_IDS = 'present_item_ids';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_ID = 'id';
+    public const FLOAT_0_0 = 0.0;
+    public const FLOAT_1_0 = 1.0;
 
 
     /**
@@ -68,9 +85,9 @@ final class SummaryFidelityCoverageScorer
         foreach ($requiredItems as $item) {
             $requiredTotal++;
 
-            $id = $this->stringValue($item, 'id');
+            $id = $this->stringValue($item, self::FIELD_ID);
             $idToken = AiValueNormalizer::trimmedStringOrNull($id) ?? '';
-            $kind = $this->normalize($this->stringValue($item, 'kind'));
+            $kind = $this->normalize($this->stringValue($item, self::FIELD_KIND));
             $isDecision = $kind === self::DECISION_KIND;
 
             if ($isDecision) {
@@ -129,18 +146,18 @@ final class SummaryFidelityCoverageScorer
         );
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'verdict' => $verdict,
-            'context_retention_score' => $contextRetentionScore,
-            'missed_decision_rate' => $missedDecisionRate,
-            'required_total' => $requiredTotal,
-            'present_total' => $presentTotal,
-            'missing_total' => $missingTotal,
-            'decision_total' => $decisionTotal,
-            'missing_item_ids' => $missingItemIds,
-            'present_item_ids' => $presentItemIds,
-            'missing_decision_ids' => $missingDecisionIds,
-            'unverifiable_item_ids' => $unverifiableItemIds,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_VERDICT => $verdict,
+            self::FIELD_CONTEXT_RETENTION_SCORE => $contextRetentionScore,
+            self::FIELD_MISSED_DECISION_RATE => $missedDecisionRate,
+            self::FIELD_REQUIRED_TOTAL => $requiredTotal,
+            self::FIELD_PRESENT_TOTAL => $presentTotal,
+            self::FIELD_MISSING_TOTAL => $missingTotal,
+            self::FIELD_DECISION_TOTAL => $decisionTotal,
+            self::FIELD_MISSING_ITEM_IDS => $missingItemIds,
+            self::FIELD_PRESENT_ITEM_IDS => $presentItemIds,
+            self::FIELD_MISSING_DECISION_IDS => $missingDecisionIds,
+            self::FIELD_UNVERIFIABLE_ITEM_IDS => $unverifiableItemIds,
         ];
     }
 
@@ -149,7 +166,7 @@ final class SummaryFidelityCoverageScorer
         return $this->resolveVerdict(
             $contextRetentionScore,
             $missedDecisionRate,
-            $missedDecisionRate > 0.0,
+            $missedDecisionRate > self::FLOAT_0_0,
         );
     }
 
@@ -162,7 +179,7 @@ final class SummaryFidelityCoverageScorer
             return self::VERDICT_FAILED;
         }
 
-        if ($contextRetentionScore >= 1.0 && $missedDecisionRate <= 0.0) {
+        if ($contextRetentionScore >= self::FLOAT_1_0 && $missedDecisionRate <= self::FLOAT_0_0) {
             return self::VERDICT_PASSED;
         }
 
@@ -187,11 +204,11 @@ final class SummaryFidelityCoverageScorer
      */
     private function usableDigest(array $item): ?string
     {
-        if (! array_key_exists('digest', $item)) {
+        if (! array_key_exists(self::FIELD_DIGEST, $item)) {
             return null;
         }
 
-        $digest = $item['digest'];
+        $digest = $item[self::FIELD_DIGEST];
 
         return AiValueNormalizer::trimmedStringOrNull($digest);
     }

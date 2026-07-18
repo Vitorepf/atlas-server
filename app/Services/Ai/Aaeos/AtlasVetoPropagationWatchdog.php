@@ -14,6 +14,15 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 class AtlasVetoPropagationWatchdog
 {
+    public const FIELD_PAUSED_DEPARTMENTS = 'paused_departments';
+    public const FIELD_DEPARTMENT = 'department';
+    public const FIELD_RECOGNIZED = 'recognized';
+    public const FIELD_LIFT = 'lift';
+    public const FIELD_FINAL_OVERRIDE_ACTIVE = 'final_override_active';
+    public const FIELD_PAUSE_SLA_SECONDS = 'pause_sla_seconds';
+    public const FIELD_FINAL_OVERRIDE = 'final_override';
+    public const FIELD_VETO_RECEIPTS = 'veto_receipts';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
     public function __construct(
         private readonly AtlasCrossDepartmentChoreographyService $choreography,
     ) {}
@@ -35,14 +44,14 @@ class AtlasVetoPropagationWatchdog
             if (! is_array($event)) {
                 continue;
             }
-            $dept = AiValueNormalizer::trimmedStringOrNull($event['department'] ?? null) ?? '';
+            $dept = AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_DEPARTMENT] ?? null) ?? '';
             $veto = $this->choreography->evaluateVeto($dept);
-            if (($veto['recognized'] ?? false) !== true) {
+            if (($veto[self::FIELD_RECOGNIZED] ?? false) !== true) {
                 continue;
             }
 
-            if (($event['lift'] ?? false) === true) {
-                foreach (AiValueNormalizer::arrayOrEmpty($veto['paused_departments'] ?? null) as $p) {
+            if (($event[self::FIELD_LIFT] ?? false) === true) {
+                foreach (AiValueNormalizer::arrayOrEmpty($veto[self::FIELD_PAUSED_DEPARTMENTS] ?? null) as $p) {
                     $pausedKey = AiValueNormalizer::trimmedStringOrNull($p);
                     if ($pausedKey === null) {
                         continue;
@@ -50,10 +59,10 @@ class AtlasVetoPropagationWatchdog
                     unset($paused[$pausedKey]);
                 }
             } else {
-                if (($veto['final_override'] ?? false) === true) {
+                if (($veto[self::FIELD_FINAL_OVERRIDE] ?? false) === true) {
                     $finalOverride = true;
                 }
-                foreach (AiValueNormalizer::arrayOrEmpty($veto['paused_departments'] ?? null) as $p) {
+                foreach (AiValueNormalizer::arrayOrEmpty($veto[self::FIELD_PAUSED_DEPARTMENTS] ?? null) as $p) {
                     $pausedKey = AiValueNormalizer::trimmedStringOrNull($p);
                     if ($pausedKey === null) {
                         continue;
@@ -65,11 +74,11 @@ class AtlasVetoPropagationWatchdog
         }
 
         return [
-            'schema_version' => AtlasCrossDepartmentChoreographyService::HANDOFF_SCHEMA,
-            'paused_departments' => array_values(array_keys($paused)),
-            'final_override_active' => $finalOverride,
-            'pause_sla_seconds' => AtlasCrossDepartmentChoreographyService::VETO_SLA_SECONDS,
-            'veto_receipts' => $receipts,
+            self::FIELD_SCHEMA_VERSION => AtlasCrossDepartmentChoreographyService::HANDOFF_SCHEMA,
+            self::FIELD_PAUSED_DEPARTMENTS => array_values(array_keys($paused)),
+            self::FIELD_FINAL_OVERRIDE_ACTIVE => $finalOverride,
+            self::FIELD_PAUSE_SLA_SECONDS => AtlasCrossDepartmentChoreographyService::VETO_SLA_SECONDS,
+            self::FIELD_VETO_RECEIPTS => $receipts,
         ];
     }
 }

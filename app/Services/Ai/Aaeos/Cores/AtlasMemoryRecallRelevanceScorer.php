@@ -20,6 +20,52 @@ use App\Services\Ai\Support\AiValueNormalizer;
 final class AtlasMemoryRecallRelevanceScorer
 {
     public const SCHEMA_VERSION = 'atlas.aaeos.memory_recall_ranking.v1';
+    public const FIELD_ENGINEERING_RUN = 'engineering_run';
+    public const FIELD_FEEDBACK = 'feedback';
+    public const FIELD_HARNESS_LEARNING = 'harness_learning';
+    public const FIELD_MEMORY_TYPE = 'memory_type';
+    public const FIELD_PROJECT = 'project';
+    public const FIELD_RANK = 'rank';
+    public const FIELD_SESSION = 'session';
+    public const FIELD_REQUIREMENT = 'requirement';
+    public const FIELD_WORKSPACE = 'workspace';
+    public const FIELD_VERBATIM = 'verbatim';
+    public const FIELD_FAILURE = 'failure';
+    public const FIELD_RELEVANCE_SCORE = 'relevance_score';
+    public const FIELD_SCOPE = 'scope';
+    public const FIELD_SCOPE_TYPE = 'scope_type';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_TASK = 'task';
+    public const FIELD_TITLE = 'title';
+    public const FIELD_TYPE = 'type';
+    public const FIELD_USER = 'user';
+    public const FIELD_GLOBAL = 'global';
+    public const FIELD_REGISTRY = 'registry';
+    public const FIELD_SEMANTIC = 'semantic';
+    public const FIELD_HYBRID_SCORE = 'hybrid_score';
+    public const FIELD_CONFIDENCE = 'confidence';
+    public const FIELD_EVIDENCE = 'evidence';
+    public const FIELD_IMPORTANCE = 'importance';
+    public const FIELD_ISSUE = 'issue';
+    public const FIELD_PREFERENCE = 'preference';
+    public const FIELD_PRIORITY = 'priority';
+    public const FIELD_RESOLUTION = 'resolution';
+    public const FIELD_SCORE = 'score';
+    public const FIELD_SEMANTIC_NOTE = 'semantic_note';
+    public const FIELD_TECHNICAL_CONTEXT = 'technical_context';
+    public const FIELD_COMMAND = 'command';
+    public const FIELD_DECISION = 'decision';
+    public const FIELD_MEMORY = 'memory';
+    public const INT_5 = 5;
+    public const INT_8 = 8;
+    public const INT_4 = 4;
+    public const INT_22 = 22;
+    public const INT_14 = 14;
+    public const INT_20 = 20;
+    public const INT_11 = 11;
+    public const INT_12 = 12;
+    public const INT_16 = 16;
+    public const INT_10 = 10;
 
     /**
      * Compute the recall relevance score for a single normalized candidate row.
@@ -33,27 +79,27 @@ final class AtlasMemoryRecallRelevanceScorer
     {
         $source = $this->sourceOf($row);
 
-        if ($source === 'semantic') {
-            $type = $this->typeOf($row, 'semantic_note');
+        if ($source === self::FIELD_SEMANTIC) {
+            $type = $this->typeOf($row, self::FIELD_SEMANTIC_NOTE);
 
-            return $this->floatField($row, 'score', 0.55) * 100
+            return $this->floatField($row, self::FIELD_SCORE, 0.55) * 100
                 + $this->typeWeight($type);
         }
 
         $scope = $this->scopeOf($row);
-        $type = $this->typeOf($row, $source === 'verbatim' ? 'verbatim' : 'memory');
+        $type = $this->typeOf($row, $source === self::FIELD_VERBATIM ? self::FIELD_VERBATIM : self::FIELD_MEMORY);
 
-        if ($source === 'verbatim') {
+        if ($source === self::FIELD_VERBATIM) {
             return 82
-                + $this->floatField($row, 'hybrid_score', 0.0) * 24
+                + $this->floatField($row, self::FIELD_HYBRID_SCORE, 0.0) * 24
                 + $this->scopeWeight($scope)
                 + $this->typeWeight($type);
         }
 
-        return $this->floatField($row, 'priority', 50.0)
-            + $this->floatField($row, 'importance', 3.0) * 10
-            + $this->floatField($row, 'confidence', 0.7) * 10
-            + $this->floatField($row, 'hybrid_score', 0.0) * 30
+        return $this->floatField($row, self::FIELD_PRIORITY, 50.0)
+            + $this->floatField($row, self::FIELD_IMPORTANCE, 3.0) * 10
+            + $this->floatField($row, self::FIELD_CONFIDENCE, 0.7) * 10
+            + $this->floatField($row, self::FIELD_HYBRID_SCORE, 0.0) * 30
             + $this->scopeWeight($scope)
             + $this->typeWeight($type);
     }
@@ -64,13 +110,13 @@ final class AtlasMemoryRecallRelevanceScorer
     public function scopeWeight(string $scope): int
     {
         return match ($scope) {
-            'task' => 22,
-            'engineering_run' => 20,
-            'project' => 16,
-            'workspace' => 12,
-            'session' => 10,
-            'user' => 8,
-            default => 4,
+            self::FIELD_TASK => self::INT_22,
+            self::FIELD_ENGINEERING_RUN => self::INT_20,
+            self::FIELD_PROJECT => self::INT_16,
+            self::FIELD_WORKSPACE => self::INT_12,
+            self::FIELD_SESSION => self::INT_10,
+            self::FIELD_USER => self::INT_8,
+            default => self::INT_4,
         };
     }
 
@@ -80,11 +126,11 @@ final class AtlasMemoryRecallRelevanceScorer
     public function typeWeight(string $type): int
     {
         return match ($type) {
-            'decision', 'resolution', 'requirement' => 16,
-            'issue', 'failure' => 14,
-            'technical_context', 'command', 'evidence', 'harness_learning' => 11,
-            'preference', 'feedback' => 8,
-            default => 5,
+            self::FIELD_DECISION, self::FIELD_RESOLUTION, self::FIELD_REQUIREMENT => self::INT_16,
+            self::FIELD_ISSUE, self::FIELD_FAILURE => self::INT_14,
+            self::FIELD_TECHNICAL_CONTEXT, self::FIELD_COMMAND, self::FIELD_EVIDENCE, self::FIELD_HARNESS_LEARNING => self::INT_11,
+            self::FIELD_PREFERENCE, self::FIELD_FEEDBACK => self::INT_8,
+            default => self::INT_5,
         };
     }
 
@@ -136,8 +182,8 @@ final class AtlasMemoryRecallRelevanceScorer
 
         foreach ($ordered as $row) {
             $position++;
-            $row['relevance_score'] = round($this->score($row), 3);
-            $row['rank'] = $position;
+            $row[self::FIELD_RELEVANCE_SCORE] = round($this->score($row), 3);
+            $row[self::FIELD_RANK] = $position;
             $ranked[] = $row;
         }
 
@@ -149,11 +195,11 @@ final class AtlasMemoryRecallRelevanceScorer
      */
     private function sourceOf(array $row): string
     {
-        $source = AiValueNormalizer::trimmedStringOrNull($row['source'] ?? null) ?? '';
+        $source = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_SOURCE] ?? null) ?? '';
 
         return match ($source) {
-            'semantic', 'verbatim' => $source,
-            default => 'registry',
+            self::FIELD_SEMANTIC, self::FIELD_VERBATIM => $source,
+            default => self::FIELD_REGISTRY,
         };
     }
 
@@ -162,7 +208,7 @@ final class AtlasMemoryRecallRelevanceScorer
      */
     private function scopeOf(array $row): string
     {
-        return AiValueNormalizer::trimmedStringOrNull($row['scope_type'] ?? $row['scope'] ?? null) ?? 'global';
+        return AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_SCOPE_TYPE] ?? $row[self::FIELD_SCOPE] ?? null) ?? self::FIELD_GLOBAL;
     }
 
     /**
@@ -170,7 +216,7 @@ final class AtlasMemoryRecallRelevanceScorer
      */
     private function typeOf(array $row, string $default): string
     {
-        return AiValueNormalizer::trimmedStringOrNull($row['memory_type'] ?? $row['type'] ?? null) ?? $default;
+        return AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_MEMORY_TYPE] ?? $row[self::FIELD_TYPE] ?? null) ?? $default;
     }
 
     /**
@@ -178,7 +224,7 @@ final class AtlasMemoryRecallRelevanceScorer
      */
     private function titleOf(array $row): string
     {
-        return AiValueNormalizer::trimmedStringOrNull($row['title'] ?? null) ?? '';
+        return AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_TITLE] ?? null) ?? '';
     }
 
     /**

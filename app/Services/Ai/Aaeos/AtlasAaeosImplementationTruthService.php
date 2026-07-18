@@ -37,6 +37,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 class AtlasAaeosImplementationTruthService
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_RANK_COMPUTED = 'rank_computed';
     public const SCHEMA = 'atlas.aaeos.implementation_state.v1';
 
     public const LEDGER_SCHEMA = 'atlas.aaeos.capability_truth_ledger.v1';
@@ -61,10 +63,83 @@ class AtlasAaeosImplementationTruthService
 
     public const STATUS_BUILDING = 'building';
 
+    public const TEST_RESOLUTION_GREEN = 'green';
+
+    public const TEST_RESOLUTION_MIXED = 'mixed';
+    public const FIELD_RESOLVED = 'resolved';
+    public const FIELD_EVIDENCE_REFS = 'evidence_refs';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_REF = 'ref';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_IMPLEMENTATION_STATE = 'implementation_state';
+    public const FIELD_EVIDENCE = 'evidence';
+    public const FIELD_DRIFT = 'drift';
+    public const FIELD_CAPABILITY_ID = 'capability_id';
+    public const FIELD_OWNER_DOC = 'owner_doc';
+    public const FIELD_CLAIMED_STATE = 'claimed_state';
+    public const FIELD_CLAIMED_STATE_RAW = 'claimed_state_raw';
+    public const FIELD_COMPUTED_STATE = 'computed_state';
+    public const FIELD_UNDER_CLAIM = 'under_claim';
+    public const FIELD_UNMET_EVIDENCE = 'unmet_evidence';
+    public const FIELD_TEST_RESOLUTION = 'test_resolution';
+    public const FIELD_IMPL_FILES_HASH = 'impl_files_hash';
+
+    public const TEST_RESOLUTION_EXISTENCE_ONLY_UNRUN = 'existence_only_unrun';
+    public const FIELD_PROOF_REFS_RESOLVED = 'proof_refs_resolved';
+    public const FIELD_SUMMARY = 'summary';
+    public const FIELD_EVALUATED = 'evaluated';
+    public const FIELD_DRIFT_COUNT = 'drift_count';
+    public const FIELD_BY_COMPUTED_STATE = 'by_computed_state';
+    public const FIELD_TEST_BEARING_ROWS = 'test_bearing_rows';
+    public const FIELD_GREEN_RUN_ROWS = 'green_run_rows';
+    public const FIELD_CAPABILITIES = 'capabilities';
+    public const FIELD_CLAIMS_RUNTIME = 'claims_runtime';
+    public const FIELD_COMMAND = 'command';
+    public const FIELD_COVERAGE_PCT = 'coverage_pct';
+    public const FIELD_DOC_SCHEMA = 'doc_schema';
+    public const FIELD_FORMAT = 'format';
+    public const FIELD_FRONTMATTER = 'frontmatter';
+    public const FIELD_PATH = 'path';
+    public const FIELD_TEST = 'test';
+    public const FIELD_MATCHED = 'matched';
+    public const FIELD_SYMBOL = 'symbol';
+    public const FIELD_TEST_GREEN = 'test_green';
+    public const FIELD_RECEIPT = 'receipt';
+    public const FIELD_GRAPH_ID = 'graph_id';
+    public const FIELD_INDEX_RESOLVED = 'index_resolved';
+    public const FIELD_TOTAL_CANONICAL_DOCS = 'total_canonical_docs';
+    public const FIELD_WITH_EVIDENCE_REFS = 'with_evidence_refs';
+    public const FIELD_PATHS = 'paths';
+    public const FIELD_RANK_CLAIMED = 'rank_claimed';
+    public const FIELD_ROUTE = 'route';
+    public const FIELD_SCORE_OUT_OF_10 = 'score_out_of_10';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_TEST_FILE_HASH = 'test_file_hash';
+    public const FIELD_TEST_REFS = 'test_refs';
+    public const FIELD_UNVERIFIABLE_CLAIMS = 'unverifiable_claims';
+    public const FIELD_VERIFIABLY_BACKED = 'verifiably_backed';
+    public const FIELD_WIRING = 'wiring';
+    public const FIELD_GREEN_RUN = 'green_run';
+    public const FIELD_NONE = 'none';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_IMPLEMENTED_PARTIAL = 'implemented_partial';
+    public const FIELD_RUNTIME_VERIFIED = 'runtime_verified';
+    public const FIELD_MD = 'md';
+    public const FIELD_ARCHIVE = 'archive';
+    public const FIELD_PARTIAL_RUNTIME = 'partial_runtime';
+    public const FIELD_SOLID_RUNTIME = 'solid_runtime';
+    public const FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE = 'docs/engineering-knowledge-base';
+    public const FIELD_NEEDS___1_RESOLVED_ROUTE_OR_COMMAND_FOR_PARTIAL = 'needs >=1 resolved route or command for partial';
+    public const FIELD_NEEDS___1_RESOLVED_SYMBOL__CLASS_METHOD__FOR_PARTIAL = 'needs >=1 resolved symbol (class/method) for partial';
+    public const FIELD_NEEDS___1_RESOLVED_TEST_FOR_VERIFIED = 'needs >=1 resolved test for verified';
+    public const FIELD_NEEDS___1_TEST_THAT_RAN_GREEN_FOR_VERIFIED___A_TEST_SYMBOL_RESOLVES_BUT_HAS_NO_GREEN_RUN_RECEIPT__RUN_ATLAS_AAEOS_VERIFY_TESTS_ = 'needs >=1 test that RAN GREEN for verified — a test symbol resolves but has no green-run receipt (run atlas:aaeos:verify-tests)';
+    public const FIELD_NEEDS___1_RESOLVED_RECEIPT__EVIDENCE_FILE__FOR_VERIFIED = 'needs >=1 resolved receipt (evidence file) for verified';
+    public const INT_2 = 2;
+
     public const RANK = [
         self::LEVEL_SPEC => 0,
         self::LEVEL_PARTIAL => 1,
-        self::LEVEL_VERIFIED => 2,
+        self::LEVEL_VERIFIED => self::INT_2,
     ];
 
     public function __construct(
@@ -87,7 +162,7 @@ class AtlasAaeosImplementationTruthService
         if ($capability !== null && AiValueNormalizer::trimmedStringOrNull($capability) !== null) {
             $docs = array_values(array_filter(
                 $docs,
-                fn (array $doc): bool => $doc['id'] === $capability || str_contains($doc['path'], $capability),
+                fn (array $doc): bool => $doc[self::FIELD_ID] === $capability || str_contains($doc[self::FIELD_PATH], $capability),
             ));
         }
 
@@ -99,52 +174,52 @@ class AtlasAaeosImplementationTruthService
         $greenRows = 0;
 
         foreach ($docs as $doc) {
-            $result = $this->compute($doc['implementation_state'], $doc['evidence_refs'], $doc['id']);
-            $byComputed[$result['computed_state']]++;
-            if ($result['drift'] === true) {
+            $result = $this->compute($doc[self::FIELD_IMPLEMENTATION_STATE], $doc[self::FIELD_EVIDENCE_REFS], $doc[self::FIELD_ID]);
+            $byComputed[$result[self::FIELD_COMPUTED_STATE]]++;
+            if ($result[self::FIELD_DRIFT] === true) {
                 $driftCount++;
             }
-            if (($result['resolved']['test'] ?? false) === true) {
+            if (($result[self::FIELD_RESOLVED][self::FIELD_TEST] ?? false) === true) {
                 $testBearingRows++;
-                if (($result['resolved']['test_green'] ?? false) === true) {
+                if (($result[self::FIELD_RESOLVED][self::FIELD_TEST_GREEN] ?? false) === true) {
                     $greenRows++;
                 }
             }
             $rows[] = [
-                'schema_version' => self::LEDGER_SCHEMA,
-                'capability_id' => $doc['id'],
-                'owner_doc' => $doc['path'],
-                'claimed_state' => $result['claimed_state'],
-                'claimed_state_raw' => $result['claimed_state_raw'],
-                'computed_state' => $result['computed_state'],
-                'drift' => $result['drift'],
-                'under_claim' => $result['under_claim'],
-                'resolved' => $result['resolved'],
-                'unmet_evidence' => $result['unmet_evidence'],
-                'proof_refs_resolved' => array_values(array_filter(
-                    $result['evidence'],
-                    fn (array $e): bool => ($e['resolved'] ?? false) === true,
+                self::FIELD_SCHEMA_VERSION => self::LEDGER_SCHEMA,
+                self::FIELD_CAPABILITY_ID => $doc[self::FIELD_ID],
+                self::FIELD_OWNER_DOC => $doc[self::FIELD_PATH],
+                self::FIELD_CLAIMED_STATE => $result[self::FIELD_CLAIMED_STATE],
+                self::FIELD_CLAIMED_STATE_RAW => $result[self::FIELD_CLAIMED_STATE_RAW],
+                self::FIELD_COMPUTED_STATE => $result[self::FIELD_COMPUTED_STATE],
+                self::FIELD_DRIFT => $result[self::FIELD_DRIFT],
+                self::FIELD_UNDER_CLAIM => $result[self::FIELD_UNDER_CLAIM],
+                self::FIELD_RESOLVED => $result[self::FIELD_RESOLVED],
+                self::FIELD_UNMET_EVIDENCE => $result[self::FIELD_UNMET_EVIDENCE],
+                self::FIELD_PROOF_REFS_RESOLVED => array_values(array_filter(
+                    $result[self::FIELD_EVIDENCE],
+                    fn (array $e): bool => ($e[self::FIELD_RESOLVED] ?? false) === true,
                 )),
-                'evidence' => $result['evidence'],
+                self::FIELD_EVIDENCE => $result[self::FIELD_EVIDENCE],
             ];
         }
 
         return [
-            'schema_version' => self::LEDGER_SCHEMA,
-            'summary' => [
-                'evaluated' => count($rows),
-                'drift_count' => $driftCount,
-                'by_computed_state' => $byComputed,
+            self::FIELD_SCHEMA_VERSION => self::LEDGER_SCHEMA,
+            self::FIELD_SUMMARY => [
+                self::FIELD_EVALUATED => count($rows),
+                self::FIELD_DRIFT_COUNT => $driftCount,
+                self::FIELD_BY_COMPUTED_STATE => $byComputed,
                 // Corpus-wide test-resolution stamp. 'green' ONLY when every test-bearing
                 // row is backed by a green run; 'existence_only' when none are; 'mixed'
                 // otherwise. Downstream that relaxes uncertainty on an exact 'green' match
                 // (AtlasDocumentationRealityBidirectionalReconciliationService) therefore
                 // stays fail-safe unless the whole corpus is green-proven.
-                'test_resolution' => $this->summaryTestResolution($testBearingRows, $greenRows),
-                'test_bearing_rows' => $testBearingRows,
-                'green_run_rows' => $greenRows,
+                self::FIELD_TEST_RESOLUTION => $this->summaryTestResolution($testBearingRows, $greenRows),
+                self::FIELD_TEST_BEARING_ROWS => $testBearingRows,
+                self::FIELD_GREEN_RUN_ROWS => $greenRows,
             ],
-            'capabilities' => $rows,
+            self::FIELD_CAPABILITIES => $rows,
         ];
     }
 
@@ -159,7 +234,7 @@ class AtlasAaeosImplementationTruthService
             return self::LEVEL_EXISTENCE_ONLY;
         }
 
-        return $greenRows === $testBearingRows ? 'green' : 'mixed';
+        return $greenRows === $testBearingRows ? self::TEST_RESOLUTION_GREEN : self::TEST_RESOLUTION_MIXED;
     }
 
     /**
@@ -173,7 +248,7 @@ class AtlasAaeosImplementationTruthService
      */
     public function coverage(): array
     {
-        $root = base_path('docs/engineering-knowledge-base');
+        $root = base_path(self::FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE);
         $total = 0;
         $claimsRuntime = 0;
         $withEvidence = 0;
@@ -183,22 +258,22 @@ class AtlasAaeosImplementationTruthService
         if (File::isDirectory($root)) {
             foreach (File::allFiles($root) as $file) {
                 /** @var SplFileInfo $file */
-                if (AiValueNormalizer::lowerTrimmedString($file->getExtension()) !== 'md'
-                    || str_contains($file->getPathname(), DIRECTORY_SEPARATOR.'archive'.DIRECTORY_SEPARATOR)) {
+                if (AiValueNormalizer::lowerTrimmedString($file->getExtension()) !== self::FIELD_MD
+                    || str_contains($file->getPathname(), DIRECTORY_SEPARATOR.self::FIELD_ARCHIVE.DIRECTORY_SEPARATOR)) {
                     continue;
                 }
                 $parsed = $this->frontmatter->parse(File::get($file->getPathname()));
-                $fm = AiValueNormalizer::arrayOrEmpty($parsed['frontmatter'] ?? null);
-                if (($fm['doc_schema'] ?? null) === null) {
+                $fm = AiValueNormalizer::arrayOrEmpty($parsed[self::FIELD_FRONTMATTER] ?? null);
+                if (($fm[self::FIELD_DOC_SCHEMA] ?? null) === null) {
                     continue; // only canonical module docs participate
                 }
                 $total++;
 
-                $state = $this->normalizeState((AiValueNormalizer::trimmedStringOrNull($fm['implementation_state'] ?? null) ?? ''));
-                $status = AiValueNormalizer::lowerTrimmedString($fm['status'] ?? '');
+                $state = $this->normalizeState((AiValueNormalizer::trimmedStringOrNull($fm[self::FIELD_IMPLEMENTATION_STATE] ?? null) ?? ''));
+                $status = AiValueNormalizer::lowerTrimmedString($fm[self::FIELD_STATUS] ?? '');
                 $claims = in_array($state, [self::LEVEL_PARTIAL, self::LEVEL_VERIFIED], true)
                     || in_array($status, [self::STATUS_ACTIVE, self::STATUS_BUILDING], true);
-                $hasEvidence = $this->normalizeEvidenceRefs($fm['evidence_refs'] ?? null) !== [];
+                $hasEvidence = $this->normalizeEvidenceRefs($fm[self::FIELD_EVIDENCE_REFS] ?? null) !== [];
 
                 if ($claims) {
                     $claimsRuntime++;
@@ -220,14 +295,14 @@ class AtlasAaeosImplementationTruthService
             : 100;
 
         return [
-            'schema_version' => self::DOC_RUNTIME_COVERAGE_SCHEMA,
-            'total_canonical_docs' => $total,
-            'claims_runtime' => $claimsRuntime,
-            'with_evidence_refs' => $withEvidence,
-            'verifiably_backed' => $backed,
-            'unverifiable_claims' => $unverifiable,
-            'coverage_pct' => $coveragePct,
-            'score_out_of_10' => round($coveragePct / 10, 1),
+            self::FIELD_SCHEMA_VERSION => self::DOC_RUNTIME_COVERAGE_SCHEMA,
+            self::FIELD_TOTAL_CANONICAL_DOCS => $total,
+            self::FIELD_CLAIMS_RUNTIME => $claimsRuntime,
+            self::FIELD_WITH_EVIDENCE_REFS => $withEvidence,
+            self::FIELD_VERIFIABLY_BACKED => $backed,
+            self::FIELD_UNVERIFIABLE_CLAIMS => $unverifiable,
+            self::FIELD_COVERAGE_PCT => $coveragePct,
+            self::FIELD_SCORE_OUT_OF_10 => round($coveragePct / 10, 1),
         ];
     }
 
@@ -250,36 +325,36 @@ class AtlasAaeosImplementationTruthService
         if ($capability !== null && AiValueNormalizer::trimmedStringOrNull($capability) !== null) {
             $docs = array_values(array_filter(
                 $docs,
-                fn (array $doc): bool => $doc['id'] === $capability || str_contains($doc['path'], $capability),
+                fn (array $doc): bool => $doc[self::FIELD_ID] === $capability || str_contains($doc[self::FIELD_PATH], $capability),
             ));
         }
 
         $out = [];
         foreach ($docs as $doc) {
             $testRefs = [];
-            foreach ($doc['evidence_refs'] as $ref) {
-                if ($this->evidenceRefNormalizer->kind($ref['kind'] ?? '') !== 'test') {
+            foreach ($doc[self::FIELD_EVIDENCE_REFS] as $ref) {
+                if ($this->evidenceRefNormalizer->kind($ref[self::FIELD_KIND] ?? '') !== self::FIELD_TEST) {
                     continue;
                 }
-                $value = $this->evidenceRefNormalizer->ref($ref['ref'] ?? '');
+                $value = $this->evidenceRefNormalizer->ref($ref[self::FIELD_REF] ?? '');
                 if ($value === '') {
                     continue;
                 }
-                $resolution = $this->resolver->resolve('test', $value);
+                $resolution = $this->resolver->resolve(self::FIELD_TEST, $value);
                 $testRefs[] = [
-                    'ref' => $value,
-                    'index_resolved' => ($resolution['resolved'] ?? false) === true,
-                    'matched' => $resolution['matched'] ?? null,
+                    self::FIELD_REF => $value,
+                    self::FIELD_INDEX_RESOLVED => ($resolution[self::FIELD_RESOLVED] ?? false) === true,
+                    self::FIELD_MATCHED => $resolution[self::FIELD_MATCHED] ?? null,
                 ];
             }
             if ($testRefs === []) {
                 continue;
             }
             $out[] = [
-                'capability_id' => $doc['id'],
-                'owner_doc' => $doc['path'],
-                'evidence_refs' => $doc['evidence_refs'],
-                'test_refs' => $testRefs,
+                self::FIELD_CAPABILITY_ID => $doc[self::FIELD_ID],
+                self::FIELD_OWNER_DOC => $doc[self::FIELD_PATH],
+                self::FIELD_EVIDENCE_REFS => $doc[self::FIELD_EVIDENCE_REFS],
+                self::FIELD_TEST_REFS => $testRefs,
             ];
         }
 
@@ -307,7 +382,7 @@ class AtlasAaeosImplementationTruthService
      */
     private function scanDocsWithEvidence(): array
     {
-        $root = base_path('docs/engineering-knowledge-base');
+        $root = base_path(self::FIELD_DOCS_ENGINEERING_KNOWLEDGE_BASE);
         if (! File::isDirectory($root)) {
             return [];
         }
@@ -315,25 +390,25 @@ class AtlasAaeosImplementationTruthService
         $docs = [];
         foreach (File::allFiles($root) as $file) {
             /** @var SplFileInfo $file */
-            if (AiValueNormalizer::lowerTrimmedString($file->getExtension()) !== 'md') {
+            if (AiValueNormalizer::lowerTrimmedString($file->getExtension()) !== self::FIELD_MD) {
                 continue;
             }
             $parsed = $this->frontmatter->parse(File::get($file->getPathname()));
-            $fm = AiValueNormalizer::arrayOrEmpty($parsed['frontmatter'] ?? null);
-            $evidenceRefs = $this->normalizeEvidenceRefs($fm['evidence_refs'] ?? null);
+            $fm = AiValueNormalizer::arrayOrEmpty($parsed[self::FIELD_FRONTMATTER] ?? null);
+            $evidenceRefs = $this->normalizeEvidenceRefs($fm[self::FIELD_EVIDENCE_REFS] ?? null);
             if ($evidenceRefs === []) {
                 continue;
             }
             $relativePath = str_replace(base_path().DIRECTORY_SEPARATOR, '', $file->getPathname());
             $docs[] = [
-                'id' => AiValueNormalizer::trimmedStringOrNull($fm['id'] ?? $fm['graph_id'] ?? $relativePath) ?? $relativePath,
-                'path' => $relativePath,
-                'implementation_state' => (AiValueNormalizer::trimmedStringOrNull($fm['implementation_state'] ?? null) ?? self::LEVEL_SPEC),
-                'evidence_refs' => $evidenceRefs,
+                self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($fm[self::FIELD_ID] ?? $fm[self::FIELD_GRAPH_ID] ?? $relativePath) ?? $relativePath,
+                self::FIELD_PATH => $relativePath,
+                self::FIELD_IMPLEMENTATION_STATE => (AiValueNormalizer::trimmedStringOrNull($fm[self::FIELD_IMPLEMENTATION_STATE] ?? null) ?? self::LEVEL_SPEC),
+                self::FIELD_EVIDENCE_REFS => $evidenceRefs,
             ];
         }
 
-        usort($docs, fn (array $a, array $b): int => strcmp($a['id'], $b['id']));
+        usort($docs, fn (array $a, array $b): int => strcmp($a[self::FIELD_ID], $b[self::FIELD_ID]));
 
         return $docs;
     }
@@ -366,14 +441,14 @@ class AtlasAaeosImplementationTruthService
         $resolutions = [];
         $resolvedTestRefs = [];
         foreach ($evidenceRefs as $ref) {
-            $kind = $this->evidenceRefNormalizer->kind($ref['kind'] ?? '');
-            $value = $this->evidenceRefNormalizer->ref($ref['ref'] ?? '');
+            $kind = $this->evidenceRefNormalizer->kind($ref[self::FIELD_KIND] ?? '');
+            $value = $this->evidenceRefNormalizer->ref($ref[self::FIELD_REF] ?? '');
             if ($kind === '' || $value === '') {
                 continue;
             }
             $resolution = $this->resolver->resolve($kind, $value);
             $resolutions[] = $resolution;
-            if ($kind === 'test' && ($resolution['resolved'] ?? false) === true) {
+            if ($kind === self::FIELD_TEST && ($resolution[self::FIELD_RESOLVED] ?? false) === true) {
                 $resolvedTestRefs[] = $value;
             }
         }
@@ -414,8 +489,8 @@ class AtlasAaeosImplementationTruthService
     public function freshnessHashes(array $evidenceRefs, string $testRef): array
     {
         return [
-            'test_file_hash' => $this->currentTestFileHash($testRef),
-            'impl_files_hash' => $this->currentImplFilesHash($evidenceRefs),
+            self::FIELD_TEST_FILE_HASH => $this->currentTestFileHash($testRef),
+            self::FIELD_IMPL_FILES_HASH => $this->currentImplFilesHash($evidenceRefs),
         ];
     }
 
@@ -439,9 +514,9 @@ class AtlasAaeosImplementationTruthService
         }
 
         return [
-            'format' => self::IMPL_FILES_HASH_FORMAT,
-            'impl_files_hash' => $this->combineImplFilesHash($breakdown),
-            'paths' => $breakdown,
+            self::FIELD_FORMAT => self::IMPL_FILES_HASH_FORMAT,
+            self::FIELD_IMPL_FILES_HASH => $this->combineImplFilesHash($breakdown),
+            self::FIELD_PATHS => $breakdown,
         ];
     }
 
@@ -479,10 +554,10 @@ class AtlasAaeosImplementationTruthService
     {
         $paths = [];
         foreach ($evidenceRefs as $ref) {
-            if ($this->evidenceRefNormalizer->kind($ref['kind'] ?? '') !== 'symbol') {
+            if ($this->evidenceRefNormalizer->kind($ref[self::FIELD_KIND] ?? '') !== self::FIELD_SYMBOL) {
                 continue;
             }
-            $value = $this->evidenceRefNormalizer->ref($ref['ref'] ?? '');
+            $value = $this->evidenceRefNormalizer->ref($ref[self::FIELD_REF] ?? '');
             if ($value === '') {
                 continue;
             }
@@ -512,7 +587,7 @@ class AtlasAaeosImplementationTruthService
             $parts[] = $path.'='.$contentHash;
         }
 
-        return hash('sha256', self::IMPL_FILES_HASH_FORMAT."\n".implode("\n", $parts));
+        return hash(self::FIELD_SHA256, self::IMPL_FILES_HASH_FORMAT."\n".implode("\n", $parts));
     }
 
     /**
@@ -539,15 +614,15 @@ class AtlasAaeosImplementationTruthService
     {
         $absolute = base_path($relativePath);
         if (! is_file($absolute) || ! is_readable($absolute)) {
-            return 'missing:'.hash('sha256', $relativePath);
+            return 'missing:'.hash(self::FIELD_SHA256, $relativePath);
         }
 
         $contents = @file_get_contents($absolute);
         if ($contents === false) {
-            return 'missing:'.hash('sha256', $relativePath);
+            return 'missing:'.hash(self::FIELD_SHA256, $relativePath);
         }
 
-        return hash('sha256', $contents);
+        return hash(self::FIELD_SHA256, $contents);
     }
 
     /**
@@ -611,15 +686,15 @@ class AtlasAaeosImplementationTruthService
     {
         $resolvedKinds = [];
         foreach ($resolutions as $resolution) {
-            if (($resolution['resolved'] ?? false) === true) {
-                $resolvedKinds[(AiValueNormalizer::trimmedStringOrNull($resolution['kind'] ?? null) ?? '')] = true;
+            if (($resolution[self::FIELD_RESOLVED] ?? false) === true) {
+                $resolvedKinds[(AiValueNormalizer::trimmedStringOrNull($resolution[self::FIELD_KIND] ?? null) ?? '')] = true;
             }
         }
 
-        $hasSymbol = $resolvedKinds['symbol'] ?? false;
-        $hasWiring = ($resolvedKinds['route'] ?? false) || ($resolvedKinds['command'] ?? false);
-        $hasTest = $resolvedKinds['test'] ?? false;
-        $hasReceipt = $resolvedKinds['receipt'] ?? false;
+        $hasSymbol = $resolvedKinds[self::FIELD_SYMBOL] ?? false;
+        $hasWiring = ($resolvedKinds[self::FIELD_ROUTE] ?? false) || ($resolvedKinds[self::FIELD_COMMAND] ?? false);
+        $hasTest = $resolvedKinds[self::FIELD_TEST] ?? false;
+        $hasReceipt = $resolvedKinds[self::FIELD_RECEIPT] ?? false;
 
         // A test counts toward verified ONLY when it resolved AND a green run backs it.
         // $greenTestRun null/false => not green => existence-only never reaches verified.
@@ -631,29 +706,29 @@ class AtlasAaeosImplementationTruthService
 
         // Per-row test-resolution honesty stamp.
         $testResolution = match (true) {
-            $hasGreenTest => 'green_run',
+            $hasGreenTest => self::FIELD_GREEN_RUN,
             // A test symbol matched but no green run proves it — the lie this kills.
-            $hasTest => 'existence_only_unrun',
-            default => 'none',
+            $hasTest => self::TEST_RESOLUTION_EXISTENCE_ONLY_UNRUN,
+            default => self::FIELD_NONE,
         };
 
         $unmet = [];
         if ($computed === self::LEVEL_SPEC) {
             if (! $hasSymbol) {
-                $unmet[] = 'needs >=1 resolved symbol (class/method) for partial';
+                $unmet[] = self::FIELD_NEEDS___1_RESOLVED_SYMBOL__CLASS_METHOD__FOR_PARTIAL;
             }
             if (! $hasWiring) {
-                $unmet[] = 'needs >=1 resolved route or command for partial';
+                $unmet[] = self::FIELD_NEEDS___1_RESOLVED_ROUTE_OR_COMMAND_FOR_PARTIAL;
             }
         } elseif ($computed === self::LEVEL_PARTIAL) {
             if (! $hasTest) {
-                $unmet[] = 'needs >=1 resolved test for verified';
+                $unmet[] = self::FIELD_NEEDS___1_RESOLVED_TEST_FOR_VERIFIED;
             } elseif (! $hasGreenTest) {
                 // The test EXISTS but never ran green — the existence-only gap.
-                $unmet[] = 'needs >=1 test that RAN GREEN for verified — a test symbol resolves but has no green-run receipt (run atlas:aaeos:verify-tests)';
+                $unmet[] = self::FIELD_NEEDS___1_TEST_THAT_RAN_GREEN_FOR_VERIFIED___A_TEST_SYMBOL_RESOLVES_BUT_HAS_NO_GREEN_RUN_RECEIPT__RUN_ATLAS_AAEOS_VERIFY_TESTS_;
             }
             if (! $hasReceipt) {
-                $unmet[] = 'needs >=1 resolved receipt (evidence file) for verified';
+                $unmet[] = self::FIELD_NEEDS___1_RESOLVED_RECEIPT__EVIDENCE_FILE__FOR_VERIFIED;
             }
         }
 
@@ -662,28 +737,28 @@ class AtlasAaeosImplementationTruthService
         $rankComputed = self::RANK[$computed];
 
         return [
-            'schema_version' => self::SCHEMA,
-            'claimed_state' => $claimed,
-            'claimed_state_raw' => AiValueNormalizer::trimmedStringOrNull($claimedState) ?? '',
-            'computed_state' => $computed,
-            'rank_claimed' => $rankClaimed,
-            'rank_computed' => $rankComputed,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
+            self::FIELD_CLAIMED_STATE => $claimed,
+            self::FIELD_CLAIMED_STATE_RAW => AiValueNormalizer::trimmedStringOrNull($claimedState) ?? '',
+            self::FIELD_COMPUTED_STATE => $computed,
+            self::FIELD_RANK_CLAIMED => $rankClaimed,
+            self::FIELD_RANK_COMPUTED => $rankComputed,
             // Over-claim: the doc claims MORE than the index can prove. This is the
             // blocking condition. Under-claim (computed > claimed) is fine (a warning).
-            'drift' => $rankClaimed > $rankComputed,
-            'under_claim' => $rankComputed > $rankClaimed,
-            'resolved' => [
-                'symbol' => $hasSymbol,
-                'wiring' => $hasWiring,
-                'test' => $hasTest,
+            self::FIELD_DRIFT => $rankClaimed > $rankComputed,
+            self::FIELD_UNDER_CLAIM => $rankComputed > $rankClaimed,
+            self::FIELD_RESOLVED => [
+                self::FIELD_SYMBOL => $hasSymbol,
+                self::FIELD_WIRING => $hasWiring,
+                self::FIELD_TEST => $hasTest,
                 // test_green is the load-bearing new signal: a resolved test that is
                 // NOT green-backed (existence-only) reports test=true, test_green=false.
-                'test_green' => $hasGreenTest,
-                'receipt' => $hasReceipt,
+                self::FIELD_TEST_GREEN => $hasGreenTest,
+                self::FIELD_RECEIPT => $hasReceipt,
             ],
-            'unmet_evidence' => $unmet,
-            'evidence' => array_values($resolutions),
-            'test_resolution' => $testResolution,
+            self::FIELD_UNMET_EVIDENCE => $unmet,
+            self::FIELD_EVIDENCE => array_values($resolutions),
+            self::FIELD_TEST_RESOLUTION => $testResolution,
         ];
     }
 
@@ -696,11 +771,11 @@ class AtlasAaeosImplementationTruthService
     {
         $normalized = AiValueNormalizer::lowerTrimmedString($state);
 
-        if (in_array($normalized, [self::LEVEL_VERIFIED, 'runtime_verified', 'solid_runtime'], true)) {
+        if (in_array($normalized, [self::LEVEL_VERIFIED, self::FIELD_RUNTIME_VERIFIED, self::FIELD_SOLID_RUNTIME], true)) {
             return self::LEVEL_VERIFIED;
         }
 
-        if (in_array($normalized, [self::LEVEL_PARTIAL, 'implemented_partial', 'partial_runtime'], true)) {
+        if (in_array($normalized, [self::LEVEL_PARTIAL, self::FIELD_IMPLEMENTED_PARTIAL, self::FIELD_PARTIAL_RUNTIME], true)) {
             return self::LEVEL_PARTIAL;
         }
 

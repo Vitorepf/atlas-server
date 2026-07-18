@@ -8,6 +8,15 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AtlasAaeosValueNormalizer
 {
+    public const FIELD_MEDIUM = 'medium';
+    public const FIELD_HIGH = 'high';
+    public const FIELD_LOW = 'low';
+    public const FIELD_R0 = 'R0';
+    public const FIELD_R1 = 'R1';
+    public const FIELD_R2 = 'R2';
+    public const FIELD_R3 = 'R3';
+    public const FIELD_R4 = 'R4';
+    public const FIELD_R5 = 'R5';
     public static function stringOrNull(mixed $value): ?string
     {
         return AiValueNormalizer::trimmedStringOrNull($value);
@@ -78,12 +87,12 @@ final class AtlasAaeosValueNormalizer
     {
         $risk = is_string($value) ? AiValueNormalizer::upperTrimmedString($value) : '';
 
-        return in_array($risk, ['R0', 'R1', 'R2', 'R3', 'R4', 'R5'], true) ? $risk : $fallback;
+        return in_array($risk, [self::FIELD_R0, self::FIELD_R1, self::FIELD_R2, self::FIELD_R3, self::FIELD_R4, self::FIELD_R5], true) ? $risk : $fallback;
     }
 
-    public static function lowMediumHighRisk(string $value, string $fallback = 'medium'): string
+    public static function lowMediumHighRisk(string $value, string $fallback = self::FIELD_MEDIUM): string
     {
-        return self::lowercaseAllowed($value, ['low', 'medium', 'high'], $fallback);
+        return self::lowercaseAllowed($value, [self::FIELD_LOW, self::FIELD_MEDIUM, self::FIELD_HIGH], $fallback);
     }
 
     /**

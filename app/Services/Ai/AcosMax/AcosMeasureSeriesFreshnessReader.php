@@ -24,26 +24,40 @@ use Throwable;
 final class AcosMeasureSeriesFreshnessReader
 {
     public const SCHEMA = 'atlas.acos.measure_series_freshness_reader.v1';
+    public const FIELD_TIMESTAMP_FIELD = 'timestamp_field';
+    public const FIELD_TABLE = 'table';
+    public const FIELD_PATH = 'path';
+    public const FIELD_WHERE = 'where';
+    public const FIELD_SOURCE_TYPE = 'source_type';
+    public const FIELD_COMMAND = 'command';
+    public const FIELD_JSONL_DIR = 'jsonl_dir';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_OCCURRED_AT = 'occurred_at';
+    public const FIELD_RECORDED_AT = 'recorded_at';
+    public const FIELD_CREATED_AT = 'created_at';
+    public const FIELD_RB = 'rb';
+    public const FIELD_TIMESTAMP = 'timestamp';
+    public const FIELD_TS = 'ts';
 
     /**
      * @param  array<string,mixed>  $entry  registry entry
      */
     public function lastAppendAt(array $entry): ?CarbonImmutable
     {
-        $sourceType = AiValueNormalizer::trimmedStringOrNull($entry['source_type'] ?? null) ?? '';
-        if (($entry['table'] ?? null) !== null || $sourceType === 'table') {
+        $sourceType = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SOURCE_TYPE] ?? null) ?? '';
+        if (($entry[self::FIELD_TABLE] ?? null) !== null || $sourceType === self::FIELD_TABLE) {
             return $this->tableLastAppendAt($entry);
         }
-        if ($sourceType === 'command') {
+        if ($sourceType === self::FIELD_COMMAND) {
             return $this->commandLastAppendAt($entry);
         }
 
-        $path = AiValueNormalizer::trimmedStringOrNull($entry['path'] ?? null) ?? '';
+        $path = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_PATH] ?? null) ?? '';
         if ($path === '') {
             return null;
         }
 
-        if ($sourceType === 'jsonl_dir' || is_dir($path)) {
+        if ($sourceType === self::FIELD_JSONL_DIR || is_dir($path)) {
             return $this->jsonlDirLastAppendAt($path, $entry);
         }
 
@@ -53,7 +67,7 @@ final class AcosMeasureSeriesFreshnessReader
     /** @param array<string,mixed> $entry */
     private function commandLastAppendAt(array $entry): ?CarbonImmutable
     {
-        $command = AiValueNormalizer::trimmedStringOrNull($entry['path'] ?? null) ?? '';
+        $command = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_PATH] ?? null) ?? '';
         if ($command === '' || ! str_starts_with($command, 'atlas:')) {
             return null;
         }
@@ -67,7 +81,7 @@ final class AcosMeasureSeriesFreshnessReader
 
             return $this->rowTimestamp(
                 $this->flattenFirstPayload($decoded),
-                AiValueNormalizer::trimmedStringOrNull($entry['timestamp_field'] ?? null) ?? 'generated_at',
+                AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_TIMESTAMP_FIELD] ?? null) ?? self::FIELD_GENERATED_AT,
             );
         } catch (Throwable) {
             return null;
@@ -77,15 +91,15 @@ final class AcosMeasureSeriesFreshnessReader
     /** @param array<string,mixed> $entry */
     private function tableLastAppendAt(array $entry): ?CarbonImmutable
     {
-        $table = AiValueNormalizer::trimmedStringOrNull($entry['table'] ?? null) ?? '';
-        $timestampField = AiValueNormalizer::trimmedStringOrNull($entry['timestamp_field'] ?? null) ?? 'occurred_at';
+        $table = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_TABLE] ?? null) ?? '';
+        $timestampField = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_TIMESTAMP_FIELD] ?? null) ?? self::FIELD_OCCURRED_AT;
         if ($table === '' || ! DatabaseTableAvailability::has($table)) {
             return null;
         }
 
         try {
             $query = DB::table($table);
-            foreach (AiValueNormalizer::arrayOrEmpty($entry['where'] ?? null) as $column => $value) {
+            foreach (AiValueNormalizer::arrayOrEmpty($entry[self::FIELD_WHERE] ?? null) as $column => $value) {
                 $query->where(AiValueNormalizer::trimmedStringOrNull($column) ?? '', $value);
             }
 
@@ -118,7 +132,7 @@ final class AcosMeasureSeriesFreshnessReader
         }
 
         $latest = null;
-        $handle = fopen($path, 'rb');
+        $handle = fopen($path, self::FIELD_RB);
         if ($handle !== false) {
             try {
                 while (($line = fgets($handle)) !== false) {
@@ -128,7 +142,7 @@ final class AcosMeasureSeriesFreshnessReader
                     }
                     $candidate = $this->rowTimestamp(
                         $decoded,
-                        AiValueNormalizer::trimmedStringOrNull($entry['timestamp_field'] ?? null) ?? 'recorded_at',
+                        AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_TIMESTAMP_FIELD] ?? null) ?? self::FIELD_RECORDED_AT,
                     );
                     if ($candidate instanceof CarbonImmutable && ($latest === null || $candidate->greaterThan($latest))) {
                         $latest = $candidate;
@@ -151,7 +165,7 @@ final class AcosMeasureSeriesFreshnessReader
     /** @param array<string,mixed> $row */
     private function rowTimestamp(array $row, string $preferredField): ?CarbonImmutable
     {
-        foreach (array_values(array_unique([$preferredField, 'recorded_at', 'ts', 'created_at', 'occurred_at', 'timestamp'])) as $field) {
+        foreach (array_values(array_unique([$preferredField, self::FIELD_RECORDED_AT, self::FIELD_TS, self::FIELD_CREATED_AT, self::FIELD_OCCURRED_AT, self::FIELD_TIMESTAMP])) as $field) {
             $parsed = $this->parseDate($row[$field] ?? null);
             if ($parsed instanceof CarbonImmutable) {
                 return $parsed;

@@ -15,6 +15,8 @@ use InvalidArgumentException;
  */
 final class DeliveryPackCompletenessScorer
 {
+    public const FIELD_STATUS = 'status';
+    public const FIELD_DELIVERY_HASH = 'delivery_hash';
     public const SCHEMA = 'atlas.aaeos.delivery_pack_completeness.v1';
 
     public const STATUS_PASSED = 'passed';
@@ -26,16 +28,32 @@ final class DeliveryPackCompletenessScorer
     public const BLOCKER_MISSING_HASH = 'missing_signed_delivery_hash';
 
     public const BLOCKER_EVIDENCE_REQUIRED = 'evidence_hashes_required_for_changes';
+    public const FIELD_RATIO = 'ratio';
+    public const FIELD_RECEIPT_PRESENT = 'receipt_present';
+    public const FIELD_RISK_REGISTER_PRESENT = 'risk_register_present';
+    public const FIELD_BLOCKERS = 'blockers';
+    public const FIELD_CHANGED_FILES = 'changed_files';
+    public const FIELD_TEST_EVIDENCE = 'test_evidence';
+    public const FIELD_FILES_HAVE_EVIDENCE = 'files_have_evidence';
+    public const FIELD_TESTS_PRESENT = 'tests_present';
+    public const FIELD_EVIDENCE_HASHES = 'evidence_hashes';
+    public const FIELD_EVIDENCE_PRESENT = 'evidence_present';
+    public const FIELD_FACTORS = 'factors';
+    public const FIELD_HASH_SIGNED = 'hash_signed';
+    public const FIELD_SCHEMA = 'schema';
+    public const FIELD_NO_TEST_REASON = 'no_test_reason';
+    public const FIELD_DELIVERY_PACK_COMPOSITION_MUST_NOT_BE_EMPTY_ = 'Delivery-pack composition must not be empty.';
+    public const FLOAT_1_0 = 1.0;
 
     /** @var list<string> */
     public const REQUIRED_KEYS = [
-        'changed_files',
-        'test_evidence',
-        'no_test_reason',
-        'evidence_hashes',
-        'risk_register_present',
-        'receipt_present',
-        'delivery_hash',
+        self::FIELD_CHANGED_FILES,
+        self::FIELD_TEST_EVIDENCE,
+        self::FIELD_NO_TEST_REASON,
+        self::FIELD_EVIDENCE_HASHES,
+        self::FIELD_RISK_REGISTER_PRESENT,
+        self::FIELD_RECEIPT_PRESENT,
+        self::FIELD_DELIVERY_HASH,
     ];
 
     /** @var list<string> */
@@ -80,21 +98,21 @@ final class DeliveryPackCompletenessScorer
     {
         $this->guard($composition);
 
-        $changedFiles = max(0, $this->intValue($composition['changed_files']));
-        $testEvidence = $this->arrayValue($composition['test_evidence']);
-        $evidenceHashes = $this->arrayValue($composition['evidence_hashes']);
-        $riskRegisterPresent = $this->boolValue($composition['risk_register_present']);
-        $receiptPresent = $this->boolValue($composition['receipt_present']);
+        $changedFiles = max(0, $this->intValue($composition[self::FIELD_CHANGED_FILES]));
+        $testEvidence = $this->arrayValue($composition[self::FIELD_TEST_EVIDENCE]);
+        $evidenceHashes = $this->arrayValue($composition[self::FIELD_EVIDENCE_HASHES]);
+        $riskRegisterPresent = $this->boolValue($composition[self::FIELD_RISK_REGISTER_PRESENT]);
+        $receiptPresent = $this->boolValue($composition[self::FIELD_RECEIPT_PRESENT]);
 
-        $hashSigned = AiValueNormalizer::trimmedStringOrNull($composition['delivery_hash'] ?? null) !== null;
+        $hashSigned = AiValueNormalizer::trimmedStringOrNull($composition[self::FIELD_DELIVERY_HASH] ?? null) !== null;
         $hasEvidenceHashes = $evidenceHashes !== [];
 
         $factors = [
-            'files_have_evidence' => $changedFiles === 0 ? true : $hasEvidenceHashes,
-            'tests_present' => $testEvidence !== [],
-            'evidence_present' => $hasEvidenceHashes,
-            'receipt_present' => $receiptPresent,
-            'risk_register_present' => $riskRegisterPresent,
+            self::FIELD_FILES_HAVE_EVIDENCE => $changedFiles === 0 ? true : $hasEvidenceHashes,
+            self::FIELD_TESTS_PRESENT => $testEvidence !== [],
+            self::FIELD_EVIDENCE_PRESENT => $hasEvidenceHashes,
+            self::FIELD_RECEIPT_PRESENT => $receiptPresent,
+            self::FIELD_RISK_REGISTER_PRESENT => $riskRegisterPresent,
         ];
 
         $ratio = $this->computeRatio($factors);
@@ -110,12 +128,12 @@ final class DeliveryPackCompletenessScorer
         }
 
         return [
-            'schema' => self::SCHEMA,
-            'ratio' => $ratio,
-            'status' => $this->resolveStatus($blockers, $ratio),
-            'factors' => $factors,
-            'blockers' => $blockers,
-            'hash_signed' => $hashSigned,
+            self::FIELD_SCHEMA => self::SCHEMA,
+            self::FIELD_RATIO => $ratio,
+            self::FIELD_STATUS => $this->resolveStatus($blockers, $ratio),
+            self::FIELD_FACTORS => $factors,
+            self::FIELD_BLOCKERS => $blockers,
+            self::FIELD_HASH_SIGNED => $hashSigned,
         ];
     }
 
@@ -128,8 +146,8 @@ final class DeliveryPackCompletenessScorer
     {
         $report = $this->score($composition);
 
-        return ($report['status'] ?? '') === self::STATUS_PASSED
-            && (AiValueNormalizer::finiteFloatOrNull($report['ratio'] ?? null) ?? 0.0) >= $minRatio;
+        return ($report[self::FIELD_STATUS] ?? '') === self::STATUS_PASSED
+            && (AiValueNormalizer::finiteFloatOrNull($report[self::FIELD_RATIO] ?? null) ?? 0.0) >= $minRatio;
     }
 
     /**
@@ -163,7 +181,7 @@ final class DeliveryPackCompletenessScorer
             return self::STATUS_FAILED;
         }
 
-        if ($ratio >= 1.0) {
+        if ($ratio >= self::FLOAT_1_0) {
             return self::STATUS_PASSED;
         }
 
@@ -178,7 +196,7 @@ final class DeliveryPackCompletenessScorer
     private function guard(array $composition): void
     {
         if ($composition === []) {
-            throw new InvalidArgumentException('Delivery-pack composition must not be empty.');
+            throw new InvalidArgumentException(self::FIELD_DELIVERY_PACK_COMPOSITION_MUST_NOT_BE_EMPTY_);
         }
 
         foreach (self::REQUIRED_KEYS as $key) {

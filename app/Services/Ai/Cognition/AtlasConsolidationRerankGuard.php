@@ -25,6 +25,8 @@ use Throwable;
  */
 final class AtlasConsolidationRerankGuard
 {
+    public const FIELD_HASH = 'hash';
+    public const FIELD_LABEL = 'label';
     public const SCHEMA_VERSION = 'atlas.cognition.rerank_guard.v1';
 
     /** Float tolerance so equal precision counts as non-regression. */
@@ -34,6 +36,30 @@ final class AtlasConsolidationRerankGuard
 
     public const STATUS_UNMEASURED = 'unmeasured';
 
+    public const FIELD_OK = 'ok';
+    public const FIELD_PRECISION_AT_K = 'precision_at_k';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_CURRENT_PRECISION_AT_K = 'current_precision_at_k';
+    public const FIELD_BASELINE_PRECISION_AT_K = 'baseline_precision_at_k';
+
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_HEALTHY = 'healthy';
+    public const FIELD_FROZEN_AT = 'frozen_at';
+    public const FIELD_PROMOTE_ALLOWED = 'promote_allowed';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_VERDICT = 'verdict';
+    public const FIELD_REFATORACAO = 'refatoracao';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_STORAGE_PATH = 'storage_path';
+    public const FIELD_BLOCKED_REGRESSION = 'blocked_regression';
+    public const FIELD_METRICS_PRECISION_AT_K = 'metrics.precision_at_k';
+    public const FIELD_METRICS_PRIMARY_K = 'metrics.primary_k';
+    public const FIELD_ATLAS_CONSOLIDATION_RERANK_BASELINE_JSON = 'atlas/consolidation/rerank_baseline.json';
+    public const FIELD_FALHA_AO_GRAVAR_BASELINE = 'falha ao gravar baseline';
+    public const FIELD_UNMEASURED__SEMANTIC_ENGINE_VENV_AUSENTE____NADA_A_CONGELAR = 'unmeasured (semantic engine/venv ausente) — nada a congelar';
+
 
     private string $baselinePath;
 
@@ -41,8 +67,8 @@ final class AtlasConsolidationRerankGuard
         private readonly ?LocalRagPrecisionCorpusService $corpus = null,
         ?string $baselinePath = null,
     ) {
-        $this->baselinePath = $baselinePath ?? (function_exists('storage_path')
-            ? storage_path('atlas/consolidation/rerank_baseline.json')
+        $this->baselinePath = $baselinePath ?? (function_exists(self::FIELD_STORAGE_PATH)
+            ? storage_path(self::FIELD_ATLAS_CONSOLIDATION_RERANK_BASELINE_JSON)
             : sys_get_temp_dir().'/atlas/consolidation/rerank_baseline.json');
     }
 
@@ -55,15 +81,15 @@ final class AtlasConsolidationRerankGuard
     {
         $precision = $precisionOverride ?? $this->currentPrecision();
         if ($precision === null) {
-            return ['ok' => false, 'reason' => 'unmeasured (semantic engine/venv ausente) — nada a congelar'];
+            return [self::FIELD_OK => false, self::FIELD_REASON => self::FIELD_UNMEASURED__SEMANTIC_ENGINE_VENV_AUSENTE____NADA_A_CONGELAR];
         }
 
         $baseline = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'precision_at_k' => round($precision, 4),
-            'frozen_at' => gmdate('c'),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_PRECISION_AT_K => round($precision, 4),
+            self::FIELD_FROZEN_AT => gmdate('c'),
         ];
-        $baseline['hash'] = 'sha256:'.hash('sha256', (string) json_encode(['p' => $baseline['precision_at_k']]));
+        $baseline[self::FIELD_HASH] = 'sha256:'.hash(self::FIELD_SHA256, (string) json_encode(['p' => $baseline[self::FIELD_PRECISION_AT_K]]));
 
         try {
             $dir = dirname($this->baselinePath);
@@ -72,10 +98,10 @@ final class AtlasConsolidationRerankGuard
             }
             file_put_contents($this->baselinePath, json_encode($baseline, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         } catch (Throwable) {
-            return ['ok' => false, 'reason' => 'falha ao gravar baseline'];
+            return [self::FIELD_OK => false, self::FIELD_REASON => self::FIELD_FALHA_AO_GRAVAR_BASELINE];
         }
 
-        return ['ok' => true] + $baseline;
+        return [self::FIELD_OK => true] + $baseline;
     }
 
     /**
@@ -92,12 +118,12 @@ final class AtlasConsolidationRerankGuard
         $verdict = $this->evaluate($current, $baseline);
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'verdict' => $verdict,
-            'promote_allowed' => $verdict === 'promote_allowed',
-            'current_precision_at_k' => $current,
-            'baseline_precision_at_k' => $baseline,
-            'label' => 'refatoracao',
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_VERDICT => $verdict,
+            self::FIELD_PROMOTE_ALLOWED => $verdict === self::FIELD_PROMOTE_ALLOWED,
+            self::FIELD_CURRENT_PRECISION_AT_K => $current,
+            self::FIELD_BASELINE_PRECISION_AT_K => $baseline,
+            self::FIELD_LABEL => self::FIELD_REFATORACAO,
         ];
     }
 
@@ -113,7 +139,7 @@ final class AtlasConsolidationRerankGuard
             return self::STATUS_UNMEASURED;
         }
 
-        return $current + self::EPSILON >= $baseline ? 'promote_allowed' : 'blocked_regression';
+        return $current + self::EPSILON >= $baseline ? self::FIELD_PROMOTE_ALLOWED : self::FIELD_BLOCKED_REGRESSION;
     }
 
     private function currentPrecision(): ?float
@@ -123,13 +149,13 @@ final class AtlasConsolidationRerankGuard
         }
         try {
             $report = $this->corpus->report();
-            $status = (AiValueNormalizer::trimmedStringOrNull($report['status'] ?? null) ?? '');
+            $status = (AiValueNormalizer::trimmedStringOrNull($report[self::FIELD_STATUS] ?? null) ?? '');
             // The corpus degrades to a non-`ok` status when the engine is absent.
-            if ($status !== '' && $status !== 'ok' && $status !== 'healthy') {
+            if ($status !== '' && $status !== self::STATUS_OK && $status !== self::STATUS_HEALTHY) {
                 return null;
             }
-            $pAtK = AiValueNormalizer::arrayOrEmpty(data_get($report, 'metrics.precision_at_k', []));
-            $primary = data_get($report, 'metrics.primary_k', array_key_first($pAtK));
+            $pAtK = AiValueNormalizer::arrayOrEmpty(data_get($report, self::FIELD_METRICS_PRECISION_AT_K, []));
+            $primary = data_get($report, self::FIELD_METRICS_PRIMARY_K, array_key_first($pAtK));
             $value = $pAtK[AiValueNormalizer::trimmedScalarStringOrNull($primary) ?? ''] ?? null;
 
             return AiValueNormalizer::finiteFloatOrNull($value);
@@ -146,7 +172,7 @@ final class AtlasConsolidationRerankGuard
             }
             $decoded = json_decode((string) file_get_contents($this->baselinePath), true, 512, JSON_THROW_ON_ERROR);
 
-            return AiValueNormalizer::finiteFloatOrNull($decoded['precision_at_k'] ?? null);
+            return AiValueNormalizer::finiteFloatOrNull($decoded[self::FIELD_PRECISION_AT_K] ?? null);
         } catch (Throwable) {
             return null;
         }

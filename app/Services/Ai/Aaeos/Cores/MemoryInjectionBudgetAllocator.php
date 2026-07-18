@@ -23,6 +23,25 @@ final class MemoryInjectionBudgetAllocator
     public const REASON_BELOW_MIN_EXCERPT = 'below_min_excerpt';
 
     public const REASON_ZERO_ESTIMATED_CHARS = 'zero_estimated_chars';
+    public const FIELD_REF = 'ref';
+    public const FIELD_PRIORITY = 'priority';
+    public const FIELD_REQUESTED_CHARS = 'requested_chars';
+    public const FIELD_ALLOCATED_CHARS = 'allocated_chars';
+    public const FIELD_CAPPED = 'capped';
+    public const FIELD_RANK = 'rank';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_TOTAL_BUDGET_CHARS = 'total_budget_chars';
+    public const FIELD_ADMITTED = 'admitted';
+    public const FIELD_ADMITTED_COUNT = 'admitted_count';
+    public const FIELD_DROPPED = 'dropped';
+    public const FIELD_DROPPED_COUNT = 'dropped_count';
+    public const FIELD_ESTIMATED_CHARS = 'estimated_chars';
+    public const FIELD_MIN_EXCERPT_CHARS = 'min_excerpt_chars';
+    public const FIELD_PER_ITEM_CAP_CHARS = 'per_item_cap_chars';
+    public const FIELD_USED_CHARS = 'used_chars';
+    public const FIELD_TRUNCATED = 'truncated';
+    public const FIELD_REMAINING_CHARS = 'remaining_chars';
+    public const FIELD_REASON = 'reason';
 
     /**
      * Pure char-budget packer. Sorts a copy of the ranked items by
@@ -64,7 +83,7 @@ final class MemoryInjectionBudgetAllocator
         $rank = 0;
 
         foreach ($ordered as $item) {
-            $ref = AiValueNormalizer::trimmedStringOrNull(AtlasAaeosArrayFieldReader::stringField($item, 'ref')) ?? '';
+            $ref = AiValueNormalizer::trimmedStringOrNull(AtlasAaeosArrayFieldReader::stringField($item, self::FIELD_REF)) ?? '';
             $priority = $this->priorityField($item);
             $estimated = $this->estimatedChars($item);
 
@@ -94,12 +113,12 @@ final class MemoryInjectionBudgetAllocator
             $remaining -= $allocatable;
 
             $admitted[] = [
-                'ref' => $ref,
-                'priority' => $priority,
-                'requested_chars' => $estimated,
-                'allocated_chars' => $allocatable,
-                'capped' => $allocatable < $estimated,
-                'rank' => $rank,
+                self::FIELD_REF => $ref,
+                self::FIELD_PRIORITY => $priority,
+                self::FIELD_REQUESTED_CHARS => $estimated,
+                self::FIELD_ALLOCATED_CHARS => $allocatable,
+                self::FIELD_CAPPED => $allocatable < $estimated,
+                self::FIELD_RANK => $rank,
             ];
         }
 
@@ -107,17 +126,17 @@ final class MemoryInjectionBudgetAllocator
         $droppedCount = count($dropped);
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'total_budget_chars' => $totalBudget,
-            'per_item_cap_chars' => $perItemCap,
-            'min_excerpt_chars' => $minExcerpt,
-            'admitted' => $admitted,
-            'dropped' => $dropped,
-            'used_chars' => $usedChars,
-            'remaining_chars' => $remaining,
-            'admitted_count' => count($admitted),
-            'dropped_count' => $droppedCount,
-            'truncated' => $droppedCount > 0,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_TOTAL_BUDGET_CHARS => $totalBudget,
+            self::FIELD_PER_ITEM_CAP_CHARS => $perItemCap,
+            self::FIELD_MIN_EXCERPT_CHARS => $minExcerpt,
+            self::FIELD_ADMITTED => $admitted,
+            self::FIELD_DROPPED => $dropped,
+            self::FIELD_USED_CHARS => $usedChars,
+            self::FIELD_REMAINING_CHARS => $remaining,
+            self::FIELD_ADMITTED_COUNT => count($admitted),
+            self::FIELD_DROPPED_COUNT => $droppedCount,
+            self::FIELD_TRUNCATED => $droppedCount > 0,
         ];
     }
 
@@ -169,8 +188,8 @@ final class MemoryInjectionBudgetAllocator
         }
 
         return strcmp(
-            AiValueNormalizer::trimmedStringOrNull(AtlasAaeosArrayFieldReader::stringField($a, 'ref')) ?? '',
-            AiValueNormalizer::trimmedStringOrNull(AtlasAaeosArrayFieldReader::stringField($b, 'ref')) ?? '',
+            AiValueNormalizer::trimmedStringOrNull(AtlasAaeosArrayFieldReader::stringField($a, self::FIELD_REF)) ?? '',
+            AiValueNormalizer::trimmedStringOrNull(AtlasAaeosArrayFieldReader::stringField($b, self::FIELD_REF)) ?? '',
         );
     }
 
@@ -181,10 +200,10 @@ final class MemoryInjectionBudgetAllocator
     private function dropped(string $ref, float $priority, int $estimated, string $reason): array
     {
         return [
-            'ref' => $ref,
-            'priority' => $priority,
-            'requested_chars' => $estimated,
-            'reason' => $reason,
+            self::FIELD_REF => $ref,
+            self::FIELD_PRIORITY => $priority,
+            self::FIELD_REQUESTED_CHARS => $estimated,
+            self::FIELD_REASON => $reason,
         ];
     }
 
@@ -193,7 +212,7 @@ final class MemoryInjectionBudgetAllocator
      */
     private function priorityField(array $item): float
     {
-        return AiValueNormalizer::finiteFloatOrNull($item['priority'] ?? 0) ?? 0.0;
+        return AiValueNormalizer::finiteFloatOrNull($item[self::FIELD_PRIORITY] ?? 0) ?? 0.0;
     }
 
     /**
@@ -201,7 +220,7 @@ final class MemoryInjectionBudgetAllocator
      */
     private function estimatedChars(array $item): int
     {
-        $value = AiValueNormalizer::finiteFloatOrNull($item['estimated_chars'] ?? 0);
+        $value = AiValueNormalizer::finiteFloatOrNull($item[self::FIELD_ESTIMATED_CHARS] ?? 0);
 
         return $value === null ? 0 : max(0, (int) $value);
     }

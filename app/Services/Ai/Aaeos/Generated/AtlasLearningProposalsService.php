@@ -69,19 +69,19 @@ final class AtlasLearningProposalsService
      * "policy critica" means. These can NEVER auto-apply.
      */
     public const CRITICAL_KINDS = [
-        'policy',
-        'routing',
-        'gate',
-        'eval_gate',
-        'heuristic',
+        self::FIELD_POLICY,
+        self::FIELD_ROUTING,
+        self::FIELD_GATE,
+        self::FIELD_EVAL_GATE,
+        self::FIELD_HEURISTIC,
     ];
 
     /** Kinds that are valid Learning outputs but do not gate critical behavior. */
     public const NON_CRITICAL_KINDS = [
-        'retrieval_hint',
-        'memory',
-        'failure_pattern',
-        'documentation_health',
+        self::FIELD_RETRIEVAL_HINT,
+        self::FIELD_MEMORY,
+        self::FIELD_FAILURE_PATTERN,
+        self::FIELD_DOCUMENTATION_HEALTH,
     ];
 
     /** Risk bands a proposal can carry. */
@@ -94,7 +94,7 @@ final class AtlasLearningProposalsService
     public const STATUS_NEEDS_MORE_EVIDENCE = 'needs_more_evidence';
     public const STATUS_REJECTED = 'rejected';
 
-    /** Application stages — the doc's "sugestao, decisao, aplicacao" split. */
+    /** Application stages — the doc's self::FIELD_SUGESTAO__DECISAO__APLICACAO split. */
     public const APPLY_AUTO = 'auto';
     public const APPLY_REVIEW = 'human_review';
 
@@ -103,6 +103,65 @@ final class AtlasLearningProposalsService
      * cannot become a canon-bound proposal. Range 0.0–1.0.
      */
     public const WEAK_SIGNAL_FLOOR = 0.5;
+    public const FIELD_STATUS = 'status';
+    public const FIELD_EVIDENCE_REFS = 'evidence_refs';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_RISK = 'risk';
+    public const FIELD_ROUTING = 'routing';
+    public const FIELD_SAMPLE_SIZE = 'sample_size';
+    public const FIELD_STRENGTH = 'strength';
+    public const FIELD_SUGGESTED_ACTION = 'suggested_action';
+    public const FIELD_SUMMARY = 'summary';
+    public const FIELD_CHALLENGER = 'challenger';
+    public const FIELD_INCUMBENT = 'incumbent';
+    public const FIELD_EFFECT_SIZE = 'effect_size';
+    public const FIELD_JUSTIFICATION = 'justification';
+    public const FIELD_MAY_AUTO_APPLY = 'may_auto_apply';
+    public const FIELD_REQUIRES_REVIEW = 'requires_review';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_RETRIEVAL_HINT = 'retrieval_hint';
+    public const FIELD_TASK = 'task';
+    public const FIELD_APPLICATION = 'application';
+    public const FIELD_CANON_READY = 'canon_ready';
+    public const FIELD_CANON_READY_COUNT = 'canon_ready_count';
+    public const FIELD_CRITICAL = 'critical';
+    public const FIELD_DECISION = 'decision';
+    public const FIELD_DOCUMENTATION_HEALTH = 'documentation_health';
+    public const FIELD_GATE = 'gate';
+    public const FIELD_EVAL_GATE = 'eval_gate';
+    public const FIELD_HUMAN_OR_POLICY_DECIDES = 'human_or_policy_decides';
+    public const FIELD_LEARNING_EMITS_PROPOSAL = 'learning_emits_proposal';
+    public const FIELD_MEMORY = 'memory';
+    public const FIELD_PROPOSE_CHANGE_FOR_REVIEW = 'propose_change_for_review';
+    public const FIELD_PROPOSE_DEFAULT_ROUTE_CHANGE = 'propose_default_route_change';
+    public const FIELD_RANKED = 'ranked';
+    public const FIELD_RENDER_TO_HUMAN = 'render_to_human';
+    public const FIELD_RETRIEVAL = 'retrieval';
+    public const FIELD_FAILURE_PATTERN = 'failure_pattern';
+    public const FIELD_HEURISTIC = 'heuristic';
+    public const FIELD_RETRIEVAL_HINTS = 'retrieval_hints';
+    public const FIELD_ROUTER = 'router';
+    public const FIELD_SUGGESTION = 'suggestion';
+    public const FIELD_TASK_CLASS = 'task_class';
+    public const FIELD_TERMINAL_STAGE = 'terminal_stage';
+    public const FIELD_TOTAL = 'total';
+    public const FIELD_UNSPECIFIED_LEARNING_SIGNAL = 'unspecified learning signal';
+    public const FIELD_WIN_RATE = 'win_rate';
+    public const FIELD_ACCUMULATE_MORE_SIGNAL = 'accumulate_more_signal';
+    public const FIELD_DISCARD = 'discard';
+    public const FIELD_GATHER_EVIDENCE = 'gather_evidence';
+    public const FIELD_NO_EVIDENCE_CANNOT_BECOME_CANON = 'no_evidence_cannot_become_canon';
+    public const FIELD_PATTERN_MEETS_EVIDENCE_AND_STRENGTH_THRESHOLD = 'pattern_meets_evidence_and_strength_threshold';
+    public const FIELD_POLICY = 'policy';
+    public const FIELD_PROPOSE_CHANGE = 'propose_change';
+    public const FIELD_ROUTE__S_DEFAULT_TO__S_OVER__S = 'route %s default to %s over %s';
+    public const FIELD_SIGNAL_KIND_NOT_RECOGNISED = 'signal_kind_not_recognised';
+    public const FIELD_SUGESTAO__DECISAO__APLICACAO = 'sugestao, decisao, aplicacao';
+    public const FIELD_UNKNOWN = 'unknown';
+    public const FIELD_WEAK_SIGNAL_BELOW_FLOOR = 'weak_signal_below_floor';
+    public const FLOAT_0_8 = 0.8;
+    public const FLOAT_0_6 = 0.6;
+    public const INT_2 = 2;
 
     /**
      * Evaluate a single execution signal into a learning proposal verdict.
@@ -123,11 +182,11 @@ final class AtlasLearningProposalsService
      */
     public function evaluate(array $signal): array
     {
-        $kind = $this->normalizeKind($signal['kind'] ?? null);
-        $evidence = AtlasAaeosStringListNormalizer::trimmedScalarValues($signal['evidence_refs'] ?? []);
-        $sampleSize = max(0, (int) ($signal['sample_size'] ?? 0));
-        $effect = $this->clamp01((float) ($signal['effect_size'] ?? 0.0));
-        $summary = $this->string($signal['summary'] ?? null) ?? 'unspecified learning signal';
+        $kind = $this->normalizeKind($signal[self::FIELD_KIND] ?? null);
+        $evidence = AtlasAaeosStringListNormalizer::trimmedScalarValues($signal[self::FIELD_EVIDENCE_REFS] ?? []);
+        $sampleSize = max(0, (int) ($signal[self::FIELD_SAMPLE_SIZE] ?? 0));
+        $effect = $this->clamp01((float) ($signal[self::FIELD_EFFECT_SIZE] ?? 0.0));
+        $summary = $this->string($signal[self::FIELD_SUMMARY] ?? null) ?? self::FIELD_UNSPECIFIED_LEARNING_SIGNAL;
 
         $strength = $this->signalStrength($evidence, $sampleSize, $effect);
         $critical = $this->isCriticalKind($kind);
@@ -137,13 +196,13 @@ final class AtlasLearningProposalsService
         if ($kind === null) {
             return $this->verdict(
                 status: self::STATUS_REJECTED,
-                kind: 'unknown',
+                kind: self::FIELD_UNKNOWN,
                 summary: $summary,
-                justification: 'signal_kind_not_recognised',
+                justification: self::FIELD_SIGNAL_KIND_NOT_RECOGNISED,
                 risk: self::RISK_HIGH,
                 strength: $strength,
                 critical: false,
-                suggestedAction: 'discard',
+                suggestedAction: self::FIELD_DISCARD,
             );
         }
 
@@ -154,11 +213,11 @@ final class AtlasLearningProposalsService
                 status: self::STATUS_REJECTED,
                 kind: $kind,
                 summary: $summary,
-                justification: 'no_evidence_cannot_become_canon',
+                justification: self::FIELD_NO_EVIDENCE_CANNOT_BECOME_CANON,
                 risk: self::RISK_HIGH,
                 strength: $strength,
                 critical: $critical,
-                suggestedAction: 'gather_evidence',
+                suggestedAction: self::FIELD_GATHER_EVIDENCE,
             );
         }
 
@@ -169,11 +228,11 @@ final class AtlasLearningProposalsService
                 status: self::STATUS_NEEDS_MORE_EVIDENCE,
                 kind: $kind,
                 summary: $summary,
-                justification: 'weak_signal_below_floor',
+                justification: self::FIELD_WEAK_SIGNAL_BELOW_FLOOR,
                 risk: $critical ? self::RISK_HIGH : self::RISK_MEDIUM,
                 strength: $strength,
                 critical: $critical,
-                suggestedAction: 'accumulate_more_signal',
+                suggestedAction: self::FIELD_ACCUMULATE_MORE_SIGNAL,
             );
         }
 
@@ -182,13 +241,13 @@ final class AtlasLearningProposalsService
             status: self::STATUS_ADMITTED,
             kind: $kind,
             summary: $summary,
-            justification: $this->string($signal['justification'] ?? null)
-                ?? 'pattern_meets_evidence_and_strength_threshold',
+            justification: $this->string($signal[self::FIELD_JUSTIFICATION] ?? null)
+                ?? self::FIELD_PATTERN_MEETS_EVIDENCE_AND_STRENGTH_THRESHOLD,
             risk: $this->riskFor($critical, $strength),
             strength: $strength,
             critical: $critical,
-            suggestedAction: $this->string($signal['suggested_action'] ?? null)
-                ?? ($critical ? 'propose_change_for_review' : 'propose_change'),
+            suggestedAction: $this->string($signal[self::FIELD_SUGGESTED_ACTION] ?? null)
+                ?? ($critical ? self::FIELD_PROPOSE_CHANGE_FOR_REVIEW : self::FIELD_PROPOSE_CHANGE),
         );
     }
 
@@ -206,11 +265,11 @@ final class AtlasLearningProposalsService
         $critical = $normalized !== null && $this->isCriticalKind($normalized);
 
         return [
-            'suggestion' => 'learning_emits_proposal',
-            'decision' => 'human_or_policy_decides',
+            self::FIELD_SUGGESTION => self::FIELD_LEARNING_EMITS_PROPOSAL,
+            self::FIELD_DECISION => self::FIELD_HUMAN_OR_POLICY_DECIDES,
             // Terminal stage is presentation, never direct mutation (Fluxo:
             // Output Renderer apresenta). Critical kinds force human review.
-            'application' => $critical ? self::APPLY_REVIEW : self::APPLY_AUTO,
+            self::FIELD_APPLICATION => $critical ? self::APPLY_REVIEW : self::APPLY_AUTO,
         ];
     }
 
@@ -227,37 +286,37 @@ final class AtlasLearningProposalsService
      */
     public function rank(array $verdicts): array
     {
-        $riskOrder = [self::RISK_LOW => 0, self::RISK_MEDIUM => 1, self::RISK_HIGH => 2];
+        $riskOrder = [self::RISK_LOW => 0, self::RISK_MEDIUM => 1, self::RISK_HIGH => self::INT_2];
 
         $sorted = $verdicts;
         usort($sorted, function (array $a, array $b) use ($riskOrder): int {
             // Admitted first.
-            $aAdmitted = ($a['status'] ?? '') === self::STATUS_ADMITTED ? 0 : 1;
-            $bAdmitted = ($b['status'] ?? '') === self::STATUS_ADMITTED ? 0 : 1;
+            $aAdmitted = ($a[self::FIELD_STATUS] ?? '') === self::STATUS_ADMITTED ? 0 : 1;
+            $bAdmitted = ($b[self::FIELD_STATUS] ?? '') === self::STATUS_ADMITTED ? 0 : 1;
             if ($aAdmitted !== $bAdmitted) {
                 return $aAdmitted <=> $bAdmitted;
             }
             // Then lower risk.
-            $aRisk = $riskOrder[$a['risk'] ?? self::RISK_HIGH] ?? 2;
-            $bRisk = $riskOrder[$b['risk'] ?? self::RISK_HIGH] ?? 2;
+            $aRisk = $riskOrder[$a[self::FIELD_RISK] ?? self::RISK_HIGH] ?? 2;
+            $bRisk = $riskOrder[$b[self::FIELD_RISK] ?? self::RISK_HIGH] ?? 2;
             if ($aRisk !== $bRisk) {
                 return $aRisk <=> $bRisk;
             }
             // Then higher strength.
-            return ($b['strength'] ?? 0.0) <=> ($a['strength'] ?? 0.0);
+            return ($b[self::FIELD_STRENGTH] ?? 0.0) <=> ($a[self::FIELD_STRENGTH] ?? 0.0);
         });
 
         $canonReady = array_values(array_filter(
             $sorted,
-            static fn (array $v): bool => ($v['status'] ?? '') === self::STATUS_ADMITTED,
+            static fn (array $v): bool => ($v[self::FIELD_STATUS] ?? '') === self::STATUS_ADMITTED,
         ));
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'total' => count($sorted),
-            'ranked' => $sorted,
-            'canon_ready' => $canonReady,
-            'canon_ready_count' => count($canonReady),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_TOTAL => count($sorted),
+            self::FIELD_RANKED => $sorted,
+            self::FIELD_CANON_READY => $canonReady,
+            self::FIELD_CANON_READY_COUNT => count($canonReady),
         ];
     }
 
@@ -275,27 +334,27 @@ final class AtlasLearningProposalsService
      */
     public function evaluateProviderComparison(array $comparison): array
     {
-        $winRate = $this->clamp01((float) ($comparison['win_rate'] ?? 0.0));
+        $winRate = $this->clamp01((float) ($comparison[self::FIELD_WIN_RATE] ?? 0.0));
         // Effect size = how far the win rate is from a coin flip.
         $effect = $this->clamp01(abs($winRate - 0.5) * 2.0);
 
         $verdict = $this->evaluate([
-            'kind' => 'routing',
-            'summary' => sprintf(
-                'route %s default to %s over %s',
-                AiValueNormalizer::trimmedString($comparison['task_class'] ?? 'task') ?: 'task',
-                AiValueNormalizer::trimmedString($comparison['challenger'] ?? 'challenger') ?: 'challenger',
-                AiValueNormalizer::trimmedString($comparison['incumbent'] ?? 'incumbent') ?: 'incumbent',
+            self::FIELD_KIND => self::FIELD_ROUTING,
+            self::FIELD_SUMMARY => sprintf(
+                self::FIELD_ROUTE__S_DEFAULT_TO__S_OVER__S,
+                AiValueNormalizer::trimmedString($comparison[self::FIELD_TASK_CLASS] ?? self::FIELD_TASK) ?: self::FIELD_TASK,
+                AiValueNormalizer::trimmedString($comparison[self::FIELD_CHALLENGER] ?? self::FIELD_CHALLENGER) ?: self::FIELD_CHALLENGER,
+                AiValueNormalizer::trimmedString($comparison[self::FIELD_INCUMBENT] ?? self::FIELD_INCUMBENT) ?: self::FIELD_INCUMBENT,
             ),
-            'evidence_refs' => $comparison['evidence_refs'] ?? [],
-            'sample_size' => $comparison['sample_size'] ?? 0,
-            'effect_size' => $effect,
-            'suggested_action' => 'propose_default_route_change',
+            self::FIELD_EVIDENCE_REFS => $comparison[self::FIELD_EVIDENCE_REFS] ?? [],
+            self::FIELD_SAMPLE_SIZE => $comparison[self::FIELD_SAMPLE_SIZE] ?? 0,
+            self::FIELD_EFFECT_SIZE => $effect,
+            self::FIELD_SUGGESTED_ACTION => self::FIELD_PROPOSE_DEFAULT_ROUTE_CHANGE,
         ]);
 
         // Routing is critical: assert the invariant regardless of strength.
-        $verdict['may_auto_apply'] = false;
-        $verdict['requires_review'] = true;
+        $verdict[self::FIELD_MAY_AUTO_APPLY] = false;
+        $verdict[self::FIELD_REQUIRES_REVIEW] = true;
 
         return $verdict;
     }
@@ -338,21 +397,21 @@ final class AtlasLearningProposalsService
         $admitted = $status === self::STATUS_ADMITTED;
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => $status,
-            'kind' => $kind,
-            'critical' => $critical,
-            'summary' => $summary,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_STATUS => $status,
+            self::FIELD_KIND => $kind,
+            self::FIELD_CRITICAL => $critical,
+            self::FIELD_SUMMARY => $summary,
             // The doc's three required output fields:
-            'justification' => $justification,
-            'risk' => $risk,
-            'suggested_action' => $suggestedAction,
-            'strength' => $strength,
+            self::FIELD_JUSTIFICATION => $justification,
+            self::FIELD_RISK => $risk,
+            self::FIELD_SUGGESTED_ACTION => $suggestedAction,
+            self::FIELD_STRENGTH => $strength,
             // The hard invariant: a proposal is never an application.
             // Critical kinds can never auto-apply even once admitted.
-            'may_auto_apply' => $admitted && ! $critical,
-            'requires_review' => $critical || ! $admitted,
-            'terminal_stage' => 'render_to_human',
+            self::FIELD_MAY_AUTO_APPLY => $admitted && ! $critical,
+            self::FIELD_REQUIRES_REVIEW => $critical || ! $admitted,
+            self::FIELD_TERMINAL_STAGE => self::FIELD_RENDER_TO_HUMAN,
         ];
     }
 
@@ -360,14 +419,14 @@ final class AtlasLearningProposalsService
     {
         if ($critical) {
             // Critical changes are never low risk.
-            return $strength >= 0.8 ? self::RISK_MEDIUM : self::RISK_HIGH;
+            return $strength >= self::FLOAT_0_8 ? self::RISK_MEDIUM : self::RISK_HIGH;
         }
 
-        if ($strength >= 0.8) {
+        if ($strength >= self::FLOAT_0_8) {
             return self::RISK_LOW;
         }
 
-        return $strength >= 0.6 ? self::RISK_MEDIUM : self::RISK_HIGH;
+        return $strength >= self::FLOAT_0_6 ? self::RISK_MEDIUM : self::RISK_HIGH;
     }
 
     private function normalizeKind(mixed $value): ?string
@@ -384,8 +443,8 @@ final class AtlasLearningProposalsService
 
         // A couple of documented aliases.
         return match ($kind) {
-            'router' => 'routing',
-            'retrieval', 'retrieval_hints' => 'retrieval_hint',
+            self::FIELD_ROUTER => self::FIELD_ROUTING,
+            self::FIELD_RETRIEVAL, self::FIELD_RETRIEVAL_HINTS => self::FIELD_RETRIEVAL_HINT,
             default => null,
         };
     }

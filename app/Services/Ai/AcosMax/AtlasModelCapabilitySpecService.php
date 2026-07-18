@@ -30,13 +30,49 @@ final class AtlasModelCapabilitySpecService
     public const REASON_LICENSE_MISSING = 'license_missing';
 
     public const REASON_LICENSE_NOT_ALLOWED = 'license_not_allowed';
+
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_VIOLATES_SPEC = 'violates_spec';
+
+    public const FALLBACK_MODEL_ID = 'unknown';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_FIELD = 'field';
+    public const FIELD_EXPECTED = 'expected';
+    public const FIELD_ACTUAL = 'actual';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_MODEL_ID = 'model_id';
+    public const FIELD_VIOLATIONS = 'violations';
+    public const FIELD_LATENCY_PER_PAIR_MS_P95 = 'latency_per_pair_ms_p95';
+    public const FIELD_FUNCTIONS = 'functions';
+    public const FIELD_FUNCTION = 'function';
+    public const FIELD_LICENSE_ALLOWED = 'license_allowed';
+    public const FIELD_LICENSE = 'license';
+    public const FIELD_NON_EMPTY_STRING = 'non_empty_string';
+    public const FIELD_CONTEXT_BELOW_SPEC_FLOOR = 'context_below_spec_floor';
+    public const FIELD_DETERMINISTIC = 'deterministic';
+    public const FIELD_DIM = 'dim';
+    public const FIELD_DIM_NOT_ALLOWED = 'dim_not_allowed';
+    public const FIELD_MIN_CTX_TOKENS = 'min_ctx_tokens';
+    public const FIELD_MULTILINGUAL_PT = 'multilingual_pt';
+    public const FIELD_CTX_TOKENS = 'ctx_tokens';
+    public const FIELD_MULTILINGUAL_PT_REQUIRED = 'multilingual_pt_required';
+    public const FIELD_NON_DETERMINISTIC_MODEL_REFUSED = 'non_deterministic_model_refused';
+    public const FIELD_PAIR_SCORING = 'pair_scoring';
+    public const FIELD_PAIR_SCORING_MISSING = 'pair_scoring_missing';
+    public const FIELD_POOLING = 'pooling';
+    public const FIELD_TERM_WEIGHTS_EXPOSED = 'term_weights_exposed';
+    public const FIELD_TOKEN_EMBEDDINGS_EXPOSED = 'token_embeddings_exposed';
+    public const FIELD_TERM_WEIGHTS_NOT_EXPOSED = 'term_weights_not_exposed';
+    public const FIELD_TOKEN_EMBEDDINGS_NOT_EXPOSED = 'token_embeddings_not_exposed';
+    public const FIELD_POOLING_NOT_ALLOWED = 'pooling_not_allowed';
     /** @var array<string, array<string, mixed>> */
     private array $functions;
 
     public function __construct(?array $spec = null)
     {
         $spec = $spec ?? AiValueNormalizer::arrayOrEmpty(config(self::SPEC_CONFIG_KEY, []));
-        $functions = AiValueNormalizer::arrayOrEmpty($spec['functions'] ?? null);
+        $functions = AiValueNormalizer::arrayOrEmpty($spec[self::FIELD_FUNCTIONS] ?? null);
         $this->functions = array_change_key_case($functions, CASE_LOWER);
     }
 
@@ -73,46 +109,46 @@ final class AtlasModelCapabilitySpecService
         $spec = $this->specFor($function);
         $violations = [];
 
-        $modelId = AiValueNormalizer::trimmedStringOrNull($model['model_id'] ?? null) ?? '';
+        $modelId = AiValueNormalizer::trimmedStringOrNull($model[self::FIELD_MODEL_ID] ?? null) ?? '';
         if ($modelId === '') {
             $violations[] = [
-                'field' => 'model_id',
-                'reason' => self::REASON_MISSING_MODEL_ID,
-                'expected' => 'non_empty_string',
-                'actual' => null,
+                self::FIELD_FIELD => self::FIELD_MODEL_ID,
+                self::FIELD_REASON => self::REASON_MISSING_MODEL_ID,
+                self::FIELD_EXPECTED => self::FIELD_NON_EMPTY_STRING,
+                self::FIELD_ACTUAL => null,
             ];
         }
 
         $violations = array_merge($violations, $this->checkNumericFloor(
-            $spec, $model, 'min_ctx_tokens', 'ctx_tokens', 'context_below_spec_floor'
+            $spec, $model, self::FIELD_MIN_CTX_TOKENS, self::FIELD_CTX_TOKENS, self::FIELD_CONTEXT_BELOW_SPEC_FLOOR
         ));
 
         $violations = array_merge($violations, $this->checkEnum(
-            $spec, $model, 'dim', 'dim', 'dim_not_allowed'
+            $spec, $model, self::FIELD_DIM, self::FIELD_DIM, self::FIELD_DIM_NOT_ALLOWED
         ));
 
         $violations = array_merge($violations, $this->checkEnum(
-            $spec, $model, 'pooling', 'pooling', 'pooling_not_allowed'
+            $spec, $model, self::FIELD_POOLING, self::FIELD_POOLING, self::FIELD_POOLING_NOT_ALLOWED
         ));
 
         $violations = array_merge($violations, $this->checkBooleanTrue(
-            $spec, $model, 'multilingual_pt', 'multilingual_pt_required'
+            $spec, $model, self::FIELD_MULTILINGUAL_PT, self::FIELD_MULTILINGUAL_PT_REQUIRED
         ));
 
         $violations = array_merge($violations, $this->checkBooleanTrue(
-            $spec, $model, 'deterministic', 'non_deterministic_model_refused'
+            $spec, $model, self::FIELD_DETERMINISTIC, self::FIELD_NON_DETERMINISTIC_MODEL_REFUSED
         ));
 
         $violations = array_merge($violations, $this->checkBooleanTrue(
-            $spec, $model, 'pair_scoring', 'pair_scoring_missing'
+            $spec, $model, self::FIELD_PAIR_SCORING, self::FIELD_PAIR_SCORING_MISSING
         ));
 
         $violations = array_merge($violations, $this->checkBooleanTrue(
-            $spec, $model, 'token_embeddings_exposed', 'token_embeddings_not_exposed'
+            $spec, $model, self::FIELD_TOKEN_EMBEDDINGS_EXPOSED, self::FIELD_TOKEN_EMBEDDINGS_NOT_EXPOSED
         ));
 
         $violations = array_merge($violations, $this->checkBooleanTrue(
-            $spec, $model, 'term_weights_exposed', 'term_weights_not_exposed'
+            $spec, $model, self::FIELD_TERM_WEIGHTS_EXPOSED, self::FIELD_TERM_WEIGHTS_NOT_EXPOSED
         ));
 
         $violations = array_merge($violations, $this->checkLatency($spec, $model));
@@ -120,10 +156,10 @@ final class AtlasModelCapabilitySpecService
         $violations = array_merge($violations, $this->checkLicense($spec, $model));
 
         return [
-            'status' => $violations === [] ? 'ok' : 'violates_spec',
-            'function' => AiValueNormalizer::lowerTrimmedString($function),
-            'model_id' => $modelId !== '' ? $modelId : 'unknown',
-            'violations' => $violations,
+            self::FIELD_STATUS => $violations === [] ? self::STATUS_OK : self::STATUS_VIOLATES_SPEC,
+            self::FIELD_FUNCTION => AiValueNormalizer::lowerTrimmedString($function),
+            self::FIELD_MODEL_ID => $modelId !== '' ? $modelId : self::FALLBACK_MODEL_ID,
+            self::FIELD_VIOLATIONS => $violations,
         ];
     }
 
@@ -141,10 +177,10 @@ final class AtlasModelCapabilitySpecService
         $actual = array_key_exists($modelKey, $model) ? (int) $model[$modelKey] : null;
         if ($actual === null || $actual < $floor) {
             return [[
-                'field' => $modelKey,
-                'reason' => $reason,
-                'expected' => '>='.$floor,
-                'actual' => $actual,
+                self::FIELD_FIELD => $modelKey,
+                self::FIELD_REASON => $reason,
+                self::FIELD_EXPECTED => '>='.$floor,
+                self::FIELD_ACTUAL => $actual,
             ]];
         }
 
@@ -167,19 +203,19 @@ final class AtlasModelCapabilitySpecService
         }
         if (! array_key_exists($modelKey, $model)) {
             return [[
-                'field' => $modelKey,
-                'reason' => $reason.'_missing',
-                'expected' => $allowed,
-                'actual' => null,
+                self::FIELD_FIELD => $modelKey,
+                self::FIELD_REASON => $reason.'_missing',
+                self::FIELD_EXPECTED => $allowed,
+                self::FIELD_ACTUAL => null,
             ]];
         }
         $actual = $model[$modelKey];
         if (! in_array($actual, $allowed, false)) {
             return [[
-                'field' => $modelKey,
-                'reason' => $reason,
-                'expected' => $allowed,
-                'actual' => $actual,
+                self::FIELD_FIELD => $modelKey,
+                self::FIELD_REASON => $reason,
+                self::FIELD_EXPECTED => $allowed,
+                self::FIELD_ACTUAL => $actual,
             ]];
         }
 
@@ -199,10 +235,10 @@ final class AtlasModelCapabilitySpecService
         $actual = $model[$key] ?? null;
         if ($actual !== true) {
             return [[
-                'field' => $key,
-                'reason' => $reason,
-                'expected' => true,
-                'actual' => $actual,
+                self::FIELD_FIELD => $key,
+                self::FIELD_REASON => $reason,
+                self::FIELD_EXPECTED => true,
+                self::FIELD_ACTUAL => $actual,
             ]];
         }
 
@@ -216,23 +252,23 @@ final class AtlasModelCapabilitySpecService
      */
     private function checkLatency(array $spec, array $model): array
     {
-        if (! array_key_exists('latency_per_pair_ms_p95', $spec)) {
+        if (! array_key_exists(self::FIELD_LATENCY_PER_PAIR_MS_P95, $spec)) {
             return [];
         }
-        $ceiling = AiValueNormalizer::finiteFloatOrNull($spec['latency_per_pair_ms_p95'] ?? null);
+        $ceiling = AiValueNormalizer::finiteFloatOrNull($spec[self::FIELD_LATENCY_PER_PAIR_MS_P95] ?? null);
         if ($ceiling === null) {
             return [];
         }
-        $actual = AiValueNormalizer::finiteFloatOrNull($model['latency_per_pair_ms_p95'] ?? null);
+        $actual = AiValueNormalizer::finiteFloatOrNull($model[self::FIELD_LATENCY_PER_PAIR_MS_P95] ?? null);
         if ($actual === null) {
             return [];
         }
         if ($actual > $ceiling) {
             return [[
-                'field' => 'latency_per_pair_ms_p95',
-                'reason' => self::REASON_LATENCY_ABOVE_SPEC_CEILING,
-                'expected' => '<='.$ceiling,
-                'actual' => $actual,
+                self::FIELD_FIELD => self::FIELD_LATENCY_PER_PAIR_MS_P95,
+                self::FIELD_REASON => self::REASON_LATENCY_ABOVE_SPEC_CEILING,
+                self::FIELD_EXPECTED => '<='.$ceiling,
+                self::FIELD_ACTUAL => $actual,
             ]];
         }
 
@@ -246,31 +282,31 @@ final class AtlasModelCapabilitySpecService
      */
     private function checkLicense(array $spec, array $model): array
     {
-        if (! array_key_exists('license_allowed', $spec)) {
+        if (! array_key_exists(self::FIELD_LICENSE_ALLOWED, $spec)) {
             return [];
         }
         $allowed = array_values(array_filter(array_map(
             static fn (mixed $value): string => AiValueNormalizer::lowerTrimmedString($value),
-            AiValueNormalizer::arrayOrEmpty($spec['license_allowed'] ?? null),
+            AiValueNormalizer::arrayOrEmpty($spec[self::FIELD_LICENSE_ALLOWED] ?? null),
         )));
         if ($allowed === []) {
             return [];
         }
-        $license = AiValueNormalizer::lowerTrimmedString($model['license'] ?? '');
+        $license = AiValueNormalizer::lowerTrimmedString($model[self::FIELD_LICENSE] ?? '');
         if ($license === '') {
             return [[
-                'field' => 'license',
-                'reason' => self::REASON_LICENSE_MISSING,
-                'expected' => $allowed,
-                'actual' => null,
+                self::FIELD_FIELD => self::FIELD_LICENSE,
+                self::FIELD_REASON => self::REASON_LICENSE_MISSING,
+                self::FIELD_EXPECTED => $allowed,
+                self::FIELD_ACTUAL => null,
             ]];
         }
         if (! in_array($license, $allowed, true)) {
             return [[
-                'field' => 'license',
-                'reason' => self::REASON_LICENSE_NOT_ALLOWED,
-                'expected' => $allowed,
-                'actual' => $license,
+                self::FIELD_FIELD => self::FIELD_LICENSE,
+                self::FIELD_REASON => self::REASON_LICENSE_NOT_ALLOWED,
+                self::FIELD_EXPECTED => $allowed,
+                self::FIELD_ACTUAL => $license,
             ]];
         }
 

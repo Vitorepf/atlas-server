@@ -26,7 +26,53 @@ use Throwable;
  */
 final class AtlasAcosWindowGatesService
 {
+    public const FIELD_COMPONENTS = 'components';
+    public const FIELD_FRESH = 'fresh';
     public const SCHEMA_VERSION = 'atlas.cognition.window_gates.v1';
+
+    public const STATUS_UNKNOWN = 'unknown';
+
+    public const STATUS_SEM_DADOS = 'sem_dados';
+
+    public const STATUS_AGUARDANDO_JANELA = 'aguardando_janela';
+
+    public const STATUS_CERTIFIED = 'certified';
+
+    public const STATUS_MET = 'met';
+
+    public const FIELD_CERTIFIED = 'certified';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_GATE = 'gate';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_OK = 'ok';
+    public const FIELD_WINDOWS = 'windows';
+    public const FIELD_DAYS = 'days';
+    public const FIELD_EVIDENCE = 'evidence';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_TARGET = 'target';
+    public const FIELD_LIVE_DIMENSIONS = 'live_dimensions';
+    public const FIELD_NOTE = 'note';
+    public const FIELD_RECEIPT_STATUS = 'receipt_status';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_VALUE = 'value';
+    public const FIELD_WINDOW_RECEIPTS = 'window_receipts';
+    public const FIELD_FEEDBACK = 'feedback';
+    public const FIELD_MEMORY_QUALITY = 'memory_quality';
+    public const FIELD_RATIONALE = 'rationale';
+    public const FIELD_RELATION_DENSITY = 'relation_density';
+    public const FIELD_STORAGE_PATH = 'storage_path';
+    public const FIELD_STRUCTURAL_HONESTY = 'structural_honesty';
+    public const FIELD_REPORTED = 'reported';
+    public const FIELD_D3_RELATION_DENSITY = 'D3_relation_density';
+    public const FIELD_D4_D5_FEEDBACK = 'D4_D5_feedback';
+    public const FIELD_D5_RATIONALE = 'D5_rationale';
+    public const FIELD_D5_STRUCTURAL_HONESTY = 'D5_structural_honesty';
+    public const FIELD_APP_ATLAS_EVIDENCE = 'app/atlas/evidence';
+    public const FIELD__JSON = '.json';
+    public const FIELD_RECEIPT_ILEG_VEL = 'receipt ilegível';
+    public const FIELD_RECEIPT_N_O_OBJETO = 'receipt não-objeto';
+    public const FIELD_VER_DOC__JANELA_ = 'ver doc (janela)';
+    public const INT_70 = 70;
 
     /** Receipt freshness before a certified gate is treated as stale (7 days). */
     public const RECEIPT_FRESH_SECONDS = 604800;
@@ -46,11 +92,11 @@ final class AtlasAcosWindowGatesService
     public function status(): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'generated_at' => gmdate('c'),
-            'live_dimensions' => $this->liveDimensions(),
-            'window_receipts' => $this->windowReceipts(),
-            'note' => 'Gates de valor/janela são código-completo, prova pendente: a certificação enche na cadência de dados reais. Nada aqui é fabricado — valores medidos + veredito da própria fonte.',
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_GENERATED_AT => gmdate('c'),
+            self::FIELD_LIVE_DIMENSIONS => $this->liveDimensions(),
+            self::FIELD_WINDOW_RECEIPTS => $this->windowReceipts(),
+            self::FIELD_NOTE => 'Gates de valor/janela são código-completo, prova pendente: a certificação enche na cadência de dados reais. Nada aqui é fabricado — valores medidos + veredito da própria fonte.',
         ];
     }
 
@@ -67,21 +113,21 @@ final class AtlasAcosWindowGatesService
             $card = $this->quality()->scorecard();
         } catch (Throwable) {
             return [[
-                'gate' => 'memory_quality',
-                'status' => 'sem_dados',
-                'evidence' => 'AtlasMemoryQualityService::scorecard indisponível (tabelas ausentes)',
+                self::FIELD_GATE => self::FIELD_MEMORY_QUALITY,
+                self::FIELD_STATUS => self::STATUS_SEM_DADOS,
+                self::FIELD_EVIDENCE => 'AtlasMemoryQualityService::scorecard indisponível (tabelas ausentes)',
             ]];
         }
 
-        $dims = AiValueNormalizer::arrayOrEmpty($card['components'] ?? null);
+        $dims = AiValueNormalizer::arrayOrEmpty($card[self::FIELD_COMPONENTS] ?? null);
 
         return [
-            $this->dimension('D3_relation_density', $dims, 'relation_density', '>=70', 70, true),
-            $this->dimension('D5_structural_honesty', $dims, 'structural_honesty', '>=70', 70, true),
-            $this->dimension('D5_rationale', $dims, 'rationale', '>=70', 70, true),
+            $this->dimension(self::FIELD_D3_RELATION_DENSITY, $dims, self::FIELD_RELATION_DENSITY, '>=self::INT_70', 70, true),
+            $this->dimension(self::FIELD_D5_STRUCTURAL_HONESTY, $dims, self::FIELD_STRUCTURAL_HONESTY, '>=self::INT_70', 70, true),
+            $this->dimension(self::FIELD_D5_RATIONALE, $dims, self::FIELD_RATIONALE, '>=self::INT_70', 70, true),
             // D5 feedback / composite: the target direction is contested in the
             // docs (quality composite vs "<=50" marker) → report, never assert.
-            $this->dimension('D4_D5_feedback', $dims, 'feedback', 'ver doc (janela)', null, false),
+            $this->dimension(self::FIELD_D4_D5_FEEDBACK, $dims, self::FIELD_FEEDBACK, self::FIELD_VER_DOC__JANELA_, null, false),
         ];
     }
 
@@ -92,16 +138,16 @@ final class AtlasAcosWindowGatesService
     private function dimension(string $gate, array $dims, string $key, string $target, ?int $threshold, bool $assert): array
     {
         if (! array_key_exists($key, $dims)) {
-            return ['gate' => $gate, 'status' => 'sem_dados', 'target' => $target, 'evidence' => "dimensão '{$key}' ausente no scorecard"];
+            return [self::FIELD_GATE => $gate, self::FIELD_STATUS => self::STATUS_SEM_DADOS, self::FIELD_TARGET => $target, self::FIELD_EVIDENCE => "dimensão '{$key}' ausente no scorecard"];
         }
         $value = $dims[$key];
 
-        $out = ['gate' => $gate, 'target' => $target, 'value' => $value];
+        $out = [self::FIELD_GATE => $gate, self::FIELD_TARGET => $target, self::FIELD_VALUE => $value];
         $numeric = AiValueNormalizer::finiteFloatOrNull($value);
         if ($assert && $threshold !== null && $numeric !== null) {
-            $out['status'] = $numeric >= $threshold ? 'met' : 'aguardando_janela';
+            $out[self::FIELD_STATUS] = $numeric >= $threshold ? self::STATUS_MET : self::STATUS_AGUARDANDO_JANELA;
         } else {
-            $out['status'] = 'reported';
+            $out[self::FIELD_STATUS] = self::FIELD_REPORTED;
         }
 
         return $out;
@@ -114,8 +160,8 @@ final class AtlasAcosWindowGatesService
      */
     private function windowReceipts(): array
     {
-        $dir = function_exists('storage_path')
-            ? storage_path('app/atlas/evidence')
+        $dir = function_exists(self::FIELD_STORAGE_PATH)
+            ? storage_path(self::FIELD_APP_ATLAS_EVIDENCE)
             : sys_get_temp_dir().'/atlas/evidence';
 
         if (! is_dir($dir)) {
@@ -126,7 +172,7 @@ final class AtlasAcosWindowGatesService
         foreach (glob($dir.DIRECTORY_SEPARATOR.'*-gate.json') ?: [] as $file) {
             $out[] = $this->receiptStatus($file);
         }
-        usort($out, static fn ($a, $b) => strcmp(AiValueNormalizer::trimmedScalarStringOrNull($a['gate'] ?? null) ?? '', AiValueNormalizer::trimmedScalarStringOrNull($b['gate'] ?? null) ?? ''));
+        usort($out, static fn ($a, $b) => strcmp(AiValueNormalizer::trimmedScalarStringOrNull($a[self::FIELD_GATE] ?? null) ?? '', AiValueNormalizer::trimmedScalarStringOrNull($b[self::FIELD_GATE] ?? null) ?? ''));
 
         return $out;
     }
@@ -136,26 +182,26 @@ final class AtlasAcosWindowGatesService
      */
     private function receiptStatus(string $file): array
     {
-        $gate = basename($file, '.json');
+        $gate = basename($file, self::FIELD__JSON);
         try {
             $data = json_decode((string) file_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
         } catch (Throwable) {
-            return ['gate' => $gate, 'status' => 'sem_dados', 'evidence' => 'receipt ilegível'];
+            return [self::FIELD_GATE => $gate, self::FIELD_STATUS => self::STATUS_SEM_DADOS, self::FIELD_EVIDENCE => self::FIELD_RECEIPT_ILEG_VEL];
         }
         if (! is_array($data)) {
-            return ['gate' => $gate, 'status' => 'sem_dados', 'evidence' => 'receipt não-objeto'];
+            return [self::FIELD_GATE => $gate, self::FIELD_STATUS => self::STATUS_SEM_DADOS, self::FIELD_EVIDENCE => self::FIELD_RECEIPT_N_O_OBJETO];
         }
 
-        $certified = ($data['certified'] ?? false) === true;
+        $certified = ($data[self::FIELD_CERTIFIED] ?? false) === true;
         $fresh = (time() - (int) @filemtime($file)) <= self::RECEIPT_FRESH_SECONDS;
 
         return [
-            'gate' => $gate,
-            'status' => $certified && $fresh ? 'certified' : 'aguardando_janela',
-            'certified' => $certified,
-            'fresh' => $fresh,
-            'receipt_status' => (AiValueNormalizer::trimmedStringOrNull($data['status'] ?? null) ?? 'unknown'),
-            'generated_at' => (AiValueNormalizer::trimmedStringOrNull($data['generated_at'] ?? null) ?? ''),
+            self::FIELD_GATE => $gate,
+            self::FIELD_STATUS => $certified && $fresh ? self::STATUS_CERTIFIED : self::STATUS_AGUARDANDO_JANELA,
+            self::FIELD_CERTIFIED => $certified,
+            self::FIELD_FRESH => $fresh,
+            self::FIELD_RECEIPT_STATUS => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
+            self::FIELD_GENERATED_AT => (AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_GENERATED_AT] ?? null) ?? ''),
         ];
     }
 }

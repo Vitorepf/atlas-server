@@ -25,6 +25,18 @@ final readonly class CompactionRecoverySampleWatchdogCheck implements AtlasWatch
 
     public const MIN_RECEIPTS_CONFIG_KEY = 'atlas.compaction.recovery_sample_min_receipts';
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_UNKNOWN = 'unknown';
+
+    public const STATUS_INSUFFICIENT_SAMPLE = 'insufficient_sample';
+    public const FIELD_RECOVERY_RATE = 'recovery_rate';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_CODE = 'code';
+    public const FIELD_MESSAGE = 'message';
+    public const FIELD_COMPACTION_RECOVERY_RATE_BELOW_FLOOR = 'compaction_recovery_rate_below_floor';
+    public const FIELD_MAXF_02_RECOVERY_SAMPLE_COULD_NOT_PROVE_COMPACTION_FIDELITY_ = 'MAXF-02 recovery sample could not prove compaction fidelity.';
+
     public function __construct(private CompactionRecoverySampler $sampler) {}
 
     public function id(): string
@@ -41,19 +53,19 @@ final readonly class CompactionRecoverySampleWatchdogCheck implements AtlasWatch
             recordEvidence: false,
         );
 
-        $status = AiValueNormalizer::trimmedStringOrNull($payload['status'] ?? null) ?? 'unknown';
-        if ($status === 'ok') {
+        $status = AiValueNormalizer::trimmedStringOrNull($payload[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN;
+        if ($status === self::STATUS_OK) {
             return AtlasWatchdogCheckResult::ok($payload);
         }
 
-        if ($status === 'insufficient_sample') {
+        if ($status === self::STATUS_INSUFFICIENT_SAMPLE) {
             return AtlasWatchdogCheckResult::skipped($payload);
         }
 
         return AtlasWatchdogCheckResult::alert($payload, [
-            'code' => 'compaction_recovery_rate_below_floor',
-            'message' => 'MAXF-02 recovery sample could not prove compaction fidelity.',
-            'recovery_rate' => $payload['recovery_rate'] ?? null,
+            self::FIELD_CODE => self::FIELD_COMPACTION_RECOVERY_RATE_BELOW_FLOOR,
+            self::FIELD_MESSAGE => self::FIELD_MAXF_02_RECOVERY_SAMPLE_COULD_NOT_PROVE_COMPACTION_FIDELITY_,
+            self::FIELD_RECOVERY_RATE => $payload[self::FIELD_RECOVERY_RATE] ?? null,
         ]);
     }
 }

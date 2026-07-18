@@ -55,11 +55,60 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
      */
     public const STATUS_UNAVAILABLE = 'unavailable';
 
+    public const STATUS_UNKNOWN = 'unknown';
+
     public const REASON_CANARY_DRIFT = 'canary_drift';
 
     public const REASON_CANARY_WITHIN_FLOORS = 'canary_within_floors';
 
     public const REASON_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+    public const FIELD_RECALL_AT_5 = 'recall_at_5';
+    public const FIELD_IMPROPER_FLOOR_DISCARDS = 'improper_floor_discards';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_REFS_TOTAL = 'refs_total';
+    public const FIELD_REFS_CANONICAL = 'refs_canonical';
+    public const FIELD_FLOWS_CHECKED = 'flows_checked';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_OK = 'ok';
+    public const FIELD_VERSION = 'version';
+    public const FIELD_METRIC = 'metric';
+    public const FIELD_VALUE = 'value';
+    public const FIELD_FLOOR = 'floor';
+    public const FIELD_CODE = 'code';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_AS_OF = 'as_of';
+    public const FIELD_WINDOW_HOURS = 'window_hours';
+    public const FIELD_TOP_N_FLOWS = 'top_n_flows';
+    public const FIELD_FLOWS_AVAILABLE_IN_WINDOW = 'flows_available_in_window';
+    public const FIELD_REFS_BY_KIND = 'refs_by_kind';
+    public const FIELD_REF_STABILITY = 'ref_stability';
+    public const FIELD_FLOWS_AVAILABLE = 'flows_available';
+    public const FIELD_ENTRIES = 'entries';
+    public const FIELD_NON_CANONICAL = 'non_canonical';
+    public const FIELD_BY_KIND = 'by_kind';
+    public const FIELD_MEMORY_RECALL_GOLDEN_VERSIONS = 'memory_recall_golden_versions';
+    public const FIELD_REF_STABILITY_FLOOR = 'ref_stability_floor';
+    public const FIELD_GOLDEN_VERSION = 'golden_version';
+    public const FIELD_GOLDEN_RECALL_AT_5 = 'golden_recall_at_5';
+    public const FIELD_V1 = 'v1';
+    public const FIELD_VIOLATIONS = 'violations';
+    public const FIELD_CEILING = 'ceiling';
+    public const FIELD_DELIVERED_REFS = 'delivered_refs';
+    public const FIELD_FD = 'fd';
+    public const FIELD_GOLDEN_RECALL_AT_5_FLOOR = 'golden_recall_at_5_floor';
+    public const FIELD_GOLDEN_STATUS = 'golden_status';
+    public const FIELD_GRAPH = 'graph';
+    public const FIELD_MEMORY = 'memory';
+    public const FIELD_MESSAGE = 'message';
+    public const FIELD_PROVIDER_SAFE_INVARIANT = 'provider_safe_invariant';
+    public const FIELD_R5 = 'r5';
+    public const FIELD_DAILY_CANARY_DRIFT = 'daily_canary_drift';
+    public const FIELD_V2 = 'v2';
+    public const FIELD_V3 = 'v3';
+    public const FIELD_V4 = 'v4';
+    public const FIELD_WDG_01_DAILY_CANARY_REPLAY_BY_REFS = 'wdg-01.daily_canary_replay_by_refs';
+    public const FIELD_NO_RAW_QUERY_OR_CONTEXT_IN_REPORT_OR_LEDGER = 'no_raw_query_or_context_in_report_or_ledger';
+    public const FIELD_MAXG_06_DAILY_CANARY_DETECTED_DRIFT_ABOVE_FROZEN_THRESHOLDS_ = 'MAXG-06 daily canary detected drift above frozen thresholds.';
 
 
     public function __construct(
@@ -76,7 +125,7 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
 
     public function id(): string
     {
-        return 'wdg-01.daily_canary_replay_by_refs';
+        return self::FIELD_WDG_01_DAILY_CANARY_REPLAY_BY_REFS;
     }
 
     public function run(): AtlasWatchdogCheckResult
@@ -84,52 +133,52 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
         $now = $this->now();
         $window = $this->deliveredWindow($now);
 
-        $refCounts = $this->refCounts($window['entries']);
-        $refStability = $refCounts['refs_total'] > 0
-            ? round($refCounts['refs_canonical'] / $refCounts['refs_total'], 4)
+        $refCounts = $this->refCounts($window[self::FIELD_ENTRIES]);
+        $refStability = $refCounts[self::FIELD_REFS_TOTAL] > 0
+            ? round($refCounts[self::FIELD_REFS_CANONICAL] / $refCounts[self::FIELD_REFS_TOTAL], 4)
             : null;
 
         $golden = $this->goldenSnapshot();
 
         $evidence = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'as_of' => $now->toIso8601String(),
-            'window_hours' => max(1, $this->windowHours),
-            'top_n_flows' => max(1, $this->topNFlows),
-            'flows_checked' => $window['flows_checked'],
-            'flows_available_in_window' => $window['flows_available'],
-            'refs_total' => $refCounts['refs_total'],
-            'refs_canonical' => $refCounts['refs_canonical'],
-            'refs_by_kind' => $refCounts['by_kind'],
-            'ref_stability' => $refStability,
-            'ref_stability_floor' => self::REF_STABILITY_ALERT_FLOOR,
-            'golden_version' => $golden['version'],
-            'golden_recall_at_5' => $golden['recall_at_5'],
-            'improper_floor_discards' => $golden['improper_floor_discards'],
-            'golden_status' => $golden['status'],
-            'golden_recall_at_5_floor' => self::GOLDEN_RECALL_AT_5_ALERT_FLOOR,
-            'provider_safe_invariant' => 'no_raw_query_or_context_in_report_or_ledger',
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_AS_OF => $now->toIso8601String(),
+            self::FIELD_WINDOW_HOURS => max(1, $this->windowHours),
+            self::FIELD_TOP_N_FLOWS => max(1, $this->topNFlows),
+            self::FIELD_FLOWS_CHECKED => $window[self::FIELD_FLOWS_CHECKED],
+            self::FIELD_FLOWS_AVAILABLE_IN_WINDOW => $window[self::FIELD_FLOWS_AVAILABLE],
+            self::FIELD_REFS_TOTAL => $refCounts[self::FIELD_REFS_TOTAL],
+            self::FIELD_REFS_CANONICAL => $refCounts[self::FIELD_REFS_CANONICAL],
+            self::FIELD_REFS_BY_KIND => $refCounts[self::FIELD_BY_KIND],
+            self::FIELD_REF_STABILITY => $refStability,
+            self::FIELD_REF_STABILITY_FLOOR => self::REF_STABILITY_ALERT_FLOOR,
+            self::FIELD_GOLDEN_VERSION => $golden[self::FIELD_VERSION],
+            self::FIELD_GOLDEN_RECALL_AT_5 => $golden[self::FIELD_RECALL_AT_5],
+            self::FIELD_IMPROPER_FLOOR_DISCARDS => $golden[self::FIELD_IMPROPER_FLOOR_DISCARDS],
+            self::FIELD_GOLDEN_STATUS => $golden[self::FIELD_STATUS],
+            self::FIELD_GOLDEN_RECALL_AT_5_FLOOR => self::GOLDEN_RECALL_AT_5_ALERT_FLOOR,
+            self::FIELD_PROVIDER_SAFE_INVARIANT => self::FIELD_NO_RAW_QUERY_OR_CONTEXT_IN_REPORT_OR_LEDGER,
         ];
 
         $this->assertProviderSafeEvidence($evidence);
 
-        if ($window['flows_checked'] === 0 && $golden['recall_at_5'] === null) {
-            return AtlasWatchdogCheckResult::skipped($evidence + ['reason' => self::REASON_INSUFFICIENT_SIGNAL]);
+        if ($window[self::FIELD_FLOWS_CHECKED] === 0 && $golden[self::FIELD_RECALL_AT_5] === null) {
+            return AtlasWatchdogCheckResult::skipped($evidence + [self::FIELD_REASON => self::REASON_INSUFFICIENT_SIGNAL]);
         }
 
         $violations = $this->violations($refStability, $golden);
         if ($violations !== []) {
             return AtlasWatchdogCheckResult::alert(
-                $evidence + ['reason' => self::REASON_CANARY_DRIFT],
+                $evidence + [self::FIELD_REASON => self::REASON_CANARY_DRIFT],
                 [
-                    'code' => 'daily_canary_drift',
-                    'message' => 'MAXG-06 daily canary detected drift above frozen thresholds.',
-                    'violations' => $violations,
+                    self::FIELD_CODE => self::FIELD_DAILY_CANARY_DRIFT,
+                    self::FIELD_MESSAGE => self::FIELD_MAXG_06_DAILY_CANARY_DETECTED_DRIFT_ABOVE_FROZEN_THRESHOLDS_,
+                    self::FIELD_VIOLATIONS => $violations,
                 ],
             );
         }
 
-        return AtlasWatchdogCheckResult::ok($evidence + ['reason' => self::REASON_CANARY_WITHIN_FLOORS]);
+        return AtlasWatchdogCheckResult::ok($evidence + [self::FIELD_REASON => self::REASON_CANARY_WITHIN_FLOORS]);
     }
 
     /**
@@ -148,9 +197,9 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
         // caps at topN, so we do NOT fabricate a larger denominator; the acceptance
         // is on ref stability + golden — the top-N sample is honest by contract.
         return [
-            'flows_checked' => count($entries),
-            'flows_available' => count($entries),
-            'entries' => $entries,
+            self::FIELD_FLOWS_CHECKED => count($entries),
+            self::FIELD_FLOWS_AVAILABLE => count($entries),
+            self::FIELD_ENTRIES => $entries,
         ];
     }
 
@@ -162,17 +211,17 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
     {
         $total = 0;
         $canonical = 0;
-        $byKind = ['code' => 0, 'memory' => 0, 'graph' => 0, 'non_canonical' => 0];
+        $byKind = [self::FIELD_CODE => 0, self::FIELD_MEMORY => 0, self::FIELD_GRAPH => 0, self::FIELD_NON_CANONICAL => 0];
 
         foreach ($entries as $entry) {
-            foreach (AiValueNormalizer::arrayOrEmpty($entry['delivered_refs'] ?? null) as $ref) {
+            foreach (AiValueNormalizer::arrayOrEmpty($entry[self::FIELD_DELIVERED_REFS] ?? null) as $ref) {
                 $ref = AiValueNormalizer::trimmedStringOrNull($ref);
                 if ($ref === null) {
                     continue;
                 }
                 $total++;
                 if (! AtlasCanonicalContextRef::isCanonical($ref)) {
-                    $byKind['non_canonical']++;
+                    $byKind[self::FIELD_NON_CANONICAL]++;
 
                     continue;
                 }
@@ -185,9 +234,9 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
         }
 
         return [
-            'refs_total' => $total,
-            'refs_canonical' => $canonical,
-            'by_kind' => $byKind,
+            self::FIELD_REFS_TOTAL => $total,
+            self::FIELD_REFS_CANONICAL => $canonical,
+            self::FIELD_BY_KIND => $byKind,
         ];
     }
 
@@ -200,58 +249,58 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
             $report = $this->fetchGoldenReport();
         } catch (Throwable) {
             return [
-                'version' => null,
-                'recall_at_5' => null,
-                'improper_floor_discards' => null,
-                'status' => self::STATUS_UNAVAILABLE,
+                self::FIELD_VERSION => null,
+                self::FIELD_RECALL_AT_5 => null,
+                self::FIELD_IMPROPER_FLOOR_DISCARDS => null,
+                self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
             ];
         }
 
         if (! is_array($report)) {
             return [
-                'version' => null,
-                'recall_at_5' => null,
-                'improper_floor_discards' => null,
-                'status' => self::STATUS_UNAVAILABLE,
+                self::FIELD_VERSION => null,
+                self::FIELD_RECALL_AT_5 => null,
+                self::FIELD_IMPROPER_FLOOR_DISCARDS => null,
+                self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
             ];
         }
 
-        $versions = is_array($report['memory_recall_golden_versions'] ?? null)
-            ? $report['memory_recall_golden_versions']
+        $versions = is_array($report[self::FIELD_MEMORY_RECALL_GOLDEN_VERSIONS] ?? null)
+            ? $report[self::FIELD_MEMORY_RECALL_GOLDEN_VERSIONS]
             : $report;
 
         // Prefer the highest version available (v2 > v1); fall back to v1 for legacy.
         $chosenKey = null;
-        foreach (['v2', 'v3', 'v4'] as $candidate) {
+        foreach ([self::FIELD_V2, self::FIELD_V3, self::FIELD_V4] as $candidate) {
             if (isset($versions[$candidate]) && is_array($versions[$candidate])) {
                 $chosenKey = $candidate;
                 break;
             }
         }
-        if ($chosenKey === null && isset($versions['v1']) && is_array($versions['v1'])) {
-            $chosenKey = 'v1';
+        if ($chosenKey === null && isset($versions[self::FIELD_V1]) && is_array($versions[self::FIELD_V1])) {
+            $chosenKey = self::FIELD_V1;
         }
         if ($chosenKey === null) {
             return [
-                'version' => null,
-                'recall_at_5' => null,
-                'improper_floor_discards' => null,
-                'status' => self::STATUS_UNAVAILABLE,
+                self::FIELD_VERSION => null,
+                self::FIELD_RECALL_AT_5 => null,
+                self::FIELD_IMPROPER_FLOOR_DISCARDS => null,
+                self::FIELD_STATUS => self::STATUS_UNAVAILABLE,
             ];
         }
 
         $chosen = $versions[$chosenKey];
-        $recall = $chosen['recall_at_5'] ?? $chosen['r5'] ?? null;
-        $discards = $chosen['improper_floor_discards'] ?? $chosen['fd'] ?? null;
+        $recall = $chosen[self::FIELD_RECALL_AT_5] ?? $chosen[self::FIELD_R5] ?? null;
+        $discards = $chosen[self::FIELD_IMPROPER_FLOOR_DISCARDS] ?? $chosen[self::FIELD_FD] ?? null;
 
         $recallNumeric = AiValueNormalizer::finiteFloatOrNull($recall);
         $discardsNumeric = AiValueNormalizer::finiteFloatOrNull($discards);
 
         return [
-            'version' => $chosenKey,
-            'recall_at_5' => $recallNumeric === null ? null : round($recallNumeric, 4),
-            'improper_floor_discards' => $discardsNumeric === null ? null : (int) $discardsNumeric,
-            'status' => (AiValueNormalizer::trimmedStringOrNull($chosen['status'] ?? null) ?? 'unknown'),
+            self::FIELD_VERSION => $chosenKey,
+            self::FIELD_RECALL_AT_5 => $recallNumeric === null ? null : round($recallNumeric, 4),
+            self::FIELD_IMPROPER_FLOOR_DISCARDS => $discardsNumeric === null ? null : (int) $discardsNumeric,
+            self::FIELD_STATUS => (AiValueNormalizer::trimmedStringOrNull($chosen[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
         ];
     }
 
@@ -284,27 +333,27 @@ final class DailyCanaryReplayByRefsWatchdogCheck implements AtlasWatchdogCheck
 
         if ($refStability !== null && $refStability < self::REF_STABILITY_ALERT_FLOOR) {
             $violations[] = [
-                'metric' => 'ref_stability',
-                'value' => $refStability,
-                'floor' => self::REF_STABILITY_ALERT_FLOOR,
+                self::FIELD_METRIC => self::FIELD_REF_STABILITY,
+                self::FIELD_VALUE => $refStability,
+                self::FIELD_FLOOR => self::REF_STABILITY_ALERT_FLOOR,
             ];
         }
 
-        if ($golden['recall_at_5'] !== null && $golden['recall_at_5'] < self::GOLDEN_RECALL_AT_5_ALERT_FLOOR) {
+        if ($golden[self::FIELD_RECALL_AT_5] !== null && $golden[self::FIELD_RECALL_AT_5] < self::GOLDEN_RECALL_AT_5_ALERT_FLOOR) {
             $violations[] = [
-                'metric' => 'golden_recall_at_5',
-                'value' => $golden['recall_at_5'],
-                'floor' => self::GOLDEN_RECALL_AT_5_ALERT_FLOOR,
-                'version' => $golden['version'],
+                self::FIELD_METRIC => self::FIELD_GOLDEN_RECALL_AT_5,
+                self::FIELD_VALUE => $golden[self::FIELD_RECALL_AT_5],
+                self::FIELD_FLOOR => self::GOLDEN_RECALL_AT_5_ALERT_FLOOR,
+                self::FIELD_VERSION => $golden[self::FIELD_VERSION],
             ];
         }
 
-        if ($golden['improper_floor_discards'] !== null && $golden['improper_floor_discards'] > self::IMPROPER_FLOOR_DISCARD_ALERT_CEILING) {
+        if ($golden[self::FIELD_IMPROPER_FLOOR_DISCARDS] !== null && $golden[self::FIELD_IMPROPER_FLOOR_DISCARDS] > self::IMPROPER_FLOOR_DISCARD_ALERT_CEILING) {
             $violations[] = [
-                'metric' => 'improper_floor_discards',
-                'value' => $golden['improper_floor_discards'],
-                'ceiling' => self::IMPROPER_FLOOR_DISCARD_ALERT_CEILING,
-                'version' => $golden['version'],
+                self::FIELD_METRIC => self::FIELD_IMPROPER_FLOOR_DISCARDS,
+                self::FIELD_VALUE => $golden[self::FIELD_IMPROPER_FLOOR_DISCARDS],
+                self::FIELD_CEILING => self::IMPROPER_FLOOR_DISCARD_ALERT_CEILING,
+                self::FIELD_VERSION => $golden[self::FIELD_VERSION],
             ];
         }
 

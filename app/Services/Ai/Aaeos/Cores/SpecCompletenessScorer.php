@@ -25,24 +25,61 @@ final class SpecCompletenessScorer
     public const VERDICT_INSUFFICIENT = 'insufficient';
 
     public const REASON_OK = 'ok';
+    public const FIELD_WEIGHT = 'weight';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_RAW_REQUEST = 'raw_request';
+    public const FIELD_INTERPRETED_GOAL = 'interpreted_goal';
+    public const FIELD_NON_GOALS = 'non_goals';
+    public const FIELD_PRODUCT_AREA = 'product_area';
+    public const FIELD_REQUIREMENTS = 'requirements';
+    public const FIELD_ACCEPTANCE_CRITERIA = 'acceptance_criteria';
+    public const FIELD_BUSINESS_ACTOR_OBJECT_ACTION = 'business_actor_object_action';
+    public const FIELD_DESIGN_SYSTEM_CONSTRAINTS = 'design_system_constraints';
+    public const FIELD_SECURITY_CONSTRAINTS = 'security_constraints';
+    public const FIELD_ASSUMPTIONS = 'assumptions';
+    public const FIELD_BLOCKING_QUESTIONS = 'blocking_questions';
+    public const FIELD_TEST_STRATEGY = 'test_strategy';
+    public const FIELD_PRESENT = 'present';
+    public const FIELD_SATISFIED = 'satisfied';
+    public const FIELD_FIELD = 'field';
+    public const FIELD_WEIGHT_LOSS = 'weight_loss';
+    public const FIELD_TOTAL_SCORE = 'total_score';
+    public const FIELD_EARNED = 'earned';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_VERDICT = 'verdict';
+    public const FIELD_FIELDS = 'fields';
+    public const FIELD_MISSING_OR_WEAK = 'missing_or_weak';
+    public const FIELD_PRESENT_COUNT = 'present_count';
+    public const FIELD_TOTAL_FIELDS = 'total_fields';
+    public const FIELD_TOO_SHORT = 'too_short';
+    public const FIELD_ABSENT = 'absent';
+    public const FIELD_EMPTY_LIST = 'empty_list';
+    public const INT_9 = 9;
+    public const INT_6 = 6;
+    public const INT_7 = 7;
+    public const INT_8 = 8;
+    public const INT_5 = 5;
+    public const INT_14 = 14;
+    public const INT_12 = 12;
+    public const INT_10 = 10;
 
 
     /**
      * Weighted importance of each canonical spec field. Sums to exactly 100.
      */
     public const WEIGHTS = [
-        'raw_request' => 8,
-        'interpreted_goal' => 12,
-        'non_goals' => 5,
-        'product_area' => 7,
-        'business_actor_object_action' => 10,
-        'requirements' => 12,
-        'acceptance_criteria' => 14,
-        'design_system_constraints' => 6,
-        'security_constraints' => 8,
-        'assumptions' => 9,
-        'blocking_questions' => 1,
-        'test_strategy' => 8,
+        self::FIELD_RAW_REQUEST => self::INT_8,
+        self::FIELD_INTERPRETED_GOAL => self::INT_12,
+        self::FIELD_NON_GOALS => self::INT_5,
+        self::FIELD_PRODUCT_AREA => self::INT_7,
+        self::FIELD_BUSINESS_ACTOR_OBJECT_ACTION => self::INT_10,
+        self::FIELD_REQUIREMENTS => self::INT_12,
+        self::FIELD_ACCEPTANCE_CRITERIA => self::INT_14,
+        self::FIELD_DESIGN_SYSTEM_CONSTRAINTS => self::INT_6,
+        self::FIELD_SECURITY_CONSTRAINTS => self::INT_8,
+        self::FIELD_ASSUMPTIONS => self::INT_9,
+        self::FIELD_BLOCKING_QUESTIONS => 1,
+        self::FIELD_TEST_STRATEGY => self::INT_8,
     ];
 
     /**
@@ -51,11 +88,11 @@ final class SpecCompletenessScorer
      * @var list<string>
      */
     public const LIST_FIELDS = [
-        'non_goals',
-        'requirements',
-        'acceptance_criteria',
-        'assumptions',
-        'blocking_questions',
+        self::FIELD_NON_GOALS,
+        self::FIELD_REQUIREMENTS,
+        self::FIELD_ACCEPTANCE_CRITERIA,
+        self::FIELD_ASSUMPTIONS,
+        self::FIELD_BLOCKING_QUESTIONS,
     ];
 
     /**
@@ -88,38 +125,38 @@ final class SpecCompletenessScorer
             }
 
             $fields[$field] = [
-                'present' => $present,
-                'satisfied' => $satisfied,
-                'weight' => $weight,
-                'earned' => $earned,
-                'reason' => $reason,
+                self::FIELD_PRESENT => $present,
+                self::FIELD_SATISFIED => $satisfied,
+                self::FIELD_WEIGHT => $weight,
+                self::FIELD_EARNED => $earned,
+                self::FIELD_REASON => $reason,
             ];
 
             if (! $satisfied) {
                 $missing[] = [
-                    'field' => $field,
-                    'weight' => $weight,
-                    'weight_loss' => (AiValueNormalizer::finiteFloatOrNull($weight) ?? 0.0) - $earned,
-                    'reason' => $reason,
+                    self::FIELD_FIELD => $field,
+                    self::FIELD_WEIGHT => $weight,
+                    self::FIELD_WEIGHT_LOSS => (AiValueNormalizer::finiteFloatOrNull($weight) ?? 0.0) - $earned,
+                    self::FIELD_REASON => $reason,
                 ];
             }
         }
 
         usort($missing, static function (array $a, array $b): int {
-            return $b['weight_loss'] <=> $a['weight_loss']
-                ?: strcmp($a['field'], $b['field']);
+            return $b[self::FIELD_WEIGHT_LOSS] <=> $a[self::FIELD_WEIGHT_LOSS]
+                ?: strcmp($a[self::FIELD_FIELD], $b[self::FIELD_FIELD]);
         });
 
         $totalScore = (int) round($earnedTotal);
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'total_score' => $totalScore,
-            'verdict' => $this->verdict($totalScore),
-            'fields' => $fields,
-            'missing_or_weak' => $missing,
-            'present_count' => $presentCount,
-            'total_fields' => self::TOTAL_FIELDS,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_TOTAL_SCORE => $totalScore,
+            self::FIELD_VERDICT => $this->verdict($totalScore),
+            self::FIELD_FIELDS => $fields,
+            self::FIELD_MISSING_OR_WEAK => $missing,
+            self::FIELD_PRESENT_COUNT => $presentCount,
+            self::FIELD_TOTAL_FIELDS => self::TOTAL_FIELDS,
         ];
     }
 
@@ -130,7 +167,7 @@ final class SpecCompletenessScorer
      */
     public function passesMin(array $spec, int $minScore = self::COMPLETE_THRESHOLD): bool
     {
-        return ($this->score($spec)['total_score'] ?? 0) >= $minScore;
+        return ($this->score($spec)[self::FIELD_TOTAL_SCORE] ?? 0) >= $minScore;
     }
 
     /**
@@ -138,7 +175,7 @@ final class SpecCompletenessScorer
      */
     private function evaluateField(string $field, mixed $value): array
     {
-        if ($field === 'blocking_questions' && $value === []) {
+        if ($field === self::FIELD_BLOCKING_QUESTIONS && $value === []) {
             return [true, true, self::REASON_OK];
         }
 
@@ -156,11 +193,11 @@ final class SpecCompletenessScorer
     {
         $trimmed = AiValueNormalizer::trimmedStringOrNull($value);
         if ($trimmed === null) {
-            return [false, false, 'absent'];
+            return [false, false, self::FIELD_ABSENT];
         }
 
         if (mb_strlen($trimmed) < self::TEXT_MIN_LENGTH) {
-            return [true, false, 'too_short'];
+            return [true, false, self::FIELD_TOO_SHORT];
         }
 
         return [true, true, self::REASON_OK];
@@ -172,11 +209,11 @@ final class SpecCompletenessScorer
     private function evaluateListField(mixed $value): array
     {
         if (! is_array($value) || $this->countNonEmptyItems($value) === 0) {
-            return [false, false, 'empty_list'];
+            return [false, false, self::FIELD_EMPTY_LIST];
         }
 
         if (! $this->hasMeaningfulItem($value)) {
-            return [true, false, 'too_short'];
+            return [true, false, self::FIELD_TOO_SHORT];
         }
 
         return [true, true, self::REASON_OK];

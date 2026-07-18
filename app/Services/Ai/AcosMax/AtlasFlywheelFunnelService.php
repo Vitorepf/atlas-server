@@ -10,19 +10,66 @@ use Illuminate\Support\Carbon;
 
 final class AtlasFlywheelFunnelService
 {
+    public const FIELD_ALL = 'all';
+    public const FIELD_MEMORY_WRITTEN = 'memory_written';
     public const SCHEMA_VERSION = 'atlas.m.funnel.v1';
 
     public const MEASURE_ID = 'atlas.m.funnel.v1';
 
     public const FORMULA_VERSION = 'atlas_m_funnel_v1';
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_NO_SIGNAL = 'no_signal';
+
+    public const STATUS_INSUFFICIENT = 'insufficient';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_STAGES = 'stages';
+    public const FIELD_BY_EXECUTOR = 'by_executor';
+    public const FIELD_OUTCOME_COUNT = 'outcome_count';
+    public const FIELD_OUTCOMES_WITHOUT_LESSON = 'outcomes_without_lesson';
+    public const FIELD_LESSONS_WITHOUT_PROMOTION = 'lessons_without_promotion';
+    public const FIELD_PROMOTED_WITHOUT_RECALL = 'promoted_without_recall';
+    public const FIELD_RECALLS_WITHOUT_CITATION = 'recalls_without_citation';
+    public const FIELD_CITATIONS_WITHOUT_BETTER_OUTCOME = 'citations_without_better_outcome';
+    public const FIELD_NUM = 'num';
+    public const FIELD_DEN = 'den';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_MEASURE_ID = 'measure_id';
+    public const FIELD_FORMULA_VERSION = 'formula_version';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_ACTOR = 'actor';
+    public const FIELD_CLAIM_POLICY = 'claim_policy';
+    public const FIELD_DENOMINATOR_MIN = 'denominator_min';
+    public const FIELD_DIAGNOSTIC_ONLY = 'diagnostic_only';
+    public const FIELD_LEARNING_STATUS = 'learning_status';
+    public const FIELD_LESSON_PROMOTED = 'lesson_promoted';
+    public const FIELD_PROMOTED_LESSON_CITED = 'promoted_lesson_cited';
+    public const FIELD_PROMOTED_LESSON_RECALLED = 'promoted_lesson_recalled';
+    public const FIELD_USED_AS_PRODUCER_TARGET = 'used_as_producer_target';
+    public const FIELD_SUBSEQUENT_OUTCOME_IMPROVED = 'subsequent_outcome_improved';
+    public const FIELD_OUTCOME_ROWS = 'outcome_rows';
+    public const FIELD_OUTCOMES_PATH = 'outcomes_path';
+    public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
+    public const FIELD_READ_ONLY = 'read_only';
+    public const FIELD_ROLE = 'role';
+    public const FIELD_SINGLE_SCALAR_SCORE_EMITTED = 'single_scalar_score_emitted';
+    public const FIELD_WINDOWS = 'windows';
+    public const FIELD_FORGE = 'forge';
+    public const FIELD_PROMOTED = 'promoted';
+    public const FIELD_AUTONOMOS = 'autonomos';
+    public const FIELD_DEV = 'dev';
+    public const FIELD_APPLIED = 'applied';
+    public const FIELD_CANDIDATE = 'candidate';
+
     /** @var list<string> */
     public const STAGES = [
-        'outcomes_without_lesson',
-        'lessons_without_promotion',
-        'promoted_without_recall',
-        'recalls_without_citation',
-        'citations_without_better_outcome',
+        self::FIELD_OUTCOMES_WITHOUT_LESSON,
+        self::FIELD_LESSONS_WITHOUT_PROMOTION,
+        self::FIELD_PROMOTED_WITHOUT_RECALL,
+        self::FIELD_RECALLS_WITHOUT_CITATION,
+        self::FIELD_CITATIONS_WITHOUT_BETTER_OUTCOME,
     ];
 
     public function __construct(
@@ -39,7 +86,7 @@ final class AtlasFlywheelFunnelService
         $denominatorMin = max(1, $denominatorMin);
 
         if ($rows === []) {
-            return $this->payload('no_signal', $path, $denominatorMin, [], 0);
+            return $this->payload(self::STATUS_NO_SIGNAL, $path, $denominatorMin, [], 0);
         }
 
         $byExecutorRows = [];
@@ -55,12 +102,12 @@ final class AtlasFlywheelFunnelService
         $byExecutor = [];
         foreach ($byExecutorRows as $executor => $executorRows) {
             $byExecutor[$executor] = [
-                'outcome_count' => count($executorRows),
-                'stages' => $this->stages($executorRows, $denominatorMin),
+                self::FIELD_OUTCOME_COUNT => count($executorRows),
+                self::FIELD_STAGES => $this->stages($executorRows, $denominatorMin),
             ];
         }
 
-        return $this->payload($byExecutor === [] ? 'no_signal' : 'ok', $path, $denominatorMin, $byExecutor, count($rows));
+        return $this->payload($byExecutor === [] ? self::STATUS_NO_SIGNAL : self::STATUS_OK, $path, $denominatorMin, $byExecutor, count($rows));
     }
 
     /**
@@ -70,33 +117,33 @@ final class AtlasFlywheelFunnelService
     private function stages(array $rows, int $denominatorMin): array
     {
         $withLesson = array_values(array_filter($rows, fn (array $row): bool => $this->hasLesson($row)));
-        $promoted = array_values(array_filter($withLesson, static fn (array $row): bool => ($row['lesson_promoted'] ?? false) === true));
-        $recalled = array_values(array_filter($promoted, static fn (array $row): bool => ($row['promoted_lesson_recalled'] ?? false) === true));
-        $cited = array_values(array_filter($recalled, static fn (array $row): bool => ($row['promoted_lesson_cited'] ?? false) === true));
+        $promoted = array_values(array_filter($withLesson, static fn (array $row): bool => ($row[self::FIELD_LESSON_PROMOTED] ?? false) === true));
+        $recalled = array_values(array_filter($promoted, static fn (array $row): bool => ($row[self::FIELD_PROMOTED_LESSON_RECALLED] ?? false) === true));
+        $cited = array_values(array_filter($recalled, static fn (array $row): bool => ($row[self::FIELD_PROMOTED_LESSON_CITED] ?? false) === true));
 
         return [
-            'outcomes_without_lesson' => $this->stage(
+            self::FIELD_OUTCOMES_WITHOUT_LESSON => $this->stage(
                 count(array_filter($rows, fn (array $row): bool => ! $this->hasLesson($row))),
                 count($rows),
                 $denominatorMin,
             ),
-            'lessons_without_promotion' => $this->stage(
-                count(array_filter($withLesson, static fn (array $row): bool => ($row['lesson_promoted'] ?? false) !== true)),
+            self::FIELD_LESSONS_WITHOUT_PROMOTION => $this->stage(
+                count(array_filter($withLesson, static fn (array $row): bool => ($row[self::FIELD_LESSON_PROMOTED] ?? false) !== true)),
                 count($withLesson),
                 $denominatorMin,
             ),
-            'promoted_without_recall' => $this->stage(
-                count(array_filter($promoted, static fn (array $row): bool => ($row['promoted_lesson_recalled'] ?? false) !== true)),
+            self::FIELD_PROMOTED_WITHOUT_RECALL => $this->stage(
+                count(array_filter($promoted, static fn (array $row): bool => ($row[self::FIELD_PROMOTED_LESSON_RECALLED] ?? false) !== true)),
                 count($promoted),
                 $denominatorMin,
             ),
-            'recalls_without_citation' => $this->stage(
-                count(array_filter($recalled, static fn (array $row): bool => ($row['promoted_lesson_cited'] ?? false) !== true)),
+            self::FIELD_RECALLS_WITHOUT_CITATION => $this->stage(
+                count(array_filter($recalled, static fn (array $row): bool => ($row[self::FIELD_PROMOTED_LESSON_CITED] ?? false) !== true)),
                 count($recalled),
                 $denominatorMin,
             ),
-            'citations_without_better_outcome' => $this->stage(
-                count(array_filter($cited, static fn (array $row): bool => ($row['subsequent_outcome_improved'] ?? false) !== true)),
+            self::FIELD_CITATIONS_WITHOUT_BETTER_OUTCOME => $this->stage(
+                count(array_filter($cited, static fn (array $row): bool => ($row[self::FIELD_SUBSEQUENT_OUTCOME_IMPROVED] ?? false) !== true)),
                 count($cited),
                 $denominatorMin,
             ),
@@ -109,9 +156,9 @@ final class AtlasFlywheelFunnelService
     private function stage(int $num, int $den, int $denominatorMin): array
     {
         return [
-            'num' => $num,
-            'den' => $den,
-            'status' => $den >= $denominatorMin ? 'ok' : 'insufficient',
+            self::FIELD_NUM => $num,
+            self::FIELD_DEN => $den,
+            self::FIELD_STATUS => $den >= $denominatorMin ? self::STATUS_OK : self::STATUS_INSUFFICIENT,
         ];
     }
 
@@ -120,8 +167,8 @@ final class AtlasFlywheelFunnelService
      */
     private function hasLesson(array $row): bool
     {
-        return in_array((AiValueNormalizer::trimmedStringOrNull($row['learning_status'] ?? null) ?? ''), ['candidate', 'promoted', 'applied'], true)
-            || ($row['lesson_promoted'] ?? false) === true;
+        return in_array((AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_LEARNING_STATUS] ?? null) ?? ''), [self::FIELD_CANDIDATE, self::FIELD_PROMOTED, self::FIELD_APPLIED], true)
+            || ($row[self::FIELD_LESSON_PROMOTED] ?? false) === true;
     }
 
     /**
@@ -129,13 +176,13 @@ final class AtlasFlywheelFunnelService
      */
     private function executor(array $row): string
     {
-        $role = AiValueNormalizer::lowerTrimmedString($row['role'] ?? '');
-        if (in_array($role, ['dev', 'forge', 'autonomos'], true)) {
+        $role = AiValueNormalizer::lowerTrimmedString($row[self::FIELD_ROLE] ?? '');
+        if (in_array($role, [self::FIELD_DEV, self::FIELD_FORGE, self::FIELD_AUTONOMOS], true)) {
             return $role;
         }
 
-        $actor = AiValueNormalizer::lowerTrimmedString($row['actor'] ?? '');
-        foreach (['dev', 'forge', 'autonomos'] as $executor) {
+        $actor = AiValueNormalizer::lowerTrimmedString($row[self::FIELD_ACTOR] ?? '');
+        foreach ([self::FIELD_DEV, self::FIELD_FORGE, self::FIELD_AUTONOMOS] as $executor) {
             if (str_contains($actor, $executor)) {
                 return $executor;
             }
@@ -180,31 +227,31 @@ final class AtlasFlywheelFunnelService
     private function payload(string $status, string $path, int $denominatorMin, array $byExecutor, int $rowCount): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'measure_id' => self::MEASURE_ID,
-            'formula_version' => self::FORMULA_VERSION,
-            'status' => $status,
-            'generated_at' => Carbon::now()->toIso8601String(),
-            'source' => [
-                'outcomes_path' => $path,
-                'outcome_rows' => $rowCount,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+            self::FIELD_STATUS => $status,
+            self::FIELD_GENERATED_AT => Carbon::now()->toIso8601String(),
+            self::FIELD_SOURCE => [
+                self::FIELD_OUTCOMES_PATH => $path,
+                self::FIELD_OUTCOME_ROWS => $rowCount,
             ],
-            'denominator_min' => $denominatorMin,
-            'stages' => self::STAGES,
-            'by_executor' => $byExecutor,
-            'windows' => [
-                'all' => [
-                    'status' => $status,
-                    'by_executor' => $byExecutor,
+            self::FIELD_DENOMINATOR_MIN => $denominatorMin,
+            self::FIELD_STAGES => self::STAGES,
+            self::FIELD_BY_EXECUTOR => $byExecutor,
+            self::FIELD_WINDOWS => [
+                self::FIELD_ALL => [
+                    self::FIELD_STATUS => $status,
+                    self::FIELD_BY_EXECUTOR => $byExecutor,
                 ],
             ],
-            'claim_policy' => [
-                'read_only' => true,
-                'provider_calls_made' => false,
-                'memory_written' => false,
-                'single_scalar_score_emitted' => false,
-                'used_as_producer_target' => false,
-                'diagnostic_only' => true,
+            self::FIELD_CLAIM_POLICY => [
+                self::FIELD_READ_ONLY => true,
+                self::FIELD_PROVIDER_CALLS_MADE => false,
+                self::FIELD_MEMORY_WRITTEN => false,
+                self::FIELD_SINGLE_SCALAR_SCORE_EMITTED => false,
+                self::FIELD_USED_AS_PRODUCER_TARGET => false,
+                self::FIELD_DIAGNOSTIC_ONLY => true,
             ],
         ];
     }

@@ -15,6 +15,8 @@ use Throwable;
 
 final class AcosMaxVerifiedShareService
 {
+    public const FIELD_FREEZE = 'freeze';
+    public const FIELD_FREEZE_REQUIRED = 'freeze_required';
     public const SCHEMA_VERSION = 'atlas.acos_max.verified_share.v1';
 
     public const MEASURE_ID = 'acos.verified_share.v1';
@@ -44,27 +46,95 @@ final class AcosMaxVerifiedShareService
 
     public const REASON_MEASURE_FREEZE_NOT_RECORDED = 'measure_freeze_not_recorded';
 
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_MEASURE_ID = 'measure_id';
+    public const FIELD_FORMULA_VERSION = 'formula_version';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_THRESHOLDS = 'thresholds';
+    public const FIELD_DENOMINATOR_MIN = 'denominator_min';
+    public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
+    public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
+    public const FIELD_SERIES_REGISTRY = 'series_registry';
+    public const FIELD_FORMULA = 'formula';
+    public const FIELD_VERIFIED_SHARE_MIN = 'verified_share_min';
+    public const FIELD_WINDOW_DAYS_MIN = 'window_days_min';
+    public const FIELD_DENOMINATOR_MIN_EXECUTIONS = 'denominator_min_executions';
+    public const FIELD_TTL_DAYS = 'ttl_days';
+    public const FIELD_SERIES = 'series';
+    public const FIELD_PATH = 'path';
+    public const FIELD_WATCHDOG_PLUGIN = 'watchdog_plugin';
+    public const FIELD_ACTOR = 'actor';
+    public const FIELD_AGGREGATE = 'aggregate';
+    public const FIELD_CONTENT_HASH = 'content_hash';
+    public const FIELD_EVENT_NAME = 'event_name';
+    public const FIELD_EXECUTORS = 'executors';
+    public const FIELD_TOTAL_COUNT = 'total_count';
+    public const FIELD_VERIFIED_SHARE = 'verified_share';
+    public const FIELD_WINDOW_DAYS = 'window_days';
+    public const FIELD_VERIFIED_COUNT = 'verified_count';
+    public const FIELD_JUDGE_AUTHOR_DISTINCT = 'judge_author_distinct';
+    public const FIELD_MODE = 'mode';
+    public const FIELD_OUTCOME_DENOMINATOR = 'outcome_denominator';
+    public const FIELD_OWNER = 'owner';
+    public const FIELD_RECORDED_AT = 'recorded_at';
+    public const FIELD_ROLE = 'role';
+    public const FIELD_SOURCES = 'sources';
+    public const FIELD_SURFACE = 'surface';
+    public const FIELD_TASK_CATEGORY = 'task_category';
+    public const FIELD_VERIFICATION_NUMERATOR = 'verification_numerator';
+    public const FIELD_ENFORCE = 'enforce';
+    public const FIELD_ATLAS_LEDGER_EVENTS = 'atlas_ledger_events';
+    public const FIELD_AUTONOMOS = 'autonomos';
+    public const FIELD_DEV = 'dev';
+    public const FIELD_EMITTER_STAGE = 'emitter_stage';
+    public const FIELD_FORGE = 'forge';
+    public const FIELD_OCCURRED_AT = 'occurred_at';
+    public const FIELD_ATLAS_DEV = 'atlas_dev';
+    public const FIELD_ATLAS_FORGE = 'atlas_forge';
+    public const FIELD_AUTONOMOUS = 'autonomous';
+    public const FIELD_ATLAS_AUTONOMOS = 'atlas_autonomos';
+    public const FIELD_RB = 'rb';
+    public const FIELD_UTC = 'UTC';
+    public const FIELD_ATLAS_AUTONOMOS_2 = 'atlas-autonomos';
+    public const FIELD_ATLAS_DEV_2 = 'atlas-dev';
+    public const FIELD_ATLAS_FORGE_2 = 'atlas-forge';
+    public const FIELD_CODEX_ELEV12_JUDGE = 'codex-elev12-judge';
+    public const FIELD_CURSOR_ACOS_MAX_ELEV12 = 'cursor-acos-max-elev12';
+    public const FIELD_ENGINEERING_EXECUTION_COVERAGE_RECORDED = 'engineering.execution.coverage.recorded';
+    public const FIELD_THRESHOLDS_DENOMINATOR_MIN_EXECUTIONS = 'thresholds.denominator_min_executions';
+    public const FIELD_THRESHOLDS_VERIFIED_SHARE_MIN = 'thresholds.verified_share_min';
+    public const FIELD_THRESHOLDS_WINDOW_DAYS_MIN = 'thresholds.window_days_min';
+    public const FIELD_WDG_01_ACOS_VERIFIED_SHARE = 'wdg-01.acos_verified_share';
+    public const FIELD_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL = 'atlas/atlas_decide/live_outcomes.jsonl';
+    public const FIELD_STORAGE_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL = 'storage/atlas/atlas_decide/live_outcomes.jsonl';
+    public const FIELD_ATLAS_ACOS_VERIFIED_SHARE___JSON = 'atlas:acos:verified-share --json';
+    public const FIELD_ATLAS_LEDGER_EVENTS_ENGINEERING_EXECUTION_COVERAGE_RECORDED_MODE_ENFORCE = 'atlas_ledger_events engineering.execution.coverage.recorded mode=enforce';
+    public const FIELD_VERIFIED_SHARE___ENFORCE_MODE_VERIFICATION_RECEIPTS___OUTC_01_OUTCOME_RECEIPTS__GROUPED_BY_EXECUTOR = 'verified_share = enforce-mode verification receipts ÷ OUTC-01 outcome receipts, grouped by executor';
+
+
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
         return [
-            'kind' => self::KIND_MEASURE_FREEZE,
-            'measure_id' => self::MEASURE_ID,
-            'formula' => 'verified_share = enforce-mode verification receipts ÷ OUTC-01 outcome receipts, grouped by executor',
-            'formula_version' => self::FORMULA_VERSION,
-            'thresholds' => [
-                'verified_share_min' => self::DEFAULT_VERIFIED_SHARE_MIN,
-                'window_days_min' => self::DEFAULT_WINDOW_DAYS_MIN,
-                'denominator_min_executions' => self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS,
+            self::FIELD_KIND => self::KIND_MEASURE_FREEZE,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_FORMULA => self::FIELD_VERIFIED_SHARE___ENFORCE_MODE_VERIFICATION_RECEIPTS___OUTC_01_OUTCOME_RECEIPTS__GROUPED_BY_EXECUTOR,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+            self::FIELD_THRESHOLDS => [
+                self::FIELD_VERIFIED_SHARE_MIN => self::DEFAULT_VERIFIED_SHARE_MIN,
+                self::FIELD_WINDOW_DAYS_MIN => self::DEFAULT_WINDOW_DAYS_MIN,
+                self::FIELD_DENOMINATOR_MIN_EXECUTIONS => self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS,
             ],
-            'denominator_min' => self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS,
-            'ttl_days' => self::DEFAULT_TTL_DAYS,
-            'author_engine_id' => 'cursor-acos-max-elev12',
-            'judge_engine_id' => 'codex-elev12-judge',
-            'series_registry' => [
-                'series' => self::MEASURE_ID,
-                'path' => 'atlas:acos:verified-share --json',
-                'watchdog_plugin' => 'wdg-01.acos_verified_share',
+            self::FIELD_DENOMINATOR_MIN => self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS,
+            self::FIELD_TTL_DAYS => self::DEFAULT_TTL_DAYS,
+            self::FIELD_AUTHOR_ENGINE_ID => self::FIELD_CURSOR_ACOS_MAX_ELEV12,
+            self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_ELEV12_JUDGE,
+            self::FIELD_SERIES_REGISTRY => [
+                self::FIELD_SERIES => self::MEASURE_ID,
+                self::FIELD_PATH => self::FIELD_ATLAS_ACOS_VERIFIED_SHARE___JSON,
+                self::FIELD_WATCHDOG_PLUGIN => self::FIELD_WDG_01_ACOS_VERIFIED_SHARE,
             ],
         ];
     }
@@ -75,17 +145,17 @@ final class AcosMaxVerifiedShareService
         $freeze = $this->freeze();
         if ($freeze === null) {
             return [
-                'schema_version' => self::SCHEMA_VERSION,
-                'measure_id' => self::MEASURE_ID,
-                'formula_version' => self::FORMULA_VERSION,
-                'status' => self::STATUS_MISSING_FREEZE,
-                'reason' => self::REASON_MEASURE_FREEZE_NOT_RECORDED,
-                'freeze_required' => self::freezePayload(),
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+                self::FIELD_MEASURE_ID => self::MEASURE_ID,
+                self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+                self::FIELD_STATUS => self::STATUS_MISSING_FREEZE,
+                self::FIELD_REASON => self::REASON_MEASURE_FREEZE_NOT_RECORDED,
+                self::FIELD_FREEZE_REQUIRED => self::freezePayload(),
             ];
         }
 
-        $windowDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($days) ?? data_get($freeze, 'thresholds.window_days_min', self::DEFAULT_WINDOW_DAYS_MIN)));
-        $since = CarbonImmutable::now('UTC')->subDays($windowDays);
+        $windowDays = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($days) ?? data_get($freeze, self::FIELD_THRESHOLDS_WINDOW_DAYS_MIN, self::DEFAULT_WINDOW_DAYS_MIN)));
+        $since = CarbonImmutable::now(self::FIELD_UTC)->subDays($windowDays);
         $totals = $this->emptyCounts();
         $verified = $this->emptyCounts();
 
@@ -109,32 +179,32 @@ final class AcosMaxVerifiedShareService
         }
 
         $aggregate = $this->countPayload(array_sum($verified), array_sum($totals));
-        $denominatorMin = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($freeze['denominator_min'] ?? null) ?? data_get($freeze, 'thresholds.denominator_min_executions', self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS)));
-        $shareMin = AiValueNormalizer::finiteFloatOrNull(data_get($freeze, 'thresholds.verified_share_min', self::DEFAULT_VERIFIED_SHARE_MIN)) ?? self::DEFAULT_VERIFIED_SHARE_MIN;
-        $authorEngineId = AiValueNormalizer::trimmedStringOrNull($freeze['author_engine_id'] ?? null) ?? '';
-        $judgeEngineId = AiValueNormalizer::trimmedStringOrNull($freeze['judge_engine_id'] ?? null) ?? '';
+        $denominatorMin = max(1, (int) (AiValueNormalizer::finiteFloatOrNull($freeze[self::FIELD_DENOMINATOR_MIN] ?? null) ?? data_get($freeze, self::FIELD_THRESHOLDS_DENOMINATOR_MIN_EXECUTIONS, self::DEFAULT_DENOMINATOR_MIN_EXECUTIONS)));
+        $shareMin = AiValueNormalizer::finiteFloatOrNull(data_get($freeze, self::FIELD_THRESHOLDS_VERIFIED_SHARE_MIN, self::DEFAULT_VERIFIED_SHARE_MIN)) ?? self::DEFAULT_VERIFIED_SHARE_MIN;
+        $authorEngineId = AiValueNormalizer::trimmedStringOrNull($freeze[self::FIELD_AUTHOR_ENGINE_ID] ?? null) ?? '';
+        $judgeEngineId = AiValueNormalizer::trimmedStringOrNull($freeze[self::FIELD_JUDGE_ENGINE_ID] ?? null) ?? '';
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'measure_id' => self::MEASURE_ID,
-            'formula_version' => self::FORMULA_VERSION,
-            'status' => $this->status($aggregate, $denominatorMin, $shareMin),
-            'window_days' => $windowDays,
-            'freeze' => [
-                'measure_id' => AiValueNormalizer::trimmedStringOrNull($freeze['measure_id'] ?? null) ?? self::MEASURE_ID,
-                'content_hash' => AiValueNormalizer::trimmedStringOrNull($freeze['content_hash'] ?? null) ?? '',
-                'denominator_min' => $denominatorMin,
-                'thresholds' => AiValueNormalizer::arrayOrEmpty($freeze['thresholds'] ?? null),
-                'author_engine_id' => $authorEngineId,
-                'judge_engine_id' => $judgeEngineId,
-                'judge_author_distinct' => $authorEngineId !== '' && $authorEngineId !== $judgeEngineId,
-                'series_registry' => AiValueNormalizer::arrayOrEmpty($freeze['series_registry'] ?? null),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+            self::FIELD_STATUS => $this->status($aggregate, $denominatorMin, $shareMin),
+            self::FIELD_WINDOW_DAYS => $windowDays,
+            self::FIELD_FREEZE => [
+                self::FIELD_MEASURE_ID => AiValueNormalizer::trimmedStringOrNull($freeze[self::FIELD_MEASURE_ID] ?? null) ?? self::MEASURE_ID,
+                self::FIELD_CONTENT_HASH => AiValueNormalizer::trimmedStringOrNull($freeze[self::FIELD_CONTENT_HASH] ?? null) ?? '',
+                self::FIELD_DENOMINATOR_MIN => $denominatorMin,
+                self::FIELD_THRESHOLDS => AiValueNormalizer::arrayOrEmpty($freeze[self::FIELD_THRESHOLDS] ?? null),
+                self::FIELD_AUTHOR_ENGINE_ID => $authorEngineId,
+                self::FIELD_JUDGE_ENGINE_ID => $judgeEngineId,
+                self::FIELD_JUDGE_AUTHOR_DISTINCT => $authorEngineId !== '' && $authorEngineId !== $judgeEngineId,
+                self::FIELD_SERIES_REGISTRY => AiValueNormalizer::arrayOrEmpty($freeze[self::FIELD_SERIES_REGISTRY] ?? null),
             ],
-            'aggregate' => $aggregate,
-            'executors' => $executors,
-            'sources' => [
-                'outcome_denominator' => 'storage/atlas/atlas_decide/live_outcomes.jsonl',
-                'verification_numerator' => 'atlas_ledger_events engineering.execution.coverage.recorded mode=enforce',
+            self::FIELD_AGGREGATE => $aggregate,
+            self::FIELD_EXECUTORS => $executors,
+            self::FIELD_SOURCES => [
+                self::FIELD_OUTCOME_DENOMINATOR => self::FIELD_STORAGE_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL,
+                self::FIELD_VERIFICATION_NUMERATOR => self::FIELD_ATLAS_LEDGER_EVENTS_ENGINEERING_EXECUTION_COVERAGE_RECORDED_MODE_ENFORCE,
             ],
         ];
     }
@@ -142,11 +212,11 @@ final class AcosMaxVerifiedShareService
     /** @param array{verified_count:int,total_count:int,verified_share:?float} $aggregate */
     private function status(array $aggregate, int $denominatorMin, float $shareMin): string
     {
-        if ($aggregate['total_count'] < $denominatorMin) {
+        if ($aggregate[self::FIELD_TOTAL_COUNT] < $denominatorMin) {
             return self::STATUS_INSUFFICIENT_SIGNAL;
         }
 
-        return (AiValueNormalizer::finiteFloatOrNull($aggregate['verified_share'] ?? null) ?? 0.0) >= $shareMin ? self::STATUS_OK : self::STATUS_BELOW_THRESHOLD;
+        return (AiValueNormalizer::finiteFloatOrNull($aggregate[self::FIELD_VERIFIED_SHARE] ?? null) ?? 0.0) >= $shareMin ? self::STATUS_OK : self::STATUS_BELOW_THRESHOLD;
     }
 
     /** @return array<string,int> */
@@ -159,9 +229,9 @@ final class AcosMaxVerifiedShareService
     private function countPayload(int $verified, int $total): array
     {
         return [
-            'verified_count' => $verified,
-            'total_count' => $total,
-            'verified_share' => $total > 0 ? round($verified / $total, 4) : null,
+            self::FIELD_VERIFIED_COUNT => $verified,
+            self::FIELD_TOTAL_COUNT => $total,
+            self::FIELD_VERIFIED_SHARE => $total > 0 ? round($verified / $total, 4) : null,
         ];
     }
 
@@ -174,7 +244,7 @@ final class AcosMaxVerifiedShareService
         }
 
         $latest = null;
-        $handle = fopen($path, 'rb');
+        $handle = fopen($path, self::FIELD_RB);
         if ($handle === false) {
             return null;
         }
@@ -187,8 +257,8 @@ final class AcosMaxVerifiedShareService
                     continue;
                 }
                 if (is_array($row)
-                    && ($row['kind'] ?? null) === self::KIND_MEASURE_FREEZE
-                    && ($row['measure_id'] ?? null) === self::MEASURE_ID
+                    && ($row[self::FIELD_KIND] ?? null) === self::KIND_MEASURE_FREEZE
+                    && ($row[self::FIELD_MEASURE_ID] ?? null) === self::MEASURE_ID
                     && $this->judgeAuthorDistinct($row)) {
                     $latest = $row;
                 }
@@ -203,8 +273,8 @@ final class AcosMaxVerifiedShareService
     /** @param array<string,mixed> $row */
     private function judgeAuthorDistinct(array $row): bool
     {
-        $author = AiValueNormalizer::trimmedStringOrNull($row['author_engine_id'] ?? null) ?? '';
-        $judge = AiValueNormalizer::trimmedStringOrNull($row['judge_engine_id'] ?? null) ?? '';
+        $author = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_AUTHOR_ENGINE_ID] ?? null) ?? '';
+        $judge = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_JUDGE_ENGINE_ID] ?? null) ?? '';
 
         return $author !== '' && $judge !== '' && $author !== $judge;
     }
@@ -212,13 +282,13 @@ final class AcosMaxVerifiedShareService
     /** @return list<array<string,mixed>> */
     private function liveOutcomeRows(CarbonImmutable $since): array
     {
-        $path = storage_path('atlas/atlas_decide/live_outcomes.jsonl');
+        $path = storage_path(self::FIELD_ATLAS_ATLAS_DECIDE_LIVE_OUTCOMES_JSONL);
         if (! is_file($path)) {
             return [];
         }
 
         $rows = [];
-        $handle = fopen($path, 'rb');
+        $handle = fopen($path, self::FIELD_RB);
         if ($handle === false) {
             return [];
         }
@@ -233,7 +303,7 @@ final class AcosMaxVerifiedShareService
                 if (! is_array($row)) {
                     continue;
                 }
-                $recordedAt = $this->parseDate($row['recorded_at'] ?? null);
+                $recordedAt = $this->parseDate($row[self::FIELD_RECORDED_AT] ?? null);
                 if ($recordedAt !== null && $recordedAt->greaterThanOrEqualTo($since)) {
                     $rows[] = $row;
                 }
@@ -248,18 +318,18 @@ final class AcosMaxVerifiedShareService
     /** @return list<array<string,mixed>> */
     private function coverageRows(CarbonImmutable $since): array
     {
-        if (! DatabaseTableAvailability::has('atlas_ledger_events')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_LEDGER_EVENTS)) {
             return [];
         }
 
         return AtlasLedgerEvent::query()
-            ->where('emitter_stage', KernelEvidenceAuthority::EMITTER_STAGE)
-            ->where('occurred_at', '>=', $since)
-            ->orderBy('occurred_at')
+            ->where(self::FIELD_EMITTER_STAGE, KernelEvidenceAuthority::EMITTER_STAGE)
+            ->where(self::FIELD_OCCURRED_AT, '>=', $since)
+            ->orderBy(self::FIELD_OCCURRED_AT)
             ->get()
             ->map(static fn (AtlasLedgerEvent $event): array => (array) $event->payload)
-            ->filter(static fn (array $payload): bool => ($payload['event_name'] ?? null) === 'engineering.execution.coverage.recorded'
-                && ($payload['mode'] ?? null) === 'enforce')
+            ->filter(static fn (array $payload): bool => ($payload[self::FIELD_EVENT_NAME] ?? null) === self::FIELD_ENGINEERING_EXECUTION_COVERAGE_RECORDED
+                && ($payload[self::FIELD_MODE] ?? null) === self::FIELD_ENFORCE)
             ->values()
             ->all();
     }
@@ -267,19 +337,19 @@ final class AcosMaxVerifiedShareService
     /** @param array<string,mixed> $row */
     private function executorFromOutcome(array $row): ?string
     {
-        $actor = AiValueNormalizer::lowerTrimmedString($row['actor'] ?? '');
+        $actor = AiValueNormalizer::lowerTrimmedString($row[self::FIELD_ACTOR] ?? '');
         if (str_starts_with($actor, 'engineering_outcome_spine:')) {
             return $this->normalizeExecutor(substr($actor, strlen('engineering_outcome_spine:')));
         }
 
-        return $this->normalizeExecutor(AiValueNormalizer::trimmedStringOrNull($row['task_category'] ?? $row['role'] ?? null) ?? '');
+        return $this->normalizeExecutor(AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_TASK_CATEGORY] ?? $row[self::FIELD_ROLE] ?? null) ?? '');
     }
 
     /** @param array<string,mixed> $row */
     private function executorFromCoverage(array $row): ?string
     {
-        $surface = AiValueNormalizer::trimmedStringOrNull($row['surface'] ?? null) ?? '';
-        $owner = AiValueNormalizer::trimmedStringOrNull(EngineeringExecutionSurfaceRegistry::surface($surface)['owner'] ?? null) ?? '';
+        $surface = AiValueNormalizer::trimmedStringOrNull($row[self::FIELD_SURFACE] ?? null) ?? '';
+        $owner = AiValueNormalizer::trimmedStringOrNull(EngineeringExecutionSurfaceRegistry::surface($surface)[self::FIELD_OWNER] ?? null) ?? '';
 
         return $this->normalizeExecutor($owner);
     }
@@ -289,9 +359,9 @@ final class AcosMaxVerifiedShareService
         $value = AiValueNormalizer::lowerTrimmedString($value);
 
         return match (true) {
-            in_array($value, ['dev', 'atlas_dev', 'atlas-dev'], true) => 'dev',
-            in_array($value, ['forge', 'atlas_forge', 'atlas-forge'], true) => 'forge',
-            in_array($value, ['autonomos', 'autonomous', 'atlas_autonomos', 'atlas-autonomos'], true) => 'autonomos',
+            in_array($value, [self::FIELD_DEV, self::FIELD_ATLAS_DEV, self::FIELD_ATLAS_DEV_2], true) => self::FIELD_DEV,
+            in_array($value, [self::FIELD_FORGE, self::FIELD_ATLAS_FORGE, self::FIELD_ATLAS_FORGE_2], true) => self::FIELD_FORGE,
+            in_array($value, [self::FIELD_AUTONOMOS, self::FIELD_AUTONOMOUS, self::FIELD_ATLAS_AUTONOMOS, self::FIELD_ATLAS_AUTONOMOS_2], true) => self::FIELD_AUTONOMOS,
             default => null,
         };
     }

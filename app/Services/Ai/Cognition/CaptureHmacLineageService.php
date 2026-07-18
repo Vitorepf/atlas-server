@@ -32,6 +32,47 @@ final class CaptureHmacLineageService
 
     public const STAGE_MEMORY = 'memory';
 
+
+    public const FIELD_STATUS = 'status';
+
+    public const FIELD_HEAD_RECEIPT_HASH = 'head_receipt_hash';
+
+    public const FIELD_STAGES = 'stages';
+
+    public const FIELD_STAGE_COUNT = 'stage_count';
+
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+
+    public const FIELD_OK = 'ok';
+
+    public const FIELD_BROKEN = 'broken';
+
+    public const FIELD_LINEAGE = 'lineage';
+
+    public const STAGE_UNKNOWN = 'unknown';
+
+
+    public const FIELD_RECEIPT_HASH = 'receipt_hash';
+
+    public const FIELD_BROKEN_AT = 'broken_at';
+    public const FIELD_STAGE = 'stage';
+    public const FIELD_CHAINED_CAPTURES = 'chained_captures';
+    public const FIELD_MIN_CAPTURES = 'min_captures';
+    public const FIELD_COVERAGE_RATE = 'coverage_rate';
+    public const FIELD_NOTE = 'note';
+    public const FIELD_REF = 'ref';
+    public const FIELD_CHAIN = 'chain';
+    public const FIELD_VERIFY = 'verify';
+    public const FIELD_SLICE = 'slice';
+    public const FIELD_KEY_VERSION = 'key_version';
+    public const FIELD_THREAT_MODEL = 'threat_model';
+    public const FIELD_STAMPED_AT = 'stamped_at';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_STAGE_PAYLOAD_HASH = 'stage_payload_hash';
+    public const FIELD_PREV_RECEIPT_HASH = 'prev_receipt_hash';
+    public const FIELD_SOURCE_PACKET = 'source_packet';
+    public const FIELD_HMAC_LINEAGE = 'hmac_lineage';
+
     public const THREAT_MODEL = 'tamper_between_capture_stages_not_db_adversary';
 
     public const SECRET_CONFIG_KEY = 'atlas.capture.hmac_lineage_secret';
@@ -53,6 +94,26 @@ final class CaptureHmacLineageService
     public const STATUS_NOT_FOUND = 'not_found';
 
     public const KIND_CAPTURE = 'capture';
+    public const FIELD_MEMORY = 'memory';
+    public const FIELD_PAYLOAD = 'payload';
+    public const FIELD_ID = 'id';
+    public const FIELD_CAPTURES = 'captures';
+    public const FIELD_ATLAS_KNOWLEDGE_SOURCE_PACKETS = 'atlas_knowledge_source_packets';
+    public const FIELD_ATLAS_MEMORY_ENTRIES = 'atlas_memory_entries';
+    public const FIELD_DELETED_AT = 'deleted_at';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_CLIENT_ID = 'client_id';
+    public const FIELD_CREATED_AT = 'created_at';
+    public const FIELD_INVALID_LINK = 'invalid_link';
+    public const FIELD_METADATA = 'metadata';
+    public const FIELD_SOURCE_HASH = 'source_hash';
+    public const FIELD_PACKET = 'packet';
+    public const FIELD_MAXI_07 = 'MAXI-07';
+    public const FIELD_COGNITIVE_QUARANTINE_LINEAGE_HMAC_LINEAGE = 'cognitive_quarantine.lineage.hmac_lineage';
+    public const FIELD_ACOS_MAX_MAXI_07_CAPTURE_HMAC_LINEAGE = 'acos_max.maxi_07.capture_hmac_lineage';
+    public const FIELD_BROKEN_AT_INVALID_LINK = 'broken_at:invalid_link';
+    public const FIELD_CAPTURES_TABLE_UNAVAILABLE = 'captures table unavailable';
+    public const FIELD_MAXI_07_ACEITE_PLENO_AWAITS__ = 'MAXI-07 aceite pleno awaits ≥';
 
     /**
      * @param  array<string,mixed>  $existingChain
@@ -65,12 +126,12 @@ final class CaptureHmacLineageService
         $prevReceiptHash = $this->headReceiptHash($existingChain) ?? self::GENESIS_RECEIPT;
         $receiptHash = $this->chainLink($prevReceiptHash, $stagePayloadHash);
 
-        $stages = array_values(AiValueNormalizer::arrayOrEmpty($existingChain['stages'] ?? null));
+        $stages = array_values(AiValueNormalizer::arrayOrEmpty($existingChain[self::FIELD_STAGES] ?? null));
         $stages[] = [
-            'stage' => $stage,
-            'stage_payload_hash' => $stagePayloadHash,
-            'prev_receipt_hash' => $prevReceiptHash,
-            'receipt_hash' => $receiptHash,
+            self::FIELD_STAGE => $stage,
+            self::FIELD_STAGE_PAYLOAD_HASH => $stagePayloadHash,
+            self::FIELD_PREV_RECEIPT_HASH => $prevReceiptHash,
+            self::FIELD_RECEIPT_HASH => $receiptHash,
         ];
 
         return $this->envelope($stages);
@@ -82,22 +143,22 @@ final class CaptureHmacLineageService
      */
     public function verify(array $chain): array
     {
-        if (($chain['schema_version'] ?? null) !== self::SCHEMA_VERSION) {
+        if (($chain[self::FIELD_SCHEMA_VERSION] ?? null) !== self::SCHEMA_VERSION) {
             return [
-                'status' => self::STATUS_UNVERIFIABLE_LEGACY,
-                'broken_at' => null,
-                'stage_count' => 0,
-                'head_receipt_hash' => null,
+                self::FIELD_STATUS => self::STATUS_UNVERIFIABLE_LEGACY,
+                self::FIELD_BROKEN_AT => null,
+                self::FIELD_STAGE_COUNT => 0,
+                self::FIELD_HEAD_RECEIPT_HASH => null,
             ];
         }
 
-        $stages = array_values(AiValueNormalizer::arrayOrEmpty($chain['stages'] ?? null));
+        $stages = array_values(AiValueNormalizer::arrayOrEmpty($chain[self::FIELD_STAGES] ?? null));
         if ($stages === []) {
             return [
-                'status' => self::STATUS_UNVERIFIABLE_LEGACY,
-                'broken_at' => null,
-                'stage_count' => 0,
-                'head_receipt_hash' => null,
+                self::FIELD_STATUS => self::STATUS_UNVERIFIABLE_LEGACY,
+                self::FIELD_BROKEN_AT => null,
+                self::FIELD_STAGE_COUNT => 0,
+                self::FIELD_HEAD_RECEIPT_HASH => null,
             ];
         }
 
@@ -105,36 +166,36 @@ final class CaptureHmacLineageService
         foreach ($stages as $link) {
             if (! is_array($link)) {
                 return [
-                    'status' => 'broken_at:invalid_link',
-                    'broken_at' => 'invalid_link',
-                    'stage_count' => count($stages),
-                    'head_receipt_hash' => $this->headReceiptHash($chain),
+                    self::FIELD_STATUS => self::FIELD_BROKEN_AT_INVALID_LINK,
+                    self::FIELD_BROKEN_AT => self::FIELD_INVALID_LINK,
+                    self::FIELD_STAGE_COUNT => count($stages),
+                    self::FIELD_HEAD_RECEIPT_HASH => $this->headReceiptHash($chain),
                 ];
             }
 
-            $stage = (AiValueNormalizer::trimmedStringOrNull($link['stage'] ?? null) ?? 'unknown');
-            $stagePayloadHash = (AiValueNormalizer::trimmedStringOrNull($link['stage_payload_hash'] ?? null) ?? '');
-            $storedPrev = $link['prev_receipt_hash'] ?? null;
-            $storedReceipt = (AiValueNormalizer::trimmedStringOrNull($link['receipt_hash'] ?? null) ?? '');
+            $stage = (AiValueNormalizer::trimmedStringOrNull($link[self::FIELD_STAGE] ?? null) ?? self::STAGE_UNKNOWN);
+            $stagePayloadHash = (AiValueNormalizer::trimmedStringOrNull($link[self::FIELD_STAGE_PAYLOAD_HASH] ?? null) ?? '');
+            $storedPrev = $link[self::FIELD_PREV_RECEIPT_HASH] ?? null;
+            $storedReceipt = (AiValueNormalizer::trimmedStringOrNull($link[self::FIELD_RECEIPT_HASH] ?? null) ?? '');
 
             $expectedPrev = $prev ?? self::GENESIS_RECEIPT;
             $storedPrevHash = AiValueNormalizer::trimmedStringOrNull($storedPrev);
             if ($storedPrevHash === null || $storedPrevHash !== $expectedPrev) {
                 return [
-                    'status' => 'broken_at:'.$stage,
-                    'broken_at' => $stage,
-                    'stage_count' => count($stages),
-                    'head_receipt_hash' => $this->headReceiptHash($chain),
+                    self::FIELD_STATUS => 'broken_at:'.$stage,
+                    self::FIELD_BROKEN_AT => $stage,
+                    self::FIELD_STAGE_COUNT => count($stages),
+                    self::FIELD_HEAD_RECEIPT_HASH => $this->headReceiptHash($chain),
                 ];
             }
 
             $expectedReceipt = $this->chainLink($expectedPrev, $stagePayloadHash);
             if ($storedReceipt === '' || ! hash_equals($expectedReceipt, $storedReceipt)) {
                 return [
-                    'status' => 'broken_at:'.$stage,
-                    'broken_at' => $stage,
-                    'stage_count' => count($stages),
-                    'head_receipt_hash' => $this->headReceiptHash($chain),
+                    self::FIELD_STATUS => 'broken_at:'.$stage,
+                    self::FIELD_BROKEN_AT => $stage,
+                    self::FIELD_STAGE_COUNT => count($stages),
+                    self::FIELD_HEAD_RECEIPT_HASH => $this->headReceiptHash($chain),
                 ];
             }
 
@@ -142,10 +203,10 @@ final class CaptureHmacLineageService
         }
 
         return [
-            'status' => self::STATUS_VERIFIED,
-            'broken_at' => null,
-            'stage_count' => count($stages),
-            'head_receipt_hash' => $prev,
+            self::FIELD_STATUS => self::STATUS_VERIFIED,
+            self::FIELD_BROKEN_AT => null,
+            self::FIELD_STAGE_COUNT => count($stages),
+            self::FIELD_HEAD_RECEIPT_HASH => $prev,
         ];
     }
 
@@ -154,27 +215,27 @@ final class CaptureHmacLineageService
      */
     public function coverageWindowReport(int $minCaptures = 10): array
     {
-        if (! DatabaseTableAvailability::has('captures')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_CAPTURES)) {
             return [
-                'status' => self::STATUS_PENDING_WINDOW,
-                'chained_captures' => 0,
-                'min_captures' => $minCaptures,
-                'coverage_rate' => null,
-                'note' => 'captures table unavailable',
+                self::FIELD_STATUS => self::STATUS_PENDING_WINDOW,
+                self::FIELD_CHAINED_CAPTURES => 0,
+                self::FIELD_MIN_CAPTURES => $minCaptures,
+                self::FIELD_COVERAGE_RATE => null,
+                self::FIELD_NOTE => self::FIELD_CAPTURES_TABLE_UNAVAILABLE,
             ];
         }
 
-        $rows = DB::table('captures')
-            ->whereNull('deleted_at')
-            ->orderByDesc('created_at')
+        $rows = DB::table(self::FIELD_CAPTURES)
+            ->whereNull(self::FIELD_DELETED_AT)
+            ->orderByDesc(self::FIELD_CREATED_AT)
             ->limit(max($minCaptures * 4, 40))
-            ->get(['id', 'metadata', 'created_at']);
+            ->get([self::FIELD_ID, self::FIELD_METADATA, self::FIELD_CREATED_AT]);
 
         $recent = $rows->take($minCaptures);
         $chained = $recent->filter(function (object $row): bool {
             $metadata = AiValueNormalizer::arrayOrEmpty(json_decode((string) ($row->metadata ?? '{}'), true));
 
-            return is_array(data_get($metadata, 'cognitive_quarantine.lineage.hmac_lineage'));
+            return is_array(data_get($metadata, self::FIELD_COGNITIVE_QUARANTINE_LINEAGE_HMAC_LINEAGE));
         });
 
         $chainedCount = $chained->count();
@@ -182,13 +243,13 @@ final class CaptureHmacLineageService
         $fullCoverage = $denominator >= $minCaptures && $chainedCount === $denominator;
 
         return [
-            'status' => $fullCoverage ? self::STATUS_READY : self::STATUS_PENDING_WINDOW,
-            'chained_captures' => $chainedCount,
-            'min_captures' => $minCaptures,
-            'coverage_rate' => $denominator > 0 ? round($chainedCount / $denominator, 4) : null,
-            'note' => $fullCoverage
+            self::FIELD_STATUS => $fullCoverage ? self::STATUS_READY : self::STATUS_PENDING_WINDOW,
+            self::FIELD_CHAINED_CAPTURES => $chainedCount,
+            self::FIELD_MIN_CAPTURES => $minCaptures,
+            self::FIELD_COVERAGE_RATE => $denominator > 0 ? round($chainedCount / $denominator, 4) : null,
+            self::FIELD_NOTE => $fullCoverage
                 ? '100% of recent captures carry hmac_lineage'
-                : 'MAXI-07 aceite pleno awaits ≥'.$minCaptures.' new captures with chained lineage',
+                : self::FIELD_MAXI_07_ACEITE_PLENO_AWAITS__.$minCaptures.' new captures with chained lineage',
         ];
     }
 
@@ -198,19 +259,19 @@ final class CaptureHmacLineageService
     public function verifyRef(string $ref): array
     {
         $parsed = $this->parseRef($ref);
-        $chain = $this->resolveChain($parsed['kind'], $parsed['id']);
+        $chain = $this->resolveChain($parsed[self::FIELD_KIND], $parsed[self::FIELD_ID]);
 
         if ($chain === null) {
             return [
-                'ok' => false,
-                'status' => self::STATUS_NOT_FOUND,
-                'ref' => $ref,
-                'chain' => null,
-                'verify' => [
-                    'status' => self::STATUS_NOT_FOUND,
-                    'broken_at' => null,
-                    'stage_count' => 0,
-                    'head_receipt_hash' => null,
+                self::FIELD_OK => false,
+                self::FIELD_STATUS => self::STATUS_NOT_FOUND,
+                self::FIELD_REF => $ref,
+                self::FIELD_CHAIN => null,
+                self::FIELD_VERIFY => [
+                    self::FIELD_STATUS => self::STATUS_NOT_FOUND,
+                    self::FIELD_BROKEN_AT => null,
+                    self::FIELD_STAGE_COUNT => 0,
+                    self::FIELD_HEAD_RECEIPT_HASH => null,
                 ],
             ];
         }
@@ -218,20 +279,20 @@ final class CaptureHmacLineageService
         $verify = $this->verify($chain);
 
         return [
-            'ok' => $verify['status'] === self::STATUS_VERIFIED,
-            'status' => $verify['status'],
-            'ref' => $ref,
-            'chain' => $this->providerSafeChain($chain),
-            'verify' => $verify,
+            self::FIELD_OK => $verify[self::FIELD_STATUS] === self::STATUS_VERIFIED,
+            self::FIELD_STATUS => $verify[self::FIELD_STATUS],
+            self::FIELD_REF => $ref,
+            self::FIELD_CHAIN => $this->providerSafeChain($chain),
+            self::FIELD_VERIFY => $verify,
         ];
     }
 
     public function stagePayloadHash(string $stage, array $payload): string
     {
-        return hash('sha256', (string) json_encode([
-            'schema_version' => self::SCHEMA_VERSION,
-            'stage' => $stage,
-            'payload' => $this->sortKeysRecursive($payload),
+        return hash(self::FIELD_SHA256, (string) json_encode([
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_STAGE => $stage,
+            self::FIELD_PAYLOAD => $this->sortKeysRecursive($payload),
         ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 
@@ -239,7 +300,7 @@ final class CaptureHmacLineageService
     {
         $prev = $prevReceiptHash ?? self::GENESIS_RECEIPT;
 
-        return hash_hmac('sha256', $prev.'|'.$stagePayloadHash, $this->keyMaterial(), false);
+        return hash_hmac(self::FIELD_SHA256, $prev.'|'.$stagePayloadHash, $this->keyMaterial(), false);
     }
 
     /**
@@ -247,13 +308,13 @@ final class CaptureHmacLineageService
      */
     public function headReceiptHash(array $chain): ?string
     {
-        $stages = array_values(AiValueNormalizer::arrayOrEmpty($chain['stages'] ?? null));
+        $stages = array_values(AiValueNormalizer::arrayOrEmpty($chain[self::FIELD_STAGES] ?? null));
         if ($stages === []) {
             return null;
         }
         $last = $stages[count($stages) - 1];
 
-        return is_array($last) ? (AiValueNormalizer::trimmedStringOrNull($last['receipt_hash'] ?? null) ?? '') : null;
+        return is_array($last) ? (AiValueNormalizer::trimmedStringOrNull($last[self::FIELD_RECEIPT_HASH] ?? null) ?? '') : null;
     }
 
     /**
@@ -263,13 +324,13 @@ final class CaptureHmacLineageService
     public function envelope(array $stages): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'slice' => 'MAXI-07',
-            'key_version' => 1,
-            'threat_model' => self::THREAT_MODEL,
-            'stages' => $stages,
-            'head_receipt_hash' => $this->headReceiptHash(['stages' => $stages]),
-            'stamped_at' => now()->toJSON(),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_SLICE => self::FIELD_MAXI_07,
+            self::FIELD_KEY_VERSION => 1,
+            self::FIELD_THREAT_MODEL => self::THREAT_MODEL,
+            self::FIELD_STAGES => $stages,
+            self::FIELD_HEAD_RECEIPT_HASH => $this->headReceiptHash([self::FIELD_STAGES => $stages]),
+            self::FIELD_STAMPED_AT => now()->toJSON(),
         ];
     }
 
@@ -282,13 +343,13 @@ final class CaptureHmacLineageService
     public function providerSafeChain(array $chain): array
     {
         return [
-            'schema_version' => $chain['schema_version'] ?? self::SCHEMA_VERSION,
-            'slice' => $chain['slice'] ?? 'MAXI-07',
-            'key_version' => $chain['key_version'] ?? 1,
-            'threat_model' => $chain['threat_model'] ?? self::THREAT_MODEL,
-            'stages' => array_values(AiValueNormalizer::arrayOrEmpty($chain['stages'] ?? null)),
-            'head_receipt_hash' => $chain['head_receipt_hash'] ?? $this->headReceiptHash($chain),
-            'stamped_at' => $chain['stamped_at'] ?? null,
+            self::FIELD_SCHEMA_VERSION => $chain[self::FIELD_SCHEMA_VERSION] ?? self::SCHEMA_VERSION,
+            self::FIELD_SLICE => $chain[self::FIELD_SLICE] ?? self::FIELD_MAXI_07,
+            self::FIELD_KEY_VERSION => $chain[self::FIELD_KEY_VERSION] ?? 1,
+            self::FIELD_THREAT_MODEL => $chain[self::FIELD_THREAT_MODEL] ?? self::THREAT_MODEL,
+            self::FIELD_STAGES => array_values(AiValueNormalizer::arrayOrEmpty($chain[self::FIELD_STAGES] ?? null)),
+            self::FIELD_HEAD_RECEIPT_HASH => $chain[self::FIELD_HEAD_RECEIPT_HASH] ?? $this->headReceiptHash($chain),
+            self::FIELD_STAMPED_AT => $chain[self::FIELD_STAMPED_AT] ?? null,
         ];
     }
 
@@ -301,10 +362,10 @@ final class CaptureHmacLineageService
         if (str_contains($trimmed, ':')) {
             [$kind, $id] = explode(':', $trimmed, 2);
 
-            return ['kind' => AiValueNormalizer::lowerTrimmedString($kind), 'id' => $id];
+            return [self::FIELD_KIND => AiValueNormalizer::lowerTrimmedString($kind), self::FIELD_ID => $id];
         }
 
-        return ['kind' => self::KIND_CAPTURE, 'id' => $trimmed];
+        return [self::FIELD_KIND => self::KIND_CAPTURE, self::FIELD_ID => $trimmed];
     }
 
     /**
@@ -313,8 +374,8 @@ final class CaptureHmacLineageService
     private function resolveChain(string $kind, string $id): ?array
     {
         return match ($kind) {
-            'packet', 'source_packet' => $this->chainFromPacket($id),
-            'memory' => $this->chainFromMemory($id),
+            self::FIELD_PACKET, self::FIELD_SOURCE_PACKET => $this->chainFromPacket($id),
+            self::FIELD_MEMORY => $this->chainFromMemory($id),
             default => $this->chainFromCapture($id),
         };
     }
@@ -324,13 +385,13 @@ final class CaptureHmacLineageService
      */
     private function chainFromCapture(string $id): ?array
     {
-        if (! DatabaseTableAvailability::has('captures')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_CAPTURES)) {
             return null;
         }
 
         $capture = Capture::query()
             ->where(function ($query) use ($id): void {
-                $query->where('id', $id)->orWhere('client_id', $id);
+                $query->where(self::FIELD_ID, $id)->orWhere(self::FIELD_CLIENT_ID, $id);
             })
             ->first();
 
@@ -338,7 +399,7 @@ final class CaptureHmacLineageService
             return null;
         }
 
-        $chain = data_get($capture->metadata, 'cognitive_quarantine.lineage.hmac_lineage');
+        $chain = data_get($capture->metadata, self::FIELD_COGNITIVE_QUARANTINE_LINEAGE_HMAC_LINEAGE);
 
         return is_array($chain) ? $chain : null;
     }
@@ -348,13 +409,13 @@ final class CaptureHmacLineageService
      */
     private function chainFromPacket(string $id): ?array
     {
-        if (! DatabaseTableAvailability::has('atlas_knowledge_source_packets')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_KNOWLEDGE_SOURCE_PACKETS)) {
             return null;
         }
 
         $packet = AtlasKnowledgeSourcePacket::query()
-            ->where('id', $id)
-            ->orWhere('source_hash', AiValueNormalizer::lowerTrimmedString($id))
+            ->where(self::FIELD_ID, $id)
+            ->orWhere(self::FIELD_SOURCE_HASH, AiValueNormalizer::lowerTrimmedString($id))
             ->first();
 
         if ($packet === null) {
@@ -362,7 +423,7 @@ final class CaptureHmacLineageService
         }
 
         $lineage = AiValueNormalizer::arrayOrEmpty($packet->lineage);
-        $chain = $lineage['hmac_lineage'] ?? null;
+        $chain = $lineage[self::FIELD_HMAC_LINEAGE] ?? null;
 
         return is_array($chain) ? $chain : null;
     }
@@ -372,7 +433,7 @@ final class CaptureHmacLineageService
      */
     private function chainFromMemory(string $id): ?array
     {
-        if (! DatabaseTableAvailability::has('atlas_memory_entries')) {
+        if (! DatabaseTableAvailability::has(self::FIELD_ATLAS_MEMORY_ENTRIES)) {
             return null;
         }
 
@@ -381,7 +442,7 @@ final class CaptureHmacLineageService
             return null;
         }
 
-        $chain = data_get($entry->metadata, 'acos_max.maxi_07.capture_hmac_lineage');
+        $chain = data_get($entry->metadata, self::FIELD_ACOS_MAX_MAXI_07_CAPTURE_HMAC_LINEAGE);
 
         return is_array($chain) ? $chain : null;
     }
@@ -391,13 +452,13 @@ final class CaptureHmacLineageService
         $configured = config(self::SECRET_CONFIG_KEY);
         $configuredSecret = AiValueNormalizer::trimmedStringOrNull($configured);
         if ($configuredSecret !== null) {
-            return hash_hmac('sha256', self::KEY_MATERIAL_LABEL, $configuredSecret, true);
+            return hash_hmac(self::FIELD_SHA256, self::KEY_MATERIAL_LABEL, $configuredSecret, true);
         }
 
         $appKey = AiValueNormalizer::trimmedStringOrNull(config(self::APP_KEY_CONFIG_KEY, '')) ?? '';
 
         return hash_hmac(
-            'sha256',
+            self::FIELD_SHA256,
             self::KEY_MATERIAL_LABEL,
             $appKey !== '' ? $appKey : self::KEY_MATERIAL_FALLBACK,
             true,

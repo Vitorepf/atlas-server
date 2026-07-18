@@ -19,6 +19,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 class AtlasAaeosImplementationEvidenceResolver
 {
+    public const FIELD_MATCHED = 'matched';
+    public const FIELD_MIGRATION = 'migration';
     /**
      * Code symbol types that count as "a symbol exists" for a {kind: symbol} ref.
      *
@@ -44,6 +46,32 @@ class AtlasAaeosImplementationEvidenceResolver
     public const SIGNATURE_MATCH_TYPES = ['route', 'cli_command', 'migration_table'];
 
     public const STATUS_ACTIVE = 'active';
+    public const FIELD_SYMBOL = 'symbol';
+    public const FIELD_TEST = 'test';
+    public const FIELD_CLASS = 'class';
+    public const FIELD_METHOD = 'method';
+    public const FIELD_NAMES = 'names';
+    public const FIELD_PATHS = 'paths';
+    public const FIELD_TYPES = 'types';
+    public const FIELD_SIG = 'sig';
+    public const FIELD_COMMAND = 'command';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_RECEIPT = 'receipt';
+    public const FIELD_REF = 'ref';
+    public const FIELD_RESOLVED = 'resolved';
+    public const FIELD_ROUTE = 'route';
+    public const FIELD_TEST_METHOD = 'test_method';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_APP = 'app';
+    public const FIELD_FILE_PATH = 'file_path';
+    public const FIELD_MEMORY_LIMIT = 'memory_limit';
+    public const FIELD_SYMBOL_TYPE = 'symbol_type';
+    public const FIELD_CLI_COMMAND = 'cli_command';
+    public const FIELD_MIGRATION_TABLE = 'migration_table';
+    public const FIELD_SIGNATURE = 'signature';
+    public const FIELD_SYMBOL_NAME = 'symbol_name';
+    public const FIELD_BY_TYPE = 'byType';
+    public const FIELD_TEST_2 = 'Test';
 
     /**
      * The active Code Intelligence index, loaded ONCE per request and matched in PHP. Stored
@@ -62,11 +90,11 @@ class AtlasAaeosImplementationEvidenceResolver
      *              signature matchTyped ever reads; absent offsets are treated as '')
      * Partition views, each a list of row offsets in the DB's natural (heap) load order:
      *   - 'symbol': offsets whose type is in SYMBOL_TYPES (matchSymbol, resolveSymbolFilePaths)
-     *   - 'test':   offsets of type test_method|class      (matchTest, resolveTestFilePath)
-     *   - 'byType': [symbol_type => offsets]               (matchTyped, the FQN helpers)
+     *   - self::FIELD_TEST:   offsets of type test_method|class      (matchTest, resolveTestFilePath)
+     *   - self::FIELD_BY_TYPE: [symbol_type => offsets]               (matchTyped, the FQN helpers)
      * EVERY view preserves heap load order, and the partition predicate is exactly the
-     * symbol_type filter each matcher already applied (`whereIn('symbol_type', …)` /
-     * `where('symbol_type', …)`). So iterating a view visits precisely the rows the old per-ref
+     * symbol_type filter each matcher already applied (`whereIn(self::FIELD_SYMBOL_TYPE, …)` /
+     * `where(self::FIELD_SYMBOL_TYPE, …)`). So iterating a view visits precisely the rows the old per-ref
      * query admitted, in the same order — identical results (incl. cross-type first-match
      * selection in matchTest), just without re-scanning the ~108k-row table or re-querying per
      * ref. The old per-ref `symbol_name LIKE '%ref'` queries were a leading-wildcard seq-scan;
@@ -111,7 +139,7 @@ class AtlasAaeosImplementationEvidenceResolver
         // to the 512MB in-process floor commands already use, before the build.
         $this->ensureIndexMemoryFloor();
 
-        if (! function_exists('app') || ! app()->bound('app')) {
+        if (! function_exists(self::FIELD_APP) || ! app()->bound(self::FIELD_APP)) {
             return $this->symbolIndex = $this->buildIndex();
         }
 
@@ -138,14 +166,14 @@ class AtlasAaeosImplementationEvidenceResolver
         $floorBytes = 512 * 1024 * 1024;
         $current = $this->memoryLimitBytes();
         if ($current !== -1 && $current < $floorBytes) {
-            @ini_set('memory_limit', '512M');
+            @ini_set(self::FIELD_MEMORY_LIMIT, '512M');
         }
     }
 
     /** Current `memory_limit` in bytes; -1 means unlimited. */
     private function memoryLimitBytes(): int
     {
-        $raw = AiValueNormalizer::trimmedStringOrNull(ini_get('memory_limit')) ?? '';
+        $raw = AiValueNormalizer::trimmedStringOrNull(ini_get(self::FIELD_MEMORY_LIMIT)) ?? '';
         if ($raw === '' || $raw === '-1') {
             return -1;
         }
@@ -210,8 +238,8 @@ class AtlasAaeosImplementationEvidenceResolver
 
         $rows = AtlasEngineeringCodeSymbol::query()
             ->toBase()
-            ->where('status', self::STATUS_ACTIVE)
-            ->select(['symbol_name', 'file_path', 'signature', 'symbol_type'])
+            ->where(self::FIELD_STATUS, self::STATUS_ACTIVE)
+            ->select([self::FIELD_SYMBOL_NAME, self::FIELD_FILE_PATH, self::FIELD_SIGNATURE, self::FIELD_SYMBOL_TYPE])
             ->distinct()
             ->cursor();
 
@@ -231,7 +259,7 @@ class AtlasAaeosImplementationEvidenceResolver
             if (in_array($type, self::SYMBOL_TYPES, true)) {
                 $symbol[] = $offset;
             }
-            if ($type === 'test_method' || $type === 'class') {
+            if ($type === self::FIELD_TEST_METHOD || $type === 'class') {
                 $test[] = $offset;
             }
             // Only SIGNATURE_MATCH_TYPES rows are ever matched on their signature, so only they
@@ -244,13 +272,13 @@ class AtlasAaeosImplementationEvidenceResolver
         }
 
         return [
-            'names' => $names,
-            'paths' => $paths,
-            'types' => $types,
-            'sig' => $sig,
-            'symbol' => $symbol,
-            'test' => $test,
-            'byType' => $byType,
+            self::FIELD_NAMES => $names,
+            self::FIELD_PATHS => $paths,
+            self::FIELD_TYPES => $types,
+            self::FIELD_SIG => $sig,
+            self::FIELD_SYMBOL => $symbol,
+            self::FIELD_TEST => $test,
+            self::FIELD_BY_TYPE => $byType,
         ];
     }
 
@@ -263,20 +291,20 @@ class AtlasAaeosImplementationEvidenceResolver
         $ref = $this->evidenceRefNormalizer->ref($ref);
 
         $matched = $ref === '' ? null : match ($kind) {
-            'symbol' => $this->matchSymbol($ref),
-            'route' => $this->matchTyped('route', $ref),
-            'command' => $this->matchTyped('cli_command', $ref),
-            'test' => $this->matchTest($ref),
-            'receipt' => $this->matchReceipt($ref),
-            'migration' => $this->matchTyped('migration_table', $ref),
+            self::FIELD_SYMBOL => $this->matchSymbol($ref),
+            self::FIELD_ROUTE => $this->matchTyped(self::FIELD_ROUTE, $ref),
+            self::FIELD_COMMAND => $this->matchTyped(self::FIELD_CLI_COMMAND, $ref),
+            self::FIELD_TEST => $this->matchTest($ref),
+            self::FIELD_RECEIPT => $this->matchReceipt($ref),
+            self::FIELD_MIGRATION => $this->matchTyped(self::FIELD_MIGRATION_TABLE, $ref),
             default => null,
         };
 
         return [
-            'kind' => $kind,
-            'ref' => $ref,
-            'resolved' => $matched !== null,
-            'matched' => $matched,
+            self::FIELD_KIND => $kind,
+            self::FIELD_REF => $ref,
+            self::FIELD_RESOLVED => $matched !== null,
+            self::FIELD_MATCHED => $matched,
         ];
     }
 
@@ -289,8 +317,8 @@ class AtlasAaeosImplementationEvidenceResolver
     private function matchSymbol(string $ref): ?string
     {
         $index = $this->index();
-        $names = $index['names'];
-        foreach ($index['symbol'] as $offset) {
+        $names = $index[self::FIELD_NAMES];
+        foreach ($index[self::FIELD_SYMBOL] as $offset) {
             if ($this->symbolNameMatchesRef($names[$offset], $ref)) {
                 return $names[$offset];
             }
@@ -334,10 +362,10 @@ class AtlasAaeosImplementationEvidenceResolver
         }
 
         $index = $this->index();
-        $names = $index['names'];
-        $pathCol = $index['paths'];
+        $names = $index[self::FIELD_NAMES];
+        $pathCol = $index[self::FIELD_PATHS];
         $paths = [];
-        foreach ($index['symbol'] as $offset) {
+        foreach ($index[self::FIELD_SYMBOL] as $offset) {
             if ($names[$offset] !== $matched) {
                 continue;
             }
@@ -378,16 +406,16 @@ class AtlasAaeosImplementationEvidenceResolver
         // matching `test_method` row. First match within a group preserves value()'s
         // take-the-first-row semantics over the load-once index.
         $index = $this->index();
-        $names = $index['names'];
-        $pathCol = $index['paths'];
-        $typeCol = $index['types'];
+        $names = $index[self::FIELD_NAMES];
+        $pathCol = $index[self::FIELD_PATHS];
+        $typeCol = $index[self::FIELD_TYPES];
         $classPath = null;
         $methodPath = null;
-        foreach ($index['test'] as $offset) {
+        foreach ($index[self::FIELD_TEST] as $offset) {
             if ($pathCol[$offset] === '') {
-                continue; // mirrors whereNotNull('file_path')
+                continue; // mirrors whereNotNull(self::FIELD_FILE_PATH)
             }
-            if (! str_contains($names[$offset], $lookup) || ! str_contains($names[$offset], 'Test')) {
+            if (! str_contains($names[$offset], $lookup) || ! str_contains($names[$offset], self::FIELD_TEST_2)) {
                 continue;
             }
             if ($typeCol[$offset] === 'class') {
@@ -405,7 +433,7 @@ class AtlasAaeosImplementationEvidenceResolver
      * fully-qualified name so the PHPUnit --filter can be anchored to the DECLARED
      * class and never match a same-named method in a different class.
      *
-     * Returns the resolved ['class' => FQN, 'method' => ?string]:
+     * Returns the resolved [self::FIELD_CLASS => FQN, self::FIELD_METHOD => ?string]:
      *   - 'Class::method' -> the indexed FQ class + that method (most specific).
      *   - 'Class'         -> the indexed FQ class, method null (run the class).
      * Returns null when the ref does NOT resolve to a real indexed Class/Class::method
@@ -444,7 +472,7 @@ class AtlasAaeosImplementationEvidenceResolver
             return null;
         }
 
-        return ['class' => $fqn, 'method' => $method];
+        return [self::FIELD_CLASS => $fqn, self::FIELD_METHOD => $method];
     }
 
     /**
@@ -468,7 +496,7 @@ class AtlasAaeosImplementationEvidenceResolver
     private function matchTestClassFqn(string $classRef): ?string
     {
         $classRef = AiValueNormalizer::trimmedStringOrNull($classRef) ?? '';
-        if ($classRef === '' || ! str_contains(AiValueNormalizer::lowerTrimmedString($classRef), 'test')) {
+        if ($classRef === '' || ! str_contains(AiValueNormalizer::lowerTrimmedString($classRef), self::FIELD_TEST)) {
             return null;
         }
 
@@ -476,8 +504,8 @@ class AtlasAaeosImplementationEvidenceResolver
         // before over the class rows; the prior `LIKE '%classRef'` was a prefilter that the
         // boundary check already implies.
         $index = $this->index();
-        $names = $index['names'];
-        foreach ($index['byType']['class'] ?? [] as $offset) {
+        $names = $index[self::FIELD_NAMES];
+        foreach ($index[self::FIELD_BY_TYPE][self::FIELD_CLASS] ?? [] as $offset) {
             $name = $names[$offset];
             if ($name === $classRef || str_ends_with($name, '\\'.$classRef)) {
                 return $name;
@@ -485,7 +513,7 @@ class AtlasAaeosImplementationEvidenceResolver
         }
 
         // Fall back to the parent class of a test_method symbol carrying this class.
-        foreach ($index['byType']['test_method'] ?? [] as $offset) {
+        foreach ($index[self::FIELD_BY_TYPE][self::FIELD_TEST_METHOD] ?? [] as $offset) {
             $name = $names[$offset];
             $classOnly = str_contains($name, '::') ? substr($name, 0, (int) strrpos($name, '::')) : $name;
             if ($classOnly === $classRef || str_ends_with($classOnly, '\\'.$classRef)) {
@@ -508,9 +536,9 @@ class AtlasAaeosImplementationEvidenceResolver
         // sequence — order does not affect the answer.
         $shortClass = str_contains($classFqn, '\\') ? substr($classFqn, (int) strrpos($classFqn, '\\') + 1) : $classFqn;
         $index = $this->index();
-        $names = $index['names'];
-        foreach (['test_method', 'method'] as $type) {
-            foreach ($index['byType'][$type] ?? [] as $offset) {
+        $names = $index[self::FIELD_NAMES];
+        foreach ([self::FIELD_TEST_METHOD, self::FIELD_METHOD] as $type) {
+            foreach ($index[self::FIELD_BY_TYPE][$type] ?? [] as $offset) {
                 $name = $names[$offset];
                 if ($name === $classFqn.'::'.$method || str_ends_with($name, '\\'.$classFqn.'::'.$method)) {
                     return true;
@@ -532,9 +560,9 @@ class AtlasAaeosImplementationEvidenceResolver
     private function matchTyped(string $symbolType, string $ref): ?string
     {
         $index = $this->index();
-        $names = $index['names'];
-        $sig = $index['sig'];
-        foreach ($index['byType'][$symbolType] ?? [] as $offset) {
+        $names = $index[self::FIELD_NAMES];
+        $sig = $index[self::FIELD_SIG];
+        foreach ($index[self::FIELD_BY_TYPE][$symbolType] ?? [] as $offset) {
             if (str_contains($names[$offset], $ref) || str_contains($sig[$offset] ?? '', $ref)) {
                 return $names[$offset];
             }
@@ -555,9 +583,9 @@ class AtlasAaeosImplementationEvidenceResolver
     private function matchTest(string $ref): ?string
     {
         $index = $this->index();
-        $names = $index['names'];
-        foreach ($index['test'] as $offset) {
-            if (str_contains($names[$offset], $ref) && str_contains($names[$offset], 'Test')) {
+        $names = $index[self::FIELD_NAMES];
+        foreach ($index[self::FIELD_TEST] as $offset) {
+            if (str_contains($names[$offset], $ref) && str_contains($names[$offset], self::FIELD_TEST_2)) {
                 return $names[$offset];
             }
         }

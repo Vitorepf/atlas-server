@@ -38,7 +38,7 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasSurpriseGateService
 {
-    /** Abaixo disto o candidato é "previsto" (o pack já sabia) ⇒ não grava. */
+    /** Abaixo disto o candidato é self::FIELD_PREVISTO (o pack já sabia) ⇒ não grava. */
     public const DEFAULT_THRESHOLD = 0.5;
 
     /** Acima disto o candidato é surpresa forte ⇒ prioridade alta. */
@@ -55,6 +55,18 @@ final class AtlasSurpriseGateService
     public const HIGH_BAND_CONFIG_KEY = 'atlas.aobg.surprise_gate.high_band';
 
     public const MIN_PREDICTION_TOKENS_CONFIG_KEY = 'atlas.aobg.surprise_gate.min_prediction_tokens';
+    public const FIELD_SURPRISE = 'surprise';
+    public const FIELD_RECORD = 'record';
+    public const FIELD_PRIORITY = 'priority';
+    public const FIELD_PREDICTED = 'predicted';
+    public const FIELD_GATED = 'gated';
+    public const FIELD_NOVEL_TOKENS = 'novel_tokens';
+    public const FIELD_CANDIDATE_TOKENS = 'candidate_tokens';
+    public const FIELD_HIGH = 'high';
+    public const FIELD_LOW = 'low';
+    public const FIELD_NORMAL = 'normal';
+    public const FIELD_PREVISTO = 'previsto';
+    public const FLOAT_1_0 = 1.0;
 
     /**
      * Julga um candidato contra a predição pré-sessão.
@@ -74,13 +86,13 @@ final class AtlasSurpriseGateService
         // tudo"). Um candidato sem tokens salientes também passa livre — nada a julgar.
         if (count($predictionTokens) < $minPredictionTokens || $candidateTokens === []) {
             return [
-                'surprise' => 1.0,
-                'record' => true,
-                'priority' => 'normal',
-                'predicted' => false,
-                'gated' => false,
-                'novel_tokens' => count($candidateTokens),
-                'candidate_tokens' => count($candidateTokens),
+                self::FIELD_SURPRISE => self::FLOAT_1_0,
+                self::FIELD_RECORD => true,
+                self::FIELD_PRIORITY => self::FIELD_NORMAL,
+                self::FIELD_PREDICTED => false,
+                self::FIELD_GATED => false,
+                self::FIELD_NOVEL_TOKENS => count($candidateTokens),
+                self::FIELD_CANDIDATE_TOKENS => count($candidateTokens),
             ];
         }
 
@@ -88,16 +100,16 @@ final class AtlasSurpriseGateService
         $surprise = AiValueNormalizer::clampUnit(count($novel) / count($candidateTokens));
 
         $record = $surprise >= $threshold;
-        $priority = ! $record ? 'low' : ($surprise >= $highBand ? 'high' : 'normal');
+        $priority = ! $record ? self::FIELD_LOW : ($surprise >= $highBand ? self::FIELD_HIGH : self::FIELD_NORMAL);
 
         return [
-            'surprise' => round($surprise, 4),
-            'record' => $record,
-            'priority' => $priority,
-            'predicted' => ! $record,
-            'gated' => true,
-            'novel_tokens' => count($novel),
-            'candidate_tokens' => count($candidateTokens),
+            self::FIELD_SURPRISE => round($surprise, 4),
+            self::FIELD_RECORD => $record,
+            self::FIELD_PRIORITY => $priority,
+            self::FIELD_PREDICTED => ! $record,
+            self::FIELD_GATED => true,
+            self::FIELD_NOVEL_TOKENS => count($novel),
+            self::FIELD_CANDIDATE_TOKENS => count($candidateTokens),
         ];
     }
 
@@ -107,7 +119,7 @@ final class AtlasSurpriseGateService
      */
     public function score(string $candidate, string $prediction): float
     {
-        return AiValueNormalizer::finiteFloatOrNull($this->evaluate($candidate, $prediction)['surprise']) ?? 0.0;
+        return AiValueNormalizer::finiteFloatOrNull($this->evaluate($candidate, $prediction)[self::FIELD_SURPRISE]) ?? 0.0;
     }
 
     /**

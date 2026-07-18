@@ -21,17 +21,19 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AutonomousWorkExecutionOs
 {
+    public const FIELD_EVALUATED_AT = 'evaluated_at';
+    public const FIELD_GOAL = 'goal';
     public const SCHEMA_VERSION = 'atlas.autonomous_work_execution_os.cycle.v1';
 
     public const AUTONOMY_LEVELS = ['L0', 'L1', 'L2', 'L3', 'L4', 'L5', 'L6', 'L7'];
 
     public const CYCLE_STAGES = [
-        'goal_recorded',
-        'cycle_planned',
-        'steps_decomposed',
-        'step_executed',
-        'certification_evaluated',
-        'learning_extracted',
+        self::FIELD_GOAL_RECORDED,
+        self::FIELD_CYCLE_PLANNED,
+        self::FIELD_STEPS_DECOMPOSED,
+        self::FIELD_STEP_EXECUTED,
+        self::FIELD_CERTIFICATION_EVALUATED,
+        self::FIELD_LEARNING_EXTRACTED,
     ];
 
     public const STATUS_PENDING = 'pending';
@@ -43,6 +45,39 @@ final class AutonomousWorkExecutionOs
     public const STATUS_FAILED = 'failed';
 
     public const STATUS_SKIPPED = 'skipped';
+
+    public const FIELD_COMPLETE = 'complete';
+
+    public const FIELD_BLOCKED = 'blocked';
+    public const FIELD_NEXT_STAGE = 'next_stage';
+    public const FIELD_CERTIFICATION_BLOCKED = 'certification_blocked';
+    public const FIELD_LEARNING_BLOCKED = 'learning_blocked';
+    public const FIELD_FAILURE_STAGE = 'failure_stage';
+    public const FIELD_STAGE = 'stage';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_STAGES = 'stages';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_AUTONOMY_LEVEL = 'autonomy_level';
+    public const FIELD_BLOCKING_REASONS = 'blocking_reasons';
+    public const FIELD_OPERATOR_CONSENT_PRESENT = 'operator_consent_present';
+    public const FIELD_PRIOR_FAILURE_SIGNATURES = 'prior_failure_signatures';
+    public const FIELD_CYCLE_ID = 'cycle_id';
+    public const FIELD_GOAL_HASH = 'goal_hash';
+    public const FIELD_MAY_PROCEED = 'may_proceed';
+    public const FIELD_CYCLE_PLANNED = 'cycle_planned';
+    public const FIELD_LEARNING_EXTRACTED = 'learning_extracted';
+    public const FIELD_CERTIFICATION_EVALUATED = 'certification_evaluated';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_STEPS_DECOMPOSED = 'steps_decomposed';
+    public const FIELD_STEP_EXECUTED = 'step_executed';
+    public const FIELD_GOAL_RECORDED = 'goal_recorded';
+    public const FIELD_L6 = 'L6';
+    public const FIELD_L7 = 'L7';
+    public const FIELD_L4 = 'L4';
+    public const FIELD_L5 = 'L5';
+    public const FIELD_GOAL_TEXT_REQUIRED = 'goal text required';
+    public const FIELD_AUTONOMY_LEVEL__S_BLOCKS_WHEN_PRIOR_FAILURE_SIGNATURES_EXIST___D_FOUND_ = 'autonomy_level %s blocks when prior failure signatures exist (%d found)';
+    public const FIELD_AUTONOMY_LEVEL__S_REQUIRES_OPERATOR_CONSENT_PRESENT_TRUE = 'autonomy_level %s requires operator_consent_present=true';
 
     public const STAGE_STATUSES = [
         self::STATUS_PENDING,
@@ -74,47 +109,47 @@ final class AutonomousWorkExecutionOs
     {
         $blocking = [];
 
-        $level = AiValueNormalizer::upperTrimmedString($request['autonomy_level'] ?? '');
+        $level = AiValueNormalizer::upperTrimmedString($request[self::FIELD_AUTONOMY_LEVEL] ?? '');
         if (! in_array($level, self::AUTONOMY_LEVELS, true)) {
             $blocking[] = "invalid autonomy_level '{$level}' (must be L0..L7)";
         }
 
-        $goal = AiValueNormalizer::trimmedStringOrNull($request['goal'] ?? null) ?? '';
+        $goal = AiValueNormalizer::trimmedStringOrNull($request[self::FIELD_GOAL] ?? null) ?? '';
         if ($goal === '') {
-            $blocking[] = 'goal text required';
+            $blocking[] = self::FIELD_GOAL_TEXT_REQUIRED;
         }
 
         // L4+ requires explicit operator consent
-        $consentRequired = in_array($level, ['L4', 'L5', 'L6', 'L7'], true);
-        if ($consentRequired && ($request['operator_consent_present'] ?? null) !== true) {
-            $blocking[] = sprintf('autonomy_level %s requires operator_consent_present=true', $level);
+        $consentRequired = in_array($level, [self::FIELD_L4, self::FIELD_L5, self::FIELD_L6, self::FIELD_L7], true);
+        if ($consentRequired && ($request[self::FIELD_OPERATOR_CONSENT_PRESENT] ?? null) !== true) {
+            $blocking[] = sprintf(self::FIELD_AUTONOMY_LEVEL__S_REQUIRES_OPERATOR_CONSENT_PRESENT_TRUE, $level);
         }
 
         // L6+ requires zero prior failure signatures with same goal hash
-        $priorFailures = AiValueNormalizer::arrayOrEmpty($request['prior_failure_signatures'] ?? null);
-        if (in_array($level, ['L6', 'L7'], true) && $priorFailures !== []) {
-            $blocking[] = sprintf('autonomy_level %s blocks when prior failure signatures exist (%d found)', $level, count($priorFailures));
+        $priorFailures = AiValueNormalizer::arrayOrEmpty($request[self::FIELD_PRIOR_FAILURE_SIGNATURES] ?? null);
+        if (in_array($level, [self::FIELD_L6, self::FIELD_L7], true) && $priorFailures !== []) {
+            $blocking[] = sprintf(self::FIELD_AUTONOMY_LEVEL__S_BLOCKS_WHEN_PRIOR_FAILURE_SIGNATURES_EXIST___D_FOUND_, $level, count($priorFailures));
         }
 
         $mayProceed = $blocking === [];
 
         $stages = array_map(
             static fn (string $stage): array => [
-                'stage' => $stage,
-                'status' => self::STATUS_PENDING,
+                self::FIELD_STAGE => $stage,
+                self::FIELD_STATUS => self::STATUS_PENDING,
             ],
             self::CYCLE_STAGES,
         );
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'cycle_id' => 'cycle-'.bin2hex(random_bytes(6)),
-            'goal_hash' => hash('sha256', $goal),
-            'autonomy_level' => $level,
-            'may_proceed' => $mayProceed,
-            'blocking_reasons' => $blocking,
-            'stages' => $stages,
-            'evaluated_at' => now()->toAtomString(),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_CYCLE_ID => 'cycle-'.bin2hex(random_bytes(6)),
+            self::FIELD_GOAL_HASH => hash(self::FIELD_SHA256, $goal),
+            self::FIELD_AUTONOMY_LEVEL => $level,
+            self::FIELD_MAY_PROCEED => $mayProceed,
+            self::FIELD_BLOCKING_REASONS => $blocking,
+            self::FIELD_STAGES => $stages,
+            self::FIELD_EVALUATED_AT => now()->toAtomString(),
         ];
     }
 
@@ -133,11 +168,11 @@ final class AutonomousWorkExecutionOs
         }
 
         $stages = array_map(
-            static fn (array $s): array => $s['stage'] === $stage ? ['stage' => $stage, 'status' => $status] : $s,
-            AiValueNormalizer::arrayOrEmpty($cycle['stages'] ?? null),
+            static fn (array $s): array => $s[self::FIELD_STAGE] === $stage ? [self::FIELD_STAGE => $stage, self::FIELD_STATUS => $status] : $s,
+            AiValueNormalizer::arrayOrEmpty($cycle[self::FIELD_STAGES] ?? null),
         );
 
-        return array_merge($cycle, ['stages' => $stages]);
+        return array_merge($cycle, [self::FIELD_STAGES => $stages]);
     }
 
     /**
@@ -164,21 +199,21 @@ final class AutonomousWorkExecutionOs
     public function nextStageDecision(array $cycle): array
     {
         $statusByStage = [];
-        foreach (AiValueNormalizer::arrayOrEmpty($cycle['stages'] ?? null) as $entry) {
-            $stageKey = AiValueNormalizer::trimmedStringOrNull($entry['stage'] ?? null) ?? '';
+        foreach (AiValueNormalizer::arrayOrEmpty($cycle[self::FIELD_STAGES] ?? null) as $entry) {
+            $stageKey = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_STAGE] ?? null) ?? '';
             $statusByStage[$stageKey]
-                = AiValueNormalizer::trimmedStringOrNull($entry['status'] ?? null) ?? self::STATUS_PENDING;
+                = AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_STATUS] ?? null) ?? self::STATUS_PENDING;
         }
 
         foreach (self::CYCLE_STAGES as $stage) {
             if (($statusByStage[$stage] ?? self::STATUS_PENDING) === self::STATUS_FAILED) {
                 return [
-                    'next_stage' => null,
-                    'blocked' => true,
-                    'complete' => false,
-                    'certification_blocked' => true,
-                    'learning_blocked' => true,
-                    'failure_stage' => $stage,
+                    self::FIELD_NEXT_STAGE => null,
+                    self::FIELD_BLOCKED => true,
+                    self::FIELD_COMPLETE => false,
+                    self::FIELD_CERTIFICATION_BLOCKED => true,
+                    self::FIELD_LEARNING_BLOCKED => true,
+                    self::FIELD_FAILURE_STAGE => $stage,
                 ];
             }
         }
@@ -186,23 +221,23 @@ final class AutonomousWorkExecutionOs
         foreach (self::CYCLE_STAGES as $stage) {
             if (($statusByStage[$stage] ?? self::STATUS_PENDING) === self::STATUS_PENDING) {
                 return [
-                    'next_stage' => $stage,
-                    'blocked' => false,
-                    'complete' => false,
-                    'certification_blocked' => false,
-                    'learning_blocked' => false,
-                    'failure_stage' => null,
+                    self::FIELD_NEXT_STAGE => $stage,
+                    self::FIELD_BLOCKED => false,
+                    self::FIELD_COMPLETE => false,
+                    self::FIELD_CERTIFICATION_BLOCKED => false,
+                    self::FIELD_LEARNING_BLOCKED => false,
+                    self::FIELD_FAILURE_STAGE => null,
                 ];
             }
         }
 
         return [
-            'next_stage' => null,
-            'blocked' => false,
-            'complete' => true,
-            'certification_blocked' => false,
-            'learning_blocked' => false,
-            'failure_stage' => null,
+            self::FIELD_NEXT_STAGE => null,
+            self::FIELD_BLOCKED => false,
+            self::FIELD_COMPLETE => true,
+            self::FIELD_CERTIFICATION_BLOCKED => false,
+            self::FIELD_LEARNING_BLOCKED => false,
+            self::FIELD_FAILURE_STAGE => null,
         ];
     }
 }

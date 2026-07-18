@@ -11,6 +11,8 @@ use Throwable;
 
 final class AtlasCognitionRemintTouchedQueue
 {
+    public const FIELD_COMMAND = 'command';
+    public const FIELD_COMMAND_ARGS = 'command_args';
     public const SCHEMA_VERSION = 'atlas.cognition.remint_touched.queue_item.v1';
 
     public const ENABLED_CONFIG_KEY = 'atlas.cognition.remint_touched_enabled';
@@ -39,6 +41,20 @@ final class AtlasCognitionRemintTouchedQueue
 
     public const REASON_QUEUED = 'queued';
 
+    public const FIELD_QUEUED = 'queued';
+
+    public const FIELD_ERROR = 'error';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_MODE = 'mode';
+    public const FIELD_PATHS = 'paths';
+    public const FIELD_JSON = 'json';
+    public const FIELD_METADATA = 'metadata';
+    public const FIELD_PATH_COUNT = 'path_count';
+    public const FIELD_QUEUE_PATH = 'queue_path';
+    public const FIELD_QUEUED_AT = 'queued_at';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_TASK_PACKET_ID = 'task_packet_id';
+
     /**
      * @param  list<string>  $paths
      * @param  array<string,mixed>  $metadata
@@ -48,33 +64,33 @@ final class AtlasCognitionRemintTouchedQueue
     {
         if (! (AiValueNormalizer::boolOrNull(config(self::ENABLED_CONFIG_KEY, self::DEFAULT_ENABLED)) ?? self::DEFAULT_ENABLED)) {
             return [
-                'queued' => false,
-                'reason' => self::REASON_DISABLED,
-                'mode' => self::MODE_OFF,
+                self::FIELD_QUEUED => false,
+                self::FIELD_REASON => self::REASON_DISABLED,
+                self::FIELD_MODE => self::MODE_OFF,
             ];
         }
 
         $paths = $this->normalizePaths($paths);
         if ($paths === []) {
             return [
-                'queued' => false,
-                'reason' => self::REASON_EMPTY_PATHS,
-                'mode' => self::MODE_DEFERRED_DISK_QUEUE,
+                self::FIELD_QUEUED => false,
+                self::FIELD_REASON => self::REASON_EMPTY_PATHS,
+                self::FIELD_MODE => self::MODE_DEFERRED_DISK_QUEUE,
             ];
         }
 
         $command = 'php artisan atlas:cognition:remint-touched --paths='.implode(',', $paths).' --json';
         $payload = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'queued_at' => Carbon::now()->toIso8601String(),
-            'task_packet_id' => $taskPacketId,
-            'paths' => $paths,
-            'command' => $command,
-            'command_args' => [
-                'paths' => $paths,
-                'json' => true,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_QUEUED_AT => Carbon::now()->toIso8601String(),
+            self::FIELD_TASK_PACKET_ID => $taskPacketId,
+            self::FIELD_PATHS => $paths,
+            self::FIELD_COMMAND => $command,
+            self::FIELD_COMMAND_ARGS => [
+                self::FIELD_PATHS => $paths,
+                self::FIELD_JSON => true,
             ],
-            'metadata' => $metadata,
+            self::FIELD_METADATA => $metadata,
         ];
 
         try {
@@ -82,9 +98,9 @@ final class AtlasCognitionRemintTouchedQueue
             $path = AiValueNormalizer::trimmedStringOrNull(config(self::QUEUE_PATH_CONFIG_KEY, self::DEFAULT_QUEUE_PATH)) ?? '';
             if ($path === '') {
                 return [
-                    'queued' => false,
-                    'reason' => self::REASON_QUEUE_PATH_EMPTY,
-                    'mode' => self::MODE_DEFERRED_DISK_QUEUE,
+                    self::FIELD_QUEUED => false,
+                    self::FIELD_REASON => self::REASON_QUEUE_PATH_EMPTY,
+                    self::FIELD_MODE => self::MODE_DEFERRED_DISK_QUEUE,
                 ];
             }
             Storage::disk($disk)->append(
@@ -93,19 +109,19 @@ final class AtlasCognitionRemintTouchedQueue
             );
         } catch (Throwable $e) {
             return [
-                'queued' => false,
-                'reason' => self::REASON_QUEUE_WRITE_FAILED,
-                'mode' => self::MODE_DEFERRED_DISK_QUEUE,
-                'error' => mb_substr($e->getMessage(), 0, 200),
+                self::FIELD_QUEUED => false,
+                self::FIELD_REASON => self::REASON_QUEUE_WRITE_FAILED,
+                self::FIELD_MODE => self::MODE_DEFERRED_DISK_QUEUE,
+                self::FIELD_ERROR => mb_substr($e->getMessage(), 0, 200),
             ];
         }
 
         return [
-            'queued' => true,
-            'reason' => self::REASON_QUEUED,
-            'mode' => self::MODE_DEFERRED_DISK_QUEUE,
-            'path_count' => count($paths),
-            'queue_path' => AiValueNormalizer::trimmedStringOrNull(config(self::QUEUE_PATH_CONFIG_KEY, self::DEFAULT_QUEUE_PATH)) ?? self::DEFAULT_QUEUE_PATH,
+            self::FIELD_QUEUED => true,
+            self::FIELD_REASON => self::REASON_QUEUED,
+            self::FIELD_MODE => self::MODE_DEFERRED_DISK_QUEUE,
+            self::FIELD_PATH_COUNT => count($paths),
+            self::FIELD_QUEUE_PATH => AiValueNormalizer::trimmedStringOrNull(config(self::QUEUE_PATH_CONFIG_KEY, self::DEFAULT_QUEUE_PATH)) ?? self::DEFAULT_QUEUE_PATH,
         ];
     }
 

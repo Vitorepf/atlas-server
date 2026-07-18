@@ -40,6 +40,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasCognitiveMemoryFabricSchemaEvolutionService
 {
+    public const FIELD_FILES_MATCHING = 'files_matching';
+    public const FIELD_FILES_SCANNED = 'files_scanned';
     public const PROPOSAL_SCHEMA = 'atlas.acmf.schema_proposal.v1';
 
     public const TICKET_SCHEMA = 'atlas.acmf.schema_evolution_ticket.v1';
@@ -57,6 +59,49 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     ];
 
     public const EXTENSION_PRESSURE_THRESHOLD = 4;
+    public const FIELD_CHANGE_KIND = 'change_kind';
+    public const FIELD_PROPOSED_EFFECT = 'proposed_effect';
+    public const FIELD_SCOPE = 'scope';
+    public const FIELD_PRIVACY_CLASS = 'privacy_class';
+    public const FIELD_ACTOR = 'actor';
+    public const FIELD_CURRENT_SCHEMA = 'current_schema';
+    public const FIELD_PROPOSED_NEXT_SCHEMA = 'proposed_next_schema';
+    public const FIELD_KERNEL_DECISION = 'kernel_decision';
+    public const FIELD_ADDED_FIELDS = 'added_fields';
+    public const FIELD_DEPRECATED_FIELDS = 'deprecated_fields';
+    public const FIELD_TRIGGER = 'trigger';
+    public const FIELD_RATIONALE = 'rationale';
+    public const FIELD_SCHEMA = 'schema';
+    public const FIELD_DECISION = 'decision';
+    public const FIELD_REQUESTED_AUTONOMY = 'requested_autonomy';
+    public const FIELD_PROPOSAL_ID = 'proposal_id';
+    public const FIELD_DOC_SKELETON = 'doc_skeleton';
+    public const FIELD_ADMISSION_DECISION = 'admission_decision';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_IS_PROPOSAL = 'is_proposal';
+    public const FIELD_PRESSURE_DETECTED = 'pressure_detected';
+    public const FIELD_PROPOSAL_HASH = 'proposal_hash';
+    public const FIELD_REFERENCE_COUNT = 'reference_count';
+    public const FIELD_REQUIRES_HUMAN_APPROVAL = 'requires_human_approval';
+    public const FIELD_SCAN_HASH = 'scan_hash';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_THRESHOLD = 'threshold';
+    public const FIELD_NORMAL = 'normal';
+    public const FIELD_SCHEMA_EVOLUTION = 'schema_evolution';
+    public const FIELD_EXECUTE_WITH_APPROVAL = 'execute_with_approval';
+    public const FIELD_PHP = 'php';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_BASE_PATH = 'base_path';
+    public const FIELD_APP = 'app';
+    public const FIELD_NOW = 'now';
+    public const FIELD_STORAGE_PATH = 'storage_path';
+    public const FIELD_ACMF_ = 'acmf_';
+    public const FIELD_ACMF = 'ACMF';
+    public const FIELD_UTC = 'UTC';
+    public const FIELD_SCHEMA_PROPOSALS_JSONL = 'schema_proposals.jsonl';
+    public const FIELD_ATLAS_ACMF = 'atlas/acmf';
+    public const FIELD_OPERATOR_SUPPLIED_SCHEMA_EVOLUTION_ = 'Operator-supplied schema evolution.';
+    public const FIELD_OPERATOR_DRIVEN__ACMF_DOES_NOT_AUTO_APPLY_SCHEMA_MIGRATIONS_ = 'Operator-driven. ACMF does not auto-apply schema migrations.';
 
     private ?string $proposalsLogOverride = null;
 
@@ -75,11 +120,11 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         if ($this->proposalsLogOverride !== null) {
             return $this->proposalsLogOverride;
         }
-        $base = function_exists('storage_path')
-            ? storage_path('atlas/acmf')
+        $base = function_exists(self::FIELD_STORAGE_PATH)
+            ? storage_path(self::FIELD_ATLAS_ACMF)
             : sys_get_temp_dir().'/atlas/acmf';
 
-        return $base.DIRECTORY_SEPARATOR.'schema_proposals.jsonl';
+        return $base.DIRECTORY_SEPARATOR.self::FIELD_SCHEMA_PROPOSALS_JSONL;
     }
 
     /**
@@ -90,64 +135,64 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
      */
     public function propose(array $input): array
     {
-        $currentSchema = (AiValueNormalizer::trimmedStringOrNull($input['current_schema'] ?? null) ?? '');
+        $currentSchema = (AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_CURRENT_SCHEMA] ?? null) ?? '');
         if ($currentSchema === '' || ! preg_match('/^atlas\.[a-z0-9_\.]+\.v\d+$/', $currentSchema)) {
             throw new InvalidArgumentException("current_schema must match 'atlas.*.v<n>' canon (got '{$currentSchema}').");
         }
-        $trigger = AiValueNormalizer::trimmedStringOrNull($input['trigger'] ?? null) ?? self::TRIGGER_OPERATOR;
+        $trigger = AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_TRIGGER] ?? null) ?? self::TRIGGER_OPERATOR;
         if (! in_array($trigger, self::VALID_TRIGGERS, true)) {
             throw new InvalidArgumentException("Unknown trigger '{$trigger}'.");
         }
-        $rationale = (AiValueNormalizer::trimmedStringOrNull($input['rationale'] ?? null) ?? 'Operator-supplied schema evolution.');
-        $addedFields = array_values(AiValueNormalizer::arrayOrEmpty($input['added_fields'] ?? null));
-        $deprecatedFields = array_values(AiValueNormalizer::arrayOrEmpty($input['deprecated_fields'] ?? null));
-        $actor = (AiValueNormalizer::trimmedStringOrNull($input['actor'] ?? null) ?? 'ACMF');
+        $rationale = (AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_RATIONALE] ?? null) ?? self::FIELD_OPERATOR_SUPPLIED_SCHEMA_EVOLUTION_);
+        $addedFields = array_values(AiValueNormalizer::arrayOrEmpty($input[self::FIELD_ADDED_FIELDS] ?? null));
+        $deprecatedFields = array_values(AiValueNormalizer::arrayOrEmpty($input[self::FIELD_DEPRECATED_FIELDS] ?? null));
+        $actor = (AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_ACTOR] ?? null) ?? self::FIELD_ACMF);
 
         $nextSchema = $this->bumpVersion($currentSchema);
 
         // Constitutional Kernel gate.
         $kernelEnv = $this->kernel->validateChange([
-            'change_kind' => 'schema_evolution',
-            'proposed_effect' => "propose evolution {$currentSchema} -> {$nextSchema} (trigger={$trigger})",
-            'scope' => ['privacy_class' => 'normal'],
-            'actor' => $actor,
+            self::FIELD_CHANGE_KIND => self::FIELD_SCHEMA_EVOLUTION,
+            self::FIELD_PROPOSED_EFFECT => "propose evolution {$currentSchema} -> {$nextSchema} (trigger={$trigger})",
+            self::FIELD_SCOPE => [self::FIELD_PRIVACY_CLASS => self::FIELD_NORMAL],
+            self::FIELD_ACTOR => $actor,
         ]);
 
         // Autonomy admission.
         $admissionEnv = $this->admission->admit([
-            'change_kind' => 'schema_evolution',
-            'proposed_effect' => "propose evolution {$currentSchema} -> {$nextSchema}",
-            'scope' => ['privacy_class' => 'normal'],
-            'actor' => $actor,
-            'requested_autonomy' => 'execute_with_approval',
+            self::FIELD_CHANGE_KIND => self::FIELD_SCHEMA_EVOLUTION,
+            self::FIELD_PROPOSED_EFFECT => "propose evolution {$currentSchema} -> {$nextSchema}",
+            self::FIELD_SCOPE => [self::FIELD_PRIVACY_CLASS => self::FIELD_NORMAL],
+            self::FIELD_ACTOR => $actor,
+            self::FIELD_REQUESTED_AUTONOMY => self::FIELD_EXECUTE_WITH_APPROVAL,
         ]);
 
-        $proposalId = 'acmf_'.substr(hash('sha256', $currentSchema.'|'.$nextSchema.'|'.$trigger), 0, 12);
-        $generatedAt = (new DateTimeImmutable('now', new DateTimeZone('UTC')))->format(DateTimeInterface::ATOM);
+        $proposalId = self::FIELD_ACMF_.substr(hash(self::FIELD_SHA256, $currentSchema.'|'.$nextSchema.'|'.$trigger), 0, 12);
+        $generatedAt = (new DateTimeImmutable(self::FIELD_NOW, new DateTimeZone(self::FIELD_UTC)))->format(DateTimeInterface::ATOM);
 
         $proposal = [
-            'schema_version' => self::PROPOSAL_SCHEMA,
-            'proposal_id' => $proposalId,
-            'generated_at' => $generatedAt,
-            'current_schema' => $currentSchema,
-            'proposed_next_schema' => $nextSchema,
-            'trigger' => $trigger,
-            'rationale' => $rationale,
-            'added_fields' => $addedFields,
-            'deprecated_fields' => $deprecatedFields,
-            'doc_skeleton' => $this->docSkeleton($currentSchema, $nextSchema, $addedFields, $deprecatedFields),
-            'kernel_decision' => $kernelEnv['decision'],
-            'admission_decision' => $admissionEnv['decision'],
-            'requires_human_approval' => true,
-            'is_proposal' => true,
+            self::FIELD_SCHEMA_VERSION => self::PROPOSAL_SCHEMA,
+            self::FIELD_PROPOSAL_ID => $proposalId,
+            self::FIELD_GENERATED_AT => $generatedAt,
+            self::FIELD_CURRENT_SCHEMA => $currentSchema,
+            self::FIELD_PROPOSED_NEXT_SCHEMA => $nextSchema,
+            self::FIELD_TRIGGER => $trigger,
+            self::FIELD_RATIONALE => $rationale,
+            self::FIELD_ADDED_FIELDS => $addedFields,
+            self::FIELD_DEPRECATED_FIELDS => $deprecatedFields,
+            self::FIELD_DOC_SKELETON => $this->docSkeleton($currentSchema, $nextSchema, $addedFields, $deprecatedFields),
+            self::FIELD_KERNEL_DECISION => $kernelEnv[self::FIELD_DECISION],
+            self::FIELD_ADMISSION_DECISION => $admissionEnv[self::FIELD_DECISION],
+            self::FIELD_REQUIRES_HUMAN_APPROVAL => true,
+            self::FIELD_IS_PROPOSAL => true,
         ];
-        $proposal['proposal_hash'] = 'sha256:'.hash('sha256', json_encode([
-            'schema' => self::PROPOSAL_SCHEMA,
-            'current_schema' => $currentSchema,
-            'proposed_next_schema' => $nextSchema,
-            'added_fields' => $addedFields,
-            'deprecated_fields' => $deprecatedFields,
-            'kernel_decision' => $proposal['kernel_decision'],
+        $proposal[self::FIELD_PROPOSAL_HASH] = 'sha256:'.hash(self::FIELD_SHA256, json_encode([
+            self::FIELD_SCHEMA => self::PROPOSAL_SCHEMA,
+            self::FIELD_CURRENT_SCHEMA => $currentSchema,
+            self::FIELD_PROPOSED_NEXT_SCHEMA => $nextSchema,
+            self::FIELD_ADDED_FIELDS => $addedFields,
+            self::FIELD_DEPRECATED_FIELDS => $deprecatedFields,
+            self::FIELD_KERNEL_DECISION => $proposal[self::FIELD_KERNEL_DECISION],
         ], JSON_THROW_ON_ERROR));
 
         AppendOnlyJsonlStore::append($this->proposalsLogPath(), $proposal);
@@ -172,7 +217,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
      */
     public function detectExtensionPressure(string $schema, ?string $rootDir = null): array
     {
-        $rootDir ??= defined('base_path') && function_exists('base_path') ? base_path('app') : __DIR__.'/../../../..';
+        $rootDir ??= defined(self::FIELD_BASE_PATH) && function_exists(self::FIELD_BASE_PATH) ? base_path(self::FIELD_APP) : __DIR__.'/../../../..';
         $rootDir = rtrim((string) realpath($rootDir), '/\\').DIRECTORY_SEPARATOR;
 
         $threshold = self::EXTENSION_PRESSURE_THRESHOLD;
@@ -186,7 +231,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
 
         foreach ($it as $splFileInfo) {
             /** @var \SplFileInfo $splFileInfo */
-            if ($splFileInfo->getExtension() !== 'php') {
+            if ($splFileInfo->getExtension() !== self::FIELD_PHP) {
                 continue;
             }
             $realPath = $splFileInfo->getRealPath();
@@ -203,16 +248,16 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
 
         sort($matched, SORT_STRING);
         $referenceCount = count($matched);
-        $scanHash = hash('sha256', implode("\n", $matched));
+        $scanHash = hash(self::FIELD_SHA256, implode("\n", $matched));
 
         return [
-            'schema' => $schema,
-            'reference_count' => $referenceCount,
-            'files_matching' => $matched,
-            'files_scanned' => $scanned,
-            'threshold' => $threshold,
-            'pressure_detected' => $referenceCount > $threshold,
-            'scan_hash' => $scanHash,
+            self::FIELD_SCHEMA => $schema,
+            self::FIELD_REFERENCE_COUNT => $referenceCount,
+            self::FIELD_FILES_MATCHING => $matched,
+            self::FIELD_FILES_SCANNED => $scanned,
+            self::FIELD_THRESHOLD => $threshold,
+            self::FIELD_PRESSURE_DETECTED => $referenceCount > $threshold,
+            self::FIELD_SCAN_HASH => $scanHash,
         ];
     }
 
@@ -250,7 +295,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
         }
         $lines[] = '';
         $lines[] = '## Migration';
-        $lines[] = 'Operator-driven. ACMF does not auto-apply schema migrations.';
+        $lines[] = self::FIELD_OPERATOR_DRIVEN__ACMF_DOES_NOT_AUTO_APPLY_SCHEMA_MIGRATIONS_;
 
         return implode("\n", $lines);
     }

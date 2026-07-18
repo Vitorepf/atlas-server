@@ -15,12 +15,22 @@ use App\Services\Ai\Support\AiValueNormalizer;
 final class ImmuneSignatureDeriver
 {
     public const SCHEMA_VERSION = 'atlas.cognition.immune_signature_family.v1';
+    public const FIELD_CONTENT_HASH = 'content_hash';
+    public const FIELD_MARKER_CENTROID = 'marker_centroid';
+    public const FIELD_SIGNATURE = 'signature';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_FAMILY = 'family';
+    public const FIELD_HOSTILE_CLASS = 'hostile_class';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_PRIVATE_SENSITIVE = 'private_sensitive';
+    public const FIELD_UNTRUSTED_CONTENT = 'untrusted_content';
+    public const FIELD_PROMPT_INJECTION = 'prompt_injection';
 
     /** @var list<string> */
     public const HOSTILE_CLASSES = [
-        'prompt_injection',
-        'private_sensitive',
-        'untrusted_content',
+        self::FIELD_PROMPT_INJECTION,
+        self::FIELD_PRIVATE_SENSITIVE,
+        self::FIELD_UNTRUSTED_CONTENT,
     ];
 
     /**
@@ -30,21 +40,21 @@ final class ImmuneSignatureDeriver
     public function derive(string $contentHash, string $hostileClass, array $matchedSignals): array
     {
         $family = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'content_hash' => $this->normalizeHash($contentHash),
-            'marker_centroid' => $this->markerCentroid($matchedSignals),
-            'hostile_class' => $this->normalizeClass($hostileClass),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_CONTENT_HASH => $this->normalizeHash($contentHash),
+            self::FIELD_MARKER_CENTROID => $this->markerCentroid($matchedSignals),
+            self::FIELD_HOSTILE_CLASS => $this->normalizeClass($hostileClass),
         ];
 
         return [
-            'signature' => hash('sha256', json_encode($family, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
-            'family' => $family,
+            self::FIELD_SIGNATURE => hash(self::FIELD_SHA256, json_encode($family, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES)),
+            self::FIELD_FAMILY => $family,
         ];
     }
 
     public function contentHashFromText(string $text): string
     {
-        return hash('sha256', $text);
+        return hash(self::FIELD_SHA256, $text);
     }
 
     /**
@@ -54,7 +64,7 @@ final class ImmuneSignatureDeriver
     {
         $signals = $this->normalizeSignals($matchedSignals);
 
-        return hash('sha256', implode('|', $signals));
+        return hash(self::FIELD_SHA256, implode('|', $signals));
     }
 
     /**
@@ -83,7 +93,7 @@ final class ImmuneSignatureDeriver
 
         return preg_match('/^[a-f0-9]{64}$/', $contentHash) === 1
             ? $contentHash
-            : hash('sha256', $contentHash);
+            : hash(self::FIELD_SHA256, $contentHash);
     }
 
     public function normalizeClass(string $hostileClass): string
@@ -92,6 +102,6 @@ final class ImmuneSignatureDeriver
 
         return in_array($hostileClass, self::HOSTILE_CLASSES, true)
             ? $hostileClass
-            : 'untrusted_content';
+            : self::FIELD_UNTRUSTED_CONTENT;
     }
 }

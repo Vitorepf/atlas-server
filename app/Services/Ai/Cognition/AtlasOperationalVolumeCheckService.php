@@ -26,6 +26,8 @@ use Throwable;
  */
 final class AtlasOperationalVolumeCheckService
 {
+    public const FIELD_DEV = 'dev';
+    public const FIELD_FORGE = 'forge';
     public const SCHEMA_VERSION = 'atlas.acos.operational_volume.v1';
 
     /** @var int PIN — ≥3 Dev runs per business day (plan VOL-01). */
@@ -41,12 +43,43 @@ final class AtlasOperationalVolumeCheckService
     public const STATUS_SKIPPED = 'skipped';
 
     public const STATUS_ALERT = 'alert';
+    public const FIELD_AVAILABLE = 'available';
+    public const FIELD_COUNT = 'count';
+    public const FIELD_SOURCES = 'sources';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_OK = 'ok';
+    public const FIELD_VOLUME = 'volume';
+    public const FIELD_THRESHOLD = 'threshold';
+    public const FIELD_END = 'end';
+    public const FIELD_LABEL = 'label';
+    public const FIELD_START = 'start';
+    public const FIELD_ALERT_CODE = 'alert_code';
+    public const FIELD_DEV_RUNS_PER_BUSINESS_DAY_MIN = 'dev_runs_per_business_day_min';
 
     /** @var list<string> */
     public const DEV_FLOW_IDS = ['atlas_dev', 'atlas.dev', 'engineering.dev'];
 
     /** @var list<string> */
     public const FORGE_FLOW_IDS = ['atlas_forge', 'engineering.forge'];
+    public const FIELD_CHECKED_AT = 'checked_at';
+    public const FIELD_THRESHOLDS = 'thresholds';
+    public const FIELD_FORGE_CYCLES_PER_WEEK_MIN = 'forge_cycles_per_week_min';
+    public const FIELD_ID = 'id';
+    public const FIELD_NOTE = 'note';
+    public const FIELD_PREREQUISITES = 'prerequisites';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_WINDOWS = 'windows';
+    public const FIELD_AI_RUN_OUTCOMES = 'ai_run_outcomes';
+    public const FIELD_ATLAS_AEMOR_EXECUTION_EPISODES = 'atlas_aemor_execution_episodes';
+    public const FIELD_CREATED_AT = 'created_at';
+    public const FIELD_FLOW_ID = 'flow_id';
+    public const FIELD_AI_FORGE_WORK_PACKET_EXECUTION_CYCLES = 'ai_forge_work_packet_execution_cycles';
+    public const FIELD_JANELA_FAMINTA = 'janela_faminta';
+    public const FIELD_NAMED_PREREQUISITE = 'named_prerequisite';
+    public const FIELD_PREVIOUS_BUSINESS_DAY = 'previous_business_day';
+    public const FIELD_ROLLING_7D_ENDING_YESTERDAY = 'rolling_7d_ending_yesterday';
+    public const FIELD_HERMES_TRANSPORT_MAY_DROP_FINAL_STDOUT_CHUNKS__AUT_NOMOS_BRAIN_WRITER_VOLUME_CAN_READ_FALSELY_LOW_UNTIL_RESOLVED_UPSTREAM_ = 'Hermes transport may drop final stdout chunks; Autônomos/brain-writer volume can read falsely low until resolved upstream.';
 
     /**
      * @return array<string,mixed>
@@ -64,54 +97,54 @@ final class AtlasOperationalVolumeCheckService
         $devCount = $this->countDevRuns($devWindowStart, $devWindowEnd);
         $forgeCount = $this->countForgeCycles($forgeWindowStart, $forgeWindowEnd);
 
-        $devAlert = $devCount['available'] && $devCount['count'] < self::DEV_RUNS_PER_BUSINESS_DAY_MIN;
-        $forgeAlert = $forgeCount['available'] && $forgeCount['count'] < self::FORGE_CYCLES_PER_WEEK_MIN;
+        $devAlert = $devCount[self::FIELD_AVAILABLE] && $devCount[self::FIELD_COUNT] < self::DEV_RUNS_PER_BUSINESS_DAY_MIN;
+        $forgeAlert = $forgeCount[self::FIELD_AVAILABLE] && $forgeCount[self::FIELD_COUNT] < self::FORGE_CYCLES_PER_WEEK_MIN;
         $alert = $devAlert || $forgeAlert;
 
         $status = self::STATUS_HEALTHY;
-        if (! $devCount['available'] && ! $forgeCount['available']) {
+        if (! $devCount[self::FIELD_AVAILABLE] && ! $forgeCount[self::FIELD_AVAILABLE]) {
             $status = self::STATUS_SKIPPED;
         } elseif ($alert) {
             $status = self::STATUS_ALERT;
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'checked_at' => $asOf->toIso8601String(),
-            'status' => $status,
-            'alert' => $alert,
-            'alert_code' => $alert ? 'janela_faminta' : null,
-            'thresholds' => [
-                'dev_runs_per_business_day_min' => self::DEV_RUNS_PER_BUSINESS_DAY_MIN,
-                'forge_cycles_per_week_min' => self::FORGE_CYCLES_PER_WEEK_MIN,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_CHECKED_AT => $asOf->toIso8601String(),
+            self::FIELD_STATUS => $status,
+            self::STATUS_ALERT => $alert,
+            self::FIELD_ALERT_CODE => $alert ? self::FIELD_JANELA_FAMINTA : null,
+            self::FIELD_THRESHOLDS => [
+                self::FIELD_DEV_RUNS_PER_BUSINESS_DAY_MIN => self::DEV_RUNS_PER_BUSINESS_DAY_MIN,
+                self::FIELD_FORGE_CYCLES_PER_WEEK_MIN => self::FORGE_CYCLES_PER_WEEK_MIN,
             ],
-            'prerequisites' => [
+            self::FIELD_PREREQUISITES => [
                 [
-                    'id' => self::PREREQUISITE_GAP_HERMES_01,
-                    'status' => 'named_prerequisite',
-                    'note' => 'Hermes transport may drop final stdout chunks; Autônomos/brain-writer volume can read falsely low until resolved upstream.',
+                    self::FIELD_ID => self::PREREQUISITE_GAP_HERMES_01,
+                    self::FIELD_STATUS => self::FIELD_NAMED_PREREQUISITE,
+                    self::FIELD_NOTE => self::FIELD_HERMES_TRANSPORT_MAY_DROP_FINAL_STDOUT_CHUNKS__AUT_NOMOS_BRAIN_WRITER_VOLUME_CAN_READ_FALSELY_LOW_UNTIL_RESOLVED_UPSTREAM_,
                 ],
             ],
-            'windows' => [
-                'dev' => [
-                    'label' => 'previous_business_day',
-                    'start' => $devWindowStart->toIso8601String(),
-                    'end' => $devWindowEnd->toIso8601String(),
-                    'count' => $devCount['count'],
-                    'threshold' => self::DEV_RUNS_PER_BUSINESS_DAY_MIN,
-                    'available' => $devCount['available'],
-                    'sources' => $devCount['sources'],
-                    'alert' => $devAlert,
+            self::FIELD_WINDOWS => [
+                self::FIELD_DEV => [
+                    self::FIELD_LABEL => self::FIELD_PREVIOUS_BUSINESS_DAY,
+                    self::FIELD_START => $devWindowStart->toIso8601String(),
+                    self::FIELD_END => $devWindowEnd->toIso8601String(),
+                    self::FIELD_COUNT => $devCount[self::FIELD_COUNT],
+                    self::FIELD_THRESHOLD => self::DEV_RUNS_PER_BUSINESS_DAY_MIN,
+                    self::FIELD_AVAILABLE => $devCount[self::FIELD_AVAILABLE],
+                    self::FIELD_SOURCES => $devCount[self::FIELD_SOURCES],
+                    self::STATUS_ALERT => $devAlert,
                 ],
-                'forge' => [
-                    'label' => 'rolling_7d_ending_yesterday',
-                    'start' => $forgeWindowStart->toIso8601String(),
-                    'end' => $forgeWindowEnd->toIso8601String(),
-                    'count' => $forgeCount['count'],
-                    'threshold' => self::FORGE_CYCLES_PER_WEEK_MIN,
-                    'available' => $forgeCount['available'],
-                    'sources' => $forgeCount['sources'],
-                    'alert' => $forgeAlert,
+                self::FIELD_FORGE => [
+                    self::FIELD_LABEL => self::FIELD_ROLLING_7D_ENDING_YESTERDAY,
+                    self::FIELD_START => $forgeWindowStart->toIso8601String(),
+                    self::FIELD_END => $forgeWindowEnd->toIso8601String(),
+                    self::FIELD_COUNT => $forgeCount[self::FIELD_COUNT],
+                    self::FIELD_THRESHOLD => self::FORGE_CYCLES_PER_WEEK_MIN,
+                    self::FIELD_AVAILABLE => $forgeCount[self::FIELD_AVAILABLE],
+                    self::FIELD_SOURCES => $forgeCount[self::FIELD_SOURCES],
+                    self::STATUS_ALERT => $forgeAlert,
                 ],
             ],
         ];
@@ -136,28 +169,28 @@ final class AtlasOperationalVolumeCheckService
         $total = 0;
         $available = false;
 
-        if (DatabaseTableAvailability::has('ai_run_outcomes')) {
+        if (DatabaseTableAvailability::has(self::FIELD_AI_RUN_OUTCOMES)) {
             $available = true;
-            $sources[] = 'ai_run_outcomes';
+            $sources[] = self::FIELD_AI_RUN_OUTCOMES;
             $total += (int) AiRunOutcome::query()
-                ->whereIn('flow_id', self::DEV_FLOW_IDS)
-                ->whereBetween('created_at', [$start, $end])
+                ->whereIn(self::FIELD_FLOW_ID, self::DEV_FLOW_IDS)
+                ->whereBetween(self::FIELD_CREATED_AT, [$start, $end])
                 ->count();
         }
 
-        if (DatabaseTableAvailability::has('atlas_aemor_execution_episodes')) {
+        if (DatabaseTableAvailability::has(self::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES)) {
             $available = true;
-            $sources[] = 'atlas_aemor_execution_episodes';
+            $sources[] = self::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES;
             $total += (int) AtlasAemorExecutionEpisode::query()
-                ->whereIn('flow_id', self::DEV_FLOW_IDS)
-                ->whereBetween('created_at', [$start, $end])
+                ->whereIn(self::FIELD_FLOW_ID, self::DEV_FLOW_IDS)
+                ->whereBetween(self::FIELD_CREATED_AT, [$start, $end])
                 ->count();
         }
 
         return [
-            'count' => $total,
-            'available' => $available,
-            'sources' => $sources,
+            self::FIELD_COUNT => $total,
+            self::FIELD_AVAILABLE => $available,
+            self::FIELD_SOURCES => $sources,
         ];
     }
 
@@ -170,44 +203,44 @@ final class AtlasOperationalVolumeCheckService
         $total = 0;
         $available = false;
 
-        if (DatabaseTableAvailability::has('ai_forge_work_packet_execution_cycles')) {
+        if (DatabaseTableAvailability::has(self::FIELD_AI_FORGE_WORK_PACKET_EXECUTION_CYCLES)) {
             $available = true;
-            $sources[] = 'ai_forge_work_packet_execution_cycles';
+            $sources[] = self::FIELD_AI_FORGE_WORK_PACKET_EXECUTION_CYCLES;
             try {
                 $total += (int) AiForgeWorkPacketExecutionCycle::query()
-                    ->whereBetween('created_at', [$start, $end])
+                    ->whereBetween(self::FIELD_CREATED_AT, [$start, $end])
                     ->count();
             } catch (Throwable) {
                 // fail-open: table declared but unreadable
             }
         }
 
-        if (DatabaseTableAvailability::has('ai_run_outcomes')) {
+        if (DatabaseTableAvailability::has(self::FIELD_AI_RUN_OUTCOMES)) {
             $available = true;
-            if (! in_array('ai_run_outcomes', $sources, true)) {
-                $sources[] = 'ai_run_outcomes';
+            if (! in_array(self::FIELD_AI_RUN_OUTCOMES, $sources, true)) {
+                $sources[] = self::FIELD_AI_RUN_OUTCOMES;
             }
             $total += (int) AiRunOutcome::query()
-                ->whereIn('flow_id', self::FORGE_FLOW_IDS)
-                ->whereBetween('created_at', [$start, $end])
+                ->whereIn(self::FIELD_FLOW_ID, self::FORGE_FLOW_IDS)
+                ->whereBetween(self::FIELD_CREATED_AT, [$start, $end])
                 ->count();
         }
 
-        if (DatabaseTableAvailability::has('atlas_aemor_execution_episodes')) {
+        if (DatabaseTableAvailability::has(self::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES)) {
             $available = true;
-            if (! in_array('atlas_aemor_execution_episodes', $sources, true)) {
-                $sources[] = 'atlas_aemor_execution_episodes';
+            if (! in_array(self::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES, $sources, true)) {
+                $sources[] = self::FIELD_ATLAS_AEMOR_EXECUTION_EPISODES;
             }
             $total += (int) AtlasAemorExecutionEpisode::query()
-                ->whereIn('flow_id', self::FORGE_FLOW_IDS)
-                ->whereBetween('created_at', [$start, $end])
+                ->whereIn(self::FIELD_FLOW_ID, self::FORGE_FLOW_IDS)
+                ->whereBetween(self::FIELD_CREATED_AT, [$start, $end])
                 ->count();
         }
 
         return [
-            'count' => $total,
-            'available' => $available,
-            'sources' => $sources,
+            self::FIELD_COUNT => $total,
+            self::FIELD_AVAILABLE => $available,
+            self::FIELD_SOURCES => $sources,
         ];
     }
 }

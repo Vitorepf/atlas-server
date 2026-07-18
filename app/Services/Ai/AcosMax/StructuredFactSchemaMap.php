@@ -10,11 +10,38 @@ final class StructuredFactSchemaMap
 {
     public const SCHEMA_VERSION = 'atlas.memory.structured_facts.v1';
 
+    public const STATUS_UNSCHEMATIZED = 'unschematized';
+
+    public const STATUS_VALID = 'valid';
+
+    public const STATUS_MISSING_FIELDS = 'missing_fields';
+
+    public const FIELD_MISSING = 'missing';
+
+    public const FIELD_VALID = 'valid';
+    public const FIELD_FAIL_OPEN_ENTRY_ALLOWED = 'fail_open_entry_allowed';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_DECISION = 'decision';
+    public const FIELD_GOTCHA = 'gotcha';
+    public const FIELD_HARNESS_LEARNING = 'harness_learning';
+    public const FIELD_LLM_EXTRACTION_HOT_PATH = 'llm_extraction_hot_path';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_REQUIRED_ON_WRITE = 'required_on_write';
+    public const FIELD_CAUSA = 'causa';
+    public const FIELD_ALTERNATIVAS = 'alternativas';
+    public const FIELD_FIX = 'fix';
+    public const FIELD_PORQUE = 'porque';
+    public const FIELD_SINTOMA = 'sintoma';
+    public const FIELD_VERSAO = 'versao';
+    public const FIELD_CONTEXTO = 'contexto';
+    public const FIELD_EXPIRY = 'expiry';
+
     /** @var array<string,list<string>> */
     public const REQUIRED = [
-        'decision' => ['contexto', 'alternativas', 'porque', 'expiry'],
-        'harness_learning' => ['sintoma', 'causa', 'fix', 'versao'],
-        'gotcha' => ['sintoma', 'causa', 'fix', 'versao'],
+        self::FIELD_DECISION => [self::FIELD_CONTEXTO, self::FIELD_ALTERNATIVAS, self::FIELD_PORQUE, self::FIELD_EXPIRY],
+        self::FIELD_HARNESS_LEARNING => [self::FIELD_SINTOMA, self::FIELD_CAUSA, self::FIELD_FIX, self::FIELD_VERSAO],
+        self::FIELD_GOTCHA => [self::FIELD_SINTOMA, self::FIELD_CAUSA, self::FIELD_FIX, self::FIELD_VERSAO],
     ];
 
     /**
@@ -26,11 +53,11 @@ final class StructuredFactSchemaMap
         $required = self::REQUIRED[$memoryType] ?? null;
         if ($required === null) {
             return [
-                'schema_version' => self::SCHEMA_VERSION,
-                'status' => 'unschematized',
-                'valid' => true,
-                'missing' => [],
-                'fail_open_entry_allowed' => true,
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+                self::FIELD_STATUS => self::STATUS_UNSCHEMATIZED,
+                self::FIELD_VALID => true,
+                self::FIELD_MISSING => [],
+                self::FIELD_FAIL_OPEN_ENTRY_ALLOWED => true,
             ];
         }
 
@@ -40,14 +67,14 @@ final class StructuredFactSchemaMap
         ));
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => $missing === [] ? 'valid' : 'missing_fields',
-            'valid' => $missing === [],
-            'missing' => $missing,
-            'fail_open_entry_allowed' => true,
-            'source' => [
-                'required_on_write' => false,
-                'llm_extraction_hot_path' => false,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_STATUS => $missing === [] ? self::STATUS_VALID : self::STATUS_MISSING_FIELDS,
+            self::FIELD_VALID => $missing === [],
+            self::FIELD_MISSING => $missing,
+            self::FIELD_FAIL_OPEN_ENTRY_ALLOWED => true,
+            self::FIELD_SOURCE => [
+                self::FIELD_REQUIRED_ON_WRITE => false,
+                self::FIELD_LLM_EXTRACTION_HOT_PATH => false,
             ],
         ];
     }

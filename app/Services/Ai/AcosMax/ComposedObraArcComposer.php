@@ -16,6 +16,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class ComposedObraArcComposer
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_NEIGHBOR_BASIS = 'neighbor_basis';
     public const SCHEMA_VERSION = 'atlas.originator.composed_obra_arc.v1';
 
     public const MIN_NEIGHBOR_CANDIDATES = 3;
@@ -26,6 +28,81 @@ final class ComposedObraArcComposer
 
     public const DEFAULT_JUDGE_ENGINE_ID = 'codex-independent-multn1702-judge';
 
+    public const FIELD_ENABLED = 'enabled';
+    public const FIELD_TARGET_PATH = 'target_path';
+    public const FIELD_ORGAN_CLASS = 'organ_class';
+    public const FIELD_LEVERAGE = 'leverage';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_ARC_ID = 'arc_id';
+    public const FIELD_OK = 'ok';
+    public const FIELD_CANDIDATES = 'candidates';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_COMPOSED = 'composed';
+    public const FIELD_BASIS = 'basis';
+    public const FIELD_ARCS = 'arcs';
+    public const FIELD_ARC_COUNT = 'arc_count';
+    public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
+    public const FIELD_ARC_BUYS_GATE_WHOLESALE = 'arc_buys_gate_wholesale';
+    public const FIELD_AUTO_MERGE = 'auto_merge';
+    public const FIELD_EACH_TASK_REQUIRES_ARCHITECT_AND_SEED_GATE = 'each_task_requires_architect_and_seed_gate';
+    public const FIELD_PROVIDER_CALLS_MADE = 'provider_calls_made';
+    public const FIELD_ORDER = 'order';
+    public const FIELD_ACTION_ON_TRIGGER = 'action_on_trigger';
+    public const FIELD_ARCHITECT_PHASE_GATE = 'architect_phase_gate';
+    public const FIELD_AUTHOR_NEQ_JUDGE = 'author_neq_judge';
+    public const FIELD_CERTIFIER_ENGINE_ID = 'certifier_engine_id';
+    public const FIELD_CHALLENGER_ADVISORY = 'challenger_advisory';
+    public const FIELD_CHALLENGER_ENGINE_ID = 'challenger_engine_id';
+    public const FIELD_ALLOWED_FILES = 'allowed_files';
+    public const FIELD_CLAIM = 'claim';
+    public const FIELD_COMPLETION_CRITERION = 'completion_criterion';
+    public const FIELD_CONSECUTIVE_FAILURES = 'consecutive_failures';
+    public const FIELD_CONSECUTIVE_FAILURES_K = 'consecutive_failures_k';
+    public const FIELD_DECISION_KIND = 'decision_kind';
+    public const FIELD_EXECUTABLE = 'executable';
+    public const FIELD_FALSIFIED_WHEN = 'falsified_when';
+    public const FIELD_FQCN = 'fqcn';
+    public const FIELD_GRAPH = 'graph';
+    public const FIELD_INDIVIDUAL_GATE_REQUIRED = 'individual_gate_required';
+    public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
+    public const FIELD_SUMMARY = 'summary';
+    public const FIELD_OBRA_CLUSTER_CANDIDATE = 'obra_cluster_candidate';
+    public const FIELD_KILL_GATE = 'kill_gate';
+    public const FIELD_MEMBER_PATHS = 'member_paths';
+    public const FIELD_TASK_ID = 'task_id';
+    public const FIELD_OBJECTIVE = 'objective';
+
+    public const STATUS_FLAG_DISABLED = 'flag_disabled';
+
+    public const STATUS_AUTHOR_JUDGE_INVARIANT_VIOLATION = 'author_judge_invariant_violation';
+
+    public const STATUS_INVALID_DEPENDENCY_GRAPH = 'invalid_dependency_graph';
+
+    public const STATUS_INSUFFICIENT_GROUNDED_CANDIDATES = 'insufficient_grounded_candidates';
+
+    public const STATUS_NO_NEIGHBOR_CLUSTER = 'no_neighbor_cluster';
+    public const FIELD_SEED_GATE = 'seed_gate';
+    public const FIELD_OBRA_ID = 'obra_id';
+    public const FIELD_TARGET_FQCN = 'target_fqcn';
+    public const FIELD_TASKS = 'tasks';
+    public const FIELD_THESIS = 'thesis';
+    public const FIELD_APP = 'app';
+    public const FIELD_ARCHIVE_WITH_RECEIPT = 'archive_with_receipt';
+    public const FIELD_COMPOSED_OBRA = 'composed_obra';
+    public const FIELD_ORGAN_DEPENDENCY_GRAPH = 'organ_dependency_graph';
+    public const FIELD_ORGAN_DEPENDENCY_NEIGHBORS = 'organ_dependency_neighbors';
+    public const FIELD_TASK_ = 'task_';
+    public const FIELD_SHA256 = 'sha256';
+    public const FIELD_ARC_ = 'arc_';
+    public const FIELD_OBRA_ = 'obra_';
+    public const FIELD__PHP = '.php';
+    public const FIELD_EVERY_ORDERED_ARC_TASK_LANDS_WITH_PROVEN_REAL_OUTCOME__PARTIAL_COMPLETION_LEAVES_ARC_OPEN_ = 'Every ordered arc task lands with proven_real outcome; partial completion leaves arc open.';
+    public const FIELD_WIRING_THE_NEIGHBOR_ORGANS_ = 'Wiring the neighbor organs ';
+    public const FIELD_NO_TASK_IN_THE_ARC_REACHES_PROVEN_REAL_LANDING_WITHIN_THE_ARC_TTL_ = 'No task in the arc reaches proven_real landing within the arc TTL.';
+    public const INT_2 = 2;
+
     /**
      * @param  list<array<string,mixed>>  $candidates  grounded origination candidates
      * @param  list<array<string,mixed>>  $clusterLeads  optional reactive obra-cluster leads
@@ -34,50 +111,50 @@ final class ComposedObraArcComposer
      */
     public static function compose(array $candidates, array $clusterLeads = [], array $context = []): array
     {
-        if (($context['enabled'] ?? false) !== true) {
-            return self::emptyResult('flag_disabled');
+        if (($context[self::FIELD_ENABLED] ?? false) !== true) {
+            return self::emptyResult(self::STATUS_FLAG_DISABLED);
         }
 
-        $author = AiValueNormalizer::trimmedStringOrNull($context['author_engine_id'] ?? null) ?? self::DEFAULT_AUTHOR_ENGINE_ID;
-        $judge = AiValueNormalizer::trimmedStringOrNull($context['judge_engine_id'] ?? null) ?? self::DEFAULT_JUDGE_ENGINE_ID;
+        $author = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_AUTHOR_ENGINE_ID] ?? null) ?? self::DEFAULT_AUTHOR_ENGINE_ID;
+        $judge = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_JUDGE_ENGINE_ID] ?? null) ?? self::DEFAULT_JUDGE_ENGINE_ID;
         if ($author === '' || $judge === '' || $author === $judge) {
-            return self::emptyResult('author_judge_invariant_violation');
+            return self::emptyResult(self::STATUS_AUTHOR_JUDGE_INVARIANT_VIOLATION);
         }
 
-        $graph = $context['graph'] ?? new AtlasBrainOrganDependencyGraph;
+        $graph = $context[self::FIELD_GRAPH] ?? new AtlasBrainOrganDependencyGraph;
         if (! $graph instanceof AtlasBrainOrganDependencyGraph) {
-            return self::emptyResult('invalid_dependency_graph');
+            return self::emptyResult(self::STATUS_INVALID_DEPENDENCY_GRAPH);
         }
 
         $grounded = self::groundedCandidates($candidates);
         if (count($grounded) < self::MIN_NEIGHBOR_CANDIDATES) {
-            return self::emptyResult('insufficient_grounded_candidates');
+            return self::emptyResult(self::STATUS_INSUFFICIENT_GROUNDED_CANDIDATES);
         }
 
         $group = self::bestNeighborGroup($grounded, $graph, $clusterLeads);
         if ($group === null) {
-            return self::emptyResult('no_neighbor_cluster');
+            return self::emptyResult(self::STATUS_NO_NEIGHBOR_CLUSTER);
         }
 
         $arc = self::serializeArc($group, $author, $judge);
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'composed' => true,
-            'basis' => 'organ_dependency_neighbors',
-            'arcs' => [$arc],
-            'arc_count' => 1,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_COMPOSED => true,
+            self::FIELD_BASIS => self::FIELD_ORGAN_DEPENDENCY_NEIGHBORS,
+            self::FIELD_ARCS => [$arc],
+            self::FIELD_ARC_COUNT => 1,
             // Observe-only ESP-09 advisory (composed_obra trigger); never vetoes compose.
-            'challenger_advisory' => Esp09IndependentChallengerService::evaluate([
-                'author_engine_id' => $author,
-                'challenger_engine_id' => $judge,
-                'decision_kind' => 'composed_obra',
+            self::FIELD_CHALLENGER_ADVISORY => Esp09IndependentChallengerService::evaluate([
+                self::FIELD_AUTHOR_ENGINE_ID => $author,
+                self::FIELD_CHALLENGER_ENGINE_ID => $judge,
+                self::FIELD_DECISION_KIND => self::FIELD_COMPOSED_OBRA,
             ]),
-            'source' => [
-                'arc_buys_gate_wholesale' => false,
-                'auto_merge' => false,
-                'each_task_requires_architect_and_seed_gate' => true,
-                'provider_calls_made' => false,
+            self::FIELD_SOURCE => [
+                self::FIELD_ARC_BUYS_GATE_WHOLESALE => false,
+                self::FIELD_AUTO_MERGE => false,
+                self::FIELD_EACH_TASK_REQUIRES_ARCHITECT_AND_SEED_GATE => true,
+                self::FIELD_PROVIDER_CALLS_MADE => false,
             ],
         ];
     }
@@ -93,8 +170,8 @@ final class ComposedObraArcComposer
             if (! is_array($candidate)) {
                 continue;
             }
-            $target = ltrim(AiValueNormalizer::trimmedStringOrNull($candidate['target_path'] ?? null) ?? '', '/');
-            $summary = AiValueNormalizer::trimmedStringOrNull($candidate['summary'] ?? null) ?? '';
+            $target = ltrim(AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_TARGET_PATH] ?? null) ?? '', '/');
+            $summary = AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_SUMMARY] ?? null) ?? '';
             if ($target === '' || $summary === '') {
                 continue;
             }
@@ -103,11 +180,11 @@ final class ComposedObraArcComposer
                 continue;
             }
             $out[] = [
-                'id' => AiValueNormalizer::trimmedStringOrNull($candidate['id'] ?? null) ?? 'cand-'.$index,
-                'target_path' => $target,
-                'summary' => $summary,
-                'organ_class' => $organ,
-                'leverage' => AiValueNormalizer::finiteFloatOrNull($candidate['leverage'] ?? null) ?? 0.0,
+                self::FIELD_ID => AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_ID] ?? null) ?? 'cand-'.$index,
+                self::FIELD_TARGET_PATH => $target,
+                self::FIELD_SUMMARY => $summary,
+                self::FIELD_ORGAN_CLASS => $organ,
+                self::FIELD_LEVERAGE => AiValueNormalizer::finiteFloatOrNull($candidate[self::FIELD_LEVERAGE] ?? null) ?? 0.0,
             ];
         }
 
@@ -124,19 +201,19 @@ final class ComposedObraArcComposer
         $seedPaths = self::clusterSeedPaths($clusterLeads);
         $byOrgan = [];
         foreach ($grounded as $candidate) {
-            $byOrgan[$candidate['organ_class']][] = $candidate;
+            $byOrgan[$candidate[self::FIELD_ORGAN_CLASS]][] = $candidate;
         }
 
         $best = null;
         $bestScore = -1.0;
         foreach ($grounded as $anchor) {
-            $neighbors = self::neighborSet($anchor['organ_class'], $graph);
+            $neighbors = self::neighborSet($anchor[self::FIELD_ORGAN_CLASS], $graph);
             $group = [$anchor];
             foreach ($grounded as $other) {
-                if ($other['id'] === $anchor['id']) {
+                if ($other[self::FIELD_ID] === $anchor[self::FIELD_ID]) {
                     continue;
                 }
-                if (in_array($other['organ_class'], $neighbors, true) || $other['organ_class'] === $anchor['organ_class']) {
+                if (in_array($other[self::FIELD_ORGAN_CLASS], $neighbors, true) || $other[self::FIELD_ORGAN_CLASS] === $anchor[self::FIELD_ORGAN_CLASS]) {
                     $group[] = $other;
                 }
             }
@@ -164,7 +241,7 @@ final class ComposedObraArcComposer
 
         $seedGroup = [];
         foreach ($grounded as $candidate) {
-            if (in_array($candidate['target_path'], $seedPaths, true)) {
+            if (in_array($candidate[self::FIELD_TARGET_PATH], $seedPaths, true)) {
                 $seedGroup[] = $candidate;
             }
         }
@@ -180,13 +257,13 @@ final class ComposedObraArcComposer
     private static function orderTasks(array $group): array
     {
         usort($group, static function (array $a, array $b): int {
-            $byLeverage = ($b['leverage'] ?? 0.0) <=> ($a['leverage'] ?? 0.0);
+            $byLeverage = ($b[self::FIELD_LEVERAGE] ?? 0.0) <=> ($a[self::FIELD_LEVERAGE] ?? 0.0);
 
-            return $byLeverage !== 0 ? $byLeverage : strcmp(AiValueNormalizer::trimmedScalarStringOrNull($a['target_path'] ?? null) ?? '', AiValueNormalizer::trimmedScalarStringOrNull($b['target_path'] ?? null) ?? '');
+            return $byLeverage !== 0 ? $byLeverage : strcmp(AiValueNormalizer::trimmedScalarStringOrNull($a[self::FIELD_TARGET_PATH] ?? null) ?? '', AiValueNormalizer::trimmedScalarStringOrNull($b[self::FIELD_TARGET_PATH] ?? null) ?? '');
         });
         $ordered = [];
         foreach (array_values($group) as $index => $task) {
-            $ordered[] = array_merge($task, ['order' => $index + 1]);
+            $ordered[] = array_merge($task, [self::FIELD_ORDER => $index + 1]);
         }
 
         return $ordered;
@@ -197,47 +274,47 @@ final class ComposedObraArcComposer
      */
     private static function serializeArc(array $group, string $author, string $judge): array
     {
-        $targets = array_map(static fn (array $task): string => AiValueNormalizer::trimmedScalarStringOrNull($task['target_path'] ?? null) ?? '', $group);
+        $targets = array_map(static fn (array $task): string => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_TARGET_PATH] ?? null) ?? '', $group);
         sort($targets);
         $arcSeed = implode('|', $targets);
-        $arcId = 'arc_'.substr(hash('sha256', $arcSeed), 0, 16);
-        $obraId = 'obra_'.substr(hash('sha256', 'obra:'.$arcSeed), 0, 16);
+        $arcId = self::FIELD_ARC_.substr(hash(self::FIELD_SHA256, $arcSeed), 0, 16);
+        $obraId = self::FIELD_OBRA_.substr(hash(self::FIELD_SHA256, 'obra:'.$arcSeed), 0, 16);
 
         $tasks = [];
         foreach ($group as $task) {
             $tasks[] = [
-                'task_id' => 'task_'.substr(hash('sha256', $arcId.':'.($task['target_path'] ?? '')), 0, 12),
-                'order' => (int) (AiValueNormalizer::finiteFloatOrNull($task['order'] ?? null) ?? 0),
-                'target_path' => AiValueNormalizer::trimmedScalarStringOrNull($task['target_path'] ?? null) ?? '',
-                'objective' => AiValueNormalizer::trimmedScalarStringOrNull($task['summary'] ?? null) ?? '',
-                'individual_gate_required' => true,
-                'architect_phase_gate' => true,
-                'seed_gate' => true,
+                self::FIELD_TASK_ID => self::FIELD_TASK_.substr(hash(self::FIELD_SHA256, $arcId.':'.($task[self::FIELD_TARGET_PATH] ?? '')), 0, 12),
+                self::FIELD_ORDER => (int) (AiValueNormalizer::finiteFloatOrNull($task[self::FIELD_ORDER] ?? null) ?? 0),
+                self::FIELD_TARGET_PATH => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_TARGET_PATH] ?? null) ?? '',
+                self::FIELD_OBJECTIVE => AiValueNormalizer::trimmedScalarStringOrNull($task[self::FIELD_SUMMARY] ?? null) ?? '',
+                self::FIELD_INDIVIDUAL_GATE_REQUIRED => true,
+                self::FIELD_ARCHITECT_PHASE_GATE => true,
+                self::FIELD_SEED_GATE => true,
             ];
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'arc_id' => $arcId,
-            'obra_id' => $obraId,
-            'thesis' => [
-                'claim' => 'Wiring the neighbor organs '.implode(', ', array_map(static fn (array $t): string => basename(AiValueNormalizer::trimmedScalarStringOrNull($t['target_path'] ?? null) ?? '', '.php'), $tasks)).' materially increases end-to-end leverage.',
-                'falsified_when' => 'No task in the arc reaches proven_real landing within the arc TTL.',
-                'author_engine_id' => $author,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_ARC_ID => $arcId,
+            self::FIELD_OBRA_ID => $obraId,
+            self::FIELD_THESIS => [
+                self::FIELD_CLAIM => self::FIELD_WIRING_THE_NEIGHBOR_ORGANS_.implode(', ', array_map(static fn (array $t): string => basename(AiValueNormalizer::trimmedScalarStringOrNull($t[self::FIELD_TARGET_PATH] ?? null) ?? '', self::FIELD__PHP), $tasks)).' materially increases end-to-end leverage.',
+                self::FIELD_FALSIFIED_WHEN => self::FIELD_NO_TASK_IN_THE_ARC_REACHES_PROVEN_REAL_LANDING_WITHIN_THE_ARC_TTL_,
+                self::FIELD_AUTHOR_ENGINE_ID => $author,
             ],
-            'tasks' => $tasks,
-            'completion_criterion' => [
-                'executable' => 'Every ordered arc task lands with proven_real outcome; partial completion leaves arc open.',
-                'certifier_engine_id' => $judge,
+            self::FIELD_TASKS => $tasks,
+            self::FIELD_COMPLETION_CRITERION => [
+                self::FIELD_EXECUTABLE => self::FIELD_EVERY_ORDERED_ARC_TASK_LANDS_WITH_PROVEN_REAL_OUTCOME__PARTIAL_COMPLETION_LEAVES_ARC_OPEN_,
+                self::FIELD_CERTIFIER_ENGINE_ID => $judge,
             ],
-            'kill_gate' => [
-                'consecutive_failures_k' => self::KILL_GATE_CONSECUTIVE_FAILURES,
-                'consecutive_failures' => 0,
-                'action_on_trigger' => 'archive_with_receipt',
+            self::FIELD_KILL_GATE => [
+                self::FIELD_CONSECUTIVE_FAILURES_K => self::KILL_GATE_CONSECUTIVE_FAILURES,
+                self::FIELD_CONSECUTIVE_FAILURES => 0,
+                self::FIELD_ACTION_ON_TRIGGER => self::FIELD_ARCHIVE_WITH_RECEIPT,
             ],
-            'source' => [
-                'neighbor_basis' => 'organ_dependency_graph',
-                'author_neq_judge' => $author !== $judge,
+            self::FIELD_SOURCE => [
+                self::FIELD_NEIGHBOR_BASIS => self::FIELD_ORGAN_DEPENDENCY_GRAPH,
+                self::FIELD_AUTHOR_NEQ_JUDGE => $author !== $judge,
             ],
         ];
     }
@@ -269,8 +346,8 @@ final class ComposedObraArcComposer
             if (! is_array($lead)) {
                 continue;
             }
-            $block = is_array($lead['obra_cluster_candidate'] ?? null) ? $lead['obra_cluster_candidate'] : $lead;
-            foreach (AiValueNormalizer::arrayOrEmpty($block['allowed_files'] ?? $block['member_paths'] ?? null) as $path) {
+            $block = is_array($lead[self::FIELD_OBRA_CLUSTER_CANDIDATE] ?? null) ? $lead[self::FIELD_OBRA_CLUSTER_CANDIDATE] : $lead;
+            foreach (AiValueNormalizer::arrayOrEmpty($block[self::FIELD_ALLOWED_FILES] ?? $block[self::FIELD_MEMBER_PATHS] ?? null) as $path) {
                 $normalized = ltrim(str_replace('\\', '/', AiValueNormalizer::trimmedStringOrNull($path) ?? ''), '/');
                 if ($normalized !== '') {
                     $paths[] = $normalized;
@@ -288,7 +365,7 @@ final class ComposedObraArcComposer
     private static function groupTouchesSeed(array $group, array $seedPaths): bool
     {
         foreach ($group as $candidate) {
-            if (in_array((AiValueNormalizer::trimmedStringOrNull($candidate['target_path'] ?? null) ?? ''), $seedPaths, true)) {
+            if (in_array((AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_TARGET_PATH] ?? null) ?? ''), $seedPaths, true)) {
                 return true;
             }
         }
@@ -303,7 +380,7 @@ final class ComposedObraArcComposer
     {
         $score = 0.0;
         foreach ($group as $candidate) {
-            $score += AiValueNormalizer::finiteFloatOrNull($candidate['leverage'] ?? null) ?? 0.0;
+            $score += AiValueNormalizer::finiteFloatOrNull($candidate[self::FIELD_LEVERAGE] ?? null) ?? 0.0;
         }
 
         return $score;
@@ -318,7 +395,7 @@ final class ComposedObraArcComposer
         $seen = [];
         $out = [];
         foreach ($group as $candidate) {
-            $id = (AiValueNormalizer::trimmedStringOrNull($candidate['id'] ?? null) ?? '');
+            $id = (AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_ID] ?? null) ?? '');
             if ($id === '' || isset($seen[$id])) {
                 continue;
             }
@@ -334,18 +411,18 @@ final class ComposedObraArcComposer
      */
     private static function organClass(array $candidate, string $targetPath): string
     {
-        $fqcn = AiValueNormalizer::trimmedStringOrNull($candidate['target_fqcn'] ?? $candidate['fqcn'] ?? null) ?? '';
+        $fqcn = AiValueNormalizer::trimmedStringOrNull($candidate[self::FIELD_TARGET_FQCN] ?? $candidate[self::FIELD_FQCN] ?? null) ?? '';
         if ($fqcn !== '') {
             return ltrim(AiValueNormalizer::trimmedStringOrNull($fqcn) ?? '', '\\');
         }
 
-        $base = basename($targetPath, '.php');
+        $base = basename($targetPath, self::FIELD__PHP);
         if ($base === '') {
             return '';
         }
 
         $parts = explode('/', str_replace('\\', '/', $targetPath));
-        if (count($parts) >= 2 && $parts[0] === 'app') {
+        if (count($parts) >= self::INT_2 && $parts[0] === self::FIELD_APP) {
             $namespace = 'App\\'.implode('\\', array_slice($parts, 1, -1)).'\\'.$base;
 
             return str_replace('/', '\\', $namespace);
@@ -360,16 +437,16 @@ final class ComposedObraArcComposer
     private static function emptyResult(string $basis): array
     {
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'composed' => false,
-            'basis' => $basis,
-            'arcs' => [],
-            'arc_count' => 0,
-            'source' => [
-                'arc_buys_gate_wholesale' => false,
-                'auto_merge' => false,
-                'each_task_requires_architect_and_seed_gate' => true,
-                'provider_calls_made' => false,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_COMPOSED => false,
+            self::FIELD_BASIS => $basis,
+            self::FIELD_ARCS => [],
+            self::FIELD_ARC_COUNT => 0,
+            self::FIELD_SOURCE => [
+                self::FIELD_ARC_BUYS_GATE_WHOLESALE => false,
+                self::FIELD_AUTO_MERGE => false,
+                self::FIELD_EACH_TASK_REQUIRES_ARCHITECT_AND_SEED_GATE => true,
+                self::FIELD_PROVIDER_CALLS_MADE => false,
             ],
         ];
     }

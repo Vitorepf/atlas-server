@@ -18,6 +18,18 @@ final class RecallGapAggregator
     public const STATUS_OK = 'ok';
 
     public const STATUS_INSUFFICIENT_SIGNAL = 'insufficient_signal';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_CANDIDATE_TYPE = 'candidate_type';
+    public const FIELD_QUERY_HASH = 'query_hash';
+    public const FIELD_OCCURRENCES = 'occurrences';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_RAW_QUERY_STORED = 'raw_query_stored';
+    public const FIELD_AUTO_CREATES_MEMORY = 'auto_creates_memory';
+    public const FIELD_CANDIDATES = 'candidates';
+    public const FIELD_QUERY = 'query';
+    public const FIELD_TOP_SCORE = 'top_score';
+    public const FIELD_KNOWLEDGE_GAP = 'knowledge_gap';
 
     /**
      * @param  list<array<string,mixed>>  $events
@@ -27,10 +39,10 @@ final class RecallGapAggregator
     {
         $groups = [];
         foreach ($events as $event) {
-            if ((AiValueNormalizer::finiteFloatOrNull($event['top_score'] ?? null) ?? 0.0) >= self::WEAK_SCORE_FLOOR) {
+            if ((AiValueNormalizer::finiteFloatOrNull($event[self::FIELD_TOP_SCORE] ?? null) ?? 0.0) >= self::WEAK_SCORE_FLOOR) {
                 continue;
             }
-            $normalized = self::normalize(AiValueNormalizer::trimmedStringOrNull($event['query'] ?? null) ?? '');
+            $normalized = self::normalize(AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_QUERY] ?? null) ?? '');
             if ($normalized === '') {
                 continue;
             }
@@ -42,19 +54,19 @@ final class RecallGapAggregator
         foreach ($groups as $hash => $count) {
             if ($count >= $minOccurrences) {
                 $candidates[] = [
-                    'schema_version' => self::SCHEMA_VERSION,
-                    'candidate_type' => 'knowledge_gap',
-                    'query_hash' => $hash,
-                    'occurrences' => $count,
-                    'source' => ['raw_query_stored' => false, 'auto_creates_memory' => false],
+                    self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+                    self::FIELD_CANDIDATE_TYPE => self::FIELD_KNOWLEDGE_GAP,
+                    self::FIELD_QUERY_HASH => $hash,
+                    self::FIELD_OCCURRENCES => $count,
+                    self::FIELD_SOURCE => [self::FIELD_RAW_QUERY_STORED => false, self::FIELD_AUTO_CREATES_MEMORY => false],
                 ];
             }
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => $candidates === [] ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK,
-            'candidates' => $candidates,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_STATUS => $candidates === [] ? self::STATUS_INSUFFICIENT_SIGNAL : self::STATUS_OK,
+            self::FIELD_CANDIDATES => $candidates,
         ];
     }
 

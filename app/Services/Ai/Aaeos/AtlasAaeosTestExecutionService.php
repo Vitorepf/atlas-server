@@ -32,12 +32,58 @@ use Throwable;
  */
 class AtlasAaeosTestExecutionService
 {
+    public const FIELD_CLASS = 'class';
+    public const FIELD_EXPLAIN = 'explain';
     public const SCHEMA = 'atlas.aaeos.test_run_receipt.v1';
+    public const FIELD_RUNNER = 'runner';
+    public const FIELD_EXIT_CODE = 'exit_code';
+    public const FIELD_TESTS_RUN = 'tests_run';
+    public const FIELD_OUTPUT_TAIL = 'output_tail';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_TEST_FILE_HASH = 'test_file_hash';
+    public const FIELD_IMPL_FILES_HASH = 'impl_files_hash';
+    public const FIELD_STATUS = 'status';
 
     /**
      * How many trailing chars of the runner output to keep in the receipt (audit, not the whole log).
      */
     public const OUTPUT_TAIL_CHARS = 1600;
+
+    public const FIELD_PASSED = 'passed';
+
+    public const FIELD_RAN = 'ran';
+    public const FIELD_CAPABILITY_ID = 'capability_id';
+    public const FIELD_TEST_REF = 'test_ref';
+    public const FIELD_FILTER = 'filter';
+    public const FIELD_COMMIT_STAMP = 'commit_stamp';
+    public const FIELD_RAN_AT = 'ran_at';
+    public const FIELD_METHOD = 'method';
+    public const FIELD_BORN_STALE = 'born_stale';
+    public const FIELD_FRESH_HASHES = 'fresh_hashes';
+    public const FIELD_GIT_PORCELAIN = 'git_porcelain';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_SEALED = 'sealed';
+    public const FIELD_VETO_PROPAGATION = 'veto_propagation';
+    public const FIELD_AMBIGUOUS_TEST_REF = 'ambiguous_test_ref';
+    public const FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS = 'atlas_aaeos_test_run_receipts';
+    public const FIELD_SQLITE = 'sqlite';
+    public const FIELD_TESTING = 'testing';
+    public const FIELD_EMPTY_FILTER = 'empty_filter';
+    public const FIELD_PHPUNIT_BINARY_MISSING = 'phpunit_binary_missing';
+    public const FIELD_PROCESS_UNAVAILABLE = 'process_unavailable';
+    public const FIELD_REVIEW = 'review';
+    public const FIELD_DELIVERY = 'delivery';
+    public const FIELD_GIT = 'git';
+    public const FIELD_APP_ENV = 'APP_ENV';
+    public const FIELD_DB_CONNECTION = 'DB_CONNECTION';
+    public const FIELD_DB_DATABASE = 'DB_DATABASE';
+    public const FIELD_HEAD = 'HEAD';
+    public const FIELD_HOME = 'HOME';
+    public const FIELD_PATH = 'PATH';
+    public const FIELD_REV_PARSE = 'rev-parse';
+    public const FIELD___FILTER = '--filter';
+    public const FIELD___NO_COVERAGE = '--no-coverage';
+    public const FIELD___PORCELAIN = '--porcelain';
 
     public function __construct(
         private readonly float $timeout = 180.0,
@@ -88,10 +134,10 @@ class AtlasAaeosTestExecutionService
         try {
             $query = AtlasAaeosTestRunReceipt::query()
                 ->green()
-                ->where('capability_id', $capabilityId);
+                ->where(self::FIELD_CAPABILITY_ID, $capabilityId);
 
             if ($testRef !== null && (AiValueNormalizer::trimmedStringOrNull($testRef) ?? '') !== '') {
-                $query->where('test_ref', AiValueNormalizer::trimmedStringOrNull($testRef) ?? '');
+                $query->where(self::FIELD_TEST_REF, AiValueNormalizer::trimmedStringOrNull($testRef) ?? '');
             }
 
             // No freshness context at all -> the green scope alone decides.
@@ -192,7 +238,7 @@ class AtlasAaeosTestExecutionService
             $fqn = $this->resolver->resolveTestFqn($testRef);
             if ($fqn === null) {
                 $run = $this->ambiguousRun($testRef);
-                $filter = $run['runner'];
+                $filter = $run[self::FIELD_RUNNER];
             } else {
                 $filter = $this->anchoredFilter($fqn);
                 $scopedPath = $this->absoluteTestPath($this->resolver->resolveTestFilePath($testRef));
@@ -201,33 +247,33 @@ class AtlasAaeosTestExecutionService
         }
 
         $payload = [
-            'schema_version' => self::SCHEMA,
-            'capability_id' => $capabilityId,
-            'test_ref' => $testRef,
-            'filter' => $filter,
-            'passed' => $run['passed'],
-            'tests_run' => $run['tests_run'],
-            'exit_code' => $run['exit_code'],
-            'commit_stamp' => $this->commitStamp(),
-            'test_file_hash' => $testFileHash,
-            'impl_files_hash' => $implFilesHash,
-            'output_tail' => $run['output_tail'],
-            'runner' => $run['runner'],
-            'ran' => $run['ran'],
-            'reason' => $run['reason'] ?? null,
-            'ran_at' => now()->toJSON(),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
+            self::FIELD_CAPABILITY_ID => $capabilityId,
+            self::FIELD_TEST_REF => $testRef,
+            self::FIELD_FILTER => $filter,
+            self::FIELD_PASSED => $run[self::FIELD_PASSED],
+            self::FIELD_TESTS_RUN => $run[self::FIELD_TESTS_RUN],
+            self::FIELD_EXIT_CODE => $run[self::FIELD_EXIT_CODE],
+            self::FIELD_COMMIT_STAMP => $this->commitStamp(),
+            self::FIELD_TEST_FILE_HASH => $testFileHash,
+            self::FIELD_IMPL_FILES_HASH => $implFilesHash,
+            self::FIELD_OUTPUT_TAIL => $run[self::FIELD_OUTPUT_TAIL],
+            self::FIELD_RUNNER => $run[self::FIELD_RUNNER],
+            self::FIELD_RAN => $run[self::FIELD_RAN],
+            self::FIELD_REASON => $run[self::FIELD_REASON] ?? null,
+            self::FIELD_RAN_AT => now()->toJSON(),
         ];
 
         // A red run is a delivery-stage veto: resolve where it must propagate via the
         // canonical department transition graph, same as any other cross-department veto.
-        if (! $run['passed']) {
-            $payload['veto_propagation'] = $this->vetoResolver->resolve('review', 'delivery');
+        if (! $run[self::FIELD_PASSED]) {
+            $payload[self::FIELD_VETO_PROPAGATION] = $this->vetoResolver->resolve(self::FIELD_REVIEW, self::FIELD_DELIVERY);
         }
 
         // PIP-03 — ambiguous refs never ran PHPUnit; persisting them would pollute
         // atlas_aaeos_test_run_receipts with tests_run=0 / exit=-1 noise. Red runs where
         // the test EXISTS and actually failed still persist — honest signal that stays.
-        if (($run['reason'] ?? null) !== 'ambiguous_test_ref') {
+        if (($run[self::FIELD_REASON] ?? null) !== self::FIELD_AMBIGUOUS_TEST_REF) {
             $this->persist($payload);
         }
 
@@ -259,16 +305,16 @@ class AtlasAaeosTestExecutionService
         $sealed = $this->hasGreenReceipt(
             $capabilityId,
             $testRef,
-            $freshHashes['test_file_hash'] ?? null,
-            $freshHashes['impl_files_hash'] ?? null,
+            $freshHashes[self::FIELD_TEST_FILE_HASH] ?? null,
+            $freshHashes[self::FIELD_IMPL_FILES_HASH] ?? null,
         );
 
         return [
-            'sealed' => $sealed,
-            'born_stale' => ! $sealed,
-            'fresh_hashes' => $freshHashes,
-            'explain' => $sealed ? null : $truth->explainImplFilesHash($evidenceRefs),
-            'git_porcelain' => $this->gitPorcelainForensics(),
+            self::FIELD_SEALED => $sealed,
+            self::FIELD_BORN_STALE => ! $sealed,
+            self::FIELD_FRESH_HASHES => $freshHashes,
+            self::FIELD_EXPLAIN => $sealed ? null : $truth->explainImplFilesHash($evidenceRefs),
+            self::FIELD_GIT_PORCELAIN => $this->gitPorcelainForensics(),
         ];
     }
 
@@ -282,7 +328,7 @@ class AtlasAaeosTestExecutionService
         }
 
         try {
-            $process = new Process(['git', '-C', base_path(), 'status', '--porcelain']);
+            $process = new Process([self::FIELD_GIT, '-C', base_path(), self::FIELD_STATUS, self::FIELD___PORCELAIN]);
             $process->setTimeout(10.0);
             $process->run();
             $out = AiValueNormalizer::trimmedStringOrNull($process->getOutput()) ?? '';
@@ -342,12 +388,12 @@ class AtlasAaeosTestExecutionService
      */
     private function anchoredFilter(array $fqn): string
     {
-        $class = ltrim(AiValueNormalizer::trimmedStringOrNull($fqn['class']) ?? '', '\\');
+        $class = ltrim(AiValueNormalizer::trimmedStringOrNull($fqn[self::FIELD_CLASS]) ?? '', '\\');
         $classPattern = preg_quote($class, '/');
 
-        if (($fqn['method'] ?? null) !== null && $fqn['method'] !== '') {
+        if (($fqn[self::FIELD_METHOD] ?? null) !== null && $fqn[self::FIELD_METHOD] !== '') {
             // Bind to the exact class::method end of the FQN.
-            return '/'.$classPattern.'::'.preg_quote($fqn['method'], '/').'$/';
+            return '/'.$classPattern.'::'.preg_quote($fqn[self::FIELD_METHOD], '/').'$/';
         }
 
         // Whole class: bind the class boundary so "FooTest" does not match "BarFooTest".
@@ -362,16 +408,16 @@ class AtlasAaeosTestExecutionService
     private function runFilter(string $filter, ?string $explicitPath = null): array
     {
         if ($filter === '') {
-            return $this->blockedRun('empty_filter');
+            return $this->blockedRun(self::FIELD_EMPTY_FILTER);
         }
 
         if (! class_exists(Process::class)) {
-            return $this->blockedRun('process_unavailable');
+            return $this->blockedRun(self::FIELD_PROCESS_UNAVAILABLE);
         }
 
         $binary = $this->phpunitBinary();
         if ($binary === null) {
-            return $this->blockedRun('phpunit_binary_missing');
+            return $this->blockedRun(self::FIELD_PHPUNIT_BINARY_MISSING);
         }
 
         $command = [$binary];
@@ -380,14 +426,14 @@ class AtlasAaeosTestExecutionService
         if ($explicitPath !== null && (AiValueNormalizer::trimmedStringOrNull($explicitPath) ?? '') !== '' && is_file($explicitPath)) {
             $command[] = $explicitPath;
         }
-        array_push($command, '--filter', $filter, '--no-coverage');
+        array_push($command, self::FIELD___FILTER, $filter, self::FIELD___NO_COVERAGE);
 
         $process = new Process(
             $command,
             base_path(),
             // Force a sqlite :memory: DB for the spawned suite so it never touches
             // the live pgsql runtime, mirroring the test harness env.
-            ['DB_CONNECTION' => 'sqlite', 'DB_DATABASE' => ':memory:'] + $this->inheritedEnv(),
+            [self::FIELD_DB_CONNECTION => self::FIELD_SQLITE, self::FIELD_DB_DATABASE => ':memory:'] + $this->inheritedEnv(),
         );
         $process->setTimeout($this->timeout);
 
@@ -406,12 +452,12 @@ class AtlasAaeosTestExecutionService
         $passed = $exitCode === 0 && $testsRun >= 1;
 
         return [
-            'ran' => true,
-            'passed' => $passed,
-            'tests_run' => $testsRun,
-            'exit_code' => $exitCode,
-            'output_tail' => $this->tail($output),
-            'runner' => $binary.' --filter '.$filter,
+            self::FIELD_RAN => true,
+            self::FIELD_PASSED => $passed,
+            self::FIELD_TESTS_RUN => $testsRun,
+            self::FIELD_EXIT_CODE => $exitCode,
+            self::FIELD_OUTPUT_TAIL => $this->tail($output),
+            self::FIELD_RUNNER => $binary.' --filter '.$filter,
         ];
     }
 
@@ -471,14 +517,14 @@ class AtlasAaeosTestExecutionService
     private function inheritedEnv(): array
     {
         $env = [];
-        foreach (['PATH', 'HOME', 'APP_ENV'] as $key) {
+        foreach ([self::FIELD_PATH, self::FIELD_HOME, self::FIELD_APP_ENV] as $key) {
             $value = getenv($key);
             if (is_string($value) && $value !== '') {
                 $env[$key] = $value;
             }
         }
         // Default the spawned suite to the testing env unless the operator set one.
-        $env['APP_ENV'] = $env['APP_ENV'] ?? 'testing';
+        $env[self::FIELD_APP_ENV] = $env[self::FIELD_APP_ENV] ?? self::FIELD_TESTING;
 
         return $env;
     }
@@ -489,7 +535,7 @@ class AtlasAaeosTestExecutionService
             return null;
         }
         try {
-            $process = new Process(['git', '-C', base_path(), 'rev-parse', '--short=12', 'HEAD']);
+            $process = new Process([self::FIELD_GIT, '-C', base_path(), self::FIELD_REV_PARSE, '--short=12', self::FIELD_HEAD]);
             $process->setTimeout(10.0);
             $process->run();
             $stamp = AiValueNormalizer::trimmedStringOrNull($process->getOutput()) ?? '';
@@ -506,13 +552,13 @@ class AtlasAaeosTestExecutionService
     private function blockedRun(string $reason): array
     {
         return [
-            'ran' => false,
-            'passed' => false,
-            'tests_run' => 0,
-            'exit_code' => -1,
-            'output_tail' => 'blocked:'.$reason,
-            'runner' => $reason,
-            'reason' => $reason,
+            self::FIELD_RAN => false,
+            self::FIELD_PASSED => false,
+            self::FIELD_TESTS_RUN => 0,
+            self::FIELD_EXIT_CODE => -1,
+            self::FIELD_OUTPUT_TAIL => 'blocked:'.$reason,
+            self::FIELD_RUNNER => $reason,
+            self::FIELD_REASON => $reason,
         ];
     }
 
@@ -527,13 +573,13 @@ class AtlasAaeosTestExecutionService
     private function ambiguousRun(string $testRef): array
     {
         return [
-            'ran' => false,
-            'passed' => false,
-            'tests_run' => 0,
-            'exit_code' => -1,
-            'output_tail' => 'ambiguous_test_ref: "'.$testRef.'" does not resolve to an indexed Class or Class::method — refusing to run a broad filter',
-            'runner' => 'ambiguous_test_ref',
-            'reason' => 'ambiguous_test_ref',
+            self::FIELD_RAN => false,
+            self::FIELD_PASSED => false,
+            self::FIELD_TESTS_RUN => 0,
+            self::FIELD_EXIT_CODE => -1,
+            self::FIELD_OUTPUT_TAIL => 'ambiguous_test_ref: "'.$testRef.'" does not resolve to an indexed Class or Class::method — refusing to run a broad filter',
+            self::FIELD_RUNNER => self::FIELD_AMBIGUOUS_TEST_REF,
+            self::FIELD_REASON => self::FIELD_AMBIGUOUS_TEST_REF,
         ];
     }
 
@@ -559,24 +605,24 @@ class AtlasAaeosTestExecutionService
         try {
             AtlasAaeosTestRunReceipt::query()->updateOrCreate(
                 [
-                    'capability_id' => AiValueNormalizer::trimmedScalarStringOrNull($payload['capability_id'] ?? null) ?? '',
-                    'test_ref' => AiValueNormalizer::trimmedScalarStringOrNull($payload['test_ref'] ?? null) ?? '',
+                    self::FIELD_CAPABILITY_ID => AiValueNormalizer::trimmedScalarStringOrNull($payload[self::FIELD_CAPABILITY_ID] ?? null) ?? '',
+                    self::FIELD_TEST_REF => AiValueNormalizer::trimmedScalarStringOrNull($payload[self::FIELD_TEST_REF] ?? null) ?? '',
                 ],
                 [
-                    'filter' => AiValueNormalizer::trimmedScalarStringOrNull($payload['filter'] ?? null) ?? '',
-                    'passed' => (AiValueNormalizer::boolOrNull($payload['passed'] ?? null) ?? false),
-                    'tests_run' => (int) (AiValueNormalizer::finiteFloatOrNull($payload['tests_run'] ?? null) ?? 0),
-                    'exit_code' => $payload['exit_code'] !== null ? (int) (AiValueNormalizer::finiteFloatOrNull($payload['exit_code'] ?? null) ?? 0) : null,
-                    'commit_stamp' => $payload['commit_stamp'],
+                    self::FIELD_FILTER => AiValueNormalizer::trimmedScalarStringOrNull($payload[self::FIELD_FILTER] ?? null) ?? '',
+                    self::FIELD_PASSED => (AiValueNormalizer::boolOrNull($payload[self::FIELD_PASSED] ?? null) ?? false),
+                    self::FIELD_TESTS_RUN => (int) (AiValueNormalizer::finiteFloatOrNull($payload[self::FIELD_TESTS_RUN] ?? null) ?? 0),
+                    self::FIELD_EXIT_CODE => $payload[self::FIELD_EXIT_CODE] !== null ? (int) (AiValueNormalizer::finiteFloatOrNull($payload[self::FIELD_EXIT_CODE] ?? null) ?? 0) : null,
+                    self::FIELD_COMMIT_STAMP => $payload[self::FIELD_COMMIT_STAMP],
                     // B3 freshness: bind the receipt to the code+test content it proved.
-                    'test_file_hash' => $payload['test_file_hash'] ?? null,
-                    'impl_files_hash' => $payload['impl_files_hash'] ?? null,
-                    'output_tail' => $payload['output_tail'],
+                    self::FIELD_TEST_FILE_HASH => $payload[self::FIELD_TEST_FILE_HASH] ?? null,
+                    self::FIELD_IMPL_FILES_HASH => $payload[self::FIELD_IMPL_FILES_HASH] ?? null,
+                    self::FIELD_OUTPUT_TAIL => $payload[self::FIELD_OUTPUT_TAIL],
                     // `runner` is a short audit breadcrumb in a varchar(120) column; an
                     // FQN-anchored --filter regex can exceed that, so cap it (never let an
                     // audit label fail the write that records the green run itself).
-                    'runner' => mb_substr(AiValueNormalizer::trimmedScalarStringOrNull($payload['runner'] ?? null) ?? '', 0, 120),
-                    'ran_at' => now(),
+                    self::FIELD_RUNNER => mb_substr(AiValueNormalizer::trimmedScalarStringOrNull($payload[self::FIELD_RUNNER] ?? null) ?? '', 0, 120),
+                    self::FIELD_RAN_AT => now(),
                 ],
             );
         } catch (Throwable) {
@@ -586,6 +632,6 @@ class AtlasAaeosTestExecutionService
 
     private function receiptsTableExists(): bool
     {
-        return DatabaseTableAvailability::has('atlas_aaeos_test_run_receipts');
+        return DatabaseTableAvailability::has(self::FIELD_ATLAS_AAEOS_TEST_RUN_RECEIPTS);
     }
 }

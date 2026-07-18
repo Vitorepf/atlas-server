@@ -37,6 +37,118 @@ final class AcosMaxLedgerRotationRegistry
 
     public const MODE_ROTATE_AGE = 'rotate_age';
 
+    public const FIELD_MAX_SIZE_MB = 'max_size_mb';
+
+    public const FIELD_MAX_AGE_DAYS = 'max_age_days';
+
+    public const FIELD_MODE = 'mode';
+
+    public const FIELD_RATIONALE = 'rationale';
+    public const FIELD_ACOS_ASI05_LEDGER_CLEANUP_V1 = 'acos.asi05.ledger_cleanup.v1';
+    public const FIELD_ACOS_DEAD_SERIES_WATCHDOG_V1 = 'acos.dead_series_watchdog.v1';
+    public const FIELD_ACOS_ESP00_GROUND_TRUTH_V1 = 'acos.esp00.ground_truth.v1';
+    public const FIELD_ACOS_FLYWHEEL_LOOPS_V1 = 'acos.flywheel.loops.v1';
+    public const FIELD_ACOS_LEARNING_LATENCY_V1 = 'acos.learning_latency.v1';
+    public const FIELD_ACOS_OPERATOR_REVIEW_DEBT_V1 = 'acos.operator_review_debt.v1';
+    public const FIELD_ACOS_VERIFIED_SHARE_V1 = 'acos.verified_share.v1';
+    public const FIELD_ACOS_WINDOWS_ORCHESTRATOR_V1 = 'acos.windows_orchestrator.v1';
+    public const FIELD_AOBG_LATENCY_LEDGER_V1 = 'aobg.latency_ledger.v1';
+    public const FIELD_ASI_METRIC_M_V1 = 'asi.metric.m.v1';
+    public const FIELD_ATLAS_ACOS_REC06_META_LOOP_BREAKERS_V1 = 'atlas.acos.rec06.meta_loop_breakers.v1';
+    public const FIELD_ATLAS_AI_ABSTRACTION_LADDER_V1 = 'atlas.ai.abstraction_ladder.v1';
+    public const FIELD_ATLAS_AI_COUNTERFACTUAL_LIFT_V2 = 'atlas.ai.counterfactual_lift.v2';
+    public const FIELD_ATLAS_AI_LESSON_HALF_LIFE_V2 = 'atlas.ai.lesson_half_life.v2';
+    public const FIELD_ATLAS_AI_LESSON_QUALITY_V2 = 'atlas.ai.lesson_quality.v2';
+    public const FIELD_ATLAS_AI_LESSON_SEMANTIC_DEDUP_V1 = 'atlas.ai.lesson_semantic_dedup.v1';
+    public const FIELD_ATLAS_AI_LESSON_TYPE_YIELD_V2 = 'atlas.ai.lesson_type_yield.v2';
+    public const FIELD_ATLAS_AI_PROCEDURAL_SKILL_PROMOTER_V1 = 'atlas.ai.procedural_skill_promoter.v1';
+    public const FIELD_ATLAS_AURG_PPR_SHADOW_DUAL_READ_V1 = 'atlas.aurg.ppr_shadow_dual_read.v1';
+    public const FIELD_ATLAS_CAPTURE_COGNITIVE_IMMUNE_AUDIT_V2 = 'atlas.capture.cognitive_immune_audit.v2';
+    public const FIELD_ATLAS_CODE_SYMBOL_EMBEDDING_COVERAGE_V1 = 'atlas.code_symbol_embedding_coverage.v1';
+    public const FIELD_ATLAS_CONTEXT_EXECUTION_COOCCURRENCE_V1 = 'atlas.context.execution_cooccurrence.v1';
+    public const FIELD_ATLAS_CONTEXT_GOLDEN_COUNTERFACTUAL_V1 = 'atlas.context.golden_counterfactual.v1';
+    public const FIELD_ATLAS_DECIDE_CASCADE_COST_ROUTER_V1 = 'atlas.decide.cascade_cost_router.v1';
+    public const FIELD_ATLAS_DECIDE_COST_OUTCOME_UNCERTAINTY_V1 = 'atlas.decide.cost_outcome_uncertainty.v1';
+    public const FIELD_ATLAS_DECIDE_REPLAY_DIVERGENCE_V1 = 'atlas.decide.replay_divergence.v1';
+    public const FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2 = 'atlas.decide.route_regret.v2';
+    public const FIELD_ATLAS_DECIDE_ZERO_WEIGHT_OUTCOMES_V1 = 'atlas.decide.zero_weight_outcomes.v1';
+    public const FIELD_ATLAS_ESP_06_OUTCOME_ENVELOPE_V1 = 'atlas.esp_06.outcome_envelope.v1';
+    public const FIELD_ATLAS_ESP_09_CHALLENGER_ADVISORY_V1 = 'atlas.esp_09.challenger_advisory.v1';
+    public const FIELD_ATLAS_EVIDENCE_DELTA_ATTRIBUTION_V1 = 'atlas.evidence.delta_attribution.v1';
+    public const FIELD_ATLAS_EVIDENCE_LEDGER_HASH_CHAIN_V1 = 'atlas.evidence_ledger.hash_chain.v1';
+    public const FIELD_ATLAS_IMMUNE_CALIBRATION_V1 = 'atlas.immune.calibration.v1';
+    public const FIELD_ATLAS_IMMUNE_CLASSIFIER_HYBRID_V1 = 'atlas.immune.classifier_hybrid.v1';
+    public const FIELD_ATLAS_IMMUNE_SIGNATURE_STORE_V1 = 'atlas.immune.signature_store.v1';
+    public const FIELD_ATLAS_KB_EMBEDDING_COVERAGE_V1 = 'atlas.kb_embedding_coverage.v1';
+    public const FIELD_ATLAS_M_FUNNEL_V1 = 'atlas.m.funnel.v1';
+    public const FIELD_ATLAS_MEMORY_TEMPORAL_TRUTH_V2 = 'atlas.memory.temporal_truth.v2';
+    public const FIELD_ATLAS_N_CAPTURE_DRILL_V1 = 'atlas.n_capture_drill.v1';
+    public const FIELD_ATLAS_ORIGINATOR_PREDICTED_IMPACT_CALIBRATION_V1 = 'atlas.originator.predicted_impact_calibration.v1';
+    public const FIELD_ATLAS_PROVIDER_LEAK_CORPUS_V1 = 'atlas.provider_leak_corpus.v1';
+    public const FIELD_ATLAS_RESOURCE_BUDGET_V1 = 'atlas.resource_budget.v1';
+    public const FIELD_ATLAS_SEMANTIC_JINA_V3_DUAL_READ_V1 = 'atlas.semantic.jina_v3_dual_read.v1';
+    public const FIELD_ATLAS_TEST_ATTESTATION_V1 = 'atlas.test_attestation.v1';
+    public const FIELD_MISSION_E2E_V1 = 'mission_e2e.v1';
+    public const FIELD_OPERATOR_APPROVAL_HISTORY_V1 = 'operator.approval_history.v1';
+    public const FIELD_ELEV_02_METRIC_M_SERIES__MONTHLY_APPEND_CADENCE = 'ELEV-02 metric M series; monthly append cadence';
+    public const FIELD_ELEV_12_VERIFIED_SHARE_OBSERVED_DAILY = 'ELEV-12 verified-share observed daily';
+    public const FIELD_ELEV_20S_DB_BACKED_WATCHDOG_RUN_TRAIL = 'ELEV-20s DB-backed watchdog run trail';
+    public const FIELD_ELEV_25_REVIEW_DEBT_WATCHDOG_TRAIL = 'ELEV-25 review-debt watchdog trail';
+    public const FIELD_ELEV_27_JOINT_BUDGET_READER__WATCHDOG_SNAPSHOT_CADENCE = 'ELEV-27 joint budget reader; watchdog snapshot cadence';
+    public const FIELD_ESP_00_GROUND_TRUTH_RECEIPT__AUDIT_FOREVER = 'ESP-00 ground-truth receipt; audit forever';
+    public const FIELD_ESP_03_PER_LANDING_ATTESTATION_SEAL__PER_COMMIT_CADENCE = 'ESP-03 per-landing attestation seal; per-commit cadence';
+    public const FIELD_ESP_05_ZERO_WEIGHT_OUTCOMES = 'ESP-05 zero-weight outcomes';
+    public const FIELD_ESP_06_OUTCOME_ENVELOPE_ADAPTERS = 'ESP-06 outcome envelope adapters';
+    public const FIELD_ESP_09_INDEPENDENT_CHALLENGER_ADVISORY_SERIES = 'ESP-09 independent challenger advisory series';
+    public const FIELD_MAXA_04_SHADOW_DUAL_READ_RECEIPTS_BEFORE_ANY_MODEL_PROMOTION = 'MAXA-04 shadow dual-read receipts before any model promotion';
+    public const FIELD_MAXA_06_FASE_1_KB_COVERAGE_READER__WATCHDOG_SNAPSHOT_CADENCE_TIED_TO_KNOWLEDGE_SYNC_RUNS = 'MAXA-06 fase 1 KB coverage reader; watchdog snapshot cadence tied to knowledge sync runs';
+    public const FIELD_MAXA_06_FASE_2_CODE_SYMBOL_EMBEDDING_COVERAGE_READER = 'MAXA-06 fase 2 code-symbol embedding coverage reader';
+    public const FIELD_MAXD_04_PPR_SHADOW_DUAL_READ_RECEIPTS_BEFORE_ANY_QUERY_PROMOTION = 'MAXD-04 PPR shadow dual-read receipts before any query promotion';
+    public const FIELD_MAXH_01_COMPUTED_READER = 'MAXH-01 computed reader';
+    public const FIELD_MAXI_02_CAPTURE_AUDIT__DB_TABLE_PRUNING = 'MAXI-02 capture audit; DB table pruning';
+    public const FIELD_MAXI_03_VERDICT_LEDGER_TABLE = 'MAXI-03 verdict ledger table';
+    public const FIELD_MAXI_04_HYBRID_CLASSIFIER_SWITCH_RECEIPT__MEASUREMENT_CADENCE_TIED_TO_ARM_ON_RUNS = 'MAXI-04 hybrid-classifier switch receipt; measurement cadence tied to arm-ON runs';
+    public const FIELD_MAXI_05_IMMUNE_SIGNATURE_DB_BACKED_STORE__WATCHDOG_TABLE_PRUNING_CADENCE = 'MAXI-05 immune signature DB-backed store; watchdog/table pruning cadence';
+    public const FIELD_MAXJ_01_LESSON_QUALITY_READER = 'MAXJ-01 lesson quality reader';
+    public const FIELD_MAXJ_05_LESSON_TYPE_YIELD = 'MAXJ-05 lesson type yield';
+    public const FIELD_MAXK_01_ROUTE_REGRET = 'MAXK-01 route regret';
+    public const FIELD_MAXL_02_HASH_CHAIN__NEVER_ROTATE__INTEGRITY_BACKBONE = 'MAXL-02 hash chain: never rotate, integrity backbone';
+    public const FIELD_MAXL_06_DELTA_ATTRIBUTION_READER = 'MAXL-06 delta attribution reader';
+    public const FIELD_MAXL_07_PAIRED_GOLDEN_COUNTERFACTUAL_REPORT = 'MAXL-07 paired golden counterfactual report';
+    public const FIELD_MAXL_08_REPORT_ONLY_CONTEXT_EXECUTION_CO_OCCURRENCE = 'MAXL-08 report-only context execution co-occurrence';
+    public const FIELD_MAXM_01_FROZEN_CORPUS_BASELINE_RECEIPT__AUDIT_ANCHOR__SMALL_APPEND_CADENCE = 'MAXM-01 frozen-corpus baseline receipt; audit-anchor, small append cadence';
+    public const FIELD_MULTJ_01_LESSON_HALF_LIFE = 'MULTJ-01 lesson half-life';
+    public const FIELD_MULTJ_02_DEDUP_CALIBRATION = 'MULTJ-02 dedup calibration';
+    public const FIELD_MULTJ_03_COUNTERFACTUAL_LIFT = 'MULTJ-03 counterfactual lift';
+    public const FIELD_MULTJ_04_PROCEDURAL_SKILL_PROMOTER_REPORTS_STAY_SMALL_UNTIL_REAL_CASE_COUNT_SOAK = 'MULTJ-04 procedural skill promoter reports stay small until real case-count soak';
+    public const FIELD_MULTJ_06_ABSTRACTION_LADDER_COMPUTED_READER_SNAPSHOTS = 'MULTJ-06 abstraction ladder computed-reader snapshots';
+    public const FIELD_MULTK_01_COST_OUTCOME = 'MULTK-01 cost-outcome';
+    public const FIELD_MULTK_02_CASCADE_COST_ROUTER_COMPUTED_READER_SNAPSHOTS = 'MULTK-02 cascade cost router computed-reader snapshots';
+    public const FIELD_MULTK_03_DECISION_REPLAY_DIVERGENCE = 'MULTK-03 decision replay divergence';
+    public const FIELD_MULTN15_02_APPROVAL_HISTORY = 'MULTN15-02 approval history';
+    public const FIELD_MULTN17_04_ORIGINATOR_IMPACT = 'MULTN17-04 originator impact';
+    public const FIELD_MULTX_01_LOOPS = 'MULTX-01 loops';
+    public const FIELD_MULTX_02_DIAGNOSTIC_FUNNEL_BY_EXECUTOR = 'MULTX-02 diagnostic funnel by executor';
+    public const FIELD_MULTX_06_LEARNING_LATENCY = 'MULTX-06 learning latency';
+    public const FIELD_MULTX_09_WINDOWS_DAG_SNAPSHOT = 'MULTX-09 windows DAG snapshot';
+    public const FIELD_RAGX_07_RECORDS_A_B_REGISTRATIONS_ONLY__RESULTS_REMAIN_NULL_UNTIL_A_REAL_WINDOW_RUNS = 'RAGX-07 records A/B registrations only; results remain null until a real window runs';
+    public const FIELD_REC_06_COMPUTED_BREAKER_REPORT__STAYS_SMALL_UNTIL_REAL_SERIES_ARM_IT = 'REC-06 computed breaker report; stays small until real series arm it';
+    public const FIELD_TETO_02_MISSION_E2E = 'TETO-02 mission e2e';
+    public const FIELD_HIGH_FREQUENCY_APPEND__MAXG_01_DECLARES_ROTATION_CONTRACT = 'high-frequency append; MAXG-01 declares rotation contract';
+    public const FIELD_ONE_TIME_CLEANUP_RECEIPT__AUDIT_FOREVER = 'one-time cleanup receipt; audit forever';
+    public const FIELD_TETO_01_N_CAPTURE_DRILL_RECEIPT__QUARTERLY_ISH_CADENCE__PERMANENT_AUDIT_ANCHOR_FOR_N_M_THESIS_PROOFS = 'TETO-01 N-Capture Drill receipt: quarterly-ish cadence, permanent audit anchor for N×M thesis proofs';
+    public const INT_8 = 8;
+    public const INT_64 = 64;
+    public const INT_45 = 45;
+    public const INT_512 = 512;
+    public const INT_128 = 128;
+    public const INT_180 = 180;
+    public const INT_16 = 16;
+    public const INT_365 = 365;
+    public const INT_60 = 60;
+    public const INT_30 = 30;
+    public const INT_32 = 32;
+    public const INT_90 = 90;
 
     /** @var array<string,array{max_size_mb:int,max_age_days:int,mode:string,rationale:string}> */
     private array $policies;
@@ -73,287 +185,287 @@ final class AcosMaxLedgerRotationRegistry
     public static function defaultPolicies(): array
     {
         return [
-            'aobg.latency_ledger.v1' => [
-                'max_size_mb' => 128,
-                'max_age_days' => 45,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'high-frequency append; MAXG-01 declares rotation contract',
+            self::FIELD_AOBG_LATENCY_LEDGER_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_128,
+                self::FIELD_MAX_AGE_DAYS => self::INT_45,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_HIGH_FREQUENCY_APPEND__MAXG_01_DECLARES_ROTATION_CONTRACT,
             ],
-            'asi.metric.m.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 180,
-                'mode' => self::MODE_ROTATE_SIZE,
-                'rationale' => 'ELEV-02 metric M series; monthly append cadence',
+            self::FIELD_ASI_METRIC_M_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_180,
+                self::FIELD_MODE => self::MODE_ROTATE_SIZE,
+                self::FIELD_RATIONALE => self::FIELD_ELEV_02_METRIC_M_SERIES__MONTHLY_APPEND_CADENCE,
             ],
-            'acos.verified_share.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'ELEV-12 verified-share observed daily',
+            self::FIELD_ACOS_VERIFIED_SHARE_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_ELEV_12_VERIFIED_SHARE_OBSERVED_DAILY,
             ],
-            'acos.asi05.ledger_cleanup.v1' => [
-                'max_size_mb' => 8,
-                'max_age_days' => 365,
-                'mode' => self::MODE_APPEND_FOREVER,
-                'rationale' => 'one-time cleanup receipt; audit forever',
+            self::FIELD_ACOS_ASI05_LEDGER_CLEANUP_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
+                self::FIELD_MAX_AGE_DAYS => self::INT_365,
+                self::FIELD_MODE => self::MODE_APPEND_FOREVER,
+                self::FIELD_RATIONALE => self::FIELD_ONE_TIME_CLEANUP_RECEIPT__AUDIT_FOREVER,
             ],
-            'acos.esp00.ground_truth.v1' => [
-                'max_size_mb' => 8,
-                'max_age_days' => 365,
-                'mode' => self::MODE_APPEND_FOREVER,
-                'rationale' => 'ESP-00 ground-truth receipt; audit forever',
+            self::FIELD_ACOS_ESP00_GROUND_TRUTH_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
+                self::FIELD_MAX_AGE_DAYS => self::INT_365,
+                self::FIELD_MODE => self::MODE_APPEND_FOREVER,
+                self::FIELD_RATIONALE => self::FIELD_ESP_00_GROUND_TRUTH_RECEIPT__AUDIT_FOREVER,
             ],
-            'atlas.evidence_ledger.hash_chain.v1' => [
-                'max_size_mb' => 512,
-                'max_age_days' => 365,
-                'mode' => self::MODE_APPEND_FOREVER,
-                'rationale' => 'MAXL-02 hash chain: never rotate, integrity backbone',
+            self::FIELD_ATLAS_EVIDENCE_LEDGER_HASH_CHAIN_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_512,
+                self::FIELD_MAX_AGE_DAYS => self::INT_365,
+                self::FIELD_MODE => self::MODE_APPEND_FOREVER,
+                self::FIELD_RATIONALE => self::FIELD_MAXL_02_HASH_CHAIN__NEVER_ROTATE__INTEGRITY_BACKBONE,
             ],
-            'atlas.memory.temporal_truth.v2' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 45,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MAXH-01 computed reader',
+            self::FIELD_ATLAS_MEMORY_TEMPORAL_TRUTH_V2 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_45,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MAXH_01_COMPUTED_READER,
             ],
-            'atlas.capture.cognitive_immune_audit.v2' => [
-                'max_size_mb' => 128,
-                'max_age_days' => 30,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MAXI-02 capture audit; DB table pruning',
+            self::FIELD_ATLAS_CAPTURE_COGNITIVE_IMMUNE_AUDIT_V2 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_128,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MAXI_02_CAPTURE_AUDIT__DB_TABLE_PRUNING,
             ],
-            'atlas.immune.calibration.v1' => [
-                'max_size_mb' => 128,
-                'max_age_days' => 30,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MAXI-03 verdict ledger table',
+            self::FIELD_ATLAS_IMMUNE_CALIBRATION_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_128,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MAXI_03_VERDICT_LEDGER_TABLE,
             ],
-            'acos.dead_series_watchdog.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 30,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'ELEV-20s DB-backed watchdog run trail',
+            self::FIELD_ACOS_DEAD_SERIES_WATCHDOG_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_ELEV_20S_DB_BACKED_WATCHDOG_RUN_TRAIL,
             ],
-            'acos.operator_review_debt.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 30,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'ELEV-25 review-debt watchdog trail',
+            self::FIELD_ACOS_OPERATOR_REVIEW_DEBT_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_ELEV_25_REVIEW_DEBT_WATCHDOG_TRAIL,
             ],
-            'atlas.ai.lesson_quality.v2' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 60,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MAXJ-01 lesson quality reader',
+            self::FIELD_ATLAS_AI_LESSON_QUALITY_V2 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MAXJ_01_LESSON_QUALITY_READER,
             ],
-            'atlas.ai.lesson_type_yield.v2' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 60,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MAXJ-05 lesson type yield',
+            self::FIELD_ATLAS_AI_LESSON_TYPE_YIELD_V2 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MAXJ_05_LESSON_TYPE_YIELD,
             ],
-            'atlas.decide.route_regret.v2' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 60,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MAXK-01 route regret',
+            self::FIELD_ATLAS_DECIDE_ROUTE_REGRET_V2 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MAXK_01_ROUTE_REGRET,
             ],
-            'atlas.decide.cost_outcome_uncertainty.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 60,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MULTK-01 cost-outcome',
+            self::FIELD_ATLAS_DECIDE_COST_OUTCOME_UNCERTAINTY_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MULTK_01_COST_OUTCOME,
             ],
-            'atlas.decide.replay_divergence.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 30,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MULTK-03 decision replay divergence',
+            self::FIELD_ATLAS_DECIDE_REPLAY_DIVERGENCE_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MULTK_03_DECISION_REPLAY_DIVERGENCE,
             ],
-            'atlas.decide.zero_weight_outcomes.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 60,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'ESP-05 zero-weight outcomes',
+            self::FIELD_ATLAS_DECIDE_ZERO_WEIGHT_OUTCOMES_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_ESP_05_ZERO_WEIGHT_OUTCOMES,
             ],
-            'atlas.esp_06.outcome_envelope.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'ESP-06 outcome envelope adapters',
+            self::FIELD_ATLAS_ESP_06_OUTCOME_ENVELOPE_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_ESP_06_OUTCOME_ENVELOPE_ADAPTERS,
             ],
-            'atlas.esp_09.challenger_advisory.v1' => [
-                'max_size_mb' => 16,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'ESP-09 independent challenger advisory series',
+            self::FIELD_ATLAS_ESP_09_CHALLENGER_ADVISORY_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_16,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_ESP_09_INDEPENDENT_CHALLENGER_ADVISORY_SERIES,
             ],
-            'operator.approval_history.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 180,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MULTN15-02 approval history',
+            self::FIELD_OPERATOR_APPROVAL_HISTORY_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_180,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MULTN15_02_APPROVAL_HISTORY,
             ],
-            'atlas.evidence.delta_attribution.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MAXL-06 delta attribution reader',
+            self::FIELD_ATLAS_EVIDENCE_DELTA_ATTRIBUTION_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MAXL_06_DELTA_ATTRIBUTION_READER,
             ],
-            'atlas.context.golden_counterfactual.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MAXL-07 paired golden counterfactual report',
+            self::FIELD_ATLAS_CONTEXT_GOLDEN_COUNTERFACTUAL_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MAXL_07_PAIRED_GOLDEN_COUNTERFACTUAL_REPORT,
             ],
-            'atlas.context.execution_cooccurrence.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MAXL-08 report-only context execution co-occurrence',
+            self::FIELD_ATLAS_CONTEXT_EXECUTION_COOCCURRENCE_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MAXL_08_REPORT_ONLY_CONTEXT_EXECUTION_CO_OCCURRENCE,
             ],
-            'atlas.originator.predicted_impact_calibration.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MULTN17-04 originator impact',
+            self::FIELD_ATLAS_ORIGINATOR_PREDICTED_IMPACT_CALIBRATION_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MULTN17_04_ORIGINATOR_IMPACT,
             ],
-            'acos.flywheel.loops.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MULTX-01 loops',
+            self::FIELD_ACOS_FLYWHEEL_LOOPS_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MULTX_01_LOOPS,
             ],
-            'atlas.m.funnel.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 30,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MULTX-02 diagnostic funnel by executor',
+            self::FIELD_ATLAS_M_FUNNEL_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MULTX_02_DIAGNOSTIC_FUNNEL_BY_EXECUTOR,
             ],
-            'acos.learning_latency.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MULTX-06 learning latency',
+            self::FIELD_ACOS_LEARNING_LATENCY_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MULTX_06_LEARNING_LATENCY,
             ],
-            'acos.windows_orchestrator.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 30,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MULTX-09 windows DAG snapshot',
+            self::FIELD_ACOS_WINDOWS_ORCHESTRATOR_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MULTX_09_WINDOWS_DAG_SNAPSHOT,
             ],
-            'atlas.ai.lesson_half_life.v2' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MULTJ-01 lesson half-life',
+            self::FIELD_ATLAS_AI_LESSON_HALF_LIFE_V2 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MULTJ_01_LESSON_HALF_LIFE,
             ],
-            'atlas.ai.lesson_semantic_dedup.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MULTJ-02 dedup calibration',
+            self::FIELD_ATLAS_AI_LESSON_SEMANTIC_DEDUP_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MULTJ_02_DEDUP_CALIBRATION,
             ],
-            'atlas.ai.counterfactual_lift.v2' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MULTJ-03 counterfactual lift',
+            self::FIELD_ATLAS_AI_COUNTERFACTUAL_LIFT_V2 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MULTJ_03_COUNTERFACTUAL_LIFT,
             ],
-            'mission_e2e.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'TETO-02 mission e2e',
+            self::FIELD_MISSION_E2E_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_TETO_02_MISSION_E2E,
             ],
-            'atlas.resource_budget.v1' => [
-                'max_size_mb' => 8,
-                'max_age_days' => 30,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'ELEV-27 joint budget reader; watchdog snapshot cadence',
+            self::FIELD_ATLAS_RESOURCE_BUDGET_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_ELEV_27_JOINT_BUDGET_READER__WATCHDOG_SNAPSHOT_CADENCE,
             ],
-            'atlas.test_attestation.v1' => [
-                'max_size_mb' => 8,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'ESP-03 per-landing attestation seal; per-commit cadence',
+            self::FIELD_ATLAS_TEST_ATTESTATION_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_ESP_03_PER_LANDING_ATTESTATION_SEAL__PER_COMMIT_CADENCE,
             ],
-            'atlas.provider_leak_corpus.v1' => [
-                'max_size_mb' => 8,
-                'max_age_days' => 365,
-                'mode' => self::MODE_APPEND_FOREVER,
-                'rationale' => 'MAXM-01 frozen-corpus baseline receipt; audit-anchor, small append cadence',
+            self::FIELD_ATLAS_PROVIDER_LEAK_CORPUS_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
+                self::FIELD_MAX_AGE_DAYS => self::INT_365,
+                self::FIELD_MODE => self::MODE_APPEND_FOREVER,
+                self::FIELD_RATIONALE => self::FIELD_MAXM_01_FROZEN_CORPUS_BASELINE_RECEIPT__AUDIT_ANCHOR__SMALL_APPEND_CADENCE,
             ],
-            'atlas.immune.classifier_hybrid.v1' => [
-                'max_size_mb' => 16,
-                'max_age_days' => 60,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MAXI-04 hybrid-classifier switch receipt; measurement cadence tied to arm-ON runs',
+            self::FIELD_ATLAS_IMMUNE_CLASSIFIER_HYBRID_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_16,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MAXI_04_HYBRID_CLASSIFIER_SWITCH_RECEIPT__MEASUREMENT_CADENCE_TIED_TO_ARM_ON_RUNS,
             ],
-            'atlas.n_capture_drill.v1' => [
-                'max_size_mb' => 8,
-                'max_age_days' => 365,
-                'mode' => self::MODE_APPEND_FOREVER,
-                'rationale' => 'TETO-01 N-Capture Drill receipt: quarterly-ish cadence, permanent audit anchor for N×M thesis proofs',
+            self::FIELD_ATLAS_N_CAPTURE_DRILL_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
+                self::FIELD_MAX_AGE_DAYS => self::INT_365,
+                self::FIELD_MODE => self::MODE_APPEND_FOREVER,
+                self::FIELD_RATIONALE => self::FIELD_TETO_01_N_CAPTURE_DRILL_RECEIPT__QUARTERLY_ISH_CADENCE__PERMANENT_AUDIT_ANCHOR_FOR_N_M_THESIS_PROOFS,
             ],
-            'atlas.kb_embedding_coverage.v1' => [
-                'max_size_mb' => 8,
-                'max_age_days' => 60,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MAXA-06 fase 1 KB coverage reader; watchdog snapshot cadence tied to knowledge sync runs',
+            self::FIELD_ATLAS_KB_EMBEDDING_COVERAGE_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MAXA_06_FASE_1_KB_COVERAGE_READER__WATCHDOG_SNAPSHOT_CADENCE_TIED_TO_KNOWLEDGE_SYNC_RUNS,
             ],
-            'atlas.semantic.jina_v3_dual_read.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MAXA-04 shadow dual-read receipts before any model promotion',
+            self::FIELD_ATLAS_SEMANTIC_JINA_V3_DUAL_READ_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MAXA_04_SHADOW_DUAL_READ_RECEIPTS_BEFORE_ANY_MODEL_PROMOTION,
             ],
             RagxChainMechanismService::AB_SCHEMA => [
-                'max_size_mb' => 16,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'RAGX-07 records A/B registrations only; results remain null until a real window runs',
+                self::FIELD_MAX_SIZE_MB => self::INT_16,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_RAGX_07_RECORDS_A_B_REGISTRATIONS_ONLY__RESULTS_REMAIN_NULL_UNTIL_A_REAL_WINDOW_RUNS,
             ],
-            'atlas.decide.cascade_cost_router.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 60,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MULTK-02 cascade cost router computed-reader snapshots',
+            self::FIELD_ATLAS_DECIDE_CASCADE_COST_ROUTER_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MULTK_02_CASCADE_COST_ROUTER_COMPUTED_READER_SNAPSHOTS,
             ],
-            'atlas.ai.procedural_skill_promoter.v1' => [
-                'max_size_mb' => 16,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MULTJ-04 procedural skill promoter reports stay small until real case-count soak',
+            self::FIELD_ATLAS_AI_PROCEDURAL_SKILL_PROMOTER_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_16,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MULTJ_04_PROCEDURAL_SKILL_PROMOTER_REPORTS_STAY_SMALL_UNTIL_REAL_CASE_COUNT_SOAK,
             ],
-            'atlas.ai.abstraction_ladder.v1' => [
-                'max_size_mb' => 16,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MULTJ-06 abstraction ladder computed-reader snapshots',
+            self::FIELD_ATLAS_AI_ABSTRACTION_LADDER_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_16,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MULTJ_06_ABSTRACTION_LADDER_COMPUTED_READER_SNAPSHOTS,
             ],
-            'atlas.immune.signature_store.v1' => [
-                'max_size_mb' => 64,
-                'max_age_days' => 60,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MAXI-05 immune signature DB-backed store; watchdog/table pruning cadence',
+            self::FIELD_ATLAS_IMMUNE_SIGNATURE_STORE_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_64,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MAXI_05_IMMUNE_SIGNATURE_DB_BACKED_STORE__WATCHDOG_TABLE_PRUNING_CADENCE,
             ],
-            'atlas.code_symbol_embedding_coverage.v1' => [
-                'max_size_mb' => 8,
-                'max_age_days' => 60,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MAXA-06 fase 2 code-symbol embedding coverage reader',
+            self::FIELD_ATLAS_CODE_SYMBOL_EMBEDDING_COVERAGE_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
+                self::FIELD_MAX_AGE_DAYS => self::INT_60,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MAXA_06_FASE_2_CODE_SYMBOL_EMBEDDING_COVERAGE_READER,
             ],
-            'atlas.aurg.ppr_shadow_dual_read.v1' => [
-                'max_size_mb' => 32,
-                'max_age_days' => 90,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'MAXD-04 PPR shadow dual-read receipts before any query promotion',
+            self::FIELD_ATLAS_AURG_PPR_SHADOW_DUAL_READ_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_32,
+                self::FIELD_MAX_AGE_DAYS => self::INT_90,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_MAXD_04_PPR_SHADOW_DUAL_READ_RECEIPTS_BEFORE_ANY_QUERY_PROMOTION,
             ],
-            'atlas.acos.rec06.meta_loop_breakers.v1' => [
-                'max_size_mb' => 8,
-                'max_age_days' => 30,
-                'mode' => self::MODE_ROTATE_HYBRID,
-                'rationale' => 'REC-06 computed breaker report; stays small until real series arm it',
+            self::FIELD_ATLAS_ACOS_REC06_META_LOOP_BREAKERS_V1 => [
+                self::FIELD_MAX_SIZE_MB => self::INT_8,
+                self::FIELD_MAX_AGE_DAYS => self::INT_30,
+                self::FIELD_MODE => self::MODE_ROTATE_HYBRID,
+                self::FIELD_RATIONALE => self::FIELD_REC_06_COMPUTED_BREAKER_REPORT__STAYS_SMALL_UNTIL_REAL_SERIES_ARM_IT,
             ],
         ];
     }
@@ -371,15 +483,15 @@ final class AcosMaxLedgerRotationRegistry
                 continue;
             }
             $policy = AiValueNormalizer::arrayOrEmpty($policy);
-            $mode = AiValueNormalizer::trimmedStringOrNull($policy['mode'] ?? null) ?? self::MODE_ROTATE_HYBRID;
+            $mode = AiValueNormalizer::trimmedStringOrNull($policy[self::FIELD_MODE] ?? null) ?? self::MODE_ROTATE_HYBRID;
             if (! in_array($mode, [self::MODE_APPEND_FOREVER, self::MODE_ROTATE_SIZE, self::MODE_ROTATE_AGE, self::MODE_ROTATE_HYBRID], true)) {
                 $mode = self::MODE_ROTATE_HYBRID;
             }
             $normalized[$seriesKey] = [
-            'max_size_mb' => max(1, (int) (AiValueNormalizer::finiteFloatOrNull($policy['max_size_mb'] ?? null) ?? self::DEFAULT_MAX_SIZE_MB)),
-            'max_age_days' => max(1, (int) (AiValueNormalizer::finiteFloatOrNull($policy['max_age_days'] ?? null) ?? self::DEFAULT_MAX_AGE_DAYS)),
-                'mode' => $mode,
-                'rationale' => AiValueNormalizer::trimmedStringOrNull($policy['rationale'] ?? null) ?? '',
+            self::FIELD_MAX_SIZE_MB => max(1, (int) (AiValueNormalizer::finiteFloatOrNull($policy[self::FIELD_MAX_SIZE_MB] ?? null) ?? self::DEFAULT_MAX_SIZE_MB)),
+            self::FIELD_MAX_AGE_DAYS => max(1, (int) (AiValueNormalizer::finiteFloatOrNull($policy[self::FIELD_MAX_AGE_DAYS] ?? null) ?? self::DEFAULT_MAX_AGE_DAYS)),
+                self::FIELD_MODE => $mode,
+                self::FIELD_RATIONALE => AiValueNormalizer::trimmedStringOrNull($policy[self::FIELD_RATIONALE] ?? null) ?? '',
             ];
         }
 

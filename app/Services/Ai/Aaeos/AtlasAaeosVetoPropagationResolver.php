@@ -23,7 +23,47 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasAaeosVetoPropagationResolver
 {
+    public const FIELD_FORGE = 'forge';
+    public const FIELD_QA = 'qa';
     public const SCHEMA_VERSION = 'atlas.aaeos.veto_propagation.v1';
+
+
+    public const FIELD_RESOLUTION = 'resolution';
+
+    public const FIELD_PAUSE_SET = 'pause_set';
+
+    public const FIELD_REDIRECT_TO = 'redirect_to';
+
+    public const FIELD_ESCALATION_TARGET = 'escalation_target';
+
+    public const FIELD_OVERRIDE = 'override';
+
+    public const FIELD_MATCHED_RULE = 'matched_rule';
+
+    public const FIELD_REASON = 'reason';
+
+    public const FIELD_ORIGIN_DEPARTMENT = 'origin_department';
+
+    public const FIELD_VETO_KIND = 'veto_kind';
+
+    public const FIELD_REPAIR_ITERATION = 'repair_iteration';
+
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_REVIEW = 'review';
+    public const FIELD_OPERATOR = 'operator';
+    public const FIELD_PRODUCT = 'product';
+    public const FIELD_ARCHITECT = 'architect';
+    public const FIELD_DEV = 'dev';
+    public const FIELD_MEMORY = 'memory';
+    public const FIELD_AUTO_ESCALATED = 'auto_escalated';
+
+    public const RESOLUTION_PROPAGATE_PAUSE = 'propagate_pause';
+
+    public const RESOLUTION_REDIRECT_UPSTREAM = 'redirect_upstream';
+
+    public const RESOLUTION_OVERRIDE_PASS = 'override_pass';
+
+    public const RESOLUTION_NO_MATCH = 'no_match';
 
     /**
      * repair_iteration value at which (and above) the 4th-iteration
@@ -40,6 +80,17 @@ final class AtlasAaeosVetoPropagationResolver
     public const REASON_REVIEW_DELIVERY_VETO_REPAIR = 'review_delivery_veto_redirects_to_dev_forge_for_repair';
 
     public const REASON_NO_CANONICAL_VETO_RULE = 'no_canonical_veto_rule_matched_origin_and_kind';
+    public const FIELD_DEBUG = 'debug';
+    public const FIELD_DELIVERY = 'delivery';
+    public const FIELD_SECURITY = 'security';
+    public const FIELD_ARCHITECT_SPEC_VETO = 'architect_spec_veto';
+    public const FIELD_NONE = 'none';
+    public const FIELD_OPERATOR_OVERRIDE = 'operator_override';
+    public const FIELD_REVIEW_DELIVERY_VETO = 'review_delivery_veto';
+    public const FIELD_SECURITY_VETO = 'security_veto';
+    public const FIELD_SPEC = 'spec';
+    public const FIELD_REPAIR_LOOP_4TH_ITERATION = 'repair_loop_4th_iteration';
+    public const FIELD_REPAIR_LOOP_REACHED_4TH_ITERATION_AUTO_ESCALATED_TO_ARCHITECT_AND_OPERATOR = 'repair_loop_reached_4th_iteration_auto_escalated_to_architect_and_operator';
 
     /**
      * Encoded canonical department adjacency (mermaid stateDiagram transitions).
@@ -51,17 +102,17 @@ final class AtlasAaeosVetoPropagationResolver
     public function canonicalTransitions(): array
     {
         return [
-            'product' => ['architect'],
-            'architect' => ['security', 'forge', 'dev'],
-            'dev' => ['review'],
-            'forge' => ['review'],
-            'review' => ['architect', 'delivery'],
-            'security' => ['operator', 'architect'],
-            'delivery' => ['operator'],
-            'operator' => ['memory'],
-            'qa' => ['dev', 'forge'],
-            'debug' => ['dev'],
-            'memory' => [],
+            self::FIELD_PRODUCT => [self::FIELD_ARCHITECT],
+            self::FIELD_ARCHITECT => [self::FIELD_SECURITY, self::FIELD_FORGE, self::FIELD_DEV],
+            self::FIELD_DEV => [self::FIELD_REVIEW],
+            self::FIELD_FORGE => [self::FIELD_REVIEW],
+            self::FIELD_REVIEW => [self::FIELD_ARCHITECT, self::FIELD_DELIVERY],
+            self::FIELD_SECURITY => [self::FIELD_OPERATOR, self::FIELD_ARCHITECT],
+            self::FIELD_DELIVERY => [self::FIELD_OPERATOR],
+            self::FIELD_OPERATOR => [self::FIELD_MEMORY],
+            self::FIELD_QA => [self::FIELD_DEV, self::FIELD_FORGE],
+            self::FIELD_DEBUG => [self::FIELD_DEV],
+            self::FIELD_MEMORY => [],
         ];
     }
 
@@ -92,36 +143,36 @@ final class AtlasAaeosVetoPropagationResolver
         $rule = $this->matchRule($origin, $kind);
         $autoEscalated = $iteration >= self::REPAIR_LOOP_AUTO_ESCALATION_THRESHOLD;
 
-        $resolution = $rule['resolution'];
-        $pauseSet = $rule['pause_set'];
-        $redirectTo = $rule['redirect_to'];
-        $escalationTarget = $rule['escalation_target'];
-        $override = $rule['override'];
-        $matchedRule = $rule['matched_rule'];
-        $reason = $rule['reason'];
+        $resolution = $rule[self::FIELD_RESOLUTION];
+        $pauseSet = $rule[self::FIELD_PAUSE_SET];
+        $redirectTo = $rule[self::FIELD_REDIRECT_TO];
+        $escalationTarget = $rule[self::FIELD_ESCALATION_TARGET];
+        $override = $rule[self::FIELD_OVERRIDE];
+        $matchedRule = $rule[self::FIELD_MATCHED_RULE];
+        $reason = $rule[self::FIELD_REASON];
 
         // Repair-loop auto-escalation: once the repair loop reaches its 4th
         // iteration on a matched veto cycle, escalate to Architect + Operator
         // regardless of the base rule's escalation target.
-        if ($autoEscalated && $resolution !== 'no_match') {
-            $escalationTarget = $this->reachableTargets(['architect', 'operator']);
-            $matchedRule = 'repair_loop_4th_iteration';
-            $reason = 'repair_loop_reached_4th_iteration_auto_escalated_to_architect_and_operator';
+        if ($autoEscalated && $resolution !== self::RESOLUTION_NO_MATCH) {
+            $escalationTarget = $this->reachableTargets([self::FIELD_ARCHITECT, self::FIELD_OPERATOR]);
+            $matchedRule = self::FIELD_REPAIR_LOOP_4TH_ITERATION;
+            $reason = self::FIELD_REPAIR_LOOP_REACHED_4TH_ITERATION_AUTO_ESCALATED_TO_ARCHITECT_AND_OPERATOR;
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'origin_department' => $origin,
-            'veto_kind' => $kind,
-            'repair_iteration' => $iteration,
-            'resolution' => $resolution,
-            'pause_set' => $pauseSet,
-            'redirect_to' => $redirectTo,
-            'escalation_target' => $escalationTarget,
-            'override' => $override,
-            'auto_escalated' => $autoEscalated,
-            'reason' => $reason,
-            'matched_rule' => $matchedRule,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_ORIGIN_DEPARTMENT => $origin,
+            self::FIELD_VETO_KIND => $kind,
+            self::FIELD_REPAIR_ITERATION => $iteration,
+            self::FIELD_RESOLUTION => $resolution,
+            self::FIELD_PAUSE_SET => $pauseSet,
+            self::FIELD_REDIRECT_TO => $redirectTo,
+            self::FIELD_ESCALATION_TARGET => $escalationTarget,
+            self::FIELD_OVERRIDE => $override,
+            self::FIELD_AUTO_ESCALATED => $autoEscalated,
+            self::FIELD_REASON => $reason,
+            self::FIELD_MATCHED_RULE => $matchedRule,
         ];
     }
 
@@ -141,67 +192,67 @@ final class AtlasAaeosVetoPropagationResolver
     private function matchRule(string $origin, string $kind): array
     {
         // Operator veto -> override final (always passes).
-        if ($origin === 'operator' && $kind === 'override') {
+        if ($origin === self::FIELD_OPERATOR && $kind === self::FIELD_OVERRIDE) {
             return [
-                'resolution' => 'override_pass',
-                'pause_set' => [],
-                'redirect_to' => [],
-                'escalation_target' => [],
-                'override' => true,
-                'matched_rule' => 'operator_override',
-                'reason' => self::REASON_OPERATOR_VETO_FINAL_OVERRIDE,
+                self::FIELD_RESOLUTION => self::RESOLUTION_OVERRIDE_PASS,
+                self::FIELD_PAUSE_SET => [],
+                self::FIELD_REDIRECT_TO => [],
+                self::FIELD_ESCALATION_TARGET => [],
+                self::FIELD_OVERRIDE => true,
+                self::FIELD_MATCHED_RULE => self::FIELD_OPERATOR_OVERRIDE,
+                self::FIELD_REASON => self::REASON_OPERATOR_VETO_FINAL_OVERRIDE,
             ];
         }
 
         // Security veto -> propagates to Dev/Forge/Delivery (all pause),
         // escalates to Operator. pause_set is computed by keeping only the
         // rule-declared downstream targets that exist in the canonical graph.
-        if ($origin === 'security' && $kind === 'security') {
+        if ($origin === self::FIELD_SECURITY && $kind === self::FIELD_SECURITY) {
             return [
-                'resolution' => 'propagate_pause',
-                'pause_set' => $this->reachableTargets(['dev', 'forge', 'delivery']),
-                'redirect_to' => [],
-                'escalation_target' => $this->reachableTargets(['operator']),
-                'override' => false,
-                'matched_rule' => 'security_veto',
-                'reason' => self::REASON_SECURITY_VETO_PAUSE_DOWNSTREAM,
+                self::FIELD_RESOLUTION => self::RESOLUTION_PROPAGATE_PAUSE,
+                self::FIELD_PAUSE_SET => $this->reachableTargets([self::FIELD_DEV, self::FIELD_FORGE, self::FIELD_DELIVERY]),
+                self::FIELD_REDIRECT_TO => [],
+                self::FIELD_ESCALATION_TARGET => $this->reachableTargets([self::FIELD_OPERATOR]),
+                self::FIELD_OVERRIDE => false,
+                self::FIELD_MATCHED_RULE => self::FIELD_SECURITY_VETO,
+                self::FIELD_REASON => self::REASON_SECURITY_VETO_PAUSE_DOWNSTREAM,
             ];
         }
 
         // Architect veto on spec -> back to Product for clarification.
-        if ($origin === 'architect' && $kind === 'spec') {
+        if ($origin === self::FIELD_ARCHITECT && $kind === self::FIELD_SPEC) {
             return [
-                'resolution' => 'redirect_upstream',
-                'pause_set' => [],
-                'redirect_to' => $this->reachableTargets(['product']),
-                'escalation_target' => [],
-                'override' => false,
-                'matched_rule' => 'architect_spec_veto',
-                'reason' => self::REASON_ARCHITECT_SPEC_VETO_UPSTREAM,
+                self::FIELD_RESOLUTION => self::RESOLUTION_REDIRECT_UPSTREAM,
+                self::FIELD_PAUSE_SET => [],
+                self::FIELD_REDIRECT_TO => $this->reachableTargets([self::FIELD_PRODUCT]),
+                self::FIELD_ESCALATION_TARGET => [],
+                self::FIELD_OVERRIDE => false,
+                self::FIELD_MATCHED_RULE => self::FIELD_ARCHITECT_SPEC_VETO,
+                self::FIELD_REASON => self::REASON_ARCHITECT_SPEC_VETO_UPSTREAM,
             ];
         }
 
         // Review veto on delivery -> back to Dev/Forge for repair.
-        if ($origin === 'review' && $kind === 'delivery') {
+        if ($origin === self::FIELD_REVIEW && $kind === self::FIELD_DELIVERY) {
             return [
-                'resolution' => 'redirect_upstream',
-                'pause_set' => [],
-                'redirect_to' => $this->reachableTargets(['dev', 'forge']),
-                'escalation_target' => [],
-                'override' => false,
-                'matched_rule' => 'review_delivery_veto',
-                'reason' => self::REASON_REVIEW_DELIVERY_VETO_REPAIR,
+                self::FIELD_RESOLUTION => self::RESOLUTION_REDIRECT_UPSTREAM,
+                self::FIELD_PAUSE_SET => [],
+                self::FIELD_REDIRECT_TO => $this->reachableTargets([self::FIELD_DEV, self::FIELD_FORGE]),
+                self::FIELD_ESCALATION_TARGET => [],
+                self::FIELD_OVERRIDE => false,
+                self::FIELD_MATCHED_RULE => self::FIELD_REVIEW_DELIVERY_VETO,
+                self::FIELD_REASON => self::REASON_REVIEW_DELIVERY_VETO_REPAIR,
             ];
         }
 
         return [
-            'resolution' => 'no_match',
-            'pause_set' => [],
-            'redirect_to' => [],
-            'escalation_target' => [],
-            'override' => false,
-            'matched_rule' => 'none',
-            'reason' => self::REASON_NO_CANONICAL_VETO_RULE,
+            self::FIELD_RESOLUTION => self::RESOLUTION_NO_MATCH,
+            self::FIELD_PAUSE_SET => [],
+            self::FIELD_REDIRECT_TO => [],
+            self::FIELD_ESCALATION_TARGET => [],
+            self::FIELD_OVERRIDE => false,
+            self::FIELD_MATCHED_RULE => self::FIELD_NONE,
+            self::FIELD_REASON => self::REASON_NO_CANONICAL_VETO_RULE,
         ];
     }
 

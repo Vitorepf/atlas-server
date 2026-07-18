@@ -11,6 +11,13 @@ final class AaeosBlockerSeverityGate
     public const SIGNAL_WARNING = 'warning';
 
     public const SIGNAL_CLEAR = 'clear';
+    public const FIELD_CRITICAL_COUNT = 'critical_count';
+    public const FIELD_HIGH_COUNT = 'high_count';
+    public const FIELD_UNKNOWN_COUNT = 'unknown_count';
+    public const FIELD_SIGNAL = 'signal';
+    public const FIELD_LOW_COUNT = 'low_count';
+    public const FIELD_MEDIUM_COUNT = 'medium_count';
+    public const FIELD_OWNERLESS_BLOCKERS = 'ownerless_blockers';
 
     /** @var list<string> */
     public const SIGNALS = [
@@ -57,13 +64,13 @@ final class AaeosBlockerSeverityGate
         }
 
         return [
-            'signal' => $this->resolveSignal($criticalCount, $highCount, $mediumCount),
-            'critical_count' => $criticalCount,
-            'high_count' => $highCount,
-            'medium_count' => $mediumCount,
-            'low_count' => $lowCount,
-            'unknown_count' => $unknownCount,
-            'ownerless_blockers' => $ownerlessBlockers,
+            self::FIELD_SIGNAL => $this->resolveSignal($criticalCount, $highCount, $mediumCount),
+            self::FIELD_CRITICAL_COUNT => $criticalCount,
+            self::FIELD_HIGH_COUNT => $highCount,
+            self::FIELD_MEDIUM_COUNT => $mediumCount,
+            self::FIELD_LOW_COUNT => $lowCount,
+            self::FIELD_UNKNOWN_COUNT => $unknownCount,
+            self::FIELD_OWNERLESS_BLOCKERS => $ownerlessBlockers,
         ];
     }
 

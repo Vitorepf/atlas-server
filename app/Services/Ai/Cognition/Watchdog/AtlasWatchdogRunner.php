@@ -23,6 +23,36 @@ final readonly class AtlasWatchdogRunner
     public const AGGREGATE_STATUS_HEALTHY = 'healthy';
 
     public const CHECK_ID_UNKNOWN = 'unknown';
+    public const FIELD_MESSAGE = 'message';
+    public const FIELD_EXCEPTION_CLASS = 'exception_class';
+    public const FIELD_CODE = 'code';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_RUN_ID = 'run_id';
+    public const FIELD_CHECKED_AT = 'checked_at';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_COUNTS = 'counts';
+    public const FIELD_CORRELATION_ID = 'correlation_id';
+    public const FIELD_ENVELOPE_ID = 'envelope_id';
+    public const FIELD_OPERATOR_ID = 'operator_id';
+    public const FIELD_TENANT_ID = 'tenant_id';
+    public const FIELD_LEDGER_EVENT_ID = 'ledger_event_id';
+    public const FIELD_CHECK_ID = 'check_id';
+    public const FIELD_CHECKS = 'checks';
+    public const FIELD_ALERTS = 'alerts';
+    public const FIELD_ID = 'id';
+    public const FIELD_TOTAL = 'total';
+    public const FIELD_EMITTER_STAGE = 'emitter_stage';
+    public const FIELD_EMITTER_VERSION = 'emitter_version';
+    public const FIELD_SCOPE_ID = 'scope_id';
+    public const FIELD_SCOPE_TYPE = 'scope_type';
+    public const FIELD_ACOS_WATCHDOG = 'acos_watchdog';
+    public const FIELD_DEFAULT = 'default';
+    public const FIELD_SYSTEM = 'system';
+    public const FIELD_UNIFIED = 'unified';
+    public const FIELD_WATCHDOG_CHECK_EXCEPTION = 'watchdog_check_exception';
+    public const FIELD_UTC = 'UTC';
+    public const FIELD_ATLAS_ACOS_WATCHDOG = 'atlas.acos.watchdog';
+    public const FIELD_WATCHDOG_CHECK_THREW__OTHER_CHECKS_CONTINUED_ = 'Watchdog check threw; other checks continued.';
 
     public function __construct(
         private AtlasWatchdogCheckRegistry $registry,
@@ -35,8 +65,8 @@ final readonly class AtlasWatchdogRunner
      */
     public function run(array $context = []): array
     {
-        $runId = AiValueNormalizer::trimmedStringOrNull($context['run_id'] ?? null) ?? (string) Str::ulid();
-        $checkedAt = CarbonImmutable::now('UTC')->toISOString();
+        $runId = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_RUN_ID] ?? null) ?? (string) Str::ulid();
+        $checkedAt = CarbonImmutable::now(self::FIELD_UTC)->toISOString();
         $checks = [];
 
         foreach ($this->registry->all() as $check) {
@@ -47,32 +77,32 @@ final readonly class AtlasWatchdogRunner
             } catch (Throwable $e) {
                 $row = AtlasWatchdogCheckResult::error(
                     evidence: [
-                        'exception_class' => class_basename($e),
-                        'message' => $e->getMessage(),
+                        self::FIELD_EXCEPTION_CLASS => class_basename($e),
+                        self::FIELD_MESSAGE => $e->getMessage(),
                     ],
                     alert: [
-                        'code' => 'watchdog_check_exception',
-                        'message' => 'Watchdog check threw; other checks continued.',
+                        self::FIELD_CODE => self::FIELD_WATCHDOG_CHECK_EXCEPTION,
+                        self::FIELD_MESSAGE => self::FIELD_WATCHDOG_CHECK_THREW__OTHER_CHECKS_CONTINUED_,
                     ],
                 )->toArray();
             }
 
-            $checks[] = ['id' => $id] + $row;
+            $checks[] = [self::FIELD_ID => $id] + $row;
         }
 
         $payload = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'run_id' => $runId,
-            'checked_at' => $checkedAt,
-            'status' => $this->aggregateStatus($checks),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_RUN_ID => $runId,
+            self::FIELD_CHECKED_AT => $checkedAt,
+            self::FIELD_STATUS => $this->aggregateStatus($checks),
             AtlasWatchdogCheckResult::STATUS_ALERT => $this->hasAlert($checks),
-            'counts' => $this->counts($checks),
-            'checks' => $checks,
-            'alerts' => $this->alerts($checks),
+            self::FIELD_COUNTS => $this->counts($checks),
+            self::FIELD_CHECKS => $checks,
+            self::FIELD_ALERTS => $this->alerts($checks),
         ];
 
         $event = $this->recordLedger($payload, $context);
-        $payload['ledger_event_id'] = $event?->event_id;
+        $payload[self::FIELD_LEDGER_EVENT_ID] = $event?->event_id;
 
         return $payload;
     }
@@ -83,7 +113,7 @@ final readonly class AtlasWatchdogRunner
     private function aggregateStatus(array $checks): string
     {
         $statuses = array_map(
-            static fn (array $check): string => AiValueNormalizer::trimmedStringOrNull($check['status'] ?? null) ?? '',
+            static fn (array $check): string => AiValueNormalizer::trimmedStringOrNull($check[self::FIELD_STATUS] ?? null) ?? '',
             $checks,
         );
 
@@ -112,7 +142,7 @@ final readonly class AtlasWatchdogRunner
     private function counts(array $checks): array
     {
         $counts = [
-            'total' => count($checks),
+            self::FIELD_TOTAL => count($checks),
             AtlasWatchdogCheckResult::STATUS_OK => 0,
             AtlasWatchdogCheckResult::STATUS_WARNING => 0,
             AtlasWatchdogCheckResult::STATUS_ALERT => 0,
@@ -121,7 +151,7 @@ final readonly class AtlasWatchdogRunner
         ];
 
         foreach ($checks as $check) {
-            $status = AiValueNormalizer::trimmedStringOrNull($check['status'] ?? null) ?? '';
+            $status = AiValueNormalizer::trimmedStringOrNull($check[self::FIELD_STATUS] ?? null) ?? '';
             if (array_key_exists($status, $counts)) {
                 $counts[$status]++;
             }
@@ -138,11 +168,11 @@ final readonly class AtlasWatchdogRunner
     {
         $alerts = [];
         foreach ($checks as $check) {
-            if (! is_array($check['alert'] ?? null)) {
+            if (! is_array($check[AtlasWatchdogCheckResult::FIELD_ALERT] ?? null)) {
                 continue;
             }
 
-            $alerts[] = ['check_id' => AiValueNormalizer::trimmedStringOrNull($check['id'] ?? null) ?? self::CHECK_ID_UNKNOWN] + $check['alert'];
+            $alerts[] = [self::FIELD_CHECK_ID => AiValueNormalizer::trimmedStringOrNull($check[self::FIELD_ID] ?? null) ?? self::CHECK_ID_UNKNOWN] + $check[AtlasWatchdogCheckResult::FIELD_ALERT];
         }
 
         return $alerts;
@@ -156,14 +186,14 @@ final readonly class AtlasWatchdogRunner
     {
         try {
             return $this->ledger->record(LedgerEventType::WatchdogRunRecorded, $payload, [
-                'tenant_id' => $context['tenant_id'] ?? 'default',
-                'operator_id' => $context['operator_id'] ?? 'system',
-                'envelope_id' => $context['envelope_id'] ?? 'acos:watchdog:run:'.$payload['run_id'],
-                'correlation_id' => $context['correlation_id'] ?? 'acos:watchdog:run:'.$payload['run_id'],
-                'scope_type' => 'acos_watchdog',
-                'scope_id' => 'unified',
-                'emitter_stage' => 'atlas.acos.watchdog',
-                'emitter_version' => self::SCHEMA_VERSION,
+                self::FIELD_TENANT_ID => $context[self::FIELD_TENANT_ID] ?? self::FIELD_DEFAULT,
+                self::FIELD_OPERATOR_ID => $context[self::FIELD_OPERATOR_ID] ?? self::FIELD_SYSTEM,
+                self::FIELD_ENVELOPE_ID => $context[self::FIELD_ENVELOPE_ID] ?? 'acos:watchdog:run:'.$payload[self::FIELD_RUN_ID],
+                self::FIELD_CORRELATION_ID => $context[self::FIELD_CORRELATION_ID] ?? 'acos:watchdog:run:'.$payload[self::FIELD_RUN_ID],
+                self::FIELD_SCOPE_TYPE => self::FIELD_ACOS_WATCHDOG,
+                self::FIELD_SCOPE_ID => self::FIELD_UNIFIED,
+                self::FIELD_EMITTER_STAGE => self::FIELD_ATLAS_ACOS_WATCHDOG,
+                self::FIELD_EMITTER_VERSION => self::SCHEMA_VERSION,
             ]);
         } catch (Throwable) {
             return null;

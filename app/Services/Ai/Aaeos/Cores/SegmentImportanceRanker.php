@@ -17,16 +17,16 @@ final class SegmentImportanceRanker
      * @var array<string, float>
      */
     public const KIND_WEIGHT = [
-        'decision' => 1.0,
-        'blocker' => 1.0,
-        'dod' => 1.0,
-        'risk_critical' => 1.0,
-        'evidence' => 0.6,
-        'decision_note' => 0.6,
-        'fact' => 0.4,
-        'stale_query' => 0.1,
-        'low_score_ref' => 0.1,
-        'duplicate' => 0.1,
+        self::FIELD_DECISION => self::FLOAT_1_0,
+        self::FIELD_BLOCKER => self::FLOAT_1_0,
+        self::FIELD_DOD => self::FLOAT_1_0,
+        self::FIELD_RISK_CRITICAL => self::FLOAT_1_0,
+        self::FIELD_EVIDENCE => self::FLOAT_0_6,
+        self::FIELD_DECISION_NOTE => self::FLOAT_0_6,
+        self::FIELD_FACT => self::FLOAT_0_4,
+        self::FIELD_STALE_QUERY => self::FLOAT_0_1,
+        self::FIELD_LOW_SCORE_REF => self::FLOAT_0_1,
+        self::FIELD_DUPLICATE => self::FLOAT_0_1,
     ];
 
     public const KIND_WEIGHT_UNKNOWN = 0.3;
@@ -42,6 +42,48 @@ final class SegmentImportanceRanker
     public const DROP_REASON_BUDGET_EXCEEDED = 'budget_exceeded';
 
     public const DROP_REASON_OVERSIZED_SEGMENT = 'oversized_segment';
+
+    public const DECISION_KEEP = 'keep';
+
+    public const DECISION_DROP = 'drop';
+    public const FIELD_SCORE = 'score';
+    public const FIELD_RECENCY_RANK = 'recency_rank';
+    public const FIELD_KIND_WEIGHT = 'kind_weight';
+    public const FIELD_DECISION = 'decision';
+    public const FIELD_DROP_REASON = 'drop_reason';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_SEGMENTS = 'segments';
+    public const FIELD_TOKEN_ESTIMATE = 'token_estimate';
+    public const FIELD_DEDUP_PENALTY = 'dedup_penalty';
+    public const FIELD_BLOCKER = 'blocker';
+    public const FIELD_DOD = 'dod';
+    public const FIELD_RISK_CRITICAL = 'risk_critical';
+    public const FIELD_EVIDENCE = 'evidence';
+    public const FIELD_DECISION_NOTE = 'decision_note';
+    public const FIELD_FACT = 'fact';
+    public const FIELD_BOUNDARY_INDEX = 'boundary_index';
+    public const FIELD_DROPPED_COUNT = 'dropped_count';
+    public const FIELD_DROPPED_IDS = 'dropped_ids';
+    public const FIELD_DUP_GROUP = 'dup_group';
+    public const FIELD_DUPLICATE = 'duplicate';
+    public const FIELD_HAS_EVIDENCE_REF = 'has_evidence_ref';
+    public const FIELD_STALE_QUERY = 'stale_query';
+    public const FIELD_LOW_SCORE_REF = 'low_score_ref';
+    public const FIELD_ID = 'id';
+    public const FIELD_TOKENS_KEPT = 'tokens_kept';
+    public const FIELD_KEPT_COUNT = 'kept_count';
+    public const FIELD_KEPT_IDS = 'kept_ids';
+    public const FIELD_LINKS_DECISION_OR_BLOCKER = 'links_decision_or_blocker';
+    public const FIELD_RANKED = 'ranked';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_TOKEN_BUDGET = 'token_budget';
+    public const FIELD_TOKENS_AVAILABLE = 'tokens_available';
+    public const FIELD_IMPORTANCE = 'importance';
+    public const FLOAT_0_6 = 0.6;
+    public const FLOAT_0_4 = 0.4;
+    public const FLOAT_1_0 = 1.0;
+    public const FLOAT_0_1 = 0.1;
 
     /**
      * Rank may-discard segments by composite signal and greedily fill a token budget.
@@ -98,18 +140,18 @@ final class SegmentImportanceRanker
         $boundaryIndex = null;
 
         foreach ($scored as $index => $segment) {
-            $tokenEstimate = $segment['token_estimate'];
+            $tokenEstimate = $segment[self::FIELD_TOKEN_ESTIMATE];
 
             if ($tokenEstimate > $budget) {
-                $decision = 'drop';
+                $decision = self::DECISION_DROP;
                 $dropReason = self::DROP_REASON_OVERSIZED_SEGMENT;
             } elseif ($runningTotal + $tokenEstimate <= $budget) {
-                $decision = 'keep';
+                $decision = self::DECISION_KEEP;
                 $dropReason = null;
                 $runningTotal += $tokenEstimate;
                 $tokensKept += $tokenEstimate;
             } else {
-                $decision = 'drop';
+                $decision = self::DECISION_DROP;
                 $dropReason = self::DROP_REASON_BUDGET_EXCEEDED;
 
                 if ($boundaryIndex === null) {
@@ -117,35 +159,35 @@ final class SegmentImportanceRanker
                 }
             }
 
-            if ($decision === 'keep') {
-                $keptIds[] = $segment['id'];
+            if ($decision === self::DECISION_KEEP) {
+                $keptIds[] = $segment[self::FIELD_ID];
             } else {
-                $droppedIds[] = $segment['id'];
+                $droppedIds[] = $segment[self::FIELD_ID];
             }
 
             $ranked[] = [
-                'id' => $segment['id'],
-                'kind' => $segment['kind'],
-                'score' => $segment['score'],
-                'recency_rank' => $segment['recency_rank'],
-                'token_estimate' => $tokenEstimate,
-                'dedup_penalty' => $segment['dedup_penalty'],
-                'decision' => $decision,
-                'drop_reason' => $dropReason,
+                self::FIELD_ID => $segment[self::FIELD_ID],
+                self::FIELD_KIND => $segment[self::FIELD_KIND],
+                self::FIELD_SCORE => $segment[self::FIELD_SCORE],
+                self::FIELD_RECENCY_RANK => $segment[self::FIELD_RECENCY_RANK],
+                self::FIELD_TOKEN_ESTIMATE => $tokenEstimate,
+                self::FIELD_DEDUP_PENALTY => $segment[self::FIELD_DEDUP_PENALTY],
+                self::FIELD_DECISION => $decision,
+                self::FIELD_DROP_REASON => $dropReason,
             ];
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'token_budget' => $budget,
-            'ranked' => $ranked,
-            'kept_ids' => $keptIds,
-            'dropped_ids' => $droppedIds,
-            'boundary_index' => $boundaryIndex ?? count($ranked),
-            'tokens_kept' => $tokensKept,
-            'tokens_available' => max($budget - $tokensKept, 0),
-            'kept_count' => count($keptIds),
-            'dropped_count' => count($droppedIds),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_TOKEN_BUDGET => $budget,
+            self::FIELD_RANKED => $ranked,
+            self::FIELD_KEPT_IDS => $keptIds,
+            self::FIELD_DROPPED_IDS => $droppedIds,
+            self::FIELD_BOUNDARY_INDEX => $boundaryIndex ?? count($ranked),
+            self::FIELD_TOKENS_KEPT => $tokensKept,
+            self::FIELD_TOKENS_AVAILABLE => max($budget - $tokensKept, 0),
+            self::FIELD_KEPT_COUNT => count($keptIds),
+            self::FIELD_DROPPED_COUNT => count($droppedIds),
         ];
     }
 
@@ -181,12 +223,12 @@ final class SegmentImportanceRanker
         $scored = [];
 
         foreach (array_values($maybeDiscard) as $row) {
-            $kind = AtlasAaeosArrayFieldReader::stringField($row, 'kind');
-            $recencyRank = $this->intField($row, 'recency_rank');
-            $hasEvidenceRef = $this->boolField($row, 'has_evidence_ref');
-            $linksDecisionOrBlocker = $this->boolField($row, 'links_decision_or_blocker');
-            $dupGroup = $this->nullableStringField($row, 'dup_group');
-            $importance = AiValueNormalizer::clampUnit($this->numericField($row, 'importance') / 100.0);
+            $kind = AtlasAaeosArrayFieldReader::stringField($row, self::FIELD_KIND);
+            $recencyRank = $this->intField($row, self::FIELD_RECENCY_RANK);
+            $hasEvidenceRef = $this->boolField($row, self::FIELD_HAS_EVIDENCE_REF);
+            $linksDecisionOrBlocker = $this->boolField($row, self::FIELD_LINKS_DECISION_OR_BLOCKER);
+            $dupGroup = $this->nullableStringField($row, self::FIELD_DUP_GROUP);
+            $importance = AiValueNormalizer::clampUnit($this->numericField($row, self::FIELD_IMPORTANCE) / 100.0);
 
             $kindWeight = $this->kindWeight($kind);
             $dedupPenalty = $this->dedupPenalty($dupGroup, $dupGroupSeen);
@@ -204,16 +246,16 @@ final class SegmentImportanceRanker
             $score = round($base + $dedupPenalty, 4);
 
             $scored[] = [
-                'id' => AtlasAaeosArrayFieldReader::stringField($row, 'id'),
-                'kind' => $kind,
-                'recency_rank' => $recencyRank,
-                'token_estimate' => max($this->intField($row, 'token_estimate'), 0),
-                'has_evidence_ref' => $hasEvidenceRef,
-                'links_decision_or_blocker' => $linksDecisionOrBlocker,
-                'dup_group' => $dupGroup,
-                'kind_weight' => $kindWeight,
-                'dedup_penalty' => $dedupPenalty,
-                'score' => $score,
+                self::FIELD_ID => AtlasAaeosArrayFieldReader::stringField($row, self::FIELD_ID),
+                self::FIELD_KIND => $kind,
+                self::FIELD_RECENCY_RANK => $recencyRank,
+                self::FIELD_TOKEN_ESTIMATE => max($this->intField($row, self::FIELD_TOKEN_ESTIMATE), 0),
+                self::FIELD_HAS_EVIDENCE_REF => $hasEvidenceRef,
+                self::FIELD_LINKS_DECISION_OR_BLOCKER => $linksDecisionOrBlocker,
+                self::FIELD_DUP_GROUP => $dupGroup,
+                self::FIELD_KIND_WEIGHT => $kindWeight,
+                self::FIELD_DEDUP_PENALTY => $dedupPenalty,
+                self::FIELD_SCORE => $score,
             ];
         }
 
@@ -249,19 +291,19 @@ final class SegmentImportanceRanker
      */
     private function compare(array $a, array $b): int
     {
-        if ($a['score'] !== $b['score']) {
-            return $b['score'] <=> $a['score'];
+        if ($a[self::FIELD_SCORE] !== $b[self::FIELD_SCORE]) {
+            return $b[self::FIELD_SCORE] <=> $a[self::FIELD_SCORE];
         }
 
-        if ($a['recency_rank'] !== $b['recency_rank']) {
-            return $a['recency_rank'] <=> $b['recency_rank'];
+        if ($a[self::FIELD_RECENCY_RANK] !== $b[self::FIELD_RECENCY_RANK]) {
+            return $a[self::FIELD_RECENCY_RANK] <=> $b[self::FIELD_RECENCY_RANK];
         }
 
-        if ($a['kind_weight'] !== $b['kind_weight']) {
-            return $b['kind_weight'] <=> $a['kind_weight'];
+        if ($a[self::FIELD_KIND_WEIGHT] !== $b[self::FIELD_KIND_WEIGHT]) {
+            return $b[self::FIELD_KIND_WEIGHT] <=> $a[self::FIELD_KIND_WEIGHT];
         }
 
-        return strcmp($a['id'], $b['id']);
+        return strcmp($a[self::FIELD_ID], $b[self::FIELD_ID]);
     }
 
     /**

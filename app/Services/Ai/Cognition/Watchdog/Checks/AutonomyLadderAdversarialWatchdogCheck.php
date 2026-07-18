@@ -31,7 +31,7 @@ use Throwable;
  * ceiling loosening, miner blocker mode) e ASSERTA que a promoção do estado
  * real é NEGADA. Se algum forjar-input passar, a check vira `alert` — a
  * mutação concreta é o `pass` gate do MAXK-05 no `AtlasAutonomousLearningApplier::decideCandidate()`
- * (linha :356 da era do plano, imediatamente após o cheque `promotion_gate.status==='pass'`).
+ * (linha :356 da era do plano, imediatamente após o cheque `promotion_gate.status===self::FIELD_PASS`).
  *
  * Provider-safe by construction: puro; nunca lê DB; usa um ledger temporário
  * por invocação. Fail-open em erros de bookkeeping para nunca quebrar o land.
@@ -43,12 +43,105 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const SCHEMA = 'atlas.acos.watchdog.autonomy_ladder_adversarial.v1';
 
     public const CHECK_ID = 'maxk-09.autonomy_ladder_adversarial';
+    public const FIELD_REFUSED = 'refused';
+    public const FIELD_OBSERVED = 'observed';
+    public const FIELD_EXPECTED = 'expected';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_CHECK = 'check';
+    public const FIELD_DETAILS = 'details';
+    public const FIELD_PASSED = 'passed';
 
     public const EXPORT_BOOL_TRUE = 'true';
 
     public const EXPORT_BOOL_FALSE = 'false';
 
     public const EXPORT_BOOL_UNSET = 'unset';
+
+    public const PROBE_ID_UNKNOWN = 'unknown';
+
+    public const FIELD_OK = 'ok';
+    public const FIELD_ID = 'id';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_REFUSAL_REASON = 'refusal_reason';
+    public const FIELD_MESSAGE = 'message';
+    public const FIELD_PROMOTES_SELECTION = 'promotes_selection';
+    public const FIELD_BLOCKER = 'blocker';
+    public const FIELD_DECISION = 'decision';
+    public const FIELD_METRICS = 'metrics';
+    public const FIELD_PRIVACY_CLASS = 'privacy_class';
+    public const FIELD_CEILING = 'ceiling';
+    public const FIELD_REQUESTED_AUTONOMY = 'requested_autonomy';
+    public const FIELD_PROBE = 'probe';
+    public const FIELD_VIOLATIONS = 'violations';
+    public const FIELD_OPERATOR = 'operator';
+    public const FIELD_REVERSAL_RATE = 'reversal_rate';
+    public const FIELD_ASSIST_SESSIONS = 'assist_sessions';
+    public const FIELD_ACCEPTANCE_RATE = 'acceptance_rate';
+    public const FIELD_SEVERE_HALLUCINATION_COUNT = 'severe_hallucination_count';
+    public const FIELD_METRICS_AUTHORITY = 'metrics_authority';
+    public const FIELD_ELIGIBLE = 'eligible';
+    public const FIELD_CODE = 'code';
+    public const FIELD_PROBE_COUNT = 'probe_count';
+    public const FIELD_REFUSED_COUNT = 'refused_count';
+    public const FIELD_PROBES = 'probes';
+    public const FIELD_ERRORS = 'errors';
+    public const FIELD_N = 'n';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_GATES_MUTATION = 'gates_mutation';
+    public const FIELD_READ_ONLY = 'read_only';
+    public const FIELD_BLOCKED = 'blocked';
+    public const FIELD_METRICS_AUTHORITY_MISSING = 'metrics_authority_missing';
+    public const FIELD_METRICS_AUTHORITY_TAMPERED = 'metrics_authority_tampered';
+    public const FIELD_PASS = 'pass';
+    public const FIELD_SIGNATURE_NONCE_REUSED = 'signature_nonce_reused';
+    public const FIELD_SIGNATURE_RECEIPT_MISSING = 'signature_receipt_missing';
+    public const FIELD_NORMAL = 'normal';
+    public const FIELD_FORGERY_PASSED = 'forgery_passed';
+    public const FIELD_MAXK09_ADVERSARIAL_PROBE_PASSED = 'maxk09_adversarial_probe_passed';
+    public const FIELD_MAXK09_PROBE_ORCHESTRATION_ERROR = 'maxk09_probe_orchestration_error';
+    public const FIELD_ORCHESTRATION = 'orchestration';
+    public const FIELD_PROBE_SETUP_FAILED = 'probe_setup_failed';
+    public const FIELD_SENSITIVE = 'sensitive';
+    public const FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE = 'atlas_aemor_memory_candidate';
+    public const FIELD_ATLAS_OPERATOR = 'atlas-operator';
+    public const FIELD_POLICY_H = 'policy-h';
+    public const FIELD_CAND_3 = 'cand-3';
+    public const FIELD_NONCE_REUSED_PROBE = 'nonce-reused-probe';
+    public const FIELD_MAXK06_METRICS_AUTHORITY_TAMPERED = 'maxk06.metrics_authority_tampered';
+    public const FIELD_CAND_1 = 'cand-1';
+    public const FIELD_CAND_2 = 'cand-2';
+    public const FIELD_FORGED_BOOLEAN = 'forged-boolean';
+    public const FIELD_MAXK05_SIGNATURE_FORGED_BOOLEAN = 'maxk05.signature_forged_boolean';
+    public const FIELD_MAXK05_SIGNATURE_NONCE_REUSED = 'maxk05.signature_nonce_reused';
+    public const FIELD_MAXK05_SIGNATURE_RECEIPT_MISSING = 'maxk05.signature_receipt_missing';
+    public const FIELD_MAXK06_METRICS_AUTHORITY_MISSING = 'maxk06.metrics_authority_missing';
+    public const FIELD_MAXK07_NEVER_EXCEEDS_CEILING = 'maxk07.never_exceeds_ceiling';
+    public const FIELD_MAXK07_PRIVACY_SENSITIVE_SHRINKS = 'maxk07.privacy_sensitive_shrinks';
+    public const FIELD_MAXK07_REVERSAL_RATE_HIGH_SHRINKS_TO_DRAFT = 'maxk07.reversal_rate_high_shrinks_to_draft';
+    public const FIELD_MAXK08_MINER_REPORT_ONLY = 'maxk08.miner_report_only';
+    public const FIELD_MAXK09_AUTH_MISSING_ = 'maxk09-auth-missing-';
+    public const FIELD_MAXK09_AUTH_TAMPERED_ = 'maxk09-auth-tampered-';
+    public const FIELD_MAXK09_PROBE = 'maxk09-probe';
+    public const FIELD_MAXK09_SIGLEDGER_ = 'maxk09-sigledger-';
+    public const FIELD_NEVER_ISSUED = 'never-issued';
+    public const FIELD_L0 = 'L0';
+    public const FIELD_L1 = 'L1';
+    public const FIELD__JSONL = '.jsonl';
+    public const FIELD_OK_FALSE = 'ok=false';
+    public const FIELD_ADVERSARIAL_PROBE_ORCHESTRATION_FAILED_ = 'Adversarial probe orchestration failed.';
+    public const FIELD_PROMOTES_SELECTION_FALSE_AND_BLOCKER_FALSE = 'promotes_selection=false AND blocker=false';
+    public const FIELD_DERIVED___CEILING_DRAFT = 'derived ≤ ceiling=draft';
+    public const FIELD_SIGNATURE_NONCE_REUSED_AFTER_FIRST_SPEND = 'signature_nonce_reused after first spend';
+    public const FIELD_A_MAXK_LADDER_ENVELOPE_FORGERY_WAS_NOT_REFUSED___REGRESSION_OPENS_THE_BOOLEAN_FORGEABLE_GATE_ = 'A MAXK ladder/envelope forgery was NOT refused — regression opens the boolean-forgeable gate.';
+    public const INT_5 = 5;
+    public const FLOAT_0_10 = 0.10;
+    public const FLOAT_0_42 = 0.42;
+    public const FLOAT_0_0 = 0.0;
+    public const INT_20 = 20;
+    public const INT_999 = 999;
+    public const INT_10 = 10;
+    public const INT_100 = 100;
 
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
@@ -77,44 +170,44 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             $probes[] = $this->probeShrinkNeverExceedsCeiling();
             $probes[] = $this->probeMinerIsReportOnly();
         } catch (Throwable $e) {
-            $errors[] = ['probe' => 'orchestration', 'message' => $e->getMessage()];
+            $errors[] = [self::FIELD_PROBE => self::FIELD_ORCHESTRATION, self::FIELD_MESSAGE => $e->getMessage()];
         }
 
         foreach ($probes as $probe) {
-            if (($probe['refused'] ?? false) !== true) {
+            if (($probe[self::FIELD_REFUSED] ?? false) !== true) {
                 $violations[] = [
-                    'probe' => AiValueNormalizer::trimmedStringOrNull($probe['id'] ?? null) ?? 'unknown',
-                    'reason' => AiValueNormalizer::trimmedStringOrNull($probe['observed'] ?? null) ?? 'forgery_passed',
+                    self::FIELD_PROBE => AiValueNormalizer::trimmedStringOrNull($probe[self::FIELD_ID] ?? null) ?? self::PROBE_ID_UNKNOWN,
+                    self::FIELD_REASON => AiValueNormalizer::trimmedStringOrNull($probe[self::FIELD_OBSERVED] ?? null) ?? self::FIELD_FORGERY_PASSED,
                 ];
             }
         }
 
         $evidence = [
-            'schema_version' => self::SCHEMA,
-            'probes' => $probes,
-            'probe_count' => count($probes),
-            'refused_count' => count(array_filter($probes, static fn (array $p): bool => ($p['refused'] ?? false) === true)),
-            'violations' => $violations,
-            'errors' => $errors,
-            'source' => [
-                'read_only' => true,
-                'promotes_selection' => false,
-                'blocker' => true,
-                'gates_mutation' => 'AtlasAutonomousLearningApplier::decideCandidate:pass',
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
+            self::FIELD_PROBES => $probes,
+            self::FIELD_PROBE_COUNT => count($probes),
+            self::FIELD_REFUSED_COUNT => count(array_filter($probes, static fn (array $p): bool => ($p[self::FIELD_REFUSED] ?? false) === true)),
+            self::FIELD_VIOLATIONS => $violations,
+            self::FIELD_ERRORS => $errors,
+            self::FIELD_SOURCE => [
+                self::FIELD_READ_ONLY => true,
+                self::FIELD_PROMOTES_SELECTION => false,
+                self::FIELD_BLOCKER => true,
+                self::FIELD_GATES_MUTATION => 'AtlasAutonomousLearningApplier::decideCandidate:pass',
             ],
         ];
 
         if ($errors !== []) {
             return AtlasWatchdogCheckResult::error($evidence, [
-                'code' => 'maxk09_probe_orchestration_error',
-                'message' => 'Adversarial probe orchestration failed.',
+                self::FIELD_CODE => self::FIELD_MAXK09_PROBE_ORCHESTRATION_ERROR,
+                self::FIELD_MESSAGE => self::FIELD_ADVERSARIAL_PROBE_ORCHESTRATION_FAILED_,
             ]);
         }
         if ($violations !== []) {
             return AtlasWatchdogCheckResult::alert($evidence, [
-                'code' => 'maxk09_adversarial_probe_passed',
-                'message' => 'A MAXK ladder/envelope forgery was NOT refused — regression opens the boolean-forgeable gate.',
-                'violations' => $violations,
+                self::FIELD_CODE => self::FIELD_MAXK09_ADVERSARIAL_PROBE_PASSED,
+                self::FIELD_MESSAGE => self::FIELD_A_MAXK_LADDER_ENVELOPE_FORGERY_WAS_NOT_REFUSED___REGRESSION_OPENS_THE_BOOLEAN_FORGEABLE_GATE_,
+                self::FIELD_VIOLATIONS => $violations,
             ]);
         }
 
@@ -132,26 +225,26 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     {
         [$ledger, $path] = $this->tempSignatureLedger();
         $verdict = $ledger->verify(
-            signature: 'operator',
-            actor: 'atlas-operator',
-            nonce: 'forged-boolean',
-            policyHash: 'policy-h',
-            targetKind: 'atlas_aemor_memory_candidate',
-            targetId: 'cand-1',
+            signature: self::FIELD_OPERATOR,
+            actor: self::FIELD_ATLAS_OPERATOR,
+            nonce: self::FIELD_FORGED_BOOLEAN,
+            policyHash: self::FIELD_POLICY_H,
+            targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
+            targetId: self::FIELD_CAND_1,
         );
         $this->cleanup($path);
 
-        // The ledger surface returns 'signature_receipt_missing' when the row
+        // The ledger surface returns self::FIELD_SIGNATURE_RECEIPT_MISSING when the row
         // is absent — which is the outcome for a bare boolean receipt after
         // the applier layer converts `true` into a missing-field verdict at
         // its own boundary. Either refusal reason satisfies the invariant.
-        $refused = $verdict['ok'] === false;
+        $refused = $verdict[self::FIELD_OK] === false;
 
         return [
-            'id' => 'maxk05.signature_forged_boolean',
-            'refused' => $refused,
-            'expected' => 'ok=false',
-            'observed' => (AiValueNormalizer::trimmedStringOrNull($verdict['reason'] ?? null) ?? 'unknown'),
+            self::FIELD_ID => self::FIELD_MAXK05_SIGNATURE_FORGED_BOOLEAN,
+            self::FIELD_REFUSED => $refused,
+            self::FIELD_EXPECTED => self::FIELD_OK_FALSE,
+            self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($verdict[self::FIELD_REASON] ?? null) ?? self::PROBE_ID_UNKNOWN),
         ];
     }
 
@@ -164,20 +257,20 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     {
         [$ledger, $path] = $this->tempSignatureLedger();
         $verdict = $ledger->verify(
-            signature: 'operator',
-            actor: 'atlas-operator',
-            nonce: 'never-issued',
-            policyHash: 'policy-h',
-            targetKind: 'atlas_aemor_memory_candidate',
-            targetId: 'cand-2',
+            signature: self::FIELD_OPERATOR,
+            actor: self::FIELD_ATLAS_OPERATOR,
+            nonce: self::FIELD_NEVER_ISSUED,
+            policyHash: self::FIELD_POLICY_H,
+            targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
+            targetId: self::FIELD_CAND_2,
         );
         $this->cleanup($path);
 
         return [
-            'id' => 'maxk05.signature_receipt_missing',
-            'refused' => $verdict['ok'] === false && $verdict['reason'] === 'signature_receipt_missing',
-            'expected' => 'signature_receipt_missing',
-            'observed' => (AiValueNormalizer::trimmedStringOrNull($verdict['reason'] ?? null) ?? 'unknown'),
+            self::FIELD_ID => self::FIELD_MAXK05_SIGNATURE_RECEIPT_MISSING,
+            self::FIELD_REFUSED => $verdict[self::FIELD_OK] === false && $verdict[self::FIELD_REASON] === self::FIELD_SIGNATURE_RECEIPT_MISSING,
+            self::FIELD_EXPECTED => self::FIELD_SIGNATURE_RECEIPT_MISSING,
+            self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($verdict[self::FIELD_REASON] ?? null) ?? self::PROBE_ID_UNKNOWN),
         ];
     }
 
@@ -191,37 +284,37 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     {
         [$ledger, $path] = $this->tempSignatureLedger();
         $ledger->record(
-            signature: 'operator',
-            actor: 'atlas-operator',
-            nonce: 'nonce-reused-probe',
-            policyHash: 'policy-h',
-            targetKind: 'atlas_aemor_memory_candidate',
-            targetId: 'cand-3',
+            signature: self::FIELD_OPERATOR,
+            actor: self::FIELD_ATLAS_OPERATOR,
+            nonce: self::FIELD_NONCE_REUSED_PROBE,
+            policyHash: self::FIELD_POLICY_H,
+            targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
+            targetId: self::FIELD_CAND_3,
         );
         $first = $ledger->verify(
-            signature: 'operator',
-            actor: 'atlas-operator',
-            nonce: 'nonce-reused-probe',
-            policyHash: 'policy-h',
-            targetKind: 'atlas_aemor_memory_candidate',
-            targetId: 'cand-3',
+            signature: self::FIELD_OPERATOR,
+            actor: self::FIELD_ATLAS_OPERATOR,
+            nonce: self::FIELD_NONCE_REUSED_PROBE,
+            policyHash: self::FIELD_POLICY_H,
+            targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
+            targetId: self::FIELD_CAND_3,
         );
         // Second verify — must fail because nonce is now spent.
         $second = $ledger->verify(
-            signature: 'operator',
-            actor: 'atlas-operator',
-            nonce: 'nonce-reused-probe',
-            policyHash: 'policy-h',
-            targetKind: 'atlas_aemor_memory_candidate',
-            targetId: 'cand-3',
+            signature: self::FIELD_OPERATOR,
+            actor: self::FIELD_ATLAS_OPERATOR,
+            nonce: self::FIELD_NONCE_REUSED_PROBE,
+            policyHash: self::FIELD_POLICY_H,
+            targetKind: self::FIELD_ATLAS_AEMOR_MEMORY_CANDIDATE,
+            targetId: self::FIELD_CAND_3,
         );
         $this->cleanup($path);
 
         return [
-            'id' => 'maxk05.signature_nonce_reused',
-            'refused' => $first['ok'] === true && $second['ok'] === false && $second['reason'] === 'signature_nonce_reused',
-            'expected' => 'signature_nonce_reused after first spend',
-            'observed' => (AiValueNormalizer::trimmedStringOrNull($second['reason'] ?? null) ?? 'unknown'),
+            self::FIELD_ID => self::FIELD_MAXK05_SIGNATURE_NONCE_REUSED,
+            self::FIELD_REFUSED => $first[self::FIELD_OK] === true && $second[self::FIELD_OK] === false && $second[self::FIELD_REASON] === self::FIELD_SIGNATURE_NONCE_REUSED,
+            self::FIELD_EXPECTED => self::FIELD_SIGNATURE_NONCE_REUSED_AFTER_FIRST_SPEND,
+            self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($second[self::FIELD_REASON] ?? null) ?? self::PROBE_ID_UNKNOWN),
         ];
     }
 
@@ -233,22 +326,22 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
      */
     private function probeMetricsAuthorityMissing(): array
     {
-        $path = $this->tempFile('maxk09-auth-missing-');
+        $path = $this->tempFile(self::FIELD_MAXK09_AUTH_MISSING_);
         $authority = new SealedLedgerAutonomyMetricsAuthority($path);
-        $verdict = $this->ladder->evaluatePromotionAuthoritative('L0', $authority, ['operator' => true]);
+        $verdict = $this->ladder->evaluatePromotionAuthoritative(self::FIELD_L0, $authority, [self::FIELD_OPERATOR => true]);
         $this->cleanup($path);
 
-        $provenance = AiValueNormalizer::arrayOrEmpty($verdict['metrics_authority'] ?? null);
-        $refused = ($verdict['eligible'] ?? true) === false
-            && ($verdict['decision'] ?? '') === 'blocked'
-            && ($verdict['refusal_reason'] ?? '') === 'metrics_authority_missing'
-            && ($provenance['source'] ?? '') === AtlasAutonomyMetricsAuthorityPort::SOURCE_MISSING;
+        $provenance = AiValueNormalizer::arrayOrEmpty($verdict[self::FIELD_METRICS_AUTHORITY] ?? null);
+        $refused = ($verdict[self::FIELD_ELIGIBLE] ?? true) === false
+            && ($verdict[self::FIELD_DECISION] ?? '') === self::FIELD_BLOCKED
+            && ($verdict[self::FIELD_REFUSAL_REASON] ?? '') === self::FIELD_METRICS_AUTHORITY_MISSING
+            && ($provenance[self::FIELD_SOURCE] ?? '') === AtlasAutonomyMetricsAuthorityPort::SOURCE_MISSING;
 
         return [
-            'id' => 'maxk06.metrics_authority_missing',
-            'refused' => $refused,
-            'expected' => 'blocked+metrics_authority_missing',
-            'observed' => (AiValueNormalizer::trimmedStringOrNull($verdict['refusal_reason'] ?? $verdict['decision'] ?? null) ?? 'unknown'),
+            self::FIELD_ID => self::FIELD_MAXK06_METRICS_AUTHORITY_MISSING,
+            self::FIELD_REFUSED => $refused,
+            self::FIELD_EXPECTED => 'blocked+metrics_authority_missing',
+            self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($verdict[self::FIELD_REFUSAL_REASON] ?? $verdict[self::FIELD_DECISION] ?? null) ?? self::PROBE_ID_UNKNOWN),
         ];
     }
 
@@ -260,16 +353,16 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
      */
     private function probeMetricsAuthorityTampered(): array
     {
-        $path = $this->tempFile('maxk09-auth-tampered-');
+        $path = $this->tempFile(self::FIELD_MAXK09_AUTH_TAMPERED_);
         $authority = new SealedLedgerAutonomyMetricsAuthority($path);
         $authority->seal(
-            level: 'L1',
+            level: self::FIELD_L1,
             metrics: [
-                'assist_sessions' => 10,
-                'acceptance_rate' => 0.10,
-                'severe_hallucination_count' => 5,
+                self::FIELD_ASSIST_SESSIONS => self::INT_10,
+                self::FIELD_ACCEPTANCE_RATE => self::FLOAT_0_10,
+                self::FIELD_SEVERE_HALLUCINATION_COUNT => self::INT_5,
             ],
-            sourceId: 'maxk09-probe',
+            sourceId: self::FIELD_MAXK09_PROBE,
         );
 
         $tamperOk = false;
@@ -280,9 +373,9 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
                 $entry = json_decode($lines[0], true);
                 if (is_array($entry)) {
                     // Adversary overwrites metrics but leaves entry_hash alone.
-                    $entry['metrics']['assist_sessions'] = 999;
-                    $entry['metrics']['acceptance_rate'] = 1.0;
-                    $entry['metrics']['severe_hallucination_count'] = 0;
+                    $entry[self::FIELD_METRICS][self::FIELD_ASSIST_SESSIONS] = self::INT_999;
+                    $entry[self::FIELD_METRICS][self::FIELD_ACCEPTANCE_RATE] = 1.0;
+                    $entry[self::FIELD_METRICS][self::FIELD_SEVERE_HALLUCINATION_COUNT] = 0;
                     file_put_contents($path, json_encode($entry)."\n");
                     $tamperOk = true;
                 }
@@ -292,30 +385,30 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         }
 
         $verdict = $this->ladder->evaluatePromotionAuthoritative(
-            'L0',
+            self::FIELD_L0,
             new SealedLedgerAutonomyMetricsAuthority($path),
-            ['operator' => true],
+            [self::FIELD_OPERATOR => true],
         );
         $this->cleanup($path);
 
         if (! $tamperOk) {
             return [
-                'id' => 'maxk06.metrics_authority_tampered',
-                'refused' => false,
-                'expected' => 'blocked+metrics_authority_tampered',
-                'observed' => 'probe_setup_failed',
+                self::FIELD_ID => self::FIELD_MAXK06_METRICS_AUTHORITY_TAMPERED,
+                self::FIELD_REFUSED => false,
+                self::FIELD_EXPECTED => 'blocked+metrics_authority_tampered',
+                self::FIELD_OBSERVED => self::FIELD_PROBE_SETUP_FAILED,
             ];
         }
 
-        $provenance = AiValueNormalizer::arrayOrEmpty($verdict['metrics_authority'] ?? null);
+        $provenance = AiValueNormalizer::arrayOrEmpty($verdict[self::FIELD_METRICS_AUTHORITY] ?? null);
 
         return [
-            'id' => 'maxk06.metrics_authority_tampered',
-            'refused' => ($verdict['eligible'] ?? true) === false
-                && ($verdict['refusal_reason'] ?? '') === 'metrics_authority_tampered'
-                && ($provenance['source'] ?? '') === AtlasAutonomyMetricsAuthorityPort::SOURCE_TAMPERED,
-            'expected' => 'blocked+metrics_authority_tampered',
-            'observed' => (AiValueNormalizer::trimmedStringOrNull($verdict['refusal_reason'] ?? $verdict['decision'] ?? null) ?? 'unknown'),
+            self::FIELD_ID => self::FIELD_MAXK06_METRICS_AUTHORITY_TAMPERED,
+            self::FIELD_REFUSED => ($verdict[self::FIELD_ELIGIBLE] ?? true) === false
+                && ($verdict[self::FIELD_REFUSAL_REASON] ?? '') === self::FIELD_METRICS_AUTHORITY_TAMPERED
+                && ($provenance[self::FIELD_SOURCE] ?? '') === AtlasAutonomyMetricsAuthorityPort::SOURCE_TAMPERED,
+            self::FIELD_EXPECTED => 'blocked+metrics_authority_tampered',
+            self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($verdict[self::FIELD_REFUSAL_REASON] ?? $verdict[self::FIELD_DECISION] ?? null) ?? self::PROBE_ID_UNKNOWN),
         ];
     }
 
@@ -328,19 +421,19 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     private function probeShrinkPrivacySensitive(): array
     {
         $derived = RequestedAutonomyDerivation::derive([
-            'privacy_class' => 'sensitive',
-            'ceiling' => PolicyCanon::AUTONOMY_AUTONOMOUS,
+            self::FIELD_PRIVACY_CLASS => self::FIELD_SENSITIVE,
+            self::FIELD_CEILING => PolicyCanon::AUTONOMY_AUTONOMOUS,
         ]);
-        $level = AiValueNormalizer::trimmedScalarStringOrNull($derived['requested_autonomy'] ?? null) ?? '';
+        $level = AiValueNormalizer::trimmedScalarStringOrNull($derived[self::FIELD_REQUESTED_AUTONOMY] ?? null) ?? '';
         $refused = $level === PolicyCanon::AUTONOMY_EXECUTE_WITH_APPROVAL
             || $level === PolicyCanon::AUTONOMY_DRAFT
             || $level === PolicyCanon::AUTONOMY_SUGGEST;
 
         return [
-            'id' => 'maxk07.privacy_sensitive_shrinks',
-            'refused' => $refused,
-            'expected' => '≤ execute_with_approval',
-            'observed' => $level,
+            self::FIELD_ID => self::FIELD_MAXK07_PRIVACY_SENSITIVE_SHRINKS,
+            self::FIELD_REFUSED => $refused,
+            self::FIELD_EXPECTED => '≤ execute_with_approval',
+            self::FIELD_OBSERVED => $level,
         ];
     }
 
@@ -352,20 +445,20 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     private function probeShrinkReversalRateHigh(): array
     {
         $derived = RequestedAutonomyDerivation::derive([
-            'privacy_class' => 'normal',
-            'reversal_rate' => 0.42,
-            'n' => 20,
-            'ceiling' => PolicyCanon::AUTONOMY_AUTONOMOUS,
+            self::FIELD_PRIVACY_CLASS => self::FIELD_NORMAL,
+            self::FIELD_REVERSAL_RATE => self::FLOAT_0_42,
+            self::FIELD_N => self::INT_20,
+            self::FIELD_CEILING => PolicyCanon::AUTONOMY_AUTONOMOUS,
         ]);
-        $level = AiValueNormalizer::trimmedScalarStringOrNull($derived['requested_autonomy'] ?? null) ?? '';
+        $level = AiValueNormalizer::trimmedScalarStringOrNull($derived[self::FIELD_REQUESTED_AUTONOMY] ?? null) ?? '';
         $refused = $level === PolicyCanon::AUTONOMY_DRAFT
             || $level === PolicyCanon::AUTONOMY_SUGGEST;
 
         return [
-            'id' => 'maxk07.reversal_rate_high_shrinks_to_draft',
-            'refused' => $refused,
-            'expected' => '≤ draft',
-            'observed' => $level,
+            self::FIELD_ID => self::FIELD_MAXK07_REVERSAL_RATE_HIGH_SHRINKS_TO_DRAFT,
+            self::FIELD_REFUSED => $refused,
+            self::FIELD_EXPECTED => '≤ draft',
+            self::FIELD_OBSERVED => $level,
         ];
     }
 
@@ -378,19 +471,19 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     private function probeShrinkNeverExceedsCeiling(): array
     {
         $derived = RequestedAutonomyDerivation::derive([
-            'privacy_class' => 'normal',
-            'reversal_rate' => 0.0,
-            'n' => 100,
-            'ceiling' => PolicyCanon::AUTONOMY_DRAFT,
+            self::FIELD_PRIVACY_CLASS => self::FIELD_NORMAL,
+            self::FIELD_REVERSAL_RATE => self::FLOAT_0_0,
+            self::FIELD_N => self::INT_100,
+            self::FIELD_CEILING => PolicyCanon::AUTONOMY_DRAFT,
         ]);
-        $level = AiValueNormalizer::trimmedScalarStringOrNull($derived['requested_autonomy'] ?? null) ?? '';
+        $level = AiValueNormalizer::trimmedScalarStringOrNull($derived[self::FIELD_REQUESTED_AUTONOMY] ?? null) ?? '';
         $refused = RequestedAutonomyDerivation::isMonotonicallyDownward($level, PolicyCanon::AUTONOMY_DRAFT);
 
         return [
-            'id' => 'maxk07.never_exceeds_ceiling',
-            'refused' => $refused,
-            'expected' => 'derived ≤ ceiling=draft',
-            'observed' => $level,
+            self::FIELD_ID => self::FIELD_MAXK07_NEVER_EXCEEDS_CEILING,
+            self::FIELD_REFUSED => $refused,
+            self::FIELD_EXPECTED => self::FIELD_DERIVED___CEILING_DRAFT,
+            self::FIELD_OBSERVED => $level,
         ];
     }
 
@@ -404,16 +497,16 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     private function probeMinerIsReportOnly(): array
     {
         $report = $this->miner->mine([], []);
-        $source = AiValueNormalizer::arrayOrEmpty($report['source'] ?? null);
-        $refused = ($source['promotes_selection'] ?? true) === false
-            && ($source['blocker'] ?? true) === false;
+        $source = AiValueNormalizer::arrayOrEmpty($report[self::FIELD_SOURCE] ?? null);
+        $refused = ($source[self::FIELD_PROMOTES_SELECTION] ?? true) === false
+            && ($source[self::FIELD_BLOCKER] ?? true) === false;
 
         return [
-            'id' => 'maxk08.miner_report_only',
-            'refused' => $refused,
-            'expected' => 'promotes_selection=false AND blocker=false',
-            'observed' => 'promotes_selection='.$this->exportBool($source['promotes_selection'] ?? null)
-                .' blocker='.$this->exportBool($source['blocker'] ?? null),
+            self::FIELD_ID => self::FIELD_MAXK08_MINER_REPORT_ONLY,
+            self::FIELD_REFUSED => $refused,
+            self::FIELD_EXPECTED => self::FIELD_PROMOTES_SELECTION_FALSE_AND_BLOCKER_FALSE,
+            self::FIELD_OBSERVED => 'promotes_selection='.$this->exportBool($source[self::FIELD_PROMOTES_SELECTION] ?? null)
+                .' blocker='.$this->exportBool($source[self::FIELD_BLOCKER] ?? null),
         ];
     }
 
@@ -422,7 +515,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
      */
     private function tempSignatureLedger(): array
     {
-        $path = $this->tempFile('maxk09-sigledger-');
+        $path = $this->tempFile(self::FIELD_MAXK09_SIGLEDGER_);
 
         return [new AtlasAutonomyLadderSignatureLedger($path), $path];
     }
@@ -434,7 +527,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
             return sys_get_temp_dir().DIRECTORY_SEPARATOR.$prefix.uniqid('', true);
         }
 
-        return $temp.'.jsonl';
+        return $temp.self::FIELD__JSONL;
     }
 
     private function cleanup(string $path): void
@@ -442,7 +535,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
         if ($path !== '' && is_file($path)) {
             @unlink($path);
         }
-        $base = str_ends_with($path, '.jsonl') ? substr($path, 0, -6) : $path;
+        $base = str_ends_with($path, self::FIELD__JSONL) ? substr($path, 0, -6) : $path;
         if ($base !== '' && is_file($base)) {
             @unlink($base);
         }

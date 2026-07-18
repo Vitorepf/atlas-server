@@ -26,6 +26,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class PortfolioBudgetAllocator
 {
+    public const FIELD_FLAG_DEFAULT = 'flag_default';
+    public const FIELD_OPERATOR_WEIGHTS = 'operator_weights';
     public const SCHEMA_VERSION = 'atlas.decide.portfolio_allocation.v1';
 
     public const FORMULA_VERSION = 'atlas.multk_06.portfolio_allocation.v1';
@@ -58,6 +60,45 @@ final class PortfolioBudgetAllocator
     /** Minimum n per class for yield to count; below ⇒ insufficient_n and default weight used. */
     public const MIN_N_PER_CLASS = 8;
 
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_WEIGHTS_REVERTED = 'weights_reverted_to_default';
+
+    public const BASIS_MEASURED = 'measured';
+
+    public const BASIS_INSUFFICIENT_N = 'insufficient_n';
+    public const FIELD_MEAN_PROVEN_YIELD = 'mean_proven_yield';
+    public const FIELD_MIN = 'min';
+    public const FIELD_MAX = 'max';
+    public const FIELD_BASIS = 'basis';
+    public const FIELD_ALLOCATED_SHARE = 'allocated_share';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_FORMULA_VERSION = 'formula_version';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_DECISION_KIND = 'decision_kind';
+    public const FIELD_ALLOCATION = 'allocation';
+    public const FIELD_DEFAULT_MIX = 'default_mix';
+    public const FIELD_YIELD_BY_CLASS = 'yield_by_class';
+    public const FIELD_AMENDMENT_RECEIPT_ID = 'amendment_receipt_id';
+    public const FIELD_REASONS = 'reasons';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_WEIGHTS_ARE_OPERATOR_AUTHORED = 'weights_are_operator_authored';
+    public const FIELD_ALLOCATOR_WRITES_OWN_WEIGHTS = 'allocator_writes_own_weights';
+    public const FIELD_CEILING_ABSOLUTE = 'ceiling_absolute';
+    public const FIELD_CEILING_BANDS = 'ceiling_bands';
+    public const FIELD_CONSUMER_OF_MAXK_07 = 'consumer_of_maxk_07';
+    public const FIELD_CONSUMER_OF_MAXN_04 = 'consumer_of_maxn_04';
+    public const FIELD_FLAG = 'flag';
+    public const FIELD_STARVATION_FLOOR_ABSOLUTE = 'starvation_floor_absolute';
+    public const FIELD_YIELD_RECOMPUTED_HERE = 'yield_recomputed_here';
+    public const FIELD_OFF = 'off';
+    public const FIELD_PORTFOLIO_ALLOCATION = 'portfolio_allocation';
+    public const FIELD_ATLAS_MULTK_06_PORTFOLIO_ALLOCATION_ENABLED = 'atlas.multk_06.portfolio_allocation_enabled';
+    public const FIELD_WEIGHT_CHANGE_REFUSED_MISSING_AMENDMENT_RECEIPT = 'weight_change_refused_missing_amendment_receipt';
+    public const FLOAT_1_0 = 1.0;
+    public const FLOAT_0_0 = 0.0;
+    public const INT_12 = 12;
+
     /**
      * @param  array<string,mixed>  $input keys:
      *   operator_weights: {reactive:float, originated:float, maintenance:float} — sums≈1.0
@@ -70,22 +111,22 @@ final class PortfolioBudgetAllocator
      */
     public static function derive(array $input): array
     {
-        $default = self::normalizeShares($input['default_mix'] ?? [], self::equalDefault());
-        $weights = self::normalizeShares($input['operator_weights'] ?? [], $default);
-        $ceilings = self::normalizeCeilings($input['ceiling_bands'] ?? []);
-        $yields = self::normalizeYields($input['yield_by_class'] ?? []);
-        $amendmentId = AiValueNormalizer::trimmedStringOrNull($input['amendment_receipt_id'] ?? null);
+        $default = self::normalizeShares($input[self::FIELD_DEFAULT_MIX] ?? [], self::equalDefault());
+        $weights = self::normalizeShares($input[self::FIELD_OPERATOR_WEIGHTS] ?? [], $default);
+        $ceilings = self::normalizeCeilings($input[self::FIELD_CEILING_BANDS] ?? []);
+        $yields = self::normalizeYields($input[self::FIELD_YIELD_BY_CLASS] ?? []);
+        $amendmentId = AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_AMENDMENT_RECEIPT_ID] ?? null);
 
         $reasons = [];
-        $status = 'ok';
+        $status = self::STATUS_OK;
 
         // Weight-change guard: any deviation from default_mix requires an amendment id.
         // Without it, the derivation refuses (§2398 "mudança de peso sem amendment receipt ⇒ rejeitada").
         $usedWeights = $weights;
         if ($amendmentId === null && ! self::sharesEqual($weights, $default)) {
             $usedWeights = $default;
-            $reasons[] = 'weight_change_refused_missing_amendment_receipt';
-            $status = 'weights_reverted_to_default';
+            $reasons[] = self::FIELD_WEIGHT_CHANGE_REFUSED_MISSING_AMENDMENT_RECEIPT;
+            $status = self::STATUS_WEIGHTS_REVERTED;
         }
 
         // Reserve floor + apply ceilings + distribute residual.
@@ -95,35 +136,35 @@ final class PortfolioBudgetAllocator
 
         $yieldReport = [];
         foreach (self::CLASSES as $class) {
-            $y = $yields[$class] ?? ['n' => 0, 'mean_proven_yield' => 0.0];
+            $y = $yields[$class] ?? ['n' => 0, self::FIELD_MEAN_PROVEN_YIELD => self::FLOAT_0_0];
             $yieldReport[$class] = [
                 'n' => $y['n'],
-                'mean_proven_yield' => $y['n'] >= self::MIN_N_PER_CLASS ? $y['mean_proven_yield'] : null,
-                'basis' => $y['n'] >= self::MIN_N_PER_CLASS ? 'measured' : 'insufficient_n',
-                'allocated_share' => $usedWeights[$class],
+                self::FIELD_MEAN_PROVEN_YIELD => $y['n'] >= self::MIN_N_PER_CLASS ? $y[self::FIELD_MEAN_PROVEN_YIELD] : null,
+                self::FIELD_BASIS => $y['n'] >= self::MIN_N_PER_CLASS ? self::BASIS_MEASURED : self::BASIS_INSUFFICIENT_N,
+                self::FIELD_ALLOCATED_SHARE => $usedWeights[$class],
             ];
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'formula_version' => self::FORMULA_VERSION,
-            'decision_kind' => 'portfolio_allocation',
-            'status' => $status,
-            'allocation' => $usedWeights,
-            'default_mix' => $default,
-            'yield_by_class' => $yieldReport,
-            'amendment_receipt_id' => $amendmentId,
-            'reasons' => $reasons,
-            'source' => [
-                'weights_are_operator_authored' => true,
-                'allocator_writes_own_weights' => false,
-                'yield_recomputed_here' => false,
-                'starvation_floor_absolute' => self::HARD_FLOOR_SHARE,
-                'ceiling_absolute' => self::HARD_CEILING_SHARE,
-                'consumer_of_maxn_04' => true,
-                'consumer_of_maxk_07' => true,
-                'flag' => 'atlas.multk_06.portfolio_allocation_enabled',
-                'flag_default' => 'off',
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+            self::FIELD_DECISION_KIND => self::FIELD_PORTFOLIO_ALLOCATION,
+            self::FIELD_STATUS => $status,
+            self::FIELD_ALLOCATION => $usedWeights,
+            self::FIELD_DEFAULT_MIX => $default,
+            self::FIELD_YIELD_BY_CLASS => $yieldReport,
+            self::FIELD_AMENDMENT_RECEIPT_ID => $amendmentId,
+            self::FIELD_REASONS => $reasons,
+            self::FIELD_SOURCE => [
+                self::FIELD_WEIGHTS_ARE_OPERATOR_AUTHORED => true,
+                self::FIELD_ALLOCATOR_WRITES_OWN_WEIGHTS => false,
+                self::FIELD_YIELD_RECOMPUTED_HERE => false,
+                self::FIELD_STARVATION_FLOOR_ABSOLUTE => self::HARD_FLOOR_SHARE,
+                self::FIELD_CEILING_ABSOLUTE => self::HARD_CEILING_SHARE,
+                self::FIELD_CONSUMER_OF_MAXN_04 => true,
+                self::FIELD_CONSUMER_OF_MAXK_07 => true,
+                self::FIELD_FLAG => self::FIELD_ATLAS_MULTK_06_PORTFOLIO_ALLOCATION_ENABLED,
+                self::FIELD_FLAG_DEFAULT => self::FIELD_OFF,
             ],
         ];
     }
@@ -142,7 +183,7 @@ final class PortfolioBudgetAllocator
             $out[$class] = $float === null ? $fallback[$class] : AiValueNormalizer::clampUnit($float);
         }
         // If everything zeroed to 0, use fallback wholesale to avoid degeneracy.
-        if (array_sum($out) <= 0.0) {
+        if (array_sum($out) <= self::FLOAT_0_0) {
             return $fallback;
         }
 
@@ -170,11 +211,11 @@ final class PortfolioBudgetAllocator
         $out = [];
         foreach (self::CLASSES as $class) {
             $band = AiValueNormalizer::arrayOrEmpty($raw[$class] ?? null);
-            $minRaw = AiValueNormalizer::finiteFloatOrNull($band['min'] ?? null);
-            $maxRaw = AiValueNormalizer::finiteFloatOrNull($band['max'] ?? null);
+            $minRaw = AiValueNormalizer::finiteFloatOrNull($band[self::FIELD_MIN] ?? null);
+            $maxRaw = AiValueNormalizer::finiteFloatOrNull($band[self::FIELD_MAX] ?? null);
             $min = $minRaw === null ? 0.0 : AiValueNormalizer::clampUnit($minRaw);
             $max = $maxRaw === null ? 1.0 : max($min, AiValueNormalizer::clampUnit($maxRaw));
-            $out[$class] = ['min' => $min, 'max' => $max];
+            $out[$class] = [self::FIELD_MIN => $min, self::FIELD_MAX => $max];
         }
 
         return $out;
@@ -190,8 +231,8 @@ final class PortfolioBudgetAllocator
         foreach (self::CLASSES as $class) {
             $entry = AiValueNormalizer::arrayOrEmpty($raw[$class] ?? null);
             $n = max(0, (int) (AiValueNormalizer::finiteFloatOrNull($entry['n'] ?? null) ?? 0));
-            $y = AiValueNormalizer::finiteFloatOrNull($entry['mean_proven_yield'] ?? null) ?? 0.0;
-            $out[$class] = ['n' => $n, 'mean_proven_yield' => $y];
+            $y = AiValueNormalizer::finiteFloatOrNull($entry[self::FIELD_MEAN_PROVEN_YIELD] ?? null) ?? 0.0;
+            $out[$class] = ['n' => $n, self::FIELD_MEAN_PROVEN_YIELD => $y];
         }
 
         return $out;
@@ -216,9 +257,9 @@ final class PortfolioBudgetAllocator
         $floors = [];
         $caps = [];
         foreach (self::CLASSES as $class) {
-            $band = $ceilings[$class] ?? ['min' => 0.0, 'max' => 1.0];
-            $floors[$class] = max(self::HARD_FLOOR_SHARE, $band['min']);
-            $cap = min(self::HARD_CEILING_SHARE, $band['max']);
+            $band = $ceilings[$class] ?? [self::FIELD_MIN => self::FLOAT_0_0, self::FIELD_MAX => self::FLOAT_1_0];
+            $floors[$class] = max(self::HARD_FLOOR_SHARE, $band[self::FIELD_MIN]);
+            $cap = min(self::HARD_CEILING_SHARE, $band[self::FIELD_MAX]);
             $caps[$class] = max($cap, $floors[$class]);
         }
         $out = [];
@@ -240,30 +281,30 @@ final class PortfolioBudgetAllocator
 
         // Water-filling projection.
         $frozen = [];
-        for ($iter = 0; $iter < 12; $iter++) {
-            $freeSum = 0.0;
-            $freeInput = 0.0;
+        for ($iter = 0; $iter < self::INT_12; $iter++) {
+            $freeSum = self::FLOAT_0_0;
+            $freeInput = self::FLOAT_0_0;
             foreach (self::CLASSES as $class) {
                 if (! isset($frozen[$class])) {
-                    $freeSum += 1.0;
+                    $freeSum += self::FLOAT_1_0;
                     $freeInput += $out[$class];
                 }
             }
-            if ($freeSum <= 0.0) {
+            if ($freeSum <= self::FLOAT_0_0) {
                 break;
             }
-            $frozenTotal = 0.0;
+            $frozenTotal = self::FLOAT_0_0;
             foreach ($frozen as $class => $_) {
                 $frozenTotal += $out[$class];
             }
             $target = max(0.0, 1.0 - $frozenTotal);
-            $scale = $freeInput > 0.0 ? $target / $freeInput : $target / $freeSum;
+            $scale = $freeInput > self::FLOAT_0_0 ? $target / $freeInput : $target / $freeSum;
             $changed = false;
             foreach (self::CLASSES as $class) {
                 if (isset($frozen[$class])) {
                     continue;
                 }
-                $candidate = $freeInput > 0.0 ? $out[$class] * $scale : $target / $freeSum;
+                $candidate = $freeInput > self::FLOAT_0_0 ? $out[$class] * $scale : $target / $freeSum;
                 if ($candidate < $floors[$class] - 1e-12) {
                     $out[$class] = $floors[$class];
                     $frozen[$class] = true;
@@ -291,7 +332,7 @@ final class PortfolioBudgetAllocator
     private static function renormalize(array $shares): array
     {
         $sum = array_sum($shares);
-        if ($sum <= 0.0) {
+        if ($sum <= self::FLOAT_0_0) {
             return self::equalDefault();
         }
         $out = [];

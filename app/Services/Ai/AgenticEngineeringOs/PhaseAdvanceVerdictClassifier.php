@@ -15,6 +15,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class PhaseAdvanceVerdictClassifier
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_OPERATOR_SIGNATURE = 'operator_signature';
     public const SCHEMA_VERSION = 'atlas.aaeos.phase_advance_verdict.v1';
 
     public const PHASE_POLICY_GATE = 'policy_gate';
@@ -30,6 +32,26 @@ final class PhaseAdvanceVerdictClassifier
     public const VERDICT_BLOCK = 'block';
 
     public const VERDICT_HALT = 'halt';
+
+    public const FIELD_BLOCKED = 'blocked';
+    public const FIELD_PHASE_OUT = 'phase_out';
+    public const FIELD_BLOCKERS = 'blockers';
+    public const FIELD_MISSING_GATES = 'missing_gates';
+    public const FIELD_BLOCKED_GATES = 'blocked_gates';
+    public const FIELD_GATES = 'gates';
+    public const FIELD_HIGH_BLOCKER_IDS = 'high_blocker_ids';
+    public const FIELD_PASSED = 'passed';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_REQUIRED = 'required';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_VERDICT = 'verdict';
+    public const FIELD_BLOCKED_GATES_REPAIR = 'blocked_gates_repair';
+    public const FIELD_OPEN_BLOCKERS_REPAIR = 'open_blockers_repair';
+    public const FIELD_MISSING_REQUIRED_GATES_REPAIR = 'missing_required_gates_repair';
+    public const FIELD_PHASE_ADVANCE_READY = 'phase_advance_ready';
+    public const FIELD_POLICY_DECISION_NOT_ALLOWED_HALT = 'policy_decision_not_allowed_halt';
+    public const FIELD_OPERATOR_SIGNATURE_REQUIRED = 'operator_signature_required';
+    public const FIELD_HIGH_SEVERITY_BLOCKER_BLOCK = 'high_severity_blocker_block';
 
     /** @var list<string> */
     public const VERDICTS = [
@@ -47,13 +69,13 @@ final class PhaseAdvanceVerdictClassifier
      * @var list<string>
      */
     public const RULES = [
-        'high_severity_blocker_block',
-        'policy_decision_not_allowed_halt',
-        'operator_signature_required',
-        'open_blockers_repair',
-        'missing_required_gates_repair',
-        'blocked_gates_repair',
-        'phase_advance_ready',
+        self::FIELD_HIGH_SEVERITY_BLOCKER_BLOCK,
+        self::FIELD_POLICY_DECISION_NOT_ALLOWED_HALT,
+        self::FIELD_OPERATOR_SIGNATURE_REQUIRED,
+        self::FIELD_OPEN_BLOCKERS_REPAIR,
+        self::FIELD_MISSING_REQUIRED_GATES_REPAIR,
+        self::FIELD_BLOCKED_GATES_REPAIR,
+        self::FIELD_PHASE_ADVANCE_READY,
     ];
 
     /**
@@ -76,14 +98,14 @@ final class PhaseAdvanceVerdictClassifier
      */
     public function classify(array $envelope): array
     {
-        $phaseOut = AiValueNormalizer::trimmedStringOrNull($envelope['phase_out'] ?? null) ?? '';
+        $phaseOut = AiValueNormalizer::trimmedStringOrNull($envelope[self::FIELD_PHASE_OUT] ?? null) ?? '';
 
-        $gates = AiValueNormalizer::arrayOrEmpty($envelope['gates'] ?? null);
-        $required = AiStringListNormalizer::trimmedStrings($gates['required'] ?? []);
-        $passed = AiStringListNormalizer::trimmedStrings($gates['passed'] ?? []);
-        $blockedGates = AiStringListNormalizer::trimmedStrings($gates['blocked'] ?? []);
+        $gates = AiValueNormalizer::arrayOrEmpty($envelope[self::FIELD_GATES] ?? null);
+        $required = AiStringListNormalizer::trimmedStrings($gates[self::FIELD_REQUIRED] ?? []);
+        $passed = AiStringListNormalizer::trimmedStrings($gates[self::FIELD_PASSED] ?? []);
+        $blockedGates = AiStringListNormalizer::trimmedStrings($gates[self::FIELD_BLOCKED] ?? []);
 
-        $blockers = AiValueNormalizer::arrayOrEmpty($envelope['blockers'] ?? null);
+        $blockers = AiValueNormalizer::arrayOrEmpty($envelope[self::FIELD_BLOCKERS] ?? null);
         $hasOpenBlockers = $this->hasOpenBlockers($blockers);
         $highBlockerIds = $this->highBlockerIds($blockers);
 
@@ -101,12 +123,12 @@ final class PhaseAdvanceVerdictClassifier
         );
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'verdict' => $verdict,
-            'reason' => $reason,
-            'missing_gates' => $missingGates,
-            'blocked_gates' => $blockedGates,
-            'high_blocker_ids' => $highBlockerIds,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_VERDICT => $verdict,
+            self::FIELD_REASON => $reason,
+            self::FIELD_MISSING_GATES => $missingGates,
+            self::FIELD_BLOCKED_GATES => $blockedGates,
+            self::FIELD_HIGH_BLOCKER_IDS => $highBlockerIds,
         ];
     }
 
@@ -129,36 +151,36 @@ final class PhaseAdvanceVerdictClassifier
         // Rule 1: a high/critical blocker outranks repair and forces a block
         // (aligned with {@see AaeosBlockerSeverityGate} blocked signal).
         if ($highBlockerIds !== []) {
-            return [self::VERDICT_BLOCK, 'high_severity_blocker_block'];
+            return [self::VERDICT_BLOCK, self::FIELD_HIGH_SEVERITY_BLOCKER_BLOCK];
         }
 
         // Rule 2: a policy gate whose decision token is not passed halts (no high blocker).
         if ($phaseOut === self::PHASE_POLICY_GATE && ! in_array(self::POLICY_GATE_TOKEN, $passed, true)) {
-            return [self::VERDICT_HALT, 'policy_decision_not_allowed_halt'];
+            return [self::VERDICT_HALT, self::FIELD_POLICY_DECISION_NOT_ALLOWED_HALT];
         }
 
         // Rule 3: a receipt phase without an operator signature blocks decisively.
         if ($phaseOut === self::PHASE_RECEIPT && $operatorSignature === null) {
-            return [self::VERDICT_BLOCK, 'operator_signature_required'];
+            return [self::VERDICT_BLOCK, self::FIELD_OPERATOR_SIGNATURE_REQUIRED];
         }
 
         // Rule 4: remaining (non-high) open blockers require repair.
         if ($hasOpenBlockers) {
-            return [self::VERDICT_REPAIR, 'open_blockers_repair'];
+            return [self::VERDICT_REPAIR, self::FIELD_OPEN_BLOCKERS_REPAIR];
         }
 
         // Rule 5: any missing required gate requires repair.
         if ($missingGates !== []) {
-            return [self::VERDICT_REPAIR, 'missing_required_gates_repair'];
+            return [self::VERDICT_REPAIR, self::FIELD_MISSING_REQUIRED_GATES_REPAIR];
         }
 
         // Rule 6: explicitly blocked gates require repair.
         if ($blockedGates !== []) {
-            return [self::VERDICT_REPAIR, 'blocked_gates_repair'];
+            return [self::VERDICT_REPAIR, self::FIELD_BLOCKED_GATES_REPAIR];
         }
 
         // Rule 7: nothing outstanding, the phase is clear to advance.
-        return [self::VERDICT_ADVANCE, 'phase_advance_ready'];
+        return [self::VERDICT_ADVANCE, self::FIELD_PHASE_ADVANCE_READY];
     }
 
     /**
@@ -207,7 +229,7 @@ final class PhaseAdvanceVerdictClassifier
                 continue;
             }
 
-            $id = AiValueNormalizer::trimmedStringOrNull($blocker['id'] ?? null);
+            $id = AiValueNormalizer::trimmedStringOrNull($blocker[self::FIELD_ID] ?? null);
             if ($id === null) {
                 continue;
             }
@@ -237,6 +259,6 @@ final class PhaseAdvanceVerdictClassifier
      */
     private function operatorSignature(array $envelope): ?string
     {
-        return AiValueNormalizer::trimmedStringOrNull($envelope['operator_signature'] ?? null);
+        return AiValueNormalizer::trimmedStringOrNull($envelope[self::FIELD_OPERATOR_SIGNATURE] ?? null);
     }
 }

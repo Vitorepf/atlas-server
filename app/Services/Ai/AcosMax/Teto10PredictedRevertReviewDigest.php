@@ -15,16 +15,102 @@ final class Teto10PredictedRevertReviewDigest
 {
     public const SCHEMA_VERSION = 'atlas.acos.teto10.predicted_revert_review_digest.v1';
 
+    public const BAND_HIGH = 'high';
+
+    public const BAND_SWEET = 'sweet';
+
+    public const BAND_LOW = 'low';
+
+    public const BAND_UNKNOWN = 'unknown';
+
+    public const STATUS_OK = 'ok';
+
+    public const STATUS_EMPTY = 'empty';
+
+
+    public const FIELD_GROUP_KEY = 'group_key';
+
+    public const FIELD_DECISION_ID = 'decision_id';
+
+    public const FIELD_FAMILY = 'family';
+
+    public const FIELD_PREDICTED_REVERT_BAND = 'predicted_revert_band';
+
+    public const FIELD_BAND_RANK = 'band_rank';
+
+    public const FIELD_HIGHEST_BAND_RANK = 'highest_band_rank';
+
+    public const FIELD_ITEMS = 'items';
+
+    public const FIELD_REVERSE_COMMAND = 'reverse_command';
+
+    public const FIELD_STATUS = 'status';
+
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+
+    public const FIELD_LIMIT = 'limit';
+
+    public const FIELD_GROUPS = 'groups';
+
     public const BAND_RANK = [
-        'high' => 0,
-        'sweet' => 1,
-        'low' => 2,
-        'unknown' => 3,
+        self::BAND_HIGH => 0,
+        self::BAND_SWEET => 1,
+        self::BAND_LOW => self::INT_2,
+        self::BAND_UNKNOWN => self::INT_3,
     ];
 
     public const DEFAULT_LIMIT = 50;
 
     public const HARD_LIMIT_CAP = 200;
+    public const FIELD_ITEM_COUNT = 'item_count';
+    public const FIELD_TITLE = 'title';
+    public const FIELD_SHOWN_ITEM_COUNT = 'shown_item_count';
+    public const FIELD_GROUP_COUNT = 'group_count';
+    public const FIELD_CAP = 'cap';
+    public const FIELD_BAND_ORDER = 'band_order';
+    public const FIELD_BAND_COUNTS = 'band_counts';
+    public const FIELD_PENDING_FLIPS = 'pending_flips';
+    public const FIELD_EVIDENCE_REFS = 'evidence_refs';
+    public const FIELD_HIGHEST_PREDICTED_REVERT_BAND = 'highest_predicted_revert_band';
+    public const FIELD_BATCHED_ASKS = 'batched_asks';
+    public const FIELD_DIFF_REF = 'diff_ref';
+    public const FIELD_REVIEW_MODE = 'review_mode';
+    public const FIELD_PENDING_FLIP = 'pending_flip';
+    public const FIELD_ASK_REF = 'ask_ref';
+    public const FIELD_BATCHED_ASK = 'batched_ask';
+    public const FIELD_FLIP_REF = 'flip_ref';
+    public const FIELD_SLICE = 'slice';
+    public const FIELD_FRONTIER_PLAN_SECTION = 'frontier_plan_section';
+    public const FIELD_MARKDOWN_CLI_ONLY = 'markdown_cli_only';
+    public const FIELD_UI_CREATED = 'ui_created';
+    public const FIELD_ID = 'id';
+    public const FIELD_SOURCE = 'source';
+    public const FIELD_COUNT = 'count';
+    public const FIELD_EVIDENCE_REF = 'evidence_ref';
+    public const FIELD_MANUAL_REVIEW_WHEN_REVERSE_MISSING = 'manual_review_when_reverse_missing';
+    public const FIELD_MISSING_EVIDENCE = 'missing_evidence';
+    public const FIELD_REORDERS_BY_PREDICTED_REVERT_BAND = 'reorders_by_predicted_revert_band';
+    public const FIELD_MANUAL_REVIEW = 'manual_review';
+    public const FIELD_ITEM = 'item';
+    public const FIELD_UNLABELLED = 'unlabelled';
+    public const FIELD_UNTITLED = 'untitled';
+    public const FIELD_DIFF = 'diff';
+    public const FIELD_REVERSE_HANDLE = 'reverse_handle';
+    public const FIELD_SUMMARY = 'summary';
+    public const FIELD_ASK_ID = 'ask_id';
+    public const FIELD_DESCRIPTION = 'description';
+    public const FIELD_FLIP_ID = 'flip_id';
+    public const FIELD_NONE = 'none';
+    public const FIELD_PATCH_REF = 'patch_ref';
+    public const FIELD_REVERSIBLE = 'reversible';
+    public const FIELD_ROLLBACK_COMMAND = 'rollback_command';
+    public const FIELD_TETO_10 = 'TETO-10';
+    public const FIELD_FAMILY_UNKNOWN = 'family:unknown';
+    public const FIELD_BATCHED_ASKS_2 = 'Batched asks';
+    public const FIELD_PENDING_FLIPS_2 = 'Pending flips';
+    public const FIELD_UNTITLED_REVIEW_ITEM = 'Untitled review item';
+    public const INT_3 = 3;
+    public const INT_2 = 2;
 
     /**
      * @param  list<array<string,mixed>>  $items
@@ -42,30 +128,30 @@ final class Teto10PredictedRevertReviewDigest
         $shown = array_slice($normalised, 0, $limit);
 
         $groups = self::groups($shown);
-        $bandCounts = ['high' => 0, 'sweet' => 0, 'low' => 0, 'unknown' => 0];
+        $bandCounts = [self::BAND_HIGH => 0, self::BAND_SWEET => 0, self::BAND_LOW => 0, self::BAND_UNKNOWN => 0];
         foreach ($normalised as $item) {
-            $bandCounts[self::band($item['predicted_revert_band'])]++;
+            $bandCounts[self::band($item[self::FIELD_PREDICTED_REVERT_BAND])]++;
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'status' => $normalised === [] ? 'empty' : 'ok',
-            'item_count' => count($normalised),
-            'shown_item_count' => count($shown),
-            'group_count' => count($groups),
-            'cap' => $limit,
-            'band_order' => ['high', 'sweet', 'low', 'unknown'],
-            'band_counts' => $bandCounts,
-            'groups' => $groups,
-            'pending_flips' => self::flaggedSection($shown, 'pending_flip', 'flip_ref'),
-            'batched_asks' => self::flaggedSection($shown, 'batched_ask', 'ask_ref'),
-            'source' => [
-                'slice' => 'TETO-10',
-                'frontier_plan_section' => '3144-3147',
-                'markdown_cli_only' => true,
-                'ui_created' => false,
-                'reorders_by_predicted_revert_band' => true,
-                'manual_review_when_reverse_missing' => true,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_STATUS => $normalised === [] ? self::STATUS_EMPTY : self::STATUS_OK,
+            self::FIELD_ITEM_COUNT => count($normalised),
+            self::FIELD_SHOWN_ITEM_COUNT => count($shown),
+            self::FIELD_GROUP_COUNT => count($groups),
+            self::FIELD_CAP => $limit,
+            self::FIELD_BAND_ORDER => [self::BAND_HIGH, self::BAND_SWEET, self::BAND_LOW, self::BAND_UNKNOWN],
+            self::FIELD_BAND_COUNTS => $bandCounts,
+            self::FIELD_GROUPS => $groups,
+            self::FIELD_PENDING_FLIPS => self::flaggedSection($shown, self::FIELD_PENDING_FLIP, self::FIELD_FLIP_REF),
+            self::FIELD_BATCHED_ASKS => self::flaggedSection($shown, self::FIELD_BATCHED_ASK, self::FIELD_ASK_REF),
+            self::FIELD_SOURCE => [
+                self::FIELD_SLICE => self::FIELD_TETO_10,
+                self::FIELD_FRONTIER_PLAN_SECTION => '3144-3147',
+                self::FIELD_MARKDOWN_CLI_ONLY => true,
+                self::FIELD_UI_CREATED => false,
+                self::FIELD_REORDERS_BY_PREDICTED_REVERT_BAND => true,
+                self::FIELD_MANUAL_REVIEW_WHEN_REVERSE_MISSING => true,
             ],
         ];
     }
@@ -78,50 +164,50 @@ final class Teto10PredictedRevertReviewDigest
         $lines = [
             '# ACOS TETO-10 predicted-revert review digest',
             '',
-            '- schema: '.self::inline(self::string($digest['schema_version'] ?? self::SCHEMA_VERSION) ?: self::SCHEMA_VERSION),
-            '- status: '.self::plain(self::string($digest['status'] ?? 'unknown') ?: 'unknown'),
-            '- items: '.self::string($digest['shown_item_count'] ?? 0).'/'.self::string($digest['item_count'] ?? 0),
+            '- schema: '.self::inline(self::string($digest[self::FIELD_SCHEMA_VERSION] ?? self::SCHEMA_VERSION) ?: self::SCHEMA_VERSION),
+            '- status: '.self::plain(self::string($digest[self::FIELD_STATUS] ?? self::BAND_UNKNOWN) ?: self::BAND_UNKNOWN),
+            '- items: '.self::string($digest[self::FIELD_SHOWN_ITEM_COUNT] ?? 0).'/'.self::string($digest[self::FIELD_ITEM_COUNT] ?? 0),
             '- order: high -> sweet -> low -> unknown',
             '- surface: markdown/CLI only',
             '',
         ];
 
         $currentBand = null;
-        foreach (AiValueNormalizer::arrayOrEmpty($digest['groups'] ?? null) as $group) {
+        foreach (AiValueNormalizer::arrayOrEmpty($digest[self::FIELD_GROUPS] ?? null) as $group) {
             if (! is_array($group)) {
                 continue;
             }
-            $band = self::band($group['highest_predicted_revert_band'] ?? 'unknown');
+            $band = self::band($group[self::FIELD_HIGHEST_PREDICTED_REVERT_BAND] ?? self::BAND_UNKNOWN);
             if ($band !== $currentBand) {
                 $lines[] = '## Predicted revert: '.$band;
                 $lines[] = '';
                 $currentBand = $band;
             }
 
-            $lines[] = '### '.self::plain(self::string($group['group_key'] ?? 'family:unknown') ?: 'family:unknown');
-            $decisionId = self::string($group['decision_id'] ?? '');
-            $family = self::string($group['family'] ?? '');
+            $lines[] = '### '.self::plain(self::string($group[self::FIELD_GROUP_KEY] ?? self::FIELD_FAMILY_UNKNOWN) ?: self::FIELD_FAMILY_UNKNOWN);
+            $decisionId = self::string($group[self::FIELD_DECISION_ID] ?? '');
+            $family = self::string($group[self::FIELD_FAMILY] ?? '');
             if ($decisionId !== '' || $family !== '') {
-                $lines[] = '- lineage: decision_id='.($decisionId !== '' ? self::plain($decisionId) : 'none')
-                    .' family='.($family !== '' ? self::plain($family) : 'unknown');
+                $lines[] = '- lineage: decision_id='.($decisionId !== '' ? self::plain($decisionId) : self::FIELD_NONE)
+                    .' family='.($family !== '' ? self::plain($family) : self::BAND_UNKNOWN);
             }
 
-            foreach (AiValueNormalizer::arrayOrEmpty($group['items'] ?? null) as $item) {
+            foreach (AiValueNormalizer::arrayOrEmpty($group[self::FIELD_ITEMS] ?? null) as $item) {
                 if (! is_array($item)) {
                     continue;
                 }
-                $lines[] = '- '.self::plain(self::string($item['id'] ?? 'item') ?: 'item').': '.self::plain(self::string($item['title'] ?? 'untitled') ?: 'untitled');
-                $lines[] = '  - band: '.self::plain(self::band($item['predicted_revert_band'] ?? 'unknown'));
-                $lines[] = '  - evidence: '.self::plain(implode(', ', array_map(self::string(...), AiValueNormalizer::arrayOrEmpty($item['evidence_refs'] ?? null))));
-                $lines[] = '  - diff-ref: '.self::plain(self::string($item['diff_ref'] ?? 'manual_review') ?: 'manual_review');
-                $lines[] = '  - reverse: '.self::inline(self::string($item['reverse_command'] ?? 'manual_review') ?: 'manual_review');
-                $lines[] = '  - review-mode: '.self::plain(self::string($item['review_mode'] ?? 'manual_review') ?: 'manual_review');
+                $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? self::FIELD_ITEM) ?: self::FIELD_ITEM).': '.self::plain(self::string($item[self::FIELD_TITLE] ?? self::FIELD_UNTITLED) ?: self::FIELD_UNTITLED);
+                $lines[] = '  - band: '.self::plain(self::band($item[self::FIELD_PREDICTED_REVERT_BAND] ?? self::BAND_UNKNOWN));
+                $lines[] = '  - evidence: '.self::plain(implode(', ', array_map(self::string(...), AiValueNormalizer::arrayOrEmpty($item[self::FIELD_EVIDENCE_REFS] ?? null))));
+                $lines[] = '  - diff-ref: '.self::plain(self::string($item[self::FIELD_DIFF_REF] ?? self::FIELD_MANUAL_REVIEW) ?: self::FIELD_MANUAL_REVIEW);
+                $lines[] = '  - reverse: '.self::inline(self::string($item[self::FIELD_REVERSE_COMMAND] ?? self::FIELD_MANUAL_REVIEW) ?: self::FIELD_MANUAL_REVIEW);
+                $lines[] = '  - review-mode: '.self::plain(self::string($item[self::FIELD_REVIEW_MODE] ?? self::FIELD_MANUAL_REVIEW) ?: self::FIELD_MANUAL_REVIEW);
             }
             $lines[] = '';
         }
 
-        $lines = array_merge($lines, self::renderFlaggedSection('Pending flips', AiValueNormalizer::arrayOrEmpty($digest['pending_flips'] ?? null)));
-        $lines = array_merge($lines, self::renderFlaggedSection('Batched asks', AiValueNormalizer::arrayOrEmpty($digest['batched_asks'] ?? null)));
+        $lines = array_merge($lines, self::renderFlaggedSection(self::FIELD_PENDING_FLIPS_2, AiValueNormalizer::arrayOrEmpty($digest[self::FIELD_PENDING_FLIPS] ?? null)));
+        $lines = array_merge($lines, self::renderFlaggedSection(self::FIELD_BATCHED_ASKS_2, AiValueNormalizer::arrayOrEmpty($digest[self::FIELD_BATCHED_ASKS] ?? null)));
 
         return rtrim(implode(PHP_EOL, $lines)).PHP_EOL;
     }
@@ -132,28 +218,28 @@ final class Teto10PredictedRevertReviewDigest
      */
     private static function normaliseItem(array $item, int $index): array
     {
-        $id = self::string($item['id'] ?? null);
-        $decisionId = self::string($item['decision_id'] ?? null);
-        $family = self::string($item['family'] ?? null);
-        $band = self::band($item['predicted_revert_band'] ?? null);
+        $id = self::string($item[self::FIELD_ID] ?? null);
+        $decisionId = self::string($item[self::FIELD_DECISION_ID] ?? null);
+        $family = self::string($item[self::FIELD_FAMILY] ?? null);
+        $band = self::band($item[self::FIELD_PREDICTED_REVERT_BAND] ?? null);
         $reverse = self::reverseCommand($item);
 
         return [
-            'id' => $id !== '' ? $id : 'item-'.($index + 1),
-            'title' => self::firstString($item, ['title', 'summary', 'description'], 'Untitled review item'),
-            'decision_id' => $decisionId !== '' ? $decisionId : null,
-            'family' => $family !== '' ? $family : 'unknown',
-            'group_key' => $decisionId !== '' ? 'decision:'.$decisionId : 'family:'.($family !== '' ? $family : 'unknown'),
-            'predicted_revert_band' => $band,
-            'band_rank' => self::BAND_RANK[$band],
-            'evidence_refs' => self::evidenceRefs($item),
-            'diff_ref' => self::firstString($item, ['diff_ref', 'diff', 'patch_ref'], 'manual_review'),
-            'reverse_command' => $reverse,
-            'review_mode' => $reverse === 'manual_review' ? 'manual_review' : 'reversible',
-            'pending_flip' => (AiValueNormalizer::boolOrNull($item['pending_flip'] ?? null) ?? false),
-            'flip_ref' => self::firstString($item, ['flip_ref', 'flip_id'], ''),
-            'batched_ask' => (AiValueNormalizer::boolOrNull($item['batched_ask'] ?? null) ?? false),
-            'ask_ref' => self::firstString($item, ['ask_ref', 'ask_id'], ''),
+            self::FIELD_ID => $id !== '' ? $id : 'item-'.($index + 1),
+            self::FIELD_TITLE => self::firstString($item, [self::FIELD_TITLE, self::FIELD_SUMMARY, self::FIELD_DESCRIPTION], self::FIELD_UNTITLED_REVIEW_ITEM),
+            self::FIELD_DECISION_ID => $decisionId !== '' ? $decisionId : null,
+            self::FIELD_FAMILY => $family !== '' ? $family : self::BAND_UNKNOWN,
+            self::FIELD_GROUP_KEY => $decisionId !== '' ? 'decision:'.$decisionId : 'family:'.($family !== '' ? $family : self::BAND_UNKNOWN),
+            self::FIELD_PREDICTED_REVERT_BAND => $band,
+            self::FIELD_BAND_RANK => self::BAND_RANK[$band],
+            self::FIELD_EVIDENCE_REFS => self::evidenceRefs($item),
+            self::FIELD_DIFF_REF => self::firstString($item, [self::FIELD_DIFF_REF, self::FIELD_DIFF, self::FIELD_PATCH_REF], self::FIELD_MANUAL_REVIEW),
+            self::FIELD_REVERSE_COMMAND => $reverse,
+            self::FIELD_REVIEW_MODE => $reverse === self::FIELD_MANUAL_REVIEW ? self::FIELD_MANUAL_REVIEW : self::FIELD_REVERSIBLE,
+            self::FIELD_PENDING_FLIP => (AiValueNormalizer::boolOrNull($item[self::FIELD_PENDING_FLIP] ?? null) ?? false),
+            self::FIELD_FLIP_REF => self::firstString($item, [self::FIELD_FLIP_REF, self::FIELD_FLIP_ID], ''),
+            self::FIELD_BATCHED_ASK => (AiValueNormalizer::boolOrNull($item[self::FIELD_BATCHED_ASK] ?? null) ?? false),
+            self::FIELD_ASK_REF => self::firstString($item, [self::FIELD_ASK_REF, self::FIELD_ASK_ID], ''),
         ];
     }
 
@@ -163,9 +249,9 @@ final class Teto10PredictedRevertReviewDigest
      */
     private static function itemSorter(array $a, array $b): int
     {
-        return ((int) (AiValueNormalizer::finiteFloatOrNull($a['band_rank'] ?? null) ?? 0) <=> (int) (AiValueNormalizer::finiteFloatOrNull($b['band_rank'] ?? null) ?? 0))
-            ?: ((AiValueNormalizer::trimmedScalarStringOrNull($a['group_key'] ?? null) ?? '') <=> (AiValueNormalizer::trimmedScalarStringOrNull($b['group_key'] ?? null) ?? ''))
-            ?: ((AiValueNormalizer::trimmedScalarStringOrNull($a['id'] ?? null) ?? '') <=> (AiValueNormalizer::trimmedScalarStringOrNull($b['id'] ?? null) ?? ''));
+        return ((int) (AiValueNormalizer::finiteFloatOrNull($a[self::FIELD_BAND_RANK] ?? null) ?? 0) <=> (int) (AiValueNormalizer::finiteFloatOrNull($b[self::FIELD_BAND_RANK] ?? null) ?? 0))
+            ?: ((AiValueNormalizer::trimmedScalarStringOrNull($a[self::FIELD_GROUP_KEY] ?? null) ?? '') <=> (AiValueNormalizer::trimmedScalarStringOrNull($b[self::FIELD_GROUP_KEY] ?? null) ?? ''))
+            ?: ((AiValueNormalizer::trimmedScalarStringOrNull($a[self::FIELD_ID] ?? null) ?? '') <=> (AiValueNormalizer::trimmedScalarStringOrNull($b[self::FIELD_ID] ?? null) ?? ''));
     }
 
     /**
@@ -176,29 +262,29 @@ final class Teto10PredictedRevertReviewDigest
     {
         $groups = [];
         foreach ($items as $item) {
-            $key = AiValueNormalizer::trimmedScalarStringOrNull($item['group_key'] ?? null) ?? '';
+            $key = AiValueNormalizer::trimmedScalarStringOrNull($item[self::FIELD_GROUP_KEY] ?? null) ?? '';
             $groups[$key] ??= [
-                'group_key' => $key,
-                'decision_id' => $item['decision_id'],
-                'family' => $item['family'],
-                'highest_predicted_revert_band' => $item['predicted_revert_band'],
-                'highest_band_rank' => $item['band_rank'],
-                'item_count' => 0,
-                'items' => [],
+                self::FIELD_GROUP_KEY => $key,
+                self::FIELD_DECISION_ID => $item[self::FIELD_DECISION_ID],
+                self::FIELD_FAMILY => $item[self::FIELD_FAMILY],
+                self::FIELD_HIGHEST_PREDICTED_REVERT_BAND => $item[self::FIELD_PREDICTED_REVERT_BAND],
+                self::FIELD_HIGHEST_BAND_RANK => $item[self::FIELD_BAND_RANK],
+                self::FIELD_ITEM_COUNT => 0,
+                self::FIELD_ITEMS => [],
             ];
-            $groups[$key]['item_count']++;
-            $groups[$key]['items'][] = $item;
-            if ((int) (AiValueNormalizer::finiteFloatOrNull($item['band_rank'] ?? null) ?? 0) < (int) $groups[$key]['highest_band_rank']) {
-                $groups[$key]['highest_band_rank'] = $item['band_rank'];
-                $groups[$key]['highest_predicted_revert_band'] = $item['predicted_revert_band'];
+            $groups[$key][self::FIELD_ITEM_COUNT]++;
+            $groups[$key][self::FIELD_ITEMS][] = $item;
+            if ((int) (AiValueNormalizer::finiteFloatOrNull($item[self::FIELD_BAND_RANK] ?? null) ?? 0) < (int) $groups[$key][self::FIELD_HIGHEST_BAND_RANK]) {
+                $groups[$key][self::FIELD_HIGHEST_BAND_RANK] = $item[self::FIELD_BAND_RANK];
+                $groups[$key][self::FIELD_HIGHEST_PREDICTED_REVERT_BAND] = $item[self::FIELD_PREDICTED_REVERT_BAND];
             }
         }
 
-        uasort($groups, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($a['highest_band_rank'] ?? null) ?? 0) <=> (int) (AiValueNormalizer::finiteFloatOrNull($b['highest_band_rank'] ?? null) ?? 0))
-            ?: ((AiValueNormalizer::trimmedScalarStringOrNull($a['group_key'] ?? null) ?? '') <=> (AiValueNormalizer::trimmedScalarStringOrNull($b['group_key'] ?? null) ?? '')));
+        uasort($groups, static fn (array $a, array $b): int => ((int) (AiValueNormalizer::finiteFloatOrNull($a[self::FIELD_HIGHEST_BAND_RANK] ?? null) ?? 0) <=> (int) (AiValueNormalizer::finiteFloatOrNull($b[self::FIELD_HIGHEST_BAND_RANK] ?? null) ?? 0))
+            ?: ((AiValueNormalizer::trimmedScalarStringOrNull($a[self::FIELD_GROUP_KEY] ?? null) ?? '') <=> (AiValueNormalizer::trimmedScalarStringOrNull($b[self::FIELD_GROUP_KEY] ?? null) ?? '')));
 
         return array_values(array_map(static function (array $group): array {
-            unset($group['highest_band_rank']);
+            unset($group[self::FIELD_HIGHEST_BAND_RANK]);
 
             return $group;
         }, $groups));
@@ -216,16 +302,16 @@ final class Teto10PredictedRevertReviewDigest
                 continue;
             }
             $flagged[] = [
-                'id' => $item['id'],
-                'title' => $item['title'],
-                'decision_id' => $item['decision_id'],
-                'family' => $item['family'],
-                $refKey => $item[$refKey] !== '' ? $item[$refKey] : 'unlabelled',
-                'reverse_command' => $item['reverse_command'],
+                self::FIELD_ID => $item[self::FIELD_ID],
+                self::FIELD_TITLE => $item[self::FIELD_TITLE],
+                self::FIELD_DECISION_ID => $item[self::FIELD_DECISION_ID],
+                self::FIELD_FAMILY => $item[self::FIELD_FAMILY],
+                $refKey => $item[$refKey] !== '' ? $item[$refKey] : self::FIELD_UNLABELLED,
+                self::FIELD_REVERSE_COMMAND => $item[self::FIELD_REVERSE_COMMAND],
             ];
         }
 
-        return ['count' => count($flagged), 'items' => $flagged];
+        return [self::FIELD_COUNT => count($flagged), self::FIELD_ITEMS => $flagged];
     }
 
     /**
@@ -235,7 +321,7 @@ final class Teto10PredictedRevertReviewDigest
     private static function renderFlaggedSection(string $title, array $section): array
     {
         $lines = ['## '.$title];
-        $items = AiValueNormalizer::arrayOrEmpty($section['items'] ?? null);
+        $items = AiValueNormalizer::arrayOrEmpty($section[self::FIELD_ITEMS] ?? null);
         if ($items === []) {
             $lines[] = '- none';
             $lines[] = '';
@@ -247,9 +333,9 @@ final class Teto10PredictedRevertReviewDigest
             if (! is_array($item)) {
                 continue;
             }
-            $ref = self::string($item['flip_ref'] ?? $item['ask_ref'] ?? 'unlabelled') ?: 'unlabelled';
-            $lines[] = '- '.self::plain(self::string($item['id'] ?? 'item') ?: 'item').' '.self::inline($ref)
-                .' reverse: '.self::inline(self::string($item['reverse_command'] ?? 'manual_review') ?: 'manual_review');
+            $ref = self::string($item[self::FIELD_FLIP_REF] ?? $item[self::FIELD_ASK_REF] ?? self::FIELD_UNLABELLED) ?: self::FIELD_UNLABELLED;
+            $lines[] = '- '.self::plain(self::string($item[self::FIELD_ID] ?? self::FIELD_ITEM) ?: self::FIELD_ITEM).' '.self::inline($ref)
+                .' reverse: '.self::inline(self::string($item[self::FIELD_REVERSE_COMMAND] ?? self::FIELD_MANUAL_REVIEW) ?: self::FIELD_MANUAL_REVIEW);
         }
         $lines[] = '';
 
@@ -260,7 +346,7 @@ final class Teto10PredictedRevertReviewDigest
     {
         $band = AiValueNormalizer::lowerTrimmedString($value);
 
-        return array_key_exists($band, self::BAND_RANK) ? $band : 'unknown';
+        return array_key_exists($band, self::BAND_RANK) ? $band : self::BAND_UNKNOWN;
     }
 
     /**
@@ -270,7 +356,7 @@ final class Teto10PredictedRevertReviewDigest
     private static function evidenceRefs(array $item): array
     {
         $refs = [];
-        $rawRefs = $item['evidence_refs'] ?? null;
+        $rawRefs = $item[self::FIELD_EVIDENCE_REFS] ?? null;
         if (is_array($rawRefs)) {
             foreach ($rawRefs as $ref) {
                 $value = self::string($ref);
@@ -280,12 +366,12 @@ final class Teto10PredictedRevertReviewDigest
             }
         }
 
-        $single = self::string($item['evidence_ref'] ?? null);
+        $single = self::string($item[self::FIELD_EVIDENCE_REF] ?? null);
         if ($single !== '') {
             $refs[] = $single;
         }
 
-        return array_values(array_unique($refs)) ?: ['missing_evidence'];
+        return array_values(array_unique($refs)) ?: [self::FIELD_MISSING_EVIDENCE];
     }
 
     /**
@@ -293,9 +379,9 @@ final class Teto10PredictedRevertReviewDigest
      */
     private static function reverseCommand(array $item): string
     {
-        $command = self::firstString($item, ['reverse_command', 'reverse_handle', 'rollback_command'], '');
-        if ($command === '' || $command === 'manual_review') {
-            return 'manual_review';
+        $command = self::firstString($item, [self::FIELD_REVERSE_COMMAND, self::FIELD_REVERSE_HANDLE, self::FIELD_ROLLBACK_COMMAND], '');
+        if ($command === '' || $command === self::FIELD_MANUAL_REVIEW) {
+            return self::FIELD_MANUAL_REVIEW;
         }
 
         return $command;

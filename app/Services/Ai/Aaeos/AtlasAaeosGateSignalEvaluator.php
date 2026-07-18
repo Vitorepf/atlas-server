@@ -18,6 +18,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasAaeosGateSignalEvaluator
 {
+    public const FIELD_GATE = 'gate';
+    public const FIELD_INTENT = 'intent';
     public const SCHEMA_VERSION = 'atlas.aaeos.gate_signal.v1';
 
     public const GATE_INTENT_CLARITY = 'intent_clarity_score_min_0_8';
@@ -62,6 +64,30 @@ final class AtlasAaeosGateSignalEvaluator
      */
     public const COMPOUND_CONNECTORS = [' and ', ' & ', ' then ', ' plus ', '; '];
 
+    public const FIELD_PASSED = 'passed';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_GATES = 'gates';
+    public const FIELD_ALL_PASSED = 'all_passed';
+    public const FIELD_REASONS = 'reasons';
+    public const FIELD_ACCEPTANCE = 'acceptance';
+    public const FIELD_ACCEPTANCE_CRITERIA = 'acceptance_criteria';
+    public const FIELD_AMBIGUITY_TOKENS = 'ambiguity_tokens';
+    public const FIELD_COMPUTED_VALUE = 'computed_value';
+    public const FIELD_MISSING_ANSWERS = 'missing_answers';
+    public const FIELD_NO_PHASE_OUTPUTS = 'no_phase_outputs';
+    public const FIELD_RESOLVED_TARGET = 'resolved_target';
+    public const FIELD_SCOPE = 'scope';
+    public const FIELD_SCOPE_BOUNDED = 'scope_bounded';
+    public const FIELD_SPEC_PACK = 'spec_pack';
+    public const FIELD_TASK_PACK = 'task_pack';
+    public const FIELD_TASKS = 'tasks';
+    public const FIELD_TASK_ = 'task_';
+    public const FIELD_ALL_TASKS_ATOMIC = 'all_tasks_atomic';
+    public const FIELD_INTENT_CLEAR = 'intent_clear';
+    public const FIELD_RESOLVED_TARGET_MISSING = 'resolved_target_missing';
+    public const FIELD_SCOPE_UNBOUNDED = 'scope_unbounded';
+    public const FIELD_TASK_PACK_EMPTY = 'task_pack_empty';
+
     /**
      * P1 disambiguation gate: weighted + clamped 0..1 intent-clarity score.
      *
@@ -70,10 +96,10 @@ final class AtlasAaeosGateSignalEvaluator
      */
     public function evaluateIntentClarity(array $disambiguationFeatures): array
     {
-        $resolvedTarget = $this->stringOrNull($disambiguationFeatures['resolved_target'] ?? null);
-        $scopeBounded = ($disambiguationFeatures['scope_bounded'] ?? false) === true;
-        $ambiguityTokens = AiStringListNormalizer::strings($disambiguationFeatures['ambiguity_tokens'] ?? []);
-        $missingCount = $this->missingAnswersCount($disambiguationFeatures['missing_answers'] ?? []);
+        $resolvedTarget = $this->stringOrNull($disambiguationFeatures[self::FIELD_RESOLVED_TARGET] ?? null);
+        $scopeBounded = ($disambiguationFeatures[self::FIELD_SCOPE_BOUNDED] ?? false) === true;
+        $ambiguityTokens = AiStringListNormalizer::strings($disambiguationFeatures[self::FIELD_AMBIGUITY_TOKENS] ?? []);
+        $missingCount = $this->missingAnswersCount($disambiguationFeatures[self::FIELD_MISSING_ANSWERS] ?? []);
 
         $ambiguityCount = count($ambiguityTokens);
 
@@ -87,10 +113,10 @@ final class AtlasAaeosGateSignalEvaluator
 
         $reasons = [];
         if ($resolvedTarget === null) {
-            $reasons[] = 'resolved_target_missing';
+            $reasons[] = self::FIELD_RESOLVED_TARGET_MISSING;
         }
         if (! $scopeBounded) {
-            $reasons[] = 'scope_unbounded';
+            $reasons[] = self::FIELD_SCOPE_UNBOUNDED;
         }
         if ($ambiguityCount > 0) {
             $reasons[] = 'ambiguity_tokens_present:'.$ambiguityCount;
@@ -99,7 +125,7 @@ final class AtlasAaeosGateSignalEvaluator
             $reasons[] = 'missing_answers_present:'.$missingCount;
         }
         if ($reasons === []) {
-            $reasons[] = 'intent_clear';
+            $reasons[] = self::FIELD_INTENT_CLEAR;
         }
 
         return $this->gateResult(self::GATE_INTENT_CLARITY, $passed, $score, $reasons);
@@ -114,7 +140,7 @@ final class AtlasAaeosGateSignalEvaluator
      */
     public function evaluateSpecPackAcceptanceCriteria(array $specPack): array
     {
-        $raw = AiStringListNormalizer::strings($specPack['acceptance_criteria'] ?? []);
+        $raw = AiStringListNormalizer::strings($specPack[self::FIELD_ACCEPTANCE_CRITERIA] ?? []);
 
         $distinct = [];
         $blankCount = 0;
@@ -154,30 +180,30 @@ final class AtlasAaeosGateSignalEvaluator
      */
     public function evaluateTaskPackAtomicity(array $taskPack): array
     {
-        $tasks = $this->taskList($taskPack['tasks'] ?? []);
+        $tasks = $this->taskList($taskPack[self::FIELD_TASKS] ?? []);
 
         $reasons = [];
         if ($tasks === []) {
-            $reasons[] = 'task_pack_empty';
+            $reasons[] = self::FIELD_TASK_PACK_EMPTY;
 
             return $this->gateResult(self::GATE_TASK_PACK, false, false, $reasons);
         }
 
         $allAtomic = true;
         foreach ($tasks as $index => $task) {
-            $scope = $this->stringOrNull($task['scope'] ?? null) ?? '';
+            $scope = $this->stringOrNull($task[self::FIELD_SCOPE] ?? null) ?? '';
             if ($this->isCompoundScope($scope)) {
-                $reasons[] = 'task_'.$index.'_compound_scope';
+                $reasons[] = self::FIELD_TASK_.$index.'_compound_scope';
                 $allAtomic = false;
             }
             if (! $this->hasAcceptance($task)) {
-                $reasons[] = 'task_'.$index.'_missing_acceptance';
+                $reasons[] = self::FIELD_TASK_.$index.'_missing_acceptance';
                 $allAtomic = false;
             }
         }
 
         if ($reasons === []) {
-            $reasons[] = 'all_tasks_atomic';
+            $reasons[] = self::FIELD_ALL_TASKS_ATOMIC;
         }
 
         return $this->gateResult(self::GATE_TASK_PACK, $allAtomic, $allAtomic, $reasons);
@@ -194,36 +220,36 @@ final class AtlasAaeosGateSignalEvaluator
     {
         $gates = [];
 
-        if (array_key_exists('intent', $phaseOutputs)) {
-            $gates[] = $this->evaluateIntentClarity($this->asArray($phaseOutputs['intent']));
+        if (array_key_exists(self::FIELD_INTENT, $phaseOutputs)) {
+            $gates[] = $this->evaluateIntentClarity($this->asArray($phaseOutputs[self::FIELD_INTENT]));
         }
-        if (array_key_exists('spec_pack', $phaseOutputs)) {
-            $gates[] = $this->evaluateSpecPackAcceptanceCriteria($this->asArray($phaseOutputs['spec_pack']));
+        if (array_key_exists(self::FIELD_SPEC_PACK, $phaseOutputs)) {
+            $gates[] = $this->evaluateSpecPackAcceptanceCriteria($this->asArray($phaseOutputs[self::FIELD_SPEC_PACK]));
         }
-        if (array_key_exists('task_pack', $phaseOutputs)) {
-            $gates[] = $this->evaluateTaskPackAtomicity($this->asArray($phaseOutputs['task_pack']));
+        if (array_key_exists(self::FIELD_TASK_PACK, $phaseOutputs)) {
+            $gates[] = $this->evaluateTaskPackAtomicity($this->asArray($phaseOutputs[self::FIELD_TASK_PACK]));
         }
 
         if ($gates === []) {
             return [
-                'schema_version' => self::SCHEMA_VERSION,
-                'gates' => [],
-                'all_passed' => false,
-                'reasons' => ['no_phase_outputs'],
+                self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+                self::FIELD_GATES => [],
+                self::FIELD_ALL_PASSED => false,
+                self::FIELD_REASONS => [self::FIELD_NO_PHASE_OUTPUTS],
             ];
         }
 
         $allPassed = true;
         foreach ($gates as $gate) {
-            if ($gate['passed'] !== true) {
+            if ($gate[self::FIELD_PASSED] !== true) {
                 $allPassed = false;
             }
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'gates' => $gates,
-            'all_passed' => $allPassed,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_GATES => $gates,
+            self::FIELD_ALL_PASSED => $allPassed,
         ];
     }
 
@@ -236,11 +262,11 @@ final class AtlasAaeosGateSignalEvaluator
         sort($reasons, SORT_STRING);
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'gate' => $gate,
-            'passed' => $passed,
-            'computed_value' => $computedValue,
-            'reasons' => array_values($reasons),
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_GATE => $gate,
+            self::FIELD_PASSED => $passed,
+            self::FIELD_COMPUTED_VALUE => $computedValue,
+            self::FIELD_REASONS => array_values($reasons),
         ];
     }
 
@@ -273,7 +299,7 @@ final class AtlasAaeosGateSignalEvaluator
      */
     private function hasAcceptance(array $task): bool
     {
-        $acceptance = $task['acceptance'] ?? null;
+        $acceptance = $task[self::FIELD_ACCEPTANCE] ?? null;
 
         if (is_string($acceptance)) {
             return (AiValueNormalizer::trimmedStringOrNull($acceptance) ?? '') !== '';

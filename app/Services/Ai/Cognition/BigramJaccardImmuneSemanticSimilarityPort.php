@@ -13,6 +13,7 @@ namespace App\Services\Ai\Cognition;
  */
 final class BigramJaccardImmuneSemanticSimilarityPort implements ImmuneSemanticSimilarityPort
 {
+    public const INT_2 = 2;
     public function similarity(string $candidate, string $exemplar): ?float
     {
         $a = self::bigrams($candidate);
@@ -40,7 +41,7 @@ final class BigramJaccardImmuneSemanticSimilarityPort implements ImmuneSemanticS
         $normalized = mb_strtolower(trim($text));
         $normalized = preg_replace('/\s+/u', ' ', $normalized) ?? '';
         $length = mb_strlen($normalized);
-        if ($length < 2) {
+        if ($length < self::INT_2) {
             return [];
         }
         $out = [];

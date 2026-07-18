@@ -42,6 +42,38 @@ final class OutcomeEnvelope
 
     public const ADAPTER_ORIGINS = [self::ORIGIN_DEV_PROCEDURAL, self::ORIGIN_AEMOR, self::ORIGIN_COMPOUNDING];
 
+    public const FIELD_VERIFIED = 'verified';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_FORMULA_VERSION = 'formula_version';
+    public const FIELD_ADAPTER_ORIGIN = 'adapter_origin';
+    public const FIELD_NATIVE_DIVERGENT = 'native_divergent';
+    public const FIELD_ORIGIN = 'origin';
+    public const FIELD_FIELDS = 'fields';
+    public const FIELD_VERIFIED_SOURCE_PRESENT = 'verified_source_present';
+    public const FIELD_EXECUTOR = 'executor';
+    public const FIELD_TASK_CATEGORY = 'task_category';
+    public const FIELD_PROVIDER = 'provider';
+    public const FIELD_STATUS = 'status';
+    public const FIELD_VERIFIED_BASIS = 'verified_basis';
+    public const FIELD_CERTIFIED_RECEIPT_ID = 'certified_receipt_id';
+    public const FIELD_EVIDENCE_REF_COUNT = 'evidence_ref_count';
+    public const FIELD_EPISODE_ID = 'episode_id';
+    public const FIELD_RUN_ID = 'run_id';
+    public const FIELD_OUTCOME_ENVELOPE_ADAPTER_ORIGIN_INVALID = 'outcome_envelope_adapter_origin_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_EPISODE_ID_INVALID = 'outcome_envelope_episode_id_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_FORMULA_INVALID = 'outcome_envelope_formula_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_IDENTITY_FIELDS_REQUIRED = 'outcome_envelope_identity_fields_required';
+    public const FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_INVALID = 'outcome_envelope_native_divergent_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_SCHEMA_INVALID = 'outcome_envelope_schema_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_STATUS_INVALID = 'outcome_envelope_status_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_VERIFIED_BASIS_INVALID = 'outcome_envelope_verified_basis_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_VERIFIED_INVALID = 'outcome_envelope_verified_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_CERTIFIED_RECEIPT_ID_INVALID = 'outcome_envelope_certified_receipt_id_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_EVIDENCE_REF_COUNT_INVALID = 'outcome_envelope_evidence_ref_count_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_FIELDS_INVALID = 'outcome_envelope_native_divergent_fields_invalid';
+    public const FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_ORIGIN_MISMATCH = 'outcome_envelope_native_divergent_origin_mismatch';
+    public const FIELD_OUTCOME_ENVELOPE_VERIFIED_SOURCE_PRESENT_INVALID = 'outcome_envelope_verified_source_present_invalid';
+
     /**
      * Map divergent native status labels onto the shared envelope statuses.
      * Unknown / review-like values fail closed to blocked (never invent success).
@@ -99,12 +131,12 @@ final class OutcomeEnvelope
     public static function fromAdapter(string $origin, array $fields, array $nativeFields): self
     {
         return self::fromArray(array_merge($fields, [
-            'schema_version' => self::SCHEMA_VERSION,
-            'formula_version' => self::FORMULA_VERSION,
-            'adapter_origin' => $origin,
-            'native_divergent' => [
-                'origin' => $origin,
-                'fields' => $nativeFields,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+            self::FIELD_ADAPTER_ORIGIN => $origin,
+            self::FIELD_NATIVE_DIVERGENT => [
+                self::FIELD_ORIGIN => $origin,
+                self::FIELD_FIELDS => $nativeFields,
             ],
         ]));
     }
@@ -115,95 +147,95 @@ final class OutcomeEnvelope
      */
     public static function validate(array $data): array
     {
-        $schema = AiValueNormalizer::lowerTrimmedString($data['schema_version'] ?? '');
+        $schema = AiValueNormalizer::lowerTrimmedString($data[self::FIELD_SCHEMA_VERSION] ?? '');
         if ($schema !== self::SCHEMA_VERSION) {
-            throw new InvalidArgumentException('outcome_envelope_schema_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_SCHEMA_INVALID);
         }
 
-        $formula = AiValueNormalizer::lowerTrimmedString($data['formula_version'] ?? '');
+        $formula = AiValueNormalizer::lowerTrimmedString($data[self::FIELD_FORMULA_VERSION] ?? '');
         if ($formula !== self::FORMULA_VERSION) {
-            throw new InvalidArgumentException('outcome_envelope_formula_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_FORMULA_INVALID);
         }
 
-        $origin = AiValueNormalizer::lowerTrimmedString($data['adapter_origin'] ?? '');
+        $origin = AiValueNormalizer::lowerTrimmedString($data[self::FIELD_ADAPTER_ORIGIN] ?? '');
         if (! in_array($origin, self::ADAPTER_ORIGINS, true)) {
-            throw new InvalidArgumentException('outcome_envelope_adapter_origin_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_ADAPTER_ORIGIN_INVALID);
         }
 
-        $status = AiValueNormalizer::lowerTrimmedString($data['status'] ?? '');
+        $status = AiValueNormalizer::lowerTrimmedString($data[self::FIELD_STATUS] ?? '');
         if (! in_array($status, self::STATUSES, true)) {
-            throw new InvalidArgumentException('outcome_envelope_status_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_STATUS_INVALID);
         }
 
-        $basis = AiValueNormalizer::lowerTrimmedString($data['verified_basis'] ?? '');
+        $basis = AiValueNormalizer::lowerTrimmedString($data[self::FIELD_VERIFIED_BASIS] ?? '');
         if (! in_array($basis, [
             AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_SERVER_VERIFIED,
             AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_GATES_PASSED,
             AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_CLAIMED,
             AtlasDecideLiveOutcomeFeedbackService::VERIFIED_BASIS_ABSENT,
         ], true)) {
-            throw new InvalidArgumentException('outcome_envelope_verified_basis_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_VERIFIED_BASIS_INVALID);
         }
 
-        $divergent = $data['native_divergent'] ?? null;
+        $divergent = $data[self::FIELD_NATIVE_DIVERGENT] ?? null;
         if (! is_array($divergent)) {
-            throw new InvalidArgumentException('outcome_envelope_native_divergent_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_INVALID);
         }
-        $divergentOrigin = AiValueNormalizer::lowerTrimmedString($divergent['origin'] ?? '');
+        $divergentOrigin = AiValueNormalizer::lowerTrimmedString($divergent[self::FIELD_ORIGIN] ?? '');
         if ($divergentOrigin !== $origin) {
-            throw new InvalidArgumentException('outcome_envelope_native_divergent_origin_mismatch');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_ORIGIN_MISMATCH);
         }
-        if (! is_array($divergent['fields'] ?? null)) {
-            throw new InvalidArgumentException('outcome_envelope_native_divergent_fields_invalid');
+        if (! is_array($divergent[self::FIELD_FIELDS] ?? null)) {
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_NATIVE_DIVERGENT_FIELDS_INVALID);
         }
 
-        $executor = AiValueNormalizer::trimmedStringOrNull($data['executor'] ?? null) ?? '';
-        $taskCategory = AiValueNormalizer::trimmedStringOrNull($data['task_category'] ?? null) ?? '';
-        $provider = AiValueNormalizer::trimmedStringOrNull($data['provider'] ?? null) ?? '';
+        $executor = AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_EXECUTOR] ?? null) ?? '';
+        $taskCategory = AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_TASK_CATEGORY] ?? null) ?? '';
+        $provider = AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_PROVIDER] ?? null) ?? '';
         if ($executor === '' || $taskCategory === '' || $provider === '') {
-            throw new InvalidArgumentException('outcome_envelope_identity_fields_required');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_IDENTITY_FIELDS_REQUIRED);
         }
 
-        if (! is_bool($data['verified'] ?? null)) {
-            throw new InvalidArgumentException('outcome_envelope_verified_invalid');
+        if (! is_bool($data[self::FIELD_VERIFIED] ?? null)) {
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_VERIFIED_INVALID);
         }
-        if (! is_bool($data['verified_source_present'] ?? null)) {
-            throw new InvalidArgumentException('outcome_envelope_verified_source_present_invalid');
+        if (! is_bool($data[self::FIELD_VERIFIED_SOURCE_PRESENT] ?? null)) {
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_VERIFIED_SOURCE_PRESENT_INVALID);
         }
 
-        $evidenceRefCount = $data['evidence_ref_count'] ?? null;
+        $evidenceRefCount = $data[self::FIELD_EVIDENCE_REF_COUNT] ?? null;
         if (! is_int($evidenceRefCount) || $evidenceRefCount < 0) {
-            throw new InvalidArgumentException('outcome_envelope_evidence_ref_count_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_EVIDENCE_REF_COUNT_INVALID);
         }
 
-        $certifiedReceiptId = $data['certified_receipt_id'] ?? null;
+        $certifiedReceiptId = $data[self::FIELD_CERTIFIED_RECEIPT_ID] ?? null;
         if ($certifiedReceiptId !== null && AiValueNormalizer::trimmedStringOrNull($certifiedReceiptId) === null) {
-            throw new InvalidArgumentException('outcome_envelope_certified_receipt_id_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_CERTIFIED_RECEIPT_ID_INVALID);
         }
 
-        $episodeId = $data['episode_id'] ?? null;
+        $episodeId = $data[self::FIELD_EPISODE_ID] ?? null;
         if ($episodeId !== null && AiValueNormalizer::trimmedStringOrNull($episodeId) === null) {
-            throw new InvalidArgumentException('outcome_envelope_episode_id_invalid');
+            throw new InvalidArgumentException(self::FIELD_OUTCOME_ENVELOPE_EPISODE_ID_INVALID);
         }
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'formula_version' => self::FORMULA_VERSION,
-            'adapter_origin' => $origin,
-            'executor' => $executor,
-            'task_category' => $taskCategory,
-            'provider' => $provider,
-            'status' => $status,
-            'verified' => (AiValueNormalizer::boolOrNull($data['verified'] ?? null) ?? false),
-            'verified_basis' => $basis,
-            'verified_source_present' => (AiValueNormalizer::boolOrNull($data['verified_source_present'] ?? null) ?? false),
-            'certified_receipt_id' => $certifiedReceiptId !== null ? AiValueNormalizer::trimmedStringOrNull($certifiedReceiptId) ?? '' : null,
-            'evidence_ref_count' => $evidenceRefCount,
-            'episode_id' => $episodeId !== null ? AiValueNormalizer::trimmedStringOrNull($episodeId) ?? '' : null,
-            'run_id' => AiValueNormalizer::trimmedStringOrNull($data['run_id'] ?? null),
-            'native_divergent' => [
-                'origin' => $divergentOrigin,
-                'fields' => $divergent['fields'],
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
+            self::FIELD_ADAPTER_ORIGIN => $origin,
+            self::FIELD_EXECUTOR => $executor,
+            self::FIELD_TASK_CATEGORY => $taskCategory,
+            self::FIELD_PROVIDER => $provider,
+            self::FIELD_STATUS => $status,
+            self::FIELD_VERIFIED => (AiValueNormalizer::boolOrNull($data[self::FIELD_VERIFIED] ?? null) ?? false),
+            self::FIELD_VERIFIED_BASIS => $basis,
+            self::FIELD_VERIFIED_SOURCE_PRESENT => (AiValueNormalizer::boolOrNull($data[self::FIELD_VERIFIED_SOURCE_PRESENT] ?? null) ?? false),
+            self::FIELD_CERTIFIED_RECEIPT_ID => $certifiedReceiptId !== null ? AiValueNormalizer::trimmedStringOrNull($certifiedReceiptId) ?? '' : null,
+            self::FIELD_EVIDENCE_REF_COUNT => $evidenceRefCount,
+            self::FIELD_EPISODE_ID => $episodeId !== null ? AiValueNormalizer::trimmedStringOrNull($episodeId) ?? '' : null,
+            self::FIELD_RUN_ID => AiValueNormalizer::trimmedStringOrNull($data[self::FIELD_RUN_ID] ?? null),
+            self::FIELD_NATIVE_DIVERGENT => [
+                self::FIELD_ORIGIN => $divergentOrigin,
+                self::FIELD_FIELDS => $divergent[self::FIELD_FIELDS],
             ],
         ];
     }

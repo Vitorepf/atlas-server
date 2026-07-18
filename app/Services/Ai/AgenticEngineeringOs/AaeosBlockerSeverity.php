@@ -21,6 +21,8 @@ final class AaeosBlockerSeverity
     public const MEDIUM = 'medium';
 
     public const LOW = 'low';
+    public const FIELD_OWNER = 'owner';
+    public const FIELD_SEVERITY = 'severity';
 
     /**
      * @param  mixed  $blocker
@@ -31,7 +33,7 @@ final class AaeosBlockerSeverity
             return '';
         }
 
-        $severity = AiValueNormalizer::trimmedStringOrNull($blocker['severity'] ?? null);
+        $severity = AiValueNormalizer::trimmedStringOrNull($blocker[self::FIELD_SEVERITY] ?? null);
         if ($severity === null) {
             return '';
         }
@@ -53,7 +55,7 @@ final class AaeosBlockerSeverity
             return false;
         }
 
-        $owner = AiValueNormalizer::trimmedStringOrNull($blocker['owner'] ?? null);
+        $owner = AiValueNormalizer::trimmedStringOrNull($blocker[self::FIELD_OWNER] ?? null);
 
         return $owner !== null;
     }

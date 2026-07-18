@@ -25,6 +25,32 @@ final class OutcomeEnvelopeBridge
 
     public const KIND_MEASURE_FREEZE = 'measure_freeze';
 
+    public const FIELD_ENABLED = 'enabled';
+    public const FIELD_DEV_PROCEDURAL = 'dev_procedural';
+    public const FIELD_AEMOR = 'aemor';
+    public const FIELD_COMPOUNDING = 'compounding';
+    public const FIELD_MEASURE_ID = 'measure_id';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_PRODUCERS = 'producers';
+    public const FIELD_CONSUMERS = 'consumers';
+    public const FIELD_FREEZE = 'freeze';
+    public const FIELD_ANTI_UNIFICATION_FENCE = 'anti_unification_fence';
+    public const FIELD_FORMULA_VERSION = 'formula_version';
+    public const FIELD_FORMULA = 'formula';
+    public const FIELD_THRESHOLDS = 'thresholds';
+    public const FIELD_TTL_DAYS = 'ttl_days';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_ADAPTER_ORIGINS = 'adapter_origins';
+    public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
+    public const FIELD_DENOMINATOR_MIN = 'denominator_min';
+    public const FIELD_DUAL_READ_REQUIRED = 'dual_read_required';
+    public const FIELD_FLAG = 'flag';
+    public const FIELD_FLAG_DEFAULT = 'flag_default';
+    public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
+    public const FIELD_CODEX_INDEPENDENT_ESP06_JUDGE = 'codex-independent-esp06-judge';
+    public const FIELD_CURSOR_ACOS_MAX_ESP06 = 'cursor-acos-max-esp06';
+    public const INT_90 = 90;
+
     /** @var array<string, OutcomeEnvelopeAdapter> */
     private array $adapters;
 
@@ -34,9 +60,9 @@ final class OutcomeEnvelopeBridge
         ?CompoundingOutcomeEnvelopeAdapter $compounding = null,
     ) {
         $this->adapters = [
-            'dev_procedural' => $dev ?? new DevProceduralOutcomeEnvelopeAdapter,
-            'aemor' => $aemor ?? new AemorOutcomeEnvelopeAdapter,
-            'compounding' => $compounding ?? new CompoundingOutcomeEnvelopeAdapter,
+            self::FIELD_DEV_PROCEDURAL => $dev ?? new DevProceduralOutcomeEnvelopeAdapter,
+            self::FIELD_AEMOR => $aemor ?? new AemorOutcomeEnvelopeAdapter,
+            self::FIELD_COMPOUNDING => $compounding ?? new CompoundingOutcomeEnvelopeAdapter,
         ];
     }
 
@@ -76,17 +102,17 @@ final class OutcomeEnvelopeBridge
     public function producerConsumerMeta(): array
     {
         return [
-            'schema_version' => self::BRIDGE_SCHEMA,
-            'measure_id' => self::MEASURE_ID,
-            'enabled' => self::enabled(),
-            'producers' => array_keys($this->adapters),
-            'consumers' => array_keys($this->adapters),
-            'anti_unification_fence' => [
-                'dev_procedural' => \App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevOutcomeMemoryService::class,
-                'aemor' => \App\Services\Ai\Aemor\AtlasAemorRuntimeService::class,
-                'compounding' => \App\Services\Ai\Compounding\AtlasCompoundingOutcomeEvaluator::class,
+            self::FIELD_SCHEMA_VERSION => self::BRIDGE_SCHEMA,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_ENABLED => self::enabled(),
+            self::FIELD_PRODUCERS => array_keys($this->adapters),
+            self::FIELD_CONSUMERS => array_keys($this->adapters),
+            self::FIELD_ANTI_UNIFICATION_FENCE => [
+                self::FIELD_DEV_PROCEDURAL => \App\Services\Ai\Programming\AtlasDev\RuntimeIntelligence\DevOutcomeMemoryService::class,
+                self::FIELD_AEMOR => \App\Services\Ai\Aemor\AtlasAemorRuntimeService::class,
+                self::FIELD_COMPOUNDING => \App\Services\Ai\Compounding\AtlasCompoundingOutcomeEvaluator::class,
             ],
-            'freeze' => self::freezePayload(),
+            self::FIELD_FREEZE => self::freezePayload(),
         ];
     }
 
@@ -94,20 +120,20 @@ final class OutcomeEnvelopeBridge
     public static function freezePayload(): array
     {
         return [
-            'kind' => self::KIND_MEASURE_FREEZE,
-            'measure_id' => self::MEASURE_ID,
-            'formula_version' => OutcomeEnvelope::FORMULA_VERSION,
-            'formula' => 'Outcome envelope = MULTX-03 atlas.engineering_outcome.v2 contract projected through one thin adapter per native organ (dev_procedural, aemor, compounding). Divergent native fields remain in native_divergent.fields labeled by origin — never coerced or fused.',
-            'thresholds' => [
-                'adapter_origins' => OutcomeEnvelope::ADAPTER_ORIGINS,
-                'flag' => self::ADAPTERS_ENABLED_CONFIG_KEY,
-                'flag_default' => false,
+            self::FIELD_KIND => self::KIND_MEASURE_FREEZE,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
+            self::FIELD_FORMULA_VERSION => OutcomeEnvelope::FORMULA_VERSION,
+            self::FIELD_FORMULA => 'Outcome envelope = MULTX-03 atlas.engineering_outcome.v2 contract projected through one thin adapter per native organ (dev_procedural, aemor, compounding). Divergent native fields remain in native_divergent.fields labeled by origin — never coerced or fused.',
+            self::FIELD_THRESHOLDS => [
+                self::FIELD_ADAPTER_ORIGINS => OutcomeEnvelope::ADAPTER_ORIGINS,
+                self::FIELD_FLAG => self::ADAPTERS_ENABLED_CONFIG_KEY,
+                self::FIELD_FLAG_DEFAULT => false,
             ],
-            'denominator_min' => 1,
-            'ttl_days' => 90,
-            'author_engine_id' => 'cursor-acos-max-esp06',
-            'judge_engine_id' => 'codex-independent-esp06-judge',
-            'dual_read_required' => true,
+            self::FIELD_DENOMINATOR_MIN => 1,
+            self::FIELD_TTL_DAYS => self::INT_90,
+            self::FIELD_AUTHOR_ENGINE_ID => self::FIELD_CURSOR_ACOS_MAX_ESP06,
+            self::FIELD_JUDGE_ENGINE_ID => self::FIELD_CODEX_INDEPENDENT_ESP06_JUDGE,
+            self::FIELD_DUAL_READ_REQUIRED => true,
         ];
     }
 

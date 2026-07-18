@@ -55,6 +55,161 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
 {
     /** Stable schema id for the verdict envelope this service emits. */
     public const SCHEMA = 'atlas.memory.cognitive_immune_learning_kernel.v1';
+    public const FIELD_G0 = 'G0';
+    public const FIELD_G1 = 'G1';
+    public const FIELD_G2 = 'G2';
+    public const FIELD_G3 = 'G3';
+    public const FIELD_G4 = 'G4';
+    public const FIELD_G5 = 'G5';
+    public const FIELD_G6 = 'G6';
+    public const FIELD_G7 = 'G7';
+    public const FIELD_G8 = 'G8';
+    public const FIELD_CAN_BECOME_MEMORY = 'can_become_memory';
+    public const FIELD_DESTINATION = 'destination';
+    public const FIELD_ID = 'id';
+    public const FIELD_QUESTION = 'question';
+    public const FIELD_SIGNAL = 'signal';
+    public const FIELD_UNTRUSTED_CONTENT = 'untrusted_content';
+    public const FIELD_REASONS = 'reasons';
+    public const FIELD_ATOMIC_CLAIM = 'atomic_claim';
+    public const FIELD_CAPTURE_CONSENTED = 'capture_consented';
+    public const FIELD_EMBEDDING_ALLOWED = 'embedding_allowed';
+    public const FIELD_GATE_STATUSES = 'gate_statuses';
+    public const FIELD_OUTCOME_VALIDATED = 'outcome_validated';
+    public const FIELD_PROMOTION_STATUS = 'promotion_status';
+    public const FIELD_PROVIDER_SAFE = 'provider_safe';
+    public const FIELD_AUTO = 'auto';
+    public const FIELD_REVIEW = 'review';
+    public const FIELD_SCOPE = 'scope';
+    public const FIELD_BLOCKING_GATE_IDS = 'blocking_gate_ids';
+    public const FIELD_CONTAINS_SECRET = 'contains_secret';
+    public const FIELD_CONTAINS_SENSITIVE_UNNECESSARY = 'contains_sensitive_unnecessary';
+    public const FIELD_FUTURE_SIGNAL = 'future_signal';
+    public const FIELD_INPUT_CLASS = 'input_class';
+    public const FIELD_NO_CONTRADICTION = 'no_contradiction';
+    public const FIELD_NOVELTY = 'novelty';
+    public const FIELD_OPERATIONAL_EPHEMERAL = 'operational_ephemeral';
+    public const FIELD_PENDING_GATE_IDS = 'pending_gate_ids';
+    public const FIELD_PRIVACY_CLASS = 'privacy_class';
+    public const FIELD_PRIVATE_SENSITIVE = 'private_sensitive';
+    public const FIELD_PROBATION_ENTERED = 'probation_entered';
+    public const FIELD_PROJECT_EVIDENCE = 'project_evidence';
+    public const FIELD_PROMOTION_MODE = 'promotion_mode';
+    public const FIELD_PROMOTION_MODE_SET = 'promotion_mode_set';
+    public const FIELD_REASON = 'reason';
+    public const FIELD_RECURRENCE_COUNT = 'recurrence_count';
+    public const FIELD_SCOPE_RESOLVED = 'scope_resolved';
+    public const FIELD_STRATEGIC_INSIGHT_CANDIDATE = 'strategic_insight_candidate';
+    public const FIELD_PROMPT_INJECTION = 'prompt_injection';
+    public const FIELD_WATCH = 'watch';
+    public const FIELD_BLOCKED = 'blocked';
+    public const FIELD_TRIVIAL_QUERY = 'trivial_query';
+    public const FIELD_ALLOWED = 'allowed';
+    public const FIELD_ANSWER_AND_EXPIRE = 'answer_and_expire';
+    public const FIELD_ARCHIVAL = 'archival';
+    public const FIELD_ARCHIVE_IS_NOT_MEMORY_APPROVED = 'archive_is_not_memory_approved';
+    public const FIELD_ATOMIC_CLAIM_PRESENT = 'atomic_claim_present';
+    public const FIELD_ARCHIVED = 'archived';
+    public const FIELD_AUDIT_SESSION = 'audit_session';
+    public const FIELD_BLOCKED_EPHEMERAL_EVIDENCE = 'blocked_ephemeral_evidence';
+    public const FIELD_CANDIDATE = 'candidate';
+    public const FIELD_CITED_DATA_NOT_INSTRUCTION = 'cited_data_not_instruction';
+    public const FIELD_CLAIM_SOURCE_PRESENT = 'claim_source_present';
+    public const FIELD_CLAIM_TYPE = 'claim_type';
+    public const FIELD_CONFIDENCE_DECAY = 'confidence_decay';
+    public const FIELD_CONSENT_GRANTED = 'consent_granted';
+    public const FIELD_CONSTELLATION_ELIGIBLE = 'constellation_eligible';
+    public const FIELD_CONSTELLATION_ELIGIBLE_TRUE = 'constellation_eligible_true';
+    public const FIELD_BLOCKED_PRIVATE = 'blocked_private';
+    public const FIELD_CONTEXT_ELIGIBLE = 'context_eligible';
+    public const FIELD_CONTRADICTS_NEWER = 'contradicts_newer';
+    public const FIELD_CONVERSATION_TRACE = 'conversation_trace';
+    public const FIELD_ELIGIBLE = 'eligible';
+    public const FIELD_FAILED_GATE = 'failed_gate';
+    public const FIELD_FUTURE_UTILITY = 'future_utility';
+    public const FIELD_GATE_RESULTS = 'gate_results';
+    public const FIELD_HARD_DELETE = 'hard_delete';
+    public const FIELD_IMMUNE_SIGNALS = 'immune_signals';
+    public const FIELD_INTERNAL = 'internal';
+    public const FIELD_KIND = 'kind';
+    public const FIELD_LEARNING_SIGNAL = 'learning_signal';
+    public const FIELD_MEMORY_CONSTELLATION_CANDIDATE = 'memory_constellation_candidate';
+    public const FIELD_MEMORY_ELIGIBLE = 'memory_eligible';
+    public const FIELD_MISSING_CLEARANCES = 'missing_clearances';
+    public const FIELD_MISSING_META = 'missing_meta';
+    public const FIELD_ON_PROBATION = 'on_probation';
+    public const FIELD_NEGATIVE_MEMORY = 'negative_memory';
+    public const FIELD_PASS = 'pass';
+    public const FIELD_PASSED = 'passed';
+    public const FIELD_PASSED_GATES = 'passed_gates';
+    public const FIELD_PENDING = 'pending';
+    public const FIELD_PERSONAL_FACT_CANDIDATE = 'personal_fact_candidate';
+    public const FIELD_PRIVATE_REVIEW = 'private_review';
+    public const FIELD_PROMOTE = 'promote';
+    public const FIELD_PROMOTION_MODE_HINT = 'promotion_mode_hint';
+    public const FIELD_PROPOSAL = 'proposal';
+    public const FIELD_RAW_PRIVATE_NOTE = 'raw_private_note';
+    public const FIELD_RECEIPT_COMPLETE = 'receipt_complete';
+    public const FIELD_REDACT_MINIMIZE = 'redact_minimize';
+    public const FIELD_RESULTING_STATE = 'resulting_state';
+    public const FIELD_RETENTION = 'retention';
+    public const FIELD_RETENTION_OK = 'retention_ok';
+    public const FIELD_RETRIEVAL_WITHOUT_REASON_IS_A_BUG = 'retrieval_without_reason_is_a_bug';
+    public const FIELD_REVERSIBILITY = 'reversibility';
+    public const FIELD_EXPIRES_AT = 'expires_at';
+    public const FIELD_PRIVACY_CLEARANCE = 'privacy_clearance';
+    public const FIELD_SAFETY_FILTERS_PASSED_BEFORE_SIMILARITY = 'safety_filters_passed_before_similarity';
+    public const FIELD_SCHEMA = 'schema';
+    public const FIELD_SEMANTIC_VALUE = 'semantic_value';
+    public const FIELD_SESSION = 'session';
+    public const FIELD_STALE = 'stale';
+    public const FIELD_STATE = 'state';
+    public const FIELD_SUPERSESSION = 'supersession';
+    public const FIELD_TASK_OR_REMINDER = 'task_or_reminder';
+    public const FIELD_TASK_REMINDER_COLD_FILE = 'task_reminder_cold_file';
+    public const FIELD_TASK_ROUTINE = 'task_routine';
+    public const FIELD_TECHNICAL_LEARNING_CANDIDATE = 'technical_learning_candidate';
+    public const FIELD_TOMBSTONE_STATUS = 'tombstone_status';
+    public const FIELD_TOMBSTONED = 'tombstoned';
+    public const FIELD_TRUST_LEVEL = 'trust_level';
+    public const FIELD_TRUSTED = 'trusted';
+    public const FIELD_UNCLASSIFIED = 'unclassified';
+    public const FIELD_CONFLICTED = 'conflicted';
+    public const FIELD_DEPRECATED = 'deprecated';
+    public const FIELD_PRIVACY = 'privacy';
+    public const FIELD_VALID = 'valid';
+    public const FIELD_ALL_GATES_PASSED = 'all_gates_passed';
+    public const FIELD_ATLAS_COGNITIVE_IMMUNE_PROMOTION_GATE_EVALUATOR_ENABLED = 'atlas.cognitive_immune.promotion_gate_evaluator_enabled';
+    public const FIELD_AUTO__REVIEW_HUMANO__PROPOSAL_OU_BLOQUEIO_ = 'auto, review humano, proposal ou bloqueio?';
+    public const FIELD_CHAT_TRANSCRIPT_NEVER_BECOMES_MEMORY_SILENTLY = 'chat_transcript_never_becomes_memory_silently';
+    public const FIELD_CLASS_CANNOT_BECOME_MEMORY = 'class_cannot_become_memory';
+    public const FIELD_CLASS_INELIGIBLE = 'class_ineligible';
+    public const FIELD_CLASS_NOT_CONSTELLATION_GRADE = 'class_not_constellation_grade';
+    public const FIELD_CONFLITA_COM_MEMORIA__CODIGO__DOCS_OU_DECISAO_MAIS_NOVA_ = 'conflita com memoria, codigo, docs ou decisao mais nova?';
+    public const FIELD_CRITICAL_SCOPE_FORCED_REVIEW = 'critical_scope_forced_review';
+    public const FIELD_DELETE_PROPAGATES_TO_MEMORY_EMBEDDINGS_CACHES_CONSTELLATION = 'delete_propagates_to_memory_embeddings_caches_constellation';
+    public const FIELD_E_PROVIDER_SAFE__SEM_SEGREDO_E_SEM_DADO_SENSIVEL_DESNECESSARIO_ = 'e provider-safe, sem segredo e sem dado sensivel desnecessario?';
+    public const FIELD_EMBEDDING_ALLOWED_FLAG_FALSE = 'embedding_allowed_flag_false';
+    public const FIELD_ENTRA_COMO_WATCH_ANTES_DE_TRUSTED_ = 'entra como watch antes de trusted?';
+    public const FIELD_EVERY_MEMORY_HAS_SCOPE_SOURCE_STATE_USE_REASON = 'every_memory_has_scope_source_state_use_reason';
+    public const FIELD_FOI_VALIDADO_POR_FEEDBACK__TESTE__REPLAY_OU_USO_ = 'foi validado por feedback, teste, replay ou uso?';
+    public const FIELD_GLOBAL = 'global';
+    public const FIELD_HA_CLAIM_ATOMICO__TIPO__ESCOPO_E_FONTE_ = 'ha claim atomico, tipo, escopo e fonte?';
+    public const FIELD_HA_UTILIDADE_FUTURA__NOVIDADE_OU_RECORRENCIA_ = 'ha utilidade futura, novidade ou recorrencia?';
+    public const FIELD_LEARNING_NEVER_ALTERS_CRITICAL_BEHAVIOR_WITHOUT_PROPOSAL_OR_REVIEW = 'learning_never_alters_critical_behavior_without_proposal_or_review';
+    public const FIELD_MISSING_CLEARANCE = 'missing_clearance';
+    public const FIELD_MISSING_EVIDENCE = 'missing_evidence';
+    public const FIELD_MISSING_REASON = 'missing_reason';
+    public const FIELD_MISSING_REQUIRED_METADATA = 'missing_required_metadata';
+    public const FIELD_ORIGIN = 'origin';
+    public const FIELD_PODE_CAPTURAR_COM_CONSENTIMENTO__PRIVACY_E_RETENTION_ = 'pode capturar com consentimento, privacy e retention?';
+    public const FIELD_POLICY = 'policy';
+    public const FIELD_PREFER_INSUFFICIENT_CONTEXT_OVER_RETRIEVING_GARBAGE = 'prefer_insufficient_context_over_retrieving_garbage';
+    public const FIELD_PROVENANCE = 'provenance';
+    public const FIELD_RAW_CAPTURE_NEVER_ENTERS_CONTEXT_BUILDER_DIRECTLY = 'raw_capture_never_enters_context_builder_directly';
+    public const FIELD_TTL_EXPIRATION = 'ttl_expiration';
+    public const FIELD_UNKNOWN_FORGETTING_KIND = 'unknown_forgetting_kind';
+    public const FIELD_VALE_PARA_GLOBAL__WORKSPACE__PROJETO__TAREFA__DOMINIO_OU_SESSAO_ = 'vale para global, workspace, projeto, tarefa, dominio ou sessao?';
 
     /**
      * Default cognitive-quarantine state. Every input is born here.
@@ -63,32 +218,32 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
      * @var array<string,bool|string>
      */
     private const DEFAULT_STATE = [
-        'memory_eligible' => false,
-        'context_eligible' => false,
-        'constellation_eligible' => false,
-        'embedding_allowed' => false,
-        'promotion_status' => 'unclassified',
+        self::FIELD_MEMORY_ELIGIBLE => false,
+        self::FIELD_CONTEXT_ELIGIBLE => false,
+        self::FIELD_CONSTELLATION_ELIGIBLE => false,
+        self::FIELD_EMBEDDING_ALLOWED => false,
+        self::FIELD_PROMOTION_STATUS => self::FIELD_UNCLASSIFIED,
     ];
 
     /**
      * Input Classes table: class => [destination, can_become_memory].
-     * "can_become_memory" === false means the class can NEVER be auto-promoted
+     * self::FIELD_CAN_BECOME_MEMORY === false means the class can NEVER be auto-promoted
      * to knowledge (the doc "Nao" / "Nao como conhecimento" rows).
      *
      * @var array<string,array{destination:string,can_become_memory:bool}>
      */
     private const INPUT_CLASSES = [
-        'trivial_query' => ['destination' => 'answer_and_expire', 'can_become_memory' => false],
-        'operational_ephemeral' => ['destination' => 'task_reminder_cold_file', 'can_become_memory' => false],
-        'task_or_reminder' => ['destination' => 'task_routine', 'can_become_memory' => false],
-        'project_evidence' => ['destination' => 'project_evidence', 'can_become_memory' => true],
-        'conversation_trace' => ['destination' => 'audit_session', 'can_become_memory' => false],
-        'personal_fact_candidate' => ['destination' => 'private_review', 'can_become_memory' => true],
-        'technical_learning_candidate' => ['destination' => 'learning_signal', 'can_become_memory' => true],
-        'strategic_insight_candidate' => ['destination' => 'memory_constellation_candidate', 'can_become_memory' => true],
-        'untrusted_content' => ['destination' => 'cited_data_not_instruction', 'can_become_memory' => false],
-        'prompt_injection' => ['destination' => 'blocked_ephemeral_evidence', 'can_become_memory' => false],
-        'private_sensitive' => ['destination' => 'redact_minimize', 'can_become_memory' => true],
+        self::FIELD_TRIVIAL_QUERY => [self::FIELD_DESTINATION => self::FIELD_ANSWER_AND_EXPIRE, self::FIELD_CAN_BECOME_MEMORY => false],
+        self::FIELD_OPERATIONAL_EPHEMERAL => [self::FIELD_DESTINATION => self::FIELD_TASK_REMINDER_COLD_FILE, self::FIELD_CAN_BECOME_MEMORY => false],
+        self::FIELD_TASK_OR_REMINDER => [self::FIELD_DESTINATION => self::FIELD_TASK_ROUTINE, self::FIELD_CAN_BECOME_MEMORY => false],
+        self::FIELD_PROJECT_EVIDENCE => [self::FIELD_DESTINATION => self::FIELD_PROJECT_EVIDENCE, self::FIELD_CAN_BECOME_MEMORY => true],
+        self::FIELD_CONVERSATION_TRACE => [self::FIELD_DESTINATION => self::FIELD_AUDIT_SESSION, self::FIELD_CAN_BECOME_MEMORY => false],
+        self::FIELD_PERSONAL_FACT_CANDIDATE => [self::FIELD_DESTINATION => self::FIELD_PRIVATE_REVIEW, self::FIELD_CAN_BECOME_MEMORY => true],
+        self::FIELD_TECHNICAL_LEARNING_CANDIDATE => [self::FIELD_DESTINATION => self::FIELD_LEARNING_SIGNAL, self::FIELD_CAN_BECOME_MEMORY => true],
+        self::FIELD_STRATEGIC_INSIGHT_CANDIDATE => [self::FIELD_DESTINATION => self::FIELD_MEMORY_CONSTELLATION_CANDIDATE, self::FIELD_CAN_BECOME_MEMORY => true],
+        self::FIELD_UNTRUSTED_CONTENT => [self::FIELD_DESTINATION => self::FIELD_CITED_DATA_NOT_INSTRUCTION, self::FIELD_CAN_BECOME_MEMORY => false],
+        self::FIELD_PROMPT_INJECTION => [self::FIELD_DESTINATION => self::FIELD_BLOCKED_EPHEMERAL_EVIDENCE, self::FIELD_CAN_BECOME_MEMORY => false],
+        self::FIELD_PRIVATE_SENSITIVE => [self::FIELD_DESTINATION => self::FIELD_REDACT_MINIMIZE, self::FIELD_CAN_BECOME_MEMORY => true],
     ];
 
     /**
@@ -98,46 +253,46 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
      * @var array<int,array{id:string,signal:string,question:string}>
      */
     private const GATES = [
-        ['id' => 'G0', 'signal' => 'capture_consented', 'question' => 'pode capturar com consentimento, privacy e retention?'],
-        ['id' => 'G1', 'signal' => 'atomic_claim', 'question' => 'ha claim atomico, tipo, escopo e fonte?'],
-        ['id' => 'G2', 'signal' => 'future_signal', 'question' => 'ha utilidade futura, novidade ou recorrencia?'],
-        ['id' => 'G3', 'signal' => 'provider_safe', 'question' => 'e provider-safe, sem segredo e sem dado sensivel desnecessario?'],
-        ['id' => 'G4', 'signal' => 'no_contradiction', 'question' => 'conflita com memoria, codigo, docs ou decisao mais nova?'],
-        ['id' => 'G5', 'signal' => 'outcome_validated', 'question' => 'foi validado por feedback, teste, replay ou uso?'],
-        ['id' => 'G6', 'signal' => 'scope_resolved', 'question' => 'vale para global, workspace, projeto, tarefa, dominio ou sessao?'],
-        ['id' => 'G7', 'signal' => 'promotion_mode_set', 'question' => 'auto, review humano, proposal ou bloqueio?'],
-        ['id' => 'G8', 'signal' => 'probation_entered', 'question' => 'entra como watch antes de trusted?'],
+        [self::FIELD_ID => self::FIELD_G0, self::FIELD_SIGNAL => self::FIELD_CAPTURE_CONSENTED, self::FIELD_QUESTION => self::FIELD_PODE_CAPTURAR_COM_CONSENTIMENTO__PRIVACY_E_RETENTION_],
+        [self::FIELD_ID => self::FIELD_G1, self::FIELD_SIGNAL => self::FIELD_ATOMIC_CLAIM, self::FIELD_QUESTION => self::FIELD_HA_CLAIM_ATOMICO__TIPO__ESCOPO_E_FONTE_],
+        [self::FIELD_ID => self::FIELD_G2, self::FIELD_SIGNAL => self::FIELD_FUTURE_SIGNAL, self::FIELD_QUESTION => self::FIELD_HA_UTILIDADE_FUTURA__NOVIDADE_OU_RECORRENCIA_],
+        [self::FIELD_ID => self::FIELD_G3, self::FIELD_SIGNAL => self::FIELD_PROVIDER_SAFE, self::FIELD_QUESTION => self::FIELD_E_PROVIDER_SAFE__SEM_SEGREDO_E_SEM_DADO_SENSIVEL_DESNECESSARIO_],
+        [self::FIELD_ID => self::FIELD_G4, self::FIELD_SIGNAL => self::FIELD_NO_CONTRADICTION, self::FIELD_QUESTION => self::FIELD_CONFLITA_COM_MEMORIA__CODIGO__DOCS_OU_DECISAO_MAIS_NOVA_],
+        [self::FIELD_ID => self::FIELD_G5, self::FIELD_SIGNAL => self::FIELD_OUTCOME_VALIDATED, self::FIELD_QUESTION => self::FIELD_FOI_VALIDADO_POR_FEEDBACK__TESTE__REPLAY_OU_USO_],
+        [self::FIELD_ID => self::FIELD_G6, self::FIELD_SIGNAL => self::FIELD_SCOPE_RESOLVED, self::FIELD_QUESTION => self::FIELD_VALE_PARA_GLOBAL__WORKSPACE__PROJETO__TAREFA__DOMINIO_OU_SESSAO_],
+        [self::FIELD_ID => self::FIELD_G7, self::FIELD_SIGNAL => self::FIELD_PROMOTION_MODE_SET, self::FIELD_QUESTION => self::FIELD_AUTO__REVIEW_HUMANO__PROPOSAL_OU_BLOQUEIO_],
+        [self::FIELD_ID => self::FIELD_G8, self::FIELD_SIGNAL => self::FIELD_PROBATION_ENTERED, self::FIELD_QUESTION => self::FIELD_ENTRA_COMO_WATCH_ANTES_DE_TRUSTED_],
     ];
 
     /** Categories the doc forbids from embedding by default. */
     private const EMBEDDING_DENY = [
-        'trivial_query',
-        'operational_ephemeral',
-        'private_sensitive',
-        'prompt_injection',
-        'raw_private_note',
-        'untrusted_content',
+        self::FIELD_TRIVIAL_QUERY,
+        self::FIELD_OPERATIONAL_EPHEMERAL,
+        self::FIELD_PRIVATE_SENSITIVE,
+        self::FIELD_PROMPT_INJECTION,
+        self::FIELD_RAW_PRIVATE_NOTE,
+        self::FIELD_UNTRUSTED_CONTENT,
     ];
 
     /** Required metadata on every vector before similarity is allowed to run. */
     private const VECTOR_REQUIRED_META = [
-        'origin', 'trust_level', 'privacy', 'retention',
-        'expires_at', 'embedding_allowed', 'tombstone_status',
+        self::FIELD_ORIGIN, self::FIELD_TRUST_LEVEL, self::FIELD_PRIVACY, self::FIELD_RETENTION,
+        self::FIELD_EXPIRES_AT, self::FIELD_EMBEDDING_ALLOWED, self::FIELD_TOMBSTONE_STATUS,
     ];
 
     /** Clearances Constelacao demands before admitting any semantic state. */
     private const CONSTELLATION_CLEARANCES = [
-        'provenance', 'semantic_value', 'scope',
-        'reversibility', 'privacy_clearance', 'reason',
+        self::FIELD_PROVENANCE, self::FIELD_SEMANTIC_VALUE, self::FIELD_SCOPE,
+        self::FIELD_REVERSIBILITY, self::FIELD_PRIVACY_CLEARANCE, self::FIELD_REASON,
     ];
 
     /** Scopes that carry critical/policy weight (Rule 7: never auto-promote). */
-    private const CRITICAL_SCOPES = ['global', 'policy'];
+    private const CRITICAL_SCOPES = [self::FIELD_GLOBAL, self::FIELD_POLICY];
 
     /** Memory states the doc permits. */
     public const MEMORY_STATES = [
-        'candidate', 'watch', 'trusted', 'conflicted', 'stale',
-        'deprecated', 'archived', 'blocked_private', 'tombstoned',
+        self::FIELD_CANDIDATE, self::FIELD_WATCH, self::FIELD_TRUSTED, self::FIELD_CONFLICTED, self::FIELD_STALE,
+        self::FIELD_DEPRECATED, self::FIELD_ARCHIVED, self::FIELD_BLOCKED_PRIVATE, self::FIELD_TOMBSTONED,
     ];
 
     /**
@@ -180,15 +335,15 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
     public function classify(string $inputClass): array
     {
         $key = $this->normalize($inputClass);
-        $row = self::INPUT_CLASSES[$key] ?? self::INPUT_CLASSES['untrusted_content'];
-        $resolved = isset(self::INPUT_CLASSES[$key]) ? $key : 'untrusted_content';
+        $row = self::INPUT_CLASSES[$key] ?? self::INPUT_CLASSES[self::FIELD_UNTRUSTED_CONTENT];
+        $resolved = isset(self::INPUT_CLASSES[$key]) ? $key : self::FIELD_UNTRUSTED_CONTENT;
 
         return [
             'class' => $resolved,
-            'destination' => $row['destination'],
-            'can_become_memory' => $row['can_become_memory'],
+            self::FIELD_DESTINATION => $row[self::FIELD_DESTINATION],
+            self::FIELD_CAN_BECOME_MEMORY => $row[self::FIELD_CAN_BECOME_MEMORY],
             // Classification alone never lifts quarantine.
-            'state' => self::DEFAULT_STATE,
+            self::FIELD_STATE => self::DEFAULT_STATE,
         ];
     }
 
@@ -196,7 +351,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
      * Run the G0..G8 promotion ladder for a candidate.
      *
      * @param  array<string,mixed>  $candidate  signals keyed by gate signal +
-     *                                          'input_class' and 'scope'.
+     *                                          self::FIELD_INPUT_CLASS and self::FIELD_SCOPE.
      * @return array{
      *     schema:string,
      *     input_class:string,
@@ -212,17 +367,17 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
      */
     public function evaluatePromotion(array $candidate): array
     {
-        $inputClass = $this->normalize((string) ($candidate['input_class'] ?? 'untrusted_content'));
-        $classRow = self::INPUT_CLASSES[$inputClass] ?? self::INPUT_CLASSES['untrusted_content'];
-        $canBecomeMemory = $classRow['can_become_memory'];
-        $scope = $this->normalize((string) ($candidate['scope'] ?? 'session'));
+        $inputClass = $this->normalize((string) ($candidate[self::FIELD_INPUT_CLASS] ?? self::FIELD_UNTRUSTED_CONTENT));
+        $classRow = self::INPUT_CLASSES[$inputClass] ?? self::INPUT_CLASSES[self::FIELD_UNTRUSTED_CONTENT];
+        $canBecomeMemory = $classRow[self::FIELD_CAN_BECOME_MEMORY];
+        $scope = $this->normalize((string) ($candidate[self::FIELD_SCOPE] ?? self::FIELD_SESSION));
 
         $reasons = [];
-        $requestedMode = $this->normalize((string) ($candidate['promotion_mode'] ?? 'auto'));
+        $requestedMode = $this->normalize((string) ($candidate[self::FIELD_PROMOTION_MODE] ?? self::FIELD_AUTO));
         $promotionMode = $this->resolvePromotionMode($requestedMode, $scope, $reasons);
         $immuneSignals = $this->promotionImmuneSignals($candidate, $inputClass, $scope, $promotionMode);
         $verdict = ($this->promotionGateEvaluator ??= new CognitiveImmunePromotionGateEvaluator)->evaluate($immuneSignals);
-        [$gateResults, $passedGates, $failedGate] = $this->legacyGateProjection($verdict['gate_statuses']);
+        [$gateResults, $passedGates, $failedGate] = $this->legacyGateProjection($verdict[self::FIELD_GATE_STATUSES]);
         if ($failedGate !== null) {
             $reasons[] = sprintf('gate_failed:%s', $failedGate);
         }
@@ -230,39 +385,39 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
         // Rule 1 + class law: a class that can never become knowledge cannot be
         // promoted even if every gate signal is supplied.
         if (! $canBecomeMemory) {
-            $failedGate ??= 'class_ineligible';
-            $reasons[] = 'class_cannot_become_memory';
+            $failedGate ??= self::FIELD_CLASS_INELIGIBLE;
+            $reasons[] = self::FIELD_CLASS_CANNOT_BECOME_MEMORY;
         }
 
         $allPassed = $failedGate === null;
 
-        $promote = $allPassed && $promotionMode !== 'blocked';
+        $promote = $allPassed && $promotionMode !== self::FIELD_BLOCKED;
 
         // G8 probation: a promoted memory enters as `watch`, never straight to
         // `trusted`. If not promoted it stays a `candidate`.
-        $resultingState = $promote ? 'watch' : 'candidate';
+        $resultingState = $promote ? self::FIELD_WATCH : self::FIELD_CANDIDATE;
 
         if ($promote) {
-            $reasons[] = 'all_gates_passed';
+            $reasons[] = self::FIELD_ALL_GATES_PASSED;
             $reasons[] = sprintf('enters_probation_as:%s', $resultingState);
         }
 
         return [
-            'schema' => self::SCHEMA,
-            'input_class' => isset(self::INPUT_CLASSES[$inputClass]) ? $inputClass : 'untrusted_content',
-            'can_become_memory' => $canBecomeMemory,
-            'gate_results' => $gateResults,
-            'passed_gates' => $passedGates,
-            'failed_gate' => $failedGate,
-            'gate_statuses' => $verdict['gate_statuses'],
-            'promotion_status' => $verdict['promotion_status'],
-            'blocking_gate_ids' => $verdict['blocking_gate_ids'],
-            'pending_gate_ids' => $verdict['pending_gate_ids'],
-            'immune_signals' => $immuneSignals,
-            'promote' => $promote,
-            'promotion_mode' => $promotionMode,
-            'resulting_state' => $resultingState,
-            'reasons' => array_values(array_unique($reasons)),
+            self::FIELD_SCHEMA => self::SCHEMA,
+            self::FIELD_INPUT_CLASS => isset(self::INPUT_CLASSES[$inputClass]) ? $inputClass : self::FIELD_UNTRUSTED_CONTENT,
+            self::FIELD_CAN_BECOME_MEMORY => $canBecomeMemory,
+            self::FIELD_GATE_RESULTS => $gateResults,
+            self::FIELD_PASSED_GATES => $passedGates,
+            self::FIELD_FAILED_GATE => $failedGate,
+            self::FIELD_GATE_STATUSES => $verdict[self::FIELD_GATE_STATUSES],
+            self::FIELD_PROMOTION_STATUS => $verdict[self::FIELD_PROMOTION_STATUS],
+            self::FIELD_BLOCKING_GATE_IDS => $verdict[self::FIELD_BLOCKING_GATE_IDS],
+            self::FIELD_PENDING_GATE_IDS => $verdict[self::FIELD_PENDING_GATE_IDS],
+            self::FIELD_IMMUNE_SIGNALS => $immuneSignals,
+            self::FIELD_PROMOTE => $promote,
+            self::FIELD_PROMOTION_MODE => $promotionMode,
+            self::FIELD_RESULTING_STATE => $resultingState,
+            self::FIELD_REASONS => array_values(array_unique($reasons)),
         ];
     }
 
@@ -272,26 +427,26 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
      */
     private function promotionImmuneSignals(array $candidate, string $inputClass, string $scope, string $promotionMode): array
     {
-        $scopeResolved = (bool) ($candidate['scope_resolved'] ?? false);
+        $scopeResolved = (bool) ($candidate[self::FIELD_SCOPE_RESOLVED] ?? false);
 
         return [
-            'consent_granted' => (bool) ($candidate['capture_consented'] ?? false),
-            'privacy_class' => (string) ($candidate['privacy_class'] ?? 'internal'),
-            'retention_ok' => (bool) ($candidate['capture_consented'] ?? false),
-            'atomic_claim_present' => (bool) ($candidate['atomic_claim'] ?? false),
-            'claim_type' => $inputClass,
-            'claim_source_present' => (bool) ($candidate['atomic_claim'] ?? false),
-            'future_utility' => (bool) ($candidate['future_signal'] ?? false),
-            'novelty' => (bool) ($candidate['novelty'] ?? false),
-            'recurrence_count' => (int) ($candidate['recurrence_count'] ?? 0),
-            'provider_safe' => (bool) ($candidate['provider_safe'] ?? false),
-            'contains_secret' => (bool) ($candidate['contains_secret'] ?? false),
-            'contains_sensitive_unnecessary' => (bool) ($candidate['contains_sensitive_unnecessary'] ?? false),
-            'contradicts_newer' => ! (bool) ($candidate['no_contradiction'] ?? false),
-            'outcome_validated' => (bool) ($candidate['outcome_validated'] ?? false),
-            'scope' => $scopeResolved ? $scope : '',
-            'promotion_mode_hint' => (bool) ($candidate['promotion_mode_set'] ?? false) ? $promotionMode : '',
-            'on_probation' => ! (bool) ($candidate['probation_entered'] ?? false),
+            self::FIELD_CONSENT_GRANTED => (bool) ($candidate[self::FIELD_CAPTURE_CONSENTED] ?? false),
+            self::FIELD_PRIVACY_CLASS => (string) ($candidate[self::FIELD_PRIVACY_CLASS] ?? self::FIELD_INTERNAL),
+            self::FIELD_RETENTION_OK => (bool) ($candidate[self::FIELD_CAPTURE_CONSENTED] ?? false),
+            self::FIELD_ATOMIC_CLAIM_PRESENT => (bool) ($candidate[self::FIELD_ATOMIC_CLAIM] ?? false),
+            self::FIELD_CLAIM_TYPE => $inputClass,
+            self::FIELD_CLAIM_SOURCE_PRESENT => (bool) ($candidate[self::FIELD_ATOMIC_CLAIM] ?? false),
+            self::FIELD_FUTURE_UTILITY => (bool) ($candidate[self::FIELD_FUTURE_SIGNAL] ?? false),
+            self::FIELD_NOVELTY => (bool) ($candidate[self::FIELD_NOVELTY] ?? false),
+            self::FIELD_RECURRENCE_COUNT => (int) ($candidate[self::FIELD_RECURRENCE_COUNT] ?? 0),
+            self::FIELD_PROVIDER_SAFE => (bool) ($candidate[self::FIELD_PROVIDER_SAFE] ?? false),
+            self::FIELD_CONTAINS_SECRET => (bool) ($candidate[self::FIELD_CONTAINS_SECRET] ?? false),
+            self::FIELD_CONTAINS_SENSITIVE_UNNECESSARY => (bool) ($candidate[self::FIELD_CONTAINS_SENSITIVE_UNNECESSARY] ?? false),
+            self::FIELD_CONTRADICTS_NEWER => ! (bool) ($candidate[self::FIELD_NO_CONTRADICTION] ?? false),
+            self::FIELD_OUTCOME_VALIDATED => (bool) ($candidate[self::FIELD_OUTCOME_VALIDATED] ?? false),
+            self::FIELD_SCOPE => $scopeResolved ? $scope : '',
+            self::FIELD_PROMOTION_MODE_HINT => (bool) ($candidate[self::FIELD_PROMOTION_MODE_SET] ?? false) ? $promotionMode : '',
+            self::FIELD_ON_PROBATION => ! (bool) ($candidate[self::FIELD_PROBATION_ENTERED] ?? false),
         ];
     }
 
@@ -306,12 +461,12 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
         $failedGate = null;
 
         foreach (self::GATES as $gate) {
-            $gateId = $gate['id'];
-            $passed = $failedGate === null && ($gateStatuses[$gateId] ?? 'pending') === 'pass';
+            $gateId = $gate[self::FIELD_ID];
+            $passed = $failedGate === null && ($gateStatuses[$gateId] ?? self::FIELD_PENDING) === self::FIELD_PASS;
             $gateResults[] = [
-                'id' => $gateId,
-                'passed' => $passed,
-                'question' => $gate['question'],
+                self::FIELD_ID => $gateId,
+                self::FIELD_PASSED => $passed,
+                self::FIELD_QUESTION => $gate[self::FIELD_QUESTION],
             ];
 
             if ($passed) {
@@ -349,7 +504,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
      */
     public function evaluatePromotionGates(array $signals): ?array
     {
-        if (! (bool) config('atlas.cognitive_immune.promotion_gate_evaluator_enabled', false)) {
+        if (! (bool) config(self::FIELD_ATLAS_COGNITIVE_IMMUNE_PROMOTION_GATE_EVALUATOR_ENABLED, false)) {
             return null;
         }
 
@@ -380,21 +535,21 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
             }
         }
         if ($missing !== []) {
-            $reasons[] = 'missing_required_metadata';
+            $reasons[] = self::FIELD_MISSING_REQUIRED_METADATA;
         }
 
         // The flag must be explicitly true; default-false quarantine holds.
-        $flag = (bool) ($vector['embedding_allowed'] ?? false);
+        $flag = (bool) ($vector[self::FIELD_EMBEDDING_ALLOWED] ?? false);
         if (! $flag) {
-            $reasons[] = 'embedding_allowed_flag_false';
+            $reasons[] = self::FIELD_EMBEDDING_ALLOWED_FLAG_FALSE;
         }
 
         $allowed = $reasons === [];
 
         return [
-            'allowed' => $allowed,
-            'reasons' => $allowed ? ['safety_filters_passed_before_similarity'] : $reasons,
-            'missing_meta' => $missing,
+            self::FIELD_ALLOWED => $allowed,
+            self::FIELD_REASONS => $allowed ? [self::FIELD_SAFETY_FILTERS_PASSED_BEFORE_SIMILARITY] : $reasons,
+            self::FIELD_MISSING_META => $missing,
         ];
     }
 
@@ -411,8 +566,8 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
         $reasons = [];
 
         // Only strategic insight candidates may even reach the gate.
-        if ($class !== 'strategic_insight_candidate') {
-            $reasons[] = 'class_not_constellation_grade';
+        if ($class !== self::FIELD_STRATEGIC_INSIGHT_CANDIDATE) {
+            $reasons[] = self::FIELD_CLASS_NOT_CONSTELLATION_GRADE;
         }
 
         $missing = [];
@@ -422,15 +577,15 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
             }
         }
         if ($missing !== []) {
-            $reasons[] = 'missing_clearance';
+            $reasons[] = self::FIELD_MISSING_CLEARANCE;
         }
 
         $eligible = $reasons === [];
 
         return [
-            'eligible' => $eligible,
-            'missing_clearances' => $missing,
-            'reasons' => $eligible ? ['constellation_eligible_true'] : $reasons,
+            self::FIELD_ELIGIBLE => $eligible,
+            self::FIELD_MISSING_CLEARANCES => $missing,
+            self::FIELD_REASONS => $eligible ? [self::FIELD_CONSTELLATION_ELIGIBLE_TRUE] : $reasons,
         ];
     }
 
@@ -444,27 +599,27 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
     public function forgettingReceipt(string $kind, string $reason, string $evidenceRef): array
     {
         $allowedKinds = [
-            'ttl_expiration', 'confidence_decay', 'supersession',
-            'archival', 'hard_delete', 'negative_memory',
+            self::FIELD_TTL_EXPIRATION, self::FIELD_CONFIDENCE_DECAY, self::FIELD_SUPERSESSION,
+            self::FIELD_ARCHIVAL, self::FIELD_HARD_DELETE, self::FIELD_NEGATIVE_MEMORY,
         ];
         $k = $this->normalize($kind);
         $errors = [];
 
         if (! in_array($k, $allowedKinds, true)) {
-            $errors[] = 'unknown_forgetting_kind';
+            $errors[] = self::FIELD_UNKNOWN_FORGETTING_KIND;
         }
         if (AiValueNormalizer::trimmedStringOrNull($reason) === null) {
-            $errors[] = 'missing_reason';
+            $errors[] = self::FIELD_MISSING_REASON;
         }
         if (AiValueNormalizer::trimmedStringOrNull($evidenceRef) === null) {
-            $errors[] = 'missing_evidence';
+            $errors[] = self::FIELD_MISSING_EVIDENCE;
         }
 
         return [
-            'valid' => $errors === [],
-            'kind' => $k,
-            'reason' => $reason,
-            'reasons' => $errors === [] ? ['receipt_complete'] : $errors,
+            self::FIELD_VALID => $errors === [],
+            self::FIELD_KIND => $k,
+            self::FIELD_REASON => $reason,
+            self::FIELD_REASONS => $errors === [] ? [self::FIELD_RECEIPT_COMPLETE] : $errors,
         ];
     }
 
@@ -474,14 +629,14 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
     public function nonNegotiableRules(): array
     {
         return [
-            'raw_capture_never_enters_context_builder_directly',
-            'chat_transcript_never_becomes_memory_silently',
-            'archive_is_not_memory_approved',
-            'delete_propagates_to_memory_embeddings_caches_constellation',
-            'every_memory_has_scope_source_state_use_reason',
-            'retrieval_without_reason_is_a_bug',
-            'learning_never_alters_critical_behavior_without_proposal_or_review',
-            'prefer_insufficient_context_over_retrieving_garbage',
+            self::FIELD_RAW_CAPTURE_NEVER_ENTERS_CONTEXT_BUILDER_DIRECTLY,
+            self::FIELD_CHAT_TRANSCRIPT_NEVER_BECOMES_MEMORY_SILENTLY,
+            self::FIELD_ARCHIVE_IS_NOT_MEMORY_APPROVED,
+            self::FIELD_DELETE_PROPAGATES_TO_MEMORY_EMBEDDINGS_CACHES_CONSTELLATION,
+            self::FIELD_EVERY_MEMORY_HAS_SCOPE_SOURCE_STATE_USE_REASON,
+            self::FIELD_RETRIEVAL_WITHOUT_REASON_IS_A_BUG,
+            self::FIELD_LEARNING_NEVER_ALTERS_CRITICAL_BEHAVIOR_WITHOUT_PROPOSAL_OR_REVIEW,
+            self::FIELD_PREFER_INSUFFICIENT_CONTEXT_OVER_RETRIEVING_GARBAGE,
         ];
     }
 
@@ -493,13 +648,13 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
      */
     private function resolvePromotionMode(string $requestedMode, string $scope, array &$reasons): string
     {
-        $allowed = ['auto', 'review', 'proposal', 'blocked'];
-        $mode = in_array($requestedMode, $allowed, true) ? $requestedMode : 'review';
+        $allowed = [self::FIELD_AUTO, self::FIELD_REVIEW, self::FIELD_PROPOSAL, self::FIELD_BLOCKED];
+        $mode = in_array($requestedMode, $allowed, true) ? $requestedMode : self::FIELD_REVIEW;
 
-        if (in_array($scope, self::CRITICAL_SCOPES, true) && $mode === 'auto') {
-            $reasons[] = 'critical_scope_forced_review';
+        if (in_array($scope, self::CRITICAL_SCOPES, true) && $mode === self::FIELD_AUTO) {
+            $reasons[] = self::FIELD_CRITICAL_SCOPE_FORCED_REVIEW;
 
-            return 'review';
+            return self::FIELD_REVIEW;
         }
 
         return $mode;

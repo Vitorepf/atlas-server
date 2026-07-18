@@ -18,6 +18,13 @@ final class AaeosGeneratedContractGate
     public const DEFAULT_HOT_PATH_ENABLED = false;
 
     public const QUARANTINE_NAMESPACE_CONFIG_KEY = 'atlas_elite_compaction.generated.quarantine_namespace';
+    public const FIELD_HOT_PATH_ENABLED = 'hot_path_enabled';
+    public const FIELD_GENERATED_FILE_COUNT = 'generated_file_count';
+    public const FIELD_QUARANTINE_NAMESPACE = 'quarantine_namespace';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_APP_SERVICES_AI_AAEOS_GENERATED = 'app/Services/Ai/Aaeos/Generated';
+    public const FIELD_AAEOS_GENERATED_ = 'Aaeos/Generated/';
+    public const FIELD_USE_LIVE_ACOS_SERVICES_OR_ENABLE_ATLAS_ELITE_COMPACTION_GENERATED_HOT_PATH_ENABLED_EXPLICITLY_ = 'Use live ACOS services or enable atlas_elite_compaction.generated.hot_path_enabled explicitly.';
 
     public function assertHotPathAllowed(string $class): void
     {
@@ -25,12 +32,12 @@ final class AaeosGeneratedContractGate
             return;
         }
         $class = AiValueNormalizer::trimmedStringOrNull($class) ?? '';
-        if (! str_contains($class, 'Aaeos\\Generated\\') && ! str_contains($class, 'Aaeos/Generated/')) {
+        if (! str_contains($class, 'Aaeos\\Generated\\') && ! str_contains($class, self::FIELD_AAEOS_GENERATED_)) {
             return;
         }
         throw new \RuntimeException(
             'Aaeos/Generated is quarantined off the runtime hot path. '
-            .'Use live ACOS services or enable atlas_elite_compaction.generated.hot_path_enabled explicitly.'
+            .self::FIELD_USE_LIVE_ACOS_SERVICES_OR_ENABLE_ATLAS_ELITE_COMPACTION_GENERATED_HOT_PATH_ENABLED_EXPLICITLY_
         );
     }
 
@@ -39,14 +46,14 @@ final class AaeosGeneratedContractGate
      */
     public function status(): array
     {
-        $root = base_path('app/Services/Ai/Aaeos/Generated');
+        $root = base_path(self::FIELD_APP_SERVICES_AI_AAEOS_GENERATED);
         $count = count(glob($root.'/*.php') ?: []);
 
         return [
-            'schema_version' => self::SCHEMA_VERSION,
-            'hot_path_enabled' => (AiValueNormalizer::boolOrNull(config(self::HOT_PATH_ENABLED_CONFIG_KEY, self::DEFAULT_HOT_PATH_ENABLED)) ?? self::DEFAULT_HOT_PATH_ENABLED),
-            'generated_file_count' => $count,
-            'quarantine_namespace' => AiValueNormalizer::trimmedStringOrNull(
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_HOT_PATH_ENABLED => (AiValueNormalizer::boolOrNull(config(self::HOT_PATH_ENABLED_CONFIG_KEY, self::DEFAULT_HOT_PATH_ENABLED)) ?? self::DEFAULT_HOT_PATH_ENABLED),
+            self::FIELD_GENERATED_FILE_COUNT => $count,
+            self::FIELD_QUARANTINE_NAMESPACE => AiValueNormalizer::trimmedStringOrNull(
                 config(self::QUARANTINE_NAMESPACE_CONFIG_KEY) ?? null
             ) ?? '',
         ];

@@ -19,6 +19,27 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
     public const SCHEMA_VERSION = 'atlas.acos.joint_resource_budget_watchdog.v1';
 
     public const CHECK_ID = 'elev-27.joint_resource_budget';
+    public const FIELD_MEASURED_HEADROOM_MB = 'measured_headroom_mb';
+    public const FIELD_OVER_CAP_COMPONENTS = 'over_cap_components';
+    public const FIELD_HOST_RAM_GIB = 'host_ram_gib';
+    public const FIELD_ENGINE_FLOOR_GIB = 'engine_floor_gib';
+    public const FIELD_TOTAL_RAM_CAP_MB = 'total_ram_cap_mb';
+    public const FIELD_PAPER_HEADROOM_MB = 'paper_headroom_mb';
+    public const FIELD_COMPONENTS = 'components';
+    public const FIELD_DECLARED_PAPER_STATUS = 'declared_paper_status';
+    public const FIELD_MEASURED_RAM_MB = 'measured_ram_mb';
+    public const FIELD_PAPER_STATUS = 'paper_status';
+    public const FIELD_REASONS = 'reasons';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_MESSAGE = 'message';
+    public const FIELD_CODE = 'code';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_PAPER_OVERSHOOT = 'paper_overshoot';
+    public const FIELD_JOINT_RESOURCE_BUDGET_BREACH = 'joint_resource_budget_breach';
+    public const FIELD_COMPONENT_OVER_RAM_CAP = 'component_over_ram_cap';
+    public const FIELD_MEASURED_OVERSHOOT = 'measured_overshoot';
+    public const FIELD_UTC = 'UTC';
+    public const FIELD_JOINT_RESOURCE_BUDGET_BREACHED_VS_DECLARED_CAP_AND_OR_HOST_CEILING_ = 'Joint resource budget breached vs declared cap and/or host ceiling.';
 
     public function __construct(
         private AtlasResourceBudgetService $service,
@@ -32,39 +53,39 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
 
     public function run(): AtlasWatchdogCheckResult
     {
-        $now = $this->now ?? CarbonImmutable::now('UTC');
+        $now = $this->now ?? CarbonImmutable::now(self::FIELD_UTC);
         $report = $this->service->report();
 
         $evidence = [
-            'schema_version' => self::SCHEMA_VERSION,
-            'generated_at' => $now->toIso8601String(),
-            'host_ram_gib' => $report['host_ram_gib'],
-            'engine_floor_gib' => $report['engine_floor_gib'],
-            'total_ram_cap_mb' => $report['total_ram_cap_mb'],
-            'paper_status' => $report['declared_paper_status'],
-            'paper_headroom_mb' => $report['paper_headroom_mb'],
-            'measured_ram_mb' => $report['measured_ram_mb'],
-            'measured_headroom_mb' => $report['measured_headroom_mb'],
-            'over_cap_components' => $report['over_cap_components'],
-            'components' => $report['components'],
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
+            self::FIELD_GENERATED_AT => $now->toIso8601String(),
+            self::FIELD_HOST_RAM_GIB => $report[self::FIELD_HOST_RAM_GIB],
+            self::FIELD_ENGINE_FLOOR_GIB => $report[self::FIELD_ENGINE_FLOOR_GIB],
+            self::FIELD_TOTAL_RAM_CAP_MB => $report[self::FIELD_TOTAL_RAM_CAP_MB],
+            self::FIELD_PAPER_STATUS => $report[self::FIELD_DECLARED_PAPER_STATUS],
+            self::FIELD_PAPER_HEADROOM_MB => $report[self::FIELD_PAPER_HEADROOM_MB],
+            self::FIELD_MEASURED_RAM_MB => $report[self::FIELD_MEASURED_RAM_MB],
+            self::FIELD_MEASURED_HEADROOM_MB => $report[self::FIELD_MEASURED_HEADROOM_MB],
+            self::FIELD_OVER_CAP_COMPONENTS => $report[self::FIELD_OVER_CAP_COMPONENTS],
+            self::FIELD_COMPONENTS => $report[self::FIELD_COMPONENTS],
         ];
 
         $reasons = [];
-        if ($report['declared_paper_status'] === 'paper_overshoot') {
-            $reasons[] = 'paper_overshoot';
+        if ($report[self::FIELD_DECLARED_PAPER_STATUS] === self::FIELD_PAPER_OVERSHOOT) {
+            $reasons[] = self::FIELD_PAPER_OVERSHOOT;
         }
-        if ($report['over_cap_components'] !== []) {
-            $reasons[] = 'component_over_ram_cap';
+        if ($report[self::FIELD_OVER_CAP_COMPONENTS] !== []) {
+            $reasons[] = self::FIELD_COMPONENT_OVER_RAM_CAP;
         }
-        if (is_int($report['measured_headroom_mb']) && $report['measured_headroom_mb'] < 0) {
-            $reasons[] = 'measured_overshoot';
+        if (is_int($report[self::FIELD_MEASURED_HEADROOM_MB]) && $report[self::FIELD_MEASURED_HEADROOM_MB] < 0) {
+            $reasons[] = self::FIELD_MEASURED_OVERSHOOT;
         }
 
         if ($reasons !== []) {
             return AtlasWatchdogCheckResult::alert($evidence, [
-                'code' => 'joint_resource_budget_breach',
-                'reasons' => $reasons,
-                'message' => 'Joint resource budget breached vs declared cap and/or host ceiling.',
+                self::FIELD_CODE => self::FIELD_JOINT_RESOURCE_BUDGET_BREACH,
+                self::FIELD_REASONS => $reasons,
+                self::FIELD_MESSAGE => self::FIELD_JOINT_RESOURCE_BUDGET_BREACHED_VS_DECLARED_CAP_AND_OR_HOST_CEILING_,
             ]);
         }
 

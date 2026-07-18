@@ -19,15 +19,49 @@ class AtlasAaeosDepartmentRegistryService
 {
     public const SCHEMA = 'atlas.aaeos.department.v1';
 
+    public const FIELD_VALID = 'valid';
+    public const FIELD_ESCALATION_TO = 'escalation_to';
+    public const FIELD_BLOCKERS = 'blockers';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_DEPARTMENT_COUNT = 'department_count';
+    public const FIELD_ID = 'id';
+    public const FIELD_MATURITY_LEVEL = 'maturity_level';
+    public const FIELD_DEPARTMENTS = 'departments';
+    public const FIELD_DUPLICATE_IDS = 'duplicate_ids';
+    public const FIELD_ESCALATION_CYCLES = 'escalation_cycles';
+    public const FIELD_OPERATOR = 'operator';
+    public const FIELD_ALLOWED_ACTIONS = 'allowed_actions';
+    public const FIELD_ARCHITECT = 'architect';
+    public const FIELD_DEBUG = 'debug';
+    public const FIELD_DELIVERY = 'delivery';
+    public const FIELD_EVIDENCE_REQUIRED = 'evidence_required';
+    public const FIELD_FORBIDDEN_ACTIONS = 'forbidden_actions';
+    public const FIELD_HUMAN_NAME = 'human_name';
+    public const FIELD_MEMORY = 'memory';
+    public const FIELD_GATES = 'gates';
+    public const FIELD_INPUTS = 'inputs';
+    public const FIELD_OUTPUTS = 'outputs';
+    public const FIELD_RESEARCH = 'research';
+    public const FIELD_DEV = 'dev';
+    public const FIELD_REVIEW = 'review';
+    public const FIELD_SCOPE = 'scope';
+    public const FIELD_SECURITY = 'security';
+    public const FIELD_FORGE = 'forge';
+    public const FIELD_STRTOLOWER = 'strtolower';
+    public const FIELD_TRIGGERS = 'triggers';
+    public const FIELD_PRODUCT = 'product';
+    public const FIELD_QA = 'qa';
+    public const FIELD_ESCALATION_TO_MUST_NOT_POINT_TO_THE_DEPARTMENT_ITSELF = 'escalation_to must not point to the department itself';
+
     /**
      * The 12 mandatory fields — a department missing any is a blocker.
      *
      * @var array<int,string>
      */
     public const REQUIRED_FIELDS = [
-        'id', 'human_name', 'scope', 'triggers', 'inputs', 'outputs',
-        'gates', 'allowed_actions', 'forbidden_actions', 'escalation_to',
-        'evidence_required', 'maturity_level',
+        self::FIELD_ID, self::FIELD_HUMAN_NAME, self::FIELD_SCOPE, self::FIELD_TRIGGERS, self::FIELD_INPUTS, self::FIELD_OUTPUTS,
+        self::FIELD_GATES, self::FIELD_ALLOWED_ACTIONS, self::FIELD_FORBIDDEN_ACTIONS, self::FIELD_ESCALATION_TO,
+        self::FIELD_EVIDENCE_REQUIRED, self::FIELD_MATURITY_LEVEL,
     ];
 
     /**
@@ -41,8 +75,8 @@ class AtlasAaeosDepartmentRegistryService
      * @var array<int,string>
      */
     public const CANONICAL_DEPARTMENTS = [
-        'product', 'architect', 'research', 'dev', 'debug', 'review',
-        'qa', 'security', 'forge', 'delivery', 'memory',
+        self::FIELD_PRODUCT, self::FIELD_ARCHITECT, self::FIELD_RESEARCH, self::FIELD_DEV, self::FIELD_DEBUG, self::FIELD_REVIEW,
+        self::FIELD_QA, self::FIELD_SECURITY, self::FIELD_FORGE, self::FIELD_DELIVERY, self::FIELD_MEMORY,
     ];
 
     /**
@@ -62,26 +96,26 @@ class AtlasAaeosDepartmentRegistryService
             }
         }
 
-        $id = $this->departmentId($contract['id'] ?? '');
-        $maturity = $this->maturityLevel($contract['maturity_level'] ?? '');
+        $id = $this->departmentId($contract[self::FIELD_ID] ?? '');
+        $maturity = $this->maturityLevel($contract[self::FIELD_MATURITY_LEVEL] ?? '');
         if ($maturity !== '' && ! in_array($maturity, self::VALID_MATURITY, true)) {
             $blockers[] = "maturity_level [{$maturity}] is not in L0..L7";
         }
 
-        $escalation = $this->departmentId($contract['escalation_to'] ?? '');
-        if ($escalation !== '' && $escalation !== 'operator') {
+        $escalation = $this->departmentId($contract[self::FIELD_ESCALATION_TO] ?? '');
+        if ($escalation !== '' && $escalation !== self::FIELD_OPERATOR) {
             if ($escalation === $id) {
-                $blockers[] = 'escalation_to must not point to the department itself';
-            } elseif (! in_array($escalation, array_map('strtolower', $knownDepartmentIds), true)) {
+                $blockers[] = self::FIELD_ESCALATION_TO_MUST_NOT_POINT_TO_THE_DEPARTMENT_ITSELF;
+            } elseif (! in_array($escalation, array_map(self::FIELD_STRTOLOWER, $knownDepartmentIds), true)) {
                 $blockers[] = "escalation_to [{$escalation}] is not a known department";
             }
         }
 
         return [
-            'schema_version' => self::SCHEMA,
-            'id' => $id,
-            'valid' => $blockers === [],
-            'blockers' => $blockers,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
+            self::FIELD_ID => $id,
+            self::FIELD_VALID => $blockers === [],
+            self::FIELD_BLOCKERS => $blockers,
         ];
     }
 
@@ -104,24 +138,24 @@ class AtlasAaeosDepartmentRegistryService
         foreach ($departments as $dept) {
             $result = $this->validateDepartment($dept, $knownIds);
             $results[] = $result;
-            $id = $result['id'];
-            $escalation = $this->departmentId($dept['escalation_to'] ?? '');
-            if ($id !== '' && $escalation !== '' && $escalation !== 'operator') {
+            $id = $result[self::FIELD_ID];
+            $escalation = $this->departmentId($dept[self::FIELD_ESCALATION_TO] ?? '');
+            if ($id !== '' && $escalation !== '' && $escalation !== self::FIELD_OPERATOR) {
                 $escalationMap[$id] = $escalation;
             }
         }
 
         $cycles = $this->detectEscalationCycles($escalationMap);
         $allValid = $duplicateIds === [] && $cycles === []
-            && collect($results)->every(fn (array $r): bool => $r['valid'] === true);
+            && collect($results)->every(fn (array $r): bool => $r[self::FIELD_VALID] === true);
 
         return [
-            'schema_version' => self::SCHEMA,
-            'valid' => $allValid,
-            'department_count' => count($departments),
-            'duplicate_ids' => $duplicateIds,
-            'escalation_cycles' => $cycles,
-            'departments' => $results,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA,
+            self::FIELD_VALID => $allValid,
+            self::FIELD_DEPARTMENT_COUNT => count($departments),
+            self::FIELD_DUPLICATE_IDS => $duplicateIds,
+            self::FIELD_ESCALATION_CYCLES => $cycles,
+            self::FIELD_DEPARTMENTS => $results,
         ];
     }
 
@@ -160,7 +194,7 @@ class AtlasAaeosDepartmentRegistryService
     {
         $ids = [];
         foreach ($departments as $dept) {
-            $id = $this->departmentId($dept['id'] ?? '');
+            $id = $this->departmentId($dept[self::FIELD_ID] ?? '');
             if ($id !== '') {
                 $ids[] = $id;
             }
