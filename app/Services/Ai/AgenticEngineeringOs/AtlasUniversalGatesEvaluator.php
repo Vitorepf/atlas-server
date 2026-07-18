@@ -10328,4 +10328,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B413).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function contextNudgeAcosWatchdogLoteMeasureAutonomyLadderFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'engineer' => CognitiveContextNudgeApplier::FIELD_ENGINEER,
+            'hyperflow' => CognitiveContextNudgeApplier::FIELD_HYPERFLOW,
+            'kernel_vault' => CognitiveContextNudgeApplier::FIELD_KERNEL_VAULT,
+            'librarian' => CognitiveContextNudgeApplier::FIELD_LIBRARIAN,
+            'mission_mode' => CognitiveContextNudgeApplier::FIELD_MISSION_MODE,
+            'tests_run' => AtlasAcosWatchdogHealthService::FIELD_TESTS_RUN,
+            'total_event_count_floor' => AtlasAcosWatchdogHealthService::FIELD_TOTAL_EVENT_COUNT_FLOOR,
+            'transcript_inferred' => AtlasAcosWatchdogHealthService::FIELD_TRANSCRIPT_INFERRED,
+            'transcript_inferred_share' => AtlasAcosWatchdogHealthService::FIELD_TRANSCRIPT_INFERRED_SHARE,
+            'promoted' => AcosMaxLote2MeasureService::FIELD_PROMOTED,
+            'receipt_id' => AcosMaxLote2MeasureService::FIELD_RECEIPT_ID,
+            'signature_nonce_reused' => AutonomyLadderAdversarialWatchdogCheck::FIELD_SIGNATURE_NONCE_REUSED,
+            'signature_receipt_missing' => AutonomyLadderAdversarialWatchdogCheck::FIELD_SIGNATURE_RECEIPT_MISSING,
+            'pgsql' => AsefChunkIndexService::FIELD_PGSQL,
+            'over_ram_cap' => AtlasResourceBudgetService::FIELD_OVER_RAM_CAP,
+            'deferred' => AaeosDeferredPhaseDispatcherService::FIELD_DEFERRED,
+            'paper_overshoot' => JointResourceBudgetWatchdogCheck::FIELD_PAPER_OVERSHOOT,
+            'operator' => AtlasAaeosDepartmentRegistryService::FIELD_OPERATOR,
+            'context_nudge_acos_watchdog_lote_measure_autonomy_ladder_floor_count' => 18,
+        ];
+    }
+
 }

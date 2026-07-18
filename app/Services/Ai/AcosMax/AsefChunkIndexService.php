@@ -92,6 +92,7 @@ final class AsefChunkIndexService
     public const FIELD_CHUNK_HIT_COUNT = 'chunk_hit_count';
     public const FIELD_ID = 'id';
     public const FIELD_CHUNK_HITS = 'chunk_hits';
+    public const FIELD_PGSQL = 'pgsql';
 
     public function __construct(
         private readonly AtlasSemanticEmbeddingFoundationService $asef,
@@ -373,7 +374,7 @@ final class AsefChunkIndexService
             return;
         }
 
-        if (DB::connection()->getDriverName() !== 'pgsql') {
+        if (DB::connection()->getDriverName() !== self::FIELD_PGSQL) {
             return;
         }
 

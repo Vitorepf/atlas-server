@@ -48,6 +48,7 @@ final class AtlasResourceBudgetService
     public const FIELD_HOST_RAM_MB = 'host_ram_mb';
     public const FIELD_OVER_CAP_COMPONENTS = 'over_cap_components';
     public const FIELD_PAPER_HEADROOM_MB = 'paper_headroom_mb';
+    public const FIELD_OVER_RAM_CAP = 'over_ram_cap';
 
     /** @var array<string,mixed> */
     private array $budget;
@@ -111,7 +112,7 @@ final class AtlasResourceBudgetService
                 $anyMeasured = true;
                 $measuredSum += $ramActual;
                 $componentStatus = $ramActual > $ramCap ? 'over_ram_cap' : 'within_ram_cap';
-                if ($componentStatus === 'over_ram_cap') {
+                if ($componentStatus === self::FIELD_OVER_RAM_CAP) {
                     $overCap[] = $name;
                 }
             }

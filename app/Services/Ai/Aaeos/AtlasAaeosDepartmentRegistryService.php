@@ -29,6 +29,7 @@ class AtlasAaeosDepartmentRegistryService
     public const FIELD_DEPARTMENTS = 'departments';
     public const FIELD_DUPLICATE_IDS = 'duplicate_ids';
     public const FIELD_ESCALATION_CYCLES = 'escalation_cycles';
+    public const FIELD_OPERATOR = 'operator';
 
     /**
      * The 12 mandatory fields — a department missing any is a blocker.
@@ -80,7 +81,7 @@ class AtlasAaeosDepartmentRegistryService
         }
 
         $escalation = $this->departmentId($contract[self::FIELD_ESCALATION_TO] ?? '');
-        if ($escalation !== '' && $escalation !== 'operator') {
+        if ($escalation !== '' && $escalation !== self::FIELD_OPERATOR) {
             if ($escalation === $id) {
                 $blockers[] = 'escalation_to must not point to the department itself';
             } elseif (! in_array($escalation, array_map('strtolower', $knownDepartmentIds), true)) {
@@ -117,7 +118,7 @@ class AtlasAaeosDepartmentRegistryService
             $results[] = $result;
             $id = $result[self::FIELD_ID];
             $escalation = $this->departmentId($dept[self::FIELD_ESCALATION_TO] ?? '');
-            if ($id !== '' && $escalation !== '' && $escalation !== 'operator') {
+            if ($id !== '' && $escalation !== '' && $escalation !== self::FIELD_OPERATOR) {
                 $escalationMap[$id] = $escalation;
             }
         }

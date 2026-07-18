@@ -94,6 +94,8 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_METRICS_AUTHORITY_MISSING = 'metrics_authority_missing';
     public const FIELD_METRICS_AUTHORITY_TAMPERED = 'metrics_authority_tampered';
     public const FIELD_PASS = 'pass';
+    public const FIELD_SIGNATURE_NONCE_REUSED = 'signature_nonce_reused';
+    public const FIELD_SIGNATURE_RECEIPT_MISSING = 'signature_receipt_missing';
 
     public function __construct(
         private readonly AtlasAutonomyLadderRuntimeService $ladder,
@@ -220,7 +222,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
 
         return [
             self::FIELD_ID => 'maxk05.signature_receipt_missing',
-            self::FIELD_REFUSED => $verdict[self::FIELD_OK] === false && $verdict[self::FIELD_REASON] === 'signature_receipt_missing',
+            self::FIELD_REFUSED => $verdict[self::FIELD_OK] === false && $verdict[self::FIELD_REASON] === self::FIELD_SIGNATURE_RECEIPT_MISSING,
             self::FIELD_EXPECTED => 'signature_receipt_missing',
             self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($verdict[self::FIELD_REASON] ?? null) ?? self::PROBE_ID_UNKNOWN),
         ];
@@ -264,7 +266,7 @@ final class AutonomyLadderAdversarialWatchdogCheck implements AtlasWatchdogCheck
 
         return [
             self::FIELD_ID => 'maxk05.signature_nonce_reused',
-            self::FIELD_REFUSED => $first[self::FIELD_OK] === true && $second[self::FIELD_OK] === false && $second[self::FIELD_REASON] === 'signature_nonce_reused',
+            self::FIELD_REFUSED => $first[self::FIELD_OK] === true && $second[self::FIELD_OK] === false && $second[self::FIELD_REASON] === self::FIELD_SIGNATURE_NONCE_REUSED,
             self::FIELD_EXPECTED => 'signature_nonce_reused after first spend',
             self::FIELD_OBSERVED => (AiValueNormalizer::trimmedStringOrNull($second[self::FIELD_REASON] ?? null) ?? self::PROBE_ID_UNKNOWN),
         ];

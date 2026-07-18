@@ -33,6 +33,11 @@ final class CognitiveContextNudgeApplier
     public const FIELD_CARTOGRAPHY = 'cartography';
     public const FIELD_DEVELOPER = 'developer';
     public const FIELD_EDITOR = 'editor';
+    public const FIELD_ENGINEER = 'engineer';
+    public const FIELD_HYPERFLOW = 'hyperflow';
+    public const FIELD_KERNEL_VAULT = 'kernel_vault';
+    public const FIELD_LIBRARIAN = 'librarian';
+    public const FIELD_MISSION_MODE = 'mission_mode';
     /**
      * Apply framework + role nudges to the keyword-scored hits map.
      *
@@ -60,12 +65,12 @@ final class CognitiveContextNudgeApplier
     private function applyFrameworkNudge(array $hits, string $framework): array
     {
         if ($framework !== '') {
-            if (str_starts_with($framework, self::FIELD_CARTOGRAPHY) || $framework === 'kernel_vault') {
+            if (str_starts_with($framework, self::FIELD_CARTOGRAPHY) || $framework === self::FIELD_KERNEL_VAULT) {
                 $hits[self::FIELD_AUDIT] += 2;
             } elseif (str_starts_with($framework, 'programming') || $framework === 'sdd' || $framework === self::FIELD_BDD) {
                 $hits[self::FIELD_CODE] += 2;
                 $hits[self::FIELD_AUDIT] += 1;
-            } elseif ($framework === 'mission_mode' || $framework === 'hyperflow') {
+            } elseif ($framework === self::FIELD_MISSION_MODE || $framework === self::FIELD_HYPERFLOW) {
                 $hits[self::FIELD_REASONING] += 1;
                 $hits[self::FIELD_RETRIEVAL] += 1;
             } elseif ($framework === 'vision' || str_starts_with($framework, 'visual')) {
@@ -84,11 +89,11 @@ final class CognitiveContextNudgeApplier
     {
         if ($role === self::FIELD_AUDITOR || $role === 'reviewer') {
             $hits[self::FIELD_AUDIT] += 1;
-        } elseif ($role === 'researcher' || $role === 'librarian') {
+        } elseif ($role === 'researcher' || $role === self::FIELD_LIBRARIAN) {
             $hits[self::FIELD_RETRIEVAL] += 1;
         } elseif ($role === 'writer' || $role === self::FIELD_EDITOR) {
             $hits[self::FIELD_GENERATION] += 1;
-        } elseif ($role === 'engineer' || $role === self::FIELD_DEVELOPER || $role === 'programmer') {
+        } elseif ($role === self::FIELD_ENGINEER || $role === self::FIELD_DEVELOPER || $role === 'programmer') {
             $hits[self::FIELD_CODE] += 1;
         }
 

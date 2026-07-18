@@ -57,6 +57,7 @@ final class AaeosDeferredPhaseDispatcherService
     public const FIELD_GATES = 'gates';
     public const FIELD_OUTPUTS = 'outputs';
     public const FIELD_QUEUE_PATH = 'queue_path';
+    public const FIELD_DEFERRED = 'deferred';
 
     public function __construct(
         private readonly CacheRepository $cache,
@@ -192,7 +193,7 @@ final class AaeosDeferredPhaseDispatcherService
             if ($value === null) {
                 continue;
             }
-            if (str_ends_with(AiValueNormalizer::trimmedScalarStringOrNull($key) ?? '', '_invocation') && $value === 'deferred') {
+            if (str_ends_with(AiValueNormalizer::trimmedScalarStringOrNull($key) ?? '', '_invocation') && $value === self::FIELD_DEFERRED) {
                 return true;
             }
         }

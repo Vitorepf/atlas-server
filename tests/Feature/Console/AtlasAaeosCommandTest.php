@@ -7515,6 +7515,20 @@ final class AtlasAaeosCommandTest extends TestCase
         } finally { @unlink($path); }
     }
 
+    public function test_universal_gates_observe_context_nudge_acos_watchdog_lote_measure_autonomy_ladder_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-b413-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-b413',
+                '--context-nudge-acos-watchdog-lote-measure-autonomy-ladder-floors-contract' => $path,
+                '--json' => true,
+            ])->expectsOutputToContain('"context_nudge_acos_watchdog_lote_measure_autonomy_ladder_floors_contract"')->assertExitCode(1);
+        } finally { @unlink($path); }
+    }
+
     public function test_unknown_action_fails(): void
 
 

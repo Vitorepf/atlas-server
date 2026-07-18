@@ -250,6 +250,8 @@ final class AcosMaxLote2MeasureService
     public const FIELD_FIXTURE_CHAIN = 'fixture_chain';
     public const FIELD_IRRELEVANT = 'irrelevant';
     public const FIELD_PEEK = 'peek';
+    public const FIELD_PROMOTED = 'promoted';
+    public const FIELD_RECEIPT_ID = 'receipt_id';
 
     /** @return array<string,mixed> */
     public static function freezePayload(string $slice): array
@@ -475,7 +477,7 @@ final class AcosMaxLote2MeasureService
         $decisionId = $this->firstNonEmpty([
             data_get($outcomePayload, 'decision_id'),
             data_get($outcomePayload, self::FIELD_DECISION_RECEIPT_ID),
-            data_get($outcomePayload, 'receipt_id'),
+            data_get($outcomePayload, self::FIELD_RECEIPT_ID),
         ]);
         $provenReal = data_get($outcomePayload, self::FIELD_PROVEN_REAL) === true;
         $fixture = $this->isFixtureMarked($outcome, $outcomePayload)
@@ -775,7 +777,7 @@ final class AcosMaxLote2MeasureService
 
     private function isPromotedLearningCandidate(object $candidate): bool
     {
-        return (AiValueNormalizer::trimmedScalarStringOrNull($candidate->status ?? null) ?? '') === 'promoted'
+        return (AiValueNormalizer::trimmedScalarStringOrNull($candidate->status ?? null) ?? '') === self::FIELD_PROMOTED
             || (AiValueNormalizer::boolOrNull($candidate->promotion_allowed ?? null) ?? false) === true;
     }
 

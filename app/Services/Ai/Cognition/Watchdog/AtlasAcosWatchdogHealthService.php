@@ -292,6 +292,10 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_HARNESS_CAPTURED = 'harness_captured';
     public const FIELD_RECORDED_AT = 'recorded_at';
     public const FIELD_SURFACE = 'surface';
+    public const FIELD_TESTS_RUN = 'tests_run';
+    public const FIELD_TOTAL_EVENT_COUNT_FLOOR = 'total_event_count_floor';
+    public const FIELD_TRANSCRIPT_INFERRED = 'transcript_inferred';
+    public const FIELD_TRANSCRIPT_INFERRED_SHARE = 'transcript_inferred_share';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -539,7 +543,7 @@ final class AtlasAcosWatchdogHealthService
             $hasDelivered = (int) $event->included_sources > 0 || (AiValueNormalizer::trimmedStringOrNull($event->retrieval_receipt_id) ?? '') !== '';
             $payload = AiValueNormalizer::arrayOrEmpty($event->payload);
             $isSynthetic = ($payload[self::FIELD_SYNTHETIC] ?? false) === true || str_contains(AiValueNormalizer::lowerTrimmedString($payload[self::FIELD_SOURCE] ?? ''), 'synthetic');
-            $isTranscript = str_contains(AiValueNormalizer::lowerTrimmedString($payload[self::FIELD_SOURCE] ?? $payload[self::FIELD_ORIGIN] ?? ''), 'transcript_inferred');
+            $isTranscript = str_contains(AiValueNormalizer::lowerTrimmedString($payload[self::FIELD_SOURCE] ?? $payload[self::FIELD_ORIGIN] ?? ''), self::FIELD_TRANSCRIPT_INFERRED);
             $measured += $isMeasured ? 1 : 0;
             $delivered += $hasDelivered ? 1 : 0;
             $synthetic += $isSynthetic ? 1 : 0;
@@ -576,14 +580,14 @@ final class AtlasAcosWatchdogHealthService
                 'utility_real_share' => $total > 0 ? round($measured / $total, 4) : 0.0,
                 self::FIELD_DELIVERED_REFS_SHARE => $total > 0 ? round($delivered / $total, 4) : 0.0,
                 self::FIELD_SYNTHETIC_SHARE => $syntheticShare,
-                'transcript_inferred_share' => $total > 0 ? round($transcript / $total, 4) : 0.0,
+                self::FIELD_TRANSCRIPT_INFERRED_SHARE => $total > 0 ? round($transcript / $total, 4) : 0.0,
             ],
             self::FIELD_TOTAL_EVENT_COUNT => $total,
             self::FIELD_MEASURED_SHARE => $total > 0 ? round($measured / $total, 4) : 0.0,
             self::FIELD_WRITER_SHARES => $byWriter,
             self::FIELD_BY_WRITER => $byWriter,
             self::FIELD_THRESHOLDS => [
-                'total_event_count_floor' => self::FEEDBACK_TOTAL_EVENT_FLOOR,
+                self::FIELD_TOTAL_EVENT_COUNT_FLOOR => self::FEEDBACK_TOTAL_EVENT_FLOOR,
                 self::FIELD_MEASURED_COUNT_FLOOR => self::FEEDBACK_MEASURED_COUNT_FLOOR,
                 self::FIELD_SYNTHETIC_SHARE_MAX => self::FEEDBACK_SYNTHETIC_SHARE_MAX,
             ],
@@ -1079,7 +1083,7 @@ final class AtlasAcosWatchdogHealthService
         foreach (AppendOnlyJsonlStore::read($this->forgeSovereignVerdictPath()) as $row) {
             if (($row[self::FIELD_PROMOTED] ?? false) === true
                 && ($row[self::FIELD_EVIDENCE_PROVENANCE] ?? null) === self::FIELD_HARNESS_CAPTURED
-                && (int) (AiValueNormalizer::finiteFloatOrNull($row['tests_run'] ?? null) ?? 0) > 0
+                && (int) (AiValueNormalizer::finiteFloatOrNull($row[self::FIELD_TESTS_RUN] ?? null) ?? 0) > 0
                 && count(AiValueNormalizer::arrayOrEmpty($row[self::FIELD_COMMANDS] ?? null)) > 0) {
                 $count++;
             }

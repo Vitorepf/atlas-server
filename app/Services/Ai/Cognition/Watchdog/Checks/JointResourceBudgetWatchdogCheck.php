@@ -34,6 +34,7 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
     public const FIELD_MESSAGE = 'message';
     public const FIELD_CODE = 'code';
     public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_PAPER_OVERSHOOT = 'paper_overshoot';
 
     public function __construct(
         private AtlasResourceBudgetService $service,
@@ -65,7 +66,7 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
         ];
 
         $reasons = [];
-        if ($report[self::FIELD_DECLARED_PAPER_STATUS] === 'paper_overshoot') {
+        if ($report[self::FIELD_DECLARED_PAPER_STATUS] === self::FIELD_PAPER_OVERSHOOT) {
             $reasons[] = 'paper_overshoot';
         }
         if ($report[self::FIELD_OVER_CAP_COMPONENTS] !== []) {
