@@ -15299,4 +15299,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b704_model_capability_floor_count']);
     }
 
+    public function test_b705_acos_measure_teto_predicted_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b705AcosMeasureTetoPredictedFloorsContractObserve([]);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::SCHEMA, $out['atlas.acos.measure_series_freshness_reader.v1']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_TIMESTAMP_FIELD, $out['timestamp_field']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_TABLE, $out['table']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_PATH, $out['path']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_WHERE, $out['where']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_SOURCE_TYPE, $out['source_type']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_COMMAND, $out['command']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_JSONL_DIR, $out['jsonl_dir']);
+        $this->assertSame(AcosMeasureSeriesFreshnessReader::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::SCHEMA_VERSION, $out['atlas.acos.teto10.predicted_revert_review_digest.v1']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::BAND_HIGH, $out['high']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::BAND_SWEET, $out['sweet']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::BAND_LOW, $out['low']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::BAND_UNKNOWN, $out['unknown']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::STATUS_OK, $out['ok']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::STATUS_EMPTY, $out['empty']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_GROUP_KEY, $out['group_key']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_DECISION_ID, $out['decision_id']);
+        $this->assertSame(18, $out['b705_acos_measure_teto_predicted_floor_count']);
+    }
+
 }
