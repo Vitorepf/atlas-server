@@ -35,6 +35,8 @@ use App\Services\Ai\Support\DatabaseTableAvailability;
  */
 final class AtlasKnowledgeItemEmbeddingCoverageService
 {
+    public const FIELD_DUAL_READ_REQUIRED = 'dual_read_required';
+    public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
     public const SCHEMA_VERSION = 'atlas.acos_max.kb_embedding_coverage.v1';
 
     public const MEASURE_ID = 'atlas.kb_embedding_coverage.v1';
@@ -90,8 +92,8 @@ final class AtlasKnowledgeItemEmbeddingCoverageService
             self::FIELD_DENOMINATOR_MIN => 1,
             'ttl_days' => 60,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxa06-fase1',
-            'judge_engine_id' => 'codex-independent-maxa06-fase1-judge',
-            'dual_read_required' => false,
+            self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-maxa06-fase1-judge',
+            self::FIELD_DUAL_READ_REQUIRED => false,
             'series_registry' => [
                 'series' => self::MEASURE_ID,
                 'path' => 'atlas:memory:kb-embedding-coverage --json',

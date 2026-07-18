@@ -8773,4 +8773,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B363).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function obraRetroAcosRollbackWindowOrchestratorLongAaeosFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'id' => AcosMaxObraRetroService::FIELD_ID,
+            'objective' => AcosMaxObraRetroService::FIELD_OBJECTIVE,
+            'id' => AtlasAcosRollbackTriggerCheckService::FIELD_ID,
+            'env' => AtlasAcosRollbackTriggerCheckService::FIELD_ENV,
+            'id' => AcosMaxWindowOrchestratorService::FIELD_ID,
+            'dead_after_days' => AcosMaxWindowOrchestratorService::FIELD_DEAD_AFTER_DAYS,
+            'status' => AtlasAcosLongHorizonGateService::FIELD_STATUS,
+            'config' => AtlasAcosLongHorizonGateService::FIELD_CONFIG,
+            'next_band' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_NEXT_BAND,
+            'next_band_breaches' => AtlasAaeosDepartmentMaturityBandClassifier::FIELD_NEXT_BAND_BREACHES,
+            'class' => AtlasAaeosTestExecutionService::FIELD_CLASS,
+            'explain' => AtlasAaeosTestExecutionService::FIELD_EXPLAIN,
+            'denominator_min_active_symbols' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_DENOMINATOR_MIN_ACTIVE_SYMBOLS,
+            'dual_read_required' => AtlasCodeSymbolEmbeddingCoverageService::FIELD_DUAL_READ_REQUIRED,
+            'dual_read_required' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_DUAL_READ_REQUIRED,
+            'judge_engine_id' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_JUDGE_ENGINE_ID,
+            'autonomy_governance' => AtlasAcosEvolutionScoreService::FIELD_AUTONOMY_GOVERNANCE,
+            'count' => AtlasAcosEvolutionScoreService::FIELD_COUNT,
+            'obra_retro_acos_rollback_window_orchestrator_long_aaeos_floor_count' => 18,
+        ];
+    }
+
 }

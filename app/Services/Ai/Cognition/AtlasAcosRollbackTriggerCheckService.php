@@ -17,6 +17,8 @@ use Carbon\CarbonImmutable;
  */
 final class AtlasAcosRollbackTriggerCheckService
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_ENV = 'env';
     public const SCHEMA_VERSION = 'atlas.acos.rollback_triggers.v1';
 
     public const ENABLED_CONFIG_KEY = 'atlas.acos.rollback_triggers.enabled';
@@ -71,7 +73,7 @@ final class AtlasAcosRollbackTriggerCheckService
             if (! is_array($flip)) {
                 continue;
             }
-            $id = (AiValueNormalizer::trimmedStringOrNull($flip['id'] ?? null) ?? '');
+            $id = (AiValueNormalizer::trimmedStringOrNull($flip[self::FIELD_ID] ?? null) ?? '');
             if ($id === '') {
                 continue;
             }
@@ -122,7 +124,7 @@ final class AtlasAcosRollbackTriggerCheckService
     private function simulatedEvaluation(array $flip, CarbonImmutable $asOf): array
     {
         return [
-            self::FIELD_TRIGGER_ID => (AiValueNormalizer::trimmedStringOrNull($flip['id'] ?? null) ?? ''),
+            self::FIELD_TRIGGER_ID => (AiValueNormalizer::trimmedStringOrNull($flip[self::FIELD_ID] ?? null) ?? ''),
             self::FIELD_SLICES => $flip[self::FIELD_SLICES] ?? [],
             self::FIELD_ARMED => true,
             self::FIELD_FIRED => true,
@@ -141,7 +143,7 @@ final class AtlasAcosRollbackTriggerCheckService
      */
     private function evaluateFlip(array $flip, CarbonImmutable $asOf): array
     {
-        $id = (AiValueNormalizer::trimmedStringOrNull($flip['id'] ?? null) ?? '');
+        $id = (AiValueNormalizer::trimmedStringOrNull($flip[self::FIELD_ID] ?? null) ?? '');
         $condition = AiValueNormalizer::arrayOrEmpty($flip[self::FIELD_CONDITION] ?? null);
         $armed = $this->flipIsArmed($condition);
 
@@ -190,7 +192,7 @@ final class AtlasAcosRollbackTriggerCheckService
      */
     private function envMatches(array $entry): bool
     {
-        $env = (AiValueNormalizer::trimmedStringOrNull($entry['env'] ?? null) ?? '');
+        $env = (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_ENV] ?? null) ?? '');
         if ($env === '') {
             return false;
         }

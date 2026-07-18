@@ -73,6 +73,13 @@ use App\Services\Ai\AgenticEngineeringOs\AtlasAaeosHttpPathFacadeService;
 use App\Services\Ai\AgenticEngineeringOs\AtlasMissionControlCockpitService;
 use App\Services\Ai\Cognition\AtlasCognitiveMemoryFabricSchemaEvolutionService;
 use App\Services\Ai\Cognition\AtlasConsolidationRerankGuard;
+use App\Services\Ai\AcosMax\AcosMaxObraRetroService;
+use App\Services\Ai\Cognition\AtlasAcosRollbackTriggerCheckService;
+use App\Services\Ai\AcosMax\AcosMaxWindowOrchestratorService;
+use App\Services\Ai\Cognition\AtlasAcosLongHorizonGateService;
+use App\Services\Ai\Aaeos\AtlasAaeosDepartmentMaturityBandClassifier;
+use App\Services\Ai\Aaeos\AtlasAaeosTestExecutionService;
+use App\Services\Ai\Cognition\AtlasAcosEvolutionScoreService;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -6747,6 +6754,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasConsolidationRerankGuard::FIELD_HASH, $out['hash']);
         $this->assertSame(AtlasConsolidationRerankGuard::FIELD_LABEL, $out['label']);
         $this->assertSame(18, $out['n_capture_domain_lexical_evidence_vision_execution_context_floor_count']);
+    }
+
+    public function test_obra_retro_acos_rollback_window_orchestrator_long_aaeos_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->obraRetroAcosRollbackWindowOrchestratorLongAaeosFloorsContractObserve([]);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_ID, $out['id']);
+        $this->assertSame(AcosMaxObraRetroService::FIELD_OBJECTIVE, $out['objective']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAcosRollbackTriggerCheckService::FIELD_ENV, $out['env']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_ID, $out['id']);
+        $this->assertSame(AcosMaxWindowOrchestratorService::FIELD_DEAD_AFTER_DAYS, $out['dead_after_days']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_CONFIG, $out['config']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_NEXT_BAND, $out['next_band']);
+        $this->assertSame(AtlasAaeosDepartmentMaturityBandClassifier::FIELD_NEXT_BAND_BREACHES, $out['next_band_breaches']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_CLASS, $out['class']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_EXPLAIN, $out['explain']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_DENOMINATOR_MIN_ACTIVE_SYMBOLS, $out['denominator_min_active_symbols']);
+        $this->assertSame(AtlasCodeSymbolEmbeddingCoverageService::FIELD_DUAL_READ_REQUIRED, $out['dual_read_required']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_DUAL_READ_REQUIRED, $out['dual_read_required']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_JUDGE_ENGINE_ID, $out['judge_engine_id']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_AUTONOMY_GOVERNANCE, $out['autonomy_governance']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FIELD_COUNT, $out['count']);
+        $this->assertSame(18, $out['obra_retro_acos_rollback_window_orchestrator_long_aaeos_floor_count']);
     }
 
 }

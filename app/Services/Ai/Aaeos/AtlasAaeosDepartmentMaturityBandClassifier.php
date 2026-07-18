@@ -18,6 +18,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
  */
 final class AtlasAaeosDepartmentMaturityBandClassifier
 {
+    public const FIELD_NEXT_BAND = 'next_band';
+    public const FIELD_NEXT_BAND_BREACHES = 'next_band_breaches';
     public const SCHEMA_VERSION = 'atlas.aaeos.department_maturity_band.v1';
 
     public const FIELD_MISSING = 'missing';
@@ -91,8 +93,8 @@ final class AtlasAaeosDepartmentMaturityBandClassifier
             self::FIELD_QUALIFIED_RANK => $qualifiedRank,
             self::FIELD_ALL_BANDS_BREACHED => $allBandsBreached,
             'per_band' => $perBand,
-            'next_band' => $nextBand,
-            'next_band_breaches' => $nextBandBreaches,
+            self::FIELD_NEXT_BAND => $nextBand,
+            self::FIELD_NEXT_BAND_BREACHES => $nextBandBreaches,
             self::FIELD_PROMOTION_BLOCKED => $nextBand !== null,
         ];
     }

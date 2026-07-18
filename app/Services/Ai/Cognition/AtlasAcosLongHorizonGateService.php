@@ -18,6 +18,8 @@ use Throwable;
  */
 final class AtlasAcosLongHorizonGateService
 {
+    public const FIELD_STATUS = 'status';
+    public const FIELD_CONFIG = 'config';
     public const SCHEMA_VERSION = 'atlas.cognition.acos_long_horizon_gate.v1';
 
     public const AREA_V2_SCHEMA = 'atlas.cognition.acos_long_horizon_gate.area_v2';
@@ -931,7 +933,7 @@ final class AtlasAcosLongHorizonGateService
     ): array {
         $payload = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'status' => $status,
+            self::FIELD_STATUS => $status,
             self::FIELD_CERTIFIED => $certified,
             self::FIELD_COMPLETION_CLAIM_ALLOWED => $certified,
             self::FIELD_FIXTURE => $fixture,
@@ -939,7 +941,7 @@ final class AtlasAcosLongHorizonGateService
             self::FIELD_ASSESSMENT => $assessment,
             self::FIELD_BLOCKERS => $blockers,
             self::FIELD_WARNINGS => array_values(AiValueNormalizer::arrayOrEmpty($assessment[self::FIELD_WARNINGS] ?? null)),
-            'config' => $config,
+            self::FIELD_CONFIG => $config,
             self::FIELD_EVIDENCE => [
                 'scorecard_schema' => AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'schema_version')) ?? '',
                 self::FIELD_SCORECARD_HASH => AiValueNormalizer::trimmedStringOrNull(data_get($scorecard, 'scorecard_hash')) ?? '',
@@ -967,7 +969,7 @@ final class AtlasAcosLongHorizonGateService
 
         $receiptPayload = [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'status' => $status,
+            self::FIELD_STATUS => $status,
             self::FIELD_CERTIFIED => $certified,
             self::FIELD_FIXTURE => $fixture,
             self::FIELD_ASSESSMENT => $assessment,

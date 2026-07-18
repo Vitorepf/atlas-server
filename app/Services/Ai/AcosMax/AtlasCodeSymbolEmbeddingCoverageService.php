@@ -33,6 +33,8 @@ use Illuminate\Support\Facades\DB;
  */
 final class AtlasCodeSymbolEmbeddingCoverageService
 {
+    public const FIELD_DENOMINATOR_MIN_ACTIVE_SYMBOLS = 'denominator_min_active_symbols';
+    public const FIELD_DUAL_READ_REQUIRED = 'dual_read_required';
     public const SCHEMA_VERSION = 'atlas.acos_max.code_symbol_embedding_coverage.v1';
 
     public const MEASURE_ID = 'atlas.code_symbol_embedding_coverage.v1';
@@ -80,7 +82,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_THRESHOLDS => [
                 'target_coverage_ratio' => 1.0,
-                'denominator_min_active_symbols' => 1,
+                self::FIELD_DENOMINATOR_MIN_ACTIVE_SYMBOLS => 1,
                 'stale_definition' => 'atlas_code_symbol_embeddings.embedded_content_hash != atlas_engineering_code_symbols.source_hash',
                 'missing_definition' => 'no matching row in atlas_code_symbol_embeddings for symbol_id',
                 'scope' => 'active_symbols_only',
@@ -90,7 +92,7 @@ final class AtlasCodeSymbolEmbeddingCoverageService
             'ttl_days' => 60,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxa06-fase2',
             'judge_engine_id' => 'codex-independent-maxa06-fase2-judge',
-            'dual_read_required' => false,
+            self::FIELD_DUAL_READ_REQUIRED => false,
             'series_registry' => [
                 'series' => self::MEASURE_ID,
                 'path' => 'atlas:code:symbol-embedding-coverage --json',

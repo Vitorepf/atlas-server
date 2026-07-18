@@ -40,6 +40,8 @@ use Throwable;
  */
 class AtlasAcosEvolutionScoreService
 {
+    public const FIELD_AUTONOMY_GOVERNANCE = 'autonomy_governance';
+    public const FIELD_COUNT = 'count';
     public const STATUS_UNKNOWN = 'unknown';
 
 
@@ -132,7 +134,7 @@ class AtlasAcosEvolutionScoreService
             self::FIELD_ACOS_SCORECARD_OVERALL => AiValueNormalizer::finiteFloatOrNull(data_get($card, 'score.overall_out_of_10', 0.0)) ?? 0.0,
             'notes' => [
                 'method' => 'Toda parcela é função de evidência resolvida em runtime (probe de DB/arquivo/agenda/classe); nenhum literal auto-declarado.',
-                'autonomy_governance' => 'Carta de Autonomia (Regra 4): a assinatura do operador foi revogada; a parcela antes presa a ela agora mede o substituto REAL — reversibilidade viva (git revert + atlas:brain:replay) + Diário de Evolução íntegro. Degrade-safe: sem esse substrato, pontua 0, nunca fabricado.',
+                self::FIELD_AUTONOMY_GOVERNANCE => 'Carta de Autonomia (Regra 4): a assinatura do operador foi revogada; a parcela antes presa a ela agora mede o substituto REAL — reversibilidade viva (git revert + atlas:brain:replay) + Diário de Evolução íntegro. Degrade-safe: sem esse substrato, pontua 0, nunca fabricado.',
             ],
         ];
         $envelope['score_hash'] = 'sha256:'.hash('sha256', (string) json_encode([
@@ -496,7 +498,7 @@ class AtlasAcosEvolutionScoreService
         $diaryCount = 0;
         try {
             $chain = (new AtlasEvolutionDiary)->verifyChain();
-            $diaryCount = (int) (AiValueNormalizer::finiteFloatOrNull($chain['count'] ?? null) ?? 0);
+            $diaryCount = (int) (AiValueNormalizer::finiteFloatOrNull($chain[self::FIELD_COUNT] ?? null) ?? 0);
             $diaryOk = ($chain['ok'] ?? false) === true && $diaryCount > 0;
         } catch (Throwable) {
             $diaryOk = false;

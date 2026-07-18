@@ -32,6 +32,8 @@ use Throwable;
  */
 class AtlasAaeosTestExecutionService
 {
+    public const FIELD_CLASS = 'class';
+    public const FIELD_EXPLAIN = 'explain';
     public const SCHEMA = 'atlas.aaeos.test_run_receipt.v1';
     public const FIELD_RUNNER = 'runner';
     public const FIELD_EXIT_CODE = 'exit_code';
@@ -286,7 +288,7 @@ class AtlasAaeosTestExecutionService
             'sealed' => $sealed,
             self::FIELD_BORN_STALE => ! $sealed,
             'fresh_hashes' => $freshHashes,
-            'explain' => $sealed ? null : $truth->explainImplFilesHash($evidenceRefs),
+            self::FIELD_EXPLAIN => $sealed ? null : $truth->explainImplFilesHash($evidenceRefs),
             'git_porcelain' => $this->gitPorcelainForensics(),
         ];
     }
@@ -361,7 +363,7 @@ class AtlasAaeosTestExecutionService
      */
     private function anchoredFilter(array $fqn): string
     {
-        $class = ltrim(AiValueNormalizer::trimmedStringOrNull($fqn['class']) ?? '', '\\');
+        $class = ltrim(AiValueNormalizer::trimmedStringOrNull($fqn[self::FIELD_CLASS]) ?? '', '\\');
         $classPattern = preg_quote($class, '/');
 
         if (($fqn[self::FIELD_METHOD] ?? null) !== null && $fqn[self::FIELD_METHOD] !== '') {

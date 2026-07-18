@@ -10,6 +10,8 @@ use App\Services\Ai\Support\AiValueNormalizer;
 
 final class AcosMaxObraRetroService
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_OBJECTIVE = 'objective';
     public const SCHEMA_VERSION = 'atlas.acos_max.obra_retro.v1';
 
     public const SERIES_TAG = 'obra:acos-max';
@@ -128,7 +130,7 @@ final class AcosMaxObraRetroService
             self::FIELD_SCOREBOARD_PATH => self::SCOREBOARD_RELATIVE_PATH,
             self::FIELD_SLICES => [
                 self::FIELD_TERMINAL => count($slices),
-                self::FIELD_IDS => array_map(static fn (array $slice): string => AiValueNormalizer::trimmedScalarStringOrNull($slice['id'] ?? null) ?? '', $slices),
+                self::FIELD_IDS => array_map(static fn (array $slice): string => AiValueNormalizer::trimmedScalarStringOrNull($slice[self::FIELD_ID] ?? null) ?? '', $slices),
             ],
             self::FIELD_OUTCOMES => [
                 self::STATUS_RECORDED => count(array_filter(
@@ -198,20 +200,20 @@ final class AcosMaxObraRetroService
 
         $recorded = $this->outcomes->record([
             self::FIELD_EXECUTOR => 'forge',
-            'objective' => sprintf('ACOS Max lote %d slice %s reached %s', $lote, $slice['id'], $slice[self::FIELD_STATE]),
+            self::FIELD_OBJECTIVE => sprintf('ACOS Max lote %d slice %s reached %s', $lote, $slice[self::FIELD_ID], $slice[self::FIELD_STATE]),
             self::FIELD_SUMMARY => AiValueNormalizer::trimmedScalarStringOrNull($slice[self::FIELD_LINE] ?? null) ?? '',
             self::FIELD_STATUS => $status,
             self::FIELD_WORKSPACE => base_path(),
             'surface_id' => self::SERIES_TAG,
             'scope_type' => 'obra_lote',
             'scope_id' => sprintf('acos-max:lote-%d', $lote),
-            'run_id' => sprintf('acos-max:lote-%d:%s:%s', $lote, $slice['id'], $slice[self::FIELD_STATE]),
+            'run_id' => sprintf('acos-max:lote-%d:%s:%s', $lote, $slice[self::FIELD_ID], $slice[self::FIELD_STATE]),
             'provider' => 'local',
             'verified' => true,
             self::FIELD_ACTOR_TAG => self::SERIES_TAG,
             'outcome_flow_id' => self::SERIES_TAG,
             self::FIELD_LOTE => $lote,
-            self::FIELD_SLICE_ID => $slice['id'],
+            self::FIELD_SLICE_ID => $slice[self::FIELD_ID],
             self::FIELD_SLICE_STATE => $slice[self::FIELD_STATE],
             self::FIELD_EVIDENCE_REFS => AiValueNormalizer::arrayOrEmpty($slice[self::FIELD_EVIDENCE_REFS] ?? null),
             self::FIELD_METRICS => [
@@ -221,7 +223,7 @@ final class AcosMaxObraRetroService
         ]);
 
         return [
-            self::FIELD_SLICE_ID => AiValueNormalizer::trimmedScalarStringOrNull($slice['id'] ?? null) ?? '',
+            self::FIELD_SLICE_ID => AiValueNormalizer::trimmedScalarStringOrNull($slice[self::FIELD_ID] ?? null) ?? '',
             self::FIELD_SLICE_STATE => AiValueNormalizer::trimmedScalarStringOrNull($slice[self::FIELD_STATE] ?? null) ?? '',
             self::FIELD_STATUS => (AiValueNormalizer::trimmedStringOrNull($recorded[self::FIELD_STATUS] ?? null) ?? self::STATUS_UNKNOWN),
             'outcome_id' => data_get($recorded, 'outcome.outcome_id'),
@@ -236,7 +238,7 @@ final class AcosMaxObraRetroService
      */
     private function defaultLessonCandidates(int $lote, array $slices): array
     {
-        $ids = array_map(static fn (array $slice): string => AiValueNormalizer::trimmedScalarStringOrNull($slice['id'] ?? null) ?? '', $slices);
+        $ids = array_map(static fn (array $slice): string => AiValueNormalizer::trimmedScalarStringOrNull($slice[self::FIELD_ID] ?? null) ?? '', $slices);
 
         return [[
             self::FIELD_KIND => self::KIND_FAILURE_PATTERN,
@@ -308,7 +310,7 @@ final class AcosMaxObraRetroService
 
             $sliceId = AiValueNormalizer::trimmedStringOrNull($match[1]) ?? '';
             $slices[] = [
-                'id' => $sliceId,
+                self::FIELD_ID => $sliceId,
                 self::FIELD_STATE => $state,
                 self::FIELD_LINE => $line,
                 self::FIELD_EVIDENCE_REFS => [

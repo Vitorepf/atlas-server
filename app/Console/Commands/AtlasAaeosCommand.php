@@ -385,6 +385,7 @@ final class AtlasAaeosCommand extends Command
                             {--obra-dept-nudge-aemor-ambition-flywheel-quality-runbook-function-floors-contract= : JSON file (any object) to observe obra/dept/nudge/aemor/ambition/flywheel/quality/runbook/function floors}
                             {--delivery-pack-resource-budget-belief-cascade-citation-grounding-floors-contract= : JSON file (any object) to observe delivery/pack/resource/budget/belief/cascade floors}
                             {--n-capture-domain-lexical-evidence-vision-execution-context-floors-contract= : JSON file (any object) to observe n/capture/domain/lexical/evidence/vision floors}
+                            {--obra-retro-acos-rollback-window-orchestrator-long-aaeos-floors-contract= : JSON file (any object) to observe obra/retro/acos/rollback/window/orchestrator floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -926,6 +927,7 @@ final class AtlasAaeosCommand extends Command
             ['obra-dept-nudge-aemor-ambition-flywheel-quality-runbook-function-floors-contract', 'obra_dept_nudge_aemor_ambition_flywheel_quality_runbook_function_floors_contract', fn (array $p) => $gates->obraDeptNudgeAemorAmbitionFlywheelQualityRunbookFunctionFloorsContractObserve($p)],
             ['delivery-pack-resource-budget-belief-cascade-citation-grounding-floors-contract', 'delivery_pack_resource_budget_belief_cascade_citation_grounding_floors_contract', fn (array $p) => $gates->deliveryPackResourceBudgetBeliefCascadeCitationGroundingFloorsContractObserve($p)],
             ['n-capture-domain-lexical-evidence-vision-execution-context-floors-contract', 'n_capture_domain_lexical_evidence_vision_execution_context_floors_contract', fn (array $p) => $gates->nCaptureDomainLexicalEvidenceVisionExecutionContextFloorsContractObserve($p)],
+            ['obra-retro-acos-rollback-window-orchestrator-long-aaeos-floors-contract', 'obra_retro_acos_rollback_window_orchestrator_long_aaeos_floors_contract', fn (array $p) => $gates->obraRetroAcosRollbackWindowOrchestratorLongAaeosFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

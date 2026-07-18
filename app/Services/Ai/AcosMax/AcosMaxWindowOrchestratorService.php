@@ -11,6 +11,8 @@ use DateTimeZone;
 
 final class AcosMaxWindowOrchestratorService
 {
+    public const FIELD_ID = 'id';
+    public const FIELD_DEAD_AFTER_DAYS = 'dead_after_days';
     public const SCHEMA_VERSION = 'atlas.acos.windows.v1';
 
     public const STATE_NOT_STARTED = 'not_started';
@@ -75,7 +77,7 @@ final class AcosMaxWindowOrchestratorService
         $windows = [];
 
         foreach ($entries as $entry) {
-            $last = $this->lastEventFor((AiValueNormalizer::trimmedStringOrNull($entry['id'] ?? null) ?? ''), $events);
+            $last = $this->lastEventFor((AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_ID] ?? null) ?? ''), $events);
             $windows[] = $this->windowForEntry($entry, $last, $registry[(AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SLICE] ?? null) ?? '')] ?? null, $now, $deadAfterDays);
         }
 
@@ -99,7 +101,7 @@ final class AcosMaxWindowOrchestratorService
             self::FIELD_CRITICAL_PATH => $critical,
             'parallelizable_groups' => $this->parallelizableGroups($active),
             'watchdog' => [
-                'dead_after_days' => max(1, $deadAfterDays),
+                self::FIELD_DEAD_AFTER_DAYS => max(1, $deadAfterDays),
                 self::FIELD_ALERTS => array_values(array_filter(
                     array_map(static fn (array $window): ?array => $window[self::FIELD_WATCHDOG_ALERT] ?? null, $windows)
                 )),
@@ -160,7 +162,7 @@ final class AcosMaxWindowOrchestratorService
     ): array {
         $durationDays = $this->durationDays((AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SHADOW_MINIMUM_WINDOW] ?? null) ?? ''));
         $base = [
-            self::FIELD_FLAG_ID => (AiValueNormalizer::trimmedStringOrNull($entry['id'] ?? null) ?? ''),
+            self::FIELD_FLAG_ID => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_ID] ?? null) ?? ''),
             self::FIELD_FAMILY => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_FAMILY] ?? null) ?? ''),
             self::FIELD_SLICE => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SLICE] ?? null) ?? ''),
             'minimum_window' => (AiValueNormalizer::trimmedStringOrNull($entry[self::FIELD_SHADOW_MINIMUM_WINDOW] ?? null) ?? ''),
