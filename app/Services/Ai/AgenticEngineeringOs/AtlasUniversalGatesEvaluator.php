@@ -6573,6 +6573,30 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function horizonCalibrationAtlasFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'horizon_field_schema_version' => AtlasAcosLongHorizonGateService::FIELD_SCHEMA_VERSION,
+            'horizon_field_score_out_of_10' => AtlasAcosLongHorizonGateService::FIELD_SCORE_OUT_OF_10,
+            'horizon_field_code' => AtlasAcosLongHorizonGateService::FIELD_CODE,
+            'horizon_field_doc' => AtlasAcosLongHorizonGateService::FIELD_DOC,
+            'horizon_field_pipeline' => AtlasAcosLongHorizonGateService::FIELD_PIPELINE,
+            'horizon_field_first_date' => AtlasAcosLongHorizonGateService::FIELD_FIRST_DATE,
+            'calibration_field_registry_status' => ImmuneCalibrationService::FIELD_REGISTRY_STATUS,
+            'calibration_field_generated_at' => ImmuneCalibrationService::FIELD_GENERATED_AT,
+            'calibration_field_freeze' => ImmuneCalibrationService::FIELD_FREEZE,
+            'calibration_field_samples' => ImmuneCalibrationService::FIELD_SAMPLES,
+            'calibration_field_ledger' => ImmuneCalibrationService::FIELD_LEDGER,
+            'calibration_field_total' => ImmuneCalibrationService::FIELD_TOTAL,
+            'atlas_field_generated_at' => AtlasCognitiveFunctionAtlasService::FIELD_GENERATED_AT,
+            'atlas_field_subsystem_count' => AtlasCognitiveFunctionAtlasService::FIELD_SUBSYSTEM_COUNT,
+            'atlas_field_group_count' => AtlasCognitiveFunctionAtlasService::FIELD_GROUP_COUNT,
+            'atlas_field_groups' => AtlasCognitiveFunctionAtlasService::FIELD_GROUPS,
+            'atlas_field_overall_score' => AtlasCognitiveFunctionAtlasService::FIELD_OVERALL_SCORE,
+            'horizon_calibration_atlas_floor_count' => 17,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

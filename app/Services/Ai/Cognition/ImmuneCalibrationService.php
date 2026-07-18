@@ -52,6 +52,14 @@ final class ImmuneCalibrationService
     public const FIELD_BLOCKS = 'blocks';
     public const FIELD_GROUPS = 'groups';
     public const FIELD_DENOMINATOR_MIN = 'denominator_min';
+    public const FIELD_REGISTRY_STATUS = 'registry_status';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_FREEZE = 'freeze';
+    public const FIELD_SAMPLES = 'samples';
+    public const FIELD_LEDGER = 'ledger';
+    public const FIELD_KNOWN_MISS_SEED = 'known_miss_seed';
+    public const FIELD_TOTAL = 'total';
+    public const FIELD_CAVEATS = 'caveats';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -83,19 +91,19 @@ final class ImmuneCalibrationService
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
-            'generated_at' => now()->toIso8601String(),
+            self::FIELD_GENERATED_AT => now()->toIso8601String(),
             self::FIELD_MODE => self::MODE_READ_ONLY,
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_STATUS => $okGroups > 0 ? self::STATUS_OK : self::STATUS_INSUFFICIENT_SAMPLE,
             self::FIELD_DENOMINATOR_MIN => self::DENOMINATOR_MIN,
-            'freeze' => self::freezePayload(),
-            'samples' => [
-                'ledger' => count($ledgerRows),
-                'known_miss_seed' => count($seedRows),
-                'total' => count($samples),
+            self::FIELD_FREEZE => self::freezePayload(),
+            self::FIELD_SAMPLES => [
+                self::FIELD_LEDGER => count($ledgerRows),
+                self::FIELD_KNOWN_MISS_SEED => count($seedRows),
+                self::FIELD_TOTAL => count($samples),
             ],
-            'caveats' => [
+            self::FIELD_CAVEATS => [
                 self::FIELD_MISSED_POISON_RATE => 'lower_bound_known_miss: denominator is seeded known-should-catch plus labelled real known-miss samples only; never treated as calibrated when denominator is zero.',
                 'control' => 'informational_only_never_auto_adjusts_gate',
             ],
@@ -124,9 +132,9 @@ final class ImmuneCalibrationService
                 'id' => self::MEASURE_ID,
                 'reader_command' => 'atlas:immune:calibration --json',
                 'table' => ImmuneVerdictLedger::TABLE,
-                'registry_status' => 'registered_elev_20s',
+                self::FIELD_REGISTRY_STATUS => 'registered_elev_20s',
             ],
-            'registry_status' => 'registered_elev_20s',
+            self::FIELD_REGISTRY_STATUS => 'registered_elev_20s',
             'dual_read_required' => false,
         ];
         $payload['content_hash'] = hash('sha256', json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));

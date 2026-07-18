@@ -4803,4 +4803,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
     }
 
 
+
+    public function test_horizon_calibration_atlas_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->horizonCalibrationAtlasFloorsContractObserve([]);
+
+        $this->assertSame('schema_version', $payload['horizon_field_schema_version']);
+        $this->assertSame('score_out_of_10', $payload['horizon_field_score_out_of_10']);
+        $this->assertSame('code', $payload['horizon_field_code']);
+        $this->assertSame('doc', $payload['horizon_field_doc']);
+        $this->assertSame('pipeline', $payload['horizon_field_pipeline']);
+        $this->assertSame('first_date', $payload['horizon_field_first_date']);
+        $this->assertSame('registry_status', $payload['calibration_field_registry_status']);
+        $this->assertSame('generated_at', $payload['calibration_field_generated_at']);
+        $this->assertSame('freeze', $payload['calibration_field_freeze']);
+        $this->assertSame('samples', $payload['calibration_field_samples']);
+        $this->assertSame('ledger', $payload['calibration_field_ledger']);
+        $this->assertSame('total', $payload['calibration_field_total']);
+        $this->assertSame('generated_at', $payload['atlas_field_generated_at']);
+        $this->assertSame('subsystem_count', $payload['atlas_field_subsystem_count']);
+        $this->assertSame('group_count', $payload['atlas_field_group_count']);
+        $this->assertSame('groups', $payload['atlas_field_groups']);
+        $this->assertSame('overall_score', $payload['atlas_field_overall_score']);
+        $this->assertSame(17, $payload['horizon_calibration_atlas_floor_count']);
+    }
+
+
 }

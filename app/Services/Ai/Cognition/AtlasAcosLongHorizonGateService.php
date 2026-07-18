@@ -80,6 +80,14 @@ final class AtlasAcosLongHorizonGateService
     public const FIELD_DETAILS = 'details';
     public const FIELD_EVIDENCE_REFS = 'evidence_refs';
     public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_SCORE_OUT_OF_10 = 'score_out_of_10';
+    public const FIELD_CODE = 'code';
+    public const FIELD_DOC = 'doc';
+    public const FIELD_PIPELINE = 'pipeline';
+    public const FIELD_FIRST_DATE = 'first_date';
+    public const FIELD_TODAY = 'today';
+    public const FIELD_FUTURE_DATED_ROWS = 'future_dated_rows';
 
     /**
      * @param  array<string,mixed>  $options
@@ -134,9 +142,9 @@ final class AtlasAcosLongHorizonGateService
                 : $this->readSeries($seriesV2Path);
             $assessmentV2 = $this->assessAreaSeriesV2($seriesV2, $minDays, [
                 'overall' => $minAreaOverall,
-                'code' => $minAreaCode,
-                'doc' => $minAreaDoc,
-                'pipeline' => $minAreaPipeline,
+                self::FIELD_CODE => $minAreaCode,
+                self::FIELD_DOC => $minAreaDoc,
+                self::FIELD_PIPELINE => $minAreaPipeline,
             ], $maxLatestStaleDays, $maxGapDays, $today, $seriesV2Path);
         }
 
@@ -209,12 +217,12 @@ final class AtlasAcosLongHorizonGateService
 
         return [
             'dates' => $dates,
-            'first_date' => $firstDate,
+            self::FIELD_FIRST_DATE => $firstDate,
             self::FIELD_LATEST_DATE => $latestDate,
-            'today' => $todayKey,
+            self::FIELD_TODAY => $todayKey,
             self::FIELD_SERIES_DAY_COUNT => count($uniqueDates),
             self::FIELD_CALENDAR_SPAN_DAYS => $this->calendarSpanDays($firstDate, $latestDate),
-            'future_dated_rows' => $futureDatedRows,
+            self::FIELD_FUTURE_DATED_ROWS => $futureDatedRows,
             'latest_staleness_days' => $this->latestStalenessDays($latestDate, $today),
             self::FIELD_CERTIFICATION_WINDOW_DATES => $certificationWindowDates,
             'sampled_dates_in_window' => $sampledDatesInWindow,
@@ -250,7 +258,7 @@ final class AtlasAcosLongHorizonGateService
         $blockers = [];
         $seriesDayCount = (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_SERIES_DAY_COUNT] ?? null) ?? 0);
         $calendarSpanDays = (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_CALENDAR_SPAN_DAYS] ?? null) ?? 0);
-        $futureDatedRows = (int) (AiValueNormalizer::finiteFloatOrNull($window['future_dated_rows'] ?? null) ?? 0);
+        $futureDatedRows = (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_FUTURE_DATED_ROWS] ?? null) ?? 0);
         $latestDate = $window[self::FIELD_LATEST_DATE] ?? null;
         $latestStalenessDays = (int) (AiValueNormalizer::finiteFloatOrNull($window['latest_staleness_days'] ?? null) ?? 0);
         $maxConsecutiveGapDays = (int) (AiValueNormalizer::finiteFloatOrNull($window['max_consecutive_gap_days'] ?? null) ?? 0);
@@ -301,10 +309,10 @@ final class AtlasAcosLongHorizonGateService
             self::FIELD_SERIES_PATH => $seriesPath,
             self::FIELD_SERIES_DAY_COUNT => (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_SERIES_DAY_COUNT] ?? null) ?? 0),
             self::FIELD_CALENDAR_SPAN_DAYS => (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_CALENDAR_SPAN_DAYS] ?? null) ?? 0),
-            'first_date' => $window['first_date'] ?? null,
+            self::FIELD_FIRST_DATE => $window[self::FIELD_FIRST_DATE] ?? null,
             self::FIELD_LATEST_DATE => $latestDate,
-            'today' => $window['today'] ?? null,
-            'future_dated_rows' => (int) (AiValueNormalizer::finiteFloatOrNull($window['future_dated_rows'] ?? null) ?? 0),
+            self::FIELD_TODAY => $window[self::FIELD_TODAY] ?? null,
+            self::FIELD_FUTURE_DATED_ROWS => (int) (AiValueNormalizer::finiteFloatOrNull($window[self::FIELD_FUTURE_DATED_ROWS] ?? null) ?? 0),
             'latest_staleness_days' => (int) (AiValueNormalizer::finiteFloatOrNull($window['latest_staleness_days'] ?? null) ?? 0),
             'certification_window_start' => $certificationWindowDates[0] ?? null,
             'certification_window_end' => $latestDate,
@@ -578,7 +586,7 @@ final class AtlasAcosLongHorizonGateService
         }
 
         return array_merge($this->windowIntegrityProjection($window, $seriesPath, $resolvedEvidenceRows), [
-            'schema_version' => self::AREA_V2_SCHEMA,
+            self::FIELD_SCHEMA_VERSION => self::AREA_V2_SCHEMA,
             'floors' => $floors,
             'min_area_scores' => $areaScan['min_area_scores'],
             'area_days_below_floor' => $areaScan['area_days_below_floor'],
@@ -818,13 +826,13 @@ final class AtlasAcosLongHorizonGateService
     private function fixtureScorecard(float $overall, float $pipeline): array
     {
         $payload = [
-            'schema_version' => AtlasCognitionScoreCardService::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => AtlasCognitionScoreCardService::SCHEMA_VERSION,
             'score' => [
                 'overall_out_of_10' => $overall,
                 'dimensions' => [
-                    'code' => ['score_out_of_10' => 10],
-                    'doc' => ['score_out_of_10' => 9.5],
-                    'pipeline' => ['score_out_of_10' => $pipeline],
+                    self::FIELD_CODE => [self::FIELD_SCORE_OUT_OF_10 => 10],
+                    self::FIELD_DOC => [self::FIELD_SCORE_OUT_OF_10 => 9.5],
+                    self::FIELD_PIPELINE => [self::FIELD_SCORE_OUT_OF_10 => $pipeline],
                 ],
             ],
             'claim_policy' => [
@@ -881,7 +889,7 @@ final class AtlasAcosLongHorizonGateService
         ?array $assessmentV2 = null,
     ): array {
         $payload = [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'status' => $status,
             self::FIELD_CERTIFIED => $certified,
             'completion_claim_allowed' => $certified,
@@ -917,7 +925,7 @@ final class AtlasAcosLongHorizonGateService
         }
 
         $receiptPayload = [
-            'schema_version' => self::SCHEMA_VERSION,
+            self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'status' => $status,
             self::FIELD_CERTIFIED => $certified,
             self::FIELD_FIXTURE => $fixture,

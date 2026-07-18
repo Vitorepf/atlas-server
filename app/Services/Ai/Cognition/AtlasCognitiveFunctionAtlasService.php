@@ -64,6 +64,14 @@ class AtlasCognitiveFunctionAtlasService
     public const STATUS_PARTIAL = 'partial';
 
     public const STATUS_UNKNOWN = 'unknown';
+    public const FIELD_EVIDENCE_FILES_EMPTY = 'evidence_files_empty';
+    public const FIELD_GENERATED_AT = 'generated_at';
+    public const FIELD_SUBSYSTEM_COUNT = 'subsystem_count';
+    public const FIELD_GROUP_COUNT = 'group_count';
+    public const FIELD_GROUPS = 'groups';
+    public const FIELD_SHAPE = 'shape';
+    public const FIELD_GAPS = 'gaps';
+    public const FIELD_OVERALL_SCORE = 'overall_score';
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scoreCard,
@@ -84,13 +92,13 @@ class AtlasCognitiveFunctionAtlasService
 
         return [
             self::FIELD_SCHEMA_VERSION => self::SELF_MODEL_SCHEMA,
-            'generated_at' => $scorecard['generated_at'] ?? gmdate('c'),
-            'subsystem_count' => count($subs),
-            'group_count' => count($groups),
-            'groups' => $groups,
-            'shape' => $shape,
-            'gaps' => $gaps,
-            'overall_score' => $scorecard['score'] ?? null,
+            self::FIELD_GENERATED_AT => $scorecard[self::FIELD_GENERATED_AT] ?? gmdate('c'),
+            self::FIELD_SUBSYSTEM_COUNT => count($subs),
+            self::FIELD_GROUP_COUNT => count($groups),
+            self::FIELD_GROUPS => $groups,
+            self::FIELD_SHAPE => $shape,
+            self::FIELD_GAPS => $gaps,
+            self::FIELD_OVERALL_SCORE => $scorecard['score'] ?? null,
             'kernel_hash' => $this->kernel->kernelHash(),
         ];
     }
@@ -218,7 +226,7 @@ class AtlasCognitiveFunctionAtlasService
             if ($g === '') {
                 continue;
             }
-            $byGroup[$g] = $byGroup[$g] ?? [self::FIELD_DECLARED_READY => 0, self::FIELD_EVIDENCE_FILES_SEEN => 0, 'evidence_files_empty' => 0];
+            $byGroup[$g] = $byGroup[$g] ?? [self::FIELD_DECLARED_READY => 0, self::FIELD_EVIDENCE_FILES_SEEN => 0, self::FIELD_EVIDENCE_FILES_EMPTY => 0];
             if (($s['pipeline_status'] ?? '') === self::STATUS_READY) {
                 $byGroup[$g][self::FIELD_DECLARED_READY]++;
             }
@@ -234,7 +242,7 @@ class AtlasCognitiveFunctionAtlasService
                 foreach (glob($dir.'/*.jsonl') ?: [] as $f) {
                     $row[self::FIELD_EVIDENCE_FILES_SEEN]++;
                     if (filesize($f) === 0) {
-                        $row['evidence_files_empty']++;
+                        $row[self::FIELD_EVIDENCE_FILES_EMPTY]++;
                     }
                 }
             }
@@ -247,7 +255,7 @@ class AtlasCognitiveFunctionAtlasService
                 self::FIELD_GROUP => $g,
                 self::FIELD_DECLARED_READY => $row[self::FIELD_DECLARED_READY],
                 self::FIELD_EVIDENCE_FILES_SEEN => $row[self::FIELD_EVIDENCE_FILES_SEEN],
-                'evidence_files_empty' => $row['evidence_files_empty'],
+                self::FIELD_EVIDENCE_FILES_EMPTY => $row[self::FIELD_EVIDENCE_FILES_EMPTY],
             ];
         }
         // Sort: groups with most empty/missing evidence first (advisory gaps).
