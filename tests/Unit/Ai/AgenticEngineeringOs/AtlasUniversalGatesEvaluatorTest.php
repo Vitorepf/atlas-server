@@ -5821,5 +5821,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['integrity_architect_veto_bets_promotion_freeze_compounding_resolver_budget_floor_count']);
     }
 
+    public function test_architect_rollback_ledger_work_substrate_decay_dod_capability_maturity_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->architectRollbackLedgerWorkSubstrateDecayDodCapabilityMaturityFloorsContractObserve([]);
+
+        $this->assertSame('rollback_plan_present', $payload['architect_field_rollback_plan_present']);
+        $this->assertSame('spec_pack_hash', $payload['architect_field_spec_pack_hash']);
+        $this->assertSame('any_env', $payload['rollback_field_any_env']);
+        $this->assertSame('alert_code', $payload['rollback_field_alert_code']);
+        $this->assertSame('legacy_unchained_count', $payload['ledger_field_legacy_unchained_count']);
+        $this->assertSame('artifact', $payload['ledger_field_artifact']);
+        $this->assertSame('autonomy_level', $payload['work_field_autonomy_level']);
+        $this->assertSame('blocking_reasons', $payload['work_field_blocking_reasons']);
+        $this->assertSame('snapshot_path', $payload['substrate_field_snapshot_path']);
+        $this->assertSame('restored_ok', $payload['substrate_field_restored_ok']);
+        $this->assertSame('recall_eval_hit_rate', $payload['decay_field_recall_eval_hit_rate']);
+        $this->assertSame('base_priority', $payload['decay_field_base_priority']);
+        $this->assertSame('subject', $payload['dod_field_subject']);
+        $this->assertSame('code_command_applicable', $payload['dod_field_code_command_applicable']);
+        $this->assertSame('latency_per_pair_ms_p95', $payload['capability_field_latency_per_pair_ms_p95']);
+        $this->assertSame('functions', $payload['capability_field_functions']);
+        $this->assertSame('owner', $payload['maturity_field_owner']);
+        $this->assertSame('blockers_to_next', $payload['maturity_field_blockers_to_next']);
+        $this->assertSame(18, $payload['architect_rollback_ledger_work_substrate_decay_dod_capability_maturity_floor_count']);
+    }
+
 
 }

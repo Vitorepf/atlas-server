@@ -27,6 +27,8 @@ final class ArchitectAgentSpecPackGateContract
     public const FIELD_BREAKING_CHANGE_MATRIX_PRESENT = 'breaking_change_matrix_present';
     public const FIELD_OPERATOR_SIGNATURE_PRESENT = 'operator_signature_present';
     public const FIELD_RISK_SCOPE = 'risk_scope';
+    public const FIELD_ROLLBACK_PLAN_PRESENT = 'rollback_plan_present';
+    public const FIELD_SPEC_PACK_HASH = 'spec_pack_hash';
 
     /**
      * Required spec_pack sections before high-risk autonomous work may proceed.
@@ -88,9 +90,9 @@ final class ArchitectAgentSpecPackGateContract
     {
         return new self(
             riskScope: AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_RISK_SCOPE] ?? null) ?? self::MIN_AUTONOMOUS_RISK_SCOPE,
-            specPackHash: AiValueNormalizer::trimmedStringOrNull($input['spec_pack_hash'] ?? null) ?? '',
+            specPackHash: AiValueNormalizer::trimmedStringOrNull($input[self::FIELD_SPEC_PACK_HASH] ?? null) ?? '',
             acceptanceCriteriaPresent: (AiValueNormalizer::boolOrNull($input[self::FIELD_ACCEPTANCE_CRITERIA_PRESENT] ?? null) ?? false),
-            rollbackPlanPresent: (AiValueNormalizer::boolOrNull($input['rollback_plan_present'] ?? null) ?? false),
+            rollbackPlanPresent: (AiValueNormalizer::boolOrNull($input[self::FIELD_ROLLBACK_PLAN_PRESENT] ?? null) ?? false),
             breakingChangeMatrixPresent: (AiValueNormalizer::boolOrNull($input[self::FIELD_BREAKING_CHANGE_MATRIX_PRESENT] ?? null) ?? false),
             operatorSignaturePresent: (AiValueNormalizer::boolOrNull($input[self::FIELD_OPERATOR_SIGNATURE_PRESENT] ?? null) ?? false),
         );
@@ -112,9 +114,9 @@ final class ArchitectAgentSpecPackGateContract
             'evidence_required' => self::EVIDENCE_REQUIRED,
             'inputs' => [
                 self::FIELD_RISK_SCOPE => $this->riskScope,
-                'spec_pack_hash' => $this->specPackHash,
+                self::FIELD_SPEC_PACK_HASH => $this->specPackHash,
                 self::FIELD_ACCEPTANCE_CRITERIA_PRESENT => $this->acceptanceCriteriaPresent,
-                'rollback_plan_present' => $this->rollbackPlanPresent,
+                self::FIELD_ROLLBACK_PLAN_PRESENT => $this->rollbackPlanPresent,
                 self::FIELD_BREAKING_CHANGE_MATRIX_PRESENT => $this->breakingChangeMatrixPresent,
                 self::FIELD_OPERATOR_SIGNATURE_PRESENT => $this->operatorSignaturePresent,
             ],

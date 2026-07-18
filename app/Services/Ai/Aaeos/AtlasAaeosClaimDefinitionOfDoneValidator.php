@@ -38,6 +38,8 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
     public const FIELD_CAVEAT = 'caveat';
 
     public const FIELD_MISSING_FIELDS = 'missing_fields';
+    public const FIELD_SUBJECT = 'subject';
+    public const FIELD_CODE_COMMAND_APPLICABLE = 'code_command_applicable';
 
     public const STATUS_PRESENT = 'present';
 
@@ -96,7 +98,7 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
         $partialClaim = $this->isPartial($claim, self::FIELD_DOCUMENTAL_STATE)
             || $this->isPartial($claim, self::FIELD_RUNTIME_STATE);
 
-        $codePathApplicable = ($claim['code_command_applicable'] ?? null) !== false;
+        $codePathApplicable = ($claim[self::FIELD_CODE_COMMAND_APPLICABLE] ?? null) !== false;
 
         $presentFields = [];
         $missingFields = [];
@@ -130,7 +132,7 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
             'schema_version' => self::SCHEMA_VERSION,
             'verdict' => $verdict,
             'passes' => $passes,
-            'subject' => $this->echoSubject($claim),
+            self::FIELD_SUBJECT => $this->echoSubject($claim),
             'present_fields' => $presentFields,
             self::FIELD_MISSING_FIELDS => $missingFields,
             'field_status' => $fieldStatus,
@@ -188,7 +190,7 @@ final class AtlasAaeosClaimDefinitionOfDoneValidator
      */
     private function echoSubject(array $claim): string
     {
-        return AiValueNormalizer::trimmedStringOrNull($claim['subject'] ?? null) ?? '';
+        return AiValueNormalizer::trimmedStringOrNull($claim[self::FIELD_SUBJECT] ?? null) ?? '';
     }
 
     /**

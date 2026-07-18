@@ -45,6 +45,8 @@ final class MemoryFeedbackDecayScorer
     public const FIELD_AGE_DAYS = 'age_days';
     public const FIELD_THRESHOLD_REASONS = 'threshold_reasons';
     public const FIELD_INPUTS_ECHO = 'inputs_echo';
+    public const FIELD_RECALL_EVAL_HIT_RATE = 'recall_eval_hit_rate';
+    public const FIELD_BASE_PRIORITY = 'base_priority';
 
     /**
      * @param  array<string, mixed>  $signals
@@ -126,10 +128,10 @@ final class MemoryFeedbackDecayScorer
                 'negative_count' => $negative,
                 'wrong_context_count' => $wrongContext,
                 'stale_count' => $stale,
-                'base_priority' => $basePriority,
+                self::FIELD_BASE_PRIORITY => $basePriority,
                 'recorded_at_age_days' => $recordedAge,
                 'last_used_at_age_days' => $lastUsedAge,
-                'recall_eval_hit_rate' => $hitRate,
+                self::FIELD_RECALL_EVAL_HIT_RATE => $hitRate,
             ],
         ];
     }
@@ -271,7 +273,7 @@ final class MemoryFeedbackDecayScorer
      */
     private function hitRateOrNull(array $signals): ?float
     {
-        $value = AiValueNormalizer::finiteFloatOrNull($signals['recall_eval_hit_rate'] ?? null);
+        $value = AiValueNormalizer::finiteFloatOrNull($signals[self::FIELD_RECALL_EVAL_HIT_RATE] ?? null);
 
         return $value === null ? null : AiValueNormalizer::clampUnit($value);
     }

@@ -27,6 +27,8 @@ final class AtlasAaeosDepartmentMaturityService
     public const FIELD_BLOCKER_SUMMARY = 'blocker_summary';
 
     public const FIELD_BLOCKER_SEVERITY = 'blocker_severity';
+    public const FIELD_OWNER = 'owner';
+    public const FIELD_BLOCKERS_TO_NEXT = 'blockers_to_next';
 
     public const DEPARTMENTS = [
         [
@@ -136,17 +138,17 @@ final class AtlasAaeosDepartmentMaturityService
                 'signals' => $this->buildSignals($department),
                 'schema' => self::SCHEMA_VERSION,
                 self::FIELD_EVIDENCE => $department[self::FIELD_EVIDENCE],
-                'blockers_to_next' => [
+                self::FIELD_BLOCKERS_TO_NEXT => [
                     [
                         'id' => AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_BLOCKER_ID]) ?? '',
                         'severity' => AiValueNormalizer::lowerTrimmedString($department[self::FIELD_BLOCKER_SEVERITY]),
-                        'owner' => self::OWNER,
+                        self::FIELD_OWNER => self::OWNER,
                         'summary' => AiValueNormalizer::trimmedStringOrNull($department[self::FIELD_BLOCKER_SUMMARY]) ?? '',
                     ],
                 ],
                 'last_evaluation' => self::LAST_EVALUATION,
                 'next_evaluation_due' => self::NEXT_EVALUATION_DUE,
-                'owner' => self::OWNER,
+                self::FIELD_OWNER => self::OWNER,
             ],
             self::DEPARTMENTS,
         );

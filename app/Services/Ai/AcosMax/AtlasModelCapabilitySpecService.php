@@ -43,13 +43,15 @@ final class AtlasModelCapabilitySpecService
     public const FIELD_STATUS = 'status';
     public const FIELD_MODEL_ID = 'model_id';
     public const FIELD_VIOLATIONS = 'violations';
+    public const FIELD_LATENCY_PER_PAIR_MS_P95 = 'latency_per_pair_ms_p95';
+    public const FIELD_FUNCTIONS = 'functions';
     /** @var array<string, array<string, mixed>> */
     private array $functions;
 
     public function __construct(?array $spec = null)
     {
         $spec = $spec ?? AiValueNormalizer::arrayOrEmpty(config(self::SPEC_CONFIG_KEY, []));
-        $functions = AiValueNormalizer::arrayOrEmpty($spec['functions'] ?? null);
+        $functions = AiValueNormalizer::arrayOrEmpty($spec[self::FIELD_FUNCTIONS] ?? null);
         $this->functions = array_change_key_case($functions, CASE_LOWER);
     }
 
@@ -232,11 +234,11 @@ final class AtlasModelCapabilitySpecService
         if (! array_key_exists('latency_per_pair_ms_p95', $spec)) {
             return [];
         }
-        $ceiling = AiValueNormalizer::finiteFloatOrNull($spec['latency_per_pair_ms_p95'] ?? null);
+        $ceiling = AiValueNormalizer::finiteFloatOrNull($spec[self::FIELD_LATENCY_PER_PAIR_MS_P95] ?? null);
         if ($ceiling === null) {
             return [];
         }
-        $actual = AiValueNormalizer::finiteFloatOrNull($model['latency_per_pair_ms_p95'] ?? null);
+        $actual = AiValueNormalizer::finiteFloatOrNull($model[self::FIELD_LATENCY_PER_PAIR_MS_P95] ?? null);
         if ($actual === null) {
             return [];
         }

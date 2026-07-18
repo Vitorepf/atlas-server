@@ -46,6 +46,8 @@ final class AtlasAcosRollbackTriggerCheckService
     public const FIELD_CONDITION_KIND = 'condition_kind';
     public const FIELD_CHECKED_AT = 'checked_at';
     public const FIELD_ARMED = 'armed';
+    public const FIELD_ANY_ENV = 'any_env';
+    public const FIELD_ALERT_CODE = 'alert_code';
 
     public const REASON_SIMULATED_CONDITION = 'simulated_condition';
 
@@ -103,7 +105,7 @@ final class AtlasAcosRollbackTriggerCheckService
             self::FIELD_CHECKED_AT => $asOf->toIso8601String(),
             self::FIELD_STATUS => $status,
             self::STATUS_ALERT => $alert,
-            'alert_code' => $alert ? 'rollback_trigger_fired' : null,
+            self::FIELD_ALERT_CODE => $alert ? 'rollback_trigger_fired' : null,
             self::FIELD_ENABLED => $enabled,
             'flip_count' => count($evaluations),
             'evaluations' => $evaluations,
@@ -165,8 +167,8 @@ final class AtlasAcosRollbackTriggerCheckService
             return false;
         }
 
-        if (is_array($requires['any_env'] ?? null)) {
-            foreach (AiValueNormalizer::arrayOrEmpty($requires['any_env']) as $entry) {
+        if (is_array($requires[self::FIELD_ANY_ENV] ?? null)) {
+            foreach (AiValueNormalizer::arrayOrEmpty($requires[self::FIELD_ANY_ENV]) as $entry) {
                 if (! is_array($entry)) {
                     continue;
                 }

@@ -56,6 +56,8 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_GAP_COUNT = 'gap_count';
     public const FIELD_TAMPERED_EVENT_IDS = 'tampered_event_ids';
     public const FIELD_CHAINS = 'chains';
+    public const FIELD_LEGACY_UNCHAINED_COUNT = 'legacy_unchained_count';
+    public const FIELD_ARTIFACT = 'artifact';
 
 
     public function __construct(
@@ -101,7 +103,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
             $length = (int) (AiValueNormalizer::finiteFloatOrNull($chain[self::FIELD_CHAIN_LENGTH] ?? null) ?? 0);
             $tampered = array_values(AiValueNormalizer::arrayOrEmpty($chain[self::FIELD_TAMPERED_EVENT_IDS] ?? null));
             $gap = (int) (AiValueNormalizer::finiteFloatOrNull($chain[self::FIELD_GAP_COUNT] ?? null) ?? 0);
-            $legacy = (int) (AiValueNormalizer::finiteFloatOrNull($chain['legacy_unchained_count'] ?? null) ?? 0);
+            $legacy = (int) (AiValueNormalizer::finiteFloatOrNull($chain[self::FIELD_LEGACY_UNCHAINED_COUNT] ?? null) ?? 0);
             $tamperedTotal += count($tampered);
             $gapTotal += $gap;
 
@@ -112,7 +114,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
                 self::FIELD_GAP_COUNT => $gap,
                 'tampered_count' => count($tampered),
                 self::FIELD_TAMPERED_EVENT_IDS => $tampered,
-                'legacy_unchained_count' => $legacy,
+                self::FIELD_LEGACY_UNCHAINED_COUNT => $legacy,
             ];
         }
 
@@ -141,7 +143,7 @@ final class EvidenceLedgerIntegrityWatchdogCheck implements AtlasWatchdogCheck
                 ...array_map(static fn (array $c): array => $c[self::FIELD_TAMPERED_EVENT_IDS], $safeChains),
             )),
             self::FIELD_GAP_COUNT => $gapTotal,
-            'artifact' => $this->path(),
+            self::FIELD_ARTIFACT => $this->path(),
         ];
 
         if ($tamperedTotal > 0) {

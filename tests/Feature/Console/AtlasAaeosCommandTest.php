@@ -6171,6 +6171,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_architect_rollback_ledger_work_substrate_decay_dod_capability_maturity_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-arlwsddcm-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-arlwsddcm',
+                '--architect-rollback-ledger-work-substrate-decay-dod-capability-maturity-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"architect_rollback_ledger_work_substrate_decay_dod_capability_maturity_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])

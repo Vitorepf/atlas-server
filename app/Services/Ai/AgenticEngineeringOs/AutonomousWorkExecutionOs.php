@@ -55,6 +55,8 @@ final class AutonomousWorkExecutionOs
     public const FIELD_STATUS = 'status';
     public const FIELD_STAGES = 'stages';
     public const FIELD_SCHEMA_VERSION = 'schema_version';
+    public const FIELD_AUTONOMY_LEVEL = 'autonomy_level';
+    public const FIELD_BLOCKING_REASONS = 'blocking_reasons';
 
     public const STAGE_STATUSES = [
         self::STATUS_PENDING,
@@ -86,7 +88,7 @@ final class AutonomousWorkExecutionOs
     {
         $blocking = [];
 
-        $level = AiValueNormalizer::upperTrimmedString($request['autonomy_level'] ?? '');
+        $level = AiValueNormalizer::upperTrimmedString($request[self::FIELD_AUTONOMY_LEVEL] ?? '');
         if (! in_array($level, self::AUTONOMY_LEVELS, true)) {
             $blocking[] = "invalid autonomy_level '{$level}' (must be L0..L7)";
         }
@@ -122,9 +124,9 @@ final class AutonomousWorkExecutionOs
             self::FIELD_SCHEMA_VERSION => self::SCHEMA_VERSION,
             'cycle_id' => 'cycle-'.bin2hex(random_bytes(6)),
             'goal_hash' => hash('sha256', $goal),
-            'autonomy_level' => $level,
+            self::FIELD_AUTONOMY_LEVEL => $level,
             'may_proceed' => $mayProceed,
-            'blocking_reasons' => $blocking,
+            self::FIELD_BLOCKING_REASONS => $blocking,
             self::FIELD_STAGES => $stages,
             'evaluated_at' => now()->toAtomString(),
         ];

@@ -7720,6 +7720,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only residual floors for architect/rollback/ledger/work/substrate/decay/dod/capability/maturity peels (B327).
+     *
+     * @param  array<string,mixed>  $input
+     * @return array<string,mixed>
+     */
+    public function architectRollbackLedgerWorkSubstrateDecayDodCapabilityMaturityFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'architect_field_rollback_plan_present' => ArchitectAgentSpecPackGateContract::FIELD_ROLLBACK_PLAN_PRESENT,
+            'architect_field_spec_pack_hash' => ArchitectAgentSpecPackGateContract::FIELD_SPEC_PACK_HASH,
+            'rollback_field_any_env' => AtlasAcosRollbackTriggerCheckService::FIELD_ANY_ENV,
+            'rollback_field_alert_code' => AtlasAcosRollbackTriggerCheckService::FIELD_ALERT_CODE,
+            'ledger_field_legacy_unchained_count' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_LEGACY_UNCHAINED_COUNT,
+            'ledger_field_artifact' => EvidenceLedgerIntegrityWatchdogCheck::FIELD_ARTIFACT,
+            'work_field_autonomy_level' => AutonomousWorkExecutionOs::FIELD_AUTONOMY_LEVEL,
+            'work_field_blocking_reasons' => AutonomousWorkExecutionOs::FIELD_BLOCKING_REASONS,
+            'substrate_field_snapshot_path' => SubstrateRestoreDrillWatchdogCheck::FIELD_SNAPSHOT_PATH,
+            'substrate_field_restored_ok' => SubstrateRestoreDrillWatchdogCheck::FIELD_RESTORED_OK,
+            'decay_field_recall_eval_hit_rate' => MemoryFeedbackDecayScorer::FIELD_RECALL_EVAL_HIT_RATE,
+            'decay_field_base_priority' => MemoryFeedbackDecayScorer::FIELD_BASE_PRIORITY,
+            'dod_field_subject' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_SUBJECT,
+            'dod_field_code_command_applicable' => AtlasAaeosClaimDefinitionOfDoneValidator::FIELD_CODE_COMMAND_APPLICABLE,
+            'capability_field_latency_per_pair_ms_p95' => AtlasModelCapabilitySpecService::FIELD_LATENCY_PER_PAIR_MS_P95,
+            'capability_field_functions' => AtlasModelCapabilitySpecService::FIELD_FUNCTIONS,
+            'maturity_field_owner' => AtlasAaeosDepartmentMaturityService::FIELD_OWNER,
+            'maturity_field_blockers_to_next' => AtlasAaeosDepartmentMaturityService::FIELD_BLOCKERS_TO_NEXT,
+            'architect_rollback_ledger_work_substrate_decay_dod_capability_maturity_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

@@ -349,6 +349,7 @@ final class AtlasAaeosCommand extends Command
         {--evolution-reality-freshness-nudge-immune-share-flywheel-aemor-quality-floors-contract= : JSON file (any object) to observe evolution/reality/freshness/nudge/immune/share/flywheel/aemor/quality residual floors}
         {--promotion-parallel-docs-reality-evidence-repair-architect-delivery-scorecard-floors-contract= : JSON file (any object) to observe promotion/parallel/docs/reality/evidence/repair/architect/delivery/scorecard residual floors}
         {--integrity-architect-veto-bets-promotion-freeze-compounding-resolver-budget-floors-contract= : JSON file (any object) to observe integrity/architect/veto/bets/promotion/freeze/compounding/resolver/budget residual floors}
+        {--architect-rollback-ledger-work-substrate-decay-dod-capability-maturity-floors-contract= : JSON file (any object) to observe architect/rollback/ledger/work/substrate/decay/dod/capability/maturity residual floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -854,6 +855,7 @@ final class AtlasAaeosCommand extends Command
             ['evolution-reality-freshness-nudge-immune-share-flywheel-aemor-quality-floors-contract', 'evolution_reality_freshness_nudge_immune_share_flywheel_aemor_quality_floors_contract', fn (array $p) => $gates->evolutionRealityFreshnessNudgeImmuneShareFlywheelAemorQualityFloorsContractObserve($p)],
             ['promotion-parallel-docs-reality-evidence-repair-architect-delivery-scorecard-floors-contract', 'promotion_parallel_docs_reality_evidence_repair_architect_delivery_scorecard_floors_contract', fn (array $p) => $gates->promotionParallelDocsRealityEvidenceRepairArchitectDeliveryScorecardFloorsContractObserve($p)],
             ['integrity-architect-veto-bets-promotion-freeze-compounding-resolver-budget-floors-contract', 'integrity_architect_veto_bets_promotion_freeze_compounding_resolver_budget_floors_contract', fn (array $p) => $gates->integrityArchitectVetoBetsPromotionFreezeCompoundingResolverBudgetFloorsContractObserve($p)],
+            ['architect-rollback-ledger-work-substrate-decay-dod-capability-maturity-floors-contract', 'architect_rollback_ledger_work_substrate_decay_dod_capability_maturity_floors_contract', fn (array $p) => $gates->architectRollbackLedgerWorkSubstrateDecayDodCapabilityMaturityFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

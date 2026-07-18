@@ -38,6 +38,8 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_LAST_SUCCESSFUL_DRILL_AT = 'last_successful_drill_at';
     public const FIELD_AGE_DAYS = 'age_days';
     public const FIELD_CHECKED_AT = 'checked_at';
+    public const FIELD_SNAPSHOT_PATH = 'snapshot_path';
+    public const FIELD_RESTORED_OK = 'restored_ok';
 
 
     public function id(): string
@@ -72,7 +74,7 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
             self::FIELD_MAX_SUCCESS_AGE_DAYS => $maxAgeDays,
             self::FIELD_LAST_SUCCESSFUL_DRILL_AT => $checkedAt->toISOString(),
             self::FIELD_AGE_DAYS => $ageDays,
-            'snapshot_path' => $latest['snapshot_path'] ?? null,
+            self::FIELD_SNAPSHOT_PATH => $latest[self::FIELD_SNAPSHOT_PATH] ?? null,
         ];
 
         if ($ageDays > $maxAgeDays) {
@@ -94,7 +96,7 @@ final class SubstrateRestoreDrillWatchdogCheck implements AtlasWatchdogCheck
         $successes = array_values(array_filter(
             $rows,
             static fn (array $row): bool => ($row['status'] ?? null) === 'restored_ok'
-                && (AiValueNormalizer::boolOrNull($row['restored_ok'] ?? null) ?? false)
+                && (AiValueNormalizer::boolOrNull($row[self::FIELD_RESTORED_OK] ?? null) ?? false)
                 && is_string($row[self::FIELD_CHECKED_AT] ?? null),
         ));
 
