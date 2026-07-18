@@ -16396,4 +16396,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B611).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b611MemoryCognitiveLearningProposalsFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'prompt_injection' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PROMPT_INJECTION,
+            'watch' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_WATCH,
+            'blocked' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_BLOCKED,
+            'trivial_query' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_TRIVIAL_QUERY,
+            'allowed' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ALLOWED,
+            'answer_and_expire' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ANSWER_AND_EXPIRE,
+            'archival' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ARCHIVAL,
+            'archive_is_not_memory_approved' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ARCHIVE_IS_NOT_MEMORY_APPROVED,
+            'atomic_claim_present' => AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ATOMIC_CLAIM_PRESENT,
+            'win_rate' => AtlasLearningProposalsService::FIELD_WIN_RATE,
+            'accumulate_more_signal' => AtlasLearningProposalsService::FIELD_ACCUMULATE_MORE_SIGNAL,
+            'discard' => AtlasLearningProposalsService::FIELD_DISCARD,
+            'gather_evidence' => AtlasLearningProposalsService::FIELD_GATHER_EVIDENCE,
+            'no_evidence_cannot_become_canon' => AtlasLearningProposalsService::FIELD_NO_EVIDENCE_CANNOT_BECOME_CANON,
+            'pattern_meets_evidence_and_strength_threshold' => AtlasLearningProposalsService::FIELD_PATTERN_MEETS_EVIDENCE_AND_STRENGTH_THRESHOLD,
+            'policy' => AtlasLearningProposalsService::FIELD_POLICY,
+            'propose_change' => AtlasLearningProposalsService::FIELD_PROPOSE_CHANGE,
+            'route %s default to %s over %s' => AtlasLearningProposalsService::FIELD_ROUTE__S_DEFAULT_TO__S_OVER__S,
+            'b611_memory_cognitive_learning_proposals_floor_count' => 18,
+        ];
+    }
+
 }

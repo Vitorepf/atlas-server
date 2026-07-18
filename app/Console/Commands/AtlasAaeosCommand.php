@@ -633,6 +633,7 @@ final class AtlasAaeosCommand extends Command
                             {--b608-memory-cognitive-learning-proposals-floors-contract= : JSON file (any object) to observe memory/cognitive/learning/proposals floors}
                             {--b609-memory-cognitive-learning-proposals-floors-contract= : JSON file (any object) to observe memory/cognitive/learning/proposals floors}
                             {--b610-memory-cognitive-learning-proposals-floors-contract= : JSON file (any object) to observe memory/cognitive/learning/proposals floors}
+                            {--b611-memory-cognitive-learning-proposals-floors-contract= : JSON file (any object) to observe memory/cognitive/learning/proposals floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1422,6 +1423,7 @@ final class AtlasAaeosCommand extends Command
             ['b608-memory-cognitive-learning-proposals-floors-contract', 'b608_memory_cognitive_learning_proposals_floors_contract', fn (array $p) => $gates->b608MemoryCognitiveLearningProposalsFloorsContractObserve($p)],
             ['b609-memory-cognitive-learning-proposals-floors-contract', 'b609_memory_cognitive_learning_proposals_floors_contract', fn (array $p) => $gates->b609MemoryCognitiveLearningProposalsFloorsContractObserve($p)],
             ['b610-memory-cognitive-learning-proposals-floors-contract', 'b610_memory_cognitive_learning_proposals_floors_contract', fn (array $p) => $gates->b610MemoryCognitiveLearningProposalsFloorsContractObserve($p)],
+            ['b611-memory-cognitive-learning-proposals-floors-contract', 'b611_memory_cognitive_learning_proposals_floors_contract', fn (array $p) => $gates->b611MemoryCognitiveLearningProposalsFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

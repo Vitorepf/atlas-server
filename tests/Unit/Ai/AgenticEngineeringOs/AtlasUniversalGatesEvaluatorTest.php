@@ -12953,4 +12953,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b610_memory_cognitive_learning_proposals_floor_count']);
     }
 
+    public function test_b611_memory_cognitive_learning_proposals_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b611MemoryCognitiveLearningProposalsFloorsContractObserve([]);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_PROMPT_INJECTION, $out['prompt_injection']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_WATCH, $out['watch']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_BLOCKED, $out['blocked']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_TRIVIAL_QUERY, $out['trivial_query']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ALLOWED, $out['allowed']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ANSWER_AND_EXPIRE, $out['answer_and_expire']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ARCHIVAL, $out['archival']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ARCHIVE_IS_NOT_MEMORY_APPROVED, $out['archive_is_not_memory_approved']);
+        $this->assertSame(AtlasMemoryCognitiveImmuneLearningKernelService::FIELD_ATOMIC_CLAIM_PRESENT, $out['atomic_claim_present']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_WIN_RATE, $out['win_rate']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_ACCUMULATE_MORE_SIGNAL, $out['accumulate_more_signal']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_DISCARD, $out['discard']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_GATHER_EVIDENCE, $out['gather_evidence']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_NO_EVIDENCE_CANNOT_BECOME_CANON, $out['no_evidence_cannot_become_canon']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_PATTERN_MEETS_EVIDENCE_AND_STRENGTH_THRESHOLD, $out['pattern_meets_evidence_and_strength_threshold']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_POLICY, $out['policy']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_PROPOSE_CHANGE, $out['propose_change']);
+        $this->assertSame(AtlasLearningProposalsService::FIELD_ROUTE__S_DEFAULT_TO__S_OVER__S, $out['route %s default to %s over %s']);
+        $this->assertSame(18, $out['b611_memory_cognitive_learning_proposals_floor_count']);
+    }
+
 }

@@ -100,6 +100,15 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
     public const FIELD_RECURRENCE_COUNT = 'recurrence_count';
     public const FIELD_SCOPE_RESOLVED = 'scope_resolved';
     public const FIELD_STRATEGIC_INSIGHT_CANDIDATE = 'strategic_insight_candidate';
+    public const FIELD_PROMPT_INJECTION = 'prompt_injection';
+    public const FIELD_WATCH = 'watch';
+    public const FIELD_BLOCKED = 'blocked';
+    public const FIELD_TRIVIAL_QUERY = 'trivial_query';
+    public const FIELD_ALLOWED = 'allowed';
+    public const FIELD_ANSWER_AND_EXPIRE = 'answer_and_expire';
+    public const FIELD_ARCHIVAL = 'archival';
+    public const FIELD_ARCHIVE_IS_NOT_MEMORY_APPROVED = 'archive_is_not_memory_approved';
+    public const FIELD_ATOMIC_CLAIM_PRESENT = 'atomic_claim_present';
 
     /**
      * Default cognitive-quarantine state. Every input is born here.
@@ -123,7 +132,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
      * @var array<string,array{destination:string,can_become_memory:bool}>
      */
     private const INPUT_CLASSES = [
-        'trivial_query' => [self::FIELD_DESTINATION => 'answer_and_expire', self::FIELD_CAN_BECOME_MEMORY => false],
+        self::FIELD_TRIVIAL_QUERY => [self::FIELD_DESTINATION => self::FIELD_ANSWER_AND_EXPIRE, self::FIELD_CAN_BECOME_MEMORY => false],
         self::FIELD_OPERATIONAL_EPHEMERAL => [self::FIELD_DESTINATION => 'task_reminder_cold_file', self::FIELD_CAN_BECOME_MEMORY => false],
         'task_or_reminder' => [self::FIELD_DESTINATION => 'task_routine', self::FIELD_CAN_BECOME_MEMORY => false],
         self::FIELD_PROJECT_EVIDENCE => [self::FIELD_DESTINATION => self::FIELD_PROJECT_EVIDENCE, self::FIELD_CAN_BECOME_MEMORY => true],
@@ -132,7 +141,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
         'technical_learning_candidate' => [self::FIELD_DESTINATION => 'learning_signal', self::FIELD_CAN_BECOME_MEMORY => true],
         self::FIELD_STRATEGIC_INSIGHT_CANDIDATE => [self::FIELD_DESTINATION => 'memory_constellation_candidate', self::FIELD_CAN_BECOME_MEMORY => true],
         self::FIELD_UNTRUSTED_CONTENT => [self::FIELD_DESTINATION => 'cited_data_not_instruction', self::FIELD_CAN_BECOME_MEMORY => false],
-        'prompt_injection' => [self::FIELD_DESTINATION => 'blocked_ephemeral_evidence', self::FIELD_CAN_BECOME_MEMORY => false],
+        self::FIELD_PROMPT_INJECTION => [self::FIELD_DESTINATION => 'blocked_ephemeral_evidence', self::FIELD_CAN_BECOME_MEMORY => false],
         self::FIELD_PRIVATE_SENSITIVE => [self::FIELD_DESTINATION => 'redact_minimize', self::FIELD_CAN_BECOME_MEMORY => true],
     ];
 
@@ -156,10 +165,10 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
 
     /** Categories the doc forbids from embedding by default. */
     private const EMBEDDING_DENY = [
-        'trivial_query',
+        self::FIELD_TRIVIAL_QUERY,
         self::FIELD_OPERATIONAL_EPHEMERAL,
         self::FIELD_PRIVATE_SENSITIVE,
-        'prompt_injection',
+        self::FIELD_PROMPT_INJECTION,
         'raw_private_note',
         self::FIELD_UNTRUSTED_CONTENT,
     ];
@@ -181,7 +190,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
 
     /** Memory states the doc permits. */
     public const MEMORY_STATES = [
-        'candidate', 'watch', 'trusted', 'conflicted', 'stale',
+        'candidate', self::FIELD_WATCH, 'trusted', 'conflicted', 'stale',
         'deprecated', 'archived', 'blocked_private', 'tombstoned',
     ];
 
@@ -281,11 +290,11 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
 
         $allPassed = $failedGate === null;
 
-        $promote = $allPassed && $promotionMode !== 'blocked';
+        $promote = $allPassed && $promotionMode !== self::FIELD_BLOCKED;
 
         // G8 probation: a promoted memory enters as `watch`, never straight to
         // `trusted`. If not promoted it stays a `candidate`.
-        $resultingState = $promote ? 'watch' : 'candidate';
+        $resultingState = $promote ? self::FIELD_WATCH : 'candidate';
 
         if ($promote) {
             $reasons[] = 'all_gates_passed';
@@ -323,7 +332,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
             'consent_granted' => (bool) ($candidate[self::FIELD_CAPTURE_CONSENTED] ?? false),
             self::FIELD_PRIVACY_CLASS => (string) ($candidate[self::FIELD_PRIVACY_CLASS] ?? 'internal'),
             'retention_ok' => (bool) ($candidate[self::FIELD_CAPTURE_CONSENTED] ?? false),
-            'atomic_claim_present' => (bool) ($candidate[self::FIELD_ATOMIC_CLAIM] ?? false),
+            self::FIELD_ATOMIC_CLAIM_PRESENT => (bool) ($candidate[self::FIELD_ATOMIC_CLAIM] ?? false),
             'claim_type' => $inputClass,
             'claim_source_present' => (bool) ($candidate[self::FIELD_ATOMIC_CLAIM] ?? false),
             'future_utility' => (bool) ($candidate[self::FIELD_FUTURE_SIGNAL] ?? false),
@@ -437,7 +446,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
         $allowed = $reasons === [];
 
         return [
-            'allowed' => $allowed,
+            self::FIELD_ALLOWED => $allowed,
             self::FIELD_REASONS => $allowed ? ['safety_filters_passed_before_similarity'] : $reasons,
             'missing_meta' => $missing,
         ];
@@ -490,7 +499,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
     {
         $allowedKinds = [
             'ttl_expiration', 'confidence_decay', 'supersession',
-            'archival', 'hard_delete', 'negative_memory',
+            self::FIELD_ARCHIVAL, 'hard_delete', 'negative_memory',
         ];
         $k = $this->normalize($kind);
         $errors = [];
@@ -521,7 +530,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
         return [
             'raw_capture_never_enters_context_builder_directly',
             'chat_transcript_never_becomes_memory_silently',
-            'archive_is_not_memory_approved',
+            self::FIELD_ARCHIVE_IS_NOT_MEMORY_APPROVED,
             'delete_propagates_to_memory_embeddings_caches_constellation',
             'every_memory_has_scope_source_state_use_reason',
             'retrieval_without_reason_is_a_bug',
@@ -538,7 +547,7 @@ final class AtlasMemoryCognitiveImmuneLearningKernelService
      */
     private function resolvePromotionMode(string $requestedMode, string $scope, array &$reasons): string
     {
-        $allowed = [self::FIELD_AUTO, self::FIELD_REVIEW, 'proposal', 'blocked'];
+        $allowed = [self::FIELD_AUTO, self::FIELD_REVIEW, 'proposal', self::FIELD_BLOCKED];
         $mode = in_array($requestedMode, $allowed, true) ? $requestedMode : self::FIELD_REVIEW;
 
         if (in_array($scope, self::CRITICAL_SCOPES, true) && $mode === self::FIELD_AUTO) {

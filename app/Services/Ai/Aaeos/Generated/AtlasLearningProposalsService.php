@@ -69,7 +69,7 @@ final class AtlasLearningProposalsService
      * "policy critica" means. These can NEVER auto-apply.
      */
     public const CRITICAL_KINDS = [
-        'policy',
+        self::FIELD_POLICY,
         self::FIELD_ROUTING,
         self::FIELD_GATE,
         self::FIELD_EVAL_GATE,
@@ -146,6 +146,15 @@ final class AtlasLearningProposalsService
     public const FIELD_TERMINAL_STAGE = 'terminal_stage';
     public const FIELD_TOTAL = 'total';
     public const FIELD_UNSPECIFIED_LEARNING_SIGNAL = 'unspecified learning signal';
+    public const FIELD_WIN_RATE = 'win_rate';
+    public const FIELD_ACCUMULATE_MORE_SIGNAL = 'accumulate_more_signal';
+    public const FIELD_DISCARD = 'discard';
+    public const FIELD_GATHER_EVIDENCE = 'gather_evidence';
+    public const FIELD_NO_EVIDENCE_CANNOT_BECOME_CANON = 'no_evidence_cannot_become_canon';
+    public const FIELD_PATTERN_MEETS_EVIDENCE_AND_STRENGTH_THRESHOLD = 'pattern_meets_evidence_and_strength_threshold';
+    public const FIELD_POLICY = 'policy';
+    public const FIELD_PROPOSE_CHANGE = 'propose_change';
+    public const FIELD_ROUTE__S_DEFAULT_TO__S_OVER__S = 'route %s default to %s over %s';
 
     /**
      * Evaluate a single execution signal into a learning proposal verdict.
@@ -186,7 +195,7 @@ final class AtlasLearningProposalsService
                 risk: self::RISK_HIGH,
                 strength: $strength,
                 critical: false,
-                suggestedAction: 'discard',
+                suggestedAction: self::FIELD_DISCARD,
             );
         }
 
@@ -197,11 +206,11 @@ final class AtlasLearningProposalsService
                 status: self::STATUS_REJECTED,
                 kind: $kind,
                 summary: $summary,
-                justification: 'no_evidence_cannot_become_canon',
+                justification: self::FIELD_NO_EVIDENCE_CANNOT_BECOME_CANON,
                 risk: self::RISK_HIGH,
                 strength: $strength,
                 critical: $critical,
-                suggestedAction: 'gather_evidence',
+                suggestedAction: self::FIELD_GATHER_EVIDENCE,
             );
         }
 
@@ -216,7 +225,7 @@ final class AtlasLearningProposalsService
                 risk: $critical ? self::RISK_HIGH : self::RISK_MEDIUM,
                 strength: $strength,
                 critical: $critical,
-                suggestedAction: 'accumulate_more_signal',
+                suggestedAction: self::FIELD_ACCUMULATE_MORE_SIGNAL,
             );
         }
 
@@ -226,12 +235,12 @@ final class AtlasLearningProposalsService
             kind: $kind,
             summary: $summary,
             justification: $this->string($signal[self::FIELD_JUSTIFICATION] ?? null)
-                ?? 'pattern_meets_evidence_and_strength_threshold',
+                ?? self::FIELD_PATTERN_MEETS_EVIDENCE_AND_STRENGTH_THRESHOLD,
             risk: $this->riskFor($critical, $strength),
             strength: $strength,
             critical: $critical,
             suggestedAction: $this->string($signal[self::FIELD_SUGGESTED_ACTION] ?? null)
-                ?? ($critical ? self::FIELD_PROPOSE_CHANGE_FOR_REVIEW : 'propose_change'),
+                ?? ($critical ? self::FIELD_PROPOSE_CHANGE_FOR_REVIEW : self::FIELD_PROPOSE_CHANGE),
         );
     }
 
@@ -318,14 +327,14 @@ final class AtlasLearningProposalsService
      */
     public function evaluateProviderComparison(array $comparison): array
     {
-        $winRate = $this->clamp01((float) ($comparison['win_rate'] ?? 0.0));
+        $winRate = $this->clamp01((float) ($comparison[self::FIELD_WIN_RATE] ?? 0.0));
         // Effect size = how far the win rate is from a coin flip.
         $effect = $this->clamp01(abs($winRate - 0.5) * 2.0);
 
         $verdict = $this->evaluate([
             self::FIELD_KIND => self::FIELD_ROUTING,
             self::FIELD_SUMMARY => sprintf(
-                'route %s default to %s over %s',
+                self::FIELD_ROUTE__S_DEFAULT_TO__S_OVER__S,
                 AiValueNormalizer::trimmedString($comparison[self::FIELD_TASK_CLASS] ?? self::FIELD_TASK) ?: self::FIELD_TASK,
                 AiValueNormalizer::trimmedString($comparison[self::FIELD_CHALLENGER] ?? self::FIELD_CHALLENGER) ?: self::FIELD_CHALLENGER,
                 AiValueNormalizer::trimmedString($comparison[self::FIELD_INCUMBENT] ?? self::FIELD_INCUMBENT) ?: self::FIELD_INCUMBENT,
