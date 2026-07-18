@@ -88,6 +88,7 @@ final class RunbookOrchestrator
     public const FIELD_L13 = 'L13';
     public const FIELD_AAEOS_RUNBOOK_ORCHESTRATOR = 'aaeos-runbook-orchestrator';
     public const FIELD_ATLAS_AGENTIC_ENGINEERING_OS_RUNBOOK = 'atlas-agentic-engineering-os-runbook';
+    public const INT_2 = 2;
     public const INT_12 = 12;
 
     /**
@@ -246,7 +247,7 @@ final class RunbookOrchestrator
                 self::FIELD_REPLAY_OBRAS_COUNT_MIN => self::REPLAY_OBRAS_COUNT_MIN,
                 self::FIELD_REPLAY_REGRESSION_OBSERVED_COUNT_MAX => 0,
                 self::FIELD_DUAL_SIGNATURE_REQUIRED => true,
-                self::FIELD_ARCHITECT_SIGNATURES_COUNT => 2,
+                self::FIELD_ARCHITECT_SIGNATURES_COUNT => self::INT_2,
             ],
             self::FIELD_REQUIRES_REPLAY_BEFORE_PROMOTION => true,
             self::FIELD_REVIEW_STATUS => self::FIELD_PENDING_REPLAY,

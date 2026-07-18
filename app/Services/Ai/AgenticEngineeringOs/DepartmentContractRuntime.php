@@ -418,6 +418,7 @@ final class DepartmentContractRuntime
     public const FIELD_VETO_EXECUTION = 'veto_execution';
     public const FIELD_VETO_RELEASE = 'veto_release';
     public const FIELD_WRITE_TESTS = 'write_tests';
+    public const FIELD_ALL_15_UNIVERSAL_GATES = 'all-15-universal-gates';
     public const INT_11 = 11;
 
     /**
@@ -676,7 +677,7 @@ final class DepartmentContractRuntime
                 [self::FIELD_NAME => self::FIELD_OBRA_PACK, self::FIELD_SCHEMA => self::SCHEMA_OBRA_PACK],
                 [self::FIELD_NAME => self::FIELD_EXECUTION_LOG, self::FIELD_SCHEMA => self::SCHEMA_EXECUTION_LOG],
             ],
-            self::FIELD_GATES => [self::FIELD_OBRA_INTAKE_VALIDATED, self::FIELD_PROVIDER_TOPOLOGY_GREEN, 'all-15-universal-gates', self::FIELD_LONG_HORIZON_STATE_PERSISTED, self::FIELD_RESERVATION_LEDGER_CONSISTENT, self::FIELD_MERGE_REVIEW_PROMOTION_PASSED],
+            self::FIELD_GATES => [self::FIELD_OBRA_INTAKE_VALIDATED, self::FIELD_PROVIDER_TOPOLOGY_GREEN, self::FIELD_ALL_15_UNIVERSAL_GATES, self::FIELD_LONG_HORIZON_STATE_PERSISTED, self::FIELD_RESERVATION_LEDGER_CONSISTENT, self::FIELD_MERGE_REVIEW_PROMOTION_PASSED],
             self::FIELD_ALLOWED_ACTIONS => [self::FIELD_SPAWN_AGENTS, self::FIELD_CLAIM_RESERVATIONS, self::FIELD_REQUEST_PROVIDER_TOPOLOGY, self::FIELD_MERGE_AFTER_REVIEW],
             self::FIELD_FORBIDDEN_ACTIONS => [self::FIELD_BYPASS_REVIEW, self::FIELD_MODIFY_SECURITY_POLICY, self::FIELD_SHIP_WITHOUT_CERT],
             self::FIELD_ESCALATION_TO => [self::DEPARTMENT_ARCHITECT, self::DEPARTMENT_REVIEW, self::DEPARTMENT_SECURITY, self::DEPARTMENT_OPERATOR],

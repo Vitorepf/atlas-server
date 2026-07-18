@@ -42,6 +42,7 @@ final class DeliveryPackCompletenessScorer
     public const FIELD_HASH_SIGNED = 'hash_signed';
     public const FIELD_SCHEMA = 'schema';
     public const FIELD_NO_TEST_REASON = 'no_test_reason';
+    public const FLOAT_1_0 = 1.0;
 
     /** @var list<string> */
     public const REQUIRED_KEYS = [
@@ -179,7 +180,7 @@ final class DeliveryPackCompletenessScorer
             return self::STATUS_FAILED;
         }
 
-        if ($ratio >= 1.0) {
+        if ($ratio >= self::FLOAT_1_0) {
             return self::STATUS_PASSED;
         }
 

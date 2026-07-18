@@ -98,6 +98,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
     public const FIELD_ACMF_ = 'acmf_';
     public const FIELD_ACMF = 'ACMF';
     public const FIELD_UTC = 'UTC';
+    public const FIELD_SCHEMA_PROPOSALS_JSONL = 'schema_proposals.jsonl';
 
     private ?string $proposalsLogOverride = null;
 
@@ -120,7 +121,7 @@ final class AtlasCognitiveMemoryFabricSchemaEvolutionService
             ? storage_path('atlas/acmf')
             : sys_get_temp_dir().'/atlas/acmf';
 
-        return $base.DIRECTORY_SEPARATOR.'schema_proposals.jsonl';
+        return $base.DIRECTORY_SEPARATOR.self::FIELD_SCHEMA_PROPOSALS_JSONL;
     }
 
     /**

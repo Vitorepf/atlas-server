@@ -133,6 +133,7 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD_ROUTING_TASK = 'routing_task';
     public const FIELD_ATLAS_AAEOS_PLACEMENT_ = 'atlas.aaeos.placement.';
     public const FIELD_PAYLOAD_INTENT_ID = 'payload.intent_id';
+    public const FIELD_PAYLOAD_PROMPT = 'payload.prompt';
     public const INT_422 = 422;
 
     private readonly AaeosHttpPathEnvelopeFactory $envelopeFactory;
@@ -356,7 +357,7 @@ final class AtlasAaeosHttpPathFacadeService
      */
     private function extractIntentText(array $data): string
     {
-        $text = $data[self::FIELD_INPUT_TEXT] ?? data_get($data, 'payload.prompt') ?? '';
+        $text = $data[self::FIELD_INPUT_TEXT] ?? data_get($data, self::FIELD_PAYLOAD_PROMPT) ?? '';
 
         return is_string($text) ? AiValueNormalizer::trimmedStringOrNull($text) ?? '' : '';
     }

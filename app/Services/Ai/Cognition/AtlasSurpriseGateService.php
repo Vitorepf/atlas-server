@@ -65,6 +65,7 @@ final class AtlasSurpriseGateService
     public const FIELD_HIGH = 'high';
     public const FIELD_LOW = 'low';
     public const FIELD_NORMAL = 'normal';
+    public const FLOAT_1_0 = 1.0;
 
     /**
      * Julga um candidato contra a predição pré-sessão.
@@ -84,7 +85,7 @@ final class AtlasSurpriseGateService
         // tudo"). Um candidato sem tokens salientes também passa livre — nada a julgar.
         if (count($predictionTokens) < $minPredictionTokens || $candidateTokens === []) {
             return [
-                self::FIELD_SURPRISE => 1.0,
+                self::FIELD_SURPRISE => self::FLOAT_1_0,
                 self::FIELD_RECORD => true,
                 self::FIELD_PRIORITY => self::FIELD_NORMAL,
                 self::FIELD_PREDICTED => false,

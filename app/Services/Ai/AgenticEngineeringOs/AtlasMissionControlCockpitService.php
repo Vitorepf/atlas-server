@@ -105,6 +105,7 @@ final class AtlasMissionControlCockpitService
     public const FIELD_RECOVER_BLOCKED_BACKLOG = 'recover_blocked_backlog';
     public const FIELD_REPAIR_MALFORMED_PACKETS = 'repair_malformed_packets';
     public const FIELD_SHA256 = 'sha256';
+    public const INT_4 = 4;
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
@@ -400,7 +401,7 @@ final class AtlasMissionControlCockpitService
             return false;
         }
         $level = AaeosPhaseHandoffService::autonomyLevelInt($autonomyLevel);
-        if ($level < 4) {
+        if ($level < self::INT_4) {
             return false;
         }
 

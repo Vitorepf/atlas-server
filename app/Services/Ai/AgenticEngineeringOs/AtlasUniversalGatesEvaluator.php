@@ -13660,4 +13660,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B521).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b521MeasureSeriesLoteAaeosHttpMissionControlDeliveryFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'atlas.resource_budget.v1' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_RESOURCE_BUDGET_V1,
+            'atlas.test_attestation.v1' => AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_TEST_ATTESTATION_V1,
+            'elev-20s-freeze-equivalent' => AcosMaxMeasureSeriesRegistry::FIELD_ELEV_20S_FREEZE_EQUIVALENT,
+            'elev-27-resource-budget' => AcosMaxMeasureSeriesRegistry::FIELD_ELEV_27_RESOURCE_BUDGET,
+            'esp-03-test-attestation-seal' => AcosMaxMeasureSeriesRegistry::FIELD_ESP_03_TEST_ATTESTATION_SEAL,
+            'maxa-04-jina-v3-dual-read-window' => AcosMaxMeasureSeriesRegistry::FIELD_MAXA_04_JINA_V3_DUAL_READ_WINDOW,
+            'thresholds.denominator_min_promoted_lessons' => AcosMaxLote2MeasureService::FIELD_THRESHOLDS_DENOMINATOR_MIN_PROMOTED_LESSONS,
+            'thresholds.sample_rate' => AcosMaxLote2MeasureService::FIELD_THRESHOLDS_SAMPLE_RATE,
+            '8' => AcosMaxLote2MeasureService::INT_8,
+            '0.0' => AcosMaxLote2MeasureService::FLOAT_0_0,
+            '2' => AcosMaxLote2MeasureService::INT_2,
+            'payload.prompt' => AtlasAaeosHttpPathFacadeService::FIELD_PAYLOAD_PROMPT,
+            '4' => AtlasMissionControlCockpitService::INT_4,
+            '1.0' => DeliveryPackCompletenessScorer::FLOAT_1_0,
+            'all-15-universal-gates' => DepartmentContractRuntime::FIELD_ALL_15_UNIVERSAL_GATES,
+            '2' => RunbookOrchestrator::INT_2,
+            'schema_proposals.jsonl' => AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_SCHEMA_PROPOSALS_JSONL,
+            '1.0' => AtlasSurpriseGateService::FLOAT_1_0,
+            'b521_measure_series_lote_aaeos_http_mission_control_delivery_floor_count' => 18,
+        ];
+    }
+
 }

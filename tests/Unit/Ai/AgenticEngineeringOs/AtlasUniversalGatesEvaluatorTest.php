@@ -10755,4 +10755,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b520_measure_series_lote_memory_recall_evidence_vision_execution_floor_count']);
     }
 
+    public function test_b521_measure_series_lote_aaeos_http_mission_control_delivery_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b521MeasureSeriesLoteAaeosHttpMissionControlDeliveryFloorsContractObserve([]);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_RESOURCE_BUDGET_V1, $out['atlas.resource_budget.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ATLAS_TEST_ATTESTATION_V1, $out['atlas.test_attestation.v1']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ELEV_20S_FREEZE_EQUIVALENT, $out['elev-20s-freeze-equivalent']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ELEV_27_RESOURCE_BUDGET, $out['elev-27-resource-budget']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_ESP_03_TEST_ATTESTATION_SEAL, $out['esp-03-test-attestation-seal']);
+        $this->assertSame(AcosMaxMeasureSeriesRegistry::FIELD_MAXA_04_JINA_V3_DUAL_READ_WINDOW, $out['maxa-04-jina-v3-dual-read-window']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_THRESHOLDS_DENOMINATOR_MIN_PROMOTED_LESSONS, $out['thresholds.denominator_min_promoted_lessons']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_THRESHOLDS_SAMPLE_RATE, $out['thresholds.sample_rate']);
+        $this->assertSame(AcosMaxLote2MeasureService::INT_8, $out['8']);
+        $this->assertSame(AcosMaxLote2MeasureService::FLOAT_0_0, $out['0.0']);
+        $this->assertSame(AcosMaxLote2MeasureService::INT_2, $out['2']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_PAYLOAD_PROMPT, $out['payload.prompt']);
+        $this->assertSame(AtlasMissionControlCockpitService::INT_4, $out['4']);
+        $this->assertSame(DeliveryPackCompletenessScorer::FLOAT_1_0, $out['1.0']);
+        $this->assertSame(DepartmentContractRuntime::FIELD_ALL_15_UNIVERSAL_GATES, $out['all-15-universal-gates']);
+        $this->assertSame(RunbookOrchestrator::INT_2, $out['2']);
+        $this->assertSame(AtlasCognitiveMemoryFabricSchemaEvolutionService::FIELD_SCHEMA_PROPOSALS_JSONL, $out['schema_proposals.jsonl']);
+        $this->assertSame(AtlasSurpriseGateService::FLOAT_1_0, $out['1.0']);
+        $this->assertSame(18, $out['b521_measure_series_lote_aaeos_http_mission_control_delivery_floor_count']);
+    }
+
 }

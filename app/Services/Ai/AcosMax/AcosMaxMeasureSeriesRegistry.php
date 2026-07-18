@@ -113,6 +113,12 @@ final class AcosMaxMeasureSeriesRegistry
     public const FIELD_ATLAS_CAPTURE_COGNITIVE_IMMUNE_AUDIT_V2 = 'atlas.capture.cognitive_immune_audit.v2';
     public const FIELD_ATLAS_EVIDENCE_LEDGER_HASH_CHAIN_V1 = 'atlas.evidence_ledger.hash_chain.v1';
     public const FIELD_ATLAS_PROVIDER_LEAK_CORPUS_V1 = 'atlas.provider_leak_corpus.v1';
+    public const FIELD_ATLAS_RESOURCE_BUDGET_V1 = 'atlas.resource_budget.v1';
+    public const FIELD_ATLAS_TEST_ATTESTATION_V1 = 'atlas.test_attestation.v1';
+    public const FIELD_ELEV_20S_FREEZE_EQUIVALENT = 'elev-20s-freeze-equivalent';
+    public const FIELD_ELEV_27_RESOURCE_BUDGET = 'elev-27-resource-budget';
+    public const FIELD_ESP_03_TEST_ATTESTATION_SEAL = 'esp-03-test-attestation-seal';
+    public const FIELD_MAXA_04_JINA_V3_DUAL_READ_WINDOW = 'maxa-04-jina-v3-dual-read-window';
     public const INT_180 = 180;
     public const INT_365 = 365;
     public const INT_60 = 60;
@@ -273,7 +279,7 @@ final class AcosMaxMeasureSeriesRegistry
                     self::FIELD_SCOPE_ID => self::FIELD_UNIFIED,
                 ],
                 self::FIELD_TTL_DAYS => self::INT_30,
-                self::FIELD_TTL_SOURCE => 'elev-20s-freeze-equivalent',
+                self::FIELD_TTL_SOURCE => self::FIELD_ELEV_20S_FREEZE_EQUIVALENT,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_ELEV_25,
@@ -506,21 +512,21 @@ final class AcosMaxMeasureSeriesRegistry
             ],
             [
                 self::FIELD_SLICE => self::FIELD_ELEV_27,
-                self::FIELD_SERIES => 'atlas.resource_budget.v1',
+                self::FIELD_SERIES => self::FIELD_ATLAS_RESOURCE_BUDGET_V1,
                 self::FIELD_PATH => 'AtlasResourceBudgetService::report',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_GENERATED_AT,
                 self::FIELD_TTL_DAYS => self::INT_30,
-                self::FIELD_TTL_SOURCE => 'elev-27-resource-budget',
+                self::FIELD_TTL_SOURCE => self::FIELD_ELEV_27_RESOURCE_BUDGET,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_ESP_03,
-                self::FIELD_SERIES => 'atlas.test_attestation.v1',
+                self::FIELD_SERIES => self::FIELD_ATLAS_TEST_ATTESTATION_V1,
                 self::FIELD_PATH => 'AtlasTestAttestationService::attest',
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_COMPUTED_READER_FIELD,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_ATTESTED_AT,
                 self::FIELD_TTL_DAYS => self::INT_30,
-                self::FIELD_TTL_SOURCE => 'esp-03-test-attestation-seal',
+                self::FIELD_TTL_SOURCE => self::FIELD_ESP_03_TEST_ATTESTATION_SEAL,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_MAXM_01,
@@ -592,7 +598,7 @@ final class AcosMaxMeasureSeriesRegistry
                 self::FIELD_SOURCE_TYPE => self::SOURCE_TYPE_JSONL,
                 self::FIELD_TIMESTAMP_FIELD => self::FIELD_RECORDED_AT,
                 self::FIELD_TTL_DAYS => self::INT_90,
-                self::FIELD_TTL_SOURCE => 'maxa-04-jina-v3-dual-read-window',
+                self::FIELD_TTL_SOURCE => self::FIELD_MAXA_04_JINA_V3_DUAL_READ_WINDOW,
             ],
             [
                 self::FIELD_SLICE => self::FIELD_RAGX_07,

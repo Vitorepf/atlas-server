@@ -543,6 +543,7 @@ final class AtlasAaeosCommand extends Command
                             {--b518-measure-series-lote-ledger-rotation-acos-rollback-aaeos-floors-contract= : JSON file (any object) to observe measure/series/lote/ledger/rotation/acos floors}
                             {--b519-measure-series-lote-ledger-rotation-window-orchestrator-acos-floors-contract= : JSON file (any object) to observe measure/series/lote/ledger/rotation/window floors}
                             {--b520-measure-series-lote-memory-recall-evidence-vision-execution-floors-contract= : JSON file (any object) to observe measure/series/lote/memory/recall/evidence floors}
+                            {--b521-measure-series-lote-aaeos-http-mission-control-delivery-floors-contract= : JSON file (any object) to observe measure/series/lote/aaeos/http/mission floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1242,6 +1243,7 @@ final class AtlasAaeosCommand extends Command
             ['b518-measure-series-lote-ledger-rotation-acos-rollback-aaeos-floors-contract', 'b518_measure_series_lote_ledger_rotation_acos_rollback_aaeos_floors_contract', fn (array $p) => $gates->b518MeasureSeriesLoteLedgerRotationAcosRollbackAaeosFloorsContractObserve($p)],
             ['b519-measure-series-lote-ledger-rotation-window-orchestrator-acos-floors-contract', 'b519_measure_series_lote_ledger_rotation_window_orchestrator_acos_floors_contract', fn (array $p) => $gates->b519MeasureSeriesLoteLedgerRotationWindowOrchestratorAcosFloorsContractObserve($p)],
             ['b520-measure-series-lote-memory-recall-evidence-vision-execution-floors-contract', 'b520_measure_series_lote_memory_recall_evidence_vision_execution_floors_contract', fn (array $p) => $gates->b520MeasureSeriesLoteMemoryRecallEvidenceVisionExecutionFloorsContractObserve($p)],
+            ['b521-measure-series-lote-aaeos-http-mission-control-delivery-floors-contract', 'b521_measure_series_lote_aaeos_http_mission_control_delivery_floors_contract', fn (array $p) => $gates->b521MeasureSeriesLoteAaeosHttpMissionControlDeliveryFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {
