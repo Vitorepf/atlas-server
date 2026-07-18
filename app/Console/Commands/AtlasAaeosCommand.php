@@ -603,6 +603,7 @@ final class AtlasAaeosCommand extends Command
                             {--b578-window-orchestrator-code-symbol-exploratory-bets-maxa-jina-floors-contract= : JSON file (any object) to observe window/orchestrator/code/symbol/exploratory/bets floors}
                             {--b579-reactive-saturation-department-contract-acos-evolution-window-floors-contract= : JSON file (any object) to observe reactive/saturation/department/contract/acos/evolution floors}
                             {--b580-daily-canary-docs-authority-spec-completeness-local-model-floors-contract= : JSON file (any object) to observe daily/canary/docs/authority/spec/completeness floors}
+                            {--b581-golden-counterfactual-portfolio-budget-aaeos-http-acos-long-floors-contract= : JSON file (any object) to observe golden/counterfactual/portfolio/budget/aaeos/http floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1362,6 +1363,7 @@ final class AtlasAaeosCommand extends Command
             ['b578-window-orchestrator-code-symbol-exploratory-bets-maxa-jina-floors-contract', 'b578_window_orchestrator_code_symbol_exploratory_bets_maxa_jina_floors_contract', fn (array $p) => $gates->b578WindowOrchestratorCodeSymbolExploratoryBetsMaxaJinaFloorsContractObserve($p)],
             ['b579-reactive-saturation-department-contract-acos-evolution-window-floors-contract', 'b579_reactive_saturation_department_contract_acos_evolution_window_floors_contract', fn (array $p) => $gates->b579ReactiveSaturationDepartmentContractAcosEvolutionWindowFloorsContractObserve($p)],
             ['b580-daily-canary-docs-authority-spec-completeness-local-model-floors-contract', 'b580_daily_canary_docs_authority_spec_completeness_local_model_floors_contract', fn (array $p) => $gates->b580DailyCanaryDocsAuthoritySpecCompletenessLocalModelFloorsContractObserve($p)],
+            ['b581-golden-counterfactual-portfolio-budget-aaeos-http-acos-long-floors-contract', 'b581_golden_counterfactual_portfolio_budget_aaeos_http_acos_long_floors_contract', fn (array $p) => $gates->b581GoldenCounterfactualPortfolioBudgetAaeosHttpAcosLongFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

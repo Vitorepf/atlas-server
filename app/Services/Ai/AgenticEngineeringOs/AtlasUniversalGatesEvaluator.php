@@ -15489,4 +15489,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B581).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b581GoldenCounterfactualPortfolioBudgetAaeosHttpAcosLongFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'schema_version' => GoldenCounterfactualReplayService::FIELD_SCHEMA_VERSION,
+            'runs_path' => GoldenCounterfactualReplayService::FIELD_RUNS_PATH,
+            'measure_id' => GoldenCounterfactualReplayService::FIELD_MEASURE_ID,
+            'formula_version' => GoldenCounterfactualReplayService::FIELD_FORMULA_VERSION,
+            'schema_version' => PortfolioBudgetAllocator::FIELD_SCHEMA_VERSION,
+            'formula_version' => PortfolioBudgetAllocator::FIELD_FORMULA_VERSION,
+            'amendment_receipt_id' => PortfolioBudgetAllocator::FIELD_AMENDMENT_RECEIPT_ID,
+            'weights_are_operator_authored' => PortfolioBudgetAllocator::FIELD_WEIGHTS_ARE_OPERATOR_AUTHORED,
+            'data' => AtlasAaeosHttpPathFacadeService::FIELD_DATA,
+            'blocker' => AtlasAaeosHttpPathFacadeService::FIELD_BLOCKER,
+            'telemetry' => AtlasAaeosHttpPathFacadeService::FIELD_TELEMETRY,
+            'gate_status' => AtlasAaeosHttpPathFacadeService::FIELD_GATE_STATUS,
+            'evidence_refs' => AtlasAcosLongHorizonGateService::FIELD_EVIDENCE_REFS,
+            'generated_at' => AtlasAcosLongHorizonGateService::FIELD_GENERATED_AT,
+            'today' => AtlasAcosLongHorizonGateService::FIELD_TODAY,
+            'schema_version' => AtlasFrontierWaveLadder::FIELD_SCHEMA_VERSION,
+            'systems' => AtlasFrontierWaveLadder::FIELD_SYSTEMS,
+            'summary' => AtlasFrontierWaveLadder::FIELD_SUMMARY,
+            'b581_golden_counterfactual_portfolio_budget_aaeos_http_acos_long_floor_count' => 18,
+        ];
+    }
+
 }

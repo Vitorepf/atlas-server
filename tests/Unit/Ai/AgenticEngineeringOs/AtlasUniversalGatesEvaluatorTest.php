@@ -12225,4 +12225,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b580_daily_canary_docs_authority_spec_completeness_local_model_floor_count']);
     }
 
+    public function test_b581_golden_counterfactual_portfolio_budget_aaeos_http_acos_long_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b581GoldenCounterfactualPortfolioBudgetAaeosHttpAcosLongFloorsContractObserve([]);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_RUNS_PATH, $out['runs_path']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_MEASURE_ID, $out['measure_id']);
+        $this->assertSame(GoldenCounterfactualReplayService::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_AMENDMENT_RECEIPT_ID, $out['amendment_receipt_id']);
+        $this->assertSame(PortfolioBudgetAllocator::FIELD_WEIGHTS_ARE_OPERATOR_AUTHORED, $out['weights_are_operator_authored']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_DATA, $out['data']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_BLOCKER, $out['blocker']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_TELEMETRY, $out['telemetry']);
+        $this->assertSame(AtlasAaeosHttpPathFacadeService::FIELD_GATE_STATUS, $out['gate_status']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_EVIDENCE_REFS, $out['evidence_refs']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AtlasAcosLongHorizonGateService::FIELD_TODAY, $out['today']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_SYSTEMS, $out['systems']);
+        $this->assertSame(AtlasFrontierWaveLadder::FIELD_SUMMARY, $out['summary']);
+        $this->assertSame(18, $out['b581_golden_counterfactual_portfolio_budget_aaeos_http_acos_long_floor_count']);
+    }
+
 }
