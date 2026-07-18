@@ -31,6 +31,12 @@ final class RunbookOrchestrator
     public const ACTOR_KIND_AGENT = 'agent';
 
     public const ARCHITECTURE_REDESIGN_PROPOSAL_SCHEMA = 'atlas.architecture.redesign_proposal.v1';
+    public const FIELD_ARCHITECT_SIGNATURES_COUNT = 'architect_signatures_count';
+    public const FIELD_AUTONOMY_LEVEL = 'autonomy_level';
+    public const FIELD_CURRENT = 'current';
+    public const FIELD_CURRENT_STATE_SNAPSHOT_HASH = 'current_state_snapshot_hash';
+    public const FIELD_DEFAULT_FLOW = 'default_flow';
+    public const FIELD_DEPARTMENT = 'department';
 
     /** Minimum replay count before a structural redesign may be promoted. */
     public const REPLAY_OBRAS_COUNT_MIN = 100;
@@ -89,7 +95,7 @@ final class RunbookOrchestrator
         foreach ($flow as $i => $dept) {
             $stages[] = [
                 'order' => $i + 1,
-                'department' => $dept,
+                self::FIELD_DEPARTMENT => $dept,
                 'gates' => $this->departments->gatesFor($dept),
                 'evidence_schema' => $this->departments->evidenceSchemaFor($dept),
                 'handoff_to' => AiValueNormalizer::arrayOrEmpty(DepartmentContractRuntime::CATALOGUE[$dept]['emits_handoff_to'] ?? null),
@@ -148,17 +154,17 @@ final class RunbookOrchestrator
             if (! in_array($target, ['department', 'phase', 'gate'], true)) {
                 continue;
             }
-            $current = AiValueNormalizer::trimmedStringOrNull($change['current'] ?? null) ?? '';
+            $current = AiValueNormalizer::trimmedStringOrNull($change[self::FIELD_CURRENT] ?? null) ?? '';
             $proposed = AiValueNormalizer::trimmedStringOrNull($change['proposed'] ?? null) ?? '';
             if ($current === '' || $proposed === '') {
                 continue;
             }
             $structuralChanges[] = [
                 'target' => $target,
-                'current' => $current,
+                self::FIELD_CURRENT => $current,
                 'proposed' => $proposed,
                 'target_doc' => AiValueNormalizer::trimmedStringOrNull($change['target_doc'] ?? null) ?? 'atlas-agentic-engineering-os-runbook',
-                'current_state_snapshot_hash' => hash('sha256', $current),
+                self::FIELD_CURRENT_STATE_SNAPSHOT_HASH => hash('sha256', $current),
             ];
         }
 
@@ -175,7 +181,7 @@ final class RunbookOrchestrator
             'title' => $title,
             'structural_changes' => $structuralChanges,
             'runtime_baseline' => [
-                'default_flow' => $baselineFlow,
+                self::FIELD_DEFAULT_FLOW => $baselineFlow,
                 'department_count' => count(DepartmentContractRuntime::CATALOGUE),
                 'default_flow_gates_total' => $baselineGatesTotal,
             ],
@@ -191,14 +197,14 @@ final class RunbookOrchestrator
                 'replay_obras_count_min' => self::REPLAY_OBRAS_COUNT_MIN,
                 'replay_regression_observed_count_max' => 0,
                 'dual_signature_required' => true,
-                'architect_signatures_count' => 2,
+                self::FIELD_ARCHITECT_SIGNATURES_COUNT => 2,
             ],
             'requires_replay_before_promotion' => true,
             'review_status' => 'pending_replay',
             'proposed_by_actor' => AiValueNormalizer::arrayOrEmpty($request['proposed_by_actor'] ?? [
                 'kind' => self::ACTOR_KIND_AGENT,
                 'id' => 'aaeos-runbook-orchestrator',
-                'autonomy_level' => 'L13',
+                self::FIELD_AUTONOMY_LEVEL => 'L13',
             ]),
             'proposed_at' => now()->toAtomString(),
         ];

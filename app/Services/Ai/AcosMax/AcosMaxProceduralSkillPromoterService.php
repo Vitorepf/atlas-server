@@ -86,6 +86,12 @@ final class AcosMaxProceduralSkillPromoterService
     public const FIELD_CONFIDENCE = 'confidence';
     public const FIELD_CORRECTIONS = 'corrections';
     public const FIELD_CREATED = 'created';
+    public const FIELD_DECIDED_AT = 'decided_at';
+    public const FIELD_DECISION = 'decision';
+    public const FIELD_DEFAULT_OFF = 'default_off';
+    public const FIELD_DESCRIPTION = 'description';
+    public const FIELD_ENQUEUE_EFFECTIVE = 'enqueue_effective';
+    public const FIELD_ENQUEUE_ENABLED = 'enqueue_enabled';
 
 
     public function __construct(
@@ -155,11 +161,11 @@ final class AcosMaxProceduralSkillPromoterService
                 self::FIELD_REASON => $status === self::STATUS_OK ? self::REASON_AWAITING_ASI02_ADMISSION : self::REASON_PROCEDURAL_CASE_COUNT_SOAK,
             ],
             self::FIELD_CLAIM_POLICY => [
-                'default_off' => true,
+                self::FIELD_DEFAULT_OFF => true,
                 'read_only' => ! $enqueueRequested,
-                'enqueue_enabled' => $this->enqueueEnabled(),
+                self::FIELD_ENQUEUE_ENABLED => $this->enqueueEnabled(),
                 'enqueue_requested' => $enqueue,
-                'enqueue_effective' => $enqueueRequested,
+                self::FIELD_ENQUEUE_EFFECTIVE => $enqueueRequested,
                 'queue' => self::QUEUE_AI_LEARNING_CANDIDATES,
                 self::FIELD_ADMISSION_DOOR => self::ADMISSION_DOOR_ASI02,
                 self::FIELD_PROMOTION_ALLOWED => false,
@@ -207,7 +213,7 @@ final class AcosMaxProceduralSkillPromoterService
             self::FIELD_SKILL_V1 => [
                 self::FIELD_SCHEMA_VERSION => self::SKILL_SCHEMA_VERSION,
                 'name' => $skillName,
-                'description' => $playbook->objective,
+                self::FIELD_DESCRIPTION => $playbook->objective,
                 self::FIELD_SOURCE => [
                     'kind' => self::KIND_PROCEDURAL_PLAYBOOK,
                     self::FIELD_TASK_CATEGORY => $playbook->taskCategory,
@@ -240,7 +246,7 @@ final class AcosMaxProceduralSkillPromoterService
                 self::FIELD_SCHEMA_VERSION => AtlasLearningDistiller::SCHEMA_VERSION,
                 'run_outcome_id' => null,
                 self::FIELD_STATUS => self::STATUS_HELD_FOR_EVIDENCE,
-                'decision' => self::STATUS_HOLD,
+                self::FIELD_DECISION => self::STATUS_HOLD,
                 'memory_type' => self::SKILL_SCHEMA_VERSION,
                 'scope' => 'global',
                 self::FIELD_CLAIM => sprintf(
@@ -265,7 +271,7 @@ final class AcosMaxProceduralSkillPromoterService
                     self::FIELD_SKILL_V1 => $candidate[self::FIELD_SKILL_V1],
                 ],
                 'receipt_hash' => hash('sha256', 'multj04-'.$candidateHash),
-                'decided_at' => Carbon::now(),
+                self::FIELD_DECIDED_AT => Carbon::now(),
             ],
         );
 

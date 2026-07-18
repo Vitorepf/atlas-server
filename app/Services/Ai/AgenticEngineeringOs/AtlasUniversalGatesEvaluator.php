@@ -7285,6 +7285,37 @@ final class AtlasUniversalGatesEvaluator
     }
 
     /**
+     * Observe-only: residual FIELD_* floors for RunbookOrchestrator + ImmuneCalibrationService + ProceduralSkillPromoter.
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, bool|int|string>
+     */
+    public function runbookImmunePromoterFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'runbook_field_architect_signatures_count' => RunbookOrchestrator::FIELD_ARCHITECT_SIGNATURES_COUNT,
+            'runbook_field_autonomy_level' => RunbookOrchestrator::FIELD_AUTONOMY_LEVEL,
+            'runbook_field_current' => RunbookOrchestrator::FIELD_CURRENT,
+            'runbook_field_current_state_snapshot_hash' => RunbookOrchestrator::FIELD_CURRENT_STATE_SNAPSHOT_HASH,
+            'runbook_field_default_flow' => RunbookOrchestrator::FIELD_DEFAULT_FLOW,
+            'runbook_field_department' => RunbookOrchestrator::FIELD_DEPARTMENT,
+            'immune_cal_field_atomic_claim_present' => ImmuneCalibrationService::FIELD_ATOMIC_CLAIM_PRESENT,
+            'immune_cal_field_author_engine_id' => ImmuneCalibrationService::FIELD_AUTHOR_ENGINE_ID,
+            'immune_cal_field_blocking_gate_ids' => ImmuneCalibrationService::FIELD_BLOCKING_GATE_IDS,
+            'immune_cal_field_blocks_denominator' => ImmuneCalibrationService::FIELD_BLOCKS_DENOMINATOR,
+            'immune_cal_field_bound' => ImmuneCalibrationService::FIELD_BOUND,
+            'immune_cal_field_claim_source_present' => ImmuneCalibrationService::FIELD_CLAIM_SOURCE_PRESENT,
+            'promoter_field_decided_at' => AcosMaxProceduralSkillPromoterService::FIELD_DECIDED_AT,
+            'promoter_field_decision' => AcosMaxProceduralSkillPromoterService::FIELD_DECISION,
+            'promoter_field_default_off' => AcosMaxProceduralSkillPromoterService::FIELD_DEFAULT_OFF,
+            'promoter_field_description' => AcosMaxProceduralSkillPromoterService::FIELD_DESCRIPTION,
+            'promoter_field_enqueue_effective' => AcosMaxProceduralSkillPromoterService::FIELD_ENQUEUE_EFFECTIVE,
+            'promoter_field_enqueue_enabled' => AcosMaxProceduralSkillPromoterService::FIELD_ENQUEUE_ENABLED,
+            'runbook_immune_promoter_floor_count' => 18,
+        ];
+    }
+
+    /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *
      * @return array<string,array{description:string, canonical_source:string}>

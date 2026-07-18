@@ -5471,5 +5471,30 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['health_lote2_horizon_depth_floor_count']);
     }
 
+    public function test_runbook_immune_promoter_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->runbookImmunePromoterFloorsContractObserve([]);
+
+        $this->assertSame('architect_signatures_count', $payload['runbook_field_architect_signatures_count']);
+        $this->assertSame('autonomy_level', $payload['runbook_field_autonomy_level']);
+        $this->assertSame('current', $payload['runbook_field_current']);
+        $this->assertSame('current_state_snapshot_hash', $payload['runbook_field_current_state_snapshot_hash']);
+        $this->assertSame('default_flow', $payload['runbook_field_default_flow']);
+        $this->assertSame('department', $payload['runbook_field_department']);
+        $this->assertSame('atomic_claim_present', $payload['immune_cal_field_atomic_claim_present']);
+        $this->assertSame('author_engine_id', $payload['immune_cal_field_author_engine_id']);
+        $this->assertSame('blocking_gate_ids', $payload['immune_cal_field_blocking_gate_ids']);
+        $this->assertSame('blocks_denominator', $payload['immune_cal_field_blocks_denominator']);
+        $this->assertSame('bound', $payload['immune_cal_field_bound']);
+        $this->assertSame('claim_source_present', $payload['immune_cal_field_claim_source_present']);
+        $this->assertSame('decided_at', $payload['promoter_field_decided_at']);
+        $this->assertSame('decision', $payload['promoter_field_decision']);
+        $this->assertSame('default_off', $payload['promoter_field_default_off']);
+        $this->assertSame('description', $payload['promoter_field_description']);
+        $this->assertSame('enqueue_effective', $payload['promoter_field_enqueue_effective']);
+        $this->assertSame('enqueue_enabled', $payload['promoter_field_enqueue_enabled']);
+        $this->assertSame(18, $payload['runbook_immune_promoter_floor_count']);
+    }
+
 
 }

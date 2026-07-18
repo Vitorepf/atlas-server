@@ -66,6 +66,12 @@ final class ImmuneCalibrationService
     public const FIELD_EXPECTED_BLOCK_GATE_IDS = 'expected_block_gate_ids';
     public const FIELD_TRUE_BLOCKS = 'true_blocks';
     public const FIELD_WRITER = 'writer';
+    public const FIELD_ATOMIC_CLAIM_PRESENT = 'atomic_claim_present';
+    public const FIELD_AUTHOR_ENGINE_ID = 'author_engine_id';
+    public const FIELD_BLOCKING_GATE_IDS = 'blocking_gate_ids';
+    public const FIELD_BLOCKS_DENOMINATOR = 'blocks_denominator';
+    public const FIELD_BOUND = 'bound';
+    public const FIELD_CLAIM_SOURCE_PRESENT = 'claim_source_present';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -132,7 +138,7 @@ final class ImmuneCalibrationService
             ],
             self::FIELD_DENOMINATOR_MIN => self::DENOMINATOR_MIN,
             'ttl_days' => self::TTL_DAYS,
-            'author_engine_id' => 'cursor-acos-max-maxi-03',
+            self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxi-03',
             'judge_engine_id' => 'codex-independent-immune-calibration-judge',
             'series' => [
                 'id' => self::MEASURE_ID,
@@ -226,7 +232,7 @@ final class ImmuneCalibrationService
         $gateIds = [];
         foreach ([
             ...AiValueNormalizer::arrayOrEmpty($sample[self::FIELD_EXPECTED_BLOCK_GATE_IDS] ?? null),
-            ...AiValueNormalizer::arrayOrEmpty($sample['blocking_gate_ids'] ?? null),
+            ...AiValueNormalizer::arrayOrEmpty($sample[self::FIELD_BLOCKING_GATE_IDS] ?? null),
         ] as $gateId) {
             $gateId = AiValueNormalizer::upperTrimmedString($gateId);
             if (in_array($gateId, self::GATE_IDS, true)) {
@@ -268,14 +274,14 @@ final class ImmuneCalibrationService
             self::DENOMINATOR_MIN,
             'false_block_rate',
         );
-        $group[self::FIELD_FALSE_BLOCK_RATE]['blocks_denominator'] = $blocks;
+        $group[self::FIELD_FALSE_BLOCK_RATE][self::FIELD_BLOCKS_DENOMINATOR] = $blocks;
         $group[self::FIELD_MISSED_POISON_RATE] = $this->bandForRate(
             $missedPoisonRate,
             $knownMissDenominator,
             self::DENOMINATOR_MIN,
             'missed_poison_rate',
         );
-        $group[self::FIELD_MISSED_POISON_RATE]['bound'] = 'lower_bound_known_miss';
+        $group[self::FIELD_MISSED_POISON_RATE][self::FIELD_BOUND] = 'lower_bound_known_miss';
         $group[self::FIELD_CALIBRATION_STATUS] = $group[self::FIELD_FALSE_BLOCK_RATE][self::FIELD_STATUS] === self::STATUS_CALIBRATED
             && $group[self::FIELD_MISSED_POISON_RATE][self::FIELD_STATUS] === self::STATUS_CALIBRATED
                 ? self::STATUS_CALIBRATED
@@ -291,9 +297,9 @@ final class ImmuneCalibrationService
             'consent_granted' => true,
             'privacy_class' => 'normal',
             'retention_ok' => true,
-            'atomic_claim_present' => true,
+            self::FIELD_ATOMIC_CLAIM_PRESENT => true,
             'claim_type' => 'technical_learning_candidate',
-            'claim_source_present' => true,
+            self::FIELD_CLAIM_SOURCE_PRESENT => true,
             'future_utility' => true,
             'novelty' => true,
             'recurrence_count' => 1,

@@ -5905,6 +5905,25 @@ final class AtlasAaeosCommandTest extends TestCase
         }
     }
 
+    public function test_universal_gates_observe_runbook_immune_promoter_floors_contract(): void
+    {
+        $path = sys_get_temp_dir().'/atlas-aaeos-rip-'.uniqid('', true).'.json';
+        file_put_contents($path, json_encode(new \stdClass));
+
+        try {
+            $this->artisan('atlas:aaeos', [
+                'action' => 'universal-gates',
+                '--intent' => 'i-rip',
+                '--runbook-immune-promoter-floors-contract' => $path,
+                '--json' => true,
+            ])
+                ->expectsOutputToContain('"runbook_immune_promoter_floors_contract"')
+                ->assertExitCode(1);
+        } finally {
+            @unlink($path);
+        }
+    }
+
     public function test_unknown_action_fails(): void
     {
         $this->artisan('atlas:aaeos', ['action' => 'wibble'])
