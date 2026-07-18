@@ -15148,4 +15148,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B570).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b570AaeosQualityLoteMeasureProceduralSkillFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'breached' => AtlasAaeosQualityBarService::FIELD_BREACHED,
+            'schema_version' => AtlasAaeosQualityBarService::FIELD_SCHEMA_VERSION,
+            'departments' => AtlasAaeosQualityBarService::FIELD_DEPARTMENTS,
+            'signal' => AtlasAaeosQualityBarService::FIELD_SIGNAL,
+            'breach_count' => AtlasAaeosQualityBarService::FIELD_BREACH_COUNT,
+            'breaches' => AtlasAaeosQualityBarService::FIELD_BREACHES,
+            'allowed_basis' => AcosMaxLote2MeasureService::FIELD_ALLOWED_BASIS,
+            'counterfactual_basis' => AcosMaxLote2MeasureService::FIELD_COUNTERFACTUAL_BASIS,
+            'denominator' => AcosMaxLote2MeasureService::FIELD_DENOMINATOR,
+            'loops_complete' => AcosMaxLote2MeasureService::FIELD_LOOPS_COMPLETE,
+            'loops' => AcosMaxLote2MeasureService::FIELD_LOOPS,
+            'loops_partial' => AcosMaxLote2MeasureService::FIELD_LOOPS_PARTIAL,
+            'status' => AcosMaxProceduralSkillPromoterService::FIELD_STATUS,
+            'schema_version' => AcosMaxProceduralSkillPromoterService::FIELD_SCHEMA_VERSION,
+            'gate' => AcosMaxProceduralSkillPromoterService::FIELD_GATE,
+            'skill_v1' => AcosMaxProceduralSkillPromoterService::FIELD_SKILL_V1,
+            'source' => AcosMaxProceduralSkillPromoterService::FIELD_SOURCE,
+            'landed' => AcosMaxProceduralSkillPromoterService::FIELD_LANDED,
+            'b570_aaeos_quality_lote_measure_procedural_skill_floor_count' => 18,
+        ];
+    }
+
 }

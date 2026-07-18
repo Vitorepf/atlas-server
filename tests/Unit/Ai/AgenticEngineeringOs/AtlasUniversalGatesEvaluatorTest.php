@@ -11949,4 +11949,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b569_pre_review_cognitive_function_floor_count']);
     }
 
+    public function test_b570_aaeos_quality_lote_measure_procedural_skill_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b570AaeosQualityLoteMeasureProceduralSkillFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_BREACHED, $out['breached']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_DEPARTMENTS, $out['departments']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_SIGNAL, $out['signal']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_BREACH_COUNT, $out['breach_count']);
+        $this->assertSame(AtlasAaeosQualityBarService::FIELD_BREACHES, $out['breaches']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_ALLOWED_BASIS, $out['allowed_basis']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_COUNTERFACTUAL_BASIS, $out['counterfactual_basis']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_DENOMINATOR, $out['denominator']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_LOOPS_COMPLETE, $out['loops_complete']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_LOOPS, $out['loops']);
+        $this->assertSame(AcosMaxLote2MeasureService::FIELD_LOOPS_PARTIAL, $out['loops_partial']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_GATE, $out['gate']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_SKILL_V1, $out['skill_v1']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_SOURCE, $out['source']);
+        $this->assertSame(AcosMaxProceduralSkillPromoterService::FIELD_LANDED, $out['landed']);
+        $this->assertSame(18, $out['b570_aaeos_quality_lote_measure_procedural_skill_floor_count']);
+    }
+
 }
