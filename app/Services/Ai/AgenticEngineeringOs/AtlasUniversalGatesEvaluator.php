@@ -18125,4 +18125,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B667).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b667KnowledgeItemFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'dual_read_required' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_DUAL_READ_REQUIRED,
+            'judge_engine_id' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_JUDGE_ENGINE_ID,
+            'atlas.acos_max.kb_embedding_coverage.v1' => AtlasKnowledgeItemEmbeddingCoverageService::SCHEMA_VERSION,
+            'atlas.kb_embedding_coverage.v1' => AtlasKnowledgeItemEmbeddingCoverageService::MEASURE_ID,
+            'kb_embedding_coverage.v1' => AtlasKnowledgeItemEmbeddingCoverageService::FORMULA_VERSION,
+            'measure_freeze' => AtlasKnowledgeItemEmbeddingCoverageService::KIND_MEASURE_FREEZE,
+            'active' => AtlasKnowledgeItemEmbeddingCoverageService::STATUS_ACTIVE,
+            'ok' => AtlasKnowledgeItemEmbeddingCoverageService::STATUS_OK,
+            'insufficient_signal' => AtlasKnowledgeItemEmbeddingCoverageService::STATUS_INSUFFICIENT_SIGNAL,
+            'partial_coverage' => AtlasKnowledgeItemEmbeddingCoverageService::STATUS_PARTIAL_COVERAGE,
+            'table_missing' => AtlasKnowledgeItemEmbeddingCoverageService::STATUS_TABLE_MISSING,
+            'measure_id' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_MEASURE_ID,
+            'formula_version' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_FORMULA_VERSION,
+            'denominator_min' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_DENOMINATOR_MIN,
+            'aggregate' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_AGGREGATE,
+            'schema_version' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_SCHEMA_VERSION,
+            'generated_at' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_GENERATED_AT,
+            'freeze' => AtlasKnowledgeItemEmbeddingCoverageService::FIELD_FREEZE,
+            'b667_knowledge_item_floor_count' => 18,
+        ];
+    }
+
 }

@@ -14349,4 +14349,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b666_ledger_rotation_floor_count']);
     }
 
+    public function test_b667_knowledge_item_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b667KnowledgeItemFloorsContractObserve([]);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_DUAL_READ_REQUIRED, $out['dual_read_required']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_JUDGE_ENGINE_ID, $out['judge_engine_id']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::SCHEMA_VERSION, $out['atlas.acos_max.kb_embedding_coverage.v1']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::MEASURE_ID, $out['atlas.kb_embedding_coverage.v1']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FORMULA_VERSION, $out['kb_embedding_coverage.v1']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::KIND_MEASURE_FREEZE, $out['measure_freeze']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::STATUS_ACTIVE, $out['active']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::STATUS_OK, $out['ok']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::STATUS_INSUFFICIENT_SIGNAL, $out['insufficient_signal']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::STATUS_PARTIAL_COVERAGE, $out['partial_coverage']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::STATUS_TABLE_MISSING, $out['table_missing']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_MEASURE_ID, $out['measure_id']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_FORMULA_VERSION, $out['formula_version']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_DENOMINATOR_MIN, $out['denominator_min']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_AGGREGATE, $out['aggregate']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_GENERATED_AT, $out['generated_at']);
+        $this->assertSame(AtlasKnowledgeItemEmbeddingCoverageService::FIELD_FREEZE, $out['freeze']);
+        $this->assertSame(18, $out['b667_knowledge_item_floor_count']);
+    }
+
 }
