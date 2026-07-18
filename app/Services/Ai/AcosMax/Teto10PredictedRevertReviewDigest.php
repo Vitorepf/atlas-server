@@ -89,6 +89,7 @@ final class Teto10PredictedRevertReviewDigest
     public const FIELD_EVIDENCE_REF = 'evidence_ref';
     public const FIELD_MANUAL_REVIEW_WHEN_REVERSE_MISSING = 'manual_review_when_reverse_missing';
     public const FIELD_MISSING_EVIDENCE = 'missing_evidence';
+    public const FIELD_REORDERS_BY_PREDICTED_REVERT_BAND = 'reorders_by_predicted_revert_band';
 
     /**
      * @param  list<array<string,mixed>>  $items
@@ -128,7 +129,7 @@ final class Teto10PredictedRevertReviewDigest
                 self::FIELD_FRONTIER_PLAN_SECTION => '3144-3147',
                 self::FIELD_MARKDOWN_CLI_ONLY => true,
                 self::FIELD_UI_CREATED => false,
-                'reorders_by_predicted_revert_band' => true,
+                self::FIELD_REORDERS_BY_PREDICTED_REVERT_BAND => true,
                 self::FIELD_MANUAL_REVIEW_WHEN_REVERSE_MISSING => true,
             ],
         ];

@@ -98,6 +98,7 @@ final class PromotionProtocol
     public const FIELD_LEGACY_UNMANAGED_FLAGS_COUNT = 'legacy_unmanaged_flags_count';
     public const FIELD_MANAGED_FLAGS_COUNT = 'managed_flags_count';
     public const FIELD_MIGRATION_POLICY = 'migration_policy';
+    public const FIELD_PROTOCOL_SCHEMA_VERSION = 'protocol_schema_version';
 
     /** @var list<string> */
     public const STATES = [
@@ -274,7 +275,7 @@ final class PromotionProtocol
         return [
             self::FIELD_SCHEMA_VERSION => self::REPORT_SCHEMA,
             self::FIELD_STATUS => self::STATUS_OK,
-            'protocol_schema_version' => self::SCHEMA,
+            self::FIELD_PROTOCOL_SCHEMA_VERSION => self::SCHEMA,
             self::FIELD_STATES => self::STATES,
             self::FIELD_LEDGER_PATH => $this->ledger->path(),
             self::FIELD_MANAGED_FLAGS_COUNT => count($managed),

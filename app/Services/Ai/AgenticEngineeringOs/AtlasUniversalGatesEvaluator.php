@@ -10141,4 +10141,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B407).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function acosWatchdogImmuneCalibrationMaxaJinaOutcomeEnvelopeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'latest_snapshot_at' => AtlasAcosWatchdogHealthService::FIELD_LATEST_SNAPSHOT_AT,
+            'live_outcomes_jsonl' => AtlasAcosWatchdogHealthService::FIELD_LIVE_OUTCOMES_JSONL,
+            'measured_count' => AtlasAcosWatchdogHealthService::FIELD_MEASURED_COUNT,
+            'measured_count_floor' => AtlasAcosWatchdogHealthService::FIELD_MEASURED_COUNT_FLOOR,
+            'measurement_ready' => AtlasAcosWatchdogHealthService::FIELD_MEASUREMENT_READY,
+            'min_compactions' => AtlasAcosWatchdogHealthService::FIELD_MIN_COMPACTIONS,
+            'min_context_retention_score' => AtlasAcosWatchdogHealthService::FIELD_MIN_CONTEXT_RETENTION_SCORE,
+            'min_evidence' => AtlasAcosWatchdogHealthService::FIELD_MIN_EVIDENCE,
+            'negative_feedback_max_age_hours' => AtlasAcosWatchdogHealthService::FIELD_NEGATIVE_FEEDBACK_MAX_AGE_HOURS,
+            'thresholds' => ImmuneCalibrationService::FIELD_THRESHOLDS,
+            'ttl_days' => ImmuneCalibrationService::FIELD_TTL_DAYS,
+            'reembed_path' => Maxa04JinaV3DualReadService::FIELD_REEMBED_PATH,
+            'judge_engine_id' => OutcomeEnvelopeBridge::FIELD_JUDGE_ENGINE_ID,
+            'protocol_schema_version' => PromotionProtocol::FIELD_PROTOCOL_SCHEMA_VERSION,
+            'text' => RagxChainMechanismService::FIELD_TEXT,
+            'top_score' => RecallGapAggregator::FIELD_TOP_SCORE,
+            'reorders_by_predicted_revert_band' => Teto10PredictedRevertReviewDigest::FIELD_REORDERS_BY_PREDICTED_REVERT_BAND,
+            'ownerless_blockers' => AaeosBlockerSeverityGate::FIELD_OWNERLESS_BLOCKERS,
+            'acos_watchdog_immune_calibration_maxa_jina_outcome_envelope_floor_count' => 18,
+        ];
+    }
+
 }

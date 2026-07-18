@@ -46,6 +46,7 @@ final class OutcomeEnvelopeBridge
     public const FIELD_DUAL_READ_REQUIRED = 'dual_read_required';
     public const FIELD_FLAG = 'flag';
     public const FIELD_FLAG_DEFAULT = 'flag_default';
+    public const FIELD_JUDGE_ENGINE_ID = 'judge_engine_id';
 
     /** @var array<string, OutcomeEnvelopeAdapter> */
     private array $adapters;
@@ -128,7 +129,7 @@ final class OutcomeEnvelopeBridge
             self::FIELD_DENOMINATOR_MIN => 1,
             self::FIELD_TTL_DAYS => 90,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-esp06',
-            'judge_engine_id' => 'codex-independent-esp06-judge',
+            self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-esp06-judge',
             self::FIELD_DUAL_READ_REQUIRED => true,
         ];
     }

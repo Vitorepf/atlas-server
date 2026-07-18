@@ -429,6 +429,7 @@ final class AtlasAaeosCommand extends Command
                             {--acos-watchdog-immune-calibration-long-context-pareto-memory-floors-contract= : JSON file (any object) to observe acos/watchdog/immune/calibration/long/context floors}
                             {--acos-watchdog-immune-calibration-measure-program-aemor-outcome-floors-contract= : JSON file (any object) to observe acos/watchdog/immune/calibration/measure/program floors}
                             {--acos-watchdog-immune-calibration-n-capture-belief-cascade-floors-contract= : JSON file (any object) to observe acos/watchdog/immune/calibration/n/capture floors}
+                            {--acos-watchdog-immune-calibration-maxa-jina-outcome-envelope-floors-contract= : JSON file (any object) to observe acos/watchdog/immune/calibration/maxa/jina floors}
         {--json : Machine-readable JSON output}';
 
     protected $description = 'Atlas Agentic Engineering OS — operator CLI for the 17-phase runbook.';
@@ -1014,6 +1015,7 @@ final class AtlasAaeosCommand extends Command
             ['acos-watchdog-immune-calibration-long-context-pareto-memory-floors-contract', 'acos_watchdog_immune_calibration_long_context_pareto_memory_floors_contract', fn (array $p) => $gates->acosWatchdogImmuneCalibrationLongContextParetoMemoryFloorsContractObserve($p)],
             ['acos-watchdog-immune-calibration-measure-program-aemor-outcome-floors-contract', 'acos_watchdog_immune_calibration_measure_program_aemor_outcome_floors_contract', fn (array $p) => $gates->acosWatchdogImmuneCalibrationMeasureProgramAemorOutcomeFloorsContractObserve($p)],
             ['acos-watchdog-immune-calibration-n-capture-belief-cascade-floors-contract', 'acos_watchdog_immune_calibration_n_capture_belief_cascade_floors_contract', fn (array $p) => $gates->acosWatchdogImmuneCalibrationNCaptureBeliefCascadeFloorsContractObserve($p)],
+            ['acos-watchdog-immune-calibration-maxa-jina-outcome-envelope-floors-contract', 'acos_watchdog_immune_calibration_maxa_jina_outcome_envelope_floors_contract', fn (array $p) => $gates->acosWatchdogImmuneCalibrationMaxaJinaOutcomeEnvelopeFloorsContractObserve($p)],
         ] as [$option, $observeKey, $projector]) {
             $failed = $this->appendOptionalJsonObserve($report, $option, $observeKey, $projector);
             if ($failed !== null) {

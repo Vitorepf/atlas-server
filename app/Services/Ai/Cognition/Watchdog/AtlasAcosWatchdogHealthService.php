@@ -250,6 +250,15 @@ final class AtlasAcosWatchdogHealthService
     public const FIELD_ISSUES = 'issues';
     public const FIELD_KEEP_KIND = 'keep_kind';
     public const FIELD_KIND = 'kind';
+    public const FIELD_LATEST_SNAPSHOT_AT = 'latest_snapshot_at';
+    public const FIELD_LIVE_OUTCOMES_JSONL = 'live_outcomes_jsonl';
+    public const FIELD_MEASURED_COUNT = 'measured_count';
+    public const FIELD_MEASURED_COUNT_FLOOR = 'measured_count_floor';
+    public const FIELD_MEASUREMENT_READY = 'measurement_ready';
+    public const FIELD_MIN_COMPACTIONS = 'min_compactions';
+    public const FIELD_MIN_CONTEXT_RETENTION_SCORE = 'min_context_retention_score';
+    public const FIELD_MIN_EVIDENCE = 'min_evidence';
+    public const FIELD_NEGATIVE_FEEDBACK_MAX_AGE_HOURS = 'negative_feedback_max_age_hours';
 
     /**
      * @param  array<string,mixed>  $filters
@@ -291,7 +300,7 @@ final class AtlasAcosWatchdogHealthService
             $this->checkRow('snapshot_fresh', $snapshotAgeHours !== null && $snapshotAgeHours <= self::MEMORY_SNAPSHOT_MAX_AGE_HOURS, [
                 self::FIELD_SNAPSHOT_AGE_HOURS => $snapshotAgeHours,
                 self::FIELD_MAX_AGE_HOURS => self::MEMORY_SNAPSHOT_MAX_AGE_HOURS,
-                'latest_snapshot_at' => $latestSnapshotAt?->toIso8601String(),
+                self::FIELD_LATEST_SNAPSHOT_AT => $latestSnapshotAt?->toIso8601String(),
             ], 'memory_quality_snapshot_stale'),
         ];
         $failed = array_values(array_filter($checks, static fn (array $check): bool => ! (AiValueNormalizer::boolOrNull($check[self::FIELD_PASS] ?? null) ?? false)));
@@ -345,12 +354,12 @@ final class AtlasAcosWatchdogHealthService
             && (int) (AiValueNormalizer::finiteFloatOrNull(data_get($lift, 'measurement.without_recalled_memory.case_count', 0)) ?? 0) > 0, [
                 self::FIELD_WITH_RECALLED_MEMORY => data_get($lift, 'measurement.with_recalled_memory.case_count', 0),
                 self::FIELD_WITHOUT_RECALLED_MEMORY => data_get($lift, 'measurement.without_recalled_memory.case_count', 0),
-                'measurement_ready' => data_get($lift, 'measurement.measurement_ready', false),
+                self::FIELD_MEASUREMENT_READY => data_get($lift, 'measurement.measurement_ready', false),
             ], 'learning_lift_cases_missing');
 
         return $this->reportFromChecks('atlas.learning.cadence_watchdog.v1', $checks, [
             self::FIELD_THRESHOLDS => [
-                'negative_feedback_max_age_hours' => self::LEARNING_NEGATIVE_MAX_AGE_HOURS,
+                self::FIELD_NEGATIVE_FEEDBACK_MAX_AGE_HOURS => self::LEARNING_NEGATIVE_MAX_AGE_HOURS,
                 self::FIELD_AEMOR_SOURCE_MAX_AGE_HOURS => self::LEARNING_AEMOR_SOURCE_MAX_AGE_HOURS,
                 self::FIELD_AI_RUN_OUTCOME_MAX_AGE_HOURS => self::LEARNING_AI_RUN_OUTCOME_MAX_AGE_HOURS,
             ],
@@ -529,7 +538,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_WINDOW => [
                 self::FIELD_HOURS => self::FEEDBACK_WINDOW_HOURS,
                 self::FIELD_TOTAL_EVENT_COUNT => $total,
-                'measured_count' => $measured,
+                self::FIELD_MEASURED_COUNT => $measured,
                 self::FIELD_DELIVERED_REFS_COUNT => $delivered,
                 'utility_real_share' => $total > 0 ? round($measured / $total, 4) : 0.0,
                 self::FIELD_DELIVERED_REFS_SHARE => $total > 0 ? round($delivered / $total, 4) : 0.0,
@@ -542,7 +551,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_BY_WRITER => $byWriter,
             self::FIELD_THRESHOLDS => [
                 'total_event_count_floor' => self::FEEDBACK_TOTAL_EVENT_FLOOR,
-                'measured_count_floor' => self::FEEDBACK_MEASURED_COUNT_FLOOR,
+                self::FIELD_MEASURED_COUNT_FLOOR => self::FEEDBACK_MEASURED_COUNT_FLOOR,
                 'synthetic_share_max' => self::FEEDBACK_SYNTHETIC_SHARE_MAX,
             ],
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
@@ -621,9 +630,9 @@ final class AtlasAcosWatchdogHealthService
             ],
             self::FIELD_THRESHOLDS => [
                 self::FIELD_WINDOW_DAYS => self::COMPACTION_WINDOW_DAYS,
-                'min_compactions' => self::COMPACTION_MIN_RECEIPTS,
+                self::FIELD_MIN_COMPACTIONS => self::COMPACTION_MIN_RECEIPTS,
                 self::FIELD_CRITICAL_MUST_KEEP_CUTS => 0,
-                'min_context_retention_score' => self::COMPACTION_MIN_RETENTION_SCORE,
+                self::FIELD_MIN_CONTEXT_RETENTION_SCORE => self::COMPACTION_MIN_RETENTION_SCORE,
             ],
             self::FIELD_GENERATED_AT => now()->toIso8601String(),
         ];
@@ -788,7 +797,7 @@ final class AtlasAcosWatchdogHealthService
             self::FIELD_FLIPS => $flips,
             'sources' => [
                 'provider_governance_coverage_ledger' => $this->relativePath($coverage->logPath()),
-                'live_outcomes_jsonl' => $this->relativePath($live->logPath()),
+                self::FIELD_LIVE_OUTCOMES_JSONL => $this->relativePath($live->logPath()),
                 self::FIELD_FORGE_SOVEREIGN_VERDICT_JSONL => $this->relativePath($this->forgeSovereignVerdictPath()),
             ],
             self::FIELD_THRESHOLDS => [
@@ -1051,7 +1060,7 @@ final class AtlasAcosWatchdogHealthService
     {
         $minEvidence = (int) app(GovernanceFloorRegistry::class)->atlasDecideCostOutcomeConfig(
             (AiValueNormalizer::boolOrNull(config(self::ADML_COST_OUTCOME_ENABLED_CONFIG_KEY, self::DEFAULT_ADML_COST_OUTCOME_ENABLED)) ?? self::DEFAULT_ADML_COST_OUTCOME_ENABLED),
-        )['min_evidence'];
+        )[self::FIELD_MIN_EVIDENCE];
         $routes = [];
         foreach ($rows as $row) {
             if (($row['proven_real'] ?? false) !== true) {

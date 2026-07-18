@@ -17,6 +17,7 @@ final class AaeosBlockerSeverityGate
     public const FIELD_SIGNAL = 'signal';
     public const FIELD_LOW_COUNT = 'low_count';
     public const FIELD_MEDIUM_COUNT = 'medium_count';
+    public const FIELD_OWNERLESS_BLOCKERS = 'ownerless_blockers';
 
     /** @var list<string> */
     public const SIGNALS = [
@@ -69,7 +70,7 @@ final class AaeosBlockerSeverityGate
             self::FIELD_MEDIUM_COUNT => $mediumCount,
             self::FIELD_LOW_COUNT => $lowCount,
             self::FIELD_UNKNOWN_COUNT => $unknownCount,
-            'ownerless_blockers' => $ownerlessBlockers,
+            self::FIELD_OWNERLESS_BLOCKERS => $ownerlessBlockers,
         ];
     }
 

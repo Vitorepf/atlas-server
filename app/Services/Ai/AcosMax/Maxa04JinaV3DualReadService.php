@@ -80,6 +80,7 @@ final class Maxa04JinaV3DualReadService
     public const FIELD_LEDGER_RECORDED = 'ledger_recorded';
     public const FIELD_MODE = 'mode';
     public const FIELD_RECORDED_AT = 'recorded_at';
+    public const FIELD_REEMBED_PATH = 'reembed_path';
 
 
     /** @return array<string,mixed> */
@@ -123,7 +124,7 @@ final class Maxa04JinaV3DualReadService
                 self::FIELD_LEDGER_PATH => $this->storagePath(Maxa04JinaV3DualReadLedger::RELATIVE_PATH),
                 self::FIELD_AB_GREEN_CLAIM_ALLOWED => false,
             ],
-            'reembed_path' => [
+            self::FIELD_REEMBED_PATH => [
                 self::FIELD_MODE => self::MODE_SHADOW_ONLY,
                 self::FIELD_COMMAND => 'ATLAS_SEMANTIC_RAG_MODEL=jinaai/jina-embeddings-v3 php artisan atlas:memory:embed-backfill --stale --json',
                 self::FIELD_WRITES_LIVE_DEFAULT_MODEL => false,

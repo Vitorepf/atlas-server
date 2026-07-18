@@ -192,6 +192,7 @@ final class RagxChainMechanismService
     public const FIELD_SCORE_ORIGIN = 'score_origin';
     public const FIELD_SUMMARY = 'summary';
     public const FIELD_TARGET = 'target';
+    public const FIELD_TEXT = 'text';
 
     public function __construct(
         private readonly ?AsefChunkIndexService $asefChunks = null,
@@ -441,7 +442,7 @@ final class RagxChainMechanismService
         $tokens = $this->tokens($query);
         $matches = [];
         foreach ($documents as $index => $document) {
-            $text = AiValueNormalizer::lowerTrimmedString($document['text'] ?? '');
+            $text = AiValueNormalizer::lowerTrimmedString($document[self::FIELD_TEXT] ?? '');
             $hits = 0;
             foreach ($tokens as $token) {
                 if (str_contains($text, $token)) {

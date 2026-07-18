@@ -28,6 +28,7 @@ final class RecallGapAggregator
     public const FIELD_AUTO_CREATES_MEMORY = 'auto_creates_memory';
     public const FIELD_CANDIDATES = 'candidates';
     public const FIELD_QUERY = 'query';
+    public const FIELD_TOP_SCORE = 'top_score';
 
     /**
      * @param  list<array<string,mixed>>  $events
@@ -37,7 +38,7 @@ final class RecallGapAggregator
     {
         $groups = [];
         foreach ($events as $event) {
-            if ((AiValueNormalizer::finiteFloatOrNull($event['top_score'] ?? null) ?? 0.0) >= self::WEAK_SCORE_FLOOR) {
+            if ((AiValueNormalizer::finiteFloatOrNull($event[self::FIELD_TOP_SCORE] ?? null) ?? 0.0) >= self::WEAK_SCORE_FLOOR) {
                 continue;
             }
             $normalized = self::normalize(AiValueNormalizer::trimmedStringOrNull($event[self::FIELD_QUERY] ?? null) ?? '');

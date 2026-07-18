@@ -7902,4 +7902,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['acos_watchdog_immune_calibration_n_capture_belief_cascade_floor_count']);
     }
 
+    public function test_acos_watchdog_immune_calibration_maxa_jina_outcome_envelope_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->acosWatchdogImmuneCalibrationMaxaJinaOutcomeEnvelopeFloorsContractObserve([]);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LATEST_SNAPSHOT_AT, $out['latest_snapshot_at']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_LIVE_OUTCOMES_JSONL, $out['live_outcomes_jsonl']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_MEASURED_COUNT, $out['measured_count']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_MEASURED_COUNT_FLOOR, $out['measured_count_floor']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_MEASUREMENT_READY, $out['measurement_ready']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_MIN_COMPACTIONS, $out['min_compactions']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_MIN_CONTEXT_RETENTION_SCORE, $out['min_context_retention_score']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_MIN_EVIDENCE, $out['min_evidence']);
+        $this->assertSame(AtlasAcosWatchdogHealthService::FIELD_NEGATIVE_FEEDBACK_MAX_AGE_HOURS, $out['negative_feedback_max_age_hours']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_THRESHOLDS, $out['thresholds']);
+        $this->assertSame(ImmuneCalibrationService::FIELD_TTL_DAYS, $out['ttl_days']);
+        $this->assertSame(Maxa04JinaV3DualReadService::FIELD_REEMBED_PATH, $out['reembed_path']);
+        $this->assertSame(OutcomeEnvelopeBridge::FIELD_JUDGE_ENGINE_ID, $out['judge_engine_id']);
+        $this->assertSame(PromotionProtocol::FIELD_PROTOCOL_SCHEMA_VERSION, $out['protocol_schema_version']);
+        $this->assertSame(RagxChainMechanismService::FIELD_TEXT, $out['text']);
+        $this->assertSame(RecallGapAggregator::FIELD_TOP_SCORE, $out['top_score']);
+        $this->assertSame(Teto10PredictedRevertReviewDigest::FIELD_REORDERS_BY_PREDICTED_REVERT_BAND, $out['reorders_by_predicted_revert_band']);
+        $this->assertSame(AaeosBlockerSeverityGate::FIELD_OWNERLESS_BLOCKERS, $out['ownerless_blockers']);
+        $this->assertSame(18, $out['acos_watchdog_immune_calibration_maxa_jina_outcome_envelope_floor_count']);
+    }
+
 }

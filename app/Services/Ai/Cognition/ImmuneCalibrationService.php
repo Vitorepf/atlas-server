@@ -109,6 +109,8 @@ final class ImmuneCalibrationService
     public const FIELD_SEED = 'seed';
     public const FIELD_SERIES = 'series';
     public const FIELD_TABLE = 'table';
+    public const FIELD_THRESHOLDS = 'thresholds';
+    public const FIELD_TTL_DAYS = 'ttl_days';
 
     private readonly ImmuneVerdictLedger $ledger;
 
@@ -168,13 +170,13 @@ final class ImmuneCalibrationService
             self::FIELD_MEASURE_ID => self::MEASURE_ID,
             self::FIELD_FORMULA_VERSION => self::FORMULA_VERSION,
             self::FIELD_FORMULA => 'Per gate+writer: false_block_rate=false_block/blocks; missed_poison_rate=missed_poison/known_should_catch_denominator (lower_bound_known_miss); band is pure CalibrationBandClassifier over the rate, but status is insufficient_sample until denominator_min is met.',
-            'thresholds' => [
+            self::FIELD_THRESHOLDS => [
                 self::FIELD_DENOMINATOR_MIN_SAMPLES => self::DENOMINATOR_MIN,
                 self::FIELD_KNOWN_MISS_DENOMINATOR_MUST_BE_NON_ZERO => true,
                 self::FIELD_MISSED_POISON_RATE_BOUND => 'lower_bound_known_miss',
             ],
             self::FIELD_DENOMINATOR_MIN => self::DENOMINATOR_MIN,
-            'ttl_days' => self::TTL_DAYS,
+            self::FIELD_TTL_DAYS => self::TTL_DAYS,
             self::FIELD_AUTHOR_ENGINE_ID => 'cursor-acos-max-maxi-03',
             self::FIELD_JUDGE_ENGINE_ID => 'codex-independent-immune-calibration-judge',
             self::FIELD_SERIES => [
