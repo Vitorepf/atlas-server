@@ -31,6 +31,7 @@ final readonly class LocalModelIntegrityWatchdogCheck implements AtlasWatchdogCh
     public const FIELD_MESSAGE = 'message';
     public const FIELD_LOCAL_MODEL_HASH_MISMATCH = 'local_model_hash_mismatch';
     public const FIELD_LOCAL_MODEL_MISSING = 'local_model_missing';
+    public const FIELD_UTC = 'UTC';
 
     public function __construct(
         private AtlasLocalModelIntegrityService $service,
@@ -44,7 +45,7 @@ final readonly class LocalModelIntegrityWatchdogCheck implements AtlasWatchdogCh
 
     public function run(): AtlasWatchdogCheckResult
     {
-        $now = $this->now ?? CarbonImmutable::now('UTC');
+        $now = $this->now ?? CarbonImmutable::now(self::FIELD_UTC);
         $report = $this->service->verifyAll();
 
         $evidence = [

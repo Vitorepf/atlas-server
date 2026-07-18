@@ -38,6 +38,7 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
     public const FIELD_JOINT_RESOURCE_BUDGET_BREACH = 'joint_resource_budget_breach';
     public const FIELD_COMPONENT_OVER_RAM_CAP = 'component_over_ram_cap';
     public const FIELD_MEASURED_OVERSHOOT = 'measured_overshoot';
+    public const FIELD_UTC = 'UTC';
 
     public function __construct(
         private AtlasResourceBudgetService $service,
@@ -51,7 +52,7 @@ final readonly class JointResourceBudgetWatchdogCheck implements AtlasWatchdogCh
 
     public function run(): AtlasWatchdogCheckResult
     {
-        $now = $this->now ?? CarbonImmutable::now('UTC');
+        $now = $this->now ?? CarbonImmutable::now(self::FIELD_UTC);
         $report = $this->service->report();
 
         $evidence = [

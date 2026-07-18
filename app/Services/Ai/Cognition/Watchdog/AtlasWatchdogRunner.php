@@ -50,6 +50,7 @@ final readonly class AtlasWatchdogRunner
     public const FIELD_SYSTEM = 'system';
     public const FIELD_UNIFIED = 'unified';
     public const FIELD_WATCHDOG_CHECK_EXCEPTION = 'watchdog_check_exception';
+    public const FIELD_UTC = 'UTC';
 
     public function __construct(
         private AtlasWatchdogCheckRegistry $registry,
@@ -63,7 +64,7 @@ final readonly class AtlasWatchdogRunner
     public function run(array $context = []): array
     {
         $runId = AiValueNormalizer::trimmedStringOrNull($context[self::FIELD_RUN_ID] ?? null) ?? (string) Str::ulid();
-        $checkedAt = CarbonImmutable::now('UTC')->toISOString();
+        $checkedAt = CarbonImmutable::now(self::FIELD_UTC)->toISOString();
         $checks = [];
 
         foreach ($this->registry->all() as $check) {

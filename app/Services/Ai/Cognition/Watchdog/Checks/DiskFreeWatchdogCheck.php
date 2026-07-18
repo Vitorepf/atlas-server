@@ -42,6 +42,7 @@ final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_MESSAGE = 'message';
     public const FIELD_ATLAS = 'atlas';
     public const FIELD_DISK_BELOW_FLOOR = 'disk_below_floor';
+    public const FIELD_UTC = 'UTC';
 
     /** @var callable():array{path:string,free_bytes:int,total_bytes:int} */
     private $probe;
@@ -72,7 +73,7 @@ final class DiskFreeWatchdogCheck implements AtlasWatchdogCheck
                 self::FIELD_TOTAL_BYTES => is_numeric($total) ? (int) $total : 0,
             ];
         };
-        $this->now = $now ?? CarbonImmutable::now('UTC');
+        $this->now = $now ?? CarbonImmutable::now(self::FIELD_UTC);
         $this->floorGb = $floorGb ?? (int) (AiValueNormalizer::finiteFloatOrNull(config(self::FLOOR_GB_CONFIG_KEY, self::DEFAULT_FLOOR_GB)) ?? self::DEFAULT_FLOOR_GB);
     }
 

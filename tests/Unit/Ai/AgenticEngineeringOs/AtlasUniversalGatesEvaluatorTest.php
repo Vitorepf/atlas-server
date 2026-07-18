@@ -10089,4 +10089,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b493_cognition_score_immune_signature_verified_share_window_orchestrator_floor_count']);
     }
 
+    public function test_b494_cognition_score_watchdog_runner_acos_dead_disk_free_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b494CognitionScoreWatchdogRunnerAcosDeadDiskFreeFloorsContractObserve([]);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AKIF, $out['AKIF']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ALMR, $out['ALMR']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ANCF, $out['ANCF']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_AOBG, $out['AOBG']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_APCP, $out['APCP']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_APCR, $out['APCR']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_APDR, $out['APDR']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ARCLG, $out['ARCLG']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ARDR, $out['ARDR']);
+        $this->assertSame(AtlasCognitionScoreCardService::FIELD_ARDS, $out['ARDS']);
+        $this->assertSame(AtlasWatchdogRunner::FIELD_UTC, $out['UTC']);
+        $this->assertSame(AcosDeadSeriesWatchdogCheck::FIELD_UTC, $out['UTC']);
+        $this->assertSame(DiskFreeWatchdogCheck::FIELD_UTC, $out['UTC']);
+        $this->assertSame(JointResourceBudgetWatchdogCheck::FIELD_UTC, $out['UTC']);
+        $this->assertSame(LocalModelIntegrityWatchdogCheck::FIELD_UTC, $out['UTC']);
+        $this->assertSame(AtlasAcosEvolutionScoreService::FLOAT_10_0, $out['10.0']);
+        $this->assertSame(AtlasAcosWindowGatesService::INT_70, $out['70']);
+        $this->assertSame(AtlasMemoryRecallRelevanceScorer::INT_22, $out['22']);
+        $this->assertSame(18, $out['b494_cognition_score_watchdog_runner_acos_dead_disk_free_floor_count']);
+    }
+
 }

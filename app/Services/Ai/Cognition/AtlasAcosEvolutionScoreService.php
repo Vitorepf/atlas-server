@@ -144,6 +144,7 @@ class AtlasAcosEvolutionScoreService
     public const FIELD_INCLUDED = 'included';
     public const FIELD_MEMORY_HASH = 'memory_hash';
     public const FIELD_USEFUL = 'useful';
+    public const FLOAT_10_0 = 10.0;
 
     public function __construct(
         private readonly AtlasCognitionScoreCardService $scorecard = new AtlasCognitionScoreCardService,
@@ -195,11 +196,11 @@ class AtlasAcosEvolutionScoreService
 
         return [
             self::FIELD_SCORE => round($pipeline, 2),
-            self::FIELD_MAX => 10.0,
+            self::FIELD_MAX => self::FLOAT_10_0,
             self::FIELD_SIGNALS => [[
                 self::FIELD_SIGNAL => self::FIELD_PIPELINE_GREEN_RUN_RECEIPTS,
                 self::FIELD_POINTS => round($pipeline, 2),
-                self::FIELD_MAX => 10.0,
+                self::FIELD_MAX => self::FLOAT_10_0,
                 self::FIELD_EVIDENCE => 'scorecard v3 dimensão pipeline (green-run receipts reais, freshness-bound)',
             ]],
         ];
@@ -571,7 +572,7 @@ class AtlasAcosEvolutionScoreService
 
         return [
             self::FIELD_SCORE => round(min(10.0, $score), 2),
-            self::FIELD_MAX => 10.0,
+            self::FIELD_MAX => self::FLOAT_10_0,
             self::FIELD_SIGNALS => $signals,
         ];
     }

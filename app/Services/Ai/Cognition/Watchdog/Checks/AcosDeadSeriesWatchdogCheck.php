@@ -45,6 +45,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
     public const FIELD_FREEZE = 'freeze';
     public const FIELD_RECORDED_AT = 'recorded_at';
     public const FIELD_JSONL = 'jsonl';
+    public const FIELD_UTC = 'UTC';
 
     public function __construct(
         private AcosMaxMeasureSeriesRegistry $registry,
@@ -59,7 +60,7 @@ final readonly class AcosDeadSeriesWatchdogCheck implements AtlasWatchdogCheck
 
     public function run(): AtlasWatchdogCheckResult
     {
-        $now = $this->now ?? CarbonImmutable::now('UTC');
+        $now = $this->now ?? CarbonImmutable::now(self::FIELD_UTC);
         $series = array_map(fn (array $entry): array => $this->seriesRow($entry, $now), $this->registry->entries());
         $dead = array_values(array_filter(
             $series,

@@ -12832,4 +12832,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B494).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b494CognitionScoreWatchdogRunnerAcosDeadDiskFreeFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'AKIF' => AtlasCognitionScoreCardService::FIELD_AKIF,
+            'ALMR' => AtlasCognitionScoreCardService::FIELD_ALMR,
+            'ANCF' => AtlasCognitionScoreCardService::FIELD_ANCF,
+            'AOBG' => AtlasCognitionScoreCardService::FIELD_AOBG,
+            'APCP' => AtlasCognitionScoreCardService::FIELD_APCP,
+            'APCR' => AtlasCognitionScoreCardService::FIELD_APCR,
+            'APDR' => AtlasCognitionScoreCardService::FIELD_APDR,
+            'ARCLG' => AtlasCognitionScoreCardService::FIELD_ARCLG,
+            'ARDR' => AtlasCognitionScoreCardService::FIELD_ARDR,
+            'ARDS' => AtlasCognitionScoreCardService::FIELD_ARDS,
+            'UTC' => AtlasWatchdogRunner::FIELD_UTC,
+            'UTC' => AcosDeadSeriesWatchdogCheck::FIELD_UTC,
+            'UTC' => DiskFreeWatchdogCheck::FIELD_UTC,
+            'UTC' => JointResourceBudgetWatchdogCheck::FIELD_UTC,
+            'UTC' => LocalModelIntegrityWatchdogCheck::FIELD_UTC,
+            '10.0' => AtlasAcosEvolutionScoreService::FLOAT_10_0,
+            '70' => AtlasAcosWindowGatesService::INT_70,
+            '22' => AtlasMemoryRecallRelevanceScorer::INT_22,
+            'b494_cognition_score_watchdog_runner_acos_dead_disk_free_floor_count' => 18,
+        ];
+    }
+
 }

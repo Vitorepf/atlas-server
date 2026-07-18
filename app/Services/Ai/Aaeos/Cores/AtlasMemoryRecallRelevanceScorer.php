@@ -56,6 +56,7 @@ final class AtlasMemoryRecallRelevanceScorer
     public const FIELD_COMMAND = 'command';
     public const FIELD_DECISION = 'decision';
     public const FIELD_MEMORY = 'memory';
+    public const INT_22 = 22;
     public const INT_14 = 14;
     public const INT_20 = 20;
     public const INT_11 = 11;
@@ -106,7 +107,7 @@ final class AtlasMemoryRecallRelevanceScorer
     public function scopeWeight(string $scope): int
     {
         return match ($scope) {
-            self::FIELD_TASK => 22,
+            self::FIELD_TASK => self::INT_22,
             self::FIELD_ENGINEERING_RUN => self::INT_20,
             self::FIELD_PROJECT => self::INT_16,
             self::FIELD_WORKSPACE => self::INT_12,
