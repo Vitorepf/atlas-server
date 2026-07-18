@@ -17040,4 +17040,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B632).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b632RepairLoopAaeosImplementationFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'escalate' => AtlasRepairLoopGuard::FIELD_ESCALATE,
+            'schema_version' => AtlasRepairLoopGuard::FIELD_SCHEMA_VERSION,
+            'escalate_to' => AtlasRepairLoopGuard::FIELD_ESCALATE_TO,
+            'remaining_repairs' => AtlasRepairLoopGuard::FIELD_REMAINING_REPAIRS,
+            'attempt' => AtlasRepairLoopGuard::FIELD_ATTEMPT,
+            'admitted' => AtlasRepairLoopGuard::FIELD_ADMITTED,
+            'escalated' => AtlasRepairLoopGuard::FIELD_ESCALATED,
+            'decision' => AtlasRepairLoopGuard::FIELD_DECISION,
+            'repair' => AtlasRepairLoopGuard::FIELD_REPAIR,
+            'id' => AtlasAaeosImplementationTruthService::FIELD_ID,
+            'rank_computed' => AtlasAaeosImplementationTruthService::FIELD_RANK_COMPUTED,
+            'atlas.aaeos.implementation_state.v1' => AtlasAaeosImplementationTruthService::SCHEMA,
+            'atlas.aaeos.capability_truth_ledger.v1' => AtlasAaeosImplementationTruthService::LEDGER_SCHEMA,
+            'atlas.aaeos.impl_files_hash.v2' => AtlasAaeosImplementationTruthService::IMPL_FILES_HASH_FORMAT,
+            'atlas.aaeos.doc_runtime_coverage.v1' => AtlasAaeosImplementationTruthService::DOC_RUNTIME_COVERAGE_SCHEMA,
+            'spec' => AtlasAaeosImplementationTruthService::LEVEL_SPEC,
+            'partial' => AtlasAaeosImplementationTruthService::LEVEL_PARTIAL,
+            'verified' => AtlasAaeosImplementationTruthService::LEVEL_VERIFIED,
+            'b632_repair_loop_aaeos_implementation_floor_count' => 18,
+        ];
+    }
+
 }

@@ -13472,4 +13472,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b631_generated_contract_repair_loop_floor_count']);
     }
 
+    public function test_b632_repair_loop_aaeos_implementation_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b632RepairLoopAaeosImplementationFloorsContractObserve([]);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_ESCALATE, $out['escalate']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_ESCALATE_TO, $out['escalate_to']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_REMAINING_REPAIRS, $out['remaining_repairs']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_ATTEMPT, $out['attempt']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_ADMITTED, $out['admitted']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_ESCALATED, $out['escalated']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_DECISION, $out['decision']);
+        $this->assertSame(AtlasRepairLoopGuard::FIELD_REPAIR, $out['repair']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_ID, $out['id']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::FIELD_RANK_COMPUTED, $out['rank_computed']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::SCHEMA, $out['atlas.aaeos.implementation_state.v1']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::LEDGER_SCHEMA, $out['atlas.aaeos.capability_truth_ledger.v1']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::IMPL_FILES_HASH_FORMAT, $out['atlas.aaeos.impl_files_hash.v2']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::DOC_RUNTIME_COVERAGE_SCHEMA, $out['atlas.aaeos.doc_runtime_coverage.v1']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::LEVEL_SPEC, $out['spec']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::LEVEL_PARTIAL, $out['partial']);
+        $this->assertSame(AtlasAaeosImplementationTruthService::LEVEL_VERIFIED, $out['verified']);
+        $this->assertSame(18, $out['b632_repair_loop_aaeos_implementation_floor_count']);
+    }
+
 }
