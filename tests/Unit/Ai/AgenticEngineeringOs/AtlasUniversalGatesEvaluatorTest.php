@@ -14524,4 +14524,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b673_code_symbol_floor_count']);
     }
 
+    public function test_b674_local_model_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b674LocalModelFloorsContractObserve([]);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_PATH, $out['path']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_TOTAL, $out['total']);
+        $this->assertSame(AtlasLocalModelIntegrityService::MANIFEST_SCHEMA, $out['atlas.model_integrity_manifest.v1']);
+        $this->assertSame(AtlasLocalModelIntegrityService::MANIFEST_CONFIG_KEY, $out['atlas_model_manifest']);
+        $this->assertSame(AtlasLocalModelIntegrityService::STATUS_UNKNOWN, $out['unknown']);
+        $this->assertSame(AtlasLocalModelIntegrityService::STATUS_UNKNOWN, $out['unknown']);
+        $this->assertSame(AtlasLocalModelIntegrityService::STATUS_INVALID, $out['invalid']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_UNPINNED, $out['unpinned']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_MISSING, $out['missing']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_VERIFIED, $out['verified']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_MISMATCHED, $out['mismatched']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_VERIFIED, $out['verified']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_MISMATCHED, $out['mismatched']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_MISSING, $out['missing']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_UNPINNED, $out['unpinned']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasLocalModelIntegrityService::FIELD_OK, $out['ok']);
+        $this->assertSame(18, $out['b674_local_model_floor_count']);
+    }
+
 }

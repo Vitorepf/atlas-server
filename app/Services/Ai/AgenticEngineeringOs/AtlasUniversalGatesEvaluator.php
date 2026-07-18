@@ -18342,4 +18342,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B674).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b674LocalModelFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'path' => AtlasLocalModelIntegrityService::FIELD_PATH,
+            'total' => AtlasLocalModelIntegrityService::FIELD_TOTAL,
+            'atlas.model_integrity_manifest.v1' => AtlasLocalModelIntegrityService::MANIFEST_SCHEMA,
+            'atlas_model_manifest' => AtlasLocalModelIntegrityService::MANIFEST_CONFIG_KEY,
+            'unknown' => AtlasLocalModelIntegrityService::STATUS_UNKNOWN,
+            'unknown' => AtlasLocalModelIntegrityService::STATUS_UNKNOWN,
+            'invalid' => AtlasLocalModelIntegrityService::STATUS_INVALID,
+            'unpinned' => AtlasLocalModelIntegrityService::FIELD_UNPINNED,
+            'missing' => AtlasLocalModelIntegrityService::FIELD_MISSING,
+            'verified' => AtlasLocalModelIntegrityService::FIELD_VERIFIED,
+            'mismatched' => AtlasLocalModelIntegrityService::FIELD_MISMATCHED,
+            'verified' => AtlasLocalModelIntegrityService::FIELD_VERIFIED,
+            'mismatched' => AtlasLocalModelIntegrityService::FIELD_MISMATCHED,
+            'missing' => AtlasLocalModelIntegrityService::FIELD_MISSING,
+            'unpinned' => AtlasLocalModelIntegrityService::FIELD_UNPINNED,
+            'status' => AtlasLocalModelIntegrityService::FIELD_STATUS,
+            'reason' => AtlasLocalModelIntegrityService::FIELD_REASON,
+            'ok' => AtlasLocalModelIntegrityService::FIELD_OK,
+            'b674_local_model_floor_count' => 18,
+        ];
+    }
+
 }
