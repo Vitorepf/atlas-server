@@ -78,6 +78,8 @@ final class AtlasMissionControlCockpitService
     public const FIELD_OPERATOR_SIGNATURE_REQUIRED = 'operator_signature_required';
     public const FIELD_PHASE_OUT = 'phase_out';
     public const FIELD_SERVABLE_NOW = 'servable_now';
+    public const FIELD_PHASE_COUNT = 'phase_count';
+    public const FIELD_PHASE_ADVANCE = 'phase_advance';
 
     public function __construct(
         private readonly AaeosPhaseHandoffService $phases,
@@ -125,7 +127,7 @@ final class AtlasMissionControlCockpitService
             'schema' => self::SCHEMA_VERSION,
             self::FIELD_INTENT_ID => $intentId,
             self::FIELD_AUTONOMY_LEVEL => $autonomyLevel,
-            'phase_count' => count(AaeosPhaseHandoffService::PHASES),
+            self::FIELD_PHASE_COUNT => count(AaeosPhaseHandoffService::PHASES),
             'phases' => $journey,
             self::FIELD_CURRENT_PHASE => $currentPhase,
             self::FIELD_NEXT_PHASE => $currentPhase === null ? AaeosPhaseHandoffService::PHASES[0] : $this->phases->canonicalNextPhase($currentPhase),
@@ -138,7 +140,7 @@ final class AtlasMissionControlCockpitService
             self::FIELD_BLOCKER_SIGNAL => $this->blockerSeverity->assess($blockers),
             // Observe-only advance verdict over the latest phase envelope
             // (same classifier the HTTP policy gate now uses live).
-            'phase_advance' => $this->latestPhaseAdvance($phaseEnvelopes),
+            self::FIELD_PHASE_ADVANCE => $this->latestPhaseAdvance($phaseEnvelopes),
             // Observe-only causality ranking when the journey is not clear green.
             'outcome_causality' => $this->outcomeCausalityFor($blockers, $gateReport),
             self::FIELD_OPERATOR_SIGNATURE_REQUIRED => $signatureRequired,

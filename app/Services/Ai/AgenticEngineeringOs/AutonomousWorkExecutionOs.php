@@ -57,6 +57,8 @@ final class AutonomousWorkExecutionOs
     public const FIELD_SCHEMA_VERSION = 'schema_version';
     public const FIELD_AUTONOMY_LEVEL = 'autonomy_level';
     public const FIELD_BLOCKING_REASONS = 'blocking_reasons';
+    public const FIELD_OPERATOR_CONSENT_PRESENT = 'operator_consent_present';
+    public const FIELD_PRIOR_FAILURE_SIGNATURES = 'prior_failure_signatures';
 
     public const STAGE_STATUSES = [
         self::STATUS_PENDING,
@@ -100,12 +102,12 @@ final class AutonomousWorkExecutionOs
 
         // L4+ requires explicit operator consent
         $consentRequired = in_array($level, ['L4', 'L5', 'L6', 'L7'], true);
-        if ($consentRequired && ($request['operator_consent_present'] ?? null) !== true) {
+        if ($consentRequired && ($request[self::FIELD_OPERATOR_CONSENT_PRESENT] ?? null) !== true) {
             $blocking[] = sprintf('autonomy_level %s requires operator_consent_present=true', $level);
         }
 
         // L6+ requires zero prior failure signatures with same goal hash
-        $priorFailures = AiValueNormalizer::arrayOrEmpty($request['prior_failure_signatures'] ?? null);
+        $priorFailures = AiValueNormalizer::arrayOrEmpty($request[self::FIELD_PRIOR_FAILURE_SIGNATURES] ?? null);
         if (in_array($level, ['L6', 'L7'], true) && $priorFailures !== []) {
             $blocking[] = sprintf('autonomy_level %s blocks when prior failure signatures exist (%d found)', $level, count($priorFailures));
         }

@@ -52,6 +52,8 @@ final class AtlasOperationalVolumeCheckService
     public const FIELD_END = 'end';
     public const FIELD_LABEL = 'label';
     public const FIELD_START = 'start';
+    public const FIELD_ALERT_CODE = 'alert_code';
+    public const FIELD_DEV_RUNS_PER_BUSINESS_DAY_MIN = 'dev_runs_per_business_day_min';
 
     /** @var list<string> */
     public const DEV_FLOW_IDS = ['atlas_dev', 'atlas.dev', 'engineering.dev'];
@@ -91,9 +93,9 @@ final class AtlasOperationalVolumeCheckService
             'checked_at' => $asOf->toIso8601String(),
             self::FIELD_STATUS => $status,
             self::STATUS_ALERT => $alert,
-            'alert_code' => $alert ? 'janela_faminta' : null,
+            self::FIELD_ALERT_CODE => $alert ? 'janela_faminta' : null,
             'thresholds' => [
-                'dev_runs_per_business_day_min' => self::DEV_RUNS_PER_BUSINESS_DAY_MIN,
+                self::FIELD_DEV_RUNS_PER_BUSINESS_DAY_MIN => self::DEV_RUNS_PER_BUSINESS_DAY_MIN,
                 'forge_cycles_per_week_min' => self::FORGE_CYCLES_PER_WEEK_MIN,
             ],
             'prerequisites' => [

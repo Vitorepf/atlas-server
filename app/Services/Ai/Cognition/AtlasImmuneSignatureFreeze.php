@@ -14,15 +14,17 @@ final class AtlasImmuneSignatureFreeze
     public const TTL_DAYS = 90;
 
     public const KIND_MEASURE_FREEZE = 'measure_freeze';
+    public const FIELD_MEASURE_ID = 'measure_id';
+    public const FIELD_FAMILY_SCHEMA_VERSION = 'family_schema_version';
 
     /** @return array<string,mixed> */
     public static function freezePayload(): array
     {
         return [
             'kind' => self::KIND_MEASURE_FREEZE,
-            'measure_id' => self::MEASURE_ID,
+            self::FIELD_MEASURE_ID => self::MEASURE_ID,
             'schema_version' => ImmuneSignatureStore::SCHEMA_VERSION,
-            'family_schema_version' => ImmuneSignatureDeriver::SCHEMA_VERSION,
+            self::FIELD_FAMILY_SCHEMA_VERSION => ImmuneSignatureDeriver::SCHEMA_VERSION,
             'author' => 'cursor-acos-max-maxi-05',
             'judge' => 'codex-immune-signature-judge',
             'mode_config_key' => ImmuneSignatureStore::MODE_CONFIG_KEY,

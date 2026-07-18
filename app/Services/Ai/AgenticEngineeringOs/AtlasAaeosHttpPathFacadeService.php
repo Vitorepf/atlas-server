@@ -78,6 +78,8 @@ final class AtlasAaeosHttpPathFacadeService
     public const FIELD_REQUIRES_AP = 'requires_ap';
     public const FIELD_PAYLOAD = 'payload';
     public const FIELD_HTTP_STATUS = 'http_status';
+    public const FIELD_PHASE_ROUTER = 'phase_router';
+    public const FIELD_LEGACY_FALLBACK = 'legacy_fallback';
 
     public const BLOCK_PLACEMENT_GATE_BLOCKED = 'placement_gate_blocked';
 
@@ -293,11 +295,11 @@ final class AtlasAaeosHttpPathFacadeService
             self::FIELD_SCHEMA => self::STATUS_SCHEMA,
             self::FIELD_CONFIGURED_PHASE => $configuredPhase,
             self::FIELD_FACADE_ACTIVE => self::isActive($configuredPhase),
-            'phase_router' => (new AtlasAaeosPhaseRouterService($configuredPhase))->statusSnapshot(),
+            self::FIELD_PHASE_ROUTER => (new AtlasAaeosPhaseRouterService($configuredPhase))->statusSnapshot(),
             self::FIELD_COUNTERS => [
                 'requests' => (int) $this->cache->get(self::TELEMETRY_KEY_REQUESTS, 0),
                 self::FIELD_CANONICAL_CALLS => (int) $this->cache->get(self::TELEMETRY_KEY_CANONICAL, 0),
-                'legacy_fallback' => (int) $this->cache->get(self::TELEMETRY_KEY_LEGACY_FALLBACK, 0),
+                self::FIELD_LEGACY_FALLBACK => (int) $this->cache->get(self::TELEMETRY_KEY_LEGACY_FALLBACK, 0),
                 self::FIELD_BLOCKED => (int) $this->cache->get(self::TELEMETRY_KEY_BLOCKED, 0),
             ],
             self::FIELD_LATENCY_MS => [

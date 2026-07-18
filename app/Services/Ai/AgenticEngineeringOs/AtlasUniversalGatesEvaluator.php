@@ -8126,6 +8126,31 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    public function volumeSigHybridDeliveryAutoworkMissionHttpImpactFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'volume_field_alert_code' => AtlasOperationalVolumeCheckService::FIELD_ALERT_CODE,
+            'volume_field_dev_runs_per_business_day_min' => AtlasOperationalVolumeCheckService::FIELD_DEV_RUNS_PER_BUSINESS_DAY_MIN,
+            'sig_freeze_field_measure_id' => AtlasImmuneSignatureFreeze::FIELD_MEASURE_ID,
+            'sig_freeze_field_family_schema_version' => AtlasImmuneSignatureFreeze::FIELD_FAMILY_SCHEMA_VERSION,
+            'hybrid_field_hostile_class' => AtlasImmuneHybridInputClassifier::FIELD_HOSTILE_CLASS,
+            'hybrid_field_scores_by_class' => AtlasImmuneHybridInputClassifier::FIELD_SCORES_BY_CLASS,
+            'hybrid_freeze_field_obfuscated_denominator_min' => AtlasImmuneClassifierHybridFreeze::FIELD_OBFUSCATED_DENOMINATOR_MIN,
+            'hybrid_freeze_field_legitimate_denominator_min' => AtlasImmuneClassifierHybridFreeze::FIELD_LEGITIMATE_DENOMINATOR_MIN,
+            'delivery_field_changed_files' => DeliveryPackCompletenessScorer::FIELD_CHANGED_FILES,
+            'delivery_field_test_evidence' => DeliveryPackCompletenessScorer::FIELD_TEST_EVIDENCE,
+            'autowork_field_operator_consent_present' => AutonomousWorkExecutionOs::FIELD_OPERATOR_CONSENT_PRESENT,
+            'autowork_field_prior_failure_signatures' => AutonomousWorkExecutionOs::FIELD_PRIOR_FAILURE_SIGNATURES,
+            'mission_field_phase_count' => AtlasMissionControlCockpitService::FIELD_PHASE_COUNT,
+            'mission_field_phase_advance' => AtlasMissionControlCockpitService::FIELD_PHASE_ADVANCE,
+            'http_facade_field_phase_router' => AtlasAaeosHttpPathFacadeService::FIELD_PHASE_ROUTER,
+            'http_facade_field_legacy_fallback' => AtlasAaeosHttpPathFacadeService::FIELD_LEGACY_FALLBACK,
+            'impact_field_single_scalar_score_emitted' => PredictedImpactBand::FIELD_SINGLE_SCALAR_SCORE_EMITTED,
+            'impact_field_unresolved_counts_as_success' => PredictedImpactBand::FIELD_UNRESOLVED_COUNTS_AS_SUCCESS,
+            'volume_sig_hybrid_delivery_autowork_mission_http_impact_floor_count' => 18,
+        ];
+    }
+
     /**
      * Return the universal gate catalogue (provider-safe — descriptions only).
      *

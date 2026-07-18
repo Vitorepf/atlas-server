@@ -70,6 +70,8 @@ final class AtlasImmuneHybridInputClassifier
     public const FIELD_DEFAULT_DESTINATION = 'default_destination';
     public const FIELD_EMBEDDING_ALLOWED = 'embedding_allowed';
     public const FIELD_MEMORY_ELIGIBLE = 'memory_eligible';
+    public const FIELD_HOSTILE_CLASS = 'hostile_class';
+    public const FIELD_SCORES_BY_CLASS = 'scores_by_class';
 
     private readonly AtlasAaeosCognitiveImmuneInputClassifier $base;
 
@@ -130,7 +132,7 @@ final class AtlasImmuneHybridInputClassifier
         }
 
         if ($knownSignature !== null && $this->signatureStore->enforceEnabled()) {
-            $hostileClass = AiValueNormalizer::trimmedScalarStringOrNull($knownSignature['hostile_class'] ?? null) ?? '';
+            $hostileClass = AiValueNormalizer::trimmedScalarStringOrNull($knownSignature[self::FIELD_HOSTILE_CLASS] ?? null) ?? '';
             $baseResult = $this->base->classify($text, $metadata);
             $baseResult[self::FIELD_INPUT_CLASS] = $hostileClass;
             $baseResult[self::FIELD_REASON] = 'known_poison_signature:'.(AiValueNormalizer::trimmedScalarStringOrNull($knownSignature[self::FIELD_REF] ?? null) ?? '');
@@ -189,7 +191,7 @@ final class AtlasImmuneHybridInputClassifier
             }
         }
         $armBlock[self::FIELD_MAX_SIMILARITY] = round($bestScore, 6);
-        $armBlock['scores_by_class'] = array_map(static fn (float $v): float => round($v, 6), $scores);
+        $armBlock[self::FIELD_SCORES_BY_CLASS] = array_map(static fn (float $v): float => round($v, 6), $scores);
 
         if ($bestClass !== null && $bestScore >= $this->tau) {
             $armBlock[self::FIELD_HOSTILE_CLASS_CANDIDATE] = $bestClass;

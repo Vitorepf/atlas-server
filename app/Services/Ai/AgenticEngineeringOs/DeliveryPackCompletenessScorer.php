@@ -30,6 +30,8 @@ final class DeliveryPackCompletenessScorer
     public const FIELD_RECEIPT_PRESENT = 'receipt_present';
     public const FIELD_RISK_REGISTER_PRESENT = 'risk_register_present';
     public const FIELD_BLOCKERS = 'blockers';
+    public const FIELD_CHANGED_FILES = 'changed_files';
+    public const FIELD_TEST_EVIDENCE = 'test_evidence';
 
     /** @var list<string> */
     public const REQUIRED_KEYS = [
@@ -84,8 +86,8 @@ final class DeliveryPackCompletenessScorer
     {
         $this->guard($composition);
 
-        $changedFiles = max(0, $this->intValue($composition['changed_files']));
-        $testEvidence = $this->arrayValue($composition['test_evidence']);
+        $changedFiles = max(0, $this->intValue($composition[self::FIELD_CHANGED_FILES]));
+        $testEvidence = $this->arrayValue($composition[self::FIELD_TEST_EVIDENCE]);
         $evidenceHashes = $this->arrayValue($composition['evidence_hashes']);
         $riskRegisterPresent = $this->boolValue($composition[self::FIELD_RISK_REGISTER_PRESENT]);
         $receiptPresent = $this->boolValue($composition[self::FIELD_RECEIPT_PRESENT]);

@@ -6174,6 +6174,33 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $payload['promo_immune_nudge_hmac_runbook_qbar_phase_dept_ncapture_floor_count']);
     }
 
+    public function test_volume_sig_hybrid_delivery_autowork_mission_http_impact_floors_contract_observe_reports_floors(): void
+    {
+        $payload = $this->svc->volumeSigHybridDeliveryAutoworkMissionHttpImpactFloorsContractObserve([]);
+
+        $this->assertSame('alert_code', $payload['volume_field_alert_code']);
+        $this->assertSame('dev_runs_per_business_day_min', $payload['volume_field_dev_runs_per_business_day_min']);
+        $this->assertSame('measure_id', $payload['sig_freeze_field_measure_id']);
+        $this->assertSame('family_schema_version', $payload['sig_freeze_field_family_schema_version']);
+        $this->assertSame('hostile_class', $payload['hybrid_field_hostile_class']);
+        $this->assertSame('scores_by_class', $payload['hybrid_field_scores_by_class']);
+        $this->assertSame('obfuscated_denominator_min', $payload['hybrid_freeze_field_obfuscated_denominator_min']);
+        $this->assertSame('legitimate_denominator_min', $payload['hybrid_freeze_field_legitimate_denominator_min']);
+        $this->assertSame('changed_files', $payload['delivery_field_changed_files']);
+        $this->assertSame('test_evidence', $payload['delivery_field_test_evidence']);
+        $this->assertSame('operator_consent_present', $payload['autowork_field_operator_consent_present']);
+        $this->assertSame('prior_failure_signatures', $payload['autowork_field_prior_failure_signatures']);
+        $this->assertSame('phase_count', $payload['mission_field_phase_count']);
+        $this->assertSame('phase_advance', $payload['mission_field_phase_advance']);
+        $this->assertSame('phase_router', $payload['http_facade_field_phase_router']);
+        $this->assertSame('legacy_fallback', $payload['http_facade_field_legacy_fallback']);
+        $this->assertSame('single_scalar_score_emitted', $payload['impact_field_single_scalar_score_emitted']);
+        $this->assertSame('unresolved_counts_as_success', $payload['impact_field_unresolved_counts_as_success']);
+        $this->assertSame(18, $payload['volume_sig_hybrid_delivery_autowork_mission_http_impact_floor_count']);
+    }
+
+
+
 
 
 
