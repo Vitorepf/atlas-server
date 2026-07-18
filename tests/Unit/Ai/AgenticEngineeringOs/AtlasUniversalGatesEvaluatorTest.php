@@ -16878,4 +16878,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b767_aaeos_evidence_veto_propagation_implementation_floor_count']);
     }
 
+    public function test_b768_veto_propagation_aaeos_implementation_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b768VetoPropagationAaeosImplementationFloorsContractObserve([]);
+        $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_PAUSED_DEPARTMENTS, $out['paused_departments']);
+        $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_DEPARTMENT, $out['department']);
+        $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_RECOGNIZED, $out['recognized']);
+        $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_LIFT, $out['lift']);
+        $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_FINAL_OVERRIDE_ACTIVE, $out['final_override_active']);
+        $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_PAUSE_SLA_SECONDS, $out['pause_sla_seconds']);
+        $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_FINAL_OVERRIDE, $out['final_override']);
+        $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_VETO_RECEIPTS, $out['veto_receipts']);
+        $this->assertSame(AtlasVetoPropagationWatchdog::FIELD_SCHEMA_VERSION, $out['schema_version']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MATCHED, $out['matched']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_MIGRATION, $out['migration']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::SHARED_INDEX_KEY, $out['atlas.aaeos.evidence_resolver.symbol_index']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::STATUS_ACTIVE, $out['active']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_SYMBOL, $out['symbol']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_TEST, $out['test']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_CLASS, $out['class']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_METHOD, $out['method']);
+        $this->assertSame(AtlasAaeosImplementationEvidenceResolver::FIELD_NAMES, $out['names']);
+        $this->assertSame(18, $out['b768_veto_propagation_aaeos_implementation_floor_count']);
+    }
+
 }
