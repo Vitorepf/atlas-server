@@ -152,6 +152,7 @@ use App\Services\Ai\Aaeos\AtlasAaeosThresholdLadderNormalizer;
 use App\Services\Ai\Aaeos\Generated\AtlasMemoryCognitiveImmuneLearningKernelService;
 use App\Services\Ai\Aaeos\Generated\AtlasLearningProposalsService;
 use App\Services\Ai\Cognition\Watchdog\AtlasWatchdogCheckRegistry;
+use App\Services\Ai\Aaeos\AtlasAaeosThresholdComparator;
 
 final class AtlasUniversalGatesEvaluatorTest extends TestCase
 {
@@ -13219,6 +13220,31 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS, $out['blockers']);
         $this->assertSame(AtlasAaeosDepartmentPromotionEligibilityEvaluator::FIELD_BLOCKERS_TO_NEXT, $out['blockers_to_next']);
         $this->assertSame(18, $out['b621_aaeos_department_floor_count']);
+    }
+
+    public function test_b622_aaeos_threshold_test_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b622AaeosThresholdTestFloorsContractObserve([]);
+        $this->assertSame(AtlasAaeosThresholdComparator::EPSILON, $out['1']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_CLASS, $out['class']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_EXPLAIN, $out['explain']);
+        $this->assertSame(AtlasAaeosTestExecutionService::SCHEMA, $out['atlas.aaeos.test_run_receipt.v1']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_RUNNER, $out['runner']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_EXIT_CODE, $out['exit_code']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TESTS_RUN, $out['tests_run']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_OUTPUT_TAIL, $out['output_tail']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_REASON, $out['reason']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TEST_FILE_HASH, $out['test_file_hash']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_IMPL_FILES_HASH, $out['impl_files_hash']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_STATUS, $out['status']);
+        $this->assertSame(AtlasAaeosTestExecutionService::OUTPUT_TAIL_CHARS, $out['1600']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_PASSED, $out['passed']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_RAN, $out['ran']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_CAPABILITY_ID, $out['capability_id']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_TEST_REF, $out['test_ref']);
+        $this->assertSame(AtlasAaeosTestExecutionService::FIELD_FILTER, $out['filter']);
+        $this->assertSame(18, $out['b622_aaeos_threshold_test_floor_count']);
     }
 
 }

@@ -16730,4 +16730,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B622).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b622AaeosThresholdTestFloorsContractObserve(array $input = []): array
+    {
+        return [
+            '1' => AtlasAaeosThresholdComparator::EPSILON,
+            'class' => AtlasAaeosTestExecutionService::FIELD_CLASS,
+            'explain' => AtlasAaeosTestExecutionService::FIELD_EXPLAIN,
+            'atlas.aaeos.test_run_receipt.v1' => AtlasAaeosTestExecutionService::SCHEMA,
+            'runner' => AtlasAaeosTestExecutionService::FIELD_RUNNER,
+            'exit_code' => AtlasAaeosTestExecutionService::FIELD_EXIT_CODE,
+            'tests_run' => AtlasAaeosTestExecutionService::FIELD_TESTS_RUN,
+            'output_tail' => AtlasAaeosTestExecutionService::FIELD_OUTPUT_TAIL,
+            'reason' => AtlasAaeosTestExecutionService::FIELD_REASON,
+            'test_file_hash' => AtlasAaeosTestExecutionService::FIELD_TEST_FILE_HASH,
+            'impl_files_hash' => AtlasAaeosTestExecutionService::FIELD_IMPL_FILES_HASH,
+            'status' => AtlasAaeosTestExecutionService::FIELD_STATUS,
+            '1600' => AtlasAaeosTestExecutionService::OUTPUT_TAIL_CHARS,
+            'passed' => AtlasAaeosTestExecutionService::FIELD_PASSED,
+            'ran' => AtlasAaeosTestExecutionService::FIELD_RAN,
+            'capability_id' => AtlasAaeosTestExecutionService::FIELD_CAPABILITY_ID,
+            'test_ref' => AtlasAaeosTestExecutionService::FIELD_TEST_REF,
+            'filter' => AtlasAaeosTestExecutionService::FIELD_FILTER,
+            'b622_aaeos_threshold_test_floor_count' => 18,
+        ];
+    }
+
 }
