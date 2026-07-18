@@ -13797,4 +13797,29 @@ final class AtlasUniversalGatesEvaluatorTest extends TestCase
         $this->assertSame(18, $out['b644_aaeos_value_http_path_floor_count']);
     }
 
+    public function test_b645_http_path_floors_contract_observe_reports_floors(): void
+    {
+        $gates = $this->app->make(AtlasUniversalGatesEvaluator::class);
+        $out = $gates->b645HttpPathFloorsContractObserve([]);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ID, $out['id']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_POLICY_STATUS, $out['policy_status']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::RISK_BAND_FAST_PATH, $out['r1_r2_fast_path']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::RISK_BAND_R3_PLUS, $out['r3_plus']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::STATUS_UNKNOWN, $out['unknown']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_BLOCKED, $out['blocked']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_INTENT_HASH, $out['intent_hash']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_SEVERITY, $out['severity']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_OWNER, $out['owner']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_PHASE_IN, $out['phase_in']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_PHASE_OUT, $out['phase_out']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_ACTOR_ID, $out['actor_id']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_SKIP_RECEIPT_ID, $out['skip_receipt_id']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_SKIP_REASON, $out['skip_reason']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_OUTPUTS, $out['outputs']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_REQUIRED_GATE, $out['required_gate']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_RISK_BAND, $out['risk_band']);
+        $this->assertSame(AaeosHttpPathEnvelopeFactory::FIELD_STATUS, $out['status']);
+        $this->assertSame(18, $out['b645_http_path_floor_count']);
+    }
+
 }

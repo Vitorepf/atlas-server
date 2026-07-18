@@ -17443,4 +17443,35 @@ final class AtlasUniversalGatesEvaluator
         ];
     }
 
+    /**
+     * Observe-only floors contract (B645).
+     *
+     * @param  array<string, mixed>  $input
+     * @return array<string, mixed>
+     */
+    public function b645HttpPathFloorsContractObserve(array $input = []): array
+    {
+        return [
+            'id' => AaeosHttpPathEnvelopeFactory::FIELD_ID,
+            'policy_status' => AaeosHttpPathEnvelopeFactory::FIELD_POLICY_STATUS,
+            'r1_r2_fast_path' => AaeosHttpPathEnvelopeFactory::RISK_BAND_FAST_PATH,
+            'r3_plus' => AaeosHttpPathEnvelopeFactory::RISK_BAND_R3_PLUS,
+            'unknown' => AaeosHttpPathEnvelopeFactory::STATUS_UNKNOWN,
+            'blocked' => AaeosHttpPathEnvelopeFactory::FIELD_BLOCKED,
+            'intent_hash' => AaeosHttpPathEnvelopeFactory::FIELD_INTENT_HASH,
+            'severity' => AaeosHttpPathEnvelopeFactory::FIELD_SEVERITY,
+            'owner' => AaeosHttpPathEnvelopeFactory::FIELD_OWNER,
+            'phase_in' => AaeosHttpPathEnvelopeFactory::FIELD_PHASE_IN,
+            'phase_out' => AaeosHttpPathEnvelopeFactory::FIELD_PHASE_OUT,
+            'actor_id' => AaeosHttpPathEnvelopeFactory::FIELD_ACTOR_ID,
+            'skip_receipt_id' => AaeosHttpPathEnvelopeFactory::FIELD_SKIP_RECEIPT_ID,
+            'skip_reason' => AaeosHttpPathEnvelopeFactory::FIELD_SKIP_REASON,
+            'outputs' => AaeosHttpPathEnvelopeFactory::FIELD_OUTPUTS,
+            'required_gate' => AaeosHttpPathEnvelopeFactory::FIELD_REQUIRED_GATE,
+            'risk_band' => AaeosHttpPathEnvelopeFactory::FIELD_RISK_BAND,
+            'status' => AaeosHttpPathEnvelopeFactory::FIELD_STATUS,
+            'b645_http_path_floor_count' => 18,
+        ];
+    }
+
 }
